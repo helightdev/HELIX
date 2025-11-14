@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX.Widgets", "HELIX.Widgets.csproj", "{e6db31b6-c6a6-5b88-a962-6044d000f5e4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX", "HELIX.csproj", "{d4fbdb85-1b7a-dabd-b652-9516f8295d11}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp-Editor", "Assembly-CSharp-Editor.csproj", "{0e88b07c-00e4-4580-1f12-00da59a01989}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp", "Assembly-CSharp.csproj", "{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp-firstpass", "Assembly-CSharp-firstpass.csproj", "{948942be-c212-497e-ff6e-a43183cf9de6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{e6db31b6-c6a6-5b88-a962-6044d000f5e4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{e6db31b6-c6a6-5b88-a962-6044d000f5e4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{d4fbdb85-1b7a-dabd-b652-9516f8295d11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{d4fbdb85-1b7a-dabd-b652-9516f8295d11}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0e88b07c-00e4-4580-1f12-00da59a01989}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0e88b07c-00e4-4580-1f12-00da59a01989}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{948942be-c212-497e-ff6e-a43183cf9de6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{948942be-c212-497e-ff6e-a43183cf9de6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

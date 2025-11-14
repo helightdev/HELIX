@@ -1,0 +1,16 @@
+{
+    "name": "HELIX.Widgets",
+    "rootNamespace": "HELIX.Widgets",
+    "references": [
+        "GUID:1450c30e11b017547b276675739915ea"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,18 @@
+{
+  "name": "dev.helight.helix.widgets",
+  "displayName": "HELIX Widgets",
+  "author": {
+    "name": "Christoph 'HelightDev' Feuerer",
+    "url": "https://helight.dev"
+  },
+  "version": "0.0.1",
+  "unity": "6000.0",
+  "description": "Provides a set of default widgets for use with HELIX.",
+  "keywords": [
+    "UI Toolkit",
+    "HELIX"
+  ],
+  "license": "MIT",
+  "category": "UI",
+  "dependencies": {}
+}

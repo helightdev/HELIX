@@ -1,0 +1,18 @@
+{
+  "name": "dev.helight.helix.core",
+  "displayName": "HELIX Core",
+  "author": {
+    "name": "Christoph 'HelightDev' Feuerer",
+    "url": "https://helight.dev"
+  },
+  "version": "0.0.1",
+  "unity": "6000.0",
+  "description": "A collection of customizable and reusable UI components, styles, and utilities for UI Toolkit.",
+  "keywords": [
+    "UI Toolkit",
+    "HELIX"
+  ],
+  "license": "MIT",
+  "category": "UI",
+  "dependencies": {}
+}
