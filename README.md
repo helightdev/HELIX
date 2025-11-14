@@ -1,6 +1,6 @@
 <h1 align="left">
     HELIX
-    <img alt="Unity Version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhelightdev%2FHELIX%2Frefs%2Fheads%2Fmaster%2Fsrc%2FHELIX%2FAssets%2FPlugins%2FHELIX%2Fpackage.json&query=unity&label=Unity&color=dark-green">
+    <img alt="Unity Version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fhelightdev%2FHELIX%2Frefs%2Fheads%2Fmain%2Fsrc%2FHELIX%2FAssets%2FPlugins%2FHELIX%2Fpackage.json&query=unity&label=Unity&color=dark-green">
 </h1>
 
 HELIX (_**HE**light's **L**ayout and **I**nterface e**X**tensions_) is a ui library for Unity UI Toolkit that provides a collection of customizable and reusable
