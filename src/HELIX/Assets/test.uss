@@ -1,0 +1,16 @@
+* {
+    --c-surface-dark: rgb(24, 24, 24);
+    --c-surface: rgb(33, 33, 33);
+    --c-border: rgb(40, 40, 40);
+    --c-bright-border: rgb(55, 55, 55);
+    --c-tinted-border: rgb(64, 60, 57);
+    --c-foreground-disabled: rgb(82, 82, 82);
+    --c-muted-foreground: rgb(169, 169, 169);
+    --c-tinted-foreground: rgb(228, 206, 188);
+    --c-foreground: rgb(203, 203, 203);
+    --c-primary-washed: rgb(161, 105, 80);
+    --c-primary: rgb(255, 135, 83);
+    --c-primary-highlight: rgb(255, 172, 137);
+    --c-selection-overlay: rgba(255, 172, 137, 0.3);
+    --o-shadow: rgba(0, 0, 0, 0.42);
+}
