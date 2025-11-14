@@ -1,8 +1,8 @@
 <h1 align="left">
-    HeLIX
+    HELIX
 </h1>
 
-HeLIX is a ui library for Unity UI Toolkit that provides a collection of customizable and reusable
+HELIX (_**HE**light's **L**ayout and **I**nterface e**X**tensions_) is a ui library for Unity UI Toolkit that provides a collection of customizable and reusable
 UI components, styles, and utilities to streamline the development of user interfaces in Unity applications.
 
 ## Installation
