@@ -1,0 +1,19 @@
+{
+    "name": "HELIX.Widgets.Editor",
+    "rootNamespace": "HELIX.Widgets.Editor",
+    "references": [
+        "GUID:1450c30e11b017547b276675739915ea",
+        "GUID:1017dfa468d0004459eb65850872aad9"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,17 +1,19 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
-    <Style src="project://database/Assets/test.uss?fileID=7433441132597879392&amp;guid=ce7ee7c7f0584efd935908135199ca27&amp;type=3#test" />
+    <Style src="project://database/Assets/test.uss?fileID=7433441132597879392&amp;guid=ce7ee7c7f0584efd935908135199ca27&amp;type=3#test"/>
     <HELIX.Widgets.Layout.Row main-axis-align="FlexStart" cross-axis-align="Center" gap="5.6" reverse="false" style="height: 118px;">
-        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 0);" />
-        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(0, 255, 15);" />
-        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(39, 0, 255);" />
-        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 184);" />
+        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 0);"/>
+        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(0, 255, 15);"/>
+        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(39, 0, 255);"/>
+        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 184);"/>
     </HELIX.Widgets.Layout.Row>
-    <HELIX.Widgets.Layout.Column main-axis-align="Center" cross-axis-align="Center" style="height: 269px;">
-        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 0);" />
-        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(0, 255, 15);" />
-        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(39, 0, 255);" />
-        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 184);" />
+    <HELIX.Widgets.Example primary-color="rgba(0, 0, 0, 0)" color-reference="None" overrides="none" override="value: rgb(31, 255, 0)" style="height: 33px;"/>
+    <HELIX.Widgets.Visual.BoxShadow blur-radius="6.25" offset="8,8" shadow-color="rgb(0, 0, 0)" spread-radius="2.8" border-radius="5.82,3.36,7.56,8.23" length-test="20px,auto,24px,24%" length-test2="0%" corners="0,0,0,0" style="height: 120px; width: 232px; position: absolute; top: 29px; left: 73px; border-top-left-radius: 98px; border-top-right-radius: 98px; border-bottom-right-radius: 98px; border-bottom-left-radius: 98px;">
+        <ui:VisualElement name="VisualElement" style="flex-grow: 1; background-color: rgb(255, 0, 173);"/>
+    </HELIX.Widgets.Visual.BoxShadow>
+    <HELIX.Widgets.Layout.Column main-axis-align="Center" cross-axis-align="Center" name="Column" style="height: 269px;">
+        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 0);"/>
+        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(0, 255, 15);"/>
+        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(39, 0, 255);"/>
+        <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 184);"/>
     </HELIX.Widgets.Layout.Column>
-    <HELIX.Widgets.Example style="height: 33px;" />
-    <HELIX.Widgets.Layout.BoxShadow style="height: 120px; width: 216px;" />
 </ui:UXML>

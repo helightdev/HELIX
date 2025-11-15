@@ -1043,9 +1043,17 @@
       <Project>{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}</Project>
       <Name>Assembly-CSharp</Name>
     </ProjectReference>
+    <ProjectReference Include="HELIX.Widgets.Editor.csproj">
+      <Project>{49b0063b-ac31-8c32-cd8f-41bd6568197d}</Project>
+      <Name>HELIX.Widgets.Editor</Name>
+    </ProjectReference>
     <ProjectReference Include="HELIX.Widgets.csproj">
       <Project>{e6db31b6-c6a6-5b88-a962-6044d000f5e4}</Project>
       <Name>HELIX.Widgets</Name>
+    </ProjectReference>
+    <ProjectReference Include="HELIX.Editor.csproj">
+      <Project>{06cea6ad-636a-61fc-35b4-aa74b99f0183}</Project>
+      <Name>HELIX.Editor</Name>
     </ProjectReference>
     <ProjectReference Include="HELIX.csproj">
       <Project>{d4fbdb85-1b7a-dabd-b652-9516f8295d11}</Project>
