@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
+    [Serializable]
     public struct StyleLength2 : IEquatable<StyleLength2> {
         public StyleLength w;
         public StyleLength h;
@@ -37,4 +38,5 @@ namespace HELIX.Types {
             return $"({w}, {h})";
         }
     }
+    
 }

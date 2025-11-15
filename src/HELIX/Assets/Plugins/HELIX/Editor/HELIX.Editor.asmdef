@@ -1,0 +1,18 @@
+{
+    "name": "HELIX.Editor",
+    "rootNamespace": "HELIX.Editor",
+    "references": [
+        "GUID:1450c30e11b017547b276675739915ea"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
