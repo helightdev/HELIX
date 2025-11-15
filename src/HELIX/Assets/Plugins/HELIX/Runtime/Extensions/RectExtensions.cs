@@ -121,6 +121,12 @@ namespace HELIX.Extensions {
         }
 
         public static void PathRRect(this Painter2D painter, Rect rect, float radius) {
+            radius = Mathf.Min(
+                Mathf.Max(radius, 0f),
+                rect.width * 0.5f,
+                rect.height * 0.5f
+            );
+            
             painter.BeginPath();
             painter.MoveTo(new Vector2(rect.x + radius, rect.y));
             painter.LineTo(new Vector2(rect.x + rect.width - radius, rect.y));
@@ -134,6 +140,44 @@ namespace HELIX.Extensions {
                 radius);
             painter.LineTo(new Vector2(rect.x, rect.y + radius));
             painter.ArcTo(new Vector2(rect.x, rect.y), new Vector2(rect.x + radius, rect.y), radius);
+            painter.ClosePath();
+        }
+        
+        public static void PathRRect(this Painter2D painter, Rect rect, Vector4 radius) {
+            radius = new Vector4(
+                Mathf.Max(radius.x, 0f),
+                Mathf.Max(radius.y, 0f),
+                Mathf.Max(radius.z, 0f),
+                Mathf.Max(radius.w, 0f)
+            );
+
+            var scale = 1f;
+            var topSum    = radius.x + radius.y;
+            var bottomSum = radius.w + radius.z;
+            var leftSum   = radius.x + radius.w;
+            var rightSum  = radius.y + radius.z;
+
+            if (topSum > 0f) scale = Mathf.Min(scale, rect.width / topSum);
+            if (bottomSum > 0f) scale = Mathf.Min(scale, rect.width / bottomSum);
+            if (leftSum > 0f) scale = Mathf.Min(scale, rect.height / leftSum);
+            if (rightSum > 0f) scale = Mathf.Min(scale, rect.height / rightSum);
+
+            scale = Mathf.Clamp01(scale);
+            radius *= scale;
+            
+            painter.BeginPath();
+            painter.MoveTo(new Vector2(rect.x + radius.x, rect.y));
+            painter.LineTo(new Vector2(rect.x + rect.width - radius.y, rect.y));
+            painter.ArcTo(new Vector2(rect.x + rect.width, rect.y), new Vector2(rect.x + rect.width, rect.y + radius.y),
+                radius.y);
+            painter.LineTo(new Vector2(rect.x + rect.width, rect.y + rect.height - radius.z));
+            painter.ArcTo(new Vector2(rect.x + rect.width, rect.y + rect.height),
+                new Vector2(rect.x + rect.width - radius.z, rect.y + rect.height), radius.z);
+            painter.LineTo(new Vector2(rect.x + radius.w, rect.y + rect.height));
+            painter.ArcTo(new Vector2(rect.x, rect.y + rect.height), new Vector2(rect.x, rect.y + rect.height - radius.w),
+                radius.w);
+            painter.LineTo(new Vector2(rect.x, rect.y + radius.x));
+            painter.ArcTo(new Vector2(rect.x, rect.y), new Vector2(rect.x + radius.x, rect.y), radius.x);
             painter.ClosePath();
         }
     }
