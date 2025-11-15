@@ -55,6 +55,7 @@
     <Compile Include="Assets\Plugins\HELIX\Runtime\Animation\AnimationController.cs" />
     <Compile Include="Assets\Plugins\HELIX\Runtime\Types\RRect.cs" />
     <Compile Include="Assets\Plugins\HELIX\Runtime\Painting\Paths\Path.cs" />
+    <Compile Include="Assets\Plugins\HELIX\Runtime\HelixConvert.cs" />
     <Compile Include="Assets\Plugins\HELIX\Runtime\Types\Axis.cs" />
     <Compile Include="Assets\Plugins\HELIX\Runtime\Animation\TweenStateArena.cs" />
     <Compile Include="Assets\Plugins\HELIX\Runtime\Painting\Paths\IPathBuilder.cs" />

@@ -9,67 +9,71 @@ namespace HELIX.Widgets.Editor {
     public class ThemePropertyOverrideDrawer : PropertyDrawer {
         public override VisualElement CreatePropertyGUI(SerializedProperty property) {
             var type = fieldInfo.FieldType.GetGenericArguments()[0];
-            var row = new VisualElement();
-
-            var element = new PropertyOverrideEditor(preferredLabel, property);
+            var element = new PropertyOverrideEditor(preferredLabel, property, type);
             element.Load();
             return element;
         }
     }
 
     public class PropertyOverrideEditor : BaseField<ThemeOverrides> {
-        public PropertyOverrideEditor(string label, SerializedProperty property) : this(label, property,
-            new VisualElement()) { }
+        private readonly EnumField _typeField;
+        private readonly PropertyField _valueField;
+        private readonly DropdownField _referenceField;
+        private readonly SerializedProperty _property;
+        private readonly VisualElement _element;
+        private readonly Type _propertyType;
 
-        public EnumField typeField;
-        public PropertyField valueField;
-        public DropdownField referenceField;
-        public SerializedProperty property;
+        public PropertyOverrideEditor(string label, SerializedProperty property, Type type)
+            : this(label, property, new VisualElement(), type) {}
 
-        public PropertyOverrideEditor(string label, SerializedProperty property, VisualElement element) : base(label,
+        private PropertyOverrideEditor(string label, SerializedProperty property, VisualElement element, Type type) : base(label,
             element) {
-            element.style.flexDirection = FlexDirection.Row;
+            _propertyType = type;
+            _element = element;
+            _property = property;
+            _typeField = new EnumField(ThemeOverrideType.None);
+            _valueField = new PropertyField(property.FindPropertyRelative("constantValue"), "") {
+                style = { flexGrow = 1 }
+            };
+            _referenceField = new DropdownField(ThemePropertyCollection.GetCollectionsOfType(type), 0,
+                ThemePropertyDrawer.FormatItem, ThemePropertyDrawer.FormatItem) { style = { flexGrow = 1 } };
+
+            element.Add(_typeField);
+            element.Add(_valueField);
+            element.Add(_referenceField);
+
+            _typeField.RegisterValueChangedCallback(evt => Push());
+            _valueField.RegisterValueChangeCallback(evt => Push());
+            _referenceField.RegisterValueChangedCallback(evt => Push());
             
-            this.property = property;
-            typeField = new EnumField(ThemeOverrideType.None);
-            valueField = new PropertyField(property.FindPropertyRelative("constantValue"), "") {
-                style = { flexGrow = 1 }
-            };
-            referenceField = new DropdownField(ThemePropertyCollection.LoadedCollections, 0,
-                ThemePropertyDrawer.FormatItem, ThemePropertyDrawer.FormatItem) {
-                style = { flexGrow = 1 }
-            };
-
-            element.Add(typeField);
-            element.Add(valueField);
-            element.Add(referenceField);
-
-            typeField.RegisterValueChangedCallback(evt => Push());
-            valueField.RegisterValueChangeCallback(evt => Push());
-            referenceField.RegisterValueChangedCallback(evt => Push());
+            element.style.flexDirection = FlexDirection.Row;
         }
 
         public void Load() {
-            typeField.value = (ThemeOverrideType)property.FindPropertyRelative("type").enumValueIndex;
-            referenceField.value = property.FindPropertyRelative("propertyReference").stringValue;
+            _typeField.value = (ThemeOverrideType)_property.FindPropertyRelative("type").enumValueIndex;
+            _referenceField.value = _property.FindPropertyRelative("propertyReference").stringValue;
             Refresh();
         }
 
         private void Push() {
             Refresh();
-            property.FindPropertyRelative("type").enumValueIndex = (int)(ThemeOverrideType)typeField.value;
-            property.FindPropertyRelative("propertyReference").stringValue = referenceField.value;
-            property.serializedObject.ApplyModifiedProperties();
+            _property.FindPropertyRelative("type").enumValueIndex = (int)(ThemeOverrideType)_typeField.value;
+            _property.FindPropertyRelative("propertyReference").stringValue = _referenceField.value;
+            _property.serializedObject.ApplyModifiedProperties();
         }
 
         private void Refresh() {
-            valueField.style.display = (ThemeOverrideType)typeField.value == ThemeOverrideType.Value
+            _valueField.style.display = (ThemeOverrideType)_typeField.value == ThemeOverrideType.Value
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
 
-            referenceField.style.display = (ThemeOverrideType)typeField.value == ThemeOverrideType.PropertyReference
+            _referenceField.style.display = (ThemeOverrideType)_typeField.value == ThemeOverrideType.PropertyReference
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
+
+            _element.style.flexDirection = (ThemeOverrideType)_typeField.value == ThemeOverrideType.Value
+                ? FlexDirection.Column
+                : FlexDirection.Row;
         }
     }
 }

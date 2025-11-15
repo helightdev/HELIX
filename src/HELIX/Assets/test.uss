@@ -17,4 +17,5 @@
 
 .green-container *.helix-widget {
     --c-primary: rgb(83, 255, 123);
+    --test: "test";
 }
