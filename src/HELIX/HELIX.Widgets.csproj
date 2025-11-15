@@ -51,11 +51,13 @@
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\GradientGenerators\DirectionalLinearGradientGenerator.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Layout\Row.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathPainter.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\BaseWidget.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\GradientGenerators\LinearGradientGenerator.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathDrawers\GradientFillStrokePathDrawer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\ThemeProperty.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Layout\Column.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\ThemeValue.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\PaintingWidget.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\ThemeOverrides.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathBuilders\RectPathBuilder.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathDrawers\GradientFillPathDrawer.cs" />

@@ -1,30 +1,31 @@
 using System;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     public abstract class ThemeValue {
-        public abstract void ReloadStyle(ICustomStyle style);
+        public abstract void ReloadStyles();
     }
 
     public class ThemeValue<T> : ThemeValue {
         private ThemeProperty<T> _property;
-        private readonly VisualElement _owner;
+        private readonly BaseWidget _owner;
         private T _value;
         private ThemeOverride<T> _override = new();
         private ThemeValueState _state = ThemeValueState.None;
 
         public event OnValueChangedDelegate OnValueChanged;
 
-        public ThemeValue(VisualElement owner, ThemeProperty<T> property) {
+        public ThemeValue(BaseWidget owner, ThemeProperty<T> property) {
             _property = property;
             _owner = owner;
         }
 
-        public ThemeValue(VisualElement owner, ThemeProperty<T> property, OnValueChangedDelegate onValueChanged) : this(
+        public ThemeValue(BaseWidget owner, ThemeProperty<T> property, OnValueChangedDelegate onValueChanged) : this(
             owner, property) {
             OnValueChanged += onValueChanged;
         }
-        
+
         public ThemeOverride<T> Override {
             get => _override;
             set {
@@ -46,10 +47,11 @@ namespace HELIX.Widgets.Theming {
             if (_state >= ThemeValueState.Override) return;
             switch (value.type) {
                 case ThemeOverrideType.None:
-                    if (_state == ThemeValueState.VisualOverride) {
+                    if (_state <= ThemeValueState.VisualOverride) {
                         _state = ThemeValueState.None;
-                        ReloadStyle(_owner.customStyle);
+                        ReloadStyles();
                     }
+
                     break;
                 case ThemeOverrideType.Value:
                     SetVisualOverride(value);
@@ -77,7 +79,7 @@ namespace HELIX.Widgets.Theming {
         public void SwapProperty(ThemeProperty<T> newProperty) {
             if (_property == null) return;
             _property = newProperty;
-            ReloadStyle(_owner.customStyle);
+            ReloadStyles();
         }
 
         public void SwapPropertyByReference(string reference) {
@@ -88,8 +90,15 @@ namespace HELIX.Widgets.Theming {
             SwapProperty(property);
         }
 
-        public override void ReloadStyle(ICustomStyle style) {
-            NotifyStyleChanged(_property.Resolve(style));
+        public override void ReloadStyles() {
+            if (_state > ThemeValueState.CustomStyle) return;
+            if (_property.Resolve(_owner.customStyle, out var newValue)) goto ApplyStyle;
+            if (_owner.templateContainer != null) {
+                if (_property.Resolve(_owner.templateContainer.customStyle, out newValue)) goto ApplyStyle;
+            }
+            newValue = _property.defaultValue;
+            ApplyStyle:
+            NotifyStyleChanged(newValue);
         }
 
         private void NotifyStyleChanged(T newValue) {

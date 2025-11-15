@@ -6,7 +6,8 @@
         <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(39, 0, 255);"/>
         <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 184);"/>
     </HELIX.Widgets.Layout.Row>
-    <HELIX.Widgets.Example primary-color="rgba(0, 0, 0, 0)" color-reference="None" overrides="none" override="value: rgb(31, 255, 0)" style="height: 33px;"/>
+    <HELIX.Widgets.Example primary-color="none" style="height: 33px;"/>
+    <ui:VisualElement class="green-container" style="flex-grow: 1;"/>
     <HELIX.Widgets.Visual.BoxShadow blur-radius="6.25" offset="8,8" shadow-color="rgb(0, 0, 0)" spread-radius="2.8" border-radius="5.82,3.36,7.56,8.23" length-test="20px,auto,24px,24%" length-test2="0%" corners="0,0,0,0" style="height: 120px; width: 232px; position: absolute; top: 29px; left: 73px; border-top-left-radius: 98px; border-top-right-radius: 98px; border-bottom-right-radius: 98px; border-bottom-left-radius: 98px;">
         <ui:VisualElement name="VisualElement" style="flex-grow: 1; background-color: rgb(255, 0, 173);"/>
     </HELIX.Widgets.Visual.BoxShadow>

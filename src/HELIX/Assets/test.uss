@@ -1,4 +1,4 @@
-* {
+:root {
     --c-surface-dark: rgb(24, 24, 24);
     --c-surface: rgb(33, 33, 33);
     --c-border: rgb(40, 40, 40);
@@ -13,4 +13,8 @@
     --c-primary-highlight: rgb(255, 172, 137);
     --c-selection-overlay: rgba(255, 172, 137, 0.3);
     --o-shadow: rgba(0, 0, 0, 0.42);
+}
+
+.green-container *.helix-widget {
+    --c-primary: rgb(83, 255, 123);
 }
