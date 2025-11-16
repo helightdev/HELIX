@@ -1,4 +1,5 @@
 using System;
+using Codice.Client.Common;
 
 namespace HELIX.Widgets.Theming {
     public abstract class ThemeOverrides { }
@@ -8,21 +9,6 @@ namespace HELIX.Widgets.Theming {
         public ThemeOverrideType type = ThemeOverrideType.None;
         public T constantValue;
         public string propertyReference;
-
-        public void ApplyTo(ThemeValue<T> value) {
-            switch (type) {
-                case ThemeOverrideType.None:
-                    break;
-                case ThemeOverrideType.Value:
-                    value.Value = constantValue;
-                    break;
-                case ThemeOverrideType.PropertyReference:
-                    value.SwapPropertyByReference(propertyReference);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-        }
     }
 
     public enum ThemeOverrideType {

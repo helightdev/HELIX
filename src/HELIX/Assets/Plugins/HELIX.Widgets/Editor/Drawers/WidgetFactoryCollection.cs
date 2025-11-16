@@ -2,23 +2,25 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using HELIX.Widgets.Theming;
 using UnityEngine;
 
 namespace HELIX.Widgets.Editor {
-    public static class ThemePropertyCollection {
-        private static List<string> _loadedCollections;
+    public static class WidgetFactoryCollection {
         private static Dictionary<Type, List<string>> _loadedDictionary;
-
-        public static List<string> LoadedCollections {
-            get {
-                if (_loadedCollections == null) Load();
-                return _loadedCollections;
-            }
-        }
 
         public static List<string> GetCollectionsOfType(Type type) {
             if (_loadedDictionary == null) Load();
             return _loadedDictionary.GetValueOrDefault(type, new List<string> { "None" });
+        }
+
+        private static Type FindFactoryGenericArgument(Type t) {
+            while (t != null && t != typeof(object)) {
+                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(WidgetFactory<>))
+                    return t.GetGenericArguments()[0];
+                t = t.BaseType;
+            }
+            return null;
         }
 
         private static void Load() {
@@ -33,32 +35,27 @@ namespace HELIX.Widgets.Editor {
                 })
                 .Where(t =>
                     t.IsClass &&
-                    t.IsAbstract &&
-                    t.IsSealed && // identifies static class
-                    t.GetCustomAttribute<ThemePropertyCollectionAttribute>() != null)
+                    t.GetCustomAttribute<UxmlWidgetFactoryAttribute>() != null)
                 .ToArray();
 
-            var allTypes = new List<string>();
             var dict = new Dictionary<Type, List<string>>();
             foreach (var type in types) {
-                foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static)) {
-                    var name = $"{type.FullName}:{field.Name}";
-                    allTypes.Add(name);
-                    var generic = field.FieldType.GetGenericArguments()[0];
-                    var typeList = dict.GetValueOrDefault(generic, new List<string>());
-                    typeList.Add(name);
-                    dict[generic] = typeList;
+                Debug.Log($"Found WidgetFactory: {type.FullName}");
+                var associated = FindFactoryGenericArgument(type);
+                if (associated == null) {
+                    Debug.LogWarning($"WidgetFactory {type.FullName} does not inherit from WidgetFactory<T> and will be ignored.");
+                    continue;
                 }
+                var typeList = dict.GetValueOrDefault(associated, new List<string>());
+                typeList.Add(type.FullName);
+                dict[associated] = typeList;
             }
 
-            allTypes.Sort();
-            allTypes.Insert(0, "None");
             foreach (var list in dict.Values) {
                 list.Sort();
                 list.Insert(0, "None");
             }
 
-            _loadedCollections = allTypes;
             _loadedDictionary = dict;
         }
     }

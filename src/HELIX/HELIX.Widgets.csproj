@@ -57,10 +57,12 @@
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\ThemeProperty.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Layout\Column.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\ThemeValue.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\WidgetFactorySlot.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\PaintingWidget.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\ThemeOverrides.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathBuilders\RectPathBuilder.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathDrawers\GradientFillPathDrawer.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\WidgetFactory.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathDrawers\SolidFillPathDrawer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\GradientGenerators\RadialGradientGenerator.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\RuntimeReflectionThemeLookup.cs" />

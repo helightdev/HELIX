@@ -5,9 +5,31 @@ using UnityEngine;
 namespace HELIX.Widgets.Theming {
     public static class RuntimeReflectionThemeLookup {
         private static readonly Dictionary<string, ThemeProperty> _lookupCache = new();
+        private static readonly Dictionary<string, WidgetFactory> _widgetFactoryCache = new();
 
+        public static WidgetFactory GetFactory(string reference) {
+            if (reference is null or "None") return null;
+            if (_widgetFactoryCache.TryGetValue(reference, out var cachedFactory)) {
+                return cachedFactory;
+            }
+
+            var type = Type.GetType(reference);
+            if (type == null) {
+                Debug.LogWarning($"Cannot find widget factory for reference {reference}");
+                return null;
+            }
+
+            if (Activator.CreateInstance(type) is not WidgetFactory factory) {
+                Debug.LogWarning($"Widget factory reference {reference} is not a valid WidgetFactory");
+                return null;
+            }
+            
+            _widgetFactoryCache[reference] = factory;
+            return factory;
+        }
+        
         public static ThemeProperty GetProperty(string reference) {
-            if (reference == "None") return null;
+            if (reference is null or "None") return null;
             if (_lookupCache.TryGetValue(reference, out var cachedProperty)) {
                 return cachedProperty;
             }

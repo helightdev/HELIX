@@ -1,10 +1,12 @@
 using System;
 using HELIX.Widgets.Theming;
 using UnityEngine;
+using UnityEngine.Scripting;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public class ThemePropertyCollectionAttribute : Attribute { }
+    public class UxmlWidgetFactoryAttribute : Attribute { }
     public class ThemePropertyReferenceAttribute : PropertyAttribute { }
     
     [ThemePropertyCollection]
@@ -13,9 +15,27 @@ namespace HELIX.Widgets {
         public static readonly ThemeProperty<Color> PrimaryWashedColor = ThemeProperty.Theme("c-primary-washed", Color.white);
     }
 
+    [UxmlWidgetFactory, Preserve]
+    public class TestFactory : WidgetFactory<VisualElement> {
+        
+        public override VisualElement Create(BaseWidget parentWidget) {
+            return new Label("Hello, World!");
+        }
+    }
+    
+    [UxmlWidgetFactory, Preserve]
+    public class AnotherTestFactory : WidgetFactory<VisualElement> {
+        
+        public override VisualElement Create(BaseWidget parentWidget) {
+            return new Label("This is just another test!");
+        }
+    }
+    
+    
     [UxmlElement]
     public partial class Example : BaseWidget {
         private readonly ThemeValue<Color> _primaryColor;
+        private readonly WidgetFactorySlot<VisualElement> _factorySlot;
 
         [UxmlAttribute]
         public ThemeOverride<Color> PrimaryColor {
@@ -23,9 +43,19 @@ namespace HELIX.Widgets {
             set => _primaryColor.Override = value;
         }
 
+        [UxmlAttribute]
+        public WidgetFactoryReference<VisualElement> FactoryReference {
+            get => _factorySlot.Reference;
+            set => _factorySlot.Reference = value;
+        }
+
         public Example() {
             _primaryColor = ThemeValue(MyThemes.PrimaryColor, OnPrimaryColorChanged);
+            _factorySlot = WidgetFactorySlot<VisualElement>();
+            _factorySlot.StretchToParentSize();
+            Add(_factorySlot);
         }
+
 
         private void OnPrimaryColorChanged(Color newValue) {
             style.backgroundColor = newValue;

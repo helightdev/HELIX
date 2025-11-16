@@ -48,6 +48,7 @@ namespace HELIX.Widgets.Theming {
         public abstract bool Resolve(ICustomStyle customStyle, out T result);
     }
 
+
     public class UnthemedProperty<T> : ThemeProperty<T> {
         public UnthemedProperty(T defaultValue) : base("unthemed", defaultValue) { }
 
