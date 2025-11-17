@@ -1,4 +1,4 @@
-:root {
+:root, *.helix-widget {
     --c-surface-dark: rgb(24, 24, 24);
     --c-surface: rgb(33, 33, 33);
     --c-border: rgb(40, 40, 40);
@@ -9,10 +9,11 @@
     --c-tinted-foreground: rgb(228, 206, 188);
     --c-foreground: rgb(203, 203, 203);
     --c-primary-washed: rgb(161, 105, 80);
-    --c-primary: rgb(255, 135, 83);
+    /*--c-primary: rgb(255, 135, 83);*/
     --c-primary-highlight: rgb(255, 172, 137);
     --c-selection-overlay: rgba(255, 172, 137, 0.3);
     --o-shadow: rgba(0, 0, 0, 0.42);
+    /*--example-factory: "HELIX.Widgets.AnotherTestFactory";*/
 }
 
 .green-container *.helix-widget {

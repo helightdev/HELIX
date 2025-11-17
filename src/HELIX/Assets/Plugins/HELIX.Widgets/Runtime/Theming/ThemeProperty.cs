@@ -18,8 +18,9 @@ namespace HELIX.Widgets.Theming {
             [typeof(Vector3)] = new Vector3ThemeStyleValueLoader(),
             [typeof(Vector4)] = new Vector4ThemeStyleValueLoader(),
         };
-        
+
         public readonly string key;
+        public string StyleKey => $"--{key}";
 
         protected ThemeProperty(string key) {
             this.key = key;
@@ -33,8 +34,22 @@ namespace HELIX.Widgets.Theming {
             return new ThemeProperty<T, T>(key, defaultValue);
         }
 
-        public static ThemeProperty<T, string> Serialized<T>(string key, T defaultValue) {
-            return new ThemeProperty<T, string>(key, defaultValue);
+        public static WidgetFactoryProperty<T> WidgetFactory<T>(string key, WidgetFactory<T> defaultFactory)
+            where T : VisualElement {
+            return new WidgetFactoryProperty<T>(key, defaultFactory);
+        }
+
+        public static WidgetFactoryProperty<T> WidgetFactory<T>(string key, Type defaultFactory)
+            where T : VisualElement {
+            return new WidgetFactoryProperty<T>(key, defaultFactory.FullName);
+        }
+
+        public static WidgetFactoryProperty<T> WidgetFactory<T>(string key) where T : VisualElement {
+            return new WidgetFactoryProperty<T>(key, "None");
+        }
+
+        public static implicit operator string(ThemeProperty property) {
+            return property.StyleKey;
         }
     }
 
@@ -58,11 +73,31 @@ namespace HELIX.Widgets.Theming {
         }
     }
 
+    public class WidgetFactoryProperty<T> : ThemeProperty<WidgetFactory<T>> where T : VisualElement {
+        public WidgetFactoryProperty(string key, WidgetFactory<T> defaultValue) : base(key, defaultValue) { }
+
+        public WidgetFactoryProperty(string key, string defaultFactoryName) : base(key,
+            RuntimeReflectionThemeLookup.GetFactory(defaultFactoryName) as WidgetFactory<T>) { }
+
+        public override bool Resolve(ICustomStyle customStyle, out WidgetFactory<T> result) {
+            var property = new CustomStyleProperty<string>(StyleKey);
+            if (customStyle.TryGetValue(property, out var referenceKey)) {
+                if (RuntimeReflectionThemeLookup.GetFactory(referenceKey) is WidgetFactory<T> factory) {
+                    result = factory;
+                    return true;
+                }
+            }
+
+            result = defaultValue;
+            return false;
+        }
+    }
+
     public class ThemeProperty<T, TS> : ThemeProperty<T> {
         public readonly CustomStyleProperty<TS> style;
 
         public ThemeProperty(string key, T defaultValue) : base(key, defaultValue) {
-            style = new CustomStyleProperty<TS>($"--{key}");
+            style = new CustomStyleProperty<TS>(StyleKey);
         }
 
 
@@ -81,87 +116,6 @@ namespace HELIX.Widgets.Theming {
 
             if (typedLoader.Load(style.name, customStyle, out result)) return true;
             result = defaultValue;
-            return false;
-
-            switch (this) {
-                case ThemeProperty<float, float> floatProperty: {
-                    if (customStyle.TryGetValue(floatProperty.style, out var value)) {
-                        result = (T)(object)value;
-                        return true;
-                    }
-
-                    break;
-                }
-                case ThemeProperty<int, int> intProperty: {
-                    if (customStyle.TryGetValue(intProperty.style, out var value)) {
-                        result = (T)(object)value;
-                        return true;
-                    }
-
-                    break;
-                }
-                case ThemeProperty<string, string> stringProperty: {
-                    if (customStyle.TryGetValue(stringProperty.style, out var value)) {
-                        result = (T)(object)value;
-                        return true;
-                    }
-
-                    break;
-                }
-                case ThemeProperty<bool, bool> boolProperty: {
-                    if (customStyle.TryGetValue(boolProperty.style, out var value)) {
-                        result = (T)(object)value;
-                        return true;
-                    }
-
-                    break;
-                }
-                case ThemeProperty<Color, Color> colorProperty: {
-                    if (customStyle.TryGetValue(colorProperty.style, out var value)) {
-                        result = (T)(object)value;
-                        return true;
-                    }
-
-                    break;
-                }
-                case ThemeProperty<Texture2D, Texture2D> textureProperty: {
-                    if (customStyle.TryGetValue(textureProperty.style, out var value)) {
-                        result = (T)(object)value;
-                        return true;
-                    }
-
-                    break;
-                }
-                case ThemeProperty<Sprite, Sprite> spriteProperty: {
-                    if (customStyle.TryGetValue(spriteProperty.style, out var value)) {
-                        result = (T)(object)value;
-                        return true;
-                    }
-
-                    break;
-                }
-                case ThemeProperty<VectorImage, VectorImage> vectorImageProperty: {
-                    if (customStyle.TryGetValue(vectorImageProperty.style, out var value)) {
-                        result = (T)(object)value;
-                        return true;
-                    }
-
-                    break;
-                }
-                case ThemeProperty<T, string> serializedProperty: {
-                    if (customStyle.TryGetValue(serializedProperty.style, out var value)) {
-                        throw new NotImplementedException("Deserialization for ThemeProperty is not implemented.");
-                    }
-
-                    break;
-                }
-                default:
-
-                    Debug.LogWarning($"Unsupported ThemeProperty type: {typeof(T)}");
-                    break;
-            }
-
-            result = default;
             return false;
         }
     }

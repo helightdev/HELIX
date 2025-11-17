@@ -1,5 +1,4 @@
 using System;
-using Codice.Client.Common;
 
 namespace HELIX.Widgets.Theming {
     public abstract class ThemeOverrides { }
@@ -9,6 +8,11 @@ namespace HELIX.Widgets.Theming {
         public ThemeOverrideType type = ThemeOverrideType.None;
         public T constantValue;
         public string propertyReference;
+
+        public static implicit operator ThemeOverride<T>(T value) => new() {
+            type = ThemeOverrideType.Value,
+            constantValue = value
+        };
     }
 
     public enum ThemeOverrideType {

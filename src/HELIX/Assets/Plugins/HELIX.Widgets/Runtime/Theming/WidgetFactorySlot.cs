@@ -16,17 +16,24 @@ namespace HELIX.Widgets.Theming {
         public abstract void Destroy();
         public abstract void Recreate();
         public abstract void TryCreate();
+        public abstract void ApplyReferenceFromStyle(ICustomStyle givenStyle);
     }
     
     public class WidgetFactorySlot<T> : WidgetFactorySlot where T : VisualElement {
         private WidgetFactory _factory;
         private T _element;
+        private bool _hasAppliedReference;
         private WidgetFactoryReference<T> _reference;
+        private readonly ThemeProperty<WidgetFactory<T>> _themeProperty;
         
         public event OnElementCreatedDelegate OnElementCreated;
         public event OnElementDestroyedDelegate OnElementDestroyed;
         
         public WidgetFactorySlot(BaseWidget widget) : base(widget) { }
+
+        public WidgetFactorySlot(BaseWidget widget, ThemeProperty<WidgetFactory<T>> themeProperty) : base(widget) {
+            _themeProperty = themeProperty;
+        }
 
         public WidgetFactoryReference<T> Reference {
             get => _reference;
@@ -42,6 +49,15 @@ namespace HELIX.Widgets.Theming {
         private void ApplyReference(WidgetFactoryReference<T> factoryReference) {
             var factory = RuntimeReflectionThemeLookup.GetFactory(factoryReference.factoryName);
             if (factory == null || factory == _factory) return;
+            _factory = factory;
+            _hasAppliedReference = true;
+        }
+
+        public override void ApplyReferenceFromStyle(ICustomStyle givenStyle) {
+            if (_hasAppliedReference) return;
+            if (_themeProperty == null) return;
+            _themeProperty.Resolve(givenStyle, out var factory);
+            if (factory == null || Equals(factory, _factory)) return;
             _factory = factory;
         }
         

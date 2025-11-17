@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using HELIX.Widgets.Theming;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -8,7 +9,6 @@ namespace HELIX.Widgets {
         public static readonly string UssClassName = "helix-widget";
         private readonly List<ThemeValue> _themeValues;
         private readonly List<WidgetFactorySlot> _widgetFactorySlots = new();
-        internal TemplateContainer templateContainer;
         protected bool ResolveTemplateContainerOnAttach { get; set; } = true;
 
         protected BaseWidget() {
@@ -49,19 +49,29 @@ namespace HELIX.Widgets {
             }
             return slot;
         }
+        
+        protected WidgetFactorySlot<T> WidgetFactorySlot<T>(
+            ThemeProperty<WidgetFactory<T>> property,
+            WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
+            WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null
+        ) where T : VisualElement {
+            var slot = new WidgetFactorySlot<T>(this, property);
+            _widgetFactorySlots.Add(slot);
+            if (onCreated != null) {
+                slot.OnElementCreated += onCreated;
+            }
+            if (onDestroyed != null) {
+                slot.OnElementDestroyed += onDestroyed;
+            }
+            return slot;
+        }
 
 
         protected virtual void OnAttached(AttachToPanelEvent evt) {
             foreach (var value in _themeValues) {
                 value.ReloadStyles();
             }
-
-            if (ResolveTemplateContainerOnAttach) {
-                templateContainer?.UnregisterCallback<CustomStyleResolvedEvent>(OnStyleResolved);
-                templateContainer = GetFirstAncestorOfType<TemplateContainer>();
-                templateContainer?.RegisterCallback<CustomStyleResolvedEvent>(OnStyleResolved);
-            }
-
+            
             foreach (var factorySlot in _widgetFactorySlots) {
                 factorySlot.Recreate();
             }
@@ -69,8 +79,6 @@ namespace HELIX.Widgets {
         }
 
         protected virtual void OnDetached(DetachFromPanelEvent evt) {
-            if (ResolveTemplateContainerOnAttach)
-                templateContainer?.UnregisterCallback<CustomStyleResolvedEvent>(OnStyleResolved);
         }
 
         protected virtual void OnStyleResolved(CustomStyleResolvedEvent evt) {
@@ -78,7 +86,47 @@ namespace HELIX.Widgets {
                 value.ReloadStyles();
             }
             foreach (var factorySlot in _widgetFactorySlots) {
-                if (!factorySlot.HasElement) factorySlot.Recreate();
+                if (factorySlot.HasElement) continue;
+                factorySlot.ApplyReferenceFromStyle(evt.customStyle);
+                factorySlot.TryCreate();
+            }
+        }
+        
+    }
+
+    public interface ISingleChildContainer {
+        VisualElement Child { get; set; }
+    }
+    public interface IMultiChildContainer {
+        IEnumerable<VisualElement> Childs { get; set; }
+    }
+    
+
+    public abstract class SingleChildContainerWidget : BaseWidget, ISingleChildContainer {
+        protected SingleChildContainerWidget() : base() { }
+
+        public virtual VisualElement Child {
+            get => Children().FirstOrDefault();
+            set {
+                Clear();
+                if (value != null) {
+                    Add(value);
+                }
+            }
+        }
+    }
+    
+    public abstract class MultiChildContainerWidget : BaseWidget, IMultiChildContainer {
+        protected MultiChildContainerWidget() : base() { }
+        
+        public virtual IEnumerable<VisualElement> Childs {
+            get => Children();
+            set {
+                Clear();
+                if (value == null) return;
+                foreach (var child in value) {
+                    Add(child);
+                }
             }
         }
     }

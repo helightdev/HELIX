@@ -1,37 +1,44 @@
 using System;
+using System.IO;
+using HELIX.Widgets;
 using HELIX.Widgets.Theming;
 using UnityEngine;
-using UnityEngine.Scripting;
 using UnityEngine.UIElements;
+using HELIX.Extensions;
 
 namespace HELIX.Widgets {
     public class ThemePropertyCollectionAttribute : Attribute { }
+
     public class UxmlWidgetFactoryAttribute : Attribute { }
+
     public class ThemePropertyReferenceAttribute : PropertyAttribute { }
-    
+
     [ThemePropertyCollection]
     public static class MyThemes {
         public static readonly ThemeProperty<Color> PrimaryColor = ThemeProperty.Theme("c-primary", Color.white);
-        public static readonly ThemeProperty<Color> PrimaryWashedColor = ThemeProperty.Theme("c-primary-washed", Color.white);
+
+        public static readonly ThemeProperty<Color> PrimaryWashedColor =
+            ThemeProperty.Theme("c-primary-washed", Color.white);
+
+        public static readonly ThemeProperty<WidgetFactory<VisualElement>> WidgetFactory =
+            ThemeProperty.WidgetFactory<VisualElement>("example-factory", typeof(TestFactory));
     }
 
-    [UxmlWidgetFactory, Preserve]
+    [UxmlWidgetFactory]
     public class TestFactory : WidgetFactory<VisualElement> {
-        
         public override VisualElement Create(BaseWidget parentWidget) {
             return new Label("Hello, World!");
         }
     }
-    
-    [UxmlWidgetFactory, Preserve]
+
+    [UxmlWidgetFactory]
     public class AnotherTestFactory : WidgetFactory<VisualElement> {
-        
         public override VisualElement Create(BaseWidget parentWidget) {
             return new Label("This is just another test!");
         }
     }
-    
-    
+
+
     [UxmlElement]
     public partial class Example : BaseWidget {
         private readonly ThemeValue<Color> _primaryColor;
@@ -51,7 +58,7 @@ namespace HELIX.Widgets {
 
         public Example() {
             _primaryColor = ThemeValue(MyThemes.PrimaryColor, OnPrimaryColorChanged);
-            _factorySlot = WidgetFactorySlot<VisualElement>();
+            _factorySlot = WidgetFactorySlot<VisualElement>(MyThemes.WidgetFactory);
             _factorySlot.StretchToParentSize();
             Add(_factorySlot);
         }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using HELIX.Types;
 using UnityEngine;
@@ -5,7 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Layout {
     [UxmlElement]
-    public abstract partial class DirectionalContainer : VisualElement {
+    public abstract partial class DirectionalContainer : VisualElement, IMultiChildContainer {
         private float _gap;
         private Justify _mainAxisAlign;
         private Align _crossAxisAlign;
@@ -96,6 +97,17 @@ namespace HELIX.Widgets.Layout {
                 };
                 gapElement.AddToClassList("generated-gap");
                 Insert(2 * i + 1, gapElement);
+            }
+        }
+
+        public virtual IEnumerable<VisualElement> Childs {
+            get => Children();
+            set {
+                Clear();
+                if (value == null) return;
+                foreach (var child in value) {
+                    Add(child);
+                }
             }
         }
     }

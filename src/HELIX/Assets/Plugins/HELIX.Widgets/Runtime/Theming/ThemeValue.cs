@@ -93,9 +93,6 @@ namespace HELIX.Widgets.Theming {
         public override void ReloadStyles() {
             if (_state > ThemeValueState.CustomStyle) return;
             if (_property.Resolve(_owner.customStyle, out var newValue)) goto ApplyStyle;
-            if (_owner.templateContainer != null) {
-                if (_property.Resolve(_owner.templateContainer.customStyle, out newValue)) goto ApplyStyle;
-            }
             newValue = _property.defaultValue;
             ApplyStyle:
             NotifyStyleChanged(newValue);
