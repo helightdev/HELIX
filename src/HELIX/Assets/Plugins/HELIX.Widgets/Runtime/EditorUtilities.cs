@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace HELIX.Widgets {
-    internal abstract class EditorUtilities {
+    internal static class EditorUtilities {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Rect SwizzleToRect(Vector4 vector) {
             return new Rect(vector.x, vector.y, vector.w, vector.z);

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using HELIX.Widgets.Theming;
@@ -37,70 +38,74 @@ namespace HELIX.Widgets {
 
         protected WidgetFactorySlot<T> WidgetFactorySlot<T>(
             WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
-            WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null
+            WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
+            WidgetFactoryReference<T> reference = default
         ) where T : VisualElement {
-            var slot = new WidgetFactorySlot<T>(this);
+            var slot = new WidgetFactorySlot<T>(this) { Reference = reference };
             _widgetFactorySlots.Add(slot);
-            if (onCreated != null) {
-                slot.OnElementCreated += onCreated;
-            }
-            if (onDestroyed != null) {
-                slot.OnElementDestroyed += onDestroyed;
-            }
-            return slot;
-        }
-        
-        protected WidgetFactorySlot<T> WidgetFactorySlot<T>(
-            ThemeProperty<WidgetFactory<T>> property,
-            WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
-            WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null
-        ) where T : VisualElement {
-            var slot = new WidgetFactorySlot<T>(this, property);
-            _widgetFactorySlots.Add(slot);
-            if (onCreated != null) {
-                slot.OnElementCreated += onCreated;
-            }
-            if (onDestroyed != null) {
-                slot.OnElementDestroyed += onDestroyed;
-            }
+            if (onCreated != null) slot.OnElementCreated += onCreated;
+            if (onDestroyed != null) slot.OnElementDestroyed += onDestroyed;
+            if (panel != null) slot.TryCreate();
             return slot;
         }
 
+        protected WidgetFactorySlot<T> WidgetFactorySlot<T>(
+            ThemeProperty<WidgetFactory<T>> property,
+            WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
+            WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
+            WidgetFactoryReference<T> reference = default
+        ) where T : VisualElement {
+            var slot = new WidgetFactorySlot<T>(this, property) { Reference = reference };
+            _widgetFactorySlots.Add(slot);
+            if (onCreated != null) slot.OnElementCreated += onCreated;
+            if (onDestroyed != null) slot.OnElementDestroyed += onDestroyed;
+            if (panel != null) {
+                slot.ApplyReferenceFromStyle(customStyle);
+                slot.TryCreate();
+            }
+
+            return slot;
+        }
+
+        public bool DeleteFactorySlot(WidgetFactorySlot slot) {
+            if (!_widgetFactorySlots.Remove(slot)) return false;
+            slot.Destroy();
+            return true;
+        }
 
         protected virtual void OnAttached(AttachToPanelEvent evt) {
             foreach (var value in _themeValues) {
                 value.ReloadStyles();
             }
-            
+
             foreach (var factorySlot in _widgetFactorySlots) {
                 factorySlot.Recreate();
             }
-            
         }
 
-        protected virtual void OnDetached(DetachFromPanelEvent evt) {
-        }
+        protected virtual void OnDetached(DetachFromPanelEvent evt) { }
 
         protected virtual void OnStyleResolved(CustomStyleResolvedEvent evt) {
             foreach (var value in _themeValues) {
                 value.ReloadStyles();
             }
+
             foreach (var factorySlot in _widgetFactorySlots) {
                 if (factorySlot.HasElement) continue;
                 factorySlot.ApplyReferenceFromStyle(evt.customStyle);
                 factorySlot.TryCreate();
             }
         }
-        
     }
 
     public interface ISingleChildContainer {
         VisualElement Child { get; set; }
     }
+
     public interface IMultiChildContainer {
         IEnumerable<VisualElement> Childs { get; set; }
     }
-    
+
 
     public abstract class SingleChildContainerWidget : BaseWidget, ISingleChildContainer {
         protected SingleChildContainerWidget() : base() { }
@@ -115,10 +120,10 @@ namespace HELIX.Widgets {
             }
         }
     }
-    
+
     public abstract class MultiChildContainerWidget : BaseWidget, IMultiChildContainer {
         protected MultiChildContainerWidget() : base() { }
-        
+
         public virtual IEnumerable<VisualElement> Childs {
             get => Children();
             set {

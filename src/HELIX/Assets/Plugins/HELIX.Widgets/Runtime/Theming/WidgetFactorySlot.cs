@@ -104,4 +104,5 @@ namespace HELIX.Widgets.Theming {
         public delegate void OnElementCreatedDelegate(T element);
         public delegate void OnElementDestroyedDelegate(T element);
     }
+    
 }
