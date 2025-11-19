@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
 
 namespace HELIX.Widgets.Theming {
@@ -7,13 +9,29 @@ namespace HELIX.Widgets.Theming {
         private static readonly Dictionary<string, ThemeProperty> _lookupCache = new();
         private static readonly Dictionary<string, WidgetFactory> _widgetFactoryCache = new();
 
+        public static Type FindType(string typeName) {
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
+                var t = asm.GetType(typeName, throwOnError: false, ignoreCase: false);
+                if (t != null) return t;
+            }
+
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
+                try {
+                    var t = asm.GetTypes().FirstOrDefault(x => x.Name == typeName || x.FullName == typeName);
+                    if (t != null) return t;
+                } catch (ReflectionTypeLoadException) { }
+            }
+
+            return null;
+        }
+
         public static WidgetFactory GetFactory(string reference) {
             if (reference is null or "None") return null;
             if (_widgetFactoryCache.TryGetValue(reference, out var cachedFactory)) {
                 return cachedFactory;
             }
 
-            var type = Type.GetType(reference);
+            var type = FindType(reference);
             if (type == null) {
                 Debug.LogWarning($"Cannot find widget factory for reference {reference}");
                 return null;
@@ -23,11 +41,11 @@ namespace HELIX.Widgets.Theming {
                 Debug.LogWarning($"Widget factory reference {reference} is not a valid WidgetFactory");
                 return null;
             }
-            
+
             _widgetFactoryCache[reference] = factory;
             return factory;
         }
-        
+
         public static ThemeProperty GetProperty(string reference) {
             if (reference is null or "None") return null;
             if (_lookupCache.TryGetValue(reference, out var cachedProperty)) {
@@ -39,7 +57,8 @@ namespace HELIX.Widgets.Theming {
                 Debug.LogWarning($"Invalid theme property reference format: {reference}");
                 return null;
             }
-            var property = Type.GetType(arr[0])?.GetField(arr[1])?.GetValue(null);
+
+            var property = FindType(arr[0])?.GetField(arr[1])?.GetValue(null);
             if (property == null) {
                 Debug.LogWarning($"Cannot find theme property for reference {reference}");
                 return null;
