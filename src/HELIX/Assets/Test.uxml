@@ -18,4 +18,5 @@
         <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 184);"/>
     </HELIX.Widgets.Layout.Column>
     <Example factory-reference="AnotherTestFactory" primary-color="none" style="height: 43px; width: 261px;"/>
+    <HELIX.Widgets.Visual.MemoryUsageLineGraph style="height: 32px;"/>
 </ui:UXML>

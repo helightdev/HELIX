@@ -1,10 +1,10 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using HELIX.Painting;
 using HELIX.Painting.Paths;
 using UnityEngine;
+using UnityEngine.Profiling;
 using UnityEngine.UIElements;
 using Vector2 = UnityEngine.Vector2;
 
@@ -125,16 +125,15 @@ namespace HELIX.Widgets.Visual {
         private RingBuffer<Vector2> _dataBuffer;
         private FixedTimeframeDynamicRangeLineGraphDataSource _dataSource;
         private Func<float> _sampleFunction;
-        
-        public TimePollingLineGraph(Func<float> sampleFunction, float pollingInterval, float timeframe) {
+
+        public TimePollingLineGraph(Func<float> sampleFunction, float pollingInterval, float timeframe,
+            ILineGraphDataSource source = null) {
             this.pollingInterval = pollingInterval;
             this.timeframe = timeframe;
             _sampleFunction = sampleFunction;
             _dataBuffer = new RingBuffer<Vector2>(Mathf.CeilToInt((timeframe + 1) / pollingInterval));
             oversampleFactor = 0.1f;
-            datasource = _dataSource = new FixedTimeframeDynamicRangeLineGraphDataSource(
-                timeframe
-            );
+            datasource = source ?? new FixedTimeframeDynamicRangeLineGraphDataSource(timeframe);
             schedule.Execute(UpdateEvent).Every((long)(pollingInterval * 1000));
         }
 
@@ -142,7 +141,7 @@ namespace HELIX.Widgets.Visual {
             var time = Time.realtimeSinceStartup;
             var value = _sampleFunction.Invoke();
             _dataBuffer.Add(new Vector2(time, value));
-            _dataSource.Update(_dataBuffer, new Vector2(-time + timeframe, 0));
+            datasource.Update(_dataBuffer, new Vector2(-time + timeframe, 0));
             MarkDirtyRepaint();
         }
     }
@@ -161,6 +160,8 @@ namespace HELIX.Widgets.Visual {
     public interface ILineGraphDataSource {
         bool HasData { get; }
         Vector2[] GetNormalizedPoints();
+
+        void Update(IReadOnlyCollection<Vector2> points, Vector2 offset = default) { }
     }
 
     public class FixedRangeLineGraphDataSource : ILineGraphDataSource {
@@ -208,7 +209,6 @@ namespace HELIX.Widgets.Visual {
         private Vector2[] _samples;
         public bool HasData => _samples?.Length > 1;
         public Vector2[] GetNormalizedPoints() => _samples;
-
         public DynamicRangeLineGraphDataSource() { }
 
         public DynamicRangeLineGraphDataSource(IReadOnlyCollection<Vector2> initialPoints, Vector2 offset = default) {
@@ -257,13 +257,13 @@ namespace HELIX.Widgets.Visual {
         public FixedTimeframeDynamicRangeLineGraphDataSource(float timeframe) {
             _timeframe = timeframe;
         }
-        
+
         public FixedTimeframeDynamicRangeLineGraphDataSource(IReadOnlyCollection<Vector2> initialPoints,
             float timeframe, Vector2 offset = default) {
             _timeframe = timeframe;
             Update(initialPoints, offset);
         }
-        
+
         public void Update(IReadOnlyCollection<Vector2> points, Vector2 offset = default) {
             if (points == null || points.Count == 0) {
                 _samples = null;
@@ -289,38 +289,5 @@ namespace HELIX.Widgets.Visual {
 
             _samples = data;
         }
-    }
-
-
-    public class RingBuffer<T> : IReadOnlyList<T> {
-        private readonly T[] _buffer;
-        private int _index;
-
-        public int Count { get; private set; }
-        public int Capacity => _buffer.Length;
-
-        public RingBuffer(int capacity) {
-            _buffer = new T[capacity];
-        }
-
-        public void Add(T item) {
-            _buffer[_index] = item;
-            _index = (_index + 1) % _buffer.Length;
-            Count = Mathf.Min(Count + 1, _buffer.Length);
-        }
-
-        public T Get(int i) {
-            // 0 = oldest, Count-1 = newest
-            var pos = (_index - Count + i + _buffer.Length) % _buffer.Length;
-            return _buffer[pos];
-        }
-
-        public IEnumerator<T> GetEnumerator() {
-            for (var i = 0; i < Count; i++) yield return Get(i);
-        }
-
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public T this[int index] => Get(index);
     }
 }
