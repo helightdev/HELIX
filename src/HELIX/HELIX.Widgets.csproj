@@ -71,6 +71,7 @@
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Layout\DirectionalContainer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\Loaders.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathDrawers\SolidStrokePathDrawer.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\LineGraph.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\EditorUtilities.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Widget.cs" />
     <None Include="Assets\Plugins\HELIX.Widgets\Runtime\HELIX.Widgets.asmdef" />
