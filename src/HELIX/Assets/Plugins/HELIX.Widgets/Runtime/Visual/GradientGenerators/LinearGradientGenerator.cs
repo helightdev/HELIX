@@ -14,15 +14,19 @@ namespace HELIX.Widgets.Visual.GradientGenerators {
         [UxmlAttribute] public AddressMode AddressMode { get; set; } = AddressMode.Clamp;
 
         public override FillGradient Generate(PaintCanvas canvas) {
+            var gradient = new Gradient {
+                colorKeys = new[] { new GradientColorKey(StartColor, 0f), new GradientColorKey(EndColor, 1f) },
+                alphaKeys = new[] { new GradientAlphaKey(StartColor.a, 0f), new GradientAlphaKey(EndColor.a, 1f) }
+            };
             if (Normalized) {
                 return FillGradient.MakeLinearGradient(
-                    StartColor, EndColor,
+                    gradient,
                     StartPoint * canvas.size,
                     EndPoint * canvas.size, AddressMode
                 );
             }
 
-            return FillGradient.MakeLinearGradient(StartColor, EndColor, StartPoint, EndPoint, AddressMode);
+            return FillGradient.MakeLinearGradient(gradient, StartPoint, EndPoint, AddressMode);
         }
     }
 }
