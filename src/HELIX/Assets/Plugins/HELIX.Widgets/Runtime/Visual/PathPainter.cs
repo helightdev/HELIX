@@ -12,9 +12,7 @@ namespace HELIX.Widgets.Visual {
         [UxmlObjectReference] public List<ScriptablePathBuilder> PathBuilders { get; set; } = new();
         [UxmlObjectReference] public List<ScriptablePathDrawer> PathDrawers { get; set; } = new();
 
-        public PathPainter() {
-            ResolveTemplateContainerOnAttach = false;
-        }
+        public PathPainter() { }
 
         public override void Paint(PaintCanvas canvas, Rect bounds) {
             if (PathBuilders?.Count == 0 || PathDrawers?.Count == 0) return;

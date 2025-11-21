@@ -59,5 +59,15 @@ namespace HELIX.Extensions {
                 element.style.marginLeft
             );
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T Margined<T>(this T element, float top = 0f, float right = 0f, float bottom = 0f,
+            float left = 0f) where T : VisualElement {
+            element.style.marginTop = top;
+            element.style.marginRight = right;
+            element.style.marginBottom = bottom;
+            element.style.marginLeft = left;
+            return element;
+        }
     }
 }

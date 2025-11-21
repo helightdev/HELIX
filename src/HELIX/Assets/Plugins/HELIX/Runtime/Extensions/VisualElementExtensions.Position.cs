@@ -59,7 +59,7 @@ namespace HELIX.Extensions {
                 element.style.left
             );
         }
-
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T MakeRelative<T>(this T element) where T : VisualElement {
             element.style.position = UnityEngine.UIElements.Position.Relative;
@@ -69,6 +69,20 @@ namespace HELIX.Extensions {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T MakeAbsolute<T>(this T element) where T : VisualElement {
             element.style.position = UnityEngine.UIElements.Position.Absolute;
+            return element;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T Positioned<T>(
+            this T element, StyleLength? top = null, StyleLength? right = null, StyleLength? bottom = null,
+            StyleLength? left = null,
+            Position type = UnityEngine.UIElements.Position.Absolute)
+            where T : VisualElement {
+            element.style.position = type;
+            element.style.top = top.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
+            element.style.right = right.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
+            element.style.bottom = bottom.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
+            element.style.left = left.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
             return element;
         }
     }

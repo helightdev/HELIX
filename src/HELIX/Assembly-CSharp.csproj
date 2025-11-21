@@ -46,7 +46,6 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.0b7\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
     <Compile Include="Assets\Scripts\WidgetExample.cs" />
     <None Include="Assets\Test.uxml" />
     <None Include="Assets\test.uss" />
@@ -991,6 +990,10 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="Assembly-CSharp-firstpass.csproj">
+      <Project>{948942be-c212-497e-ff6e-a43183cf9de6}</Project>
+      <Name>Assembly-CSharp-firstpass</Name>
+    </ProjectReference>
     <ProjectReference Include="HELIX.Widgets.Editor.csproj">
       <Project>{49b0063b-ac31-8c32-cd8f-41bd6568197d}</Project>
       <Name>HELIX.Widgets.Editor</Name>

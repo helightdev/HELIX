@@ -59,5 +59,19 @@ namespace HELIX.Extensions {
                 element.style.paddingLeft
             );
         }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T Padded<T>(this T element,
+            float top = 0f,
+            float right = 0f,
+            float bottom = 0f,
+            float left = 0f
+        ) where T : VisualElement {
+            element.style.paddingTop = top;
+            element.style.paddingRight = right;
+            element.style.paddingBottom = bottom;
+            element.style.paddingLeft = left;
+            return element;
+        }
     }
 }

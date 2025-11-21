@@ -14,7 +14,6 @@ namespace HELIX.Widgets.Visual {
         private readonly VisualElement _shadowElement;
 
         public BoxShadow() {
-            ResolveTemplateContainerOnAttach = false;
             _shadowElement = new VisualElement {
                 style = {
                     backgroundColor = _shadowColor,

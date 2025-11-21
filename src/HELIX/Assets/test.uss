@@ -9,7 +9,7 @@
     --c-tinted-foreground: rgb(228, 206, 188);
     --c-foreground: rgb(203, 203, 203);
     --c-primary-washed: rgb(161, 105, 80);
-    /*--c-primary: rgb(255, 135, 83);*/
+    --c-primary: rgb(255, 135, 83);
     --c-primary-highlight: rgb(255, 172, 137);
     --c-selection-overlay: rgba(255, 172, 137, 0.3);
     --o-shadow: rgba(0, 0, 0, 0.42);

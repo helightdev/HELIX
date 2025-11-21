@@ -1,3 +1,6 @@
+using HELIX.Abstractions;
+using HELIX.Extensions;
+using HELIX.Types;
 using HELIX.Widgets;
 using HELIX.Widgets.Theming;
 using UnityEngine;
@@ -17,14 +20,14 @@ public static class MyThemes {
 [UxmlWidgetFactory]
 public class TestFactory : WidgetFactory<VisualElement> {
     public override VisualElement Create(BaseWidget parentWidget) {
-        return new Label("Hello, World!");
+        return new Label("Hello, World!").Sized(width: 25).Positioned(right: 0);
     }
 }
 
 [UxmlWidgetFactory]
 public class AnotherTestFactory : WidgetFactory<VisualElement> {
     public override VisualElement Create(BaseWidget parentWidget) {
-        return new Label("This is just another test!");
+        return new Label("This is just another test!").Positioned(right: 0, bottom: 0);
     }
 }
 
@@ -47,9 +50,17 @@ public partial class Example : BaseWidget {
 
     public Example() {
         _primaryColor = ThemeValue(MyThemes.PrimaryColor, OnPrimaryColorChanged);
-        _factorySlot = WidgetFactorySlot<VisualElement>(MyThemes.WidgetFactory);
+        _factorySlot = WidgetFactorySlot(MyThemes.WidgetFactory);
         _factorySlot.StretchToParentSize();
         Add(_factorySlot);
+        var a = new Element {
+            Child = new Label("Inside Factory Slot").Transitions(
+                new Transition(StyleProperties.Color) { duration = 0.5f },
+                new Transition(StyleProperties.FontSize) {
+                    duration = 0.25f,
+                    easing = EasingMode.EaseInOut
+                })
+        };
     }
 
 

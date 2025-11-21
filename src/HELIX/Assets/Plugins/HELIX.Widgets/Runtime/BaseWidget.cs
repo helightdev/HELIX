@@ -1,20 +1,17 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
+using HELIX.Abstractions;
 using HELIX.Widgets.Theming;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public abstract class BaseWidget : VisualElement {
         public static readonly string UssClassName = "helix-widget";
-        private readonly List<ThemeValue> _themeValues;
+        private readonly List<ThemeValue> _themeValues = new();
         private readonly List<WidgetFactorySlot> _widgetFactorySlots = new();
-        protected bool ResolveTemplateContainerOnAttach { get; set; } = true;
 
         protected BaseWidget() {
             AddToClassList(UssClassName);
-            _themeValues = new List<ThemeValue>();
             RegisterCallback<AttachToPanelEvent>(OnAttached);
             RegisterCallback<DetachFromPanelEvent>(OnDetached);
             RegisterCallback<CustomStyleResolvedEvent>(OnStyleResolved);
@@ -74,21 +71,14 @@ namespace HELIX.Widgets {
         }
 
         protected virtual void OnAttached(AttachToPanelEvent evt) {
-            foreach (var value in _themeValues) {
-                value.ReloadStyles();
-            }
-
-            foreach (var factorySlot in _widgetFactorySlots) {
-                factorySlot.Recreate();
-            }
+            foreach (var value in _themeValues) value.ReloadStyles();
+            foreach (var factorySlot in _widgetFactorySlots) factorySlot.Recreate();
         }
 
         protected virtual void OnDetached(DetachFromPanelEvent evt) { }
 
         protected virtual void OnStyleResolved(CustomStyleResolvedEvent evt) {
-            foreach (var value in _themeValues) {
-                value.ReloadStyles();
-            }
+            foreach (var value in _themeValues) value.ReloadStyles();
 
             foreach (var factorySlot in _widgetFactorySlots) {
                 if (factorySlot.HasElement) continue;
@@ -97,15 +87,6 @@ namespace HELIX.Widgets {
             }
         }
     }
-
-    public interface ISingleChildContainer {
-        VisualElement Child { get; set; }
-    }
-
-    public interface IMultiChildContainer {
-        IEnumerable<VisualElement> Childs { get; set; }
-    }
-
 
     public abstract class SingleChildContainerWidget : BaseWidget, ISingleChildContainer {
         protected SingleChildContainerWidget() : base() { }
