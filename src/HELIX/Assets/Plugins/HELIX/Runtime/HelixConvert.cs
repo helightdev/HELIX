@@ -27,9 +27,26 @@ namespace HELIX {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ToUssString(Vector4 vector4) {
-            return $"{ToUssString(vector4.x)},{ToUssString(vector4.y)},{ToUssString(vector4.z)},{ToUssString(vector4.w)}";
+            return
+                $"{ToUssString(vector4.x)},{ToUssString(vector4.y)},{ToUssString(vector4.z)},{ToUssString(vector4.w)}";
         }
-        
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static string ToUssColor(this Color color) {
+            var r = Mathf.Clamp01(color.r);
+            var g = Mathf.Clamp01(color.g);
+            var b = Mathf.Clamp01(color.b);
+            var a = Mathf.Clamp01(color.a);
+            return
+                $"#{Mathf.RoundToInt(r * 255):X2}{Mathf.RoundToInt(g * 255):X2}{Mathf.RoundToInt(b * 255):X2}{Mathf.RoundToInt(a * 255):X2}";
+        }
+
+        public static Color ParseColor(string ussString) {
+            return ColorUtility.TryParseHtmlString(ussString, out var color)
+                ? color
+                : throw new FormatException($"Invalid color format: {ussString}");
+        }
+
         public static bool ToVector2(string ussString, out Vector2 result) {
             result = Vector2.zero;
             var parts = ussString.Split(',');
@@ -39,7 +56,7 @@ namespace HELIX {
             result = new Vector2(x, y);
             return true;
         }
-        
+
         public static bool ToVector3(string ussString, out Vector3 result) {
             result = Vector3.zero;
             var parts = ussString.Split(',');
@@ -50,7 +67,7 @@ namespace HELIX {
             result = new Vector3(x, y, z);
             return true;
         }
-        
+
         public static bool ToVector4(string ussString, out Vector4 result) {
             result = Vector4.zero;
             var parts = ussString.Split(',');
@@ -61,6 +78,13 @@ namespace HELIX {
             if (!ToFloat(parts[3], out var w)) return false;
             result = new Vector4(x, y, z, w);
             return true;
+        }
+    }
+
+    public static class ColorExtensions {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Color AlphaMultiplied(this Color color, float opacity) {
+            return new Color(color.r, color.g, color.b, color.a * opacity);
         }
     }
 }
