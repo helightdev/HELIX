@@ -64,6 +64,7 @@
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\ThemeOverrides.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathBuilders\RectPathBuilder.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathDrawers\GradientFillPathDrawer.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathDrawers\GradientStrokePathDrawer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Theming\WidgetFactory.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\PathDrawers\SolidFillPathDrawer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Visual\GradientGenerators\RadialGradientGenerator.cs" />
