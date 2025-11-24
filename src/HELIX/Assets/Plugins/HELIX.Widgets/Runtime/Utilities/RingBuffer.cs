@@ -25,6 +25,11 @@ namespace HELIX.Widgets.Visual {
             var pos = (_index - Count + i + _buffer.Length) % _buffer.Length;
             return _buffer[pos];
         }
+        
+        public void Clear() {
+            _index = 0;
+            Count = 0;
+        }
 
         public IEnumerator<T> GetEnumerator() {
             for (var i = 0; i < Count; i++) yield return Get(i);

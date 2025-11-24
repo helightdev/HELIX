@@ -4,7 +4,6 @@ using System.Linq;
 using HELIX.Painting;
 using HELIX.Painting.Paths;
 using UnityEngine;
-using UnityEngine.Profiling;
 using UnityEngine.UIElements;
 using Vector2 = UnityEngine.Vector2;
 
@@ -125,7 +124,8 @@ namespace HELIX.Widgets.Visual {
         private RingBuffer<Vector2> _dataBuffer;
         private FixedTimeframeDynamicRangeLineGraphDataSource _dataSource;
         private Func<float> _sampleFunction;
-
+        [UxmlAttribute] public bool discardOnOffscreen = false;
+        
         public TimePollingLineGraph(Func<float> sampleFunction, float pollingInterval, float timeframe,
             ILineGraphDataSource source = null) {
             this.pollingInterval = pollingInterval;
@@ -139,10 +139,21 @@ namespace HELIX.Widgets.Visual {
 
         private void UpdateEvent() {
             var time = Time.realtimeSinceStartup;
+            var isOffscreen = Mathf.Approximately(worldBound.size.sqrMagnitude, 0);
+            if (isOffscreen && discardOnOffscreen) {
+                if (_dataBuffer.Count == 0) return;
+                _dataBuffer.Clear();
+                datasource.Update(_dataBuffer, new Vector2(-time + timeframe, 0));
+                MarkDirtyRepaint();
+                return;
+            }
+            
             var value = _sampleFunction.Invoke();
             _dataBuffer.Add(new Vector2(time, value));
-            datasource.Update(_dataBuffer, new Vector2(-time + timeframe, 0));
-            MarkDirtyRepaint();
+            if (!isOffscreen) {
+                datasource.Update(_dataBuffer, new Vector2(-time + timeframe, 0));
+                MarkDirtyRepaint();
+            }
         }
     }
 
