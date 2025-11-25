@@ -73,6 +73,16 @@ namespace HELIX.Extensions {
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T Stretched<T>(this T element) where T : VisualElement {
+            element.style.position = UnityEngine.UIElements.Position.Absolute;
+            element.style.top = 0;
+            element.style.left = 0;
+            element.style.right = 0;
+            element.style.bottom = 0;
+            return element;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T Positioned<T>(
             this T element, StyleLength? top = null, StyleLength? right = null, StyleLength? bottom = null,
             StyleLength? left = null,
