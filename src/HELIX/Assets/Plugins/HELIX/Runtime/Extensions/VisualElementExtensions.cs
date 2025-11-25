@@ -9,6 +9,11 @@ using IEventHandler = HELIX.Types.IEventHandler;
 
 namespace HELIX.Extensions {
     public static partial class VisualElementExtensions {
+        public static T AddTo<T>(this T element, VisualElement target) where T : VisualElement {
+            target.Add(element);
+            return element;
+        }
+
         public static T AddClasses<T>(this T element, params string[] classNames) where T : VisualElement {
             foreach (var className in classNames) {
                 element.AddToClassList(className);
@@ -22,7 +27,12 @@ namespace HELIX.Extensions {
             return element.AddClasses(classNames);
         }
 
-        public static T NoPaddingAndMargin<T>(this T element) where T : VisualElement => element.NoBorder().NoMargin();
+        public static T WithName<T>(this T element, string name) where T : VisualElement {
+            element.name = name;
+            return element;
+        }
+
+        public static T NoPaddingAndMargin<T>(this T element) where T : VisualElement => element.NoPadding().NoMargin();
 
         public static T WithStyle<T>(this T element, Func<IStyle, UpdateStyle> updater) where T : VisualElement {
             updater(element.style);
@@ -36,6 +46,32 @@ namespace HELIX.Extensions {
 
         public static T BackgroundColor<T>(this T element, Color color) where T : VisualElement {
             element.style.backgroundColor = color;
+            return element;
+        }
+
+        public static T Image<T>(this T element, Background background,
+            BackgroundSizeType? fit = null,
+            BackgroundSize? size = null, Color? tintColor = null) where T : VisualElement {
+            element.style.backgroundImage = background;
+            if (size.HasValue) {
+                element.style.backgroundSize = size.Value;
+            } else if (fit.HasValue) element.style.backgroundSize = new BackgroundSize(fit.Value);
+            if (tintColor.HasValue) element.style.unityBackgroundImageTintColor = tintColor.Value;
+            return element;
+        }
+
+        public static T BackgroundImage<T>(this T element, Background background) where T : VisualElement {
+            element.style.backgroundImage = background;
+            return element;
+        }
+
+        public static T BackgroundImageScaling<T>(this T element, StyleBackgroundSize size) where T : VisualElement {
+            element.style.backgroundSize = size;
+            return element;
+        }
+
+        public static T BackgroundImageColor<T>(this T element, Color color) where T : VisualElement {
+            element.style.unityBackgroundImageTintColor = color;
             return element;
         }
 
@@ -62,11 +98,12 @@ namespace HELIX.Extensions {
             action.Register(element);
             return element;
         }
-        
+
         public static T WithCallback<T>(this T element, params IEventHandler[] actions) where T : VisualElement {
             foreach (var action in actions) {
                 action.Register(element);
             }
+
             return element;
         }
 
