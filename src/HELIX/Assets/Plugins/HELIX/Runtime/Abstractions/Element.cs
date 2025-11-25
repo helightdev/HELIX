@@ -4,6 +4,12 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Abstractions {
     public class Element : VisualElement, IMultiChildContainer, ISingleChildContainer {
+        public Element() { }
+
+        public Element(string name) {
+            this.name = name;
+        }
+
         public virtual VisualElement Child {
             get => Children().FirstOrDefault();
             set {
