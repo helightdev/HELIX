@@ -9,6 +9,7 @@ namespace HELIX.Widgets.Theming {
 
     public class ThemeValue<T> : ThemeValue {
         private ThemeProperty<T> _property;
+        private ThemeProperty<T> _fallbackProperty;
         private readonly BaseWidget _owner;
         private T _value;
         private ThemeOverride<T> _override = new();
@@ -17,6 +18,7 @@ namespace HELIX.Widgets.Theming {
         public event OnValueChangedDelegate OnValueChanged;
 
         public ThemeValue(BaseWidget owner, ThemeProperty<T> property) {
+            _fallbackProperty = property;
             _property = property;
             _owner = owner;
         }
@@ -49,9 +51,8 @@ namespace HELIX.Widgets.Theming {
                 case ThemeOverrideType.None:
                     if (_state <= ThemeValueState.VisualOverride) {
                         _state = ThemeValueState.None;
-                        ReloadStyles();
+                        SwapProperty(_fallbackProperty);
                     }
-
                     break;
                 case ThemeOverrideType.Value:
                     SetVisualOverride(value);

@@ -48,9 +48,20 @@ namespace HELIX.Widgets.Theming {
 
         private void ApplyReference(WidgetFactoryReference<T> factoryReference) {
             var factory = RuntimeReflectionThemeLookup.GetFactory(factoryReference.factoryName);
+            
+            // Try resolving from parent style on late unset
+            if (factory == null && HasElement) {
+                var parentStyle = widget.parent?.customStyle;
+                if (parentStyle != null) {
+                    _themeProperty.Resolve(parentStyle, out var resolvedFactory);
+                    factory = resolvedFactory;
+                }
+            }
+            
             if (factory == null || factory == _factory) return;
             _factory = factory;
             _hasAppliedReference = true;
+            if (HasElement) Recreate();
         }
 
         public override void ApplyReferenceFromStyle(ICustomStyle givenStyle) {
