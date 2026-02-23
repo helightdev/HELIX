@@ -21,14 +21,14 @@ public static class MyThemes {
 [UxmlWidgetFactory]
 public class TestFactory : WidgetFactory<VisualElement> {
     public override VisualElement Create(BaseWidget parentWidget) {
-        return new Label("Hello, World!").Sized(width: 25).Positioned(right: 0);
+        return new Label("Hello, World!").Sized(width: 25);
     }
 }
 
 [UxmlWidgetFactory]
 public class AnotherTestFactory : WidgetFactory<VisualElement> {
     public override VisualElement Create(BaseWidget parentWidget) {
-        return new Label("This is just another test!").Positioned(right: 0, bottom: 0);
+        return new Label("This is just another test!").Positioned(right: 0, bottom: 0).Flexible();
     }
 }
 
