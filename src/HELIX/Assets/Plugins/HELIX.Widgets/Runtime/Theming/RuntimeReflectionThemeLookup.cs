@@ -18,7 +18,8 @@ namespace HELIX.Widgets.Theming {
 
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
                 try {
-                    var t = asm.GetTypes().FirstOrDefault(x => x.Name == typeName || x.FullName == typeName);
+                    var t = asm.GetTypes().FirstOrDefault(x => x.FullName == typeName)
+                            ?? asm.GetTypes().FirstOrDefault(x => x.Name == typeName);
                     if (t != null) return t;
                 } catch (ReflectionTypeLoadException) { }
             }
