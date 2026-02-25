@@ -1,4 +1,4 @@
-:root, *.helix-widget {
+:root {
     --c-surface-dark: rgb(24, 24, 24);
     --c-surface: rgb(33, 33, 33);
     --c-border: rgb(40, 40, 40);
@@ -19,4 +19,8 @@
 .green-container *.helix-widget {
     --c-primary: rgb(83, 255, 123);
     --test: "test";
+}
+
+.style-target {
+    /*--c-primary: rgb(83, 255, 123);*/
 }

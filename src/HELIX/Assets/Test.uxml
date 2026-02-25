@@ -8,10 +8,10 @@
     </HELIX.Widgets.Layout.Row>
     <ui:VisualElement class="green-container" style="flex-grow: 1;"/>
     <Example name="Example" factory-reference="None" primary-color="none" style="height: 57px;"/>
-    <HELIX.Widgets.WidgetThemeProvider focusable="false" name="WidgetThemeProvider">
+    <HELIX.Widgets.WidgetThemeProvider focusable="false" name="WidgetThemeProvider" class="style-target">
         <PerformUpdateWidget/>
         <Example primary-color="none" some-texture="value: project://database/Assets/UI%20Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss?fileID=3506167780502562645&amp;guid=48109cee5aa9a10418ca00cb2f6cf80e&amp;type=3#console.erroricon@2x" name="Example" factory-reference="None" style="height: 43px; width: 261px;"/>
-        <ExampleThemeComponent c-primary="value: rgb(255, 0, 0)"/>
+        <ExampleThemeComponent c-primary="none"/>
     </HELIX.Widgets.WidgetThemeProvider>
     <HELIX.Widgets.Visual.MemoryUsageLineGraph style="height: 79px; display: flex; opacity: 1; visibility: visible;"/>
     <HELIX.Widgets.Layout.Column main-axis-align="Center" cross-axis-align="Center" name="Column" style="height: 269px;">
