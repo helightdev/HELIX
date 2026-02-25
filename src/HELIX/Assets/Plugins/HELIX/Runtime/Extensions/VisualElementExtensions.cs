@@ -44,6 +44,11 @@ namespace HELIX.Extensions {
             return element;
         }
 
+        public static T TextSize<T>(this T element, float size) where T : VisualElement {
+            element.style.fontSize = size;
+            return element;
+        }
+        
         public static T BackgroundColor<T>(this T element, Color color) where T : VisualElement {
             element.style.backgroundColor = color;
             return element;
@@ -65,8 +70,13 @@ namespace HELIX.Extensions {
             return element;
         }
 
-        public static T BackgroundImageScaling<T>(this T element, StyleBackgroundSize size) where T : VisualElement {
+        public static T BackgroundImageScaling<T>(this T element, BackgroundSize size) where T : VisualElement {
             element.style.backgroundSize = size;
+            return element;
+        }
+        
+        public static T BackgroundImageScaling<T>(this T element, BackgroundSizeType size) where T : VisualElement {
+            element.style.backgroundSize = new BackgroundSize(size);
             return element;
         }
 
