@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using HELIX;
 using HELIX.Abstractions;
@@ -74,11 +75,10 @@ public partial class Example : BaseWidget {
     }
 }
 
-[UxmlObject]
+[UxmlObject, Serializable]
 public partial class ExampleThemeComponent : WidgetThemeComponent {
     [Header("Example Theme Component")] [UxmlAttribute("example-factory")]
     public WidgetFactoryReference<VisualElement> factory;
-
     [UxmlAttribute("c-primary")] public ThemeOptional<Color> primaryColor;
     [UxmlAttribute("example-optional")] public ThemeOptional<Color> optionalColor;
 }
