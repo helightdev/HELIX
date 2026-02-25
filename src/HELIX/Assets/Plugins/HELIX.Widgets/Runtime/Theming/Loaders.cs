@@ -43,27 +43,6 @@ namespace HELIX.Widgets.Theming {
         }
     }
 
-    public class Texture2DThemeStyleValueLoader : IThemeStyleValueLoader<Texture2D> {
-        public bool Load(string key, ICustomStyle customStyle, out Texture2D result) {
-            result = null;
-            return customStyle.TryGetValue(new CustomStyleProperty<Texture2D>(key), out result);
-        }
-    }
-
-    public class SpriteThemeStyleValueLoader : IThemeStyleValueLoader<Sprite> {
-        public bool Load(string key, ICustomStyle customStyle, out Sprite result) {
-            result = null;
-            return customStyle.TryGetValue(new CustomStyleProperty<Sprite>(key), out result);
-        }
-    }
-
-    public class VectorImageThemeStyleValueLoader : IThemeStyleValueLoader<VectorImage> {
-        public bool Load(string key, ICustomStyle customStyle, out VectorImage result) {
-            result = null;
-            return customStyle.TryGetValue(new CustomStyleProperty<VectorImage>(key), out result);
-        }
-    }
-
     public class Vector2ThemeStyleValueLoader : IThemeStyleValueLoader<Vector2> {
         public bool Load(string key, ICustomStyle customStyle, out Vector2 result) {
             result = Vector2.zero;
@@ -85,6 +64,27 @@ namespace HELIX.Widgets.Theming {
             result = Vector4.zero;
             return customStyle.TryGetValue(new CustomStyleProperty<string>(key), out var stringResult) &&
                    HelixConvert.ToVector4(stringResult, out result);
+        }
+    }
+    
+    public class Texture2DThemeStyleValueLoader : IThemeStyleValueLoader<Texture2D> {
+        public bool Load(string key, ICustomStyle customStyle, out Texture2D result) {
+            result = null;
+            return customStyle.TryGetValue(new CustomStyleProperty<Texture2D>(key), out result);
+        }
+    }
+
+    public class SpriteThemeStyleValueLoader : IThemeStyleValueLoader<Sprite> {
+        public bool Load(string key, ICustomStyle customStyle, out Sprite result) {
+            result = null;
+            return customStyle.TryGetValue(new CustomStyleProperty<Sprite>(key), out result);
+        }
+    }
+
+    public class VectorImageThemeStyleValueLoader : IThemeStyleValueLoader<VectorImage> {
+        public bool Load(string key, ICustomStyle customStyle, out VectorImage result) {
+            result = null;
+            return customStyle.TryGetValue(new CustomStyleProperty<VectorImage>(key), out result);
         }
     }
 }

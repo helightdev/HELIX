@@ -3,7 +3,6 @@ using UnityEngine.Scripting;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
-
     [RequireDerived]
     public abstract class WidgetFactory {
         [RequiredMember]
@@ -28,32 +27,35 @@ namespace HELIX.Widgets.Theming {
         }
     }
 
-    [Serializable]
-    public struct WidgetFactoryReference<T> where T : VisualElement {
-        public string factoryName;
-        
-        public WidgetFactoryReference(string factoryName) {
-            this.factoryName = factoryName;
-            
-        }
-        
-        public static implicit operator WidgetFactoryReference<T>(string factoryName) {
-            return new WidgetFactoryReference<T>(factoryName);
-        }
-        
-        public static implicit operator WidgetFactoryReference<T>(Type factoryType) {
-            return new WidgetFactoryReference<T>(factoryType.FullName);
-        }
-        
-        public static implicit operator string(WidgetFactoryReference<T> reference) {
-            return reference.factoryName;
+    public interface IWidgetFactoryReference {
+        string GetFactoryName();
+
+        WidgetFactory GetFactory() {
+            var factoryName = GetFactoryName();
+            return string.IsNullOrEmpty(factoryName) ? null : RuntimeReflectionThemeLookup.GetFactory(factoryName);
         }
     }
 
-    public abstract class WidgetFactoryEventBase<T> : EventBase<T> where T : WidgetFactoryEventBase<T>, new() {
-        public BaseWidget parentWidget;
+    [Serializable]
+    public struct WidgetFactoryReference<T> : IWidgetFactoryReference where T : VisualElement {
+        public string factoryName;
+
+        public WidgetFactoryReference(string factoryName) {
+            this.factoryName = factoryName;
+        }
+
+        public static implicit operator WidgetFactoryReference<T>(string factoryName) {
+            return new WidgetFactoryReference<T>(factoryName);
+        }
+
+        public static implicit operator WidgetFactoryReference<T>(Type factoryType) {
+            return new WidgetFactoryReference<T>(factoryType.FullName);
+        }
+
+        public static implicit operator string(WidgetFactoryReference<T> reference) {
+            return reference.factoryName;
+        }
+
+        public string GetFactoryName() => factoryName;
     }
-    
-    public class WidgetFactoryWidgetCreatedEvent : WidgetFactoryEventBase<WidgetFactoryWidgetCreatedEvent> { }
-    public class WidgetFactoryWidgetDestroyedEvent : WidgetFactoryEventBase<WidgetFactoryWidgetDestroyedEvent> { }
 }

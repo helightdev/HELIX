@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HELIX;
 using HELIX.Abstractions;
 using HELIX.Extensions;
@@ -9,7 +10,8 @@ using UnityEngine.UIElements;
 
 [ThemePropertyCollection]
 public static class MyThemes {
-    public static readonly ThemeProperty<Color> PrimaryColor = ThemeProperty.Theme("c-primary", Color.white);
+    public static readonly ThemeProperty<Color> PrimaryColor =
+        ThemeProperty.Theme("c-primary", Color.white);
 
     public static readonly ThemeProperty<Color> PrimaryWashedColor =
         ThemeProperty.Theme("c-primary-washed", Color.white);
@@ -43,6 +45,8 @@ public partial class Example : BaseWidget {
         set => _primaryColor.Override = value;
     }
 
+    [UxmlAttribute] public ThemeOverride<Texture2D> SomeTexture { get; set; }
+
     [UxmlAttribute]
     public WidgetFactoryReference<VisualElement> FactoryReference {
         get => _factorySlot.Reference;
@@ -67,5 +71,32 @@ public partial class Example : BaseWidget {
 
     private void OnPrimaryColorChanged(Color newValue) {
         style.backgroundColor = newValue;
+    }
+}
+
+[UxmlObject]
+public partial class ExampleThemeComponent : WidgetThemeComponent {
+    [Header("Example Theme Component")] [UxmlAttribute("example-factory")]
+    public WidgetFactoryReference<VisualElement> factory;
+
+    [UxmlAttribute("c-primary")] public ThemeOptional<Color> primaryColor;
+    [UxmlAttribute("example-optional")] public ThemeOptional<Color> optionalColor;
+}
+
+[UxmlElement]
+public partial class PerformUpdateWidget : BaseWidget {
+
+    public PerformUpdateWidget() {
+        var button = new Button() {
+            text = "Update me!"
+        };
+        button.clicked += () => {
+            ThemeProvider.Components = new List<WidgetThemeComponent>() {
+                new ExampleThemeComponent() {
+                    factory = "AnotherTestFactory"
+                }
+            };
+        };
+        Add(button);
     }
 }

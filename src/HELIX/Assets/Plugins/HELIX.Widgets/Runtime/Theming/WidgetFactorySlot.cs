@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -16,13 +17,13 @@ namespace HELIX.Widgets.Theming {
         public abstract void Destroy();
         public abstract void Recreate();
         public abstract void TryCreate();
-        public abstract void ApplyReferenceFromStyle(ICustomStyle givenStyle);
+        public abstract void ApplyReferenceFromTheme();
     }
     
     public class WidgetFactorySlot<T> : WidgetFactorySlot where T : VisualElement {
         private WidgetFactory _factory;
         private T _element;
-        private bool _hasAppliedReference;
+        private bool _hasExplicitReference;
         private WidgetFactoryReference<T> _reference;
         private readonly ThemeProperty<WidgetFactory<T>> _themeProperty;
         
@@ -50,26 +51,32 @@ namespace HELIX.Widgets.Theming {
             var factory = RuntimeReflectionThemeLookup.GetFactory(factoryReference.factoryName);
             
             // Try resolving from parent style on late unset
-            if (factory == null && HasElement) {
+            if (factory == null) {
                 var parentStyle = widget.parent?.customStyle;
                 if (parentStyle != null) {
-                    _themeProperty.Resolve(parentStyle, out var resolvedFactory);
-                    factory = resolvedFactory;
+                    factory = WidgetThemeProvider.Resolve(widget.ThemeProvider, _themeProperty);
                 }
+                _hasExplicitReference = false;
+            } else {
+                _hasExplicitReference = true;
             }
             
             if (factory == null || factory == _factory) return;
             _factory = factory;
-            _hasAppliedReference = true;
             if (HasElement) Recreate();
         }
 
-        public override void ApplyReferenceFromStyle(ICustomStyle givenStyle) {
-            if (_hasAppliedReference) return;
+        public override void ApplyReferenceFromTheme() {
+            if (_hasExplicitReference) return;
             if (_themeProperty == null) return;
-            _themeProperty.Resolve(givenStyle, out var factory);
+            
+            var factory = WidgetThemeProvider.Resolve(widget.ThemeProvider, _themeProperty);
             if (factory == null || Equals(factory, _factory)) return;
             _factory = factory;
+            _hasExplicitReference = false;
+            if (HasElement) {
+                Recreate();
+            }
         }
         
         public override void TryCreate() {
@@ -91,21 +98,12 @@ namespace HELIX.Widgets.Theming {
                 return;
             }
             OnElementCreated?.Invoke(element);
-            using (var evt = WidgetFactoryWidgetCreatedEvent.GetPooled()) {
-                evt.parentWidget = widget;
-                element.SendEvent(evt);
-            }
-            
             Add(element);
             _element = element;
         }
 
         public override void Destroy() {
             if (_element == null) return;
-            using (var evt = WidgetFactoryWidgetDestroyedEvent.GetPooled()) {
-                evt.parentWidget = widget;
-                _element.SendEvent(evt);
-            }
             OnElementDestroyed?.Invoke(_element);
             Remove(_element);
             _element = null;

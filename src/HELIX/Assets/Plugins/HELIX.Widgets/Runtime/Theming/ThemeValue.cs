@@ -53,6 +53,7 @@ namespace HELIX.Widgets.Theming {
                         _state = ThemeValueState.None;
                         SwapProperty(_fallbackProperty);
                     }
+
                     break;
                 case ThemeOverrideType.Value:
                     SetVisualOverride(value);
@@ -93,9 +94,7 @@ namespace HELIX.Widgets.Theming {
 
         public override void ReloadStyles() {
             if (_state > ThemeValueState.CustomStyle) return;
-            if (_property.Resolve(_owner.customStyle, out var newValue)) goto ApplyStyle;
-            newValue = _property.defaultValue;
-            ApplyStyle:
+            var newValue = WidgetThemeProvider.Resolve(_owner.ThemeProvider, _property);
             NotifyStyleChanged(newValue);
         }
 

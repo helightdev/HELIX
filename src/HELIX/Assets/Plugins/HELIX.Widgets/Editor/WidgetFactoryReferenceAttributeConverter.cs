@@ -1,7 +1,8 @@
+using HELIX.Widgets.Theming;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Theming {
+namespace HELIX.Widgets.Editor {
     public class WidgetFactoryReferenceAttributeConverter<T> : UxmlAttributeConverter<WidgetFactoryReference<T>>
         where T : VisualElement {
         public override WidgetFactoryReference<T> FromString(string value) {

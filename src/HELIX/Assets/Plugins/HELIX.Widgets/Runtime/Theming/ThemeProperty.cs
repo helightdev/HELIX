@@ -26,12 +26,20 @@ namespace HELIX.Widgets.Theming {
             this.key = key;
         }
 
+        public abstract ErasedThemeProperty Erase();
+        public abstract ThemeProperty<TR> Recast<TR>();
+        public abstract object GetDefaultValue();
+
         public static UnthemedProperty<T> Unthemed<T>(T defaultValue) {
             return new UnthemedProperty<T>(defaultValue);
         }
 
         public static ThemeProperty<T, T> Theme<T>(string key, T defaultValue) {
             return new ThemeProperty<T, T>(key, defaultValue);
+        }
+
+        public static ThemeProperty<T, T> Theme<T>(string key) {
+            return new ThemeProperty<T, T>(key, default);
         }
 
         public static WidgetFactoryProperty<T> WidgetFactory<T>(string key, WidgetFactory<T> defaultFactory)
@@ -61,6 +69,18 @@ namespace HELIX.Widgets.Theming {
         }
 
         public abstract bool Resolve(ICustomStyle customStyle, out T result);
+        
+        public override ErasedThemeProperty Erase() {
+            return new ErasedThemeProperty(key, defaultValue);
+        }
+        
+        public override ThemeProperty<TR> Recast<TR>() {
+            return new ThemeProperty<TR, TR>(key, default);
+        }
+
+        public override object GetDefaultValue() {
+            return defaultValue;
+        }
     }
 
 
@@ -68,6 +88,15 @@ namespace HELIX.Widgets.Theming {
         public UnthemedProperty(T defaultValue) : base("unthemed", defaultValue) { }
 
         public override bool Resolve(ICustomStyle customStyle, out T result) {
+            result = defaultValue;
+            return true;
+        }
+    }
+    
+    public class ErasedThemeProperty : ThemeProperty<object> {
+        public ErasedThemeProperty(string key, object defaultValue) : base(key, defaultValue) { }
+
+        public override bool Resolve(ICustomStyle customStyle, out object result) {
             result = defaultValue;
             return true;
         }
@@ -103,15 +132,14 @@ namespace HELIX.Widgets.Theming {
 
         public override bool Resolve(ICustomStyle customStyle, out T result) {
             if (!Loaders.TryGetValue(typeof(T), out var loader)) {
-                Debug.LogWarning($"No loader registered for ThemeProperty type: {typeof(T)}");
                 result = defaultValue;
-                return true;
+                return false;
             }
 
             if (loader is not IThemeStyleValueLoader<T> typedLoader) {
                 Debug.LogWarning($"Loader for ThemeProperty type: {typeof(T)} is not of expected type.");
                 result = defaultValue;
-                return true;
+                return false;
             }
 
             if (typedLoader.Load(style.name, customStyle, out result)) return true;

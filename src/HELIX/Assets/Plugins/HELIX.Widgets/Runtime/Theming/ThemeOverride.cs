@@ -1,10 +1,12 @@
 using System;
 
 namespace HELIX.Widgets.Theming {
-    public abstract class ThemeOverrides { }
+    public abstract class ThemeOverride {
+        public abstract bool TryGetOverride(out object value);
+    }
 
     [Serializable]
-    public class ThemeOverride<T> : ThemeOverrides {
+    public class ThemeOverride<T> : ThemeOverride {
         public ThemeOverrideType type = ThemeOverrideType.None;
         public T constantValue;
         public string propertyReference;
@@ -13,6 +15,16 @@ namespace HELIX.Widgets.Theming {
             type = ThemeOverrideType.Value,
             constantValue = value
         };
+
+        public override bool TryGetOverride(out object value) {
+            if (type == ThemeOverrideType.Value) {
+                value = constantValue;
+                return true;
+            }
+
+            value = default(T);
+            return false;
+        }
     }
 
     public enum ThemeOverrideType {

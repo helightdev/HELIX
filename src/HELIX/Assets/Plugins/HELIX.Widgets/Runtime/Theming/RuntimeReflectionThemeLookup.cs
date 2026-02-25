@@ -10,6 +10,7 @@ namespace HELIX.Widgets.Theming {
         private static readonly Dictionary<string, WidgetFactory> _widgetFactoryCache = new();
 
         public static Type FindType(string typeName) {
+            if (string.IsNullOrWhiteSpace(typeName)) return null;
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
                 var t = asm.GetType(typeName, throwOnError: false, ignoreCase: false);
                 if (t != null) return t;
@@ -26,7 +27,7 @@ namespace HELIX.Widgets.Theming {
         }
 
         public static WidgetFactory GetFactory(string reference) {
-            if (reference is null or "None") return null;
+            if (string.IsNullOrWhiteSpace(reference) || reference == "None") return null;
             if (_widgetFactoryCache.TryGetValue(reference, out var cachedFactory)) {
                 return cachedFactory;
             }

@@ -5,7 +5,7 @@ using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Editor {
-    [CustomPropertyDrawer(typeof(ThemeOverrides), true)]
+    [CustomPropertyDrawer(typeof(ThemeOverride), true)]
     public class ThemePropertyOverrideDrawer : PropertyDrawer {
         public override VisualElement CreatePropertyGUI(SerializedProperty property) {
             var type = fieldInfo.FieldType.GetGenericArguments()[0];
@@ -15,7 +15,7 @@ namespace HELIX.Widgets.Editor {
         }
     }
 
-    public class PropertyOverrideEditor : BaseField<ThemeOverrides> {
+    public class PropertyOverrideEditor : BaseField<ThemeOverride> {
         private readonly EnumField _typeField;
         private readonly PropertyField _valueField;
         private readonly DropdownField _referenceField;

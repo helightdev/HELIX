@@ -49,10 +49,12 @@
   <ItemGroup>
     <Compile Include="Assets\Plugins\HELIX.Widgets\Editor\WidgetFactoryReferenceAttributeConverter.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Editor\Drawers\ThemePropertyDrawer.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Editor\Drawers\ThemeOptionalDrawer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Editor\Drawers\ThemePropertyCollection.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Editor\Drawers\ThemePropertyOverrideDrawer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Editor\Drawers\WidgetFactoryDrawer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Editor\ThemeOverrideAttributeConverter.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Editor\ThemeOptionalAttributeConverter.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Editor\Drawers\WidgetFactoryCollection.cs" />
     <None Include="Assets\Plugins\HELIX.Widgets\Editor\HELIX.Widgets.Editor.asmdef" />
     <Reference Include="UnityEngine">
