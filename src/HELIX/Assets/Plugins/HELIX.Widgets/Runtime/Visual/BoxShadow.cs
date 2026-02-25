@@ -71,8 +71,8 @@ namespace HELIX.Widgets.Visual {
         
         [UxmlAttribute]
         public Rect Corners {
-            get => EditorUtilities.SwizzleToRect(BorderRadius);
-            set => BorderRadius = EditorUtilities.SwizzleToVector4(value);
+            get => EditorUtilities.SwizzleCorners(BorderRadius);
+            set => BorderRadius = EditorUtilities.UnswizzleCorners(value);
         }
 
         private void ApplyBlurFunction() {

@@ -12,8 +12,8 @@ namespace HELIX.Widgets.Visual.PathBuilders {
 
         [UxmlAttribute]
         public Rect Corners {
-            get => EditorUtilities.SwizzleToRect(Radii);
-            set => Radii = EditorUtilities.SwizzleToVector4(value);
+            get => EditorUtilities.SwizzleCorners(Radii);
+            set => Radii = EditorUtilities.UnswizzleCorners(value);
         }
 
         public Vector4 Radii { get; set; } = default;
