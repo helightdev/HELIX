@@ -120,6 +120,16 @@ namespace HELIX.Extensions {
             element.style.unityBackgroundImageTintColor = color;
             return element;
         }
+        
+        public static T WithStylesheet<T>(this T element, StyleSheet stylesheet) where T : VisualElement {
+            element.styleSheets.Add(stylesheet);
+            return element;
+        }        
+        public static T WithStylesheet<T>(this T element, string resourcePath) where T : VisualElement {
+            var stylesheet = Resources.Load<StyleSheet>(resourcePath);
+            element.styleSheets.Add(stylesheet);
+            return element;
+        }
 
         public static T Transitions<T>(this T element, params Transition[] transitions) where T : VisualElement {
             var names = new List<StylePropertyName>();

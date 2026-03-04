@@ -6,4 +6,5 @@
             <ui:VisualElement style="flex-grow: 1; height: 3000px;"/>
         </ui:ScrollView>
     </HELIX.Widgets.Navigation.Scaffold>
+    <ui:TextField label="Text Field" placeholder-text="filler text"/>
 </ui:UXML>
