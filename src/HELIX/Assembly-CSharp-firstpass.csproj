@@ -43,7 +43,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="Assets\Plugins\HELIX.Widgets\package.json" />
-    <None Include="Assets\Plugins\HELIX.Widgets\Runtime\Resources\helix.uss" />
+    <None Include="Assets\Plugins\HELIX.Widgets\Runtime\Resources\helix\helix.uss" />
     <None Include="Assets\Plugins\HELIX\package.json" />
     <Reference Include="UnityEngine">
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.4.0b10\Editor\Data\Managed\UnityEngine\UnityEngine.dll</HintPath>

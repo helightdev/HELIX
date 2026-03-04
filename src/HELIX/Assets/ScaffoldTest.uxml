@@ -1,10 +1,15 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <HELIX.Widgets.Navigation.Scaffold style="overflow: hidden;">
-        <ui:ScrollView>
-            <ui:VisualElement style="flex-grow: 1; height: 200px;"/>
-            <ExampleScaffoldPopup style="height: 42px; background-color: rgb(36, 255, 0);"/>
-            <ui:VisualElement style="flex-grow: 1; height: 3000px;"/>
-        </ui:ScrollView>
-    </HELIX.Widgets.Navigation.Scaffold>
-    <ui:TextField label="Text Field" placeholder-text="filler text"/>
+    <ui:VisualElement style="flex-grow: 1;">
+        <HELIX.Widgets.Input.GenericTextInput text-input-style="LightNeutral" cursor-color="rgb(0, 0, 0)" selection-color="rgba(255, 10, 0, 0.38)" focusable="true" name="GenericTextInput" value="Test1234" expands="true" class="helix-textfield-style-light" style="height: 31px; background-color: rgb(255, 255, 255);"/>
+        <HELIX.Widgets.Input.GenericTextInput name="" text-input-style="DarkNeutral" expands="true" value="Test" style="height: 31px; background-color: rgb(24, 24, 24); color: rgb(255, 255, 255);"/>
+        <ui:VisualElement style="flex-grow: 1;">
+            <HELIX.Widgets.Navigation.Scaffold style="overflow: hidden; flex-grow: 1;">
+                <ui:ScrollView>
+                    <ui:VisualElement style="flex-grow: 1; height: 200px; background-color: rgb(219, 0, 155);"/>
+                    <ExampleScaffoldPopup style="height: 42px; background-color: rgb(36, 255, 0);"/>
+                    <ui:VisualElement style="flex-grow: 1; height: 3000px; background-color: rgb(171, 27, 131);"/>
+                </ui:ScrollView>
+            </HELIX.Widgets.Navigation.Scaffold>
+        </ui:VisualElement>
+    </ui:VisualElement>
 </ui:UXML>

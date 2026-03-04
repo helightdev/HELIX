@@ -81,15 +81,16 @@
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Layout\Column.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\PathDrawers\GradientFillPathDrawer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\PathPainter.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Utilities\AuxiliaryStylesheets.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Navigation\Transitions\InstantPageTransition.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Layout\DirectionalContainer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\GradientGenerators\RadialGradientGenerator.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\PathDrawers\SolidStrokePathDrawer.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Input\GenericTextInput.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Navigation\Scaffold.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Layout\Spacer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Theming\ThemeValue.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\GradientGenerators\DirectionalLinearGradientGenerator.cs" />
-    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Input\GenericTextfield.cs" />
     <None Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\HELIX.Widgets.asmdef" />
     <Reference Include="UnityEngine">
       <HintPath>C:\Program Files\Unity\Hub\Editor\6000.4.0b10\Editor\Data\Managed\UnityEngine\UnityEngine.dll</HintPath>
