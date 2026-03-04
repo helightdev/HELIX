@@ -161,20 +161,47 @@ dotnet_style_qualification_for_property = false:suggestion
 dotnet_style_require_accessibility_modifiers = for_non_interface_members:suggestion
 
 # ReSharper properties
+resharper_align_linq_query = true
+resharper_align_multiline_type_parameter_constraints = true
+resharper_align_multiple_declaration = true
 resharper_apply_auto_detected_rules = false
-resharper_autodetect_indent_settings = true
+resharper_braces_for_for = required_for_multiline
+resharper_braces_for_foreach = required_for_multiline
+resharper_braces_for_ifelse = required_for_multiline
+resharper_braces_for_while = required_for_multiline
 resharper_cpp_brace_style = end_of_line
 resharper_cpp_empty_block_style = together_same_line
 resharper_csharp_empty_block_style = together
+resharper_csharp_keep_blank_lines_in_code = 1
+resharper_csharp_keep_blank_lines_in_declarations = 1
+resharper_csharp_wrap_after_declaration_lpar = true
+resharper_csharp_wrap_after_invocation_lpar = true
+resharper_csharp_wrap_arguments_style = chop_if_long
+resharper_csharp_wrap_before_declaration_rpar = true
+resharper_csharp_wrap_before_invocation_rpar = true
+resharper_csharp_wrap_parameters_style = chop_if_long
+resharper_force_attribute_style = join
 resharper_formatter_off_tag = @formatter:off
 resharper_formatter_on_tag = @formatter:on
 resharper_formatter_tags_enabled = true
+resharper_indent_preprocessor_directives = normal
 resharper_indent_switch_labels = true
+resharper_int_align_switch_expressions = true
+resharper_int_align_switch_sections = true
+resharper_keep_existing_embedded_arrangement = false
+resharper_keep_existing_expr_member_arrangement = false
 resharper_keep_existing_initializer_arrangement = false
+resharper_keep_existing_invocation_parens_arrangement = false
 resharper_max_initializer_elements_on_line = 1
 resharper_new_line_before_catch = false
 resharper_new_line_before_else = false
 resharper_new_line_before_while = false
+resharper_outdent_binary_ops = true
+resharper_place_accessorholder_attribute_on_same_line = false
+resharper_place_field_attribute_on_same_line = false
+resharper_place_simple_case_statement_on_same_line = true
+resharper_place_simple_embedded_block_on_same_line = true
+resharper_place_simple_embedded_statement_on_same_line = true
 resharper_requires_expression_braces = end_of_line
 resharper_show_autodetect_configure_formatting_tip = false
 resharper_use_indent_from_vs = false
@@ -212,10 +239,6 @@ indent_size = 2
 indent_style = space
 indent_size = 2
 
-[*.map]
-indent_style = space
-indent_size = 2
-
 [*.asmdef]
 indent_style = space
 indent_size = 2
@@ -228,7 +251,7 @@ indent_size = 2
 indent_style = space
 indent_size = 2
 
-[*.{appxmanifest,asax,ascx,aspx,axaml,blockshader,c,c++,c++m,cc,ccm,cginc,compute,cp,cpp,cppm,cs,cshtml,cu,cuh,cxx,cxxm,dtd,fs,fsi,fsscript,fsx,fx,fxh,h,h++,hh,hlsl,hlsli,hlslinc,hp,hpp,hxx,icc,inc,inl,ino,ipp,ixx,master,ml,mli,mpp,mq4,mq5,mqh,mxx,nuspec,paml,razor,resw,resx,shader,shaderFoundry,skin,tcc,tpp,urtshader,usf,ush,uxml,vb,xaml,xamlx,xoml,xsd}]
+[*.{appxmanifest,asax,ascx,aspx,axaml,blockshader,c,c++,c++m,cc,ccm,cginc,compute,cp,cpp,cppm,cs,cshtml,cu,cuh,cxx,cxxm,dtd,fs,fsi,fsscript,fsx,fx,fxh,h,h++,hh,hlsl,hlsli,hlslinc,hp,hpp,hxx,icc,inc,inl,ino,ipp,ixx,master,ml,mli,mpp,mq4,mq5,mqh,mxx,nuspec,paml,pssl,pssli,razor,resw,resx,shader,shaderFoundry,skin,tcc,tpp,urtshader,usf,ush,uxml,vb,xaml,xamlx,xoml,xsd}]
 indent_style = space
 indent_size = 4
 tab_width = 4
