@@ -82,6 +82,15 @@ namespace HELIX.Extensions {
             return element;
         }
 
+        public static T Loosen<T>(this T element) where T : VisualElement {
+            element.style.position = UnityEngine.UIElements.Position.Relative;
+            element.style.top = Length.Auto();
+            element.style.left = Length.Auto();
+            element.style.right = Length.Auto();
+            element.style.bottom = Length.Auto();
+            return element;
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T Positioned<T>(
             this T element,
