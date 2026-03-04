@@ -6,12 +6,12 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
     public partial class BoxShadow : BaseWidget {
-        private float _spreadRadius = 0f;
+        private readonly VisualElement _shadowElement;
         private float _blurRadius = 4f;
+        private Vector4 _borderRadius = new(0, 0, 0, 0);
         private Vector2 _offset = Vector2.zero;
         private Color _shadowColor = new(0, 0, 0, 0.25f);
-        private Vector4 _borderRadius = new(0, 0, 0, 0);
-        private readonly VisualElement _shadowElement;
+        private float _spreadRadius;
 
         public BoxShadow() {
             _shadowElement = new VisualElement {
@@ -68,7 +68,7 @@ namespace HELIX.Widgets.Visual {
                 _shadowElement.BorderRadius(value);
             }
         }
-        
+
         [UxmlAttribute]
         public Rect Corners {
             get => EditorUtilities.SwizzleCorners(BorderRadius);

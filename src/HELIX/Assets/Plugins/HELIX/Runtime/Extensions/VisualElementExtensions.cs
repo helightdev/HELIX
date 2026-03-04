@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using HELIX.Types;
-using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
 using IEventHandler = HELIX.Types.IEventHandler;
@@ -14,10 +12,18 @@ namespace HELIX.Extensions {
             return element;
         }
 
+        public static T AddTo<T>(this T element, VisualElement.Hierarchy target) where T : VisualElement {
+            target.Add(element);
+            return element;
+        }
+
+        public static T WithAdded<T>(this T target, VisualElement element) where T : VisualElement {
+            target.Add(element);
+            return target;
+        }
+
         public static T AddClasses<T>(this T element, params string[] classNames) where T : VisualElement {
-            foreach (var className in classNames) {
-                element.AddToClassList(className);
-            }
+            foreach (var className in classNames) element.AddToClassList(className);
 
             return element;
         }
@@ -32,9 +38,36 @@ namespace HELIX.Extensions {
             return element;
         }
 
-        public static T NoPaddingAndMargin<T>(this T element) where T : VisualElement => element.NoPadding().NoMargin();
+        public static T Display<T>(this T element, bool display) where T : VisualElement {
+            element.style.display = display ? DisplayStyle.Flex : DisplayStyle.None;
+            return element;
+        }
+
+        public static T Visible<T>(this T element, bool visible) where T : VisualElement {
+            element.style.visibility = visible ? Visibility.Visible : Visibility.Hidden;
+            return element;
+        }
+
+        public static T Opacity<T>(this T element, float opacity) where T : VisualElement {
+            element.style.opacity = opacity;
+            return element;
+        }
+
+        public static T Pickable<T>(this T element, bool pickable) where T : VisualElement {
+            element.pickingMode = pickable ? PickingMode.Position : PickingMode.Ignore;
+            return element;
+        }
+
+        public static T NoPaddingAndMargin<T>(this T element) where T : VisualElement {
+            return element.NoPadding().NoMargin();
+        }
 
         public static T WithStyle<T>(this T element, Func<IStyle, UpdateStyle> updater) where T : VisualElement {
+            updater(element.style);
+            return element;
+        }
+
+        public static T WithStyle<T>(this T element, Action<IStyle> updater) where T : VisualElement {
             updater(element.style);
             return element;
         }
@@ -48,19 +81,22 @@ namespace HELIX.Extensions {
             element.style.fontSize = size;
             return element;
         }
-        
+
         public static T BackgroundColor<T>(this T element, Color color) where T : VisualElement {
             element.style.backgroundColor = color;
             return element;
         }
 
-        public static T Image<T>(this T element, Background background,
+        public static T Image<T>(
+            this T element,
+            Background background,
             BackgroundSizeType? fit = null,
-            BackgroundSize? size = null, Color? tintColor = null) where T : VisualElement {
+            BackgroundSize? size = null,
+            Color? tintColor = null
+        ) where T : VisualElement {
             element.style.backgroundImage = background;
-            if (size.HasValue) {
-                element.style.backgroundSize = size.Value;
-            } else if (fit.HasValue) element.style.backgroundSize = new BackgroundSize(fit.Value);
+            if (size.HasValue) element.style.backgroundSize = size.Value;
+            else if (fit.HasValue) element.style.backgroundSize = new BackgroundSize(fit.Value);
             if (tintColor.HasValue) element.style.unityBackgroundImageTintColor = tintColor.Value;
             return element;
         }
@@ -74,7 +110,7 @@ namespace HELIX.Extensions {
             element.style.backgroundSize = size;
             return element;
         }
-        
+
         public static T BackgroundImageScaling<T>(this T element, BackgroundSizeType size) where T : VisualElement {
             element.style.backgroundSize = new BackgroundSize(size);
             return element;
@@ -110,9 +146,7 @@ namespace HELIX.Extensions {
         }
 
         public static T WithCallback<T>(this T element, params IEventHandler[] actions) where T : VisualElement {
-            foreach (var action in actions) {
-                action.Register(element);
-            }
+            foreach (var action in actions) action.Register(element);
 
             return element;
         }
@@ -131,11 +165,28 @@ namespace HELIX.Extensions {
         public static T BindDisposable<T>(this T element, Func<IDisposable> disposable) where T : VisualElement {
             var buffer = default(IDisposable);
             element.RegisterOnAttachRetroactively(_ => {
-                buffer?.Dispose();
-                buffer = disposable();
-            });
+                    buffer?.Dispose();
+                    buffer = disposable();
+                }
+            );
             element.RegisterCallback<DetachFromPanelEvent>(_ => buffer?.Dispose());
             return element;
+        }
+
+        public static Length Percent(this int value) {
+            return new Length(value, LengthUnit.Percent);
+        }
+
+        public static Length Percent(this float value) {
+            return new Length(value, LengthUnit.Percent);
+        }
+
+        public static Length NormalizedPercent(this int value) {
+            return new Length(value * 100f, LengthUnit.Percent);
+        }
+
+        public static Length NormalizedPercent(this float value) {
+            return new Length(value * 100f, LengthUnit.Percent);
         }
     }
 }

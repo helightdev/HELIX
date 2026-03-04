@@ -12,14 +12,14 @@ namespace HELIX.Widgets.Theming {
         public static Type FindType(string typeName) {
             if (string.IsNullOrWhiteSpace(typeName)) return null;
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
-                var t = asm.GetType(typeName, throwOnError: false, ignoreCase: false);
+                var t = asm.GetType(typeName, false, false);
                 if (t != null) return t;
             }
 
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
                 try {
                     var t = asm.GetTypes().FirstOrDefault(x => x.FullName == typeName)
-                            ?? asm.GetTypes().FirstOrDefault(x => x.Name == typeName);
+                         ?? asm.GetTypes().FirstOrDefault(x => x.Name == typeName);
                     if (t != null) return t;
                 } catch (ReflectionTypeLoadException) { }
             }
@@ -29,9 +29,7 @@ namespace HELIX.Widgets.Theming {
 
         public static WidgetFactory GetFactory(string reference) {
             if (string.IsNullOrWhiteSpace(reference) || reference == "None") return null;
-            if (_widgetFactoryCache.TryGetValue(reference, out var cachedFactory)) {
-                return cachedFactory;
-            }
+            if (_widgetFactoryCache.TryGetValue(reference, out var cachedFactory)) return cachedFactory;
 
             var type = FindType(reference);
             if (type == null) {
@@ -50,9 +48,7 @@ namespace HELIX.Widgets.Theming {
 
         public static ThemeProperty GetProperty(string reference) {
             if (reference is null or "None") return null;
-            if (_lookupCache.TryGetValue(reference, out var cachedProperty)) {
-                return cachedProperty;
-            }
+            if (_lookupCache.TryGetValue(reference, out var cachedProperty)) return cachedProperty;
 
             var arr = reference.Split(":");
             if (arr.Length != 2) {

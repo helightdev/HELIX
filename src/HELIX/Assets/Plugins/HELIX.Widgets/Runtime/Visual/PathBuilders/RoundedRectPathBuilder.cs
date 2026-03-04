@@ -6,9 +6,11 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.PathBuilders {
     [UxmlObject]
     public partial class RoundedRectPathBuilder : ScriptablePathBuilder {
-        [Header("Rounded Rectangle"), UxmlAttribute] public Rect Rect { get; set; } = default;
+        [Header("Rounded Rectangle"), UxmlAttribute]
+        public Rect Rect { get; set; } = default;
 
-        [UxmlAttribute] public RectConstructionMode Mode { get; set; } = RectConstructionMode.Insets;
+        [UxmlAttribute]
+        public RectConstructionMode Mode { get; set; } = RectConstructionMode.Insets;
 
         [UxmlAttribute]
         public Rect Corners {
@@ -16,14 +18,12 @@ namespace HELIX.Widgets.Visual.PathBuilders {
             set => Radii = EditorUtilities.UnswizzleCorners(value);
         }
 
-        public Vector4 Radii { get; set; } = default;
-
+        public Vector4 Radii { get; set; }
 
         public override void Build(IPathBuilder builder, Rect bounds) {
             var rect = Rect;
             switch (Mode) {
-                case RectConstructionMode.Absolute:
-                    break;
+                case RectConstructionMode.Absolute: break;
                 case RectConstructionMode.Normalized:
                     rect.x *= bounds.width;
                     rect.y *= bounds.height;
@@ -36,11 +36,8 @@ namespace HELIX.Widgets.Visual.PathBuilders {
                     break;
             }
 
-            if (Corners == default) {
-                builder.Rect(rect);
-            } else {
-                builder.RRect(new RRect(rect, Radii));
-            }
+            if (Corners == default) builder.Rect(rect);
+            else builder.RRect(new RRect(rect, Radii));
         }
     }
 

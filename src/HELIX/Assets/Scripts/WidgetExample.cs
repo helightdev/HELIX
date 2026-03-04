@@ -8,6 +8,7 @@ using HELIX.Widgets;
 using HELIX.Widgets.Theming;
 using UnityEngine;
 using UnityEngine.UIElements;
+using WidgetThemeComponent = HELIX.Widgets.Theming.WidgetThemeComponent;
 
 [ThemePropertyCollection]
 public static class MyThemes {
@@ -79,22 +80,18 @@ public partial class Example : BaseWidget {
 public partial class ExampleThemeComponent : WidgetThemeComponent {
     [Header("Example Theme Component")] [UxmlAttribute("example-factory")]
     public WidgetFactoryReference<VisualElement> factory;
+
     [UxmlAttribute("c-primary")] public ThemeOptional<Color> primaryColor;
     [UxmlAttribute("example-optional")] public ThemeOptional<Color> optionalColor;
 }
 
 [UxmlElement]
 public partial class PerformUpdateWidget : BaseWidget {
-
     public PerformUpdateWidget() {
-        var button = new Button() {
-            text = "Update me!"
-        };
+        var button = new Button() { text = "Update me!" };
         button.clicked += () => {
             ThemeProvider.Components = new List<WidgetThemeComponent>() {
-                new ExampleThemeComponent() {
-                    factory = "AnotherTestFactory"
-                }
+                new ExampleThemeComponent() { factory = "AnotherTestFactory" }
             };
         };
         Add(button);

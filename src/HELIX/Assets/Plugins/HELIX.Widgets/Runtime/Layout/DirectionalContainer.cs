@@ -8,9 +8,9 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Layout {
     [UxmlElement]
     public abstract partial class DirectionalContainer : VisualElement, IMultiChildContainer {
+        private Align _crossAxisAlign;
         private float _gap;
         private Justify _mainAxisAlign;
-        private Align _crossAxisAlign;
         private bool _reverse;
 
         protected DirectionalContainer() {
@@ -22,18 +22,6 @@ namespace HELIX.Widgets.Layout {
             RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
         }
 
-        private void OnAttachToPanel(AttachToPanelEvent evt) {
-            style.flexDirection = GetFlexDirection(Reverse);
-            RebuildGaps();
-        }
-
-        private void OnGeometryChanged(GeometryChangedEvent evt) {
-            RebuildGaps();
-        }
-
-        protected abstract FlexDirection GetFlexDirection(bool reverse);
-        protected abstract Axis GetAxis();
-
         [UxmlAttribute]
         public float Gap {
             get => _gap;
@@ -43,11 +31,9 @@ namespace HELIX.Widgets.Layout {
                     _gap = 0f;
                     RebuildGaps();
                 } else {
-                    foreach (var visualElement in Children()) {
-                        if (visualElement.ClassListContains("generated-gap")) {
+                    foreach (var visualElement in Children())
+                        if (visualElement.ClassListContains("generated-gap"))
                             visualElement.style.width = _gap;
-                        }
-                    }
                 }
             }
         }
@@ -82,10 +68,31 @@ namespace HELIX.Widgets.Layout {
             }
         }
 
-        private void RebuildGaps() {
-            foreach (var child in Children().ToList()) {
-                if (child.ClassListContains("generated-gap")) Remove(child);
+        public virtual IEnumerable<VisualElement> Childs {
+            get => Children();
+            set {
+                Clear();
+                if (value == null) return;
+                foreach (var child in value) Add(child);
             }
+        }
+
+        private void OnAttachToPanel(AttachToPanelEvent evt) {
+            style.flexDirection = GetFlexDirection(Reverse);
+            RebuildGaps();
+        }
+
+        private void OnGeometryChanged(GeometryChangedEvent evt) {
+            RebuildGaps();
+        }
+
+        protected abstract FlexDirection GetFlexDirection(bool reverse);
+        protected abstract Axis GetAxis();
+
+        private void RebuildGaps() {
+            foreach (var child in Children().ToList())
+                if (child.ClassListContains("generated-gap"))
+                    Remove(child);
 
             if (Mathf.Approximately(_gap, 0f) || _mainAxisAlign is Justify.SpaceBetween or Justify.SpaceEvenly) return;
 
@@ -98,17 +105,6 @@ namespace HELIX.Widgets.Layout {
                 };
                 gapElement.AddToClassList("generated-gap");
                 Insert(2 * i + 1, gapElement);
-            }
-        }
-
-        public virtual IEnumerable<VisualElement> Childs {
-            get => Children();
-            set {
-                Clear();
-                if (value == null) return;
-                foreach (var child in value) {
-                    Add(child);
-                }
             }
         }
     }

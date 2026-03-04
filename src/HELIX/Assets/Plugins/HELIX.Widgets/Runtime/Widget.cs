@@ -7,5 +7,4 @@ namespace HELIX.Widgets {
     public class UxmlWidgetFactoryAttribute : Attribute { }
 
     public class ThemePropertyReferenceAttribute : PropertyAttribute { }
-    
 }

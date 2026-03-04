@@ -5,10 +5,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Types {
     [Serializable]
     public struct StyleLength4 : IEquatable<StyleLength4> {
-        public StyleLength t;
-        public StyleLength r;
-        public StyleLength b;
-        public StyleLength l;
+        public StyleLength t, r, b, l;
 
         public StyleLength4(StyleLength t, StyleLength r, StyleLength b, StyleLength l) {
             this.t = t;
@@ -50,7 +47,7 @@ namespace HELIX.Types {
         public override int GetHashCode() {
             return HashCode.Combine(t, r, b, l);
         }
-        
+
         public override string ToString() {
             return $"({t}, {r}, {b}, {l})";
         }

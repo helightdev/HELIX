@@ -2,14 +2,20 @@ using HELIX.Painting;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Visual.PathDrawers {
+namespace HELIX.Widgets.Visual.GradientGenerators {
     [UxmlObject]
     public partial class DirectionalLinearGradientGenerator : FillGradientGenerator {
-        [UxmlAttribute] public Color StartColor { get; set; } = Color.white;
+        [UxmlAttribute]
+        public Color StartColor { get; set; } = Color.white;
 
-        [UxmlAttribute] public Color EndColor { get; set; } = Color.black;
-        [UxmlAttribute] public float Angle { get; set; } = 0f;
-        [UxmlAttribute] public AddressMode AddressMode { get; set; } = AddressMode.Clamp;
+        [UxmlAttribute]
+        public Color EndColor { get; set; } = Color.black;
+
+        [UxmlAttribute]
+        public float Angle { get; set; } = 0f;
+
+        [UxmlAttribute]
+        public AddressMode AddressMode { get; set; } = AddressMode.Clamp;
 
         public override FillGradient Generate(PaintCanvas canvas) {
             var direction = new Vector2(Mathf.Cos(Angle * Mathf.Deg2Rad), Mathf.Sin(Angle * Mathf.Deg2Rad));
@@ -25,7 +31,8 @@ namespace HELIX.Widgets.Visual.PathDrawers {
             return FillGradient.MakeLinearGradient(
                 gradient,
                 startPoint,
-                endPoint, AddressMode
+                endPoint,
+                AddressMode
             );
         }
     }

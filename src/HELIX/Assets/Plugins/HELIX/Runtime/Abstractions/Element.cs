@@ -10,24 +10,20 @@ namespace HELIX.Abstractions {
             this.name = name;
         }
 
-        public virtual VisualElement Child {
-            get => Children().FirstOrDefault();
-            set {
-                Clear();
-                if (value != null) {
-                    Add(value);
-                }
-            }
-        }
-        
         public virtual IEnumerable<VisualElement> Childs {
             get => Children();
             set {
                 Clear();
                 if (value == null) return;
-                foreach (var child in value) {
-                    Add(child);
-                }
+                foreach (var child in value) Add(child);
+            }
+        }
+
+        public virtual VisualElement Child {
+            get => Children().FirstOrDefault();
+            set {
+                Clear();
+                if (value != null) Add(value);
             }
         }
     }

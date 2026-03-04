@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEngine;
 
 namespace HELIX.Widgets.Editor {
     public static class ThemePropertyCollection {
@@ -25,30 +24,27 @@ namespace HELIX.Widgets.Editor {
             var types = AppDomain.CurrentDomain
                 .GetAssemblies()
                 .SelectMany(a => {
-                    try {
-                        return a.GetTypes();
-                    } catch (ReflectionTypeLoadException e) {
-                        return e.Types.Where(t => t != null);
+                        try { return a.GetTypes(); } catch (ReflectionTypeLoadException e) { return e.Types.Where(t => t != null); }
                     }
-                })
+                )
                 .Where(t =>
                     t.IsClass &&
                     t.IsAbstract &&
                     t.IsSealed && // identifies static class
-                    t.GetCustomAttribute<ThemePropertyCollectionAttribute>() != null)
+                    t.GetCustomAttribute<ThemePropertyCollectionAttribute>() != null
+                )
                 .ToArray();
 
             var allTypes = new List<string>();
             var dict = new Dictionary<Type, List<string>>();
-            foreach (var type in types) {
-                foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static)) {
-                    var name = $"{type.FullName}:{field.Name}";
-                    allTypes.Add(name);
-                    var generic = field.FieldType.GetGenericArguments()[0];
-                    var typeList = dict.GetValueOrDefault(generic, new List<string>());
-                    typeList.Add(name);
-                    dict[generic] = typeList;
-                }
+            foreach (var type in types)
+            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static)) {
+                var name = $"{type.FullName}:{field.Name}";
+                allTypes.Add(name);
+                var generic = field.FieldType.GetGenericArguments()[0];
+                var typeList = dict.GetValueOrDefault(generic, new List<string>());
+                typeList.Add(name);
+                dict[generic] = typeList;
             }
 
             allTypes.Sort();

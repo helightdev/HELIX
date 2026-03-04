@@ -5,18 +5,32 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.PathDrawers {
     [UxmlObject]
     public partial class GradientStrokePathDrawer : ScriptablePathDrawer {
-        [Header("Gradient Stroke")]
-        [UxmlAttribute] public Color StartColor { get; set; } = Color.white;
+        [Header("Gradient Stroke"), UxmlAttribute]
+        public Color StartColor { get; set; } = Color.white;
 
-        [UxmlAttribute] public Color EndColor { get; set; } = Color.black;
-        
-        [UxmlAttribute] public float Width { get; set; } = 1f;
-        [UxmlAttribute] public float MiterLimit { get; set; } = 4f;
-        [UxmlAttribute] public LineJoin LineJoin { get; set; } = LineJoin.Miter;
-        [UxmlAttribute] public LineCap LineCap { get; set; } = LineCap.Butt;
-        [UxmlAttribute] public float DashLength { get; set; } = 0f;
-        [UxmlAttribute] public float DashGap { get; set; } = 0f;
-        [UxmlAttribute] public float DashOffset { get; set; } = 0f;
+        [UxmlAttribute]
+        public Color EndColor { get; set; } = Color.black;
+
+        [UxmlAttribute]
+        public float Width { get; set; } = 1f;
+
+        [UxmlAttribute]
+        public float MiterLimit { get; set; } = 4f;
+
+        [UxmlAttribute]
+        public LineJoin LineJoin { get; set; } = LineJoin.Miter;
+
+        [UxmlAttribute]
+        public LineCap LineCap { get; set; } = LineCap.Butt;
+
+        [UxmlAttribute]
+        public float DashLength { get; set; } = 0f;
+
+        [UxmlAttribute]
+        public float DashGap { get; set; } = 0f;
+
+        [UxmlAttribute]
+        public float DashOffset { get; set; } = 0f;
 
         public override void Draw(PaintCanvas canvas) {
             var gradient = new Gradient {
@@ -32,6 +46,7 @@ namespace HELIX.Widgets.Visual.PathDrawers {
                 canvas.painter.dashOffset = DashOffset;
                 canvas.painter.SetDashPattern(DashLength, DashGap);
             }
+
             canvas.painter.Stroke();
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HELIX.Painting;
 using HELIX.Painting.Paths;
+using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Vector2 = UnityEngine.Vector2;
@@ -10,13 +11,19 @@ using Vector2 = UnityEngine.Vector2;
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
     public partial class LineGraph : PaintingWidget {
-        public ILineGraphDataSource datasource = new DynamicRangeLineGraphDataSource();
-
-        [UxmlAttribute] public bool smoothLines = true;
-        [UxmlAttribute] public float oversampleFactor = 0f;
-
         private ScriptablePathDrawer _fillDrawer;
         private ScriptablePathDrawer _lineDrawer;
+        public ILineGraphDataSource datasource = new DynamicRangeLineGraphDataSource();
+
+        [UxmlAttribute]
+        public float oversampleFactor;
+
+        [UxmlAttribute]
+        public bool smoothLines = true;
+
+        public LineGraph() {
+            style.overflow = Overflow.Hidden;
+        }
 
         [UxmlObjectReference("stroke")]
         public ScriptablePathDrawer LineDrawer {
@@ -48,10 +55,6 @@ namespace HELIX.Widgets.Visual {
             MarkDirtyRepaint();
         }
 
-        public LineGraph() {
-            style.overflow = Overflow.Hidden;
-        }
-
         public override void Paint(PaintCanvas canvas, Rect bounds) {
             if (!Datasource.HasData) return;
             var painter = canvas.painter;
@@ -80,7 +83,7 @@ namespace HELIX.Widgets.Visual {
                     var p0 = i == 0 ? pts[i] : pts[i - 1];
                     var p1 = pts[i];
                     var p2 = pts[i + 1];
-                    var p3 = (i + 2 < n) ? pts[i + 2] : pts[n - 1];
+                    var p3 = i + 2 < n ? pts[i + 2] : pts[n - 1];
 
                     const float t0 = 0f;
                     var t1 = t0 + Mathf.Sqrt((p1 - p0).magnitude);
@@ -97,9 +100,9 @@ namespace HELIX.Widgets.Visual {
 
                     pathBuilder.BezierCurveTo(c1, c2, p2);
                 }
-            } else {
-                for (var i = 1; i < n; i++) pathBuilder.LineTo(pts[i]);
-            }
+            } else
+                for (var i = 1; i < n; i++)
+                    pathBuilder.LineTo(pts[i]);
 
             var path = pathBuilder.Build();
 
@@ -119,15 +122,22 @@ namespace HELIX.Widgets.Visual {
     }
 
     public class TimePollingLineGraph : LineGraph {
+        private readonly RingBuffer<Vector2> _dataBuffer;
+        private readonly Func<float> _sampleFunction;
+        private FixedTimeframeDynamicRangeLineGraphDataSource _dataSource;
+
+        [UxmlAttribute]
+        public bool discardOnOffscreen = false;
+
         public float pollingInterval;
         public float timeframe;
-        private RingBuffer<Vector2> _dataBuffer;
-        private FixedTimeframeDynamicRangeLineGraphDataSource _dataSource;
-        private Func<float> _sampleFunction;
-        [UxmlAttribute] public bool discardOnOffscreen = false;
-        
-        public TimePollingLineGraph(Func<float> sampleFunction, float pollingInterval, float timeframe,
-            ILineGraphDataSource source = null) {
+
+        public TimePollingLineGraph(
+            Func<float> sampleFunction,
+            float pollingInterval,
+            float timeframe,
+            ILineGraphDataSource source = null
+        ) {
             this.pollingInterval = pollingInterval;
             this.timeframe = timeframe;
             _sampleFunction = sampleFunction;
@@ -147,7 +157,7 @@ namespace HELIX.Widgets.Visual {
                 MarkDirtyRepaint();
                 return;
             }
-            
+
             var value = _sampleFunction.Invoke();
             _dataBuffer.Add(new Vector2(time, value));
             if (!isOffscreen) {
@@ -159,14 +169,15 @@ namespace HELIX.Widgets.Visual {
 
     [UxmlObject]
     public partial class LineGraphStroke {
-        [UxmlObjectReference] public ScriptablePathDrawer Drawer { get; set; }
+        [UxmlObjectReference]
+        public ScriptablePathDrawer Drawer { get; set; }
     }
 
     [UxmlObject]
     public partial class LineGraphFill {
-        [UxmlObjectReference] public ScriptablePathDrawer Drawer { get; set; }
+        [UxmlObjectReference]
+        public ScriptablePathDrawer Drawer { get; set; }
     }
-
 
     public interface ILineGraphDataSource {
         bool HasData { get; }
@@ -176,22 +187,31 @@ namespace HELIX.Widgets.Visual {
     }
 
     public class FixedRangeLineGraphDataSource : ILineGraphDataSource {
-        private Vector2[] _samples;
-        public bool HasData => _samples?.Length > 1;
-        public Vector2[] GetNormalizedPoints() => _samples;
-        private readonly Vector2 _valueRange;
         private readonly Vector2 _timeRange;
+
+        private readonly Vector2 _valueRange;
+        private Vector2[] _samples;
 
         public FixedRangeLineGraphDataSource(Vector2 valueRange, Vector2 timeRange) {
             _valueRange = valueRange;
             _timeRange = timeRange;
         }
 
-        public FixedRangeLineGraphDataSource(IReadOnlyCollection<Vector2> initialPoints, Vector2 valueRange,
-            Vector2 timeRange, Vector2 offset = default) {
+        public FixedRangeLineGraphDataSource(
+            IReadOnlyCollection<Vector2> initialPoints,
+            Vector2 valueRange,
+            Vector2 timeRange,
+            Vector2 offset = default
+        ) {
             _valueRange = valueRange;
             _timeRange = timeRange;
             Update(initialPoints, offset);
+        }
+
+        public bool HasData => _samples?.Length > 1;
+
+        public Vector2[] GetNormalizedPoints() {
+            return _samples;
         }
 
         public void Update(IReadOnlyCollection<Vector2> points, Vector2 offset = default) {
@@ -218,12 +238,17 @@ namespace HELIX.Widgets.Visual {
 
     public class DynamicRangeLineGraphDataSource : ILineGraphDataSource {
         private Vector2[] _samples;
-        public bool HasData => _samples?.Length > 1;
-        public Vector2[] GetNormalizedPoints() => _samples;
+
         public DynamicRangeLineGraphDataSource() { }
 
         public DynamicRangeLineGraphDataSource(IReadOnlyCollection<Vector2> initialPoints, Vector2 offset = default) {
             Update(initialPoints, offset);
+        }
+
+        public bool HasData => _samples?.Length > 1;
+
+        public Vector2[] GetNormalizedPoints() {
+            return _samples;
         }
 
         public void Update(IReadOnlyCollection<Vector2> points, Vector2 offset = default) {
@@ -260,19 +285,26 @@ namespace HELIX.Widgets.Visual {
     }
 
     public class FixedTimeframeDynamicRangeLineGraphDataSource : ILineGraphDataSource {
-        private Vector2[] _samples;
-        public bool HasData => _samples?.Length > 1;
-        public Vector2[] GetNormalizedPoints() => _samples;
         private readonly float _timeframe;
+        private Vector2[] _samples;
 
         public FixedTimeframeDynamicRangeLineGraphDataSource(float timeframe) {
             _timeframe = timeframe;
         }
 
-        public FixedTimeframeDynamicRangeLineGraphDataSource(IReadOnlyCollection<Vector2> initialPoints,
-            float timeframe, Vector2 offset = default) {
+        public FixedTimeframeDynamicRangeLineGraphDataSource(
+            IReadOnlyCollection<Vector2> initialPoints,
+            float timeframe,
+            Vector2 offset = default
+        ) {
             _timeframe = timeframe;
             Update(initialPoints, offset);
+        }
+
+        public bool HasData => _samples?.Length > 1;
+
+        public Vector2[] GetNormalizedPoints() {
+            return _samples;
         }
 
         public void Update(IReadOnlyCollection<Vector2> points, Vector2 offset = default) {
@@ -293,7 +325,7 @@ namespace HELIX.Widgets.Visual {
             if (rangeY <= 0) rangeY = 1;
             for (var i = 0; i < data.Length; i++) {
                 var p = data[i] + offset;
-                var nx = (p.x) / _timeframe;
+                var nx = p.x / _timeframe;
                 var ny = (p.y - minY) / rangeY;
                 data[i] = new Vector2(nx, ny);
             }

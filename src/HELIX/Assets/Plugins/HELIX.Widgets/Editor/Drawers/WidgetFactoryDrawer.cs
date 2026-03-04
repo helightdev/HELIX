@@ -1,7 +1,6 @@
 using HELIX.Widgets.Theming;
 using UnityEditor;
 using UnityEditor.UIElements;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Editor {
@@ -12,10 +11,11 @@ namespace HELIX.Widgets.Editor {
             var strings = WidgetFactoryCollection.GetCollectionsOfType(genericArgument);
 
             var field = new DropdownField(preferredLabel, strings, 0, FormatItem, FormatItem);
-            field.RegisterValueChangedCallback(evt => { 
-                property.FindPropertyRelative("factoryName").stringValue = evt.newValue;
-                property.serializedObject.ApplyModifiedProperties();
-            });
+            field.RegisterValueChangedCallback(evt => {
+                    property.FindPropertyRelative("factoryName").stringValue = evt.newValue;
+                    property.serializedObject.ApplyModifiedProperties();
+                }
+            );
             field.value = property.FindPropertyRelative("factoryName").stringValue;
             field.BindProperty(property.FindPropertyRelative("factoryName"));
             return field;

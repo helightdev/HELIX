@@ -5,11 +5,9 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Layout {
     [UxmlElement]
     public partial class Spacer : VisualElement {
-        private float _width = 8f;
         private Axis _axis = Axis.Vertical;
-        private bool _expands = false;
-        
-        public Spacer() { }
+        private bool _expands;
+        private float _width = 8f;
 
         [UxmlAttribute]
         public float Width {
@@ -17,11 +15,8 @@ namespace HELIX.Widgets.Layout {
             set {
                 if (Mathf.Approximately(_width, value)) return;
                 _width = value;
-                if (Axis == Axis.Horizontal) {
-                    style.width = value;
-                } else {
-                    style.height = value;
-                }
+                if (Axis == Axis.Horizontal) style.width = value;
+                else style.height = value;
             }
         }
 

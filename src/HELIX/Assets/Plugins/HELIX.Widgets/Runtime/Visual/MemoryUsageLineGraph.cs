@@ -3,22 +3,23 @@ using HELIX.Widgets.Visual.PathDrawers;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.UIElements;
+using DirectionalLinearGradientGenerator = HELIX.Widgets.Visual.GradientGenerators.DirectionalLinearGradientGenerator;
 
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
     public partial class MemoryUsageLineGraph : BaseWidget {
-        public float pollingInterval = 0.5f;
-        public float timeframe = 30f;
-
-        public Color maxColor = HelixConvert.ParseColor("#0030a9");
-        public Color residentColor = HelixConvert.ParseColor("#ff4264");
-        public Color gcUsedColor = HelixConvert.ParseColor("#fcff35");
+        private readonly Label _memoryLabel;
+        private ProfilerRecorder _gcUsedProfiler;
 
         private ProfilerRecorder _maxProfiler;
-        private ProfilerRecorder _usedProfiler;
         private ProfilerRecorder _residentProfiler;
-        private ProfilerRecorder _gcUsedProfiler;
-        private readonly Label _memoryLabel;
+        private ProfilerRecorder _usedProfiler;
+        public Color gcUsedColor = HelixConvert.ParseColor("#fcff35");
+
+        public Color maxColor = HelixConvert.ParseColor("#0030a9");
+        public float pollingInterval = 0.5f;
+        public Color residentColor = HelixConvert.ParseColor("#ff4264");
+        public float timeframe = 30f;
 
         public MemoryUsageLineGraph() {
             _memoryLabel = new Label {
@@ -31,15 +32,16 @@ namespace HELIX.Widgets.Visual {
                 enableRichText = true
             }.Positioned(left: 0, top: 0);
             schedule.Execute(() => {
-                var usedMb = _usedProfiler.LastValue / (1024f * 1024f);
-                var maxMb = _maxProfiler.LastValue / (1024f * 1024f);
-                var residentMb = _residentProfiler.LastValue / (1024f * 1024f);
-                var gcUsedMb = _gcUsedProfiler.LastValue / (1024f * 1024f);
-                _memoryLabel.text =
-                    $"<color={maxColor.ToUssColor()}>●</color> Used: {usedMb:F1} MB / {maxMb:F1} MB\n" +
-                    $"<color={residentColor.ToUssColor()}>●</color> Resident: {residentMb:F1} MB\n" +
-                    $"<color={gcUsedColor.ToUssColor()}>●</color> GC Used: {gcUsedMb:F1} MB";
-            }).Every((long)(pollingInterval * 1000));
+                    var usedMb = _usedProfiler.LastValue / (1024f * 1024f);
+                    var maxMb = _maxProfiler.LastValue / (1024f * 1024f);
+                    var residentMb = _residentProfiler.LastValue / (1024f * 1024f);
+                    var gcUsedMb = _gcUsedProfiler.LastValue / (1024f * 1024f);
+                    _memoryLabel.text =
+                        $"<color={maxColor.ToUssColor()}>●</color> Used: {usedMb:F1} MB / {maxMb:F1} MB\n" +
+                        $"<color={residentColor.ToUssColor()}>●</color> Resident: {residentMb:F1} MB\n" +
+                        $"<color={gcUsedColor.ToUssColor()}>●</color> GC Used: {gcUsedMb:F1} MB";
+                }
+            ).Every((long)(pollingInterval * 1000));
         }
 
         protected override void OnAttached(AttachToPanelEvent evt) {
@@ -53,37 +55,50 @@ namespace HELIX.Widgets.Visual {
 
             var rangeTime = new Vector2(0, timeframe);
             var rangeMemory = new Vector2(0, 1);
-            Add(new TimePollingLineGraph(() => _gcUsedProfiler.LastValue / (float)_maxProfiler.LastValue,
-                pollingInterval, timeframe,
-                new FixedRangeLineGraphDataSource(rangeMemory, rangeTime)) {
-                LineDrawer = new SolidStrokePathDrawer { Color = gcUsedColor },
-                FillDrawer =
-                    new GradientFillPathDrawer {
-                        GradientGenerator = new DirectionalLinearGradientGenerator {
-                            Angle = 90f,
-                            StartColor = gcUsedColor.AlphaMultiplied(0.6f),
-                            EndColor = gcUsedColor.AlphaMultiplied(0.1f)
+            Add(
+                new TimePollingLineGraph(
+                    () => _gcUsedProfiler.LastValue / (float)_maxProfiler.LastValue,
+                    pollingInterval,
+                    timeframe,
+                    new FixedRangeLineGraphDataSource(rangeMemory, rangeTime)
+                ) {
+                    LineDrawer = new SolidStrokePathDrawer { Color = gcUsedColor },
+                    FillDrawer =
+                        new GradientFillPathDrawer {
+                            GradientGenerator = new DirectionalLinearGradientGenerator {
+                                Angle = 90f,
+                                StartColor = gcUsedColor.AlphaMultiplied(0.6f),
+                                EndColor = gcUsedColor.AlphaMultiplied(0.1f)
+                            }
                         }
-                    }
-            }.Position(0).MakeAbsolute());
-            Add(new TimePollingLineGraph(() => _usedProfiler.LastValue / (float)_maxProfiler.LastValue, pollingInterval,
-                timeframe,
-                new FixedRangeLineGraphDataSource(rangeMemory, rangeTime)) {
-                LineDrawer = new SolidStrokePathDrawer { Color = maxColor },
-                FillDrawer =
-                    new GradientFillPathDrawer {
-                        GradientGenerator = new DirectionalLinearGradientGenerator {
-                            Angle = 90f,
-                            StartColor = maxColor.AlphaMultiplied(0.6f),
-                            EndColor = maxColor.AlphaMultiplied(0.1f)
+                }.Position(0).MakeAbsolute()
+            );
+            Add(
+                new TimePollingLineGraph(
+                    () => _usedProfiler.LastValue / (float)_maxProfiler.LastValue,
+                    pollingInterval,
+                    timeframe,
+                    new FixedRangeLineGraphDataSource(rangeMemory, rangeTime)
+                ) {
+                    LineDrawer = new SolidStrokePathDrawer { Color = maxColor },
+                    FillDrawer =
+                        new GradientFillPathDrawer {
+                            GradientGenerator = new DirectionalLinearGradientGenerator {
+                                Angle = 90f,
+                                StartColor = maxColor.AlphaMultiplied(0.6f),
+                                EndColor = maxColor.AlphaMultiplied(0.1f)
+                            }
                         }
-                    }
-            }.Position(0).MakeAbsolute());
-            Add(new TimePollingLineGraph(() => _residentProfiler.LastValue / (float)_maxProfiler.LastValue,
-                pollingInterval,
-                timeframe, new FixedRangeLineGraphDataSource(rangeMemory, rangeTime)) {
-                LineDrawer = new SolidStrokePathDrawer { Color = residentColor },
-            }.Position(0).MakeAbsolute());
+                }.Position(0).MakeAbsolute()
+            );
+            Add(
+                new TimePollingLineGraph(
+                    () => _residentProfiler.LastValue / (float)_maxProfiler.LastValue,
+                    pollingInterval,
+                    timeframe,
+                    new FixedRangeLineGraphDataSource(rangeMemory, rangeTime)
+                ) { LineDrawer = new SolidStrokePathDrawer { Color = residentColor } }.Position(0).MakeAbsolute()
+            );
             Add(_memoryLabel);
         }
 

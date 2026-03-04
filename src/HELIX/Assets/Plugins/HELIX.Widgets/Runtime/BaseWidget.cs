@@ -9,7 +9,6 @@ namespace HELIX.Widgets {
         public static readonly string UssClassName = "helix-widget";
         private readonly List<ThemeValue> _themeValues = new();
         private readonly List<WidgetFactorySlot> _widgetFactorySlots = new();
-        public WidgetThemeProvider ThemeProvider { get; private set; }
 
         protected BaseWidget() {
             AddToClassList(UssClassName);
@@ -17,13 +16,17 @@ namespace HELIX.Widgets {
             RegisterCallback<DetachFromPanelEvent>(OnDetached);
         }
 
+        public WidgetThemeProvider ThemeProvider { get; private set; }
+
         protected ThemeValue<T> ThemeValue<T>(ThemeProperty<T> property) {
             var themeValue = new ThemeValue<T>(this, property);
             return RegisterThemeValue(themeValue);
         }
 
-        protected ThemeValue<T> ThemeValue<T>(ThemeProperty<T> property,
-            ThemeValue<T>.OnValueChangedDelegate onValueChanged) {
+        protected ThemeValue<T> ThemeValue<T>(
+            ThemeProperty<T> property,
+            ThemeValue<T>.OnValueChangedDelegate onValueChanged
+        ) {
             var themeValue = new ThemeValue<T>(this, property, onValueChanged);
             return RegisterThemeValue(themeValue);
         }
@@ -82,7 +85,7 @@ namespace HELIX.Widgets {
             ThemeProvider = null;
         }
 
-        private void OnThemeUpdated() { 
+        private void OnThemeUpdated() {
             foreach (var value in _themeValues) value.ReloadStyles();
 
             foreach (var factorySlot in _widgetFactorySlots) {
@@ -93,30 +96,22 @@ namespace HELIX.Widgets {
     }
 
     public abstract class SingleChildContainerWidget : BaseWidget, ISingleChildContainer {
-        protected SingleChildContainerWidget() : base() { }
-
         public virtual VisualElement Child {
             get => Children().FirstOrDefault();
             set {
                 Clear();
-                if (value != null) {
-                    Add(value);
-                }
+                if (value != null) Add(value);
             }
         }
     }
 
     public abstract class MultiChildContainerWidget : BaseWidget, IMultiChildContainer {
-        protected MultiChildContainerWidget() : base() { }
-
         public virtual IEnumerable<VisualElement> Childs {
             get => Children();
             set {
                 Clear();
                 if (value == null) return;
-                foreach (var child in value) {
-                    Add(child);
-                }
+                foreach (var child in value) Add(child);
             }
         }
     }

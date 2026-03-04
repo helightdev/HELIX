@@ -4,6 +4,6 @@ namespace HELIX.Editor.Drawers {
         Pixel = 1,
         Percent = 2,
         Auto = 3,
-        None = 4,
+        None = 4
     }
 }

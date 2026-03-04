@@ -1,7 +1,4 @@
-using System;
-using System.Runtime.CompilerServices;
 using HELIX.Types;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Extensions {
@@ -11,14 +8,15 @@ namespace HELIX.Extensions {
             element.style.flexShrink = shrink;
             return element;
         }
-        
+
         public static T Tight<T>(this T element) where T : VisualElement {
             element.style.flexGrow = 0;
             element.style.flexShrink = 0;
             return element;
         }
 
-        public static T FlexContainer<T>(this T element,
+        public static T FlexContainer<T>(
+            this T element,
             Axis axis = Axis.Vertical,
             Justify mainAxisAlign = Justify.FlexStart,
             Align crossAxisAlign = Align.Center,

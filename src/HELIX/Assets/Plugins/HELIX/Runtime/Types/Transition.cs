@@ -23,7 +23,7 @@ namespace HELIX.Types {
         void Register(VisualElement element);
         void Unregister(VisualElement element);
     }
-    
+
     public readonly struct CallbackHandler<T> : IEventHandler where T : EventBase<T>, new() {
         private readonly EventCallback<T> _callback;
 
@@ -34,11 +34,11 @@ namespace HELIX.Types {
         public static implicit operator CallbackHandler<T>(EventCallback<T> callback) {
             return new CallbackHandler<T>(callback);
         }
-        
+
         public void Register(VisualElement element) {
             element.RegisterCallback(_callback);
         }
-        
+
         public void Unregister(VisualElement element) {
             element.UnregisterCallback(_callback);
         }

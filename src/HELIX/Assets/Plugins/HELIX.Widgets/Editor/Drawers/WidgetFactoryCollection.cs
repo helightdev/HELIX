@@ -16,10 +16,10 @@ namespace HELIX.Widgets.Editor {
 
         private static Type FindFactoryGenericArgument(Type t) {
             while (t != null && t != typeof(object)) {
-                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(WidgetFactory<>))
-                    return t.GetGenericArguments()[0];
+                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(WidgetFactory<>)) return t.GetGenericArguments()[0];
                 t = t.BaseType;
             }
+
             return null;
         }
 
@@ -27,15 +27,13 @@ namespace HELIX.Widgets.Editor {
             var types = AppDomain.CurrentDomain
                 .GetAssemblies()
                 .SelectMany(a => {
-                    try {
-                        return a.GetTypes();
-                    } catch (ReflectionTypeLoadException e) {
-                        return e.Types.Where(t => t != null);
+                        try { return a.GetTypes(); } catch (ReflectionTypeLoadException e) { return e.Types.Where(t => t != null); }
                     }
-                })
+                )
                 .Where(t =>
                     t.IsClass &&
-                    t.GetCustomAttribute<UxmlWidgetFactoryAttribute>() != null)
+                    t.GetCustomAttribute<UxmlWidgetFactoryAttribute>() != null
+                )
                 .ToArray();
 
             var dict = new Dictionary<Type, List<string>>();
@@ -46,6 +44,7 @@ namespace HELIX.Widgets.Editor {
                     Debug.LogWarning($"WidgetFactory {type.FullName} does not inherit from WidgetFactory<T> and will be ignored.");
                     continue;
                 }
+
                 var typeList = dict.GetValueOrDefault(associated, new List<string>());
                 typeList.Add(type.FullName);
                 dict[associated] = typeList;

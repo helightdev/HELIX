@@ -14,7 +14,7 @@ namespace HELIX.Painting.Paths {
         public static void RRect(this IPathBuilder builder, RRect roundedRect) {
             var radius = roundedRect.radii;
             var rect = roundedRect.rect;
-            
+
             // ReSharper disable CompareOfFloatsByEqualityOperator
             if (radius.x == radius.y && radius.y == radius.z && radius.z == radius.w) {
                 var r = Mathf.Min(
@@ -32,10 +32,10 @@ namespace HELIX.Painting.Paths {
                 );
 
                 var scale = 1f;
-                var topSum    = radius.x + radius.y;
+                var topSum = radius.x + radius.y;
                 var bottomSum = radius.w + radius.z;
-                var leftSum   = radius.x + radius.w;
-                var rightSum  = radius.y + radius.z;
+                var leftSum = radius.x + radius.w;
+                var rightSum = radius.y + radius.z;
 
                 if (topSum > 0f) scale = Mathf.Min(scale, rect.width / topSum);
                 if (bottomSum > 0f) scale = Mathf.Min(scale, rect.width / bottomSum);
@@ -43,19 +43,28 @@ namespace HELIX.Painting.Paths {
                 if (rightSum > 0f) scale = Mathf.Min(scale, rect.height / rightSum);
 
                 scale = Mathf.Clamp01(scale);
-                radius *= scale;   
+                radius *= scale;
             }
-            
+
             builder.MoveTo(new Vector2(rect.x + radius.x, rect.y));
             builder.LineTo(new Vector2(rect.x + rect.width - radius.y, rect.y));
-            builder.ArcTo(new Vector2(rect.x + rect.width, rect.y), new Vector2(rect.x + rect.width, rect.y + radius.y),
-                radius.y);
+            builder.ArcTo(
+                new Vector2(rect.x + rect.width, rect.y),
+                new Vector2(rect.x + rect.width, rect.y + radius.y),
+                radius.y
+            );
             builder.LineTo(new Vector2(rect.x + rect.width, rect.y + rect.height - radius.z));
-            builder.ArcTo(new Vector2(rect.x + rect.width, rect.y + rect.height),
-                new Vector2(rect.x + rect.width - radius.z, rect.y + rect.height), radius.z);
+            builder.ArcTo(
+                new Vector2(rect.x + rect.width, rect.y + rect.height),
+                new Vector2(rect.x + rect.width - radius.z, rect.y + rect.height),
+                radius.z
+            );
             builder.LineTo(new Vector2(rect.x + radius.w, rect.y + rect.height));
-            builder.ArcTo(new Vector2(rect.x, rect.y + rect.height), new Vector2(rect.x, rect.y + rect.height - radius.w),
-                radius.w);
+            builder.ArcTo(
+                new Vector2(rect.x, rect.y + rect.height),
+                new Vector2(rect.x, rect.y + rect.height - radius.w),
+                radius.w
+            );
             builder.LineTo(new Vector2(rect.x, rect.y + radius.x));
             builder.ArcTo(new Vector2(rect.x, rect.y), new Vector2(rect.x + radius.x, rect.y), radius.x);
             builder.ClosePath();

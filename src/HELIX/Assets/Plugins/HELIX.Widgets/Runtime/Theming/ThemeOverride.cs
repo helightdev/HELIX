@@ -11,10 +11,12 @@ namespace HELIX.Widgets.Theming {
         public T constantValue;
         public string propertyReference;
 
-        public static implicit operator ThemeOverride<T>(T value) => new() {
-            type = ThemeOverrideType.Value,
-            constantValue = value
-        };
+        public static implicit operator ThemeOverride<T>(T value) {
+            return new ThemeOverride<T> {
+                type = ThemeOverrideType.Value,
+                constantValue = value
+            };
+        }
 
         public override bool TryGetOverride(out object value) {
             if (type == ThemeOverrideType.Value) {

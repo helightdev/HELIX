@@ -2,21 +2,22 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using HELIX.Widgets.Theming;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets {
+namespace HELIX.Widgets.Theming {
     [UxmlElement]
     public partial class WidgetThemeProvider : MultiChildContainerWidget {
         public static readonly Dictionary<string, object> GlobalThemeValues = new();
         private readonly Dictionary<string, object> _cachedThemeValues = new();
         private readonly Dictionary<string, object> _componentValues = new();
-        private WidgetThemeProvider _parent;
         private List<WidgetThemeComponent> _components = new();
+        private WidgetThemeProvider _parent;
+
+        public WidgetThemeProvider() {
+            RegisterCallback<CustomStyleResolvedEvent>(_ => { NotifyThemeUpdate(); });
+        }
+
         public Dictionary<string, object> ThemeValues { get; } = new();
-
-        public event Action OnThemeUpdated;
-
 
         [UxmlObjectReference]
         public List<WidgetThemeComponent> Components {
@@ -24,19 +25,15 @@ namespace HELIX.Widgets {
             set {
                 _components = value;
                 _componentValues.Clear();
-                foreach (var component in _components) {
-                    component.Apply(_componentValues);
-                }
+                foreach (var component in _components) component.Apply(_componentValues);
 
                 NotifyThemeUpdate();
             }
         }
 
-        public static event Action OnGlobalThemeChanged;
+        public event Action OnThemeUpdated;
 
-        public WidgetThemeProvider() {
-            RegisterCallback<CustomStyleResolvedEvent>(_ => { NotifyThemeUpdate(); });
-        }
+        public static event Action OnGlobalThemeChanged;
 
         protected override void OnAttached(AttachToPanelEvent evt) {
             base.OnAttached(evt);
@@ -67,9 +64,7 @@ namespace HELIX.Widgets {
 
         public T Resolve<T>(ThemeProperty<T> property) {
             if (_cachedThemeValues.TryGetValue(property.key, out var cachedValue) &&
-                cachedValue is T typedCachedValue) {
-                return typedCachedValue;
-            }
+                cachedValue is T typedCachedValue) return typedCachedValue;
 
             var resolvedValue = ResolveInternal(property);
             _cachedThemeValues[property.key] = resolvedValue;
@@ -77,26 +72,17 @@ namespace HELIX.Widgets {
         }
 
         private T ResolveInternal<T>(ThemeProperty<T> property) {
-            if (ThemeValues.TryGetValue(property.key, out var value) && value is T typedValue) {
-                return typedValue;
-            }
+            if (ThemeValues.TryGetValue(property.key, out var value) && value is T typedValue) return typedValue;
 
             if (_componentValues.TryGetValue(property.key, out var componentValue) &&
-                componentValue is T typedComponentValue) {
-                return typedComponentValue;
-            }
+                componentValue is T typedComponentValue) return typedComponentValue;
 
-            if (property.Resolve(customStyle, out var resolvedValue)) {
-                return resolvedValue;
-            }
+            if (property.Resolve(customStyle, out var resolvedValue)) return resolvedValue;
 
-            if (_parent != null) {
-                return _parent.Resolve(property);
-            }
+            if (_parent != null) return _parent.Resolve(property);
 
-            if (GlobalThemeValues.TryGetValue(property.key, out var globalValue) && globalValue is T typedGlobalValue) {
+            if (GlobalThemeValues.TryGetValue(property.key, out var globalValue) && globalValue is T typedGlobalValue)
                 return typedGlobalValue;
-            }
 
             return property.defaultValue;
         }
@@ -135,14 +121,13 @@ namespace HELIX.Widgets {
 
         public static T Resolve<T>(WidgetThemeProvider provider, ThemeProperty<T> property) {
             if (provider != null) return provider.Resolve(property);
-            if (GlobalThemeValues.TryGetValue(property.key, out var globalValue) && globalValue is T typedGlobalValue) {
+            if (GlobalThemeValues.TryGetValue(property.key, out var globalValue) && globalValue is T typedGlobalValue)
                 return typedGlobalValue;
-            }
 
             return property.defaultValue;
         }
     }
-    
+
     [UxmlObject]
     public abstract partial class WidgetThemeComponent {
         public virtual void Apply(Dictionary<string, object> dict, bool clearExisting = false) {
@@ -154,7 +139,12 @@ namespace HELIX.Widgets {
             }
         }
 
-        protected static void ApplyValue(string key, object value, Dictionary<string, object> dict, bool clearExisting) {
+        protected static void ApplyValue(
+            string key,
+            object value,
+            Dictionary<string, object> dict,
+            bool clearExisting
+        ) {
             switch (value) {
                 case IWidgetFactoryReference reference:
                     var widgetFactory = reference.GetFactory();
@@ -162,20 +152,14 @@ namespace HELIX.Widgets {
                     else if (clearExisting) dict.Remove(key);
                     break;
                 case ThemeOverride overrides:
-                    if (overrides.TryGetOverride(out var overrideValue)) {
-                        dict[key] = overrideValue;
-                    } else if (clearExisting) dict.Remove(key);
-
+                    if (overrides.TryGetOverride(out var overrideValue)) dict[key] = overrideValue;
+                    else if (clearExisting) dict.Remove(key);
                     break;
                 case ThemeOptional optional:
-                    if (optional.TryGetValue(out var optionalValue)) {
-                        dict[key] = optionalValue;
-                    } else if (clearExisting) dict.Remove(key);
-
+                    if (optional.TryGetValue(out var optionalValue)) dict[key] = optionalValue;
+                    else if (clearExisting) dict.Remove(key);
                     break;
-                default:
-                    dict[key] = value;
-                    break;
+                default: dict[key] = value; break;
             }
         }
 

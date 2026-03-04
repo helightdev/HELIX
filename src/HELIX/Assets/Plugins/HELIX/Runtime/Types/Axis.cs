@@ -14,7 +14,9 @@ namespace HELIX.Types {
         public static FlexDirection ToFlexDirection(this Axis axis, bool reverse = false) {
             return axis == Axis.Horizontal
                 ? reverse ? FlexDirection.RowReverse : FlexDirection.Row
-                : reverse ? FlexDirection.ColumnReverse : FlexDirection.Column;
+                : reverse
+                    ? FlexDirection.ColumnReverse
+                    : FlexDirection.Column;
         }
     }
 }

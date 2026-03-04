@@ -6,7 +6,7 @@ namespace HELIX.Types {
     public struct RRect : IEquatable<RRect> {
         public Rect rect;
         public Vector4 radii;
-        
+
         public RRect(Rect rect, Vector4 radii) {
             this.rect = rect;
             this.radii = radii;

@@ -59,7 +59,6 @@ namespace HELIX.Extensions {
             return element;
         }
 
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T BorderRadius<T>(this T element, float value) where T : VisualElement {
             element.style.borderTopLeftRadius = value;
@@ -77,7 +76,7 @@ namespace HELIX.Extensions {
             element.style.borderBottomLeftRadius = value.w;
             return element;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T BorderColor<T>(this T element, Color color) where T : VisualElement {
             element.style.borderTopColor = color;

@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using HELIX.Types;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Extensions {
@@ -13,7 +12,8 @@ namespace HELIX.Extensions {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T Constraints<T>(this T element, StyleLength2 width, StyleLength2 height) where T : VisualElement {
+        public static T Constraints<T>(this T element, StyleLength2 width, StyleLength2 height)
+            where T : VisualElement {
             element.style.minWidth = width.w;
             element.style.maxWidth = width.h;
             element.style.minHeight = height.w;
@@ -36,7 +36,8 @@ namespace HELIX.Extensions {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T Sized<T>(this T element,
+        public static T Sized<T>(
+            this T element,
             StyleLength? width = null,
             StyleLength? height = null
         ) where T : VisualElement {
@@ -44,9 +45,10 @@ namespace HELIX.Extensions {
             element.style.height = height.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
             return element;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T Constrained<T>(this T element,
+        public static T Constrained<T>(
+            this T element,
             StyleLength? preferredWidth = null,
             StyleLength? preferredHeight = null,
             StyleLength? minWidth = null,

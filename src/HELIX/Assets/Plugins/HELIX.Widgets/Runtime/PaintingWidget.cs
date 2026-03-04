@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public abstract class PaintingWidget : BaseWidget {
-        protected PaintingWidget() : base() {
+        protected PaintingWidget() {
             generateVisualContent += OnGenerateVisualContent;
         }
 

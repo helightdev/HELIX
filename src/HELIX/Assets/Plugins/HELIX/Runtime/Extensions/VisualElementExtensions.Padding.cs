@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using HELIX.Types;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Extensions {
@@ -59,9 +58,10 @@ namespace HELIX.Extensions {
                 element.style.paddingLeft
             );
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static T Padded<T>(this T element,
+        public static T Padded<T>(
+            this T element,
             float top = 0f,
             float right = 0f,
             float bottom = 0f,

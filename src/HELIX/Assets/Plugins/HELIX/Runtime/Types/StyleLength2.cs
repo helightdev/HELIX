@@ -5,8 +5,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Types {
     [Serializable]
     public struct StyleLength2 : IEquatable<StyleLength2> {
-        public StyleLength w;
-        public StyleLength h;
+        public StyleLength w, h;
 
         public StyleLength2(StyleLength w, StyleLength h) {
             this.w = w;
@@ -38,5 +37,4 @@ namespace HELIX.Types {
             return $"({w}, {h})";
         }
     }
-    
 }

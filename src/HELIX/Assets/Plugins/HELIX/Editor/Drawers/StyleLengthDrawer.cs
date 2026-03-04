@@ -20,21 +20,23 @@ namespace HELIX.Editor.Drawers {
                         .enumValueIndex
                 };
             }
+
             field.Apply(initialStyle);
             field.RegisterCallback<ChangeEvent<StyleLength>>(evt => {
-                property.boxedValue = evt.newValue;
-                property.serializedObject.ApplyModifiedProperties();
-            });
+                    property.boxedValue = evt.newValue;
+                    property.serializedObject.ApplyModifiedProperties();
+                }
+            );
             return field;
         }
     }
 
     internal class StyleLengthField : BaseField<StyleLength> {
-        private FloatField _valueField;
-        private EnumField _keywordField;
+        private readonly EnumField _keywordField;
+        private readonly FloatField _valueField;
 
         public StyleLengthField(string label, VisualElement element) : base(label, element) {
-            _valueField = new FloatField() { style = { flexGrow = 1 } };
+            _valueField = new FloatField { style = { flexGrow = 1 } };
             _keywordField = new EnumField(StyleInputEnum.Initial);
 
             element.style.flexDirection = FlexDirection.Row;
@@ -45,16 +47,17 @@ namespace HELIX.Editor.Drawers {
             _valueField.RegisterValueChangedCallback(_ => { Push(); });
         }
 
+        public StyleLengthField(string label) : this(label, new VisualElement()) { }
 
         public void Apply(StyleLength styleLength) {
             var enumValue = styleLength.keyword switch {
-                StyleKeyword.Auto => StyleInputEnum.Auto,
-                StyleKeyword.None => StyleInputEnum.None,
+                StyleKeyword.Auto    => StyleInputEnum.Auto,
+                StyleKeyword.None    => StyleInputEnum.None,
                 StyleKeyword.Initial => StyleInputEnum.Initial,
                 StyleKeyword.Undefined => styleLength.value.unit switch {
-                    LengthUnit.Pixel => StyleInputEnum.Pixel,
+                    LengthUnit.Pixel   => StyleInputEnum.Pixel,
                     LengthUnit.Percent => StyleInputEnum.Percent,
-                    _ => StyleInputEnum.Initial
+                    _                  => StyleInputEnum.Initial
                 },
                 _ => StyleInputEnum.Initial
             };
@@ -68,16 +71,16 @@ namespace HELIX.Editor.Drawers {
             var newValue = type switch {
                 StyleInputEnum.Pixel when !Mathf.Approximately(fieldValue, 0) => new
                     StyleLength(StyleKeyword.Undefined) { value = new Length(fieldValue, LengthUnit.Pixel) },
-                StyleInputEnum.Pixel => new StyleLength(StyleKeyword.Undefined),
-                StyleInputEnum.Percent => new StyleLength(StyleKeyword.Undefined) {
-                    value = new Length(fieldValue, LengthUnit.Percent)
-                },
-                _ => new StyleLength(type switch {
-                    StyleInputEnum.Auto => StyleKeyword.Auto,
-                    StyleInputEnum.None => StyleKeyword.None,
-                    StyleInputEnum.Initial => StyleKeyword.Initial,
-                    _ => throw new ArgumentOutOfRangeException()
-                })
+                StyleInputEnum.Pixel   => new StyleLength(StyleKeyword.Undefined),
+                StyleInputEnum.Percent => new StyleLength(StyleKeyword.Undefined) { value = new Length(fieldValue, LengthUnit.Percent) },
+                _ => new StyleLength(
+                    type switch {
+                        StyleInputEnum.Auto    => StyleKeyword.Auto,
+                        StyleInputEnum.None    => StyleKeyword.None,
+                        StyleInputEnum.Initial => StyleKeyword.Initial,
+                        _                      => throw new ArgumentOutOfRangeException()
+                    }
+                )
             };
 
             var before = value;
@@ -86,7 +89,5 @@ namespace HELIX.Editor.Drawers {
             evt.target = this;
             SendEvent(evt);
         }
-
-        public StyleLengthField(string label) : this(label, new VisualElement()) { }
     }
 }

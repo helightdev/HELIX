@@ -152,3 +152,5 @@ src/UMarkdown/*.sln
 src/UMarkdown/*.csproj
 src/UMarkdown/*.unitypackage
 !src/UMarkdown/Packages/
+
+*.xsd

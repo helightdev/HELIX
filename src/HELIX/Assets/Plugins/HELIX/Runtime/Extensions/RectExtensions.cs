@@ -71,10 +71,14 @@ namespace HELIX.Extensions {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Rect ClampPosition(this Rect rect, Vector2 min, Vector2 max) {
-            return new Rect(Mathf.Clamp(rect.x, min.x, max.x), Mathf.Clamp(rect.y, min.y, max.y), rect.width,
-                rect.height);
+            return new Rect(
+                Mathf.Clamp(rect.x, min.x, max.x),
+                Mathf.Clamp(rect.y, min.y, max.y),
+                rect.width,
+                rect.height
+            );
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Rect WithWidth(this Rect rect, float width) {
             return new Rect(rect.x, rect.y, width, rect.height);
@@ -107,8 +111,12 @@ namespace HELIX.Extensions {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Rect ClampSize(this Rect rect, Vector2 min, Vector2 max) {
-            return new Rect(rect.x, rect.y, Mathf.Clamp(rect.width, min.x, max.x),
-                Mathf.Clamp(rect.height, min.y, max.y));
+            return new Rect(
+                rect.x,
+                rect.y,
+                Mathf.Clamp(rect.width, min.x, max.x),
+                Mathf.Clamp(rect.height, min.y, max.y)
+            );
         }
 
         public static void PathRect(this Painter2D painter, Rect rect) {
@@ -126,23 +134,32 @@ namespace HELIX.Extensions {
                 rect.width * 0.5f,
                 rect.height * 0.5f
             );
-            
+
             painter.BeginPath();
             painter.MoveTo(new Vector2(rect.x + radius, rect.y));
             painter.LineTo(new Vector2(rect.x + rect.width - radius, rect.y));
-            painter.ArcTo(new Vector2(rect.x + rect.width, rect.y), new Vector2(rect.x + rect.width, rect.y + radius),
-                radius);
+            painter.ArcTo(
+                new Vector2(rect.x + rect.width, rect.y),
+                new Vector2(rect.x + rect.width, rect.y + radius),
+                radius
+            );
             painter.LineTo(new Vector2(rect.x + rect.width, rect.y + rect.height - radius));
-            painter.ArcTo(new Vector2(rect.x + rect.width, rect.y + rect.height),
-                new Vector2(rect.x + rect.width - radius, rect.y + rect.height), radius);
+            painter.ArcTo(
+                new Vector2(rect.x + rect.width, rect.y + rect.height),
+                new Vector2(rect.x + rect.width - radius, rect.y + rect.height),
+                radius
+            );
             painter.LineTo(new Vector2(rect.x + radius, rect.y + rect.height));
-            painter.ArcTo(new Vector2(rect.x, rect.y + rect.height), new Vector2(rect.x, rect.y + rect.height - radius),
-                radius);
+            painter.ArcTo(
+                new Vector2(rect.x, rect.y + rect.height),
+                new Vector2(rect.x, rect.y + rect.height - radius),
+                radius
+            );
             painter.LineTo(new Vector2(rect.x, rect.y + radius));
             painter.ArcTo(new Vector2(rect.x, rect.y), new Vector2(rect.x + radius, rect.y), radius);
             painter.ClosePath();
         }
-        
+
         public static void PathRRect(this Painter2D painter, Rect rect, Vector4 radius) {
             radius = new Vector4(
                 Mathf.Max(radius.x, 0f),
@@ -152,10 +169,10 @@ namespace HELIX.Extensions {
             );
 
             var scale = 1f;
-            var topSum    = radius.x + radius.y;
+            var topSum = radius.x + radius.y;
             var bottomSum = radius.w + radius.z;
-            var leftSum   = radius.x + radius.w;
-            var rightSum  = radius.y + radius.z;
+            var leftSum = radius.x + radius.w;
+            var rightSum = radius.y + radius.z;
 
             if (topSum > 0f) scale = Mathf.Min(scale, rect.width / topSum);
             if (bottomSum > 0f) scale = Mathf.Min(scale, rect.width / bottomSum);
@@ -164,18 +181,27 @@ namespace HELIX.Extensions {
 
             scale = Mathf.Clamp01(scale);
             radius *= scale;
-            
+
             painter.BeginPath();
             painter.MoveTo(new Vector2(rect.x + radius.x, rect.y));
             painter.LineTo(new Vector2(rect.x + rect.width - radius.y, rect.y));
-            painter.ArcTo(new Vector2(rect.x + rect.width, rect.y), new Vector2(rect.x + rect.width, rect.y + radius.y),
-                radius.y);
+            painter.ArcTo(
+                new Vector2(rect.x + rect.width, rect.y),
+                new Vector2(rect.x + rect.width, rect.y + radius.y),
+                radius.y
+            );
             painter.LineTo(new Vector2(rect.x + rect.width, rect.y + rect.height - radius.z));
-            painter.ArcTo(new Vector2(rect.x + rect.width, rect.y + rect.height),
-                new Vector2(rect.x + rect.width - radius.z, rect.y + rect.height), radius.z);
+            painter.ArcTo(
+                new Vector2(rect.x + rect.width, rect.y + rect.height),
+                new Vector2(rect.x + rect.width - radius.z, rect.y + rect.height),
+                radius.z
+            );
             painter.LineTo(new Vector2(rect.x + radius.w, rect.y + rect.height));
-            painter.ArcTo(new Vector2(rect.x, rect.y + rect.height), new Vector2(rect.x, rect.y + rect.height - radius.w),
-                radius.w);
+            painter.ArcTo(
+                new Vector2(rect.x, rect.y + rect.height),
+                new Vector2(rect.x, rect.y + rect.height - radius.w),
+                radius.w
+            );
             painter.LineTo(new Vector2(rect.x, rect.y + radius.x));
             painter.ArcTo(new Vector2(rect.x, rect.y), new Vector2(rect.x + radius.x, rect.y), radius.x);
             painter.ClosePath();

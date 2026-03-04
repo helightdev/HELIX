@@ -59,7 +59,7 @@ namespace HELIX.Extensions {
                 element.style.left
             );
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T MakeRelative<T>(this T element) where T : VisualElement {
             element.style.position = UnityEngine.UIElements.Position.Relative;
@@ -71,7 +71,7 @@ namespace HELIX.Extensions {
             element.style.position = UnityEngine.UIElements.Position.Absolute;
             return element;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T Stretched<T>(this T element) where T : VisualElement {
             element.style.position = UnityEngine.UIElements.Position.Absolute;
@@ -81,18 +81,37 @@ namespace HELIX.Extensions {
             element.style.bottom = 0;
             return element;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T Positioned<T>(
-            this T element, StyleLength? top = null, StyleLength? right = null, StyleLength? bottom = null,
+            this T element,
+            StyleLength? top = null,
+            StyleLength? right = null,
+            StyleLength? bottom = null,
             StyleLength? left = null,
-            Position type = UnityEngine.UIElements.Position.Absolute)
+            Position type = UnityEngine.UIElements.Position.Absolute
+        )
             where T : VisualElement {
             element.style.position = type;
             element.style.top = top.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
             element.style.right = right.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
             element.style.bottom = bottom.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
             element.style.left = left.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
+            return element;
+        }
+
+        public static T Translated<T>(this T element, Length x, Length y) where T : VisualElement {
+            element.style.translate = new Translate(x, y);
+            return element;
+        }
+
+        public static T Translated<T>(this T element, Vector2 translation) where T : VisualElement {
+            element.style.translate = new Translate(translation.x, translation.y);
+            return element;
+        }
+
+        public static T Translated<T>(this T element) where T : VisualElement {
+            element.style.translate = new Translate();
             return element;
         }
     }

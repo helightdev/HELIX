@@ -1,6 +1,4 @@
 using System;
-using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     public abstract class ThemeValue {
@@ -8,14 +6,14 @@ namespace HELIX.Widgets.Theming {
     }
 
     public class ThemeValue<T> : ThemeValue {
-        private ThemeProperty<T> _property;
-        private ThemeProperty<T> _fallbackProperty;
-        private readonly BaseWidget _owner;
-        private T _value;
-        private ThemeOverride<T> _override = new();
-        private ThemeValueState _state = ThemeValueState.None;
+        public delegate void OnValueChangedDelegate(T newValue);
 
-        public event OnValueChangedDelegate OnValueChanged;
+        private readonly ThemeProperty<T> _fallbackProperty;
+        private readonly BaseWidget _owner;
+        private ThemeOverride<T> _override = new();
+        private ThemeProperty<T> _property;
+        private ThemeValueState _state = ThemeValueState.None;
+        private T _value;
 
         public ThemeValue(BaseWidget owner, ThemeProperty<T> property) {
             _fallbackProperty = property;
@@ -23,8 +21,7 @@ namespace HELIX.Widgets.Theming {
             _owner = owner;
         }
 
-        public ThemeValue(BaseWidget owner, ThemeProperty<T> property, OnValueChangedDelegate onValueChanged) : this(
-            owner, property) {
+        public ThemeValue(BaseWidget owner, ThemeProperty<T> property, OnValueChangedDelegate onValueChanged) : this(owner, property) {
             OnValueChanged += onValueChanged;
         }
 
@@ -45,6 +42,8 @@ namespace HELIX.Widgets.Theming {
             }
         }
 
+        public event OnValueChangedDelegate OnValueChanged;
+
         public void ApplyOverrides(ThemeOverride<T> value) {
             if (_state >= ThemeValueState.Override) return;
             switch (value.type) {
@@ -55,15 +54,12 @@ namespace HELIX.Widgets.Theming {
                     }
 
                     break;
-                case ThemeOverrideType.Value:
-                    SetVisualOverride(value);
-                    break;
+                case ThemeOverrideType.Value: SetVisualOverride(value); break;
                 case ThemeOverrideType.PropertyReference:
                     _state = ThemeValueState.None;
                     SwapPropertyByReference(value.propertyReference);
                     break;
-                default:
-                    throw new ArgumentOutOfRangeException();
+                default: throw new ArgumentOutOfRangeException();
             }
         }
 
@@ -72,7 +68,6 @@ namespace HELIX.Widgets.Theming {
             _state = ThemeValueState.VisualOverride;
             OnValueChanged?.Invoke(_value);
         }
-
 
         public void Notify() {
             OnValueChanged?.Invoke(Value);
@@ -104,8 +99,6 @@ namespace HELIX.Widgets.Theming {
             _state = ThemeValueState.CustomStyle;
             OnValueChanged?.Invoke(_value);
         }
-
-        public delegate void OnValueChangedDelegate(T newValue);
 
         private enum ThemeValueState {
             None = 0,

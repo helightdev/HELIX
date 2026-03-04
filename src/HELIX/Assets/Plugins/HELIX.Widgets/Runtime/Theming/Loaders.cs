@@ -50,7 +50,7 @@ namespace HELIX.Widgets.Theming {
                    HelixConvert.ToVector2(stringResult, out result);
         }
     }
-    
+
     public class Vector3ThemeStyleValueLoader : IThemeStyleValueLoader<Vector3> {
         public bool Load(string key, ICustomStyle customStyle, out Vector3 result) {
             result = Vector3.zero;
@@ -58,7 +58,7 @@ namespace HELIX.Widgets.Theming {
                    HelixConvert.ToVector3(stringResult, out result);
         }
     }
-    
+
     public class Vector4ThemeStyleValueLoader : IThemeStyleValueLoader<Vector4> {
         public bool Load(string key, ICustomStyle customStyle, out Vector4 result) {
             result = Vector4.zero;
@@ -66,7 +66,7 @@ namespace HELIX.Widgets.Theming {
                    HelixConvert.ToVector4(stringResult, out result);
         }
     }
-    
+
     public class Texture2DThemeStyleValueLoader : IThemeStyleValueLoader<Texture2D> {
         public bool Load(string key, ICustomStyle customStyle, out Texture2D result) {
             result = null;

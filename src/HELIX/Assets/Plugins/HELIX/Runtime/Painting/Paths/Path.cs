@@ -10,9 +10,7 @@ namespace HELIX.Painting.Paths {
 
         public void Apply(Painter2D painter) {
             painter.BeginPath();
-            foreach (var command in commands) {
-                command.Apply(painter);
-            }
+            foreach (var command in commands) command.Apply(painter);
         }
     }
 }

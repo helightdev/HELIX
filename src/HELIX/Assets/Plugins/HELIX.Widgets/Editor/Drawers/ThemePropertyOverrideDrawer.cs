@@ -16,27 +16,32 @@ namespace HELIX.Widgets.Editor {
     }
 
     public class PropertyOverrideEditor : BaseField<ThemeOverride> {
+        private readonly VisualElement _element;
+        private readonly SerializedProperty _property;
+        private readonly Type _propertyType;
+        private readonly DropdownField _referenceField;
         private readonly EnumField _typeField;
         private readonly PropertyField _valueField;
-        private readonly DropdownField _referenceField;
-        private readonly SerializedProperty _property;
-        private readonly VisualElement _element;
-        private readonly Type _propertyType;
 
         public PropertyOverrideEditor(string label, SerializedProperty property, Type type)
-            : this(label, property, new VisualElement(), type) {}
+            : this(label, property, new VisualElement(), type) { }
 
-        private PropertyOverrideEditor(string label, SerializedProperty property, VisualElement element, Type type) : base(label,
-            element) {
+        private PropertyOverrideEditor(string label, SerializedProperty property, VisualElement element, Type type) :
+            base(
+                label,
+                element
+            ) {
             _propertyType = type;
             _element = element;
             _property = property;
             _typeField = new EnumField(ThemeOverrideType.None);
-            _valueField = new PropertyField(property.FindPropertyRelative("constantValue"), "") {
-                style = { flexGrow = 1 }
-            };
-            _referenceField = new DropdownField(ThemePropertyCollection.GetCollectionsOfType(type), 0,
-                ThemePropertyDrawer.FormatItem, ThemePropertyDrawer.FormatItem) { style = { flexGrow = 1 } };
+            _valueField = new PropertyField(property.FindPropertyRelative("constantValue"), "") { style = { flexGrow = 1 } };
+            _referenceField = new DropdownField(
+                ThemePropertyCollection.GetCollectionsOfType(type),
+                0,
+                ThemePropertyDrawer.FormatItem,
+                ThemePropertyDrawer.FormatItem
+            ) { style = { flexGrow = 1 } };
 
             element.Add(_typeField);
             element.Add(_valueField);
@@ -45,7 +50,7 @@ namespace HELIX.Widgets.Editor {
             _typeField.RegisterValueChangedCallback(evt => Push());
             _valueField.RegisterValueChangeCallback(evt => Push());
             _referenceField.RegisterValueChangedCallback(evt => Push());
-            
+
             element.style.flexDirection = FlexDirection.Row;
         }
 

@@ -99,6 +99,5 @@ namespace HELIX {
         public static readonly StylePropertyName WhiteSpace = new("white-space");
         public static readonly StylePropertyName Width = new("width");
         public static readonly StylePropertyName WordSpacing = new("word-spacing");
-    
     }
 }

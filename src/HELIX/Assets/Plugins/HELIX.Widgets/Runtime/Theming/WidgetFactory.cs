@@ -9,6 +9,27 @@ namespace HELIX.Widgets.Theming {
         public abstract VisualElement Create(BaseWidget parentWidget);
     }
 
+    public class FixedWidgetFactory<T> : WidgetFactory<T> where T : VisualElement {
+        private readonly T _instance;
+
+        public FixedWidgetFactory(T instance) {
+            _instance = instance;
+        }
+
+        public override VisualElement Create(BaseWidget parentWidget) {
+            return _instance;
+        }
+    }
+
+    [Serializable]
+    public class UxmlAssetWidgetFactory : WidgetFactory<VisualElement> {
+        public VisualTreeAsset asset;
+
+        public override VisualElement Create(BaseWidget parentWidget) {
+            return asset.CloneTree();
+        }
+    }
+
     [RequireDerived]
     public abstract class WidgetFactory<T> : WidgetFactory where T : VisualElement {
         protected bool Equals(WidgetFactory<T> other) {
@@ -56,6 +77,8 @@ namespace HELIX.Widgets.Theming {
             return reference.factoryName;
         }
 
-        public string GetFactoryName() => factoryName;
+        public string GetFactoryName() {
+            return factoryName;
+        }
     }
 }
