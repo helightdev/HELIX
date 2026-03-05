@@ -8,8 +8,14 @@ namespace HELIX.Widgets.Visual {
     [UxmlObject]
     public abstract partial class ScriptablePaint {
         public abstract void Draw(PaintCanvas canvas, Rect bounds);
-        public void Draw(MeshGenerationContext context) => Draw(new PaintCanvas(context));
-        public void Draw(PaintCanvas canvas) => Draw(canvas, canvas.canvasRect);
+
+        public void Draw(MeshGenerationContext context) {
+            Draw(new PaintCanvas(context));
+        }
+
+        public void Draw(PaintCanvas canvas) {
+            Draw(canvas, canvas.canvasRect);
+        }
     }
 
     [UxmlObject]
@@ -19,15 +25,6 @@ namespace HELIX.Widgets.Visual {
 
     [UxmlObject]
     public partial class ScriptablePainter : ScriptablePaint {
-        [UxmlObjectReference("builders")]
-        public List<ScriptablePathBuilder> PathBuilders { get; set; } = new();
-
-        [UxmlObjectReference("drawers")]
-        public List<ScriptablePathDrawer> PathDrawers { get; set; } = new();
-
-        [UxmlObjectReference("then")]
-        public ScriptablePaint Then { get; set; }
-
         public ScriptablePainter() { }
 
         public ScriptablePainter(List<ScriptablePathBuilder> builders, List<ScriptablePathDrawer> drawers, ScriptablePaint then = null) {
@@ -41,6 +38,15 @@ namespace HELIX.Widgets.Visual {
             PathDrawers = new List<ScriptablePathDrawer> { drawer };
             Then = then;
         }
+
+        [UxmlObjectReference("builders")]
+        public List<ScriptablePathBuilder> PathBuilders { get; set; } = new();
+
+        [UxmlObjectReference("drawers")]
+        public List<ScriptablePathDrawer> PathDrawers { get; set; } = new();
+
+        [UxmlObjectReference("then")]
+        public ScriptablePaint Then { get; set; }
 
         public override void Draw(PaintCanvas canvas, Rect bounds) {
             if (PathBuilders?.Count == 0 || PathDrawers?.Count == 0) return;

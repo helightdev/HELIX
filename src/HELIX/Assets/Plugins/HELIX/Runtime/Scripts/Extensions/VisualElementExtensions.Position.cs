@@ -90,7 +90,7 @@ namespace HELIX.Extensions {
             element.style.bottom = Length.Auto();
             return element;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T Positioned<T>(
             this T element,

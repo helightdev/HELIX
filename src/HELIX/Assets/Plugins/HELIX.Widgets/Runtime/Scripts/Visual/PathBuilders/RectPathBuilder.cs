@@ -1,4 +1,3 @@
-using System;
 using HELIX.Painting.Paths;
 using UnityEngine;
 using UnityEngine.UIElements;

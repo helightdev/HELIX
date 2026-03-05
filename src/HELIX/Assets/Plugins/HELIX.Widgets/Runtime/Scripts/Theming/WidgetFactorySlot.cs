@@ -19,10 +19,10 @@ namespace HELIX.Widgets.Theming {
 
     public interface IPublicWidgetFactorySlot<T> where T : VisualElement {
         WidgetFactoryReference<T> Reference { get; set; }
-        void SetMapped(WidgetFactory<T> value);
-        TMapped GetMapped<TMapped>() where TMapped : WidgetFactory<T>;
         T Element { get; }
         bool HasElement { get; }
+        void SetMapped(WidgetFactory<T> value);
+        TMapped GetMapped<TMapped>() where TMapped : WidgetFactory<T>;
     }
 
     public class WidgetFactorySlot<T> : WidgetFactorySlot, IPublicWidgetFactorySlot<T> where T : VisualElement {
@@ -34,8 +34,8 @@ namespace HELIX.Widgets.Theming {
         private WidgetFactory _factory;
         private WidgetFactory _fallback;
         private bool _hasExplicitReference;
-        private WidgetFactoryReference<T> _reference;
         private object _mappedValue;
+        private WidgetFactoryReference<T> _reference;
 
         public WidgetFactorySlot(BaseWidget widget) : base(widget) { }
 
@@ -71,7 +71,7 @@ namespace HELIX.Widgets.Theming {
 
         private void ApplyReference(WidgetFactoryReference<T> factoryReference) {
             var factory = factoryReference.LookupFactory();
-            
+
             // Try resolving from parent style on late unset
             if (factory == null) {
                 var parentStyle = widget.parent?.customStyle;
@@ -90,7 +90,7 @@ namespace HELIX.Widgets.Theming {
             if (_hasExplicitReference) return;
             var factory = _fallback;
             if (_themeProperty != null) factory = WidgetThemeProvider.Resolve(widget.ThemeProvider, _themeProperty);
-            
+
             if (factory == null || Equals(factory, _factory)) return;
             _factory = factory;
             _hasExplicitReference = false;
@@ -127,7 +127,7 @@ namespace HELIX.Widgets.Theming {
             Remove(Element);
             Element = null;
         }
-        
+
         public void SetFallback(WidgetFactory fallback) {
             _fallback = fallback;
         }

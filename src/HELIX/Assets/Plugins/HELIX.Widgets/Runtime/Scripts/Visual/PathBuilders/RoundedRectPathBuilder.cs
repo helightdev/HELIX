@@ -35,6 +35,7 @@ namespace HELIX.Widgets.Visual.PathBuilders {
                     rect.height = bounds.height - rect.y - rect.height;
                     break;
             }
+
             rect.position += bounds.position;
 
             if (Corners == default) builder.Rect(rect);

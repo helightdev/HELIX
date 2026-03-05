@@ -31,9 +31,9 @@ namespace HELIX.Widgets.Layout {
                     _gap = 0f;
                     RebuildGaps();
                 } else {
-                    foreach (var visualElement in Children())
-                        if (visualElement.ClassListContains("generated-gap"))
-                            visualElement.style.width = _gap;
+                    foreach (var visualElement in Children()) {
+                        if (visualElement.ClassListContains("generated-gap")) visualElement.style.width = _gap;
+                    }
                 }
             }
         }
@@ -90,9 +90,9 @@ namespace HELIX.Widgets.Layout {
         protected abstract Axis GetAxis();
 
         private void RebuildGaps() {
-            foreach (var child in Children().ToList())
-                if (child.ClassListContains("generated-gap"))
-                    Remove(child);
+            foreach (var child in Children().ToList()) {
+                if (child.ClassListContains("generated-gap")) Remove(child);
+            }
 
             if (Mathf.Approximately(_gap, 0f) || _mainAxisAlign is Justify.SpaceBetween or Justify.SpaceEvenly) return;
 

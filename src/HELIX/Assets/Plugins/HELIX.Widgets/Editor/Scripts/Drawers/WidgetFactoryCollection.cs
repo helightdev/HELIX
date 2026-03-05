@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using HELIX.Widgets.Theming;
-using UnityEngine;
 
 namespace HELIX.Widgets.Editor {
     public static class WidgetFactoryCollection {
@@ -39,9 +38,7 @@ namespace HELIX.Widgets.Editor {
             var dict = new Dictionary<Type, List<string>>();
             foreach (var type in types) {
                 var associated = FindFactoryGenericArgument(type);
-                if (associated == null) {
-                    continue;
-                }
+                if (associated == null) continue;
 
                 var typeList = dict.GetValueOrDefault(associated, new List<string>());
                 typeList.Add(type.FullName);

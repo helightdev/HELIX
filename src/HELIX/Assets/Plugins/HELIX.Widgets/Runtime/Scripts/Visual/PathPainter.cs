@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using HELIX.Painting;
 using HELIX.Painting.Paths;
 using UnityEngine;
@@ -7,7 +6,6 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
     public partial class PathPainter : PaintingWidget {
-        
         [UxmlObjectReference("paint")]
         public ScriptablePaint Painter { get; set; }
 

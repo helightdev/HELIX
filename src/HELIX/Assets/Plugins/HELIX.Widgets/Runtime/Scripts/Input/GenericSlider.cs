@@ -12,11 +12,34 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Input {
     [UxmlElement]
     public partial class GenericSlider : BaseWidget {
-        private Axis _axis;
-        private float _value; // 0f-1f
-        private readonly WidgetFactorySlot<GenericSliderTrack> _trackSlot;
         private readonly WidgetFactorySlot<GenericSliderThumb> _thumbSlot;
-        private float _thumbRange = 0f; // 0: point, epsilon-1f: thumb width as percentage of total slider length
+        private readonly WidgetFactorySlot<GenericSliderTrack> _trackSlot;
+        private Axis _axis;
+        private float _thumbRange; // 0: point, epsilon-1f: thumb width as percentage of total slider length
+        private float _value; // 0f-1f
+
+        public GenericSlider() {
+            RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+            _trackSlot = WidgetFactorySlot(
+                    track => {
+                        track.Rebuild(this, contentRect);
+                        track.SetValue(_value);
+                    },
+                    fallback: new SimpleGenericSliderTrack()
+                )
+                .Stretched()
+                .AddTo(this);
+            _thumbSlot = WidgetFactorySlot(
+                    thumb => {
+                        thumb.Rebuild(this, contentRect);
+                        thumb.SetRange(_thumbRange);
+                        thumb.SetValue(_value);
+                    },
+                    fallback: new SimpleGenericSliderThumb()
+                )
+                .Stretched()
+                .AddTo(this);
+        }
 
         [UxmlAttribute, Range(0f, 1f)]
         public float Value {
@@ -61,29 +84,6 @@ namespace HELIX.Widgets.Input {
         [UxmlObjectReference("base-test")]
         public VisualElementWidgetFactory TestFactory { get; set; }
 
-        public GenericSlider() {
-            RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
-            _trackSlot = WidgetFactorySlot<GenericSliderTrack>(
-                    onCreated: track => {
-                        track.Rebuild(this, contentRect);
-                        track.SetValue(_value);
-                    },
-                    fallback: new SimpleGenericSliderTrack()
-                )
-                .Stretched()
-                .AddTo(this);
-            _thumbSlot = WidgetFactorySlot<GenericSliderThumb>(
-                    onCreated: thumb => {
-                        thumb.Rebuild(this, contentRect);
-                        thumb.SetRange(_thumbRange);
-                        thumb.SetValue(_value);
-                    },
-                    fallback: new SimpleGenericSliderThumb()
-                )
-                .Stretched()
-                .AddTo(this);
-        }
-
         protected override void OnAttached(AttachToPanelEvent evt) {
             base.OnAttached(evt);
             Rebuild();
@@ -110,24 +110,37 @@ namespace HELIX.Widgets.Input {
             dimensions = sliderDimensions;
         }
 
-        public virtual void SetValue(float newValue) => value = newValue;
-        public virtual void SetDimensions(Rect newDimensions) => dimensions = newDimensions;
+        public virtual void SetValue(float newValue) {
+            value = newValue;
+        }
+
+        public virtual void SetDimensions(Rect newDimensions) {
+            dimensions = newDimensions;
+        }
     }
 
     public abstract class GenericSliderThumb : BaseWidget {
         public Rect dimensions;
+        public float range;
         public GenericSlider slider;
         public float value;
-        public float range;
 
         public virtual void Rebuild(GenericSlider parentSlider, Rect sliderDimensions) {
             slider = parentSlider;
             dimensions = sliderDimensions;
         }
 
-        public virtual void SetValue(float newValue) => value = newValue;
-        public virtual void SetRange(float newRange) => range = newRange;
-        public virtual void SetDimensions(Rect newDimensions) => dimensions = newDimensions;
+        public virtual void SetValue(float newValue) {
+            value = newValue;
+        }
+
+        public virtual void SetRange(float newRange) {
+            range = newRange;
+        }
+
+        public virtual void SetDimensions(Rect newDimensions) {
+            dimensions = newDimensions;
+        }
     }
 
     [UxmlObject]
@@ -138,16 +151,18 @@ namespace HELIX.Widgets.Input {
 
     [UxmlObject, Serializable]
     public partial class SimpleGenericSliderTrack : GenericSliderTrackFactory {
+        [UxmlAttribute]
+        public StyleLength trackHeight = 33.Percent();
+
         [UxmlObjectReference("paint")]
         public ScriptablePaint paint = new ScriptablePainter(
             new RoundedRectPathBuilder { Radii = new Vector4(4, 4, 4, 4) },
             new SolidFillPathDrawer { Color = Color.gray }
         );
 
-        [UxmlAttribute]
-        public StyleLength trackHeight = 33.Percent();
-
-        public override VisualElement Create(BaseWidget parentWidget) => new Widget(paint, trackHeight);
+        public override VisualElement Create(BaseWidget parentWidget) {
+            return new Widget(paint, trackHeight);
+        }
 
         public class Widget : GenericSliderTrack {
             private readonly ScriptablePaint _paint;
@@ -175,28 +190,30 @@ namespace HELIX.Widgets.Input {
 
     [UxmlObject, Serializable]
     public partial class SimpleGenericSliderThumb : GenericSliderThumbFactory {
+        [UxmlAttribute]
+        public StyleLength trackHeight = Length.Auto();
+
         [UxmlObjectReference("paint")]
         public ScriptablePaint paint = new ScriptablePainter(
             new RoundedRectPathBuilder { Radii = new Vector4(4, 4, 4, 4) },
             new SolidFillPathDrawer { Color = Color.black }
         );
 
-        [UxmlAttribute]
-        public StyleLength trackHeight = Length.Auto();
-
-        public override VisualElement Create(BaseWidget parentWidget) => new Widget(paint, trackHeight);
+        public override VisualElement Create(BaseWidget parentWidget) {
+            return new Widget(paint, trackHeight);
+        }
 
         public class Widget : GenericSliderThumb {
-            private readonly float _pointSize = 8f;
-            private int _pointerId = -1;
-            private float _dragOffset = 0f;
             private readonly ScriptablePaint _paint;
+            private readonly float _pointSize = 8f;
             private readonly StyleLength _trackHeight;
+            private float _dragOffset;
+            private int _pointerId = -1;
 
             public Widget(ScriptablePaint paint, StyleLength trackHeight) {
                 _paint = paint;
                 _trackHeight = trackHeight;
-                
+
                 RegisterCallback<PointerDownEvent>(OnPointerDown);
                 RegisterCallback<PointerMoveEvent>(OnPointerMove);
                 RegisterCallback<PointerUpEvent>(OnPointerUp);

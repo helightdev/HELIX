@@ -20,7 +20,9 @@ namespace HELIX.Extensions {
             );
         }
 
-        public static float LayoutSimple(this StyleLength length, float available) => length.LayoutSimple(available, new Vector2(-1, -1));
+        public static float LayoutSimple(this StyleLength length, float available) {
+            return length.LayoutSimple(available, new Vector2(-1, -1));
+        }
 
         public static Rect LayoutSimple(
             this Rect rect,
@@ -38,12 +40,14 @@ namespace HELIX.Extensions {
             var offset = new Vector2(leeway.x * coefficients.x, leeway.y * coefficients.y);
             return new Rect(offset + rect.position, size);
         }
-        
+
         public static Rect LayoutSimple(
             this Rect rect,
             Alignment alignment,
             StyleLength width,
             StyleLength height
-        ) => rect.LayoutSimple(alignment, width, height, new Vector2(-1, -1), new Vector2(-1, -1));
+        ) {
+            return rect.LayoutSimple(alignment, width, height, new Vector2(-1, -1), new Vector2(-1, -1));
+        }
     }
 }

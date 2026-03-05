@@ -106,9 +106,9 @@ namespace HELIX.Widgets.Theming {
             return GetType().GetHashCode();
         }
     }
-    
+
     [UxmlObject]
-    public abstract partial class VisualElementWidgetFactory : WidgetFactory<VisualElement> {}
+    public abstract partial class VisualElementWidgetFactory : WidgetFactory<VisualElement> { }
 
     public interface IWidgetFactoryReference {
         WidgetFactory LookupFactory();
@@ -146,11 +146,11 @@ namespace HELIX.Widgets.Theming {
         public static implicit operator string(WidgetFactoryReference<T> reference) {
             return reference.factoryName;
         }
-        
+
         public static implicit operator WidgetFactory(WidgetFactoryReference<T> reference) {
             return reference.LookupFactory();
         }
-        
+
         public static implicit operator WidgetFactory<T>(WidgetFactoryReference<T> reference) {
             return reference.LookupFactory() as WidgetFactory<T>;
         }

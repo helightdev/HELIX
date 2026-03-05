@@ -22,17 +22,22 @@ namespace HELIX.Types {
             return new Vector2(horizontal, vertical);
         }
 
-        public static readonly Alignment TopCenter = new Alignment(0f, -1f);
-        public static readonly Alignment TopRight = new Alignment(1f, -1f);
-        public static readonly Alignment TopLeft = new Alignment(-1f, -1f);
-        public static readonly Alignment CenterLeft = new Alignment(-1f, 0f);
-        public static readonly Alignment Center = new Alignment(0f, 0f);
-        public static readonly Alignment CenterRight = new Alignment(1f, 0f);
-        public static readonly Alignment BottomLeft = new Alignment(-1f, 1f);
-        public static readonly Alignment BottomCenter = new Alignment(0f, 1f);
-        public static readonly Alignment BottomRight = new Alignment(1f, 1f);
+        public static readonly Alignment TopCenter = new(0f, -1f);
+        public static readonly Alignment TopRight = new(1f, -1f);
+        public static readonly Alignment TopLeft = new(-1f, -1f);
+        public static readonly Alignment CenterLeft = new(-1f, 0f);
+        public static readonly Alignment Center = new(0f, 0f);
+        public static readonly Alignment CenterRight = new(1f, 0f);
+        public static readonly Alignment BottomLeft = new(-1f, 1f);
+        public static readonly Alignment BottomCenter = new(0f, 1f);
+        public static readonly Alignment BottomRight = new(1f, 1f);
 
-        public static implicit operator Alignment(Vector2 vec) => new(vec.x, vec.y);
-        public static implicit operator Vector2(Alignment alignment) => new(alignment.x, alignment.y);
+        public static implicit operator Alignment(Vector2 vec) {
+            return new Alignment(vec.x, vec.y);
+        }
+
+        public static implicit operator Vector2(Alignment alignment) {
+            return new Vector2(alignment.x, alignment.y);
+        }
     }
 }
