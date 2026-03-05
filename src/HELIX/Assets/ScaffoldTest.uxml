@@ -1,6 +1,26 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <ui:VisualElement style="flex-grow: 1;">
         <HELIX.Widgets.Input.GenericTextInput text-input-style="LightNeutral" cursor-color="rgb(0, 0, 0)" selection-color="rgba(255, 10, 0, 0.38)" focusable="true" name="GenericTextInput" value="Test1234" expands="true" class="helix-textfield-style-light" style="height: 31px; background-color: rgb(255, 255, 255);"/>
+        <HELIX.Widgets.Input.GenericSlider value="0.5" thumb-range="0" name="GenericSlider" style="height: 30px;">
+            <thumb-factory>
+                <HELIX.Widgets.Input.SimpleGenericSliderThumb track-height="80%">
+                    <paint>
+                        <HELIX.Widgets.Visual.ScriptablePainter>
+                            <builders>
+                                <HELIX.Widgets.Visual.PathBuilders.LayoutPathBuilder width-constraints="-1,25">
+                                    <HELIX.Widgets.Visual.PathBuilders.RoundedRectPathBuilder corners="4,4,4,4"/>
+                                </HELIX.Widgets.Visual.PathBuilders.LayoutPathBuilder>
+                            </builders>
+                            <drawers>
+                                <HELIX.Widgets.Visual.PathDrawers.GradientFillPathDrawer>
+                                    <HELIX.Widgets.Visual.GradientGenerators.RadialGradientGenerator outer-color="rgb(51, 51, 51)" inner-color="rgb(87, 87, 87)"/>
+                                </HELIX.Widgets.Visual.PathDrawers.GradientFillPathDrawer>
+                            </drawers>
+                        </HELIX.Widgets.Visual.ScriptablePainter>
+                    </paint>
+                </HELIX.Widgets.Input.SimpleGenericSliderThumb>
+            </thumb-factory>
+        </HELIX.Widgets.Input.GenericSlider>
         <HELIX.Widgets.Input.GenericTextInput name="" text-input-style="DarkNeutral" expands="true" value="Test" style="height: 31px; background-color: rgb(24, 24, 24); color: rgb(255, 255, 255);"/>
         <ui:VisualElement style="flex-grow: 1;">
             <HELIX.Widgets.Navigation.Scaffold style="overflow: hidden; flex-grow: 1;">
@@ -12,4 +32,5 @@
             </HELIX.Widgets.Navigation.Scaffold>
         </ui:VisualElement>
     </ui:VisualElement>
+    <HELIX.Widgets.Input.GenericSlider value="0.508" thumb-range="0.381" name="GenericSlider" axis="Vertical" style="width: 30px; top: 93px; bottom: 0; position: absolute;"/>
 </ui:UXML>

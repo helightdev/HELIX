@@ -7,11 +7,15 @@
         <ui:VisualElement style="width: 64px; height: 64px; background-color: rgb(255, 0, 184);"/>
     </HELIX.Widgets.Layout.Row>
     <ui:VisualElement class="green-container" style="flex-grow: 1;"/>
-    <Example name="Example" factory-reference="None" primary-color="none" style="height: 57px;"/>
+    <Example name="Example" factory-reference="None" primary-color="none" style="height: 57px;">
+        <factory>
+            <TestFactory/>
+        </factory>
+    </Example>
     <HELIX.Widgets.Theming.WidgetThemeProvider focusable="false" name="WidgetThemeProvider" class="style-target">
         <PerformUpdateWidget/>
         <Example some-texture="value: project://database/Assets/UI%20Toolkit/UnityThemes/UnityDefaultRuntimeTheme.tss?fileID=3506167780502562645&amp;guid=48109cee5aa9a10418ca00cb2f6cf80e&amp;type=3#console.erroricon@2x" name="Example" style="height: 43px; width: 261px;"/>
-        <ExampleThemeComponent c-primary="value: rgb(255, 0, 0)" example-factory="None"/>
+        <ExampleThemeComponent c-primary="value: rgb(255, 0, 67)"/>
     </HELIX.Widgets.Theming.WidgetThemeProvider>
     <HELIX.Widgets.Visual.MemoryUsageLineGraph style="height: 79px; display: flex; opacity: 1; visibility: visible;"/>
     <HELIX.Widgets.Layout.Column main-axis-align="Center" cross-axis-align="Center" name="Column" style="height: 269px;">
@@ -23,10 +27,4 @@
     <HELIX.Widgets.Visual.BoxShadow blur-radius="6.25" offset="8,4.41" shadow-color="rgb(0, 0, 0)" spread-radius="10.64" length-test="20px,auto,24px,24%" length-test2="0%" corners="13.73,33.7,19.5,37.9" border-radius="value: 5.37,5.68,35.73,33.8" style="height: 120px; width: 232px; position: absolute; top: 254px; left: 109px; border-top-left-radius: 98px; border-top-right-radius: 98px; border-bottom-right-radius: 98px; border-bottom-left-radius: 98px;">
         <ui:VisualElement name="VisualElement" style="flex-grow: 1; background-color: rgb(255, 0, 173);"/>
     </HELIX.Widgets.Visual.BoxShadow>
-    <HELIX.Widgets.Layout.Center style="position: absolute; top: 0; right: 0; bottom: 0; left: 0;">
-        <ui:VisualElement style="flex-grow: 0; width: 100px; height: 100px; background-color: rgb(0, 0, 0);"/>
-    </HELIX.Widgets.Layout.Center>
-    <HELIX.Widgets.Layout.FlexAlign horizontal-align="0.77" vertical-align="0.95" style="top: 1px; right: 0; bottom: 0; left: 0; position: absolute; align-items: center; justify-content: center;">
-        <ui:VisualElement style="width: 100px; height: 100px; background-color: rgb(255, 0, 0);"/>
-    </HELIX.Widgets.Layout.FlexAlign>
 </ui:UXML>

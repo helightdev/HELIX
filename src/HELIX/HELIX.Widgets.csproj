@@ -52,6 +52,7 @@
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Navigation\Transitions\SlidePageTransition.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\GradientGenerators\LinearGradientGenerator.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\PaintingWidget.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\PathBuilders\LayoutPathBuilder.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Theming\WidgetFactorySlot.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Layout\FlexAlign.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Theming\ThemeOverride.cs" />
@@ -76,12 +77,14 @@
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Navigation\PageTransition.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\MemoryUsageLineGraph.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\PathBuilders\RoundedRectPathBuilder.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\ScriptablePaint.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Layout\Row.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Theming\WidgetFactory.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Layout\Column.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\PathDrawers\GradientFillPathDrawer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\PathPainter.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Utilities\AuxiliaryStylesheets.cs" />
+    <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Input\GenericSlider.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Navigation\Transitions\InstantPageTransition.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Layout\DirectionalContainer.cs" />
     <Compile Include="Assets\Plugins\HELIX.Widgets\Runtime\Scripts\Visual\GradientGenerators\RadialGradientGenerator.cs" />
