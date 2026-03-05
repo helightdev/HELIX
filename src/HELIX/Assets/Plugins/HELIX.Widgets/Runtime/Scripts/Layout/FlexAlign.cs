@@ -13,8 +13,8 @@ namespace HELIX.Widgets.Layout {
         private readonly VisualElement _slot;
         private readonly VisualElement _topSpacer;
 
-        private float _horizontalAlign = 0.5f;
-        private float _verticalAlign = 0.5f;
+        private float _horizontalAlign;
+        private float _verticalAlign;
 
         public FlexAlign() {
             this.FlexContainer();
@@ -43,19 +43,11 @@ namespace HELIX.Widgets.Layout {
         public override VisualElement contentContainer => _slot;
 
         [UxmlAttribute]
-        public float HorizontalAlign {
-            get => _horizontalAlign;
+        public Alignment Alignment {
+            get => new(_horizontalAlign, _verticalAlign);
             set {
-                _horizontalAlign = value;
-                Refresh();
-            }
-        }
-
-        [UxmlAttribute]
-        public float VerticalAlign {
-            get => _verticalAlign;
-            set {
-                _verticalAlign = value;
+                _horizontalAlign = value.x;
+                _verticalAlign = value.y;
                 Refresh();
             }
         }
