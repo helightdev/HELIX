@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
@@ -121,9 +122,7 @@ namespace HELIX.Widgets.Theming {
 
         public static T Resolve<T>(WidgetThemeProvider provider, ThemeProperty<T> property) {
             if (provider != null) return provider.Resolve(property);
-            if (GlobalThemeValues.TryGetValue(property.key, out var globalValue) && globalValue is T typedGlobalValue)
-                return typedGlobalValue;
-
+            if (GlobalThemeValues.TryGetValue(property.key, out var value) && value is T typedValue) return typedValue;
             return property.defaultValue;
         }
     }
@@ -132,11 +131,21 @@ namespace HELIX.Widgets.Theming {
     public abstract partial class WidgetThemeComponent {
         public virtual void Apply(Dictionary<string, object> dict, bool clearExisting = false) {
             foreach (var info in GetType().GetFields()) {
-                var attribute = info.GetCustomAttributes<UxmlAttributeAttribute>().FirstOrDefault();
-                if (attribute == null) continue;
-                var value = info.GetValue(this);
-                ApplyValue(attribute.name, value, dict, clearExisting);
+                var attributeAttr = info.GetCustomAttributes<UxmlAttributeAttribute>().FirstOrDefault();
+                if (attributeAttr != null) {
+                    var value = info.GetValue(this);
+                    ApplyValue(attributeAttr.name, value, dict, clearExisting);
+                }
+
+                var objectReferenceAttr = info.GetCustomAttributes<UxmlObjectReferenceAttribute>().FirstOrDefault();
+                if (objectReferenceAttr != null) {
+                    var value = info.GetValue(this);
+                    Debug.Log("Applying object reference for " + objectReferenceAttr.name + " with value: " + value);
+                    ApplyValue(objectReferenceAttr.name, value, dict, clearExisting);
+                }
             }
+
+            Debug.Log($"Applied: {string.Join(", ", dict.Select(kv => $"{kv.Key}={kv.Value}"))}");
         }
 
         protected static void ApplyValue(
@@ -147,7 +156,7 @@ namespace HELIX.Widgets.Theming {
         ) {
             switch (value) {
                 case IWidgetFactoryReference reference:
-                    var widgetFactory = reference.GetFactory();
+                    var widgetFactory = reference.LookupFactory();
                     if (widgetFactory != null) dict[key] = widgetFactory;
                     else if (clearExisting) dict.Remove(key);
                     break;
@@ -158,6 +167,9 @@ namespace HELIX.Widgets.Theming {
                 case ThemeOptional optional:
                     if (optional.TryGetValue(out var optionalValue)) dict[key] = optionalValue;
                     else if (clearExisting) dict.Remove(key);
+                    break;
+                case null:
+                    if (clearExisting) dict.Remove(key);
                     break;
                 default: dict[key] = value; break;
             }

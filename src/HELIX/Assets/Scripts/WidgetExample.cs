@@ -19,18 +19,18 @@ public static class MyThemes {
         ThemeProperty.Theme("c-primary-washed", Color.white);
 
     public static readonly ThemeProperty<WidgetFactory<VisualElement>> WidgetFactory =
-        ThemeProperty.WidgetFactory<VisualElement>("example-factory", typeof(TestFactory));
+        ThemeProperty.WidgetFactory("example-factory", new TestFactory());
 }
 
-[UxmlWidgetFactory]
-public class TestFactory : WidgetFactory<VisualElement> {
+[UxmlWidgetFactory, UxmlObject]
+public partial class TestFactory : VisualElementWidgetFactory {
     public override VisualElement Create(BaseWidget parentWidget) {
         return new Label("Hello, World!").Sized(width: 25);
     }
 }
 
-[UxmlWidgetFactory]
-public class AnotherTestFactory : WidgetFactory<VisualElement> {
+[UxmlWidgetFactory, UxmlObject]
+public partial class AnotherTestFactory : VisualElementWidgetFactory {
     public override VisualElement Create(BaseWidget parentWidget) {
         return new Label("This is just another test!").Positioned(right: 0, bottom: 0).Flexible();
     }
@@ -39,7 +39,8 @@ public class AnotherTestFactory : WidgetFactory<VisualElement> {
 [UxmlElement]
 public partial class Example : BaseWidget {
     private readonly ThemeValue<Color> _primaryColor;
-    private readonly WidgetFactorySlot<VisualElement> _factorySlot;
+    private readonly WidgetFactorySlot<VisualElement> _factorySlotSlot;
+    public IPublicWidgetFactorySlot<VisualElement> FactorySlot => _factorySlotSlot;
 
     [UxmlAttribute]
     public ThemeOverride<Color> PrimaryColor {
@@ -47,29 +48,21 @@ public partial class Example : BaseWidget {
         set => _primaryColor.Override = value;
     }
 
-    [UxmlAttribute] public ThemeOverride<Texture2D> SomeTexture { get; set; }
-
     [UxmlAttribute]
-    public WidgetFactoryReference<VisualElement> FactoryReference {
-        get => _factorySlot.Reference;
-        set => _factorySlot.Reference = value;
+    public ThemeOverride<Texture2D> SomeTexture { get; set; }
+
+    [UxmlObjectReference("factory")]
+    public VisualElementWidgetFactory FactoryMapped {
+        get => _factorySlotSlot.GetMapped<VisualElementWidgetFactory>();
+        set => _factorySlotSlot.SetMapped(value);
     }
 
     public Example() {
         _primaryColor = ThemeValue(MyThemes.PrimaryColor, OnPrimaryColorChanged);
-        _factorySlot = WidgetFactorySlot(MyThemes.WidgetFactory);
-        _factorySlot.StretchToParentSize();
-        Add(_factorySlot);
-        var a = new Element {
-            Child = new Label("Inside Factory Slot").Transitions(
-                new Transition(StyleProperties.Color) { duration = 0.5f },
-                new Transition(StyleProperties.FontSize) {
-                    duration = 0.25f,
-                    easing = EasingMode.EaseInOut
-                })
-        };
+        _factorySlotSlot = WidgetFactorySlot(MyThemes.WidgetFactory);
+        _factorySlotSlot.StretchToParentSize();
+        Add(_factorySlotSlot);
     }
-
 
     private void OnPrimaryColorChanged(Color newValue) {
         style.backgroundColor = newValue;
@@ -78,11 +71,15 @@ public partial class Example : BaseWidget {
 
 [UxmlObject, Serializable]
 public partial class ExampleThemeComponent : WidgetThemeComponent {
-    [Header("Example Theme Component")] [UxmlAttribute("example-factory")]
-    public WidgetFactoryReference<VisualElement> factory;
+    [Header("Example Theme Component")]
+    [UxmlObjectReference("example-factory")]
+    public VisualElementWidgetFactory factory;
 
-    [UxmlAttribute("c-primary")] public ThemeOptional<Color> primaryColor;
-    [UxmlAttribute("example-optional")] public ThemeOptional<Color> optionalColor;
+    [UxmlAttribute("c-primary")]
+    public ThemeOptional<Color> primaryColor;
+
+    [UxmlAttribute("example-optional")]
+    public ThemeOptional<Color> optionalColor;
 }
 
 [UxmlElement]
@@ -90,9 +87,8 @@ public partial class PerformUpdateWidget : BaseWidget {
     public PerformUpdateWidget() {
         var button = new Button() { text = "Update me!" };
         button.clicked += () => {
-            ThemeProvider.Components = new List<WidgetThemeComponent>() {
-                new ExampleThemeComponent() { factory = "AnotherTestFactory" }
-            };
+            ThemeProvider.Components =
+                new List<WidgetThemeComponent> { new ExampleThemeComponent { factory = new AnotherTestFactory() } };
         };
         Add(button);
     }

@@ -17,15 +17,25 @@ namespace HELIX.Widgets.Theming {
         public abstract void ApplyReferenceFromTheme();
     }
 
-    public class WidgetFactorySlot<T> : WidgetFactorySlot where T : VisualElement {
+    public interface IPublicWidgetFactorySlot<T> where T : VisualElement {
+        WidgetFactoryReference<T> Reference { get; set; }
+        void SetMapped(WidgetFactory<T> value);
+        TMapped GetMapped<TMapped>() where TMapped : WidgetFactory<T>;
+        T Element { get; }
+        bool HasElement { get; }
+    }
+
+    public class WidgetFactorySlot<T> : WidgetFactorySlot, IPublicWidgetFactorySlot<T> where T : VisualElement {
         public delegate void OnElementCreatedDelegate(T element);
 
         public delegate void OnElementDestroyedDelegate(T element);
 
         private readonly ThemeProperty<WidgetFactory<T>> _themeProperty;
         private WidgetFactory _factory;
+        private WidgetFactory _fallback;
         private bool _hasExplicitReference;
         private WidgetFactoryReference<T> _reference;
+        private object _mappedValue;
 
         public WidgetFactorySlot(BaseWidget widget) : base(widget) { }
 
@@ -36,9 +46,20 @@ namespace HELIX.Widgets.Theming {
         public WidgetFactoryReference<T> Reference {
             get => _reference;
             set {
+                if (Equals(_reference, value)) return;
                 _reference = value;
                 ApplyReference(value);
             }
+        }
+
+        public void SetMapped(WidgetFactory<T> value) {
+            _mappedValue = value;
+            Reference = value == null ? default : new WidgetFactoryReference<T>(value);
+        }
+
+        public TMapped GetMapped<TMapped>() where TMapped : WidgetFactory<T> {
+            if (_mappedValue is TMapped mapped) return mapped;
+            return null;
         }
 
         public T Element { get; private set; }
@@ -49,12 +70,14 @@ namespace HELIX.Widgets.Theming {
         public event OnElementDestroyedDelegate OnElementDestroyed;
 
         private void ApplyReference(WidgetFactoryReference<T> factoryReference) {
-            var factory = RuntimeReflectionThemeLookup.GetFactory(factoryReference.factoryName);
-
+            var factory = factoryReference.LookupFactory();
+            
             // Try resolving from parent style on late unset
             if (factory == null) {
                 var parentStyle = widget.parent?.customStyle;
-                if (parentStyle != null) factory = WidgetThemeProvider.Resolve(widget.ThemeProvider, _themeProperty);
+                if (parentStyle != null && _themeProperty != null)
+                    factory = WidgetThemeProvider.Resolve(widget.ThemeProvider, _themeProperty);
+                factory ??= _fallback;
                 _hasExplicitReference = false;
             } else _hasExplicitReference = true;
 
@@ -65,9 +88,9 @@ namespace HELIX.Widgets.Theming {
 
         public override void ApplyReferenceFromTheme() {
             if (_hasExplicitReference) return;
-            if (_themeProperty == null) return;
-
-            var factory = WidgetThemeProvider.Resolve(widget.ThemeProvider, _themeProperty);
+            var factory = _fallback;
+            if (_themeProperty != null) factory = WidgetThemeProvider.Resolve(widget.ThemeProvider, _themeProperty);
+            
             if (factory == null || Equals(factory, _factory)) return;
             _factory = factory;
             _hasExplicitReference = false;
@@ -103,6 +126,10 @@ namespace HELIX.Widgets.Theming {
             OnElementDestroyed?.Invoke(Element);
             Remove(Element);
             Element = null;
+        }
+        
+        public void SetFallback(WidgetFactory fallback) {
+            _fallback = fallback;
         }
     }
 }

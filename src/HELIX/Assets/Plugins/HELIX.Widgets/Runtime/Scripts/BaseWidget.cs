@@ -39,9 +39,10 @@ namespace HELIX.Widgets {
         protected WidgetFactorySlot<T> WidgetFactorySlot<T>(
             WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
             WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
-            WidgetFactoryReference<T> reference = default
+            WidgetFactory<T> fallback = null
         ) where T : VisualElement {
-            var slot = new WidgetFactorySlot<T>(this) { Reference = reference };
+            var slot = new WidgetFactorySlot<T>(this);
+            if (fallback != null) slot.SetFallback(fallback);
             _widgetFactorySlots.Add(slot);
             if (onCreated != null) slot.OnElementCreated += onCreated;
             if (onDestroyed != null) slot.OnElementDestroyed += onDestroyed;
@@ -53,9 +54,10 @@ namespace HELIX.Widgets {
             ThemeProperty<WidgetFactory<T>> property,
             WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
             WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
-            WidgetFactoryReference<T> reference = default
+            WidgetFactory<T> fallback = null
         ) where T : VisualElement {
-            var slot = new WidgetFactorySlot<T>(this, property) { Reference = reference };
+            var slot = new WidgetFactorySlot<T>(this, property);
+            if (fallback != null) slot.SetFallback(fallback);
             _widgetFactorySlots.Add(slot);
             if (onCreated != null) slot.OnElementCreated += onCreated;
             if (onDestroyed != null) slot.OnElementDestroyed += onDestroyed;
@@ -76,8 +78,7 @@ namespace HELIX.Widgets {
         protected virtual void OnAttached(AttachToPanelEvent evt) {
             ThemeProvider = WidgetThemeProvider.Get(this);
             if (ThemeProvider != null) ThemeProvider.OnThemeUpdated += OnThemeUpdated;
-            foreach (var value in _themeValues) value.ReloadStyles();
-            foreach (var factorySlot in _widgetFactorySlots) factorySlot.Recreate();
+            OnThemeUpdated();
         }
 
         protected virtual void OnDetached(DetachFromPanelEvent evt) {

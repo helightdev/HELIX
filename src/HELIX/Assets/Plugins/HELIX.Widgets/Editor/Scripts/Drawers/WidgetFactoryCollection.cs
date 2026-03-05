@@ -38,10 +38,8 @@ namespace HELIX.Widgets.Editor {
 
             var dict = new Dictionary<Type, List<string>>();
             foreach (var type in types) {
-                Debug.Log($"Found WidgetFactory: {type.FullName}");
                 var associated = FindFactoryGenericArgument(type);
                 if (associated == null) {
-                    Debug.LogWarning($"WidgetFactory {type.FullName} does not inherit from WidgetFactory<T> and will be ignored.");
                     continue;
                 }
 
