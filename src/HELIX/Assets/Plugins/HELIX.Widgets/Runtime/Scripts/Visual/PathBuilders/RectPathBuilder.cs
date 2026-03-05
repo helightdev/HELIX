@@ -1,3 +1,4 @@
+using System;
 using HELIX.Painting.Paths;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -26,6 +27,8 @@ namespace HELIX.Widgets.Visual.PathBuilders {
                     rect.height = bounds.height - rect.y - rect.height;
                     break;
             }
+
+            rect.position += bounds.position;
 
             builder.Rect(rect);
         }

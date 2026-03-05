@@ -7,21 +7,12 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
     public partial class PathPainter : PaintingWidget {
-        [UxmlObjectReference]
-        public List<ScriptablePathBuilder> PathBuilders { get; set; } = new();
-
-        [UxmlObjectReference]
-        public List<ScriptablePathDrawer> PathDrawers { get; set; } = new();
+        
+        [UxmlObjectReference("paint")]
+        public ScriptablePaint Painter { get; set; }
 
         public override void Paint(PaintCanvas canvas, Rect bounds) {
-            if (PathBuilders?.Count == 0 || PathDrawers?.Count == 0) return;
-            IPathBuilder.Draw(
-                canvas.painter,
-                builder => {
-                    foreach (var pathBuilder in PathBuilders) pathBuilder?.Build(builder, bounds);
-                    foreach (var drawer in PathDrawers) drawer?.Draw(canvas);
-                }
-            );
+            Painter.Draw(canvas, bounds);
         }
     }
 
