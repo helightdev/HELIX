@@ -19,13 +19,13 @@ namespace HELIX.Widgets.Navigation {
 
         public OverlayEntry AddOverlay(VisualElement element) {
             var entry = new OverlayEntry(element);
-            _overlay.Add(element);
+            _overlay.Add(entry);
             return entry;
         }
 
         public OverlayEntry AddOverlay(VisualElement element, Vector2 localPosition, Vector2 size) {
             var entry = new OverlayEntry(element, localPosition, size);
-            _overlay.Add(element);
+            _overlay.Add(entry);
             return entry;
         }
 
