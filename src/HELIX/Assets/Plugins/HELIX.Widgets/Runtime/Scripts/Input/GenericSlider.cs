@@ -18,6 +18,8 @@ namespace HELIX.Widgets.Input {
         private float _thumbRange; // 0: point, epsilon-1f: thumb width as percentage of total slider length
         private float _value; // 0f-1f
 
+        public event Action<float> OnValueChanged;
+
         public GenericSlider() {
             RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
             _trackSlot = WidgetFactorySlot(
@@ -40,7 +42,13 @@ namespace HELIX.Widgets.Input {
                 .Stretched()
                 .AddTo(this);
         }
-
+        
+        public void SetValueWithoutNotify(float newValue) {
+            _value = Mathf.Clamp01(newValue);
+            _trackSlot.Element?.SetValue(_value);
+            _thumbSlot.Element?.SetValue(_value);
+        }
+        
         [UxmlAttribute, Range(0f, 1f)]
         public float Value {
             get => _value;
@@ -48,6 +56,7 @@ namespace HELIX.Widgets.Input {
                 _value = Mathf.Clamp01(value);
                 _trackSlot.Element?.SetValue(_value);
                 _thumbSlot.Element?.SetValue(_value);
+                OnValueChanged?.Invoke(_value);
             }
         }
 
