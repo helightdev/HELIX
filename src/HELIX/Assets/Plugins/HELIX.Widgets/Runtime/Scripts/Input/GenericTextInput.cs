@@ -20,6 +20,8 @@ namespace HELIX.Widgets.Input {
 
         private GenericTextInputStyle _textInputStyle = GenericTextInputStyle.Light;
 
+        public TextField BackingTextField { get; }
+
         public GenericTextInput() {
             this.WithStylesheet(AuxiliaryStylesheets.Helix).AddClasses("helix-generic-text-input");
             BackingTextField = new TextField().WithName("BackingTextField").Stretched().AddTo(this);
@@ -35,8 +37,10 @@ namespace HELIX.Widgets.Input {
             element.RegisterCallback<NavigationSubmitEvent>(_ => { OnSubmit?.Invoke(Value); });
             element.RegisterCallback<NavigationCancelEvent>(_ => { OnCancel?.Invoke(); });
         }
-
-        public TextField BackingTextField { get; }
+        
+        public void RequestEditingFocus() {
+            BackingTextField.schedule.Execute(() => BackingTextField.Focus()).ExecuteLater(0);
+        }
 
         [UxmlAttribute,
          Tooltip("The visual style of the text input, which determines the selection and cursor colors.")]
