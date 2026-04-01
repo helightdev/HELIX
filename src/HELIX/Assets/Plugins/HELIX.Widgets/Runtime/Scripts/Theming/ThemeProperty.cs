@@ -39,6 +39,21 @@ namespace HELIX.Widgets.Theming {
             return new ThemeProperty<T, T>(key, defaultValue);
         }
 
+        private static T ResolveFromComponent<T>(string key, WidgetThemeComponent component) {
+            if (!component.Resolve(key, out var value)) {
+                throw new ArgumentException($"Component does not contain a value for key: {key}");
+            }
+
+            return value is not T typedValue
+                ? throw new ArgumentException($"Component value for key ({value}): {key} is not of expected type: {typeof(T)}")
+                : typedValue;
+        }
+
+        public static ThemeProperty<T, T> Theme<T>(string key, WidgetThemeComponent component) {
+            var defaultValue = ResolveFromComponent<T>(key, component);
+            return new ThemeProperty<T, T>(key, defaultValue);
+        }
+
         public static ThemeProperty<T, T> Theme<T>(string key) {
             return new ThemeProperty<T, T>(key, default);
         }
@@ -55,6 +70,12 @@ namespace HELIX.Widgets.Theming {
 
         public static WidgetFactoryProperty<T> WidgetFactory<T>(string key) where T : VisualElement {
             return new WidgetFactoryProperty<T>(key, "None");
+        }
+
+        public static WidgetFactoryProperty<T> WidgetFactory<T>(string key, WidgetThemeComponent component)
+            where T : VisualElement {
+            var defaultValue = ResolveFromComponent<WidgetFactory<T>>(key, component);
+            return new WidgetFactoryProperty<T>(key, defaultValue);
         }
 
         public static implicit operator string(ThemeProperty property) {

@@ -1,9 +1,7 @@
 using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Widgets;
-using HELIX.Widgets.Layout;
 using HELIX.Widgets.Navigation;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Scaffold = HELIX.Widgets.Navigation.Scaffold;

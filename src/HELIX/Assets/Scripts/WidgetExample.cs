@@ -1,9 +1,6 @@
 using System;
 using System.Collections.Generic;
-using HELIX;
-using HELIX.Abstractions;
 using HELIX.Extensions;
-using HELIX.Types;
 using HELIX.Widgets;
 using HELIX.Widgets.Theming;
 using UnityEngine;
@@ -13,13 +10,35 @@ using WidgetThemeComponent = HELIX.Widgets.Theming.WidgetThemeComponent;
 [ThemePropertyCollection]
 public static class MyThemes {
     public static readonly ThemeProperty<Color> PrimaryColor =
-        ThemeProperty.Theme("c-primary", Color.white);
+        ThemeProperty.Theme<Color>("c-primary", ExampleThemeComponent.Default);
 
     public static readonly ThemeProperty<Color> PrimaryWashedColor =
-        ThemeProperty.Theme("c-primary-washed", Color.white);
+        ThemeProperty.Theme<Color>("c-primary-washed", ExampleThemeComponent.Default);
 
     public static readonly ThemeProperty<WidgetFactory<VisualElement>> WidgetFactory =
-        ThemeProperty.WidgetFactory("example-factory", new TestFactory());
+        ThemeProperty.WidgetFactory<VisualElement>("example-factory", ExampleThemeComponent.Default);
+}
+
+[UxmlObject, Serializable]
+public partial class ExampleThemeComponent : WidgetThemeComponent {
+    public static readonly ExampleThemeComponent Default = new() {
+        factory = new TestFactory(),
+        primaryColor = Color.white,
+        primaryWashedColor = Color.white,
+    };
+    
+    [Header("Example Theme Component")]
+    [UxmlObjectReference("example-factory")]
+    public VisualElementWidgetFactory factory;
+
+    [UxmlAttribute("c-primary")]
+    public ThemeOptional<Color> primaryColor;
+    
+    [UxmlAttribute("c-primary-washed")]
+    public ThemeOptional<Color> primaryWashedColor;
+
+    [UxmlAttribute("example-optional")]
+    public ThemeOptional<Color> optionalColor;
 }
 
 [UxmlWidgetFactory, UxmlObject]
@@ -67,19 +86,6 @@ public partial class Example : BaseWidget {
     private void OnPrimaryColorChanged(Color newValue) {
         style.backgroundColor = newValue;
     }
-}
-
-[UxmlObject, Serializable]
-public partial class ExampleThemeComponent : WidgetThemeComponent {
-    [Header("Example Theme Component")]
-    [UxmlObjectReference("example-factory")]
-    public VisualElementWidgetFactory factory;
-
-    [UxmlAttribute("c-primary")]
-    public ThemeOptional<Color> primaryColor;
-
-    [UxmlAttribute("example-optional")]
-    public ThemeOptional<Color> optionalColor;
 }
 
 [UxmlElement]

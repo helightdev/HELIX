@@ -21,7 +21,10 @@ namespace HELIX.Widgets.Theming {
             _owner = owner;
         }
 
-        public ThemeValue(BaseWidget owner, ThemeProperty<T> property, OnValueChangedDelegate onValueChanged) : this(owner, property) {
+        public ThemeValue(BaseWidget owner, ThemeProperty<T> property, OnValueChangedDelegate onValueChanged) : this(
+            owner,
+            property
+        ) {
             OnValueChanged += onValueChanged;
         }
 
