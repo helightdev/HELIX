@@ -42,17 +42,17 @@
     <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="Assets\Plugins\HELIX.Widgets\package.json" />
-    <None Include="Assets\Plugins\HELIX.Widgets\Runtime\Resources\helix\helix.uss" />
-    <None Include="Assets\Plugins\HELIX\package.json" />
+    <None Include="Assets/Plugins/HELIX.Widgets/package.json" />
+    <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/helix.uss" />
+    <None Include="Assets/Plugins/HELIX/package.json" />
     <Reference Include="UnityEngine">
-      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.4.0b10\Editor\Data\Managed\UnityEngine\UnityEngine.dll</HintPath>
+      <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/Managed/UnityEngine/UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.4.0b10\Editor\Data\Managed\UnityEngine\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/Managed/UnityEngine/UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEditor">
-      <HintPath>C:\Program Files\Unity\Hub\Editor\6000.4.0b10\Editor\Data\Managed\UnityEngine\UnityEditor.dll</HintPath>
+      <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/Managed/UnityEngine/UnityEditor.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
