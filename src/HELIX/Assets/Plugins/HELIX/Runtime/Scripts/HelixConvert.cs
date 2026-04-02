@@ -80,11 +80,4 @@ namespace HELIX {
             return true;
         }
     }
-
-    public static class ColorExtensions {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Color AlphaMultiplied(this Color color, float opacity) {
-            return new Color(color.r, color.g, color.b, color.a * opacity);
-        }
-    }
 }

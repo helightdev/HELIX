@@ -1,3 +1,4 @@
+using HELIX.Coloring;
 using HELIX.Extensions;
 using HELIX.Widgets.Visual.PathDrawers;
 using Unity.Profiling;
@@ -67,8 +68,8 @@ namespace HELIX.Widgets.Visual {
                         new GradientFillPathDrawer {
                             GradientGenerator = new DirectionalLinearGradientGenerator {
                                 Angle = 90f,
-                                StartColor = gcUsedColor.AlphaMultiplied(0.6f),
-                                EndColor = gcUsedColor.AlphaMultiplied(0.1f)
+                                StartColor = gcUsedColor.MultiplyAlpha(0.6f),
+                                EndColor = gcUsedColor.MultiplyAlpha(0.1f)
                             }
                         }
                 }.Position(0).MakeAbsolute()
@@ -85,8 +86,8 @@ namespace HELIX.Widgets.Visual {
                         new GradientFillPathDrawer {
                             GradientGenerator = new DirectionalLinearGradientGenerator {
                                 Angle = 90f,
-                                StartColor = maxColor.AlphaMultiplied(0.6f),
-                                EndColor = maxColor.AlphaMultiplied(0.1f)
+                                StartColor = maxColor.MultiplyAlpha(0.6f),
+                                EndColor = maxColor.MultiplyAlpha(0.1f)
                             }
                         }
                 }.Position(0).MakeAbsolute()

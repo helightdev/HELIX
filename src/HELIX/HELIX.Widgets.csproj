@@ -83,6 +83,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Layout/Column.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathDrawers/GradientFillPathDrawer.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathPainter.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/SwatchVisualizer.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/AuxiliaryStylesheets.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Input/GenericSlider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/Transitions/InstantPageTransition.cs" />

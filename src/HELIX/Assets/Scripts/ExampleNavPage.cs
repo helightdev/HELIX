@@ -1,7 +1,10 @@
 using HELIX.Abstractions;
+using HELIX.Coloring;
 using HELIX.Extensions;
+using HELIX.Types;
 using HELIX.Widgets;
 using HELIX.Widgets.Navigation;
+using HELIX.Widgets.Visual;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Scaffold = HELIX.Widgets.Navigation.Scaffold;
@@ -54,13 +57,24 @@ public partial class ExampleNavPage : NavPage {
 public partial class ExampleScaffoldPopup : BaseWidget {
     public ExampleScaffoldPopup() {
         RegisterCallback<PointerDownEvent>(evt => {
-            var element = new Element("Offset").Positioned(
-                top: 100.Percent()
-            ).Sized(width: 100.Percent(), height: 100.Percent()).BackgroundColor(Color.red);
-            
-            var scaffold = Scaffold.Get(this);
-            var overlay = scaffold.AddAnchoredOverlay(this, element);
-            element.RegisterCallback<PointerDownEvent>(_ => scaffold.RemoveOverlay(overlay));
-        });
+                var element = new Element("Offset").Positioned(top: 100.Percent())
+                    .Sized(width: 100.Percent(), height: 100.Percent()).BackgroundColor(Color.red);
+
+                var scaffold = Scaffold.Get(this);
+                var overlay = scaffold.AddAnchoredOverlay(this, element);
+                element.RegisterCallback<PointerDownEvent>(_ => scaffold.RemoveOverlay(overlay));
+            }
+        );
+    }
+}
+
+[UxmlElement]
+public partial class HelixColorSwatchVisualizer : BaseWidget {
+    public HelixColorSwatchVisualizer() {
+        this.FlexContainer(crossAxisAlign: Align.Stretch).Stretched();
+        foreach (var (swatchName, swatch) in Colors.Named) {
+            Add(new Label(swatchName).Tight());
+            Add(new SwatchVisualizer(swatch).Flexible());
+        }
     }
 }

@@ -81,6 +81,11 @@ namespace HELIX.Extensions {
             element.style.fontSize = size;
             return element;
         }
+        
+        public static T TextAlign<T>(this T element, TextAnchor alignment) where T : VisualElement {
+            element.style.unityTextAlign = alignment;
+            return element;
+        }
 
         public static T BackgroundColor<T>(this T element, Color color) where T : VisualElement {
             element.style.backgroundColor = color;

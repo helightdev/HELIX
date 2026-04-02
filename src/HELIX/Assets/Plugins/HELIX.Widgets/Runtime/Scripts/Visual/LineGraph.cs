@@ -71,7 +71,6 @@ namespace HELIX.Widgets.Visual {
             foreach (var it in src) {
                 var p = it;
                 if (p.x < sampleXStart || p.x > sampleXEnd) continue;
-                p.x = p.x;
                 p.y = Mathf.Clamp01(p.y);
                 pts[n++] = new Vector2(p.x * width, (1 - p.y) * height);
             }

@@ -501,11 +501,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ExampleThemeBehaviour
   component:
-    factory:
-      factoryName: 
     primaryColor:
       hasValue: 1
       value: {r: 0, g: 0.78804183, b: 1, a: 1}
+    primaryWashedColor:
+      hasValue: 0
+      value: {r: 0, g: 0, b: 0, a: 0}
     optionalColor:
       hasValue: 0
       value: {r: 0, g: 0, b: 0, a: 0}
