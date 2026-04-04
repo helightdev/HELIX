@@ -7,6 +7,10 @@ using IEventHandler = HELIX.Types.IEventHandler;
 
 namespace HELIX.Extensions {
     public static partial class VisualElementExtensions {
+        public static bool IsInitial<T>(this IStyleValue<T> value) {
+            return value.keyword == StyleKeyword.Initial;
+        }
+
         public static T AddTo<T>(this T element, VisualElement target) where T : VisualElement {
             target.Add(element);
             return element;
@@ -81,7 +85,7 @@ namespace HELIX.Extensions {
             element.style.fontSize = size;
             return element;
         }
-        
+
         public static T TextAlign<T>(this T element, TextAnchor alignment) where T : VisualElement {
             element.style.unityTextAlign = alignment;
             return element;

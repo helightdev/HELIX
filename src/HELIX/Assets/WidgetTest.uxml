@@ -1,0 +1,5 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <DefaultNamespace.NewTestWidget style="position: absolute; top: 0; right: 0; bottom: 0; left: 1px;"/>
+    <ui:VisualElement/>
+    <ui:Button text="Button"/>
+</ui:UXML>

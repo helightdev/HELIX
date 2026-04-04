@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace HELIX.Coloring {
@@ -31,6 +32,10 @@ namespace HELIX.Coloring {
         public static readonly ColorSwatch Mauve = ColorSwatch.FromHue(322, 0.034f);
         public static readonly ColorSwatch Mist = ColorSwatch.FromHue(213, 0.021f);
         public static readonly ColorSwatch Olive = ColorSwatch.FromHue(107, 0.031f);
+        
+        public static readonly Color Transparent = new(0, 0, 0, 0);
+        public static readonly Color Black = new(0, 0, 0);
+        public static readonly Color White = new(1, 1, 1);
 
         public static readonly Dictionary<string, ColorSwatch> Named = new() {
             { "Red", Red },
@@ -60,6 +65,8 @@ namespace HELIX.Coloring {
             { "Mist", Mist },
             { "Olive", Olive }
         };
+
+        public static ColorSwatch[] All = Named.Values.ToArray();
 
         public static Color Hex(string hex) {
             if (ColorUtility.TryParseHtmlString(hex, out var color)) return color;
@@ -114,11 +121,11 @@ namespace HELIX.Coloring {
             );
         }
 
-        public static Color WithAlpha(this Color color, float alpha) {
+        public static Color WithOpacity(this Color color, float alpha) {
             return new Color(color.r, color.g, color.b, alpha);
         }
 
-        public static Color MultiplyAlpha(this Color color, float alpha) {
+        public static Color MultiplyOpacity(this Color color, float alpha) {
             return new Color(color.r, color.g, color.b, color.a * alpha);
         }
 

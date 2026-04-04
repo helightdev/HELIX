@@ -3,9 +3,9 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     public abstract class WidgetFactorySlot : VisualElement {
-        protected readonly BaseWidget widget;
+        protected readonly BaseElement widget;
 
-        protected WidgetFactorySlot(BaseWidget widget) {
+        protected WidgetFactorySlot(BaseElement widget) {
             this.widget = widget;
         }
 
@@ -37,9 +37,9 @@ namespace HELIX.Widgets.Theming {
         private object _mappedValue;
         private WidgetFactoryReference<T> _reference;
 
-        public WidgetFactorySlot(BaseWidget widget) : base(widget) { }
+        public WidgetFactorySlot(BaseElement widget) : base(widget) { }
 
-        public WidgetFactorySlot(BaseWidget widget, ThemeProperty<WidgetFactory<T>> themeProperty) : base(widget) {
+        public WidgetFactorySlot(BaseElement widget, ThemeProperty<WidgetFactory<T>> themeProperty) : base(widget) {
             _themeProperty = themeProperty;
         }
 

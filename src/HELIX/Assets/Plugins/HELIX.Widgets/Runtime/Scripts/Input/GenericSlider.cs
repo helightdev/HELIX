@@ -11,7 +11,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Input {
     [UxmlElement]
-    public partial class GenericSlider : BaseWidget {
+    public partial class GenericSlider : BaseElement {
         private readonly WidgetFactorySlot<GenericSliderThumb> _thumbSlot;
         private readonly WidgetFactorySlot<GenericSliderTrack> _trackSlot;
         private Axis _axis;
@@ -109,7 +109,7 @@ namespace HELIX.Widgets.Input {
         }
     }
 
-    public abstract class GenericSliderTrack : BaseWidget {
+    public abstract class GenericSliderTrack : BaseElement {
         public Rect dimensions;
         public GenericSlider slider;
         public float value;
@@ -128,7 +128,7 @@ namespace HELIX.Widgets.Input {
         }
     }
 
-    public abstract class GenericSliderThumb : BaseWidget {
+    public abstract class GenericSliderThumb : BaseElement {
         public Rect dimensions;
         public float range;
         public GenericSlider slider;
@@ -169,7 +169,7 @@ namespace HELIX.Widgets.Input {
             new SolidFillPathDrawer { Color = Color.gray }
         );
 
-        public override VisualElement Create(BaseWidget parentWidget) {
+        public override VisualElement Create(BaseElement parentWidget) {
             return new Widget(paint, trackHeight);
         }
 
@@ -208,7 +208,7 @@ namespace HELIX.Widgets.Input {
             new SolidFillPathDrawer { Color = Color.black }
         );
 
-        public override VisualElement Create(BaseWidget parentWidget) {
+        public override VisualElement Create(BaseElement parentWidget) {
             return new Widget(paint, trackHeight);
         }
 

@@ -7,7 +7,7 @@ namespace HELIX.Widgets.Theming {
     [UxmlObject, RequireDerived]
     public abstract partial class WidgetFactory {
         [RequiredMember]
-        public abstract VisualElement Create(BaseWidget parentWidget);
+        public abstract VisualElement Create(BaseElement parentWidget);
     }
 
     public class FixedWidgetFactory<T> : WidgetFactory<T> where T : VisualElement {
@@ -17,7 +17,7 @@ namespace HELIX.Widgets.Theming {
             _instance = instance;
         }
 
-        public override VisualElement Create(BaseWidget parentWidget) {
+        public override VisualElement Create(BaseElement parentWidget) {
             return _instance;
         }
 
@@ -38,9 +38,9 @@ namespace HELIX.Widgets.Theming {
     }
 
     public class InlineWidgetFactory<T> : WidgetFactory<T> where T : VisualElement {
-        private readonly Func<BaseWidget, T> _factoryFunc;
+        private readonly Func<BaseElement, T> _factoryFunc;
 
-        public InlineWidgetFactory(Func<BaseWidget, T> factoryFunc) {
+        public InlineWidgetFactory(Func<BaseElement, T> factoryFunc) {
             _factoryFunc = factoryFunc;
         }
 
@@ -48,7 +48,7 @@ namespace HELIX.Widgets.Theming {
             _factoryFunc = _ => factoryFunc();
         }
 
-        public override VisualElement Create(BaseWidget parentWidget) {
+        public override VisualElement Create(BaseElement parentWidget) {
             return _factoryFunc(parentWidget);
         }
 
@@ -78,7 +78,7 @@ namespace HELIX.Widgets.Theming {
             this.asset = asset;
         }
 
-        public override VisualElement Create(BaseWidget parentWidget) {
+        public override VisualElement Create(BaseElement parentWidget) {
             var container = asset.CloneTree();
             if (container is T) return container;
             return container.Q<T>();

@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
-    public partial class PathPainter : PaintingWidget {
+    public partial class PathPainter : PaintingElement {
         [UxmlObjectReference("paint")]
         public ScriptablePaint Painter { get; set; }
 

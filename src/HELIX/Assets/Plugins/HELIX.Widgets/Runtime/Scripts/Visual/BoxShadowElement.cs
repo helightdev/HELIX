@@ -1,11 +1,13 @@
 using System.Collections.Generic;
+using HELIX.Abstractions;
 using HELIX.Extensions;
+using HELIX.Widgets.Descriptors;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
-    public partial class BoxShadow : BaseWidget {
+    public partial class BoxShadowElement : BaseElement, IWidgetElement {
         private readonly VisualElement _shadowElement;
         private float _blurRadius = 4f;
         private Vector4 _borderRadius = new(0, 0, 0, 0);
@@ -13,8 +15,8 @@ namespace HELIX.Widgets.Visual {
         private Color _shadowColor = new(0, 0, 0, 0.25f);
         private float _spreadRadius;
 
-        public BoxShadow() {
-            _shadowElement = new VisualElement {
+        public BoxShadowElement() {
+            _shadowElement = new Element("Shadow") {
                 style = {
                     backgroundColor = _shadowColor,
                     position = Position.Absolute
@@ -29,6 +31,7 @@ namespace HELIX.Widgets.Visual {
         public float SpreadRadius {
             get => _spreadRadius;
             set {
+                if (Mathf.Approximately(_spreadRadius, value)) return;
                 _spreadRadius = value;
                 ApplyTransformation();
             }
@@ -38,6 +41,7 @@ namespace HELIX.Widgets.Visual {
         public float BlurRadius {
             get => _blurRadius;
             set {
+                if (Mathf.Approximately(_blurRadius, value)) return;
                 _blurRadius = value;
                 ApplyBlurFunction();
             }
@@ -47,6 +51,7 @@ namespace HELIX.Widgets.Visual {
         public Vector2 Offset {
             get => _offset;
             set {
+                if (Vector2.Distance(_offset, value) < 0.01f) return;
                 _offset = value;
                 ApplyTransformation();
             }
@@ -56,6 +61,7 @@ namespace HELIX.Widgets.Visual {
         public Color ShadowColor {
             get => _shadowColor;
             set {
+                if (_shadowColor == value) return;
                 _shadowColor = value;
                 _shadowElement.style.backgroundColor = _shadowColor;
             }
@@ -85,6 +91,22 @@ namespace HELIX.Widgets.Visual {
             var offsets = new Vector4(-_spreadRadius, -_spreadRadius, -_spreadRadius, -_spreadRadius);
             offsets += new Vector4(_offset.y, -_offset.x, -_offset.y, _offset.x);
             _shadowElement.Position(offsets);
+        }
+
+        public VisualElement Element => this;
+        public Widget Descriptor { get; private set; }
+
+        public bool Reconcile(Widget updated) {
+            if (updated is not BoxShadow descriptor) return false;
+            BlurRadius = descriptor.blurRadius;
+            BorderRadius = descriptor.borderRadius;
+            Offset = descriptor.offset;
+            ShadowColor = descriptor.shadowColor;
+            SpreadRadius = descriptor.spreadRadius;
+            DefaultReconciler.ReconcileSingleDirectKeeping(this, descriptor.child, 1);
+            Modifier.ApplyDelta(Descriptor, updated, this);
+            Descriptor = updated;
+            return true;
         }
     }
 }

@@ -9,7 +9,7 @@ namespace HELIX.Widgets.Editor {
     [CustomPropertyDrawer(typeof(ThemeOptional<>))]
     public class ThemeOptionalDrawer : PropertyDrawer {
         public override VisualElement CreatePropertyGUI(SerializedProperty property) {
-            var row = new Row();
+            var row = new RowElement();
             var toggle = new Toggle { style = { marginRight = 10 } }.AddTo(row);
             toggle.BindProperty(property.FindPropertyRelative("hasValue"));
 

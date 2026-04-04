@@ -1,5 +1,5 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <HELIX.Widgets.Navigation.NavStack name="NavStack" picking-mode="Position" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden;">
+    <HELIX.Widgets.Navigation.NavStackElement name="NavStack" picking-mode="Position" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden;">
         <ExampleNavPage style="display: flex; background-color: rgb(226, 226, 226); top: 0; bottom: 0; right: 0; left: 1px;"/>
         <ui:Label text="All Pages Popped" style="width: 100%; height: 25%; -unity-text-align: middle-center; -unity-font-style: bold; color: rgb(255, 255, 255);"/>
         <HELIX.Widgets.Navigation.Transitions.ModePageTransition>
@@ -13,5 +13,5 @@
                 <HELIX.Widgets.Navigation.Transitions.SlidePageTransition positive-slide-direction="1,0" negative-slide-direction="1,0"/>
             </Replace>
         </HELIX.Widgets.Navigation.Transitions.ModePageTransition>
-    </HELIX.Widgets.Navigation.NavStack>
+    </HELIX.Widgets.Navigation.NavStackElement>
 </ui:UXML>

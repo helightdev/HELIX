@@ -4,8 +4,8 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
-    public abstract class PaintingWidget : BaseWidget {
-        protected PaintingWidget() {
+    public abstract class PaintingElement : BaseElement {
+        protected PaintingElement() {
             generateVisualContent += OnGenerateVisualContent;
         }
 

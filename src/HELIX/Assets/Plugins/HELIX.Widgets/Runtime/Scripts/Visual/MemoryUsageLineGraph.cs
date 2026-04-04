@@ -8,7 +8,7 @@ using DirectionalLinearGradientGenerator = HELIX.Widgets.Visual.GradientGenerato
 
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
-    public partial class MemoryUsageLineGraph : BaseWidget {
+    public partial class MemoryUsageLineGraph : BaseElement {
         private readonly Label _memoryLabel;
         private ProfilerRecorder _gcUsedProfiler;
 
@@ -68,8 +68,8 @@ namespace HELIX.Widgets.Visual {
                         new GradientFillPathDrawer {
                             GradientGenerator = new DirectionalLinearGradientGenerator {
                                 Angle = 90f,
-                                StartColor = gcUsedColor.MultiplyAlpha(0.6f),
-                                EndColor = gcUsedColor.MultiplyAlpha(0.1f)
+                                StartColor = gcUsedColor.MultiplyOpacity(0.6f),
+                                EndColor = gcUsedColor.MultiplyOpacity(0.1f)
                             }
                         }
                 }.Position(0).MakeAbsolute()
@@ -86,8 +86,8 @@ namespace HELIX.Widgets.Visual {
                         new GradientFillPathDrawer {
                             GradientGenerator = new DirectionalLinearGradientGenerator {
                                 Angle = 90f,
-                                StartColor = maxColor.MultiplyAlpha(0.6f),
-                                EndColor = maxColor.MultiplyAlpha(0.1f)
+                                StartColor = maxColor.MultiplyOpacity(0.6f),
+                                EndColor = maxColor.MultiplyOpacity(0.1f)
                             }
                         }
                 }.Position(0).MakeAbsolute()

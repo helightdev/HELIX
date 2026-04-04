@@ -23,13 +23,13 @@
         </HELIX.Widgets.Input.GenericSlider>
         <HELIX.Widgets.Input.GenericTextInput name="" text-input-style="DarkNeutral" expands="true" value="Test" style="height: 31px; background-color: rgb(24, 24, 24); color: rgb(255, 255, 255);"/>
         <ui:VisualElement style="flex-grow: 1;">
-            <HELIX.Widgets.Navigation.Scaffold style="overflow: hidden; flex-grow: 1;">
+            <HELIX.Widgets.Navigation.ScaffoldElement style="overflow: hidden; flex-grow: 1;">
                 <ui:ScrollView>
                     <ui:VisualElement style="flex-grow: 1; height: 200px; background-color: rgb(219, 0, 155);"/>
                     <ExampleScaffoldPopup style="height: 42px; background-color: rgb(36, 255, 0);"/>
                     <ui:VisualElement style="flex-grow: 1; height: 3000px; background-color: rgb(171, 27, 131);"/>
                 </ui:ScrollView>
-            </HELIX.Widgets.Navigation.Scaffold>
+            </HELIX.Widgets.Navigation.ScaffoldElement>
         </ui:VisualElement>
     </ui:VisualElement>
     <HELIX.Widgets.Input.GenericSlider value="0.508" thumb-range="0.381" name="GenericSlider" axis="Vertical" style="width: 30px; top: 93px; bottom: 0; position: absolute;"/>

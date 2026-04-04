@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Layout {
     [UxmlElement]
-    public partial class Spacer : VisualElement {
+    public partial class SpacerElement : VisualElement {
         private Axis _axis = Axis.Vertical;
         private bool _expands;
         private float _width = 8f;

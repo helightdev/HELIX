@@ -53,10 +53,10 @@ namespace HELIX.Extensions {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static StyleLength4 Position<T>(this T element) where T : VisualElement {
             return new StyleLength4(
+                element.style.left,
                 element.style.top,
                 element.style.right,
-                element.style.bottom,
-                element.style.left
+                element.style.bottom
             );
         }
 

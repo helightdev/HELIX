@@ -3,7 +3,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Layout {
     [UxmlElement]
-    public partial class Row : DirectionalContainer {
+    public partial class RowElement : DirectionalContainerElement {
         protected override FlexDirection GetFlexDirection(bool reverse) {
             return reverse ? FlexDirection.RowReverse : FlexDirection.Row;
         }

@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Visual {
-    public class SwatchVisualizer : BaseWidget {
+    public class SwatchVisualizer : BaseElement {
         public SwatchVisualizer(ColorSwatch swatch) {
             this.FlexContainer(Axis.Horizontal, crossAxisAlign: Align.Stretch);
             for (var index = 0; index < swatch.weights.Length; index++) {

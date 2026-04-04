@@ -16,12 +16,12 @@ namespace HELIX.Widgets.Navigation {
     public class PageTransitionContext {
         public readonly List<PageTransitionHandle> handles = new();
         public readonly NavStackModificationResult modificationResult;
-        public readonly NavStack stack;
+        public readonly NavStackElement stack;
         public readonly PageTransition transition;
 
         public PageTransitionContext(
             PageTransition transition,
-            NavStack stack,
+            NavStackElement stack,
             NavStackModificationResult modificationResult
         ) {
             this.transition = transition;

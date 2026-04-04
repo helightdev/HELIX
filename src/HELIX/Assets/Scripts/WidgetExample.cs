@@ -43,20 +43,20 @@ public partial class ExampleThemeComponent : WidgetThemeComponent {
 
 [UxmlWidgetFactory, UxmlObject]
 public partial class TestFactory : VisualElementWidgetFactory {
-    public override VisualElement Create(BaseWidget parentWidget) {
+    public override VisualElement Create(BaseElement parentWidget) {
         return new Label("Hello, World!").Sized(width: 25);
     }
 }
 
 [UxmlWidgetFactory, UxmlObject]
 public partial class AnotherTestFactory : VisualElementWidgetFactory {
-    public override VisualElement Create(BaseWidget parentWidget) {
+    public override VisualElement Create(BaseElement parentWidget) {
         return new Label("This is just another test!").Positioned(right: 0, bottom: 0).Flexible();
     }
 }
 
 [UxmlElement]
-public partial class Example : BaseWidget {
+public partial class Example : BaseElement {
     private readonly ThemeValue<Color> _primaryColor;
     private readonly WidgetFactorySlot<VisualElement> _factorySlotSlot;
     public IPublicWidgetFactorySlot<VisualElement> FactorySlot => _factorySlotSlot;
@@ -89,7 +89,7 @@ public partial class Example : BaseWidget {
 }
 
 [UxmlElement]
-public partial class PerformUpdateWidget : BaseWidget {
+public partial class PerformUpdateWidget : BaseElement {
     public PerformUpdateWidget() {
         var button = new Button() { text = "Update me!" };
         button.clicked += () => {

@@ -36,5 +36,8 @@ namespace HELIX.Types {
         public override string ToString() {
             return $"({w}, {h})";
         }
+        
+        public static readonly StyleLength2 Initial = new StyleLength2(StyleKeyword.Initial);
+        public static readonly StyleLength2 Auto = new StyleLength2(StyleKeyword.Auto);
     }
 }

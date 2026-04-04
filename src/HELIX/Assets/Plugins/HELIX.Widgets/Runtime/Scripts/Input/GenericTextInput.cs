@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Input {
     [UxmlElement]
-    public partial class GenericTextInput : BaseWidget {
+    public partial class GenericTextInput : BaseElement {
         private const string _ussStyleLight = "helix-textfield-style-light";
         private const string _ussStyleLightNeutral = "helix-textfield-style-light-neutral";
         private const string _ussStyleDark = "helix-textfield-style-dark";
@@ -148,6 +148,16 @@ namespace HELIX.Widgets.Input {
         public event Action OnCancel;
         public event Action OnFocus;
         public event Action OnBlur;
+
+        protected override void OnAttached(AttachToPanelEvent evt) {
+            base.OnAttached(evt);
+            Debug.Log("GenericTextInput attached to panel. Applying selection colors.");
+        }
+
+        protected override void OnDetached(DetachFromPanelEvent evt) {
+            base.OnDetached(evt);
+            Debug.Log("GenericTextInput detached to panel. Applying selection colors.");
+        }
 
         private void ApplySelectionColors() {
             if (_hadCustomColor && _textInputStyle != GenericTextInputStyle.Custom) {

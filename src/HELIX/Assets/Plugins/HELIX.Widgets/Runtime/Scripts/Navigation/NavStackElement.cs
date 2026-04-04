@@ -11,7 +11,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Navigation {
     [UxmlElement]
-    public partial class NavStack : BaseWidget {
+    public partial class NavStackElement : BaseElement {
         private readonly List<PageTransitionHandle> _activeTransitions = new();
         private readonly VisualElement _pageContainer;
         private readonly List<NavPage> _pages = new();
@@ -25,7 +25,7 @@ namespace HELIX.Widgets.Navigation {
 
         private IVisualElementScheduledItem _updateSchedule;
 
-        public NavStack() {
+        public NavStackElement() {
             this.Stretched();
             _rootContainer = new Element("Root").Stretched().AddTo(hierarchy);
             _pageContainer = new Element("Pages").Stretched().AddTo(hierarchy);
@@ -302,12 +302,12 @@ namespace HELIX.Widgets.Navigation {
             return new NavPageBuffer(buffer);
         }
 
-        public static NavStack Get(VisualElement context) {
-            return context.GetFirstAncestorOfType<NavStack>();
+        public static NavStackElement Get(VisualElement context) {
+            return context.GetFirstAncestorOfType<NavStackElement>();
         }
 
-        public static NavStack GetNamed(VisualElement context, string name) {
-            return context.panel.visualTree.Q<NavStack>(name);
+        public static NavStackElement GetNamed(VisualElement context, string name) {
+            return context.panel.visualTree.Q<NavStackElement>(name);
         }
 
         private class StackOperation {

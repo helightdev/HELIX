@@ -5,11 +5,11 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Navigation {
     [UxmlElement]
-    public partial class Scaffold : SingleChildContainerWidget {
+    public partial class ScaffoldElement : SingleChildContainerElement {
         private readonly VisualElement _body;
         private readonly VisualElement _overlay;
 
-        public Scaffold() {
+        public ScaffoldElement() {
             this.Stretched();
             _body = new Element("Body").Stretched().AddTo(hierarchy);
             _overlay = new Element("Overlay").Stretched().Pickable(false).AddTo(hierarchy);
@@ -42,8 +42,8 @@ namespace HELIX.Widgets.Navigation {
             entry.RemoveFromHierarchy();
         }
 
-        public static Scaffold Get(VisualElement context) {
-            return context.GetFirstAncestorOfType<Scaffold>();
+        public static ScaffoldElement Get(VisualElement context) {
+            return context.GetFirstAncestorOfType<ScaffoldElement>();
         }
     }
 

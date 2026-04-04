@@ -1,7 +1,8 @@
+using System;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
-    public struct Transition {
+    public struct Transition : IEquatable<Transition> {
         public readonly StylePropertyName property;
         public EasingFunction easing;
         public TimeValue duration;
@@ -16,6 +17,19 @@ namespace HELIX.Types {
 
         public static implicit operator Transition(StylePropertyName propertyName) {
             return new Transition(propertyName);
+        }
+
+        public bool Equals(Transition other) {
+            return property.Equals(other.property) && easing.Equals(other.easing) && duration.Equals(other.duration) &&
+                   delay.Equals(other.delay);
+        }
+
+        public override bool Equals(object obj) {
+            return obj is Transition other && Equals(other);
+        }
+
+        public override int GetHashCode() {
+            return HashCode.Combine(property, easing, duration, delay);
         }
     }
 

@@ -47,6 +47,7 @@
     <Analyzer Include="/phome/UnityEditors/6000.4.0f1/Editor/Data/Tools/BuildPipeline/Unity.SourceGenerators/Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets/Scripts/NewWidgetExample.cs" />
     <Compile Include="Assets/Scripts/ExampleThemeBehaviour.cs" />
     <Compile Include="Assets/Scripts/WidgetExample.cs" />
     <Compile Include="Assets/Scripts/ExampleNavPage.cs" />
@@ -65,6 +66,7 @@
     <None Include="Library/PackageCache/com.unity.inputsystem@21a28c3a6c83/ValidationConfig.json" />
     <None Include="Library/PackageCache/com.unity.ugui@288051c775ab/package.json" />
     <None Include="Library/PackageCache/com.unity.ext.nunit@ec2d0043d6fc/package.json" />
+    <None Include="Assets/WidgetTest.uxml" />
     <None Include="Library/PackageCache/com.unity.render-pipelines.universal-config@651fb0d9c1bf/package.json" />
     <None Include="Library/PackageCache/com.unity.modules.assetbundle/package.json" />
     <None Include="Library/PackageCache/com.unity.render-pipelines.core@8e03fcc72696/Shaders/CoreCopy.shader" />

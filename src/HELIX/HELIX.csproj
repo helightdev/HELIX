@@ -47,12 +47,15 @@
     <Analyzer Include="/phome/UnityEditors/6000.4.0f1/Editor/Data/Tools/BuildPipeline/Unity.SourceGenerators/Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/Border.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/ColorSwatch.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/EdgeInsets.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/Path.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/DrawingPathBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Layout.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Colors.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/BackgroundStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/LabColor.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Animation.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/OkLabHelper.cs" />
@@ -64,14 +67,18 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/RectExtensions.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/PaintContext.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Size.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/BorderSide.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/StyleLength4.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Position.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/UpdateStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/RRect.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/TextStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Abstractions/Element.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Abstractions/Containers.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/IPathBuilder.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/BoxConstraints.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/BasicShapes.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/StyleInt4.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Border.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/StyleLength2.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/PathCommand.cs" />
@@ -80,6 +87,7 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Animation/DebouncableScheduler.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Animation/TweenStateArena.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/Axis.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/BorderRadius.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/Transition.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Margin.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/LayoutExtensions.cs" />

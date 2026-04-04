@@ -10,7 +10,7 @@ using Vector2 = UnityEngine.Vector2;
 
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
-    public partial class LineGraph : PaintingWidget {
+    public partial class LineGraph : PaintingElement {
         private ScriptablePathDrawer _fillDrawer;
         private ScriptablePathDrawer _lineDrawer;
         public ILineGraphDataSource datasource = new DynamicRangeLineGraphDataSource();

@@ -5,12 +5,13 @@ using HELIX.Widgets.Theming;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
-    public abstract class BaseWidget : VisualElement {
+    
+    public abstract class BaseElement : VisualElement {
         public static readonly string UssClassName = "helix-widget";
         private readonly List<ThemeValue> _themeValues = new();
         private readonly List<WidgetFactorySlot> _widgetFactorySlots = new();
 
-        protected BaseWidget() {
+        protected BaseElement() {
             AddToClassList(UssClassName);
             RegisterCallback<AttachToPanelEvent>(OnAttached);
             RegisterCallback<DetachFromPanelEvent>(OnDetached);
@@ -79,11 +80,19 @@ namespace HELIX.Widgets {
             ThemeProvider = WidgetThemeProvider.Get(this);
             if (ThemeProvider != null) ThemeProvider.OnThemeUpdated += OnThemeUpdated;
             OnThemeUpdated();
+
+            if (this is IHierarchyDisposable disposable) {
+                HierarchyModificationBarrier.RemoveHierarchyDisposable(disposable);
+            }
         }
 
         protected virtual void OnDetached(DetachFromPanelEvent evt) {
             if (ThemeProvider != null) ThemeProvider.OnThemeUpdated -= OnThemeUpdated;
             ThemeProvider = null;
+            
+            if (this is IHierarchyDisposable disposable) {
+                HierarchyModificationBarrier.EnqueueHierarchyDisposable(disposable);
+            }
         }
 
         private void OnThemeUpdated() {
@@ -96,7 +105,7 @@ namespace HELIX.Widgets {
         }
     }
 
-    public abstract class SingleChildContainerWidget : BaseWidget, ISingleChildContainer {
+    public abstract class SingleChildContainerElement : BaseElement, ISingleChildContainer {
         public virtual VisualElement Child {
             get => Children().FirstOrDefault();
             set {
@@ -106,7 +115,7 @@ namespace HELIX.Widgets {
         }
     }
 
-    public abstract class MultiChildContainerWidget : BaseWidget, IMultiChildContainer {
+    public abstract class MultiChildContainerElement : BaseElement, IMultiChildContainer {
         public virtual IEnumerable<VisualElement> Childs {
             get => Children();
             set {

@@ -1,12 +1,13 @@
 using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Types;
+using HELIX.Widgets.Descriptors;
 using Unity.Mathematics;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Layout {
     [UxmlElement]
-    public partial class FlexAlign : SingleChildContainerWidget {
+    public partial class FlexAlignElement : SingleChildContainerElement, IWidgetElement {
         private readonly VisualElement _bottomSpacer;
         private readonly VisualElement _leftSpacer;
         private readonly VisualElement _rightSpacer;
@@ -16,7 +17,7 @@ namespace HELIX.Widgets.Layout {
         private float _horizontalAlign;
         private float _verticalAlign;
 
-        public FlexAlign() {
+        public FlexAlignElement() {
             this.FlexContainer();
             _topSpacer = new Element("top-spacer");
 
@@ -59,6 +60,18 @@ namespace HELIX.Widgets.Layout {
             _bottomSpacer.style.flexGrow = (1 - vertical) * 100;
             _leftSpacer.style.flexGrow = horizontal * 100;
             _rightSpacer.style.flexGrow = (1 - horizontal) * 100;
+        }
+
+        public VisualElement Element => this;
+        public Widget Descriptor { get; set; }
+
+        public bool Reconcile(Widget updated) {
+            if (updated is not FlexAlign fa) return false;
+            Alignment = fa.alignment;
+            DefaultReconciler.ReconcileSingleDirect(_slot, fa.child);
+            Modifier.ApplyDelta(Descriptor, updated, this);
+            Descriptor = updated;
+            return true;
         }
     }
 }

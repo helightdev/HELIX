@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace HELIX.Coloring {
     public class ColorSwatch {
@@ -74,6 +75,10 @@ namespace HELIX.Coloring {
 
         public static implicit operator Color(ColorSwatch swatch) {
             return swatch.value;
+        }
+
+        public static implicit operator StyleColor(ColorSwatch swatch) {
+            return new StyleColor(swatch.value);
         }
     }
 }

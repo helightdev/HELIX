@@ -52,10 +52,10 @@ namespace HELIX.Extensions {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static StyleLength4 Padding<T>(this T element) where T : VisualElement {
             return new StyleLength4(
+                element.style.paddingLeft,
                 element.style.paddingTop,
                 element.style.paddingRight,
-                element.style.paddingBottom,
-                element.style.paddingLeft
+                element.style.paddingBottom
             );
         }
 

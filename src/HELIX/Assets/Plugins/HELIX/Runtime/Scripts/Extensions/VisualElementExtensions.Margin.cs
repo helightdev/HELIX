@@ -52,10 +52,10 @@ namespace HELIX.Extensions {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static StyleLength4 Margin<T>(this T element) where T : VisualElement {
             return new StyleLength4(
+                element.style.marginLeft,
                 element.style.marginTop,
                 element.style.marginRight,
-                element.style.marginBottom,
-                element.style.marginLeft
+                element.style.marginBottom
             );
         }
 

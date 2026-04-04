@@ -7,7 +7,6 @@ using HELIX.Widgets.Navigation;
 using HELIX.Widgets.Visual;
 using UnityEngine;
 using UnityEngine.UIElements;
-using Scaffold = HELIX.Widgets.Navigation.Scaffold;
 
 [UxmlElement]
 public partial class ExampleNavPage : NavPage {
@@ -25,26 +24,26 @@ public partial class ExampleNavPage : NavPage {
 
         var pushButton = new Button().AddTo(this);
         pushButton.text = "Push new";
-        pushButton.clicked += () => { NavStack.Get(this).Push(new ExampleNavPage(id + 1)); };
+        pushButton.clicked += () => { NavStackElement.Get(this).Push(new ExampleNavPage(id + 1)); };
 
         var popButton = new Button().AddTo(this);
         popButton.text = "Pop";
         popButton.clicked += () => {
-            var stack = NavStack.Get(this);
+            var stack = NavStackElement.Get(this);
             stack.Pop(this);
         };
 
         var replaceButton = new Button().AddTo(this);
         replaceButton.text = "Replace";
         replaceButton.clicked += () => {
-            var stack = NavStack.Get(this);
+            var stack = NavStackElement.Get(this);
             stack.PushReplacement(new ExampleNavPage(id));
         };
 
         var pop2Button = new Button().AddTo(this);
         pop2Button.text = "Pop 2";
         pop2Button.clicked += () => {
-            var stack = NavStack.Get(this);
+            var stack = NavStackElement.Get(this);
             var c = 0;
             stack.PopUntil(_ => c++ >= 2);
         };
@@ -54,13 +53,13 @@ public partial class ExampleNavPage : NavPage {
 }
 
 [UxmlElement]
-public partial class ExampleScaffoldPopup : BaseWidget {
+public partial class ExampleScaffoldPopup : BaseElement {
     public ExampleScaffoldPopup() {
         RegisterCallback<PointerDownEvent>(evt => {
                 var element = new Element("Offset").Positioned(top: 100.Percent())
                     .Sized(width: 100.Percent(), height: 100.Percent()).BackgroundColor(Color.red);
 
-                var scaffold = Scaffold.Get(this);
+                var scaffold = ScaffoldElement.Get(this);
                 var overlay = scaffold.AddAnchoredOverlay(this, element);
                 element.RegisterCallback<PointerDownEvent>(_ => scaffold.RemoveOverlay(overlay));
             }
@@ -69,7 +68,7 @@ public partial class ExampleScaffoldPopup : BaseWidget {
 }
 
 [UxmlElement]
-public partial class HelixColorSwatchVisualizer : BaseWidget {
+public partial class HelixColorSwatchVisualizer : BaseElement {
     public HelixColorSwatchVisualizer() {
         this.FlexContainer(crossAxisAlign: Align.Stretch).Stretched();
         foreach (var (swatchName, swatch) in Colors.Named) {

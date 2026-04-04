@@ -81,18 +81,18 @@ namespace HELIX.Editor {
     public class StyleLength4Converter : UxmlAttributeConverter<StyleLength4> {
         public override StyleLength4 FromString(string value) {
             var parts = value.Split(',');
-            if (parts.Length != 4) throw new FormatException("Invalid StyleLength4 format. Expected format: 'top,right,bottom,left'");
+            if (parts.Length != 4) throw new FormatException("Invalid StyleLength4 format. Expected format: 'left,top,right,bottom'");
 
             var top = StyleLengthSerializer.FromString(parts[0]);
             var right = StyleLengthSerializer.FromString(parts[1]);
             var bottom = StyleLengthSerializer.FromString(parts[2]);
             var left = StyleLengthSerializer.FromString(parts[3]);
-            return new StyleLength4(top, right, bottom, left);
+            return new StyleLength4(left, top, right, bottom);
         }
 
         public override string ToString(StyleLength4 value) {
-            return $"{StyleLengthSerializer.ToString(value.t)},{StyleLengthSerializer.ToString(value.r)}," +
-                   $"{StyleLengthSerializer.ToString(value.b)},{StyleLengthSerializer.ToString(value.l)}";
+            return $"{StyleLengthSerializer.ToString(value.l)},{StyleLengthSerializer.ToString(value.t)}," +
+                   $"{StyleLengthSerializer.ToString(value.r)},{StyleLengthSerializer.ToString(value.b)}";
         }
     }
 }

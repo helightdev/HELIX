@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     [UxmlElement]
-    public partial class WidgetThemeProvider : MultiChildContainerWidget {
+    public partial class WidgetThemeProvider : MultiChildContainerElement {
         public static readonly Dictionary<string, object> GlobalThemeValues = new();
         private readonly Dictionary<string, object> _cachedThemeValues = new();
         private readonly Dictionary<string, object> _componentValues = new();
