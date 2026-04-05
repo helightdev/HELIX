@@ -15,9 +15,10 @@ namespace HELIX.Animation {
             VisualElement scheduler,
             Action<Color> update,
             long durationMs = 100L,
-            Color startValue = default
+            Color startValue = default,
+            EasingMode easingMode = EasingMode.Linear
         ) {
-            var arena = new TweenStateArena<Color>(scheduler, durationMs, Color.Lerp, update);
+            var arena = new TweenStateArena<Color>(scheduler, durationMs, Color.Lerp, update, easingMode);
             arena.Set(startValue);
             return arena;
         }
@@ -26,9 +27,10 @@ namespace HELIX.Animation {
             VisualElement scheduler,
             Action<float> update,
             long durationMs = 100L,
-            float startValue = 0f
+            float startValue = 0f,
+            EasingMode easingMode = EasingMode.Linear
         ) {
-            var arena = new TweenStateArena<float>(scheduler, durationMs, Mathf.Lerp, update);
+            var arena = new TweenStateArena<float>(scheduler, durationMs, Mathf.Lerp, update, easingMode);
             arena.Set(startValue);
             return arena;
         }
@@ -37,15 +39,39 @@ namespace HELIX.Animation {
     public class TweenStateArena<T> : TweenStateArena {
         public delegate T LerpFunc(T a, T b, float t);
 
-        private readonly long _durationMs;
+        private long _durationMs;
+        private EasingMode _easingMode;
+
         private readonly LerpFunc _lerpLerp;
         private readonly DebouncedScheduler _scheduler;
         private readonly Action<T> _updateFunc;
         private T _value;
 
-        public TweenStateArena(IVisualElementScheduler scheduler, long durationMs, LerpFunc lerp, Action<T> update) {
+        public long DurationMs {
+            get => _durationMs;
+            set => _durationMs = value;
+        }
+
+        public TimeValue Duration {
+            get => TimeValue.Milliseconds(_durationMs);
+            set => _durationMs = value.unit == TimeUnit.Second ? (long)(value.value * 1000) : (long)value.value;
+        }
+
+        public EasingMode EasingMode {
+            get => _easingMode;
+            set => _easingMode = value;
+        }
+
+        public TweenStateArena(
+            IVisualElementScheduler scheduler,
+            long durationMs,
+            LerpFunc lerp,
+            Action<T> update,
+            EasingMode easingMode = EasingMode.Linear
+        ) {
             _scheduler = new DebouncedScheduler(scheduler);
             _durationMs = durationMs;
+            _easingMode = easingMode;
             _lerpLerp = lerp;
             _updateFunc = update;
         }
@@ -65,11 +91,17 @@ namespace HELIX.Animation {
         ///     The target value to which the tween animation will transition.
         /// </param>
         public void Push(T newValue) {
+            if (_durationMs == 0) {
+                Set(newValue);
+                return;
+            }
+            
             var currentValue = Value;
             _scheduler.Tween(
                 _durationMs,
                 v => {
-                    _lerpLerp(currentValue, newValue, v);
+                    var t = _easingMode.Eval(v);
+                    _value = _lerpLerp(currentValue, newValue, t);
                     _updateFunc(_value);
                 }
             );

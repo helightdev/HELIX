@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HELIX.Painting;
 using HELIX.Painting.Paths;
+using HELIX.Widgets.Elements;
 using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;

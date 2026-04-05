@@ -3,6 +3,7 @@ using HELIX.Coloring;
 using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets;
+using HELIX.Widgets.Elements;
 using HELIX.Widgets.Navigation;
 using HELIX.Widgets.Visual;
 using UnityEngine;

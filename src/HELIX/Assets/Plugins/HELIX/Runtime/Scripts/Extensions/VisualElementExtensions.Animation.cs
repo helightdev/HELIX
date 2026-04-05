@@ -9,6 +9,11 @@ namespace HELIX.Extensions {
             long durationMs,
             Action<float> onUpdate
         ) {
+            if (durationMs == 0) {
+                onUpdate(1);
+                return null;
+            }
+            
             var isActive = true;
             var progress = 0f;
             return scheduler.Execute(state => {

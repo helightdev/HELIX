@@ -4,6 +4,9 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Extensions {
     public static class EasingExtensions {
+        public static long ToMilliseconds(this TimeValue value) =>
+            value.unit == TimeUnit.Millisecond ? (long)value.value : (long)(value.value * 1000);
+
         /// <summary>
         ///     Evaluates an easing function at normalized time t (typically 0..1),
         ///     matching how Unity UI Toolkit / web (CSS) easings behave:

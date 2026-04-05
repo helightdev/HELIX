@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HELIX.Abstractions;
 using HELIX.Extensions;
+using HELIX.Widgets.Elements;
 using JetBrains.Annotations;
 using Unity.Mathematics;
 using UnityEngine;

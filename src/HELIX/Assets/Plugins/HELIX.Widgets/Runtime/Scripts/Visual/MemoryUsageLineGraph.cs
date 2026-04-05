@@ -1,5 +1,6 @@
 using HELIX.Coloring;
 using HELIX.Extensions;
+using HELIX.Widgets.Elements;
 using HELIX.Widgets.Visual.PathDrawers;
 using Unity.Profiling;
 using UnityEngine;

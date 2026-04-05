@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HELIX.Extensions;
 using HELIX.Widgets;
+using HELIX.Widgets.Elements;
 using HELIX.Widgets.Theming;
 using UnityEngine;
 using UnityEngine.UIElements;

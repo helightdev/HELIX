@@ -1,5 +1,6 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <DefaultNamespace.NewTestWidget style="position: absolute; top: 0; right: 0; bottom: 0; left: 1px;"/>
-    <ui:VisualElement/>
-    <ui:Button text="Button"/>
+    <HELIX.Widgets.Theming.WidgetThemeProvider name="WidgetThemeProvider" style="align-self: stretch; flex-grow: 1; position: absolute; top: 0; right: 0; bottom: 0; left: 0;">
+        <NewTestWidget name="NewTestWidget" style="top: 0; right: 0; bottom: 0; left: 0; position: absolute;"/>
+        <ExampleThemeComponent c-primary="value: rgba(229, 64, 64, 0)" c-primary-washed="none" example-optional="none"/>
+    </HELIX.Widgets.Theming.WidgetThemeProvider>
 </ui:UXML>

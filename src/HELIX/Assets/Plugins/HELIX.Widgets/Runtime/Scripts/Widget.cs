@@ -1,10 +1,57 @@
-using System;
+using System.Collections.Generic;
+using HELIX.Widgets.Elements;
+using HELIX.Widgets.Theming;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
-    public class ThemePropertyCollectionAttribute : Attribute { }
+    public abstract class Widget {
+        public Key key;
+        protected readonly HashSet<Modifier> modifiers = new();
 
-    public class UxmlWidgetFactoryAttribute : Attribute { }
+        public IReadOnlyList<Modifier> Modifiers {
+            set {
+                foreach (var modifier in value) { AddModifier(modifier); }
+            }
+        }
 
-    public class ThemePropertyReferenceAttribute : PropertyAttribute { }
+        public abstract IWidgetElement CreateElement();
+        public HashSet<Modifier> GetModifiers() => modifiers;
+
+        public void AddModifier(Modifier modifier) {
+            if (modifiers.TryGetValue(modifier, out var existing)) {
+                if (existing.isFallback) { modifiers.Remove(existing); } else {
+                    Debug.LogWarning(
+                        $"Modifier of type {modifier.GetType().Name} already exists on widget with key {key}. Modifiers must be unique per widget."
+                    );
+                    return;
+                }
+            }
+
+            modifiers.Add(modifier);
+        }
+    }
+
+    public readonly struct BuildContext {
+        public readonly BaseElement element;
+
+        public BuildContext(BaseElement element) {
+            this.element = element;
+        }
+
+        public T GetThemed<T>(ThemeProperty<T> property) {
+            return element.ThemeProvider.Resolve(property);
+        }
+    }
+
+    public interface IWidgetElement {
+        VisualElement Element { get; }
+        Widget Descriptor { get; }
+        int HierarchyDepth { get; }
+        bool Reconcile(Widget updated);
+
+        void Rebuild() {
+            if (Descriptor != null) Reconcile(Descriptor);
+        }
+    }
 }

@@ -10,6 +10,16 @@ namespace HELIX.Extensions {
         public static bool IsInitial<T>(this IStyleValue<T> value) {
             return value.keyword == StyleKeyword.Initial;
         }
+        
+        public static int GetDepth(this VisualElement element) {
+            var depth = 0;
+            var current = element;
+            while (current.parent != null) {
+                depth++;
+                current = current.parent;
+            }
+            return depth;
+        }
 
         public static T AddTo<T>(this T element, VisualElement target) where T : VisualElement {
             target.Add(element);

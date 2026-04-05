@@ -1,6 +1,7 @@
 using HELIX.Coloring;
 using HELIX.Extensions;
 using HELIX.Types;
+using HELIX.Widgets.Elements;
 using UnityEngine;
 using UnityEngine.UIElements;
 

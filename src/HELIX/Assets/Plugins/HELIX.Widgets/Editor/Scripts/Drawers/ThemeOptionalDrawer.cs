@@ -1,9 +1,9 @@
 using HELIX.Extensions;
-using HELIX.Widgets.Layout;
 using HELIX.Widgets.Theming;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
+using RowElement = HELIX.Widgets.Elements.RowElement;
 
 namespace HELIX.Widgets.Editor {
     [CustomPropertyDrawer(typeof(ThemeOptional<>))]
