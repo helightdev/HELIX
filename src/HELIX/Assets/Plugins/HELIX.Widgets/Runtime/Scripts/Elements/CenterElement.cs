@@ -12,6 +12,10 @@ namespace HELIX.Widgets.Elements {
         public VisualElement Element => this;
         public Widget Descriptor { get; set; }
 
+        public bool CanReconcile(Widget updated) {
+            return updated is FlexCenter;
+        }
+
         public bool Reconcile(Widget updated) {
             if (updated is not FlexCenter fa) return false;
             DefaultReconciler.ReconcileSingleDirect(this, fa.child);

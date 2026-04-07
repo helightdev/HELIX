@@ -1,3 +1,4 @@
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -35,5 +36,23 @@ namespace HELIX.Widgets.Modifiers {
             element.style.rotate = StyleKeyword.Initial;
             element.style.scale = StyleKeyword.Initial;
         }
+
+        public static TransformModifier Scale(StyleScale scale) =>
+            new(StyleKeyword.Initial, StyleKeyword.Initial, scale);
+
+        public static TransformModifier Rotate(StyleRotate rotate) =>
+            new(StyleKeyword.Initial, rotate, StyleKeyword.Initial);
+
+        public static TransformModifier Translate(StyleTranslate translate) =>
+            new(translate, StyleKeyword.Initial, StyleKeyword.Initial);
+
+        public static TransformModifier Of(
+            StyleTranslate? translate = null,
+            StyleRotate? rotate = null,
+            StyleScale? scale = null
+        ) =>
+            new(translate ?? StyleKeyword.Initial, rotate ?? StyleKeyword.Initial, scale ?? StyleKeyword.Initial);
+
+        public static readonly TransformModifier Identity = new();
     }
 }

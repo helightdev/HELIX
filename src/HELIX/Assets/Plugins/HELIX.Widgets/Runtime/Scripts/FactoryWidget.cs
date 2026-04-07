@@ -29,6 +29,10 @@ namespace HELIX.Widgets {
             public Widget Descriptor { get; set; }
             public int HierarchyDepth { get; set; }
 
+            public bool CanReconcile(Widget updated) {
+                return updated is FactoryWidget<T> && Element is T;
+            }
+
             public bool Reconcile(Widget updated) {
                 if (updated is not FactoryWidget<T> fd) return false;
                 if (fd.updater == null) return false;

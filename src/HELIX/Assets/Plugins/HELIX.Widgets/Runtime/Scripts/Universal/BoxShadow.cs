@@ -15,7 +15,7 @@ namespace HELIX.Widgets.Universal {
 
         public override IWidgetElement CreateElement() {
             var element = new BoxShadowElement();
-            element.Reconcile(this);
+            element.RegisterCallbackOnce<AttachToPanelEvent>(_ => element.Reconcile(this));
             return element;
         }
     }

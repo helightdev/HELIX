@@ -2,11 +2,11 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Painting {
-    public class PaintCanvas {
-        public Rect canvasRect;
-        public MeshGenerationContext mgc;
-        public Painter2D painter;
-        public Vector2 size;
+    public readonly struct PaintCanvas {
+        public readonly Rect canvasRect;
+        public readonly MeshGenerationContext mgc;
+        public readonly Painter2D painter;
+        public readonly Vector2 size;
 
         public PaintCanvas(MeshGenerationContext context) {
             mgc = context;

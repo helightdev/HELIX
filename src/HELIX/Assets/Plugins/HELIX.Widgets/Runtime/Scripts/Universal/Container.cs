@@ -1,5 +1,6 @@
 using HELIX.Types;
 using HELIX.Widgets.Elements;
+using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class Container : Widget {
@@ -17,7 +18,7 @@ namespace HELIX.Widgets.Universal {
 
         public override IWidgetElement CreateElement() {
             var element = new ContainerElement();
-            element.Reconcile(this);
+            element.RegisterCallbackOnce<AttachToPanelEvent>(_ => element.Reconcile(this));
             return element;
         }
 

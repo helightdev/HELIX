@@ -1,5 +1,6 @@
 using HELIX.Types;
 using HELIX.Widgets.Elements;
+using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class FlexAlign : Widget {
@@ -8,7 +9,7 @@ namespace HELIX.Widgets.Universal {
 
         public override IWidgetElement CreateElement() {
             var align = new FlexAlignElement();
-            align.Reconcile(this);
+            align.RegisterCallbackOnce<AttachToPanelEvent>(_ => align.Reconcile(this));
             return align;
         }
     }

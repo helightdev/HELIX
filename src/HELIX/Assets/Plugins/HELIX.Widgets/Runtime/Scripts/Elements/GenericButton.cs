@@ -31,16 +31,17 @@ namespace HELIX.Widgets.Elements {
 
         public void HandleClick() {
             if (!Enabled) return;
-            if (Descriptor is ButtonBuilder bb) bb.onClick?.Invoke();
+            if (Descriptor is ButtonBuilder bb && bb.onClick != null) {
+                ModificationBarrier.Run(() => { bb.onClick.Invoke(); });
+            }
+
             onClick?.Invoke();
         }
 
         public void UpdateWidgetState(WidgetState newState) {
             if (newState == state) return;
             state = newState;
-            if (Builder != null && Descriptor != null) {
-                BuildChildAndReconcile();
-            }
+            if (Builder != null && Descriptor != null) { ModificationBarrier.RunRebuild(this); }
         }
 
         public class Manipulator : Clickable {
@@ -112,6 +113,10 @@ namespace HELIX.Widgets.Elements {
         public VisualElement Element => this;
         public Widget Descriptor { get; private set; }
         private WidgetStateBuilder Builder { get; set; }
+
+        public bool CanReconcile(Widget updated) {
+            return updated is ButtonBuilder;
+        }
 
         public bool Reconcile(Widget updated) {
             if (updated is not ButtonBuilder bb) return false;

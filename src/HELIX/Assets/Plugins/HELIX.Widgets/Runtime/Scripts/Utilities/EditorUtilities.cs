@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
-namespace HELIX.Widgets {
+namespace HELIX.Widgets.Utilities {
     internal static class EditorUtilities {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Rect SwizzleCorners(Vector4 vector) {

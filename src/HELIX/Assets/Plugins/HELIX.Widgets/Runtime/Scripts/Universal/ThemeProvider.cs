@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using HELIX.Widgets.Theming;
+using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal
 {
@@ -11,7 +12,7 @@ namespace HELIX.Widgets.Universal
         
         public override IWidgetElement CreateElement() {
             var element = new WidgetThemeProvider();
-            element.Reconcile(this);
+            element.RegisterCallbackOnce<AttachToPanelEvent>(_ => element.Reconcile(this));
             return element;
         }
     }

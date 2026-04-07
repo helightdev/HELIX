@@ -19,9 +19,9 @@ namespace HELIX.Widgets.Universal {
         }
 
         public override IWidgetElement CreateElement() {
-            var button = new GenericButton();
-            button.Reconcile(this);
-            return button;
+            var element = new GenericButton();
+            element.RegisterCallbackOnce<AttachToPanelEvent>(_ => element.Reconcile(this));
+            return element;
         }
     }
 }

@@ -5,8 +5,9 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
-    public abstract class Widget {
+    public abstract class Widget : IWidgetListCandidate {
         public Key key;
+        public object[] constants;
         protected readonly HashSet<Modifier> modifiers = new();
 
         public IReadOnlyList<Modifier> Modifiers {
@@ -48,6 +49,7 @@ namespace HELIX.Widgets {
         VisualElement Element { get; }
         Widget Descriptor { get; }
         int HierarchyDepth { get; }
+        bool CanReconcile(Widget updated);
         bool Reconcile(Widget updated);
 
         void Rebuild() {

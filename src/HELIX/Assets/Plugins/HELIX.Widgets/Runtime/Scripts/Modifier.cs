@@ -45,8 +45,8 @@ namespace HELIX.Widgets {
             }
         }
     }
-    
-        public static class ModifierExtensions {
+
+    public static class ModifierExtensions {
         public static T WithModifier<T>(this T element, Modifier modifier) where T : Widget {
             element.AddModifier(modifier);
             return element;
@@ -67,7 +67,7 @@ namespace HELIX.Widgets {
             );
             return element;
         }
-        
+
         public static T Fill<T>(this T element) where T : Widget {
             return element.WithModifier(FlexibleModifier.Fill);
         }
@@ -117,6 +117,23 @@ namespace HELIX.Widgets {
                 )
             );
             return element;
+        }
+
+        public static T Const<T>(this T element, params object[] values) where T : Widget {
+            element.constants = values;
+            return element;
+        }
+
+        public static T Display<T>(this T element, bool display) where T : Widget {
+            return element.WithModifier(display ? DisplayModifier.Visible : DisplayModifier.Hidden);
+        }
+
+        public static T Visibility<T>(this T element, bool visible) where T : Widget {
+            return element.WithModifier(visible ? VisibilityModifier.Visible : VisibilityModifier.Hidden);
+        }
+
+        public static T Opacity<T>(this T element, float opacity) where T : Widget {
+            return element.WithModifier(OpacityModifier.Of(opacity));
         }
     }
 }

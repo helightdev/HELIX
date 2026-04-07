@@ -7,44 +7,49 @@ namespace HELIX.Widgets {
         public abstract Widget Build(BuildContext context);
 
         public override IWidgetElement CreateElement() {
-            var element = new StatelessWidgetElement { Descriptor = this };
+            var element = new StatelessWidgetElement<T> { Descriptor = this };
             return element;
         }
+    }
 
-        public class StatelessWidgetElement : BaseHostWidgetElement, IWidgetElement {
-            public VisualElement Element => this;
-            public Widget Descriptor { get; set; }
-            public bool firstPaint = true;
+    public class StatelessWidgetElement<T> : BaseHostWidgetElement, IWidgetElement
+        where T : StatelessWidget<T> {
+        public VisualElement Element => this;
+        public Widget Descriptor { get; set; }
+        private bool _firstPaint = true;
 
-            public bool Reconcile(Widget updated) {
-                if (updated is not T widget) return false;
-                if (parent == null)
-                    throw new InvalidOperationException(
-                        "StatelessWidget's element must be attached to the hierarchy before it can be reconciled."
-                    );
-                try {
-                    ModificationBarrier.RemoveRebuild(this);
-                    Hosted = widget.Build(new BuildContext(this));
-                    ReconcileHost();
-                } catch (Exception e) { Debug.LogError($"Error building widget: {e}"); }
+        public bool CanReconcile(Widget updated) {
+            return updated is T;
+        }
 
-                try {
-                    Modifier.ApplyDelta(firstPaint ? null : Descriptor, widget, this); //
-                } catch (Exception e) { Debug.LogError($"Error applying delta: {e}"); }
+        public bool Reconcile(Widget updated) {
+            if (updated is not T widget) return false;
+            if (parent == null)
+                throw new InvalidOperationException(
+                    "StatelessWidget's element must be attached to the hierarchy before it can be reconciled."
+                );
+            try {
+                ModificationBarrier.RemoveRebuild(this);
+                Hosted = widget.Build(new BuildContext(this));
+                ReconcileHost();
+            } catch (Exception e) { Debug.LogError($"Error building widget: {e}"); }
 
-                Descriptor = widget;
-                firstPaint = false;
-                return true;
-            }
+            try {
+                Modifier.ApplyDelta(_firstPaint ? null : Descriptor, widget, this); //
+            } catch (Exception e) { Debug.LogError($"Error applying delta: {e}"); }
 
-            protected override void OnAttached(AttachToPanelEvent evt) {
-                base.OnAttached(evt);
-                if (Descriptor != null) Reconcile(Descriptor);
-            }
+            Descriptor = widget;
+            _firstPaint = false;
+            return true;
+        }
 
-            protected override void OnThemeUpdated() {
-                if (Descriptor != null) { ModificationBarrier.RunRebuild(this); }
-            }
+        protected override void OnAttached(AttachToPanelEvent evt) {
+            base.OnAttached(evt);
+            if (Descriptor != null) Reconcile(Descriptor);
+        }
+
+        protected override void OnThemeUpdated() {
+            if (Descriptor != null) { ModificationBarrier.RunRebuild(this); }
         }
     }
 }

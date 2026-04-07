@@ -124,6 +124,10 @@ namespace HELIX.Widgets.Elements {
         public Widget Descriptor { get; set; }
         public int HierarchyDepth { get; set; }
 
+        public bool CanReconcile(Widget updated) {
+            return updated is DirectionalContainerWidget;
+        }
+
         public bool Reconcile(Widget updated) {
             if (updated is not DirectionalContainerWidget widget) return false;
             Gap = widget.gap;
@@ -137,6 +141,23 @@ namespace HELIX.Widgets.Elements {
         }
 
         public IEnumerable<IWidgetElement> Elements => Childs.Select(DefaultReconciler.ExpandElement);
+
+        public void FillElements(List<IWidgetElement> elements) {
+            for (int i = 0; i < hierarchy.childCount; i++) {
+                var child = hierarchy[i];
+                if (child.ClassListContains("generated-gap")) continue;
+                elements.Add(DefaultReconciler.ExpandElement(child));
+            }
+        }
+
+        public void Update(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas) {
+            // Remove Gaps
+            foreach (var child in Children().ToList()) {
+                if (child.ClassListContains("generated-gap")) Remove(child);
+            }
+            new HierarchyDescriptionCollection(this).Update(result, deltas);
+            RebuildGaps(false);
+        }
 
         public void Update(IEnumerable<IWidgetElement> updated) {
             Childs = updated?.Select(e => e.Element) ?? Enumerable.Empty<VisualElement>();

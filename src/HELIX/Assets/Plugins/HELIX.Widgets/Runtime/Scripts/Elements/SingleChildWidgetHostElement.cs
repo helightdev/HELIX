@@ -6,6 +6,10 @@ namespace HELIX.Widgets.Elements {
         public VisualElement Element => this;
         public Widget Descriptor { get; private set; }
 
+        public bool CanReconcile(Widget updated) {
+            return updated is T;
+        }
+
         public bool Reconcile(Widget updated) {
             if (updated is not T widget) return false;
             var previous = Descriptor as T;

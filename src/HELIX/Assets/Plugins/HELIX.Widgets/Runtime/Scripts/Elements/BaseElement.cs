@@ -3,6 +3,7 @@ using System.Linq;
 using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Widgets.Theming;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
@@ -17,6 +18,12 @@ namespace HELIX.Widgets.Elements {
             AddToClassList(UssClassName);
             RegisterCallback<AttachToPanelEvent>(OnAttached);
             RegisterCallback<DetachFromPanelEvent>(OnDetached);
+        }
+        
+        ~BaseElement() {
+            if (this is IHierarchyDisposable disposable) {
+                disposable.Dispose();
+            }
         }
 
         public WidgetThemeProvider ThemeProvider { get; private set; }
@@ -94,7 +101,9 @@ namespace HELIX.Widgets.Elements {
             ThemeProvider = null;
             
             if (this is IHierarchyDisposable disposable) {
-                ModificationBarrier.EnqueueHierarchyDisposable(disposable);
+                ModificationBarrier.Run(() => {
+                    ModificationBarrier.EnqueueHierarchyDisposable(disposable);   
+                });
             }
         }
 

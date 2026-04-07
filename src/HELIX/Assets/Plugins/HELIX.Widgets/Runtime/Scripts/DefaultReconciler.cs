@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using HELIX.Extensions;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
@@ -11,6 +13,7 @@ namespace HELIX.Widgets {
             return previous.key == current.key && previous.GetType() == current.GetType();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static IWidgetElement ExpandElement(VisualElement child) {
             if (child is IWidgetElement de) return de;
             if (child.userData is IWidgetElement de2) return de2;
@@ -22,22 +25,37 @@ namespace HELIX.Widgets {
             Widget descriptor
         ) {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
+            if (parent.panel == null)
+                throw new InvalidOperationException(
+                    "Parent element must be attached to a panel before reconciliation."
+                );
+
             if (descriptor == null) {
                 parent.Clear();
                 return;
             }
 
             IWidgetElement element = null;
-            var child = parent.Children().FirstOrDefault();
-            if (child != null) element = ExpandElement(child);
+            if (parent.childCount > 0) { element = ExpandElement(parent.ElementAt(0)); }
 
-            if (element != null && CanReuse(element.Descriptor, descriptor)) {
-                if (element.Reconcile(descriptor)) return;
+            if (element != null) {
+                try {
+                    if (CanReuse(element.Descriptor, descriptor) && element.CanReconcile(descriptor)) {
+                        PerformReconcile(element, descriptor);
+                        return;
+                    }
+                    element.CallUnmounted();
+                } catch (Exception ex) {
+                    Debug.LogError($"Error reconciling element {element} with descriptor {descriptor}: {ex}");
+                }
             }
 
-            var newElement = descriptor.CreateElement();
-            parent.Clear();
-            parent.Add(newElement.Element);
+            try {
+                var newElement = descriptor.CreateElement();
+                newElement.CallMounted(descriptor);
+                parent.Clear();
+                parent.Add(newElement.Element);
+            } catch (Exception ex) { Debug.LogError($"Error creating element for descriptor {descriptor}: {ex}"); }
         }
 
         public static void ReconcileSingleDirectKeeping(
@@ -58,41 +76,61 @@ namespace HELIX.Widgets {
                 if (child != null) element = ExpandElement(child);
             }
 
-            if (element != null && CanReuse(element.Descriptor, descriptor)) {
-                if (element.Reconcile(descriptor)) return;
+            if (element != null) {
+                try {
+                    if (CanReuse(element.Descriptor, descriptor) && element.CanReconcile(descriptor)) {
+                        PerformReconcile(element, descriptor);
+                        return;
+                    }
+                    element.CallUnmounted();
+                } catch (Exception ex) {
+                    Debug.LogError($"Error reconciling element {element} with descriptor {descriptor}: {ex}");
+                }
             }
 
-            var newElement = descriptor.CreateElement();
-            if (element != null) parent.RemoveAt(keep);
-            parent.Add(newElement.Element);
+            try {
+                var newElement = descriptor.CreateElement();
+                if (element != null) parent.RemoveAt(keep);
+                newElement.CallMounted(descriptor);
+                parent.Add(newElement.Element);
+            } catch (Exception ex) { Debug.LogError($"Error creating element for descriptor {descriptor}: {ex}"); }
         }
+
+        private static readonly Dictionary<Key, IWidgetElement> _keyedScratch = new();
+        private static readonly Queue<IWidgetElement> _unkeyedScratch = new();
+        private static readonly Queue<ReconcilerEntry> _reconcileScratch = new();
+        private static readonly List<IWidgetElement> _resultScratch = new();
+        private static readonly List<ReconcilerCollectionDelta> _deltaScratch = new();
+        private static readonly List<IWidgetElement> _existingScratch = new();
+        private static bool _isProcessingQueue = false;
 
         public static void ReconcileCollection(IWidgetElementCollection collection, IReadOnlyList<Widget> descriptors) {
             if (collection == null) throw new ArgumentNullException(nameof(collection));
             if (descriptors == null) throw new ArgumentNullException(nameof(descriptors));
+            _keyedScratch.Clear();
+            _unkeyedScratch.Clear();
+            _resultScratch.Clear();
+            _deltaScratch.Clear();
+            _existingScratch.Clear();
 
-            var existing = collection.Elements?.ToList() ?? new List<IWidgetElement>();
+            collection.FillElements(_existingScratch);
 
-            var keyed = new Dictionary<Key, IWidgetElement>(existing.Count);
-            var unkeyed = new Queue<IWidgetElement>();
-
-            for (var i = 0; i < existing.Count; i++) {
-                var element = existing[i];
+            for (var i = 0; i < _existingScratch.Count; i++) {
+                var element = _existingScratch[i];
                 var descriptor = element?.Descriptor;
 
                 if (descriptor == null) { continue; }
 
                 if (!descriptor.key.IsNone) {
-                    if (!keyed.TryAdd(descriptor.key, element)) {
+                    if (!_keyedScratch.TryAdd(descriptor.key, element)) {
                         throw new InvalidOperationException(
                             $"Duplicate existing key '{descriptor.key}' in descriptor collection."
                         );
                     }
-                } else { unkeyed.Enqueue(element); }
+                } else { _unkeyedScratch.Enqueue(element); }
             }
 
-            var updated = new List<IWidgetElement>(descriptors.Count);
-            var isDirty = descriptors.Count != existing.Count;
+            var isDirty = descriptors.Count != _existingScratch.Count;
             for (var i = 0; i < descriptors.Count; i++) {
                 var descriptor = descriptors[i];
                 if (descriptor == null) { throw new InvalidOperationException($"Descriptor at index {i} is null."); }
@@ -100,28 +138,141 @@ namespace HELIX.Widgets {
                 IWidgetElement resolved = null;
 
                 if (!descriptor.key.IsNone) {
-                    if (keyed.Remove(descriptor.key, out var existingElement)) {
+                    if (_keyedScratch.Remove(descriptor.key, out var existingElement)) {
                         if (CanReuse(existingElement.Descriptor, descriptor)) {
-                            if (existingElement.Reconcile(descriptor)) resolved = existingElement;
+                            if (existingElement.CanReconcile(descriptor)) {
+                                resolved = existingElement;
+                                _reconcileScratch.Enqueue(
+                                    new ReconcilerEntry {
+                                        element = existingElement,
+                                        descriptor = descriptor
+                                    }
+                                );
+                            }
                         }
                     }
                 } else {
-                    while (unkeyed.Count > 0) {
-                        var candidate = unkeyed.Dequeue();
-                        if (!CanReuse(candidate.Descriptor, descriptor)) continue;
-                        if (candidate.Reconcile(descriptor)) resolved = candidate;
+                    while (_unkeyedScratch.Count > 0) {
+                        var candidate = _unkeyedScratch.Dequeue();
+                        if (!CanReuse(candidate.Descriptor, descriptor)) {
+                            _deltaScratch.Add(
+                                new ReconcilerCollectionDelta {
+                                    target = candidate,
+                                    added = false
+                                }
+                            );
+                            continue;
+                        }
+
+                        if (candidate.CanReconcile(descriptor)) {
+                            resolved = candidate;
+                            _reconcileScratch.Enqueue(
+                                new ReconcilerEntry {
+                                    element = candidate,
+                                    descriptor = descriptor
+                                }
+                            );
+                        }
+
                         break;
                     }
                 }
 
-                resolved ??= descriptor.CreateElement();
-                if (!isDirty && resolved != existing[i]) isDirty = true;
+                if (resolved == null) {
+                    resolved = descriptor.CreateElement();
+                    _deltaScratch.Add(
+                        new ReconcilerCollectionDelta {
+                            target = resolved,
+                            added = true
+                        }
+                    );
+                }
 
-                updated.Add(resolved);
+                if (!isDirty && resolved != _existingScratch[i]) isDirty = true;
+
+                _resultScratch.Add(resolved);
             }
 
-            if (isDirty) collection.Update(updated);
+            if (isDirty) {
+                foreach (var element in _unkeyedScratch) {
+                    _deltaScratch.Add(
+                        new ReconcilerCollectionDelta {
+                            target = element,
+                            added = false
+                        }
+                    );
+                }
+
+                foreach (var (_, value) in _keyedScratch) {
+                    _deltaScratch.Add(
+                        new ReconcilerCollectionDelta {
+                            target = value,
+                            added = false
+                        }
+                    );
+                }
+
+                try {
+                    var resultArray = _resultScratch.ToArray();
+                    var deltaArray = new ReconcilerCollectionDelta[_deltaScratch.Count];
+                    for (var i = 0; i < _deltaScratch.Count; i++) {
+                        var current = _deltaScratch[i];
+                        if (!current.added) current.target.CallUnmounted();
+                        deltaArray[i] = current;
+                    }
+
+                    foreach (var current in _deltaScratch) {
+                        if (current.added) current.target.CallMounted(current.target.Descriptor);
+                    }
+
+                    collection.Update(resultArray, deltaArray);
+                } catch (Exception ex) {
+                    Debug.LogError(
+                        $"Error updating collection {collection} with result {_resultScratch.Count} and deltas {_deltaScratch.Count}: {ex}"
+                    );
+                }
+            }
+
+            if (_isProcessingQueue) return;
+            try {
+                _isProcessingQueue = true;
+                while (_reconcileScratch.TryDequeue(out var next)) {
+                    try {
+                        PerformReconcile(next.element, next.descriptor); //
+                    } catch (Exception ex) {
+                        Debug.LogError($"Error reconciling {next.element} with descriptor {next.descriptor}: {ex}");
+                    }
+                }
+            } finally { _isProcessingQueue = false; }
         }
+
+        public static void PerformReconcile(IWidgetElement element, Widget descriptor) {
+            var previous = element.Descriptor;
+            if (ReferenceEquals(previous, descriptor)) return;
+            if (previous.constants != null && descriptor.constants != null) {
+                if (previous.constants.SequenceEqual(descriptor.constants)) return;
+            }
+
+            element.Reconcile(descriptor);
+        }
+
+        private static void CallUnmounted(this IWidgetElement element) {
+            element.Descriptor.key.details?.OnUnmounted(element);
+        }
+
+        private static void CallMounted(this IWidgetElement element, Widget descriptor) {
+            descriptor?.key.details?.OnMounted(element);
+        }
+    }
+
+    public struct ReconcilerCollectionDelta {
+        public IWidgetElement target;
+        public bool added;
+    }
+
+    public struct ReconcilerEntry {
+        public IWidgetElement element;
+        public Widget descriptor;
     }
 
     public class HostElement : IWidgetElement {
@@ -133,6 +284,10 @@ namespace HELIX.Widgets {
             Element = element;
             HierarchyDepth = element.GetDepth();
             Descriptor = new HostElementDescriptor(this);
+        }
+
+        public bool CanReconcile(Widget updated) {
+            return updated is HostElementDescriptor hed && hed.host.Element == Element;
         }
 
         public bool Reconcile(Widget updated) {
@@ -157,10 +312,11 @@ namespace HELIX.Widgets {
 
     public interface IWidgetElementCollection {
         IEnumerable<IWidgetElement> Elements { get; }
-        void Update(IEnumerable<IWidgetElement> updated);
+        void FillElements(List<IWidgetElement> elements);
+        void Update(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas);
     }
 
-    public class HierarchyDescriptionCollection : IWidgetElementCollection {
+    public readonly struct HierarchyDescriptionCollection : IWidgetElementCollection {
         public readonly VisualElement element;
 
         public HierarchyDescriptionCollection(VisualElement element) {
@@ -169,9 +325,47 @@ namespace HELIX.Widgets {
 
         public IEnumerable<IWidgetElement> Elements => element.Children().Select(DefaultReconciler.ExpandElement);
 
-        public void Update(IEnumerable<IWidgetElement> updated) {
-            element.Clear();
-            foreach (var e in updated) { element.Add(e.Element); }
+        private static readonly Dictionary<VisualElement, int> _lookupHelper = new();
+
+        public void FillElements(List<IWidgetElement> elements) {
+            for (var i = 0; i < element.hierarchy.childCount; i++) {
+                var child = element.hierarchy.ElementAt(i);
+                elements.Add(DefaultReconciler.ExpandElement(child));
+            }
+        }
+
+        public void Update(IWidgetElement[] updated, ReconcilerCollectionDelta[] deltas) {
+            foreach (var delta in deltas) {
+                var child = delta.target.Element;
+                if (delta.added) {
+                    if (child.parent == null) element.hierarchy.Add(child);
+                    else
+                        Debug.LogWarning(
+                            $"Attempted to add element {child} to hierarchy, but it already has a parent. This may indicate a problem with the reconciliation process."
+                        );
+                } else {
+                    if (child.parent == element.contentContainer) child.RemoveFromHierarchy();
+                    else
+                        Debug.LogWarning(
+                            $"Attempted to remove element {child} from hierarchy, but it is not a child of the target element. This may indicate a problem with the reconciliation process."
+                        );
+                }
+            }
+
+            // I would love to use "iterate reverse bring to front" but that also triggers a panel detach
+            // All of this is to avoid problematic change events that may break things and interrupt animations
+            _lookupHelper.Clear();
+            for (var i = 0; i < updated.Length; i++) {
+                var targetElement = updated[i].Element;
+                _lookupHelper[targetElement] = i;
+            }
+
+            element.hierarchy.Sort((a, b) => {
+                    var indexA = _lookupHelper.GetValueOrDefault(a, int.MaxValue);
+                    var indexB = _lookupHelper.GetValueOrDefault(b, int.MaxValue);
+                    return indexA.CompareTo(indexB);
+                }
+            );
         }
     }
 }

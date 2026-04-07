@@ -3,6 +3,7 @@ using HELIX.Abstractions;
 using HELIX.Animation;
 using HELIX.Extensions;
 using HELIX.Widgets.Universal;
+using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -124,6 +125,10 @@ namespace HELIX.Widgets.Elements {
 
         public VisualElement Element => this;
         public Widget Descriptor { get; private set; }
+
+        public bool CanReconcile(Widget updated) {
+            return updated is BoxShadow;
+        }
 
         public bool Reconcile(Widget updated) {
             if (updated is not BoxShadow descriptor) return false;

@@ -65,6 +65,10 @@ namespace HELIX.Widgets.Elements {
         public VisualElement Element => this;
         public Widget Descriptor { get; set; }
 
+        public bool CanReconcile(Widget updated) {
+            return updated is FlexAlign;
+        }
+
         public bool Reconcile(Widget updated) {
             if (updated is not FlexAlign fa) return false;
             Alignment = fa.alignment;

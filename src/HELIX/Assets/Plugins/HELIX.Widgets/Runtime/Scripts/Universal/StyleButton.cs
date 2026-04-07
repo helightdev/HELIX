@@ -30,17 +30,17 @@ namespace HELIX.Widgets.Universal {
                             new TransitionModifier(style.transitions.ResolveOrDefault(state, Array.Empty<Transition>()))
                         }
                     }.Fill();
-                    var boxShadow = style.boxShadow.ResolveOrDefault(state);
-                    if (boxShadow != null) {
-                        inner = new BoxShadow {
-                            blurRadius = boxShadow.blurRadius,
-                            borderRadius = boxShadow.borderRadius,
-                            offset = boxShadow.offset,
-                            shadowColor = boxShadow.shadowColor,
-                            spreadRadius = boxShadow.spreadRadius,
-                            child = inner
-                        }.Fill();
-                    }
+                    // var boxShadow = style.boxShadow.ResolveOrDefault(state);
+                    // if (boxShadow != null) {
+                    //     inner = new BoxShadow {
+                    //         blurRadius = boxShadow.blurRadius,
+                    //         borderRadius = boxShadow.borderRadius,
+                    //         offset = boxShadow.offset,
+                    //         shadowColor = boxShadow.shadowColor,
+                    //         spreadRadius = boxShadow.spreadRadius,
+                    //         child = inner
+                    //     }.Fill();
+                    // }
 
                     return inner;
                 },

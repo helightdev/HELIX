@@ -1,5 +1,4 @@
 using HELIX.Extensions;
-using HELIX.Widgets.Elements;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
@@ -24,6 +23,10 @@ namespace HELIX.Widgets {
             public VisualElement Element { get; set; }
             public Widget Descriptor { get; set; }
             public int HierarchyDepth { get; set; }
+
+            public bool CanReconcile(Widget updated) {
+                return updated is WrappingBaseWidget<T, S> && Element is T;
+            }
 
             public bool Reconcile(Widget updated) {
                 if (updated is not WrappingBaseWidget<T, S> wd) return false;

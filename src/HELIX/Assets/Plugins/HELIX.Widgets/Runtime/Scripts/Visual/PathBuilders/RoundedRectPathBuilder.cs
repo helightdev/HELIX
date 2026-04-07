@@ -1,5 +1,6 @@
 using HELIX.Painting.Paths;
 using HELIX.Types;
+using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 
