@@ -63,12 +63,26 @@ namespace HELIX.Types {
             return y < 0f ? TextAnchor.UpperRight : TextAnchor.LowerRight;
         }
 
+        public bool IsLosslessQuantizable() {
+            var matchX = Mathf.Approximately(math.round(x), x);
+            var matchY = Mathf.Approximately(math.round(y), y);
+            return matchX && matchY;
+        }
+
         public void AlignAsColumn(VisualElement element) {
             AlignmentHelper.ToColumnAlignment(Quantize(), out var mainAxis, out var crossAxis);
             element.style.flexDirection = FlexDirection.Column;
             element.style.flexWrap = Wrap.NoWrap;
             element.style.justifyContent = mainAxis;
             element.style.alignItems = crossAxis;
+        }
+
+        public override string ToString() {
+            if (IsLosslessQuantizable()) {
+                var quantized = Quantize();
+                return $"Alignment({AlignmentHelper.MapName(quantized)})";
+            }
+            return $"Alignment(x: {x}, y: {y})";
         }
 
         public static class AlignmentHelper {
@@ -83,6 +97,21 @@ namespace HELIX.Types {
                     TextAnchor.LowerLeft    => BottomLeft,
                     TextAnchor.LowerCenter  => BottomCenter,
                     TextAnchor.LowerRight   => BottomRight,
+                    _                       => throw new ArgumentOutOfRangeException(nameof(anchor), anchor, null)
+                };
+            }
+
+            public static string MapName(TextAnchor anchor) {
+                return anchor switch {
+                    TextAnchor.UpperLeft    => "TopLeft",
+                    TextAnchor.UpperCenter  => "TopCenter",
+                    TextAnchor.UpperRight   => "TopRight",
+                    TextAnchor.MiddleLeft   => "CenterLeft",
+                    TextAnchor.MiddleCenter => "Center",
+                    TextAnchor.MiddleRight  => "CenterRight",
+                    TextAnchor.LowerLeft    => "BottomLeft",
+                    TextAnchor.LowerCenter  => "BottomCenter",
+                    TextAnchor.LowerRight   => "BottomRight",
                     _                       => throw new ArgumentOutOfRangeException(nameof(anchor), anchor, null)
                 };
             }

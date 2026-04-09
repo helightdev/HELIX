@@ -1,3 +1,6 @@
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -8,7 +11,7 @@ namespace HELIX.Widgets.Modifiers {
             StyleKeyword.Initial
         );
 
-        public static readonly TransformModifier Identity = new();
+        public static readonly TransformModifier Identity = new(Vector3.zero, Quaternion.identity, Vector3.one);
 
         public readonly StyleRotate rotate;
         public readonly StyleScale scale;
@@ -36,6 +39,19 @@ namespace HELIX.Widgets.Modifiers {
             element.style.translate = StyleKeyword.Initial;
             element.style.rotate = StyleKeyword.Initial;
             element.style.scale = StyleKeyword.Initial;
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            base.FillModifierProperties(properties);
+            properties.Add(new StyleValueProperty<Translate>("translate", translate));
+            properties.Add(new StyleValueProperty<Rotate>("rotate", rotate));
+            properties.Add(new StyleValueProperty<Scale>("scale", scale));
+        }
+
+        protected override string FindConstantName() {
+            if (ReferenceEquals(this, None)) return nameof(None);
+            if (ReferenceEquals(this, Identity)) return nameof(Identity);
+            return null;
         }
 
         public static TransformModifier Scale(StyleScale scale) {

@@ -48,15 +48,16 @@ namespace HELIX.Widgets.Diagnostics.Properties {
             var list = ValueTyped.ToList();
             if (list.Count == 0) return IfEmpty ?? "[]";
 
-            var formatted = list.Select(v => v is double d
-                ? DoubleProperty.DebugFormatDouble(d)
-                : v?.ToString() ?? "null"
-            );
+            var formatted = list.Select((v) => FormatItem(v, parentConfiguration));
 
             if (parentConfiguration != null && !parentConfiguration.LineBreakProperties)
                 return "[" + string.Join(", ", formatted) + "]";
 
             return string.Join(IsSingleLine(Style) ? ", " : "\n", formatted);
+        }
+
+        protected virtual string FormatItem(T v, TextTreeConfiguration parentConfiguration) {
+            return v is float d ? FloatProperty.DebugFormatFloat(d) : v?.ToString() ?? "null";
         }
     }
 }

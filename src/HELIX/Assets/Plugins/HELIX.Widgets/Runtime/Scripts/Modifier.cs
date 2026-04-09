@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Formatting;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Modifiers;
 using JetBrains.Annotations;
@@ -53,12 +54,25 @@ namespace HELIX.Widgets {
         }
 
         public override string ToStringShort() {
-            return GetType().Name;
+            var name = GetType().Name;
+            if (name.EndsWith("Modifier")) name = name[..^"Modifier".Length];
+            var constant = FindConstantName();
+            if (constant != null) name = $"{name}.{constant}";
+            return name;
         }
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
+            if (FindConstantName() != null) return;
+            
             properties.Add(new FlagProperty("isFallback", isFallback, ifTrue: "Fallback"));
+            FillModifierProperties(properties);
+        }
+
+        public virtual void FillModifierProperties(DiagnosticPropertiesBuilder properties) { }
+
+        protected virtual string FindConstantName() {
+            return null;
         }
     }
 
@@ -86,6 +100,10 @@ namespace HELIX.Widgets {
 
         public static T Fill<T>(this T element) where T : Widget {
             return element.WithModifier(FlexibleModifier.Fill);
+        }
+        
+        public static T Tight<T>(this T element) where T : Widget {
+            return element.WithModifier(FlexibleModifier.Tight);
         }
 
         public static T Expand<T>(this T element, float flex = 1f, Align selfCrossAxisAlign = Align.Auto)

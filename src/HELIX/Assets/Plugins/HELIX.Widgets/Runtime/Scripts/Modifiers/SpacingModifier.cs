@@ -1,4 +1,5 @@
 using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -40,6 +41,20 @@ namespace HELIX.Widgets.Modifiers {
             element.style.marginTop = StyleKeyword.Initial;
             element.style.marginRight = StyleKeyword.Initial;
             element.style.marginBottom = StyleKeyword.Initial;
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            base.FillModifierProperties(properties);
+            properties.Add(new DiagnosticsProperty<StyleLength4>("padding", padding));
+            properties.Add(new DiagnosticsProperty<StyleLength4>("margin", margin));
+        }
+
+        protected override string FindConstantName() {
+            if (DeepEquals(Initial)) return nameof(Initial);
+            if (DeepEquals(None)) return nameof(None);
+            if (DeepEquals(NoPadding)) return nameof(NoPadding);
+            if (DeepEquals(NoMargin)) return nameof(NoMargin);
+            return null;
         }
 
         public static SpacingModifier Padding(StyleLength4 padding) {

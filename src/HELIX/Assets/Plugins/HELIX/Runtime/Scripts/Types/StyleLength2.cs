@@ -34,7 +34,7 @@ namespace HELIX.Types {
         }
 
         public override string ToString() {
-            return $"({w}, {h})";
+            return $"StyleLength2(width: {w.FormatStyleValue()}, height: {h.FormatStyleValue()})";
         }
         
         public static readonly StyleLength2 Initial = new StyleLength2(StyleKeyword.Initial);

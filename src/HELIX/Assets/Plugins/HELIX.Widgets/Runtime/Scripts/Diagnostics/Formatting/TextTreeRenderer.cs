@@ -47,7 +47,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
             var isSingleLine = DiagnosticsNode.IsSingleLine(node.Style) &&
                                (parentConfiguration == null || !parentConfiguration.LineBreakProperties);
 
-            prefixOtherLines = prefixOtherLines ?? prefixLineOne;
+            prefixOtherLines ??= prefixLineOne;
             if (!string.IsNullOrEmpty(node.LinePrefix)) {
                 prefixLineOne += node.LinePrefix;
                 prefixOtherLines += node.LinePrefix;
@@ -152,7 +152,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
 
             if (_maxDescendantsTruncatableNode >= 0 && node.AllowTruncate) {
                 properties = propertiesEnumerable.Take(_maxDescendantsTruncatableNode).ToList();
-                if (propertiesEnumerable.Count() >= _maxDescendantsTruncatableNode)
+                if (properties.Count >= _maxDescendantsTruncatableNode)
                     properties.Add(DiagnosticsNode.Message("..."));
 
                 if (_maxDescendantsTruncatableNode < children.Count) {

@@ -1,4 +1,6 @@
 using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -20,6 +22,11 @@ namespace HELIX.Widgets.Modifiers {
         public override bool HasChanged(Modifier previous) {
             if (previous is not BackgroundStyleModifier prev) return true;
             return !Equals(style, prev.style);
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            base.FillModifierProperties(properties);
+            properties.Add(new BackgroundStyleProperty("style", style, showName: false));
         }
 
         public static BackgroundStyleModifier Of(BackgroundStyle style) {

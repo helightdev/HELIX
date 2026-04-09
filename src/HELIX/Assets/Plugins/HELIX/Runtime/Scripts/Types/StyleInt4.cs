@@ -36,6 +36,10 @@ namespace HELIX.Types {
             return _value.Equals(other._value) && _keyword == other._keyword;
         }
 
+        public override string ToString() {
+            return HelixFormattingHelper.FormatStyleValue(_keyword, HelixFormattingHelper.BuildQuadruple("Int4", L, T, R, B));
+        }
+
         public static implicit operator StyleInt4(StyleKeyword k) {
             return new StyleInt4 {
                 _value = default,

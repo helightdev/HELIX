@@ -4,6 +4,7 @@ using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Signals;
 using UnityEngine;
 
@@ -11,6 +12,10 @@ namespace HELIX.Widgets {
     public interface IStatefulWidget { }
 
     public abstract class StatefulWidget<T> : Widget, IStatefulWidget where T : StatefulWidget<T> {
+        protected StatefulWidget() {
+            AddModifier(ModifierFallbacks.FlexFill);
+        }
+
         public abstract WidgetState<T> CreateState();
 
         public override IWidgetElement CreateElement() {

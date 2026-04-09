@@ -1,4 +1,6 @@
 using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -45,6 +47,28 @@ namespace HELIX.Widgets.Modifiers {
 
         public static OffsetModifier Relative(StyleLength4 offset) {
             return new OffsetModifier(offset, Position.Relative);
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            properties.Add(
+                new EnumProperty<Position>("type", offsetType, defaultValue: Position.Relative, showName: false)
+            );
+            properties.Add(
+                new DiagnosticsProperty<StyleLength4>(
+                    "offset",
+                    offset,
+                    defaultValue: StyleLength4.Initial,
+                    showName: false
+                )
+            );
+        }
+
+        protected override string FindConstantName() {
+            return offsetType switch {
+                Position.Absolute when offset.Equals(StyleLength4.Zero)    => nameof(Stretch),
+                Position.Relative when offset.Equals(StyleLength4.Initial) => nameof(None),
+                _                                                          => null
+            };
         }
     }
 }

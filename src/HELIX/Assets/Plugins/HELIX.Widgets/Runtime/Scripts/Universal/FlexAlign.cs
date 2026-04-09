@@ -7,7 +7,7 @@ namespace HELIX.Widgets.Universal {
         public Alignment alignment;
 
         public FlexAlign() {
-            modifiers.Add(ModifierFallbacks.Fill);
+            modifiers.Add(ModifierFallbacks.FlexFill);
         }
 
         public override IWidgetElement CreateElement() {

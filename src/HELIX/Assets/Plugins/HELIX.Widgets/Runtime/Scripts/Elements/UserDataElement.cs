@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Formatting;
-using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
@@ -39,7 +38,7 @@ namespace HELIX.Widgets.Elements {
         }
 
         public virtual void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
-            properties.Add(new StringProperty("descriptor", Descriptor?.ToStringShort()));
+            properties.Add(new DiagnosticsProperty<Widget>("descriptor", Descriptor, showName: false));
         }
 
         public override string ToString() {
@@ -69,6 +68,10 @@ namespace HELIX.Widgets.Elements {
             Modifier.ApplyDelta(Descriptor, updated, element);
             Descriptor = updated;
             return true;
+        }
+
+        public override string ToStringShort() {
+            return $"{TypedDescriptor.GetWidgetName()}:{typeof(T).Name}:UserData#{this.ShortHash()}";
         }
     }
 }

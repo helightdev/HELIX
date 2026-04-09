@@ -1,3 +1,5 @@
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -31,6 +33,21 @@ namespace HELIX.Widgets.Modifiers {
         public override bool HasChanged(Modifier previous) {
             if (previous is not FocusModifier prev) return true;
             return focusable != prev.focusable || pickingMode != prev.pickingMode || tabIndex != prev.tabIndex;
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            base.FillModifierProperties(properties);
+            properties.Add(new FlagProperty("focusable", focusable, ifTrue: "Focusable", ifFalse: "Not Focusable"));
+            properties.Add(new EnumProperty<PickingMode>("pickingMode", pickingMode));
+            properties.Add(new IntProperty("tabIndex", tabIndex));
+        }
+
+        protected override string FindConstantName() {
+            if (DeepEquals(Focusable)) return nameof(Focusable);
+            if (ReferenceEquals(this, FocusableNoTab)) return nameof(FocusableNoTab);
+            if (DeepEquals(Ignore)) return nameof(Ignore);
+            if (DeepEquals(None)) return nameof(None);
+            return null;
         }
 
         public static FocusModifier Of(

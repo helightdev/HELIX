@@ -6,11 +6,10 @@ using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets;
 using HELIX.Widgets.Diagnostics;
-using HELIX.Widgets.Diagnostics.Error;
-using HELIX.Widgets.Diagnostics.Formatting;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;
 using HELIX.Widgets.Modifiers;
+using HELIX.Widgets.Navigation;
 using HELIX.Widgets.Signals;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Styles;
@@ -23,7 +22,15 @@ using Random = UnityEngine.Random;
 [UxmlElement]
 public partial class NewTestWidget : HostWidgetElement {
     public NewTestWidget() {
-        Buildable = new InteractiveExample().Stretch().ToConstantBuildable();
+        Buildable = new Scaffold {
+            child = new InteractiveExample()
+        }.Stretch().ToConstantBuildable();
+    }
+
+    public override bool Reconcile(Widget updated) {
+        base.Reconcile(updated);
+        Debug.Log(ToStringDeep(wrapWidth: 105, minLevel: DiagnosticLevel.Debug));
+        return true;
     }
 }
 
@@ -37,8 +44,8 @@ public class InteractiveExample : StatefulWidget<InteractiveExample> {
 
     public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
         base.DebugFillProperties(properties);
-        properties.Add(new DiagnosticsProperty<Color>("onColor", onColor));
-        properties.Add(new DiagnosticsProperty<Color>("offColor", offColor));
+        properties.Add(new ColorProperty("onColor", onColor));
+        properties.Add(new ColorProperty("offColor", offColor));
     }
 }
 
@@ -85,6 +92,10 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
     private GlobalKey testComponentKey = new GlobalKey();
 
     public override void InitState() {
+        HelixDiagnostics.Build("Init InteractiveExampleState", collector => collector
+            .OwnerChain(mount)
+            .OffendingElement(mount as IWidgetElement)
+        ).Report(DiagnosticLevel.Info);
     }
 
     public override void DidUpdateWidget(InteractiveExample oldWidget) {
@@ -129,12 +140,12 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                             child = new Text($"Counter: {Counter.Value}")
                         },
                         Modifiers = new Modifier[] {
-                            TransitionModifier.Of(new Transition(StyleProperties.BackgroundColor) { duration = 1f })
+                            TransitionsModifier.Of(new Transition(StyleProperties.BackgroundColor) { duration = 1f })
                         }
                     }
                 },
                 new Text($"Hello World! {Combined.Value}"), //
-                new TestComponent { key = testComponentKey}.Const().If(Counter % 5 == 0),
+                new TestComponent { key = testComponentKey}.Tight().Const().If(Counter % 5 == 0),
                 new ButtonBuilder {
                     enabled = isOn,
                     selected = Counter % 5 == 0,
@@ -155,7 +166,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                             math.remap(0, 4, 0, 1, Counter % 5).NormalizedPercent(),
                             100.Percent()
                         ),
-                        Modifiers = new[] { TransitionModifier.Of(new Transition(StyleProperties.All)) }
+                        Modifiers = new[] { TransitionsModifier.Of(new Transition(StyleProperties.All)) }
                     }
                 },
                 new StyleButton {
@@ -167,14 +178,30 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                         isOn = !isOn;
                         Counter.Value++;
                     }
-                }.Flexible(selfCrossAxisAlign: Align.Stretch),
+                }.Tight(),
                 new StyleButton {
                     key = "Remove",
                     style = ButtonStyle,
                     child = new Text("Remove"),
                     onClick = () => { Counter.Value--; }
                 },
-                new FlexRow {
+                new StyleButton {
+                    key = "Popup",
+                    style = ButtonStyle,
+                    child = new Text("Popup"),
+                    onClick = () => {
+                        ScaffoldElement.Get(context.Element).AddOverlay(new NewTestWidget().Stretched());
+                    }
+                },
+                new StyleButton {
+                    key = "Pop",
+                    style = ButtonStyle,
+                    child = new Text("Pop"),
+                    onClick = () => {
+                        OverlayEntry.Nearest(context.Element)?.Pop();
+                    }
+                },
+                new FlexWrap {
                     key = "Boxes",
                     children = boxes
                 }.Display(isOn)
@@ -185,434 +212,13 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
 
 public class TestComponent : StatelessWidget<TestComponent> {
     public override Widget Build(BuildContext context) {
-        if (Random.value < 0.5f) return new Text("TestComponent is working fine!");
-            
-        
-        // Debug.Log("Building TestComponent\nSecond Line");
-        // DiagnosticsNode root =
-        //     new DiagnosticsBlock(
-        //         name: "RootSystem",
-        //         style: DiagnosticsTreeStyle.Error,
-        //         description: "General diagnostics test",
-        //         properties: new List<DiagnosticsNode> {
-        //             new StringProperty("mode", "playtest"),
-        //             new FlagProperty("connected", true, ifTrue: "connected"),
-        //             new PercentProperty("load", 0.742, showName: true),
-        //         },
-        //         children: new List<DiagnosticsNode> {
-        //             new DiagnosticsBlock(
-        //                 name: "Renderer",
-        //                 style: DiagnosticsTreeStyle.Sparse,
-        //                 description: "Primary renderer",
-        //                 properties: new List<DiagnosticsNode> {
-        //                     new StringProperty("backend", "URP"),
-        //                     new IntProperty("drawCalls", 184),
-        //                     new DoubleProperty("frameTime", 16.67, unit: "ms"),
-        //                 },
-        //                 children: new List<DiagnosticsNode> {
-        //                     new DiagnosticsBlock(
-        //                         name: "ShadowPass",
-        //                         style: DiagnosticsTreeStyle.Dense,
-        //                         description: "Shadow map stage",
-        //                         properties: new List<DiagnosticsNode> {
-        //                             new FlagProperty("enabled", true, ifTrue: "enabled", ifFalse: "disabled"),
-        //                             new IntProperty("cascadeCount", 4),
-        //                             new IterableProperty<string>(
-        //                                 "maps",
-        //                                 new[] { "dirLight_0", "dirLight_1", "dirLight_2", "dirLight_3" },
-        //                                 style: DiagnosticsTreeStyle.SingleLine
-        //                             ),
-        //                         },
-        //                         children: new List<DiagnosticsNode> {
-        //                             new DiagnosticsBlock(
-        //                                 name: "Atlas",
-        //                                 style: DiagnosticsTreeStyle.SingleLine,
-        //                                 description: "packed 4096x4096",
-        //                                 properties: new List<DiagnosticsNode> {
-        //                                     new PercentProperty("occupancy", 0.813),
-        //                                     new StringProperty("format", "D32"),
-        //                                 }
-        //                             ),
-        //                             new DiagnosticsBlock(
-        //                                 name: "Shadow Atlas",
-        //                                 style: DiagnosticsTreeStyle.SingleLine,
-        //                                 description: "packed 4096x4096",
-        //                                 properties: new List<DiagnosticsNode> {
-        //                                     new PercentProperty("occupancy", 0.813),
-        //                                     new StringProperty("format", "D32"),
-        //                                 }
-        //                             )
-        //                         }
-        //                     ),
-        //                     new DiagnosticsBlock(
-        //                         name: "PostFX",
-        //                         style: DiagnosticsTreeStyle.Offstage,
-        //                         description: "Post-processing stack",
-        //                         properties: new List<DiagnosticsNode> {
-        //                             new FlagProperty("bloom", true, ifTrue: "bloom on"),
-        //                             new FlagProperty("taa", false, ifFalse: "taa off"),
-        //                         }
-        //                     )
-        //                 }
-        //             ),
-        //             new DiagnosticsBlock(
-        //                 name: "Gameplay",
-        //                 style: DiagnosticsTreeStyle.Sparse,
-        //                 description: "Simulation state",
-        //                 properties: new List<DiagnosticsNode> {
-        //                     new IntProperty("agents", 37),
-        //                     new StringProperty("state", "combat"),
-        //                 },
-        //                 children: new List<DiagnosticsNode> {
-        //                     new DiagnosticsBlock(
-        //                         name: "AI",
-        //                         style: DiagnosticsTreeStyle.Transition,
-        //                         description: "Decision layer",
-        //                         properties: new List<DiagnosticsNode> {
-        //                             new PercentProperty("confidence", 0.91),
-        //                             new IterableProperty<string>(
-        //                                 "activeBehaviors",
-        //                                 new[] { "seek", "aim", "cover" },
-        //                                 style: DiagnosticsTreeStyle.SingleLine
-        //                             ),
-        //                         },
-        //                         children: new List<DiagnosticsNode> {
-        //                             new DiagnosticsBlock(
-        //                                 name: "Targeting",
-        //                                 style: DiagnosticsTreeStyle.ErrorProperty,
-        //                                 description: "fallback target selected",
-        //                                 properties: new List<DiagnosticsNode> {
-        //                                     new StringProperty("reason", "primary target lost"),
-        //                                     new DoubleProperty("distance", 23.4, unit: "m"),
-        //                                 }
-        //                             )
-        //                         }
-        //                     )
-        //                 }
-        //             ),
-        //             new DiagnosticsBlock(
-        //                 name: "Messages",
-        //                 style: DiagnosticsTreeStyle.Whitespace,
-        //                 description: "Recent events",
-        //                 properties: new List<DiagnosticsNode> {
-        //                     DiagnosticsNode.Message("Loaded checkpoint A17"),
-        //                     DiagnosticsNode.Message("Spawned reinforcement wave"),
-        //                     DiagnosticsNode.Message("Audio device hot-swapped"),
-        //                 }
-        //             )
-        //         }
-        //     );
-        //         var deepTree = new DiagnosticsBlock(
-        //     name: "RootSystem",
-        //     style: DiagnosticsTreeStyle.Sparse,
-        //     description: "Full diagnostics tree test",
-        //     properties: new List<DiagnosticsNode>
-        //     {
-        //         new StringProperty("environment", "development"),
-        //         new StringProperty("scene", "CombatArena_03"),
-        //         new PercentProperty("bootProgress", 0.873),
-        //         new FlagProperty("networkReady", true, ifTrue: "network ready"),
-        //         new ObjectFlagProperty<object>("saveGame", new object(), ifPresent: "save present", ifNull: "save missing"),
-        //         new IterableProperty<string>(
-        //             "loadedBundles",
-        //             new[] { "core", "characters", "weapons", "audio_ambience", "ui_common" },
-        //             style: DiagnosticsTreeStyle.SingleLine),
-        //     },
-        //     children: new List<DiagnosticsNode>
-        //     {
-        //         new DiagnosticsBlock(
-        //             name: "Renderer",
-        //             style: DiagnosticsTreeStyle.Sparse,
-        //             description: "Primary rendering pipeline",
-        //             properties: new List<DiagnosticsNode>
-        //             {
-        //                 new StringProperty("pipeline", "URP"),
-        //                 new IntProperty("drawCalls", 1842),
-        //                 new DoubleProperty("frameTime", 18.73, unit: "ms"),
-        //                 new PercentProperty("gpuLoad", 0.917),
-        //             },
-        //             children: new List<DiagnosticsNode>
-        //             {
-        //                 new DiagnosticsBlock(
-        //                     name: "ShadowSystem",
-        //                     style: DiagnosticsTreeStyle.Dense,
-        //                     description: "Cascaded directional shadows",
-        //                     properties: new List<DiagnosticsNode>
-        //                     {
-        //                         new FlagProperty("enabled", true, ifTrue: "enabled", ifFalse: "disabled"),
-        //                         new IntProperty("cascadeCount", 4),
-        //                         new StringProperty("atlasSize", "4096x4096"),
-        //                         new PercentProperty("atlasUsage", 0.812),
-        //                     },
-        //                     children: new List<DiagnosticsNode>
-        //                     {
-        //                         new DiagnosticsBlock(
-        //                             name: "Cascade0",
-        //                             style: DiagnosticsTreeStyle.SingleLine,
-        //                             description: "near field",
-        //                             properties: new List<DiagnosticsNode>
-        //                             {
-        //                                 new DoubleProperty("split", 0.10),
-        //                                 new DoubleProperty("resolutionScale", 1.0),
-        //                             }),
-        //                         new DiagnosticsBlock(
-        //                             name: "Cascade1",
-        //                             style: DiagnosticsTreeStyle.SingleLine,
-        //                             description: "mid field",
-        //                             properties: new List<DiagnosticsNode>
-        //                             {
-        //                                 new DoubleProperty("split", 0.25),
-        //                                 new DoubleProperty("resolutionScale", 0.75),
-        //                             }),
-        //                         new DiagnosticsBlock(
-        //                             name: "Cascade2",
-        //                             style: DiagnosticsTreeStyle.SingleLine,
-        //                             description: "far field",
-        //                             properties: new List<DiagnosticsNode>
-        //                             {
-        //                                 new DoubleProperty("split", 0.55),
-        //                                 new DoubleProperty("resolutionScale", 0.5),
-        //                             }),
-        //                         new DiagnosticsBlock(
-        //                             name: "Cascade3",
-        //                             style: DiagnosticsTreeStyle.SingleLine,
-        //                             description: "distance field",
-        //                             properties: new List<DiagnosticsNode>
-        //                             {
-        //                                 new DoubleProperty("split", 1.0),
-        //                                 new DoubleProperty("resolutionScale", 0.25),
-        //                             }),
-        //                     }),
-        //                 new DiagnosticsBlock(
-        //                     name: "PostFX",
-        //                     style: DiagnosticsTreeStyle.Offstage,
-        //                     description: "Post stack",
-        //                     properties: new List<DiagnosticsNode>
-        //                     {
-        //                         new FlagProperty("bloom", true, ifTrue: "bloom on"),
-        //                         new FlagProperty("motionBlur", false, ifFalse: "motion blur off"),
-        //                         new FlagProperty("taa", true, ifTrue: "taa on"),
-        //                         new DoubleProperty("exposure", 1.23),
-        //                     },
-        //                     children: new List<DiagnosticsNode>
-        //                     {
-        //                         new DiagnosticsBlock(
-        //                             name: "ColorGrading",
-        //                             style: DiagnosticsTreeStyle.SingleLine,
-        //                             description: "filmic response",
-        //                             properties: new List<DiagnosticsNode>
-        //                             {
-        //                                 new StringProperty("lut", "ArenaWarmGrade"),
-        //                                 new DoubleProperty("contrast", 1.15),
-        //                                 new DoubleProperty("saturation", 0.92),
-        //                             }),
-        //                     }),
-        //             }),
-        //
-        //         new DiagnosticsBlock(
-        //             name: "Simulation",
-        //             style: DiagnosticsTreeStyle.Sparse,
-        //             description: "Gameplay and AI state",
-        //             properties: new List<DiagnosticsNode>
-        //             {
-        //                 new IntProperty("agents", 37),
-        //                 new IntProperty("projectiles", 142),
-        //                 new StringProperty("matchState", "sudden_death"),
-        //                 new PercentProperty("timescale", 1.0),
-        //             },
-        //             children: new List<DiagnosticsNode>
-        //             {
-        //                 new DiagnosticsBlock(
-        //                     name: "AI",
-        //                     style: DiagnosticsTreeStyle.Transition,
-        //                     description: "Decision framework",
-        //                     properties: new List<DiagnosticsNode>
-        //                     {
-        //                         new PercentProperty("confidence", 0.91),
-        //                         new IterableProperty<string>(
-        //                             "activeBehaviors",
-        //                             new[] { "seek", "cover", "suppress", "flank" },
-        //                             style: DiagnosticsTreeStyle.SingleLine),
-        //                     },
-        //                     children: new List<DiagnosticsNode>
-        //                     {
-        //                         new DiagnosticsBlock(
-        //                             name: "SquadAlpha",
-        //                             style: DiagnosticsTreeStyle.Sparse,
-        //                             description: "engagement team",
-        //                             properties: new List<DiagnosticsNode>
-        //                             {
-        //                                 new IntProperty("members", 5),
-        //                                 new StringProperty("target", "Player"),
-        //                                 new PercentProperty("morale", 0.62),
-        //                             },
-        //                             children: new List<DiagnosticsNode>
-        //                             {
-        //                                 new DiagnosticsBlock(
-        //                                     name: "Unit_01",
-        //                                     style: DiagnosticsTreeStyle.SingleLine,
-        //                                     description: "rifleman",
-        //                                     properties: new List<DiagnosticsNode>
-        //                                     {
-        //                                         new StringProperty("state", "advancing"),
-        //                                         new DoubleProperty("distanceToTarget", 14.2, unit: "m"),
-        //                                     }),
-        //                                 new DiagnosticsBlock(
-        //                                     name: "Unit_02",
-        //                                     style: DiagnosticsTreeStyle.SingleLine,
-        //                                     description: "support gunner",
-        //                                     properties: new List<DiagnosticsNode>
-        //                                     {
-        //                                         new StringProperty("state", "suppression_fire"),
-        //                                         new DoubleProperty("distanceToTarget", 22.8, unit: "m"),
-        //                                     }),
-        //                             }),
-        //                         new DiagnosticsBlock(
-        //                             name: "Targeting",
-        //                             style: DiagnosticsTreeStyle.ErrorProperty,
-        //                             description: "fallback target selected",
-        //                             properties: new List<DiagnosticsNode>
-        //                             {
-        //                                 new StringProperty("reason", "primary target occluded"),
-        //                                 new StringProperty("selectedTarget", "LastKnownPlayerPosition"),
-        //                                 new DoubleProperty("staleness", 2.4, unit: "s"),
-        //                             }),
-        //                     }),
-        //             }),
-        //
-        //         new DiagnosticsBlock(
-        //             name: "Streaming",
-        //             style: DiagnosticsTreeStyle.Whitespace,
-        //             description: "Asset and IO state",
-        //             properties: new List<DiagnosticsNode>
-        //             {
-        //                 new StringProperty("region", "eu-central"),
-        //                 new PercentProperty("diskUsage", 0.68),
-        //                 new PercentProperty("memoryPressure", 0.79),
-        //                 new IterableProperty<string>(
-        //                     "pendingRequests",
-        //                     new[]
-        //                     {
-        //                         "char_enemy_heavy.bundle",
-        //                         "music_phase3.bank",
-        //                         "voice_boss_intro.bank"
-        //                     },
-        //                     style: DiagnosticsTreeStyle.Flat),
-        //             },
-        //             children: new List<DiagnosticsNode>
-        //             {
-        //                 new DiagnosticsBlock(
-        //                     name: "HotCache",
-        //                     style: DiagnosticsTreeStyle.Shallow,
-        //                     description: "recently used assets",
-        //                     properties: new List<DiagnosticsNode>
-        //                     {
-        //                         DiagnosticsNode.Message("vfx/explosion_large"),
-        //                         DiagnosticsNode.Message("anim/boss_phase2_transition"),
-        //                         DiagnosticsNode.Message("audio/ui_warning_ping"),
-        //                     }),
-        //             }),
-        //
-        //         new DiagnosticsBlock(
-        //             name: "RecentEvents",
-        //             style: DiagnosticsTreeStyle.Flat,
-        //             description: "Event log",
-        //             properties: new List<DiagnosticsNode>
-        //             {
-        //                 DiagnosticsNode.Message("Match entered sudden death."),
-        //                 DiagnosticsNode.Message("Boss shield broken by player ultimate."),
-        //                 DiagnosticsNode.Message("Streaming request stalled for music_phase3.bank."),
-        //                 DiagnosticsNode.Message("AI target fallback engaged for SquadAlpha."),
-        //             }),
-        //     });
-        //
-        // Console.WriteLine("=== DEEP TREE ===");
-        // Console.WriteLine(deepTree.ToStringDeep(wrapWidth: 100));
-        //
-        // try {
-        //     throw new Exception("Test");
-        // } catch (Exception ex) {
-        //    var exception = HelixDiagnostics.Build(summary: "Failed to initialize combat session.",
-        //     description: "A fatal error occurred while bringing the combat loop online." + "A fatal error occurred while bringing the combat loop online." + "A fatal error occurred while bringing the combat loop online." + "A fatal error occurred while bringing the combat loop online.",
-        //
-        //     details: new DiagnosticsNode[] {
-        //         OwnershipChainErrorProperty.FromBuildContext(context), 
-        //         
-        //         new ErrorProperty("sessionId", "arena-03-run-000184"), new ErrorProperty("region", "eu-central"),
-        //         new ErrorProperty("buildVersion", "1.4.17-dev"), new ErrorProperty("netMode", "client-hosted"),
-        //         new DiagnosticsBlock(
-        //             name: "RuntimeState",
-        //             style: DiagnosticsTreeStyle.Sparse,
-        //             description: "Snapshot at failure",
-        //             properties: new List<DiagnosticsNode> {
-        //                 new StringProperty("scene", "CombatArena_03"),
-        //                 new StringProperty("phase", "BossIntro"),
-        //                 new PercentProperty("prewarmProgress", 0.58),
-        //                 new FlagProperty("authorityReady", false, ifFalse: "authority not ready"),
-        //                 new FlagProperty("saveLoaded", true, ifTrue: "save loaded"),
-        //             },
-        //             children: new List<DiagnosticsNode> {
-        //                 new DiagnosticsBlock(
-        //                     name: "Networking",
-        //                     style: DiagnosticsTreeStyle.Sparse,
-        //                     description: "Transport bootstrap",
-        //                     properties: new List<DiagnosticsNode> {
-        //                         new StringProperty("transport", "Relay"),
-        //                         new IntProperty("ping", 148, unit: "ms"),
-        //                         new PercentProperty("packetLoss", 0.12),
-        //                         new FlagProperty("authenticated", true, ifTrue: "authenticated"),
-        //                     },
-        //                     children: new List<DiagnosticsNode> {
-        //                         new DiagnosticsBlock(
-        //                             name: "Handshake",
-        //                             style: DiagnosticsTreeStyle.ErrorProperty,
-        //                             description: "timed out while waiting for host ack",
-        //                             properties: new List<DiagnosticsNode> {
-        //                                 new DoubleProperty("elapsed", 8.5, unit: "s"),
-        //                                 new IntProperty("retryCount", 3),
-        //                                 new StringProperty("lastStage", "SendJoinRequest"),
-        //                             }
-        //                         ),
-        //                     }
-        //                 ),
-        //                 new DiagnosticsBlock(
-        //                     name: "ContentValidation",
-        //                     style: DiagnosticsTreeStyle.Transition,
-        //                     description: "Required bundles audit",
-        //                     properties: new List<DiagnosticsNode> {
-        //                         new IntProperty("required", 6),
-        //                         new IntProperty("resolved", 4),
-        //                         new PercentProperty("completion", 4.0 / 6.0),
-        //                     },
-        //                     children: new List<DiagnosticsNode> {
-        //                         new DiagnosticsBlock(
-        //                             name: "MissingBundles",
-        //                             style: DiagnosticsTreeStyle.Flat,
-        //                             description: "Missing bundle list",
-        //                             properties: new List<DiagnosticsNode> {
-        //                                 DiagnosticsNode.Message("music_phase3.bank"),
-        //                                 DiagnosticsNode.Message("voice_boss_intro.bank"),
-        //                             }
-        //                         ),
-        //                     }
-        //                 ),
-        //             }
-        //         )
-        //     },
-        //     hints: new DiagnosticsNode[] {
-        //         new ErrorHint("Check whether the host completed content prewarm before advertising the session."),
-        //         new ErrorHint("Verify the missing bundles are present in the current content catalog."),
-        //         new ErrorHint("If this is a relay issue, inspect handshake timeout thresholds and retry backoff.")
-        //     },
-        //     stackTrace: ex.StackTrace);
-        //
-        // Debug.LogError(exception.ToStringDeep(wrapWidth: 110));
-        // }
-        //
-        //
-        // Debug.Log(root.ToStringDeep());
-        
-        return new Text("Hello from TestComponent!");
+        return new Text("Hello from TestComponent!", style: new TextStyle() {
+            align = TextAnchor.MiddleCenter,
+            fontSize = 20.Percent(),
+            overflow = TextOverflow.Ellipsis,
+            shadow = StyleKeyword.Auto,
+            color = Colors.Red
+        });
     }
 }
 

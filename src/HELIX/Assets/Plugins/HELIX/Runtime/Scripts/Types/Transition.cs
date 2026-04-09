@@ -1,4 +1,6 @@
 using System;
+using System.Text;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
@@ -8,15 +10,13 @@ namespace HELIX.Types {
         public TimeValue duration;
         public TimeValue delay;
 
+        public const float DefaultDuration = 200f;
+
         public Transition(StylePropertyName property) : this() {
             this.property = property;
             easing = new EasingFunction(EasingMode.Linear);
-            duration = new TimeValue(200f, TimeUnit.Millisecond);
+            duration = new TimeValue(DefaultDuration, TimeUnit.Millisecond);
             delay = new TimeValue(0f, TimeUnit.Millisecond);
-        }
-
-        public static implicit operator Transition(StylePropertyName propertyName) {
-            return new Transition(propertyName);
         }
 
         public bool Equals(Transition other) {
@@ -30,6 +30,33 @@ namespace HELIX.Types {
 
         public override int GetHashCode() {
             return HashCode.Combine(property, easing, duration, delay);
+        }
+
+        public override string ToString() {
+            var builder = new StringBuilder();
+            builder.Append("Transition(");
+            builder.Append(property);
+            if (easing.mode != EasingMode.Linear) {
+                builder.Append(", easing: ");
+                builder.Append(easing.mode);
+            }
+
+            if (!Mathf.Approximately(duration.value, DefaultDuration) || duration.unit != TimeUnit.Millisecond) {
+                builder.Append(", duration: ");
+                builder.Append(duration);
+            }
+
+            if (delay.value > 0) {
+                builder.Append(", delay: ");
+                builder.Append(delay);
+            }
+
+            builder.Append(")");
+            return builder.ToString();
+        }
+
+        public static implicit operator Transition(StylePropertyName propertyName) {
+            return new Transition(propertyName);
         }
     }
 

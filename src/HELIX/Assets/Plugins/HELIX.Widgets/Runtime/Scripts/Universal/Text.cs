@@ -1,4 +1,6 @@
 using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
@@ -56,6 +58,20 @@ namespace HELIX.Widgets.Universal {
             element.selection.tripleClickSelectsLine = tripleClickSelectsLine;
 
             if (previous == null || !Equals(style, previous.style)) (style ?? TextStyle.Default).Apply(element);
+        }
+
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new StringProperty("text", text));
+            properties.Add(new TextStyleProperty("style", style));
+            
+            properties.Add(new FlagProperty("enableRichText", enableRichText, ifTrue: "RichText"));
+            properties.Add(new FlagProperty("emojiFallbackSupport", emojiFallbackSupport, ifFalse: "NoEmojiFallback"));
+            properties.Add(new FlagProperty("parseEscapeSequences", parseEscapeSequences, ifFalse: "NoEscapeSequenceParsing"));
+            properties.Add(new FlagProperty("selectable", selectable, ifTrue: "Selectable"));
+            properties.Add(new FlagProperty("doubleClickSelectsWords", doubleClickSelectsWords, ifFalse: "NoDoubleClickWordSelection"));
+            properties.Add(new FlagProperty("tripleClickSelectsLine", tripleClickSelectsLine, ifFalse: "NoTripleClickLineSelection"));
+            properties.Add(new EnumProperty<LanguageDirection>("languageDirection", languageDirection, defaultValue: LanguageDirection.Inherit));
         }
     }
 }

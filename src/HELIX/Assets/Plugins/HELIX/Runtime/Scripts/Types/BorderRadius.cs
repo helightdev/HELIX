@@ -2,7 +2,7 @@ using System;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
-    public struct BorderRadius : IEquatable<BorderRadius> {
+    public struct BorderRadius : IEquatable<BorderRadius>, IStyleLength4 {
         public StyleLength topLeft;
         public StyleLength topRight;
         public StyleLength bottomRight;
@@ -40,7 +40,23 @@ namespace HELIX.Types {
             return HashCode.Combine(topLeft, topRight, bottomRight, bottomLeft);
         }
 
+        public override string ToString() {
+            return HelixFormattingHelper.BuildQuadruple(
+                "BorderRadius",
+                topLeft.FormatStyleValue(),
+                topRight.FormatStyleValue(),
+                bottomRight.FormatStyleValue(),
+                bottomLeft.FormatStyleValue(),
+                showNames: false
+            );
+        }
+
+        public StyleLength4 ToStyleLength4() => this;
+
         public static implicit operator BorderRadius(StyleLength4 sl4) => new(sl4.l, sl4.t, sl4.r, sl4.b);
+
+        public static implicit operator StyleLength4(BorderRadius br) =>
+            new(br.topLeft, br.topRight, br.bottomRight, br.bottomLeft);
 
         public static BorderRadius All(StyleLength radius) => new(radius, radius, radius, radius);
 
@@ -61,5 +77,12 @@ namespace HELIX.Types {
             );
 
         public static readonly BorderRadius None = new(0, 0, 0, 0);
+
+        public static readonly BorderRadius Initial = new(
+            StyleKeyword.Initial,
+            StyleKeyword.Initial,
+            StyleKeyword.Initial,
+            StyleKeyword.Initial
+        );
     }
 }

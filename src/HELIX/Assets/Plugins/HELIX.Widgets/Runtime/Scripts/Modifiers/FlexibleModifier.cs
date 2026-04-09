@@ -1,3 +1,6 @@
+using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -8,10 +11,10 @@ namespace HELIX.Widgets.Modifiers {
         public static readonly FlexibleModifier Fill = new(1f, 1f, Align.Stretch);
         public static readonly FlexibleModifier TightStretch = new(0f, 0f, Align.Stretch);
         public readonly StyleFloat grow;
-        public readonly Align selfCrossAxisAlign;
+        public readonly StyleEnum<Align> selfCrossAxisAlign;
         public readonly StyleFloat shrink;
 
-        public FlexibleModifier(StyleFloat grow, StyleFloat shrink, Align selfCrossAxisAlign) {
+        public FlexibleModifier(StyleFloat grow, StyleFloat shrink, StyleEnum<Align> selfCrossAxisAlign) {
             this.selfCrossAxisAlign = selfCrossAxisAlign;
             this.grow = grow;
             this.shrink = shrink;
@@ -40,8 +43,27 @@ namespace HELIX.Widgets.Modifiers {
             return grow != prev.grow || shrink != prev.shrink || selfCrossAxisAlign != prev.selfCrossAxisAlign;
         }
 
-        public static FlexibleModifier Of(StyleFloat grow, StyleFloat shrink, Align selfCrossAxisAlign = Align.Auto) {
-            return new FlexibleModifier(grow, shrink, selfCrossAxisAlign);
+        public static FlexibleModifier Of(
+            StyleFloat grow,
+            StyleFloat shrink,
+            StyleEnum<Align>? selfCrossAxisAlign = null
+        ) {
+            return new FlexibleModifier(grow, shrink, selfCrossAxisAlign ?? Align.Auto);
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            properties.Add(new StyleValueProperty<Align>("alignSelf", selfCrossAxisAlign));
+            properties.Add(new StyleValueProperty<float>("grow", grow));
+            properties.Add(new StyleValueProperty<float>("shrink", shrink));
+        }
+
+        protected override string FindConstantName() {
+            if (DeepEquals(Expand)) return nameof(Expand);
+            if (DeepEquals(Shrink)) return nameof(Shrink);
+            if (DeepEquals(Tight)) return nameof(Tight);
+            if (DeepEquals(Fill)) return nameof(Fill);
+            if (DeepEquals(TightStretch)) return nameof(TightStretch);
+            return null;
         }
     }
 }

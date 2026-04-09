@@ -1,16 +1,17 @@
-using System;
 using System.Globalization;
 using HELIX.Widgets.Diagnostics.Formatting;
+using UnityEngine;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
-    public sealed class PercentProperty : DiagnosticsProperty<double?> {
+    public sealed class PercentProperty : DiagnosticsProperty<float?> {
         public PercentProperty(
             string name,
-            double? fraction,
+            float? fraction,
             string ifNull = null,
             bool showName = true,
             string tooltip = null,
             string unit = null,
+            object defaultValue = null,
             DiagnosticLevel level = DiagnosticLevel.Info
         )
             : base(
@@ -21,7 +22,7 @@ namespace HELIX.Widgets.Diagnostics.Properties {
                 null,
                 showName,
                 true,
-                null,
+                defaultValue,
                 tooltip,
                 false,
                 null,
@@ -36,6 +37,15 @@ namespace HELIX.Widgets.Diagnostics.Properties {
 
         public string Unit { get; }
 
+        public override DiagnosticLevel Level {
+            get {
+                if (ValueTyped.HasValue && DefaultValue != null &&
+                    Mathf.Approximately(ValueTyped.GetValueOrDefault(), (float)DefaultValue))
+                    return DiagnosticLevel.Fine;
+                return base.Level;
+            }
+        }
+
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             if (!ValueTyped.HasValue) return "null";
             var v = NumberToString();
@@ -43,7 +53,7 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         }
 
         private string NumberToString() {
-            var clamped = Math.Max(0.0, Math.Min(1.0, ValueTyped.Value));
+            var clamped = Mathf.Max(0.0f, Mathf.Min(1.0f, ValueTyped.GetValueOrDefault()));
             return (clamped * 100.0).ToString("0.0", CultureInfo.InvariantCulture) + "%";
         }
     }

@@ -12,6 +12,10 @@ namespace HELIX.Widgets.Universal {
 
         public SimpleButtonStyle style = new();
 
+        public StyleButton() {
+            AddModifier(ModifierFallbacks.TightStretch);
+        }
+
         public override Widget Build(BuildContext context) {
             return new ButtonBuilder {
                 builder = (_, state) => {
@@ -27,7 +31,9 @@ namespace HELIX.Widgets.Universal {
                                 style.padding.ResolveOrDefault(state, StyleLength4.Zero),
                                 StyleLength4.Zero
                             ),
-                            new TransitionModifier(style.transitions.ResolveOrDefault(state, Array.Empty<Transition>()))
+                            new TransitionsModifier(
+                                style.transitions.ResolveOrDefault(state, Array.Empty<Transition>())
+                            )
                         }
                     }.Fill();
                     // var boxShadow = style.boxShadow.ResolveOrDefault(state);

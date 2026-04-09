@@ -1,5 +1,6 @@
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 
 namespace HELIX.Widgets {
     public interface IBuildable {
@@ -39,6 +40,10 @@ namespace HELIX.Widgets {
     public interface IStatelessWidget { }
 
     public abstract class StatelessWidget<T> : Widget, IStatelessWidget, IBuildable where T : StatelessWidget<T> {
+        protected StatelessWidget() {
+            AddModifier(ModifierFallbacks.FlexFill);
+        }
+
         public abstract Widget Build(BuildContext context);
 
         public override IWidgetElement CreateElement() {

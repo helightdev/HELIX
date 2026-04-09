@@ -8,7 +8,8 @@ namespace HELIX.Widgets.Diagnostics.Properties {
             string name,
             [CanBeNull] T value,
             object defaultValue = null,
-            DiagnosticLevel level = DiagnosticLevel.Info
+            DiagnosticLevel level = DiagnosticLevel.Info,
+            bool showName = true
         )
             : base(
                 name,
@@ -16,7 +17,7 @@ namespace HELIX.Widgets.Diagnostics.Properties {
                 null,
                 null,
                 null,
-                true,
+                showName,
                 true,
                 defaultValue,
                 null,

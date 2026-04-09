@@ -52,7 +52,6 @@ namespace HELIX.Widgets {
         }
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
-            properties.Add(new IterableProperty<Modifier>("modifiers", GetModifiers(), ifEmpty: null));
             properties.Add(
                 new IterableProperty<object>(
                     "retention",
@@ -62,6 +61,25 @@ namespace HELIX.Widgets {
                     level: constants == null ? DiagnosticLevel.Hidden : DiagnosticLevel.Info
                 )
             );
+
+            properties.Add(
+                new IterableProperty<Modifier>(
+                    "modifiers",
+                    modifiers.Where(x => !x.isFallback).ToList(),
+                    ifEmpty: null,
+                    level: DiagnosticLevel.Info
+                )
+            );
+
+            properties.Add(
+                new IterableProperty<Modifier>(
+                    "fallback modifiers",
+                    modifiers.Where(x => x.isFallback).ToList(),
+                    ifEmpty: null,
+                    level: DiagnosticLevel.Fine
+                )
+            );
+
             base.DebugFillProperties(properties);
         }
 

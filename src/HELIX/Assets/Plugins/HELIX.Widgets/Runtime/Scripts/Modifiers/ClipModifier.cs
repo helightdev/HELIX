@@ -1,3 +1,5 @@
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -16,6 +18,15 @@ namespace HELIX.Widgets.Modifiers {
 
         public override void Reset(VisualElement element) {
             element.style.overflow = StyleKeyword.Initial;
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            base.FillModifierProperties(properties);
+            properties.Add(new FlagProperty("enabled", enabled, ifTrue: "Clip", ifFalse: "None"));
+        }
+
+        protected override string FindConstantName() {
+            return enabled ? nameof(Clip) : nameof(None);
         }
     }
 }

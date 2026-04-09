@@ -1,4 +1,6 @@
 using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;
 
 namespace HELIX.Widgets.Universal {
@@ -28,6 +30,15 @@ namespace HELIX.Widgets.Universal {
                 widget.constraints.Apply(this);
                 widget.alignment.AlignAsColumn(this);
             }
+        }
+
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new DiagnosticsProperty<Alignment>("alignment", alignment));
+            properties.Add(new BackgroundStyleProperty("backgroundStyle", backgroundStyle));
+            properties.Add(new DiagnosticsProperty<Border>("border", border, defaultValue: Border.None));
+            properties.Add(new DiagnosticsProperty<BorderRadius>("borderRadius", borderRadius, defaultValue: BorderRadius.None));
+            properties.Add(new DiagnosticsProperty<BoxConstraints>("constraints", constraints, defaultValue: BoxConstraints.Initial));
         }
     }
 }

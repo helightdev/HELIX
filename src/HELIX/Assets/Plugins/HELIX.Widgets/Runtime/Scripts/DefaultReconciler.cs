@@ -58,7 +58,7 @@ namespace HELIX.Widgets {
                     element.CallUnmounted();
                 } catch (Exception ex) {
                     HelixDiagnostics.Build(
-                        "An error occurred while unmounting an element during reconciliation.",
+                        "An error occurred during element reconciliation.",
                         collector => collector
                             .AddRange(new OffendingWidgetErrorProperty(descriptor), new ErrorSpacer(),
                                 OwnershipChainErrorProperty.FromBuildContext(element))
@@ -107,7 +107,8 @@ namespace HELIX.Widgets {
             for (var i = 0; i < descriptors.Count; i++) {
                 var descriptor = descriptors[i];
                 if (descriptor == null) throw new InvalidOperationException($"Descriptor at index {i} is null.");
-
+                // TODO: Check for duplicated keys in the initial construction pass 
+                
                 IWidgetElement resolved = null;
 
                 if (!descriptor.key.IsNone) {

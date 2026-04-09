@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Types {
     [Serializable]
-    public struct StyleLength4 : IEquatable<StyleLength4> {
+    public struct StyleLength4 : IEquatable<StyleLength4>, IStyleLength4 {
         public StyleLength l, t, r, b;
 
         public StyleLength4(StyleLength l, StyleLength t, StyleLength r, StyleLength b) {
@@ -43,7 +43,7 @@ namespace HELIX.Types {
         public static implicit operator StyleLength4(StyleLength v) {
             return new StyleLength4(v);
         }
-        
+
         public static implicit operator StyleLength4(float v) {
             return new StyleLength4(v);
         }
@@ -61,8 +61,16 @@ namespace HELIX.Types {
         }
 
         public override string ToString() {
-            return $"({l}, {t}, {r}, {b})";
+            return HelixFormattingHelper.BuildQuadruple(
+                "StyleLength4",
+                l.FormatStyleValue(),
+                t.FormatStyleValue(),
+                r.FormatStyleValue(),
+                b.FormatStyleValue()
+            );
         }
+
+        public StyleLength4 ToStyleLength4() => this;
 
         public static StyleLength4 Only(
             StyleLength? left = null,
@@ -94,5 +102,9 @@ namespace HELIX.Types {
         public static readonly StyleLength4 Zero = new StyleLength4(0);
         public static readonly StyleLength4 Initial = new StyleLength4(StyleKeyword.Initial);
         public static readonly StyleLength4 Auto = new StyleLength4(StyleKeyword.Auto);
+    }
+
+    public interface IStyleLength4 {
+        StyleLength4 ToStyleLength4();
     }
 }

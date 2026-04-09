@@ -4,16 +4,16 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Types {
     public class BackgroundStyle : IEquatable<BackgroundStyle> {
-        public StyleColor color;
-        public StyleBackground image;
-        public StyleBackgroundSize fit;
-        public StyleBackgroundRepeat repeat;
-        public StyleColor imageTintColor;
-        public StyleBackgroundPosition x;
-        public StyleBackgroundPosition y;
-        public StyleInt4 slice;
-        public StyleFloat sliceScale;
-        public StyleEnum<SliceType> sliceType;
+        public StyleColor color = StyleKeyword.Initial;
+        public StyleBackground image = StyleKeyword.Initial;
+        public StyleBackgroundSize fit = StyleKeyword.Initial;
+        public StyleBackgroundRepeat repeat = StyleKeyword.Initial;
+        public StyleColor imageTintColor = StyleKeyword.Initial;
+        public StyleBackgroundPosition x = StyleKeyword.Initial;
+        public StyleBackgroundPosition y = StyleKeyword.Initial;
+        public StyleInt4 slice = StyleKeyword.Initial;
+        public StyleFloat sliceScale = StyleKeyword.Initial;
+        public StyleEnum<SliceType> sliceType = StyleKeyword.Initial;
 
         public void Apply(VisualElement element) {
             element.style.backgroundColor = color;

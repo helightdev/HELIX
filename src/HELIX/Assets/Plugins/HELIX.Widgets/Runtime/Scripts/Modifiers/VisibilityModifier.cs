@@ -1,3 +1,5 @@
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -21,6 +23,15 @@ namespace HELIX.Widgets.Modifiers {
         public override bool HasChanged(Modifier previous) {
             if (previous is not VisibilityModifier prev) return true;
             return visible != prev.visible;
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            base.FillModifierProperties(properties);
+            properties.Add(new FlagProperty("visible", visible, ifTrue: "Visible", ifFalse: "Hidden"));
+        }
+
+        protected override string FindConstantName() {
+            return visible ? nameof(Visible) : nameof(Hidden);
         }
     }
 }

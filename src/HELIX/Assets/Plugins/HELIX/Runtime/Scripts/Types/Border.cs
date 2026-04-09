@@ -1,5 +1,4 @@
 using System;
-using HELIX.Extensions;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -42,8 +41,7 @@ namespace HELIX.Types {
         }
 
         public override string ToString() {
-            return
-                $"{nameof(left)}: {left}, {nameof(top)}: {top}, {nameof(right)}: {right}, {nameof(bottom)}: {bottom}";
+            return HelixFormattingHelper.BuildQuadruple("Border", left, top, right, bottom);
         }
 
         public static Border All(float width, Color color) {

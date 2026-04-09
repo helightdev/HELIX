@@ -1,3 +1,5 @@
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -28,6 +30,17 @@ namespace HELIX.Widgets.Modifiers {
             if (Mathf.Approximately(opacity, 1f)) return Opaque;
             if (Mathf.Approximately(opacity, 0f)) return Transparent;
             return new OpacityModifier(opacity);
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            base.FillModifierProperties(properties);
+            properties.Add(new PercentProperty("opacity", opacity, showName: false));
+        }
+
+        protected override string FindConstantName() {
+            if (Mathf.Approximately(opacity, 1f)) return nameof(Opaque);
+            if (Mathf.Approximately(opacity, 0f)) return nameof(Transparent);
+            return null;
         }
     }
 }

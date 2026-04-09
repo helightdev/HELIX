@@ -1,5 +1,7 @@
 using System;
 using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;
 using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
@@ -20,6 +22,13 @@ namespace HELIX.Widgets.Universal {
 
         public override IWidgetElement CreateElement() {
             return ReconcileInto(new GenericButton());
+        }
+
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new DiagnosticsProperty<Alignment>("alignment", alignment, defaultValue: Alignment.Center));
+            properties.Add(new FlagProperty("enabled", enabled, ifTrue: "Enabled", ifFalse: "Disabled"));
+            properties.Add(new FlagProperty("selected", selected, ifTrue: "Selected"));
         }
     }
 }

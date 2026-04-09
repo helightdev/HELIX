@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
@@ -33,9 +34,23 @@ namespace HELIX.Types {
         public override int GetHashCode() {
             return HashCode.Combine(preferred, min, max);
         }
+        
+        public override string ToString() {            
+            var builder = new StringBuilder();
+            builder.Append("BoxConstraints(");
+            builder.Append("width: ");
+            builder.Append(FormatPart(min.w, preferred.w, max.w));
+            builder.Append(", height: ");
+            builder.Append(FormatPart(min.h, preferred.h, max.h));
+            builder.Append(")");
+            return builder.ToString();
+        }
 
-        public override string ToString() {
-            return $"{nameof(preferred)}: {preferred}, {nameof(min)}: {min}, {nameof(max)}: {max}";
+        private string FormatPart(StyleLength a, StyleLength b, StyleLength c) {
+            if (a.keyword is StyleKeyword.Initial or StyleKeyword.Auto &&
+                c.keyword is StyleKeyword.Initial or StyleKeyword.Auto ||
+                a == c && a == b) return b.FormatStyleValue();
+            return a.FormatStyleValue() + " ≤ " + b.FormatStyleValue() + " ≤ " + c.FormatStyleValue();
         }
 
         public static BoxConstraints Only(

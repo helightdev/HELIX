@@ -64,8 +64,8 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                 if (allowWrap && WrapWidth.HasValue) {
                     var wrapStart = _currentLine.Length;
                     var wrapEnd = wrapStart + line.Length;
-                    if (_wrappableRanges.Count > 0 && _wrappableRanges[_wrappableRanges.Count - 1] == wrapStart)
-                        _wrappableRanges[_wrappableRanges.Count - 1] = wrapEnd;
+                    if (_wrappableRanges.Count > 0 && _wrappableRanges[^1] == wrapStart)
+                        _wrappableRanges[^1] = wrapEnd;
                     else {
                         _wrappableRanges.Add(wrapStart);
                         _wrappableRanges.Add(wrapEnd);
@@ -93,7 +93,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
             var currentLineLength = _currentLine.Length + GetCurrentPrefix(_buffer.Length == 0).Length;
             var targetLength = targetLineLength - currentLineLength;
             if (targetLength > 0 && !string.IsNullOrEmpty(text)) {
-                var last = text[text.Length - 1];
+                var last = text[^1];
                 _currentLine.Append(new string(last, targetLength));
             }
 
@@ -146,7 +146,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
         }
 
         private string GetCurrentPrefix(bool firstLine) {
-            return _buffer.Length == 0 ? PrefixLineOne : _prefixOtherLines;
+            return firstLine ? PrefixLineOne : _prefixOtherLines;
         }
 
         private static List<string> WordWrapLine(

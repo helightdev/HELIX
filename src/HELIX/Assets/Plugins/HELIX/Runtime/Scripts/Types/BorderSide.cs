@@ -1,4 +1,5 @@
 using System;
+using HELIX.Coloring;
 using UnityEngine;
 
 namespace HELIX.Types {
@@ -24,7 +25,7 @@ namespace HELIX.Types {
         }
 
         public override string ToString() {
-            return $"{nameof(width)}: {width}, {nameof(color)}: {color}";
+            return $"BorderSide({nameof(width)}: {width}, {nameof(color)}: {color.ToHex()})";
         }
     }
 }

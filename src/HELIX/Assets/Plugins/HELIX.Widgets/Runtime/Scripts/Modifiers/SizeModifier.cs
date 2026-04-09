@@ -1,4 +1,6 @@
 using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -61,6 +63,18 @@ namespace HELIX.Widgets.Modifiers {
                 constraints.preferred,
                 constraints.min,
                 constraints.max
+            );
+        }
+
+        public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
+            base.FillModifierProperties(properties);
+            properties.Add(
+                new DiagnosticsProperty<BoxConstraints>(
+                    "constraints",
+                    new BoxConstraints(size, minSize, maxSize),
+                    defaultValue: BoxConstraints.Initial,
+                    showName: false
+                )
             );
         }
     }

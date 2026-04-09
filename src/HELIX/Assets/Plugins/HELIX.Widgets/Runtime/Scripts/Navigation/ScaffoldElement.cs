@@ -5,13 +5,13 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Navigation {
+    
     [UxmlElement]
-    public partial class ScaffoldElement : SingleChildContainerElement {
+    public partial class ScaffoldElement : SingleChildWidgetBaseElement<Scaffold> {
         private readonly VisualElement _body;
         private readonly VisualElement _overlay;
 
         public ScaffoldElement() {
-            this.Stretched();
             _body = new Element("Body").Stretched().AddTo(hierarchy);
             _overlay = new Element("Overlay").Stretched().Pickable(false).AddTo(hierarchy);
         }
@@ -46,6 +46,10 @@ namespace HELIX.Widgets.Navigation {
         public static ScaffoldElement Get(VisualElement context) {
             return context.GetFirstAncestorOfType<ScaffoldElement>();
         }
+    }
+    
+    public class Scaffold : SingleChildWidget {
+        public override IWidgetElement CreateElement() => ReconcileInto(new ScaffoldElement());
     }
 
     public class OverlayEntry : VisualElement {
@@ -89,6 +93,14 @@ namespace HELIX.Widgets.Navigation {
 
         public void OnRemove() {
             _updateItem?.Pause();
+        }
+
+        public void Pop() {
+            ScaffoldElement.Get(this)?.RemoveOverlay(this);
+        }
+        
+        public static OverlayEntry Nearest(VisualElement context) {
+            return context.GetFirstAncestorOfType<OverlayEntry>();
         }
     }
 }
