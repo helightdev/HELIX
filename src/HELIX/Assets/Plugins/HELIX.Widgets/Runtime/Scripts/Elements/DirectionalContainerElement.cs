@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets.Universal;
@@ -9,8 +8,8 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
-    public abstract partial class DirectionalContainerElement : VisualElement, IMultiChildContainer, IWidgetElement,
-        IWidgetElementCollection {
+    public abstract partial class
+        DirectionalContainerElement : MultiChildWidgetBaseElement<DirectionalContainerWidget> {
         private Align _crossAxisAlign;
         private float _gap;
         private Justify _mainAxisAlign;
@@ -41,9 +40,9 @@ namespace HELIX.Widgets.Elements {
                 }
 
                 if (hasNoGap) return;
-                foreach (var visualElement in Children()) {
-                    if (visualElement.ClassListContains("generated-gap")) visualElement.style.width = _gap;
-                }
+                foreach (var visualElement in Children())
+                    if (visualElement.ClassListContains("generated-gap"))
+                        visualElement.style.width = _gap;
             }
         }
 
@@ -77,12 +76,10 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
-        public virtual IEnumerable<VisualElement> Childs {
-            get => Children().Where(child => !child.ClassListContains("generated-gap"));
+        public override IEnumerable<VisualElement> Childs {
+            get => base.Childs.Where(child => !child.ClassListContains("generated-gap"));
             set {
-                Clear();
-                if (value == null) return;
-                foreach (var child in value) Add(child);
+                base.Childs = value;
                 RebuildGaps(false);
             }
         }
@@ -101,10 +98,7 @@ namespace HELIX.Widgets.Elements {
         protected abstract Axis GetAxis();
 
         private void RebuildGaps(bool clear = true) {
-            if (clear)
-                foreach (var child in Children().ToList()) {
-                    if (child.ClassListContains("generated-gap")) Remove(child);
-                }
+            if (clear) RemoveGaps();
 
             if (Mathf.Approximately(_gap, 0f) || _mainAxisAlign is Justify.SpaceBetween or Justify.SpaceEvenly) return;
 
@@ -120,47 +114,33 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
-        public VisualElement Element => this;
-        public Widget Descriptor { get; set; }
-        public int HierarchyDepth { get; set; }
-
-        public bool CanReconcile(Widget updated) {
-            return updated is DirectionalContainerWidget;
+        private void RemoveGaps() {
+            for (var i = childCount - 1; i >= 0; i--) {
+                var element = ElementAt(i);
+                if (element.ClassListContains("generated-gap")) Remove(element);
+            }
         }
 
-        public bool Reconcile(Widget updated) {
-            if (updated is not DirectionalContainerWidget widget) return false;
+        public override void Apply(DirectionalContainerWidget previous, DirectionalContainerWidget widget) {
+            base.Apply(previous, widget);
             Gap = widget.gap;
             MainAxisAlign = widget.mainAxisAlign;
             CrossAxisAlign = widget.crossAxisAlign;
             Reverse = widget.reverse;
-            Modifier.ApplyDelta(Descriptor, updated, this);
-            Descriptor = updated;
-            DefaultReconciler.ReconcileCollection(this, widget.children);
-            return true;
         }
 
-        public IEnumerable<IWidgetElement> Elements => Childs.Select(DefaultReconciler.ExpandElement);
-
-        public void FillElements(List<IWidgetElement> elements) {
-            for (int i = 0; i < hierarchy.childCount; i++) {
-                var child = hierarchy[i];
+        public override void LoadWidgetElements(List<IWidgetElement> elements) {
+            for (var i = 0; i < contentContainer.childCount; i++) {
+                var child = contentContainer[i];
                 if (child.ClassListContains("generated-gap")) continue;
                 elements.Add(DefaultReconciler.ExpandElement(child));
             }
         }
 
-        public void Update(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas) {
-            // Remove Gaps
-            foreach (var child in Children().ToList()) {
-                if (child.ClassListContains("generated-gap")) Remove(child);
-            }
-            new HierarchyDescriptionCollection(this).Update(result, deltas);
+        public override void UpdateWidgetElements(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas) {
+            RemoveGaps();
+            base.UpdateWidgetElements(result, deltas);
             RebuildGaps(false);
-        }
-
-        public void Update(IEnumerable<IWidgetElement> updated) {
-            Childs = updated?.Select(e => e.Element) ?? Enumerable.Empty<VisualElement>();
         }
     }
 }

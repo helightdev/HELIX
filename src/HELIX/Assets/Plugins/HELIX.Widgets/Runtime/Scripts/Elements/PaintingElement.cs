@@ -20,5 +20,5 @@ namespace HELIX.Widgets.Elements {
         }
 
         public abstract void Paint(PaintCanvas canvas, Rect bounds);
-    }   
+    }
 }

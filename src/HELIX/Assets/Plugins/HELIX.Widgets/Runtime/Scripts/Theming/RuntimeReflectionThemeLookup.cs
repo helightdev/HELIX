@@ -7,7 +7,7 @@ using UnityEngine;
 namespace HELIX.Widgets.Theming {
     public static class RuntimeReflectionThemeLookup {
         private static readonly Dictionary<string, ThemeProperty> _lookupCache = new();
-        private static readonly Dictionary<string, WidgetFactory> _widgetFactoryCache = new();
+        private static readonly Dictionary<string, ElementFactory> _elementFactoryCache = new();
 
         public static Type FindType(string typeName) {
             if (string.IsNullOrWhiteSpace(typeName)) return null;
@@ -27,9 +27,9 @@ namespace HELIX.Widgets.Theming {
             return null;
         }
 
-        public static WidgetFactory GetFactory(string reference) {
+        public static ElementFactory GetFactory(string reference) {
             if (string.IsNullOrWhiteSpace(reference) || reference == "None") return null;
-            if (_widgetFactoryCache.TryGetValue(reference, out var cachedFactory)) return cachedFactory;
+            if (_elementFactoryCache.TryGetValue(reference, out var cachedFactory)) return cachedFactory;
 
             var type = FindType(reference);
             if (type == null) {
@@ -37,12 +37,12 @@ namespace HELIX.Widgets.Theming {
                 return null;
             }
 
-            if (Activator.CreateInstance(type) is not WidgetFactory factory) {
+            if (Activator.CreateInstance(type) is not ElementFactory factory) {
                 Debug.LogWarning($"Widget factory reference {reference} is not a valid WidgetFactory");
                 return null;
             }
 
-            _widgetFactoryCache[reference] = factory;
+            _elementFactoryCache[reference] = factory;
             return factory;
         }
 

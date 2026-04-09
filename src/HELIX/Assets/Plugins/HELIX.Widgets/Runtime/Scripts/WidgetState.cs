@@ -20,8 +20,6 @@ namespace HELIX.Widgets {
         Negative = 1 << 7
     }
 
-    public delegate Widget WidgetStateBuilder(BuildContext context, WidgetState state);
-
     public static class WidgetStateExtensions {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Hovered(this WidgetState state) {
@@ -79,10 +77,17 @@ namespace HELIX.Widgets {
     }
 
     public static class WidgetStateProperties {
-        public static IWidgetStateProperty<T> Never<T>() => NeverWidgetStateProperty<T>.Instance;
-        public static IWidgetStateProperty<T> All<T>(T constant) => new AllWidgetStateProperty<T>(constant);
-        public static IWidgetStateProperty<T> Func<T>(Func<WidgetState, T> resolver) => new FuncWidgetStateProperty<T>(resolver);
+        public static IWidgetStateProperty<T> Never<T>() {
+            return NeverWidgetStateProperty<T>.Instance;
+        }
 
+        public static IWidgetStateProperty<T> All<T>(T constant) {
+            return new AllWidgetStateProperty<T>(constant);
+        }
+
+        public static IWidgetStateProperty<T> Func<T>(Func<WidgetState, T> resolver) {
+            return new FuncWidgetStateProperty<T>(resolver);
+        }
     }
 
     public interface IWidgetStateProperty<T> {
@@ -152,14 +157,13 @@ namespace HELIX.Widgets {
     }
 
     public class NeverWidgetStateProperty<T> : IWidgetStateProperty<T> {
+        public static readonly NeverWidgetStateProperty<T> Instance = new();
         private NeverWidgetStateProperty() { }
 
         public bool TryResolve(WidgetState state, out T value) {
             value = default;
             return false;
         }
-
-        public static readonly NeverWidgetStateProperty<T> Instance = new();
     }
 
     public readonly struct AllWidgetStateProperty<T> : IWidgetStateProperty<T>, IEquatable<AllWidgetStateProperty<T>> {
@@ -209,7 +213,7 @@ namespace HELIX.Widgets {
         }
 
         public override int GetHashCode() {
-            return (_resolver != null ? _resolver.GetHashCode() : 0);
+            return _resolver != null ? _resolver.GetHashCode() : 0;
         }
     }
 }

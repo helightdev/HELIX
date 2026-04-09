@@ -4,7 +4,7 @@ using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Editor {
-    [CustomPropertyDrawer(typeof(WidgetFactoryReference<>))]
+    [CustomPropertyDrawer(typeof(ElementFactoryReference<>))]
     public class WidgetFactoryDrawer : PropertyDrawer {
         public override VisualElement CreatePropertyGUI(SerializedProperty property) {
             var genericArgument = fieldInfo.FieldType.GetGenericArguments()[0];

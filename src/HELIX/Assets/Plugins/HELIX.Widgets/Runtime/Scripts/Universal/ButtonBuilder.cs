@@ -9,7 +9,7 @@ namespace HELIX.Widgets.Universal {
         private static readonly FocusModifier _defaultFocus = new(true, PickingMode.Position, 0) { isFallback = true };
         public Alignment alignment = Alignment.Center;
 
-        public WidgetStateBuilder builder;
+        public BuildFunction<WidgetState> builder;
         public bool enabled = true;
         public Action onClick;
         public bool selected = false;
@@ -19,9 +19,7 @@ namespace HELIX.Widgets.Universal {
         }
 
         public override IWidgetElement CreateElement() {
-            var element = new GenericButton();
-            element.RegisterCallbackOnce<AttachToPanelEvent>(_ => element.Reconcile(this));
-            return element;
+            return ReconcileInto(new GenericButton());
         }
     }
 }

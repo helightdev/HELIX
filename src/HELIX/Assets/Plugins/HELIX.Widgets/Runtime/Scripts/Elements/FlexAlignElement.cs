@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
-    public partial class FlexAlignElement : SingleChildContainerElement, IWidgetElement {
+    public partial class FlexAlignElement : SingleChildWidgetBaseElement<FlexAlign> {
         private readonly VisualElement _bottomSpacer;
         private readonly VisualElement _leftSpacer;
         private readonly VisualElement _rightSpacer;
@@ -53,6 +53,11 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
+        public override VisualElement Child {
+            get => ISingleChildContainer.FirstGet(_slot);
+            set => ISingleChildContainer.FirstSet(_slot, value);
+        }
+
         public void Refresh() {
             var vertical = math.remap(-1f, 1f, 0f, 1f, _verticalAlign);
             var horizontal = math.remap(-1f, 1f, 0f, 1f, _horizontalAlign);
@@ -62,20 +67,9 @@ namespace HELIX.Widgets.Elements {
             _rightSpacer.style.flexGrow = (1 - horizontal) * 100;
         }
 
-        public VisualElement Element => this;
-        public Widget Descriptor { get; set; }
-
-        public bool CanReconcile(Widget updated) {
-            return updated is FlexAlign;
-        }
-
-        public bool Reconcile(Widget updated) {
-            if (updated is not FlexAlign fa) return false;
-            Alignment = fa.alignment;
-            DefaultReconciler.ReconcileSingleDirect(_slot, fa.child);
-            Modifier.ApplyDelta(Descriptor, updated, this);
-            Descriptor = updated;
-            return true;
+        public override void Apply(FlexAlign previous, FlexAlign widget) {
+            base.Apply(previous, widget);
+            Alignment = widget.alignment;
         }
     }
 }

@@ -2,6 +2,8 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class DisplayModifier : Modifier {
+        public static readonly DisplayModifier Visible = new(true);
+        public static readonly DisplayModifier Hidden = new(false);
         public readonly bool visible;
 
         public DisplayModifier(bool visible) {
@@ -20,8 +22,5 @@ namespace HELIX.Widgets.Modifiers {
             if (previous is not DisplayModifier prev) return true;
             return visible != prev.visible;
         }
-
-        public static readonly DisplayModifier Visible = new(true);
-        public static readonly DisplayModifier Hidden = new(false);
     }
 }

@@ -5,9 +5,13 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
-    public partial class GenericButton : BaseElement, IWidgetElement {
-        public WidgetState state = WidgetState.None;
+    public partial class GenericButton : BuildingWidgetBaseElement<ButtonBuilder> {
         public Action onClick;
+        public WidgetState state = WidgetState.None;
+
+        public GenericButton() {
+            this.AddManipulator(new Manipulator(this));
+        }
 
         public bool Enabled {
             get => !state.HasFlag(WidgetState.Disabled);
@@ -25,15 +29,12 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
-        public GenericButton() {
-            this.AddManipulator(new Manipulator(this));
-        }
+        private BuildFunction<WidgetState> Builder { get; set; }
 
         public void HandleClick() {
             if (!Enabled) return;
-            if (Descriptor is ButtonBuilder bb && bb.onClick != null) {
+            if (Descriptor is ButtonBuilder bb && bb.onClick != null)
                 ModificationBarrier.Run(() => { bb.onClick.Invoke(); });
-            }
 
             onClick?.Invoke();
         }
@@ -41,7 +42,19 @@ namespace HELIX.Widgets.Elements {
         public void UpdateWidgetState(WidgetState newState) {
             if (newState == state) return;
             state = newState;
-            if (Builder != null && Descriptor != null) { ModificationBarrier.RunRebuild(this); }
+            if (Builder != null && Descriptor != null) ModificationBarrier.RunRebuild(this);
+        }
+
+        public override void Apply(ButtonBuilder previous, ButtonBuilder widget) {
+            base.Apply(previous, widget);
+            widget.alignment.AlignAsColumn(this);
+            Builder = widget.builder;
+            Enabled = widget.enabled;
+            Selected = widget.selected;
+        }
+
+        protected override IBuildable GetBuildableForWidget(ButtonBuilder previous, ButtonBuilder widget) {
+            return new ParameterizedFunctionBuildable<WidgetState>(Builder, state);
         }
 
         public class Manipulator : Clickable {
@@ -108,34 +121,6 @@ namespace HELIX.Widgets.Elements {
                 base.ProcessDownEvent(evt, localPosition, pointerId);
                 if (button.Enabled) button.UpdateWidgetState(button.state | WidgetState.Pressed);
             }
-        }
-
-        public VisualElement Element => this;
-        public Widget Descriptor { get; private set; }
-        private WidgetStateBuilder Builder { get; set; }
-
-        public bool CanReconcile(Widget updated) {
-            return updated is ButtonBuilder;
-        }
-
-        public bool Reconcile(Widget updated) {
-            if (updated is not ButtonBuilder bb) return false;
-            bb.alignment.AlignAsColumn(this);
-            Builder = bb.builder;
-            Enabled = bb.enabled;
-            Selected = bb.selected;
-            BuildChildAndReconcile();
-            Modifier.ApplyDelta(Descriptor, updated, this);
-            Descriptor = updated;
-            return true;
-        }
-
-        public void BuildChildAndReconcile() {
-            if (Builder == null) return;
-            try {
-                var widget = Builder(new BuildContext(this), state);
-                DefaultReconciler.ReconcileSingleDirect(this, widget);
-            } catch (Exception e) { Debug.LogError($"Error building button child: {e}"); }
         }
     }
 }

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine.UIElements;
 
 namespace HELIX.Abstractions {
@@ -20,10 +19,13 @@ namespace HELIX.Abstractions {
         }
 
         public virtual VisualElement Child {
-            get => Children().FirstOrDefault();
+            get {
+                if (contentContainer.childCount == 0) return null;
+                return contentContainer.ElementAt(0);
+            }
             set {
-                Clear();
-                if (value != null) Add(value);
+                if (contentContainer.childCount > 0) { contentContainer.Clear(); }
+                if (value != null) contentContainer.Add(value);
             }
         }
     }

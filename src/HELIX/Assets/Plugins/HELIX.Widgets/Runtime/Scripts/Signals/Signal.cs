@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Error;
 using UnityEngine.Pool;
 
 namespace HELIX.Widgets.Signals {
-    public abstract class Signal : IDisposable {
+    public abstract class Signal : DiagnosticableBase, IDisposable {
         private const int _maxNotificationStackDepth = 16;
         private readonly HashSet<ISignalObserver> _observers = new();
         private int _notificationStackDepth;
@@ -14,8 +15,18 @@ namespace HELIX.Widgets.Signals {
             try {
                 list.AddRange(_observers);
                 foreach (var observer in list) {
-                    try { observer.OnSignalRemoved(this); } catch (Exception e) {
-                        Debug.LogError($"Error while disposing signal observer: {e}");
+                    try {
+                        observer.OnSignalRemoved(this); //
+                    } catch (HelixDiagnosticException) { throw; } catch
+                        (Exception e) {
+                        throw HelixDiagnostics.Build(
+                            "An error occurred while disposing a signal observer.",
+                            details: new DiagnosticsNode[] {
+                                new ErrorProperty("The observer is", observer), new ErrorSpacer(),
+                                new ErrorProperty("The observed signal is", this)
+                            },
+                            exception: e
+                        );
                     }
                 }
             } finally { ListPool<ISignalObserver>.Release(list); }
@@ -25,17 +36,36 @@ namespace HELIX.Widgets.Signals {
 
         protected void NotifyDirty() {
             if (_notificationStackDepth >= _maxNotificationStackDepth) {
-                Debug.LogWarning(
-                    "Maximum signal notification stack depth exceeded. This may indicate a circular dependency in your signals."
-                );
+                HelixDiagnostics.Build(
+                    "Maximum signal notification stack depth exceeded",
+                    "This warning indicates that the maximum allowed depth for nested signal notifications has been exceeded. " +
+                    "This can occur when signals have circular dependencies, causing them to notify each other indefinitely. " +
+                    "To resolve this issue, review your signal dependencies and ensure that there are no circular references.",
+                    new DiagnosticsNode[] { new ErrorProperty("The signal that triggered this warning is", this) },
+                    hints: new DiagnosticsNode[] {
+                        new ErrorHint(
+                            "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
+                        )
+                    }
+                ).Report(DiagnosticLevel.Warning);
                 return;
             }
 
             try {
                 _notificationStackDepth++;
                 foreach (var observer in _observers) {
-                    try { observer.OnSignalDirty(this); } catch (Exception e) {
-                        Debug.LogError($"Error notifying signal observer of dirty state: {e}");
+                    try {
+                        observer.OnSignalDirty(this); //
+                    } catch (HelixDiagnosticException) { throw; } catch
+                        (Exception e) {
+                        throw HelixDiagnostics.Build(
+                            "An error occurred while notifying a signal observer of a dirty signal.",
+                            details: new DiagnosticsNode[] {
+                                new ErrorProperty("The observer is", observer), new ErrorSpacer(),
+                                new ErrorProperty("The observed signal is", this)
+                            },
+                            exception: e
+                        );
                     }
                 }
             } finally { _notificationStackDepth--; }
@@ -43,9 +73,18 @@ namespace HELIX.Widgets.Signals {
 
         protected void NotifyObservers() {
             if (_notificationStackDepth >= _maxNotificationStackDepth) {
-                Debug.LogWarning(
-                    "Maximum signal notification stack depth exceeded. This may indicate a circular dependency in your signals."
-                );
+                HelixDiagnostics.Build(
+                    "Maximum signal notification stack depth exceeded",
+                    "This warning indicates that the maximum allowed depth for nested signal notifications has been exceeded. " +
+                    "This can occur when signals have circular dependencies, causing them to notify each other indefinitely. " +
+                    "To resolve this issue, review your signal dependencies and ensure that there are no circular references.",
+                    new DiagnosticsNode[] { new ErrorProperty("The signal that triggered this warning is", this) },
+                    hints: new DiagnosticsNode[] {
+                        new ErrorHint(
+                            "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
+                        )
+                    }
+                ).Report(DiagnosticLevel.Warning);
                 return;
             }
 
@@ -57,7 +96,16 @@ namespace HELIX.Widgets.Signals {
                         foreach (var observer in buffer) {
                             try {
                                 observer.OnSignalChanged(this); //
-                            } catch (Exception e) { Debug.LogError($"Error notifying signal observer: {e}"); }
+                            } catch (HelixDiagnosticException) { throw; } catch (Exception e) {
+                                throw HelixDiagnostics.Build(
+                                    "An error occurred while notifying a signal observer of a changed value.",
+                                    details: new DiagnosticsNode[] {
+                                        new ErrorProperty("The observer is", observer), new ErrorSpacer(),
+                                        new ErrorProperty("The observed signal is", this)
+                                    },
+                                    exception: e
+                                );
+                            }
                         }
                     } finally {
                         _notificationStackDepth--;

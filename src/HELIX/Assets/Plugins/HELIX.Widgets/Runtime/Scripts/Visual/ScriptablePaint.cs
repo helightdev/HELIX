@@ -27,13 +27,21 @@ namespace HELIX.Widgets.Visual {
     public partial class ScriptablePainter : ScriptablePaint {
         public ScriptablePainter() { }
 
-        public ScriptablePainter(List<ScriptablePathBuilder> builders, List<ScriptablePathDrawer> drawers, ScriptablePaint then = null) {
+        public ScriptablePainter(
+            List<ScriptablePathBuilder> builders,
+            List<ScriptablePathDrawer> drawers,
+            ScriptablePaint then = null
+        ) {
             PathBuilders = builders;
             PathDrawers = drawers;
             Then = then;
         }
 
-        public ScriptablePainter(ScriptablePathBuilder builder, ScriptablePathDrawer drawer, ScriptablePaint then = null) {
+        public ScriptablePainter(
+            ScriptablePathBuilder builder,
+            ScriptablePathDrawer drawer,
+            ScriptablePaint then = null
+        ) {
             PathBuilders = new List<ScriptablePathBuilder> { builder };
             PathDrawers = new List<ScriptablePathDrawer> { drawer };
             Then = then;

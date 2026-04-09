@@ -15,7 +15,7 @@ namespace HELIX.Widgets.Editor {
 
         private static Type FindFactoryGenericArgument(Type t) {
             while (t != null && t != typeof(object)) {
-                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(WidgetFactory<>)) return t.GetGenericArguments()[0];
+                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(ElementFactory<>)) return t.GetGenericArguments()[0];
                 t = t.BaseType;
             }
 

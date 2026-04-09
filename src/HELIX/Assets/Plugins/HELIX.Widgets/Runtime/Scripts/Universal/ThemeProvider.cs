@@ -1,19 +1,14 @@
 using System.Collections.Generic;
 using HELIX.Widgets.Theming;
-using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Universal
-{
-    public class ThemeProvider : Widget {
-        
-        public Widget child;
-        public Dictionary<ThemeProperty, object> properties;
+namespace HELIX.Widgets.Universal {
+    public class ThemeProvider : SingleChildWidget {
         public List<WidgetThemeComponent> components;
-        
+
+        public Dictionary<ThemeProperty, object> properties;
+
         public override IWidgetElement CreateElement() {
-            var element = new WidgetThemeProvider();
-            element.RegisterCallbackOnce<AttachToPanelEvent>(_ => element.Reconcile(this));
-            return element;
+            return ReconcileInto(new WidgetThemeProvider());
         }
     }
 }

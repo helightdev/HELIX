@@ -9,16 +9,16 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
-    public partial class BoxShadowElement : BaseElement, IWidgetElement {
+    public partial class BoxShadowElement : SingleChildWidgetBaseElement<BoxShadow> {
+        private readonly TweenStateArena<Color> _colorArena;
         private readonly VisualElement _shadowElement;
         private float _blurRadius = 4f;
         private Vector4 _borderRadius = new(0, 0, 0, 0);
+        private EasingMode _easingFunction = EasingMode.Linear;
         private Vector2 _offset = Vector2.zero;
         private Color _shadowColor = new(0, 0, 0, 0.25f);
         private float _spreadRadius;
         private TimeValue _transitionDuration = new(0);
-        private EasingMode _easingFunction = EasingMode.Linear;
-        private readonly TweenStateArena<Color> _colorArena;
 
         public BoxShadowElement() {
             _shadowElement = new Element("Shadow") {
@@ -29,10 +29,8 @@ namespace HELIX.Widgets.Elements {
             };
             _colorArena = TweenStateArena.ColorArena(
                 this,
-                value => {
-                    _shadowElement.style.backgroundColor = value;
-                },
-                durationMs: 0,
+                value => { _shadowElement.style.backgroundColor = value; },
+                0,
                 easingMode: _easingFunction,
                 startValue: _shadowColor
             );
@@ -80,7 +78,7 @@ namespace HELIX.Widgets.Elements {
                 _colorArena.Push(_shadowColor);
             }
         }
-        
+
         public TimeValue TransitionDuration {
             get => _transitionDuration;
             set {
@@ -88,7 +86,7 @@ namespace HELIX.Widgets.Elements {
                 _colorArena.Duration = _transitionDuration;
             }
         }
-        
+
         public EasingMode EasingFunction {
             get => _easingFunction;
             set {
@@ -111,6 +109,11 @@ namespace HELIX.Widgets.Elements {
             set => BorderRadius = EditorUtilities.UnswizzleCorners(value);
         }
 
+        public override VisualElement Child {
+            get => ISingleChildContainer.LastGet(this, 1);
+            set => ISingleChildContainer.LastSet(this, 1, value);
+        }
+
         private void ApplyBlurFunction() {
             var function = new FilterFunction(FilterFunctionType.Blur);
             function.AddParameter(new FilterParameter(_blurRadius));
@@ -123,27 +126,15 @@ namespace HELIX.Widgets.Elements {
             _shadowElement.Position(offsets);
         }
 
-        public VisualElement Element => this;
-        public Widget Descriptor { get; private set; }
-
-        public bool CanReconcile(Widget updated) {
-            return updated is BoxShadow;
-        }
-
-        public bool Reconcile(Widget updated) {
-            if (updated is not BoxShadow descriptor) return false;
-            BlurRadius = descriptor.blurRadius;
-            BorderRadius = descriptor.borderRadius;
-            Offset = descriptor.offset;
-            ShadowColor = descriptor.shadowColor;
-            SpreadRadius = descriptor.spreadRadius;
-            TransitionDuration = descriptor.transitionDuration;
-            EasingFunction = descriptor.easingFunction;
-            
-            DefaultReconciler.ReconcileSingleDirectKeeping(this, descriptor.child, 1);
-            Modifier.ApplyDelta(Descriptor, updated, this);
-            Descriptor = updated;
-            return true;
+        public override void Apply(BoxShadow previous, BoxShadow widget) {
+            base.Apply(previous, widget);
+            BlurRadius = widget.blurRadius;
+            BorderRadius = widget.borderRadius;
+            Offset = widget.offset;
+            ShadowColor = widget.shadowColor;
+            SpreadRadius = widget.spreadRadius;
+            TransitionDuration = widget.transitionDuration;
+            EasingFunction = widget.easingFunction;
         }
     }
 }

@@ -202,7 +202,11 @@ namespace HELIX.Widgets.Navigation {
                         var after = GetCurrentlyVisiblePages(before.pages.Append(page).ToList());
                         _pageContainer.Add(page);
 
-                        var modificationResult = new NavStackModificationResult(before, after, NavModificationType.Push);
+                        var modificationResult = new NavStackModificationResult(
+                            before,
+                            after,
+                            NavModificationType.Push
+                        );
                         AnimateTransition(transition, modificationResult);
 
                         _afterTransitions = () => {
@@ -226,9 +230,15 @@ namespace HELIX.Widgets.Navigation {
                         }
 
                         var before = GetCurrentlyVisiblePages();
-                        var after = GetCurrentlyVisiblePages(before.pages.Take(before.pages.Count - 1).Append(page).ToList());
+                        var after = GetCurrentlyVisiblePages(
+                            before.pages.Take(before.pages.Count - 1).Append(page).ToList()
+                        );
                         _pageContainer.Add(page);
-                        var modificationResult = new NavStackModificationResult(before, after, NavModificationType.Replace);
+                        var modificationResult = new NavStackModificationResult(
+                            before,
+                            after,
+                            NavModificationType.Replace
+                        );
                         AnimateTransition(transition, modificationResult);
 
                         _afterTransitions = () => {

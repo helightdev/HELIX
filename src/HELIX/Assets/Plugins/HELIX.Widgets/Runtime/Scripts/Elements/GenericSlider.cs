@@ -18,8 +18,6 @@ namespace HELIX.Widgets.Elements {
         private float _thumbRange; // 0: point, epsilon-1f: thumb width as percentage of total slider length
         private float _value; // 0f-1f
 
-        public event Action<float> OnValueChanged;
-
         public GenericSlider() {
             RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
             _trackSlot = WidgetFactorySlot(
@@ -42,13 +40,7 @@ namespace HELIX.Widgets.Elements {
                 .Stretched()
                 .AddTo(this);
         }
-        
-        public void SetValueWithoutNotify(float newValue) {
-            _value = Mathf.Clamp01(newValue);
-            _trackSlot.Element?.SetValue(_value);
-            _thumbSlot.Element?.SetValue(_value);
-        }
-        
+
         [UxmlAttribute, Range(0f, 1f)]
         public float Value {
             get => _value;
@@ -91,7 +83,15 @@ namespace HELIX.Widgets.Elements {
         }
 
         [UxmlObjectReference("base-test")]
-        public VisualElementWidgetFactory TestFactory { get; set; }
+        public VisualElementElementFactory TestFactory { get; set; }
+
+        public event Action<float> OnValueChanged;
+
+        public void SetValueWithoutNotify(float newValue) {
+            _value = Mathf.Clamp01(newValue);
+            _trackSlot.Element?.SetValue(_value);
+            _thumbSlot.Element?.SetValue(_value);
+        }
 
         protected override void OnAttached(AttachToPanelEvent evt) {
             base.OnAttached(evt);
@@ -153,10 +153,10 @@ namespace HELIX.Widgets.Elements {
     }
 
     [UxmlObject]
-    public abstract partial class GenericSliderThumbFactory : WidgetFactory<GenericSliderThumb> { }
+    public abstract partial class GenericSliderThumbFactory : ElementFactory<GenericSliderThumb> { }
 
     [UxmlObject]
-    public abstract partial class GenericSliderTrackFactory : WidgetFactory<GenericSliderTrack> { }
+    public abstract partial class GenericSliderTrackFactory : ElementFactory<GenericSliderTrack> { }
 
     [UxmlObject, Serializable]
     public partial class SimpleGenericSliderTrack : GenericSliderTrackFactory {
@@ -169,7 +169,7 @@ namespace HELIX.Widgets.Elements {
             new SolidFillPathDrawer { Color = Color.gray }
         );
 
-        public override VisualElement Create(BaseElement parentWidget) {
+        public override VisualElement Create(BaseElement parentElement) {
             return new Widget(paint, trackHeight);
         }
 
@@ -208,7 +208,7 @@ namespace HELIX.Widgets.Elements {
             new SolidFillPathDrawer { Color = Color.black }
         );
 
-        public override VisualElement Create(BaseElement parentWidget) {
+        public override VisualElement Create(BaseElement parentElement) {
             return new Widget(paint, trackHeight);
         }
 

@@ -5,12 +5,14 @@ using System.Runtime.CompilerServices;
 namespace HELIX.Widgets.Utilities {
     public class IndexedReferencePriorityQueue<TElement, TPriority>
         where TPriority : IComparable<TPriority> where TElement : class {
-        private readonly List<(TElement Element, TPriority Priority)> _heap = new();
         private readonly Dictionary<TElement, int> _elementIndices = new(new ReferenceEqualityComparer<TElement>());
+        private readonly List<(TElement Element, TPriority Priority)> _heap = new();
 
         public int Count => _heap.Count;
 
-        public bool Contains(TElement element) => _elementIndices.ContainsKey(element);
+        public bool Contains(TElement element) {
+            return _elementIndices.ContainsKey(element);
+        }
 
         public bool Enqueue(TElement element, TPriority priority) {
             if (Contains(element)) return false;
@@ -52,7 +54,7 @@ namespace HELIX.Widgets.Utilities {
                 _heap.RemoveAt(lastIndex);
 
                 // One of these will maintain the heap property
-                if (!BubbleDown(index)) { BubbleUp(index); }
+                if (!BubbleDown(index)) BubbleUp(index);
             } else {
                 _elementIndices.Remove(elementToRemove);
                 _heap.RemoveAt(lastIndex);
@@ -99,7 +101,12 @@ namespace HELIX.Widgets.Utilities {
     }
 
     public class ReferenceEqualityComparer<T> : IEqualityComparer<T> where T : class {
-        bool IEqualityComparer<T>.Equals(T x, T y) => ReferenceEquals(x, y);
-        int IEqualityComparer<T>.GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
+        bool IEqualityComparer<T>.Equals(T x, T y) {
+            return ReferenceEquals(x, y);
+        }
+
+        int IEqualityComparer<T>.GetHashCode(T obj) {
+            return RuntimeHelpers.GetHashCode(obj);
+        }
     }
 }

@@ -6,23 +6,23 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     [UxmlObject, RequireDerived]
-    public abstract partial class WidgetFactory {
+    public abstract partial class ElementFactory {
         [RequiredMember]
-        public abstract VisualElement Create(BaseElement parentWidget);
+        public abstract VisualElement Create(BaseElement parentElement);
     }
 
-    public class FixedWidgetFactory<T> : WidgetFactory<T> where T : VisualElement {
+    public class FixedElementFactory<T> : ElementFactory<T> where T : VisualElement {
         private readonly T _instance;
 
-        public FixedWidgetFactory(T instance) {
+        public FixedElementFactory(T instance) {
             _instance = instance;
         }
 
-        public override VisualElement Create(BaseElement parentWidget) {
+        public override VisualElement Create(BaseElement parentElement) {
             return _instance;
         }
 
-        protected bool Equals(FixedWidgetFactory<T> other) {
+        protected bool Equals(FixedElementFactory<T> other) {
             return base.Equals(other) && EqualityComparer<T>.Default.Equals(_instance, other._instance);
         }
 
@@ -30,7 +30,7 @@ namespace HELIX.Widgets.Theming {
             if (obj is null) return false;
             if (ReferenceEquals(this, obj)) return true;
             if (obj.GetType() != GetType()) return false;
-            return Equals((FixedWidgetFactory<T>)obj);
+            return Equals((FixedElementFactory<T>)obj);
         }
 
         public override int GetHashCode() {
@@ -38,22 +38,22 @@ namespace HELIX.Widgets.Theming {
         }
     }
 
-    public class InlineWidgetFactory<T> : WidgetFactory<T> where T : VisualElement {
+    public class InlineElementFactory<T> : ElementFactory<T> where T : VisualElement {
         private readonly Func<BaseElement, T> _factoryFunc;
 
-        public InlineWidgetFactory(Func<BaseElement, T> factoryFunc) {
+        public InlineElementFactory(Func<BaseElement, T> factoryFunc) {
             _factoryFunc = factoryFunc;
         }
 
-        public InlineWidgetFactory(Func<T> factoryFunc) {
+        public InlineElementFactory(Func<T> factoryFunc) {
             _factoryFunc = _ => factoryFunc();
         }
 
-        public override VisualElement Create(BaseElement parentWidget) {
-            return _factoryFunc(parentWidget);
+        public override VisualElement Create(BaseElement parentElement) {
+            return _factoryFunc(parentElement);
         }
 
-        protected bool Equals(InlineWidgetFactory<T> other) {
+        protected bool Equals(InlineElementFactory<T> other) {
             return base.Equals(other) && Equals(_factoryFunc, other._factoryFunc);
         }
 
@@ -61,7 +61,7 @@ namespace HELIX.Widgets.Theming {
             if (obj is null) return false;
             if (ReferenceEquals(this, obj)) return true;
             if (obj.GetType() != GetType()) return false;
-            return Equals((InlineWidgetFactory<T>)obj);
+            return Equals((InlineElementFactory<T>)obj);
         }
 
         public override int GetHashCode() {
@@ -70,29 +70,29 @@ namespace HELIX.Widgets.Theming {
     }
 
     [Serializable]
-    public class UxmlAssetWidgetFactory<T> : WidgetFactory<T> where T : VisualElement {
+    public class UxmlAssetElementFactory<T> : ElementFactory<T> where T : VisualElement {
         public VisualTreeAsset asset;
 
-        public UxmlAssetWidgetFactory() { }
+        public UxmlAssetElementFactory() { }
 
-        public UxmlAssetWidgetFactory(VisualTreeAsset asset) {
+        public UxmlAssetElementFactory(VisualTreeAsset asset) {
             this.asset = asset;
         }
 
-        public override VisualElement Create(BaseElement parentWidget) {
+        public override VisualElement Create(BaseElement parentElement) {
             var container = asset.CloneTree();
             if (container is T) return container;
             return container.Q<T>();
         }
 
-        protected bool Equals(UxmlAssetWidgetFactory<T> other) {
+        protected bool Equals(UxmlAssetElementFactory<T> other) {
             return base.Equals(other) && Equals(asset, other.asset);
         }
     }
 
     [UxmlObject, RequireDerived]
-    public abstract partial class WidgetFactory<T> : WidgetFactory where T : VisualElement {
-        protected bool Equals(WidgetFactory<T> other) {
+    public abstract partial class ElementFactory<T> : ElementFactory where T : VisualElement {
+        protected bool Equals(ElementFactory<T> other) {
             return GetType() == other.GetType();
         }
 
@@ -100,7 +100,7 @@ namespace HELIX.Widgets.Theming {
             if (obj is null) return false;
             if (ReferenceEquals(this, obj)) return true;
             if (obj.GetType() != GetType()) return false;
-            return Equals((WidgetFactory<T>)obj);
+            return Equals((ElementFactory<T>)obj);
         }
 
         public override int GetHashCode() {
@@ -109,64 +109,65 @@ namespace HELIX.Widgets.Theming {
     }
 
     [UxmlObject]
-    public abstract partial class VisualElementWidgetFactory : WidgetFactory<VisualElement> { }
+    public abstract partial class VisualElementElementFactory : ElementFactory<VisualElement> { }
 
     public interface IWidgetFactoryReference {
-        WidgetFactory LookupFactory();
+        ElementFactory LookupFactory();
     }
 
     [Serializable]
-    public struct WidgetFactoryReference<T> : IWidgetFactoryReference, IEquatable<WidgetFactoryReference<T>> where T : VisualElement {
+    public struct ElementFactoryReference<T> : IWidgetFactoryReference, IEquatable<ElementFactoryReference<T>>
+        where T : VisualElement {
         public string factoryName;
 
         [NonSerialized]
-        public WidgetFactory<T> resolved;
+        public ElementFactory<T> resolved;
 
-        public WidgetFactoryReference(string factoryName) {
+        public ElementFactoryReference(string factoryName) {
             this.factoryName = factoryName;
             resolved = null;
         }
 
-        public WidgetFactoryReference(WidgetFactory<T> resolved) {
+        public ElementFactoryReference(ElementFactory<T> resolved) {
             factoryName = null;
             this.resolved = resolved;
         }
 
-        public static implicit operator WidgetFactoryReference<T>(string factoryName) {
-            return new WidgetFactoryReference<T>(factoryName);
+        public static implicit operator ElementFactoryReference<T>(string factoryName) {
+            return new ElementFactoryReference<T>(factoryName);
         }
 
-        public static implicit operator WidgetFactoryReference<T>(Type factoryType) {
-            return new WidgetFactoryReference<T>(factoryType.FullName);
+        public static implicit operator ElementFactoryReference<T>(Type factoryType) {
+            return new ElementFactoryReference<T>(factoryType.FullName);
         }
 
-        public static implicit operator WidgetFactoryReference<T>(WidgetFactory<T> factory) {
-            return new WidgetFactoryReference<T>(factory);
+        public static implicit operator ElementFactoryReference<T>(ElementFactory<T> factory) {
+            return new ElementFactoryReference<T>(factory);
         }
 
-        public static implicit operator string(WidgetFactoryReference<T> reference) {
+        public static implicit operator string(ElementFactoryReference<T> reference) {
             return reference.factoryName;
         }
 
-        public static implicit operator WidgetFactory(WidgetFactoryReference<T> reference) {
+        public static implicit operator ElementFactory(ElementFactoryReference<T> reference) {
             return reference.LookupFactory();
         }
 
-        public static implicit operator WidgetFactory<T>(WidgetFactoryReference<T> reference) {
-            return reference.LookupFactory() as WidgetFactory<T>;
+        public static implicit operator ElementFactory<T>(ElementFactoryReference<T> reference) {
+            return reference.LookupFactory() as ElementFactory<T>;
         }
 
-        public WidgetFactory LookupFactory() {
+        public ElementFactory LookupFactory() {
             if (resolved != null) return resolved;
             return string.IsNullOrEmpty(factoryName) ? null : RuntimeReflectionThemeLookup.GetFactory(factoryName);
         }
 
-        public bool Equals(WidgetFactoryReference<T> other) {
+        public bool Equals(ElementFactoryReference<T> other) {
             return factoryName == other.factoryName && Equals(resolved, other.resolved);
         }
 
         public override bool Equals(object obj) {
-            return obj is WidgetFactoryReference<T> other && Equals(other);
+            return obj is ElementFactoryReference<T> other && Equals(other);
         }
 
         public override int GetHashCode() {

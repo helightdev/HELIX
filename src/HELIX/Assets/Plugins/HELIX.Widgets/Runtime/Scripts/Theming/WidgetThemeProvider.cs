@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     [UxmlElement]
-    public partial class WidgetThemeProvider : SingleChildWidgetHostElement<ThemeProvider> {
+    public partial class WidgetThemeProvider : SingleChildWidgetBaseElement<ThemeProvider> {
         public static readonly Dictionary<string, object> GlobalThemeValues = new();
         private readonly Dictionary<string, object> _cachedThemeValues = new();
         private readonly Dictionary<string, object> _componentValues = new();
@@ -126,14 +126,11 @@ namespace HELIX.Widgets.Theming {
             return property.defaultValue;
         }
 
-        public override Widget GetChild(ThemeProvider widget) {
-            return widget.child;
-        }
-
         public override void Apply(ThemeProvider previous, ThemeProvider widget) {
             ThemeValues.Clear();
             if (widget.properties != null)
-                foreach (var kvp in widget.properties) { ThemeValues[kvp.Key] = kvp.Value; }
+                foreach (var kvp in widget.properties)
+                    ThemeValues[kvp.Key] = kvp.Value;
 
             Components = widget.components ?? new List<WidgetThemeComponent>(); // This will also update the theme
         }

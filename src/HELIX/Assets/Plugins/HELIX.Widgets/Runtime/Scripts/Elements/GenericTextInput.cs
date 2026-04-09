@@ -20,8 +20,6 @@ namespace HELIX.Widgets.Elements {
 
         private GenericTextInputStyle _textInputStyle = GenericTextInputStyle.Light;
 
-        public TextField BackingTextField { get; }
-
         public GenericTextInput() {
             this.WithStylesheet(AuxiliaryStylesheets.Helix).AddClasses("helix-generic-text-input");
             BackingTextField = new TextField().WithName("BackingTextField").Stretched().AddTo(this);
@@ -37,10 +35,8 @@ namespace HELIX.Widgets.Elements {
             element.RegisterCallback<NavigationSubmitEvent>(_ => { OnSubmit?.Invoke(Value); });
             element.RegisterCallback<NavigationCancelEvent>(_ => { OnCancel?.Invoke(); });
         }
-        
-        public void RequestEditingFocus() {
-            BackingTextField.schedule.Execute(() => BackingTextField.Focus()).ExecuteLater(0);
-        }
+
+        public TextField BackingTextField { get; }
 
         [UxmlAttribute,
          Tooltip("The visual style of the text input, which determines the selection and cursor colors.")]
@@ -52,7 +48,8 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
-        [UxmlAttribute, Tooltip("Color of the text selection highlight. Only applies if TextInputStyle is set to Custom.")]
+        [UxmlAttribute,
+         Tooltip("Color of the text selection highlight. Only applies if TextInputStyle is set to Custom.")]
         public Color SelectionColor {
             get => _selectionColor;
             set {
@@ -71,7 +68,9 @@ namespace HELIX.Widgets.Elements {
         }
 
         [UxmlAttribute,
-         Tooltip("Whether the text field should stretch to fill available space. If false, the text field will size to its content.")]
+         Tooltip(
+             "Whether the text field should stretch to fill available space. If false, the text field will size to its content."
+         )]
         public bool Expands {
             get => _expands;
             set {
@@ -141,6 +140,10 @@ namespace HELIX.Widgets.Elements {
             set => BackingTextField.isDelayed = value;
         }
 
+        public void RequestEditingFocus() {
+            BackingTextField.schedule.Execute(() => BackingTextField.Focus()).ExecuteLater(0);
+        }
+
         public event Action OnBeginEditing;
         public event Action OnEndEditing;
         public event Action<string> OnValueChanged;
@@ -151,8 +154,14 @@ namespace HELIX.Widgets.Elements {
 
         private void ApplySelectionColors() {
             if (_hadCustomColor && _textInputStyle != GenericTextInputStyle.Custom) {
-                BackingTextField.customStyle.TryGetValue(new CustomStyleProperty<Color>("--unity-cursor-color"), out var cursorColor);
-                BackingTextField.customStyle.TryGetValue(new CustomStyleProperty<Color>("--unity-selection-color"), out var selectionColor);
+                BackingTextField.customStyle.TryGetValue(
+                    new CustomStyleProperty<Color>("--unity-cursor-color"),
+                    out var cursorColor
+                );
+                BackingTextField.customStyle.TryGetValue(
+                    new CustomStyleProperty<Color>("--unity-selection-color"),
+                    out var selectionColor
+                );
 #pragma warning disable CS0618 // Type or member is obsolete
                 BackingTextField.textSelection.selectionColor = selectionColor;
                 BackingTextField.textSelection.cursorColor = cursorColor;

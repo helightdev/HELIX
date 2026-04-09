@@ -100,9 +100,9 @@ namespace HELIX.Widgets.Visual {
 
                     pathBuilder.BezierCurveTo(c1, c2, p2);
                 }
-            } else {
-                for (var i = 1; i < n; i++) pathBuilder.LineTo(pts[i]);
-            }
+            } else
+                for (var i = 1; i < n; i++)
+                    pathBuilder.LineTo(pts[i]);
 
             var path = pathBuilder.Build();
 

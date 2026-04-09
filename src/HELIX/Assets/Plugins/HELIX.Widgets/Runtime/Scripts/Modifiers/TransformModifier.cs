@@ -1,4 +1,3 @@
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -8,6 +7,8 @@ namespace HELIX.Widgets.Modifiers {
             StyleKeyword.Initial,
             StyleKeyword.Initial
         );
+
+        public static readonly TransformModifier Identity = new();
 
         public readonly StyleRotate rotate;
         public readonly StyleScale scale;
@@ -37,22 +38,28 @@ namespace HELIX.Widgets.Modifiers {
             element.style.scale = StyleKeyword.Initial;
         }
 
-        public static TransformModifier Scale(StyleScale scale) =>
-            new(StyleKeyword.Initial, StyleKeyword.Initial, scale);
+        public static TransformModifier Scale(StyleScale scale) {
+            return new TransformModifier(StyleKeyword.Initial, StyleKeyword.Initial, scale);
+        }
 
-        public static TransformModifier Rotate(StyleRotate rotate) =>
-            new(StyleKeyword.Initial, rotate, StyleKeyword.Initial);
+        public static TransformModifier Rotate(StyleRotate rotate) {
+            return new TransformModifier(StyleKeyword.Initial, rotate, StyleKeyword.Initial);
+        }
 
-        public static TransformModifier Translate(StyleTranslate translate) =>
-            new(translate, StyleKeyword.Initial, StyleKeyword.Initial);
+        public static TransformModifier Translate(StyleTranslate translate) {
+            return new TransformModifier(translate, StyleKeyword.Initial, StyleKeyword.Initial);
+        }
 
         public static TransformModifier Of(
             StyleTranslate? translate = null,
             StyleRotate? rotate = null,
             StyleScale? scale = null
-        ) =>
-            new(translate ?? StyleKeyword.Initial, rotate ?? StyleKeyword.Initial, scale ?? StyleKeyword.Initial);
-
-        public static readonly TransformModifier Identity = new();
+        ) {
+            return new TransformModifier(
+                translate ?? StyleKeyword.Initial,
+                rotate ?? StyleKeyword.Initial,
+                scale ?? StyleKeyword.Initial
+            );
+        }
     }
 }

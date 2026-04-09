@@ -7,31 +7,29 @@ using Debug = UnityEngine.Debug;
 
 namespace HELIX.Widgets {
     public static class ModificationBarrier {
-        private static bool _barrier = false;
-        private static bool _isFinalizing = false;
-        private static bool _isProcessingRebuilds = false;
+        private static bool _isFinalizing;
+        private static bool _isProcessingRebuilds;
         private static readonly HashSet<IHierarchyDisposable> _hierarchyDisposables = new();
         private static readonly IndexedReferencePriorityQueue<IWidgetElement, int> _pendingRebuilds = new();
-        
-        public static bool InsideModification => _barrier;
-        
+
+        public static bool InsideModification { get; private set; }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Run(Action action) {
             if (_isFinalizing) throw new InvalidOperationException("Cannot modify hierarchy while finalizing.");
-            if (_barrier) {
+            if (InsideModification) {
                 action();
                 return;
             }
 
             try {
-                _barrier = true;
+                InsideModification = true;
                 action();
             } finally {
                 _isFinalizing = true;
                 Sweep();
                 _isFinalizing = false;
-                _barrier = false;
+                InsideModification = false;
                 RunTail();
             }
         }
@@ -41,21 +39,20 @@ namespace HELIX.Widgets {
             if (_pendingRebuilds.Count <= 0) return;
             try {
                 _isProcessingRebuilds = true;
+                //var stopwatch = Stopwatch.StartNew();
                 Profiler.BeginSample("ModificationBarrier.RunRebuilds");
                 Run(() => {
-                    while (_pendingRebuilds.TryDequeue(out var element)) {
-                        try {
-                            if (element.Element.panel != null) element.Rebuild();
-                        } catch (Exception e) {
-                            Debug.LogError($"Error while rebuilding element {element}: {e}");
+                        while (_pendingRebuilds.TryDequeue(out var element)) {
+                            try {
+                                if (element.Element.panel != null)
+                                    DefaultReconciler.PerformReconcileGuaranteed(element, element.Descriptor);
+                            } catch (Exception e) { Debug.LogError($"Error while rebuilding element {element}: {e}"); }
                         }
-                    } 
-                });
+                    }
+                );
                 Profiler.EndSample();
                 //Debug.Log($"Processed pending rebuilds in {stopwatch.Elapsed.TotalMilliseconds} ms");
-            } finally {
-                _isProcessingRebuilds = false;
-            }
+            } finally { _isProcessingRebuilds = false; }
         }
 
         public static void EnqueueHierarchyDisposable(IHierarchyDisposable disposable) {

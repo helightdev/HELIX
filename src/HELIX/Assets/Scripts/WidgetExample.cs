@@ -16,7 +16,7 @@ public static class MyThemes {
     public static readonly ThemeProperty<Color> PrimaryWashedColor =
         ThemeProperty.Theme<Color>("c-primary-washed", ExampleThemeComponent.Default);
 
-    public static readonly ThemeProperty<WidgetFactory<VisualElement>> WidgetFactory =
+    public static readonly ThemeProperty<ElementFactory<VisualElement>> WidgetFactory =
         ThemeProperty.WidgetFactory<VisualElement>("example-factory", ExampleThemeComponent.Default);
 }
 
@@ -30,7 +30,7 @@ public partial class ExampleThemeComponent : WidgetThemeComponent {
     
     [Header("Example Theme Component")]
     [UxmlObjectReference("example-factory")]
-    public VisualElementWidgetFactory factory;
+    public VisualElementElementFactory factory;
 
     [UxmlAttribute("c-primary")]
     public ThemeOptional<Color> primaryColor;
@@ -43,15 +43,15 @@ public partial class ExampleThemeComponent : WidgetThemeComponent {
 }
 
 [UxmlWidgetFactory, UxmlObject]
-public partial class TestFactory : VisualElementWidgetFactory {
-    public override VisualElement Create(BaseElement parentWidget) {
+public partial class TestFactory : VisualElementElementFactory {
+    public override VisualElement Create(BaseElement parentElement) {
         return new Label("Hello, World!").Sized(width: 25);
     }
 }
 
 [UxmlWidgetFactory, UxmlObject]
-public partial class AnotherTestFactory : VisualElementWidgetFactory {
-    public override VisualElement Create(BaseElement parentWidget) {
+public partial class AnotherTestFactory : VisualElementElementFactory {
+    public override VisualElement Create(BaseElement parentElement) {
         return new Label("This is just another test!").Positioned(right: 0, bottom: 0).Flexible();
     }
 }
@@ -72,8 +72,8 @@ public partial class Example : BaseElement {
     public ThemeOverride<Texture2D> SomeTexture { get; set; }
 
     [UxmlObjectReference("factory")]
-    public VisualElementWidgetFactory FactoryMapped {
-        get => _factorySlotSlot.GetMapped<VisualElementWidgetFactory>();
+    public VisualElementElementFactory FactoryMapped {
+        get => _factorySlotSlot.GetMapped<VisualElementElementFactory>();
         set => _factorySlotSlot.SetMapped(value);
     }
 

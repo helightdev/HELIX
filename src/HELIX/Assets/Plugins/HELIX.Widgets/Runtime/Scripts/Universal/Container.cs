@@ -1,14 +1,12 @@
 using HELIX.Types;
 using HELIX.Widgets.Elements;
-using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
-    public class Container : Widget {
+    public class Container : SingleChildWidget {
         public Alignment alignment = Alignment.Center;
         public BackgroundStyle backgroundStyle;
         public Border border = Border.None;
         public BorderRadius borderRadius = BorderRadius.None;
-        public Widget child;
         public BoxConstraints constraints = BoxConstraints.Initial;
 
         // ReSharper disable once InconsistentNaming
@@ -17,16 +15,10 @@ namespace HELIX.Widgets.Universal {
         }
 
         public override IWidgetElement CreateElement() {
-            var element = new ContainerElement();
-            element.RegisterCallbackOnce<AttachToPanelEvent>(_ => element.Reconcile(this));
-            return element;
+            return ReconcileInto(new ContainerElement());
         }
 
-        public class ContainerElement : SingleChildWidgetHostElement<Container> {
-            public override Widget GetChild(Container widget) {
-                return widget.child;
-            }
-
+        public class ContainerElement : SingleChildWidgetBaseElement<Container> {
             public override void Apply(Container previous, Container widget) {
                 if (previous == null || !Equals(previous.backgroundStyle, widget.backgroundStyle))
                     (widget.backgroundStyle ?? BackgroundStyle.Default).Apply(this);

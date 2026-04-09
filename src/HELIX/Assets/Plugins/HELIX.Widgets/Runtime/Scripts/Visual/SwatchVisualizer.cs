@@ -15,7 +15,7 @@ namespace HELIX.Widgets.Visual {
                 var weightValue = ColorSwatch.WeightValues[index];
 
                 new Label($"{weightValue.ToString()}\n{weight.ToHex()}")
-                    .NoPaddingAndMargin().Sized(width: (1 / 11.0f).NormalizedPercent())
+                    .NoPaddingAndMargin().Sized((1 / 11.0f).NormalizedPercent())
                     .TextColor(lab.l > 0.80f ? Color.black : Color.white).TextAlign(TextAnchor.MiddleCenter)
                     .BackgroundColor(weight).AddTo(this);
             }

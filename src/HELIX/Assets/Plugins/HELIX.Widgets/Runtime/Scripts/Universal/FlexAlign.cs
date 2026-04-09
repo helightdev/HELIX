@@ -1,16 +1,17 @@
 using HELIX.Types;
 using HELIX.Widgets.Elements;
-using UnityEngine.UIElements;
+using HELIX.Widgets.Modifiers;
 
 namespace HELIX.Widgets.Universal {
-    public class FlexAlign : Widget {
+    public class FlexAlign : SingleChildWidget {
         public Alignment alignment;
-        public Widget child;
+
+        public FlexAlign() {
+            modifiers.Add(ModifierFallbacks.Fill);
+        }
 
         public override IWidgetElement CreateElement() {
-            var align = new FlexAlignElement();
-            align.RegisterCallbackOnce<AttachToPanelEvent>(_ => align.Reconcile(this));
-            return align;
+            return ReconcileInto(new FlexAlignElement());
         }
     }
 }

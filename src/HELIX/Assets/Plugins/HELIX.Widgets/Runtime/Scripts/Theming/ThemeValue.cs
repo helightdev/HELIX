@@ -16,8 +16,6 @@ namespace HELIX.Widgets.Theming {
         private ThemeValueState _state = ThemeValueState.None;
         private T _value;
 
-        public event OnValueChangedDelegate OnValueChanged;
-
         public ThemeValue(BaseElement owner, ThemeProperty<T> property) {
             _fallbackProperty = property;
             _property = property;
@@ -47,6 +45,8 @@ namespace HELIX.Widgets.Theming {
                 OnValueChanged?.Invoke(_value);
             }
         }
+
+        public event OnValueChangedDelegate OnValueChanged;
 
         public void ApplyOverrides(ThemeOverride<T> value) {
             if (_state >= ThemeValueState.Override) return;

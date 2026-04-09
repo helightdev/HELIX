@@ -14,6 +14,18 @@ namespace HELIX.Widgets {
             this.widgets = widgets;
         }
 
+        public IEnumerator<Widget> GetEnumerator() {
+            return widgets.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
+        }
+
+        public int Count => widgets.Count;
+
+        public Widget this[int index] => widgets[index];
+
         public void Add(IWidgetListCandidate widget) {
             TryAdd(widget);
         }
@@ -30,7 +42,7 @@ namespace HELIX.Widgets {
                         break;
                     case WidgetList list: widgets.AddRange(list.widgets); break;
                     case SpreadCandidate spread:
-                        foreach (var c in spread.candidates) { TryAdd(c); }
+                        foreach (var c in spread.candidates) TryAdd(c);
 
                         break;
                     case Widget widget: widgets.Add(widget); break;
@@ -41,19 +53,9 @@ namespace HELIX.Widgets {
             }
         }
 
-        public IEnumerator<Widget> GetEnumerator() {
-            return widgets.GetEnumerator();
+        public static implicit operator WidgetList(List<Widget> widgets) {
+            return new WidgetList(widgets);
         }
-
-        IEnumerator IEnumerable.GetEnumerator() {
-            return GetEnumerator();
-        }
-
-        public int Count => widgets.Count;
-
-        public Widget this[int index] => widgets[index];
-
-        public static implicit operator WidgetList(List<Widget> widgets) => new(widgets);
     }
 
     public interface IWidgetListCandidate { }
@@ -77,9 +79,12 @@ namespace HELIX.Widgets {
     }
 
     public static class WidgetListExtensions {
-        public static ConditionalCandidate If(this IWidgetListCandidate candidate, bool condition) =>
-            new(condition, candidate);
+        public static ConditionalCandidate If(this IWidgetListCandidate candidate, bool condition) {
+            return new ConditionalCandidate(condition, candidate);
+        }
 
-        public static SpreadCandidate Spread(this IEnumerable<IWidgetListCandidate> candidates) => new(candidates);
+        public static SpreadCandidate Spread(this IEnumerable<IWidgetListCandidate> candidates) {
+            return new SpreadCandidate(candidates);
+        }
     }
 }

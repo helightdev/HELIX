@@ -27,9 +27,9 @@ namespace HELIX.Widgets.Modifiers {
         public override bool HasChanged(Modifier previous) {
             if (previous is not TransitionModifier prev) return true;
             if (transitions.Length != prev.transitions.Length) return true;
-            for (var i = 0; i < transitions.Length; i++)
-                if (!transitions[i].Equals(prev.transitions[i]))
-                    return true;
+            for (var i = 0; i < transitions.Length; i++) {
+                if (!transitions[i].Equals(prev.transitions[i])) return true;
+            }
 
             return false;
         }

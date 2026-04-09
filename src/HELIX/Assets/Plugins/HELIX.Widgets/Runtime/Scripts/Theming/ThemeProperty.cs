@@ -40,12 +40,13 @@ namespace HELIX.Widgets.Theming {
         }
 
         private static T ResolveFromComponent<T>(string key, WidgetThemeComponent component) {
-            if (!component.Resolve(key, out var value)) {
+            if (!component.Resolve(key, out var value))
                 throw new ArgumentException($"Component does not contain a value for key: {key}");
-            }
 
             return value is not T typedValue
-                ? throw new ArgumentException($"Component value for key ({value}): {key} is not of expected type: {typeof(T)}")
+                ? throw new ArgumentException(
+                    $"Component value for key ({value}): {key} is not of expected type: {typeof(T)}"
+                )
                 : typedValue;
         }
 
@@ -58,7 +59,7 @@ namespace HELIX.Widgets.Theming {
             return new ThemeProperty<T, T>(key, default);
         }
 
-        public static WidgetFactoryProperty<T> WidgetFactory<T>(string key, WidgetFactory<T> defaultFactory)
+        public static WidgetFactoryProperty<T> WidgetFactory<T>(string key, ElementFactory<T> defaultFactory)
             where T : VisualElement {
             return new WidgetFactoryProperty<T>(key, defaultFactory);
         }
@@ -74,7 +75,7 @@ namespace HELIX.Widgets.Theming {
 
         public static WidgetFactoryProperty<T> WidgetFactory<T>(string key, WidgetThemeComponent component)
             where T : VisualElement {
-            var defaultValue = ResolveFromComponent<WidgetFactory<T>>(key, component);
+            var defaultValue = ResolveFromComponent<ElementFactory<T>>(key, component);
             return new WidgetFactoryProperty<T>(key, defaultValue);
         }
 
@@ -123,18 +124,18 @@ namespace HELIX.Widgets.Theming {
         }
     }
 
-    public class WidgetFactoryProperty<T> : ThemeProperty<WidgetFactory<T>> where T : VisualElement {
-        public WidgetFactoryProperty(string key, WidgetFactory<T> defaultValue) : base(key, defaultValue) { }
+    public class WidgetFactoryProperty<T> : ThemeProperty<ElementFactory<T>> where T : VisualElement {
+        public WidgetFactoryProperty(string key, ElementFactory<T> defaultValue) : base(key, defaultValue) { }
 
         public WidgetFactoryProperty(string key, string defaultFactoryName) : base(
             key,
-            RuntimeReflectionThemeLookup.GetFactory(defaultFactoryName) as WidgetFactory<T>
+            RuntimeReflectionThemeLookup.GetFactory(defaultFactoryName) as ElementFactory<T>
         ) { }
 
-        public override bool Resolve(ICustomStyle customStyle, out WidgetFactory<T> result) {
+        public override bool Resolve(ICustomStyle customStyle, out ElementFactory<T> result) {
             var property = new CustomStyleProperty<string>(StyleKey);
             if (customStyle.TryGetValue(property, out var referenceKey)) {
-                if (RuntimeReflectionThemeLookup.GetFactory(referenceKey) is WidgetFactory<T> factory) {
+                if (RuntimeReflectionThemeLookup.GetFactory(referenceKey) is ElementFactory<T> factory) {
                     result = factory;
                     return true;
                 }

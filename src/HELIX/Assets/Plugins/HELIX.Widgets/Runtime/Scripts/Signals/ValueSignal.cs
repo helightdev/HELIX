@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HELIX.Widgets.Diagnostics;
 
 namespace HELIX.Widgets.Signals {
     public class ValueSignal<T> : Signal<T> {
@@ -29,6 +30,15 @@ namespace HELIX.Widgets.Signals {
         public void NotifyListeners() {
             NotifyDirty();
             NotifyObservers();
+        }
+
+        public override string ToStringShort() {
+            return $"ValueSignal<{typeof(T).Name}>#{this.ShortHash()}";
+        }
+
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new DiagnosticsProperty<T>("value", _value, showName: false));
         }
     }
 }

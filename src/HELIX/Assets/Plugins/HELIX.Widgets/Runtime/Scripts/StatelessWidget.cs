@@ -1,55 +1,63 @@
-using System;
-using UnityEngine;
-using UnityEngine.UIElements;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Elements;
 
 namespace HELIX.Widgets {
-    public abstract class StatelessWidget<T> : Widget where T : StatelessWidget<T> {
-        public abstract Widget Build(BuildContext context);
+    public interface IBuildable {
+        Widget Build(BuildContext context);
+    }
 
-        public override IWidgetElement CreateElement() {
-            var element = new StatelessWidgetElement<T> { Descriptor = this };
-            return element;
+    public delegate Widget BuildFunction(BuildContext context);
+
+    public delegate Widget BuildFunction<in T>(BuildContext context, T parameter);
+
+    public readonly struct FunctionBuildable : IBuildable {
+        private readonly BuildFunction _func;
+
+        public FunctionBuildable(BuildFunction func) {
+            _func = func;
+        }
+
+        public Widget Build(BuildContext context) {
+            return _func(context);
         }
     }
 
-    public class StatelessWidgetElement<T> : BaseHostWidgetElement, IWidgetElement
+    public readonly struct ParameterizedFunctionBuildable<T> : IBuildable {
+        private readonly BuildFunction<T> _func;
+        private readonly T _param;
+
+        public ParameterizedFunctionBuildable(BuildFunction<T> func, T param) {
+            _func = func;
+            _param = param;
+        }
+
+        public Widget Build(BuildContext context) {
+            return _func(context, _param);
+        }
+    }
+
+    public interface IStatelessWidget { }
+
+    public abstract class StatelessWidget<T> : Widget, IStatelessWidget, IBuildable where T : StatelessWidget<T> {
+        public abstract Widget Build(BuildContext context);
+
+        public override IWidgetElement CreateElement() {
+            return ReconcileInto(new StatelessWidgetElement<T>());
+        }
+    }
+
+    public class StatelessWidgetElement<T> : BuildingWidgetBaseElement<T>, IStatelessWidget
         where T : StatelessWidget<T> {
-        public VisualElement Element => this;
-        public Widget Descriptor { get; set; }
-        private bool _firstPaint = true;
-
-        public bool CanReconcile(Widget updated) {
-            return updated is T;
-        }
-
-        public bool Reconcile(Widget updated) {
-            if (updated is not T widget) return false;
-            if (parent == null)
-                throw new InvalidOperationException(
-                    "StatelessWidget's element must be attached to the hierarchy before it can be reconciled."
-                );
-            try {
-                ModificationBarrier.RemoveRebuild(this);
-                Hosted = widget.Build(new BuildContext(this));
-                ReconcileHost();
-            } catch (Exception e) { Debug.LogError($"Error building widget: {e}"); }
-
-            try {
-                Modifier.ApplyDelta(_firstPaint ? null : Descriptor, widget, this); //
-            } catch (Exception e) { Debug.LogError($"Error applying delta: {e}"); }
-
-            Descriptor = widget;
-            _firstPaint = false;
-            return true;
-        }
-
-        protected override void OnAttached(AttachToPanelEvent evt) {
-            base.OnAttached(evt);
-            if (Descriptor != null) Reconcile(Descriptor);
-        }
-
         protected override void OnThemeUpdated() {
-            if (Descriptor != null) { ModificationBarrier.RunRebuild(this); }
+            if (Descriptor != null) ModificationBarrier.RunRebuild(this);
+        }
+
+        protected override IBuildable GetBuildableForWidget(T previous, T widget) {
+            return widget;
+        }
+
+        public override string ToStringShort() {
+            return $"{typeof(T).Name}:Element#{this.ShortHash()}";
         }
     }
 }

@@ -3,7 +3,7 @@ using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
-    public class Text : WrappingBaseWidget<Label, Text> {
+    public class Text : WrappingBaseWidget<Text, Label> {
         private static readonly Modifier _spacingFallback =
             new SpacingModifier(StyleLength4.Zero, StyleLength4.Zero) { isFallback = true };
 

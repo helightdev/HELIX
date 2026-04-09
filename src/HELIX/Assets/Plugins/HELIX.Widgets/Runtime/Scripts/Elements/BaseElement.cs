@@ -3,30 +3,29 @@ using System.Linq;
 using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Widgets.Theming;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
-    
-    public abstract class BaseElement : VisualElement {
+    public abstract class BaseElement : VisualElement, IElement {
         public static readonly string UssClassName = "helix-widget";
         private readonly List<ThemeValue> _themeValues = new();
         private readonly List<WidgetFactorySlot> _widgetFactorySlots = new();
-        public int HierarchyDepth { get; set; } = -1;
-        
+
         protected BaseElement() {
             AddToClassList(UssClassName);
             RegisterCallback<AttachToPanelEvent>(OnAttached);
             RegisterCallback<DetachFromPanelEvent>(OnDetached);
         }
-        
-        ~BaseElement() {
-            if (this is IHierarchyDisposable disposable) {
-                disposable.Dispose();
-            }
-        }
+
+        public int HierarchyDepth { get; protected set; } = -1;
 
         public WidgetThemeProvider ThemeProvider { get; private set; }
+
+        public VisualElement Element => this;
+
+        ~BaseElement() {
+            if (this is IHierarchyDisposable disposable) disposable.Dispose();
+        }
 
         protected ThemeValue<T> ThemeValue<T>(ThemeProperty<T> property) {
             var themeValue = new ThemeValue<T>(this, property);
@@ -49,7 +48,7 @@ namespace HELIX.Widgets.Elements {
         protected WidgetFactorySlot<T> WidgetFactorySlot<T>(
             WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
             WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
-            WidgetFactory<T> fallback = null
+            ElementFactory<T> fallback = null
         ) where T : VisualElement {
             var slot = new WidgetFactorySlot<T>(this);
             if (fallback != null) slot.SetFallback(fallback);
@@ -61,10 +60,10 @@ namespace HELIX.Widgets.Elements {
         }
 
         protected WidgetFactorySlot<T> WidgetFactorySlot<T>(
-            ThemeProperty<WidgetFactory<T>> property,
+            ThemeProperty<ElementFactory<T>> property,
             WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
             WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
-            WidgetFactory<T> fallback = null
+            ElementFactory<T> fallback = null
         ) where T : VisualElement {
             var slot = new WidgetFactorySlot<T>(this, property);
             if (fallback != null) slot.SetFallback(fallback);
@@ -91,20 +90,15 @@ namespace HELIX.Widgets.Elements {
             if (ThemeProvider != null) ThemeProvider.OnThemeUpdated += OnThemeUpdated;
             OnThemeUpdated();
 
-            if (this is IHierarchyDisposable disposable) {
-                ModificationBarrier.RemoveHierarchyDisposable(disposable);
-            }
+            if (this is IHierarchyDisposable disposable) ModificationBarrier.RemoveHierarchyDisposable(disposable);
         }
 
         protected virtual void OnDetached(DetachFromPanelEvent evt) {
             if (ThemeProvider != null) ThemeProvider.OnThemeUpdated -= OnThemeUpdated;
             ThemeProvider = null;
-            
-            if (this is IHierarchyDisposable disposable) {
-                ModificationBarrier.Run(() => {
-                    ModificationBarrier.EnqueueHierarchyDisposable(disposable);   
-                });
-            }
+
+            if (this is IHierarchyDisposable disposable)
+                ModificationBarrier.Run(() => { ModificationBarrier.EnqueueHierarchyDisposable(disposable); });
         }
 
         protected virtual void OnThemeUpdated() {

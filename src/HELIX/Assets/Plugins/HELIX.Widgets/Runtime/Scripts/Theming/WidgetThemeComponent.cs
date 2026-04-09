@@ -8,6 +8,10 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Theming {
     [UxmlObject, RequireDerived]
     public abstract partial class WidgetThemeComponent : ICloneable {
+        public virtual object Clone() {
+            return MemberwiseClone();
+        }
+
         public virtual bool Resolve(string key, out object value) {
             value = null;
             var companion = Companion.Get(GetType());
@@ -28,13 +32,6 @@ namespace HELIX.Widgets.Theming {
         public class Companion {
             private static readonly Dictionary<Type, Companion> _cache = new();
 
-            public static Companion Get(Type type) {
-                if (_cache.TryGetValue(type, out var resolver)) return resolver;
-                resolver = new Companion(type);
-                _cache[type] = resolver;
-                return resolver;
-            }
-
             public readonly FieldAccessors[] fieldAccessors;
 
             private Companion(Type type) {
@@ -46,16 +43,23 @@ namespace HELIX.Widgets.Theming {
                     var attributeName = info.Name;
 
                     var attributeAttr = info.GetCustomAttributes<UxmlAttributeAttribute>().FirstOrDefault();
-                    if (attributeAttr != null) { attributeName = attributeAttr.name; }
+                    if (attributeAttr != null) attributeName = attributeAttr.name;
 
                     var objectReferenceAttr = info.GetCustomAttributes<UxmlObjectReferenceAttribute>().FirstOrDefault();
-                    if (objectReferenceAttr != null) { attributeName = objectReferenceAttr.name; }
+                    if (objectReferenceAttr != null) attributeName = objectReferenceAttr.name;
 
                     fieldAccessors[index] = new FieldAccessors {
                         name = attributeName,
-                        getter = info.GetValue,
+                        getter = info.GetValue
                     };
                 }
+            }
+
+            public static Companion Get(Type type) {
+                if (_cache.TryGetValue(type, out var resolver)) return resolver;
+                resolver = new Companion(type);
+                _cache[type] = resolver;
+                return resolver;
             }
 
             public bool TryGetField(string name, out FieldAccessors accessor) {
@@ -105,19 +109,14 @@ namespace HELIX.Widgets.Theming {
                 Dictionary<string, object> dict,
                 bool clearExisting
             ) {
-                if (TryExtractValue(value, out var extracted)) { dict[key] = extracted; } else if (clearExisting) {
-                    dict.Remove(key);
-                }
+                if (TryExtractValue(value, out var extracted)) dict[key] = extracted;
+                else if (clearExisting) dict.Remove(key);
             }
 
             public struct FieldAccessors {
                 public string name;
                 public Func<object, object> getter;
             }
-        }
-
-        public virtual object Clone() {
-            return MemberwiseClone();
         }
     }
 }

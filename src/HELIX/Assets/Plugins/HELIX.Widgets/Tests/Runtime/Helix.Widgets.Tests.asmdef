@@ -1,0 +1,13 @@
+{
+  "name": "Helix.Widgets.Tests",
+  "rootNamespace": "HELIX.Widgets.Tests",
+  "references": [
+    "Helix",
+    "HELIX.Widgets"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": []
+}
