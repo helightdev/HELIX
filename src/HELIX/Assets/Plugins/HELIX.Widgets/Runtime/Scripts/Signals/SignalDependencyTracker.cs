@@ -70,14 +70,14 @@ namespace HELIX.Widgets.Signals {
             }
         }
 
-        public void BeginBuild() {
+        private void BeginBuild() {
             if (IsDisposed) throw new ObjectDisposedException(nameof(SignalDependencyTracker));
             _implicitBuffer.Clear();
             _removalQueue.Clear();
             IsBuilding = true;
         }
 
-        public void EndBuild() {
+        private void EndBuild() {
             try {
                 if (IsDisposed) return;
                 foreach (var (signal, value) in dependencies) {
