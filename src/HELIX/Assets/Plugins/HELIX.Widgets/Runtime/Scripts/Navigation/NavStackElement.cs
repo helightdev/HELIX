@@ -4,7 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using HELIX.Abstractions;
 using HELIX.Extensions;
+using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using JetBrains.Annotations;
 using Unity.Mathematics;
 using UnityEngine;
@@ -12,7 +14,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Navigation {
     [UxmlElement]
-    public partial class NavStackElement : BaseElement {
+    public partial class NavStackElement : SingleChildWidgetBaseElement<NavStack> {
         private readonly List<PageTransitionHandle> _activeTransitions = new();
         private readonly VisualElement _pageContainer;
         private readonly List<NavPage> _pages = new();
@@ -313,6 +315,17 @@ namespace HELIX.Widgets.Navigation {
             return new NavPageBuffer(buffer);
         }
 
+        public override void Apply(NavStack previous, NavStack widget) {
+            base.Apply(previous, widget);
+            DefaultTransition = widget.defaultTransition;
+        }
+
+        public override bool Reconcile(Widget updated) {
+            var result = base.Reconcile(updated);
+            Refresh();
+            return result;
+        }
+
         public static NavStackElement Get(VisualElement context) {
             return context.GetFirstAncestorOfType<NavStackElement>();
         }
@@ -323,6 +336,21 @@ namespace HELIX.Widgets.Navigation {
 
         private class StackOperation {
             public Action action;
+        }
+    }
+
+    public class NavStack : SingleChildWidget {
+        public PageTransition defaultTransition;
+
+        public NavStack() {
+            AddModifier(ModifierFallbacks.FlexFill);
+        }
+
+        public override IWidgetElement CreateElement() => ReconcileInto(new NavStackElement());
+
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new DiagnosticsProperty<PageTransition>("defaultTransition", defaultTransition));
         }
     }
 

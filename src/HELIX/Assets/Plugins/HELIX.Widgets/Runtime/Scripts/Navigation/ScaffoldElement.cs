@@ -1,11 +1,11 @@
 using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Navigation {
-    
     [UxmlElement]
     public partial class ScaffoldElement : SingleChildWidgetBaseElement<Scaffold> {
         private readonly VisualElement _body;
@@ -47,8 +47,12 @@ namespace HELIX.Widgets.Navigation {
             return context.GetFirstAncestorOfType<ScaffoldElement>();
         }
     }
-    
+
     public class Scaffold : SingleChildWidget {
+        public Scaffold() {
+            AddModifier(ModifierFallbacks.FlexFill);
+        }
+
         public override IWidgetElement CreateElement() => ReconcileInto(new ScaffoldElement());
     }
 
@@ -98,7 +102,7 @@ namespace HELIX.Widgets.Navigation {
         public void Pop() {
             ScaffoldElement.Get(this)?.RemoveOverlay(this);
         }
-        
+
         public static OverlayEntry Nearest(VisualElement context) {
             return context.GetFirstAncestorOfType<OverlayEntry>();
         }

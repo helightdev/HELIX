@@ -13,7 +13,7 @@ namespace HELIX.Widgets.Universal {
         public SimpleButtonStyle style = new();
 
         public StyleButton() {
-            AddModifier(ModifierFallbacks.TightStretch);
+            AddModifier(ModifierFallbacks.FlexTightStretch);
         }
 
         public override Widget Build(BuildContext context) {

@@ -114,15 +114,15 @@ namespace HELIX.Widgets {
             return element.Flexible(flex, flex, selfCrossAxisAlign);
         }
 
-        public static T Offset<T>(
+        public static T Positioned<T>(
             this T element,
             StyleLength4? offset = null,
             Position offsetType = Position.Relative
         ) where T : Widget {
-            if (offset == null && offsetType == Position.Relative) return element.WithModifier(OffsetModifier.None);
+            if (offset == null && offsetType == Position.Relative) return element.WithModifier(PositionModifier.None);
 
             element.AddModifier(
-                new OffsetModifier(
+                new PositionModifier(
                     offset ?? StyleLength4.Initial,
                     offsetType
                 )
@@ -131,7 +131,7 @@ namespace HELIX.Widgets {
         }
 
         public static T Stretch<T>(this T element) where T : Widget {
-            return element.WithModifier(OffsetModifier.Stretch);
+            return element.WithModifier(PositionModifier.Stretch);
         }
 
         public static T Size<T>(

@@ -22,8 +22,10 @@ using Random = UnityEngine.Random;
 [UxmlElement]
 public partial class NewTestWidget : HostWidgetElement {
     public NewTestWidget() {
-        Buildable = new Scaffold {
-            child = new InteractiveExample()
+        Buildable = new NavStack {
+            child = new Scaffold {
+                child = new InteractiveExample()
+            }
         }.Stretch().ToConstantBuildable();
     }
 
