@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Formatting;
+using HELIX.Widgets.Theming;
 
 namespace HELIX.Widgets.Elements {
     [SuppressMessage("ReSharper", "ParameterHidesMember")]
@@ -15,6 +16,14 @@ namespace HELIX.Widgets.Elements {
             return new List<DiagnosticsNode>();
         }
 
+        public virtual T GetThemed<T>(BaseThemeProperty<T> property) {
+            return ThemeProviderElement.Resolve(property);
+        }
+
+        public virtual bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value) {
+            return ThemeProviderElement.TryResolve(property, out value);
+        }
+        
         public virtual string ToStringDeep(
             string prefixLineOne = "",
             string prefixOtherLines = null,

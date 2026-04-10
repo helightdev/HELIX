@@ -20,18 +20,17 @@ using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
 
 [UxmlElement]
-public partial class NewTestWidget : HostWidgetElement {
-    public NewTestWidget() {
+public partial class NewTest : WidgetHostElement {
+    public NewTest() {
         Buildable = new NavStack {
             child = new Scaffold {
                 child = new InteractiveExample()
             }
-        }.Stretch().ToConstantBuildable();
+        }.Stretch().ToBuildable();
     }
 
     public override bool Reconcile(Widget updated) {
         base.Reconcile(updated);
-        Debug.Log(ToStringDeep(wrapWidth: 105, minLevel: DiagnosticLevel.Debug));
         return true;
     }
 }
@@ -63,7 +62,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
     public bool isOn = false;
     //public int counter = 0;
 
-    public static readonly Signal<int> Counter = Signal.Value<int>();
+    public static readonly Signal<int> Counter = Signal.Value(3);
     public static readonly Signal<int> Computed = Signal.Computed(() => Counter * 100);
     public static readonly Signal<int> Combined = Signal.Computed(() => Counter + Computed );
 
@@ -92,6 +91,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
     };
 
     private GlobalKey testComponentKey = new GlobalKey();
+    private int rebuildCounter = 0;
 
     public override void InitState() {
         HelixDiagnostics.Build("Init InteractiveExampleState", collector => collector
@@ -103,7 +103,13 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
     public override void DidUpdateWidget(InteractiveExample oldWidget) {
     }
 
+    public override void Dispose() {
+        base.Dispose();
+        Debug.Log("Disposing InteractiveExample");
+    }
+
     public override Widget Build(BuildContext context) {
+        rebuildCounter++;
         var boxes = new List<Widget>();
         for (var i = 0; i < Counter; i++) {
             var closedIndex = i;
@@ -137,9 +143,9 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                         size = new StyleLength2(200, 200),
                         backgroundStyle = new BackgroundStyle { color = isOn ? widget.onColor : widget.offColor },
                         borderRadius = BorderRadius.All(10),
-                        child = new FlexAlign() {
+                        child = new FlexAlign {
                             alignment = isOn ? new Alignment(0.66f, 0.66f) : new Alignment(-0.66f, -0.66f),
-                            child = new Text($"Counter: {Counter.Value}")
+                            child = new Text($"Counter: {Counter.Value} Rebuilds: {rebuildCounter}")
                         },
                         Modifiers = new Modifier[] {
                             TransitionsModifier.Of(new Transition(StyleProperties.BackgroundColor) { duration = 1f })
@@ -162,7 +168,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                     size = new StyleLength2(200, 20),
                     alignment = Alignment.CenterLeft,
                     child = new Container {
-                        backgroundStyle = new BackgroundStyle { color = Colors.Blue },
+                        backgroundStyle = new BackgroundStyle { color =  context.GetThemed(MyThemes.PrimaryColor) },
                         borderRadius = BorderRadius.All(10),
                         size = new StyleLength2(
                             math.remap(0, 4, 0, 1, Counter % 5).NormalizedPercent(),
@@ -179,6 +185,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                     onClick = () => {
                         isOn = !isOn;
                         Counter.Value++;
+                        Debug.Log("Updated Counter: " + Counter.Value);
                     }
                 }.Tight(),
                 new StyleButton {
@@ -192,7 +199,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                     style = ButtonStyle,
                     child = new Text("Popup"),
                     onClick = () => {
-                        ScaffoldElement.Get(context.Element).AddOverlay(new NewTestWidget().Stretched());
+                        ScaffoldElement.Get(context.Element).AddOverlay(new NewTest().Stretched());
                     }
                 },
                 new StyleButton {
@@ -202,7 +209,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                     onClick = () => {
                         OverlayEntry.Nearest(context.Element)?.Pop();
                     }
-                },
+                }.Fill(),
                 new FlexWrap {
                     key = "Boxes",
                     children = boxes

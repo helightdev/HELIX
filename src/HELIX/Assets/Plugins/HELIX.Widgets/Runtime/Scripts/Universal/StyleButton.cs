@@ -12,10 +12,6 @@ namespace HELIX.Widgets.Universal {
 
         public SimpleButtonStyle style = new();
 
-        public StyleButton() {
-            AddModifier(ModifierFallbacks.FlexTightStretch);
-        }
-
         public override Widget Build(BuildContext context) {
             return new ButtonBuilder {
                 builder = (_, state) => {

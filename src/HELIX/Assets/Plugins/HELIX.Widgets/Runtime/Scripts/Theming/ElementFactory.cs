@@ -109,14 +109,30 @@ namespace HELIX.Widgets.Theming {
     }
 
     [UxmlObject]
-    public abstract partial class VisualElementElementFactory : ElementFactory<VisualElement> { }
+    public abstract partial class VisualElementFactory : ElementFactory<VisualElement> {
 
-    public interface IWidgetFactoryReference {
+        public static VisualElementFactory Warp(ElementFactory<VisualElement> element) {
+            return new WrappedVisualElementFactory(element);
+        }
+    }
+
+    public class WrappedVisualElementFactory : VisualElementFactory {
+        private readonly ElementFactory<VisualElement> _innerFactory;
+        public WrappedVisualElementFactory(ElementFactory<VisualElement> innerFactory) {
+            _innerFactory = innerFactory;
+        }
+
+        public override VisualElement Create(BaseElement parentElement) {
+            return _innerFactory.Create(parentElement);
+        }
+    }
+
+    public interface IWidgetFactoryReference : IMaybeThemeValue {
         ElementFactory LookupFactory();
     }
 
     [Serializable]
-    public struct ElementFactoryReference<T> : IWidgetFactoryReference, IEquatable<ElementFactoryReference<T>>
+    public struct ElementFactoryReference<T> : IWidgetFactoryReference, IMaybeThemeValue<T>, IEquatable<ElementFactoryReference<T>>
         where T : VisualElement {
         public string factoryName;
 
@@ -172,6 +188,17 @@ namespace HELIX.Widgets.Theming {
 
         public override int GetHashCode() {
             return HashCode.Combine(factoryName, resolved);
+        }
+
+        public bool TryGetThemeValue(out object result) {
+            var factory = LookupFactory();
+            if (factory != null) {
+                result = factory;
+                return true;
+            }
+
+            result = null;
+            return false;
         }
     }
 }

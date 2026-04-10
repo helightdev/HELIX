@@ -72,8 +72,8 @@ namespace HELIX.Widgets.Theming {
             return themeProperty;
         }
 
-        public static ThemeProperty<T> GetProperty<T>(string reference) {
-            return GetProperty(reference) as ThemeProperty<T>;
+        public static BaseThemeProperty<T> GetProperty<T>(string reference) {
+            return GetProperty(reference) as BaseThemeProperty<T>;
         }
     }
 }

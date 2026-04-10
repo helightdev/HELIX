@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
-    public partial class FlexAlignElement : SingleChildWidgetBaseElement<FlexAlign> {
+    public partial class FlexAlignElement : SingleChildWidgetBaseElement<FlexAlign>, IPreferExplicitFlex {
         private readonly VisualElement _bottomSpacer;
         private readonly VisualElement _leftSpacer;
         private readonly VisualElement _rightSpacer;

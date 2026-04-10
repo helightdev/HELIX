@@ -3,13 +3,15 @@ using System.Linq;
 using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Widgets.Theming;
+using HELIX.Widgets.Utilities;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     public abstract class BaseElement : VisualElement, IElement {
         public static readonly string UssClassName = "helix-widget";
-        private readonly List<ThemeValue> _themeValues = new();
-        private readonly List<WidgetFactorySlot> _widgetFactorySlots = new();
+        private IdentityDictionary<ThemeProperty, ThemeValue> _themeValues;
+        private List<ElementFactorySlot> _widgetFactorySlots = null;
 
         protected BaseElement() {
             AddToClassList(UssClassName);
@@ -19,7 +21,7 @@ namespace HELIX.Widgets.Elements {
 
         public int HierarchyDepth { get; protected set; } = -1;
 
-        public WidgetThemeProvider ThemeProvider { get; private set; }
+        public ThemeProviderElement ThemeProviderElement { get; private set; }
 
         public VisualElement Element => this;
 
@@ -27,30 +29,55 @@ namespace HELIX.Widgets.Elements {
             if (this is IHierarchyDisposable disposable) disposable.Dispose();
         }
 
-        protected ThemeValue<T> ThemeValue<T>(ThemeProperty<T> property) {
+        protected ThemeValue<T> ThemeValue<T>(BaseThemeProperty<T> property) {
+            if (_themeValues != null && _themeValues.TryGetValue(property, out var existing))
+                return (ThemeValue<T>)existing;
             var themeValue = new ThemeValue<T>(this, property);
+            themeValue.OnValueChanged += value => OnWatchedThemeUpdated(property, value);
             return RegisterThemeValue(themeValue);
         }
 
         protected ThemeValue<T> ThemeValue<T>(
-            ThemeProperty<T> property,
-            ThemeValue<T>.OnValueChangedDelegate onValueChanged
+            BaseThemeProperty<T> property,
+            ThemeValue<T>.OnValueChangedDelegate onValueChanged,
+            bool applyCurrentValue = true
         ) {
-            var themeValue = new ThemeValue<T>(this, property, onValueChanged);
-            return RegisterThemeValue(themeValue);
-        }
-
-        protected virtual ThemeValue<T> RegisterThemeValue<T>(ThemeValue<T> themeValue) {
-            _themeValues.Add(themeValue);
+            var themeValue = ThemeValue(property);
+            themeValue.OnValueChanged += onValueChanged;
+            if (themeValue.ThemeValueState != ThemeValueState.None && applyCurrentValue) {
+                onValueChanged(themeValue.Value);
+            }
+            
             return themeValue;
         }
 
-        protected WidgetFactorySlot<T> WidgetFactorySlot<T>(
-            WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
-            WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
+        protected bool ContainsThemeValue(ThemeProperty property) {
+            return _themeValues != null && _themeValues.ContainsKey(property);
+        }
+
+        protected void RemoveThemeValue(ThemeValue themeValue) {
+            _themeValues?.Remove(themeValue.ThemeProperty);
+        }
+
+        protected void RemoveThemeValue(ThemeProperty property) {
+            _themeValues?.Remove(property);
+        }
+
+        protected virtual ThemeValue<T> RegisterThemeValue<T>(ThemeValue<T> themeValue) {
+            _themeValues ??= new IdentityDictionary<ThemeProperty, ThemeValue>();
+            _themeValues[themeValue.ThemeProperty] = themeValue;
+            themeValue.ReloadStyles();
+            return themeValue;
+        }
+
+        protected ElementFactorySlot<T> WidgetFactorySlot<T>(
+            ElementFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
+            ElementFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
             ElementFactory<T> fallback = null
         ) where T : VisualElement {
-            var slot = new WidgetFactorySlot<T>(this);
+            _widgetFactorySlots ??= new List<ElementFactorySlot>();
+            
+            var slot = new ElementFactorySlot<T>(this);
             if (fallback != null) slot.SetFallback(fallback);
             _widgetFactorySlots.Add(slot);
             if (onCreated != null) slot.OnElementCreated += onCreated;
@@ -59,13 +86,15 @@ namespace HELIX.Widgets.Elements {
             return slot;
         }
 
-        protected WidgetFactorySlot<T> WidgetFactorySlot<T>(
-            ThemeProperty<ElementFactory<T>> property,
-            WidgetFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
-            WidgetFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
+        protected ElementFactorySlot<T> WidgetFactorySlot<T>(
+            BaseThemeProperty<ElementFactory<T>> property,
+            ElementFactorySlot<T>.OnElementCreatedDelegate onCreated = null,
+            ElementFactorySlot<T>.OnElementDestroyedDelegate onDestroyed = null,
             ElementFactory<T> fallback = null
         ) where T : VisualElement {
-            var slot = new WidgetFactorySlot<T>(this, property);
+            _widgetFactorySlots ??= new List<ElementFactorySlot>();
+            
+            var slot = new ElementFactorySlot<T>(this, property);
             if (fallback != null) slot.SetFallback(fallback);
             _widgetFactorySlots.Add(slot);
             if (onCreated != null) slot.OnElementCreated += onCreated;
@@ -78,7 +107,8 @@ namespace HELIX.Widgets.Elements {
             return slot;
         }
 
-        public bool DeleteFactorySlot(WidgetFactorySlot slot) {
+        public bool DeleteFactorySlot(ElementFactorySlot slot) {
+            if (_widgetFactorySlots == null) return false;
             if (!_widgetFactorySlots.Remove(slot)) return false;
             slot.Destroy();
             return true;
@@ -86,29 +116,28 @@ namespace HELIX.Widgets.Elements {
 
         protected virtual void OnAttached(AttachToPanelEvent evt) {
             HierarchyDepth = this.GetDepth();
-            ThemeProvider = WidgetThemeProvider.Get(this);
-            if (ThemeProvider != null) ThemeProvider.OnThemeUpdated += OnThemeUpdated;
+            ThemeProviderElement = ThemeProviderElement.Get(this);
+            if (ThemeProviderElement != null) ThemeProviderElement.OnThemeUpdated += OnThemeUpdated;
             OnThemeUpdated();
 
             if (this is IHierarchyDisposable disposable) ModificationBarrier.RemoveHierarchyDisposable(disposable);
         }
 
         protected virtual void OnDetached(DetachFromPanelEvent evt) {
-            if (ThemeProvider != null) ThemeProvider.OnThemeUpdated -= OnThemeUpdated;
-            ThemeProvider = null;
-
-            if (this is IHierarchyDisposable disposable)
-                ModificationBarrier.Run(() => { ModificationBarrier.EnqueueHierarchyDisposable(disposable); });
+            if (ThemeProviderElement != null) ThemeProviderElement.OnThemeUpdated -= OnThemeUpdated;
+            ThemeProviderElement = null;
+            if (this is IHierarchyDisposable disposable) ModificationBarrier.TryDisposeHierarchyDisposable(disposable);
         }
 
         protected virtual void OnThemeUpdated() {
-            foreach (var value in _themeValues) value.ReloadStyles();
-
-            foreach (var factorySlot in _widgetFactorySlots) {
+            if (_themeValues != null) foreach (var value in _themeValues.Values) value.ReloadStyles();
+            if (_widgetFactorySlots != null) foreach (var factorySlot in _widgetFactorySlots) {
                 factorySlot.ApplyReferenceFromTheme();
                 factorySlot.TryCreate();
             }
         }
+        
+        protected virtual void OnWatchedThemeUpdated(ThemeProperty property, object value) {}
     }
 
     public abstract class SingleChildContainerElement : BaseElement, ISingleChildContainer {

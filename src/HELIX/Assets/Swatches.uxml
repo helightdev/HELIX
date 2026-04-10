@@ -2,9 +2,9 @@
     <Style src="project://database/Assets/test.uss?fileID=7433441132597879392&amp;guid=ce7ee7c7f0584efd935908135199ca27&amp;type=3#test"/>
     <ui:ScrollView style="position: absolute; top: 0; right: 0; bottom: 0; left: 0;">
         <ui:VisualElement style="flex-grow: 1; height: 2549px;">
-            <HELIX.Widgets.Theming.WidgetThemeProvider style="color: rgb(255, 255, 255); background-color: rgb(36, 35, 41); width: 100%; height: 100%;">
+            <HELIX.Widgets.Theming.ThemeProviderElement style="color: rgb(255, 255, 255); background-color: rgb(36, 35, 41); width: 100%; height: 100%;">
                 <HelixColorSwatchVisualizer name="HelixColorSwatchVisualizer"/>
-            </HELIX.Widgets.Theming.WidgetThemeProvider>
+            </HELIX.Widgets.Theming.ThemeProviderElement>
         </ui:VisualElement>
     </ui:ScrollView>
 </ui:UXML>

@@ -4,10 +4,10 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
-    public class HostWidgetElement : BuildingWidgetBaseElement<HostWidgetElement.WidgetType> {
+    public class WidgetHostElement : BuildingWidgetBaseElement<WidgetHostElement.WidgetType>, IHierarchyDisposable {
         private bool _hasState;
 
-        public HostWidgetElement() {
+        public WidgetHostElement() {
             Descriptor = RootWidget.Instance;
         }
 
@@ -17,7 +17,9 @@ namespace HELIX.Widgets {
         protected override void OnAttached(AttachToPanelEvent evt) {
             base.OnAttached(evt);
             
-            Debug.Log("HostWidgetElement attached to panel, determining context...");
+            if (_hasState) {
+                Debug.Log("Widget host hierarchy has moved before disposal!");
+            }
             
             var nearestWidget = GetFirstAncestorOfType<IWidgetElement>();
             if (nearestWidget == null) {
@@ -27,36 +29,23 @@ namespace HELIX.Widgets {
                 ParentContext = nearestWidget;
                 Descriptor = GapWidget.Instance;
             }
+            _hasState = true;
             
-            
-            ModificationBarrier.RunRebuild(this);
-
-            // try {
-            //     var stopwatch = Stopwatch.StartNew();
-            //     Profiler.BeginSample("HostWidgetElement.ReconcileHost");
-            //     ReconcileHost();
-            //     Profiler.EndSample();
-            //     stopwatch.Stop();
-            //     _hasState = true;
-            // } catch (System.Exception e) {
-            //     Debug.LogError($"Disposing after error while reconciling host widget on attach: {e}");
-            //     ModificationBarrier.Run(Clear);
-            // }
-        }
-
-        protected override void OnDetached(DetachFromPanelEvent evt) {
-            if (ModificationBarrier.InsideModification || !_hasState) return;
-            // TODO: Maybe move into a dispose, need to test if this breaks things
-
-            _hasState = false;
-            userData = null;
-            ParentContext = null;
-            Descriptor = null;
-            ModificationBarrier.Run(Clear);
+            ModificationBarrier.Rebuild(this);
         }
 
         protected override IBuildable GetBuildableForWidget(WidgetType previous, WidgetType widget) {
             return Buildable;
+        }
+
+        public void Dispose() {
+            _hasState = false;
+            userData = null;
+            ParentContext = null;
+            Descriptor = null;
+            // Initially I ran Clear() here to instantly trigger child disposal, but that conflicted with hierarchy rules
+            // I then allowed disposals to trickle down by polling until the set is empty and that worked, but just
+            // doing the disposal using the object destructor was less error-prone and is probably more performant 
         }
 
         public abstract class WidgetType : Widget {
@@ -64,7 +53,7 @@ namespace HELIX.Widgets {
             public override IWidgetElement CreateElement() {
                 throw new NotImplementedException();
             }
-        } 
+        }
 
         public class RootWidget : WidgetType {
             public static readonly RootWidget Instance = new();
@@ -72,7 +61,7 @@ namespace HELIX.Widgets {
             private RootWidget() { }
             
             public override string GetWidgetName() {
-                return "<root>";
+                return "[ROOT]";
             }
         }
 
@@ -82,7 +71,7 @@ namespace HELIX.Widgets {
             private GapWidget() { }
 
             public override string GetWidgetName() {
-                return "<gap>";
+                return "[GAP]";
             }
         }
     }

@@ -12,8 +12,8 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
     public partial class GenericSlider : BaseElement {
-        private readonly WidgetFactorySlot<GenericSliderThumb> _thumbSlot;
-        private readonly WidgetFactorySlot<GenericSliderTrack> _trackSlot;
+        private readonly ElementFactorySlot<GenericSliderThumb> _thumbSlot;
+        private readonly ElementFactorySlot<GenericSliderTrack> _trackSlot;
         private Axis _axis;
         private float _thumbRange; // 0: point, epsilon-1f: thumb width as percentage of total slider length
         private float _value; // 0f-1f
@@ -83,7 +83,7 @@ namespace HELIX.Widgets.Elements {
         }
 
         [UxmlObjectReference("base-test")]
-        public VisualElementElementFactory TestFactory { get; set; }
+        public VisualElementFactory TestFactory { get; set; }
 
         public event Action<float> OnValueChanged;
 

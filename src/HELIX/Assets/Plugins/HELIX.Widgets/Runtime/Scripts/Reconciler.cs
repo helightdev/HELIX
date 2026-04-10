@@ -6,11 +6,12 @@ using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
+using HELIX.Widgets.Theming;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
-    public static class DefaultReconciler {
+    public static class Reconciler {
         private static readonly Dictionary<Key, IWidgetElement> _keyedScratch = new();
         private static readonly Queue<IWidgetElement> _unkeyedScratch = new();
         private static readonly Queue<ReconcilerEntry> _reconcileScratch = new();
@@ -51,7 +52,7 @@ namespace HELIX.Widgets {
             if (element != null) {
                 try {
                     if (CanReuse(element.Descriptor, descriptor) && element.CanReconcile(descriptor)) {
-                        PerformReconcile(element, descriptor);
+                        MaybeReconcile(element, descriptor);
                         return;
                     }
 
@@ -213,7 +214,7 @@ namespace HELIX.Widgets {
                 _isProcessingQueue = true;
                 while (_reconcileScratch.TryDequeue(out var next)) {
                     try {
-                        PerformReconcile(next.element, next.descriptor); //
+                        MaybeReconcile(next.element, next.descriptor); //
                     } catch (Exception ex) {
                         Debug.LogError($"Error reconciling {next.element} with descriptor {next.descriptor}: {ex}");
                     }
@@ -221,17 +222,17 @@ namespace HELIX.Widgets {
             } finally { _isProcessingQueue = false; }
         }
 
-        public static void PerformReconcile(IWidgetElement element, Widget descriptor) {
+        private static void MaybeReconcile(IWidgetElement element, Widget descriptor) {
             var previous = element.Descriptor;
             if (ReferenceEquals(previous, descriptor)) return;
             if (previous.constants != null && descriptor.constants != null)
                 if (previous.constants.SequenceEqual(descriptor.constants))
                     return;
 
-            PerformReconcileGuaranteed(element, descriptor);
+            Reconcile(element, descriptor);
         }
 
-        public static void PerformReconcileGuaranteed(IWidgetElement element, Widget descriptor) {
+        public static void Reconcile(IWidgetElement element, Widget descriptor) {
             ModificationBarrier.RemoveRebuild(element);
             try {
                 BuildContext.ReconcilerCurrent = element;
@@ -280,6 +281,16 @@ namespace HELIX.Widgets {
         public VisualElement Element { get; }
         public Widget Descriptor { get; }
         public BuildContext ParentContext { get; set; }
+        
+        public T GetThemed<T>(BaseThemeProperty<T> property) {
+            return property.TypedDefaultValue;
+        }
+
+        public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value) {
+            value = property.TypedDefaultValue;
+            return false;
+        }
+
         public int HierarchyDepth { get; }
 
         public bool CanReconcile(Widget updated) {
@@ -318,14 +329,14 @@ namespace HELIX.Widgets {
             this.element = element;
         }
 
-        public IEnumerable<IWidgetElement> Elements => element.Children().Select(DefaultReconciler.ExpandElement);
+        public IEnumerable<IWidgetElement> Elements => element.Children().Select(Reconciler.ExpandElement);
 
         private static readonly Dictionary<VisualElement, int> _lookupHelper = new();
 
         public void LoadWidgetElements(List<IWidgetElement> elements) {
             for (var i = 0; i < element.hierarchy.childCount; i++) {
                 var child = element.hierarchy.ElementAt(i);
-                elements.Add(DefaultReconciler.ExpandElement(child));
+                elements.Add(Reconciler.ExpandElement(child));
             }
         }
 

@@ -3,10 +3,10 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
-    public abstract class WidgetFactorySlot : VisualElement {
+    public abstract class ElementFactorySlot : VisualElement {
         protected readonly BaseElement widget;
 
-        protected WidgetFactorySlot(BaseElement widget) {
+        protected ElementFactorySlot(BaseElement widget) {
             this.widget = widget;
         }
 
@@ -18,7 +18,7 @@ namespace HELIX.Widgets.Theming {
         public abstract void ApplyReferenceFromTheme();
     }
 
-    public interface IPublicWidgetFactorySlot<T> where T : VisualElement {
+    public interface IPublicElementFactorySlot<T> where T : VisualElement {
         ElementFactoryReference<T> Reference { get; set; }
         T Element { get; }
         bool HasElement { get; }
@@ -26,24 +26,24 @@ namespace HELIX.Widgets.Theming {
         TMapped GetMapped<TMapped>() where TMapped : ElementFactory<T>;
     }
 
-    public class WidgetFactorySlot<T> : WidgetFactorySlot, IPublicWidgetFactorySlot<T> where T : VisualElement {
+    public class ElementFactorySlot<T> : ElementFactorySlot, IPublicElementFactorySlot<T> where T : VisualElement {
         public delegate void OnElementCreatedDelegate(T element);
 
         public delegate void OnElementDestroyedDelegate(T element);
 
-        private readonly ThemeProperty<ElementFactory<T>> _themeProperty;
+        private readonly BaseThemeProperty<ElementFactory<T>> _baseThemeProperty;
         private ElementFactory _factory;
         private ElementFactory _fallback;
         private bool _hasExplicitReference;
         private object _mappedValue;
         private ElementFactoryReference<T> _reference;
 
-        public WidgetFactorySlot(BaseElement widget) : base(widget) { }
+        public ElementFactorySlot(BaseElement widget) : base(widget) { }
 
-        public WidgetFactorySlot(BaseElement widget, ThemeProperty<ElementFactory<T>> themeProperty) : base(widget) {
-            _themeProperty = themeProperty;
+        public ElementFactorySlot(BaseElement widget, BaseThemeProperty<ElementFactory<T>> baseThemeProperty) : base(widget) {
+            _baseThemeProperty = baseThemeProperty;
         }
-
+        
         public ElementFactoryReference<T> Reference {
             get => _reference;
             set {
@@ -76,8 +76,8 @@ namespace HELIX.Widgets.Theming {
             // Try resolving from parent style on late unset
             if (factory == null) {
                 var parentStyle = widget.parent?.customStyle;
-                if (parentStyle != null && _themeProperty != null)
-                    factory = WidgetThemeProvider.Resolve(widget.ThemeProvider, _themeProperty);
+                if (parentStyle != null && _baseThemeProperty != null)
+                    factory = ThemeProviderElement.Resolve(widget.ThemeProviderElement, _baseThemeProperty);
                 factory ??= _fallback;
                 _hasExplicitReference = false;
             } else _hasExplicitReference = true;
@@ -90,7 +90,7 @@ namespace HELIX.Widgets.Theming {
         public override void ApplyReferenceFromTheme() {
             if (_hasExplicitReference) return;
             var factory = _fallback;
-            if (_themeProperty != null) factory = WidgetThemeProvider.Resolve(widget.ThemeProvider, _themeProperty);
+            if (_baseThemeProperty != null) factory = ThemeProviderElement.Resolve(widget.ThemeProviderElement, _baseThemeProperty);
 
             if (factory == null || Equals(factory, _factory)) return;
             _factory = factory;

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace HELIX.Widgets.Utilities {
     public class IndexedReferencePriorityQueue<TElement, TPriority>
@@ -92,21 +91,14 @@ namespace HELIX.Widgets.Utilities {
         }
 
         private void Swap(int i, int j) {
-            (_heap[i], _heap[j]) = (_heap[j], _heap[i]);
+            var itemI = _heap[i];
+            var itemJ = _heap[j];
 
-            // Update the hash-map with the new indices
-            _elementIndices[_heap[i].Element] = i;
-            _elementIndices[_heap[j].Element] = j;
-        }
-    }
+            _heap[i] = itemJ;
+            _heap[j] = itemI;
 
-    public class ReferenceEqualityComparer<T> : IEqualityComparer<T> where T : class {
-        bool IEqualityComparer<T>.Equals(T x, T y) {
-            return ReferenceEquals(x, y);
-        }
-
-        int IEqualityComparer<T>.GetHashCode(T obj) {
-            return RuntimeHelpers.GetHashCode(obj);
+            _elementIndices[itemJ.Element] = i;
+            _elementIndices[itemI.Element] = j;
         }
     }
 }

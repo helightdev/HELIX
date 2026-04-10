@@ -1,6 +1,7 @@
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
+using HELIX.Widgets.Elements;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -13,6 +14,7 @@ namespace HELIX.Widgets.Modifiers {
         public readonly StyleFloat grow;
         public readonly StyleEnum<Align> selfCrossAxisAlign;
         public readonly StyleFloat shrink;
+        public bool isImplicit;
 
         public FlexibleModifier(StyleFloat grow, StyleFloat shrink, StyleEnum<Align> selfCrossAxisAlign) {
             this.selfCrossAxisAlign = selfCrossAxisAlign;
@@ -27,6 +29,14 @@ namespace HELIX.Widgets.Modifiers {
         }
 
         public override void Apply(VisualElement element) {
+            var parent = BuildContext.GetDirectParent(element);
+            if (isImplicit && parent is IPreferExplicitFlex) {
+                element.style.flexGrow = 0;
+                element.style.flexShrink = 1;
+                element.style.alignSelf = Align.Auto;
+                return;
+            }
+            
             element.style.alignSelf = selfCrossAxisAlign;
             element.style.flexGrow = grow;
             element.style.flexShrink = shrink;
@@ -40,6 +50,7 @@ namespace HELIX.Widgets.Modifiers {
 
         public override bool HasChanged(Modifier previous) {
             if (previous is not FlexibleModifier prev) return true;
+            if (isImplicit) return true;
             return grow != prev.grow || shrink != prev.shrink || selfCrossAxisAlign != prev.selfCrossAxisAlign;
         }
 
@@ -55,6 +66,7 @@ namespace HELIX.Widgets.Modifiers {
             properties.Add(new StyleValueProperty<Align>("alignSelf", selfCrossAxisAlign));
             properties.Add(new StyleValueProperty<float>("grow", grow));
             properties.Add(new StyleValueProperty<float>("shrink", shrink));
+            properties.Add(new FlagProperty("isImplicit", isImplicit, ifTrue: "Implicit"));
         }
 
         protected override string FindConstantName() {

@@ -1,10 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using HELIX.Abstractions;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics.Properties;
-using HELIX.Widgets.Elements;
 using HELIX.Widgets.Theming;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -73,7 +72,7 @@ namespace HELIX.Widgets {
 
             properties.Add(
                 new IterableProperty<Modifier>(
-                    "fallback modifiers",
+                    "modifiers[fallback]",
                     modifiers.Where(x => x.isFallback).ToList(),
                     ifEmpty: null,
                     level: DiagnosticLevel.Fine
@@ -85,7 +84,7 @@ namespace HELIX.Widgets {
 
         protected IWidgetElement ReconcileInto(IWidgetElement element) {
             element.Element.RegisterCallbackOnce<AttachToPanelEvent>(_ =>
-                DefaultReconciler.PerformReconcileGuaranteed(element, this)
+                Reconciler.Reconcile(element, this)
             );
             return element;
         }
@@ -109,37 +108,40 @@ namespace HELIX.Widgets {
         }
     }
 
-    // ReSharper disable once InconsistentNaming
-    public interface BuildContext : IDiagnosticableTree, IElement {
-        static BuildContext Current = null;
-        static BuildContext ReconcilerCurrent = null;
-        Widget Descriptor { get; }
-        BuildContext ParentContext { get; set; }
-
-        protected bool IsUserWidget => this is IStatelessWidget || this is IStatefulWidget;
-
-        T GetThemed<T>(ThemeProperty<T> property) {
-            if (Element is not BaseElement baseElement) return property.defaultValue;
-            return baseElement.ThemeProvider.Resolve(property);
-        }
-
-        static BuildContext GetUserTarget(BuildContext start, BuildContext except = null) {
-            var current = start;
-            while (current != null && (!current.IsUserWidget || current == except))
-                current = current.ParentContext as IWidgetElement;
-            return current ?? start;
-        }
-    }
-
     public interface IWidgetElement : BuildContext {
         int HierarchyDepth { get; }
         bool CanReconcile(Widget updated);
         bool Reconcile(Widget updated);
     }
 
+    public interface ITreeAncestorTraversalHint {
+        IWidgetElement Owner { get; }
+    }
+
+    public class ElementTreeAncestorTraversalHint : ITreeAncestorTraversalHint {
+        public IWidgetElement Owner { get; }
+
+        public ElementTreeAncestorTraversalHint(IWidgetElement owner) {
+            Owner = owner;
+        }
+    }
+
     public static class WidgetExtensions {
-        public static IBuildable ToConstantBuildable(this Widget widget) {
+        public static IBuildable ToBuildable(this Widget widget) {
             return new FunctionBuildable(_ => widget);
+        }
+
+        public static ElementFactory<VisualElement> ToFactory(this Widget widget, Action<VisualElement> apply = null) {
+            return new InlineElementFactory<VisualElement>(_ => {
+                    var element = new WidgetHostElement { Buildable = widget.ToBuildable() };
+                    apply?.Invoke(element);
+                    return element;
+                }
+            );
+        }
+
+        public static Widget ToWidget(this ElementFactory factory) {
+            return new FactoryWidget<VisualElement> { creator = () => factory.Create(null) };
         }
 
         public static InformationCollector WithSpace(this InformationCollector collector) {

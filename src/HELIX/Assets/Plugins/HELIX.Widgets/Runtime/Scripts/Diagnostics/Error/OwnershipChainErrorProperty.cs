@@ -13,26 +13,21 @@ namespace HELIX.Widgets.Diagnostics.Error {
         ) { }
 
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
-            if (ValueTyped == null || ValueTyped.Count == 0) return "None";
+            if (ValueTyped == null || ValueTyped.Count == 0) return "[NONE]";
+            
             return string.Join(
                 " <- ",
                 ValueTyped.Select((x, i) => {
-                        if (i == 0) return "<this>";
+                        if (i == 0) return "[THIS]";
                         var name = x?.Descriptor?.GetWidgetName() ?? x?.ToStringShort();
-                        return !string.IsNullOrEmpty(name) ? name : "Unknown";
+                        return !string.IsNullOrEmpty(name) ? name : "[UNKNOWN]";
                     }
                 )
             );
         }
 
         public static OwnershipChainErrorProperty FromBuildContext(BuildContext context) {
-            var chain = new List<BuildContext>();
-            var current = context;
-            while (current != null) {
-                chain.Add(current);
-                current = current.ParentContext;
-            }
-
+            var chain = BuildContext.GetAncestorChain(context).ToList();
             return new OwnershipChainErrorProperty(chain);
         }
     }

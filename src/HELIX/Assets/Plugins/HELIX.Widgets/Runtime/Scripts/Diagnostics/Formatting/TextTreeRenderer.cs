@@ -64,7 +64,16 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                 var lines = 0;
 
                 void Visitor(DiagnosticsNode current) {
-                    foreach (var child in current.GetChildren()) {
+                    List<DiagnosticsNode> diagnosticsNodes;
+                    try {
+                        diagnosticsNodes = current.GetChildren();
+                    } catch (Exception ex) {
+                        diagnosticsNodes = new[] {
+                            DiagnosticsNode.Message("Error while getting children: " + ex.GetType().Name + " - " + ex.Message)
+                        }.ToList();
+                    }
+                    
+                    foreach (var child in diagnosticsNodes) {
                         if (lines < maxLines) {
                             depth++;
                             descendants.Add(prefixOtherLines + new string(' ', depth * 2) + child);
@@ -99,8 +108,21 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                 Math.Max(_wrapWidth, prefixOtherLines.Length + _wrapWidthProperties)
             );
 
-            var children = node.GetChildren();
-            var description = node.ToDescription(parentConfiguration);
+            List<DiagnosticsNode> children;
+            try {
+                children = node.GetChildren();
+            } catch (Exception ex) {
+                children = new[] {
+                    DiagnosticsNode.Message("Error while getting children: " + ex.GetType().Name + " - " + ex.Message)
+                }.ToList();
+            }
+            
+            string description;
+            try {
+                description = node.ToDescription(parentConfiguration);
+            } catch (Exception ex) {
+                description = "Error while getting description: " + ex.GetType().Name + " - " + ex.Message;
+            }
 
             if (config.BeforeName.Length > 0) builder.Write(config.BeforeName);
 
@@ -146,8 +168,15 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
             if (config.SuffixLineOne.Length > 0)
                 builder.WriteStretched(config.SuffixLineOne, builder.WrapWidth ?? _wrapWidth);
 
-            var propertiesEnumerable =
-                node.GetProperties().Where(n => !n.IsFiltered(_minLevel));
+            IEnumerable<DiagnosticsNode> propertiesEnumerable;
+            try {
+                propertiesEnumerable = node.GetProperties().Where(n => !n.IsFiltered(_minLevel));
+            } catch (Exception ex) {
+                propertiesEnumerable = new[] {
+                    DiagnosticsNode.Message("Error while getting properties: " + ex.GetType().Name + " - " + ex.Message)
+                };
+            }
+            
             List<DiagnosticsNode> properties;
 
             if (_maxDescendantsTruncatableNode >= 0 && node.AllowTruncate) {

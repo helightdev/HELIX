@@ -34,7 +34,7 @@ namespace HELIX.Widgets.Elements {
             Apply(previous, widget);
             Modifier.ApplyDelta(Descriptor, updated, this);
             Descriptor = updated;
-            DefaultReconciler.ReconcileCollection(this, widget.children, this);
+            Reconciler.ReconcileCollection(this, widget.children, this);
             return true;
         }
 
@@ -46,4 +46,6 @@ namespace HELIX.Widgets.Elements {
                 .ToList();
         }
     }
+    
+    public interface IPreferExplicitFlex {}
 }

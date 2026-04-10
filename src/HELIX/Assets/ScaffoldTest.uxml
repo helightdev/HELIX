@@ -3,7 +3,7 @@
         <HELIX.Widgets.Elements.GenericTextInput text-input-style="LightNeutral" cursor-color="rgb(0, 0, 0)" selection-color="rgba(255, 10, 0, 0.38)" focusable="true" name="GenericTextInput" value="Test1234" expands="true" class="helix-textfield-style-light" style="height: 31px; background-color: rgb(255, 255, 255);"/>
         <HELIX.Widgets.Elements.GenericSlider value="0.5" thumb-range="0" name="GenericSlider" style="height: 30px;">
             <thumb-factory>
-                <HELIX.Widgets.Input.SimpleGenericSliderThumb track-height="80%">
+                <HELIX.Widgets.Elements.SimpleGenericSliderThumb track-height="80%">
                     <paint>
                         <HELIX.Widgets.Visual.ScriptablePainter>
                             <builders>
@@ -18,7 +18,7 @@
                             </drawers>
                         </HELIX.Widgets.Visual.ScriptablePainter>
                     </paint>
-                </HELIX.Widgets.Input.SimpleGenericSliderThumb>
+                </HELIX.Widgets.Elements.SimpleGenericSliderThumb>
             </thumb-factory>
         </HELIX.Widgets.Elements.GenericSlider>
         <HELIX.Widgets.Elements.GenericTextInput name="" text-input-style="DarkNeutral" expands="true" value="Test" style="height: 31px; background-color: rgb(24, 24, 24); color: rgb(255, 255, 255);"/>

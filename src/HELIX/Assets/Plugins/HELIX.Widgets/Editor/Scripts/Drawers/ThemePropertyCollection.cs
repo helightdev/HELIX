@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using HELIX.Widgets.Theming;
+using UnityEngine;
 
 namespace HELIX.Widgets.Editor {
     public static class ThemePropertyCollection {
@@ -18,6 +20,23 @@ namespace HELIX.Widgets.Editor {
         public static List<string> GetCollectionsOfType(Type type) {
             if (_loadedDictionary == null) Load();
             return _loadedDictionary.GetValueOrDefault(type, new List<string> { "None" });
+        }
+        
+        private static bool TryGetThemeValueTypeArgument(Type type, out Type valueType) {
+            valueType = null;
+
+            var current = type;
+            while (current != null && current != typeof(object)) {
+                if (current.IsGenericType &&
+                    current.GetGenericTypeDefinition() == typeof(BaseThemeProperty<>)) {
+                    valueType = current.GetGenericArguments()[0];
+                    return true;
+                }
+
+                current = current.BaseType;
+            }
+
+            return false;
         }
 
         private static void Load() {
@@ -41,7 +60,9 @@ namespace HELIX.Widgets.Editor {
             foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static)) {
                 var name = $"{type.FullName}:{field.Name}";
                 allTypes.Add(name);
-                var generic = field.FieldType.GetGenericArguments()[0];
+                if (!TryGetThemeValueTypeArgument(field.FieldType, out var generic)) {
+                    continue;
+                }
                 var typeList = dict.GetValueOrDefault(generic, new List<string>());
                 typeList.Add(name);
                 dict[generic] = typeList;

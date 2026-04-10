@@ -6,6 +6,7 @@ using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Signals;
+using HELIX.Widgets.Theming;
 using UnityEngine;
 
 namespace HELIX.Widgets {
@@ -13,7 +14,7 @@ namespace HELIX.Widgets {
 
     public abstract class StatefulWidget<T> : Widget, IStatefulWidget where T : StatefulWidget<T> {
         protected StatefulWidget() {
-            AddModifier(ModifierFallbacks.FlexFill);
+            AddModifier(ModifierFallbacks.ImplicitFlexFill);
         }
 
         public abstract WidgetState<T> CreateState();
@@ -85,18 +86,27 @@ namespace HELIX.Widgets {
                         new ErrorHint("Consider using listeners or signals for value driven state management")
                     }
                 ).Report(DiagnosticLevel.Warning);
-            } else ModificationBarrier.RunRebuild(this);
+            } else ModificationBarrier.Rebuild(this);
         }
 
-        protected override void OnThemeUpdated() {
-            base.OnThemeUpdated();
+        protected override void OnWatchedThemeUpdated(ThemeProperty property, object value) {
+            base.OnWatchedThemeUpdated(property, value);
             OnDependencyUpdated();
         }
 
+        public override S GetThemed<S>(BaseThemeProperty<S> property) {
+            return ThemeValue(property).Value;
+        }
+        
+        public override bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value) {
+            ThemeValue(property);
+            return ThemeProviderElement.TryResolve(property, out value);
+        }
+        
         private void OnDependencyUpdated() {
             if (isDisposed) return;
             if (Descriptor == null) return;
-            ModificationBarrier.RunRebuild(this);
+            ModificationBarrier.Rebuild(this);
         }
 
         protected override IBuildable GetBuildableForWidget(T previous, T widget) {
@@ -150,7 +160,7 @@ namespace HELIX.Widgets {
         }
 
         public override string ToStringShort() {
-            return $"{State.GetType().Name}:Element#{this.ShortHash()}";
+            return $"{typeof(T).Name}:Element#{this.ShortHash()}";
         }
     }
 

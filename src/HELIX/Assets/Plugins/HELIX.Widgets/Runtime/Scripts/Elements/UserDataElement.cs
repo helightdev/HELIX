@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Formatting;
+using HELIX.Widgets.Theming;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
@@ -11,6 +12,16 @@ namespace HELIX.Widgets.Elements {
         public int HierarchyDepth { get; set; }
         public abstract bool CanReconcile(Widget updated);
         public abstract bool Reconcile(Widget updated);
+        
+        public T GetThemed<T>(BaseThemeProperty<T> property) {
+            return property.TypedDefaultValue;
+        }
+
+        public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value) {
+            value = property.TypedDefaultValue;
+            return false;
+        }
+
 
         public virtual List<DiagnosticsNode> DebugDescribeChildren() {
             return new List<DiagnosticsNode>();

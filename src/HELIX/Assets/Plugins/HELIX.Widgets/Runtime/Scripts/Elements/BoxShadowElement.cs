@@ -25,7 +25,8 @@ namespace HELIX.Widgets.Elements {
                 style = {
                     backgroundColor = _shadowColor,
                     position = Position.Absolute
-                }
+                },
+                usageHints = UsageHints.DynamicColor | UsageHints.DynamicPostProcessing
             };
             _colorArena = TweenStateArena.ColorArena(
                 this,

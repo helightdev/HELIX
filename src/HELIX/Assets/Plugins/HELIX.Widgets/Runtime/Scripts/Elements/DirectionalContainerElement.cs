@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
     public abstract partial class
-        DirectionalContainerElement : MultiChildWidgetBaseElement<DirectionalContainerWidget> {
+        DirectionalContainerElement : MultiChildWidgetBaseElement<DirectionalContainerWidget>, IPreferExplicitFlex {
         private Align _crossAxisAlign;
         private float _gap;
         private Justify _mainAxisAlign;
@@ -133,7 +133,7 @@ namespace HELIX.Widgets.Elements {
             for (var i = 0; i < contentContainer.childCount; i++) {
                 var child = contentContainer[i];
                 if (child.ClassListContains("generated-gap")) continue;
-                elements.Add(DefaultReconciler.ExpandElement(child));
+                elements.Add(Reconciler.ExpandElement(child));
             }
         }
 

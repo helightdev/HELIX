@@ -30,7 +30,7 @@ namespace HELIX.Widgets.Elements {
             try {
                 Descriptor = updated;
                 var child = GetChildFromWidget(previous, widget);
-                DefaultReconciler.ReconcileSingle(this, child, this);
+                Reconciler.ReconcileSingle(this, child, this);
             } catch {
                 Descriptor = previous;
                 throw;
@@ -44,7 +44,7 @@ namespace HELIX.Widgets.Elements {
 
         public override List<DiagnosticsNode> DebugDescribeChildren() {
             var list = new List<DiagnosticsNode>();
-            var child = DefaultReconciler.ExpandElement(Child);
+            var child = Reconciler.ExpandElement(Child);
             if (child == null) return list;
             list.Add(child.ToDiagnosticsNodeSafe());
             return list;

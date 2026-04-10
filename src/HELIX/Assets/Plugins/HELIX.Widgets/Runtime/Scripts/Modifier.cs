@@ -101,11 +101,19 @@ namespace HELIX.Widgets {
         public static T Fill<T>(this T element) where T : Widget {
             return element.WithModifier(FlexibleModifier.Fill);
         }
-        
+
+        public static T Shrink<T>(this T element) where T : Widget {
+            return element.WithModifier(FlexibleModifier.Shrink);
+        }
+
         public static T Tight<T>(this T element) where T : Widget {
             return element.WithModifier(FlexibleModifier.Tight);
         }
 
+        public static T TightStretch<T>(this T element) where T : Widget {
+            return element.WithModifier(FlexibleModifier.TightStretch);
+        }
+        
         public static T Expand<T>(this T element, float flex = 1f, Align selfCrossAxisAlign = Align.Auto)
             where T : Widget {
             if (Mathf.Approximately(flex, 1f) && selfCrossAxisAlign == Align.Auto)

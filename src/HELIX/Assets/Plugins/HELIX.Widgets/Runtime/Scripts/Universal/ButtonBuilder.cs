@@ -17,7 +17,8 @@ namespace HELIX.Widgets.Universal {
         public bool selected = false;
 
         public ButtonBuilder() {
-            modifiers.Add(_defaultFocus);
+            AddModifier(_defaultFocus);
+            AddModifier(ModifierFallbacks.ImplicitFlexFill);
         }
 
         public override IWidgetElement CreateElement() {

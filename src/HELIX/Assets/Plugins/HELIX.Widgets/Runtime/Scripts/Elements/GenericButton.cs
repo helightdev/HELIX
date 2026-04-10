@@ -32,9 +32,15 @@ namespace HELIX.Widgets.Elements {
         private BuildFunction<WidgetState> Builder { get; set; }
 
         public void HandleClick() {
+            Debug.Log("Button clicked!");
             if (!Enabled) return;
-            if (Descriptor is ButtonBuilder bb && bb.onClick != null)
-                ModificationBarrier.Run(() => { bb.onClick.Invoke(); });
+            if (Descriptor is ButtonBuilder bb && bb.onClick != null) {
+                Debug.Log("Invoking button's onClick action...");
+                ModificationBarrier.Run(() => {
+                    Debug.Log("Inside ModificationBarrier, invoking onClick...");
+                    bb.onClick.Invoke();
+                });
+            }
 
             onClick?.Invoke();
         }
@@ -42,7 +48,7 @@ namespace HELIX.Widgets.Elements {
         public void UpdateWidgetState(WidgetState newState) {
             if (newState == state) return;
             state = newState;
-            if (Builder != null && Descriptor != null) ModificationBarrier.RunRebuild(this);
+            if (Builder != null && Descriptor != null) ModificationBarrier.Rebuild(this);
         }
 
         public override void Apply(ButtonBuilder previous, ButtonBuilder widget) {

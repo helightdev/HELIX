@@ -6,35 +6,55 @@ using HELIX.Widgets.Elements;
 using HELIX.Widgets.Theming;
 using UnityEngine;
 using UnityEngine.UIElements;
-using WidgetThemeComponent = HELIX.Widgets.Theming.WidgetThemeComponent;
 
 [ThemePropertyCollection]
 public static class MyThemes {
-    public static readonly ThemeProperty<Color> PrimaryColor =
-        ThemeProperty.Theme<Color>("c-primary", ExampleThemeComponent.Default);
+    // public static readonly ThemeProperty<Color> PrimaryColor1 = new ThemePropertyBuilder<Color>()
+    //     .Key("c-primary").StyleLoader().ComponentExtractor<ExampleThemeComponent>(component => component.primaryColor)
+    //     .Build();
 
-    public static readonly ThemeProperty<Color> PrimaryWashedColor =
-        ThemeProperty.Theme<Color>("c-primary-washed", ExampleThemeComponent.Default);
+    public static readonly ThemeProperty<Color> PrimaryColor = ThemeProperty.ExtractMaybe(
+        "c-primary",
+        ExampleThemeComponent.Default,
+        component => component.primaryColor
+    ).StyleLoader();
+    //ThemeProperty.Theme<Color>("c-primary", ExampleThemeComponent.Default);
 
-    public static readonly ThemeProperty<ElementFactory<VisualElement>> WidgetFactory =
-        ThemeProperty.WidgetFactory<VisualElement>("example-factory", ExampleThemeComponent.Default);
+    public static readonly ThemeProperty<Color> PrimaryWashedColor = ThemeProperty.ExtractMaybe(
+        "c-primary-washed",
+        ExampleThemeComponent.Default,
+        component => component.primaryWashedColor
+    ).StyleLoader();
+    
+    public static readonly ThemeProperty<ElementFactory<VisualElement>> ExampleFactory = ThemeProperty.Extract(
+        "example-factory",
+        ExampleThemeComponent.Default,
+        component => component.factory as ElementFactory<VisualElement>
+    );
+
+    public static readonly IReadOnlyList<ThemeProperty> Properties =
+        new ThemeProperty[] { PrimaryColor, PrimaryWashedColor, ExampleFactory };
 }
 
 [UxmlObject, Serializable]
-public partial class ExampleThemeComponent : WidgetThemeComponent {
+public partial class ExampleThemeComponent : ThemeComponent {
     public static readonly ExampleThemeComponent Default = new() {
         factory = new TestFactory(),
         primaryColor = Color.white,
         primaryWashedColor = Color.white,
     };
-    
+
+    public ExampleThemeComponent() {
+        lookupScope = MyThemes.Properties;
+    }
+
     [Header("Example Theme Component")]
     [UxmlObjectReference("example-factory")]
-    public VisualElementElementFactory factory;
+    public VisualElementFactory factory;
 
     [UxmlAttribute("c-primary")]
     public ThemeOptional<Color> primaryColor;
-    
+
     [UxmlAttribute("c-primary-washed")]
     public ThemeOptional<Color> primaryWashedColor;
 
@@ -43,14 +63,14 @@ public partial class ExampleThemeComponent : WidgetThemeComponent {
 }
 
 [UxmlWidgetFactory, UxmlObject]
-public partial class TestFactory : VisualElementElementFactory {
+public partial class TestFactory : VisualElementFactory {
     public override VisualElement Create(BaseElement parentElement) {
         return new Label("Hello, World!").Sized(width: 25);
     }
 }
 
 [UxmlWidgetFactory, UxmlObject]
-public partial class AnotherTestFactory : VisualElementElementFactory {
+public partial class AnotherTestFactory : VisualElementFactory {
     public override VisualElement Create(BaseElement parentElement) {
         return new Label("This is just another test!").Positioned(right: 0, bottom: 0).Flexible();
     }
@@ -59,8 +79,8 @@ public partial class AnotherTestFactory : VisualElementElementFactory {
 [UxmlElement]
 public partial class Example : BaseElement {
     private readonly ThemeValue<Color> _primaryColor;
-    private readonly WidgetFactorySlot<VisualElement> _factorySlotSlot;
-    public IPublicWidgetFactorySlot<VisualElement> FactorySlot => _factorySlotSlot;
+    private readonly ElementFactorySlot<VisualElement> _factorySlotSlot;
+    public IPublicElementFactorySlot<VisualElement> FactorySlot => _factorySlotSlot;
 
     [UxmlAttribute]
     public ThemeOverride<Color> PrimaryColor {
@@ -72,14 +92,14 @@ public partial class Example : BaseElement {
     public ThemeOverride<Texture2D> SomeTexture { get; set; }
 
     [UxmlObjectReference("factory")]
-    public VisualElementElementFactory FactoryMapped {
-        get => _factorySlotSlot.GetMapped<VisualElementElementFactory>();
+    public VisualElementFactory FactoryMapped {
+        get => _factorySlotSlot.GetMapped<VisualElementFactory>();
         set => _factorySlotSlot.SetMapped(value);
     }
 
     public Example() {
         _primaryColor = ThemeValue(MyThemes.PrimaryColor, OnPrimaryColorChanged);
-        _factorySlotSlot = WidgetFactorySlot(MyThemes.WidgetFactory);
+        _factorySlotSlot = WidgetFactorySlot(MyThemes.ExampleFactory);
         _factorySlotSlot.StretchToParentSize();
         Add(_factorySlotSlot);
     }
@@ -94,8 +114,8 @@ public partial class PerformUpdateWidget : BaseElement {
     public PerformUpdateWidget() {
         var button = new Button() { text = "Update me!" };
         button.clicked += () => {
-            ThemeProvider.Components =
-                new List<WidgetThemeComponent> { new ExampleThemeComponent { factory = new AnotherTestFactory() } };
+            ThemeProviderElement.Components =
+                new List<ThemeComponent> { new ExampleThemeComponent { factory = new AnotherTestFactory() } };
         };
         Add(button);
     }

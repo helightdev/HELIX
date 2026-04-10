@@ -1,4 +1,4 @@
-:root {
+:root,.style-target {
     --c-surface-dark: rgb(24, 24, 24);
     --c-surface: rgb(33, 33, 33);
     --c-border: rgb(40, 40, 40);
