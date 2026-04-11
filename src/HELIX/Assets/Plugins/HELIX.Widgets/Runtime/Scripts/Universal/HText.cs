@@ -5,7 +5,7 @@ using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
-    public class Text : WrappingBaseWidget<Text, Label> {
+    public class HText : WrappingBaseWidget<HText, Label> {
         private static readonly Modifier _spacingFallback =
             new SpacingModifier(StyleLength4.Zero, StyleLength4.Zero) { isFallback = true };
 
@@ -20,7 +20,7 @@ namespace HELIX.Widgets.Universal {
         public readonly string text;
         public readonly bool tripleClickSelectsLine;
 
-        public Text(
+        public HText(
             string text,
             bool enableRichText = false,
             bool emojiFallbackSupport = true,
@@ -47,7 +47,7 @@ namespace HELIX.Widgets.Universal {
             return new Label();
         }
 
-        public override void Apply(Text previous, Label element) {
+        public override void Apply(HText previous, Label element) {
             if (text != element.text) element.text = text;
             element.enableRichText = enableRichText;
             element.emojiFallbackSupport = emojiFallbackSupport;

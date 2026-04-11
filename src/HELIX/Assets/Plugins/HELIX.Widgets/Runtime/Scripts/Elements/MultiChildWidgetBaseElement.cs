@@ -38,8 +38,6 @@ namespace HELIX.Widgets.Elements {
             return true;
         }
 
-        public virtual void Apply(T previous, T widget) { }
-
         public override List<DiagnosticsNode> DebugDescribeChildren() {
             return new HierarchyDescriptionCollection(contentContainer).Elements
                 .Select(x => x.ToDiagnosticsNodeSafe())

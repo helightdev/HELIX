@@ -51,11 +51,11 @@ namespace HELIX.Widgets.Signals {
             return _cachedValue;
         }
 
-        public override void SetValue(T value) {
+        public override void SetValue(T newValue) {
             throw new NotImplementedException();
         }
 
-        public override void SetWithoutNotify(T value) {
+        public override void SetWithoutNotify(T newValue) {
             throw new NotImplementedException();
         }
 

@@ -3,10 +3,10 @@ using System.Text;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
-    public struct BoxConstraints : IEquatable<BoxConstraints> {
-        public StyleLength2 preferred;
-        public StyleLength2 min;
-        public StyleLength2 max;
+    public readonly struct BoxConstraints : IEquatable<BoxConstraints> {
+        public readonly StyleLength2 preferred;
+        public readonly StyleLength2 min;
+        public readonly StyleLength2 max;
 
         public BoxConstraints(StyleLength2 preferred, StyleLength2 min, StyleLength2 max) {
             this.preferred = preferred;

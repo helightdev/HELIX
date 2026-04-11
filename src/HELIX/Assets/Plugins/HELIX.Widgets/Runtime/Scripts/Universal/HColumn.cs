@@ -1,9 +1,9 @@
 using HELIX.Widgets.Elements;
 
 namespace HELIX.Widgets.Universal {
-    public class FlexCenter : SingleChildWidget {
+    public class HColumn : DirectionalContainerWidget {
         public override IWidgetElement CreateElement() {
-            return ReconcileInto(new CenterElement());
+            return ReconcileInto(new ColumnElement());
         }
     }
 }

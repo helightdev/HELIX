@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -17,6 +18,12 @@ namespace HELIX.Coloring {
             this.weights = weights;
             value = GetWeight(5);
         }
+        
+        public ColorSwatch(LchColor[] weights) {
+            this.weights = weights.Select(x => x.ToGamma()).ToArray();
+            value = GetWeight(5);
+        }
+
 
         private Color GetWeight(int index) {
             if (index < 0 || index >= weights.Length) return value;

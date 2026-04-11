@@ -39,7 +39,6 @@ namespace HELIX.Widgets.Elements {
             return true;
         }
 
-        public virtual void Apply(T previous, T widget) { }
         protected abstract Widget GetChildFromWidget(T previous, T widget);
 
         public override List<DiagnosticsNode> DebugDescribeChildren() {

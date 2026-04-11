@@ -69,5 +69,16 @@ namespace HELIX.Widgets.Elements {
         public override bool CanReconcile(Widget updated) {
             return updated is T;
         }
+        
+        public override bool Reconcile(Widget updated) {
+            if (updated is not T widget) return false;
+            var previous = TypedDescriptor;
+            Apply(previous, widget);
+            Modifier.ApplyDelta(previous, updated, this);
+            Descriptor = updated;
+            return true;
+        }
+
+        public virtual void Apply(T previous, T widget) { }
     }
 }

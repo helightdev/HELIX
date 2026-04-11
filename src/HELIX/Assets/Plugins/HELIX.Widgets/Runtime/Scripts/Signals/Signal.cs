@@ -115,13 +115,13 @@ namespace HELIX.Widgets.Signals {
             );
         }
 
-        public bool AddObserver(ISignalObserver observer) {
+        public virtual bool AddObserver(ISignalObserver observer) {
             var result = _observers.Add(observer);
             if (result) observer.OnSignalAdded(this);
             return result;
         }
 
-        public bool RemoveObserver(ISignalObserver observer) {
+        public virtual bool RemoveObserver(ISignalObserver observer) {
             var result = _observers.Remove(observer);
             if (result) observer.OnSignalRemoved(this);
             return result;
@@ -160,8 +160,8 @@ namespace HELIX.Widgets.Signals {
         }
 
         public abstract T PeekValue();
-        public abstract void SetValue(T value);
-        public abstract void SetWithoutNotify(T value);
+        public abstract void SetValue(T newValue);
+        public abstract void SetWithoutNotify(T newValue);
 
         public IDisposable AddObserver(Action<T> onChanged, bool fireImmediately = false) {
             var observer = new FunctionSignalObserver(() => onChanged?.Invoke(PeekValue()));

@@ -15,14 +15,16 @@ namespace HELIX.Widgets.Universal {
         public override Widget Build(BuildContext context) {
             return new ButtonBuilder {
                 builder = (_, state) => {
-                    Widget inner = new Container {
+                    Widget inner = new HBox {
                         backgroundStyle = style.backgroundStyle.ResolveOrDefault(state),
                         borderRadius = style.borderRadius.ResolveOrDefault(state, BorderRadius.None),
-                        constraints = style.constraints.ResolveOrDefault(state, BoxConstraints.Initial),
                         border = style.border.ResolveOrDefault(state, Border.None),
                         alignment = style.alignment.ResolveOrDefault(state, Alignment.Center),
                         child = child,
                         Modifiers = new Modifier[] {
+                            new SizeModifier(
+                                style.constraints.ResolveOrDefault(state, BoxConstraints.Initial)
+                            ),
                             new TextStyleModifier(style.textStyle.ResolveOrDefault(state)), new SpacingModifier(
                                 style.padding.ResolveOrDefault(state, StyleLength4.Zero),
                                 StyleLength4.Zero

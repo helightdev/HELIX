@@ -3,10 +3,10 @@ using HELIX.Widgets.Elements;
 using HELIX.Widgets.Modifiers;
 
 namespace HELIX.Widgets.Universal {
-    public class FlexAlign : SingleChildWidget {
+    public class HAlign : SingleChildWidget {
         public Alignment alignment;
 
-        public FlexAlign() {
+        public HAlign() {
             modifiers.Add(ModifierFallbacks.FlexFill);
         }
 

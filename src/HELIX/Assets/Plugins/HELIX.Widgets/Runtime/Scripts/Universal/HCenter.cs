@@ -1,10 +1,9 @@
 using HELIX.Widgets.Elements;
-using UnityEngine;
 
 namespace HELIX.Widgets.Universal {
-    public class FlexRow : DirectionalContainerWidget {
+    public class HCenter : SingleChildWidget {
         public override IWidgetElement CreateElement() {
-            return ReconcileInto(new RowElement());
+            return ReconcileInto(new CenterElement());
         }
     }
 }

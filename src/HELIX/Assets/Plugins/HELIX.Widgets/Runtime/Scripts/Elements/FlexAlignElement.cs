@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
-    public partial class FlexAlignElement : SingleChildWidgetBaseElement<FlexAlign>, IPreferExplicitFlex {
+    public partial class FlexAlignElement : SingleChildWidgetBaseElement<HAlign>, IPreferExplicitFlex {
         private readonly VisualElement _bottomSpacer;
         private readonly VisualElement _leftSpacer;
         private readonly VisualElement _rightSpacer;
@@ -67,7 +67,7 @@ namespace HELIX.Widgets.Elements {
             _rightSpacer.style.flexGrow = (1 - horizontal) * 100;
         }
 
-        public override void Apply(FlexAlign previous, FlexAlign widget) {
+        public override void Apply(HAlign previous, HAlign widget) {
             base.Apply(previous, widget);
             Alignment = widget.alignment;
         }

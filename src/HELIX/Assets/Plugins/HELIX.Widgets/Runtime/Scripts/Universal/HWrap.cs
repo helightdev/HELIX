@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal
 {
-    public class FlexWrap : MultiChildWidget {
+    public class HWrap : MultiChildWidget {
         public Axis axis = Axis.Horizontal;
         public Align crossAxisAlign = Align.FlexStart;
         public Justify mainAxisAlign = Justify.FlexStart;
@@ -26,8 +26,8 @@ namespace HELIX.Widgets.Universal
         }
     }
     
-    public class FlexWrapElement : MultiChildWidgetBaseElement<FlexWrap> {
-        public override void Apply(FlexWrap previous, FlexWrap widget) {
+    public class FlexWrapElement : MultiChildWidgetBaseElement<HWrap> {
+        public override void Apply(HWrap previous, HWrap widget) {
             base.Apply(previous, widget);
             if (widget.axis == Axis.Horizontal) {
                 style.flexDirection = widget.reverse ? FlexDirection.RowReverse : FlexDirection.Row;

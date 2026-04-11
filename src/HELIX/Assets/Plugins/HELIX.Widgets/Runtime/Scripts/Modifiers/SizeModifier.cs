@@ -1,6 +1,5 @@
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
-using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -11,43 +10,31 @@ namespace HELIX.Widgets.Modifiers {
             StyleLength2.Initial
         );
 
-        public readonly StyleLength2 maxSize;
-        public readonly StyleLength2 minSize;
-        public readonly StyleLength2 size;
+        public readonly BoxConstraints constraints;
 
         public SizeModifier(StyleLength2 size, StyleLength2 minSize, StyleLength2 maxSize) {
-            this.size = size;
-            this.minSize = minSize;
-            this.maxSize = maxSize;
+            constraints  = new BoxConstraints(size, minSize, maxSize);
+        }
+
+        public SizeModifier(BoxConstraints constraints) {
+            this.constraints = constraints;
         }
 
         public SizeModifier() {
-            size = StyleLength2.Initial;
-            minSize = StyleLength2.Initial;
-            maxSize = StyleLength2.Initial;
+            constraints = BoxConstraints.Initial;
         }
 
         public override void Apply(VisualElement element) {
-            element.style.width = size.w;
-            element.style.height = size.h;
-            element.style.minWidth = minSize.w;
-            element.style.minHeight = minSize.h;
-            element.style.maxWidth = maxSize.w;
-            element.style.maxHeight = maxSize.h;
+            constraints.Apply(element);
         }
 
         public override void Reset(VisualElement element) {
-            element.style.width = StyleKeyword.Initial;
-            element.style.height = StyleKeyword.Initial;
-            element.style.minWidth = StyleKeyword.Initial;
-            element.style.minHeight = StyleKeyword.Initial;
-            element.style.maxWidth = StyleKeyword.Initial;
-            element.style.maxHeight = StyleKeyword.Initial;
+            BoxConstraints.Initial.Apply(element);
         }
 
         public override bool HasChanged(Modifier previous) {
             if (previous is not SizeModifier prev) return true;
-            return !size.Equals(prev.size) || !minSize.Equals(prev.minSize) || !maxSize.Equals(prev.maxSize);
+            return !Equals(constraints, prev.constraints);
         }
 
         public static SizeModifier Of(StyleLength width, StyleLength height) {
@@ -71,7 +58,7 @@ namespace HELIX.Widgets.Modifiers {
             properties.Add(
                 new DiagnosticsProperty<BoxConstraints>(
                     "constraints",
-                    new BoxConstraints(size, minSize, maxSize),
+                    constraints,
                     defaultValue: BoxConstraints.Initial,
                     showName: false
                 )

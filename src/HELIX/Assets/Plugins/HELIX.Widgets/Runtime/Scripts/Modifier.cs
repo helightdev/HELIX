@@ -159,6 +159,13 @@ namespace HELIX.Widgets {
             );
             return element;
         }
+        
+        public static T Size<T>(this T element, StyleLength? width = null, StyleLength? height = null) where T : Widget {
+            return element.WithModifier(SizeModifier.Of(
+                width ?? StyleKeyword.Initial,
+                height ?? StyleKeyword.Initial
+            ));
+        }
 
         public static T Const<T>(this T element, params object[] values) where T : Widget {
             element.constants = values;

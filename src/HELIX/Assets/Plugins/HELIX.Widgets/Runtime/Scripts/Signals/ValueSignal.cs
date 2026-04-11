@@ -4,26 +4,26 @@ using HELIX.Widgets.Diagnostics;
 namespace HELIX.Widgets.Signals {
     public class ValueSignal<T> : Signal<T> {
         private readonly bool _equality;
-        private T _value;
+        protected T value;
 
         public ValueSignal(T value = default, bool equality = true) {
-            _value = value;
+            this.value = value;
             _equality = equality;
         }
 
         public override T PeekValue() {
-            return _value;
+            return value;
         }
 
-        public override void SetValue(T value) {
-            if (_equality && EqualityComparer<T>.Default.Equals(_value, value)) return;
-            _value = value;
+        public override void SetValue(T newValue) {
+            if (_equality && EqualityComparer<T>.Default.Equals(value, newValue)) return;
+            value = newValue;
             NotifyDirty();
             NotifyObservers();
         }
 
-        public override void SetWithoutNotify(T value) {
-            _value = value;
+        public override void SetWithoutNotify(T newValue) {
+            value = newValue;
             NotifyDirty();
         }
 
@@ -38,7 +38,7 @@ namespace HELIX.Widgets.Signals {
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
-            properties.Add(new DiagnosticsProperty<T>("value", _value, showName: false));
+            properties.Add(new DiagnosticsProperty<T>("value", value, showName: false));
         }
     }
 }
