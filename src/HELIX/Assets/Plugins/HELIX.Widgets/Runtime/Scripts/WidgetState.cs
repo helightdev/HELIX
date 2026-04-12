@@ -2,14 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 
 // ReSharper disable Unity.BurstLoadingManagedType
 // ReSharper disable Unity.BurstAccessingManagedMethod
 
 namespace HELIX.Widgets {
     [Flags]
-    public enum WidgetState : byte {
+    public enum WidgetState : ushort {
         None = 0,
+        
         Hovered = 1 << 0,
         Focused = 1 << 1,
         Pressed = 1 << 2,
@@ -17,10 +20,22 @@ namespace HELIX.Widgets {
         Selected = 1 << 4,
         Disabled = 1 << 5,
         Error = 1 << 6,
-        Negative = 1 << 7
+        
+        InputMouse = 1 << 9,
+        InputKeyboard = 1 << 10,
+        InputGamepad = 1 << 11,
+        InputTouch = 1 << 12,
+        
+        MetaInputPointer = InputMouse | InputTouch,
+        MetaInputButton = InputKeyboard | InputGamepad,
+        
+        ModNot = 1 << 14,
+        ModAny = 1 << 15
     }
 
     public static class WidgetStateExtensions {
+        public const WidgetState OperatorMask = WidgetState.ModNot | WidgetState.ModAny;
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Hovered(this WidgetState state) {
             return state.HasFlag(WidgetState.Hovered);
@@ -61,10 +76,16 @@ namespace HELIX.Widgets {
             return state.HasFlag(WidgetState.Error);
         }
 
-        public static bool Matches(this WidgetState actual, WidgetState mask) {
-            if (!mask.HasFlag(WidgetState.Negative)) return (actual & mask) == mask;
-            var withoutMod = mask & ~WidgetState.Negative;
-            return (actual & withoutMod) == 0;
+        public static bool Matches(this WidgetState actual, WidgetState query) {
+            var subject = query & ~OperatorMask;
+            var any = (query & WidgetState.ModAny) != 0;
+            var not = (query & WidgetState.ModNot) != 0;
+
+            var result = any
+                ? (actual & subject) != 0
+                : (actual & subject) == subject;
+
+            return not ? !result : result;
         }
 
         public static string ToStateString(this WidgetState state) {
@@ -98,7 +119,7 @@ namespace HELIX.Widgets {
         }
     }
 
-    public class WidgetStatePropertyMap<T> : IWidgetStateProperty<T> {
+    public class WidgetStatePropertyMap<T> : DiagnosticableBase, IWidgetStateProperty<T> {
         private readonly List<Pair> _values = new();
 
         public T this[WidgetState state] {
@@ -133,6 +154,11 @@ namespace HELIX.Widgets {
             return _values != null ? _values.GetHashCode() : 0;
         }
 
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new IterableProperty<Pair>("values", _values, showName: false));
+        }
+
         private readonly struct Pair : IEquatable<Pair> {
             public readonly WidgetState mask;
             public readonly T value;
@@ -153,6 +179,10 @@ namespace HELIX.Widgets {
             public override int GetHashCode() {
                 return HashCode.Combine((int)mask, value);
             }
+
+            public override string ToString() {
+                return $"{mask.ToStateString()} => {value}";
+            }
         }
     }
 
@@ -163,6 +193,26 @@ namespace HELIX.Widgets {
         public bool TryResolve(WidgetState state, out T value) {
             value = default;
             return false;
+        }
+
+        protected bool Equals(NeverWidgetStateProperty<T> other) {
+            return true;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is null) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != GetType()) return false;
+            return Equals((NeverWidgetStateProperty<T>)obj);
+        }
+
+        public override int GetHashCode() {
+            return 0;
+        }
+
+        public override string ToString() {
+            return "Never";
         }
     }
 
@@ -188,6 +238,10 @@ namespace HELIX.Widgets {
 
         public override int GetHashCode() {
             return EqualityComparer<T>.Default.GetHashCode(_constant);
+        }
+
+        public override string ToString() {
+            return $"All({_constant})";
         }
     }
 

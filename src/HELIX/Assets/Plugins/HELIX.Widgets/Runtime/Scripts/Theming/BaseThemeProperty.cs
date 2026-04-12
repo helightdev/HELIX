@@ -91,11 +91,16 @@ namespace HELIX.Widgets.Theming {
             properties.Add(new FlagProperty("isDefaultValid", IsDefaultValid, ifFalse: "InvalidDefaultValue"));
         }
 
-        public virtual bool Resolve(ICustomStyle customStyle, out T result) {
+        public virtual bool ResolveStyle(ICustomStyle customStyle, out T result) {
             result = defaultValue;
             return false;
         }
 
+        public virtual bool TryCompute(ThemeProviderElement provider, out T result) {
+            result = defaultValue;
+            return false;
+        }
+        
         public override object DefaultValue => defaultValue;
 
         public T TypedDefaultValue => defaultValue;
@@ -104,6 +109,7 @@ namespace HELIX.Widgets.Theming {
     public class ThemeProperty<T> : BaseThemeProperty<T> {
         private IThemeStyleValueLoader<T> _styleLoader;
         private Dictionary<Type, Func<object, object>> _componentExtractors;
+        private Func<ThemeProviderElement, T> _computeFunc;
         private string _styleName;
 
         public ThemeProperty(
@@ -175,11 +181,16 @@ namespace HELIX.Widgets.Theming {
         ) where TypeOfMaybe : IMaybeThemeValue<T> {
             ComponentExtractor(extractor);
             var maybeThemeValue = extractor(value);
-            isDefaultValid = maybeThemeValue.TryGetThemeValueTyped(out defaultValue);
+            isDefaultValid = maybeThemeValue?.TryGetThemeValueTyped(out defaultValue) ?? false;
+            return this;
+        }
+        
+        public ThemeProperty<T> Compute(Func<ThemeProviderElement, T> computeFunc) {
+            _computeFunc = computeFunc;
             return this;
         }
 
-        public override bool Resolve(ICustomStyle customStyle, out T result) {
+        public override bool ResolveStyle(ICustomStyle customStyle, out T result) {
             if (_styleLoader == null) {
                 result = defaultValue;
                 return false;
@@ -195,6 +206,16 @@ namespace HELIX.Widgets.Theming {
             }
 
             if (_styleLoader.Load(styleName, customStyle, out result)) return true;
+            result = defaultValue;
+            return false;
+        }
+
+        public override bool TryCompute(ThemeProviderElement provider, out T result) {
+            if (_computeFunc != null) {
+                result = _computeFunc(provider);
+                return true;
+            }
+            
             result = defaultValue;
             return false;
         }

@@ -15,7 +15,7 @@ namespace HELIX.Coloring {
         
         public LchColor(Color linear) : this() {
             var rgb = new float3(linear.r, linear.g, linear.b);
-            var components = OkLabHelper.ToLch(OkLabHelper.FromSrgb(rgb));
+            var components = OkLabHelper.ToLch(OkLabHelper.FromLinearRgb(rgb));
             l = components.x;
             c = components.y;
             h = components.z;
@@ -51,7 +51,8 @@ namespace HELIX.Coloring {
         }
 
         public static explicit operator Color(LchColor color) {
-            var comp = OkLabHelper.ToSrgb(OkLabHelper.FromLch(color));
+            var lab = OkLabHelper.FromLch(color);
+            var comp = OkLabHelper.ToLinearRgb(lab);
             return new Color(comp.x, comp.y, comp.z);
         }
 

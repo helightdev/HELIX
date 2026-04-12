@@ -6,8 +6,6 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HText : WrappingBaseWidget<HText, Label> {
-        private static readonly Modifier _spacingFallback =
-            new SpacingModifier(StyleLength4.Zero, StyleLength4.Zero) { isFallback = true };
 
         public readonly bool doubleClickSelectsWords;
         public readonly bool emojiFallbackSupport;
@@ -31,6 +29,9 @@ namespace HELIX.Widgets.Universal {
             LanguageDirection languageDirection = LanguageDirection.Inherit,
             TextStyle style = null
         ) {
+            AddModifier(ModifierFallbacks.PaddingZero);
+            AddModifier(ModifierFallbacks.MarginZero);
+            
             this.text = text;
             this.enableRichText = enableRichText;
             this.emojiFallbackSupport = emojiFallbackSupport;
@@ -40,7 +41,6 @@ namespace HELIX.Widgets.Universal {
             this.tripleClickSelectsLine = tripleClickSelectsLine;
             this.languageDirection = languageDirection;
             this.style = style;
-            modifiers.Add(_spacingFallback);
         }
 
         public override Label Create() {

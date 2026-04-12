@@ -44,6 +44,7 @@ namespace HELIX.Widgets {
             }
         }
 
+        // ReSharper disable Unity.PerformanceAnalysis
         private static void RunCallbacks() {
             if (_postFrameCallbacks.Count == 0) return;
             var maxDepth = MaxCallbacksPerFrame;
@@ -58,6 +59,9 @@ namespace HELIX.Widgets {
             Debug.LogWarning("Maximum post-frame callback depth reached, delaying until next frame.");
         }
 
+        // ReSharper disable Unity.PerformanceAnalysis
+        // ReSharper disable Unity.PerformanceAnalysis
+        // ReSharper disable Unity.PerformanceAnalysis
         private static void RunTail() {
             if (_insideTail) return;
             if (_pendingRebuilds.Count == 0) return;

@@ -1,5 +1,6 @@
 using HELIX.Extensions;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Utilities;
 using UnityEngine.UIElements;
 
@@ -9,6 +10,10 @@ namespace HELIX.Widgets.Scrolling {
         public BuildFunction<int> itemBuilder;
         public float fixedItemHeight = -1;
         public ScrollController scrollController;
+
+        public HListView() {
+            AddModifier(ModifierFallbacks.ImplicitFlexFill);
+        }
 
         public override IWidgetElement CreateElement() => ReconcileInto(new HListViewElement());
     }
@@ -70,7 +75,7 @@ namespace HELIX.Widgets.Scrolling {
 
         public override void Apply(HListView previous, HListView widget) {
             base.Apply(previous, widget);
-            
+
             if (_dummyList.Count != widget.itemCount) {
                 _dummyList.Count = widget.itemCount;
                 _listView.itemsSource = _dummyList;

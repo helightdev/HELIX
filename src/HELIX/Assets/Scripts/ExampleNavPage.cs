@@ -1,3 +1,4 @@
+using System.Linq;
 using HELIX.Abstractions;
 using HELIX.Coloring;
 using HELIX.Extensions;
@@ -72,9 +73,21 @@ public partial class ExampleScaffoldPopup : BaseElement {
 public partial class HelixColorSwatchVisualizer : BaseElement {
     public HelixColorSwatchVisualizer() {
         this.FlexContainer(crossAxisAlign: Align.Stretch).Stretched();
-        foreach (var (swatchName, swatch) in Colors.Named) {
-            Add(new Label(swatchName).Tight());
-            Add(new SwatchVisualizer(swatch).Flexible());
+        // foreach (var (swatchName, swatch) in Colors.Named) {
+        //     var closestRadixTemplate = RadixSwatches.PickClosestTemplate(swatch);
+        //     var text = $"{swatchName}, closest {closestRadixTemplate.name}";
+        //     Add(new Label(text).Tight());
+        //     // Add(new SwatchVisualizer(swatch.weights).Flexible());
+        //     Add(new SwatchVisualizer(RadixSwatches.Generate(swatch, false, closestRadixTemplate)).Flexible());
+        //     Add(new SwatchVisualizer(RadixSwatches.Generate(swatch, true, closestRadixTemplate)).Flexible());
+        // }
+
+        foreach (var template in Colors.All) {
+            Add(new Label(template.name).Tight());
+            // Add(new SwatchVisualizer(swatch.weights).Flexible());
+            Add(new SwatchVisualizer(template.weight).Flexible());
+            Add(new SwatchVisualizer(template.lightColors).Flexible());
+            Add(new SwatchVisualizer(template.darkColors).Flexible());
         }
     }
 }

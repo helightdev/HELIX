@@ -41,8 +41,8 @@ namespace HELIX.Widgets.Elements {
 
                 if (hasNoGap) return;
                 foreach (var visualElement in Children())
-                    if (visualElement.ClassListContains("generated-gap"))
-                        visualElement.style.width = _gap;
+                    if (visualElement.ClassListContains("generated-gap") && visualElement is SpacerElement spacer)
+                        spacer.Width = _gap;
             }
         }
 

@@ -15,6 +15,7 @@ using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Signals;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Styles;
+using HELIX.Widgets.Universal.Theme;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -24,15 +25,12 @@ using Random = UnityEngine.Random;
 [UxmlElement]
 public partial class NewTest : WidgetHostElement {
     public NewTest() {
-        Buildable = new NavStack {
-            child = new Scaffold {
-                child = new ScrollExample()
-            }
-        }.Stretch().ToBuildable();
+        Buildable = new NavStack { child = new Scaffold { child = new ScrollExample() } }.Stretch().ToBuildable();
     }
 
     public override bool Reconcile(Widget updated) {
         base.Reconcile(updated);
+        Debug.Log(this.ToStringDeep());
         return true;
     }
 }
@@ -45,42 +43,62 @@ public class ScrollExample : StatefulWidget<ScrollExample> {
 
 public class ScrollExampleState : WidgetState<ScrollExample> {
     private readonly List<Widget> _children = Enumerable.Range(0, 1000).Select(i => {
-        return new HBox {
-            backgroundStyle = new BackgroundStyle {
-                color = Colors.All[i % Colors.All.Length].W500
-            }
-        }.Flexible(selfCrossAxisAlign: Align.Stretch);
-    }).ToList<Widget>();
-    
+            return new HBox { backgroundStyle = new BackgroundStyle { color = Colors.All[i % Colors.All.Length].W500 } }
+                .Flexible(selfCrossAxisAlign: Align.Stretch);
+        }
+    ).ToList<Widget>();
+
     private ScrollController _controller = new();
     private bool toggle = true;
-    
+
     public override Widget Build(BuildContext context) {
-        return new HColumn() {
-            children = new WidgetList {
-                new StyleButton() {
-                    child = new HText("Toggle Scroll"),
-                    onClick = SetState(() => toggle = !toggle)
-                }.Tight(),
-                new StyleButton() {
-                    child = new HText("Scroll to zero"),
-                    onClick = () => {
-                        _controller.AnimateTo(0, 5f, EasingMode.EaseOut);
-                    }
-                }.Tight(),
-                new HListView {
-                    itemCount = 1000,
-                    fixedItemHeight = 50,
-                    scrollController = _controller,
-                    itemBuilder = (_, index) => new HBox {
-                        backgroundStyle = new BackgroundStyle {
-                            color = Colors.All[index % Colors.All.Length].W500
-                        }
-                    }.Size(height: 100, width: StyleKeyword.Auto)
-                }.Fill().If(toggle)
-            }
-        }.Stretch();
+        var style = DefaultButtonStyles.DefaultThemeOf(
+            context,
+            Colors.Indigo.Light,
+            HButtonVariant.Soft,
+            HButtonSize.Regular,
+            HInputRadius.Small,
+            true
+        );
         
+        return new HBox {
+            backgroundStyle = context.GetThemed(PrimitiveTheme.Surface),
+            child = new HColumn {
+                gap = 8,
+                children = new WidgetList {
+                    new HRow {
+                        gap = 8,
+                        children = new Widget[] {
+                            new HButton {
+                                style = style,
+                                child = new HText("Toggle Scroll"),
+                                onClick = SetState(() => toggle = !toggle)
+                            }.Tight(),
+                            new HButton {
+                                style = style,
+                                child = new HText("Scroll to zero"),
+                                onClick = () => { _controller.AnimateTo(0, 5f, EasingMode.EaseOut); }
+                            }.Tight(),
+                        }
+                    },
+                    new HBox {
+                        borderRadius = BorderRadius.All(context.GetThemed(PrimitiveBaseTheme.Radius).Radius4),
+                        child = new HListView {
+                            itemCount = 1000,
+                            fixedItemHeight = 50,
+                            scrollController = _controller,
+                            itemBuilder =
+                                (_, index) =>
+                                    new HBox { backgroundStyle = Colors.All[index % Colors.All.Length].W500 }.Size(
+                                        height: 100,
+                                        width: StyleKeyword.Auto
+                                    )
+                        }
+                    }.WithModifier(ClipModifier.Clip).Fill().If(toggle)
+                }
+            }.WithModifier(PaddingModifier.Of(8)).Fill()
+        }.Stretch();
+
         return new FactoryWidget<ListView> {
             creator = () => new ListView {
                 makeItem = () => new WidgetHostElement(),
@@ -103,7 +121,6 @@ public class ScrollExampleState : WidgetState<ScrollExample> {
         };
     }
 }
-
 
 public class InteractiveExample : StatefulWidget<InteractiveExample> {
     public Color onColor = Colors.Green;
@@ -134,9 +151,9 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
 
     public static readonly Signal<int> Counter = Signal.Value(3);
     public static readonly Signal<int> Computed = Signal.Computed(() => Counter * 100);
-    public static readonly Signal<int> Combined = Signal.Computed(() => Counter + Computed );
+    public static readonly Signal<int> Combined = Signal.Computed(() => Counter + Computed);
 
-    public static readonly SimpleButtonStyle ButtonStyle = new() {
+    public static readonly HButtonStyle ButtonStyle = new() {
         backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
             [WidgetState.Hovered | WidgetState.Selected] = new BackgroundStyle { color = Colors.Blue.W50 },
             [WidgetState.Pressed | WidgetState.Selected] = new BackgroundStyle { color = Colors.Blue.W50 },
@@ -151,7 +168,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
             WidgetStateProperties.All(new Transition[] { new(StyleProperties.BackgroundColor) { duration = 0.1f } }),
         boxShadow = new WidgetStatePropertyMap<BoxShadowStyle> {
             [WidgetState.Hovered] = new BoxShadowStyle(),
-            [WidgetState.Focused] = new BoxShadowStyle { shadowColor = Colors.Blue.value.WithOpacity(0.5f) },
+            [WidgetState.Focused] = new BoxShadowStyle { shadowColor = Colors.Blue.W500.WithOpacity(0.5f) },
             [WidgetState.None] = null
         },
         border = new WidgetStatePropertyMap<Border> {
@@ -164,14 +181,15 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
     private int rebuildCounter = 0;
 
     public override void InitState() {
-        HelixDiagnostics.Build("Init InteractiveExampleState", collector => collector
-            .OwnerChain(mount)
-            .OffendingElement(mount as IWidgetElement)
+        HelixDiagnostics.Build(
+            "Init InteractiveExampleState",
+            collector => collector
+                .OwnerChain(mount)
+                .OffendingElement(mount as IWidgetElement)
         ).Report(DiagnosticLevel.Info);
     }
 
-    public override void DidUpdateWidget(InteractiveExample oldWidget) {
-    }
+    public override void DidUpdateWidget(InteractiveExample oldWidget) { }
 
     public override void Dispose() {
         base.Dispose();
@@ -210,7 +228,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                     key = "display",
                     spreadRadius = 5,
                     child = new HBox {
-                        backgroundStyle = new BackgroundStyle { color = isOn ? widget.onColor : widget.offColor },
+                        backgroundStyle = isOn ? widget.onColor : widget.offColor,
                         borderRadius = BorderRadius.All(10),
                         child = new HAlign {
                             alignment = isOn ? new Alignment(0.66f, 0.66f) : new Alignment(-0.66f, -0.66f),
@@ -222,7 +240,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                     }.Size(200, 200)
                 },
                 new HText($"Hello World! {Combined.Value}"), //
-                new TestComponent { key = testComponentKey}.Tight().Const().If(Counter % 5 == 0),
+                new TestComponent { key = testComponentKey }.Tight().Const().If(Counter % 5 == 0),
                 new ButtonBuilder {
                     enabled = isOn,
                     selected = Counter % 5 == 0,
@@ -236,7 +254,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                     borderRadius = BorderRadius.All(10),
                     alignment = Alignment.CenterLeft,
                     child = new HBox {
-                        backgroundStyle = new BackgroundStyle { color =  context.GetThemed(MyThemes.PrimaryColor) },
+                        backgroundStyle = new BackgroundStyle { color = context.GetThemed(MyThemes.PrimaryColor) },
                         borderRadius = BorderRadius.All(10),
                         Modifiers = new Modifier[] {
                             TransitionsModifier.Of(new Transition(StyleProperties.All)),
@@ -244,7 +262,7 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                         }
                     }
                 }.Size(200, 20),
-                new StyleButton {
+                new HButton {
                     key = "Toggle",
                     style = ButtonStyle,
                     child = new HText("Toggle"),
@@ -255,27 +273,23 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
                         Debug.Log("Updated Counter: " + Counter.Value);
                     }
                 }.Tight(),
-                new StyleButton {
+                new HButton {
                     key = "Remove",
                     style = ButtonStyle,
                     child = new HText("Remove"),
                     onClick = () => { Counter.Value--; }
                 },
-                new StyleButton {
+                new HButton {
                     key = "Popup",
                     style = ButtonStyle,
                     child = new HText("Popup"),
-                    onClick = () => {
-                        ScaffoldElement.Get(context.Element).AddOverlay(new NewTest().Stretched());
-                    }
+                    onClick = () => { ScaffoldElement.Get(context.Element).AddOverlay(new NewTest().Stretched()); }
                 },
-                new StyleButton {
+                new HButton {
                     key = "Pop",
                     style = ButtonStyle,
                     child = new HText("Pop"),
-                    onClick = () => {
-                        OverlayEntry.Nearest(context.Element)?.Pop();
-                    }
+                    onClick = () => { OverlayEntry.Nearest(context.Element)?.Pop(); }
                 }.Fill(),
                 new HWrap {
                     key = "Boxes",
@@ -288,13 +302,16 @@ public class InteractiveExampleState : WidgetState<InteractiveExample> {
 
 public class TestComponent : StatelessWidget<TestComponent> {
     public override Widget Build(BuildContext context) {
-        return new HText("Hello from TestComponent!", style: new TextStyle() {
-            align = TextAnchor.MiddleCenter,
-            fontSize = 20.Percent(),
-            overflow = TextOverflow.Ellipsis,
-            shadow = StyleKeyword.Auto,
-            color = Colors.Red
-        });
+        return new HText(
+            "Hello from TestComponent!",
+            style: new TextStyle() {
+                align = TextAnchor.MiddleCenter,
+                fontSize = 20.Percent(),
+                overflow = TextOverflow.Ellipsis,
+                shadow = StyleKeyword.Auto,
+                color = Colors.Red
+            }
+        );
     }
 }
 

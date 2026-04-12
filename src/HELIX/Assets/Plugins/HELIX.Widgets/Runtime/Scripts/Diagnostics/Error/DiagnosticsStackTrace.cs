@@ -9,7 +9,7 @@ namespace HELIX.Widgets.Diagnostics.Error {
         public DiagnosticsStackTrace(
             string name,
             string stackTrace,
-            bool userReduced = true,
+            bool userReduced = false,
             DiagnosticsTreeStyle style = DiagnosticsTreeStyle.Flat,
             DiagnosticLevel level = DiagnosticLevel.Error
         )

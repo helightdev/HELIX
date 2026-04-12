@@ -5,22 +5,22 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Types {
     public class TextStyle : IEquatable<TextStyle> {
-        public StyleFont font = StyleKeyword.Initial;
-        public StyleLength fontSize = StyleKeyword.Initial;
-        public StyleColor color = StyleKeyword.Initial;
-        public StyleEnum<TextAnchor> align = StyleKeyword.Initial;
-        public StyleEnum<FontStyle> style = StyleKeyword.Initial;
-        public StyleEnum<WhiteSpace> wrap = StyleKeyword.Initial;
-        public StyleColor outlineColor = StyleKeyword.Initial;
-        public StyleFloat outlineWidth = StyleKeyword.Initial;
-        public StyleLength letterSpacing = StyleKeyword.Initial;
-        public StyleLength wordSpacing = StyleKeyword.Initial;
-        public StyleLength paragraphSpacing = StyleKeyword.Initial;
-        public StyleEnum<TextOverflow> overflow = StyleKeyword.Initial;
-        public StyleEnum<TextOverflowPosition> overflowPosition = StyleKeyword.Initial;
-        public StyleTextShadow shadow = StyleKeyword.Initial;
-        public StyleTextAutoSize autoSize = StyleKeyword.Initial;
-        public StyleEnum<TextGeneratorType> generator = StyleKeyword.Initial;
+        public StyleFont font = StyleKeyword.Null;
+        public StyleLength fontSize = StyleKeyword.Null;
+        public StyleColor color = StyleKeyword.Null;
+        public StyleEnum<TextAnchor> align = StyleKeyword.Null;
+        public StyleEnum<FontStyle> style = StyleKeyword.Null;
+        public StyleEnum<WhiteSpace> wrap = StyleKeyword.Null;
+        public StyleColor outlineColor = StyleKeyword.Null;
+        public StyleFloat outlineWidth = StyleKeyword.Null;
+        public StyleLength letterSpacing = StyleKeyword.Null;
+        public StyleLength wordSpacing = StyleKeyword.Null;
+        public StyleLength paragraphSpacing = StyleKeyword.Null;
+        public StyleEnum<TextOverflow> overflow = StyleKeyword.Null;
+        public StyleEnum<TextOverflowPosition> overflowPosition = StyleKeyword.Null;
+        public StyleTextShadow shadow = StyleKeyword.Null;
+        public StyleTextAutoSize autoSize = StyleKeyword.Null;
+        public StyleEnum<TextGeneratorType> generator = StyleKeyword.Null;
 
         public void Apply(VisualElement element) {
             element.style.unityFont = font;
@@ -43,24 +43,24 @@ namespace HELIX.Types {
         }
 
         public void Merge(TextStyle overrides) {
-            if (overrides.style.keyword != StyleKeyword.Initial) style = overrides.style;
-            if (overrides.font.keyword != StyleKeyword.Initial) font = overrides.font;
-            if (overrides.fontSize.keyword != StyleKeyword.Initial) fontSize = overrides.fontSize;
-            if (overrides.color.keyword != StyleKeyword.Initial) color = overrides.color;
-            if (overrides.align.keyword != StyleKeyword.Initial) align = overrides.align;
-            if (overrides.wrap.keyword != StyleKeyword.Initial) wrap = overrides.wrap;
-            if (overrides.outlineColor.keyword != StyleKeyword.Initial) outlineColor = overrides.outlineColor;
-            if (overrides.outlineWidth.keyword != StyleKeyword.Initial) outlineWidth = overrides.outlineWidth;
-            if (overrides.letterSpacing.keyword != StyleKeyword.Initial) letterSpacing = overrides.letterSpacing;
-            if (overrides.wordSpacing.keyword != StyleKeyword.Initial) wordSpacing = overrides.wordSpacing;
-            if (overrides.paragraphSpacing.keyword != StyleKeyword.Initial)
+            if (overrides.style.keyword != StyleKeyword.Null) style = overrides.style;
+            if (overrides.font.keyword != StyleKeyword.Null) font = overrides.font;
+            if (overrides.fontSize.keyword != StyleKeyword.Null) fontSize = overrides.fontSize;
+            if (overrides.color.keyword != StyleKeyword.Null) color = overrides.color;
+            if (overrides.align.keyword != StyleKeyword.Null) align = overrides.align;
+            if (overrides.wrap.keyword != StyleKeyword.Null) wrap = overrides.wrap;
+            if (overrides.outlineColor.keyword != StyleKeyword.Null) outlineColor = overrides.outlineColor;
+            if (overrides.outlineWidth.keyword != StyleKeyword.Null) outlineWidth = overrides.outlineWidth;
+            if (overrides.letterSpacing.keyword != StyleKeyword.Null) letterSpacing = overrides.letterSpacing;
+            if (overrides.wordSpacing.keyword != StyleKeyword.Null) wordSpacing = overrides.wordSpacing;
+            if (overrides.paragraphSpacing.keyword != StyleKeyword.Null)
                 paragraphSpacing = overrides.paragraphSpacing;
-            if (overrides.overflow.keyword != StyleKeyword.Initial) overflow = overrides.overflow;
-            if (overrides.overflowPosition.keyword != StyleKeyword.Initial)
+            if (overrides.overflow.keyword != StyleKeyword.Null) overflow = overrides.overflow;
+            if (overrides.overflowPosition.keyword != StyleKeyword.Null)
                 overflowPosition = overrides.overflowPosition;
-            if (overrides.shadow.keyword != StyleKeyword.Initial) shadow = overrides.shadow;
-            if (overrides.autoSize.keyword != StyleKeyword.Initial) autoSize = overrides.autoSize;
-            if (overrides.generator.keyword != StyleKeyword.Initial) generator = overrides.generator;
+            if (overrides.shadow.keyword != StyleKeyword.Null) shadow = overrides.shadow;
+            if (overrides.autoSize.keyword != StyleKeyword.Null) autoSize = overrides.autoSize;
+            if (overrides.generator.keyword != StyleKeyword.Null) generator = overrides.generator;
         }
 
         public bool Equals(TextStyle other) {

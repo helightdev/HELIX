@@ -39,6 +39,10 @@ namespace HELIX.Widgets {
 
             modifiers.Add(modifier);
         }
+        
+        public void AddModifiers(IEnumerable<Modifier> additions) {
+            foreach (var modifier in additions) AddModifier(modifier);
+        }
 
         public override string ToStringShort() {
             var name = GetWidgetName();

@@ -52,7 +52,7 @@ namespace HELIX.Widgets {
                 foreach (var modifier in current)
                     modifier.Apply(element);
         }
-
+        
         public override string ToStringShort() {
             var name = GetType().Name;
             if (name.EndsWith("Modifier")) name = name[..^"Modifier".Length];
@@ -182,6 +182,11 @@ namespace HELIX.Widgets {
 
         public static T Opacity<T>(this T element, float opacity) where T : Widget {
             return element.WithModifier(OpacityModifier.Of(opacity));
+        }
+        
+        public static T Fallback<T>(this T modifier) where T : Modifier {
+            modifier.isFallback = true;
+            return modifier;
         }
     }
 }

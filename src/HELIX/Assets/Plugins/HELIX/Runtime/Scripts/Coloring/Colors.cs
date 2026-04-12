@@ -5,241 +5,394 @@ using UnityEngine;
 
 namespace HELIX.Coloring {
     public static class Colors {
-        public static readonly ColorSwatch Red = new(
-            new LchColor[] {
-                new(0.971f, 0.013f, 17.38f), new(0.936f, 0.032f, 17.717f), new(0.885f, 0.062f, 18.334f),
-                new(0.808f, 0.114f, 19.571f), new(0.704f, 0.191f, 22.216f), new(0.637f, 0.237f, 25.331f),
-                new(0.577f, 0.245f, 27.325f), new(0.505f, 0.213f, 27.518f), new(0.444f, 0.177f, 26.899f),
-                new(0.396f, 0.141f, 25.723f), new(0.258f, 0.092f, 26.042f),
+        public static RadixSwatch Neutral => Gray;
+        
+        public static readonly RadixSwatch Gray = new(
+            "gray",
+            new[] {
+                "#fcfcfc", "#f9f9f9", "#f0f0f0", "#e8e8e8", "#e0e0e0", "#d9d9d9", "#cecece", "#bbbbbb", "#8d8d8d",
+                "#838383", "#646464", "#202020"
+            },
+            new[] {
+                "#111111", "#191919", "#222222", "#2a2a2a", "#313131", "#3a3a3a", "#484848", "#606060", "#6e6e6e",
+                "#7b7b7b", "#b4b4b4", "#eeeeee"
             }
         );
 
-        public static readonly ColorSwatch Orange = new(
-            new LchColor[] {
-                new(0.980f, 0.016f, 73.684f), new(0.954f, 0.038f, 75.164f), new(0.901f, 0.076f, 70.697f),
-                new(0.837f, 0.128f, 66.29f), new(0.750f, 0.183f, 55.934f), new(0.705f, 0.213f, 47.604f),
-                new(0.646f, 0.222f, 41.116f), new(0.553f, 0.195f, 38.402f), new(0.470f, 0.157f, 37.304f),
-                new(0.408f, 0.123f, 38.172f), new(0.266f, 0.079f, 36.259f),
+        public static readonly RadixSwatch Mauve = new(
+            "mauve",
+            new[] {
+                "#fdfcfd", "#faf9fb", "#f2eff3", "#eae7ec", "#e3dfe6", "#dbd8e0", "#d0cdd7", "#bcbac7", "#8e8c99",
+                "#84828e", "#65636d", "#211f26",
+            },
+            new[] {
+                "#121113", "#1a191b", "#232225", "#2b292d", "#323035", "#3c393f", "#49474e", "#625f69", "#6f6d78",
+                "#7c7a85", "#b5b2bc", "#eeeef0",
             }
         );
 
-        public static readonly ColorSwatch Amber = new(
-            new LchColor[] {
-                new(0.987f, 0.022f, 95.277f), new(0.962f, 0.059f, 95.617f), new(0.924f, 0.120f, 95.746f),
-                new(0.879f, 0.169f, 91.605f), new(0.828f, 0.189f, 84.429f), new(0.769f, 0.188f, 70.08f),
-                new(0.666f, 0.179f, 58.318f), new(0.555f, 0.163f, 48.998f), new(0.473f, 0.137f, 46.201f),
-                new(0.414f, 0.112f, 45.904f), new(0.279f, 0.077f, 45.635f),
+        public static readonly RadixSwatch Slate = new(
+            "slate",
+            new[] {
+                "#fcfcfd", "#f9f9fb", "#f0f0f3", "#e8e8ec", "#e0e1e6", "#d9d9e0", "#cdced6", "#b9bbc6", "#8b8d98",
+                "#80838d", "#60646c", "#1c2024",
+            },
+            new[] {
+                "#111113", "#18191b", "#212225", "#272a2d", "#2e3135", "#363a3f", "#43484e", "#5a6169", "#696e77",
+                "#777b84", "#b0b4ba", "#edeef0",
             }
         );
 
-        public static readonly ColorSwatch Yellow = new(
-            new LchColor[] {
-                new(0.987f, 0.026f, 102.212f), new(0.973f, 0.071f, 103.193f), new(0.945f, 0.129f, 101.54f),
-                new(0.905f, 0.182f, 98.111f), new(0.852f, 0.199f, 91.936f), new(0.795f, 0.184f, 86.047f),
-                new(0.681f, 0.162f, 75.834f), new(0.554f, 0.135f, 66.442f), new(0.476f, 0.114f, 61.907f),
-                new(0.421f, 0.095f, 57.708f), new(0.286f, 0.066f, 53.813f),
+        public static readonly RadixSwatch Sage = new(
+            "sage",
+            new[] {
+                "#fbfdfc", "#f7f9f8", "#eef1f0", "#e6e9e8", "#dfe2e0", "#d7dad9", "#cbcfcd", "#b8bcba", "#868e8b",
+                "#7c8481", "#5f6563", "#1a211e"
+            },
+            new[] {
+                "#101211", "#171918", "#202221", "#272a29", "#2e3130", "#373b39", "#444947", "#5b625f", "#63706b",
+                "#717d79", "#adb5b2", "#eceeed"
             }
         );
 
-        public static readonly ColorSwatch Lime = new(
-            new LchColor[] {
-                new(0.986f, 0.031f, 120.757f), new(0.967f, 0.067f, 122.328f), new(0.938f, 0.127f, 124.321f),
-                new(0.897f, 0.196f, 126.665f), new(0.841f, 0.238f, 128.85f), new(0.768f, 0.233f, 130.85f),
-                new(0.648f, 0.200f, 131.684f), new(0.532f, 0.157f, 131.589f), new(0.453f, 0.124f, 130.933f),
-                new(0.405f, 0.101f, 131.063f), new(0.274f, 0.072f, 132.109f),
+        public static readonly RadixSwatch Olive = new(
+            "olive",
+            new[] {
+                "#fcfdfc", "#f8faf8", "#eff1ef", "#e7e9e7", "#dfe2df", "#d7dad7", "#cccfcc", "#b9bcb8", "#898e87",
+                "#7f847d", "#60655f", "#1d211c"
+            },
+            new[] {
+                "#111210", "#181917", "#212220", "#282a27", "#2f312e", "#383a36", "#454843", "#5c625b", "#687066",
+                "#767d74", "#afb5ad", "#eceeec"
             }
         );
 
-        public static readonly ColorSwatch Green = new(
-            new LchColor[] {
-                new(0.982f, 0.018f, 155.826f), new(0.962f, 0.044f, 156.743f), new(0.925f, 0.084f, 155.995f),
-                new(0.871f, 0.150f, 154.449f), new(0.792f, 0.209f, 151.711f), new(0.723f, 0.219f, 149.579f),
-                new(0.627f, 0.194f, 149.214f), new(0.527f, 0.154f, 150.069f), new(0.448f, 0.119f, 151.328f),
-                new(0.393f, 0.095f, 152.535f), new(0.266f, 0.065f, 152.934f),
+        public static readonly RadixSwatch Sand = new(
+            "sand",
+            new[] {
+                "#fdfdfc", "#f9f9f8", "#f1f0ef", "#e9e8e6", "#e2e1de", "#dad9d6", "#cfceca", "#bcbbb5", "#8d8d86",
+                "#82827c", "#63635e", "#21201c",
+            },
+            new[] {
+                "#111110", "#191918", "#222221", "#2a2a28", "#31312e", "#3b3a37", "#494844", "#62605b", "#6f6d66",
+                "#7c7b74", "#b5b3ad", "#eeeeec",
             }
         );
 
-        public static readonly ColorSwatch Emerald = new(
-            new LchColor[] {
-                new(0.979f, 0.021f, 166.113f), new(0.950f, 0.052f, 163.051f), new(0.905f, 0.093f, 164.15f),
-                new(0.845f, 0.143f, 164.978f), new(0.765f, 0.177f, 163.223f), new(0.696f, 0.170f, 162.48f),
-                new(0.596f, 0.145f, 163.225f), new(0.508f, 0.118f, 165.612f), new(0.432f, 0.095f, 166.913f),
-                new(0.378f, 0.077f, 168.94f), new(0.262f, 0.051f, 172.552f),
+        public static readonly RadixSwatch Tomato = new(
+            "tomato",
+            new[] {
+                "#fffcfc", "#fff8f7", "#feebe7", "#ffdcd3", "#ffcdc2", "#fdbdaf", "#f5a898", "#ec8e7b", "#e54d2e",
+                "#dd4425", "#d13415", "#5c271f",
+            },
+            new[] {
+                "#181111", "#1f1513", "#391714", "#4e1511", "#5e1c16", "#6e2920", "#853a2d", "#ac4d39", "#e54d2e",
+                "#ec6142", "#ff977d", "#fbd3cb",
             }
         );
 
-        public static readonly ColorSwatch Teal = new(
-            new LchColor[] {
-                new(0.984f, 0.014f, 180.72f), new(0.953f, 0.051f, 180.801f), new(0.910f, 0.096f, 180.426f),
-                new(0.855f, 0.138f, 181.071f), new(0.777f, 0.152f, 181.912f), new(0.704f, 0.140f, 182.503f),
-                new(0.600f, 0.118f, 184.704f), new(0.511f, 0.096f, 186.391f), new(0.437f, 0.078f, 188.216f),
-                new(0.386f, 0.063f, 188.416f), new(0.277f, 0.046f, 192.524f),
+        public static readonly RadixSwatch Red = new(
+            "red",
+            new[] {
+                "#fffcfc", "#fff7f7", "#feebec", "#ffdbdc", "#ffcdce", "#fdbdbe", "#f4a9aa", "#eb8e90", "#e5484d",
+                "#dc3e42", "#ce2c31", "#641723",
+            },
+            new[] {
+                "#191111", "#201314", "#3b1219", "#500f1c", "#611623", "#72232d", "#8c333a", "#b54548", "#e5484d",
+                "#ec5d5e", "#ff9592", "#ffd1d9",
             }
         );
 
-        public static readonly ColorSwatch Cyan = new(
-            new LchColor[] {
-                new(0.984f, 0.019f, 200.873f), new(0.956f, 0.045f, 203.388f), new(0.917f, 0.080f, 205.041f),
-                new(0.865f, 0.127f, 207.078f), new(0.789f, 0.154f, 211.53f), new(0.715f, 0.143f, 215.221f),
-                new(0.609f, 0.126f, 221.723f), new(0.520f, 0.105f, 223.128f), new(0.450f, 0.085f, 224.283f),
-                new(0.398f, 0.070f, 227.392f), new(0.302f, 0.056f, 229.695f),
+        public static readonly RadixSwatch Ruby = new(
+            "ruby",
+            new[] {
+                "#fffcfd", "#fff7f8", "#feeaed", "#ffdce1", "#ffced6", "#f8bfc8", "#efacb8", "#e592a3", "#e54666",
+                "#dc3b5d", "#ca244d", "#64172b"
+            },
+            new[] {
+                "#191113", "#1e1517", "#3a141e", "#4e1325", "#5e1a2e", "#6f2539", "#883447", "#b3445a", "#e54666",
+                "#ec5a72", "#ff949d", "#fed2e1"
             }
         );
 
-        public static readonly ColorSwatch Sky = new(
-            new LchColor[] {
-                new(0.977f, 0.013f, 236.62f), new(0.951f, 0.026f, 236.824f), new(0.901f, 0.058f, 230.902f),
-                new(0.828f, 0.111f, 230.318f), new(0.746f, 0.160f, 232.661f), new(0.685f, 0.169f, 237.323f),
-                new(0.588f, 0.158f, 241.966f), new(0.500f, 0.134f, 242.749f), new(0.443f, 0.110f, 240.79f),
-                new(0.391f, 0.090f, 240.876f), new(0.293f, 0.066f, 243.157f),
+        public static readonly RadixSwatch Crimson = new(
+            "crimson",
+            new[] {
+                "#fffcfd", "#fef7f9", "#ffe9f0", "#fedce7", "#facedd", "#f3bed1", "#eaacc3", "#e093b2", "#e93d82",
+                "#df3478", "#cb1d63", "#621639",
+            },
+            new[] {
+                "#191114", "#201318", "#381525", "#4d122f", "#5c1839", "#6d2545", "#873356", "#b0436e", "#e93d82",
+                "#ee518a", "#ff92ad", "#fdd3e8",
             }
         );
 
-        public static readonly ColorSwatch Blue = new(
-            new LchColor[] {
-                new(0.970f, 0.014f, 254.604f), new(0.932f, 0.032f, 255.585f), new(0.882f, 0.059f, 254.128f),
-                new(0.809f, 0.105f, 251.813f), new(0.707f, 0.165f, 254.624f), new(0.623f, 0.214f, 259.815f),
-                new(0.546f, 0.245f, 262.881f), new(0.488f, 0.243f, 264.376f), new(0.424f, 0.199f, 265.638f),
-                new(0.379f, 0.146f, 265.522f), new(0.282f, 0.091f, 267.935f),
+        public static readonly RadixSwatch Pink = new(
+            "pink",
+            new[] {
+                "#fffcfe", "#fef7fb", "#fee9f5", "#fbdcef", "#f6cee7", "#efbfdd", "#e7acd0", "#dd93c2", "#d6409f",
+                "#cf3897", "#c2298a", "#651249"
+            },
+            new[] {
+                "#191117", "#21121d", "#37172f", "#4b143d", "#591c47", "#692955", "#833869", "#a84885", "#d6409f",
+                "#de51a8", "#ff8dcc", "#fdd1ea"
             }
         );
 
-        public static readonly ColorSwatch Indigo = new(
-            new LchColor[] {
-                new(0.962f, 0.018f, 272.314f), new(0.930f, 0.034f, 272.788f), new(0.870f, 0.065f, 274.039f),
-                new(0.785f, 0.115f, 274.713f), new(0.673f, 0.182f, 276.935f), new(0.585f, 0.233f, 277.117f),
-                new(0.511f, 0.262f, 276.966f), new(0.457f, 0.240f, 277.023f), new(0.398f, 0.195f, 277.366f),
-                new(0.359f, 0.144f, 278.697f), new(0.257f, 0.090f, 281.288f),
+        public static readonly RadixSwatch Plum = new(
+            "plum",
+            new[] {
+                "#fefcff", "#fff8ff", "#fceffc", "#f9e5f9", "#f3d8f3", "#ebc8ed", "#dfb1e1", "#cf91d8", "#ab4aba",
+                "#a144af", "#953ea3", "#53195d",
+            },
+            new[] {
+                "#181118", "#201320", "#351a35", "#451d47", "#512454", "#5e3061", "#734079", "#92549c", "#ab4aba",
+                "#b658c4", "#e796f3", "#f4d4f4",
             }
         );
 
-        public static readonly ColorSwatch Violet = new(
-            new LchColor[] {
-                new(0.969f, 0.016f, 293.756f), new(0.943f, 0.029f, 294.588f), new(0.894f, 0.057f, 293.283f),
-                new(0.811f, 0.111f, 293.571f), new(0.702f, 0.183f, 293.541f), new(0.606f, 0.250f, 292.717f),
-                new(0.541f, 0.281f, 293.009f), new(0.491f, 0.270f, 292.581f), new(0.432f, 0.232f, 292.759f),
-                new(0.380f, 0.189f, 293.745f), new(0.283f, 0.141f, 291.089f),
+        public static readonly RadixSwatch Purple = new(
+            "purple",
+            new[] {
+                "#fefcfe", "#fbf7fe", "#f7edfe", "#f2e2fc", "#ead5f9", "#e0c4f4", "#d1afec", "#be93e4", "#8e4ec6",
+                "#8347b9", "#8145b5", "#402060"
+            },
+            new[] {
+                "#18111b", "#1e1523", "#301c3b", "#3d224e", "#48295c", "#54346b", "#664282", "#8457aa", "#8e4ec6",
+                "#9a5cd0", "#d19dff", "#ecd9fa"
             }
         );
 
-        public static readonly ColorSwatch Purple = new(
-            new LchColor[] {
-                new(0.977f, 0.014f, 308.299f), new(0.946f, 0.033f, 307.174f), new(0.902f, 0.063f, 306.703f),
-                new(0.827f, 0.119f, 306.383f), new(0.714f, 0.203f, 305.504f), new(0.627f, 0.265f, 303.9f),
-                new(0.558f, 0.288f, 302.321f), new(0.496f, 0.265f, 301.924f), new(0.438f, 0.218f, 303.724f),
-                new(0.381f, 0.176f, 304.987f), new(0.291f, 0.149f, 302.717f),
+        public static readonly RadixSwatch Violet = new(
+            "violet",
+            new[] {
+                "#fdfcfe", "#faf8ff", "#f4f0fe", "#ebe4ff", "#e1d9ff", "#d4cafe", "#c2b5f5", "#aa99ec", "#6e56cf",
+                "#654dc4", "#6550b9", "#2f265f"
+            },
+            new[] {
+                "#14121f", "#1b1525", "#291f43", "#33255b", "#3c2e69", "#473876", "#56468b", "#6958ad", "#6e56cf",
+                "#7d66d9", "#baa7ff", "#e2ddfe"
             }
         );
 
-        public static readonly ColorSwatch Fuchsia = new(
-            new LchColor[] {
-                new(0.977f, 0.017f, 320.058f), new(0.952f, 0.037f, 318.852f), new(0.903f, 0.076f, 319.62f),
-                new(0.833f, 0.145f, 321.434f), new(0.740f, 0.238f, 322.16f), new(0.667f, 0.295f, 322.15f),
-                new(0.591f, 0.293f, 322.896f), new(0.518f, 0.253f, 323.949f), new(0.452f, 0.211f, 324.591f),
-                new(0.401f, 0.170f, 325.612f), new(0.293f, 0.136f, 325.661f),
+        public static readonly RadixSwatch Iris = new(
+            "iris",
+            new[] {
+                "#fdfdff", "#f8f8ff", "#f0f1fe", "#e6e7ff", "#dadcff", "#cbcdff", "#b8baf8", "#9b9ef0", "#5b5bd6",
+                "#5151cd", "#5753c6", "#272962",
+            },
+            new[] {
+                "#13131e", "#171625", "#202248", "#262a65", "#303374", "#3d3e82", "#4a4a95", "#5958b1", "#5b5bd6",
+                "#6e6ade", "#b1a9ff", "#e0dffe",
             }
         );
 
-        public static readonly ColorSwatch Pink = new(
-            new LchColor[] {
-                new(0.971f, 0.014f, 343.198f), new(0.948f, 0.028f, 342.258f), new(0.899f, 0.061f, 343.231f),
-                new(0.823f, 0.120f, 346.018f), new(0.718f, 0.202f, 349.761f), new(0.656f, 0.241f, 354.308f),
-                new(0.592f, 0.249f, 0.584f), new(0.525f, 0.223f, 3.958f), new(0.459f, 0.187f, 3.815f),
-                new(0.408f, 0.153f, 2.432f), new(0.284f, 0.109f, 3.907f),
+        public static readonly RadixSwatch Indigo = new(
+            "indigo",
+            new[] {
+                "#fdfdfe", "#f7f9ff", "#edf2fe", "#e1e9ff", "#d2deff", "#c1d0ff", "#abbdf9", "#8da4ef", "#3e63dd",
+                "#3358d4", "#3a5bc7", "#1f2d5c",
+            },
+            new[] {
+                "#11131f", "#141726", "#182449", "#1d2e62", "#253974", "#304384", "#3a4f97", "#435db1", "#3e63dd",
+                "#5472e4", "#9eb1ff", "#d6e1ff",
             }
         );
 
-        public static readonly ColorSwatch Rose = new(
-            new LchColor[] {
-                new(0.969f, 0.015f, 12.422f), new(0.941f, 0.030f, 12.58f), new(0.892f, 0.058f, 10.001f),
-                new(0.810f, 0.117f, 11.638f), new(0.712f, 0.194f, 13.428f), new(0.645f, 0.246f, 16.439f),
-                new(0.586f, 0.253f, 17.585f), new(0.514f, 0.222f, 16.935f), new(0.455f, 0.188f, 13.697f),
-                new(0.410f, 0.159f, 10.272f), new(0.271f, 0.105f, 12.094f),
+        public static readonly RadixSwatch Blue = new(
+            "blue",
+            new[] {
+                "#fbfdff", "#f4faff", "#e6f4fe", "#d5efff", "#c2e5ff", "#acd8fc", "#8ec8f6", "#5eb1ef", "#0090ff",
+                "#0588f0", "#0d74ce", "#113264",
+            },
+            new[] {
+                "#0d1520", "#111927", "#0d2847", "#003362", "#004074", "#104d87", "#205d9e", "#2870bd", "#0090ff",
+                "#3b9eff", "#70b8ff", "#c2e6ff",
             }
         );
 
-        public static readonly ColorSwatch Slate = new(
-            new LchColor[] {
-                new(0.984f, 0.003f, 247.858f), new(0.968f, 0.007f, 247.896f), new(0.929f, 0.013f, 255.508f),
-                new(0.869f, 0.022f, 252.894f), new(0.704f, 0.040f, 256.788f), new(0.554f, 0.046f, 257.417f),
-                new(0.446f, 0.043f, 257.281f), new(0.372f, 0.044f, 257.287f), new(0.279f, 0.041f, 260.031f),
-                new(0.208f, 0.042f, 265.755f), new(0.129f, 0.042f, 264.695f),
+        public static readonly RadixSwatch Cyan = new(
+            "cyan",
+            new[] {
+                "#fafdfe", "#f2fafb", "#def7f9", "#caf1f6", "#b5e9f0", "#9ddde7", "#7dcedc", "#3db9cf", "#00a2c7",
+                "#0797b9", "#107d98", "#0d3c48"
+            },
+            new[] {
+                "#0b161a", "#101b20", "#082c36", "#003848", "#004558", "#045468", "#12677e", "#11809c", "#00a2c7",
+                "#23afd0", "#4ccce6", "#b6ecf7"
             }
         );
 
-        public static readonly ColorSwatch Gray = new(
-            new LchColor[] {
-                new(0.985f, 0.002f, 247.839f), new(0.967f, 0.003f, 264.542f), new(0.928f, 0.006f, 264.531f),
-                new(0.872f, 0.010f, 258.338f), new(0.707f, 0.022f, 261.325f), new(0.551f, 0.027f, 264.364f),
-                new(0.446f, 0.030f, 256.802f), new(0.373f, 0.034f, 259.733f), new(0.278f, 0.033f, 256.848f),
-                new(0.210f, 0.034f, 264.665f), new(0.130f, 0.028f, 261.692f),
+        public static readonly RadixSwatch Teal = new(
+            "teal",
+            new[] {
+                "#fafefd", "#f3fbf9", "#e0f8f3", "#ccf3ea", "#b8eae0", "#a1ded2", "#83cdc1", "#53b9ab", "#12a594",
+                "#0d9b8a", "#008573", "#0d3d38"
+            },
+            new[] {
+                "#0d1514", "#111c1b", "#0d2d2a", "#023b37", "#084843", "#145750", "#1c6961", "#207e73", "#12a594",
+                "#0eb39e", "#0bd8b6", "#adf0dd"
             }
         );
 
-        public static readonly ColorSwatch Zinc = new(
-            new LchColor[] {
-                new(0.985f, 0.000f, 0f), new(0.967f, 0.001f, 286.375f), new(0.920f, 0.004f, 286.32f),
-                new(0.871f, 0.006f, 286.286f), new(0.705f, 0.015f, 286.067f), new(0.552f, 0.016f, 285.938f),
-                new(0.442f, 0.017f, 285.786f), new(0.370f, 0.013f, 285.805f), new(0.274f, 0.006f, 286.033f),
-                new(0.210f, 0.006f, 285.885f), new(0.141f, 0.005f, 285.823f),
+        public static readonly RadixSwatch Jade = new(
+            "jade",
+            new[] {
+                "#fbfefd", "#f4fbf7", "#e6f7ed", "#d6f1e3", "#c3e9d7", "#acdec8", "#8bceb6", "#56ba9f", "#29a383",
+                "#26997b", "#208368", "#1d3b31",
+            },
+            new[] {
+                "#0d1512", "#121c18", "#0f2e22", "#0b3b2c", "#114837", "#1b5745", "#246854", "#2a7e68", "#29a383",
+                "#27b08b", "#1fd8a4", "#adf0d4",
             }
         );
 
-        public static readonly ColorSwatch Neutral = new(
-            new LchColor[] {
-                new(0.985f, 0.000f, 0f), new(0.970f, 0.000f, 0f), new(0.922f, 0.000f, 0f), new(0.870f, 0.000f, 0f),
-                new(0.708f, 0.000f, 0f), new(0.556f, 0.000f, 0f), new(0.439f, 0.000f, 0f), new(0.371f, 0.000f, 0f),
-                new(0.269f, 0.000f, 0f), new(0.205f, 0.000f, 0f), new(0.145f, 0.000f, 0f),
+        public static readonly RadixSwatch Green = new(
+            "green",
+            new[] {
+                "#fbfefc", "#f4fbf6", "#e6f6eb", "#d6f1df", "#c4e8d1", "#adddc0", "#8eceaa", "#5bb98b", "#30a46c",
+                "#299764", "#18794e", "#193b2d",
+            },
+            new[] {
+                "#0e1512", "#121b17", "#132d21", "#113b29", "#174933", "#20573e", "#28684a", "#2f7c57", "#30a46c",
+                "#33b074", "#3dd68c", "#b1f1cb",
             }
         );
 
-        public static readonly ColorSwatch Stone = new(
-            new LchColor[] {
-                new(0.985f, 0.001f, 106.423f), new(0.970f, 0.001f, 106.424f), new(0.923f, 0.003f, 48.717f),
-                new(0.869f, 0.005f, 56.366f), new(0.709f, 0.010f, 56.259f), new(0.553f, 0.013f, 58.071f),
-                new(0.444f, 0.011f, 73.639f), new(0.374f, 0.010f, 67.558f), new(0.268f, 0.007f, 34.298f),
-                new(0.216f, 0.006f, 56.043f), new(0.147f, 0.004f, 49.25f),
+        public static readonly RadixSwatch Grass = new(
+            "grass",
+            new[] {
+                "#fbfefb", "#f5fbf5", "#e9f6e9", "#daf1db", "#c9e8ca", "#b2ddb5", "#94ce9a", "#65ba74", "#46a758",
+                "#3e9b4f", "#2a7e3b", "#203c25"
+            },
+            new[] {
+                "#0e1511", "#141a15", "#1b2a1e", "#1d3a24", "#25482d", "#2d5736", "#366740", "#3e7949", "#46a758",
+                "#53b365", "#71d083", "#c2f0c2"
             }
         );
 
-        public static readonly ColorSwatch Mauve = new(
-            new LchColor[] {
-                new(0.985f, 0.000f, 0f), new(0.960f, 0.003f, 325.6f), new(0.922f, 0.005f, 325.62f),
-                new(0.865f, 0.012f, 325.68f), new(0.711f, 0.019f, 323.02f), new(0.542f, 0.034f, 322.5f),
-                new(0.435f, 0.029f, 321.78f), new(0.364f, 0.029f, 323.89f), new(0.263f, 0.024f, 320.12f),
-                new(0.212f, 0.019f, 322.12f), new(0.145f, 0.008f, 326f),
+        public static readonly RadixSwatch Bronze = new(
+            "bronze",
+            new[] {
+                "#fdfcfc", "#fdf8f6", "#f8edea", "#f2e1db", "#eaddd7", "#e0cec7", "#d2bab0", "#bfa094", "#977669",
+                "#8a6a5e", "#6f4e44", "#3b2f2b"
+            },
+            new[] {
+                "#141110", "#1f1917", "#2a211f", "#332824", "#40302b", "#503c35", "#644a41", "#7c5f54", "#9c6f62",
+                "#ad7f72", "#d4c3b7", "#faf2ed"
             }
         );
 
-        public static readonly ColorSwatch Olive = new(
-            new LchColor[] {
-                new(0.988f, 0.003f, 106.5f), new(0.966f, 0.005f, 106.5f), new(0.930f, 0.007f, 106.5f),
-                new(0.880f, 0.011f, 106.6f), new(0.737f, 0.021f, 106.9f), new(0.580f, 0.031f, 107.3f),
-                new(0.466f, 0.025f, 107.3f), new(0.394f, 0.023f, 107.4f), new(0.286f, 0.016f, 107.4f),
-                new(0.228f, 0.013f, 107.4f), new(0.153f, 0.006f, 107.1f),
+        public static readonly RadixSwatch Gold = new(
+            "gold",
+            new[] {
+                "#fdfdfc", "#faf9f2", "#f2f0e7", "#eae6db", "#e1dccf", "#d8d0bf", "#cbc0aa", "#b9a88d", "#978365",
+                "#8c7a5e", "#71624b", "#3b352b"
+            },
+            new[] {
+                "#121211", "#1b1a17", "#24231f", "#2d2b26", "#36332d", "#3f3b34", "#4d4639", "#625748", "#746a5c",
+                "#837a6f", "#d4cfc2", "#f7f4ea"
             }
         );
 
-        public static readonly ColorSwatch Mist = new(
-            new LchColor[] {
-                new(0.987f, 0.002f, 197.1f), new(0.963f, 0.002f, 197.1f), new(0.925f, 0.005f, 214.3f),
-                new(0.872f, 0.007f, 219.6f), new(0.723f, 0.014f, 214.4f), new(0.560f, 0.021f, 213.5f),
-                new(0.450f, 0.017f, 213.2f), new(0.378f, 0.015f, 216f), new(0.275f, 0.011f, 216.9f),
-                new(0.218f, 0.008f, 223.9f), new(0.148f, 0.004f, 228.8f),
+        public static readonly RadixSwatch Brown = new(
+            "brown",
+            new[] {
+                "#fefdfc", "#fcf9f6", "#f6eee7", "#f0e4d9", "#ebdaca", "#e4cdb7", "#dcbc9f", "#c9a88c", "#a18072",
+                "#957468", "#7d5e54", "#3e332e"
+            },
+            new[] {
+                "#12110f", "#1c1816", "#28211d", "#322922", "#3e3128", "#4d3c2f", "#614a39", "#7c5f46", "#9c6f54",
+                "#ad7f61", "#d6c3b1", "#faf0e5"
             }
         );
 
-        public static readonly ColorSwatch Taupe = new(
-            new LchColor[] {
-                new(0.986f, 0.002f, 67.8f), new(0.960f, 0.002f, 17.2f), new(0.922f, 0.005f, 34.3f),
-                new(0.868f, 0.007f, 39.5f), new(0.714f, 0.014f, 41.2f), new(0.547f, 0.021f, 43.1f),
-                new(0.438f, 0.017f, 39.3f), new(0.367f, 0.016f, 35.7f), new(0.268f, 0.011f, 36.5f),
-                new(0.214f, 0.009f, 43.1f), new(0.147f, 0.004f, 49.3f),
+        public static readonly RadixSwatch Orange = new(
+            "orange",
+            new[] {
+                "#fefcfb", "#fff7ed", "#ffefd6", "#ffdfb5", "#ffd19a", "#ffc182", "#f5ae73", "#ec9455", "#f76b15",
+                "#ef5f00", "#cc4e00", "#582d1d",
+            },
+            new[] {
+                "#17120e", "#1e160f", "#331e0b", "#462100", "#562800", "#66350c", "#7e451d", "#a35829", "#f76b15",
+                "#ff801f", "#ffa057", "#ffe0c2",
             }
         );
+
+        public static readonly RadixSwatch Amber = new(
+            "amber",
+            new[] {
+                "#fefdfb", "#fefbe9", "#fff7c2", "#ffee9c", "#fbe577", "#f3d673", "#e9c162", "#e2a336", "#ffc53d",
+                "#ffba18", "#ab6400", "#4f3422",
+            },
+            new[] {
+                "#16120c", "#1d180f", "#302008", "#3f2700", "#4d3000", "#5c3d05", "#714f19", "#8f6424", "#ffc53d",
+                "#ffd60a", "#ffca16", "#ffe7b3",
+            }
+        );
+
+        public static readonly RadixSwatch Yellow = new(
+            "yellow",
+            new[] {
+                "#fdfdf9", "#fefce9", "#fffab8", "#fff394", "#ffe770", "#f3d768", "#e4c767", "#d5ae39", "#ffe629",
+                "#ffdc00", "#9e6c00", "#473b1f",
+            },
+            new[] {
+                "#14120b", "#1b180f", "#2d2305", "#362b00", "#433500", "#524202", "#665417", "#836a21", "#ffe629",
+                "#ffff57", "#f5e147", "#f6eeb4",
+            }
+        );
+
+        public static readonly RadixSwatch Lime = new(
+            "lime",
+            new[] {
+                "#fcfdfa", "#f8faf3", "#eef6d6", "#e2f0bd", "#d3e7a6", "#c2da91", "#abc978", "#8db654", "#bdee63",
+                "#b0e64c", "#5c7c2f", "#37401c",
+            },
+            new[] {
+                "#11130c", "#151a10", "#1f2917", "#29371d", "#334423", "#3d522a", "#496231", "#577538", "#bdee63",
+                "#d4ff70", "#bde56c", "#e3f7ba",
+            }
+        );
+
+        public static readonly RadixSwatch Mint = new(
+            "mint",
+            new[] {
+                "#f9fefd", "#f2fbf9", "#ddf9f2", "#c8f4e9", "#b3ecde", "#9ce0d0", "#7ecfbd", "#4cbba5", "#86ead4",
+                "#7de0cb", "#027864", "#16433c"
+            },
+            new[] {
+                "#0e1515", "#0f1b1b", "#092c2b", "#003a38", "#004744", "#105650", "#1e685f", "#277f70", "#86ead4",
+                "#a8f5e5", "#58d5ba", "#c4f5e1"
+            }
+        );
+
+        public static readonly RadixSwatch Sky = new(
+            "sky",
+            new[] {
+                "#f9feff", "#f1fafd", "#e1f6fd", "#d1f0fa", "#bee7f5", "#a9daed", "#8dcae3", "#60b3d7", "#7ce2fe",
+                "#74daf8", "#00749e", "#1d3e56"
+            },
+            new[] {
+                "#0d141f", "#111a27", "#112840", "#113555", "#154467", "#1b537b", "#1f6692", "#197cae", "#7ce2fe",
+                "#a8eeff", "#75c7f0", "#c2f3ff"
+            }
+        );
+
+        public static readonly RadixSwatch[] All = new[] {
+            Gray, Mauve, Slate, Sage, Olive, Sand, Tomato, Red, Ruby, Crimson, Pink, Plum, Purple, Violet, Iris, Indigo,
+            Blue, Cyan, Teal, Jade, Green, Grass, Bronze, Gold, Brown, Orange, Amber, Yellow, Lime, Mint, Sky
+        };
+
+        public static readonly RadixSwatch[] Accents = new[] {
+            Tomato, Red, Ruby, Crimson, Pink, Plum, Purple, Violet, Iris, Indigo, Blue, Cyan, Teal, Jade, Green, Grass,
+            Bronze, Gold, Brown, Orange, Amber, Yellow, Lime, Mint, Sky
+        };
+
+        public static readonly RadixSwatch[] Neutrals = new[] { Gray, Mauve, Slate, Sage, Olive, Sand };
 
         public static readonly Color Transparent = new(0, 0, 0, 0);
-        
+
         public static readonly Color Black = new(0, 0, 0);
         public static readonly Color Black05 = new(0, 0, 0, 0.05f);
         public static readonly Color Black10 = new(0, 0, 0, 0.10f);
@@ -253,8 +406,7 @@ namespace HELIX.Coloring {
         public static readonly Color Black80 = new(0, 0, 0, 0.80f);
         public static readonly Color Black90 = new(0, 0, 0, 0.90f);
         public static readonly Color Black95 = new(0, 0, 0, 0.95f);
-        
-        
+
         public static readonly Color White = new(1, 1, 1);
         public static readonly Color White05 = new(1, 1, 1, 0.05f);
         public static readonly Color White10 = new(1, 1, 1, 0.10f);
@@ -269,36 +421,7 @@ namespace HELIX.Coloring {
         public static readonly Color White90 = new(1, 1, 1, 0.90f);
         public static readonly Color White95 = new(1, 1, 1, 0.95f);
 
-        public static readonly Dictionary<string, ColorSwatch> Named = new() {
-            { "Red", Red },
-            { "Orange", Orange },
-            { "Amber", Amber },
-            { "Yellow", Yellow },
-            { "Lime", Lime },
-            { "Green", Green },
-            { "Emerald", Emerald },
-            { "Teal", Teal },
-            { "Cyan", Cyan },
-            { "Sky", Sky },
-            { "Blue", Blue },
-            { "Indigo", Indigo },
-            { "Violet", Violet },
-            { "Purple", Purple },
-            { "Fuchsia", Fuchsia },
-            { "Pink", Pink },
-            { "Rose", Rose },
-            { "Slate", Slate },
-            { "Gray", Gray },
-            { "Zinc", Zinc },
-            { "Neutral", Neutral },
-            { "Stone", Stone },
-            { "Taupe", Taupe },
-            { "Mauve", Mauve },
-            { "Mist", Mist },
-            { "Olive", Olive }
-        };
-
-        public static ColorSwatch[] All = Named.Values.ToArray();
+        public static readonly Dictionary<string, RadixSwatch> Named = All.ToDictionary(swatch => swatch.name, swatch => swatch);
 
         public static Color Hex(string hex) {
             if (ColorUtility.TryParseHtmlString(hex, out var color)) return color;

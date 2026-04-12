@@ -50,20 +50,20 @@ namespace HELIX.Coloring {
             +1.7076147010f
         );
 
-        public static float3 FromSrgb(float3 rgb) {
+        public static float3 FromLinearRgb(float3 rgb) {
             var lms = math.mul(_rgbToLms, rgb);
             var nonLinear = math.pow(lms, 1f / 3f);
             return math.mul(_lmsToLab, nonLinear);
         }
 
-        public static float3 ToSrgb(float3 lab) {
+        public static float3 ToLinearRgb(float3 lab) {
             var nonLinear = math.mul(_labToLms, lab);
             var lms = nonLinear * nonLinear * nonLinear;
             return math.mul(_lmsToRGB, lms);
         }
 
         public static float3 ToLch(float3 lab) {
-            var degrees = math.degrees( math.atan2(lab.z, lab.y));
+            var degrees = math.degrees(math.atan2(lab.z, lab.y));
             return new float3(lab.x, math.length(lab.yz), degrees);
         }
 

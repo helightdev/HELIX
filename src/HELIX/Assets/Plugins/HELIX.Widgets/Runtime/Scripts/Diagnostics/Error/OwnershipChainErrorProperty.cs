@@ -54,6 +54,7 @@ namespace HELIX.Widgets.Diagnostics.Error {
         ) { }
 
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
+            return ValueTyped != null ? ValueTyped.ToString() : "None";
             return ValueTyped != null ? $"{ValueTyped.GetType().Name}: {ValueTyped.Message}" : "None";
         }
     }

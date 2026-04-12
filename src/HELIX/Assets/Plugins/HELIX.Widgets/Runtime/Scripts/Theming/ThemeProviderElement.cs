@@ -11,6 +11,7 @@ namespace HELIX.Widgets.Theming {
     public partial class ThemeProviderElement : SingleChildWidgetBaseElement<ThemeProvider> {
         public static readonly IdentityDictionary<ThemeProperty, object> GlobalThemeValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _cachedThemeValues = new();
+        private readonly IdentityDictionary<ThemeProperty, object> _computedThemeValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _componentValues = new();
         private List<ThemeComponent> _components = new();
         private ThemeProviderElement _parent;
@@ -65,18 +66,34 @@ namespace HELIX.Widgets.Theming {
             ModificationBarrier.Run(() => { OnGlobalThemeChanged?.Invoke(); });
         }
 
-        public T Resolve<T>(BaseThemeProperty<T> property) {
-            if (_cachedThemeValues.TryGetValue(property, out var cachedValue)) {
-                return cachedValue is T typedCachedValue ? typedCachedValue : property.TypedDefaultValue;
-            }
-
-            var resolvedValue = ResolveInternal(property);
-            _cachedThemeValues[property] = resolvedValue;
-            return resolvedValue is T typedResolvedValue ? typedResolvedValue : property.TypedDefaultValue;
+        public T Resolve<T>(BaseThemeProperty<T> property, bool computed = true) {
+            if (TryResolve(property, out var value, computed)) return value;
+            return property.TypedDefaultValue;
         }
         
 
-        public bool TryResolve<T>(BaseThemeProperty<T> property, out T value) {
+        public bool TryResolve<T>(BaseThemeProperty<T> property, out T value, bool computed = true) {
+            var success = TryResolveNoCompute(property, out value);
+            if (!computed || success) return success;
+            
+            if (_computedThemeValues.TryGetValue(property, out var cachedValue)) {
+                if (cachedValue is not T typedCachedValue) return false;
+                value = typedCachedValue;
+                return true;
+
+            }
+
+            if (property.TryCompute(this, out var computedValue)) {
+                _computedThemeValues[property] = computedValue;
+                value = computedValue;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryResolveNoCompute<T>(BaseThemeProperty<T> property, out T value)
+        {
             value = property.TypedDefaultValue;
             if (_cachedThemeValues.TryGetValue(property, out var cachedValue)) {
                 if (cachedValue is not T typedCachedValue) return false;
@@ -97,11 +114,11 @@ namespace HELIX.Widgets.Theming {
             if (_cachedThemeValues != null && _componentValues.TryGetValue(property, out var componentValue)) 
                 return componentValue;
 
-            if (property.Resolve(customStyle, out var resolvedValue))
+            if (property.ResolveStyle(customStyle, out var resolvedValue))
                 return resolvedValue;
-
+            
             if (_parent != null) {
-                var success = _parent.TryResolve(property, out var parentResolvedValue);
+                var success = _parent.TryResolve(property, out var parentResolvedValue, false);
                 return success ? parentResolvedValue : null;
             }
 

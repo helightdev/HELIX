@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
@@ -15,6 +16,10 @@ namespace HELIX.Types {
         public StyleFloat sliceScale = StyleKeyword.Initial;
         public StyleEnum<SliceType> sliceType = StyleKeyword.Initial;
 
+        public static implicit operator BackgroundStyle(Color color) {
+            return new BackgroundStyle { color = color };
+        }
+        
         public void Apply(VisualElement element) {
             element.style.backgroundColor = color;
             element.style.backgroundImage = image;
