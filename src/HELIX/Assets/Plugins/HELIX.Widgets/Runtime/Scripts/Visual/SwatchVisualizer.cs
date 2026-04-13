@@ -12,8 +12,8 @@ namespace HELIX.Widgets.Visual {
             this.FlexContainer(Axis.Horizontal, crossAxisAlign: Align.Stretch);
             for (var index = 0; index < swatch.Length; index++) {
                 var weight = swatch[index];
-                var lab = new LabColor(weight);
-                var lch = (LchColor)lab;
+                var lab = new OkLabColor(weight);
+                var lch = (OkLchColor)lab;
                 var weightValue = (uint)(index + 1);
                 if (swatch.Length == 10) {
                     weightValue = index switch {

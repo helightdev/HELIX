@@ -4,16 +4,16 @@ using Unity.Mathematics;
 using UnityEngine;
 
 namespace HELIX.Coloring {
-    public struct LchColor : IEquatable<LchColor> {
+    public struct OkLchColor : IEquatable<OkLchColor> {
         public float l, c, h;
 
-        public LchColor(float l, float c, float h) {
+        public OkLchColor(float l, float c, float h) {
             this.l = l;
             this.c = c;
             this.h = h;
         }
         
-        public LchColor(Color linear) : this() {
+        public OkLchColor(Color linear) : this() {
             var rgb = new float3(linear.r, linear.g, linear.b);
             var components = OkLabHelper.ToLch(OkLabHelper.FromLinearRgb(rgb));
             l = components.x;
@@ -32,13 +32,13 @@ namespace HELIX.Coloring {
 
         // ReSharper disable CompareOfFloatsByEqualityOperator
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Equals(LchColor other) {
+        public bool Equals(OkLchColor other) {
             return l == other.l && c == other.c && h == other.h;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object o) {
-            return o is LchColor converted && Equals(converted);
+            return o is OkLchColor converted && Equals(converted);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -46,22 +46,22 @@ namespace HELIX.Coloring {
             return (int)math.hash(this);
         }
 
-        public static explicit operator LabColor(LchColor color) {
+        public static explicit operator OkLabColor(OkLchColor color) {
             return OkLabHelper.FromLch(color);
         }
 
-        public static explicit operator Color(LchColor color) {
+        public static explicit operator Color(OkLchColor color) {
             var lab = OkLabHelper.FromLch(color);
             var comp = OkLabHelper.ToLinearRgb(lab);
             return new Color(comp.x, comp.y, comp.z);
         }
 
-        public static implicit operator float3(LchColor color) {
+        public static implicit operator float3(OkLchColor color) {
             return new float3(color.l, color.c, color.h);
         }
 
-        public static implicit operator LchColor(float3 components) {
-            return new LchColor(components.x, components.y, components.z);
+        public static implicit operator OkLchColor(float3 components) {
+            return new OkLchColor(components.x, components.y, components.z);
         }
     }
 }

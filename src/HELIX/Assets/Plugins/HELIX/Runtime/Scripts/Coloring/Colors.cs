@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HELIX.Coloring.Material;
 using UnityEngine;
 
 namespace HELIX.Coloring {
@@ -435,15 +436,23 @@ namespace HELIX.Coloring {
         public static Color Argb(int a, int r, int g, int b) {
             return new Color(r / 255f, g / 255f, b / 255f, a / 255f);
         }
+        
+        public static Color Argb(int argb) {
+            return argb.ArgbToColor();
+        }
 
-        public static Color Lch(float l, float c, float h) {
-            var lch = new LchColor(l, c, h);
+        public static Color Argb(uint argb) {
+            return argb.ArgbToColor();
+        }
+
+        public static Color OkLch(float l, float c, float h) {
+            var lch = new OkLchColor(l, c, h);
             var color = (Color)lch;
             return color.gamma;
         }
 
-        public static Color Lab(float l, float a, float b) {
-            var lab = new LabColor(l, a, b);
+        public static Color OkLab(float l, float a, float b) {
+            var lab = new OkLabColor(l, a, b);
             var color = (Color)lab;
             return color.gamma;
         }

@@ -148,15 +148,15 @@ namespace HELIX.Widgets.Tests {
         private static void AssertArgbEqual(int expectedArgb, int actualArgb, string context) {
             if (expectedArgb == actualArgb) return;
 
-            var ea = ColorUtils.AlphaFromArgb(expectedArgb);
-            var er = ColorUtils.RedFromArgb(expectedArgb);
-            var eg = ColorUtils.GreenFromArgb(expectedArgb);
-            var eb = ColorUtils.BlueFromArgb(expectedArgb);
+            var ea = MaterialColorUtils.AlphaFromArgb(expectedArgb);
+            var er = MaterialColorUtils.RedFromArgb(expectedArgb);
+            var eg = MaterialColorUtils.GreenFromArgb(expectedArgb);
+            var eb = MaterialColorUtils.BlueFromArgb(expectedArgb);
 
-            var aa = ColorUtils.AlphaFromArgb(actualArgb);
-            var ar = ColorUtils.RedFromArgb(actualArgb);
-            var ag = ColorUtils.GreenFromArgb(actualArgb);
-            var ab = ColorUtils.BlueFromArgb(actualArgb);
+            var aa = MaterialColorUtils.AlphaFromArgb(actualArgb);
+            var ar = MaterialColorUtils.RedFromArgb(actualArgb);
+            var ag = MaterialColorUtils.GreenFromArgb(actualArgb);
+            var ab = MaterialColorUtils.BlueFromArgb(actualArgb);
 
             Assert.Fail(
                 $"{context}\n" +

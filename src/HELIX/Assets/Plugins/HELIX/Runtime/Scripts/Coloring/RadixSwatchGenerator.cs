@@ -34,7 +34,7 @@ namespace HELIX.Coloring {
         }
 
         public static Color[] Generate(
-            LchColor seed,
+            OkLchColor seed,
             Brightness brightness,
             RadixSwatch template = null,
             GenerationOptions? options = null
@@ -49,7 +49,7 @@ namespace HELIX.Coloring {
             var pivotLightness = math.lerp(templatePivot.l, seed.l, opt.lightnessInfluence);
             var pivotChroma = math.lerp(templatePivot.c, seed.c, opt.chromaInfluence);
 
-            var result = new LchColor[_radixStepCount];
+            var result = new OkLchColor[_radixStepCount];
 
             for (var i = 0; i < _radixStepCount; i++) {
                 var src = templateScale[i];
@@ -72,14 +72,14 @@ namespace HELIX.Coloring {
                 c = math.max(0f, c);
                 l = math.clamp(l, 0f, 1f);
 
-                result[i] = new LchColor(l, c, h);
+                result[i] = new OkLchColor(l, c, h);
             }
 
             return result.Select(x => x.ToGamma()).ToArray();
         }
 
         public static RadixSwatch PickClosestTemplate(
-            LchColor seedSwatch,
+            OkLchColor seedSwatch,
             IReadOnlyList<RadixSwatch> templates = null
         ) {
             templates ??= Colors.All;
@@ -106,8 +106,8 @@ namespace HELIX.Coloring {
         }
 
         private static float PointScore(
-            LchColor seed,
-            LchColor template,
+            OkLchColor seed,
+            OkLchColor template,
             float hueWeight,
             float chromaWeight,
             float lightnessWeight

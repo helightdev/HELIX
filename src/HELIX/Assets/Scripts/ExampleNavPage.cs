@@ -80,7 +80,7 @@ public partial class HelixColorSwatchVisualizer : BaseElement {
         //     Add(new SwatchVisualizer(RadixSwatches.Generate(swatch, true, closestRadixTemplate)).Flexible());
         // }
 
-        foreach (var template in FlutterMaterialColors.Primaries) {
+        foreach (var template in MaterialColors.Primaries) {
             Add(new Label(template.name).Tight());
             // Add(new SwatchVisualizer(swatch.weights).Flexible());
             // Add(new SwatchVisualizer(template.weight).Flexible());

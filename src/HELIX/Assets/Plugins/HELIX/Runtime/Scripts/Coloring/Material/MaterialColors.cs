@@ -6,7 +6,7 @@ namespace HELIX.Coloring.Material {
     ///     Flutter-compatible Material color constants and exact fixed swatches.
     ///     This uses the hard-coded Flutter Material 2 color tables, not generated tonal palettes.
     /// </summary>
-    public static class FlutterMaterialColors {
+    public static class MaterialColors {
         public static readonly Color Transparent = 0x00000000u.ArgbToColor();
 
         public static readonly Color Black = 0xFF000000u.ArgbToColor();
@@ -27,7 +27,7 @@ namespace HELIX.Coloring.Material {
         public static readonly Color White12 = 0x1FFFFFFFu.ArgbToColor();
         public static readonly Color White10 = 0x1AFFFFFFu.ArgbToColor();
 
-        public static readonly FixedMaterialColor Red = new(
+        public static readonly MaterialColor Red = new FixedMaterialColor(
             0xFFF44336u,
             0xFFFFEBEEu,
             0xFFFFCDD2u,
@@ -42,7 +42,7 @@ namespace HELIX.Coloring.Material {
             "red"
         );
 
-        public static readonly FixedMaterialAccentColor RedAccent = new(
+        public static readonly MaterialAccentColor RedAccent = new FixedMaterialAccentColor(
             0xFFFF5252u,
             0xFFFF8A80u,
             0xFFFF5252u,
@@ -51,7 +51,7 @@ namespace HELIX.Coloring.Material {
             "redAccent"
         );
 
-        public static readonly FixedMaterialColor Pink = new(
+        public static readonly MaterialColor Pink = new FixedMaterialColor(
             0xFFE91E63u,
             0xFFFCE4ECu,
             0xFFF8BBD0u,
@@ -66,7 +66,7 @@ namespace HELIX.Coloring.Material {
             "pink"
         );
 
-        public static readonly FixedMaterialAccentColor PinkAccent = new(
+        public static readonly MaterialAccentColor PinkAccent = new FixedMaterialAccentColor(
             0xFFFF4081u,
             0xFFFF80ABu,
             0xFFFF4081u,
@@ -75,7 +75,7 @@ namespace HELIX.Coloring.Material {
             "pinkAccent"
         );
 
-        public static readonly FixedMaterialColor Purple = new(
+        public static readonly MaterialColor Purple = new FixedMaterialColor(
             0xFF9C27B0u,
             0xFFF3E5F5u,
             0xFFE1BEE7u,
@@ -90,7 +90,7 @@ namespace HELIX.Coloring.Material {
             "purple"
         );
 
-        public static readonly FixedMaterialAccentColor PurpleAccent = new(
+        public static readonly MaterialAccentColor PurpleAccent = new FixedMaterialAccentColor(
             0xFFE040FBu,
             0xFFEA80FCu,
             0xFFE040FBu,
@@ -99,7 +99,7 @@ namespace HELIX.Coloring.Material {
             "purpleAccent"
         );
 
-        public static readonly FixedMaterialColor DeepPurple = new(
+        public static readonly MaterialColor DeepPurple = new FixedMaterialColor(
             0xFF673AB7u,
             0xFFEDE7F6u,
             0xFFD1C4E9u,
@@ -114,7 +114,7 @@ namespace HELIX.Coloring.Material {
             "deepPurple"
         );
 
-        public static readonly FixedMaterialAccentColor DeepPurpleAccent = new(
+        public static readonly MaterialAccentColor DeepPurpleAccent = new FixedMaterialAccentColor(
             0xFF7C4DFFu,
             0xFFB388FFu,
             0xFF7C4DFFu,
@@ -123,7 +123,7 @@ namespace HELIX.Coloring.Material {
             "deepPurpleAccent"
         );
 
-        public static readonly FixedMaterialColor Indigo = new(
+        public static readonly MaterialColor Indigo = new FixedMaterialColor(
             0xFF3F51B5u,
             0xFFE8EAF6u,
             0xFFC5CAE9u,
@@ -138,7 +138,7 @@ namespace HELIX.Coloring.Material {
             "indigo"
         );
 
-        public static readonly FixedMaterialAccentColor IndigoAccent = new(
+        public static readonly MaterialAccentColor IndigoAccent = new FixedMaterialAccentColor(
             0xFF536DFEu,
             0xFF8C9EFFu,
             0xFF536DFEu,
@@ -147,7 +147,7 @@ namespace HELIX.Coloring.Material {
             "indigoAccent"
         );
 
-        public static readonly FixedMaterialColor Blue = new(
+        public static readonly MaterialColor Blue = new FixedMaterialColor(
             0xFF2196F3u,
             0xFFE3F2FDu,
             0xFFBBDEFBu,
@@ -162,7 +162,7 @@ namespace HELIX.Coloring.Material {
             "blue"
         );
 
-        public static readonly FixedMaterialAccentColor BlueAccent = new(
+        public static readonly MaterialAccentColor BlueAccent = new FixedMaterialAccentColor(
             0xFF448AFFu,
             0xFF82B1FFu,
             0xFF448AFFu,
@@ -171,7 +171,7 @@ namespace HELIX.Coloring.Material {
             "blueAccent"
         );
 
-        public static readonly FixedMaterialColor LightBlue = new(
+        public static readonly MaterialColor LightBlue = new FixedMaterialColor(
             0xFF03A9F4u,
             0xFFE1F5FEu,
             0xFFB3E5FCu,
@@ -186,7 +186,7 @@ namespace HELIX.Coloring.Material {
             "lightBlue"
         );
 
-        public static readonly FixedMaterialAccentColor LightBlueAccent = new(
+        public static readonly MaterialAccentColor LightBlueAccent = new FixedMaterialAccentColor(
             0xFF40C4FFu,
             0xFF80D8FFu,
             0xFF40C4FFu,
@@ -195,7 +195,7 @@ namespace HELIX.Coloring.Material {
             "lightBlueAccent"
         );
 
-        public static readonly FixedMaterialColor Cyan = new(
+        public static readonly MaterialColor Cyan = new FixedMaterialColor(
             0xFF00BCD4u,
             0xFFE0F7FAu,
             0xFFB2EBF2u,
@@ -210,7 +210,7 @@ namespace HELIX.Coloring.Material {
             "cyan"
         );
 
-        public static readonly FixedMaterialAccentColor CyanAccent = new(
+        public static readonly MaterialAccentColor CyanAccent = new FixedMaterialAccentColor(
             0xFF18FFFFu,
             0xFF84FFFFu,
             0xFF18FFFFu,
@@ -219,7 +219,7 @@ namespace HELIX.Coloring.Material {
             "cyanAccent"
         );
 
-        public static readonly FixedMaterialColor Teal = new(
+        public static readonly MaterialColor Teal = new FixedMaterialColor(
             0xFF009688u,
             0xFFE0F2F1u,
             0xFFB2DFDBu,
@@ -234,7 +234,7 @@ namespace HELIX.Coloring.Material {
             "teal"
         );
 
-        public static readonly FixedMaterialAccentColor TealAccent = new(
+        public static readonly MaterialAccentColor TealAccent = new FixedMaterialAccentColor(
             0xFF64FFDau,
             0xFFA7FFEBu,
             0xFF64FFDau,
@@ -243,7 +243,7 @@ namespace HELIX.Coloring.Material {
             "tealAccent"
         );
 
-        public static readonly FixedMaterialColor Green = new(
+        public static readonly MaterialColor Green = new FixedMaterialColor(
             0xFF4CAF50u,
             0xFFE8F5E9u,
             0xFFC8E6C9u,
@@ -258,7 +258,7 @@ namespace HELIX.Coloring.Material {
             "green"
         );
 
-        public static readonly FixedMaterialAccentColor GreenAccent = new(
+        public static readonly MaterialAccentColor GreenAccent = new FixedMaterialAccentColor(
             0xFF69F0AEu,
             0xFFB9F6CAu,
             0xFF69F0AEu,
@@ -267,7 +267,7 @@ namespace HELIX.Coloring.Material {
             "greenAccent"
         );
 
-        public static readonly FixedMaterialColor LightGreen = new(
+        public static readonly MaterialColor LightGreen = new FixedMaterialColor(
             0xFF8BC34Au,
             0xFFF1F8E9u,
             0xFFDCEDC8u,
@@ -282,7 +282,7 @@ namespace HELIX.Coloring.Material {
             "lightGreen"
         );
 
-        public static readonly FixedMaterialAccentColor LightGreenAccent = new(
+        public static readonly MaterialAccentColor LightGreenAccent = new FixedMaterialAccentColor(
             0xFFB2FF59u,
             0xFFCCFF90u,
             0xFFB2FF59u,
@@ -291,7 +291,7 @@ namespace HELIX.Coloring.Material {
             "lightGreenAccent"
         );
 
-        public static readonly FixedMaterialColor Lime = new(
+        public static readonly MaterialColor Lime = new FixedMaterialColor(
             0xFFCDDC39u,
             0xFFF9FBE7u,
             0xFFF0F4C3u,
@@ -306,7 +306,7 @@ namespace HELIX.Coloring.Material {
             "lime"
         );
 
-        public static readonly FixedMaterialAccentColor LimeAccent = new(
+        public static readonly MaterialAccentColor LimeAccent = new FixedMaterialAccentColor(
             0xFFEEFF41u,
             0xFFF4FF81u,
             0xFFEEFF41u,
@@ -315,7 +315,7 @@ namespace HELIX.Coloring.Material {
             "limeAccent"
         );
 
-        public static readonly FixedMaterialColor Yellow = new(
+        public static readonly MaterialColor Yellow = new FixedMaterialColor(
             0xFFFFEB3Bu,
             0xFFFFFDE7u,
             0xFFFFF9C4u,
@@ -330,7 +330,7 @@ namespace HELIX.Coloring.Material {
             "yellow"
         );
 
-        public static readonly FixedMaterialAccentColor YellowAccent = new(
+        public static readonly MaterialAccentColor YellowAccent = new FixedMaterialAccentColor(
             0xFFFFFF00u,
             0xFFFFFF8Du,
             0xFFFFFF00u,
@@ -339,7 +339,7 @@ namespace HELIX.Coloring.Material {
             "yellowAccent"
         );
 
-        public static readonly FixedMaterialColor Amber = new(
+        public static readonly MaterialColor Amber = new FixedMaterialColor(
             0xFFFFC107u,
             0xFFFFF8E1u,
             0xFFFFECB3u,
@@ -354,7 +354,7 @@ namespace HELIX.Coloring.Material {
             "amber"
         );
 
-        public static readonly FixedMaterialAccentColor AmberAccent = new(
+        public static readonly MaterialAccentColor AmberAccent = new FixedMaterialAccentColor(
             0xFFFFD740u,
             0xFFFFE57Fu,
             0xFFFFD740u,
@@ -363,7 +363,7 @@ namespace HELIX.Coloring.Material {
             "amberAccent"
         );
 
-        public static readonly FixedMaterialColor Orange = new(
+        public static readonly MaterialColor Orange = new FixedMaterialColor(
             0xFFFF9800u,
             0xFFFFF3E0u,
             0xFFFFE0B2u,
@@ -378,7 +378,7 @@ namespace HELIX.Coloring.Material {
             "orange"
         );
 
-        public static readonly FixedMaterialAccentColor OrangeAccent = new(
+        public static readonly MaterialAccentColor OrangeAccent = new FixedMaterialAccentColor(
             0xFFFFAB40u,
             0xFFFFD180u,
             0xFFFFAB40u,
@@ -387,7 +387,7 @@ namespace HELIX.Coloring.Material {
             "orangeAccent"
         );
 
-        public static readonly FixedMaterialColor DeepOrange = new(
+        public static readonly MaterialColor DeepOrange = new FixedMaterialColor(
             0xFFFF5722u,
             0xFFFBE9E7u,
             0xFFFFCCBCu,
@@ -402,7 +402,7 @@ namespace HELIX.Coloring.Material {
             "deepOrange"
         );
 
-        public static readonly FixedMaterialAccentColor DeepOrangeAccent = new(
+        public static readonly MaterialAccentColor DeepOrangeAccent = new FixedMaterialAccentColor(
             0xFFFF6E40u,
             0xFFFF9E80u,
             0xFFFF6E40u,
@@ -411,7 +411,7 @@ namespace HELIX.Coloring.Material {
             "deepOrangeAccent"
         );
 
-        public static readonly FixedMaterialColor Brown = new(
+        public static readonly MaterialColor Brown = new FixedMaterialColor(
             0xFF795548u,
             0xFFEFEBE9u,
             0xFFD7CCC8u,
@@ -426,7 +426,7 @@ namespace HELIX.Coloring.Material {
             "brown"
         );
 
-        public static readonly FixedMaterialColor Grey = new(
+        public static readonly MaterialColor Grey = new FixedMaterialColor(
             0xFF9E9E9Eu,
             0xFFFAFAFAu,
             0xFFF5F5F5u,
@@ -441,10 +441,7 @@ namespace HELIX.Coloring.Material {
             "grey"
         );
 
-        public static readonly Color Grey350 = 0xFFD6D6D6u.ArgbToColor();
-        public static readonly Color Grey850 = 0xFF303030u.ArgbToColor();
-
-        public static readonly FixedMaterialColor BlueGrey = new(
+        public static readonly MaterialColor BlueGrey = new FixedMaterialColor(
             0xFF607D8Bu,
             0xFFECEFF1u,
             0xFFCFD8DCu,
@@ -459,50 +456,15 @@ namespace HELIX.Coloring.Material {
             "blueGrey"
         );
 
-        public static readonly FixedMaterialColor[] Primaries = {
-            Red,
-            Pink,
-            Purple,
-            DeepPurple,
-            Indigo,
-            Blue,
-            LightBlue,
-            Cyan,
-            Teal,
-            Green,
-            LightGreen,
-            Lime,
-            Yellow,
-            Amber,
-            Orange,
-            DeepOrange,
-            Brown,
-            BlueGrey
+        public static readonly MaterialColor[] Primaries = {
+            Red, Pink, Purple, DeepPurple, Indigo, Blue, LightBlue, Cyan, Teal, Green, LightGreen, Lime, Yellow, Amber,
+            Orange, DeepOrange, Brown, BlueGrey
         };
 
-        public static readonly FixedMaterialAccentColor[] Accents = {
-            RedAccent,
-            PinkAccent,
-            PurpleAccent,
-            DeepPurpleAccent,
-            IndigoAccent,
-            BlueAccent,
-            LightBlueAccent,
-            CyanAccent,
-            TealAccent,
-            GreenAccent,
-            LightGreenAccent,
-            LimeAccent,
-            YellowAccent,
-            AmberAccent,
-            OrangeAccent,
+        public static readonly MaterialAccentColor[] Accents = {
+            RedAccent, PinkAccent, PurpleAccent, DeepPurpleAccent, IndigoAccent, BlueAccent, LightBlueAccent,
+            CyanAccent, TealAccent, GreenAccent, LightGreenAccent, LimeAccent, YellowAccent, AmberAccent, OrangeAccent,
             DeepOrangeAccent
         };
-
-        public static StyleColor TransparentStyle => new(Transparent);
-        public static StyleColor BlackStyle => new(Black);
-        public static StyleColor WhiteStyle => new(White);
-        public static StyleColor Grey350Style => new(Grey350);
-        public static StyleColor Grey850Style => new(Grey850);
     }
 }
