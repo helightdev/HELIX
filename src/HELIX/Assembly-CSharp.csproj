@@ -104,8 +104,10 @@
     <None Include="Library/PackageCache/com.unity.visualscripting@eb6004dcc707/ValidationExceptions.json" />
     <None Include="Library/PackageCache/com.unity.modules.vectorgraphics/package.json" />
     <None Include="Library/PackageCache/com.unity.ide.visualstudio@dc1ddd4f09b6/ValidationExceptions.json" />
+    <None Include="Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/link.xml" />
     <None Include="Library/PackageCache/com.unity.modules.wind/package.json" />
     <None Include="Library/PackageCache/com.unity.modules.umbra/package.json" />
+    <None Include="Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/package.json" />
     <None Include="Assets/ScaffoldTest.uxml" />
     <None Include="Library/PackageCache/com.unity.inputsystem@21a28c3a6c83/ValidationExceptions.json" />
     <None Include="Library/PackageCache/com.unity.modules.audio/package.json" />
@@ -123,6 +125,7 @@
     <None Include="Library/PackageCache/com.unity.modules.xr/package.json" />
     <None Include="Library/PackageCache/com.unity.ugui@288051c775ab/Editor Resources/Shaders/TMP_Properties.cginc" />
     <None Include="Library/PackageCache/com.unity.modules.adaptiveperformance/package.json" />
+    <None Include="Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/AOT/Newtonsoft.Json.xml" />
     <None Include="Library/PackageCache/com.unity.timeline@bfd27f8016ff/ValidationExceptions.json" />
     <None Include="Library/PackageCache/com.unity.ugui@288051c775ab/Editor Resources/Shaders/TMP_SDF Internal Editor.shader" />
     <None Include="Library/PackageCache/com.unity.modules.director/package.json" />
@@ -135,6 +138,7 @@
     <None Include="Library/PackageCache/com.unity.mathematics@19a9377c4ffa/ValidationExceptions.json" />
     <None Include="Library/PackageCache/com.unity.modules.animation/package.json" />
     <None Include="Assets/test.uss" />
+    <None Include="Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/Newtonsoft.Json.xml" />
     <None Include="Library/PackageCache/com.unity.collections@8d418d297499/pvpExceptions.json" />
     <None Include="Library/PackageCache/com.unity.burst@07790c2d06d9/Unity.Burst.Unsafe.xml" />
     <None Include="Library/PackageCache/com.unity.render-pipelines.universal@83086ebb4e65/ValidationConfig.json" />
@@ -562,6 +566,9 @@
     </Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe">
       <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.collections@8d418d297499/Unity.Collections.Tests/System.Runtime.CompilerServices.Unsafe/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="netstandard">
       <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/NetStandard/ref/2.1.0/netstandard.dll</HintPath>

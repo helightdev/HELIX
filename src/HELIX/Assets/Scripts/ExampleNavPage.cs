@@ -1,12 +1,10 @@
-using System.Linq;
 using HELIX.Abstractions;
 using HELIX.Coloring;
 using HELIX.Extensions;
-using HELIX.Types;
-using HELIX.Widgets;
 using HELIX.Widgets.Elements;
 using HELIX.Widgets.Navigation;
 using HELIX.Widgets.Visual;
+using MaterialColorUtilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -85,9 +83,18 @@ public partial class HelixColorSwatchVisualizer : BaseElement {
         foreach (var template in Colors.All) {
             Add(new Label(template.name).Tight());
             // Add(new SwatchVisualizer(swatch.weights).Flexible());
-            Add(new SwatchVisualizer(template.weight).Flexible());
-            Add(new SwatchVisualizer(template.lightColors).Flexible());
-            Add(new SwatchVisualizer(template.darkColors).Flexible());
+            // Add(new SwatchVisualizer(template.weight).Flexible());
+            // Add(new SwatchVisualizer(template.lightColors).Flexible());
+            // Add(new SwatchVisualizer(template.darkColors).Flexible());
+
+            var materialColor = template.Value.ToMaterialColor();
+            Add(new SwatchVisualizer(materialColor.ToSwatch()).Flexible());
+            var scheme = template.Value.CreateScheme();
+
+            Add(new SwatchVisualizer(scheme.PrimaryPalette.ToMaterialColor().ToSwatch()).Flexible());
+            Add(new SwatchVisualizer(scheme.NeutralPalette.ToMaterialColor().ToSwatch()).Flexible());
+            Add(new SwatchVisualizer(scheme.SecondaryPalette.ToMaterialColor().ToSwatch()).Flexible());
+            Add(new SwatchVisualizer(scheme.TertiaryPalette.ToMaterialColor().ToSwatch()).Flexible());
         }
     }
 }

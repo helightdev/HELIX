@@ -43,6 +43,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="Assets/Plugins/HELIX.Widgets/package.json" />
+    <None Include="Assets/Plugins/HELIX.Widgets/Tests/Resources/materialColorFixture.json" />
     <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/helix.uss" />
     <None Include="Assets/Plugins/HELIX/package.json" />
     <Reference Include="UnityEngine">

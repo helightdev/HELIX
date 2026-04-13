@@ -48,6 +48,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/Border.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/Unity.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/EdgeInsets.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/Path.cs" />
@@ -73,12 +74,16 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/RadixSwatchGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/RRect.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/TextStyle.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/Scheme.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Abstractions/Element.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Abstractions/Containers.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/IPathBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/HelixFormattingHelper.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/Utilities.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/BoxConstraints.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/DynamicColorUtilities.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/RadixPalette.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/DynamicColors.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/BasicShapes.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/StyleInt4.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Border.cs" />
@@ -95,6 +100,7 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Margin.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/LayoutExtensions.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Brightness.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/Hct.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/EasingExtensions.cs" />
     <None Include="Assets/Plugins/HELIX/Runtime/Scripts/HELIX.asmdef" />
     <Reference Include="UnityEngine">
@@ -543,6 +549,9 @@
     </Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe">
       <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.collections@8d418d297499/Unity.Collections.Tests/System.Runtime.CompilerServices.Unsafe/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="netstandard">
       <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/NetStandard/ref/2.1.0/netstandard.dll</HintPath>

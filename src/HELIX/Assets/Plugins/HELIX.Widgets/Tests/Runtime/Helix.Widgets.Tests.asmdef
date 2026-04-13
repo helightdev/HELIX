@@ -2,8 +2,11 @@
   "name": "Helix.Widgets.Tests",
   "rootNamespace": "HELIX.Widgets.Tests",
   "references": [
-    "Helix",
+    "HELIX",
     "HELIX.Widgets"
+  ],
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
   ],
   "optionalUnityReferences": [
     "TestAssemblies"
