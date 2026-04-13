@@ -93,6 +93,7 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/TransitionProperties.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Animation/AnimationController.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Animation/DebouncableScheduler.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/MaterialColors.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Animation/TweenStateArena.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/Axis.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/BorderRadius.cs" />

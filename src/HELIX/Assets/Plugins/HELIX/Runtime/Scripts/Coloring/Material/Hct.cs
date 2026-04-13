@@ -1,34 +1,16 @@
 using System;
 using Unity.Mathematics;
 
-namespace MaterialColorUtilities {
+namespace HELIX.Coloring.Material {
     /// <summary>
-    /// In traditional color spaces, a color can be identified solely by the
-    /// observer's measurement of the color. Color appearance models such as CAM16
-    /// also use information about the environment where the color was observed,
-    /// known as the viewing conditions.
+    ///     In traditional color spaces, a color can be identified solely by the
+    ///     observer's measurement of the color. Color appearance models such as CAM16
+    ///     also use information about the environment where the color was observed,
+    ///     known as the viewing conditions.
     /// </summary>
     public sealed class ViewingConditions {
         public static readonly ViewingConditions SRgb = Make();
         public static readonly ViewingConditions Standard = SRgb;
-
-        public double3 WhitePoint { get; }
-        public double AdaptingLuminance { get; }
-        public double BackgroundLstar { get; }
-        public double Surround { get; }
-        public bool DiscountingIlluminant { get; }
-
-        public double BackgroundYTowhitePointY { get; }
-        public double Aw { get; }
-        public double Nbb { get; }
-        public double Ncb { get; }
-        public double C { get; }
-        public double NC { get; }
-        public double3 DrgbInverse { get; }
-        public double3 RgbD { get; }
-        public double Fl { get; }
-        public double FLRoot { get; }
-        public double Z { get; }
 
         private ViewingConditions(
             double3 whitePoint,
@@ -58,16 +40,34 @@ namespace MaterialColorUtilities {
             Nbb = nbb;
             Ncb = ncb;
             C = c;
-            NC = nC;
+            Nc = nC;
             DrgbInverse = drgbInverse;
             RgbD = rgbD;
             Fl = fl;
-            FLRoot = fLRoot;
+            FlRoot = fLRoot;
             Z = z;
         }
 
+        public double3 WhitePoint { get; }
+        public double AdaptingLuminance { get; }
+        public double BackgroundLstar { get; }
+        public double Surround { get; }
+        public bool DiscountingIlluminant { get; }
+
+        public double BackgroundYTowhitePointY { get; }
+        public double Aw { get; }
+        public double Nbb { get; }
+        public double Ncb { get; }
+        public double C { get; }
+        public double Nc { get; }
+        public double3 DrgbInverse { get; }
+        public double3 RgbD { get; }
+        public double Fl { get; }
+        public double FlRoot { get; }
+        public double Z { get; }
+
         /// <summary>
-        /// Convenience constructor for ViewingConditions.
+        ///     Convenience constructor for ViewingConditions.
         /// </summary>
         public static ViewingConditions Make(
             double3? whitePoint = null,
@@ -76,62 +76,60 @@ namespace MaterialColorUtilities {
             double surround = 2.0,
             bool discountingIlluminant = false
         ) {
-            double3 wp = whitePoint ?? ColorUtils.WhitePointD65();
+            var wp = whitePoint ?? ColorUtils.WhitePointD65();
 
-            if (adaptingLuminance <= 0.0) {
-                adaptingLuminance = (200.0 / math.PI) * ColorUtils.YFromLstar(50.0) / 100.0;
-            }
+            if (adaptingLuminance <= 0.0) adaptingLuminance = 200.0 / math.PI * ColorUtils.YFromLstar(50.0) / 100.0;
 
             backgroundLstar = math.max(0.1, backgroundLstar);
 
-            double rW = (wp.x * 0.401288) + (wp.y * 0.650173) + (wp.z * -0.051461);
-            double gW = (wp.x * -0.250268) + (wp.y * 1.204414) + (wp.z * 0.045854);
-            double bW = (wp.x * -0.002079) + (wp.y * 0.048952) + (wp.z * 0.953127);
+            var rW = wp.x * 0.401288 + wp.y * 0.650173 + wp.z * -0.051461;
+            var gW = wp.x * -0.250268 + wp.y * 1.204414 + wp.z * 0.045854;
+            var bW = wp.x * -0.002079 + wp.y * 0.048952 + wp.z * 0.953127;
 
-            double f = 0.8 + (surround / 10.0);
-            double c = f >= 0.9
+            var f = 0.8 + surround / 10.0;
+            var c = f >= 0.9
                 ? MathUtils.Lerp(0.59, 0.69, (f - 0.9) * 10.0)
                 : MathUtils.Lerp(0.525, 0.59, (f - 0.8) * 10.0);
 
-            double d = discountingIlluminant
+            var d = discountingIlluminant
                 ? 1.0
-                : f * (1.0 - ((1.0 / 3.6) * math.exp((-adaptingLuminance - 42.0) / 92.0)));
+                : f * (1.0 - 1.0 / 3.6 * math.exp((-adaptingLuminance - 42.0) / 92.0));
 
             d = math.clamp(d, 0.0, 1.0);
 
-            double nc = f;
+            var nc = f;
 
-            double3 rgbD = new double3(
+            var rgbD = new double3(
                 d * (100.0 / rW) + 1.0 - d,
                 d * (100.0 / gW) + 1.0 - d,
                 d * (100.0 / bW) + 1.0 - d
             );
 
-            double k = 1.0 / ((5.0 * adaptingLuminance) + 1.0);
-            double k4 = k * k * k * k;
-            double k4F = 1.0 - k4;
+            var k = 1.0 / (5.0 * adaptingLuminance + 1.0);
+            var k4 = k * k * k * k;
+            var k4F = 1.0 - k4;
 
-            double fl = (k4 * adaptingLuminance)
-                      + (0.1 * k4F * k4F * math.pow(5.0 * adaptingLuminance, 1.0 / 3.0));
+            var fl = k4 * adaptingLuminance
+                   + 0.1 * k4F * k4F * math.pow(5.0 * adaptingLuminance, 1.0 / 3.0);
 
-            double n = ColorUtils.YFromLstar(backgroundLstar) / wp.y;
-            double z = 1.48 + math.sqrt(n);
-            double nbb = 0.725 / math.pow(n, 0.2);
-            double ncb = nbb;
+            var n = ColorUtils.YFromLstar(backgroundLstar) / wp.y;
+            var z = 1.48 + math.sqrt(n);
+            var nbb = 0.725 / math.pow(n, 0.2);
+            var ncb = nbb;
 
-            double3 rgbAFactors = new double3(
+            var rgbAFactors = new double3(
                 math.pow(fl * rgbD.x * rW / 100.0, 0.42),
                 math.pow(fl * rgbD.y * gW / 100.0, 0.42),
                 math.pow(fl * rgbD.z * bW / 100.0, 0.42)
             );
 
-            double3 rgbA = new double3(
-                (400.0 * rgbAFactors.x) / (rgbAFactors.x + 27.13),
-                (400.0 * rgbAFactors.y) / (rgbAFactors.y + 27.13),
-                (400.0 * rgbAFactors.z) / (rgbAFactors.z + 27.13)
+            var rgbA = new double3(
+                400.0 * rgbAFactors.x / (rgbAFactors.x + 27.13),
+                400.0 * rgbAFactors.y / (rgbAFactors.y + 27.13),
+                400.0 * rgbAFactors.z / (rgbAFactors.z + 27.13)
             );
 
-            double aw = (((40.0 * rgbA.x) + (20.0 * rgbA.y) + rgbA.z) / 20.0) * nbb;
+            var aw = (40.0 * rgbA.x + 20.0 * rgbA.y + rgbA.z) / 20.0 * nbb;
 
             return new ViewingConditions(
                 wp,
@@ -155,13 +153,13 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// CAM16, a color appearance model.
+    ///     CAM16, a color appearance model.
     /// </summary>
     public sealed class Cam16 {
         // XYZ -> CAM16 RGB "cone" response matrix.
         // Stored transposed for Unity's column-major double3x3 so math.mul(M, xyz)
         // matches the Dart row-based equations.
-        private static readonly double3x3 XyzToCam16Rgb = new double3x3(
+        private static readonly double3x3 _xyzToCam16Rgb = new(
             new double3(0.401288, -0.250268, -0.002079),
             new double3(0.650173, 1.204414, 0.048952),
             new double3(-0.051461, 0.045854, 0.953127)
@@ -169,21 +167,11 @@ namespace MaterialColorUtilities {
 
         // CAM16 RGB -> XYZ matrix.
         // Stored transposed for Unity's column-major double3x3.
-        private static readonly double3x3 Cam16RgbToXyz = new double3x3(
+        private static readonly double3x3 _cam16RgbToXyz = new(
             new double3(1.86206786, 0.38752654, -0.01584150),
             new double3(-1.01125463, 0.62144744, -0.03412294),
             new double3(0.14918677, -0.00897398, 1.04996444)
         );
-
-        public double Hue { get; }
-        public double Chroma { get; }
-        public double J { get; }
-        public double Q { get; }
-        public double M { get; }
-        public double S { get; }
-        public double Jstar { get; }
-        public double Astar { get; }
-        public double Bstar { get; }
 
         public Cam16(
             double hue,
@@ -207,11 +195,21 @@ namespace MaterialColorUtilities {
             Bstar = bstar;
         }
 
+        public double Hue { get; }
+        public double Chroma { get; }
+        public double J { get; }
+        public double Q { get; }
+        public double M { get; }
+        public double S { get; }
+        public double Jstar { get; }
+        public double Astar { get; }
+        public double Bstar { get; }
+
         public double Distance(Cam16 other) {
-            double dJ = Jstar - other.Jstar;
-            double dA = Astar - other.Astar;
-            double dB = Bstar - other.Bstar;
-            double dEPrime = math.sqrt((dJ * dJ) + (dA * dA) + (dB * dB));
+            var dJ = Jstar - other.Jstar;
+            var dA = Astar - other.Astar;
+            var dB = Bstar - other.Bstar;
+            var dEPrime = math.sqrt(dJ * dJ + dA * dA + dB * dB);
             return 1.41 * math.pow(dEPrime, 0.63);
         }
 
@@ -220,7 +218,7 @@ namespace MaterialColorUtilities {
         }
 
         public static Cam16 FromIntInViewingConditions(int argb, ViewingConditions viewingConditions) {
-            double3 xyz = ColorUtils.XyzFromArgb(argb);
+            var xyz = ColorUtils.XyzFromArgb(argb);
             return FromXyzInViewingConditions(xyz.x, xyz.y, xyz.z, viewingConditions);
         }
 
@@ -230,51 +228,51 @@ namespace MaterialColorUtilities {
             double z,
             ViewingConditions viewingConditions
         ) {
-            double3 rgbC = math.mul(XyzToCam16Rgb, new double3(x, y, z));
-            double3 rgbD = rgbC * viewingConditions.RgbD;
+            var rgbC = math.mul(_xyzToCam16Rgb, new double3(x, y, z));
+            var rgbD = rgbC * viewingConditions.RgbD;
 
-            double rAF = math.pow(viewingConditions.Fl * math.abs(rgbD.x) / 100.0, 0.42);
-            double gAF = math.pow(viewingConditions.Fl * math.abs(rgbD.y) / 100.0, 0.42);
-            double bAF = math.pow(viewingConditions.Fl * math.abs(rgbD.z) / 100.0, 0.42);
+            var rAf = math.pow(viewingConditions.Fl * math.abs(rgbD.x) / 100.0, 0.42);
+            var gAf = math.pow(viewingConditions.Fl * math.abs(rgbD.y) / 100.0, 0.42);
+            var bAf = math.pow(viewingConditions.Fl * math.abs(rgbD.z) / 100.0, 0.42);
 
-            double rA = MathUtils.Signum(rgbD.x) * 400.0 * rAF / (rAF + 27.13);
-            double gA = MathUtils.Signum(rgbD.y) * 400.0 * gAF / (gAF + 27.13);
-            double bA = MathUtils.Signum(rgbD.z) * 400.0 * bAF / (bAF + 27.13);
+            var rA = MathUtils.Signum(rgbD.x) * 400.0 * rAf / (rAf + 27.13);
+            var gA = MathUtils.Signum(rgbD.y) * 400.0 * gAf / (gAf + 27.13);
+            var bA = MathUtils.Signum(rgbD.z) * 400.0 * bAf / (bAf + 27.13);
 
-            double a = ((11.0 * rA) + (-12.0 * gA) + bA) / 11.0;
-            double b = (rA + gA - (2.0 * bA)) / 9.0;
+            var a = (11.0 * rA + -12.0 * gA + bA) / 11.0;
+            var b = (rA + gA - 2.0 * bA) / 9.0;
 
-            double u = ((20.0 * rA) + (20.0 * gA) + (21.0 * bA)) / 20.0;
-            double p2 = ((40.0 * rA) + (20.0 * gA) + bA) / 20.0;
+            var u = (20.0 * rA + 20.0 * gA + 21.0 * bA) / 20.0;
+            var p2 = (40.0 * rA + 20.0 * gA + bA) / 20.0;
 
-            double atanDegrees = math.degrees(math.atan2(b, a));
-            double hue = MathUtils.SanitizeDegreesDouble(atanDegrees);
-            double hueRadians = math.radians(hue);
+            var atanDegrees = math.degrees(math.atan2(b, a));
+            var hue = MathUtils.SanitizeDegreesDouble(atanDegrees);
+            var hueRadians = math.radians(hue);
 
-            double ac = p2 * viewingConditions.Nbb;
+            var ac = p2 * viewingConditions.Nbb;
 
-            double j = 100.0 * math.pow(ac / viewingConditions.Aw, viewingConditions.C * viewingConditions.Z);
-            double q = (4.0 / viewingConditions.C)
-                     * math.sqrt(j / 100.0)
-                     * (viewingConditions.Aw + 4.0)
-                     * viewingConditions.FLRoot;
+            var j = 100.0 * math.pow(ac / viewingConditions.Aw, viewingConditions.C * viewingConditions.Z);
+            var q = 4.0 / viewingConditions.C
+                  * math.sqrt(j / 100.0)
+                  * (viewingConditions.Aw + 4.0)
+                  * viewingConditions.FlRoot;
 
-            double huePrime = hue < 20.14 ? hue + 360.0 : hue;
-            double eHue = 0.25 * (math.cos(math.radians(huePrime) + 2.0) + 3.8);
-            double p1 = (50000.0 / 13.0) * eHue * viewingConditions.NC * viewingConditions.Ncb;
-            double t = p1 * math.sqrt((a * a) + (b * b)) / (u + 0.305);
+            var huePrime = hue < 20.14 ? hue + 360.0 : hue;
+            var eHue = 0.25 * (math.cos(math.radians(huePrime) + 2.0) + 3.8);
+            var p1 = 50000.0 / 13.0 * eHue * viewingConditions.Nc * viewingConditions.Ncb;
+            var t = p1 * math.sqrt(a * a + b * b) / (u + 0.305);
 
-            double alpha = math.pow(t, 0.9)
-                         * math.pow(1.64 - math.pow(0.29, viewingConditions.BackgroundYTowhitePointY), 0.73);
+            var alpha = math.pow(t, 0.9)
+                      * math.pow(1.64 - math.pow(0.29, viewingConditions.BackgroundYTowhitePointY), 0.73);
 
-            double c = alpha * math.sqrt(j / 100.0);
-            double m = c * viewingConditions.FLRoot;
-            double s = 50.0 * math.sqrt((alpha * viewingConditions.C) / (viewingConditions.Aw + 4.0));
+            var c = alpha * math.sqrt(j / 100.0);
+            var m = c * viewingConditions.FlRoot;
+            var s = 50.0 * math.sqrt(alpha * viewingConditions.C / (viewingConditions.Aw + 4.0));
 
-            double jstar = ((1.0 + (100.0 * 0.007)) * j) / (1.0 + (0.007 * j));
-            double mstar = math.log(1.0 + (0.0228 * m)) / 0.0228;
-            double astar = mstar * math.cos(hueRadians);
-            double bstar = mstar * math.sin(hueRadians);
+            var jstar = (1.0 + 100.0 * 0.007) * j / (1.0 + 0.007 * j);
+            var mstar = math.log(1.0 + 0.0228 * m) / 0.0228;
+            var astar = mstar * math.cos(hueRadians);
+            var bstar = mstar * math.sin(hueRadians);
 
             return new Cam16(hue, c, j, q, m, s, jstar, astar, bstar);
         }
@@ -289,20 +287,20 @@ namespace MaterialColorUtilities {
             double h,
             ViewingConditions viewingConditions
         ) {
-            double q = (4.0 / viewingConditions.C)
-                     * math.sqrt(j / 100.0)
-                     * (viewingConditions.Aw + 4.0)
-                     * viewingConditions.FLRoot;
+            var q = 4.0 / viewingConditions.C
+                  * math.sqrt(j / 100.0)
+                  * (viewingConditions.Aw + 4.0)
+                  * viewingConditions.FlRoot;
 
-            double m = c * viewingConditions.FLRoot;
-            double alpha = c / math.sqrt(j / 100.0);
-            double s = 50.0 * math.sqrt((alpha * viewingConditions.C) / (viewingConditions.Aw + 4.0));
+            var m = c * viewingConditions.FlRoot;
+            var alpha = c / math.sqrt(j / 100.0);
+            var s = 50.0 * math.sqrt(alpha * viewingConditions.C / (viewingConditions.Aw + 4.0));
 
-            double hueRadians = math.radians(h);
-            double jstar = ((1.0 + (100.0 * 0.007)) * j) / (1.0 + (0.007 * j));
-            double mstar = math.log(1.0 + (0.0228 * m)) / 0.0228;
-            double astar = mstar * math.cos(hueRadians);
-            double bstar = mstar * math.sin(hueRadians);
+            var hueRadians = math.radians(h);
+            var jstar = (1.0 + 100.0 * 0.007) * j / (1.0 + 0.007 * j);
+            var mstar = math.log(1.0 + 0.0228 * m) / 0.0228;
+            var astar = mstar * math.cos(hueRadians);
+            var bstar = mstar * math.sin(hueRadians);
 
             return new Cam16(h, c, j, q, m, s, jstar, astar, bstar);
         }
@@ -317,14 +315,14 @@ namespace MaterialColorUtilities {
             double bstar,
             ViewingConditions viewingConditions
         ) {
-            double m = math.sqrt((astar * astar) + (bstar * bstar));
-            double bigM = (math.exp(m * 0.0228) - 1.0) / 0.0228;
-            double c = bigM / viewingConditions.FLRoot;
+            var m = math.sqrt(astar * astar + bstar * bstar);
+            var bigM = (math.exp(m * 0.0228) - 1.0) / 0.0228;
+            var c = bigM / viewingConditions.FlRoot;
 
-            double h = math.degrees(math.atan2(bstar, astar));
-            if (h < 0.0) { h += 360.0; }
+            var h = math.degrees(math.atan2(bstar, astar));
+            if (h < 0.0) h += 360.0;
 
-            double j = jstar / (1.0 - ((jstar - 100.0) * 0.007));
+            var j = jstar / (1.0 - (jstar - 100.0) * 0.007);
             return FromJchInViewingConditions(j, c, h, viewingConditions);
         }
 
@@ -333,16 +331,16 @@ namespace MaterialColorUtilities {
         }
 
         public int Viewed(ViewingConditions viewingConditions) {
-            double3 xyz = XyzInViewingConditions(viewingConditions);
+            var xyz = XyzInViewingConditions(viewingConditions);
             return ColorUtils.ArgbFromXyz(xyz.x, xyz.y, xyz.z);
         }
 
         public double3 XyzInViewingConditions(ViewingConditions viewingConditions) {
-            double alpha = (Chroma == 0.0 || J == 0.0)
+            var alpha = Chroma == 0.0 || J == 0.0
                 ? 0.0
                 : Chroma / math.sqrt(J / 100.0);
 
-            double t = math.pow(
+            var t = math.pow(
                 alpha / math.pow(
                     1.64 - math.pow(0.29, viewingConditions.BackgroundYTowhitePointY),
                     0.73
@@ -350,64 +348,101 @@ namespace MaterialColorUtilities {
                 1.0 / 0.9
             );
 
-            double hRad = math.radians(Hue);
-            double eHue = 0.25 * (math.cos(hRad + 2.0) + 3.8);
-            double ac = viewingConditions.Aw
-                      * math.pow(J / 100.0, 1.0 / viewingConditions.C / viewingConditions.Z);
+            var hRad = math.radians(Hue);
+            var eHue = 0.25 * (math.cos(hRad + 2.0) + 3.8);
+            var ac = viewingConditions.Aw
+                   * math.pow(J / 100.0, 1.0 / viewingConditions.C / viewingConditions.Z);
 
-            double p1 = eHue * (50000.0 / 13.0) * viewingConditions.NC * viewingConditions.Ncb;
-            double p2 = ac / viewingConditions.Nbb;
+            var p1 = eHue * (50000.0 / 13.0) * viewingConditions.Nc * viewingConditions.Ncb;
+            var p2 = ac / viewingConditions.Nbb;
 
-            double hSin = math.sin(hRad);
-            double hCos = math.cos(hRad);
+            var hSin = math.sin(hRad);
+            var hCos = math.cos(hRad);
 
-            double gamma = 23.0 * (p2 + 0.305) * t
-                         / ((23.0 * p1) + (11.0 * t * hCos) + (108.0 * t * hSin));
+            var gamma = 23.0 * (p2 + 0.305) * t
+                      / (23.0 * p1 + 11.0 * t * hCos + 108.0 * t * hSin);
 
-            double a = gamma * hCos;
-            double b = gamma * hSin;
+            var a = gamma * hCos;
+            var b = gamma * hSin;
 
-            double rA = ((460.0 * p2) + (451.0 * a) + (288.0 * b)) / 1403.0;
-            double gA = ((460.0 * p2) - (891.0 * a) - (261.0 * b)) / 1403.0;
-            double bA = ((460.0 * p2) - (220.0 * a) - (6300.0 * b)) / 1403.0;
+            var rA = (460.0 * p2 + 451.0 * a + 288.0 * b) / 1403.0;
+            var gA = (460.0 * p2 - 891.0 * a - 261.0 * b) / 1403.0;
+            var bA = (460.0 * p2 - 220.0 * a - 6300.0 * b) / 1403.0;
 
-            double rCBase = math.max(0.0, (27.13 * math.abs(rA)) / (400.0 - math.abs(rA)));
-            double gCBase = math.max(0.0, (27.13 * math.abs(gA)) / (400.0 - math.abs(gA)));
-            double bCBase = math.max(0.0, (27.13 * math.abs(bA)) / (400.0 - math.abs(bA)));
+            var rCBase = math.max(0.0, 27.13 * math.abs(rA) / (400.0 - math.abs(rA)));
+            var gCBase = math.max(0.0, 27.13 * math.abs(gA) / (400.0 - math.abs(gA)));
+            var bCBase = math.max(0.0, 27.13 * math.abs(bA) / (400.0 - math.abs(bA)));
 
-            double rC = MathUtils.Signum(rA) * (100.0 / viewingConditions.Fl) * math.pow(rCBase, 1.0 / 0.42);
-            double gC = MathUtils.Signum(gA) * (100.0 / viewingConditions.Fl) * math.pow(gCBase, 1.0 / 0.42);
-            double bC = MathUtils.Signum(bA) * (100.0 / viewingConditions.Fl) * math.pow(bCBase, 1.0 / 0.42);
+            var rC = MathUtils.Signum(rA) * (100.0 / viewingConditions.Fl) * math.pow(rCBase, 1.0 / 0.42);
+            var gC = MathUtils.Signum(gA) * (100.0 / viewingConditions.Fl) * math.pow(gCBase, 1.0 / 0.42);
+            var bC = MathUtils.Signum(bA) * (100.0 / viewingConditions.Fl) * math.pow(bCBase, 1.0 / 0.42);
 
-            double3 rgbF = new double3(
+            var rgbF = new double3(
                 rC / viewingConditions.RgbD.x,
                 gC / viewingConditions.RgbD.y,
                 bC / viewingConditions.RgbD.z
             );
 
-            return math.mul(Cam16RgbToXyz, rgbF);
+            return math.mul(_cam16RgbToXyz, rgbF);
         }
     }
 
     /// <summary>
-    /// HCT, hue, chroma, and tone.
+    ///     HCT, hue, chroma, and tone.
     /// </summary>
     public sealed class Hct : IEquatable<Hct> {
-        private double _hue;
-        private double _chroma;
-        private double _tone;
         private int _argb;
+        private double _chroma;
+        private double _hue;
+        private double _tone;
 
         private Hct(int argb) {
             _argb = argb;
-            Cam16 cam16 = Cam16.FromInt(argb);
+            var cam16 = Cam16.FromInt(argb);
             _hue = cam16.Hue;
             _chroma = cam16.Chroma;
             _tone = ColorUtils.LstarFromArgb(_argb);
         }
 
+        public double Hue {
+            get => _hue;
+            set {
+                _argb = HctSolver.SolveToInt(value, Chroma, Tone);
+                var cam16 = Cam16.FromInt(_argb);
+                _hue = cam16.Hue;
+                _chroma = cam16.Chroma;
+                _tone = ColorUtils.LstarFromArgb(_argb);
+            }
+        }
+
+        public double Chroma {
+            get => _chroma;
+            set {
+                _argb = HctSolver.SolveToInt(Hue, value, Tone);
+                var cam16 = Cam16.FromInt(_argb);
+                _hue = cam16.Hue;
+                _chroma = cam16.Chroma;
+                _tone = ColorUtils.LstarFromArgb(_argb);
+            }
+        }
+
+        public double Tone {
+            get => _tone;
+            set {
+                _argb = HctSolver.SolveToInt(Hue, Chroma, value);
+                var cam16 = Cam16.FromInt(_argb);
+                _hue = cam16.Hue;
+                _chroma = cam16.Chroma;
+                _tone = ColorUtils.LstarFromArgb(_argb);
+            }
+        }
+
+        public bool Equals(Hct other) {
+            return !(other is null) && other._argb == _argb;
+        }
+
         public static Hct From(double hue, double chroma, double tone) {
-            int argb = HctSolver.SolveToInt(hue, chroma, tone);
+            var argb = HctSolver.SolveToInt(hue, chroma, tone);
             return new Hct(argb);
         }
 
@@ -419,44 +454,11 @@ namespace MaterialColorUtilities {
             return _argb;
         }
 
-        public double Hue {
-            get => _hue;
-            set {
-                _argb = HctSolver.SolveToInt(value, Chroma, Tone);
-                Cam16 cam16 = Cam16.FromInt(_argb);
-                _hue = cam16.Hue;
-                _chroma = cam16.Chroma;
-                _tone = ColorUtils.LstarFromArgb(_argb);
-            }
-        }
-
-        public double Chroma {
-            get => _chroma;
-            set {
-                _argb = HctSolver.SolveToInt(Hue, value, Tone);
-                Cam16 cam16 = Cam16.FromInt(_argb);
-                _hue = cam16.Hue;
-                _chroma = cam16.Chroma;
-                _tone = ColorUtils.LstarFromArgb(_argb);
-            }
-        }
-
-        public double Tone {
-            get => _tone;
-            set {
-                _argb = HctSolver.SolveToInt(Hue, Chroma, value);
-                Cam16 cam16 = Cam16.FromInt(_argb);
-                _hue = cam16.Hue;
-                _chroma = cam16.Chroma;
-                _tone = ColorUtils.LstarFromArgb(_argb);
-            }
-        }
-
         public Hct InViewingConditions(ViewingConditions vc) {
-            Cam16 cam16 = Cam16.FromInt(ToInt());
-            double3 viewedInVc = cam16.XyzInViewingConditions(vc);
+            var cam16 = Cam16.FromInt(ToInt());
+            var viewedInVc = cam16.XyzInViewingConditions(vc);
 
-            Cam16 recastInVc = Cam16.FromXyzInViewingConditions(
+            var recastInVc = Cam16.FromXyzInViewingConditions(
                 viewedInVc.x,
                 viewedInVc.y,
                 viewedInVc.z,
@@ -468,10 +470,6 @@ namespace MaterialColorUtilities {
                 recastInVc.Chroma,
                 ColorUtils.LstarFromY(viewedInVc.y)
             );
-        }
-
-        public bool Equals(Hct other) {
-            return !(other is null) && other._argb == _argb;
         }
 
         public override bool Equals(object obj) {
@@ -488,26 +486,26 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// A class that solves the HCT equation.
+    ///     A class that solves the HCT equation.
     /// </summary>
     public static class HctSolver {
         // Stored transposed for Unity column-major matrices.
-        private static readonly double3x3 ScaledDiscountFromLinrgb = new double3x3(
+        private static readonly double3x3 _scaledDiscountFromLinrgb = new(
             new double3(0.001200833568784504, 0.0005891086651375999, 0.00010146692491640572),
             new double3(0.002389694492170889, 0.0029785502573438758, 0.0005364214359186694),
             new double3(0.0002795742885861124, 0.0003270666104008398, 0.0032979401770712076)
         );
 
         // Stored transposed for Unity column-major matrices.
-        private static readonly double3x3 LinrgbFromScaledDiscount = new double3x3(
+        private static readonly double3x3 _linrgbFromScaledDiscount = new(
             new double3(1373.2198709594231, -271.815969077903, 1.9622899599665666),
             new double3(-1100.4251190754821, 559.6580465940733, -57.173814538844006),
             new double3(-7.278681089101213, -32.46047482791194, 308.7233197812385)
         );
 
-        private static readonly double3 YFromLinrgb = new double3(0.2126, 0.7152, 0.0722);
+        private static readonly double3 _yFromLinrgb = new(0.2126, 0.7152, 0.0722);
 
-        private static readonly double[] CriticalPlanes = new double[] {
+        private static readonly double[] _criticalPlanes = {
             0.015176349177441876, 0.045529047532325624, 0.07588174588720938, 0.10623444424209313, 0.13658714259697685,
             0.16693984095186062, 0.19729253930674434, 0.2276452376616281, 0.2579979360165119, 0.28835063437139563,
             0.3188300904430532, 0.350925934958123, 0.3848314933096426, 0.42057480301049466, 0.458183274052838,
@@ -558,44 +556,44 @@ namespace MaterialColorUtilities {
             83.4778813166706, 84.28304815182372, 85.09272707154808, 85.90692527145302, 86.72564993000343,
             87.54890820862819, 88.3767072518277, 89.2090541872801, 90.04595612594655, 90.88742016217518,
             91.73345337380438, 92.58406282226491, 93.43925555268066, 94.29903859396902, 95.16341895893969,
-            96.03240364439274, 96.9059996312159, 97.78421388448044, 98.6670533535366, 99.55452497210776,
+            96.03240364439274, 96.9059996312159, 97.78421388448044, 98.6670533535366, 99.55452497210776
         };
 
         private static double SanitizeRadians(double angle) {
-            return (angle + (math.PI * 8.0)) % (math.PI * 2.0);
+            return (angle + math.PI * 8.0) % (math.PI * 2.0);
         }
 
         private static double TrueDelinearized(double rgbComponent) {
-            double normalized = rgbComponent / 100.0;
-            double delinearized = normalized <= 0.0031308
+            var normalized = rgbComponent / 100.0;
+            var delinearized = normalized <= 0.0031308
                 ? normalized * 12.92
-                : (1.055 * math.pow(normalized, 1.0 / 2.4)) - 0.055;
+                : 1.055 * math.pow(normalized, 1.0 / 2.4) - 0.055;
 
             return delinearized * 255.0;
         }
 
         private static double ChromaticAdaptation(double component) {
-            double af = math.pow(math.abs(component), 0.42);
+            var af = math.pow(math.abs(component), 0.42);
             return MathUtils.Signum(component) * 400.0 * af / (af + 27.13);
         }
 
         private static double HueOf(double3 linrgb) {
-            double3 scaledDiscount = MathUtils.MatrixMultiply(linrgb, ScaledDiscountFromLinrgb);
+            var scaledDiscount = MathUtils.MatrixMultiply(linrgb, _scaledDiscountFromLinrgb);
 
-            double rA = ChromaticAdaptation(scaledDiscount.x);
-            double gA = ChromaticAdaptation(scaledDiscount.y);
-            double bA = ChromaticAdaptation(scaledDiscount.z);
+            var rA = ChromaticAdaptation(scaledDiscount.x);
+            var gA = ChromaticAdaptation(scaledDiscount.y);
+            var bA = ChromaticAdaptation(scaledDiscount.z);
 
-            double a = ((11.0 * rA) + (-12.0 * gA) + bA) / 11.0;
-            double b = (rA + gA - (2.0 * bA)) / 9.0;
+            var a = (11.0 * rA + -12.0 * gA + bA) / 11.0;
+            var b = (rA + gA - 2.0 * bA) / 9.0;
 
             return math.atan2(b, a);
         }
 
         private static bool AreInCyclicOrder(double a, double b, double c) {
-            double deltaAB = SanitizeRadians(b - a);
-            double deltaAC = SanitizeRadians(c - a);
-            return deltaAB < deltaAC;
+            var deltaAb = SanitizeRadians(b - a);
+            var deltaAc = SanitizeRadians(c - a);
+            return deltaAb < deltaAc;
         }
 
         private static double Intercept(double source, double mid, double target) {
@@ -603,13 +601,13 @@ namespace MaterialColorUtilities {
         }
 
         private static double3 LerpPoint(double3 source, double t, double3 target) {
-            return source + ((target - source) * t);
+            return source + (target - source) * t;
         }
 
         private static double3 SetCoordinate(double3 source, double coordinate, double3 target, int axis) {
-            double sourceAxis = axis == 0 ? source.x : axis == 1 ? source.y : source.z;
-            double targetAxis = axis == 0 ? target.x : axis == 1 ? target.y : target.z;
-            double t = Intercept(sourceAxis, coordinate, targetAxis);
+            var sourceAxis = axis == 0 ? source.x : axis == 1 ? source.y : source.z;
+            var targetAxis = axis == 0 ? target.x : axis == 1 ? target.y : target.z;
+            var t = Intercept(sourceAxis, coordinate, targetAxis);
             return LerpPoint(source, t, target);
         }
 
@@ -618,27 +616,29 @@ namespace MaterialColorUtilities {
         }
 
         private static double3 NthVertex(double y, int n) {
-            double kR = YFromLinrgb.x;
-            double kG = YFromLinrgb.y;
-            double kB = YFromLinrgb.z;
+            var kR = _yFromLinrgb.x;
+            var kG = _yFromLinrgb.y;
+            var kB = _yFromLinrgb.z;
 
-            double coordA = (n % 4) <= 1 ? 0.0 : 100.0;
-            double coordB = (n & 1) == 0 ? 0.0 : 100.0;
+            var coordA = n % 4 <= 1 ? 0.0 : 100.0;
+            var coordB = (n & 1) == 0 ? 0.0 : 100.0;
 
             if (n < 4) {
-                double g = coordA;
-                double b = coordB;
-                double r = (y - (g * kG) - (b * kB)) / kR;
+                var g = coordA;
+                var b = coordB;
+                var r = (y - g * kG - b * kB) / kR;
                 return IsBounded(r) ? new double3(r, g, b) : new double3(-1.0, -1.0, -1.0);
-            } else if (n < 8) {
-                double b = coordA;
-                double r = coordB;
-                double g = (y - (r * kR) - (b * kB)) / kG;
+            }
+
+            if (n < 8) {
+                var b = coordA;
+                var r = coordB;
+                var g = (y - r * kR - b * kB) / kG;
                 return IsBounded(g) ? new double3(r, g, b) : new double3(-1.0, -1.0, -1.0);
             } else {
-                double r = coordA;
-                double g = coordB;
-                double b = (y - (r * kR) - (g * kG)) / kB;
+                var r = coordA;
+                var g = coordB;
+                var b = (y - r * kR - g * kG) / kB;
                 return IsBounded(b) ? new double3(r, g, b) : new double3(-1.0, -1.0, -1.0);
             }
         }
@@ -647,16 +647,16 @@ namespace MaterialColorUtilities {
             left = new double3(-1.0, -1.0, -1.0);
             right = left;
 
-            double leftHue = 0.0;
-            double rightHue = 0.0;
-            bool initialized = false;
-            bool uncut = true;
+            var leftHue = 0.0;
+            var rightHue = 0.0;
+            var initialized = false;
+            var uncut = true;
 
-            for (int n = 0; n < 12; n++) {
-                double3 mid = NthVertex(y, n);
-                if (mid.x < 0.0) { continue; }
+            for (var n = 0; n < 12; n++) {
+                var mid = NthVertex(y, n);
+                if (mid.x < 0.0) continue;
 
-                double midHue = HueOf(mid);
+                var midHue = HueOf(mid);
 
                 if (!initialized) {
                     left = mid;
@@ -694,14 +694,14 @@ namespace MaterialColorUtilities {
         }
 
         private static double3 BisectToLimit(double y, double targetHue) {
-            BisectToSegment(y, targetHue, out double3 left, out double3 right);
-            double leftHue = HueOf(left);
+            BisectToSegment(y, targetHue, out var left, out var right);
+            var leftHue = HueOf(left);
 
-            for (int axis = 0; axis < 3; axis++) {
-                double leftAxis = axis == 0 ? left.x : axis == 1 ? left.y : left.z;
-                double rightAxis = axis == 0 ? right.x : axis == 1 ? right.y : right.z;
-
-                if (leftAxis == rightAxis) { continue; }
+            for (var axis = 0; axis < 3; axis++) {
+                var leftAxis = axis == 0 ? left.x : axis == 1 ? left.y : left.z;
+                var rightAxis = axis == 0 ? right.x : axis == 1 ? right.y : right.z;
+                
+                if (MathUtils.ApproximatelyEqual(leftAxis, rightAxis)) continue;
 
                 int lPlane;
                 int rPlane;
@@ -714,13 +714,13 @@ namespace MaterialColorUtilities {
                     rPlane = CriticalPlaneBelow(TrueDelinearized(rightAxis));
                 }
 
-                for (int i = 0; i < 8; i++) {
-                    if (math.abs(rPlane - lPlane) <= 1) { break; }
+                for (var i = 0; i < 8; i++) {
+                    if (math.abs(rPlane - lPlane) <= 1) break;
 
-                    int mPlane = (int)math.floor((lPlane + rPlane) / 2.0);
-                    double midPlaneCoordinate = CriticalPlanes[mPlane];
-                    double3 mid = SetCoordinate(left, midPlaneCoordinate, right, axis);
-                    double midHue = HueOf(mid);
+                    var mPlane = (int)math.floor((lPlane + rPlane) / 2.0);
+                    var midPlaneCoordinate = _criticalPlanes[mPlane];
+                    var mid = SetCoordinate(left, midPlaneCoordinate, right, axis);
+                    var midHue = HueOf(mid);
 
                     if (AreInCyclicOrder(leftHue, targetHue, midHue)) {
                         right = mid;
@@ -737,80 +737,80 @@ namespace MaterialColorUtilities {
         }
 
         private static double InverseChromaticAdaptation(double adapted) {
-            double adaptedAbs = math.abs(adapted);
-            double @base = math.max(0.0, 27.13 * adaptedAbs / (400.0 - adaptedAbs));
+            var adaptedAbs = math.abs(adapted);
+            var @base = math.max(0.0, 27.13 * adaptedAbs / (400.0 - adaptedAbs));
             return MathUtils.Signum(adapted) * math.pow(@base, 1.0 / 0.42);
         }
 
         private static int FindResultByJ(double hueRadians, double chroma, double y) {
-            double j = math.sqrt(y) * 11.0;
+            var j = math.sqrt(y) * 11.0;
 
-            ViewingConditions viewingConditions = ViewingConditions.Standard;
-            double tInnerCoeff = 1.0 / math.pow(
+            var viewingConditions = ViewingConditions.Standard;
+            var tInnerCoeff = 1.0 / math.pow(
                 1.64 - math.pow(0.29, viewingConditions.BackgroundYTowhitePointY),
                 0.73
             );
 
-            double eHue = 0.25 * (math.cos(hueRadians + 2.0) + 3.8);
-            double p1 = eHue * (50000.0 / 13.0) * viewingConditions.NC * viewingConditions.Ncb;
-            double hSin = math.sin(hueRadians);
-            double hCos = math.cos(hueRadians);
+            var eHue = 0.25 * (math.cos(hueRadians + 2.0) + 3.8);
+            var p1 = eHue * (50000.0 / 13.0) * viewingConditions.Nc * viewingConditions.Ncb;
+            var hSin = math.sin(hueRadians);
+            var hCos = math.cos(hueRadians);
 
-            for (int iterationRound = 0; iterationRound < 5; iterationRound++) {
-                double jNormalized = j / 100.0;
-                double alpha = (chroma == 0.0 || j == 0.0) ? 0.0 : chroma / math.sqrt(jNormalized);
-                double t = math.pow(alpha * tInnerCoeff, 1.0 / 0.9);
-                double ac = viewingConditions.Aw
-                          * math.pow(jNormalized, 1.0 / viewingConditions.C / viewingConditions.Z);
+            for (var iterationRound = 0; iterationRound < 5; iterationRound++) {
+                var jNormalized = j / 100.0;
+                var alpha = chroma == 0.0 || j == 0.0 ? 0.0 : chroma / math.sqrt(jNormalized);
+                var t = math.pow(alpha * tInnerCoeff, 1.0 / 0.9);
+                var ac = viewingConditions.Aw
+                       * math.pow(jNormalized, 1.0 / viewingConditions.C / viewingConditions.Z);
 
-                double p2 = ac / viewingConditions.Nbb;
-                double gamma = 23.0 * (p2 + 0.305) * t
-                             / ((23.0 * p1) + (11.0 * t * hCos) + (108.0 * t * hSin));
+                var p2 = ac / viewingConditions.Nbb;
+                var gamma = 23.0 * (p2 + 0.305) * t
+                          / (23.0 * p1 + 11.0 * t * hCos + 108.0 * t * hSin);
 
-                double a = gamma * hCos;
-                double b = gamma * hSin;
+                var a = gamma * hCos;
+                var b = gamma * hSin;
 
-                double rA = ((460.0 * p2) + (451.0 * a) + (288.0 * b)) / 1403.0;
-                double gA = ((460.0 * p2) - (891.0 * a) - (261.0 * b)) / 1403.0;
-                double bA = ((460.0 * p2) - (220.0 * a) - (6300.0 * b)) / 1403.0;
+                var rA = (460.0 * p2 + 451.0 * a + 288.0 * b) / 1403.0;
+                var gA = (460.0 * p2 - 891.0 * a - 261.0 * b) / 1403.0;
+                var bA = (460.0 * p2 - 220.0 * a - 6300.0 * b) / 1403.0;
 
-                double3 linrgb = MathUtils.MatrixMultiply(
+                var linrgb = MathUtils.MatrixMultiply(
                     new double3(
                         InverseChromaticAdaptation(rA),
                         InverseChromaticAdaptation(gA),
                         InverseChromaticAdaptation(bA)
                     ),
-                    LinrgbFromScaledDiscount
+                    _linrgbFromScaledDiscount
                 );
 
-                if (linrgb.x < 0.0 || linrgb.y < 0.0 || linrgb.z < 0.0) { return 0; }
+                if (linrgb.x < 0.0 || linrgb.y < 0.0 || linrgb.z < 0.0) return 0;
 
-                double fnj = math.dot(YFromLinrgb, linrgb);
-                if (fnj <= 0.0) { return 0; }
+                var fnj = math.dot(_yFromLinrgb, linrgb);
+                if (fnj <= 0.0) return 0;
 
                 if (iterationRound == 4 || math.abs(fnj - y) < 0.002) {
-                    if (linrgb.x > 100.01 || linrgb.y > 100.01 || linrgb.z > 100.01) { return 0; }
+                    if (linrgb.x > 100.01 || linrgb.y > 100.01 || linrgb.z > 100.01) return 0;
 
                     return ColorUtils.ArgbFromLinrgb(linrgb);
                 }
 
-                j = j - ((fnj - y) * j / (2.0 * fnj));
+                j = j - (fnj - y) * j / (2.0 * fnj);
             }
 
             return 0;
         }
 
         public static int SolveToInt(double hueDegrees, double chroma, double lstar) {
-            if (chroma < 0.0001 || lstar < 0.0001 || lstar > 99.9999) { return ColorUtils.ArgbFromLstar(lstar); }
+            if (chroma < 0.0001 || lstar < 0.0001 || lstar > 99.9999) return ColorUtils.ArgbFromLstar(lstar);
 
             hueDegrees = MathUtils.SanitizeDegreesDouble(hueDegrees);
-            double hueRadians = math.radians(hueDegrees);
-            double y = ColorUtils.YFromLstar(lstar);
+            var hueRadians = math.radians(hueDegrees);
+            var y = ColorUtils.YFromLstar(lstar);
 
-            int exactAnswer = FindResultByJ(hueRadians, chroma, y);
-            if (exactAnswer != 0) { return exactAnswer; }
+            var exactAnswer = FindResultByJ(hueRadians, chroma, y);
+            if (exactAnswer != 0) return exactAnswer;
 
-            double3 linrgb = BisectToLimit(y, hueRadians);
+            var linrgb = BisectToLimit(y, hueRadians);
             return ColorUtils.ArgbFromLinrgb(linrgb);
         }
 

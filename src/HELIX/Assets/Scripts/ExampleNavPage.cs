@@ -1,10 +1,10 @@
 using HELIX.Abstractions;
 using HELIX.Coloring;
+using HELIX.Coloring.Material;
 using HELIX.Extensions;
 using HELIX.Widgets.Elements;
 using HELIX.Widgets.Navigation;
 using HELIX.Widgets.Visual;
-using MaterialColorUtilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -80,16 +80,15 @@ public partial class HelixColorSwatchVisualizer : BaseElement {
         //     Add(new SwatchVisualizer(RadixSwatches.Generate(swatch, true, closestRadixTemplate)).Flexible());
         // }
 
-        foreach (var template in Colors.All) {
+        foreach (var template in FlutterMaterialColors.Primaries) {
             Add(new Label(template.name).Tight());
             // Add(new SwatchVisualizer(swatch.weights).Flexible());
             // Add(new SwatchVisualizer(template.weight).Flexible());
             // Add(new SwatchVisualizer(template.lightColors).Flexible());
             // Add(new SwatchVisualizer(template.darkColors).Flexible());
 
-            var materialColor = template.Value.ToMaterialColor();
-            Add(new SwatchVisualizer(materialColor.ToSwatch()).Flexible());
-            var scheme = template.Value.CreateScheme();
+            Add(new SwatchVisualizer(template.ToSwatch()).Flexible());
+            var scheme = template.Value.CreateScheme(Variant.Fidelity);
 
             Add(new SwatchVisualizer(scheme.PrimaryPalette.ToMaterialColor().ToSwatch()).Flexible());
             Add(new SwatchVisualizer(scheme.NeutralPalette.ToMaterialColor().ToSwatch()).Flexible());

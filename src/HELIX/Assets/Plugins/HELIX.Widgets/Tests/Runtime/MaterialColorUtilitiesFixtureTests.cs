@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using MaterialColorUtilities;
+using HELIX.Coloring.Material;
 using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEngine;
@@ -42,7 +42,7 @@ namespace HELIX.Widgets.Tests {
         public void MaterialColorSwatches_MatchFlutterFixtures() {
             foreach (var fixture in _fixtures) {
                 var seedArgb = unchecked((int)fixture.seed);
-                var materialColor = new MaterialColor(seedArgb);
+                var materialColor = new TonalMaterialColor(seedArgb);
 
                 foreach (var kvp in fixture.swatch) {
                     var weight = int.Parse(kvp.Key);

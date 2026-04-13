@@ -1,3 +1,4 @@
+using System;
 using HELIX.Coloring;
 using HELIX.Extensions;
 using HELIX.Types;
@@ -14,6 +15,22 @@ namespace HELIX.Widgets.Visual {
                 var lab = new LabColor(weight);
                 var lch = (LchColor)lab;
                 var weightValue = (uint)(index + 1);
+                if (swatch.Length == 10) {
+                    weightValue = index switch {
+                        0 => 50,
+                        1 => 100,
+                        2 => 200,
+                        3 => 300,
+                        4 => 400,
+                        5 => 500,
+                        6 => 600,
+                        7 => 700,
+                        8 => 800,
+                        9 => 900,
+                        _ => throw new ArgumentOutOfRangeException()
+                    };
+                }
+                
                 var timePerStep = 1 / (float)swatch.Length;
                 new Label($"{weightValue.ToString()}\n{weight.ToHex()}\nOK L: {lch.l:P1} C: {lch.c:F3} H: {lch.h:F1}")
                     .NoPaddingAndMargin().Sized(timePerStep.NormalizedPercent())

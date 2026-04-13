@@ -1,12 +1,11 @@
 using Unity.Mathematics;
 
-namespace MaterialColorUtilities {
+namespace HELIX.Coloring.Material {
     /// <summary>
-    /// A scheme that places the source color in PrimaryContainer.
-    ///
-    /// Primary Container is the source color, adjusted for color relativity.
-    /// Tertiary Container is an analogous color, specifically the analog found
-    /// by increasing hue on a 6-division wheel.
+    ///     A scheme that places the source color in PrimaryContainer.
+    ///     Primary Container is the source color, adjusted for color relativity.
+    ///     Tertiary Container is an analogous color, specifically the analog found
+    ///     by increasing hue on a 6-division wheel.
     /// </summary>
     public sealed class SchemeContent : DynamicScheme {
         public SchemeContent(
@@ -15,9 +14,9 @@ namespace MaterialColorUtilities {
             double contrastLevel = 0.0
         )
             : base(
-                sourceColorHct: sourceColorHct,
-                variant: Variant.Content,
-                isDark: isDark,
+                sourceColorHct,
+                Variant.Content,
+                isDark,
                 contrastLevel: contrastLevel,
                 primaryPalette: TonalPalette.Of(
                     sourceColorHct.Hue,
@@ -28,9 +27,7 @@ namespace MaterialColorUtilities {
                     math.max(sourceColorHct.Chroma - 32.0, sourceColorHct.Chroma * 0.5)
                 ),
                 tertiaryPalette: TonalPalette.FromHct(
-                    DislikeAnalyzer.FixIfDisliked(
-                        new TemperatureCache(sourceColorHct).Analogous(count: 3, divisions: 6)[2]
-                    )
+                    DislikeAnalyzer.FixIfDisliked(new TemperatureCache(sourceColorHct).Analogous(3, 6)[2])
                 ),
                 neutralPalette: TonalPalette.Of(
                     sourceColorHct.Hue,
@@ -38,20 +35,20 @@ namespace MaterialColorUtilities {
                 ),
                 neutralVariantPalette: TonalPalette.Of(
                     sourceColorHct.Hue,
-                    (sourceColorHct.Chroma / 8.0) + 4.0
+                    sourceColorHct.Chroma / 8.0 + 4.0
                 )
             ) { }
     }
 
     /// <summary>
-    /// A Dynamic Color theme that is intentionally detached from the input color.
+    ///     A Dynamic Color theme that is intentionally detached from the input color.
     /// </summary>
     public sealed class SchemeExpressive : DynamicScheme {
-        private static readonly double[] Hues = { 0, 21, 51, 121, 151, 191, 271, 321, 360 };
+        private static readonly double[] _hues = { 0, 21, 51, 121, 151, 191, 271, 321, 360 };
 
-        private static readonly double[] SecondaryRotations = { 45, 95, 45, 20, 45, 90, 45, 45, 45 };
+        private static readonly double[] _secondaryRotations = { 45, 95, 45, 20, 45, 90, 45, 45, 45 };
 
-        private static readonly double[] TertiaryRotations = { 120, 120, 20, 45, 20, 15, 20, 120, 120 };
+        private static readonly double[] _tertiaryRotations = { 120, 120, 20, 45, 20, 15, 20, 120, 120 };
 
         public SchemeExpressive(
             Hct sourceColorHct,
@@ -59,20 +56,20 @@ namespace MaterialColorUtilities {
             double contrastLevel = 0.0
         )
             : base(
-                sourceColorHct: sourceColorHct,
-                variant: Variant.Expressive,
-                isDark: isDark,
+                sourceColorHct,
+                Variant.Expressive,
+                isDark,
                 contrastLevel: contrastLevel,
                 primaryPalette: TonalPalette.Of(
                     MathUtils.SanitizeDegreesDouble(sourceColorHct.Hue + 240.0),
                     40.0
                 ),
                 secondaryPalette: TonalPalette.Of(
-                    DynamicScheme.GetRotatedHue(sourceColorHct, Hues, SecondaryRotations),
+                    GetRotatedHue(sourceColorHct, _hues, _secondaryRotations),
                     24.0
                 ),
                 tertiaryPalette: TonalPalette.Of(
-                    DynamicScheme.GetRotatedHue(sourceColorHct, Hues, TertiaryRotations),
+                    GetRotatedHue(sourceColorHct, _hues, _tertiaryRotations),
                     32.0
                 ),
                 neutralPalette: TonalPalette.Of(sourceColorHct.Hue + 15.0, 8.0),
@@ -81,9 +78,8 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// A scheme that places the source color in PrimaryContainer.
-    ///
-    /// Tertiary Container is the complement to the source color.
+    ///     A scheme that places the source color in PrimaryContainer.
+    ///     Tertiary Container is the complement to the source color.
     /// </summary>
     public sealed class SchemeFidelity : DynamicScheme {
         public SchemeFidelity(
@@ -92,9 +88,9 @@ namespace MaterialColorUtilities {
             double contrastLevel = 0.0
         )
             : base(
-                sourceColorHct: sourceColorHct,
-                variant: Variant.Fidelity,
-                isDark: isDark,
+                sourceColorHct,
+                Variant.Fidelity,
+                isDark,
                 contrastLevel: contrastLevel,
                 primaryPalette: TonalPalette.Of(
                     sourceColorHct.Hue,
@@ -113,13 +109,13 @@ namespace MaterialColorUtilities {
                 ),
                 neutralVariantPalette: TonalPalette.Of(
                     sourceColorHct.Hue,
-                    (sourceColorHct.Chroma / 8.0) + 4.0
+                    sourceColorHct.Chroma / 8.0 + 4.0
                 )
             ) { }
     }
 
     /// <summary>
-    /// A playful theme - the source color's hue does not appear in the theme.
+    ///     A playful theme - the source color's hue does not appear in the theme.
     /// </summary>
     public sealed class SchemeFruitSalad : DynamicScheme {
         public SchemeFruitSalad(
@@ -128,9 +124,9 @@ namespace MaterialColorUtilities {
             double contrastLevel = 0.0
         )
             : base(
-                sourceColorHct: sourceColorHct,
-                variant: Variant.FruitSalad,
-                isDark: isDark,
+                sourceColorHct,
+                Variant.FruitSalad,
+                isDark,
                 contrastLevel: contrastLevel,
                 primaryPalette: TonalPalette.Of(
                     MathUtils.SanitizeDegreesDouble(sourceColorHct.Hue - 50.0),
@@ -147,7 +143,7 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// A Dynamic Color theme that is grayscale.
+    ///     A Dynamic Color theme that is grayscale.
     /// </summary>
     public sealed class SchemeMonochrome : DynamicScheme {
         public SchemeMonochrome(
@@ -156,9 +152,9 @@ namespace MaterialColorUtilities {
             double contrastLevel = 0.0
         )
             : base(
-                sourceColorHct: sourceColorHct,
-                variant: Variant.Monochrome,
-                isDark: isDark,
+                sourceColorHct,
+                Variant.Monochrome,
+                isDark,
                 contrastLevel: contrastLevel,
                 primaryPalette: TonalPalette.Of(sourceColorHct.Hue, 0.0),
                 secondaryPalette: TonalPalette.Of(sourceColorHct.Hue, 0.0),
@@ -169,7 +165,7 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// A Dynamic Color theme that is near grayscale.
+    ///     A Dynamic Color theme that is near grayscale.
     /// </summary>
     public sealed class SchemeNeutral : DynamicScheme {
         public SchemeNeutral(
@@ -178,9 +174,9 @@ namespace MaterialColorUtilities {
             double contrastLevel = 0.0
         )
             : base(
-                sourceColorHct: sourceColorHct,
-                variant: Variant.Neutral,
-                isDark: isDark,
+                sourceColorHct,
+                Variant.Neutral,
+                isDark,
                 contrastLevel: contrastLevel,
                 primaryPalette: TonalPalette.Of(sourceColorHct.Hue, 12.0),
                 secondaryPalette: TonalPalette.Of(sourceColorHct.Hue, 8.0),
@@ -191,7 +187,7 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// A playful theme - the source color's hue does not appear in the theme.
+    ///     A playful theme - the source color's hue does not appear in the theme.
     /// </summary>
     public sealed class SchemeRainbow : DynamicScheme {
         public SchemeRainbow(
@@ -200,9 +196,9 @@ namespace MaterialColorUtilities {
             double contrastLevel = 0.0
         )
             : base(
-                sourceColorHct: sourceColorHct,
-                variant: Variant.Rainbow,
-                isDark: isDark,
+                sourceColorHct,
+                Variant.Rainbow,
+                isDark,
                 contrastLevel: contrastLevel,
                 primaryPalette: TonalPalette.Of(sourceColorHct.Hue, 48.0),
                 secondaryPalette: TonalPalette.Of(sourceColorHct.Hue, 16.0),
@@ -216,8 +212,8 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// A Dynamic Color theme with low to medium colorfulness and a tertiary
-    /// palette with a hue related to the source color.
+    ///     A Dynamic Color theme with low to medium colorfulness and a tertiary
+    ///     palette with a hue related to the source color.
     /// </summary>
     public sealed class SchemeTonalSpot : DynamicScheme {
         public SchemeTonalSpot(
@@ -226,9 +222,9 @@ namespace MaterialColorUtilities {
             double contrastLevel = 0.0
         )
             : base(
-                sourceColorHct: sourceColorHct,
-                variant: Variant.TonalSpot,
-                isDark: isDark,
+                sourceColorHct,
+                Variant.TonalSpot,
+                isDark,
                 contrastLevel: contrastLevel,
                 primaryPalette: TonalPalette.Of(sourceColorHct.Hue, 36.0),
                 secondaryPalette: TonalPalette.Of(sourceColorHct.Hue, 16.0),
@@ -242,15 +238,15 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// A Dynamic Color theme that maxes out colorfulness at each position in the
-    /// primary tonal palette.
+    ///     A Dynamic Color theme that maxes out colorfulness at each position in the
+    ///     primary tonal palette.
     /// </summary>
     public sealed class SchemeVibrant : DynamicScheme {
-        private static readonly double[] Hues = { 0, 41, 61, 101, 131, 181, 251, 301, 360 };
+        private static readonly double[] _hues = { 0, 41, 61, 101, 131, 181, 251, 301, 360 };
 
-        private static readonly double[] SecondaryRotations = { 18, 15, 10, 12, 15, 18, 15, 12, 12 };
+        private static readonly double[] _secondaryRotations = { 18, 15, 10, 12, 15, 18, 15, 12, 12 };
 
-        private static readonly double[] TertiaryRotations = { 35, 30, 20, 25, 30, 35, 30, 25, 25 };
+        private static readonly double[] _tertiaryRotations = { 35, 30, 20, 25, 30, 35, 30, 25, 25 };
 
         public SchemeVibrant(
             Hct sourceColorHct,
@@ -258,17 +254,17 @@ namespace MaterialColorUtilities {
             double contrastLevel = 0.0
         )
             : base(
-                sourceColorHct: sourceColorHct,
-                variant: Variant.Vibrant,
-                isDark: isDark,
+                sourceColorHct,
+                Variant.Vibrant,
+                isDark,
                 contrastLevel: contrastLevel,
                 primaryPalette: TonalPalette.Of(sourceColorHct.Hue, 200.0),
                 secondaryPalette: TonalPalette.Of(
-                    DynamicScheme.GetRotatedHue(sourceColorHct, Hues, SecondaryRotations),
+                    GetRotatedHue(sourceColorHct, _hues, _secondaryRotations),
                     24.0
                 ),
                 tertiaryPalette: TonalPalette.Of(
-                    DynamicScheme.GetRotatedHue(sourceColorHct, Hues, TertiaryRotations),
+                    GetRotatedHue(sourceColorHct, _hues, _tertiaryRotations),
                     32.0
                 ),
                 neutralPalette: TonalPalette.Of(sourceColorHct.Hue, 10.0),

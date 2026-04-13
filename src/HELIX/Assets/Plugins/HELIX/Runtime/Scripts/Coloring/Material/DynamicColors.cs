@@ -2,16 +2,11 @@ using System;
 using System.Collections.Generic;
 using Unity.Mathematics;
 
-namespace MaterialColorUtilities {
+namespace HELIX.Coloring.Material {
     /// <summary>
-    /// A class containing a value that changes with the contrast level.
+    ///     A class containing a value that changes with the contrast level.
     /// </summary>
     public sealed class ContrastCurve {
-        public double Low { get; }
-        public double Normal { get; }
-        public double Medium { get; }
-        public double High { get; }
-
         public ContrastCurve(double low, double normal, double medium, double high) {
             Low = low;
             Normal = normal;
@@ -19,18 +14,27 @@ namespace MaterialColorUtilities {
             High = high;
         }
 
+        public double Low { get; }
+        public double Normal { get; }
+        public double Medium { get; }
+        public double High { get; }
+
         public double Get(double contrastLevel) {
-            if (contrastLevel <= -1.0) { return Low; } else if (contrastLevel < 0.0) {
-                return MathUtils.Lerp(Low, Normal, (contrastLevel - (-1.0)) / 1.0);
-            } else if (contrastLevel < 0.5) { return MathUtils.Lerp(Normal, Medium, contrastLevel / 0.5); } else if
-                (contrastLevel < 1.0) { return MathUtils.Lerp(Medium, High, (contrastLevel - 0.5) / 0.5); } else {
-                return High;
-            }
+            if (contrastLevel <= -1.0) return Low;
+
+            if (contrastLevel < 0.0) return MathUtils.Lerp(Low, Normal, (contrastLevel - -1.0) / 1.0);
+
+            if (contrastLevel < 0.5) return MathUtils.Lerp(Normal, Medium, contrastLevel / 0.5);
+
+            if
+                (contrastLevel < 1.0) return MathUtils.Lerp(Medium, High, (contrastLevel - 0.5) / 0.5);
+
+            return High;
         }
     }
 
     /// <summary>
-    /// Describes the difference in tone between colors.
+    ///     Describes the difference in tone between colors.
     /// </summary>
     public enum TonePolarity {
         Darker,
@@ -40,16 +44,10 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// Documents a constraint between two DynamicColors, in which their tones must
-    /// have a certain distance from each other.
+    ///     Documents a constraint between two DynamicColors, in which their tones must
+    ///     have a certain distance from each other.
     /// </summary>
     public sealed class ToneDeltaPair {
-        public DynamicColor RoleA { get; }
-        public DynamicColor RoleB { get; }
-        public double Delta { get; }
-        public TonePolarity Polarity { get; }
-        public bool StayTogether { get; }
-
         public ToneDeltaPair(
             DynamicColor roleA,
             DynamicColor roleB,
@@ -63,10 +61,16 @@ namespace MaterialColorUtilities {
             Polarity = polarity;
             StayTogether = stayTogether;
         }
+
+        public DynamicColor RoleA { get; }
+        public DynamicColor RoleB { get; }
+        public double Delta { get; }
+        public TonePolarity Polarity { get; }
+        public bool StayTogether { get; }
     }
 
     /// <summary>
-    /// Set of themes supported by Dynamic Color.
+    ///     Set of themes supported by Dynamic Color.
     /// </summary>
     public enum Variant {
         Monochrome,
@@ -77,7 +81,7 @@ namespace MaterialColorUtilities {
         Content,
         Fidelity,
         Rainbow,
-        FruitSalad,
+        FruitSalad
     }
 
     public static class VariantExtensions {
@@ -118,19 +122,10 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// A color that adjusts itself based on UI state provided by DynamicScheme.
+    ///     A color that adjusts itself based on UI state provided by DynamicScheme.
     /// </summary>
     public sealed class DynamicColor {
-        public string Name { get; }
-        public Func<DynamicScheme, TonalPalette> Palette { get; }
-        public Func<DynamicScheme, double> Tone { get; }
-        public bool IsBackground { get; }
-        public Func<DynamicScheme, DynamicColor> Background { get; }
-        public Func<DynamicScheme, DynamicColor> SecondBackground { get; }
-        public ContrastCurve ContrastCurve { get; }
-        public Func<DynamicScheme, ToneDeltaPair> ToneDeltaPair { get; }
-
-        private readonly Dictionary<DynamicScheme, Hct> _hctCache = new Dictionary<DynamicScheme, Hct>();
+        private readonly Dictionary<DynamicScheme, Hct> _hctCache = new();
 
         public DynamicColor(
             string name,
@@ -151,6 +146,15 @@ namespace MaterialColorUtilities {
             ContrastCurve = contrastCurve;
             ToneDeltaPair = toneDeltaPair;
         }
+
+        public string Name { get; }
+        public Func<DynamicScheme, TonalPalette> Palette { get; }
+        public Func<DynamicScheme, double> Tone { get; }
+        public bool IsBackground { get; }
+        public Func<DynamicScheme, DynamicColor> Background { get; }
+        public Func<DynamicScheme, DynamicColor> SecondBackground { get; }
+        public ContrastCurve ContrastCurve { get; }
+        public Func<DynamicScheme, ToneDeltaPair> ToneDeltaPair { get; }
 
         public static DynamicColor FromPalette(
             Func<DynamicScheme, TonalPalette> palette,
@@ -179,52 +183,52 @@ namespace MaterialColorUtilities {
         }
 
         public Hct GetHct(DynamicScheme scheme) {
-            if (_hctCache.TryGetValue(scheme, out Hct cached)) { return cached; }
+            if (_hctCache.TryGetValue(scheme, out var cached)) return cached;
 
-            double tone = GetTone(scheme);
-            Hct answer = Palette(scheme).GetHct(tone);
+            var tone = GetTone(scheme);
+            var answer = Palette(scheme).GetHct(tone);
 
-            if (_hctCache.Count > 4) { _hctCache.Clear(); }
+            if (_hctCache.Count > 4) _hctCache.Clear();
 
             _hctCache[scheme] = answer;
             return answer;
         }
 
         public double GetTone(DynamicScheme scheme) {
-            bool decreasingContrast = scheme.ContrastLevel < 0.0;
+            var decreasingContrast = scheme.ContrastLevel < 0.0;
 
             if (ToneDeltaPair != null) {
-                ToneDeltaPair pair = ToneDeltaPair(scheme);
-                DynamicColor roleA = pair.RoleA;
-                DynamicColor roleB = pair.RoleB;
-                double delta = pair.Delta;
-                TonePolarity polarity = pair.Polarity;
-                bool stayTogether = pair.StayTogether;
+                var pair = ToneDeltaPair(scheme);
+                var roleA = pair.RoleA;
+                var roleB = pair.RoleB;
+                var delta = pair.Delta;
+                var polarity = pair.Polarity;
+                var stayTogether = pair.StayTogether;
 
-                DynamicColor bg = Background(scheme);
-                double bgTone = bg.GetTone(scheme);
+                var bg = Background(scheme);
+                var bgTone = bg.GetTone(scheme);
 
-                bool aIsNearer =
+                var aIsNearer =
                     polarity == TonePolarity.Nearer
                  || (polarity == TonePolarity.Lighter && !scheme.IsDark)
                  || (polarity == TonePolarity.Darker && scheme.IsDark);
 
-                DynamicColor nearer = aIsNearer ? roleA : roleB;
-                DynamicColor farther = aIsNearer ? roleB : roleA;
-                bool amNearer = Name == nearer.Name;
-                double expansionDir = scheme.IsDark ? 1.0 : -1.0;
+                var nearer = aIsNearer ? roleA : roleB;
+                var farther = aIsNearer ? roleB : roleA;
+                var amNearer = Name == nearer.Name;
+                var expansionDir = scheme.IsDark ? 1.0 : -1.0;
 
-                double nContrast = nearer.ContrastCurve.Get(scheme.ContrastLevel);
-                double fContrast = farther.ContrastCurve.Get(scheme.ContrastLevel);
+                var nContrast = nearer.ContrastCurve.Get(scheme.ContrastLevel);
+                var fContrast = farther.ContrastCurve.Get(scheme.ContrastLevel);
 
-                double nInitialTone = nearer.Tone(scheme);
-                double nTone =
+                var nInitialTone = nearer.Tone(scheme);
+                var nTone =
                     Contrast.RatioOfTones(bgTone, nInitialTone) >= nContrast
                         ? nInitialTone
                         : ForegroundTone(bgTone, nContrast);
 
-                double fInitialTone = farther.Tone(scheme);
-                double fTone =
+                var fInitialTone = farther.Tone(scheme);
+                var fTone =
                     Contrast.RatioOfTones(bgTone, fInitialTone) >= fContrast
                         ? fInitialTone
                         : ForegroundTone(bgTone, fContrast);
@@ -240,7 +244,7 @@ namespace MaterialColorUtilities {
                     fTone = MathUtils.ClampDouble(0.0, 100.0, nTone + delta * expansionDir);
                     if ((fTone - nTone) * expansionDir >= delta) {
                         // no-op
-                    } else { nTone = MathUtils.ClampDouble(0.0, 100.0, fTone - delta * expansionDir); }
+                    } else nTone = MathUtils.ClampDouble(0.0, 100.0, fTone - delta * expansionDir);
                 }
 
                 if (50.0 <= nTone && nTone < 60.0) {
@@ -260,52 +264,53 @@ namespace MaterialColorUtilities {
                             nTone = 49.0;
                             fTone = math.min(fTone, nTone + delta * expansionDir);
                         }
-                    } else { fTone = expansionDir > 0.0 ? 60.0 : 49.0; }
+                    } else fTone = expansionDir > 0.0 ? 60.0 : 49.0;
                 }
 
                 return amNearer ? nTone : fTone;
             } else {
-                double answer = Tone(scheme);
+                var answer = Tone(scheme);
 
-                if (Background == null) { return answer; }
+                if (Background == null) return answer;
 
-                double bgTone = Background(scheme).GetTone(scheme);
-                double desiredRatio = ContrastCurve.Get(scheme.ContrastLevel);
+                var bgTone = Background(scheme).GetTone(scheme);
+                var desiredRatio = ContrastCurve.Get(scheme.ContrastLevel);
 
                 if (Contrast.RatioOfTones(bgTone, answer) >= desiredRatio) {
                     // no-op
-                } else { answer = ForegroundTone(bgTone, desiredRatio); }
+                } else answer = ForegroundTone(bgTone, desiredRatio);
 
-                if (decreasingContrast) { answer = ForegroundTone(bgTone, desiredRatio); }
+                if (decreasingContrast) answer = ForegroundTone(bgTone, desiredRatio);
 
                 if (IsBackground && 50.0 <= answer && answer < 60.0) {
-                    if (Contrast.RatioOfTones(49.0, bgTone) >= desiredRatio) { answer = 49.0; } else { answer = 60.0; }
+                    if (Contrast.RatioOfTones(49.0, bgTone) >= desiredRatio) answer = 49.0;
+                    else answer = 60.0;
                 }
 
                 if (SecondBackground != null) {
-                    double bgTone1 = Background(scheme).GetTone(scheme);
-                    double bgTone2 = SecondBackground(scheme).GetTone(scheme);
+                    var bgTone1 = Background(scheme).GetTone(scheme);
+                    var bgTone2 = SecondBackground(scheme).GetTone(scheme);
 
-                    double upper = math.max(bgTone1, bgTone2);
-                    double lower = math.min(bgTone1, bgTone2);
+                    var upper = math.max(bgTone1, bgTone2);
+                    var lower = math.min(bgTone1, bgTone2);
 
                     if (Contrast.RatioOfTones(upper, answer) >= desiredRatio &&
-                        Contrast.RatioOfTones(lower, answer) >= desiredRatio) { return answer; }
+                        Contrast.RatioOfTones(lower, answer) >= desiredRatio) return answer;
 
-                    double lightOption = Contrast.Lighter(upper, desiredRatio);
-                    double darkOption = Contrast.Darker(lower, desiredRatio);
+                    var lightOption = Contrast.Lighter(upper, desiredRatio);
+                    var darkOption = Contrast.Darker(lower, desiredRatio);
 
-                    List<double> availables = new List<double>();
-                    if (lightOption != -1.0) availables.Add(lightOption);
-                    if (darkOption != -1.0) availables.Add(darkOption);
+                    var availables = new List<double>();
+                    if (!MathUtils.ApproximatelyEqual(lightOption, -1.0)) availables.Add(lightOption);
+                    if (!MathUtils.ApproximatelyEqual(darkOption, -1.0)) availables.Add(darkOption);
 
-                    bool prefersLight =
+                    var prefersLight =
                         TonePrefersLightForeground(bgTone1) ||
                         TonePrefersLightForeground(bgTone2);
 
-                    if (prefersLight) { return lightOption < 0.0 ? 100.0 : lightOption; }
+                    if (prefersLight) return lightOption < 0.0 ? 100.0 : lightOption;
 
-                    if (availables.Count == 1) { return availables[0]; }
+                    if (availables.Count == 1) return availables[0];
 
                     return darkOption < 0.0 ? 0.0 : darkOption;
                 }
@@ -315,14 +320,14 @@ namespace MaterialColorUtilities {
         }
 
         public static double ForegroundTone(double bgTone, double ratio) {
-            double lighterTone = Contrast.LighterUnsafe(bgTone, ratio);
-            double darkerTone = Contrast.DarkerUnsafe(bgTone, ratio);
-            double lighterRatio = Contrast.RatioOfTones(lighterTone, bgTone);
-            double darkerRatio = Contrast.RatioOfTones(darkerTone, bgTone);
-            bool preferLighter = TonePrefersLightForeground(bgTone);
+            var lighterTone = Contrast.LighterUnsafe(bgTone, ratio);
+            var darkerTone = Contrast.DarkerUnsafe(bgTone, ratio);
+            var lighterRatio = Contrast.RatioOfTones(lighterTone, bgTone);
+            var darkerRatio = Contrast.RatioOfTones(darkerTone, bgTone);
+            var preferLighter = TonePrefersLightForeground(bgTone);
 
             if (preferLighter) {
-                bool negligibleDifference =
+                var negligibleDifference =
                     math.abs(lighterRatio - darkerRatio) < 0.1 &&
                     lighterRatio < ratio &&
                     darkerRatio < ratio;
@@ -332,15 +337,15 @@ namespace MaterialColorUtilities {
                        negligibleDifference
                     ? lighterTone
                     : darkerTone;
-            } else {
-                return darkerRatio >= ratio || darkerRatio >= lighterRatio
-                    ? darkerTone
-                    : lighterTone;
             }
+
+            return darkerRatio >= ratio || darkerRatio >= lighterRatio
+                ? darkerTone
+                : lighterTone;
         }
 
         public static double EnableLightForeground(double tone) {
-            if (TonePrefersLightForeground(tone) && !ToneAllowsLightForeground(tone)) { return 49.0; }
+            if (TonePrefersLightForeground(tone) && !ToneAllowsLightForeground(tone)) return 49.0;
 
             return tone;
         }
@@ -355,23 +360,10 @@ namespace MaterialColorUtilities {
     }
 
     /// <summary>
-    /// Constructed by a set of values representing the current UI state and
-    /// provides a set of TonalPalettes.
+    ///     Constructed by a set of values representing the current UI state and
+    ///     provides a set of TonalPalettes.
     /// </summary>
     public class DynamicScheme {
-        public int SourceColorArgb { get; }
-        public Hct SourceColorHct { get; }
-        public Variant Variant { get; }
-        public bool IsDark { get; }
-        public double ContrastLevel { get; }
-
-        public TonalPalette PrimaryPalette { get; }
-        public TonalPalette SecondaryPalette { get; }
-        public TonalPalette TertiaryPalette { get; }
-        public TonalPalette NeutralPalette { get; }
-        public TonalPalette NeutralVariantPalette { get; }
-        public TonalPalette ErrorPalette { get; }
-
         public DynamicScheme(
             Hct sourceColorHct,
             Variant variant,
@@ -397,33 +389,18 @@ namespace MaterialColorUtilities {
             ErrorPalette = errorPalette ?? TonalPalette.Of(25.0, 84.0);
         }
 
-        public static double GetRotatedHue(
-            Hct sourceColor,
-            IReadOnlyList<double> hues,
-            IReadOnlyList<double> rotations
-        ) {
-            double sourceHue = sourceColor.Hue;
+        public int SourceColorArgb { get; }
+        public Hct SourceColorHct { get; }
+        public Variant Variant { get; }
+        public bool IsDark { get; }
+        public double ContrastLevel { get; }
 
-            if (hues.Count != rotations.Count) {
-                throw new ArgumentException("hues.length must equal rotations.length");
-            }
-
-            if (rotations.Count == 1) { return MathUtils.SanitizeDegreesDouble(sourceColor.Hue + rotations[0]); }
-
-            int size = hues.Count;
-            for (int i = 0; i <= size - 2; i++) {
-                double thisHue = hues[i];
-                double nextHue = hues[i + 1];
-                if (thisHue < sourceHue && sourceHue < nextHue) {
-                    return MathUtils.SanitizeDegreesDouble(sourceHue + rotations[i]);
-                }
-            }
-
-            return sourceHue;
-        }
-
-        public Hct GetHct(DynamicColor dynamicColor) => dynamicColor.GetHct(this);
-        public int GetArgb(DynamicColor dynamicColor) => dynamicColor.GetArgb(this);
+        public TonalPalette PrimaryPalette { get; }
+        public TonalPalette SecondaryPalette { get; }
+        public TonalPalette TertiaryPalette { get; }
+        public TonalPalette NeutralPalette { get; }
+        public TonalPalette NeutralVariantPalette { get; }
+        public TonalPalette ErrorPalette { get; }
 
         public int PrimaryPaletteKeyColor => GetArgb(MaterialDynamicColors.PrimaryPaletteKeyColor);
         public int SecondaryPaletteKeyColor => GetArgb(MaterialDynamicColors.SecondaryPaletteKeyColor);
@@ -479,22 +456,43 @@ namespace MaterialColorUtilities {
         public int TertiaryFixedDim => GetArgb(MaterialDynamicColors.TertiaryFixedDim);
         public int OnTertiaryFixed => GetArgb(MaterialDynamicColors.OnTertiaryFixed);
         public int OnTertiaryFixedVariant => GetArgb(MaterialDynamicColors.OnTertiaryFixedVariant);
+
+        public static double GetRotatedHue(
+            Hct sourceColor,
+            IReadOnlyList<double> hues,
+            IReadOnlyList<double> rotations
+        ) {
+            var sourceHue = sourceColor.Hue;
+
+            if (hues.Count != rotations.Count) throw new ArgumentException("hues.length must equal rotations.length");
+
+            if (rotations.Count == 1) return MathUtils.SanitizeDegreesDouble(sourceColor.Hue + rotations[0]);
+
+            var size = hues.Count;
+            for (var i = 0; i <= size - 2; i++) {
+                var thisHue = hues[i];
+                var nextHue = hues[i + 1];
+                if (thisHue < sourceHue && sourceHue < nextHue)
+                    return MathUtils.SanitizeDegreesDouble(sourceHue + rotations[i]);
+            }
+
+            return sourceHue;
+        }
+
+        public Hct GetHct(DynamicColor dynamicColor) {
+            return dynamicColor.GetHct(this);
+        }
+
+        public int GetArgb(DynamicColor dynamicColor) {
+            return dynamicColor.GetArgb(this);
+        }
     }
 
     /// <summary>
-    /// Tokens, or named colors, in the Material Design system.
+    ///     Tokens, or named colors, in the Material Design system.
     /// </summary>
     public static class MaterialDynamicColors {
         public const double ContentAccentToneDelta = 15.0;
-
-        private static bool IsFidelity(DynamicScheme scheme) =>
-            scheme.Variant == Variant.Fidelity || scheme.Variant == Variant.Content;
-
-        private static bool IsMonochrome(DynamicScheme scheme) => scheme.Variant == Variant.Monochrome;
-
-        public static DynamicColor HighestSurface(DynamicScheme s) {
-            return s.IsDark ? SurfaceBright : SurfaceDim;
-        }
 
         public static readonly DynamicColor PrimaryPaletteKeyColor = DynamicColor.FromPalette(
             name: "primary_palette_key_color",
@@ -537,7 +535,7 @@ namespace MaterialColorUtilities {
             name: "on_background",
             palette: s => s.NeutralPalette,
             tone: s => s.IsDark ? 90.0 : 10.0,
-            background: s => Background,
+            background: _ => Background,
             contrastCurve: new ContrastCurve(3, 3, 4.5, 7)
         );
 
@@ -638,7 +636,7 @@ namespace MaterialColorUtilities {
             name: "inverse_on_surface",
             palette: s => s.NeutralPalette,
             tone: s => s.IsDark ? 20.0 : 95.0,
-            background: s => InverseSurface,
+            background: _ => InverseSurface,
             contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
         );
 
@@ -661,13 +659,13 @@ namespace MaterialColorUtilities {
         public static readonly DynamicColor Shadow = DynamicColor.FromPalette(
             name: "shadow",
             palette: s => s.NeutralPalette,
-            tone: s => 0.0
+            tone: _ => 0.0
         );
 
         public static readonly DynamicColor Scrim = DynamicColor.FromPalette(
             name: "scrim",
             palette: s => s.NeutralPalette,
-            tone: s => 0.0
+            tone: _ => 0.0
         );
 
         public static readonly DynamicColor SurfaceTint = DynamicColor.FromPalette(
@@ -687,7 +685,7 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
-            toneDeltaPair: s => new ToneDeltaPair(PrimaryContainer, Primary, 10, TonePolarity.Nearer, false)
+            toneDeltaPair: _ => new ToneDeltaPair(PrimaryContainer, Primary, 10, TonePolarity.Nearer, false)
         );
 
         public static readonly DynamicColor OnPrimary = DynamicColor.FromPalette(
@@ -697,7 +695,7 @@ namespace MaterialColorUtilities {
                 if (IsMonochrome(s)) return s.IsDark ? 10.0 : 90.0;
                 return s.IsDark ? 20.0 : 100.0;
             },
-            background: s => Primary,
+            background: _ => Primary,
             contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
         );
 
@@ -712,19 +710,19 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(PrimaryContainer, Primary, 10, TonePolarity.Nearer, false)
+            toneDeltaPair: _ => new ToneDeltaPair(PrimaryContainer, Primary, 10, TonePolarity.Nearer, false)
         );
 
         public static readonly DynamicColor OnPrimaryContainer = DynamicColor.FromPalette(
             name: "on_primary_container",
             palette: s => s.PrimaryPalette,
             tone: s => {
-                if (IsFidelity(s)) { return DynamicColor.ForegroundTone(PrimaryContainer.Tone(s), 4.5); }
+                if (IsFidelity(s)) return DynamicColor.ForegroundTone(PrimaryContainer.Tone(s), 4.5);
 
                 if (IsMonochrome(s)) return s.IsDark ? 0.0 : 100.0;
                 return s.IsDark ? 90.0 : 30.0;
             },
-            background: s => PrimaryContainer,
+            background: _ => PrimaryContainer,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
         );
 
@@ -732,7 +730,7 @@ namespace MaterialColorUtilities {
             name: "inverse_primary",
             palette: s => s.PrimaryPalette,
             tone: s => s.IsDark ? 40.0 : 80.0,
-            background: s => InverseSurface,
+            background: _ => InverseSurface,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 7)
         );
 
@@ -743,7 +741,7 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
-            toneDeltaPair: s => new ToneDeltaPair(SecondaryContainer, Secondary, 10, TonePolarity.Nearer, false)
+            toneDeltaPair: _ => new ToneDeltaPair(SecondaryContainer, Secondary, 10, TonePolarity.Nearer, false)
         );
 
         public static readonly DynamicColor OnSecondary = DynamicColor.FromPalette(
@@ -753,7 +751,7 @@ namespace MaterialColorUtilities {
                 if (IsMonochrome(s)) return s.IsDark ? 10.0 : 100.0;
                 return s.IsDark ? 20.0 : 100.0;
             },
-            background: s => Secondary,
+            background: _ => Secondary,
             contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
         );
 
@@ -761,7 +759,7 @@ namespace MaterialColorUtilities {
             name: "secondary_container",
             palette: s => s.SecondaryPalette,
             tone: s => {
-                double initialTone = s.IsDark ? 30.0 : 90.0;
+                var initialTone = s.IsDark ? 30.0 : 90.0;
                 if (IsMonochrome(s)) return s.IsDark ? 30.0 : 85.0;
                 if (!IsFidelity(s)) return initialTone;
                 return FindDesiredChromaByTone(
@@ -774,7 +772,7 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(SecondaryContainer, Secondary, 10, TonePolarity.Nearer, false)
+            toneDeltaPair: _ => new ToneDeltaPair(SecondaryContainer, Secondary, 10, TonePolarity.Nearer, false)
         );
 
         public static readonly DynamicColor OnSecondaryContainer = DynamicColor.FromPalette(
@@ -785,7 +783,7 @@ namespace MaterialColorUtilities {
                 if (!IsFidelity(s)) return s.IsDark ? 90.0 : 30.0;
                 return DynamicColor.ForegroundTone(SecondaryContainer.Tone(s), 4.5);
             },
-            background: s => SecondaryContainer,
+            background: _ => SecondaryContainer,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
         );
 
@@ -799,7 +797,7 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
-            toneDeltaPair: s => new ToneDeltaPair(TertiaryContainer, Tertiary, 10, TonePolarity.Nearer, false)
+            toneDeltaPair: _ => new ToneDeltaPair(TertiaryContainer, Tertiary, 10, TonePolarity.Nearer, false)
         );
 
         public static readonly DynamicColor OnTertiary = DynamicColor.FromPalette(
@@ -809,7 +807,7 @@ namespace MaterialColorUtilities {
                 if (IsMonochrome(s)) return s.IsDark ? 10.0 : 90.0;
                 return s.IsDark ? 20.0 : 100.0;
             },
-            background: s => Tertiary,
+            background: _ => Tertiary,
             contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
         );
 
@@ -819,13 +817,13 @@ namespace MaterialColorUtilities {
             tone: s => {
                 if (IsMonochrome(s)) return s.IsDark ? 60.0 : 49.0;
                 if (!IsFidelity(s)) return s.IsDark ? 30.0 : 90.0;
-                Hct proposedHct = s.TertiaryPalette.GetHct(s.SourceColorHct.Tone);
+                var proposedHct = s.TertiaryPalette.GetHct(s.SourceColorHct.Tone);
                 return DislikeAnalyzer.FixIfDisliked(proposedHct).Tone;
             },
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(TertiaryContainer, Tertiary, 10, TonePolarity.Nearer, false)
+            toneDeltaPair: _ => new ToneDeltaPair(TertiaryContainer, Tertiary, 10, TonePolarity.Nearer, false)
         );
 
         public static readonly DynamicColor OnTertiaryContainer = DynamicColor.FromPalette(
@@ -836,7 +834,7 @@ namespace MaterialColorUtilities {
                 if (!IsFidelity(s)) return s.IsDark ? 90.0 : 30.0;
                 return DynamicColor.ForegroundTone(TertiaryContainer.Tone(s), 4.5);
             },
-            background: s => TertiaryContainer,
+            background: _ => TertiaryContainer,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
         );
 
@@ -847,14 +845,14 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
-            toneDeltaPair: s => new ToneDeltaPair(ErrorContainer, Error, 10, TonePolarity.Nearer, false)
+            toneDeltaPair: _ => new ToneDeltaPair(ErrorContainer, Error, 10, TonePolarity.Nearer, false)
         );
 
         public static readonly DynamicColor OnError = DynamicColor.FromPalette(
             name: "on_error",
             palette: s => s.ErrorPalette,
             tone: s => s.IsDark ? 20.0 : 100.0,
-            background: s => Error,
+            background: _ => Error,
             contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
         );
 
@@ -865,7 +863,7 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(ErrorContainer, Error, 10, TonePolarity.Nearer, false)
+            toneDeltaPair: _ => new ToneDeltaPair(ErrorContainer, Error, 10, TonePolarity.Nearer, false)
         );
 
         public static readonly DynamicColor OnErrorContainer = DynamicColor.FromPalette(
@@ -875,7 +873,7 @@ namespace MaterialColorUtilities {
                 if (IsMonochrome(s)) return s.IsDark ? 90.0 : 10.0;
                 return s.IsDark ? 90.0 : 30.0;
             },
-            background: s => ErrorContainer,
+            background: _ => ErrorContainer,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
         );
 
@@ -886,7 +884,7 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(PrimaryFixed, PrimaryFixedDim, 10, TonePolarity.Lighter, true)
+            toneDeltaPair: _ => new ToneDeltaPair(PrimaryFixed, PrimaryFixedDim, 10, TonePolarity.Lighter, true)
         );
 
         public static readonly DynamicColor PrimaryFixedDim = DynamicColor.FromPalette(
@@ -896,15 +894,15 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(PrimaryFixed, PrimaryFixedDim, 10, TonePolarity.Lighter, true)
+            toneDeltaPair: _ => new ToneDeltaPair(PrimaryFixed, PrimaryFixedDim, 10, TonePolarity.Lighter, true)
         );
 
         public static readonly DynamicColor OnPrimaryFixed = DynamicColor.FromPalette(
             name: "on_primary_fixed",
             palette: s => s.PrimaryPalette,
             tone: s => IsMonochrome(s) ? 100.0 : 10.0,
-            background: s => PrimaryFixedDim,
-            secondBackground: s => PrimaryFixed,
+            background: _ => PrimaryFixedDim,
+            secondBackground: _ => PrimaryFixed,
             contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
         );
 
@@ -912,8 +910,8 @@ namespace MaterialColorUtilities {
             name: "on_primary_fixed_variant",
             palette: s => s.PrimaryPalette,
             tone: s => IsMonochrome(s) ? 90.0 : 30.0,
-            background: s => PrimaryFixedDim,
-            secondBackground: s => PrimaryFixed,
+            background: _ => PrimaryFixedDim,
+            secondBackground: _ => PrimaryFixed,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
         );
 
@@ -924,7 +922,7 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(SecondaryFixed, SecondaryFixedDim, 10, TonePolarity.Lighter, true)
+            toneDeltaPair: _ => new ToneDeltaPair(SecondaryFixed, SecondaryFixedDim, 10, TonePolarity.Lighter, true)
         );
 
         public static readonly DynamicColor SecondaryFixedDim = DynamicColor.FromPalette(
@@ -934,15 +932,15 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(SecondaryFixed, SecondaryFixedDim, 10, TonePolarity.Lighter, true)
+            toneDeltaPair: _ => new ToneDeltaPair(SecondaryFixed, SecondaryFixedDim, 10, TonePolarity.Lighter, true)
         );
 
         public static readonly DynamicColor OnSecondaryFixed = DynamicColor.FromPalette(
             name: "on_secondary_fixed",
             palette: s => s.SecondaryPalette,
-            tone: s => 10.0,
-            background: s => SecondaryFixedDim,
-            secondBackground: s => SecondaryFixed,
+            tone: _ => 10.0,
+            background: _ => SecondaryFixedDim,
+            secondBackground: _ => SecondaryFixed,
             contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
         );
 
@@ -950,8 +948,8 @@ namespace MaterialColorUtilities {
             name: "on_secondary_fixed_variant",
             palette: s => s.SecondaryPalette,
             tone: s => IsMonochrome(s) ? 25.0 : 30.0,
-            background: s => SecondaryFixedDim,
-            secondBackground: s => SecondaryFixed,
+            background: _ => SecondaryFixedDim,
+            secondBackground: _ => SecondaryFixed,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
         );
 
@@ -962,7 +960,7 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(TertiaryFixed, TertiaryFixedDim, 10, TonePolarity.Lighter, true)
+            toneDeltaPair: _ => new ToneDeltaPair(TertiaryFixed, TertiaryFixedDim, 10, TonePolarity.Lighter, true)
         );
 
         public static readonly DynamicColor TertiaryFixedDim = DynamicColor.FromPalette(
@@ -972,15 +970,15 @@ namespace MaterialColorUtilities {
             isBackground: true,
             background: HighestSurface,
             contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-            toneDeltaPair: s => new ToneDeltaPair(TertiaryFixed, TertiaryFixedDim, 10, TonePolarity.Lighter, true)
+            toneDeltaPair: _ => new ToneDeltaPair(TertiaryFixed, TertiaryFixedDim, 10, TonePolarity.Lighter, true)
         );
 
         public static readonly DynamicColor OnTertiaryFixed = DynamicColor.FromPalette(
             name: "on_tertiary_fixed",
             palette: s => s.TertiaryPalette,
             tone: s => IsMonochrome(s) ? 100.0 : 10.0,
-            background: s => TertiaryFixedDim,
-            secondBackground: s => TertiaryFixed,
+            background: _ => TertiaryFixedDim,
+            secondBackground: _ => TertiaryFixed,
             contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
         );
 
@@ -988,28 +986,40 @@ namespace MaterialColorUtilities {
             name: "on_tertiary_fixed_variant",
             palette: s => s.TertiaryPalette,
             tone: s => IsMonochrome(s) ? 90.0 : 30.0,
-            background: s => TertiaryFixedDim,
-            secondBackground: s => TertiaryFixed,
+            background: _ => TertiaryFixedDim,
+            secondBackground: _ => TertiaryFixed,
             contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
         );
 
-        private static double FindDesiredChromaByTone(double hue, double chroma, double tone, bool byDecreasingTone) {
-            double answer = tone;
+        private static bool IsFidelity(DynamicScheme scheme) {
+            return scheme.Variant == Variant.Fidelity || scheme.Variant == Variant.Content;
+        }
 
-            Hct closestToChroma = Hct.From(hue, chroma, tone);
+        private static bool IsMonochrome(DynamicScheme scheme) {
+            return scheme.Variant == Variant.Monochrome;
+        }
+
+        public static DynamicColor HighestSurface(DynamicScheme s) {
+            return s.IsDark ? SurfaceBright : SurfaceDim;
+        }
+
+        private static double FindDesiredChromaByTone(double hue, double chroma, double tone, bool byDecreasingTone) {
+            var answer = tone;
+
+            var closestToChroma = Hct.From(hue, chroma, tone);
             if (closestToChroma.Chroma < chroma) {
-                double chromaPeak = closestToChroma.Chroma;
+                var chromaPeak = closestToChroma.Chroma;
                 while (closestToChroma.Chroma < chroma) {
                     answer += byDecreasingTone ? -1.0 : 1.0;
-                    Hct potentialSolution = Hct.From(hue, chroma, answer);
+                    var potentialSolution = Hct.From(hue, chroma, answer);
 
-                    if (chromaPeak > potentialSolution.Chroma) { break; }
+                    if (chromaPeak > potentialSolution.Chroma) break;
 
-                    if (math.abs(potentialSolution.Chroma - chroma) < 0.4) { break; }
+                    if (math.abs(potentialSolution.Chroma - chroma) < 0.4) break;
 
-                    double potentialDelta = math.abs(potentialSolution.Chroma - chroma);
-                    double currentDelta = math.abs(closestToChroma.Chroma - chroma);
-                    if (potentialDelta < currentDelta) { closestToChroma = potentialSolution; }
+                    var potentialDelta = math.abs(potentialSolution.Chroma - chroma);
+                    var currentDelta = math.abs(closestToChroma.Chroma - chroma);
+                    if (potentialDelta < currentDelta) closestToChroma = potentialSolution;
 
                     chromaPeak = math.max(chromaPeak, potentialSolution.Chroma);
                 }
