@@ -2,8 +2,8 @@ using System;
 
 namespace HELIX.Widgets.Universal.Theme {
     [Serializable]
-    public class PrimitiveSpacingSchema {
-        public static PrimitiveSpacingSchema Default = new();
+    public class PrimitiveSpacingScheme {
+        public static PrimitiveSpacingScheme Default = new();
 
         public float basis = 5f;
         public float factor = 1f;

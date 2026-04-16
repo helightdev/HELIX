@@ -17,7 +17,7 @@ namespace HELIX.Widgets.Elements {
         }
 
         public virtual T GetThemed<T>(BaseThemeProperty<T> property) {
-            return ThemeProviderElement.Resolve(property);
+            return ThemeProviderElement.Resolve(ThemeProviderElement, property);
         }
 
         public virtual bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value) {

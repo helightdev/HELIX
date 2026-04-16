@@ -1,25 +1,36 @@
 using System;
 using System.Collections.Generic;
 using HELIX.Coloring;
+using HELIX.Coloring.Material;
 using HELIX.Types;
+using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Theming;
 using HELIX.Widgets.Universal.Styles;
+using HELIX.Widgets.Universal.Substances;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Theme {
     public class DefaultButtonStyles {
         public static HButtonStyle DefaultThemeOf(
             BuildContext context,
-            RadixPalette palette,
             HButtonVariant variant,
             HButtonSize size,
             HInputRadius rad,
-            bool contrast
+            bool contrast = false,
+            ColorTokenPalette palette = null,
+            ColorTokenPalette inactive = null,
+            SurfaceColorPalette surfacePalette = null,
+            Substance focusLayer = null
         ) {
             var typography = context.GetThemed(PrimitiveBaseTheme.Typography);
             var radius = context.GetThemed(PrimitiveBaseTheme.Radius);
             var spacing = context.GetThemed(PrimitiveBaseTheme.Spacing);
-            palette ??= context.GetThemed(PrimitiveBaseTheme.AccentColors);
+            var colors = context.GetThemed(PrimitiveBaseTheme.Colors);
+            focusLayer ??= context.GetThemed(PrimitiveTheme.ButtonFocusLayer);
+            palette ??= colors.primary;
+            surfacePalette ??= colors.surface;
+            inactive ??= colors.secondary;
             var borderRadius = rad switch {
                 HInputRadius.None   => BorderRadius.None,
                 HInputRadius.Small  => BorderRadius.All(radius.Radius1),
@@ -28,6 +39,40 @@ namespace HELIX.Widgets.Universal.Theme {
                 HInputRadius.Full   => BorderRadius.All(9999),
                 _                   => throw new ArgumentOutOfRangeException(nameof(rad), rad, null)
             };
+
+            var layers = variant switch {
+                HButtonVariant.Default or HButtonVariant.Flat or HButtonVariant.FlatTwoState =>
+                    new SubstanceBuilder(context)
+                        .Solid(
+                            variant == HButtonVariant.FlatTwoState ? inactive : palette,
+                            palette,
+                            surfacePalette,
+                            borderRadius
+                        ),
+                HButtonVariant.Soft => new SubstanceBuilder(context)
+                    .Soft(palette, surfacePalette, borderRadius),
+                HButtonVariant.Outline => new SubstanceBuilder(context)
+                    .Outline(palette, surfacePalette, borderRadius),
+                HButtonVariant.Ghost => new SubstanceBuilder(context)
+                    .Ghost(palette, surfacePalette, borderRadius),
+                _ => throw new ArgumentOutOfRangeException(nameof(variant), variant, null)
+            };
+
+            layers.AppendAndReturn(_ => focusLayer);
+
+            var fontColor = contrast
+                ? surfacePalette.onMain
+                : variant switch {
+                    HButtonVariant.Soft                            => palette.onContainer,
+                    HButtonVariant.Ghost or HButtonVariant.Outline => palette.main,
+                    _                                              => palette.onMain
+                };
+
+            var fontColorInactive = variant switch {
+                HButtonVariant.FlatTwoState => inactive.onMain,
+                _                           => fontColor
+            };
+
             BoxConstraints constraints;
             StyleLength4 padding;
             float fontSize;
@@ -65,75 +110,27 @@ namespace HELIX.Widgets.Universal.Theme {
                     break;
                 default: throw new ArgumentOutOfRangeException(nameof(size), size, null);
             }
-            return variant switch {
-                HButtonVariant.Default => CreateSolid(palette, contrast, constraints, borderRadius, fontSize, padding),
-                HButtonVariant.Solid   => CreateSolid(palette, contrast, constraints, borderRadius, fontSize, padding),
-                HButtonVariant.Soft    => CreateSoft(palette, contrast, constraints, borderRadius, fontSize, padding),
-                HButtonVariant.Outline => CreateSolid(palette, contrast, constraints, borderRadius, fontSize, padding),
-                HButtonVariant.Ghost   => CreateSolid(palette, contrast, constraints, borderRadius, fontSize, padding),
-                _                    => throw new ArgumentOutOfRangeException(nameof(variant), variant, null)
-            };
-        }
 
-        public static HButtonStyle CreateSolid(
-            RadixPalette schema,
-            bool contrast,
-            BoxConstraints constraints,
-            BorderRadius rad,
-            float fontSize,
-            StyleLength4 padding
-        ) {
             return new HButtonStyle {
-                opacity = new WidgetStatePropertyMap<float> {
-                    [WidgetState.Disabled] = 0.5f,
-                    [WidgetState.None] = 1f
-                },
                 padding = new AllWidgetStateProperty<StyleLength4>(padding),
-                borderRadius = new AllWidgetStateProperty<BorderRadius>(rad),
+                borderRadius = new AllWidgetStateProperty<BorderRadius>(borderRadius),
                 constraints = new AllWidgetStateProperty<BoxConstraints>(constraints),
-                textStyle = new AllWidgetStateProperty<TextStyle>(
-                    new TextStyle {
+                layers = layers.Build(),
+                textStyle = new WidgetStatePropertyMap<TextStyle> {
+                    [WidgetState.Disabled] = new TextStyle {
                         fontSize = fontSize,
-                        color = schema.C1
+                        color = surfacePalette.onMain.WithOpacity(0.38f)
+                    },
+                    [WidgetState.ModAny | WidgetState.Selected | WidgetState.Hovered | WidgetState.Pressed] =
+                        new TextStyle {
+                            fontSize = fontSize,
+                            color = fontColor
+                        },
+                    [WidgetState.None] = new TextStyle {
+                        fontSize = fontSize,
+                        color = fontColorInactive
                     }
-                ),
-                backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
-                    [WidgetState.ModAny | WidgetState.Pressed | WidgetState.Selected] =
-                        contrast ? Colors.AlphaBlend(schema.C12, schema.C1.WithOpacity(0.2f)) : schema.C11,
-                    [WidgetState.Hovered] =
-                        contrast ? Colors.AlphaBlend(schema.C12, schema.C1.WithOpacity(0.1f)) : schema.C10,
-                    [WidgetState.None] = contrast ? schema.C12 : schema.C9
                 }
-            };
-        }
-
-        public static HButtonStyle CreateSoft(
-            RadixPalette schema,
-            bool contrast,
-            BoxConstraints constraints,
-            BorderRadius rad,
-            float fontSize,
-            StyleLength4 padding
-        ) {
-            return new HButtonStyle {
-                opacity = new WidgetStatePropertyMap<float> {
-                    [WidgetState.Disabled] = 0.5f,
-                    [WidgetState.None] = 1f
-                },
-                padding = new AllWidgetStateProperty<StyleLength4>(padding),
-                borderRadius = new AllWidgetStateProperty<BorderRadius>(rad),
-                constraints = new AllWidgetStateProperty<BoxConstraints>(constraints),
-                textStyle = new AllWidgetStateProperty<TextStyle>(
-                    new TextStyle {
-                        fontSize = fontSize,
-                        color = contrast ? schema.C12 : schema.C11
-                    }
-                ),
-                backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
-                    [WidgetState.ModAny  | WidgetState.Selected  | WidgetState.Pressed] = schema.C5,
-                    [WidgetState.Hovered] = schema.C4,
-                    [WidgetState.None] = schema.C3
-                },
             };
         }
     }

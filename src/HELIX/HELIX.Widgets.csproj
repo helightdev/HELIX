@@ -52,6 +52,9 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/LineGraph.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/ColumnElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/FlagProperty.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Controllers/ButtonController.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HSlider.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/BoxSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Formatting/WordWrapParseMode.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/SingleChildWidgetBaseElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/Transitions/SlidePageTransition.cs" />
@@ -59,6 +62,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/BoxShadowElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/GradientGenerators/LinearGradientGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/SignalDependencyTracker.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/SolidSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Formatting/DiagnosticsTreeStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathBuilders/LayoutPathBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/DisplayModifier.cs" />
@@ -68,22 +72,32 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/ThemeOverride.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Widget.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/ScrollPosition.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HThemeProvider.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/IPossiblyDisposed.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/MarginModifier.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveRadiusScheme.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveColorScheme.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/IdentityDictionary.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticableTree.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/Transitions/FadePageTransition.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticableNode.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/ThemeProvider.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/HelixInputDevice.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/WidgetStateModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/RingBuffer.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ClipModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/FillGradientGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/MultiChildWidgetBaseElement.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ButtonControllerModifier.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveSpacingScheme.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/ReferenceEqualityComparer.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/GenericButton.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/PaddingModifier.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/OutlineSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/DiagnosticsStackTrace.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/FlexibleModifier.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticsBlock.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/SingletonModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/ValueSignal.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/StyleValueProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/StatefulWidget.cs" />
@@ -91,16 +105,17 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticsProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/BackgroundStyleModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathDrawers/SolidFillPathDrawer.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/SoftSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/HListView.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/EnumProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HCenter.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/BoxShadow.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathBuilders/RectPathBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/DirectionalContainerElement.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveRadiusSchema.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/ThemeComponent.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/BuildContext.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/RuntimeReflectionThemeLookup.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/HScrollView.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/WidgetHostElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/WrappingBaseWidget.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/ObjectFlagProperty.cs" />
@@ -125,6 +140,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathDrawers/GradientFillStrokePathDrawer.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HText.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Formatting/TextTreeRenderer.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveTypographyScheme.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/BaseThemeProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/ScaffoldElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/ErrorProperty.cs" />
@@ -134,17 +150,19 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/MemoryUsageLineGraph.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/TextStyleProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticLevel.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Controllers/WidgetStateController.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/CenterElement.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/IBuildable.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/InformationCollector.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/ModificationBarrier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/BaseElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathBuilders/RoundedRectPathBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/GenericTextInput.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveTypographySchema.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/FloatProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/EditorUtilities.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticsNode.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/ScriptablePaint.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/FocusHelper.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathDrawers/GradientFillPathDrawer.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathPainter.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Formatting/TextTreeConfiguration.cs" />
@@ -154,6 +172,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/ComputedSignal.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/HelixDiagnosticException.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/AuxiliaryStylesheets.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/GhostSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/RowElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Reconciler.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/DiagnosticsPropertyErrorNode.cs" />
@@ -178,11 +197,11 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/OpacityModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/ColorProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/TextStyleModifier.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ManipulatorModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/SignalDependencyType.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/NavStackElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HColumn.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/OwnershipChainErrorProperty.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveSpacingSchema.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/DummyCounterList.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/ErrorDescription.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/KeyProperty.cs" />
@@ -194,10 +213,12 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/GradientGenerators/DirectionalLinearGradientGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/IterableProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/IndexedReferencePriorityQueue.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HSubstanceBox.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/WidgetState.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/FocusModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HAlign.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Key.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/FilterModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/ErrorSummary.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HButton.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/FactoryWidget.cs" />
@@ -647,6 +668,9 @@
     <Reference Include="Unity.VisualScripting.Antlr3.Runtime">
       <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.visualscripting@eb6004dcc707/Runtime/VisualScripting.Flow/Dependencies/NCalc/Unity.VisualScripting.Antlr3.Runtime.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="Unity.VisualScripting.TextureAssets">
       <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.visualscripting@eb6004dcc707/Editor/VisualScripting.Core/EditorAssetResources/Unity.VisualScripting.TextureAssets.dll</HintPath>
     </Reference>
@@ -655,9 +679,6 @@
     </Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe">
       <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.collections@8d418d297499/Unity.Collections.Tests/System.Runtime.CompilerServices.Unsafe/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="netstandard">
       <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/NetStandard/ref/2.1.0/netstandard.dll</HintPath>

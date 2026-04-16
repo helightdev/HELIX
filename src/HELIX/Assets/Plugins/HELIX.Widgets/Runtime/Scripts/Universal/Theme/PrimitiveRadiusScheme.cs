@@ -3,8 +3,8 @@ using System;
 namespace HELIX.Widgets.Universal.Theme
 {
     [Serializable]
-    public class PrimitiveRadiusSchema {
-        public static PrimitiveRadiusSchema Default = new();
+    public class PrimitiveRadiusScheme {
+        public static PrimitiveRadiusScheme Default = new();
 
         public float factor = 1.5f;
 

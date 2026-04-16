@@ -226,55 +226,6 @@ namespace HELIX.Coloring.Material
         }
 
         /// <summary>
-        ///     Resolves a dynamic role to a UI Toolkit StyleColor from a scheme.
-        /// </summary>
-        public static StyleColor GetStyleColor(this DynamicScheme scheme, DynamicColor role) {
-            return new StyleColor(role.GetArgb(scheme).ArgbToColor());
-        }
-
-        /// <summary>
-        ///     Returns the primary color of a scheme as a Unity gamma-space Color.
-        /// </summary>
-        public static Color PrimaryColor(this DynamicScheme scheme) {
-            return scheme.Primary.ArgbToColor();
-        }
-
-        /// <summary>
-        ///     Returns the secondary color of a scheme as a Unity gamma-space Color.
-        /// </summary>
-        public static Color SecondaryColor(this DynamicScheme scheme) {
-            return scheme.Secondary.ArgbToColor();
-        }
-
-        /// <summary>
-        ///     Returns the tertiary color of a scheme as a Unity gamma-space Color.
-        /// </summary>
-        public static Color TertiaryColor(this DynamicScheme scheme) {
-            return scheme.Tertiary.ArgbToColor();
-        }
-
-        /// <summary>
-        ///     Returns the background color of a scheme as a Unity gamma-space Color.
-        /// </summary>
-        public static Color BackgroundColor(this DynamicScheme scheme) {
-            return scheme.Background.ArgbToColor();
-        }
-
-        /// <summary>
-        ///     Returns the surface color of a scheme as a Unity gamma-space Color.
-        /// </summary>
-        public static Color SurfaceColor(this DynamicScheme scheme) {
-            return scheme.Surface.ArgbToColor();
-        }
-
-        /// <summary>
-        ///     Returns the on-surface color of a scheme as a Unity gamma-space Color.
-        /// </summary>
-        public static Color OnSurfaceColor(this DynamicScheme scheme) {
-            return scheme.OnSurface.ArgbToColor();
-        }
-
-        /// <summary>
         ///     Harmonizes one ARGB color toward another.
         /// </summary>
         public static int HarmonizeArgb(this int designArgb, int sourceArgb) {

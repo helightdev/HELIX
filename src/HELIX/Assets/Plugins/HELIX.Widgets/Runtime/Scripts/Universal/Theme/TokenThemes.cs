@@ -4,7 +4,9 @@ using HELIX.Coloring;
 using HELIX.Types;
 using HELIX.Widgets.Theming;
 using HELIX.Widgets.Universal.Styles;
+using HELIX.Widgets.Universal.Substances;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Theme {
     public class PrimitiveTheme {
@@ -12,49 +14,60 @@ namespace HELIX.Widgets.Universal.Theme {
             "primitive-c-surface",
             PrimitiveThemeComponent.Default,
             component => component.surface
-        ).StyleLoader().Compute(Neutral(elem => elem.C1));
+        ).StyleLoader().Compute(ColorSchema(elem => elem.surface.main));
 
         public static readonly ThemeProperty<Color> BackgroundSubtle = ThemeProperty.ExtractMaybe(
             "primitive-c-background-subtle",
             PrimitiveThemeComponent.Default,
             component => component.backgroundSubtle
-        ).StyleLoader().Compute(Neutral(elem => elem.C2));
+        ).StyleLoader().Compute(ColorSchema(elem => elem.surface.containerLow));
 
         public static readonly ThemeProperty<Color> Background = ThemeProperty.ExtractMaybe(
             "primitive-c-background",
             PrimitiveThemeComponent.Default,
             component => component.background
-        ).StyleLoader().Compute(Neutral(elem => elem.C3));
+        ).StyleLoader().Compute(ColorSchema(elem => elem.surface.container));
 
         public static readonly ThemeProperty<Color> Text = ThemeProperty.ExtractMaybe(
             "primitive-c-text",
             PrimitiveThemeComponent.Default,
             component => component.text
-        ).StyleLoader().Compute(Neutral(elem => elem.C11));
+        ).StyleLoader().Compute(ColorSchema(elem => elem.surface.onVariant));
 
         public static readonly ThemeProperty<Color> TextContrast = ThemeProperty.ExtractMaybe(
             "primitive-c-text-contrast",
             PrimitiveThemeComponent.Default,
             component => component.textContrast
-        ).StyleLoader().Compute(Neutral(elem => elem.C12));
+        ).StyleLoader().Compute(ColorSchema(elem => elem.surface.onMain));
         
         public static readonly ThemeProperty<HButtonStyle> ButtonTheme = ThemeProperty.ExtractMaybe(
             "primitive-button",
             PrimitiveThemeComponent.Default,
             component => component.button
         ).Compute(element =>  new HButtonStyle());
-        
-        private static Func<ThemeProviderElement, Color> Neutral(Func<RadixPalette, Color> func) =>
-            element => func(element.Resolve(PrimitiveBaseTheme.NeutralColors));
 
-        private static Func<ThemeProviderElement, Color> Accent(Func<RadixPalette, Color> func) =>
-            element => func(element.Resolve(PrimitiveBaseTheme.AccentColors));
+        public static readonly ThemeProperty<Substance> ButtonFocusLayer = new ThemeProperty<Substance>()
+            .Compute(ColorSchema(scheme => new BoxSubstance {
+                borderRadius = new AllWidgetStateProperty<BorderRadius>(BorderRadius.All(2)),
+                position = new AllWidgetStateProperty<StyleLength4>(EdgeInsets.Only(
+                    bottom: -6, left: 0, right: 0)),
+                constraints = BoxConstraints.Tight(StyleKeyword.Auto, 4),
+                backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
+                    [WidgetState.Disabled] = Colors.Transparent,
+                    [WidgetState.Focused | WidgetState.Navigated] = scheme.primary.main,
+                    [WidgetState.None] = Colors.Transparent
+                }
+            }));
+        
+        private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) =>
+            element => func(element.Resolve(PrimitiveBaseTheme.Colors));
+
 
         public static readonly IReadOnlyList<ThemeProperty> Properties = new ThemeProperty[] {
             Surface, BackgroundSubtle, Background, Text, TextContrast, ButtonTheme
         };
     }
-
+    
     public class PrimitiveThemeComponent : ThemeComponent {
         public static readonly PrimitiveThemeComponent Default = new();
 

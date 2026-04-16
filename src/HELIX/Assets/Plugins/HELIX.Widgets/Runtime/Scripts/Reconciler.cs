@@ -124,6 +124,13 @@ namespace HELIX.Widgets {
                                     }
                                 );
                             }
+                        } else {
+                            _deltaScratch.Add(
+                                new ReconcilerCollectionDelta {
+                                    target = existingElement,
+                                    added = false
+                                }
+                            );
                         }
                     }
                 } else {
@@ -145,6 +152,13 @@ namespace HELIX.Widgets {
                                 new ReconcilerEntry {
                                     element = candidate,
                                     descriptor = descriptor
+                                }
+                            );
+                        } else {
+                            _deltaScratch.Add(
+                                new ReconcilerCollectionDelta {
+                                    target = candidate,
+                                    added = false
                                 }
                             );
                         }

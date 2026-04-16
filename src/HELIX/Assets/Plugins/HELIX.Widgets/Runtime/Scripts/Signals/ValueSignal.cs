@@ -4,6 +4,7 @@ using HELIX.Widgets.Diagnostics;
 namespace HELIX.Widgets.Signals {
     public class ValueSignal<T> : Signal<T> {
         private readonly bool _equality;
+        protected IEqualityComparer<T> comparer = EqualityComparer<T>.Default;
         protected T value;
 
         public ValueSignal(T value = default, bool equality = true) {

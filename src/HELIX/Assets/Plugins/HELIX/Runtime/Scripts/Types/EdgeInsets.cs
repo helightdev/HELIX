@@ -10,11 +10,11 @@ namespace HELIX.Types
             new(horizontal, vertical, horizontal, vertical);
 
         public static StyleLength4 Only(
-            Length left = default,
-            Length top = default,
-            Length right = default,
-            Length bottom = default
+            Length? left = null,
+            Length? top = null,
+            Length? right = null,
+            Length? bottom = null
         ) =>
-            new(left, top, right, bottom);
+            new(left ?? Length.Auto(), top ?? Length.Auto(), right ?? Length.Auto(), bottom ?? Length.Auto());
     }
 }

@@ -2,15 +2,19 @@ using System;
 using System.Collections.Generic;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
+using HELIX.Widgets.Utilities;
+using NUnit.Framework;
 using UnityEngine.Pool;
 
 namespace HELIX.Widgets.Signals {
-    public abstract class Signal : DiagnosticableBase, IDisposable {
+    public abstract class Signal : DiagnosticableBase, IDisposable, IPossiblyDisposed {
         private const int _maxNotificationStackDepth = 16;
         private readonly HashSet<ISignalObserver> _observers = new();
         private int _notificationStackDepth;
+        public bool IsDisposed { get; private set; }
 
         public virtual void Dispose() {
+            if (IsDisposed) return;
             var list = ListPool<ISignalObserver>.Get();
             try {
                 list.AddRange(_observers);
@@ -29,9 +33,11 @@ namespace HELIX.Widgets.Signals {
                         );
                     }
                 }
-            } finally { ListPool<ISignalObserver>.Release(list); }
-
-            _observers.Clear();
+            } finally {
+                ListPool<ISignalObserver>.Release(list); 
+                IsDisposed = true;
+                _observers.Clear();
+            }
         }
 
         protected void NotifyDirty() {
@@ -55,6 +61,11 @@ namespace HELIX.Widgets.Signals {
                 _notificationStackDepth++;
                 foreach (var observer in _observers) {
                     try {
+                        if (observer is IPossiblyDisposed { IsDisposed: true }) {
+                            RemoveObserver(observer);
+                            continue;
+                        }
+                        
                         observer.OnSignalDirty(this); //
                     } catch (HelixDiagnosticException) { throw; } catch
                         (Exception e) {

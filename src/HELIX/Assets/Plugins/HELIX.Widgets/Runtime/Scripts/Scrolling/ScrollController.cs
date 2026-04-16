@@ -20,12 +20,12 @@ namespace HELIX.Widgets.Scrolling
         public bool KeepScrollOffset { get; set; } = true;
 
         public float Offset {
-            get => ScrollPosition?.Offset ?? _lastOffset.GetValueOrDefault(0f);
+            get => ScrollPosition?.Extent ?? _lastOffset.GetValueOrDefault(0f);
             set {
                 if (ScrollPosition == null) {
                     _lastOffset = value;
                 } else {
-                    ScrollPosition.Offset = value;
+                    ScrollPosition.Extent = value;
                 }
             }
         }
@@ -78,7 +78,7 @@ namespace HELIX.Widgets.Scrolling
             position.AddObserver(this);
             
             if (KeepScrollOffset) {
-                position.Restore(_lastOffset.GetValueOrDefault(position.Offset));
+                position.Restore(_lastOffset.GetValueOrDefault(position.Extent));
             } else {
                 position.Restore(_initialScrollOffset);
             }
@@ -113,7 +113,7 @@ namespace HELIX.Widgets.Scrolling
                 return;
             }
             
-            SetValue(ScrollPosition.Offset);
+            SetValue(ScrollPosition.Extent);
             _lastOffset = value;
         }
 

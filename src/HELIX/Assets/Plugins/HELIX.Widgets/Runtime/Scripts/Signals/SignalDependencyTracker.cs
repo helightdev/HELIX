@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Utilities;
 
 namespace HELIX.Widgets.Signals {
-    public class SignalDependencyTracker : DiagnosticableBase, ISignalObserver, IDisposable {
+    public class SignalDependencyTracker : DiagnosticableBase, ISignalObserver, IDisposable, IPossiblyDisposed {
         public static SignalDependencyTracker Current;
         private readonly ISignalObserver _forwarder;
         private readonly HashSet<Signal> _implicitBuffer = new();

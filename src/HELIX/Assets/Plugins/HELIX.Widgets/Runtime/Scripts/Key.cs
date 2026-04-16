@@ -91,7 +91,7 @@ namespace HELIX.Widgets {
             this.debugName = debugName;
         }
 
-        public IWidgetElement Target { get; private set; }
+        public IWidgetElement Target { get; protected set; }
 
         public override void OnMounted(IWidgetElement element, Widget descriptor) {
             if (element == Target) return;
@@ -139,46 +139,19 @@ namespace HELIX.Widgets {
 
             Target = null;
         }
-        
+
         public override string ToStringShort() {
             return $"GlobalKey#{debugName ?? this.ShortHash()}";
         }
     }
 
-    public class GlobalKey<T> : BaseKey where T : VisualElement {
-        public readonly string debugName;
-
-        public GlobalKey(string debugName = null) {
-            this.debugName = debugName;
-        }
-
-        public IWidgetElement Target { get; private set; }
+    public class GlobalKey<T> : GlobalKey where T : VisualElement {
+        public GlobalKey(string debugName = null) : base(debugName) { }
         public T Element { get; private set; }
 
         public override void OnMounted(IWidgetElement element, Widget descriptor) {
-            if (Target != null) {
-                HelixDiagnostics.Build(
-                    "An already mounted global key has been used by a new element",
-                    "Global keys may only be used by one element at a time. " +
-                    "This warning indicates that a global key is being reused without being unmounted first, " +
-                    "which can lead to unpredictable behavior.",
-                    new DiagnosticsNode[] {
-                        new ErrorProperty(
-                            "The issue occured near",
-                            BuildContext.GetUserTarget(BuildContext.ReconcilerCurrent, element)
-                        ),
-                        new ErrorSpacer(), new ErrorProperty("The previous owner of the key was", Target),
-                        new ErrorSpacer(), new ErrorProperty("The new owner of this key is", element)
-                    },
-                    hints: new DiagnosticsNode[] {
-                        new ErrorHint(
-                            "Ensure that the global key is unmounted from its previous element before being used again."
-                        )
-                    }
-                ).Report(DiagnosticLevel.Warning);
-            }
-
-            Target = element;
+            if (element == Target) return;
+            base.OnMounted(element, descriptor);
             if (element.Element is T typedElement) Element = typedElement;
             else {
                 HelixDiagnostics.Build(
@@ -198,23 +171,7 @@ namespace HELIX.Widgets {
         }
 
         public override void OnUnmounted(IWidgetElement element) {
-            if (Target != element) {
-                HelixDiagnostics.Build(
-                    "A global key is being unmounted by an element that does not own it",
-                    "This warning indicates that a global key is being unmounted by an element that is " +
-                    "not the current owner of the key. This can lead to unpredictable behavior, " +
-                    "as the key may still be considered mounted to its previous owner.",
-                    new DiagnosticsNode[] {
-                        new ErrorProperty("The current owner of the key is", Target), new ErrorSpacer(),
-                        new ErrorProperty("The element attempting to unmount the key is", element)
-                    },
-                    hints: new DiagnosticsNode[] {
-                        new ErrorHint("Ensure that the element unmounting the key is the same element that mounted it.")
-                    }
-                ).Report(DiagnosticLevel.Warning);
-            }
-
-            Target = null;
+            base.OnUnmounted(element);
             Element = null;
         }
 

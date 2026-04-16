@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using HELIX;
 using HELIX.Coloring;
+using HELIX.Coloring.Material;
 using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets;
@@ -14,7 +15,9 @@ using HELIX.Widgets.Navigation;
 using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Signals;
 using HELIX.Widgets.Universal;
+using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
+using HELIX.Widgets.Universal.Substances;
 using HELIX.Widgets.Universal.Theme;
 using Unity.Mathematics;
 using UnityEngine;
@@ -36,12 +39,12 @@ public partial class NewTest : WidgetHostElement {
 }
 
 public class ScrollExample : StatefulWidget<ScrollExample> {
-    public override WidgetState<ScrollExample> CreateState() {
+    public override State<ScrollExample> CreateState() {
         return new ScrollExampleState();
     }
 }
 
-public class ScrollExampleState : WidgetState<ScrollExample> {
+public class ScrollExampleState : State<ScrollExample> {
     private readonly List<Widget> _children = Enumerable.Range(0, 1000).Select(i => {
             return new HBox { backgroundStyle = new BackgroundStyle { color = Colors.All[i % Colors.All.Length].W500 } }
                 .Flexible(selfCrossAxisAlign: Align.Stretch);
@@ -49,18 +52,32 @@ public class ScrollExampleState : WidgetState<ScrollExample> {
     ).ToList<Widget>();
 
     private ScrollController _controller = new();
+    private WidgetStateController _stateController = new();
+    private ButtonController _buttonController;
     private bool toggle = true;
+
+    public override void InitState() {
+        base.InitState();
+        _buttonController = new ButtonController(_stateController);
+        _buttonController.onClick = () => { _controller.AnimateTo(0, 5f, EasingMode.EaseOut); };
+    }
+
+    public override void Dispose() {
+        base.Dispose();
+        _controller.Dispose();
+        _stateController.Dispose();
+        _buttonController.Dispose();
+    }
 
     public override Widget Build(BuildContext context) {
         var style = DefaultButtonStyles.DefaultThemeOf(
             context,
-            Colors.Indigo.Light,
-            HButtonVariant.Soft,
+            HButtonVariant.Ghost,
             HButtonSize.Regular,
             HInputRadius.Small,
-            true
+            false
         );
-        
+
         return new HBox {
             backgroundStyle = context.GetThemed(PrimitiveTheme.Surface),
             child = new HColumn {
@@ -79,21 +96,81 @@ public class ScrollExampleState : WidgetState<ScrollExample> {
                                 child = new HText("Scroll to zero"),
                                 onClick = () => { _controller.AnimateTo(0, 5f, EasingMode.EaseOut); }
                             }.Tight(),
+                            new HShapeButton {
+                                variant = HButtonVariant.Flat,
+                                onClick =
+                                    () => {
+                                        Debug.Log(
+                                            $"{_controller.ScrollPosition.Min} {_controller.ScrollPosition.Max} " +
+                                            $"{_controller.ScrollPosition.Extent} {_controller.ScrollPosition.ExtentInside}"
+                                        );
+                                    },
+                                child = new HText("Solid Substance")
+                            },
+                            new HShapeButton {
+                                variant = HButtonVariant.FlatTwoState,
+                                child = new HText("Solid2 Substance")
+                            },
+                            new HShapeButton {
+                                variant = HButtonVariant.Soft,
+                                child = new HText("Soft Substance")
+                            },
+                            new HShapeButton {
+                                variant = HButtonVariant.Outline,
+                                child = new HText("Outline Substance")
+                            },
+                            new HShapeButton {
+                                variant = HButtonVariant.Ghost,
+                                child = new HText("Ghost Substance")
+                            },
+                            new HSubstanceBox {
+                                controller = _stateController,
+                                substances = new Substance[] {
+                                    new BoxSubstance {
+                                        backgroundStyle = new BackgroundStyle { color = MaterialColors.Red }
+                                    },
+                                    new BoxSubstance {
+                                        opacity = WidgetStateProperties.Func(state => state.Hovered() ? 1f : 0.2f),
+                                        backgroundStyle =
+                                            WidgetStateProperties.All(
+                                                new BackgroundStyle { color = MaterialColors.Green }
+                                            )
+                                    }
+                                },
+                                Modifiers = new Modifier[] { new WidgetStateModifier(_stateController) }
+                            }.Size(100, 32)
                         }
                     },
                     new HBox {
                         borderRadius = BorderRadius.All(context.GetThemed(PrimitiveBaseTheme.Radius).Radius4),
-                        child = new HListView {
-                            itemCount = 1000,
-                            fixedItemHeight = 50,
-                            scrollController = _controller,
-                            itemBuilder =
-                                (_, index) =>
-                                    new HBox { backgroundStyle = Colors.All[index % Colors.All.Length].W500 }.Size(
-                                        height: 100,
-                                        width: StyleKeyword.Auto
-                                    )
+                        child = new HScrollView {
+                            controller = _controller,
+                            children = new Widget[] {
+                                new HBox { backgroundStyle = MaterialColors.Red.Value }.Size(
+                                    height: 500,
+                                    width: StyleKeyword.Auto
+                                ),
+                                new HBox { backgroundStyle = MaterialColors.Blue.Value }.Size(
+                                    height: 1000,
+                                    width: StyleKeyword.Auto
+                                ),
+                                new HBox { backgroundStyle = MaterialColors.Green.Value }.Size(
+                                    height: 500,
+                                    width: StyleKeyword.Auto
+                                )
+                            }
                         }
+                        // child = new HListView {
+                        //     itemCount = 1000,
+                        //     fixedItemHeight = 50,
+                        //     scrollController = _controller,
+                        //     itemBuilder =
+                        //         (_, index) =>
+                        //             new HBox { backgroundStyle = Colors.All[index % Colors.All.Length].W500 }.Size(
+                        //                 height: 100,
+                        //                 width: StyleKeyword.Auto
+                        //             )
+                        // }
                     }.WithModifier(ClipModifier.Clip).Fill().If(toggle)
                 }
             }.WithModifier(PaddingModifier.Of(8)).Fill()
@@ -126,7 +203,7 @@ public class InteractiveExample : StatefulWidget<InteractiveExample> {
     public Color onColor = Colors.Green;
     public Color offColor = Colors.Red;
 
-    public override WidgetState<InteractiveExample> CreateState() {
+    public override State<InteractiveExample> CreateState() {
         return new InteractiveExampleState();
     }
 
@@ -145,7 +222,7 @@ public class DummyCallbackElement : BaseElement, IHierarchyDisposable {
     }
 }
 
-public class InteractiveExampleState : WidgetState<InteractiveExample> {
+public class InteractiveExampleState : State<InteractiveExample> {
     public bool isOn = false;
     //public int counter = 0;
 

@@ -2,8 +2,8 @@ using System;
 
 namespace HELIX.Widgets.Universal.Theme {
     [Serializable]
-    public class PrimitiveTypographySchema {
-        public static PrimitiveTypographySchema Default = new();
+    public class PrimitiveTypographyScheme {
+        public static PrimitiveTypographyScheme Default = new();
 
         public float factor = 1.5f;
         public float lineHeightFactor = 1.25f;

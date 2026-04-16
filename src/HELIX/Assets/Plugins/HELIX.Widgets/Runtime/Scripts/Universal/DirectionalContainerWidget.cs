@@ -1,5 +1,6 @@
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
+using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
@@ -8,6 +9,10 @@ namespace HELIX.Widgets.Universal {
         public float gap = 0f;
         public Justify mainAxisAlign = Justify.FlexStart;
         public bool reverse = false;
+
+        protected DirectionalContainerWidget() {
+            AddModifier(ModifierFallbacks.ImplicitFlexFill);
+        }
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);

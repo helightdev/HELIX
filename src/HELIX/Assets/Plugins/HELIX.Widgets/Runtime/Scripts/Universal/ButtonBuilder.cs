@@ -8,7 +8,9 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class ButtonBuilder : Widget {
-        private static readonly FocusModifier _defaultFocus = new(true, PickingMode.Position, 0) { isFallback = true };
+        private static readonly FocusModifier _defaultFocus =
+            new(true, PickingMode.Position, 0, false) { isFallback = true };
+
         public Alignment alignment = Alignment.Center;
 
         public BuildFunction<WidgetState> builder;

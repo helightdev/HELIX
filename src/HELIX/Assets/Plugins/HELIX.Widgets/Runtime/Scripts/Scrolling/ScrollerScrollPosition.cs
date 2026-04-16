@@ -4,8 +4,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Scrolling
-{
+namespace HELIX.Widgets.Scrolling {
     public class ScrollerScrollPosition : ScrollPosition {
         public readonly Scroller scroller;
         public readonly ScrollView scrollView;
@@ -23,8 +22,12 @@ namespace HELIX.Widgets.Scrolling
 
         public override float Min => scroller.lowValue;
         public override float Max => scroller.highValue;
+        public override float ExtentInside =>
+            scroller.direction == SliderDirection.Horizontal ? scrollView.layout.width : scrollView.layout.height;
 
-        public override float Offset {
+        public override float ExtentTotal => ExtentInside + scroller.highValue - scroller.lowValue;
+
+        public override float Extent {
             get => scroller.value;
             set {
                 _debouncedScheduler.Stop();
@@ -55,9 +58,7 @@ namespace HELIX.Widgets.Scrolling
             var startValue = scroller.value;
             _debouncedScheduler.Tween(
                 duration.ToMilliseconds(),
-                t => {
-                    scroller.value = math.lerp(startValue, offset, easing.Eval(t));
-                }
+                t => { scroller.value = math.lerp(startValue, offset, easing.Eval(t)); }
             );
         }
 

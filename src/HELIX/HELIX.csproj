@@ -576,6 +576,9 @@
     <Reference Include="Unity.VisualScripting.Antlr3.Runtime">
       <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.visualscripting@eb6004dcc707/Runtime/VisualScripting.Flow/Dependencies/NCalc/Unity.VisualScripting.Antlr3.Runtime.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="Unity.VisualScripting.TextureAssets">
       <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.visualscripting@eb6004dcc707/Editor/VisualScripting.Core/EditorAssetResources/Unity.VisualScripting.TextureAssets.dll</HintPath>
     </Reference>
@@ -584,9 +587,6 @@
     </Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe">
       <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.collections@8d418d297499/Unity.Collections.Tests/System.Runtime.CompilerServices.Unsafe/System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>/phome/UnityProjects/HELIX/src/HELIX/Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="netstandard">
       <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/NetStandard/ref/2.1.0/netstandard.dll</HintPath>

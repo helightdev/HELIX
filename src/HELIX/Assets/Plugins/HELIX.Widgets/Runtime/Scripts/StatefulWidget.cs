@@ -17,7 +17,7 @@ namespace HELIX.Widgets {
             AddModifier(ModifierFallbacks.ImplicitFlexFill);
         }
 
-        public abstract WidgetState<T> CreateState();
+        public abstract State<T> CreateState();
 
         public override IWidgetElement CreateElement() {
             return ReconcileInto(new StatefulWidgetElement<T>());
@@ -27,7 +27,7 @@ namespace HELIX.Widgets {
     public class StatefulWidgetElement<T> : BuildingWidgetBaseElement<T>, IHierarchyDisposable, IStatefulWidget
         where T : StatefulWidget<T> {
         public bool isDisposed;
-        public WidgetState<T> State { get; set; }
+        public State<T> State { get; set; }
 
         public void Dispose() {
             if (isDisposed) return;
@@ -156,7 +156,7 @@ namespace HELIX.Widgets {
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
-            properties.Add(new DiagnosticsProperty<WidgetState<T>>("state", State));
+            properties.Add(new DiagnosticsProperty<State<T>>("state", State));
         }
 
         public override string ToStringShort() {
@@ -164,7 +164,7 @@ namespace HELIX.Widgets {
         }
     }
 
-    public abstract class WidgetState<T> : DiagnosticableBase, IBuildable where T : StatefulWidget<T> {
+    public abstract class State<T> : DiagnosticableBase, IBuildable where T : StatefulWidget<T> {
         public SignalDependencyTracker dependencyTracker;
         internal List<IDisposable> managedDisposables;
         public BuildContext mount;

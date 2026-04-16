@@ -8,7 +8,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     [UxmlElement]
-    public partial class ThemeProviderElement : SingleChildWidgetBaseElement<ThemeProvider> {
+    public partial class ThemeProviderElement : SingleChildWidgetBaseElement<HThemeProvider> {
         public static readonly IdentityDictionary<ThemeProperty, object> GlobalThemeValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _cachedThemeValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _computedThemeValues = new();
@@ -143,7 +143,7 @@ namespace HELIX.Widgets.Theming {
             if (notify) NotifyThemeUpdate();
         }
 
-        public override void Apply(ThemeProvider previous, ThemeProvider widget) {
+        public override void Apply(HThemeProvider previous, HThemeProvider widget) {
             ThemeValues.Clear();
             if (widget.properties != null)
                 foreach (var kvp in widget.properties)
@@ -174,6 +174,21 @@ namespace HELIX.Widgets.Theming {
             if (providerElement != null) return providerElement.Resolve(property);
             if (GlobalThemeValues.TryGetValue(property, out var value) && value is T typedValue) return typedValue;
             return property.TypedDefaultValue;
+        }
+
+        public static bool TryResolve<T>(
+            ThemeProviderElement providerElement,
+            BaseThemeProperty<T> property,
+            out T value
+        ) {
+            if (providerElement != null) return providerElement.TryResolve(property, out value);
+            if (GlobalThemeValues.TryGetValue(property, out var globalValue) && globalValue is T typedGlobalValue) {
+                value = typedGlobalValue;
+                return true;
+            }
+
+            value = property.TypedDefaultValue;
+            return false;
         }
     }
 

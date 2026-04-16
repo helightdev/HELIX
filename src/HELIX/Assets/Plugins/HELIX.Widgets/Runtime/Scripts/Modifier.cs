@@ -1,7 +1,7 @@
+using System.Collections;
 using System.Collections.Generic;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
-using HELIX.Widgets.Diagnostics.Formatting;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Modifiers;
 using JetBrains.Annotations;
@@ -11,8 +11,12 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets {
     public abstract class Modifier : DiagnosticableBase {
         public bool isFallback = false;
-        public abstract void Apply(VisualElement element);
-        public abstract void Reset(VisualElement element);
+        public virtual void Apply(VisualElement element) { }
+        public virtual void Reset(VisualElement element) { }
+
+        public virtual void Apply(Modifier prev, VisualElement element) {
+            Apply(element);
+        }
 
         public virtual bool HasChanged([CanBeNull] Modifier previous) {
             return true;
@@ -35,7 +39,7 @@ namespace HELIX.Widgets {
             ApplyDelta(previous?.GetModifiers(), next?.GetModifiers(), element);
         }
 
-        public static void ApplyDelta(HashSet<Modifier> previous, HashSet<Modifier> current, VisualElement element) {
+        public static void ApplyDelta(ModifierSet previous, ModifierSet current, VisualElement element) {
             if (current == null || element == null) return;
 
             if (previous != null) {
@@ -46,13 +50,13 @@ namespace HELIX.Widgets {
                 foreach (var modifier in current) {
                     if (previous.TryGetValue(modifier, out var prev) && modifier.DeepEquals(prev)) continue;
 
-                    modifier.Apply(element);
+                    modifier.Apply(prev, element);
                 }
             } else
                 foreach (var modifier in current)
                     modifier.Apply(element);
         }
-        
+
         public override string ToStringShort() {
             var name = GetType().Name;
             if (name.EndsWith("Modifier")) name = name[..^"Modifier".Length];
@@ -64,7 +68,7 @@ namespace HELIX.Widgets {
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
             if (FindConstantName() != null) return;
-            
+
             properties.Add(new FlagProperty("isFallback", isFallback, ifTrue: "Fallback"));
             FillModifierProperties(properties);
         }
@@ -73,6 +77,20 @@ namespace HELIX.Widgets {
 
         protected virtual string FindConstantName() {
             return null;
+        }
+
+        public static void Append(HashSet<Modifier> modifiers, Modifier modifier) {
+            if (modifiers.TryGetValue(modifier, out var existing)) {
+                if (existing.isFallback) modifiers.Remove(existing);
+                else if (modifier.isFallback) return;
+                else {
+                    throw new System.InvalidOperationException(
+                        $"Modifier of type {modifier.GetType().Name} already exists on widget. Modifiers must be unique per widget."
+                    );
+                }
+            }
+
+            modifiers.Add(modifier);
         }
     }
 
@@ -113,7 +131,7 @@ namespace HELIX.Widgets {
         public static T TightStretch<T>(this T element) where T : Widget {
             return element.WithModifier(FlexibleModifier.TightStretch);
         }
-        
+
         public static T Expand<T>(this T element, float flex = 1f, Align selfCrossAxisAlign = Align.Auto)
             where T : Widget {
             if (Mathf.Approximately(flex, 1f) && selfCrossAxisAlign == Align.Auto)
@@ -159,12 +177,15 @@ namespace HELIX.Widgets {
             );
             return element;
         }
-        
-        public static T Size<T>(this T element, StyleLength? width = null, StyleLength? height = null) where T : Widget {
-            return element.WithModifier(SizeModifier.Of(
-                width ?? StyleKeyword.Initial,
-                height ?? StyleKeyword.Initial
-            ));
+
+        public static T Size<T>(this T element, StyleLength? width = null, StyleLength? height = null)
+            where T : Widget {
+            return element.WithModifier(
+                SizeModifier.Of(
+                    width ?? StyleKeyword.Initial,
+                    height ?? StyleKeyword.Initial
+                )
+            );
         }
 
         public static T Const<T>(this T element, params object[] values) where T : Widget {
@@ -183,10 +204,82 @@ namespace HELIX.Widgets {
         public static T Opacity<T>(this T element, float opacity) where T : Widget {
             return element.WithModifier(OpacityModifier.Of(opacity));
         }
-        
+
         public static T Fallback<T>(this T modifier) where T : Modifier {
             modifier.isFallback = true;
             return modifier;
+        }
+    }
+
+    public class ModifierSet : DiagnosticableBase, IReadOnlyCollection<Modifier> {
+        public static readonly ModifierSet Empty = new();
+
+        private readonly HashSet<Modifier> _modifiers = new();
+
+        public ModifierSet() { }
+
+        public ModifierSet(IEnumerable<Modifier> modifiers) : base() {
+            Add(modifiers);
+        }
+
+        public bool Add(IEnumerable<Modifier> modifiers) {
+            var result = true;
+            foreach (var modifier in modifiers) {
+                if (!Add(modifier)) result = false;
+            }
+
+            return result;
+        }
+
+        public bool Add(Modifier modifier) {
+            if (_modifiers.TryGetValue(modifier, out var existing)) {
+                if (existing.isFallback) _modifiers.Remove(existing);
+                else if (modifier.isFallback) return true;
+                else { return false; }
+            }
+            _modifiers.Add(modifier);
+            return true;
+        }
+
+        public bool Contains(Modifier modifier) {
+            return _modifiers.Contains(modifier);
+        }
+
+        public bool TryGetValue(Modifier modifier, out Modifier existing) {
+            return _modifiers.TryGetValue(modifier, out existing);
+        }
+
+        public void AddThrowing(Modifier modifier) {
+            if (_modifiers.TryGetValue(modifier, out var existing)) {
+                if (existing.isFallback) _modifiers.Remove(existing);
+                else if (modifier.isFallback) return;
+                else {
+                    throw new System.InvalidOperationException(
+                        $"Modifier of type {modifier.GetType().Name} already exists on widget. Modifiers must be unique per widget."
+                    );
+                }
+            }
+
+            _modifiers.Add(modifier);
+        }
+
+        public void AddThrowing(IEnumerable<Modifier> modifiers) {
+            foreach (var modifier in modifiers) AddThrowing(modifier);
+        }
+
+        public IEnumerator<Modifier> GetEnumerator() {
+            return _modifiers.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
+        }
+
+        public int Count => _modifiers.Count;
+
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new IterableProperty<Modifier>("values", _modifiers, ifEmpty: null, showName: false));
         }
     }
 }

@@ -4,17 +4,18 @@ using System.Linq;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics.Properties;
+using HELIX.Widgets.Elements;
 using HELIX.Widgets.Theming;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public abstract class Widget : DiagnosticableTreeBase, IWidgetListCandidate {
-        protected readonly HashSet<Modifier> modifiers = new();
+        protected readonly ModifierSet modifiers = new();
         public object[] constants;
         public Key key;
 
-        public IReadOnlyList<Modifier> Modifiers {
+        public IEnumerable<Modifier> Modifiers {
             set {
                 foreach (var modifier in value) AddModifier(modifier);
             }
@@ -22,24 +23,14 @@ namespace HELIX.Widgets {
 
         public abstract IWidgetElement CreateElement();
 
-        public HashSet<Modifier> GetModifiers() {
+        public ModifierSet GetModifiers() {
             return modifiers;
         }
 
         public void AddModifier(Modifier modifier) {
-            if (modifiers.TryGetValue(modifier, out var existing)) {
-                if (existing.isFallback) modifiers.Remove(existing);
-                else {
-                    Debug.LogWarning(
-                        $"Modifier of type {modifier.GetType().Name} already exists on widget with key {key}. Modifiers must be unique per widget."
-                    );
-                    return;
-                }
-            }
-
-            modifiers.Add(modifier);
+            modifiers.AddThrowing(modifier);
         }
-        
+
         public void AddModifiers(IEnumerable<Modifier> additions) {
             foreach (var modifier in additions) AddModifier(modifier);
         }
@@ -92,6 +83,9 @@ namespace HELIX.Widgets {
             );
             return element;
         }
+
+        public static implicit operator BuildFunction(Widget widget) => _ => widget;
+        public static implicit operator BuildFunction<WidgetState>(Widget widget) => (_, _) => widget;
     }
 
     public abstract class SingleChildWidget : Widget {
@@ -169,6 +163,18 @@ namespace HELIX.Widgets {
         public static InformationCollector OwnerChain(this InformationCollector collector, BuildContext context) {
             collector.AddRange(new ErrorSpacer(), OwnershipChainErrorProperty.FromBuildContext(context));
             return collector;
+        }
+
+        public static T Get<T>(this ThemeProperty<T> property, BuildContext context, bool listen = true) {
+            if (listen && context != null) return context.GetThemed(property);
+            var element = context?.Element as BaseElement;
+            return ThemeProviderElement.Resolve(element?.ThemeProviderElement, property);
+        }
+        
+        public static bool TryGet<T>(this ThemeProperty<T> property, BuildContext context, out T value, bool listen = true) {
+            if (listen  && context != null) return context.TryGetThemed(property, out value);
+            var element = context?.Element as BaseElement;
+            return ThemeProviderElement.TryResolve(element?.ThemeProviderElement, property, out value);
         }
     }
 }

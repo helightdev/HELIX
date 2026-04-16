@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
+using UnityEngine.UIElements;
 
 // ReSharper disable Unity.BurstLoadingManagedType
 // ReSharper disable Unity.BurstAccessingManagedMethod
@@ -12,7 +13,7 @@ namespace HELIX.Widgets {
     [Flags]
     public enum WidgetState : ushort {
         None = 0,
-        
+
         Hovered = 1 << 0,
         Focused = 1 << 1,
         Pressed = 1 << 2,
@@ -20,22 +21,32 @@ namespace HELIX.Widgets {
         Selected = 1 << 4,
         Disabled = 1 << 5,
         Error = 1 << 6,
-        
-        InputMouse = 1 << 9,
-        InputKeyboard = 1 << 10,
-        InputGamepad = 1 << 11,
-        InputTouch = 1 << 12,
-        
+        Navigated = 1 << 7,
+        Special1 = 1 << 8,
+        Special2 = 1 << 9,
+
+        InputMouse = 1 << 10,
+        InputKeyboard = 1 << 11,
+        InputGamepad = 1 << 12,
+        InputTouch = 1 << 13,
+
+        AnyInputPointer = ModAny | MetaInputPointer,
+        AnyInputButton = ModAny | MetaInputButton,
+
+        MetaState = Hovered | Focused | Pressed | Dragged | Selected | Disabled | Error | Navigated | Special1 |
+                    Special2,
         MetaInputPointer = InputMouse | InputTouch,
         MetaInputButton = InputKeyboard | InputGamepad,
-        
+        MetaInput = MetaInputPointer | MetaInputButton,
+        MetaAll = MetaState | MetaInputPointer | MetaInputButton,
+
         ModNot = 1 << 14,
         ModAny = 1 << 15
     }
 
     public static class WidgetStateExtensions {
         public const WidgetState OperatorMask = WidgetState.ModNot | WidgetState.ModAny;
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Hovered(this WidgetState state) {
             return state.HasFlag(WidgetState.Hovered);
@@ -98,28 +109,39 @@ namespace HELIX.Widgets {
     }
 
     public static class WidgetStateProperties {
-        public static IWidgetStateProperty<T> Never<T>() {
+        public static WidgetStateProperty<T> Never<T>() {
             return NeverWidgetStateProperty<T>.Instance;
         }
 
-        public static IWidgetStateProperty<T> All<T>(T constant) {
+        public static WidgetStateProperty<T> All<T>(T constant) {
             return new AllWidgetStateProperty<T>(constant);
         }
 
-        public static IWidgetStateProperty<T> Func<T>(Func<WidgetState, T> resolver) {
+        public static WidgetStateProperty<T> Func<T>(Func<WidgetState, T> resolver) {
             return new FuncWidgetStateProperty<T>(resolver);
         }
-    }
 
-    public interface IWidgetStateProperty<T> {
-        bool TryResolve(WidgetState state, out T value);
-
-        T ResolveOrDefault(WidgetState state, T defaultValue = default) {
-            return TryResolve(state, out var value) ? value : defaultValue;
+        public static WidgetStateProperty<ModifierSet> Modifiers(
+            WidgetStateProperty<ModifierSet> overrides,
+            WidgetStateProperty<ModifierSet> fallback
+        ) {
+            return new MergingModifiersWidgetState(overrides, fallback);
         }
     }
 
-    public class WidgetStatePropertyMap<T> : DiagnosticableBase, IWidgetStateProperty<T> {
+    public abstract class WidgetStateProperty<T> : DiagnosticableBase {
+        public abstract bool TryResolve(WidgetState state, out T value);
+
+        public T ResolveOrDefault(WidgetState state, T defaultValue = default) {
+            return TryResolve(state, out var value) ? value : defaultValue;
+        }
+
+        public static implicit operator WidgetStateProperty<T>(T constant) {
+            return WidgetStateProperties.All(constant);
+        }
+    }
+
+    public class WidgetStatePropertyMap<T> : WidgetStateProperty<T> {
         private readonly List<Pair> _values = new();
 
         public T this[WidgetState state] {
@@ -127,7 +149,7 @@ namespace HELIX.Widgets {
             set => _values.Add(new Pair(state, value));
         }
 
-        public bool TryResolve(WidgetState state, out T value) {
+        public override bool TryResolve(WidgetState state, out T value) {
             value = default;
             foreach (var pair in _values) {
                 if (!state.Matches(pair.mask)) continue;
@@ -186,11 +208,11 @@ namespace HELIX.Widgets {
         }
     }
 
-    public class NeverWidgetStateProperty<T> : IWidgetStateProperty<T> {
+    public class NeverWidgetStateProperty<T> : WidgetStateProperty<T> {
         public static readonly NeverWidgetStateProperty<T> Instance = new();
         private NeverWidgetStateProperty() { }
 
-        public bool TryResolve(WidgetState state, out T value) {
+        public override bool TryResolve(WidgetState state, out T value) {
             value = default;
             return false;
         }
@@ -199,8 +221,7 @@ namespace HELIX.Widgets {
             return true;
         }
 
-        public override bool Equals(object obj)
-        {
+        public override bool Equals(object obj) {
             if (obj is null) return false;
             if (ReferenceEquals(this, obj)) return true;
             if (obj.GetType() != GetType()) return false;
@@ -216,19 +237,20 @@ namespace HELIX.Widgets {
         }
     }
 
-    public readonly struct AllWidgetStateProperty<T> : IWidgetStateProperty<T>, IEquatable<AllWidgetStateProperty<T>> {
+    public class AllWidgetStateProperty<T> : WidgetStateProperty<T>, IEquatable<AllWidgetStateProperty<T>> {
         private readonly T _constant;
 
         public AllWidgetStateProperty(T constant) {
             _constant = constant;
         }
 
-        public bool TryResolve(WidgetState state, out T value) {
+        public override bool TryResolve(WidgetState state, out T value) {
             value = _constant;
             return true;
         }
 
         public bool Equals(AllWidgetStateProperty<T> other) {
+            if (ReferenceEquals(null, other)) return false;
             return EqualityComparer<T>.Default.Equals(_constant, other._constant);
         }
 
@@ -245,7 +267,7 @@ namespace HELIX.Widgets {
         }
     }
 
-    public readonly struct FuncWidgetStateProperty<T> : IWidgetStateProperty<T>,
+    public class FuncWidgetStateProperty<T> : WidgetStateProperty<T>,
         IEquatable<FuncWidgetStateProperty<T>> {
         private readonly Func<WidgetState, T> _resolver;
 
@@ -253,12 +275,13 @@ namespace HELIX.Widgets {
             _resolver = resolver;
         }
 
-        public bool TryResolve(WidgetState state, out T value) {
+        public override bool TryResolve(WidgetState state, out T value) {
             value = _resolver(state);
             return true;
         }
 
         public bool Equals(FuncWidgetStateProperty<T> other) {
+            if (ReferenceEquals(null, other)) return false;
             return Equals(_resolver, other._resolver);
         }
 
@@ -268,6 +291,27 @@ namespace HELIX.Widgets {
 
         public override int GetHashCode() {
             return _resolver != null ? _resolver.GetHashCode() : 0;
+        }
+    }
+
+    public class MergingModifiersWidgetState : WidgetStateProperty<ModifierSet> {
+        public readonly WidgetStateProperty<ModifierSet> fallback;
+        public readonly WidgetStateProperty<ModifierSet> overrides;
+
+        public MergingModifiersWidgetState(
+            WidgetStateProperty<ModifierSet> overrides,
+            WidgetStateProperty<ModifierSet> fallback
+        ) {
+            this.fallback = fallback;
+            this.overrides = overrides;
+        }
+
+        public override bool TryResolve(WidgetState state, out ModifierSet value) {
+            var set = new ModifierSet();
+            if (overrides != null && overrides.TryResolve(state, out var overrideModifiers)) set.Add(overrideModifiers);
+            if (fallback != null && fallback.TryResolve(state, out var fallbackModifiers)) set.Add(fallbackModifiers);
+            value = set;
+            return true;
         }
     }
 }
