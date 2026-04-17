@@ -19,6 +19,7 @@ using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Substances;
 using HELIX.Widgets.Universal.Theme;
+using HELIX.Widgets.Utilities;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -54,7 +55,10 @@ public class ScrollExampleState : State<ScrollExample> {
     private ScrollController _controller = new();
     private WidgetStateController _stateController = new();
     private ButtonController _buttonController;
+    private TextEditingController _textController = new();
     private bool toggle = true;
+    private GlobalKey _textFieldFocus = new();
+    private GlobalKey _sliderFocus = new();
 
     public override void InitState() {
         base.InitState();
@@ -109,15 +113,18 @@ public class ScrollExampleState : State<ScrollExample> {
                             },
                             new HShapeButton {
                                 variant = HButtonVariant.FlatTwoState,
-                                child = new HText("Solid2 Substance")
+                                onClick = () => { _textController.SetValue(_textController.PeekValue() + "-add"); },
+                                child = new HText($"Update {_textController.Value}")
                             },
                             new HShapeButton {
                                 variant = HButtonVariant.Soft,
-                                child = new HText("Soft Substance")
+                                child = new HText("Select Text"),
+                                onClick = () => { _textFieldFocus.Focus(); }
                             },
                             new HShapeButton {
                                 variant = HButtonVariant.Outline,
-                                child = new HText("Outline Substance")
+                                child = new HText("Focus Slider"),
+                                onClick = () => { _sliderFocus.Focus(); }
                             },
                             new HShapeButton {
                                 variant = HButtonVariant.Ghost,
@@ -142,9 +149,14 @@ public class ScrollExampleState : State<ScrollExample> {
                         }
                     },
                     new HSlider {
+                        focusKey = _sliderFocus,
                         axis = Axis.Horizontal,
                         style = HSliderStyle.DefaultScrollbarStyleOf(context)
                     }.Flexible(selfCrossAxisAlign: Align.Stretch),
+                    new HTextField(
+                        focusKey: _textFieldFocus,
+                        controller: _textController
+                    ).Size(200, StyleKeyword.Auto),
                     new HRow {
                         crossAxisAlign = Align.Stretch,
                         gap = 8,

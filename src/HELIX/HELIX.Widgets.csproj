@@ -112,6 +112,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathBuilders/RectPathBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/DirectionalContainerElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/ThemeComponent.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/HTextFieldStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/BuildContext.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/RuntimeReflectionThemeLookup.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/HScrollView.cs" />
@@ -227,6 +228,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/ErrorSummary.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HButton.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/FactoryWidget.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HTextField.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/GenericSlider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/MessageProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/ScrollController.cs" />

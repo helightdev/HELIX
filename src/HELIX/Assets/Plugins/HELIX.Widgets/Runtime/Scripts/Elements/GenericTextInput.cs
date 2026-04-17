@@ -21,6 +21,7 @@ namespace HELIX.Widgets.Elements {
         private GenericTextInputStyle _textInputStyle = GenericTextInputStyle.Light;
 
         public GenericTextInput() {
+            delegatesFocus = true;
             this.WithStylesheet(AuxiliaryStylesheets.Helix).AddClasses("helix-generic-text-input");
             BackingTextField = new TextField().WithName("BackingTextField").Stretched().AddTo(this);
             ApplySelectionColors();
@@ -75,7 +76,7 @@ namespace HELIX.Widgets.Elements {
             get => _expands;
             set {
                 _expands = value;
-                if (value) BackingTextField.Stretched();
+                if (value) BackingTextField.Fill();
                 else BackingTextField.Loosen();
             }
         }

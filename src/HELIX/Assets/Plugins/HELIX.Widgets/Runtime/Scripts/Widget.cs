@@ -165,16 +165,14 @@ namespace HELIX.Widgets {
             return collector;
         }
 
-        public static T Get<T>(this ThemeProperty<T> property, BuildContext context, bool listen = true) {
-            if (listen && context != null) return context.GetThemed(property);
-            var element = context?.Element as BaseElement;
-            return ThemeProviderElement.Resolve(element?.ThemeProviderElement, property);
+        public static T Get<T>(this ThemeProperty<T> property, IThemeProvider context, bool listen = true) {
+            if (context != null) return context.GetThemed(property, listen);
+            return ThemeProviderElement.Resolve(null, property);
         }
         
-        public static bool TryGet<T>(this ThemeProperty<T> property, BuildContext context, out T value, bool listen = true) {
-            if (listen  && context != null) return context.TryGetThemed(property, out value);
-            var element = context?.Element as BaseElement;
-            return ThemeProviderElement.TryResolve(element?.ThemeProviderElement, property, out value);
+        public static bool TryGet<T>(this ThemeProperty<T> property, IThemeProvider context, out T value, bool listen = true) {
+            if (context != null) return context.TryGetThemed(property, out value, listen);
+            return ThemeProviderElement.TryResolve(null, property, out value);
         }
     }
 }

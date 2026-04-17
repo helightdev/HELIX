@@ -19,7 +19,7 @@ namespace HELIX.Widgets.Universal {
         public Axis axis;
         public bool enabled = true;
         public bool reverse;
-        public float value;
+        public float initialValue;
         public float thumbSize;
         public Action<float> onChanged;
 
@@ -47,7 +47,7 @@ namespace HELIX.Widgets.Universal {
             Axis axis = Axis.Horizontal,
             bool enabled = true,
             bool reverse = false,
-            float value = 0f,
+            float initialValue = 0f,
             float thumbSize = -1f,
             HSliderStyle style = null
         ) {
@@ -55,7 +55,7 @@ namespace HELIX.Widgets.Universal {
             this.axis = axis;
             this.enabled = enabled;
             this.reverse = reverse;
-            this.value = value;
+            this.initialValue = initialValue;
             this.thumbSize = thumbSize;
             this.onChanged = onChanged;
             this.style = style;
@@ -98,7 +98,7 @@ namespace HELIX.Widgets.Universal {
                 _widgetStateController = _controller.widgetState ?? AddDisposable(new WidgetStateController());
             } else {
                 _widgetStateController = AddDisposable(new WidgetStateController());
-                _controller = AddDisposable(new SliderController(_widgetStateController, widget.value));
+                _controller = AddDisposable(new SliderController(_widgetStateController, widget.initialValue));
                 if (widget.scrollController != null) { _controller.LinkScrollController(widget.scrollController); }
 
                 _controller.onChanged = widget.onChanged;
@@ -121,7 +121,6 @@ namespace HELIX.Widgets.Universal {
             if (oldWidget.controller == null) {
                 _controller.onChanged = widget.onChanged;
                 _controller.enabled = widget.enabled;
-                if (!Mathf.Approximately(widget.value, oldWidget.value)) _controller.Value = widget.value;
             }
 
             _widgetStateController?.Toggle(WidgetState.Disabled, !_controller.Enabled);

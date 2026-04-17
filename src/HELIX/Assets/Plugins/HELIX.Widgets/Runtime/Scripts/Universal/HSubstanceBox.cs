@@ -9,6 +9,7 @@ namespace HELIX.Widgets.Universal {
         public SubstanceLayers substances;
         public BuildFunction<WidgetState> builder;
         public WidgetStateProperty<Alignment> alignment = Alignment.Center;
+        public Key boxKey;
         public WidgetStateProperty<ModifierSet> boxModifiers = WidgetStateProperties.Never<ModifierSet>();
 
         public override State<HSubstanceBox> CreateState() {
@@ -37,7 +38,8 @@ namespace HELIX.Widgets.Universal {
                 out var crossAxis
             );
 
-            var column = new HStack() {
+            var column = new HStack {
+                key = widget.boxKey,
                 children = shapes,
                 mainAxisAlign = mainAxis,
                 crossAxisAlign = crossAxis,

@@ -203,6 +203,18 @@ namespace HELIX.Widgets.Theming {
         T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true);
         bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true);
     }
+    
+    public class FallbackThemeProvider : IThemeProvider {
+        public static readonly FallbackThemeProvider Instance = new();
+        
+        public T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
+            return ThemeProviderElement.Resolve(null, property);
+        }
+
+        public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
+            return ThemeProviderElement.TryResolve(null, property, out value);
+        }
+    }
 
     public enum ThemeMode {
         Uxml,

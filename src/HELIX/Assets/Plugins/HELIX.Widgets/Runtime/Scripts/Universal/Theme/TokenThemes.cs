@@ -81,6 +81,12 @@ namespace HELIX.Widgets.Universal.Theme {
             PrimitiveThemeComponent.Default,
             component => component.scrollbar
         ).Compute(HSliderStyle.DefaultScrollbarStyleOf);
+        
+        public static readonly ThemeProperty<HTextFieldStyle> TextField = ThemeProperty.ExtractMaybe(
+            "primitive-text-field",
+            PrimitiveThemeComponent.Default,
+            component => component.textField
+        ).Compute(HTextFieldStyle.DefaultStyleOf);
 
         private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) =>
             element => func(element.Resolve(PrimitiveBaseTheme.Colors));
@@ -105,6 +111,7 @@ namespace HELIX.Widgets.Universal.Theme {
         public ThemeOptional<HButtonStyle> button;
         public ThemeOptional<HSliderStyle> slider;
         public ThemeOptional<HSliderStyle> scrollbar;
+        public ThemeOptional<HTextFieldStyle> textField;
         public ThemeOptional<Substance> buttonFocusLayer;
     }
 }

@@ -5,13 +5,15 @@ namespace HELIX.Widgets.Modifiers {
     public class WidgetStateModifier : SingletonModifier {
         public readonly WidgetStateController controller;
         private WidgetStateModifierManipulator _manipulator;
+        public bool handleFocus = true;
 
-        public WidgetStateModifier(WidgetStateController controller) {
+        public WidgetStateModifier(WidgetStateController controller, bool handleFocus = true) {
             this.controller = controller;
+            this.handleFocus = handleFocus;
         }
 
         public override void Hook(VisualElement element) {
-            _manipulator = new WidgetStateModifierManipulator(controller);
+            _manipulator = new WidgetStateModifierManipulator(controller, handleFocus);
             element.AddManipulator(_manipulator);
         }
 
@@ -21,14 +23,17 @@ namespace HELIX.Widgets.Modifiers {
         }
 
         public override bool HasChanged(Modifier previous) {
-            return previous is not WidgetStateModifier prev || !ReferenceEquals(controller, prev.controller);
+            return previous is not WidgetStateModifier prev || !ReferenceEquals(controller, prev.controller) ||
+                   handleFocus != prev.handleFocus;
         }
 
         public class WidgetStateModifierManipulator : Manipulator {
             public readonly WidgetStateController controller;
+            public readonly bool handleFocus;
 
-            public WidgetStateModifierManipulator(WidgetStateController controller) {
+            public WidgetStateModifierManipulator(WidgetStateController controller, bool handleFocus) {
                 this.controller = controller;
+                this.handleFocus = handleFocus;
             }
 
             protected override void RegisterCallbacksOnTarget() {
@@ -48,14 +53,14 @@ namespace HELIX.Widgets.Modifiers {
             }
 
             private void OnFocusOut(FocusOutEvent evt) {
+                if (!handleFocus) return;
                 controller.Disable(WidgetState.Focused);
             }
 
             private void OnFocusIn(FocusInEvent evt) {
+                if (!handleFocus) return;
                 controller.Enable(WidgetState.Focused);
-                if (WidgetStateController.LastNavigated) {
-                    controller.Enable(WidgetState.Navigated);
-                }
+                if (WidgetStateController.LastNavigated) { controller.Enable(WidgetState.Navigated); }
             }
 
             private void OnPointerLeave(PointerLeaveEvent evt) {

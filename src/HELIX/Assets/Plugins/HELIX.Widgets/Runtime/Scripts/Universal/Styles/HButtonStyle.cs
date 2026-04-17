@@ -10,10 +10,10 @@ namespace HELIX.Widgets.Universal.Styles {
         public WidgetStateProperty<BorderRadius> borderRadius = WidgetStateProperties.Never<BorderRadius>();
         public WidgetStateProperty<BoxShadowStyle> boxShadow = WidgetStateProperties.Never<BoxShadowStyle>();
         public WidgetStateProperty<float> opacity = WidgetStateProperties.Never<float>();
+        
         public WidgetStateProperty<TextStyle> textStyle = WidgetStateProperties.Never<TextStyle>();
         public SubstanceLayers layers = default;
         public WidgetStateProperty<Transition[]> transitions = WidgetStateProperties.Never<Transition[]>();
-
         public WidgetStateProperty<Alignment> alignment = WidgetStateProperties.Never<Alignment>();
         public WidgetStateProperty<BoxConstraints> constraints = WidgetStateProperties.Never<BoxConstraints>();
         public WidgetStateProperty<StyleLength4> padding = WidgetStateProperties.Never<StyleLength4>();

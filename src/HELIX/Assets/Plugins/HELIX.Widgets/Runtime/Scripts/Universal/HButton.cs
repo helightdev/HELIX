@@ -113,8 +113,8 @@ namespace HELIX.Widgets.Universal {
             } else if (widget.radius.HasValue || widget.variant.HasValue || widget.size.HasValue) {
                 effective = DefaultButtonStyles.DefaultStyleOf(
                     context,
-                    widget.variant ?? HButtonVariant.Default,
-                    widget.size ?? HButtonSize.Medium,
+                    widget.variant ?? HButtonVariant.Flat,
+                    widget.size ?? HButtonSize.Regular,
                     widget.radius ?? HInputRadius.Medium,
                     palette: widget.palette
                 );
@@ -139,11 +139,11 @@ namespace HELIX.Widgets.Universal {
             );
 
             inner = new HSubstanceBox {
-                key = widget.focusKey,
                 controller = _widgetStateController,
                 substances = effective.layers,
                 alignment = effective.alignment,
                 builder = inner,
+                boxKey = widget.focusKey,
                 boxModifiers = modifierProperty
             }.Fill();
 

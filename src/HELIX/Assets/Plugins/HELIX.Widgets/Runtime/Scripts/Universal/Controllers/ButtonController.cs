@@ -1,4 +1,5 @@
 using System;
+using HELIX.Widgets.Elements;
 using HELIX.Widgets.Signals;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -61,6 +62,27 @@ namespace HELIX.Widgets.Universal.Controllers {
                 base.ProcessDownEvent(evt, localPosition, pointerId);
                 controller?.widgetState?.DisableEnable(WidgetState.Navigated, WidgetState.Pressed);
             }
+        }
+    }
+    
+    public class TextEditingController : ValueSignal<string> {
+        public readonly WidgetStateController widgetState;
+        public bool enabled = true;
+        public bool Enabled => enabled && (widgetState?.PeekValue().Enabled() ?? true);
+        public Action<string> onChanged;
+        public Action<string> onSubmitted;
+        public Action onCanceled;
+        public Action onBeginEditing;
+        public Action onEndEditing;
+        
+        public TextEditingController(WidgetStateController widgetState = null, string initialValue = "")
+            : base(initialValue) {
+            this.widgetState = widgetState;
+        }
+
+        public override void SetValue(string newValue) {
+            base.SetValue(newValue);
+            onChanged?.Invoke(newValue);
         }
     }
 }

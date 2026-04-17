@@ -11,12 +11,14 @@ namespace HELIX.Widgets.Universal.Substances {
             SurfaceColorPalette surface,
             BorderRadius borderRadius,
             LayerOpacityProgression progression,
+            ColorTokenPalette error,
             bool contrast = false
         ) {
             return new BoxSubstance {
                 borderRadius = new AllWidgetStateProperty<BorderRadius>(borderRadius),
                 border = new WidgetStatePropertyMap<Border> {
                     [WidgetState.Disabled] = Border.All(1, surface.onMain.WithOpacity(progression.disabledHigh)),
+                    [WidgetState.Error] = Border.All(1, error.main),
                     [WidgetState.None] = contrast ? Border.All(1, surface.onMain) : Border.All(1, palette.main)
                 },
                 backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
@@ -65,7 +67,7 @@ namespace HELIX.Widgets.Universal.Substances {
                         }
                     );
 
-                    return Outline(palette, surface, effectiveRadius, colors.layerOpacityProgression, contrast);
+                    return Outline(palette, surface, effectiveRadius, colors.layerOpacityProgression, colors.error, contrast);
                 }
             );
     }

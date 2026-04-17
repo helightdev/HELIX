@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Theming;
 
 namespace HELIX.Widgets.Universal {
     public abstract class Substance : DiagnosticableBase {
@@ -13,7 +14,7 @@ namespace HELIX.Widgets.Universal {
     public interface ISubstanceBuilder<TBuilder> where TBuilder : ISubstanceBuilder<TBuilder> {
         bool Listening { get; }
         TBuilder Self { get; }
-        BuilderAndSubstance<TBuilder, T> Append<T>(Func<BuildContext, T> builder) where T : Substance;
+        BuilderAndSubstance<TBuilder, T> Append<T>(Func<IThemeProvider, T> builder) where T : Substance;
     }
 
     public readonly struct SubstanceLayers : IReadOnlyList<Substance> {
@@ -54,7 +55,7 @@ namespace HELIX.Widgets.Universal {
         public bool Listening => valueBuilder.Listening;
         public TBuilder Self => valueBuilder;
 
-        public BuilderAndSubstance<TBuilder, TNext> Append<TNext>(Func<BuildContext, TNext> builder)
+        public BuilderAndSubstance<TBuilder, TNext> Append<TNext>(Func<IThemeProvider, TNext> builder)
             where TNext : Substance {
             return valueBuilder.Append(builder);
         }
@@ -70,7 +71,7 @@ namespace HELIX.Widgets.Universal {
         public bool Listening => false;
         public SubstanceFactory Self => this;
 
-        public BuilderAndSubstance<SubstanceFactory, T> Append<T>(Func<BuildContext, T> builder)
+        public BuilderAndSubstance<SubstanceFactory, T> Append<T>(Func<IThemeProvider, T> builder)
             where T : Substance {
             var substance = builder.Invoke(null);
             return new BuilderAndSubstance<SubstanceFactory, T>(this, substance);
@@ -79,18 +80,18 @@ namespace HELIX.Widgets.Universal {
 
     public sealed class SubstanceBuilder : WidgetStateProperty<IReadOnlyList<Substance>>, IReadOnlyList<Substance>,
         ISubstanceBuilder<SubstanceBuilder> {
-        private BuildContext _context;
+        private IThemeProvider _context;
         private readonly List<Substance> _substances = new();
 
-        public SubstanceBuilder(BuildContext context, bool listening = false) {
-            _context = context;
+        public SubstanceBuilder(IThemeProvider context, bool listening = false) {
+            _context = context ?? FallbackThemeProvider.Instance;
             Listening = listening;
         }
 
         public bool Listening { get; }
         public SubstanceBuilder Self => this;
 
-        public BuilderAndSubstance<SubstanceBuilder, T> Append<T>(Func<BuildContext, T> builder)
+        public BuilderAndSubstance<SubstanceBuilder, T> Append<T>(Func<IThemeProvider, T> builder)
             where T : Substance {
             var substance = builder.Invoke(_context);
             _substances.Add(substance);

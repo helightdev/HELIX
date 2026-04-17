@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Modifiers {
     public class FocusModifier : Modifier {
         public static readonly FocusModifier Focusable = new(true, PickingMode.Position, 0, false);
+        public static readonly FocusModifier FocusableDelegates = new(true, PickingMode.Position, 0, true);
         public static readonly FocusModifier FocusableNoTab = new(true, PickingMode.Position, -1, false);
         public static readonly FocusModifier Ignore = new(false, PickingMode.Ignore, -1, false);
         public static readonly FocusModifier None = new(false, PickingMode.Position, -1, false);
@@ -56,6 +57,7 @@ namespace HELIX.Widgets.Modifiers {
 
         protected override string FindConstantName() {
             if (DeepEquals(Focusable)) return nameof(Focusable);
+            if (DeepEquals(FocusableDelegates)) return nameof(FocusableDelegates);
             if (ReferenceEquals(this, FocusableNoTab)) return nameof(FocusableNoTab);
             if (DeepEquals(Ignore)) return nameof(Ignore);
             if (DeepEquals(None)) return nameof(None);

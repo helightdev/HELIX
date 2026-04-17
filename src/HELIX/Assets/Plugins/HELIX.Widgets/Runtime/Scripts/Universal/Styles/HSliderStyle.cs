@@ -50,7 +50,7 @@ namespace HELIX.Widgets.Universal.Styles {
                     [WidgetState.Special1] = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight2),
                     [WidgetState.Special2] = BoxConstraints.Tight(typography.LineHeight2, StyleKeyword.Auto),
                 },
-                track = new SubstanceBuilder(context as BuildContext)
+                track = new SubstanceBuilder(context)
                     .Append(_ => {
                             return new BoxSubstance {
                                 borderRadius = BorderRadius.All(radius.Radius1),
@@ -60,7 +60,7 @@ namespace HELIX.Widgets.Universal.Styles {
                         }
                     )
                     .Build(),
-                progress = new SubstanceBuilder(context as BuildContext)
+                progress = new SubstanceBuilder(context)
                     .Append(_ => new BoxSubstance {
                             position = trackPosition,
                             borderRadius = BorderRadius.All(radius.Radius1),
@@ -68,7 +68,7 @@ namespace HELIX.Widgets.Universal.Styles {
                         }
                     )
                     .Build(),
-                thumb = new SubstanceBuilder(context as BuildContext)
+                thumb = new SubstanceBuilder(context)
                     .Append(_ => new BoxSubstance {
                             borderRadius = BorderRadius.All(radius.Radius2),
                             backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {

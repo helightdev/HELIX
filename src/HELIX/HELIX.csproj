@@ -91,8 +91,8 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/SchemeFidelity.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/UpdateStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/MaterialSwatch.cs" />
-    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/RadixSwatchGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/RRect.cs" />
+    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/RadixSwatchGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/TextStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/ToneDeltaPair.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Abstractions/Element.cs" />
