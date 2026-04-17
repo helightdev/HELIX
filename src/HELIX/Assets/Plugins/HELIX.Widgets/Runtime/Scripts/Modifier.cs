@@ -143,7 +143,7 @@ namespace HELIX.Widgets {
         public static T Positioned<T>(
             this T element,
             StyleLength4? offset = null,
-            Position offsetType = Position.Relative
+            Position offsetType = Position.Absolute
         ) where T : Widget {
             if (offset == null && offsetType == Position.Relative) return element.WithModifier(PositionModifier.None);
 

@@ -1,6 +1,7 @@
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
+using HELIX.Widgets.Elements;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
@@ -9,6 +10,7 @@ namespace HELIX.Widgets.Modifiers {
         public static readonly PositionModifier None = new(StyleLength4.Initial, Position.Relative);
         public readonly StyleLength4 pos;
         public readonly Position type;
+        public bool isStackingOnly;
 
         public PositionModifier(StyleLength4 pos, Position type) {
             this.pos = pos;
@@ -21,6 +23,11 @@ namespace HELIX.Widgets.Modifiers {
         }
 
         public override void Apply(VisualElement element) {
+            if (isStackingOnly) {
+                var parent = BuildContext.GetDirectParent(element);
+                if (parent is not IPreferStacking) return;
+            }
+            
             element.style.position = type;
             element.style.left = pos.l;
             element.style.top = pos.t;
@@ -38,7 +45,7 @@ namespace HELIX.Widgets.Modifiers {
 
         public override bool HasChanged(Modifier previous) {
             if (previous is not PositionModifier prev) return true;
-            return type != prev.type || !pos.Equals(prev.pos);
+            return type != prev.type || !pos.Equals(prev.pos) || isStackingOnly != prev.isStackingOnly;
         }
 
         public static PositionModifier Absolute(StyleLength4 offset) {

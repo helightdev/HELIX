@@ -37,7 +37,7 @@ namespace HELIX.Widgets.Universal {
                 out var crossAxis
             );
 
-            var column = new HColumn {
+            var column = new HStack() {
                 children = shapes,
                 mainAxisAlign = mainAxis,
                 crossAxisAlign = crossAxis,

@@ -15,17 +15,71 @@ namespace HELIX.Widgets.Universal {
         public SliderController controller;
         public ScrollController scrollController;
 
-        public Axis axis = Axis.Horizontal;
+        public Key focusKey;
+        public Axis axis;
         public bool enabled = true;
-        public bool reverse = false;
-        public float value = 0f;
-        public float thumbSize = -1;
+        public bool reverse;
+        public float value;
+        public float thumbSize;
         public Action<float> onChanged;
 
         public HSliderStyle style;
-        public SubstanceLayers trackLayers = default;
-        public SubstanceLayers progressLayers = default;
-        public SubstanceLayers thumbLayers = default;
+
+        public HSlider(
+            SliderController controller,
+            Key focusKey = default,
+            Axis axis = Axis.Horizontal,
+            bool reverse = false,
+            float thumbSize = -1f,
+            HSliderStyle style = null
+        ) {
+            this.controller = controller;
+            this.focusKey = focusKey;
+            this.axis = axis;
+            this.reverse = reverse;
+            this.thumbSize = thumbSize;
+            this.style = style;
+        }
+
+        public HSlider(
+            Action<float> onChanged = null,
+            Key focusKey = default,
+            Axis axis = Axis.Horizontal,
+            bool enabled = true,
+            bool reverse = false,
+            float value = 0f,
+            float thumbSize = -1f,
+            HSliderStyle style = null
+        ) {
+            this.focusKey = focusKey;
+            this.axis = axis;
+            this.enabled = enabled;
+            this.reverse = reverse;
+            this.value = value;
+            this.thumbSize = thumbSize;
+            this.onChanged = onChanged;
+            this.style = style;
+        }
+
+        public HSlider(
+            ScrollController scrollController,
+            Key focusKey = default,
+            Axis axis = Axis.Vertical,
+            bool enabled = true,
+            bool reverse = false,
+            float thumbSize = -1f,
+            Action<float> onChanged = null,
+            HSliderStyle style = null
+        ) {
+            this.scrollController = scrollController;
+            this.focusKey = focusKey;
+            this.axis = axis;
+            this.enabled = enabled;
+            this.reverse = reverse;
+            this.thumbSize = thumbSize;
+            this.onChanged = onChanged;
+            this.style = style;
+        }
 
         public WidgetStateProperty<ModifierSet> boxModifiers = WidgetStateProperties.Never<ModifierSet>();
 
@@ -45,9 +99,7 @@ namespace HELIX.Widgets.Universal {
             } else {
                 _widgetStateController = AddDisposable(new WidgetStateController());
                 _controller = AddDisposable(new SliderController(_widgetStateController, widget.value));
-                if (widget.scrollController != null) {
-                    _controller.LinkScrollController(widget.scrollController);
-                }
+                if (widget.scrollController != null) { _controller.LinkScrollController(widget.scrollController); }
 
                 _controller.onChanged = widget.onChanged;
                 _controller.enabled = widget.enabled;
@@ -112,7 +164,8 @@ namespace HELIX.Widgets.Universal {
                 )
             );
 
-            return new HWrap {
+            return new HFlex {
+                key = widget.focusKey,
                 wrap = false,
                 axis = Axis.Horizontal,
                 children = new WidgetList {
@@ -137,7 +190,7 @@ namespace HELIX.Widgets.Universal {
             return new HSubstanceBox {
                 controller = _widgetStateController,
                 substances = layers
-            }.Positioned(position, Position.Absolute);
+            }.Positioned(position);
         }
 
         private static SubstanceLayers DefaultTrackLayers() {

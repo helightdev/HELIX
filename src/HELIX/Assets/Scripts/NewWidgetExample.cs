@@ -145,10 +145,10 @@ public class ScrollExampleState : State<ScrollExample> {
                         axis = Axis.Horizontal,
                         style = HSliderStyle.DefaultScrollbarStyleOf(context)
                     }.Flexible(selfCrossAxisAlign: Align.Stretch),
-                    new HRow() {
+                    new HRow {
                         crossAxisAlign = Align.Stretch,
                         gap = 8,
-                        children = new WidgetList() {
+                        children = new WidgetList {
                             new HBox {
                                 borderRadius = BorderRadius.All(context.GetThemed(PrimitiveBaseTheme.Radius).Radius4),
                                 child = new HScrollView {
@@ -180,11 +180,7 @@ public class ScrollExampleState : State<ScrollExample> {
                                 //             )
                                 // }
                             }.WithModifier(ClipModifier.Clip).Fill().If(toggle),
-                            new HSlider {
-                                axis = Axis.Vertical,
-                                scrollController = _controller,
-                                style = HSliderStyle.DefaultScrollbarStyleOf(context)
-                            }
+                            new HSlider(_controller),
                         }
                     }.Fill()
                 }
@@ -383,7 +379,7 @@ public class InteractiveExampleState : State<InteractiveExample> {
                     child = new HText("Pop"),
                     onClick = () => { OverlayEntry.Nearest(context.Element)?.Pop(); }
                 }.Fill(),
-                new HWrap {
+                new HFlex {
                     key = "Boxes",
                     children = boxes
                 }.Display(isOn)

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using HELIX.Coloring.Material;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -17,6 +18,14 @@ namespace HELIX.Types {
         public StyleEnum<SliceType> sliceType = StyleKeyword.Initial;
 
         public static implicit operator BackgroundStyle(Color color) {
+            return new BackgroundStyle { color = color };
+        }
+        
+        public static implicit operator BackgroundStyle(StyleColor color) {
+            return new BackgroundStyle { color = color };
+        }
+        
+        public static implicit operator BackgroundStyle(MaterialColor color) {
             return new BackgroundStyle { color = color };
         }
         

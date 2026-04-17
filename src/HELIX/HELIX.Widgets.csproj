@@ -62,7 +62,6 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/BoxShadowElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/GradientGenerators/LinearGradientGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/SignalDependencyTracker.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/SolidSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Formatting/DiagnosticsTreeStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathBuilders/LayoutPathBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/DisplayModifier.cs" />
@@ -169,6 +168,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Formatting/TextTreeConfiguration.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/HelixRuntimeHelper.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/SwatchVisualizer.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/FlatSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Formatting/PrefixedStringBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/ComputedSignal.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/HelixDiagnosticException.cs" />
@@ -176,8 +176,10 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/GhostSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/RowElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Reconciler.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HFlex.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/DiagnosticsPropertyErrorNode.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/BackgroundStyleProperty.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HStack.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/HButtonStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/Transitions/InstantPageTransition.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/BoxShadowStyle.cs" />
@@ -185,7 +187,6 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Controllers/SliderController.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/ButtonBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/PaintingElement.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HWrap.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/GradientGenerators/RadialGradientGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/FunctionSignalObserver.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/ISignalObserver.cs" />

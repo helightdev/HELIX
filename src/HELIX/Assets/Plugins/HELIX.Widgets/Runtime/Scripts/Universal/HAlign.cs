@@ -8,6 +8,7 @@ namespace HELIX.Widgets.Universal {
 
         public HAlign() {
             modifiers.Add(ModifierFallbacks.FlexFill);
+            modifiers.Add(ModifierFallbacks.StackingStretch);
         }
 
         public override IWidgetElement CreateElement() {

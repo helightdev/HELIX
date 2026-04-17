@@ -4,7 +4,6 @@ using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Theme;
-using UnityEngine;
 
 namespace HELIX.Widgets.Universal {
     public class HButton : StatelessWidget<HButton> {
@@ -62,6 +61,7 @@ namespace HELIX.Widgets.Universal {
         public Widget child;
         public ButtonController controller;
 
+        public Key focusKey;
         public bool enabled = true;
         public bool selected = false;
         public Action onClick;
@@ -139,6 +139,7 @@ namespace HELIX.Widgets.Universal {
             );
 
             inner = new HSubstanceBox {
+                key = widget.focusKey,
                 controller = _widgetStateController,
                 substances = effective.layers,
                 alignment = effective.alignment,

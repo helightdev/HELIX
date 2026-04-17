@@ -39,7 +39,7 @@ namespace HELIX.Widgets.Universal.Styles {
             var layers = variant switch {
                 HButtonVariant.Default or HButtonVariant.Flat or HButtonVariant.FlatTwoState =>
                     new SubstanceBuilder(context as BuildContext)
-                        .Solid(
+                        .Flat(
                             variant == HButtonVariant.FlatTwoState ? inactive : palette,
                             palette,
                             surfacePalette,

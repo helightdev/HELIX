@@ -2,19 +2,24 @@ using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
-    
-    public class HWrap : MultiChildWidget {
-        public Axis axis = Axis.Horizontal;
+    public class HFlex : MultiChildWidget {
+        public Axis axis = Axis.Vertical;
         public Align crossAxisAlign = Align.FlexStart;
         public Justify mainAxisAlign = Justify.FlexStart;
         public Align? wrapAlign = null;
         public bool reverse = false;
         public bool wrapReverse = false;
-        public bool wrap = true;
-        public override IWidgetElement CreateElement() => ReconcileInto(new FlexWrapElement());
+        public bool wrap = false;
+
+        public HFlex() {
+            AddModifier(ModifierFallbacks.ImplicitFlexFill);
+        }
+
+        public override IWidgetElement CreateElement() => ReconcileInto(new HFlexElement());
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
@@ -24,13 +29,14 @@ namespace HELIX.Widgets.Universal {
             properties.Add(
                 new EnumProperty<Align>("wrapAlign", wrapAlign ?? crossAxisAlign, defaultValue: crossAxisAlign)
             );
+            properties.Add(new FlagProperty("wrap", wrap, ifTrue: "Wrap", ifFalse: "No Wrap"));
             properties.Add(new FlagProperty("reverse", reverse, ifTrue: "Reverse"));
             properties.Add(new FlagProperty("wrapReverse", wrapReverse, ifTrue: "Wrap Reverse"));
         }
     }
 
-    public class FlexWrapElement : MultiChildWidgetBaseElement<HWrap>, IPreferExplicitFlex {
-        public override void Apply(HWrap previous, HWrap widget) {
+    public class HFlexElement : MultiChildWidgetBaseElement<HFlex>, IPreferExplicitFlex {
+        public override void Apply(HFlex previous, HFlex widget) {
             base.Apply(previous, widget);
             if (widget.axis == Axis.Horizontal) {
                 style.flexDirection = widget.reverse ? FlexDirection.RowReverse : FlexDirection.Row;

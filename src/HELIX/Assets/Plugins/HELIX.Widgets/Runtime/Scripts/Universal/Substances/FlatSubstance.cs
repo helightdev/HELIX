@@ -6,8 +6,8 @@ using HELIX.Widgets.Universal.Theme;
 using UnityEngine;
 
 namespace HELIX.Widgets.Universal.Substances {
-    public static class SolidSubstance {
-        public static BoxSubstance Solid(
+    public static class FlatSubstance {
+        public static BoxSubstance Flat(
             ColorTokenPalette inactive,
             ColorTokenPalette palette,
             SurfaceColorPalette surface,
@@ -29,7 +29,7 @@ namespace HELIX.Widgets.Universal.Substances {
             };
         }
 
-        public static BuilderAndSubstance<TBuilder, BoxSubstance> Solid<TBuilder>(
+        public static BuilderAndSubstance<TBuilder, BoxSubstance> Flat<TBuilder>(
             this ISubstanceBuilder<TBuilder> builder,
             ColorTokenPalette inactive = null,
             ColorTokenPalette palette = null,
@@ -57,7 +57,7 @@ namespace HELIX.Widgets.Universal.Substances {
                             )
                         }
                     );
-                    return Solid(inactive, palette, surface, effectiveRadius, colors.layerOpacityProgression);
+                    return Flat(inactive, palette, surface, effectiveRadius, colors.layerOpacityProgression);
                 }
             );
     }
