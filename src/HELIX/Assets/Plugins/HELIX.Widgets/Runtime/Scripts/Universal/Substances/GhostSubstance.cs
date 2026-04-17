@@ -41,7 +41,7 @@ namespace HELIX.Widgets.Universal.Substances {
             HInputRadius inputRadius = HInputRadius.Medium,
             bool contrast = false
         ) where TBuilder : ISubstanceBuilder<TBuilder> =>
-            builder.AppendAndReturn(context => {
+            builder.Append(context => {
                     var colors = PrimitiveBaseTheme.Colors.Get(context, listen: builder.Listening);
                     var radius = PrimitiveBaseTheme.Radius.Get(context, listen: builder.Listening);
                     palette ??= colors.primary;

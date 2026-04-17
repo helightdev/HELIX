@@ -13,7 +13,7 @@ namespace HELIX.Widgets.Universal {
     public interface ISubstanceBuilder<TBuilder> where TBuilder : ISubstanceBuilder<TBuilder> {
         bool Listening { get; }
         TBuilder Self { get; }
-        BuilderAndSubstance<TBuilder, T> AppendAndReturn<T>(Func<BuildContext, T> builder) where T : Substance;
+        BuilderAndSubstance<TBuilder, T> Append<T>(Func<BuildContext, T> builder) where T : Substance;
     }
 
     public readonly struct SubstanceLayers : IReadOnlyList<Substance> {
@@ -54,9 +54,9 @@ namespace HELIX.Widgets.Universal {
         public bool Listening => valueBuilder.Listening;
         public TBuilder Self => valueBuilder;
 
-        public BuilderAndSubstance<TBuilder, TNext> AppendAndReturn<TNext>(Func<BuildContext, TNext> builder)
+        public BuilderAndSubstance<TBuilder, TNext> Append<TNext>(Func<BuildContext, TNext> builder)
             where TNext : Substance {
-            return valueBuilder.AppendAndReturn(builder);
+            return valueBuilder.Append(builder);
         }
 
         public static implicit operator T(BuilderAndSubstance<TBuilder, T> wrapper) => wrapper.value;
@@ -70,7 +70,7 @@ namespace HELIX.Widgets.Universal {
         public bool Listening => false;
         public SubstanceFactory Self => this;
 
-        public BuilderAndSubstance<SubstanceFactory, T> AppendAndReturn<T>(Func<BuildContext, T> builder)
+        public BuilderAndSubstance<SubstanceFactory, T> Append<T>(Func<BuildContext, T> builder)
             where T : Substance {
             var substance = builder.Invoke(null);
             return new BuilderAndSubstance<SubstanceFactory, T>(this, substance);
@@ -90,7 +90,7 @@ namespace HELIX.Widgets.Universal {
         public bool Listening { get; }
         public SubstanceBuilder Self => this;
 
-        public BuilderAndSubstance<SubstanceBuilder, T> AppendAndReturn<T>(Func<BuildContext, T> builder)
+        public BuilderAndSubstance<SubstanceBuilder, T> Append<T>(Func<BuildContext, T> builder)
             where T : Substance {
             var substance = builder.Invoke(_context);
             _substances.Add(substance);

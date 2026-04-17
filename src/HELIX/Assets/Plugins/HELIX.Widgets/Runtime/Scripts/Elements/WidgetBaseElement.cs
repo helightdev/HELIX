@@ -16,11 +16,11 @@ namespace HELIX.Widgets.Elements {
             return new List<DiagnosticsNode>();
         }
 
-        public virtual T GetThemed<T>(BaseThemeProperty<T> property) {
+        public virtual T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
             return ThemeProviderElement.Resolve(ThemeProviderElement, property);
         }
 
-        public virtual bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value) {
+        public virtual bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
             return ThemeProviderElement.TryResolve(property, out value);
         }
         

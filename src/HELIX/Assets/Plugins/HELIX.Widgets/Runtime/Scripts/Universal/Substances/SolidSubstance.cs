@@ -37,7 +37,7 @@ namespace HELIX.Widgets.Universal.Substances {
             BorderRadius? borderRadius = null,
             HInputRadius inputRadius = HInputRadius.Medium
         ) where TBuilder : ISubstanceBuilder<TBuilder> =>
-            builder.AppendAndReturn(context => {
+            builder.Append(context => {
                     var colors = PrimitiveBaseTheme.Colors.Get(context, listen: builder.Listening);
                     var radius = PrimitiveBaseTheme.Radius.Get(context, listen: builder.Listening);
                     palette ??= colors.primary;

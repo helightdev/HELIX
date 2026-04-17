@@ -111,7 +111,7 @@ namespace HELIX.Widgets.Universal {
             if (widget.style != null) {
                 effective = widget.style; //
             } else if (widget.radius.HasValue || widget.variant.HasValue || widget.size.HasValue) {
-                effective = DefaultButtonStyles.DefaultThemeOf(
+                effective = DefaultButtonStyles.DefaultStyleOf(
                     context,
                     widget.variant ?? HButtonVariant.Default,
                     widget.size ?? HButtonSize.Medium,

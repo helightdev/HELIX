@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using HELIX.Widgets.Elements;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Utilities;
@@ -8,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     [UxmlElement]
-    public partial class ThemeProviderElement : SingleChildWidgetBaseElement<HThemeProvider> {
+    public partial class ThemeProviderElement : SingleChildWidgetBaseElement<HThemeProvider>, IThemeProvider {
         public static readonly IdentityDictionary<ThemeProperty, object> GlobalThemeValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _cachedThemeValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _computedThemeValues = new();
@@ -190,6 +189,19 @@ namespace HELIX.Widgets.Theming {
             value = property.TypedDefaultValue;
             return false;
         }
+
+        public T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
+            return Resolve(property);
+        }
+
+        public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
+            return TryResolve(property, out value);
+        }
+    }
+
+    public interface IThemeProvider {
+        T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true);
+        bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true);
     }
 
     public enum ThemeMode {

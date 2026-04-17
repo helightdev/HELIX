@@ -39,35 +39,47 @@ namespace HELIX.Widgets.Universal.Theme {
             PrimitiveThemeComponent.Default,
             component => component.textContrast
         ).StyleLoader().Compute(ColorSchema(elem => elem.surface.onMain));
-        
+
+        public static readonly ThemeProperty<Substance> ButtonFocusLayer = new ThemeProperty<Substance>()
+            .Compute(
+                ColorSchema(scheme => new BoxSubstance {
+                        borderRadius = new AllWidgetStateProperty<BorderRadius>(BorderRadius.All(2)),
+                        position = new AllWidgetStateProperty<StyleLength4>(
+                            EdgeInsets.Only(bottom: -6, left: 0, right: 0)
+                        ),
+                        constraints = BoxConstraints.Tight(StyleKeyword.Auto, 4),
+                        backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
+                            [WidgetState.Disabled] = Colors.Transparent,
+                            [WidgetState.Focused | WidgetState.Navigated] = scheme.primary.main,
+                            [WidgetState.None] = Colors.Transparent
+                        }
+                    }
+                )
+            );
+
         public static readonly ThemeProperty<HButtonStyle> ButtonTheme = ThemeProperty.ExtractMaybe(
             "primitive-button",
             PrimitiveThemeComponent.Default,
             component => component.button
-        ).Compute(element =>  new HButtonStyle());
+        ).Compute(element => DefaultButtonStyles.DefaultStyleOf(
+                element,
+                HButtonVariant.Flat,
+                HButtonSize.Regular,
+                HInputRadius.Medium
+            )
+        );
 
-        public static readonly ThemeProperty<Substance> ButtonFocusLayer = new ThemeProperty<Substance>()
-            .Compute(ColorSchema(scheme => new BoxSubstance {
-                borderRadius = new AllWidgetStateProperty<BorderRadius>(BorderRadius.All(2)),
-                position = new AllWidgetStateProperty<StyleLength4>(EdgeInsets.Only(
-                    bottom: -6, left: 0, right: 0)),
-                constraints = BoxConstraints.Tight(StyleKeyword.Auto, 4),
-                backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
-                    [WidgetState.Disabled] = Colors.Transparent,
-                    [WidgetState.Focused | WidgetState.Navigated] = scheme.primary.main,
-                    [WidgetState.None] = Colors.Transparent
-                }
-            }));
-        
+        public static readonly ThemeProperty<HSliderStyle> SliderTheme = new ThemeProperty<HSliderStyle>()
+            .Compute(element => HSliderStyle.DefaultStyleOf(element));
+
         private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) =>
             element => func(element.Resolve(PrimitiveBaseTheme.Colors));
-
 
         public static readonly IReadOnlyList<ThemeProperty> Properties = new ThemeProperty[] {
             Surface, BackgroundSubtle, Background, Text, TextContrast, ButtonTheme
         };
     }
-    
+
     public class PrimitiveThemeComponent : ThemeComponent {
         public static readonly PrimitiveThemeComponent Default = new();
 

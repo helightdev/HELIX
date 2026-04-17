@@ -3,7 +3,9 @@ using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal.Controllers;
+using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Substances;
+using HELIX.Widgets.Universal.Theme;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -17,6 +19,7 @@ namespace HELIX.Widgets.Universal {
         public float thumbSize = -1;
         public Action<float> onChanged;
 
+        public HSliderStyle style;
         public SubstanceLayers trackLayers = default;
         public SubstanceLayers progressLayers = default;
         public SubstanceLayers thumbLayers = default;
@@ -44,6 +47,10 @@ namespace HELIX.Widgets.Universal {
             }
 
             _widgetStateController?.Toggle(WidgetState.Disabled, !_controller.Enabled);
+            _widgetStateController?.DisableEnable(
+                WidgetState.Special1 | WidgetState.Special2,
+                widget.axis == Axis.Horizontal ? WidgetState.Special1 : WidgetState.Special2
+            );
         }
 
         public override bool CanReconcile(HSlider oldWidget) {
@@ -58,47 +65,59 @@ namespace HELIX.Widgets.Universal {
             }
 
             _widgetStateController?.Toggle(WidgetState.Disabled, !_controller.Enabled);
+            _widgetStateController?.DisableEnable(
+                WidgetState.Special1 | WidgetState.Special2,
+                widget.axis == Axis.Horizontal ? WidgetState.Special1 : WidgetState.Special2
+            );
         }
 
         public override Widget Build(BuildContext context) {
+            var style = widget.style ?? PrimitiveTheme.SliderTheme.Get(context);
+
             var state = _widgetStateController?.Value ?? WidgetState.None;
             var sliderValue = Mathf.Clamp01(_controller.Value);
-            
+
             var thumbRange = widget.thumbSize >= 0 ? 0.05f : _controller.ThumbRange;
             var availableRange = Mathf.Max(0f, 1f - thumbRange);
             var thumbOffset = sliderValue * availableRange;
             var progressValue = Mathf.Clamp01(thumbOffset + thumbRange * 0.5f);
 
-            _widgetStateController?.Toggle(WidgetState.Disabled, !_controller.Enabled);
-
             var rootModifiers = WidgetStateProperties.Modifiers(
                 widget.boxModifiers,
-                WidgetStateProperties.Func(_ => {
-                    var set = new ModifierSet {
-                        new SliderControllerModifier(_controller, widget.axis, widget.thumbSize, widget.reverse, _widgetStateController),
-                        FocusModifier.Focusable
-                    };
-                    if (_widgetStateController != null) set.Add(new WidgetStateModifier(_widgetStateController));
-                    return set;
-                })
+                WidgetStateProperties.Func(resolved => {
+                        var set = new ModifierSet {
+                            new SliderControllerModifier(
+                                _controller,
+                                widget.axis,
+                                widget.thumbSize,
+                                widget.reverse,
+                                _widgetStateController
+                            ),
+                            SizeModifier.Of(style.constraints.ResolveOrDefault(resolved, BoxConstraints.Initial)),
+                            FocusModifier.Focusable
+                        };
+                        if (_widgetStateController != null) set.Add(new WidgetStateModifier(_widgetStateController));
+                        return set;
+                    }
+                )
             );
 
             return new HWrap {
                 wrap = false,
                 axis = Axis.Horizontal,
-                children = new[] {
+                children = new WidgetList {
                     BuildLayer(
-                        widget.trackLayers.Count > 0 ? widget.trackLayers : DefaultTrackLayers(),
+                        style.track,
                         StyleLength4.Zero
-                    ),
+                    ).If(style.track.Count > 0),
                     BuildLayer(
-                        widget.progressLayers.Count > 0 ? widget.progressLayers : DefaultProgressLayers(),
+                        style.progress,
                         ProgressPosition(widget.axis, progressValue, widget.reverse)
-                    ),
+                    ).If(style.progress.Count > 0),
                     BuildLayer(
-                        widget.thumbLayers.Count > 0 ? widget.thumbLayers : DefaultThumbLayers(),
+                        style.thumb,
                         ThumbPosition(widget.axis, thumbOffset, availableRange, widget.reverse)
-                    )
+                    ).If(style.thumb.Count > 0)
                 },
                 Modifiers = rootModifiers.ResolveOrDefault(state, ModifierSet.Empty)
             }.Fill();
@@ -132,7 +151,10 @@ namespace HELIX.Widgets.Universal {
         private static SubstanceLayers DefaultThumbLayers() {
             return new[] {
                 new BoxSubstance {
-                    backgroundStyle = WidgetStateProperties.All<BackgroundStyle>(new Color(0.92f, 0.92f, 0.92f, 1f)),
+                    backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle>() {
+                        [WidgetState.Focused | WidgetState.Navigated] = new Color(0.12f, 0.72f, 0.24f, 1f),
+                        [WidgetState.None] = new Color(0.92f, 0.92f, 0.92f, 1f),
+                    },
                     borderRadius = WidgetStateProperties.All(BorderRadius.All(10f))
                 }
             };
@@ -143,8 +165,18 @@ namespace HELIX.Widgets.Universal {
             var remainderStyle = new StyleLength(remainder.NormalizedPercent());
 
             return axis == Axis.Horizontal
-                ? StyleLength4.Only(left: reverse ? remainderStyle : 0, top: 0, right: reverse ? 0 : remainderStyle, bottom: 0)
-                : StyleLength4.Only(left: 0, top: reverse ? remainderStyle : 0, right: 0, bottom: reverse ? 0 : remainderStyle);
+                ? StyleLength4.Only(
+                    left: reverse ? remainderStyle : 0,
+                    top: 0,
+                    right: reverse ? 0 : remainderStyle,
+                    bottom: 0
+                )
+                : StyleLength4.Only(
+                    left: 0,
+                    top: reverse ? remainderStyle : 0,
+                    right: 0,
+                    bottom: reverse ? 0 : remainderStyle
+                );
         }
 
         private static StyleLength4 ThumbPosition(Axis axis, float offset, float availableRange, bool reverse) {
@@ -154,8 +186,18 @@ namespace HELIX.Widgets.Universal {
             var endStyle = new StyleLength(end.NormalizedPercent());
 
             return axis == Axis.Horizontal
-                ? StyleLength4.Only(left: reverse ? endStyle : startStyle, top: 0, right: reverse ? startStyle : endStyle, bottom: 0)
-                : StyleLength4.Only(left: 0, top: reverse ? endStyle : startStyle, right: 0, bottom: reverse ? startStyle : endStyle);
+                ? StyleLength4.Only(
+                    left: reverse ? endStyle : startStyle,
+                    top: 0,
+                    right: reverse ? startStyle : endStyle,
+                    bottom: 0
+                )
+                : StyleLength4.Only(
+                    left: 0,
+                    top: reverse ? endStyle : startStyle,
+                    right: 0,
+                    bottom: reverse ? startStyle : endStyle
+                );
         }
     }
 }

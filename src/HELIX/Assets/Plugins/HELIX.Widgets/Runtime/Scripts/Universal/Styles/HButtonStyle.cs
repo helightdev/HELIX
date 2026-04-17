@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
-using HELIX.Widgets.Universal.Theme;
 
 namespace HELIX.Widgets.Universal.Styles {
     public class HButtonStyle : DiagnosticableBase {
@@ -23,18 +21,18 @@ namespace HELIX.Widgets.Universal.Styles {
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
-            properties.Add(new DiagnosticsProperty<object>("alignment", alignment, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("backgroundStyle", backgroundStyle, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("border", border, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("borderRadius", borderRadius, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("boxShadow", boxShadow, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("constraints", constraints, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("padding", padding, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("opacity", opacity, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("textStyle", textStyle, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("layers", layers, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("transitions", transitions, showName: false));
-            properties.Add(new DiagnosticsProperty<object>("modifiers", modifiers, showName: false));
+            properties.Add(new DiagnosticsProperty<object>("alignment", alignment));
+            properties.Add(new DiagnosticsProperty<object>("backgroundStyle", backgroundStyle));
+            properties.Add(new DiagnosticsProperty<object>("border", border));
+            properties.Add(new DiagnosticsProperty<object>("borderRadius", borderRadius));
+            properties.Add(new DiagnosticsProperty<object>("boxShadow", boxShadow));
+            properties.Add(new DiagnosticsProperty<object>("constraints", constraints));
+            properties.Add(new DiagnosticsProperty<object>("padding", padding));
+            properties.Add(new DiagnosticsProperty<object>("opacity", opacity));
+            properties.Add(new DiagnosticsProperty<object>("textStyle", textStyle));
+            properties.Add(new DiagnosticsProperty<object>("layers", layers));
+            properties.Add(new DiagnosticsProperty<object>("transitions", transitions));
+            properties.Add(new DiagnosticsProperty<object>("modifiers", modifiers));
         }
     }
 

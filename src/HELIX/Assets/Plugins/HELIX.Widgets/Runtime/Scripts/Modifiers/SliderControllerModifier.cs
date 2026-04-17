@@ -69,11 +69,13 @@ namespace HELIX.Widgets.Modifiers {
             }
 
             protected override void RegisterCallbacksOnTarget() {
+                target.focusable = true;
                 target.RegisterCallback<PointerDownEvent>(OnPointerDown);
                 target.RegisterCallback<PointerMoveEvent>(OnPointerMove);
                 target.RegisterCallback<PointerUpEvent>(OnPointerUp);
                 target.RegisterCallback<PointerCancelEvent>(OnPointerCancel);
                 target.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
+                target.RegisterCallback<NavigationMoveEvent>(OnNavigationMove);
             }
 
             protected override void UnregisterCallbacksFromTarget() {
@@ -82,6 +84,7 @@ namespace HELIX.Widgets.Modifiers {
                 target.UnregisterCallback<PointerUpEvent>(OnPointerUp);
                 target.UnregisterCallback<PointerCancelEvent>(OnPointerCancel);
                 target.UnregisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
+                target.UnregisterCallback<NavigationMoveEvent>(OnNavigationMove);
             }
 
             private void OnPointerDown(PointerDownEvent evt) {
@@ -134,6 +137,14 @@ namespace HELIX.Widgets.Modifiers {
                 _widgetState?.Disable(WidgetState.Pressed | WidgetState.Dragged);
             }
 
+            private void OnNavigationMove(NavigationMoveEvent evt) {
+                if (_controller == null || !_controller.Enabled) return;
+
+                if (!TryGetMoveDirection(evt, out var direction)) return;
+                ApplyStep(direction, GetBaseStepNormalized());
+                evt.StopPropagation();
+            }
+
             private void EndDrag(int pointerId) {
                 if (target.HasPointerCapture(pointerId)) target.ReleasePointer(pointerId);
                 _pointerId = -1;
@@ -177,6 +188,52 @@ namespace HELIX.Widgets.Modifiers {
             private float GetThumbPixels(Rect rect) {
                 var axisSize = _axis.GetRectSize(rect);
                 return _thumbSize < 0f ? _controller.ThumbRange * axisSize : _thumbSize;
+            }
+
+            private float GetBaseStepNormalized() {
+                var rect = target.contentRect;
+                var range = GetRange(rect, GetThumbPixels(rect));
+                if (Mathf.Approximately(range, 0f)) return 0f;
+                return Mathf.Max(0.01f, 8f / range);
+            }
+
+            private void ApplyStep(int direction, float step) {
+                if (Mathf.Approximately(step, 0f)) return;
+
+                var signedStep = direction * step;
+                if (_reverse) signedStep = -signedStep;
+
+                SetAbsoluteValue(_controller.Value + signedStep);
+            }
+
+            private void SetAbsoluteValue(float value) {
+                _controller.Value = Mathf.Clamp01(value);
+                _widgetState?.Enable(WidgetState.Navigated | WidgetState.Pressed);
+                target.schedule.Execute(() => _widgetState?.Disable(WidgetState.Pressed)).ExecuteLater(100);
+            }
+
+            private bool TryGetMoveDirection(NavigationMoveEvent evt, out int direction) {
+                direction = 0;
+                switch (evt.direction) {
+                    case NavigationMoveEvent.Direction.Left:
+                        if (_axis != Axis.Horizontal) return false;
+                        direction = -1;
+                        return true;
+                    case NavigationMoveEvent.Direction.Right:
+                        if (_axis != Axis.Horizontal) return false;
+                        direction = 1;
+                        return true;
+                    case NavigationMoveEvent.Direction.Up:
+                        if (_axis != Axis.Vertical) return false;
+                        direction = -1;
+                        return true;
+                    case NavigationMoveEvent.Direction.Down:
+                        if (_axis != Axis.Vertical) return false;
+                        direction = 1;
+                        return true;
+                    default:
+                        return false;
+                }
             }
 
             private float GetRange(Rect rect, float thumbPixels) {

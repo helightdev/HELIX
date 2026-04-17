@@ -8,17 +8,13 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     // ReSharper disable once InconsistentNaming
-    public interface BuildContext : IDiagnosticableTree, IElement {
+    public interface BuildContext : IDiagnosticableTree, IElement, IThemeProvider {
         static BuildContext Current = null;
         static BuildContext ReconcilerCurrent = null;
         Widget Descriptor { get; }
         BuildContext ParentContext { get; set; }
 
         protected bool IsUserWidget => this is IStatelessWidget || this is IStatefulWidget;
-
-        T GetThemed<T>(BaseThemeProperty<T> property);
-
-        bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value);
 
         static BuildContext GetUserTarget(BuildContext start, BuildContext except = null) {
             return GetAncestorChain(start).LastOrDefault(context => context.IsUserWidget && context != except) ?? start;

@@ -70,7 +70,7 @@ public class ScrollExampleState : State<ScrollExample> {
     }
 
     public override Widget Build(BuildContext context) {
-        var style = DefaultButtonStyles.DefaultThemeOf(
+        var style = DefaultButtonStyles.DefaultStyleOf(
             context,
             HButtonVariant.Ghost,
             HButtonSize.Regular,
@@ -141,9 +141,13 @@ public class ScrollExampleState : State<ScrollExample> {
                             }.Size(100, 32)
                         }
                     },
-                    new HSlider { }.Size(width: 100.Percent(), 64),
+                    new HSlider {
+                        axis = Axis.Horizontal,
+                        style = HSliderStyle.DefaultScrollbarStyleOf(context)
+                    }.Flexible(selfCrossAxisAlign: Align.Stretch),
                     new HRow() {
                         crossAxisAlign = Align.Stretch,
+                        gap = 8,
                         children = new WidgetList() {
                             new HBox {
                                 borderRadius = BorderRadius.All(context.GetThemed(PrimitiveBaseTheme.Radius).Radius4),
@@ -178,7 +182,8 @@ public class ScrollExampleState : State<ScrollExample> {
                             }.WithModifier(ClipModifier.Clip).Fill().If(toggle),
                             new HSlider {
                                 axis = Axis.Vertical,
-                            }.Size(width: 64)
+                                style = HSliderStyle.DefaultScrollbarStyleOf(context)
+                            }
                         }
                     }.Fill()
                 }

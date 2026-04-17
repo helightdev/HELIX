@@ -13,11 +13,11 @@ namespace HELIX.Widgets.Elements {
         public abstract bool CanReconcile(Widget updated);
         public abstract bool Reconcile(Widget updated);
         
-        public T GetThemed<T>(BaseThemeProperty<T> property) {
+        public T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
             return property.TypedDefaultValue;
         }
 
-        public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value) {
+        public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
             value = property.TypedDefaultValue;
             return false;
         }

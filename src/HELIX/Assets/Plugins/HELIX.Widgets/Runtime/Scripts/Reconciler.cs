@@ -296,11 +296,11 @@ namespace HELIX.Widgets {
         public Widget Descriptor { get; }
         public BuildContext ParentContext { get; set; }
         
-        public T GetThemed<T>(BaseThemeProperty<T> property) {
+        public T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
             return property.TypedDefaultValue;
         }
 
-        public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value) {
+        public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
             value = property.TypedDefaultValue;
             return false;
         }

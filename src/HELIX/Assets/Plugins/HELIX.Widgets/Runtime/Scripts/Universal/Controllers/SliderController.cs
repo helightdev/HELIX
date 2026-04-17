@@ -6,7 +6,7 @@ namespace HELIX.Widgets.Universal.Controllers {
     public class SliderController : ValueSignal<float> {
         public readonly WidgetStateController widgetState;
         public bool enabled = true;
-        private float _thumbRange = 0.8f;
+        private float _thumbRange = 0.1f;
 
         public float ThumbRange {
             get => _thumbRange;

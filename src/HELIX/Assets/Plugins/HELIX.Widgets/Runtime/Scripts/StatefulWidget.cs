@@ -94,13 +94,13 @@ namespace HELIX.Widgets {
             OnDependencyUpdated();
         }
 
-        public override S GetThemed<S>(BaseThemeProperty<S> property) {
-            return ThemeValue(property).Value;
+        public override S GetThemed<S>(BaseThemeProperty<S> property, bool listen = true) {
+            return listen ? ThemeValue(property).Value : ThemeProviderElement.Resolve(ThemeProviderElement, property);
         }
         
-        public override bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value) {
-            ThemeValue(property);
-            return ThemeProviderElement.TryResolve(property, out value);
+        public override bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
+            if (listen) ThemeValue(property);
+            return ThemeProviderElement.TryResolve(ThemeProviderElement, property, out value);
         }
         
         private void OnDependencyUpdated() {

@@ -1,19 +1,15 @@
 using System;
-using System.Collections.Generic;
 using HELIX.Coloring;
-using HELIX.Coloring.Material;
 using HELIX.Types;
-using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Theming;
-using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Substances;
-using UnityEngine;
+using HELIX.Widgets.Universal.Theme;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Universal.Theme {
+namespace HELIX.Widgets.Universal.Styles {
     public class DefaultButtonStyles {
-        public static HButtonStyle DefaultThemeOf(
-            BuildContext context,
+        public static HButtonStyle DefaultStyleOf(
+            IThemeProvider context,
             HButtonVariant variant,
             HButtonSize size,
             HInputRadius rad,
@@ -42,23 +38,23 @@ namespace HELIX.Widgets.Universal.Theme {
 
             var layers = variant switch {
                 HButtonVariant.Default or HButtonVariant.Flat or HButtonVariant.FlatTwoState =>
-                    new SubstanceBuilder(context)
+                    new SubstanceBuilder(context as BuildContext)
                         .Solid(
                             variant == HButtonVariant.FlatTwoState ? inactive : palette,
                             palette,
                             surfacePalette,
                             borderRadius
                         ),
-                HButtonVariant.Soft => new SubstanceBuilder(context)
+                HButtonVariant.Soft => new SubstanceBuilder(context as BuildContext)
                     .Soft(palette, surfacePalette, borderRadius),
-                HButtonVariant.Outline => new SubstanceBuilder(context)
+                HButtonVariant.Outline => new SubstanceBuilder(context as BuildContext)
                     .Outline(palette, surfacePalette, borderRadius),
-                HButtonVariant.Ghost => new SubstanceBuilder(context)
+                HButtonVariant.Ghost => new SubstanceBuilder(context as BuildContext)
                     .Ghost(palette, surfacePalette, borderRadius),
                 _ => throw new ArgumentOutOfRangeException(nameof(variant), variant, null)
             };
 
-            layers.AppendAndReturn(_ => focusLayer);
+            layers.Append(_ => focusLayer);
 
             var fontColor = contrast
                 ? surfacePalette.onMain
