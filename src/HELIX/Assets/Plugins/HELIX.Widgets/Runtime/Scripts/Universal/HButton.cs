@@ -16,7 +16,7 @@ namespace HELIX.Widgets.Universal {
         public HButtonStyle style;
 
         public override Widget Build(BuildContext context) {
-            var effective = style ?? context.GetThemed(PrimitiveTheme.ButtonTheme);
+            var effective = style ?? context.GetThemed(PrimitiveTheme.Button);
             return new ButtonBuilder {
                 builder = (_, state) => {
                     Widget inner = child;
@@ -118,7 +118,7 @@ namespace HELIX.Widgets.Universal {
                     widget.radius ?? HInputRadius.Medium,
                     palette: widget.palette
                 );
-            } else { effective = context.GetThemed(PrimitiveTheme.ButtonTheme); }
+            } else { effective = context.GetThemed(PrimitiveTheme.Button); }
 
             Widget inner = widget.child;
             var modifierProperty = WidgetStateProperties.Modifiers(

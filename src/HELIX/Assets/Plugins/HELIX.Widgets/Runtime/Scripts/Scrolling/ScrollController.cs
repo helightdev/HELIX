@@ -3,11 +3,12 @@ using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Signals;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Scrolling
-{
+namespace HELIX.Widgets.Scrolling {
     public class ScrollController : ValueSignal<float>, ISignalObserver {
         private float? _lastOffset;
         private float _initialScrollOffset;
+
+        public ScrollController() : base(0f, false) { }
 
         public float InitialScrollOffset {
             get => _initialScrollOffset;
@@ -22,11 +23,7 @@ namespace HELIX.Widgets.Scrolling
         public float Offset {
             get => ScrollPosition?.Extent ?? _lastOffset.GetValueOrDefault(0f);
             set {
-                if (ScrollPosition == null) {
-                    _lastOffset = value;
-                } else {
-                    ScrollPosition.Extent = value;
-                }
+                if (ScrollPosition == null) { _lastOffset = value; } else { ScrollPosition.Extent = value; }
             }
         }
 
@@ -45,17 +42,13 @@ namespace HELIX.Widgets.Scrolling
         }
 
         public void AnimateTo(float offset, TimeValue duration, EasingMode easing = EasingMode.Linear) {
-            if (ScrollPosition == null) {
-                Offset = offset; 
-            } else {
+            if (ScrollPosition == null) { Offset = offset; } else {
                 ScrollPosition.AnimateTo(offset, duration, easing);
             }
         }
 
-        public void ScrollTo(VisualElement element) {
-            
-        }
-        
+        public void ScrollTo(VisualElement element) { }
+
         public void Attach(ScrollPosition position) {
             if (ScrollPosition != null) {
                 HelixDiagnostics.Build(
@@ -76,10 +69,8 @@ namespace HELIX.Widgets.Scrolling
 
             ScrollPosition = position;
             position.AddObserver(this);
-            
-            if (KeepScrollOffset) {
-                position.Restore(_lastOffset.GetValueOrDefault(position.Extent));
-            } else {
+
+            if (KeepScrollOffset) { position.Restore(_lastOffset.GetValueOrDefault(position.Extent)); } else {
                 position.Restore(_initialScrollOffset);
             }
         }
@@ -97,7 +88,7 @@ namespace HELIX.Widgets.Scrolling
                 ).Report(DiagnosticLevel.Error);
                 return;
             }
-            
+
             ScrollPosition?.RemoveObserver(this);
         }
 
@@ -112,7 +103,7 @@ namespace HELIX.Widgets.Scrolling
                 ).Report(DiagnosticLevel.Warning);
                 return;
             }
-            
+
             SetValue(ScrollPosition.Extent);
             _lastOffset = value;
         }

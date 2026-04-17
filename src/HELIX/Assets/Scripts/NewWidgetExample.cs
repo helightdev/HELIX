@@ -182,6 +182,7 @@ public class ScrollExampleState : State<ScrollExample> {
                             }.WithModifier(ClipModifier.Clip).Fill().If(toggle),
                             new HSlider {
                                 axis = Axis.Vertical,
+                                scrollController = _controller,
                                 style = HSliderStyle.DefaultScrollbarStyleOf(context)
                             }
                         }

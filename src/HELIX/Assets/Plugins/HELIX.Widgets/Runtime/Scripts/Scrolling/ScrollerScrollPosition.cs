@@ -10,6 +10,7 @@ namespace HELIX.Widgets.Scrolling {
         public readonly ScrollView scrollView;
 
         private float _lastValue;
+        private float _lastExtentTotal;
         private DebouncedScheduler _debouncedScheduler;
 
         public ScrollerScrollPosition(Scroller scroller, ScrollView scrollView) {
@@ -18,6 +19,9 @@ namespace HELIX.Widgets.Scrolling {
             _debouncedScheduler = new DebouncedScheduler(scroller);
             scroller.value = 0;
             scroller.valueChanged += OnValueChanged;
+            scrollView.contentContainer.RegisterCallback<GeometryChangedEvent>(_ => {
+                OnValueChanged(scroller.value);
+            });
         }
 
         public override float Min => scroller.lowValue;
@@ -37,8 +41,9 @@ namespace HELIX.Widgets.Scrolling {
         }
 
         private void OnValueChanged(float obj) {
-            if (Mathf.Approximately(obj, _lastValue)) return;
+            if (Mathf.Approximately(obj, _lastValue) && Mathf.Approximately(_lastExtentTotal, ExtentTotal)) return;
             _lastValue = obj;
+            _lastExtentTotal = ExtentTotal;
             NotifyObservers();
         }
 
@@ -51,7 +56,9 @@ namespace HELIX.Widgets.Scrolling {
             _debouncedScheduler.Stop();
             _lastValue = offset;
             scroller.value = offset;
-            scroller.schedule.Execute(() => scroller.value = offset).ExecuteLater(1);
+            scroller.schedule.Execute(() => {
+                scroller.value = offset;
+            }).ExecuteLater(1);
         }
 
         public override void AnimateTo(float offset, TimeValue duration, EasingMode easing) {

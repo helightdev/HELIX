@@ -2,6 +2,7 @@ using System;
 using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets.Modifiers;
+using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Substances;
@@ -12,6 +13,8 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Universal {
     public class HSlider : StatefulWidget<HSlider> {
         public SliderController controller;
+        public ScrollController scrollController;
+
         public Axis axis = Axis.Horizontal;
         public bool enabled = true;
         public bool reverse = false;
@@ -42,6 +45,10 @@ namespace HELIX.Widgets.Universal {
             } else {
                 _widgetStateController = AddDisposable(new WidgetStateController());
                 _controller = AddDisposable(new SliderController(_widgetStateController, widget.value));
+                if (widget.scrollController != null) {
+                    _controller.LinkScrollController(widget.scrollController);
+                }
+
                 _controller.onChanged = widget.onChanged;
                 _controller.enabled = widget.enabled;
             }
@@ -51,6 +58,7 @@ namespace HELIX.Widgets.Universal {
                 WidgetState.Special1 | WidgetState.Special2,
                 widget.axis == Axis.Horizontal ? WidgetState.Special1 : WidgetState.Special2
             );
+            mount.Element.schedule.Execute(() => { _controller.RefreshFromLinkedScroll(); }).ExecuteLater(2);
         }
 
         public override bool CanReconcile(HSlider oldWidget) {
@@ -72,7 +80,9 @@ namespace HELIX.Widgets.Universal {
         }
 
         public override Widget Build(BuildContext context) {
-            var style = widget.style ?? PrimitiveTheme.SliderTheme.Get(context);
+            var style = widget.style ?? (widget.scrollController == null
+                ? PrimitiveTheme.Slider.Get(context)
+                : PrimitiveTheme.Scrollbar.Get(context));
 
             var state = _widgetStateController?.Value ?? WidgetState.None;
             var sliderValue = Mathf.Clamp01(_controller.Value);
