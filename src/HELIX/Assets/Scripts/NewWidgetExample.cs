@@ -141,37 +141,46 @@ public class ScrollExampleState : State<ScrollExample> {
                             }.Size(100, 32)
                         }
                     },
-                    new HBox {
-                        borderRadius = BorderRadius.All(context.GetThemed(PrimitiveBaseTheme.Radius).Radius4),
-                        child = new HScrollView {
-                            controller = _controller,
-                            children = new Widget[] {
-                                new HBox { backgroundStyle = MaterialColors.Red.Value }.Size(
-                                    height: 500,
-                                    width: StyleKeyword.Auto
-                                ),
-                                new HBox { backgroundStyle = MaterialColors.Blue.Value }.Size(
-                                    height: 1000,
-                                    width: StyleKeyword.Auto
-                                ),
-                                new HBox { backgroundStyle = MaterialColors.Green.Value }.Size(
-                                    height: 500,
-                                    width: StyleKeyword.Auto
-                                )
-                            }
+                    new HSlider { }.Size(width: 100.Percent(), 64),
+                    new HRow() {
+                        crossAxisAlign = Align.Stretch,
+                        children = new WidgetList() {
+                            new HBox {
+                                borderRadius = BorderRadius.All(context.GetThemed(PrimitiveBaseTheme.Radius).Radius4),
+                                child = new HScrollView {
+                                    controller = _controller,
+                                    children = new Widget[] {
+                                        new HBox { backgroundStyle = MaterialColors.Red.Value }.Size(
+                                            height: 500,
+                                            width: StyleKeyword.Auto
+                                        ),
+                                        new HBox { backgroundStyle = MaterialColors.Blue.Value }.Size(
+                                            height: 1000,
+                                            width: StyleKeyword.Auto
+                                        ),
+                                        new HBox { backgroundStyle = MaterialColors.Green.Value }.Size(
+                                            height: 500,
+                                            width: StyleKeyword.Auto
+                                        )
+                                    }
+                                }
+                                // child = new HListView {
+                                //     itemCount = 1000,
+                                //     fixedItemHeight = 50,
+                                //     scrollController = _controller,
+                                //     itemBuilder =
+                                //         (_, index) =>
+                                //             new HBox { backgroundStyle = Colors.All[index % Colors.All.Length].W500 }.Size(
+                                //                 height: 100,
+                                //                 width: StyleKeyword.Auto
+                                //             )
+                                // }
+                            }.WithModifier(ClipModifier.Clip).Fill().If(toggle),
+                            new HSlider {
+                                axis = Axis.Vertical,
+                            }.Size(width: 64)
                         }
-                        // child = new HListView {
-                        //     itemCount = 1000,
-                        //     fixedItemHeight = 50,
-                        //     scrollController = _controller,
-                        //     itemBuilder =
-                        //         (_, index) =>
-                        //             new HBox { backgroundStyle = Colors.All[index % Colors.All.Length].W500 }.Size(
-                        //                 height: 100,
-                        //                 width: StyleKeyword.Auto
-                        //             )
-                        // }
-                    }.WithModifier(ClipModifier.Clip).Fill().If(toggle)
+                    }.Fill()
                 }
             }.WithModifier(PaddingModifier.Of(8)).Fill()
         }.Stretch();

@@ -181,12 +181,14 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/Transitions/InstantPageTransition.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/BoxShadowStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticableBase.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Controllers/SliderController.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/ButtonBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/PaintingElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HWrap.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/GradientGenerators/RadialGradientGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/FunctionSignalObserver.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/ISignalObserver.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/SliderControllerModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathDrawers/SolidStrokePathDrawer.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/ErrorHint.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HBox.cs" />

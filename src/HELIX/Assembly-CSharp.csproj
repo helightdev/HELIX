@@ -80,7 +80,9 @@
     <None Include="Library/PackageCache/com.unity.modules.terrainphysics/package.json" />
     <None Include="Library/PackageCache/com.unity.mathematics@19a9377c4ffa/package.json" />
     <None Include="Library/PackageCache/com.unity.burst@07790c2d06d9/ValidationExceptions.json" />
+    <None Include="Library/PackageCache/com.unity.memoryprofiler@485b5ba42ef5/package.json" />
     <None Include="Library/PackageCache/com.unity.visualscripting@eb6004dcc707/package.json" />
+    <None Include="Library/PackageCache/com.unity.editorcoroutines@54394ed3283c/package.json" />
     <None Include="Library/PackageCache/com.unity.collab-proxy@a5329f833fa8/package.json" />
     <None Include="Library/PackageCache/com.unity.ugui@288051c775ab/PackageConversionData.json" />
     <None Include="Library/PackageCache/com.unity.modules.unitywebrequestassetbundle/package.json" />
@@ -123,6 +125,7 @@
     <None Include="Library/PackageCache/com.unity.shadergraph@5c6df727ce26/GraphTemplates/Subgraphs/CanvasLinearSpaceConversion.hlsl" />
     <None Include="Library/PackageCache/com.unity.ai.navigation@78534c21b27d/package.json" />
     <None Include="Library/PackageCache/com.unity.modules.xr/package.json" />
+    <None Include="Library/PackageCache/com.unity.profiling.core@8a49f7027d06/package.json" />
     <None Include="Library/PackageCache/com.unity.ugui@288051c775ab/Editor Resources/Shaders/TMP_Properties.cginc" />
     <None Include="Library/PackageCache/com.unity.modules.adaptiveperformance/package.json" />
     <None Include="Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/AOT/Newtonsoft.Json.xml" />
@@ -962,6 +965,10 @@
       <Project>{545326cf-615b-7fde-1bea-bc397bbd8f16}</Project>
       <Name>Unity.RenderPipelines.Core.ShaderLibrary</Name>
     </ProjectReference>
+    <ProjectReference Include="Unity.MemoryProfiler.csproj">
+      <Project>{d90f5669-d30a-3912-f7b9-e375096776a2}</Project>
+      <Name>Unity.MemoryProfiler</Name>
+    </ProjectReference>
     <ProjectReference Include="Unity.VisualScripting.SettingsProvider.Editor.csproj">
       <Project>{85fdfa70-5ecd-731d-8afc-46d0f2c9f172}</Project>
       <Name>Unity.VisualScripting.SettingsProvider.Editor</Name>
@@ -990,6 +997,10 @@
       <Project>{d8e1ae04-9f43-4eca-9967-4e617c5ca3c9}</Project>
       <Name>Unity.PathTracing.Runtime</Name>
     </ProjectReference>
+    <ProjectReference Include="Unity.EditorCoroutines.Editor.csproj">
+      <Project>{549e5960-7f0c-86ec-8868-72f792cd4626}</Project>
+      <Name>Unity.EditorCoroutines.Editor</Name>
+    </ProjectReference>
     <ProjectReference Include="HELIX.Editor.csproj">
       <Project>{06cea6ad-636a-61fc-35b4-aa74b99f0183}</Project>
       <Name>HELIX.Editor</Name>
@@ -1013,6 +1024,10 @@
     <ProjectReference Include="Unity.PlasticSCM.Editor.csproj">
       <Project>{12f08900-922c-f5e6-b428-31f48c980c0f}</Project>
       <Name>Unity.PlasticSCM.Editor</Name>
+    </ProjectReference>
+    <ProjectReference Include="Unity.MemoryProfiler.Editor.csproj">
+      <Project>{aa2c07ab-97e1-cecb-1419-84baf669c20e}</Project>
+      <Name>Unity.MemoryProfiler.Editor</Name>
     </ProjectReference>
     <ProjectReference Include="Unity.Burst.Editor.csproj">
       <Project>{31532b8a-e87e-8fb9-84b8-c09eb40926d4}</Project>
@@ -1086,6 +1101,10 @@
       <Project>{f232b60e-f812-894c-15f0-69c051783cbd}</Project>
       <Name>Unity.InputSystem.ForUI</Name>
     </ProjectReference>
+    <ProjectReference Include="Unity.Profiling.Core.csproj">
+      <Project>{d54330c6-8c7b-e23c-5d49-d6bf1ff08bd8}</Project>
+      <Name>Unity.Profiling.Core</Name>
+    </ProjectReference>
     <ProjectReference Include="Unity.RenderPipelines.GPUDriven.Runtime.csproj">
       <Project>{8c184b69-fea7-c0e1-bfc5-ce3663a4503a}</Project>
       <Name>Unity.RenderPipelines.GPUDriven.Runtime</Name>
@@ -1141,6 +1160,10 @@
     <ProjectReference Include="Unity.RenderPipelines.Universal.Runtime.csproj">
       <Project>{26576205-0e86-b4f4-8f7a-495526b07213}</Project>
       <Name>Unity.RenderPipelines.Universal.Runtime</Name>
+    </ProjectReference>
+    <ProjectReference Include="Unity.MemoryProfiler.Editor.MemoryProfilerModule.csproj">
+      <Project>{b8cf17d3-0b75-a51c-24ce-a84a546e304e}</Project>
+      <Name>Unity.MemoryProfiler.Editor.MemoryProfilerModule</Name>
     </ProjectReference>
     <ProjectReference Include="Unity.VisualScripting.State.csproj">
       <Project>{1f1be8ad-a8fb-dc28-6fee-889d73231f06}</Project>
