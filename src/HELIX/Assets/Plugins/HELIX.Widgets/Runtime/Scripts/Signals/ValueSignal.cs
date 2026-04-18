@@ -17,7 +17,7 @@ namespace HELIX.Widgets.Signals {
         }
 
         public override void SetValue(T newValue) {
-            if (_equality && EqualityComparer<T>.Default.Equals(value, newValue)) return;
+            if (_equality && comparer.Equals(value, newValue)) return;
             value = newValue;
             NotifyDirty();
             NotifyObservers();
