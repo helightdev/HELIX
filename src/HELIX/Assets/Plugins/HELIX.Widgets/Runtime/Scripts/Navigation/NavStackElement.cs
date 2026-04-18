@@ -17,7 +17,7 @@ namespace HELIX.Widgets.Navigation {
     public partial class NavStackElement : SingleChildWidgetBaseElement<NavStack> {
         private readonly List<PageTransitionHandle> _activeTransitions = new();
         private readonly VisualElement _pageContainer;
-        private readonly List<NavPage> _pages = new();
+        private readonly List<NavPageBase> _pages = new();
         private readonly Queue<StackOperation> _pendingOperations = new();
 
         private readonly VisualElement _rootContainer;
@@ -29,14 +29,13 @@ namespace HELIX.Widgets.Navigation {
         private IVisualElementScheduledItem _updateSchedule;
 
         public NavStackElement() {
-            this.Stretched();
             _rootContainer = new Element("Root").Stretched().AddTo(hierarchy);
             _pageContainer = new Element("Pages").Stretched().AddTo(hierarchy);
             _pageContainer.pickingMode = PickingMode.Ignore;
         }
 
-        public IReadOnlyList<NavPage> Pages => _pages;
-        public NavPage CurrentPage => Pages.Count == 0 ? null : _pages[^1];
+        public IReadOnlyList<NavPageBase> Pages => _pages;
+        public NavPageBase CurrentPageBase => Pages.Count == 0 ? null : _pages[^1];
 
         public override VisualElement contentContainer => _rootContainer;
 
@@ -126,28 +125,28 @@ namespace HELIX.Widgets.Navigation {
             return completionSource.Awaitable;
         }
 
-        public Awaitable<bool> Pop(NavPage page, [CanBeNull] PageTransition transition = null) {
+        public Awaitable<bool> Pop(NavPageBase pageBase, [CanBeNull] PageTransition transition = null) {
             var completionSource = new AwaitableCompletionSource<bool>();
             SubmitOperation(() => {
                     try {
-                        if (page.parent != _pageContainer) {
+                        if (pageBase.parent != _pageContainer) {
                             completionSource.SetResult(false);
                             return;
                         }
 
                         var before = GetCurrentlyVisiblePages();
-                        if (!before.Contains(page)) {
-                            page.RemoveFromHierarchy();
+                        if (!before.Contains(pageBase)) {
+                            pageBase.RemoveFromHierarchy();
                             Refresh();
                             completionSource.SetResult(true);
                             return;
                         }
 
-                        var after = GetCurrentlyVisiblePages(Pages.Except(new[] { page }).ToList());
+                        var after = GetCurrentlyVisiblePages(Pages.Except(new[] { pageBase }).ToList());
                         var modificationResult = new NavStackModificationResult(before, after, NavModificationType.Pop);
                         AnimateTransition(transition, modificationResult);
                         _afterTransitions = () => {
-                            page.RemoveFromHierarchy();
+                            pageBase.RemoveFromHierarchy();
                             Refresh();
                             completionSource.SetResult(true);
                         };
@@ -157,14 +156,14 @@ namespace HELIX.Widgets.Navigation {
             return completionSource.Awaitable;
         }
 
-        public Awaitable<bool> PopUntil(Func<NavPage, bool> predicate, PageTransition transition = null) {
+        public Awaitable<bool> PopUntil(Func<NavPageBase, bool> predicate, PageTransition transition = null) {
             var completionSource = new AwaitableCompletionSource<bool>();
             SubmitOperation(() => {
                     try {
-                        var toRemove = new List<NavPage>();
+                        var toRemove = new List<NavPageBase>();
                         for (var i = _pageContainer.childCount - 1; i >= 0; i--) {
                             var child = _pageContainer.ElementAt(i);
-                            if (child is not NavPage page) continue;
+                            if (child is not NavPageBase page) continue;
                             if (predicate(page)) break;
                             toRemove.Add(page);
                         }
@@ -191,18 +190,18 @@ namespace HELIX.Widgets.Navigation {
             return completionSource.Awaitable;
         }
 
-        public Awaitable Push(NavPage page, [CanBeNull] PageTransition transition = null) {
+        public Awaitable Push(NavPageBase pageBase, [CanBeNull] PageTransition transition = null) {
             var completionSource = new AwaitableCompletionSource();
             SubmitOperation(() => {
                     try {
-                        if (page.parent == _pageContainer) {
+                        if (pageBase.parent == _pageContainer) {
                             completionSource.SetResult();
                             return;
                         }
 
                         var before = GetCurrentlyVisiblePages();
-                        var after = GetCurrentlyVisiblePages(before.pages.Append(page).ToList());
-                        _pageContainer.Add(page);
+                        var after = GetCurrentlyVisiblePages(before.pages.Append(pageBase).ToList());
+                        _pageContainer.Add(pageBase);
 
                         var modificationResult = new NavStackModificationResult(
                             before,
@@ -221,21 +220,21 @@ namespace HELIX.Widgets.Navigation {
             return completionSource.Awaitable;
         }
 
-        public Awaitable PushReplacement(NavPage page, [CanBeNull] PageTransition transition = null) {
+        public Awaitable PushReplacement(NavPageBase pageBase, [CanBeNull] PageTransition transition = null) {
             var completionSource = new AwaitableCompletionSource();
             SubmitOperation(() => {
                     try {
                         var lastPage = GetLastPage();
-                        if (lastPage != null && lastPage == page) {
+                        if (lastPage != null && lastPage == pageBase) {
                             completionSource.SetResult();
                             return;
                         }
 
                         var before = GetCurrentlyVisiblePages();
                         var after = GetCurrentlyVisiblePages(
-                            before.pages.Take(before.pages.Count - 1).Append(page).ToList()
+                            before.pages.Take(before.pages.Count - 1).Append(pageBase).ToList()
                         );
-                        _pageContainer.Add(page);
+                        _pageContainer.Add(pageBase);
                         var modificationResult = new NavStackModificationResult(
                             before,
                             after,
@@ -258,7 +257,7 @@ namespace HELIX.Widgets.Navigation {
             _pages.Clear();
             var isHidden = false;
             foreach (var child in _pageContainer.Children().Reverse()) {
-                if (child is not NavPage page) continue;
+                if (child is not NavPageBase page) continue;
                 page.style.opacity = 1f;
 
                 _pages.Add(page);
@@ -280,10 +279,10 @@ namespace HELIX.Widgets.Navigation {
             else _rootContainer.Display(!isHidden);
         }
 
-        private NavPage GetLastPage() {
+        private NavPageBase GetLastPage() {
             for (var i = _pageContainer.childCount - 1; i >= 0; i--) {
                 var child = _pageContainer.ElementAt(i);
-                if (child is not NavPage page) continue;
+                if (child is not NavPageBase page) continue;
                 return page;
             }
 
@@ -291,13 +290,13 @@ namespace HELIX.Widgets.Navigation {
         }
 
         private NavPageBuffer GetCurrentlyVisiblePages(
-            List<NavPage> allPages = null,
-            NavPage before = null
+            List<NavPageBase> allPages = null,
+            NavPageBase before = null
         ) {
             allPages ??= Pages.ToList();
 
             var beginCollecting = before == null;
-            var buffer = new List<NavPage>();
+            var buffer = new List<NavPageBase>();
             for (var i = allPages.Count - 1; i >= 0; i--) {
                 var page = allPages[i];
                 switch (beginCollecting) {
@@ -354,22 +353,36 @@ namespace HELIX.Widgets.Navigation {
         }
     }
 
-    public abstract class NavPage : VisualElement {
+    public abstract class NavPageBase : VisualElement {
         public virtual bool Opaque => true;
     }
 
-    public class NavPageBuffer : IEnumerable<NavPage> {
-        public static readonly NavPageBuffer Empty = new(new List<NavPage>());
-        public readonly IReadOnlyList<NavPage> pages;
+    public class WidgetNavPage : NavPageBase {
+        private readonly WidgetHostElement _host;
 
-        public NavPageBuffer(List<NavPage> pages) {
+        public IBuildable Buildable {
+            get => _host.Buildable;
+            set => _host.Buildable = value;
+        }
+
+        public WidgetNavPage() {
+            this.Stretched();
+            _host = new WidgetHostElement().Stretched().AddTo(this);
+        }
+    }
+
+    public class NavPageBuffer : IEnumerable<NavPageBase> {
+        public static readonly NavPageBuffer Empty = new(new List<NavPageBase>());
+        public readonly IReadOnlyList<NavPageBase> pages;
+
+        public NavPageBuffer(List<NavPageBase> pages) {
             this.pages = pages;
         }
 
         public bool IsEmpty => pages.Count == 0;
         public int Count => pages.Count;
 
-        public IEnumerator<NavPage> GetEnumerator() {
+        public IEnumerator<NavPageBase> GetEnumerator() {
             return pages.GetEnumerator();
         }
 
@@ -377,8 +390,8 @@ namespace HELIX.Widgets.Navigation {
             return GetEnumerator();
         }
 
-        public bool Contains(NavPage page) {
-            return pages.Contains(page);
+        public bool Contains(NavPageBase pageBase) {
+            return pages.Contains(pageBase);
         }
     }
 
@@ -417,8 +430,8 @@ namespace HELIX.Widgets.Navigation {
 
         private (NavPageBuffer, NavPageBuffer) TrimUnchanged() {
             var minCount = Math.Min(Before.pages.Count, After.pages.Count);
-            var beforeBuffer = new List<NavPage>(Before.pages);
-            var afterBuffer = new List<NavPage>(After.pages);
+            var beforeBuffer = new List<NavPageBase>(Before.pages);
+            var afterBuffer = new List<NavPageBase>(After.pages);
             for (var i = 0; i < minCount; i++) {
                 if (Before.pages[i] == After.pages[i]) continue;
                 beforeBuffer.RemoveRange(i, Before.pages.Count - i);

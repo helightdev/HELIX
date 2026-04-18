@@ -40,6 +40,9 @@ namespace HELIX.Widgets.Universal {
                 _controller = AddDisposable(new ButtonController(_widgetStateController));
                 _controller.onClick = widget.onClick;
                 _controller.enabled = widget.enabled;
+                
+                _widgetStateController.Toggle(WidgetState.Selected, widget.selected);
+                _widgetStateController.Toggle(WidgetState.Disabled, !widget.enabled);
             }
         }
 
@@ -48,10 +51,11 @@ namespace HELIX.Widgets.Universal {
         }
 
         public override void DidUpdateWidget(HButton oldWidget) {
-            if (widget.controller != oldWidget.controller && oldWidget.controller == null) {
+            if (widget != oldWidget && oldWidget.controller == null) {
                 _controller.onClick = widget.onClick;
                 _controller.enabled = widget.enabled;
                 _widgetStateController.Toggle(WidgetState.Selected, widget.selected);
+                _widgetStateController.Toggle(WidgetState.Disabled, !widget.enabled);
             }
         }
 

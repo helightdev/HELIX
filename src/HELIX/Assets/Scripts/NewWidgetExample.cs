@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Examples;
 using HELIX;
 using HELIX.Coloring;
 using HELIX.Coloring.Material;
@@ -28,8 +29,40 @@ using Random = UnityEngine.Random;
 
 [UxmlElement]
 public partial class NewTest : WidgetHostElement {
+    private GlobalKey<NavStackElement> _navStackKey = new();
+
+    public List<(string, Widget)> Pages { get; } = new() {
+        ("Buttons", new ButtonsExample()),
+        ("Other", new HBox { backgroundStyle = MaterialColors.Red })
+    };
+
     public NewTest() {
-        Buildable = new NavStack { child = new Scaffold { child = new ScrollExample() } }.Stretch().ToBuildable();
+        Buildable = new HColumn {
+            children = new Widget[] {
+                new NavStack {
+                    key = _navStackKey,
+                    child = new Scaffold { child = new ScrollExample() }
+                }.Fill(),
+                new HScrollView {
+                    axis = Axis.Horizontal,
+                    Modifiers = new Modifier[] { MarginModifier.Only(left: 16, right: 16, bottom: 8, top: 8), },
+                    children = new Widget[] {
+                        new HRow {
+                            gap = 8,
+                            children = Pages.Select(e => new HButton() {
+                                    child = new HText(e.Item1),
+                                    onClick = () => {
+                                        _navStackKey.Element.PushReplacement(
+                                            new WidgetNavPage { Buildable = e.Item2.ToBuildable() }
+                                        );
+                                    }
+                                }
+                            ).ToArray()
+                        }.Tight()
+                    }
+                }.Flexible(selfCrossAxisAlign: Align.Stretch),
+            }
+        }.Stretch().ToBuildable();
     }
 
     public override bool Reconcile(Widget updated) {

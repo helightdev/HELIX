@@ -9,12 +9,12 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 [UxmlElement]
-public partial class ExampleNavPage : NavPage {
+public partial class ExampleNavPageBase : NavPageBase {
     public int id;
 
-    public ExampleNavPage() : this(1) { }
+    public ExampleNavPageBase() : this(1) { }
 
-    public ExampleNavPage(int id) {
+    public ExampleNavPageBase(int id) {
         this.id = id;
         this.BackgroundColor(Color.HSVToRGB(Random.value, 0.5f, 1f))
             .FlexContainer(mainAxisAlign: Justify.Center, crossAxisAlign: Align.Center)
@@ -24,7 +24,7 @@ public partial class ExampleNavPage : NavPage {
 
         var pushButton = new Button().AddTo(this);
         pushButton.text = "Push new";
-        pushButton.clicked += () => { NavStackElement.Get(this).Push(new ExampleNavPage(id + 1)); };
+        pushButton.clicked += () => { NavStackElement.Get(this).Push(new ExampleNavPageBase(id + 1)); };
 
         var popButton = new Button().AddTo(this);
         popButton.text = "Pop";
@@ -37,7 +37,7 @@ public partial class ExampleNavPage : NavPage {
         replaceButton.text = "Replace";
         replaceButton.clicked += () => {
             var stack = NavStackElement.Get(this);
-            stack.PushReplacement(new ExampleNavPage(id));
+            stack.PushReplacement(new ExampleNavPageBase(id));
         };
 
         var pop2Button = new Button().AddTo(this);
