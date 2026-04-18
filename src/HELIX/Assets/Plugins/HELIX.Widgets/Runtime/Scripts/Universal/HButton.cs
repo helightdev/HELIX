@@ -4,60 +4,10 @@ using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Theme;
+using UnityEngine;
 
 namespace HELIX.Widgets.Universal {
-    public class HButton : StatelessWidget<HButton> {
-        public Widget child;
-        public bool enabled = true;
-        public Action onClick;
-        public bool selected = false;
-
-        public HButtonStyle style;
-
-        public override Widget Build(BuildContext context) {
-            var effective = style ?? context.GetThemed(PrimitiveTheme.Button);
-            return new ButtonBuilder {
-                builder = (_, state) => {
-                    Widget inner = child;
-                    inner = new HBox {
-                        backgroundStyle = effective.backgroundStyle.ResolveOrDefault(state),
-                        borderRadius = effective.borderRadius.ResolveOrDefault(state, BorderRadius.None),
-                        border = effective.border.ResolveOrDefault(state, Border.None),
-                        alignment = effective.alignment.ResolveOrDefault(state, Alignment.Center),
-                        child = inner,
-                        Modifiers = new Modifier[] {
-                            new SizeModifier(effective.constraints.ResolveOrDefault(state, BoxConstraints.Initial))
-                                .Fallback(),
-                            new TextStyleModifier(effective.textStyle.ResolveOrDefault(state)).Fallback(),
-                            new PaddingModifier(effective.padding.ResolveOrDefault(state, StyleLength4.Zero))
-                                .Fallback(),
-                            new OpacityModifier(effective.opacity.ResolveOrDefault(state, 1f)).Fallback(),
-                        }
-                    }.Fill();
-                    inner.AddModifiers(effective.modifiers.ResolveOrDefault(state, ModifierSet.Empty));
-
-                    // var boxShadow = style.boxShadow.ResolveOrDefault(state);
-                    // if (boxShadow != null) {
-                    //     inner = new BoxShadow {
-                    //         blurRadius = boxShadow.blurRadius,
-                    //         borderRadius = boxShadow.borderRadius,
-                    //         offset = boxShadow.offset,
-                    //         shadowColor = boxShadow.shadowColor,
-                    //         spreadRadius = boxShadow.spreadRadius,
-                    //         child = inner
-                    //     }.Fill();
-                    // }
-
-                    return inner;
-                },
-                onClick = onClick,
-                enabled = enabled,
-                selected = selected
-            };
-        }
-    }
-
-    public class HShapeButton : StatefulWidget<HShapeButton> {
+    public class HButton : StatefulWidget<HButton> {
         public Widget child;
         public ButtonController controller;
 
@@ -72,12 +22,12 @@ namespace HELIX.Widgets.Universal {
         public HButtonSize? size = null;
         public ColorTokenPalette palette = null;
 
-        public override State<HShapeButton> CreateState() {
+        public override State<HButton> CreateState() {
             return new HShapeButtonState();
         }
     }
 
-    public class HShapeButtonState : State<HShapeButton> {
+    public class HShapeButtonState : State<HButton> {
         private ButtonController _controller;
         private WidgetStateController _widgetStateController;
 
@@ -93,11 +43,11 @@ namespace HELIX.Widgets.Universal {
             }
         }
 
-        public override bool CanReconcile(HShapeButton oldWidget) {
+        public override bool CanReconcile(HButton oldWidget) {
             return base.CanReconcile(oldWidget) && widget.controller == oldWidget.controller;
         }
 
-        public override void DidUpdateWidget(HShapeButton oldWidget) {
+        public override void DidUpdateWidget(HButton oldWidget) {
             if (widget.controller != oldWidget.controller && oldWidget.controller == null) {
                 _controller.onClick = widget.onClick;
                 _controller.enabled = widget.enabled;
@@ -120,7 +70,8 @@ namespace HELIX.Widgets.Universal {
                 );
             } else { effective = context.GetThemed(PrimitiveTheme.Button); }
 
-            Widget inner = widget.child;
+            // Possibly allocation heavy with default stale and property composition, but doesn't rebuild for
+            // every state change since only the substance box listens to state changes, not the button itself.
             var modifierProperty = WidgetStateProperties.Modifiers(
                 effective.modifiers,
                 WidgetStateProperties.Func(state => {
@@ -137,17 +88,15 @@ namespace HELIX.Widgets.Universal {
                     }
                 )
             );
-
-            inner = new HSubstanceBox {
+            
+            return new HSubstanceBox {
                 controller = _widgetStateController,
                 substances = effective.layers,
                 alignment = effective.alignment,
-                builder = inner,
+                builder = widget.child,
                 boxKey = widget.focusKey,
                 boxModifiers = modifierProperty
             }.Fill();
-
-            return inner;
         }
     }
 }

@@ -91,16 +91,6 @@ public class ScrollExampleState : State<ScrollExample> {
                         gap = 8,
                         children = new Widget[] {
                             new HButton {
-                                style = style,
-                                child = new HText("Toggle Scroll"),
-                                onClick = SetState(() => toggle = !toggle)
-                            }.Tight(),
-                            new HButton {
-                                style = style,
-                                child = new HText("Scroll to zero"),
-                                onClick = () => { _controller.AnimateTo(0, 5f, EasingMode.EaseOut); }
-                            }.Tight(),
-                            new HShapeButton {
                                 variant = HButtonVariant.Flat,
                                 onClick =
                                     () => {
@@ -111,22 +101,22 @@ public class ScrollExampleState : State<ScrollExample> {
                                     },
                                 child = new HText("Solid Substance")
                             },
-                            new HShapeButton {
+                            new HButton {
                                 variant = HButtonVariant.FlatTwoState,
                                 onClick = () => { _textController.SetValue(_textController.PeekValue() + "-add"); },
                                 child = new HText($"Update {_textController.Value}")
                             },
-                            new HShapeButton {
+                            new HButton {
                                 variant = HButtonVariant.Soft,
                                 child = new HText("Select Text"),
                                 onClick = () => { _textFieldFocus.Focus(); }
                             },
-                            new HShapeButton {
+                            new HButton {
                                 variant = HButtonVariant.Outline,
                                 child = new HText("Focus Slider"),
                                 onClick = () => { _sliderFocus.Focus(); }
                             },
-                            new HShapeButton {
+                            new HButton {
                                 variant = HButtonVariant.Ghost,
                                 child = new HText("Ghost Substance")
                             },
@@ -362,35 +352,6 @@ public class InteractiveExampleState : State<InteractiveExample> {
                         }
                     }
                 }.Size(200, 20),
-                new HButton {
-                    key = "Toggle",
-                    style = ButtonStyle,
-                    child = new HText("Toggle"),
-                    selected = isOn,
-                    onClick = () => {
-                        isOn = !isOn;
-                        Counter.Value++;
-                        Debug.Log("Updated Counter: " + Counter.Value);
-                    }
-                }.Tight(),
-                new HButton {
-                    key = "Remove",
-                    style = ButtonStyle,
-                    child = new HText("Remove"),
-                    onClick = () => { Counter.Value--; }
-                },
-                new HButton {
-                    key = "Popup",
-                    style = ButtonStyle,
-                    child = new HText("Popup"),
-                    onClick = () => { ScaffoldElement.Get(context.Element).AddOverlay(new NewTest().Stretched()); }
-                },
-                new HButton {
-                    key = "Pop",
-                    style = ButtonStyle,
-                    child = new HText("Pop"),
-                    onClick = () => { OverlayEntry.Nearest(context.Element)?.Pop(); }
-                }.Fill(),
                 new HFlex {
                     key = "Boxes",
                     children = boxes

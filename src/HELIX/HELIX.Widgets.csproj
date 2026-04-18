@@ -86,6 +86,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ClipModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/FillGradientGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/MultiChildWidgetBaseElement.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HStatefulBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ButtonControllerModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveSpacingScheme.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/ReferenceEqualityComparer.cs" />

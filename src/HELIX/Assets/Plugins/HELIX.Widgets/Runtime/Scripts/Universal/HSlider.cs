@@ -135,14 +135,6 @@ namespace HELIX.Widgets.Universal {
                 ? PrimitiveTheme.Slider.Get(context)
                 : PrimitiveTheme.Scrollbar.Get(context));
 
-            var state = _widgetStateController?.Value ?? WidgetState.None;
-            var sliderValue = Mathf.Clamp01(_controller.Value);
-
-            var thumbRange = widget.thumbSize >= 0 ? 0.05f : _controller.ThumbRange;
-            var availableRange = Mathf.Max(0f, 1f - thumbRange);
-            var thumbOffset = sliderValue * availableRange;
-            var progressValue = Mathf.Clamp01(thumbOffset + thumbRange * 0.5f);
-
             var rootModifiers = WidgetStateProperties.Modifiers(
                 widget.boxModifiers,
                 WidgetStateProperties.Func(resolved => {
@@ -162,6 +154,27 @@ namespace HELIX.Widgets.Universal {
                     }
                 )
             );
+
+            return new HStatefulBuilder(
+                builder: (buildContext, parameter) => BuildInner(buildContext, parameter, style, rootModifiers)
+            );
+        }
+
+        // Run the composition inside an anonymous stateful widget so that the composite state properties don't get
+        // rebuilt for every slider value change. This is still not really ideal, but for a slider it's fine.
+        private Widget BuildInner(
+            BuildContext context,
+            State<HStatefulBuilder> parameter,
+            HSliderStyle style,
+            WidgetStateProperty<ModifierSet> rootModifiers
+        ) {
+            var state = _widgetStateController?.Value ?? WidgetState.None;
+            var sliderValue = Mathf.Clamp01(_controller.Value);
+
+            var thumbRange = widget.thumbSize >= 0 ? 0.05f : _controller.ThumbRange;
+            var availableRange = Mathf.Max(0f, 1f - thumbRange);
+            var thumbOffset = sliderValue * availableRange;
+            var progressValue = Mathf.Clamp01(thumbOffset + thumbRange * 0.5f);
 
             return new HFlex {
                 key = widget.focusKey,
@@ -190,36 +203,6 @@ namespace HELIX.Widgets.Universal {
                 controller = _widgetStateController,
                 substances = layers
             }.Positioned(position);
-        }
-
-        private static SubstanceLayers DefaultTrackLayers() {
-            return new[] {
-                new BoxSubstance {
-                    backgroundStyle = WidgetStateProperties.All<BackgroundStyle>(new Color(0.22f, 0.22f, 0.22f, 1f)),
-                    borderRadius = WidgetStateProperties.All(BorderRadius.All(10))
-                }
-            };
-        }
-
-        private static SubstanceLayers DefaultProgressLayers() {
-            return new[] {
-                new BoxSubstance {
-                    backgroundStyle = WidgetStateProperties.All<BackgroundStyle>(new Color(0.31f, 0.58f, 0.97f, 1f)),
-                    borderRadius = WidgetStateProperties.All(BorderRadius.All(10))
-                }
-            };
-        }
-
-        private static SubstanceLayers DefaultThumbLayers() {
-            return new[] {
-                new BoxSubstance {
-                    backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle>() {
-                        [WidgetState.Focused | WidgetState.Navigated] = new Color(0.12f, 0.72f, 0.24f, 1f),
-                        [WidgetState.None] = new Color(0.92f, 0.92f, 0.92f, 1f),
-                    },
-                    borderRadius = WidgetStateProperties.All(BorderRadius.All(10f))
-                }
-            };
         }
 
         private static StyleLength4 ProgressPosition(Axis axis, float progress, bool reverse) {
