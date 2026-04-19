@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/HelixDiagnostics.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Attributes.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/BackgroundStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/LineGraph.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/ColumnElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/FlagProperty.cs" />
@@ -92,6 +93,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/ReferenceEqualityComparer.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/GenericButton.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/PaddingModifier.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/TextStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/OutlineSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/DiagnosticsStackTrace.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/FlexibleModifier.cs" />
@@ -109,7 +111,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/HListView.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/EnumProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HCenter.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/BoxShadow.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/BorderModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathBuilders/RectPathBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/DirectionalContainerElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/ThemeComponent.cs" />
@@ -206,6 +208,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/TextStyleModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ManipulatorModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Signals/SignalDependencyType.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HBoxShadow.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/NavStackElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HColumn.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/OwnershipChainErrorProperty.cs" />
@@ -641,6 +644,9 @@
     </Reference>
     <Reference Include="UnityEditor.Graphs">
       <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/Managed/UnityEditor.Graphs.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEditor.WebGL.Extensions">
+      <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll</HintPath>
     </Reference>
     <Reference Include="UnityEditor.LinuxStandalone.Extensions">
       <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/PlaybackEngines/LinuxStandaloneSupport/UnityEditor.LinuxStandalone.Extensions.dll</HintPath>

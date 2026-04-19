@@ -1,15 +1,23 @@
+using System.Collections.Generic;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Elements;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Theming;
 
 namespace HELIX.Widgets {
-
     public interface IStatelessWidget { }
 
     public abstract class StatelessWidget<T> : Widget, IStatelessWidget, IBuildable where T : StatelessWidget<T> {
         protected StatelessWidget() {
             AddModifier(ModifierFallbacks.ImplicitFlexFill);
+        }
+
+        protected StatelessWidget(
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants) {
+            DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
         }
 
         public abstract Widget Build(BuildContext context);
@@ -21,23 +29,21 @@ namespace HELIX.Widgets {
 
     public class StatelessWidgetElement<T> : BuildingWidgetBaseElement<T>, IStatelessWidget, IHierarchyDisposable
         where T : StatelessWidget<T> {
-
         private bool _isDisposed;
 
         protected override void OnWatchedThemeUpdated(ThemeProperty property, object value) {
             base.OnWatchedThemeUpdated(property, value);
             OnDependencyUpdated();
         }
-        
+
         public override S GetThemed<S>(BaseThemeProperty<S> property, bool listen = true) {
             return listen ? ThemeValue(property).Value : ThemeProviderElement.Resolve(ThemeProviderElement, property);
         }
-        
+
         public override bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
             if (listen) ThemeValue(property);
             return ThemeProviderElement.TryResolve(ThemeProviderElement, property, out value);
         }
-        
 
         private void OnDependencyUpdated() {
             if (_isDisposed) return;

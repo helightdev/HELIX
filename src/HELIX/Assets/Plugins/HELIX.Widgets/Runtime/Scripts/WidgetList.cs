@@ -6,9 +6,7 @@ namespace HELIX.Widgets {
     public class WidgetList : IReadOnlyList<Widget>, IWidgetListCandidate {
         public readonly List<Widget> widgets;
 
-        public WidgetList() {
-            widgets = new List<Widget>();
-        }
+        public WidgetList(int capacity = 1) : this(new List<Widget>(capacity)) { }
 
         public WidgetList(List<Widget> widgets) {
             this.widgets = widgets;
@@ -33,6 +31,8 @@ namespace HELIX.Widgets {
         private void TryAdd(IWidgetListCandidate candidate) {
             while (true) {
                 switch (candidate) {
+                    case EmptyCandidate:
+                    case null:  break;
                     case ConditionalCandidate conditional:
                         if (conditional.condition) {
                             candidate = conditional.candidate;
@@ -43,10 +43,9 @@ namespace HELIX.Widgets {
                     case WidgetList list: widgets.AddRange(list.widgets); break;
                     case SpreadCandidate spread:
                         foreach (var c in spread.candidates) TryAdd(c);
-
                         break;
                     case Widget widget: widgets.Add(widget); break;
-                    default: throw new ArgumentException("Value must be a Widget or WidgetList", nameof(candidate));
+                    default: throw new ArgumentException($"Value must be a Widget or WidgetList, was {candidate.GetType()}", nameof(candidate));
                 }
 
                 break;
@@ -69,6 +68,8 @@ namespace HELIX.Widgets {
             this.candidate = candidate;
         }
     }
+
+    public readonly struct EmptyCandidate : IWidgetListCandidate { }
 
     public readonly struct SpreadCandidate : IWidgetListCandidate {
         public readonly IEnumerable<IWidgetListCandidate> candidates;

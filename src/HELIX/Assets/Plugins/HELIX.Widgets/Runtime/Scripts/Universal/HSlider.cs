@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets.Modifiers;
@@ -12,45 +13,34 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HSlider : StatefulWidget<HSlider> {
-        public SliderController controller;
-        public ScrollController scrollController;
+        public readonly SliderController controller;
+        public readonly ScrollController scrollController;
 
         public Key focusKey;
-        public Axis axis;
-        public bool enabled = true;
-        public bool reverse;
-        public float initialValue;
-        public float thumbSize;
-        public Action<float> onChanged;
+        public readonly Axis axis;
+        public readonly bool enabled = true;
+        public readonly bool reverse;
+        public readonly float initialValue;
+        public readonly float thumbSize;
+        public readonly Action<float> onChanged;
 
-        public HSliderStyle style;
-
-        public HSlider(
-            SliderController controller,
-            Key focusKey = default,
-            Axis axis = Axis.Horizontal,
-            bool reverse = false,
-            float thumbSize = -1f,
-            HSliderStyle style = null
-        ) {
-            this.controller = controller;
-            this.focusKey = focusKey;
-            this.axis = axis;
-            this.reverse = reverse;
-            this.thumbSize = thumbSize;
-            this.style = style;
-        }
+        public readonly HSliderStyle style;
 
         public HSlider(
-            Action<float> onChanged = null,
+            SliderController controller = null,
             Key focusKey = default,
             Axis axis = Axis.Horizontal,
             bool enabled = true,
             bool reverse = false,
             float initialValue = 0f,
             float thumbSize = -1f,
-            HSliderStyle style = null
-        ) {
+            Action<float> onChanged = null,
+            HSliderStyle style = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants, modifiers) {
+            this.controller = controller;
             this.focusKey = focusKey;
             this.axis = axis;
             this.enabled = enabled;
@@ -67,21 +57,27 @@ namespace HELIX.Widgets.Universal {
             Axis axis = Axis.Vertical,
             bool enabled = true,
             bool reverse = false,
+            float initialValue = 0f,
             float thumbSize = -1f,
             Action<float> onChanged = null,
-            HSliderStyle style = null
-        ) {
+            HSliderStyle style = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants, modifiers) {
+            this.controller = controller;
             this.scrollController = scrollController;
             this.focusKey = focusKey;
             this.axis = axis;
             this.enabled = enabled;
             this.reverse = reverse;
+            this.initialValue = initialValue;
             this.thumbSize = thumbSize;
             this.onChanged = onChanged;
             this.style = style;
         }
 
-        public WidgetStateProperty<ModifierSet> boxModifiers = WidgetStateProperties.Never<ModifierSet>();
+        public readonly WidgetStateProperty<ModifierSet> boxModifiers = WidgetStateProperties.Never<ModifierSet>();
 
         public override State<HSlider> CreateState() {
             return new HSliderState();
@@ -168,19 +164,21 @@ namespace HELIX.Widgets.Universal {
             HSliderStyle style,
             WidgetStateProperty<ModifierSet> rootModifiers
         ) {
-            var state = _widgetStateController?.Value ?? WidgetState.None;
-            var sliderValue = Mathf.Clamp01(_controller.Value);
+            try {
+                var state = _widgetStateController?.Value ?? WidgetState.None;
+                var sliderValue = Mathf.Clamp01(_controller.Value);
 
-            var thumbRange = widget.thumbSize >= 0 ? 0.05f : _controller.ThumbRange;
-            var availableRange = Mathf.Max(0f, 1f - thumbRange);
-            var thumbOffset = sliderValue * availableRange;
-            var progressValue = Mathf.Clamp01(thumbOffset + thumbRange * 0.5f);
+                var thumbRange = widget.thumbSize >= 0 ? 0.05f : _controller.ThumbRange;
+                var availableRange = Mathf.Max(0f, 1f - thumbRange);
+                var thumbOffset = sliderValue * availableRange;
+                var progressValue = Mathf.Clamp01(thumbOffset + thumbRange * 0.5f);
 
-            return new HFlex {
-                key = widget.focusKey,
-                wrap = false,
-                axis = Axis.Horizontal,
-                children = new WidgetList {
+                return new HFlex(
+                    key: widget.focusKey,
+                    wrap: false,
+                    axis: Axis.Horizontal,
+                    modifiers: rootModifiers.ResolveOrDefault(state, ModifierSet.Empty)
+                ) {
                     BuildLayer(
                         style.track,
                         StyleLength4.Zero
@@ -193,16 +191,18 @@ namespace HELIX.Widgets.Universal {
                         style.thumb,
                         ThumbPosition(widget.axis, thumbOffset, availableRange, widget.reverse)
                     ).If(style.thumb.Count > 0)
-                },
-                Modifiers = rootModifiers.ResolveOrDefault(state, ModifierSet.Empty)
-            }.Fill();
+                }.Fill();
+            } catch (Exception e) {
+                Debug.LogError($"Error building HSlider: {e}");
+                return new HText("Error").Fill();
+            }
         }
 
         private Widget BuildLayer(SubstanceLayers layers, StyleLength4 position) {
-            return new HSubstanceBox {
-                controller = _widgetStateController,
-                substances = layers
-            }.Positioned(position);
+            return new HSubstanceBox(
+                controller: _widgetStateController,
+                substances: layers
+            ).Positioned(position);
         }
 
         private static StyleLength4 ProgressPosition(Axis axis, float progress, bool reverse) {

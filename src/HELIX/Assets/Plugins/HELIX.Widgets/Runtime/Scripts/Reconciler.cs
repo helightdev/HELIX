@@ -61,8 +61,11 @@ namespace HELIX.Widgets {
                     HelixDiagnostics.Build(
                         "An error occurred during element reconciliation.",
                         collector => collector
-                            .AddRange(new OffendingWidgetErrorProperty(descriptor), new ErrorSpacer(),
-                                OwnershipChainErrorProperty.FromBuildContext(element))
+                            .AddRange(
+                                new OffendingWidgetErrorProperty(descriptor),
+                                new ErrorSpacer(),
+                                OwnershipChainErrorProperty.FromBuildContext(element)
+                            )
                             .OwnerChain(owner),
                         ex
                     ).Report(DiagnosticLevel.Error);
@@ -73,7 +76,7 @@ namespace HELIX.Widgets {
             newElement.CallMounted(descriptor, owner);
             container.Child = newElement.Element;
         }
-        
+
         public static void ReconcileCollection(
             IWidgetElementCollection collection,
             IReadOnlyList<Widget> descriptors,
@@ -109,7 +112,7 @@ namespace HELIX.Widgets {
                 var descriptor = descriptors[i];
                 if (descriptor == null) throw new InvalidOperationException($"Descriptor at index {i} is null.");
                 // TODO: Check for duplicated keys in the initial construction pass 
-                
+
                 IWidgetElement resolved = null;
 
                 if (!descriptor.key.IsNone) {
@@ -285,7 +288,7 @@ namespace HELIX.Widgets {
         public Widget descriptor;
     }
 
-    public class HostElement : IWidgetElement {
+    public class HostElement : DiagnosticableBase, IWidgetElement {
         public HostElement(VisualElement element) {
             Element = element;
             HierarchyDepth = element.GetDepth();
@@ -295,7 +298,7 @@ namespace HELIX.Widgets {
         public VisualElement Element { get; }
         public Widget Descriptor { get; }
         public BuildContext ParentContext { get; set; }
-        
+
         public T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
             return property.TypedDefaultValue;
         }
@@ -328,6 +331,25 @@ namespace HELIX.Widgets {
 
                 return host;
             }
+        }
+
+        public override string ToStringShort() {
+            return Element.DescribeIdentity();
+        }
+
+        protected bool Equals(HostElement other) {
+            return Equals(Element, other.Element);
+        }
+
+        public override bool Equals(object obj) {
+            if (obj is null) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != GetType()) return false;
+            return Equals((HostElement)obj);
+        }
+
+        public override int GetHashCode() {
+            return (Element != null ? Element.GetHashCode() : 0);
         }
     }
 

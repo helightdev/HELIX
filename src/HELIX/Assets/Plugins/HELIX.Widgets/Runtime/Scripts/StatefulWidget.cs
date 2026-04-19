@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
@@ -13,14 +14,51 @@ namespace HELIX.Widgets {
     public interface IStatefulWidget { }
 
     public abstract class StatefulWidget<T> : Widget, IStatefulWidget where T : StatefulWidget<T> {
+        
         protected StatefulWidget() {
             AddModifier(ModifierFallbacks.ImplicitFlexFill);
+        }
+
+        protected StatefulWidget(
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants) {
+            DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
         }
 
         public abstract State<T> CreateState();
 
         public override IWidgetElement CreateElement() {
             return ReconcileInto(new StatefulWidgetElement<T>());
+        }
+    }
+
+    public abstract class SingleChildStatefulWidget<T> : StatefulWidget<T>, IEnumerable<Widget>
+        where T : SingleChildStatefulWidget<T> {
+        public Widget child;
+
+        protected SingleChildStatefulWidget(
+            Widget child = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants, modifiers) {
+            this.child = child;
+        }
+
+        public void Add(Widget widget) {
+            if (child != null)
+                throw new InvalidOperationException("SingleChildStatefulWidget can only have one child.");
+            child = widget;
+        }
+
+        public IEnumerator<Widget> GetEnumerator() {
+            if (child != null) yield return child;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
         }
     }
 
@@ -97,12 +135,12 @@ namespace HELIX.Widgets {
         public override S GetThemed<S>(BaseThemeProperty<S> property, bool listen = true) {
             return listen ? ThemeValue(property).Value : ThemeProviderElement.Resolve(ThemeProviderElement, property);
         }
-        
+
         public override bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
             if (listen) ThemeValue(property);
             return ThemeProviderElement.TryResolve(ThemeProviderElement, property, out value);
         }
-        
+
         private void OnDependencyUpdated() {
             if (isDisposed) return;
             if (Descriptor == null) return;

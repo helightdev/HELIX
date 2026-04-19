@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using HELIX.Coloring;
 using HELIX.Types;
 using HELIX.Widgets.Elements;
@@ -11,24 +12,24 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HTextField : StatefulWidget<HTextField> {
-        public TextEditingController controller;
-        public Key focusKey;
-        public HTextFieldStyle style;
+        public readonly TextEditingController controller;
+        public readonly Key focusKey;
+        public readonly HTextFieldStyle style;
 
-        public bool multiline;
-        public bool autocorrect;
-        public bool isReadOnly;
-        public bool isPasswordField;
-        public bool isDelayed;
-        public bool hideMobileInput;
-        public TouchScreenKeyboardType keyboardType;
-        public char maskChar;
-        public int maxLength;
+        public readonly bool multiline;
+        public readonly bool autocorrect;
+        public readonly bool isReadOnly;
+        public readonly bool isPasswordField;
+        public readonly bool isDelayed;
+        public readonly bool hideMobileInput;
+        public readonly TouchScreenKeyboardType keyboardType;
+        public readonly char maskChar;
+        public readonly int maxLength;
 
-        public bool enabled;
-        public string initialValue;
-        public Action<string> onChanged;
-        public Action<string> onSubmitted;
+        public readonly bool enabled;
+        public readonly string initialValue;
+        public readonly Action<string> onChanged;
+        public readonly Action<string> onSubmitted;
 
         public HTextField(
             TextEditingController controller = null,
@@ -46,8 +47,11 @@ namespace HELIX.Widgets.Universal {
             bool enabled = true,
             string initialValue = "",
             Action<string> onChanged = null,
-            Action<string> onSubmitted = null
-        ) {
+            Action<string> onSubmitted = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants, modifiers) {
             this.controller = controller;
             this.focusKey = focusKey;
             this.style = style;
@@ -184,13 +188,13 @@ namespace HELIX.Widgets.Universal {
                 )
             );
 
-            return new HSubstanceBox {
-                controller = _widgetStateController,
-                boxKey = widget.focusKey,
-                boxModifiers = modifiers,
-                alignment = effective.alignment,
-                substances = effective.layers,
-                builder = (_, state) => new FactoryWidget<GenericTextInput> {
+            return new HSubstanceBox(
+                controller: _widgetStateController,
+                boxKey: widget.focusKey,
+                boxModifiers: modifiers,
+                alignment: effective.alignment,
+                substances: effective.layers,
+                builder: (_, state) => new FactoryWidget<GenericTextInput> {
                     creator = () => _input,
                     updater = input => {
                         input.TextInputStyle = effective.inputStyle.ResolveOrDefault(
@@ -203,7 +207,7 @@ namespace HELIX.Widgets.Universal {
                         input.SelectionColor = effective.selectionColor.ResolveOrDefault(state, colors.surface.onMain);
                     }
                 }.Fill()
-            };
+            );
         }
     }
 }

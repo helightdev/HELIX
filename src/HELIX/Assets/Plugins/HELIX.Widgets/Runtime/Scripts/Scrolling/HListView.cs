@@ -2,6 +2,7 @@ using HELIX.Extensions;
 using HELIX.Widgets.Elements;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Utilities;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
@@ -62,6 +63,7 @@ namespace HELIX.Widgets.Scrolling {
             var host = elem as WidgetHostElement;
             var typed = TypedDescriptor;
             if (host == null || typed == null) return;
+            host.style.backgroundColor = Color.clear;
             if (index < 0 || index >= typed.itemCount) {
                 host.Buildable = null;
                 ModificationBarrier.Rebuild(host);

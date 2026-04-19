@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
-    public class BoxShadow : SingleChildWidget {
+    public class HBoxShadow : SingleChildWidget {
         public float blurRadius = 4f;
         public Vector4 borderRadius = new(0, 0, 0, 0);
         public EasingMode easingFunction = EasingMode.Linear;

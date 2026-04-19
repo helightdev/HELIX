@@ -1,11 +1,15 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using HELIX.Coloring.Material;
+using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
-    public class BackgroundStyle : IEquatable<BackgroundStyle> {
+namespace HELIX.Widgets.Universal.Styles {
+    public class BackgroundStyle : DiagnosticableBase, IEquatable<BackgroundStyle> {
         public StyleColor color = StyleKeyword.Initial;
         public StyleBackground image = StyleKeyword.Initial;
         public StyleBackgroundSize fit = StyleKeyword.Initial;
@@ -88,6 +92,20 @@ namespace HELIX.Types {
             hashCode.Add(sliceScale);
             hashCode.Add(sliceType);
             return hashCode.ToHashCode();
+        }
+
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new StyleValueProperty<Color>("color", color));
+            properties.Add(new StyleValueProperty<Background>("image", image));
+            properties.Add(new StyleValueProperty<BackgroundSize>("fit", fit));
+            properties.Add(new StyleValueProperty<BackgroundRepeat>("repeat", repeat));
+            properties.Add(new StyleValueProperty<Color>("imageTintColor", imageTintColor));
+            properties.Add(new StyleValueProperty<BackgroundPosition>("x", x));
+            properties.Add(new StyleValueProperty<BackgroundPosition>("y", y));
+            properties.Add(new StyleValueProperty<int4>("slice", slice));
+            properties.Add(new StyleValueProperty<float>("sliceScale", sliceScale));
+            properties.Add(new StyleValueProperty<SliceType>("sliceType", sliceType));
         }
 
         public static readonly BackgroundStyle Default = new();

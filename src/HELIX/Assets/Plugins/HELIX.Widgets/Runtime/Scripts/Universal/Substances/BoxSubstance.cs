@@ -2,6 +2,7 @@ using System;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Modifiers;
+using HELIX.Widgets.Universal.Styles;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Substances {
@@ -27,18 +28,20 @@ namespace HELIX.Widgets.Universal.Substances {
             properties.Add(new DiagnosticsProperty<object>("modifiers", modifiers, showName: false));
         }
 
-        public override Widget Build(BuildContext context, WidgetState state) {
-            var box = new HBox {
-                backgroundStyle = backgroundStyle.ResolveOrDefault(state),
-                borderRadius = borderRadius.ResolveOrDefault(state, BorderRadius.None),
-                border = border.ResolveOrDefault(state, Border.None),
-                Modifiers = new Modifier[] {
+        public override IWidgetListCandidate Build(BuildContext context, WidgetState state) {
+            var resolveOrDefault = backgroundStyle.ResolveOrDefault(state);
+            var box = new HBox(
+                background: resolveOrDefault,
+                borderRadius: borderRadius.ResolveOrDefault(state, BorderRadius.None),
+                border: border.ResolveOrDefault(state, Border.None),
+                modifiers: new Modifier[] {
                     new SizeModifier(constraints.ResolveOrDefault(state, BoxConstraints.Initial)).Fallback(),
                     new PositionModifier(position.ResolveOrDefault(state, StyleLength4.Zero), Position.Absolute),
                     new OpacityModifier(opacity.ResolveOrDefault(state, 1f)).Fallback(),
-                    new TransitionsModifier(transitions.ResolveOrDefault(state, Array.Empty<Transition>())).Fallback()
+                    new TransitionsModifier(transitions.ResolveOrDefault(state, Array.Empty<Transition>())).Fallback(),
+                    FlexibleModifier.Fill,
                 }
-            }.Fill();
+            );
             box.AddModifiers(modifiers.ResolveOrDefault(state, ModifierSet.Empty));
             return box;
         }

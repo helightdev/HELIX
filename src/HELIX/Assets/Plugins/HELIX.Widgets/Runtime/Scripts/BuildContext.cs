@@ -46,5 +46,15 @@ namespace HELIX.Widgets {
             if (parent.userData is ITreeAncestorTraversalHint hint2) return hint2.Owner;
             return null;
         }
+        
+        static BuildContext FindParent<T>(BuildContext context) where T: Widget 
+        {
+            var current = context;
+            while (current != null) {
+                if (current is IWidgetElement { Descriptor: T }) return current;
+                current = current.ParentContext;
+            }
+            return null;
+        }
     }
 }

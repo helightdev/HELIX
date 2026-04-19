@@ -67,7 +67,6 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Layout.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/DynamicColor.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Colors.cs" />
-    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/BackgroundStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Animation.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/OkLabHelper.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/KeyColor.cs" />
@@ -93,7 +92,6 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/MaterialSwatch.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/RRect.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/RadixSwatchGenerator.cs" />
-    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/TextStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/ToneDeltaPair.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Abstractions/Element.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Abstractions/Containers.cs" />
@@ -542,6 +540,9 @@
     </Reference>
     <Reference Include="UnityEditor.Graphs">
       <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/Managed/UnityEditor.Graphs.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEditor.WebGL.Extensions">
+      <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll</HintPath>
     </Reference>
     <Reference Include="UnityEditor.LinuxStandalone.Extensions">
       <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/PlaybackEngines/LinuxStandaloneSupport/UnityEditor.LinuxStandalone.Extensions.dll</HintPath>

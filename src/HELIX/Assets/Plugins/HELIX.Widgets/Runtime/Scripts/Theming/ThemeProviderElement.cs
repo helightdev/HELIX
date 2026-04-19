@@ -58,6 +58,7 @@ namespace HELIX.Widgets.Theming {
 
         public void NotifyThemeUpdate(bool fromListener = false) {
             _cachedThemeValues.Clear();
+            _computedThemeValues.Clear();
             ModificationBarrier.Run(() => { OnThemeUpdated?.Invoke(); });
         }
 
@@ -190,11 +191,11 @@ namespace HELIX.Widgets.Theming {
             return false;
         }
 
-        public T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
+        public override T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
             return Resolve(property);
         }
 
-        public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
+        public override bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
             return TryResolve(property, out value);
         }
     }

@@ -41,8 +41,10 @@ namespace HELIX.Widgets.Universal.Styles {
         Flat,
         FlatTwoState,
         Soft,
+        SoftTwoState,
         Outline,
-        Ghost
+        Ghost,
+        TwoState
     }
 
     public enum HButtonSize {

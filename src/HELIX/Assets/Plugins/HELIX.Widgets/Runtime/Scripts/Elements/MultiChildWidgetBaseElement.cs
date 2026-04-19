@@ -34,7 +34,7 @@ namespace HELIX.Widgets.Elements {
             Apply(previous, widget);
             Modifier.ApplyDelta(Descriptor, updated, this);
             Descriptor = updated;
-            Reconciler.ReconcileCollection(this, widget.children, this);
+            Reconciler.ReconcileCollection(this, widget, this);
             return true;
         }
 

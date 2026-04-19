@@ -77,6 +77,7 @@ namespace HELIX.Widgets {
                 Profiler.BeginSample("ModificationBarrier.RunRebuilds");
                 Run(() => {
                         var maxDepth = MaxRebuildsPerFrame;
+                        var open = _pendingRebuilds.Count;
                         while (_pendingRebuilds.TryDequeue(out var element) && maxDepth > 0) {
                             try {
                                 maxDepth--;

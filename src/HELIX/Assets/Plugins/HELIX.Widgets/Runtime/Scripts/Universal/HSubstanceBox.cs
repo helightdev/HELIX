@@ -5,12 +5,31 @@ using HELIX.Widgets.Universal.Controllers;
 
 namespace HELIX.Widgets.Universal {
     public class HSubstanceBox : StatefulWidget<HSubstanceBox> {
-        public WidgetStateController controller;
-        public SubstanceLayers substances;
-        public BuildFunction<WidgetState> builder;
-        public WidgetStateProperty<Alignment> alignment = Alignment.Center;
-        public Key boxKey;
-        public WidgetStateProperty<ModifierSet> boxModifiers = WidgetStateProperties.Never<ModifierSet>();
+        public readonly WidgetStateController controller;
+        public readonly SubstanceLayers substances;
+        public readonly BuildFunction<WidgetState> builder;
+        public readonly WidgetStateProperty<Alignment> alignment;
+        public readonly Key boxKey;
+        public readonly WidgetStateProperty<ModifierSet> boxModifiers;
+
+        public HSubstanceBox(
+            WidgetStateController controller = null,
+            SubstanceLayers substances = default,
+            BuildFunction<WidgetState> builder = null,
+            Key boxKey = default,
+            WidgetStateProperty<Alignment> alignment = null,
+            WidgetStateProperty<ModifierSet> boxModifiers = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants, modifiers) {
+            this.controller = controller;
+            this.substances = substances;
+            this.builder = builder;
+            this.boxKey = boxKey;
+            this.alignment = alignment ?? Alignment.Center;
+            this.boxModifiers = boxModifiers ?? WidgetStateProperties.Never<ModifierSet>();
+        }
 
         public override State<HSubstanceBox> CreateState() {
             return new HSubstanceBoxState();
@@ -21,15 +40,20 @@ namespace HELIX.Widgets.Universal {
         public override Widget Build(BuildContext context) {
             var state = widget.controller?.Value ?? WidgetState.None;
 
-            var shapes = new List<Widget>(widget.substances.Count + 1);
+            var widgetList = new WidgetList(widget.substances.Count + 1);
             foreach (var shape in widget.substances) {
-                var childWidget = shape.Build(context, state);
-                childWidget.constants = new object[] { state };
-                childWidget.AddModifier(ModifierFallbacks.PosStretch);
-                shapes.Add(childWidget);
+                var candidate = shape.Build(context, state);
+                if (candidate == null) continue;
+                var previousCount = widgetList.Count;
+                widgetList.Add(candidate);
+                for (var i = previousCount; i < widgetList.Count; i++) {
+                    var childWidget = widgetList[i];
+                    childWidget.constants = new object[] { state, shape };
+                    childWidget.AddModifier(ModifierFallbacks.PosStretch);
+                }
             }
 
-            if (widget.builder != null) shapes.Add(widget.builder(context, state));
+            if (widget.builder != null) widgetList.Add(widget.builder(context, state));
 
             var currentAlignment = widget.alignment.ResolveOrDefault(state, Alignment.Center);
             Alignment.AlignmentHelper.ToColumnAlignment(
@@ -38,13 +62,13 @@ namespace HELIX.Widgets.Universal {
                 out var crossAxis
             );
 
-            var column = new HStack {
-                key = widget.boxKey,
-                children = shapes,
-                mainAxisAlign = mainAxis,
-                crossAxisAlign = crossAxis,
-                Modifiers = widget.boxModifiers.ResolveOrDefault(state, ModifierSet.Empty)
-            };
+            var column = new HStack(
+                key: widget.boxKey,
+                children: widgetList,
+                mainAxisAlign: mainAxis,
+                crossAxisAlign: crossAxis,
+                modifiers: widget.boxModifiers.ResolveOrDefault(state, ModifierSet.Empty)
+            );
             return column;
         }
     }

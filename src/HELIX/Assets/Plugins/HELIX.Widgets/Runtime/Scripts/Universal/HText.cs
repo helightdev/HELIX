@@ -3,11 +3,17 @@ using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Theming;
+using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Theme;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HText : WrappingBaseWidget<HText, Label> {
+        private ModifierSet _defaultModifiers = new ModifierSet {
+            ModifierFallbacks.PaddingZero,
+            ModifierFallbacks.MarginZero
+        }.Sealed();
+        
         public readonly bool doubleClickSelectsWords;
         public readonly bool emojiFallbackSupport;
         public readonly bool enableRichText;
@@ -30,9 +36,6 @@ namespace HELIX.Widgets.Universal {
             LanguageDirection languageDirection = LanguageDirection.Inherit,
             TextStyle style = null
         ) {
-            AddModifier(ModifierFallbacks.PaddingZero);
-            AddModifier(ModifierFallbacks.MarginZero);
-
             this.text = text;
             this.enableRichText = enableRichText;
             this.emojiFallbackSupport = emojiFallbackSupport;
@@ -42,6 +45,8 @@ namespace HELIX.Widgets.Universal {
             this.tripleClickSelectsLine = tripleClickSelectsLine;
             this.languageDirection = languageDirection;
             this.style = style;
+            
+            DefaultModifiers(_defaultModifiers, null);
         }
 
         public override Label Create() {

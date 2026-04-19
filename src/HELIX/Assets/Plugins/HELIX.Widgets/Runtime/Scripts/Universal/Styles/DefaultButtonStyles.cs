@@ -36,8 +36,8 @@ namespace HELIX.Widgets.Universal.Styles {
                 HInputRadius.Full   => BorderRadius.All(9999),
                 _                   => throw new ArgumentOutOfRangeException(nameof(rad), rad, null)
             };
-            
-            var layers = variant switch {
+
+            SubstanceBuilder layers = variant switch {
                 HButtonVariant.Default or HButtonVariant.Flat or HButtonVariant.FlatTwoState =>
                     new SubstanceBuilder(context as BuildContext)
                         .Flat(
@@ -48,27 +48,48 @@ namespace HELIX.Widgets.Universal.Styles {
                         ),
                 HButtonVariant.Soft => new SubstanceBuilder(context as BuildContext)
                     .Soft(palette, surfacePalette, borderRadius),
+                HButtonVariant.SoftTwoState => new SubstanceBuilder(context as BuildContext)
+                    .Append(provider => new ConditionalSubstance(
+                            new WidgetStatePropertyMap<SubstanceLayers> {
+                                [WidgetState.Selected] = new SubstanceBuilder(provider).Flat(
+                                    variant == HButtonVariant.FlatTwoState ? inactive : palette,
+                                    palette,
+                                    surfacePalette,
+                                    borderRadius
+                                ).Build(),
+                                [WidgetState.None] = new SubstanceBuilder(provider).Soft(
+                                    palette,
+                                    surfacePalette,
+                                    borderRadius
+                                ).Build()
+                            }
+                        )
+                    ),
                 HButtonVariant.Outline => new SubstanceBuilder(context as BuildContext)
                     .Outline(palette, surfacePalette, borderRadius),
                 HButtonVariant.Ghost => new SubstanceBuilder(context as BuildContext)
                     .Ghost(palette, surfacePalette, borderRadius),
+                HButtonVariant.TwoState => new SubstanceBuilder(context as BuildContext)
+                    .Append(provider => new ConditionalSubstance(
+                            new WidgetStatePropertyMap<SubstanceLayers> {
+                                [WidgetState.Selected] = new SubstanceBuilder(provider).Flat(
+                                    variant == HButtonVariant.FlatTwoState ? inactive : palette,
+                                    palette,
+                                    surfacePalette,
+                                    borderRadius
+                                ).Build(),
+                                [WidgetState.None] = new SubstanceBuilder(provider).Outline(
+                                    palette,
+                                    surfacePalette,
+                                    borderRadius
+                                ).Build()
+                            }
+                        )
+                    ),
                 _ => throw new ArgumentOutOfRangeException(nameof(variant), variant, null)
             };
 
             layers.Append(_ => focusLayer);
-
-            var fontColor = contrast
-                ? surfacePalette.onMain
-                : variant switch {
-                    HButtonVariant.Soft                            => palette.onContainer,
-                    HButtonVariant.Ghost or HButtonVariant.Outline => palette.main,
-                    _                                              => palette.onMain
-                };
-
-            var fontColorInactive = variant switch {
-                HButtonVariant.FlatTwoState => inactive.onMain,
-                _                           => fontColor
-            };
 
             BoxConstraints constraints;
             StyleLength4 padding;
@@ -108,26 +129,57 @@ namespace HELIX.Widgets.Universal.Styles {
                 default: throw new ArgumentOutOfRangeException(nameof(size), size, null);
             }
 
+            var fontColor = contrast
+                ? surfacePalette.onMain
+                : variant switch {
+                    HButtonVariant.Soft or HButtonVariant.SoftTwoState => palette.onContainer,
+                    HButtonVariant.Ghost or HButtonVariant.Outline or HButtonVariant.TwoState =>
+                        palette.main,
+                    _ => palette.onMain
+                };
+
+            var fontColorInactive = variant switch {
+                HButtonVariant.FlatTwoState => inactive.onMain,
+                _                           => fontColor
+            };
+            var defaultText = new WidgetStatePropertyMap<TextStyle> {
+                [WidgetState.Disabled] = new TextStyle {
+                    fontSize = fontSize,
+                    color = surfacePalette.onMain.WithOpacity(0.38f)
+                },
+                [WidgetState.ModAny | WidgetState.Selected | WidgetState.Hovered | WidgetState.Pressed] =
+                    new TextStyle {
+                        fontSize = fontSize,
+                        color = fontColor
+                    },
+                [WidgetState.None] = new TextStyle {
+                    fontSize = fontSize,
+                    color = fontColorInactive
+                }
+            };
+
+            var selectedText = defaultText;
+            if (variant is HButtonVariant.TwoState or HButtonVariant.SoftTwoState) {
+                selectedText = new WidgetStatePropertyMap<TextStyle> {
+                    [WidgetState.Disabled] = new TextStyle {
+                        fontSize = fontSize,
+                        color = surfacePalette.onMain.WithOpacity(0.38f)
+                    },
+                    [WidgetState.None] = new TextStyle {
+                        fontSize = fontSize,
+                        color = palette.onMain
+                    }
+                };
+            }
+
             return new HButtonStyle {
                 padding = new AllWidgetStateProperty<StyleLength4>(padding),
                 borderRadius = new AllWidgetStateProperty<BorderRadius>(borderRadius),
                 constraints = new AllWidgetStateProperty<BoxConstraints>(constraints),
                 layers = layers.Build(),
-                textStyle = new WidgetStatePropertyMap<TextStyle> {
-                    [WidgetState.Disabled] = new TextStyle {
-                        fontSize = fontSize,
-                        color = surfacePalette.onMain.WithOpacity(0.38f)
-                    },
-                    [WidgetState.ModAny | WidgetState.Selected | WidgetState.Hovered | WidgetState.Pressed] =
-                        new TextStyle {
-                            fontSize = fontSize,
-                            color = fontColor
-                        },
-                    [WidgetState.None] = new TextStyle {
-                        fontSize = fontSize,
-                        color = fontColorInactive
-                    }
-                }
+                textStyle = WidgetStateProperties.Func(state =>
+                    state.Selected() ? selectedText.ResolveOrDefault(state) : defaultText.ResolveOrDefault(state)
+                )
             };
         }
     }

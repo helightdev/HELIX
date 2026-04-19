@@ -16,7 +16,7 @@ namespace HELIX.Types {
             this.bottom = bottom;
         }
 
-        public void Apply(VisualElement element) {
+        public readonly void Apply(VisualElement element) {
             element.style.borderLeftWidth = left.width;
             element.style.borderLeftColor = left.color;
             element.style.borderTopWidth = top.width;

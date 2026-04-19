@@ -20,7 +20,7 @@ namespace HELIX.Types {
             this.bottomLeft = bottomLeft;
         }
 
-        public void Apply(VisualElement element) {
+        public readonly void Apply(VisualElement element) {
             element.style.borderTopLeftRadius = topLeft;
             element.style.borderTopRightRadius = topRight;
             element.style.borderBottomRightRadius = bottomRight;
@@ -58,6 +58,8 @@ namespace HELIX.Types {
         public static implicit operator StyleLength4(BorderRadius br) =>
             new(br.topLeft, br.topRight, br.bottomRight, br.bottomLeft);
 
+        public static implicit operator BorderRadius(float v) => new(v, v, v, v);
+        
         public static BorderRadius All(StyleLength radius) => new(radius, radius, radius, radius);
 
         public static BorderRadius Horizontal(StyleLength left, StyleLength right) => new(left, right, right, left);

@@ -36,7 +36,7 @@ namespace HELIX.Widgets.Modifiers {
                 element.style.alignSelf = Align.Auto;
                 return;
             }
-            
+
             element.style.alignSelf = selfCrossAxisAlign;
             element.style.flexGrow = grow;
             element.style.flexShrink = shrink;

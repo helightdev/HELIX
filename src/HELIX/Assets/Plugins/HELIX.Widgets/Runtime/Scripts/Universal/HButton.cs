@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using HELIX.Types;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
@@ -7,23 +10,67 @@ using HELIX.Widgets.Universal.Theme;
 using UnityEngine;
 
 namespace HELIX.Widgets.Universal {
-    public class HButton : StatefulWidget<HButton> {
-        public Widget child;
-        public ButtonController controller;
+    public class HButton : SingleChildStatefulWidget<HButton> {
+        public readonly ButtonController controller;
 
-        public Key focusKey;
-        public bool enabled = true;
-        public bool selected = false;
-        public Action onClick;
+        public readonly Key focusKey;
+        public readonly bool enabled;
+        public readonly bool selected;
+        public readonly Action onClick;
 
-        public HButtonStyle style = null;
-        public HInputRadius? radius = null;
-        public HButtonVariant? variant = null;
-        public HButtonSize? size = null;
-        public ColorTokenPalette palette = null;
+        public readonly HButtonStyle style;
+        public readonly HInputRadius? radius;
+        public readonly HButtonVariant? variant;
+        public readonly HButtonSize? size;
+        public readonly ColorTokenPalette palette;
+
+        public HButton(
+            HButtonVariant? variant = null,
+            ButtonController controller = null,
+            Key focusKey = default,
+            bool enabled = true,
+            bool selected = false,
+            Action onClick = null,
+            HButtonStyle style = null,
+            HInputRadius? radius = null,
+            HButtonSize? size = null,
+            ColorTokenPalette palette = null,
+            Widget child = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(child, key, constants, modifiers) {
+            this.child = child;
+            this.controller = controller;
+            this.focusKey = focusKey;
+            this.enabled = enabled;
+            this.selected = selected;
+            this.onClick = onClick;
+            this.style = style;
+            this.radius = radius;
+            this.variant = variant;
+            this.size = size;
+            this.palette = palette;
+        }
 
         public override State<HButton> CreateState() {
             return new HShapeButtonState();
+        }
+
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new DiagnosticsProperty<Widget>("child", child));
+            properties.Add(new DiagnosticsProperty<ButtonController>("controller", controller, defaultValue: null));
+            properties.Add(new DiagnosticsProperty<HButtonStyle>("style", style, defaultValue: null));
+            properties.Add(new DiagnosticsProperty<HInputRadius?>("radius", radius, defaultValue: null));
+            properties.Add(new DiagnosticsProperty<HButtonVariant?>("variant", variant, defaultValue: null));
+            properties.Add(new DiagnosticsProperty<HButtonSize?>("size", size, defaultValue: null));
+            properties.Add(new DiagnosticsProperty<ColorTokenPalette>("palette", palette, defaultValue: null));
+
+            properties.Add(new FlagProperty("enabled", enabled, ifFalse: "Disabled"));
+            properties.Add(new FlagProperty("selected", selected, ifTrue: "Selected"));
+            properties.Add(new DiagnosticsProperty<Key>("focusKey", focusKey, defaultValue: Key.None));
+            properties.Add(new DiagnosticsProperty<Action>("onClick", onClick, defaultValue: null));
         }
     }
 
@@ -40,7 +87,7 @@ namespace HELIX.Widgets.Universal {
                 _controller = AddDisposable(new ButtonController(_widgetStateController));
                 _controller.onClick = widget.onClick;
                 _controller.enabled = widget.enabled;
-                
+
                 _widgetStateController.Toggle(WidgetState.Selected, widget.selected);
                 _widgetStateController.Toggle(WidgetState.Disabled, !widget.enabled);
             }
@@ -92,15 +139,15 @@ namespace HELIX.Widgets.Universal {
                     }
                 )
             );
-            
-            return new HSubstanceBox {
-                controller = _widgetStateController,
-                substances = effective.layers,
-                alignment = effective.alignment,
-                builder = widget.child,
-                boxKey = widget.focusKey,
-                boxModifiers = modifierProperty
-            }.Fill();
+
+            return new HSubstanceBox(
+                controller: _widgetStateController,
+                substances: effective.layers,
+                alignment: effective.alignment,
+                builder: widget.child,
+                boxKey: widget.focusKey,
+                boxModifiers: modifierProperty
+            ).Fill();
         }
     }
 }

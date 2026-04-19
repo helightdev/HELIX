@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
-    public partial class BoxShadowElement : SingleChildWidgetBaseElement<BoxShadow> {
+    public partial class BoxShadowElement : SingleChildWidgetBaseElement<HBoxShadow> {
         private readonly TweenStateArena<Color> _colorArena;
         private readonly VisualElement _shadowElement;
         private float _blurRadius = 4f;
@@ -127,7 +127,7 @@ namespace HELIX.Widgets.Elements {
             _shadowElement.Position(offsets);
         }
 
-        public override void Apply(BoxShadow previous, BoxShadow widget) {
+        public override void Apply(HBoxShadow previous, HBoxShadow widget) {
             base.Apply(previous, widget);
             BlurRadius = widget.blurRadius;
             BorderRadius = widget.borderRadius;

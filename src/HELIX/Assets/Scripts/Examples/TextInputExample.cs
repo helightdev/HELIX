@@ -29,47 +29,33 @@ namespace Examples {
         }
 
         public override Widget Build(BuildContext context) {
-            return new HColumn {
-                gap = 16f,
-                crossAxisAlign = Align.Stretch,
-                Modifiers = new Modifier[] { MarginModifier.Of(16), },
-                children = new Widget[] {
-                    new HText($"Live value: {_sharedController.Value}").Body(context),
-                    new HRow {
-                        gap = 8,
-                        children = new Widget[] {
-                            new HButton {
-                                variant = HButtonVariant.Flat,
-                                child = new HText("Append !"),
-                                onClick = () => { _sharedController.SetValue(_sharedController.PeekValue() + "!"); }
-                            },
-                            new HButton {
-                                variant = HButtonVariant.Outline,
-                                child = new HText("Clear"),
-                                onClick = () => { _sharedController.SetValue(string.Empty); }
-                            },
-                            new HButton {
-                                variant = HButtonVariant.Soft,
-                                child = new HText("Focus First"),
-                                onClick = () => { _firstInputFocus.Focus(); }
-                            },
-                            new HButton {
-                                variant = HButtonVariant.Soft,
-                                child = new HText("Focus Second"),
-                                onClick = () => { _secondInputFocus.Focus(); }
-                            }
-                        }
-                    },
-                    new HTextField(
-                        focusKey: _firstInputFocus,
-                        controller: _sharedController
-                    ).Flexible(selfCrossAxisAlign: Align.Stretch),
-                    new HTextField(
-                        focusKey: _secondInputFocus,
-                        controller: _sharedController
-                    ).Flexible(selfCrossAxisAlign: Align.Stretch),
-                }
-            };
+            return new HColumn(gap: 16f, crossAxisAlign: Align.Stretch) {
+                new HText($"Live value: {_sharedController.Value}").Body(context),
+                new HRow(gap: 8f) {
+                    new HButton(
+                        variant: HButtonVariant.Flat,
+                        child: new HText("Append !"),
+                        onClick: () => { _sharedController.SetValue(_sharedController.PeekValue() + "!"); }
+                    ),
+                    new HButton(
+                        variant: HButtonVariant.Outline,
+                        child: new HText("Clear"),
+                        onClick: () => { _sharedController.SetValue(string.Empty); }
+                    ),
+                    new HButton(
+                        variant: HButtonVariant.Soft,
+                        child: new HText("Focus First"),
+                        onClick: () => { _firstInputFocus.Focus(); }
+                    ),
+                    new HButton(
+                        variant: HButtonVariant.Soft,
+                        child: new HText("Focus Second"),
+                        onClick: () => { _secondInputFocus.Focus(); }
+                    )
+                },
+                new HTextField(focusKey: _firstInputFocus, controller: _sharedController).TightStretch(),
+                new HTextField(focusKey: _secondInputFocus, controller: _sharedController).TightStretch(),
+            }.Margin(16);
         }
     }
 }

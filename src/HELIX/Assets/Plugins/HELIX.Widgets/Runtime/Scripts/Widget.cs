@@ -1,25 +1,31 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics.Properties;
-using HELIX.Widgets.Elements;
 using HELIX.Widgets.Theming;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public abstract class Widget : DiagnosticableTreeBase, IWidgetListCandidate {
-        protected readonly ModifierSet modifiers = new();
+        protected ModifierSet modifiers = ModifierSet.Empty;
         public object[] constants;
         public Key key;
 
-        public IEnumerable<Modifier> Modifiers {
-            set {
-                foreach (var modifier in value) AddModifier(modifier);
-            }
+        protected Widget(
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) {
+            this.constants = constants;
+            this.key = key;
+            if (modifiers is ModifierSet set) this.modifiers = set;
+            if (modifiers != null) AddModifiers(modifiers);
         }
+
+        protected Widget() { }
 
         public abstract IWidgetElement CreateElement();
 
@@ -28,11 +34,26 @@ namespace HELIX.Widgets {
         }
 
         public void AddModifier(Modifier modifier) {
+            if (modifiers.ReadOnly) modifiers = new ModifierSet(modifiers);
             modifiers.AddThrowing(modifier);
         }
 
         public void AddModifiers(IEnumerable<Modifier> additions) {
-            foreach (var modifier in additions) AddModifier(modifier);
+            if (modifiers.ReadOnly) modifiers = new ModifierSet(modifiers);
+            modifiers.AddThrowing(additions);
+        }
+
+        protected void DefaultModifiers(ModifierSet defaults, IReadOnlyCollection<Modifier> user) {
+            if (user == null) {
+                modifiers = defaults;
+                return;
+            }
+
+            var applied = new ModifierSet(modifiers.Count + defaults.Count + user.Count);
+            applied.AddCollection(modifiers);
+            applied.AddCollection(defaults);
+            applied.AddCollection(user);
+            modifiers = applied;
         }
 
         public override string ToStringShort() {
@@ -51,6 +72,7 @@ namespace HELIX.Widgets {
                     "retention",
                     constants,
                     ifNull: null,
+                    identityOnly: true,
                     ifEmpty: "Constant",
                     level: constants == null ? DiagnosticLevel.Hidden : DiagnosticLevel.Info
                 )
@@ -83,27 +105,81 @@ namespace HELIX.Widgets {
             );
             return element;
         }
-
+        
         public static implicit operator BuildFunction(Widget widget) => _ => widget;
         public static implicit operator BuildFunction<WidgetState>(Widget widget) => (_, _) => widget;
     }
 
-    public abstract class SingleChildWidget : Widget {
+    public abstract class SingleChildWidget : Widget, IEnumerable<Widget> {
         public Widget child;
+
+        protected SingleChildWidget() { }
+
+        protected SingleChildWidget(
+            Widget child = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants, modifiers) {
+            this.child = child;
+        }
 
         public override List<DiagnosticsNode> DebugDescribeChildren() {
             return child == null
                 ? new List<DiagnosticsNode>()
                 : new List<DiagnosticsNode> { child.ToDiagnosticsNodeSafe() };
         }
+
+        public void Add(Widget candidate) {
+            if (child != null) throw new InvalidOperationException("SingleChildWidget already has a child");
+            child = candidate;
+        }
+
+        public IEnumerator<Widget> GetEnumerator() {
+            if (child != null) yield return child;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
+        }
     }
 
-    public abstract class MultiChildWidget : Widget {
+    public abstract class MultiChildWidget : Widget, IReadOnlyList<Widget> {
         public IReadOnlyList<Widget> children;
+
+        protected MultiChildWidget() { }
+
+        protected MultiChildWidget(
+            IReadOnlyList<Widget> children = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants, modifiers) {
+            this.children = children;
+        }
 
         public override List<DiagnosticsNode> DebugDescribeChildren() {
             return children.Select(child => child.ToDiagnosticsNodeSafe()).ToList();
         }
+
+        public void Add(IWidgetListCandidate candidate) {
+            if (children is WidgetList list) list.Add(candidate);
+            else {
+                var newList = new WidgetList();
+                if (children != null) newList.Add(children.Spread());
+                newList.Add(candidate);
+                children = newList;
+            }
+        }
+
+        public IEnumerator<Widget> GetEnumerator() {
+            return children?.GetEnumerator() ?? Enumerable.Empty<Widget>().GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        public int Count => children?.Count ?? 0;
+
+        public Widget this[int index] => children[index];
     }
 
     public interface IWidgetElement : BuildContext {
@@ -169,8 +245,13 @@ namespace HELIX.Widgets {
             if (context != null) return context.GetThemed(property, listen);
             return ThemeProviderElement.Resolve(null, property);
         }
-        
-        public static bool TryGet<T>(this ThemeProperty<T> property, IThemeProvider context, out T value, bool listen = true) {
+
+        public static bool TryGet<T>(
+            this ThemeProperty<T> property,
+            IThemeProvider context,
+            out T value,
+            bool listen = true
+        ) {
             if (context != null) return context.TryGetThemed(property, out value, listen);
             return ThemeProviderElement.TryResolve(null, property, out value);
         }

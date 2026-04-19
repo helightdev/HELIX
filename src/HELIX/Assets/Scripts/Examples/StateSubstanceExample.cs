@@ -56,35 +56,21 @@ namespace Examples {
         }
 
         public override Widget Build(BuildContext context) {
-            var typography = context.GetThemed(PrimitiveBaseTheme.Typography);
-            return new HColumn {
-                gap = 16,
-                crossAxisAlign = Align.Stretch,
-                Modifiers = new Modifier[] { MarginModifier.Of(16), },
-                children = new Widget[] {
-                    new HText("Shared state/controller mechanics").Heading(context),
-                    new HRow {
-                        gap = 8,
-                        children = new Widget[] {
-                            new HButton {
-                                controller = _buttonController,
-                                child = new HText("Primary Controlled")
-                            },
-                            new HButton {
-                                variant = HButtonVariant.Soft,
-                                controller = _buttonController,
-                                child = new HText("Secondary Controlled")
-                            }
-                        }
-                    },
-                    new HText($"Shared click count: {_clicks}").Body(context), //
-                    new HSubstanceBox {
-                        controller = _stateController,
-                        substances = _boxLayers
-                    }.Size(height: 72),
-                    new HText("Hover / focus / press the controlled buttons to drive this state").Caption(context),
-                }
-            };
+            return new HColumn(gap: 16f, crossAxisAlign: Align.Stretch) {
+                new HText("Shared state/controller mechanics").Heading(context),
+                new HRow(gap: 8f) {
+                    new HButton(controller: _buttonController) { new HText("Primary Controlled") },
+                    new HButton(variant: HButtonVariant.Outline, controller: _buttonController) {
+                        new HText("Secondary Controlled")
+                    }
+                },
+                new HText($"Shared click count: {_clicks}").Body(context), //
+                new HSubstanceBox(
+                    controller: _stateController,
+                    substances: _boxLayers
+                ).Size(height: 72),
+                new HText("Hover / focus / press the controlled buttons to drive this state").Caption(context),
+            }.Margin(16);
         }
     }
 }

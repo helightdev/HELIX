@@ -140,7 +140,7 @@ namespace HELIX.Widgets {
             return WidgetStateProperties.All(constant);
         }
     }
-
+    
     public class WidgetStatePropertyMap<T> : WidgetStateProperty<T> {
         private readonly List<Pair> _values = new();
 

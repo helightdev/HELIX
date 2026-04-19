@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Widgets.Elements;
@@ -51,6 +52,15 @@ namespace HELIX.Widgets.Navigation {
     public class Scaffold : SingleChildWidget {
         public Scaffold() {
             AddModifier(ModifierFallbacks.FlexFill);
+        }
+
+        public Scaffold(
+            Widget child = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(child, key, constants) {
+            DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
         }
 
         public override IWidgetElement CreateElement() => ReconcileInto(new ScaffoldElement());

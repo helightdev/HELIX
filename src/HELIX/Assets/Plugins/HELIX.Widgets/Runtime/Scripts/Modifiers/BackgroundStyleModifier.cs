@@ -1,6 +1,7 @@
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
+using HELIX.Widgets.Universal.Styles;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {

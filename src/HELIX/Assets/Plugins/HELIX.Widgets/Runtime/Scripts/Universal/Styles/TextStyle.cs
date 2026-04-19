@@ -1,10 +1,12 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using HELIX.Widgets.Diagnostics;
+using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
-    public class TextStyle : IEquatable<TextStyle> {
+namespace HELIX.Widgets.Universal.Styles {
+    public class TextStyle : DiagnosticableBase, IEquatable<TextStyle> {
         public StyleFont font = StyleKeyword.Null;
         public StyleLength fontSize = StyleKeyword.Null;
         public StyleColor color = StyleKeyword.Null;
@@ -108,5 +110,25 @@ namespace HELIX.Types {
         public static readonly TextStyle AlignCenter = new() { align = TextAnchor.MiddleCenter };
         public static readonly TextStyle AlignLeft = new() { align = TextAnchor.MiddleLeft };
         public static readonly TextStyle AlignRight = new() { align = TextAnchor.MiddleRight };
+
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new StyleValueProperty<Font>("font", font));
+            properties.Add(new StyleValueProperty<Length>("fontSize", fontSize));
+            properties.Add(new StyleValueProperty<Color>("color", color));
+            properties.Add(new StyleValueProperty<TextAnchor>("align", align));
+            properties.Add(new StyleValueProperty<FontStyle>("style", style));
+            properties.Add(new StyleValueProperty<WhiteSpace>("wrap", wrap));
+            properties.Add(new StyleValueProperty<Color>("outlineColor", outlineColor));
+            properties.Add(new StyleValueProperty<float>("outlineWidth", outlineWidth));
+            properties.Add(new StyleValueProperty<Length>("letterSpacing", letterSpacing));
+            properties.Add(new StyleValueProperty<Length>("wordSpacing", wordSpacing));
+            properties.Add(new StyleValueProperty<Length>("paragraphSpacing", paragraphSpacing));
+            properties.Add(new StyleValueProperty<TextOverflow>("overflow", overflow));
+            properties.Add(new StyleValueProperty<TextOverflowPosition>("overflowPosition", overflowPosition));
+            properties.Add(new StyleValueProperty<TextShadow>("shadow", shadow));
+            properties.Add(new StyleValueProperty<TextAutoSize>("autoSize", autoSize));
+            properties.Add(new StyleValueProperty<TextGeneratorType>("generator", generator));
+        }
     }
 }

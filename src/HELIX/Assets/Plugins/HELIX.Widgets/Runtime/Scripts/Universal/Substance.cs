@@ -8,7 +8,19 @@ using HELIX.Widgets.Theming;
 namespace HELIX.Widgets.Universal {
     public abstract class Substance : DiagnosticableBase {
         public static SubstanceFactory Factory => SubstanceFactory.Instance;
-        public abstract Widget Build(BuildContext context, WidgetState state);
+        public abstract IWidgetListCandidate Build(BuildContext context, WidgetState state);
+    }
+
+    public class ConditionalSubstance : Substance {
+        public WidgetStateProperty<SubstanceLayers> candidates;
+
+        public ConditionalSubstance(WidgetStateProperty<SubstanceLayers> candidates) {
+            this.candidates = candidates;
+        }
+
+        public override IWidgetListCandidate Build(BuildContext context, WidgetState state) {
+            return candidates.ResolveOrDefault(state).Select(s => s.Build(context, state)).Spread();
+        }
     }
 
     public interface ISubstanceBuilder<TBuilder> where TBuilder : ISubstanceBuilder<TBuilder> {
@@ -40,6 +52,7 @@ namespace HELIX.Widgets.Universal {
         public static implicit operator SubstanceLayers(SubstanceBuilder builder) => new(builder);
         public static implicit operator SubstanceLayers(List<Substance> substances) => new(substances);
         public static implicit operator SubstanceLayers(Substance[] substances) => new(substances);
+        public static implicit operator SubstanceLayers(Substance substance) => new(new[] { substance });
     }
 
     public readonly struct BuilderAndSubstance<TBuilder, T> : ISubstanceBuilder<TBuilder>

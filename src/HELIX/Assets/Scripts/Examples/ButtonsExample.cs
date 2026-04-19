@@ -26,172 +26,165 @@ namespace Examples {
         }
 
         public override Widget Build(BuildContext context) {
-            return new HColumn {
-                crossAxisAlign = Align.Stretch,
-                gap = 16f,
-                Modifiers = new Modifier[] { MarginModifier.Of(16), },
-                children = new Widget[] {
-                    new HRow {
-                        gap = 16f,
-                        children = new Widget[] {
-                            new HButton {
-                                variant = HButtonVariant.FlatTwoState,
-                                selected = _enabled,
-                                child = new HText($"Toggle Enabled"),
-                                onClick = () => {
-                                    _enabled = !_enabled;
-                                    SetState();
-                                },
-                            },
-                            new HButton {
-                                variant = HButtonVariant.FlatTwoState,
-                                selected = _selected,
-                                child = new HText($"Toggle Selected"),
-                                onClick = () => {
-                                    _selected = !_selected;
-                                    SetState();
-                                },
-                            },
+            return new HColumn(gap: 16f, crossAxisAlign: Align.Stretch) {
+                new HRow(gap: 16f) {
+                    new HButton(
+                        variant: HButtonVariant.TwoState,
+                        selected: _enabled,
+                        child: new HText($"Toggle Enabled"),
+                        onClick: () => {
+                            _enabled = !_enabled;
+                            SetState();
                         }
-                    },
-                    new HBox().Size(height: 32), //
-                    VariantRow(), // Showcases all the variants of the button
-                    SizingRow(), // Showcases the different sizes and radii of the button
-                    
-                    new HBox().Size(height: 32), //
-                    new HRow {
-                        gap = 16f,
-                        children = new Widget[] {
-                            new HButton {
-                                variant = HButtonVariant.FlatTwoState,
-                                child = new HText("Controlled Button"),
-                                controller = _controlledButton,
-                            },
-                    
-                            new HButton {
-                                variant = HButtonVariant.Soft,
-                                child = new HText("Same Controller"),
-                                controller = _controlledButton,
-                            }
+                    ),
+                    new HButton(
+                        variant: HButtonVariant.TwoState,
+                        selected: _selected,
+                        child: new HText($"Toggle Selected"),
+                        onClick: () => {
+                            _selected = !_selected;
+                            SetState();
                         }
-                    }
+                    ),
+                },
+                new HBox().Size(height: 32), //
+                VariantRow(), // Showcases all the variants of the button
+                SizingRow(), // Showcases the different sizes and radii of the button
+
+                new HBox().Size(height: 32), //
+                new HRow(gap: 16f) {
+                    new HButton(
+                        variant: HButtonVariant.FlatTwoState,
+                        child: new HText("Controlled Button"),
+                        controller: _controlledButton
+                    ),
+                    new HButton(
+                        variant: HButtonVariant.Soft,
+                        child: new HText("Same Controller"),
+                        controller: _controlledButton
+                    )
                 }
-            };
+            }.Padding(16);
         }
 
         private HRow VariantRow() {
-            return new HRow {
-                gap = 16,
-                children = new Widget[] {
-                    new HButton {
-                        child = new HText("Theme Default"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Flat,
-                        child = new HText("Flat"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.FlatTwoState,
-                        child = new HText("Flat Two State"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Ghost,
-                        child = new HText("Ghost"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        child = new HText("Outline"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Soft,
-                        child = new HText("Soft"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                }
+            return new HRow(gap: 16f) {
+                new HButton(
+                    child: new HText("Theme Default"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Flat,
+                    child: new HText("Flat"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.FlatTwoState,
+                    child: new HText("Flat Two State"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Soft,
+                    child: new HText("Soft"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.SoftTwoState,
+                    child: new HText("Soft Two State"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    child: new HText("Outline"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.TwoState,
+                    child: new HText("Two State"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Ghost,
+                    child: new HText("Ghost"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
             };
         }
 
         private HRow SizingRow() {
-            return new HRow {
-                gap = 16f,
-                crossAxisAlign = Align.FlexStart,
-                children = new Widget[] {
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        size = HButtonSize.Small,
-                        child = new HText("Small"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        size = HButtonSize.Regular,
-                        child = new HText("Regular"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        size = HButtonSize.Medium,
-                        child = new HText("Medium"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        size = HButtonSize.Large,
-                        child = new HText("Large"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HBox().Expand(), //
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        radius = HInputRadius.None,
-                        child = new HText("None"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        radius = HInputRadius.Small,
-                        child = new HText("Small"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        radius = HInputRadius.Medium,
-                        child = new HText("Medium"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        radius = HInputRadius.Large,
-                        child = new HText("Large"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                    new HButton {
-                        variant = HButtonVariant.Outline,
-                        radius = HInputRadius.Full,
-                        child = new HText("Full"),
-                        enabled = _enabled,
-                        selected = _selected,
-                    }.Expand(),
-                }
+            return new HRow(gap: 16f, crossAxisAlign: Align.FlexStart) {
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    size: HButtonSize.Small,
+                    child: new HText("Small"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    size: HButtonSize.Regular,
+                    child: new HText("Regular"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    size: HButtonSize.Medium,
+                    child: new HText("Medium"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    size: HButtonSize.Large,
+                    child: new HText("Large"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HBox().Expand(), //
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    radius: HInputRadius.None,
+                    child: new HText("None"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    radius: HInputRadius.Small,
+                    child: new HText("Small"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    radius: HInputRadius.Medium,
+                    child: new HText("Medium"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    radius: HInputRadius.Large,
+                    child: new HText("Large"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
+                new HButton(
+                    variant: HButtonVariant.Outline,
+                    radius: HInputRadius.Full,
+                    child: new HText("Full"),
+                    enabled: _enabled,
+                    selected: _selected
+                ).Expand(),
             };
         }
     }

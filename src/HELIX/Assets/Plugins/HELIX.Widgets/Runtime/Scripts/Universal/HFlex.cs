@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
@@ -7,24 +8,44 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HFlex : MultiChildWidget {
-        public Axis axis = Axis.Vertical;
-        public Align crossAxisAlign = Align.FlexStart;
-        public Justify mainAxisAlign = Justify.FlexStart;
-        public Align? wrapAlign = null;
-        public bool reverse = false;
-        public bool wrapReverse = false;
-        public bool wrap = false;
+        public readonly Axis axis;
+        public readonly Align crossAxisAlign;
+        public readonly Justify mainAxisAlign;
+        public readonly Align? wrapAlign;
+        public readonly bool reverse;
+        public readonly bool wrapReverse;
+        public readonly bool wrap;
 
-        public HFlex() {
-            AddModifier(ModifierFallbacks.ImplicitFlexFill);
+        public HFlex(
+            Axis axis = Axis.Vertical,
+            Align crossAxisAlign = Align.FlexStart,
+            Justify mainAxisAlign = Justify.FlexStart,
+            Align? wrapAlign = null,
+            bool reverse = false,
+            bool wrapReverse = false,
+            bool wrap = false,
+            IReadOnlyList<Widget> children = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(children, key, constants) {
+            this.axis = axis;
+            this.crossAxisAlign = crossAxisAlign;
+            this.mainAxisAlign = mainAxisAlign;
+            this.wrapAlign = wrapAlign;
+            this.reverse = reverse;
+            this.wrapReverse = wrapReverse;
+            this.wrap = wrap;
+            
+            DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
         }
 
         public override IWidgetElement CreateElement() => ReconcileInto(new HFlexElement());
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
-            properties.Add(new EnumProperty<Axis>("axis", axis, defaultValue: Axis.Horizontal));
-            properties.Add(new EnumProperty<Align>("crossAxisAlign", crossAxisAlign, defaultValue: Align.Center));
+            properties.Add(new EnumProperty<Axis>("axis", axis, defaultValue: Axis.Vertical));
+            properties.Add(new EnumProperty<Align>("crossAxisAlign", crossAxisAlign, defaultValue: Align.FlexStart));
             properties.Add(new EnumProperty<Justify>("mainAxisAlign", mainAxisAlign, defaultValue: Justify.FlexStart));
             properties.Add(
                 new EnumProperty<Align>("wrapAlign", wrapAlign ?? crossAxisAlign, defaultValue: crossAxisAlign)

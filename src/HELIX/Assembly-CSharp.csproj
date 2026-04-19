@@ -48,11 +48,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets/Scripts/Examples/StateSubstanceExample.cs" />
+    <Compile Include="Assets/Scripts/WidgetExamples.cs" />
     <Compile Include="Assets/Scripts/Examples/ButtonsExample.cs" />
+    <Compile Include="Assets/Scripts/Examples/ListViewExample.cs" />
+    <Compile Include="Assets/Scripts/LegacyExamples.cs" />
+    <Compile Include="Assets/Scripts/Examples/ThemeTokensExample.cs" />
     <Compile Include="Assets/Scripts/Examples/TextInputExample.cs" />
-    <Compile Include="Assets/Scripts/NewWidgetExample.cs" />
     <Compile Include="Assets/Scripts/ExampleThemeBehaviour.cs" />
-    <Compile Include="Assets/Scripts/WidgetExample.cs" />
     <Compile Include="Assets/Scripts/Examples/ScrollControllerExample.cs" />
     <Compile Include="Assets/Scripts/ExampleNavPage.cs" />
     <None Include="Library/PackageCache/com.unity.ai.navigation@78534c21b27d/ValidationExceptions.json" />

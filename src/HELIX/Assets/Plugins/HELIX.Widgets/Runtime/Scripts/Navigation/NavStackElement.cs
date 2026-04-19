@@ -345,6 +345,18 @@ namespace HELIX.Widgets.Navigation {
             AddModifier(ModifierFallbacks.FlexFill);
         }
 
+        public NavStack(
+            PageTransition defaultTransition = null,
+            Widget child = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(child, key, constants) {
+            this.defaultTransition = defaultTransition;
+            
+            DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
+        }
+
         public override IWidgetElement CreateElement() => ReconcileInto(new NavStackElement());
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
