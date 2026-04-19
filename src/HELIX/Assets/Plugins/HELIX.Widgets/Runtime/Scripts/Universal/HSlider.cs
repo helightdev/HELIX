@@ -6,7 +6,6 @@ using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
-using HELIX.Widgets.Universal.Substances;
 using HELIX.Widgets.Universal.Theme;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -18,13 +17,14 @@ namespace HELIX.Widgets.Universal {
 
         public Key focusKey;
         public readonly Axis axis;
-        public readonly bool enabled = true;
+        public readonly bool enabled;
         public readonly bool reverse;
         public readonly float initialValue;
         public readonly float thumbSize;
         public readonly Action<float> onChanged;
-
         public readonly HSliderStyle style;
+
+        public readonly WidgetStateProperty<ModifierSet> boxModifiers;
 
         public HSlider(
             SliderController controller = null,
@@ -35,6 +35,7 @@ namespace HELIX.Widgets.Universal {
             float initialValue = 0f,
             float thumbSize = -1f,
             Action<float> onChanged = null,
+            WidgetStateProperty<ModifierSet> boxModifiers = null,
             HSliderStyle style = null,
             Key key = default,
             object[] constants = null,
@@ -49,6 +50,7 @@ namespace HELIX.Widgets.Universal {
             this.thumbSize = thumbSize;
             this.onChanged = onChanged;
             this.style = style;
+            this.boxModifiers = boxModifiers ?? WidgetStateProperties.Never<ModifierSet>();
         }
 
         public HSlider(
@@ -61,11 +63,11 @@ namespace HELIX.Widgets.Universal {
             float thumbSize = -1f,
             Action<float> onChanged = null,
             HSliderStyle style = null,
+            WidgetStateProperty<ModifierSet> boxModifiers = null,
             Key key = default,
             object[] constants = null,
             IReadOnlyCollection<Modifier> modifiers = null
         ) : base(key, constants, modifiers) {
-            this.controller = controller;
             this.scrollController = scrollController;
             this.focusKey = focusKey;
             this.axis = axis;
@@ -75,9 +77,8 @@ namespace HELIX.Widgets.Universal {
             this.thumbSize = thumbSize;
             this.onChanged = onChanged;
             this.style = style;
+            this.boxModifiers = boxModifiers ?? WidgetStateProperties.Never<ModifierSet>();
         }
-
-        public readonly WidgetStateProperty<ModifierSet> boxModifiers = WidgetStateProperties.Never<ModifierSet>();
 
         public override State<HSlider> CreateState() {
             return new HSliderState();
