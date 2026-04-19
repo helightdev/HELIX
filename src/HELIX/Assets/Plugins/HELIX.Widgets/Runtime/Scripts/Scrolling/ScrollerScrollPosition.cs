@@ -34,7 +34,7 @@ namespace HELIX.Widgets.Scrolling {
         public override float Extent {
             get => scroller.value;
             set {
-                _debouncedScheduler.Stop();
+                if(!Mathf.Approximately(scroller.value, value)) _debouncedScheduler.Stop();
                 _lastValue = value;
                 scroller.value = value;
             }
@@ -65,7 +65,10 @@ namespace HELIX.Widgets.Scrolling {
             var startValue = scroller.value;
             _debouncedScheduler.Tween(
                 duration.ToMilliseconds(),
-                t => { scroller.value = math.lerp(startValue, offset, easing.Eval(t)); }
+                t => {
+                    var value = math.lerp(startValue, offset, easing.Eval(t));
+                    scroller.value = value;
+                }
             );
         }
 

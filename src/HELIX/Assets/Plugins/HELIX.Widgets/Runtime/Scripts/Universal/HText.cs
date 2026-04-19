@@ -2,18 +2,19 @@ using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Modifiers;
+using HELIX.Widgets.Theming;
+using HELIX.Widgets.Universal.Theme;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HText : WrappingBaseWidget<HText, Label> {
-
         public readonly bool doubleClickSelectsWords;
         public readonly bool emojiFallbackSupport;
         public readonly bool enableRichText;
         public readonly LanguageDirection languageDirection;
         public readonly bool parseEscapeSequences;
         public readonly bool selectable;
-        public readonly TextStyle style;
+        public TextStyle style;
 
         public readonly string text;
         public readonly bool tripleClickSelectsLine;
@@ -31,7 +32,7 @@ namespace HELIX.Widgets.Universal {
         ) {
             AddModifier(ModifierFallbacks.PaddingZero);
             AddModifier(ModifierFallbacks.MarginZero);
-            
+
             this.text = text;
             this.enableRichText = enableRichText;
             this.emojiFallbackSupport = emojiFallbackSupport;
@@ -64,14 +65,85 @@ namespace HELIX.Widgets.Universal {
             base.DebugFillProperties(properties);
             properties.Add(new StringProperty("text", text));
             properties.Add(new TextStyleProperty("style", style));
-            
+
             properties.Add(new FlagProperty("enableRichText", enableRichText, ifTrue: "RichText"));
             properties.Add(new FlagProperty("emojiFallbackSupport", emojiFallbackSupport, ifFalse: "NoEmojiFallback"));
-            properties.Add(new FlagProperty("parseEscapeSequences", parseEscapeSequences, ifFalse: "NoEscapeSequenceParsing"));
+            properties.Add(
+                new FlagProperty("parseEscapeSequences", parseEscapeSequences, ifFalse: "NoEscapeSequenceParsing")
+            );
             properties.Add(new FlagProperty("selectable", selectable, ifTrue: "Selectable"));
-            properties.Add(new FlagProperty("doubleClickSelectsWords", doubleClickSelectsWords, ifFalse: "NoDoubleClickWordSelection"));
-            properties.Add(new FlagProperty("tripleClickSelectsLine", tripleClickSelectsLine, ifFalse: "NoTripleClickLineSelection"));
-            properties.Add(new EnumProperty<LanguageDirection>("languageDirection", languageDirection, defaultValue: LanguageDirection.Inherit));
+            properties.Add(
+                new FlagProperty(
+                    "doubleClickSelectsWords",
+                    doubleClickSelectsWords,
+                    ifFalse: "NoDoubleClickWordSelection"
+                )
+            );
+            properties.Add(
+                new FlagProperty(
+                    "tripleClickSelectsLine",
+                    tripleClickSelectsLine,
+                    ifFalse: "NoTripleClickLineSelection"
+                )
+            );
+            properties.Add(
+                new EnumProperty<LanguageDirection>(
+                    "languageDirection",
+                    languageDirection,
+                    defaultValue: LanguageDirection.Inherit
+                )
+            );
         }
+    }
+
+    public static class HTextExtensions {
+
+        public static HText Body(this HText text, IThemeProvider theme, int level = 1) {
+            var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
+            text.style ??= new TextStyle();
+            text.style.fontSize = level switch{
+                1 => typography.FontSize3,
+                2 => typography.FontSize4,
+                3 => typography.FontSize5,
+                _ => typography.FontSize3
+            };
+            return text;
+        }
+        
+        public static HText Heading(this HText text, IThemeProvider theme, int level = 1) {
+            var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
+            text.style ??= new TextStyle();
+            text.style.fontSize = level switch{
+                1 => typography.FontSize6,
+                2 => typography.FontSize7,
+                3 => typography.FontSize8,
+                _ => typography.FontSize6
+            };
+            return text;
+        }
+
+        public static HText Caption(this HText text, IThemeProvider theme, int level = 1) {
+            var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
+            text.style ??= new TextStyle();
+            text.style.fontSize = level switch {
+                1 => typography.FontSize1,
+                2 => typography.FontSize2,
+                _ => typography.FontSize1
+            };
+            return text;
+        }
+        
+        public static HText Display(this HText text, IThemeProvider theme, int level = 1) {
+            var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
+            text.style ??= new TextStyle();
+            text.style.fontSize = level switch {
+                1 => typography.FontSize9,
+                2 => typography.FontSize8,
+                3 => typography.FontSize7,
+                _ => typography.FontSize9
+            };
+            return text;
+        }
+
     }
 }

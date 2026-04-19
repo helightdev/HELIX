@@ -5,7 +5,7 @@ namespace HELIX.Widgets.Universal.Theme {
     public class PrimitiveTypographyScheme {
         public static PrimitiveTypographyScheme Default = new();
 
-        public float factor = 1.5f;
+        public float factor = 1.25f;
         public float lineHeightFactor = 1.25f;
         public float em = 16f;
 

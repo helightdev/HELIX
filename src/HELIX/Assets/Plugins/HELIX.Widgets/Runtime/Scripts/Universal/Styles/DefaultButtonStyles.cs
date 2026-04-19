@@ -75,31 +75,31 @@ namespace HELIX.Widgets.Universal.Styles {
             float fontSize;
             switch (size) {
                 case HButtonSize.Small:
-                    constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight1);
-                    fontSize = typography.FontSize1;
+                    constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight2);
+                    fontSize = typography.FontSize2;
                     padding = variant == HButtonVariant.Ghost
                         ? EdgeInsets.Symmetric(spacing.Space2, spacing.Space1)
                         : EdgeInsets.Symmetric(spacing.Space2, 0);
                     break;
                 case HButtonSize.Regular:
-                    constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight2);
-                    fontSize = typography.FontSize2;
+                    constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight3);
+                    fontSize = typography.FontSize3;
                     padding = variant == HButtonVariant.Ghost
                         ? EdgeInsets.Symmetric(spacing.Space2, spacing.Space1)
                         : EdgeInsets.Symmetric(spacing.Space3, 0);
 
                     break;
                 case HButtonSize.Medium:
-                    constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight3);
-                    fontSize = typography.FontSize3;
+                    constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight4);
+                    fontSize = typography.FontSize4;
                     padding = variant == HButtonVariant.Ghost
                         ? EdgeInsets.Symmetric(spacing.Space3, spacing.Space1 * 1.5f)
                         : EdgeInsets.Symmetric(spacing.Space4, 0);
 
                     break;
                 case HButtonSize.Large:
-                    constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight4);
-                    fontSize = typography.FontSize4;
+                    constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight5);
+                    fontSize = typography.FontSize5;
                     padding = variant == HButtonVariant.Ghost
                         ? EdgeInsets.Symmetric(spacing.Space4, spacing.Space2)
                         : EdgeInsets.Symmetric(spacing.Space5, 0);

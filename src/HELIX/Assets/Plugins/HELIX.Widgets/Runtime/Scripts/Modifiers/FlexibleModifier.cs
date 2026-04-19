@@ -32,7 +32,7 @@ namespace HELIX.Widgets.Modifiers {
             var parent = BuildContext.GetDirectParent(element);
             if (isImplicit && parent is IPreferExplicitFlex) {
                 element.style.flexGrow = 0;
-                element.style.flexShrink = 1;
+                element.style.flexShrink = 0;
                 element.style.alignSelf = Align.Auto;
                 return;
             }

@@ -39,6 +39,7 @@ namespace HELIX.Widgets.Scrolling {
 
         public void JumpTo(float offset) {
             Offset = offset;
+            SetValue(Offset);
         }
 
         public void AnimateTo(float offset, TimeValue duration, EasingMode easing = EasingMode.Linear) {

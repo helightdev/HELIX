@@ -33,11 +33,17 @@ public partial class NewTest : WidgetHostElement {
 
     public List<(string, Widget)> Pages { get; } = new() {
         ("Buttons", new ButtonsExample()),
+        ("Text Input", new TextInputExample()),
+        ("Scroll Controller", new ScrollControllerExample()),
+        ("State + Substance", new StateSubstanceExample()),
         ("Other", new HBox { backgroundStyle = MaterialColors.Red })
     };
 
     public NewTest() {
-        Buildable = new HColumn {
+        Buildable = new HStatefulBuilder(builder: (context,state) => new HColumn {
+            Modifiers = new Modifier[] {
+                new BackgroundStyleModifier(context.GetThemed(PrimitiveTheme.Surface))  
+            },
             children = new Widget[] {
                 new NavStack {
                     key = _navStackKey,
@@ -62,7 +68,7 @@ public partial class NewTest : WidgetHostElement {
                     }
                 }.Flexible(selfCrossAxisAlign: Align.Stretch),
             }
-        }.Stretch().ToBuildable();
+        }).Stretch().ToBuildable();
     }
 
     public override bool Reconcile(Widget updated) {

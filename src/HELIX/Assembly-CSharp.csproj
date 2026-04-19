@@ -47,10 +47,13 @@
     <Analyzer Include="/phome/UnityEditors/6000.4.0f1/Editor/Data/Tools/BuildPipeline/Unity.SourceGenerators/Unity.UIToolkit.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets/Scripts/Examples/StateSubstanceExample.cs" />
     <Compile Include="Assets/Scripts/Examples/ButtonsExample.cs" />
+    <Compile Include="Assets/Scripts/Examples/TextInputExample.cs" />
     <Compile Include="Assets/Scripts/NewWidgetExample.cs" />
     <Compile Include="Assets/Scripts/ExampleThemeBehaviour.cs" />
     <Compile Include="Assets/Scripts/WidgetExample.cs" />
+    <Compile Include="Assets/Scripts/Examples/ScrollControllerExample.cs" />
     <Compile Include="Assets/Scripts/ExampleNavPage.cs" />
     <None Include="Library/PackageCache/com.unity.ai.navigation@78534c21b27d/ValidationExceptions.json" />
     <None Include="Library/PackageCache/com.unity.modules.subsystems/package.json" />

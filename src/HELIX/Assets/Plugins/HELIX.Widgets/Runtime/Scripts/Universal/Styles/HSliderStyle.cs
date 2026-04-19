@@ -47,8 +47,8 @@ namespace HELIX.Widgets.Universal.Styles {
 
             return new HSliderStyle {
                 constraints = new WidgetStatePropertyMap<BoxConstraints>() {
-                    [WidgetState.Special1] = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight2),
-                    [WidgetState.Special2] = BoxConstraints.Tight(typography.LineHeight2, StyleKeyword.Auto),
+                    [WidgetState.Special1] = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight3),
+                    [WidgetState.Special2] = BoxConstraints.Tight(typography.LineHeight3, StyleKeyword.Auto),
                 },
                 track = new SubstanceBuilder(context)
                     .Append(_ => {
