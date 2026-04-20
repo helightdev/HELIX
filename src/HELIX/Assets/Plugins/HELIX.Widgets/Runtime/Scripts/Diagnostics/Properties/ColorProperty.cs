@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public class ColorProperty : DiagnosticsProperty<Color> {
+
         public ColorProperty(
             string name,
             Color value,
@@ -36,5 +37,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             return ValueTyped.a == 0 ? "transparent" : ValueTyped.ToHex();
         }
+
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
     public partial class GenericButton : BuildingWidgetBaseElement<ButtonBuilder> {
+
         public Action onClick;
         public WidgetState state = WidgetState.None;
 
@@ -65,6 +66,7 @@ namespace HELIX.Widgets.Elements {
         }
 
         public class Manipulator : Clickable {
+
             public GenericButton button;
 
             public Manipulator(GenericButton button) : base(button.HandleClick) {
@@ -128,6 +130,8 @@ namespace HELIX.Widgets.Elements {
                 base.ProcessDownEvent(evt, localPosition, pointerId);
                 if (button.Enabled) button.UpdateWidgetState(button.state | WidgetState.Pressed);
             }
+
         }
+
     }
 }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 
 namespace HELIX.Widgets {
     public class WidgetList : IReadOnlyList<Widget>, IWidgetListCandidate {
+
         public readonly List<Widget> widgets;
 
         public WidgetList(int capacity = 1) : this(new List<Widget>(capacity)) { }
@@ -59,11 +60,13 @@ namespace HELIX.Widgets {
         public static implicit operator WidgetList(List<Widget> widgets) {
             return new WidgetList(widgets);
         }
+
     }
 
     public interface IWidgetListCandidate { }
 
     public readonly struct ConditionalCandidate : IWidgetListCandidate {
+
         public readonly bool condition;
         public readonly IWidgetListCandidate candidate;
 
@@ -71,19 +74,23 @@ namespace HELIX.Widgets {
             this.condition = condition;
             this.candidate = candidate;
         }
+
     }
 
     public readonly struct EmptyCandidate : IWidgetListCandidate { }
 
     public readonly struct SpreadCandidate : IWidgetListCandidate {
+
         public readonly IEnumerable<IWidgetListCandidate> candidates;
 
         public SpreadCandidate(IEnumerable<IWidgetListCandidate> candidates) {
             this.candidates = candidates;
         }
+
     }
 
     public static class WidgetListExtensions {
+
         public static ConditionalCandidate If(this IWidgetListCandidate candidate, bool condition) {
             return new ConditionalCandidate(condition, candidate);
         }
@@ -91,5 +98,6 @@ namespace HELIX.Widgets {
         public static SpreadCandidate Spread(this IEnumerable<IWidgetListCandidate> candidates) {
             return new SpreadCandidate(candidates);
         }
+
     }
 }

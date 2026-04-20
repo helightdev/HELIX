@@ -5,6 +5,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Error {
     public class OwnershipChainErrorProperty : DiagnosticsProperty<List<BuildContext>> {
+
         public OwnershipChainErrorProperty(List<BuildContext> chain) : base(
             "The ownership chain of this widget was",
             chain,
@@ -30,9 +31,11 @@ namespace HELIX.Widgets.Diagnostics.Error {
             var chain = BuildContext.GetAncestorChain(context).ToList();
             return new OwnershipChainErrorProperty(chain);
         }
+
     }
 
     public class OffendingWidgetErrorProperty : DiagnosticsProperty<Widget> {
+
         public OffendingWidgetErrorProperty(Widget widget) : base(
             "The offending widget was",
             widget,
@@ -43,9 +46,11 @@ namespace HELIX.Widgets.Diagnostics.Error {
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             return ValueTyped != null ? ValueTyped.GetType().Name : "None";
         }
+
     }
 
     public class ExceptionThrownErrorProperty : DiagnosticsProperty<Exception> {
+
         public ExceptionThrownErrorProperty(Exception exception) : base(
             "The following exception was thrown",
             exception,
@@ -56,5 +61,6 @@ namespace HELIX.Widgets.Diagnostics.Error {
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             return ValueTyped != null ? ValueTyped.ToString() : "None";
         }
+
     }
 }

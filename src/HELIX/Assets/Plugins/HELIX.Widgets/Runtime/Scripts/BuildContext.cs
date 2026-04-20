@@ -9,6 +9,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets {
     // ReSharper disable once InconsistentNaming
     public interface BuildContext : IDiagnosticableTree, IElement, IThemeProvider {
+
         static BuildContext Current = null;
         static BuildContext ReconcilerCurrent = null;
         Widget Descriptor { get; }
@@ -56,5 +57,6 @@ namespace HELIX.Widgets {
 
             return null;
         }
+
     }
 }

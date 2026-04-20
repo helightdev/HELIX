@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class TransitionsModifier : Modifier {
+
         public static readonly TransitionsModifier None = new(Array.Empty<Transition>());
         public readonly Transition[] transitions;
 
@@ -49,5 +50,6 @@ namespace HELIX.Widgets.Modifiers {
         public static TransitionsModifier Of(params Transition[] transitions) {
             return new TransitionsModifier(transitions);
         }
+
     }
 }

@@ -5,6 +5,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics {
     public interface IDiagnosticableTree : IDiagnosticable {
+
         List<DiagnosticsNode> DebugDescribeChildren() {
             return new List<DiagnosticsNode>();
         }
@@ -37,9 +38,11 @@ namespace HELIX.Widgets.Diagnostics {
             );
             return result.ToString();
         }
+
     }
 
     public sealed class DiagnosticableTreeNode : DiagnosticableNode {
+
         private readonly IDiagnosticableTree _tree;
 
         public DiagnosticableTreeNode(string name, IDiagnosticableTree value, DiagnosticsTreeStyle? style)
@@ -50,9 +53,11 @@ namespace HELIX.Widgets.Diagnostics {
         public override List<DiagnosticsNode> GetChildren() {
             return _tree.DebugDescribeChildren();
         }
+
     }
 
     public abstract class DiagnosticableTreeBase : DiagnosticableBase, IDiagnosticableTree {
+
         public virtual List<DiagnosticsNode> DebugDescribeChildren() {
             return new List<DiagnosticsNode>();
         }
@@ -79,5 +84,6 @@ namespace HELIX.Widgets.Diagnostics {
         public override DiagnosticsNode ToDiagnosticsNode(string name = null, DiagnosticsTreeStyle? style = null) {
             return new DiagnosticableTreeNode(name, this, style);
         }
+
     }
 }

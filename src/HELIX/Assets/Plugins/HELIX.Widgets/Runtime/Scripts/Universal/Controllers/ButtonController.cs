@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Controllers {
     public class ButtonController : Signal {
+
         public readonly WidgetStateController widgetState;
         public bool enabled = true;
         public Action onClick;
@@ -22,6 +23,7 @@ namespace HELIX.Widgets.Universal.Controllers {
         }
 
         public class ButtonManipulator : Clickable {
+
             public ButtonController controller;
 
             public ButtonManipulator(ButtonController controller) : base(controller.HandleClick) {
@@ -62,10 +64,13 @@ namespace HELIX.Widgets.Universal.Controllers {
                 base.ProcessDownEvent(evt, localPosition, pointerId);
                 controller?.widgetState?.DisableEnable(WidgetState.Navigated, WidgetState.Pressed);
             }
+
         }
+
     }
 
     public class TextEditingController : ValueSignal<string> {
+
         public readonly WidgetStateController widgetState;
         public bool enabled = true;
         public Action onBeginEditing;
@@ -85,5 +90,6 @@ namespace HELIX.Widgets.Universal.Controllers {
             base.SetValue(newValue);
             onChanged?.Invoke(newValue);
         }
+
     }
 }

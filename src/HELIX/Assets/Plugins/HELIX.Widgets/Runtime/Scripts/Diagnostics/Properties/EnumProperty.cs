@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public sealed class EnumProperty<T> : DiagnosticsProperty<T> where T : Enum {
+
         public EnumProperty(
             string name,
             [CanBeNull] T value,
@@ -33,5 +34,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             return ValueTyped?.ToString() ?? "null";
         }
+
     }
 }

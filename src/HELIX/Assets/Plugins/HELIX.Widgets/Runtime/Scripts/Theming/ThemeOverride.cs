@@ -2,11 +2,14 @@ using System;
 
 namespace HELIX.Widgets.Theming {
     public abstract class ThemeOverride : IMaybeThemeValue {
+
         public abstract bool TryGetThemeValue(out object value);
+
     }
 
     [Serializable]
     public class ThemeOverride<T> : ThemeOverride, IMaybeThemeValue<T> {
+
         public ThemeOverrideType type = ThemeOverrideType.None;
         public T constantValue;
         public string propertyReference;
@@ -27,11 +30,14 @@ namespace HELIX.Widgets.Theming {
                 constantValue = value
             };
         }
+
     }
 
     public enum ThemeOverrideType {
+
         None = 0,
         Value = 1,
         PropertyReference = 2
+
     }
 }

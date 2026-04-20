@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Navigation.Transitions {
     [UxmlObject]
     public partial class SlidePageTransition : PageTransition {
+
         public SlidePageTransition() { }
 
         public SlidePageTransition(
@@ -83,19 +84,17 @@ namespace HELIX.Widgets.Navigation.Transitions {
                     Duration,
                     t => {
                         t = Easing.Eval(t);
-                        foreach (var page in added) {
+                        foreach (var page in added)
                             page.style.translate = new Translate(
                                 new Length((1 - t) * slideDirection.x * 100, LengthUnit.Percent),
                                 new Length((1 - t) * slideDirection.y * 100, LengthUnit.Percent)
                             );
-                        }
 
-                        foreach (var page in removed) {
+                        foreach (var page in removed)
                             page.style.translate = new Translate(
                                 new Length(t * negativeSlideDirection.x * -100, LengthUnit.Percent),
                                 new Length(t * negativeSlideDirection.y * -100, LengthUnit.Percent)
                             );
-                        }
                     }
                 )
             );
@@ -106,5 +105,6 @@ namespace HELIX.Widgets.Navigation.Transitions {
 
             foreach (var page in context.modificationResult.RemovedPages) page.style.translate = new Translate();
         }
+
     }
 }

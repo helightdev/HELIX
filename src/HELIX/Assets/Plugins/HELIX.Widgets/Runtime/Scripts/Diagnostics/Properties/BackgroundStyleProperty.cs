@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public class BackgroundStyleProperty : DiagnosticsProperty<BackgroundStyle> {
+
         public BackgroundStyleProperty(
             string name,
             BackgroundStyle value,
@@ -62,5 +63,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             return "BackgroundStyle";
         }
+
     }
 }

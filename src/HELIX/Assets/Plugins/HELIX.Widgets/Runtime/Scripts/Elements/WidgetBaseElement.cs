@@ -7,6 +7,7 @@ using HELIX.Widgets.Theming;
 namespace HELIX.Widgets.Elements {
     [SuppressMessage("ReSharper", "ParameterHidesMember")]
     public abstract class WidgetBaseElement : BaseElement, IWidgetElement {
+
         public Widget Descriptor { get; set; }
         public BuildContext ParentContext { get; set; }
         public abstract bool CanReconcile(Widget updated);
@@ -58,9 +59,11 @@ namespace HELIX.Widgets.Elements {
         public override string ToString() {
             return this.ToDiagnosticsNodeSafe(style: DiagnosticsTreeStyle.SingleLine).ToString();
         }
+
     }
 
     public abstract class WidgetBaseElement<T> : WidgetBaseElement, IWidgetElement where T : Widget {
+
         public T TypedDescriptor {
             get => Descriptor as T;
             set => Descriptor = value;
@@ -80,5 +83,6 @@ namespace HELIX.Widgets.Elements {
         }
 
         public virtual void Apply(T previous, T widget) { }
+
     }
 }

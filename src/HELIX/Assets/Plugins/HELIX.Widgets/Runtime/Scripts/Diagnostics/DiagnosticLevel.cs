@@ -1,5 +1,6 @@
 namespace HELIX.Widgets.Diagnostics {
     public enum DiagnosticLevel {
+
         Hidden,
         Fine,
         Debug,
@@ -9,5 +10,6 @@ namespace HELIX.Widgets.Diagnostics {
         Summary,
         Error,
         Off
+
     }
 }

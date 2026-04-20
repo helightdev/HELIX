@@ -7,6 +7,7 @@ using UnityEngine;
 
 namespace HELIX.Widgets.Diagnostics {
     public static class HelixDiagnostics {
+
         public static Func<HelixDiagnosticException, string> PresentError = error => error.ToStringDeep();
 
         public static string FormatException(Exception exception, string summary = null) {
@@ -95,9 +96,9 @@ namespace HELIX.Widgets.Diagnostics {
             if (level < requiredLevel) return;
 
             switch (level) {
-                case <= DiagnosticLevel.Info:    Debug.Log(PresentError(exception)); break;
+                case <= DiagnosticLevel.Info: Debug.Log(PresentError(exception)); break;
                 case <= DiagnosticLevel.Warning: Debug.LogWarning(PresentError(exception)); break;
-                case <= DiagnosticLevel.Error:   Debug.LogError(PresentError(exception)); break;
+                case <= DiagnosticLevel.Error: Debug.LogError(PresentError(exception)); break;
             }
         }
 
@@ -114,5 +115,6 @@ namespace HELIX.Widgets.Diagnostics {
         public static string ToStringNullable(this object obj) {
             return obj == null ? "<null>" : obj.ToString();
         }
+
     }
 }

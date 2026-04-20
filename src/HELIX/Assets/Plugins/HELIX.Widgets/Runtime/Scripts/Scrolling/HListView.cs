@@ -1,27 +1,43 @@
+using System.Collections.Generic;
 using HELIX.Extensions;
 using HELIX.Widgets.Elements;
-using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
     public class HListView : Widget {
-        public float fixedItemHeight = -1;
-        public BuildFunction<int> itemBuilder;
-        public int itemCount;
-        public ScrollController scrollController;
 
-        public HListView() {
-            AddModifier(ModifierFallbacks.ImplicitFlexFill);
+        public readonly BuildFunction<int> builder;
+        public readonly int count;
+        public readonly float fixedItemHeight = -1;
+        public readonly ScrollController scrollController;
+
+        public HListView(
+            BuildFunction<int> builder,
+            int count,
+            float fixedItemHeight = -1,
+            ScrollController scrollController = null,
+            Key key = default,
+            object[] constants = null,
+            IReadOnlyCollection<Modifier> modifiers = null
+        ) : base(key, constants) {
+            this.fixedItemHeight = fixedItemHeight;
+            this.builder = builder;
+            this.count = count;
+            this.scrollController = scrollController;
+
+            DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
         }
 
         public override IWidgetElement CreateElement() {
             return ReconcileInto(new HListViewElement());
         }
+
     }
 
     public class HListViewElement : WidgetBaseElement<HListView>, IHierarchyDisposable {
+
         private readonly DummyCounterList _dummyList = new();
         private readonly ListView _listView;
         private readonly ScrollPosition _scrollPosition;
@@ -70,13 +86,13 @@ namespace HELIX.Widgets.Scrolling {
             var typed = TypedDescriptor;
             if (host == null || typed == null) return;
             host.style.backgroundColor = Color.clear;
-            if (index < 0 || index >= typed.itemCount) {
+            if (index < 0 || index >= typed.count) {
                 host.Buildable = null;
                 ModificationBarrier.Rebuild(host);
                 return;
             }
 
-            var buildable = new ParameterizedFunctionBuildable<int>(typed.itemBuilder, index);
+            var buildable = new ParameterizedFunctionBuildable<int>(typed.builder, index);
             host.Buildable = buildable;
             ModificationBarrier.Rebuild(host);
         }
@@ -84,15 +100,17 @@ namespace HELIX.Widgets.Scrolling {
         public override void Apply(HListView previous, HListView widget) {
             base.Apply(previous, widget);
 
-            if (_dummyList.Count != widget.itemCount) {
-                _dummyList.Count = widget.itemCount;
+            if (_dummyList.Count != widget.count) {
+                _dummyList.Count = widget.count;
                 _listView.itemsSource = _dummyList;
             }
 
             if (widget.fixedItemHeight >= 0) {
                 _listView.fixedItemHeight = widget.fixedItemHeight;
                 _listView.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
-            } else _listView.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
+            } else {
+                _listView.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
+            }
 
             _listView.RefreshItems();
 
@@ -102,5 +120,6 @@ namespace HELIX.Widgets.Scrolling {
                 _scrollController = widget.scrollController;
             }
         }
+
     }
 }

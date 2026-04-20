@@ -4,6 +4,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public class IterableProperty<T> : DiagnosticsProperty<IEnumerable<T>> {
+
         public IterableProperty(
             string name,
             IEnumerable<T> value,
@@ -65,5 +66,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
             if (IdentityOnly) return v.DescribeIdentity();
             return v is float d ? FloatProperty.DebugFormatFloat(d) : v?.ToString() ?? "null";
         }
+
     }
 }

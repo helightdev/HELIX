@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class SliderControllerModifier : SingletonModifier {
+
         public readonly Axis axis;
         public readonly SliderController controller;
         public readonly float thumbSize;
@@ -45,6 +46,7 @@ namespace HELIX.Widgets.Modifiers {
         }
 
         public class SliderManipulator : Manipulator {
+
             private readonly Axis _axis;
             private readonly SliderController _controller;
             private readonly bool _reverse;
@@ -250,6 +252,8 @@ namespace HELIX.Widgets.Modifiers {
                 var thumbEnd = thumbStart + thumbPixels;
                 return axisPosition >= thumbStart && axisPosition <= thumbEnd;
             }
+
         }
+
     }
 }

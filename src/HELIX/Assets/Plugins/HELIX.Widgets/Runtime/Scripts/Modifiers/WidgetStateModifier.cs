@@ -3,6 +3,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class WidgetStateModifier : SingletonModifier {
+
         public readonly WidgetStateController controller;
         private WidgetStateModifierManipulator _manipulator;
         public bool handleFocus = true;
@@ -28,6 +29,7 @@ namespace HELIX.Widgets.Modifiers {
         }
 
         public class WidgetStateModifierManipulator : Manipulator {
+
             public readonly WidgetStateController controller;
             public readonly bool handleFocus;
 
@@ -74,6 +76,8 @@ namespace HELIX.Widgets.Modifiers {
             private void OnNavigationMove(NavigationMoveEvent evt) {
                 controller.Enable(WidgetState.Navigated);
             }
+
         }
+
     }
 }

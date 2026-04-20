@@ -5,8 +5,10 @@ using UnityEngine.Scripting;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
-    [UxmlObject, RequireDerived]
+    [UxmlObject]
+    [RequireDerived]
     public abstract partial class ThemeComponent : ICloneable {
+
         protected IReadOnlyList<ThemeProperty> lookupScope;
 
         public virtual object Clone() {
@@ -23,6 +25,7 @@ namespace HELIX.Widgets.Theming {
         }
 
         public static class Companion {
+
             public static void Apply(
                 ThemeComponent instance,
                 IdentityDictionary<ThemeProperty, object> dict,
@@ -59,6 +62,8 @@ namespace HELIX.Widgets.Theming {
                 if (TryUnwrapValue(value, out var extracted)) dict[key] = extracted;
                 else if (clearExisting) dict.Remove(key);
             }
+
         }
+
     }
 }

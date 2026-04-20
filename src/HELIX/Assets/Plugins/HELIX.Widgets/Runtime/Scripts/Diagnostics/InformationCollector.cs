@@ -5,6 +5,7 @@ using HELIX.Widgets.Diagnostics.Error;
 
 namespace HELIX.Widgets.Diagnostics {
     public sealed class InformationCollector {
+
         private readonly List<DiagnosticsNodeBuilder> _builders = new();
 
         public InformationCollector Add(string message) {
@@ -35,7 +36,7 @@ namespace HELIX.Widgets.Diagnostics {
         public List<DiagnosticsNode> Collect() {
             var result = new List<DiagnosticsNode>();
 
-            foreach (var builder in _builders) {
+            foreach (var builder in _builders)
                 try {
                     var nodes = builder?.Invoke();
                     if (nodes != null) result.AddRange(nodes.Where(n => n != null));
@@ -43,9 +44,9 @@ namespace HELIX.Widgets.Diagnostics {
                     result.Add(new ErrorDescription("Error while collecting additional diagnostic information."));
                     result.Add(new DiagnosticsPropertyErrorNode("collector", ex));
                 }
-            }
 
             return result;
         }
+
     }
 }

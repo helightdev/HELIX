@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class PositionModifier : Modifier {
+
         public static readonly PositionModifier Stretch = new(StyleLength4.Zero, Position.Absolute);
         public static readonly PositionModifier None = new(StyleLength4.Initial, Position.Relative);
         public readonly StyleLength4 pos;
@@ -70,10 +71,11 @@ namespace HELIX.Widgets.Modifiers {
 
         protected override string FindConstantName() {
             return type switch {
-                Position.Absolute when pos.Equals(StyleLength4.Zero)    => nameof(Stretch),
+                Position.Absolute when pos.Equals(StyleLength4.Zero) => nameof(Stretch),
                 Position.Relative when pos.Equals(StyleLength4.Initial) => nameof(None),
-                _                                                       => null
+                _ => null
             };
         }
+
     }
 }

@@ -1,5 +1,6 @@
 namespace HELIX.Widgets.Diagnostics.Formatting {
     public static class DiagnosticsTextConfigurations {
+
         public static readonly TextTreeConfiguration Sparse = new(
             "+-",
             "  ",
@@ -137,5 +138,6 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
             isBlankLineBetweenPropertiesAndChildren: false,
             showChildren: false
         );
+
     }
 }

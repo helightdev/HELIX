@@ -8,6 +8,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     public abstract class BaseElement : VisualElement, IElement {
+
         public static readonly string UssClassName = "helix-widget";
         private IdentityDictionary<ThemeProperty, ThemeValue> _themeValues;
         private List<ElementFactorySlot> _widgetFactorySlots;
@@ -131,18 +132,19 @@ namespace HELIX.Widgets.Elements {
             if (_themeValues != null)
                 foreach (var value in _themeValues.Values)
                     value.ReloadStyles();
-            if (_widgetFactorySlots != null) {
+            if (_widgetFactorySlots != null)
                 foreach (var factorySlot in _widgetFactorySlots) {
                     factorySlot.ApplyReferenceFromTheme();
                     factorySlot.TryCreate();
                 }
-            }
         }
 
         protected virtual void OnWatchedThemeUpdated(ThemeProperty property, object value) { }
+
     }
 
     public abstract class SingleChildContainerElement : BaseElement, ISingleChildContainer {
+
         public virtual VisualElement Child {
             get => Children().FirstOrDefault();
             set {
@@ -150,9 +152,11 @@ namespace HELIX.Widgets.Elements {
                 if (value != null) Add(value);
             }
         }
+
     }
 
     public abstract class MultiChildContainerElement : BaseElement, IMultiChildContainer {
+
         public virtual IEnumerable<VisualElement> Childs {
             get => Children();
             set {
@@ -161,5 +165,6 @@ namespace HELIX.Widgets.Elements {
                 foreach (var child in value) Add(child);
             }
         }
+
     }
 }

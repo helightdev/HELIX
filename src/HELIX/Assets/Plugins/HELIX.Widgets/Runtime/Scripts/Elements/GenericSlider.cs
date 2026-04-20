@@ -12,6 +12,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
     public partial class GenericSlider : BaseElement {
+
         private readonly ElementFactorySlot<GenericSliderThumb> _thumbSlot;
         private readonly ElementFactorySlot<GenericSliderTrack> _trackSlot;
         private Axis _axis;
@@ -41,7 +42,8 @@ namespace HELIX.Widgets.Elements {
                 .AddTo(this);
         }
 
-        [UxmlAttribute, Range(0f, 1f)]
+        [UxmlAttribute]
+        [Range(0f, 1f)]
         public float Value {
             get => _value;
             set {
@@ -52,7 +54,8 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
-        [UxmlAttribute, Range(0f, 1f)]
+        [UxmlAttribute]
+        [Range(0f, 1f)]
         public float ThumbRange {
             get => _thumbRange;
             set {
@@ -107,9 +110,11 @@ namespace HELIX.Widgets.Elements {
             _trackSlot.Element?.SetDimensions(contentRect);
             _thumbSlot.Element?.SetDimensions(contentRect);
         }
+
     }
 
     public abstract class GenericSliderTrack : BaseElement {
+
         public Rect dimensions;
         public GenericSlider slider;
         public float value;
@@ -126,9 +131,11 @@ namespace HELIX.Widgets.Elements {
         public virtual void SetDimensions(Rect newDimensions) {
             dimensions = newDimensions;
         }
+
     }
 
     public abstract class GenericSliderThumb : BaseElement {
+
         public Rect dimensions;
         public float range;
         public GenericSlider slider;
@@ -150,6 +157,7 @@ namespace HELIX.Widgets.Elements {
         public virtual void SetDimensions(Rect newDimensions) {
             dimensions = newDimensions;
         }
+
     }
 
     [UxmlObject]
@@ -158,8 +166,10 @@ namespace HELIX.Widgets.Elements {
     [UxmlObject]
     public abstract partial class GenericSliderTrackFactory : ElementFactory<GenericSliderTrack> { }
 
-    [UxmlObject, Serializable]
+    [UxmlObject]
+    [Serializable]
     public partial class SimpleGenericSliderTrack : GenericSliderTrackFactory {
+
         [UxmlAttribute]
         public StyleLength trackHeight = 33.Percent();
 
@@ -174,6 +184,7 @@ namespace HELIX.Widgets.Elements {
         }
 
         public class Widget : GenericSliderTrack {
+
             private readonly ScriptablePaint _paint;
             private readonly StyleLength _trackHeight;
 
@@ -189,16 +200,20 @@ namespace HELIX.Widgets.Elements {
                 var rect = canvas.canvasRect;
                 var bounds = slider.Axis switch {
                     Axis.Horizontal => rect.LayoutSimple(Alignment.Center, Length.Auto(), _trackHeight),
-                    Axis.Vertical   => rect.LayoutSimple(Alignment.Center, _trackHeight, Length.Auto()),
-                    _               => throw new ArgumentOutOfRangeException()
+                    Axis.Vertical => rect.LayoutSimple(Alignment.Center, _trackHeight, Length.Auto()),
+                    _ => throw new ArgumentOutOfRangeException()
                 };
                 _paint?.Draw(canvas, bounds);
             }
+
         }
+
     }
 
-    [UxmlObject, Serializable]
+    [UxmlObject]
+    [Serializable]
     public partial class SimpleGenericSliderThumb : GenericSliderThumbFactory {
+
         [UxmlAttribute]
         public StyleLength trackHeight = Length.Auto();
 
@@ -213,6 +228,7 @@ namespace HELIX.Widgets.Elements {
         }
 
         public class Widget : GenericSliderThumb {
+
             private readonly ScriptablePaint _paint;
             private readonly float _pointSize = 8f;
             private readonly StyleLength _trackHeight;
@@ -237,8 +253,8 @@ namespace HELIX.Widgets.Elements {
                 var rect = canvas.canvasRect;
                 var bounds = slider.Axis switch {
                     Axis.Horizontal => rect.LayoutSimple(Alignment.Center, Length.Auto(), _trackHeight),
-                    Axis.Vertical   => rect.LayoutSimple(Alignment.Center, _trackHeight, Length.Auto()),
-                    _               => throw new ArgumentOutOfRangeException()
+                    Axis.Vertical => rect.LayoutSimple(Alignment.Center, _trackHeight, Length.Auto()),
+                    _ => throw new ArgumentOutOfRangeException()
                 };
                 _paint?.Draw(canvas, bounds);
             }
@@ -331,6 +347,8 @@ namespace HELIX.Widgets.Elements {
                 mainAxis.SetSize(this, effectiveSize);
                 crossAxis.SetSize(this, crossAxis.GetRectSize(dimensions));
             }
+
         }
+
     }
 }

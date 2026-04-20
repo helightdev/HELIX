@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {
     public class TextStyle : DiagnosticableBase, IEquatable<TextStyle> {
+
         public static readonly TextStyle Default = new();
         public static readonly TextStyle AlignCenter = new() { align = TextAnchor.MiddleCenter };
         public static readonly TextStyle AlignLeft = new() { align = TextAnchor.MiddleLeft };
@@ -127,5 +128,6 @@ namespace HELIX.Widgets.Universal.Styles {
             properties.Add(new StyleValueProperty<TextAutoSize>("autoSize", autoSize));
             properties.Add(new StyleValueProperty<TextGeneratorType>("generator", generator));
         }
+
     }
 }

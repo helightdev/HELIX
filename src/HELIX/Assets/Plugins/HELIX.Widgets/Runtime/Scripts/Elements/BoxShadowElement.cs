@@ -10,6 +10,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
     public partial class BoxShadowElement : SingleChildWidgetBaseElement<HBoxShadow> {
+
         private readonly TweenStateArena<Color> _colorArena;
         private readonly VisualElement _shadowElement;
         private float _blurRadius = 4f;
@@ -137,5 +138,6 @@ namespace HELIX.Widgets.Elements {
             TransitionDuration = widget.transitionDuration;
             EasingFunction = widget.easingFunction;
         }
+
     }
 }

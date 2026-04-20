@@ -6,7 +6,9 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.PathDrawers {
     [UxmlObject]
     public partial class GradientFillStrokePathDrawer : ScriptablePathDrawer {
-        [Header("Gradient Fill Stroke"), UxmlObjectReference]
+
+        [Header("Gradient Fill Stroke")]
+        [UxmlObjectReference]
         public FillGradientGenerator GradientGenerator { get; set; } = new DirectionalLinearGradientGenerator();
 
         [UxmlAttribute]
@@ -46,5 +48,6 @@ namespace HELIX.Widgets.Visual.PathDrawers {
 
             canvas.painter.Stroke();
         }
+
     }
 }

@@ -9,6 +9,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Navigation {
     [UxmlElement]
     public partial class ScaffoldElement : SingleChildWidgetBaseElement<Scaffold> {
+
         private readonly VisualElement _body;
         private readonly VisualElement _overlay;
 
@@ -47,9 +48,11 @@ namespace HELIX.Widgets.Navigation {
         public static ScaffoldElement Get(VisualElement context) {
             return context.GetFirstAncestorOfType<ScaffoldElement>();
         }
+
     }
 
     public class Scaffold : SingleChildWidget {
+
         public Scaffold() {
             AddModifier(ModifierFallbacks.FlexFill);
         }
@@ -66,9 +69,11 @@ namespace HELIX.Widgets.Navigation {
         public override IWidgetElement CreateElement() {
             return ReconcileInto(new ScaffoldElement());
         }
+
     }
 
     public class OverlayEntry : VisualElement {
+
         private readonly IVisualElementScheduledItem _updateItem;
 
         public OverlayEntry(VisualElement element) {
@@ -118,5 +123,6 @@ namespace HELIX.Widgets.Navigation {
         public static OverlayEntry Nearest(VisualElement context) {
             return context.GetFirstAncestorOfType<OverlayEntry>();
         }
+
     }
 }

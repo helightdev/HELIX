@@ -5,6 +5,7 @@ using HELIX.Widgets.Diagnostics.Properties;
 
 namespace HELIX.Widgets.Signals {
     public class ComputedSignal<T> : Signal<T>, ISignalObserver {
+
         private readonly Func<T> _computeFunc;
         private readonly SignalDependencyTracker _tracker;
         private T _cachedValue;
@@ -28,24 +29,27 @@ namespace HELIX.Widgets.Signals {
 
         public override T PeekValue() {
             if (!_isDirty) return _cachedValue;
-            if (_isComputing) {
+            if (_isComputing)
                 throw HelixDiagnostics.Build(
                     "Circular dependency detected while computing signal value.",
                     details: new DiagnosticsNode[] { new ErrorProperty("The computing signal is", this) },
                     stackTrace: Environment.StackTrace
                 );
-            }
 
             try {
                 _isComputing = true;
                 _tracker.RunBuild(() => { _cachedValue = _computeFunc(); });
-            } catch (HelixDiagnosticException) { throw; } catch (Exception ex) {
+            } catch (HelixDiagnosticException) {
+                throw;
+            } catch (Exception ex) {
                 throw HelixDiagnostics.Build(
                     "An error occurred while computing a signal value.",
                     details: new DiagnosticsNode[] { new ErrorProperty("The computing signal is", this) },
                     exception: ex
                 );
-            } finally { _isComputing = false; }
+            } finally {
+                _isComputing = false;
+            }
 
             _isDirty = false;
             return _cachedValue;
@@ -82,5 +86,6 @@ namespace HELIX.Widgets.Signals {
                 )
             );
         }
+
     }
 }

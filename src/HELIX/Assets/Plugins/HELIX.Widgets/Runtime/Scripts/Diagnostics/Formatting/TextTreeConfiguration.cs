@@ -1,5 +1,6 @@
 namespace HELIX.Widgets.Diagnostics.Formatting {
     public sealed class TextTreeConfiguration {
+
         public TextTreeConfiguration(
             string prefixLineOne,
             string prefixOtherLines,
@@ -81,6 +82,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
         public string Footer { get; }
         public string MandatoryFooter { get; }
         public bool IsBlankLineBetweenPropertiesAndChildren { get; }
+
     }
 
     // Example usage:

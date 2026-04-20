@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.GradientGenerators {
     [UxmlObject]
     public partial class RadialGradientGenerator : FillGradientGenerator {
+
         [UxmlAttribute]
         public Color InnerColor { get; set; } = Color.white;
 
@@ -31,7 +32,7 @@ namespace HELIX.Widgets.Visual.GradientGenerators {
                 colorKeys = new[] { new GradientColorKey(InnerColor, 0f), new GradientColorKey(OuterColor, 1f) },
                 alphaKeys = new[] { new GradientAlphaKey(InnerColor.a, 0f), new GradientAlphaKey(OuterColor.a, 1f) }
             };
-            if (Normalized) {
+            if (Normalized)
                 return FillGradient.MakeRadialGradient(
                     gradient,
                     Center * canvas.size,
@@ -39,9 +40,9 @@ namespace HELIX.Widgets.Visual.GradientGenerators {
                     Focus * canvas.size,
                     AddressMode
                 );
-            }
 
             return FillGradient.MakeRadialGradient(gradient, Center, Radius, Focus, AddressMode);
         }
+
     }
 }

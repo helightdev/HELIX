@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public class StyleValueProperty<T> : DiagnosticsProperty<IStyleValue<T>> {
+
         public StyleValueProperty(
             string name,
             IStyleValue<T> value,
@@ -43,7 +44,9 @@ namespace HELIX.Widgets.Diagnostics.Properties {
                 if (ValueTyped != null) {
                     if (ValueTyped.keyword is StyleKeyword.Initial or StyleKeyword.Null && IfInitial == null)
                         return DiagnosticLevel.Hidden;
-                } else if (IfNull == null) return DiagnosticLevel.Hidden;
+                } else if (IfNull == null) {
+                    return DiagnosticLevel.Hidden;
+                }
 
                 return base.Level;
             }
@@ -74,15 +77,15 @@ namespace HELIX.Widgets.Diagnostics.Properties {
                     showName: false
                 ),
                 float f => new FloatProperty("float", f, showName: false),
-                _       => new DiagnosticsProperty<T>("value", value, showName: false)
+                _ => new DiagnosticsProperty<T>("value", value, showName: false)
             };
         }
 
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             switch (ValueTyped.keyword) {
-                case StyleKeyword.Null:    return "<null>";
-                case StyleKeyword.Auto:    return "<auto>";
-                case StyleKeyword.None:    return "<none>";
+                case StyleKeyword.Null: return "<null>";
+                case StyleKeyword.Auto: return "<auto>";
+                case StyleKeyword.None: return "<none>";
                 case StyleKeyword.Initial: return "<initial>";
                 case StyleKeyword.Undefined:
                 default:
@@ -90,5 +93,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
                         .ToDescription(parentConfiguration);
             }
         }
+
     }
 }

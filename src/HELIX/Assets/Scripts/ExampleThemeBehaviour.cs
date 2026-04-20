@@ -1,6 +1,7 @@
 using UnityEngine;
 
 public class ExampleThemeBehaviour : MonoBehaviour {
+
     public ExampleThemeComponent component;
 
     private void Awake() {
@@ -11,4 +12,5 @@ public class ExampleThemeBehaviour : MonoBehaviour {
     public void Push() {
         component.ApplyGlobal();
     }
+
 }

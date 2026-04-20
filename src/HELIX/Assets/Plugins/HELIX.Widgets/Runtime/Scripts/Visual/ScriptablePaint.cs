@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual {
     [UxmlObject]
     public abstract partial class ScriptablePaint {
+
         public abstract void Draw(PaintCanvas canvas, Rect bounds);
 
         public void Draw(MeshGenerationContext context) {
@@ -16,15 +17,19 @@ namespace HELIX.Widgets.Visual {
         public void Draw(PaintCanvas canvas) {
             Draw(canvas, canvas.canvasRect);
         }
+
     }
 
     [UxmlObject]
     public partial class HiddenPaint : ScriptablePaint {
+
         public override void Draw(PaintCanvas canvas, Rect bounds) { }
+
     }
 
     [UxmlObject]
     public partial class ScriptablePainter : ScriptablePaint {
+
         public ScriptablePainter() { }
 
         public ScriptablePainter(
@@ -67,5 +72,6 @@ namespace HELIX.Widgets.Visual {
             );
             Then?.Draw(canvas, bounds);
         }
+
     }
 }

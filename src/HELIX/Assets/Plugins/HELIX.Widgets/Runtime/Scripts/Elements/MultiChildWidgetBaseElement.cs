@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     public abstract class MultiChildWidgetBaseElement<T> : WidgetBaseElement<T>, IMultiChildContainer,
         IWidgetElementCollection where T : MultiChildWidget {
+
         public virtual IEnumerable<VisualElement> Childs {
             get => Children();
             set {
@@ -43,6 +44,7 @@ namespace HELIX.Widgets.Elements {
                 .Select(x => x.ToDiagnosticsNodeSafe())
                 .ToList();
         }
+
     }
 
     public interface IPreferExplicitFlex { }

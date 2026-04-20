@@ -8,6 +8,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Theming {
     [UxmlElement]
     public partial class ThemeProviderElement : SingleChildWidgetBaseElement<HThemeProvider>, IThemeProvider {
+
         public static readonly IdentityDictionary<ThemeProperty, object> GlobalThemeValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _cachedThemeValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _componentValues = new();
@@ -148,9 +149,9 @@ namespace HELIX.Widgets.Theming {
 
         public override void Apply(HThemeProvider previous, HThemeProvider widget) {
             ThemeValues.Clear();
-            if (widget.properties != null) {
-                foreach (var kvp in widget.properties) ThemeValues[kvp.Key] = kvp.Value;
-            }
+            if (widget.properties != null)
+                foreach (var kvp in widget.properties)
+                    ThemeValues[kvp.Key] = kvp.Value;
 
             Components = widget.components ?? new List<ThemeComponent>(); // This will also update the theme
         }
@@ -193,14 +194,18 @@ namespace HELIX.Widgets.Theming {
             value = property.TypedDefaultValue;
             return false;
         }
+
     }
 
     public interface IThemeProvider {
+
         T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true);
         bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true);
+
     }
 
     public class FallbackThemeProvider : IThemeProvider {
+
         public static readonly FallbackThemeProvider Instance = new();
 
         public T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
@@ -210,11 +215,14 @@ namespace HELIX.Widgets.Theming {
         public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
             return ThemeProviderElement.TryResolve(null, property, out value);
         }
+
     }
 
     public enum ThemeMode {
+
         Uxml,
         Proxy,
         Widgets
+
     }
 }

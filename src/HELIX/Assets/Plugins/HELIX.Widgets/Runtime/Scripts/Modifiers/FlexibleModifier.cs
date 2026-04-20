@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class FlexibleModifier : Modifier {
+
         public static readonly FlexibleModifier Expand = new(1f, 1f, Align.Auto);
         public static readonly FlexibleModifier Shrink = new(0f, 1f, Align.Auto);
         public static readonly FlexibleModifier Tight = new(0f, 0f, Align.Auto);
@@ -76,5 +77,6 @@ namespace HELIX.Widgets.Modifiers {
             if (DeepEquals(TightStretch)) return nameof(TightStretch);
             return null;
         }
+
     }
 }

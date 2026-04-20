@@ -2,6 +2,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Error {
     public sealed class ErrorSummary : DiagnosticsProperty<string> {
+
         public ErrorSummary(string message)
             : base(
                 null,
@@ -10,5 +11,6 @@ namespace HELIX.Widgets.Diagnostics.Error {
                 style: DiagnosticsTreeStyle.SingleLine,
                 level: DiagnosticLevel.Summary
             ) { }
+
     }
 }

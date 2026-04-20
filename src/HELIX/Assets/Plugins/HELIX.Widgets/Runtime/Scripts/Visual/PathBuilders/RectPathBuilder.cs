@@ -5,7 +5,9 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.PathBuilders {
     [UxmlObject]
     public partial class RectPathBuilder : ScriptablePathBuilder {
-        [Header("Rectangle"), UxmlAttribute]
+
+        [Header("Rectangle")]
+        [UxmlAttribute]
         public Rect Rect { get; set; } = default;
 
         [UxmlAttribute]
@@ -31,5 +33,6 @@ namespace HELIX.Widgets.Visual.PathBuilders {
 
             builder.Rect(rect);
         }
+
     }
 }

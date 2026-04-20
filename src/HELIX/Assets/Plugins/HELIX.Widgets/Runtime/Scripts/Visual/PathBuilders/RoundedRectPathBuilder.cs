@@ -7,7 +7,9 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.PathBuilders {
     [UxmlObject]
     public partial class RoundedRectPathBuilder : ScriptablePathBuilder {
-        [Header("Rounded Rectangle"), UxmlAttribute]
+
+        [Header("Rounded Rectangle")]
+        [UxmlAttribute]
         public Rect Rect { get; set; } = default;
 
         [UxmlAttribute]
@@ -42,11 +44,14 @@ namespace HELIX.Widgets.Visual.PathBuilders {
             if (Corners == default) builder.Rect(rect);
             else builder.RRect(new RRect(rect, Radii));
         }
+
     }
 
     public enum RectConstructionMode {
+
         Insets = 0,
         Normalized = 1,
         Absolute = 2
+
     }
 }

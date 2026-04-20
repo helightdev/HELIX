@@ -12,6 +12,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public static class Reconciler {
+
         private static readonly Dictionary<Key, IWidgetElement> _keyedScratch = new();
         private static readonly Queue<IWidgetElement> _unkeyedScratch = new();
         private static readonly Queue<ReconcilerEntry> _reconcileScratch = new();
@@ -49,7 +50,7 @@ namespace HELIX.Widgets {
             var child = container.Child;
             if (child != null) element = ExpandElement(child);
 
-            if (element != null) {
+            if (element != null)
                 try {
                     if (CanReuse(element.Descriptor, descriptor) && element.CanReconcile(descriptor)) {
                         MaybeReconcile(element, descriptor);
@@ -70,7 +71,6 @@ namespace HELIX.Widgets {
                         ex
                     ).Report(DiagnosticLevel.Error);
                 }
-            }
 
             var newElement = descriptor.CreateElement();
             newElement.CallMounted(descriptor, owner);
@@ -99,12 +99,13 @@ namespace HELIX.Widgets {
                 if (descriptor == null) continue;
 
                 if (!descriptor.key.IsNone) {
-                    if (!_keyedScratch.TryAdd(descriptor.key, element)) {
+                    if (!_keyedScratch.TryAdd(descriptor.key, element))
                         throw new InvalidOperationException(
                             $"Duplicate existing key '{descriptor.key}' in descriptor collection."
                         );
-                    }
-                } else _unkeyedScratch.Enqueue(element);
+                } else {
+                    _unkeyedScratch.Enqueue(element);
+                }
             }
 
             var isDirty = descriptors.Count != _existingScratch.Count;
@@ -187,23 +188,21 @@ namespace HELIX.Widgets {
             }
 
             if (isDirty) {
-                foreach (var element in _unkeyedScratch) {
+                foreach (var element in _unkeyedScratch)
                     _deltaScratch.Add(
                         new ReconcilerCollectionDelta {
                             target = element,
                             added = false
                         }
                     );
-                }
 
-                foreach (var (_, value) in _keyedScratch) {
+                foreach (var (_, value) in _keyedScratch)
                     _deltaScratch.Add(
                         new ReconcilerCollectionDelta {
                             target = value,
                             added = false
                         }
                     );
-                }
 
                 try {
                     var resultArray = _resultScratch.ToArray();
@@ -214,9 +213,9 @@ namespace HELIX.Widgets {
                         deltaArray[i] = current;
                     }
 
-                    foreach (var current in _deltaScratch) {
-                        if (current.added) current.target.CallMounted(current.descriptor, owner);
-                    }
+                    foreach (var current in _deltaScratch)
+                        if (current.added)
+                            current.target.CallMounted(current.descriptor, owner);
 
                     collection.UpdateWidgetElements(resultArray, deltaArray);
                 } catch (Exception ex) {
@@ -229,22 +228,23 @@ namespace HELIX.Widgets {
             if (_isProcessingQueue) return;
             try {
                 _isProcessingQueue = true;
-                while (_reconcileScratch.TryDequeue(out var next)) {
+                while (_reconcileScratch.TryDequeue(out var next))
                     try {
                         MaybeReconcile(next.element, next.descriptor); //
                     } catch (Exception ex) {
                         Debug.LogError($"Error reconciling {next.element} with descriptor {next.descriptor}: {ex}");
                     }
-                }
-            } finally { _isProcessingQueue = false; }
+            } finally {
+                _isProcessingQueue = false;
+            }
         }
 
         private static void MaybeReconcile(IWidgetElement element, Widget descriptor) {
             var previous = element.Descriptor;
             if (ReferenceEquals(previous, descriptor)) return;
-            if (previous.constants != null && descriptor.constants != null) {
-                if (previous.constants.SequenceEqual(descriptor.constants)) return;
-            }
+            if (previous.constants != null && descriptor.constants != null)
+                if (previous.constants.SequenceEqual(descriptor.constants))
+                    return;
 
             Reconcile(element, descriptor);
         }
@@ -254,7 +254,9 @@ namespace HELIX.Widgets {
             try {
                 BuildContext.ReconcilerCurrent = element;
                 ModificationBarrier.Run(() => { element.Reconcile(descriptor); }); //
-            } catch (HelixDiagnosticException ex) { ex.Report(DiagnosticLevel.Error); } catch (Exception ex) {
+            } catch (HelixDiagnosticException ex) {
+                ex.Report(DiagnosticLevel.Error);
+            } catch (Exception ex) {
                 var error = HelixDiagnostics.Build(
                     "An exception occurred while reconciling an element.",
                     details: new DiagnosticsNode[] {
@@ -264,7 +266,9 @@ namespace HELIX.Widgets {
                     exception: ex
                 );
                 error.Report(DiagnosticLevel.Error);
-            } finally { BuildContext.ReconcilerCurrent = null; }
+            } finally {
+                BuildContext.ReconcilerCurrent = null;
+            }
         }
 
         private static void CallUnmounted(this IWidgetElement element) {
@@ -275,20 +279,26 @@ namespace HELIX.Widgets {
             descriptor?.key.details?.OnMounted(element, descriptor);
             element.ParentContext = parent;
         }
+
     }
 
     public struct ReconcilerCollectionDelta {
+
         public IWidgetElement target;
         public Widget descriptor;
         public bool added;
+
     }
 
     public struct ReconcilerEntry {
+
         public IWidgetElement element;
         public Widget descriptor;
+
     }
 
     public class HostElement : DiagnosticableBase, IWidgetElement {
+
         public HostElement(VisualElement element) {
             Element = element;
             HierarchyDepth = element.GetDepth();
@@ -338,6 +348,7 @@ namespace HELIX.Widgets {
         }
 
         public class HostElementDescriptor : Widget {
+
             public readonly HostElement host;
 
             public HostElementDescriptor(HostElement host) {
@@ -350,15 +361,20 @@ namespace HELIX.Widgets {
 
                 return host;
             }
+
         }
+
     }
 
     public interface IWidgetElementCollection {
+
         void LoadWidgetElements(List<IWidgetElement> elements);
         void UpdateWidgetElements(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas);
+
     }
 
     public readonly struct HierarchyDescriptionCollection : IWidgetElementCollection {
+
         public readonly VisualElement element;
 
         public HierarchyDescriptionCollection(VisualElement element) {
@@ -381,18 +397,16 @@ namespace HELIX.Widgets {
                 var child = delta.target.Element;
                 if (delta.added) {
                     if (child.parent == null) element.hierarchy.Add(child);
-                    else {
+                    else
                         Debug.LogWarning(
                             $"Attempted to add element {child} to hierarchy, but it already has a parent. This may indicate a problem with the reconciliation process."
                         );
-                    }
                 } else {
                     if (child.parent == element.contentContainer) child.RemoveFromHierarchy();
-                    else {
+                    else
                         Debug.LogWarning(
                             $"Attempted to remove element {child} from hierarchy, but it is not a child of the target element. This may indicate a problem with the reconciliation process."
                         );
-                    }
                 }
             }
 
@@ -411,5 +425,6 @@ namespace HELIX.Widgets {
                 }
             );
         }
+
     }
 }

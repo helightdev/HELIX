@@ -3,6 +3,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class ButtonControllerModifier : SingletonModifier {
+
         public readonly ButtonController controller;
         private ButtonController.ButtonManipulator _manipulator;
 
@@ -23,5 +24,6 @@ namespace HELIX.Widgets.Modifiers {
         public override bool HasChanged(Modifier previous) {
             return previous is not ButtonControllerModifier prev || !ReferenceEquals(controller, prev.controller);
         }
+
     }
 }

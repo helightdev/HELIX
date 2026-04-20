@@ -12,6 +12,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HSlider : StatefulWidget<HSlider> {
+
         public readonly Axis axis;
 
         public readonly WidgetStateProperty<ModifierSet> boxModifiers;
@@ -83,9 +84,11 @@ namespace HELIX.Widgets.Universal {
         public override State<HSlider> CreateState() {
             return new HSliderState();
         }
+
     }
 
     public class HSliderState : State<HSlider> {
+
         private SliderController _controller;
         private WidgetStateController _widgetStateController;
 
@@ -245,5 +248,6 @@ namespace HELIX.Widgets.Universal {
                     bottom: reverse ? startStyle : endStyle
                 );
         }
+
     }
 }

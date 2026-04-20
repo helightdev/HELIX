@@ -2,6 +2,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public class StringProperty : DiagnosticsProperty<string> {
+
         public StringProperty(
             string name,
             string value,
@@ -53,5 +54,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         private string ToDescriptionSource() {
             return ValueTyped;
         }
+
     }
 }

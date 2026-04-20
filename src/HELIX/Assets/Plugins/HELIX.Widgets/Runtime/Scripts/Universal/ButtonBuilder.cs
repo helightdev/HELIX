@@ -8,6 +8,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class ButtonBuilder : Widget {
+
         private static readonly FocusModifier _defaultFocus =
             new(true, PickingMode.Position, 0, false) { isFallback = true };
 
@@ -33,5 +34,6 @@ namespace HELIX.Widgets.Universal {
             properties.Add(new FlagProperty("enabled", enabled, "Enabled", "Disabled"));
             properties.Add(new FlagProperty("selected", selected, "Selected"));
         }
+
     }
 }

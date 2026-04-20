@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace HELIX.Widgets.Universal.Controllers {
     public class SliderController : ValueSignal<float>, ISignalObserver {
+
         public readonly WidgetStateController widgetState;
         private float _thumbRange = 0.1f;
         public bool enabled = true;
@@ -80,5 +81,6 @@ namespace HELIX.Widgets.Universal.Controllers {
             UnlinkScrollController();
             base.Dispose();
         }
+
     }
 }

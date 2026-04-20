@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class ClipModifier : Modifier {
+
         public static readonly ClipModifier Clip = new(true);
         public static readonly ClipModifier None = new(false);
         public readonly bool enabled;
@@ -28,5 +29,6 @@ namespace HELIX.Widgets.Modifiers {
         protected override string FindConstantName() {
             return enabled ? nameof(Clip) : nameof(None);
         }
+
     }
 }

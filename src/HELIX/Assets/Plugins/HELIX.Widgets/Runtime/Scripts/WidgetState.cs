@@ -11,6 +11,7 @@ using HELIX.Widgets.Diagnostics.Properties;
 namespace HELIX.Widgets {
     [Flags]
     public enum WidgetState : ushort {
+
         None = 0,
 
         Hovered = 1 << 0,
@@ -41,9 +42,11 @@ namespace HELIX.Widgets {
 
         ModNot = 1 << 14,
         ModAny = 1 << 15
+
     }
 
     public static class WidgetStateExtensions {
+
         public const WidgetState OperatorMask = WidgetState.ModNot | WidgetState.ModAny;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -105,9 +108,11 @@ namespace HELIX.Widgets {
                 .Select(flag => flag.ToString());
             return string.Join(",", flags);
         }
+
     }
 
     public static class WidgetStateProperties {
+
         public static WidgetStateProperty<T> Never<T>() {
             return NeverWidgetStateProperty<T>.Instance;
         }
@@ -126,9 +131,11 @@ namespace HELIX.Widgets {
         ) {
             return new MergingModifiersWidgetState(overrides, fallback);
         }
+
     }
 
     public abstract class WidgetStateProperty<T> : DiagnosticableBase {
+
         public abstract bool TryResolve(WidgetState state, out T value);
 
         public T ResolveOrDefault(WidgetState state, T defaultValue = default) {
@@ -138,9 +145,11 @@ namespace HELIX.Widgets {
         public static implicit operator WidgetStateProperty<T>(T constant) {
             return WidgetStateProperties.All(constant);
         }
+
     }
 
     public class WidgetStatePropertyMap<T> : WidgetStateProperty<T> {
+
         private readonly List<Pair> _values = new();
 
         public T this[WidgetState state] {
@@ -181,6 +190,7 @@ namespace HELIX.Widgets {
         }
 
         private readonly struct Pair : IEquatable<Pair> {
+
             public readonly WidgetState mask;
             public readonly T value;
 
@@ -204,10 +214,13 @@ namespace HELIX.Widgets {
             public override string ToString() {
                 return $"{mask.ToStateString()} => {value}";
             }
+
         }
+
     }
 
     public class NeverWidgetStateProperty<T> : WidgetStateProperty<T> {
+
         public static readonly NeverWidgetStateProperty<T> Instance = new();
         private NeverWidgetStateProperty() { }
 
@@ -234,9 +247,11 @@ namespace HELIX.Widgets {
         public override string ToString() {
             return "Never";
         }
+
     }
 
     public class AllWidgetStateProperty<T> : WidgetStateProperty<T>, IEquatable<AllWidgetStateProperty<T>> {
+
         private readonly T _constant;
 
         public AllWidgetStateProperty(T constant) {
@@ -264,10 +279,12 @@ namespace HELIX.Widgets {
         public override string ToString() {
             return $"All({_constant})";
         }
+
     }
 
     public class FuncWidgetStateProperty<T> : WidgetStateProperty<T>,
         IEquatable<FuncWidgetStateProperty<T>> {
+
         private readonly Func<WidgetState, T> _resolver;
 
         public FuncWidgetStateProperty(Func<WidgetState, T> resolver) {
@@ -291,9 +308,11 @@ namespace HELIX.Widgets {
         public override int GetHashCode() {
             return _resolver != null ? _resolver.GetHashCode() : 0;
         }
+
     }
 
     public class MergingModifiersWidgetState : WidgetStateProperty<ModifierSet> {
+
         public readonly WidgetStateProperty<ModifierSet> fallback;
         public readonly WidgetStateProperty<ModifierSet> overrides;
 
@@ -312,5 +331,6 @@ namespace HELIX.Widgets {
             value = set;
             return true;
         }
+
     }
 }

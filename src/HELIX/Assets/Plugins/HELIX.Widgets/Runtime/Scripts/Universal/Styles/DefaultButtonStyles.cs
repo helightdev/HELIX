@@ -8,6 +8,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {
     public class DefaultButtonStyles {
+
         public static HButtonStyle DefaultStyleOf(
             IThemeProvider context,
             HButtonVariant variant,
@@ -28,12 +29,12 @@ namespace HELIX.Widgets.Universal.Styles {
             surfacePalette ??= colors.surface;
             inactive ??= colors.secondary;
             var borderRadius = rad switch {
-                HInputRadius.None   => BorderRadius.None,
-                HInputRadius.Small  => BorderRadius.All(radius.Radius1),
+                HInputRadius.None => BorderRadius.None,
+                HInputRadius.Small => BorderRadius.All(radius.Radius1),
                 HInputRadius.Medium => BorderRadius.All(radius.Radius2),
-                HInputRadius.Large  => BorderRadius.All(radius.Radius3),
-                HInputRadius.Full   => BorderRadius.All(9999),
-                _                   => throw new ArgumentOutOfRangeException(nameof(rad), rad, null)
+                HInputRadius.Large => BorderRadius.All(radius.Radius3),
+                HInputRadius.Full => BorderRadius.All(9999),
+                _ => throw new ArgumentOutOfRangeException(nameof(rad), rad, null)
             };
 
             SubstanceBuilder layers = variant switch {
@@ -139,7 +140,7 @@ namespace HELIX.Widgets.Universal.Styles {
 
             var fontColorInactive = variant switch {
                 HButtonVariant.FlatTwoState => inactive.onMain,
-                _                           => fontColor
+                _ => fontColor
             };
             var defaultText = new WidgetStatePropertyMap<TextStyle> {
                 [WidgetState.Disabled] = new TextStyle {
@@ -158,7 +159,7 @@ namespace HELIX.Widgets.Universal.Styles {
             };
 
             var selectedText = defaultText;
-            if (variant is HButtonVariant.TwoState or HButtonVariant.SoftTwoState) {
+            if (variant is HButtonVariant.TwoState or HButtonVariant.SoftTwoState)
                 selectedText = new WidgetStatePropertyMap<TextStyle> {
                     [WidgetState.Disabled] = new TextStyle {
                         fontSize = fontSize,
@@ -169,7 +170,6 @@ namespace HELIX.Widgets.Universal.Styles {
                         color = palette.onMain
                     }
                 };
-            }
 
             return new HButtonStyle {
                 padding = new AllWidgetStateProperty<StyleLength4>(padding),
@@ -181,5 +181,6 @@ namespace HELIX.Widgets.Universal.Styles {
                 )
             };
         }
+
     }
 }

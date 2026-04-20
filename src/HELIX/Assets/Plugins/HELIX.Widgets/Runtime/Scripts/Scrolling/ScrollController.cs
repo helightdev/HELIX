@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
     public class ScrollController : ValueSignal<float>, ISignalObserver {
+
         private float _initialScrollOffset;
         private float? _lastOffset;
 
@@ -111,5 +112,6 @@ namespace HELIX.Widgets.Scrolling {
 
             ScrollPosition?.RemoveObserver(this);
         }
+
     }
 }

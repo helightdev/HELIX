@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.PathBuilders {
     [UxmlObject]
     public partial class LayoutPathBuilder : ScriptablePathBuilder {
+
         [UxmlAttribute]
         public StyleLength Height { get; set; } = Length.Auto();
 
@@ -29,5 +30,6 @@ namespace HELIX.Widgets.Visual.PathBuilders {
             bounds = bounds.LayoutSimple(Alignment, Width, Height, WidthConstraints, HeightConstraints);
             Builder?.Build(builder, bounds);
         }
+
     }
 }

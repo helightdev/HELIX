@@ -3,6 +3,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public static class ModifierFallbacks {
+
         public static FlexibleModifier ImplicitFlexFill = new(1f, 1f, Align.Stretch) {
             isFallback = true,
             isImplicit = true
@@ -21,5 +22,6 @@ namespace HELIX.Widgets.Modifiers {
 
         public static PaddingModifier PaddingZero = new(StyleLength4.Zero) { isFallback = true };
         public static MarginModifier MarginZero = new(StyleLength4.Zero) { isFallback = true };
+
     }
 }

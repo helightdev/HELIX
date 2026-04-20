@@ -6,12 +6,15 @@ using UnityEngine.UIElements;
 
 namespace Examples {
     public class ButtonsExample : StatefulWidget<ButtonsExample> {
+
         public override State<ButtonsExample> CreateState() {
             return new ButtonsExampleState();
         }
+
     }
 
     public class ButtonsExampleState : State<ButtonsExample> {
+
         private ButtonController _controlledButton;
         private WidgetStateController _controlledButtonState;
         private bool _enabled = true;
@@ -45,11 +48,11 @@ namespace Examples {
                         }
                     )
                 },
-                new HBox().Size(height: 32), //
+                new HBox().Size(height: 32),
                 VariantRow(), // Showcases all the variants of the button
                 SizingRow(), // Showcases the different sizes and radii of the button
 
-                new HBox().Size(height: 32), //
+                new HBox().Size(height: 32),
                 new HRow(gap: 16f) {
                     new HButton(
                         HButtonVariant.FlatTwoState,
@@ -185,5 +188,6 @@ namespace Examples {
                 ).Expand()
             };
         }
+
     }
 }

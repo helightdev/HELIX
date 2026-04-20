@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics;
 
 namespace HELIX.Widgets.Universal.Styles {
     public class HButtonStyle : DiagnosticableBase {
+
         public static HButtonStyle Default = new();
         public WidgetStateProperty<Alignment> alignment = WidgetStateProperties.Never<Alignment>();
 
@@ -34,9 +35,11 @@ namespace HELIX.Widgets.Universal.Styles {
             properties.Add(new DiagnosticsProperty<object>("transitions", transitions));
             properties.Add(new DiagnosticsProperty<object>("modifiers", modifiers));
         }
+
     }
 
     public enum HButtonVariant {
+
         Default,
         Flat,
         FlatTwoState,
@@ -45,20 +48,25 @@ namespace HELIX.Widgets.Universal.Styles {
         Outline,
         Ghost,
         TwoState
+
     }
 
     public enum HButtonSize {
+
         Small,
         Regular,
         Medium,
         Large
+
     }
 
     public enum HInputRadius {
+
         None,
         Small,
         Medium,
         Large,
         Full
+
     }
 }

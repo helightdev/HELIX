@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Navigation.Transitions {
     [UxmlObject]
     public partial class FadePageTransition : PageTransition {
+
         public FadePageTransition() { }
 
         public FadePageTransition(int durationMs) {
@@ -71,5 +72,6 @@ namespace HELIX.Widgets.Navigation.Transitions {
 
             foreach (var page in context.modificationResult.RemovedPages) page.style.opacity = 1f;
         }
+
     }
 }

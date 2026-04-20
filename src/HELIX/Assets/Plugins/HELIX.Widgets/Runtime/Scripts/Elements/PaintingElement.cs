@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     public abstract class PaintingElement : BaseElement {
+
         protected PaintingElement() {
             generateVisualContent += OnGenerateVisualContent;
         }
@@ -20,5 +21,6 @@ namespace HELIX.Widgets.Elements {
         }
 
         public abstract void Paint(PaintCanvas canvas, Rect bounds);
+
     }
 }

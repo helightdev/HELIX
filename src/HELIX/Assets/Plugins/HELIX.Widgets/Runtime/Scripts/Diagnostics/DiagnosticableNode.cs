@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics {
     public class DiagnosticableNode : DiagnosticsNode {
+
         private DiagnosticPropertiesBuilder _cachedBuilder;
 
         public DiagnosticableNode(string name, IDiagnosticable value, DiagnosticsTreeStyle? style)
@@ -37,5 +38,6 @@ namespace HELIX.Widgets.Diagnostics {
         public override List<DiagnosticsNode> GetChildren() {
             return new List<DiagnosticsNode>();
         }
+
     }
 }

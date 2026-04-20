@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HFlex : MultiChildWidget {
+
         public readonly Axis axis;
         public readonly Align crossAxisAlign;
         public readonly Justify mainAxisAlign;
@@ -53,9 +54,11 @@ namespace HELIX.Widgets.Universal {
             properties.Add(new FlagProperty("reverse", reverse, "Reverse"));
             properties.Add(new FlagProperty("wrapReverse", wrapReverse, "Wrap Reverse"));
         }
+
     }
 
     public class HFlexElement : MultiChildWidgetBaseElement<HFlex>, IPreferExplicitFlex {
+
         public override void Apply(HFlex previous, HFlex widget) {
             base.Apply(previous, widget);
             if (widget.axis == Axis.Horizontal)
@@ -67,5 +70,6 @@ namespace HELIX.Widgets.Universal {
             style.alignItems = widget.crossAxisAlign;
             style.justifyContent = widget.mainAxisAlign;
         }
+
     }
 }

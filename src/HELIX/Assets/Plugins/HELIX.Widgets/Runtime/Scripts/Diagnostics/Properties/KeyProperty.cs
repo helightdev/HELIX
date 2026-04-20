@@ -2,6 +2,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public sealed class KeyProperty : DiagnosticsProperty<Key> {
+
         public KeyProperty(
             Key value,
             string name = "key",
@@ -12,5 +13,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             return ValueTyped.ToString();
         }
+
     }
 }

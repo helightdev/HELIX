@@ -8,6 +8,7 @@ namespace HELIX.Widgets {
     public interface IStatelessWidget { }
 
     public abstract class StatelessWidget<T> : Widget, IStatelessWidget, IBuildable where T : StatelessWidget<T> {
+
         protected StatelessWidget() {
             AddModifier(ModifierFallbacks.ImplicitFlexFill);
         }
@@ -25,10 +26,12 @@ namespace HELIX.Widgets {
         public override IWidgetElement CreateElement() {
             return ReconcileInto(new StatelessWidgetElement<T>());
         }
+
     }
 
     public class StatelessWidgetElement<T> : BuildingWidgetBaseElement<T>, IStatelessWidget, IHierarchyDisposable
         where T : StatelessWidget<T> {
+
         private bool _isDisposed;
 
         public void Dispose() {
@@ -62,5 +65,6 @@ namespace HELIX.Widgets {
         public override string ToStringShort() {
             return $"{typeof(T).Name}:Element#{this.ShortHash()}";
         }
+
     }
 }

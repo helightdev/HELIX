@@ -6,6 +6,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Error {
     public class DiagnosticsStackTrace : DiagnosticsBlock {
+
         public DiagnosticsStackTrace(
             string name,
             string stackTrace,
@@ -52,5 +53,6 @@ namespace HELIX.Widgets.Diagnostics.Error {
                 .ToList();
             return children;
         }
+
     }
 }

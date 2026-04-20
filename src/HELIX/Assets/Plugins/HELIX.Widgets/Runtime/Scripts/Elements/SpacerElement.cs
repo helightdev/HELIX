@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
     public partial class SpacerElement : VisualElement {
+
         private Axis _axis = Axis.Vertical;
         private bool _expands;
         private float _width = 8f;
@@ -52,5 +53,6 @@ namespace HELIX.Widgets.Elements {
                 style.flexGrow = value ? 1 : 0;
             }
         }
+
     }
 }

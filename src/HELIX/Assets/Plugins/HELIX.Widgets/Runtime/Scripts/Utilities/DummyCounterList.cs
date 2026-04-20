@@ -3,6 +3,7 @@ using System.Collections;
 
 namespace HELIX.Widgets.Utilities {
     public class DummyCounterList : IList {
+
         public IEnumerator GetEnumerator() {
             for (var i = 0; i < Count; i++) yield return i;
         }
@@ -53,5 +54,6 @@ namespace HELIX.Widgets.Utilities {
             get => index < 0 || index >= Count ? null : index;
             set => throw new NotImplementedException();
         }
+
     }
 }

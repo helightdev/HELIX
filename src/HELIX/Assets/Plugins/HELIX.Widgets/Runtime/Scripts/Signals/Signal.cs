@@ -7,6 +7,7 @@ using UnityEngine.Pool;
 
 namespace HELIX.Widgets.Signals {
     public abstract class Signal : DiagnosticableBase, IDisposable, IPossiblyDisposed {
+
         private const int _maxNotificationStackDepth = 16;
         private readonly HashSet<ISignalObserver> _observers = new();
         private int _notificationStackDepth;
@@ -16,10 +17,12 @@ namespace HELIX.Widgets.Signals {
             var list = ListPool<ISignalObserver>.Get();
             try {
                 list.AddRange(_observers);
-                foreach (var observer in list) {
+                foreach (var observer in list)
                     try {
                         observer.OnSignalRemoved(this); //
-                    } catch (HelixDiagnosticException) { throw; } catch
+                    } catch (HelixDiagnosticException) {
+                        throw;
+                    } catch
                         (Exception e) {
                         throw HelixDiagnostics.Build(
                             "An error occurred while disposing a signal observer.",
@@ -30,7 +33,6 @@ namespace HELIX.Widgets.Signals {
                             exception: e
                         );
                     }
-                }
             } finally {
                 ListPool<ISignalObserver>.Release(list);
                 IsDisposed = true;
@@ -59,7 +61,7 @@ namespace HELIX.Widgets.Signals {
 
             try {
                 _notificationStackDepth++;
-                foreach (var observer in _observers) {
+                foreach (var observer in _observers)
                     try {
                         if (observer is IPossiblyDisposed { IsDisposed: true }) {
                             RemoveObserver(observer);
@@ -67,7 +69,9 @@ namespace HELIX.Widgets.Signals {
                         }
 
                         observer.OnSignalDirty(this); //
-                    } catch (HelixDiagnosticException) { throw; } catch
+                    } catch (HelixDiagnosticException) {
+                        throw;
+                    } catch
                         (Exception e) {
                         throw HelixDiagnostics.Build(
                             "An error occurred while notifying a signal observer of a dirty signal.",
@@ -78,8 +82,9 @@ namespace HELIX.Widgets.Signals {
                             exception: e
                         );
                     }
-                }
-            } finally { _notificationStackDepth--; }
+            } finally {
+                _notificationStackDepth--;
+            }
         }
 
         protected void NotifyObservers() {
@@ -104,10 +109,12 @@ namespace HELIX.Widgets.Signals {
                     try {
                         _notificationStackDepth++;
                         buffer.AddRange(_observers);
-                        foreach (var observer in buffer) {
+                        foreach (var observer in buffer)
                             try {
                                 observer.OnSignalChanged(this); //
-                            } catch (HelixDiagnosticException) { throw; } catch (Exception e) {
+                            } catch (HelixDiagnosticException) {
+                                throw;
+                            } catch (Exception e) {
                                 throw HelixDiagnostics.Build(
                                     "An error occurred while notifying a signal observer of a changed value.",
                                     details: new DiagnosticsNode[] {
@@ -117,7 +124,6 @@ namespace HELIX.Widgets.Signals {
                                     exception: e
                                 );
                             }
-                        }
                     } finally {
                         _notificationStackDepth--;
                         ListPool<ISignalObserver>.Release(buffer);
@@ -152,9 +158,11 @@ namespace HELIX.Widgets.Signals {
         public static ComputedSignal<T> Computed<T>(Func<T> computeFunc) {
             return new ComputedSignal<T>(computeFunc);
         }
+
     }
 
     public abstract class Signal<T> : Signal {
+
         public T Value {
             get {
                 var tracker = SignalDependencyTracker.Current;
@@ -184,5 +192,6 @@ namespace HELIX.Widgets.Signals {
         public static implicit operator T(Signal<T> signal) {
             return signal.Value;
         }
+
     }
 }

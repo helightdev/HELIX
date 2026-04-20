@@ -9,12 +9,15 @@ using UnityEngine.UIElements;
 
 namespace Examples {
     public class ScrollControllerExample : StatefulWidget<ScrollControllerExample> {
+
         public override State<ScrollControllerExample> CreateState() {
             return new ScrollControllerExampleState();
         }
+
     }
 
     public class ScrollControllerExampleState : State<ScrollControllerExample> {
+
         private readonly ScrollController _controller = new();
 
         public override void Dispose() {
@@ -75,5 +78,6 @@ namespace Examples {
                 new HSlider(_controller, axis: Axis.Horizontal).TightStretch()
             };
         }
+
     }
 }

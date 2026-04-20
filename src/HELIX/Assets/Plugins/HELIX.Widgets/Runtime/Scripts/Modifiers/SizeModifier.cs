@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class SizeModifier : Modifier {
+
         public static readonly SizeModifier None = new(
             StyleLength2.Initial,
             StyleLength2.Initial,
@@ -64,5 +65,6 @@ namespace HELIX.Widgets.Modifiers {
                 )
             );
         }
+
     }
 }

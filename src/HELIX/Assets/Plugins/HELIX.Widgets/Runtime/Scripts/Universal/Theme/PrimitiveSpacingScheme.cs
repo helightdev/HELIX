@@ -3,6 +3,7 @@ using System;
 namespace HELIX.Widgets.Universal.Theme {
     [Serializable]
     public class PrimitiveSpacingScheme {
+
         public static PrimitiveSpacingScheme Default = new();
 
         public float basis = 5f;
@@ -18,5 +19,6 @@ namespace HELIX.Widgets.Universal.Theme {
         public virtual float Space7 => basis * factor * 10;
         public virtual float Space8 => basis * factor * 12;
         public virtual float Space9 => basis * factor * 16;
+
     }
 }

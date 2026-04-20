@@ -4,6 +4,7 @@ using System.Collections.Generic;
 namespace HELIX.Widgets.Utilities {
     public class IndexedReferencePriorityQueue<TElement, TPriority>
         where TPriority : IComparable<TPriority> where TElement : class {
+
         private readonly Dictionary<TElement, int> _elementIndices = new(new ReferenceEqualityComparer<TElement>());
         private readonly List<(TElement Element, TPriority Priority)> _heap = new();
 
@@ -100,5 +101,6 @@ namespace HELIX.Widgets.Utilities {
             _elementIndices[itemJ.Element] = i;
             _elementIndices[itemI.Element] = j;
         }
+
     }
 }

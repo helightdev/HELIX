@@ -9,6 +9,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {
     public class HSliderStyle : DiagnosticableBase {
+
         public WidgetStateProperty<BoxConstraints> constraints = WidgetStateProperties.Never<BoxConstraints>();
         public SubstanceLayers progress;
         public SubstanceLayers thumb;
@@ -120,5 +121,6 @@ namespace HELIX.Widgets.Universal.Styles {
                     .Build()
             };
         }
+
     }
 }

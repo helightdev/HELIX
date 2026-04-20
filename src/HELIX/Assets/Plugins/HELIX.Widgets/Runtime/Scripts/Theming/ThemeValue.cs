@@ -6,6 +6,7 @@ using HELIX.Widgets.Elements;
 
 namespace HELIX.Widgets.Theming {
     public abstract class ThemeValue : DiagnosticableBase {
+
         public abstract ThemeProperty ThemeProperty { get; }
         public abstract ThemeValueState ThemeValueState { get; }
         public abstract void ReloadStyles();
@@ -15,9 +16,11 @@ namespace HELIX.Widgets.Theming {
             properties.Add(new DiagnosticsProperty<ThemeProperty>("property", ThemeProperty));
             properties.Add(new EnumProperty<ThemeValueState>("state", ThemeValueState));
         }
+
     }
 
     public class ThemeValue<T> : ThemeValue {
+
         public delegate void OnValueChangedDelegate(T newValue);
 
         private readonly BaseThemeProperty<T> _fallbackProperty;
@@ -138,12 +141,15 @@ namespace HELIX.Widgets.Theming {
                 )
             );
         }
+
     }
 
     public enum ThemeValueState {
+
         None = 0,
         CustomStyle = 1,
         VisualOverride = 2,
         Override = 3
+
     }
 }

@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class TransformModifier : Modifier {
+
         public static readonly TransformModifier None = new(
             StyleKeyword.Initial,
             StyleKeyword.Initial,
@@ -77,5 +78,6 @@ namespace HELIX.Widgets.Modifiers {
                 scale ?? StyleKeyword.Initial
             );
         }
+
     }
 }

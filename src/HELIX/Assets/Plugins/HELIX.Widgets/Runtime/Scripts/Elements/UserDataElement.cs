@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     public abstract class UserDataWidgetBaseElement : IWidgetElement {
+
         public VisualElement Element { get; set; }
         public Widget Descriptor { get; set; }
         public BuildContext ParentContext { get; set; }
@@ -54,14 +55,18 @@ namespace HELIX.Widgets.Elements {
         public override string ToString() {
             return ToDiagnosticsNode(style: DiagnosticsTreeStyle.SingleLine).ToString();
         }
+
     }
 
     public interface IUserDataWidget<W, E> where W : Widget, IUserDataWidget<W, E> where E : VisualElement {
+
         void Apply(W previous, E element) { }
+
     }
 
     public class UserDataWidgetElement<W, T> : UserDataWidgetBaseElement
         where T : VisualElement where W : Widget, IUserDataWidget<W, T> {
+
         public W TypedDescriptor {
             get => Descriptor as W;
             set => Descriptor = value;
@@ -83,5 +88,6 @@ namespace HELIX.Widgets.Elements {
         public override string ToStringShort() {
             return $"{TypedDescriptor.GetWidgetName()}:{typeof(T).Name}:UserData#{this.ShortHash()}";
         }
+
     }
 }

@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets {
     public abstract class WrappingBaseWidget<S, T> : Widget, IUserDataWidget<S, T>
         where T : VisualElement where S : WrappingBaseWidget<S, T> {
+
         public abstract void Apply(S previous, T element);
         public abstract T Create();
 
@@ -23,5 +24,6 @@ namespace HELIX.Widgets {
             );
             return descriptive;
         }
+
     }
 }

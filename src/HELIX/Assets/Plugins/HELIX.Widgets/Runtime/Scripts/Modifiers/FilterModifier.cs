@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class FilterModifier : Modifier {
+
         public readonly List<FilterFunction> filters;
 
         public FilterModifier(List<FilterFunction> filters) {
@@ -27,5 +28,6 @@ namespace HELIX.Widgets.Modifiers {
         public static FilterModifier Of(params FilterFunction[] filters) {
             return new FilterModifier(filters.ToList());
         }
+
     }
 }

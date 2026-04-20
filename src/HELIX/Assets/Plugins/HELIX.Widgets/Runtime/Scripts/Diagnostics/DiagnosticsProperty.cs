@@ -6,6 +6,7 @@ namespace HELIX.Widgets.Diagnostics {
     public delegate T ComputePropertyValueCallback<T>();
 
     public class DiagnosticsProperty<T> : DiagnosticsNode {
+
         private readonly ComputePropertyValueCallback<T> _computeValue;
         private readonly DiagnosticLevel _defaultLevel;
         private readonly string _description;
@@ -165,7 +166,9 @@ namespace HELIX.Widgets.Diagnostics {
             if (_valueComputed) return;
 
             _valueComputed = true;
-            try { _value = _computeValue(); } catch (Exception ex) {
+            try {
+                _value = _computeValue();
+            } catch (Exception ex) {
                 _exception = ex;
                 _value = default;
             }
@@ -197,5 +200,6 @@ namespace HELIX.Widgets.Diagnostics {
         public override List<DiagnosticsNode> GetChildren() {
             return new List<DiagnosticsNode>();
         }
+
     }
 }

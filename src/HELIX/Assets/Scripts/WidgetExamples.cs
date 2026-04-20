@@ -13,18 +13,20 @@ using UnityEngine.UIElements;
 
 [UxmlElement]
 public partial class WidgetExamples : WidgetHostElement {
+
     private readonly GlobalKey<NavStackElement> _navStackKey = new();
 
     public WidgetExamples() {
         Buildable = new HStatefulBuilder((context, state) =>
-            new HColumn(
-                modifiers: new Modifier[] { new BackgroundStyleModifier(context.GetThemed(PrimitiveTheme.Surface)) }
-            ) {
+            new HColumn(modifiers: new Modifier[] {
+                new BackgroundStyleModifier(context.GetThemed(PrimitiveTheme.Surface))
+            }) {
                 new NavStack(key: _navStackKey).Fill(),
                 new HScrollView(
                     Axis.Horizontal,
                     modifiers: new Modifier[] {
-                        FlexibleModifier.TightStretch, MarginModifier.Only(16, right: 16, bottom: 8, top: 8)
+                        FlexibleModifier.TightStretch,
+                        MarginModifier.Only(16, right: 16, bottom: 8, top: 8)
                     }
                 ) {
                     new HRow(
@@ -58,4 +60,5 @@ public partial class WidgetExamples : WidgetHostElement {
         base.Reconcile(updated);
         return true;
     }
+
 }

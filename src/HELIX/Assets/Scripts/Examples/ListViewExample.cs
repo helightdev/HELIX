@@ -9,12 +9,15 @@ using UnityEngine.UIElements;
 
 namespace Examples {
     public class ListVirtualizationExample : StatefulWidget<ListVirtualizationExample> {
+
         public override State<ListVirtualizationExample> CreateState() {
             return new ListVirtualizationExampleState();
         }
+
     }
 
     public class ListVirtualizationExampleState : State<ListVirtualizationExample> {
+
         private bool _fixedHeight = true;
         private int _itemCount = 72;
 
@@ -51,11 +54,7 @@ namespace Examples {
                 },
                 new HText($"Rows: {_itemCount} · Mode: {(_fixedHeight ? "fixed" : "dynamic")}").Body(context),
                 new HBox(borderRadius: 16) {
-                    new HListView {
-                        itemCount = _itemCount,
-                        fixedItemHeight = _fixedHeight ? 72f : -1f,
-                        itemBuilder = BuildRow
-                    }
+                    new HListView(BuildRow, _itemCount, _fixedHeight ? 72f : -1f)
                 }.Clip().Fill()
             }.Margin(16);
         }
@@ -64,8 +63,8 @@ namespace Examples {
             var isFeatured = index % 6 == 0;
             var isExpanded = index % 4 == 0;
             var background = isFeatured
-                ? context.GetThemed(PrimitiveTheme.Background)
-                : context.GetThemed(PrimitiveTheme.BackgroundSubtle);
+                ? context.GetThemed(PrimitiveTheme.Container)
+                : context.GetThemed(PrimitiveTheme.ContainerLow);
 
             var children = isExpanded
                 ? new Widget[] {
@@ -83,7 +82,10 @@ namespace Examples {
             return new HBox(
                 background: background,
                 borderRadius: BorderRadius.All(12)
-            ) { new HColumn(gap: 4, children: children) }.Padding(12).Fill();
+            ) {
+                new HColumn(gap: 4, children: children)
+            }.Padding(12).Fill();
         }
+
     }
 }

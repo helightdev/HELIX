@@ -4,6 +4,7 @@ using HELIX.Widgets.Elements;
 
 namespace HELIX.Widgets.Universal {
     public class HAlign : SingleChildWidget {
+
         public readonly Alignment alignment;
 
         public HAlign(
@@ -21,5 +22,6 @@ namespace HELIX.Widgets.Universal {
         public override IWidgetElement CreateElement() {
             return ReconcileInto(new FlexAlignElement());
         }
+
     }
 }

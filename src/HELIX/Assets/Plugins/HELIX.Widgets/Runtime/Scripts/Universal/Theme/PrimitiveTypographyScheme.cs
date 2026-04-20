@@ -3,6 +3,7 @@ using System;
 namespace HELIX.Widgets.Universal.Theme {
     [Serializable]
     public class PrimitiveTypographyScheme {
+
         public static PrimitiveTypographyScheme Default = new();
 
         public float factor = 1.25f;
@@ -38,5 +39,6 @@ namespace HELIX.Widgets.Universal.Theme {
         public virtual float LineHeight7 => factor * lineHeightFactor * 36f;
         public virtual float LineHeight8 => factor * lineHeightFactor * 40f;
         public virtual float LineHeight9 => factor * lineHeightFactor * 60f;
+
     }
 }

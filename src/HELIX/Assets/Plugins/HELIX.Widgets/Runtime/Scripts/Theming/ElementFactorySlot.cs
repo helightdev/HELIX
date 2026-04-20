@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     public abstract class ElementFactorySlot : VisualElement {
+
         protected readonly BaseElement widget;
 
         protected ElementFactorySlot(BaseElement widget) {
@@ -16,17 +17,21 @@ namespace HELIX.Widgets.Theming {
         public abstract void Recreate();
         public abstract void TryCreate();
         public abstract void ApplyReferenceFromTheme();
+
     }
 
     public interface IPublicElementFactorySlot<T> where T : VisualElement {
+
         ElementFactoryReference<T> Reference { get; set; }
         T Element { get; }
         bool HasElement { get; }
         void SetMapped(ElementFactory<T> value);
         TMapped GetMapped<TMapped>() where TMapped : ElementFactory<T>;
+
     }
 
     public class ElementFactorySlot<T> : ElementFactorySlot, IPublicElementFactorySlot<T> where T : VisualElement {
+
         public delegate void OnElementCreatedDelegate(T element);
 
         public delegate void OnElementDestroyedDelegate(T element);
@@ -82,7 +87,9 @@ namespace HELIX.Widgets.Theming {
                     factory = ThemeProviderElement.Resolve(widget.ThemeProviderElement, _baseThemeProperty);
                 factory ??= _fallback;
                 _hasExplicitReference = false;
-            } else _hasExplicitReference = true;
+            } else {
+                _hasExplicitReference = true;
+            }
 
             if (factory == null || factory == _factory) return;
             _factory = factory;
@@ -135,5 +142,6 @@ namespace HELIX.Widgets.Theming {
         public void SetFallback(ElementFactory fallback) {
             _fallback = fallback;
         }
+
     }
 }

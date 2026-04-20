@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class PaddingModifier : Modifier {
+
         public static readonly PaddingModifier Initial = new(StyleLength4.Initial);
         public static readonly PaddingModifier Zero = new(StyleLength4.Zero);
 
@@ -61,5 +62,6 @@ namespace HELIX.Widgets.Modifiers {
                 )
             );
         }
+
     }
 }

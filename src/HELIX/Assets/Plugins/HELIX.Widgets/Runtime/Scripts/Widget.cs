@@ -10,6 +10,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public abstract class Widget : DiagnosticableTreeBase, IWidgetListCandidate {
+
         public object[] constants;
         public Key key;
         protected ModifierSet modifiers = ModifierSet.Empty;
@@ -113,9 +114,11 @@ namespace HELIX.Widgets {
         public static implicit operator BuildFunction<WidgetState>(Widget widget) {
             return (_, _) => widget;
         }
+
     }
 
     public abstract class SingleChildWidget : Widget, IEnumerable<Widget> {
+
         public Widget child;
 
         protected SingleChildWidget() { }
@@ -147,9 +150,11 @@ namespace HELIX.Widgets {
             if (child != null) throw new InvalidOperationException("SingleChildWidget already has a child");
             child = candidate;
         }
+
     }
 
     public abstract class MultiChildWidget : Widget, IReadOnlyList<Widget> {
+
         public IReadOnlyList<Widget> children;
 
         protected MultiChildWidget() { }
@@ -180,35 +185,44 @@ namespace HELIX.Widgets {
         }
 
         public void Add(IWidgetListCandidate candidate) {
-            if (children is WidgetList list) list.Add(candidate);
-            else {
+            if (children is WidgetList list) {
+                list.Add(candidate);
+            } else {
                 var newList = new WidgetList();
                 if (children != null) newList.Add(children.Spread());
                 newList.Add(candidate);
                 children = newList;
             }
         }
+
     }
 
     public interface IWidgetElement : BuildContext {
+
         int HierarchyDepth { get; }
         bool CanReconcile(Widget updated);
         bool Reconcile(Widget updated);
+
     }
 
     public interface ITreeAncestorTraversalHint {
+
         IWidgetElement Owner { get; }
+
     }
 
     public class ElementTreeAncestorTraversalHint : ITreeAncestorTraversalHint {
+
         public ElementTreeAncestorTraversalHint(IWidgetElement owner) {
             Owner = owner;
         }
 
         public IWidgetElement Owner { get; }
+
     }
 
     public static class WidgetExtensions {
+
         public static IBuildable ToBuildable(this Widget widget) {
             return new FunctionBuildable(_ => widget);
         }
@@ -263,5 +277,6 @@ namespace HELIX.Widgets {
             if (context != null) return context.TryGetThemed(property, out value, listen);
             return ThemeProviderElement.TryResolve(null, property, out value);
         }
+
     }
 }

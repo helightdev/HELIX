@@ -3,6 +3,7 @@ using HELIX.Widgets.Theming;
 
 namespace HELIX.Widgets.Universal.Theme {
     public class PrimitiveBaseTheme {
+
         public static readonly ThemeProperty<PrimitiveColorScheme> Colors = ThemeProperty.ExtractMaybe(
             "primitive-colors",
             PrimitiveBaseThemeComponent.Default,
@@ -29,9 +30,11 @@ namespace HELIX.Widgets.Universal.Theme {
 
         public static IReadOnlyList<ThemeProperty> Properties =
             new ThemeProperty[] { Colors, Typography, Radius, Spacing };
+
     }
 
     public class PrimitiveBaseThemeComponent : ThemeComponent {
+
         public static readonly PrimitiveBaseThemeComponent Default = new() {
             colors = PrimitiveColorScheme.Default,
             typography = PrimitiveTypographyScheme.Default,
@@ -47,5 +50,6 @@ namespace HELIX.Widgets.Universal.Theme {
         public PrimitiveBaseThemeComponent() {
             lookupScope = PrimitiveBaseTheme.Properties;
         }
+
     }
 }

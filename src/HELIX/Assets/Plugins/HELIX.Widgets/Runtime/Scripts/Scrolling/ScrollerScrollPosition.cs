@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
     public class ScrollerScrollPosition : ScrollPosition {
+
         private readonly DebouncedScheduler _debouncedScheduler;
         public readonly Scroller scroller;
         public readonly ScrollView scrollView;
@@ -20,9 +21,7 @@ namespace HELIX.Widgets.Scrolling {
             _debouncedScheduler = new DebouncedScheduler(scroller);
             scroller.value = 0;
             scroller.valueChanged += OnValueChanged;
-            scrollView.contentContainer.RegisterCallback<GeometryChangedEvent>(_ => {
-                    OnValueChanged(scroller.value);
-                }
+            scrollView.contentContainer.RegisterCallback<GeometryChangedEvent>(_ => { OnValueChanged(scroller.value); }
             );
         }
 
@@ -78,5 +77,6 @@ namespace HELIX.Widgets.Scrolling {
             if (scrollView == null) throw new InvalidOperationException("ScrollView reference is null.");
             scrollView.ScrollTo(element);
         }
+
     }
 }

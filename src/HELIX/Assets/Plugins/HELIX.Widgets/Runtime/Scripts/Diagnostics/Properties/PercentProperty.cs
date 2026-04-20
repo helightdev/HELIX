@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public sealed class PercentProperty : DiagnosticsProperty<float?> {
+
         public PercentProperty(
             string name,
             float? fraction,
@@ -56,5 +57,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
             var clamped = Mathf.Max(0.0f, Mathf.Min(1.0f, ValueTyped.GetValueOrDefault()));
             return (clamped * 100.0).ToString("0.0", CultureInfo.InvariantCulture) + "%";
         }
+
     }
 }

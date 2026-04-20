@@ -5,7 +5,9 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.PathDrawers {
     [UxmlObject]
     public partial class SolidStrokePathDrawer : ScriptablePathDrawer {
-        [Header("Solid Stroke"), UxmlAttribute]
+
+        [Header("Solid Stroke")]
+        [UxmlAttribute]
         public Color Color { get; set; } = Color.black;
 
         [UxmlAttribute]
@@ -43,5 +45,6 @@ namespace HELIX.Widgets.Visual.PathDrawers {
 
             canvas.painter.Stroke();
         }
+
     }
 }

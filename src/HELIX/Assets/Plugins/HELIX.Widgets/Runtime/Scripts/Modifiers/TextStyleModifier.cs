@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class TextStyleModifier : Modifier {
+
         public readonly TextStyle style;
 
         public TextStyleModifier(TextStyle style) {
@@ -32,5 +33,6 @@ namespace HELIX.Widgets.Modifiers {
         public static TextStyleModifier Of(TextStyle style) {
             return new TextStyleModifier(style);
         }
+
     }
 }

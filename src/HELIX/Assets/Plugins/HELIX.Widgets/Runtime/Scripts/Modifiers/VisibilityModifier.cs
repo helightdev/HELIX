@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class VisibilityModifier : Modifier {
+
         public static readonly VisibilityModifier Visible = new(true);
         public static readonly VisibilityModifier Hidden = new(false);
         public readonly bool visible;
@@ -33,5 +34,6 @@ namespace HELIX.Widgets.Modifiers {
         protected override string FindConstantName() {
             return visible ? nameof(Visible) : nameof(Hidden);
         }
+
     }
 }

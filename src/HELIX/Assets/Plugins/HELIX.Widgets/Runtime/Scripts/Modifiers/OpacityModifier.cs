@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class OpacityModifier : Modifier {
+
         public static readonly OpacityModifier Opaque = new(1f);
         public static readonly OpacityModifier Transparent = new(0f);
         public readonly float opacity;
@@ -42,5 +43,6 @@ namespace HELIX.Widgets.Modifiers {
             if (Mathf.Approximately(opacity, 0f)) return nameof(Transparent);
             return null;
         }
+
     }
 }

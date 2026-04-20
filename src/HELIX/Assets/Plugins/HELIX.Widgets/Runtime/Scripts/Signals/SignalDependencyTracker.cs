@@ -7,6 +7,7 @@ using HELIX.Widgets.Utilities;
 
 namespace HELIX.Widgets.Signals {
     public class SignalDependencyTracker : DiagnosticableBase, ISignalObserver, IDisposable, IPossiblyDisposed {
+
         public static SignalDependencyTracker Current;
         private readonly ISignalObserver _forwarder;
         private readonly HashSet<Signal> _implicitBuffer = new();
@@ -97,7 +98,9 @@ namespace HELIX.Widgets.Signals {
                     dependencies.Remove(signal);
                     signal.RemoveObserver(this);
                 }
-            } finally { IsBuilding = false; }
+            } finally {
+                IsBuilding = false;
+            }
         }
 
         public void DependOn(Signal signal) {
@@ -124,5 +127,6 @@ namespace HELIX.Widgets.Signals {
             base.DebugFillProperties(properties);
             properties.Add(new DiagnosticsProperty<object>("owner", owner, showName: false));
         }
+
     }
 }

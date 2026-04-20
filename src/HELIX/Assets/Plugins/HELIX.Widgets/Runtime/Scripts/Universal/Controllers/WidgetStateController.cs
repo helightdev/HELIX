@@ -3,6 +3,7 @@ using HELIX.Widgets.Signals;
 
 namespace HELIX.Widgets.Universal.Controllers {
     public class WidgetStateController : ValueSignal<WidgetState>, ISignalObserver {
+
         public static bool LastNavigated;
 
         private readonly HashSet<WidgetStateController> _children = new();
@@ -64,5 +65,6 @@ namespace HELIX.Widgets.Universal.Controllers {
 
             base.SetValue(next);
         }
+
     }
 }

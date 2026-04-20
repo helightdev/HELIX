@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class BorderModifier : Modifier {
+
         public static readonly BorderModifier None = new(Border.None, BorderRadius.None);
 
         public readonly Border border;
@@ -41,5 +42,6 @@ namespace HELIX.Widgets.Modifiers {
         public static BorderModifier Of(Border? border = null, BorderRadius? radius = null) {
             return new BorderModifier(border ?? Border.None, radius ?? BorderRadius.None);
         }
+
     }
 }

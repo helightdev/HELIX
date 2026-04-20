@@ -8,6 +8,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Visual {
     public class SwatchVisualizer : BaseElement {
+
         public SwatchVisualizer(Color[] swatch) {
             this.FlexContainer(Axis.Horizontal, crossAxisAlign: Align.Stretch);
             for (var index = 0; index < swatch.Length; index++) {
@@ -15,7 +16,7 @@ namespace HELIX.Widgets.Visual {
                 var lab = new OkLabColor(weight);
                 var lch = (OkLchColor)lab;
                 var weightValue = (uint)(index + 1);
-                if (swatch.Length == 10) {
+                if (swatch.Length == 10)
                     weightValue = index switch {
                         0 => 50,
                         1 => 100,
@@ -29,7 +30,6 @@ namespace HELIX.Widgets.Visual {
                         9 => 900,
                         _ => throw new ArgumentOutOfRangeException()
                     };
-                }
 
                 var timePerStep = 1 / (float)swatch.Length;
                 new Label($"{weightValue.ToString()}\n{weight.ToHex()}\nOK L: {lch.l:P1} C: {lch.c:F3} H: {lch.h:F1}")
@@ -38,5 +38,6 @@ namespace HELIX.Widgets.Visual {
                     .BackgroundColor(weight).AddTo(this);
             }
         }
+
     }
 }

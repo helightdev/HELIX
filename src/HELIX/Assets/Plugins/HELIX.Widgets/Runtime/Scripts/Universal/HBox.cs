@@ -7,6 +7,7 @@ using HELIX.Widgets.Universal.Styles;
 
 namespace HELIX.Widgets.Universal {
     public class HBox : SingleChildWidget {
+
         public readonly Alignment alignment;
         public readonly BackgroundStyle background;
         public readonly Border border;
@@ -47,6 +48,7 @@ namespace HELIX.Widgets.Universal {
         }
 
         public class ContainerElement : SingleChildWidgetBaseElement<HBox> {
+
             public override void Apply(HBox previous, HBox widget) {
                 if (previous == null || !Equals(previous.background, widget.background))
                     (widget.background ?? BackgroundStyle.Default).Apply(this);
@@ -55,6 +57,8 @@ namespace HELIX.Widgets.Universal {
                 widget.borderRadius.Apply(this);
                 widget.alignment.AlignAsColumn(this);
             }
+
         }
+
     }
 }

@@ -14,6 +14,7 @@ namespace HELIX.Widgets {
     public interface IStatefulWidget { }
 
     public abstract class StatefulWidget<T> : Widget, IStatefulWidget where T : StatefulWidget<T> {
+
         protected StatefulWidget() {
             AddModifier(ModifierFallbacks.ImplicitFlexFill);
         }
@@ -31,10 +32,12 @@ namespace HELIX.Widgets {
         public override IWidgetElement CreateElement() {
             return ReconcileInto(new StatefulWidgetElement<T>());
         }
+
     }
 
     public abstract class SingleChildStatefulWidget<T> : StatefulWidget<T>, IEnumerable<Widget>
         where T : SingleChildStatefulWidget<T> {
+
         public Widget child;
 
         protected SingleChildStatefulWidget(
@@ -59,17 +62,21 @@ namespace HELIX.Widgets {
                 throw new InvalidOperationException("SingleChildStatefulWidget can only have one child.");
             child = widget;
         }
+
     }
 
     public class StatefulWidgetElement<T> : BuildingWidgetBaseElement<T>, IHierarchyDisposable, IStatefulWidget
         where T : StatefulWidget<T> {
+
         public bool isDisposed;
         public State<T> State { get; set; }
 
         public void Dispose() {
             if (isDisposed) return;
             State?.managedDisposables?.ForEach(disposable => {
-                    try { disposable.Dispose(); } catch (Exception e) {
+                    try {
+                        disposable.Dispose();
+                    } catch (Exception e) {
                         HelixDiagnostics.Build(
                             "An error occured while disposing a stateful widget state managed disposable.",
                             collector => collector
@@ -80,7 +87,9 @@ namespace HELIX.Widgets {
                     }
                 }
             );
-            try { State?.Dispose(); } catch (Exception e) {
+            try {
+                State?.Dispose();
+            } catch (Exception e) {
                 HelixDiagnostics.Build(
                     "An error occured while disposing a stateful widget state.",
                     collector => collector.OwnerChain(this).OffendingElement(this),
@@ -111,7 +120,7 @@ namespace HELIX.Widgets {
         }
 
         public void UserScheduleRebuild() {
-            if (IsBuilding) {
+            if (IsBuilding)
                 HelixDiagnostics.Build(
                     "SetState was called during the build phase of a stateful widget.",
                     "Calling SetState during building is not allowed.",
@@ -123,7 +132,7 @@ namespace HELIX.Widgets {
                         new ErrorHint("Consider using listeners or signals for value driven state management")
                     }
                 ).Report(DiagnosticLevel.Warning);
-            } else ModificationBarrier.Rebuild(this);
+            else ModificationBarrier.Rebuild(this);
         }
 
         protected override void OnWatchedThemeUpdated(ThemeProperty property, object value) {
@@ -199,9 +208,11 @@ namespace HELIX.Widgets {
         public override string ToStringShort() {
             return $"{typeof(T).Name}:Element#{this.ShortHash()}";
         }
+
     }
 
     public abstract class State<T> : DiagnosticableBase, IBuildable where T : StatefulWidget<T> {
+
         public SignalDependencyTracker dependencyTracker;
         internal List<IDisposable> managedDisposables;
         public BuildContext mount;
@@ -251,5 +262,6 @@ namespace HELIX.Widgets {
                 )
             );
         }
+
     }
 }

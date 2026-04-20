@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class BackgroundStyleModifier : Modifier {
+
         public readonly BackgroundStyle style;
 
         public BackgroundStyleModifier(BackgroundStyle style) {
@@ -32,5 +33,6 @@ namespace HELIX.Widgets.Modifiers {
         public static BackgroundStyleModifier Of(BackgroundStyle style) {
             return new BackgroundStyleModifier(style);
         }
+
     }
 }

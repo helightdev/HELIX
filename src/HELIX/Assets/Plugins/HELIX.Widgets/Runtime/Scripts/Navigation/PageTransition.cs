@@ -5,15 +5,20 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Navigation {
     [UxmlObject]
     public abstract partial class PageTransition {
+
         public abstract void Start(PageTransitionContext context);
         public virtual void Finish(PageTransitionContext context) { }
+
     }
 
     public abstract class PageTransitionHandle {
+
         public abstract bool IsComplete { get; }
+
     }
 
     public class PageTransitionContext {
+
         public readonly List<PageTransitionHandle> handles = new();
         public readonly NavStackModificationResult modificationResult;
         public readonly NavStackElement stack;
@@ -36,9 +41,11 @@ namespace HELIX.Widgets.Navigation {
             var handle = new ScheduledItemPageTransitionHandle(item);
             handles.Add(handle);
         }
+
     }
 
     public class ScheduledItemPageTransitionHandle : PageTransitionHandle {
+
         private readonly IVisualElementScheduledItem _scheduledItem;
 
         public ScheduledItemPageTransitionHandle(IVisualElementScheduledItem scheduledItem) {
@@ -46,5 +53,6 @@ namespace HELIX.Widgets.Navigation {
         }
 
         public override bool IsComplete => !_scheduledItem.isActive;
+
     }
 }

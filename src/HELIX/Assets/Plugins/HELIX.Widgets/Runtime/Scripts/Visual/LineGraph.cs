@@ -12,6 +12,7 @@ using Vector2 = UnityEngine.Vector2;
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
     public partial class LineGraph : PaintingElement {
+
         private ScriptablePathDrawer _fillDrawer;
         private ScriptablePathDrawer _lineDrawer;
         public ILineGraphDataSource datasource = new DynamicRangeLineGraphDataSource();
@@ -78,7 +79,7 @@ namespace HELIX.Widgets.Visual {
 
             var pathBuilder = new PathBuilder();
             pathBuilder.MoveTo(pts[0]);
-            if (smoothLines) {
+            if (smoothLines)
                 for (var i = 0; i < n - 1; i++) {
                     var p0 = i == 0 ? pts[i] : pts[i - 1];
                     var p1 = pts[i];
@@ -100,9 +101,9 @@ namespace HELIX.Widgets.Visual {
 
                     pathBuilder.BezierCurveTo(c1, c2, p2);
                 }
-            } else {
-                for (var i = 1; i < n; i++) pathBuilder.LineTo(pts[i]);
-            }
+            else
+                for (var i = 1; i < n; i++)
+                    pathBuilder.LineTo(pts[i]);
 
             var path = pathBuilder.Build();
 
@@ -119,9 +120,11 @@ namespace HELIX.Widgets.Visual {
                 LineDrawer.Draw(canvas);
             }
         }
+
     }
 
     public class TimePollingLineGraph : LineGraph {
+
         private readonly RingBuffer<Vector2> _dataBuffer;
         private readonly Func<float> _sampleFunction;
         private FixedTimeframeDynamicRangeLineGraphDataSource _dataSource;
@@ -165,28 +168,36 @@ namespace HELIX.Widgets.Visual {
                 MarkDirtyRepaint();
             }
         }
+
     }
 
     [UxmlObject]
     public partial class LineGraphStroke {
+
         [UxmlObjectReference]
         public ScriptablePathDrawer Drawer { get; set; }
+
     }
 
     [UxmlObject]
     public partial class LineGraphFill {
+
         [UxmlObjectReference]
         public ScriptablePathDrawer Drawer { get; set; }
+
     }
 
     public interface ILineGraphDataSource {
+
         bool HasData { get; }
         Vector2[] GetNormalizedPoints();
 
         void Update(IReadOnlyCollection<Vector2> points, Vector2 offset = default) { }
+
     }
 
     public class FixedRangeLineGraphDataSource : ILineGraphDataSource {
+
         private readonly Vector2 _timeRange;
 
         private readonly Vector2 _valueRange;
@@ -234,9 +245,11 @@ namespace HELIX.Widgets.Visual {
 
             _samples = data;
         }
+
     }
 
     public class DynamicRangeLineGraphDataSource : ILineGraphDataSource {
+
         private Vector2[] _samples;
 
         public DynamicRangeLineGraphDataSource() { }
@@ -282,9 +295,11 @@ namespace HELIX.Widgets.Visual {
 
             _samples = data;
         }
+
     }
 
     public class FixedTimeframeDynamicRangeLineGraphDataSource : ILineGraphDataSource {
+
         private readonly float _timeframe;
         private Vector2[] _samples;
 
@@ -332,5 +347,6 @@ namespace HELIX.Widgets.Visual {
 
             _samples = data;
         }
+
     }
 }

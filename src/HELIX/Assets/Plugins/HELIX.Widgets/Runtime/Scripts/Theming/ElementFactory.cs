@@ -5,13 +5,17 @@ using UnityEngine.Scripting;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
-    [UxmlObject, RequireDerived]
+    [UxmlObject]
+    [RequireDerived]
     public abstract partial class ElementFactory {
+
         [RequiredMember]
         public abstract VisualElement Create(BaseElement parentElement);
+
     }
 
     public class FixedElementFactory<T> : ElementFactory<T> where T : VisualElement {
+
         private readonly T _instance;
 
         public FixedElementFactory(T instance) {
@@ -36,9 +40,11 @@ namespace HELIX.Widgets.Theming {
         public override int GetHashCode() {
             return HashCode.Combine(base.GetHashCode(), _instance);
         }
+
     }
 
     public class InlineElementFactory<T> : ElementFactory<T> where T : VisualElement {
+
         private readonly Func<BaseElement, T> _factoryFunc;
 
         public InlineElementFactory(Func<BaseElement, T> factoryFunc) {
@@ -67,10 +73,12 @@ namespace HELIX.Widgets.Theming {
         public override int GetHashCode() {
             return HashCode.Combine(base.GetHashCode(), _factoryFunc);
         }
+
     }
 
     [Serializable]
     public class UxmlAssetElementFactory<T> : ElementFactory<T> where T : VisualElement {
+
         public VisualTreeAsset asset;
 
         public UxmlAssetElementFactory() { }
@@ -88,10 +96,13 @@ namespace HELIX.Widgets.Theming {
         protected bool Equals(UxmlAssetElementFactory<T> other) {
             return base.Equals(other) && Equals(asset, other.asset);
         }
+
     }
 
-    [UxmlObject, RequireDerived]
+    [UxmlObject]
+    [RequireDerived]
     public abstract partial class ElementFactory<T> : ElementFactory where T : VisualElement {
+
         protected bool Equals(ElementFactory<T> other) {
             return GetType() == other.GetType();
         }
@@ -106,16 +117,20 @@ namespace HELIX.Widgets.Theming {
         public override int GetHashCode() {
             return GetType().GetHashCode();
         }
+
     }
 
     [UxmlObject]
     public abstract partial class VisualElementFactory : ElementFactory<VisualElement> {
+
         public static VisualElementFactory Warp(ElementFactory<VisualElement> element) {
             return new WrappedVisualElementFactory(element);
         }
+
     }
 
     public class WrappedVisualElementFactory : VisualElementFactory {
+
         private readonly ElementFactory<VisualElement> _innerFactory;
 
         public WrappedVisualElementFactory(ElementFactory<VisualElement> innerFactory) {
@@ -125,16 +140,20 @@ namespace HELIX.Widgets.Theming {
         public override VisualElement Create(BaseElement parentElement) {
             return _innerFactory.Create(parentElement);
         }
+
     }
 
     public interface IWidgetFactoryReference : IMaybeThemeValue {
+
         ElementFactory LookupFactory();
+
     }
 
     [Serializable]
     public struct ElementFactoryReference<T> : IWidgetFactoryReference, IMaybeThemeValue<T>,
         IEquatable<ElementFactoryReference<T>>
         where T : VisualElement {
+
         public string factoryName;
 
         [NonSerialized]
@@ -201,5 +220,6 @@ namespace HELIX.Widgets.Theming {
             result = null;
             return false;
         }
+
     }
 }

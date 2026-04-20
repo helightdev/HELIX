@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HBoxShadow : SingleChildWidget {
+
         public float blurRadius = 4f;
         public Vector4 borderRadius = new(0, 0, 0, 0);
         public EasingMode easingFunction = EasingMode.Linear;
@@ -28,5 +29,6 @@ namespace HELIX.Widgets.Universal {
             properties.Add(new FloatProperty("spreadRadius", spreadRadius, defaultValue: 0f));
             properties.Add(new FloatProperty("transitionDuration", transitionDuration, defaultValue: 0.1f));
         }
+
     }
 }

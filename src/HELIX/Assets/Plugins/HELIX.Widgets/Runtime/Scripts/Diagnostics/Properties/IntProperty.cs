@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public sealed class IntProperty : DiagnosticsProperty<int?> {
+
         public IntProperty(
             string name,
             int? value,
@@ -42,5 +43,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
                 ? ValueTyped.Value.ToString(CultureInfo.InvariantCulture) + Unit
                 : ValueTyped.Value.ToString(CultureInfo.InvariantCulture);
         }
+
     }
 }

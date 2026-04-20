@@ -3,6 +3,7 @@ using UnityEngine;
 namespace HELIX.Widgets {
     [ExecuteInEditMode]
     public class HelixRuntimeHelper : MonoBehaviour {
+
         private static HelixRuntimeHelper _instance;
 
         public static HelixRuntimeHelper Instance => _instance ? _instance : null;
@@ -32,5 +33,6 @@ namespace HELIX.Widgets {
             var obj = new GameObject("[HelixRuntimeHelper]");
             _instance = obj.AddComponent<HelixRuntimeHelper>();
         }
+
     }
 }

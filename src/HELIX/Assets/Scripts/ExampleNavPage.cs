@@ -9,6 +9,7 @@ using UnityEngine.UIElements;
 
 [UxmlElement]
 public partial class ExampleNavPageBase : NavPageBase {
+
     public int id;
 
     public ExampleNavPageBase() : this(1) { }
@@ -51,10 +52,12 @@ public partial class ExampleNavPageBase : NavPageBase {
     public override string ToString() {
         return $"ExampleNavPage {id}";
     }
+
 }
 
 [UxmlElement]
 public partial class ExampleScaffoldPopup : BaseElement {
+
     public ExampleScaffoldPopup() {
         RegisterCallback<PointerDownEvent>(evt => {
                 var element = new Element("Offset").Positioned(100.Percent())
@@ -66,10 +69,12 @@ public partial class ExampleScaffoldPopup : BaseElement {
             }
         );
     }
+
 }
 
 [UxmlElement]
 public partial class HelixColorSwatchVisualizer : BaseElement {
+
     public HelixColorSwatchVisualizer() {
         this.FlexContainer(crossAxisAlign: Align.Stretch).Stretched();
         // foreach (var (swatchName, swatch) in Colors.Named) {
@@ -133,6 +138,7 @@ public partial class HelixColorSwatchVisualizer : BaseElement {
     }
 
     public static class RadixDynamicColors {
+
         public static readonly DynamicColor Background = DynamicColor.FromPalette(
             scheme => scheme.NeutralPalette,
             scheme => scheme.IsDark ? 3 : 97,
@@ -174,5 +180,7 @@ public partial class HelixColorSwatchVisualizer : BaseElement {
             scheme => scheme.IsDark ? 90 : 10,
             "radix_text_contrast"
         );
+
     }
+
 }

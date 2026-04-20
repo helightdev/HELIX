@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Substances {
     public class BoxSubstance : Substance {
+
         public WidgetStateProperty<BackgroundStyle> background = WidgetStateProperties.Never<BackgroundStyle>();
         public WidgetStateProperty<Border> border = WidgetStateProperties.Never<Border>();
         public WidgetStateProperty<BorderRadius> borderRadius = WidgetStateProperties.Never<BorderRadius>();
@@ -45,5 +46,6 @@ namespace HELIX.Widgets.Universal.Substances {
             box.AddModifiers(modifiers.ResolveOrDefault(state, ModifierSet.Empty));
             return box;
         }
+
     }
 }

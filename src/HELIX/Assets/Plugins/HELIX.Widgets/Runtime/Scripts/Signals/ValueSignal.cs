@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics;
 
 namespace HELIX.Widgets.Signals {
     public class ValueSignal<T> : Signal<T> {
+
         private readonly bool _equality;
         protected IEqualityComparer<T> comparer = EqualityComparer<T>.Default;
         protected T value;
@@ -41,5 +42,6 @@ namespace HELIX.Widgets.Signals {
             base.DebugFillProperties(properties);
             properties.Add(new DiagnosticsProperty<T>("value", value, showName: false));
         }
+
     }
 }

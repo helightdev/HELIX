@@ -8,6 +8,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {
     public class BoxShadowStyle {
+
         public static readonly BoxShadowStyle None = new() {
             shadowColor = Colors.Transparent,
             blurRadius = 0f
@@ -39,5 +40,6 @@ namespace HELIX.Widgets.Universal.Styles {
             function.AddParameter(new FilterParameter(blurRadius));
             element.style.filter = new StyleList<FilterFunction>(new List<FilterFunction> { function });
         }
+
     }
 }

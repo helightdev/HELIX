@@ -4,6 +4,7 @@ using HELIX.Widgets.Diagnostics.Error;
 
 namespace HELIX.Widgets.Elements {
     public abstract class BuildingWidgetBaseElement<T> : SuperSingleChildWidgetBaseElement<T> where T : Widget {
+
         public Widget LastBuildResult { get; protected set; }
         public bool IsBuilding { get; protected set; }
 
@@ -26,7 +27,9 @@ namespace HELIX.Widgets.Elements {
                 AfterBuild(previous, widget);
                 LastBuildResult = built;
                 return built;
-            } catch (HelixDiagnosticException) { throw; } catch (Exception ex) {
+            } catch (HelixDiagnosticException) {
+                throw;
+            } catch (Exception ex) {
                 throw HelixDiagnostics.Build(
                     "An error occurred while building a widget.",
                     collector => { collector.OffendingWidget(widget).OwnerChain(this); },
@@ -39,5 +42,6 @@ namespace HELIX.Widgets.Elements {
         }
 
         protected abstract IBuildable GetBuildableForWidget(T previous, T widget);
+
     }
 }

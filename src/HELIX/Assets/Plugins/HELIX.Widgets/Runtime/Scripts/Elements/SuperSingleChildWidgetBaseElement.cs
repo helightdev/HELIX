@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     public abstract class SuperSingleChildWidgetBaseElement<T> : WidgetBaseElement<T>, ISingleChildContainer
         where T : Widget {
+
         public virtual VisualElement Child {
             get {
                 if (contentContainer.childCount == 0) return null;
@@ -48,5 +49,6 @@ namespace HELIX.Widgets.Elements {
             list.Add(child.ToDiagnosticsNodeSafe());
             return list;
         }
+
     }
 }

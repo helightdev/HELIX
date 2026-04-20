@@ -2,6 +2,7 @@ using System;
 
 namespace HELIX.Widgets.Signals {
     public class FunctionSignalObserver : ISignalObserver, IDisposable {
+
         private readonly Action _onChanged;
         private bool _isDisposed;
         private Signal _lastSignal;
@@ -28,11 +29,13 @@ namespace HELIX.Widgets.Signals {
 
         public void OnSignalAdded(Signal signal) {
             if (_isDisposed) return;
-            if (_lastSignal == null) _lastSignal = signal;
-            else if (_lastSignal != signal) {
+            if (_lastSignal == null) {
+                _lastSignal = signal;
+            } else if (_lastSignal != signal) {
                 _lastSignal.RemoveObserver(this);
                 _lastSignal = signal;
             }
         }
+
     }
 }

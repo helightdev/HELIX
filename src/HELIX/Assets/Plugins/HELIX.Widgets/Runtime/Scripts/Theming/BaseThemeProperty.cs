@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Theming {
     public abstract class ThemeProperty : DiagnosticableBase {
+
         public static readonly Dictionary<Type, IThemeStyleValueLoader> Loaders = new() {
             [typeof(float)] = new FloatThemeStyleValueLoader(),
             [typeof(int)] = new IntThemeStyleValueLoader(),
@@ -75,9 +76,11 @@ namespace HELIX.Widgets.Theming {
         ) where V : ThemeComponent {
             return new ThemeProperty<T>(key).ComponentExtractorDefault(value, resolver);
         }
+
     }
 
     public abstract class BaseThemeProperty<T> : ThemeProperty {
+
         protected T defaultValue;
 
         protected BaseThemeProperty(string key, T defaultValue) : base(key) {
@@ -108,9 +111,11 @@ namespace HELIX.Widgets.Theming {
             result = defaultValue;
             return false;
         }
+
     }
 
     public class ThemeProperty<T> : BaseThemeProperty<T> {
+
         private Dictionary<Type, Func<object, object>> _componentExtractors;
         private Func<ThemeProviderElement, T> _computeFunc;
         private IThemeStyleValueLoader<T> _styleLoader;
@@ -138,11 +143,10 @@ namespace HELIX.Widgets.Theming {
 
             var hasLoader = Loaders.TryGetValue(typeof(T), out var resolved);
             if (!hasLoader) throw new ArgumentException($"No style loader found for type: {typeof(T)}");
-            if (resolved is not IThemeStyleValueLoader<T> typedLoader) {
+            if (resolved is not IThemeStyleValueLoader<T> typedLoader)
                 throw new ArgumentException(
                     $"Style loader {resolved} for type: {typeof(T)} has invalid type signature."
                 );
-            }
 
             _styleLoader = typedLoader;
             return this;
@@ -233,5 +237,6 @@ namespace HELIX.Widgets.Theming {
             value = extractor(component);
             return true;
         }
+
     }
 }

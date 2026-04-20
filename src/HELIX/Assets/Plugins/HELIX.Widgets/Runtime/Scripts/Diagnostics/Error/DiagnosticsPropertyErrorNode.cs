@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Error {
     public sealed class DiagnosticsPropertyErrorNode : DiagnosticsProperty<string> {
+
         public DiagnosticsPropertyErrorNode(string name, Exception exception)
             : base(
                 name,
@@ -14,5 +15,6 @@ namespace HELIX.Widgets.Diagnostics.Error {
         }
 
         public Exception ExceptionObject { get; }
+
     }
 }

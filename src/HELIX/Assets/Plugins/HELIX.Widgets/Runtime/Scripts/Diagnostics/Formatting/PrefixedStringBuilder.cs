@@ -4,6 +4,7 @@ using System.Text;
 
 namespace HELIX.Widgets.Diagnostics.Formatting {
     internal sealed class PrefixedStringBuilder {
+
         private readonly StringBuilder _buffer = new();
         private readonly StringBuilder _currentLine = new();
         private readonly List<int> _wrappableRanges = new();
@@ -45,7 +46,9 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
             if (_currentLine.Length == 0 || updateCurrentLine) {
                 _prefixOtherLines = PrefixOtherLines + suffix;
                 _nextPrefixOtherLines = null;
-            } else _nextPrefixOtherLines = PrefixOtherLines + suffix;
+            } else {
+                _nextPrefixOtherLines = PrefixOtherLines + suffix;
+            }
         }
 
         public void Write(string s, bool allowWrap = false) {
@@ -64,8 +67,9 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                 if (allowWrap && WrapWidth.HasValue) {
                     var wrapStart = _currentLine.Length;
                     var wrapEnd = wrapStart + line.Length;
-                    if (_wrappableRanges.Count > 0 && _wrappableRanges[^1] == wrapStart) _wrappableRanges[^1] = wrapEnd;
-                    else {
+                    if (_wrappableRanges.Count > 0 && _wrappableRanges[^1] == wrapStart) {
+                        _wrappableRanges[^1] = wrapEnd;
+                    } else {
                         _wrappableRanges.Add(wrapStart);
                         _wrappableRanges.Add(wrapEnd);
                     }
@@ -178,7 +182,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                 return i < wrapRanges[currentChunk];
             }
 
-            while (true) {
+            while (true)
                 switch (mode) {
                     case WordWrapParseMode.InSpace:
                         while (index < message.Length && message[index] == ' ') index++;
@@ -219,7 +223,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
 
                         break;
                 }
-            }
         }
+
     }
 }

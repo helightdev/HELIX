@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.GradientGenerators {
     [UxmlObject]
     public partial class DirectionalLinearGradientGenerator : FillGradientGenerator {
+
         [UxmlAttribute]
         public Color StartColor { get; set; } = Color.white;
 
@@ -35,5 +36,6 @@ namespace HELIX.Widgets.Visual.GradientGenerators {
                 AddressMode
             );
         }
+
     }
 }

@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public abstract class NumProperty<T> : DiagnosticsProperty<T> where T : struct, IFormattable {
+
         protected NumProperty(
             string name,
             T? value,
@@ -44,5 +45,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
             if (!HasValue) return "null";
             return Unit != null ? NumberToString() + Unit : NumberToString();
         }
+
     }
 }

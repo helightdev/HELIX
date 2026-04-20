@@ -9,6 +9,7 @@ using Debug = UnityEngine.Debug;
 
 namespace HELIX.Widgets {
     public static class ModificationBarrier {
+
         private static bool _isFinalizing;
         private static bool _insideTail;
 
@@ -48,9 +49,13 @@ namespace HELIX.Widgets {
             var maxDepth = MaxCallbacksPerFrame;
             while (_postFrameCallbacks.Count > 0 && maxDepth > 0) {
                 var callback = _postFrameCallbacks.Dequeue();
-                try { callback(); } catch (Exception e) {
+                try {
+                    callback();
+                } catch (Exception e) {
                     Debug.LogError($"Error while running post-frame callback: {e}");
-                } finally { maxDepth--; }
+                } finally {
+                    maxDepth--;
+                }
             }
 
             if (maxDepth != 0) return;
@@ -63,12 +68,13 @@ namespace HELIX.Widgets {
         private static void RunTail() {
             if (_insideTail) return;
             if (_pendingRebuilds.Count == 0) return;
-            if (UseRuntimeHelper) {
-                try { HelixRuntimeHelper.EnsureRunning(); } catch (Exception e) {
+            if (UseRuntimeHelper)
+                try {
+                    HelixRuntimeHelper.EnsureRunning();
+                } catch (Exception e) {
                     Debug.LogError($"Error while ensuring runtime helper is running: {e}");
                     return;
                 }
-            }
 
             try {
                 _insideTail = true;
@@ -76,25 +82,27 @@ namespace HELIX.Widgets {
                 Run(() => {
                         var maxDepth = MaxRebuildsPerFrame;
                         var open = _pendingRebuilds.Count;
-                        while (_pendingRebuilds.TryDequeue(out var element) && maxDepth > 0) {
+                        while (_pendingRebuilds.TryDequeue(out var element) && maxDepth > 0)
                             try {
                                 maxDepth--;
                                 var panel = element.Element.panel;
                                 if (panel != null) Reconciler.Reconcile(element, element.Descriptor);
 
                                 Reconciler.Reconcile(element, element.Descriptor);
-                            } catch (Exception e) { Debug.LogError($"Error while rebuilding element {element}: {e}"); }
-                        }
+                            } catch (Exception e) {
+                                Debug.LogError($"Error while rebuilding element {element}: {e}");
+                            }
 
-                        if (maxDepth == 0) {
+                        if (maxDepth == 0)
                             Debug.LogWarning(
                                 "Maximum rebuild depth reached, delaying remaining rebuilds until next frame."
                             );
-                        }
                     }
                 );
                 Profiler.EndSample();
-            } finally { _insideTail = false; }
+            } finally {
+                _insideTail = false;
+            }
         }
 
         public static void EnqueueHierarchyDisposable(IHierarchyDisposable disposable) {
@@ -141,11 +149,10 @@ namespace HELIX.Widgets {
 
         public static void AddPostFrameCallback(Action callback) {
             if (callback == null) throw new ArgumentNullException(nameof(callback));
-            if (!InsideModification) {
+            if (!InsideModification)
                 throw new InvalidOperationException(
                     "Post-frame callbacks can only be added inside a modification context."
                 );
-            }
 
             _postFrameCallbacks.Enqueue(callback);
         }
@@ -156,19 +163,21 @@ namespace HELIX.Widgets {
                 maxDepth--;
                 var disposable = _hierarchyDisposables.First();
                 _hierarchyDisposables.Remove(disposable);
-                try { disposable.Dispose(); } catch (Exception e) {
+                try {
+                    disposable.Dispose();
+                } catch (Exception e) {
                     Debug.LogError($"Error while disposing hierarchy disposable: {e}");
                 }
 
                 if (disposable is IWidgetElement element) RemoveRebuild(element);
             }
 
-            if (maxDepth == 0) {
+            if (maxDepth == 0)
                 Debug.LogWarning(
                     "Maximum hierarchy disposable depth reached, delaying remaining disposals until next frame."
                 );
-            }
         }
+
     }
 
     public interface IHierarchyDisposable : IDisposable, IElement { }

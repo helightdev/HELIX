@@ -8,12 +8,15 @@ using UnityEngine.UIElements;
 
 namespace Examples {
     public class StateSubstanceExample : StatefulWidget<StateSubstanceExample> {
+
         public override State<StateSubstanceExample> CreateState() {
             return new StateSubstanceExampleState();
         }
+
     }
 
     public class StateSubstanceExampleState : State<StateSubstanceExample> {
+
         private readonly SubstanceLayers _boxLayers = new Substance[] {
             new BoxSubstance {
                 background = new WidgetStatePropertyMap<BackgroundStyle> {
@@ -55,7 +58,7 @@ namespace Examples {
                     new HButton(controller: _buttonController) { new HText("Primary Controlled") },
                     new HButton(HButtonVariant.Outline, _buttonController) { new HText("Secondary Controlled") }
                 },
-                new HText($"Shared click count: {_clicks}").Body(context), //
+                new HText($"Shared click count: {_clicks}").Body(context),
                 new HSubstanceBox(
                     _stateController,
                     _boxLayers
@@ -63,5 +66,6 @@ namespace Examples {
                 new HText("Hover / focus / press the controlled buttons to drive this state").Caption(context)
             }.Margin(16);
         }
+
     }
 }

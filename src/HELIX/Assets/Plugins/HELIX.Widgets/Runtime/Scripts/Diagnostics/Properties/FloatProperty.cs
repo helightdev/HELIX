@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public sealed class FloatProperty : DiagnosticsProperty<float?> {
+
         public FloatProperty(
             string name,
             float? value,
@@ -61,5 +62,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
             if (Mathf.Approximately(value, rounded)) return ((int)rounded).ToString(CultureInfo.InvariantCulture);
             return value.ToString("0.0###############", CultureInfo.InvariantCulture);
         }
+
     }
 }

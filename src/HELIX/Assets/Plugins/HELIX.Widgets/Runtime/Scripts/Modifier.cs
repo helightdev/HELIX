@@ -12,6 +12,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public abstract class Modifier : DiagnosticableBase {
+
         public bool isFallback;
         public virtual void Apply(VisualElement element) { }
         public virtual void Reset(VisualElement element) { }
@@ -45,9 +46,9 @@ namespace HELIX.Widgets {
             if (current == null || element == null) return;
 
             if (previous != null) {
-                foreach (var modifier in previous) {
-                    if (!current.Contains(modifier)) modifier.Reset(element);
-                }
+                foreach (var modifier in previous)
+                    if (!current.Contains(modifier))
+                        modifier.Reset(element);
 
                 foreach (var modifier in current) {
                     if (previous.TryGetValue(modifier, out var prev) && modifier.DeepEquals(prev)) continue;
@@ -85,11 +86,10 @@ namespace HELIX.Widgets {
             if (modifiers.TryGetValue(modifier, out var existing)) {
                 if (existing.isFallback) modifiers.Remove(existing);
                 else if (modifier.isFallback) return;
-                else {
+                else
                     throw new InvalidOperationException(
                         $"Modifier of type {modifier.GetType().Name} already exists on widget. Modifiers must be unique per widget."
                     );
-                }
             }
 
             modifiers.Add(modifier);
@@ -106,9 +106,11 @@ namespace HELIX.Widgets {
         public static implicit operator Modifier(TextStyle style) {
             return new TextStyleModifier(style);
         }
+
     }
 
     public static class ModifierExtensions {
+
         public static T WithModifier<T>(this T element, Modifier modifier) where T : Widget {
             element.AddModifier(modifier);
             return element;
@@ -235,9 +237,11 @@ namespace HELIX.Widgets {
             modifier.isFallback = true;
             return modifier;
         }
+
     }
 
     public class ModifierSet : DiagnosticableBase, IReadOnlyCollection<Modifier> {
+
         public static readonly ModifierSet Empty = new() { ReadOnly = true };
 
         public static ModifierSet DefaultFlexFill = new ModifierSet { ModifierFallbacks.ImplicitFlexFill }.Sealed();
@@ -318,11 +322,10 @@ namespace HELIX.Widgets {
             if (_modifiers.TryGetValue(modifier, out var existing)) {
                 if (existing.isFallback) _modifiers.Remove(existing);
                 else if (modifier.isFallback) return;
-                else {
+                else
                     throw new InvalidOperationException(
                         $"Modifier of type {modifier.GetType().Name} already exists on widget. Modifiers must be unique per widget."
                     );
-                }
             }
 
             _modifiers.Add(modifier);
@@ -352,5 +355,6 @@ namespace HELIX.Widgets {
             base.DebugFillProperties(properties);
             properties.Add(new IterableProperty<Modifier>("values", _modifiers, ifEmpty: null, showName: false));
         }
+
     }
 }

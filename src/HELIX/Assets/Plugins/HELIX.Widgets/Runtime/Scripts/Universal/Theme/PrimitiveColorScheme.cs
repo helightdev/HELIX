@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace HELIX.Widgets.Universal.Theme {
     public class PrimitiveColorScheme {
+
         public static readonly PrimitiveColorScheme Default = From(MaterialColors.Indigo);
         public Brightness brightness;
         public ColorTokenPalette error;
@@ -45,9 +46,11 @@ namespace HELIX.Widgets.Universal.Theme {
             var scheme = seedColor.CreateScheme(variant, brightness == Brightness.Dark, contrastLevel);
             return From(scheme);
         }
+
     }
 
     public class ColorTokenPalette {
+
         public Color container;
         public Color main;
         public Color onContainer;
@@ -113,9 +116,11 @@ namespace HELIX.Widgets.Universal.Theme {
                 onSolidVariant = scheme.GetColor(MaterialDynamicColors.OnErrorContainer)
             };
         }
+
     }
 
     public class SurfaceColorPalette {
+
         public Color container;
         public Color containerHigh;
         public Color containerHighest;
@@ -143,9 +148,11 @@ namespace HELIX.Widgets.Universal.Theme {
                 onInverseAccent = scheme.GetColor(MaterialDynamicColors.InversePrimary)
             };
         }
+
     }
 
     public class LayerOpacityProgression {
+
         public static readonly LayerOpacityProgression Default = new() {
             disabledLow = 0.1f,
             disabledHigh = 0.38f,
@@ -161,5 +168,6 @@ namespace HELIX.Widgets.Universal.Theme {
 
         public float low;
         public float normal;
+
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public class TextStyleProperty : DiagnosticsProperty<TextStyle> {
+
         public TextStyleProperty(
             string name,
             TextStyle value,
@@ -67,5 +68,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             return "TextStyle";
         }
+
     }
 }

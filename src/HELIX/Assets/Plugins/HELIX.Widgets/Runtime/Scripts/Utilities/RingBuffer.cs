@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace HELIX.Widgets.Utilities {
     public class RingBuffer<T> : IReadOnlyList<T> {
+
         private readonly T[] _buffer;
         private int _index;
 
@@ -41,5 +42,6 @@ namespace HELIX.Widgets.Utilities {
             _index = 0;
             Count = 0;
         }
+
     }
 }

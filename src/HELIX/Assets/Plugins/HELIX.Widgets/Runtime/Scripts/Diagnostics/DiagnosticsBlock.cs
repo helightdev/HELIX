@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics {
     public class DiagnosticsBlock : DiagnosticsNode {
+
         private readonly List<DiagnosticsNode> _children;
         private readonly string _description;
         private readonly List<DiagnosticsNode> _properties;
@@ -48,5 +49,6 @@ namespace HELIX.Widgets.Diagnostics {
         public override string ToDescription(TextTreeConfiguration parentConfiguration = null) {
             return _description;
         }
+
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace HELIX.Widgets.Theming {
     public static class RuntimeReflectionThemeLookup {
+
         private static readonly Dictionary<string, ThemeProperty> _lookupCache = new();
         private static readonly Dictionary<string, ElementFactory> _elementFactoryCache = new();
 
@@ -16,13 +17,12 @@ namespace HELIX.Widgets.Theming {
                 if (t != null) return t;
             }
 
-            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()) {
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
                 try {
                     var t = asm.GetTypes().FirstOrDefault(x => x.FullName == typeName)
-                         ?? asm.GetTypes().FirstOrDefault(x => x.Name == typeName);
+                            ?? asm.GetTypes().FirstOrDefault(x => x.Name == typeName);
                     if (t != null) return t;
                 } catch (ReflectionTypeLoadException) { }
-            }
 
             return null;
         }
@@ -75,5 +75,6 @@ namespace HELIX.Widgets.Theming {
         public static BaseThemeProperty<T> GetProperty<T>(string reference) {
             return GetProperty(reference) as BaseThemeProperty<T>;
         }
+
     }
 }

@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public sealed class FlagProperty : DiagnosticsProperty<bool?> {
+
         public FlagProperty(
             string name,
             bool? value,
@@ -52,5 +53,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
             if (ValueTyped == false && IfFalse != null) return IfFalse;
             return base.ValueToString(parentConfiguration);
         }
+
     }
 }

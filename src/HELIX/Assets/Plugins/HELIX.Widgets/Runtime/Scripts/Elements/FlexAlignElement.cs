@@ -8,6 +8,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
     public partial class FlexAlignElement : SingleChildWidgetBaseElement<HAlign>, IPreferExplicitFlex {
+
         private readonly VisualElement _bottomSpacer;
         private readonly VisualElement _leftSpacer;
         private readonly VisualElement _rightSpacer;
@@ -71,5 +72,6 @@ namespace HELIX.Widgets.Elements {
             base.Apply(previous, widget);
             Alignment = widget.alignment;
         }
+
     }
 }

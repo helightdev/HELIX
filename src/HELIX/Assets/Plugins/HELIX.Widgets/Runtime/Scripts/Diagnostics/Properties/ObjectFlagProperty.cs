@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public sealed class ObjectFlagProperty<T> : DiagnosticsProperty<T> {
+
         public ObjectFlagProperty(
             string name,
             T value,
@@ -47,9 +48,12 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             if (ValueTyped != null) {
                 if (IfPresent != null) return IfPresent;
-            } else if (IfNull != null) return IfNull;
+            } else if (IfNull != null) {
+                return IfNull;
+            }
 
             return base.ValueToString(parentConfiguration);
         }
+
     }
 }

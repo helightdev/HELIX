@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public abstract class DirectionalContainerWidget : MultiChildWidget {
+
         public readonly Align crossAxisAlign;
         public readonly float gap;
         public readonly Justify mainAxisAlign;
@@ -35,5 +36,6 @@ namespace HELIX.Widgets.Universal {
             properties.Add(new FloatProperty("gap", gap, defaultValue: 0f));
             properties.Add(new FlagProperty("reverse", reverse, "Reverse"));
         }
+
     }
 }

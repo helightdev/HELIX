@@ -10,6 +10,7 @@ using DirectionalLinearGradientGenerator = HELIX.Widgets.Visual.GradientGenerato
 namespace HELIX.Widgets.Visual {
     [UxmlElement]
     public partial class MemoryUsageLineGraph : BaseElement {
+
         private readonly Label _memoryLabel;
         private ProfilerRecorder _gcUsedProfiler;
 
@@ -111,5 +112,6 @@ namespace HELIX.Widgets.Visual {
             _residentProfiler.Stop();
             _gcUsedProfiler.Stop();
         }
+
     }
 }

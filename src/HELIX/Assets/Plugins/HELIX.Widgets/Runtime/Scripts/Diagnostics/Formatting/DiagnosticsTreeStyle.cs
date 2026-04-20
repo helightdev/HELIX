@@ -1,5 +1,6 @@
 namespace HELIX.Widgets.Diagnostics.Formatting {
     public enum DiagnosticsTreeStyle {
+
         None,
         Sparse,
         Offstage,
@@ -12,5 +13,6 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
         ErrorProperty,
         Shallow,
         TruncateChildren
+
     }
 }

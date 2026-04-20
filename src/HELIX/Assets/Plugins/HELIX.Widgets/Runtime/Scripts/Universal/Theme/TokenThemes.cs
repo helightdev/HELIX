@@ -10,32 +10,33 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Theme {
     public class PrimitiveTheme {
+
         public static readonly ThemeProperty<Color> Surface = ThemeProperty.ExtractMaybe(
             "primitive-c-surface",
             PrimitiveThemeComponent.Default,
             component => component.surface
         ).StyleLoader().Compute(ColorSchema(elem => elem.surface.main));
 
-        public static readonly ThemeProperty<Color> BackgroundSubtle = ThemeProperty.ExtractMaybe(
-            "primitive-c-background-subtle",
+        public static readonly ThemeProperty<Color> ContainerLow = ThemeProperty.ExtractMaybe(
+            "primitive-c-container-low",
             PrimitiveThemeComponent.Default,
             component => component.backgroundSubtle
         ).StyleLoader().Compute(ColorSchema(elem => elem.surface.containerLow));
 
-        public static readonly ThemeProperty<Color> Background = ThemeProperty.ExtractMaybe(
-            "primitive-c-background",
+        public static readonly ThemeProperty<Color> Container = ThemeProperty.ExtractMaybe(
+            "primitive-c-container",
             PrimitiveThemeComponent.Default,
             component => component.background
         ).StyleLoader().Compute(ColorSchema(elem => elem.surface.container));
 
-        public static readonly ThemeProperty<Color> Text = ThemeProperty.ExtractMaybe(
-            "primitive-c-text",
+        public static readonly ThemeProperty<Color> TextVariant = ThemeProperty.ExtractMaybe(
+            "primitive-c-text-variant",
             PrimitiveThemeComponent.Default,
             component => component.text
         ).StyleLoader().Compute(ColorSchema(elem => elem.surface.onVariant));
 
-        public static readonly ThemeProperty<Color> TextContrast = ThemeProperty.ExtractMaybe(
-            "primitive-c-text-contrast",
+        public static readonly ThemeProperty<Color> Text = ThemeProperty.ExtractMaybe(
+            "primitive-c-text",
             PrimitiveThemeComponent.Default,
             component => component.textContrast
         ).StyleLoader().Compute(ColorSchema(elem => elem.surface.onMain));
@@ -89,15 +90,17 @@ namespace HELIX.Widgets.Universal.Theme {
         ).Compute(HTextFieldStyle.DefaultStyleOf);
 
         public static readonly IReadOnlyList<ThemeProperty> Properties = new ThemeProperty[] {
-            Surface, BackgroundSubtle, Background, Text, TextContrast, Button, ButtonFocusLayer, Slider, Scrollbar
+            Surface, ContainerLow, Container, TextVariant, Text, Button, ButtonFocusLayer, Slider, Scrollbar
         };
 
         private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) {
             return element => func(element.Resolve(PrimitiveBaseTheme.Colors));
         }
+
     }
 
     public class PrimitiveThemeComponent : ThemeComponent {
+
         public static readonly PrimitiveThemeComponent Default = new();
         public ThemeOptional<Color> background;
         public ThemeOptional<Color> backgroundSubtle;
@@ -114,5 +117,6 @@ namespace HELIX.Widgets.Universal.Theme {
         public PrimitiveThemeComponent() {
             lookupScope = PrimitiveTheme.Properties;
         }
+
     }
 }

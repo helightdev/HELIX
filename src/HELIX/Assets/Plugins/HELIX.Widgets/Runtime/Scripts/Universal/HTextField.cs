@@ -12,6 +12,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HTextField : StatefulWidget<HTextField> {
+
         public readonly bool autocorrect;
         public readonly TextEditingController controller;
 
@@ -73,9 +74,11 @@ namespace HELIX.Widgets.Universal {
         public override State<HTextField> CreateState() {
             return new HTextFieldState();
         }
+
     }
 
     public class HTextFieldState : State<HTextField> {
+
         private TextEditingController _controller;
         private IDisposable _controllerSubscription;
         private GenericTextInput _input;
@@ -207,5 +210,6 @@ namespace HELIX.Widgets.Universal {
                 }.Fill()
             );
         }
+
     }
 }

@@ -5,6 +5,7 @@ using System.Text;
 
 namespace HELIX.Widgets.Diagnostics.Formatting {
     public sealed class TextTreeRenderer {
+
         private readonly int _maxDescendantsTruncatableNode;
         private readonly DiagnosticLevel _minLevel;
         private readonly int _wrapWidth;
@@ -65,7 +66,9 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
 
                 void Visitor(DiagnosticsNode current) {
                     List<DiagnosticsNode> diagnosticsNodes;
-                    try { diagnosticsNodes = current.GetChildren(); } catch (Exception ex) {
+                    try {
+                        diagnosticsNodes = current.GetChildren();
+                    } catch (Exception ex) {
                         diagnosticsNodes = new[] {
                             DiagnosticsNode.Message(
                                 "Error while getting children: " + ex.GetType().Name + " - " + ex.Message
@@ -91,11 +94,11 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
 
                 Visitor(node);
                 var info = new StringBuilder(prefixLineOne);
-                if (lines > 1) {
+                if (lines > 1)
                     info.AppendLine(
                         "This " + node.Name + " had the following descendants (showing up to depth " + maxDepth + "):"
                     );
-                } else if (descendants.Count == 1) info.AppendLine("This " + node.Name + " had the following child:");
+                else if (descendants.Count == 1) info.AppendLine("This " + node.Name + " had the following child:");
                 else info.AppendLine("This " + node.Name + " has no descendants.");
 
                 info.Append(string.Join("\n", descendants));
@@ -109,14 +112,18 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
             );
 
             List<DiagnosticsNode> children;
-            try { children = node.GetChildren(); } catch (Exception ex) {
+            try {
+                children = node.GetChildren();
+            } catch (Exception ex) {
                 children = new[] {
                     DiagnosticsNode.Message("Error while getting children: " + ex.GetType().Name + " - " + ex.Message)
                 }.ToList();
             }
 
             string description;
-            try { description = node.ToDescription(parentConfiguration); } catch (Exception ex) {
+            try {
+                description = node.ToDescription(parentConfiguration);
+            } catch (Exception ex) {
                 description = "Error while getting description: " + ex.GetType().Name + " - " + ex.Message;
             }
 
@@ -142,30 +149,30 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
 
                 if (!isSingleLine && builder.RequiresMultipleLines && !builder.IsCurrentLineEmpty) builder.Write("\n");
 
-                if (includeName) {
+                if (includeName)
                     builder.IncrementPrefixOtherLines(
                         children.Count == 0 ? config.PropertyPrefixNoChildren : config.PropertyPrefixIfChildren,
                         true
                     );
-                }
 
                 if (uppercaseTitle) description = description.ToUpperInvariant();
 
                 builder.Write(description.TrimEnd(), wrapDescription);
 
-                if (!includeName) {
+                if (!includeName)
                     builder.IncrementPrefixOtherLines(
                         children.Count == 0 ? config.PropertyPrefixNoChildren : config.PropertyPrefixIfChildren,
                         false
                     );
-                }
             }
 
             if (config.SuffixLineOne.Length > 0)
                 builder.WriteStretched(config.SuffixLineOne, builder.WrapWidth ?? _wrapWidth);
 
             IEnumerable<DiagnosticsNode> propertiesEnumerable;
-            try { propertiesEnumerable = node.GetProperties().Where(n => !n.IsFiltered(_minLevel)); } catch
+            try {
+                propertiesEnumerable = node.GetProperties().Where(n => !n.IsFiltered(_minLevel));
+            } catch
                 (Exception ex) {
                 propertiesEnumerable = new[] {
                     DiagnosticsNode.Message("Error while getting properties: " + ex.GetType().Name + " - " + ex.Message)
@@ -182,7 +189,9 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                     children = children.Take(_maxDescendantsTruncatableNode).ToList();
                     children.Add(DiagnosticsNode.Message("..."));
                 }
-            } else properties = propertiesEnumerable.ToList();
+            } else {
+                properties = propertiesEnumerable.ToList();
+            }
 
             if ((properties.Count > 0 || children.Count > 0 || node.EmptyBodyDescription != null) &&
                 (node.ShowSeparator || !string.IsNullOrEmpty(description)))
@@ -214,8 +223,9 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                     );
 
                     var propertyLines = propertyRender.Split('\n');
-                    if (propertyLines.Length == 1 && !config.LineBreakProperties) builder.Write(propertyLines[0]);
-                    else {
+                    if (propertyLines.Length == 1 && !config.LineBreakProperties) {
+                        builder.Write(propertyLines[0]);
+                    } else {
                         builder.Write(propertyRender);
                         if (!propertyRender.EndsWith("\n", StringComparison.Ordinal)) builder.Write("\n");
                     }
@@ -265,7 +275,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                         if (childConfig.Footer.Length > 0) {
                             builder.PrefixOtherLines = prefixChildrenRaw;
                             builder.Write(childConfig.ChildLinkSpace + childConfig.Footer);
-                            if (childConfig.MandatoryFooter.Length > 0) {
+                            if (childConfig.MandatoryFooter.Length > 0)
                                 builder.WriteStretched(
                                     childConfig.MandatoryFooter,
                                     Math.Max(
@@ -273,7 +283,6 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                                         _wrapWidthProperties + childPrefixOtherLines.Length
                                     )
                                 );
-                            }
 
                             builder.Write(config.LineBreak);
                         }
@@ -287,7 +296,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                         if (childConfig.Footer.Length > 0) {
                             builder.PrefixOtherLines = prefixChildrenRaw;
                             builder.Write(childConfig.LinkCharacter + childConfig.Footer);
-                            if (childConfig.MandatoryFooter.Length > 0) {
+                            if (childConfig.MandatoryFooter.Length > 0)
                                 builder.WriteStretched(
                                     childConfig.MandatoryFooter,
                                     Math.Max(
@@ -295,7 +304,6 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                                         _wrapWidthProperties + childPrefixOtherLines.Length
                                     )
                                 );
-                            }
 
                             builder.Write(config.LineBreak);
                         }
@@ -310,5 +318,6 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
 
             return builder.Build();
         }
+
     }
 }

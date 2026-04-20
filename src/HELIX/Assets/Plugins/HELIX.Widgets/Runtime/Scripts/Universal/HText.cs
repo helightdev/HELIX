@@ -8,6 +8,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HText : WrappingBaseWidget<HText, Label> {
+
         private readonly ModifierSet _defaultModifiers = new ModifierSet {
             ModifierFallbacks.PaddingZero,
             ModifierFallbacks.MarginZero
@@ -98,9 +99,11 @@ namespace HELIX.Widgets.Universal {
                 )
             );
         }
+
     }
 
     public static class HTextExtensions {
+
         public static HText Body(this HText text, IThemeProvider theme, int level = 1) {
             var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
             text.style ??= new TextStyle();
@@ -147,5 +150,6 @@ namespace HELIX.Widgets.Universal {
             };
             return text;
         }
+
     }
 }

@@ -5,6 +5,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Error {
     public sealed class HelixDiagnosticException : Exception {
+
         private readonly List<DiagnosticsNode> _parts;
         private string _cachedMessage;
 
@@ -65,5 +66,6 @@ namespace HELIX.Widgets.Diagnostics.Error {
                 properties: _parts
             );
         }
+
     }
 }

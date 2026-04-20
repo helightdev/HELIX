@@ -5,6 +5,7 @@ using HELIX.Widgets.Universal.Controllers;
 
 namespace HELIX.Widgets.Universal {
     public class HSubstanceBox : StatefulWidget<HSubstanceBox> {
+
         public readonly WidgetStateProperty<Alignment> alignment;
         public readonly Key boxKey;
         public readonly WidgetStateProperty<ModifierSet> boxModifiers;
@@ -34,9 +35,11 @@ namespace HELIX.Widgets.Universal {
         public override State<HSubstanceBox> CreateState() {
             return new HSubstanceBoxState();
         }
+
     }
 
     public class HSubstanceBoxState : State<HSubstanceBox> {
+
         public override Widget Build(BuildContext context) {
             var state = widget.controller?.Value ?? WidgetState.None;
 
@@ -71,5 +74,6 @@ namespace HELIX.Widgets.Universal {
             );
             return column;
         }
+
     }
 }

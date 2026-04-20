@@ -15,6 +15,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Navigation {
     [UxmlElement]
     public partial class NavStackElement : SingleChildWidgetBaseElement<NavStack> {
+
         private readonly List<PageTransitionHandle> _activeTransitions = new();
         private readonly VisualElement _pageContainer;
         private readonly List<NavPageBase> _pages = new();
@@ -119,7 +120,9 @@ namespace HELIX.Widgets.Navigation {
                             Refresh();
                             completionSource.SetResult(true);
                         };
-                    } catch (Exception e) { completionSource.SetException(e); }
+                    } catch (Exception e) {
+                        completionSource.SetException(e);
+                    }
                 }
             );
             return completionSource.Awaitable;
@@ -150,7 +153,9 @@ namespace HELIX.Widgets.Navigation {
                             Refresh();
                             completionSource.SetResult(true);
                         };
-                    } catch (Exception e) { completionSource.SetException(e); }
+                    } catch (Exception e) {
+                        completionSource.SetException(e);
+                    }
                 }
             );
             return completionSource.Awaitable;
@@ -183,7 +188,9 @@ namespace HELIX.Widgets.Navigation {
                             Refresh();
                             completionSource.SetResult(true);
                         };
-                    } catch (Exception e) { completionSource.SetException(e); }
+                    } catch (Exception e) {
+                        completionSource.SetException(e);
+                    }
                 }
             );
 
@@ -214,7 +221,9 @@ namespace HELIX.Widgets.Navigation {
                             Refresh();
                             completionSource.SetResult();
                         };
-                    } catch (Exception e) { completionSource.SetException(e); }
+                    } catch (Exception e) {
+                        completionSource.SetException(e);
+                    }
                 }
             );
             return completionSource.Awaitable;
@@ -247,7 +256,9 @@ namespace HELIX.Widgets.Navigation {
                             Refresh();
                             completionSource.SetResult();
                         };
-                    } catch (Exception e) { completionSource.SetException(e); }
+                    } catch (Exception e) {
+                        completionSource.SetException(e);
+                    }
                 }
             );
             return completionSource.Awaitable;
@@ -334,11 +345,15 @@ namespace HELIX.Widgets.Navigation {
         }
 
         private class StackOperation {
+
             public Action action;
+
         }
+
     }
 
     public class NavStack : SingleChildWidget {
+
         public PageTransition defaultTransition;
 
         public NavStack() {
@@ -365,13 +380,17 @@ namespace HELIX.Widgets.Navigation {
             base.DebugFillProperties(properties);
             properties.Add(new DiagnosticsProperty<PageTransition>("defaultTransition", defaultTransition));
         }
+
     }
 
     public abstract class NavPageBase : VisualElement {
+
         public virtual bool Opaque => true;
+
     }
 
     public class WidgetNavPage : NavPageBase {
+
         private readonly WidgetHostElement _host;
 
         public WidgetNavPage() {
@@ -383,9 +402,11 @@ namespace HELIX.Widgets.Navigation {
             get => _host.Buildable;
             set => _host.Buildable = value;
         }
+
     }
 
     public class NavPageBuffer : IEnumerable<NavPageBase> {
+
         public static readonly NavPageBuffer Empty = new(new List<NavPageBase>());
         public readonly IReadOnlyList<NavPageBase> pages;
 
@@ -407,9 +428,11 @@ namespace HELIX.Widgets.Navigation {
         public bool Contains(NavPageBase pageBase) {
             return pages.Contains(pageBase);
         }
+
     }
 
     public class NavStackModificationResult {
+
         private readonly Lazy<NavPageBuffer> _addedPages;
         private readonly Lazy<int4> _minMaxIndices;
         private readonly Lazy<NavPageBuffer> _removedPages;
@@ -495,12 +518,15 @@ namespace HELIX.Widgets.Navigation {
 
             return new int4(minRemovedIndex, maxRemovedIndex, minAddedIndex, maxAddedIndex);
         }
+
     }
 
     public enum NavModificationType {
+
         Push,
         Pop,
         Replace,
         Complex
+
     }
 }

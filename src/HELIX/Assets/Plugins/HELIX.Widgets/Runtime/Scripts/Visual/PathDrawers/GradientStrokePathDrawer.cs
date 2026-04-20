@@ -5,7 +5,9 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Visual.PathDrawers {
     [UxmlObject]
     public partial class GradientStrokePathDrawer : ScriptablePathDrawer {
-        [Header("Gradient Stroke"), UxmlAttribute]
+
+        [Header("Gradient Stroke")]
+        [UxmlAttribute]
         public Color StartColor { get; set; } = Color.white;
 
         [UxmlAttribute]
@@ -49,5 +51,6 @@ namespace HELIX.Widgets.Visual.PathDrawers {
 
             canvas.painter.Stroke();
         }
+
     }
 }

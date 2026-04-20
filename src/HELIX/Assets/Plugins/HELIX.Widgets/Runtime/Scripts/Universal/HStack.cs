@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HStack : MultiChildWidget {
+
         public readonly Axis axis;
         public readonly Align crossAxisAlign;
         public readonly Justify mainAxisAlign;
@@ -53,9 +54,11 @@ namespace HELIX.Widgets.Universal {
             properties.Add(new FlagProperty("reverse", reverse, "Reverse"));
             properties.Add(new FlagProperty("wrapReverse", wrapReverse, "Wrap Reverse"));
         }
+
     }
 
     public class HStackElement : MultiChildWidgetBaseElement<HStack>, IPreferExplicitFlex, IPreferStacking {
+
         public override void Apply(HStack previous, HStack widget) {
             base.Apply(previous, widget);
             if (widget.axis == Axis.Horizontal)
@@ -67,5 +70,6 @@ namespace HELIX.Widgets.Universal {
             style.alignItems = widget.crossAxisAlign;
             style.justifyContent = widget.mainAxisAlign;
         }
+
     }
 }

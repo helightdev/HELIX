@@ -9,6 +9,7 @@ using UnityEngine.UIElements;
 
 [ThemePropertyCollection]
 public static class MyThemes {
+
     // public static readonly ThemeProperty<Color> PrimaryColor1 = new ThemePropertyBuilder<Color>()
     //     .Key("c-primary").StyleLoader().ComponentExtractor<ExampleThemeComponent>(component => component.primaryColor)
     //     .Build();
@@ -34,10 +35,13 @@ public static class MyThemes {
 
     public static readonly IReadOnlyList<ThemeProperty> Properties =
         new ThemeProperty[] { PrimaryColor, PrimaryWashedColor, ExampleFactory };
+
 }
 
-[UxmlObject, Serializable]
+[UxmlObject]
+[Serializable]
 public partial class ExampleThemeComponent : ThemeComponent {
+
     public static readonly ExampleThemeComponent Default = new() {
         factory = new TestFactory(),
         primaryColor = Color.white,
@@ -53,30 +57,39 @@ public partial class ExampleThemeComponent : ThemeComponent {
     [UxmlAttribute("example-optional")]
     public ThemeOptional<Color> optionalColor;
 
-    [Header("Example Theme Component"), UxmlObjectReference("example-factory")]
+    [Header("Example Theme Component")]
+    [UxmlObjectReference("example-factory")]
     public VisualElementFactory factory;
 
     public ExampleThemeComponent() {
         lookupScope = MyThemes.Properties;
     }
+
 }
 
-[UxmlWidgetFactory, UxmlObject]
+[UxmlWidgetFactory]
+[UxmlObject]
 public partial class TestFactory : VisualElementFactory {
+
     public override VisualElement Create(BaseElement parentElement) {
         return new Label("Hello, World!").Sized(25);
     }
+
 }
 
-[UxmlWidgetFactory, UxmlObject]
+[UxmlWidgetFactory]
+[UxmlObject]
 public partial class AnotherTestFactory : VisualElementFactory {
+
     public override VisualElement Create(BaseElement parentElement) {
         return new Label("This is just another test!").Positioned(right: 0, bottom: 0).Flexible();
     }
+
 }
 
 [UxmlElement]
 public partial class Example : BaseElement {
+
     private readonly ElementFactorySlot<VisualElement> _factorySlotSlot;
     private readonly ThemeValue<Color> _primaryColor;
 
@@ -107,10 +120,12 @@ public partial class Example : BaseElement {
     private void OnPrimaryColorChanged(Color newValue) {
         style.backgroundColor = newValue;
     }
+
 }
 
 [UxmlElement]
 public partial class PerformUpdateWidget : BaseElement {
+
     public PerformUpdateWidget() {
         var button = new Button { text = "Update me!" };
         button.clicked += () => {
@@ -119,4 +134,5 @@ public partial class PerformUpdateWidget : BaseElement {
         };
         Add(button);
     }
+
 }

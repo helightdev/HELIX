@@ -3,6 +3,7 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public class FormattingProperty<T> : DiagnosticsProperty<T> {
+
         private readonly Func<T, string> _formatter;
 
         public FormattingProperty(
@@ -47,5 +48,6 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             return ValueTyped == null ? IfNull ?? "null" : _formatter(ValueTyped);
         }
+
     }
 }

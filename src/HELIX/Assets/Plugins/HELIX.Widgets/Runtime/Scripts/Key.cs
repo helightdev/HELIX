@@ -8,10 +8,11 @@ using HELIX.Widgets.Diagnostics.Error;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
-    [SuppressMessage("ReSharper", "Unity.BurstAccessingManagedMethod"),
-     SuppressMessage("ReSharper", "Unity.BurstLoadingManagedType"),
-     SuppressMessage("ReSharper", "Unity.BurstFunctionSignatureContainsManagedTypes")]
+    [SuppressMessage("ReSharper", "Unity.BurstAccessingManagedMethod")]
+    [SuppressMessage("ReSharper", "Unity.BurstLoadingManagedType")]
+    [SuppressMessage("ReSharper", "Unity.BurstFunctionSignatureContainsManagedTypes")]
     public readonly struct Key : IEquatable<Key> {
+
         public readonly ulong value;
         public readonly BaseKey details;
 
@@ -77,14 +78,18 @@ namespace HELIX.Widgets {
             var source = Encoding.UTF8.GetBytes(value);
             return XxHash3.HashToUInt64(source);
         }
+
     }
 
     public abstract class BaseKey : DiagnosticableBase {
+
         public virtual void OnMounted(IWidgetElement element, Widget descriptor) { }
         public virtual void OnUnmounted(IWidgetElement element) { }
+
     }
 
     public class GlobalKey : BaseKey {
+
         public readonly string debugName;
 
         public GlobalKey(string debugName = null) {
@@ -95,7 +100,7 @@ namespace HELIX.Widgets {
 
         public override void OnMounted(IWidgetElement element, Widget descriptor) {
             if (element == Target) return;
-            if (Target != null) {
+            if (Target != null)
                 HelixDiagnostics.Build(
                     "An already mounted global key has been used by a new element",
                     "Global keys may only be used by one element at a time. " +
@@ -115,13 +120,12 @@ namespace HELIX.Widgets {
                         )
                     }
                 ).Report(DiagnosticLevel.Warning);
-            }
 
             Target = element;
         }
 
         public override void OnUnmounted(IWidgetElement element) {
-            if (Target != element) {
+            if (Target != element)
                 HelixDiagnostics.Build(
                     "A global key is being unmounted by an element that does not own it",
                     "This warning indicates that a global key is being unmounted by an element that is " +
@@ -135,7 +139,6 @@ namespace HELIX.Widgets {
                         new ErrorHint("Ensure that the element unmounting the key is the same element that mounted it.")
                     }
                 ).Report(DiagnosticLevel.Warning);
-            }
 
             Target = null;
         }
@@ -143,9 +146,11 @@ namespace HELIX.Widgets {
         public override string ToStringShort() {
             return $"GlobalKey#{debugName ?? this.ShortHash()}";
         }
+
     }
 
     public class GlobalKey<T> : GlobalKey where T : VisualElement {
+
         public GlobalKey(string debugName = null) : base(debugName) { }
         public T Element { get; private set; }
 
@@ -153,7 +158,7 @@ namespace HELIX.Widgets {
             if (element == Target) return;
             base.OnMounted(element, descriptor);
             if (element.Element is T typedElement) Element = typedElement;
-            else {
+            else
                 HelixDiagnostics.Build(
                     "A global key was mounted to an element of an incompatible type",
                     "The generic type parameter of a GlobalKey<T> must match the type of the VisualElement it is mounted to. " +
@@ -167,7 +172,6 @@ namespace HELIX.Widgets {
                         new ErrorHint("Ensure that the element being mounted to the key is of the correct type.")
                     }
                 ).Report(DiagnosticLevel.Warning);
-            }
         }
 
         public override void OnUnmounted(IWidgetElement element) {
@@ -178,5 +182,6 @@ namespace HELIX.Widgets {
         public override string ToStringShort() {
             return $"GlobalKey<{typeof(T).Name}>#{debugName ?? this.ShortHash()}";
         }
+
     }
 }

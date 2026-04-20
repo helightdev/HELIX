@@ -4,13 +4,16 @@ using HELIX.Widgets.Utilities;
 
 namespace HELIX.Widgets.Signals {
     public interface ISignalObserver {
+
         void OnSignalChanged(Signal signal) { }
         void OnSignalRemoved(Signal signal) { }
         void OnSignalAdded(Signal signal) { }
         void OnSignalDirty(Signal signal) { }
+
     }
 
     public class WeakSignalObserver : ISignalObserver, IPossiblyDisposed {
+
         private readonly WeakReference<ISignalObserver> _reference;
 
         public WeakSignalObserver(ISignalObserver observer) {
@@ -46,5 +49,6 @@ namespace HELIX.Widgets.Signals {
         public override int GetHashCode() {
             return RuntimeHelpers.GetHashCode(this);
         }
+
     }
 }

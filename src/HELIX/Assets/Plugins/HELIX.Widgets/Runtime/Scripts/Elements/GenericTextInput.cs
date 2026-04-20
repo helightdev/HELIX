@@ -7,6 +7,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
     public partial class GenericTextInput : BaseElement {
+
         private const string _ussStyleLight = "helix-textfield-style-light";
         private const string _ussStyleLightNeutral = "helix-textfield-style-light-neutral";
         private const string _ussStyleDark = "helix-textfield-style-dark";
@@ -39,8 +40,8 @@ namespace HELIX.Widgets.Elements {
 
         public TextField BackingTextField { get; }
 
-        [UxmlAttribute,
-         Tooltip("The visual style of the text input, which determines the selection and cursor colors.")]
+        [UxmlAttribute]
+        [Tooltip("The visual style of the text input, which determines the selection and cursor colors.")]
         public GenericTextInputStyle TextInputStyle {
             get => _textInputStyle;
             set {
@@ -49,8 +50,8 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
-        [UxmlAttribute,
-         Tooltip("Color of the text selection highlight. Only applies if TextInputStyle is set to Custom.")]
+        [UxmlAttribute]
+        [Tooltip("Color of the text selection highlight. Only applies if TextInputStyle is set to Custom.")]
         public Color SelectionColor {
             get => _selectionColor;
             set {
@@ -59,7 +60,8 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
-        [UxmlAttribute, Tooltip("Color of the text field's cursor. Only applies if TextInputStyle is set to Custom.")]
+        [UxmlAttribute]
+        [Tooltip("Color of the text field's cursor. Only applies if TextInputStyle is set to Custom.")]
         public Color CursorColor {
             get => _cursorColor;
             set {
@@ -68,10 +70,10 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
-        [UxmlAttribute,
-         Tooltip(
-             "Whether the text field should stretch to fill available space. If false, the text field will size to its content."
-         )]
+        [UxmlAttribute]
+        [Tooltip(
+            "Whether the text field should stretch to fill available space. If false, the text field will size to its content."
+        )]
         public bool Expands {
             get => _expands;
             set {
@@ -81,7 +83,8 @@ namespace HELIX.Widgets.Elements {
             }
         }
 
-        [Header("Delegated Properties"), UxmlAttribute]
+        [Header("Delegated Properties")]
+        [UxmlAttribute]
         public string Value {
             get => BackingTextField.value;
             set => BackingTextField.value = value;
@@ -171,10 +174,10 @@ namespace HELIX.Widgets.Elements {
             }
 
             switch (_textInputStyle) {
-                case GenericTextInputStyle.Light:        BackingTextField.WithClasses(_ussStyleLight); break;
-                case GenericTextInputStyle.Dark:         BackingTextField.WithClasses(_ussStyleDark); break;
+                case GenericTextInputStyle.Light: BackingTextField.WithClasses(_ussStyleLight); break;
+                case GenericTextInputStyle.Dark: BackingTextField.WithClasses(_ussStyleDark); break;
                 case GenericTextInputStyle.LightNeutral: BackingTextField.WithClasses(_ussStyleLightNeutral); break;
-                case GenericTextInputStyle.DarkNeutral:  BackingTextField.WithClasses(_ussStyleDarkNeutral); break;
+                case GenericTextInputStyle.DarkNeutral: BackingTextField.WithClasses(_ussStyleDarkNeutral); break;
                 case GenericTextInputStyle.Custom:
                     BackingTextField.WithClasses(_ussStyleClear);
 #pragma warning disable CS0618 // Type or member is obsolete
@@ -186,13 +189,16 @@ namespace HELIX.Widgets.Elements {
                 default: throw new ArgumentOutOfRangeException();
             }
         }
+
     }
 
     public enum GenericTextInputStyle {
+
         Light = 0,
         Dark = 1,
         Custom = 3,
         LightNeutral = 4,
         DarkNeutral = 5
+
     }
 }

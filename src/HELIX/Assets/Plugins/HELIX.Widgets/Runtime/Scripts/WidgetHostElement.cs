@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public class WidgetHostElement : BuildingWidgetBaseElement<WidgetHostElement.WidgetType>, IHierarchyDisposable {
+
         public static readonly HashSet<WidgetHostElement> Instances = new();
 
         private bool _hasState;
@@ -59,12 +60,15 @@ namespace HELIX.Widgets {
         }
 
         public abstract class WidgetType : Widget {
+
             public override IWidgetElement CreateElement() {
                 throw new NotImplementedException();
             }
+
         }
 
         public class RootWidget : WidgetType {
+
             public static readonly RootWidget Instance = new();
 
             private RootWidget() { }
@@ -72,9 +76,11 @@ namespace HELIX.Widgets {
             public override string GetWidgetName() {
                 return "[ROOT]";
             }
+
         }
 
         public class GapWidget : WidgetType {
+
             public static readonly GapWidget Instance = new();
 
             private GapWidget() { }
@@ -82,6 +88,8 @@ namespace HELIX.Widgets {
             public override string GetWidgetName() {
                 return "[GAP]";
             }
+
         }
+
     }
 }

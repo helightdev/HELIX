@@ -7,12 +7,15 @@ using UnityEngine.UIElements;
 
 namespace Examples {
     public class TextInputExample : StatefulWidget<TextInputExample> {
+
         public override State<TextInputExample> CreateState() {
             return new TextInputExampleState();
         }
+
     }
 
     public class TextInputExampleState : State<TextInputExample> {
+
         private readonly GlobalKey _firstInputFocus = new();
         private readonly GlobalKey _secondInputFocus = new();
         private readonly TextEditingController _sharedController = new();
@@ -56,5 +59,6 @@ namespace Examples {
                 new HTextField(focusKey: _secondInputFocus, controller: _sharedController).TightStretch()
             }.Margin(16);
         }
+
     }
 }

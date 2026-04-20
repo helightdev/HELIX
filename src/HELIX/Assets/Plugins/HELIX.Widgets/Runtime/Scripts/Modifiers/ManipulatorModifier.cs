@@ -2,6 +2,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class ManipulatorModifier : SingletonModifier {
+
         public IManipulator manipulator;
 
         public ManipulatorModifier(IManipulator manipulator) {
@@ -23,5 +24,6 @@ namespace HELIX.Widgets.Modifiers {
         public static ManipulatorModifier Of(IManipulator manipulator) {
             return new ManipulatorModifier(manipulator);
         }
+
     }
 }

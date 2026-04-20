@@ -10,6 +10,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {
     public class BackgroundStyle : DiagnosticableBase, IEquatable<BackgroundStyle> {
+
         public static readonly BackgroundStyle Default = new();
         public StyleColor color = StyleKeyword.Initial;
         public StyleBackgroundSize fit = StyleKeyword.Initial;
@@ -108,5 +109,6 @@ namespace HELIX.Widgets.Universal.Styles {
             properties.Add(new StyleValueProperty<float>("sliceScale", sliceScale));
             properties.Add(new StyleValueProperty<SliceType>("sliceType", sliceType));
         }
+
     }
 }

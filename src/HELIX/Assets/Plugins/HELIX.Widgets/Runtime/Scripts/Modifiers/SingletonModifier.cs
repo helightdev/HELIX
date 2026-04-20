@@ -2,6 +2,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public abstract class SingletonModifier : Modifier {
+
         public abstract void Hook(VisualElement element);
         public abstract void Unhook(VisualElement element);
 
@@ -21,5 +22,6 @@ namespace HELIX.Widgets.Modifiers {
 
             Hook(element);
         }
+
     }
 }

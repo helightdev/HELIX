@@ -3,6 +3,7 @@ using HELIX.Widgets.Theming;
 
 namespace HELIX.Widgets.Universal {
     public class HThemeProvider : SingleChildWidget {
+
         public readonly List<ThemeComponent> components;
 
         public readonly Dictionary<ThemeProperty, object> properties;
@@ -24,5 +25,6 @@ namespace HELIX.Widgets.Universal {
         public override IWidgetElement CreateElement() {
             return ReconcileInto(new ThemeProviderElement());
         }
+
     }
 }

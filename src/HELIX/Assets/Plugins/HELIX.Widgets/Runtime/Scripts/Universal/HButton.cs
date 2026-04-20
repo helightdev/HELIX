@@ -10,6 +10,7 @@ using HELIX.Widgets.Universal.Theme;
 
 namespace HELIX.Widgets.Universal {
     public class HButton : SingleChildStatefulWidget<HButton> {
+
         public readonly ButtonController controller;
         public readonly bool enabled;
 
@@ -71,9 +72,11 @@ namespace HELIX.Widgets.Universal {
             properties.Add(new DiagnosticsProperty<Key>("focusKey", focusKey, defaultValue: Key.None));
             properties.Add(new DiagnosticsProperty<Action>("onClick", onClick, defaultValue: null));
         }
+
     }
 
     public class HShapeButtonState : State<HButton> {
+
         private ButtonController _controller;
         private WidgetStateController _widgetStateController;
 
@@ -109,7 +112,7 @@ namespace HELIX.Widgets.Universal {
             HButtonStyle effective;
 
             if (widget.style != null) effective = widget.style; //
-            else if (widget.radius.HasValue || widget.variant.HasValue || widget.size.HasValue) {
+            else if (widget.radius.HasValue || widget.variant.HasValue || widget.size.HasValue)
                 effective = DefaultButtonStyles.DefaultStyleOf(
                     context,
                     widget.variant ?? HButtonVariant.Flat,
@@ -117,7 +120,7 @@ namespace HELIX.Widgets.Universal {
                     widget.radius ?? HInputRadius.Medium,
                     palette: widget.palette
                 );
-            } else effective = context.GetThemed(PrimitiveTheme.Button);
+            else effective = context.GetThemed(PrimitiveTheme.Button);
 
             // Possibly allocation heavy with default stale and property composition, but doesn't rebuild for
             // every state change since only the substance box listens to state changes, not the button itself.
@@ -147,5 +150,6 @@ namespace HELIX.Widgets.Universal {
                 boxModifiers: modifierProperty
             ).Fill();
         }
+
     }
 }

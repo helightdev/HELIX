@@ -6,6 +6,7 @@ namespace HELIX.Widgets.Diagnostics {
     public delegate IEnumerable<DiagnosticsNode> DiagnosticsNodeBuilder();
 
     public abstract class DiagnosticsNode {
+
         public static readonly DiagnosticsNode Null = new DiagnosticsProperty<object>(
             "<null>",
             null,
@@ -50,15 +51,15 @@ namespace HELIX.Widgets.Diagnostics {
                 if (!Style.HasValue) return DiagnosticsTextConfigurations.Sparse;
 
                 switch (Style.Value) {
-                    case DiagnosticsTreeStyle.Dense:            return DiagnosticsTextConfigurations.Dense;
-                    case DiagnosticsTreeStyle.Sparse:           return DiagnosticsTextConfigurations.Sparse;
-                    case DiagnosticsTreeStyle.Whitespace:       return DiagnosticsTextConfigurations.Whitespace;
-                    case DiagnosticsTreeStyle.Transition:       return DiagnosticsTextConfigurations.Transition;
-                    case DiagnosticsTreeStyle.SingleLine:       return DiagnosticsTextConfigurations.SingleLine;
-                    case DiagnosticsTreeStyle.ErrorProperty:    return DiagnosticsTextConfigurations.ErrorProperty;
-                    case DiagnosticsTreeStyle.Shallow:          return DiagnosticsTextConfigurations.Shallow;
-                    case DiagnosticsTreeStyle.Error:            return DiagnosticsTextConfigurations.Error;
-                    case DiagnosticsTreeStyle.Flat:             return DiagnosticsTextConfigurations.Flat;
+                    case DiagnosticsTreeStyle.Dense: return DiagnosticsTextConfigurations.Dense;
+                    case DiagnosticsTreeStyle.Sparse: return DiagnosticsTextConfigurations.Sparse;
+                    case DiagnosticsTreeStyle.Whitespace: return DiagnosticsTextConfigurations.Whitespace;
+                    case DiagnosticsTreeStyle.Transition: return DiagnosticsTextConfigurations.Transition;
+                    case DiagnosticsTreeStyle.SingleLine: return DiagnosticsTextConfigurations.SingleLine;
+                    case DiagnosticsTreeStyle.ErrorProperty: return DiagnosticsTextConfigurations.ErrorProperty;
+                    case DiagnosticsTreeStyle.Shallow: return DiagnosticsTextConfigurations.Shallow;
+                    case DiagnosticsTreeStyle.Error: return DiagnosticsTextConfigurations.Error;
+                    case DiagnosticsTreeStyle.Flat: return DiagnosticsTextConfigurations.Flat;
                     case DiagnosticsTreeStyle.TruncateChildren: return DiagnosticsTextConfigurations.Whitespace;
                     case DiagnosticsTreeStyle.None:
                     default: return DiagnosticsTextConfigurations.Sparse;
@@ -124,5 +125,6 @@ namespace HELIX.Widgets.Diagnostics {
         internal static bool IsSingleLine(DiagnosticsTreeStyle? style) {
             return style == DiagnosticsTreeStyle.SingleLine;
         }
+
     }
 }

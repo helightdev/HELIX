@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
     public partial class ColumnElement : DirectionalContainerElement {
+
         protected override FlexDirection GetFlexDirection(bool reverse) {
             return reverse ? FlexDirection.ColumnReverse : FlexDirection.Column;
         }
@@ -11,5 +12,6 @@ namespace HELIX.Widgets.Elements {
         protected override Axis GetAxis() {
             return Axis.Vertical;
         }
+
     }
 }

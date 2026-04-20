@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
     public abstract class ScrollPosition : Signal {
+
         public abstract float Min { get; }
         public abstract float Max { get; }
         public abstract float Extent { get; set; }
@@ -26,5 +27,6 @@ namespace HELIX.Widgets.Scrolling {
         public virtual void ScrollTo(VisualElement element) {
             // Implement in subclasses if needed
         }
+
     }
 }

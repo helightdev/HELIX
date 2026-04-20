@@ -13,12 +13,15 @@ using UnityEngine.UIElements;
 
 namespace Examples {
     public class ThemeTokensExample : StatefulWidget<ThemeTokensExample> {
+
         public override State<ThemeTokensExample> CreateState() {
             return new ThemeTokensExampleState();
         }
+
     }
 
     public class ThemeTokensExampleState : State<ThemeTokensExample> {
+
         private Brightness _brightness = Brightness.Light;
         private bool _warmPalette = true;
 
@@ -35,8 +38,10 @@ namespace Examples {
                 new HStatefulBuilder(
                     (innerContext, _) => BuildContent(innerContext),
                     modifiers: new Modifier[] {
-                        ClipModifier.Clip, MarginModifier.Of(16), BorderModifier.Of(
-                            Border.All(1, context.GetThemed(PrimitiveTheme.Text)),
+                        ClipModifier.Clip,
+                        MarginModifier.Of(16),
+                        BorderModifier.Of(
+                            Border.All(1, context.GetThemed(PrimitiveTheme.TextVariant)),
                             BorderRadius.All(16)
                         )
                     }
@@ -46,10 +51,10 @@ namespace Examples {
 
         private Widget BuildContent(BuildContext context) {
             var surface = context.GetThemed(PrimitiveTheme.Surface);
-            var background = context.GetThemed(PrimitiveTheme.Background);
-            var backgroundSubtle = context.GetThemed(PrimitiveTheme.BackgroundSubtle);
-            var text = context.GetThemed(PrimitiveTheme.Text);
-            var textContrast = context.GetThemed(PrimitiveTheme.TextContrast);
+            var background = context.GetThemed(PrimitiveTheme.Container);
+            var backgroundSubtle = context.GetThemed(PrimitiveTheme.ContainerLow);
+            var text = context.GetThemed(PrimitiveTheme.TextVariant);
+            var textContrast = context.GetThemed(PrimitiveTheme.Text);
             var typography = context.GetThemed(PrimitiveBaseTheme.Typography);
 
             return new HColumn(
@@ -108,7 +113,7 @@ namespace Examples {
                 new HBox(
                     background: new BackgroundStyle { color = color },
                     borderRadius: BorderRadius.All(10),
-                    border: Border.All(1, context.GetThemed(PrimitiveTheme.Text).WithOpacity(0.5f))
+                    border: Border.All(1, context.GetThemed(PrimitiveTheme.TextVariant).WithOpacity(0.5f))
                 ).Size(32, 32),
                 new HColumn(gap: 2f, crossAxisAlign: Align.FlexStart) {
                     new HText(label).Body(context),
@@ -116,5 +121,6 @@ namespace Examples {
                 }
             };
         }
+
     }
 }

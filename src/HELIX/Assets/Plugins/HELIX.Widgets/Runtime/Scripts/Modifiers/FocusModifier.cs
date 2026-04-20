@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
     public class FocusModifier : Modifier {
+
         public static readonly FocusModifier Focusable = new(true, PickingMode.Position, 0, false);
         public static readonly FocusModifier FocusableDelegates = new(true, PickingMode.Position, 0, true);
         public static readonly FocusModifier FocusableNoTab = new(true, PickingMode.Position, -1, false);
@@ -72,5 +73,6 @@ namespace HELIX.Widgets.Modifiers {
         ) {
             return new FocusModifier(focusable, mode, tabIndex, delegatesFocus);
         }
+
     }
 }
