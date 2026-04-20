@@ -5,6 +5,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     [UxmlElement]
+    [Obsolete("Use HButton or the ButtonControllerModifier itself directly or create a custom element")]
     public partial class GenericButton : BuildingWidgetBaseElement<ButtonBuilder> {
 
         public Action onClick;

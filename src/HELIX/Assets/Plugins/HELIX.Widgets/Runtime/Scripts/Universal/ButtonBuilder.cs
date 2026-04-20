@@ -7,6 +7,8 @@ using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
+
+    [Obsolete("Use HButton or the ButtonControllerModifier itself directly or create a custom element")]
     public class ButtonBuilder : Widget {
 
         private static readonly FocusModifier _defaultFocus =
