@@ -27,11 +27,11 @@ namespace HELIX.Widgets.Modifiers {
 
         public override bool HasChanged(Modifier previous) {
             if (previous is not BorderModifier prev) return true;
-            return !Equals(border, prev.border);
+            return !Equals(border, prev.border) || !Equals(radius, prev.radius);
         }
 
         protected override string FindConstantName() {
-            return Equals(border, Border.None) ? nameof(None) : null;
+            return Equals(border, Border.None) && Equals(radius, BorderRadius.None) ? nameof(None) : null;
         }
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {

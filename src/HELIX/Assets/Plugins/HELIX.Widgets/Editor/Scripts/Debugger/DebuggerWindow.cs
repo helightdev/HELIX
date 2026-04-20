@@ -20,6 +20,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Editor.Debugger {
     public class DebuggerWindow : EditorWindow {
+
         [MenuItem("HELIX/Debugger")]
         private static void ShowWindow() {
             var window = GetWindow<DebuggerWindow>();
@@ -34,15 +35,19 @@ namespace HELIX.Widgets.Editor.Debugger {
                 }.Stretched()
             );
         }
+
     }
 
     public class DebuggerWidget : StatefulWidget<DebuggerWidget> {
+
         public override State<DebuggerWidget> CreateState() {
             return new DebuggerWidgetState();
         }
+
     }
 
     public class DebuggerWidgetState : State<DebuggerWidget> {
+
         public Signal<DiagnosticsNode> inspectedSignal = Signal.Value<DiagnosticsNode>();
         private readonly ScrollController _scrollControllerVertical = new();
         private readonly ScrollController _scrollControllerHorizontal = new();
@@ -108,9 +113,11 @@ namespace HELIX.Widgets.Editor.Debugger {
                     .WithModifier(MarginModifier.Only(left: 16)).Const()
             }.Stretch();
         }
+
     }
 
     public class NodeTreeWidget : StatefulWidget<NodeTreeWidget> {
+
         public DiagnosticsNode node;
         public Signal<DiagnosticsNode> inspectedSignal;
         public bool isScaffolding = false;
@@ -118,9 +125,11 @@ namespace HELIX.Widgets.Editor.Debugger {
         public override State<NodeTreeWidget> CreateState() {
             return new NodeTreeWidgetState();
         }
+
     }
 
     public class NodeTreeWidgetState : State<NodeTreeWidget> {
+
         private NodeTreeWidget[] _children;
         private bool _toggled = true;
         private ButtonController _controller;
@@ -188,7 +197,9 @@ namespace HELIX.Widgets.Editor.Debugger {
                     .WithModifier(new WidgetStateModifier(_widgetStateController))
             );
 
-            if (_children.Length == 0) { return self; }
+            if (_children.Length == 0) {
+                return self;
+            }
 
             var isSingleChild = _children.Length == 1;
             var childPadding = 16f;
@@ -202,17 +213,21 @@ namespace HELIX.Widgets.Editor.Debugger {
                     .Display(_toggled)
             };
         }
+
     }
 
     public class NodeViewerWidget : StatefulWidget<NodeViewerWidget> {
+
         public Signal<DiagnosticsNode> inspectedSignal;
 
         public override State<NodeViewerWidget> CreateState() {
             return new NodeViewerWidgetState();
         }
+
     }
 
     public class NodeViewerWidgetState : State<NodeViewerWidget> {
+
         public override Widget Build(BuildContext context) {
             var node = widget.inspectedSignal.Value;
             if (node == null) return new HText("No node selected").Heading(context);
@@ -231,5 +246,6 @@ namespace HELIX.Widgets.Editor.Debugger {
                 ).Margin(EdgeInsets.Only(left: 16))
             }.TightStretch();
         }
+
     }
 }

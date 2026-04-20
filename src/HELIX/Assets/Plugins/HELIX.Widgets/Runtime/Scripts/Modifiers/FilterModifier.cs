@@ -22,7 +22,7 @@ namespace HELIX.Widgets.Modifiers {
         public override bool HasChanged(Modifier previous) {
             if (previous is not FilterModifier prev) return true;
             if (filters == null || prev.filters == null) return prev.filters != filters;
-            return filters.SequenceEqual(prev.filters);
+            return !filters.SequenceEqual(prev.filters);
         }
 
         public static FilterModifier Of(params FilterFunction[] filters) {

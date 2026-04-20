@@ -209,7 +209,11 @@ namespace HELIX.Widgets.Modifiers {
             private void SetAbsoluteValue(float value) {
                 _controller.Value = Mathf.Clamp01(value);
                 _widgetState?.Enable(WidgetState.Navigated | WidgetState.Pressed);
-                target.schedule.Execute(() => _widgetState?.Disable(WidgetState.Pressed)).ExecuteLater(100);
+                target.schedule.Execute(DisablePressed).ExecuteLater(100);
+            }
+
+            private void DisablePressed() {
+                _widgetState?.Disable(WidgetState.Pressed);
             }
 
             private bool TryGetMoveDirection(NavigationMoveEvent evt, out int direction) {

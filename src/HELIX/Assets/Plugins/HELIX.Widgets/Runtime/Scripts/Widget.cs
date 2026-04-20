@@ -68,6 +68,13 @@ namespace HELIX.Widgets {
         }
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            var visibleModifiers = new List<Modifier>(modifiers.Count);
+            var fallbackModifiers = new List<Modifier>(modifiers.Count);
+            foreach (var modifier in modifiers) {
+                if (modifier.isFallback) fallbackModifiers.Add(modifier);
+                else visibleModifiers.Add(modifier);
+            }
+
             properties.Add(
                 new IterableProperty<object>(
                     "retention",
@@ -82,7 +89,7 @@ namespace HELIX.Widgets {
             properties.Add(
                 new IterableProperty<Modifier>(
                     "modifiers",
-                    modifiers.Where(x => !x.isFallback).ToList(),
+                    visibleModifiers,
                     ifEmpty: null,
                     level: DiagnosticLevel.Info
                 )
@@ -91,7 +98,7 @@ namespace HELIX.Widgets {
             properties.Add(
                 new IterableProperty<Modifier>(
                     "modifiers[fallback]",
-                    modifiers.Where(x => x.isFallback).ToList(),
+                    fallbackModifiers,
                     ifEmpty: null,
                     level: DiagnosticLevel.Fine
                 )
@@ -181,7 +188,11 @@ namespace HELIX.Widgets {
         public Widget this[int index] => children[index];
 
         public override List<DiagnosticsNode> DebugDescribeChildren() {
-            return children.Select(child => child.ToDiagnosticsNodeSafe()).ToList();
+            if (children == null) return new List<DiagnosticsNode>();
+
+            var result = new List<DiagnosticsNode>(children.Count);
+            foreach (var child in children) result.Add(child.ToDiagnosticsNodeSafe());
+            return result;
         }
 
         public void Add(IWidgetListCandidate candidate) {

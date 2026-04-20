@@ -44,6 +44,7 @@ namespace HELIX.Widgets {
 
         public static void ApplyDelta(ModifierSet previous, ModifierSet current, VisualElement element) {
             if (current == null || element == null) return;
+            if (ReferenceEquals(previous, current)) return;
 
             if (previous != null) {
                 foreach (var modifier in previous)
