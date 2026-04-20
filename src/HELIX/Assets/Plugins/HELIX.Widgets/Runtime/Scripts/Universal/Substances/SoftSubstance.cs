@@ -17,7 +17,10 @@ namespace HELIX.Widgets.Universal.Substances {
             return new BoxSubstance {
                 borderRadius = new AllWidgetStateProperty<BorderRadius>(borderRadius),
                 background = new WidgetStatePropertyMap<BackgroundStyle> {
-                    [WidgetState.Disabled] = surface.onMain.WithOpacity(progression.disabledLow),
+                    // This is not accurate as it uses lerping instead of actual alpha compositing, but without
+                    // this, the toggling tends to cause very visible flickering otherwise.
+                    [WidgetState.Disabled] = Color.Lerp(surface.main, surface.onMain, progression.disabledLow),
+
                     [WidgetState.ModAny | WidgetState.Selected | WidgetState.Pressed] =
                         Color.Lerp(palette.container, palette.onContainer, progression.normal),
                     [WidgetState.Hovered] = Color.Lerp(

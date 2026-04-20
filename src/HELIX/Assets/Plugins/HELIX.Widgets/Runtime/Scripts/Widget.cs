@@ -265,6 +265,7 @@ namespace HELIX.Widgets {
             this InformationCollector collector,
             IWidgetElement widget
         ) {
+            if (widget == null) return collector;
             collector.AddRange(new ErrorSpacer(), new ErrorProperty("The offending element was", widget));
             return collector;
         }

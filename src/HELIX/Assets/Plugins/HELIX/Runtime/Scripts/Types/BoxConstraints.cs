@@ -77,6 +77,8 @@ namespace HELIX.Types {
 
         public static BoxConstraints Loose(StyleLength2 max) => new(StyleLength2.Initial, StyleLength2.Initial, max);
 
+        public static BoxConstraints Min(StyleLength2 min) => new(min, min, StyleLength2.Initial);
+
         public static readonly BoxConstraints Initial = new(
             StyleLength2.Initial,
             StyleLength2.Initial,

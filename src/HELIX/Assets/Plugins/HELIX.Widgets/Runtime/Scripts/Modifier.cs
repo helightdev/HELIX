@@ -245,9 +245,9 @@ namespace HELIX.Widgets {
 
         public static readonly ModifierSet Empty = new() { ReadOnly = true };
 
-        public static ModifierSet DefaultFlexFill = new ModifierSet { ModifierFallbacks.ImplicitFlexFill }.Sealed();
+        public static readonly ModifierSet DefaultFlexFill = new ModifierSet { ModifierFallbacks.ImplicitFlexFill }.Sealed();
 
-        public static ModifierSet DefaultFlexFillAndStacking = new ModifierSet {
+        public static readonly ModifierSet DefaultFlexFillAndStacking = new ModifierSet {
             ModifierFallbacks.ImplicitFlexFill,
             ModifierFallbacks.StackingStretch
         }.Sealed();

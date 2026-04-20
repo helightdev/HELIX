@@ -94,7 +94,7 @@ namespace HELIX.Widgets.Universal.Theme {
         };
 
         private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) {
-            return element => func(element.Resolve(PrimitiveBaseTheme.Colors));
+            return element => func(PrimitiveBaseTheme.Colors.Get(element));
         }
 
     }

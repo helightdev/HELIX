@@ -21,10 +21,6 @@ namespace HELIX.Widgets.Modifiers {
             this.constraints = constraints;
         }
 
-        public SizeModifier() {
-            constraints = BoxConstraints.Initial;
-        }
-
         public override void Apply(VisualElement element) {
             constraints.Apply(element);
         }
@@ -53,6 +49,13 @@ namespace HELIX.Widgets.Modifiers {
                 constraints.max
             );
         }
+
+        public static SizeModifier Tight(StyleLength2 size) => new(size, size, size);
+
+        public static SizeModifier Tight(StyleLength width, StyleLength height) =>
+            Tight(new StyleLength2(width, height));
+
+        public static SizeModifier Min(StyleLength2 min) => new(min, min, StyleLength2.Initial);
 
         public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
             base.FillModifierProperties(properties);

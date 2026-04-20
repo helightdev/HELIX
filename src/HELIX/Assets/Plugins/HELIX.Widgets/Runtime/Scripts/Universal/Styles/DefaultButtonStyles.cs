@@ -20,11 +20,11 @@ namespace HELIX.Widgets.Universal.Styles {
             SurfaceColorPalette surfacePalette = null,
             Substance focusLayer = null
         ) {
-            var typography = context.GetThemed(PrimitiveBaseTheme.Typography);
-            var radius = context.GetThemed(PrimitiveBaseTheme.Radius);
-            var spacing = context.GetThemed(PrimitiveBaseTheme.Spacing);
-            var colors = context.GetThemed(PrimitiveBaseTheme.Colors);
-            focusLayer ??= context.GetThemed(PrimitiveTheme.ButtonFocusLayer);
+            var typography = PrimitiveBaseTheme.Typography.Get(context);
+            var radius = PrimitiveBaseTheme.Radius.Get(context);
+            var spacing = PrimitiveBaseTheme.Spacing.Get(context);
+            var colors = PrimitiveBaseTheme.Colors.Get(context, false);
+            focusLayer ??= PrimitiveTheme.ButtonFocusLayer.Get(context);
             palette ??= colors.primary;
             surfacePalette ??= colors.surface;
             inactive ??= colors.secondary;

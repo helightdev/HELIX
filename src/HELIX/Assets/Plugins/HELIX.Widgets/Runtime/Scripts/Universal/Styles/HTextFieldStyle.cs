@@ -35,9 +35,9 @@ namespace HELIX.Widgets.Universal.Styles {
         }
 
         public static HTextFieldStyle DefaultStyleOf(IThemeProvider context) {
-            var typography = context.GetThemed(PrimitiveBaseTheme.Typography);
-            var spacing = context.GetThemed(PrimitiveBaseTheme.Spacing);
-            var colors = context.GetThemed(PrimitiveBaseTheme.Colors);
+            var typography = PrimitiveBaseTheme.Typography.Get(context);
+            var spacing = PrimitiveBaseTheme.Spacing.Get(context);
+            var colors = PrimitiveBaseTheme.Colors.Get(context);
 
             return new HTextFieldStyle {
                 textStyle = new TextStyle {
@@ -48,7 +48,7 @@ namespace HELIX.Widgets.Universal.Styles {
                 padding = EdgeInsets.Symmetric(spacing.Space2, 0),
                 layers = new SubstanceBuilder(context)
                     .Outline()
-                    .Append(ctx => ctx.GetThemed(PrimitiveTheme.ButtonFocusLayer))
+                    .Append(ctx => PrimitiveTheme.ButtonFocusLayer.Get(ctx))
                     .Build()
             };
         }

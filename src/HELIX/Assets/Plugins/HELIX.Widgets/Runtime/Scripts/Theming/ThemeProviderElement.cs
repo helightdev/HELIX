@@ -10,6 +10,8 @@ namespace HELIX.Widgets.Theming {
     public partial class ThemeProviderElement : SingleChildWidgetBaseElement<HThemeProvider>, IThemeProvider {
 
         public static readonly IdentityDictionary<ThemeProperty, object> GlobalThemeValues = new();
+        private static readonly IdentityDictionary<ThemeProperty, object> _globalComputedThemeValues = new();
+
         private readonly IdentityDictionary<ThemeProperty, object> _cachedThemeValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _componentValues = new();
         private readonly IdentityDictionary<ThemeProperty, object> _computedThemeValues = new();
@@ -95,7 +97,7 @@ namespace HELIX.Widgets.Theming {
                 value = computedValue;
                 return true;
             }
-
+            _cachedThemeValues[property] = null;
             return false;
         }
 
@@ -158,15 +160,19 @@ namespace HELIX.Widgets.Theming {
 
         public static void SetGlobal(ThemeProperty property, object value, bool notify = true) {
             GlobalThemeValues[property] = value;
+            _globalComputedThemeValues.Clear();
             if (notify) OnGlobalThemeChanged?.Invoke();
         }
 
         public static void UnsetGlobal(ThemeProperty property, bool notify = true) {
-            if (GlobalThemeValues.Remove(property) && notify) OnGlobalThemeChanged?.Invoke();
+            if (!GlobalThemeValues.Remove(property)) return;
+            _globalComputedThemeValues.Clear();
+            if (notify) OnGlobalThemeChanged?.Invoke();
         }
 
         public static void SetGlobal<T>(BaseThemeProperty<T> property, T value, bool notify = true) {
             GlobalThemeValues[property] = value;
+            _globalComputedThemeValues.Clear();
             if (notify) OnGlobalThemeChanged?.Invoke();
         }
 
@@ -175,9 +181,8 @@ namespace HELIX.Widgets.Theming {
         }
 
         public static T Resolve<T>(ThemeProviderElement providerElement, BaseThemeProperty<T> property) {
-            if (providerElement != null) return providerElement.Resolve(property);
-            if (GlobalThemeValues.TryGetValue(property, out var value) && value is T typedValue) return typedValue;
-            return property.TypedDefaultValue;
+            TryResolve(providerElement, property, out var value);
+            return value;
         }
 
         public static bool TryResolve<T>(
@@ -191,6 +196,22 @@ namespace HELIX.Widgets.Theming {
                 return true;
             }
 
+            if (_globalComputedThemeValues.TryGetValue(property, out var cachedValue)) {
+                if (cachedValue is T typedCachedValue) {
+                    value = typedCachedValue;
+                    return true;
+                }
+                value = property.TypedDefaultValue;
+                return false;
+            }
+
+            if (property.TryCompute(null, out var computedValue)) {
+                _globalComputedThemeValues[property] = computedValue;
+                value = computedValue;
+                return true;
+            }
+
+            _globalComputedThemeValues[property] = null;
             value = property.TypedDefaultValue;
             return false;
         }
@@ -215,14 +236,6 @@ namespace HELIX.Widgets.Theming {
         public bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
             return ThemeProviderElement.TryResolve(null, property, out value);
         }
-
-    }
-
-    public enum ThemeMode {
-
-        Uxml,
-        Proxy,
-        Widgets
 
     }
 }

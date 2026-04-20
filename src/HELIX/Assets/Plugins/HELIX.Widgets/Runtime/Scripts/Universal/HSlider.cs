@@ -135,6 +135,8 @@ namespace HELIX.Widgets.Universal {
                 ? PrimitiveTheme.Slider.Get(context)
                 : PrimitiveTheme.Scrollbar.Get(context));
 
+            if (style == null) return new HError("No style is set for HSlider.").ReportIn(context);
+
             var rootModifiers = WidgetStateProperties.Modifiers(
                 widget.boxModifiers,
                 WidgetStateProperties.Func(resolved => {

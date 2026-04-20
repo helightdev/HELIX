@@ -31,7 +31,7 @@ namespace HELIX.Widgets.Editor.Debugger {
         private void CreateGUI() {
             rootVisualElement.Add(
                 new WidgetHostElement {
-                    Buildable = new HThemeProvider { new DebuggerWidget() }.Stretch().ToBuildable()
+                    Buildable = new DebuggerWidget().Stretch().ToBuildable()
                 }.Stretched()
             );
         }

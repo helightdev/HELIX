@@ -27,10 +27,10 @@ namespace HELIX.Widgets.Universal.Styles {
             ColorTokenPalette palette = null,
             SurfaceColorPalette surfacePalette = null
         ) {
-            var typography = context.GetThemed(PrimitiveBaseTheme.Typography);
-            var radius = context.GetThemed(PrimitiveBaseTheme.Radius);
-            var spacing = context.GetThemed(PrimitiveBaseTheme.Spacing);
-            var colors = context.GetThemed(PrimitiveBaseTheme.Colors);
+            var typography = PrimitiveBaseTheme.Typography.Get(context);
+            var radius = PrimitiveBaseTheme.Radius.Get(context);
+            var spacing = PrimitiveBaseTheme.Spacing.Get(context);
+            var colors = PrimitiveBaseTheme.Colors.Get(context, false);
             palette ??= colors.primary;
             surfacePalette ??= colors.surface;
 
@@ -87,10 +87,10 @@ namespace HELIX.Widgets.Universal.Styles {
         }
 
         public static HSliderStyle DefaultScrollbarStyleOf(BuildContext context) {
-            var typography = context.GetThemed(PrimitiveBaseTheme.Typography);
-            var radius = context.GetThemed(PrimitiveBaseTheme.Radius);
-            var spacing = context.GetThemed(PrimitiveBaseTheme.Spacing);
-            var colors = context.GetThemed(PrimitiveBaseTheme.Colors);
+            var typography = PrimitiveBaseTheme.Typography.Get(context);
+            var radius = PrimitiveBaseTheme.Radius.Get(context);
+            var spacing = PrimitiveBaseTheme.Spacing.Get(context);
+            var colors = PrimitiveBaseTheme.Colors.Get(context, false);
 
             return new HSliderStyle {
                 constraints = new WidgetStatePropertyMap<BoxConstraints> {
