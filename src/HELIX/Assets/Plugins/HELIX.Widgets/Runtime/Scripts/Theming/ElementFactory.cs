@@ -110,7 +110,6 @@ namespace HELIX.Widgets.Theming {
 
     [UxmlObject]
     public abstract partial class VisualElementFactory : ElementFactory<VisualElement> {
-
         public static VisualElementFactory Warp(ElementFactory<VisualElement> element) {
             return new WrappedVisualElementFactory(element);
         }
@@ -118,6 +117,7 @@ namespace HELIX.Widgets.Theming {
 
     public class WrappedVisualElementFactory : VisualElementFactory {
         private readonly ElementFactory<VisualElement> _innerFactory;
+
         public WrappedVisualElementFactory(ElementFactory<VisualElement> innerFactory) {
             _innerFactory = innerFactory;
         }
@@ -132,7 +132,8 @@ namespace HELIX.Widgets.Theming {
     }
 
     [Serializable]
-    public struct ElementFactoryReference<T> : IWidgetFactoryReference, IMaybeThemeValue<T>, IEquatable<ElementFactoryReference<T>>
+    public struct ElementFactoryReference<T> : IWidgetFactoryReference, IMaybeThemeValue<T>,
+        IEquatable<ElementFactoryReference<T>>
         where T : VisualElement {
         public string factoryName;
 

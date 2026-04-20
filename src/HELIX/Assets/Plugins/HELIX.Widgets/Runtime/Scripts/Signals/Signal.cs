@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Utilities;
-using NUnit.Framework;
 using UnityEngine.Pool;
 
 namespace HELIX.Widgets.Signals {
@@ -11,7 +10,6 @@ namespace HELIX.Widgets.Signals {
         private const int _maxNotificationStackDepth = 16;
         private readonly HashSet<ISignalObserver> _observers = new();
         private int _notificationStackDepth;
-        public bool IsDisposed { get; private set; }
 
         public virtual void Dispose() {
             if (IsDisposed) return;
@@ -34,11 +32,13 @@ namespace HELIX.Widgets.Signals {
                     }
                 }
             } finally {
-                ListPool<ISignalObserver>.Release(list); 
+                ListPool<ISignalObserver>.Release(list);
                 IsDisposed = true;
                 _observers.Clear();
             }
         }
+
+        public bool IsDisposed { get; private set; }
 
         protected void NotifyDirty() {
             if (_notificationStackDepth >= _maxNotificationStackDepth) {
@@ -65,7 +65,7 @@ namespace HELIX.Widgets.Signals {
                             RemoveObserver(observer);
                             continue;
                         }
-                        
+
                         observer.OnSignalDirty(this); //
                     } catch (HelixDiagnosticException) { throw; } catch
                         (Exception e) {

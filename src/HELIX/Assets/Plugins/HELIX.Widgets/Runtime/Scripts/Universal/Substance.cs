@@ -49,10 +49,21 @@ namespace HELIX.Widgets.Universal {
 
         public Substance this[int index] => _substances[index];
 
-        public static implicit operator SubstanceLayers(SubstanceBuilder builder) => new(builder);
-        public static implicit operator SubstanceLayers(List<Substance> substances) => new(substances);
-        public static implicit operator SubstanceLayers(Substance[] substances) => new(substances);
-        public static implicit operator SubstanceLayers(Substance substance) => new(new[] { substance });
+        public static implicit operator SubstanceLayers(SubstanceBuilder builder) {
+            return new SubstanceLayers(builder);
+        }
+
+        public static implicit operator SubstanceLayers(List<Substance> substances) {
+            return new SubstanceLayers(substances);
+        }
+
+        public static implicit operator SubstanceLayers(Substance[] substances) {
+            return new SubstanceLayers(substances);
+        }
+
+        public static implicit operator SubstanceLayers(Substance substance) {
+            return new SubstanceLayers(new[] { substance });
+        }
     }
 
     public readonly struct BuilderAndSubstance<TBuilder, T> : ISubstanceBuilder<TBuilder>
@@ -73,8 +84,13 @@ namespace HELIX.Widgets.Universal {
             return valueBuilder.Append(builder);
         }
 
-        public static implicit operator T(BuilderAndSubstance<TBuilder, T> wrapper) => wrapper.value;
-        public static implicit operator TBuilder(BuilderAndSubstance<TBuilder, T> wrapper) => wrapper.valueBuilder;
+        public static implicit operator T(BuilderAndSubstance<TBuilder, T> wrapper) {
+            return wrapper.value;
+        }
+
+        public static implicit operator TBuilder(BuilderAndSubstance<TBuilder, T> wrapper) {
+            return wrapper.valueBuilder;
+        }
     }
 
     public sealed class SubstanceFactory : ISubstanceBuilder<SubstanceFactory> {
@@ -93,13 +109,25 @@ namespace HELIX.Widgets.Universal {
 
     public sealed class SubstanceBuilder : WidgetStateProperty<IReadOnlyList<Substance>>, IReadOnlyList<Substance>,
         ISubstanceBuilder<SubstanceBuilder> {
-        private IThemeProvider _context;
+        private readonly IThemeProvider _context;
         private readonly List<Substance> _substances = new();
 
         public SubstanceBuilder(IThemeProvider context, bool listening = false) {
             _context = context ?? FallbackThemeProvider.Instance;
             Listening = listening;
         }
+
+        public IEnumerator<Substance> GetEnumerator() {
+            return _substances.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
+        }
+
+        public int Count => _substances.Count;
+
+        public Substance this[int index] => _substances[index];
 
         public bool Listening { get; }
         public SubstanceBuilder Self => this;
@@ -111,17 +139,9 @@ namespace HELIX.Widgets.Universal {
             return new BuilderAndSubstance<SubstanceBuilder, T>(this, substance);
         }
 
-        public IEnumerator<Substance> GetEnumerator() {
-            return _substances.GetEnumerator();
+        public void Clear() {
+            _substances.Clear();
         }
-
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-        public int Count => _substances.Count;
-
-        public Substance this[int index] => _substances[index];
-
-        public void Clear() => _substances.Clear();
 
         public override bool TryResolve(WidgetState state, out IReadOnlyList<Substance> value) {
             value = _substances;

@@ -2,8 +2,7 @@ using HELIX.Coloring;
 using HELIX.Widgets.Diagnostics.Formatting;
 using UnityEngine;
 
-namespace HELIX.Widgets.Diagnostics.Properties
-{
+namespace HELIX.Widgets.Diagnostics.Properties {
     public class ColorProperty : DiagnosticsProperty<Color> {
         public ColorProperty(
             string name,

@@ -1,4 +1,3 @@
-using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;
@@ -66,7 +65,7 @@ namespace HELIX.Widgets.Modifiers {
             properties.Add(new StyleValueProperty<Align>("alignSelf", selfCrossAxisAlign));
             properties.Add(new StyleValueProperty<float>("grow", grow));
             properties.Add(new StyleValueProperty<float>("shrink", shrink));
-            properties.Add(new FlagProperty("isImplicit", isImplicit, ifTrue: "Implicit"));
+            properties.Add(new FlagProperty("isImplicit", isImplicit, "Implicit"));
         }
 
         protected override string FindConstantName() {

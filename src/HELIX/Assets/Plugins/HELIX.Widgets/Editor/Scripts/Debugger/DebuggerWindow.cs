@@ -53,9 +53,9 @@ namespace HELIX.Widgets.Editor.Debugger {
                 [WidgetState.Special1] = BoxConstraints.Tight(StyleKeyword.Auto, 8),
                 [WidgetState.Special2] = BoxConstraints.Tight(8, StyleKeyword.Auto),
             },
-            track = new BoxSubstance { backgroundStyle = new BackgroundStyle { color = Colors.White30 } },
+            track = new BoxSubstance { background = new BackgroundStyle { color = Colors.White30 } },
             progress = new SubstanceLayers(),
-            thumb = new BoxSubstance { backgroundStyle = new BackgroundStyle { color = Colors.White50 } },
+            thumb = new BoxSubstance { background = new BackgroundStyle { color = Colors.White50 } },
         };
 
         private readonly HButtonStyle _buttonStyle = new() {
@@ -65,7 +65,7 @@ namespace HELIX.Widgets.Editor.Debugger {
             },
             padding = EdgeInsets.Symmetric(8, 4),
             layers = new BoxSubstance() {
-                backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle>() {
+                background = new WidgetStatePropertyMap<BackgroundStyle>() {
                     [WidgetState.Pressed] = new BackgroundStyle { color = Colors.White50 },
                     [WidgetState.Hovered] = new BackgroundStyle { color = Colors.White30 },
                     [WidgetState.None] = new BackgroundStyle { color = Colors.White10 },

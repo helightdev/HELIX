@@ -11,7 +11,7 @@ namespace HELIX.Widgets {
     public static class ModificationBarrier {
         private static bool _isFinalizing;
         private static bool _insideTail;
-        
+
         private static readonly HashSet<IHierarchyDisposable> _hierarchyDisposables = new();
         private static readonly IndexedReferencePriorityQueue<IWidgetElement, int> _pendingRebuilds = new();
         private static readonly Queue<Action> _postFrameCallbacks = new();
@@ -42,9 +42,7 @@ namespace HELIX.Widgets {
                 InsideModification = false;
                 RunTail();
             }
-        }
-
-        // ReSharper disable Unity.PerformanceAnalysis
+        } // ReSharper disable Unity.PerformanceAnalysis
         private static void RunCallbacks() {
             if (_postFrameCallbacks.Count == 0) return;
             var maxDepth = MaxCallbacksPerFrame;
@@ -82,9 +80,7 @@ namespace HELIX.Widgets {
                             try {
                                 maxDepth--;
                                 var panel = element.Element.panel;
-                                if (panel != null) {
-                                    Reconciler.Reconcile(element, element.Descriptor);
-                                }
+                                if (panel != null) Reconciler.Reconcile(element, element.Descriptor);
 
                                 Reconciler.Reconcile(element, element.Descriptor);
                             } catch (Exception e) { Debug.LogError($"Error while rebuilding element {element}: {e}"); }
@@ -109,7 +105,7 @@ namespace HELIX.Widgets {
         private static void FutureEnqueueHierarchyDisposable(IHierarchyDisposable disposable) {
             _postFrameCallbacks.Enqueue(() => {
                     var element = disposable.Element;
-                    if (element.parent == null || element.panel == null) { EnqueueHierarchyDisposable(disposable); }
+                    if (element.parent == null || element.panel == null) EnqueueHierarchyDisposable(disposable);
                 }
             );
         }
@@ -145,10 +141,12 @@ namespace HELIX.Widgets {
 
         public static void AddPostFrameCallback(Action callback) {
             if (callback == null) throw new ArgumentNullException(nameof(callback));
-            if (!InsideModification)
+            if (!InsideModification) {
                 throw new InvalidOperationException(
                     "Post-frame callbacks can only be added inside a modification context."
                 );
+            }
+
             _postFrameCallbacks.Enqueue(callback);
         }
 

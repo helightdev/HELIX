@@ -6,9 +6,9 @@ using HELIX.Widgets.Elements;
 
 namespace HELIX.Widgets.Theming {
     public abstract class ThemeValue : DiagnosticableBase {
-        public abstract void ReloadStyles();
         public abstract ThemeProperty ThemeProperty { get; }
         public abstract ThemeValueState ThemeValueState { get; }
+        public abstract void ReloadStyles();
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
@@ -28,8 +28,6 @@ namespace HELIX.Widgets.Theming {
         private T _value;
 
         public EqualityComparer<T> valueComparer = EqualityComparer<T>.Default;
-
-        public event OnValueChangedDelegate OnValueChanged;
 
         public ThemeValue(BaseElement owner, BaseThemeProperty<T> property) {
             _fallbackProperty = property;
@@ -66,6 +64,8 @@ namespace HELIX.Widgets.Theming {
                 SetAndNotifyIfChanged(value);
             }
         }
+
+        public event OnValueChangedDelegate OnValueChanged;
 
         public void ApplyOverrides(ThemeOverride<T> value) {
             if (_state >= ThemeValueState.Override) return;
@@ -139,7 +139,7 @@ namespace HELIX.Widgets.Theming {
             );
         }
     }
-    
+
     public enum ThemeValueState {
         None = 0,
         CustomStyle = 1,

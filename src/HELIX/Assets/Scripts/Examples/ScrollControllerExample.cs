@@ -31,12 +31,12 @@ namespace Examples {
                 new HText("Scroll controller mechanics: animated jumps + synced slider").Heading(context),
                 new HRow(gap: 8) {
                     new HButton(
-                        variant: HButtonVariant.Flat,
+                        HButtonVariant.Flat,
                         onClick: () => { _controller.AnimateTo(0f, 0.35f); },
                         child: new HText("Top")
                     ),
                     new HButton(
-                        variant: HButtonVariant.Outline,
+                        HButtonVariant.Outline,
                         onClick: () => {
                             var middle = _controller.ScrollPosition.Max * 0.5f;
                             _controller.AnimateTo(middle, 0.45f);
@@ -44,10 +44,10 @@ namespace Examples {
                         child: new HText("Middle")
                     ),
                     new HButton(
-                        variant: HButtonVariant.Soft,
+                        HButtonVariant.Soft,
                         onClick: () => { _controller.AnimateTo(_controller.ScrollPosition.Max, 0.55f); },
                         child: new HText("Bottom")
-                    ),
+                    )
                 },
                 new HRow(gap: 16f) {
                     new HBox(borderRadius: 8) {
@@ -70,9 +70,9 @@ namespace Examples {
                             )
                         }
                     }.WithModifier(ClipModifier.Clip).Fill(),
-                    new HSlider(_controller).TightStretch(),
+                    new HSlider(_controller).TightStretch()
                 }.Fill(),
-                new HSlider(_controller, axis: Axis.Horizontal).TightStretch(),
+                new HSlider(_controller, axis: Axis.Horizontal).TightStretch()
             };
         }
     }

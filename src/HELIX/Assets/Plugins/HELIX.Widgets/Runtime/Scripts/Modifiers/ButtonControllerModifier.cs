@@ -1,8 +1,7 @@
 using HELIX.Widgets.Universal.Controllers;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Modifiers
-{
+namespace HELIX.Widgets.Modifiers {
     public class ButtonControllerModifier : SingletonModifier {
         public readonly ButtonController controller;
         private ButtonController.ButtonManipulator _manipulator;

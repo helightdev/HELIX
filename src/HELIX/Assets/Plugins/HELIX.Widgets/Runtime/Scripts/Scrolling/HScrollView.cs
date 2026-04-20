@@ -24,18 +24,20 @@ namespace HELIX.Widgets.Scrolling {
         ) : base(children, key, constants) {
             this.axis = axis;
             this.controller = controller;
-            
+
             DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
         }
 
-        public override IWidgetElement CreateElement() => ReconcileInto(new HScrollViewElement());
+        public override IWidgetElement CreateElement() {
+            return ReconcileInto(new HScrollViewElement());
+        }
     }
 
     public class HScrollViewElement : MultiChildWidgetBaseElement<HScrollView>, IHierarchyDisposable,
         IPreferExplicitFlex {
         private readonly ScrollView _scrollView;
-        private ScrollPosition _scrollPosition;
         private ScrollController _scrollController;
+        private ScrollPosition _scrollPosition;
 
         public HScrollViewElement() {
             _scrollView = new ScrollView().AddTo(hierarchy);
@@ -45,11 +47,15 @@ namespace HELIX.Widgets.Scrolling {
 
         public override VisualElement contentContainer => _scrollView.contentContainer;
 
+        public void Dispose() {
+            _scrollPosition?.Dispose();
+        }
+
         public override void Apply(HScrollView previous, HScrollView widget) {
             _scrollView.mode = widget.axis == Axis.Vertical ? ScrollViewMode.Vertical : ScrollViewMode.Horizontal;
 
             var previousPosition = _scrollPosition;
-            if (previous == null || _scrollPosition == null | previous.axis != widget.axis) {
+            if (previous == null || (_scrollPosition == null) | (previous.axis != widget.axis)) {
                 _scrollPosition?.Dispose();
                 _scrollPosition = new ScrollerScrollPosition(
                     widget.axis == Axis.Vertical ? _scrollView.verticalScroller : _scrollView.horizontalScroller,
@@ -62,10 +68,6 @@ namespace HELIX.Widgets.Scrolling {
                 _scrollController = widget.controller;
                 _scrollController?.Attach(_scrollPosition);
             }
-        }
-
-        public void Dispose() {
-            _scrollPosition?.Dispose();
         }
     }
 
@@ -87,20 +89,22 @@ namespace HELIX.Widgets.Scrolling {
         ) : base(children, key, constants) {
             this.horizontalController = horizontalController;
             this.verticalController = verticalController;
-            
+
             DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
         }
 
-        public override IWidgetElement CreateElement() => ReconcileInto(new HPanViewElement());
+        public override IWidgetElement CreateElement() {
+            return ReconcileInto(new HPanViewElement());
+        }
     }
 
     public class HPanViewElement : MultiChildWidgetBaseElement<HPanView>, IHierarchyDisposable, IPreferExplicitFlex {
         private readonly ScrollView _scrollView;
-
-        private ScrollPosition _verticalPosition;
+        private ScrollController _horizontalController;
         private ScrollPosition _horizontalPosition;
         private ScrollController _verticalController;
-        private ScrollController _horizontalController;
+
+        private ScrollPosition _verticalPosition;
 
         public HPanViewElement() {
             _scrollView = new ScrollView().AddTo(hierarchy);
@@ -109,6 +113,11 @@ namespace HELIX.Widgets.Scrolling {
         }
 
         public override VisualElement contentContainer => _scrollView.contentContainer;
+
+        public void Dispose() {
+            _verticalPosition?.Dispose();
+            _horizontalPosition?.Dispose();
+        }
 
         public override void Apply(HPanView previous, HPanView widget) {
             _scrollView.mode = ScrollViewMode.VerticalAndHorizontal;
@@ -137,11 +146,6 @@ namespace HELIX.Widgets.Scrolling {
                 _horizontalController = widget.horizontalController;
                 _horizontalController?.Attach(_horizontalPosition);
             }
-        }
-
-        public void Dispose() {
-            _verticalPosition?.Dispose();
-            _horizontalPosition?.Dispose();
         }
     }
 }

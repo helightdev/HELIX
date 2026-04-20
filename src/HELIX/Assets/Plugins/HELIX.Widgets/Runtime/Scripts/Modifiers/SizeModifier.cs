@@ -13,7 +13,7 @@ namespace HELIX.Widgets.Modifiers {
         public readonly BoxConstraints constraints;
 
         public SizeModifier(StyleLength2 size, StyleLength2 minSize, StyleLength2 maxSize) {
-            constraints  = new BoxConstraints(size, minSize, maxSize);
+            constraints = new BoxConstraints(size, minSize, maxSize);
         }
 
         public SizeModifier(BoxConstraints constraints) {

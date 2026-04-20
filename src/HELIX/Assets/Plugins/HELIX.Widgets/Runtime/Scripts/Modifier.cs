@@ -1,6 +1,6 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
@@ -12,7 +12,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public abstract class Modifier : DiagnosticableBase {
-        public bool isFallback = false;
+        public bool isFallback;
         public virtual void Apply(VisualElement element) { }
         public virtual void Reset(VisualElement element) { }
 
@@ -45,18 +45,18 @@ namespace HELIX.Widgets {
             if (current == null || element == null) return;
 
             if (previous != null) {
-                foreach (var modifier in previous)
-                    if (!current.Contains(modifier))
-                        modifier.Reset(element);
+                foreach (var modifier in previous) {
+                    if (!current.Contains(modifier)) modifier.Reset(element);
+                }
 
                 foreach (var modifier in current) {
                     if (previous.TryGetValue(modifier, out var prev) && modifier.DeepEquals(prev)) continue;
 
                     modifier.Apply(prev, element);
                 }
-            } else
-                foreach (var modifier in current)
-                    modifier.Apply(element);
+            } else {
+                foreach (var modifier in current) modifier.Apply(element);
+            }
         }
 
         public override string ToStringShort() {
@@ -71,7 +71,7 @@ namespace HELIX.Widgets {
             base.DebugFillProperties(properties);
             if (FindConstantName() != null) return;
 
-            properties.Add(new FlagProperty("isFallback", isFallback, ifTrue: "Fallback"));
+            properties.Add(new FlagProperty("isFallback", isFallback, "Fallback"));
             FillModifierProperties(properties);
         }
 
@@ -86,7 +86,7 @@ namespace HELIX.Widgets {
                 if (existing.isFallback) modifiers.Remove(existing);
                 else if (modifier.isFallback) return;
                 else {
-                    throw new System.InvalidOperationException(
+                    throw new InvalidOperationException(
                         $"Modifier of type {modifier.GetType().Name} already exists on widget. Modifiers must be unique per widget."
                     );
                 }
@@ -95,9 +95,17 @@ namespace HELIX.Widgets {
             modifiers.Add(modifier);
         }
 
-        public static implicit operator Modifier(BoxConstraints constraints) => new SizeModifier(constraints);
-        public static implicit operator Modifier(BackgroundStyle style) => new BackgroundStyleModifier(style);
-        public static implicit operator Modifier(TextStyle style) => new TextStyleModifier(style);
+        public static implicit operator Modifier(BoxConstraints constraints) {
+            return new SizeModifier(constraints);
+        }
+
+        public static implicit operator Modifier(BackgroundStyle style) {
+            return new BackgroundStyleModifier(style);
+        }
+
+        public static implicit operator Modifier(TextStyle style) {
+            return new TextStyleModifier(style);
+        }
     }
 
     public static class ModifierExtensions {
@@ -218,7 +226,7 @@ namespace HELIX.Widgets {
         public static T Margin<T>(this T element, StyleLength4 margin) where T : Widget {
             return element.WithModifier(new MarginModifier(margin));
         }
-        
+
         public static T Clip<T>(this T element) where T : Widget {
             return element.WithModifier(ClipModifier.Clip);
         }
@@ -232,17 +240,14 @@ namespace HELIX.Widgets {
     public class ModifierSet : DiagnosticableBase, IReadOnlyCollection<Modifier> {
         public static readonly ModifierSet Empty = new() { ReadOnly = true };
 
-        public static ModifierSet DefaultFlexFill = new ModifierSet {
-            ModifierFallbacks.ImplicitFlexFill,
-        }.Sealed();
+        public static ModifierSet DefaultFlexFill = new ModifierSet { ModifierFallbacks.ImplicitFlexFill }.Sealed();
 
         public static ModifierSet DefaultFlexFillAndStacking = new ModifierSet {
             ModifierFallbacks.ImplicitFlexFill,
             ModifierFallbacks.StackingStretch
         }.Sealed();
-        
+
         private readonly HashSet<Modifier> _modifiers;
-        public bool ReadOnly { get; private set; }
 
         public ModifierSet(int capacity = 1) {
             _modifiers = new HashSet<Modifier>(capacity);
@@ -252,16 +257,26 @@ namespace HELIX.Widgets {
             _modifiers = new HashSet<Modifier>(modifiers);
         }
 
+        public bool ReadOnly { get; private set; }
+
+        public IEnumerator<Modifier> GetEnumerator() {
+            return _modifiers.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
+        }
+
+        public int Count => _modifiers.Count;
+
         public bool Add(Modifier modifier) {
             if (modifier == null) return true;
-            if (ReadOnly) {
-                throw new System.InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
-            }
+            if (ReadOnly) throw new InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
 
             if (_modifiers.TryGetValue(modifier, out var existing)) {
                 if (existing.isFallback) _modifiers.Remove(existing);
                 else if (modifier.isFallback) return true;
-                else { return false; }
+                else return false;
             }
 
             _modifiers.Add(modifier);
@@ -270,23 +285,19 @@ namespace HELIX.Widgets {
 
         public bool Add(IEnumerable<Modifier> modifiers) {
             if (modifiers == null) return true;
-            if (ReadOnly) {
-                throw new System.InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
-            }
+            if (ReadOnly) throw new InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
 
             var result = true;
-            foreach (var modifier in modifiers) {
-                if (!Add(modifier)) result = false;
-            }
+            foreach (var modifier in modifiers)
+                if (!Add(modifier))
+                    result = false;
 
             return result;
         }
 
         public void AddCollection(IReadOnlyCollection<Modifier> modifiers) {
             if (modifiers == null || modifiers.Count == 0) return;
-            if (ReadOnly) {
-                throw new System.InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
-            }
+            if (ReadOnly) throw new InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
 
             _modifiers.EnsureCapacity(_modifiers.Count + modifiers.Count);
             foreach (var modifier in modifiers) Add(modifier);
@@ -302,15 +313,13 @@ namespace HELIX.Widgets {
 
         public void AddThrowing(Modifier modifier) {
             if (modifier == null) return;
-            if (ReadOnly) {
-                throw new System.InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
-            }
+            if (ReadOnly) throw new InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
 
             if (_modifiers.TryGetValue(modifier, out var existing)) {
                 if (existing.isFallback) _modifiers.Remove(existing);
                 else if (modifier.isFallback) return;
                 else {
-                    throw new System.InvalidOperationException(
+                    throw new InvalidOperationException(
                         $"Modifier of type {modifier.GetType().Name} already exists on widget. Modifiers must be unique per widget."
                     );
                 }
@@ -321,18 +330,14 @@ namespace HELIX.Widgets {
 
         public void AddThrowing(IEnumerable<Modifier> modifiers) {
             if (modifiers == null) return;
-            if (ReadOnly) {
-                throw new System.InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
-            }
+            if (ReadOnly) throw new InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
 
             foreach (var modifier in modifiers) AddThrowing(modifier);
         }
 
         public void AddThrowingCollection(IReadOnlyCollection<Modifier> modifiers) {
             if (modifiers == null) return;
-            if (ReadOnly) {
-                throw new System.InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
-            }
+            if (ReadOnly) throw new InvalidOperationException("Cannot add modifiers to a read-only ModifierSet.");
 
             _modifiers.EnsureCapacity(_modifiers.Count + modifiers.Count);
             foreach (var modifier in modifiers) AddThrowing(modifier);
@@ -342,16 +347,6 @@ namespace HELIX.Widgets {
             ReadOnly = true;
             return this;
         }
-
-        public IEnumerator<Modifier> GetEnumerator() {
-            return _modifiers.GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator() {
-            return GetEnumerator();
-        }
-
-        public int Count => _modifiers.Count;
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);

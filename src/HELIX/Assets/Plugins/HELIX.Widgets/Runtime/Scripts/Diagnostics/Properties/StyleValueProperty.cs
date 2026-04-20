@@ -41,7 +41,8 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         public override DiagnosticLevel Level {
             get {
                 if (ValueTyped != null) {
-                    if (ValueTyped.keyword is StyleKeyword.Initial or StyleKeyword.Null && IfInitial == null) return DiagnosticLevel.Hidden;
+                    if (ValueTyped.keyword is StyleKeyword.Initial or StyleKeyword.Null && IfInitial == null)
+                        return DiagnosticLevel.Hidden;
                 } else if (IfNull == null) return DiagnosticLevel.Hidden;
 
                 return base.Level;
@@ -86,7 +87,7 @@ namespace HELIX.Widgets.Diagnostics.Properties {
                 case StyleKeyword.Undefined:
                 default:
                     return UnwrapStyleValueNode(ValueTyped.value)
-                        .ToDescription(parentConfiguration: parentConfiguration);
+                        .ToDescription(parentConfiguration);
             }
         }
     }

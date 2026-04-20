@@ -39,7 +39,7 @@ namespace HELIX.Widgets.Theming {
             value = null;
             return false;
         }
-        
+
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             properties.Add(new StringProperty("key", Key));
             properties.Add(new DiagnosticsProperty<object>("defaultValue", DefaultValue));
@@ -49,28 +49,32 @@ namespace HELIX.Widgets.Theming {
         public static ThemeProperty<T> ExtractMaybe<T, V>(
             V value,
             Func<V, IMaybeThemeValue<T>> resolver
-        ) where V : ThemeComponent =>
-            new ThemeProperty<T>().ComponentExtractorDefault(value, resolver);
+        ) where V : ThemeComponent {
+            return new ThemeProperty<T>().ComponentExtractorDefault(value, resolver);
+        }
 
         public static ThemeProperty<T> ExtractMaybe<T, V>(
             string key,
             V value,
             Func<V, IMaybeThemeValue<T>> resolver
-        ) where V : ThemeComponent =>
-            new ThemeProperty<T>(key).ComponentExtractorDefault(value, resolver);
+        ) where V : ThemeComponent {
+            return new ThemeProperty<T>(key).ComponentExtractorDefault(value, resolver);
+        }
 
         public static ThemeProperty<T> Extract<T, V>(
             V value,
             Func<V, T> resolver
-        ) where V : ThemeComponent =>
-            new ThemeProperty<T>().ComponentExtractorDefault(value, resolver);
+        ) where V : ThemeComponent {
+            return new ThemeProperty<T>().ComponentExtractorDefault(value, resolver);
+        }
 
         public static ThemeProperty<T> Extract<T, V>(
             string key,
             V value,
             Func<V, T> resolver
-        ) where V : ThemeComponent =>
-            new ThemeProperty<T>(key).ComponentExtractorDefault(value, resolver);
+        ) where V : ThemeComponent {
+            return new ThemeProperty<T>(key).ComponentExtractorDefault(value, resolver);
+        }
     }
 
     public abstract class BaseThemeProperty<T> : ThemeProperty {
@@ -84,6 +88,10 @@ namespace HELIX.Widgets.Theming {
         protected BaseThemeProperty(string key) : base(key) { }
 
         protected BaseThemeProperty() { }
+
+        public override object DefaultValue => defaultValue;
+
+        public T TypedDefaultValue => defaultValue;
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             properties.Add(new StringProperty("key", Key));
@@ -100,16 +108,12 @@ namespace HELIX.Widgets.Theming {
             result = defaultValue;
             return false;
         }
-        
-        public override object DefaultValue => defaultValue;
-
-        public T TypedDefaultValue => defaultValue;
     }
 
     public class ThemeProperty<T> : BaseThemeProperty<T> {
-        private IThemeStyleValueLoader<T> _styleLoader;
         private Dictionary<Type, Func<object, object>> _componentExtractors;
         private Func<ThemeProviderElement, T> _computeFunc;
+        private IThemeStyleValueLoader<T> _styleLoader;
         private string _styleName;
 
         public ThemeProperty(
@@ -125,7 +129,7 @@ namespace HELIX.Widgets.Theming {
         }
 
         public ThemeProperty<T> StyleLoader(string styleName = null, IThemeStyleValueLoader<T> loader = null) {
-            if (styleName != null) { _styleName = styleName; }
+            if (styleName != null) _styleName = styleName;
 
             if (loader != null) {
                 _styleLoader = loader;
@@ -148,7 +152,9 @@ namespace HELIX.Widgets.Theming {
             base.DebugFillProperties(properties);
             var styleLoaderLevel = _styleLoader != null ? DiagnosticLevel.Info : DiagnosticLevel.Fine;
             properties.Add(new StringProperty("styleName", _styleName ?? ComputedStyleName, level: styleLoaderLevel));
-            properties.Add(new DiagnosticsProperty<IThemeStyleValueLoader<T>>("styleLoader", _styleLoader, level:styleLoaderLevel));
+            properties.Add(
+                new DiagnosticsProperty<IThemeStyleValueLoader<T>>("styleLoader", _styleLoader, level: styleLoaderLevel)
+            );
             properties.Add(new IterableProperty<Type>("extractors", _componentExtractors.Keys, ifEmpty: "None"));
         }
 
@@ -184,7 +190,7 @@ namespace HELIX.Widgets.Theming {
             isDefaultValid = maybeThemeValue?.TryGetThemeValueTyped(out defaultValue) ?? false;
             return this;
         }
-        
+
         public ThemeProperty<T> Compute(Func<ThemeProviderElement, T> computeFunc) {
             _computeFunc = computeFunc;
             return this;
@@ -215,7 +221,7 @@ namespace HELIX.Widgets.Theming {
                 result = _computeFunc(provider);
                 return true;
             }
-            
+
             result = defaultValue;
             return false;
         }

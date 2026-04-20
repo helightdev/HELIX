@@ -5,22 +5,22 @@ using UnityEngine;
 namespace HELIX.Widgets.Universal.Theme {
     public class PrimitiveColorScheme {
         public static readonly PrimitiveColorScheme Default = From(MaterialColors.Indigo);
-        
-        public ColorTokenPalette primary;
-        public ColorTokenPalette secondary;
-        public ColorTokenPalette tertiary;
+        public Brightness brightness;
         public ColorTokenPalette error;
-        public SurfaceColorPalette surface;
         public LayerOpacityProgression layerOpacityProgression;
-        public Color scrim;
-        public Color shadow;
-        public Color surfaceTint;
         public Color outline;
         public Color outlineVariant;
-        public Brightness brightness;
 
-        public static PrimitiveColorScheme From(DynamicScheme scheme) =>
-            new() {
+        public ColorTokenPalette primary;
+        public Color scrim;
+        public ColorTokenPalette secondary;
+        public Color shadow;
+        public SurfaceColorPalette surface;
+        public Color surfaceTint;
+        public ColorTokenPalette tertiary;
+
+        public static PrimitiveColorScheme From(DynamicScheme scheme) {
+            return new PrimitiveColorScheme {
                 primary = ColorTokenPalette.Primary(scheme),
                 secondary = ColorTokenPalette.Secondary(scheme),
                 tertiary = ColorTokenPalette.Tertiary(scheme),
@@ -34,6 +34,7 @@ namespace HELIX.Widgets.Universal.Theme {
                 outlineVariant = scheme.GetColor(MaterialDynamicColors.OutlineVariant),
                 brightness = scheme.IsDark ? Brightness.Dark : Brightness.Light
             };
+        }
 
         public static PrimitiveColorScheme From(
             Color seedColor,
@@ -47,22 +48,22 @@ namespace HELIX.Widgets.Universal.Theme {
     }
 
     public class ColorTokenPalette {
-        public Color main;
-        public Color onMain;
         public Color container;
+        public Color main;
         public Color onContainer;
+        public Color onMain;
+        public Color onSolid;
+        public Color onSolidVariant;
 
         public Color solid;
         public Color solidDim;
-        public Color onSolid;
-        public Color onSolidVariant;
 
         protected TonalPalette tonalPalette;
 
         public virtual TonalPalette TonalPalette => tonalPalette ??= TonalPalette.FromHct(main.ToHct());
 
-        public static ColorTokenPalette Primary(DynamicScheme scheme) =>
-            new() {
+        public static ColorTokenPalette Primary(DynamicScheme scheme) {
+            return new ColorTokenPalette {
                 main = scheme.GetColor(MaterialDynamicColors.Primary),
                 onMain = scheme.GetColor(MaterialDynamicColors.OnPrimary),
                 container = scheme.GetColor(MaterialDynamicColors.PrimaryContainer),
@@ -70,11 +71,12 @@ namespace HELIX.Widgets.Universal.Theme {
                 solid = scheme.GetColor(MaterialDynamicColors.PrimaryFixed),
                 solidDim = scheme.GetColor(MaterialDynamicColors.PrimaryFixedDim),
                 onSolid = scheme.GetColor(MaterialDynamicColors.OnPrimaryFixed),
-                onSolidVariant = scheme.GetColor(MaterialDynamicColors.OnPrimaryFixedVariant),
+                onSolidVariant = scheme.GetColor(MaterialDynamicColors.OnPrimaryFixedVariant)
             };
+        }
 
-        public static ColorTokenPalette Secondary(DynamicScheme scheme) =>
-            new() {
+        public static ColorTokenPalette Secondary(DynamicScheme scheme) {
+            return new ColorTokenPalette {
                 main = scheme.GetColor(MaterialDynamicColors.Secondary),
                 onMain = scheme.GetColor(MaterialDynamicColors.OnSecondary),
                 container = scheme.GetColor(MaterialDynamicColors.SecondaryContainer),
@@ -82,11 +84,12 @@ namespace HELIX.Widgets.Universal.Theme {
                 solid = scheme.GetColor(MaterialDynamicColors.SecondaryFixed),
                 solidDim = scheme.GetColor(MaterialDynamicColors.SecondaryFixedDim),
                 onSolid = scheme.GetColor(MaterialDynamicColors.OnSecondaryFixed),
-                onSolidVariant = scheme.GetColor(MaterialDynamicColors.OnSecondaryFixedVariant),
+                onSolidVariant = scheme.GetColor(MaterialDynamicColors.OnSecondaryFixedVariant)
             };
+        }
 
-        public static ColorTokenPalette Tertiary(DynamicScheme scheme) =>
-            new() {
+        public static ColorTokenPalette Tertiary(DynamicScheme scheme) {
+            return new ColorTokenPalette {
                 main = scheme.GetColor(MaterialDynamicColors.Tertiary),
                 onMain = scheme.GetColor(MaterialDynamicColors.OnTertiary),
                 container = scheme.GetColor(MaterialDynamicColors.TertiaryContainer),
@@ -94,11 +97,12 @@ namespace HELIX.Widgets.Universal.Theme {
                 solid = scheme.GetColor(MaterialDynamicColors.TertiaryFixed),
                 solidDim = scheme.GetColor(MaterialDynamicColors.TertiaryFixedDim),
                 onSolid = scheme.GetColor(MaterialDynamicColors.OnTertiaryFixed),
-                onSolidVariant = scheme.GetColor(MaterialDynamicColors.OnTertiaryFixedVariant),
+                onSolidVariant = scheme.GetColor(MaterialDynamicColors.OnTertiaryFixedVariant)
             };
+        }
 
-        public static ColorTokenPalette Error(DynamicScheme scheme) =>
-            new() {
+        public static ColorTokenPalette Error(DynamicScheme scheme) {
+            return new ColorTokenPalette {
                 main = scheme.GetColor(MaterialDynamicColors.Error),
                 onMain = scheme.GetColor(MaterialDynamicColors.OnError),
                 container = scheme.GetColor(MaterialDynamicColors.ErrorContainer),
@@ -106,25 +110,26 @@ namespace HELIX.Widgets.Universal.Theme {
                 solid = scheme.GetColor(MaterialDynamicColors.ErrorContainer),
                 solidDim = scheme.GetColor(MaterialDynamicColors.ErrorContainer),
                 onSolid = scheme.GetColor(MaterialDynamicColors.OnErrorContainer),
-                onSolidVariant = scheme.GetColor(MaterialDynamicColors.OnErrorContainer),
+                onSolidVariant = scheme.GetColor(MaterialDynamicColors.OnErrorContainer)
             };
+        }
     }
 
     public class SurfaceColorPalette {
-        public Color main;
-        public Color variant;
-        public Color onMain;
-        public Color onVariant;
-        public Color containerLow;
         public Color container;
         public Color containerHigh;
         public Color containerHighest;
+        public Color containerLow;
         public Color inverse;
+        public Color main;
         public Color onInverse;
         public Color onInverseAccent;
+        public Color onMain;
+        public Color onVariant;
+        public Color variant;
 
-        public static SurfaceColorPalette From(DynamicScheme scheme) =>
-            new() {
+        public static SurfaceColorPalette From(DynamicScheme scheme) {
+            return new SurfaceColorPalette {
                 main = scheme.GetColor(MaterialDynamicColors.Surface),
                 variant = scheme.GetColor(MaterialDynamicColors.SurfaceVariant),
                 onMain = scheme.GetColor(MaterialDynamicColors.OnSurface),
@@ -137,6 +142,7 @@ namespace HELIX.Widgets.Universal.Theme {
                 onInverse = scheme.GetColor(MaterialDynamicColors.InverseOnSurface),
                 onInverseAccent = scheme.GetColor(MaterialDynamicColors.InversePrimary)
             };
+        }
     }
 
     public class LayerOpacityProgression {
@@ -147,12 +153,13 @@ namespace HELIX.Widgets.Universal.Theme {
             normal = 0.12f,
             high = 0.38f
         };
-        
-        public float disabledLow;
+
         public float disabledHigh;
-        
+
+        public float disabledLow;
+        public float high;
+
         public float low;
         public float normal;
-        public float high;
     }
 }

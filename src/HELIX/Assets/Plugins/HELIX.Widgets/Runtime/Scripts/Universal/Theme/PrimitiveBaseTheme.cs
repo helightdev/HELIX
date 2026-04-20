@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using HELIX.Coloring;
 using HELIX.Widgets.Theming;
 
 namespace HELIX.Widgets.Universal.Theme {
@@ -40,13 +39,13 @@ namespace HELIX.Widgets.Universal.Theme {
             spacing = PrimitiveSpacingScheme.Default
         };
 
+        public ThemeOptional<PrimitiveColorScheme> colors;
+        public ThemeOptional<PrimitiveRadiusScheme> radius;
+        public ThemeOptional<PrimitiveSpacingScheme> spacing;
+        public ThemeOptional<PrimitiveTypographyScheme> typography;
+
         public PrimitiveBaseThemeComponent() {
             lookupScope = PrimitiveBaseTheme.Properties;
         }
-
-        public ThemeOptional<PrimitiveColorScheme> colors;
-        public ThemeOptional<PrimitiveTypographyScheme> typography;
-        public ThemeOptional<PrimitiveRadiusScheme> radius;
-        public ThemeOptional<PrimitiveSpacingScheme> spacing;
     }
 }

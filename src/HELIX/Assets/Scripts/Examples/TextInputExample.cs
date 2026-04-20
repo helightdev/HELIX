@@ -1,5 +1,4 @@
 using HELIX.Widgets;
-using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
@@ -14,9 +13,9 @@ namespace Examples {
     }
 
     public class TextInputExampleState : State<TextInputExample> {
-        private readonly TextEditingController _sharedController = new();
         private readonly GlobalKey _firstInputFocus = new();
         private readonly GlobalKey _secondInputFocus = new();
+        private readonly TextEditingController _sharedController = new();
 
         public override void InitState() {
             base.InitState();
@@ -33,28 +32,28 @@ namespace Examples {
                 new HText($"Live value: {_sharedController.Value}").Body(context),
                 new HRow(gap: 8f) {
                     new HButton(
-                        variant: HButtonVariant.Flat,
+                        HButtonVariant.Flat,
                         child: new HText("Append !"),
                         onClick: () => { _sharedController.SetValue(_sharedController.PeekValue() + "!"); }
                     ),
                     new HButton(
-                        variant: HButtonVariant.Outline,
+                        HButtonVariant.Outline,
                         child: new HText("Clear"),
                         onClick: () => { _sharedController.SetValue(string.Empty); }
                     ),
                     new HButton(
-                        variant: HButtonVariant.Soft,
+                        HButtonVariant.Soft,
                         child: new HText("Focus First"),
                         onClick: () => { _firstInputFocus.Focus(); }
                     ),
                     new HButton(
-                        variant: HButtonVariant.Soft,
+                        HButtonVariant.Soft,
                         child: new HText("Focus Second"),
                         onClick: () => { _secondInputFocus.Focus(); }
                     )
                 },
                 new HTextField(focusKey: _firstInputFocus, controller: _sharedController).TightStretch(),
-                new HTextField(focusKey: _secondInputFocus, controller: _sharedController).TightStretch(),
+                new HTextField(focusKey: _secondInputFocus, controller: _sharedController).TightStretch()
             }.Margin(16);
         }
     }

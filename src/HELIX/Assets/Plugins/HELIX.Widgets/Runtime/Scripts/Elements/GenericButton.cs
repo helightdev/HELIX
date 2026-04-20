@@ -37,9 +37,10 @@ namespace HELIX.Widgets.Elements {
             if (Descriptor is ButtonBuilder bb && bb.onClick != null) {
                 Debug.Log("Invoking button's onClick action...");
                 ModificationBarrier.Run(() => {
-                    Debug.Log("Inside ModificationBarrier, invoking onClick...");
-                    bb.onClick.Invoke();
-                });
+                        Debug.Log("Inside ModificationBarrier, invoking onClick...");
+                        bb.onClick.Invoke();
+                    }
+                );
             }
 
             onClick?.Invoke();

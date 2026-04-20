@@ -27,7 +27,7 @@ namespace HELIX.Widgets.Modifiers {
 
         public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
             base.FillModifierProperties(properties);
-            properties.Add(new FlagProperty("visible", visible, ifTrue: "Visible", ifFalse: "Hidden"));
+            properties.Add(new FlagProperty("visible", visible, "Visible", "Hidden"));
         }
 
         protected override string FindConstantName() {

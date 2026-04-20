@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
-using UnityEngine.UIElements;
 
 // ReSharper disable Unity.BurstLoadingManagedType
 // ReSharper disable Unity.BurstAccessingManagedMethod
@@ -140,7 +139,7 @@ namespace HELIX.Widgets {
             return WidgetStateProperties.All(constant);
         }
     }
-    
+
     public class WidgetStatePropertyMap<T> : WidgetStateProperty<T> {
         private readonly List<Pair> _values = new();
 
@@ -244,14 +243,14 @@ namespace HELIX.Widgets {
             _constant = constant;
         }
 
-        public override bool TryResolve(WidgetState state, out T value) {
-            value = _constant;
-            return true;
-        }
-
         public bool Equals(AllWidgetStateProperty<T> other) {
             if (ReferenceEquals(null, other)) return false;
             return EqualityComparer<T>.Default.Equals(_constant, other._constant);
+        }
+
+        public override bool TryResolve(WidgetState state, out T value) {
+            value = _constant;
+            return true;
         }
 
         public override bool Equals(object obj) {
@@ -275,14 +274,14 @@ namespace HELIX.Widgets {
             _resolver = resolver;
         }
 
-        public override bool TryResolve(WidgetState state, out T value) {
-            value = _resolver(state);
-            return true;
-        }
-
         public bool Equals(FuncWidgetStateProperty<T> other) {
             if (ReferenceEquals(null, other)) return false;
             return Equals(_resolver, other._resolver);
+        }
+
+        public override bool TryResolve(WidgetState state, out T value) {
+            value = _resolver(state);
+            return true;
         }
 
         public override bool Equals(object obj) {

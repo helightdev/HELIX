@@ -25,7 +25,7 @@ public static class MyThemes {
         ExampleThemeComponent.Default,
         component => component.primaryWashedColor
     ).StyleLoader();
-    
+
     public static readonly ThemeProperty<ElementFactory<VisualElement>> ExampleFactory = ThemeProperty.Extract(
         "example-factory",
         ExampleThemeComponent.Default,
@@ -41,16 +41,8 @@ public partial class ExampleThemeComponent : ThemeComponent {
     public static readonly ExampleThemeComponent Default = new() {
         factory = new TestFactory(),
         primaryColor = Color.white,
-        primaryWashedColor = Color.white,
+        primaryWashedColor = Color.white
     };
-
-    public ExampleThemeComponent() {
-        lookupScope = MyThemes.Properties;
-    }
-
-    [Header("Example Theme Component")]
-    [UxmlObjectReference("example-factory")]
-    public VisualElementFactory factory;
 
     [UxmlAttribute("c-primary")]
     public ThemeOptional<Color> primaryColor;
@@ -60,12 +52,19 @@ public partial class ExampleThemeComponent : ThemeComponent {
 
     [UxmlAttribute("example-optional")]
     public ThemeOptional<Color> optionalColor;
+
+    [Header("Example Theme Component"), UxmlObjectReference("example-factory")]
+    public VisualElementFactory factory;
+
+    public ExampleThemeComponent() {
+        lookupScope = MyThemes.Properties;
+    }
 }
 
 [UxmlWidgetFactory, UxmlObject]
 public partial class TestFactory : VisualElementFactory {
     public override VisualElement Create(BaseElement parentElement) {
-        return new Label("Hello, World!").Sized(width: 25);
+        return new Label("Hello, World!").Sized(25);
     }
 }
 
@@ -78,8 +77,16 @@ public partial class AnotherTestFactory : VisualElementFactory {
 
 [UxmlElement]
 public partial class Example : BaseElement {
-    private readonly ThemeValue<Color> _primaryColor;
     private readonly ElementFactorySlot<VisualElement> _factorySlotSlot;
+    private readonly ThemeValue<Color> _primaryColor;
+
+    public Example() {
+        _primaryColor = ThemeValue(MyThemes.PrimaryColor, OnPrimaryColorChanged);
+        _factorySlotSlot = WidgetFactorySlot(MyThemes.ExampleFactory);
+        _factorySlotSlot.StretchToParentSize();
+        Add(_factorySlotSlot);
+    }
+
     public IPublicElementFactorySlot<VisualElement> FactorySlot => _factorySlotSlot;
 
     [UxmlAttribute]
@@ -97,13 +104,6 @@ public partial class Example : BaseElement {
         set => _factorySlotSlot.SetMapped(value);
     }
 
-    public Example() {
-        _primaryColor = ThemeValue(MyThemes.PrimaryColor, OnPrimaryColorChanged);
-        _factorySlotSlot = WidgetFactorySlot(MyThemes.ExampleFactory);
-        _factorySlotSlot.StretchToParentSize();
-        Add(_factorySlotSlot);
-    }
-
     private void OnPrimaryColorChanged(Color newValue) {
         style.backgroundColor = newValue;
     }
@@ -112,7 +112,7 @@ public partial class Example : BaseElement {
 [UxmlElement]
 public partial class PerformUpdateWidget : BaseElement {
     public PerformUpdateWidget() {
-        var button = new Button() { text = "Update me!" };
+        var button = new Button { text = "Update me!" };
         button.clicked += () => {
             ThemeProviderElement.Components =
                 new List<ThemeComponent> { new ExampleThemeComponent { factory = new AnotherTestFactory() } };

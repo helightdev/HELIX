@@ -1,5 +1,4 @@
 using System;
-using HELIX.Widgets.Elements;
 using HELIX.Widgets.Signals;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -8,12 +7,13 @@ namespace HELIX.Widgets.Universal.Controllers {
     public class ButtonController : Signal {
         public readonly WidgetStateController widgetState;
         public bool enabled = true;
-        public bool Enabled => enabled && (widgetState?.PeekValue().Enabled() ?? true);
         public Action onClick;
 
         public ButtonController(WidgetStateController widgetState = null) {
             this.widgetState = widgetState;
         }
+
+        public bool Enabled => enabled && (widgetState?.PeekValue().Enabled() ?? true);
 
         private void HandleClick() {
             NotifyDirty();
@@ -64,21 +64,22 @@ namespace HELIX.Widgets.Universal.Controllers {
             }
         }
     }
-    
+
     public class TextEditingController : ValueSignal<string> {
         public readonly WidgetStateController widgetState;
         public bool enabled = true;
-        public bool Enabled => enabled && (widgetState?.PeekValue().Enabled() ?? true);
-        public Action<string> onChanged;
-        public Action<string> onSubmitted;
-        public Action onCanceled;
         public Action onBeginEditing;
+        public Action onCanceled;
+        public Action<string> onChanged;
         public Action onEndEditing;
-        
+        public Action<string> onSubmitted;
+
         public TextEditingController(WidgetStateController widgetState = null, string initialValue = "")
             : base(initialValue) {
             this.widgetState = widgetState;
         }
+
+        public bool Enabled => enabled && (widgetState?.PeekValue().Enabled() ?? true);
 
         public override void SetValue(string newValue) {
             base.SetValue(newValue);

@@ -12,7 +12,7 @@ namespace HELIX.Widgets.Elements {
         public int HierarchyDepth { get; set; }
         public abstract bool CanReconcile(Widget updated);
         public abstract bool Reconcile(Widget updated);
-        
+
         public T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
             return property.TypedDefaultValue;
         }
@@ -21,7 +21,6 @@ namespace HELIX.Widgets.Elements {
             value = property.TypedDefaultValue;
             return false;
         }
-
 
         public virtual List<DiagnosticsNode> DebugDescribeChildren() {
             return new List<DiagnosticsNode>();

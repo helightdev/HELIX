@@ -9,8 +9,8 @@ namespace HELIX.Widgets.Modifiers {
         public readonly SliderController controller;
         public readonly float thumbSize;
         public readonly WidgetStateController widgetState;
-        public bool reverse = false;
         private SliderManipulator _manipulator;
+        public bool reverse;
 
         public SliderControllerModifier(
             SliderController controller,
@@ -47,12 +47,12 @@ namespace HELIX.Widgets.Modifiers {
         public class SliderManipulator : Manipulator {
             private readonly Axis _axis;
             private readonly SliderController _controller;
+            private readonly bool _reverse;
             private readonly float _thumbSize;
             private readonly WidgetStateController _widgetState;
-            private bool _reverse;
-            private int _pointerId = -1;
             private float _dragStartAxisPosition;
             private float _dragStartValue;
+            private int _pointerId = -1;
 
             public SliderManipulator(
                 SliderController controller,
@@ -95,13 +95,11 @@ namespace HELIX.Widgets.Modifiers {
                 target.CapturePointer(_pointerId);
 
                 var rect = target.contentRect;
-                var axisPosition = GetAxisPosition(localPosition: evt.localPosition, rect);
+                var axisPosition = GetAxisPosition(evt.localPosition, rect);
                 var thumbPixels = GetThumbPixels(rect);
                 var range = GetRange(rect, thumbPixels);
 
-                if (!IsPointerOnThumb(axisPosition, thumbPixels, range)) {
-                    UpdateValue(evt.localPosition);
-                }
+                if (!IsPointerOnThumb(axisPosition, thumbPixels, range)) UpdateValue(evt.localPosition);
 
                 _dragStartAxisPosition = axisPosition;
                 _dragStartValue = _controller.Value;
@@ -231,8 +229,7 @@ namespace HELIX.Widgets.Modifiers {
                         if (_axis != Axis.Vertical) return false;
                         direction = 1;
                         return true;
-                    default:
-                        return false;
+                    default: return false;
                 }
             }
 

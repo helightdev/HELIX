@@ -65,14 +65,14 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
 
                 void Visitor(DiagnosticsNode current) {
                     List<DiagnosticsNode> diagnosticsNodes;
-                    try {
-                        diagnosticsNodes = current.GetChildren();
-                    } catch (Exception ex) {
+                    try { diagnosticsNodes = current.GetChildren(); } catch (Exception ex) {
                         diagnosticsNodes = new[] {
-                            DiagnosticsNode.Message("Error while getting children: " + ex.GetType().Name + " - " + ex.Message)
+                            DiagnosticsNode.Message(
+                                "Error while getting children: " + ex.GetType().Name + " - " + ex.Message
+                            )
                         }.ToList();
                     }
-                    
+
                     foreach (var child in diagnosticsNodes) {
                         if (lines < maxLines) {
                             depth++;
@@ -109,18 +109,14 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
             );
 
             List<DiagnosticsNode> children;
-            try {
-                children = node.GetChildren();
-            } catch (Exception ex) {
+            try { children = node.GetChildren(); } catch (Exception ex) {
                 children = new[] {
                     DiagnosticsNode.Message("Error while getting children: " + ex.GetType().Name + " - " + ex.Message)
                 }.ToList();
             }
-            
+
             string description;
-            try {
-                description = node.ToDescription(parentConfiguration);
-            } catch (Exception ex) {
+            try { description = node.ToDescription(parentConfiguration); } catch (Exception ex) {
                 description = "Error while getting description: " + ex.GetType().Name + " - " + ex.Message;
             }
 
@@ -169,20 +165,18 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                 builder.WriteStretched(config.SuffixLineOne, builder.WrapWidth ?? _wrapWidth);
 
             IEnumerable<DiagnosticsNode> propertiesEnumerable;
-            try {
-                propertiesEnumerable = node.GetProperties().Where(n => !n.IsFiltered(_minLevel));
-            } catch (Exception ex) {
+            try { propertiesEnumerable = node.GetProperties().Where(n => !n.IsFiltered(_minLevel)); } catch
+                (Exception ex) {
                 propertiesEnumerable = new[] {
                     DiagnosticsNode.Message("Error while getting properties: " + ex.GetType().Name + " - " + ex.Message)
                 };
             }
-            
+
             List<DiagnosticsNode> properties;
 
             if (_maxDescendantsTruncatableNode >= 0 && node.AllowTruncate) {
                 properties = propertiesEnumerable.Take(_maxDescendantsTruncatableNode).ToList();
-                if (properties.Count >= _maxDescendantsTruncatableNode)
-                    properties.Add(DiagnosticsNode.Message("..."));
+                if (properties.Count >= _maxDescendantsTruncatableNode) properties.Add(DiagnosticsNode.Message("..."));
 
                 if (_maxDescendantsTruncatableNode < children.Count) {
                     children = children.Take(_maxDescendantsTruncatableNode).ToList();

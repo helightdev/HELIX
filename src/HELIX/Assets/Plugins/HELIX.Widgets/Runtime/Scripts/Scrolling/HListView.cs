@@ -7,23 +7,25 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
     public class HListView : Widget {
-        public int itemCount;
-        public BuildFunction<int> itemBuilder;
         public float fixedItemHeight = -1;
+        public BuildFunction<int> itemBuilder;
+        public int itemCount;
         public ScrollController scrollController;
 
         public HListView() {
             AddModifier(ModifierFallbacks.ImplicitFlexFill);
         }
 
-        public override IWidgetElement CreateElement() => ReconcileInto(new HListViewElement());
+        public override IWidgetElement CreateElement() {
+            return ReconcileInto(new HListViewElement());
+        }
     }
 
     public class HListViewElement : WidgetBaseElement<HListView>, IHierarchyDisposable {
-        private readonly ListView _listView;
-        private readonly ScrollView _scrollView;
         private readonly DummyCounterList _dummyList = new();
+        private readonly ListView _listView;
         private readonly ScrollPosition _scrollPosition;
+        private readonly ScrollView _scrollView;
         private ScrollController _scrollController;
 
         public HListViewElement() {
@@ -32,7 +34,7 @@ namespace HELIX.Widgets.Scrolling {
             _scrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             _scrollView.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             _listView.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
-            _listView.makeItem = () => new WidgetHostElement().TightStretch().Sized(width: 100.Percent());
+            _listView.makeItem = () => new WidgetHostElement().TightStretch().Sized(100.Percent());
             _listView.destroyItem = element => element.Clear();
             _listView.bindItem = BindItem;
             _listView.unbindItem = UnbindItem;
@@ -40,6 +42,10 @@ namespace HELIX.Widgets.Scrolling {
             _listView.allowRemove = false;
             _listView.selectionType = SelectionType.None;
             _scrollPosition = new ScrollerScrollPosition(_scrollView.verticalScroller, _scrollView);
+        }
+
+        public void Dispose() {
+            _scrollPosition.Dispose();
         }
 
         protected override void OnAttached(AttachToPanelEvent evt) {
@@ -86,7 +92,7 @@ namespace HELIX.Widgets.Scrolling {
             if (widget.fixedItemHeight >= 0) {
                 _listView.fixedItemHeight = widget.fixedItemHeight;
                 _listView.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
-            } else { _listView.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight; }
+            } else _listView.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
 
             _listView.RefreshItems();
 
@@ -95,10 +101,6 @@ namespace HELIX.Widgets.Scrolling {
                 widget.scrollController?.Attach(_scrollPosition);
                 _scrollController = widget.scrollController;
             }
-        }
-
-        public void Dispose() {
-            _scrollPosition.Dispose();
         }
     }
 }

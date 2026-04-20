@@ -1,14 +1,14 @@
-namespace HELIX.Widgets
-{
+namespace HELIX.Widgets {
     public delegate Widget BuildFunction(BuildContext context);
 
     public delegate Widget BuildFunction<in T>(BuildContext context, T parameter);
+
     public delegate Widget BuildFunction<in T1, in T2>(BuildContext context, T1 param1, T2 param2);
-    
+
     public interface IBuildable {
         Widget Build(BuildContext context);
     }
-    
+
     public readonly struct FunctionBuildable : IBuildable {
         private readonly BuildFunction _func;
 

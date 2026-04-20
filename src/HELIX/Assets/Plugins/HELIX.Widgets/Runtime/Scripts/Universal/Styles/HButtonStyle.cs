@@ -4,20 +4,20 @@ using HELIX.Widgets.Diagnostics;
 namespace HELIX.Widgets.Universal.Styles {
     public class HButtonStyle : DiagnosticableBase {
         public static HButtonStyle Default = new();
+        public WidgetStateProperty<Alignment> alignment = WidgetStateProperties.Never<Alignment>();
 
         public WidgetStateProperty<BackgroundStyle> backgroundStyle = WidgetStateProperties.Never<BackgroundStyle>();
         public WidgetStateProperty<Border> border = WidgetStateProperties.Never<Border>();
         public WidgetStateProperty<BorderRadius> borderRadius = WidgetStateProperties.Never<BorderRadius>();
         public WidgetStateProperty<BoxShadowStyle> boxShadow = WidgetStateProperties.Never<BoxShadowStyle>();
-        public WidgetStateProperty<float> opacity = WidgetStateProperties.Never<float>();
-        
-        public WidgetStateProperty<TextStyle> textStyle = WidgetStateProperties.Never<TextStyle>();
-        public SubstanceLayers layers = default;
-        public WidgetStateProperty<Transition[]> transitions = WidgetStateProperties.Never<Transition[]>();
-        public WidgetStateProperty<Alignment> alignment = WidgetStateProperties.Never<Alignment>();
         public WidgetStateProperty<BoxConstraints> constraints = WidgetStateProperties.Never<BoxConstraints>();
-        public WidgetStateProperty<StyleLength4> padding = WidgetStateProperties.Never<StyleLength4>();
+        public SubstanceLayers layers = default;
         public WidgetStateProperty<ModifierSet> modifiers = WidgetStateProperties.Never<ModifierSet>();
+        public WidgetStateProperty<float> opacity = WidgetStateProperties.Never<float>();
+        public WidgetStateProperty<StyleLength4> padding = WidgetStateProperties.Never<StyleLength4>();
+
+        public WidgetStateProperty<TextStyle> textStyle = WidgetStateProperties.Never<TextStyle>();
+        public WidgetStateProperty<Transition[]> transitions = WidgetStateProperties.Never<Transition[]>();
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);

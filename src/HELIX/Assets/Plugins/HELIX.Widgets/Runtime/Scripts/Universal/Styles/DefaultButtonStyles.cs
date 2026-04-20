@@ -4,7 +4,6 @@ using HELIX.Types;
 using HELIX.Widgets.Theming;
 using HELIX.Widgets.Universal.Substances;
 using HELIX.Widgets.Universal.Theme;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {

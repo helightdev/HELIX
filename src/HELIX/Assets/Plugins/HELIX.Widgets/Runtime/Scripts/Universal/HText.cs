@@ -1,4 +1,3 @@
-using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Modifiers;
@@ -9,21 +8,21 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HText : WrappingBaseWidget<HText, Label> {
-        private ModifierSet _defaultModifiers = new ModifierSet {
+        private readonly ModifierSet _defaultModifiers = new ModifierSet {
             ModifierFallbacks.PaddingZero,
             ModifierFallbacks.MarginZero
         }.Sealed();
-        
+
         public readonly bool doubleClickSelectsWords;
         public readonly bool emojiFallbackSupport;
         public readonly bool enableRichText;
         public readonly LanguageDirection languageDirection;
         public readonly bool parseEscapeSequences;
         public readonly bool selectable;
-        public TextStyle style;
 
         public readonly string text;
         public readonly bool tripleClickSelectsLine;
+        public TextStyle style;
 
         public HText(
             string text,
@@ -45,7 +44,7 @@ namespace HELIX.Widgets.Universal {
             this.tripleClickSelectsLine = tripleClickSelectsLine;
             this.languageDirection = languageDirection;
             this.style = style;
-            
+
             DefaultModifiers(_defaultModifiers, null);
         }
 
@@ -71,12 +70,12 @@ namespace HELIX.Widgets.Universal {
             properties.Add(new StringProperty("text", text));
             properties.Add(new TextStyleProperty("style", style));
 
-            properties.Add(new FlagProperty("enableRichText", enableRichText, ifTrue: "RichText"));
+            properties.Add(new FlagProperty("enableRichText", enableRichText, "RichText"));
             properties.Add(new FlagProperty("emojiFallbackSupport", emojiFallbackSupport, ifFalse: "NoEmojiFallback"));
             properties.Add(
                 new FlagProperty("parseEscapeSequences", parseEscapeSequences, ifFalse: "NoEscapeSequenceParsing")
             );
-            properties.Add(new FlagProperty("selectable", selectable, ifTrue: "Selectable"));
+            properties.Add(new FlagProperty("selectable", selectable, "Selectable"));
             properties.Add(
                 new FlagProperty(
                     "doubleClickSelectsWords",
@@ -95,18 +94,17 @@ namespace HELIX.Widgets.Universal {
                 new EnumProperty<LanguageDirection>(
                     "languageDirection",
                     languageDirection,
-                    defaultValue: LanguageDirection.Inherit
+                    LanguageDirection.Inherit
                 )
             );
         }
     }
 
     public static class HTextExtensions {
-
         public static HText Body(this HText text, IThemeProvider theme, int level = 1) {
             var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
             text.style ??= new TextStyle();
-            text.style.fontSize = level switch{
+            text.style.fontSize = level switch {
                 1 => typography.FontSize3,
                 2 => typography.FontSize4,
                 3 => typography.FontSize5,
@@ -114,11 +112,11 @@ namespace HELIX.Widgets.Universal {
             };
             return text;
         }
-        
+
         public static HText Heading(this HText text, IThemeProvider theme, int level = 1) {
             var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
             text.style ??= new TextStyle();
-            text.style.fontSize = level switch{
+            text.style.fontSize = level switch {
                 1 => typography.FontSize6,
                 2 => typography.FontSize7,
                 3 => typography.FontSize8,
@@ -137,7 +135,7 @@ namespace HELIX.Widgets.Universal {
             };
             return text;
         }
-        
+
         public static HText Display(this HText text, IThemeProvider theme, int level = 1) {
             var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
             text.style ??= new TextStyle();
@@ -149,6 +147,5 @@ namespace HELIX.Widgets.Universal {
             };
             return text;
         }
-
     }
 }

@@ -31,6 +31,10 @@ namespace HELIX.Widgets {
         where T : StatelessWidget<T> {
         private bool _isDisposed;
 
+        public void Dispose() {
+            _isDisposed = true;
+        }
+
         protected override void OnWatchedThemeUpdated(ThemeProperty property, object value) {
             base.OnWatchedThemeUpdated(property, value);
             OnDependencyUpdated();
@@ -57,10 +61,6 @@ namespace HELIX.Widgets {
 
         public override string ToStringShort() {
             return $"{typeof(T).Name}:Element#{this.ShortHash()}";
-        }
-
-        public void Dispose() {
-            _isDisposed = true;
         }
     }
 }

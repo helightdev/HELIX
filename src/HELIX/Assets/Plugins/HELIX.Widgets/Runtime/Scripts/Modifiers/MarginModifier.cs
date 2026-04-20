@@ -2,8 +2,7 @@ using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Modifiers
-{
+namespace HELIX.Widgets.Modifiers {
     public class MarginModifier : Modifier {
         public static readonly MarginModifier Initial = new(StyleLength4.Initial);
         public static readonly MarginModifier Zero = new(StyleLength4.Zero);

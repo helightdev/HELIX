@@ -1,7 +1,6 @@
 using System;
 using HELIX.Types;
 using HELIX.Widgets;
-using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Styles;
@@ -16,8 +15,8 @@ namespace Examples {
     }
 
     public class ListVirtualizationExampleState : State<ListVirtualizationExample> {
-        private int _itemCount = 72;
         private bool _fixedHeight = true;
+        private int _itemCount = 72;
 
         public override Widget Build(BuildContext context) {
             return new HColumn(gap: 16, crossAxisAlign: Align.Stretch) {
@@ -25,7 +24,7 @@ namespace Examples {
                 new HText("Switch between fixed and dynamic item heights to see how the list adapts.").Caption(context),
                 new HRow(gap: 8) {
                     new HButton(
-                        variant: HButtonVariant.Soft,
+                        HButtonVariant.Soft,
                         onClick: () => {
                             _itemCount += 12;
                             SetState();
@@ -33,7 +32,7 @@ namespace Examples {
                         child: new HText("+ 12 Rows")
                     ),
                     new HButton(
-                        variant: HButtonVariant.Soft,
+                        HButtonVariant.Soft,
                         onClick: () => {
                             _itemCount = Math.Max(12, _itemCount - 12);
                             SetState();
@@ -41,23 +40,23 @@ namespace Examples {
                         child: new HText("- 12 Rows")
                     ),
                     new HButton(
-                        variant: HButtonVariant.TwoState,
+                        HButtonVariant.TwoState,
                         selected: _fixedHeight,
                         child: new HText("Fixed Height"),
                         onClick: () => {
                             _fixedHeight = !_fixedHeight;
                             SetState();
                         }
-                    ),
+                    )
                 },
                 new HText($"Rows: {_itemCount} · Mode: {(_fixedHeight ? "fixed" : "dynamic")}").Body(context),
                 new HBox(borderRadius: 16) {
                     new HListView {
                         itemCount = _itemCount,
                         fixedItemHeight = _fixedHeight ? 72f : -1f,
-                        itemBuilder = BuildRow,
+                        itemBuilder = BuildRow
                     }
-                }.Clip().Fill(),
+                }.Clip().Fill()
             }.Margin(16);
         }
 
@@ -75,10 +74,10 @@ namespace Examples {
                         "Featured rows include a second line of copy to demonstrate dynamic height virtualization."
                     ).Caption(context),
                     new HText("When fixed item height is disabled, the list can size itself to this taller content.")
-                        .Caption(context),
+                        .Caption(context)
                 }
                 : new Widget[] {
-                    new HText($"Item {index + 1:000}").Body(context), new HText("Compact row.").Caption(context),
+                    new HText($"Item {index + 1:000}").Body(context), new HText("Compact row.").Caption(context)
                 };
 
             return new HBox(

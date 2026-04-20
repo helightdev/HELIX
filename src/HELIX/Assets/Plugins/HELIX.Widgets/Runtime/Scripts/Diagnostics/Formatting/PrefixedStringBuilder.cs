@@ -64,8 +64,7 @@ namespace HELIX.Widgets.Diagnostics.Formatting {
                 if (allowWrap && WrapWidth.HasValue) {
                     var wrapStart = _currentLine.Length;
                     var wrapEnd = wrapStart + line.Length;
-                    if (_wrappableRanges.Count > 0 && _wrappableRanges[^1] == wrapStart)
-                        _wrappableRanges[^1] = wrapEnd;
+                    if (_wrappableRanges.Count > 0 && _wrappableRanges[^1] == wrapStart) _wrappableRanges[^1] = wrapEnd;
                     else {
                         _wrappableRanges.Add(wrapStart);
                         _wrappableRanges.Add(wrapEnd);

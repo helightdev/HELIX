@@ -5,12 +5,12 @@ using HELIX.Widgets.Universal.Controllers;
 
 namespace HELIX.Widgets.Universal {
     public class HSubstanceBox : StatefulWidget<HSubstanceBox> {
-        public readonly WidgetStateController controller;
-        public readonly SubstanceLayers substances;
-        public readonly BuildFunction<WidgetState> builder;
         public readonly WidgetStateProperty<Alignment> alignment;
         public readonly Key boxKey;
         public readonly WidgetStateProperty<ModifierSet> boxModifiers;
+        public readonly BuildFunction<WidgetState> builder;
+        public readonly WidgetStateController controller;
+        public readonly SubstanceLayers substances;
 
         public HSubstanceBox(
             WidgetStateController controller = null,

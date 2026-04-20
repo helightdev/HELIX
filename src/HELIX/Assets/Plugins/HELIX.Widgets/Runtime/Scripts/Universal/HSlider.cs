@@ -12,19 +12,19 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HSlider : StatefulWidget<HSlider> {
-        public readonly SliderController controller;
-        public readonly ScrollController scrollController;
-
-        public Key focusKey;
         public readonly Axis axis;
-        public readonly bool enabled;
-        public readonly bool reverse;
-        public readonly float initialValue;
-        public readonly float thumbSize;
-        public readonly Action<float> onChanged;
-        public readonly HSliderStyle style;
 
         public readonly WidgetStateProperty<ModifierSet> boxModifiers;
+        public readonly SliderController controller;
+        public readonly bool enabled;
+        public readonly float initialValue;
+        public readonly Action<float> onChanged;
+        public readonly bool reverse;
+        public readonly ScrollController scrollController;
+        public readonly HSliderStyle style;
+        public readonly float thumbSize;
+
+        public Key focusKey;
 
         public HSlider(
             SliderController controller = null,
@@ -96,7 +96,7 @@ namespace HELIX.Widgets.Universal {
             } else {
                 _widgetStateController = AddDisposable(new WidgetStateController());
                 _controller = AddDisposable(new SliderController(_widgetStateController, widget.initialValue));
-                if (widget.scrollController != null) { _controller.LinkScrollController(widget.scrollController); }
+                if (widget.scrollController != null) _controller.LinkScrollController(widget.scrollController);
 
                 _controller.onChanged = widget.onChanged;
                 _controller.enabled = widget.enabled;
@@ -152,8 +152,8 @@ namespace HELIX.Widgets.Universal {
                 )
             );
 
-            return new HStatefulBuilder(
-                builder: (buildContext, parameter) => BuildInner(buildContext, parameter, style, rootModifiers)
+            return new HStatefulBuilder((buildContext, parameter) =>
+                BuildInner(buildContext, parameter, style, rootModifiers)
             );
         }
 
@@ -201,8 +201,8 @@ namespace HELIX.Widgets.Universal {
 
         private Widget BuildLayer(SubstanceLayers layers, StyleLength4 position) {
             return new HSubstanceBox(
-                controller: _widgetStateController,
-                substances: layers
+                _widgetStateController,
+                layers
             ).Positioned(position);
         }
 
@@ -212,13 +212,13 @@ namespace HELIX.Widgets.Universal {
 
             return axis == Axis.Horizontal
                 ? StyleLength4.Only(
-                    left: reverse ? remainderStyle : 0,
+                    reverse ? remainderStyle : 0,
                     top: 0,
                     right: reverse ? 0 : remainderStyle,
                     bottom: 0
                 )
                 : StyleLength4.Only(
-                    left: 0,
+                    0,
                     top: reverse ? remainderStyle : 0,
                     right: 0,
                     bottom: reverse ? 0 : remainderStyle
@@ -233,13 +233,13 @@ namespace HELIX.Widgets.Universal {
 
             return axis == Axis.Horizontal
                 ? StyleLength4.Only(
-                    left: reverse ? endStyle : startStyle,
+                    reverse ? endStyle : startStyle,
                     top: 0,
                     right: reverse ? startStyle : endStyle,
                     bottom: 0
                 )
                 : StyleLength4.Only(
-                    left: 0,
+                    0,
                     top: reverse ? endStyle : startStyle,
                     right: 0,
                     bottom: reverse ? startStyle : endStyle

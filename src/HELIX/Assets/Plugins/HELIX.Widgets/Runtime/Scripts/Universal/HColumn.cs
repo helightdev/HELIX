@@ -4,7 +4,6 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HColumn : DirectionalContainerWidget {
-
         public HColumn(
             Justify mainAxisAlign = Justify.FlexStart,
             Align crossAxisAlign = Align.Center,

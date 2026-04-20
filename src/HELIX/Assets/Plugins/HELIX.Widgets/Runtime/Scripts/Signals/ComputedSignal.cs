@@ -70,8 +70,8 @@ namespace HELIX.Widgets.Signals {
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
-            properties.Add(new FlagProperty("isDirty", _isDirty, ifTrue: "Dirty"));
-            properties.Add(new FlagProperty("isComputing", _isComputing, ifTrue: "Computing", level: DiagnosticLevel.Fine));
+            properties.Add(new FlagProperty("isDirty", _isDirty, "Dirty"));
+            properties.Add(new FlagProperty("isComputing", _isComputing, "Computing", level: DiagnosticLevel.Fine));
             properties.Add(new DiagnosticsProperty<T>("cachedValue", _cachedValue, showName: false));
             properties.Add(
                 new DiagnosticsProperty<Func<T>>(

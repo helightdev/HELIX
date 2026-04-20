@@ -9,10 +9,10 @@ namespace HELIX.Widgets.Modifiers {
         public static readonly FocusModifier FocusableNoTab = new(true, PickingMode.Position, -1, false);
         public static readonly FocusModifier Ignore = new(false, PickingMode.Ignore, -1, false);
         public static readonly FocusModifier None = new(false, PickingMode.Position, -1, false);
+        public readonly bool delegatesFocus;
         public readonly bool focusable;
         public readonly PickingMode pickingMode;
         public readonly int tabIndex;
-        public readonly bool delegatesFocus;
 
         public FocusModifier(bool focusable, PickingMode pickingMode, int tabIndex, bool delegatesFocus) {
             this.focusable = focusable;
@@ -43,14 +43,14 @@ namespace HELIX.Widgets.Modifiers {
 
         public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
             base.FillModifierProperties(properties);
-            properties.Add(new FlagProperty("focusable", focusable, ifTrue: "Focusable", ifFalse: "Not Focusable"));
+            properties.Add(new FlagProperty("focusable", focusable, "Focusable", "Not Focusable"));
             properties.Add(new EnumProperty<PickingMode>("pickingMode", pickingMode));
             properties.Add(new IntProperty("tabIndex", tabIndex));
             properties.Add(
                 new FlagProperty(
                     "delegatesFocus",
                     delegatesFocus,
-                    ifTrue: "Delegates Focus"
+                    "Delegates Focus"
                 )
             );
         }

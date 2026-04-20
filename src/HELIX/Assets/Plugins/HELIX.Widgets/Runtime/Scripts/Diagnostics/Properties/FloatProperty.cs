@@ -1,4 +1,3 @@
-using System;
 using System.Globalization;
 using HELIX.Widgets.Diagnostics.Formatting;
 using Unity.Mathematics;
@@ -57,7 +56,7 @@ namespace HELIX.Widgets.Diagnostics.Properties {
 
         internal static string DebugFormatFloat(float value) {
             if (float.IsNaN(value) || float.IsInfinity(value)) return value.ToString(CultureInfo.InvariantCulture);
-            
+
             var rounded = math.round(value);
             if (Mathf.Approximately(value, rounded)) return ((int)rounded).ToString(CultureInfo.InvariantCulture);
             return value.ToString("0.0###############", CultureInfo.InvariantCulture);

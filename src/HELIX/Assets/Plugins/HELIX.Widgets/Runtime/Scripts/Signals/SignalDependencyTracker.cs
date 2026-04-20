@@ -24,7 +24,6 @@ namespace HELIX.Widgets.Signals {
             _forwarder = forwarder;
         }
 
-        public bool IsDisposed { get; private set; }
         public bool IsBuilding { get; private set; }
 
         public void Dispose() {
@@ -34,6 +33,8 @@ namespace HELIX.Widgets.Signals {
             dependencies.Clear();
             IsDisposed = true;
         }
+
+        public bool IsDisposed { get; private set; }
 
         public void OnSignalChanged(Signal signal) {
             if (IsDisposed) return;

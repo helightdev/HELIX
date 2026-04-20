@@ -5,15 +5,14 @@ using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Theming;
 using HELIX.Widgets.Universal.Substances;
 using HELIX.Widgets.Universal.Theme;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {
     public class HSliderStyle : DiagnosticableBase {
-        public SubstanceLayers track = default;
-        public SubstanceLayers progress = default;
-        public SubstanceLayers thumb = default;
         public WidgetStateProperty<BoxConstraints> constraints = WidgetStateProperties.Never<BoxConstraints>();
+        public SubstanceLayers progress;
+        public SubstanceLayers thumb;
+        public SubstanceLayers track;
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
@@ -42,20 +41,20 @@ namespace HELIX.Widgets.Universal.Styles {
                     top: 0,
                     left: 25.Percent(),
                     right: 25.Percent()
-                ),
+                )
             };
 
             return new HSliderStyle {
-                constraints = new WidgetStatePropertyMap<BoxConstraints>() {
+                constraints = new WidgetStatePropertyMap<BoxConstraints> {
                     [WidgetState.Special1] = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight3),
-                    [WidgetState.Special2] = BoxConstraints.Tight(typography.LineHeight3, StyleKeyword.Auto),
+                    [WidgetState.Special2] = BoxConstraints.Tight(typography.LineHeight3, StyleKeyword.Auto)
                 },
                 track = new SubstanceBuilder(context)
                     .Append(_ => {
                             return new BoxSubstance {
                                 borderRadius = BorderRadius.All(radius.Radius1),
                                 position = trackPosition,
-                                backgroundStyle = new BackgroundStyle { color = palette.container }
+                                background = new BackgroundStyle { color = palette.container }
                             };
                         }
                     )
@@ -64,16 +63,16 @@ namespace HELIX.Widgets.Universal.Styles {
                     .Append(_ => new BoxSubstance {
                             position = trackPosition,
                             borderRadius = BorderRadius.All(radius.Radius1),
-                            backgroundStyle = new BackgroundStyle { color = palette.main }
+                            background = new BackgroundStyle { color = palette.main }
                         }
                     )
                     .Build(),
                 thumb = new SubstanceBuilder(context)
                     .Append(_ => new BoxSubstance {
                             borderRadius = BorderRadius.All(radius.Radius2),
-                            backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
+                            background = new WidgetStatePropertyMap<BackgroundStyle> {
                                 [WidgetState.Focused | WidgetState.Navigated] = palette.main,
-                                [WidgetState.None] = palette.main,
+                                [WidgetState.None] = palette.main
                             },
                             border = new WidgetStatePropertyMap<Border> {
                                 [WidgetState.Focused | WidgetState.Navigated] =
@@ -93,14 +92,14 @@ namespace HELIX.Widgets.Universal.Styles {
             var colors = context.GetThemed(PrimitiveBaseTheme.Colors);
 
             return new HSliderStyle {
-                constraints = new WidgetStatePropertyMap<BoxConstraints>() {
+                constraints = new WidgetStatePropertyMap<BoxConstraints> {
                     [WidgetState.Special1] = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight2),
-                    [WidgetState.Special2] = BoxConstraints.Tight(typography.LineHeight2, StyleKeyword.Auto),
+                    [WidgetState.Special2] = BoxConstraints.Tight(typography.LineHeight2, StyleKeyword.Auto)
                 },
                 track = new SubstanceBuilder(context)
                     .Append(_ => new BoxSubstance {
                             borderRadius = BorderRadius.All(radius.Radius2),
-                            backgroundStyle = new BackgroundStyle {
+                            background = new BackgroundStyle {
                                 color = colors.surface.containerHigh.WithOpacity(1 - colors.layerOpacityProgression.low)
                             }
                         }
@@ -111,10 +110,10 @@ namespace HELIX.Widgets.Universal.Styles {
                     .Append(_ => new BoxSubstance {
                             borderRadius = BorderRadius.All(radius.Radius2),
                             position = EdgeInsets.All(spacing.Space1),
-                            backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
+                            background = new WidgetStatePropertyMap<BackgroundStyle> {
                                 [WidgetState.Focused | WidgetState.Navigated] = colors.primary.main,
                                 [WidgetState.None] =
-                                    colors.surface.onMain.WithOpacity(colors.layerOpacityProgression.high),
+                                    colors.surface.onMain.WithOpacity(colors.layerOpacityProgression.high)
                             }
                         }
                     )

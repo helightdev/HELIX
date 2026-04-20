@@ -27,7 +27,7 @@ namespace HELIX.Widgets.Modifiers {
                 var parent = BuildContext.GetDirectParent(element);
                 if (parent is not IPreferStacking) return;
             }
-            
+
             element.style.position = type;
             element.style.left = pos.l;
             element.style.top = pos.t;
@@ -57,9 +57,7 @@ namespace HELIX.Widgets.Modifiers {
         }
 
         public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
-            properties.Add(
-                new EnumProperty<Position>("type", type, defaultValue: Position.Relative, showName: false)
-            );
+            properties.Add(new EnumProperty<Position>("type", type, Position.Relative, showName: false));
             properties.Add(
                 new DiagnosticsProperty<StyleLength4>(
                     "pos",
@@ -74,7 +72,7 @@ namespace HELIX.Widgets.Modifiers {
             return type switch {
                 Position.Absolute when pos.Equals(StyleLength4.Zero)    => nameof(Stretch),
                 Position.Relative when pos.Equals(StyleLength4.Initial) => nameof(None),
-                _                                                          => null
+                _                                                       => null
             };
         }
     }

@@ -1,13 +1,11 @@
 using System.Collections.Generic;
-using HELIX.Types;
 using HELIX.Widgets.Diagnostics.Formatting;
 using HELIX.Widgets.Universal.Styles;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Diagnostics.Properties
-{
+namespace HELIX.Widgets.Diagnostics.Properties {
     public class BackgroundStyleProperty : DiagnosticsProperty<BackgroundStyle> {
         public BackgroundStyleProperty(
             string name,

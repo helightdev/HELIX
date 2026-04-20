@@ -1,3 +1,4 @@
+using System;
 using HELIX.Animation;
 using HELIX.Extensions;
 using Unity.Mathematics;
@@ -6,12 +7,12 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
     public class ScrollerScrollPosition : ScrollPosition {
+        private readonly DebouncedScheduler _debouncedScheduler;
         public readonly Scroller scroller;
         public readonly ScrollView scrollView;
+        private float _lastExtentTotal;
 
         private float _lastValue;
-        private float _lastExtentTotal;
-        private DebouncedScheduler _debouncedScheduler;
 
         public ScrollerScrollPosition(Scroller scroller, ScrollView scrollView) {
             this.scroller = scroller;
@@ -20,12 +21,14 @@ namespace HELIX.Widgets.Scrolling {
             scroller.value = 0;
             scroller.valueChanged += OnValueChanged;
             scrollView.contentContainer.RegisterCallback<GeometryChangedEvent>(_ => {
-                OnValueChanged(scroller.value);
-            });
+                    OnValueChanged(scroller.value);
+                }
+            );
         }
 
         public override float Min => scroller.lowValue;
         public override float Max => scroller.highValue;
+
         public override float ExtentInside =>
             scroller.direction == SliderDirection.Horizontal ? scrollView.layout.width : scrollView.layout.height;
 
@@ -34,7 +37,7 @@ namespace HELIX.Widgets.Scrolling {
         public override float Extent {
             get => scroller.value;
             set {
-                if(!Mathf.Approximately(scroller.value, value)) _debouncedScheduler.Stop();
+                if (!Mathf.Approximately(scroller.value, value)) _debouncedScheduler.Stop();
                 _lastValue = value;
                 scroller.value = value;
             }
@@ -56,9 +59,7 @@ namespace HELIX.Widgets.Scrolling {
             _debouncedScheduler.Stop();
             _lastValue = offset;
             scroller.value = offset;
-            scroller.schedule.Execute(() => {
-                scroller.value = offset;
-            }).ExecuteLater(1);
+            scroller.schedule.Execute(() => { scroller.value = offset; }).ExecuteLater(1);
         }
 
         public override void AnimateTo(float offset, TimeValue duration, EasingMode easing) {
@@ -74,7 +75,7 @@ namespace HELIX.Widgets.Scrolling {
 
         public override void ScrollTo(VisualElement element) {
             _debouncedScheduler.Stop();
-            if (scrollView == null) throw new System.InvalidOperationException("ScrollView reference is null.");
+            if (scrollView == null) throw new InvalidOperationException("ScrollView reference is null.");
             scrollView.ScrollTo(element);
         }
     }

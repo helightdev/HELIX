@@ -14,7 +14,7 @@ namespace HELIX.Widgets.Diagnostics.Error {
 
         public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
             if (ValueTyped == null || ValueTyped.Count == 0) return "[NONE]";
-            
+
             return string.Join(
                 " <- ",
                 ValueTyped.Select((x, i) => {

@@ -36,6 +36,16 @@ namespace HELIX.Widgets.Universal {
             return ReconcileInto(new ContainerElement());
         }
 
+        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
+            base.DebugFillProperties(properties);
+            properties.Add(new DiagnosticsProperty<Alignment>("alignment", alignment));
+            properties.Add(new BackgroundStyleProperty("backgroundStyle", background));
+            properties.Add(new DiagnosticsProperty<Border>("border", border, defaultValue: Border.None));
+            properties.Add(
+                new DiagnosticsProperty<BorderRadius>("borderRadius", borderRadius, defaultValue: BorderRadius.None)
+            );
+        }
+
         public class ContainerElement : SingleChildWidgetBaseElement<HBox> {
             public override void Apply(HBox previous, HBox widget) {
                 if (previous == null || !Equals(previous.background, widget.background))
@@ -45,16 +55,6 @@ namespace HELIX.Widgets.Universal {
                 widget.borderRadius.Apply(this);
                 widget.alignment.AlignAsColumn(this);
             }
-        }
-
-        public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
-            base.DebugFillProperties(properties);
-            properties.Add(new DiagnosticsProperty<Alignment>("alignment", alignment));
-            properties.Add(new BackgroundStyleProperty("backgroundStyle", background));
-            properties.Add(new DiagnosticsProperty<Border>("border", border, defaultValue: Border.None));
-            properties.Add(
-                new DiagnosticsProperty<BorderRadius>("borderRadius", borderRadius, defaultValue: BorderRadius.None)
-            );
         }
     }
 }

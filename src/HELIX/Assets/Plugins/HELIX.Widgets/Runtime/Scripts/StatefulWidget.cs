@@ -14,7 +14,6 @@ namespace HELIX.Widgets {
     public interface IStatefulWidget { }
 
     public abstract class StatefulWidget<T> : Widget, IStatefulWidget where T : StatefulWidget<T> {
-        
         protected StatefulWidget() {
             AddModifier(ModifierFallbacks.ImplicitFlexFill);
         }
@@ -47,18 +46,18 @@ namespace HELIX.Widgets {
             this.child = child;
         }
 
-        public void Add(Widget widget) {
-            if (child != null)
-                throw new InvalidOperationException("SingleChildStatefulWidget can only have one child.");
-            child = widget;
-        }
-
         public IEnumerator<Widget> GetEnumerator() {
             if (child != null) yield return child;
         }
 
         IEnumerator IEnumerable.GetEnumerator() {
             return GetEnumerator();
+        }
+
+        public void Add(Widget widget) {
+            if (child != null)
+                throw new InvalidOperationException("SingleChildStatefulWidget can only have one child.");
+            child = widget;
         }
     }
 

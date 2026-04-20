@@ -1,5 +1,4 @@
 using HELIX.Abstractions;
-using HELIX.Coloring;
 using HELIX.Coloring.Material;
 using HELIX.Extensions;
 using HELIX.Widgets.Elements;
@@ -49,15 +48,17 @@ public partial class ExampleNavPageBase : NavPageBase {
         };
     }
 
-    public override string ToString() => $"ExampleNavPage {id}";
+    public override string ToString() {
+        return $"ExampleNavPage {id}";
+    }
 }
 
 [UxmlElement]
 public partial class ExampleScaffoldPopup : BaseElement {
     public ExampleScaffoldPopup() {
         RegisterCallback<PointerDownEvent>(evt => {
-                var element = new Element("Offset").Positioned(top: 100.Percent())
-                    .Sized(width: 100.Percent(), height: 100.Percent()).BackgroundColor(Color.red);
+                var element = new Element("Offset").Positioned(100.Percent())
+                    .Sized(100.Percent(), 100.Percent()).BackgroundColor(Color.red);
 
                 var scaffold = ScaffoldElement.Get(this);
                 var overlay = scaffold.AddAnchoredOverlay(this, element);
@@ -89,7 +90,7 @@ public partial class HelixColorSwatchVisualizer : BaseElement {
 
             Add(new SwatchVisualizer(template.ToSwatch()).Flexible());
             var scheme = template.Value.CreateScheme(Variant.Content);
-            var schemeDark = template.Value.CreateScheme(Variant.Content, isDark: true);
+            var schemeDark = template.Value.CreateScheme(Variant.Content, true);
 
             Add(new SwatchVisualizer(scheme.PrimaryPalette.ToMaterialColor().ToSwatch()).Flexible());
             Add(new SwatchVisualizer(scheme.NeutralPalette.ToMaterialColor().ToSwatch()).Flexible());
@@ -102,32 +103,32 @@ public partial class HelixColorSwatchVisualizer : BaseElement {
     }
 
     private Color[] RadixSwatch(DynamicScheme scheme) {
-        return new Color[] {
+        return new[] {
             RadixDynamicColors.Background.GetArgb(scheme).ArgbToColor(),
             RadixDynamicColors.BackgroundLight.GetArgb(scheme).ArgbToColor(),
             RadixDynamicColors.InteractiveNormal.GetArgb(scheme).ArgbToColor(),
             RadixDynamicColors.BorderNormal.GetArgb(scheme).ArgbToColor(),
             RadixDynamicColors.Solid.GetArgb(scheme).ArgbToColor(),
             RadixDynamicColors.Text.GetArgb(scheme).ArgbToColor(),
-            RadixDynamicColors.TextContrast.GetArgb(scheme).ArgbToColor(),
+            RadixDynamicColors.TextContrast.GetArgb(scheme).ArgbToColor()
         };
     }
 
     private Color[] ToRadixLight(TonalPalette palette) {
-        return new Color[] {
+        return new[] {
             palette.GetHct(99).ToColor(), palette.GetHct(97).ToColor(), palette.GetHct(94).ToColor(),
             palette.GetHct(91).ToColor(), palette.GetHct(88).ToColor(), palette.GetHct(80).ToColor(),
             palette.GetHct(72).ToColor(), palette.GetHct(64).ToColor(), palette.GetHct(50).ToColor(),
-            palette.GetHct(45).ToColor(), palette.GetHct(30).ToColor(), palette.GetHct(6).ToColor(),
+            palette.GetHct(45).ToColor(), palette.GetHct(30).ToColor(), palette.GetHct(6).ToColor()
         };
     }
 
     private Color[] ToRadixDark(TonalPalette palette) {
-        return new Color[] {
+        return new[] {
             palette.GetHct(2).ToColor(), palette.GetHct(6).ToColor(), palette.GetHct(12).ToColor(),
             palette.GetHct(18).ToColor(), palette.GetHct(24).ToColor(), palette.GetHct(30).ToColor(),
             palette.GetHct(40).ToColor(), palette.GetHct(45).ToColor(), palette.GetHct(50).ToColor(),
-            palette.GetHct(58).ToColor(), palette.GetHct(72).ToColor(), palette.GetHct(91).ToColor(),
+            palette.GetHct(58).ToColor(), palette.GetHct(72).ToColor(), palette.GetHct(91).ToColor()
         };
     }
 
@@ -137,19 +138,19 @@ public partial class HelixColorSwatchVisualizer : BaseElement {
             scheme => scheme.IsDark ? 3 : 97,
             "radix_background"
         );
-        
+
         public static readonly DynamicColor BackgroundLight = DynamicColor.FromPalette(
             scheme => scheme.PrimaryPalette,
             scheme => scheme.IsDark ? 6 : 96,
             "radix_background_light"
         );
-        
+
         public static readonly DynamicColor InteractiveNormal = DynamicColor.FromPalette(
             scheme => scheme.PrimaryPalette,
             scheme => scheme.IsDark ? 18 : 92,
             "radix_interactive_normal"
         );
-        
+
         public static readonly DynamicColor BorderNormal = DynamicColor.FromPalette(
             scheme => scheme.PrimaryPalette,
             scheme => scheme.IsDark ? 28 : 80,
@@ -161,7 +162,7 @@ public partial class HelixColorSwatchVisualizer : BaseElement {
             _ => 55,
             "radix_solid_normal"
         );
-        
+
         public static readonly DynamicColor Text = DynamicColor.FromPalette(
             scheme => scheme.PrimaryPalette,
             scheme => scheme.IsDark ? 75 : 45,

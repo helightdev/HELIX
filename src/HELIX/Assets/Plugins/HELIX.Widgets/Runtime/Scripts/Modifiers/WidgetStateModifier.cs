@@ -60,7 +60,7 @@ namespace HELIX.Widgets.Modifiers {
             private void OnFocusIn(FocusInEvent evt) {
                 if (!handleFocus) return;
                 controller.Enable(WidgetState.Focused);
-                if (WidgetStateController.LastNavigated) { controller.Enable(WidgetState.Navigated); }
+                if (WidgetStateController.LastNavigated) controller.Enable(WidgetState.Navigated);
             }
 
             private void OnPointerLeave(PointerLeaveEvent evt) {

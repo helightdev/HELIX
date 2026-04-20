@@ -10,29 +10,39 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {
     public class BackgroundStyle : DiagnosticableBase, IEquatable<BackgroundStyle> {
+        public static readonly BackgroundStyle Default = new();
         public StyleColor color = StyleKeyword.Initial;
-        public StyleBackground image = StyleKeyword.Initial;
         public StyleBackgroundSize fit = StyleKeyword.Initial;
-        public StyleBackgroundRepeat repeat = StyleKeyword.Initial;
+        public StyleBackground image = StyleKeyword.Initial;
         public StyleColor imageTintColor = StyleKeyword.Initial;
-        public StyleBackgroundPosition x = StyleKeyword.Initial;
-        public StyleBackgroundPosition y = StyleKeyword.Initial;
+        public StyleBackgroundRepeat repeat = StyleKeyword.Initial;
         public StyleInt4 slice = StyleKeyword.Initial;
         public StyleFloat sliceScale = StyleKeyword.Initial;
         public StyleEnum<SliceType> sliceType = StyleKeyword.Initial;
+        public StyleBackgroundPosition x = StyleKeyword.Initial;
+        public StyleBackgroundPosition y = StyleKeyword.Initial;
+
+        public bool Equals(BackgroundStyle other) {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return color.Equals(other.color) && image.Equals(other.image) && fit.Equals(other.fit) &&
+                   repeat.Equals(other.repeat) && imageTintColor.Equals(other.imageTintColor) && x.Equals(other.x) &&
+                   y.Equals(other.y) && slice.Equals(other.slice) && sliceScale.Equals(other.sliceScale) &&
+                   sliceType.Equals(other.sliceType);
+        }
 
         public static implicit operator BackgroundStyle(Color color) {
             return new BackgroundStyle { color = color };
         }
-        
+
         public static implicit operator BackgroundStyle(StyleColor color) {
             return new BackgroundStyle { color = color };
         }
-        
+
         public static implicit operator BackgroundStyle(MaterialColor color) {
             return new BackgroundStyle { color = color };
         }
-        
+
         public void Apply(VisualElement element) {
             element.style.backgroundColor = color;
             element.style.backgroundImage = image;
@@ -60,15 +70,6 @@ namespace HELIX.Widgets.Universal.Styles {
             if (overrides.slice.keyword != StyleKeyword.Initial) slice = overrides.slice;
             if (overrides.sliceScale.keyword != StyleKeyword.Initial) sliceScale = overrides.sliceScale;
             if (overrides.sliceType.keyword != StyleKeyword.Initial) sliceType = overrides.sliceType;
-        }
-
-        public bool Equals(BackgroundStyle other) {
-            if (other is null) return false;
-            if (ReferenceEquals(this, other)) return true;
-            return color.Equals(other.color) && image.Equals(other.image) && fit.Equals(other.fit) &&
-                   repeat.Equals(other.repeat) && imageTintColor.Equals(other.imageTintColor) && x.Equals(other.x) &&
-                   y.Equals(other.y) && slice.Equals(other.slice) && sliceScale.Equals(other.sliceScale) &&
-                   sliceType.Equals(other.sliceType);
         }
 
         public override bool Equals(object obj) {
@@ -107,7 +108,5 @@ namespace HELIX.Widgets.Universal.Styles {
             properties.Add(new StyleValueProperty<float>("sliceScale", sliceScale));
             properties.Add(new StyleValueProperty<SliceType>("sliceType", sliceType));
         }
-
-        public static readonly BackgroundStyle Default = new();
     }
 }

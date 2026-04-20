@@ -19,13 +19,13 @@ namespace Examples {
     }
 
     public class ThemeTokensExampleState : State<ThemeTokensExample> {
-        private bool _warmPalette = true;
         private Brightness _brightness = Brightness.Light;
+        private bool _warmPalette = true;
 
         public override Widget Build(BuildContext context) {
             return new HThemeProvider(
-                components: new List<ThemeComponent> {
-                    new PrimitiveBaseThemeComponent() {
+                new List<ThemeComponent> {
+                    new PrimitiveBaseThemeComponent {
                         colors = _warmPalette
                             ? PrimitiveColorScheme.From(MaterialColors.Red, _brightness)
                             : PrimitiveColorScheme.From(MaterialColors.Blue, _brightness)
@@ -36,9 +36,9 @@ namespace Examples {
                     (innerContext, _) => BuildContent(innerContext),
                     modifiers: new Modifier[] {
                         ClipModifier.Clip, MarginModifier.Of(16), BorderModifier.Of(
-                            border: Border.All(1, context.GetThemed(PrimitiveTheme.Text)),
-                            radius: BorderRadius.All(16)
-                        ),
+                            Border.All(1, context.GetThemed(PrimitiveTheme.Text)),
+                            BorderRadius.All(16)
+                        )
                     }
                 ).Tight().Const()
             }.Fill();
@@ -67,7 +67,7 @@ namespace Examples {
                 new HText($"Active palette: {(_warmPalette ? "warm" : "cool")}").Body(context),
                 new HRow(gap: 8f) {
                     new HButton(
-                        variant: HButtonVariant.TwoState,
+                        HButtonVariant.TwoState,
                         selected: _warmPalette,
                         onClick: () => {
                             _warmPalette = true;
@@ -75,7 +75,7 @@ namespace Examples {
                         }
                     ) { new HText("Warm palette") },
                     new HButton(
-                        variant: HButtonVariant.TwoState,
+                        HButtonVariant.TwoState,
                         selected: !_warmPalette,
                         onClick: () => {
                             _warmPalette = false;
@@ -83,7 +83,7 @@ namespace Examples {
                         }
                     ) { new HText("Cool palette") },
                     new HButton(
-                        variant: HButtonVariant.TwoState,
+                        HButtonVariant.TwoState,
                         selected: _brightness == Brightness.Dark,
                         onClick: () => {
                             _brightness = _brightness == Brightness.Light ? Brightness.Dark : Brightness.Light;
@@ -97,7 +97,7 @@ namespace Examples {
                         SwatchRow(context, "Background", background),
                         SwatchRow(context, "Background subtle", backgroundSubtle),
                         SwatchRow(context, "Text", text),
-                        SwatchRow(context, "Text contrast", textContrast),
+                        SwatchRow(context, "Text contrast", textContrast)
                     }
                 }.Fill().Padding(16)
             };
@@ -112,7 +112,7 @@ namespace Examples {
                 ).Size(32, 32),
                 new HColumn(gap: 2f, crossAxisAlign: Align.FlexStart) {
                     new HText(label).Body(context),
-                    new HText($"#{ColorUtility.ToHtmlStringRGBA(color)}").Caption(context),
+                    new HText($"#{ColorUtility.ToHtmlStringRGBA(color)}").Caption(context)
                 }
             };
         }

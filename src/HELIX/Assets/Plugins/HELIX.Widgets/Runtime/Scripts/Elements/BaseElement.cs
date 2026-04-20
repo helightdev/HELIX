@@ -4,14 +4,13 @@ using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Widgets.Theming;
 using HELIX.Widgets.Utilities;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
     public abstract class BaseElement : VisualElement, IElement {
         public static readonly string UssClassName = "helix-widget";
         private IdentityDictionary<ThemeProperty, ThemeValue> _themeValues;
-        private List<ElementFactorySlot> _widgetFactorySlots = null;
+        private List<ElementFactorySlot> _widgetFactorySlots;
 
         protected BaseElement() {
             AddToClassList(UssClassName);
@@ -44,10 +43,9 @@ namespace HELIX.Widgets.Elements {
         ) {
             var themeValue = ThemeValue(property);
             themeValue.OnValueChanged += onValueChanged;
-            if (themeValue.ThemeValueState != ThemeValueState.None && applyCurrentValue) {
+            if (themeValue.ThemeValueState != ThemeValueState.None && applyCurrentValue)
                 onValueChanged(themeValue.Value);
-            }
-            
+
             return themeValue;
         }
 
@@ -76,7 +74,7 @@ namespace HELIX.Widgets.Elements {
             ElementFactory<T> fallback = null
         ) where T : VisualElement {
             _widgetFactorySlots ??= new List<ElementFactorySlot>();
-            
+
             var slot = new ElementFactorySlot<T>(this);
             if (fallback != null) slot.SetFallback(fallback);
             _widgetFactorySlots.Add(slot);
@@ -93,7 +91,7 @@ namespace HELIX.Widgets.Elements {
             ElementFactory<T> fallback = null
         ) where T : VisualElement {
             _widgetFactorySlots ??= new List<ElementFactorySlot>();
-            
+
             var slot = new ElementFactorySlot<T>(this, property);
             if (fallback != null) slot.SetFallback(fallback);
             _widgetFactorySlots.Add(slot);
@@ -130,14 +128,18 @@ namespace HELIX.Widgets.Elements {
         }
 
         protected virtual void OnThemeUpdated() {
-            if (_themeValues != null) foreach (var value in _themeValues.Values) value.ReloadStyles();
-            if (_widgetFactorySlots != null) foreach (var factorySlot in _widgetFactorySlots) {
-                factorySlot.ApplyReferenceFromTheme();
-                factorySlot.TryCreate();
+            if (_themeValues != null)
+                foreach (var value in _themeValues.Values)
+                    value.ReloadStyles();
+            if (_widgetFactorySlots != null) {
+                foreach (var factorySlot in _widgetFactorySlots) {
+                    factorySlot.ApplyReferenceFromTheme();
+                    factorySlot.TryCreate();
+                }
             }
         }
-        
-        protected virtual void OnWatchedThemeUpdated(ThemeProperty property, object value) {}
+
+        protected virtual void OnWatchedThemeUpdated(ThemeProperty property, object value) { }
     }
 
     public abstract class SingleChildContainerElement : BaseElement, ISingleChildContainer {

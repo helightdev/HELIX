@@ -2,8 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Modifiers
-{
+namespace HELIX.Widgets.Modifiers {
     public class FilterModifier : Modifier {
         public readonly List<FilterFunction> filters;
 

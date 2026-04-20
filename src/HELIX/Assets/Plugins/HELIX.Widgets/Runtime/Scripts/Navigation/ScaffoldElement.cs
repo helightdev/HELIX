@@ -63,7 +63,9 @@ namespace HELIX.Widgets.Navigation {
             DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
         }
 
-        public override IWidgetElement CreateElement() => ReconcileInto(new ScaffoldElement());
+        public override IWidgetElement CreateElement() {
+            return ReconcileInto(new ScaffoldElement());
+        }
     }
 
     public class OverlayEntry : VisualElement {

@@ -4,7 +4,6 @@ using HELIX.Types;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Theme;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Substances {
     public static class SoftSubstance {
@@ -16,7 +15,7 @@ namespace HELIX.Widgets.Universal.Substances {
         ) {
             return new BoxSubstance {
                 borderRadius = new AllWidgetStateProperty<BorderRadius>(borderRadius),
-                backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
+                background = new WidgetStatePropertyMap<BackgroundStyle> {
                     [WidgetState.Disabled] = surface.onMain.WithOpacity(progression.disabledLow),
                     [WidgetState.ModAny | WidgetState.Selected | WidgetState.Pressed] =
                         Color.Lerp(palette.container, palette.onContainer, progression.normal),
@@ -39,10 +38,10 @@ namespace HELIX.Widgets.Universal.Substances {
             SurfaceColorPalette surface = null,
             BorderRadius? borderRadius = null,
             HInputRadius inputRadius = HInputRadius.Medium
-        ) where TBuilder : ISubstanceBuilder<TBuilder> =>
-            builder.Append(context => {
-                    var colors = PrimitiveBaseTheme.Colors.Get(context, listen: builder.Listening);
-                    var radius = PrimitiveBaseTheme.Radius.Get(context, listen: builder.Listening);
+        ) where TBuilder : ISubstanceBuilder<TBuilder> {
+            return builder.Append(context => {
+                    var colors = PrimitiveBaseTheme.Colors.Get(context, builder.Listening);
+                    var radius = PrimitiveBaseTheme.Radius.Get(context, builder.Listening);
                     palette ??= colors.primary;
                     surface ??= colors.surface;
                     var effectiveRadius = borderRadius.GetValueOrDefault(
@@ -63,5 +62,6 @@ namespace HELIX.Widgets.Universal.Substances {
                     return Soft(palette, surface, effectiveRadius, colors.layerOpacityProgression);
                 }
             );
+        }
     }
 }

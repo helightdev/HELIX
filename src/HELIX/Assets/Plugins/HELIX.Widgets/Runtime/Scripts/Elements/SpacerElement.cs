@@ -8,7 +8,7 @@ namespace HELIX.Widgets.Elements {
         private Axis _axis = Axis.Vertical;
         private bool _expands;
         private float _width = 8f;
-        
+
         public SpacerElement() {
             style.flexGrow = 0;
             style.flexShrink = 1;

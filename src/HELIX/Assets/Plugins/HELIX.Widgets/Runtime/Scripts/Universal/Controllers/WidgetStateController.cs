@@ -38,7 +38,7 @@ namespace HELIX.Widgets.Universal.Controllers {
         }
 
         public void DisableEnable(WidgetState disable, WidgetState enable) {
-            SetValue(value & ~disable | enable);
+            SetValue((value & ~disable) | enable);
         }
 
         public void Toggle(WidgetState state) {

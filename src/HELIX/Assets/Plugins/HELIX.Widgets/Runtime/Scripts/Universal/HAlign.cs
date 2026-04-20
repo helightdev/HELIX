@@ -1,12 +1,11 @@
 using System.Collections.Generic;
 using HELIX.Types;
 using HELIX.Widgets.Elements;
-using HELIX.Widgets.Modifiers;
 
 namespace HELIX.Widgets.Universal {
     public class HAlign : SingleChildWidget {
         public readonly Alignment alignment;
-        
+
         public HAlign(
             Alignment alignment,
             Widget child = null,
@@ -15,7 +14,7 @@ namespace HELIX.Widgets.Universal {
             IReadOnlyCollection<Modifier> modifiers = null
         ) : base(child, key, constants) {
             this.alignment = alignment;
-            
+
             DefaultModifiers(ModifierSet.DefaultFlexFillAndStacking, modifiers);
         }
 

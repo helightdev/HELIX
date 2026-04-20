@@ -214,9 +214,9 @@ namespace HELIX.Widgets {
                         deltaArray[i] = current;
                     }
 
-                    foreach (var current in _deltaScratch)
-                        if (current.added)
-                            current.target.CallMounted(current.descriptor, owner);
+                    foreach (var current in _deltaScratch) {
+                        if (current.added) current.target.CallMounted(current.descriptor, owner);
+                    }
 
                     collection.UpdateWidgetElements(resultArray, deltaArray);
                 } catch (Exception ex) {
@@ -242,9 +242,9 @@ namespace HELIX.Widgets {
         private static void MaybeReconcile(IWidgetElement element, Widget descriptor) {
             var previous = element.Descriptor;
             if (ReferenceEquals(previous, descriptor)) return;
-            if (previous.constants != null && descriptor.constants != null)
-                if (previous.constants.SequenceEqual(descriptor.constants))
-                    return;
+            if (previous.constants != null && descriptor.constants != null) {
+                if (previous.constants.SequenceEqual(descriptor.constants)) return;
+            }
 
             Reconcile(element, descriptor);
         }
@@ -318,21 +318,6 @@ namespace HELIX.Widgets {
             return updated is HostElementDescriptor hed && hed.host.Element == Element;
         }
 
-        public class HostElementDescriptor : Widget {
-            public readonly HostElement host;
-
-            public HostElementDescriptor(HostElement host) {
-                this.host = host;
-                key = "Host" + host.GetHashCode();
-            }
-
-            public override IWidgetElement CreateElement() {
-                if (host.Element.parent != null) host.Element.RemoveFromHierarchy();
-
-                return host;
-            }
-        }
-
         public override string ToStringShort() {
             return Element.DescribeIdentity();
         }
@@ -349,7 +334,22 @@ namespace HELIX.Widgets {
         }
 
         public override int GetHashCode() {
-            return (Element != null ? Element.GetHashCode() : 0);
+            return Element != null ? Element.GetHashCode() : 0;
+        }
+
+        public class HostElementDescriptor : Widget {
+            public readonly HostElement host;
+
+            public HostElementDescriptor(HostElement host) {
+                this.host = host;
+                key = "Host" + host.GetHashCode();
+            }
+
+            public override IWidgetElement CreateElement() {
+                if (host.Element.parent != null) host.Element.RemoveFromHierarchy();
+
+                return host;
+            }
         }
     }
 

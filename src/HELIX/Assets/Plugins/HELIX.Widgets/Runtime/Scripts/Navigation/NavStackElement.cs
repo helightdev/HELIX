@@ -353,11 +353,13 @@ namespace HELIX.Widgets.Navigation {
             IReadOnlyCollection<Modifier> modifiers = null
         ) : base(child, key, constants) {
             this.defaultTransition = defaultTransition;
-            
+
             DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
         }
 
-        public override IWidgetElement CreateElement() => ReconcileInto(new NavStackElement());
+        public override IWidgetElement CreateElement() {
+            return ReconcileInto(new NavStackElement());
+        }
 
         public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
             base.DebugFillProperties(properties);
@@ -372,14 +374,14 @@ namespace HELIX.Widgets.Navigation {
     public class WidgetNavPage : NavPageBase {
         private readonly WidgetHostElement _host;
 
-        public IBuildable Buildable {
-            get => _host.Buildable;
-            set => _host.Buildable = value;
-        }
-
         public WidgetNavPage() {
             this.Stretched();
             _host = new WidgetHostElement().Stretched().AddTo(this);
+        }
+
+        public IBuildable Buildable {
+            get => _host.Buildable;
+            set => _host.Buildable = value;
         }
     }
 

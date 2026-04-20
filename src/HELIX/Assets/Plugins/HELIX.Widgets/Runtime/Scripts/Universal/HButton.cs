@@ -7,22 +7,21 @@ using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Theme;
-using UnityEngine;
 
 namespace HELIX.Widgets.Universal {
     public class HButton : SingleChildStatefulWidget<HButton> {
         public readonly ButtonController controller;
+        public readonly bool enabled;
 
         public readonly Key focusKey;
-        public readonly bool enabled;
-        public readonly bool selected;
         public readonly Action onClick;
+        public readonly ColorTokenPalette palette;
+        public readonly HInputRadius? radius;
+        public readonly bool selected;
+        public readonly HButtonSize? size;
 
         public readonly HButtonStyle style;
-        public readonly HInputRadius? radius;
         public readonly HButtonVariant? variant;
-        public readonly HButtonSize? size;
-        public readonly ColorTokenPalette palette;
 
         public HButton(
             HButtonVariant? variant = null,
@@ -68,7 +67,7 @@ namespace HELIX.Widgets.Universal {
             properties.Add(new DiagnosticsProperty<ColorTokenPalette>("palette", palette, defaultValue: null));
 
             properties.Add(new FlagProperty("enabled", enabled, ifFalse: "Disabled"));
-            properties.Add(new FlagProperty("selected", selected, ifTrue: "Selected"));
+            properties.Add(new FlagProperty("selected", selected, "Selected"));
             properties.Add(new DiagnosticsProperty<Key>("focusKey", focusKey, defaultValue: Key.None));
             properties.Add(new DiagnosticsProperty<Action>("onClick", onClick, defaultValue: null));
         }
@@ -109,9 +108,8 @@ namespace HELIX.Widgets.Universal {
         public override Widget Build(BuildContext context) {
             HButtonStyle effective;
 
-            if (widget.style != null) {
-                effective = widget.style; //
-            } else if (widget.radius.HasValue || widget.variant.HasValue || widget.size.HasValue) {
+            if (widget.style != null) effective = widget.style; //
+            else if (widget.radius.HasValue || widget.variant.HasValue || widget.size.HasValue) {
                 effective = DefaultButtonStyles.DefaultStyleOf(
                     context,
                     widget.variant ?? HButtonVariant.Flat,
@@ -119,7 +117,7 @@ namespace HELIX.Widgets.Universal {
                     widget.radius ?? HInputRadius.Medium,
                     palette: widget.palette
                 );
-            } else { effective = context.GetThemed(PrimitiveTheme.Button); }
+            } else effective = context.GetThemed(PrimitiveTheme.Button);
 
             // Possibly allocation heavy with default stale and property composition, but doesn't rebuild for
             // every state change since only the substance box listens to state changes, not the button itself.
@@ -141,8 +139,8 @@ namespace HELIX.Widgets.Universal {
             );
 
             return new HSubstanceBox(
-                controller: _widgetStateController,
-                substances: effective.layers,
+                _widgetStateController,
+                effective.layers,
                 alignment: effective.alignment,
                 builder: widget.child,
                 boxKey: widget.focusKey,

@@ -44,7 +44,8 @@ namespace HELIX.Widgets.Elements {
                 .ToList();
         }
     }
-    
-    public interface IPreferExplicitFlex {}
-    public interface IPreferStacking {}
+
+    public interface IPreferExplicitFlex { }
+
+    public interface IPreferStacking { }
 }

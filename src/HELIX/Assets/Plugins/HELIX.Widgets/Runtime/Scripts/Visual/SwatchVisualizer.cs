@@ -30,7 +30,7 @@ namespace HELIX.Widgets.Visual {
                         _ => throw new ArgumentOutOfRangeException()
                     };
                 }
-                
+
                 var timePerStep = 1 / (float)swatch.Length;
                 new Label($"{weightValue.ToString()}\n{weight.ToHex()}\nOK L: {lch.l:P1} C: {lch.c:F3} H: {lch.h:F1}")
                     .NoPaddingAndMargin().Sized(timePerStep.NormalizedPercent())

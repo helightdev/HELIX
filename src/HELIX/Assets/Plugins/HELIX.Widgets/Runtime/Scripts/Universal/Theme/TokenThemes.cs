@@ -49,7 +49,7 @@ namespace HELIX.Widgets.Universal.Theme {
                     borderRadius = new AllWidgetStateProperty<BorderRadius>(BorderRadius.All(2)),
                     position = new AllWidgetStateProperty<StyleLength4>(EdgeInsets.Only(bottom: -6, left: 0, right: 0)),
                     constraints = BoxConstraints.Tight(StyleKeyword.Auto, 4),
-                    backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
+                    background = new WidgetStatePropertyMap<BackgroundStyle> {
                         [WidgetState.Disabled] = Colors.Transparent,
                         [WidgetState.Focused | WidgetState.Navigated] = scheme.primary.main,
                         [WidgetState.None] = Colors.Transparent
@@ -81,37 +81,38 @@ namespace HELIX.Widgets.Universal.Theme {
             PrimitiveThemeComponent.Default,
             component => component.scrollbar
         ).Compute(HSliderStyle.DefaultScrollbarStyleOf);
-        
+
         public static readonly ThemeProperty<HTextFieldStyle> TextField = ThemeProperty.ExtractMaybe(
             "primitive-text-field",
             PrimitiveThemeComponent.Default,
             component => component.textField
         ).Compute(HTextFieldStyle.DefaultStyleOf);
 
-        private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) =>
-            element => func(element.Resolve(PrimitiveBaseTheme.Colors));
-
         public static readonly IReadOnlyList<ThemeProperty> Properties = new ThemeProperty[] {
             Surface, BackgroundSubtle, Background, Text, TextContrast, Button, ButtonFocusLayer, Slider, Scrollbar
         };
+
+        private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) {
+            return element => func(element.Resolve(PrimitiveBaseTheme.Colors));
+        }
     }
 
     public class PrimitiveThemeComponent : ThemeComponent {
         public static readonly PrimitiveThemeComponent Default = new();
+        public ThemeOptional<Color> background;
+        public ThemeOptional<Color> backgroundSubtle;
+        public ThemeOptional<HButtonStyle> button;
+        public ThemeOptional<Substance> buttonFocusLayer;
+        public ThemeOptional<HSliderStyle> scrollbar;
+        public ThemeOptional<HSliderStyle> slider;
+
+        public ThemeOptional<Color> surface;
+        public ThemeOptional<Color> text;
+        public ThemeOptional<Color> textContrast;
+        public ThemeOptional<HTextFieldStyle> textField;
 
         public PrimitiveThemeComponent() {
             lookupScope = PrimitiveTheme.Properties;
         }
-
-        public ThemeOptional<Color> surface;
-        public ThemeOptional<Color> backgroundSubtle;
-        public ThemeOptional<Color> background;
-        public ThemeOptional<Color> text;
-        public ThemeOptional<Color> textContrast;
-        public ThemeOptional<HButtonStyle> button;
-        public ThemeOptional<HSliderStyle> slider;
-        public ThemeOptional<HSliderStyle> scrollbar;
-        public ThemeOptional<HTextFieldStyle> textField;
-        public ThemeOptional<Substance> buttonFocusLayer;
     }
 }

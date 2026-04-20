@@ -10,9 +10,9 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
     public abstract class Widget : DiagnosticableTreeBase, IWidgetListCandidate {
-        protected ModifierSet modifiers = ModifierSet.Empty;
         public object[] constants;
         public Key key;
+        protected ModifierSet modifiers = ModifierSet.Empty;
 
         protected Widget(
             Key key = default,
@@ -105,9 +105,14 @@ namespace HELIX.Widgets {
             );
             return element;
         }
-        
-        public static implicit operator BuildFunction(Widget widget) => _ => widget;
-        public static implicit operator BuildFunction<WidgetState>(Widget widget) => (_, _) => widget;
+
+        public static implicit operator BuildFunction(Widget widget) {
+            return _ => widget;
+        }
+
+        public static implicit operator BuildFunction<WidgetState>(Widget widget) {
+            return (_, _) => widget;
+        }
     }
 
     public abstract class SingleChildWidget : Widget, IEnumerable<Widget> {
@@ -124,6 +129,14 @@ namespace HELIX.Widgets {
             this.child = child;
         }
 
+        public IEnumerator<Widget> GetEnumerator() {
+            if (child != null) yield return child;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
+        }
+
         public override List<DiagnosticsNode> DebugDescribeChildren() {
             return child == null
                 ? new List<DiagnosticsNode>()
@@ -133,14 +146,6 @@ namespace HELIX.Widgets {
         public void Add(Widget candidate) {
             if (child != null) throw new InvalidOperationException("SingleChildWidget already has a child");
             child = candidate;
-        }
-
-        public IEnumerator<Widget> GetEnumerator() {
-            if (child != null) yield return child;
-        }
-
-        IEnumerator IEnumerable.GetEnumerator() {
-            return GetEnumerator();
         }
     }
 
@@ -158,6 +163,18 @@ namespace HELIX.Widgets {
             this.children = children;
         }
 
+        public IEnumerator<Widget> GetEnumerator() {
+            return children?.GetEnumerator() ?? Enumerable.Empty<Widget>().GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() {
+            return GetEnumerator();
+        }
+
+        public int Count => children?.Count ?? 0;
+
+        public Widget this[int index] => children[index];
+
         public override List<DiagnosticsNode> DebugDescribeChildren() {
             return children.Select(child => child.ToDiagnosticsNodeSafe()).ToList();
         }
@@ -171,15 +188,6 @@ namespace HELIX.Widgets {
                 children = newList;
             }
         }
-
-        public IEnumerator<Widget> GetEnumerator() {
-            return children?.GetEnumerator() ?? Enumerable.Empty<Widget>().GetEnumerator();
-        }
-
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-        public int Count => children?.Count ?? 0;
-
-        public Widget this[int index] => children[index];
     }
 
     public interface IWidgetElement : BuildContext {
@@ -193,11 +201,11 @@ namespace HELIX.Widgets {
     }
 
     public class ElementTreeAncestorTraversalHint : ITreeAncestorTraversalHint {
-        public IWidgetElement Owner { get; }
-
         public ElementTreeAncestorTraversalHint(IWidgetElement owner) {
             Owner = owner;
         }
+
+        public IWidgetElement Owner { get; }
     }
 
     public static class WidgetExtensions {

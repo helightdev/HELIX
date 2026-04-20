@@ -12,24 +12,24 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
     public class HTextField : StatefulWidget<HTextField> {
-        public readonly TextEditingController controller;
-        public readonly Key focusKey;
-        public readonly HTextFieldStyle style;
-
-        public readonly bool multiline;
         public readonly bool autocorrect;
-        public readonly bool isReadOnly;
-        public readonly bool isPasswordField;
-        public readonly bool isDelayed;
+        public readonly TextEditingController controller;
+
+        public readonly bool enabled;
+        public readonly Key focusKey;
         public readonly bool hideMobileInput;
+        public readonly string initialValue;
+        public readonly bool isDelayed;
+        public readonly bool isPasswordField;
+        public readonly bool isReadOnly;
         public readonly TouchScreenKeyboardType keyboardType;
         public readonly char maskChar;
         public readonly int maxLength;
 
-        public readonly bool enabled;
-        public readonly string initialValue;
+        public readonly bool multiline;
         public readonly Action<string> onChanged;
         public readonly Action<string> onSubmitted;
+        public readonly HTextFieldStyle style;
 
         public HTextField(
             TextEditingController controller = null,
@@ -76,10 +76,10 @@ namespace HELIX.Widgets.Universal {
     }
 
     public class HTextFieldState : State<HTextField> {
-        private GenericTextInput _input;
         private TextEditingController _controller;
-        private WidgetStateController _widgetStateController;
         private IDisposable _controllerSubscription;
+        private GenericTextInput _input;
+        private WidgetStateController _widgetStateController;
 
         public override void InitState() {
             base.InitState();
@@ -96,9 +96,9 @@ namespace HELIX.Widgets.Universal {
                 _controller = AddDisposable(new TextEditingController(_widgetStateController));
                 _controller.SetValue(widget.initialValue ?? "");
 
-                if (widget.onChanged != null) { _controller.onChanged += widget.onChanged; }
+                if (widget.onChanged != null) _controller.onChanged += widget.onChanged;
 
-                if (widget.onSubmitted != null) { _controller.onSubmitted += widget.onSubmitted; }
+                if (widget.onSubmitted != null) _controller.onSubmitted += widget.onSubmitted;
             } else {
                 _widgetStateController = widget.controller.widgetState;
                 _controller = widget.controller;
@@ -112,7 +112,7 @@ namespace HELIX.Widgets.Universal {
         }
 
         public override void DidUpdateWidget(HTextField oldWidget) {
-            if (widget.controller == null) { _widgetStateController?.Toggle(WidgetState.Disabled, !widget.enabled); }
+            if (widget.controller == null) _widgetStateController?.Toggle(WidgetState.Disabled, !widget.enabled);
 
             _input.Multiline = widget.multiline;
             _input.IsReadOnly = widget.isReadOnly;
@@ -159,13 +159,11 @@ namespace HELIX.Widgets.Universal {
         }
 
         private void OnTextFieldChanged(string obj) {
-            if (!string.Equals(obj, _controller.Value, StringComparison.InvariantCulture)) {
-                _controller.SetValue(obj);
-            }
+            if (!string.Equals(obj, _controller.Value, StringComparison.InvariantCulture)) _controller.SetValue(obj);
         }
 
         private void OnTextChanged(string obj) {
-            if (!string.Equals(obj, _input.Value, StringComparison.InvariantCulture)) { _input.Value = obj; }
+            if (!string.Equals(obj, _input.Value, StringComparison.InvariantCulture)) _input.Value = obj;
         }
 
         public override Widget Build(BuildContext context) {
@@ -189,7 +187,7 @@ namespace HELIX.Widgets.Universal {
             );
 
             return new HSubstanceBox(
-                controller: _widgetStateController,
+                _widgetStateController,
                 boxKey: widget.focusKey,
                 boxModifiers: modifiers,
                 alignment: effective.alignment,

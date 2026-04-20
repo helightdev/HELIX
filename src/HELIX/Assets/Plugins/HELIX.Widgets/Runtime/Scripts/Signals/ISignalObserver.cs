@@ -17,6 +17,10 @@ namespace HELIX.Widgets.Signals {
             _reference = new WeakReference<ISignalObserver>(observer);
         }
 
+        public bool IsDisposed =>
+            !_reference.TryGetTarget(out var observer) ||
+            observer is IPossiblyDisposed { IsDisposed: true };
+
         public void OnSignalChanged(Signal signal) {
             if (_reference.TryGetTarget(out var observer)) observer.OnSignalChanged(signal);
         }
@@ -32,10 +36,6 @@ namespace HELIX.Widgets.Signals {
         public void OnSignalDirty(Signal signal) {
             if (_reference.TryGetTarget(out var observer)) observer.OnSignalDirty(signal);
         }
-
-        public bool IsDisposed =>
-            !_reference.TryGetTarget(out var observer) ||
-            observer is IPossiblyDisposed { IsDisposed: true };
 
         public override bool Equals(object obj) {
             if (ReferenceEquals(this, obj)) return true;

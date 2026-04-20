@@ -21,7 +21,7 @@ namespace HELIX.Widgets.Universal.Substances {
                     [WidgetState.Error] = Border.All(1, error.main),
                     [WidgetState.None] = contrast ? Border.All(1, surface.onMain) : Border.All(1, palette.main)
                 },
-                backgroundStyle = new WidgetStatePropertyMap<BackgroundStyle> {
+                background = new WidgetStatePropertyMap<BackgroundStyle> {
                     [WidgetState.Disabled] = Colors.Transparent,
                     [WidgetState.ModAny | WidgetState.Selected | WidgetState.Pressed] =
                         contrast
@@ -46,10 +46,10 @@ namespace HELIX.Widgets.Universal.Substances {
             BorderRadius? borderRadius = null,
             HInputRadius inputRadius = HInputRadius.Medium,
             bool contrast = false
-        ) where TBuilder : ISubstanceBuilder<TBuilder> =>
-            builder.Append(context => {
-                    var colors = PrimitiveBaseTheme.Colors.Get(context, listen: builder.Listening);
-                    var radius = PrimitiveBaseTheme.Radius.Get(context, listen: builder.Listening);
+        ) where TBuilder : ISubstanceBuilder<TBuilder> {
+            return builder.Append(context => {
+                    var colors = PrimitiveBaseTheme.Colors.Get(context, builder.Listening);
+                    var radius = PrimitiveBaseTheme.Radius.Get(context, builder.Listening);
                     palette ??= colors.primary;
                     surface ??= colors.surface;
                     var effectiveRadius = borderRadius.GetValueOrDefault(
@@ -67,8 +67,16 @@ namespace HELIX.Widgets.Universal.Substances {
                         }
                     );
 
-                    return Outline(palette, surface, effectiveRadius, colors.layerOpacityProgression, colors.error, contrast);
+                    return Outline(
+                        palette,
+                        surface,
+                        effectiveRadius,
+                        colors.layerOpacityProgression,
+                        colors.error,
+                        contrast
+                    );
                 }
             );
+        }
     }
 }

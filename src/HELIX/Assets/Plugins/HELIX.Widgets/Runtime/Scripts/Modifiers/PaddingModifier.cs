@@ -41,7 +41,7 @@ namespace HELIX.Widgets.Modifiers {
             if (DeepEquals(Zero)) return nameof(Zero);
             return null;
         }
-        
+
         public static PaddingModifier Of(StyleLength4 margin) {
             return new PaddingModifier(margin);
         }

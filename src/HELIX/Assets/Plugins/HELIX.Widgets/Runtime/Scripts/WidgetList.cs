@@ -32,7 +32,7 @@ namespace HELIX.Widgets {
             while (true) {
                 switch (candidate) {
                     case EmptyCandidate:
-                    case null:  break;
+                    case null: break;
                     case ConditionalCandidate conditional:
                         if (conditional.condition) {
                             candidate = conditional.candidate;
@@ -45,7 +45,11 @@ namespace HELIX.Widgets {
                         foreach (var c in spread.candidates) TryAdd(c);
                         break;
                     case Widget widget: widgets.Add(widget); break;
-                    default: throw new ArgumentException($"Value must be a Widget or WidgetList, was {candidate.GetType()}", nameof(candidate));
+                    default:
+                        throw new ArgumentException(
+                            $"Value must be a Widget or WidgetList, was {candidate.GetType()}",
+                            nameof(candidate)
+                        );
                 }
 
                 break;

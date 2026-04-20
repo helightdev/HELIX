@@ -4,7 +4,6 @@ using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
     public class IterableProperty<T> : DiagnosticsProperty<IEnumerable<T>> {
-
         public IterableProperty(
             string name,
             IEnumerable<T> value,
@@ -39,7 +38,7 @@ namespace HELIX.Widgets.Diagnostics.Properties {
         }
 
         public bool IdentityOnly { get; set; }
-        
+
         public override DiagnosticLevel Level {
             get {
                 if (IfEmpty == null && ValueTyped != null && !ValueTyped.Any() && base.Level != DiagnosticLevel.Hidden)
@@ -54,7 +53,7 @@ namespace HELIX.Widgets.Diagnostics.Properties {
             var list = ValueTyped.ToList();
             if (list.Count == 0) return IfEmpty ?? "[]";
 
-            var formatted = list.Select((v) => FormatItem(v, parentConfiguration));
+            var formatted = list.Select(v => FormatItem(v, parentConfiguration));
 
             if (parentConfiguration != null && !parentConfiguration.LineBreakProperties)
                 return "[" + string.Join(", ", formatted) + "]";

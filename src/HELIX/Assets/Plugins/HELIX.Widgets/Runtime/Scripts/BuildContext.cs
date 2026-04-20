@@ -30,8 +30,8 @@ namespace HELIX.Widgets {
                     var parent = current.Element.parent;
                     if (parent is BuildContext asElement) next = asElement;
                     else if (parent is ITreeAncestorTraversalHint hint) next = hint.Owner;
-                    else if (parent.userData is ITreeAncestorTraversalHint hint2) { next = hint2.Owner; } // 
-                    else { next = parent.GetFirstAncestorOfType<BuildContext>(); } //
+                    else if (parent.userData is ITreeAncestorTraversalHint hint2) next = hint2.Owner; // 
+                    else next = parent.GetFirstAncestorOfType<BuildContext>(); //
                 }
 
                 current = next;
@@ -46,14 +46,14 @@ namespace HELIX.Widgets {
             if (parent.userData is ITreeAncestorTraversalHint hint2) return hint2.Owner;
             return null;
         }
-        
-        static BuildContext FindParent<T>(BuildContext context) where T: Widget 
-        {
+
+        static BuildContext FindParent<T>(BuildContext context) where T : Widget {
             var current = context;
             while (current != null) {
                 if (current is IWidgetElement { Descriptor: T }) return current;
                 current = current.ParentContext;
             }
+
             return null;
         }
     }

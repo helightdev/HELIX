@@ -12,6 +12,7 @@ namespace HELIX.Widgets.Theming {
                 result = typed;
                 return true;
             }
+
             result = default;
             return false;
         }
@@ -31,6 +32,16 @@ namespace HELIX.Widgets.Theming {
                 hasValue = false,
                 value = default
             };
+
+        public override bool TryGetThemeValue(out object result) {
+            if (hasValue) {
+                result = value;
+                return true;
+            }
+
+            result = default(T);
+            return false;
+        }
 
         public static implicit operator ThemeOptional<T>(T value) {
             return new ThemeOptional<T> {
@@ -64,16 +75,6 @@ namespace HELIX.Widgets.Theming {
                     constantValue = optional.value
                 }
                 : new ThemeOverride<T> { type = ThemeOverrideType.None };
-        }
-
-        public override bool TryGetThemeValue(out object result) {
-            if (hasValue) {
-                result = value;
-                return true;
-            }
-
-            result = default(T);
-            return false;
         }
     }
 }

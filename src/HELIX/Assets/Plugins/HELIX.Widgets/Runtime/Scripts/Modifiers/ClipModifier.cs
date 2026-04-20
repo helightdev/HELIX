@@ -22,7 +22,7 @@ namespace HELIX.Widgets.Modifiers {
 
         public override void FillModifierProperties(DiagnosticPropertiesBuilder properties) {
             base.FillModifierProperties(properties);
-            properties.Add(new FlagProperty("enabled", enabled, ifTrue: "Clip", ifFalse: "None"));
+            properties.Add(new FlagProperty("enabled", enabled, "Clip", "None"));
         }
 
         protected override string FindConstantName() {

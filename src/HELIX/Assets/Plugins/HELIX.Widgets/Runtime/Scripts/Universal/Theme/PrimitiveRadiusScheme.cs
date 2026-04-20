@@ -1,7 +1,6 @@
 using System;
 
-namespace HELIX.Widgets.Universal.Theme
-{
+namespace HELIX.Widgets.Universal.Theme {
     [Serializable]
     public class PrimitiveRadiusScheme {
         public static PrimitiveRadiusScheme Default = new();

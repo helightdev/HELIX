@@ -40,10 +40,12 @@ namespace HELIX.Widgets.Theming {
 
         public ElementFactorySlot(BaseElement widget) : base(widget) { }
 
-        public ElementFactorySlot(BaseElement widget, BaseThemeProperty<ElementFactory<T>> baseThemeProperty) : base(widget) {
+        public ElementFactorySlot(BaseElement widget, BaseThemeProperty<ElementFactory<T>> baseThemeProperty) : base(
+            widget
+        ) {
             _baseThemeProperty = baseThemeProperty;
         }
-        
+
         public ElementFactoryReference<T> Reference {
             get => _reference;
             set {
@@ -90,7 +92,8 @@ namespace HELIX.Widgets.Theming {
         public override void ApplyReferenceFromTheme() {
             if (_hasExplicitReference) return;
             var factory = _fallback;
-            if (_baseThemeProperty != null) factory = ThemeProviderElement.Resolve(widget.ThemeProviderElement, _baseThemeProperty);
+            if (_baseThemeProperty != null)
+                factory = ThemeProviderElement.Resolve(widget.ThemeProviderElement, _baseThemeProperty);
 
             if (factory == null || Equals(factory, _factory)) return;
             _factory = factory;

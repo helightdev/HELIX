@@ -23,7 +23,7 @@ namespace HELIX.Widgets.Elements {
         public virtual bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
             return ThemeProviderElement.TryResolve(property, out value);
         }
-        
+
         public virtual string ToStringDeep(
             string prefixLineOne = "",
             string prefixOtherLines = null,
@@ -69,7 +69,7 @@ namespace HELIX.Widgets.Elements {
         public override bool CanReconcile(Widget updated) {
             return updated is T;
         }
-        
+
         public override bool Reconcile(Widget updated) {
             if (updated is not T widget) return false;
             var previous = TypedDescriptor;
