@@ -1,16 +1,14 @@
 using UnityEngine;
 
 public class ExampleThemeBehaviour : MonoBehaviour {
+  public ExampleThemeComponent component;
 
-    public ExampleThemeComponent component;
+  private void Awake() {
+    component.ApplyGlobal();
+  }
 
-    private void Awake() {
-        component.ApplyGlobal();
-    }
-
-    [ContextMenu("Push")]
-    public void Push() {
-        component.ApplyGlobal();
-    }
-
+  [ContextMenu("Push")]
+  public void Push() {
+    component.ApplyGlobal();
+  }
 }

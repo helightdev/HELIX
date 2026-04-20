@@ -1,9 +1,7 @@
 namespace HELIX.Widgets.Diagnostics.Formatting {
-    internal enum WordWrapParseMode {
-
-        InSpace,
-        InWord,
-        AtBreak
-
-    }
+  internal enum WordWrapParseMode {
+    InSpace,
+    InWord,
+    AtBreak
+  }
 }

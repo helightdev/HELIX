@@ -4,51 +4,49 @@ using HELIX.Widgets.Diagnostics;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
-    public abstract class SuperSingleChildWidgetBaseElement<T> : WidgetBaseElement<T>, ISingleChildContainer
-        where T : Widget {
+  public abstract class SuperSingleChildWidgetBaseElement<T> : WidgetBaseElement<T>, ISingleChildContainer
+    where T : Widget {
+    public virtual VisualElement Child {
+      get {
+        if (contentContainer.childCount == 0) return null;
+        return contentContainer.ElementAt(0);
+      }
+      set {
+        if (contentContainer.childCount > 0) contentContainer.Clear();
 
-        public virtual VisualElement Child {
-            get {
-                if (contentContainer.childCount == 0) return null;
-                return contentContainer.ElementAt(0);
-            }
-            set {
-                if (contentContainer.childCount > 0) contentContainer.Clear();
-
-                if (value != null) contentContainer.Add(value);
-            }
-        }
-
-        public override bool CanReconcile(Widget updated) {
-            return updated is T;
-        }
-
-        public override bool Reconcile(Widget updated) {
-            if (updated is not T widget) return false;
-            var previous = TypedDescriptor;
-            Apply(previous, widget);
-            Modifier.ApplyDelta(previous, updated, this);
-            try {
-                Descriptor = updated;
-                var child = GetChildFromWidget(previous, widget);
-                Reconciler.ReconcileSingle(this, child, this);
-            } catch {
-                Descriptor = previous;
-                throw;
-            }
-
-            return true;
-        }
-
-        protected abstract Widget GetChildFromWidget(T previous, T widget);
-
-        public override List<DiagnosticsNode> DebugDescribeChildren() {
-            var list = new List<DiagnosticsNode>();
-            var child = Reconciler.ExpandElement(Child);
-            if (child == null) return list;
-            list.Add(child.ToDiagnosticsNodeSafe());
-            return list;
-        }
-
+        if (value != null) contentContainer.Add(value);
+      }
     }
+
+    public override bool CanReconcile(Widget updated) {
+      return updated is T;
+    }
+
+    public override bool Reconcile(Widget updated) {
+      if (updated is not T widget) return false;
+      var previous = TypedDescriptor;
+      Apply(previous, widget);
+      Modifier.ApplyDelta(previous, updated, this);
+      try {
+        Descriptor = updated;
+        var child = GetChildFromWidget(previous, widget);
+        Reconciler.ReconcileSingle(this, child, this);
+      } catch {
+        Descriptor = previous;
+        throw;
+      }
+
+      return true;
+    }
+
+    protected abstract Widget GetChildFromWidget(T previous, T widget);
+
+    public override List<DiagnosticsNode> DebugDescribeChildren() {
+      var list = new List<DiagnosticsNode>();
+      var child = Reconciler.ExpandElement(Child);
+      if (child == null) return list;
+      list.Add(child.ToDiagnosticsNodeSafe());
+      return list;
+    }
+  }
 }

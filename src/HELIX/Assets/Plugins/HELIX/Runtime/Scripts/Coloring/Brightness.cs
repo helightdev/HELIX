@@ -1,6 +1,6 @@
 namespace HELIX.Coloring {
-    public enum Brightness {
-        Light,
-        Dark
-    }
+  public enum Brightness {
+    Light,
+    Dark
+  }
 }

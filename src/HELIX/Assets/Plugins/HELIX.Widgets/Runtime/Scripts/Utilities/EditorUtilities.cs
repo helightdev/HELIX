@@ -2,17 +2,15 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace HELIX.Widgets.Utilities {
-    internal static class EditorUtilities {
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Rect SwizzleCorners(Vector4 vector) {
-            return new Rect(vector.x, vector.y, vector.w, vector.z);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Vector4 UnswizzleCorners(Rect rect) {
-            return new Vector4(rect.x, rect.y, rect.height, rect.width);
-        }
-
+  internal static class EditorUtilities {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Rect SwizzleCorners(Vector4 vector) {
+      return new Rect(vector.x, vector.y, vector.w, vector.z);
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Vector4 UnswizzleCorners(Rect rect) {
+      return new Vector4(rect.x, rect.y, rect.height, rect.width);
+    }
+  }
 }

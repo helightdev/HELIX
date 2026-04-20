@@ -4,63 +4,57 @@ using System.Linq;
 using HELIX.Widgets.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Error {
-    public class OwnershipChainErrorProperty : DiagnosticsProperty<List<BuildContext>> {
+  public class OwnershipChainErrorProperty : DiagnosticsProperty<List<BuildContext>> {
+    public OwnershipChainErrorProperty(List<BuildContext> chain) : base(
+      "The ownership chain of this widget was",
+      chain,
+      style: DiagnosticsTreeStyle.ErrorProperty,
+      level: DiagnosticLevel.Info
+    ) { }
 
-        public OwnershipChainErrorProperty(List<BuildContext> chain) : base(
-            "The ownership chain of this widget was",
-            chain,
-            style: DiagnosticsTreeStyle.ErrorProperty,
-            level: DiagnosticLevel.Info
-        ) { }
+    public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
+      if (ValueTyped == null || ValueTyped.Count == 0) return "[NONE]";
 
-        public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
-            if (ValueTyped == null || ValueTyped.Count == 0) return "[NONE]";
-
-            return string.Join(
-                " <- ",
-                ValueTyped.Select((x, i) => {
-                        if (i == 0) return "[THIS]";
-                        var name = x?.Descriptor?.GetWidgetName() ?? x?.ToStringShort();
-                        return !string.IsNullOrEmpty(name) ? name : "[UNKNOWN]";
-                    }
-                )
-            );
-        }
-
-        public static OwnershipChainErrorProperty FromBuildContext(BuildContext context) {
-            var chain = BuildContext.GetAncestorChain(context).ToList();
-            return new OwnershipChainErrorProperty(chain);
-        }
-
+      return string.Join(
+        " <- ",
+        ValueTyped.Select((x, i) => {
+            if (i == 0) return "[THIS]";
+            var name = x?.Descriptor?.GetWidgetName() ?? x?.ToStringShort();
+            return !string.IsNullOrEmpty(name) ? name : "[UNKNOWN]";
+          }
+        )
+      );
     }
 
-    public class OffendingWidgetErrorProperty : DiagnosticsProperty<Widget> {
-
-        public OffendingWidgetErrorProperty(Widget widget) : base(
-            "The offending widget was",
-            widget,
-            style: DiagnosticsTreeStyle.ErrorProperty,
-            level: DiagnosticLevel.Info
-        ) { }
-
-        public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
-            return ValueTyped != null ? ValueTyped.GetType().Name : "None";
-        }
-
+    public static OwnershipChainErrorProperty FromBuildContext(BuildContext context) {
+      var chain = BuildContext.GetAncestorChain(context).ToList();
+      return new OwnershipChainErrorProperty(chain);
     }
+  }
 
-    public class ExceptionThrownErrorProperty : DiagnosticsProperty<Exception> {
+  public class OffendingWidgetErrorProperty : DiagnosticsProperty<Widget> {
+    public OffendingWidgetErrorProperty(Widget widget) : base(
+      "The offending widget was",
+      widget,
+      style: DiagnosticsTreeStyle.ErrorProperty,
+      level: DiagnosticLevel.Info
+    ) { }
 
-        public ExceptionThrownErrorProperty(Exception exception) : base(
-            "The following exception was thrown",
-            exception,
-            style: DiagnosticsTreeStyle.ErrorProperty,
-            level: DiagnosticLevel.Info
-        ) { }
-
-        public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
-            return ValueTyped != null ? ValueTyped.ToString() : "None";
-        }
-
+    public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
+      return ValueTyped != null ? ValueTyped.GetType().Name : "None";
     }
+  }
+
+  public class ExceptionThrownErrorProperty : DiagnosticsProperty<Exception> {
+    public ExceptionThrownErrorProperty(Exception exception) : base(
+      "The following exception was thrown",
+      exception,
+      style: DiagnosticsTreeStyle.ErrorProperty,
+      level: DiagnosticLevel.Info
+    ) { }
+
+    public override string ValueToString(TextTreeConfiguration parentConfiguration = null) {
+      return ValueTyped != null ? ValueTyped.ToString() : "None";
+    }
+  }
 }
