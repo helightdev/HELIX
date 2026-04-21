@@ -94,8 +94,18 @@ namespace HELIX.Widgets {
       if (modifiers != null) AddModifiers(modifiers);
     }
 
+    /// <summary>
+    /// Creates a new <see cref="IWidgetElement"/> for the given widget configuration.
+    /// </summary>
+    /// <remarks>
+    /// Usually, this will create an instance of an <see cref="IWidgetElement"/> and then call <see cref="ReconcileInto"/>
+    /// to perform the initial reconciliation after that element gets attached to its parent and the panel.
+    /// </remarks>
     public abstract IWidgetElement CreateElement();
 
+    /// <summary>
+    /// Returns the <see cref="ModifierSet"/> that is applied to the widget.
+    /// </summary>
     public ModifierSet GetModifiers() {
       return modifiers;
     }
@@ -116,6 +126,15 @@ namespace HELIX.Widgets {
       modifiers.AddThrowing(additions);
     }
 
+    /// <summary>
+    /// Sets the default modifiers for the widget.
+    /// </summary>
+    /// <param name="defaults">The default modifiers specified by the widget implementation.</param>
+    /// <param name="user">The modifiers specified by the user.</param>
+    /// <remarks>
+    /// When using this method, do not pass the modifiers into the base constructor and
+    /// instead call this method in the constructor body of the derived class.
+    /// </remarks>
     protected void DefaultModifiers(ModifierSet defaults, IReadOnlyCollection<Modifier> user) {
       if (user == null) {
         modifiers = defaults;
@@ -179,6 +198,13 @@ namespace HELIX.Widgets {
       base.DebugFillProperties(properties);
     }
 
+    /// <summary>
+    /// Reconciles the widget into the given element by registering a onetime callback for
+    /// <see cref="AttachToPanelEvent"/> that triggers the initial reconciliation once the element is
+    /// attached to the panel.
+    /// </summary>
+    /// <param name="element">The newly created uninitialized element that is not yet attached to a panel.</param>
+    /// <returns>The same element that was passed in, for chaining purposes.</returns>
     protected IWidgetElement ReconcileInto(IWidgetElement element) {
       element.Element.RegisterCallbackOnce<AttachToPanelEvent>(_ =>
         Reconciler.Reconcile(element, this)
@@ -186,10 +212,17 @@ namespace HELIX.Widgets {
       return element;
     }
 
+    /// <summary>
+    /// Converts the widget into a constant <see cref="BuildFunction"/>.
+    /// </summary>
     public static implicit operator BuildFunction(Widget widget) {
       return _ => widget;
     }
 
+    /// <summary>
+    /// Converts the widget into a constant <see cref="BuildFunction{WidgetState}"/> that always
+    /// returns the same widget for all widget states.
+    /// </summary>
     public static implicit operator BuildFunction<WidgetState>(Widget widget) {
       return (_, _) => widget;
     }

@@ -8,6 +8,10 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
   // ReSharper disable once InconsistentNaming
+  /// <summary>
+  /// <para>Represents the context in which a <see cref="Widget"/> is being built.</para>
+  /// <para>Provides access to the widget's parent, theme, and other contextual information.</para>
+  /// </summary>
   public interface BuildContext : IDiagnosticableTree, IElement, IThemeProvider {
     static BuildContext Current = null;
     static BuildContext ReconcilerCurrent = null;

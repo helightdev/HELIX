@@ -27,6 +27,9 @@ namespace HELIX.Widgets {
 
   public class StatelessWidgetElement<T> : BuildingWidgetBaseElement<T>, IStatelessWidget, IHierarchyDisposable
     where T : StatelessWidget<T> {
+
+    private static readonly string _ussName = $"{typeof(T).Name}Element";
+
     private bool _isDisposed;
 
     public void Dispose() {
@@ -51,6 +54,11 @@ namespace HELIX.Widgets {
       if (_isDisposed) return;
       if (Descriptor == null) return;
       ModificationBarrier.Rebuild(this);
+    }
+
+    public override bool Reconcile(Widget updated) {
+      name = _ussName;
+      return base.Reconcile(updated);
     }
 
     protected override IBuildable GetBuildableForWidget(T previous, T widget) {
