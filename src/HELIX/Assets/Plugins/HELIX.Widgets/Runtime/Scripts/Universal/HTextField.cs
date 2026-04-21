@@ -11,6 +11,9 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
+  /// <summary>
+  /// A highly customizable text field widget that can be used for text input.
+  /// </summary>
   public class HTextField : StatefulWidget<HTextField> {
     public readonly bool autocorrect;
     public readonly TextEditingController controller;
@@ -31,6 +34,48 @@ namespace HELIX.Widgets.Universal {
     public readonly Action<string> onSubmitted;
     public readonly HTextFieldStyle style;
 
+    /// <summary>
+    /// Creates a highly customizable text field widget that can be used for text input.
+    /// </summary>
+    /// <param name="controller">
+    /// The controller used to manage the field's value and <see cref="WidgetState"/>.
+    /// If not specified, a controller will be created and managed by the field's state.
+    /// </param>
+    /// <param name="focusKey">
+    /// The key that will be used by the interactive element of the field.
+    /// Can be used for focus management using <see cref="GlobalKey"/>.
+    /// </param>
+    /// <param name="style">
+    /// A predefined style to change the visual appearance of the text field.
+    /// If not specified, the current <see cref="PrimitiveTheme.TextField"/> theme will be used.
+    /// </param>
+    /// <param name="multiline">Whether the text field should allow multiple lines of text.</param>
+    /// <param name="autocorrect">Whether the text field should automatically correct the user's input.</param>
+    /// <param name="isReadOnly">Whether the text field should be read-only.</param>
+    /// <param name="isPasswordField">Whether the text field should obscure the user's input.</param>
+    /// <param name="isDelayed">
+    /// Delays updates to the text field's value until the user pressed enter or the element lost focus.
+    /// </param>
+    /// <param name="hideMobileInput">Whether to hide the os's keyboard on mobile devices.</param>
+    /// <param name="keyboardType">The type of keyboard type to use for mobile input.</param>
+    /// <param name="maskChar">The character to use for masking the input.</param>
+    /// <param name="maxLength">The maximum number of characters allowed in the input.</param>
+    /// <param name="enabled">
+    /// Sets <see cref="WidgetState.Disabled"/> if no <paramref name="controller"/> is specified.
+    /// </param>
+    /// <param name="initialValue">
+    /// Sets the initial value if no <paramref name="controller"/> is specified.
+    /// </param>
+    /// <param name="onChanged">
+    /// Sets <see cref="TextEditingController.onChanged"/> action if no <paramref name="controller"/> is specified.
+    /// </param>
+    /// <param name="onSubmitted">
+    /// Sets <see cref="TextEditingController.onSubmitted"/> action if no <paramref name="controller"/> is specified.
+    /// </param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <inheritdoc/>
     public HTextField(
       TextEditingController controller = null,
       Key focusKey = default,

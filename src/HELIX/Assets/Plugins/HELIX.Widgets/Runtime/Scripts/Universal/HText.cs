@@ -7,6 +7,9 @@ using HELIX.Widgets.Universal.Theme;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
+  /// <summary>
+  /// A wrapper widget around <see cref="Label"/> that allows for easy configuration of the textual content.
+  /// </summary>
   public class HText : WrappingBaseWidget<HText, Label> {
     private readonly ModifierSet _defaultModifiers = new ModifierSet {
       ModifierFallbacks.PaddingZero,
@@ -24,11 +27,23 @@ namespace HELIX.Widgets.Universal {
     public readonly bool tripleClickSelectsLine;
     public TextStyle style;
 
+    /// <summary>
+    /// Creates a wrapper widget around <see cref="Label"/> that allows for easy configuration of the textual content.
+    /// </summary>
+    /// <param name="text">The textual content to display.</param>
+    /// <param name="enableRichText">Whether the text supports unity's rich text formatting.</param>
+    /// <param name="emojiFallbackSupport">Whether to use emoji fallbacks for unsupported characters.</param>
+    /// <param name="parseEscapeSequences">Whether to parse escape sequences like <c>\n</c>in the text.</param>
+    /// <param name="selectable">Whether the text is selectable by the user.</param>
+    /// <param name="doubleClickSelectsWords">Whether double-clicking selects words.</param>
+    /// <param name="tripleClickSelectsLine">Whether triple-clicking selects entire lines.</param>
+    /// <param name="languageDirection">The language direction for the text.</param>
+    /// <param name="style">Style overrides to apply to the text.</param>
     public HText(
       string text,
       bool enableRichText = false,
       bool emojiFallbackSupport = true,
-      bool parseEscapeSequences = true,
+      bool parseEscapeSequences = false,
       bool selectable = false,
       bool doubleClickSelectsWords = true,
       bool tripleClickSelectsLine = true,
@@ -101,50 +116,71 @@ namespace HELIX.Widgets.Universal {
   }
 
   public static class HTextExtensions {
+    /// <summary>
+    /// Applies the current theme's <b>body</b> font size at the specified level.
+    /// </summary>
+    /// <remarks>
+    /// Resolves the sizes from <see cref="PrimitiveBaseTheme.Typography"/> with level 1 being linked to
+    /// <see cref="PrimitiveTypographyScheme.FontSize3"/> and level 3 being the last.
+    /// </remarks>
     public static HText Body(this HText text, IThemeProvider theme, int level = 1) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
       text.style ??= new TextStyle();
       text.style.fontSize = level switch {
-        1 => typography.FontSize3,
+        <= 1 => typography.FontSize3,
         2 => typography.FontSize4,
-        3 => typography.FontSize5,
-        _ => typography.FontSize3
+        _ => typography.FontSize5
       };
       return text;
     }
 
+    /// <summary>
+    /// Applies the current theme's <b>heading</b> font size at the specified level.
+    /// </summary>
+    /// <remarks>
+    /// Resolves the sizes from <see cref="PrimitiveBaseTheme.Typography"/> with level 1 being linked to
+    /// <see cref="PrimitiveTypographyScheme.FontSize6"/> and level 3 being the last.
+    /// </remarks>
     public static HText Heading(this HText text, IThemeProvider theme, int level = 1) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
       text.style ??= new TextStyle();
       text.style.fontSize = level switch {
-        1 => typography.FontSize6,
+        <= 1 => typography.FontSize6,
         2 => typography.FontSize7,
-        3 => typography.FontSize8,
-        _ => typography.FontSize6
+        _ => typography.FontSize8
       };
       return text;
     }
 
+
+    /// <summary>
+    /// Applies the current theme's <b>caption</b> font size at the specified level.
+    /// </summary>
+    /// <remarks>
+    /// Resolves the sizes from <see cref="PrimitiveBaseTheme.Typography"/> with level 1 being linked to
+    /// <see cref="PrimitiveTypographyScheme.FontSize1"/> and level 2 being the last.
+    /// </remarks>
     public static HText Caption(this HText text, IThemeProvider theme, int level = 1) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
       text.style ??= new TextStyle();
       text.style.fontSize = level switch {
-        1 => typography.FontSize1,
-        2 => typography.FontSize2,
-        _ => typography.FontSize1
+        <= 1 => typography.FontSize1,
+        _ => typography.FontSize2
       };
       return text;
     }
 
-    public static HText Display(this HText text, IThemeProvider theme, int level = 1) {
+    /// <summary>
+    /// Applies the current theme's <b>display</b> font size.
+    /// </summary>
+    /// <remarks>
+    /// Resolves the sizes from <see cref="PrimitiveBaseTheme.Typography"/> being linked to
+    /// <see cref="PrimitiveTypographyScheme.FontSize9"/>.
+    /// </remarks>
+    public static HText Display(this HText text, IThemeProvider theme) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
       text.style ??= new TextStyle();
-      text.style.fontSize = level switch {
-        1 => typography.FontSize9,
-        2 => typography.FontSize8,
-        3 => typography.FontSize7,
-        _ => typography.FontSize9
-      };
+      text.style.fontSize = typography.FontSize9;
       return text;
     }
   }

@@ -14,10 +14,8 @@ namespace HELIX.Widgets {
   public interface IStatefulWidget { }
 
   public abstract class StatefulWidget<T> : Widget, IStatefulWidget where T : StatefulWidget<T> {
-    protected StatefulWidget() {
-      AddModifier(ModifierFallbacks.ImplicitFlexFill);
-    }
 
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     protected StatefulWidget(
       Key key = default,
       object[] constants = null,
@@ -37,6 +35,8 @@ namespace HELIX.Widgets {
     where T : SingleChildStatefulWidget<T> {
     public Widget child;
 
+
+    /// <inheritdoc/>
     protected SingleChildStatefulWidget(
       Widget child = null,
       Key key = default,

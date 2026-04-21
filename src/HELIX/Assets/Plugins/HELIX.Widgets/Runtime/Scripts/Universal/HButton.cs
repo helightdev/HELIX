@@ -9,6 +9,9 @@ using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Theme;
 
 namespace HELIX.Widgets.Universal {
+  /// <summary>
+  /// A highly customizable button with various styling, size, and behavioral options.
+  /// </summary>
   public class HButton : SingleChildStatefulWidget<HButton> {
     public readonly ButtonController controller;
     public readonly bool enabled;
@@ -23,6 +26,42 @@ namespace HELIX.Widgets.Universal {
     public readonly HButtonStyle style;
     public readonly HButtonVariant? variant;
 
+    /// <summary>
+    /// Creates a highly customizable button with various styling, size, and behavioral options.
+    /// </summary>
+    /// <param name="variant">
+    /// The preset button variant that is used to generate the button's visual style.
+    /// If not specified, the current <see cref="PrimitiveTheme.Button"/> theme will be used.
+    /// </param>
+    /// <param name="radius">The radius preset used to generate the button's <paramref name="variant"/> style.</param>
+    /// <param name="size">The size preset used to generate the button's <paramref name="variant"/> style.</param>
+    /// <param name="palette">The primary palette used to generate the button's <paramref name="variant"/> style.</param>
+    /// <param name="style">
+    /// A predefined button style to change the visual appearance of the button.
+    /// If specified, the <paramref name="variant"/> and <see cref="PrimitiveTheme.Button"/> theme will be ignored.
+    /// </param>
+    /// <param name="controller">
+    /// The controller used to manage the button's <see cref="WidgetState"/> and button behavior.
+    /// If not specified, a controller will be created and managed by the button's state.
+    /// </param>
+    /// <param name="focusKey">
+    /// The key that will be used by the interactive element of the button. Can be used for focus management using
+    /// <see cref="GlobalKey"/>.
+    /// </param>
+    /// <param name="enabled">
+    /// Sets <see cref="WidgetState.Disabled"/> if no <paramref name="controller"/> is specified.
+    /// </param>
+    /// <param name="selected">
+    /// Sets <see cref="WidgetState.Selected"/> if no <paramref name="controller"/> is specified.
+    /// </param>
+    /// <param name="onClick">
+    /// Sets the <see cref="ButtonController.onClick"/> action if no <paramref name="controller"/> is specified.
+    /// </param>
+    /// <param name="child">A widget that will be rendered inside the button.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <inheritdoc/>
     public HButton(
       HButtonVariant? variant = null,
       ButtonController controller = null,

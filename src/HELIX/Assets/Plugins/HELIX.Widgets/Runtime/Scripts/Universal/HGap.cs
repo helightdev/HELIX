@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using HELIX.Types;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal.Theme;
 using UnityEngine.UIElements;
 
@@ -27,16 +28,19 @@ namespace HELIX.Widgets.Universal {
     /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
     /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
     /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="ModifierFallbacks.FlexTight"/>
     public HGap(
       int level = 1,
       Axis? axis = null,
       Key key = default,
       object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, constants) {
       this.axis = axis;
       size = null;
       this.level = level;
+
+      DefaultModifiers(ModifierSet.DefaultFlexTight, modifiers);
     }
 
     /// <summary>
@@ -53,15 +57,18 @@ namespace HELIX.Widgets.Universal {
     /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
     /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
     /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="ModifierFallbacks.FlexTight"/>
     public HGap(
       StyleLength? size,
       Axis? axis = null,
       Key key = default,
       object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, constants) {
       this.axis = axis;
       this.size = size;
+
+      DefaultModifiers(ModifierSet.DefaultFlexTight, modifiers);
     }
 
     public override IWidgetElement CreateElement() => ReconcileInto(new HGapElement());

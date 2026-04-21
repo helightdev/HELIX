@@ -4,6 +4,9 @@ using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal.Controllers;
 
 namespace HELIX.Widgets.Universal {
+  /// <summary>
+  /// A widget that materializes <see cref="SubstanceLayers"/>.
+  /// </summary>
   public class HSubstanceBox : StatefulWidget<HSubstanceBox> {
     public readonly WidgetStateProperty<Alignment> alignment;
     public readonly Key boxKey;
@@ -12,6 +15,21 @@ namespace HELIX.Widgets.Universal {
     public readonly WidgetStateController controller;
     public readonly SubstanceLayers substances;
 
+    /// <summary>
+    /// Creates a widget that materializes <see cref="SubstanceLayers"/>.
+    /// </summary>
+    /// <param name="controller">The controller used to retrieve the current <see cref="WidgetState"/>.</param>
+    /// <param name="substances">The substances to be materialized.</param>
+    /// <param name="builder">A function that builds the child widget based on the current <see cref="WidgetState"/>.</param>
+    /// <param name="boxKey">The key to be used by the inner stack.</param>
+    /// <param name="alignment">The alignment of the inner stack.</param>
+    /// <param name="boxModifiers">The modifiers to be applied to the inner stack.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="Substance"/>
+    /// <seealso cref="SubstanceLayers"/>
+    /// <inheritdoc/>
     public HSubstanceBox(
       WidgetStateController controller = null,
       SubstanceLayers substances = default,

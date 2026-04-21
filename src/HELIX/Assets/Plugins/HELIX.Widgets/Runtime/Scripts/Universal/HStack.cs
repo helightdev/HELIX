@@ -3,9 +3,14 @@ using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
+
+  /// <summary>
+  /// Represents a container that tries to arrange its children above each other using absolute positioning.
+  /// </summary>
   public class HStack : MultiChildWidget {
     public readonly Axis axis;
     public readonly Align crossAxisAlign;
@@ -15,6 +20,26 @@ namespace HELIX.Widgets.Universal {
     public readonly Align? wrapAlign;
     public readonly bool wrapReverse;
 
+    /// <summary>
+    /// Creates a container that tries to arrange its children above each other using absolute positioning.
+    /// If the children do not use absolute positioning, behavior will be similar to <see cref="HFlex"/>.
+    /// </summary>
+    /// <param name="axis">The axis along which non-stacking children will be arranged.</param>
+    /// <param name="crossAxisAlign">The alignment along the cross-axis.</param>
+    /// <param name="mainAxisAlign">The alignment along the main axis.</param>
+    /// <param name="wrapAlign">
+    /// The cross-axis alignment used when wrapping non-stacking children.
+    /// Defaults to <paramref name="crossAxisAlign"/>.
+    /// </param>
+    /// <param name="reverse">Whether to reverse the order of the children.</param>
+    /// <param name="wrapReverse">Whether to wrap non-stacking children in reverse order.</param>
+    /// <param name="wrap">Whether to enable wrapping for non-stacking children.</param>
+    /// <param name="children">The children of this container.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="IPreferExplicitFlex"/>
+    /// <seealso cref="IPreferStacking"/>
     public HStack(
       Axis axis = Axis.Vertical,
       Align crossAxisAlign = Align.FlexStart,
@@ -56,6 +81,8 @@ namespace HELIX.Widgets.Universal {
   }
 
   public class HStackElement : MultiChildWidgetBaseElement<HStack>, IPreferExplicitFlex, IPreferStacking {
+    public Axis PreferredFlexAxis => TypedDescriptor?.axis ?? Axis.Vertical;
+
     public override void Apply(HStack previous, HStack widget) {
       base.Apply(previous, widget);
       if (widget.axis == Axis.Horizontal)

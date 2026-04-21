@@ -22,7 +22,6 @@ namespace HELIX.Widgets.Universal {
     public HError(
       string message,
       Exception exception = null,
-      bool report = true,
       Key key = default,
       object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null

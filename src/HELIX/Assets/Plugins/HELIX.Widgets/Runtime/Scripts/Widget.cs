@@ -5,6 +5,7 @@ using System.Linq;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics.Properties;
+using HELIX.Widgets.Elements;
 using HELIX.Widgets.Theming;
 using UnityEngine.UIElements;
 
@@ -16,7 +17,7 @@ namespace HELIX.Widgets {
   /// </summary>
   public abstract class Widget : DiagnosticableTreeBase, IWidgetListCandidate {
     /// <summary>
-    /// An array of constant objects associated with the widget.
+    /// <para>An array of constant objects associated with the widget.</para>
     /// <para>
     /// The <c>constants</c> property is used to prevent reconciliation (rebuilding)
     /// when updating the widget tree. If the array of constants in the current widget
@@ -31,14 +32,13 @@ namespace HELIX.Widgets {
     /// If the constants provided in two widgets do not match, the reconciliation system
     /// performs a normal rebuild of the corresponding widget subtree.
     /// </para>
-    /// <br/>
-    /// <seealso cref="ModifierExtensions.Const{T}(T, object[])"/>
-    /// <seealso cref="Reconciler.MaybeReconcile(IWidgetElement, Widget)"/>
     /// </summary>
+    /// <seealso cref="ModifierExtensions.Const"/>
+    /// <seealso cref="Reconciler.MaybeReconcile"/>
     public object[] constants;
 
     /// <summary>
-    /// A unique identifier for the widget instance.
+    /// <para>A unique identifier for the widget instance.</para>
     /// <para>
     /// The <c>key</c> property is used to determine whether a widget can be reused
     /// or must be replaced during the reconciliation process. Keys also play a critical
@@ -66,13 +66,14 @@ namespace HELIX.Widgets {
 
 
     /// <summary>
-    /// An effectively immutable collection of attributes applied to a widget to modify its behavior or appearance.
+    /// <para>An effectively immutable collection of attributes applied to a widget to modify its behavior or appearance.</para>
     /// <para>
     /// The <c>modifiers</c> property allows for associating additional configuration
     /// or behavior with a widget, enabling customization of layout, styling, event handling,
     /// or other properties defined in the widget's structure.
     /// </para>
     /// </summary>
+    /// <seealso cref="Modifier"/>
     protected ModifierSet modifiers = ModifierSet.Empty;
 
 
@@ -198,6 +199,9 @@ namespace HELIX.Widgets {
     }
   }
 
+  /// <summary>
+  /// Base class for a <see cref="Widget"/> that contains at most one child widget.
+  /// </summary>
   public abstract class SingleChildWidget : Widget, IEnumerable<Widget> {
     public Widget child;
 
@@ -232,6 +236,9 @@ namespace HELIX.Widgets {
     }
   }
 
+  /// <summary>
+  /// Base class for a <see cref="Widget"/> that can contain multiple child widgets.
+  /// </summary>
   public abstract class MultiChildWidget : Widget, IReadOnlyList<Widget> {
     public IReadOnlyList<Widget> children;
 
@@ -278,16 +285,34 @@ namespace HELIX.Widgets {
     }
   }
 
+  /// <summary>
+  /// A <see cref="VisualElement"/>s that is associated with a <see cref="Widget"/>.
+  /// Most <see cref="BuildContext"/> implementations implement this interface.
+  /// </summary>
   public interface IWidgetElement : BuildContext {
     int HierarchyDepth { get; }
     bool CanReconcile(Widget updated);
     bool Reconcile(Widget updated);
   }
 
+  /// <summary>
+  /// Provides a hint to the <see cref="Reconciler"/> that the target is a part of <see cref="ITreeAncestorTraversalHint.Owner"/>.
+  /// <para>
+  /// Some widgets and modifiers try to resolve their parent using <see cref="BuildContext.GetDirectParent"/> to access
+  /// metadata like <see cref="IPreferExplicitFlex"/> or <see cref="IPreferStacking"/>. In cases where
+  /// <see cref="BuildContext.ParentContext"/> is not available, the <see cref="Reconciler"/> will attempt to traverse
+  /// the tree upwards once and check if the element is a <see cref="IWidgetElement"/> or provides a traversal hint
+  /// via direct implementation or by setting a <see cref="ElementTreeAncestorTraversalHint"/> in its <see cref="VisualElement.userData"/>.
+  /// </para>
+  /// </summary>
   public interface ITreeAncestorTraversalHint {
     IWidgetElement Owner { get; }
   }
 
+  /// <summary>
+  /// Can be set as a <see cref="VisualElement.userData"/> to hint to the <see cref="Reconciler"/> that the element
+  /// is a part of <see cref="ElementTreeAncestorTraversalHint.Owner"/>.
+  /// </summary>
   public class ElementTreeAncestorTraversalHint : ITreeAncestorTraversalHint {
     public ElementTreeAncestorTraversalHint(IWidgetElement owner) {
       Owner = owner;
@@ -297,10 +322,16 @@ namespace HELIX.Widgets {
   }
 
   public static class WidgetExtensions {
+    /// <summary>
+    /// Converts a <see cref="Widget"/> instance to an <see cref="IBuildable"/>.
+    /// </summary>
     public static IBuildable ToBuildable(this Widget widget) {
       return new FunctionBuildable(_ => widget);
     }
 
+    /// <summary>
+    /// Converts a <see cref="Widget"/> instance to an <see cref="ElementFactory"/>.
+    /// </summary>
     public static ElementFactory<VisualElement> ToFactory(this Widget widget, Action<VisualElement> apply = null) {
       return new InlineElementFactory<VisualElement>(_ => {
           var element = new WidgetHostElement { Buildable = widget.ToBuildable() };
@@ -310,6 +341,9 @@ namespace HELIX.Widgets {
       );
     }
 
+    /// <summary>
+    /// Converts a generic <see cref="ElementFactory"/> to a <see cref="Widget"/>.
+    /// </summary>
     public static Widget ToWidget(this ElementFactory factory) {
       return new FactoryWidget<VisualElement> { creator = () => factory.Create(null) };
     }
@@ -319,11 +353,17 @@ namespace HELIX.Widgets {
       return collector;
     }
 
+    /// <summary>
+    /// Adds information about the offending widget to the collector, including a spacer before for better readability.
+    /// </summary>
     public static InformationCollector OffendingWidget(this InformationCollector collector, Widget widget) {
       collector.AddRange(new ErrorSpacer(), new ErrorProperty("The offending widget was", widget));
       return collector;
     }
 
+    /// <summary>
+    /// Adds information about the offending element to the collector, including a spacer before for better readability.
+    /// </summary>
     public static InformationCollector OffendingElement(
       this InformationCollector collector,
       IWidgetElement widget
@@ -333,16 +373,43 @@ namespace HELIX.Widgets {
       return collector;
     }
 
+    /// <summary>
+    /// Adds information about this context's owner chain to the collector, including a spacer before for better readability.
+    /// </summary>
     public static InformationCollector OwnerChain(this InformationCollector collector, BuildContext context) {
       collector.AddRange(new ErrorSpacer(), OwnershipChainErrorProperty.FromBuildContext(context));
       return collector;
     }
 
+    /// <summary>
+    /// Resolves the value of the given <see cref="ThemeProperty{T}"/> using the given <see cref="IThemeProvider"/>.
+    /// If the context is null, global theme values will be used as a fallback before
+    /// resorting to the default value of the property.
+    /// </summary>
+    /// <param name="property">The property that is to be resolved.</param>
+    /// <param name="context">The theme provider to use for resolution.</param>
+    /// <param name="listen">Whether to listen for theme changes if the <paramref name="context"/> supports it.</param>
+    /// <returns>The resolved value of the property.</returns>
+    /// <remarks>
+    /// The returned value may be invalid for struct types. Use <see cref="TryGet"/> in cases where you need to
+    /// be sure that the value is valid and intentionally assigned.
+    /// </remarks>
     public static T Get<T>(this ThemeProperty<T> property, IThemeProvider context, bool listen = true) {
       if (context != null) return context.GetThemed(property, listen);
       return ThemeProviderElement.Resolve(null, property);
     }
 
+
+    /// <summary>
+    /// Attempts to resolve the value of the given <see cref="ThemeProperty{T}"/> using the given <see cref="IThemeProvider"/>.
+    /// If the context is null, global theme values will be used as a fallback before
+    /// resorting to the default value of the property.
+    /// </summary>
+    /// <param name="value">The resolved value of the property.</param>
+    /// <param name="property">The property that is to be resolved.</param>
+    /// <param name="context">The theme provider to use for resolution.</param>
+    /// <param name="listen">Whether to listen for theme changes if the <paramref name="context"/> supports it.</param>
+    /// <returns><c>true</c> if the value retrieved is valid, otherwise <c>false</c>.</returns>
     public static bool TryGet<T>(
       this ThemeProperty<T> property,
       IThemeProvider context,

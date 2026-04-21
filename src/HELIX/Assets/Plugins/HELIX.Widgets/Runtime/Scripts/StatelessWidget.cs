@@ -8,10 +8,8 @@ namespace HELIX.Widgets {
   public interface IStatelessWidget { }
 
   public abstract class StatelessWidget<T> : Widget, IStatelessWidget, IBuildable where T : StatelessWidget<T> {
-    protected StatelessWidget() {
-      AddModifier(ModifierFallbacks.ImplicitFlexFill);
-    }
 
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     protected StatelessWidget(
       Key key = default,
       object[] constants = null,

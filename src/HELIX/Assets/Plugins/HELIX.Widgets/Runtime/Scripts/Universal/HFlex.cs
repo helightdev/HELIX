@@ -3,6 +3,7 @@ using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
@@ -38,6 +39,8 @@ namespace HELIX.Widgets.Universal {
     /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
     /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
     /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="IPreferExplicitFlex"/>
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     public HFlex(
       Axis axis = Axis.Vertical,
       Align crossAxisAlign = Align.FlexStart,

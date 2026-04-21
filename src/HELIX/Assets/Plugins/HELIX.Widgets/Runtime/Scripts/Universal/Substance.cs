@@ -42,9 +42,21 @@ namespace HELIX.Widgets.Universal {
     BuilderAndSubstance<TBuilder, T> Append<T>(Func<IThemeProvider, T> builder) where T : Substance;
   }
 
+
+  /// <summary>
+  /// Represents a collection of <see cref="Substance"/>s.
+  /// </summary>
+  /// <remarks>
+  /// May be implicitly converted from <see cref="SubstanceBuilder"/>, a collection of <see cref="Substance"/>
+  /// or single <see cref="Substance"/> instances for ease of use.
+  /// </remarks>
+  /// <seealso cref="Substance"/>
   public readonly struct SubstanceLayers : IReadOnlyList<Substance> {
     private readonly IReadOnlyList<Substance> _substances;
 
+    /// <summary>
+    /// Creates a new <see cref="SubstanceLayers"/> instance from a collection of <see cref="Substance"/>s.
+    /// </summary>
     public SubstanceLayers(IReadOnlyList<Substance> substances) : this() {
       _substances = substances;
     }

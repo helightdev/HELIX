@@ -40,6 +40,10 @@ namespace HELIX.Widgets {
 
     [SuppressMessage("ReSharper", "SuspiciousTypeConversion.Global")]
     static BuildContext GetDirectParent(VisualElement current) {
+      if (current is BuildContext currentContext && currentContext.ParentContext != null) {
+        return currentContext.ParentContext;
+      }
+
       var parent = current.parent;
       if (parent is BuildContext context) return context;
       if (parent is ITreeAncestorTraversalHint hint) return hint.Owner;

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
+using HELIX.Widgets.Elements;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal.Styles;
 using JetBrains.Annotations;
@@ -161,15 +162,18 @@ namespace HELIX.Widgets {
       StyleLength4? offset = null,
       Position offsetType = Position.Absolute
     ) where T : Widget {
-      if (offset == null && offsetType == Position.Relative) return element.WithModifier(PositionModifier.None);
-
-      element.AddModifier(
-        new PositionModifier(
-          offset ?? StyleLength4.Initial,
-          offsetType
-        )
-      );
-      return element;
+      switch (offset) {
+        case null when offsetType == Position.Relative: return element.WithModifier(PositionModifier.None);
+        case null when offsetType == Position.Absolute: return element.WithModifier(PositionModifier.Stretch);
+        default:
+          element.AddModifier(
+            new PositionModifier(
+              offset ?? StyleLength4.Initial,
+              offsetType
+            )
+          );
+          return element;
+      }
     }
 
     public static T Stretch<T>(this T element) where T : Widget {
@@ -242,9 +246,18 @@ namespace HELIX.Widgets {
   public class ModifierSet : DiagnosticableBase, IReadOnlyCollection<Modifier> {
     public static readonly ModifierSet Empty = new() { ReadOnly = true };
 
-    public static readonly ModifierSet
-      DefaultFlexFill = new ModifierSet { ModifierFallbacks.ImplicitFlexFill }.Sealed();
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
+    public static readonly ModifierSet DefaultFlexFill = new ModifierSet {
+      ModifierFallbacks.ImplicitFlexFill
+    }.Sealed();
 
+    /// <seealso cref="ModifierFallbacks.FlexTight"/>
+    public static readonly ModifierSet DefaultFlexTight = new ModifierSet {
+      ModifierFallbacks.FlexTight
+    }.Sealed();
+
+    /// <seealso cref="ModifierFallbacks.StackingStretch"/>
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     public static readonly ModifierSet DefaultFlexFillAndStacking = new ModifierSet {
       ModifierFallbacks.ImplicitFlexFill,
       ModifierFallbacks.StackingStretch

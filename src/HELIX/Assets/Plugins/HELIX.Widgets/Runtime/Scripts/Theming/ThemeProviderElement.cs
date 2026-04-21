@@ -219,8 +219,33 @@ namespace HELIX.Widgets.Theming {
     }
   }
 
+  /// <summary>
+  /// Interface for a component that provides access to theme values.
+  /// </summary>
   public interface IThemeProvider {
+    /// <summary>
+    /// Resolves the theme value for the given property.
+    /// </summary>
+    /// <param name="property">The theme property to resolve.</param>
+    /// <param name="listen">Whether this provider should listen for theme updates.</param>
+    /// <returns>The resolved theme value, or the default value if not found.</returns>
+    /// <remarks>
+    /// The returned value may be invalid for struct types. Use <see cref="TryGetThemed"/> in cases where you need to
+    /// be sure that the value is valid and intentionally assigned. If you can't be sure that this provider is
+    /// not null, use <see cref="WidgetExtensions.Get"/> instead.
+    /// </remarks>
     T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true);
+
+    /// <summary>
+    /// Tries to resolve the theme value for the given property.
+    /// </summary>
+    /// <param name="property">The theme property to resolve.</param>
+    /// <param name="value">The resolved theme value, or the default value if not found.</param>
+    /// <param name="listen">Whether this provider should listen for theme updates.</param>
+    /// <returns><c>true</c> if the value retrieved is valid, otherwise <c>false</c>.</returns>
+    /// <remarks>
+    /// If you can't be sure that this provider is not null, use <see cref="WidgetExtensions.TryGet"/> instead.
+    ///</remarks>
     bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true);
   }
 

@@ -11,6 +11,9 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
+  /// <summary>
+  /// A highly customizable slider widget that can be used for sliders and scrollbars.
+  /// </summary>
   public class HSlider : StatefulWidget<HSlider> {
     public readonly Axis axis;
 
@@ -23,9 +26,45 @@ namespace HELIX.Widgets.Universal {
     public readonly ScrollController scrollController;
     public readonly HSliderStyle style;
     public readonly float thumbSize;
+    public readonly Key focusKey;
 
-    public Key focusKey;
-
+    /// <summary>
+    /// Creates a highly customizable slider widget that can be used for sliders and scrollbars.
+    /// </summary>
+    /// <param name="controller">
+    /// The controller used to manage the slider's value and <see cref="WidgetState"/>.
+    /// If not specified, a controller will be created and managed by the slider's state.
+    /// </param>
+    /// <param name="axis">
+    /// Sets the axis direction of the slider. Defaults to <see cref="Axis.Horizontal"/>.
+    /// </param>
+    /// <param name="enabled">
+    /// Sets <see cref="WidgetState.Disabled"/> if no <paramref name="controller"/> is specified.
+    /// </param>
+    /// <param name="reverse">Reverses the direction of the slider if true.</param>
+    /// <param name="initialValue">Sets the initial value if no <paramref name="controller"/> is specified.</param>
+    /// <param name="onChanged">
+    /// Sets the <see cref="SliderController.onChanged"/> action if no <paramref name="controller"/> is specified.
+    /// </param>
+    /// <param name="thumbSize">
+    /// Sets the fixed size of the slider thumb. If smaller than 0, the thumb size will be calculated relative to the
+    /// size of the slider based on the <paramref name="controller"/>'s <see cref="SliderController.ThumbRange"/>.
+    /// </param>
+    /// <param name="focusKey">
+    /// The key that will be used by the main interactive element of the button.
+    /// Can be used for focus management using <see cref="GlobalKey"/>.
+    /// </param>
+    /// <param name="boxModifiers">
+    /// Defines additional modifiers that will get applied to the slider's main interactive element.
+    /// </param>
+    /// <param name="style">
+    /// A predefined button style to change the visual appearance of the slider.
+    /// If not specified, the current <see cref="PrimitiveTheme.Slider"/> theme will be used.
+    /// </param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <inheritdoc/>
     public HSlider(
       SliderController controller = null,
       Key focusKey = default,
@@ -53,15 +92,42 @@ namespace HELIX.Widgets.Universal {
       this.boxModifiers = boxModifiers ?? WidgetStateProperties.Never<ModifierSet>();
     }
 
+    /// <summary>
+    /// Creates a highly customizable scrolling slider widget based on the given <paramref name="scrollController"/>.
+    /// </summary>
+    /// <param name="scrollController">
+    /// The scroll controller whose scroll position will be linked to the slider's value.
+    /// The slider will automatically update its value when the scroll position changes.
+    /// </param>
+    /// <param name="axis">
+    /// Sets the axis direction of the slider. Defaults to <see cref="Axis.Vertical"/>.
+    /// </param>
+    /// <param name="reverse">Reverses the direction of the slider if true.</param>
+    /// <param name="thumbSize">
+    /// Sets the fixed size of the slider thumb. If smaller than 0, the thumb size will be calculated relative to the
+    /// size of the slider based on the controller's <see cref="SliderController.ThumbRange"/>.
+    /// </param>
+    /// <param name="focusKey">
+    /// The key that will be used by the main interactive element of the button.
+    /// Can be used for focus management using <see cref="GlobalKey"/>.
+    /// </param>
+    /// <param name="boxModifiers">
+    /// Defines additional modifiers that will get applied to the slider's main interactive element.
+    /// </param>
+    /// <param name="style">
+    /// A predefined button style to change the visual appearance of the slider.
+    /// If not specified, the current <see cref="PrimitiveTheme.Scrollbar"/> theme will be used.
+    /// </param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <inheritdoc/>
     public HSlider(
       ScrollController scrollController,
       Key focusKey = default,
       Axis axis = Axis.Vertical,
-      bool enabled = true,
       bool reverse = false,
-      float initialValue = 0f,
       float thumbSize = -1f,
-      Action<float> onChanged = null,
       HSliderStyle style = null,
       WidgetStateProperty<ModifierSet> boxModifiers = null,
       Key key = default,
@@ -71,11 +137,8 @@ namespace HELIX.Widgets.Universal {
       this.scrollController = scrollController;
       this.focusKey = focusKey;
       this.axis = axis;
-      this.enabled = enabled;
       this.reverse = reverse;
-      this.initialValue = initialValue;
       this.thumbSize = thumbSize;
-      this.onChanged = onChanged;
       this.style = style;
       this.boxModifiers = boxModifiers ?? WidgetStateProperties.Never<ModifierSet>();
     }
