@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using HELIX.Abstractions;
+using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using UnityEngine.UIElements;
 
@@ -45,7 +46,9 @@ namespace HELIX.Widgets.Elements {
     }
   }
 
-  public interface IPreferExplicitFlex { }
+  public interface IPreferExplicitFlex {
+    Axis PreferredFlexAxis => Axis.Vertical;
+  }
 
   public interface IPreferStacking { }
 }

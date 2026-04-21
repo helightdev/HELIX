@@ -98,6 +98,8 @@ namespace HELIX.Widgets.Elements {
     protected abstract FlexDirection GetFlexDirection(bool reverse);
     protected abstract Axis GetAxis();
 
+    public Axis PreferredFlexAxis => GetAxis();
+
     private void RebuildGaps(bool clear = true) {
       if (clear) RemoveGaps();
 

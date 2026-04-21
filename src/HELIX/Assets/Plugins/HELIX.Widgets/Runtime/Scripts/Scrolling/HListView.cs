@@ -46,6 +46,7 @@ namespace HELIX.Widgets.Scrolling {
       _scrollView = _listView.Q<ScrollView>();
       _scrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
       _scrollView.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+      _scrollView.contentContainer.userData = new ElementTreeAncestorTraversalHint(this);
       _listView.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
       _listView.makeItem = () => new WidgetHostElement().TightStretch().Sized(100.Percent());
       _listView.destroyItem = element => element.Clear();

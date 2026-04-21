@@ -67,7 +67,7 @@ namespace HELIX.Types {
       return matchX && matchY;
     }
 
-    public void AlignAsColumn(VisualElement element) {
+    public readonly void AlignAsColumn(VisualElement element) {
       AlignmentHelper.ToColumnAlignment(Quantize(), out var mainAxis, out var crossAxis);
       element.style.flexDirection = FlexDirection.Column;
       element.style.flexWrap = Wrap.NoWrap;

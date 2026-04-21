@@ -56,6 +56,8 @@ namespace HELIX.Widgets.Universal {
   }
 
   public class HFlexElement : MultiChildWidgetBaseElement<HFlex>, IPreferExplicitFlex {
+    public Axis PreferredFlexAxis => TypedDescriptor?.axis ?? Axis.Vertical;
+
     public override void Apply(HFlex previous, HFlex widget) {
       base.Apply(previous, widget);
       if (widget.axis == Axis.Horizontal)

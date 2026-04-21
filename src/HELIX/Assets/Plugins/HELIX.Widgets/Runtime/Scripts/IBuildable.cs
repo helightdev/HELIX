@@ -1,9 +1,9 @@
 namespace HELIX.Widgets {
-  public delegate Widget BuildFunction(BuildContext context);
+  public delegate Widget BuildFunction(BuildContext ctx);
 
-  public delegate Widget BuildFunction<in T>(BuildContext context, T parameter);
+  public delegate Widget BuildFunction<in T>(BuildContext ctx, T arg);
 
-  public delegate Widget BuildFunction<in T1, in T2>(BuildContext context, T1 param1, T2 param2);
+  public delegate Widget BuildFunction<in T1, in T2>(BuildContext ctx, T1 arg0, T2 arg1);
 
   public interface IBuildable {
     Widget Build(BuildContext context);
@@ -23,31 +23,31 @@ namespace HELIX.Widgets {
 
   public readonly struct ParameterizedFunctionBuildable<T> : IBuildable {
     private readonly BuildFunction<T> _func;
-    private readonly T _param;
+    private readonly T _arg;
 
-    public ParameterizedFunctionBuildable(BuildFunction<T> func, T param) {
+    public ParameterizedFunctionBuildable(BuildFunction<T> func, T arg) {
       _func = func;
-      _param = param;
+      _arg = arg;
     }
 
     public Widget Build(BuildContext context) {
-      return _func(context, _param);
+      return _func(context, _arg);
     }
   }
 
   public readonly struct ParameterizedFunctionBuildable<T1, T2> : IBuildable {
     private readonly BuildFunction<T1, T2> _func;
-    private readonly T1 _param1;
-    private readonly T2 _param2;
+    private readonly T1 _arg0;
+    private readonly T2 _arg1;
 
-    public ParameterizedFunctionBuildable(BuildFunction<T1, T2> func, T1 param1, T2 param2) {
+    public ParameterizedFunctionBuildable(BuildFunction<T1, T2> func, T1 arg0, T2 arg1) {
       _func = func;
-      _param1 = param1;
-      _param2 = param2;
+      _arg0 = arg0;
+      _arg1 = arg1;
     }
 
     public Widget Build(BuildContext context) {
-      return _func(context, _param1, _param2);
+      return _func(context, _arg0, _arg1);
     }
   }
 }

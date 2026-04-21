@@ -38,6 +38,7 @@ namespace HELIX.Widgets.Scrolling {
       _scrollView = new ScrollView().AddTo(hierarchy);
       _scrollView.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
       _scrollView.verticalScrollerVisibility = ScrollerVisibility.Hidden;
+      _scrollView.contentContainer.userData = new ElementTreeAncestorTraversalHint(this);
     }
 
     public override VisualElement contentContainer => _scrollView.contentContainer;

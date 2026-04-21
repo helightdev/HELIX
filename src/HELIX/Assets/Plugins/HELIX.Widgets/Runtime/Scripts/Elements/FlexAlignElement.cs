@@ -15,7 +15,6 @@ namespace HELIX.Widgets.Elements {
     private readonly VisualElement _topSpacer;
 
     private float _horizontalAlign;
-    private float _verticalAlign;
 
     public FlexAlignElement() {
       this.FlexContainer();
@@ -28,6 +27,7 @@ namespace HELIX.Widgets.Elements {
       _bottomSpacer = new Element("bottom-spacer");
       _leftSpacer = new Element("left-spacer");
       _slot = new Element("Slot").Tight();
+      _slot.userData = new ElementTreeAncestorTraversalHint(this);
       _rightSpacer = new Element("right-spacer");
 
       hierarchy.Add(_topSpacer);
@@ -40,6 +40,8 @@ namespace HELIX.Widgets.Elements {
 
       Refresh();
     }
+
+    private float _verticalAlign;
 
     public override VisualElement contentContainer => _slot;
 

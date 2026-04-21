@@ -19,8 +19,8 @@ namespace Examples {
 
     public override void InitState() {
       base.InitState();
-      _controlledButtonState = new WidgetStateController();
-      _controlledButton = new ButtonController(_controlledButtonState);
+      _controlledButtonState = AddDisposable(new WidgetStateController());
+      _controlledButton = AddDisposable(new ButtonController(_controlledButtonState));
     }
 
     public override Widget Build(BuildContext context) {

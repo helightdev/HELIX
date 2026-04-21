@@ -18,5 +18,20 @@ namespace HELIX.Widgets.Universal.Theme {
     public virtual float Space7 => basis * factor * 10;
     public virtual float Space8 => basis * factor * 12;
     public virtual float Space9 => basis * factor * 16;
+
+    public float Level(int i) {
+      return i switch {
+        1 => Space1,
+        2 => Space2,
+        3 => Space3,
+        4 => Space4,
+        5 => Space5,
+        6 => Space6,
+        7 => Space7,
+        8 => Space8,
+        9 => Space9,
+        _ => Space3
+      };
+    }
   }
 }

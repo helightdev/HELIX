@@ -1,4 +1,5 @@
 using HELIX.Widgets;
+using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
