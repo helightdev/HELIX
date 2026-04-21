@@ -112,7 +112,7 @@ namespace Examples {
         ).Size(32, 32),
         new HColumn(gap: 2f, crossAxisAlign: Align.FlexStart) {
           new HText(label).Body(context),
-          new HText($"#{ColorUtility.ToHtmlStringRGBA(color)}").Caption(context)
+          new HText($"#{color.ToHex()}").Caption(context)
         }
       };
     }

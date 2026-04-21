@@ -173,7 +173,6 @@ namespace HELIX.Widgets.Universal.Styles {
 
       return new HButtonStyle {
         padding = new AllWidgetStateProperty<StyleLength4>(padding),
-        borderRadius = new AllWidgetStateProperty<BorderRadius>(borderRadius),
         constraints = new AllWidgetStateProperty<BoxConstraints>(constraints),
         layers = layers.Build(),
         textStyle = WidgetStateProperties.Func(state =>

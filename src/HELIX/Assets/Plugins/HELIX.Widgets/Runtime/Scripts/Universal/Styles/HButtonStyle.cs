@@ -8,8 +8,6 @@ namespace HELIX.Widgets.Universal.Styles {
 
     public WidgetStateProperty<BackgroundStyle> backgroundStyle = WidgetStateProperties.Never<BackgroundStyle>();
     public WidgetStateProperty<Border> border = WidgetStateProperties.Never<Border>();
-    public WidgetStateProperty<BorderRadius> borderRadius = WidgetStateProperties.Never<BorderRadius>();
-    public WidgetStateProperty<BoxShadowStyle> boxShadow = WidgetStateProperties.Never<BoxShadowStyle>();
     public WidgetStateProperty<BoxConstraints> constraints = WidgetStateProperties.Never<BoxConstraints>();
     public SubstanceLayers layers = default;
     public WidgetStateProperty<ModifierSet> modifiers = WidgetStateProperties.Never<ModifierSet>();
@@ -24,8 +22,6 @@ namespace HELIX.Widgets.Universal.Styles {
       properties.Add(new DiagnosticsProperty<object>("alignment", alignment));
       properties.Add(new DiagnosticsProperty<object>("backgroundStyle", backgroundStyle));
       properties.Add(new DiagnosticsProperty<object>("border", border));
-      properties.Add(new DiagnosticsProperty<object>("borderRadius", borderRadius));
-      properties.Add(new DiagnosticsProperty<object>("boxShadow", boxShadow));
       properties.Add(new DiagnosticsProperty<object>("constraints", constraints));
       properties.Add(new DiagnosticsProperty<object>("padding", padding));
       properties.Add(new DiagnosticsProperty<object>("opacity", opacity));
