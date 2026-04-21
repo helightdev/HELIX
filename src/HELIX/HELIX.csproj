@@ -91,7 +91,6 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/UpdateStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/MaterialSwatch.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/RRect.cs" />
-    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/RadixSwatchGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/ToneDeltaPair.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Abstractions/Element.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Abstractions/Containers.cs" />
@@ -104,14 +103,12 @@
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/CorePalettes.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/Blend.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/BoxConstraints.cs" />
-    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/RadixPalette.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/Cam16.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/BasicShapes.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/StyleInt4.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/FixedMaterialAccentColor.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/Material/TonalPalette.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Extensions/VisualElementExtensions.Border.cs" />
-    <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Coloring/RadixSwatch.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Types/StyleLength2.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/Painting/Paths/PathCommand.cs" />
     <Compile Include="Assets/Plugins/HELIX/Runtime/Scripts/TransitionProperties.cs" />

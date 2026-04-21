@@ -8,10 +8,32 @@ using HELIX.Widgets.Universal.Theme;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {
+  /// <summary>
+  /// Defines the visual style of a <see cref="HSlider"/>.
+  /// </summary>
+  /// <remarks>
+  /// <see cref="WidgetState.Special1"/> and <see cref="WidgetState.Special2"/> are used to differentiate
+  /// between horizontal and vertical sliders respectively.
+  /// </remarks>
   public class HSliderStyle : DiagnosticableBase {
+    /// <summary>
+    /// Defines constraints applied using <see cref="Modifiers.SizeModifier"/>.
+    /// </summary>
     public WidgetStateProperty<BoxConstraints> constraints = WidgetStateProperties.Never<BoxConstraints>();
+
+    /// <summary>
+    /// Controls the progress <see cref="HSubstanceBox.substances"/>.
+    /// </summary>
     public SubstanceLayers progress;
+
+    /// <summary>
+    /// Controls the thumb <see cref="HSubstanceBox.substances"/>.
+    /// </summary>
     public SubstanceLayers thumb;
+
+    /// <summary>
+    /// Controls the track background <see cref="HSubstanceBox.substances"/>.
+    /// </summary>
     public SubstanceLayers track;
 
     public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {

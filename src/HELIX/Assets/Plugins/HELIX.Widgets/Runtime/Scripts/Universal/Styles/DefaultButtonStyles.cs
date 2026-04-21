@@ -22,7 +22,7 @@ namespace HELIX.Widgets.Universal.Styles {
       var typography = PrimitiveBaseTheme.Typography.Get(context);
       var radius = PrimitiveBaseTheme.Radius.Get(context);
       var spacing = PrimitiveBaseTheme.Spacing.Get(context);
-      var colors = PrimitiveBaseTheme.Colors.Get(context, false);
+      var colors = PrimitiveBaseTheme.Colors.Get(context);
       focusLayer ??= PrimitiveTheme.ButtonFocusLayer.Get(context);
       palette ??= colors.primary;
       surfacePalette ??= colors.surface;
@@ -47,44 +47,37 @@ namespace HELIX.Widgets.Universal.Styles {
             ),
         HButtonVariant.Soft => new SubstanceBuilder(context as BuildContext)
           .Soft(palette, surfacePalette, borderRadius),
-        HButtonVariant.SoftTwoState => new SubstanceBuilder(context as BuildContext)
-          .Append(provider => new ConditionalSubstance(
-              new WidgetStatePropertyMap<SubstanceLayers> {
-                [WidgetState.Selected] = new SubstanceBuilder(provider).Flat(
-                  variant == HButtonVariant.FlatTwoState ? inactive : palette,
-                  palette,
-                  surfacePalette,
-                  borderRadius
-                ).Build(),
-                [WidgetState.None] = new SubstanceBuilder(provider).Soft(
-                  palette,
-                  surfacePalette,
-                  borderRadius
-                ).Build()
-              }
-            )
-          ),
+        HButtonVariant.SoftTwoState => new SubstanceBuilder(context as BuildContext).Append(provider =>
+          new ConditionalSubstance(
+            new WidgetStatePropertyMap<SubstanceLayers> {
+              [WidgetState.Disabled] = new SubstanceBuilder(provider)
+                .Soft(palette, surfacePalette, borderRadius)
+                .Build(),
+              [WidgetState.Selected] = new SubstanceBuilder(provider)
+                .Flat(inactive, palette, surfacePalette, borderRadius)
+                .Build(),
+              [WidgetState.None] = new SubstanceBuilder(provider)
+                .Soft(palette, surfacePalette, borderRadius)
+                .Build()
+            }
+          )
+        ),
         HButtonVariant.Outline => new SubstanceBuilder(context as BuildContext)
           .Outline(palette, surfacePalette, borderRadius),
         HButtonVariant.Ghost => new SubstanceBuilder(context as BuildContext)
           .Ghost(palette, surfacePalette, borderRadius),
-        HButtonVariant.TwoState => new SubstanceBuilder(context as BuildContext)
-          .Append(provider => new ConditionalSubstance(
-              new WidgetStatePropertyMap<SubstanceLayers> {
-                [WidgetState.Selected] = new SubstanceBuilder(provider).Flat(
-                  variant == HButtonVariant.FlatTwoState ? inactive : palette,
-                  palette,
-                  surfacePalette,
-                  borderRadius
-                ).Build(),
-                [WidgetState.None] = new SubstanceBuilder(provider).Outline(
-                  palette,
-                  surfacePalette,
-                  borderRadius
-                ).Build()
-              }
-            )
-          ),
+        HButtonVariant.TwoState => new SubstanceBuilder(context as BuildContext).Append(provider =>
+          new ConditionalSubstance(
+            new WidgetStatePropertyMap<SubstanceLayers> {
+              [WidgetState.Selected] = new SubstanceBuilder(provider)
+                .Flat(inactive, palette, surfacePalette, borderRadius)
+                .Build(),
+              [WidgetState.None] = new SubstanceBuilder(provider)
+                .Outline(palette, surfacePalette, borderRadius)
+                .Build()
+            }
+          )
+        ),
         _ => throw new ArgumentOutOfRangeException(nameof(variant), variant, null)
       };
 
@@ -107,7 +100,6 @@ namespace HELIX.Widgets.Universal.Styles {
           padding = variant == HButtonVariant.Ghost
             ? EdgeInsets.Symmetric(spacing.Space2, spacing.Space1)
             : EdgeInsets.Symmetric(spacing.Space3, 0);
-
           break;
         case HButtonSize.Medium:
           constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight4);
@@ -115,7 +107,6 @@ namespace HELIX.Widgets.Universal.Styles {
           padding = variant == HButtonVariant.Ghost
             ? EdgeInsets.Symmetric(spacing.Space3, spacing.Space1 * 1.5f)
             : EdgeInsets.Symmetric(spacing.Space4, 0);
-
           break;
         case HButtonSize.Large:
           constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight5);
@@ -123,7 +114,6 @@ namespace HELIX.Widgets.Universal.Styles {
           padding = variant == HButtonVariant.Ghost
             ? EdgeInsets.Symmetric(spacing.Space4, spacing.Space2)
             : EdgeInsets.Symmetric(spacing.Space5, 0);
-
           break;
         default: throw new ArgumentOutOfRangeException(nameof(size), size, null);
       }
@@ -146,11 +136,10 @@ namespace HELIX.Widgets.Universal.Styles {
           fontSize = fontSize,
           color = surfacePalette.onMain.WithOpacity(0.38f)
         },
-        [WidgetState.ModAny | WidgetState.Selected | WidgetState.Hovered | WidgetState.Pressed] =
-          new TextStyle {
-            fontSize = fontSize,
-            color = fontColor
-          },
+        [WidgetState.ModAny | WidgetState.Selected | WidgetState.Hovered | WidgetState.Pressed] = new TextStyle {
+          fontSize = fontSize,
+          color = fontColor
+        },
         [WidgetState.None] = new TextStyle {
           fontSize = fontSize,
           color = fontColorInactive
