@@ -6,6 +6,19 @@ using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Theming;
 
 namespace HELIX.Widgets.Universal {
+  /// <summary>
+  /// Represents a generic state-dependent visual layer of a widget.
+  /// <br/>
+  /// <para>
+  /// Makes use of a <see cref="WidgetState"/> to determine the current semantic state of a widget and derives a
+  /// <see cref="IWidgetListCandidate"/> that can be materialized by consumer like the <see cref="HSubstanceBox"/>.
+  /// </para>
+  /// </summary>
+  /// <remarks>
+  /// Substances are core components used in building widget structures. They define
+  /// the foundation or behavior of a widget and are designed to work within the
+  /// HELIX universal widget system.
+  /// </remarks>
   public abstract class Substance : DiagnosticableBase {
     public static SubstanceFactory Factory => SubstanceFactory.Instance;
     public abstract IWidgetListCandidate Build(BuildContext context, WidgetState state);

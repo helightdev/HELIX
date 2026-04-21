@@ -9,11 +9,87 @@ using HELIX.Widgets.Theming;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
+  /// <summary>
+  /// Represents the base class for all widgets.
+  /// Provides a foundation for defining user interface components, with support
+  /// for diagnostics, modifiers, state reconciliation, and defining widget-specific behavior.
+  /// </summary>
   public abstract class Widget : DiagnosticableTreeBase, IWidgetListCandidate {
+    /// <summary>
+    /// An array of constant objects associated with the widget.
+    /// <para>
+    /// The <c>constants</c> property is used to prevent reconciliation (rebuilding)
+    /// when updating the widget tree. If the array of constants in the current widget
+    /// matches the array in the previous widget during a reconciliation check,
+    /// the system assumes the widgets are equivalent, and no further updates are applied.
+    /// </para>
+    /// <para>
+    /// The exact same widget with the <b>same reference</b> is <b>always considered equivalent</b> and
+    /// therefore treated as constant, using a <c>constants</c> array here is not beneficial.
+    /// </para>
+    /// <para>
+    /// If the constants provided in two widgets do not match, the reconciliation system
+    /// performs a normal rebuild of the corresponding widget subtree.
+    /// </para>
+    /// <br/>
+    /// <seealso cref="ModifierExtensions.Const{T}(T, object[])"/>
+    /// <seealso cref="Reconciler.MaybeReconcile(IWidgetElement, Widget)"/>
+    /// </summary>
     public object[] constants;
+
+    /// <summary>
+    /// A unique identifier for the widget instance.
+    /// <para>
+    /// The <c>key</c> property is used to determine whether a widget can be reused
+    /// or must be replaced during the reconciliation process. Keys also play a critical
+    /// role in preserving widget states when the widget tree is updated.
+    /// </para>
+    /// <para>
+    /// If two widgets with the same parent have keys that are equal, those widgets
+    /// are considered positionally equivalent and their states can be reused if their types match
+    /// and reconciliation checks are successful.
+    /// </para>
+    /// <para>
+    /// If no key is specified, parent widgets will attempt to match children based primarily on their actual position.
+    /// Insertions and removal in the middle of the widget list may lead to unintended rebuilds
+    /// and state recreation as possibly valid widgets are being discarded.
+    /// </para>
+    /// <para>
+    /// Keys may also be used to for clarity or persistent tracking of a widget's identity
+    /// using a <see cref="GlobalKey"/> which is guaranteed to be unique across multiple parents and holds a reference
+    /// to the underlying <see cref="IWidgetElement"/>
+    /// </para>
+    /// <br/>
+    /// <seealso cref="HELIX.Widgets.Key"/>
+    /// </summary>
     public Key key;
+
+
+    /// <summary>
+    /// An effectively immutable collection of attributes applied to a widget to modify its behavior or appearance.
+    /// <para>
+    /// The <c>modifiers</c> property allows for associating additional configuration
+    /// or behavior with a widget, enabling customization of layout, styling, event handling,
+    /// or other properties defined in the widget's structure.
+    /// </para>
+    /// </summary>
     protected ModifierSet modifiers = ModifierSet.Empty;
 
+
+    /// <param name="modifiers">
+    /// An optional collection of modifiers to apply to the widget.
+    /// See also: <see cref="modifiers"/>
+    /// </param>
+    /// <param name="constants">
+    /// An array of constant objects associated with the widget, used to prevent rebuilding duration reconciliation.
+    /// See also: <see cref="constants"/>
+    /// </param>
+    /// <param name="key">
+    /// An optional unique identifier for the widget instance.
+    /// It is used to determine whether a widget can be reused during reconciliation. If not specified, the
+    /// position of the widget in the parent's list is used to determine widget identity.
+    /// See also: <see cref="key"/>
+    /// </param>
     protected Widget(
       Key key = default,
       object[] constants = null,

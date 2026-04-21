@@ -3,7 +3,21 @@ using HELIX.Widgets.Elements;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
+  /// <summary>
+  /// Represents a horizontally oriented flexible container widget.
+  /// </summary>
   public class HRow : DirectionalContainerWidget {
+    /// <summary>
+    /// Create a horizontally oriented flexible container widget.
+    /// </summary>
+    /// <param name="crossAxisAlign">The alignment along the cross-axis.</param>
+    /// <param name="mainAxisAlign">The alignment along the main axis.</param>
+    /// <param name="gap">A fixed amount of spacing on the main axis between children.</param>
+    /// <param name="reverse">Whether to reverse the order of the children.</param>
+    /// <param name="children">The children of this container.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
     public HRow(
       Justify mainAxisAlign = Justify.FlexStart,
       Align crossAxisAlign = Align.Center,

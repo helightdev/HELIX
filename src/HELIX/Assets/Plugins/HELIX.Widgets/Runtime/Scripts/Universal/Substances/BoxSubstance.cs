@@ -6,6 +6,9 @@ using HELIX.Widgets.Universal.Styles;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Substances {
+  /// <summary>
+  /// An implementation of <see cref="Substance"/> that builds a generic <see cref="HBox"/> widget.
+  /// </summary>
   public class BoxSubstance : Substance {
     public WidgetStateProperty<BackgroundStyle> background = WidgetStateProperties.Never<BackgroundStyle>();
     public WidgetStateProperty<Border> border = WidgetStateProperties.Never<Border>();

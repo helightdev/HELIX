@@ -5,6 +5,14 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
+  /// <summary>
+  /// Represents a <see cref="VisualElement"/> that hosts a <see cref="Widget"/> derived from an <see cref="IBuildable"/>.
+  /// </summary>
+  /// <remarks>
+  /// This is the preferred entry point for integrating <see cref="Widget"/>s into a UI-Toolkit-based application.
+  /// It may be used to integrate widgets into non-widget-based parts of the visual tree.
+  /// </remarks>
+  ///
   public class WidgetHostElement : BuildingWidgetBaseElement<WidgetHostElement.WidgetType>, IHierarchyDisposable {
     public static readonly HashSet<WidgetHostElement> Instances = new();
 

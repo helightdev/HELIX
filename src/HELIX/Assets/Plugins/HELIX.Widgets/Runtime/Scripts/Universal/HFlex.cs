@@ -6,6 +6,10 @@ using HELIX.Widgets.Elements;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
+  /// <summary>
+  /// Represents a flexible layout widget that arranges its child widgets
+  /// along a specified axis with various alignment and wrapping properties.
+  /// </summary>
   public class HFlex : MultiChildWidget {
     public readonly Axis axis;
     public readonly Align crossAxisAlign;
@@ -15,6 +19,25 @@ namespace HELIX.Widgets.Universal {
     public readonly Align? wrapAlign;
     public readonly bool wrapReverse;
 
+    /// <summary>
+    /// Represents a flexible layout widget that arranges its child widgets
+    /// along a specified axis, with additional alignment, wrapping, and
+    /// layout options.
+    /// </summary>
+    /// <param name="axis">The axis along which the child widgets will be arranged.</param>
+    /// <param name="crossAxisAlign">The alignment along the cross-axis.</param>
+    /// <param name="mainAxisAlign">The alignment along the main axis.</param>
+    /// <param name="wrapAlign">
+    /// The cross-axis alignment used when wrapping.
+    /// Defaults to <paramref name="crossAxisAlign"/>.
+    /// </param>
+    /// <param name="reverse">Whether to reverse the order of the children.</param>
+    /// <param name="wrapReverse">Whether to wrap the child widgets in reverse order.</param>
+    /// <param name="wrap">Whether to enable wrapping.</param>
+    /// <param name="children">The children of this container.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
     public HFlex(
       Axis axis = Axis.Vertical,
       Align crossAxisAlign = Align.FlexStart,
