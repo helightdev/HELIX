@@ -4,6 +4,10 @@ using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics.Properties;
 
 namespace HELIX.Widgets.Signals {
+  /// <summary>
+  /// A signal that recomputes its value whenever any of its dependencies change.
+  /// </summary>
+  /// <seealso cref="Signal.Computed"/>
   public class ComputedSignal<T> : Signal<T>, ISignalObserver {
     private readonly Func<T> _computeFunc;
     private readonly SignalDependencyTracker _tracker;

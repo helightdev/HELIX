@@ -21,6 +21,7 @@ namespace HELIX.Widgets.Universal {
     /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>#
     /// <seealso cref="IPreferExplicitFlex"/>
     /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
+    /// <inheritdoc/>
     public HRow(
       Justify mainAxisAlign = Justify.FlexStart,
       Align crossAxisAlign = Align.Center,

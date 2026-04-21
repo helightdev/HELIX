@@ -40,6 +40,7 @@ namespace HELIX.Widgets.Universal {
     /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
     /// <seealso cref="IPreferExplicitFlex"/>
     /// <seealso cref="IPreferStacking"/>
+    /// <inheritdoc/>
     public HStack(
       Axis axis = Axis.Vertical,
       Align crossAxisAlign = Align.FlexStart,

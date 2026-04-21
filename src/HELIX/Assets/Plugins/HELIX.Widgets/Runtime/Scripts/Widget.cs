@@ -64,33 +64,25 @@ namespace HELIX.Widgets {
     /// </summary>
     public Key key;
 
-
     /// <summary>
-    /// <para>An effectively immutable collection of attributes applied to a widget to modify its behavior or appearance.</para>
     /// <para>
-    /// The <c>modifiers</c> property allows for associating additional configuration
-    /// or behavior with a widget, enabling customization of layout, styling, event handling,
-    /// or other properties defined in the widget's structure.
+    /// An effectively immutable collection of modifications applied to a
+    /// widget's underlying <see cref="VisualElement"/>.
+    /// They can manipulate the element's style, layout, properties, and behavior generically.
+    /// </para>
+    /// <para>
+    /// Modifiers may be added to a widget using the <see cref="modifiers"/> constructor parameter, the
+    /// <see cref="AddModifier"/> or <see cref="AddModifiers"/> methods, or by using the <see cref="ModifierExtensions"/>.
     /// </para>
     /// </summary>
     /// <seealso cref="Modifier"/>
     protected ModifierSet modifiers = ModifierSet.Empty;
 
 
-    /// <param name="modifiers">
-    /// An optional collection of modifiers to apply to the widget.
-    /// See also: <see cref="modifiers"/>
-    /// </param>
-    /// <param name="constants">
-    /// An array of constant objects associated with the widget, used to prevent rebuilding duration reconciliation.
-    /// See also: <see cref="constants"/>
-    /// </param>
-    /// <param name="key">
-    /// An optional unique identifier for the widget instance.
-    /// It is used to determine whether a widget can be reused during reconciliation. If not specified, the
-    /// position of the widget in the parent's list is used to determine widget identity.
-    /// See also: <see cref="key"/>
-    /// </param>
+    /// <summary>
+    /// Base constructor for a widget. See <see cref="key"/> and <see cref="constants"/> and <see cref="modifiers"/>
+    /// for more information on the constructor parameters.
+    /// </summary>
     protected Widget(
       Key key = default,
       object[] constants = null,
@@ -102,19 +94,23 @@ namespace HELIX.Widgets {
       if (modifiers != null) AddModifiers(modifiers);
     }
 
-    protected Widget() { }
-
     public abstract IWidgetElement CreateElement();
 
     public ModifierSet GetModifiers() {
       return modifiers;
     }
 
+    /// <summary>
+    /// Adds a modifier to the widget.
+    /// </summary>
     public void AddModifier(Modifier modifier) {
       if (modifiers.ReadOnly) modifiers = new ModifierSet(modifiers);
       modifiers.AddThrowing(modifier);
     }
 
+    /// <summary>
+    /// Adds a sequence of modifiers to the widget.
+    /// </summary>
     public void AddModifiers(IEnumerable<Modifier> additions) {
       if (modifiers.ReadOnly) modifiers = new ModifierSet(modifiers);
       modifiers.AddThrowing(additions);
@@ -205,8 +201,14 @@ namespace HELIX.Widgets {
   public abstract class SingleChildWidget : Widget, IEnumerable<Widget> {
     public Widget child;
 
-    protected SingleChildWidget() { }
 
+    /// <summary>
+    /// Base constructor for a widget with a single child.
+    /// </summary>
+    /// <remarks>
+    /// You may use this widget with a collection initializer to specify the child.
+    /// </remarks>
+    /// <inheritdoc/>
     protected SingleChildWidget(
       Widget child = null,
       Key key = default,
@@ -242,8 +244,10 @@ namespace HELIX.Widgets {
   public abstract class MultiChildWidget : Widget, IReadOnlyList<Widget> {
     public IReadOnlyList<Widget> children;
 
-    protected MultiChildWidget() { }
-
+    /// <remarks>
+    /// You may use this widget with a collection initializer to specify the children.
+    /// </remarks>
+    /// <inheritdoc/>
     protected MultiChildWidget(
       IReadOnlyList<Widget> children = null,
       Key key = default,

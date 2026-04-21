@@ -22,7 +22,7 @@ public partial class WidgetExamples : WidgetHostElement {
           new BackgroundStyleModifier(context.GetThemed(PrimitiveTheme.Surface))
         }
       ) {
-        new NavStack(key: _navStackKey).Fill(),
+        new HNavStack(key: _navStackKey).Fill(),
         new HScrollView(
           Axis.Horizontal,
           modifiers: new Modifier[] {

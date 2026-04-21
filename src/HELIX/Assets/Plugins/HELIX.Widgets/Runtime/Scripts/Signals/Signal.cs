@@ -6,6 +6,14 @@ using HELIX.Widgets.Utilities;
 using UnityEngine.Pool;
 
 namespace HELIX.Widgets.Signals {
+  /// <summary>
+  /// <para>A signal represents a piece of reactive state that can be observed for changes.</para>
+  /// <para>
+  /// Signals can be observed by implementing the <see cref="ISignalObserver"/> interface and subscribing to the signal
+  /// using <see cref="AddObserver(ISignalObserver)"/>. <see cref="StatefulWidget{T}"/>s may also access signals inside
+  /// their build methods, which will automatically subscribe to the signal and rebuild the widget when the signal changes.
+  /// </para>
+  /// </summary>
   public abstract class Signal : DiagnosticableBase, IDisposable, IPossiblyDisposed {
     private const int _maxNotificationStackDepth = 16;
     private readonly HashSet<ISignalObserver> _observers = new();
@@ -141,10 +149,30 @@ namespace HELIX.Widgets.Signals {
       return observer;
     }
 
+    /// <summary>
+    /// Creates a signal that holds a single value.
+    /// </summary>
+    /// <param name="initialValue">The initial value of the signal. Defaults to the default value of <typeparamref name="T"/>.</param>
+    /// <param name="equality">
+    /// If true, the signal will only notify observers when the value changes to a different value
+    /// (as determined by <see cref="EqualityComparer{T}.Default"/>). If false, the signal will notify observers
+    /// whenever the value is set, even if it's the same as the current value.</param>
     public static ValueSignal<T> Value<T>(T initialValue = default, bool equality = true) {
       return new ValueSignal<T>(initialValue, equality);
     }
 
+    /// <summary>
+    /// Creates a signal that recomputes its value whenever any of its dependencies change.
+    /// </summary>
+    /// <param name="computeFunc">
+    /// A function that computes the value of the signal based on its dependencies.
+    /// This function will be called whenever any of the signal's dependencies change.
+    /// </param>
+    /// <remarks>
+    /// The current value of a signal will be invalidated on <see cref="Signal.NotifyDirty"/> and
+    /// only recomputed when accessed.
+    /// </remarks>
+    /// <seealso cref="SignalDependencyTracker"/>
     public static ComputedSignal<T> Computed<T>(Func<T> computeFunc) {
       return new ComputedSignal<T>(computeFunc);
     }

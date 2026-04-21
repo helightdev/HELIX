@@ -22,6 +22,7 @@ namespace HELIX.Widgets.Universal {
     /// <seealso cref="IPreferExplicitFlex"/>
     /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     /// <seealso cref="ModifierFallbacks.StackingStretch"/>
+    /// <inheritdoc/>
     public HAlign(
       Alignment alignment,
       Widget child = null,

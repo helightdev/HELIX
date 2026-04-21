@@ -18,7 +18,6 @@ namespace Examples {
     private bool _selected;
 
     public override void InitState() {
-      base.InitState();
       _controlledButtonState = AddDisposable(new WidgetStateController());
       _controlledButton = AddDisposable(new ButtonController(_controlledButtonState));
     }

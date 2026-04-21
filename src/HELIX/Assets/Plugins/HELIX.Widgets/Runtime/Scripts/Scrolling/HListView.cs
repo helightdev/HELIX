@@ -1,17 +1,39 @@
 using System.Collections.Generic;
 using HELIX.Extensions;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
+  /// <summary>
+  /// A widget that efficiently renders a large number of children in a vertical list.
+  /// </summary>
+  /// <remarks>Wraps Unity's <see cref="ListView"/>.</remarks>
   public class HListView : Widget {
     public readonly BuildFunction<int> builder;
     public readonly int count;
     public readonly float fixedItemHeight;
     public readonly ScrollController scrollController;
 
+    /// <summary>
+    /// Creates a widget that efficiently renders a large number of children in a vertical list.
+    /// </summary>
+    /// <param name="builder">The function that builds a child widget for a given index.</param>
+    /// <param name="count">The number of items in the list.</param>
+    /// <param name="fixedItemHeight">
+    /// If set to a non-negative value, the height of each item will be fixed to this value, improving performance.
+    /// If set to a negative value, the height will be dynamically determined for each item.
+    /// </param>
+    /// <param name="scrollController">
+    /// The <see cref="ScrollController"/> to use for this list.
+    /// If not specified, a controller will be created and managed by the widget's state.
+    /// </param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     public HListView(
       BuildFunction<int> builder,
       int count,

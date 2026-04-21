@@ -8,7 +8,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Navigation {
   [UxmlElement]
-  public partial class ScaffoldElement : SingleChildWidgetBaseElement<Scaffold> {
+  public partial class ScaffoldElement : SingleChildWidgetBaseElement<HScaffold> {
     private readonly VisualElement _body;
     private readonly VisualElement _overlay;
 
@@ -49,12 +49,20 @@ namespace HELIX.Widgets.Navigation {
     }
   }
 
-  public class Scaffold : SingleChildWidget {
-    public Scaffold() {
-      AddModifier(ModifierFallbacks.FlexFill);
-    }
+  /// <summary>
+  /// A widget that provides the ability to display overlays on top of its content.
+  /// </summary>
+  public class HScaffold : SingleChildWidget {
 
-    public Scaffold(
+    /// <summary>
+    /// Creates a widget that provides the ability to display overlays on top of its content.
+    /// </summary>
+    /// <param name="child">The main content of the scaffold. Overlays will be displayed on top of this content.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
+    public HScaffold(
       Widget child = null,
       Key key = default,
       object[] constants = null,

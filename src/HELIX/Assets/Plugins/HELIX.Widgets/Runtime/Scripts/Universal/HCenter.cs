@@ -18,6 +18,7 @@ namespace HELIX.Widgets.Universal {
     /// <seealso cref="IPreferExplicitFlex"/>
     /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     /// <seealso cref="ModifierFallbacks.StackingStretch"/>
+    /// <inheritdoc/>
     public HCenter(
       Widget child = null,
       Key key = default,

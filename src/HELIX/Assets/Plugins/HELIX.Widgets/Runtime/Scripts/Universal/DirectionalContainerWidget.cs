@@ -10,6 +10,7 @@ namespace HELIX.Widgets.Universal {
     public readonly Justify mainAxisAlign;
     public readonly bool reverse;
 
+    /// <inheritdoc/>
     protected DirectionalContainerWidget(
       Justify mainAxisAlign = Justify.FlexStart,
       Align crossAxisAlign = Align.Center,

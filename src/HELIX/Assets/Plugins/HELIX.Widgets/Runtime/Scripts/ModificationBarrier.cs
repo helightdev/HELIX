@@ -8,6 +8,16 @@ using UnityEngine.Profiling;
 using Debug = UnityEngine.Debug;
 
 namespace HELIX.Widgets {
+  /// <summary>
+  /// <para>
+  /// Provides a mechanism for managing and restricting modifications to the widget hierarchy while
+  /// ensuring proper handling of callbacks, rebuilds, and disposals during a modification frame.
+  /// </para>
+  /// <para>
+  /// The barrier represents a reentrant context in which <see cref="Reconciler"/> actions, disposals,
+  /// and frame callbacks are collected and executed once the outermost modification frame completes.
+  /// </para>
+  /// </summary>
   public static class ModificationBarrier {
     private static bool _isFinalizing;
     private static bool _insideTail;
@@ -23,6 +33,15 @@ namespace HELIX.Widgets {
 
     public static bool InsideModification { get; private set; }
 
+    /// <summary>Runs the provided action within the barrier context.</summary>
+    /// <param name="action">The action to run within the barrier context.</param>
+    /// <exception cref="InvalidOperationException"> When called from within a finalization context.</exception>
+    /// <seealso cref="ModificationBarrier"/>
+    /// <remarks>
+    /// This method is safe to call from within another <see cref="Run"/> or a <see cref="Rebuild"/>, but not from
+    /// within a disposal. However, you may enqueue additional disposals from within a disposal callback
+    /// or add a post-frame callback.
+    /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void Run(Action action) {
       if (_isFinalizing) throw new InvalidOperationException("Cannot modify hierarchy while finalizing.");
@@ -42,7 +61,9 @@ namespace HELIX.Widgets {
         InsideModification = false;
         RunTail();
       }
-    } // ReSharper disable Unity.PerformanceAnalysis
+    }
+
+    // ReSharper disable Unity.PerformanceAnalysis
     private static void RunCallbacks() {
       if (_postFrameCallbacks.Count == 0) return;
       var maxDepth = MaxCallbacksPerFrame;
@@ -57,8 +78,6 @@ namespace HELIX.Widgets {
       Debug.LogWarning("Maximum post-frame callback depth reached, delaying until next frame.");
     }
 
-    // ReSharper disable Unity.PerformanceAnalysis
-    // ReSharper disable Unity.PerformanceAnalysis
     // ReSharper disable Unity.PerformanceAnalysis
     private static void RunTail() {
       if (_insideTail) return;
@@ -97,6 +116,10 @@ namespace HELIX.Widgets {
       } finally { _insideTail = false; }
     }
 
+
+    /// <summary>
+    /// Enqueues a disposable to be disposed at the end of the current frame.
+    /// </summary>
     public static void EnqueueHierarchyDisposable(IHierarchyDisposable disposable) {
       if (disposable == null) throw new ArgumentNullException(nameof(disposable));
       _hierarchyDisposables.Add(disposable);
@@ -110,6 +133,14 @@ namespace HELIX.Widgets {
       );
     }
 
+    /// <summary>
+    /// <para>Tries to dispose of the provided disposable at the earliest possible time.</para>
+    /// <para>
+    /// If currently inside a finalization context, the disposable will be disposed of immediately.
+    /// Otherwise, it will be enqueued for disposal at the end of the current frame if <see cref="InsideModification"/>
+    /// or at the end of the next future frame.
+    /// </para>
+    /// </summary>
     public static void TryDisposeHierarchyDisposable(IHierarchyDisposable disposable) {
       if (_isFinalizing) {
         disposable?.Dispose();
@@ -135,10 +166,22 @@ namespace HELIX.Widgets {
       _pendingRebuilds.Remove(element);
     }
 
+
+    /// <summary>
+    /// Enqueues an element for rebuild.
+    /// </summary>
+    /// <remarks>
+    /// Will start a new modification frame using <see cref="Run"/> if not already inside one.
+    /// </remarks>
     public static void Rebuild(IWidgetElement element) {
       Run(() => { EnqueueRebuild(element); });
     }
 
+    /// <summary>
+    /// Enqueues a callback to be run at the end of the current frame.
+    /// </summary>
+    /// <param name="callback">The action to run at the end of the current frame.</param>
+    /// <exception cref="InvalidOperationException">Thrown if not called from within a modification context.</exception>
     public static void AddPostFrameCallback(Action callback) {
       if (callback == null) throw new ArgumentNullException(nameof(callback));
       if (!InsideModification) {
@@ -171,5 +214,8 @@ namespace HELIX.Widgets {
     }
   }
 
+  /// <summary>
+  /// Can be implemented by an <see cref="IElement"/> to use the <see cref="ModificationBarrier"/> to dispose of it.
+  /// </summary>
   public interface IHierarchyDisposable : IDisposable, IElement { }
 }

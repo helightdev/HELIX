@@ -6,6 +6,13 @@ using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Utilities;
 
 namespace HELIX.Widgets.Signals {
+  /// <summary>
+  /// <para>Provides a mechanism for tracking dependencies between signals.</para>
+  /// <para>
+  /// When inside the scope of this tracker, all direct value accesses
+  /// to a signal will track the signal as a dependency.
+  /// </para>
+  /// </summary>
   public class SignalDependencyTracker : DiagnosticableBase, ISignalObserver, IDisposable, IPossiblyDisposed {
     public static SignalDependencyTracker Current;
     private readonly ISignalObserver _forwarder;

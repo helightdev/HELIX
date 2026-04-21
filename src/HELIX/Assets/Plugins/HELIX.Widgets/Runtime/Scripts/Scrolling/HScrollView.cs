@@ -2,13 +2,33 @@ using System.Collections.Generic;
 using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
+
+  /// <summary>
+  /// A widget that can be used to scroll through a list of widgets.
+  /// </summary>
   public class HScrollView : MultiChildWidget {
     public readonly Axis axis;
     public readonly ScrollController controller;
 
+    /// <summary>
+    /// Creates a scrollable view that can be used to scroll through a list of widgets.
+    /// </summary>
+    /// <param name="axis">The axis along which the scroll view will scroll.</param>
+    /// <param name="controller">
+    /// The <see cref="ScrollController"/> to use for this scroll view.
+    /// If not specified, a controller will be created and managed by the widget's state.
+    /// </param>
+    /// <param name="children">The children of this scroll view.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="IPreferExplicitFlex"/>
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
+    /// <inheritdoc/>
     public HScrollView(
       Axis axis = Axis.Vertical,
       ScrollController controller = null,

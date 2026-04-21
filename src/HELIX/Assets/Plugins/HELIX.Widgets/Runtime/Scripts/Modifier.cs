@@ -12,6 +12,27 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
+  /// <summary>
+  /// <para>Modifiers provide a way to manipulate the underlying <see cref="VisualElement"/> of a widget.</para>
+  /// </summary>
+  /// <remarks>
+  /// <para>
+  /// Modifiers may alter appearance, layout, or other properties of the element.
+  /// They can also be used to register even callbacks, but are expected to behave mostly immutably.
+  /// </para>
+  /// <para>
+  /// When applying modifiers, deltas are computed and passed to the modifier using the
+  /// <see cref="Modifier.Apply(Modifier,VisualElement)"/> method. Once a modifier is not used anymore,
+  /// it is expected to call <see cref="Modifier.Reset(VisualElement)"/> to reset any alterations it may have made to
+  /// the underlying <see cref="VisualElement"/>.
+  /// </para>
+  /// <para>
+  /// All modifiers of the same type must be equal to each other, changes are tracked using
+  /// <see cref="Modifier.DeepEquals(Modifier)"/> and the respective <see cref="Modifier.HasChanged(Modifier)"/>
+  /// implementations.
+  /// </para>
+  /// <para>Mustn't expect any ordering guarantees as <see cref="ModifierSet"/> uses a hashset internally.</para>
+  /// </remarks>
   public abstract class Modifier : DiagnosticableBase {
     public bool isFallback;
     public virtual void Apply(VisualElement element) { }

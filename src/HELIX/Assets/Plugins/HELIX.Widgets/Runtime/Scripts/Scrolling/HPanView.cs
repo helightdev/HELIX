@@ -1,13 +1,36 @@
 using System.Collections.Generic;
 using HELIX.Extensions;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Scrolling {
+
+  /// <summary>
+  /// A widget that can be used to scroll through a list of widgets horizontally and vertically.
+  /// </summary>
   public class HPanView : MultiChildWidget {
     public readonly ScrollController horizontalController;
     public readonly ScrollController verticalController;
 
+    /// <summary>
+    /// Creates a scrollable view that can be used to scroll through a list of widgets horizontally and vertically.
+    /// </summary>
+    /// <param name="horizontalController">
+    /// The horizontal <see cref="ScrollController"/> to use for this scroll view.
+    /// If not specified, a controller will be created and managed by the widget's state.
+    /// </param>
+    /// <param name="verticalController">
+    /// The vertical <see cref="ScrollController"/> to use for this scroll view.
+    /// If not specified, a controller will be created and managed by the widget's state.
+    /// </param>
+    /// <param name="children">The children of this scroll view.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="IPreferExplicitFlex"/>
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
+    /// <inheritdoc/>
     public HPanView(
       ScrollController horizontalController = null,
       ScrollController verticalController = null,

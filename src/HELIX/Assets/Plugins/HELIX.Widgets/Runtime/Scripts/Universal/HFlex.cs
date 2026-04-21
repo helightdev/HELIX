@@ -41,6 +41,7 @@ namespace HELIX.Widgets.Universal {
     /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
     /// <seealso cref="IPreferExplicitFlex"/>
     /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
+    /// <inheritdoc/>
     public HFlex(
       Axis axis = Axis.Vertical,
       Align crossAxisAlign = Align.FlexStart,

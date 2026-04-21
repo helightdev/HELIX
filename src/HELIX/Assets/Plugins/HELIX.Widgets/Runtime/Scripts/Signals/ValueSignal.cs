@@ -2,6 +2,11 @@ using System.Collections.Generic;
 using HELIX.Widgets.Diagnostics;
 
 namespace HELIX.Widgets.Signals {
+
+  /// <summary>
+  /// A signal that holds a single value.
+  /// </summary>
+  /// <seealso cref="Signal.Value"/>
   public class ValueSignal<T> : Signal<T> {
     private readonly bool _equality;
     protected IEqualityComparer<T> comparer = EqualityComparer<T>.Default;

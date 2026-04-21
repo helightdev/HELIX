@@ -6,6 +6,7 @@ using HELIX.Abstractions;
 using HELIX.Extensions;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Elements;
+using HELIX.Widgets.Modifiers;
 using JetBrains.Annotations;
 using Unity.Mathematics;
 using UnityEngine;
@@ -13,7 +14,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Navigation {
   [UxmlElement]
-  public partial class NavStackElement : SingleChildWidgetBaseElement<NavStack> {
+  public partial class NavStackElement : SingleChildWidgetBaseElement<HNavStack> {
     private readonly List<PageTransitionHandle> _activeTransitions = new();
     private readonly VisualElement _pageContainer;
     private readonly List<NavPageBase> _pages = new();
@@ -312,7 +313,7 @@ namespace HELIX.Widgets.Navigation {
       return new NavPageBuffer(buffer);
     }
 
-    public override void Apply(NavStack previous, NavStack widget) {
+    public override void Apply(HNavStack previous, HNavStack widget) {
       base.Apply(previous, widget);
       DefaultTransition = widget.defaultTransition;
     }
@@ -336,10 +337,25 @@ namespace HELIX.Widgets.Navigation {
     }
   }
 
-  public class NavStack : SingleChildWidget {
+  /// <summary>
+  /// A widget that manages a stack of <see cref="NavPageBase"/>s.
+  /// </summary>
+  public class HNavStack : SingleChildWidget {
     public readonly PageTransition defaultTransition;
 
-    public NavStack(
+    /// <summary>
+    /// Creates a widget that manages a stack of <see cref="NavPageBase"/>s.
+    /// </summary>
+    /// <param name="defaultTransition">
+    /// The default transition to use for page changes if no transition is specified for a particular operation.
+    /// </param>
+    /// <param name="child">The root widget at the back of the stack.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
+    /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
+    /// <inheritdoc/>
+    public HNavStack(
       PageTransition defaultTransition = null,
       Widget child = null,
       Key key = default,

@@ -20,6 +20,7 @@ namespace HELIX.Widgets.Universal {
     /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
     /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
     /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
+    /// <inheritdoc/>
     public HThemeProvider(
       List<ThemeComponent> components = null,
       Dictionary<ThemeProperty, object> properties = null,

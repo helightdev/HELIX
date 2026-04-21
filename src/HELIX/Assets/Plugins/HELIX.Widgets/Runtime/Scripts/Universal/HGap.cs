@@ -29,6 +29,7 @@ namespace HELIX.Widgets.Universal {
     /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
     /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
     /// <seealso cref="ModifierFallbacks.FlexTight"/>
+    /// <inheritdoc/>
     public HGap(
       int level = 1,
       Axis? axis = null,
@@ -58,6 +59,7 @@ namespace HELIX.Widgets.Universal {
     /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
     /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
     /// <seealso cref="ModifierFallbacks.FlexTight"/>
+    /// <inheritdoc/>
     public HGap(
       StyleLength? size,
       Axis? axis = null,
