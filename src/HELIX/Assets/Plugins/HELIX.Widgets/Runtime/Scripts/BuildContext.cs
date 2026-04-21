@@ -17,7 +17,7 @@ namespace HELIX.Widgets {
     protected bool IsUserWidget => this is IStatelessWidget || this is IStatefulWidget;
 
     static BuildContext GetUserTarget(BuildContext start, BuildContext except = null) {
-      return GetAncestorChain(start).LastOrDefault(context => context.IsUserWidget && context != except) ?? start;
+      return GetAncestorChain(start).LastOrDefault(context => context.IsUserWidget && !Equals(context, except)) ?? start;
     }
 
     [SuppressMessage("ReSharper", "SuspiciousTypeConversion.Global")]
