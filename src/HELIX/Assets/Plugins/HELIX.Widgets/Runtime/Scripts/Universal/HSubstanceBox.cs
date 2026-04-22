@@ -59,14 +59,18 @@ namespace HELIX.Widgets.Universal {
       var state = widget.controller?.Value ?? WidgetState.None;
 
       var widgetList = new WidgetList(widget.substances.Count + 1);
-      foreach (var shape in widget.substances) {
+
+      // ReSharper disable once ForCanBeConvertedToForeach
+      for (var si = 0; si < widget.substances.Count; si++) {
+        var shape = widget.substances[si];
         var candidate = shape.Build(context, state);
         if (candidate == null) continue;
         var previousCount = widgetList.Count;
         widgetList.Add(candidate);
+        var constants = new object[] { state, shape };
         for (var i = previousCount; i < widgetList.Count; i++) {
           var childWidget = widgetList[i];
-          childWidget.constants = new object[] { state, shape };
+          childWidget.constants = constants;
           childWidget.AddModifier(ModifierFallbacks.PosStretch);
         }
       }

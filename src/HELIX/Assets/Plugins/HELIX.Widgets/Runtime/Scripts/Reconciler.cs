@@ -188,7 +188,7 @@ namespace HELIX.Widgets {
       }
 
       if (isDirty) {
-        foreach (var element in _unkeyedScratch) {
+        while (_unkeyedScratch.TryDequeue(out var element)) {
           _deltaScratch.Add(
             new ReconcilerCollectionDelta {
               target = element,
@@ -197,7 +197,7 @@ namespace HELIX.Widgets {
           );
         }
 
-        foreach (var (_, value) in _keyedScratch) {
+        foreach (var value  in _keyedScratch.Values) {
           _deltaScratch.Add(
             new ReconcilerCollectionDelta {
               target = value,
@@ -215,9 +215,10 @@ namespace HELIX.Widgets {
             deltaArray[i] = current;
           }
 
-          foreach (var current in _deltaScratch) {
-            if (current.added)
-              current.target.CallMounted(current.descriptor, owner);
+          // ReSharper disable once ForCanBeConvertedToForeach
+          for (var i = 0; i < _deltaScratch.Count; i++) {
+            var current = _deltaScratch[i];
+            if (current.added) current.target.CallMounted(current.descriptor, owner);
           }
 
           collection.UpdateWidgetElements(resultArray, deltaArray);
