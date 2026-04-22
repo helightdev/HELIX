@@ -42,10 +42,14 @@
     <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/input/License.txt" />
     <None Include="Assets/Plugins/HELIX.Widgets/package.json" />
     <None Include="Assets/Plugins/HELIX.Widgets/Tests/Resources/materialColorFixture.json" />
+    <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/input/Flairs/flairs_sheet_default.xml" />
     <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/helix.uss" />
     <None Include="Assets/Plugins/HELIX/package.json" />
+    <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/input/Generic/generic_sheet_default.xml" />
+    <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/input/Touch/touch_sheet_default.xml" />
     <Reference Include="UnityEngine">
       <HintPath>/phome/UnityEditors/6000.4.0f1/Editor/Data/Managed/UnityEngine/UnityEngine.dll</HintPath>
     </Reference>

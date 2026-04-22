@@ -88,6 +88,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ClipModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/FillGradientGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/MultiChildWidgetBaseElement.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/IPromptProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HStatefulBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ButtonControllerModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveSpacingScheme.cs" />
@@ -187,6 +188,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HStack.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/HButtonStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/Transitions/InstantPageTransition.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/HelixSvgCollection.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/BoxShadowStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticableBase.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Controllers/SliderController.cs" />
@@ -238,6 +240,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/GenericSlider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/MessageProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/ScrollController.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/KennyPrompts.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HError.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/NumProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/BuildingWidgetBaseElement.cs" />
@@ -1065,6 +1068,10 @@
     <ProjectReference Include="Unity.Mathematics.csproj">
       <Project>{811a98a1-b84d-baa6-2797-abc63b7e970f}</Project>
       <Name>Unity.Mathematics</Name>
+    </ProjectReference>
+    <ProjectReference Include="Unity.InputSystem.csproj">
+      <Project>{90c324ef-ca74-9be5-4d8f-8774d253faf6}</Project>
+      <Name>Unity.InputSystem</Name>
     </ProjectReference>
     <ProjectReference Include="UnityEditor.UI.csproj">
       <Project>{786d9202-2c27-f96b-4378-75c4405f37ae}</Project>

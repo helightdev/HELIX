@@ -84,12 +84,43 @@ namespace HELIX.Widgets {
   }
 
   public static class WidgetListExtensions {
+
+    /// <summary>
+    /// Conditionally adds the given candidate to the widget list.
+    /// </summary>
+    /// <param name="candidate">The candidate to add.</param>
+    /// <param name="condition">The condition under which to add the candidate.</param>
     public static ConditionalCandidate If(this IWidgetListCandidate candidate, bool condition) {
       return new ConditionalCandidate(condition, candidate);
     }
 
+    /// <summary>
+    /// Spreads the given enumerable of candidates into the widget list.
+    /// </summary>
     public static SpreadCandidate Spread(this IEnumerable<IWidgetListCandidate> candidates) {
       return new SpreadCandidate(candidates);
+    }
+
+    /// <summary>
+    /// Spreads the given enumerable of candidates into the widget list, with the given gap between each.
+    /// </summary>
+    /// <param name="gap">
+    /// A dummy build function that will be used to create gaps between each candidate.
+    /// The context parameter of the build function will be null.
+    /// </param>
+    /// <param name="candidates">The candidates to spread.</param>
+    public static SpreadCandidate Spread(this IEnumerable<IWidgetListCandidate> candidates, BuildFunction gap) {
+      return new SpreadCandidate(Interleave(candidates, gap));
+    }
+
+    private static IEnumerable<IWidgetListCandidate> Interleave(IEnumerable<IWidgetListCandidate> candidates, BuildFunction gap) {
+      using var enumerator = candidates.GetEnumerator();
+      if (!enumerator.MoveNext()) yield break;
+      while (true) {
+        yield return enumerator.Current;
+        if (!enumerator.MoveNext()) break;
+        yield return gap(null);
+      }
     }
   }
 }

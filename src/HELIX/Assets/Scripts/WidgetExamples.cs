@@ -27,12 +27,12 @@ public partial class WidgetExamples : WidgetHostElement {
           Axis.Horizontal,
           modifiers: new Modifier[] {
             FlexibleModifier.TightStretch,
-            MarginModifier.Only(16, right: 16, bottom: 8, top: 8)
+            MarginModifier.Only(bottom: 8, top: 8)
           }
         ) {
-          new HRow(
-            gap: 8f,
-            children: Pages.Select(e =>
+          new HRow {
+            new HGap(2),
+            Pages.Select(e =>
               new HButton(
                 onClick: () => {
                   _navStackKey.Element.PushReplacement(
@@ -40,8 +40,9 @@ public partial class WidgetExamples : WidgetHostElement {
                   );
                 }
               ) { new HText(e.Item1) }
-            ).ToArray()
-          )
+            ).Spread(new HGap()),
+            new HGap(2)
+          }
         }
       }
     ).Stretch().ToBuildable();
@@ -54,6 +55,7 @@ public partial class WidgetExamples : WidgetHostElement {
     ("Substances & States", new StateSubstanceExample()),
     ("Theme Tokens", new ThemeTokensExample()),
     ("ListView", new ListVirtualizationExample()),
+    ("Prompts", new PromptsExample()),
     ("Red Box", new HBox(background: MaterialColors.Red))
   };
 

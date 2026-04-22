@@ -182,7 +182,7 @@ namespace HELIX.Widgets {
           );
         }
 
-        if (!isDirty && resolved != _existingScratch[i]) isDirty = true;
+        if (!isDirty && !Equals(resolved, _existingScratch[i])) isDirty = true;
 
         _resultScratch.Add(resolved);
       }

@@ -11,16 +11,16 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Universal.Styles {
   public class BackgroundStyle : DiagnosticableBase, IEquatable<BackgroundStyle> {
     public static readonly BackgroundStyle Default = new();
-    public StyleColor color = StyleKeyword.Initial;
-    public StyleBackgroundSize fit = StyleKeyword.Initial;
-    public StyleBackground image = StyleKeyword.Initial;
-    public StyleColor imageTintColor = StyleKeyword.Initial;
-    public StyleBackgroundRepeat repeat = StyleKeyword.Initial;
-    public StyleInt4 slice = StyleKeyword.Initial;
-    public StyleFloat sliceScale = StyleKeyword.Initial;
-    public StyleEnum<SliceType> sliceType = StyleKeyword.Initial;
-    public StyleBackgroundPosition x = StyleKeyword.Initial;
-    public StyleBackgroundPosition y = StyleKeyword.Initial;
+    public StyleColor color = StyleKeyword.Null;
+    public StyleBackgroundSize fit = StyleKeyword.Null;
+    public StyleBackground image = StyleKeyword.Null;
+    public StyleColor imageTintColor = StyleKeyword.Null;
+    public StyleBackgroundRepeat repeat = StyleKeyword.Null;
+    public StyleInt4 slice = StyleKeyword.Null;
+    public StyleFloat sliceScale = StyleKeyword.Null;
+    public StyleEnum<SliceType> sliceType = StyleKeyword.Null;
+    public StyleBackgroundPosition x = StyleKeyword.Null;
+    public StyleBackgroundPosition y = StyleKeyword.Null;
 
     public bool Equals(BackgroundStyle other) {
       if (other is null) return false;

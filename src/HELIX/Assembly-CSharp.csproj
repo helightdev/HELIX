@@ -54,6 +54,7 @@
     <Compile Include="Assets/Scripts/LegacyExamples.cs" />
     <Compile Include="Assets/Scripts/Examples/ThemeTokensExample.cs" />
     <Compile Include="Assets/Scripts/Examples/TextInputExample.cs" />
+    <Compile Include="Assets/Scripts/Examples/PromptsExample.cs" />
     <Compile Include="Assets/Scripts/ExampleThemeBehaviour.cs" />
     <Compile Include="Assets/Scripts/Examples/ScrollControllerExample.cs" />
     <Compile Include="Assets/Scripts/ExampleNavPage.cs" />
