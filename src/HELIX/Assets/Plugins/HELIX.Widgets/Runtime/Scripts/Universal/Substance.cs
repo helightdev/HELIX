@@ -22,6 +22,22 @@ namespace HELIX.Widgets.Universal {
   public abstract class Substance : DiagnosticableBase {
     public static SubstanceFactory Factory => SubstanceFactory.Instance;
     public abstract IWidgetListCandidate Build(BuildContext context, WidgetState state);
+
+    public static BuilderSubstance Builder(BuildFunction<WidgetState> builder) {
+      return new BuilderSubstance(builder);
+    }
+  }
+
+  public class BuilderSubstance : Substance {
+    private readonly BuildFunction<WidgetState> _builder;
+
+    public BuilderSubstance(BuildFunction<WidgetState> builder) {
+      _builder = builder;
+    }
+
+    public override IWidgetListCandidate Build(BuildContext context, WidgetState state) {
+      return _builder.Invoke(context, state);
+    }
   }
 
   public class ConditionalSubstance : Substance {

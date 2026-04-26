@@ -138,6 +138,7 @@
     <None Include="Library/PackageCache/com.unity.nuget.newtonsoft-json@4dfd81071c64/Runtime/AOT/Newtonsoft.Json.xml" />
     <None Include="Library/PackageCache/com.unity.timeline@bfd27f8016ff/ValidationExceptions.json" />
     <None Include="Library/PackageCache/com.unity.ugui@288051c775ab/Editor Resources/Shaders/TMP_SDF Internal Editor.shader" />
+    <None Include="Library/PackageCache/com.unity.device-simulator.devices@2af643ceec84/package.json" />
     <None Include="Library/PackageCache/com.unity.modules.director/package.json" />
     <None Include="Library/PackageCache/com.unity.visualscripting@eb6004dcc707/ValidationConfig.json" />
     <None Include="Assets/Swatches.uxml" />

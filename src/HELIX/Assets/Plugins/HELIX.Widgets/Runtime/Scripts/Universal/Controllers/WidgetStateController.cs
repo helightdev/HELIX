@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HELIX.Widgets.Prompts;
 using HELIX.Widgets.Signals;
 
 namespace HELIX.Widgets.Universal.Controllers {
@@ -15,7 +16,7 @@ namespace HELIX.Widgets.Universal.Controllers {
     ) {
       this.mask = mask;
       inheritance = inheritanceMask;
-      HelixInputDevice.Instance.AddObserver(new WeakSignalObserver(this));
+      HelixInputController.Instance.AddObserver(new WeakSignalObserver(this));
     }
 
     public IEnumerable<WidgetStateController> Children => _children;
@@ -55,7 +56,7 @@ namespace HELIX.Widgets.Universal.Controllers {
     }
 
     public override void SetValue(WidgetState newValue) {
-      var next = newValue | HelixInputDevice.Instance.Value.stateInputs;
+      var next = (newValue & ~WidgetState.MetaInput) | HelixInputController.Instance.Value.InputMask;
       foreach (var child in _children) next |= child.Value & inheritance;
       next &= mask;
 

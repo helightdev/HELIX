@@ -189,6 +189,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocCodeExamples", "DocCodeE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Multiplayer.Center.Tests", "Unity.Multiplayer.Center.Tests.csproj", "{1de00fa7-4c5f-a133-977f-f5bcc4476c97}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp-Editor-firstpass-testable", "Assembly-CSharp-Editor-firstpass-testable.csproj", "{e21b8931-23dd-fcc4-a2ed-d7d2035665a6}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.RenderPipelines.Core.Runtime.Tests", "Unity.RenderPipelines.Core.Runtime.Tests.csproj", "{02d32e18-3e02-67df-17ae-1fc550fecc93}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Multiplayer.Center.Editor.Tests", "Unity.Multiplayer.Center.Editor.Tests.csproj", "{411534f8-b70a-8dd9-13f5-0c1ec7dadf50}"
@@ -410,6 +412,8 @@ Global
 		{498fda43-0432-de37-aff4-c2a4327db933}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1de00fa7-4c5f-a133-977f-f5bcc4476c97}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1de00fa7-4c5f-a133-977f-f5bcc4476c97}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{e21b8931-23dd-fcc4-a2ed-d7d2035665a6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{e21b8931-23dd-fcc4-a2ed-d7d2035665a6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{02d32e18-3e02-67df-17ae-1fc550fecc93}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{02d32e18-3e02-67df-17ae-1fc550fecc93}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{411534f8-b70a-8dd9-13f5-0c1ec7dadf50}.Debug|Any CPU.ActiveCfg = Debug|Any CPU

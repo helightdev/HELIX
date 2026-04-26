@@ -64,9 +64,11 @@ namespace HELIX.Widgets.Signals {
         return;
       }
 
+      _notificationStackDepth++;
+      var buffer = ListPool<ISignalObserver>.Get();
       try {
-        _notificationStackDepth++;
-        foreach (var observer in _observers) {
+        buffer.AddRange(_observers);
+        foreach (var observer in buffer) {
           try {
             if (observer is IPossiblyDisposed { IsDisposed: true }) {
               RemoveObserver(observer);
@@ -85,7 +87,10 @@ namespace HELIX.Widgets.Signals {
             );
           }
         }
-      } finally { _notificationStackDepth--; }
+      } finally {
+        _notificationStackDepth--;
+        ListPool<ISignalObserver>.Release(buffer);
+      }
     }
 
     protected void NotifyObservers() {

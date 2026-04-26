@@ -72,7 +72,9 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/ThemeOverride.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Widget.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/HPanView.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/Kenny/KennyPromptProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/ScrollPosition.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/SvgResourcePromptLayerProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HThemeProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/IPossiblyDisposed.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/MarginModifier.cs" />
@@ -82,13 +84,12 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticableTree.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/Transitions/FadePageTransition.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticableNode.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/HelixInputDevice.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/WidgetStateModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/RingBuffer.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ClipModifier.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/Kenny/KennyVariant.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/FillGradientGenerator.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/MultiChildWidgetBaseElement.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/IPromptProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HStatefulBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ButtonControllerModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/PrimitiveSpacingScheme.cs" />
@@ -97,7 +98,9 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/PaddingModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/TextStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/OutlineSubstance.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/HelixInputController.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/DiagnosticsStackTrace.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/Kenny/KennyKeyboardMousePromptLayerProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/FlexibleModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/DiagnosticsBlock.cs" />
@@ -113,15 +116,19 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/HListView.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/EnumProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HCenter.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/IPromptLayerProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/BorderModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathBuilders/RectPathBuilder.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/DirectionalContainerElement.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/Kenny/KennySteamDeckPromptLayerProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/ThemeComponent.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/HTextFieldStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/BuildContext.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/RuntimeReflectionThemeLookup.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/HScrollView.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/WidgetHostElement.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/Kenny/KennyResourcePromptLayerProvider.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/GamepadVariant.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/WrappingBaseWidget.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/ObjectFlagProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/PositionModifier.cs" />
@@ -133,6 +140,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/Transitions/ModePageTransition.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/HSliderStyle.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/SpacerElement.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/HPrompt.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/IntProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Theme/TokenThemes.cs" />
@@ -141,6 +149,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/StringProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/TransitionsModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/ThemeProviderElement.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/Kenny/KennySteamControllerPromptLayerProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/ScrollerScrollPosition.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/Loaders.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathDrawers/GradientFillStrokePathDrawer.cs" />
@@ -163,6 +172,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/ModificationBarrier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/BaseElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Visual/PathBuilders/RoundedRectPathBuilder.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/Kenny/KennyXboxSeriesPromptLayerProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/GenericTextInput.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/FloatProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/EditorUtilities.cs" />
@@ -182,6 +192,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Substances/GhostSubstance.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/RowElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Reconciler.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/InputConfiguration.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HFlex.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/DiagnosticsPropertyErrorNode.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/BackgroundStyleProperty.cs" />
@@ -207,6 +218,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/SizeModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/OpacityModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/ColorProperty.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/HelixInputHelper.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/Styles/DefaultButtonStyles.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/TextStyleModifier.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/ManipulatorModifier.cs" />
@@ -214,8 +226,10 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HBoxShadow.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Navigation/NavStackElement.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HColumn.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/Kenny/KennyNintendoSwitch2PromptLayerProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/OwnershipChainErrorProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/DummyCounterList.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/Kenny/KennyPlaystationSeriesPromptLayerProvider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Error/ErrorDescription.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/KeyProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Theming/ThemeValue.cs" />
@@ -227,6 +241,7 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/IterableProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Utilities/IndexedReferencePriorityQueue.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HSubstanceBox.cs" />
+    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/InputDeviceType.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/WidgetState.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HGap.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Modifiers/FocusModifier.cs" />
@@ -240,7 +255,6 @@
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/GenericSlider.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/MessageProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Scrolling/ScrollController.cs" />
-    <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Prompts/KennyPrompts.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Universal/HError.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Diagnostics/Properties/NumProperty.cs" />
     <Compile Include="Assets/Plugins/HELIX.Widgets/Runtime/Scripts/Elements/BuildingWidgetBaseElement.cs" />

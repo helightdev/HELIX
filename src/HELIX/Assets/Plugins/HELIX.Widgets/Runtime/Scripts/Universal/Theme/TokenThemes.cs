@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using HELIX.Coloring;
 using HELIX.Types;
+using HELIX.Widgets.Prompts;
+using HELIX.Widgets.Prompts.Kenny;
 using HELIX.Widgets.Theming;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Substances;
@@ -88,8 +90,14 @@ namespace HELIX.Widgets.Universal.Theme {
       component => component.textField
     ).Compute(HTextFieldStyle.DefaultStyleOf);
 
+    public static readonly ThemeProperty<IPromptProvider> PromptProvider = ThemeProperty.ExtractMaybe(
+      "primitive-prompt-provider",
+      PrimitiveThemeComponent.Default,
+      component => component.promptProvider
+    ).Compute(_ => new KennyPromptProvider());
+
     public static readonly IReadOnlyList<ThemeProperty> Properties = new ThemeProperty[] {
-      Surface, ContainerLow, Container, TextVariant, Text, Button, ButtonFocusLayer, Slider, Scrollbar
+      Surface, ContainerLow, Container, TextVariant, Text, Button, ButtonFocusLayer, Slider, Scrollbar, TextField, PromptProvider
     };
 
     private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) {
@@ -110,6 +118,8 @@ namespace HELIX.Widgets.Universal.Theme {
     public ThemeOptional<Color> text;
     public ThemeOptional<Color> textContrast;
     public ThemeOptional<HTextFieldStyle> textField;
+
+    public ThemeOptional<IPromptProvider> promptProvider;
 
     public PrimitiveThemeComponent() {
       lookupScope = PrimitiveTheme.Properties;

@@ -1,10 +1,14 @@
 using System.Linq;
 using HELIX.Coloring;
 using HELIX.Widgets;
+using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Prompts;
+using HELIX.Widgets.Prompts.Kenny;
 using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Styles;
+using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using Axis = HELIX.Types.Axis;
 
@@ -21,8 +25,10 @@ namespace Examples {
     private bool _isColored = false;
     private bool _isIcon = false;
 
+    private IPromptProvider _provider = new KennyPromptProvider();
+
     public override Widget Build(BuildContext context) {
-      var prompts = new KennyKeyboardMousePromptProvider();
+      var prompts = new KennyKeyboardMousePromptLayerProvider();
       return new HColumn {
         new HRow {
           new HButton(
@@ -47,26 +53,54 @@ namespace Examples {
           ) { new HText("Icon") }
         },
         new HScrollView {
-          BuildPromptsFor(context, new KennyKeyboardMousePromptProvider()),
-          BuildPromptsFor(context, new KennyPlaystationSeriesPromptProvider()),
-          BuildPromptsFor(context, new KennyXboxSeriesPromptProvider()),
-          BuildPromptsFor(context, new KennySteamControllerPromptProvider()),
-          BuildPromptsFor(context, new KennySteamDeckPromptProvider()),
-          BuildPromptsFor(context, new KennyNintendoSwitch2PromptProvider())
+          new HRow {
+            new HButton(
+              onClick: () => HelixInputController.Instance.SetValue(
+                new InputConfiguration(InputDeviceType.KeyboardMouse, GamepadVariant.Generic)
+              ),
+              child: new HText("Keyboard&Mouse")
+            ),
+
+            new HButton(
+              onClick: () => HelixInputController.Instance.SetValue(
+                new InputConfiguration(InputDeviceType.Gamepad, GamepadVariant.Xbox)
+              ),
+              child: new HText("XBox")
+            ),
+
+            new HButton(
+              onClick: () => HelixInputController.Instance.SetValue(
+                new InputConfiguration(InputDeviceType.Gamepad, GamepadVariant.PlayStation)
+              ),
+              child: new HText("PlayStation")
+            ),
+          },
+          new HRow {
+            new HPrompt("Player/Move"),
+            new HPrompt("Player/Look"),
+            new HPrompt("Player/Attack")
+          }.WithModifier(new BackgroundStyleModifier(Colors.Grey)),
+
+          BuildPromptsFor(context, new KennyKeyboardMousePromptLayerProvider()),
+          BuildPromptsFor(context, new KennyPlaystationSeriesPromptLayerProvider()),
+          BuildPromptsFor(context, new KennyXboxSeriesPromptLayerProvider()),
+          BuildPromptsFor(context, new KennySteamControllerPromptLayerProvider()),
+          BuildPromptsFor(context, new KennySteamDeckPromptLayerProvider()),
+          BuildPromptsFor(context, new KennyNintendoSwitch2PromptLayerProvider())
         }.Fill()
       };
     }
 
-    public Widget BuildPromptsFor(BuildContext context, KennyResourcePromptProvider provider) {
+    public Widget BuildPromptsFor(BuildContext context, KennyResourcePromptLayerProvider layerProvider) {
       var variant = KennyVariant.None;
       if (_isOutline) variant |= KennyVariant.Outline;
       if (_isAlternative) variant |= KennyVariant.Alternative;
       if (_isColored) variant |= KennyVariant.Color;
       if (_isIcon) variant |= KennyVariant.Icon;
-      provider.Variant = variant;
+      layerProvider.Variant = variant;
 
-      var widgets = provider.Mapping.Keys.Select<string, Widget>(x => {
-          if (provider.TryResolvePrompt(context, x, out var layers)) {
+      var widgets = layerProvider.Mapping.Keys.Select<string, Widget>(x => {
+          if (layerProvider.TryResolvePromptLayer(context, x, out var layers)) {
             return new HSubstanceBox(substances: layers).Size(32, 32);
           }
 
@@ -75,7 +109,7 @@ namespace Examples {
       ).ToArray();
       return new HBox(background: Colors.Grey) {
         new HColumn(crossAxisAlign: Align.Stretch) {
-          new HText(provider.GetType().Name).Heading(context),
+          new HText(layerProvider.GetType().Name).Heading(context),
           new HFlex(Axis.Horizontal, wrap: true, children: widgets).Fill()
         }
       };

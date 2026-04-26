@@ -24,20 +24,15 @@ namespace HELIX.Widgets {
     Special1 = 1 << 8,
     Special2 = 1 << 9,
 
-    InputMouse = 1 << 10,
-    InputKeyboard = 1 << 11,
+    InputKeyboardMouse = 1 << 11,
     InputGamepad = 1 << 12,
     InputTouch = 1 << 13,
 
-    AnyInputPointer = ModAny | MetaInputPointer,
-    AnyInputButton = ModAny | MetaInputButton,
-
     MetaState = Hovered | Focused | Pressed | Dragged | Selected | Disabled | Error | Navigated | Special1 |
                 Special2,
-    MetaInputPointer = InputMouse | InputTouch,
-    MetaInputButton = InputKeyboard | InputGamepad,
-    MetaInput = MetaInputPointer | MetaInputButton,
-    MetaAll = MetaState | MetaInputPointer | MetaInputButton,
+
+    MetaInput = InputKeyboardMouse | InputGamepad | InputTouch,
+    MetaAll = MetaState | MetaInput,
 
     ModNot = 1 << 14,
     ModAny = 1 << 15
