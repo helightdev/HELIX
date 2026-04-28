@@ -151,6 +151,7 @@ src/HELIX/[Uu]ser[Ss]ettings/
 src/HELIX/*.sln
 src/HELIX/*.csproj
 src/HELIX/*.unitypackage
+_Recovery*
 !src/HELIX/Packages/
 
 *.xsd
