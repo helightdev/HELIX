@@ -28,7 +28,10 @@ namespace Examples {
           new HButton(
             HButtonVariant.TwoState,
             selected: _enabled,
-            child: new HText("Toggle Enabled"),
+            child: new HRow(gap: 8f) {
+              new HIcon(_enabled ? FaSolidIcons.ToggleOn : FaSolidIcons.ToggleOff, FaSolidIcons.FontDefinition),
+              new HText("Enabled")
+            },
             onClick: () => {
               _enabled = !_enabled;
               SetState();
@@ -37,7 +40,10 @@ namespace Examples {
           new HButton(
             HButtonVariant.TwoState,
             selected: _selected,
-            child: new HText("Toggle Selected"),
+            child: new HRow(gap: 8f) {
+              new HIcon(FaSolidIcons.MagnifyingGlass, FaSolidIcons.FontDefinition),
+              new HText("Selected")
+            },
             onClick: () => {
               _selected = !_selected;
               SetState();

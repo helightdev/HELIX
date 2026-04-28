@@ -14,7 +14,7 @@ namespace HELIX.Widgets.Universal.Styles {
     public StyleEnum<TextAnchor> align = StyleKeyword.Null;
     public StyleTextAutoSize autoSize = StyleKeyword.Null;
     public StyleColor color = StyleKeyword.Null;
-    public StyleFont font = StyleKeyword.Null;
+    public StyleFontDefinition font = StyleKeyword.Null;
     public StyleLength fontSize = StyleKeyword.Null;
     public StyleEnum<TextGeneratorType> generator = StyleKeyword.Null;
     public StyleLength letterSpacing = StyleKeyword.Null;
@@ -31,17 +31,18 @@ namespace HELIX.Widgets.Universal.Styles {
     public bool Equals(TextStyle other) {
       if (other is null) return false;
       if (ReferenceEquals(this, other)) return true;
-      return font.Equals(other.font) && fontSize.Equals(other.fontSize) && color.Equals(other.color) &&
+      return fontSize.Equals(other.fontSize) && color.Equals(other.color) &&
              align.Equals(other.align) && style.Equals(other.style) && wrap.Equals(other.wrap) &&
              outlineColor.Equals(other.outlineColor) && outlineWidth.Equals(other.outlineWidth) &&
              letterSpacing.Equals(other.letterSpacing) && wordSpacing.Equals(other.wordSpacing) &&
              paragraphSpacing.Equals(other.paragraphSpacing) && overflow.Equals(other.overflow) &&
              overflowPosition.Equals(other.overflowPosition) && shadow.Equals(other.shadow) &&
-             autoSize.Equals(other.autoSize) && generator.Equals(other.generator);
+             autoSize.Equals(other.autoSize) && generator.Equals(other.generator) &&
+             font.Equals(other.font);
     }
 
     public void Apply(VisualElement element) {
-      element.style.unityFont = font;
+      element.style.unityFontDefinition = font;
       element.style.fontSize = fontSize;
       element.style.color = color;
       element.style.unityTextAlign = align;
@@ -110,7 +111,7 @@ namespace HELIX.Widgets.Universal.Styles {
 
     public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
       base.DebugFillProperties(properties);
-      properties.Add(new StyleValueProperty<Font>("font", font));
+      properties.Add(new StyleValueProperty<FontDefinition>("font", font));
       properties.Add(new StyleValueProperty<Length>("fontSize", fontSize));
       properties.Add(new StyleValueProperty<Color>("color", color));
       properties.Add(new StyleValueProperty<TextAnchor>("align", align));

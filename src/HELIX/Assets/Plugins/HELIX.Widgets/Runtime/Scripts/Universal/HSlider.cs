@@ -141,6 +141,7 @@ namespace HELIX.Widgets.Universal {
       this.thumbSize = thumbSize;
       this.style = style;
       this.boxModifiers = boxModifiers ?? WidgetStateProperties.Never<ModifierSet>();
+      enabled = true;
     }
 
     public override State<HSlider> CreateState() {

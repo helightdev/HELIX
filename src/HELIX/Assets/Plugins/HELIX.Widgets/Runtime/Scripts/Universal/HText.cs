@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Modifiers;
@@ -39,6 +40,9 @@ namespace HELIX.Widgets.Universal {
     /// <param name="tripleClickSelectsLine">Whether triple-clicking selects entire lines.</param>
     /// <param name="languageDirection">The language direction for the text.</param>
     /// <param name="style">Style overrides to apply to the text.</param>
+    /// <param name="key">Passed on to <see cref="Widget.key"/>.</param>
+    /// <param name="constants">Passed on to <see cref="Widget.constants"/>.</param>
+    /// <param name="modifiers">Passed on to <see cref="Widget.modifiers"/>.</param>
     public HText(
       string text,
       bool enableRichText = false,
@@ -48,8 +52,11 @@ namespace HELIX.Widgets.Universal {
       bool doubleClickSelectsWords = true,
       bool tripleClickSelectsLine = true,
       LanguageDirection languageDirection = LanguageDirection.Inherit,
-      TextStyle style = null
-    ) {
+      TextStyle style = null,
+      Key key = default,
+      object[] constants = null,
+      IReadOnlyCollection<Modifier> modifiers = null
+    ) : base(key, constants) {
       this.text = text;
       this.enableRichText = enableRichText;
       this.emojiFallbackSupport = emojiFallbackSupport;
@@ -60,7 +67,7 @@ namespace HELIX.Widgets.Universal {
       this.languageDirection = languageDirection;
       this.style = style;
 
-      DefaultModifiers(_defaultModifiers, null);
+      DefaultModifiers(_defaultModifiers, modifiers);
     }
 
     public override Label Create() {

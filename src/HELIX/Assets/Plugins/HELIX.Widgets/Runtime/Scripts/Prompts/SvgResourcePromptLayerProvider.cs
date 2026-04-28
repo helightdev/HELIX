@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HELIX.Widgets.Prompts.Kenny;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Substances;
@@ -15,7 +16,7 @@ namespace HELIX.Widgets.Prompts {
     protected SvgResourcePromptLayerProvider(string collectionPath) {
       CollectionPath = collectionPath;
       _images = new Dictionary<string, VectorImage>();
-      var collection = Resources.Load<HelixSvgCollection>(CollectionPath);
+      var collection = Resources.Load<KennyPromptSvgCollection>(CollectionPath);
       foreach (var prompt in collection.prompts) { _images[prompt.name.ToLowerInvariant()] = prompt; }
     }
 

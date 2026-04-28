@@ -90,14 +90,21 @@ namespace HELIX.Widgets.Universal.Theme {
       component => component.textField
     ).Compute(HTextFieldStyle.DefaultStyleOf);
 
-    public static readonly ThemeProperty<IPromptProvider> PromptProvider = ThemeProperty.ExtractMaybe(
-      "primitive-prompt-provider",
+    public static readonly ThemeProperty<HPromptStyle> Prompt = ThemeProperty.ExtractMaybe(
+      "primitive-prompt",
       PrimitiveThemeComponent.Default,
-      component => component.promptProvider
-    ).Compute(_ => new KennyPromptProvider());
+      component => component.prompt
+    ).Compute(element => {
+        var height = PrimitiveBaseTheme.Typography.Get(element).LineHeight3;
+        return new HPromptStyle {
+          provider = new KennyPromptProvider(),
+          constraints = BoxConstraints.Preferred(height, height)
+        };
+      }
+    );
 
     public static readonly IReadOnlyList<ThemeProperty> Properties = new ThemeProperty[] {
-      Surface, ContainerLow, Container, TextVariant, Text, Button, ButtonFocusLayer, Slider, Scrollbar, TextField, PromptProvider
+      Surface, ContainerLow, Container, TextVariant, Text, Button, ButtonFocusLayer, Slider, Scrollbar, TextField, Prompt
     };
 
     private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) {
@@ -119,7 +126,7 @@ namespace HELIX.Widgets.Universal.Theme {
     public ThemeOptional<Color> textContrast;
     public ThemeOptional<HTextFieldStyle> textField;
 
-    public ThemeOptional<IPromptProvider> promptProvider;
+    public ThemeOptional<HPromptStyle> prompt;
 
     public PrimitiveThemeComponent() {
       lookupScope = PrimitiveTheme.Properties;

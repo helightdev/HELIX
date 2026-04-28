@@ -56,6 +56,7 @@ public partial class WidgetExamples : WidgetHostElement {
     ("Theme Tokens", new ThemeTokensExample()),
     ("ListView", new ListVirtualizationExample()),
     ("Prompts", new PromptsExample()),
+    ("Icons", new IconExample()),
     ("Red Box", new HBox(background: MaterialColors.Red))
   };
 

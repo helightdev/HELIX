@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using HELIX.Extensions;
 using HELIX.Widgets.Elements;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
@@ -7,6 +9,12 @@ namespace HELIX.Widgets {
     where T : VisualElement where S : WrappingBaseWidget<S, T> {
     public abstract void Apply(S previous, T element);
     public abstract T Create();
+
+    protected WrappingBaseWidget(
+      Key key = default,
+      object[] constants = null,
+      IReadOnlyCollection<Modifier> modifiers = null
+    ) : base(key, constants, modifiers) { }
 
     public override IWidgetElement CreateElement() {
       var element = Create();

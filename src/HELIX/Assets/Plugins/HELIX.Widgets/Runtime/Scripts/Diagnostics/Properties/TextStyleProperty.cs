@@ -45,7 +45,7 @@ namespace HELIX.Widgets.Diagnostics.Properties {
     public override List<DiagnosticsNode> GetProperties() {
       var list = base.GetProperties();
       if (ValueTyped == null) return list;
-      list.Add(new StyleValueProperty<Font>("font", ValueTyped.font));
+      list.Add(new StyleValueProperty<FontDefinition>("font", ValueTyped.font));
       list.Add(new StyleValueProperty<Length>("fontSize", ValueTyped.fontSize));
       list.Add(new StyleValueProperty<Color>("color", ValueTyped.color));
       list.Add(new StyleValueProperty<TextAnchor>("align", ValueTyped.align));
