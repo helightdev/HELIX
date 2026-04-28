@@ -1,0 +1,34 @@
+INPUT PROMPTS (v1.4.1)
+
+Created and distributed by Kenney
+Website: https://www.kenney.nl
+Creation Date: November 22, 2025
+
+----------------------------------------
+
+LICENSE
+
+This asset pack is released under the Creative Commons Zero (CC0) 1.0 Universal license.
+
+Full license text: https://creativecommons.org/publicdomain/zero/1.0/
+
+You are free to:
+- Use the content for personal, educational, and commercial purposes
+- Modify, distribute, and incorporate it into your projects without restriction
+
+Attribution:
+- Not required, but appreciated
+- Suggested credit: "Kenney" or "https://www.kenney.nl"
+
+----------------------------------------
+
+SUPPORT & LINKS
+
+Website:   https://www.kenney.nl
+Donate:    https://www.kenney.nl/donate
+Patreon:   https://patreon.com/kenney
+
+Social Media:
+- Twitter:   https://twitter.com/KenneyNL
+- Instagram: https://instagram.com/kenney_nl
+- Mastodon:  https://mastodon.gamedev.place/@kenney

@@ -10,7 +10,7 @@ namespace HELIX.Widgets.Universal {
       get {
         if (_definition.fontAsset) { return _definition; }
 
-        var asset = Resources.Load<FontAsset>("helix/FontAwesome7FreeSolid");
+        var asset = Resources.Load<FontAsset>("helix/fa/FontAwesome7FreeSolid");
         _definition = FontDefinition.FromSDFFont(asset);
         return _definition;
       }

@@ -42,10 +42,11 @@
     <ImplicitlyExpandDesignTimeFacades>false</ImplicitlyExpandDesignTimeFacades>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/input/License.txt" />
+    <None Include="Assets\Plugins\HELIX.Widgets\Runtime\Resources\helix\input\LICENSE.txt" />
     <None Include="Assets/Plugins/HELIX.Widgets/package.json" />
     <None Include="Assets/Plugins/HELIX.Widgets/Tests/Resources/materialColorFixture.json" />
-    <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/fontawesome_icons_only.txt" />
+    <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/fa/fontawesome_icons_only.txt" />
+    <None Include="Assets\Plugins\HELIX.Widgets\Runtime\Resources\helix\fa\LICENSE.txt" />
     <None Include="Assets/Plugins/HELIX.Widgets/Runtime/Resources/helix/helix.uss" />
     <None Include="Assets/Plugins/HELIX/package.json" />
     <Reference Include="UnityEngine">
