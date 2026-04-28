@@ -143,14 +143,14 @@ Assets/WSATestCertificate.pfx
 .idea
 
 # Unity
-src/UMarkdown/Library/*
-src/UMarkdown/Temp
-src/UMarkdown/Logs
-src/UMarkdown/UIElementsSchema
-src/UMarkdown/[Uu]ser[Ss]ettings/
-src/UMarkdown/*.sln
-src/UMarkdown/*.csproj
-src/UMarkdown/*.unitypackage
-!src/UMarkdown/Packages/
+src/HELIX/Library/*
+src/HELIX/Temp
+src/HELIX/Logs
+src/HELIX/UIElementsSchema
+src/HELIX/[Uu]ser[Ss]ettings/
+src/HELIX/*.sln
+src/HELIX/*.csproj
+src/HELIX/*.unitypackage
+!src/HELIX/Packages/
 
 *.xsd
