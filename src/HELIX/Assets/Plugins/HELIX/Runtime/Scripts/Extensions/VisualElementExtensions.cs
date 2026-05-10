@@ -77,11 +77,6 @@ namespace HELIX.Extensions {
       return element.NoPadding().NoMargin();
     }
 
-    public static T WithStyle<T>(this T element, Func<IStyle, UpdateStyle> updater) where T : VisualElement {
-      updater(element.style);
-      return element;
-    }
-
     public static T WithStyle<T>(this T element, Action<IStyle> updater) where T : VisualElement {
       updater(element.style);
       return element;
