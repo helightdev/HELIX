@@ -1,0 +1,16 @@
+{
+  "name": "Helix.Widgets.Tests",
+  "rootNamespace": "HELIX.Widgets.Tests",
+  "references": [
+    "HELIX",
+    "HELIX.Widgets"
+  ],
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": []
+}
