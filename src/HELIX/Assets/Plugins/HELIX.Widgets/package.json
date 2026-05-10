@@ -5,9 +5,9 @@
     "name": "Christoph 'HelightDev' Feuerer",
     "url": "https://helight.dev"
   },
-  "version": "0.1.5",
-  "unity": "6000.3",
-  "description": "Provides a set of default widgets for use with HELIX.",
+  "version": "0.2.0",
+  "unity": "6000.4",
+  "description": "Provides the widget framework for the HELIX UI Toolkit extensions.",
   "keywords": [
     "UI Toolkit",
     "HELIX"

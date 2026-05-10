@@ -5,8 +5,8 @@
     "name": "Christoph 'HelightDev' Feuerer",
     "url": "https://helight.dev"
   },
-  "version": "0.1.2",
-  "unity": "6000.3",
+  "version": "0.2.0",
+  "unity": "6000.4",
   "description": "A collection of customizable and reusable UI components, styles, and utilities for UI Toolkit.",
   "keywords": [
     "UI Toolkit",
