@@ -91,6 +91,7 @@ namespace HELIX.Widgets.Universal {
       element.style.fontSize = fontSize;
       element.style.color = color;
       element.style.unityTextAlign = align;
+      element.style.unityTextGenerator = TextGeneratorType.Standard;
     }
 
     public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
