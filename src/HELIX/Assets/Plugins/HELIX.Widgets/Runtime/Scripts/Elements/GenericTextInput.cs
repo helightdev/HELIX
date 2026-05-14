@@ -20,6 +20,9 @@ namespace HELIX.Widgets.Elements {
 
     private GenericTextInputStyle _textInputStyle = GenericTextInputStyle.Light;
 
+    private bool _wasSpaceEntered = false;
+    private readonly TextElement _textEdition;
+
     public GenericTextInput() {
       delegatesFocus = true;
       this.WithStylesheet(AuxiliaryStylesheets.Helix).AddClasses("helix-generic-text-input");
@@ -30,11 +33,22 @@ namespace HELIX.Widgets.Elements {
       BackingTextField.RegisterCallback<FocusEvent>(_ => { OnFocus?.Invoke(); });
       BackingTextField.RegisterCallback<BlurEvent>(_ => { OnBlur?.Invoke(); });
 
-      var element = BackingTextField.textEdition as VisualElement ?? BackingTextField;
-      element.RegisterCallback<FocusEvent>(_ => { OnBeginEditing?.Invoke(); });
-      element.RegisterCallback<BlurEvent>(_ => { OnEndEditing?.Invoke(); });
-      element.RegisterCallback<NavigationSubmitEvent>(_ => { OnSubmit?.Invoke(Value); });
-      element.RegisterCallback<NavigationCancelEvent>(_ => { OnCancel?.Invoke(); });
+      _textEdition = (BackingTextField.textEdition as VisualElement ?? BackingTextField) as TextElement;
+      if (_textEdition == null) throw new Exception("Text field edition is not a text element");
+      _textEdition.RegisterCallback<FocusEvent>(_ => { OnBeginEditing?.Invoke(); });
+      _textEdition.RegisterCallback<BlurEvent>(_ => { OnEndEditing?.Invoke(); });
+      _textEdition.RegisterCallback<KeyDownEvent>(evt => {
+        _wasSpaceEntered = evt.keyCode == KeyCode.Space;
+      }, TrickleDown.TrickleDown);
+      _textEdition.RegisterCallback<NavigationSubmitEvent>(evt => {
+        if (_wasSpaceEntered) {
+          _wasSpaceEntered = false;
+          return;
+        }
+        OnSubmit?.Invoke(Value);
+      });
+      _textEdition.RegisterCallback<NavigationCancelEvent>(_ => { OnCancel?.Invoke(); });
+      _textEdition.style.unityTextAlign = TextAnchor.MiddleLeft;
     }
 
     public TextField BackingTextField { get; }
@@ -143,8 +157,13 @@ namespace HELIX.Widgets.Elements {
       set => BackingTextField.isDelayed = value;
     }
 
+    public TextAnchor TextAlignment {
+      get => _textEdition.style.unityTextAlign.value;
+      set => _textEdition.style.unityTextAlign = value;
+    }
+
     public void RequestEditingFocus() {
-      BackingTextField.schedule.Execute(() => BackingTextField.Focus()).ExecuteLater(0);
+      BackingTextField.schedule.Execute(() => BackingTextField.Focus()).ExecuteLater(1);
     }
 
     public event Action OnBeginEditing;

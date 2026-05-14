@@ -17,14 +17,14 @@ namespace HELIX.Widgets.Signals {
     public static SignalDependencyTracker Current;
     private readonly ISignalObserver _forwarder;
     private readonly HashSet<Signal> _implicitBuffer = new();
-    private readonly Action _onDependenciesChanged;
     private readonly Queue<Signal> _removalQueue = new();
 
     public readonly Dictionary<Signal, SignalDependencyType> dependencies = new();
     public object owner;
+    public event Action<Signal> OnDependenciesChanged;
 
     public SignalDependencyTracker(Action onDependenciesChanged) {
-      _onDependenciesChanged = onDependenciesChanged;
+      OnDependenciesChanged += signal => onDependenciesChanged?.Invoke();
     }
 
     public SignalDependencyTracker(ISignalObserver forwarder) {
@@ -45,7 +45,7 @@ namespace HELIX.Widgets.Signals {
 
     public void OnSignalChanged(Signal signal) {
       if (IsDisposed) return;
-      _onDependenciesChanged?.Invoke();
+      OnDependenciesChanged?.Invoke(signal);
       _forwarder?.OnSignalChanged(signal);
     }
 
@@ -115,14 +115,18 @@ namespace HELIX.Widgets.Signals {
       else DependOnExplicit(signal);
     }
 
-    public void DependOnExplicit(Signal signal) {
+    public void DependOnExplicit(Signal signal, bool weak = false) {
       if (Equals(signal, _forwarder)) throw new InvalidOperationException("A signal cannot depend on itself.");
 
       if (dependencies.TryGetValue(signal, out var dependencyType)) {
         if (dependencyType == SignalDependencyType.Explicit) return;
-        dependencies[signal] = SignalDependencyType.Explicit;
+        signal.RemoveObserver(this);
+      }
+
+      dependencies[signal] = SignalDependencyType.Explicit;
+      if (weak) {
+        signal.AddObserver(new WeakSignalObserver(this));
       } else {
-        dependencies[signal] = SignalDependencyType.Explicit;
         signal.AddObserver(this);
       }
     }

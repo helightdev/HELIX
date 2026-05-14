@@ -8,6 +8,8 @@ using UnityEngine;
 namespace HELIX.Widgets.Diagnostics {
   public static class HelixDiagnostics {
     public static Func<HelixDiagnosticException, string> PresentError = error => error.ToStringDeep();
+    public static event Action<HelixDiagnosticException, DiagnosticLevel> OnErrorReported;
+    public static string LogSignature = "<size=0>HELIX-8a9f0aac-e33d-4246-b349-56a4a5cc6d66</size>";
 
     public static string FormatException(Exception exception, string summary = null) {
       if (exception is HelixDiagnosticException diagnosticsException) return PresentError(diagnosticsException);
@@ -94,10 +96,13 @@ namespace HELIX.Widgets.Diagnostics {
 #endif
       if (level < requiredLevel) return;
 
+      OnErrorReported?.Invoke(exception, level);
+      var presented = PresentError(exception);
+      presented += LogSignature;
       switch (level) {
-        case <= DiagnosticLevel.Info: Debug.Log(PresentError(exception)); break;
-        case <= DiagnosticLevel.Warning: Debug.LogWarning(PresentError(exception)); break;
-        case <= DiagnosticLevel.Error: Debug.LogError(PresentError(exception)); break;
+        case <= DiagnosticLevel.Info: Debug.Log(presented); break;
+        case <= DiagnosticLevel.Warning: Debug.LogWarning(presented); break;
+        case <= DiagnosticLevel.Error: Debug.LogError(presented); break;
       }
     }
 

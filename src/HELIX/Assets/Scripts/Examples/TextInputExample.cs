@@ -4,6 +4,7 @@ using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Utilities;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Examples {
@@ -21,6 +22,7 @@ namespace Examples {
     public override void InitState() {
       base.InitState();
       _sharedController.SetValue("Type something...");
+      _sharedController.onSubmitted += value => { Debug.Log($"Submitted value: {value}"); };
     }
 
     public override void Dispose() {

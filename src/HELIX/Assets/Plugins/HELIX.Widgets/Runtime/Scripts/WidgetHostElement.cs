@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Elements;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -41,8 +42,6 @@ namespace HELIX.Widgets {
 
     protected override void OnAttached(AttachToPanelEvent evt) {
       base.OnAttached(evt);
-
-      if (_hasState) Debug.Log("Widget host hierarchy has moved before disposal!");
 
       var nearestWidget = GetFirstAncestorOfType<IWidgetElement>();
       if (nearestWidget == null) {
