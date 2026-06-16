@@ -1,0 +1,18 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": [
+            "HELIX.csproj",
+            "HELIX.Editor.csproj",
+            "HELIX.Widgets.csproj",
+            "HELIX.Widgets.Editor.csproj"
+          ],
+          "src": "src/HELIX/"
+        }
+      ],
+      "dest": "docs/docfx"
+    }
+  ]
+}
