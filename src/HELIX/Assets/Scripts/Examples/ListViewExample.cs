@@ -61,18 +61,20 @@ namespace Examples {
         ? context.GetThemed(PrimitiveTheme.Container)
         : context.GetThemed(PrimitiveTheme.ContainerLow);
 
+      var text = $"Item {index + 1:000} {(isFeatured ? "Featured" : "")}";
       var children = isExpanded
         ? new Widget[] {
-          new HText($"Item {index + 1:000}").Body(context),
-          new HText("Featured rows include a second line of copy to demonstrate dynamic height virtualization.")
+          new HText(text).Body(context),
+          new HText("Expanded rows include a second line of copy to demonstrate dynamic height virtualization.")
             .Caption(context),
           new HText("When fixed item height is disabled, the list can size itself to this taller content.")
             .Caption(context)
         }
-        : new Widget[] { new HText($"Item {index + 1:000}").Body(context), new HText("Compact row.").Caption(context) };
+        : new Widget[] { new HText(text).Body(context), new HText("Compact row.").Caption(context) };
 
-      return new HBox(background: background, borderRadius: BorderRadius.All(12))
-        { new HColumn(gap: 4, children: children) }.Padding(12).Fill();
+      return new HBox(background: background) {
+        new HColumn(gap: 4, children: children)
+      }.Padding(12).Fill();
     }
   }
 }

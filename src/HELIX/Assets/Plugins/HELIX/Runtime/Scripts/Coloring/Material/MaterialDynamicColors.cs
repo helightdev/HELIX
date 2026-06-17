@@ -1,10 +1,10 @@
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Tokens, or named colors, in the Material Design system.
-    /// </summary>
-    public static class MaterialDynamicColors {
+  /// <summary>
+  ///   Tokens, or named colors, in the Material Design system.
+  /// </summary>
+  public static class MaterialDynamicColors {
     public const double ContentAccentToneDelta = 15.0;
 
     public static readonly DynamicColor PrimaryPaletteKeyColor = DynamicColor.FromPalette(

@@ -2,10 +2,10 @@ using System;
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   HCT, hue, chroma, and tone.
-    /// </summary>
-    public sealed class Hct : IEquatable<Hct> {
+  /// <summary>
+  ///   HCT, hue, chroma, and tone.
+  /// </summary>
+  public sealed class Hct : IEquatable<Hct> {
     private int _argb;
     private double _chroma;
     private double _hue;

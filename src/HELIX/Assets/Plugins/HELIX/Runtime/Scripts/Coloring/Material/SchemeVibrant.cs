@@ -1,9 +1,9 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A Dynamic Color theme that maxes out colorfulness at each position in the
-    ///   primary tonal palette.
-    /// </summary>
-    public sealed class SchemeVibrant : DynamicScheme {
+  /// <summary>
+  ///   A Dynamic Color theme that maxes out colorfulness at each position in the
+  ///   primary tonal palette.
+  /// </summary>
+  public sealed class SchemeVibrant : DynamicScheme {
     private static readonly double[] _hues = { 0, 41, 61, 101, 131, 181, 251, 301, 360 };
 
     private static readonly double[] _secondaryRotations = { 18, 15, 10, 12, 15, 18, 15, 12, 12 };

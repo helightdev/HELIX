@@ -1,17 +1,17 @@
 using UnityEngine;
 
 namespace HELIX.Coloring.Material {
+  /// <summary>
+  ///   Unity-facing helpers and extensions for Material Color Utilities.
+  ///   This file is intended to sit on top of the lower-level ported types:
+  ///   Hct, Cam16, Blend, DynamicScheme, DynamicColor, TonalPalette,
+  ///   MaterialDynamicColors, Contrast, Variant, and the scheme preset classes.
+  /// </summary>
+  public static class MaterialSchemeFactory {
     /// <summary>
-    ///   Unity-facing helpers and extensions for Material Color Utilities.
-    ///   This file is intended to sit on top of the lower-level ported types:
-    ///   Hct, Cam16, Blend, DynamicScheme, DynamicColor, TonalPalette,
-    ///   MaterialDynamicColors, Contrast, Variant, and the scheme preset classes.
+    ///   Creates a dynamic scheme from an ARGB seed color and a preset variant.
     /// </summary>
-    internal static class MaterialSchemeFactory {
-        /// <summary>
-        ///   Creates a dynamic scheme from an ARGB seed color and a preset variant.
-        /// </summary>
-        public static DynamicScheme CreateScheme(
+    public static DynamicScheme CreateScheme(
       int sourceArgb,
       Variant variant = Variant.TonalSpot,
       bool isDark = false,
@@ -20,10 +20,10 @@ namespace HELIX.Coloring.Material {
       return CreateScheme(Hct.FromInt(sourceArgb), variant, isDark, contrastLevel);
     }
 
-        /// <summary>
-        ///   Creates a dynamic scheme from a Unity gamma-space color and a preset variant.
-        /// </summary>
-        public static DynamicScheme CreateScheme(
+    /// <summary>
+    ///   Creates a dynamic scheme from a Unity gamma-space color and a preset variant.
+    /// </summary>
+    public static DynamicScheme CreateScheme(
       Color sourceColor,
       Variant variant = Variant.TonalSpot,
       bool isDark = false,
@@ -32,10 +32,10 @@ namespace HELIX.Coloring.Material {
       return CreateScheme(sourceColor.ToArgb(), variant, isDark, contrastLevel);
     }
 
-        /// <summary>
-        ///   Creates a dynamic scheme from an HCT seed color and a preset variant.
-        /// </summary>
-        public static DynamicScheme CreateScheme(
+    /// <summary>
+    ///   Creates a dynamic scheme from an HCT seed color and a preset variant.
+    /// </summary>
+    public static DynamicScheme CreateScheme(
       Hct sourceColorHct,
       Variant variant = Variant.TonalSpot,
       bool isDark = false,

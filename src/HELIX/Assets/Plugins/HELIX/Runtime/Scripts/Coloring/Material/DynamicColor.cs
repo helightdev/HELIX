@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A color that adjusts itself based on UI state provided by DynamicScheme.
-    /// </summary>
-    public sealed class DynamicColor {
+  /// <summary>
+  ///   A color that adjusts itself based on UI state provided by DynamicScheme.
+  /// </summary>
+  public sealed class DynamicColor {
     private readonly Dictionary<DynamicScheme, Hct> _hctCache = new();
 
     public DynamicColor(

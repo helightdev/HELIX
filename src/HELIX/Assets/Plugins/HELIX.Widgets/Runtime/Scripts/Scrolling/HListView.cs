@@ -86,19 +86,20 @@ namespace HELIX.Widgets.Scrolling {
 
     protected override void OnAttached(AttachToPanelEvent evt) {
       base.OnAttached(evt);
-      _scrollController?.Attach(_scrollPosition);
+      if (_scrollController?.ScrollPosition != _scrollPosition)
+        _scrollController?.Attach(_scrollPosition);
     }
 
     protected override void OnDetached(DetachFromPanelEvent evt) {
       base.OnDetached(evt);
-      _scrollController?.Detach(_scrollPosition);
+      if (_scrollController?.ScrollPosition == _scrollPosition)
+        _scrollController.Detach(_scrollPosition);
     }
 
     private void UnbindItem(VisualElement elem, int index) {
       var host = elem as WidgetHostElement;
       if (host == null) return;
       host.Buildable = null;
-      ModificationBarrier.Rebuild(host);
     }
 
     private void BindItem(VisualElement elem, int index) {
@@ -108,13 +109,11 @@ namespace HELIX.Widgets.Scrolling {
       host.style.backgroundColor = Color.clear;
       if (index < 0 || index >= typed.count) {
         host.Buildable = null;
-        ModificationBarrier.Rebuild(host);
         return;
       }
 
       var buildable = new ParameterizedFunctionBuildable<int>(typed.builder, index);
       host.Buildable = buildable;
-      ModificationBarrier.Rebuild(host);
     }
 
     public override void Apply(HListView previous, HListView widget) {

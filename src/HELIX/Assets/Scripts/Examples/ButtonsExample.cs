@@ -57,7 +57,7 @@ namespace Examples {
         new HBox().Size(height: 32),
         new HRow(gap: 16f) {
           new HButton(
-            HButtonVariant.FlatTwoState,
+            HButtonVariant.Flat,
             child: new HText("Controlled Button"),
             controller: _controlledButton
           ),

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using HELIX.Abstractions;
@@ -23,7 +24,7 @@ namespace HELIX.Widgets.Elements {
       new HierarchyDescriptionCollection(contentContainer).LoadWidgetElements(elements);
     }
 
-    public virtual void UpdateWidgetElements(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas) {
+    public virtual void UpdateWidgetElements(Span<IWidgetElement> result, Span<ReconcilerCollectionDelta> deltas) {
       new HierarchyDescriptionCollection(contentContainer).UpdateWidgetElements(result, deltas);
     }
 

@@ -1,9 +1,9 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A Dynamic Color theme with low to medium colorfulness and a tertiary
-    ///   palette with a hue related to the source color.
-    /// </summary>
-    public sealed class SchemeTonalSpot : DynamicScheme {
+  /// <summary>
+  ///   A Dynamic Color theme with low to medium colorfulness and a tertiary
+  ///   palette with a hue related to the source color.
+  /// </summary>
+  public sealed class SchemeTonalSpot : DynamicScheme {
     public SchemeTonalSpot(
       Hct sourceColorHct,
       bool isDark,

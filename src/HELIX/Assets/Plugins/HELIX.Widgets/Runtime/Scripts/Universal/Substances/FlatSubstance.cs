@@ -12,21 +12,38 @@ namespace HELIX.Widgets.Universal.Substances {
       ColorTokenPalette palette,
       SurfaceColorPalette surface,
       BorderRadius borderRadius,
-      LayerOpacityProgression progression
+      LayerOpacityProgression progression,
+      bool withSelected = true
     ) {
-      return new BoxSubstance {
-        borderRadius = new AllWidgetStateProperty<BorderRadius>(borderRadius),
-        background = new WidgetStatePropertyMap<BackgroundStyle> {
-          [WidgetState.Disabled] = surface.onMain.WithOpacity(progression.disabledLow),
-          [WidgetState.ModAny | WidgetState.Pressed | WidgetState.Selected] =
-            Color.Lerp(palette.main, surface.onMain, progression.normal),
-          [WidgetState.Hovered] = Color.Lerp(inactive.main, surface.onMain, progression.low),
-          [WidgetState.None] = inactive.main
-        },
-        transitions = new AllWidgetStateProperty<Transition[]>(
-          new Transition[] { new(StyleProperties.BackgroundColor) { duration = 0.1f } }
-        )
-      };
+      if (withSelected) {
+        return new BoxSubstance {
+          borderRadius = new AllWidgetStateProperty<BorderRadius>(borderRadius),
+          background = new WidgetStatePropertyMap<BackgroundStyle> {
+            [WidgetState.Disabled] = surface.onMain.WithOpacity(progression.disabledLow),
+            [WidgetState.ModAny | WidgetState.Pressed | WidgetState.Selected] =
+              Color.Lerp(palette.main, surface.onMain, progression.normal),
+            [WidgetState.Hovered] = Color.Lerp(inactive.main, surface.onMain, progression.low),
+            [WidgetState.None] = inactive.main
+          },
+          transitions = new AllWidgetStateProperty<Transition[]>(
+            new Transition[] { new(StyleProperties.BackgroundColor) { duration = 0.1f } }
+          )
+        };
+      } else {
+        return new BoxSubstance {
+          borderRadius = new AllWidgetStateProperty<BorderRadius>(borderRadius),
+          background = new WidgetStatePropertyMap<BackgroundStyle> {
+            [WidgetState.Disabled] = surface.onMain.WithOpacity(progression.disabledLow),
+            [WidgetState.ModAny | WidgetState.Pressed] =
+              Color.Lerp(palette.main, surface.onMain, progression.normal),
+            [WidgetState.Hovered] = Color.Lerp(inactive.main, surface.onMain, progression.low),
+            [WidgetState.None] = inactive.main
+          },
+          transitions = new AllWidgetStateProperty<Transition[]>(
+            new Transition[] { new(StyleProperties.BackgroundColor) { duration = 0.1f } }
+          )
+        };
+      }
     }
 
     public static BuilderAndSubstance<TBuilder, BoxSubstance> Flat<TBuilder>(
@@ -35,7 +52,8 @@ namespace HELIX.Widgets.Universal.Substances {
       ColorTokenPalette palette = null,
       SurfaceColorPalette surface = null,
       BorderRadius? borderRadius = null,
-      HInputRadius inputRadius = HInputRadius.Medium
+      HInputRadius inputRadius = HInputRadius.Medium,
+      bool withSelected = true
     ) where TBuilder : ISubstanceBuilder<TBuilder> {
       return builder.Append(context => {
           var colors = PrimitiveBaseTheme.Colors.Get(context, builder.Listening);
@@ -57,7 +75,7 @@ namespace HELIX.Widgets.Universal.Substances {
               )
             }
           );
-          return Flat(inactive, palette, surface, effectiveRadius, colors.layerOpacityProgression);
+          return Flat(inactive, palette, surface, effectiveRadius, colors.layerOpacityProgression, withSelected);
         }
       );
     }

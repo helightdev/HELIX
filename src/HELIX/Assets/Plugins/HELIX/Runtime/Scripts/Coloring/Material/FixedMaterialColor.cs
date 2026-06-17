@@ -2,11 +2,11 @@ using System;
 using UnityEngine;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Exact pre-created standard swatch.
-    ///   Use this when you need to match Flutter's hard-coded tables exactly.
-    /// </summary>
-    public sealed class FixedMaterialColor : MaterialColor {
+  /// <summary>
+  ///   Exact pre-created standard swatch.
+  ///   Use this when you need to match Flutter's hard-coded tables exactly.
+  /// </summary>
+  public sealed class FixedMaterialColor : MaterialColor {
     private readonly int[] _argbs;
 
     public FixedMaterialColor(

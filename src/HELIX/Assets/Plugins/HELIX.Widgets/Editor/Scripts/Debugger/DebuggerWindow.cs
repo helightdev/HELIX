@@ -9,10 +9,12 @@ using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Signals;
+using HELIX.Widgets.Theming;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Controllers;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Substances;
+using HELIX.Widgets.Universal.Theme;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -22,12 +24,20 @@ namespace HELIX.Widgets.Editor.Debugger {
     private void CreateGUI() {
       rootVisualElement.Add(
         new WidgetHostElement {
-          Buildable = new DebuggerWidget().Stretch().ToBuildable()
+          Buildable = new HThemeProvider(
+            new List<ThemeComponent>() {
+              new PrimitiveBaseThemeComponent {
+                colors = PrimitiveColorScheme.From(MaterialColors.Indigo, Brightness.Dark)
+              }
+            }
+          ) {
+            new DebuggerWidget()
+          }.Stretch().ToBuildable()
         }.Stretched()
       );
     }
 
-    [MenuItem("HELIX/Debugger")]
+    [MenuItem("Window/HELIX/Debugger", false, 1000)]
     private static void ShowWindow() {
       var window = GetWindow<DebuggerWindow>();
       window.titleContent = new GUIContent("Widget Debugger");

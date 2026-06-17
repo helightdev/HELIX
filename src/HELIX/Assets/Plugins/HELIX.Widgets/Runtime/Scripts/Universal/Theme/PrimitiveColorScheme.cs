@@ -62,6 +62,33 @@ namespace HELIX.Widgets.Universal.Theme {
 
     public virtual TonalPalette TonalPalette => tonalPalette ??= TonalPalette.FromHct(main.ToHct());
 
+    public static ColorTokenPalette Simple(Color main, Color onMain) {
+      var container = Color.Lerp(main, onMain, 0.12f);
+      return new ColorTokenPalette {
+        main = main,
+        onMain = onMain,
+        container = container,
+        onContainer = onMain,
+        solid = main,
+        solidDim = main,
+        onSolid = onMain,
+        onSolidVariant = onMain,
+      };
+    }
+
+    public static ColorTokenPalette Simple(Color main, Color onMain, Color container, Color onContainer) {
+      return new ColorTokenPalette {
+        main = main,
+        onMain = onMain,
+        container = container,
+        onContainer = onContainer,
+        solid = main,
+        solidDim = main,
+        onSolid = onMain,
+        onSolidVariant = onMain,
+      };
+    }
+
     public static ColorTokenPalette Primary(DynamicScheme scheme) {
       return new ColorTokenPalette {
         main = scheme.GetColor(MaterialDynamicColors.Primary),
@@ -127,6 +154,50 @@ namespace HELIX.Widgets.Universal.Theme {
     public Color onMain;
     public Color onVariant;
     public Color variant;
+
+    public static SurfaceColorPalette Simple(Color main, Color container, Color onMain, Color onVariant) {
+      return new SurfaceColorPalette {
+        main = main,
+        onMain = onMain,
+        container = container,
+        containerLow = container,
+        containerHigh = container,
+        containerHighest = container,
+
+
+        onVariant = onVariant,
+        variant = main,
+
+        inverse = main,
+        onInverse = onMain,
+        onInverseAccent = onMain
+      };
+    }
+
+    public static SurfaceColorPalette Simple(
+      Color main,
+      Color containerLow,
+      Color container,
+      Color containerHigh,
+      Color onMain,
+      Color onVariant
+    ) {
+      return new SurfaceColorPalette {
+        main = main,
+        onMain = onMain,
+        container = container,
+        containerLow = containerLow,
+        containerHigh = containerHigh,
+        containerHighest = containerHigh,
+
+        onVariant = onVariant,
+        variant = main,
+
+        inverse = main,
+        onInverse = onMain,
+        onInverseAccent = onMain
+      };
+    }
 
     public static SurfaceColorPalette From(DynamicScheme scheme) {
       return new SurfaceColorPalette {

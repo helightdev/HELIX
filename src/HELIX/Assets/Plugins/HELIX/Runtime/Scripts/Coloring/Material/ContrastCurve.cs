@@ -1,8 +1,8 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A class containing a value that changes with the contrast level.
-    /// </summary>
-    public sealed class ContrastCurve {
+  /// <summary>
+  ///   A class containing a value that changes with the contrast level.
+  /// </summary>
+  public sealed class ContrastCurve {
     public ContrastCurve(double low, double normal, double medium, double high) {
       Low = low;
       Normal = normal;

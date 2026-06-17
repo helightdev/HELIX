@@ -3,14 +3,49 @@ using System.Diagnostics.CodeAnalysis;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Formatting;
 using HELIX.Widgets.Theming;
+using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
   [SuppressMessage("ReSharper", "ParameterHidesMember")]
-  public abstract class WidgetBaseElement : BaseElement, IWidgetElement {
+  public abstract class WidgetBaseElement : BaseElement, IWidgetElement, IReconcileScheduler,
+    IScheduledReconcileRunner {
     public Widget Descriptor { get; set; }
     public BuildContext ParentContext { get; set; }
     public abstract bool CanReconcile(Widget updated);
     public abstract bool Reconcile(Widget updated);
+
+    private ReconcileMode _reconcileMode;
+    private Widget _reconcileTarget;
+
+    protected override void OnAttached(AttachToPanelEvent evt) {
+      base.OnAttached(evt);
+      RunScheduledReconcile();
+    }
+
+    public void ScheduleReconcile(Widget descriptor, ReconcileMode mode = ReconcileMode.AfterParent) {
+      if (mode == ReconcileMode.Eager) {
+        Reconciler.Reconcile(this, descriptor);
+      } else {
+        _reconcileMode = mode;
+        _reconcileTarget = descriptor;
+      }
+    }
+
+    public bool TryRunScheduledReconcile(ReconcileMode mode) {
+      if (_reconcileTarget == null || _reconcileMode != mode) return false;
+      RunScheduledReconcile();
+      return true;
+    }
+
+    private void RunScheduledReconcile() {
+      if (_reconcileTarget == null) return;
+      var target = _reconcileTarget;
+      try {
+        Reconciler.Reconcile(this, target);
+      } finally {
+        if (ReferenceEquals(_reconcileTarget, target)) _reconcileTarget = null;
+      }
+    }
 
     public virtual List<DiagnosticsNode> DebugDescribeChildren() {
       return new List<DiagnosticsNode>();
