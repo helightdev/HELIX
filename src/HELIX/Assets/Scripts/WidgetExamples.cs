@@ -1,7 +1,4 @@
-using System.Collections.Generic;
 using System.Linq;
-using Examples;
-using HELIX.Coloring.Material;
 using HELIX.Types;
 using HELIX.Widgets;
 using HELIX.Widgets.Modifiers;
@@ -16,6 +13,24 @@ public partial class WidgetExamples : WidgetHostElement {
   private readonly GlobalKey<NavStackElement> _navStackKey = new();
 
   public WidgetExamples() {
+    ShowGallery();
+  }
+
+  public bool ShowPreview(string previewId) {
+    if (string.IsNullOrWhiteSpace(previewId)) {
+      ShowGallery();
+      return true;
+    }
+
+    var normalized = NormalizePreviewId(previewId);
+    var page = Pages.FirstOrDefault(e => NormalizePreviewId(e.Id) == normalized || NormalizePreviewId(e.Title) == normalized);
+    if (page.Create == null) return false;
+
+    Buildable = PreviewFrame(page.Create()).Stretch().ToBuildable();
+    return true;
+  }
+
+  public void ShowGallery() {
     Buildable = new HStatefulBuilder((context, state) =>
       new HColumn(
         modifiers: new Modifier[] {
@@ -36,10 +51,10 @@ public partial class WidgetExamples : WidgetHostElement {
               new HButton(
                 onClick: () => {
                   _navStackKey.Element.PushReplacement(
-                    new WidgetNavPage { Buildable = e.Item2.ToBuildable() }
+                    new WidgetNavPage { Buildable = PreviewFrame(e.Create()).ToBuildable() }
                   );
                 }
-              ) { new HText(e.Item1) }
+              ) { new HText(e.Title) }
             ).Spread(new HGap()),
             new HGap(2)
           }
@@ -47,18 +62,6 @@ public partial class WidgetExamples : WidgetHostElement {
       }
     ).Stretch().ToBuildable();
   }
-
-  public List<(string, Widget)> Pages { get; } = new() {
-    ("Buttons", new ButtonsExample()),
-    ("Text Input", new TextInputExample()),
-    ("Scroll Controller", new ScrollControllerExample()),
-    ("Substances & States", new StateSubstanceExample()),
-    ("Theme Tokens", new ThemeTokensExample()),
-    ("ListView", new ListVirtualizationExample()),
-    ("Prompts", new PromptsExample()),
-    ("Icons", new IconExample()),
-    ("Red Box", new HBox(background: MaterialColors.Red))
-  };
 
   public override bool Reconcile(Widget updated) {
     base.Reconcile(updated);

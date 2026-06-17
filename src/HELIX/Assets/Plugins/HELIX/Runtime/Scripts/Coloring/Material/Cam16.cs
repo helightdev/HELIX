@@ -1,10 +1,10 @@
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   CAM16, a color appearance model.
-    /// </summary>
-    public sealed class Cam16 {
+  /// <summary>
+  ///   CAM16, a color appearance model.
+  /// </summary>
+  public sealed class Cam16 {
     // XYZ -> CAM16 RGB "cone" response matrix.
     // Stored transposed for Unity's column-major double3x3 so math.mul(M, xyz)
     // matches the Dart row-based equations.

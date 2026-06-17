@@ -1,8 +1,8 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Comprises foundational palettes to build a color scheme.
-    /// </summary>
-    public sealed class CorePalettes {
+  /// <summary>
+  ///   Comprises foundational palettes to build a color scheme.
+  /// </summary>
+  public sealed class CorePalettes {
     public CorePalettes(
       TonalPalette primary,
       TonalPalette secondary,

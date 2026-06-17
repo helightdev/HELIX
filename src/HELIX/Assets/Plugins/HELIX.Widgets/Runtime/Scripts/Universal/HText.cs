@@ -5,6 +5,7 @@ using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Theming;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Theme;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal {
@@ -84,7 +85,9 @@ namespace HELIX.Widgets.Universal {
       element.selection.doubleClickSelectsWord = doubleClickSelectsWords;
       element.selection.tripleClickSelectsLine = tripleClickSelectsLine;
 
-      if (previous == null || !Equals(style, previous.style)) (style ?? TextStyle.Default).Apply(element);
+      if (previous == null || !Equals(style, previous.style)) {
+        (style ?? TextStyle.Default).Apply(element);
+      }
     }
 
     public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
@@ -132,7 +135,8 @@ namespace HELIX.Widgets.Universal {
     /// </remarks>
     public static HText Body(this HText text, IThemeProvider theme, int level = 1) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
-      text.style ??= new TextStyle();
+      var textColor = theme.GetThemed(PrimitiveTheme.Text);
+      text.style ??= new TextStyle { color = textColor };
       text.style.fontSize = level switch {
         <= 1 => typography.FontSize3,
         2 => typography.FontSize4,
@@ -150,7 +154,8 @@ namespace HELIX.Widgets.Universal {
     /// </remarks>
     public static HText Heading(this HText text, IThemeProvider theme, int level = 1) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
-      text.style ??= new TextStyle();
+      var textColor = theme.GetThemed(PrimitiveTheme.Text);
+      text.style ??= new TextStyle { color = textColor };
       text.style.fontSize = level switch {
         <= 1 => typography.FontSize6,
         2 => typography.FontSize7,
@@ -169,7 +174,8 @@ namespace HELIX.Widgets.Universal {
     /// </remarks>
     public static HText Caption(this HText text, IThemeProvider theme, int level = 1) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
-      text.style ??= new TextStyle();
+      var textColor = theme.GetThemed(PrimitiveTheme.Text);
+      text.style ??= new TextStyle { color = textColor };
       text.style.fontSize = level switch {
         <= 1 => typography.FontSize1,
         _ => typography.FontSize2
@@ -186,7 +192,8 @@ namespace HELIX.Widgets.Universal {
     /// </remarks>
     public static HText Display(this HText text, IThemeProvider theme) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
-      text.style ??= new TextStyle();
+      var textColor = theme.GetThemed(PrimitiveTheme.Text);
+      text.style ??= new TextStyle { color = textColor };
       text.style.fontSize = typography.FontSize9;
       return text;
     }

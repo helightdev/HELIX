@@ -1,14 +1,14 @@
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
+  /// <summary>
+  ///   Functions for blending in HCT and CAM16.
+  /// </summary>
+  public static class Blend {
     /// <summary>
-    ///   Functions for blending in HCT and CAM16.
+    ///   Blend the design color's HCT hue towards the key color's HCT hue.
     /// </summary>
-    public static class Blend {
-        /// <summary>
-        ///   Blend the design color's HCT hue towards the key color's HCT hue.
-        /// </summary>
-        public static int Harmonize(int designColor, int sourceColor) {
+    public static int Harmonize(int designColor, int sourceColor) {
       var fromHct = Hct.FromInt(designColor);
       var toHct = Hct.FromInt(sourceColor);
 
@@ -23,10 +23,10 @@ namespace HELIX.Coloring.Material {
       return Hct.From(outputHue, fromHct.Chroma, fromHct.Tone).ToInt();
     }
 
-        /// <summary>
-        ///   Blends hue from one color into another. Chroma and tone of the original are maintained.
-        /// </summary>
-        public static int HctHue(int from, int to, double amount) {
+    /// <summary>
+    ///   Blends hue from one color into another. Chroma and tone of the original are maintained.
+    /// </summary>
+    public static int HctHue(int from, int to, double amount) {
       var ucs = Cam16Ucs(from, to, amount);
       var ucsCam = Cam16.FromInt(ucs);
       var fromCam = Cam16.FromInt(from);
@@ -40,10 +40,10 @@ namespace HELIX.Coloring.Material {
       return blended.ToInt();
     }
 
-        /// <summary>
-        ///   Blend in CAM16-UCS space.
-        /// </summary>
-        public static int Cam16Ucs(int from, int to, double amount) {
+    /// <summary>
+    ///   Blend in CAM16-UCS space.
+    /// </summary>
+    public static int Cam16Ucs(int from, int to, double amount) {
       var fromCam = Cam16.FromInt(from);
       var toCam = Cam16.FromInt(to);
 

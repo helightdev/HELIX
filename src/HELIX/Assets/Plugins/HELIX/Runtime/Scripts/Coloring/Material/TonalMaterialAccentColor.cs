@@ -2,11 +2,11 @@ using System;
 using UnityEngine;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Generated accent swatch backed by a tonal palette.
-    ///   Useful if you want accent-style indexing but still generated from HCT.
-    /// </summary>
-    public sealed class TonalMaterialAccentColor : MaterialAccentColor {
+  /// <summary>
+  ///   Generated accent swatch backed by a tonal palette.
+  ///   Useful if you want accent-style indexing but still generated from HCT.
+  /// </summary>
+  public sealed class TonalMaterialAccentColor : MaterialAccentColor {
     public TonalMaterialAccentColor(int argb, string name = null)
       : this(Hct.FromInt(argb), name) { }
 

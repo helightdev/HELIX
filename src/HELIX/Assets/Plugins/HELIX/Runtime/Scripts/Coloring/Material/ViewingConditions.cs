@@ -1,13 +1,13 @@
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   In traditional color spaces, a color can be identified solely by the
-    ///   observer's measurement of the color. Color appearance models such as CAM16
-    ///   also use information about the environment where the color was observed,
-    ///   known as the viewing conditions.
-    /// </summary>
-    public sealed class ViewingConditions {
+  /// <summary>
+  ///   In traditional color spaces, a color can be identified solely by the
+  ///   observer's measurement of the color. Color appearance models such as CAM16
+  ///   also use information about the environment where the color was observed,
+  ///   known as the viewing conditions.
+  /// </summary>
+  public sealed class ViewingConditions {
     public static readonly ViewingConditions SRgb = Make();
     public static readonly ViewingConditions Standard = SRgb;
 
@@ -65,10 +65,10 @@ namespace HELIX.Coloring.Material {
     public double FlRoot { get; }
     public double Z { get; }
 
-        /// <summary>
-        ///   Convenience constructor for ViewingConditions.
-        /// </summary>
-        public static ViewingConditions Make(
+    /// <summary>
+    ///   Convenience constructor for ViewingConditions.
+    /// </summary>
+    public static ViewingConditions Make(
       double3? whitePoint = null,
       double adaptingLuminance = -1.0,
       double backgroundLstar = 50.0,

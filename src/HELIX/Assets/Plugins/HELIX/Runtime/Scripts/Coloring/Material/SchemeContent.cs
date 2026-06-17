@@ -1,13 +1,13 @@
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A scheme that places the source color in PrimaryContainer.
-    ///   Primary Container is the source color, adjusted for color relativity.
-    ///   Tertiary Container is an analogous color, specifically the analog found
-    ///   by increasing hue on a 6-division wheel.
-    /// </summary>
-    public sealed class SchemeContent : DynamicScheme {
+  /// <summary>
+  ///   A scheme that places the source color in PrimaryContainer.
+  ///   Primary Container is the source color, adjusted for color relativity.
+  ///   Tertiary Container is an analogous color, specifically the analog found
+  ///   by increasing hue on a 6-division wheel.
+  /// </summary>
+  public sealed class SchemeContent : DynamicScheme {
     public SchemeContent(
       Hct sourceColorHct,
       bool isDark,

@@ -82,9 +82,11 @@ namespace HELIX.Widgets.Navigation {
     }
 
     private void SubmitOperation(Action action) {
-      var operation = new StackOperation { action = action };
-      if (_operation != null) _pendingOperations.Enqueue(operation);
-      else BeginOperation(operation);
+      ModificationBarrier.Run(() => {
+        var operation = new StackOperation { action = action };
+        if (_operation != null) _pendingOperations.Enqueue(operation);
+        else BeginOperation(operation);
+      });
     }
 
     private void AnimateTransition(PageTransition transition, NavStackModificationResult modificationResult) {

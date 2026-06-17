@@ -1,8 +1,8 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A Dynamic Color theme that is near grayscale.
-    /// </summary>
-    public sealed class SchemeNeutral : DynamicScheme {
+  /// <summary>
+  ///   A Dynamic Color theme that is near grayscale.
+  /// </summary>
+  public sealed class SchemeNeutral : DynamicScheme {
     public SchemeNeutral(
       Hct sourceColorHct,
       bool isDark,

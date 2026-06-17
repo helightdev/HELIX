@@ -1,8 +1,8 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A Dynamic Color theme that is grayscale.
-    /// </summary>
-    public sealed class SchemeMonochrome : DynamicScheme {
+  /// <summary>
+  ///   A Dynamic Color theme that is grayscale.
+  /// </summary>
+  public sealed class SchemeMonochrome : DynamicScheme {
     public SchemeMonochrome(
       Hct sourceColorHct,
       bool isDark,

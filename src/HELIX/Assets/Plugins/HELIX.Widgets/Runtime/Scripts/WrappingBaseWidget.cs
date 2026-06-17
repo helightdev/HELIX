@@ -23,8 +23,14 @@ namespace HELIX.Widgets {
         Descriptor = this
       };
       element.userData = descriptive;
-      element.RegisterCallback<AttachToPanelEvent>(_ => descriptive.HierarchyDepth = element.GetDepth());
+      element.RegisterCallback<AttachToPanelEvent>(_ => {
+          // This could have changed technically?
+          if (element.userData is not UserDataWidgetElement<S, T> desc || desc.Descriptor != this) return;
+          descriptive.HierarchyDepth = element.GetDepth();
+        }
+      );
       element.RegisterCallbackOnce<AttachToPanelEvent>(_ => {
+          if (element.userData is not UserDataWidgetElement<S, T> desc || desc.Descriptor != this) return;
           Apply(null, element);
           Modifier.ApplyDelta(null, this, element);
         }

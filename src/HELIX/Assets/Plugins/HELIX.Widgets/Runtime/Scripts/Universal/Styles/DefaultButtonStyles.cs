@@ -37,14 +37,27 @@ namespace HELIX.Widgets.Universal.Styles {
       };
 
       SubstanceBuilder layers = variant switch {
-        HButtonVariant.Default or HButtonVariant.Flat or HButtonVariant.FlatTwoState =>
+        HButtonVariant.Default or HButtonVariant.Flat =>
           new SubstanceBuilder(context as BuildContext)
             .Flat(
-              variant == HButtonVariant.FlatTwoState ? inactive : palette,
+              palette,
               palette,
               surfacePalette,
               borderRadius
             ),
+        HButtonVariant.FlatTwoState => new SubstanceBuilder(context as BuildContext).Append(provider =>
+          new ConditionalSubstance(
+            new WidgetStatePropertyMap<SubstanceLayers> {
+              [WidgetState.Selected] = new SubstanceBuilder(provider)
+                .Flat(palette, palette, surfacePalette, borderRadius, withSelected: false)
+                .Build(),
+              [WidgetState.None] = new SubstanceBuilder(provider)
+                .Flat(inactive, inactive, surfacePalette, borderRadius)
+                .Build()
+            }
+          )
+        ),
+
         HButtonVariant.Soft => new SubstanceBuilder(context as BuildContext)
           .Soft(palette, surfacePalette, borderRadius),
         HButtonVariant.SoftTwoState => new SubstanceBuilder(context as BuildContext).Append(provider =>
@@ -54,7 +67,7 @@ namespace HELIX.Widgets.Universal.Styles {
                 .Soft(palette, surfacePalette, borderRadius)
                 .Build(),
               [WidgetState.Selected] = new SubstanceBuilder(provider)
-                .Flat(inactive, palette, surfacePalette, borderRadius)
+                .Flat(palette, palette, surfacePalette, borderRadius, withSelected: false)
                 .Build(),
               [WidgetState.None] = new SubstanceBuilder(provider)
                 .Soft(palette, surfacePalette, borderRadius)
@@ -70,7 +83,7 @@ namespace HELIX.Widgets.Universal.Styles {
           new ConditionalSubstance(
             new WidgetStatePropertyMap<SubstanceLayers> {
               [WidgetState.Selected] = new SubstanceBuilder(provider)
-                .Flat(inactive, palette, surfacePalette, borderRadius)
+                .Flat(palette, palette, surfacePalette, borderRadius, withSelected: false)
                 .Build(),
               [WidgetState.None] = new SubstanceBuilder(provider)
                 .Outline(palette, surfacePalette, borderRadius)

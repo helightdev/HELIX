@@ -1,8 +1,8 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Set of themes supported by Dynamic Color.
-    /// </summary>
-    public enum Variant {
+  /// <summary>
+  ///   Set of themes supported by Dynamic Color.
+  /// </summary>
+  public enum Variant {
     Monochrome,
     Neutral,
     TonalSpot,

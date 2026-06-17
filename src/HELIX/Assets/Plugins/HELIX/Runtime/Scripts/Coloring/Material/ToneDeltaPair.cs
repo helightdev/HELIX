@@ -1,9 +1,9 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Documents a constraint between two DynamicColors, in which their tones must
-    ///   have a certain distance from each other.
-    /// </summary>
-    public sealed class ToneDeltaPair {
+  /// <summary>
+  ///   Documents a constraint between two DynamicColors, in which their tones must
+  ///   have a certain distance from each other.
+  /// </summary>
+  public sealed class ToneDeltaPair {
     public ToneDeltaPair(
       DynamicColor roleA,
       DynamicColor roleB,

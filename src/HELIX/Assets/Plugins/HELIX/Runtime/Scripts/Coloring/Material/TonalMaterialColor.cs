@@ -2,11 +2,11 @@ using System;
 using UnityEngine;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Generated swatch backed by a tonal palette.
-    ///   This replaces the old MaterialColor wrapper behavior.
-    /// </summary>
-    public sealed class TonalMaterialColor : MaterialColor {
+  /// <summary>
+  ///   Generated swatch backed by a tonal palette.
+  ///   This replaces the old MaterialColor wrapper behavior.
+  /// </summary>
+  public sealed class TonalMaterialColor : MaterialColor {
     public TonalMaterialColor(int argb, string name = null)
       : this(Hct.FromInt(argb), name) { }
 
@@ -30,10 +30,10 @@ namespace HELIX.Coloring.Material {
 
     public override Color this[int weight] => Palette.GetHct(WeightToTone(weight)).ToColor();
 
-        /// <summary>
-        ///   Returns a swatch for arbitrary HCT tone values.
-        /// </summary>
-        public Color[] ToToneSwatch(params double[] tones) {
+    /// <summary>
+    ///   Returns a swatch for arbitrary HCT tone values.
+    /// </summary>
+    public Color[] ToToneSwatch(params double[] tones) {
       if (tones == null || tones.Length == 0) return ToSwatch();
 
       var colors = new Color[tones.Length];

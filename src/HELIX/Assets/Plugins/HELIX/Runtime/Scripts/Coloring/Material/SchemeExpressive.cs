@@ -1,8 +1,8 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A Dynamic Color theme that is intentionally detached from the input color.
-    /// </summary>
-    public sealed class SchemeExpressive : DynamicScheme {
+  /// <summary>
+  ///   A Dynamic Color theme that is intentionally detached from the input color.
+  /// </summary>
+  public sealed class SchemeExpressive : DynamicScheme {
     private static readonly double[] _hues = { 0, 21, 51, 121, 151, 191, 271, 321, 360 };
 
     private static readonly double[] _secondaryRotations = { 45, 95, 45, 20, 45, 90, 45, 45, 45 };

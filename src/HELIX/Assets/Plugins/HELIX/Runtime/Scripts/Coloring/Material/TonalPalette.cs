@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A convenience class for retrieving colors that are constant in hue and
-    ///   chroma, but vary in tone.
-    /// </summary>
-    public sealed class TonalPalette : IEquatable<TonalPalette> {
+  /// <summary>
+  ///   A convenience class for retrieving colors that are constant in hue and
+  ///   chroma, but vary in tone.
+  /// </summary>
+  public sealed class TonalPalette : IEquatable<TonalPalette> {
     public static readonly int[] CommonTones = { 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 99, 100 };
 
     private readonly Dictionary<int, int> _cache;
@@ -103,10 +103,10 @@ namespace HELIX.Coloring.Material {
       return new TonalPalette(cache, bestHue, bestChroma);
     }
 
-        /// <summary>
-        ///   Returns the ARGB representation of an HCT color at the given tone.
-        /// </summary>
-        public int Get(int tone) {
+    /// <summary>
+    ///   Returns the ARGB representation of an HCT color at the given tone.
+    /// </summary>
+    public int Get(int tone) {
       if (_cache.TryGetValue(tone, out var value)) return value;
 
       value = Hct.From(Hue, Chroma, tone).ToInt();
@@ -114,10 +114,10 @@ namespace HELIX.Coloring.Material {
       return value;
     }
 
-        /// <summary>
-        ///   Returns the HCT color at the given tone.
-        /// </summary>
-        public Hct GetHct(double tone) {
+    /// <summary>
+    ///   Returns the HCT color at the given tone.
+    /// </summary>
+    public Hct GetHct(double tone) {
       var roundedTone = (int)math.round(tone);
       if (_cache.TryGetValue(roundedTone, out var value)) return Hct.FromInt(value);
 

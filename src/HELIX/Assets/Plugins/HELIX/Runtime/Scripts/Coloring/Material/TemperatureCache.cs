@@ -2,12 +2,12 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Design utilities using color temperature theory.
-    ///   Analogous colors, complementary color, and cache to efficiently, lazily,
-    ///   generate data for calculations when needed.
-    /// </summary>
-    public sealed class TemperatureCache {
+  /// <summary>
+  ///   Design utilities using color temperature theory.
+  ///   Analogous colors, complementary color, and cache to efficiently, lazily,
+  ///   generate data for calculations when needed.
+  /// </summary>
+  public sealed class TemperatureCache {
     private Hct _complement;
     private List<Hct> _hctsByHue = new();
 
@@ -24,10 +24,10 @@ namespace HELIX.Coloring.Material {
     public Hct Warmest => HctsByTemp[HctsByTemp.Count - 1];
     public Hct Coldest => HctsByTemp[0];
 
-        /// <summary>
-        ///   A color that complements the input color aesthetically.
-        /// </summary>
-        public Hct Complement {
+    /// <summary>
+    ///   A color that complements the input color aesthetically.
+    /// </summary>
+    public Hct Complement {
       get {
         if (_complement != null) return _complement;
 
@@ -67,10 +67,10 @@ namespace HELIX.Coloring.Material {
       }
     }
 
-        /// <summary>
-        ///   Relative temperature of the input color.
-        /// </summary>
-        public double InputRelativeTemperature {
+    /// <summary>
+    ///   Relative temperature of the input color.
+    /// </summary>
+    public double InputRelativeTemperature {
       get {
         if (_inputRelativeTemperature >= 0.0) return _inputRelativeTemperature;
 
@@ -83,11 +83,11 @@ namespace HELIX.Coloring.Material {
       }
     }
 
-        /// <summary>
-        ///   HCTs for all hues, with the same chroma/tone as the input.
-        ///   Sorted from coldest first to warmest last.
-        /// </summary>
-        public List<Hct> HctsByTemp {
+    /// <summary>
+    ///   HCTs for all hues, with the same chroma/tone as the input.
+    ///   Sorted from coldest first to warmest last.
+    /// </summary>
+    public List<Hct> HctsByTemp {
       get {
         if (_hctsByTemp.Count > 0) return _hctsByTemp;
 
@@ -102,10 +102,10 @@ namespace HELIX.Coloring.Material {
       }
     }
 
-        /// <summary>
-        ///   A map with keys of HCTs in HctsByTemp, values of raw temperature.
-        /// </summary>
-        public Dictionary<Hct, double> TempsByHct {
+    /// <summary>
+    ///   A map with keys of HCTs in HctsByTemp, values of raw temperature.
+    /// </summary>
+    public Dictionary<Hct, double> TempsByHct {
       get {
         if (_tempsByHct.Count > 0) return _tempsByHct;
 
@@ -120,11 +120,11 @@ namespace HELIX.Coloring.Material {
       }
     }
 
-        /// <summary>
-        ///   HCTs for all hues, with the same chroma/tone as the input.
-        ///   Sorted ascending, hue 0 to 360.
-        /// </summary>
-        public List<Hct> HctsByHue {
+    /// <summary>
+    ///   HCTs for all hues, with the same chroma/tone as the input.
+    ///   Sorted ascending, hue 0 to 360.
+    /// </summary>
+    public List<Hct> HctsByHue {
       get {
         if (_hctsByHue.Count > 0) return _hctsByHue;
 
@@ -136,10 +136,10 @@ namespace HELIX.Coloring.Material {
       }
     }
 
-        /// <summary>
-        ///   A set of colors with differing hues, equidistant in temperature.
-        /// </summary>
-        public List<Hct> Analogous(int count = 5, int divisions = 12) {
+    /// <summary>
+    ///   A set of colors with differing hues, equidistant in temperature.
+    /// </summary>
+    public List<Hct> Analogous(int count = 5, int divisions = 12) {
       var startHue = (int)math.round(Input.Hue);
       var startHct = HctsByHue[startHue];
       var lastTemp = RelativeTemperature(startHct);
@@ -213,11 +213,11 @@ namespace HELIX.Coloring.Material {
       return answers;
     }
 
-        /// <summary>
-        ///   Temperature relative to all colors with the same chroma and tone.
-        ///   Value on a scale from 0 to 1.
-        /// </summary>
-        public double RelativeTemperature(Hct hct) {
+    /// <summary>
+    ///   Temperature relative to all colors with the same chroma and tone.
+    ///   Value on a scale from 0 to 1.
+    /// </summary>
+    public double RelativeTemperature(Hct hct) {
       var range = TempsByHct[Warmest] - TempsByHct[Coldest];
       var differenceFromColdest = TempsByHct[hct] - TempsByHct[Coldest];
 
@@ -226,20 +226,20 @@ namespace HELIX.Coloring.Material {
       return differenceFromColdest / range;
     }
 
-        /// <summary>
-        ///   Determines if an angle is between two other angles, rotating clockwise.
-        /// </summary>
-        public static bool IsBetween(double angle, double a, double b) {
+    /// <summary>
+    ///   Determines if an angle is between two other angles, rotating clockwise.
+    /// </summary>
+    public static bool IsBetween(double angle, double a, double b) {
       if (a < b) return a <= angle && angle <= b;
 
       return a <= angle || angle <= b;
     }
 
-        /// <summary>
-        ///   Value representing cool-warm factor of a color.
-        ///   Values below 0 are considered cool, above 0 warm.
-        /// </summary>
-        public static double RawTemperature(Hct color) {
+    /// <summary>
+    ///   Value representing cool-warm factor of a color.
+    ///   Values below 0 are considered cool, above 0 warm.
+    /// </summary>
+    public static double RawTemperature(Hct color) {
       var lab = MaterialColorUtils.LabFromArgb(color.ToInt());
 
       var hue = MathUtils.SanitizeDegreesDouble(math.degrees(math.atan2(lab.z, lab.y)));

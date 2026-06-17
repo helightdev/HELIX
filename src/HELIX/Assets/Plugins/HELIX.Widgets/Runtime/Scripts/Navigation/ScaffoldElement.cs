@@ -21,27 +21,30 @@ namespace HELIX.Widgets.Navigation {
 
     public OverlayEntry AddOverlay(VisualElement element) {
       var entry = new OverlayEntry(element);
-      _overlay.Add(entry);
+      ModificationBarrier.Run(() => { _overlay.Add(entry); });
       return entry;
     }
 
     public OverlayEntry AddOverlay(VisualElement element, Vector2 localPosition, Vector2 size) {
       var entry = new OverlayEntry(element, localPosition, size);
-      _overlay.Add(entry);
+      ModificationBarrier.Run(() => { _overlay.Add(entry); });
       return entry;
     }
 
     public OverlayEntry AddAnchoredOverlay(VisualElement anchor, VisualElement overlay, bool link = true) {
       var entry = new OverlayEntry(overlay, anchor, link);
-      _overlay.Add(entry);
+      ModificationBarrier.Run(() => { _overlay.Add(entry); });
       return entry;
     }
 
     public void RemoveOverlay(OverlayEntry entry) {
-      if (entry == null) return;
-      if (entry.parent != _overlay) return;
-      entry.OnRemove();
-      entry.RemoveFromHierarchy();
+      ModificationBarrier.Run(() => {
+          if (entry == null) return;
+          if (entry.parent != _overlay) return;
+          entry.OnRemove();
+          entry.RemoveFromHierarchy();
+        }
+      );
     }
 
     public static ScaffoldElement Get(VisualElement context) {
@@ -53,7 +56,6 @@ namespace HELIX.Widgets.Navigation {
   /// A widget that provides the ability to display overlays on top of its content.
   /// </summary>
   public class HScaffold : SingleChildWidget {
-
     /// <summary>
     /// Creates a widget that provides the ability to display overlays on top of its content.
     /// </summary>

@@ -1,4 +1,5 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import type { MDXComponents } from 'mdx/types';
 import {
   FREntityCardLink as FurefEntityCardLink,
@@ -26,6 +27,8 @@ export function getMDXComponents(components?: MDXComponents) {
       FREntityCardLink: SymCard,
       FREntityCodeLink: SymText,
       FREntitySymbolLink: Sym,
+      Tab,
+      Tabs,
       Sym, SymCard, SymText,
     ...components,
   } satisfies MDXComponents;

@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Key color is a color that represents the hue and chroma of a tonal palette.
-    /// </summary>
-    public sealed class KeyColor {
+  /// <summary>
+  ///   Key color is a color that represents the hue and chroma of a tonal palette.
+  /// </summary>
+  public sealed class KeyColor {
     private const double _maxChromaValue = 200.0;
 
     private readonly Dictionary<int, double> _chromaCache = new();
@@ -18,10 +18,10 @@ namespace HELIX.Coloring.Material {
     public double Hue { get; }
     public double RequestedChroma { get; }
 
-        /// <summary>
-        ///   Creates a key color from a hue and a requestedChroma.
-        /// </summary>
-        public Hct Create() {
+    /// <summary>
+    ///   Creates a key color from a hue and a requestedChroma.
+    /// </summary>
+    public Hct Create() {
       const int pivotTone = 50;
       const int toneStepSize = 1;
       const double epsilon = 0.01;

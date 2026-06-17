@@ -1,10 +1,10 @@
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A class that solves the HCT equation.
-    /// </summary>
-    public static class HctSolver {
+  /// <summary>
+  ///   A class that solves the HCT equation.
+  /// </summary>
+  public static class HctSolver {
     // Stored transposed for Unity column-major matrices.
     private static readonly double3x3 _scaledDiscountFromLinrgb = new(
       new double3(0.001200833568784504, 0.0005891086651375999, 0.00010146692491640572),

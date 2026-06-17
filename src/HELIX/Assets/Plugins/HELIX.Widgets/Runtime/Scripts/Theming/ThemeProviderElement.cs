@@ -85,6 +85,7 @@ namespace HELIX.Widgets.Theming {
       var success = TryResolveNoCompute(property, out value);
       if (!computed || success) return success;
 
+
       if (_computedThemeValues.TryGetValue(property, out var cachedValue)) {
         if (cachedValue is not T typedCachedValue) return false;
         value = typedCachedValue;

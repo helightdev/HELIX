@@ -2,11 +2,11 @@ using System;
 using UnityEngine;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Exact pre-created accent swatch.
-    ///   Use this when you need to match Flutter accent tables exactly.
-    /// </summary>
-    public sealed class FixedMaterialAccentColor : MaterialAccentColor {
+  /// <summary>
+  ///   Exact pre-created accent swatch.
+  ///   Use this when you need to match Flutter accent tables exactly.
+  /// </summary>
+  public sealed class FixedMaterialAccentColor : MaterialAccentColor {
     private readonly int[] _argbs;
 
     public FixedMaterialAccentColor(

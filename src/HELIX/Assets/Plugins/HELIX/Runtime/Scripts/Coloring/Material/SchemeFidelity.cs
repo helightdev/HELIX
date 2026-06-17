@@ -1,11 +1,11 @@
 using Unity.Mathematics;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A scheme that places the source color in PrimaryContainer.
-    ///   Tertiary Container is the complement to the source color.
-    /// </summary>
-    public sealed class SchemeFidelity : DynamicScheme {
+  /// <summary>
+  ///   A scheme that places the source color in PrimaryContainer.
+  ///   Tertiary Container is the complement to the source color.
+  /// </summary>
+  public sealed class SchemeFidelity : DynamicScheme {
     public SchemeFidelity(
       Hct sourceColorHct,
       bool isDark,

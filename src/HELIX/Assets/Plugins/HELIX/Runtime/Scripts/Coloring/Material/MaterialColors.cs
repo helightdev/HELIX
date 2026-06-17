@@ -1,11 +1,11 @@
 using UnityEngine;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Flutter-compatible Material color constants and exact fixed swatches.
-    ///   This uses the hard-coded Flutter Material 2 color tables, not generated tonal palettes.
-    /// </summary>
-    public static class MaterialColors {
+  /// <summary>
+  ///   Flutter-compatible Material color constants and exact fixed swatches.
+  ///   This uses the hard-coded Flutter Material 2 color tables, not generated tonal palettes.
+  /// </summary>
+  public static class MaterialColors {
     public static readonly Color Transparent = 0x00000000u.ArgbToColor();
 
     public static readonly Color Black = 0xFF000000u.ArgbToColor();

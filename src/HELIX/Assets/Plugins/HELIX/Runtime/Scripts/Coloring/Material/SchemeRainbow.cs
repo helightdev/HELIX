@@ -1,8 +1,8 @@
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   A playful theme - the source color's hue does not appear in the theme.
-    /// </summary>
-    public sealed class SchemeRainbow : DynamicScheme {
+  /// <summary>
+  ///   A playful theme - the source color's hue does not appear in the theme.
+  /// </summary>
+  public sealed class SchemeRainbow : DynamicScheme {
     public SchemeRainbow(
       Hct sourceColorHct,
       bool isDark,

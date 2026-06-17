@@ -16,9 +16,12 @@ namespace HELIX.Widgets.Universal.Controllers {
     public bool Enabled => enabled && (widgetState?.PeekValue().Enabled() ?? true);
 
     private void HandleClick() {
-      NotifyDirty();
-      NotifyObservers();
-      onClick?.Invoke();
+      ModificationBarrier.Run(() => {
+          NotifyDirty();
+          NotifyObservers();
+          onClick?.Invoke();
+        }
+      );
     }
 
     public class ButtonManipulator : Clickable {

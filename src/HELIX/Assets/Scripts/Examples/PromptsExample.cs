@@ -1,5 +1,6 @@
 using System.Linq;
 using HELIX.Coloring;
+using HELIX.Types;
 using HELIX.Widgets;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Prompts;
@@ -29,8 +30,10 @@ namespace Examples {
 
     public override Widget Build(BuildContext context) {
       var prompts = new KennyKeyboardMousePromptLayerProvider();
-      return new HColumn {
-        new HRow {
+      return new HColumn(modifiers: new ModifierSet {
+        PaddingModifier.Of(EdgeInsets.All(8))
+      }) {
+        new HRow(gap: 8) {
           new HButton(
             HButtonVariant.TwoState,
             selected: _isOutline,
@@ -52,35 +55,38 @@ namespace Examples {
             onClick: SetState(() => _isIcon = !_isIcon)
           ) { new HText("Icon") }
         },
+        new HGap(),
+        new HRow(gap: 8, mainAxisAlign: Justify.Center) {
+          new HButton(
+            onClick: () => HelixInputController.Instance.SetValue(
+              new InputConfiguration(InputDeviceType.KeyboardMouse, GamepadVariant.Generic)
+            ),
+            child: new HText("Keyboard&Mouse")
+          ),
+
+          new HButton(
+            onClick: () => HelixInputController.Instance.SetValue(
+              new InputConfiguration(InputDeviceType.Gamepad, GamepadVariant.Xbox)
+            ),
+            child: new HText("XBox")
+          ),
+
+          new HButton(
+            onClick: () => HelixInputController.Instance.SetValue(
+              new InputConfiguration(InputDeviceType.Gamepad, GamepadVariant.PlayStation)
+            ),
+            child: new HText("PlayStation")
+          ),
+        },
+
+        new HGap(2),
+        new HRow(Justify.Center, gap: 4f) {
+          new HPrompt("Player/Move"),
+          new HPrompt("Player/Look"),
+          new HPrompt("Player/Attack")
+        },
+        new HGap(2),
         new HScrollView {
-          new HRow {
-            new HButton(
-              onClick: () => HelixInputController.Instance.SetValue(
-                new InputConfiguration(InputDeviceType.KeyboardMouse, GamepadVariant.Generic)
-              ),
-              child: new HText("Keyboard&Mouse")
-            ),
-
-            new HButton(
-              onClick: () => HelixInputController.Instance.SetValue(
-                new InputConfiguration(InputDeviceType.Gamepad, GamepadVariant.Xbox)
-              ),
-              child: new HText("XBox")
-            ),
-
-            new HButton(
-              onClick: () => HelixInputController.Instance.SetValue(
-                new InputConfiguration(InputDeviceType.Gamepad, GamepadVariant.PlayStation)
-              ),
-              child: new HText("PlayStation")
-            ),
-          },
-          new HRow {
-            new HPrompt("Player/Move"),
-            new HPrompt("Player/Look"),
-            new HPrompt("Player/Attack")
-          }.WithModifier(new BackgroundStyleModifier(Colors.Grey)),
-
           BuildPromptsFor(context, new KennyKeyboardMousePromptLayerProvider()),
           BuildPromptsFor(context, new KennyPlaystationSeriesPromptLayerProvider()),
           BuildPromptsFor(context, new KennyXboxSeriesPromptLayerProvider()),
@@ -101,16 +107,17 @@ namespace Examples {
 
       var widgets = layerProvider.Mapping.Keys.Select<string, Widget>(x => {
           if (layerProvider.TryResolvePromptLayer(context, x, out var layers)) {
-            return new HSubstanceBox(substances: layers).Size(32, 32);
+            return new HSubstanceBox(substances: layers).Size(32, 32).Margin(2);
           }
 
           return new HText($"{x} (not found)");
         }
       ).ToArray();
-      return new HBox(background: Colors.Grey) {
+      return new HBox {
         new HColumn(crossAxisAlign: Align.Stretch) {
           new HText(layerProvider.GetType().Name).Heading(context),
-          new HFlex(Axis.Horizontal, wrap: true, children: widgets).Fill()
+          new HFlex(Axis.Horizontal, wrap: true, children: widgets).Fill(),
+          new HGap(2),
         }
       };
     }

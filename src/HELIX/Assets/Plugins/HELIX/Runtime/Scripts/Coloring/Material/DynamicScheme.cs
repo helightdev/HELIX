@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 
 namespace HELIX.Coloring.Material {
-    /// <summary>
-    ///   Constructed by a set of values representing the current UI state and
-    ///   provides a set of TonalPalettes.
-    /// </summary>
-    public class DynamicScheme {
+  /// <summary>
+  ///   Constructed by a set of values representing the current UI state and
+  ///   provides a set of TonalPalettes.
+  /// </summary>
+  public class DynamicScheme {
     public DynamicScheme(
       Hct sourceColorHct,
       Variant variant,
