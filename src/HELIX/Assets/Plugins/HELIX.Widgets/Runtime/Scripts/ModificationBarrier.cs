@@ -98,9 +98,6 @@ namespace HELIX.Widgets {
             while (_pendingRebuilds.TryDequeue(out var element) && maxDepth > 0) {
               try {
                 maxDepth--;
-                var panel = element.Element.panel;
-                if (panel != null) Reconciler.Reconcile(element, element.Descriptor);
-
                 Reconciler.Reconcile(element, element.Descriptor);
               } catch (Exception e) { Debug.LogError($"Error while rebuilding element {element}: {e}"); }
             }

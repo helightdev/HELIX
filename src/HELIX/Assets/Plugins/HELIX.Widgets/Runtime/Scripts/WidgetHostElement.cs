@@ -17,16 +17,25 @@ namespace HELIX.Widgets {
   public class WidgetHostElement : BuildingWidgetBaseElement<WidgetHostElement.WidgetType>, IHierarchyDisposable {
     public static readonly HashSet<WidgetHostElement> Instances = new();
 
+    private IBuildable _buildable;
     private bool _hasState;
 
     public WidgetHostElement() {
       Descriptor = RootWidget.Instance;
     }
 
-    public IBuildable Buildable { get; set; }
+    public IBuildable Buildable {
+      get => _buildable;
+      set {
+        if (ReferenceEquals(_buildable, value)) return;
+        _buildable = value;
+        if (Descriptor != null) ModificationBarrier.Rebuild(this);
+      }
+    }
 
     public void Dispose() {
       _hasState = false;
+      _buildable = null;
       userData = null;
       ParentContext = null;
       Descriptor = null;
@@ -62,7 +71,7 @@ namespace HELIX.Widgets {
     }
 
     protected override IBuildable GetBuildableForWidget(WidgetType previous, WidgetType widget) {
-      return Buildable;
+      return _buildable;
     }
 
     public abstract class WidgetType : Widget {

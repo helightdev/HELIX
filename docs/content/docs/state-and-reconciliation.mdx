@@ -1,0 +1,253 @@
+---
+title: State & Reconciliation
+description: How HELIX rebuilds widget trees while preserving mounted elements and local state.
+icon: RefreshCw
+---
+
+HELIX widgets are **configuration objects**, not live UI elements. Every rebuild creates new widget
+instances. The <Sym uid="Reconciler" /> then compares the old and new
+trees to decide what it can reuse, what it must update, and what it must recreate, all without
+touching the entire `VisualElement` tree.
+
+---
+
+## Stateless widgets
+
+<Sym uid="StatelessWidget-1" /> is the right choice when the widget's
+output depends only on its constructor values, the build context, and theme values. Stateless
+widgets have no mutable state of their own and are extremely lightweight.
+
+```csharp title="Simple stateless widget"
+public class PlayerBadge : StatelessWidget<PlayerBadge> {
+  private readonly string _name;
+  private readonly string _rank;
+
+  public PlayerBadge(string name, string rank) {
+    _name = name;
+    _rank = rank;
+  }
+
+  public override Widget Build(BuildContext context) {
+    return new HRow(gap: 8, crossAxisAlign: Align.Center) {
+      new HIcon(FaSolidIcons.User, FaSolidIcons.FontDefinition),
+      new HColumn(gap: 2) {
+        new HText(_name).Body(context),
+        new HText(_rank).Caption(context)
+      }
+    }.Padding(8);
+  }
+}
+```
+
+When a watched theme value changes, the mounted stateless element schedules a rebuild
+automatically. You do not need to manage that subscription manually.
+
+---
+
+## Stateful widgets
+
+<Sym uid="StatefulWidget-1" /> owns local state or lifecycle-managed
+resources. The widget itself is still just a configuration object; the mutable data lives in a
+companion <Sym uid="State-1" /> class that <Sym uid="StatefulWidget-1.CreateState" /> returns.
+
+```csharp title="Statful widget with local state"
+public class ToggleRow : StatefulWidget<ToggleRow> {
+  public override State<ToggleRow> CreateState() => new ToggleRowState();
+}
+
+// [!code focus:99]
+public class ToggleRowState : State<ToggleRow> {
+  private bool _enabled = true; // [!code highlight]
+
+  public override Widget Build(BuildContext context) {
+    return new HButton(
+      HButtonVariant.TwoState,
+      selected: _enabled, // [!code highlight]
+      onClick: SetState(() => _enabled = !_enabled) // [!code highlight]
+    ) {
+      new HText(_enabled ? "Enabled" : "Disabled") // [!code highlight]
+    };
+  }
+}
+```
+
+### State lifecycle
+
+The state lifecycle runs in this order:
+
+<table style={{width: `100%`}}>
+    <thead>
+    <tr>
+        <th>Step</th>
+        <th style={{width: `25%`}}>Method</th>
+        <th>When</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td>1</td>
+        <td><Sym uid="StatefulWidget-1.CreateState" /></td>
+        <td>Called on the <strong>widget</strong> to construct the companion state.</td>
+    </tr>
+    <tr>
+        <td>2</td>
+        <td><Sym uid="State-1.InitState" /></td>
+        <td>Called immediately before the <strong>first</strong> `Build`. Subscribe to streams, create controllers, and register disposables here.</td>
+    </tr>
+    <tr>
+        <td>3</td>
+        <td><Sym uid="State-1.Build" /></td>
+        <td>Returns the child widget subtree. Called on every rebuild.</td>
+    </tr>
+    <tr>
+        <td>4</td>
+        <td><Sym uid="State-1.DidUpdateWidget" /></td>
+        <td>Called when the state is reused with a <strong>new widget configuration</strong>. Compare `oldWidget` with `widget` to react to config changes.</td>
+    </tr>
+    <tr>
+        <td>5</td>
+        <td><Sym uid="State-1.Dispose" /></td>
+        <td>Called when the mounted state is removed from the tree.</td>
+    </tr>
+    </tbody>
+</table>
+
+### Managing disposables
+
+Use <Sym uid="State-1.AddDisposable" /> to register controllers, event subscriptions, or other `IDisposable` objects
+that should be cleaned up automatically when the state is disposed:
+
+```csharp title="Automatically manage disposables with AddDisposable"
+public class TimerWidget : StatefulWidget<TimerWidget> {
+  public override State<TimerWidget> CreateState() => new TimerWidgetState();
+}
+
+// [!code focus:99]
+public class TimerWidgetState : State<TimerWidget> {
+  private ScrollController _scroll;
+
+  public override void InitState() {
+    _scroll = AddDisposable(new ScrollController()); // [!code highlight]
+  }
+
+  public override Widget Build(BuildContext context) {
+    return new HScrollView(Axis.Vertical, controller: _scroll) {
+      BuildContent()
+    }.Fill();
+  }
+}
+```
+
+---
+
+## Scheduling rebuilds
+
+Call <Sym uid="State-1.SetState" /> after mutating any field that the `Build` method reads. HELIX queues the rebuild
+through the modification barrier, which batches updates and avoids redundant tree mutations.
+
+```csharp title="Mutate and notify using explicit SetState"
+onClick: () => {
+  _count++;
+  SetState();
+}
+```
+
+<Sym uid="State-1.SetState" /> wraps the mutation and the rebuild notification together, which is the
+idiomatic style for inline lambdas:
+
+```csharp
+new HButton(onClick: SetState(() => _count++)) {
+  new HText("Increment")
+}
+```
+
+<Callout title={<>Never call <Sym uid="State-1.SetState" /> from inside <Sym uid="State-1.Build" /></>} type="warning">
+    If you need to trigger a rebuild from a value change, use a <Sym uid="Signal" /> instead.
+</Callout>
+
+---
+
+## Keys
+
+<Sym uid="Key" /> gives the reconciler a stable identity for a
+widget. Without a key, children are matched by position. When you insert, remove, or reorder items
+in a list, that positional matching may reassign the wrong state to the wrong element.
+
+Always pass a stable key when the order of a list can change:
+
+```csharp
+items.Select(item =>
+  new InventoryRow(item, key: item.Id)
+).Spread();
+```
+
+Use <Sym uid="GlobalKey" /> or
+<Sym uid="GlobalKey-1" /> when you need an external reference to a
+mounted element, for example to call navigation methods or drive focus:
+
+```csharp
+// Declare the key as a state field so it survives rebuilds.
+private readonly GlobalKey<NavStackElement> _nav = new();
+
+// Use it in build.
+new HNavStack(key: _nav).Fill();
+
+// Access the mounted element anywhere in the state.
+_nav.Element.PushReplacement(new WidgetNavPage {
+  Buildable = new SettingsPage().ToBuildable()
+});
+```
+
+---
+
+## Constants
+
+The <Sym uid="Widget.constants" /> array on <Sym uid="Widget" /> is a reconciliation
+shortcut. If the same widget type is rebuilt with matching constants, HELIX treats the subtree as
+equivalent and skips the inner reconciliation pass entirely.
+
+```csharp title="Use constant widgets using the fluent syntax"
+// No data, mark the whole subtree as permanently stable.
+new HText("Static footer text").Const(); // [!code word:Const]
+
+// Pass the data the subtree depends on. If playerId hasn't changed, the rebuild is skipped.
+new PlayerPortrait(playerId).Const(playerId);
+```
+
+Only use constants for subtrees that are _truly_ stable with respect to the values you pass. If a
+widget depends on data not included in the constants array, that data will silently fail to update.
+
+---
+
+## Signals
+
+<Sym uid="Signal" /> provides fine-grained reactive state.
+State objects automatically track `Signal` dependencies accessed during `Build`. When a dependency
+changes, the mounted state schedules a rebuild with no `SetState()` call needed.
+
+For small inline reactive regions that should not rebuild their entire parent, use
+<Sym uid="HStatefulBuilder" />:
+
+```csharp
+// Only this subtree rebuilds when scoreSignal changes.
+new HStatefulBuilder((context, state) =>
+  new HText(scoreSignal.Value.ToString()).Heading(context)
+);
+```
+
+This is especially useful for high-frequency values such as scores, timers, or health bars, where
+rebuilding the whole page on every tick would be wasteful.
+
+---
+
+## Diagnostics
+
+Most core types inherit from diagnostic base classes. A widget's diagnostic output includes:
+
+- Its modifier list (user modifiers and fallbacks separately).
+- Its key and constants array.
+- Its state object and signal dependency list.
+- Its ownership chain (parent → grandparent → …).
+
+That information makes it straightforward to trace reconciliation and lifecycle issues from Unity's
+console or a connected debugger, without adding custom logging.

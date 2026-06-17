@@ -1,14 +1,15 @@
 import { docs } from 'collections/server';
 import { loader } from 'fumadocs-core/source';
-import { createDocfxSource, isFRPageData } from 'furef';
+import { lucideIconsPlugin } from 'fumadocs-core/source/plugins/lucide-icons';
+import { createDocfxSource, isFRPageData, pathSegments } from 'furef';
 import { docsContentRoute, docsImageRoute, docsRoute, referenceRoute } from './shared';
 
 const docfx = createDocfxSource({
     dir: 'docfx',
     mode: 'pages',
     title: 'C# Reference',
-    baseUrl: referenceRoute,
-    path: '',
+    baseUrl: '',
+    path: referenceRoute,
     navigation: {
         root: 'none',
         namespaces: 'folder',
@@ -32,18 +33,31 @@ const docfx = createDocfxSource({
 });
 
 export const docfxSource = loader({
-    baseUrl: referenceRoute,
+    baseUrl: '',
     source: docfx.source
 });
 
 export const referenceTree = docfx.pageTree;
+
+const referenceRouteSlugs = pathSegments(referenceRoute);
+
+export function getReferencePage(slug: string[] = []) {
+    return docfxSource.getPage([...referenceRouteSlugs, ...slug]);
+}
+
+export function getReferenceRouteSlugs(page: (typeof docfxSource)['$inferPage']) {
+    const slugs = page.slugs;
+    const hasReferencePrefix = referenceRouteSlugs.every((part, index) => slugs[index] === part);
+
+    return hasReferencePrefix ? slugs.slice(referenceRouteSlugs.length) : slugs;
+}
 
 
 // See https://fumadocs.dev/docs/headless/source-api for more info
 export const source = loader({
   baseUrl: docsRoute,
   source: docs.toFumadocsSource(),
-  plugins: [],
+  plugins: [lucideIconsPlugin()],
 });
 
 export const combinedSource = {
@@ -58,6 +72,20 @@ export const combinedSource = {
         };
     },
 } as typeof source;
+
+export const searchSource = {
+    ...source,
+    getPages: () => [...source.getPages(), ...docfxSource.getPages()],
+    getPageTree: (locale?: string) => {
+        const docsTree = source.getPageTree(locale);
+
+        return {
+            ...docsTree,
+            children: [...docsTree.children, ...referenceTree.children],
+        };
+    },
+} as typeof source;
+
 
 export function getPageImage(page: (typeof source)['$inferPage']) {
   const segments = [...page.slugs, 'image.png'];

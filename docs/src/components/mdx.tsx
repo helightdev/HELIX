@@ -8,24 +8,25 @@ import {
 } from 'furef';
 import { referenceRoute } from '@/lib/shared';
 
-function FREntityCardLink(props: FREntityLinkProps) {
+function SymCard(props: FREntityLinkProps) {
   return <FurefEntityCardLink {...props} path={props.path ?? referenceRoute} />;
 }
 
-function FREntityCodeLink(props: FREntityLinkProps) {
+function SymText(props: FREntityLinkProps) {
   return <FurefEntityCodeLink {...props} path={props.path ?? referenceRoute} />;
 }
 
-function FREntitySymbolLink(props: FREntityLinkProps) {
+function Sym(props: FREntityLinkProps) {
   return <FurefEntitySymbolLink {...props} path={props.path ?? referenceRoute} />;
 }
 
 export function getMDXComponents(components?: MDXComponents) {
   return {
     ...defaultMdxComponents,
-      FREntityCardLink,
-      FREntityCodeLink,
-      FREntitySymbolLink,
+      FREntityCardLink: SymCard,
+      FREntityCodeLink: SymText,
+      FREntitySymbolLink: Sym,
+      Sym, SymCard, SymText,
     ...components,
   } satisfies MDXComponents;
 }

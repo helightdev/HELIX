@@ -199,13 +199,22 @@ namespace HELIX.Widgets {
     }
 
     /// <summary>
-    /// Reconciles the widget into the given element by registering a onetime callback for
-    /// <see cref="AttachToPanelEvent"/> that triggers the initial reconciliation once the element is
-    /// attached to the panel.
+    /// Reconciles the widget into the given element once it has enough hierarchy context.
     /// </summary>
     /// <param name="element">The newly created uninitialized element that is not yet attached to a panel.</param>
+    /// <param name="mode">The mode in which the reconciliation should be scheduled. Defaults to <see cref="ReconcileMode.AfterParent"/>.</param>
     /// <returns>The same element that was passed in, for chaining purposes.</returns>
-    protected IWidgetElement ReconcileInto(IWidgetElement element) {
+    protected IWidgetElement ReconcileInto(IWidgetElement element, ReconcileMode mode = ReconcileMode.AfterParent) {
+      if (element is IReconcileScheduler scheduler) {
+        scheduler.ScheduleReconcile(this, mode);
+        return element;
+      }
+
+      if (mode == ReconcileMode.Eager) {
+        element.Reconcile(this);
+        return element;
+      }
+
       element.Element.RegisterCallbackOnce<AttachToPanelEvent>(_ =>
         Reconciler.Reconcile(element, this)
       );
@@ -330,6 +339,14 @@ namespace HELIX.Widgets {
     int HierarchyDepth { get; }
     bool CanReconcile(Widget updated);
     bool Reconcile(Widget updated);
+  }
+
+  public interface IReconcileScheduler {
+    void ScheduleReconcile(Widget descriptor, ReconcileMode mode = ReconcileMode.AfterParent);
+  }
+
+  public interface IScheduledReconcileRunner {
+    bool TryRunScheduledReconcile(ReconcileMode mode);
   }
 
   /// <summary>

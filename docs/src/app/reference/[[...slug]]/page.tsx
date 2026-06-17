@@ -1,4 +1,4 @@
-import {docfxSource} from '@/lib/source';
+import {docfxSource, getReferencePage, getReferenceRouteSlugs} from '@/lib/source';
 import {
     DocsBody,
     DocsDescription,
@@ -6,7 +6,7 @@ import {
     DocsTitle,
     MarkdownCopyButton,
     ViewOptionsPopover,
-} from 'fumadocs-ui/layouts/docs/page';
+} from 'fumadocs-ui/layouts/notebook/page';
 import {notFound} from 'next/navigation';
 import type {Metadata} from 'next';
 import {gitConfig, referenceContentRoute} from '@/lib/shared';
@@ -24,10 +24,10 @@ export default async function Page(props: PageProps<'/reference/[[...slug]]'>) {
     const params = await props.params;
 
 
-    const page = docfxSource.getPage(params.slug);
+    const page = getReferencePage(params.slug ?? []);
     if (!page) notFound();
 
-    const markdownUrl = `${referenceContentRoute}/${[...page.slugs, 'content.md'].join('/')}`;
+    const markdownUrl = `${referenceContentRoute}/${[...getReferenceRouteSlugs(page), 'content.md'].join('/')}`;
     const githubUrl = page.data.docfx.uid
         ? `https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/docfx/${docfxUidToFileName(page.data.docfx.uid)}`
         : `https://github.com/${gitConfig.user}/${gitConfig.repo}/blob/${gitConfig.branch}/docfx/toc.yml`;
@@ -65,13 +65,15 @@ function DocfxPage({data}: { data: FRPageData }) {
 }
 
 export function generateStaticParams() {
-    return docfxSource.generateParams();
+    return docfxSource.getPages().map((page) => ({
+        slug: getReferenceRouteSlugs(page),
+    }));
 }
 
 export async function generateMetadata(props: PageProps<'/reference/[[...slug]]'>): Promise<Metadata> {
     const params = await props.params;
 
-    const page = docfxSource.getPage(params.slug);
+    const page = getReferencePage(params.slug ?? []);
     if (!page) notFound();
 
     return {
@@ -79,4 +81,3 @@ export async function generateMetadata(props: PageProps<'/reference/[[...slug]]'
         description: page.data.description,
     };
 }
-

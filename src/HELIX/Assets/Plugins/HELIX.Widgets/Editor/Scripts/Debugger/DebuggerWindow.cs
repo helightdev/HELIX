@@ -27,7 +27,7 @@ namespace HELIX.Widgets.Editor.Debugger {
       );
     }
 
-    [MenuItem("HELIX/Debugger")]
+    [MenuItem("Window/HELIX/Debugger",false, 1000)]
     private static void ShowWindow() {
       var window = GetWindow<DebuggerWindow>();
       window.titleContent = new GUIContent("Widget Debugger");

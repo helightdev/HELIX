@@ -1,5 +1,5 @@
 import {referenceTree} from '@/lib/source';
-import {DocsLayout} from 'fumadocs-ui/layouts/docs';
+import {DocsLayout} from 'fumadocs-ui/layouts/notebook';
 import {baseOptions} from '@/lib/layout.shared';
 import {LucideBook, LucideCodeXml} from "lucide-react";
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using HELIX.Extensions;
@@ -140,7 +141,7 @@ namespace HELIX.Widgets.Elements {
       }
     }
 
-    public override void UpdateWidgetElements(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas) {
+    public override void UpdateWidgetElements(Span<IWidgetElement> result, Span<ReconcilerCollectionDelta> deltas) {
       RemoveGaps();
       base.UpdateWidgetElements(result, deltas);
       RebuildGaps(false);
