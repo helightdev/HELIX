@@ -1,0 +1,208 @@
+# Navigation, Scrolling & Prompts (/docs/navigation-scrolling-prompts)
+
+
+
+This page covers the larger interaction systems that build on top of the core widget model:
+navigating between full pages, scrolling through content, and displaying context-sensitive input
+prompts.
+
+***
+
+## Navigation stacks [#navigation-stacks]
+
+<FREntitySymbolLink uid="HNavStack" /> renders a stack of pages. Declare
+a <FREntitySymbolLink uid="GlobalKey-1" /> as a state field to keep a reference to
+the mounted element across rebuilds, then call navigation methods on it from anywhere in the state.
+
+```csharp
+using HELIX.Widgets;
+using HELIX.Widgets.Navigation;
+using HELIX.Widgets.Universal;
+
+public class MenuRoot : StatefulWidget<MenuRoot> {
+  public override State<MenuRoot> CreateState() => new MenuRootState();
+}
+
+public class MenuRootState : State<MenuRoot> {
+  // The key lives on the state so it survives rebuilds of the widget.
+  private readonly GlobalKey<NavStackElement> _nav = new();
+
+  public override Widget Build(BuildContext context) {
+    return new HColumn {
+      new HNavStack(key: _nav).Fill(),
+      new HRow(gap: 8) {
+        new HButton(onClick: ShowSettings) { new HText("Settings") },
+        new HButton(onClick: ShowProfile)  { new HText("Profile")  }
+      }
+    };
+  }
+
+  private void ShowSettings() {
+    _nav.Element.PushReplacement(new WidgetNavPage {
+      Buildable = new SettingsPage().ToBuildable()
+    });
+  }
+
+  private void ShowProfile() {
+    _nav.Element.PushReplacement(new WidgetNavPage {
+      Buildable = new ProfilePage().ToBuildable()
+    });
+  }
+}
+```
+
+### Page transitions [#page-transitions]
+
+Transitions are represented by <FREntitySymbolLink uid="PageTransition" />
+implementations. The built-in options are:
+
+| Transition                                         | Behavior                                 |
+| -------------------------------------------------- | ---------------------------------------- |
+| <FREntitySymbolLink uid="InstantPageTransition" /> | Swaps pages with no animation            |
+| <FREntitySymbolLink uid="FadePageTransition" />    | Cross-fades between the old and new page |
+| <FREntitySymbolLink uid="SlidePageTransition" />   | Slides the new page in from an edge      |
+
+Pass a transition to <FREntitySymbolLink uid="NavStackElement.PushReplacement" /> or <FREntitySymbolLink uid="NavStackElement.Push" /> to customize per-navigation:
+
+```csharp
+_nav.Element.PushReplacement(
+  new WidgetNavPage { Buildable = new SettingsPage().ToBuildable() },
+  transition: new SlidePageTransition()
+);
+```
+
+Implement <FREntitySymbolLink uid="PageTransition" /> to create fully custom animated transitions.
+
+***
+
+## Scaffolds [#scaffolds]
+
+<FREntitySymbolLink uid="HScaffold" /> is a higher-level page shell.
+Use it when a page needs to consistently manage named layout areas like body content, navigation
+surfaces, top bars, footers, or any persistent chrome that should not be recreated on each
+navigation event.
+
+***
+
+## Scroll views [#scroll-views]
+
+<FREntitySymbolLink uid="HScrollView" /> creates a scrollable container
+for child widgets. It is the right choice for forms, settings panels, and content where all
+children can be mounted at once without a significant performance cost.
+
+```csharp
+new HScrollView(Axis.Vertical) {
+  new HColumn(gap: 8) {
+    rows.Select(row => new HText(row.Title)).Spread()
+  }
+}.Fill();
+```
+
+### Linking a scrollbar [#linking-a-scrollbar]
+
+Use <FREntitySymbolLink uid="ScrollController" /> when another widget
+needs to observe or control the scroll position. Register it with <FREntitySymbolLink uid="State-1.AddDisposable" /> to keep its
+lifetime tied to the state:
+
+```csharp
+private ScrollController _scroll;
+
+public override void InitState() {
+  _scroll = AddDisposable(new ScrollController());
+}
+
+public override Widget Build(BuildContext context) {
+  return new HRow {
+    new HScrollView(Axis.Vertical, controller: _scroll) {
+      BuildContent()
+    }.Expand(),
+    new HSlider(_scroll)   // automatically configured as a scrollbar
+  };
+}
+```
+
+Passing `_scroll` to `HSlider` tells it to act as a scrollbar. It reads the scroll range and
+thumb size from the controller and forwards drag interactions back to it.
+
+***
+
+## Virtualized lists [#virtualized-lists]
+
+For lists of any significant length, use
+<FREntitySymbolLink uid="HListView" /> instead of
+`HScrollView + HColumn`. `HListView` asks for row widgets only for the items currently visible in
+the scroll viewport, keeping the mounted `VisualElement` count small regardless of the total item
+count.
+
+```csharp
+new HListView(
+  (context, index) => new HBox {
+    new HText($"Quest {index + 1:000}"),
+    new HText(quests[index].Title).Body(context)
+  }.Padding(12),
+  count: quests.Count,
+  fixedItemHeight: 56f
+);
+```
+
+### Fixed vs. dynamic height [#fixed-vs-dynamic-height]
+
+| Mode              | When to use                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `fixedItemHeight` | All rows are the same height. Enables O(1) scroll position math.                                 |
+| Dynamic height    | Rows have variable heights. Each row is measured before layout, so only use this when necessary. |
+
+Setting `fixedItemHeight` whenever possible gives the best scroll performance.
+
+***
+
+## Pan views [#pan-views]
+
+<FREntitySymbolLink uid="HPanView" /> supports two-dimensional panning of
+a larger child surface. Unlike `HScrollView`, which constrains to one axis, `HPanView` allows free
+dragging in both directions. It is well-suited for:
+
+* Map and minimap panels
+* Node-based editors
+* Canvas-style drawing tools
+* Any content that overflows in two dimensions
+
+***
+
+## Input prompts [#input-prompts]
+
+<FREntitySymbolLink uid="HPrompt" /> displays glyphs for input bindings,
+selecting the correct image based on the active input device and platform.
+
+Prompt rendering is **provider-based**. A provider supplies the SVG or texture resources for a
+specific device family. Multiple providers can be registered at once so HELIX can pick the right
+glyph at runtime when the user switches between keyboard, mouse, or controller.
+
+### Built-in provider sets [#built-in-provider-sets]
+
+| Provider set            | Devices covered                                      |
+| ----------------------- | ---------------------------------------------------- |
+| Kenny Keyboard/Mouse    | Standard keyboard and mouse prompts                  |
+| Kenny Xbox              | Xbox Series controller prompts                       |
+| Kenny PlayStation       | PlayStation controller prompts                       |
+| Kenny Nintendo Switch 2 | Nintendo Switch 2 Joy-Con and Pro Controller prompts |
+| Kenny Steam Deck        | Steam Deck button prompts                            |
+| Kenny Steam Controller  | Steam Controller prompts                             |
+
+### Configuration types [#configuration-types]
+
+| Type                                                        | Role                                         |
+| ----------------------------------------------------------- | -------------------------------------------- |
+| <FREntitySymbolLink uid="IPromptLayerProvider" />           | Interface for a prompt image source          |
+| <FREntitySymbolLink uid="SvgResourcePromptLayerProvider" /> | Loads SVG layers from Unity Resources        |
+| <FREntitySymbolLink uid="HelixInputController" />           | Tracks the active input device and variant   |
+| <FREntitySymbolLink uid="InputConfiguration" />             | Registers the active set of prompt providers |
+| <FREntitySymbolLink uid="GamepadVariant" />                 | Identifies a specific controller family      |
+| <FREntitySymbolLink uid="InputDeviceType" />                | Keyboard/mouse or gamepad                    |
+
+### Common use cases [#common-use-cases]
+
+* **Action bars:** show which button triggers an action next to its label.
+* **Tutorial hints:** display contextual control reminders during onboarding.
+* **Rebinding screens:** render the currently bound key or button for each action.
+* **Context-sensitive help:** update displayed glyphs when the user switches input device.

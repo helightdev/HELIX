@@ -1,0 +1,396 @@
+# Theming & Modifiers (/docs/theming-and-modifiers)
+
+
+
+HELIX styling is made up of two complementary layers:
+
+* **Theme values** flow down the widget tree through
+  <Sym uid="HThemeProvider" /> providers and are resolved at
+  build time from <Sym uid="BuildContext" />.
+* **Modifiers** attach directly to a widget and apply style or behavior deltas to the underlying
+  `VisualElement` when the widget is mounted or reconciled.
+
+Neither layer requires you to write USS directly.
+
+***
+
+## Theme providers [#theme-providers]
+
+Wrap any subtree in <Sym uid="HThemeProvider" /> to override
+one or more theme components for everything inside:
+
+```csharp
+return new HThemeProvider(
+  components: new List<ThemeComponent> {
+    new PrimitiveBaseThemeComponent {
+      colors = PrimitiveColorScheme.From(MaterialColors.Blue, Brightness.Dark)
+    }
+  }
+) {
+  new SettingsPanel()
+}.Fill();
+```
+
+Descendants resolve values from the **nearest** provider. If no provider supplies a value, HELIX
+falls back to global/default theme values.
+
+You can stack multiple providers to override different components at different levels of the tree.
+For example, an app-level palette provider at the root with a per-dialog radius override deeper in.
+
+### Resolving tokens in Build [#resolving-tokens-in-build]
+
+Inside any `Build` method, use <Sym uid="IThemeProvider.GetThemed" /> to read a resolved value and subscribe to
+changes automatically:
+
+```csharp
+public override Widget Build(BuildContext context) {
+  var surface    = context.GetThemed(PrimitiveTheme.Surface);
+  var text       = context.GetThemed(PrimitiveTheme.Text);
+  var typography = context.GetThemed(PrimitiveBaseTheme.Typography);
+
+  return new HBox(background: surface) {
+    new HText("Hello").Body(context)
+  }.Padding(16);
+}
+```
+
+When you call <Sym uid="IThemeProvider.GetThemed" />, HELIX registers the property as a dependency. If the active theme
+changes that value, the element schedules a rebuild automatically.
+
+***
+
+## Primitive tokens [#primitive-tokens]
+
+The universal widgets use a set of **primitive theme tokens** for colors, typography, spacing,
+border radius, and component styles. These tokens give you a single place to change the look of an
+entire app.
+
+### Color tokens [#color-tokens]
+
+| <Sym uid="PrimitiveTheme" />              | Intended use                       |
+| ----------------------------------------- | ---------------------------------- |
+| <Sym uid="PrimitiveTheme.Surface" />      | Background of cards and panels     |
+| <Sym uid="PrimitiveTheme.Container" />    | Elevated container background      |
+| <Sym uid="PrimitiveTheme.ContainerLow" /> | Recessed container background      |
+| <Sym uid="PrimitiveTheme.Text" />         | Primary body text                  |
+| <Sym uid="PrimitiveTheme.TextVariant" />  | Secondary / muted text and borders |
+
+### Component style tokens [#component-style-tokens]
+
+| <Sym uid="PrimitiveTheme" />           | Intended use                              |
+| -------------------------------------- | ----------------------------------------- |
+| <Sym uid="PrimitiveTheme.Button" />    | Button substance and state colors         |
+| <Sym uid="PrimitiveTheme.TextField" /> | Text-field border, fill, and caret colors |
+| <Sym uid="PrimitiveTheme.Slider" />    | Track and thumb colors                    |
+| <Sym uid="PrimitiveTheme.Scrollbar" /> | Scrollbar track and handle colors         |
+
+### Design value tokens [#design-value-tokens]
+
+| <Sym uid="PrimitiveBaseTheme" />            | Intended use                                        |
+| ------------------------------------------- | --------------------------------------------------- |
+| <Sym uid="PrimitiveBaseTheme.Typography" /> | Font size, weight, and line-height definitions      |
+| <Sym uid="PrimitiveBaseTheme.Colors" />     | Full color scheme used to derive the above          |
+| <Sym uid="PrimitiveBaseTheme.Spacing" />    | Common spacing increments                           |
+| <Sym uid="PrimitiveBaseTheme.Radius" />     | Border-radius values for inputs, cards, and dialogs |
+
+### Typography helpers on HText [#typography-helpers-on-htext]
+
+`HText` extension methods resolve typography from the active theme and apply it in one call:
+
+```csharp
+new HText("Section title").Heading(context);   // large, prominent
+new HText("Body copy").Body(context);           // standard reading size
+new HText("Field label").Caption(context);      // small, secondary
+new HText("Hero text").Display(context);        // largest, display-size
+```
+
+***
+
+## Custom Themes [#custom-themes]
+
+While HELIX ships with a sensible default theme, you can customize almost any visual aspect. There are three levels of
+customization: generating a dynamic color palette, overriding individual widget tokens, and defining entirely new
+theme properties for your own custom widgets.
+
+### Seed-based color generation [#seed-based-color-generation]
+
+HELIX uses a Material 3-style color palette generator. Instead of manually specifying values for every background,
+container, and text color, you can generate a cohesive scheme from a single seed color.
+
+Pass a seed color and a target <Sym uid="Brightness" /> to <Sym uid="PrimitiveColorScheme.From" />.
+This produces a unified color scheme, which you can then pass to a <Sym uid="PrimitiveBaseThemeComponent" />
+inside an <Sym uid="HThemeProvider" />:
+
+```csharp
+using System.Collections.Generic;
+using HELIX.Types;
+using HELIX.Widgets;
+using HELIX.Widgets.Theming;
+using HELIX.Widgets.Universal;
+using HELIX.Widgets.Universal.Theme;
+using UnityEngine;
+
+public class CustomThemeRoot : StatelessWidget<CustomThemeRoot> {
+  public override Widget Build(BuildContext context) {
+    // Generate a cohesive dark theme palette using a custom violet seed color
+    var myColorScheme = PrimitiveColorScheme.From(
+      seedColor: new Color(0.5f, 0.2f, 0.9f),
+      brightness: Brightness.Dark
+    );
+
+    return new HThemeProvider(
+      components: new List<ThemeComponent> {
+        new PrimitiveBaseThemeComponent {
+          colors = myColorScheme
+        }
+      }
+    ) {
+      new MyMainContent()
+    }.Fill();
+  }
+}
+```
+
+### Overriding individual tokens [#overriding-individual-tokens]
+
+If you only want to customize specific elements (such as the default button style or the surface background color),
+you can assign overrides directly to a <Sym uid="PrimitiveThemeComponent" />.
+
+Because component fields use the <Sym uid="ThemeOptional-1" /> wrapper, they implicitly convert from their raw types.
+Any property you leave unassigned will automatically fall back to the defaults of the parent scope:
+
+```csharp
+var myOverriddenTheme = new PrimitiveThemeComponent {
+  // Override specific color tokens directly
+  surface = new Color(0.05f, 0.05f, 0.05f),
+  text = Color.white,
+
+  slider = new HSliderStyle { /* Customization */ }
+};
+
+return new HThemeProvider(
+  components: new List<ThemeComponent> { myOverriddenTheme }
+) {
+  new MyMainContent()
+};
+```
+
+### Creating new theme properties for custom widgets [#creating-new-theme-properties-for-custom-widgets]
+
+If you are building custom application-level widgets and want them to use their own scoped styling tokens,
+you can extend the system by registering new properties.
+
+To define a custom theme:
+
+1. **Declare custom properties:** Use <Sym uid="ThemeProperty.ExtractMaybe" /> to define your properties,
+   pointing them to their corresponding fields in your theme component.
+2. **Implement a custom component:** Subclass <Sym uid="ThemeComponent" />
+   and define the fields using <Sym uid="ThemeOptional-1" />.
+   Make sure to assign the list of properties to the `lookupScope` in the constructor.
+3. **Resolve the properties in build:** Retrieve the scoped value using `context.GetThemed(...)`.
+
+Here is a complete example of a custom game HUD theme:
+
+```csharp
+using System.Collections.Generic;
+using HELIX.Widgets;
+using HELIX.Widgets.Theming;
+using UnityEngine;
+
+// 1. Declare the theme properties
+public static class HudTheme {
+  public static readonly ThemeProperty<Color> HealthBarColor = ThemeProperty.ExtractMaybe(
+    "hud-health-bar-color",
+    HudThemeComponent.Default,
+    component => component.healthBarColor
+  );
+
+  public static readonly ThemeProperty<Color> ManaBarColor = ThemeProperty.ExtractMaybe(
+    "hud-mana-bar-color",
+    HudThemeComponent.Default,
+    component => component.manaBarColor
+  );
+
+  public static readonly IReadOnlyList<ThemeProperty> Properties = new ThemeProperty[] {
+    HealthBarColor, ManaBarColor
+  };
+}
+
+// 2. Define the custom theme component
+public class HudThemeComponent : ThemeComponent {
+  public static readonly HudThemeComponent Default = new() {
+    healthBarColor = Color.green,
+    manaBarColor = Color.blue
+  };
+
+  public ThemeOptional<Color> healthBarColor;
+  public ThemeOptional<Color> manaBarColor;
+
+  public HudThemeComponent() {
+    lookupScope = HudTheme.Properties;
+  }
+}
+
+// 3. Resolve the properties in a custom widget
+public class StatusBars : StatelessWidget<StatusBars> {
+  public override Widget Build(BuildContext context) {
+    Color hpColor = context.GetThemed(HudTheme.HealthBarColor);
+    Color mpColor = context.GetThemed(HudTheme.ManaBarColor);
+
+    return new HColumn(gap: 8) {
+      new HBox(background: hpColor).Size(width: 200, height: 16),
+      new HBox(background: mpColor).Size(width: 200, height: 16)
+    };
+  }
+}
+```
+
+### Computed theme values [#computed-theme-values]
+
+Sometimes a theme value needs to be dynamically derived from other theme properties. For example,
+text contrast colors might be computed based on the active background color, or a button's
+highlight outline might depend on the primary brand color.
+
+In HELIX, you can define computed values by calling the <Sym uid="ThemeProperty-1.Compute" /> method on a <Sym uid="ThemeProperty-1" />.
+
+Inside a `.Compute(...)` lambda, you receive the current <Sym uid="ThemeProviderElement" /> as a
+provider parameter. When resolving dependencies, you should always call the <Sym uid="WidgetExtensions.Get" />
+extension method on the target property (e.g. `MyThemeProperty.Get(provider)`) rather than invoking `provider.GetThemed(...)` directly.
+
+In certain scenarios (such as diagnostics generation, initial setup, or offline rendering), the `provider` passed to
+the compute lambda can be `null`. The extension method handles null by falling back to the global default values of the property.
+
+Here is an example showing how the built-in <Sym uid="PrimitiveTheme.Surface" /> color is computed from <Sym uid="PrimitiveBaseTheme.Colors" />:
+
+```csharp
+public static readonly ThemeProperty<Color> Surface = ThemeProperty.ExtractMaybe(
+  "primitive-c-surface",
+  PrimitiveThemeComponent.Default,
+  component => component.surface
+).StyleLoader().Compute(provider => {
+  // Always resolve dependencies via the Get() extension method
+  PrimitiveColorScheme colorScheme = PrimitiveBaseTheme.Colors.Get(provider);
+  return colorScheme.surface.main;
+});
+```
+
+***
+
+## Substances [#substances]
+
+Button, slider, text-field, and prompt styles are built on <Sym uid="SubstanceLayers" />, which are visual
+materials that respond to <Sym uid="WidgetState" /> flags:
+
+| Flag                               | Meaning                                   |
+| ---------------------------------- | ----------------------------------------- |
+| <Sym uid="WidgetState.Hovered" />  | Pointer is over the element               |
+| <Sym uid="WidgetState.Pressed" />  | Element is being clicked or tapped        |
+| <Sym uid="WidgetState.Focused" />  | Element has keyboard focus                |
+| <Sym uid="WidgetState.Selected" /> | Two-state control is in the "on" position |
+| <Sym uid="WidgetState.Disabled" /> | Element is not interactive                |
+| <Sym uid="WidgetState.Error" />    | Element is in an invalid state            |
+
+### Button variants [#button-variants]
+
+<Sym uid="HButton" /> ships with built-in variants
+that map to different substance combinations:
+
+| Variant                                                                       | Treatment                              |
+| ----------------------------------------------------------------------------- | -------------------------------------- |
+| <Sym uid="HButtonVariant.Flat" />/ <Sym uid="HButtonVariant.FlatTwoState" />  | Filled, high-contrast surface          |
+| <Sym uid="HButtonVariant.Soft" /> / <Sym uid="HButtonVariant.SoftTwoState" /> | Softer filled treatment                |
+| <Sym uid="HButtonVariant.Outline" />                                          | Transparent fill with visible border   |
+| <Sym uid="HButtonVariant.Ghost" />                                            | Minimal, no fill or border at rest     |
+| <Sym uid="HButtonVariant.TwoState" />                                         | Toggleable selected/unselected control |
+
+<Callout type="info">
+  Pass a concrete <Sym uid="HButtonStyle" /> to
+  <Sym uid="HButton" /> when you need fully custom behavior beyond the built-in variants.
+</Callout>
+
+***
+
+## Modifiers [#modifiers]
+
+<Sym uid="Modifier" /> objects are small, composable pieces of style
+or behavior that are attached to a widget and applied as deltas during reconciliation. When a
+modifier disappears on a rebuild, HELIX automatically resets the properties that modifier owned.
+
+### Fluent helpers [#fluent-helpers]
+
+The fluent API covers the most common cases and chains naturally:
+
+```csharp
+new HBox(background: MaterialColors.Red) {
+  new HText("Alert")
+}.Padding(12).Margin(8).Size(height: 48).Clip();
+```
+
+| Helper                                        | What it does                               |
+| --------------------------------------------- | ------------------------------------------ |
+| <Sym uid="ModifierExtensions.Fill" />         | Flex grow, flex shrink, `width: 100%`      |
+| <Sym uid="ModifierExtensions.Shrink" />       | Flex shrink only                           |
+| <Sym uid="ModifierExtensions.Tight" />        | Collapses flex growth                      |
+| <Sym uid="ModifierExtensions.TightStretch" /> | Tight + cross-axis stretch                 |
+| <Sym uid="ModifierExtensions.Expand" />       | Flex grow only (fills remaining space)     |
+| <Sym uid="ModifierExtensions.Size" />         | Sets preferred, min, and/or max size       |
+| <Sym uid="ModifierExtensions.Positioned" />   | Absolute position with inset overrides     |
+| <Sym uid="ModifierExtensions.Stretch" />      | Cross-axis stretch on a positioned element |
+| <Sym uid="ModifierExtensions.Padding" />      | Inner spacing                              |
+| <Sym uid="ModifierExtensions.Margin" />       | Outer spacing                              |
+| <Sym uid="ModifierExtensions.Display" />      | Show/hide without removing from layout     |
+| <Sym uid="ModifierExtensions.Visibility" />   | Show/hide with layout preserved            |
+| <Sym uid="ModifierExtensions.Opacity" />      | Alpha value                                |
+| <Sym uid="ModifierExtensions.Clip" />         | `overflow: hidden`                         |
+| <Sym uid="ModifierExtensions.Const" />        | Reconciliation retention hint              |
+
+### Explicit modifier instances [#explicit-modifier-instances]
+
+Pass an explicit `modifiers` array when the fluent style is less readable or when you need types
+not covered by a helper:
+
+```csharp
+new HColumn(
+  modifiers: new Modifier[] {
+    PaddingModifier.Of(16),
+    BackgroundStyleModifier.Of(context.GetThemed(PrimitiveTheme.Surface)),
+    BorderModifier.Of(Border.All(1, context.GetThemed(PrimitiveTheme.TextVariant)))
+  }
+) {
+  new HText("Panel")
+};
+```
+
+***
+
+## Modifier uniqueness [#modifier-uniqueness]
+
+A widget can hold **at most one non-fallback modifier of each type**. This keeps reconciliation
+deterministic. Each modifier owns a single slice of element state, so there is no ambiguity
+about which modifier wins.
+
+**Fallback modifiers** are defaults applied by the widget itself, such as the implicit flex-fill
+that `StatefulWidget` uses. A user modifier of the same type always replaces its fallback
+counterpart, so overriding built-in layout behavior is as simple as chaining `.Shrink()` or
+`.Size(...)`.
+
+***
+
+## Widget state controllers [#widget-state-controllers]
+
+Interactive widgets expose controller objects when external coordination is needed:
+
+| Controller                          | Purpose                                                        |
+| ----------------------------------- | -------------------------------------------------------------- |
+| <Sym uid="WidgetStateController" /> | Reads and writes the active `WidgetState` flags externally     |
+| <Sym uid="ButtonController" />      | Controls click behavior, programmatic press, and disable state |
+| <Sym uid="SliderController" />      | Sets slider value and observes drag state                      |
+
+Use controllers when:
+
+* Multiple widgets must share the same interaction state.
+* State is owned outside the widget tree (for example in a game system or a service).
+* Another system needs to imperatively enable, disable, focus, or update an element.
+
+Without a controller, interactive widgets create and own one internally. You only need to reach
+for a controller when external coordination is genuinely required.
