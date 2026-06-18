@@ -12,6 +12,12 @@ public abstract class WrappingBaseWidget<S, T> : Widget, IDiagnosticableTree, ID
 public abstract void Apply(S previous, T element)
 ```
 
+## CanReconcile(S, T)
+
+```
+public virtual bool CanReconcile(S previous, T element)
+```
+
 ## Create()
 
 ```

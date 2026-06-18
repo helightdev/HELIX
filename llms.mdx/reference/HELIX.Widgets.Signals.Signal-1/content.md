@@ -33,7 +33,7 @@ public abstract void SetWithoutNotify(T newValue)
 ## AddObserver(Action<T>, bool)
 
 ```
-public IDisposable AddObserver(Action<T> onChanged, bool fireImmediately = false)
+public FunctionSignalObserver AddObserver(Action<T> onChanged, bool fireImmediately = false)
 ```
 
 ## T(Signal<T>)

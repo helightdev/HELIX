@@ -9,6 +9,10 @@
   - Animation
   - Coloring
     - Material
+  - Diagnostics
+    - Error
+    - Formatting
+    - Properties
   - Editor
     - Drawers
   - Extensions
@@ -16,10 +20,8 @@
     - Paths
   - Types
   - Widgets
-    - Diagnostics
-      - Error
-      - Formatting
-      - Properties
+    - Diagnostics.Error
+    - Diagnostics.Properties
     - Editor
       - Debugger
     - Elements

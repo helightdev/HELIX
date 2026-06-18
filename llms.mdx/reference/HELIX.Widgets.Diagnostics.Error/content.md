@@ -4,14 +4,5 @@
 
 ## Classes
 
-- DiagnosticsPropertyErrorNode
-- DiagnosticsStackTrace
-- ErrorDescription
-- ErrorHint
-- ErrorProperty
-- ErrorSpacer
-- ErrorSummary
-- ExceptionThrownErrorProperty
-- HelixDiagnosticException
 - OffendingWidgetErrorProperty
 - OwnershipChainErrorProperty

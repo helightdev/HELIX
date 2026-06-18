@@ -1791,6 +1791,10 @@ The <FREntitySymbolLink uid="Visual" /> namespace contains lower-level drawing h
   - Animation
   - Coloring
     - Material
+  - Diagnostics
+    - Error
+    - Formatting
+    - Properties
   - Editor
     - Drawers
   - Extensions
@@ -1798,10 +1802,8 @@ The <FREntitySymbolLink uid="Visual" /> namespace contains lower-level drawing h
     - Paths
   - Types
   - Widgets
-    - Diagnostics
-      - Error
-      - Formatting
-      - Properties
+    - Diagnostics.Error
+    - Diagnostics.Properties
     - Editor
       - Debugger
     - Elements
@@ -5007,6 +5009,43 @@ public static readonly DynamicColor OnTertiaryFixedVariant
 public static DynamicColor HighestSurface(DynamicScheme s)
 ```
 
+# MaterialSchemeFactory (/reference/HELIX.Coloring.Material.MaterialSchemeFactory)
+
+# MaterialSchemeFactory
+
+```
+public static class MaterialSchemeFactory
+```
+
+Unity-facing helpers and extensions for Material Color Utilities.
+This file is intended to sit on top of the lower-level ported types:
+Hct, Cam16, Blend, DynamicScheme, DynamicColor, TonalPalette,
+MaterialDynamicColors, Contrast, Variant, and the scheme preset classes.
+
+## CreateScheme(int, Variant, bool, double)
+
+```
+public static DynamicScheme CreateScheme(int sourceArgb, Variant variant = Variant.TonalSpot, bool isDark = false, double contrastLevel = 0)
+```
+
+Creates a dynamic scheme from an ARGB seed color and a preset variant.
+
+## CreateScheme(Color, Variant, bool, double)
+
+```
+public static DynamicScheme CreateScheme(Color sourceColor, Variant variant = Variant.TonalSpot, bool isDark = false, double contrastLevel = 0)
+```
+
+Creates a dynamic scheme from a Unity gamma-space color and a preset variant.
+
+## CreateScheme(Hct, Variant, bool, double)
+
+```
+public static DynamicScheme CreateScheme(Hct sourceColorHct, Variant variant = Variant.TonalSpot, bool isDark = false, double contrastLevel = 0)
+```
+
+Creates a dynamic scheme from an HCT seed color and a preset variant.
+
 # MaterialSwatch (/reference/HELIX.Coloring.Material.MaterialSwatch)
 
 # MaterialSwatch
@@ -5957,6 +5996,7 @@ Convenience constructor for ViewingConditions.
 - MaterialColors
 - MaterialColorUtils
 - MaterialDynamicColors
+- MaterialSchemeFactory
 - StringUtils
 - VariantExtensions
 
@@ -6236,6 +6276,1810 @@ public static implicit operator OkLchColor(float3 components)
 
 - OkLabColor
 - OkLchColor
+
+# ComputePropertyValueCallback<T> (/reference/HELIX.Diagnostics.ComputePropertyValueCallback-1)
+
+# ComputePropertyValueCallback<T>
+
+```
+public delegate T ComputePropertyValueCallback<T>()
+```
+
+# DiagnosticLevel (/reference/HELIX.Diagnostics.DiagnosticLevel)
+
+# DiagnosticLevel
+
+```
+public enum DiagnosticLevel
+```
+
+## Hidden
+
+```
+Hidden = 0
+```
+
+## Fine
+
+```
+Fine = 1
+```
+
+## Debug
+
+```
+Debug = 2
+```
+
+## Info
+
+```
+Info = 3
+```
+
+## Warning
+
+```
+Warning = 4
+```
+
+## Hint
+
+```
+Hint = 5
+```
+
+## Summary
+
+```
+Summary = 6
+```
+
+## Error
+
+```
+Error = 7
+```
+
+## Off
+
+```
+Off = 8
+```
+
+# DiagnosticPropertiesBuilder (/reference/HELIX.Diagnostics.DiagnosticPropertiesBuilder)
+
+# DiagnosticPropertiesBuilder
+
+```
+public sealed class DiagnosticPropertiesBuilder
+```
+
+## DiagnosticPropertiesBuilder()
+
+```
+public DiagnosticPropertiesBuilder()
+```
+
+## DiagnosticPropertiesBuilder(List<DiagnosticsNode>)
+
+```
+public DiagnosticPropertiesBuilder(List<DiagnosticsNode> properties)
+```
+
+## Properties
+
+```
+public List<DiagnosticsNode> Properties { get; }
+```
+
+## DefaultDiagnosticsTreeStyle
+
+```
+public DiagnosticsTreeStyle DefaultDiagnosticsTreeStyle { get; set; }
+```
+
+## EmptyBodyDescription
+
+```
+public string EmptyBodyDescription { get; set; }
+```
+
+## Add(DiagnosticsNode)
+
+```
+public void Add(DiagnosticsNode property)
+```
+
+# DiagnosticableBase (/reference/HELIX.Diagnostics.DiagnosticableBase)
+
+# DiagnosticableBase
+
+```
+public abstract class DiagnosticableBase : IDiagnosticable
+```
+
+## ToStringShort()
+
+```
+public virtual string ToStringShort()
+```
+
+## ToDiagnosticsNode(string, DiagnosticsTreeStyle?)
+
+```
+public virtual DiagnosticsNode ToDiagnosticsNode(string name = null, DiagnosticsTreeStyle? style = null)
+```
+
+## DebugFillProperties(DiagnosticPropertiesBuilder)
+
+```
+public virtual void DebugFillProperties(DiagnosticPropertiesBuilder properties)
+```
+
+## ToString()
+
+```
+public override string ToString()
+```
+
+# DiagnosticableExtensions (/reference/HELIX.Diagnostics.DiagnosticableExtensions)
+
+# DiagnosticableExtensions
+
+```
+public static class DiagnosticableExtensions
+```
+
+## ToDiagnosticsNodeSafe(IDiagnosticable, string, DiagnosticsTreeStyle?)
+
+```
+public static DiagnosticsNode ToDiagnosticsNodeSafe(this IDiagnosticable diagnosticable, string name = null, DiagnosticsTreeStyle? style = null)
+```
+
+# DiagnosticableNode (/reference/HELIX.Diagnostics.DiagnosticableNode)
+
+# DiagnosticableNode
+
+```
+public class DiagnosticableNode : DiagnosticsNode
+```
+
+## DiagnosticableNode(string, IDiagnosticable, DiagnosticsTreeStyle?)
+
+```
+public DiagnosticableNode(string name, IDiagnosticable value, DiagnosticsTreeStyle? style)
+```
+
+## ValueTyped
+
+```
+public IDiagnosticable ValueTyped { get; }
+```
+
+## Value
+
+```
+public override object Value { get; }
+```
+
+## EmptyBodyDescription
+
+```
+public override string EmptyBodyDescription { get; }
+```
+
+## ToDescription(TextTreeConfiguration)
+
+```
+public override string ToDescription(TextTreeConfiguration parentConfiguration = null)
+```
+
+## GetProperties()
+
+```
+public override List<DiagnosticsNode> GetProperties()
+```
+
+## GetChildren()
+
+```
+public override List<DiagnosticsNode> GetChildren()
+```
+
+# DiagnosticableTreeBase (/reference/HELIX.Diagnostics.DiagnosticableTreeBase)
+
+# DiagnosticableTreeBase
+
+```
+public abstract class DiagnosticableTreeBase : DiagnosticableBase, IDiagnosticableTree, IDiagnosticable
+```
+
+## DebugDescribeChildren()
+
+```
+public virtual List<DiagnosticsNode> DebugDescribeChildren()
+```
+
+## ToStringDeep(string, string, DiagnosticLevel, int)
+
+```
+public virtual string ToStringDeep(string prefixLineOne = "", string prefixOtherLines = null, DiagnosticLevel minLevel = DiagnosticLevel.Debug, int wrapWidth = 65)
+```
+
+## ToStringShallow(string, DiagnosticLevel)
+
+```
+public virtual string ToStringShallow(string joiner = ", ", DiagnosticLevel minLevel = DiagnosticLevel.Debug)
+```
+
+## ToDiagnosticsNode(string, DiagnosticsTreeStyle?)
+
+```
+public override DiagnosticsNode ToDiagnosticsNode(string name = null, DiagnosticsTreeStyle? style = null)
+```
+
+# DiagnosticableTreeNode (/reference/HELIX.Diagnostics.DiagnosticableTreeNode)
+
+# DiagnosticableTreeNode
+
+```
+public sealed class DiagnosticableTreeNode : DiagnosticableNode
+```
+
+## DiagnosticableTreeNode(string, IDiagnosticableTree, DiagnosticsTreeStyle?)
+
+```
+public DiagnosticableTreeNode(string name, IDiagnosticableTree value, DiagnosticsTreeStyle? style)
+```
+
+## GetChildren()
+
+```
+public override List<DiagnosticsNode> GetChildren()
+```
+
+# DiagnosticsBlock (/reference/HELIX.Diagnostics.DiagnosticsBlock)
+
+# DiagnosticsBlock
+
+```
+public class DiagnosticsBlock : DiagnosticsNode
+```
+
+## DiagnosticsBlock(string, DiagnosticsTreeStyle, bool, bool, string, object, string, DiagnosticLevel, bool, List<DiagnosticsNode>, List<DiagnosticsNode>)
+
+```
+public DiagnosticsBlock(string name = null, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.Whitespace, bool showName = true, bool showSeparator = true, string linePrefix = null, object value = null, string description = "", DiagnosticLevel level = DiagnosticLevel.Info, bool allowTruncate = false, List<DiagnosticsNode> children = null, List<DiagnosticsNode> properties = null)
+```
+
+## ValueObject
+
+```
+public object ValueObject { get; }
+```
+
+## LevelValue
+
+```
+public DiagnosticLevel LevelValue { get; }
+```
+
+## AllowTruncateValue
+
+```
+public bool AllowTruncateValue { get; }
+```
+
+## Value
+
+```
+public override object Value { get; }
+```
+
+## Level
+
+```
+public override DiagnosticLevel Level { get; }
+```
+
+## AllowTruncate
+
+```
+public override bool AllowTruncate { get; }
+```
+
+## GetChildren()
+
+```
+public override List<DiagnosticsNode> GetChildren()
+```
+
+## GetProperties()
+
+```
+public override List<DiagnosticsNode> GetProperties()
+```
+
+## ToDescription(TextTreeConfiguration)
+
+```
+public override string ToDescription(TextTreeConfiguration parentConfiguration = null)
+```
+
+# DiagnosticsNode (/reference/HELIX.Diagnostics.DiagnosticsNode)
+
+# DiagnosticsNode
+
+```
+public abstract class DiagnosticsNode
+```
+
+## Null
+
+```
+public static readonly DiagnosticsNode Null
+```
+
+## DiagnosticsNode(string, DiagnosticsTreeStyle?, bool, bool, string)
+
+```
+protected DiagnosticsNode(string name, DiagnosticsTreeStyle? style = null, bool showName = true, bool showSeparator = true, string linePrefix = null)
+```
+
+## Name
+
+```
+public string Name { get; }
+```
+
+## Value
+
+```
+public virtual object Value { get; }
+```
+
+## Style
+
+```
+public DiagnosticsTreeStyle? Style { get; }
+```
+
+## ShowSeparator
+
+```
+public bool ShowSeparator { get; }
+```
+
+## ShowName
+
+```
+public bool ShowName { get; }
+```
+
+## LinePrefix
+
+```
+public string LinePrefix { get; }
+```
+
+## AllowWrap
+
+```
+public virtual bool AllowWrap { get; }
+```
+
+## AllowNameWrap
+
+```
+public virtual bool AllowNameWrap { get; }
+```
+
+## AllowTruncate
+
+```
+public virtual bool AllowTruncate { get; }
+```
+
+## EmptyBodyDescription
+
+```
+public virtual string EmptyBodyDescription { get; }
+```
+
+## Level
+
+```
+public virtual DiagnosticLevel Level { get; }
+```
+
+## TextTreeConfiguration
+
+```
+protected virtual TextTreeConfiguration TextTreeConfiguration { get; }
+```
+
+## IsFiltered(DiagnosticLevel)
+
+```
+public bool IsFiltered(DiagnosticLevel minLevel)
+```
+
+## ToDescription(TextTreeConfiguration)
+
+```
+public abstract string ToDescription(TextTreeConfiguration parentConfiguration = null)
+```
+
+## GetProperties()
+
+```
+public abstract List<DiagnosticsNode> GetProperties()
+```
+
+## GetChildren()
+
+```
+public abstract List<DiagnosticsNode> GetChildren()
+```
+
+## ToStringDeep(string, string, TextTreeConfiguration, DiagnosticLevel, int)
+
+```
+public string ToStringDeep(string prefixLineOne = "", string prefixOtherLines = null, TextTreeConfiguration parentConfiguration = null, DiagnosticLevel minLevel = DiagnosticLevel.Debug, int wrapWidth = 65)
+```
+
+## ToString()
+
+```
+public override string ToString()
+```
+
+## Message(string, DiagnosticsTreeStyle, DiagnosticLevel, bool)
+
+```
+public static DiagnosticsNode Message(string message, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info, bool allowWrap = true)
+```
+
+# DiagnosticsNodeBuilder (/reference/HELIX.Diagnostics.DiagnosticsNodeBuilder)
+
+# DiagnosticsNodeBuilder
+
+```
+public delegate IEnumerable<DiagnosticsNode> DiagnosticsNodeBuilder()
+```
+
+# DiagnosticsProperty<T> (/reference/HELIX.Diagnostics.DiagnosticsProperty-1)
+
+# DiagnosticsProperty<T>
+
+```
+public class DiagnosticsProperty<T> : DiagnosticsNode
+```
+
+## DiagnosticsProperty(string, T, string, string, string, bool, bool, object, string, bool, string, bool, bool, bool, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public DiagnosticsProperty(string name, T value, string description = null, string ifNull = null, string ifEmpty = null, bool showName = true, bool showSeparator = true, object defaultValue = null, string tooltip = null, bool missingIfNull = false, string linePrefix = null, bool expandableValue = false, bool allowWrap = true, bool allowNameWrap = true, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## DiagnosticsProperty(string, ComputePropertyValueCallback<T>, string, string, string, bool, bool, object, string, bool, bool, bool, bool, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public DiagnosticsProperty(string name, ComputePropertyValueCallback<T> computeValue, string description, string ifNull, string ifEmpty, bool showName, bool showSeparator, object defaultValue, string tooltip, bool missingIfNull, bool expandableValue, bool allowWrap, bool allowNameWrap, DiagnosticsTreeStyle style, DiagnosticLevel level)
+```
+
+## AllowWrap
+
+```
+public override bool AllowWrap { get; }
+```
+
+## AllowNameWrap
+
+```
+public override bool AllowNameWrap { get; }
+```
+
+## AllowWrapImpl
+
+```
+public bool AllowWrapImpl { get; }
+```
+
+## AllowNameWrapImpl
+
+```
+public bool AllowNameWrapImpl { get; }
+```
+
+## ExpandableValue
+
+```
+public bool ExpandableValue { get; }
+```
+
+## IfNull
+
+```
+public string IfNull { get; }
+```
+
+## IfEmpty
+
+```
+public string IfEmpty { get; }
+```
+
+## Tooltip
+
+```
+public string Tooltip { get; }
+```
+
+## MissingIfNull
+
+```
+public bool MissingIfNull { get; }
+```
+
+## DefaultValue
+
+```
+public object DefaultValue { get; }
+```
+
+## Exception
+
+```
+public Exception Exception { get; }
+```
+
+## Value
+
+```
+public override object Value { get; }
+```
+
+## ValueTyped
+
+```
+public virtual T ValueTyped { get; }
+```
+
+## IsInteresting
+
+```
+protected virtual bool IsInteresting { get; }
+```
+
+## Level
+
+```
+public override DiagnosticLevel Level { get; }
+```
+
+## Lazy(string, ComputePropertyValueCallback<T>, string, string, string, bool, bool, object, string, bool, bool, bool, bool, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public static DiagnosticsProperty<T> Lazy(string name, ComputePropertyValueCallback<T> computeValue, string description = null, string ifNull = null, string ifEmpty = null, bool showName = true, bool showSeparator = true, object defaultValue = null, string tooltip = null, bool missingIfNull = false, bool expandableValue = false, bool allowWrap = true, bool allowNameWrap = true, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## MaybeCacheValue()
+
+```
+protected void MaybeCacheValue()
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public virtual string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+## ToDescription(TextTreeConfiguration)
+
+```
+public override string ToDescription(TextTreeConfiguration parentConfiguration = null)
+```
+
+## AddTooltip(string)
+
+```
+protected string AddTooltip(string text)
+```
+
+## GetProperties()
+
+```
+public override List<DiagnosticsNode> GetProperties()
+```
+
+## GetChildren()
+
+```
+public override List<DiagnosticsNode> GetChildren()
+```
+
+# DiagnosticsPropertyErrorNode (/reference/HELIX.Diagnostics.Error.DiagnosticsPropertyErrorNode)
+
+# DiagnosticsPropertyErrorNode
+
+```
+public sealed class DiagnosticsPropertyErrorNode : DiagnosticsProperty<string>
+```
+
+## DiagnosticsPropertyErrorNode(string, Exception)
+
+```
+public DiagnosticsPropertyErrorNode(string name, Exception exception)
+```
+
+## ExceptionObject
+
+```
+public Exception ExceptionObject { get; }
+```
+
+# DiagnosticsStackTrace (/reference/HELIX.Diagnostics.Error.DiagnosticsStackTrace)
+
+# DiagnosticsStackTrace
+
+```
+public class DiagnosticsStackTrace : DiagnosticsBlock
+```
+
+## DiagnosticsStackTrace(string, string, bool, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public DiagnosticsStackTrace(string name, string stackTrace, bool userReduced = true, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.Flat, DiagnosticLevel level = DiagnosticLevel.Error)
+```
+
+## StackTraceText
+
+```
+public string StackTraceText { get; }
+```
+
+# ErrorDescription (/reference/HELIX.Diagnostics.Error.ErrorDescription)
+
+# ErrorDescription
+
+```
+public class ErrorDescription : DiagnosticsProperty<string>
+```
+
+## ErrorDescription(string)
+
+```
+public ErrorDescription(string message)
+```
+
+# ErrorHint (/reference/HELIX.Diagnostics.Error.ErrorHint)
+
+# ErrorHint
+
+```
+public sealed class ErrorHint : DiagnosticsProperty<string>
+```
+
+## ErrorHint(string)
+
+```
+public ErrorHint(string message)
+```
+
+# ErrorProperty (/reference/HELIX.Diagnostics.Error.ErrorProperty)
+
+# ErrorProperty
+
+```
+public sealed class ErrorProperty : DiagnosticsProperty<object>
+```
+
+## ErrorProperty(string, object)
+
+```
+public ErrorProperty(string name, object value)
+```
+
+# ErrorSpacer (/reference/HELIX.Diagnostics.Error.ErrorSpacer)
+
+# ErrorSpacer
+
+```
+public sealed class ErrorSpacer : DiagnosticsProperty<string>
+```
+
+## ErrorSpacer()
+
+```
+public ErrorSpacer()
+```
+
+## ToDescription(TextTreeConfiguration)
+
+```
+public override string ToDescription(TextTreeConfiguration parentConfiguration = null)
+```
+
+# ErrorSummary (/reference/HELIX.Diagnostics.Error.ErrorSummary)
+
+# ErrorSummary
+
+```
+public sealed class ErrorSummary : DiagnosticsProperty<string>
+```
+
+## ErrorSummary(string)
+
+```
+public ErrorSummary(string message)
+```
+
+# ExceptionThrownErrorProperty (/reference/HELIX.Diagnostics.Error.ExceptionThrownErrorProperty)
+
+# ExceptionThrownErrorProperty
+
+```
+public class ExceptionThrownErrorProperty : DiagnosticsProperty<Exception>
+```
+
+## ExceptionThrownErrorProperty(Exception)
+
+```
+public ExceptionThrownErrorProperty(Exception exception)
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# HelixDiagnosticException (/reference/HELIX.Diagnostics.Error.HelixDiagnosticException)
+
+# HelixDiagnosticException
+
+```
+public sealed class HelixDiagnosticException : Exception, ISerializable
+```
+
+## HelixDiagnosticException(string)
+
+```
+public HelixDiagnosticException(string message)
+```
+
+## HelixDiagnosticException(IEnumerable<DiagnosticsNode>)
+
+```
+public HelixDiagnosticException(IEnumerable<DiagnosticsNode> diagnostics)
+```
+
+## Diagnostics
+
+```
+public IReadOnlyList<DiagnosticsNode> Diagnostics { get; }
+```
+
+## Message
+
+```
+public override string Message { get; }
+```
+
+## FromParts(params DiagnosticsNode[])
+
+```
+public static HelixDiagnosticException FromParts(params DiagnosticsNode[] diagnostics)
+```
+
+## FromException(Exception, string)
+
+```
+public static HelixDiagnosticException FromException(Exception exception, string summary = null)
+```
+
+## ToStringDeep(int)
+
+```
+public string ToStringDeep(int wrapWidth = 100)
+```
+
+## ToString()
+
+```
+public override string ToString()
+```
+
+## ToDiagnosticsNode()
+
+```
+public DiagnosticsNode ToDiagnosticsNode()
+```
+
+# HELIX.Diagnostics.Error (/reference/HELIX.Diagnostics.Error)
+
+# HELIX.Diagnostics.Error
+
+## Classes
+
+- DiagnosticsPropertyErrorNode
+- DiagnosticsStackTrace
+- ErrorDescription
+- ErrorHint
+- ErrorProperty
+- ErrorSpacer
+- ErrorSummary
+- ExceptionThrownErrorProperty
+- HelixDiagnosticException
+
+# DiagnosticsTextConfigurations (/reference/HELIX.Diagnostics.Formatting.DiagnosticsTextConfigurations)
+
+# DiagnosticsTextConfigurations
+
+```
+public static class DiagnosticsTextConfigurations
+```
+
+## Sparse
+
+```
+public static readonly TextTreeConfiguration Sparse
+```
+
+## Dense
+
+```
+public static readonly TextTreeConfiguration Dense
+```
+
+## Transition
+
+```
+public static readonly TextTreeConfiguration Transition
+```
+
+## Error
+
+```
+public static readonly TextTreeConfiguration Error
+```
+
+## Whitespace
+
+```
+public static readonly TextTreeConfiguration Whitespace
+```
+
+## Flat
+
+```
+public static readonly TextTreeConfiguration Flat
+```
+
+## SingleLine
+
+```
+public static readonly TextTreeConfiguration SingleLine
+```
+
+## ErrorProperty
+
+```
+public static readonly TextTreeConfiguration ErrorProperty
+```
+
+## Shallow
+
+```
+public static readonly TextTreeConfiguration Shallow
+```
+
+# DiagnosticsTreeStyle (/reference/HELIX.Diagnostics.Formatting.DiagnosticsTreeStyle)
+
+# DiagnosticsTreeStyle
+
+```
+public enum DiagnosticsTreeStyle
+```
+
+## None
+
+```
+None = 0
+```
+
+## Sparse
+
+```
+Sparse = 1
+```
+
+## Offstage
+
+```
+Offstage = 2
+```
+
+## Dense
+
+```
+Dense = 3
+```
+
+## Transition
+
+```
+Transition = 4
+```
+
+## Error
+
+```
+Error = 5
+```
+
+## Whitespace
+
+```
+Whitespace = 6
+```
+
+## Flat
+
+```
+Flat = 7
+```
+
+## SingleLine
+
+```
+SingleLine = 8
+```
+
+## ErrorProperty
+
+```
+ErrorProperty = 9
+```
+
+## Shallow
+
+```
+Shallow = 10
+```
+
+## TruncateChildren
+
+```
+TruncateChildren = 11
+```
+
+# TextTreeConfiguration (/reference/HELIX.Diagnostics.Formatting.TextTreeConfiguration)
+
+# TextTreeConfiguration
+
+```
+public sealed class TextTreeConfiguration
+```
+
+## TextTreeConfiguration(string, string, string, string, string, string, string, string, bool, string, string, string, string, string, string, string, string, string, bool, bool, bool, bool, string, string, string)
+
+```
+public TextTreeConfiguration(string prefixLineOne, string prefixOtherLines, string prefixLastChildLineOne, string prefixOtherLinesRootNode, string linkCharacter, string propertyPrefixIfChildren, string propertyPrefixNoChildren, string lineBreak = "\n", bool lineBreakProperties = true, string afterName = ":", string afterDescriptionIfBody = "", string afterDescription = "", string beforeProperties = "", string afterProperties = "", string mandatoryAfterProperties = "", string propertySeparator = "", string bodyIndent = "", string footer = "", bool showChildren = true, bool addBlankLineIfNoChildren = true, bool isNameOnOwnLine = false, bool isBlankLineBetweenPropertiesAndChildren = true, string beforeName = "", string suffixLineOne = "", string mandatoryFooter = "")
+```
+
+## PrefixLineOne
+
+```
+public string PrefixLineOne { get; }
+```
+
+## SuffixLineOne
+
+```
+public string SuffixLineOne { get; }
+```
+
+## PrefixOtherLines
+
+```
+public string PrefixOtherLines { get; }
+```
+
+## PrefixLastChildLineOne
+
+```
+public string PrefixLastChildLineOne { get; }
+```
+
+## PrefixOtherLinesRootNode
+
+```
+public string PrefixOtherLinesRootNode { get; }
+```
+
+## PropertyPrefixIfChildren
+
+```
+public string PropertyPrefixIfChildren { get; }
+```
+
+## PropertyPrefixNoChildren
+
+```
+public string PropertyPrefixNoChildren { get; }
+```
+
+## LinkCharacter
+
+```
+public string LinkCharacter { get; }
+```
+
+## ChildLinkSpace
+
+```
+public string ChildLinkSpace { get; }
+```
+
+## LineBreak
+
+```
+public string LineBreak { get; }
+```
+
+## LineBreakProperties
+
+```
+public bool LineBreakProperties { get; }
+```
+
+## BeforeName
+
+```
+public string BeforeName { get; }
+```
+
+## AfterName
+
+```
+public string AfterName { get; }
+```
+
+## AfterDescriptionIfBody
+
+```
+public string AfterDescriptionIfBody { get; }
+```
+
+## AfterDescription
+
+```
+public string AfterDescription { get; }
+```
+
+## BeforeProperties
+
+```
+public string BeforeProperties { get; }
+```
+
+## AfterProperties
+
+```
+public string AfterProperties { get; }
+```
+
+## MandatoryAfterProperties
+
+```
+public string MandatoryAfterProperties { get; }
+```
+
+## PropertySeparator
+
+```
+public string PropertySeparator { get; }
+```
+
+## BodyIndent
+
+```
+public string BodyIndent { get; }
+```
+
+## ShowChildren
+
+```
+public bool ShowChildren { get; }
+```
+
+## AddBlankLineIfNoChildren
+
+```
+public bool AddBlankLineIfNoChildren { get; }
+```
+
+## IsNameOnOwnLine
+
+```
+public bool IsNameOnOwnLine { get; }
+```
+
+## Footer
+
+```
+public string Footer { get; }
+```
+
+## MandatoryFooter
+
+```
+public string MandatoryFooter { get; }
+```
+
+## IsBlankLineBetweenPropertiesAndChildren
+
+```
+public bool IsBlankLineBetweenPropertiesAndChildren { get; }
+```
+
+# TextTreeRenderer (/reference/HELIX.Diagnostics.Formatting.TextTreeRenderer)
+
+# TextTreeRenderer
+
+```
+public sealed class TextTreeRenderer
+```
+
+## TextTreeRenderer(DiagnosticLevel, int, int, int)
+
+```
+public TextTreeRenderer(DiagnosticLevel minLevel = DiagnosticLevel.Debug, int wrapWidth = 100, int wrapWidthProperties = 65, int maxDescendantsTruncatableNode = -1)
+```
+
+## Render(DiagnosticsNode, string, string, TextTreeConfiguration)
+
+```
+public string Render(DiagnosticsNode node, string prefixLineOne = "", string prefixOtherLines = null, TextTreeConfiguration parentConfiguration = null)
+```
+
+# HELIX.Diagnostics.Formatting (/reference/HELIX.Diagnostics.Formatting)
+
+# HELIX.Diagnostics.Formatting
+
+## Static Classes
+
+- DiagnosticsTextConfigurations
+
+## Enums
+
+- DiagnosticsTreeStyle
+
+## Classes
+
+- TextTreeConfiguration
+- TextTreeRenderer
+
+# HelixDiagnostics (/reference/HELIX.Diagnostics.HelixDiagnostics)
+
+# HelixDiagnostics
+
+```
+public static class HelixDiagnostics
+```
+
+## PresentError
+
+```
+public static Func<HelixDiagnosticException, string> PresentError
+```
+
+## OnErrorReported
+
+```
+public static event Action<HelixDiagnosticException, DiagnosticLevel> OnErrorReported
+```
+
+## LogSignature
+
+```
+public static string LogSignature
+```
+
+## FormatException(Exception, string)
+
+```
+public static string FormatException(Exception exception, string summary = null)
+```
+
+## Build(string, string, IEnumerable<DiagnosticsNode>, Exception, string, IEnumerable<DiagnosticsNode>)
+
+```
+public static HelixDiagnosticException Build(string summary, string description = null, IEnumerable<DiagnosticsNode> details = null, Exception exception = null, string stackTrace = null, IEnumerable<DiagnosticsNode> hints = null)
+```
+
+## Build(string, Action<InformationCollector>, Exception, string)
+
+```
+public static HelixDiagnosticException Build(string summary, Action<InformationCollector> collectInformation, Exception exception = null, string stackTrace = null)
+```
+
+## Throw(string, string, IEnumerable<DiagnosticsNode>, Exception, string, IEnumerable<DiagnosticsNode>)
+
+```
+public static void Throw(string summary, string description = null, IEnumerable<DiagnosticsNode> details = null, Exception exception = null, string stackTrace = null, IEnumerable<DiagnosticsNode> hints = null)
+```
+
+## Report(HelixDiagnosticException, DiagnosticLevel)
+
+```
+public static void Report(this HelixDiagnosticException exception, DiagnosticLevel level)
+```
+
+## ShortHash(object)
+
+```
+public static string ShortHash(this object obj)
+```
+
+## DescribeIdentity(object)
+
+```
+public static string DescribeIdentity(this object obj)
+```
+
+## ToStringNullable(object)
+
+```
+public static string ToStringNullable(this object obj)
+```
+
+# IDiagnosticable (/reference/HELIX.Diagnostics.IDiagnosticable)
+
+# IDiagnosticable
+
+```
+public interface IDiagnosticable
+```
+
+## ToStringShort()
+
+```
+string ToStringShort()
+```
+
+## ToDiagnosticsNode(string, DiagnosticsTreeStyle?)
+
+```
+DiagnosticsNode ToDiagnosticsNode(string name = null, DiagnosticsTreeStyle? style = null)
+```
+
+## DebugFillProperties(DiagnosticPropertiesBuilder)
+
+```
+void DebugFillProperties(DiagnosticPropertiesBuilder properties)
+```
+
+# IDiagnosticableTree (/reference/HELIX.Diagnostics.IDiagnosticableTree)
+
+# IDiagnosticableTree
+
+```
+public interface IDiagnosticableTree : IDiagnosticable
+```
+
+## DebugDescribeChildren()
+
+```
+List<DiagnosticsNode> DebugDescribeChildren()
+```
+
+## ToStringDeep(string, string, DiagnosticLevel, int)
+
+```
+string ToStringDeep(string prefixLineOne = "", string prefixOtherLines = null, DiagnosticLevel minLevel = DiagnosticLevel.Debug, int wrapWidth = 65)
+```
+
+## ToStringShallow(string, DiagnosticLevel)
+
+```
+string ToStringShallow(string joiner = ", ", DiagnosticLevel minLevel = DiagnosticLevel.Debug)
+```
+
+## DefaultToStringShallow(IDiagnosticableTree, string, DiagnosticLevel)
+
+```
+public static string DefaultToStringShallow(IDiagnosticableTree tree, string joiner = ", ", DiagnosticLevel minLevel = DiagnosticLevel.Debug)
+```
+
+# InformationCollector (/reference/HELIX.Diagnostics.InformationCollector)
+
+# InformationCollector
+
+```
+public sealed class InformationCollector
+```
+
+## Add(string)
+
+```
+public InformationCollector Add(string message)
+```
+
+## Add(DiagnosticsNode)
+
+```
+public InformationCollector Add(DiagnosticsNode node)
+```
+
+## AddRange(IEnumerable<DiagnosticsNode>)
+
+```
+public InformationCollector AddRange(IEnumerable<DiagnosticsNode> nodes)
+```
+
+## AddRange(params DiagnosticsNode[])
+
+```
+public InformationCollector AddRange(params DiagnosticsNode[] nodes)
+```
+
+## AddBuilder(DiagnosticsNodeBuilder)
+
+```
+public InformationCollector AddBuilder(DiagnosticsNodeBuilder builder)
+```
+
+## Collect()
+
+```
+public List<DiagnosticsNode> Collect()
+```
+
+# ColorProperty (/reference/HELIX.Diagnostics.Properties.ColorProperty)
+
+# ColorProperty
+
+```
+public class ColorProperty : DiagnosticsProperty<Color>
+```
+
+## ColorProperty(string, Color, string, bool, object, string, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public ColorProperty(string name, Color value, string ifNull = null, bool showName = true, object defaultValue = null, string tooltip = null, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# EnumProperty<T> (/reference/HELIX.Diagnostics.Properties.EnumProperty-1)
+
+# EnumProperty<T>
+
+```
+public sealed class EnumProperty<T> : DiagnosticsProperty<T> where T : Enum
+```
+
+## EnumProperty(string, T, object, DiagnosticLevel, bool)
+
+```
+public EnumProperty(string name, T value, object defaultValue = null, DiagnosticLevel level = DiagnosticLevel.Info, bool showName = true)
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# FlagProperty (/reference/HELIX.Diagnostics.Properties.FlagProperty)
+
+# FlagProperty
+
+```
+public sealed class FlagProperty : DiagnosticsProperty<bool?>
+```
+
+## FlagProperty(string, bool?, string, string, bool, object, DiagnosticLevel)
+
+```
+public FlagProperty(string name, bool? value, string ifTrue = null, string ifFalse = null, bool showName = false, object defaultValue = null, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## IfTrue
+
+```
+public string IfTrue { get; }
+```
+
+## IfFalse
+
+```
+public string IfFalse { get; }
+```
+
+## Level
+
+```
+public override DiagnosticLevel Level { get; }
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# FloatProperty (/reference/HELIX.Diagnostics.Properties.FloatProperty)
+
+# FloatProperty
+
+```
+public sealed class FloatProperty : DiagnosticsProperty<float?>
+```
+
+## FloatProperty(string, float?, string, string, string, object, bool, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public FloatProperty(string name, float? value, string ifNull = null, string unit = null, string tooltip = null, object defaultValue = null, bool showName = true, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## Level
+
+```
+public override DiagnosticLevel Level { get; }
+```
+
+## Unit
+
+```
+public string Unit { get; }
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# FormattingProperty<T> (/reference/HELIX.Diagnostics.Properties.FormattingProperty-1)
+
+# FormattingProperty<T>
+
+```
+public class FormattingProperty<T> : DiagnosticsProperty<T>
+```
+
+## FormattingProperty(string, T, Func<T, string>, string, string, string, bool, bool, object, string, bool, string, bool, bool, bool, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public FormattingProperty(string name, T value, Func<T, string> formatter, string description = null, string ifNull = null, string ifEmpty = null, bool showName = true, bool showSeparator = true, object defaultValue = null, string tooltip = null, bool missingIfNull = false, string linePrefix = null, bool expandableValue = false, bool allowWrap = true, bool allowNameWrap = true, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# IntProperty (/reference/HELIX.Diagnostics.Properties.IntProperty)
+
+# IntProperty
+
+```
+public sealed class IntProperty : DiagnosticsProperty<int?>
+```
+
+## IntProperty(string, int?, string, string, bool, object, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public IntProperty(string name, int? value, string ifNull = null, string unit = null, bool showName = true, object defaultValue = null, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## Unit
+
+```
+public string Unit { get; }
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# IterableProperty<T> (/reference/HELIX.Diagnostics.Properties.IterableProperty-1)
+
+# IterableProperty<T>
+
+```
+public class IterableProperty<T> : DiagnosticsProperty<IEnumerable<T>>
+```
+
+## IterableProperty(string, IEnumerable<T>, object, string, string, DiagnosticsTreeStyle, bool, bool, bool, DiagnosticLevel)
+
+```
+public IterableProperty(string name, IEnumerable<T> value, object defaultValue = null, string ifNull = null, string ifEmpty = "[]", DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, bool showName = true, bool showSeparator = true, bool identityOnly = false, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## IdentityOnly
+
+```
+public bool IdentityOnly { get; set; }
+```
+
+## Level
+
+```
+public override DiagnosticLevel Level { get; }
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+## FormatItem(T, TextTreeConfiguration)
+
+```
+protected virtual string FormatItem(T v, TextTreeConfiguration parentConfiguration)
+```
+
+# MessageProperty (/reference/HELIX.Diagnostics.Properties.MessageProperty)
+
+# MessageProperty
+
+```
+public sealed class MessageProperty : DiagnosticsProperty<object>
+```
+
+## MessageProperty(string, string, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public MessageProperty(string name, string message, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+# NumProperty<T> (/reference/HELIX.Diagnostics.Properties.NumProperty-1)
+
+# NumProperty<T>
+
+```
+public abstract class NumProperty<T> : DiagnosticsProperty<T> where T : struct, IFormattable
+```
+
+## NumProperty(string, T?, string, string, bool, object, string, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+protected NumProperty(string name, T? value, string ifNull = null, string unit = null, bool showName = true, object defaultValue = null, string tooltip = null, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## HasValue
+
+```
+protected bool HasValue { get; }
+```
+
+## Unit
+
+```
+public string Unit { get; }
+```
+
+## NumberToString()
+
+```
+public abstract string NumberToString()
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# ObjectFlagProperty<T> (/reference/HELIX.Diagnostics.Properties.ObjectFlagProperty-1)
+
+# ObjectFlagProperty<T>
+
+```
+public sealed class ObjectFlagProperty<T> : DiagnosticsProperty<T>
+```
+
+## ObjectFlagProperty(string, T, string, string, bool, DiagnosticLevel)
+
+```
+public ObjectFlagProperty(string name, T value, string ifPresent = null, string ifNull = null, bool showName = false, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## IfPresent
+
+```
+public string IfPresent { get; }
+```
+
+## Level
+
+```
+public override DiagnosticLevel Level { get; }
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# PercentProperty (/reference/HELIX.Diagnostics.Properties.PercentProperty)
+
+# PercentProperty
+
+```
+public sealed class PercentProperty : DiagnosticsProperty<float?>
+```
+
+## PercentProperty(string, float?, string, bool, string, string, object, DiagnosticLevel)
+
+```
+public PercentProperty(string name, float? fraction, string ifNull = null, bool showName = true, string tooltip = null, string unit = null, object defaultValue = null, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## Unit
+
+```
+public string Unit { get; }
+```
+
+## Level
+
+```
+public override DiagnosticLevel Level { get; }
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# StringProperty (/reference/HELIX.Diagnostics.Properties.StringProperty)
+
+# StringProperty
+
+```
+public class StringProperty : DiagnosticsProperty<string>
+```
+
+## StringProperty(string, string, string, string, bool, object, bool, string, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public StringProperty(string name, string value, string description = null, string tooltip = null, bool showName = true, object defaultValue = null, bool quoted = true, string ifEmpty = null, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## Quoted
+
+```
+public bool Quoted { get; }
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# StyleValueProperty<T> (/reference/HELIX.Diagnostics.Properties.StyleValueProperty-1)
+
+# StyleValueProperty<T>
+
+```
+public class StyleValueProperty<T> : DiagnosticsProperty<IStyleValue<T>>
+```
+
+## StyleValueProperty(string, IStyleValue<T>, string, string, bool, object, string, DiagnosticsTreeStyle, DiagnosticLevel)
+
+```
+public StyleValueProperty(string name, IStyleValue<T> value, string ifNull = null, string ifInitial = null, bool showName = true, object defaultValue = null, string tooltip = null, DiagnosticsTreeStyle style = DiagnosticsTreeStyle.SingleLine, DiagnosticLevel level = DiagnosticLevel.Info)
+```
+
+## IfInitial
+
+```
+public string IfInitial { get; set; }
+```
+
+## Level
+
+```
+public override DiagnosticLevel Level { get; }
+```
+
+## UnwrapStyleValueNode(T)
+
+```
+public virtual DiagnosticsNode UnwrapStyleValueNode(T value)
+```
+
+## ValueToString(TextTreeConfiguration)
+
+```
+public override string ValueToString(TextTreeConfiguration parentConfiguration = null)
+```
+
+# HELIX.Diagnostics.Properties (/reference/HELIX.Diagnostics.Properties)
+
+# HELIX.Diagnostics.Properties
+
+## Classes
+
+- ColorProperty
+- EnumProperty<T>
+- FlagProperty
+- FloatProperty
+- FormattingProperty<T>
+- IntProperty
+- IterableProperty<T>
+- MessageProperty
+- ObjectFlagProperty<T>
+- PercentProperty
+- StringProperty
+- StyleValueProperty<T>
+
+## Abstract Classes
+
+- NumProperty<T>
+
+# HELIX.Diagnostics (/reference/HELIX.Diagnostics)
+
+# HELIX.Diagnostics
+
+## Namespaces
+
+- HELIX.Diagnostics.Error
+- HELIX.Diagnostics.Formatting
+- HELIX.Diagnostics.Properties
+
+## Static Classes
+
+- DiagnosticableExtensions
+- HelixDiagnostics
+
+## Enums
+
+- DiagnosticLevel
+
+## Classes
+
+- DiagnosticableNode
+- DiagnosticableTreeNode
+- DiagnosticPropertiesBuilder
+- DiagnosticsBlock
+- DiagnosticsProperty<T>
+- InformationCollector
+
+## Abstract Classes
+
+- DiagnosticableBase
+- DiagnosticableTreeBase
+- DiagnosticsNode
+
+## Interfaces
+
+- IDiagnosticable
+- IDiagnosticableTree
+
+## Delegates
+
+- ComputePropertyValueCallback<T>
+- DiagnosticsNodeBuilder
 
 # AlignmentAttributeConverter (/reference/HELIX.Editor.AlignmentAttributeConverter)
 
@@ -7253,6 +9097,26 @@ public static string FormatStyleValue<T>(StyleKeyword keyword, T value)
 public static string FormatLength(Length length)
 ```
 
+# HelixSpanAllocator (/reference/HELIX.HelixSpanAllocator)
+
+# HelixSpanAllocator
+
+```
+public static class HelixSpanAllocator
+```
+
+## Lease<T, R>(ReferenceSpanAction<T, R>, int, ref R)
+
+```
+public static void Lease<T, R>(ReferenceSpanAction<T, R> action, int length, ref R reference) where T : unmanaged
+```
+
+## Lease<T, V>(ValueSpanAction<T, V>, int, V)
+
+```
+public static void Lease<T, V>(ValueSpanAction<T, V> action, int length, V value) where T : unmanaged
+```
+
 # PaintCanvas (/reference/HELIX.Painting.PaintCanvas)
 
 # PaintCanvas
@@ -7702,6 +9566,14 @@ ClosePath = 6
 ## Structs
 
 - PaintCanvas
+
+# ReferenceSpanAction<T, R> (/reference/HELIX.ReferenceSpanAction-2)
+
+# ReferenceSpanAction<T, R>
+
+```
+public delegate void ReferenceSpanAction<T, R>(Span<T> span, ref R reference) where T : unmanaged
+```
 
 # StyleProperties (/reference/HELIX.StyleProperties)
 
@@ -9481,6 +11353,14 @@ public static implicit operator Transition(StylePropertyName propertyName)
 - IEventHandler
 - IStyleLength4
 
+# ValueSpanAction<T, V> (/reference/HELIX.ValueSpanAction-2)
+
+# ValueSpanAction<T, V>
+
+```
+public delegate void ValueSpanAction<T, in V>(Span<T> span, V value) where T : unmanaged
+```
+
 # AllWidgetStateProperty<T> (/reference/HELIX.Widgets.AllWidgetStateProperty-1)
 
 # AllWidgetStateProperty<T>
@@ -10536,15 +12416,6 @@ public static OwnershipChainErrorProperty FromBuildContext(BuildContext context)
 
 ## Classes
 
-- DiagnosticsPropertyErrorNode
-- DiagnosticsStackTrace
-- ErrorDescription
-- ErrorHint
-- ErrorProperty
-- ErrorSpacer
-- ErrorSummary
-- ExceptionThrownErrorProperty
-- HelixDiagnosticException
 - OffendingWidgetErrorProperty
 - OwnershipChainErrorProperty
 
@@ -10883,19 +12754,6 @@ public string Render(DiagnosticsNode node, string prefixLineOne = "", string pre
 # HELIX.Widgets.Diagnostics.Formatting (/reference/HELIX.Widgets.Diagnostics.Formatting)
 
 # HELIX.Widgets.Diagnostics.Formatting
-
-## Static Classes
-
-- DiagnosticsTextConfigurations
-
-## Enums
-
-- DiagnosticsTreeStyle
-
-## Classes
-
-- TextTreeConfiguration
-- TextTreeRenderer
 
 # HelixDiagnostics (/reference/HELIX.Widgets.Diagnostics.HelixDiagnostics)
 
@@ -11538,24 +13396,8 @@ public override string ValueToString(TextTreeConfiguration parentConfiguration =
 ## Classes
 
 - BackgroundStyleProperty
-- ColorProperty
-- EnumProperty<T>
-- FlagProperty
-- FloatProperty
-- FormattingProperty<T>
-- IntProperty
-- IterableProperty<T>
 - KeyProperty
-- MessageProperty
-- ObjectFlagProperty<T>
-- PercentProperty
-- StringProperty
-- StyleValueProperty<T>
 - TextStyleProperty
-
-## Abstract Classes
-
-- NumProperty<T>
 
 # HELIX.Widgets.Diagnostics (/reference/HELIX.Widgets.Diagnostics)
 
@@ -11566,40 +13408,6 @@ public override string ValueToString(TextTreeConfiguration parentConfiguration =
 - HELIX.Widgets.Diagnostics.Error
 - HELIX.Widgets.Diagnostics.Formatting
 - HELIX.Widgets.Diagnostics.Properties
-
-## Static Classes
-
-- DiagnosticableExtensions
-- HelixDiagnostics
-
-## Enums
-
-- DiagnosticLevel
-
-## Classes
-
-- DiagnosticableNode
-- DiagnosticableTreeNode
-- DiagnosticPropertiesBuilder
-- DiagnosticsBlock
-- DiagnosticsProperty<T>
-- InformationCollector
-
-## Abstract Classes
-
-- DiagnosticableBase
-- DiagnosticableTreeBase
-- DiagnosticsNode
-
-## Interfaces
-
-- IDiagnosticable
-- IDiagnosticableTree
-
-## Delegates
-
-- ComputePropertyValueCallback<T>
-- DiagnosticsNodeBuilder
 
 # DebuggerWidget (/reference/HELIX.Widgets.Editor.Debugger.DebuggerWidget)
 
@@ -12186,7 +13994,7 @@ Applies serialized field values to a compatible visual element.
 
 ```
 [UxmlElement]
-public class BoxShadowElement : SingleChildWidgetBaseElement<HBoxShadow>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
+public class BoxShadowElement : SingleChildWidgetBaseElement<HBoxShadow>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
 ```
 
 ## BoxShadowElement()
@@ -12265,7 +14073,7 @@ public override void Apply(HBoxShadow previous, HBoxShadow widget)
 # BuildingWidgetBaseElement<T>
 
 ```
-public abstract class BuildingWidgetBaseElement<T> : SuperSingleChildWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer where T : Widget
+public abstract class BuildingWidgetBaseElement<T> : SuperSingleChildWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer where T : Widget
 ```
 
 ## LastBuildResult
@@ -12343,7 +14151,7 @@ Returns an instance of the declaring element.
 
 ```
 [UxmlElement]
-public class CenterElement : SingleChildWidgetBaseElement<HCenter>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer, IPreferExplicitFlex
+public class CenterElement : SingleChildWidgetBaseElement<HCenter>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer, IPreferExplicitFlex
 ```
 
 ## CenterElement()
@@ -12377,7 +14185,7 @@ Returns an instance of the declaring element.
 
 ```
 [UxmlElement]
-public class ColumnElement : DirectionalContainerElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
+public class ColumnElement : DirectionalContainerElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
 ```
 
 ## GetFlexDirection(bool)
@@ -12425,7 +14233,7 @@ Applies serialized field values to a compatible visual element.
 
 ```
 [UxmlElement]
-public abstract class DirectionalContainerElement : MultiChildWidgetBaseElement<DirectionalContainerWidget>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
+public abstract class DirectionalContainerElement : MultiChildWidgetBaseElement<DirectionalContainerWidget>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
 ```
 
 ## DirectionalContainerElement()
@@ -12498,10 +14306,10 @@ public override void Apply(DirectionalContainerWidget previous, DirectionalConta
 public override void LoadWidgetElements(List<IWidgetElement> elements)
 ```
 
-## UpdateWidgetElements(IWidgetElement[], ReconcilerCollectionDelta[])
+## UpdateWidgetElements(Span<IWidgetElement>, Span<ReconcilerCollectionDelta>)
 
 ```
-public override void UpdateWidgetElements(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas)
+public override void UpdateWidgetElements(Span<IWidgetElement> result, Span<ReconcilerCollectionDelta> deltas)
 ```
 
 # FlexAlignElement.UxmlSerializedData (/reference/HELIX.Widgets.Elements.FlexAlignElement.UxmlSerializedData)
@@ -12547,7 +14355,7 @@ Applies serialized field values to a compatible visual element.
 
 ```
 [UxmlElement]
-public class FlexAlignElement : SingleChildWidgetBaseElement<HAlign>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer, IPreferExplicitFlex
+public class FlexAlignElement : SingleChildWidgetBaseElement<HAlign>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer, IPreferExplicitFlex
 ```
 
 ## FlexAlignElement()
@@ -12697,7 +14505,7 @@ Returns an instance of the declaring element.
 ```
 [UxmlElement]
 [Obsolete("Use HButton or the ButtonControllerModifier itself directly or create a custom element")]
-public class GenericButton : BuildingWidgetBaseElement<ButtonBuilder>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
+public class GenericButton : BuildingWidgetBaseElement<ButtonBuilder>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
 ```
 
 ## onClick
@@ -13348,6 +15156,12 @@ public interface IUserDataWidget<W, E> where W : Widget, IUserDataWidget<W, E> w
 void Apply(W previous, E element)
 ```
 
+## CanReconcile(W, E)
+
+```
+bool CanReconcile(W previous, E element)
+```
+
 # MultiChildContainerElement (/reference/HELIX.Widgets.Elements.MultiChildContainerElement)
 
 # MultiChildContainerElement
@@ -13367,7 +15181,7 @@ public virtual IEnumerable<VisualElement> Childs { get; set; }
 # MultiChildWidgetBaseElement<T>
 
 ```
-public abstract class MultiChildWidgetBaseElement<T> : WidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection where T : MultiChildWidget
+public abstract class MultiChildWidgetBaseElement<T> : WidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection where T : MultiChildWidget
 ```
 
 ## Childs
@@ -13382,10 +15196,10 @@ public virtual IEnumerable<VisualElement> Childs { get; set; }
 public virtual void LoadWidgetElements(List<IWidgetElement> elements)
 ```
 
-## UpdateWidgetElements(IWidgetElement[], ReconcilerCollectionDelta[])
+## UpdateWidgetElements(Span<IWidgetElement>, Span<ReconcilerCollectionDelta>)
 
 ```
-public virtual void UpdateWidgetElements(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas)
+public virtual void UpdateWidgetElements(Span<IWidgetElement> result, Span<ReconcilerCollectionDelta> deltas)
 ```
 
 ## CanReconcile(Widget)
@@ -13463,7 +15277,7 @@ Returns an instance of the declaring element.
 
 ```
 [UxmlElement]
-public class RowElement : DirectionalContainerElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
+public class RowElement : DirectionalContainerElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
 ```
 
 ## GetFlexDirection(bool)
@@ -13683,7 +15497,7 @@ public virtual VisualElement Child { get; set; }
 # SingleChildWidgetBaseElement<T>
 
 ```
-public abstract class SingleChildWidgetBaseElement<T> : SuperSingleChildWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer where T : SingleChildWidget
+public abstract class SingleChildWidgetBaseElement<T> : SuperSingleChildWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer where T : SingleChildWidget
 ```
 
 ## GetChildFromWidget(T, T)
@@ -13770,7 +15584,7 @@ public bool Expands { get; set; }
 # SuperSingleChildWidgetBaseElement<T>
 
 ```
-public abstract class SuperSingleChildWidgetBaseElement<T> : WidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer where T : Widget
+public abstract class SuperSingleChildWidgetBaseElement<T> : WidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer where T : Widget
 ```
 
 ## Child
@@ -13942,7 +15756,7 @@ public override string ToStringShort()
 # WidgetBaseElement<T>
 
 ```
-public abstract class WidgetBaseElement<T> : WidgetBaseElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider where T : Widget
+public abstract class WidgetBaseElement<T> : WidgetBaseElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider where T : Widget
 ```
 
 ## TypedDescriptor
@@ -13975,7 +15789,7 @@ public virtual void Apply(T previous, T widget)
 
 ```
 [SuppressMessage("ReSharper", "ParameterHidesMember")]
-public abstract class WidgetBaseElement : BaseElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider
+public abstract class WidgetBaseElement : BaseElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IReconcileScheduler, IScheduledReconcileRunner
 ```
 
 ## Descriptor
@@ -14000,6 +15814,24 @@ public abstract bool CanReconcile(Widget updated)
 
 ```
 public abstract bool Reconcile(Widget updated)
+```
+
+## OnAttached(AttachToPanelEvent)
+
+```
+protected override void OnAttached(AttachToPanelEvent evt)
+```
+
+## ScheduleReconcile(Widget, ReconcileMode)
+
+```
+public void ScheduleReconcile(Widget descriptor, ReconcileMode mode = ReconcileMode.AfterParent)
+```
+
+## TryRunScheduledReconcile(ReconcileMode)
+
+```
+public bool TryRunScheduledReconcile(ReconcileMode mode)
 ```
 
 ## DebugDescribeChildren()
@@ -14134,6 +15966,12 @@ public Func<T> creator
 
 ```
 public Action<T> updater
+```
+
+## FactoryWidget(Func<T>, Action<T>, Key, object[], IReadOnlyCollection<Modifier>)
+
+```
+public FactoryWidget(Func<T> creator = null, Action<T> updater = null, Key key = default, object[] constants = null, IReadOnlyCollection<Modifier> modifiers = null)
 ```
 
 ## Create()
@@ -14355,10 +16193,10 @@ public IEnumerable<IWidgetElement> Elements { get; }
 public void LoadWidgetElements(List<IWidgetElement> elements)
 ```
 
-## UpdateWidgetElements(IWidgetElement[], ReconcilerCollectionDelta[])
+## UpdateWidgetElements(Span<IWidgetElement>, Span<ReconcilerCollectionDelta>)
 
 ```
-public void UpdateWidgetElements(IWidgetElement[] updated, ReconcilerCollectionDelta[] deltas)
+public void UpdateWidgetElements(Span<IWidgetElement> result, Span<ReconcilerCollectionDelta> deltas)
 ```
 
 # HostElement.HostElementDescriptor (/reference/HELIX.Widgets.HostElement.HostElementDescriptor)
@@ -14479,6 +16317,44 @@ public override bool Equals(object obj)
 public override int GetHashCode()
 ```
 
+# HostedWidget (/reference/HELIX.Widgets.HostedWidget)
+
+# HostedWidget
+
+```
+public class HostedWidget : WrappingBaseWidget<HostedWidget, VisualElement>, IDiagnosticableTree, IDiagnosticable, IWidgetListCandidate, IUserDataWidget<HostedWidget, VisualElement>
+```
+
+## element
+
+```
+public readonly VisualElement element
+```
+
+## HostedWidget(VisualElement, Key, object[], IReadOnlyCollection<Modifier>)
+
+```
+public HostedWidget(VisualElement element, Key key = default, object[] constants = null, IReadOnlyCollection<Modifier> modifiers = null)
+```
+
+## Create()
+
+```
+public override VisualElement Create()
+```
+
+## Apply(HostedWidget, VisualElement)
+
+```
+public override void Apply(HostedWidget previous, VisualElement target)
+```
+
+## CanReconcile(HostedWidget, VisualElement)
+
+```
+public override bool CanReconcile(HostedWidget previous, VisualElement target)
+```
+
 # IBuildable (/reference/HELIX.Widgets.IBuildable)
 
 # IBuildable
@@ -14504,6 +16380,34 @@ public interface IHierarchyDisposable : IDisposable, IElement
 ```
 
 Can be implemented by an <a data-furef-uid="HELIX.Abstractions.IElement">IElement</a> to use the <a data-furef-uid="HELIX.Widgets.ModificationBarrier">ModificationBarrier</a> to dispose of it.
+
+# IReconcileScheduler (/reference/HELIX.Widgets.IReconcileScheduler)
+
+# IReconcileScheduler
+
+```
+public interface IReconcileScheduler
+```
+
+## ScheduleReconcile(Widget, ReconcileMode)
+
+```
+void ScheduleReconcile(Widget descriptor, ReconcileMode mode = ReconcileMode.AfterParent)
+```
+
+# IScheduledReconcileRunner (/reference/HELIX.Widgets.IScheduledReconcileRunner)
+
+# IScheduledReconcileRunner
+
+```
+public interface IScheduledReconcileRunner
+```
+
+## TryRunScheduledReconcile(ReconcileMode)
+
+```
+bool TryRunScheduledReconcile(ReconcileMode mode)
+```
 
 # IStatefulWidget (/reference/HELIX.Widgets.IStatefulWidget)
 
@@ -14588,10 +16492,10 @@ public interface IWidgetElementCollection
 void LoadWidgetElements(List<IWidgetElement> elements)
 ```
 
-## UpdateWidgetElements(IWidgetElement[], ReconcilerCollectionDelta[])
+## UpdateWidgetElements(Span<IWidgetElement>, Span<ReconcilerCollectionDelta>)
 
 ```
-void UpdateWidgetElements(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas)
+void UpdateWidgetElements(Span<IWidgetElement> result, Span<ReconcilerCollectionDelta> deltas)
 ```
 
 # IWidgetListCandidate (/reference/HELIX.Widgets.IWidgetListCandidate)
@@ -17063,7 +18967,7 @@ Applies serialized field values to a compatible visual element.
 
 ```
 [UxmlElement]
-public class NavStackElement : SingleChildWidgetBaseElement<HNavStack>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
+public class NavStackElement : SingleChildWidgetBaseElement<HNavStack>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
 ```
 
 ## NavStackElement()
@@ -17417,7 +19321,7 @@ Returns an instance of the declaring element.
 
 ```
 [UxmlElement]
-public class ScaffoldElement : SingleChildWidgetBaseElement<HScaffold>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
+public class ScaffoldElement : SingleChildWidgetBaseElement<HScaffold>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
 ```
 
 ## ScaffoldElement()
@@ -18498,6 +20402,32 @@ public virtual Background LoadBackgroundFromResource(string resourcePath)
 - IPromptLayerProvider
 - IPromptProvider
 
+# ReconcileMode (/reference/HELIX.Widgets.ReconcileMode)
+
+# ReconcileMode
+
+```
+public enum ReconcileMode
+```
+
+## AfterParent
+
+```
+AfterParent = 0
+```
+
+## Eager
+
+```
+Eager = -1
+```
+
+## AfterAttach
+
+```
+AfterAttach = 1
+```
+
 # Reconciler (/reference/HELIX.Widgets.Reconciler)
 
 # Reconciler
@@ -18639,7 +20569,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 # HListViewElement
 
 ```
-public class HListViewElement : WidgetBaseElement<HListView>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, IHierarchyDisposable, IDisposable, IElement
+public class HListViewElement : WidgetBaseElement<HListView>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, IHierarchyDisposable, IDisposable, IElement
 ```
 
 ## HListViewElement()
@@ -18715,7 +20645,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 # HPanViewElement
 
 ```
-public class HPanViewElement : MultiChildWidgetBaseElement<HPanView>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IHierarchyDisposable, IDisposable, IElement, IPreferExplicitFlex
+public class HPanViewElement : MultiChildWidgetBaseElement<HPanView>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IHierarchyDisposable, IDisposable, IElement, IPreferExplicitFlex
 ```
 
 ## HPanViewElement()
@@ -18790,7 +20720,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 # HScrollViewElement
 
 ```
-public class HScrollViewElement : MultiChildWidgetBaseElement<HScrollView>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IHierarchyDisposable, IDisposable, IElement, IPreferExplicitFlex
+public class HScrollViewElement : MultiChildWidgetBaseElement<HScrollView>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IHierarchyDisposable, IDisposable, IElement, IPreferExplicitFlex
 ```
 
 ## HScrollViewElement()
@@ -19150,19 +21080,37 @@ public override void DebugFillProperties(DiagnosticPropertiesBuilder properties)
 # FunctionSignalObserver
 
 ```
-public class FunctionSignalObserver : ISignalObserver, IDisposable
+public class FunctionSignalObserver : IDisposable, IPossiblyDisposed, ISignalObserver
 ```
 
-## FunctionSignalObserver(Action)
+## IsDisposed
 
 ```
-public FunctionSignalObserver(Action onChanged)
+public bool IsDisposed { get; }
 ```
 
-## Dispose()
+## Current
 
 ```
-public void Dispose()
+public Signal Current { get; }
+```
+
+## FunctionSignalObserver(Action<Signal>, Action<Signal>, Action<Signal>, bool)
+
+```
+public FunctionSignalObserver(Action<Signal> onSignalChanged, Action<Signal> onSignalRemoved = null, Action<Signal> onSignalAdded = null, bool weak = true)
+```
+
+## Typed<T>(Action<T>, Action<Signal>, Action<Signal>, bool)
+
+```
+public static FunctionSignalObserver Typed<T>(Action<T> onSignalChanged, Action<Signal> onSignalRemoved = null, Action<Signal> onSignalAdded = null, bool weak = true)
+```
+
+## Observe(Signal)
+
+```
+public void Observe(Signal signal)
 ```
 
 ## OnSignalChanged(Signal)
@@ -19181,6 +21129,12 @@ public void OnSignalRemoved(Signal signal)
 
 ```
 public void OnSignalAdded(Signal signal)
+```
+
+## Dispose()
+
+```
+public void Dispose()
 ```
 
 # ISignalObserver (/reference/HELIX.Widgets.Signals.ISignalObserver)
@@ -19250,7 +21204,7 @@ public abstract void SetWithoutNotify(T newValue)
 ## AddObserver(Action<T>, bool)
 
 ```
-public IDisposable AddObserver(Action<T> onChanged, bool fireImmediately = false)
+public FunctionSignalObserver AddObserver(Action<T> onChanged, bool fireImmediately = false)
 ```
 
 ## T(Signal<T>)
@@ -19313,7 +21267,7 @@ public virtual bool RemoveObserver(ISignalObserver observer)
 ## AddObserver(Action, bool)
 
 ```
-public IDisposable AddObserver(Action onChanged, bool fireImmediately = false)
+public FunctionSignalObserver AddObserver(Action onChanged, bool fireImmediately = false)
 ```
 
 ## Value<T>(T, bool)
@@ -19879,7 +21833,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 # StatefulWidgetElement<T>
 
 ```
-public class StatefulWidgetElement<T> : BuildingWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IHierarchyDisposable, IDisposable, IElement, IStatefulWidget where T : StatefulWidget<T>
+public class StatefulWidgetElement<T> : BuildingWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IHierarchyDisposable, IDisposable, IElement, IStatefulWidget where T : StatefulWidget<T>
 ```
 
 ## isDisposed
@@ -20005,7 +21959,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 # StatelessWidgetElement<T>
 
 ```
-public class StatelessWidgetElement<T> : BuildingWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IStatelessWidget, IHierarchyDisposable, IDisposable, IElement where T : StatelessWidget<T>
+public class StatelessWidgetElement<T> : BuildingWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IStatelessWidget, IHierarchyDisposable, IDisposable, IElement where T : StatelessWidget<T>
 ```
 
 ## Dispose()
@@ -21280,7 +23234,7 @@ Applies serialized field values to a compatible visual element.
 
 ```
 [UxmlElement]
-public class ThemeProviderElement : SingleChildWidgetBaseElement<HThemeProvider>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, ISingleChildContainer, IThemeProvider
+public class ThemeProviderElement : SingleChildWidgetBaseElement<HThemeProvider>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, ISingleChildContainer, IThemeProvider
 ```
 
 ## GlobalThemeValues
@@ -30691,7 +32645,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 # HBox.ContainerElement
 
 ```
-public class HBox.ContainerElement : SingleChildWidgetBaseElement<HBox>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
+public class HBox.ContainerElement : SingleChildWidgetBaseElement<HBox>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
 ```
 
 ## Apply(HBox, HBox)
@@ -31084,7 +33038,7 @@ public override void DebugFillProperties(DiagnosticPropertiesBuilder properties)
 # HFlexElement
 
 ```
-public class HFlexElement : MultiChildWidgetBaseElement<HFlex>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
+public class HFlexElement : MultiChildWidgetBaseElement<HFlex>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
 ```
 
 ## PreferredFlexAxis
@@ -31156,7 +33110,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 # HGapElement
 
 ```
-public class HGapElement : WidgetBaseElement<HGap>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider
+public class HGapElement : WidgetBaseElement<HGap>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider
 ```
 
 ## Apply(HGap, HGap)
@@ -31523,7 +33477,7 @@ public override void DebugFillProperties(DiagnosticPropertiesBuilder properties)
 # HStackElement
 
 ```
-public class HStackElement : MultiChildWidgetBaseElement<HStack>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex, IPreferStacking
+public class HStackElement : MultiChildWidgetBaseElement<HStack>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex, IPreferStacking
 ```
 
 ## PreferredFlexAxis
@@ -31961,7 +33915,7 @@ A widget that provides inheritable theme properties to its descendants.
 ## components
 
 ```
-public readonly List<ThemeComponent> components
+public readonly IReadOnlyList<ThemeComponent> components
 ```
 
 ## properties
@@ -31970,10 +33924,10 @@ public readonly List<ThemeComponent> components
 public readonly Dictionary<ThemeProperty, object> properties
 ```
 
-## HThemeProvider(List<ThemeComponent>, Dictionary<ThemeProperty, object>, Widget, Key, object[], IReadOnlyCollection<Modifier>)
+## HThemeProvider(IReadOnlyList<ThemeComponent>, Dictionary<ThemeProperty, object>, Widget, Key, object[], IReadOnlyCollection<Modifier>)
 
 ```
-public HThemeProvider(List<ThemeComponent> components = null, Dictionary<ThemeProperty, object> properties = null, Widget child = null, Key key = default, object[] constants = null, IReadOnlyCollection<Modifier> modifiers = null)
+public HThemeProvider(IReadOnlyList<ThemeComponent> components = null, Dictionary<ThemeProperty, object> properties = null, Widget child = null, Key key = default, object[] constants = null, IReadOnlyCollection<Modifier> modifiers = null)
 ```
 
 Creates a widget that provides inheritable theme properties to its descendants.
@@ -33062,16 +35016,16 @@ public override IWidgetListCandidate Build(BuildContext context, WidgetState sta
 public static class FlatSubstance
 ```
 
-## Flat(ColorTokenPalette, ColorTokenPalette, SurfaceColorPalette, BorderRadius, LayerOpacityProgression)
+## Flat(ColorTokenPalette, ColorTokenPalette, SurfaceColorPalette, BorderRadius, LayerOpacityProgression, bool)
 
 ```
-public static BoxSubstance Flat(ColorTokenPalette inactive, ColorTokenPalette palette, SurfaceColorPalette surface, BorderRadius borderRadius, LayerOpacityProgression progression)
+public static BoxSubstance Flat(ColorTokenPalette inactive, ColorTokenPalette palette, SurfaceColorPalette surface, BorderRadius borderRadius, LayerOpacityProgression progression, bool withSelected = true)
 ```
 
-## Flat<TBuilder>(ISubstanceBuilder<TBuilder>, ColorTokenPalette, ColorTokenPalette, SurfaceColorPalette, BorderRadius?, HInputRadius)
+## Flat<TBuilder>(ISubstanceBuilder<TBuilder>, ColorTokenPalette, ColorTokenPalette, SurfaceColorPalette, BorderRadius?, HInputRadius, bool)
 
 ```
-public static BuilderAndSubstance<TBuilder, BoxSubstance> Flat<TBuilder>(this ISubstanceBuilder<TBuilder> builder, ColorTokenPalette inactive = null, ColorTokenPalette palette = null, SurfaceColorPalette surface = null, BorderRadius? borderRadius = null, HInputRadius inputRadius = HInputRadius.Medium) where TBuilder : ISubstanceBuilder<TBuilder>
+public static BuilderAndSubstance<TBuilder, BoxSubstance> Flat<TBuilder>(this ISubstanceBuilder<TBuilder> builder, ColorTokenPalette inactive = null, ColorTokenPalette palette = null, SurfaceColorPalette surface = null, BorderRadius? borderRadius = null, HInputRadius inputRadius = HInputRadius.Medium, bool withSelected = true) where TBuilder : ISubstanceBuilder<TBuilder>
 ```
 
 # GhostSubstance (/reference/HELIX.Widgets.Universal.Substances.GhostSubstance)
@@ -33215,6 +35169,18 @@ protected TonalPalette tonalPalette
 
 ```
 public virtual TonalPalette TonalPalette { get; }
+```
+
+## Simple(Color, Color)
+
+```
+public static ColorTokenPalette Simple(Color main, Color onMain)
+```
+
+## Simple(Color, Color, Color, Color)
+
+```
+public static ColorTokenPalette Simple(Color main, Color onMain, Color container, Color onContainer)
 ```
 
 ## Primary(DynamicScheme)
@@ -34042,6 +36008,18 @@ public Color onVariant
 
 ```
 public Color variant
+```
+
+## Simple(Color, Color, Color, Color)
+
+```
+public static SurfaceColorPalette Simple(Color main, Color container, Color onMain, Color onVariant)
+```
+
+## Simple(Color, Color, Color, Color, Color, Color)
+
+```
+public static SurfaceColorPalette Simple(Color main, Color containerLow, Color container, Color containerHigh, Color onMain, Color onVariant)
 ```
 
 ## From(DynamicScheme)
@@ -36435,15 +38413,13 @@ public virtual string GetWidgetName()
 public override void DebugFillProperties(DiagnosticPropertiesBuilder properties)
 ```
 
-## ReconcileInto(IWidgetElement)
+## ReconcileInto(IWidgetElement, ReconcileMode)
 
 ```
-protected IWidgetElement ReconcileInto(IWidgetElement element)
+protected IWidgetElement ReconcileInto(IWidgetElement element, ReconcileMode mode = ReconcileMode.AfterParent)
 ```
 
-Reconciles the widget into the given element by registering a onetime callback for
-<a data-furef-uid="UnityEngine.UIElements.AttachToPanelEvent">AttachToPanelEvent</a> that triggers the initial reconciliation once the element is
-attached to the panel.
+Reconciles the widget into the given element once it has enough hierarchy context.
 
 ## BuildFunction(Widget)
 
@@ -36461,6 +38437,12 @@ public static implicit operator BuildFunction<WidgetState>(Widget widget)
 
 Converts the widget into a constant <a data-furef-uid="HELIX.Widgets.BuildFunction%601">BuildFunction</a> that always
 returns the same widget for all widget states.
+
+## Widget(VisualElement)
+
+```
+public static implicit operator Widget(VisualElement element)
+```
 
 # WidgetExtensions (/reference/HELIX.Widgets.WidgetExtensions)
 
@@ -36605,7 +38587,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 # WidgetHostElement
 
 ```
-public class WidgetHostElement : BuildingWidgetBaseElement<WidgetHostElement.WidgetType>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IHierarchyDisposable, IDisposable, IElement
+public class WidgetHostElement : BuildingWidgetBaseElement<WidgetHostElement.WidgetType>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IHierarchyDisposable, IDisposable, IElement
 ```
 
 Represents a <a data-furef-uid="UnityEngine.UIElements.VisualElement">VisualElement</a> that hosts a <a data-furef-uid="HELIX.Widgets.Widget">Widget</a> derived from an <a data-furef-uid="HELIX.Widgets.IBuildable">IBuildable</a>.
@@ -37050,6 +39032,12 @@ public abstract class WrappingBaseWidget<S, T> : Widget, IDiagnosticableTree, ID
 public abstract void Apply(S previous, T element)
 ```
 
+## CanReconcile(S, T)
+
+```
+public virtual bool CanReconcile(S previous, T element)
+```
+
 ## Create()
 
 ```
@@ -37101,6 +39089,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 
 ## Enums
 
+- ReconcileMode
 - WidgetState
 
 ## Structs
@@ -37125,6 +39114,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 - GlobalKey
 - GlobalKey<T>
 - HelixRuntimeHelper
+- HostedWidget
 - HostElement
 - MergingModifiersWidgetState
 - ModifierSet
@@ -37157,6 +39147,8 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 - BuildContext
 - IBuildable
 - IHierarchyDisposable
+- IReconcileScheduler
+- IScheduledReconcileRunner
 - IStatefulWidget
 - IStatelessWidget
 - ITreeAncestorTraversalHint
@@ -37179,6 +39171,7 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 - HELIX.Abstractions
 - HELIX.Animation
 - HELIX.Coloring
+- HELIX.Diagnostics
 - HELIX.Editor
 - HELIX.Extensions
 - HELIX.Painting
@@ -37189,4 +39182,10 @@ Creates a new <a data-furef-uid="HELIX.Widgets.IWidgetElement">IWidgetElement</a
 
 - HelixConvert
 - HelixFormattingHelper
+- HelixSpanAllocator
 - StyleProperties
+
+## Delegates
+
+- ReferenceSpanAction<T, R>
+- ValueSpanAction<T, V>

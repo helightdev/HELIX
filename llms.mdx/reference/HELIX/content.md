@@ -7,6 +7,7 @@
 - HELIX.Abstractions
 - HELIX.Animation
 - HELIX.Coloring
+- HELIX.Diagnostics
 - HELIX.Editor
 - HELIX.Extensions
 - HELIX.Painting
@@ -17,4 +18,10 @@
 
 - HelixConvert
 - HelixFormattingHelper
+- HelixSpanAllocator
 - StyleProperties
+
+## Delegates
+
+- ReferenceSpanAction<T, R>
+- ValueSpanAction<T, V>

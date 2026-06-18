@@ -3,7 +3,7 @@
 # WidgetBaseElement<T>
 
 ```
-public abstract class WidgetBaseElement<T> : WidgetBaseElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider where T : Widget
+public abstract class WidgetBaseElement<T> : WidgetBaseElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider where T : Widget
 ```
 
 ## TypedDescriptor

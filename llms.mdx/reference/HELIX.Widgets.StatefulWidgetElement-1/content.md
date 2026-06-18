@@ -3,7 +3,7 @@
 # StatefulWidgetElement<T>
 
 ```
-public class StatefulWidgetElement<T> : BuildingWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IHierarchyDisposable, IDisposable, IElement, IStatefulWidget where T : StatefulWidget<T>
+public class StatefulWidgetElement<T> : BuildingWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IHierarchyDisposable, IDisposable, IElement, IStatefulWidget where T : StatefulWidget<T>
 ```
 
 ## isDisposed

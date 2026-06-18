@@ -145,15 +145,13 @@ public virtual string GetWidgetName()
 public override void DebugFillProperties(DiagnosticPropertiesBuilder properties)
 ```
 
-## ReconcileInto(IWidgetElement)
+## ReconcileInto(IWidgetElement, ReconcileMode)
 
 ```
-protected IWidgetElement ReconcileInto(IWidgetElement element)
+protected IWidgetElement ReconcileInto(IWidgetElement element, ReconcileMode mode = ReconcileMode.AfterParent)
 ```
 
-Reconciles the widget into the given element by registering a onetime callback for
-<a data-furef-uid="UnityEngine.UIElements.AttachToPanelEvent">AttachToPanelEvent</a> that triggers the initial reconciliation once the element is
-attached to the panel.
+Reconciles the widget into the given element once it has enough hierarchy context.
 
 ## BuildFunction(Widget)
 
@@ -171,3 +169,9 @@ public static implicit operator BuildFunction<WidgetState>(Widget widget)
 
 Converts the widget into a constant <a data-furef-uid="HELIX.Widgets.BuildFunction%601">BuildFunction</a> that always
 returns the same widget for all widget states.
+
+## Widget(VisualElement)
+
+```
+public static implicit operator Widget(VisualElement element)
+```

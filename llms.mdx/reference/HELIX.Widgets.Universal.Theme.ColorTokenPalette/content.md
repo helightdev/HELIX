@@ -66,6 +66,18 @@ protected TonalPalette tonalPalette
 public virtual TonalPalette TonalPalette { get; }
 ```
 
+## Simple(Color, Color)
+
+```
+public static ColorTokenPalette Simple(Color main, Color onMain)
+```
+
+## Simple(Color, Color, Color, Color)
+
+```
+public static ColorTokenPalette Simple(Color main, Color onMain, Color container, Color onContainer)
+```
+
 ## Primary(DynamicScheme)
 
 ```

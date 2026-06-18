@@ -4,7 +4,7 @@
 
 ```
 [SuppressMessage("ReSharper", "ParameterHidesMember")]
-public abstract class WidgetBaseElement : BaseElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider
+public abstract class WidgetBaseElement : BaseElement, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IReconcileScheduler, IScheduledReconcileRunner
 ```
 
 ## Descriptor
@@ -29,6 +29,24 @@ public abstract bool CanReconcile(Widget updated)
 
 ```
 public abstract bool Reconcile(Widget updated)
+```
+
+## OnAttached(AttachToPanelEvent)
+
+```
+protected override void OnAttached(AttachToPanelEvent evt)
+```
+
+## ScheduleReconcile(Widget, ReconcileMode)
+
+```
+public void ScheduleReconcile(Widget descriptor, ReconcileMode mode = ReconcileMode.AfterParent)
+```
+
+## TryRunScheduledReconcile(ReconcileMode)
+
+```
+public bool TryRunScheduledReconcile(ReconcileMode mode)
 ```
 
 ## DebugDescribeChildren()

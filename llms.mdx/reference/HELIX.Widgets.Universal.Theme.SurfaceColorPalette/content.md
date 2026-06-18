@@ -72,6 +72,18 @@ public Color onVariant
 public Color variant
 ```
 
+## Simple(Color, Color, Color, Color)
+
+```
+public static SurfaceColorPalette Simple(Color main, Color container, Color onMain, Color onVariant)
+```
+
+## Simple(Color, Color, Color, Color, Color, Color)
+
+```
+public static SurfaceColorPalette Simple(Color main, Color containerLow, Color container, Color containerHigh, Color onMain, Color onVariant)
+```
+
 ## From(DynamicScheme)
 
 ```

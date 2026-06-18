@@ -11,7 +11,7 @@ A widget that provides inheritable theme properties to its descendants.
 ## components
 
 ```
-public readonly List<ThemeComponent> components
+public readonly IReadOnlyList<ThemeComponent> components
 ```
 
 ## properties
@@ -20,10 +20,10 @@ public readonly List<ThemeComponent> components
 public readonly Dictionary<ThemeProperty, object> properties
 ```
 
-## HThemeProvider(List<ThemeComponent>, Dictionary<ThemeProperty, object>, Widget, Key, object[], IReadOnlyCollection<Modifier>)
+## HThemeProvider(IReadOnlyList<ThemeComponent>, Dictionary<ThemeProperty, object>, Widget, Key, object[], IReadOnlyCollection<Modifier>)
 
 ```
-public HThemeProvider(List<ThemeComponent> components = null, Dictionary<ThemeProperty, object> properties = null, Widget child = null, Key key = default, object[] constants = null, IReadOnlyCollection<Modifier> modifiers = null)
+public HThemeProvider(IReadOnlyList<ThemeComponent> components = null, Dictionary<ThemeProperty, object> properties = null, Widget child = null, Key key = default, object[] constants = null, IReadOnlyCollection<Modifier> modifiers = null)
 ```
 
 Creates a widget that provides inheritable theme properties to its descendants.

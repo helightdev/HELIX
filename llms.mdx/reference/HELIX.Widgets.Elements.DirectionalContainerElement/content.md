@@ -4,7 +4,7 @@
 
 ```
 [UxmlElement]
-public abstract class DirectionalContainerElement : MultiChildWidgetBaseElement<DirectionalContainerWidget>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
+public abstract class DirectionalContainerElement : MultiChildWidgetBaseElement<DirectionalContainerWidget>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, IMultiChildContainer, IWidgetElementCollection, IPreferExplicitFlex
 ```
 
 ## DirectionalContainerElement()
@@ -77,8 +77,8 @@ public override void Apply(DirectionalContainerWidget previous, DirectionalConta
 public override void LoadWidgetElements(List<IWidgetElement> elements)
 ```
 
-## UpdateWidgetElements(IWidgetElement[], ReconcilerCollectionDelta[])
+## UpdateWidgetElements(Span<IWidgetElement>, Span<ReconcilerCollectionDelta>)
 
 ```
-public override void UpdateWidgetElements(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas)
+public override void UpdateWidgetElements(Span<IWidgetElement> result, Span<ReconcilerCollectionDelta> deltas)
 ```

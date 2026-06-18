@@ -12,6 +12,7 @@
 - MaterialColors
 - MaterialColorUtils
 - MaterialDynamicColors
+- MaterialSchemeFactory
 - StringUtils
 - VariantExtensions
 

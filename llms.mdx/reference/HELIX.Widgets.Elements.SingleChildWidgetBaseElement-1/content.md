@@ -3,7 +3,7 @@
 # SingleChildWidgetBaseElement<T>
 
 ```
-public abstract class SingleChildWidgetBaseElement<T> : SuperSingleChildWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer where T : SingleChildWidget
+public abstract class SingleChildWidgetBaseElement<T> : SuperSingleChildWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer where T : SingleChildWidget
 ```
 
 ## GetChildFromWidget(T, T)

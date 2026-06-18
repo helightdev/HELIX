@@ -52,7 +52,7 @@ public virtual bool RemoveObserver(ISignalObserver observer)
 ## AddObserver(Action, bool)
 
 ```
-public IDisposable AddObserver(Action onChanged, bool fireImmediately = false)
+public FunctionSignalObserver AddObserver(Action onChanged, bool fireImmediately = false)
 ```
 
 ## Value<T>(T, bool)

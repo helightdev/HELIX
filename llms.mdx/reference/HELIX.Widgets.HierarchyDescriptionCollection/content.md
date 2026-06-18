@@ -30,8 +30,8 @@ public IEnumerable<IWidgetElement> Elements { get; }
 public void LoadWidgetElements(List<IWidgetElement> elements)
 ```
 
-## UpdateWidgetElements(IWidgetElement[], ReconcilerCollectionDelta[])
+## UpdateWidgetElements(Span<IWidgetElement>, Span<ReconcilerCollectionDelta>)
 
 ```
-public void UpdateWidgetElements(IWidgetElement[] updated, ReconcilerCollectionDelta[] deltas)
+public void UpdateWidgetElements(Span<IWidgetElement> result, Span<ReconcilerCollectionDelta> deltas)
 ```

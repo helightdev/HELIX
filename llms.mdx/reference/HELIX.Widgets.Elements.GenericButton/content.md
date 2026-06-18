@@ -5,7 +5,7 @@
 ```
 [UxmlElement]
 [Obsolete("Use HButton or the ButtonControllerModifier itself directly or create a custom element")]
-public class GenericButton : BuildingWidgetBaseElement<ButtonBuilder>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
+public class GenericButton : BuildingWidgetBaseElement<ButtonBuilder>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IElement, IThemeProvider, ISingleChildContainer
 ```
 
 ## onClick

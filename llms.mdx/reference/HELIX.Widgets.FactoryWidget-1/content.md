@@ -18,6 +18,12 @@ public Func<T> creator
 public Action<T> updater
 ```
 
+## FactoryWidget(Func<T>, Action<T>, Key, object[], IReadOnlyCollection<Modifier>)
+
+```
+public FactoryWidget(Func<T> creator = null, Action<T> updater = null, Key key = default, object[] constants = null, IReadOnlyCollection<Modifier> modifiers = null)
+```
+
 ## Create()
 
 ```

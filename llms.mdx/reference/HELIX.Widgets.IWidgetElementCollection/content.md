@@ -12,8 +12,8 @@ public interface IWidgetElementCollection
 void LoadWidgetElements(List<IWidgetElement> elements)
 ```
 
-## UpdateWidgetElements(IWidgetElement[], ReconcilerCollectionDelta[])
+## UpdateWidgetElements(Span<IWidgetElement>, Span<ReconcilerCollectionDelta>)
 
 ```
-void UpdateWidgetElements(IWidgetElement[] result, ReconcilerCollectionDelta[] deltas)
+void UpdateWidgetElements(Span<IWidgetElement> result, Span<ReconcilerCollectionDelta> deltas)
 ```

@@ -11,3 +11,9 @@ public interface IUserDataWidget<W, E> where W : Widget, IUserDataWidget<W, E> w
 ```
 void Apply(W previous, E element)
 ```
+
+## CanReconcile(W, E)
+
+```
+bool CanReconcile(W previous, E element)
+```

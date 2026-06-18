@@ -3,7 +3,7 @@
 # StatelessWidgetElement<T>
 
 ```
-public class StatelessWidgetElement<T> : BuildingWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IStatelessWidget, IHierarchyDisposable, IDisposable, IElement where T : StatelessWidget<T>
+public class StatelessWidgetElement<T> : BuildingWidgetBaseElement<T>, IEventHandler, IResolvedStyle, ITransform, ITransitionAnimations, IExperimentalFeatures, IVisualElementScheduler, IReconcileScheduler, IScheduledReconcileRunner, IWidgetElement, BuildContext, IDiagnosticableTree, IDiagnosticable, IThemeProvider, ISingleChildContainer, IStatelessWidget, IHierarchyDisposable, IDisposable, IElement where T : StatelessWidget<T>
 ```
 
 ## Dispose()

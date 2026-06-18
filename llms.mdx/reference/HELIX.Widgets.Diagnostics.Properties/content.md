@@ -5,21 +5,5 @@
 ## Classes
 
 - BackgroundStyleProperty
-- ColorProperty
-- EnumProperty<T>
-- FlagProperty
-- FloatProperty
-- FormattingProperty<T>
-- IntProperty
-- IterableProperty<T>
 - KeyProperty
-- MessageProperty
-- ObjectFlagProperty<T>
-- PercentProperty
-- StringProperty
-- StyleValueProperty<T>
 - TextStyleProperty
-
-## Abstract Classes
-
-- NumProperty<T>

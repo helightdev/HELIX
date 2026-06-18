@@ -29,6 +29,7 @@
 
 ## Enums
 
+- ReconcileMode
 - WidgetState
 
 ## Structs
@@ -53,6 +54,7 @@
 - GlobalKey
 - GlobalKey<T>
 - HelixRuntimeHelper
+- HostedWidget
 - HostElement
 - MergingModifiersWidgetState
 - ModifierSet
@@ -85,6 +87,8 @@
 - BuildContext
 - IBuildable
 - IHierarchyDisposable
+- IReconcileScheduler
+- IScheduledReconcileRunner
 - IStatefulWidget
 - IStatelessWidget
 - ITreeAncestorTraversalHint
