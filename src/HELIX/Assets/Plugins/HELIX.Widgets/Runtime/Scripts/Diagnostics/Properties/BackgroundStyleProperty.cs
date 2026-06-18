@@ -1,5 +1,7 @@
 using System.Collections.Generic;
-using HELIX.Widgets.Diagnostics.Formatting;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Formatting;
+using HELIX.Diagnostics.Properties;
 using HELIX.Widgets.Universal.Styles;
 using Unity.Mathematics;
 using UnityEngine;

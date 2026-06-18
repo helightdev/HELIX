@@ -1,3 +1,5 @@
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Properties;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using HELIX.Widgets.Elements;

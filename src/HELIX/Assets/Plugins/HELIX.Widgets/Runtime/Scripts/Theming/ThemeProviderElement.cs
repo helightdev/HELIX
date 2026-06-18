@@ -14,7 +14,7 @@ namespace HELIX.Widgets.Theming {
     private readonly IdentityDictionary<ThemeProperty, object> _cachedThemeValues = new();
     private readonly IdentityDictionary<ThemeProperty, object> _componentValues = new();
     private readonly IdentityDictionary<ThemeProperty, object> _computedThemeValues = new();
-    private List<ThemeComponent> _components = new();
+    private List<ThemeComponent> _components = new List<ThemeComponent>();
     private ThemeProviderElement _parent;
 
     public ThemeProviderElement() {
@@ -157,7 +157,7 @@ namespace HELIX.Widgets.Theming {
           ThemeValues[kvp.Key] = kvp.Value;
       }
 
-      Components = widget.components ?? new List<ThemeComponent>(); // This will also update the theme
+      Components = new List<ThemeComponent>(widget.components); // This will also update the theme
     }
 
     public static void SetGlobal(ThemeProperty property, object value, bool notify = true) {

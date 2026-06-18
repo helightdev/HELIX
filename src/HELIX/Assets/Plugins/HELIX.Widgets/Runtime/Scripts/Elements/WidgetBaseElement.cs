@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Formatting;
 using HELIX.Widgets.Diagnostics;
-using HELIX.Widgets.Diagnostics.Formatting;
 using HELIX.Widgets.Theming;
 using UnityEngine.UIElements;
 

@@ -2,6 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Error;
+using HELIX.Diagnostics.Properties;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics.Properties;
@@ -235,6 +238,9 @@ namespace HELIX.Widgets {
     public static implicit operator BuildFunction<WidgetState>(Widget widget) {
       return (_, _) => widget;
     }
+
+    public static implicit operator Widget(VisualElement element) =>
+      new HostedWidget(element, constants: new object[] { element });
   }
 
   /// <summary>

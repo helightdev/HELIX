@@ -7,7 +7,7 @@ namespace HELIX.Widgets.Universal {
   /// A widget that provides inheritable theme properties to its descendants.
   /// </summary>
   public class HThemeProvider : SingleChildWidget {
-    public readonly List<ThemeComponent> components;
+    public readonly IReadOnlyList<ThemeComponent> components;
     public readonly Dictionary<ThemeProperty, object> properties;
 
     /// <summary>
@@ -22,7 +22,7 @@ namespace HELIX.Widgets.Universal {
     /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     /// <inheritdoc/>
     public HThemeProvider(
-      List<ThemeComponent> components = null,
+      IReadOnlyList<ThemeComponent> components = null,
       Dictionary<ThemeProperty, object> properties = null,
       Widget child = null,
       Key key = default,

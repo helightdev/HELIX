@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using HELIX.Abstractions;
+using HELIX.Diagnostics;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Theming;
 using UnityEngine.UIElements;

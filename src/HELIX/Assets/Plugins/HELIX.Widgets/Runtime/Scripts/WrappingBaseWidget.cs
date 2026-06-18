@@ -8,6 +8,10 @@ namespace HELIX.Widgets {
   public abstract class WrappingBaseWidget<S, T> : Widget, IUserDataWidget<S, T>
     where T : VisualElement where S : WrappingBaseWidget<S, T> {
     public abstract void Apply(S previous, T element);
+
+    public virtual bool CanReconcile(S previous, T element) {
+      return true;
+    }
     public abstract T Create();
 
     protected WrappingBaseWidget(

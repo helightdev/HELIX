@@ -1,4 +1,5 @@
-using HELIX.Widgets.Diagnostics.Formatting;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Formatting;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
   public sealed class KeyProperty : DiagnosticsProperty<Key> {

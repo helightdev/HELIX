@@ -24,7 +24,9 @@ public partial class WidgetExamples {
     ("list-view", "ListView", () => new ListVirtualizationExample()),
     ("prompts", "Prompts", () => new PromptsExample()),
     ("icons", "Icons", () => new IconExample()),
-    ("red-box", "Red Box", () => new HBox(background: MaterialColors.Red))
+    ("red-box", "Red Box", () => new HBox(background: MaterialColors.Red)),
+    ("hosted-widget", "Hosted Widget", () => new HostedWidgetExamples()),
+    ("redirectable-signal-listener", "Redirectable Signal Listener", () => new RedirectableSignalListenerExample())
   };
 
   private static Widget PreviewFrame(Widget preview) {

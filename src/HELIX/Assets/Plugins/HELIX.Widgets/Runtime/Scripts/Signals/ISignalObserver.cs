@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using HELIX.Widgets.Utilities;
+using UnityEngine;
 
 namespace HELIX.Widgets.Signals {
   public interface ISignalObserver {
@@ -17,9 +18,8 @@ namespace HELIX.Widgets.Signals {
       _reference = new WeakReference<ISignalObserver>(observer);
     }
 
-    public bool IsDisposed =>
-      !_reference.TryGetTarget(out var observer) ||
-      observer is IPossiblyDisposed { IsDisposed: true };
+    public bool IsDisposed => !_reference.TryGetTarget(out var observer) ||
+                              observer is IPossiblyDisposed { IsDisposed: true };
 
     public void OnSignalChanged(Signal signal) {
       if (_reference.TryGetTarget(out var observer)) observer.OnSignalChanged(signal);
@@ -44,7 +44,7 @@ namespace HELIX.Widgets.Signals {
     }
 
     public override int GetHashCode() {
-      return RuntimeHelpers.GetHashCode(this);
+      return _reference.TryGetTarget(out var observer) ? observer.GetHashCode() : 0;
     }
   }
 }

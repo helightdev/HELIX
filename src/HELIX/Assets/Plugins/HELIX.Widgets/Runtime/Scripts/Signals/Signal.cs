@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Utilities;
@@ -147,9 +149,9 @@ namespace HELIX.Widgets.Signals {
       return result;
     }
 
-    public IDisposable AddObserver(Action onChanged, bool fireImmediately = false) {
-      var observer = new FunctionSignalObserver(onChanged);
-      AddObserver(observer);
+    public FunctionSignalObserver AddObserver(Action onChanged, bool fireImmediately = false) {
+      var observer = new FunctionSignalObserver((_) => onChanged?.Invoke());
+      observer.Observe(this);
       if (fireImmediately) onChanged?.Invoke();
       return observer;
     }
@@ -203,9 +205,9 @@ namespace HELIX.Widgets.Signals {
     public abstract void SetValue(T newValue);
     public abstract void SetWithoutNotify(T newValue);
 
-    public IDisposable AddObserver(Action<T> onChanged, bool fireImmediately = false) {
-      var observer = new FunctionSignalObserver(() => onChanged?.Invoke(PeekValue()));
-      AddObserver(observer);
+    public FunctionSignalObserver AddObserver(Action<T> onChanged, bool fireImmediately = false) {
+      var observer = FunctionSignalObserver.Typed(onChanged);
+      observer.Observe(this);
       if (fireImmediately) onChanged?.Invoke(PeekValue());
       return observer;
     }
