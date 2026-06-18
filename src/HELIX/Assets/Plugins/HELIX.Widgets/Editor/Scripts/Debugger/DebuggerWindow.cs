@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using HELIX.Coloring;
 using HELIX.Coloring.Material;
+using HELIX.Diagnostics;
 using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;

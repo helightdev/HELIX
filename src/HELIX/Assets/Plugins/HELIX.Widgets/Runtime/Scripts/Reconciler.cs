@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using HELIX.Abstractions;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Error;
 using HELIX.Extensions;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;

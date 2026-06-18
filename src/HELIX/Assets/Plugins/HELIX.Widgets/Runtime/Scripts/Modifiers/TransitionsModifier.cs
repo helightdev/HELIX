@@ -1,4 +1,6 @@
 using System;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Properties;
 using HELIX.Extensions;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;

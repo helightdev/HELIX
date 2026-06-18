@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Properties;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Properties;
 using UnityEngine;

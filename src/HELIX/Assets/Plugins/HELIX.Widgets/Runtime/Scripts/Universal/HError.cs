@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using HELIX.Diagnostics;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Modifiers;

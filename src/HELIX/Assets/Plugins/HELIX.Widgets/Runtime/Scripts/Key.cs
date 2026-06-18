@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Hashing;
 using System.Text;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using UnityEngine.UIElements;

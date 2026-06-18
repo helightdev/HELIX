@@ -15,6 +15,8 @@ namespace HELIX.Widgets.Utilities {
 
     public int Count { get; private set; }
 
+    // TODO: Use struct enumerator or something
+
     public IEnumerator<T> GetEnumerator() {
       for (var i = 0; i < Count; i++) yield return Get(i);
     }

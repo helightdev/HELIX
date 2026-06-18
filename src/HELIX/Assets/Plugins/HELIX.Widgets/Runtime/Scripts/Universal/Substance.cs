@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using HELIX.Diagnostics;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Theming;
 

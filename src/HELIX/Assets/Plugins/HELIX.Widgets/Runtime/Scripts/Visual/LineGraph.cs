@@ -10,6 +10,14 @@ using UnityEngine.UIElements;
 using Vector2 = UnityEngine.Vector2;
 
 namespace HELIX.Widgets.Visual {
+  /*
+  TODO: This is awful, I didn't know what I was doing when I wrote this, I already have a better version of this
+  in SPC, I'll port it back here when I have time and also use HelixSpanAllocator which I introduced already
+  mainly with the indent of using it here later
+
+  Probably also gonna port over the no gc formatter then from spc, makes sense for later HUD widget presets
+  */
+
   [UxmlElement]
   public partial class LineGraph : PaintingElement {
     private ScriptablePathDrawer _fillDrawer;

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using HELIX.Abstractions;
+using HELIX.Diagnostics;
 using HELIX.Widgets.Diagnostics;
 using UnityEngine.UIElements;
 

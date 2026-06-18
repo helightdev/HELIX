@@ -1,4 +1,6 @@
 using System;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 

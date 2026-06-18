@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using HELIX.Diagnostics;
+using HELIX.Diagnostics.Formatting;
 using HELIX.Widgets.Diagnostics;
-using HELIX.Widgets.Diagnostics.Formatting;
 using HELIX.Widgets.Theming;
 using UnityEngine.UIElements;
 
@@ -58,6 +59,8 @@ namespace HELIX.Widgets.Elements {
 
   public interface IUserDataWidget<W, E> where W : Widget, IUserDataWidget<W, E> where E : VisualElement {
     void Apply(W previous, E element) { }
+
+    bool CanReconcile(W previous, E element) => true;
   }
 
   public class UserDataWidgetElement<W, T> : UserDataWidgetBaseElement
@@ -68,7 +71,7 @@ namespace HELIX.Widgets.Elements {
     }
 
     public override bool CanReconcile(Widget updated) {
-      return updated is W && Element is T;
+      return updated is W typed && Element is T typedElem && typed.CanReconcile(TypedDescriptor, typedElem);
     }
 
     public override bool Reconcile(Widget updated) {
