@@ -10,6 +10,7 @@ namespace HELIX.Widgets.Forms {
 
     private readonly Dictionary<string, object> _data = new();
     private readonly Dictionary<string, FieldData> _fields = new();
+    private readonly Dictionary<string, bool> _activeOverrides = new();
     private bool _submitAttempted;
     private int _batchDepth;
     private bool _pendingNotify;
@@ -146,7 +147,8 @@ namespace HELIX.Widgets.Forms {
       IEnumerable<IFormValidator> validators = null,
       ValidationMode validationMode = ValidationMode.OnSubmit,
       object initialValue = null,
-      IEqualityComparer<object> comparer = null
+      IEqualityComparer<object> comparer = null,
+      bool active = true
     ) {
       var normalized = FormPath.Require(path);
       if (field == null) throw new ArgumentNullException(nameof(field));
@@ -157,7 +159,10 @@ namespace HELIX.Widgets.Forms {
       } else if (fieldData.field != null
                  && !ReferenceEquals(fieldData.field, field)
                  && (fieldData.flags & FieldFlags.Stale) == 0) {
-        throw new InvalidOperationException($"A different form field is already registered for path '{normalized}'.");
+        fieldData.field = null;
+        fieldData.errors.Clear();
+        fieldData.flags |= FieldFlags.Stale;
+        fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Error, false);
       }
 
       fieldData.field = field;
@@ -165,6 +170,7 @@ namespace HELIX.Widgets.Forms {
       if (validators != null) fieldData.validators.AddRange(validators.Where(x => x != null));
       fieldData.validationMode = validationMode;
       fieldData.comparer = comparer ?? ObjectEqualityComparer.Default;
+      var effectiveActive = _activeOverrides.TryGetValue(normalized, out var activeOverride) ? activeOverride : active;
 
       var hasValue = _data.TryGetValue(normalized, out var currentValue);
       if (!fieldData.hasInitialValue) {
@@ -173,6 +179,11 @@ namespace HELIX.Widgets.Forms {
       }
 
       fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Stale, false);
+      fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Inactive, !effectiveActive);
+      if (!effectiveActive) {
+        fieldData.errors.Clear();
+        fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Error, false);
+      }
 
       if (!ReferenceEquals(initialValue, NoInitialValue) && !hasValue) {
         _data[normalized] = initialValue;
@@ -189,10 +200,11 @@ namespace HELIX.Widgets.Forms {
       IFormField field,
       IEnumerable<IFormValidator> validators = null,
       ValidationMode validationMode = ValidationMode.OnSubmit,
-      IEqualityComparer<object> comparer = null
+      IEqualityComparer<object> comparer = null,
+      bool active = true
     ) {
       var normalized = FormPath.Require(path);
-      RegisterField(normalized, field, validators, validationMode, NoInitialValue, comparer);
+      RegisterField(normalized, field, validators, validationMode, NoInitialValue, comparer, active);
       var fieldData = _fields[normalized];
       fieldData.isListField = true;
       if (fieldData.listCount < 0) fieldData.listCount = GetListPathCount(normalized);
@@ -206,8 +218,33 @@ namespace HELIX.Widgets.Forms {
       if (!ReferenceEquals(fieldData.field, field)) return;
 
       fieldData.field = null;
+      fieldData.errors.Clear();
+      fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Error, false);
       fieldData.flags |= FieldFlags.Stale;
       if (notify) NotifyFormChanged();
+    }
+
+    public void SetFieldActive(string path, bool active, bool includeChildren = false) {
+      var normalized = FormPath.Require(path);
+      _activeOverrides[normalized] = active;
+      foreach (var entry in SelectFields(normalized, includeChildren)) SetFieldActiveCore(entry.Key, entry.Value, active);
+      NotifyFormChanged();
+    }
+
+    public void ClearFieldActiveOverride(string path, bool includeChildren = false) {
+      var normalized = FormPath.Require(path);
+      foreach (var key in _activeOverrides.Keys.Where(key => includeChildren
+                 ? FormPath.IsInSubtree(key, normalized)
+                 : string.Equals(key, normalized, StringComparison.Ordinal)).ToList()) {
+        _activeOverrides.Remove(key);
+      }
+
+      foreach (var entry in SelectFields(normalized, includeChildren)) {
+        var active = !_activeOverrides.TryGetValue(entry.Key, out var activeOverride) || activeOverride;
+        SetFieldActiveCore(entry.Key, entry.Value, active);
+      }
+
+      NotifyFormChanged();
     }
 
     public void MarkTouched(string path, bool includeChildren = false) {
@@ -255,6 +292,7 @@ namespace HELIX.Widgets.Forms {
       var valid = true;
 
       foreach (var entry in _fields.ToList()) {
+        if (ShouldSkipField(entry.Value)) continue;
         var mode = entry.Value.validationMode;
         if ((mode & ValidationMode.OnSubmit) == 0 && mode != ValidationMode.None) continue;
         valid &= ValidateField(entry.Key, false);
@@ -372,6 +410,7 @@ namespace HELIX.Widgets.Forms {
         ShiftListPaths(_data, normalized, index, 1);
         ShiftListFields(normalized, index, 1);
         SetListCountCore(normalized, count + 1);
+        RecalculateListFieldDirty(normalized, index, count);
         TouchListStructure(normalized);
         MarkListDirty(normalized);
       }
@@ -389,6 +428,7 @@ namespace HELIX.Widgets.Forms {
         ShiftListPaths(_data, normalized, index + 1, -1);
         ShiftListFields(normalized, index + 1, -1);
         SetListCountCore(normalized, Math.Max(0, count - 1));
+        RecalculateListFieldDirty(normalized, index, Math.Max(0, count - 2));
         TouchListStructure(normalized);
         MarkListDirty(normalized);
       }
@@ -406,6 +446,7 @@ namespace HELIX.Widgets.Forms {
 
         MoveListPaths(_data, normalized, fromIndex, toIndex);
         MoveListFields(normalized, fromIndex, toIndex);
+        RecalculateListFieldDirty(normalized, Math.Min(fromIndex, toIndex), Math.Max(fromIndex, toIndex));
         TouchListStructure(normalized);
         MarkListDirty(normalized);
       }
@@ -423,6 +464,7 @@ namespace HELIX.Widgets.Forms {
 
         SwapListPaths(_data, normalized, leftIndex, rightIndex);
         SwapListFields(normalized, leftIndex, rightIndex);
+        RecalculateListFieldDirty(normalized, Math.Min(leftIndex, rightIndex), Math.Max(leftIndex, rightIndex));
         TouchListStructure(normalized);
         MarkListDirty(normalized);
       }
@@ -449,19 +491,25 @@ namespace HELIX.Widgets.Forms {
       SetListCount(path, 0);
     }
 
-    public Dictionary<string, object> DumpTree() {
-      if (!TryDumpTree(out var tree, out var errors)) {
+    public Dictionary<string, object> DumpTree(bool includeStaleData = false, bool includeInactiveData = false) {
+      if (!TryDumpTree(out var tree, out var errors, includeStaleData, includeInactiveData)) {
         throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
       }
 
       return tree;
     }
 
-    public bool TryDumpTree(out Dictionary<string, object> tree, out List<string> errors) {
+    public bool TryDumpTree(
+      out Dictionary<string, object> tree,
+      out List<string> errors,
+      bool includeStaleData = false,
+      bool includeInactiveData = false
+    ) {
       tree = new Dictionary<string, object>();
       errors = new List<string>();
 
       foreach (var entry in _data.OrderBy(x => x.Key.Length).ThenBy(x => x.Key, StringComparer.Ordinal)) {
+        if (ShouldExcludeDataPath(entry.Key, includeStaleData, includeInactiveData)) continue;
         if (!FormPath.TryParse(entry.Key, out var segments, out var parseError)) {
           errors.Add(parseError);
           continue;
@@ -471,6 +519,32 @@ namespace HELIX.Widgets.Forms {
       }
 
       return errors.Count == 0;
+    }
+
+    private bool ShouldExcludeDataPath(string path, bool includeStaleData, bool includeInactiveData) {
+      if (!includeInactiveData) {
+        foreach (var entry in _activeOverrides) {
+          if (entry.Value) continue;
+          if (string.Equals(path, entry.Key, StringComparison.Ordinal)) return true;
+          if (FormPath.IsInSubtree(path, entry.Key)) return true;
+        }
+      }
+
+      foreach (var entry in _fields) {
+        var stale = (entry.Value.flags & FieldFlags.Stale) != 0;
+        var inactive = (entry.Value.flags & FieldFlags.Inactive) != 0;
+        if ((!stale || includeStaleData) && (!inactive || includeInactiveData)) continue;
+        if (string.Equals(path, entry.Key, StringComparison.Ordinal)) return true;
+        if ((entry.Value.isListField || IsContainerPath(entry.Key)) && FormPath.IsInSubtree(path, entry.Key)) return true;
+      }
+
+      return false;
+    }
+
+    private bool IsContainerPath(string path) {
+      var prefix = FormPath.Normalize(path);
+      return _fields.Keys.Any(fieldPath => !string.Equals(fieldPath, prefix, StringComparison.Ordinal)
+                                           && FormPath.IsInSubtree(fieldPath, prefix));
     }
 
     private void EndUpdate() {
@@ -523,6 +597,7 @@ namespace HELIX.Widgets.Forms {
 
     private bool ValidateField(string path, bool notify) {
       if (!_fields.TryGetValue(path, out var fieldData)) return true;
+      if (ShouldSkipField(fieldData)) return true;
 
       var value = fieldData.isListField ? GetListCount(path) : GetValue(path);
       fieldData.errors.Clear();
@@ -537,6 +612,7 @@ namespace HELIX.Widgets.Forms {
     }
 
     private bool ShouldValidateOnChange(FieldData fieldData) {
+      if (ShouldSkipField(fieldData)) return false;
       var mode = fieldData.validationMode;
       if ((mode & ValidationMode.OnChange) != 0) return true;
       return (mode & ValidationMode.OnDirty) != 0 && (fieldData.flags & FieldFlags.Dirty) != 0;
@@ -546,6 +622,18 @@ namespace HELIX.Widgets.Forms {
       if (!_fields.TryGetValue(path, out var fieldData)) return;
       var dirty = !(fieldData.comparer ?? ObjectEqualityComparer.Default).Equals(fieldData.initialValue, value);
       fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Dirty, dirty);
+    }
+
+    private void SetFieldActiveCore(string path, FieldData fieldData, bool active) {
+      fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Inactive, !active);
+      if (active) return;
+
+      fieldData.errors.Clear();
+      fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Error, false);
+    }
+
+    private static bool ShouldSkipField(FieldData fieldData) {
+      return (fieldData.flags & (FieldFlags.Stale | FieldFlags.Inactive)) != 0;
     }
 
     private void MarkListDirty(string path) {
@@ -622,6 +710,20 @@ namespace HELIX.Widgets.Forms {
       if (_fields.TryGetValue(path, out var fieldData) && fieldData.isListField) fieldData.listRevision++;
     }
 
+    private void RecalculateListFieldDirty(string listPath, int startIndex, int endIndex) {
+      foreach (var entry in _fields.ToList()) {
+        if (!FormPath.TryGetListIndex(listPath, entry.Key, out var index)) continue;
+        if (index < startIndex || index > endIndex) continue;
+        if (entry.Value.isListField) {
+          MarkListDirty(entry.Key);
+          continue;
+        }
+
+        _data.TryGetValue(entry.Key, out var value);
+        MarkDirty(entry.Key, value);
+      }
+    }
+
     private static void ShiftListPaths(Dictionary<string, object> target, string listPath, int startIndex, int delta) {
       var changes = new List<(string OldPath, string NewPath, object Value)>();
       foreach (var entry in target.ToList()) {
@@ -669,7 +771,7 @@ namespace HELIX.Widgets.Forms {
       var changes = new List<(string OldPath, string NewPath, FieldData Value)>();
       foreach (var entry in _fields.ToList()) {
         if (!FormPath.TryGetListIndex(listPath, entry.Key, out var index) || index < startIndex) continue;
-        changes.Add((entry.Key, FormPath.ReplaceListIndex(listPath, entry.Key, index + delta), entry.Value.Detached()));
+        changes.Add((entry.Key, FormPath.ReplaceListIndex(listPath, entry.Key, index + delta), entry.Value.Detached(false)));
       }
 
       ApplyPathChanges(_fields, changes);
@@ -680,7 +782,7 @@ namespace HELIX.Widgets.Forms {
       foreach (var entry in _fields.ToList()) {
         if (!FormPath.TryGetListIndex(listPath, entry.Key, out var index)) continue;
         if (!FormPath.TryMoveListIndex(index, fromIndex, toIndex, out var movedIndex)) continue;
-        changes.Add((entry.Key, FormPath.ReplaceListIndex(listPath, entry.Key, movedIndex), entry.Value.Detached()));
+        changes.Add((entry.Key, FormPath.ReplaceListIndex(listPath, entry.Key, movedIndex), entry.Value.Detached(false)));
       }
 
       ApplyPathChanges(_fields, changes);
@@ -692,7 +794,7 @@ namespace HELIX.Widgets.Forms {
         if (!FormPath.TryGetListIndex(listPath, entry.Key, out var index)) continue;
         if (index != leftIndex && index != rightIndex) continue;
         var swappedIndex = index == leftIndex ? rightIndex : leftIndex;
-        changes.Add((entry.Key, FormPath.ReplaceListIndex(listPath, entry.Key, swappedIndex), entry.Value.Detached()));
+        changes.Add((entry.Key, FormPath.ReplaceListIndex(listPath, entry.Key, swappedIndex), entry.Value.Detached(false)));
       }
 
       ApplyPathChanges(_fields, changes);

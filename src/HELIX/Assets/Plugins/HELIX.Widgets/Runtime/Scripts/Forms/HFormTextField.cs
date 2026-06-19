@@ -25,6 +25,7 @@ namespace HELIX.Widgets.Forms {
     public readonly char maskChar;
     public readonly int maxLength;
     public readonly bool enabled;
+    public readonly bool active;
     public readonly Action<string> onChanged;
     public readonly Action<string> onSubmitted;
 
@@ -46,6 +47,7 @@ namespace HELIX.Widgets.Forms {
       char maskChar = '*',
       int maxLength = -1,
       bool enabled = true,
+      bool active = true,
       Action<string> onChanged = null,
       Action<string> onSubmitted = null,
       Key key = default,
@@ -69,6 +71,7 @@ namespace HELIX.Widgets.Forms {
       this.maskChar = maskChar;
       this.maxLength = maxLength;
       this.enabled = enabled;
+      this.active = active;
       this.onChanged = onChanged;
       this.onSubmitted = onSubmitted;
     }
@@ -80,6 +83,7 @@ namespace HELIX.Widgets.Forms {
 
   public sealed class HFormTextFieldState : State<HFormTextField>, IFormField {
     private TextEditingController _controller;
+    private WidgetStateController _widgetState;
     private FormController _form;
     private string _path;
     private bool _syncingFromForm;
@@ -87,7 +91,8 @@ namespace HELIX.Widgets.Forms {
 
     public override void InitState() {
       base.InitState();
-      _controller = AddDisposable(new TextEditingController());
+      _widgetState = AddDisposable(new WidgetStateController());
+      _controller = AddDisposable(new TextEditingController(_widgetState));
       _controller.onChanged += OnChanged;
       _controller.onEndEditing += OnFinishedEditing;
       _controller.onSubmitted += OnSubmitted;
@@ -118,6 +123,7 @@ namespace HELIX.Widgets.Forms {
 
     public void OnFormFieldChanged(FormController form, string path) {
       if (_disposed || _controller == null || !ReferenceEquals(form, _form) || path != _path) return;
+      SyncWidgetState();
       var value = form.GetValue<string>(path, widget.initialValue ?? string.Empty) ?? string.Empty;
       if (string.Equals(_controller.PeekValue(), value, StringComparison.InvariantCulture)) return;
 
@@ -144,7 +150,7 @@ namespace HELIX.Widgets.Forms {
         keyboardType: widget.keyboardType,
         maskChar: widget.maskChar,
         maxLength: widget.maxLength,
-        enabled: widget.enabled
+        enabled: widget.enabled && widget.active
       );
     }
 
@@ -153,14 +159,41 @@ namespace HELIX.Widgets.Forms {
       var formContext = FormContext.Require(mount, nameof(HFormTextField));
       var fullPath = formContext.ResolvePath(widget.path);
       if (ReferenceEquals(_form, formContext.Controller) && _path == fullPath) {
-        _form.RegisterField(_path, this, widget.validators, widget.validationMode, widget.initialValue, widget.comparer);
+        _form.RegisterField(
+          _path,
+          this,
+          widget.validators,
+          widget.validationMode,
+          widget.initialValue,
+          widget.comparer,
+          widget.active
+        );
+        SyncWidgetState();
         return;
       }
 
       _form?.UnregisterField(_path, this);
       _form = formContext.Controller;
       _path = fullPath;
-      _form.RegisterField(_path, this, widget.validators, widget.validationMode, widget.initialValue, widget.comparer);
+      _form.RegisterField(
+        _path,
+        this,
+        widget.validators,
+        widget.validationMode,
+        widget.initialValue,
+        widget.comparer,
+        widget.active
+      );
+      SyncWidgetState();
+    }
+
+    private void SyncWidgetState() {
+      if (_widgetState == null) return;
+      var fieldData = _form?.GetFieldData(_path);
+      var inactive = !widget.active || fieldData?.HasFlag(FieldFlags.Inactive) == true;
+      var error = fieldData?.HasFlag(FieldFlags.Error) == true;
+      _widgetState.Toggle(WidgetState.Disabled, !widget.enabled || inactive);
+      _widgetState.Toggle(WidgetState.Error, error);
     }
 
     private void OnChanged(string value) {

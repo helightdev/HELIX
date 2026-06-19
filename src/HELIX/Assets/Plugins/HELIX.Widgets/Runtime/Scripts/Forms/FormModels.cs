@@ -20,9 +20,9 @@ namespace HELIX.Widgets.Forms {
       return (flags & flag) != 0;
     }
 
-    public FieldData Detached() {
+    public FieldData Detached(bool markStale = true) {
       var detached = new FieldData {
-        flags = flags | FieldFlags.Stale,
+        flags = markStale ? flags | FieldFlags.Stale : flags & ~FieldFlags.Stale,
         validationMode = validationMode,
         initialValue = initialValue,
         comparer = comparer,
@@ -46,7 +46,8 @@ namespace HELIX.Widgets.Forms {
     Touched = 1 << 0,
     Dirty = 1 << 1,
     Error = 1 << 2,
-    Stale = 1 << 3
+    Stale = 1 << 3,
+    Inactive = 1 << 4
   }
 
   [Flags]

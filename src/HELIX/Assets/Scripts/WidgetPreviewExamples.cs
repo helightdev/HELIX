@@ -7,6 +7,8 @@ using HELIX.Types;
 using HELIX.Widgets;
 using HELIX.Widgets.Theming;
 using HELIX.Widgets.Universal;
+using HELIX.Widgets.Universal.Styles;
+using HELIX.Widgets.Universal.Substances;
 using HELIX.Widgets.Universal.Theme;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -56,12 +58,50 @@ public partial class WidgetExamples {
     );
     colors.outline = Colors.White.WithOpacity(0.39f);
 
+    var typography = PrimitiveTypographyScheme.Default;
+    var spacing = PrimitiveSpacingScheme.Default;
+
+    var textfield = new HTextFieldStyle {
+      textStyle = new WidgetStatePropertyMap<TextStyle>() {
+        [WidgetState.Disabled] = new TextStyle {
+          color = colors.surface.onMain.WithOpacity(0.33f),
+          fontSize = typography.FontSize2
+        },
+        [WidgetState.None] = new TextStyle {
+          color = colors.surface.onMain,
+          fontSize = typography.FontSize2
+        }
+      },
+      constraints = BoxConstraints.Tight(StyleKeyword.Auto, typography.LineHeight2),
+      padding = EdgeInsets.Symmetric(spacing.Space2, 0),
+      layers = new SubstanceBuilder(null)
+        .Append((x) => new BoxSubstance() {
+          background = new WidgetStatePropertyMap<BackgroundStyle>() {
+            [WidgetState.Disabled] = Colors.Hex("#21212180").WithOpacity(0.33f),
+            [WidgetState.ModAny | WidgetState.Hovered | WidgetState.Focused] = Colors.Hex("#6868684d"),
+            [WidgetState.None] = Colors.Hex("#21212180").WithOpacity(0.5f)
+          },
+          border = new WidgetStatePropertyMap<Border>() {
+            [WidgetState.Disabled] = Border.All(1, colors.outline.WithOpacity(0.1f)),
+            [WidgetState.Error] = Border.All(1, Colors.Hex("#e66670")),
+            [WidgetState.ModAny | WidgetState.Hovered | WidgetState.Focused] = Border.All(1, colors.outline),
+            [WidgetState.None] = Border.All(1, colors.outline.WithOpacity(0.5f)),
+          },
+          borderRadius = BorderRadius.All(PrimitiveRadiusScheme.Default.Radius2),
+        })
+        .Build()
+    };
+
     return new HThemeProvider(
       new List<ThemeComponent> {
         new PrimitiveBaseThemeComponent {
           // colors = PrimitiveColorScheme.From(MaterialColors.Indigo, Brightness.Dark)
           colors = colors
+        },
+        new PrimitiveThemeComponent() {
+          textField = textfield
         }
+
       }
     ) {
       new HStatefulBuilder((context, _) =>

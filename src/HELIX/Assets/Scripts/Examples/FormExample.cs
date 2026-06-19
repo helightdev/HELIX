@@ -73,6 +73,7 @@ namespace Examples {
                 DetailsBlock(context, "Last submit", _lastAction),
                 DetailsBlock(context, "Flat data", FormatValue(_form.Data)),
                 DetailsBlock(context, "DumpTree()", DumpTreePreview()),
+                DetailsBlock(context, "DumpTree(include inactive/stale)", DumpTreePreview(true, true)),
                 DetailsBlock(context, "Field metadata", FormatFields()),
                 DetailsBlock(context, "Submit errors", FormatSubmitErrors())
               }.Padding(14)
@@ -93,6 +94,7 @@ namespace Examples {
         ["account.password"] = "analytical-engine",
         ["account.confirmPassword"] = "analytical-engine",
         ["newsletter"] = "yes",
+        ["newsletterTopic"] = "Computing history",
         ["theme"] = "system",
         ["email"] = "enabled",
         ["sms"] = "disabled",
@@ -237,6 +239,7 @@ namespace Examples {
           SegmentedTextField("newsletter", new[] { "yes", "no" }),
           "newsletter"
         ),
+        NewsletterTopicField(context),
         Field(
           context,
           "Theme",
@@ -258,8 +261,28 @@ namespace Examples {
       });
     }
 
+    private Widget NewsletterTopicField(BuildContext context) {
+      var active = IsNewsletterEnabled();
+
+      return Field(
+        context,
+        "Newsletter topic",
+        new HFormTextField(
+          "newsletterTopic",
+          validators: new[] { FormValidators.Required("Pick a topic while newsletter is enabled") },
+          validationMode: ValidationMode.OnChange | ValidationMode.OnSubmit,
+          initialValue: "",
+          enabled: active,
+          active: active
+        ).TightStretch(),
+        "newsletterTopic"
+      );
+    }
+
     private Widget AddressSection(BuildContext context) {
-      return Section(context, "Nested shipping address", new HFormScope("shipping") {
+      var active = IsNewsletterEnabled();
+
+      return Section(context, "Conditional shipping address", new HFormScope("shipping") {
         new HFormScope("address") {
           new HColumn(gap: 10, crossAxisAlign: Align.Stretch) {
             Field(
@@ -269,14 +292,22 @@ namespace Examples {
                 "line1",
                 validators: new[] { FormValidators.Required() },
                 validationMode: ValidationMode.OnSubmit,
-                initialValue: ""
+                initialValue: "",
+                enabled: active,
+                active: active
               ).TightStretch(),
               "shipping.address.line1"
             ),
             Field(
               context,
               "Line 2",
-              new HFormTextField("line2", validationMode: ValidationMode.None, initialValue: "").TightStretch(),
+              new HFormTextField(
+                "line2",
+                validationMode: ValidationMode.None,
+                initialValue: "",
+                enabled: active,
+                active: active
+              ).TightStretch(),
               "shipping.address.line2"
             ),
             new HRow(gap: 10, crossAxisAlign: Align.FlexStart) {
@@ -287,14 +318,16 @@ namespace Examples {
                   "city",
                   validators: new[] { FormValidators.Required() },
                   validationMode: ValidationMode.OnSubmit,
-                  initialValue: ""
+                  initialValue: "",
+                  enabled: active,
+                  active: active
                 ).TightStretch(),
                 "shipping.address.city"
               ).Expand(),
               Field(
                 context,
                 "Region",
-                new HFormTextField("region", initialValue: "").TightStretch(),
+                new HFormTextField("region", initialValue: "", enabled: active, active: active).TightStretch(),
                 "shipping.address.region"
               ).Expand(),
               Field(
@@ -304,28 +337,35 @@ namespace Examples {
                   "postalCode",
                   validators: new[] { FormValidators.Required() },
                   validationMode: ValidationMode.OnFinishEditing | ValidationMode.OnSubmit,
-                  initialValue: ""
+                  initialValue: "",
+                  enabled: active,
+                  active: active
                 ).TightStretch(),
                 "shipping.address.postalCode"
               ).Expand()
             }
           }
         }
-      });
+      }).Display(active);
+    }
+
+    private bool IsNewsletterEnabled() {
+      return string.Equals(_form.GetValue<string>("newsletter", "yes"), "yes", StringComparison.Ordinal);
     }
 
     private Widget ContactsSection(BuildContext context) {
       var contacts = new HColumn(gap: 10, crossAxisAlign: Align.Stretch) {
         new HFormListField(
           "contacts",
+          itemBuilder: ContactFields,
+          containerBuilder: ContactListContainer,
+          itemWrapperBuilder: ContactItemChrome,
           validators: new[] {
             FormValidators.Func((form, path, value) =>
               form.GetListCount(path) > 0 ? null : "Add at least one contact")
           },
           validationMode: ValidationMode.OnSubmit
-        ) {
-          BuildContactRows(context)
-        },
+        ),
         FieldErrors(context, "contacts"),
         new HRow(gap: 8) {
           new HButton(
@@ -349,94 +389,88 @@ namespace Examples {
       return Section(context, "Dynamic contact list", contacts);
     }
 
-    private Widget BuildContactRows(BuildContext context) {
-      var rows = new HColumn(gap: 10, crossAxisAlign: Align.Stretch);
-      var count = _form.GetListCount("contacts");
-      if (count == 0) {
-        rows.Add(new HText("No contacts registered.").Caption(context));
-        return rows;
-      }
-
-      for (var i = 0; i < count; i++) rows.Add(ContactRow(context, i, count));
-      return rows;
+    private Widget ContactListContainer(BuildContext context, WidgetList items) {
+      if (items.Count == 0) return new HText("No contacts registered.").Caption(context);
+      return new HColumn(gap: 10, crossAxisAlign: Align.Stretch, children: items);
     }
 
-    private Widget ContactRow(BuildContext context, int index, int count) {
-      var prefix = $"contacts.{index}";
+    private Widget ContactItemChrome(BuildContext context, FormListItemContext item, Widget child) {
       return new HBox(
         background: context.GetThemed(PrimitiveTheme.Container),
         borderRadius: BorderRadius.All(8)
       ) {
-        new HFormScope(index.ToString()) {
-          new HColumn(gap: 8, crossAxisAlign: Align.Stretch) {
-            new HRow(gap: 8) {
-              new HText($"Contact {index + 1}").Body(context),
-              new HButton(
-                HButtonVariant.Ghost,
-                size: HButtonSize.Small,
-                child: new HText("Insert before"),
-                onClick: () => _form.InsertListItem("contacts", index)
-              ),
-              new HButton(
-                HButtonVariant.Ghost,
-                size: HButtonSize.Small,
-                enabled: index > 0,
-                child: new HText("Move up"),
-                onClick: () => _form.MoveListItem("contacts", index, index - 1)
-              ),
-              new HButton(
-                HButtonVariant.Ghost,
-                size: HButtonSize.Small,
-                enabled: index < count - 1,
-                child: new HText("Move down"),
-                onClick: () => _form.MoveListItem("contacts", index, index + 1)
-              ),
-              new HButton(
-                HButtonVariant.Ghost,
-                size: HButtonSize.Small,
-                enabled: count > 0,
-                child: new HText("Remove"),
-                onClick: () => _form.RemoveListItem("contacts", index)
-              )
+        new HColumn(gap: 8, crossAxisAlign: Align.Stretch) {
+          new HRow(gap: 8) {
+            new HText($"Contact {item.Index + 1}").Body(context),
+            new HButton(
+              HButtonVariant.Ghost,
+              size: HButtonSize.Small,
+              child: new HText("Insert before"),
+              onClick: item.InsertBefore
+            ),
+            new HButton(
+              HButtonVariant.Ghost,
+              size: HButtonSize.Small,
+              enabled: !item.IsFirst,
+              child: new HText("Move up"),
+              onClick: item.MoveUp
+            ),
+            new HButton(
+              HButtonVariant.Ghost,
+              size: HButtonSize.Small,
+              enabled: !item.IsLast,
+              child: new HText("Move down"),
+              onClick: item.MoveDown
+            ),
+            new HButton(
+              HButtonVariant.Ghost,
+              size: HButtonSize.Small,
+              child: new HText("Remove"),
+              onClick: item.Remove
+            )
+          },
+          child
+        }.Padding(10)
+      };
+    }
+
+    private Widget ContactFields(BuildContext context, int index) {
+      var prefix = $"contacts.{index}";
+      return new HRow(gap: 10, crossAxisAlign: Align.FlexStart) {
+        Field(
+          context,
+          "Name",
+          new HFormTextField(
+            "name",
+            validators: new[] { FormValidators.Required() },
+            validationMode: ValidationMode.OnSubmit,
+            initialValue: ""
+          ).TightStretch(),
+          $"{prefix}.name"
+        ).Expand(),
+        Field(
+          context,
+          "Relationship",
+          new HFormTextField("relationship", initialValue: "").TightStretch(),
+          $"{prefix}.relationship"
+        ).Expand(),
+        Field(
+          context,
+          "Email",
+          new HFormTextField(
+            "email",
+            validators: new[] {
+              FormValidators.Func((_, _, value) =>
+                string.IsNullOrWhiteSpace(Convert.ToString(value)) || IsEmail(value)
+                  ? null
+                  : "Enter a valid email")
             },
-            new HRow(gap: 10, crossAxisAlign: Align.FlexStart) {
-              Field(
-                context,
-                "Name",
-                new HFormTextField(
-                  "name",
-                  validators: new[] { FormValidators.Required() },
-                  validationMode: ValidationMode.OnSubmit,
-                  initialValue: ""
-                ).TightStretch(),
-                $"{prefix}.name"
-              ).Expand(),
-              Field(
-                context,
-                "Relationship",
-                new HFormTextField("relationship", initialValue: "").TightStretch(),
-                $"{prefix}.relationship"
-              ).Expand(),
-              Field(
-                context,
-                "Email",
-                new HFormTextField(
-                  "email",
-                  validators: new[] {
-                    FormValidators.Func((_, _, value) =>
-                      string.IsNullOrWhiteSpace(Convert.ToString(value)) || IsEmail(value)
-                        ? null
-                        : "Enter a valid email")
-                  },
-                  validationMode: ValidationMode.OnChange | ValidationMode.OnSubmit,
-                  keyboardType: TouchScreenKeyboardType.EmailAddress,
-                  initialValue: ""
-                ).TightStretch(),
-                $"{prefix}.email"
-              ).Expand()
-            }
-          }.Padding(10)
-        }
+            validationMode: ValidationMode.OnChange | ValidationMode.OnSubmit,
+            keyboardType: TouchScreenKeyboardType.EmailAddress,
+            initialValue: ""
+          ).TightStretch(),
+          $"{prefix}.email"
+        ).Expand()
       };
     }
 
@@ -490,7 +524,8 @@ namespace Examples {
     private Widget Section(BuildContext context, string title, Widget child) {
       return new HBox(
         background: context.GetThemed(PrimitiveTheme.Container),
-        borderRadius: BorderRadius.All(8)
+        borderRadius: BorderRadius.All(8),
+        key: $"section.{title}"
       ) {
         new HColumn(gap: 10, crossAxisAlign: Align.Stretch) {
           new HText(title).Heading(context, 2),
@@ -500,7 +535,7 @@ namespace Examples {
     }
 
     private Widget Field(BuildContext context, string label, Widget input, string path) {
-      return new HColumn(gap: 5, crossAxisAlign: Align.Stretch) {
+      return new HColumn(gap: 5, crossAxisAlign: Align.Stretch, key: $"field.{path}") {
         new HRow(gap: 8) {
           new HText(label).Body(context),
           new HText(FieldStatus(path)).Caption(context)
@@ -524,7 +559,7 @@ namespace Examples {
           size: HButtonSize.Small,
           selected: string.Equals(selected, option, StringComparison.Ordinal),
           child: new HText(option),
-          onClick: () => _form.SetValue(path, option, FormChangeReason.User)
+          onClick: () => SetSegmentedValue(path, option)
         ));
       }
 
@@ -538,6 +573,17 @@ namespace Examples {
           isReadOnly: true
         ).TightStretch()
       };
+    }
+
+    private void SetSegmentedValue(string path, string value) {
+      _form.Batch(() => {
+        _form.SetValue(path, value, FormChangeReason.User);
+        if (!string.Equals(path, "newsletter", StringComparison.Ordinal)) return;
+
+        var active = string.Equals(value, "yes", StringComparison.Ordinal);
+        _form.SetFieldActive("newsletterTopic", active);
+        _form.SetFieldActive("shipping.address", active, true);
+      });
     }
 
     private Widget DetailsBlock(BuildContext context, string title, string value) {
@@ -565,8 +611,8 @@ namespace Examples {
       return $"{flags} / {mode}";
     }
 
-    private string DumpTreePreview() {
-      return _form.TryDumpTree(out var tree, out var errors)
+    private string DumpTreePreview(bool includeStaleData = false, bool includeInactiveData = false) {
+      return _form.TryDumpTree(out var tree, out var errors, includeStaleData, includeInactiveData)
         ? FormatValue(tree)
         : string.Join("\n", errors);
     }
