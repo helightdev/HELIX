@@ -76,7 +76,9 @@ namespace HELIX.Widgets.Forms {
       if (!fields.TryGetValue(path, out var fieldData)) {
         fieldData = new FieldData();
         fields[path] = fieldData;
-      } else if (fieldData.field != null && !ReferenceEquals(fieldData.field, field)) {
+      } else if (fieldData.field != null
+                 && !ReferenceEquals(fieldData.field, field)
+                 && (fieldData.flags & FieldFlags.Stale) == 0) {
         throw new InvalidOperationException($"A different form field is already registered for path '{path}'.");
       }
 
@@ -85,18 +87,27 @@ namespace HELIX.Widgets.Forms {
       if (validators != null) fieldData.validators.AddRange(validators.Where(x => x != null));
       fieldData.validationMode = validationMode;
       fieldData.comparer = comparer ?? ObjectEqualityComparer.Default;
-      fieldData.initialValue = initialValue;
+      var hasValue = data.TryGetValue(path, out var currentValue);
+      if (!fieldData.hasInitialValue) {
+        fieldData.initialValue = hasValue && !ReferenceEquals(initialValue, NoInitialValue) ? currentValue : initialValue;
+        fieldData.hasInitialValue = true;
+      }
+
       fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Stale, false);
 
-      if (!ReferenceEquals(initialValue, NoInitialValue) && !data.ContainsKey(path)) data[path] = initialValue;
-      MarkDirty(path, data.TryGetValue(path, out var value) ? value : null);
+      if (!ReferenceEquals(initialValue, NoInitialValue) && !hasValue) {
+        data[path] = initialValue;
+        currentValue = initialValue;
+        hasValue = true;
+      }
+
+      MarkDirty(path, hasValue ? currentValue : initialValue);
       field.OnFormFieldChanged(this, path);
     }
 
     public void RegisterListField(
       string path,
       IFormField field,
-      int initialCount = 0,
       IEnumerable<IFormValidator> validators = null,
       ValidationMode validationMode = ValidationMode.OnSubmit,
       IEqualityComparer<object> comparer = null
@@ -104,8 +115,8 @@ namespace HELIX.Widgets.Forms {
       RegisterField(path, field, validators, validationMode, NoInitialValue, comparer);
       var fieldData = fields[path];
       fieldData.isListField = true;
-      if (fieldData.listCount < 0) fieldData.listCount = Math.Max(initialCount, GetListPathCount(path));
-      if (ReferenceEquals(fieldData.initialValue, NoInitialValue)) fieldData.initialValue = initialCount;
+      if (fieldData.listCount < 0) fieldData.listCount = GetListPathCount(path);
+      if (ReferenceEquals(fieldData.initialValue, NoInitialValue)) fieldData.initialValue = fieldData.listCount;
       MarkDirty(path, fieldData.listCount);
     }
 
@@ -158,13 +169,13 @@ namespace HELIX.Widgets.Forms {
       NotifyFormChanged();
     }
 
-    public void UnregisterField(string path, IFormField field) {
+    public void UnregisterField(string path, IFormField field, bool notify = true) {
       if (!fields.TryGetValue(path, out var fieldData)) return;
       if (!ReferenceEquals(fieldData.field, field)) return;
 
       fieldData.field = null;
       fieldData.flags |= FieldFlags.Stale;
-      NotifyFormChanged();
+      if (notify) NotifyFormChanged();
     }
 
     public void MarkTouched(string path) {
@@ -225,25 +236,27 @@ namespace HELIX.Widgets.Forms {
       };
     }
 
-    public void Reset() {
+    public void Reset(bool notify = true) {
       foreach (var entry in fields.ToList()) {
         if (!fields.ContainsKey(entry.Key)) continue;
         if (entry.Value.isListField) {
           data.Remove(entry.Key);
           entry.Value.listCount = entry.Value.initialValue is int count ? count : 0;
           RemoveListPathsAtOrAfter(entry.Key, entry.Value.listCount);
+          MarkDirty(entry.Key, entry.Value.listCount);
           continue;
         }
 
         data[entry.Key] = entry.Value.initialValue;
+        MarkDirty(entry.Key, entry.Value.initialValue);
       }
 
       ResetMetadata(fields.Keys);
       _submitAttempted = false;
-      NotifyFormChanged();
+      if (notify) NotifyFormChanged();
     }
 
-    public void Reset(Dictionary<string, object> values) {
+    public void Reset(Dictionary<string, object> values, bool notify = true) {
       data.Clear();
       if (values != null)
         foreach (var entry in values) data[entry.Key] = entry.Value;
@@ -254,16 +267,18 @@ namespace HELIX.Widgets.Forms {
           data.Remove(entry.Key);
           entry.Value.listCount = GetListPathCount(entry.Key);
           entry.Value.initialValue = entry.Value.listCount;
+          entry.Value.hasInitialValue = true;
           continue;
         }
 
         entry.Value.initialValue = data.TryGetValue(entry.Key, out var value) ? value : null;
+        entry.Value.hasInitialValue = true;
         if (!data.ContainsKey(entry.Key)) data[entry.Key] = entry.Value.initialValue;
       }
 
       ResetMetadata(fields.Keys);
       _submitAttempted = false;
-      NotifyFormChanged();
+      if (notify) NotifyFormChanged();
     }
 
     public void ResetField(string path) {
@@ -272,12 +287,14 @@ namespace HELIX.Widgets.Forms {
           data.Remove(path);
           fieldData.listCount = fieldData.initialValue is int count ? count : 0;
           RemoveListPathsAtOrAfter(path, fieldData.listCount);
+          MarkDirty(path, fieldData.listCount);
           ResetMetadata(new[] { path });
           NotifyFormChanged();
           return;
       }
 
       data[path] = fieldData.initialValue;
+      MarkDirty(path, fieldData.initialValue);
       ResetMetadata(new[] { path });
       NotifyFormChanged();
     }
@@ -286,12 +303,14 @@ namespace HELIX.Widgets.Forms {
       foreach (var entry in fields) {
         if (entry.Value.isListField) {
           entry.Value.initialValue = GetListCount(entry.Key);
+          entry.Value.hasInitialValue = true;
           MarkDirty(entry.Key, entry.Value.initialValue);
           continue;
         }
 
         data.TryGetValue(entry.Key, out var value);
         entry.Value.initialValue = value;
+        entry.Value.hasInitialValue = true;
         MarkDirty(entry.Key, value);
       }
 
@@ -414,7 +433,7 @@ namespace HELIX.Widgets.Forms {
       var changes = new List<(string OldPath, string NewPath, FieldData Value)>();
       foreach (var entry in fields.ToList()) {
         if (!TryGetListIndex(listPath, entry.Key, out var index) || index < startIndex) continue;
-        changes.Add((entry.Key, ReplaceListIndex(listPath, entry.Key, index + delta), entry.Value));
+        changes.Add((entry.Key, ReplaceListIndex(listPath, entry.Key, index + delta), entry.Value.Detached()));
       }
 
       foreach (var change in changes) fields.Remove(change.OldPath);
@@ -550,6 +569,22 @@ namespace HELIX.Widgets.Forms {
     public IEqualityComparer<object> comparer = ObjectEqualityComparer.Default;
     public bool isListField;
     public int listCount = -1;
+    public bool hasInitialValue;
+
+    public FieldData Detached() {
+      var detached = new FieldData {
+        flags = flags | FieldFlags.Stale,
+        validationMode = validationMode,
+        initialValue = initialValue,
+        comparer = comparer,
+        isListField = isListField,
+        listCount = listCount,
+        hasInitialValue = hasInitialValue
+      };
+      detached.errors.AddRange(errors);
+      detached.validators.AddRange(validators);
+      return detached;
+    }
   }
 
   public sealed class FormNoInitialValue { }
@@ -711,12 +746,10 @@ namespace HELIX.Widgets.Forms {
     public readonly string path;
     public readonly IEnumerable<IFormValidator> validators;
     public readonly ValidationMode validationMode;
-    public readonly int initialCount;
     public readonly IEqualityComparer<object> comparer;
 
     public HFormListField(
       string path,
-      int initialCount = 0,
       IEnumerable<IFormValidator> validators = null,
       ValidationMode validationMode = ValidationMode.OnSubmit,
       IEqualityComparer<object> comparer = null,
@@ -726,7 +759,6 @@ namespace HELIX.Widgets.Forms {
       IReadOnlyCollection<Modifier> modifiers = null
     ) : base(child, key, constants, modifiers) {
       this.path = path;
-      this.initialCount = Math.Max(0, initialCount);
       this.validators = validators;
       this.validationMode = validationMode;
       this.comparer = comparer;
@@ -740,6 +772,7 @@ namespace HELIX.Widgets.Forms {
   public sealed class HFormListFieldState : State<HFormListField>, IFormField {
     private FormController _form;
     private string _path;
+    private bool _disposed;
 
     public override void InitState() {
       base.InitState();
@@ -755,7 +788,10 @@ namespace HELIX.Widgets.Forms {
     }
 
     public override void Dispose() {
-      _form?.UnregisterField(_path, this);
+      _disposed = true;
+      _form?.UnregisterField(_path, this, false);
+      _form = null;
+      _path = null;
       base.Dispose();
     }
 
@@ -767,19 +803,20 @@ namespace HELIX.Widgets.Forms {
     }
 
     private void ResolveAndRegister() {
+      if (_disposed) return;
       var formContext = FormContextElement.Resolve(mount);
       if (formContext == null) throw new InvalidOperationException("HFormListField must be built below an HForm.");
 
       var fullPath = FormPath.Compose(formContext.PathPrefix, widget.path);
       if (ReferenceEquals(_form, formContext.Controller) && _path == fullPath) {
-        _form.RegisterListField(_path, this, widget.initialCount, widget.validators, widget.validationMode, widget.comparer);
+        _form.RegisterListField(_path, this, widget.validators, widget.validationMode, widget.comparer);
         return;
       }
 
       _form?.UnregisterField(_path, this);
       _form = formContext.Controller;
       _path = fullPath;
-      _form.RegisterListField(_path, this, widget.initialCount, widget.validators, widget.validationMode, widget.comparer);
+      _form.RegisterListField(_path, this, widget.validators, widget.validationMode, widget.comparer);
     }
   }
 
@@ -859,6 +896,7 @@ namespace HELIX.Widgets.Forms {
     private FormController _form;
     private string _path;
     private bool _syncingFromForm;
+    private bool _disposed;
 
     public override void InitState() {
       base.InitState();
@@ -878,12 +916,21 @@ namespace HELIX.Widgets.Forms {
     }
 
     public override void Dispose() {
-      _form?.UnregisterField(_path, this);
+      _disposed = true;
+      if (_controller != null) {
+        _controller.onChanged -= OnChanged;
+        _controller.onEndEditing -= OnFinishedEditing;
+        _controller.onSubmitted -= OnSubmitted;
+      }
+
+      _form?.UnregisterField(_path, this, false);
+      _form = null;
+      _path = null;
       base.Dispose();
     }
 
     public void OnFormFieldChanged(FormController form, string path) {
-      if (!ReferenceEquals(form, _form) || path != _path) return;
+      if (_disposed || _controller == null || !ReferenceEquals(form, _form) || path != _path) return;
       var value = form.GetValue<string>(path, widget.initialValue ?? string.Empty) ?? string.Empty;
       if (string.Equals(_controller.PeekValue(), value, StringComparison.InvariantCulture)) return;
 
@@ -915,6 +962,7 @@ namespace HELIX.Widgets.Forms {
     }
 
     private void ResolveAndRegister() {
+      if (_disposed) return;
       var formContext = FormContextElement.Resolve(mount);
       if (formContext == null) throw new InvalidOperationException("HFormTextField must be built below an HForm.");
 
@@ -931,17 +979,19 @@ namespace HELIX.Widgets.Forms {
     }
 
     private void OnChanged(string value) {
-      if (_syncingFromForm || _form == null || _path == null) return;
+      if (_disposed || _syncingFromForm || _form == null || _path == null) return;
       _form.SetValue(_path, value, FormChangeReason.User);
       widget.onChanged?.Invoke(value);
     }
 
     private void OnSubmitted(string value) {
+      if (_disposed) return;
       _form?.MarkFinishedEditing(_path);
       widget.onSubmitted?.Invoke(value);
     }
 
     private void OnFinishedEditing() {
+      if (_disposed) return;
       _form?.MarkFinishedEditing(_path);
     }
   }
