@@ -169,6 +169,18 @@ namespace HELIX.Widgets.Forms {
       NotifyFormChanged();
     }
 
+    public void MoveListItem(string path, int fromIndex, int toIndex) {
+      var count = GetListCount(path);
+      if (fromIndex < 0 || fromIndex >= count) throw new ArgumentOutOfRangeException(nameof(fromIndex));
+      if (toIndex < 0 || toIndex >= count) throw new ArgumentOutOfRangeException(nameof(toIndex));
+      if (fromIndex == toIndex) return;
+
+      MoveListPaths(data, path, fromIndex, toIndex);
+      MoveListFields(path, fromIndex, toIndex);
+      MarkDirty(path, GetListCount(path));
+      NotifyFormChanged();
+    }
+
     public void UnregisterField(string path, IFormField field, bool notify = true) {
       if (!fields.TryGetValue(path, out var fieldData)) return;
       if (!ReferenceEquals(fieldData.field, field)) return;
@@ -418,6 +430,18 @@ namespace HELIX.Widgets.Forms {
       foreach (var change in changes) target[change.NewPath] = change.Value;
     }
 
+    private static void MoveListPaths(Dictionary<string, object> target, string listPath, int fromIndex, int toIndex) {
+      var changes = new List<(string OldPath, string NewPath, object Value)>();
+      foreach (var entry in target.ToList()) {
+        if (!TryGetListIndex(listPath, entry.Key, out var index)) continue;
+        if (!TryMoveListIndex(index, fromIndex, toIndex, out var movedIndex)) continue;
+        changes.Add((entry.Key, ReplaceListIndex(listPath, entry.Key, movedIndex), entry.Value));
+      }
+
+      foreach (var change in changes) target.Remove(change.OldPath);
+      foreach (var change in changes) target[change.NewPath] = change.Value;
+    }
+
     private void RemoveListPathsAtOrAfter(string listPath, int startIndex) {
       foreach (var entry in data.Keys.ToList()) {
         if (TryGetListIndex(listPath, entry, out var index) && index >= startIndex) data.Remove(entry);
@@ -437,6 +461,38 @@ namespace HELIX.Widgets.Forms {
 
       foreach (var change in changes) fields.Remove(change.OldPath);
       foreach (var change in changes) fields[change.NewPath] = change.Value;
+    }
+
+    private void MoveListFields(string listPath, int fromIndex, int toIndex) {
+      var changes = new List<(string OldPath, string NewPath, FieldData Value)>();
+      foreach (var entry in fields.ToList()) {
+        if (!TryGetListIndex(listPath, entry.Key, out var index)) continue;
+        if (!TryMoveListIndex(index, fromIndex, toIndex, out var movedIndex)) continue;
+        changes.Add((entry.Key, ReplaceListIndex(listPath, entry.Key, movedIndex), entry.Value.Detached()));
+      }
+
+      foreach (var change in changes) fields.Remove(change.OldPath);
+      foreach (var change in changes) fields[change.NewPath] = change.Value;
+    }
+
+    private static bool TryMoveListIndex(int index, int fromIndex, int toIndex, out int movedIndex) {
+      movedIndex = index;
+      if (index == fromIndex) {
+        movedIndex = toIndex;
+        return true;
+      }
+
+      if (fromIndex < toIndex && index > fromIndex && index <= toIndex) {
+        movedIndex = index - 1;
+        return true;
+      }
+
+      if (fromIndex > toIndex && index >= toIndex && index < fromIndex) {
+        movedIndex = index + 1;
+        return true;
+      }
+
+      return false;
     }
 
     private static bool TryGetListIndex(string listPath, string path, out int index) {

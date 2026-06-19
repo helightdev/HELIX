@@ -380,6 +380,20 @@ namespace Examples {
               new HButton(
                 HButtonVariant.Ghost,
                 size: HButtonSize.Small,
+                enabled: index > 0,
+                child: new HText("Move up"),
+                onClick: () => _form.MoveListItem("contacts", index, index - 1)
+              ),
+              new HButton(
+                HButtonVariant.Ghost,
+                size: HButtonSize.Small,
+                enabled: index < count - 1,
+                child: new HText("Move down"),
+                onClick: () => _form.MoveListItem("contacts", index, index + 1)
+              ),
+              new HButton(
+                HButtonVariant.Ghost,
+                size: HButtonSize.Small,
                 enabled: count > 0,
                 child: new HText("Remove"),
                 onClick: () => _form.RemoveListItem("contacts", index)
