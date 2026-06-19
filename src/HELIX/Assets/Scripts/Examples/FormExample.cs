@@ -101,12 +101,12 @@ namespace Examples {
         ["shipping.address.city"] = "London",
         ["shipping.address.region"] = "London",
         ["shipping.address.postalCode"] = "SW1Y",
-        ["contacts[0].name"] = "Charles Babbage",
-        ["contacts[0].relationship"] = "Collaborator",
-        ["contacts[0].email"] = "charles@example.com",
-        ["contacts[1].name"] = "Mary Somerville",
-        ["contacts[1].relationship"] = "Mentor",
-        ["contacts[1].email"] = "mary@example.com"
+        ["contacts.0.name"] = "Charles Babbage",
+        ["contacts.0.relationship"] = "Collaborator",
+        ["contacts.0.email"] = "charles@example.com",
+        ["contacts.1.name"] = "Mary Somerville",
+        ["contacts.1.relationship"] = "Mentor",
+        ["contacts.1.email"] = "mary@example.com"
       }, notify);
     }
 
@@ -259,54 +259,56 @@ namespace Examples {
     }
 
     private Widget AddressSection(BuildContext context) {
-      return Section(context, "Nested shipping address", new HFormScope("shipping.address") {
-        new HColumn(gap: 10, crossAxisAlign: Align.Stretch) {
-          Field(
-            context,
-            "Line 1",
-            new HFormTextField(
-              "line1",
-              validators: new[] { FormValidators.Required() },
-              validationMode: ValidationMode.OnSubmit,
-              initialValue: ""
-            ).TightStretch(),
-            "shipping.address.line1"
-          ),
-          Field(
-            context,
-            "Line 2",
-            new HFormTextField("line2", validationMode: ValidationMode.None, initialValue: "").TightStretch(),
-            "shipping.address.line2"
-          ),
-          new HRow(gap: 10, crossAxisAlign: Align.FlexStart) {
+      return Section(context, "Nested shipping address", new HFormScope("shipping") {
+        new HFormScope("address") {
+          new HColumn(gap: 10, crossAxisAlign: Align.Stretch) {
             Field(
               context,
-              "City",
+              "Line 1",
               new HFormTextField(
-                "city",
+                "line1",
                 validators: new[] { FormValidators.Required() },
                 validationMode: ValidationMode.OnSubmit,
                 initialValue: ""
               ).TightStretch(),
-              "shipping.address.city"
-            ).Expand(),
+              "shipping.address.line1"
+            ),
             Field(
               context,
-              "Region",
-              new HFormTextField("region", initialValue: "").TightStretch(),
-              "shipping.address.region"
-            ).Expand(),
-            Field(
-              context,
-              "Postal code",
-              new HFormTextField(
-                "postalCode",
-                validators: new[] { FormValidators.Required() },
-                validationMode: ValidationMode.OnFinishEditing | ValidationMode.OnSubmit,
-                initialValue: ""
-              ).TightStretch(),
-              "shipping.address.postalCode"
-            ).Expand()
+              "Line 2",
+              new HFormTextField("line2", validationMode: ValidationMode.None, initialValue: "").TightStretch(),
+              "shipping.address.line2"
+            ),
+            new HRow(gap: 10, crossAxisAlign: Align.FlexStart) {
+              Field(
+                context,
+                "City",
+                new HFormTextField(
+                  "city",
+                  validators: new[] { FormValidators.Required() },
+                  validationMode: ValidationMode.OnSubmit,
+                  initialValue: ""
+                ).TightStretch(),
+                "shipping.address.city"
+              ).Expand(),
+              Field(
+                context,
+                "Region",
+                new HFormTextField("region", initialValue: "").TightStretch(),
+                "shipping.address.region"
+              ).Expand(),
+              Field(
+                context,
+                "Postal code",
+                new HFormTextField(
+                  "postalCode",
+                  validators: new[] { FormValidators.Required() },
+                  validationMode: ValidationMode.OnFinishEditing | ValidationMode.OnSubmit,
+                  initialValue: ""
+                ).TightStretch(),
+                "shipping.address.postalCode"
+              ).Expand()
+            }
           }
         }
       });
@@ -331,9 +333,9 @@ namespace Examples {
             child: new HText("Add contact"),
             onClick: () => {
               var index = _form.AppendListItem("contacts");
-              _form.SetValue($"contacts[{index}].name", "", FormChangeReason.Programmatic);
-              _form.SetValue($"contacts[{index}].relationship", "", FormChangeReason.Programmatic);
-              _form.SetValue($"contacts[{index}].email", "", FormChangeReason.Programmatic);
+              _form.SetValue($"contacts.{index}.name", "", FormChangeReason.Programmatic);
+              _form.SetValue($"contacts.{index}.relationship", "", FormChangeReason.Programmatic);
+              _form.SetValue($"contacts.{index}.email", "", FormChangeReason.Programmatic);
             }
           ),
           new HButton(
@@ -360,12 +362,12 @@ namespace Examples {
     }
 
     private Widget ContactRow(BuildContext context, int index, int count) {
-      var prefix = $"contacts[{index}]";
+      var prefix = $"contacts.{index}";
       return new HBox(
         background: context.GetThemed(PrimitiveTheme.Container),
         borderRadius: BorderRadius.All(8)
       ) {
-        new HFormScope($"[{index}]") {
+        new HFormScope(index.ToString()) {
           new HColumn(gap: 8, crossAxisAlign: Align.Stretch) {
             new HRow(gap: 8) {
               new HText($"Contact {index + 1}").Body(context),

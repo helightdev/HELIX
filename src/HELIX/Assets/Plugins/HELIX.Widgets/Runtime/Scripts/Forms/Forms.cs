@@ -158,7 +158,7 @@ namespace HELIX.Widgets.Forms {
 
     public void RemoveListItem(string path, int index) {
       if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
-      DiscardSubtree($"{path}[{index}]");
+      DiscardSubtree(FormPath.Compose(path, index.ToString(CultureInfo.InvariantCulture)));
       ShiftListPaths(data, path, index + 1, -1);
       ShiftListFields(path, index + 1, -1);
       if (fields.TryGetValue(path, out var fieldData) && fieldData.isListField) {
@@ -404,8 +404,7 @@ namespace HELIX.Widgets.Forms {
     private static bool IsPathInSubtree(string path, string prefix) {
       if (string.IsNullOrEmpty(prefix)) return true;
       return string.Equals(path, prefix, StringComparison.Ordinal)
-             || path.StartsWith(prefix + ".", StringComparison.Ordinal)
-             || path.StartsWith(prefix + "[", StringComparison.Ordinal);
+             || path.StartsWith(prefix + ".", StringComparison.Ordinal);
     }
 
     private static void ShiftListPaths(Dictionary<string, object> target, string listPath, int startIndex, int delta) {
@@ -442,17 +441,18 @@ namespace HELIX.Widgets.Forms {
 
     private static bool TryGetListIndex(string listPath, string path, out int index) {
       index = -1;
-      if (string.IsNullOrEmpty(listPath) || !path.StartsWith(listPath + "[", StringComparison.Ordinal)) return false;
+      if (string.IsNullOrEmpty(listPath) || !path.StartsWith(listPath + ".", StringComparison.Ordinal)) return false;
 
       var start = listPath.Length + 1;
-      var end = path.IndexOf(']', start);
-      if (end < 0) return false;
+      var end = path.IndexOf('.', start);
+      if (end < 0) end = path.Length;
       return int.TryParse(path.Substring(start, end - start), NumberStyles.None, CultureInfo.InvariantCulture, out index);
     }
 
     private static string ReplaceListIndex(string listPath, string path, int index) {
       var start = listPath.Length + 1;
-      var end = path.IndexOf(']', start);
+      var end = path.IndexOf('.', start);
+      if (end < 0) end = path.Length;
       return path.Substring(0, start)
              + index.ToString(CultureInfo.InvariantCulture)
              + path.Substring(end);
@@ -719,7 +719,7 @@ namespace HELIX.Widgets.Forms {
     }
 
     public override Widget Build(BuildContext context) {
-      var formContext = FormContextElement.Resolve(context);
+      var formContext = FormContext.Resolve(context);
       if (formContext == null) throw new InvalidOperationException("HFormScope must be built below an HForm.");
       return new HFormContext(
         formContext.Controller,
@@ -799,12 +799,18 @@ namespace HELIX.Widgets.Forms {
 
     public override Widget Build(BuildContext context) {
       ResolveAndRegister();
-      return new HFormScope(widget.path, widget.child);
+      var formContext = FormContext.Resolve(context);
+      if (formContext == null) throw new InvalidOperationException("HFormListField must be built below an HForm.");
+      return new HFormContext(
+        formContext.Controller,
+        FormPath.Compose(formContext.PathPrefix, widget.path),
+        widget.child
+      );
     }
 
     private void ResolveAndRegister() {
       if (_disposed) return;
-      var formContext = FormContextElement.Resolve(mount);
+      var formContext = FormContext.Resolve(mount);
       if (formContext == null) throw new InvalidOperationException("HFormListField must be built below an HForm.");
 
       var fullPath = FormPath.Compose(formContext.PathPrefix, widget.path);
@@ -963,7 +969,7 @@ namespace HELIX.Widgets.Forms {
 
     private void ResolveAndRegister() {
       if (_disposed) return;
-      var formContext = FormContextElement.Resolve(mount);
+      var formContext = FormContext.Resolve(mount);
       if (formContext == null) throw new InvalidOperationException("HFormTextField must be built below an HForm.");
 
       var fullPath = FormPath.Compose(formContext.PathPrefix, widget.path);
@@ -996,6 +1002,22 @@ namespace HELIX.Widgets.Forms {
     }
   }
 
+  public sealed class FormContext {
+    public readonly FormController Controller;
+    public readonly string PathPrefix;
+
+    private FormContext(FormController controller, string pathPrefix) {
+      Controller = controller ?? throw new ArgumentNullException(nameof(controller));
+      PathPrefix = pathPrefix ?? string.Empty;
+    }
+
+    public static FormContext Resolve(BuildContext context) {
+      return BuildContext.TryFindParent<FormContextElement>(context, out var element)
+        ? new FormContext(element.Controller, element.PathPrefix)
+        : null;
+    }
+  }
+
   public sealed class HFormContext : SingleChildWidget {
     public readonly FormController controller;
     public readonly string pathPrefix;
@@ -1025,10 +1047,6 @@ namespace HELIX.Widgets.Forms {
       Controller = widget.controller;
       PathPrefix = widget.pathPrefix ?? string.Empty;
     }
-
-    public static FormContextElement Resolve(BuildContext context) {
-      return BuildContext.TryFindParent<FormContextElement>(context, out var found) ? found : null;
-    }
   }
 
   public static class FormPath {
@@ -1038,7 +1056,7 @@ namespace HELIX.Widgets.Forms {
 
       if (string.IsNullOrEmpty(prefix)) return path;
       if (string.IsNullOrEmpty(path)) return prefix;
-      return path.StartsWith("[", StringComparison.Ordinal) ? prefix + path : prefix + "." + path;
+      return prefix + "." + path;
     }
 
     public static bool TryParse(string path, out List<FormPathSegment> segments, out string error) {
@@ -1056,41 +1074,24 @@ namespace HELIX.Widgets.Forms {
         var c = path[i];
         if (c == '.') {
           if (!string.IsNullOrEmpty(token)) {
-            parsed.Add(FormPathSegment.FromName(token));
+            parsed.Add(ParseToken(token));
             token = string.Empty;
           }
 
-          continue;
-        }
-
-        if (c == '[') {
-          if (!string.IsNullOrEmpty(token)) {
-            parsed.Add(FormPathSegment.FromName(token));
-            token = string.Empty;
-          }
-
-          var end = path.IndexOf(']', i + 1);
-          if (end < 0) {
-            error = $"Path '{path}' has an unterminated list index.";
-            return false;
-          }
-
-          var rawIndex = path.Substring(i + 1, end - i - 1);
-          if (!int.TryParse(rawIndex, NumberStyles.None, CultureInfo.InvariantCulture, out var index) || index < 0) {
-            error = $"Path '{path}' has an invalid list index '[{rawIndex}]'.";
-            return false;
-          }
-
-          parsed.Add(FormPathSegment.FromIndex(index));
-          i = end;
           continue;
         }
 
         token += c;
       }
 
-      if (!string.IsNullOrEmpty(token)) parsed.Add(FormPathSegment.FromName(token));
+      if (!string.IsNullOrEmpty(token)) parsed.Add(ParseToken(token));
       return parsed.Count > 0;
+    }
+
+    private static FormPathSegment ParseToken(string token) {
+      return int.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && index >= 0
+        ? FormPathSegment.FromIndex(index)
+        : FormPathSegment.FromName(token);
     }
   }
 
