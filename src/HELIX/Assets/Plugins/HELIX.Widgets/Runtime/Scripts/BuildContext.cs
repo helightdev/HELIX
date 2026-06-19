@@ -22,7 +22,8 @@ namespace HELIX.Widgets {
     protected bool IsUserWidget => this is IStatelessWidget || this is IStatefulWidget;
 
     static BuildContext GetUserTarget(BuildContext start, BuildContext except = null) {
-      return GetAncestorChain(start).LastOrDefault(context => context.IsUserWidget && !Equals(context, except)) ?? start;
+      return GetAncestorChain(start).LastOrDefault(context => context.IsUserWidget && !Equals(context, except)) ??
+             start;
     }
 
     [SuppressMessage("ReSharper", "SuspiciousTypeConversion.Global")]
@@ -56,14 +57,33 @@ namespace HELIX.Widgets {
       return null;
     }
 
-    static BuildContext FindParent<T>(BuildContext context) where T : Widget {
+    static bool TryFindParent<T>(BuildContext context, out T widget, out BuildContext widgetContext) where T : Widget {
       var current = context;
+      widget = null;
+      widgetContext = null;
       while (current != null) {
-        if (current is IWidgetElement { Descriptor: T }) return current;
+        if (current is IWidgetElement { Descriptor: T }) {
+          widget = current.Descriptor as T;
+          widgetContext = current;
+          return true;
+        }
         current = current.ParentContext;
       }
 
-      return null;
+      return false;
+    }
+
+    static bool TryFindParent<T>(BuildContext context, out T widgetElement) where T : IWidgetElement {
+      var current = context;
+      widgetElement = default;
+      while (current != null) {
+        if (current.Element is T element) {
+          widgetElement = element;
+          return true;
+        }
+        current = current.ParentContext;
+      }
+      return false;
     }
   }
 }

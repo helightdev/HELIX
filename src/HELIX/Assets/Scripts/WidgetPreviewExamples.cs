@@ -17,6 +17,7 @@ public partial class WidgetExamples {
     ("text-icons", "Text & Icons", BuildTextIconPreview),
     ("buttons", "Buttons", () => new ButtonsExample()),
     ("text-input", "Text Input", () => new TextInputExample()),
+    ("form-examples", "Form Examples", () => new FormExample()),
     ("sliders", "Sliders", BuildSliderPreview),
     ("scroll-controller", "Scroll Controller", () => new ScrollControllerExample()),
     ("state-substance", "Substances & States", () => new StateSubstanceExample()),
