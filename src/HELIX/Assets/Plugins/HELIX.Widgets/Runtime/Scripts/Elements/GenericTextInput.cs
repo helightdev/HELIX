@@ -26,7 +26,7 @@ namespace HELIX.Widgets.Elements {
     public GenericTextInput() {
       delegatesFocus = true;
       this.WithStylesheet(AuxiliaryStylesheets.Helix).AddClasses("helix-generic-text-input");
-      BackingTextField = new TextField().WithName("BackingTextField").Stretched().AddTo(this);
+      BackingTextField = new TextField().WithName("BackingTextField").Fill().AddTo(this);
       ApplySelectionColors();
       BackingTextField.RegisterCallback<CustomStyleResolvedEvent>(_ => { ApplySelectionColors(); });
       BackingTextField.RegisterValueChangedCallback(evt => { OnValueChanged?.Invoke(evt.newValue); });

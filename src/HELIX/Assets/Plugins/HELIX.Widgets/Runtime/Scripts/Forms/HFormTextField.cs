@@ -93,10 +93,9 @@ namespace HELIX.Widgets.Forms {
       _controller.onChanged += OnChanged;
       _controller.onEndEditing += OnFinishedEditing;
       _controller.onSubmitted += OnSubmitted;
-      ResolveAndRegister();
     }
 
-    public override void DidUpdateWidget(HFormTextField oldWidget) {
+    public override void Configure(ConfigureContext context) {
       ResolveAndRegister();
     }
 
@@ -133,7 +132,6 @@ namespace HELIX.Widgets.Forms {
     }
 
     public override Widget Build(BuildContext context) {
-      ResolveAndRegister();
       return new HTextField(
         controller: _controller,
         focusKey: widget.focusKey,

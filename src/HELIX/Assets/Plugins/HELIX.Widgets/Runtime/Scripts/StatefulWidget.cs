@@ -1,6 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Error;
 using HELIX.Diagnostics.Properties;
@@ -11,8 +14,9 @@ using HELIX.Widgets.Elements;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Signals;
 using HELIX.Widgets.Theming;
-using UnityEngine;
+using HELIX.Widgets.Utilities;
 using UnityEngine.UIElements;
+using Debug = UnityEngine.Debug;
 
 namespace HELIX.Widgets {
   public interface IStatefulWidget { }
@@ -24,7 +28,6 @@ namespace HELIX.Widgets {
   /// </para>
   /// </summary>
   public abstract class StatefulWidget<T> : Widget, IStatefulWidget where T : StatefulWidget<T> {
-
     /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     protected StatefulWidget(
       Key key = default,
@@ -71,17 +74,55 @@ namespace HELIX.Widgets {
     }
   }
 
-  public class StatefulWidgetElement<T> : BuildingWidgetBaseElement<T>, IHierarchyDisposable, IStatefulWidget
+  // ReSharper disable once InconsistentNaming
+  public interface StateBuildContext : BuildContext, IPossiblyDisposed {
+    bool IsMounted { get; }
+    bool IsBuilding { get; }
+
+    void ScheduleRebuild(bool isImplicit = false);
+  }
+
+
+  // ReSharper disable once InconsistentNaming
+  public interface StateBuildContext<T> : StateBuildContext where T : StatefulWidget<T> {
+    State<T> State { get; }
+  }
+
+  public class StatefulWidgetElement<T>
+    : BuildingWidgetBaseElement<T>, IHierarchyDisposable, IStatefulWidget, StateBuildContext<T>
     where T : StatefulWidget<T> {
     private static readonly string _ussName = $"{typeof(T).Name}Element";
 
-    public bool isDisposed;
-    public State<T> State { get; set; }
+    public bool IsDisposed { get; private set; }
+    public State<T> State { get; private set; }
 
+    public bool IsMounted => !IsDisposed && State != null && Descriptor != null;
+
+    public void ScheduleRebuild(bool isImplicit = false) {
+      if (IsBuilding) {
+        if (!isImplicit) {
+          HelixDiagnostics.Build(
+            "SetState was called during the build phase of a stateful widget.",
+            "Calling SetState during building is not allowed.",
+            hints: new DiagnosticsNode[] {
+              new ErrorHint(
+                "Consider calling SetState in response to user interactions, " +
+                "lifecycle events, or asynchronous operations instead of during the build phase."
+              ),
+              new ErrorHint("Consider using listeners or signals for value driven state management")
+            }
+          ).Report(DiagnosticLevel.Warning);
+        }
+        return;
+      }
+      ModificationBarrier.Rebuild(this);
+    }
 
     public void Dispose() {
-      if (isDisposed) return;
-      State?.managedDisposables?.ForEach(disposable => {
+      if (IsDisposed) return;
+      var managedDisposables = State?.managedDisposables;
+      if (managedDisposables != null) {
+        foreach (var disposable in managedDisposables) {
           try { disposable.Dispose(); } catch (Exception e) {
             HelixDiagnostics.Build(
               "An error occured while disposing a stateful widget state managed disposable.",
@@ -92,7 +133,24 @@ namespace HELIX.Widgets {
             ).Report(DiagnosticLevel.Error);
           }
         }
-      );
+      }
+
+      var observerFunctions = State?.functionObservers;
+      if (observerFunctions != null) {
+        foreach (var entry in observerFunctions) {
+          try { entry.observer.Dispose(); } catch (Exception e) {
+            HelixDiagnostics.Build(
+              "An error occured while disposing a stateful widget state observer.",
+              collector => collector
+                .AddRange(new ErrorSpacer(), new ErrorProperty("The observer is", entry))
+                .OwnerChain(this).OffendingElement(this),
+              e
+            ).Report(DiagnosticLevel.Error);
+          }
+        }
+        observerFunctions.Clear();
+      }
+
       try { State?.Dispose(); } catch (Exception e) {
         HelixDiagnostics.Build(
           "An error occured while disposing a stateful widget state.",
@@ -103,13 +161,13 @@ namespace HELIX.Widgets {
 
       State?.dependencyTracker?.Dispose();
       State = null;
-      isDisposed = true;
+      IsDisposed = true;
       ModificationBarrier.RemoveRebuild(this);
     }
 
     public override bool CanReconcile(Widget updated) {
       try {
-        if (isDisposed) return false;
+        if (IsDisposed) return false;
         if (updated is not T widget) return false;
         return State?.CanReconcile(widget) ?? true;
       } catch (Exception e) {
@@ -119,7 +177,7 @@ namespace HELIX.Widgets {
     }
 
     public override bool Reconcile(Widget updated) {
-      if (isDisposed) throw new ObjectDisposedException(nameof(StatefulWidget<T>));
+      if (IsDisposed) throw new ObjectDisposedException(nameof(StatefulWidget<T>));
       name = _ussName;
       return base.Reconcile(updated);
     }
@@ -155,8 +213,10 @@ namespace HELIX.Widgets {
     }
 
     private void OnDependencyUpdated() {
-      if (isDisposed) return;
+      if (IsDisposed) return;
       if (Descriptor == null) return;
+      if (IsBuilding)
+        return; // This can technically be a "warning" but mostly it's not a problem since effects are obvious
       ModificationBarrier.Rebuild(this);
     }
 
@@ -171,7 +231,6 @@ namespace HELIX.Widgets {
         State.widget = widget;
         State.mount = this;
         State.dependencyTracker = new SignalDependencyTracker(OnDependencyUpdated) { owner = this };
-        State.setStateAction = UserScheduleRebuild;
         try {
           State.InitState(); //
         } catch (Exception e) {
@@ -181,12 +240,38 @@ namespace HELIX.Widgets {
             e
           ).Report(DiagnosticLevel.Error);
         }
+
+        try {
+          State.Configure(
+            new State<T>.ConfigureContext {
+              state = State,
+              old = widget,
+              initial = true
+            }
+          ); //
+        } catch (Exception e) {
+          HelixDiagnostics.Build(
+            "An error occured while configuring the initial widget state.",
+            collector => collector.OwnerChain(this)
+              .OffendingWidget(widget)
+              .AddRange(new ErrorSpacer()),
+            e
+          ).Report(DiagnosticLevel.Error);
+        }
       } else {
         var oldWidget = State.widget;
+        if (ReferenceEquals(oldWidget, widget)) return; // Technically optimizes fully constant rebuild invocations
         State.widget = widget;
 
         try {
-          State.DidUpdateWidget(oldWidget); //   
+          State.DidUpdateWidget(oldWidget); //
+          State.Configure(
+            new State<T>.ConfigureContext {
+              state = State,
+              old = oldWidget,
+              initial = false
+            }
+          ); //
         } catch (Exception e) {
           HelixDiagnostics.Build(
             "An error occured while updating a stateful widget state.",
@@ -242,7 +327,7 @@ namespace HELIX.Widgets {
   /// </summary>
   public abstract class State<T> : DiagnosticableBase, IBuildable where T : StatefulWidget<T> {
     internal List<IDisposable> managedDisposables;
-    internal Action setStateAction;
+    internal List<SateObserverFunctionEntry> functionObservers;
 
     /// <summary>
     /// The <see cref="SignalDependencyTracker"/> that tracks signal dependencies for this state.
@@ -254,7 +339,7 @@ namespace HELIX.Widgets {
     /// to access the <see cref="VisualElement"/> of the widget. Will also always be equal to the <c>context</c> passed
     /// into the <see cref="Build"/> method.
     /// </summary>
-    public BuildContext mount;
+    public StateBuildContext<T> mount;
 
     /// <summary>
     /// The widget configuration that is currently bound to this state.
@@ -309,6 +394,11 @@ namespace HELIX.Widgets {
     /// </param>
     public virtual void DidUpdateWidget(T oldWidget) { }
 
+    /// <summary>
+    /// Called when the state is rebuilt with a new widget configuration.
+    /// </summary>
+    public virtual void Configure(ConfigureContext context) { }
+
     /// Called when the state is disposed.
     public virtual void Dispose() { }
 
@@ -316,7 +406,7 @@ namespace HELIX.Widgets {
     /// Schedules a rebuild of the widget.
     /// </summary>
     public void SetState() {
-      setStateAction?.Invoke();
+      mount.ScheduleRebuild();
     }
 
     /// <summary>
@@ -327,7 +417,7 @@ namespace HELIX.Widgets {
     public Action SetState(Action action) {
       return () => {
         action?.Invoke();
-        setStateAction?.Invoke();
+        mount.ScheduleRebuild();
       };
     }
 
@@ -340,6 +430,91 @@ namespace HELIX.Widgets {
           level: DiagnosticLevel.Debug
         )
       );
+    }
+
+    public ref struct ConfigureContext {
+      public State<T> state;
+      public T old;
+      public bool initial;
+
+      public void MethodObserver(Signal signal, Action handle, bool fireImmediately = false) {
+        CheckNonAnonymous(handle);
+        state.functionObservers ??= new List<SateObserverFunctionEntry>();
+        for (var i = 0; i < state.functionObservers.Count; i++) {
+          var entry = state.functionObservers[i];
+          if (!Equals(entry.handler, handle)) continue;
+          entry.Resubscribe(signal);
+          return;
+        }
+        InsertObserver(signal.AddObserver(handle, fireImmediately), handle);
+      }
+
+      public void MethodObserver<V>(Signal<V> signal, Action<V> handle, bool fireImmediately = false) {
+        CheckNonAnonymous(handle);
+        state.functionObservers ??= new List<SateObserverFunctionEntry>();
+        for (var i = 0; i < state.functionObservers.Count; i++) {
+          var entry = state.functionObservers[i];
+          if (!Equals(entry.handler, handle)) continue;
+          entry.Resubscribe(signal);
+          return;
+        }
+        InsertObserver(signal.AddObserver(handle, fireImmediately), handle);
+      }
+
+      public void MethodObserver(Signal oldSignal, Signal signal, Action handle, bool fireImmediately = false) {
+        CheckNonAnonymous(handle);
+        state.functionObservers ??= new List<SateObserverFunctionEntry>();
+        for (var i = 0; i < state.functionObservers.Count; i++) {
+          var entry = state.functionObservers[i];
+          if (!Equals(entry.handler, handle) || entry.signal != oldSignal) continue;
+          entry.Resubscribe(signal);
+          return;
+        }
+        InsertObserver(signal.AddObserver(handle, fireImmediately), handle);
+      }
+
+      public void MethodObserver<V>(Signal<V> oldSignal, Signal<V> signal, Action<V> handle, bool fireImmediately = false) {
+        CheckNonAnonymous(handle);
+        state.functionObservers ??= new List<SateObserverFunctionEntry>();
+        for (var i = 0; i < state.functionObservers.Count; i++) {
+          var entry = state.functionObservers[i];
+          if (!Equals(entry.handler, handle) || !ReferenceEquals(entry.signal, oldSignal)) continue;
+          entry.Resubscribe(signal);
+          return;
+        }
+        InsertObserver(signal.AddObserver(handle, fireImmediately), handle);
+      }
+
+      private void InsertObserver(FunctionSignalObserver observer, Delegate handler) {
+        state.functionObservers.Add(
+          new SateObserverFunctionEntry {
+            observer = observer,
+            signal = observer.Current,
+            handler = handler
+          }
+        );
+      }
+
+      [Conditional("UNITY_EDITOR")]
+      private static void CheckNonAnonymous(Delegate handler) {
+        if (handler.Method.Name.StartsWith("<") && handler.Method.Name.Contains("__")) {
+          throw new InvalidOperationException(
+            $"Anonymous delegates are not supported as signal observers because of unstable identity. " +
+            $"Please use a named instance or static method instead."
+          );
+        }
+      }
+    }
+  }
+
+  public class SateObserverFunctionEntry {
+    public Signal signal;
+    public FunctionSignalObserver observer;
+    public Delegate handler;
+
+    public void Resubscribe(Signal target) {
+      observer.Observe(target);
+      signal = target;
     }
   }
 }

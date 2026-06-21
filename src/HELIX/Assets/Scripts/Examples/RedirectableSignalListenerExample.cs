@@ -55,15 +55,9 @@ namespace Examples {
     }
 
     private class State : State<ChildSignalConsumer> {
-      public FunctionSignalObserver function;
 
-      public override void InitState() {
-        function = AddDisposable(FunctionSignalObserver.Typed<int>(OnChanged));
-        function.Observe(widget.signal);
-      }
-
-      public override void DidUpdateWidget(ChildSignalConsumer oldWidget) {
-        function.Observe(widget.signal);
+      public override void Configure(ConfigureContext context) {
+        context.MethodObserver(context.old.signal, widget.signal, OnChanged);
       }
 
       public void OnChanged(int value) {

@@ -343,7 +343,7 @@ namespace HELIX.Widgets.Forms {
       NotifyFormChanged();
       return new FormSubmitResult {
         valid = valid,
-        data = new Dictionary<string, object>(_data),
+        data = SnapshotSubmittableData(),
         tree = valid ? tree : null,
         errors = SnapshotErrors(dumpErrors)
       };
@@ -731,6 +731,12 @@ namespace HELIX.Widgets.Forms {
 
       if (dumpErrors.Count > 0) result[string.Empty] = dumpErrors.ToArray();
       return result;
+    }
+
+    private Dictionary<string, object> SnapshotSubmittableData() {
+      return _data
+        .Where(entry => !ShouldExcludeDataPath(entry.Key, false, false))
+        .ToDictionary(entry => entry.Key, entry => entry.Value);
     }
 
     private void NotifyFormChanged() {
