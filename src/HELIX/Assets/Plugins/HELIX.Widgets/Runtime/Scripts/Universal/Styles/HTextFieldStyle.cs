@@ -11,7 +11,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Widgets.Universal.Styles {
   public class HTextFieldStyle : DiagnosticableBase {
     public static HTextFieldStyle Default = new();
-    public WidgetStateProperty<Alignment> alignment = WidgetStateProperties.Never<Alignment>();
+    public WidgetStateProperty<Alignment> alignment = WidgetStateProperties.All(Alignment.CenterLeft);
     public WidgetStateProperty<BoxConstraints> constraints = WidgetStateProperties.Never<BoxConstraints>();
     public WidgetStateProperty<Color> cursorColor = WidgetStateProperties.Never<Color>();
 

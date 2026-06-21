@@ -122,7 +122,6 @@ namespace HELIX.Widgets.Universal {
 
   public class HTextFieldState : State<HTextField> {
     private TextEditingController _controller;
-    private IDisposable _controllerSubscription;
     private GenericTextInput _input;
     private WidgetStateController _widgetStateController;
 
@@ -151,6 +150,9 @@ namespace HELIX.Widgets.Universal {
 
       _widgetStateController ??= AddDisposable(new WidgetStateController());
       AddDisposable(_controller.AddObserver(OnTextChanged));
+      AddDisposable(_widgetStateController.AddObserver(OnWidgetStateChanged, true));
+
+
       _input.Value = _controller.Value;
 
       DidUpdateWidget(null);
@@ -209,6 +211,10 @@ namespace HELIX.Widgets.Universal {
 
     private void OnTextChanged(string obj) {
       if (!string.Equals(obj, _input.Value, StringComparison.InvariantCulture)) _input.Value = obj;
+    }
+
+    private void OnWidgetStateChanged(WidgetState state) {
+      _input.SetEnabled(!state.HasFlag(WidgetState.Disabled));
     }
 
     public override Widget Build(BuildContext context) {
