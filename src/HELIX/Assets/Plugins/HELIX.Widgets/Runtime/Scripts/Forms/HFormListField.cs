@@ -8,14 +8,14 @@ namespace HELIX.Widgets.Forms {
     public readonly IEnumerable<IFormValidator> validators;
     public readonly ValidationMode validationMode;
     public readonly IEqualityComparer<object> comparer;
-    public readonly bool active;
+    public readonly bool enabled;
 
     public HFormListScope(
       string path,
       IEnumerable<IFormValidator> validators = null,
       ValidationMode validationMode = ValidationMode.OnSubmit,
       IEqualityComparer<object> comparer = null,
-      bool active = true,
+      bool enabled = true,
       Widget child = null,
       Key key = default,
       object[] constants = null,
@@ -25,7 +25,7 @@ namespace HELIX.Widgets.Forms {
       this.validators = validators;
       this.validationMode = validationMode;
       this.comparer = comparer;
-      this.active = active;
+      this.enabled = enabled;
     }
 
     public override State<HFormListScope> CreateState() {
@@ -72,14 +72,14 @@ namespace HELIX.Widgets.Forms {
       var formContext = FormContext.Require(mount, nameof(HFormListScope));
       var fullPath = formContext.ResolvePath(widget.path);
       if (ReferenceEquals(_form, formContext.Controller) && _path == fullPath) {
-        _form.RegisterListField(_path, this, widget.validators, widget.validationMode, widget.comparer, widget.active);
+        _form.RegisterListField(_path, this, widget.validators, widget.validationMode, widget.comparer, widget.enabled);
         return;
       }
 
       _form?.UnregisterField(_path, this);
       _form = formContext.Controller;
       _path = fullPath;
-      _form.RegisterListField(_path, this, widget.validators, widget.validationMode, widget.comparer, widget.active);
+      _form.RegisterListField(_path, this, widget.validators, widget.validationMode, widget.comparer, widget.enabled);
     }
   }
 
@@ -91,7 +91,7 @@ namespace HELIX.Widgets.Forms {
     public readonly IEnumerable<IFormValidator> validators;
     public readonly ValidationMode validationMode;
     public readonly IEqualityComparer<object> comparer;
-    public readonly bool active;
+    public readonly bool enabled;
 
     public HFormListField(
       string path,
@@ -101,7 +101,7 @@ namespace HELIX.Widgets.Forms {
       IEnumerable<IFormValidator> validators = null,
       ValidationMode validationMode = ValidationMode.OnSubmit,
       IEqualityComparer<object> comparer = null,
-      bool active = true,
+      bool enabled = true,
       Key key = default,
       object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
@@ -113,7 +113,7 @@ namespace HELIX.Widgets.Forms {
       this.validators = validators;
       this.validationMode = validationMode;
       this.comparer = comparer;
-      this.active = active;
+      this.enabled = enabled;
     }
 
     public override State<HFormListField> CreateState() {
@@ -149,7 +149,7 @@ namespace HELIX.Widgets.Forms {
         validators: widget.validators,
         validationMode: widget.validationMode,
         comparer: widget.comparer,
-        active: widget.active,
+        enabled: widget.enabled,
         child: container
       );
     }

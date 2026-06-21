@@ -25,7 +25,6 @@ namespace HELIX.Widgets.Forms {
     public readonly char maskChar;
     public readonly int maxLength;
     public readonly bool enabled;
-    public readonly bool active;
     public readonly Action<string> onChanged;
     public readonly Action<string> onSubmitted;
 
@@ -47,7 +46,6 @@ namespace HELIX.Widgets.Forms {
       char maskChar = '*',
       int maxLength = -1,
       bool enabled = true,
-      bool active = true,
       Action<string> onChanged = null,
       Action<string> onSubmitted = null,
       Key key = default,
@@ -71,7 +69,6 @@ namespace HELIX.Widgets.Forms {
       this.maskChar = maskChar;
       this.maxLength = maxLength;
       this.enabled = enabled;
-      this.active = active;
       this.onChanged = onChanged;
       this.onSubmitted = onSubmitted;
     }
@@ -150,7 +147,7 @@ namespace HELIX.Widgets.Forms {
         keyboardType: widget.keyboardType,
         maskChar: widget.maskChar,
         maxLength: widget.maxLength,
-        enabled: widget.enabled && widget.active
+        enabled: IsTextInputEnabled()
       );
     }
 
@@ -166,7 +163,7 @@ namespace HELIX.Widgets.Forms {
           widget.validationMode,
           widget.initialValue,
           widget.comparer,
-          widget.active
+          widget.enabled
         );
         SyncWidgetState();
         return;
@@ -182,7 +179,7 @@ namespace HELIX.Widgets.Forms {
         widget.validationMode,
         widget.initialValue,
         widget.comparer,
-        widget.active
+        widget.enabled
       );
       SyncWidgetState();
     }
@@ -190,10 +187,15 @@ namespace HELIX.Widgets.Forms {
     private void SyncWidgetState() {
       if (_widgetState == null) return;
       var fieldData = _form?.GetFieldData(_path);
-      var inactive = !widget.active || fieldData?.HasFlag(FieldFlags.Inactive) == true;
+      var disabled = !widget.enabled || fieldData?.HasFlag(FieldFlags.Disabled) == true;
       var error = fieldData?.HasFlag(FieldFlags.Error) == true;
-      _widgetState.Toggle(WidgetState.Disabled, !widget.enabled || inactive);
+      _widgetState.Toggle(WidgetState.Disabled, disabled);
       _widgetState.Toggle(WidgetState.Error, error);
+    }
+
+    private bool IsTextInputEnabled() {
+      if (!widget.enabled) return false;
+      return _form?.GetFieldData(_path)?.HasFlag(FieldFlags.Disabled) != true;
     }
 
     private void OnChanged(string value) {

@@ -73,7 +73,7 @@ namespace Examples {
                 DetailsBlock(context, "Last submit", _lastAction),
                 DetailsBlock(context, "Flat data", FormatValue(_form.Data)),
                 DetailsBlock(context, "DumpTree()", DumpTreePreview()),
-                DetailsBlock(context, "DumpTree(include inactive/stale)", DumpTreePreview(true, true)),
+                DetailsBlock(context, "DumpTree(include disabled/stale)", DumpTreePreview(true, true)),
                 DetailsBlock(context, "Field metadata", FormatFields()),
                 DetailsBlock(context, "Submit errors", FormatSubmitErrors())
               }.Padding(14)
@@ -85,7 +85,7 @@ namespace Examples {
     }
 
     private void SeedInitialValues(bool notify = true) {
-      _form.Reset(new Dictionary<string, object> {
+      var values = new Dictionary<string, object> {
         ["profile.firstName"] = "Ada",
         ["profile.lastName"] = "Lovelace",
         ["profile.email"] = "ada@example.com",
@@ -109,7 +109,13 @@ namespace Examples {
         ["contacts.1.name"] = "Mary Somerville",
         ["contacts.1.relationship"] = "Mentor",
         ["contacts.1.email"] = "mary@example.com"
-      }, notify);
+      };
+
+      using (_form.BeginUpdate()) {
+        _form.Reset(values, notify);
+        _form.SetFieldEnabled("newsletterTopic", true, notify: notify);
+        _form.SetFieldEnabled("shipping.address", true, true, notify);
+      }
     }
 
     private Widget Header(BuildContext context) {
@@ -262,7 +268,7 @@ namespace Examples {
     }
 
     private Widget NewsletterTopicField(BuildContext context) {
-      var active = IsNewsletterEnabled();
+      var enabled = IsNewsletterEnabled();
 
       return Field(
         context,
@@ -272,15 +278,14 @@ namespace Examples {
           validators: new[] { FormValidators.Required("Pick a topic while newsletter is enabled") },
           validationMode: ValidationMode.OnChange | ValidationMode.OnSubmit,
           initialValue: "",
-          enabled: active,
-          active: active
+          enabled: enabled
         ).TightStretch(),
         "newsletterTopic"
       );
     }
 
     private Widget AddressSection(BuildContext context) {
-      var active = IsNewsletterEnabled();
+      var enabled = IsNewsletterEnabled();
 
       return Section(context, "Conditional shipping address", new HFormScope("shipping") {
         new HFormScope("address") {
@@ -293,8 +298,7 @@ namespace Examples {
                 validators: new[] { FormValidators.Required() },
                 validationMode: ValidationMode.OnSubmit,
                 initialValue: "",
-                enabled: active,
-                active: active
+                enabled: enabled
               ).TightStretch(),
               "shipping.address.line1"
             ),
@@ -305,8 +309,7 @@ namespace Examples {
                 "line2",
                 validationMode: ValidationMode.None,
                 initialValue: "",
-                enabled: active,
-                active: active
+                enabled: enabled
               ).TightStretch(),
               "shipping.address.line2"
             ),
@@ -319,15 +322,14 @@ namespace Examples {
                   validators: new[] { FormValidators.Required() },
                   validationMode: ValidationMode.OnSubmit,
                   initialValue: "",
-                  enabled: active,
-                  active: active
+                  enabled: enabled
                 ).TightStretch(),
                 "shipping.address.city"
               ).Expand(),
               Field(
                 context,
                 "Region",
-                new HFormTextField("region", initialValue: "", enabled: active, active: active).TightStretch(),
+                new HFormTextField("region", initialValue: "", enabled: enabled).TightStretch(),
                 "shipping.address.region"
               ).Expand(),
               Field(
@@ -338,15 +340,14 @@ namespace Examples {
                   validators: new[] { FormValidators.Required() },
                   validationMode: ValidationMode.OnFinishEditing | ValidationMode.OnSubmit,
                   initialValue: "",
-                  enabled: active,
-                  active: active
+                  enabled: enabled
                 ).TightStretch(),
                 "shipping.address.postalCode"
               ).Expand()
             }
           }
         }
-      }).Display(active);
+      }).Display(enabled);
     }
 
     private bool IsNewsletterEnabled() {
@@ -517,6 +518,13 @@ namespace Examples {
             _lastSubmit = null;
             _lastAction = "Form reset to registered initial values.";
           }
+        ),
+        new HButton(
+          HButtonVariant.Ghost,
+          child: new HText("Refresh"),
+          onClick: () => {
+            SetState();
+          }
         )
       };
     }
@@ -580,9 +588,9 @@ namespace Examples {
         _form.SetValue(path, value, FormChangeReason.User);
         if (!string.Equals(path, "newsletter", StringComparison.Ordinal)) return;
 
-        var active = string.Equals(value, "yes", StringComparison.Ordinal);
-        _form.SetFieldActive("newsletterTopic", active);
-        _form.SetFieldActive("shipping.address", active, true);
+        var enabled = string.Equals(value, "yes", StringComparison.Ordinal);
+        _form.SetFieldEnabled("newsletterTopic", enabled);
+        _form.SetFieldEnabled("shipping.address", enabled, true);
       });
     }
 
@@ -611,8 +619,8 @@ namespace Examples {
       return $"{flags} / {mode}";
     }
 
-    private string DumpTreePreview(bool includeStaleData = false, bool includeInactiveData = false) {
-      return _form.TryDumpTree(out var tree, out var errors, includeStaleData, includeInactiveData)
+    private string DumpTreePreview(bool includeStaleData = false, bool includeDisabledData = false) {
+      return _form.TryDumpTree(out var tree, out var errors, includeStaleData, includeDisabledData)
         ? FormatValue(tree)
         : string.Join("\n", errors);
     }

@@ -1,16 +1,28 @@
 {
-  "name": "Helix.Widgets.Tests",
-  "rootNamespace": "HELIX.Widgets.Tests",
-  "references": [
-    "HELIX",
-    "HELIX.Widgets"
-  ],
-  "precompiledReferences": [
-    "Newtonsoft.Json.dll"
-  ],
-  "optionalUnityReferences": [
-    "TestAssemblies"
-  ],
-  "includePlatforms": [],
-  "excludePlatforms": []
+    "name": "Helix.Widgets.Tests",
+    "rootNamespace": "HELIX.Widgets.Tests",
+    "references": [
+        "HELIX",
+        "HELIX.Widgets",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.UI.TestFramework.Editor",
+        "Unity.UI.TestFramework.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Newtonsoft.Json.dll",
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

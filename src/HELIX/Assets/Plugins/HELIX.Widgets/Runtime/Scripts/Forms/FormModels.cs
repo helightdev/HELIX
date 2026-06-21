@@ -15,6 +15,7 @@ namespace HELIX.Widgets.Forms {
     public int listRevision;
     public int initialListRevision;
     public bool hasInitialValue;
+    public bool enabled = true;
 
     public bool HasFlag(FieldFlags flag) {
       return (flags & flag) != 0;
@@ -30,7 +31,8 @@ namespace HELIX.Widgets.Forms {
         listCount = listCount,
         listRevision = listRevision,
         initialListRevision = initialListRevision,
-        hasInitialValue = hasInitialValue
+        hasInitialValue = hasInitialValue,
+        enabled = enabled
       };
       detached.errors.AddRange(errors);
       detached.validators.AddRange(validators);
@@ -47,7 +49,7 @@ namespace HELIX.Widgets.Forms {
     Dirty = 1 << 1,
     Error = 1 << 2,
     Stale = 1 << 3,
-    Inactive = 1 << 4
+    Disabled = 1 << 4
   }
 
   [Flags]
@@ -76,6 +78,11 @@ namespace HELIX.Widgets.Forms {
     public bool valid;
     public Dictionary<string, object> data;
     public Dictionary<string, object> tree;
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> errors;
+  }
+
+  public sealed class FormValidationResult {
+    public bool valid;
     public IReadOnlyDictionary<string, IReadOnlyList<string>> errors;
   }
 

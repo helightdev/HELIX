@@ -10,7 +10,7 @@ namespace HELIX.Widgets.Forms {
 
     private readonly Dictionary<string, object> _data = new();
     private readonly Dictionary<string, FieldData> _fields = new();
-    private readonly Dictionary<string, bool> _activeOverrides = new();
+    private readonly Dictionary<string, bool> _enabledOverrides = new();
     private bool _submitAttempted;
     private int _batchDepth;
     private bool _pendingNotify;
@@ -148,7 +148,7 @@ namespace HELIX.Widgets.Forms {
       ValidationMode validationMode = ValidationMode.OnSubmit,
       object initialValue = null,
       IEqualityComparer<object> comparer = null,
-      bool active = true
+      bool enabled = true
     ) {
       var normalized = FormPath.Require(path);
       if (field == null) throw new ArgumentNullException(nameof(field));
@@ -170,7 +170,8 @@ namespace HELIX.Widgets.Forms {
       if (validators != null) fieldData.validators.AddRange(validators.Where(x => x != null));
       fieldData.validationMode = validationMode;
       fieldData.comparer = comparer ?? ObjectEqualityComparer.Default;
-      var effectiveActive = _activeOverrides.TryGetValue(normalized, out var activeOverride) ? activeOverride : active;
+      fieldData.enabled = enabled;
+      var effectiveEnabled = GetEffectiveEnabled(normalized, enabled);
 
       var hasValue = _data.TryGetValue(normalized, out var currentValue);
       if (!fieldData.hasInitialValue) {
@@ -179,8 +180,8 @@ namespace HELIX.Widgets.Forms {
       }
 
       fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Stale, false);
-      fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Inactive, !effectiveActive);
-      if (!effectiveActive) {
+      fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Disabled, !effectiveEnabled);
+      if (!effectiveEnabled) {
         fieldData.errors.Clear();
         fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Error, false);
       }
@@ -201,10 +202,10 @@ namespace HELIX.Widgets.Forms {
       IEnumerable<IFormValidator> validators = null,
       ValidationMode validationMode = ValidationMode.OnSubmit,
       IEqualityComparer<object> comparer = null,
-      bool active = true
+      bool enabled = true
     ) {
       var normalized = FormPath.Require(path);
-      RegisterField(normalized, field, validators, validationMode, NoInitialValue, comparer, active);
+      RegisterField(normalized, field, validators, validationMode, NoInitialValue, comparer, enabled);
       var fieldData = _fields[normalized];
       fieldData.isListField = true;
       if (fieldData.listCount < 0) fieldData.listCount = GetListPathCount(normalized);
@@ -224,27 +225,29 @@ namespace HELIX.Widgets.Forms {
       if (notify) NotifyFormChanged();
     }
 
-    public void SetFieldActive(string path, bool active, bool includeChildren = false) {
+    public void SetFieldEnabled(string path, bool enabled, bool includeChildren = false, bool notify = true) {
       var normalized = FormPath.Require(path);
-      _activeOverrides[normalized] = active;
-      foreach (var entry in SelectFields(normalized, includeChildren)) SetFieldActiveCore(entry.Key, entry.Value, active);
-      NotifyFormChanged();
+      _enabledOverrides[normalized] = enabled;
+      foreach (var entry in SelectFields(normalized, includeChildren)) {
+        SetFieldEnabledCore(entry.Value, enabled);
+      }
+
+      if (notify) NotifyFormChanged();
     }
 
-    public void ClearFieldActiveOverride(string path, bool includeChildren = false) {
+    public void ClearFieldEnabledOverride(string path, bool includeChildren = false, bool notify = true) {
       var normalized = FormPath.Require(path);
-      foreach (var key in _activeOverrides.Keys.Where(key => includeChildren
+      foreach (var key in _enabledOverrides.Keys.Where(key => includeChildren
                  ? FormPath.IsInSubtree(key, normalized)
                  : string.Equals(key, normalized, StringComparison.Ordinal)).ToList()) {
-        _activeOverrides.Remove(key);
+        _enabledOverrides.Remove(key);
       }
 
       foreach (var entry in SelectFields(normalized, includeChildren)) {
-        var active = !_activeOverrides.TryGetValue(entry.Key, out var activeOverride) || activeOverride;
-        SetFieldActiveCore(entry.Key, entry.Value, active);
+        SetFieldEnabledCore(entry.Value, GetEffectiveEnabled(entry.Key, entry.Value.enabled));
       }
 
-      NotifyFormChanged();
+      if (notify) NotifyFormChanged();
     }
 
     public void MarkTouched(string path, bool includeChildren = false) {
@@ -276,6 +279,20 @@ namespace HELIX.Widgets.Forms {
       return ValidateField(FormPath.Require(path), true);
     }
 
+    public FormValidationResult CheckField(string path) {
+      var normalized = FormPath.Require(path);
+      var errors = new Dictionary<string, IReadOnlyList<string>>();
+      var valid = CheckFieldCore(normalized, errors);
+      return new FormValidationResult {
+        valid = valid,
+        errors = errors
+      };
+    }
+
+    public FormValidationResult ValidateFieldSilently(string path) {
+      return CheckField(path);
+    }
+
     public bool ValidatePath(string path, bool includeChildren = true) {
       var valid = true;
       foreach (var entry in SelectFields(path, includeChildren)) valid &= ValidateField(entry.Key, false);
@@ -283,8 +300,30 @@ namespace HELIX.Widgets.Forms {
       return valid;
     }
 
+    public FormValidationResult CheckPath(string path, bool includeChildren = true) {
+      var errors = new Dictionary<string, IReadOnlyList<string>>();
+      var valid = true;
+      foreach (var entry in SelectFields(path, includeChildren)) valid &= CheckFieldCore(entry.Key, errors);
+      return new FormValidationResult {
+        valid = valid,
+        errors = errors
+      };
+    }
+
+    public FormValidationResult ValidatePathSilently(string path, bool includeChildren = true) {
+      return CheckPath(path, includeChildren);
+    }
+
     public bool ValidateAll() {
       return ValidatePath(string.Empty, true);
+    }
+
+    public FormValidationResult CheckAll() {
+      return CheckPath(string.Empty, true);
+    }
+
+    public FormValidationResult ValidateAllSilently() {
+      return CheckAll();
     }
 
     public FormSubmitResult Submit() {
@@ -491,8 +530,8 @@ namespace HELIX.Widgets.Forms {
       SetListCount(path, 0);
     }
 
-    public Dictionary<string, object> DumpTree(bool includeStaleData = false, bool includeInactiveData = false) {
-      if (!TryDumpTree(out var tree, out var errors, includeStaleData, includeInactiveData)) {
+    public Dictionary<string, object> DumpTree(bool includeStaleData = false, bool includeDisabledData = false) {
+      if (!TryDumpTree(out var tree, out var errors, includeStaleData, includeDisabledData)) {
         throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
       }
 
@@ -503,13 +542,13 @@ namespace HELIX.Widgets.Forms {
       out Dictionary<string, object> tree,
       out List<string> errors,
       bool includeStaleData = false,
-      bool includeInactiveData = false
+      bool includeDisabledData = false
     ) {
       tree = new Dictionary<string, object>();
       errors = new List<string>();
 
       foreach (var entry in _data.OrderBy(x => x.Key.Length).ThenBy(x => x.Key, StringComparer.Ordinal)) {
-        if (ShouldExcludeDataPath(entry.Key, includeStaleData, includeInactiveData)) continue;
+        if (ShouldExcludeDataPath(entry.Key, includeStaleData, includeDisabledData)) continue;
         if (!FormPath.TryParse(entry.Key, out var segments, out var parseError)) {
           errors.Add(parseError);
           continue;
@@ -521,9 +560,9 @@ namespace HELIX.Widgets.Forms {
       return errors.Count == 0;
     }
 
-    private bool ShouldExcludeDataPath(string path, bool includeStaleData, bool includeInactiveData) {
-      if (!includeInactiveData) {
-        foreach (var entry in _activeOverrides) {
+    private bool ShouldExcludeDataPath(string path, bool includeStaleData, bool includeDisabledData) {
+      if (!includeDisabledData) {
+        foreach (var entry in _enabledOverrides) {
           if (entry.Value) continue;
           if (string.Equals(path, entry.Key, StringComparison.Ordinal)) return true;
           if (FormPath.IsInSubtree(path, entry.Key)) return true;
@@ -532,8 +571,8 @@ namespace HELIX.Widgets.Forms {
 
       foreach (var entry in _fields) {
         var stale = (entry.Value.flags & FieldFlags.Stale) != 0;
-        var inactive = (entry.Value.flags & FieldFlags.Inactive) != 0;
-        if ((!stale || includeStaleData) && (!inactive || includeInactiveData)) continue;
+        var disabled = (entry.Value.flags & FieldFlags.Disabled) != 0;
+        if ((!stale || includeStaleData) && (!disabled || includeDisabledData)) continue;
         if (string.Equals(path, entry.Key, StringComparison.Ordinal)) return true;
         if ((entry.Value.isListField || IsContainerPath(entry.Key)) && FormPath.IsInSubtree(path, entry.Key)) return true;
       }
@@ -599,16 +638,34 @@ namespace HELIX.Widgets.Forms {
       if (!_fields.TryGetValue(path, out var fieldData)) return true;
       if (ShouldSkipField(fieldData)) return true;
 
-      var value = fieldData.isListField ? GetListCount(path) : GetValue(path);
       fieldData.errors.Clear();
-      foreach (var validator in fieldData.validators) {
-        var error = validator.Validate(this, path, value);
-        if (!string.IsNullOrEmpty(error)) fieldData.errors.Add(error);
-      }
+      fieldData.errors.AddRange(CollectFieldErrors(path, fieldData));
 
       fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Error, fieldData.errors.Count > 0);
       if (notify) NotifyFormChanged();
       return fieldData.errors.Count == 0;
+    }
+
+    private bool CheckFieldCore(string path, Dictionary<string, IReadOnlyList<string>> errors) {
+      if (!_fields.TryGetValue(path, out var fieldData)) return true;
+      if (ShouldSkipField(fieldData)) return true;
+
+      var fieldErrors = CollectFieldErrors(path, fieldData);
+      if (fieldErrors.Count == 0) return true;
+
+      errors[path] = fieldErrors;
+      return false;
+    }
+
+    private IReadOnlyList<string> CollectFieldErrors(string path, FieldData fieldData) {
+      var value = fieldData.isListField ? GetListCount(path) : GetValue(path);
+      var errors = new List<string>();
+      foreach (var validator in fieldData.validators) {
+        var error = validator.Validate(this, path, value);
+        if (!string.IsNullOrEmpty(error)) errors.Add(error);
+      }
+
+      return errors;
     }
 
     private bool ShouldValidateOnChange(FieldData fieldData) {
@@ -624,16 +681,30 @@ namespace HELIX.Widgets.Forms {
       fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Dirty, dirty);
     }
 
-    private void SetFieldActiveCore(string path, FieldData fieldData, bool active) {
-      fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Inactive, !active);
-      if (active) return;
+    private void SetFieldEnabledCore(FieldData fieldData, bool enabled) {
+      fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Disabled, !enabled);
+      if (enabled) return;
 
       fieldData.errors.Clear();
       fieldData.flags = SetFlag(fieldData.flags, FieldFlags.Error, false);
     }
 
+    private bool GetEffectiveEnabled(string path, bool fallback) {
+      var enabled = fallback;
+      var bestMatchLength = -1;
+      foreach (var entry in _enabledOverrides) {
+        if (!FormPath.IsInSubtree(path, entry.Key)) continue;
+        if (entry.Key.Length < bestMatchLength) continue;
+
+        enabled = fallback && entry.Value;
+        bestMatchLength = entry.Key.Length;
+      }
+
+      return enabled;
+    }
+
     private static bool ShouldSkipField(FieldData fieldData) {
-      return (fieldData.flags & (FieldFlags.Stale | FieldFlags.Inactive)) != 0;
+      return (fieldData.flags & (FieldFlags.Stale | FieldFlags.Disabled)) != 0;
     }
 
     private void MarkListDirty(string path) {
@@ -647,7 +718,7 @@ namespace HELIX.Widgets.Forms {
       foreach (var path in paths.ToList()) {
         if (!_fields.TryGetValue(path, out var fieldData)) continue;
         fieldData.errors.Clear();
-        fieldData.flags &= FieldFlags.Stale;
+        fieldData.flags &= FieldFlags.Stale | FieldFlags.Disabled;
       }
     }
 

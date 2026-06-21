@@ -267,6 +267,16 @@
         "com.unity.modules.imgui": "1.0.0"
       }
     },
+    "com.unity.ui.test-framework": {
+      "version": "6.4.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.ext.nunit": "2.0.3",
+        "com.unity.modules.imgui": "1.0.0",
+        "com.unity.modules.uielements": "1.0.0"
+      }
+    },
     "com.unity.visualscripting": {
       "version": "1.9.11",
       "depth": 0,
