@@ -10,6 +10,7 @@ using HELIX.Widgets.Forms;
 using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Universal;
+using HELIX.Widgets.Universal.Forms;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Theme;
 using UnityEngine;
@@ -35,7 +36,7 @@ namespace Examples {
       _formScroll = AddDisposable(new ScrollController());
       _detailsScroll = AddDisposable(new ScrollController());
       SeedInitialValues(false);
-      AddDisposable(_form.AddObserver(SetState));
+      //AddDisposable(_form.AddObserver(SetState));
     }
 
     public override Widget Build(BuildContext context) {
@@ -96,6 +97,7 @@ namespace Examples {
         ["newsletter"] = "yes",
         ["newsletterTopic"] = "Computing history",
         ["theme"] = "system",
+        ["volume"] = 0.65f,
         ["email"] = "enabled",
         ["sms"] = "disabled",
         ["shipping.address.line1"] = "12 St. James Square",
@@ -251,6 +253,21 @@ namespace Examples {
           "Theme",
           SegmentedTextField("theme", new[] { "system", "light", "dark" }),
           "theme"
+        ),
+        Field(
+          context,
+          $"Volume ({Mathf.RoundToInt(_form.GetValue<float>("volume", 0.65f) * 100)}%)",
+          new HFormSlider(
+            "volume",
+            validators: new[] {
+              FormValidators.Func((_, _, value) => Convert.ToSingle(value) >= 0.2f
+                ? null
+                : "Keep the volume at 20% or higher")
+            },
+            validationMode: ValidationMode.OnChange | ValidationMode.OnSubmit,
+            initialValue: 0.65f
+          ).Size(height: 28).TightStretch(),
+          "volume"
         ),
         Field(
           context,

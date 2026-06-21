@@ -43,9 +43,8 @@ namespace HELIX.Widgets.Universal {
       BorderRadius? borderRadius = null,
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(child, key, constants) {
+    ) : base(child, key) {
       this.alignment = alignment ?? Alignment.Center;
       this.background = background;
       this.border = border ?? Border.None;

@@ -38,9 +38,8 @@ namespace HELIX.Widgets.Universal {
       WidgetStateProperty<Alignment> alignment = null,
       WidgetStateProperty<ModifierSet> boxModifiers = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       this.controller = controller;
       this.substances = substances;
       this.builder = builder;
@@ -67,10 +66,8 @@ namespace HELIX.Widgets.Universal {
         if (candidate == null) continue;
         var previousCount = widgetList.Count;
         widgetList.Add(candidate);
-        var constants = new object[] { state, shape };
         for (var i = previousCount; i < widgetList.Count; i++) {
           var childWidget = widgetList[i];
-          childWidget.constants = constants;
           childWidget.AddModifier(ModifierFallbacks.PosStretch);
         }
       }

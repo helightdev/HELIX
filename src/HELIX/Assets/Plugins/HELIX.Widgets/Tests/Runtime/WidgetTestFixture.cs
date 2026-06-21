@@ -1,4 +1,6 @@
+using HELIX.Widgets.Elements;
 using NUnit.Framework;
+using UnityEngine.UIElements;
 using UnityEngine.UIElements.TestFramework;
 
 namespace HELIX.Widgets.Tests {
@@ -28,6 +30,15 @@ namespace HELIX.Widgets.Tests {
       return key.Target;
     }
 
+
+    protected TElement ElementOf<TElement>(Key key) where TElement : class, IWidgetElement {
+      foreach (var element in _host.Query<WidgetBaseElement>().ToList()) {
+        if (element is not TElement typed) continue;
+        if (element.Descriptor.key == key) return typed;
+      }
+      return null;
+    }
+
     protected TElement ElementOf<TElement>(GlobalKey key) where TElement : class, IWidgetElement {
       var element = ElementOf(key);
       Assert.That(element, Is.InstanceOf<TElement>());
@@ -35,6 +46,14 @@ namespace HELIX.Widgets.Tests {
     }
 
     protected TState StateOf<TWidget, TState>(GlobalKey key)
+      where TWidget : StatefulWidget<TWidget>
+      where TState : State<TWidget> {
+      var element = ElementOf<StatefulWidgetElement<TWidget>>(key);
+      Assert.That(element.State, Is.InstanceOf<TState>());
+      return (TState)element.State;
+    }
+
+    protected TState StateOf<TWidget, TState>(Key key)
       where TWidget : StatefulWidget<TWidget>
       where TState : State<TWidget> {
       var element = ElementOf<StatefulWidgetElement<TWidget>>(key);

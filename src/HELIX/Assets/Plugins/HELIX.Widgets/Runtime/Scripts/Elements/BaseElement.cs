@@ -20,7 +20,7 @@ namespace HELIX.Widgets.Elements {
 
     public int HierarchyDepth { get; protected set; } = -1;
 
-    public ThemeProviderElement ThemeProviderElement { get; private set; }
+    public ThemeProviderNode ThemeProvider { get; private set; }
 
     public VisualElement Element => this;
 
@@ -114,16 +114,16 @@ namespace HELIX.Widgets.Elements {
 
     protected virtual void OnAttached(AttachToPanelEvent evt) {
       HierarchyDepth = this.GetDepth();
-      ThemeProviderElement = ThemeProviderElement.Get(this);
-      if (ThemeProviderElement != null) ThemeProviderElement.OnThemeUpdated += OnThemeUpdated;
+      ThemeProvider = ThemeProviderNode.Get(this);
+      if (ThemeProvider != null) ThemeProvider.OnThemeUpdated += OnThemeUpdated;
       OnThemeUpdated();
 
       if (this is IHierarchyDisposable disposable) ModificationBarrier.RemoveHierarchyDisposable(disposable);
     }
 
     protected virtual void OnDetached(DetachFromPanelEvent evt) {
-      if (ThemeProviderElement != null) ThemeProviderElement.OnThemeUpdated -= OnThemeUpdated;
-      ThemeProviderElement = null;
+      if (ThemeProvider != null) ThemeProvider.OnThemeUpdated -= OnThemeUpdated;
+      ThemeProvider = null;
       if (this is IHierarchyDisposable disposable) ModificationBarrier.TryDisposeHierarchyDisposable(disposable);
     }
 

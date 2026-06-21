@@ -11,6 +11,7 @@ using HELIX.Widgets.Modifiers;
 using HELIX.Widgets.Universal.Styles;
 using JetBrains.Annotations;
 using UnityEngine;
+using UnityEngine.Pool;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets {
@@ -129,9 +130,9 @@ namespace HELIX.Widgets {
       return new BackgroundStyleModifier(style);
     }
 
-    public static implicit operator Modifier(TextStyle style) {
-      return new TextStyleModifier(style);
-    }
+    // public static implicit operator Modifier(TextStyle style) {
+    //   return new TextStyleModifier(style);
+    // }
   }
 
   public static class ModifierExtensions {
@@ -231,8 +232,8 @@ namespace HELIX.Widgets {
       );
     }
 
-    public static T Const<T>(this T element, params object[] values) where T : Widget {
-      element.constants = values;
+    public static T Const<T>(this T element) where T : Widget {
+      element.flags |= WidgetFlags.Constant;
       return element;
     }
 
@@ -264,6 +265,23 @@ namespace HELIX.Widgets {
       modifier.isFallback = true;
       return modifier;
     }
+  }
+
+  public static class ModifierSetOrphanage {
+    private static readonly Stack<ModifierSet> _pool = new();
+
+    public static ModifierSet Get(int capacity = 1) {
+      if (_pool.Count <= 0) return new ModifierSet(capacity);
+      var set = _pool.Pop();
+      set.Reset();
+      return set;
+    }
+
+    public static void Return(ModifierSet set) {
+      set.Reset();
+      _pool.Push(set);
+    }
+
   }
 
   public class ModifierSet : DiagnosticableBase, IReadOnlyCollection<Modifier> {
@@ -307,6 +325,11 @@ namespace HELIX.Widgets {
     }
 
     public int Count => _modifiers.Count;
+
+    public void Reset() {
+      _modifiers.Clear();
+      ReadOnly = false;
+    }
 
     public bool Add(Modifier modifier) {
       if (modifier == null) return true;

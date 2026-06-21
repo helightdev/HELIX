@@ -112,29 +112,31 @@ namespace HELIX.Widgets.Signals {
         return;
       }
 
-      ModificationBarrier.Run(() => {
-          var buffer = ListPool<ISignalObserver>.Get();
-          try {
-            _notificationStackDepth++;
-            buffer.AddRange(_observers);
-            foreach (var observer in buffer) {
-              try { observer.OnSignalChanged(this); } catch (HelixDiagnosticException) { throw; } catch (Exception e) {
-                throw HelixDiagnostics.Build(
-                  "An error occurred while notifying a signal observer of a changed value.",
-                  details: new DiagnosticsNode[] {
-                    new ErrorProperty("The observer is", observer), new ErrorSpacer(),
-                    new ErrorProperty("The observed signal is", this)
-                  },
-                  exception: e
-                );
-              }
-            }
-          } finally {
-            _notificationStackDepth--;
-            ListPool<ISignalObserver>.Release(buffer);
+      ModificationBarrier.Run(SendNotifyObservers);
+    }
+
+    private void SendNotifyObservers() {
+      var buffer = ListPool<ISignalObserver>.Get();
+      try {
+        _notificationStackDepth++;
+        buffer.AddRange(_observers);
+        foreach (var observer in buffer) {
+          try { observer.OnSignalChanged(this); } catch (HelixDiagnosticException) { throw; } catch (Exception e) {
+            throw HelixDiagnostics.Build(
+              "An error occurred while notifying a signal observer of a changed value.",
+              details: new DiagnosticsNode[] {
+                new ErrorProperty("The observer is", observer),
+                new ErrorSpacer(),
+                new ErrorProperty("The observed signal is", this)
+              },
+              exception: e
+            );
           }
         }
-      );
+      } finally {
+        _notificationStackDepth--;
+        ListPool<ISignalObserver>.Release(buffer);
+      }
     }
 
     public virtual bool AddObserver(ISignalObserver observer) {

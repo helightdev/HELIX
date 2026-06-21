@@ -7,6 +7,7 @@ using HELIX.Widgets.Prompts.Kenny;
 using HELIX.Widgets.Theming;
 using HELIX.Widgets.Universal.Styles;
 using HELIX.Widgets.Universal.Substances;
+using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -103,11 +104,21 @@ namespace HELIX.Widgets.Universal.Theme {
       }
     );
 
+    public static readonly ThemeProperty<TextStyle> FallbackTextStyle = new ThemeProperty<TextStyle>(
+      "primitive-fallback-text-style", TextStyle.Default
+    ).Compute(element => {
+        var colors = PrimitiveBaseTheme.Colors.Get(element, false);
+        var typography = PrimitiveBaseTheme.Typography.Get(element);
+        return new TextStyle { color = colors.surface.onMain, fontSize = typography.FontSize3 };
+      }
+    );
+
     public static readonly IReadOnlyList<ThemeProperty> Properties = new ThemeProperty[] {
-      Surface, ContainerLow, Container, TextVariant, Text, Button, ButtonFocusLayer, Slider, Scrollbar, TextField, Prompt
+      Surface, ContainerLow, Container, TextVariant, Text, Button, ButtonFocusLayer, Slider, Scrollbar, TextField,
+      Prompt
     };
 
-    private static Func<ThemeProviderElement, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) {
+    private static Func<ThemeProviderNode, T> ColorSchema<T>(Func<PrimitiveColorScheme, T> func) {
       return element => func(PrimitiveBaseTheme.Colors.Get(element));
     }
   }

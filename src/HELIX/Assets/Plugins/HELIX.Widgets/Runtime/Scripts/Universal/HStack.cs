@@ -52,10 +52,9 @@ namespace HELIX.Widgets.Universal {
       bool wrapReverse = false,
       bool wrap = false,
       Key key = default,
-      object[] constants = null,
       IReadOnlyList<Widget> children = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(children, key, constants) {
+    ) : base(children, key) {
       this.axis = axis;
       this.crossAxisAlign = crossAxisAlign;
       this.mainAxisAlign = mainAxisAlign;

@@ -200,4 +200,76 @@ namespace HELIX.Widgets.Universal {
       return text;
     }
   }
+
+  public class HTextTheme : SingleChildWidget {
+    public readonly TextStyle style;
+    public readonly bool inherit;
+
+    public HTextTheme(
+      TextStyle style,
+      Widget child = null,
+      bool inherit = true,
+      Key key = default,
+      IReadOnlyCollection<Modifier> modifiers = null
+    ) : base(child, key, modifiers) {
+      this.style = style;
+      this.inherit = inherit;
+
+      DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
+    }
+
+    public override IWidgetElement CreateElement() {
+      return ReconcileInto(new HTextThemeElement());
+    }
+
+    public static readonly ThemeProperty<TextStyle> Property = new("text-theme", TextStyle.Default);
+
+    public static TextStyle Get(IThemeProvider provider, bool listen = true) {
+      var theme = Property.Get(provider, listen);
+      return theme ?? TextStyle.Default;
+    }
+  }
+
+  public class HTextThemeElement : ThemeProviderNodeBase<HTextTheme> {
+    private TextStyle _overrides;
+    private bool _inherit = true;
+
+    private TextStyle _lastParent;
+    private TextStyle _lastSelf;
+    private TextStyle _buffer = new();
+
+    public override void Apply(HTextTheme previous, HTextTheme widget) {
+      if (Equals(_overrides, widget.style)) return;
+      _overrides = widget.style ?? TextStyle.Default;
+      _inherit = widget.inherit;
+      ListenerNotifyThemeUpdate();
+    }
+
+    protected override void ListenerNotifyThemeUpdate() {
+      var hasChanged = !Equals(_lastSelf, _overrides);
+      TextStyle parentStyle = null;
+      if (_inherit) {
+        parentStyle = HTextTheme.Property.Get(Parent, false);
+        hasChanged |= !Equals(_lastParent, parentStyle);
+      }
+      if (!hasChanged) {
+        base.ListenerNotifyThemeUpdate();
+        return;
+      }
+      _lastParent = parentStyle;
+      _lastSelf = _overrides;
+
+      var updated = _overrides;
+      if (_inherit) {
+        updated = _buffer;
+        _buffer.Reset();
+        updated.Merge(parentStyle);
+        updated.Merge(_overrides);
+      }
+      updated.Apply(Element);
+
+      themeValues[HTextTheme.Property] = updated;
+      base.ListenerNotifyThemeUpdate();
+    }
+  }
 }

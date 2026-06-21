@@ -111,7 +111,7 @@ namespace HELIX.Widgets.Theming {
 
     public override void ReloadStyles() {
       if (_state > ThemeValueState.CustomStyle) return;
-      var newValue = ThemeProviderElement.Resolve(_owner.ThemeProviderElement, _property);
+      var newValue = ThemeProviderNode.Resolve(_owner.ThemeProvider, _property);
       NotifyStyleChanged(newValue);
     }
 

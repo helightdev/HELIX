@@ -6,6 +6,7 @@ using HELIX.Widgets.Navigation;
 using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Universal;
 using HELIX.Widgets.Universal.Theme;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 [UxmlElement]
@@ -31,34 +32,39 @@ public partial class WidgetExamples : WidgetHostElement {
   }
 
   public void ShowGallery() {
-    Buildable = new HStatefulBuilder((context, state) =>
-      new HColumn(
-        modifiers: new Modifier[] {
-          new BackgroundStyleModifier(context.GetThemed(PrimitiveTheme.Surface))
-        }
-      ) {
-        new HNavStack(key: _navStackKey).Fill(),
-        new HScrollView(
-          Axis.Horizontal,
-          modifiers: new Modifier[] {
-            FlexibleModifier.TightStretch,
-            MarginModifier.Only(bottom: 8, top: 8)
+    Buildable = new HStatefulBuilder((context, state) => {
+        var textStyle = PrimitiveTheme.FallbackTextStyle.Get(context);
+        Debug.Log($"Text style: {textStyle}");
+        return new HTextTheme(textStyle) {
+          new HColumn(
+            modifiers: new Modifier[] {
+              new BackgroundStyleModifier(context.GetThemed(PrimitiveTheme.Surface))
+            }
+          ) {
+            new HNavStack(key: _navStackKey).Fill(),
+            new HScrollView(
+              Axis.Horizontal,
+              modifiers: new Modifier[] {
+                FlexibleModifier.TightStretch,
+                MarginModifier.Only(bottom: 8, top: 8)
+              }
+            ) {
+              new HRow {
+                new HGap(2),
+                Pages.Select(e =>
+                  new HButton(
+                    onClick: () => {
+                      _navStackKey.Element.PushReplacement(
+                        new WidgetNavPage { Buildable = PreviewFrame(e.Create()).ToBuildable() }
+                      );
+                    }
+                  ) { new HText(e.Title) }
+                ).Spread(new HGap()),
+                new HGap(2)
+              }
+            }
           }
-        ) {
-          new HRow {
-            new HGap(2),
-            Pages.Select(e =>
-              new HButton(
-                onClick: () => {
-                  _navStackKey.Element.PushReplacement(
-                    new WidgetNavPage { Buildable = PreviewFrame(e.Create()).ToBuildable() }
-                  );
-                }
-              ) { new HText(e.Title) }
-            ).Spread(new HGap()),
-            new HGap(2)
-          }
-        }
+        };
       }
     ).Stretch().ToBuildable();
   }

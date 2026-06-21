@@ -9,6 +9,7 @@ namespace HELIX.Widgets.Forms {
     public readonly ValidationMode validationMode;
     public readonly IEqualityComparer<object> comparer;
     public readonly bool enabled;
+    public readonly Action<FormController, string> onChanged;
 
     public HFormListScope(
       string path,
@@ -16,16 +17,17 @@ namespace HELIX.Widgets.Forms {
       ValidationMode validationMode = ValidationMode.OnSubmit,
       IEqualityComparer<object> comparer = null,
       bool enabled = true,
+      Action<FormController, string> onChanged = null,
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(child, key, constants, modifiers) {
+    ) : base(child, key, modifiers) {
       this.path = path;
       this.validators = validators;
       this.validationMode = validationMode;
       this.comparer = comparer;
       this.enabled = enabled;
+      this.onChanged = onChanged;
     }
 
     public override State<HFormListScope> CreateState() {
@@ -59,25 +61,27 @@ namespace HELIX.Widgets.Forms {
       base.Dispose();
     }
 
-    public void OnFormFieldChanged(FormController form, string path) { }
+    public void OnFormFieldChanged(FormController form, string path) {
+      widget.onChanged?.Invoke(form, path);
+    }
 
     public override Widget Build(BuildContext context) {
       ResolveAndRegister();
       var formContext = FormContext.Require(context, nameof(HFormListScope));
-      return new HFormContext(formContext.Controller, formContext.ResolvePath(widget.path), widget.child);
+      return new HFormContext(formContext.controller, formContext.ResolvePath(widget.path), widget.child);
     }
 
     private void ResolveAndRegister() {
       if (_disposed) return;
       var formContext = FormContext.Require(mount, nameof(HFormListScope));
       var fullPath = formContext.ResolvePath(widget.path);
-      if (ReferenceEquals(_form, formContext.Controller) && _path == fullPath) {
+      if (ReferenceEquals(_form, formContext.controller) && _path == fullPath) {
         _form.RegisterListField(_path, this, widget.validators, widget.validationMode, widget.comparer, widget.enabled);
         return;
       }
 
       _form?.UnregisterField(_path, this);
-      _form = formContext.Controller;
+      _form = formContext.controller;
       _path = fullPath;
       _form.RegisterListField(_path, this, widget.validators, widget.validationMode, widget.comparer, widget.enabled);
     }
@@ -103,9 +107,8 @@ namespace HELIX.Widgets.Forms {
       IEqualityComparer<object> comparer = null,
       bool enabled = true,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       this.path = path;
       this.itemBuilder = itemBuilder ?? throw new ArgumentNullException(nameof(itemBuilder));
       this.containerBuilder = containerBuilder ?? throw new ArgumentNullException(nameof(containerBuilder));
@@ -122,16 +125,21 @@ namespace HELIX.Widgets.Forms {
   }
 
   public sealed class HFormListFieldState : State<HFormListField> {
+    private int _listCount = -1;
+    private int _listRevision = -1;
+
     public override Widget Build(BuildContext context) {
       var formContext = FormContext.Require(context, nameof(HFormListField));
       var listPath = formContext.ResolvePath(widget.path);
-      var count = formContext.Controller.GetListCount(listPath);
+      CaptureListState(formContext.controller, listPath);
+
+      var count = formContext.controller.GetListCount(listPath);
       var items = new WidgetList(count);
 
       for (var index = 0; index < count; index++) {
-        var itemContext = new FormListItemContext(formContext.Controller, listPath, index, count);
+        var itemContext = new FormListItemContext(formContext.controller, listPath, index, count);
         var item = new HFormContext(
-          formContext.Controller,
+          formContext.controller,
           itemContext.Path,
           widget.itemBuilder(context, index)
         );
@@ -150,8 +158,24 @@ namespace HELIX.Widgets.Forms {
         validationMode: widget.validationMode,
         comparer: widget.comparer,
         enabled: widget.enabled,
+        onChanged: OnListFieldChanged,
         child: container
       );
+    }
+
+    private void OnListFieldChanged(FormController form, string path) {
+      if (!CaptureListState(form, path)) return;
+      SetState();
+    }
+
+    private bool CaptureListState(FormController form, string path) {
+      var fieldData = form?.GetFieldData(path);
+      if (fieldData == null || !fieldData.isListField) return false;
+
+      var changed = _listCount != fieldData.listCount || _listRevision != fieldData.listRevision;
+      _listCount = fieldData.listCount;
+      _listRevision = fieldData.listRevision;
+      return changed;
     }
   }
 

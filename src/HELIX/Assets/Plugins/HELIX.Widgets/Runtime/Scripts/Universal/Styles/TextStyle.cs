@@ -82,6 +82,25 @@ namespace HELIX.Widgets.Universal.Styles {
       if (overrides.generator.keyword != StyleKeyword.Null) generator = overrides.generator;
     }
 
+    public void Reset() {
+      font = StyleKeyword.Null;
+      fontSize = StyleKeyword.Null;
+      color = StyleKeyword.Null;
+      align = StyleKeyword.Null;
+      style = StyleKeyword.Null;
+      wrap = StyleKeyword.Null;
+      outlineColor = StyleKeyword.Null;
+      outlineWidth = StyleKeyword.Null;
+      letterSpacing = StyleKeyword.Null;
+      wordSpacing = StyleKeyword.Null;
+      paragraphSpacing = StyleKeyword.Null;
+      overflow = StyleKeyword.Null;
+      overflowPosition = StyleKeyword.Null;
+      shadow = StyleKeyword.Null;
+      autoSize = StyleKeyword.Null;
+      generator = StyleKeyword.Null;
+    }
+
     public override bool Equals(object obj) {
       if (obj is null) return false;
       if (ReferenceEquals(this, obj)) return true;

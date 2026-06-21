@@ -53,11 +53,11 @@ namespace HELIX.Widgets.Elements {
     }
 
     public virtual T GetThemed<T>(BaseThemeProperty<T> property, bool listen = true) {
-      return ThemeProviderElement.Resolve(ThemeProviderElement, property);
+      return ThemeProviderNode.Resolve(ThemeProvider, property);
     }
 
     public virtual bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
-      return ThemeProviderElement.TryResolve(property, out value);
+      return ThemeProvider.TryResolve(property, out value);
     }
 
     public virtual string ToStringDeep(

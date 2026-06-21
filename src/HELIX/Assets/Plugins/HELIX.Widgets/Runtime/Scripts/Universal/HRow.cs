@@ -29,9 +29,8 @@ namespace HELIX.Widgets.Universal {
       bool reverse = false,
       IReadOnlyList<Widget> children = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(mainAxisAlign, crossAxisAlign, gap, reverse, children, key, constants, modifiers) { }
+    ) : base(mainAxisAlign, crossAxisAlign, gap, reverse, children, key, modifiers) { }
 
     public override IWidgetElement CreateElement() {
       return ReconcileInto(new RowElement());

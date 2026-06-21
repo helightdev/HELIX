@@ -6,6 +6,7 @@ namespace HELIX.Widgets {
   public delegate Widget BuildFunction<in T1, in T2>(BuildContext ctx, T1 arg0, T2 arg1);
 
   public interface IBuildable {
+
     /// <summary>
     /// Builds the widget in the given context.
     /// </summary>

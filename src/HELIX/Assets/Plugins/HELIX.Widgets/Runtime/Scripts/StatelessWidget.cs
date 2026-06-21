@@ -13,9 +13,8 @@ namespace HELIX.Widgets {
     /// <seealso cref="ModifierFallbacks.ImplicitFlexFill"/>
     protected StatelessWidget(
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants) {
+    ) : base(key) {
       DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);
     }
 
@@ -43,12 +42,12 @@ namespace HELIX.Widgets {
     }
 
     public override S GetThemed<S>(BaseThemeProperty<S> property, bool listen = true) {
-      return listen ? ThemeValue(property).Value : ThemeProviderElement.Resolve(ThemeProviderElement, property);
+      return listen ? ThemeValue(property).Value : ThemeProviderNode.Resolve(ThemeProvider, property);
     }
 
     public override bool TryGetThemed<S>(BaseThemeProperty<S> property, out S value, bool listen = true) {
       if (listen) ThemeValue(property);
-      return ThemeProviderElement.TryResolve(ThemeProviderElement, property, out value);
+      return ThemeProviderNode.TryResolve(ThemeProvider, property, out value);
     }
 
     private void OnDependencyUpdated() {

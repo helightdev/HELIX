@@ -94,9 +94,8 @@ namespace HELIX.Widgets.Universal {
       Action<string> onChanged = null,
       Action<string> onSubmitted = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       this.controller = controller;
       this.focusKey = focusKey;
       this.style = style;

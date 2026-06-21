@@ -24,9 +24,8 @@ namespace HELIX.Widgets.Universal {
       string message,
       Exception exception = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants) {
+    ) : base(key) {
       this.message = message;
       this.exception = exception;
 

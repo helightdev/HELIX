@@ -113,7 +113,7 @@ public partial class PerformUpdateWidget : BaseElement {
   public PerformUpdateWidget() {
     var button = new Button { text = "Update me!" };
     button.clicked += () => {
-      ThemeProviderElement.Components =
+      ((ThemeProviderElement)ThemeProvider).Components =
         new List<ThemeComponent> { new ExampleThemeComponent { factory = new AnotherTestFactory() } };
     };
     Add(button);

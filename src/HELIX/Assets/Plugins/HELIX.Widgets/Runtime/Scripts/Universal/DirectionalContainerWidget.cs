@@ -20,9 +20,8 @@ namespace HELIX.Widgets.Universal {
       bool reverse = false,
       IReadOnlyList<Widget> children = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(children, key, constants) {
+    ) : base(children, key) {
       this.crossAxisAlign = crossAxisAlign;
       this.gap = gap;
       this.mainAxisAlign = mainAxisAlign;

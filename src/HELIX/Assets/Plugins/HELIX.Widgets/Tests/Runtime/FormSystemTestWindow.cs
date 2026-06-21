@@ -1,4 +1,6 @@
 #if UNITY_EDITOR
+using HELIX.Widgets.Tests.Forms;
+using HELIX.Widgets.Theming;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -12,7 +14,9 @@ namespace HELIX.Widgets.Tests {
         Buildable = new FormSmokeWidget().ToBuildable()
       };
       _host.style.flexGrow = 1;
-      rootVisualElement.Add(_host);
+      rootVisualElement.Add(new ThemeProviderElement {
+        Child = _host
+      });
     }
 
     private void OnDisable() {

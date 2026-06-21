@@ -77,9 +77,8 @@ namespace HELIX.Widgets.Universal {
       WidgetStateProperty<ModifierSet> boxModifiers = null,
       HSliderStyle style = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       this.controller = controller;
       this.focusKey = focusKey;
       this.axis = axis;
@@ -131,9 +130,8 @@ namespace HELIX.Widgets.Universal {
       HSliderStyle style = null,
       WidgetStateProperty<ModifierSet> boxModifiers = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       this.scrollController = scrollController;
       this.focusKey = focusKey;
       this.axis = axis;

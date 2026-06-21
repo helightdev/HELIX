@@ -108,7 +108,7 @@ namespace HELIX.Widgets.Universal.Styles {
       };
     }
 
-    public static HSliderStyle DefaultScrollbarStyleOf(BuildContext context) {
+    public static HSliderStyle DefaultScrollbarStyleOf(IThemeProvider context) {
       var typography = PrimitiveBaseTheme.Typography.Get(context);
       var radius = PrimitiveBaseTheme.Radius.Get(context);
       var spacing = PrimitiveBaseTheme.Spacing.Get(context);

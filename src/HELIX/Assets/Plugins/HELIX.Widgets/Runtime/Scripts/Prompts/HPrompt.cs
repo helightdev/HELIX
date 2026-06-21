@@ -15,9 +15,8 @@ namespace HELIX.Widgets.Prompts {
       InputAction action,
       HPromptStyle style = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key,  modifiers) {
       _style = style;
       _action = action;
     }
@@ -26,9 +25,8 @@ namespace HELIX.Widgets.Prompts {
       string actionName,
       HPromptStyle style = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       _style = style;
       _action = InputSystem.actions.FindAction(actionName);
     }

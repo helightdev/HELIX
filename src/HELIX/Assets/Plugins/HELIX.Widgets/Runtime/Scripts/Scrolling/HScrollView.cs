@@ -34,9 +34,8 @@ namespace HELIX.Widgets.Scrolling {
       ScrollController controller = null,
       IReadOnlyList<Widget> children = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(children, key, constants) {
+    ) : base(children, key) {
       this.axis = axis;
       this.controller = controller;
 

@@ -43,7 +43,7 @@ namespace Examples {
               BorderRadius.All(16)
             )
           }
-        ).Tight().Const()
+        ).Tight()
       }.Fill();
     }
 
@@ -60,7 +60,7 @@ namespace Examples {
         crossAxisAlign: Align.Stretch,
         modifiers: new Modifier[] {
           PaddingModifier.Of(16), new BackgroundStyle { color = surface },
-          new TextStyle { fontSize = typography.FontSize3, color = textContrast }
+          //new TextStyle { fontSize = typography.FontSize3, color = textContrast }
         }
       ) {
         new HText("Theme provider and token overrides").Heading(context),

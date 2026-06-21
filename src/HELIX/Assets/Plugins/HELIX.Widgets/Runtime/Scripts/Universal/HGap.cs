@@ -34,9 +34,8 @@ namespace HELIX.Widgets.Universal {
       int level = 1,
       Axis? axis = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants) {
+    ) : base(key) {
       this.axis = axis;
       size = null;
       this.level = level;
@@ -64,9 +63,8 @@ namespace HELIX.Widgets.Universal {
       StyleLength? size,
       Axis? axis = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants) {
+    ) : base(key) {
       this.axis = axis;
       this.size = size;
 

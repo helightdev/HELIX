@@ -36,9 +36,8 @@ namespace HELIX.Widgets.Scrolling {
       ScrollController verticalController = null,
       IReadOnlyList<Widget> children = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(children, key, constants) {
+    ) : base(children, key) {
       this.horizontalController = horizontalController;
       this.verticalController = verticalController;
 

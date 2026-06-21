@@ -40,9 +40,8 @@ namespace HELIX.Widgets.Scrolling {
       float fixedItemHeight = -1,
       ScrollController scrollController = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants) {
+    ) : base(key) {
       this.fixedItemHeight = fixedItemHeight;
       this.builder = builder;
       this.count = count;

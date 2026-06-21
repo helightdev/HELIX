@@ -63,6 +63,30 @@ namespace HELIX.Widgets {
       }
     }
 
+    public static void Begin(out bool skipped) {
+      if (_isFinalizing) throw new InvalidOperationException("Cannot modify hierarchy while finalizing.");
+      if (InsideModification) {
+        skipped = true;
+        return;
+      }
+      InsideModification = true;
+      skipped = false;
+    }
+
+    public static void End(bool skipped) {
+      if (skipped) return;
+      try {
+        RunCallbacks();
+      } finally {
+        _isFinalizing = true;
+        Sweep();
+        _isFinalizing = false;
+        InsideModification = false;
+        RunTail();
+      }
+    }
+
+
     // ReSharper disable Unity.PerformanceAnalysis
     private static void RunCallbacks() {
       if (_postFrameCallbacks.Count == 0) return;

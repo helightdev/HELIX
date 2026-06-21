@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using HELIX.Widgets.Modifiers;
+using HELIX.Widgets.Universal;
 
 namespace HELIX.Widgets.Forms {
   public sealed class HForm : SingleChildStatefulWidget<HForm> {
@@ -9,9 +11,8 @@ namespace HELIX.Widgets.Forms {
       FormController controller = null,
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(child, key, constants, modifiers) {
+    ) : base(child, key, modifiers) {
       this.controller = controller;
     }
 

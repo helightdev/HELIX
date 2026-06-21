@@ -55,42 +55,47 @@ namespace HELIX.Widgets {
 
       IWidgetElement newElement = null;
       var reusedElement = false;
-      ModificationBarrier.Run(() => {
-          if (element != null) {
-            try {
-              if (CanReuse(element.Descriptor, descriptor) && element.CanReconcile(descriptor)) {
-                MaybeReconcile(element, descriptor);
-                reusedElement = true;
-                return;
-              }
-
-              element.CallUnmounted();
-            } catch (Exception ex) {
-              HelixDiagnostics.Build(
-                "An error occurred during element reconciliation.",
-                collector => collector
-                  .AddRange(
-                    new OffendingWidgetErrorProperty(descriptor),
-                    new ErrorSpacer(),
-                    OwnershipChainErrorProperty.FromBuildContext(element)
-                  )
-                  .OwnerChain(owner),
-                ex
-              ).Report(DiagnosticLevel.Error);
+      ModificationBarrier.Begin(out var skipped);
+      try {
+        if (element != null) {
+          try {
+            if (CanReuse(element.Descriptor, descriptor) && element.CanReconcile(descriptor)) {
+              MaybeReconcile(element, descriptor);
+              reusedElement = true;
+              return;
             }
-          }
 
-          newElement = descriptor.CreateElement();
-          newElement.CallMounted(descriptor, owner);
+            element.CallUnmounted();
+          } catch (Exception ex) {
+            HelixDiagnostics.Build(
+              "An error occurred during element reconciliation.",
+              collector => collector
+                .AddRange(
+                  new OffendingWidgetErrorProperty(descriptor),
+                  new ErrorSpacer(),
+                  OwnershipChainErrorProperty.FromBuildContext(element)
+                )
+                .OwnerChain(owner),
+              ex
+            ).Report(DiagnosticLevel.Error);
+          }
         }
-      );
+
+        newElement = descriptor.CreateElement();
+        newElement.CallMounted(descriptor, owner);
+      } finally {
+        ModificationBarrier.End(skipped);
+      }
 
       if (reusedElement) return;
 
-      ModificationBarrier.Run(() => {
-          container.Child = newElement?.Element;
-        }
-      );
+
+      ModificationBarrier.Begin(out skipped);
+      try {
+        container.Child = newElement?.Element;
+      } finally {
+        ModificationBarrier.End(skipped);
+      }
     }
 
     public static void ReconcileCollection(
@@ -286,11 +291,8 @@ namespace HELIX.Widgets {
 
     private static void MaybeReconcile(IWidgetElement element, Widget descriptor) {
       var previous = element.Descriptor;
-      if (ReferenceEquals(previous, descriptor)) return;
-      if (previous.constants != null && descriptor.constants != null) {
-        if (previous.constants.SequenceEqual(descriptor.constants))
-          return;
-      }
+      if (descriptor.flags.HasFlag(WidgetFlags.Constant)) return;
+      if (Equals(previous, descriptor)) return;
 
       Reconcile(element, descriptor);
     }
@@ -300,7 +302,12 @@ namespace HELIX.Widgets {
       var previous = BuildContext.ReconcilerCurrent;
       try {
         BuildContext.ReconcilerCurrent = element;
-        ModificationBarrier.Run(() => { element.Reconcile(descriptor); }); //
+        ModificationBarrier.Begin(out var skipped);
+        try {
+          element.Reconcile(descriptor);
+        } finally {
+          ModificationBarrier.End(skipped);
+        }
       } catch (HelixDiagnosticException ex) { ex.Report(DiagnosticLevel.Error); } catch (Exception ex) {
         var error = HelixDiagnostics.Build(
           "An exception occurred while reconciling an element.",

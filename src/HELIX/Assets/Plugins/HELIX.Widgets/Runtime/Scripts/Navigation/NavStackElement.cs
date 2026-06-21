@@ -362,9 +362,8 @@ namespace HELIX.Widgets.Navigation {
       PageTransition defaultTransition = null,
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(child, key, constants) {
+    ) : base(child, key) {
       this.defaultTransition = defaultTransition;
 
       DefaultModifiers(ModifierSet.DefaultFlexFill, modifiers);

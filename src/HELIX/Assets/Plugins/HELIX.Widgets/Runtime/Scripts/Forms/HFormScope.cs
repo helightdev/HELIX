@@ -12,16 +12,15 @@ namespace HELIX.Widgets.Forms {
       string prefix,
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       this.prefix = prefix;
       this.child = child;
     }
 
     public override Widget Build(BuildContext context) {
       var formContext = FormContext.Require(context, nameof(HFormScope));
-      return new HFormContext(formContext.Controller, formContext.ResolvePath(prefix), child);
+      return new HFormContext(formContext.controller, formContext.ResolvePath(prefix), child);
     }
 
     public IEnumerator<Widget> GetEnumerator() {

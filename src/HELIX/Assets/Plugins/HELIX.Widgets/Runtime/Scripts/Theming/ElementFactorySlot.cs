@@ -79,7 +79,7 @@ namespace HELIX.Widgets.Theming {
       if (factory == null) {
         var parentStyle = widget.parent?.customStyle;
         if (parentStyle != null && _baseThemeProperty != null)
-          factory = ThemeProviderElement.Resolve(widget.ThemeProviderElement, _baseThemeProperty);
+          factory = ThemeProviderNode.Resolve(widget.ThemeProvider, _baseThemeProperty);
         factory ??= _fallback;
         _hasExplicitReference = false;
       } else
@@ -94,7 +94,7 @@ namespace HELIX.Widgets.Theming {
       if (_hasExplicitReference) return;
       var factory = _fallback;
       if (_baseThemeProperty != null)
-        factory = ThemeProviderElement.Resolve(widget.ThemeProviderElement, _baseThemeProperty);
+        factory = ThemeProviderNode.Resolve(widget.ThemeProvider, _baseThemeProperty);
 
       if (factory == null || Equals(factory, _factory)) return;
       _factory = factory;

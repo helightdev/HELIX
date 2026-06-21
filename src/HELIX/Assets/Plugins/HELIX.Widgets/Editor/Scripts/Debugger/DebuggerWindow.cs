@@ -112,11 +112,11 @@ namespace HELIX.Widgets.Editor.Debugger {
               }.Tight()
             ).ToArray()
           ).Fill().WithModifier(PaddingModifier.Only(8)),
-          new HSlider(_scrollControllerHorizontal, style: _sliderStyle, axis: Axis.Horizontal).Const()
+          new HSlider(_scrollControllerHorizontal, style: _sliderStyle, axis: Axis.Horizontal)
         }.Tight().Size(300, StyleKeyword.Auto),
-        new HSlider(_scrollControllerVertical, style: _sliderStyle).Const(),
+        new HSlider(_scrollControllerVertical, style: _sliderStyle),
         new NodeViewerWidget { inspectedSignal = inspectedSignal }.Fill()
-          .WithModifier(MarginModifier.Only(16)).Const()
+          .WithModifier(MarginModifier.Only(16))
       }.Stretch();
     }
   }

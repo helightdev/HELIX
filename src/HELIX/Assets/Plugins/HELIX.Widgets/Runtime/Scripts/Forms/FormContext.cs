@@ -5,20 +5,20 @@ using HELIX.Widgets.Modifiers;
 
 namespace HELIX.Widgets.Forms {
   public sealed class FormContext {
-    public readonly FormController Controller;
-    public readonly string PathPrefix;
+    public readonly FormController controller;
+    public readonly string pathPrefix;
 
     private FormContext(FormController controller, string pathPrefix) {
-      Controller = controller ?? throw new ArgumentNullException(nameof(controller));
-      PathPrefix = FormPath.Normalize(pathPrefix);
+      this.controller = controller ?? throw new ArgumentNullException(nameof(controller));
+      this.pathPrefix = FormPath.Normalize(pathPrefix);
     }
 
     public string ResolvePath(string path) {
-      return FormPath.Compose(PathPrefix, path);
+      return FormPath.Compose(pathPrefix, path);
     }
 
     public FormContext WithPrefix(string prefix) {
-      return new FormContext(Controller, ResolvePath(prefix));
+      return new FormContext(controller, ResolvePath(prefix));
     }
 
     public static FormContext Resolve(BuildContext context) {
@@ -41,9 +41,8 @@ namespace HELIX.Widgets.Forms {
       string pathPrefix,
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(child, key, constants, modifiers) {
+    ) : base(child, key, modifiers) {
       this.controller = controller ?? throw new ArgumentNullException(nameof(controller));
       this.pathPrefix = FormPath.Normalize(pathPrefix);
     }

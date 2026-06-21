@@ -19,8 +19,8 @@ namespace HELIX.Widgets.Theming {
     }
 
     public void ApplyGlobal(bool clearExisting = true) {
-      Apply(ThemeProviderElement.GlobalThemeValues, clearExisting);
-      ThemeProviderElement.NotifyGlobalThemeUpdate();
+      Apply(ThemeProviderNode.GlobalThemeValues, clearExisting);
+      ThemeProviderNode.NotifyGlobalThemeUpdate();
     }
 
     public static class Companion {

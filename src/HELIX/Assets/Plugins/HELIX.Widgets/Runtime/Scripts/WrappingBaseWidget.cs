@@ -18,7 +18,7 @@ namespace HELIX.Widgets {
       Key key = default,
       object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) { }
+    ) : base(key, modifiers) { }
 
     public override IWidgetElement CreateElement() {
       var element = Create();

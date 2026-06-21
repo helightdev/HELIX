@@ -36,6 +36,16 @@ namespace HELIX.Widgets.Forms {
       return _data.ContainsKey(FormPath.Normalize(path));
     }
 
+    public bool TryGetValue<T>(string path, out T value) {
+      if (_data.TryGetValue(FormPath.Normalize(path), out var obj) && obj is T typed) {
+        value = typed;
+        return true;
+      }
+
+      value = default;
+      return false;
+    }
+
     public T GetValue<T>(string path, T fallback = default) {
       if (!_data.TryGetValue(FormPath.Normalize(path), out var value) || value == null) return fallback;
       if (value is T typed) return typed;

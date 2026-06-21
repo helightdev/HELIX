@@ -76,19 +76,20 @@ public partial class WidgetExamples {
       padding = EdgeInsets.Symmetric(spacing.Space2, 0),
       layers = new SubstanceBuilder(null)
         .Append((x) => new BoxSubstance() {
-          background = new WidgetStatePropertyMap<BackgroundStyle>() {
-            [WidgetState.Disabled] = Colors.Hex("#21212180").WithOpacity(0.33f),
-            [WidgetState.ModAny | WidgetState.Hovered | WidgetState.Focused] = Colors.Hex("#6868684d"),
-            [WidgetState.None] = Colors.Hex("#21212180").WithOpacity(0.5f)
-          },
-          border = new WidgetStatePropertyMap<Border>() {
-            [WidgetState.Disabled] = Border.All(1, colors.outline.WithOpacity(0.1f)),
-            [WidgetState.Error] = Border.All(1, Colors.Hex("#e66670")),
-            [WidgetState.ModAny | WidgetState.Hovered | WidgetState.Focused] = Border.All(1, colors.outline),
-            [WidgetState.None] = Border.All(1, colors.outline.WithOpacity(0.5f)),
-          },
-          borderRadius = BorderRadius.All(PrimitiveRadiusScheme.Default.Radius2),
-        })
+            background = new WidgetStatePropertyMap<BackgroundStyle>() {
+              [WidgetState.Disabled] = Colors.Hex("#21212180").WithOpacity(0.33f),
+              [WidgetState.ModAny | WidgetState.Hovered | WidgetState.Focused] = Colors.Hex("#6868684d"),
+              [WidgetState.None] = Colors.Hex("#21212180").WithOpacity(0.5f)
+            },
+            border = new WidgetStatePropertyMap<Border>() {
+              [WidgetState.Disabled] = Border.All(1, colors.outline.WithOpacity(0.1f)),
+              [WidgetState.Error] = Border.All(1, Colors.Hex("#e66670")),
+              [WidgetState.ModAny | WidgetState.Hovered | WidgetState.Focused] = Border.All(1, colors.outline),
+              [WidgetState.None] = Border.All(1, colors.outline.WithOpacity(0.5f)),
+            },
+            borderRadius = BorderRadius.All(PrimitiveRadiusScheme.Default.Radius2),
+          }
+        )
         .Build()
     };
 
@@ -101,7 +102,6 @@ public partial class WidgetExamples {
         new PrimitiveThemeComponent() {
           textField = textfield
         }
-
       }
     ) {
       new HStatefulBuilder((context, _) =>
@@ -174,6 +174,14 @@ public partial class WidgetExamples {
           new HText("Display text").Display(context),
           new HText("Body copy follows the active theme typography and color tokens.").Body(context),
           new HText("Caption text is intended for secondary metadata.").Caption(context),
+          new HTextTheme(
+            new TextStyle { color = Color.blue },
+            new HTextTheme(
+              new TextStyle { fontSize = 64 },
+              new HText("This text is red, but the theme is blue.")
+            )
+          ),
+
           new HRow(gap: 18, crossAxisAlign: Align.Center) {
             new HIcon(
               FaSolidIcons.AddressBook,

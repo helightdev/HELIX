@@ -106,7 +106,7 @@ namespace HELIX.Widgets.Theming {
       return false;
     }
 
-    public virtual bool TryCompute(ThemeProviderElement provider, out T result) {
+    public virtual bool TryCompute(ThemeProviderNode provider, out T result) {
       result = defaultValue;
       return false;
     }
@@ -114,7 +114,7 @@ namespace HELIX.Widgets.Theming {
 
   public class ThemeProperty<T> : BaseThemeProperty<T> {
     private Dictionary<Type, Func<object, object>> _componentExtractors;
-    private Func<ThemeProviderElement, T> _computeFunc;
+    private Func<ThemeProviderNode, T> _computeFunc;
     private IThemeStyleValueLoader<T> _styleLoader;
     private string _styleName;
 
@@ -193,7 +193,7 @@ namespace HELIX.Widgets.Theming {
       return this;
     }
 
-    public ThemeProperty<T> Compute(Func<ThemeProviderElement, T> computeFunc) {
+    public ThemeProperty<T> Compute(Func<ThemeProviderNode, T> computeFunc) {
       _computeFunc = computeFunc;
       return this;
     }
@@ -218,7 +218,7 @@ namespace HELIX.Widgets.Theming {
       return false;
     }
 
-    public override bool TryCompute(ThemeProviderElement provider, out T result) {
+    public override bool TryCompute(ThemeProviderNode provider, out T result) {
       if (_computeFunc != null) {
         result = _computeFunc(provider);
         return true;

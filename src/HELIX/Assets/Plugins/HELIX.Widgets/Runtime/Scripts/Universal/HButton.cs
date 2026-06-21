@@ -77,9 +77,8 @@ namespace HELIX.Widgets.Universal {
       ColorTokenPalette palette = null,
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(child, key, constants, modifiers) {
+    ) : base(child, key, modifiers) {
       this.child = child;
       this.controller = controller;
       this.focusKey = focusKey;

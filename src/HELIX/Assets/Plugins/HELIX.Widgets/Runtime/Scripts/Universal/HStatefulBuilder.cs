@@ -19,9 +19,8 @@ namespace HELIX.Widgets.Universal {
     public HStatefulBuilder(
       BuildFunction<State<HStatefulBuilder>> builder,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       this.builder = builder;
     }
 

@@ -27,9 +27,8 @@ namespace HELIX.Widgets.Universal {
       Alignment alignment,
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(child, key, constants) {
+    ) : base(child, key) {
       this.alignment = alignment;
 
       DefaultModifiers(ModifierSet.DefaultFlexFillAndStacking, modifiers);

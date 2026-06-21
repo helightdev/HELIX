@@ -26,9 +26,8 @@ namespace HELIX.Widgets.Universal {
       Dictionary<ThemeProperty, object> properties = null,
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(child, key, constants) {
+    ) : base(child, key) {
       this.components = components;
       this.properties = properties;
 

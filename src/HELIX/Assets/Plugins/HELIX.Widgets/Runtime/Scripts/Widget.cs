@@ -19,26 +19,6 @@ namespace HELIX.Widgets {
   /// for diagnostics, modifiers, state reconciliation, and defining widget-specific behavior.
   /// </summary>
   public abstract class Widget : DiagnosticableTreeBase, IWidgetListCandidate {
-    /// <summary>
-    /// <para>An array of constant objects associated with the widget.</para>
-    /// <para>
-    /// The <c>constants</c> property is used to prevent reconciliation (rebuilding)
-    /// when updating the widget tree. If the array of constants in the current widget
-    /// matches the array in the previous widget during a reconciliation check,
-    /// the system assumes the widgets are equivalent, and no further updates are applied.
-    /// </para>
-    /// <para>
-    /// The exact same widget with the <b>same reference</b> is <b>always considered equivalent</b> and
-    /// therefore treated as constant, using a <c>constants</c> array here is not beneficial.
-    /// </para>
-    /// <para>
-    /// If the constants provided in two widgets do not match, the reconciliation system
-    /// performs a normal rebuild of the corresponding widget subtree.
-    /// </para>
-    /// </summary>
-    /// <seealso cref="ModifierExtensions.Const"/>
-    /// <seealso cref="Reconciler.MaybeReconcile"/>
-    public object[] constants;
 
     /// <summary>
     /// <para>A unique identifier for the widget instance.</para>
@@ -81,6 +61,8 @@ namespace HELIX.Widgets {
     /// <seealso cref="Modifier"/>
     protected ModifierSet modifiers = ModifierSet.Empty;
 
+    public WidgetFlags flags;
+
 
     /// <summary>
     /// Base constructor for a widget. See <see cref="key"/> and <see cref="constants"/> and <see cref="modifiers"/>
@@ -88,13 +70,15 @@ namespace HELIX.Widgets {
     /// </summary>
     protected Widget(
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
     ) {
-      this.constants = constants;
       this.key = key;
       if (modifiers is ModifierSet set) this.modifiers = set;
       if (modifiers != null) AddModifiers(modifiers);
+
+      if (BuildContext.Current != null) {
+        flags |= WidgetFlags.Ephemeral;
+      }
     }
 
     /// <summary>
@@ -170,17 +154,6 @@ namespace HELIX.Widgets {
       }
 
       properties.Add(
-        new IterableProperty<object>(
-          "retention",
-          constants,
-          ifNull: null,
-          identityOnly: true,
-          ifEmpty: "Constant",
-          level: constants == null ? DiagnosticLevel.Hidden : DiagnosticLevel.Info
-        )
-      );
-
-      properties.Add(
         new IterableProperty<Modifier>(
           "modifiers",
           visibleModifiers,
@@ -243,6 +216,15 @@ namespace HELIX.Widgets {
       new HostedWidget(element, constants: new object[] { element });
   }
 
+  [Flags]
+  public enum WidgetFlags : byte {
+    None = 0,
+
+    Ephemeral = 1 << 0,
+    Constant = 1 << 1,
+
+  }
+
   /// <summary>
   /// Base class for a <see cref="Widget"/> that contains at most one child widget.
   /// </summary>
@@ -260,9 +242,8 @@ namespace HELIX.Widgets {
     protected SingleChildWidget(
       Widget child = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       this.child = child;
     }
 
@@ -299,9 +280,8 @@ namespace HELIX.Widgets {
     protected MultiChildWidget(
       IReadOnlyList<Widget> children = null,
       Key key = default,
-      object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
-    ) : base(key, constants, modifiers) {
+    ) : base(key, modifiers) {
       this.children = children;
     }
 
@@ -456,7 +436,7 @@ namespace HELIX.Widgets {
     /// </remarks>
     public static T Get<T>(this ThemeProperty<T> property, IThemeProvider context, bool listen = true) {
       if (context != null) return context.GetThemed(property, listen);
-      return ThemeProviderElement.Resolve(null, property);
+      return ThemeProviderNode.Resolve(null, property);
     }
 
 
@@ -477,7 +457,7 @@ namespace HELIX.Widgets {
       bool listen = true
     ) {
       if (context != null) return context.TryGetThemed(property, out value, listen);
-      return ThemeProviderElement.TryResolve(null, property, out value);
+      return ThemeProviderNode.TryResolve(null, property, out value);
     }
   }
 }
