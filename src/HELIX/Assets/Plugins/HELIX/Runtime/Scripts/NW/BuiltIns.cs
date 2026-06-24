@@ -184,7 +184,7 @@ namespace HELIX.NW {
 
   public static partial class ButtonDefinition {
     [CompositionBoundary(Base = typeof(BuiltIns.InputClickableBase<>))]
-    public static partial ref ElementRef Button( // This dictates name and props of the struct
+    public static partial ref ElementRef Button(
       ref this Composition cx,
       [Prop] string label = null,
       [Prop] Action<IBoundary> action = null
@@ -196,7 +196,7 @@ namespace HELIX.NW {
         if (InputState.Pressed()) color = Colors.Red;
         else if (InputState.Hovered()) color = Colors.Blue;
 
-        cx.Text(Props.Label).TextColor(color); // Just draw the label for now
+        cx.Text(Props.Label).TextColor(color);
       }
 
       protected override void OnClick(EventBase evt) {

@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEditor;
 using UnityEngine.Pool;
 
 namespace HELIX.NW {
@@ -22,7 +20,6 @@ namespace HELIX.NW {
     public SparseContextMap() : base(_defaultCapacity){ }
 
     public SparseContextMap(int capacity) : base(capacity) { }
-
 
     public IContextData this[Type state] {
       get {

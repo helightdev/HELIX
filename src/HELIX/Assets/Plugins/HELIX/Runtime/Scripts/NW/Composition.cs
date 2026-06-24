@@ -3,23 +3,6 @@ using System.Runtime.InteropServices;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
-  [AttributeUsage(AttributeTargets.Method)]
-  public class CompositionAttribute : Attribute { }
-
-  [AttributeUsage(AttributeTargets.Method)]
-  public class CompositionBoundaryAttribute : Attribute {
-    public Type Base { get; set; }
-  }
-
-  [AttributeUsage(AttributeTargets.Parameter)]
-  public class PropAttribute : Attribute { }
-
-  public delegate void Composable(ref Composition ctx);
-
-  public delegate void InlineComposable(ref Composition ctx);
-
-  public delegate void InlineComposable<in T>(ref Composition ctx, T value);
-
   public delegate void ScopeCompletionCallback(BoundaryCell cell, in ScopeHandle handle);
 
   public ref struct Composition {

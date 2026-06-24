@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using HELIX.Extensions;
-using UnityEngine;
-using UnityEngine.Pool;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
@@ -218,13 +216,4 @@ namespace HELIX.NW {
 
   public sealed class GenericPropsState<T> : NodeState<T> where T : struct { }
   public sealed class AnonymousNodeState : NodeState { }
-
-  public interface IContextData {
-    uint Version { get; }
-  }
-
-  public class ContextHierarchy {
-    public ContextHierarchy parent;
-    public Dictionary<Type, IContextData> data;
-  }
 }
