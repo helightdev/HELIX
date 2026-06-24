@@ -164,6 +164,8 @@ public partial class WidgetExamples {
     ).Stretch();
   }
 
+
+
   private static Widget BuildTextIconPreview() {
     return new HStatefulBuilder((context, _) => {
         var typography = context.GetThemed(PrimitiveBaseTheme.Typography);
