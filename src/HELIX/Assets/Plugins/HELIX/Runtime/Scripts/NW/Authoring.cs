@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
@@ -14,16 +15,21 @@ namespace HELIX.NW {
       return cursor;
     }
 
+    public LocalId GetCurrentLocalId() {
+      return cell.localId;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ulong PrepareId(ushort typeId) {
-      id.key = cell.key;
+      //id.key = cell.key;
       id.type = typeId;
+      id.local = cell.localId;
       return id.packed;
     }
 
     public bool RequireTracked<T>(ushort typeId, out T value, out bool retained) where T : VisualElement {
-      var current = ReadCursor();
       var packed = PrepareId(typeId);
+      var current = cell.ReadCursorOrFind(packed);
       if (current is T typed) {
         value = typed;
 
@@ -47,8 +53,8 @@ namespace HELIX.NW {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool RequireComposable<T>(ushort typeId, out T value, out bool retained)
       where T : VisualElement, IComposable {
-      var current = ReadCursor();
       var packed = PrepareId(typeId);
+      var current = cell.ReadCursorOrFind(packed);
       if (current is T typed) {
         value = typed;
         retained = typed.EnsureIdentity(packed);
@@ -71,16 +77,14 @@ namespace HELIX.NW {
     }
 
     public bool InitializeNode(ushort typeId, out CompositionNode node) {
-      var current = ReadCursor();
       var packed = PrepareId(typeId);
+      var current = cell.ReadCursorOrFind(packed);
       if (current is CompositionNode typed) {
         node = typed;
         return !typed.EnsureIdentity(packed);
       }
 
-      node = new CompositionNode {
-        TypeId = packed
-      };
+      node = new CompositionNode { TypeId = packed };
       return true;
     }
 
@@ -93,8 +97,13 @@ namespace HELIX.NW {
     public ref ElementRef YieldBoundary<T>(ref Composition ctx, T given) where T : VisualElement, IBoundary {
       ref var element = ref YieldElement(ref ctx, given);
       given.RefreshHierarchy();
-      RecompositionScope.MarkDirty(given);
-      return ref element;
+      var scope = ScopeHandle.Push(cell, given, null);
+      try {
+        RecompositionScope.MarkDirty(given);
+      } catch (Exception e) {
+        Debug.LogException(e);
+      }
+      return ref scope.Apply(given, given, ref element);
     }
 
     public ref ElementRef YieldElement(ref Composition ctx, VisualElement given) {
@@ -102,15 +111,16 @@ namespace HELIX.NW {
       var currentIndex = container.IndexOf(given);
       if (currentIndex == cell.cursor) goto complete;
 
-      if (currentIndex != -1) {
-        throw new InvalidOperationException(
-          $"Element {given} is already in the container at index {currentIndex}, but the cursor is at {cell.cursor}."
-        );
+      if (currentIndex != -1 && given.parent == container) {
+        container.hierarchy.RemoveAt(currentIndex);
+        container.Insert(cell.cursor, given);
+        // TODO: Maybe do this using Sort() to prevent animation interruptions
+        goto complete;
       }
 
       if (given.parent != null) {
         throw new InvalidOperationException(
-          $"Element {given} is already parented to {given.parent}, but the cursor is at {cell.cursor}."
+          $"Element {given} is already parented to {given.parent}, but the cursor is at {cell.cursor} in {container.name}."
         );
       }
 
@@ -119,7 +129,6 @@ namespace HELIX.NW {
       } else {
         container.Add(given);
       }
-
 
       complete:
       if (given is IComposable composable) {
@@ -135,7 +144,7 @@ namespace HELIX.NW {
       ctx.APPLY.element = composable.Element;
       ctx.APPLY.composable = composable;
       cell.cursor++;
-      id.localIndex++;
+      cell.localId.index++;
       cursor = null; // Clear authoring element
       return ref ctx.APPLY;
     }

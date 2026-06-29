@@ -25,6 +25,11 @@ namespace HELIX.NW {
       return ref scope;
     }
 
+    public static ref ElementRef Display(this ref ElementRef scope, bool display) {
+      scope.composable.Element.Display(display);
+      scope.composable.DirtyFlags |= UssDirtyFlags.Visibility;
+      return ref scope;
+    }
 
     // Flex
     private static readonly ushort _flexId = CompositionId.GetTypeId();
@@ -65,6 +70,15 @@ namespace HELIX.NW {
       return ref ctx.AUTHORING.YieldElement(ref ctx, label);
     }
 
+
+    public static ref ElementRef TextField(this ref Composition ctx) {
+      if (!ctx.AUTHORING.RequireTracked<TextField>(_textId, out var label, out var retained)) {
+        label = new TextField();
+      }
+
+      return ref ctx.AUTHORING.YieldElement(ref ctx, label);
+    }
+
     // Boundary
     private static readonly ushort _boundaryId = CompositionId.GetTypeId();
 
@@ -76,7 +90,7 @@ namespace HELIX.NW {
       return ref ctx.AUTHORING.YieldBoundary(ref ctx, node);
     }
 
-    public static ref ElementRef Boundary<T>(this ref Composition ctx, Composable composable, T props)
+    public static ref ElementRef Boundary<T>(this ref Composition ctx, T props, Composable composable)
       where T : struct {
       if (ctx.AUTHORING.InitializePropsBoundaryNode<T>(_boundaryId, out var node, out var state)) {
         // No state initialization
@@ -181,8 +195,8 @@ namespace HELIX.NW {
     }
   }
 
-
   public static partial class ButtonDefinition {
+
     [CompositionBoundary(Base = typeof(BuiltIns.InputClickableBase<>))]
     public static partial ref ElementRef Button(
       ref this Composition cx,
@@ -191,6 +205,8 @@ namespace HELIX.NW {
     );
 
     public partial class ButtonState {
+      [Context] ContextReference<int> Inline = TestClass.MyKey;
+
       protected override void OnRecompose(ref Composition cx) {
         var color = Colors.Black;
         if (InputState.Pressed()) color = Colors.Red;

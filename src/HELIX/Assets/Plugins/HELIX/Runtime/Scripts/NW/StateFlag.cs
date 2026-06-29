@@ -100,7 +100,7 @@ namespace HELIX.NW {
     }
   }
 
-  public delegate void WidgetStateComposable(ref Composition cx, in StateFlag state);
+  public delegate void WidgetStateComposable(ref Composition cx, StateFlag state);
 
   public interface IWidgetStateHolder {
     StateFlag InputState { get; set; }

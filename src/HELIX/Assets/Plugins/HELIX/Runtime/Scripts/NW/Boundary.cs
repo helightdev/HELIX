@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using HELIX.Coloring;
+using HELIX.Diagnostics;
 using HELIX.Extensions;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
@@ -12,7 +15,7 @@ namespace HELIX.NW {
     int TreeDepth { get; }
 
     SparseContextMap AcquireContext();
-    void ContributeContext(Dictionary<Type, IContextData> context);
+    void ContributeContext(Dictionary<int, ContextData> context);
 
     void RefreshHierarchy();
     void SetState(NodeState state);
@@ -25,7 +28,7 @@ namespace HELIX.NW {
 
     public IComposable current;
     public int cursor;
-    public ushort key;
+    public LocalId localId;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public VisualElement ReadCursor() {
@@ -33,10 +36,33 @@ namespace HELIX.NW {
       return element.childCount <= cursor ? null : element.ElementAt(cursor);
     }
 
+    public VisualElement ReadCursorOrFind(ulong typeId) {
+      // Get the current cursor or finds the element after the current curser if it already exists
+      var element = ReadCursor();
+      if (element == null) return null;
+      if (GetTypeId(element) == typeId) return element;
+      for (var i = cursor + 1; i < current.Element.childCount; i++) {
+        var child = current.Element.ElementAt(i);
+        if (GetTypeId(child) == typeId) return child;
+      }
+
+      return element;
+    }
+
+    public ulong GetTypeId(VisualElement element) {
+      if (element is IComposable composable) {
+        return composable.TypeId;
+      } else {
+        if (element.userData is UserdataTracker tracker) return tracker.TypeId;
+        return 0;
+      }
+    }
+
     public void TrimChildren() {
       var element = current.Element;
       var overflow = element.childCount - cursor;
       for (var i = 0; i < overflow; i++) {
+        //Debug.Log($"Removing child {i} from {element.name}");
         element.RemoveAt(element.childCount - 1);
       }
       //if (overflow > 0) Debug.LogWarning($"Removed {overflow} children");
@@ -54,7 +80,7 @@ namespace HELIX.NW {
       return Context;
     }
 
-    public void ContributeContext(Dictionary<Type, IContextData> context) {
+    public void ContributeContext(Dictionary<int, ContextData> context) {
       Context?.LoadInto(context);
     }
 
@@ -77,10 +103,27 @@ namespace HELIX.NW {
     public UssDirtyFlags DirtyFlags { get; set; }
     public ulong TypeId { get; set; }
 
+    //private int rebuildCount = 0;
+
     protected CompositionBoundaryNodeBase() {
       RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
       RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
+      //name = $"Boundary{this.ShortHash()}";
+      //generateVisualContent += GenerateDebugVisuals;
     }
+
+    // private void GenerateDebugVisuals(MeshGenerationContext obj) {
+    //   obj.painter2D.PathRect(layout.WithPosition(Vector2.zero));
+    //   var color = Colors.Hsv(rebuildCount % 60 / 60f, 0.5f, 1f);
+    //   obj.painter2D.strokeColor = color;
+    //   obj.painter2D.Stroke();
+    //
+    //   // Draw id as text
+    //   obj.DrawText(new CompositionId() {
+    //     packed = TypeId
+    //   }.ToString(), new Vector2(0, -10), 12, color);
+    //
+    // }
 
     public void RefreshHierarchy() {
       Parent = GetFirstAncestorOfType<IBoundary>();
@@ -106,12 +149,14 @@ namespace HELIX.NW {
 
     public void Recompose() {
       try {
+        //rebuildCount++;
         RecompositionScope.MarkClean(this);
         BeginContext();
         Compose();
       } finally {
         EndContext();
         RecompositionScope.MarkClean(this);
+        //MarkDirtyRepaint();
       }
     }
 

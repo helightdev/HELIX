@@ -8,7 +8,7 @@ namespace HELIX.NW {
     public static bool UseEventLoop = false;
 
     private static readonly IndexedReferencePriorityQueue<IBoundary, int> _dirty = new();
-    private static readonly Dictionary<Type, IContextData> _context = new();
+    private static readonly Dictionary<int, ContextData> _context = new();
     private static bool _isScoped = false;
     private static bool _isProcessing = false;
 
@@ -49,14 +49,25 @@ namespace HELIX.NW {
 #endif
     }
 
-    internal static void PutContext(Type type, IContextData data) => _context[type] = data;
+    internal static void PutContext(int keyId, ContextData data) => _context[keyId] = data;
 
-    internal static void PutPrevious(Type type, IContextData data, bool existed) {
-      if (existed) _context[type] = data;
-      else _context.Remove(type);
+    internal static void PutPrevious(int keyId, ContextData data, bool existed) {
+      if (existed) _context[keyId] = data;
+      else _context.Remove(keyId);
     }
 
-    public static bool TryGetContext(Type type, out IContextData data) => _context.TryGetValue(type, out data);
+    public static bool TryGetContext(int keyId, out ContextData data) => _context.TryGetValue(keyId, out data);
+
+    public static bool TryGetContext<T>(ContextKey<T> key, out ContextData<T> data) {
+      _context.TryGetValue(key.id, out var value);
+      if (value is ContextData<T> typed) {
+        data = typed;
+        return true;
+      }
+      data = null;
+      return false;
+
+    }
 
     private static void ProcessDirty() {
       if (_isProcessing) throw new InvalidOperationException("NotificationScope is already processing rebuilds");

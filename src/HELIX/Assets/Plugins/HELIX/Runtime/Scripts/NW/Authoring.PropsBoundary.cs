@@ -1,9 +1,7 @@
-using System;
-using System.Runtime.CompilerServices;
-using UnityEngine.UIElements;
-
 namespace HELIX.NW {
+
   public ref partial struct CompositionAuthoring {
+
     private bool RequirePropsBoundaryNode<T>(
       ushort typeId,
       out CompositionBoundaryNode node,

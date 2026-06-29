@@ -1,5 +1,6 @@
 using System;
 using HELIX.Abstractions;
+using HELIX.Diagnostics;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
@@ -14,6 +15,9 @@ namespace HELIX.NW {
 
   [AttributeUsage(AttributeTargets.Parameter)]
   public class PropAttribute : Attribute { }
+
+  [AttributeUsage(AttributeTargets.Field)]
+  public class ContextAttribute : Attribute { }
 
   public delegate void Composable(ref Composition ctx);
 
@@ -41,5 +45,9 @@ namespace HELIX.NW {
     public ulong TypeId { get; set; }
 
     public void Reset() { }
+
+    public CompositionNode() {
+      //name = $"Node{this.ShortHash()}";
+    }
   }
 }

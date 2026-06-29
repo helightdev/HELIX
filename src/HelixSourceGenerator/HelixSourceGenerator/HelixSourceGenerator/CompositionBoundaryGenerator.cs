@@ -44,9 +44,12 @@ namespace HELIX.SourceGen {
     private const string AttributeMetadataName = "HELIX.NW.CompositionBoundaryAttribute";
     private const string CompositionTypeName = "HELIX.NW.Composition";
     private const string CompositionIdTypeName = "HELIX.NW.CompositionId";
+    private const string NodeStateTypeName = "HELIX.NW.NodeState";
+    private const string IBoundaryTypeName = "HELIX.NW.IBoundary";
     private const string CompositionInternalsTypeName = "HELIX.NW.CompositionInternals";
     private const string CompositionTransferTypeName = "HELIX.NW.CompositionInternals.TransferData";
     private const string PropsBaseTypeName = "HELIX.NW.PropsNodeStateAttachmentBase";
+    private const string ContextAttributeName = "HELIX.NW.ContextAttribute";
 
     private static readonly DiagnosticDescriptor MustBeStatic = new DiagnosticDescriptor(
       "HLX010",
@@ -221,6 +224,16 @@ namespace HELIX.SourceGen {
       var idField = $"_{lower}Id";
       var typeIdField = $"_{lower}TypeId";
 
+      // Gather [Context]-marked fields on the state type; each gets a Pull() call injected
+      // into OnRecompose before base.OnRecompose runs. Initialization/reset is the user's
+      // responsibility via the field initializer.
+      var pullLines = new StringBuilder();
+      foreach (var member in stateType.GetMembers()) {
+        if (member is not IFieldSymbol field) continue;
+        if (!field.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == ContextAttributeName)) continue;
+        pullLines.Append($"          {field.Name}.Pull();\n");
+      }
+
       var receiverName = method.Parameters[0].Name; // the 'cx' name
       var extraParams = method.Parameters.Skip(1).ToArray();
 
@@ -274,10 +287,12 @@ namespace HELIX.SourceGen {
 {propsMembers}    }}
 
     partial class {stateName} : {baseOpen}<{propsName}> {{
-      public override void OnRecompose(ref {CompositionTypeName} cx, NodeState state, IBoundary boundary) {{
+      public override void OnRecompose(ref global::{CompositionTypeName} cx, global::{NodeStateTypeName} state, global::{IBoundaryTypeName} boundary) {{
         var transfer = new {CompositionTransferTypeName}();
         {CompositionInternalsTypeName}.EnterComposition(ref cx, {idField}, ref transfer);
-        try {{ base.OnRecompose(ref cx, state, boundary); }}
+        try {{
+{pullLines}          base.OnRecompose(ref cx, state, boundary);
+        }}
         finally {{ {CompositionInternalsTypeName}.ExitComposition(ref cx, ref transfer); }}
       }}
     }}
