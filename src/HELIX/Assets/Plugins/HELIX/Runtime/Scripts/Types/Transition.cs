@@ -4,6 +4,46 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
+
+  public struct TransitionOptions : IEquatable<TransitionOptions> {
+    public static readonly TransitionOptions Default = new(
+      new EasingFunction(EasingMode.Linear),
+      new TimeValue(DefaultDuration, TimeUnit.Millisecond),
+      new TimeValue(0f, TimeUnit.Millisecond)
+    );
+
+    public const float DefaultDuration = 200f;
+
+
+    public EasingFunction easing;
+    public TimeValue duration;
+    public TimeValue delay;
+
+    public TransitionOptions(EasingFunction easing, TimeValue duration, TimeValue delay) {
+      this.easing = easing;
+      this.duration = duration;
+      this.delay = delay;
+    }
+
+    public TransitionOptions(EasingFunction easing, TimeValue duration) : this() {
+      this.easing = easing;
+      this.duration = duration;
+      delay = new TimeValue(0f, TimeUnit.Millisecond);
+    }
+
+    public bool Equals(TransitionOptions other) {
+      return easing.Equals(other.easing) && duration.Equals(other.duration) && delay.Equals(other.delay);
+    }
+
+    public override bool Equals(object obj) {
+      return obj is TransitionOptions other && Equals(other);
+    }
+
+    public override int GetHashCode() {
+      return HashCode.Combine(easing, duration, delay);
+    }
+  }
+
   public struct Transition : IEquatable<Transition> {
     public readonly StylePropertyName property;
     public EasingFunction easing;

@@ -8,9 +8,11 @@ namespace HELIX.NW {
   public readonly struct ContextKey<T> {
 
     public readonly int id;
+    public readonly T defaultValue;
 
     private ContextKey(int id) {
       this.id = id;
+      defaultValue = default;
     }
 
     public ContextKey(string name) {
@@ -20,7 +22,23 @@ namespace HELIX.NW {
       }
 
       id = ContextKeyData.NextId++;
+      defaultValue = default;
       ContextKeyData.Registry[id] = new ContextKeyData(typeof(T), name);
+    }
+
+    public ContextKey(string name, T defaultValue) : this(name) {
+      this.defaultValue = defaultValue;
+    }
+
+    public bool TryReadScope(out T value) {
+      value = defaultValue;
+      if (!RecompositionScope.TryGetContext(this, out var read)) return false;
+      value = read.value;
+      return true;
+    }
+
+    public T ReadScopeOrDefault() {
+      return !RecompositionScope.TryGetContext(this, out var read) ? defaultValue : read.value;
     }
 
     public static implicit operator ContextKey<T>(int id) => new(id);
@@ -38,11 +56,6 @@ namespace HELIX.NW {
     public static bool TryGetData(int id, out ContextKeyData data) {
       return ContextKeyData.Registry.TryGetValue(id, out data);
     }
-  }
-
-  public static class TestClass {
-    public static readonly ContextKey<int> MyKey = new("MyKey");
-
   }
 
 
@@ -69,15 +82,20 @@ namespace HELIX.NW {
 
     public abstract void Delete();
     public abstract void Dispose();
+
+    public void Increment(ContextFlags flags) {
+      unchecked { version.counter++; }
+      version.flags = flags;
+    }
   }
 
   public class ContextData<T> : ContextData {
 
-    public T Value { get; protected set; }
+    public T value;
     public ContextVersion Version => version;
 
-    public void Update(T value) {
-      Value = value;
+    public void Update(T updated) {
+      value = updated;
       unchecked { version.counter++; }
       version.flags = ContextFlags.None;
     }
@@ -85,14 +103,16 @@ namespace HELIX.NW {
     public override void Delete() {
       unchecked { version.counter++; }
       version.flags = ContextFlags.Empty;
-      Value = default;
+      value = default;
     }
 
     public override void Dispose() {
       unchecked { version.counter++; }
       version.flags = ContextFlags.Disposed;
-      Value = default;
+      value = default;
     }
+
+    public ref T GetValueRef() => ref value;
   }
 
   [StructLayout(LayoutKind.Sequential, Size = 8)]
@@ -176,7 +196,7 @@ namespace HELIX.NW {
         return false;
       }
 
-      output = value.Value;
+      output = value.value;
       return true;
     }
 

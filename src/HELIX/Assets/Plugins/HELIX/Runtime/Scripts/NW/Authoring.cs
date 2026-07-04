@@ -136,7 +136,7 @@ namespace HELIX.NW {
       } else {
         composable = (UserdataTracker)(given.userData ??= new UserdataTracker {
           TypeId = id.packed,
-          DirtyFlags = UssDirtyFlags.None,
+          Flag = UssFlag.None,
           Element = given
         });
       }

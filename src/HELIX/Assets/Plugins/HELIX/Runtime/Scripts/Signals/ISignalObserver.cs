@@ -4,7 +4,7 @@ using HELIX.Widgets.Utilities;
 using UnityEngine;
 
 namespace HELIX.Widgets.Signals {
-  public interface ISignalObserver {
+  public interface ISignalObserver : IPossiblyDisposed {
     void OnSignalChanged(Signal signal) { }
     void OnSignalRemoved(Signal signal) { }
     void OnSignalAdded(Signal signal) { }

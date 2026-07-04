@@ -36,8 +36,13 @@ namespace HELIX.NW {
     // }
 
     public T ReadContext<T>(ContextKey<T> key) {
-      if (RecompositionScope.TryGetContext(key, out var read)) return read.Value;
+      if (RecompositionScope.TryGetContext(key, out var read)) return read.value;
       return default;
+    }
+
+    public T ReadContextOrDefault<T>(ContextKey<T> key, T defaultValue = default) {
+      if (RecompositionScope.TryGetContext(key, out var read)) return read.value;
+      return defaultValue;
     }
 
     public ContextReference<T> ReadContextReference<T>(ContextKey<T> key) {
@@ -60,7 +65,18 @@ namespace HELIX.NW {
       var existed = RecompositionScope.TryGetContext(key, out var previous);
       context.Put(key, written);
       RecompositionScope.PutContext(key, written);
-      return new ContextScope<T>(key, previous, existed, value);
+      return new ContextScope<T>(key, previous, existed);
+    }
+
+    public ContextScope<T> WritableContext<T>(ContextKey<T> key, out ContextData<T> data) {
+      var context = boundary.AcquireContext();
+      context.TryGet(key, out data);
+      data ??= new ContextData<T>();
+
+      var existed = RecompositionScope.TryGetContext(key, out var previous);
+      context.Put(key, data);
+      RecompositionScope.PutContext(key, data);
+      return new ContextScope<T>(key, previous, existed);
     }
   }
 
@@ -68,10 +84,8 @@ namespace HELIX.NW {
     private readonly ContextKey<T> _key;
     private readonly ContextData _previous;
     private readonly bool _existed;
-    public readonly T value;
 
-    public ContextScope(ContextKey<T> key, ContextData previous, bool existed, T value) {
-      this.value = value;
+    public ContextScope(ContextKey<T> key, ContextData previous, bool existed) {
       _key = key;
       _previous = previous;
       _existed = existed;
@@ -80,8 +94,6 @@ namespace HELIX.NW {
     public void Dispose() {
       RecompositionScope.PutPrevious(_key, _previous, _existed);
     }
-
-    public static implicit operator T(ContextScope<T> scope) => scope.value;
   }
 
   public static class CompositionInternals {
@@ -129,6 +141,15 @@ namespace HELIX.NW {
 
     public override string ToString() {
       return $"L{index}@{depth}";
+    }
+
+    public static LocalId FromData(int data) {
+      var short01 = (ushort)(data & 0xFFFF);
+      var short23 = (ushort)((data >> 16) & 0xFFFF);
+      return new LocalId {
+        index = short01,
+        depth = short23
+      };
     }
   }
 
@@ -178,6 +199,8 @@ namespace HELIX.NW {
     private static ushort _compositionIdCounter = 1;
     private static ushort _typeIdCounter = 1;
 
+    public static ushort GeneratedTypeId = GetTypeId("Hash");
+
     [FieldOffset(0)]
     public LocalId local;
     [FieldOffset(4)]
@@ -205,6 +228,15 @@ namespace HELIX.NW {
 
     public override string ToString() {
       return $"{local}T{type}C{composition}";
+    }
+
+    public static CompositionId Generated(ushort composition, int data) {
+      var local = LocalId.FromData(data);
+      return new CompositionId {
+        local = local,
+        composition = composition,
+        type = GeneratedTypeId
+      };
     }
   }
 

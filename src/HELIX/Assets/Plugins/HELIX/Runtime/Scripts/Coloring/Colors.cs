@@ -98,6 +98,12 @@ namespace HELIX.Coloring {
       return Color.HSVToRGB(h, s, v);
     }
 
+    public static Color Hsl(float h, float s, float l) {
+      var v = l + s * Mathf.Min(l, 1 - l);
+      var sv = v == 0 ? 0 : 2 * (1 - l / v);
+      return Color.HSVToRGB(h, sv, v);
+    }
+
     public static Color AlphaBlend(Color background, Color foreground) {
       var alpha = foreground.a;
       var backAlpha = background.a;

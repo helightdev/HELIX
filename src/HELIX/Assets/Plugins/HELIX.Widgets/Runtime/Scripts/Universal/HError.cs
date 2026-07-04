@@ -50,7 +50,7 @@ namespace HELIX.Widgets.Universal {
         background: colors.error.container,
         child: new HText(
           line,
-          style: new TextStyle {
+          style: new HTextStyle {
             color = colors.error.onContainer
           }
         )

@@ -23,7 +23,7 @@ namespace HELIX.Widgets.Universal.Styles {
     public WidgetStateProperty<StyleLength4> padding = WidgetStateProperties.Never<StyleLength4>();
     public WidgetStateProperty<Color> selectionColor = WidgetStateProperties.Never<Color>();
 
-    public WidgetStateProperty<TextStyle> textStyle = WidgetStateProperties.Never<TextStyle>();
+    public WidgetStateProperty<HTextStyle> textStyle = WidgetStateProperties.Never<HTextStyle>();
 
     public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
       properties.Add(new DiagnosticsProperty<object>("alignment", alignment));
@@ -40,7 +40,7 @@ namespace HELIX.Widgets.Universal.Styles {
       var colors = PrimitiveBaseTheme.Colors.Get(context);
 
       return new HTextFieldStyle {
-        textStyle = new TextStyle {
+        textStyle = new HTextStyle {
           color = colors.surface.onMain,
           fontSize = typography.FontSize2
         },

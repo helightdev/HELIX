@@ -29,7 +29,7 @@ namespace HELIX.Widgets.Universal {
 
     public readonly string text;
     public readonly bool tripleClickSelectsLine;
-    public TextStyle style;
+    public HTextStyle style;
 
     /// <summary>
     /// Creates a wrapper widget around <see cref="Label"/> that allows for easy configuration of the textual content.
@@ -55,7 +55,7 @@ namespace HELIX.Widgets.Universal {
       bool doubleClickSelectsWords = true,
       bool tripleClickSelectsLine = true,
       LanguageDirection languageDirection = LanguageDirection.Inherit,
-      TextStyle style = null,
+      HTextStyle style = null,
       Key key = default,
       object[] constants = null,
       IReadOnlyCollection<Modifier> modifiers = null
@@ -88,7 +88,7 @@ namespace HELIX.Widgets.Universal {
       element.selection.tripleClickSelectsLine = tripleClickSelectsLine;
 
       if (previous == null || !Equals(style, previous.style)) {
-        (style ?? TextStyle.Default).Apply(element);
+        (style ?? HTextStyle.Default).Apply(element);
       }
     }
 
@@ -138,7 +138,7 @@ namespace HELIX.Widgets.Universal {
     public static HText Body(this HText text, IThemeProvider theme, int level = 1) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
       var textColor = theme.GetThemed(PrimitiveTheme.Text);
-      text.style ??= new TextStyle { color = textColor };
+      text.style ??= new HTextStyle { color = textColor };
       text.style.fontSize = level switch {
         <= 1 => typography.FontSize3,
         2 => typography.FontSize4,
@@ -157,7 +157,7 @@ namespace HELIX.Widgets.Universal {
     public static HText Heading(this HText text, IThemeProvider theme, int level = 1) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
       var textColor = theme.GetThemed(PrimitiveTheme.Text);
-      text.style ??= new TextStyle { color = textColor };
+      text.style ??= new HTextStyle { color = textColor };
       text.style.fontSize = level switch {
         <= 1 => typography.FontSize6,
         2 => typography.FontSize7,
@@ -177,7 +177,7 @@ namespace HELIX.Widgets.Universal {
     public static HText Caption(this HText text, IThemeProvider theme, int level = 1) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
       var textColor = theme.GetThemed(PrimitiveTheme.Text);
-      text.style ??= new TextStyle { color = textColor };
+      text.style ??= new HTextStyle { color = textColor };
       text.style.fontSize = level switch {
         <= 1 => typography.FontSize1,
         _ => typography.FontSize2
@@ -195,18 +195,18 @@ namespace HELIX.Widgets.Universal {
     public static HText Display(this HText text, IThemeProvider theme) {
       var typography = theme.GetThemed(PrimitiveBaseTheme.Typography);
       var textColor = theme.GetThemed(PrimitiveTheme.Text);
-      text.style ??= new TextStyle { color = textColor };
+      text.style ??= new HTextStyle { color = textColor };
       text.style.fontSize = typography.FontSize9;
       return text;
     }
   }
 
   public class HTextTheme : SingleChildWidget {
-    public readonly TextStyle style;
+    public readonly HTextStyle style;
     public readonly bool inherit;
 
     public HTextTheme(
-      TextStyle style,
+      HTextStyle style,
       Widget child = null,
       bool inherit = true,
       Key key = default,
@@ -222,32 +222,32 @@ namespace HELIX.Widgets.Universal {
       return ReconcileInto(new HTextThemeElement());
     }
 
-    public static readonly ThemeProperty<TextStyle> Property = new("text-theme", TextStyle.Default);
+    public static readonly ThemeProperty<HTextStyle> Property = new("text-theme", HTextStyle.Default);
 
-    public static TextStyle Get(IThemeProvider provider, bool listen = true) {
+    public static HTextStyle Get(IThemeProvider provider, bool listen = true) {
       var theme = Property.Get(provider, listen);
-      return theme ?? TextStyle.Default;
+      return theme ?? HTextStyle.Default;
     }
   }
 
   public class HTextThemeElement : ThemeProviderNodeBase<HTextTheme> {
-    private TextStyle _overrides;
+    private HTextStyle _overrides;
     private bool _inherit = true;
 
-    private TextStyle _lastParent;
-    private TextStyle _lastSelf;
-    private TextStyle _buffer = new();
+    private HTextStyle _lastParent;
+    private HTextStyle _lastSelf;
+    private HTextStyle _buffer = new();
 
     public override void Apply(HTextTheme previous, HTextTheme widget) {
       if (Equals(_overrides, widget.style)) return;
-      _overrides = widget.style ?? TextStyle.Default;
+      _overrides = widget.style ?? HTextStyle.Default;
       _inherit = widget.inherit;
       ListenerNotifyThemeUpdate();
     }
 
     protected override void ListenerNotifyThemeUpdate() {
       var hasChanged = !Equals(_lastSelf, _overrides);
-      TextStyle parentStyle = null;
+      HTextStyle parentStyle = null;
       if (_inherit) {
         parentStyle = HTextTheme.Property.Get(Parent, false);
         hasChanged |= !Equals(_lastParent, parentStyle);

@@ -6,18 +6,18 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Modifiers {
   public class TextStyleModifier : Modifier {
-    public readonly TextStyle style;
+    public readonly HTextStyle style;
 
-    public TextStyleModifier(TextStyle style) {
+    public TextStyleModifier(HTextStyle style) {
       this.style = style;
     }
 
     public override void Apply(VisualElement element) {
-      (style ?? TextStyle.Default).Apply(element);
+      (style ?? HTextStyle.Default).Apply(element);
     }
 
     public override void Reset(VisualElement element) {
-      TextStyle.Default.Apply(element);
+      HTextStyle.Default.Apply(element);
     }
 
     public override bool HasChanged(Modifier previous) {
@@ -30,7 +30,7 @@ namespace HELIX.Widgets.Modifiers {
       properties.Add(new TextStyleProperty("style", style, showName: false));
     }
 
-    public static TextStyleModifier Of(TextStyle style) {
+    public static TextStyleModifier Of(HTextStyle style) {
       return new TextStyleModifier(style);
     }
   }

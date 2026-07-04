@@ -7,10 +7,10 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Diagnostics.Properties {
-  public class TextStyleProperty : DiagnosticsProperty<TextStyle> {
+  public class TextStyleProperty : DiagnosticsProperty<HTextStyle> {
     public TextStyleProperty(
       string name,
-      TextStyle value,
+      HTextStyle value,
       string ifNull = null,
       bool showName = true,
       object defaultValue = null,

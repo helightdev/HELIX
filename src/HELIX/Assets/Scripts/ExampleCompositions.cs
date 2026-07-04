@@ -12,14 +12,24 @@ namespace TestNamespace {
     public static ulong clickCounter = 0;
 
 
+    public static readonly TextStyle LocalDefault = new(style: FontStyle.Bold);
+
     [Composition]
     private static void _MyComposition(ref Composition cx) {
+      var theme = ThemeData.Context.ReadScopeOrDefault();
+
       cx.WriteContext(SpecConfiguration.Key, DefaultFactory);
+      ref var defaultTextStyle = ref theme.GetTextStyleRef(TextRole.BodyMedium);
+      TextStyle.WriteMerged(ref cx, in defaultTextStyle);
+      defaultTextStyle.Apply(cx.boundary);
+
 
       // using var exampleContext = cx.WriteContext<ExampleContext>();
       // exampleContext.value.counter = counter;
       using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
         cx.APPLY.Padding(10).Padding(20);
+        cx.APPLY.BackgroundColor(theme.GetColor(ColorRoles.Surface));
+
         var id = counter++;
 
         cx.Text($"Title");
@@ -33,23 +43,43 @@ namespace TestNamespace {
         //   clickCounter++;
         // }).Padding(20);
 
+        cx.DrawSolidBox(
+          color: theme.GetColor(ColorRoles.SurfaceContainerLow),
+          constraints: BoxConstraints.Preferred(64, 64)
+        );
+        cx.DrawSolidBox(
+          color: theme.GetColor(ColorRoles.SurfaceContainer),
+          constraints: BoxConstraints.Preferred(64, 64)
+        );
+        cx.DrawSolidBox(
+          color: theme.GetColor(ColorRoles.SurfaceContainerHigh),
+          constraints: BoxConstraints.Preferred(64, 64)
+        );
+        cx.DrawSolidBox(
+          color: theme.GetColor(ColorRoles.SurfaceContainerHighest),
+          constraints: BoxConstraints.Preferred(64, 64)
+        );
+
         //if (cx.Conditional(counter / 100 % 2 == 0))
-        cx.Button(
-          $"Click me Switch",
-          static x => {
-            clickCounter++;
-            Debug.Log($"Click {clickCounter} Switch!");
-          }
-        ).BackgroundColor(Colors.BlueGrey).Display(counter / 100 % 2 == 0);
+        // cx.Button(
+        //   $"Click me Switch",
+        //   static x => {
+        //     clickCounter++;
+        //     Debug.Log($"Click {clickCounter} Switch!");
+        //   }
+        // ).BackgroundColor(Colors.BlueGrey).Display(counter / 100 % 2 == 0);
 
         cx.Text($"AfterSwitch");
 
         cx.Button(
-          $"Click me",
-          static x => {
+          static (ref Composition cx) => {
+            cx.Text("Click me");
+          },
+          static boundary => {
             clickCounter++;
             Debug.Log($"Click {clickCounter}!");
-          }
+          },
+          selected: true
         );
         cx.Text($"AfterButton");
 
@@ -90,7 +120,12 @@ namespace TestNamespace {
       .AddFactory<ButtonSpecs>(ButtonSpecDrawer);
 
     public static void ButtonSpecDrawer(ref Composition cx, in ButtonSpecs specs) {
-      cx.Button(specs.Label, specs.OnClick);
+      cx.Button(
+        static (ref Composition cx) => {
+          cx.Text("Click me Spec");
+        },
+        specs.OnClick
+      );
     }
 
     public struct ButtonSpecs : ISpec {
@@ -125,11 +160,11 @@ namespace TestNamespace {
     public ExampleVisualElement() {
       var boundaryNode = new CompositionBoundaryNode { composable = ExampleCompositions.MyComposition };
       Add(boundaryNode);
-      //RecompositionScope.MarkDirty(boundaryNode);
-      schedule.Execute(() => {
-          RecompositionScope.MarkDirty(boundaryNode);
-        }
-      ).Every(0).Resume();
+      RecompositionScope.MarkDirty(boundaryNode);
+      // schedule.Execute(() => {
+      //     RecompositionScope.MarkDirty(boundaryNode);
+      //   }
+      // ).Every(0).Resume();
     }
   }
 }

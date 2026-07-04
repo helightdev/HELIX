@@ -2,9 +2,6 @@ using System;
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Error;
 using HELIX.Diagnostics.Properties;
-using HELIX.Widgets.Diagnostics;
-using HELIX.Widgets.Diagnostics.Error;
-using HELIX.Widgets.Diagnostics.Properties;
 
 namespace HELIX.Widgets.Signals {
   /// <summary>
@@ -45,7 +42,9 @@ namespace HELIX.Widgets.Signals {
 
       try {
         _isComputing = true;
-        _tracker.RunBuild(() => { _cachedValue = _computeFunc(); });
+        using (_tracker.BuildScope()) {
+          _cachedValue = _computeFunc();
+        }
       } catch (HelixDiagnosticException) { throw; } catch (Exception ex) {
         throw HelixDiagnostics.Build(
           "An error occurred while computing a signal value.",

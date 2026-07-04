@@ -62,12 +62,12 @@ public partial class WidgetExamples {
     var spacing = PrimitiveSpacingScheme.Default;
 
     var textfield = new HTextFieldStyle {
-      textStyle = new WidgetStatePropertyMap<TextStyle>() {
-        [WidgetState.Disabled] = new TextStyle {
+      textStyle = new WidgetStatePropertyMap<HTextStyle>() {
+        [WidgetState.Disabled] = new HTextStyle {
           color = colors.surface.onMain.WithOpacity(0.33f),
           fontSize = typography.FontSize2
         },
-        [WidgetState.None] = new TextStyle {
+        [WidgetState.None] = new HTextStyle {
           color = colors.surface.onMain,
           fontSize = typography.FontSize2
         }
@@ -177,9 +177,9 @@ public partial class WidgetExamples {
           new HText("Body copy follows the active theme typography and color tokens.").Body(context),
           new HText("Caption text is intended for secondary metadata.").Caption(context),
           new HTextTheme(
-            new TextStyle { color = Color.blue },
+            new HTextStyle { color = Color.blue },
             new HTextTheme(
-              new TextStyle { fontSize = 64 },
+              new HTextStyle { fontSize = 64 },
               new HText("This text is red, but the theme is blue.")
             )
           ),

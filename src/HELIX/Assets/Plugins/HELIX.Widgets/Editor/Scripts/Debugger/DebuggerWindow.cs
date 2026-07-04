@@ -54,9 +54,9 @@ namespace HELIX.Widgets.Editor.Debugger {
 
   public class DebuggerWidgetState : State<DebuggerWidget> {
     private readonly HButtonStyle _buttonStyle = new() {
-      textStyle = new WidgetStatePropertyMap<TextStyle> {
-        [WidgetState.Hovered] = new TextStyle { color = Colors.White },
-        [WidgetState.None] = new TextStyle { color = Colors.White80 }
+      textStyle = new WidgetStatePropertyMap<HTextStyle> {
+        [WidgetState.Hovered] = new HTextStyle { color = Colors.White },
+        [WidgetState.None] = new HTextStyle { color = Colors.White80 }
       },
       padding = EdgeInsets.Symmetric(8, 4),
       layers = new BoxSubstance {
@@ -133,12 +133,12 @@ namespace HELIX.Widgets.Editor.Debugger {
   }
 
   public class NodeTreeWidgetState : State<NodeTreeWidget> {
-    private static readonly WidgetStateProperty<TextStyle> _textStyle = new WidgetStatePropertyMap<TextStyle> {
-      [WidgetState.Selected] = new TextStyle { color = MaterialColors.Amber },
-      [WidgetState.Hovered] = new TextStyle { color = Colors.White },
-      [WidgetState.Special1] = new TextStyle { color = Colors.White30 },
-      [WidgetState.Special2] = new TextStyle { color = Colors.White60 },
-      [WidgetState.None] = new TextStyle { color = Colors.White90 }
+    private static readonly WidgetStateProperty<HTextStyle> _textStyle = new WidgetStatePropertyMap<HTextStyle> {
+      [WidgetState.Selected] = new HTextStyle { color = MaterialColors.Amber },
+      [WidgetState.Hovered] = new HTextStyle { color = Colors.White },
+      [WidgetState.Special1] = new HTextStyle { color = Colors.White30 },
+      [WidgetState.Special2] = new HTextStyle { color = Colors.White60 },
+      [WidgetState.None] = new HTextStyle { color = Colors.White90 }
     };
 
     private NodeTreeWidget[] _children;
@@ -237,7 +237,7 @@ namespace HELIX.Widgets.Editor.Debugger {
           crossAxisAlign: Align.FlexStart,
           children: properties.Select(x => new HText(
               $"{x.Name}: {x.Value}",
-              style: new TextStyle { wrap = WhiteSpace.Normal }
+              style: new HTextStyle { wrap = WhiteSpace.Normal }
             )
           ).ToArray()
         ).Margin(EdgeInsets.Only(16))

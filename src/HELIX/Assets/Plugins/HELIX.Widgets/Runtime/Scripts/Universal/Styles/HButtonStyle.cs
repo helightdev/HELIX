@@ -45,7 +45,7 @@ namespace HELIX.Widgets.Universal.Styles {
     /// <summary>
     /// Define the default text applied using <see cref="Modifiers.TextStyleModifier"/>.
     /// </summary>
-    public WidgetStateProperty<TextStyle> textStyle = WidgetStateProperties.Never<TextStyle>();
+    public WidgetStateProperty<HTextStyle> textStyle = WidgetStateProperties.Never<HTextStyle>();
 
 
     public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {

@@ -90,8 +90,8 @@ namespace HELIX.NW {
 
     protected virtual void EndContext() {
       if (Context == null) return;
-      Context.Prune();
-      if (Context.Count != 0) return;
+      Context.PrunePublications();
+      if (Context.PublicationCount != 0) return;
       SparseContextMap.Release(Context);
       Context = null;
     }
@@ -100,7 +100,7 @@ namespace HELIX.NW {
     public NodeState State { get; private set; }
     public BoundaryCell Cell { get; } = BoundaryCell.Shared;
 
-    public UssDirtyFlags DirtyFlags { get; set; }
+    public UssFlag Flag { get; set; }
     public ulong TypeId { get; set; }
 
     //private int rebuildCount = 0;

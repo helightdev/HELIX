@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Error;
-using HELIX.Widgets.Diagnostics;
-using HELIX.Widgets.Diagnostics.Error;
+using HELIX.NW;
 using HELIX.Widgets.Utilities;
 using UnityEngine.Pool;
 
@@ -20,6 +19,8 @@ namespace HELIX.Widgets.Signals {
     private const int _maxNotificationStackDepth = 16;
     private readonly HashSet<ISignalObserver> _observers = new();
     private int _notificationStackDepth;
+
+    public bool IsDisposed { get; private set; }
 
     public virtual void Dispose() {
       if (IsDisposed) return;
@@ -46,8 +47,6 @@ namespace HELIX.Widgets.Signals {
         _observers.Clear();
       }
     }
-
-    public bool IsDisposed { get; private set; }
 
     protected void NotifyDirty() {
       if (_notificationStackDepth >= _maxNotificationStackDepth) {
@@ -112,7 +111,9 @@ namespace HELIX.Widgets.Signals {
         return;
       }
 
-      ModificationBarrier.Run(SendNotifyObservers);
+      using (HX.BatchScope()) {
+        SendNotifyObservers();
+      }
     }
 
     private void SendNotifyObservers() {

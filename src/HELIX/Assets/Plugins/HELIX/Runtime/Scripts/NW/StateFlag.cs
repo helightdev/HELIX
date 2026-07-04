@@ -100,19 +100,10 @@ namespace HELIX.NW {
     }
   }
 
-  public delegate void WidgetStateComposable(ref Composition cx, StateFlag state);
+  public delegate void StateComposable(ref Composition cx, StateFlag state);
 
   public interface IWidgetStateHolder {
     StateFlag InputState { get; set; }
-  }
-
-  public interface IInlineComposableState<T> {
-    InlineComposable<T> Composable { get; set; }
-    T CompositionArgument { get; }
-  }
-
-  public interface IInlineComposableState {
-    InlineComposable Composable { get; set; }
   }
 
   public static class WidgetStateHolderExtensions {
@@ -195,33 +186,36 @@ namespace HELIX.NW {
     }
   }
 
-  public static class WidgetStateProperties {
-    public static WidgetStateProperty<T> Never<T>() {
-      return NeverWidgetStateProperty<T>.Instance;
+  public static class StateProperties {
+    public static StateProperty<T> Never<T>() {
+      return NeverStateProperty<T>.Instance;
     }
 
-    public static WidgetStateProperty<T> All<T>(T constant) {
-      return new AllWidgetStateProperty<T>(constant);
+    public static StateProperty<T> All<T>(T constant) {
+      return new AllStateProperty<T>(constant);
     }
 
-    public static WidgetStateProperty<T> Func<T>(Func<StateFlag, T> resolver) {
-      return new FuncWidgetStateProperty<T>(resolver);
+    public static StateProperty<T> Func<T>(Func<StateFlag, T> resolver) {
+      return new FuncStateProperty<T>(resolver);
     }
   }
 
-  public abstract class WidgetStateProperty<T> : DiagnosticableBase {
+  public abstract class StateProperty<T> : DiagnosticableBase {
     public abstract bool TryResolve(StateFlag state, out T value);
 
     public T ResolveOrDefault(StateFlag state, T defaultValue = default) {
       return TryResolve(state, out var value) ? value : defaultValue;
     }
 
-    public static implicit operator WidgetStateProperty<T>(T constant) {
-      return WidgetStateProperties.All(constant);
+    public abstract bool HasValueFor(StateFlag state);
+    public abstract ref T GetValueRef(StateFlag state);
+
+    public static implicit operator StateProperty<T>(T constant) {
+      return StateProperties.All(constant);
     }
   }
 
-  public class WidgetStatePropertyMap<T> : WidgetStateProperty<T> {
+  public class StatePropertyMap<T> : StateProperty<T> {
     private readonly List<Pair> _values = new();
 
     public T this[StateFlag state] {
@@ -240,7 +234,22 @@ namespace HELIX.NW {
       return false;
     }
 
-    protected bool Equals(WidgetStatePropertyMap<T> other) {
+    public override bool HasValueFor(StateFlag state) {
+      for (var index = 0; index < _values.Count; index++) {
+        var pair = _values[index];
+        if (state.Matches(pair.mask)) return true;
+      }
+      return false;
+    }
+    public override ref T GetValueRef(StateFlag state) {
+      for (var index = 0; index < _values.Count; index++) {
+        var pair = _values[index];
+        if (state.Matches(pair.mask)) return ref pair.value;
+      }
+      throw new KeyNotFoundException($"No value found for state {state}");
+    }
+
+    protected bool Equals(StatePropertyMap<T> other) {
       return _values != null && other._values != null &&
              _values.SequenceEqual(other._values);
     }
@@ -249,7 +258,7 @@ namespace HELIX.NW {
       if (obj is null) return false;
       if (ReferenceEquals(this, obj)) return true;
       if (obj.GetType() != GetType()) return false;
-      return Equals((WidgetStatePropertyMap<T>)obj);
+      return Equals((StatePropertyMap<T>)obj);
     }
 
     public override int GetHashCode() {
@@ -261,9 +270,9 @@ namespace HELIX.NW {
       properties.Add(new IterableProperty<Pair>("values", _values, showName: false));
     }
 
-    private readonly struct Pair : IEquatable<Pair> {
+    private class Pair : IEquatable<Pair> {
       public readonly StateFlag mask;
-      public readonly T value;
+      public T value;
 
       public Pair(StateFlag mask, T value) {
         this.mask = mask;
@@ -271,7 +280,7 @@ namespace HELIX.NW {
       }
 
       public bool Equals(Pair other) {
-        return mask == other.mask && EqualityComparer<T>.Default.Equals(value, other.value);
+        return other != null && mask == other.mask && EqualityComparer<T>.Default.Equals(value, other.value);
       }
 
       public override bool Equals(object obj) {
@@ -288,16 +297,23 @@ namespace HELIX.NW {
     }
   }
 
-  public class NeverWidgetStateProperty<T> : WidgetStateProperty<T> {
-    public static readonly NeverWidgetStateProperty<T> Instance = new();
-    private NeverWidgetStateProperty() { }
+  public class NeverStateProperty<T> : StateProperty<T> {
+    public static readonly NeverStateProperty<T> Instance = new();
+    private NeverStateProperty() { }
 
     public override bool TryResolve(StateFlag state, out T value) {
       value = default;
       return false;
     }
 
-    protected bool Equals(NeverWidgetStateProperty<T> other) {
+    public override bool HasValueFor(StateFlag state) {
+      return false;
+    }
+    public override ref T GetValueRef(StateFlag state) {
+      throw new KeyNotFoundException($"No value found for state {state}");
+    }
+
+    protected bool Equals(NeverStateProperty<T> other) {
       return true;
     }
 
@@ -305,7 +321,7 @@ namespace HELIX.NW {
       if (obj is null) return false;
       if (ReferenceEquals(this, obj)) return true;
       if (obj.GetType() != GetType()) return false;
-      return Equals((NeverWidgetStateProperty<T>)obj);
+      return Equals((NeverStateProperty<T>)obj);
     }
 
     public override int GetHashCode() {
@@ -317,14 +333,14 @@ namespace HELIX.NW {
     }
   }
 
-  public class AllWidgetStateProperty<T> : WidgetStateProperty<T>, IEquatable<AllWidgetStateProperty<T>> {
-    private readonly T _constant;
+  public class AllStateProperty<T> : StateProperty<T>, IEquatable<AllStateProperty<T>> {
+    private T _constant;
 
-    public AllWidgetStateProperty(T constant) {
+    public AllStateProperty(T constant) {
       _constant = constant;
     }
 
-    public bool Equals(AllWidgetStateProperty<T> other) {
+    public bool Equals(AllStateProperty<T> other) {
       if (ReferenceEquals(null, other)) return false;
       return EqualityComparer<T>.Default.Equals(_constant, other._constant);
     }
@@ -334,8 +350,15 @@ namespace HELIX.NW {
       return true;
     }
 
+    public override bool HasValueFor(StateFlag state) {
+      return true;
+    }
+    public override ref T GetValueRef(StateFlag state) {
+      return ref _constant;
+    }
+
     public override bool Equals(object obj) {
-      return obj is AllWidgetStateProperty<T> other && Equals(other);
+      return obj is AllStateProperty<T> other && Equals(other);
     }
 
     public override int GetHashCode() {
@@ -347,15 +370,16 @@ namespace HELIX.NW {
     }
   }
 
-  public class FuncWidgetStateProperty<T> : WidgetStateProperty<T>,
-    IEquatable<FuncWidgetStateProperty<T>> {
+  public class FuncStateProperty<T> : StateProperty<T>,
+    IEquatable<FuncStateProperty<T>> {
     private readonly Func<StateFlag, T> _resolver;
+    private T _buffer;
 
-    public FuncWidgetStateProperty(Func<StateFlag, T> resolver) {
+    public FuncStateProperty(Func<StateFlag, T> resolver) {
       _resolver = resolver;
     }
 
-    public bool Equals(FuncWidgetStateProperty<T> other) {
+    public bool Equals(FuncStateProperty<T> other) {
       if (ReferenceEquals(null, other)) return false;
       return Equals(_resolver, other._resolver);
     }
@@ -365,8 +389,16 @@ namespace HELIX.NW {
       return true;
     }
 
+    public override bool HasValueFor(StateFlag state) {
+      return true;
+    }
+    public override ref T GetValueRef(StateFlag state) {
+      _buffer = _resolver(state);
+      return ref _buffer;
+    }
+
     public override bool Equals(object obj) {
-      return obj is FuncWidgetStateProperty<T> other && Equals(other);
+      return obj is FuncStateProperty<T> other && Equals(other);
     }
 
     public override int GetHashCode() {

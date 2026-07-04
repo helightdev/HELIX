@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.NW {
   [Flags]
-  public enum UssDirtyFlags : uint {
+  public enum UssFlag : uint {
     None = 0,
     Flex = 1 << 1,
     GroupAlign = 1 << 2,
@@ -48,10 +48,10 @@ namespace HELIX.NW {
 
 #if ENABLE_PROFILER
       _marker.Begin();
-      var currentFlags = tracker.DirtyFlags;
-      if (currentFlags != UssDirtyFlags.None) {
+      var currentFlags = tracker.Flag;
+      if (currentFlags != UssFlag.None) {
         currentFlags.ClearFlags(tracker.Element);
-        tracker.DirtyFlags = UssDirtyFlags.None;
+        tracker.Flag = UssFlag.None;
       }
       _marker.End();
 
@@ -71,49 +71,49 @@ namespace HELIX.NW {
       return false;
     }
 
-    public static void ClearFlags(this UssDirtyFlags flags, VisualElement element) {
+    public static void ClearFlags(this UssFlag flags, VisualElement element) {
       flags.ClearFlags(element.style, element);
     }
 
-    public static void ClearFlags(this UssDirtyFlags flags, IStyle style, VisualElement element) {
+    public static void ClearFlags(this UssFlag flags, IStyle style, VisualElement element) {
       var mask = (uint)flags;
 
       while (mask != 0) {
         var lowestBit = mask & (uint)-(int)mask;
         var bitIndex = _deBruijnTable[(lowestBit * _deBruijnMagic) >> 27];
-        ClearFlag(style, element, (UssDirtyFlags)(1u << bitIndex));
+        ClearFlag(style, element, (UssFlag)(1u << bitIndex));
         mask &= mask - 1;
       }
     }
 
-    private static void ClearFlag(IStyle style, VisualElement element, UssDirtyFlags flag) {
+    private static void ClearFlag(IStyle style, VisualElement element, UssFlag flag) {
       switch (flag) {
-        case UssDirtyFlags.None: break;
-        case UssDirtyFlags.Flex:
+        case UssFlag.None: break;
+        case UssFlag.Flex:
           style.flexGrow = StyleKeyword.Null;
           style.flexShrink = StyleKeyword.Null;
           style.flexBasis = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.GroupAlign:
+        case UssFlag.GroupAlign:
           style.justifyContent = StyleKeyword.Null;
           style.alignItems = StyleKeyword.Null;
           style.alignContent = StyleKeyword.Null;
           style.flexDirection = StyleKeyword.Null;
           style.flexWrap = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Padding:
+        case UssFlag.Padding:
           style.paddingLeft = StyleKeyword.Null;
           style.paddingRight = StyleKeyword.Null;
           style.paddingTop = StyleKeyword.Null;
           style.paddingBottom = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Margin:
+        case UssFlag.Margin:
           style.marginLeft = StyleKeyword.Null;
           style.marginRight = StyleKeyword.Null;
           style.marginTop = StyleKeyword.Null;
           style.marginBottom = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Size:
+        case UssFlag.Size:
           style.width = StyleKeyword.Null;
           style.height = StyleKeyword.Null;
           style.minWidth = StyleKeyword.Null;
@@ -122,84 +122,84 @@ namespace HELIX.NW {
           style.maxHeight = StyleKeyword.Null;
           style.aspectRatio = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Position:
+        case UssFlag.Position:
           style.left = StyleKeyword.Null;
           style.top = StyleKeyword.Null;
           style.right = StyleKeyword.Null;
           style.bottom = StyleKeyword.Null;
           style.position = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.BorderColor:
+        case UssFlag.BorderColor:
           style.borderLeftColor = StyleKeyword.Null;
           style.borderRightColor = StyleKeyword.Null;
           style.borderTopColor = StyleKeyword.Null;
           style.borderBottomColor = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.BorderWidth:
+        case UssFlag.BorderWidth:
           style.borderLeftWidth = StyleKeyword.Null;
           style.borderRightWidth = StyleKeyword.Null;
           style.borderTopWidth = StyleKeyword.Null;
           style.borderBottomWidth = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Radius:
+        case UssFlag.Radius:
           style.borderTopLeftRadius = StyleKeyword.Null;
           style.borderTopRightRadius = StyleKeyword.Null;
           style.borderBottomRightRadius = StyleKeyword.Null;
           style.borderBottomLeftRadius = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Background:
+        case UssFlag.Background:
           style.backgroundColor = StyleKeyword.Null;
           style.backgroundImage = StyleKeyword.Null;
           style.backgroundSize = StyleKeyword.Null;
           style.backgroundRepeat = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Transform:
+        case UssFlag.Transform:
           style.transformOrigin = StyleKeyword.Null;
           style.translate = StyleKeyword.Null;
           style.rotate = StyleKeyword.Null;
           style.scale = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Visibility:
+        case UssFlag.Visibility:
           style.display = StyleKeyword.Null;
           style.visibility = StyleKeyword.Null;
           style.opacity = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Text:
+        case UssFlag.Text:
           style.color = StyleKeyword.Null;
           style.fontSize = StyleKeyword.Null;
+          style.letterSpacing = StyleKeyword.Null;
           style.unityFontStyleAndWeight = StyleKeyword.Null;
           style.unityTextAlign = StyleKeyword.Null;
-          break;
-        case UssDirtyFlags.TextFont:
-          style.unityFont = StyleKeyword.Null;
+          style.whiteSpace = StyleKeyword.Null;
+          style.textOverflow = StyleKeyword.Null;
           style.unityFontDefinition = StyleKeyword.Null;
-          style.letterSpacing = StyleKeyword.Null;
+          break;
+        case UssFlag.TextFont:
+          style.unityFont = StyleKeyword.Null;
           style.wordSpacing = StyleKeyword.Null;
           style.unityParagraphSpacing = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.TextOutline:
+        case UssFlag.TextOutline:
           style.unityTextOutlineColor = StyleKeyword.Null;
           style.unityTextOutlineWidth = StyleKeyword.Null;
           style.textShadow = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.TextLayout:
-          style.whiteSpace = StyleKeyword.Null;
-          style.textOverflow = StyleKeyword.Null;
+        case UssFlag.TextLayout:
           style.unityTextOverflowPosition = StyleKeyword.Null;
           style.unityTextAutoSize = StyleKeyword.Null;
           style.unityTextGenerator = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Transition:
+        case UssFlag.Transition:
           style.transitionDelay = StyleKeyword.Null;
           style.transitionDuration = StyleKeyword.Null;
           style.transitionTimingFunction = StyleKeyword.Null;
           style.transitionProperty = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Clipping:
+        case UssFlag.Clipping:
           style.overflow = StyleKeyword.Null;
           style.unityOverflowClipBox = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.BackgroundSlice:
+        case UssFlag.BackgroundSlice:
           style.unitySliceTop = StyleKeyword.Null;
           style.unitySliceBottom = StyleKeyword.Null;
           style.unitySliceLeft = StyleKeyword.Null;
@@ -207,23 +207,23 @@ namespace HELIX.NW {
           style.unitySliceScale = StyleKeyword.Null;
           style.unitySliceType = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.BackgroundAdvanced:
+        case UssFlag.BackgroundAdvanced:
           style.backgroundPositionX = StyleKeyword.Null;
           style.backgroundPositionY = StyleKeyword.Null;
           style.unityBackgroundImageTintColor = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Special:
+        case UssFlag.Special:
           style.filter = StyleKeyword.Null;
           style.unityMaterial = StyleKeyword.Null;
           style.cursor = StyleKeyword.Null;
           break;
-        case UssDirtyFlags.Classes:
+        case UssFlag.Classes:
           element.ClearClassList();
           break;
-        case UssDirtyFlags.Name:
+        case UssFlag.Name:
           element.name = null;
           break;
-        case UssDirtyFlags.Focus:
+        case UssFlag.Focus:
           element.pickingMode = PickingMode.Position;
           element.focusable = false;
           element.delegatesFocus = false;

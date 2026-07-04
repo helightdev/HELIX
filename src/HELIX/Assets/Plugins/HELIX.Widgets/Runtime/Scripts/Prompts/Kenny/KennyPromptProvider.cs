@@ -44,7 +44,7 @@ namespace HELIX.Widgets.Prompts.Kenny {
 
       layers = Substance.Builder((_, _) => new HText(
           label,
-          style: new TextStyle {
+          style: new HTextStyle {
             color = Color.white,
             align = TextAnchor.MiddleCenter,
             generator = TextGeneratorType.Advanced,

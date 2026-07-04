@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using HELIX.Diagnostics;
-using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Utilities;
 
 namespace HELIX.Widgets.Signals {
@@ -42,6 +41,13 @@ namespace HELIX.Widgets.Signals {
       IsDisposed = true;
     }
 
+    public void Clear() {
+      IsDisposed = false;
+      IsBuilding = false;
+      _implicitBuffer.Clear();
+      _removalQueue.Clear();
+    }
+
     public bool IsDisposed { get; private set; }
 
     public void OnSignalChanged(Signal signal) {
@@ -64,6 +70,14 @@ namespace HELIX.Widgets.Signals {
     public void OnSignalDirty(Signal signal) {
       if (IsDisposed) return;
       _forwarder?.OnSignalDirty(signal);
+    }
+
+    public Scope BuildScope() {
+      if (IsDisposed) throw new ObjectDisposedException(nameof(SignalDependencyTracker));
+      var previous = Current;
+      BeginBuild();
+      Current = this;
+      return new Scope(this, previous);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -135,6 +149,21 @@ namespace HELIX.Widgets.Signals {
     public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
       base.DebugFillProperties(properties);
       properties.Add(new DiagnosticsProperty<object>("owner", owner, showName: false));
+    }
+
+    public readonly struct Scope : IDisposable {
+      public readonly SignalDependencyTracker tracker;
+      public readonly SignalDependencyTracker previous;
+
+      public Scope(SignalDependencyTracker tracker, SignalDependencyTracker previous) {
+        this.tracker = tracker;
+        this.previous = previous;
+      }
+
+      public void Dispose() {
+        tracker.EndBuild();
+        Current = previous;
+      }
     }
   }
 }

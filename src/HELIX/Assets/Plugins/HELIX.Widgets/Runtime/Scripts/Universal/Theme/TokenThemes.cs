@@ -104,12 +104,12 @@ namespace HELIX.Widgets.Universal.Theme {
       }
     );
 
-    public static readonly ThemeProperty<TextStyle> FallbackTextStyle = new ThemeProperty<TextStyle>(
-      "primitive-fallback-text-style", TextStyle.Default
+    public static readonly ThemeProperty<HTextStyle> FallbackTextStyle = new ThemeProperty<HTextStyle>(
+      "primitive-fallback-text-style", HTextStyle.Default
     ).Compute(element => {
         var colors = PrimitiveBaseTheme.Colors.Get(element, false);
         var typography = PrimitiveBaseTheme.Typography.Get(element);
-        return new TextStyle { color = colors.surface.onMain, fontSize = typography.FontSize3 };
+        return new HTextStyle { color = colors.surface.onMain, fontSize = typography.FontSize3 };
       }
     );
 

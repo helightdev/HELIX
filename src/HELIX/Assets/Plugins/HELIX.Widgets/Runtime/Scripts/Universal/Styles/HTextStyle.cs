@@ -8,11 +8,11 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Universal.Styles {
-  public class TextStyle : DiagnosticableBase, IEquatable<TextStyle> {
-    public static readonly TextStyle Default = new();
-    public static readonly TextStyle AlignCenter = new() { align = TextAnchor.MiddleCenter };
-    public static readonly TextStyle AlignLeft = new() { align = TextAnchor.MiddleLeft };
-    public static readonly TextStyle AlignRight = new() { align = TextAnchor.MiddleRight };
+  public class HTextStyle : DiagnosticableBase, IEquatable<HTextStyle> {
+    public static readonly HTextStyle Default = new();
+    public static readonly HTextStyle AlignCenter = new() { align = TextAnchor.MiddleCenter };
+    public static readonly HTextStyle AlignLeft = new() { align = TextAnchor.MiddleLeft };
+    public static readonly HTextStyle AlignRight = new() { align = TextAnchor.MiddleRight };
     public StyleEnum<TextAnchor> align = StyleKeyword.Null;
     public StyleTextAutoSize autoSize = StyleKeyword.Null;
     public StyleColor color = StyleKeyword.Null;
@@ -30,7 +30,7 @@ namespace HELIX.Widgets.Universal.Styles {
     public StyleLength wordSpacing = StyleKeyword.Null;
     public StyleEnum<WhiteSpace> wrap = StyleKeyword.Null;
 
-    public bool Equals(TextStyle other) {
+    public bool Equals(HTextStyle other) {
       if (other is null) return false;
       if (ReferenceEquals(this, other)) return true;
       return fontSize.Equals(other.fontSize) && color.Equals(other.color) &&
@@ -63,7 +63,7 @@ namespace HELIX.Widgets.Universal.Styles {
         element.style.unityTextAutoSize = autoSize;
     }
 
-    public void Merge(TextStyle overrides) {
+    public void Merge(HTextStyle overrides) {
       if (overrides.style.keyword != StyleKeyword.Null) style = overrides.style;
       if (overrides.font.keyword != StyleKeyword.Null) font = overrides.font;
       if (overrides.fontSize.keyword != StyleKeyword.Null) fontSize = overrides.fontSize;
@@ -105,7 +105,7 @@ namespace HELIX.Widgets.Universal.Styles {
       if (obj is null) return false;
       if (ReferenceEquals(this, obj)) return true;
       if (obj.GetType() != GetType()) return false;
-      return Equals((TextStyle)obj);
+      return Equals((HTextStyle)obj);
     }
 
     [SuppressMessage("ReSharper", "NonReadonlyMemberInGetHashCode")]

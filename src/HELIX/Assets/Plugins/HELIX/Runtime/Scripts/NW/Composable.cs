@@ -26,14 +26,14 @@ namespace HELIX.NW {
   public delegate void InlineComposable<in T>(ref Composition ctx, T value);
 
   public interface IComposable : IElement {
-    UssDirtyFlags DirtyFlags { get; set; }
+    UssFlag Flag { get; set; }
     ulong TypeId { get; set; }
     void Reset();
   }
 
   public sealed class UserdataTracker : IComposable {
     public VisualElement Element { get; set; }
-    public UssDirtyFlags DirtyFlags { get; set; }
+    public UssFlag Flag { get; set; }
     public ulong TypeId { get; set; }
     public void Reset() { }
   }
@@ -41,7 +41,7 @@ namespace HELIX.NW {
   public sealed class CompositionNode : VisualElement, IComposable {
     public VisualElement Element => this;
 
-    public UssDirtyFlags DirtyFlags { get; set; }
+    public UssFlag Flag { get; set; }
     public ulong TypeId { get; set; }
 
     public void Reset() { }

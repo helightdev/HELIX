@@ -11,6 +11,7 @@ namespace HELIX.NW {
     private static readonly Dictionary<int, ContextData> _context = new();
     private static bool _isScoped = false;
     private static bool _isProcessing = false;
+    private static IBoundary _currentBoundary = null;
 
     private static readonly ProfilerMarker _marker = new("HELIX.NW.Recomposition");
     private static readonly ProfilerMarker _populateContext = new("HELIX.NW.PopulateContext");
@@ -23,7 +24,8 @@ namespace HELIX.NW {
         }
       }
 
-      if (_isProcessing) {
+      // If we descend the tree forward, we can reuse the same context and avoid dictionary initialization.
+      if (_isProcessing && _currentBoundary == boundary.Parent) {
         boundary.Recompose();
         return;
       }
@@ -81,9 +83,12 @@ namespace HELIX.NW {
           while (_dirty.TryDequeue(out var boundary) && maxIterations-- > 0) {
             try {
               PopulateContext(boundary.Parent); // Resume context from parents
+              _currentBoundary = boundary;
               boundary.Recompose();
             } catch (Exception e) {
               Debug.LogException(e);
+            } finally {
+              _currentBoundary = null;
             }
           }
           if (maxIterations == 0) Debug.LogWarning("Maximum recomposition iterations reached.");

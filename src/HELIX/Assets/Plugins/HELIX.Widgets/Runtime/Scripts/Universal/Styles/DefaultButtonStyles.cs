@@ -144,16 +144,16 @@ namespace HELIX.Widgets.Universal.Styles {
         HButtonVariant.FlatTwoState => inactive.onMain,
         _ => fontColor
       };
-      var defaultText = new WidgetStatePropertyMap<TextStyle> {
-        [WidgetState.Disabled] = new TextStyle {
+      var defaultText = new WidgetStatePropertyMap<HTextStyle> {
+        [WidgetState.Disabled] = new HTextStyle {
           fontSize = fontSize,
           color = surfacePalette.onMain.WithOpacity(0.38f)
         },
-        [WidgetState.ModAny | WidgetState.Selected | WidgetState.Hovered | WidgetState.Pressed] = new TextStyle {
+        [WidgetState.ModAny | WidgetState.Selected | WidgetState.Hovered | WidgetState.Pressed] = new HTextStyle {
           fontSize = fontSize,
           color = fontColor
         },
-        [WidgetState.None] = new TextStyle {
+        [WidgetState.None] = new HTextStyle {
           fontSize = fontSize,
           color = fontColorInactive
         }
@@ -161,12 +161,12 @@ namespace HELIX.Widgets.Universal.Styles {
 
       var selectedText = defaultText;
       if (variant is HButtonVariant.TwoState or HButtonVariant.SoftTwoState) {
-        selectedText = new WidgetStatePropertyMap<TextStyle> {
-          [WidgetState.Disabled] = new TextStyle {
+        selectedText = new WidgetStatePropertyMap<HTextStyle> {
+          [WidgetState.Disabled] = new HTextStyle {
             fontSize = fontSize,
             color = surfacePalette.onMain.WithOpacity(0.38f)
           },
-          [WidgetState.None] = new TextStyle {
+          [WidgetState.None] = new HTextStyle {
             fontSize = fontSize,
             color = palette.onMain
           }
