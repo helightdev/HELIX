@@ -121,7 +121,7 @@ namespace HELIX.Types {
       var hasBasis = RecompositionScope.TryGetContext(Context, out var basis);
       cx.WritableContext(Context, out var data);
       ref var target = ref data.GetValueRef();
-      data.Increment(ContextFlags.None);
+      data.IncrementContextVersion(ContextFlags.None);
 
       if (hasBasis) {
         Merge(ref target, in basis.GetValueRef(), in overrides);

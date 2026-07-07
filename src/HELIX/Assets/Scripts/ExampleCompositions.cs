@@ -1,7 +1,9 @@
 using System;
+using HELIX;
 using HELIX.Coloring;
 using HELIX.NW;
 using HELIX.Types;
+using HELIX.Widgets.Signals;
 using HELIX.Widgets.Universal;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -14,6 +16,8 @@ namespace TestNamespace {
 
     public static readonly TextStyle LocalDefault = new(style: FontStyle.Bold);
 
+    public static readonly Signal<int> counterSignal = Signal.Value(0);
+
     [Composition]
     private static void _MyComposition(ref Composition cx) {
       var theme = ThemeData.Context.ReadScopeOrDefault();
@@ -22,7 +26,6 @@ namespace TestNamespace {
       ref var defaultTextStyle = ref theme.GetTextStyleRef(TextRole.BodyMedium);
       TextStyle.WriteMerged(ref cx, in defaultTextStyle);
       defaultTextStyle.Apply(cx.boundary);
-
 
       // using var exampleContext = cx.WriteContext<ExampleContext>();
       // exampleContext.value.counter = counter;
@@ -70,14 +73,12 @@ namespace TestNamespace {
         // ).BackgroundColor(Colors.BlueGrey).Display(counter / 100 % 2 == 0);
 
         cx.Text($"AfterSwitch");
-
         cx.Button(
           static (ref Composition cx) => {
-            cx.Text("Click me");
+            cx.Text($"Click me {counterSignal.Value}");
           },
           static boundary => {
-            clickCounter++;
-            Debug.Log($"Click {clickCounter}!");
+            counterSignal.Value++;
           },
           selected: true
         );
@@ -108,9 +109,10 @@ namespace TestNamespace {
     public static void _InnerComposition(ref Composition cx) {
       cx.Spec(
         new ButtonSpecs {
-          Label = "Click me from InnerComposition", OnClick = static x => {
-            clickCounter++;
-            Debug.Log($"Click {clickCounter} from InnerComposition!");
+          Label = "Click me from InnerComposition",
+          OnClick = static x => {
+            counterSignal.Value++;
+            Debug.Log($"Click { counterSignal.Value} from InnerComposition!");
           }
         }
       );

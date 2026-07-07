@@ -4,7 +4,6 @@ using HELIX.Extensions;
 using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
-using Random = UnityEngine.Random;
 
 namespace HELIX.NW {
   public static class BuiltIns {
@@ -417,7 +416,9 @@ namespace HELIX.NW {
       }
 
       protected override void OnClick(EventBase evt) {
-        Props.Action?.Invoke(Node);
+        using (HX.BatchScope()) {
+          Props.Action?.Invoke(Node);
+        }
       }
     }
   }

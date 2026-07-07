@@ -13,6 +13,9 @@ namespace HELIX.Widgets.Signals {
   /// to a signal will track the signal as a dependency.
   /// </para>
   /// </summary>
+  /// <remarks>
+  /// This is an older implementation and this will most likely be reworked quite a bit to be more memory efficient
+  /// </remarks>
   public class SignalDependencyTracker : DiagnosticableBase, ISignalObserver, IDisposable, IPossiblyDisposed {
     public static SignalDependencyTracker Current;
     private readonly ISignalObserver _forwarder;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using HELIX.Widgets.Signals;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
@@ -35,13 +36,19 @@ namespace HELIX.NW {
     //   return new KeyScope(AUTHORING.cell, key);
     // }
 
-    public T ReadContext<T>(ContextKey<T> key) {
-      if (RecompositionScope.TryGetContext(key, out var read)) return read.value;
+    public T ReadContext<T>(ContextKey<T> key, bool listen = true) {
+      if (RecompositionScope.TryGetContext(key, out var read)) {
+        if (listen) boundary.AcquireContext().Subscribe(key, read);
+        return read.value;
+      }
       return default;
     }
 
-    public T ReadContextOrDefault<T>(ContextKey<T> key, T defaultValue = default) {
-      if (RecompositionScope.TryGetContext(key, out var read)) return read.value;
+    public T ReadContextOrDefault<T>(ContextKey<T> key, T defaultValue = default, bool listen = true) {
+      if (RecompositionScope.TryGetContext(key, out var read)) {
+        if (listen) boundary.AcquireContext().Subscribe(key, read);
+        return read.value;
+      }
       return defaultValue;
     }
 
@@ -60,7 +67,7 @@ namespace HELIX.NW {
       var context = boundary.AcquireContext();
       context.TryGet(key, out var written);
       written ??= new ContextData<T>();
-      written.Update(value);
+      written.UpdateContextValue(value);
 
       var existed = RecompositionScope.TryGetContext(key, out var previous);
       context.Put(key, written);

@@ -1,6 +1,5 @@
 using System;
 using HELIX.Abstractions;
-using HELIX.Diagnostics;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {

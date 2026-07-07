@@ -15,14 +15,21 @@ namespace HELIX.Widgets.Signals {
   /// their build methods, which will automatically subscribe to the signal and rebuild the widget when the signal changes.
   /// </para>
   /// </summary>
-  public abstract class Signal : DiagnosticableBase, IDisposable, IPossiblyDisposed {
+  public abstract class Signal : ContextData, IDisposable, IPossiblyDisposed {
     private const int _maxNotificationStackDepth = 16;
     private readonly HashSet<ISignalObserver> _observers = new();
     private int _notificationStackDepth;
 
     public bool IsDisposed { get; private set; }
 
-    public virtual void Dispose() {
+    public int contextKey;
+
+    protected Signal() {
+      detached = true;
+      contextKey = ContextKeyData.ClaimAnonymous(typeof(Signal), "SignalHelper");
+    }
+
+    public override void Dispose() {
       if (IsDisposed) return;
       var list = ListPool<ISignalObserver>.Get();
       try {
@@ -46,6 +53,7 @@ namespace HELIX.Widgets.Signals {
         IsDisposed = true;
         _observers.Clear();
       }
+      IncrementContextVersion(ContextFlags.Disposed);
     }
 
     protected void NotifyDirty() {
@@ -64,6 +72,7 @@ namespace HELIX.Widgets.Signals {
         ).Report(DiagnosticLevel.Warning);
         return;
       }
+      IncrementContextVersion(ContextFlags.None);
 
       _notificationStackDepth++;
       var buffer = ListPool<ISignalObserver>.Get();
@@ -191,9 +200,13 @@ namespace HELIX.Widgets.Signals {
   public abstract class Signal<T> : Signal {
     public T Value {
       get {
+        if (HX.ComposingBoundary != null) {
+          HX.ComposingBoundary.AcquireContext().Subscribe(contextKey, this);
+          return PeekValue();
+        }
+
         var tracker = SignalDependencyTracker.Current;
-        if (tracker == null) return PeekValue();
-        tracker.DependOn(this);
+        tracker?.DependOn(this);
         return PeekValue();
       }
       set {

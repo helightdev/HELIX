@@ -1,5 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
+using HELIX.Widgets.Signals;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -8,6 +10,13 @@ namespace HELIX.NW {
     public VisualElement cursor;
     public BoundaryCell cell;
     public CompositionId id;
+
+    private static readonly ProfilerCounterValue<int> _hierarchyMovements = new(
+      HelixProfiling.HelixCategory,
+      "Hierarchy Movements",
+      ProfilerMarkerDataUnit.Count,
+      ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
+    );
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public VisualElement ReadCursor() {
@@ -112,6 +121,7 @@ namespace HELIX.NW {
       if (currentIndex == cell.cursor) goto complete;
 
       if (currentIndex != -1 && given.parent == container) {
+        _hierarchyMovements.Value++;
         container.hierarchy.RemoveAt(currentIndex);
         container.Insert(cell.cursor, given);
         // TODO: Maybe do this using Sort() to prevent animation interruptions

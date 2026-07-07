@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using HELIX.Diagnostics;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
@@ -21,6 +22,7 @@ namespace HELIX.NW {
         throw new ArgumentException($"ContextKey with name '{name}' already exists for type {data.type} with id {target}.");
       }
 
+      if (ContextKeyData.NextId == int.MaxValue) throw new InvalidOperationException("Maximum number of context keys reached.");
       id = ContextKeyData.NextId++;
       defaultValue = default;
       ContextKeyData.Registry[id] = new ContextKeyData(typeof(T), name);
@@ -63,6 +65,7 @@ namespace HELIX.NW {
     internal static readonly Dictionary<int, ContextKeyData> Registry = new();
     internal static readonly Dictionary<string, int> ByName = new();
     internal static int NextId = 1;
+    internal static int AnonymousId = -1;
 
     public readonly Type type;
     public readonly string name;
@@ -71,44 +74,51 @@ namespace HELIX.NW {
       this.type = type;
       this.name = name;
     }
+
+    public static int ClaimAnonymous(Type type, string debugName) {
+      var data = new ContextKeyData(type, debugName);
+      if (AnonymousId == int.MinValue) AnonymousId = -1;
+      var id = AnonymousId--;
+      Registry[id] = data;
+      return id;
+    }
   }
 
-  public abstract class ContextData : IDisposable {
-    internal ContextVersion version = ContextVersion.Initial;
+  public abstract class ContextData : DiagnosticableBase, IDisposable {
+    protected internal ContextVersion version = ContextVersion.Initial;
+    public ContextVersion Version => version;
 
-    public void Clean() {
-      version.flags = ContextFlags.None;
-    }
+    protected bool detached = false; // Non-hierarchal context data is detached (Like static signals)
 
-    public abstract void Delete();
-    public abstract void Dispose();
+    protected ContextFlags CleanFlags => detached ? ContextFlags.Detached : ContextFlags.None;
 
-    public void Increment(ContextFlags flags) {
+    public void IncrementContextVersion(ContextFlags flags) {
       unchecked { version.counter++; }
-      version.flags = flags;
+      version.flags = flags | CleanFlags;
     }
+
+    public abstract void Dispose();
   }
 
   public class ContextData<T> : ContextData {
 
     public T value;
-    public ContextVersion Version => version;
 
-    public void Update(T updated) {
+    public void UpdateContextValue(T updated) {
       value = updated;
       unchecked { version.counter++; }
-      version.flags = ContextFlags.None;
+      version.flags = CleanFlags;
     }
 
-    public override void Delete() {
+    public virtual void DeleteContextValue() {
       unchecked { version.counter++; }
-      version.flags = ContextFlags.Empty;
+      version.flags = CleanFlags | ContextFlags.Empty;
       value = default;
     }
 
     public override void Dispose() {
       unchecked { version.counter++; }
-      version.flags = ContextFlags.Disposed;
+      version.flags = CleanFlags | ContextFlags.Disposed;
       value = default;
     }
 
@@ -130,7 +140,13 @@ namespace HELIX.NW {
   }
 
   [Flags]
-  public enum ContextFlags { None = 0, Dirty = 1 << 1, Empty = 1 << 6, Disposed = 1 << 7, }
+  public enum ContextFlags {
+    None = 0,
+    Dirty = 1 << 1,
+    Detached = 1 << 2,
+    Empty = 1 << 6,
+    Disposed = 1 << 7,
+  }
 
   public struct ContextReference<T> {
     public readonly ContextKey<T> key;

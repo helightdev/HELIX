@@ -339,26 +339,30 @@ namespace HELIX.NW {
     }
 
     public ref TextStyle GetTextStyleRef(TextRole role) {
+      return ref GetTypographyTokenRef(role).style;
+    }
+
+    public ref TypographyToken GetTypographyTokenRef(TextRole role) {
       switch (role) {
-        case TextRole.DisplayLarge: return ref display.large.style;
-        case TextRole.DisplayMedium: return ref display.medium.style;
-        case TextRole.DisplaySmall: return ref display.small.style;
+        case TextRole.DisplayLarge: return ref display.large;
+        case TextRole.DisplayMedium: return ref display.medium;
+        case TextRole.DisplaySmall: return ref display.small;
 
-        case TextRole.HeadlineLarge: return ref headline.large.style;
-        case TextRole.HeadlineMedium: return ref headline.medium.style;
-        case TextRole.HeadlineSmall: return ref headline.small.style;
+        case TextRole.HeadlineLarge: return ref headline.large;
+        case TextRole.HeadlineMedium: return ref headline.medium;
+        case TextRole.HeadlineSmall: return ref headline.small;
 
-        case TextRole.TitleLarge: return ref title.large.style;
-        case TextRole.TitleMedium: return ref title.medium.style;
-        case TextRole.TitleSmall: return ref title.small.style;
+        case TextRole.TitleLarge: return ref title.large;
+        case TextRole.TitleMedium: return ref title.medium;
+        case TextRole.TitleSmall: return ref title.small;
 
-        case TextRole.LabelLarge: return ref label.large.style;
-        case TextRole.LabelMedium: return ref label.medium.style;
-        case TextRole.LabelSmall: return ref label.small.style;
+        case TextRole.LabelLarge: return ref label.large;
+        case TextRole.LabelMedium: return ref label.medium;
+        case TextRole.LabelSmall: return ref label.small;
 
-        case TextRole.BodyLarge: return ref body.large.style;
-        case TextRole.BodyMedium: return ref body.medium.style;
-        case TextRole.BodySmall: return ref body.small.style;
+        case TextRole.BodyLarge: return ref body.large;
+        case TextRole.BodyMedium: return ref body.medium;
+        case TextRole.BodySmall: return ref body.small;
 
         default: throw new ArgumentOutOfRangeException(nameof(role), role, null);
       }

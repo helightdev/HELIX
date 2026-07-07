@@ -1,4 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
     <Style src="project://database/Assets/test.uss?fileID=7433441132597879392&amp;guid=ce7ee7c7f0584efd935908135199ca27&amp;type=3#test"/>
     <TestNamespace.ExampleVisualElement/>
+    <ui:VisualElement style="flex-grow: 1; background-color: rgb(255, 255, 255); position: absolute; width: 306px; height: 131px; top: 638px; left: 105px;"/>
 </ui:UXML>

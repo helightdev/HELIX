@@ -4,8 +4,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Properties;
-using HELIX.NW;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 // ReSharper disable Unity.BurstLoadingManagedType

@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using HELIX.Coloring;
-using HELIX.Diagnostics;
 using HELIX.Extensions;
-using UnityEngine;
+using Unity.Profiling;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
@@ -18,6 +16,7 @@ namespace HELIX.NW {
     void ContributeContext(Dictionary<int, ContextData> context);
 
     void RefreshHierarchy();
+    void CheckModified();
     void SetState(NodeState state);
     void Recompose();
     void DisposeState();
@@ -25,6 +24,13 @@ namespace HELIX.NW {
 
   public class BoundaryCell {
     public static readonly BoundaryCell Shared = new();
+
+    private static readonly ProfilerCounterValue<int> _hierarchyDeletions = new(
+      HelixProfiling.HelixCategory,
+      "Hierarchy Deletions",
+      ProfilerMarkerDataUnit.Count,
+      ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
+    );
 
     public IComposable current;
     public int cursor;
@@ -65,6 +71,7 @@ namespace HELIX.NW {
         //Debug.Log($"Removing child {i} from {element.name}");
         element.RemoveAt(element.childCount - 1);
       }
+      _hierarchyDeletions.Value += overflow;
       //if (overflow > 0) Debug.LogWarning($"Removed {overflow} children");
     }
   }
@@ -84,14 +91,14 @@ namespace HELIX.NW {
       Context?.LoadInto(context);
     }
 
-    protected virtual void BeginContext() {
+    protected virtual void BeforeCompose() {
       Context?.ResetMarkers();
     }
 
-    protected virtual void EndContext() {
+    protected virtual void AfterCompose() {
       if (Context == null) return;
-      Context.PrunePublications();
-      if (Context.PublicationCount != 0) return;
+      Context.Prune();
+      if (!Context.IsUnused) return;
       SparseContextMap.Release(Context);
       Context = null;
     }
@@ -108,6 +115,7 @@ namespace HELIX.NW {
     protected CompositionBoundaryNodeBase() {
       RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
       RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
+      RecompositionScope.RegisterBoundary(this);
       //name = $"Boundary{this.ShortHash()}";
       //generateVisualContent += GenerateDebugVisuals;
     }
@@ -129,6 +137,12 @@ namespace HELIX.NW {
       Parent = GetFirstAncestorOfType<IBoundary>();
     }
 
+    public void CheckModified() {
+      if (Context != null && Context.CheckSubscriptionsModified()) {
+        RecompositionScope.EnqueueDirty(this);
+      }
+    }
+
     public void SetState(NodeState state) {
       if (State != null) DisposeState();
       State = state;
@@ -145,16 +159,18 @@ namespace HELIX.NW {
       Context?.Clear();
       if (Context != null) SparseContextMap.Release(Context);
       Context = null;
+
+      RecompositionScope.UnregisterBoundary(this);
     }
 
     public void Recompose() {
       try {
         //rebuildCount++;
         RecompositionScope.MarkClean(this);
-        BeginContext();
+        BeforeCompose();
         Compose();
       } finally {
-        EndContext();
+        AfterCompose();
         RecompositionScope.MarkClean(this);
         //MarkDirtyRepaint();
       }
@@ -167,6 +183,7 @@ namespace HELIX.NW {
     }
 
     protected virtual void OnAttachToPanel(AttachToPanelEvent evt) {
+      RecompositionScope.RegisterBoundary(this);
       TreeDepth = this.GetDepth();
       RefreshHierarchy();
     }
@@ -216,9 +233,9 @@ namespace HELIX.NW {
     public TState State { get; protected set; }
     public CompositionBoundaryNodeBase Node { get; protected set; }
 
-    protected virtual void OnAttach() {}
+    protected virtual void OnAttach() { }
 
-    protected virtual void OnDetach() {}
+    protected virtual void OnDetach() { }
 
     public void OnAttach(NodeState state, IBoundary boundary) {
       if (state is not TState typedState) throw new InvalidOperationException();
@@ -233,17 +250,17 @@ namespace HELIX.NW {
       State = null;
       Node = null;
     }
+
     public virtual void OnRecompose(ref Composition cx, NodeState state, IBoundary boundary) {
       if (State == null || Node == null) return;
       OnRecompose(ref cx);
     }
 
-    protected virtual void OnRecompose(ref Composition cx) {}
+    protected virtual void OnRecompose(ref Composition cx) { }
   }
 
   public abstract class PropsNodeStateAttachmentBase<TProps> : NodeStateAttachmentBase<NodeState<TProps>>
     where TProps : struct {
-
     public TProps Props {
       get => State.props;
       set => State.props = value;
@@ -252,7 +269,6 @@ namespace HELIX.NW {
     public virtual void ReceiveProps(TProps props) {
       State.props = props;
     }
-
   }
 
   public abstract class NodeState<T> : NodeState where T : struct {
@@ -260,5 +276,6 @@ namespace HELIX.NW {
   }
 
   public sealed class GenericPropsState<T> : NodeState<T> where T : struct { }
+
   public sealed class AnonymousNodeState : NodeState { }
 }
