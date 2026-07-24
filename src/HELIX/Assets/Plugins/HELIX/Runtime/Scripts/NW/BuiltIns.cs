@@ -109,7 +109,7 @@ namespace HELIX.NW {
       bool reverse = false,
       bool clear = false
     ) {
-      if (ctx.AUTHORING.InitializeNode(_flexId, out var node)) {
+      if (ctx.AUTHORING.InitializeNode(_flexId, out var node) || clear) {
         node.hierarchy.Clear();
       }
 

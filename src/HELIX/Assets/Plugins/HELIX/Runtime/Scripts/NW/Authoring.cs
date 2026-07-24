@@ -120,6 +120,7 @@ namespace HELIX.NW {
       var currentIndex = container.IndexOf(given);
       if (currentIndex == cell.cursor) goto complete;
 
+      // If the identified element is already present, move it into position and complete
       if (currentIndex != -1 && given.parent == container) {
         _hierarchyMovements.Value++;
         container.hierarchy.RemoveAt(currentIndex);

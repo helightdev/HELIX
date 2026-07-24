@@ -1,12 +1,13 @@
 using System;
 using HELIX.Extensions;
+using HELIX.NW;
 using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Widgets.Elements {
   [UxmlElement]
-  public partial class GenericTextInput : BaseElement {
+  public partial class GenericTextInput : VisualElement, IComposable {
     private const string _ussStyleLight = "helix-textfield-style-light";
     private const string _ussStyleLightNeutral = "helix-textfield-style-light-neutral";
     private const string _ussStyleDark = "helix-textfield-style-dark";
@@ -206,6 +207,28 @@ namespace HELIX.Widgets.Elements {
           break;
         default: throw new ArgumentOutOfRangeException();
       }
+    }
+
+    public VisualElement Element => this;
+    public UssFlag Flag { get; set; }
+    public ulong TypeId { get; set; }
+
+    public void Reset() {
+      Value = string.Empty;
+      Multiline = false;
+      IsReadOnly = false;
+      MaxLength = 0;
+      IsPasswordField = false;
+      MaskChar = '*';
+      AutoCorrection = true;
+      HideMobileInput = true;
+      KeyboardType = TouchScreenKeyboardType.Default;
+      IsDelayed = false;
+      OnBeginEditing = null;
+      OnEndEditing = null;
+      OnValueChanged = null;
+      OnSubmit = null;
+      OnCancel = null;
     }
   }
 

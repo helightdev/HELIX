@@ -99,7 +99,7 @@ namespace HELIX.NW {
     }
 
     public void Dispose() {
-      RecompositionScope.PutPrevious(_key, _previous, _existed);
+      RecompositionScope.RestoreContext(_key, _previous, _existed);
     }
   }
 

@@ -1,0 +1,39 @@
+.helix-generic-text-input > TextField {
+    border-width: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.helix-generic-text-input #unity-text-input {
+    background-color: transparent;
+    border-color: transparent;
+    border-width: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.helix-textfield-style-light * {
+    --unity-selection-color: rgba(50, 151, 253, 0.35);
+    --unity-cursor-color: #000000;
+}
+
+.helix-textfield-style-dark * {
+    --unity-selection-color: rgba(50, 151, 253, 0.50);
+    --unity-cursor-color: #ffffff;
+}
+
+.helix-textfield-style-light-neutral * {
+    --unity-selection-color: rgba(0, 0, 0, 0.25);
+    --unity-cursor-color: #000000;
+}
+
+.helix-textfield-style-dark-neutral * {
+    --unity-selection-color: rgba(255, 255, 255, 0.35);
+    --unity-cursor-color: #ffffff;
+}
+
+
+.helix-textfield-style-clear * {
+    --unity-selection-color: undefined;
+    --unity-cursor-color: undefined;
+}

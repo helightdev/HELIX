@@ -34,7 +34,13 @@ namespace HELIX.NW {
     public VisualElement Element { get; set; }
     public UssFlag Flag { get; set; }
     public ulong TypeId { get; set; }
-    public void Reset() { }
+
+    public Action OnReset { get; set; }
+
+    public void Reset() {
+      OnReset?.Invoke();
+      OnReset = null;
+    }
   }
 
   public sealed class CompositionNode : VisualElement, IComposable {

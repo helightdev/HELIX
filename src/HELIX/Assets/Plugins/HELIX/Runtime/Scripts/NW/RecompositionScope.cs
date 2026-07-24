@@ -8,6 +8,7 @@ namespace HELIX.NW {
     public static bool UseEventLoop = false;
 
     internal static readonly IndexedReferencePriorityQueue<IBoundary, int> Dirty = new();
+    internal static readonly Dictionary<int, ContextData> SharedContext = new();
     internal static readonly Dictionary<int, ContextData> Context = new();
     internal static readonly HashSet<IBoundary> Boundaries = new(new ReferenceEqualityComparer<IBoundary>());
     internal static bool IsScoped = false;
@@ -92,17 +93,25 @@ namespace HELIX.NW {
 
     internal static void PutContext(int keyId, ContextData data) => Context[keyId] = data;
 
-    internal static void PutPrevious(int keyId, ContextData data, bool existed) {
+    internal static void RestoreContext(int keyId, ContextData data, bool existed) {
       if (existed) Context[keyId] = data;
       else Context.Remove(keyId);
     }
 
-    public static bool TryGetContext(int keyId, out ContextData data) => Context.TryGetValue(keyId, out data);
+    public static bool TryGetContext(int keyId, out ContextData data) {
+      if (Context.TryGetValue(keyId, out data)) return true;
+      return SharedContext.TryGetValue(keyId, out data);
+    }
 
     public static bool TryGetContext<T>(ContextKey<T> key, out ContextData<T> data) {
       Context.TryGetValue(key.id, out var value);
       if (value is ContextData<T> typed) {
         data = typed;
+        return true;
+      }
+      SharedContext.TryGetValue(key.id, out value);
+      if (value is ContextData<T> sharedTyped) {
+        data = sharedTyped;
         return true;
       }
       data = null;
@@ -143,13 +152,14 @@ namespace HELIX.NW {
     }
 
     private static void Recompose(IBoundary boundary) {
+      var previousBoundary = CurrentBoundary;
       try {
         CurrentBoundary = boundary;
         boundary.Recompose();
       } catch (Exception e) {
         Debug.LogException(e);
       } finally {
-        CurrentBoundary = null;
+        CurrentBoundary = previousBoundary;
       }
     }
 

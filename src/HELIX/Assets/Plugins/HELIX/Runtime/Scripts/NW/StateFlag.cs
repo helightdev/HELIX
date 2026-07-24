@@ -37,6 +37,16 @@ namespace HELIX.NW {
   public static class WidgetStateExtensions {
     public const StateFlag OperatorMask = StateFlag.ModNot | StateFlag.ModAny;
 
+    public static StateFlag StateFlagFromPseudoFlags(this VisualElement element) {
+      var flag = StateFlag.None;
+      if (element.hasDisabledPseudoState) flag |= StateFlag.Disabled;
+      if (element.hasHoverPseudoState) flag |= StateFlag.Hovered;
+      if (element.hasCheckedPseudoState) flag |= StateFlag.Selected;
+      if (element.hasActivePseudoState) flag |= StateFlag.Pressed;
+      if (element.hasFocusPseudoState) flag |= StateFlag.Focused;
+      return flag;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Hovered(this StateFlag state) {
       return state.HasFlag(StateFlag.Hovered);

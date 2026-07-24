@@ -31,7 +31,8 @@ namespace TestNamespace {
       // exampleContext.value.counter = counter;
       using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
         cx.APPLY.Padding(10).Padding(20);
-        cx.APPLY.BackgroundColor(theme.GetColor(ColorRoles.Surface));
+
+        //cx.APPLY.BackgroundColor(theme.GetColor(ColorRoles.Surface));
 
         var id = counter++;
 
@@ -107,15 +108,13 @@ namespace TestNamespace {
 
     [Composition]
     public static void _InnerComposition(ref Composition cx) {
-      cx.Spec(
-        new ButtonSpecs {
-          Label = "Click me from InnerComposition",
-          OnClick = static x => {
-            counterSignal.Value++;
-            Debug.Log($"Click { counterSignal.Value} from InnerComposition!");
-          }
+      new ButtonSpecs {
+        Label = "Click me from InnerComposition",
+        OnClick = static x => {
+          counterSignal.Value++;
+          Debug.Log($"Click {counterSignal.Value} from InnerComposition!");
         }
-      );
+      }.Compose(ref cx);
     }
 
     public static readonly SpecConfiguration DefaultFactory = new SpecConfiguration()
