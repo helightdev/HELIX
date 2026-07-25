@@ -49,42 +49,42 @@ namespace HELIX.NW {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Hovered(this StateFlag state) {
-      return state.HasFlag(StateFlag.Hovered);
+      return (state & StateFlag.Hovered) != 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Focused(this StateFlag state) {
-      return state.HasFlag(StateFlag.Focused);
+      return (state & StateFlag.Focused) != 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Pressed(this StateFlag state) {
-      return state.HasFlag(StateFlag.Pressed);
+      return (state & StateFlag.Pressed) != 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Dragged(this StateFlag state) {
-      return state.HasFlag(StateFlag.Dragged);
+      return (state & StateFlag.Dragged) != 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Selected(this StateFlag state) {
-      return state.HasFlag(StateFlag.Selected);
+      return (state & StateFlag.Selected) != 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Disabled(this StateFlag state) {
-      return state.HasFlag(StateFlag.Disabled);
+      return (state & StateFlag.Disabled) != 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Enabled(this StateFlag state) {
-      return !state.HasFlag(StateFlag.Disabled);
+      return (state & StateFlag.Disabled) == 0;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool Error(this StateFlag state) {
-      return state.HasFlag(StateFlag.Error);
+      return (state & StateFlag.Error) != 0;
     }
 
     public static bool Matches(this StateFlag actual, StateFlag query) {
@@ -166,29 +166,32 @@ namespace HELIX.NW {
     }
 
     protected virtual void OnFocusOut(FocusOutEvent evt) {
-      if (!handleFocus) return;
+      if (!handleFocus || (InputState & StateFlag.Focused) == 0) return;
       this.Disable(StateFlag.Focused);
       Node.MarkDirty();
     }
 
     protected virtual void OnFocusIn(FocusInEvent evt) {
-      if (!handleFocus) return;
+      if (!handleFocus || (InputState & StateFlag.Focused) != 0) return;
       this.Enable(StateFlag.Focused);
       Node.MarkDirty();
       //if (WidgetStateController.LastNavigated) state.Enable(WidgetState.Navigated);
     }
 
     protected virtual void OnPointerLeave(PointerLeaveEvent evt) {
+      if ((InputState & StateFlag.Hovered) == 0) return;
       this.Disable(StateFlag.Hovered);
       Node.MarkDirty();
     }
 
     protected virtual void OnPointerEnter(PointerEnterEvent evt) {
+      if ((InputState & StateFlag.Hovered) != 0) return;
       this.Enable(StateFlag.Hovered);
       Node.MarkDirty();
     }
 
     protected virtual void OnNavigationMove(NavigationMoveEvent evt) {
+      if ((InputState & StateFlag.Navigated) != 0) return;
       this.Enable(StateFlag.Navigated);
       Node.MarkDirty();
     }

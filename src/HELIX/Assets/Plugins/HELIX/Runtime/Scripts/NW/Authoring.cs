@@ -28,6 +28,11 @@ namespace HELIX.NW {
       return cell.localId;
     }
 
+    public void RetainChildren() {
+      cell.cursor = cell.current.Element.childCount;
+      cell.localId.index = (ushort)cell.cursor;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ulong PrepareId(ushort typeId) {
       //id.key = cell.key;
@@ -143,6 +148,7 @@ namespace HELIX.NW {
 
       complete:
       if (given is IComposable composable) {
+        if (composable.TypeId == 0) composable.TypeId = id.packed;
         ctx.APPLY.composable = composable;
       } else {
         composable = (UserdataTracker)(given.userData ??= new UserdataTracker {

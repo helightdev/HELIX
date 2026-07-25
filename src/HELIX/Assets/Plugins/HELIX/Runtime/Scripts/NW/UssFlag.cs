@@ -59,10 +59,10 @@ namespace HELIX.NW {
       tracker.Reset();
       _markerState.End();
 #else
-      var currentFlags = tracker.DirtyFlags;
-      if (currentFlags != UssDirtyFlags.None) {
+      var currentFlags = tracker.Flag;
+      if (currentFlags != UssFlag.None) {
         currentFlags.ClearFlags(tracker.Element);
-        tracker.DirtyFlags = UssDirtyFlags.None;
+        tracker.Flag = UssFlag.None;
       }
 
       tracker.Reset();
@@ -98,6 +98,7 @@ namespace HELIX.NW {
           style.justifyContent = StyleKeyword.Null;
           style.alignItems = StyleKeyword.Null;
           style.alignContent = StyleKeyword.Null;
+          style.alignSelf = StyleKeyword.Null;
           style.flexDirection = StyleKeyword.Null;
           style.flexWrap = StyleKeyword.Null;
           break;

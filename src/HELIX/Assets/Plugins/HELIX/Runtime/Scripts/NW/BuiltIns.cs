@@ -1,12 +1,30 @@
 using System;
+using System.Collections.Generic;
 using HELIX.Coloring;
 using HELIX.Extensions;
 using HELIX.Types;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
-  public static class BuiltIns {
+  public static partial class BuiltIns {
+    private sealed class TransitionStyleLists {
+      public readonly List<TimeValue> durations;
+      public readonly List<EasingFunction> easings;
+      public readonly List<TimeValue> delays;
+
+      public TransitionStyleLists(in TransitionOptions options) {
+        durations = new List<TimeValue>(1) { options.duration };
+        easings = new List<EasingFunction>(1) { options.easing };
+        delays = new List<TimeValue>(1) { options.delay };
+      }
+    }
+
+    private static readonly List<StylePropertyName> _allTransitionProperties =
+      new(1) { new StylePropertyName("all") };
+    private static readonly Dictionary<TransitionOptions, TransitionStyleLists> _transitionStyles = new();
+
     public static ref ElementRef Padding(this ref ElementRef scope, StyleLength4 size) {
       scope.composable.Element.Padding(size);
       scope.composable.Flag |= UssFlag.Padding;
@@ -46,6 +64,79 @@ namespace HELIX.NW {
       return ref scope;
     }
 
+    public static ref ElementRef Flexible(this ref ElementRef scope, float grow = 1f, float shrink = 1f) {
+      scope.composable.Element.style.flexGrow = grow;
+      scope.composable.Element.style.flexShrink = shrink;
+      scope.composable.Flag |= UssFlag.Flex;
+      return ref scope;
+    }
+
+    public static ref ElementRef FlexGrow(this ref ElementRef scope, float grow) {
+      scope.composable.Element.style.flexGrow = grow;
+      scope.composable.Flag |= UssFlag.Flex;
+      return ref scope;
+    }
+
+    public static ref ElementRef FlexShrink(this ref ElementRef scope, float shrink) {
+      scope.composable.Element.style.flexShrink = shrink;
+      scope.composable.Flag |= UssFlag.Flex;
+      return ref scope;
+    }
+
+    public static ref ElementRef FlexBasis(this ref ElementRef scope, StyleLength basis) {
+      scope.composable.Element.style.flexBasis = basis;
+      scope.composable.Flag |= UssFlag.Flex;
+      return ref scope;
+    }
+
+    public static ref ElementRef AlignSelf(this ref ElementRef scope, Align alignment) {
+      scope.composable.Element.style.alignSelf = alignment;
+      scope.composable.Flag |= UssFlag.GroupAlign;
+      return ref scope;
+    }
+
+    public static ref ElementRef Width(this ref ElementRef scope, StyleLength width) {
+      scope.composable.Element.style.width = width;
+      scope.composable.Flag |= UssFlag.Size;
+      return ref scope;
+    }
+
+    public static ref ElementRef Height(this ref ElementRef scope, StyleLength height) {
+      scope.composable.Element.style.height = height;
+      scope.composable.Flag |= UssFlag.Size;
+      return ref scope;
+    }
+
+    public static ref ElementRef MinWidth(this ref ElementRef scope, StyleLength width) {
+      scope.composable.Element.style.minWidth = width;
+      scope.composable.Flag |= UssFlag.Size;
+      return ref scope;
+    }
+
+    public static ref ElementRef MinHeight(this ref ElementRef scope, StyleLength height) {
+      scope.composable.Element.style.minHeight = height;
+      scope.composable.Flag |= UssFlag.Size;
+      return ref scope;
+    }
+
+    public static ref ElementRef MaxWidth(this ref ElementRef scope, StyleLength width) {
+      scope.composable.Element.style.maxWidth = width;
+      scope.composable.Flag |= UssFlag.Size;
+      return ref scope;
+    }
+
+    public static ref ElementRef MaxHeight(this ref ElementRef scope, StyleLength height) {
+      scope.composable.Element.style.maxHeight = height;
+      scope.composable.Flag |= UssFlag.Size;
+      return ref scope;
+    }
+
+    public static ref ElementRef AspectRatio(this ref ElementRef scope, float ratio) {
+      scope.composable.Element.style.aspectRatio = ratio;
+      scope.composable.Flag |= UssFlag.Size;
+      return ref scope;
+    }
+
     public static ref ElementRef Absolute(this ref ElementRef scope, bool absolute = true) {
       scope.composable.Element.style.position =
         absolute ? UnityEngine.UIElements.Position.Absolute : UnityEngine.UIElements.Position.Relative;
@@ -72,8 +163,44 @@ namespace HELIX.NW {
       return ref scope;
     }
 
+    public static ref ElementRef BackgroundImage(this ref ElementRef scope, Background image) {
+      scope.composable.Element.style.backgroundImage = image;
+      scope.composable.Flag |= UssFlag.Background;
+      return ref scope;
+    }
+
+    public static ref ElementRef BackgroundSize(this ref ElementRef scope, BackgroundSize size) {
+      scope.composable.Element.style.backgroundSize = size;
+      scope.composable.Flag |= UssFlag.Background;
+      return ref scope;
+    }
+
+    public static ref ElementRef BackgroundTint(this ref ElementRef scope, Color color) {
+      scope.composable.Element.style.unityBackgroundImageTintColor = color;
+      scope.composable.Flag |= UssFlag.BackgroundAdvanced;
+      return ref scope;
+    }
+
     public static ref ElementRef TextColor(this ref ElementRef scope, Color color) {
       scope.composable.Element.TextColor(color);
+      scope.composable.Flag |= UssFlag.Text;
+      return ref scope;
+    }
+
+    public static ref ElementRef TextSize(this ref ElementRef scope, StyleLength size) {
+      scope.composable.Element.style.fontSize = size;
+      scope.composable.Flag |= UssFlag.Text;
+      return ref scope;
+    }
+
+    public static ref ElementRef TextAlign(this ref ElementRef scope, TextAnchor alignment) {
+      scope.composable.Element.style.unityTextAlign = alignment;
+      scope.composable.Flag |= UssFlag.Text;
+      return ref scope;
+    }
+
+    public static ref ElementRef WhiteSpace(this ref ElementRef scope, WhiteSpace whiteSpace) {
+      scope.composable.Element.style.whiteSpace = whiteSpace;
       scope.composable.Flag |= UssFlag.Text;
       return ref scope;
     }
@@ -90,12 +217,98 @@ namespace HELIX.NW {
       return ref scope;
     }
 
+    public static ref ElementRef Visible(this ref ElementRef scope, bool visible) {
+      scope.composable.Element.style.visibility =
+        visible ? Visibility.Visible : Visibility.Hidden;
+      scope.composable.Flag |= UssFlag.Visibility;
+      return ref scope;
+    }
+
+    public static ref ElementRef Overflow(this ref ElementRef scope, Overflow overflow) {
+      scope.composable.Element.style.overflow = overflow;
+      scope.composable.Flag |= UssFlag.Clipping;
+      return ref scope;
+    }
+
+    public static ref ElementRef Translate(this ref ElementRef scope, Translate translate) {
+      scope.composable.Element.style.translate = translate;
+      scope.composable.Flag |= UssFlag.Transform;
+      return ref scope;
+    }
+
+    public static ref ElementRef Rotate(this ref ElementRef scope, Rotate rotate) {
+      scope.composable.Element.style.rotate = rotate;
+      scope.composable.Flag |= UssFlag.Transform;
+      return ref scope;
+    }
+
+    public static ref ElementRef Scale(this ref ElementRef scope, Scale scale) {
+      scope.composable.Element.style.scale = scale;
+      scope.composable.Flag |= UssFlag.Transform;
+      return ref scope;
+    }
+
+    public static ref ElementRef TransformOrigin(
+      this ref ElementRef scope,
+      TransformOrigin origin
+    ) {
+      scope.composable.Element.style.transformOrigin = origin;
+      scope.composable.Flag |= UssFlag.Transform;
+      return ref scope;
+    }
+
+    public static ref ElementRef Cursor(
+      this ref ElementRef scope,
+      UnityEngine.UIElements.Cursor cursor
+    ) {
+      scope.composable.Element.style.cursor = cursor;
+      scope.composable.Flag |= UssFlag.Special;
+      return ref scope;
+    }
+
+    public static ref ElementRef Transition(
+      this ref ElementRef scope,
+      TransitionOptions options
+    ) {
+      if (!_transitionStyles.TryGetValue(options, out var lists)) {
+        lists = new TransitionStyleLists(in options);
+        _transitionStyles.Add(options, lists);
+      }
+      var style = scope.composable.Element.style;
+      style.transitionProperty = _allTransitionProperties;
+      style.transitionDuration = lists.durations;
+      style.transitionTimingFunction = lists.easings;
+      style.transitionDelay = lists.delays;
+      scope.composable.Flag |= UssFlag.Transition;
+      return ref scope;
+    }
+
     public static ref ElementRef TextRole(this ref ElementRef scope, TextRole role) {
       if (ThemeData.Context.TryReadScope(out var theme)) {
         theme.GetTextStyleRef(role).Apply(scope.composable);
       }
       return ref scope;
     }
+
+    // Space
+    private static readonly ushort _spaceId = CompositionId.GetTypeId();
+
+    public static ref ElementRef Space(this ref Composition cx, float gap = 0f) {
+      if (cx.AUTHORING.InitializeNode(_spaceId, out var node)) { }
+      ref var reference = ref cx.AUTHORING.YieldElement(ref cx, node);
+
+      var isParentHorizontal = cx.AUTHORING.cell.current.Element.style.flexDirection == FlexDirection.Row;
+      if (isParentHorizontal) {
+        reference.Width(gap);
+      } else {
+        reference.Height(gap);
+      }
+      reference.element.name = "Space";
+      reference.composable.Flag |= UssFlag.Name;
+
+      return ref reference;
+    }
+
 
     // Flex
     private static readonly ushort _flexId = CompositionId.GetTypeId();
@@ -105,7 +318,6 @@ namespace HELIX.NW {
       Axis mainAxis,
       Justify main = Justify.FlexStart,
       Align cross = Align.Center,
-      float gap = 0f,
       bool reverse = false,
       bool clear = false
     ) {
@@ -116,6 +328,8 @@ namespace HELIX.NW {
       node.style.flexDirection = mainAxis.ToFlexDirection(reverse);
       node.style.justifyContent = main;
       node.style.alignItems = cross;
+      node.Flag |= UssFlag.GroupAlign;
+
       return ctx.AUTHORING.YieldScope(
         ref ctx,
         node,
@@ -124,7 +338,6 @@ namespace HELIX.NW {
         }
       );
     }
-
 
     private static readonly ushort _boxId = CompositionId.GetTypeId();
 
@@ -149,6 +362,13 @@ namespace HELIX.NW {
         .Absolute(absolute)
         .Size(constraints)
         .Position(position);
+
+      if (transition.HasValue) {
+        reference.Transition(transition.Value);
+      } else if ((reference.composable.Flag & UssFlag.Transition) != 0) {
+        UssFlag.Transition.ClearFlags(reference.element);
+        reference.composable.Flag &= ~UssFlag.Transition;
+      }
 
       return ref reference;
     }
@@ -215,6 +435,7 @@ namespace HELIX.NW {
         Node.RegisterCallback<PointerUpEvent>(OnPointerUp);
         Node.RegisterCallback<PointerCancelEvent>(OnPointerCancel);
         Node.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
+        Node.RegisterCallback<NavigationSubmitEvent>(OnNavigationSubmit);
       }
 
       protected override void OnDetach() {
@@ -224,9 +445,16 @@ namespace HELIX.NW {
         Node.UnregisterCallback<PointerUpEvent>(OnPointerUp);
         Node.UnregisterCallback<PointerCancelEvent>(OnPointerCancel);
         Node.UnregisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
+        Node.UnregisterCallback<NavigationSubmitEvent>(OnNavigationSubmit);
       }
 
       protected virtual void OnClick(EventBase evt) { }
+
+      protected virtual void OnNavigationSubmit(NavigationSubmitEvent evt) {
+        if ((InputState & StateFlag.Disabled) != 0) return;
+        OnClick(evt);
+        evt.StopPropagation();
+      }
 
       protected virtual void OnPointerDown(PointerDownEvent evt) {
         if (Active || evt.button != (int)MouseButton.LeftMouse) return;
@@ -246,8 +474,11 @@ namespace HELIX.NW {
         if (!Active) return;
 
         LastMousePosition = evt.localPosition;
-        this.Toggle(StateFlag.Pressed, Node.worldBound.Contains(evt.position));
-        Node.MarkDirty();
+        var pressed = Node.worldBound.Contains(evt.position);
+        if (((InputState & StateFlag.Pressed) != 0) != pressed) {
+          this.Toggle(StateFlag.Pressed, pressed);
+          Node.MarkDirty();
+        }
 
         evt.StopPropagation();
       }
@@ -368,16 +599,16 @@ namespace HELIX.NW {
       this.background = background;
     }
 
-    public void ApplyColumn(StateFlag flag, IComposable composable) {
+    public readonly void ApplyColumn(StateFlag flag, IComposable composable) {
       var element = composable.Element;
       constraints.ResolveOrDefault(flag, BoxConstraints.Initial).Apply(element);
       alignment.ResolveOrDefault(flag, Alignment.Center).AlignAsColumn(element);
       element.Padding(padding.ResolveOrDefault(flag, StyleLength4.Zero));
       element.Margin(margin.ResolveOrDefault(flag, StyleLength4.Zero));
-      composable.Flag |= UssFlag.GroupAlign | UssFlag.Size | UssFlag.Padding;
+      composable.Flag |= UssFlag.GroupAlign | UssFlag.Size | UssFlag.Padding | UssFlag.Margin;
     }
 
-    public void RenderBoundary(ref Composition cx, StateFlag state) {
+    public readonly void RenderBoundary(ref Composition cx, StateFlag state) {
       ApplyColumn(state, cx.boundary);
 
       TextStyle.WriteMerged(ref cx, textStyle, state).Apply(cx.boundary);
@@ -395,12 +626,24 @@ namespace HELIX.NW {
     [CompositionBoundary(Base = typeof(BuiltIns.InputClickableBase<>))]
     public static partial ref ElementRef Button(
       ref this Composition cx,
-      [Prop] InlineComposable content,
+      [Prop] Composable content,
       [Prop] Action<IBoundary> action = null,
       [Prop] bool enabled = true,
       [Prop] bool selected = false,
-      [Prop] ControlBoxStyle? style = null
+      [Prop] ControlBoxStyle? style = null,
+      [Prop] PrefixLabelSuffixSpec? presentation = null
     );
+
+    public static ref ElementRef Button(
+      ref this Composition cx,
+      in PrefixLabelSuffixSpec presentation,
+      Action<IBoundary> action = null,
+      bool enabled = true,
+      bool selected = false,
+      ControlBoxStyle? style = null
+    ) {
+      return ref Button(ref cx, null, action, enabled, selected, style, presentation);
+    }
 
     public static readonly ContextKey<ControlBoxStyle> Style = new("ButtonStyle", ControlBoxStyle.Default);
 
@@ -408,14 +651,20 @@ namespace HELIX.NW {
       protected override void OnRecompose(ref Composition cx) {
         this.Toggle(StateFlag.Selected, Props.Selected);
         this.Toggle(StateFlag.Disabled, !Props.Enabled);
-        cx.APPLY.Focusable();
+        Node.SetEnabled(Props.Enabled);
+        cx.APPLY.Focusable(Props.Enabled);
 
         var boxStyle = Props.Style ?? Style.ReadScopeOrDefault();
         boxStyle.RenderBoundary(ref cx, InputState);
-        Props.Content?.Invoke(ref cx);
+        if (Props.Content != null) Props.Content.Invoke(ref cx);
+        else if (Props.Presentation.HasValue) {
+          var presentation = Props.Presentation.Value;
+          cx.PrefixLabelSuffix(in presentation);
+        }
       }
 
       protected override void OnClick(EventBase evt) {
+        if (!Props.Enabled) return;
         using (HX.BatchScope()) {
           Props.Action?.Invoke(Node);
         }

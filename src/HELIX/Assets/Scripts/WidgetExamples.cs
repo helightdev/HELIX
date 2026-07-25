@@ -34,7 +34,6 @@ public partial class WidgetExamples : WidgetHostElement {
   public void ShowGallery() {
     Buildable = new HStatefulBuilder((context, state) => {
         var textStyle = PrimitiveTheme.FallbackTextStyle.Get(context);
-        Debug.Log($"Text style: {textStyle}");
         return new HTextTheme(textStyle) {
           new HColumn(
             modifiers: new Modifier[] {

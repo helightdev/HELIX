@@ -1,8 +1,40 @@
 using System;
 using System.Collections.Generic;
+using HELIX.Types;
+using UnityEngine.UIElements;
 
 namespace HELIX.NW {
-  public interface ISpec { }
+  public interface ISpec {
+  }
+
+  public interface IBakeableSpec : ISpec {
+    Composable Bake();
+  }
+
+  public static class HXBaker {
+    public static Composable Flex(
+      IReadOnlyList<Composable> children,
+      Axis mainAxis,
+      Justify main = Justify.FlexStart,
+      Align cross = Align.Center,
+      bool reverse = false,
+      bool clear = false
+    ) => (ref Composition cx) => {
+      using (cx.Flex(mainAxis: mainAxis, main: main, cross: cross, reverse: reverse, clear: clear)) {
+        for (var i = 0; i < children.Count; i++) {
+          children[i](ref cx);
+        }
+      }
+    };
+    public static Composable Flex(
+      Axis mainAxis,
+      Justify main = Justify.FlexStart,
+      Align cross = Align.Center,
+      bool reverse = false,
+      bool clear = false,
+      params Composable[] children
+    ) => Flex(children, mainAxis, main, cross, reverse, clear);
+  }
 
   public delegate void SpecComposable<T>(ref Composition cx, in T spec) where T : struct, ISpec;
 
@@ -44,6 +76,7 @@ namespace HELIX.NW {
     }
 
     public static Composable Composable<T>(this T specs) where T : struct, ISpec {
+      if (specs is IBakeableSpec bakeable) return bakeable.Bake();
       return (ref Composition cx) => cx.Spec(in specs);
     }
   }

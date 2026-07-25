@@ -86,7 +86,7 @@ namespace HELIX.Types {
     }
 
     public static BoxConstraints Min(StyleLength2 min) {
-      return new BoxConstraints(min, min, StyleLength2.Initial);
+      return new BoxConstraints(StyleLength2.Initial, min, StyleLength2.Initial);
     }
 
     public static readonly BoxConstraints Initial = new(

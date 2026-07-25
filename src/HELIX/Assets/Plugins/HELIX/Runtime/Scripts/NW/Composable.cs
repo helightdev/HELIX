@@ -1,9 +1,9 @@
 using System;
 using HELIX.Abstractions;
+using Unity.Mathematics;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
-
   [AttributeUsage(AttributeTargets.Method)]
   public class CompositionAttribute : Attribute { }
 
@@ -20,9 +20,7 @@ namespace HELIX.NW {
 
   public delegate void Composable(ref Composition ctx);
 
-  public delegate void InlineComposable(ref Composition ctx);
-
-  public delegate void InlineComposable<in T>(ref Composition ctx, T value);
+  public delegate void Composable<in T>(ref Composition ctx, T value);
 
   public interface IComposable : IElement {
     UssFlag Flag { get; set; }

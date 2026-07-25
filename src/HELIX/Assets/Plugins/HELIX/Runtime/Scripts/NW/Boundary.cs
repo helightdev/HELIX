@@ -169,6 +169,7 @@ namespace HELIX.NW {
         RecompositionScope.MarkClean(this);
         BeforeCompose();
         Compose();
+        Cell.TrimChildren(); // TODO: Maybe?
       } finally {
         AfterCompose();
         RecompositionScope.MarkClean(this);

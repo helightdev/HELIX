@@ -145,7 +145,7 @@ namespace TestNamespace {
     //   }
     // }
 
-    private static readonly InlineComposable<StateFlag> ButtonContent =
+    private static readonly Composable<StateFlag> ButtonContent =
       static (ref Composition cx, StateFlag state) => {
         var color = Colors.Black;
         if (state.Pressed()) color = Colors.Red;

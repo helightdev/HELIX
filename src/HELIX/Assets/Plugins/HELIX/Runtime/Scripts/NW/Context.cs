@@ -165,9 +165,9 @@ namespace HELIX.NW {
     public static implicit operator ContextReference<T>(ContextKey<T> key) => new(key, null);
     public static implicit operator ContextKey<T>(ContextReference<T> reference) => reference.key;
 
-    public bool IsDirty => version.flags.HasFlag(ContextFlags.Dirty);
-    public bool IsEmpty => version.flags.HasFlag(ContextFlags.Empty);
-    public bool IsDisposed => version.flags.HasFlag(ContextFlags.Disposed);
+    public bool IsDirty => (version.flags & ContextFlags.Dirty) != 0;
+    public bool IsEmpty => (version.flags & ContextFlags.Empty) != 0;
+    public bool IsDisposed => (version.flags & ContextFlags.Disposed) != 0;
     public bool HasValue => version.flags < ContextFlags.Empty;
 
     public bool Refresh(ContextData<T> read) {
