@@ -492,15 +492,15 @@ namespace HELIX.NW {
 
   public enum SpacingRole {
     None = 0,
-    Spacing1 = 1 << 0,
-    Spacing2 = 1 << 1,
-    Spacing3 = 1 << 2,
-    Spacing4 = 1 << 3,
-    Spacing5 = 1 << 4,
-    Spacing6 = 1 << 5,
-    Spacing7 = 1 << 6,
-    Spacing8 = 1 << 7,
-    Spacing9 = 1 << 8
+    Spacing1 = 1,
+    Spacing2 = 2,
+    Spacing3 = 3,
+    Spacing4 = 4,
+    Spacing5 = 5,
+    Spacing6 = 6,
+    Spacing7 = 7,
+    Spacing8 = 8,
+    Spacing9 = 9
   }
 
   public enum BorderRole { None, Small, Normal, Large, ExtraLarge }
@@ -829,6 +829,9 @@ namespace HELIX.NW {
     }
   }
 
+  public static class ThemeProperties {
+  }
+
   public abstract class ThemeProperty { }
 
   public class ThemeProperty<T> : ThemeProperty {
@@ -860,5 +863,7 @@ namespace HELIX.NW {
     }
 
     public T this[ThemeData themeData] => themeData.GetComputedProperty(this);
+
+    public T ReadScopeOrDefault() => this[ThemeData.Context.ReadScope()];
   }
 }

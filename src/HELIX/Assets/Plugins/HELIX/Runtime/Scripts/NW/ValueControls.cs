@@ -75,7 +75,7 @@ namespace HELIX.NW {
 
     public static SliderStyle BuildDefault(ThemeData theme) {
       var box = new InputFieldStyle(
-        padding: StyleLength4.Symmetric(horizontal: 8f, vertical: 6f),
+        padding: StyleLength4.Zero,
         constraints: BoxConstraints.Min(new StyleLength2(32f))
       );
 
@@ -578,6 +578,7 @@ namespace HELIX.NW {
         cx.APPLY
           .Margin(StyleLength4.Only(left: Props.LeadingMargin))
           .Focusable(false, pickingMode: PickingMode.Ignore);
+
         cx.Text(Props.Text ?? string.Empty);
       }
     }
@@ -675,6 +676,7 @@ namespace HELIX.NW {
             style.indicatorMargin
           );
           if (Props.Presentation.HasValue) {
+            cx.Gap(style.gap);
             var presentation = Props.Presentation.Value;
             cx.PrefixLabelSuffix(in presentation);
           }

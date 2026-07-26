@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using HELIX.Coloring;
+using HELIX.Extensions;
 using HELIX.NW.Forms;
 using HELIX.NW.Overlays;
 using HELIX.Types;
 using UnityEngine;
+using UnityEngine.SocialPlatforms;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW.Forms {
@@ -253,28 +255,203 @@ namespace HELIX.NW.Forms {
     }
   }
 
-  public enum FormFieldAnchor : byte {
-    Prefix,
-    Suffix,
-    Before,
-    Between,
-    After
+  public enum FormFieldAnchor : byte { Prefix, Suffix, Before, Between, After }
+
+  public enum DecoratorLayout { Field, Side }
+
+  public readonly struct FormFieldDecorators {
+    public readonly Composable prefix;
+    public readonly Composable suffix;
+    public readonly Composable before;
+    public readonly Composable between;
+    public readonly Composable after;
+
+    public FormFieldDecorators(
+      Composable prefix = null,
+      Composable suffix = null,
+      Composable before = null,
+      Composable between = null,
+      Composable after = null
+    ) {
+      this.prefix = prefix;
+      this.suffix = suffix;
+      this.before = before;
+      this.between = between;
+      this.after = after;
+    }
   }
 
-  public readonly struct FormFieldDecoratorSpec {
+  public enum DecoratorSlotType {
+    None,
+    Before,
+    After,
+    Prefix,
+    Element,
+    Suffix,
+    Between,
+    Label,
+    Descriptor
+  }
+
+  public static class DecoratorExtensions {
+    public static StyleLength4 GetMargin(this DecoratorSlotType type, ThemeData data) {
+      return type switch {
+        DecoratorSlotType.Before => EdgeInsets.Only(bottom: CommonDecoratorElement.GapColumn[data]),
+        DecoratorSlotType.After => EdgeInsets.Only(top: CommonDecoratorElement.GapColumn[data]),
+        DecoratorSlotType.Prefix => EdgeInsets.Only(right: CommonDecoratorElement.GapRow[data]),
+        DecoratorSlotType.Suffix => EdgeInsets.Only(left: CommonDecoratorElement.GapRow[data]),
+        DecoratorSlotType.None or DecoratorSlotType.Element or DecoratorSlotType.Between or DecoratorSlotType.Label
+          or DecoratorSlotType.Descriptor => EdgeInsets.Zero,
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+      };
+    }
+
+    public static TextStyle? GetTextStyle(this DecoratorSlotType type, ThemeData data) {
+      return type switch {
+        DecoratorSlotType.Label => CommonDecoratorElement.LabelStyle[data],
+        DecoratorSlotType.Descriptor => CommonDecoratorElement.DescriptionStyle[data],
+        DecoratorSlotType.Prefix => CommonDecoratorElement.PrefixStyle[data],
+        DecoratorSlotType.Suffix => CommonDecoratorElement.SuffixStyle[data],
+        DecoratorSlotType.Before or DecoratorSlotType.Between or DecoratorSlotType.After => CommonDecoratorElement.DecoratorStyle[data],
+        _ => null
+      };
+    }
+
+  }
+
+  public ref struct DecoratorSlots {
+    private readonly CommonDecoratorElement _element;
+    private readonly Composition _composition;
+
+    public DecoratorSlots(CommonDecoratorElement element, Composition composition) {
+      _element = element;
+      _composition = composition;
+    }
+
+    public ScopeHandle Element() => _element.element.Scope(_composition);
+    public ScopeHandle Label() => _element.label.Scope(_composition);
+    public ScopeHandle Description() => _element.description.Scope(_composition);
+    public ScopeHandle Prefix() => _element.prefix.Scope(_composition);
+    public ScopeHandle Suffix() => _element.suffix.Scope(_composition);
+    public ScopeHandle Before() => _element.before.Scope(_composition);
+    public ScopeHandle Between() => _element.between.Scope(_composition);
+    public ScopeHandle After() => _element.after.Scope(_composition);
+  }
+
+  public class CommonDecoratorElement : VisualElement, IComposable, ISlotHost {
+    public static ThemeProperty<float> GapColumn = new(data => data[SpacingRole.Spacing1]);
+    public static ThemeProperty<float> GapRow = new(data => data[SpacingRole.Spacing1]);
+
+    public static ThemeProperty<TextStyle> LabelStyle = new(data => data.GetTextStyleRef(TextRole.LabelLarge));
+    public static ThemeProperty<TextStyle> DescriptionStyle = new(data => data.GetTextStyleRef(TextRole.LabelMedium));
+    public static ThemeProperty<TextStyle> PrefixStyle = new(data => data.GetTextStyleRef(TextRole.BodyMedium));
+    public static ThemeProperty<TextStyle> SuffixStyle = new(data => data.GetTextStyleRef(TextRole.BodyMedium));
+    public static ThemeProperty<TextStyle> DecoratorStyle = new(data => data.GetTextStyleRef(TextRole.LabelMedium));
+
+    public static readonly UniqueStyleString ClassElement = new("hx-decorator-element");
+    public static readonly UniqueStyleString ClassLabel = new("hx-decorator-label");
+    public static readonly UniqueStyleString ClassDescription = new("hx-decorator-description");
+    public static readonly UniqueStyleString ClassPrefix = new("hx-decorator-prefix");
+    public static readonly UniqueStyleString ClassSuffix = new("hx-decorator-suffix");
+    public static readonly UniqueStyleString ClassBefore = new("hx-decorator-before");
+    public static readonly UniqueStyleString ClassAfter = new("hx-decorator-after");
+    public static readonly UniqueStyleString ClassBetween = new("hx-decorator-between");
+
+    public static DecoratorSlotType GetType(HxSlot slot) {
+      var id = slot.SlotType;
+      if (id == ClassElement.id) return DecoratorSlotType.Element;
+      if (id == ClassLabel.id) return DecoratorSlotType.Label;
+      if (id == ClassDescription.id) return DecoratorSlotType.Descriptor;
+      if (id == ClassPrefix.id) return DecoratorSlotType.Prefix;
+      if (id == ClassSuffix.id) return DecoratorSlotType.Suffix;
+      if (id == ClassBefore.id) return DecoratorSlotType.Before;
+      if (id == ClassAfter.id) return DecoratorSlotType.After;
+      if (id == ClassBetween.id) return DecoratorSlotType.Between;
+      return DecoratorSlotType.None;
+    }
+
+    public static void ComposeScopedLabel(ref Composition cx, in LabelSpec spec) {
+      if (cx.Slot == null) return;
+      var type = GetType(cx.Slot);
+      var data = ThemeData.Context.ReadScope();
+      using (cx.Flex(Axis.Horizontal)) {
+        cx.APPLY.AlignSelf(Align.FlexStart);
+        cx.APPLY.Margin(type.GetMargin(data));
+        type.GetTextStyle(data)?.Apply(cx.APPLY.composable);
+
+        LabelSpec.Default(ref cx, in spec);
+      }
+    }
+
+    public HxSlot before;
+    public HxSlot after;
+    public HxSlot prefix;
+    public HxSlot element;
+    public HxSlot suffix;
+    public HxSlot between;
+
+    public HxSlot label;
+    public HxSlot description;
+
+    public VisualElement column;
+    public VisualElement row;
+
+    public override VisualElement contentContainer => element;
+
+    public CommonDecoratorElement() {
+      column = new VisualElement().AddTo(hierarchy);
+
+      label = new HxSlot(this, ClassLabel).WithClasses(ClassLabel).AddTo(column);
+      before = new HxSlot(this, ClassBefore).WithClasses(ClassBefore).AddTo(column);
+      row = new VisualElement().FlexContainer(Axis.Horizontal).AddTo(column).Flexible(0, 1, Align.Stretch);
+      between = new HxSlot(this, ClassBetween).WithClasses(ClassBetween).AddTo(column);
+      description = new HxSlot(this, ClassDescription).WithClasses(ClassDescription).AddTo(column);
+      after = new HxSlot(this, ClassAfter).WithClasses(ClassAfter).AddTo(column);
+      prefix = new HxSlot(this, ClassPrefix).WithClasses(ClassPrefix).AddTo(row);
+      element = new HxSlot(this, ClassElement).WithClasses(ClassElement).AddTo(row);
+      suffix = new HxSlot(this, ClassSuffix).WithClasses(ClassSuffix).AddTo(row);
+    }
+
+    public void Initialize(in Composition cx) {
+      Boundary = cx.boundary;
+    }
+
+    public VisualElement Element => this;
+    public UssFlag Flag { get; set; }
+    public ulong TypeId { get; set; }
+
+    public void Reset() {
+      before?.Reset();
+      after?.Reset();
+      prefix?.Reset();
+      element?.Reset();
+      suffix?.Reset();
+      between?.Reset();
+      label?.Reset();
+      description?.Reset();
+      Boundary = null;
+    }
+
+    public IBoundary Boundary { get; private set; }
+  }
+
+  public readonly struct FormFieldOptions {
     public readonly LabelSpec? label;
     public readonly LabelSpec? tooltip;
     public readonly LabelSpec? description;
+    public readonly FormFieldDecorators decorators;
+
     public readonly FormFieldAnchor anchor;
     public readonly float gap;
     public readonly Align alignment;
 
     public bool IsEmpty => !label.HasValue && !tooltip.HasValue && !description.HasValue;
 
-    public FormFieldDecoratorSpec(
+    public FormFieldOptions(
       LabelSpec? label = null,
       LabelSpec? tooltip = null,
       LabelSpec? description = null,
+      FormFieldDecorators decorators = default,
       FormFieldAnchor anchor = FormFieldAnchor.Before,
       float gap = 4f,
       Align alignment = Align.Stretch
@@ -285,43 +462,62 @@ namespace HELIX.NW.Forms {
       this.anchor = anchor;
       this.gap = gap;
       this.alignment = alignment;
+      this.decorators = decorators;
     }
 
     public void Decorate(ref Composition cx, Composable input) {
+      var layout = DecoratorLayout.Field;
+
       if (IsEmpty) {
         input?.Invoke(ref cx);
         return;
       }
+      using (cx.Flex(Axis.Vertical)) {
+        decorators.before?.Invoke(ref cx);
+        using (cx.Flex(Axis.Horizontal)) {
+          cx.APPLY.AlignSelf(Align.Stretch);
+          decorators.prefix?.Invoke(ref cx);
+          input?.Invoke(ref cx);
+          if (layout == DecoratorLayout.Side) { }
 
-      var axis = anchor is FormFieldAnchor.Prefix or FormFieldAnchor.Suffix
-        ? Axis.Horizontal
-        : Axis.Vertical;
-      using (cx.Flex(axis, cross: alignment)) {
-        cx.APPLY.FlexShrink(0f);
-        if (anchor is FormFieldAnchor.Prefix or FormFieldAnchor.Before) {
-          var hadPrevious = false;
-          ComposeLabels(ref cx, ref hadPrevious);
-          if (hadPrevious) cx.Space(gap);
-          input?.Invoke(ref cx);
-        } else if (anchor == FormFieldAnchor.Between) {
-          var hadPrevious = false;
-          ComposeLabel(ref cx, label, ref hadPrevious);
-          input?.Invoke(ref cx);
-          if (input != null) hadPrevious = true;
-          ComposeLabel(ref cx, tooltip, ref hadPrevious);
-          ComposeLabel(ref cx, description, ref hadPrevious);
-        } else {
-          input?.Invoke(ref cx);
-          var hadPrevious = input != null;
-          ComposeLabels(ref cx, ref hadPrevious);
+          decorators.suffix?.Invoke(ref cx);
         }
+
+        decorators.between?.Invoke(ref cx);
+
+        decorators.after?.Invoke(ref cx);
       }
+
+
+      // var axis = anchor is FormFieldAnchor.Prefix or FormFieldAnchor.Suffix
+      //   ? Axis.Horizontal
+      //   : Axis.Vertical;
+      // using (cx.Flex(axis, cross: alignment)) {
+      //   cx.APPLY.FlexShrink(0f);
+      //   if (anchor is FormFieldAnchor.Prefix or FormFieldAnchor.Before) {
+      //     var hadPrevious = false;
+      //     ComposeLabels(ref cx, ref hadPrevious);
+      //     if (hadPrevious) cx.Gap(gap);
+      //     input?.Invoke(ref cx);
+      //   } else if (anchor == FormFieldAnchor.Between) {
+      //     var hadPrevious = false;
+      //     ComposeLabel(ref cx, label, ref hadPrevious);
+      //     input?.Invoke(ref cx);
+      //     if (input != null) hadPrevious = true;
+      //     ComposeLabel(ref cx, tooltip, ref hadPrevious);
+      //     ComposeLabel(ref cx, description, ref hadPrevious);
+      //   } else {
+      //     input?.Invoke(ref cx);
+      //     var hadPrevious = input != null;
+      //     ComposeLabels(ref cx, ref hadPrevious);
+      //   }
+      // }
     }
 
     private void ComposeLabel(ref Composition cx, LabelSpec? content, ref bool hadPrevious) {
       if (!content.HasValue) return;
       if (hadPrevious) {
-        cx.Space(gap);
+        cx.Gap(gap);
       }
 
       var value = content.Value;
@@ -348,7 +544,7 @@ namespace HELIX.NW.Forms {
     public TInput input;
     public Action<TValue, IBoundary> onChanged;
     public Action<TValue, IBoundary> onCommitted;
-    public FormFieldDecoratorSpec? decorator;
+    public FormFieldOptions? decorator;
   }
 
   internal static class FormFieldIdentity<TValue, TInput> where TInput : struct {
@@ -428,7 +624,7 @@ namespace HELIX.NW.Forms {
       bool finishOnChange = false,
       Action<TValue, IBoundary> onChanged = null,
       Action<TValue, IBoundary> onCommitted = null,
-      FormFieldDecoratorSpec? decorator = null
+      FormFieldOptions? decorator = null
     ) {
       var input = new FormInputSpec<TValue>(composeInput);
       cx.FormField(
@@ -465,7 +661,7 @@ namespace HELIX.NW.Forms {
       bool finishOnChange = false,
       Action<TValue, IBoundary> onChanged = null,
       Action<TValue, IBoundary> onCommitted = null,
-      FormFieldDecoratorSpec? decorator = null
+      FormFieldOptions? decorator = null
     ) where TInput : struct {
       cx.AUTHORING.PropsBoundaryStateNode<
         FormFieldState<TValue, TInput>,
@@ -547,6 +743,19 @@ namespace HELIX.NW.Forms {
     private static readonly FormInputComposable<bool, FormCheckboxSpec> _checkbox =
       ComposeCheckbox;
 
+
+    private static readonly ushort _decoratorId = CompositionId.GetTypeId();
+
+    public static ScopeHandle Decorator(this ref Composition cx, out DecoratorSlots slots) {
+      if (!cx.AUTHORING.RequireComposable<CommonDecoratorElement>(_decoratorId, out var decorator, out var retained)) {
+        decorator = new CommonDecoratorElement();
+      }
+      if (!retained) decorator.Initialize(cx);
+
+      slots = new DecoratorSlots(decorator, cx);
+      return cx.AUTHORING.YieldScope(ref cx, decorator);
+    }
+
     public static ref ElementRef FormTextInput(
       this ref Composition cx,
       string path,
@@ -559,7 +768,7 @@ namespace HELIX.NW.Forms {
       InputFieldStyle style = null,
       Action<string, IBoundary> onChanged = null,
       Action<string, IBoundary> onSubmitted = null,
-      FormFieldDecoratorSpec? decorator = null
+      FormFieldOptions? decorator = null
     ) {
       var input = new FormTextInputSpec(options, style);
       cx.FormField(
@@ -590,7 +799,7 @@ namespace HELIX.NW.Forms {
       InputFieldStyle style = null,
       Action<int, IBoundary> onChanged = null,
       Action<int, IBoundary> onSubmitted = null,
-      FormFieldDecoratorSpec? decorator = null
+      FormFieldOptions? decorator = null
     ) {
       var input = new FormNumericInputSpec(options, style);
       cx.FormField(
@@ -621,7 +830,7 @@ namespace HELIX.NW.Forms {
       InputFieldStyle style = null,
       Action<float, IBoundary> onChanged = null,
       Action<float, IBoundary> onSubmitted = null,
-      FormFieldDecoratorSpec? decorator = null
+      FormFieldOptions? decorator = null
     ) {
       var input = new FormNumericInputSpec(options, style);
       cx.FormField(
@@ -652,7 +861,7 @@ namespace HELIX.NW.Forms {
       SliderStyle style = null,
       Action<float, IBoundary> onChanged = null,
       Action<float, IBoundary> onCommitted = null,
-      FormFieldDecoratorSpec? decorator = null
+      FormFieldOptions? decorator = null
     ) {
       var input = new FormSliderSpec(options, style);
       cx.FormField(
@@ -681,7 +890,7 @@ namespace HELIX.NW.Forms {
       bool enabled = true,
       CheckboxStyle style = null,
       Action<bool, IBoundary> onChanged = null,
-      FormFieldDecoratorSpec? decorator = null
+      FormFieldOptions? decorator = null
     ) {
       var input = new FormCheckboxSpec(style);
       cx.FormField(
@@ -714,7 +923,7 @@ namespace HELIX.NW.Forms {
         enabled: field.enabled,
         error: field.error,
         style: input.style
-      );
+      ).Flexible();
     }
 
     private static void ComposeIntInput(
@@ -731,7 +940,7 @@ namespace HELIX.NW.Forms {
         enabled: field.enabled,
         error: field.error,
         style: input.style
-      );
+      ).Flexible();
     }
 
     private static void ComposeFloatInput(
@@ -748,7 +957,7 @@ namespace HELIX.NW.Forms {
         enabled: field.enabled,
         error: field.error,
         style: input.style
-      );
+      ).Flexible();
     }
 
     private static void ComposeSlider(
@@ -764,7 +973,7 @@ namespace HELIX.NW.Forms {
         enabled: field.enabled,
         error: field.error,
         style: input.style
-      );
+      ).Flexible();
     }
 
     private static void ComposeCheckbox(
@@ -779,7 +988,7 @@ namespace HELIX.NW.Forms {
         field.enabled,
         input.style,
         field.error
-      );
+      ).Flexible();
     }
   }
 
@@ -842,7 +1051,7 @@ namespace HELIX.NW.Forms {
       OverlayPanelStyle menuStyle = null,
       OverlayOptions? overlayOptions = null,
       Action<T, IBoundary> onChanged = null,
-      FormFieldDecoratorSpec? decorator = null
+      FormFieldOptions? decorator = null
     ) {
       var input = new FormDropdownSpec<T>(
         options,
@@ -877,7 +1086,8 @@ namespace HELIX.NW.Forms {
       [Prop] Composable<int> item,
       [Prop] IReadOnlyList<IFormValidator> validators = null,
       [Prop] ValidationMode validationMode = ValidationMode.OnSubmit,
-      [Prop] bool enabled = true
+      [Prop] bool enabled = true,
+      [Prop] float? gap = null
     );
 
     public partial class FormListState {
@@ -903,6 +1113,7 @@ namespace HELIX.NW.Forms {
         }
 
         var count = Form.GetListCount(Path);
+        var gap = Props.Gap ?? ThemeData.Context.ReadScope()[SpacingRole.Spacing2];
         while (_itemPrefixes.Count < count) {
           var index = _itemPrefixes.Count;
           _itemPrefixes.Add(
@@ -913,6 +1124,7 @@ namespace HELIX.NW.Forms {
           );
         }
         for (var i = 0; i < count; i++) {
+          if (i > 0) cx.Gap(gap);
           cx.FormIndexedScope(_itemPrefixes[i], i, Props.Item);
         }
       }

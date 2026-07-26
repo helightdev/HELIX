@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using HELIX.NW.Forms;
 using HELIX.Widgets.Signals;
 using UnityEngine.UIElements;
 
@@ -12,6 +13,11 @@ namespace HELIX.NW {
     public readonly IBoundary boundary;
     public ElementRef APPLY;
     public CompositionAuthoring AUTHORING;
+
+    public HxSlot Slot {
+      get => AUTHORING.cell.slot;
+      set => AUTHORING.cell.slot = value;
+    }
 
     public Composition(IBoundary initiator) : this() {
       boundary = initiator;
@@ -26,6 +32,18 @@ namespace HELIX.NW {
       APPLY.composable = boundary;
     }
 
+    public Composition(IBoundary boundary, CompositionId id, IComposable composable) : this() {
+      this.boundary = boundary;
+      AUTHORING.cell = boundary.Cell ?? BoundaryCell.Shared;
+      AUTHORING.cell.cursor = 0;
+      AUTHORING.cell.localId = LocalId.Initial;
+      AUTHORING.cell.current = composable;
+      AUTHORING.cursor = composable.Element;
+      AUTHORING.id = id;
+      APPLY.element = composable.Element;
+      APPLY.composable = composable;
+    }
+
     public bool Conditional(bool condition, ushort count = 1) {
       if (condition) return true;
       AUTHORING.cell.localId.index += count;
@@ -36,12 +54,21 @@ namespace HELIX.NW {
     //   return new KeyScope(AUTHORING.cell, key);
     // }
 
+    public T GetInheritedState<T>(bool includeHost = true) where T : NodeState {
+      var current = includeHost ? boundary : boundary.Parent;
+      while (current != null) {
+        if (current is CompositionBoundaryNodeBase { State: T state }) return state;
+        current = current.Parent;
+      }
+      return null;
+    }
+
     public T ReadContext<T>(ContextKey<T> key, bool listen = true) {
       if (RecompositionScope.TryGetContext(key, out var read)) {
         if (listen) boundary.AcquireContext().Subscribe(key, read);
         return read.value;
       }
-      return default;
+      return key.defaultValue;
     }
 
     public T ReadContextOrDefault<T>(ContextKey<T> key, T defaultValue = default, bool listen = true) {
@@ -161,18 +188,17 @@ namespace HELIX.NW {
   }
 
   public static class CompositionIdRegistry {
-
     public static readonly List<CompositionIdEntry> CompositionIds = new();
     public static readonly List<TypeIdEntry> TypeIds = new();
 
     [Conditional("UNITY_EDITOR")]
     public static void RegisterTypeId(string name) {
-      TypeIds.Add(new TypeIdEntry { name = name});
+      TypeIds.Add(new TypeIdEntry { name = name });
     }
 
     [Conditional("UNITY_EDITOR")]
     public static void RegisterCompositionId(string name, string location) {
-      CompositionIds.Add(new CompositionIdEntry { name = name, location = location});
+      CompositionIds.Add(new CompositionIdEntry { name = name, location = location });
     }
 
     public static string GetCompositionName(ushort id) {
@@ -198,7 +224,6 @@ namespace HELIX.NW {
     public struct TypeIdEntry {
       public string name;
     }
-
   }
 
   [StructLayout(LayoutKind.Explicit, Size = 8)]
@@ -260,6 +285,7 @@ namespace HELIX.NW {
     private readonly int _cursor;
     private readonly LocalId _local;
     private readonly ScopeCompletionCallback _callback;
+    private readonly HxSlot _slot;
 
     private ScopeHandle(BoundaryCell cell, ScopeCompletionCallback callback) {
       _cell = cell;
@@ -267,6 +293,8 @@ namespace HELIX.NW {
       _callback = callback;
       _cursor = cell.cursor;
       _local = cell.localId;
+      _slot = cell.slot;
+
       cell.cursor = 0;
       cell.localId = new LocalId { index = 0, depth = (ushort)(_local.depth + 1) };
     }
@@ -278,6 +306,7 @@ namespace HELIX.NW {
         _cell.current = _return;
         _cell.cursor = _cursor;
         _cell.localId = _local;
+        _cell.slot = _slot;
       }
     }
 

@@ -20,7 +20,7 @@ namespace TestNamespace {
 
     [Composition]
     private static void _MyComposition(ref Composition cx) {
-      var theme = ThemeData.Context.ReadScopeOrDefault();
+      var theme = ThemeData.Context.ReadScope();
 
       cx.WriteContext(SpecConfiguration.Key, DefaultFactory);
       ref var defaultTextStyle = ref theme.GetTextStyleRef(TextRole.BodyMedium);

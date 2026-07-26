@@ -18,7 +18,8 @@ namespace HELIX.SourceGen {
   // Requirements on the source method:
   //   - static
   //   - name starts with '_' (the '_' is stripped to make the public name)
-  //   - exactly one parameter: ref HELIX.NW.Composition
+  //   - first parameter: ref HELIX.NW.Composition
+  //   - optional second parameter: T or in T
   // Anything else is a hard error (HLX001-HLX004) reported on the method.
   [Generator(LanguageNames.CSharp)]
   public sealed class CompositionGenerator : IIncrementalGenerator {
@@ -47,10 +48,10 @@ namespace HELIX.SourceGen {
       true
     );
 
-    private static readonly DiagnosticDescriptor MustTakeOnlyRefComposition = new DiagnosticDescriptor(
+    private static readonly DiagnosticDescriptor MustHaveSupportedParameters = new DiagnosticDescriptor(
       "HLX003",
-      "Composition method must take exactly one 'ref Composition' parameter",
-      "Method '{0}' is marked [Composition] but must take exactly one parameter, 'ref HELIX.NW.Composition', and nothing else",
+      "Composition method has unsupported parameters",
+      "Method '{0}' is marked [Composition] but must take 'ref HELIX.NW.Composition' and at most one additional value or 'in' parameter",
       "HELIX",
       DiagnosticSeverity.Error,
       true
@@ -95,24 +96,31 @@ namespace HELIX.SourceGen {
         return;
       }
 
-      if (method.Parameters.Length != 1 || !IsRefComposition(method.Parameters[0])) {
-        spc.ReportDiagnostic(Diagnostic.Create(MustTakeOnlyRefComposition, loc, method.Name));
+      if (!HasSupportedParameters(method.Parameters)) {
+        spc.ReportDiagnostic(Diagnostic.Create(MustHaveSupportedParameters, loc, method.Name));
         return;
       }
 
-      var paramName = method.Parameters[0].Name;
       var publicName = method.Name.Substring(1);
       var fieldName = $"_{char.ToLowerInvariant(publicName[0])}{publicName.Substring(1)}Id";
+      var argument = method.Parameters.Length == 2 ? method.Parameters[1] : null;
+      var composableType = argument is null
+        ? ComposableTypeName
+        : $"{ComposableTypeName}<{GetTypeDisplayName(argument.Type)}>";
+      var lambdaArgument = argument is null ? "" : $", {GetTypeDisplayName(argument.Type)} value";
+      var invocationArgument = argument is null
+        ? ""
+        : argument.RefKind == RefKind.In ? ", in value" : ", value";
 
       var containing = BuildContainingTypeWrapper(method.ContainingType, method.Name, out var hintName);
 
       var body = $@"
     private static readonly ushort {fieldName} = {CompositionIdTypeName}.GetCompositionId();
 
-    public static readonly {ComposableTypeName} {publicName} = static (ref {CompositionTypeName} cx) => {{
+    public static readonly {composableType} {publicName} = static (ref {CompositionTypeName} cx{lambdaArgument}) => {{
       var transfer = new {CompositionTransferTypeName}();
       {CompositionInternalsTypeName}.EnterComposition(ref cx, {fieldName}, ref transfer);
-      try {{{method.Name}(ref cx);}}
+      try {{{method.Name}(ref cx{invocationArgument});}}
       finally {{{CompositionInternalsTypeName}.ExitComposition(ref cx, ref transfer);}}
     }};
 ";
@@ -123,11 +131,21 @@ namespace HELIX.SourceGen {
 
     private static bool IsRefComposition(IParameterSymbol p) {
       if (p.RefKind != RefKind.Ref) return false;
-      var displayName = p.Type.ToDisplayString(
+      return GetTypeDisplayName(p.Type) == CompositionTypeName;
+    }
+
+    private static bool HasSupportedParameters(System.Collections.Immutable.ImmutableArray<IParameterSymbol> parameters) {
+      if (parameters.Length < 1 || parameters.Length > 2 || !IsRefComposition(parameters[0])) return false;
+      return parameters.Length == 1 ||
+             parameters[1].RefKind == RefKind.None ||
+             parameters[1].RefKind == RefKind.In;
+    }
+
+    private static string GetTypeDisplayName(ITypeSymbol type) {
+      return type.ToDisplayString(
         SymbolDisplayFormat.FullyQualifiedFormat
           .WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted)
       );
-      return displayName == CompositionTypeName;
     }
 
     // Builds the minimal "namespace { partial class Outer { partial class Inner { ... } } }"

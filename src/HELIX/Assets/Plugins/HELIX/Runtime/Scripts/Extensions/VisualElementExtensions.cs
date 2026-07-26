@@ -48,6 +48,16 @@ namespace HELIX.Extensions {
       return element.AddClasses(classNames);
     }
 
+    public static T WithClasses<T>(this T element, string className) where T : VisualElement {
+      element.AddToClassList(className);
+      return element;
+    }
+
+    public static T WithClasses<T>(this T element, UniqueStyleString styleString) where T : VisualElement {
+      element.AddToClassList(styleString);
+      return element;
+    }
+
     public static T WithName<T>(this T element, string name) where T : VisualElement {
       element.name = name;
       return element;

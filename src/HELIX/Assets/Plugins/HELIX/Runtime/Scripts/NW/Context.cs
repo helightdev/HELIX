@@ -39,7 +39,7 @@ namespace HELIX.NW {
       return true;
     }
 
-    public T ReadScopeOrDefault() {
+    public T ReadScope() {
       return !RecompositionScope.TryGetContext(this, out var read) ? defaultValue : read.value;
     }
 

@@ -483,7 +483,7 @@ namespace HELIX.NW.Navigation {
 
       protected override void OnRecompose(ref Composition cx) {
         Node.Stretched().Visible(Props.Visible);
-        Node.SetEnabled(Props.Visible);
+        //Node.SetEnabled(Props.Visible);
         Node.Flag |= UssFlag.Position | UssFlag.Visibility;
 
         if (Props.Entry == null) {

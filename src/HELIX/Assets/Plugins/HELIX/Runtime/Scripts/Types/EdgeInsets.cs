@@ -19,10 +19,10 @@ namespace HELIX.Types {
       Length? bottom = null
     ) {
       return new StyleLength4(
-        left ?? Length.Auto(),
-        top ?? Length.Auto(),
-        right ?? Length.Auto(),
-        bottom ?? Length.Auto()
+        left ?? Length.None(),
+        top ?? Length.None(),
+        right ?? Length.None(),
+        bottom ?? Length.None()
       );
     }
   }

@@ -193,6 +193,18 @@ namespace HELIX.NW {
       return ref scope;
     }
 
+    public static ref ElementRef TextFont(this ref ElementRef scope, StyleFont font) {
+      scope.composable.Element.style.unityFont = font;
+      scope.composable.Flag |= UssFlag.Text;
+      return ref scope;
+    }
+
+    public static ref ElementRef TextFont(this ref ElementRef scope, StyleFontDefinition font) {
+      scope.composable.Element.style.unityFontDefinition = font;
+      scope.composable.Flag |= UssFlag.Text;
+      return ref scope;
+    }
+
     public static ref ElementRef TextAlign(this ref ElementRef scope, TextAnchor alignment) {
       scope.composable.Element.style.unityTextAlign = alignment;
       scope.composable.Flag |= UssFlag.Text;
@@ -286,24 +298,52 @@ namespace HELIX.NW {
     public static ref ElementRef TextRole(this ref ElementRef scope, TextRole role) {
       if (ThemeData.Context.TryReadScope(out var theme)) {
         theme.GetTextStyleRef(role).Apply(scope.composable);
+      } else {
+        Debug.LogError($"Theme not found for TextRole: {role}");
       }
       return ref scope;
     }
 
+    public static ref ElementRef Class(this ref ElementRef scope, string className, bool enabled = true) {
+      scope.composable.Element.EnableInClassList(className, enabled);
+      scope.composable.Flag |= UssFlag.Classes;
+      return ref scope;
+    }
+
+
     // Space
     private static readonly ushort _spaceId = CompositionId.GetTypeId();
 
-    public static ref ElementRef Space(this ref Composition cx, float gap = 0f) {
+    public static ref ElementRef Spacing(this ref Composition cx, SpacingRole role) {
+      var theme = ThemeData.Context.ReadScope();
+      var gap = theme.GetSpacing(role);
+      return ref cx.Gap(gap);
+    }
+
+    public static ref ElementRef Spacing(this ref Composition cx, int level) {
+      var role = (SpacingRole)level;
+      return ref cx.Spacing(role);
+    }
+
+    public static ref ElementRef Gap(this ref Composition cx, Length? gap = null) {
       if (cx.AUTHORING.InitializeNode(_spaceId, out var node)) { }
       ref var reference = ref cx.AUTHORING.YieldElement(ref cx, node);
 
-      var isParentHorizontal = cx.AUTHORING.cell.current.Element.style.flexDirection == FlexDirection.Row;
-      if (isParentHorizontal) {
-        reference.Width(gap);
+      if (gap == null) {
+        reference.Size(BoxConstraints.Initial);
+        reference.FlexGrow(1);
       } else {
-        reference.Height(gap);
+        var isParentHorizontal = cx.AUTHORING.cell.current.Element.style.flexDirection == FlexDirection.Row;
+        if (isParentHorizontal) {
+          reference.Width((StyleLength)gap);
+          reference.FlexGrow(0);
+        } else {
+          reference.Height((StyleLength)gap);
+          reference.FlexGrow(0);
+        }
       }
-      reference.element.name = "Space";
+
+      reference.element.name = "Gap";
       reference.composable.Flag |= UssFlag.Name;
 
       return ref reference;
@@ -339,6 +379,24 @@ namespace HELIX.NW {
       );
     }
 
+    // Container
+    private static readonly ushort _containerId = CompositionId.GetTypeId();
+    public static ScopeHandle Container(this ref Composition cx) {
+      if (cx.AUTHORING.InitializeNode(_flexId, out var node)) {
+        node.hierarchy.Clear();
+      }
+
+      return cx.AUTHORING.YieldScope(
+        ref cx,
+        node,
+        static (BoundaryCell cell, in ScopeHandle _) => {
+          cell.TrimChildren();
+        }
+      );
+    }
+
+
+    // Solid box
     private static readonly ushort _boxId = CompositionId.GetTypeId();
 
     public static ref ElementRef DrawSolidBox(
@@ -654,7 +712,7 @@ namespace HELIX.NW {
         Node.SetEnabled(Props.Enabled);
         cx.APPLY.Focusable(Props.Enabled);
 
-        var boxStyle = Props.Style ?? Style.ReadScopeOrDefault();
+        var boxStyle = Props.Style ?? Style.ReadScope();
         boxStyle.RenderBoundary(ref cx, InputState);
         if (Props.Content != null) Props.Content.Invoke(ref cx);
         else if (Props.Presentation.HasValue) {

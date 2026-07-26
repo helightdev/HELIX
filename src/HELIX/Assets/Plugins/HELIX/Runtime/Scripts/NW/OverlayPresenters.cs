@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HELIX.Coloring;
 using HELIX.Types;
+using TextMateSharp.Themes;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -128,9 +129,12 @@ namespace HELIX.NW.Overlays {
       var style = Props.style ?? ControlBoxStyle.Default;
       style.RenderBoundary(ref cx, InputState);
       using (cx.Flex(Axis.Horizontal, main: Justify.SpaceBetween, cross: Align.Center)) {
+        cx.APPLY.Flexible().AlignSelf(Align.Stretch);
+
         cx.Text(SelectedLabel());
-        cx.Space(8f);
-        cx.Text("▾");
+        cx.Spacing(2);
+        var isShown = _menu is { IsShown: true };
+        cx.Spec(new ChevronSpec(isShown ? ArrowPosition.Up : ArrowPosition.Down, 12, ThemeData.Context.ReadScope()[ColorRoles.OnSurfaceVariant]));
       }
     }
 
@@ -200,7 +204,7 @@ namespace HELIX.NW.Overlays {
         if (options == null) return;
         for (var i = 0; i < options.Count; i++) {
           var option = options[i];
-          if (i > 0) cx.Space(style.gap);
+          if (i > 0) cx.Gap(style.gap);
           cx.OverlayActionItem(
             this,
             i,
@@ -388,7 +392,7 @@ namespace HELIX.NW.Overlays {
         if (_items == null) return;
         for (var i = 0; i < _items.Count; i++) {
           var item = _items[i];
-          if (i > 0) cx.Space(_style.gap);
+          if (i > 0) cx.Gap(_style.gap);
           switch (item.kind) {
             case MenuItemKind.Separator:
               cx.DrawSolidBox(

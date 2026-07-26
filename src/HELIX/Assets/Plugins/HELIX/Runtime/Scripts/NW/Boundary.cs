@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using HELIX.Extensions;
+using HELIX.NW.Forms;
 using Unity.Profiling;
 using UnityEngine.UIElements;
 
@@ -35,6 +36,7 @@ namespace HELIX.NW {
     public IComposable current;
     public int cursor;
     public LocalId localId;
+    public HxSlot slot;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public VisualElement ReadCursor() {
