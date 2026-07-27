@@ -109,8 +109,7 @@ namespace TestNamespace {
     [Composition]
     public static void _InnerComposition(ref Composition cx) {
       new ButtonSpecs {
-        Label = "Click me from InnerComposition",
-        OnClick = static x => {
+        Label = "Click me from InnerComposition", OnClick = static x => {
           counterSignal.Value++;
           Debug.Log($"Click {counterSignal.Value} from InnerComposition!");
         }
@@ -131,7 +130,7 @@ namespace TestNamespace {
 
     public struct ButtonSpecs : ISpec {
       public string Label { get; set; }
-      public Action<IBoundary> OnClick { get; set; }
+      public CompositionAction OnClick { get; set; }
     }
 
     // [CompositionBoundary]

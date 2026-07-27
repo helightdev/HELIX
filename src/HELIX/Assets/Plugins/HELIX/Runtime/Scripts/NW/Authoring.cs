@@ -18,6 +18,11 @@ namespace HELIX.NW {
       ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
     );
 
+    public void SetId(CompositionId given) {
+      id = given;
+      cell.localId = given.local;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public VisualElement ReadCursor() {
       cursor = cell.ReadCursor();
@@ -81,7 +86,7 @@ namespace HELIX.NW {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool RequireBoundaryNode(ushort typeId, out CompositionBoundaryNode node, out bool retained) {
+    public bool RequireCompositionBoundaryNode(ushort typeId, out CompositionBoundaryNode node, out bool retained) {
       if (RequireComposable(typeId, out node, out retained)) {
         return true;
       }

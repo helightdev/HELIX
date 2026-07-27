@@ -4,30 +4,30 @@ namespace HELIX.NW {
     private bool RequireAnonymouseBoundaryNode(
       ushort typeId,
       out CompositionBoundaryNode node,
-      out AnonymousNodeState state,
+      out AnonymousBoundaryData data,
       out bool retained
     ) {
-      if (RequireBoundaryNode(typeId, out node, out retained)) {
-        if (node.State is not AnonymousNodeState anonymousState) {
-          anonymousState = new AnonymousNodeState();
-          node.SetState(anonymousState);
+      if (RequireCompositionBoundaryNode(typeId, out node, out retained)) {
+        if (node.Data is not AnonymousBoundaryData anonymousState) {
+          anonymousState = new AnonymousBoundaryData();
+          node.SetData(anonymousState);
           retained = false;
         }
-        state = anonymousState;
+        data = anonymousState;
         return true;
       }
 
-      state = new AnonymousNodeState();
-      node.SetState(state);
+      data = new AnonymousBoundaryData();
+      node.SetData(data);
       return false;
     }
 
     public bool InitializeAnonymouseBoundaryNode(
       ushort typeId,
       out CompositionBoundaryNode node,
-      out AnonymousNodeState state
+      out AnonymousBoundaryData data
     ) {
-      RequireAnonymouseBoundaryNode(typeId, out node, out state, out var retained);
+      RequireAnonymouseBoundaryNode(typeId, out node, out data, out var retained);
       return !retained;
     }
   }

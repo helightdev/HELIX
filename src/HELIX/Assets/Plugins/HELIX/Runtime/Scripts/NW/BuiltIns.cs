@@ -296,11 +296,12 @@ namespace HELIX.NW {
     }
 
     public static ref ElementRef TextRole(this ref ElementRef scope, TextRole role) {
-      if (ThemeData.Context.TryReadScope(out var theme)) {
-        theme.GetTextStyleRef(role).Apply(scope.composable);
-      } else {
-        Debug.LogError($"Theme not found for TextRole: {role}");
-      }
+      ThemeData.Context.ReadScope().GetTextStyleRef(role).Apply(scope.composable);
+      // if (ThemeData.Context.TryReadScope(out var theme)) {
+      //   theme.GetTextStyleRef(role).Apply(scope.composable);
+      // } else {
+      //   Debug.LogError($"Theme not found for TextRole: {role}");
+      // }
       return ref scope;
     }
 
@@ -308,6 +309,10 @@ namespace HELIX.NW {
       scope.composable.Element.EnableInClassList(className, enabled);
       scope.composable.Flag |= UssFlag.Classes;
       return ref scope;
+    }
+
+    public static ref ElementRef Fill(this ref ElementRef scope) {
+      return ref scope.Flexible().AlignSelf(Align.Stretch);
     }
 
 
@@ -476,13 +481,13 @@ namespace HELIX.NW {
       return ref ctx.AUTHORING.YieldBoundary(ref ctx, node);
     }
 
-    public abstract class InputClickableBase<T> : InputStateBase<T> where T : struct {
+    public abstract class InputClickableComposable<T> : InputBoundaryComposable<T> where T : struct {
       private int _activePointerId = -1;
 
       protected bool Active { get; private set; }
       protected Vector2 LastMousePosition { get; private set; }
 
-      protected InputClickableBase() {
+      protected InputClickableComposable() {
         handleFocus = true;
       }
 
@@ -681,11 +686,11 @@ namespace HELIX.NW {
   }
 
   public static partial class ButtonDefinition {
-    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableBase<>))]
+    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableComposable<>))]
     public static partial ref ElementRef Button(
       ref this Composition cx,
       [Prop] Composable content,
-      [Prop] Action<IBoundary> action = null,
+      [Prop] CompositionAction action = null,
       [Prop] bool enabled = true,
       [Prop] bool selected = false,
       [Prop] ControlBoxStyle? style = null,
@@ -695,7 +700,7 @@ namespace HELIX.NW {
     public static ref ElementRef Button(
       ref this Composition cx,
       in PrefixLabelSuffixSpec presentation,
-      Action<IBoundary> action = null,
+      CompositionAction action = null,
       bool enabled = true,
       bool selected = false,
       ControlBoxStyle? style = null
@@ -705,7 +710,7 @@ namespace HELIX.NW {
 
     public static readonly ContextKey<ControlBoxStyle> Style = new("ButtonStyle", ControlBoxStyle.Default);
 
-    public partial class ButtonState {
+    public partial class ButtonComposable {
       protected override void OnRecompose(ref Composition cx) {
         this.Toggle(StateFlag.Selected, Props.Selected);
         this.Toggle(StateFlag.Disabled, !Props.Enabled);
@@ -724,7 +729,7 @@ namespace HELIX.NW {
       protected override void OnClick(EventBase evt) {
         if (!Props.Enabled) return;
         using (HX.BatchScope()) {
-          Props.Action?.Invoke(Node);
+          Props.Action?.Call(Node);
         }
       }
     }

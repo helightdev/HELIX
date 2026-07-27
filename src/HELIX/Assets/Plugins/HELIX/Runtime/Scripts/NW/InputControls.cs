@@ -8,13 +8,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
-  public enum TextSelectionStyle : byte {
-    Light,
-    Dark,
-    Custom,
-    LightNeutral,
-    DarkNeutral
-  }
+  public enum TextSelectionStyle : byte { Light, Dark, Custom, LightNeutral, DarkNeutral }
 
   public sealed class InputFieldStyle {
     public static readonly InputFieldStyle Default = BuildDefault(BuiltinThemes.DefaultDark);
@@ -77,17 +71,19 @@ namespace HELIX.NW {
     }
 
     public static InputFieldStyle BuildDefault(ThemeData theme) {
-      var backgrounds = new StatePropertyMap<Color>();
-      backgrounds[StateFlag.Disabled] = theme.GetColor(ColorRoles.SurfaceContainerLow);
-      backgrounds[StateFlag.Error] = theme.GetColor(ColorRoles.ErrorContainer);
-      backgrounds[StateFlag.Focused] = theme.GetColor(ColorRoles.SurfaceContainerHigh);
-      backgrounds[StateFlag.None] = theme.GetColor(ColorRoles.SurfaceContainer);
+      var backgrounds = new StatePropertyMap<Color> {
+        [StateFlag.Disabled] = theme.GetColor(ColorRoles.SurfaceContainerLow),
+        [StateFlag.Error] = theme.GetColor(ColorRoles.ErrorContainer),
+        [StateFlag.Focused] = theme.GetColor(ColorRoles.SurfaceContainerHigh),
+        [StateFlag.None] = theme.GetColor(ColorRoles.SurfaceContainer)
+      };
 
-      var borders = new StatePropertyMap<Border>();
-      borders[StateFlag.Disabled] = Border.All(1f, theme.GetColor(ColorRoles.Outline).WithOpacity(0.35f));
-      borders[StateFlag.Error] = Border.All(1f, theme.GetColor(ColorRoles.Error));
-      borders[StateFlag.Focused] = Border.All(1f, theme.GetColor(ColorRoles.Focus));
-      borders[StateFlag.None] = Border.All(1f, theme.GetColor(ColorRoles.Outline));
+      var borders = new StatePropertyMap<Border> {
+        [StateFlag.Disabled] = Border.All(1f, theme.GetColor(ColorRoles.Outline).WithOpacity(0.35f)),
+        [StateFlag.Error] = Border.All(1f, theme.GetColor(ColorRoles.Error)),
+        [StateFlag.Focused] = Border.All(1f, theme.GetColor(ColorRoles.Focus)),
+        [StateFlag.None] = Border.All(1f, theme.GetColor(ColorRoles.Outline))
+      };
 
       var text = new StatePropertyMap<TextStyle>();
       var normalText = theme.GetTextStyleRef(TextRole.BodyMedium);
@@ -180,6 +176,7 @@ namespace HELIX.NW {
     }
 
     public override bool Equals(object obj) => obj is TextInputOptions other && Equals(other);
+
     public override int GetHashCode() {
       var first = HashCode.Combine(
         multiline, autocorrect, readOnly, password, delayed, hideMobileInput, submitOnEnter, expands
@@ -220,13 +217,12 @@ namespace HELIX.NW {
     void Apply(TField field, in TOptions options);
   }
 
-  internal readonly struct StringTextFieldAdapter :
-    ITextFieldAdapter<string, TextField, TextInputOptions> {
+  internal readonly struct StringTextFieldAdapter
+    : ITextFieldAdapter<string, TextField, TextInputOptions> {
     public TextInputOptions DefaultOptions => TextInputOptions.Default;
     public string DefaultValue => string.Empty;
 
-    public bool SubmitOnEnter(in TextInputOptions options) =>
-      options.submitOnEnter && !options.multiline;
+    public bool SubmitOnEnter(in TextInputOptions options) => options.submitOnEnter && !options.multiline;
 
     public void Apply(TextField field, in TextInputOptions options) {
       field.multiline = options.multiline;
@@ -242,8 +238,8 @@ namespace HELIX.NW {
     }
   }
 
-  internal readonly struct NumericTextFieldAdapter<TValue, TField> :
-    ITextFieldAdapter<TValue, TField, NumericInputOptions>
+  internal readonly struct NumericTextFieldAdapter<TValue, TField>
+    : ITextFieldAdapter<TValue, TField, NumericInputOptions>
     where TValue : struct
     where TField : TextValueField<TValue> {
     public NumericInputOptions DefaultOptions => NumericInputOptions.Default;
@@ -257,8 +253,7 @@ namespace HELIX.NW {
     }
   }
 
-  internal sealed class TextFieldElement<TValue, TField, TOptions, TAdapter> :
-    VisualElement, IComposable
+  internal sealed class TextFieldElement<TValue, TField, TOptions, TAdapter> : VisualElement, IComposable
     where TField : TextInputBaseField<TValue>, new()
     where TOptions : struct, IEquatable<TOptions>
     where TAdapter : struct, ITextFieldAdapter<TValue, TField, TOptions> {
@@ -267,10 +262,8 @@ namespace HELIX.NW {
     private const string _selectionLightNeutralClass = "helix-textfield-style-light-neutral";
     private const string _selectionDarkNeutralClass = "helix-textfield-style-dark-neutral";
 
-    private static readonly CustomStyleProperty<Color> _selectionColorProperty =
-      new("--unity-selection-color");
-    private static readonly CustomStyleProperty<Color> _cursorColorProperty =
-      new("--unity-cursor-color");
+    private static readonly CustomStyleProperty<Color> _selectionColorProperty = new("--unity-selection-color");
+    private static readonly CustomStyleProperty<Color> _cursorColorProperty = new("--unity-cursor-color");
     private static readonly EqualityComparer<TValue> _equality = EqualityComparer<TValue>.Default;
 
     private TAdapter _adapter;
@@ -278,10 +271,10 @@ namespace HELIX.NW {
     private readonly TField _field;
     private readonly VisualElement _inputContainer;
     private readonly TextElement _textEdition;
-    private Action<TValue, IBoundary> _onChanged;
-    private Action<TValue, IBoundary> _onSubmitted;
-    private Action<IBoundary> _onEditingStarted;
-    private Action<IBoundary> _onEditingEnded;
+    private CompositionAction<TValue> _onChanged;
+    private CompositionAction<TValue> _onSubmitted;
+    private CompositionAction _onEditingStarted;
+    private CompositionAction _onEditingEnded;
     private IBoundary _callbackBoundary;
     private InputFieldStyle _inputStyle;
     private StateFlag _inputState;
@@ -303,9 +296,7 @@ namespace HELIX.NW {
       this.WithStylesheet(AuxiliaryStylesheets.Helix);
 
       _background = new CompositionBoundaryNode {
-        name = "InputVisual",
-        composable = ComposeBackground,
-        pickingMode = PickingMode.Ignore
+        name = "InputVisual", composable = ComposeBackground, pickingMode = PickingMode.Ignore
       }.Stretched();
       hierarchy.Add(_background);
 
@@ -351,10 +342,10 @@ namespace HELIX.NW {
       bool error,
       InputFieldStyle style,
       IBoundary callbackBoundary,
-      Action<TValue, IBoundary> onChanged,
-      Action<TValue, IBoundary> onSubmitted,
-      Action<IBoundary> onEditingStarted,
-      Action<IBoundary> onEditingEnded
+      CompositionAction<TValue> onChanged,
+      CompositionAction<TValue> onSubmitted,
+      CompositionAction onEditingStarted,
+      CompositionAction onEditingEnded
     ) {
       _callbackBoundary = callbackBoundary;
       _onChanged = onChanged;
@@ -406,18 +397,18 @@ namespace HELIX.NW {
     private void BeginEditing() {
       if (_editing || !_enabled) return;
       _editing = true;
-      _onEditingStarted?.Invoke(_callbackBoundary);
+      _onEditingStarted?.Call(_callbackBoundary);
     }
 
     private void EndEditing() {
       if (!_editing) return;
       _editing = false;
-      _onEditingEnded?.Invoke(_callbackBoundary);
+      _onEditingEnded?.Call(_callbackBoundary);
     }
 
     private void Submit() {
       if (!_enabled) return;
-      _onSubmitted?.Invoke(_field.value, _callbackBoundary);
+      _onSubmitted?.Call(_callbackBoundary, _field.value);
     }
 
     private void ApplyStyle() {
@@ -531,7 +522,7 @@ namespace HELIX.NW {
     }
 
     private void OnValueChanged(ChangeEvent<TValue> evt) {
-      if (_enabled) _onChanged?.Invoke(evt.newValue, _callbackBoundary);
+      if (_enabled) _onChanged?.Call(_callbackBoundary, evt.newValue);
     }
 
     private void OnPointerEnter(PointerEnterEvent evt) {
@@ -586,18 +577,18 @@ namespace HELIX.NW {
     public static ref ElementRef TextInput(
       this ref Composition cx,
       string value,
-      Action<string, IBoundary> onChanged = null,
-      Action<string, IBoundary> onSubmitted = null,
-      Action<IBoundary> onEditingStarted = null,
-      Action<IBoundary> onEditingEnded = null,
+      CompositionAction<string> onChanged = null,
+      CompositionAction<string> onSubmitted = null,
+      CompositionAction onEditingStarted = null,
+      CompositionAction onEditingEnded = null,
       TextInputOptions? options = null,
       bool enabled = true,
       bool error = false,
       InputFieldStyle style = null
     ) {
       if (!cx.AUTHORING.RequireComposable<
-            TextFieldElement<string, TextField, TextInputOptions, StringTextFieldAdapter>
-          >(_textInputId, out var input, out _)) {
+        TextFieldElement<string, TextField, TextInputOptions, StringTextFieldAdapter>
+      >(_textInputId, out var input, out _)) {
         input = new TextFieldElement<string, TextField, TextInputOptions, StringTextFieldAdapter>();
       }
 
@@ -620,29 +611,20 @@ namespace HELIX.NW {
     public static ref ElementRef IntInput(
       this ref Composition cx,
       int value,
-      Action<int, IBoundary> onChanged = null,
-      Action<int, IBoundary> onSubmitted = null,
-      Action<IBoundary> onEditingStarted = null,
-      Action<IBoundary> onEditingEnded = null,
+      CompositionAction<int> onChanged = null,
+      CompositionAction<int> onSubmitted = null,
+      CompositionAction onEditingStarted = null,
+      CompositionAction onEditingEnded = null,
       NumericInputOptions? options = null,
       bool enabled = true,
       bool error = false,
       InputFieldStyle style = null
     ) {
-      if (!cx.AUTHORING.RequireComposable<
-            TextFieldElement<
-              int,
-              IntegerField,
-              NumericInputOptions,
-              NumericTextFieldAdapter<int, IntegerField>
-            >
-          >(_integerInputId, out var input, out _)) {
-        input = new TextFieldElement<
-          int,
-          IntegerField,
-          NumericInputOptions,
-          NumericTextFieldAdapter<int, IntegerField>
-        >();
+      if (!cx.AUTHORING.RequireComposable
+        <TextFieldElement<int, IntegerField, NumericInputOptions, NumericTextFieldAdapter<int, IntegerField>>>
+        (_integerInputId, out var input, out _)) {
+        input =
+          new TextFieldElement<int, IntegerField, NumericInputOptions, NumericTextFieldAdapter<int, IntegerField>>();
       }
 
       var resolvedOptions = options ?? NumericInputOptions.Default;
@@ -664,23 +646,23 @@ namespace HELIX.NW {
     public static ref ElementRef FloatInput(
       this ref Composition cx,
       float value,
-      Action<float, IBoundary> onChanged = null,
-      Action<float, IBoundary> onSubmitted = null,
-      Action<IBoundary> onEditingStarted = null,
-      Action<IBoundary> onEditingEnded = null,
+      CompositionAction<float> onChanged = null,
+      CompositionAction<float> onSubmitted = null,
+      CompositionAction onEditingStarted = null,
+      CompositionAction onEditingEnded = null,
       NumericInputOptions? options = null,
       bool enabled = true,
       bool error = false,
       InputFieldStyle style = null
     ) {
       if (!cx.AUTHORING.RequireComposable<
-            TextFieldElement<
-              float,
-              FloatField,
-              NumericInputOptions,
-              NumericTextFieldAdapter<float, FloatField>
-            >
-          >(_floatInputId, out var input, out _)) {
+        TextFieldElement<
+          float,
+          FloatField,
+          NumericInputOptions,
+          NumericTextFieldAdapter<float, FloatField>
+        >
+      >(_floatInputId, out var input, out _)) {
         input = new TextFieldElement<
           float,
           FloatField,

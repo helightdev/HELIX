@@ -17,12 +17,9 @@ namespace HELIX.NW {
       return new DrawSolidBoxStyle(
         radius: new AllStateProperty<BorderRadius>(outdent ? theme[radius] + theme[inset] : theme[radius]),
         border: new StatePropertyMap<Border> {
-          [focusState] = Border.All(theme[border], theme[focusColor]),
-          [StateFlag.None] = Border.None
+          [focusState] = Border.All(theme[border], theme[focusColor]), [StateFlag.None] = Border.None
         },
-        position: new StatePropertyMap<StyleLength4> {
-          [StateFlag.None] = outdent ? -theme[inset] : 0f,
-        }
+        position: new StatePropertyMap<StyleLength4> { [StateFlag.None] = outdent ? -theme[inset] : 0f, }
       ).Bake();
     }
 
@@ -44,22 +41,19 @@ namespace HELIX.NW {
 
       if (baseState == StateFlag.None) {
         radiusProperty = new StatePropertyMap<BorderRadius> {
-          [StateFlag.Focused] = fRadius,
-          [StateFlag.None] = style == ButtonFocusStyle.IntendReserved ? fRadius : radius
+          [StateFlag.Focused] = fRadius, [StateFlag.None] = style == ButtonFocusStyle.IndentReserved ? fRadius : radius
         };
         positionProperty = new StatePropertyMap<StyleLength4> {
-          [StateFlag.Focused] = fMargin,
-          [StateFlag.None] = style == ButtonFocusStyle.IntendReserved ? fMargin : 0f
+          [StateFlag.Focused] = fMargin, [StateFlag.None] = style == ButtonFocusStyle.IndentReserved ? fMargin : 0f
         };
       } else {
         radiusProperty = new StatePropertyMap<BorderRadius> {
           [StateFlag.Focused | baseState] = fRadius,
-          [baseState] = style == ButtonFocusStyle.IntendReserved ? fRadius : radius,
-          [StateFlag.None] = radius
+          [baseState] = style == ButtonFocusStyle.IndentReserved ? fRadius : radius, [StateFlag.None] = radius
         };
         positionProperty = new StatePropertyMap<StyleLength4> {
           [StateFlag.Focused | baseState] = fMargin,
-          [StateFlag.None | baseState] = style == ButtonFocusStyle.IntendReserved ? fMargin : 0f
+          [StateFlag.None | baseState] = style == ButtonFocusStyle.IndentReserved ? fMargin : 0f
         };
       }
     }
@@ -93,8 +87,7 @@ namespace HELIX.NW {
         color: new StatePropertyMap<Color> {
           [StateFlag.Disabled] = theme[disabledColor],
           [StateFlag.Pressed] = Colors.AlphaBlend(theme[color], theme[pressed]),
-          [StateFlag.Hovered] = Colors.AlphaBlend(theme[color], theme[hover]),
-          [StateFlag.None] = theme[color],
+          [StateFlag.Hovered] = Colors.AlphaBlend(theme[color], theme[hover]), [StateFlag.None] = theme[color],
         },
         position: positionProperty,
         radius: radiusProperty
@@ -249,32 +242,16 @@ namespace HELIX.NW {
         focusStyle: focusStyle,
         focusState: StateFlag.Focused | StateFlag.Selected
       );
-
       var background = Toggle(
-        theme,
-        colorUnselected: colorUnselected,
-        colorSelected: colorSelected,
-        onUnselected: onUnselected,
-        onSelected: onSelected,
-        selectedOverlay: selectedOverlay,
-        selectedHover: selectedHover,
-        selectedPressed: selectedPressed,
-        unselectedOverlay: unselectedOverlay,
-        unselectedHover: unselectedHover,
-        unselectedPressed: unselectedPressed,
-        borderColor: borderColor,
-        borderHoverColor: borderHoverColor,
-        borderPressedColor: borderPressedColor,
-        borderFocusColor: borderFocusColor,
-        borderDisabledColor: borderDisabledColor,
-        disabledColor: disabledColor,
-        onDisabledColor: onDisabledColor,
-        radius: radius,
-        focusMargin: focusMargin,
-        border: border,
-        borderFocus: borderFocus,
-        focusStyle: focusStyle
+        theme, colorUnselected: colorUnselected, colorSelected: colorSelected, onUnselected: onUnselected,
+        onSelected: onSelected, selectedOverlay: selectedOverlay, selectedHover: selectedHover,
+        selectedPressed: selectedPressed, unselectedOverlay: unselectedOverlay, unselectedHover: unselectedHover,
+        unselectedPressed: unselectedPressed, borderColor: borderColor, borderHoverColor: borderHoverColor,
+        borderPressedColor: borderPressedColor, borderFocusColor: borderFocusColor,
+        borderDisabledColor: borderDisabledColor, disabledColor: disabledColor, onDisabledColor: onDisabledColor,
+        radius: radius, focusMargin: focusMargin, border: border, borderFocus: borderFocus, focusStyle: focusStyle
       );
+
 
       return (ref Composition cx, StateFlag state) => {
         background(cx: ref cx, state: state);
@@ -297,22 +274,11 @@ namespace HELIX.NW {
       ButtonFocusStyle focusStyle = ButtonFocusStyle.Outdent
     ) {
       var focus = FocusOutline(
-        theme,
-        focusColor: focusColor,
-        border: focusBorder,
-        radius: radius,
-        focusStyle: focusStyle
+        theme, focusColor: focusColor, border: focusBorder, radius: radius, focusStyle: focusStyle
       );
       var flat = Filled(
-        theme,
-        color: color,
-        onColor: onColor,
-        overlayColor: overlayColor,
-        hoverColor: hoverColor,
-        pressedColor: pressedColor,
-        radius: radius,
-        focusMargin: focusMargin,
-        disabledColor: disabledColor,
+        theme, color: color, onColor: onColor, overlayColor: overlayColor, hoverColor: hoverColor,
+        pressedColor: pressedColor, radius: radius, focusMargin: focusMargin, disabledColor: disabledColor,
         focusStyle: focusStyle
       );
       return (ref Composition cx, StateFlag state) => {
@@ -343,18 +309,9 @@ namespace HELIX.NW {
       ButtonFocusStyle focusStyle = ButtonFocusStyle.Outdent
     ) {
       background ??= FilledFocus(
-        theme,
-        color: color,
-        focusColor: focusColor,
-        onColor: onColor,
-        overlayColor: overlayColor,
-        hoverColor: hoverColor,
-        pressedColor: pressedColor,
-        radius: radius,
-        focusBorder: focusBorder,
-        focusMargin: focusMargin,
-        disabledColor: disabledColor,
-        focusStyle: focusStyle
+        theme, color: color, focusColor: focusColor, onColor: onColor, overlayColor: overlayColor,
+        hoverColor: hoverColor, pressedColor: pressedColor, radius: radius, focusBorder: focusBorder,
+        focusMargin: focusMargin, disabledColor: disabledColor, focusStyle: focusStyle
       );
       return new ControlBoxStyle(
         background: background,
@@ -394,22 +351,10 @@ namespace HELIX.NW {
       StateComposable background = null
     ) {
       background ??= Outlined(
-        theme,
-        color: color,
-        onColor: onColor,
-        disabledColor: disabledColor,
-        onDisabledColor: onDisabledColor,
-        overlayColor: overlayColor,
-        hoverColor: hoverColor,
-        pressedColor: pressedColor,
-        borderColor: borderColor,
-        borderHoverColor: borderHoverColor,
-        borderPressedColor: borderPressedColor,
-        borderFocusColor: borderFocusColor,
-        borderDisabledColor: borderDisabledColor,
-        border: border,
-        borderFocus: borderFocus,
-        radius: radius
+        theme, color: color, onColor: onColor, disabledColor: disabledColor, onDisabledColor: onDisabledColor,
+        overlayColor: overlayColor, hoverColor: hoverColor, pressedColor: pressedColor, borderColor: borderColor,
+        borderHoverColor: borderHoverColor, borderPressedColor: borderPressedColor, borderFocusColor: borderFocusColor,
+        borderDisabledColor: borderDisabledColor, border: border, borderFocus: borderFocus, radius: radius
       );
       return new ControlBoxStyle(
         background: background,
@@ -456,29 +401,13 @@ namespace HELIX.NW {
       StateComposable background = null
     ) {
       background ??= ToggleFocus(
-        theme,
-        colorUnselected: colorUnselected,
-        colorSelected: colorSelected,
-        onUnselected: onUnselected,
-        onSelected: onSelected,
-        selectedOverlay: selectedOverlay,
-        selectedHover: selectedHover,
-        selectedPressed: selectedPressed,
-        unselectedOverlay: unselectedOverlay,
-        unselectedHover: unselectedHover,
-        unselectedPressed: unselectedPressed,
-        borderColor: borderColor,
-        borderHoverColor: borderHoverColor,
-        borderPressedColor: borderPressedColor,
-        borderFocusColor: borderFocusColor,
-        borderDisabledColor: borderDisabledColor,
-        disabledColor: disabledColor,
-        onDisabledColor: onDisabledColor,
-        radius: radius,
-        focusMargin: focusMargin,
-        border: border,
-        borderFocus: borderFocus,
-        focusStyle: focusStyle
+        theme, colorUnselected: colorUnselected, colorSelected: colorSelected, onUnselected: onUnselected,
+        onSelected: onSelected, selectedOverlay: selectedOverlay, selectedHover: selectedHover,
+        selectedPressed: selectedPressed, unselectedOverlay: unselectedOverlay, unselectedHover: unselectedHover,
+        unselectedPressed: unselectedPressed, borderColor: borderColor, borderHoverColor: borderHoverColor,
+        borderPressedColor: borderPressedColor, borderFocusColor: borderFocusColor,
+        borderDisabledColor: borderDisabledColor, disabledColor: disabledColor, onDisabledColor: onDisabledColor,
+        radius: radius, focusMargin: focusMargin, border: border, borderFocus: borderFocus, focusStyle: focusStyle
       );
       return new ControlBoxStyle(
         background: background,
@@ -496,5 +425,5 @@ namespace HELIX.NW {
     }
   }
 
-  public enum ButtonFocusStyle { Outdent, Intend, IntendReserved }
+  public enum ButtonFocusStyle { Outdent, Indent, IndentReserved }
 }

@@ -62,7 +62,7 @@ namespace HELIX.NW.Overlays {
       [Prop] OverlayPanelStyle style = null
     );
 
-    public partial class OverlayPanelState {
+    public partial class OverlayPanelComposable {
       protected override void OnRecompose(ref Composition cx) {
         var style = Props.Style ??
                     cx.ReadContextOrDefault(OverlayPanelStyle.Context, OverlayPanelStyle.Default);
@@ -87,7 +87,7 @@ namespace HELIX.NW.Overlays {
   internal struct DropdownProps<T> {
     public T value;
     public IReadOnlyList<DropdownOption<T>> options;
-    public Action<T, IBoundary> onChanged;
+    public CompositionAction<T> onChanged;
     public string placeholder;
     public bool enabled;
     public bool error;
@@ -105,7 +105,7 @@ namespace HELIX.NW.Overlays {
   }
 
   internal sealed class DropdownState<T> :
-    BuiltIns.InputClickableBase<DropdownProps<T>>,
+    BuiltIns.InputClickableComposable<DropdownProps<T>>,
     IOverlayActionItemOwner {
     private static readonly EqualityComparer<T> _equality = EqualityComparer<T>.Default;
 
@@ -174,7 +174,7 @@ namespace HELIX.NW.Overlays {
       var option = options[index];
       var callback = Props.onChanged;
       _menu?.Dismiss(OverlayDismissReason.Action);
-      callback?.Invoke(option.value, Node);
+      callback?.Call(Node, option.value);
     }
 
     private string SelectedLabel() {
@@ -228,7 +228,7 @@ namespace HELIX.NW.Overlays {
       this ref Composition cx,
       T value,
       IReadOnlyList<DropdownOption<T>> options,
-      Action<T, IBoundary> onChanged = null,
+      CompositionAction<T> onChanged = null,
       string placeholder = null,
       bool enabled = true,
       bool error = false,
@@ -236,7 +236,7 @@ namespace HELIX.NW.Overlays {
       OverlayPanelStyle menuStyle = null,
       OverlayOptions? overlayOptions = null
     ) {
-      cx.AUTHORING.PropsBoundaryStateNode<DropdownState<T>, DropdownProps<T>>(
+      cx.AUTHORING.PropsBoundaryStateComposable<DropdownState<T>, DropdownProps<T>>(
         DropdownIdentity<T>.TypeId,
         out var node,
         out _,
@@ -529,7 +529,7 @@ namespace HELIX.NW.Overlays {
   }
 
   public static partial class OverlayActionItemDefinition {
-    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableBase<>))]
+    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableComposable<>))]
     public static partial ref ElementRef OverlayActionItem(
       ref this Composition cx,
       [Prop] IOverlayActionItemOwner owner,
@@ -541,7 +541,7 @@ namespace HELIX.NW.Overlays {
       [Prop] ControlBoxStyle style
     );
 
-    public partial class OverlayActionItemState {
+    public partial class OverlayActionItemComposable {
       protected override void OnRecompose(ref Composition cx) {
         this.Toggle(StateFlag.Disabled, !Props.Enabled);
         this.Toggle(StateFlag.Selected, Props.Selected);

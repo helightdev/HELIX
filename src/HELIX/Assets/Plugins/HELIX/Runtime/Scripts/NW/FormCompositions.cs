@@ -47,7 +47,7 @@ namespace HELIX.NW.Forms {
     }
   }
 
-  public abstract class FormFieldStateBase<TProps> : PropsNodeStateAttachmentBase<TProps>, IFormField
+  public abstract class FormFieldBoundaryComposable<TProps> : PropsBoundaryComposable<TProps>, IFormField
     where TProps : struct {
     private FormController _form;
     private string _path;
@@ -150,7 +150,7 @@ namespace HELIX.NW.Forms {
       [Prop] FormController controller = null
     );
 
-    public partial class FormState {
+    public partial class FormComposable {
       private FormController _ownedController;
 
       protected override void OnRecompose(ref Composition cx) {
@@ -182,7 +182,7 @@ namespace HELIX.NW.Forms {
       [Prop] Composable content
     );
 
-    public partial class FormScopeState {
+    public partial class FormScopeComposable {
       private FormController _controller;
       private string _parentPrefix;
       private string _localPrefix;
@@ -215,17 +215,17 @@ namespace HELIX.NW.Forms {
     public readonly T value;
     public readonly bool enabled;
     public readonly bool error;
-    public readonly Action<T, IBoundary> changed;
-    public readonly Action<T, IBoundary> committed;
-    public readonly Action<IBoundary> finishedEditing;
+    public readonly CompositionAction<T> changed;
+    public readonly CompositionAction<T> committed;
+    public readonly CompositionAction finishedEditing;
 
     internal FormFieldInput(
       T value,
       bool enabled,
       bool error,
-      Action<T, IBoundary> changed,
-      Action<T, IBoundary> committed,
-      Action<IBoundary> finishedEditing
+      CompositionAction<T> changed,
+      CompositionAction<T> committed,
+      CompositionAction finishedEditing
     ) {
       this.value = value;
       this.enabled = enabled;
@@ -312,11 +312,11 @@ namespace HELIX.NW.Forms {
         DecoratorSlotType.Descriptor => CommonDecoratorElement.DescriptionStyle[data],
         DecoratorSlotType.Prefix => CommonDecoratorElement.PrefixStyle[data],
         DecoratorSlotType.Suffix => CommonDecoratorElement.SuffixStyle[data],
-        DecoratorSlotType.Before or DecoratorSlotType.Between or DecoratorSlotType.After => CommonDecoratorElement.DecoratorStyle[data],
+        DecoratorSlotType.Before or DecoratorSlotType.Between or DecoratorSlotType.After => CommonDecoratorElement
+          .DecoratorStyle[data],
         _ => null
       };
     }
-
   }
 
   public ref struct DecoratorSlots {
@@ -542,8 +542,8 @@ namespace HELIX.NW.Forms {
     public bool finishOnChange;
     public FormInputComposable<TValue, TInput> composeInput;
     public TInput input;
-    public Action<TValue, IBoundary> onChanged;
-    public Action<TValue, IBoundary> onCommitted;
+    public CompositionAction<TValue> onChanged;
+    public CompositionAction<TValue> onCommitted;
     public FormFieldOptions? decorator;
   }
 
@@ -553,14 +553,14 @@ namespace HELIX.NW.Forms {
     );
   }
 
-  public sealed class FormFieldState<TValue, TInput> :
-    FormFieldStateBase<FormFieldProps<TValue, TInput>>
+  public sealed class FormFieldBoundaryComposable<TValue, TInput> :
+    FormFieldBoundaryComposable<FormFieldProps<TValue, TInput>>
     where TInput : struct {
-    private readonly Action<TValue, IBoundary> _changed;
-    private readonly Action<TValue, IBoundary> _committed;
-    private readonly Action<IBoundary> _finished;
+    private readonly CompositionAction<TValue> _changed;
+    private readonly CompositionAction<TValue> _committed;
+    private readonly CompositionAction _finished;
 
-    public FormFieldState() {
+    public FormFieldBoundaryComposable() {
       _changed = HandleChanged;
       _committed = HandleCommitted;
       _finished = HandleFinished;
@@ -595,20 +595,20 @@ namespace HELIX.NW.Forms {
       }
     }
 
-    private void HandleChanged(TValue value, IBoundary boundary) {
+    private void HandleChanged(CompositionContext context, TValue value) {
       var callback = Props.onChanged;
       SetUserValue(value);
       if (Props.finishOnChange) FinishEditing();
-      callback?.Invoke(value, boundary);
+      callback?.Call(context.boundary, value);
     }
 
-    private void HandleCommitted(TValue value, IBoundary boundary) {
+    private void HandleCommitted(CompositionContext context, TValue value) {
       SetUserValue(value);
       FinishEditing();
-      Props.onCommitted?.Invoke(value, boundary);
+      Props.onCommitted?.Call(context.boundary, value);
     }
 
-    private void HandleFinished(IBoundary boundary) => FinishEditing();
+    private void HandleFinished(CompositionContext context) => FinishEditing();
   }
 
   public static class FormFieldDefinition {
@@ -622,8 +622,8 @@ namespace HELIX.NW.Forms {
       IEqualityComparer<object> comparer = null,
       bool enabled = true,
       bool finishOnChange = false,
-      Action<TValue, IBoundary> onChanged = null,
-      Action<TValue, IBoundary> onCommitted = null,
+      CompositionAction<TValue> onChanged = null,
+      CompositionAction<TValue> onCommitted = null,
       FormFieldOptions? decorator = null
     ) {
       var input = new FormInputSpec<TValue>(composeInput);
@@ -659,12 +659,12 @@ namespace HELIX.NW.Forms {
       IEqualityComparer<object> comparer = null,
       bool enabled = true,
       bool finishOnChange = false,
-      Action<TValue, IBoundary> onChanged = null,
-      Action<TValue, IBoundary> onCommitted = null,
+      CompositionAction<TValue> onChanged = null,
+      CompositionAction<TValue> onCommitted = null,
       FormFieldOptions? decorator = null
     ) where TInput : struct {
-      cx.AUTHORING.PropsBoundaryStateNode<
-        FormFieldState<TValue, TInput>,
+      cx.AUTHORING.PropsBoundaryStateComposable<
+        FormFieldBoundaryComposable<TValue, TInput>,
         FormFieldProps<TValue, TInput>
       >(
         FormFieldIdentity<TValue, TInput>.TypeId,
@@ -674,18 +674,9 @@ namespace HELIX.NW.Forms {
       );
       attachment.ReceiveProps(
         new FormFieldProps<TValue, TInput> {
-          path = path,
-          initialValue = initialValue,
-          validators = validators,
-          validationMode = validationMode,
-          comparer = comparer,
-          enabled = enabled,
-          finishOnChange = finishOnChange,
-          composeInput = composeInput,
-          input = input,
-          onChanged = onChanged,
-          onCommitted = onCommitted,
-          decorator = decorator
+          path = path, initialValue = initialValue, validators = validators, validationMode = validationMode,
+          comparer = comparer, enabled = enabled, finishOnChange = finishOnChange, composeInput = composeInput,
+          input = input, onChanged = onChanged, onCommitted = onCommitted, decorator = decorator
         }
       );
       node.composable = null;
@@ -766,8 +757,8 @@ namespace HELIX.NW.Forms {
       bool enabled = true,
       TextInputOptions? options = null,
       InputFieldStyle style = null,
-      Action<string, IBoundary> onChanged = null,
-      Action<string, IBoundary> onSubmitted = null,
+      CompositionAction<string> onChanged = null,
+      CompositionAction<string> onSubmitted = null,
       FormFieldOptions? decorator = null
     ) {
       var input = new FormTextInputSpec(options, style);
@@ -797,8 +788,8 @@ namespace HELIX.NW.Forms {
       bool enabled = true,
       NumericInputOptions? options = null,
       InputFieldStyle style = null,
-      Action<int, IBoundary> onChanged = null,
-      Action<int, IBoundary> onSubmitted = null,
+      CompositionAction<int> onChanged = null,
+      CompositionAction<int> onSubmitted = null,
       FormFieldOptions? decorator = null
     ) {
       var input = new FormNumericInputSpec(options, style);
@@ -828,8 +819,8 @@ namespace HELIX.NW.Forms {
       bool enabled = true,
       NumericInputOptions? options = null,
       InputFieldStyle style = null,
-      Action<float, IBoundary> onChanged = null,
-      Action<float, IBoundary> onSubmitted = null,
+      CompositionAction<float> onChanged = null,
+      CompositionAction<float> onSubmitted = null,
       FormFieldOptions? decorator = null
     ) {
       var input = new FormNumericInputSpec(options, style);
@@ -859,8 +850,8 @@ namespace HELIX.NW.Forms {
       bool enabled = true,
       SliderOptions? options = null,
       SliderStyle style = null,
-      Action<float, IBoundary> onChanged = null,
-      Action<float, IBoundary> onCommitted = null,
+      CompositionAction<float> onChanged = null,
+      CompositionAction<float> onCommitted = null,
       FormFieldOptions? decorator = null
     ) {
       var input = new FormSliderSpec(options, style);
@@ -889,21 +880,21 @@ namespace HELIX.NW.Forms {
       IEqualityComparer<object> comparer = null,
       bool enabled = true,
       CheckboxStyle style = null,
-      Action<bool, IBoundary> onChanged = null,
+      CompositionAction<bool> onChanged = null,
       FormFieldOptions? decorator = null
     ) {
       var input = new FormCheckboxSpec(style);
       cx.FormField(
-        path,
-        initialValue,
-        _checkbox,
-        in input,
-        validators,
-        validationMode,
-        comparer,
-        enabled,
-        true,
-        onChanged,
+        path: path,
+        initialValue: initialValue,
+        composeInput: _checkbox,
+        input: in input,
+        validators: validators,
+        validationMode: validationMode,
+        comparer: comparer,
+        enabled: enabled,
+        finishOnChange: true,
+        onChanged: onChanged,
         decorator: decorator
       );
       return ref cx.APPLY;
@@ -915,14 +906,8 @@ namespace HELIX.NW.Forms {
       in FormTextInputSpec input
     ) {
       cx.TextInput(
-        field.value,
-        field.changed,
-        field.committed,
-        onEditingEnded: field.finishedEditing,
-        options: input.options,
-        enabled: field.enabled,
-        error: field.error,
-        style: input.style
+        field.value, field.changed, field.committed, onEditingEnded: field.finishedEditing,
+        options: input.options, enabled: field.enabled, error: field.error, style: input.style
       ).Flexible();
     }
 
@@ -932,14 +917,8 @@ namespace HELIX.NW.Forms {
       in FormNumericInputSpec input
     ) {
       cx.IntInput(
-        field.value,
-        field.changed,
-        field.committed,
-        onEditingEnded: field.finishedEditing,
-        options: input.options,
-        enabled: field.enabled,
-        error: field.error,
-        style: input.style
+        field.value, field.changed, field.committed, onEditingEnded: field.finishedEditing,
+        options: input.options, enabled: field.enabled, error: field.error, style: input.style
       ).Flexible();
     }
 
@@ -949,14 +928,8 @@ namespace HELIX.NW.Forms {
       in FormNumericInputSpec input
     ) {
       cx.FloatInput(
-        field.value,
-        field.changed,
-        field.committed,
-        onEditingEnded: field.finishedEditing,
-        options: input.options,
-        enabled: field.enabled,
-        error: field.error,
-        style: input.style
+        field.value, field.changed, field.committed, onEditingEnded: field.finishedEditing,
+        options: input.options, enabled: field.enabled, error: field.error, style: input.style
       ).Flexible();
     }
 
@@ -966,13 +939,8 @@ namespace HELIX.NW.Forms {
       in FormSliderSpec input
     ) {
       cx.Slider(
-        field.value,
-        field.changed,
-        field.committed,
-        options: input.options,
-        enabled: field.enabled,
-        error: field.error,
-        style: input.style
+        field.value, field.changed, field.committed,
+        options: input.options, enabled: field.enabled, error: field.error, style: input.style
       ).Flexible();
     }
 
@@ -1023,15 +991,9 @@ namespace HELIX.NW.Forms {
       in FormDropdownSpec<T> input
     ) {
       cx.Dropdown(
-        field.value,
-        input.options,
-        field.changed,
-        input.placeholder,
-        field.enabled,
-        field.error,
-        input.style,
-        input.menuStyle,
-        input.overlayOptions
+        value: field.value, options: input.options, onChanged: field.changed, placeholder: input.placeholder,
+        enabled: field.enabled, error: field.error, style: input.style, menuStyle: input.menuStyle,
+        overlayOptions: input.overlayOptions
       );
     }
   }
@@ -1050,35 +1012,21 @@ namespace HELIX.NW.Forms {
       ControlBoxStyle? style = null,
       OverlayPanelStyle menuStyle = null,
       OverlayOptions? overlayOptions = null,
-      Action<T, IBoundary> onChanged = null,
+      CompositionAction<T> onChanged = null,
       FormFieldOptions? decorator = null
     ) {
-      var input = new FormDropdownSpec<T>(
-        options,
-        placeholder,
-        style,
-        menuStyle,
-        overlayOptions
-      );
+      var input = new FormDropdownSpec<T>(options, placeholder, style, menuStyle, overlayOptions);
       cx.FormField(
-        path,
-        initialValue,
-        FormDropdownInput<T>.Compose,
-        in input,
-        validators,
-        validationMode,
-        comparer,
-        enabled,
-        true,
-        onChanged,
-        decorator: decorator
+        path: path, initialValue: initialValue, composeInput: FormDropdownInput<T>.Compose, input: in input,
+        validators: validators, validationMode: validationMode, comparer: comparer,
+        enabled: enabled, finishOnChange: true, onChanged: onChanged, decorator: decorator
       );
       return ref cx.APPLY;
     }
   }
 
   public static partial class FormListDefinition {
-    [CompositionBoundary(Base = typeof(FormFieldStateBase<>))]
+    [CompositionBoundary(Base = typeof(FormFieldBoundaryComposable<>))]
     public static partial ref ElementRef FormList(
       ref this Composition cx,
       [Prop] string path,
@@ -1090,7 +1038,7 @@ namespace HELIX.NW.Forms {
       [Prop] float? gap = null
     );
 
-    public partial class FormListState {
+    public partial class FormListComposable {
       private readonly List<string> _itemPrefixes = new(4);
       private string _localPath;
 
@@ -1140,7 +1088,7 @@ namespace HELIX.NW.Forms {
       [Prop] Composable<int> content
     );
 
-    public partial class FormIndexedScopeState {
+    public partial class FormIndexedScopeComposable {
       private FormController _controller;
       private string _parentPrefix;
       private string _localPrefix;
@@ -1194,7 +1142,7 @@ namespace HELIX.NW.Forms {
       cx.APPLY.TextColor(theme.GetColor(ColorRoles.Error));
     }
 
-    public partial class FormFeedbackState : IFormField {
+    public partial class FormFeedbackComposable : IFormField {
       private FormController _form;
       private string _path;
 

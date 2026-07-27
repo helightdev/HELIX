@@ -48,54 +48,34 @@ namespace HELIX.NW {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Hovered(this StateFlag state) {
-      return (state & StateFlag.Hovered) != 0;
-    }
+    public static bool Hovered(this StateFlag state) => (state & StateFlag.Hovered) != 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Focused(this StateFlag state) {
-      return (state & StateFlag.Focused) != 0;
-    }
+    public static bool Focused(this StateFlag state) => (state & StateFlag.Focused) != 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Pressed(this StateFlag state) {
-      return (state & StateFlag.Pressed) != 0;
-    }
+    public static bool Pressed(this StateFlag state) => (state & StateFlag.Pressed) != 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Dragged(this StateFlag state) {
-      return (state & StateFlag.Dragged) != 0;
-    }
+    public static bool Dragged(this StateFlag state) => (state & StateFlag.Dragged) != 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Selected(this StateFlag state) {
-      return (state & StateFlag.Selected) != 0;
-    }
+    public static bool Selected(this StateFlag state) => (state & StateFlag.Selected) != 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Disabled(this StateFlag state) {
-      return (state & StateFlag.Disabled) != 0;
-    }
+    public static bool Disabled(this StateFlag state) => (state & StateFlag.Disabled) != 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Enabled(this StateFlag state) {
-      return (state & StateFlag.Disabled) == 0;
-    }
+    public static bool Enabled(this StateFlag state) => (state & StateFlag.Disabled) == 0;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Error(this StateFlag state) {
-      return (state & StateFlag.Error) != 0;
-    }
+    public static bool Error(this StateFlag state) => (state & StateFlag.Error) != 0;
 
     public static bool Matches(this StateFlag actual, StateFlag query) {
       var subject = query & ~OperatorMask;
       var any = (query & StateFlag.ModAny) != 0;
       var not = (query & StateFlag.ModNot) != 0;
-
-      var result = any
-        ? (actual & subject) != 0
-        : (actual & subject) == subject;
-
+      var result = any ? (actual & subject) != 0 : (actual & subject) == subject;
       return not ? !result : result;
     }
 
@@ -142,7 +122,7 @@ namespace HELIX.NW {
     }
   }
 
-  public class InputStateBase<T> : PropsNodeStateAttachmentBase<T>, IWidgetStateHolder where T : struct {
+  public class InputBoundaryComposable<T> : PropsBoundaryComposable<T>, IWidgetStateHolder where T : struct {
     public bool handleFocus;
 
     public StateFlag InputState { get; set; }
@@ -252,6 +232,7 @@ namespace HELIX.NW {
       }
       return false;
     }
+
     public override ref T GetValueRef(StateFlag state) {
       for (var index = 0; index < _values.Count; index++) {
         var pair = _values[index];
@@ -320,6 +301,7 @@ namespace HELIX.NW {
     public override bool HasValueFor(StateFlag state) {
       return false;
     }
+
     public override ref T GetValueRef(StateFlag state) {
       throw new KeyNotFoundException($"No value found for state {state}");
     }
@@ -364,6 +346,7 @@ namespace HELIX.NW {
     public override bool HasValueFor(StateFlag state) {
       return true;
     }
+
     public override ref T GetValueRef(StateFlag state) {
       return ref _constant;
     }
@@ -403,6 +386,7 @@ namespace HELIX.NW {
     public override bool HasValueFor(StateFlag state) {
       return true;
     }
+
     public override ref T GetValueRef(StateFlag state) {
       _buffer = _resolver(state);
       return ref _buffer;

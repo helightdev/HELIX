@@ -78,9 +78,9 @@ namespace HELIX.NW.Navigation {
   }
 
   public sealed class NavigationRoute : NavigationRouteBase {
-    private readonly NavigationComposable _content;
+    private readonly Composable<NavigationEntry> _content;
 
-    public NavigationRoute(RouteId id, NavigationComposable content) : base(id) {
+    public NavigationRoute(RouteId id, Composable<NavigationEntry> content) : base(id) {
       _content = content ?? throw new ArgumentNullException(nameof(content));
     }
 
@@ -384,13 +384,13 @@ namespace HELIX.NW.Navigation {
       [Prop] NavigationOptions? initialOptions = null
     );
 
-    public partial class NavigationHostState {
+    public partial class NavigationHostComposable{
       private readonly Action<NavigationChange> _changed;
       private NavigationController _controller;
       private NavigationController _ownedController;
       private int _lastKeyboardCancelFrame = -1;
 
-      public NavigationHostState() {
+      public NavigationHostComposable() {
         _changed = HandleChanged;
       }
 
@@ -478,7 +478,7 @@ namespace HELIX.NW.Navigation {
       [Prop] bool visible
     );
 
-    public partial class NavigationPageState {
+    public partial class NavigationPageComposable {
       private NavigationEntry _composedEntry;
 
       protected override void OnRecompose(ref Composition cx) {

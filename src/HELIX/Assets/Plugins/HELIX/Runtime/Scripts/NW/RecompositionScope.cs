@@ -47,6 +47,7 @@ namespace HELIX.NW {
     }
 
     public static void UnregisterBoundary(IBoundary boundary) {
+      Dirty.Remove(boundary);
       Boundaries.Remove(boundary);
     }
 
@@ -58,13 +59,19 @@ namespace HELIX.NW {
         }
       }
 
-      // If we descend the tree forward, we can reuse the same context and avoid dictionary initialization.
-      if (IsProcessing && CurrentBoundary == boundary.Parent) {
-        _inlinedRecompositionCount.Value++;
-        _inlinedRecompositionCount.Sample();
-        Recompose(boundary);
-        return;
-      }
+      // // If we descend the tree forward, we can reuse the same context and avoid dictionary initialization.
+      // if (IsProcessing && CurrentBoundary == boundary.Parent) {
+      //   _inlinedRecompositionCount.Value++;
+      //   _inlinedRecompositionCount.Sample();
+      //   Recompose(boundary);
+      //   return;
+      // }
+      /*
+       TODO: This does not work for multiple children and I currently don't know a good way to fix that.
+       For now, I'll just remove it until I have figured out a way determine guaranteed forward composition.
+       My current idea is just pushing this to the queue handler to check if the last processed boundary was the parent,
+       in which case I can just skip populate context in this case. Note: Need to consider batch eligibility.
+      */
 
       Dirty.Enqueue(boundary, boundary.TreeDepth);
     }
@@ -73,7 +80,7 @@ namespace HELIX.NW {
       Dirty.Enqueue(boundary, boundary.TreeDepth);
     }
 
-    public static void MarkClean(IBoundary boundary) {
+    public static void RemoveDirty(IBoundary boundary) {
       Dirty.Remove(boundary);
     }
 

@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using HELIX.NW.Forms;
-using HELIX.Widgets.Signals;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
@@ -18,6 +16,8 @@ namespace HELIX.NW {
       get => AUTHORING.cell.slot;
       set => AUTHORING.cell.slot = value;
     }
+
+    public BoundaryCell Cell => AUTHORING.cell;
 
     public Composition(IBoundary initiator) : this() {
       boundary = initiator;
@@ -54,34 +54,26 @@ namespace HELIX.NW {
     //   return new KeyScope(AUTHORING.cell, key);
     // }
 
-    public T GetInheritedState<T>(bool includeHost = true) where T : NodeState {
-      var current = includeHost ? boundary : boundary.Parent;
-      while (current != null) {
-        if (current is CompositionBoundaryNodeBase { State: T state }) return state;
-        current = current.Parent;
-      }
-      return null;
-    }
+    public T LookupData<T>(bool includeHost = true) => boundary.LookupData<T>(includeHost);
+
+    public T LookupComposable<T>(bool includeHost = true) => boundary.LookupComposable<T>(includeHost);
+
+    public T LookupBoundary<T>(bool includeHost = true) => boundary.LookupBoundary<T>(includeHost);
 
     public T ReadContext<T>(ContextKey<T> key, bool listen = true) {
-      if (RecompositionScope.TryGetContext(key, out var read)) {
-        if (listen) boundary.AcquireContext().Subscribe(key, read);
-        return read.value;
-      }
-      return key.defaultValue;
+      if (!RecompositionScope.TryGetContext(key, out var read)) return key.defaultValue;
+      if (listen) boundary.AcquireContext().Subscribe(key, read);
+      return read.value;
     }
 
     public T ReadContextOrDefault<T>(ContextKey<T> key, T defaultValue = default, bool listen = true) {
-      if (RecompositionScope.TryGetContext(key, out var read)) {
-        if (listen) boundary.AcquireContext().Subscribe(key, read);
-        return read.value;
-      }
-      return defaultValue;
+      if (!RecompositionScope.TryGetContext(key, out var read)) return defaultValue;
+      if (listen) boundary.AcquireContext().Subscribe(key, read);
+      return read.value;
     }
 
     public ContextReference<T> ReadContextReference<T>(ContextKey<T> key) {
-      if (RecompositionScope.TryGetContext(key, out var read)) return new ContextReference<T>(key, read);
-      return default;
+      return RecompositionScope.TryGetContext(key, out var read) ? new ContextReference<T>(key, read) : default;
     }
 
     public ContextData<T> GetWrittenContext<T>(ContextKey<T> key) {

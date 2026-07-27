@@ -1,52 +1,73 @@
 namespace HELIX.NW {
-
   public ref partial struct CompositionAuthoring {
-
-    private bool RequirePropsBoundaryNode<T>(
+    private bool RequirePropsBoundary<T>(
       ushort typeId,
       out CompositionBoundaryNode node,
-      out GenericPropsState<T> state,
+      out GenericPropsData<T> data,
       out bool retained
     ) where T : struct {
-      if (RequireBoundaryNode(typeId, out node, out retained)) {
-        if (node.State is not GenericPropsState<T> propsState) {
-          propsState = new GenericPropsState<T>();
-          node.SetState(propsState);
+      if (RequireCompositionBoundaryNode(typeId, out node, out retained)) {
+        if (node.Data is not GenericPropsData<T> propsState) {
+          propsState = new GenericPropsData<T>();
+          node.SetData(propsState);
           retained = false;
         }
-        state = propsState;
+        data = propsState;
         return true;
       }
 
-      state = new GenericPropsState<T>();
-      node.SetState(state);
+      data = new GenericPropsData<T>();
+      node.SetData(data);
       return false;
     }
 
     public bool InitializePropsBoundaryNode<T>(
       ushort typeId,
       out CompositionBoundaryNode node,
-      out GenericPropsState<T> state
+      out GenericPropsData<T> data
     ) where T : struct {
-      RequirePropsBoundaryNode(typeId, out node, out state, out var retained);
+      RequirePropsBoundary(typeId, out node, out data, out var retained);
       return !retained;
     }
 
-    public bool PropsBoundaryStateNode<TAttachment, TProps>(
+    public bool BoundaryStateComposable<TData, TStateComposable>(
       ushort typeId,
       out CompositionBoundaryNode node,
-      out GenericPropsState<TProps> state,
-      out TAttachment attachment
-    ) where TProps : struct where TAttachment : PropsNodeStateAttachmentBase<TProps>, new() {
-      RequirePropsBoundaryNode(typeId, out node, out state, out var retained);
-      if (retained) {
-        attachment = node.State.GetAttachment() as TAttachment;
-      } else {
-        attachment = new TAttachment();
-        state.SetAttachment(attachment, node);
+      out TData data,
+      out TStateComposable attachment
+    ) where TData : BoundaryData, new() where TStateComposable : IBoundaryComposable, new() {
+      if (RequireCompositionBoundaryNode(typeId, out node, out var retained)) {
+        if (node.Data is not TData currentProps) {
+          data = new TData();
+          attachment = new TStateComposable();
+          node.SetData(data, attachment);
+          return false;
+        }
+        if (node.BoundaryComposable is not TStateComposable currentAttachment || !retained) {
+          attachment = new TStateComposable();
+          data = currentProps;
+          node.SwapState(attachment);
+          return false;
+        }
+
+        attachment = currentAttachment;
+        data = currentProps;
+        return true;
       }
 
-      return retained;
+      data = new TData();
+      attachment = new TStateComposable();
+      node.SetData(data, attachment);
+      return false;
+    }
+
+    public bool PropsBoundaryStateComposable<TAttachment, TProps>(
+      ushort typeId,
+      out CompositionBoundaryNode node,
+      out GenericPropsData<TProps> data,
+      out TAttachment attachment
+    ) where TProps : struct where TAttachment : PropsBoundaryComposable<TProps>, new() {
+      return BoundaryStateComposable(typeId, out node, out data, out attachment);
     }
   }
 }

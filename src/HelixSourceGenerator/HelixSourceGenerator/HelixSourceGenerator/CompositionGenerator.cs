@@ -19,10 +19,11 @@ namespace HELIX.SourceGen {
   //   - static
   //   - name starts with '_' (the '_' is stripped to make the public name)
   //   - first parameter: ref HELIX.NW.Composition
-  //   - optional second parameter: T or in T
+  //   - up to MaxArgumentCount additional parameters: T or in T
   // Anything else is a hard error (HLX001-HLX004) reported on the method.
   [Generator(LanguageNames.CSharp)]
   public sealed class CompositionGenerator : IIncrementalGenerator {
+    private const int MaxArgumentCount = 4;
     private const string AttributeMetadataName = "HELIX.NW.CompositionAttribute";
     private const string CompositionTypeName = "HELIX.NW.Composition";
     private const string CompositionIdTypeName = "HELIX.NW.CompositionId";
@@ -51,7 +52,7 @@ namespace HELIX.SourceGen {
     private static readonly DiagnosticDescriptor MustHaveSupportedParameters = new DiagnosticDescriptor(
       "HLX003",
       "Composition method has unsupported parameters",
-      "Method '{0}' is marked [Composition] but must take 'ref HELIX.NW.Composition' and at most one additional value or 'in' parameter",
+      "Method '{0}' is marked [Composition] but must take 'ref HELIX.NW.Composition' and at most {1} additional value or 'in' parameters",
       "HELIX",
       DiagnosticSeverity.Error,
       true
@@ -72,7 +73,6 @@ namespace HELIX.SourceGen {
         predicate: static (node, _) => node is MethodDeclarationSyntax,
         transform: static (ctx, _) => (IMethodSymbol)ctx.TargetSymbol
       );
-
 
 
       context.RegisterSourceOutput(methods, static (spc, method) => Generate(spc, method));
@@ -97,30 +97,33 @@ namespace HELIX.SourceGen {
       }
 
       if (!HasSupportedParameters(method.Parameters)) {
-        spc.ReportDiagnostic(Diagnostic.Create(MustHaveSupportedParameters, loc, method.Name));
+        spc.ReportDiagnostic(
+          Diagnostic.Create(
+            MustHaveSupportedParameters,
+            loc,
+            method.Name,
+            MaxArgumentCount
+          )
+        );
         return;
       }
 
       var publicName = method.Name.Substring(1);
       var fieldName = $"_{char.ToLowerInvariant(publicName[0])}{publicName.Substring(1)}Id";
-      var argument = method.Parameters.Length == 2 ? method.Parameters[1] : null;
-      var composableType = argument is null
-        ? ComposableTypeName
-        : $"{ComposableTypeName}<{GetTypeDisplayName(argument.Type)}>";
-      var lambdaArgument = argument is null ? "" : $", {GetTypeDisplayName(argument.Type)} value";
-      var invocationArgument = argument is null
-        ? ""
-        : argument.RefKind == RefKind.In ? ", in value" : ", value";
+      var arguments = method.Parameters.Skip(1).ToArray();
+      var composableType = BuildComposableType(arguments);
+      var lambdaArguments = BuildLambdaArguments(arguments);
+      var invocationArguments = BuildInvocationArguments(arguments);
 
       var containing = BuildContainingTypeWrapper(method.ContainingType, method.Name, out var hintName);
 
       var body = $@"
     private static readonly ushort {fieldName} = {CompositionIdTypeName}.GetCompositionId();
 
-    public static readonly {composableType} {publicName} = static (ref {CompositionTypeName} cx{lambdaArgument}) => {{
+    public static readonly {composableType} {publicName} = static (ref {CompositionTypeName} cx{lambdaArguments}) => {{
       var transfer = new {CompositionTransferTypeName}();
       {CompositionInternalsTypeName}.EnterComposition(ref cx, {fieldName}, ref transfer);
-      try {{{method.Name}(ref cx{invocationArgument});}}
+      try {{{method.Name}(ref cx{invocationArguments});}}
       finally {{{CompositionInternalsTypeName}.ExitComposition(ref cx, ref transfer);}}
     }};
 ";
@@ -134,19 +137,34 @@ namespace HELIX.SourceGen {
       return GetTypeDisplayName(p.Type) == CompositionTypeName;
     }
 
-    private static bool HasSupportedParameters(System.Collections.Immutable.ImmutableArray<IParameterSymbol> parameters) {
-      if (parameters.Length < 1 || parameters.Length > 2 || !IsRefComposition(parameters[0])) return false;
-      return parameters.Length == 1 ||
-             parameters[1].RefKind == RefKind.None ||
-             parameters[1].RefKind == RefKind.In;
+    private static bool HasSupportedParameters(
+      System.Collections.Immutable.ImmutableArray<IParameterSymbol> parameters
+    ) {
+      if (parameters.Length < 1 || parameters.Length > MaxArgumentCount + 1 ||
+          !IsRefComposition(parameters[0])) return false;
+
+      return parameters
+        .Skip(1)
+        .All(parameter => parameter.RefKind == RefKind.None || parameter.RefKind == RefKind.In);
     }
 
-    private static string GetTypeDisplayName(ITypeSymbol type) {
-      return type.ToDisplayString(
-        SymbolDisplayFormat.FullyQualifiedFormat
-          .WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted)
-      );
-    }
+    private static string BuildComposableType(IReadOnlyCollection<IParameterSymbol> arguments) => arguments.Count == 0
+      ? ComposableTypeName
+      : $"{ComposableTypeName}<{string.Join(", ", arguments.Select(argument => GetTypeDisplayName(argument.Type)))}>";
+
+    private static string BuildLambdaArguments(IEnumerable<IParameterSymbol> arguments) => string.Concat(
+      arguments.Select((argument, index) => $", {GetTypeDisplayName(argument.Type)} arg{index}"
+      )
+    );
+
+    private static string BuildInvocationArguments(IEnumerable<IParameterSymbol> arguments) => string.Concat(
+      arguments.Select((argument, index) => argument.RefKind == RefKind.In ? $", in arg{index}" : $", arg{index}"
+      )
+    );
+
+    private static string GetTypeDisplayName(ITypeSymbol type) => type.ToDisplayString(
+      SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted)
+    );
 
     // Builds the minimal "namespace { partial class Outer { partial class Inner { ... } } }"
     // wrapper needed to reopen the containing type(s), one file per [Composition] method.

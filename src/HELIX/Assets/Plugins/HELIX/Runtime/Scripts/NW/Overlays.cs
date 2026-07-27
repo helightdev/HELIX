@@ -807,7 +807,7 @@ namespace HELIX.NW.Overlays {
       [Prop] OverlayController controller = null
     );
 
-    public partial class OverlayHostState {
+    public partial class OverlayHostComposable {
       private OverlayController _ownedController;
       private OverlayRootElement _root;
 

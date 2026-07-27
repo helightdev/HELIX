@@ -44,15 +44,15 @@ namespace HELIX.SourceGen {
     private const string AttributeMetadataName = "HELIX.NW.CompositionBoundaryAttribute";
     private const string CompositionTypeName = "HELIX.NW.Composition";
     private const string CompositionIdTypeName = "HELIX.NW.CompositionId";
-    private const string NodeStateTypeName = "HELIX.NW.NodeState";
+    private const string NodeStateTypeName = "HELIX.NW.BoundaryData";
     private const string IBoundaryTypeName = "HELIX.NW.IBoundary";
     private const string CompositionInternalsTypeName = "HELIX.NW.CompositionInternals";
     private const string CompositionTransferTypeName = "HELIX.NW.CompositionInternals.TransferData";
-    private const string PropsBaseTypeName = "HELIX.NW.PropsNodeStateAttachmentBase";
+    private const string PropsBaseTypeName = "HELIX.NW.PropsBoundaryComposable";
     private const string ContextAttributeName = "HELIX.NW.ContextAttribute";
 
     private static readonly DiagnosticDescriptor MustBeStatic = new DiagnosticDescriptor(
-      "HLX010",
+      "HLXB00",
       "CompositionBoundary method must be static",
       "Method '{0}' is marked [CompositionBoundary] but is not static",
       "HELIX",
@@ -61,7 +61,7 @@ namespace HELIX.SourceGen {
     );
 
     private static readonly DiagnosticDescriptor MustBePartial = new DiagnosticDescriptor(
-      "HLX011",
+      "HLXB01",
       "CompositionBoundary method must be partial",
       "Method '{0}' is marked [CompositionBoundary] but is not declared 'partial'",
       "HELIX",
@@ -70,7 +70,7 @@ namespace HELIX.SourceGen {
     );
 
     private static readonly DiagnosticDescriptor MustNotStartWithUnderscore = new DiagnosticDescriptor(
-      "HLX012",
+      "HLXB02",
       "CompositionBoundary method must not start with '_'",
       "Method '{0}' is marked [CompositionBoundary] but starts with '_'; the name is used directly as the public boundary name",
       "HELIX",
@@ -79,7 +79,7 @@ namespace HELIX.SourceGen {
     );
 
     private static readonly DiagnosticDescriptor MustTakeRefThisComposition = new DiagnosticDescriptor(
-      "HLX013",
+      "HLXB03",
       "CompositionBoundary method must take 'ref this Composition' as its first parameter",
       "Method '{0}' is marked [CompositionBoundary] but its first parameter must be 'ref this HELIX.NW.Composition'",
       "HELIX",
@@ -88,7 +88,7 @@ namespace HELIX.SourceGen {
     );
 
     private static readonly DiagnosticDescriptor MustNotBeGeneric = new DiagnosticDescriptor(
-      "HLX014",
+      "HLXB04",
       "CompositionBoundary method must not be generic",
       "Method '{0}' is marked [CompositionBoundary] but is generic, which is not supported",
       "HELIX",
@@ -97,8 +97,8 @@ namespace HELIX.SourceGen {
     );
 
     private static readonly DiagnosticDescriptor MissingStateType = new DiagnosticDescriptor(
-      "HLX015",
-      "CompositionBoundary requires a nested '{Name}State' partial type",
+      "HLXB05",
+      "CompositionBoundary requires a nested '{Name}Composable' partial type",
       "Method '{0}' is marked [CompositionBoundary] but its containing type does not declare a nested partial type named '{1}'",
       "HELIX",
       DiagnosticSeverity.Error,
@@ -106,7 +106,7 @@ namespace HELIX.SourceGen {
     );
 
     private static readonly DiagnosticDescriptor ContainingTypeMustBeStaticPartialClass = new DiagnosticDescriptor(
-      "HLX016",
+      "HLXB06",
       "CompositionBoundary must be declared in a static partial class",
       "Method '{0}' is marked [CompositionBoundary] but its containing type '{1}' is not a static partial class",
       "HELIX",
@@ -115,7 +115,7 @@ namespace HELIX.SourceGen {
     );
 
     private static readonly DiagnosticDescriptor StateMustBeClass = new DiagnosticDescriptor(
-      "HLX017",
+      "HLXB07",
       "CompositionBoundary state type must be a class",
       "Method '{0}' is marked [CompositionBoundary] but '{1}' must be a class inheriting PropsNodeStateAttachmentBase; it is not a class",
       "HELIX",
@@ -124,7 +124,7 @@ namespace HELIX.SourceGen {
     );
 
     private static readonly DiagnosticDescriptor InvalidBaseType = new DiagnosticDescriptor(
-      "HLX018",
+      "HLXB08",
       "CompositionBoundary Base must be an unbound generic type of arity 1",
       "Method '{0}' specifies Base = '{1}', but Base must be an unbound generic type with exactly one type parameter (e.g. typeof(InputStateBase<>))",
       "HELIX",
@@ -165,12 +165,12 @@ namespace HELIX.SourceGen {
         return;
       }
 
-      if (!method.IsExtensionMethod ||
-          method.Parameters.Length < 1 ||
-          !IsRefComposition(method.Parameters[0])) {
-        spc.ReportDiagnostic(Diagnostic.Create(MustTakeRefThisComposition, loc, method.Name));
-        return;
-      }
+      // if (!method.IsExtensionMethod ||
+      //     method.Parameters.Length < 1 ||
+      //     !IsRefComposition(method.Parameters[0])) {
+      //   spc.ReportDiagnostic(Diagnostic.Create(MustTakeRefThisComposition, loc, method.Name));
+      //   return;
+      // }
 
       var containingType = method.ContainingType;
       if (containingType.TypeKind != TypeKind.Class ||
@@ -182,7 +182,7 @@ namespace HELIX.SourceGen {
       }
 
       var publicName = method.Name;            // e.g. "Button"
-      var stateName = publicName + "State";    // e.g. "ButtonState"
+      var stateName = publicName + "Composable";    // e.g. "ButtonState"
       var propsName = publicName + "Props";    // e.g. "ButtonProps"
 
       var stateType = containingType
@@ -275,7 +275,7 @@ namespace HELIX.SourceGen {
     private static readonly ushort {typeIdField} = {CompositionIdTypeName}.GetTypeId();
 
     public static partial {returnTypeText} {publicName}({signatureParams}) {{
-      {receiverName}.AUTHORING.PropsBoundaryStateNode<{stateName}, {propsName}>({typeIdField}, out var node, out _, out var attachment);
+      {receiverName}.AUTHORING.PropsBoundaryStateComposable<{stateName}, {propsName}>({typeIdField}, out var node, out _, out var attachment);
       var props = new {propsName} {{
 {TrimTrailingComma(propsInit.ToString())}      }};
       attachment.ReceiveProps(props);

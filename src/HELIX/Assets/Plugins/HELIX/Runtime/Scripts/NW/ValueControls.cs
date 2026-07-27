@@ -42,8 +42,7 @@ namespace HELIX.NW {
     }
 
     public override bool Equals(object obj) => obj is SliderOptions other && Equals(other);
-    public override int GetHashCode() =>
-      HashCode.Combine(min, max, step, thumbRange, (int)axis, reverse);
+    public override int GetHashCode() => HashCode.Combine(min, max, step, thumbRange, (int)axis, reverse);
   }
 
   public sealed class SliderStyle {
@@ -116,8 +115,8 @@ namespace HELIX.NW {
     private SliderOptions _options = SliderOptions.Default;
     private SliderStyle _sliderStyle;
     private StateFlag _inputState;
-    private Action<float, IBoundary> _onChanged;
-    private Action<float, IBoundary> _onCommitted;
+    private CompositionAction<float> _onChanged;
+    private CompositionAction<float> _onCommitted;
     private IBoundary _callbackBoundary;
     private float _value;
     private bool _enabled = true;
@@ -165,8 +164,8 @@ namespace HELIX.NW {
       bool error,
       SliderStyle style,
       IBoundary callbackBoundary,
-      Action<float, IBoundary> onChanged,
-      Action<float, IBoundary> onCommitted
+      CompositionAction<float> onChanged,
+      CompositionAction<float> onCommitted
     ) {
       _callbackBoundary = callbackBoundary;
       _onChanged = onChanged;
@@ -274,9 +273,9 @@ namespace HELIX.NW {
       if (!Mathf.Approximately(_value, next)) {
         _value = next;
         ApplyVisuals();
-        _onChanged?.Invoke(next, _callbackBoundary);
+        _onChanged?.Call(_callbackBoundary, next);
       }
-      if (commit) _onCommitted?.Invoke(_value, _callbackBoundary);
+      if (commit) _onCommitted?.Call(_callbackBoundary, _value);
     }
 
     private float ResolveThumbMainSize(float length) {
@@ -439,8 +438,8 @@ namespace HELIX.NW {
       if (!Mathf.Approximately(_value, next)) {
         _value = next;
         ApplyVisuals();
-        _onChanged?.Invoke(next, _callbackBoundary);
-        _onCommitted?.Invoke(next, _callbackBoundary);
+        _onChanged?.Call(_callbackBoundary, next);
+        _onCommitted?.Call(_callbackBoundary, next);
       }
       evt.StopPropagation();
     }
@@ -529,7 +528,7 @@ namespace HELIX.NW {
       [Prop] StateComposable visual
     );
 
-    public partial class CheckboxFillState {
+    public partial class CheckboxFillComposable {
       protected override void OnRecompose(ref Composition cx) {
         cx.APPLY
           .Flexible()
@@ -552,7 +551,7 @@ namespace HELIX.NW {
       [Prop] StyleLength4 margin = default
     );
 
-    public partial class CheckboxIndicatorState {
+    public partial class CheckboxIndicatorComposable {
       protected override void OnRecompose(ref Composition cx) {
         cx.APPLY
           .Size(BoxConstraints.Tight(Props.Size, Props.Size))
@@ -573,7 +572,7 @@ namespace HELIX.NW {
       [Prop] float leadingMargin = 0f
     );
 
-    public partial class CheckboxLabelState {
+    public partial class CheckboxLabelComposable {
       protected override void OnRecompose(ref Composition cx) {
         cx.APPLY
           .Margin(StyleLength4.Only(left: Props.LeadingMargin))
@@ -590,8 +589,8 @@ namespace HELIX.NW {
     public static ref ElementRef Slider(
       this ref Composition cx,
       float value,
-      Action<float, IBoundary> onChanged = null,
-      Action<float, IBoundary> onCommitted = null,
+      CompositionAction<float> onChanged = null,
+      CompositionAction<float> onCommitted = null,
       SliderOptions? options = null,
       bool enabled = true,
       bool error = false,
@@ -617,17 +616,17 @@ namespace HELIX.NW {
   }
 
   public static partial class ToggleDefinition {
-    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableBase<>))]
+    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableComposable<>))]
     public static partial ref ElementRef Toggle(
       ref this Composition cx,
       [Prop] bool value,
       [Prop] Composable content,
-      [Prop] Action<bool, IBoundary> onChanged = null,
+      [Prop] CompositionAction<bool> onChanged = null,
       [Prop] bool enabled = true,
       [Prop] ControlBoxStyle? style = null
     );
 
-    public partial class ToggleState {
+    public partial class ToggleComposable {
       protected override void OnRecompose(ref Composition cx) {
         this.Toggle(StateFlag.Selected, Props.Value);
         this.Toggle(StateFlag.Disabled, !Props.Enabled);
@@ -638,24 +637,24 @@ namespace HELIX.NW {
       }
 
       protected override void OnClick(EventBase evt) {
-        if (Props.Enabled) Props.OnChanged?.Invoke(!Props.Value, Node);
+        if (Props.Enabled) Props.OnChanged.Call(Node, !Props.Value);
       }
     }
   }
 
   public static partial class CheckboxDefinition {
-    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableBase<>))]
+    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableComposable<>))]
     public static partial ref ElementRef Checkbox(
       ref this Composition cx,
       [Prop] bool value,
       [Prop] PrefixLabelSuffixSpec? presentation = null,
-      [Prop] Action<bool, IBoundary> onChanged = null,
+      [Prop] CompositionAction<bool> onChanged = null,
       [Prop] bool enabled = true,
       [Prop] CheckboxStyle style = null,
       [Prop] bool error = false
     );
 
-    public partial class CheckboxState {
+    public partial class CheckboxComposable {
       protected override void OnRecompose(ref Composition cx) {
         this.Toggle(StateFlag.Selected, Props.Value);
         this.Toggle(StateFlag.Disabled, !Props.Enabled);
@@ -684,7 +683,7 @@ namespace HELIX.NW {
       }
 
       protected override void OnClick(EventBase evt) {
-        if (Props.Enabled) Props.OnChanged?.Invoke(!Props.Value, Node);
+        if (Props.Enabled) Props.OnChanged.Call(Node, !Props.Value);
       }
     }
   }
