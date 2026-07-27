@@ -47,7 +47,7 @@ namespace HELIX.Examples {
       }
 
       protected override void OnRecompose(ref Composition cx) {
-        var theme = cx.ReadContextOrDefault(ThemeData.Context, BuiltinThemes.DefaultDark);
+        var theme = cx.ReadContextOrDefault(ThemeData.Context, HXThemes.DefaultDark);
         cx.APPLY
           .BackgroundColor(theme.GetColor(ColorRoles.Surface))
           .TextColor(theme.GetColor(ColorRoles.OnSurface));

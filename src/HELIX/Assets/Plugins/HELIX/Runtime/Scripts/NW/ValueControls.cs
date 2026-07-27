@@ -46,7 +46,7 @@ namespace HELIX.NW {
   }
 
   public sealed class SliderStyle {
-    public static readonly SliderStyle Default = BuildDefault(BuiltinThemes.DefaultDark);
+    public static readonly SliderStyle Default = BuildDefault(HXThemes.DefaultDark);
     public static readonly ContextKey<SliderStyle> Context = new("SliderStyle", Default);
 
     public readonly InputFieldStyle box;
@@ -446,7 +446,7 @@ namespace HELIX.NW {
   }
 
   public sealed class CheckboxStyle {
-    public static readonly CheckboxStyle Default = BuildDefault(BuiltinThemes.DefaultDark);
+    public static readonly CheckboxStyle Default = BuildDefault(HXThemes.DefaultDark);
     public static readonly ContextKey<CheckboxStyle> Context = new("CheckboxStyle", Default);
 
     public readonly ControlBoxStyle box;
@@ -583,7 +583,7 @@ namespace HELIX.NW {
     }
   }
 
-  public static partial class BuiltIns {
+  public static partial class HXBuiltins {
     private static readonly ushort _sliderId = CompositionId.GetTypeId("Slider");
 
     public static ref ElementRef Slider(
@@ -616,7 +616,7 @@ namespace HELIX.NW {
   }
 
   public static partial class ToggleDefinition {
-    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableComposable<>))]
+    [CompositionBoundary(Base = typeof(InputClickableComposable<>))]
     public static partial ref ElementRef Toggle(
       ref this Composition cx,
       [Prop] bool value,
@@ -643,7 +643,7 @@ namespace HELIX.NW {
   }
 
   public static partial class CheckboxDefinition {
-    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableComposable<>))]
+    [CompositionBoundary(Base = typeof(InputClickableComposable<>))]
     public static partial ref ElementRef Checkbox(
       ref this Composition cx,
       [Prop] bool value,

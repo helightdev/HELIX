@@ -1,13 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using HELIX.Coloring;
 using HELIX.Extensions;
-using HELIX.NW.Forms;
 using HELIX.NW.Overlays;
 using HELIX.Types;
-using UnityEngine;
-using UnityEngine.SocialPlatforms;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW.Forms {
@@ -1138,7 +1134,7 @@ namespace HELIX.NW.Forms {
     private static void ComposeFirstError(ref Composition cx, FieldData data) {
       if (data?.errors == null || data.errors.Count == 0) return;
       cx.Text(data.errors[0]);
-      var theme = cx.ReadContextOrDefault(ThemeData.Context, BuiltinThemes.DefaultDark);
+      var theme = cx.ReadContextOrDefault(ThemeData.Context, HXThemes.DefaultDark);
       cx.APPLY.TextColor(theme.GetColor(ColorRoles.Error));
     }
 

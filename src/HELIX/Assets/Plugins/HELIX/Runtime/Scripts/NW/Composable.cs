@@ -1,6 +1,5 @@
 using System;
 using HELIX.Abstractions;
-using Unity.Mathematics;
 using UnityEngine.UIElements;
 
 namespace HELIX.NW {
@@ -14,15 +13,6 @@ namespace HELIX.NW {
 
   [AttributeUsage(AttributeTargets.Parameter)]
   public class PropAttribute : Attribute { }
-
-  [AttributeUsage(AttributeTargets.Class)]
-  public class PropsAttribute : Attribute {
-    public Type type;
-
-    public PropsAttribute(Type type) {
-      this.type = type;
-    }
-  }
 
   [AttributeUsage(AttributeTargets.Field)]
   public class ContextAttribute : Attribute { }

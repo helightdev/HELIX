@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Properties;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 // ReSharper disable Unity.BurstLoadingManagedType
@@ -398,6 +399,115 @@ namespace HELIX.NW {
 
     public override int GetHashCode() {
       return _resolver != null ? _resolver.GetHashCode() : 0;
+    }
+  }
+
+  public abstract class InputClickableComposable<T> : InputBoundaryComposable<T> where T : struct {
+    private int _activePointerId = -1;
+
+    protected bool Active { get; private set; }
+    protected Vector2 LastMousePosition { get; private set; }
+
+    protected InputClickableComposable() {
+      handleFocus = true;
+    }
+
+    protected override void OnAttach() {
+      base.OnAttach();
+      Node.RegisterCallback<PointerDownEvent>(OnPointerDown);
+      Node.RegisterCallback<PointerMoveEvent>(OnPointerMove);
+      Node.RegisterCallback<PointerUpEvent>(OnPointerUp);
+      Node.RegisterCallback<PointerCancelEvent>(OnPointerCancel);
+      Node.RegisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
+      Node.RegisterCallback<NavigationSubmitEvent>(OnNavigationSubmit);
+    }
+
+    protected override void OnDetach() {
+      base.OnDetach();
+      Node.UnregisterCallback<PointerDownEvent>(OnPointerDown);
+      Node.UnregisterCallback<PointerMoveEvent>(OnPointerMove);
+      Node.UnregisterCallback<PointerUpEvent>(OnPointerUp);
+      Node.UnregisterCallback<PointerCancelEvent>(OnPointerCancel);
+      Node.UnregisterCallback<PointerCaptureOutEvent>(OnPointerCaptureOut);
+      Node.UnregisterCallback<NavigationSubmitEvent>(OnNavigationSubmit);
+    }
+
+    protected virtual void OnClick(EventBase evt) { }
+
+    protected virtual void OnNavigationSubmit(NavigationSubmitEvent evt) {
+      if ((InputState & StateFlag.Disabled) != 0) return;
+      OnClick(evt);
+      evt.StopPropagation();
+    }
+
+    protected virtual void OnPointerDown(PointerDownEvent evt) {
+      if (Active || evt.button != (int)MouseButton.LeftMouse) return;
+
+      Active = true;
+      _activePointerId = evt.pointerId;
+      LastMousePosition = evt.localPosition;
+
+      Node.CapturePointer(evt.pointerId);
+      this.Enable(StateFlag.Pressed);
+      Node.MarkDirty();
+
+      evt.StopImmediatePropagation();
+    }
+
+    protected virtual void OnPointerMove(PointerMoveEvent evt) {
+      if (!Active) return;
+
+      LastMousePosition = evt.localPosition;
+      var pressed = Node.worldBound.Contains(evt.position);
+      if (((InputState & StateFlag.Pressed) != 0) != pressed) {
+        this.Toggle(StateFlag.Pressed, pressed);
+        Node.MarkDirty();
+      }
+
+      evt.StopPropagation();
+    }
+
+    protected virtual void OnPointerUp(PointerUpEvent evt) {
+      if (!Active || evt.pointerId != _activePointerId) return;
+
+      var clicked = Node.worldBound.Contains(evt.position);
+
+      Active = false;
+      _activePointerId = -1;
+      LastMousePosition = evt.localPosition;
+
+      Node.ReleasePointer(evt.pointerId);
+      this.Disable(StateFlag.Pressed);
+      Node.MarkDirty();
+
+      if (clicked) {
+        OnClick(evt);
+      }
+
+      evt.StopPropagation();
+    }
+
+    protected virtual void OnPointerCancel(PointerCancelEvent evt) {
+      if (!Active || evt.pointerId != _activePointerId) return;
+
+      Cancel(evt, evt.pointerId);
+    }
+
+    protected virtual void OnPointerCaptureOut(PointerCaptureOutEvent evt) {
+      if (!Active) return;
+
+      Cancel(evt, evt.pointerId);
+    }
+
+    protected virtual void Cancel(EventBase evt, int pointerId) {
+      Active = false;
+      _activePointerId = -1;
+
+      Node.ReleasePointer(pointerId);
+      this.Disable(StateFlag.Pressed);
+      Node.MarkDirty();
+
+      evt.StopPropagation();
     }
   }
 }

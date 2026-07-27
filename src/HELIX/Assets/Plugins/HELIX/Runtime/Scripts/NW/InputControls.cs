@@ -11,7 +11,7 @@ namespace HELIX.NW {
   public enum TextSelectionStyle : byte { Light, Dark, Custom, LightNeutral, DarkNeutral }
 
   public sealed class InputFieldStyle {
-    public static readonly InputFieldStyle Default = BuildDefault(BuiltinThemes.DefaultDark);
+    public static readonly InputFieldStyle Default = BuildDefault(HXThemes.DefaultDark);
     public static readonly ContextKey<InputFieldStyle> Context = new("InputFieldStyle", Default);
 
     public readonly StateProperty<StyleLength4> padding;
@@ -569,7 +569,7 @@ namespace HELIX.NW {
     }
   }
 
-  public static partial class BuiltIns {
+  public static partial class HXBuiltins {
     private static readonly ushort _textInputId = CompositionId.GetTypeId("TextInput");
     private static readonly ushort _integerInputId = CompositionId.GetTypeId("IntegerInput");
     private static readonly ushort _floatInputId = CompositionId.GetTypeId("FloatInput");

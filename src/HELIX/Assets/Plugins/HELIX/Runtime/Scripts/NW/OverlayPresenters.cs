@@ -8,7 +8,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.NW.Overlays {
   public sealed class OverlayPanelStyle {
-    public static readonly OverlayPanelStyle Default = BuildDefault(BuiltinThemes.DefaultDark);
+    public static readonly OverlayPanelStyle Default = BuildDefault(HXThemes.DefaultDark);
     public static readonly ContextKey<OverlayPanelStyle> Context =
       new("NW.OverlayPanelStyle", Default);
 
@@ -44,7 +44,7 @@ namespace HELIX.NW.Overlays {
             color: theme.GetColor(ColorRoles.SurfaceContainerHigh)
           ).Bake()
         ),
-        CommonShapes.ToggleControlBox(
+        HXCommonStyles.ToggleControlBox(
           theme,
           constraints: BoxConstraints.Min(new StyleLength2(30f)),
           paddingHorizontal: SpacingRole.Spacing2,
@@ -104,8 +104,7 @@ namespace HELIX.NW.Overlays {
     void ActivateOverlayItem(int index, VisualElement item);
   }
 
-  internal sealed class DropdownState<T> :
-    BuiltIns.InputClickableComposable<DropdownProps<T>>,
+  internal sealed class DropdownState<T> : InputClickableComposable<DropdownProps<T>>,
     IOverlayActionItemOwner {
     private static readonly EqualityComparer<T> _equality = EqualityComparer<T>.Default;
 
@@ -529,7 +528,7 @@ namespace HELIX.NW.Overlays {
   }
 
   public static partial class OverlayActionItemDefinition {
-    [CompositionBoundary(Base = typeof(BuiltIns.InputClickableComposable<>))]
+    [CompositionBoundary(Base = typeof(InputClickableComposable<>))]
     public static partial ref ElementRef OverlayActionItem(
       ref this Composition cx,
       [Prop] IOverlayActionItemOwner owner,

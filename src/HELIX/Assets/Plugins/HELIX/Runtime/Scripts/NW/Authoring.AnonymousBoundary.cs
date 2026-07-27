@@ -10,7 +10,7 @@ namespace HELIX.NW {
       if (RequireCompositionBoundaryNode(typeId, out node, out retained)) {
         if (node.Data is not AnonymousBoundaryData anonymousState) {
           anonymousState = new AnonymousBoundaryData();
-          node.SetData(anonymousState);
+          node.SetDataOnly(anonymousState);
           retained = false;
         }
         data = anonymousState;
@@ -18,7 +18,7 @@ namespace HELIX.NW {
       }
 
       data = new AnonymousBoundaryData();
-      node.SetData(data);
+      node.SetDataOnly(data);
       return false;
     }
 

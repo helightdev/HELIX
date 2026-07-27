@@ -224,19 +224,19 @@ namespace HELIX.NW {
     //
     // }
 
-    public void SetData(BoundaryData data) {
+    public void SetDataOnly(BoundaryData data) {
       if (Data != null) DisposeState();
       Data = data;
     }
 
-    public void SetData(BoundaryData data, IBoundaryComposable boundaryComposable) {
+    public void SetComposable(BoundaryData data, IBoundaryComposable boundaryComposable) {
       if (Data != null) DisposeState();
       Data = data;
       BoundaryComposable = boundaryComposable;
       boundaryComposable.OnAttach(data, this);
     }
 
-    public void SwapState(IBoundaryComposable boundaryComposable) {
+    public void SwapComposable(IBoundaryComposable boundaryComposable) {
       if (Data == null) throw new InvalidOperationException("Cannot swap attachment on boundary with no state");
       BoundaryComposable?.OnDetach(Data, this);
       BoundaryComposable = boundaryComposable;
@@ -376,24 +376,4 @@ namespace HELIX.NW {
   public abstract class BoundaryVisualElement : BoundaryElementBase {
     public abstract void Compose(ref Composition cx);
   }
-
-  [UxmlElement]
-  public partial class CustomVisualElement : BoundaryVisualElement {
-    public override void Compose(ref Composition cx) {
-
-    }
-  }
-
-  // public partial class CustomVisualElement {
-  //   private static readonly CompositionId _compositionId = new() {
-  //     composition = CompositionId.GetCompositionId(),
-  //     type = CompositionId.GetTypeId(),
-  //     local = LocalId.Initial
-  //   };
-  //
-  //   public override void PerformCompose(ref Composition cx) {
-  //     cx.AUTHORING.SetId(_compositionId);
-  //     Compose(ref cx);
-  //   }
-  // }
 }

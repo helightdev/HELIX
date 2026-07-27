@@ -1,9 +1,10 @@
 using HELIX.Coloring;
+using HELIX.Extensions;
 using HELIX.Types;
 using UnityEngine;
 
 namespace HELIX.NW {
-  public static class CommonShapes {
+  public static class HXCommonStyles {
     public static StateComposable FocusOutline(
       ThemeData theme,
       ColorRole focusColor = ColorRoles.Focus,
@@ -426,4 +427,99 @@ namespace HELIX.NW {
   }
 
   public enum ButtonFocusStyle { Outdent, Indent, IndentReserved }
+
+    public struct DrawSolidBoxStyle {
+    public StateProperty<Border> border;
+    public StateProperty<BorderRadius> radius;
+    public StateProperty<Color> color;
+    public StateProperty<float> opacity;
+    public StateProperty<BoxConstraints> constraints;
+    public StateProperty<StyleLength4> position;
+    public StateProperty<bool> absolute;
+    public StateProperty<TransitionOptions> transition;
+
+    public DrawSolidBoxStyle(
+      StateProperty<Border> border = null,
+      StateProperty<BorderRadius> radius = null,
+      StateProperty<Color> color = null,
+      StateProperty<float> opacity = null,
+      StateProperty<BoxConstraints> constraints = null,
+      StateProperty<StyleLength4> position = null,
+      StateProperty<bool> absolute = null,
+      StateProperty<TransitionOptions> transition = null
+    ) {
+      this.border = border ?? StateProperties.Never<Border>();
+      this.radius = radius ?? StateProperties.Never<BorderRadius>();
+      this.color = color ?? StateProperties.Never<Color>();
+      this.opacity = opacity ?? StateProperties.Never<float>();
+      this.constraints = constraints ?? StateProperties.Never<BoxConstraints>();
+      this.position = position ?? StateProperties.Never<StyleLength4>();
+      this.absolute = absolute ?? StateProperties.Never<bool>();
+      this.transition = transition ?? StateProperties.Never<TransitionOptions>();
+    }
+
+    public readonly StateComposable Bake() {
+      var style = this;
+      return (ref Composition cx, StateFlag state) => cx.DrawSolidBox(
+        border: style.border.ResolveOrDefault(state, Types.Border.None),
+        radius: style.radius.ResolveOrDefault(state, Types.BorderRadius.None),
+        color: style.color.ResolveOrDefault(state, Colors.Transparent),
+        opacity: style.opacity.ResolveOrDefault(state, 1f),
+        constraints: style.constraints.ResolveOrDefault(state, BoxConstraints.Initial),
+        position: style.position.ResolveOrDefault(state, StyleLength4.Zero),
+        absolute: style.absolute.ResolveOrDefault(state, true),
+        transition: style.transition.ResolveOrDefault(state, TransitionOptions.Default)
+      );
+    }
+  }
+
+  public struct ControlBoxStyle {
+    public static readonly ControlBoxStyle Default = HXCommonStyles.ToggleControlBox(HXThemes.DefaultDark);
+
+    public StateProperty<StyleLength4> padding;
+    public StateProperty<StyleLength4> margin;
+    public StateProperty<Alignment> alignment;
+    public StateProperty<BoxConstraints> constraints;
+    public StateProperty<TextStyle> textStyle;
+    public StateComposable background;
+
+    public ControlBoxStyle(
+      StateProperty<StyleLength4> padding = null,
+      StateProperty<StyleLength4> margin = null,
+      StateProperty<Alignment> alignment = null,
+      StateProperty<BoxConstraints> constraints = null,
+      StateProperty<TextStyle> textStyle = null,
+      StateComposable background = null
+    ) {
+      this.padding = padding ?? StateProperties.Never<StyleLength4>();
+      this.margin = margin ?? StateProperties.Never<StyleLength4>();
+      this.alignment = alignment ?? StateProperties.Never<Alignment>();
+      this.constraints = constraints ?? StateProperties.Never<BoxConstraints>();
+      this.textStyle = textStyle ?? StateProperties.Never<TextStyle>();
+      this.background = background;
+    }
+
+    public readonly void ApplyColumn(StateFlag flag, IComposable composable) {
+      var element = composable.Element;
+      constraints.ResolveOrDefault(flag, BoxConstraints.Initial).Apply(element);
+      alignment.ResolveOrDefault(flag, Alignment.Center).AlignAsColumn(element);
+      element.Padding(padding.ResolveOrDefault(flag, StyleLength4.Zero));
+      element.Margin(margin.ResolveOrDefault(flag, StyleLength4.Zero));
+      composable.Flag |= UssFlag.GroupAlign | UssFlag.Size | UssFlag.Padding | UssFlag.Margin;
+    }
+
+    public readonly void RenderBoundary(ref Composition cx, StateFlag state) {
+      ApplyColumn(state, cx.boundary);
+
+      TextStyle.WriteMerged(ref cx, textStyle, state).Apply(cx.boundary);
+
+      // var text = InheritableTextStyle.Context.ReadScopeOrDefault();
+      // text.Merge(textStyle.ResolveOrDefault(state, InheritableTextStyle.Null));
+      // cx.WriteContext(InheritableTextStyle.Context, text);
+      // text.Apply(cx.boundary);
+
+      background?.Invoke(ref cx, state);
+    }
+  }
+
 }

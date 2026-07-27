@@ -106,7 +106,7 @@ namespace HELIX.NW {
 
 
     public static void Default(ref Composition cx, in LabelSpec spec) {
-      Default(ref cx, in spec, Gap.ReadScopeOrDefault());
+      Default(ref cx, in spec, Gap.ReadScope());
     }
 
     public static void Default(ref Composition cx, in LabelSpec spec, Length gap) {

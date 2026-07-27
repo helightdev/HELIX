@@ -87,6 +87,7 @@ namespace HELIX.NW {
     }
 
     private static void ClearFlag(IStyle style, VisualElement element, UssFlag flag) {
+      // TODO: With the new updates, I can now use style.Clear(), use this for uss based properties
       switch (flag) {
         case UssFlag.None: break;
         case UssFlag.Flex:

@@ -5,7 +5,7 @@ using HELIX.Types;
 using UnityEngine;
 
 namespace HELIX.NW {
-  public static class BuiltinThemes {
+  public static class HXThemes {
     public static readonly ThemeData DefaultDark = ThemeData.Build(theme => {
         theme.brightness = Brightness.Dark;
         theme.ApplySurface(
@@ -88,36 +88,10 @@ namespace HELIX.NW {
       themeData.label = TypographyGroup.Label(baseStyle);
       themeData.body = TypographyGroup.Body(baseStyle);
     }
-
-    // public static BaseTheme NeutralLight = new BaseTheme() {
-    //   surface = new ColorPair(Colors.OkLch(1f, 0f, 0f), Colors.OkLch(0.145f, 0f, 0f)),
-    //   surfaceContainerLow = new ColorPair(Colors.OkLch(985f, 0f, 0f), Colors.OkLch(0.145f, 0f, 0f)),
-    //   surfaceContainer = new ColorPair(Colors.OkLch(0.97f, 0f, 0f), Colors.OkLch(0.556f, 0f, 0f)),
-    //   surfaceContainerHigh = new ColorPair(Colors.OkLch(922f, 0f, 0f), Colors.OkLch(0.145f, 0f, 0f)),
-    //   surfaceContainerHighest = new ColorPair(Colors.OkLch(0.922f, 0f, 0f), Colors.OkLch(0.145f, 0f, 0f)),
-    //   surfaceVariant = new ColorPair(Colors.OkLch(0.97f, 0f, 0f), Colors.OkLch(0.556f, 0f, 0f)),
-    //   surfaceInverse = new ColorPair(Colors.OkLch(0.145f, 0f, 0f), Colors.OkLch(1f, 0f, 0f)),
-    // };
-    //
-    // public static BaseTheme NeutralDark = new BaseTheme() {
-    //   surface = new ColorPair(Colors.OkLch(0.145f, 0f, 0f), Colors.OkLch(0.985f, 0f, 0f)),
-    //   surfaceContainerLow = new ColorPair(Colors.OkLch(0.205f, 0f, 0f), Colors.OkLch(0.985f, 0f, 0f)),
-    //   surfaceContainer = new ColorPair(Colors.OkLch(0.269f, 0f, 0f), Colors.OkLch(0.708f, 0f, 0f)),
-    //   surfaceContainerHigh = new ColorPair(
-    //     Colors.AlphaBlend(Colors.OkLch(0.269f, 0f, 0f), Colors.White10),
-    //     Colors.OkLch(0.985f, 0f, 0f)
-    //   ),
-    //   surfaceContainerHighest = new ColorPair(
-    //     Colors.AlphaBlend(Colors.OkLch(0.269f, 0f, 0f), Colors.White15),
-    //     Colors.OkLch(0.985f, 0f, 0f)
-    //   ),
-    //   surfaceVariant = new ColorPair(Colors.OkLch(0.269f, 0f, 0f), Colors.OkLch(0.708f, 0f, 0f)),
-    //   surfaceInverse = new ColorPair(Colors.OkLch(0.708f, 0f, 0f), Colors.OkLch(0.145f, 0f, 0f)),
-    // };
   }
 
   public record ThemeData {
-    public static readonly ContextKey<ThemeData> Context = new("Theme", BuiltinThemes.DefaultDark);
+    public static readonly ContextKey<ThemeData> Context = new("Theme", HXThemes.DefaultDark);
 
     public ColorTokenPalette primary;
     public ColorTokenPalette secondary;
@@ -864,6 +838,6 @@ namespace HELIX.NW {
 
     public T this[ThemeData themeData] => themeData.GetComputedProperty(this);
 
-    public T ReadScopeOrDefault() => this[ThemeData.Context.ReadScope()];
+    public T ReadScope() => this[ThemeData.Context.ReadScope()];
   }
 }

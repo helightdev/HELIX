@@ -12,10 +12,7 @@ namespace HELIX.NW {
     public ElementRef APPLY;
     public CompositionAuthoring AUTHORING;
 
-    public HxSlot Slot {
-      get => AUTHORING.cell.slot;
-      set => AUTHORING.cell.slot = value;
-    }
+    public HxSlot Slot { get => AUTHORING.cell.slot; set => AUTHORING.cell.slot = value; }
 
     public BoundaryCell Cell => AUTHORING.cell;
 
@@ -59,6 +56,16 @@ namespace HELIX.NW {
     public T LookupComposable<T>(bool includeHost = true) => boundary.LookupComposable<T>(includeHost);
 
     public T LookupBoundary<T>(bool includeHost = true) => boundary.LookupBoundary<T>(includeHost);
+
+    public T LookupLocalAncestor<T>(VisualElement element = null) {
+      var cursor = element ?? APPLY.composable.Element;
+      while (cursor != null) {
+        if (ReferenceEquals(cursor, boundary)) break;
+        if (cursor is T matched) return matched;
+        cursor = cursor.parent;
+      }
+      return default;
+    }
 
     public T ReadContext<T>(ContextKey<T> key, bool listen = true) {
       if (!RecompositionScope.TryGetContext(key, out var read)) return key.defaultValue;
@@ -172,10 +179,7 @@ namespace HELIX.NW {
     public static LocalId FromData(int data) {
       var short01 = (ushort)(data & 0xFFFF);
       var short23 = (ushort)((data >> 16) & 0xFFFF);
-      return new LocalId {
-        index = short01,
-        depth = short23
-      };
+      return new LocalId { index = short01, depth = short23 };
     }
   }
 
@@ -256,11 +260,7 @@ namespace HELIX.NW {
 
     public static CompositionId Generated(ushort composition, int data) {
       var local = LocalId.FromData(data);
-      return new CompositionId {
-        local = local,
-        composition = composition,
-        type = GeneratedTypeId
-      };
+      return new CompositionId { local = local, composition = composition, type = GeneratedTypeId };
     }
   }
 

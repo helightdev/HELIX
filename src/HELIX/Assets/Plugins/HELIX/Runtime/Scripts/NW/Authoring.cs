@@ -95,6 +95,37 @@ namespace HELIX.NW {
       return false;
     }
 
+    public bool RequireBoundaryStateComposable<TData, TStateComposable>(
+      ushort typeId,
+      out CompositionBoundaryNode node,
+      out TData data,
+      out TStateComposable attachment
+    ) where TData : BoundaryData, new() where TStateComposable : IBoundaryComposable, new() {
+      if (RequireCompositionBoundaryNode(typeId, out node, out var retained)) {
+        if (node.Data is not TData currentProps) {
+          data = new TData();
+          attachment = new TStateComposable();
+          node.SetComposable(data, attachment);
+          return false;
+        }
+        if (node.BoundaryComposable is not TStateComposable currentAttachment || !retained) {
+          attachment = new TStateComposable();
+          data = currentProps;
+          node.SwapComposable(attachment);
+          return false;
+        }
+
+        attachment = currentAttachment;
+        data = currentProps;
+        return true;
+      }
+
+      data = new TData();
+      attachment = new TStateComposable();
+      node.SetComposable(data, attachment);
+      return false;
+    }
+
     public bool InitializeNode(ushort typeId, out CompositionNode node) {
       var packed = PrepareId(typeId);
       var current = cell.ReadCursorOrFind(packed);
