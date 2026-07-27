@@ -1,5 +1,6 @@
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Error;
+using HELIX.Signals;
 using HELIX.Widgets.Signals;
 using UnityEngine.UIElements;
 

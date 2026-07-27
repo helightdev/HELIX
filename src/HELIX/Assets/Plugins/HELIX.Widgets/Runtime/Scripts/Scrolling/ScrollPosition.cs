@@ -1,3 +1,4 @@
+using HELIX.Signals;
 using HELIX.Widgets.Signals;
 using Unity.Mathematics;
 using UnityEngine.UIElements;

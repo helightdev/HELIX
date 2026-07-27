@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Error;
 using HELIX.Diagnostics.Properties;
+using HELIX.Signals;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Diagnostics.Error;
 using HELIX.Widgets.Diagnostics.Properties;

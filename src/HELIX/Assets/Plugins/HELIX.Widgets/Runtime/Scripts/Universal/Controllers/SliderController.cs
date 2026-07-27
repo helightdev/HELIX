@@ -1,4 +1,5 @@
 using System;
+using HELIX.Signals;
 using HELIX.Widgets.Scrolling;
 using HELIX.Widgets.Signals;
 using UnityEngine;

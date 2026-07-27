@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
+using HELIX.Compose;
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Error;
-using HELIX.NW;
+using HELIX.Widgets.Signals;
 using HELIX.Widgets.Utilities;
 using UnityEngine.Pool;
 
-namespace HELIX.Widgets.Signals {
+namespace HELIX.Signals {
   /// <summary>
   /// <para>A signal represents a piece of reactive state that can be observed for changes.</para>
   /// <para>

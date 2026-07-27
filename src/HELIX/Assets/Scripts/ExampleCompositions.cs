@@ -1,7 +1,8 @@
 using System;
 using HELIX;
 using HELIX.Coloring;
-using HELIX.NW;
+using HELIX.Compose;
+using HELIX.Signals;
 using HELIX.Types;
 using HELIX.Widgets.Signals;
 using HELIX.Widgets.Universal;

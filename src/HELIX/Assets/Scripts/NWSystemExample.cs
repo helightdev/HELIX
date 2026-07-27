@@ -1,8 +1,5 @@
+using HELIX.Compose;
 using HELIX.Extensions;
-using HELIX.NW;
-using HELIX.NW.Forms;
-using HELIX.NW.Navigation;
-using HELIX.NW.Overlays;
 using HELIX.Types;
 using HELIX.Widgets.Universal;
 using UnityEngine;
@@ -135,7 +132,7 @@ namespace HELIX.Examples {
               cx.Text("Integer");
               cx.Spacing(1);
               cx.IntInput(
-                integer, (ctx, value) => {
+                integer, static (ctx, value) => {
                   using (ctx.ModifyComposable<HomeComposable>(out var composable)) {
                     composable.integer = value;
                   }

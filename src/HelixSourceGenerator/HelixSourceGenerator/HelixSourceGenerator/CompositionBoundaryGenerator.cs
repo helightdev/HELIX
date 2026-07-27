@@ -41,15 +41,15 @@ namespace HELIX.SourceGen {
   // Anything else is a hard error (HLX010-HLX015) reported on the method.
   [Generator(LanguageNames.CSharp)]
   public sealed class CompositionBoundaryGenerator : IIncrementalGenerator {
-    private const string AttributeMetadataName = "HELIX.NW.CompositionBoundaryAttribute";
-    private const string CompositionTypeName = "HELIX.NW.Composition";
-    private const string CompositionIdTypeName = "HELIX.NW.CompositionId";
-    private const string NodeStateTypeName = "HELIX.NW.BoundaryData";
-    private const string IBoundaryTypeName = "HELIX.NW.IBoundary";
-    private const string CompositionInternalsTypeName = "HELIX.NW.CompositionInternals";
-    private const string CompositionTransferTypeName = "HELIX.NW.CompositionInternals.TransferData";
-    private const string PropsBaseTypeName = "HELIX.NW.PropsBoundaryComposable";
-    private const string ContextAttributeName = "HELIX.NW.ContextAttribute";
+    private const string AttributeMetadataName = "HELIX.Compose.CompositionBoundaryAttribute";
+    private const string CompositionTypeName = "HELIX.Compose.Composition";
+    private const string CompositionIdTypeName = "HELIX.Compose.CompositionId";
+    private const string NodeStateTypeName = "HELIX.Compose.BoundaryData";
+    private const string IBoundaryTypeName = "HELIX.Compose.IBoundary";
+    private const string CompositionInternalsTypeName = "HELIX.Compose.CompositionInternals";
+    private const string CompositionTransferTypeName = "HELIX.Compose.CompositionInternals.TransferData";
+    private const string PropsBaseTypeName = "HELIX.Compose.PropsBoundaryComposable";
+    private const string ContextAttributeName = "HELIX.Compose.ContextAttribute";
 
     private static readonly DiagnosticDescriptor MustBeStatic = new DiagnosticDescriptor(
       "HLXB00",

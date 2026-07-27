@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using HELIX.Diagnostics;
+using HELIX.Signals;
 
 namespace HELIX.Widgets.Signals {
 

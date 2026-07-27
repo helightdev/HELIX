@@ -24,12 +24,12 @@ namespace HELIX.SourceGen {
   [Generator(LanguageNames.CSharp)]
   public sealed class CompositionGenerator : IIncrementalGenerator {
     private const int MaxArgumentCount = 4;
-    private const string AttributeMetadataName = "HELIX.NW.CompositionAttribute";
-    private const string CompositionTypeName = "HELIX.NW.Composition";
-    private const string CompositionIdTypeName = "HELIX.NW.CompositionId";
-    private const string CompositionInternalsTypeName = "HELIX.NW.CompositionInternals";
-    private const string CompositionTransferTypeName = "HELIX.NW.CompositionInternals.TransferData";
-    private const string ComposableTypeName = "HELIX.NW.Composable";
+    private const string AttributeMetadataName = "HELIX.Compose.CompositionAttribute";
+    private const string CompositionTypeName = "HELIX.Compose.Composition";
+    private const string CompositionIdTypeName = "HELIX.Compose.CompositionId";
+    private const string CompositionInternalsTypeName = "HELIX.Compose.CompositionInternals";
+    private const string CompositionTransferTypeName = "HELIX.Compose.CompositionInternals.TransferData";
+    private const string ComposableTypeName = "HELIX.Compose.Composable";
 
     private static readonly DiagnosticDescriptor MustBeStatic = new DiagnosticDescriptor(
       "HLX001",

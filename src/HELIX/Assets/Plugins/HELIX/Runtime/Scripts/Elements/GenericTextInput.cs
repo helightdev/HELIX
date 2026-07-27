@@ -1,6 +1,6 @@
 using System;
+using HELIX.Compose;
 using HELIX.Extensions;
-using HELIX.NW;
 using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;

@@ -2,6 +2,7 @@ using System;
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Error;
 using HELIX.Diagnostics.Properties;
+using HELIX.Signals;
 
 namespace HELIX.Widgets.Signals {
   /// <summary>

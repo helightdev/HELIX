@@ -5,6 +5,7 @@ using HELIX.Coloring;
 using HELIX.Coloring.Material;
 using HELIX.Diagnostics;
 using HELIX.Extensions;
+using HELIX.Signals;
 using HELIX.Types;
 using HELIX.Widgets.Diagnostics;
 using HELIX.Widgets.Modifiers;

@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using HELIX.NW;
+using HELIX.Compose;
 using Unity.Profiling;
 
 namespace HELIX {

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HELIX.Signals;
 using HELIX.Widgets.Signals;
 
 namespace HELIX.Widgets.Universal {

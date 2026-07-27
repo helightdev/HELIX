@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using HELIX.Signals;
 using HELIX.Widgets.Signals;
 
 namespace HELIX.Widgets.Forms {
