@@ -6,8 +6,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace HELIX.SourceGen {
-  // For every [UxmlElement] class deriving from BoundaryVisualElement, generates the
-  // composition identity and the PerformCompose bridge in the same partial class.
   [Generator(LanguageNames.CSharp)]
   public sealed class BoundaryVisualElementGenerator : IIncrementalGenerator {
     private const string UxmlElementAttributeMetadataName = "UnityEngine.UIElements.UxmlElementAttribute";

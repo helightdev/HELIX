@@ -7,38 +7,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace HELIX.SourceGen {
-  // For every partial method tagged [HELIX.NW.CompositionBoundary], generates in the same
-  // partial class:
-  //
-  //   private static readonly ushort _buttonId     = HELIX.NW.CompositionId.GetCompositionId();
-  //   private static readonly ushort _buttonTypeId = HELIX.NW.CompositionId.GetTypeId();
-  //
-  //   public static partial void Button(ref this HELIX.NW.Composition cx, string label, Action<IBoundary> action) {
-  //     cx.AUTHORING.PropsBoundaryStateNode<ButtonState, ButtonProps>(_buttonTypeId, out var node, out _, out var attachment);
-  //     var props = new ButtonProps { Label = label, Action = action };
-  //     attachment.ReceiveProps(props);
-  //     node.composable = null;
-  //     cx.AUTHORING.YieldBoundary(ref cx, node);
-  //   }
-  //
-  //   public struct ButtonProps { /* one prop per extra parameter */ }
-  //
-  //   partial class ButtonState {
-  //     public override void OnRecompose(ref Composition cx, NodeState state, IBoundary boundary) {
-  //       var transfer = new CompositionInternals.TransferData();
-  //       CompositionInternals.EnterComposition(ref cx, _buttonId, ref transfer);
-  //       try { base.OnRecompose(ref cx, state, boundary); }
-  //       finally { CompositionInternals.ExitComposition(ref cx, ref transfer); }
-  //     }
-  //   }
-  //
-  // Requirements on the source method:
-  //   - static, partial
-  //   - name does NOT start with '_' (it is the public name, e.g. 'Button')
-  //   - first parameter: 'ref this HELIX.NW.Composition' (extension receiver)
-  //   - not generic
-  //   - the containing type must declare a nested partial type named '{Name}State'
-  // Anything else is a hard error (HLX010-HLX015) reported on the method.
+
   [Generator(LanguageNames.CSharp)]
   public sealed class CompositionBoundaryGenerator : IIncrementalGenerator {
     private const string AttributeMetadataName = "HELIX.Compose.CompositionBoundaryAttribute";

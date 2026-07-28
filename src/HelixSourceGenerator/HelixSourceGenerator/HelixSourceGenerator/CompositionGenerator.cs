@@ -1,26 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace HELIX.SourceGen {
-  // For every method tagged [HELIX.NW.Composition], generates in the same partial class:
-  //
-  //   private static readonly ushort _myCompositionId = HELIX.NW.CompositionId.GetCompositionId();
-  //   public static void MyComposition(this ref HELIX.NW.Composition cx) {
-  //     cx.Metadata(_myCompositionId);
-  //     _MyComposition(ref cx);
-  //   }
-  //
-  // Requirements on the source method:
-  //   - static
-  //   - name starts with '_' (the '_' is stripped to make the public name)
-  //   - first parameter: ref HELIX.NW.Composition
-  //   - up to MaxArgumentCount additional parameters: T or in T
-  // Anything else is a hard error (HLX001-HLX004) reported on the method.
+
+
   [Generator(LanguageNames.CSharp)]
   public sealed class CompositionGenerator : IIncrementalGenerator {
     private const int MaxArgumentCount = 4;
@@ -39,7 +25,7 @@ namespace HELIX.SourceGen {
       "HELIX",
       DiagnosticSeverity.Error,
       true
-    );0
+    );
 
     private static readonly DiagnosticDescriptor MustStartWithUnderscore = new DiagnosticDescriptor(
       "HLX002",

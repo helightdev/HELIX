@@ -1,5 +1,6 @@
 using System;
 using HELIX.Abstractions;
+using JetBrains.Annotations;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
@@ -11,8 +12,48 @@ namespace HELIX.Compose {
     public Type Base { get; set; }
   }
 
+  [AttributeUsage(AttributeTargets.Class)]
+  public class BoundaryComposableAttribute : Attribute {
+    public Type Base { get; set; }
+  }
+
   [AttributeUsage(AttributeTargets.Parameter)]
   public class PropAttribute : Attribute { }
+
+  [AttributeUsage(AttributeTargets.Struct)]
+  public class PropStructAttribute : Attribute {}
+
+  [AttributeUsage(AttributeTargets.Field)]
+  public class PropDefaultAttribute : Attribute {
+    public object value;
+    public PropInit init;
+
+    public PropDefaultAttribute(
+      object value,
+      PropInit init = PropInit.Literal
+    ) {
+      this.value = value;
+      this.init = init;
+    }
+  }
+
+  public enum PropInit {
+    /// <summary>
+    /// The literal object value of this will be used as the constructor parameter initializer.
+    /// </summary>
+    Literal,
+
+    /// <summary>
+    /// The constructor parameter will have the string content of this as the constant initializer.
+    /// </summary>
+    Constant,
+
+    /// <summary>
+    /// The constructor parameter will be nullable and default to null.
+    /// The string content of the annotation is used as the initializer if the parameter is null.
+    /// </summary>
+    Deferred
+  }
 
   [AttributeUsage(AttributeTargets.Field)]
   public class ContextAttribute : Attribute { }

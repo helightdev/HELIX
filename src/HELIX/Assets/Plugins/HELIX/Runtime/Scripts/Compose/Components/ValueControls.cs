@@ -6,6 +6,69 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
+
+  public partial class TestPartial {
+    public partial struct Properties {
+
+    }
+
+    [PropStruct]
+    public partial struct MySliderOptions {
+      public float min;
+      public float max;
+
+      [PropDefault(0f)]
+      public float step;
+      [PropDefault("0f", PropInit.Constant)]
+      public float thumbRange;
+      [PropDefault(Axis.Horizontal)]
+      public Axis axis;
+      [PropDefault(false)]
+      public bool reverse;
+
+      [PropDefault("HXThemes.DefaultDark", PropInit.Deferred)]
+      public ThemeData theme;
+
+      [PropDefault("new Vector2(1f,0f)", PropInit.Deferred)]
+      public Vector2 structParameter;
+    }
+
+  }
+  public static class SliderTest {
+    public static void Test() {
+      new TestPartial.MySliderOptions(
+        min: 0f,
+        max: 1f,
+        step: 0.1f,
+        thumbRange: 0.2f,
+        axis: Axis.Horizontal,
+        reverse: false
+      );
+    }
+  }
+
+  // public partial struct MySliderOptions {
+  //   public MySliderOptions(
+  //     float min,
+  //     float max,
+  //     float step = 0f,
+  //     float thumbRange = 0f,
+  //     Axis axis = Axis.Horizontal,
+  //     bool reverse  = false,
+  //     ThemeData theme = null,
+  //     Vector2? structParameter = null
+  //   ) {
+  //     this.min = min;
+  //     this.max = max;
+  //     this.step = step;
+  //     this.thumbRange = thumbRange;
+  //     this.axis = axis;
+  //     this.reverse = reverse;
+  //     this.theme = theme ?? HXThemes.DefaultDark;
+  //     this.structParameter = structParameter ?? new Vector2(1f, 0f);
+  //   }
+  // }
+
   public readonly struct SliderOptions : IEquatable<SliderOptions> {
     public static readonly SliderOptions Default = new(0f, 1f);
 
@@ -238,15 +301,9 @@ namespace HELIX.Compose {
       var result = Mathf.Clamp(value, _options.min, _options.max);
       if (_options.step <= 0f || result <= _options.min || result >= _options.max) return result;
 
-      var snapped = _options.min +
-                    Mathf.Round((result - _options.min) / _options.step) * _options.step;
+      var snapped = _options.min + Mathf.Round((result - _options.min) / _options.step) * _options.step;
       snapped = Mathf.Clamp(snapped, _options.min, _options.max);
-
-      // The maximum remains a valid endpoint even when the range is not an
-      // exact multiple of step.
-      return _options.max - result <= Mathf.Abs(snapped - result)
-        ? _options.max
-        : snapped;
+      return _options.max - result <= Mathf.Abs(snapped - result) ? _options.max : snapped;
     }
 
     private float NormalizeValue() {
