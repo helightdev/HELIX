@@ -24,6 +24,16 @@ namespace HELIX.Compose.Collections {
       get => _count == 0;
     }
 
+    public bool IsNull {
+      [MethodImpl(MethodImplOptions.AggressiveInlining)]
+      get => _items == null;
+    }
+
+    public int Capacity {
+      [MethodImpl(MethodImplOptions.AggressiveInlining)]
+      get => _items?.Length ?? 0;
+    }
+
     public ref T this[int index] {
       [MethodImpl(MethodImplOptions.AggressiveInlining)]
       get => ref _items[index];
@@ -93,7 +103,7 @@ namespace HELIX.Compose.Collections {
       _count = 0;
     }
 
-    private void EnsureCapacity(int min) {
+    public void EnsureCapacity(int min) {
       if (_items == null) {
         _items = new T[Math.Max(_initialCapacity, min)];
       } else if (_items.Length < min) {

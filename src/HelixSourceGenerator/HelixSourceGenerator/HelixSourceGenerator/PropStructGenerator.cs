@@ -551,8 +551,6 @@ namespace HELIX.SourceGen {
     }
 
     internal sealed class PropStructCode {
-      private readonly IReadOnlyList<PropAssignment> _assignments;
-
       internal static PropStructCode Empty { get; } = new PropStructCode(
         new string[0],
         new string[0],
@@ -569,20 +567,21 @@ namespace HELIX.SourceGen {
         ParameterParts = parameterParts;
         Parameters = string.Join(", ", parameterParts);
         Arguments = string.Join(", ", arguments);
-        _assignments = assignments;
+        Assignments = assignments;
         RequiresUnsafe = requiresUnsafe;
       }
 
       internal IReadOnlyList<string> ParameterParts { get; }
       internal string Parameters { get; }
       internal string Arguments { get; }
+      internal IReadOnlyList<PropAssignment> Assignments { get; }
       internal bool RequiresUnsafe { get; }
 
       internal string RenderAssignments(string target, string indent = "") {
         if (target is null) throw new ArgumentNullException(nameof(target));
         var prefix = target.Length == 0 ? "" : target + ".";
         var result = new StringBuilder();
-        foreach (var assignment in _assignments) {
+        foreach (var assignment in Assignments) {
           result.Append(indent);
           result.Append(prefix);
           result.Append(assignment.FieldName);

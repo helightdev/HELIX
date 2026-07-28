@@ -8,10 +8,7 @@ using UnityEngine.UIElements;
 namespace TestNamespace {
   public static partial class ExampleCompositions {
     public static ulong counter = 0;
-
-    public static readonly TextStyle LocalDefault = new(style: FontStyle.Bold);
-
-    public static readonly Signal<int> counterSignal = Signal.Value(0);
+    public static readonly Signal<int> CounterSignal = Signal.Value(0);
 
     public static readonly SpecConfig MyFactory = new SpecConfig(SpecConfig.Default)
       .AddFactory<ButtonSpecs>(ButtonSpecDrawer);
@@ -19,6 +16,7 @@ namespace TestNamespace {
     [Composition]
     private static void _MyComposition(ref Composition cx) {
       var theme = ThemeData.Key[cx];
+      counter++;
 
       using (cx.WriteContext(out var context)) {
         SpecConfig.Key[in context] = MyFactory;
@@ -27,6 +25,21 @@ namespace TestNamespace {
 
       cx.APPLY.Name("MainBoundary");
 
+      if (cx.Conditional(CounterSignal.Value % 2 == 0)) using (cx.ScrollView(
+        verticalScroller: ScrollerVisibility.AlwaysVisible,
+        onVerticalScroll: static (ctx, value) => {
+
+          //Debug.Log($"Geometry has changed on container! {value}");
+        }
+      )) {
+        cx.APPLY.Size(BoxConstraints.Tight(200, 200));
+
+        cx.Text("Scroll Item 1\n\n\n\n\n\n");
+        cx.Text("Scroll Item 2\n\n\n\n\n\n");
+        cx.Text("Scroll Item 3\n\n\n\n\n\n");
+        cx.Text("Scroll Item 4\n\n\n\n\n\n");
+        cx.Text("Scroll Item 5\n\n\n\n\n\n");
+      }
 
       // using var exampleContext = cx.WriteContext<ExampleContext>();
       // exampleContext.value.counter = counter;
@@ -34,8 +47,6 @@ namespace TestNamespace {
         cx.APPLY.Padding(10).Padding(20);
 
         //cx.APPLY.BackgroundColor(theme.GetColor(ColorRoles.Surface));
-
-        var id = counter++;
 
         cx.Text($"Title");
         using (cx.Flex(Axis.Horizontal)) {
@@ -49,19 +60,19 @@ namespace TestNamespace {
         // }).Padding(20);
 
         cx.DrawSolidBox(
-          color: theme.GetColor(ColorRoles.SurfaceContainerLow),
+          color: theme[ColorRoles.SurfaceContainerLow],
           constraints: BoxConstraints.Preferred(64, 64)
         );
         cx.DrawSolidBox(
-          color: theme.GetColor(ColorRoles.SurfaceContainer),
+          color: theme[ColorRoles.SurfaceContainer],
           constraints: BoxConstraints.Preferred(64, 64)
         );
         cx.DrawSolidBox(
-          color: theme.GetColor(ColorRoles.SurfaceContainerHigh),
+          color: theme[ColorRoles.SurfaceContainerHigh],
           constraints: BoxConstraints.Preferred(64, 64)
         );
         cx.DrawSolidBox(
-          color: theme.GetColor(ColorRoles.SurfaceContainerHighest),
+          color: theme[ColorRoles.SurfaceContainerHighest],
           constraints: BoxConstraints.Preferred(64, 64)
         );
 
@@ -77,10 +88,10 @@ namespace TestNamespace {
         cx.Text($"AfterSwitch");
         cx.Button(
           static (ref Composition cx) => {
-            cx.Text($"Click me {counterSignal.Value}");
+            cx.Text($"Click me {CounterSignal.Value}");
           },
           static ctx => {
-            counterSignal.Value++;
+            CounterSignal.Value++;
           },
           selected: true
         );
@@ -112,8 +123,8 @@ namespace TestNamespace {
     public static void _InnerComposition(ref Composition cx) {
       new ButtonSpecs {
         Label = "Click me from InnerComposition", OnClick = static x => {
-          counterSignal.Value++;
-          Debug.Log($"Click {counterSignal.Value} from InnerComposition!");
+          CounterSignal.Value++;
+          Debug.Log($"Click {CounterSignal.Value} from InnerComposition!");
         }
       }.Compose(ref cx);
     }

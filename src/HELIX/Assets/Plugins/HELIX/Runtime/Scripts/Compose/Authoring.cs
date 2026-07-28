@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Unity.Profiling;
 using UnityEngine;
@@ -9,13 +10,6 @@ namespace HELIX.Compose {
     public VisualElement cursor;
     public BoundaryCell cell;
     public CompositionId id;
-
-    private static readonly ProfilerCounterValue<int> _hierarchyMovements = new(
-      HXProfiling.HelixCategory,
-      "Hierarchy Movements",
-      ProfilerMarkerDataUnit.Count,
-      ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
-    );
 
     public void SetId(CompositionId given) {
       id = given;
@@ -138,9 +132,8 @@ namespace HELIX.Compose {
     }
 
     public ScopeHandle YieldScope(ref Composition ctx, VisualElement given, ScopeCompletionCallback callback = null) {
-      if (given is not IComposable composable) throw new InvalidOperationException("Element is not composable");
-      YieldElement(ref ctx, given);
-      return ScopeHandle.Push(cell, composable, callback);
+      ref var elementRef = ref YieldElement(ref ctx, given);
+      return ScopeHandle.Push(cell, elementRef.composable, callback);
     }
 
     public ref ElementRef YieldBoundary<T>(ref Composition ctx, T given) where T : VisualElement, IBoundary {
@@ -156,16 +149,18 @@ namespace HELIX.Compose {
     }
 
     public ref ElementRef YieldElement(ref Composition ctx, VisualElement given) {
-      var container = cell.scope.Element;
+      var container = cell.scope.Element.contentContainer;
       var currentIndex = container.IndexOf(given);
       if (currentIndex == cell.cursor) goto complete;
 
       // If the identified element is already present, move it into position and complete
       if (currentIndex != -1 && given.parent == container) {
-        _hierarchyMovements.Value++;
-        container.hierarchy.RemoveAt(currentIndex);
-        container.Insert(cell.cursor, given);
+        HXProfiling.TrackHierarchyMovement();
+        // container.RemoveAt(currentIndex);
+        // container.Insert(cell.cursor, given);
         // TODO: Maybe do this using Sort() to prevent animation interruptions
+
+        VisualElementOrdering.Move(container.hierarchy, given, cell.cursor);
         goto complete;
       }
 
@@ -182,20 +177,70 @@ namespace HELIX.Compose {
       }
 
       complete:
-      if (given is IComposable composable) {
-        if (composable.TypeId == 0) composable.TypeId = id.packed;
-      } else {
-        composable = (UserdataTracker)(given.userData ??= new UserdataTracker {
-          TypeId = id.packed,
-          Flag = UssFlag.None,
-          Element = given
-        });
-      }
+      if (given is IComposable composable) { } else { composable = CompositionInternals.Promote(given); }
+      if (composable.TypeId == 0) composable.TypeId = id.packed;
       ctx.APPLY.Replace(composable);
       cell.cursor++;
       cell.localId.index++;
       cursor = null; // Clear authoring element
       return ref ctx.APPLY;
+    }
+  }
+
+
+  public static class VisualElementOrdering {
+    private static readonly Dictionary<VisualElement, int> _indices = new();
+    private static readonly Comparison<VisualElement> _comparer = Compare;
+
+    private static VisualElement _movedElement = null!;
+    private static int _sourceIndex;
+    private static int _targetIndex;
+
+    public static void Move(
+      VisualElement.Hierarchy hierarchy,
+      VisualElement element,
+      int targetIndex
+    ) {
+      var count = hierarchy.childCount;
+      if (count < 2) return;
+      var sourceIndex = hierarchy.IndexOf(element);
+
+      if (sourceIndex < 0)
+        throw new ArgumentException(
+          "The element does not belong to the hierarchy.",
+          nameof(element)
+        );
+
+      if (targetIndex < 0) targetIndex = 0;
+      else if (targetIndex >= count) targetIndex = count - 1;
+
+      if (sourceIndex == targetIndex) return;
+
+      _movedElement = element;
+      _sourceIndex = sourceIndex;
+      _targetIndex = targetIndex;
+
+      _indices.Clear();
+      _indices.EnsureCapacity(count);
+      for (var i = 0; i < count; i++) _indices.Add(hierarchy[i], i);
+      hierarchy.Sort(_comparer);
+      _indices.Clear();
+    }
+
+    private static int Compare(VisualElement left, VisualElement right) {
+      return GetDestinationIndex(left) - GetDestinationIndex(right);
+    }
+
+    private static int GetDestinationIndex(VisualElement element) {
+      if (ReferenceEquals(element, _movedElement)) return _targetIndex;
+      var index = _indices[element];
+
+      if (_sourceIndex < _targetIndex) {
+        if (index > _sourceIndex && index <= _targetIndex) return index - 1;
+      } else {
+        if (index >= _targetIndex && index < _sourceIndex) return index + 1;
+      }
+      return index;
     }
   }
 }

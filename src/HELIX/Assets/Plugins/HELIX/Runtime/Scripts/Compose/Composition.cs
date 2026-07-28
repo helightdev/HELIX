@@ -115,6 +115,25 @@ namespace HELIX.Compose {
       cx.AUTHORING.id.composition = transfer.compositionId;
     }
 
+    public static IComposable Promote(VisualElement element) {
+      if (element is IComposable composable) {
+        return composable;
+      } else {
+        return (UserdataTracker)(element.userData ??= new UserdataTracker {
+          TypeId = 0,
+          Flag = UssFlag.None,
+          Element = element
+        });
+      }
+    }
+
+    public static IStateAttachmentHolder PromoteHolder(VisualElement element) {
+      var composable = Promote(element);
+      return composable is not IStateAttachmentHolder holder
+        ? throw new InvalidOperationException($"Element {element} is not a state attachment holder.")
+        : holder;
+    }
+
     public ref struct TransferData {
       public ushort compositionId;
     }
@@ -186,6 +205,7 @@ namespace HELIX.Compose {
   public struct CompositionId {
     private static ushort _compositionIdCounter = 1;
     private static ushort _typeIdCounter = 1;
+    private static int _generalIdCounter = 1;
 
     public static ushort GeneratedTypeId = GetTypeId("Hash");
 
@@ -212,6 +232,10 @@ namespace HELIX.Compose {
       }
       CompositionIdRegistry.RegisterTypeId(name);
       return _typeIdCounter++;
+    }
+
+    public static int GetGeneralId() {
+      unchecked { return _generalIdCounter++; }
     }
 
     public override string ToString() {

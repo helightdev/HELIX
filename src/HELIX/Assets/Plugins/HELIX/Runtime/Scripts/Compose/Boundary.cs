@@ -25,13 +25,6 @@ namespace HELIX.Compose {
   public class BoundaryCell {
     public static readonly BoundaryCell Shared = new();
 
-    private static readonly ProfilerCounterValue<int> _hierarchyDeletions = new(
-      HXProfiling.HelixCategory,
-      "Hierarchy Deletions",
-      ProfilerMarkerDataUnit.Count,
-      ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
-    );
-
     public IComposable scope;
     public int cursor;
     public LocalId localId;
@@ -71,7 +64,7 @@ namespace HELIX.Compose {
         //Debug.Log($"Removing child {i} from {element.name}");
         element.RemoveAt(element.childCount - 1);
       }
-      _hierarchyDeletions.Value += overflow;
+      HXProfiling.TrackHierarchyDeletion(overflow);
       //if (overflow > 0) Debug.LogWarning($"Removed {overflow} children");
     }
   }
@@ -356,8 +349,6 @@ namespace HELIX.Compose {
       if (Data == null || Node == null) return;
       OnRecompose(ref cx);
     }
-
-    public void MarkDirty() => Node?.MarkDirty();
   }
 
   public abstract class PropsBoundaryComposable<TProps> : BoundaryComposable<BoundaryData<TProps>>

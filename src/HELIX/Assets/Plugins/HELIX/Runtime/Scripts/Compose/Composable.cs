@@ -1,6 +1,5 @@
 using System;
 using HELIX.Abstractions;
-using JetBrains.Annotations;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
@@ -22,28 +21,73 @@ namespace HELIX.Compose {
   [AttributeUsage(AttributeTargets.Struct)]
   public class ComposableProxyAttribute : Attribute {
     public Type Target { get; set; }
-    public ComposableKind Kind { get; set; }
-    public string Name { get; set; }
+
+    public ComposableKind Kind { get; set; } = ComposableKind.Element;
+    public string Name { get; set; } // Defaults to target type name
     public bool RequiresTracking { get; set; } = true;
+    public bool Extension { get; set; } = true;
+    public string CreateSyntax { get; set; } = "instance = new {TYPE}();";
+    public string PrepareSyntax { get; set; } = "/* Skip Prepare */";
+    public string PreYieldSyntax { get; set; } = "/* Skip Before Yield */";
+    public string PostYieldSyntax { get; set; } = "/* Skip Post Yield */";
+    public string ScopeCallbackSyntax { get; set; } = "cell.TrimChildren();";
   }
 
-  public enum ComposableKind {
-    ScopeElement,
-    Element
-  }
+  public enum ComposableKind { ScopeElement, Element }
 
   [AttributeUsage(AttributeTargets.Field)]
-  public class ProxyPropAttribute : Attribute {
-    public string Setter { get; set; }
-    public string Getter { get; set; }
+  public class PropProxyAttribute : Attribute {
+    public string setter;
+
+    public PropProxyAttribute(string setter) {
+      this.setter = setter;
+    }
+
+    public string Getter { get; set; } // Defaults to setter
     public bool CheckEquality { get; set; } = false;
+    public bool Function { get; set; } = false;
+    public string EqualitySyntax { get; set; } = "{0} == {1}";
+  }
+
+  [ComposableProxy(
+    Target = typeof(ScrollView),
+    Kind = ComposableKind.ScopeElement,
+    Name = "ScrollView",
+    CreateSyntax = "instance = new {TYPE}();"
+  )]
+  public partial struct ScrollViewProxy {
+    public static readonly PlainEventListener<float>.Binding SliderValueBinding = new(
+      accessor: PlainEventAccessor<float>.Casting<Scroller>(
+        subscribe: (scroller, action) => scroller.valueChanged += action,
+        unsubscribe: (scroller, action) => scroller.valueChanged -= action
+      ),
+      targetSelector: static root => root.Q<Scroller>()
+    );
+
+    [PropDefault(ScrollViewMode.Vertical)]
+    public ScrollViewMode mode;
+
+    [PropDefault(ScrollView.NestedInteractionKind.Default)]
+    public ScrollView.NestedInteractionKind nestedInteractionKind;
+
+    [PropDefault(ScrollerVisibility.Hidden)]
+    [PropProxy("horizontalScrollerVisibility")]
+    public ScrollerVisibility horizontalScroller;
+
+    [PropDefault(ScrollerVisibility.Hidden)]
+    [PropProxy("verticalScrollerVisibility")]
+    public ScrollerVisibility verticalScroller;
+
+    [PropDefault(null)]
+    [PropProxy("SliderValueBinding.Bind(instance, {VALUE});", Function = true)]
+    public CompositionAction<float> onVerticalScroll;
   }
 
   [AttributeUsage(AttributeTargets.Parameter)]
   public class PropAttribute : Attribute { }
 
   [AttributeUsage(AttributeTargets.Struct)]
-  public class PropStructAttribute : Attribute {}
+  public class PropStructAttribute : Attribute { }
 
   [AttributeUsage(AttributeTargets.Field)]
   public class PropDefaultAttribute : Attribute {
@@ -105,11 +149,39 @@ namespace HELIX.Compose {
   );
 
   public readonly ref struct CompositionContext {
+    /// <summary>
+    /// The owning boundary of this context.
+    /// </summary>
+    ///
     public readonly IBoundary boundary;
+
+    /// <summary>
+    /// The closest composable in the owner chain.
+    /// </summary>
+    public readonly IComposable composable;
+
+    /// <summary>
+    /// The target element to which the context instance belongs.
+    /// </summary>
+    public readonly VisualElement element;
 
     public CompositionContext(IBoundary boundary) {
       this.boundary = boundary;
+      composable = boundary;
+      element = boundary.Element;
     }
+
+    public CompositionContext(IComposable composable, VisualElement element) : this() {
+      this.composable = composable;
+      this.element = element;
+      if (composable is IBoundary selfBoundary) {
+        boundary = selfBoundary;
+      } else {
+        boundary = composable.Element.GetFirstAncestorOfType<IBoundary>();
+      }
+    }
+
+    public CompositionContext(IComposable composable) : this(composable, composable.Element) { }
 
     public static implicit operator CompositionContext(Composition cx) => new(cx.boundary);
     public static implicit operator CompositionContext(BoundaryElementBase boundary) => new(boundary);
@@ -125,30 +197,41 @@ namespace HELIX.Compose {
     void MarkDirty();
   }
 
-  public sealed class UserdataTracker : IComposable {
+  public interface IStateAttachmentHolder : IComposable {
+    ref StateAttachmentStore StateAttachmentStore { get; }
+  }
+
+  public sealed class UserdataTracker : IComposable, IStateAttachmentHolder {
     public VisualElement Element { get; set; }
     public UssFlag Flag { get; set; }
     public ulong TypeId { get; set; }
 
     public Action OnReset { get; set; }
-    public object Userdata { get; set; }
+
+    private StateAttachmentStore _stateAttachmentStore;
+
+    public ref StateAttachmentStore StateAttachmentStore => ref _stateAttachmentStore;
 
     public void Reset() {
       OnReset?.Invoke();
       OnReset = null;
-      if (Userdata is IDisposable disposable) disposable.Dispose();
-      Userdata = null;
+      StateAttachmentStore.Dispose();
     }
   }
 
-  public abstract class ComposableElement : VisualElement, IComposable {
+  public abstract class ComposableElement : VisualElement, IStateAttachmentHolder {
     public VisualElement Element => this;
 
     public UssFlag Flag { get; set; }
     public ulong TypeId { get; set; }
     public object ComposableUserData { get; set; }
+    private StateAttachmentStore _stateAttachmentStore;
 
-    public virtual void Reset() { }
+    public ref StateAttachmentStore StateAttachmentStore => ref _stateAttachmentStore;
+
+    public virtual void Reset() {
+      _stateAttachmentStore.Dispose();
+    }
   }
 
   public sealed class CompositionNode : ComposableElement {

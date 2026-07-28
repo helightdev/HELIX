@@ -138,6 +138,7 @@ namespace HELIX.Compose {
     }
 
     public static RecompositionScope Auto() {
+      HXProfiling.TrackBatchRequest();
       if (IsProcessing) throw new InvalidOperationException("NotificationScope is processing rebuilds");
       if (IsScoped) return new RecompositionScope(false);
       IsScoped = true;
