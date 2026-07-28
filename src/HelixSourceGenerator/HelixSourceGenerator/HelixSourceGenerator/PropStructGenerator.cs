@@ -93,8 +93,62 @@ namespace HELIX.SourceGen {
         .OrderBy(SourceOrder)
         .ToArray();
 
-      var parameters = new List<string>(fields.Length);
-      var assignments = new List<string>(fields.Length);
+      if (!TryBuild(context, fields, out var generated)) return;
+
+      var wrapper = BuildWrapper(type, CollectUsings(type), out var hintName);
+      var indent = new string(' ', wrapper.MemberDepth * 2);
+      var parameterIndent = indent + "  ";
+      var body = new StringBuilder();
+      body.Append('\n');
+      body.Append(indent);
+      body.Append(AccessibilityText(type.DeclaredAccessibility));
+      body.Append(generated.RequiresUnsafe ? " unsafe " : " ");
+      body.Append(EscapeIdentifier(type.Name));
+      body.Append('(');
+
+      if (generated.ParameterParts.Count > 0) {
+        body.Append('\n');
+        body.Append(parameterIndent);
+        body.Append(string.Join(",\n" + parameterIndent, generated.ParameterParts));
+        body.Append('\n');
+        body.Append(indent);
+      }
+
+      body.Append(") {\n");
+      body.Append(generated.RenderAssignments("this", indent + "  "));
+      body.Append(indent);
+      body.Append("}\n");
+
+      context.AddSource(hintName, wrapper.Header + body + wrapper.Footer);
+    }
+
+    /// <summary>
+    /// Builds the reusable prop surface for a struct. Parameters includes defaults and can be
+    /// placed directly in a constructor or method signature. RenderAssignments accepts any
+    /// assignment target, for example "this", "props", or "state.props".
+    /// </summary>
+    internal static bool TryBuild(
+      SourceProductionContext context,
+      INamedTypeSymbol type,
+      out PropStructCode generated
+    ) {
+      var fields = type.GetMembers()
+        .OfType<IFieldSymbol>()
+        .Where(field => !field.IsStatic && !field.IsImplicitlyDeclared)
+        .OrderBy(SourceOrder)
+        .ToArray();
+      return TryBuild(context, fields, out generated);
+    }
+
+    private static bool TryBuild(
+      SourceProductionContext context,
+      IReadOnlyList<IFieldSymbol> fields,
+      out PropStructCode generated
+    ) {
+      generated = null;
+      var parameters = new List<string>(fields.Count);
+      var arguments = new List<string>(fields.Count);
+      var assignments = new List<PropAssignment>(fields.Count);
       var encounteredOptional = false;
       var requiresUnsafe = false;
 
@@ -114,11 +168,12 @@ namespace HELIX.SourceGen {
               field.Locations.FirstOrDefault() ?? Location.None,
               field.Name
             ));
-            return;
+            return false;
           }
 
           parameters.Add(fieldType + " " + fieldName);
-          assignments.Add("this." + fieldName + " = " + fieldName + ";");
+          arguments.Add(fieldName);
+          assignments.Add(new PropAssignment(fieldName, fieldName));
           continue;
         }
 
@@ -130,14 +185,15 @@ namespace HELIX.SourceGen {
             field.Name,
             error
           ));
-          return;
+          return false;
         }
 
         switch (defaultValue.Mode) {
           case PropInitMode.Literal:
           case PropInitMode.Constant:
             parameters.Add(fieldType + " " + fieldName + " = " + defaultValue.Expression);
-            assignments.Add("this." + fieldName + " = " + fieldName + ";");
+            arguments.Add(fieldName);
+            assignments.Add(new PropAssignment(fieldName, fieldName));
             break;
 
           case PropInitMode.Deferred:
@@ -148,46 +204,20 @@ namespace HELIX.SourceGen {
                 field.Name,
                 error
               ));
-              return;
+              return false;
             }
 
             parameters.Add(parameterType + " " + fieldName + " = null");
-            assignments.Add(
-              "this." + fieldName + " = " + fieldName + " ?? " + defaultValue.Expression + ";");
+            arguments.Add(fieldName);
+            assignments.Add(new PropAssignment(
+              fieldName,
+              fieldName + " ?? " + defaultValue.Expression
+            ));
             break;
         }
       }
-
-      var wrapper = BuildWrapper(type, CollectUsings(type), out var hintName);
-      var indent = new string(' ', wrapper.MemberDepth * 2);
-      var parameterIndent = indent + "  ";
-      var body = new StringBuilder();
-      body.Append('\n');
-      body.Append(indent);
-      body.Append(AccessibilityText(type.DeclaredAccessibility));
-      body.Append(requiresUnsafe ? " unsafe " : " ");
-      body.Append(EscapeIdentifier(type.Name));
-      body.Append('(');
-
-      if (parameters.Count > 0) {
-        body.Append('\n');
-        body.Append(parameterIndent);
-        body.Append(string.Join(",\n" + parameterIndent, parameters));
-        body.Append('\n');
-        body.Append(indent);
-      }
-
-      body.Append(") {\n");
-      foreach (var assignment in assignments) {
-        body.Append(indent);
-        body.Append("  ");
-        body.Append(assignment);
-        body.Append('\n');
-      }
-      body.Append(indent);
-      body.Append("}\n");
-
-      context.AddSource(hintName, wrapper.Header + body + wrapper.Footer);
+      generated = new PropStructCode(parameters, arguments, assignments, requiresUnsafe);
+      return true;
     }
 
     private static bool TryReadDefault(
@@ -400,7 +430,7 @@ namespace HELIX.SourceGen {
         ? "@" + identifier
         : identifier;
 
-    private static IReadOnlyList<string> CollectUsings(INamedTypeSymbol type) {
+    public static IReadOnlyList<string> CollectUsings(INamedTypeSymbol type) {
       var result = new List<string>();
       var seen = new HashSet<string>(StringComparer.Ordinal);
 
@@ -465,7 +495,7 @@ namespace HELIX.SourceGen {
 
       foreach (var current in chain) {
         header.Append(' ', depth * 2);
-        header.Append("partial ");
+        header.Append(current.IsStatic ? "static partial " : "partial ");
         header.Append(TypeKeyword(current));
         header.Append(' ');
         header.Append(EscapeIdentifier(current.Name));
@@ -518,6 +548,60 @@ namespace HELIX.SourceGen {
 
       public PropInitMode Mode { get; }
       public string Expression { get; }
+    }
+
+    internal sealed class PropStructCode {
+      private readonly IReadOnlyList<PropAssignment> _assignments;
+
+      internal static PropStructCode Empty { get; } = new PropStructCode(
+        new string[0],
+        new string[0],
+        new PropAssignment[0],
+        false
+      );
+
+      internal PropStructCode(
+        IReadOnlyList<string> parameterParts,
+        IReadOnlyList<string> arguments,
+        IReadOnlyList<PropAssignment> assignments,
+        bool requiresUnsafe
+      ) {
+        ParameterParts = parameterParts;
+        Parameters = string.Join(", ", parameterParts);
+        Arguments = string.Join(", ", arguments);
+        _assignments = assignments;
+        RequiresUnsafe = requiresUnsafe;
+      }
+
+      internal IReadOnlyList<string> ParameterParts { get; }
+      internal string Parameters { get; }
+      internal string Arguments { get; }
+      internal bool RequiresUnsafe { get; }
+
+      internal string RenderAssignments(string target, string indent = "") {
+        if (target is null) throw new ArgumentNullException(nameof(target));
+        var prefix = target.Length == 0 ? "" : target + ".";
+        var result = new StringBuilder();
+        foreach (var assignment in _assignments) {
+          result.Append(indent);
+          result.Append(prefix);
+          result.Append(assignment.FieldName);
+          result.Append(" = ");
+          result.Append(assignment.ValueExpression);
+          result.Append(";\n");
+        }
+        return result.ToString();
+      }
+    }
+
+    internal readonly struct PropAssignment {
+      internal PropAssignment(string fieldName, string valueExpression) {
+        FieldName = fieldName;
+        ValueExpression = valueExpression;
+      }
+
+      internal string FieldName { get; }
+      internal string ValueExpression { get; }
     }
 
     private readonly struct Wrapper {

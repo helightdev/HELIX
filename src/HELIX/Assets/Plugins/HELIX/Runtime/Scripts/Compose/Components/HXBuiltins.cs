@@ -526,19 +526,19 @@ namespace HELIX.Compose {
 
     public partial class ButtonComposable {
       protected override void OnRecompose(ref Composition cx) {
-        this.Toggle(StateFlag.Selected, Props.Selected);
-        this.Toggle(StateFlag.Disabled, !Props.Enabled);
-        Node.SetEnabled(Props.Enabled);
-        cx.APPLY.Focusable(Props.Enabled);
+        this.Toggle(StateFlag.Selected, props.Selected);
+        this.Toggle(StateFlag.Disabled, !props.Enabled);
+        Node.SetEnabled(props.Enabled);
+        cx.APPLY.Focusable(props.Enabled);
 
-        var boxStyle = Props.Style ?? cx.ReadContext(Style);
+        var boxStyle = props.Style ?? cx.ReadContext(Style);
         boxStyle.RenderBoundary(ref cx, InputState);
-        if (Props.Content != null) Props.Content.Invoke(ref cx);
+        if (props.Content != null) props.Content.Invoke(ref cx);
       }
 
       protected override void OnClick(EventBase evt) {
-        if (!Props.Enabled) return;
-        Props.Action?.Call(Node);
+        if (!props.Enabled) return;
+        props.Action?.Call(Node);
       }
     }
   }

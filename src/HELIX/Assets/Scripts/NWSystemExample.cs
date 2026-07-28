@@ -7,6 +7,20 @@ using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
 
 namespace HELIX.Examples {
+
+  [BoundaryComposable(Extension = true, UseLookupCache = true)]
+  public partial class MyBetterWidget {
+
+    public partial struct Props {
+      [PropDefault("HELIX.Coloring.Colors.Red", PropInit.Deferred)]
+      public Color color;
+    }
+
+    protected override void OnRecompose(ref Composition cx) {
+
+    }
+  }
+
   [UxmlElement]
   public partial class NwSystemExampleElement : BoundaryVisualElement {
     public override void Compose(ref Composition cx) {
@@ -17,6 +31,7 @@ namespace HELIX.Examples {
   }
 
   public static partial class NwSystemsExample {
+
     [CompositionBoundary] public static partial void NWSystemExample(ref this Composition cx);
 
     public partial class NWSystemExampleComposable {

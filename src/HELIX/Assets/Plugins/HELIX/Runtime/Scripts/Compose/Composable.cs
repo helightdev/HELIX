@@ -15,6 +15,28 @@ namespace HELIX.Compose {
   [AttributeUsage(AttributeTargets.Class)]
   public class BoundaryComposableAttribute : Attribute {
     public Type Base { get; set; }
+    public bool Extension { get; set; } = false;
+    public bool UseLookupCache { get; set; } = false;
+  }
+
+  [AttributeUsage(AttributeTargets.Struct)]
+  public class ComposableProxyAttribute : Attribute {
+    public Type Target { get; set; }
+    public ComposableKind Kind { get; set; }
+    public string Name { get; set; }
+    public bool RequiresTracking { get; set; } = true;
+  }
+
+  public enum ComposableKind {
+    ScopeElement,
+    Element
+  }
+
+  [AttributeUsage(AttributeTargets.Field)]
+  public class ProxyPropAttribute : Attribute {
+    public string Setter { get; set; }
+    public string Getter { get; set; }
+    public bool CheckEquality { get; set; } = false;
   }
 
   [AttributeUsage(AttributeTargets.Parameter)]

@@ -576,7 +576,7 @@ namespace HELIX.Compose {
           .Flexible()
           .AlignSelf(Align.Stretch)
           .Focusable(false, pickingMode: PickingMode.Ignore);
-        Props.Visual?.Invoke(ref cx, Props.State);
+        props.Visual?.Invoke(ref cx, props.State);
       }
     }
   }
@@ -596,12 +596,12 @@ namespace HELIX.Compose {
     public partial class CheckboxIndicatorComposable {
       protected override void OnRecompose(ref Composition cx) {
         cx.APPLY
-          .Size(BoxConstraints.Tight(Props.Size, Props.Size))
-          .Padding(Props.Padding)
-          .Margin(Props.Margin)
+          .Size(BoxConstraints.Tight(props.Size, props.Size))
+          .Padding(props.Padding)
+          .Margin(props.Margin)
           .Focusable(false, pickingMode: PickingMode.Ignore);
-        Props.Visual?.Invoke(ref cx, Props.State);
-        cx.CheckboxFill(Props.State, Props.Fill);
+        props.Visual?.Invoke(ref cx, props.State);
+        cx.CheckboxFill(props.State, props.Fill);
       }
     }
   }
@@ -617,10 +617,10 @@ namespace HELIX.Compose {
     public partial class CheckboxLabelComposable {
       protected override void OnRecompose(ref Composition cx) {
         cx.APPLY
-          .Margin(StyleLength4.Only(left: Props.LeadingMargin))
+          .Margin(StyleLength4.Only(left: props.LeadingMargin))
           .Focusable(false, pickingMode: PickingMode.Ignore);
 
-        cx.Text(Props.Text ?? string.Empty);
+        cx.Text(props.Text ?? string.Empty);
       }
     }
   }
@@ -670,16 +670,16 @@ namespace HELIX.Compose {
 
     public partial class ToggleComposable {
       protected override void OnRecompose(ref Composition cx) {
-        this.Toggle(StateFlag.Selected, Props.Value);
-        this.Toggle(StateFlag.Disabled, !Props.Enabled);
-        Node.SetEnabled(Props.Enabled);
-        cx.APPLY.Focusable(Props.Enabled);
-        (Props.Style ?? HXControlBoxStyle.Default).RenderBoundary(ref cx, InputState);
-        Props.Content?.Invoke(ref cx);
+        this.Toggle(StateFlag.Selected, props.Value);
+        this.Toggle(StateFlag.Disabled, !props.Enabled);
+        Node.SetEnabled(props.Enabled);
+        cx.APPLY.Focusable(props.Enabled);
+        (props.Style ?? HXControlBoxStyle.Default).RenderBoundary(ref cx, InputState);
+        props.Content?.Invoke(ref cx);
       }
 
       protected override void OnClick(EventBase evt) {
-        if (Props.Enabled) Props.OnChanged.Call(Node, !Props.Value);
+        if (props.Enabled) props.OnChanged.Call(Node, !props.Value);
       }
     }
   }
@@ -697,13 +697,13 @@ namespace HELIX.Compose {
 
     public partial class CheckboxComposable {
       protected override void OnRecompose(ref Composition cx) {
-        this.Toggle(StateFlag.Selected, Props.Value);
-        this.Toggle(StateFlag.Disabled, !Props.Enabled);
-        this.Toggle(StateFlag.Error, Props.Error);
-        Node.SetEnabled(Props.Enabled);
-        cx.APPLY.Focusable(Props.Enabled);
+        this.Toggle(StateFlag.Selected, props.Value);
+        this.Toggle(StateFlag.Disabled, !props.Enabled);
+        this.Toggle(StateFlag.Error, props.Error);
+        Node.SetEnabled(props.Enabled);
+        cx.APPLY.Focusable(props.Enabled);
 
-        var style = Props.Style ?? cx.ReadContextOrDefault(CheckboxStyle.Key, CheckboxStyle.Default);
+        var style = props.Style ?? cx.ReadContextOrDefault(CheckboxStyle.Key, CheckboxStyle.Default);
         style.boxStyle.RenderBoundary(ref cx, InputState);
         cx.APPLY.AlignSelf(Align.FlexStart);
         using (cx.Flex(Axis.Horizontal, cross: Align.Center)) {
@@ -715,7 +715,7 @@ namespace HELIX.Compose {
       }
 
       protected override void OnClick(EventBase evt) {
-        if (Props.Enabled) Props.OnChanged.Call(Node, !Props.Value);
+        if (props.Enabled) props.OnChanged.Call(Node, !props.Value);
       }
     }
   }

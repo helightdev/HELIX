@@ -16,6 +16,7 @@ namespace HELIX.Compose {
 
     void RefreshHierarchy();
     void CheckModified();
+    void UseLookupCache();
 
     void Recompose();
     void SubscribeToContextData(int key, ContextData data);
@@ -361,9 +362,9 @@ namespace HELIX.Compose {
 
   public abstract class PropsBoundaryComposable<TProps> : BoundaryComposable<BoundaryData<TProps>>
     where TProps : struct {
-    public TProps Props { get => Data.props; set => Data.props = value; }
+    public ref TProps props { get => ref Data.props;  }
 
-    public virtual void ReceiveProps(TProps props) {
+    public virtual void ReceiveProps(in TProps props) {
       Data.props = props;
     }
   }
