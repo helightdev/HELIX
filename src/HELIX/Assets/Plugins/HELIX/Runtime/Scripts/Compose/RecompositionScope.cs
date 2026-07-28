@@ -9,38 +9,16 @@ namespace HELIX.Compose {
     public static bool UseEventLoop = false;
 
     internal static readonly IndexedReferencePriorityQueue<IBoundary, int> Dirty = new();
-    internal static readonly Dictionary<int, ContextData> SharedContext = new();
-    internal static readonly Dictionary<int, ContextData> Context = new();
     internal static readonly HashSet<IBoundary> Boundaries = new(new ReferenceEqualityComparer<IBoundary>());
     internal static bool IsScoped = false;
     internal static bool IsProcessing = false;
     internal static IBoundary CurrentBoundary = null;
 
-    private static readonly ProfilerMarker _marker = new(HelixProfiling.HelixCategory, "Recomposition");
+    private static readonly ProfilerMarker _marker = new(HXProfiling.HelixCategory, "Recomposition");
 
     private static readonly ProfilerMarker _populateContext = new(
-      HelixProfiling.HelixCategory,
+      HXProfiling.HelixCategory,
       "Populate Context"
-    );
-
-    private static readonly ProfilerCounterValue<int> _toplevelRecompositionCount = new(
-      HelixProfiling.HelixCategory,
-      "Recompositions",
-      ProfilerMarkerDataUnit.Count,
-      ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
-    );
-
-    private static readonly ProfilerCounterValue<int> _inlinedRecompositionCount = new(
-      HelixProfiling.HelixCategory,
-      "Inlined Recompositions",
-      ProfilerMarkerDataUnit.Count,
-      ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
-    );
-
-    private static readonly ProfilerCounterValue<int> _activeBoundariesCount = new(
-      HelixProfiling.HelixCategory,
-      "Active Boundaries",
-      ProfilerMarkerDataUnit.Count
     );
 
     public static void RegisterBoundary(IBoundary boundary) {
@@ -85,45 +63,28 @@ namespace HELIX.Compose {
       Dirty.Remove(boundary);
     }
 
-    private static void PopulateContext(IBoundary boundary) {
+    public static void DirtyChildren(IBoundary boundary) {
+      using (Auto()) {
+        foreach (var current in Boundaries) {
+          if (current.Parent == boundary) {
+            Dirty.Enqueue(current, current.TreeDepth);
+          }
+        }
+      }
+    }
+
+    public static void PopulateContext(IBoundary boundary, Dictionary<int, ContextData> context) {
 #if ENABLE_PROFILER
       using (_populateContext.Auto()) {
 #endif
-        Context.Clear();
+        context.Clear();
         for (var b = boundary; b != null; b = b.Parent) {
           // This does not overwrite existing keys, so the closest ancestor's context takes precedence
-          b.ContributeContext(Context);
+          b.ContributeContext(context);
         }
 #if ENABLE_PROFILER
       }
 #endif
-    }
-
-    internal static void PutContext(int keyId, ContextData data) => Context[keyId] = data;
-
-    internal static void RestoreContext(int keyId, ContextData data, bool existed) {
-      if (existed) Context[keyId] = data;
-      else Context.Remove(keyId);
-    }
-
-    public static bool TryGetContext(int keyId, out ContextData data) {
-      if (Context.TryGetValue(keyId, out data)) return true;
-      return SharedContext.TryGetValue(keyId, out data);
-    }
-
-    public static bool TryGetContext<T>(ContextKey<T> key, out ContextData<T> data) {
-      Context.TryGetValue(key.id, out var value);
-      if (value is ContextData<T> typed) {
-        data = typed;
-        return true;
-      }
-      SharedContext.TryGetValue(key.id, out value);
-      if (value is ContextData<T> sharedTyped) {
-        data = sharedTyped;
-        return true;
-      }
-      data = null;
-      return false;
     }
 
     private static void ProcessDirty() {
@@ -134,16 +95,13 @@ namespace HELIX.Compose {
       }
 
 #if ENABLE_PROFILER
-      SparseContextMap.TrackProfiling();
-
       using (_marker.Auto()) {
 #endif
         try {
           IsProcessing = true;
           var maxIterations = 1024;
           while (Dirty.TryDequeue(out var boundary) && maxIterations-- > 0) {
-            _toplevelRecompositionCount.Value++;
-            PopulateContext(boundary.Parent); // Resume context from parents
+            HXProfiling.TrackToplevelRecomposition();
             Recompose(boundary);
           }
           if (maxIterations == 0) Debug.LogWarning("Maximum recomposition iterations reached.");
@@ -153,9 +111,7 @@ namespace HELIX.Compose {
         }
 #if ENABLE_PROFILER
       }
-
-      _activeBoundariesCount.Value = Boundaries.Count;
-      _activeBoundariesCount.Sample();
+      HXProfiling.TrackActive();
 #endif
     }
 
@@ -191,12 +147,6 @@ namespace HELIX.Compose {
     public static void Poll() {
       if (!UseEventLoop) throw new InvalidOperationException("NotificationScope is not using event loop");
       ProcessDirty();
-    }
-  }
-
-  public static class RecompositionExtensions {
-    public static void MarkDirty(this IBoundary boundary) {
-      RecompositionScope.MarkDirty(boundary);
     }
   }
 }

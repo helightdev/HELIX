@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using HELIX.Compose;
+using HELIX.Compose.Collections;
 using Unity.Profiling;
 
 namespace HELIX {
@@ -14,19 +16,50 @@ namespace HELIX {
     public static RecompositionScope BatchScope() {
       return RecompositionScope.Auto();
     }
-
-    public static RecompositionScope DirtyScope(IBoundary boundary) {
-      var scope = BatchScope();
-      boundary.MarkDirty();
-      return scope;
-    }
-    public static void Dirty(IBoundary boundary) => RecompositionScope.MarkDirty(boundary);
-
-    public static void Dirty<T>(BoundaryComposable<T> composable)
-      where T : BoundaryData => RecompositionScope.MarkDirty(composable.Node);
   }
 
-  public static class HelixProfiling {
+  public static class HXProfiling {
     public static ProfilerCategory HelixCategory = new("HELIX", ProfilerCategoryColor.UI);
+    public static readonly ProfilerMarker LookupContextMarker = new(HelixCategory, "Lookup Context");
+
+
+    private static readonly ProfilerCounterValue<int> _activeScmCount = new(
+      HelixCategory,
+      "Active SCMs",
+      ProfilerMarkerDataUnit.Count,
+      ProfilerCounterOptions.FlushOnEndOfFrame
+    );
+
+    private static readonly ProfilerCounterValue<int> _activeLookupCacheCount = new (
+      HelixCategory,
+      "Active LookupCaches",
+      ProfilerMarkerDataUnit.Count,
+      ProfilerCounterOptions.FlushOnEndOfFrame
+    );
+
+    private static readonly ProfilerCounterValue<int> _toplevelRecompositionCount = new(
+      HelixCategory,
+      "Recompositions",
+      ProfilerMarkerDataUnit.Count,
+      ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
+    );
+
+    private static readonly ProfilerCounterValue<int> _activeBoundariesCount = new(
+      HelixCategory,
+      "Active Boundaries",
+      ProfilerMarkerDataUnit.Count
+    );
+
+    [Conditional("ENABLE_PROFILER")]
+    public static void TrackActive() {
+      _activeScmCount.Value = SparseContextMap.Pool.CountActive;
+      _activeLookupCacheCount.Value = LookupCache.Pool.CountActive;
+
+      _activeBoundariesCount.Value = RecompositionScope.Boundaries.Count;
+      _activeBoundariesCount.Sample();
+    }
+
+    [Conditional("ENABLE_PROFILER")]
+    public static void TrackToplevelRecomposition() => _toplevelRecompositionCount.Value++;
   }
 }

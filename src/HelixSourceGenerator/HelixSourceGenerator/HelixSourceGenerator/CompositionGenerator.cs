@@ -30,6 +30,7 @@ namespace HELIX.SourceGen {
     private const string CompositionInternalsTypeName = "HELIX.Compose.CompositionInternals";
     private const string CompositionTransferTypeName = "HELIX.Compose.CompositionInternals.TransferData";
     private const string ComposableTypeName = "HELIX.Compose.Composable";
+    private const string ReadComposableTypeName = "HELIX.Compose.ReadComposable";
 
     private static readonly DiagnosticDescriptor MustBeStatic = new DiagnosticDescriptor(
       "HLX001",
@@ -38,7 +39,7 @@ namespace HELIX.SourceGen {
       "HELIX",
       DiagnosticSeverity.Error,
       true
-    );
+    );0
 
     private static readonly DiagnosticDescriptor MustStartWithUnderscore = new DiagnosticDescriptor(
       "HLX002",
@@ -150,12 +151,15 @@ namespace HELIX.SourceGen {
 
     private static string BuildComposableType(IReadOnlyCollection<IParameterSymbol> arguments) => arguments.Count == 0
       ? ComposableTypeName
-      : $"{ComposableTypeName}<{string.Join(", ", arguments.Select(argument => GetTypeDisplayName(argument.Type)))}>";
+      : $"{(IsReadComposable(arguments) ? ReadComposableTypeName : ComposableTypeName)}<{string.Join(", ", arguments.Select(argument => GetTypeDisplayName(argument.Type)))}>";
 
-    private static string BuildLambdaArguments(IEnumerable<IParameterSymbol> arguments) => string.Concat(
-      arguments.Select((argument, index) => $", {GetTypeDisplayName(argument.Type)} arg{index}"
+    private static string BuildLambdaArguments(IReadOnlyCollection<IParameterSymbol> arguments) => string.Concat(
+      arguments.Select((argument, index) => $", {(IsReadComposable(arguments) ? "in " : "")}{GetTypeDisplayName(argument.Type)} arg{index}"
       )
     );
+
+    private static bool IsReadComposable(IReadOnlyCollection<IParameterSymbol> arguments) =>
+      arguments.Count == 1 && arguments.First().RefKind == RefKind.In;
 
     private static string BuildInvocationArguments(IEnumerable<IParameterSymbol> arguments) => string.Concat(
       arguments.Select((argument, index) => argument.RefKind == RefKind.In ? $", in arg{index}" : $", arg{index}"

@@ -1,32 +1,32 @@
-using System;
-using HELIX;
 using HELIX.Coloring;
 using HELIX.Compose;
 using HELIX.Signals;
 using HELIX.Types;
-using HELIX.Widgets.Signals;
-using HELIX.Widgets.Universal;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace TestNamespace {
   public static partial class ExampleCompositions {
     public static ulong counter = 0;
-    public static ulong clickCounter = 0;
-
 
     public static readonly TextStyle LocalDefault = new(style: FontStyle.Bold);
 
     public static readonly Signal<int> counterSignal = Signal.Value(0);
 
+    public static readonly SpecConfig MyFactory = new SpecConfig(SpecConfig.Default)
+      .AddFactory<ButtonSpecs>(ButtonSpecDrawer);
+
     [Composition]
     private static void _MyComposition(ref Composition cx) {
-      var theme = ThemeData.Context.ReadScope();
+      var theme = ThemeData.Key[cx];
 
-      cx.WriteContext(SpecConfiguration.Key, DefaultFactory);
-      ref var defaultTextStyle = ref theme.GetTextStyleRef(TextRole.BodyMedium);
-      TextStyle.WriteMerged(ref cx, in defaultTextStyle);
-      defaultTextStyle.Apply(cx.boundary);
+      using (cx.WriteContext(out var context)) {
+        SpecConfig.Key[in context] = MyFactory;
+        TextStyle.Merge(in context, in theme[TextRole.BodyMedium].style);
+      }
+
+      cx.APPLY.Name("MainBoundary");
+
 
       // using var exampleContext = cx.WriteContext<ExampleContext>();
       // exampleContext.value.counter = counter;
@@ -79,7 +79,7 @@ namespace TestNamespace {
           static (ref Composition cx) => {
             cx.Text($"Click me {counterSignal.Value}");
           },
-          static boundary => {
+          static ctx => {
             counterSignal.Value++;
           },
           selected: true
@@ -96,6 +96,7 @@ namespace TestNamespace {
 
         //if (cx.Conditional(counter / 100 % 2 == 0))
         cx.Boundary(InnerComposition);
+        cx.APPLY.Name("InnerBoundary");
 
         cx.TextField();
 
@@ -116,9 +117,6 @@ namespace TestNamespace {
         }
       }.Compose(ref cx);
     }
-
-    public static readonly SpecConfiguration DefaultFactory = new SpecConfiguration()
-      .AddFactory<ButtonSpecs>(ButtonSpecDrawer);
 
     public static void ButtonSpecDrawer(ref Composition cx, in ButtonSpecs specs) {
       cx.Button(

@@ -89,8 +89,6 @@ namespace HELIX.Compose {
     }
   }
 
-  public delegate void StateComposable(ref Composition cx, StateFlag state);
-
   public interface IWidgetStateHolder {
     StateFlag InputState { get; set; }
   }

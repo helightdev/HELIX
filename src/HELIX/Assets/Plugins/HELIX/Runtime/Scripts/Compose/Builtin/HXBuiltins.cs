@@ -24,7 +24,7 @@ namespace HELIX.Compose {
     private static readonly Dictionary<TransitionOptions, TransitionStyleLists> _transitionStyles = new();
 
     public static ref ElementRef Padding(this ref ElementRef scope, StyleLength4 size) {
-      scope.composable.Element.Padding(size);
+      scope.element.Padding(size);
       scope.composable.Flag |= UssFlag.Padding;
       return ref scope;
     }
@@ -36,16 +36,16 @@ namespace HELIX.Compose {
       bool delegatesFocus = false,
       PickingMode pickingMode = PickingMode.Position
     ) {
-      scope.composable.Element.focusable = focusable;
-      scope.composable.Element.tabIndex = tabIndex;
-      scope.composable.Element.delegatesFocus = delegatesFocus;
-      scope.composable.Element.pickingMode = pickingMode;
+      scope.element.focusable = focusable;
+      scope.element.tabIndex = tabIndex;
+      scope.element.delegatesFocus = delegatesFocus;
+      scope.element.pickingMode = pickingMode;
       scope.composable.Flag |= UssFlag.Focus;
       return ref scope;
     }
 
     public static ref ElementRef Margin(this ref ElementRef scope, StyleLength4 size) {
-      scope.composable.Element.Margin(size);
+      scope.element.Margin(size);
       scope.composable.Flag |= UssFlag.Margin;
       return ref scope;
     }
@@ -57,86 +57,86 @@ namespace HELIX.Compose {
     }
 
     public static ref ElementRef Position(this ref ElementRef scope, StyleLength4 position) {
-      scope.composable.Element.Position(position);
+      scope.element.Position(position);
       scope.composable.Flag |= UssFlag.Position;
       return ref scope;
     }
 
     public static ref ElementRef Flexible(this ref ElementRef scope, float grow = 1f, float shrink = 1f) {
-      scope.composable.Element.style.flexGrow = grow;
-      scope.composable.Element.style.flexShrink = shrink;
+      scope.element.style.flexGrow = grow;
+      scope.element.style.flexShrink = shrink;
       scope.composable.Flag |= UssFlag.Flex;
       return ref scope;
     }
 
     public static ref ElementRef FlexGrow(this ref ElementRef scope, float grow) {
-      scope.composable.Element.style.flexGrow = grow;
+      scope.element.style.flexGrow = grow;
       scope.composable.Flag |= UssFlag.Flex;
       return ref scope;
     }
 
     public static ref ElementRef FlexShrink(this ref ElementRef scope, float shrink) {
-      scope.composable.Element.style.flexShrink = shrink;
+      scope.element.style.flexShrink = shrink;
       scope.composable.Flag |= UssFlag.Flex;
       return ref scope;
     }
 
     public static ref ElementRef FlexBasis(this ref ElementRef scope, StyleLength basis) {
-      scope.composable.Element.style.flexBasis = basis;
+      scope.element.style.flexBasis = basis;
       scope.composable.Flag |= UssFlag.Flex;
       return ref scope;
     }
 
     public static ref ElementRef AlignSelf(this ref ElementRef scope, Align alignment) {
-      scope.composable.Element.style.alignSelf = alignment;
+      scope.element.style.alignSelf = alignment;
       scope.composable.Flag |= UssFlag.GroupAlign;
       return ref scope;
     }
 
     public static ref ElementRef Width(this ref ElementRef scope, StyleLength width) {
-      scope.composable.Element.style.width = width;
+      scope.element.style.width = width;
       scope.composable.Flag |= UssFlag.Size;
       return ref scope;
     }
 
     public static ref ElementRef Height(this ref ElementRef scope, StyleLength height) {
-      scope.composable.Element.style.height = height;
+      scope.element.style.height = height;
       scope.composable.Flag |= UssFlag.Size;
       return ref scope;
     }
 
     public static ref ElementRef MinWidth(this ref ElementRef scope, StyleLength width) {
-      scope.composable.Element.style.minWidth = width;
+      scope.element.style.minWidth = width;
       scope.composable.Flag |= UssFlag.Size;
       return ref scope;
     }
 
     public static ref ElementRef MinHeight(this ref ElementRef scope, StyleLength height) {
-      scope.composable.Element.style.minHeight = height;
+      scope.element.style.minHeight = height;
       scope.composable.Flag |= UssFlag.Size;
       return ref scope;
     }
 
     public static ref ElementRef MaxWidth(this ref ElementRef scope, StyleLength width) {
-      scope.composable.Element.style.maxWidth = width;
+      scope.element.style.maxWidth = width;
       scope.composable.Flag |= UssFlag.Size;
       return ref scope;
     }
 
     public static ref ElementRef MaxHeight(this ref ElementRef scope, StyleLength height) {
-      scope.composable.Element.style.maxHeight = height;
+      scope.element.style.maxHeight = height;
       scope.composable.Flag |= UssFlag.Size;
       return ref scope;
     }
 
     public static ref ElementRef AspectRatio(this ref ElementRef scope, float ratio) {
-      scope.composable.Element.style.aspectRatio = ratio;
+      scope.element.style.aspectRatio = ratio;
       scope.composable.Flag |= UssFlag.Size;
       return ref scope;
     }
 
     public static ref ElementRef Absolute(this ref ElementRef scope, bool absolute = true) {
-      scope.composable.Element.style.position =
+      scope.element.style.position =
         absolute ? UnityEngine.UIElements.Position.Absolute : UnityEngine.UIElements.Position.Relative;
       scope.composable.Flag |= UssFlag.Position;
       return ref scope;
@@ -156,104 +156,104 @@ namespace HELIX.Compose {
 
 
     public static ref ElementRef BackgroundColor(this ref ElementRef scope, Color color) {
-      scope.composable.Element.BackgroundColor(color);
+      scope.element.BackgroundColor(color);
       scope.composable.Flag |= UssFlag.Background;
       return ref scope;
     }
 
     public static ref ElementRef BackgroundImage(this ref ElementRef scope, Background image) {
-      scope.composable.Element.style.backgroundImage = image;
+      scope.element.style.backgroundImage = image;
       scope.composable.Flag |= UssFlag.Background;
       return ref scope;
     }
 
     public static ref ElementRef BackgroundSize(this ref ElementRef scope, BackgroundSize size) {
-      scope.composable.Element.style.backgroundSize = size;
+      scope.element.style.backgroundSize = size;
       scope.composable.Flag |= UssFlag.Background;
       return ref scope;
     }
 
     public static ref ElementRef BackgroundTint(this ref ElementRef scope, Color color) {
-      scope.composable.Element.style.unityBackgroundImageTintColor = color;
+      scope.element.style.unityBackgroundImageTintColor = color;
       scope.composable.Flag |= UssFlag.BackgroundAdvanced;
       return ref scope;
     }
 
     public static ref ElementRef TextColor(this ref ElementRef scope, Color color) {
-      scope.composable.Element.TextColor(color);
+      scope.element.TextColor(color);
       scope.composable.Flag |= UssFlag.Text;
       return ref scope;
     }
 
     public static ref ElementRef TextSize(this ref ElementRef scope, StyleLength size) {
-      scope.composable.Element.style.fontSize = size;
+      scope.element.style.fontSize = size;
       scope.composable.Flag |= UssFlag.Text;
       return ref scope;
     }
 
     public static ref ElementRef TextFont(this ref ElementRef scope, StyleFont font) {
-      scope.composable.Element.style.unityFont = font;
+      scope.element.style.unityFont = font;
       scope.composable.Flag |= UssFlag.Text;
       return ref scope;
     }
 
     public static ref ElementRef TextFont(this ref ElementRef scope, StyleFontDefinition font) {
-      scope.composable.Element.style.unityFontDefinition = font;
+      scope.element.style.unityFontDefinition = font;
       scope.composable.Flag |= UssFlag.Text;
       return ref scope;
     }
 
     public static ref ElementRef TextAlign(this ref ElementRef scope, TextAnchor alignment) {
-      scope.composable.Element.style.unityTextAlign = alignment;
+      scope.element.style.unityTextAlign = alignment;
       scope.composable.Flag |= UssFlag.Text;
       return ref scope;
     }
 
     public static ref ElementRef WhiteSpace(this ref ElementRef scope, WhiteSpace whiteSpace) {
-      scope.composable.Element.style.whiteSpace = whiteSpace;
+      scope.element.style.whiteSpace = whiteSpace;
       scope.composable.Flag |= UssFlag.Text;
       return ref scope;
     }
 
     public static ref ElementRef Display(this ref ElementRef scope, bool display) {
-      scope.composable.Element.Display(display);
+      scope.element.Display(display);
       scope.composable.Flag |= UssFlag.Visibility;
       return ref scope;
     }
 
     public static ref ElementRef Opacity(this ref ElementRef scope, float opacity) {
-      scope.composable.Element.Opacity(opacity);
+      scope.element.Opacity(opacity);
       scope.composable.Flag |= UssFlag.Visibility;
       return ref scope;
     }
 
     public static ref ElementRef Visible(this ref ElementRef scope, bool visible) {
-      scope.composable.Element.style.visibility =
+      scope.element.style.visibility =
         visible ? Visibility.Visible : Visibility.Hidden;
       scope.composable.Flag |= UssFlag.Visibility;
       return ref scope;
     }
 
     public static ref ElementRef Overflow(this ref ElementRef scope, Overflow overflow) {
-      scope.composable.Element.style.overflow = overflow;
+      scope.element.style.overflow = overflow;
       scope.composable.Flag |= UssFlag.Clipping;
       return ref scope;
     }
 
     public static ref ElementRef Translate(this ref ElementRef scope, Translate translate) {
-      scope.composable.Element.style.translate = translate;
+      scope.element.style.translate = translate;
       scope.composable.Flag |= UssFlag.Transform;
       return ref scope;
     }
 
     public static ref ElementRef Rotate(this ref ElementRef scope, Rotate rotate) {
-      scope.composable.Element.style.rotate = rotate;
+      scope.element.style.rotate = rotate;
       scope.composable.Flag |= UssFlag.Transform;
       return ref scope;
     }
 
     public static ref ElementRef Scale(this ref ElementRef scope, Scale scale) {
-      scope.composable.Element.style.scale = scale;
+      scope.element.style.scale = scale;
       scope.composable.Flag |= UssFlag.Transform;
       return ref scope;
     }
@@ -262,7 +262,7 @@ namespace HELIX.Compose {
       this ref ElementRef scope,
       TransformOrigin origin
     ) {
-      scope.composable.Element.style.transformOrigin = origin;
+      scope.element.style.transformOrigin = origin;
       scope.composable.Flag |= UssFlag.Transform;
       return ref scope;
     }
@@ -271,7 +271,7 @@ namespace HELIX.Compose {
       this ref ElementRef scope,
       UnityEngine.UIElements.Cursor cursor
     ) {
-      scope.composable.Element.style.cursor = cursor;
+      scope.element.style.cursor = cursor;
       scope.composable.Flag |= UssFlag.Special;
       return ref scope;
     }
@@ -284,7 +284,7 @@ namespace HELIX.Compose {
         lists = new TransitionStyleLists(in options);
         _transitionStyles.Add(options, lists);
       }
-      var style = scope.composable.Element.style;
+      var style = scope.element.style;
       style.transitionProperty = _allTransitionProperties;
       style.transitionDuration = lists.durations;
       style.transitionTimingFunction = lists.easings;
@@ -294,18 +294,21 @@ namespace HELIX.Compose {
     }
 
     public static ref ElementRef TextRole(this ref ElementRef scope, TextRole role) {
-      ThemeData.Context.ReadScope().GetTextStyleRef(role).Apply(scope.composable);
-      // if (ThemeData.Context.TryReadScope(out var theme)) {
-      //   theme.GetTextStyleRef(role).Apply(scope.composable);
-      // } else {
-      //   Debug.LogError($"Theme not found for TextRole: {role}");
-      // }
+      var data = ThemeData.Key[scope];
+      ref var style = ref data[role].style;
+      style.Apply(scope.composable);
       return ref scope;
     }
 
     public static ref ElementRef Class(this ref ElementRef scope, string className, bool enabled = true) {
-      scope.composable.Element.EnableInClassList(className, enabled);
+      scope.element.EnableInClassList(className, enabled);
       scope.composable.Flag |= UssFlag.Classes;
+      return ref scope;
+    }
+
+    public static ref ElementRef Name(this ref ElementRef scope, string name) {
+      scope.element.name = name;
+      scope.composable.Flag |= UssFlag.Name;
       return ref scope;
     }
 
@@ -318,7 +321,7 @@ namespace HELIX.Compose {
     private static readonly ushort _spaceId = CompositionId.GetTypeId();
 
     public static ref ElementRef Spacing(this ref Composition cx, SpacingRole role) {
-      var theme = ThemeData.Context.ReadScope();
+      var theme = cx.ReadContext(ThemeData.Key);
       var gap = theme.GetSpacing(role);
       return ref cx.Gap(gap);
     }
@@ -336,7 +339,7 @@ namespace HELIX.Compose {
         reference.Size(BoxConstraints.Initial);
         reference.FlexGrow(1);
       } else {
-        var isParentHorizontal = cx.AUTHORING.cell.current.Element.style.flexDirection == FlexDirection.Row;
+        var isParentHorizontal = cx.AUTHORING.cell.scope.Element.style.flexDirection == FlexDirection.Row;
         if (isParentHorizontal) {
           reference.Width((StyleLength)gap);
           reference.FlexGrow(0);
@@ -350,6 +353,23 @@ namespace HELIX.Compose {
       reference.composable.Flag |= UssFlag.Name;
 
       return ref reference;
+    }
+
+    // Context Scope
+    private static readonly ushort _contextScopeId = CompositionId.GetTypeId();
+
+    public static ScopeHandle ContextContributor(this ref Composition cx) {
+      cx.AUTHORING.RequireComposable<ContextContributorElement>(
+        _contextScopeId, out var contributor, out var retained
+      );
+
+      return cx.AUTHORING.YieldScope(
+        ref cx,
+        contributor,
+        static (BoundaryCell cell, in ScopeHandle _) => {
+          cell.TrimChildren();
+        }
+      );
     }
 
 
@@ -489,22 +509,20 @@ namespace HELIX.Compose {
       [Prop] CompositionAction action = null,
       [Prop] bool enabled = true,
       [Prop] bool selected = false,
-      [Prop] ControlBoxStyle? style = null,
-      [Prop] PrefixLabelSuffixSpec? presentation = null
+      [Prop] HXControlBoxStyle? style = null
     );
 
     public static ref ElementRef Button(
       ref this Composition cx,
-      in PrefixLabelSuffixSpec presentation,
       CompositionAction action = null,
       bool enabled = true,
       bool selected = false,
-      ControlBoxStyle? style = null
+      HXControlBoxStyle? style = null
     ) {
-      return ref Button(ref cx, null, action, enabled, selected, style, presentation);
+      return ref Button(ref cx, null, action, enabled, selected, style);
     }
 
-    public static readonly ContextKey<ControlBoxStyle> Style = new("ButtonStyle", ControlBoxStyle.Default);
+    public static readonly ContextKey<HXControlBoxStyle> Style = new("ButtonStyle", HXControlBoxStyle.Default);
 
     public partial class ButtonComposable {
       protected override void OnRecompose(ref Composition cx) {
@@ -513,13 +531,9 @@ namespace HELIX.Compose {
         Node.SetEnabled(Props.Enabled);
         cx.APPLY.Focusable(Props.Enabled);
 
-        var boxStyle = Props.Style ?? Style.ReadScope();
+        var boxStyle = Props.Style ?? cx.ReadContext(Style);
         boxStyle.RenderBoundary(ref cx, InputState);
         if (Props.Content != null) Props.Content.Invoke(ref cx);
-        else if (Props.Presentation.HasValue) {
-          var presentation = Props.Presentation.Value;
-          cx.PrefixLabelSuffix(in presentation);
-        }
       }
 
       protected override void OnClick(EventBase evt) {

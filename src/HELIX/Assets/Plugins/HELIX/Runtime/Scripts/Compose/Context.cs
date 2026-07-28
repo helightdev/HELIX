@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HELIX.Compose.Collections;
 using HELIX.Diagnostics;
+using UnityEngine.Pool;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-
   public readonly struct ContextKey<T> {
-
     public readonly int id;
     public readonly T defaultValue;
 
@@ -19,10 +20,13 @@ namespace HELIX.Compose {
     public ContextKey(string name) {
       if (ContextKeyData.ByName.TryGetValue(name, out var target)) {
         var data = ContextKeyData.Registry.GetValueOrDefault(target);
-        throw new ArgumentException($"ContextKey with name '{name}' already exists for type {data.type} with id {target}.");
+        throw new ArgumentException(
+          $"ContextKey with name '{name}' already exists for type {data.type} with id {target}."
+        );
       }
 
-      if (ContextKeyData.NextId == int.MaxValue) throw new InvalidOperationException("Maximum number of context keys reached.");
+      if (ContextKeyData.NextId == int.MaxValue)
+        throw new InvalidOperationException("Maximum number of context keys reached.");
       id = ContextKeyData.NextId++;
       defaultValue = default;
       ContextKeyData.Registry[id] = new ContextKeyData(typeof(T), name);
@@ -32,19 +36,46 @@ namespace HELIX.Compose {
       this.defaultValue = defaultValue;
     }
 
-    public bool TryReadScope(out T value) {
-      value = defaultValue;
-      if (!RecompositionScope.TryGetContext(this, out var read)) return false;
-      value = read.value;
+    public static implicit operator ContextKey<T>(int id) => new(id);
+    public static implicit operator int(ContextKey<T> key) => key.id;
+
+    public bool TryReadDataAt(VisualElement element, out ContextData<T> data, bool includeSelf = true) {
+      data = null;
+      if (!ContextData.TryLookup(element, id, out var read, includeSelf)) return false;
+      if (read is not ContextData<T> typedData) return false;
+      data = typedData;
       return true;
     }
 
-    public T ReadScope() {
-      return !RecompositionScope.TryGetContext(this, out var read) ? defaultValue : read.value;
+
+    public bool TryReadAt(VisualElement element, out T value, bool includeSelf = true) {
+      value = default;
+      if (!ContextData.TryLookup(element, id, out var data, includeSelf)) return false;
+      if (data is not ContextData<T> typedData) return false;
+      value = typedData.value;
+      return true;
     }
 
-    public static implicit operator ContextKey<T>(int id) => new(id);
-    public static implicit operator int(ContextKey<T> key) => key.id;
+    public T ReadAt(VisualElement element, bool includeSelf = true) {
+      if (!ContextData.TryLookup(element, id, out var data, includeSelf)) return defaultValue;
+      if (data is not ContextData<T> typedData) return defaultValue;
+      return typedData.value;
+    }
+
+    public T ReadAtOrDefault(VisualElement element, T onDefault = default, bool includeSelf = true) {
+      if (!ContextData.TryLookup(element, id, out var data, includeSelf)) return onDefault;
+      if (data is not ContextData<T> typedData) return onDefault;
+      return typedData.value;
+    }
+
+    public T this[VisualElement element] => ReadAt(element);
+
+    public T this[in Composition cx] => cx.ReadContext(this);
+
+    public T this[in ContextAccessor accessor] {
+      get => ReadAt(accessor.contributor.Element);
+      set => accessor.Put(this, value);
+    }
 
     public ContextReference<T> CreateReference() => new(this, null);
 
@@ -90,35 +121,62 @@ namespace HELIX.Compose {
 
     protected bool detached = false; // Non-hierarchal context data is detached (Like static signals)
 
+    public bool ContextDetached {
+      get => HasFlag(ContextFlags.Detached);
+      set {
+        if (value) {
+          version.flags |= ContextFlags.Detached;
+        } else {
+          version.flags &= ~ContextFlags.Detached;
+        }
+      }
+    }
+
     protected ContextFlags CleanFlags => detached ? ContextFlags.Detached : ContextFlags.None;
 
-    public void IncrementContextVersion(ContextFlags flags) {
+    public void IncrementContextVersion() {
       unchecked { version.counter++; }
-      version.flags = flags | CleanFlags;
+    }
+
+    protected void DisposeContext() {
+      unchecked { version.counter++; }
+      version.UpdateValueFlagsCleanly(ContextFlags.Disposed);
+    }
+
+    public bool HasFlag(ContextFlags flags) {
+      return (version.flags & flags) != 0;
     }
 
     public abstract void Dispose();
+
+    public static bool TryLookup(VisualElement element, int key, out ContextData data, bool includeSelf = false) {
+      using (HXProfiling.LookupContextMarker.Auto()) {
+        data = null;
+        if (element == null) return false;
+        if (includeSelf && element is IContextContributor self) return self.TryLookupContext(key, out data);
+        var contributor = element.GetFirstAncestorOfType<IContextContributor>();
+        return contributor != null && contributor.TryLookupContext(key, out data);
+      }
+    }
   }
 
-  public class ContextData<T> : ContextData {
-
+  public sealed class ContextData<T> : ContextData {
     public T value;
 
     public void UpdateContextValue(T updated) {
       value = updated;
       unchecked { version.counter++; }
-      version.flags = CleanFlags;
+      version.UpdateValueFlagsCleanly(ContextFlags.None);
     }
 
-    public virtual void DeleteContextValue() {
-      unchecked { version.counter++; }
-      version.flags = CleanFlags | ContextFlags.Empty;
+    public void DeleteContextValue() {
       value = default;
+      unchecked { version.counter++; }
+      version.UpdateValueFlagsCleanly(ContextFlags.Empty);
     }
 
     public override void Dispose() {
-      unchecked { version.counter++; }
-      version.flags = CleanFlags | ContextFlags.Disposed;
+      DisposeContext();
       value = default;
     }
 
@@ -137,15 +195,31 @@ namespace HELIX.Compose {
       this.counter = counter;
       this.flags = flags;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void UpdateValueFlags(ContextFlags updated) {
+      UpdateValueFlagsCleanly(updated & ContextFlags.ValueMask);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void UpdateValueFlagsCleanly(ContextFlags updated) {
+      flags = updated | flags & ContextFlags.PersistentMask;
+    }
   }
 
   [Flags]
-  public enum ContextFlags {
+  public enum ContextFlags : byte {
     None = 0,
-    Dirty = 1 << 1,
-    Detached = 1 << 2,
-    Empty = 1 << 6,
-    Disposed = 1 << 7,
+    Detached = 1 << 1, // Used to mark that a context data is not associated to the element tree (static signals)
+
+    Dirty = 1 << 3, // Used by trackers to mark a value/version change
+
+    Empty = 1 << 6, // The context data exists but no value is set (null support for structs)
+    Disposed = 1 << 7, // The context data has been disposed
+
+    ValueMask = Dirty | Empty | Disposed,
+    PersistentMask = Detached,
+    NoValueMask = Empty | Disposed
   }
 
   public struct ContextReference<T> {
@@ -168,7 +242,7 @@ namespace HELIX.Compose {
     public bool IsDirty => (version.flags & ContextFlags.Dirty) != 0;
     public bool IsEmpty => (version.flags & ContextFlags.Empty) != 0;
     public bool IsDisposed => (version.flags & ContextFlags.Disposed) != 0;
-    public bool HasValue => version.flags < ContextFlags.Empty;
+    public bool HasValue => (version.flags & ContextFlags.NoValueMask) == 0;
 
     public bool Refresh(ContextData<T> read) {
       if (read != value) {
@@ -189,16 +263,19 @@ namespace HELIX.Compose {
     }
 
     public void Pull() {
-      if (RecompositionScope.TryGetContext(key, out var current)) {
-        Refresh(current);
-      } else {
-        if (version.flags < ContextFlags.Empty) { // We previously had data, this is technically dirty
-          version.flags = ContextFlags.Dirty | ContextFlags.Disposed;
-          value = null;
-        } else { // No data, so this doesn't affect consumers
-          Reset();
-        }
-      }
+      // if (RecompositionScope.TryGetContext(key, out var current)) {
+      //   Refresh(current);
+      // } else {
+      //   if (version.flags < ContextFlags.Empty) {
+      //     // We previously had data, this is technically dirty
+      //     version.flags = ContextFlags.Dirty | ContextFlags.Disposed;
+      //     value = null;
+      //   } else {
+      //     // No data, so this doesn't affect consumers
+      //     Reset();
+      //   }
+      // }
+      throw new NotImplementedException();
     }
 
     public void Reset() {
@@ -221,35 +298,177 @@ namespace HELIX.Compose {
     }
   }
 
-  public interface IEmitEvent {
-    public object BoxedValue { get; }
+  public interface IContextContributor : IComposable {
+    IContextContributor ContextParent { get; }
+    void ContributeContext(Dictionary<int, ContextData> context);
+    bool TryLookupContext(int key, out ContextData data);
+  }
 
-    public static void Send<T>(IComposable composable, T value) {
-      using var evt = EmitEvent<T>.GetPooled(value);
-      composable.Element.SendEvent(evt);
+  public interface IContextWriteable : IComposable {
+    SparseContextMap WrittenContext { get; }
+    SparseContextMap AcquireWriteableContext();
+    void BeginContextModification();
+    void EndContextModification();
+  }
+
+  public struct LookupCache {
+    internal static readonly ObjectPool<Dictionary<int, LookupCacheEntry>> Pool = new(
+      () => new Dictionary<int, LookupCacheEntry>(8),
+      null,
+      static obj => obj.Clear(),
+      null,
+      false,
+      10,
+      128
+    );
+
+    private Dictionary<int, LookupCacheEntry> _cache;
+
+    public void Claim() {
+      if (_cache != null) return;
+      _cache = Pool.Get();
+    }
+
+    public void Release() {
+      if (_cache == null) return;
+      _cache.Clear();
+      Pool.Release(_cache);
+      _cache = null;
+    }
+
+    public void Clear() {
+      _cache?.Clear();
+    }
+
+    public bool TryLookup(IContextContributor parent, int key, out ContextData data) {
+      data = null;
+      if (_cache == null) return parent != null && parent.TryLookupContext(key, out data);
+
+      if (_cache.TryGetValue(key, out var entry)) {
+        data = entry.data;
+        return entry.hasData;
+      }
+
+      if (parent == null) return false;
+      var hasData = parent.TryLookupContext(key, out data);
+      _cache[key] = new LookupCacheEntry(hasData, data);
+      return hasData;
+    }
+
+    internal readonly struct LookupCacheEntry {
+      public readonly bool hasData;
+      public readonly ContextData data;
+
+      public LookupCacheEntry(bool hasData, ContextData data) {
+        this.hasData = hasData;
+        this.data = data;
+      }
     }
   }
 
-  public class EmitEvent<T> : EventBase<EmitEvent<T>>, IEmitEvent {
-    public T Value;
+  public class ContextContributorElement : ComposableElement, IContextContributor, IContextWriteable {
+    public IContextContributor ContextParent { get; private set; }
 
-    static EmitEvent() {
-      SetCreateFunction(() => new EmitEvent<T>());
+    public SparseContextMap WrittenContext { get; private set; }
+
+    public ContextContributorElement() {
+      RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
+      RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
     }
 
-    public object BoxedValue => Value;
-
-    public static EmitEvent<T> GetPooled(T data) {
-      var evt = GetPooled();
-      evt.Value = data;
-      return evt;
+    private void OnAttachToPanel(AttachToPanelEvent evt) {
+      RefreshHierarchy();
     }
 
-    protected override void Init() {
-      base.Init();
-      bubbles = true;
-      tricklesDown = false;
-      Value = default;
+    public void RefreshHierarchy() {
+      ContextParent = GetFirstAncestorOfType<IContextContributor>();
+    }
+
+    public override void Reset() {
+      base.Reset();
+      if (WrittenContext != null) SparseContextMap.Release(WrittenContext);
+    }
+
+    public void ContributeContext(Dictionary<int, ContextData> context) {
+      WrittenContext?.LoadInto(context);
+    }
+
+    public bool TryLookupContext(int key, out ContextData data) {
+      data = null;
+      if (WrittenContext != null && WrittenContext.TryGet(key, out data)) return true;
+      return ContextParent != null && ContextParent.TryLookupContext(key, out data);
+    }
+
+    private void OnDetachFromPanel(DetachFromPanelEvent evt) {
+      Reset();
+    }
+
+    public SparseContextMap AcquireWriteableContext() {
+      return WrittenContext ??= SparseContextMap.Get();
+    }
+
+    public void BeginContextModification() {
+      WrittenContext?.ResetPublicationMarkers();
+    }
+
+    public void EndContextModification() {
+      if (WrittenContext == null) return;
+      WrittenContext.PrunePublications();
+      if (!WrittenContext.IsUnused) return;
+      SparseContextMap.Release(WrittenContext);
+      WrittenContext = null;
+    }
+  }
+
+  public readonly struct ContextModificationScope : IDisposable {
+    private readonly IContextWriteable _contributor;
+
+    public ContextModificationScope(IContextWriteable contributor) {
+      _contributor = contributor;
+    }
+
+    public void Dispose() => _contributor.EndContextModification();
+  }
+
+  public readonly ref struct ContextAccessor {
+    internal readonly IContextWriteable contributor;
+
+    public ContextAccessor(IContextWriteable contributor) {
+      this.contributor = contributor;
+    }
+
+    public T ReadInherited<T>(ContextKey<T> key) {
+      return key.ReadAt(contributor.Element, includeSelf: false);
+    }
+
+    public bool TryReadInherited<T>(ContextKey<T> key, out T value) {
+      return key.TryReadAt(contributor.Element, out value, includeSelf: false);
+    }
+
+    public ContextData<T> AcquireWritableData<T>(ContextKey<T> key) {
+      var context = contributor.AcquireWriteableContext();
+      return context.GetWriteable(key);
+    }
+
+    public void Put<T>(ContextKey<T> key, T value) {
+      AcquireWritableData(key).UpdateContextValue(value);
+    }
+
+    public void PutEmpty<T>(ContextKey<T> key) {
+      AcquireWritableData(key).DeleteContextValue();
+    }
+
+    public void Put<T>(ContextKey<T> key, T value, bool empty) {
+      if (empty) {
+        PutEmpty(key);
+      } else {
+        Put(key, value);
+      }
+    }
+
+    public void Remove<T>(ContextKey<T> key) {
+      if (contributor.WrittenContext == null) return;
+      contributor.AcquireWriteableContext().Remove(key);
     }
   }
 }

@@ -6,7 +6,7 @@ namespace HELIX.Compose.Collections {
   public class SparseContextMap {
     private const int _defaultCapacity = 5;
 
-    private static readonly ObjectPool<SparseContextMap> _pool = new(
+    internal static readonly ObjectPool<SparseContextMap> Pool = new(
       () => new SparseContextMap(),
       null,
       static obj => obj.Clear(),
@@ -17,33 +17,33 @@ namespace HELIX.Compose.Collections {
     );
 
     private static readonly ProfilerCounterValue<int> _poolSize = new(
-      HelixProfiling.HelixCategory,
+      HXProfiling.HelixCategory,
       "SCM Pool Size",
       ProfilerMarkerDataUnit.Count,
       ProfilerCounterOptions.FlushOnEndOfFrame
     );
 
     private static readonly ProfilerCounterValue<float> _poolActiveRatio = new(
-      HelixProfiling.HelixCategory,
+      HXProfiling.HelixCategory,
       "SCM Pool Active Ratio",
       ProfilerMarkerDataUnit.Percent,
       ProfilerCounterOptions.FlushOnEndOfFrame
     );
 
     internal static void TrackProfiling() {
-      _poolSize.Value = _pool.CountAll;
-      _poolActiveRatio.Value = (_pool.CountAll > 0 ? (float)_pool.CountActive / _pool.CountAll : 0f) * 100f;
+      _poolSize.Value = Pool.CountAll;
+      _poolActiveRatio.Value = (Pool.CountAll > 0 ? (float)Pool.CountActive / Pool.CountAll : 0f) * 100f;
     }
 
     public RefKeyedSet<Publication, int> publications;
     public RefKeyedSet<Subscription, int> subscriptions;
 
     public static SparseContextMap Get() {
-      return _pool.Get();
+      return Pool.Get();
     }
 
     public static void Release(SparseContextMap contextMap) {
-      _pool.Release(contextMap);
+      Pool.Release(contextMap);
     }
 
 
@@ -72,7 +72,12 @@ namespace HELIX.Compose.Collections {
     }
 
     public bool Remove(int key) {
-      return publications.RemoveSwapBack(key);
+      var index = publications.FindIndex(key);
+      if (index == -1) return false;
+      var entry = publications[index];
+      entry.value.Dispose();
+      publications.RemoveAtSwapBack(index);
+      return true;
     }
 
     public bool TryGet(int key, out ContextData value) {
@@ -90,6 +95,21 @@ namespace HELIX.Compose.Collections {
       value = publications[index].value as ContextData<T>;
       return value != null;
     }
+
+    public ContextData<T> GetWriteable<T>(ContextKey<T> key) {
+      var index = publications.FindIndex(key);
+      if (index == -1) {
+        var data = new ContextData<T>();
+        publications.AddUnchecked(new Publication(key.id, data, true));
+        return data;
+      }
+
+      ref var publication = ref publications[index];
+      var currentData = publication.value as ContextData<T>;
+      publication.marked = true;
+      return currentData;
+    }
+
 
     public void LoadInto(Dictionary<int, ContextData> context) {
       for (var i = 0; i < publications.Count; i++) {
@@ -122,21 +142,18 @@ namespace HELIX.Compose.Collections {
       return false;
     }
 
-    public void ResetMarkers() {
+    public void ResetPublicationMarkers() {
       for (var i = publications.Count - 1; i >= 0; i--) {
         ref var entry = ref publications[i];
         entry.marked = false;
       }
+    }
 
+    public void ResetSubscriptionMarkers() {
       for (var i = subscriptions.Count - 1; i >= 0; i--) {
         ref var entry = ref subscriptions[i];
         entry.marked = false;
       }
-    }
-
-    public void Prune() {
-      PrunePublications();
-      PruneSubscriptions();
     }
 
     public void PrunePublications() {

@@ -54,7 +54,7 @@ namespace HELIX.Signals {
         IsDisposed = true;
         _observers.Clear();
       }
-      IncrementContextVersion(ContextFlags.Disposed);
+      DisposeContext();
     }
 
     protected void NotifyDirty() {
@@ -73,7 +73,7 @@ namespace HELIX.Signals {
         ).Report(DiagnosticLevel.Warning);
         return;
       }
-      IncrementContextVersion(ContextFlags.None);
+      IncrementContextVersion();
 
       _notificationStackDepth++;
       var buffer = ListPool<ISignalObserver>.Get();
@@ -202,7 +202,7 @@ namespace HELIX.Signals {
     public T Value {
       get {
         if (HX.ComposingBoundary != null) {
-          HX.ComposingBoundary.AcquireContext().Subscribe(contextKey, this);
+          HX.ComposingBoundary.SubscribeToContextData(contextKey, this);
           return PeekValue();
         }
 

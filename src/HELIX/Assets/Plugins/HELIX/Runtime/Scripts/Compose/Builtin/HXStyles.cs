@@ -4,8 +4,8 @@ using HELIX.Types;
 using UnityEngine;
 
 namespace HELIX.Compose {
-  public static class HXCommonStyles {
-    public static StateComposable FocusOutline(
+  public static class HXStyles {
+    public static Composable<StateFlag> FocusOutline(
       ThemeData theme,
       ColorRole focusColor = ColorRoles.Focus,
       BorderRole border = BorderRole.Normal,
@@ -15,12 +15,15 @@ namespace HELIX.Compose {
       ButtonFocusStyle focusStyle = ButtonFocusStyle.Outdent
     ) {
       var outdent = focusStyle == ButtonFocusStyle.Outdent;
-      return new DrawSolidBoxStyle(
+      return new HXSolidBoxStyle(
         radius: new AllStateProperty<BorderRadius>(outdent ? theme[radius] + theme[inset] : theme[radius]),
         border: new StatePropertyMap<Border> {
-          [focusState] = Border.All(theme[border], theme[focusColor]), [StateFlag.None] = Border.None
+          [focusState] = Border.All(theme[border], theme[focusColor]),
+          [StateFlag.None] = Border.None
         },
-        position: new StatePropertyMap<StyleLength4> { [StateFlag.None] = outdent ? -theme[inset] : 0f, }
+        position: new StatePropertyMap<StyleLength4> {
+          [StateFlag.None] = outdent ? -theme[inset] : 0f,
+        }
       ).Bake();
     }
 
@@ -42,15 +45,18 @@ namespace HELIX.Compose {
 
       if (baseState == StateFlag.None) {
         radiusProperty = new StatePropertyMap<BorderRadius> {
-          [StateFlag.Focused] = fRadius, [StateFlag.None] = style == ButtonFocusStyle.IndentReserved ? fRadius : radius
+          [StateFlag.Focused] = fRadius,
+          [StateFlag.None] = style == ButtonFocusStyle.IndentReserved ? fRadius : radius
         };
         positionProperty = new StatePropertyMap<StyleLength4> {
-          [StateFlag.Focused] = fMargin, [StateFlag.None] = style == ButtonFocusStyle.IndentReserved ? fMargin : 0f
+          [StateFlag.Focused] = fMargin,
+          [StateFlag.None] = style == ButtonFocusStyle.IndentReserved ? fMargin : 0f
         };
       } else {
         radiusProperty = new StatePropertyMap<BorderRadius> {
           [StateFlag.Focused | baseState] = fRadius,
-          [baseState] = style == ButtonFocusStyle.IndentReserved ? fRadius : radius, [StateFlag.None] = radius
+          [baseState] = style == ButtonFocusStyle.IndentReserved ? fRadius : radius,
+          [StateFlag.None] = radius
         };
         positionProperty = new StatePropertyMap<StyleLength4> {
           [StateFlag.Focused | baseState] = fMargin,
@@ -59,7 +65,7 @@ namespace HELIX.Compose {
       }
     }
 
-    public static StateComposable Filled(
+    public static Composable<StateFlag> Filled(
       ThemeData theme,
       ColorRole color = ColorRoles.Primary,
       ColorRole? onColor = null,
@@ -84,18 +90,19 @@ namespace HELIX.Compose {
         out var radiusProperty
       );
 
-      return new DrawSolidBoxStyle(
+      return new HXSolidBoxStyle(
         color: new StatePropertyMap<Color> {
           [StateFlag.Disabled] = theme[disabledColor],
           [StateFlag.Pressed] = Colors.AlphaBlend(theme[color], theme[pressed]),
-          [StateFlag.Hovered] = Colors.AlphaBlend(theme[color], theme[hover]), [StateFlag.None] = theme[color],
+          [StateFlag.Hovered] = Colors.AlphaBlend(theme[color], theme[hover]),
+          [StateFlag.None] = theme[color],
         },
         position: positionProperty,
         radius: radiusProperty
       ).Bake();
     }
 
-    public static StateComposable Outlined(
+    public static Composable<StateFlag> Outlined(
       ThemeData theme,
       ColorRole color = ColorRoles.Transparent,
       ColorRole? onColor = null,
@@ -116,7 +123,7 @@ namespace HELIX.Compose {
       var on = onColor ?? ColorRoles.OnSurface;
       var overlay = overlayColor ?? on;
 
-      return new DrawSolidBoxStyle(
+      return new HXSolidBoxStyle(
         color: new StatePropertyMap<Color> {
           [StateFlag.Disabled] = theme[disabledColor],
           [StateFlag.Pressed] = Colors.AlphaBlend(theme[color], theme[pressedColor ?? overlay | ColorRole.BlendNormal]),
@@ -134,7 +141,7 @@ namespace HELIX.Compose {
       ).Bake();
     }
 
-    public static StateComposable Toggle(
+    public static Composable<StateFlag> Toggle(
       ThemeData theme,
       ColorRole colorUnselected = ColorRoles.Transparent,
       ColorRole colorSelected = ColorRoles.Primary,
@@ -171,7 +178,7 @@ namespace HELIX.Compose {
         StateFlag.Selected
       );
 
-      return new DrawSolidBoxStyle(
+      return new HXSolidBoxStyle(
         color: new StatePropertyMap<Color> {
           [StateFlag.Disabled] = theme[disabledColor],
 
@@ -210,7 +217,7 @@ namespace HELIX.Compose {
       ).Bake();
     }
 
-    public static StateComposable ToggleFocus(
+    public static Composable<StateFlag> ToggleFocus(
       ThemeData theme,
       ColorRole colorUnselected = ColorRoles.Transparent,
       ColorRole colorSelected = ColorRoles.Primary,
@@ -255,12 +262,12 @@ namespace HELIX.Compose {
 
 
       return (ref Composition cx, StateFlag state) => {
-        background(cx: ref cx, state: state);
-        focus(cx: ref cx, state: state);
+        background(cx: ref cx, state);
+        focus(cx: ref cx, state);
       };
     }
 
-    public static StateComposable FilledFocus(
+    public static Composable<StateFlag> FilledFocus(
       ThemeData theme,
       ColorRole color = ColorRoles.Primary,
       ColorRole focusColor = ColorRoles.Focus,
@@ -283,13 +290,13 @@ namespace HELIX.Compose {
         focusStyle: focusStyle
       );
       return (ref Composition cx, StateFlag state) => {
-        flat(cx: ref cx, state: state);
-        focus(cx: ref cx, state: state);
+        flat(cx: ref cx, state);
+        focus(cx: ref cx, state);
       };
     }
 
 
-    public static ControlBoxStyle FilledControlBox(
+    public static HXControlBoxStyle FilledControlBox(
       ThemeData theme,
       ColorRole color = ColorRoles.Primary,
       ColorRole focusColor = ColorRoles.Focus,
@@ -306,7 +313,7 @@ namespace HELIX.Compose {
       ColorRole onDisabledColor = ColorRoles.OnSurfaceDisabledHigh,
       TextAnchor alignment = TextAnchor.MiddleCenter,
       BoxConstraints? constraints = null,
-      StateComposable background = null,
+      Composable<StateFlag> background = null,
       ButtonFocusStyle focusStyle = ButtonFocusStyle.Outdent
     ) {
       background ??= FilledFocus(
@@ -314,7 +321,7 @@ namespace HELIX.Compose {
         hoverColor: hoverColor, pressedColor: pressedColor, radius: radius, focusBorder: focusBorder,
         focusMargin: focusMargin, disabledColor: disabledColor, focusStyle: focusStyle
       );
-      return new ControlBoxStyle(
+      return new HXControlBoxStyle(
         background: background,
         alignment: (Alignment)alignment,
         padding: new AllStateProperty<StyleLength4>(
@@ -328,7 +335,7 @@ namespace HELIX.Compose {
       );
     }
 
-    public static ControlBoxStyle OutlinedControlBox(
+    public static HXControlBoxStyle OutlinedControlBox(
       ThemeData theme,
       ColorRole color = ColorRoles.Transparent,
       ColorRole onColor = ColorRoles.OnSurface,
@@ -349,7 +356,7 @@ namespace HELIX.Compose {
       SpacingRole paddingVertical = SpacingRole.Spacing1,
       TextAnchor alignment = TextAnchor.MiddleCenter,
       BoxConstraints? constraints = null,
-      StateComposable background = null
+      Composable<StateFlag> background = null
     ) {
       background ??= Outlined(
         theme, color: color, onColor: onColor, disabledColor: disabledColor, onDisabledColor: onDisabledColor,
@@ -357,7 +364,7 @@ namespace HELIX.Compose {
         borderHoverColor: borderHoverColor, borderPressedColor: borderPressedColor, borderFocusColor: borderFocusColor,
         borderDisabledColor: borderDisabledColor, border: border, borderFocus: borderFocus, radius: radius
       );
-      return new ControlBoxStyle(
+      return new HXControlBoxStyle(
         background: background,
         alignment: (Alignment)alignment,
         padding: new AllStateProperty<StyleLength4>(
@@ -371,7 +378,7 @@ namespace HELIX.Compose {
       );
     }
 
-    public static ControlBoxStyle ToggleControlBox(
+    public static HXControlBoxStyle ToggleControlBox(
       ThemeData theme,
       ColorRole colorUnselected = ColorRoles.Transparent,
       ColorRole colorSelected = ColorRoles.Primary,
@@ -399,7 +406,7 @@ namespace HELIX.Compose {
       SpacingRole paddingVertical = SpacingRole.Spacing1,
       TextAnchor alignment = TextAnchor.MiddleCenter,
       BoxConstraints? constraints = null,
-      StateComposable background = null
+      Composable<StateFlag> background = null
     ) {
       background ??= ToggleFocus(
         theme, colorUnselected: colorUnselected, colorSelected: colorSelected, onUnselected: onUnselected,
@@ -410,7 +417,7 @@ namespace HELIX.Compose {
         borderDisabledColor: borderDisabledColor, disabledColor: disabledColor, onDisabledColor: onDisabledColor,
         radius: radius, focusMargin: focusMargin, border: border, borderFocus: borderFocus, focusStyle: focusStyle
       );
-      return new ControlBoxStyle(
+      return new HXControlBoxStyle(
         background: background,
         alignment: (Alignment)alignment,
         padding: new AllStateProperty<StyleLength4>(
@@ -428,7 +435,7 @@ namespace HELIX.Compose {
 
   public enum ButtonFocusStyle { Outdent, Indent, IndentReserved }
 
-    public struct DrawSolidBoxStyle {
+  public struct HXSolidBoxStyle {
     public StateProperty<Border> border;
     public StateProperty<BorderRadius> radius;
     public StateProperty<Color> color;
@@ -438,7 +445,7 @@ namespace HELIX.Compose {
     public StateProperty<bool> absolute;
     public StateProperty<TransitionOptions> transition;
 
-    public DrawSolidBoxStyle(
+    public HXSolidBoxStyle(
       StateProperty<Border> border = null,
       StateProperty<BorderRadius> radius = null,
       StateProperty<Color> color = null,
@@ -458,7 +465,7 @@ namespace HELIX.Compose {
       this.transition = transition ?? StateProperties.Never<TransitionOptions>();
     }
 
-    public readonly StateComposable Bake() {
+    public readonly Composable<StateFlag> Bake() {
       var style = this;
       return (ref Composition cx, StateFlag state) => cx.DrawSolidBox(
         border: style.border.ResolveOrDefault(state, Types.Border.None),
@@ -473,23 +480,23 @@ namespace HELIX.Compose {
     }
   }
 
-  public struct ControlBoxStyle {
-    public static readonly ControlBoxStyle Default = HXCommonStyles.ToggleControlBox(HXThemes.DefaultDark);
+  public struct HXControlBoxStyle {
+    public static readonly HXControlBoxStyle Default = HXStyles.ToggleControlBox(HXThemes.DefaultDark);
 
     public StateProperty<StyleLength4> padding;
     public StateProperty<StyleLength4> margin;
     public StateProperty<Alignment> alignment;
     public StateProperty<BoxConstraints> constraints;
     public StateProperty<TextStyle> textStyle;
-    public StateComposable background;
+    public Composable<StateFlag> background;
 
-    public ControlBoxStyle(
+    public HXControlBoxStyle(
       StateProperty<StyleLength4> padding = null,
       StateProperty<StyleLength4> margin = null,
       StateProperty<Alignment> alignment = null,
       StateProperty<BoxConstraints> constraints = null,
       StateProperty<TextStyle> textStyle = null,
-      StateComposable background = null
+      Composable<StateFlag> background = null
     ) {
       this.padding = padding ?? StateProperties.Never<StyleLength4>();
       this.margin = margin ?? StateProperties.Never<StyleLength4>();
@@ -510,16 +517,10 @@ namespace HELIX.Compose {
 
     public readonly void RenderBoundary(ref Composition cx, StateFlag state) {
       ApplyColumn(state, cx.boundary);
-
-      TextStyle.WriteMerged(ref cx, textStyle, state).Apply(cx.boundary);
-
-      // var text = InheritableTextStyle.Context.ReadScopeOrDefault();
-      // text.Merge(textStyle.ResolveOrDefault(state, InheritableTextStyle.Null));
-      // cx.WriteContext(InheritableTextStyle.Context, text);
-      // text.Apply(cx.boundary);
-
+      using (cx.WriteContext(out var context)) {
+        TextStyle.Merge(in context, textStyle, state);
+      }
       background?.Invoke(ref cx, state);
     }
   }
-
 }

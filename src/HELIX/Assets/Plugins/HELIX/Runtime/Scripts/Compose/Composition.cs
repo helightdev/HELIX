@@ -12,7 +12,7 @@ namespace HELIX.Compose {
     public ElementRef APPLY;
     public CompositionAuthoring AUTHORING;
 
-    public HxSlot Slot { get => AUTHORING.cell.slot; set => AUTHORING.cell.slot = value; }
+    public ComposableSlot Slot { get => AUTHORING.cell.slot; set => AUTHORING.cell.slot = value; }
 
     public BoundaryCell Cell => AUTHORING.cell;
 
@@ -22,7 +22,7 @@ namespace HELIX.Compose {
       AUTHORING.cell = initiator.Cell ?? BoundaryCell.Shared;
       AUTHORING.cell.cursor = 0;
       AUTHORING.cell.localId = LocalId.Initial;
-      AUTHORING.cell.current = initiator;
+      AUTHORING.cell.scope = initiator;
       AUTHORING.cursor = initiator.Element;
 
       APPLY.element = boundary.Element;
@@ -34,11 +34,10 @@ namespace HELIX.Compose {
       AUTHORING.cell = boundary.Cell ?? BoundaryCell.Shared;
       AUTHORING.cell.cursor = 0;
       AUTHORING.cell.localId = LocalId.Initial;
-      AUTHORING.cell.current = composable;
+      AUTHORING.cell.scope = composable;
       AUTHORING.cursor = composable.Element;
       AUTHORING.id = id;
-      APPLY.element = composable.Element;
-      APPLY.composable = composable;
+      APPLY.Replace(composable);
     }
 
     public bool Conditional(bool condition, ushort count = 1) {
@@ -47,17 +46,55 @@ namespace HELIX.Compose {
       return false;
     }
 
-    // public KeyScope Key(ushort key) {
-    //   return new KeyScope(AUTHORING.cell, key);
-    // }
+    public ContextModificationScope WriteContext(out ContextAccessor context) {
+      if (AUTHORING.cell.scope is not IContextWriteable writeable) {
+        throw new InvalidOperationException("Current scope is not context writeable.");
+      }
 
-    public T LookupData<T>(bool includeHost = true) => boundary.LookupData<T>(includeHost);
+      writeable.BeginContextModification();
+      context = new ContextAccessor(writeable);
+      return new ContextModificationScope(writeable);
+    }
 
-    public T LookupComposable<T>(bool includeHost = true) => boundary.LookupComposable<T>(includeHost);
+    public readonly bool TryReadContext<T>(
+      ContextKey<T> key, out T value, bool listen = true, bool includeSelf = true
+    ) {
+      value = default;
+      if (!ContextData.TryLookup(APPLY.element, key.id, out var data, includeSelf)) return false;
+      if (data is not ContextData<T> typedData) return false;
+      if (listen) boundary.SubscribeToContextData(key, typedData);
+      value = typedData.value;
+      return true;
+    }
 
-    public T LookupBoundary<T>(bool includeHost = true) => boundary.LookupBoundary<T>(includeHost);
+    public readonly bool TryReadContextData<T>(
+      ContextKey<T> key, out ContextData<T> data, bool listen = true, bool includeSelf = true
+    ) {
+      data = null;
+      if (!ContextData.TryLookup(APPLY.element, key.id, out var found, includeSelf)) return false;
+      if (found is not ContextData<T> typedData) return false;
+      if (listen) boundary.SubscribeToContextData(key, typedData);
+      data = typedData;
+      return true;
+    }
 
-    public T LookupLocalAncestor<T>(VisualElement element = null) {
+    public readonly T ReadContext<T>(ContextKey<T> key, bool listen = true, bool includeSelf = true) {
+      if (!ContextData.TryLookup(APPLY.element, key.id, out var data, includeSelf)) return key.defaultValue;
+      if (data is not ContextData<T> typedData) return key.defaultValue;
+      if (listen) boundary.SubscribeToContextData(key, typedData);
+      return typedData.value;
+    }
+
+    public readonly T ReadContextOrDefault<T>(
+      ContextKey<T> key, T defaultValue = default, bool listen = true, bool includeSelf = true
+    ) {
+      if (!ContextData.TryLookup(APPLY.element, key.id, out var data, includeSelf)) return defaultValue;
+      if (data is not ContextData<T> typedData) return defaultValue;
+      if (listen) boundary.SubscribeToContextData(key, typedData);
+      return typedData.value;
+    }
+
+    public readonly T LookupLocalAncestor<T>(VisualElement element = null) {
       var cursor = element ?? APPLY.composable.Element;
       while (cursor != null) {
         if (ReferenceEquals(cursor, boundary)) break;
@@ -65,67 +102,6 @@ namespace HELIX.Compose {
         cursor = cursor.parent;
       }
       return default;
-    }
-
-    public T ReadContext<T>(ContextKey<T> key, bool listen = true) {
-      if (!RecompositionScope.TryGetContext(key, out var read)) return key.defaultValue;
-      if (listen) boundary.AcquireContext().Subscribe(key, read);
-      return read.value;
-    }
-
-    public T ReadContextOrDefault<T>(ContextKey<T> key, T defaultValue = default, bool listen = true) {
-      if (!RecompositionScope.TryGetContext(key, out var read)) return defaultValue;
-      if (listen) boundary.AcquireContext().Subscribe(key, read);
-      return read.value;
-    }
-
-    public ContextReference<T> ReadContextReference<T>(ContextKey<T> key) {
-      return RecompositionScope.TryGetContext(key, out var read) ? new ContextReference<T>(key, read) : default;
-    }
-
-    public ContextData<T> GetWrittenContext<T>(ContextKey<T> key) {
-      var context = boundary.AcquireContext();
-      context.TryGet(key, out var data);
-      return data;
-    }
-
-    public ContextScope<T> WriteContext<T>(ContextKey<T> key, T value) {
-      var context = boundary.AcquireContext();
-      context.TryGet(key, out var written);
-      written ??= new ContextData<T>();
-      written.UpdateContextValue(value);
-
-      var existed = RecompositionScope.TryGetContext(key, out var previous);
-      context.Put(key, written);
-      RecompositionScope.PutContext(key, written);
-      return new ContextScope<T>(key, previous, existed);
-    }
-
-    public ContextScope<T> WritableContext<T>(ContextKey<T> key, out ContextData<T> data) {
-      var context = boundary.AcquireContext();
-      context.TryGet(key, out data);
-      data ??= new ContextData<T>();
-
-      var existed = RecompositionScope.TryGetContext(key, out var previous);
-      context.Put(key, data);
-      RecompositionScope.PutContext(key, data);
-      return new ContextScope<T>(key, previous, existed);
-    }
-  }
-
-  public readonly struct ContextScope<T> : IDisposable {
-    private readonly ContextKey<T> _key;
-    private readonly ContextData _previous;
-    private readonly bool _existed;
-
-    public ContextScope(ContextKey<T> key, ContextData previous, bool existed) {
-      _key = key;
-      _previous = previous;
-      _existed = existed;
-    }
-
-    public void Dispose() {
-      RecompositionScope.RestoreContext(_key, _previous, _existed);
     }
   }
 
@@ -135,25 +111,9 @@ namespace HELIX.Compose {
       cx.AUTHORING.id.composition = composition;
     }
 
-    // public static void EnterLocalComposition(
-    //   ref Composition cx,
-    //   ushort composition,
-    //   ref LocalTransferData transfer
-    // ) {
-    //   transfer.local = cx.AUTHORING.id.local;
-    //   transfer.compositionId = cx.AUTHORING.id.composition;
-    //   cx.AUTHORING.id.local = LocalId.Initial;
-    //   cx.AUTHORING.id.composition = composition;
-    // }
-
     public static void ExitComposition(ref Composition cx, ref TransferData transfer) {
       cx.AUTHORING.id.composition = transfer.compositionId;
     }
-
-    // public static void ExitLocalComposition(ref Composition cx, ref LocalTransferData transfer) {
-    //   cx.AUTHORING.id.local = transfer.local;
-    //   cx.AUTHORING.id.composition = transfer.compositionId;
-    // }
 
     public ref struct TransferData {
       public ushort compositionId;
@@ -268,6 +228,13 @@ namespace HELIX.Compose {
     public VisualElement element;
     public IComposable composable;
 
+    public void Replace(IComposable replacement) {
+      composable = replacement;
+      element = replacement.Element;
+    }
+
+    public static implicit operator VisualElement(ElementRef reference) => reference.element;
+
     public bool IsValid => element != null;
   }
 
@@ -277,11 +244,11 @@ namespace HELIX.Compose {
     private readonly int _cursor;
     private readonly LocalId _local;
     private readonly ScopeCompletionCallback _callback;
-    private readonly HxSlot _slot;
+    private readonly ComposableSlot _slot;
 
     private ScopeHandle(BoundaryCell cell, ScopeCompletionCallback callback) {
       _cell = cell;
-      _return = cell.current;
+      _return = cell.scope;
       _callback = callback;
       _cursor = cell.cursor;
       _local = cell.localId;
@@ -295,7 +262,7 @@ namespace HELIX.Compose {
       try {
         _callback?.Invoke(_cell, this);
       } finally {
-        _cell.current = _return;
+        _cell.scope = _return;
         _cell.cursor = _cursor;
         _cell.localId = _local;
         _cell.slot = _slot;
@@ -311,7 +278,7 @@ namespace HELIX.Compose {
 
     internal static ScopeHandle Push(BoundaryCell cell, IComposable next, ScopeCompletionCallback callback) {
       var scope = new ScopeHandle(cell, callback);
-      cell.current = next;
+      cell.scope = next;
       return scope;
     }
   }

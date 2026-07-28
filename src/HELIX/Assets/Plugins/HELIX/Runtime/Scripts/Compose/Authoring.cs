@@ -11,7 +11,7 @@ namespace HELIX.Compose {
     public CompositionId id;
 
     private static readonly ProfilerCounterValue<int> _hierarchyMovements = new(
-      HelixProfiling.HelixCategory,
+      HXProfiling.HelixCategory,
       "Hierarchy Movements",
       ProfilerMarkerDataUnit.Count,
       ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
@@ -33,7 +33,7 @@ namespace HELIX.Compose {
     }
 
     public void RetainChildren() {
-      cell.cursor = cell.current.Element.childCount;
+      cell.cursor = cell.scope.Element.childCount;
       cell.localId.index = (ushort)cell.cursor;
     }
 
@@ -156,7 +156,7 @@ namespace HELIX.Compose {
     }
 
     public ref ElementRef YieldElement(ref Composition ctx, VisualElement given) {
-      var container = cell.current.Element;
+      var container = cell.scope.Element;
       var currentIndex = container.IndexOf(given);
       if (currentIndex == cell.cursor) goto complete;
 
@@ -184,7 +184,6 @@ namespace HELIX.Compose {
       complete:
       if (given is IComposable composable) {
         if (composable.TypeId == 0) composable.TypeId = id.packed;
-        ctx.APPLY.composable = composable;
       } else {
         composable = (UserdataTracker)(given.userData ??= new UserdataTracker {
           TypeId = id.packed,
@@ -192,9 +191,7 @@ namespace HELIX.Compose {
           Element = given
         });
       }
-
-      ctx.APPLY.element = composable.Element;
-      ctx.APPLY.composable = composable;
+      ctx.APPLY.Replace(composable);
       cell.cursor++;
       cell.localId.index++;
       cursor = null; // Clear authoring element

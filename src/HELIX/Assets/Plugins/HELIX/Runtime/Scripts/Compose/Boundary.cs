@@ -8,69 +8,37 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  public interface IBoundary : IComposable {
+  public interface IBoundary : IComposable, IContextContributor, IContextWriteable, IDirty {
     IBoundary Parent { get; }
     BoundaryCell Cell { get; }
 
     int TreeDepth { get; }
 
-    SparseContextMap AcquireContext();
-    void ContributeContext(Dictionary<int, ContextData> context);
-
     void RefreshHierarchy();
     void CheckModified();
 
     void Recompose();
-  }
-
-  public static class BoundaryExtensions {
-    public static T LookupData<T>(this IBoundary boundary, bool includeHost = true) {
-      var current = includeHost ? boundary : boundary.Parent;
-      while (current != null) {
-        if (current is CompositionBoundaryNodeBase { Data: T data }) return data;
-        current = current.Parent;
-      }
-      return default;
-    }
-
-    public static T LookupComposable<T>(this IBoundary boundary, bool includeHost = true) {
-      var current = includeHost ? boundary : boundary.Parent;
-      while (current != null) {
-        if (current is CompositionBoundaryNodeBase { BoundaryComposable: T attachment }) return attachment;
-        current = current.Parent;
-      }
-      return default;
-    }
-
-    public static T LookupBoundary<T>(this IBoundary boundary, bool includeHost = true) {
-      var current = includeHost ? boundary : boundary.Parent;
-      while (current != null) {
-        if (current is T typed) return typed;
-        current = current.Parent;
-      }
-      return default;
-    }
-
+    void SubscribeToContextData(int key, ContextData data);
   }
 
   public class BoundaryCell {
     public static readonly BoundaryCell Shared = new();
 
     private static readonly ProfilerCounterValue<int> _hierarchyDeletions = new(
-      HelixProfiling.HelixCategory,
+      HXProfiling.HelixCategory,
       "Hierarchy Deletions",
       ProfilerMarkerDataUnit.Count,
       ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush
     );
 
-    public IComposable current;
+    public IComposable scope;
     public int cursor;
     public LocalId localId;
-    public HxSlot slot;
+    public ComposableSlot slot;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public VisualElement ReadCursor() {
-      var element = current.Element;
+      var element = scope.Element;
       return element.childCount <= cursor ? null : element.ElementAt(cursor);
     }
 
@@ -79,11 +47,10 @@ namespace HELIX.Compose {
       var element = ReadCursor();
       if (element == null) return null;
       if (GetTypeId(element) == typeId) return element;
-      for (var i = cursor + 1; i < current.Element.childCount; i++) {
-        var child = current.Element.ElementAt(i);
+      for (var i = cursor + 1; i < scope.Element.childCount; i++) {
+        var child = scope.Element.ElementAt(i);
         if (GetTypeId(child) == typeId) return child;
       }
-
       return element;
     }
 
@@ -97,7 +64,7 @@ namespace HELIX.Compose {
     }
 
     public void TrimChildren() {
-      var element = current.Element;
+      var element = scope.Element;
       var overflow = element.childCount - cursor;
       for (var i = 0; i < overflow; i++) {
         //Debug.Log($"Removing child {i} from {element.name}");
@@ -110,14 +77,19 @@ namespace HELIX.Compose {
 
   public abstract class BoundaryElementBase : VisualElement, IBoundary {
     public VisualElement Element => this;
-    public SparseContextMap Context { get; protected set; }
-    public int TreeDepth { get; protected set; }
     public BoundaryCell Cell { get; } = BoundaryCell.Shared;
+    public SparseContextMap WrittenContext { get; protected set; }
+    public int TreeDepth { get; protected set; }
 
     public IBoundary Parent { get; protected set; }
+    public IContextContributor ContextParent { get; protected set; }
+
     public UssFlag Flag { get; set; }
+
     public ulong TypeId { get; set; }
+
     private bool _initialAttachment = true;
+    private LookupCache _lookupCache;
 
     protected BoundaryElementBase() {
       RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
@@ -134,37 +106,45 @@ namespace HELIX.Compose {
 
     public void RefreshHierarchy() {
       Parent = GetFirstAncestorOfType<IBoundary>();
+      ContextParent = GetFirstAncestorOfType<IContextContributor>();
     }
 
     public void CheckModified() {
-      if (Context != null && Context.CheckSubscriptionsModified()) {
+      if (WrittenContext != null && WrittenContext.CheckSubscriptionsModified()) {
         RecompositionScope.EnqueueDirty(this);
       }
     }
 
-    public SparseContextMap AcquireContext() {
-      Context ??= SparseContextMap.Get();
-      return Context;
+    public void UseLookupCache() {
+      _lookupCache.Claim();
     }
 
     public void ContributeContext(Dictionary<int, ContextData> context) {
-      Context?.LoadInto(context);
+      WrittenContext?.LoadInto(context);
+    }
+
+    public bool TryLookupContext(int key, out ContextData data) {
+      data = null;
+      if (WrittenContext != null && WrittenContext.TryGet(key, out data)) return true;
+      return _lookupCache.TryLookup(ContextParent, key, out data);
     }
 
     public virtual void Reset() {
       RecompositionScope.RemoveDirty(this);
+      _lookupCache.Release();
     }
 
     protected virtual void BeforeCompose() {
-      Context?.ResetMarkers();
+      _lookupCache.Clear();
+      WrittenContext?.ResetSubscriptionMarkers();
     }
 
     protected virtual void AfterCompose() {
-      if (Context == null) return;
-      Context.Prune();
-      if (!Context.IsUnused) return;
-      SparseContextMap.Release(Context);
-      Context = null;
+      if (WrittenContext == null) return;
+      WrittenContext.PruneSubscriptions();
+      if (!WrittenContext.IsUnused) return;
+      SparseContextMap.Release(WrittenContext);
+      WrittenContext = null;
     }
 
     public virtual void Recompose() {
@@ -185,6 +165,11 @@ namespace HELIX.Compose {
         //MarkDirtyRepaint();
       }
     }
+
+    public void SubscribeToContextData(int key, ContextData data) {
+      AcquireWriteableContext().Subscribe(key, data);
+    }
+
     public abstract void PerformCompose(ref Composition cx);
 
     protected virtual void OnAttachToPanel(AttachToPanelEvent evt) {
@@ -201,6 +186,24 @@ namespace HELIX.Compose {
 
     protected virtual void OnDetachFromPanel(DetachFromPanelEvent evt) {
       _initialAttachment = true;
+      _lookupCache.Release();
+    }
+
+    public SparseContextMap AcquireWriteableContext() {
+      return WrittenContext ??= SparseContextMap.Get();
+    }
+
+    public void BeginContextModification() {
+      WrittenContext?.ResetPublicationMarkers();
+    }
+
+    public void EndContextModification() {
+      if (WrittenContext == null) return;
+      WrittenContext.PrunePublications();
+    }
+
+    public void MarkDirty() {
+      RecompositionScope.MarkDirty(this);
     }
   }
 
@@ -244,6 +247,7 @@ namespace HELIX.Compose {
     }
 
     public override void Reset() {
+      base.Reset();
       if (Data == null) return;
       BoundaryComposable?.OnDetach(Data, this);
       BoundaryComposable = null;
@@ -258,9 +262,9 @@ namespace HELIX.Compose {
         Data = null;
       }
 
-      Context?.Clear();
-      if (Context != null) SparseContextMap.Release(Context);
-      Context = null;
+      WrittenContext?.Clear();
+      if (WrittenContext != null) SparseContextMap.Release(WrittenContext);
+      WrittenContext = null;
 
       RecompositionScope.UnregisterBoundary(this);
     }
@@ -269,7 +273,6 @@ namespace HELIX.Compose {
       base.OnDetachFromPanel(evt);
       DisposeState();
     }
-
   }
 
   public sealed class CompositionBoundaryNode : CompositionBoundaryNodeBase {
@@ -310,7 +313,7 @@ namespace HELIX.Compose {
     }
   }
 
-  public interface IBoundaryComposable {
+  public interface IBoundaryComposable : IDirty {
     void OnAttach(BoundaryData data, IBoundary boundary);
     void OnDetach(BoundaryData data, IBoundary boundary);
     void OnRecompose(ref Composition cx, BoundaryData data, IBoundary boundary);
@@ -327,10 +330,13 @@ namespace HELIX.Compose {
     public abstract void OnAttach(BoundaryData data, IBoundary boundary);
     public abstract void OnDetach(BoundaryData data, IBoundary boundary);
     public abstract void OnRecompose(ref Composition cx, BoundaryData data, IBoundary boundary);
+
+    public void MarkDirty() => Node?.MarkDirty();
   }
 
   public abstract class BoundaryComposable<TData> : BoundaryComposable where TData : BoundaryData {
     public TData Data { get; protected set; }
+
     public override void OnAttach(BoundaryData data, IBoundary boundary) {
       if (data is not TData typedState) throw new InvalidOperationException();
       Data = typedState;
@@ -355,10 +361,7 @@ namespace HELIX.Compose {
 
   public abstract class PropsBoundaryComposable<TProps> : BoundaryComposable<BoundaryData<TProps>>
     where TProps : struct {
-    public TProps Props {
-      get => Data.props;
-      set => Data.props = value;
-    }
+    public TProps Props { get => Data.props; set => Data.props = value; }
 
     public virtual void ReceiveProps(TProps props) {
       Data.props = props;

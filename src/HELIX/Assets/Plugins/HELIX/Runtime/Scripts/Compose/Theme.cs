@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using HELIX.Coloring;
 using HELIX.Types;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   public static class HXThemes {
@@ -91,7 +92,7 @@ namespace HELIX.Compose {
   }
 
   public record ThemeData {
-    public static readonly ContextKey<ThemeData> Context = new("Theme", HXThemes.DefaultDark);
+    public static readonly ContextKey<ThemeData> Key = new("Theme", HXThemes.DefaultDark);
 
     public ColorTokenPalette primary;
     public ColorTokenPalette secondary;
@@ -217,6 +218,7 @@ namespace HELIX.Compose {
     public float this[BorderRole role] => GetBorderWidth(role);
     public float this[RadiusRole role] => GetRadius(role);
     public float this[SpacingRole role] => GetSpacing(role);
+    public ref TypographyToken this[TextRole role] => ref GetTypographyTokenRef(role);
 
     public T GetComputedProperty<T>(ThemeProperty<T> property) {
       if (properties.TryGetValue(property, out var value)) {
@@ -312,10 +314,6 @@ namespace HELIX.Compose {
       return BlendOverlay(baseColor, overlayColor, level);
     }
 
-    public ref TextStyle GetTextStyleRef(TextRole role) {
-      return ref GetTypographyTokenRef(role).style;
-    }
-
     public ref TypographyToken GetTypographyTokenRef(TextRole role) {
       switch (role) {
         case TextRole.DisplayLarge: return ref display.large;
@@ -377,14 +375,12 @@ namespace HELIX.Compose {
     BlendNormal = 1 << 29,
     BlendHigh = 1 << 30,
     None = 0,
-
     Transparent = 1 << 0 | Colors,
     Scrim = 1 << 1 | Colors,
     Shadow = 1 << 2 | Colors,
     SurfaceTint = 1 << 3 | Colors,
     Outline = 1 << 4 | Colors,
     Focus = 1 << 5 | Colors,
-
     GroupBlend = BlendDisabledLow | BlendDisabledHigh | BlendLow | BlendNormal | BlendHigh
   }
 
@@ -536,11 +532,7 @@ namespace HELIX.Compose {
 
   public struct BlendProgression {
     public static readonly BlendProgression Default = new() {
-      disabledLow = 0.1f,
-      disabledHigh = 0.38f,
-      low = 0.08f,
-      normal = 0.12f,
-      high = 0.38f
+      disabledLow = 0.1f, disabledHigh = 0.38f, low = 0.08f, normal = 0.12f, high = 0.38f
     };
 
     public float disabledHigh;
@@ -561,11 +553,7 @@ namespace HELIX.Compose {
     public static RadiusProgression Generate(float basis, float factor) {
       var unit = basis / 3f * factor;
       return new RadiusProgression {
-        radius1 = unit * 3,
-        radius2 = unit * 4,
-        radius3 = unit * 6,
-        radius4 = unit * 8,
-        radius5 = unit * 12,
+        radius1 = unit * 3, radius2 = unit * 4, radius3 = unit * 6, radius4 = unit * 8, radius5 = unit * 12,
         radius6 = unit * 16
       };
     }
@@ -585,25 +573,15 @@ namespace HELIX.Compose {
     public static SpacingProgression Generate(float basis, float factor) {
       var unit = basis * factor;
       return new SpacingProgression {
-        spacing1 = unit,
-        spacing2 = unit * 2,
-        spacing3 = unit * 3,
-        spacing4 = unit * 4,
-        spacing5 = unit * 6,
-        spacing6 = unit * 8,
-        spacing7 = unit * 10,
-        spacing8 = unit * 12,
-        spacing9 = unit * 16
+        spacing1 = unit, spacing2 = unit * 2, spacing3 = unit * 3, spacing4 = unit * 4, spacing5 = unit * 6,
+        spacing6 = unit * 8, spacing7 = unit * 10, spacing8 = unit * 12, spacing9 = unit * 16
       };
     }
   }
 
   public struct BorderProgression {
     public static readonly BorderProgression Default = new() {
-      borderSmall = 1f,
-      borderNormal = 2f,
-      borderLarge = 4f,
-      borderExtraLarge = 6f
+      borderSmall = 1f, borderNormal = 2f, borderLarge = 4f, borderExtraLarge = 6f
     };
 
     public float borderSmall;
@@ -637,18 +615,9 @@ namespace HELIX.Compose {
       small.letterSpacing = factor * letterSpacingFactor * 0f;
 
       return new TypographyGroup {
-        large = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 64f,
-          style = large
-        },
-        medium = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 52f,
-          style = medium
-        },
-        small = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 44f,
-          style = small
-        }
+        large = new TypographyToken { lineHeight = factor * lineHeightFactor * 64f, style = large },
+        medium = new TypographyToken { lineHeight = factor * lineHeightFactor * 52f, style = medium },
+        small = new TypographyToken { lineHeight = factor * lineHeightFactor * 44f, style = small }
       };
     }
 
@@ -672,18 +641,9 @@ namespace HELIX.Compose {
       small.letterSpacing = factor * letterSpacingFactor * 0f;
 
       return new TypographyGroup {
-        large = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 40f,
-          style = large
-        },
-        medium = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 36f,
-          style = medium
-        },
-        small = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 32f,
-          style = small
-        }
+        large = new TypographyToken { lineHeight = factor * lineHeightFactor * 40f, style = large },
+        medium = new TypographyToken { lineHeight = factor * lineHeightFactor * 36f, style = medium },
+        small = new TypographyToken { lineHeight = factor * lineHeightFactor * 32f, style = small }
       };
     }
 
@@ -707,18 +667,9 @@ namespace HELIX.Compose {
       small.letterSpacing = factor * letterSpacingFactor * 0.1f;
 
       return new TypographyGroup {
-        large = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 28f,
-          style = large
-        },
-        medium = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 24f,
-          style = medium
-        },
-        small = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 20f,
-          style = small
-        }
+        large = new TypographyToken { lineHeight = factor * lineHeightFactor * 28f, style = large },
+        medium = new TypographyToken { lineHeight = factor * lineHeightFactor * 24f, style = medium },
+        small = new TypographyToken { lineHeight = factor * lineHeightFactor * 20f, style = small }
       };
     }
 
@@ -742,18 +693,9 @@ namespace HELIX.Compose {
       small.letterSpacing = factor * letterSpacingFactor * 0.5f;
 
       return new TypographyGroup {
-        large = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 20f,
-          style = large
-        },
-        medium = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 16f,
-          style = medium
-        },
-        small = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 16f,
-          style = small
-        }
+        large = new TypographyToken { lineHeight = factor * lineHeightFactor * 20f, style = large },
+        medium = new TypographyToken { lineHeight = factor * lineHeightFactor * 16f, style = medium },
+        small = new TypographyToken { lineHeight = factor * lineHeightFactor * 16f, style = small }
       };
     }
 
@@ -777,18 +719,9 @@ namespace HELIX.Compose {
       small.letterSpacing = factor * letterSpacingFactor * 0.4f;
 
       return new TypographyGroup {
-        large = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 24f,
-          style = large
-        },
-        medium = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 20f,
-          style = medium
-        },
-        small = new TypographyToken {
-          lineHeight = factor * lineHeightFactor * 16f,
-          style = small
-        }
+        large = new TypographyToken { lineHeight = factor * lineHeightFactor * 24f, style = large },
+        medium = new TypographyToken { lineHeight = factor * lineHeightFactor * 20f, style = medium },
+        small = new TypographyToken { lineHeight = factor * lineHeightFactor * 16f, style = small }
       };
     }
   }
@@ -801,14 +734,25 @@ namespace HELIX.Compose {
       this.lineHeight = lineHeight;
       this.style = style;
     }
-  }
 
-  public static class ThemeProperties {
+    public static implicit operator TextStyle(TypographyToken token) => token.style;
   }
 
   public abstract class ThemeProperty { }
 
-  public class ThemeProperty<T> : ThemeProperty {
+  public static class ThemeProperties {
+    public static readonly ThemeProperty<Length> TextGap = new(data => data[SpacingRole.Spacing1]);
+    public static readonly ThemeProperty<Length> DecoratorColumnGap = new(data => data[SpacingRole.Spacing1]);
+
+    public static readonly ThemeProperty<TextStyle> LabelStyle = new(data => data[TextRole.LabelLarge]);
+    public static readonly ThemeProperty<TextStyle> DescriptionStyle = new(data => data[TextRole.LabelMedium]);
+    public static readonly ThemeProperty<TextStyle> PrefixStyle = new(data => data[TextRole.BodyMedium]);
+    public static readonly ThemeProperty<TextStyle> SuffixStyle = new(data => data[TextRole.BodyMedium]);
+    public static readonly ThemeProperty<TextStyle> DecoratorStyle = new(data => data[TextRole.LabelMedium]);
+
+  }
+
+  public sealed class ThemeProperty<T> : ThemeProperty {
     public readonly bool hasDefault;
     public readonly T defaultValue;
     public readonly Func<ThemeData, T> computeFunc;
@@ -827,7 +771,7 @@ namespace HELIX.Compose {
       hasDefault = false;
     }
 
-    public virtual bool Compute(ThemeData themeData, out T value) {
+    public bool Compute(ThemeData themeData, out T value) {
       if (computeFunc != null) {
         value = computeFunc(themeData);
         return true;
@@ -838,6 +782,7 @@ namespace HELIX.Compose {
 
     public T this[ThemeData themeData] => themeData.GetComputedProperty(this);
 
-    public T ReadScope() => this[ThemeData.Context.ReadScope()];
+    public T this[VisualElement element] => ThemeData.Key.ReadAt(element).GetComputedProperty(this);
+    public T this[in Composition cx] => ThemeData.Key[in cx].GetComputedProperty(this);
   }
 }

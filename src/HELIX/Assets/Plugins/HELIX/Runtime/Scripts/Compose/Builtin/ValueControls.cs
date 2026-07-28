@@ -47,20 +47,20 @@ namespace HELIX.Compose {
 
   public sealed class SliderStyle {
     public static readonly SliderStyle Default = BuildDefault(HXThemes.DefaultDark);
-    public static readonly ContextKey<SliderStyle> Context = new("SliderStyle", Default);
+    public static readonly ContextKey<SliderStyle> Key = new("SliderStyle", Default);
 
     public readonly InputFieldStyle box;
-    public readonly StateComposable track;
-    public readonly StateComposable progress;
-    public readonly StateComposable thumb;
+    public readonly Composable<StateFlag> track;
+    public readonly Composable<StateFlag> progress;
+    public readonly Composable<StateFlag> thumb;
     public readonly float trackSize;
     public readonly float thumbSize;
 
     public SliderStyle(
       InputFieldStyle box,
-      StateComposable track,
-      StateComposable progress,
-      StateComposable thumb,
+      Composable<StateFlag> track,
+      Composable<StateFlag> progress,
+      Composable<StateFlag> thumb,
       float trackSize = 4f,
       float thumbSize = 16f
     ) {
@@ -78,27 +78,29 @@ namespace HELIX.Compose {
         constraints: BoxConstraints.Min(new StyleLength2(32f))
       );
 
-      var progress = new StatePropertyMap<Color>();
-      progress[StateFlag.Disabled] = theme.GetColor(ColorRoles.OnSurfaceDisabledLow);
-      progress[StateFlag.None] = theme.GetColor(ColorRoles.Primary);
+      var progress = new StatePropertyMap<Color> {
+        [StateFlag.Disabled] = theme.GetColor(ColorRoles.OnSurfaceDisabledLow),
+        [StateFlag.None] = theme.GetColor(ColorRoles.Primary)
+      };
 
-      var thumb = new StatePropertyMap<Color>();
-      thumb[StateFlag.Disabled] = theme.GetColor(ColorRoles.OnSurfaceDisabledHigh);
-      thumb[StateFlag.Pressed | StateFlag.ModAny] = theme.GetColor(ColorRoles.OnPrimary);
-      thumb[StateFlag.Focused] = theme.GetColor(ColorRoles.Focus);
-      thumb[StateFlag.None] = theme.GetColor(ColorRoles.Primary);
+      var thumb = new StatePropertyMap<Color> {
+        [StateFlag.Disabled] = theme.GetColor(ColorRoles.OnSurfaceDisabledHigh),
+        [StateFlag.Pressed | StateFlag.ModAny] = theme.GetColor(ColorRoles.OnPrimary),
+        [StateFlag.Focused] = theme.GetColor(ColorRoles.Focus),
+        [StateFlag.None] = theme.GetColor(ColorRoles.Primary)
+      };
 
       return new SliderStyle(
         box,
-        new DrawSolidBoxStyle(
+        new HXSolidBoxStyle(
           radius: BorderRadius.All(2f),
           color: theme.GetColor(ColorRoles.Outline)
         ).Bake(),
-        new DrawSolidBoxStyle(
+        new HXSolidBoxStyle(
           radius: BorderRadius.All(2f),
           color: progress
         ).Bake(),
-        new DrawSolidBoxStyle(
+        new HXSolidBoxStyle(
           radius: BorderRadius.All(8f),
           color: thumb
         ).Bake()
@@ -128,9 +130,7 @@ namespace HELIX.Compose {
       this.MakeRelative();
 
       _background = new CompositionBoundaryNode {
-        name = "SliderVisual",
-        composable = ComposeBackground,
-        pickingMode = PickingMode.Ignore
+        name = "SliderVisual", composable = ComposeBackground, pickingMode = PickingMode.Ignore
       }.Stretched();
       _track = CreatePart("Track", ComposeTrack);
       _progress = CreatePart("Progress", ComposeProgress);
@@ -218,11 +218,7 @@ namespace HELIX.Compose {
     }
 
     private static CompositionBoundaryNode CreatePart(string name, Composable composable) {
-      var part = new CompositionBoundaryNode {
-        name = name,
-        composable = composable,
-        pickingMode = PickingMode.Ignore
-      };
+      var part = new CompositionBoundaryNode { name = name, composable = composable, pickingMode = PickingMode.Ignore };
       return part.MakeAbsolute();
     }
 
@@ -447,26 +443,26 @@ namespace HELIX.Compose {
 
   public sealed class CheckboxStyle {
     public static readonly CheckboxStyle Default = BuildDefault(HXThemes.DefaultDark);
-    public static readonly ContextKey<CheckboxStyle> Context = new("CheckboxStyle", Default);
+    public static readonly ContextKey<CheckboxStyle> Key = new("CheckboxStyle", Default);
 
-    public readonly ControlBoxStyle box;
-    public readonly StateComposable indicator;
-    public readonly StateComposable fill;
+    public readonly HXControlBoxStyle boxStyle;
+    public readonly Composable<StateFlag> indicator;
+    public readonly Composable<StateFlag> fill;
     public readonly float indicatorSize;
     public readonly StyleLength4 indicatorPadding;
     public readonly StyleLength4 indicatorMargin;
     public readonly float gap;
 
     public CheckboxStyle(
-      ControlBoxStyle box,
-      StateComposable indicator,
+      HXControlBoxStyle boxStyle,
+      Composable<StateFlag> indicator,
       float indicatorSize = 18f,
       float gap = 8f,
-      StateComposable fill = null,
+      Composable<StateFlag> fill = null,
       StyleLength4? indicatorPadding = null,
       StyleLength4? indicatorMargin = null
     ) {
-      this.box = box;
+      this.boxStyle = boxStyle;
       this.indicator = indicator;
       this.fill = fill;
       this.indicatorSize = indicatorSize;
@@ -477,41 +473,30 @@ namespace HELIX.Compose {
 
     public static CheckboxStyle BuildDefault(ThemeData theme) {
       var indicatorBorder = new StatePropertyMap<Border> {
-        [StateFlag.Disabled] = Border.All(
-          1f,
-          theme.GetColor(ColorRoles.OnSurfaceDisabledHigh)
-        ),
+        [StateFlag.Disabled] = Border.All(1f, theme.GetColor(ColorRoles.OnSurfaceDisabledHigh)),
         [StateFlag.Focused] = Border.All(2f, theme.GetColor(ColorRoles.Focus)),
         [StateFlag.Hovered] = Border.All(1f, theme.GetColor(ColorRoles.OnSurface)),
-        [StateFlag.None] = Border.All(
-          1f,
-          theme.GetColor(ColorRoles.OnSurface).WithOpacity(0.75f)
-        )
+        [StateFlag.None] = Border.All(1f, theme.GetColor(ColorRoles.OnSurface).WithOpacity(0.75f))
       };
       var fillColor = new StatePropertyMap<Color> {
-        [StateFlag.Disabled | StateFlag.Selected] =
-          theme.GetColor(ColorRoles.OnSurfaceDisabledHigh),
+        [StateFlag.Disabled | StateFlag.Selected] = theme.GetColor(ColorRoles.OnSurfaceDisabledHigh),
         [StateFlag.Selected] = theme.GetColor(ColorRoles.Primary),
         [StateFlag.None] = Colors.Transparent
       };
       return new CheckboxStyle(
-        new ControlBoxStyle(
+        new HXControlBoxStyle(
           alignment: Alignment.CenterLeft,
           textStyle: new StatePropertyMap<TextStyle> {
-            [StateFlag.Disabled] = new TextStyle(
-              color: theme.GetColor(ColorRoles.OnSurfaceDisabledHigh)
-            ),
-            [StateFlag.None] = new TextStyle(
-              color: theme.GetColor(ColorRoles.OnSurface)
-            )
+            [StateFlag.Disabled] = new TextStyle(color: theme.GetColor(ColorRoles.OnSurfaceDisabledHigh)),
+            [StateFlag.None] = new TextStyle(color: theme.GetColor(ColorRoles.OnSurface))
           }
         ),
-        new DrawSolidBoxStyle(
+        new HXSolidBoxStyle(
           color: Colors.Transparent,
           border: indicatorBorder,
           radius: BorderRadius.All(3f)
         ).Bake(),
-        fill: new DrawSolidBoxStyle(
+        fill: new HXSolidBoxStyle(
           color: fillColor,
           radius: BorderRadius.All(1f)
         ).Bake(),
@@ -525,7 +510,7 @@ namespace HELIX.Compose {
     public static partial ref ElementRef CheckboxFill(
       ref this Composition cx,
       [Prop] StateFlag state,
-      [Prop] StateComposable visual
+      [Prop] Composable<StateFlag> visual
     );
 
     public partial class CheckboxFillComposable {
@@ -544,8 +529,8 @@ namespace HELIX.Compose {
     public static partial ref ElementRef CheckboxIndicator(
       ref this Composition cx,
       [Prop] StateFlag state,
-      [Prop] StateComposable visual,
-      [Prop] StateComposable fill,
+      [Prop] Composable<StateFlag> visual,
+      [Prop] Composable<StateFlag> fill,
       [Prop] float size = 18f,
       [Prop] StyleLength4 padding = default,
       [Prop] StyleLength4 margin = default
@@ -606,7 +591,7 @@ namespace HELIX.Compose {
         in resolvedOptions,
         enabled,
         error,
-        style ?? cx.ReadContextOrDefault(SliderStyle.Context, SliderStyle.Default),
+        style ?? cx.ReadContextOrDefault(SliderStyle.Key, SliderStyle.Default),
         cx.boundary,
         onChanged,
         onCommitted
@@ -623,7 +608,7 @@ namespace HELIX.Compose {
       [Prop] Composable content,
       [Prop] CompositionAction<bool> onChanged = null,
       [Prop] bool enabled = true,
-      [Prop] ControlBoxStyle? style = null
+      [Prop] HXControlBoxStyle? style = null
     );
 
     public partial class ToggleComposable {
@@ -632,12 +617,12 @@ namespace HELIX.Compose {
         this.Toggle(StateFlag.Disabled, !Props.Enabled);
         Node.SetEnabled(Props.Enabled);
         cx.APPLY.Focusable(Props.Enabled);
-        (Props.Style ?? ControlBoxStyle.Default).RenderBoundary(ref cx, InputState);
+        (Props.Style ?? HXControlBoxStyle.Default).RenderBoundary(ref cx, InputState);
         Props.Content?.Invoke(ref cx);
       }
 
       protected override void OnClick(EventBase evt) {
-        if (Props.Enabled) CompositionActionExtensions.Call<bool>(Props.OnChanged, Node, !Props.Value);
+        if (Props.Enabled) Props.OnChanged.Call(Node, !Props.Value);
       }
     }
   }
@@ -647,7 +632,6 @@ namespace HELIX.Compose {
     public static partial ref ElementRef Checkbox(
       ref this Composition cx,
       [Prop] bool value,
-      [Prop] PrefixLabelSuffixSpec? presentation = null,
       [Prop] CompositionAction<bool> onChanged = null,
       [Prop] bool enabled = true,
       [Prop] CheckboxStyle style = null,
@@ -662,28 +646,19 @@ namespace HELIX.Compose {
         Node.SetEnabled(Props.Enabled);
         cx.APPLY.Focusable(Props.Enabled);
 
-        var style = Props.Style ?? cx.ReadContextOrDefault(CheckboxStyle.Context, CheckboxStyle.Default);
-        style.box.RenderBoundary(ref cx, InputState);
+        var style = Props.Style ?? cx.ReadContextOrDefault(CheckboxStyle.Key, CheckboxStyle.Default);
+        style.boxStyle.RenderBoundary(ref cx, InputState);
         cx.APPLY.AlignSelf(Align.FlexStart);
         using (cx.Flex(Axis.Horizontal, cross: Align.Center)) {
           cx.CheckboxIndicator(
             InputState,
-            style.indicator,
-            style.fill,
-            style.indicatorSize,
-            style.indicatorPadding,
-            style.indicatorMargin
+            style.indicator, style.fill, style.indicatorSize, style.indicatorPadding, style.indicatorMargin
           );
-          if (Props.Presentation.HasValue) {
-            cx.Gap(style.gap);
-            var presentation = Props.Presentation.Value;
-            cx.PrefixLabelSuffix(in presentation);
-          }
         }
       }
 
       protected override void OnClick(EventBase evt) {
-        if (Props.Enabled) CompositionActionExtensions.Call<bool>(Props.OnChanged, Node, !Props.Value);
+        if (Props.Enabled) Props.OnChanged.Call(Node, !Props.Value);
       }
     }
   }

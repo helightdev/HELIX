@@ -12,13 +12,13 @@ namespace HELIX.Compose {
 
   public sealed class InputFieldStyle {
     public static readonly InputFieldStyle Default = BuildDefault(HXThemes.DefaultDark);
-    public static readonly ContextKey<InputFieldStyle> Context = new("InputFieldStyle", Default);
+    public static readonly ContextKey<InputFieldStyle> Key = new("InputFieldStyle", Default);
 
     public readonly StateProperty<StyleLength4> padding;
     public readonly StateProperty<StyleLength4> margin;
     public readonly StateProperty<BoxConstraints> constraints;
     public readonly StateProperty<TextStyle> textStyle;
-    public readonly StateComposable background;
+    public readonly Composable<StateFlag> background;
     public readonly TextSelectionStyle selectionStyle;
     public readonly Color selectionColor;
     public readonly Color cursorColor;
@@ -28,7 +28,7 @@ namespace HELIX.Compose {
       StateProperty<StyleLength4> margin = null,
       StateProperty<BoxConstraints> constraints = null,
       StateProperty<TextStyle> textStyle = null,
-      StateComposable background = null,
+      Composable<StateFlag> background = null,
       TextSelectionStyle selectionStyle = TextSelectionStyle.Dark,
       Color? selectionColor = null,
       Color? cursorColor = null
@@ -86,9 +86,9 @@ namespace HELIX.Compose {
       };
 
       var text = new StatePropertyMap<TextStyle>();
-      var normalText = theme.GetTextStyleRef(TextRole.BodyMedium);
+      var normalText = theme[TextRole.BodyMedium].style;
       var disabledText = normalText;
-      disabledText.color = theme.GetColor(ColorRoles.OnSurfaceDisabledHigh);
+      disabledText.color = theme[ColorRoles.OnSurfaceDisabledHigh];
       text[StateFlag.Disabled] = disabledText;
       text[StateFlag.None] = normalText;
 
@@ -96,7 +96,7 @@ namespace HELIX.Compose {
         padding: StyleLength4.Symmetric(horizontal: 8f, vertical: 5f),
         constraints: BoxConstraints.Min(new StyleLength2(32f)),
         textStyle: text,
-        background: new DrawSolidBoxStyle(
+        background: new HXSolidBoxStyle(
           border: borders,
           radius: BorderRadius.All(4f),
           color: backgrounds
@@ -598,7 +598,7 @@ namespace HELIX.Compose {
         value ?? string.Empty,
         enabled,
         error,
-        style ?? cx.ReadContextOrDefault(InputFieldStyle.Context, InputFieldStyle.Default),
+        style ?? cx.ReadContextOrDefault(InputFieldStyle.Key, InputFieldStyle.Default),
         cx.boundary,
         onChanged,
         onSubmitted,
@@ -633,7 +633,7 @@ namespace HELIX.Compose {
         value,
         enabled,
         error,
-        style ?? cx.ReadContextOrDefault(InputFieldStyle.Context, InputFieldStyle.Default),
+        style ?? cx.ReadContextOrDefault(InputFieldStyle.Key, InputFieldStyle.Default),
         cx.boundary,
         onChanged,
         onSubmitted,
@@ -677,7 +677,7 @@ namespace HELIX.Compose {
         value,
         enabled,
         error,
-        style ?? cx.ReadContextOrDefault(InputFieldStyle.Context, InputFieldStyle.Default),
+        style ?? cx.ReadContextOrDefault(InputFieldStyle.Key, InputFieldStyle.Default),
         cx.boundary,
         onChanged,
         onSubmitted,

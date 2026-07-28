@@ -27,7 +27,7 @@ namespace HELIX.Types {
       font = StyleKeyword.Null
     };
 
-    public static readonly ContextKey<TextStyle> Context = new("TextStyle", _fallback);
+    public static readonly ContextKey<TextStyle> Key = new("TextStyle", _fallback);
 
     public StyleEnum<TextAnchor> align;
     public StyleColor color;
@@ -115,13 +115,13 @@ namespace HELIX.Types {
     }
 
     public static ref TextStyle WriteMerged(
-      ref Composition cx,
+      in ContextAccessor accessor,
       in TextStyle overrides
     ) {
-      var hasBasis = RecompositionScope.TryGetContext(Context, out var basis);
-      cx.WritableContext(Context, out var data);
+      var hasBasis = Key.TryReadDataAt(accessor.contributor.Element, out var basis, false);
+      var data = accessor.AcquireWritableData(Key);
       ref var target = ref data.GetValueRef();
-      data.IncrementContextVersion(ContextFlags.None);
+      data.IncrementContextVersion();
 
       if (hasBasis) {
         Merge(ref target, in basis.GetValueRef(), in overrides);
@@ -132,16 +132,31 @@ namespace HELIX.Types {
     }
 
     public static ref TextStyle WriteMerged(
-      ref Composition cx,
+      in ContextAccessor accessor,
       StateProperty<TextStyle> property,
       StateFlag flag
     ) {
       if (property.HasValueFor(flag)) {
         ref var overrides = ref property.GetValueRef(flag);
-        return ref WriteMerged(ref cx, in overrides);
+        return ref WriteMerged(in accessor, in overrides);
       } else {
-        return ref WriteMerged(ref cx, in _null);
+        return ref WriteMerged(in accessor, in _null);
       }
+    }
+
+    public static ref TextStyle Merge(
+      in ContextAccessor accessor,
+      in TextStyle overrides
+    ) {
+      ref var style = ref WriteMerged(in accessor, in overrides);
+      style.Apply(accessor.contributor);
+      return ref style;
+    }
+
+    public static ref TextStyle Merge(in ContextAccessor accessor, StateProperty<TextStyle> property, StateFlag flag) {
+      ref var style = ref WriteMerged(in accessor, property, flag);
+      style.Apply(accessor.contributor);
+      return ref style;
     }
   }
 }
