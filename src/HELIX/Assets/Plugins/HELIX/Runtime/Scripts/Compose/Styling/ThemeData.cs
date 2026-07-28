@@ -6,91 +6,6 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  public static class HXThemes {
-    public static readonly ThemeData DefaultDark = ThemeData.Build(theme => {
-        theme.brightness = Brightness.Dark;
-        theme.ApplySurface(
-          background: Colors.OkLch(0.145f, 0f, 0f),
-          onBackground: Colors.OkLch(0.97f, 0f, 0f),
-          onBackgroundVariant: Colors.OkLch(0.708f, 0f, 0f),
-          containerLow: Colors.OkLch(0.205f, 0f, 0f),
-          container: Colors.OkLch(0.269f, 0f, 0f),
-          containerHigh: Colors.OkLch(0.371f, 0f, 0f),
-          containerHighest: Colors.OkLch(0.439f, 0f, 0f),
-          onContainer: Colors.OkLch(0.97f, 0f, 0f)
-        );
-        theme.primary = new ColorTokenPalette(
-          Colors.OkLch(0.585f, 0.233f, 277.117f),
-          Colors.OkLch(0.257f, 0.09f, 281.288f),
-          Colors.OkLch(0.97f, 0f, 0f)
-        );
-        theme.secondary = new ColorTokenPalette(
-          Colors.OkLch(0.556f, 0f, 0f),
-          Colors.OkLch(0.269f, 0f, 0f),
-          Colors.OkLch(0.985f, 0f, 0f)
-        );
-        theme.tertiary = new ColorTokenPalette(
-          Colors.OkLch(0.554f, 0.046f, 257.417f),
-          Colors.OkLch(0.279f, 0.041f, 260.031f),
-          Colors.OkLch(0.97f, 0f, 0f)
-        );
-        theme.error = new ColorTokenPalette(
-          Colors.OkLch(0.637f, 0.237f, 25.331f),
-          Colors.OkLch(0.258f, 0.092f, 26.042f),
-          Colors.OkLch(0.97f, 0f, 0f)
-        );
-        theme.ApplyDefaultSupports();
-        theme.ApplyDefaultProgressions();
-        theme.ApplyDefaultTypography();
-      }
-    );
-
-    public static void ApplySurface(
-      this ThemeData themeData,
-      Color background,
-      Color onBackground,
-      Color onBackgroundVariant,
-      Color container,
-      Color onContainer,
-      Color containerLow,
-      Color containerHigh,
-      Color containerHighest
-    ) {
-      themeData.surface = new ColorPair(background, onBackground);
-      themeData.surfaceContainerLow = new ColorPair(containerLow, onContainer);
-      themeData.surfaceContainer = new ColorPair(container, onContainer);
-      themeData.surfaceContainerHigh = new ColorPair(containerHigh, onContainer);
-      themeData.surfaceContainerHighest = new ColorPair(containerHighest, onContainer);
-      themeData.surfaceVariant = new ColorPair(background, onBackgroundVariant);
-      themeData.surfaceInverse = new ColorPair(onBackground, background);
-    }
-
-    public static void ApplyDefaultSupports(this ThemeData themeData) {
-      themeData.outlineColor = themeData.surface.onValue.WithOpacity(0.10f);
-      themeData.scrimColor = Colors.Black20;
-      themeData.shadowColor = Colors.Black80;
-      themeData.surfaceTintColor = Colors.White;
-      themeData.focusColor = themeData.primary.main.value;
-    }
-
-    public static void ApplyDefaultProgressions(this ThemeData themeData) {
-      themeData.blend = BlendProgression.Default;
-      themeData.border = BorderProgression.Default;
-      themeData.radius = RadiusProgression.Generate(4.5f, 1f);
-      themeData.spacing = SpacingProgression.Generate(5f, 1f);
-    }
-
-    public static void ApplyDefaultTypography(this ThemeData themeData) {
-      var baseStyle = new TextStyle(color: themeData.surface.onValue);
-
-      themeData.display = TypographyGroup.Display(baseStyle);
-      themeData.headline = TypographyGroup.Headline(baseStyle);
-      themeData.title = TypographyGroup.Title(baseStyle);
-      themeData.label = TypographyGroup.Label(baseStyle);
-      themeData.body = TypographyGroup.Body(baseStyle);
-    }
-  }
-
   public record ThemeData {
     public static readonly ContextKey<ThemeData> Key = new("Theme", HXThemes.DefaultDark);
 
@@ -382,53 +297,6 @@ namespace HELIX.Compose {
     Outline = 1 << 4 | Colors,
     Focus = 1 << 5 | Colors,
     GroupBlend = BlendDisabledLow | BlendDisabledHigh | BlendLow | BlendNormal | BlendHigh
-  }
-
-  public static class ColorRoles {
-    public const ColorRole Transparent = ColorRole.Transparent;
-    public const ColorRole Primary = ColorRole.Primary;
-    public const ColorRole Secondary = ColorRole.Secondary;
-    public const ColorRole Tertiary = ColorRole.Tertiary;
-    public const ColorRole Error = ColorRole.Error;
-    public const ColorRole Surface = ColorRole.Surface;
-
-    public const ColorRole OnPrimary = ColorRole.Primary | ColorRole.On;
-    public const ColorRole OnSecondary = ColorRole.Secondary | ColorRole.On;
-    public const ColorRole OnTertiary = ColorRole.Tertiary | ColorRole.On;
-    public const ColorRole OnError = ColorRole.Error | ColorRole.On;
-    public const ColorRole OnSurface = ColorRole.Surface | ColorRole.On;
-
-    public const ColorRole PrimaryContainer = ColorRole.Primary | ColorRole.Container;
-    public const ColorRole SecondaryContainer = ColorRole.Secondary | ColorRole.Container;
-    public const ColorRole TertiaryContainer = ColorRole.Tertiary | ColorRole.Container;
-    public const ColorRole ErrorContainer = ColorRole.Error | ColorRole.Container;
-    public const ColorRole SurfaceContainer = ColorRole.Surface | ColorRole.Container;
-    public const ColorRole SurfaceContainerLow = ColorRole.SurfaceLow | ColorRole.Container;
-    public const ColorRole SurfaceContainerHigh = ColorRole.SurfaceHigh | ColorRole.Container;
-    public const ColorRole SurfaceContainerHighest = ColorRole.SurfaceHighest | ColorRole.Container;
-
-    public const ColorRole OnPrimaryContainer = ColorRole.Primary | ColorRole.Container | ColorRole.On;
-    public const ColorRole OnSecondaryContainer = ColorRole.Secondary | ColorRole.Container | ColorRole.On;
-    public const ColorRole OnTertiaryContainer = ColorRole.Tertiary | ColorRole.Container | ColorRole.On;
-    public const ColorRole OnErrorContainer = ColorRole.Error | ColorRole.Container | ColorRole.On;
-    public const ColorRole OnSurfaceContainer = ColorRole.Surface | ColorRole.Container | ColorRole.On;
-    public const ColorRole OnSurfaceContainerLow = ColorRole.SurfaceLow | ColorRole.Container | ColorRole.On;
-    public const ColorRole OnSurfaceContainerHigh = ColorRole.SurfaceHigh | ColorRole.Container | ColorRole.On;
-    public const ColorRole OnSurfaceContainerHighest = ColorRole.SurfaceHighest | ColorRole.Container | ColorRole.On;
-
-    public const ColorRole SurfaceInverse = ColorRole.SurfaceInverse;
-    public const ColorRole OnSurfaceInverse = ColorRole.SurfaceInverse | ColorRole.On;
-    public const ColorRole SurfaceVariant = ColorRole.SurfaceVariant;
-    public const ColorRole OnSurfaceVariant = ColorRole.SurfaceVariant | ColorRole.On;
-
-    public const ColorRole OnSurfaceDisabledLow = ColorRole.Surface | ColorRole.On | ColorRole.BlendDisabledLow;
-    public const ColorRole OnSurfaceDisabledHigh = ColorRole.Surface | ColorRole.On | ColorRole.BlendDisabledHigh;
-
-    public const ColorRole Scrim = ColorRole.Scrim;
-    public const ColorRole Shadow = ColorRole.Shadow;
-    public const ColorRole SurfaceTint = ColorRole.SurfaceTint;
-    public const ColorRole Outline = ColorRole.Outline;
-    public const ColorRole Focus = ColorRole.Focus;
   }
 
   public enum TextRole {
@@ -739,18 +607,6 @@ namespace HELIX.Compose {
   }
 
   public abstract class ThemeProperty { }
-
-  public static class ThemeProperties {
-    public static readonly ThemeProperty<Length> TextGap = new(data => data[SpacingRole.Spacing1]);
-    public static readonly ThemeProperty<Length> DecoratorColumnGap = new(data => data[SpacingRole.Spacing1]);
-
-    public static readonly ThemeProperty<TextStyle> LabelStyle = new(data => data[TextRole.LabelLarge]);
-    public static readonly ThemeProperty<TextStyle> DescriptionStyle = new(data => data[TextRole.LabelMedium]);
-    public static readonly ThemeProperty<TextStyle> PrefixStyle = new(data => data[TextRole.BodyMedium]);
-    public static readonly ThemeProperty<TextStyle> SuffixStyle = new(data => data[TextRole.BodyMedium]);
-    public static readonly ThemeProperty<TextStyle> DecoratorStyle = new(data => data[TextRole.LabelMedium]);
-
-  }
 
   public sealed class ThemeProperty<T> : ThemeProperty {
     public readonly bool hasDefault;
