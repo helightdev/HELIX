@@ -1,24 +1,24 @@
+using HELIX.Coloring;
+using HELIX.Coloring.Material;
 using HELIX.Compose;
 using HELIX.Extensions;
+using HELIX.Theming;
 using HELIX.Types;
 using HELIX.Widgets.Universal;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
+using Slider = HELIX.Compose.Slider;
 
 namespace HELIX.Examples {
-
   [BoundaryComposable(Extension = true, UseLookupCache = true)]
   public partial class MyBetterWidget {
-
     public partial struct Props {
       [PropDefault("HELIX.Coloring.Colors.Red", PropInit.Deferred)]
       public Color color;
     }
 
-    protected override void OnRecompose(ref Composition cx) {
-
-    }
+    protected override void OnRecompose(ref Composition cx) { }
   }
 
   [UxmlElement]
@@ -26,18 +26,17 @@ namespace HELIX.Examples {
     public override void Compose(ref Composition cx) {
       this.Fill();
       cx.NWSystemExample();
-      cx.APPLY.Fill();
+      cx.CURSOR.Fill();
     }
   }
 
   public static partial class NwSystemsExample {
-
     [CompositionBoundary] public static partial void NWSystemExample(ref this Composition cx);
 
     public partial class NWSystemExampleComposable {
       protected override void OnRecompose(ref Composition cx) {
         var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark);
-        cx.APPLY
+        cx.CURSOR
           .BackgroundColor(theme.GetColor(ColorRoles.Surface))
           .TextColor(theme.GetColor(ColorRoles.OnSurface));
 
@@ -52,6 +51,7 @@ namespace HELIX.Examples {
       public enum ExampleMode : byte { Balanced, Performance, Quality }
 
       public static readonly SliderOptions VolumeOptions = new(0f, 1f, step: 0f, thumbRange: 0.1f);
+      public static readonly SliderOptions VolumeOptionsScroll = new(0f, 1f, step: 0f, thumbRange: 0.1f, axis: Axis.Vertical);
       public static readonly NumericInputOptions DecimalOptions = new(format: "0.00");
 
       public string text = "Editable text";
@@ -69,9 +69,13 @@ namespace HELIX.Examples {
       }
 
       protected override void OnRecompose(ref Composition cx) {
+        Debug.Log(string.Join("\n", States.CommonFocusableSelectable));
+        Debug.Log(string.Join("\n", States.CommonFocusable));
+        Debug.Log(string.Join("\n", States.Common));
+
         var systemState = cx.Lookup<NWSystemExampleComposable>();
         using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-          cx.APPLY.Padding(16f);
+          cx.CURSOR.Padding(16f);
           cx.Text("HELIX NW system example").TextRole(TextRole.TitleLarge);
           cx.Spacing(2);
           cx.Text("Controlled inputs");
@@ -92,9 +96,9 @@ namespace HELIX.Examples {
             using (slots.Description()) HXDecorator.Label(ref cx, new LabelSpec("Description"));
           }
 
-          using (cx.Flex(Axis.Horizontal, cross: Align.FlexStart)) {
+          using (cx.Flex(Axis.Horizontal, cross: Align.Stretch)) {
             using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-              cx.APPLY.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
+              cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
               cx.Text("Text");
               cx.Spacing(1);
               cx.TextInput(
@@ -128,7 +132,7 @@ namespace HELIX.Examples {
             cx.Spacing(2);
 
             using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-              cx.APPLY.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
+              cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
               cx.Text("Volume");
               cx.Spacing(1);
               cx.Slider(
@@ -147,9 +151,94 @@ namespace HELIX.Examples {
                 }
               );
               cx.Spacing(2);
+              cx.Button(
+                static (ref Composition cx) => cx.Text("Filled"),
+                selected: enabled,
+                style: ThemeProperties.ButtonFilled[in cx], action: static (ctx) => {
+                  using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
+                }
+              );
+              cx.Spacing(2);
+              cx.Button(
+                static (ref Composition cx) => cx.Text("Outlined"),
+                selected: enabled,
+                style: ThemeProperties.ButtonOutlined[in cx], action: static (ctx) => {
+                  using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
+                }
+              );
+              cx.Spacing(2);
+              cx.Button(
+                static (ref Composition cx) => cx.Text("Toggle"),
+                selected: enabled,
+                style: ThemeProperties.ButtonToggle[in cx], action: static (ctx) => {
+                  using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
+                }
+              );         cx.Spacing(2);
+              cx.Button(
+                static (ref Composition cx) => cx.Text("Ghost"),
+                selected: enabled,
+                style: ThemeProperties.ButtonGhost[in cx], action: static (ctx) => {
+                  using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
+                }
+              );
             }
+
+            cx.Slider(
+              volume,
+              options: VolumeOptionsScroll,
+              onChanged: static (ctx, value) => {
+                using (ctx.Modify<HomeComposable>(out var state)) { state.volume = value; }
+              },
+              style: Slider.Scroller[in cx]
+            );
           }
           cx.Spacing(2);
+
+          // var colors = new Color[] {
+          //   MaterialColors.White,
+          //   MaterialColors.Red,
+          //   MaterialColors.Pink,
+          //   MaterialColors.Purple,
+          //   MaterialColors.DeepPurple,
+          //   MaterialColors.Indigo,
+          //   MaterialColors.Blue,
+          //   MaterialColors.LightBlue,
+          //   MaterialColors.Cyan,
+          //   MaterialColors.Teal,
+          //   MaterialColors.Green,
+          //   MaterialColors.LightGreen,
+          //   MaterialColors.Lime,
+          //   MaterialColors.Yellow,
+          //   MaterialColors.Amber,
+          //   MaterialColors.Orange,
+          //   MaterialColors.DeepOrange
+          // };
+
+          // for (var i = 0; i < colors.Length; i++) {
+          //   using (cx.Flex(Axis.Horizontal, cross: Align.Stretch)) {
+          //     cx.APPLY.Size(BoxConstraints.Tight(400, 32));
+          //
+          //     cx.DrawSolidBox(color: MaterialColors.Black).Flexible();
+          //     cx.DrawSolidBox(color: Colors.ContrastBlend(MaterialColors.Black, colors[i], 0.08f)).Flexible();
+          //     cx.DrawSolidBox(color: Colors.ContrastBlend(MaterialColors.Black, colors[i], 0.12f)).Flexible();
+          //     cx.DrawSolidBox(color: Colors.ContrastBlend(MaterialColors.Black, colors[i], 0.38f)).Flexible();
+          //     cx.DrawSolidBox(color: colors[i]).Flexible();
+          //     cx.Spacing(2);
+          //     cx.DrawSolidBox(color: colors[i]).Flexible();
+          //     cx.DrawSolidBox(color: Colors.ContrastBlend(colors[i], MaterialColors.White, 0.08f)).Flexible();
+          //     cx.DrawSolidBox(color: Colors.ContrastBlend(colors[i], MaterialColors.White, 0.12f)).Flexible();
+          //     cx.DrawSolidBox(color: Colors.ContrastBlend(colors[i], MaterialColors.White, 0.38f)).Flexible();
+          //     cx.DrawSolidBox(color: MaterialColors.White).Flexible();
+          //     cx.Spacing(2);
+          //     cx.DrawSolidBox(color: colors[i]).Flexible();
+          //     cx.DrawSolidBox(color: Colors.ContrastBlend(colors[i], MaterialColors.Black, 0.08f)).Flexible();
+          //     cx.DrawSolidBox(color: Colors.ContrastBlend(colors[i], MaterialColors.Black, 0.12f)).Flexible();
+          //     cx.DrawSolidBox(color: Colors.ContrastBlend(colors[i], MaterialColors.Black, 0.38f)).Flexible();
+          //     cx.DrawSolidBox(color: MaterialColors.Black).Flexible();
+          //
+          //   }
+          // }
+
         }
       }
     }

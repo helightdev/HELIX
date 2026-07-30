@@ -12,13 +12,16 @@ namespace HELIX.Compose {
           anonymousState = new AnonymousBoundaryData();
           node.SetDataOnly(anonymousState);
           retained = false;
+          retention = CompositionRetention.Reset;
         }
         data = anonymousState;
+        retention = CompositionRetention.Retained;
         return true;
       }
 
       data = new AnonymousBoundaryData();
       node.SetDataOnly(data);
+      retention = CompositionRetention.New;
       return false;
     }
 

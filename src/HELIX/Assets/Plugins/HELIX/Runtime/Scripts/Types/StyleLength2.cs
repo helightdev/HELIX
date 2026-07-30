@@ -21,6 +21,36 @@ namespace HELIX.Types {
       return new StyleLength2(new StyleLength(v.x), new StyleLength(v.y));
     }
 
+
+    public StyleLength2 Abs() => new(StyleLengths.Abs(w), StyleLengths.Abs(h));
+
+    public static StyleLength2 operator +(StyleLength2 a, StyleLength2 b) {
+      return new StyleLength2(StyleLengths.Add(a.w, b.w), StyleLengths.Add(a.h, b.h));
+    }
+
+    public static StyleLength2 operator -(StyleLength2 a, StyleLength2 b) {
+      return new StyleLength2(StyleLengths.Subtract(a.w, b.w), StyleLengths.Subtract(a.h, b.h));
+    }
+
+    public static StyleLength2 operator *(StyleLength2 a, StyleLength2 b) {
+      return new StyleLength2(StyleLengths.Multiply(a.w, b.w), StyleLengths.Multiply(a.h, b.h));
+    }
+
+    public static StyleLength2 operator /(StyleLength2 a, StyleLength2 b) {
+      return new StyleLength2(StyleLengths.Divide(a.w, b.w), StyleLengths.Divide(a.h, b.h));
+    }
+
+    public static StyleLength2 operator -(StyleLength2 a) {
+      return new StyleLength2(StyleLengths.Negate(a.w), StyleLengths.Negate(a.h));
+    }
+
+    public static StyleLength2 Lerp(StyleLength2 from, StyleLength2 to, float t) {
+      return new StyleLength2(
+        StyleLengths.Interpolate(from.w, to.w, t),
+        StyleLengths.Interpolate(from.h, to.h, t)
+      );
+    }
+
     public bool Equals(StyleLength2 other) {
       return w.Equals(other.w) && h.Equals(other.h);
     }
@@ -38,6 +68,7 @@ namespace HELIX.Types {
     }
 
     public static readonly StyleLength2 Initial = new(StyleKeyword.Initial);
+    public static readonly StyleLength2 Null = new(StyleKeyword.Null);
     public static readonly StyleLength2 Auto = new(StyleKeyword.Auto);
   }
 }

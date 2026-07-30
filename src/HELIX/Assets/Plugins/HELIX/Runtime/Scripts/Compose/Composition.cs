@@ -8,12 +8,35 @@ namespace HELIX.Compose {
   public delegate void ScopeCompletionCallback(BoundaryCell cell, in ScopeHandle handle);
 
   public ref struct Composition {
+    /// <summary>
+    /// The boundary to which the current composition belongs to.
+    /// </summary>
     public readonly IBoundary boundary;
-    public ElementRef APPLY;
+
+    /// <summary>
+    /// Access to the current cursor element in the composition.
+    /// This will usually be the last element that has been composed.
+    /// </summary>
+    public ElementRef CURSOR;
+
+    /// <summary>
+    /// Low-Level access to composition authoring related data.
+    /// Mainly useful for implementing custom composable types or special functionality.
+    /// </summary>
     public CompositionAuthoring AUTHORING;
 
-    public ComposableSlot Slot { get => AUTHORING.cell.slot; set => AUTHORING.cell.slot = value; }
+    /// <summary>
+    /// The most recent <see cref="ComposableSlot"/> in the composition if there is one.
+    /// </summary>
+    public ComposableSlot Slot {
+      get => AUTHORING.cell.slot;
+      set => AUTHORING.cell.slot = value;
 
+    }
+
+    /// <summary>
+    /// QOL Accessor to the <see cref="BoundaryCell"/> of the composition.
+    /// </summary>
     public BoundaryCell Cell => AUTHORING.cell;
 
     public Composition(IBoundary initiator) : this() {
@@ -25,8 +48,8 @@ namespace HELIX.Compose {
       AUTHORING.cell.scope = initiator;
       AUTHORING.cursor = initiator.Element;
 
-      APPLY.element = boundary.Element;
-      APPLY.composable = boundary;
+      CURSOR.element = boundary.Element;
+      CURSOR.composable = boundary;
     }
 
     public Composition(IBoundary boundary, CompositionId id, IComposable composable) : this() {
@@ -37,15 +60,27 @@ namespace HELIX.Compose {
       AUTHORING.cell.scope = composable;
       AUTHORING.cursor = composable.Element;
       AUTHORING.id = id;
-      APPLY.Replace(composable);
+      CURSOR.Replace(composable);
     }
 
+    /// <summary>
+    /// Conditionally composes a visual element without affecting positional indices of following elements should the
+    /// element be removed from the composition.
+    /// </summary>
+    /// <param name="condition">Whether to progress the positional indices.</param>
+    /// <param name="count">How many composables are skipped if true.</param>
+    /// <returns>Whether the condition has matched.</returns>
     public bool Conditional(bool condition, ushort count = 1) {
       if (condition) return true;
       AUTHORING.cell.localId.index += count;
       return false;
     }
 
+    /// <summary>
+    /// Begins a context modification scope, allowing for writing to the context of the current composable scope.
+    /// </summary>
+    /// <param name="context">Accessor to the context store.</param>
+    /// <returns>A transactional disposable handle.</returns>
     public ContextModificationScope WriteContext(out ContextAccessor context) {
       if (AUTHORING.cell.scope is not IContextWriteable writeable) {
         throw new InvalidOperationException("Current scope is not context writeable.");
@@ -60,7 +95,7 @@ namespace HELIX.Compose {
       ContextKey<T> key, out T value, bool listen = true, bool includeSelf = true
     ) {
       value = default;
-      if (!ContextData.TryLookup(APPLY.element, key.id, out var data, includeSelf)) return false;
+      if (!ContextData.TryLookup(CURSOR.element, key.id, out var data, includeSelf)) return false;
       if (data is not ContextData<T> typedData) return false;
       if (listen) boundary.SubscribeToContextData(key, typedData);
       value = typedData.value;
@@ -71,7 +106,7 @@ namespace HELIX.Compose {
       ContextKey<T> key, out ContextData<T> data, bool listen = true, bool includeSelf = true
     ) {
       data = null;
-      if (!ContextData.TryLookup(APPLY.element, key.id, out var found, includeSelf)) return false;
+      if (!ContextData.TryLookup(CURSOR.element, key.id, out var found, includeSelf)) return false;
       if (found is not ContextData<T> typedData) return false;
       if (listen) boundary.SubscribeToContextData(key, typedData);
       data = typedData;
@@ -79,7 +114,7 @@ namespace HELIX.Compose {
     }
 
     public readonly T ReadContext<T>(ContextKey<T> key, bool listen = true, bool includeSelf = true) {
-      if (!ContextData.TryLookup(APPLY.element, key.id, out var data, includeSelf)) return key.defaultValue;
+      if (!ContextData.TryLookup(CURSOR.element, key.id, out var data, includeSelf)) return key.defaultValue;
       if (data is not ContextData<T> typedData) return key.defaultValue;
       if (listen) boundary.SubscribeToContextData(key, typedData);
       return typedData.value;
@@ -88,14 +123,14 @@ namespace HELIX.Compose {
     public readonly T ReadContextOrDefault<T>(
       ContextKey<T> key, T defaultValue = default, bool listen = true, bool includeSelf = true
     ) {
-      if (!ContextData.TryLookup(APPLY.element, key.id, out var data, includeSelf)) return defaultValue;
+      if (!ContextData.TryLookup(CURSOR.element, key.id, out var data, includeSelf)) return defaultValue;
       if (data is not ContextData<T> typedData) return defaultValue;
       if (listen) boundary.SubscribeToContextData(key, typedData);
       return typedData.value;
     }
 
     public readonly T LookupLocalAncestor<T>(VisualElement element = null) {
-      var cursor = element ?? APPLY.composable.Element;
+      var cursor = element ?? CURSOR.composable.Element;
       while (cursor != null) {
         if (ReferenceEquals(cursor, boundary)) break;
         if (cursor is T matched) return matched;
@@ -251,10 +286,12 @@ namespace HELIX.Compose {
   public ref struct ElementRef {
     public VisualElement element;
     public IComposable composable;
+    public CompositionRetention retention;
 
-    public void Replace(IComposable replacement) {
+    public void Replace(IComposable replacement, CompositionRetention ret = CompositionRetention.Undefined) {
       composable = replacement;
       element = replacement.Element;
+      retention = ret;
     }
 
     public static implicit operator VisualElement(ElementRef reference) => reference.element;

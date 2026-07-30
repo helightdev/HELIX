@@ -48,6 +48,63 @@ namespace HELIX.Types {
       return new StyleLength4(v);
     }
 
+    public StyleLength4 Abs() =>
+      new(StyleLengths.Abs(l), StyleLengths.Abs(t), StyleLengths.Abs(r), StyleLengths.Abs(b));
+
+    public static StyleLength4 operator +(StyleLength4 a, StyleLength4 b) {
+      return new StyleLength4(
+        StyleLengths.Add(a.l, b.l),
+        StyleLengths.Add(a.t, b.t),
+        StyleLengths.Add(a.r, b.r),
+        StyleLengths.Add(a.b, b.b)
+      );
+    }
+
+    public static StyleLength4 operator -(StyleLength4 a, StyleLength4 b) {
+      return new StyleLength4(
+        StyleLengths.Subtract(a.l, b.l),
+        StyleLengths.Subtract(a.t, b.t),
+        StyleLengths.Subtract(a.r, b.r),
+        StyleLengths.Subtract(a.b, b.b)
+      );
+    }
+
+    public static StyleLength4 operator *(StyleLength4 a, StyleLength4 b) {
+      return new StyleLength4(
+        StyleLengths.Multiply(a.l, b.l),
+        StyleLengths.Multiply(a.t, b.t),
+        StyleLengths.Multiply(a.r, b.r),
+        StyleLengths.Multiply(a.b, b.b)
+      );
+    }
+
+    public static StyleLength4 operator /(StyleLength4 a, StyleLength4 b) {
+      return new StyleLength4(
+        StyleLengths.Divide(a.l, b.l),
+        StyleLengths.Divide(a.t, b.t),
+        StyleLengths.Divide(a.r, b.r),
+        StyleLengths.Divide(a.b, b.b)
+      );
+    }
+
+    public static StyleLength4 operator -(StyleLength4 a) {
+      return new StyleLength4(
+        StyleLengths.Negate(a.l),
+        StyleLengths.Negate(a.t),
+        StyleLengths.Negate(a.r),
+        StyleLengths.Negate(a.b)
+      );
+    }
+
+    public static StyleLength4 Lerp(StyleLength4 from, StyleLength4 to, float t) {
+      return new StyleLength4(
+        StyleLengths.Interpolate(from.l, to.l, t),
+        StyleLengths.Interpolate(from.t, to.t, t),
+        StyleLengths.Interpolate(from.r, to.r, t),
+        StyleLengths.Interpolate(from.b, to.b, t)
+      );
+    }
+
     public bool Equals(StyleLength4 other) {
       return t.Equals(other.t) && r.Equals(other.r) && b.Equals(other.b) && l.Equals(other.l);
     }
@@ -81,19 +138,19 @@ namespace HELIX.Types {
       StyleLength? bottom = null
     ) {
       return new StyleLength4(
-        left ?? StyleKeyword.Initial,
-        top ?? StyleKeyword.Initial,
-        right ?? StyleKeyword.Initial,
-        bottom ?? StyleKeyword.Initial
+        left ?? StyleKeyword.Null,
+        top ?? StyleKeyword.Null,
+        right ?? StyleKeyword.Null,
+        bottom ?? StyleKeyword.Null
       );
     }
 
     public static StyleLength4 Symmetric(StyleLength? horizontal = null, StyleLength? vertical = null) {
       return new StyleLength4(
-        horizontal ?? StyleKeyword.Initial,
-        vertical ?? StyleKeyword.Initial,
-        horizontal ?? StyleKeyword.Initial,
-        vertical ?? StyleKeyword.Initial
+        horizontal ?? StyleKeyword.Null,
+        vertical ?? StyleKeyword.Null,
+        horizontal ?? StyleKeyword.Null,
+        vertical ?? StyleKeyword.Null
       );
     }
 
@@ -103,6 +160,7 @@ namespace HELIX.Types {
 
     public static readonly StyleLength4 Zero = new(0);
     public static readonly StyleLength4 Initial = new(StyleKeyword.Initial);
+    public static readonly StyleLength4 Null = new(StyleKeyword.Null);
     public static readonly StyleLength4 Auto = new(StyleKeyword.Auto);
   }
 

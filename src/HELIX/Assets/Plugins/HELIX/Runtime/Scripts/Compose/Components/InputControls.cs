@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HELIX.Coloring;
 using HELIX.Extensions;
+using HELIX.Theming;
 using HELIX.Types;
 using HELIX.Widgets.Utilities;
 using UnityEngine;
@@ -18,7 +19,7 @@ namespace HELIX.Compose {
     public readonly StateProperty<StyleLength4> margin;
     public readonly StateProperty<BoxConstraints> constraints;
     public readonly StateProperty<TextStyle> textStyle;
-    public readonly Composable<StateFlag> background;
+    public readonly Composable<State> background;
     public readonly TextSelectionStyle selectionStyle;
     public readonly Color selectionColor;
     public readonly Color cursorColor;
@@ -28,7 +29,7 @@ namespace HELIX.Compose {
       StateProperty<StyleLength4> margin = null,
       StateProperty<BoxConstraints> constraints = null,
       StateProperty<TextStyle> textStyle = null,
-      Composable<StateFlag> background = null,
+      Composable<State> background = null,
       TextSelectionStyle selectionStyle = TextSelectionStyle.Dark,
       Color? selectionColor = null,
       Color? cursorColor = null
@@ -43,7 +44,7 @@ namespace HELIX.Compose {
       this.cursorColor = cursorColor ?? Color.white;
     }
 
-    internal void ApplyLayout(StateFlag state, IComposable composable) {
+    internal void ApplyLayout(State state, IComposable composable) {
       var element = composable.Element;
       padding.ResolveOrDefault(state, StyleLength4.Zero).ApplyPadding(element);
       margin.ResolveOrDefault(state, StyleLength4.Zero).ApplyMargin(element);
@@ -57,50 +58,32 @@ namespace HELIX.Compose {
       }
     }
 
-    internal void RenderBoundary(ref Composition cx, StateFlag state) {
+    internal void RenderBoundary(ref Composition cx, State state) {
       ApplyLayout(state, cx.boundary);
       background?.Invoke(ref cx, state);
     }
 
-    internal void RenderBackground(ref Composition cx, StateFlag state) {
+    internal void RenderBackground(ref Composition cx, State state) {
       background?.Invoke(ref cx, state);
     }
 
-    internal bool TryResolveTextStyle(StateFlag state, out TextStyle style) {
+    internal bool TryResolveTextStyle(State state, out TextStyle style) {
       return textStyle.TryResolve(state, out style);
     }
 
     public static InputFieldStyle BuildDefault(ThemeData theme) {
-      var backgrounds = new StatePropertyMap<Color> {
-        [StateFlag.Disabled] = theme.GetColor(ColorRoles.SurfaceContainerLow),
-        [StateFlag.Error] = theme.GetColor(ColorRoles.ErrorContainer),
-        [StateFlag.Focused] = theme.GetColor(ColorRoles.SurfaceContainerHigh),
-        [StateFlag.None] = theme.GetColor(ColorRoles.SurfaceContainer)
-      };
-
-      var borders = new StatePropertyMap<Border> {
-        [StateFlag.Disabled] = Border.All(1f, theme.GetColor(ColorRoles.Outline).WithOpacity(0.35f)),
-        [StateFlag.Error] = Border.All(1f, theme.GetColor(ColorRoles.Error)),
-        [StateFlag.Focused] = Border.All(1f, theme.GetColor(ColorRoles.Focus)),
-        [StateFlag.None] = Border.All(1f, theme.GetColor(ColorRoles.Outline))
-      };
-
       var text = new StatePropertyMap<TextStyle>();
       var normalText = theme[TextRole.BodyMedium].style;
       var disabledText = normalText;
-      disabledText.color = theme[ColorRoles.OnSurfaceDisabledHigh];
-      text[StateFlag.Disabled] = disabledText;
-      text[StateFlag.None] = normalText;
+      disabledText.color = theme[ColorRoles.OnSurfaceBlendHigh];
+      text[State.Disabled] = disabledText;
+      text[State.None] = normalText;
 
       return new InputFieldStyle(
         padding: StyleLength4.Symmetric(horizontal: 8f, vertical: 5f),
         constraints: BoxConstraints.Min(new StyleLength2(32f)),
         textStyle: text,
-        background: new HXSolidBoxStyle(
-          border: borders,
-          radius: BorderRadius.All(4f),
-          color: backgrounds
-        ).Bake(),
+        background: HXStyles.InputBox(theme),
         selectionStyle: TextSelectionStyle.Custom,
         selectionColor: theme.GetColor(ColorRoles.Focus).WithOpacity(0.4f),
         cursorColor: theme.GetColor(ColorRoles.OnSurface)
@@ -277,7 +260,7 @@ namespace HELIX.Compose {
     private CompositionAction _onEditingEnded;
     private IBoundary _callbackBoundary;
     private InputFieldStyle _inputStyle;
-    private StateFlag _inputState;
+    private State _inputState;
     private bool _enabled = true;
     private bool _editing;
     private bool _hasAppliedSelectionStyle;
@@ -357,8 +340,8 @@ namespace HELIX.Compose {
         _field.SetValueWithoutNotify(value);
       }
 
-      var stateChanged = SetState(StateFlag.Disabled, !enabled);
-      stateChanged |= SetState(StateFlag.Error, error);
+      var stateChanged = SetState(State.Disabled, !enabled);
+      stateChanged |= SetState(State.Error, error);
       if (_enabled != enabled) {
         _enabled = enabled;
         _field.SetEnabled(enabled);
@@ -383,7 +366,7 @@ namespace HELIX.Compose {
       _onEditingEnded = null;
       _callbackBoundary = null;
       _inputStyle = null;
-      _inputState = StateFlag.None;
+      _inputState = State.None;
       _editing = false;
       _enabled = true;
       _hasAppliedSelectionStyle = false;
@@ -514,7 +497,7 @@ namespace HELIX.Compose {
       (_inputStyle ?? InputFieldStyle.Default).RenderBackground(ref cx, _inputState);
     }
 
-    private bool SetState(StateFlag flag, bool enabled) {
+    private bool SetState(State flag, bool enabled) {
       var previous = _inputState;
       if (enabled) _inputState |= flag;
       else _inputState &= ~flag;
@@ -526,22 +509,22 @@ namespace HELIX.Compose {
     }
 
     private void OnPointerEnter(PointerEnterEvent evt) {
-      if (SetState(StateFlag.Hovered, true)) ApplyStyle();
+      if (SetState(State.Hovered, true)) ApplyStyle();
     }
 
     private void OnPointerLeave(PointerLeaveEvent evt) {
-      if (SetState(StateFlag.Hovered, false)) ApplyStyle();
+      if (SetState(State.Hovered, false)) ApplyStyle();
     }
 
     private void OnFocusIn(FocusInEvent evt) {
       BeginEditing();
-      if (SetState(StateFlag.Focused, true)) ApplyStyle();
+      if (SetState(State.Focused, true)) ApplyStyle();
     }
 
     private void OnFocusOut(FocusOutEvent evt) {
       if (evt.relatedTarget is VisualElement related && Contains(related)) return;
       EndEditing();
-      if (SetState(StateFlag.Focused, false)) ApplyStyle();
+      if (SetState(State.Focused, false)) ApplyStyle();
     }
 
     private void OnKeyDown(KeyDownEvent evt) {

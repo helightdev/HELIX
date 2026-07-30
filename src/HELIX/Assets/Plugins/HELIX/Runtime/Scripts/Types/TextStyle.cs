@@ -1,5 +1,6 @@
 using System;
 using HELIX.Compose;
+using HELIX.Theming;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -134,7 +135,7 @@ namespace HELIX.Types {
     public static ref TextStyle WriteMerged(
       in ContextAccessor accessor,
       StateProperty<TextStyle> property,
-      StateFlag flag
+      State flag
     ) {
       if (property.HasValueFor(flag)) {
         ref var overrides = ref property.GetValueRef(flag);
@@ -153,7 +154,7 @@ namespace HELIX.Types {
       return ref style;
     }
 
-    public static ref TextStyle Merge(in ContextAccessor accessor, StateProperty<TextStyle> property, StateFlag flag) {
+    public static ref TextStyle Merge(in ContextAccessor accessor, StateProperty<TextStyle> property, State flag) {
       ref var style = ref WriteMerged(in accessor, property, flag);
       style.Apply(accessor.contributor);
       return ref style;

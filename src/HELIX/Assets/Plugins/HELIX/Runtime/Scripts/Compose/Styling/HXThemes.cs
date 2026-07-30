@@ -1,4 +1,5 @@
 using HELIX.Coloring;
+using HELIX.Theming;
 using HELIX.Types;
 using UnityEngine;
 
@@ -72,6 +73,7 @@ namespace HELIX.Compose {
 
     public static void ApplyDefaultProgressions(this ThemeData themeData) {
       themeData.blend = BlendProgression.Default;
+      //themeData.blend.ApproximatelyConvertToLinear(themeData.brightness);
       themeData.border = BorderProgression.Default;
       themeData.radius = RadiusProgression.Generate(4.5f, 1f);
       themeData.spacing = SpacingProgression.Generate(5f, 1f);

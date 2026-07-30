@@ -1,4 +1,4 @@
-namespace HELIX.Compose {
+namespace HELIX.Theming {
   public static class ColorRoles {
     public const ColorRole Transparent = ColorRole.Transparent;
     public const ColorRole Primary = ColorRole.Primary;
@@ -36,8 +36,8 @@ namespace HELIX.Compose {
     public const ColorRole SurfaceVariant = ColorRole.SurfaceVariant;
     public const ColorRole OnSurfaceVariant = ColorRole.SurfaceVariant | ColorRole.On;
 
-    public const ColorRole OnSurfaceDisabledLow = ColorRole.Surface | ColorRole.On | ColorRole.BlendDisabledLow;
-    public const ColorRole OnSurfaceDisabledHigh = ColorRole.Surface | ColorRole.On | ColorRole.BlendDisabledHigh;
+    public const ColorRole OnSurfaceBlendLow = ColorRole.Surface | ColorRole.On | ColorRole.BlendLow;
+    public const ColorRole OnSurfaceBlendHigh = ColorRole.Surface | ColorRole.On | ColorRole.BlendHigh;
 
     public const ColorRole Scrim = ColorRole.Scrim;
     public const ColorRole Shadow = ColorRole.Shadow;

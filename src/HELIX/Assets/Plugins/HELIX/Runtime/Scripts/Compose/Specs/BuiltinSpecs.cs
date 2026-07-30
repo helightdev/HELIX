@@ -1,4 +1,5 @@
 using System;
+using HELIX.Theming;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
@@ -123,14 +124,14 @@ namespace HELIX.Compose {
     ) {
       if (spec.HasIcon) {
         spec.icon(ref cx);
-        iconStyle.Apply(cx.APPLY.composable);
+        iconStyle.Apply(cx.CURSOR.composable);
       }
       if (spec.HasIconAndText) cx.Gap(gap);
 
       if (!spec.HasText) return;
       if (spec.textContent != null) spec.textContent(ref cx);
       else cx.Text(spec.text);
-      textStyle.Apply(cx.APPLY.composable);
+      textStyle.Apply(cx.CURSOR.composable);
     }
   }
 }

@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HELIX.Compose.Collections;
 using HELIX.Diagnostics;
+using HELIX.Theming;
 using UnityEngine.Pool;
 using UnityEngine.UIElements;
 
@@ -66,6 +67,10 @@ namespace HELIX.Compose {
       if (!ContextData.TryLookup(element, id, out var data, includeSelf)) return onDefault;
       if (data is not ContextData<T> typedData) return onDefault;
       return typedData.value;
+    }
+
+    public T ReadOrThemeProperty(in Composition cx, ThemeProperty<T> property) {
+      return cx.TryReadContext(this, out var value) ? value : property[ThemeData.Key[in cx]];
     }
 
     public T this[VisualElement element] => ReadAt(element);

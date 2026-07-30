@@ -47,8 +47,8 @@ namespace HELIX.Types {
     }
 
     private string FormatPart(StyleLength a, StyleLength b, StyleLength c) {
-      if ((a.keyword is StyleKeyword.Initial or StyleKeyword.Auto &&
-           c.keyword is StyleKeyword.Initial or StyleKeyword.Auto) ||
+      if ((a.keyword is StyleKeyword.Null or StyleKeyword.Auto &&
+           c.keyword is StyleKeyword.Null or StyleKeyword.Auto) ||
           (a == c && a == b)) return b.FormatStyleValue();
       return a.FormatStyleValue() + " ≤ " + b.FormatStyleValue() + " ≤ " + c.FormatStyleValue();
     }
@@ -59,14 +59,14 @@ namespace HELIX.Types {
       StyleLength2? max = null
     ) {
       return new BoxConstraints(
-        preferred.GetValueOrDefault(StyleLength2.Initial),
-        min.GetValueOrDefault(StyleLength2.Initial),
-        max.GetValueOrDefault(StyleLength2.Initial)
+        preferred.GetValueOrDefault(StyleLength2.Null),
+        min.GetValueOrDefault(StyleLength2.Null),
+        max.GetValueOrDefault(StyleLength2.Null)
       );
     }
 
     public static BoxConstraints Preferred(StyleLength2 preferred) {
-      return new BoxConstraints(preferred, StyleLength2.Initial, StyleLength2.Initial);
+      return new BoxConstraints(preferred, StyleLength2.Null, StyleLength2.Null);
     }
 
     public static BoxConstraints Preferred(StyleLength width, StyleLength height) {
@@ -82,17 +82,23 @@ namespace HELIX.Types {
     }
 
     public static BoxConstraints Loose(StyleLength2 max) {
-      return new BoxConstraints(StyleLength2.Initial, StyleLength2.Initial, max);
+      return new BoxConstraints(StyleLength2.Null, StyleLength2.Null, max);
     }
 
     public static BoxConstraints Min(StyleLength2 min) {
-      return new BoxConstraints(StyleLength2.Initial, min, StyleLength2.Initial);
+      return new BoxConstraints(StyleLength2.Null, min, StyleLength2.Null);
     }
 
     public static readonly BoxConstraints Initial = new(
       StyleLength2.Initial,
       StyleLength2.Initial,
       StyleLength2.Initial
+    );
+
+    public static readonly BoxConstraints Null = new(
+      StyleLength2.Null,
+      StyleLength2.Null,
+      StyleLength2.Null
     );
   }
 }

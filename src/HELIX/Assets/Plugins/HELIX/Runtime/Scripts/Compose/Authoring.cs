@@ -1,15 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
+  public enum CompositionRetention {
+    Undefined = 0,
+    Retained,
+    Reset,
+    New
+  }
+
+
   public ref partial struct CompositionAuthoring {
     public VisualElement cursor;
     public BoundaryCell cell;
     public CompositionId id;
+    public CompositionRetention retention ;
 
     public void SetId(CompositionId given) {
       id = given;
@@ -24,11 +32,6 @@ namespace HELIX.Compose {
 
     public LocalId GetCurrentLocalId() {
       return cell.localId;
-    }
-
-    public void RetainChildren() {
-      cell.cursor = cell.scope.Element.childCount;
-      cell.localId.index = (ushort)cell.cursor;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -49,15 +52,18 @@ namespace HELIX.Compose {
         if (userData is not UserdataTracker tracker) {
           value = null;
           retained = false;
+          retention = CompositionRetention.New;
           return false;
         } // Not valid
 
         retained = tracker.EnsureIdentity(packed);
+        retention = retained ? CompositionRetention.Retained : CompositionRetention.Reset;
         return true;
       }
 
       value = null;
       retained = false;
+      retention = CompositionRetention.New;
       return false;
     }
 
@@ -70,21 +76,25 @@ namespace HELIX.Compose {
       if (current is T typed) {
         value = typed;
         retained = typed.EnsureIdentity(packed);
+        retention = retained ? CompositionRetention.Retained : CompositionRetention.Reset;
         return true;
       }
 
       value = null;
       retained = false;
+      retention = CompositionRetention.New;
       return false;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool RequireCompositionBoundaryNode(ushort typeId, out CompositionBoundaryNode node, out bool retained) {
       if (RequireComposable(typeId, out node, out retained)) {
+        retention = retained ? CompositionRetention.Retained : CompositionRetention.Reset;
         return true;
       }
 
       node = new CompositionBoundaryNode { TypeId = id.packed };
+      retention = CompositionRetention.New;
       return false;
     }
 
@@ -99,23 +109,27 @@ namespace HELIX.Compose {
           data = new TData();
           attachment = new TStateComposable();
           node.SetComposable(data, attachment);
+          retention = CompositionRetention.Reset;
           return false;
         }
         if (node.BoundaryComposable is not TStateComposable currentAttachment || !retained) {
           attachment = new TStateComposable();
           data = currentProps;
           node.SwapComposable(attachment);
+          retention = CompositionRetention.Reset;
           return false;
         }
 
         attachment = currentAttachment;
         data = currentProps;
+        retention = CompositionRetention.Retained;
         return true;
       }
 
       data = new TData();
       attachment = new TStateComposable();
       node.SetComposable(data, attachment);
+      retention = CompositionRetention.New;
       return false;
     }
 
@@ -124,10 +138,13 @@ namespace HELIX.Compose {
       var current = cell.ReadCursorOrFind(packed);
       if (current is CompositionNode typed) {
         node = typed;
-        return !typed.EnsureIdentity(packed);
+        var isEqual = typed.EnsureIdentity(packed);
+        retention = isEqual ? CompositionRetention.Retained : CompositionRetention.Reset;
+        return !isEqual;
       }
 
       node = new CompositionNode { TypeId = packed };
+      retention = CompositionRetention.New;
       return true;
     }
 
@@ -179,11 +196,12 @@ namespace HELIX.Compose {
       complete:
       if (given is IComposable composable) { } else { composable = CompositionInternals.Promote(given); }
       if (composable.TypeId == 0) composable.TypeId = id.packed;
-      ctx.APPLY.Replace(composable);
+      ctx.CURSOR.Replace(composable, retention);
       cell.cursor++;
       cell.localId.index++;
       cursor = null; // Clear authoring element
-      return ref ctx.APPLY;
+      retention = CompositionRetention.Undefined;
+      return ref ctx.CURSOR;
     }
   }
 

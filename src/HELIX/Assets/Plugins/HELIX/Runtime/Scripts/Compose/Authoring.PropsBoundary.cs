@@ -11,13 +11,16 @@ namespace HELIX.Compose {
           propsState = new GenericPropsData<T>();
           node.SetDataOnly(propsState);
           retained = false;
+          retention = CompositionRetention.Reset;
         }
         data = propsState;
+        retention = CompositionRetention.Retained;
         return true;
       }
 
       data = new GenericPropsData<T>();
       node.SetDataOnly(data);
+      retention = CompositionRetention.New;
       return false;
     }
 

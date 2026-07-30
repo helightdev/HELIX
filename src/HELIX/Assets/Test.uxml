@@ -1,5 +1,6 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False" authoring-id="-1360355845">
     <Style src="project://database/Assets/test.uss?fileID=7433441132597879392&amp;guid=ce7ee7c7f0584efd935908135199ca27&amp;type=3#test"/>
-    <ui:VisualElement style="flex-grow: 1; background-color: rgb(255, 255, 255); position: absolute; width: 306px; height: 131px; top: 573px; left: 86px;"/>
-    <TestNamespace.ExampleVisualElement style="-unity-text-generator: advanced; backdrop-filter: blur(13.2); opacity: 1; background-color: rgba(0, 0, 0, 0.957); filter: none; display: flex;"/>
+    <ui:VisualElement style="flex-grow: 1; background-color: rgb(255, 255, 255); position: absolute; width: 306px; height: 131px; top: 573px; left: 86px; display: none;"/>
+    <TestNamespace.ExampleVisualElement style="-unity-text-generator: advanced; backdrop-filter: blur(13.2); opacity: 1; background-color: rgba(0, 0, 0, 0.957); filter: none; display: none; visibility: visible;"/>
+    <HELIX.Examples.NwSystemExampleElement/>
 </ui:UXML>

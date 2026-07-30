@@ -1,5 +1,6 @@
 using System;
 using HELIX.Extensions;
+using HELIX.Theming;
 using HELIX.Types;
 using UnityEngine.UIElements;
 
@@ -111,9 +112,9 @@ namespace HELIX.Compose {
       var data = cx.ReadContext(ThemeData.Key);
 
       using (cx.Flex(Axis.Horizontal)) {
-        cx.APPLY.AlignSelf(Align.FlexStart);
-        cx.APPLY.Margin(type.GetMargin(data));
-        type.GetTextStyle(data)?.Apply(cx.APPLY.composable);
+        cx.CURSOR.AlignSelf(Align.FlexStart);
+        cx.CURSOR.Margin(type.GetMargin(data));
+        type.GetTextStyle(data)?.Apply(cx.CURSOR.composable);
 
         LabelSpec.Default(ref cx, spec);
       }

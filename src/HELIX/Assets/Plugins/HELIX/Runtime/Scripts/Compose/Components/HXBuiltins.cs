@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using HELIX.Coloring;
 using HELIX.Extensions;
+using HELIX.Theming;
 using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -429,8 +430,8 @@ namespace HELIX.Compose {
       BorderRadius? radius = null,
       Color? color = null,
       float opacity = 1f,
-      BoxConstraints constraints = default,
-      StyleLength4 position = default,
+      BoxConstraints? constraints = null,
+      StyleLength4? position = null,
       bool absolute = false,
       TransitionOptions? transition = null
     ) {
@@ -442,8 +443,8 @@ namespace HELIX.Compose {
         .BackgroundColor(color ?? Colors.Transparent)
         .Opacity(opacity)
         .Absolute(absolute)
-        .Size(constraints)
-        .Position(position);
+        .Size(constraints ?? BoxConstraints.Tight(StyleKeyword.Null, StyleKeyword.Null))
+        .Position(position ?? new StyleLength4(StyleKeyword.Null));
 
       if (transition.HasValue) {
         reference.Transition(transition.Value);
@@ -526,12 +527,11 @@ namespace HELIX.Compose {
 
     public partial class ButtonComposable {
       protected override void OnRecompose(ref Composition cx) {
-        this.Toggle(StateFlag.Selected, props.Selected);
-        this.Toggle(StateFlag.Disabled, !props.Enabled);
+        this.Toggle(State.Selected, props.Selected);
+        this.Toggle(State.Disabled, !props.Enabled);
         Node.SetEnabled(props.Enabled);
-        cx.APPLY.Focusable(props.Enabled);
-
-        var boxStyle = props.Style ?? cx.ReadContext(Style);
+        cx.CURSOR.Focusable(props.Enabled);
+        var boxStyle = props.Style ?? Style.ReadOrThemeProperty(in cx, ThemeProperties.ButtonFilled);
         boxStyle.RenderBoundary(ref cx, InputState);
         if (props.Content != null) props.Content.Invoke(ref cx);
       }

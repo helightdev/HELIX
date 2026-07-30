@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using HELIX.Coloring;
+using HELIX.Compose;
 using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Compose {
+namespace HELIX.Theming {
   public record ThemeData {
     public static readonly ContextKey<ThemeData> Key = new("Theme", HXThemes.DefaultDark);
 
@@ -41,7 +42,8 @@ namespace HELIX.Compose {
     public TypographyGroup body;
 
     public Dictionary<ColorRole, Color> customColors = new();
-    public Dictionary<ThemeProperty, object> properties = new();
+    private readonly Dictionary<ThemeProperty, object> _properties = new();
+    private readonly Dictionary<ThemeProperty, object> _computedProperties = new();
 
     public static ThemeData Build(Action<ThemeData> builder) {
       var theme = new ThemeData();
@@ -52,8 +54,8 @@ namespace HELIX.Compose {
     public Color GetColor(ColorRole role) {
       var lookup = role & ~ColorRole.GroupBlend;
       var resolvedColor = lookup switch {
-        ColorRole.None => Colors.Transparent,
-        ColorRole.Transparent => Colors.Transparent,
+        ColorRole.None => surface.value.WithOpacity(0),
+        ColorRole.Transparent => surface.value.WithOpacity(0),
 
         ColorRoles.Primary => primary.main.value,
         ColorRoles.OnPrimary => primary.main.onValue,
@@ -102,15 +104,20 @@ namespace HELIX.Compose {
       var groupBlend = role & ColorRole.GroupBlend;
       if (groupBlend > ColorRole.None) {
         var level = groupBlend switch {
-          ColorRole.BlendDisabledLow => BlendLevel.DisabledLow,
-          ColorRole.BlendDisabledHigh => BlendLevel.DisabledHigh,
           ColorRole.BlendLow => BlendLevel.Low,
           ColorRole.BlendNormal => BlendLevel.Normal,
           ColorRole.BlendHigh => BlendLevel.High,
+          ColorRole.BlendAccentLow => BlendLevel.AccentLow,
+          ColorRole.BlendAccentHigh => BlendLevel.AccentHigh,
           _ => throw new ArgumentOutOfRangeException(nameof(groupBlend), groupBlend, null)
         };
-
-        resolvedColor = resolvedColor.MultiplyOpacity(GetBlendLevel(level));
+        var referenceFrame = lookup & ~ColorRole.On;
+        //resolvedColor = resolvedColor.MultiplyOpacity(GetBlendLevel(level));
+        if (referenceFrame == lookup || referenceFrame == ColorRole.None) referenceFrame = ColorRole.Surface;
+        var blendLevel = GetBlendLevel(level);
+        Debug.Log($"Calculating blend for {role}");
+        resolvedColor = Colors.ContrastBlend(GetColor(referenceFrame), resolvedColor, blendLevel);
+        //resolvedColor = Colors.AlphaBlend(GetColor(referenceFrame) , resolvedColor);
       }
 
       return resolvedColor;
@@ -136,17 +143,20 @@ namespace HELIX.Compose {
     public ref TypographyToken this[TextRole role] => ref GetTypographyTokenRef(role);
 
     public T GetComputedProperty<T>(ThemeProperty<T> property) {
-      if (properties.TryGetValue(property, out var value)) {
+      if (_properties.TryGetValue(property, out var value)) {
         return (T)value;
+      }
+      if (_computedProperties.TryGetValue(property, out var computedValue)) {
+        return (T)computedValue;
       }
 
       if (property.Compute(this, out var computed)) {
-        properties[property] = computed;
+        _computedProperties[property] = computed;
         return computed;
       }
 
       if (property.hasDefault) {
-        properties[property] = property.defaultValue;
+        _computedProperties[property] = property.defaultValue;
         return property.defaultValue;
       }
 
@@ -155,13 +165,20 @@ namespace HELIX.Compose {
       );
     }
 
+    public void SetProperty<T>(ThemeProperty<T> property, T value) {
+      _properties[property] = value;
+      _computedProperties.Clear();
+    }
+
     public float GetBlendLevel(BlendLevel level) {
       return level switch {
-        BlendLevel.DisabledLow => blend.disabledLow,
-        BlendLevel.DisabledHigh => blend.disabledHigh,
+        BlendLevel.None => 0f,
+        BlendLevel.AccentLow => blend.accentLow,
+        BlendLevel.AccentHigh => blend.accentHigh,
         BlendLevel.Low => blend.low,
         BlendLevel.Normal => blend.normal,
         BlendLevel.High => blend.high,
+        BlendLevel.Full => 1f,
         _ => throw new ArgumentOutOfRangeException(nameof(level), level, null)
       };
     }
@@ -178,7 +195,8 @@ namespace HELIX.Compose {
     }
 
     public float GetRadius(RadiusRole role) {
-      return role switch {
+      var value = role & RadiusRole.ValueMask;
+      var current = value switch {
         RadiusRole.None => 0f,
         RadiusRole.Radius1 => radius.radius1,
         RadiusRole.Radius2 => radius.radius2,
@@ -189,6 +207,23 @@ namespace HELIX.Compose {
         RadiusRole.Round => 9999f,
         _ => throw new ArgumentOutOfRangeException(nameof(role), role, null)
       };
+      var step = role & ~RadiusRole.ValueMask;
+      if (step == RadiusRole.None) return current;
+      var time = 0f;
+      if (step.HasFlag(RadiusRole.Half)) time += 0.5f;
+      if (step.HasFlag(RadiusRole.Quarter)) time += 0.25f;
+      var previous = value switch {
+        RadiusRole.None => 0f,
+        RadiusRole.Radius1 => 0f,
+        RadiusRole.Radius2 => radius.radius1,
+        RadiusRole.Radius3 => radius.radius2,
+        RadiusRole.Radius4 => radius.radius3,
+        RadiusRole.Radius5 => radius.radius4,
+        RadiusRole.Radius6 => radius.radius5,
+        RadiusRole.Round => radius.radius6,
+        _ => throw new ArgumentOutOfRangeException(nameof(role), role, null)
+      };
+      return Mathf.Lerp(previous, current, time);
     }
 
     public float GetSpacing(SpacingRole role) {
@@ -211,7 +246,19 @@ namespace HELIX.Compose {
       var fromColor = GetColor(from);
       var toColor = GetColor(to);
       var t = GetBlendLevel(level);
-      return Color.Lerp(fromColor, toColor, t);
+      return Colors.Lerp(fromColor, toColor, t);
+    }
+
+    public Color BlendLerpContrast(ColorRole from, ColorRole to, BlendLevel level) {
+      var fromColor = GetColor(from);
+      var toColor = GetColor(to);
+      var t = GetBlendLevel(level);
+      return Colors.ContrastBlend(fromColor, toColor, t);
+    }
+
+    public Color BlendLerpContrast(Color from, Color to, BlendLevel level) {
+      var t = GetBlendLevel(level);
+      return Colors.ContrastBlend(from, to, t);
     }
 
     public Color BlendLerp(Color from, Color to, BlendLevel level) {
@@ -277,6 +324,7 @@ namespace HELIX.Compose {
     Custom7 = 1 << 16,
     Custom8 = 1 << 17,
     Custom9 = 1 << 18,
+
     ModA = 1 << 19,
     ModB = 1 << 20,
     ModC = 1 << 21,
@@ -284,19 +332,20 @@ namespace HELIX.Compose {
     Colors = 1 << 23,
     Container = 1 << 24,
     On = 1 << 25,
-    BlendDisabledLow = 1 << 26,
-    BlendDisabledHigh = 1 << 27,
-    BlendLow = 1 << 28,
-    BlendNormal = 1 << 29,
-    BlendHigh = 1 << 30,
+    BlendLow = 1 << 26,
+    BlendNormal = 1 << 27,
+    BlendHigh = 1 << 28,
+    BlendAccentLow = 1 << 29,
+    BlendAccentHigh = 1 << 30,
     None = 0,
+
     Transparent = 1 << 0 | Colors,
     Scrim = 1 << 1 | Colors,
     Shadow = 1 << 2 | Colors,
     SurfaceTint = 1 << 3 | Colors,
     Outline = 1 << 4 | Colors,
     Focus = 1 << 5 | Colors,
-    GroupBlend = BlendDisabledLow | BlendDisabledHigh | BlendLow | BlendNormal | BlendHigh
+    GroupBlend = BlendAccentLow | BlendAccentHigh | BlendLow | BlendNormal | BlendHigh
   }
 
   public enum TextRole {
@@ -317,15 +366,19 @@ namespace HELIX.Compose {
     BodySmall
   }
 
+  [Flags]
   public enum RadiusRole {
-    None,
-    Radius1,
-    Radius2,
-    Radius3,
-    Radius4,
-    Radius5,
-    Radius6,
-    Round
+    None = 0,
+    Radius1 = 1 << 0,
+    Radius2 = 1 << 1,
+    Radius3 = 1 << 2,
+    Radius4 = 1 << 3,
+    Radius5 = 1 << 4,
+    Radius6 = 1 << 5,
+    Round = 1 << 6,
+    Quarter = 1 << 10,
+    Half = 1 << 11,
+    ValueMask = Radius1 | Radius2 | Radius3 | Radius4 | Radius5 | Radius6
   }
 
   public enum SpacingRole {
@@ -361,7 +414,11 @@ namespace HELIX.Compose {
     }
   }
 
-  public enum BlendLevel { DisabledLow, DisabledHigh, Low, Normal, High }
+  public enum BlendLevel {
+    None,
+    Low, Normal, High, AccentLow, AccentHigh,
+    Full
+  }
 
   public struct ColorTokenPalette {
     public ColorPair main;
@@ -400,14 +457,14 @@ namespace HELIX.Compose {
 
   public struct BlendProgression {
     public static readonly BlendProgression Default = new() {
-      disabledLow = 0.1f, disabledHigh = 0.38f, low = 0.08f, normal = 0.12f, high = 0.38f
+      low = 0.08f, normal = 0.12f, high = 0.38f, accentLow = 0.05f, accentHigh = 0.12f
     };
 
-    public float disabledHigh;
-    public float disabledLow;
-    public float high;
     public float low;
     public float normal;
+    public float high;
+    public float accentLow;
+    public float accentHigh;
   }
 
   public struct RadiusProgression {
@@ -636,7 +693,10 @@ namespace HELIX.Compose {
       return false;
     }
 
-    public T this[ThemeData themeData] => themeData.GetComputedProperty(this);
+    public T this[ThemeData themeData] {
+      get => themeData.GetComputedProperty(this);
+      set => themeData.SetProperty(this, value);
+    }
 
     public T this[VisualElement element] => ThemeData.Key.ReadAt(element).GetComputedProperty(this);
     public T this[in Composition cx] => ThemeData.Key[in cx].GetComputedProperty(this);

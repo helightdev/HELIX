@@ -1,10 +1,10 @@
 using System;
 using HELIX.Coloring.Material;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace HELIX.Coloring {
   public static class Colors {
-
     public static Color Red => MaterialColors.Red;
     public static Color Green => MaterialColors.Green;
     public static Color Blue => MaterialColors.Blue;
@@ -70,6 +70,10 @@ namespace HELIX.Coloring {
       return new Color(r / 255f, g / 255f, b / 255f);
     }
 
+    public static Color Rgb(float3 rgb) {
+      return new Color(rgb.x, rgb.y, rgb.z);
+    }
+
     public static Color Argb(int a, int r, int g, int b) {
       return new Color(r / 255f, g / 255f, b / 255f, a / 255f);
     }
@@ -128,6 +132,32 @@ namespace HELIX.Coloring {
       );
     }
 
+    public static Color Lerp(Color from, Color to, float t) => Color.Lerp(from, to, t);
+
+    public static Color ContrastBlend(
+      Color background,
+      Color overlay,
+      float time
+    ) {
+      var a = background.ToOkLab();
+      var b = overlay.ToOkLab();
+      return ContrastBlend(a, b, time).ToGamma();
+    }
+
+    public static OkLabColor ContrastBlend(
+      OkLabColor background,
+      OkLabColor overlay,
+      float time
+    ) {
+      const float leeway = 0.2f;
+      var dl = overlay.l - background.l;
+      if (math.distance(background, overlay) <= math.EPSILON) return background;
+      var movement = math.min(time, math.abs(dl));
+      var l = background.l + math.sign(dl) * movement;
+      var t = math.clamp((l - background.l) / dl, time - leeway, time + leeway);
+      return math.lerp(background, overlay, t);
+    }
+
     public static Color WithOpacity(this Color color, float alpha) {
       return new Color(color.r, color.g, color.b, alpha);
     }
@@ -150,5 +180,12 @@ namespace HELIX.Coloring {
         ? $"#{Mathf.RoundToInt(r * 255):X2}{Mathf.RoundToInt(g * 255):X2}{Mathf.RoundToInt(b * 255):X2}"
         : $"#{Mathf.RoundToInt(r * 255):X2}{Mathf.RoundToInt(g * 255):X2}{Mathf.RoundToInt(b * 255):X2}{Mathf.RoundToInt(a * 255):X2}";
     }
+
+    public static OkLabColor ToOkLab(this Color gamma) {
+      var linear = gamma.linear;
+      return OkLabHelper.FromLinearRgb(new float3(linear.r, linear.g, linear.b));
+    }
+
+    public static float3 ToRgb(this Color color) => new(color.r, color.g, color.b);
   }
 }

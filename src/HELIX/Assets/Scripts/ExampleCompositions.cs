@@ -1,6 +1,7 @@
 using HELIX.Coloring;
 using HELIX.Compose;
 using HELIX.Signals;
+using HELIX.Theming;
 using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -23,7 +24,7 @@ namespace TestNamespace {
         TextStyle.Merge(in context, in theme[TextRole.BodyMedium].style);
       }
 
-      cx.APPLY.Name("MainBoundary");
+      cx.CURSOR.Name("MainBoundary");
 
       if (cx.Conditional(CounterSignal.Value % 2 == 0)) using (cx.ScrollView(
         verticalScroller: ScrollerVisibility.AlwaysVisible,
@@ -32,7 +33,7 @@ namespace TestNamespace {
           //Debug.Log($"Geometry has changed on container! {value}");
         }
       )) {
-        cx.APPLY.Size(BoxConstraints.Tight(200, 200));
+        cx.CURSOR.Size(BoxConstraints.Tight(200, 200));
 
         cx.Text("Scroll Item 1\n\n\n\n\n\n");
         cx.Text("Scroll Item 2\n\n\n\n\n\n");
@@ -44,7 +45,7 @@ namespace TestNamespace {
       // using var exampleContext = cx.WriteContext<ExampleContext>();
       // exampleContext.value.counter = counter;
       using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
-        cx.APPLY.Padding(10).Padding(20);
+        cx.CURSOR.Padding(10).Padding(20);
 
         //cx.APPLY.BackgroundColor(theme.GetColor(ColorRoles.Surface));
 
@@ -107,7 +108,7 @@ namespace TestNamespace {
 
         //if (cx.Conditional(counter / 100 % 2 == 0))
         cx.Boundary(InnerComposition);
-        cx.APPLY.Name("InnerBoundary");
+        cx.CURSOR.Name("InnerBoundary");
 
         cx.TextField();
 
@@ -154,10 +155,10 @@ namespace TestNamespace {
     //   }
     // }
 
-    private static readonly Composable<StateFlag> ButtonContent =
-      static (ref Composition cx, StateFlag state) => {
+    private static readonly Composable<State> ButtonContent =
+      static (ref Composition cx, State state) => {
         var color = Colors.Black;
-        if (state.Pressed()) color = Colors.Red;
+        if (state.Active()) color = Colors.Red;
         else if (state.Hovered()) color = Colors.Blue;
 
         cx.Text("Button").TextColor(color);
