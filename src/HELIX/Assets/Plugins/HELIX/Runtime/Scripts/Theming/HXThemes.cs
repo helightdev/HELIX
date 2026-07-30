@@ -1,9 +1,8 @@
 using HELIX.Coloring;
-using HELIX.Theming;
 using HELIX.Types;
 using UnityEngine;
 
-namespace HELIX.Compose {
+namespace HELIX.Theming {
   public static class HXThemes {
     public static readonly ThemeData DefaultDark = ThemeData.Build(theme => {
         theme.brightness = Brightness.Dark;
@@ -37,9 +36,9 @@ namespace HELIX.Compose {
           Colors.OkLch(0.258f, 0.092f, 26.042f),
           Colors.OkLch(0.97f, 0f, 0f)
         );
-        theme.ApplyDefaultSupports();
         theme.ApplyDefaultProgressions();
         theme.ApplyDefaultTypography();
+        theme.ApplyDefaultSupports();
       }
     );
 
@@ -69,6 +68,9 @@ namespace HELIX.Compose {
       themeData.shadowColor = Colors.Black80;
       themeData.surfaceTintColor = Colors.White;
       themeData.focusColor = themeData.primary.main.value;
+
+      themeData.SetColorProvider(ThemeProperties.RoleDisabledLowProvider, ColorRoles.DisabledLow);
+      themeData.SetColorProvider(ThemeProperties.RoleDisabledHighProvider, ColorRoles.DisabledHigh);
     }
 
     public static void ApplyDefaultProgressions(this ThemeData themeData) {

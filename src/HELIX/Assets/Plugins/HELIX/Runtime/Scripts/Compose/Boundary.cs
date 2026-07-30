@@ -29,6 +29,7 @@ namespace HELIX.Compose {
     public int cursor;
     public LocalId localId;
     public ComposableSlot slot;
+    public bool skip;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public VisualElement ReadCursor() {

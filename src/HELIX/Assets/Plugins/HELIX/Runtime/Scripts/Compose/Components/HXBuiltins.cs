@@ -531,6 +531,7 @@ namespace HELIX.Compose {
         this.Toggle(State.Disabled, !props.Enabled);
         Node.SetEnabled(props.Enabled);
         cx.CURSOR.Focusable(props.Enabled);
+
         var boxStyle = props.Style ?? Style.ReadOrThemeProperty(in cx, ThemeProperties.ButtonFilled);
         boxStyle.RenderBoundary(ref cx, InputState);
         if (props.Content != null) props.Content.Invoke(ref cx);

@@ -36,13 +36,12 @@ namespace HELIX.Theming {
     public const ColorRole SurfaceVariant = ColorRole.SurfaceVariant;
     public const ColorRole OnSurfaceVariant = ColorRole.SurfaceVariant | ColorRole.On;
 
-    public const ColorRole OnSurfaceBlendLow = ColorRole.Surface | ColorRole.On | ColorRole.BlendLow;
-    public const ColorRole OnSurfaceBlendHigh = ColorRole.Surface | ColorRole.On | ColorRole.BlendHigh;
-
     public const ColorRole Scrim = ColorRole.Scrim;
     public const ColorRole Shadow = ColorRole.Shadow;
     public const ColorRole SurfaceTint = ColorRole.SurfaceTint;
     public const ColorRole Outline = ColorRole.Outline;
     public const ColorRole Focus = ColorRole.Focus;
+    public const ColorRole DisabledLow = ColorRole.DisabledLow;
+    public const ColorRole DisabledHigh = ColorRole.DisabledHigh;
   }
 }

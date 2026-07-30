@@ -225,40 +225,6 @@ namespace HELIX.Compose {
 
   [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
   public partial class Slider {
-    public static readonly ThemeProperty<SliderStyle> Style = new(DefaultStyle.Create);
-    public static readonly ThemeProperty<SliderStyle> Scroller = new(DefaultStyle.CreateScroller);
-
-    public static class DefaultStyle {
-      public static SliderStyle Create(ThemeData data) {
-        return new SliderStyle(
-          new HXControlBoxStyle(
-            padding: StyleLength4.Zero,
-            alignment: Alignment.Center,
-            constraints: BoxConstraints.Min(
-              new StyleLength2(data.GetTypographyTokenRef(TextRole.BodyMedium).lineHeight)
-            )
-          ),
-          HXStyles.SliderTrack(data),
-          HXStyles.SliderProgress(data),
-          HXStyles.SliderThumb(data)
-        );
-      }
-
-      public static SliderStyle CreateScroller(ThemeData data) {
-        return new SliderStyle(
-          new HXControlBoxStyle(
-            padding: StyleLength4.Zero,
-            alignment: Alignment.Center,
-            constraints: BoxConstraints.Min(
-              new StyleLength2(data.GetTypographyTokenRef(TextRole.BodyMedium).lineHeight)
-            )
-          ),
-          HXStyles.SliderTrack(data),
-          (ref Composition cx, State value) => {  },
-          HXStyles.SliderThumb(data)
-        );
-      }
-    }
 
     public partial struct Props {
       public float value;
@@ -283,7 +249,7 @@ namespace HELIX.Compose {
     protected override void OnRecompose(ref Composition cx) {
       var options = HXSliderElement.NormalizeOptions(in props.options);
       var value = HXSliderElement.ClampAndSnap(props.value, in options);
-      var style = props.style ?? Style[in cx];
+      var style = props.style ?? ThemeProperties.Slider[in cx];
 
       this.Toggle(State.Disabled, !props.enabled);
       this.Toggle(State.Error, props.error);
@@ -358,7 +324,7 @@ namespace HELIX.Compose {
 
     private void SetFromLocalPosition(Vector2 localPosition, bool commit) {
       var options = HXSliderElement.NormalizeOptions(in props.options);
-      var style = props.style ?? Style[Node];
+      var style = props.style ?? ThemeProperties.Slider[Node];
       var length = options.axis == Axis.Horizontal ? Node.contentRect.width : Node.contentRect.height;
       var thumbSize = HXSliderElement.ResolveThumbSize(length, in options, style.thumbSize);
       var available = Mathf.Max(0f, length - thumbSize);
@@ -400,22 +366,6 @@ namespace HELIX.Compose {
 
   [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
   public partial class Checkbox {
-    public static readonly ThemeProperty<HXControlBoxStyle> Style = new(DefaultStyle.Create);
-
-    public static class DefaultStyle {
-      public static HXControlBoxStyle Create(ThemeData data) {
-        var outline = HXStyles.CheckboxOutline(data);
-        var fill = HXStyles.CheckboxFill(data);
-        return new HXControlBoxStyle(
-          alignment: Alignment.Center,
-          constraints: BoxConstraints.Tight(18f, 18f),
-          background: (ref Composition cx, State state) => {
-            outline(ref cx, state);
-            fill(ref cx, state);
-          }
-        );
-      }
-    }
 
     public partial struct Props {
       public bool value;
@@ -429,7 +379,7 @@ namespace HELIX.Compose {
       this.Toggle(State.Selected, props.value);
       this.Toggle(State.Disabled, !props.enabled);
       this.Toggle(State.Error, props.error);
-      var style = props.style ?? Style[in cx];
+      var style = props.style ?? ThemeProperties.Checkbox[in cx];
 
       using (cx.WriteContext(out var context)) {
         style.RenderContext(in context, InputState);

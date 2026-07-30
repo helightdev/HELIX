@@ -41,7 +41,7 @@ namespace HELIX.Theming {
     public TypographyGroup label;
     public TypographyGroup body;
 
-    public Dictionary<ColorRole, Color> customColors = new();
+    private readonly Dictionary<ColorRole, ThemeProperty<Color>> _customColors = new();
     private readonly Dictionary<ThemeProperty, object> _properties = new();
     private readonly Dictionary<ThemeProperty, object> _computedProperties = new();
 
@@ -52,8 +52,7 @@ namespace HELIX.Theming {
     }
 
     public Color GetColor(ColorRole role) {
-      var lookup = role & ~ColorRole.GroupBlend;
-      var resolvedColor = lookup switch {
+      var resolvedColor = role switch {
         ColorRole.None => surface.value.WithOpacity(0),
         ColorRole.Transparent => surface.value.WithOpacity(0),
 
@@ -101,35 +100,21 @@ namespace HELIX.Theming {
         _ => ResolvedFallbackColor(role)
       };
 
-      var groupBlend = role & ColorRole.GroupBlend;
-      if (groupBlend > ColorRole.None) {
-        var level = groupBlend switch {
-          ColorRole.BlendLow => BlendLevel.Low,
-          ColorRole.BlendNormal => BlendLevel.Normal,
-          ColorRole.BlendHigh => BlendLevel.High,
-          ColorRole.BlendAccentLow => BlendLevel.AccentLow,
-          ColorRole.BlendAccentHigh => BlendLevel.AccentHigh,
-          _ => throw new ArgumentOutOfRangeException(nameof(groupBlend), groupBlend, null)
-        };
-        var referenceFrame = lookup & ~ColorRole.On;
-        //resolvedColor = resolvedColor.MultiplyOpacity(GetBlendLevel(level));
-        if (referenceFrame == lookup || referenceFrame == ColorRole.None) referenceFrame = ColorRole.Surface;
-        var blendLevel = GetBlendLevel(level);
-        Debug.Log($"Calculating blend for {role}");
-        resolvedColor = Colors.ContrastBlend(GetColor(referenceFrame), resolvedColor, blendLevel);
-        //resolvedColor = Colors.AlphaBlend(GetColor(referenceFrame) , resolvedColor);
-      }
 
       return resolvedColor;
     }
 
     private Color ResolvedFallbackColor(ColorRole role) {
-      if (customColors.TryGetValue(role, out var color)) {
-        return color;
+      if (_customColors.TryGetValue(role, out var color)) {
+        return GetProperty(color);
       }
 
+      // Special handling to make transparent be based on the color it is used with
       if (role.HasFlag(ColorRole.Transparent)) {
-        return Colors.Transparent;
+        var without = role & ~ColorRole.Transparent;
+        if (without == ColorRole.None) without = ColorRole.Surface;
+        var reference = this[without];
+        return reference.WithOpacity(0f);
       }
 
       throw new ArgumentOutOfRangeException(nameof(role), role, null);
@@ -142,7 +127,7 @@ namespace HELIX.Theming {
     public float this[SpacingRole role] => GetSpacing(role);
     public ref TypographyToken this[TextRole role] => ref GetTypographyTokenRef(role);
 
-    public T GetComputedProperty<T>(ThemeProperty<T> property) {
+    public T GetProperty<T>(ThemeProperty<T> property) {
       if (_properties.TryGetValue(property, out var value)) {
         return (T)value;
       }
@@ -169,6 +154,8 @@ namespace HELIX.Theming {
       _properties[property] = value;
       _computedProperties.Clear();
     }
+
+    public void SetColorProvider(ThemeProperty<Color> provider, ColorRole role) => _customColors[role] = provider;
 
     public float GetBlendLevel(BlendLevel level) {
       return level switch {
@@ -249,14 +236,14 @@ namespace HELIX.Theming {
       return Colors.Lerp(fromColor, toColor, t);
     }
 
-    public Color BlendLerpContrast(ColorRole from, ColorRole to, BlendLevel level) {
+    public Color ContrastLerp(ColorRole from, ColorRole to, BlendLevel level) {
       var fromColor = GetColor(from);
       var toColor = GetColor(to);
       var t = GetBlendLevel(level);
       return Colors.ContrastBlend(fromColor, toColor, t);
     }
 
-    public Color BlendLerpContrast(Color from, Color to, BlendLevel level) {
+    public Color ContrastLerp(Color from, Color to, BlendLevel level) {
       var t = GetBlendLevel(level);
       return Colors.ContrastBlend(from, to, t);
     }
@@ -332,20 +319,16 @@ namespace HELIX.Theming {
     Colors = 1 << 23,
     Container = 1 << 24,
     On = 1 << 25,
-    BlendLow = 1 << 26,
-    BlendNormal = 1 << 27,
-    BlendHigh = 1 << 28,
-    BlendAccentLow = 1 << 29,
-    BlendAccentHigh = 1 << 30,
+    Transparent = 1 << 26,
     None = 0,
 
-    Transparent = 1 << 0 | Colors,
     Scrim = 1 << 1 | Colors,
     Shadow = 1 << 2 | Colors,
     SurfaceTint = 1 << 3 | Colors,
     Outline = 1 << 4 | Colors,
     Focus = 1 << 5 | Colors,
-    GroupBlend = BlendAccentLow | BlendAccentHigh | BlendLow | BlendNormal | BlendHigh
+    DisabledLow = 1 << 6 | Colors,
+    DisabledHigh = 1 << 7 | Colors
   }
 
   public enum TextRole {
@@ -378,6 +361,7 @@ namespace HELIX.Theming {
     Round = 1 << 6,
     Quarter = 1 << 10,
     Half = 1 << 11,
+    QuarterHalf = Quarter | Half,
     ValueMask = Radius1 | Radius2 | Radius3 | Radius4 | Radius5 | Radius6
   }
 
@@ -694,11 +678,11 @@ namespace HELIX.Theming {
     }
 
     public T this[ThemeData themeData] {
-      get => themeData.GetComputedProperty(this);
+      get => themeData.GetProperty(this);
       set => themeData.SetProperty(this, value);
     }
 
-    public T this[VisualElement element] => ThemeData.Key.ReadAt(element).GetComputedProperty(this);
-    public T this[in Composition cx] => ThemeData.Key[in cx].GetComputedProperty(this);
+    public T this[VisualElement element] => ThemeData.Key.ReadAt(element).GetProperty(this);
+    public T this[in Composition cx] => ThemeData.Key[in cx].GetProperty(this);
   }
 }

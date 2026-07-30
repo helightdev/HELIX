@@ -1,5 +1,4 @@
-using HELIX.Coloring;
-using HELIX.Coloring.Material;
+using System;
 using HELIX.Compose;
 using HELIX.Extensions;
 using HELIX.Theming;
@@ -8,7 +7,6 @@ using HELIX.Widgets.Universal;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
-using Slider = HELIX.Compose.Slider;
 
 namespace HELIX.Examples {
   [BoundaryComposable(Extension = true, UseLookupCache = true)]
@@ -18,7 +16,9 @@ namespace HELIX.Examples {
       public Color color;
     }
 
-    protected override void OnRecompose(ref Composition cx) { }
+    protected override void OnRecompose(ref Composition cx) {
+
+    }
   }
 
   [UxmlElement]
@@ -51,7 +51,9 @@ namespace HELIX.Examples {
       public enum ExampleMode : byte { Balanced, Performance, Quality }
 
       public static readonly SliderOptions VolumeOptions = new(0f, 1f, step: 0f, thumbRange: 0.1f);
-      public static readonly SliderOptions VolumeOptionsScroll = new(0f, 1f, step: 0f, thumbRange: 0.1f, axis: Axis.Vertical);
+      public static readonly SliderOptions VolumeOptionsScroll = new(
+        0f, 1f, step: 0f, thumbRange: 0.1f, axis: Axis.Vertical
+      );
       public static readonly NumericInputOptions DecimalOptions = new(format: "0.00");
 
       public string text = "Editable text";
@@ -69,13 +71,13 @@ namespace HELIX.Examples {
       }
 
       protected override void OnRecompose(ref Composition cx) {
-        Debug.Log(string.Join("\n", States.CommonFocusableSelectable));
-        Debug.Log(string.Join("\n", States.CommonFocusable));
-        Debug.Log(string.Join("\n", States.Common));
+        // Debug.Log(string.Join("\n", States.CommonFocusableSelectable));
+        // Debug.Log(string.Join("\n", States.CommonFocusable));
+        // Debug.Log(string.Join("\n", States.Common));
 
         var systemState = cx.Lookup<NWSystemExampleComposable>();
         using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-          cx.CURSOR.Padding(16f);
+          if (cx.CursorDirty) cx.CURSOR.Padding(16f);
           cx.Text("HELIX NW system example").TextRole(TextRole.TitleLarge);
           cx.Spacing(2);
           cx.Text("Controlled inputs");
@@ -98,13 +100,41 @@ namespace HELIX.Examples {
 
           using (cx.Flex(Axis.Horizontal, cross: Align.Stretch)) {
             using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-              cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
+              if (cx.CursorDirty) cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
               cx.Text("Text");
               cx.Spacing(1);
               cx.TextInput(
                 text,
                 onChanged: (ctx, value) => {
+                  Debug.Log($"Text changed: {value}");
                   using (ctx.Modify<HomeComposable>(out var composable)) { composable.text = value; }
+                },
+                onSubmitted: (ctx, value) => {
+                  Debug.Log($"Text submitted: {value}");
+                },
+                onEditingStarted: (ctx) => {
+                  Debug.Log($"Text editing started");
+                },
+                onEditingEnded: (ctx) => {
+                  Debug.Log($"Text editing ended");
+                }
+              );
+              cx.Spacing(2);
+              cx.TextInput(
+                text,
+                options: new TextInputOptions(multiline: true),
+                onChanged: (ctx, value) => {
+                  Debug.Log($"Text changed: {value}");
+                  using (ctx.Modify<HomeComposable>(out var composable)) { composable.text = value; }
+                },
+                onSubmitted: (ctx, value) => {
+                  Debug.Log($"Text submitted: {value}");
+                },
+                onEditingStarted: (ctx) => {
+                  Debug.Log($"Text editing started");
+                },
+                onEditingEnded: (ctx) => {
+                  Debug.Log($"Text editing ended");
                 }
               );
               cx.Spacing(2);
@@ -173,7 +203,8 @@ namespace HELIX.Examples {
                 style: ThemeProperties.ButtonToggle[in cx], action: static (ctx) => {
                   using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
                 }
-              );         cx.Spacing(2);
+              );
+              cx.Spacing(2);
               cx.Button(
                 static (ref Composition cx) => cx.Text("Ghost"),
                 selected: enabled,
@@ -189,7 +220,7 @@ namespace HELIX.Examples {
               onChanged: static (ctx, value) => {
                 using (ctx.Modify<HomeComposable>(out var state)) { state.volume = value; }
               },
-              style: Slider.Scroller[in cx]
+              style: ThemeProperties.Scroller[in cx]
             );
           }
           cx.Spacing(2);
@@ -238,7 +269,6 @@ namespace HELIX.Examples {
           //
           //   }
           // }
-
         }
       }
     }

@@ -75,7 +75,7 @@ namespace HELIX.Compose {
       var text = new StatePropertyMap<TextStyle>();
       var normalText = theme[TextRole.BodyMedium].style;
       var disabledText = normalText;
-      disabledText.color = theme[ColorRoles.OnSurfaceBlendHigh];
+      disabledText.color = theme[ColorRoles.DisabledHigh];
       text[State.Disabled] = disabledText;
       text[State.None] = normalText;
 
@@ -83,7 +83,7 @@ namespace HELIX.Compose {
         padding: StyleLength4.Symmetric(horizontal: 8f, vertical: 5f),
         constraints: BoxConstraints.Min(new StyleLength2(32f)),
         textStyle: text,
-        background: HXStyles.InputBox(theme),
+        background: ThemeProperties.InputBox[theme],
         selectionStyle: TextSelectionStyle.Custom,
         selectionColor: theme.GetColor(ColorRoles.Focus).WithOpacity(0.4f),
         cursorColor: theme.GetColor(ColorRoles.OnSurface)

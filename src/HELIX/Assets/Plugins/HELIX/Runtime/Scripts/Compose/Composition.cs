@@ -13,12 +13,14 @@ namespace HELIX.Compose {
     /// </summary>
     public readonly IBoundary boundary;
 
+    // ReSharper disable once InconsistentNaming
     /// <summary>
     /// Access to the current cursor element in the composition.
     /// This will usually be the last element that has been composed.
     /// </summary>
     public ElementRef CURSOR;
 
+    // ReSharper disable once InconsistentNaming
     /// <summary>
     /// Low-Level access to composition authoring related data.
     /// Mainly useful for implementing custom composable types or special functionality.
@@ -33,6 +35,10 @@ namespace HELIX.Compose {
       set => AUTHORING.cell.slot = value;
 
     }
+
+    public bool CursorRetained => CURSOR.IsRetained;
+    public bool CursorDirty => CURSOR.IsDirty;
+    public bool Skipped => AUTHORING.cell.skip;
 
     /// <summary>
     /// QOL Accessor to the <see cref="BoundaryCell"/> of the composition.
@@ -74,6 +80,18 @@ namespace HELIX.Compose {
       if (condition) return true;
       AUTHORING.cell.localId.index += count;
       return false;
+    }
+
+    public void SkipScope() {
+      Cell.skip = true;
+    }
+
+    public bool Stateless() {
+      if (CursorRetained) {
+        SkipScope();
+        return false;
+      }
+      return true;
     }
 
     /// <summary>
@@ -294,6 +312,9 @@ namespace HELIX.Compose {
       retention = ret;
     }
 
+    public bool IsRetained => retention == CompositionRetention.Retained;
+    public bool IsDirty => !IsRetained;
+
     public static implicit operator VisualElement(ElementRef reference) => reference.element;
 
     public bool IsValid => element != null;
@@ -306,6 +327,7 @@ namespace HELIX.Compose {
     private readonly LocalId _local;
     private readonly ScopeCompletionCallback _callback;
     private readonly ComposableSlot _slot;
+    private readonly bool _skipCallback;
 
     private ScopeHandle(BoundaryCell cell, ScopeCompletionCallback callback) {
       _cell = cell;
@@ -314,19 +336,22 @@ namespace HELIX.Compose {
       _cursor = cell.cursor;
       _local = cell.localId;
       _slot = cell.slot;
+      _skipCallback = cell.skip;
 
+      cell.skip = false;
       cell.cursor = 0;
       cell.localId = new LocalId { index = 0, depth = (ushort)(_local.depth + 1) };
     }
 
     public void Dispose() {
       try {
-        _callback?.Invoke(_cell, this);
+        if (!_cell.skip) _callback?.Invoke(_cell, this);
       } finally {
         _cell.scope = _return;
         _cell.cursor = _cursor;
         _cell.localId = _local;
         _cell.slot = _slot;
+        _cell.skip = _skipCallback;
       }
     }
 
