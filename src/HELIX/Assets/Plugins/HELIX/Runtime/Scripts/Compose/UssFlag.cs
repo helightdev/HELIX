@@ -43,8 +43,8 @@ namespace HELIX.Compose {
     private static readonly ProfilerMarker _markerState = new("HELIX.NW.UssDirtyReset");
 
     public static bool EnsureIdentity(this IComposable tracker, ulong typeId) {
-      if (tracker.TypeId == typeId) return true;
-      tracker.TypeId = typeId;
+      if (tracker.PackedId == typeId) return true;
+      tracker.PackedId = typeId;
 
 #if ENABLE_PROFILER
       _marker.Begin();

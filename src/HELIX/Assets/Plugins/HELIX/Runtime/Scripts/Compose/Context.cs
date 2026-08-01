@@ -107,13 +107,32 @@ namespace HELIX.Compose {
 
     public readonly Type type;
     public readonly string name;
+    public readonly WeakReference<object> reference;
 
     public ContextKeyData(Type type, string name) {
       this.type = type;
       this.name = name;
+      reference = null;
     }
 
-    public static int ClaimAnonymous(Type type, string debugName) {
+    public ContextKeyData(Type type, string name, WeakReference<object> reference) {
+      this.type = type;
+      this.name = name;
+      this.reference = reference;
+    }
+
+    public bool HasInstance => reference != null && reference.TryGetTarget(out _);
+    public bool TryGetInstance(out object instance) {
+      instance = null;
+      return reference != null && reference.TryGetTarget(out instance);
+    }
+
+    public static void CollectRegistry(List<KeyValuePair<int, ContextKeyData>> results) {
+      if (results == null) throw new ArgumentNullException(nameof(results));
+      foreach (var entry in Registry) results.Add(entry);
+    }
+
+    public static int ClaimAnonymous(Type type, string debugName, WeakReference<object> instance = null) {
       int id;
       if (AnonymousIdPool.Count > 0) {
         id = AnonymousIdPool.Dequeue();
@@ -122,7 +141,7 @@ namespace HELIX.Compose {
         id = AnonymousId--;
       }
 
-      var data = new ContextKeyData(type, debugName);
+      var data = new ContextKeyData(type, debugName, instance);
       Registry[id] = data;
       return id;
     }

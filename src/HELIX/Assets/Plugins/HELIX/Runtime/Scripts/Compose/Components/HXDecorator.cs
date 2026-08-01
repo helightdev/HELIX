@@ -51,7 +51,7 @@ namespace HELIX.Compose {
     }
 
     // Decorator
-    private static readonly ushort _decoratorId = CompositionId.GetTypeId();
+    private static readonly ushort _decoratorId = CompositionId.GetTypeId("HXDecorator");
 
     public static ScopeHandle Decorator(this ref Composition cx, out DecoratorSlots slots) {
       if (!cx.AUTHORING.RequireComposable<HXDecorator>(_decoratorId, out var decorator, out var retained)) {
@@ -125,7 +125,7 @@ namespace HELIX.Compose {
 
     public VisualElement Element => this;
     public UssFlag Flag { get; set; }
-    public ulong TypeId { get; set; }
+    public ulong PackedId { get; set; }
 
     public IBoundary Boundary { get; private set; }
     public override VisualElement contentContainer => element;

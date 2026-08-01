@@ -50,9 +50,9 @@ namespace HELIX.Compose {
 
     public ulong GetTypeId(VisualElement element) {
       if (element is IComposable composable) {
-        return composable.TypeId;
+        return composable.PackedId;
       } else {
-        if (element.userData is UserdataTracker tracker) return tracker.TypeId;
+        if (element.userData is UserdataTracker tracker) return tracker.PackedId;
         return 0;
       }
     }
@@ -81,7 +81,7 @@ namespace HELIX.Compose {
     public bool IsDisposed { get; protected set; }
     public UssFlag Flag { get; set; }
 
-    public ulong TypeId { get; set; }
+    public ulong PackedId { get; set; }
 
 
     private bool _initialAttachment = true;

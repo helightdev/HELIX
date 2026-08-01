@@ -71,7 +71,7 @@ namespace HELIX.Compose {
   }
 
   public static class SliderElementExtensions {
-    private static readonly ushort _sliderElementId = CompositionId.GetTypeId();
+    private static readonly ushort _sliderElementId = CompositionId.GetTypeId("SliderElement");
 
     public static ScopeHandle SliderElement(
       this ref Composition cx,
@@ -135,7 +135,7 @@ namespace HELIX.Compose {
 
     public VisualElement Element => this;
     public UssFlag Flag { get; set; }
-    public ulong TypeId { get; set; }
+    public ulong PackedId { get; set; }
     public IBoundary Boundary { get; private set; }
     public SliderOptions Options => _options;
 

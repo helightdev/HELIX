@@ -16,6 +16,14 @@ namespace HELIX.Compose {
     internal static bool IsProcessing = false;
     internal static IBoundary CurrentBoundary = null;
 
+    public static bool IsBoundaryDirty(IBoundary boundary) {
+      return boundary != null && Dirty.Contains(boundary);
+    }
+
+    public static bool IsBoundaryPendingDisposal(IBoundary boundary) {
+      return boundary != null && DisposalQueue.Contains(boundary);
+    }
+
     public static void RegisterActiveBoundary(IBoundary boundary) {
       Boundaries.Add(boundary);
 

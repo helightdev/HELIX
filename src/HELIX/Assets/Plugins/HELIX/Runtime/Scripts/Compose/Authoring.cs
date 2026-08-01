@@ -93,7 +93,7 @@ namespace HELIX.Compose {
         return true;
       }
 
-      node = new CompositionBoundaryNode { TypeId = id.packed };
+      node = new CompositionBoundaryNode { PackedId = id.packed };
       retention = CompositionRetention.New;
       return false;
     }
@@ -143,7 +143,7 @@ namespace HELIX.Compose {
         return !isEqual;
       }
 
-      node = new CompositionNode { TypeId = packed };
+      node = new CompositionNode { PackedId = packed };
       retention = CompositionRetention.New;
       return true;
     }
@@ -195,7 +195,7 @@ namespace HELIX.Compose {
 
       complete:
       if (given is IComposable composable) { } else { composable = CompositionInternals.Promote(given); }
-      if (composable.TypeId == 0) composable.TypeId = id.packed;
+      if (composable.PackedId == 0) composable.PackedId = id.packed;
       if (retention is CompositionRetention.Reset or CompositionRetention.New) {
         HXProfiling.TrackComposableReset();
       }

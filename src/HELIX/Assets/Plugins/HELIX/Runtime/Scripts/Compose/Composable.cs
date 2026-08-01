@@ -189,7 +189,7 @@ namespace HELIX.Compose {
 
   public interface IComposable : IElement {
     UssFlag Flag { get; set; }
-    ulong TypeId { get; set; }
+    ulong PackedId { get; set; }
     void Reset();
   }
 
@@ -204,7 +204,7 @@ namespace HELIX.Compose {
   public sealed class UserdataTracker : IComposable, IStateAttachmentHolder {
     public VisualElement Element { get; set; }
     public UssFlag Flag { get; set; }
-    public ulong TypeId { get; set; }
+    public ulong PackedId { get; set; }
 
     public Action OnReset { get; set; }
 
@@ -223,7 +223,7 @@ namespace HELIX.Compose {
     public VisualElement Element => this;
 
     public UssFlag Flag { get; set; }
-    public ulong TypeId { get; set; }
+    public ulong PackedId { get; set; }
     public object ComposableUserData { get; set; }
     private StateAttachmentStore _stateAttachmentStore;
 

@@ -28,11 +28,11 @@ namespace HELIX.Compose {
 
     public UssFlag Flag { get; set; }
 
-    public ulong TypeId { get; set; }
+    public ulong PackedId { get; set; }
 
     public void Recompose(Composable composable) {
       CompositionId cid = default;
-      cid.packed = Host.TypeId;
+      cid.packed = Host.PackedId;
       cid.local = slotLocalId;
 
       var cx = new Composition(Host.Boundary, cid, this) { Slot = this };

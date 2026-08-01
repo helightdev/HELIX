@@ -319,7 +319,7 @@ namespace HELIX.Compose {
 
 
     // Space
-    private static readonly ushort _spaceId = CompositionId.GetTypeId();
+    private static readonly ushort _spaceId = CompositionId.GetTypeId("Spacing");
 
     public static ref ElementRef Spacing(this ref Composition cx, SpacingRole role) {
       var theme = cx.ReadContext(ThemeData.Key);
@@ -357,7 +357,7 @@ namespace HELIX.Compose {
     }
 
     // Context Scope
-    private static readonly ushort _contextScopeId = CompositionId.GetTypeId();
+    private static readonly ushort _contextScopeId = CompositionId.GetTypeId("Context Contributor");
 
     public static ScopeHandle ContextContributor(this ref Composition cx) {
       cx.AUTHORING.RequireComposable<ContextComposableElement>(
@@ -375,7 +375,7 @@ namespace HELIX.Compose {
 
 
     // Flex
-    private static readonly ushort _flexId = CompositionId.GetTypeId();
+    private static readonly ushort _flexId = CompositionId.GetTypeId("Flex");
 
     public static ScopeHandle Flex(
       this ref Composition ctx,
@@ -404,7 +404,7 @@ namespace HELIX.Compose {
     }
 
     // Container
-    private static readonly ushort _containerId = CompositionId.GetTypeId();
+    private static readonly ushort _containerId = CompositionId.GetTypeId("Container");
 
     public static ScopeHandle Container(this ref Composition cx) {
       if (cx.AUTHORING.InitializeNode(_flexId, out var node)) {
@@ -422,7 +422,7 @@ namespace HELIX.Compose {
 
 
     // Solid box
-    private static readonly ushort _boxId = CompositionId.GetTypeId();
+    private static readonly ushort _boxId = CompositionId.GetTypeId("DrawSolidBox");
 
     public static ref ElementRef DrawSolidBox(
       this ref Composition cx,
@@ -457,7 +457,7 @@ namespace HELIX.Compose {
     }
 
     // Text
-    private static readonly ushort _textId = CompositionId.GetTypeId();
+    private static readonly ushort _textId = CompositionId.GetTypeId("Text");
 
     public static ref ElementRef Text(this ref Composition ctx, string text) {
       if (!ctx.AUTHORING.RequireTracked<Label>(_textId, out var label, out var retained)) {
@@ -471,8 +471,9 @@ namespace HELIX.Compose {
     }
 
 
+    private static readonly ushort _textFieldId = CompositionId.GetTypeId("TextField");
     public static ref ElementRef TextField(this ref Composition ctx) {
-      if (!ctx.AUTHORING.RequireTracked<TextField>(_textId, out var label, out var retained)) {
+      if (!ctx.AUTHORING.RequireTracked<TextField>(_textFieldId, out var label, out var retained)) {
         label = new TextField();
         label.NoPaddingAndMargin();
       }
@@ -481,19 +482,20 @@ namespace HELIX.Compose {
     }
 
     // Boundary
-    private static readonly ushort _boundaryId = CompositionId.GetTypeId();
+    private static readonly ushort _anonymousBoundaryId = CompositionId.GetTypeId("AnonymousBoundary");
 
     public static ref ElementRef Boundary(this ref Composition ctx, Composable composable) {
-      if (ctx.AUTHORING.InitializeAnonymouseBoundaryNode(_boundaryId, out var node, out var state)) {
+      if (ctx.AUTHORING.InitializeAnonymouseBoundaryNode(_anonymousBoundaryId, out var node, out var state)) {
         // No state initialization
       }
       node.composable = composable;
       return ref ctx.AUTHORING.YieldBoundary(ref ctx, node);
     }
 
+    private static readonly ushort _propsBoundaryId = CompositionId.GetTypeId("PropsBoundary");
     public static ref ElementRef Boundary<T>(this ref Composition ctx, T props, Composable composable)
       where T : struct {
-      if (ctx.AUTHORING.InitializePropsBoundaryNode<T>(_boundaryId, out var node, out var state)) {
+      if (ctx.AUTHORING.InitializePropsBoundaryNode<T>(_propsBoundaryId, out var node, out var state)) {
         // No state initialization
       }
       state.props = props;

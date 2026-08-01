@@ -4,7 +4,6 @@ using HELIX.Compose;
 using HELIX.Diagnostics;
 using HELIX.Diagnostics.Error;
 using HELIX.Widgets.Signals;
-using HELIX.Widgets.Utilities;
 using UnityEngine.Pool;
 
 namespace HELIX.Signals {
@@ -27,7 +26,7 @@ namespace HELIX.Signals {
 
     protected Signal() {
       detached = true;
-      contextKey = ContextKeyData.ClaimAnonymous(typeof(Signal), "SignalHelper");
+      contextKey = ContextKeyData.ClaimAnonymous(typeof(Signal), "SignalHelper", new WeakReference<object>(this));
     }
 
     public override void Dispose() {

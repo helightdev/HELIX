@@ -211,7 +211,7 @@ namespace HELIX.Widgets.Elements {
 
     public VisualElement Element => this;
     public UssFlag Flag { get; set; }
-    public ulong TypeId { get; set; }
+    public ulong PackedId { get; set; }
 
     public void Reset() {
       Value = string.Empty;

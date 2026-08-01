@@ -173,7 +173,7 @@ namespace HELIX.Compose {
         return composable;
       } else {
         return (UserdataTracker)(element.userData ??= new UserdataTracker {
-          TypeId = 0,
+          PackedId = 0,
           Flag = UssFlag.None,
           Element = element
         });
@@ -205,7 +205,7 @@ namespace HELIX.Compose {
     public static readonly LocalId Initial;
 
     public override string ToString() {
-      return $"L{index}@{depth}";
+      return $"L{index}@{depth}D";
     }
 
     public static LocalId FromData(int data) {
