@@ -7,7 +7,6 @@ using UnityEngine;
 namespace HELIX.Editor {
   public sealed class CompositionIdRegistryInspectorWindow : HelixHierarchyInspectorWindow {
     protected override string EmptyMessage => "The composition ID registry is empty.";
-    protected override bool SupportsLiveRefresh => true;
 
     [MenuItem("Window/HELIX/Inspectors/Composition ID Registry", false, 1011)]
     private static void ShowWindow() {

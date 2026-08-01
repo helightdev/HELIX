@@ -290,7 +290,8 @@ namespace HELIX.Compose {
       this.WithStylesheet(AuxiliaryStylesheets.Helix);
 
       _background = new CompositionBoundaryNode {
-        name = "InputVisual", composable = ComposeBackground, pickingMode = PickingMode.Ignore
+        name = "InputVisual", composable = ComposeBackground,
+        pickingMode = PickingMode.Ignore
       }.Stretched();
       hierarchy.Add(_background);
 

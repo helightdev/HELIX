@@ -8,6 +8,7 @@ using HELIX.Compose;
 using HELIX.Compose.Collections;
 using Unity.Hierarchy;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -18,34 +19,17 @@ namespace HELIX.Editor {
       new InspectorHierarchyColumn("runtimeType", "Type", 220),
       new InspectorHierarchyColumn("depth", "Depth", 55),
       new InspectorHierarchyColumn("dirty", "Dirty", 55),
-      new InspectorHierarchyColumn("pendingDisposal", "Pending Disposal", 110)
+      new InspectorHierarchyColumn("disposal", "Disposal", 75),
+      new InspectorHierarchyColumn("ussFlags", "USS Flags", 160)
     };
     private sealed class Identity { public readonly int id; public Identity(int id) { this.id = id; } }
-    private sealed class BoundaryPayload {
+    private class ElementPayload {
       public readonly WeakReference<VisualElement> element;
-      public BoundaryPayload(VisualElement element) { this.element = new WeakReference<VisualElement>(element); }
+      public ElementPayload(VisualElement element) { this.element = new WeakReference<VisualElement>(element); }
     }
-    private sealed class ComposableSubtreeNode {
-      public readonly string key;
-      public readonly string label;
-      public readonly string composableType;
-      public readonly string cid;
-      public readonly List<ComposableSubtreeNode> children;
-
-      public ComposableSubtreeNode(string key, string label, string composableType, string cid,
-        IEnumerable<ComposableSubtreeNode> children) {
-        this.key = key;
-        this.label = label;
-        this.composableType = composableType;
-        this.cid = cid;
-        this.children = children?.ToList() ?? new List<ComposableSubtreeNode>();
-      }
+    private sealed class BoundaryPayload : ElementPayload {
+      public BoundaryPayload(VisualElement element) : base(element) { }
     }
-
-    private static readonly IReadOnlyList<InspectorHierarchyColumn> _composableColumns = new[] {
-      new InspectorHierarchyColumn("composableType", "Composable Type", 260, true),
-      new InspectorHierarchyColumn("cid", "Type ID", 180, true)
-    };
 
     private readonly List<IBoundary> _boundaries = new();
     private readonly ReferenceEqualityComparer<IBoundary> _comparer = new();
@@ -53,31 +37,21 @@ namespace HELIX.Editor {
     private readonly ConditionalWeakTable<IBoundary, Identity> _boundaryIds = new();
     private readonly ConditionalWeakTable<IPanel, Identity> _panelIds = new();
     private readonly ConditionalWeakTable<VisualElement, Identity> _elementIds = new();
-    private readonly Dictionary<string, HierarchyNode> _composableNodesByKey = new();
-    private readonly Dictionary<HierarchyNode, ComposableSubtreeNode> _composableDataByNode = new();
-    private readonly Dictionary<HierarchyViewCell, Label> _composableLabelsByCell = new();
     private int _nextBoundaryId = 1;
     private int _nextPanelId = 1;
     private int _nextElementId = 1;
     private VisualElement _highlightedElement;
-    private Hierarchy _composableHierarchy;
-    private InspectorNodeTypeHandler _composableNodeHandler;
-    private HierarchyView _composableHierarchyView;
 
     protected override string EmptyMessage => "No active boundaries.";
     protected override bool SupportsLiveRefresh => true;
+    protected override bool SupportsComposableTree => true;
     protected override IReadOnlyList<InspectorHierarchyColumn> HierarchyColumns => _columns;
 
-    protected override void OnDisable() {
-      _composableHierarchyView?.Dispose();
-      _composableHierarchyView = null;
-      _composableHierarchy?.Dispose();
-      _composableHierarchy = null;
-      _composableNodeHandler = null;
-      _composableNodesByKey.Clear();
-      _composableDataByNode.Clear();
-      _composableLabelsByCell.Clear();
-      base.OnDisable();
+    protected override void AddToolbarButtons(Toolbar toolbar) {
+      toolbar.Add(new ToolbarButton(RefreshCurrentBoundaries) {
+        text = "Refresh Current",
+        tooltip = "Refresh values for the boundaries already listed without re-enumerating active boundaries."
+      });
     }
 
     [MenuItem("Window/HELIX/Inspectors/Active Boundaries", false, 1012)]
@@ -90,9 +64,18 @@ namespace HELIX.Editor {
     protected override List<InspectorTreeNode> ReadNodes() {
       _boundaries.Clear();
       _boundaries.AddRange(HX.Boundaries);
+      return BuildNodes(_boundaries);
+    }
+
+    private void RefreshCurrentBoundaries() {
+      RefreshNodes(BuildNodes(_boundaries));
+    }
+
+    private List<InspectorTreeNode> BuildNodes(IEnumerable<IBoundary> source) {
+      var boundaries = source.ToList();
       var panels = new Dictionary<IPanel, List<IBoundary>>(_panelComparer);
       var detached = new List<IBoundary>();
-      foreach (var boundary in _boundaries) {
+      foreach (var boundary in boundaries) {
         var panel = boundary.Element?.panel;
         if (panel == null) detached.Add(boundary);
         else {
@@ -140,19 +123,23 @@ namespace HELIX.Editor {
       var hierarchyName = GetDisplayTypeName(boundary.PackedId, boundaryComposable, element, boundary);
       var composableType = boundaryComposable == null ? null : SimpleTypeName(boundaryComposable.GetType());
       var dirty = HXComposer.IsBoundaryDirty(boundary);
-      var disposal = HXComposer.IsBoundaryPendingDisposal(boundary);
+      var pendingDisposal = HXComposer.IsBoundaryPendingDisposal(boundary);
+      var disposal = boundary.IsDisposed ? "Disposed" : pendingDisposal ? "Pending" : "Active";
+      var ussFlags = FormatUssFlags(boundary.Flag);
       var id = new CompositionId { packed = boundary.PackedId };
       var formatted = FormatCompositionId(id);
-      var childNodes = descendants.Where(child => !visited.Contains(child)).Select(child => ToNode(child, children, visited)).ToList();
+      var childNodes = ShowComposables
+        ? BuildBoundaryChildren(boundary, children, descendants, visited)
+        : descendants.Where(child => !visited.Contains(child)).Select(child => ToNode(child, children, visited)).ToList();
       return new InspectorTreeNode(key, hierarchyName, formatted, new[] {
         Detail("Name", name), Detail("Runtime Type", boundary.GetType().FullName), Detail("Element Type", element?.GetType().FullName),
         Detail("Boundary Composable", composableType),
-        Detail("Tree Depth", boundary.TreeDepth), Detail("Dirty", dirty), Detail("Pending Disposal", disposal),
-        Detail("Disposed", boundary.IsDisposed), Detail("ID", formatted), Detail("Packed ID", boundary.PackedId),
-        Detail("Composition ID", id.composition), Detail("Type ID", id.type), Detail("Local ID", id.local)
+        Detail("Tree Depth", boundary.TreeDepth), Detail("Dirty", dirty), Detail("Disposal", disposal),
+        Detail("USS Dirty Flags", ussFlags),
+        Detail("ID", formatted), Detail("Packed ID", boundary.PackedId)
       }, childNodes, new[] {
         Detail("cid", formatted), Detail("runtimeType", hierarchyName), Detail("depth", boundary.TreeDepth),
-        Detail("dirty", dirty), Detail("pendingDisposal", disposal)
+        Detail("dirty", dirty), Detail("disposal", disposal), Detail("ussFlags", ussFlags)
       }, element == null ? null : new BoundaryPayload(element));
     }
 
@@ -179,154 +166,64 @@ namespace HELIX.Editor {
       actions.style.marginBottom = 10;
       actions.Add(new Button(() => UIElementsDebuggerBridge.Open(element)) { text = "Open in UI Toolkit Debugger" });
       target.Add(actions);
-      AddComposableSubtree(data, target);
     }
 
-    private void AddComposableSubtree(InspectorTreeNode data, VisualElement target) {
-      if (GetElement(data) is not IBoundary boundary) return;
-
-      var title = new Label("Composable Subtree");
-      title.style.unityFontStyleAndWeight = FontStyle.Bold;
-      title.style.marginLeft = 10;
-      title.style.marginTop = 8;
-      title.style.marginBottom = 4;
-      target.Add(title);
-
-      EnsureComposableHierarchyView();
-      SynchronizeComposableHierarchy(BuildComposableSubtree(boundary));
-      target.Add(_composableHierarchyView);
-    }
-
-    private void EnsureComposableHierarchyView() {
-      if (_composableHierarchyView != null) return;
-
-      _composableHierarchy = new Hierarchy();
-      _composableNodeHandler = _composableHierarchy.GetOrCreateNodeTypeHandler<InspectorNodeTypeHandler>();
-      _composableHierarchyView = new HierarchyView();
-      _composableHierarchyView.style.height = 220;
-      _composableHierarchyView.style.marginLeft = 10;
-      _composableHierarchyView.style.marginRight = 10;
-      _composableHierarchyView.style.marginBottom = 10;
-      _composableHierarchyView.SetSourceHierarchy(_composableHierarchy, HierarchyNodeFlags.Expanded);
-      _composableHierarchyView.SetColumnDescriptors(BuildComposableColumnDescriptors(), BuildComposableCellDescriptors(), null);
-      _composableHierarchyView.BindViewItem += OnBindComposableViewItem;
-    }
-
-    private static IEnumerable<HierarchyViewColumnDescriptor> BuildComposableColumnDescriptors() {
-      var priority = 1;
-      foreach (var column in _composableColumns) {
-        yield return new HierarchyViewColumnDescriptor(column.key) {
-          Title = column.title,
-          Tooltip = column.title,
-          DefaultPriority = priority++,
-          DefaultWidth = column.width,
-          DefaultVisibility = column.visibleByDefault
-        };
-      }
-    }
-
-    private IEnumerable<HierarchyViewCellDescriptor> BuildComposableCellDescriptors() {
-      foreach (var column in _composableColumns) {
-        yield return new HierarchyViewCellDescriptor(column.key, typeof(InspectorNodeTypeHandler)) {
-          ClearCellContent = true,
-          BindCell = cell => BindComposableCell(cell, column.key),
-          UnbindCell = cell => _composableLabelsByCell.Remove(cell)
-        };
-      }
-    }
-
-    private void BindComposableCell(HierarchyViewCell cell, string columnKey) {
-      var label = new Label {
-        style = {
-          flexGrow = 1,
-          unityTextAlign = TextAnchor.MiddleLeft,
-          overflow = Overflow.Hidden,
-          color = new Color(0.62f, 0.62f, 0.62f)
+    private List<InspectorTreeNode> BuildBoundaryChildren(IBoundary boundary,
+      Dictionary<IBoundary, List<IBoundary>> boundaryChildren, List<IBoundary> descendants,
+      HashSet<IBoundary> visitedBoundaries) {
+      var nodes = new List<InspectorTreeNode>();
+      var visitedElements = new HashSet<VisualElement>(new ReferenceEqualityComparer<VisualElement>());
+      var element = boundary.Element;
+      if (element != null) {
+        for (var index = 0; index < element.childCount; index++) {
+          var node = BuildComposableNode(element.ElementAt(index), boundaryChildren, visitedBoundaries, visitedElements);
+          if (node != null) nodes.Add(node);
         }
-      };
-      cell.Add(label);
-      _composableLabelsByCell[cell] = label;
-      UpdateComposableCell(cell, label, columnKey);
-    }
-
-    private void OnBindComposableViewItem(HierarchyView view, HierarchyViewItem item) {
-      if (_composableDataByNode.TryGetValue(item.Node, out var data)) item.Name.text = data.label;
-    }
-
-    private void SynchronizeComposableHierarchy(ComposableSubtreeNode rootData) {
-      var desired = new HashSet<string>();
-      _composableDataByNode.Clear();
-      if (rootData != null) {
-        var root = _composableHierarchy.Root;
-        SynchronizeComposableNode(in root, rootData, 0, desired);
       }
 
-      foreach (var stale in _composableNodesByKey.Where(entry => !desired.Contains(entry.Key)).ToList()) {
-        var node = stale.Value;
-        if (_composableHierarchy.Exists(in node)) _composableNodeHandler.Remove(in node);
-        _composableNodesByKey.Remove(stale.Key);
-      }
-      _composableHierarchy.Update();
-      _composableHierarchyView.Update();
-      UpdateComposableCells();
+      // A boundary can be logically parented without being a visual child. Keep those branches visible.
+      foreach (var descendant in descendants)
+        if (!visitedBoundaries.Contains(descendant)) nodes.Add(ToNode(descendant, boundaryChildren, visitedBoundaries));
+      return nodes;
     }
 
-    private void SynchronizeComposableNode(in HierarchyNode parent, ComposableSubtreeNode data, int index,
-      HashSet<string> desired) {
-      desired.Add(data.key);
-      if (!_composableNodesByKey.TryGetValue(data.key, out var node) || !_composableHierarchy.Exists(in node)) {
-        if (!_composableNodeHandler.Add(in parent, out node))
-          throw new InvalidOperationException("Could not add a composable subtree node.");
-        _composableNodesByKey[data.key] = node;
-      }
-      _composableDataByNode[node] = data;
-      _composableNodeHandler.SetParent(in node, in parent, index);
-      _composableNodeHandler.SetName(in node, data.label);
-      for (var childIndex = 0; childIndex < data.children.Count; childIndex++)
-        SynchronizeComposableNode(in node, data.children[childIndex], childIndex, desired);
-    }
+    private InspectorTreeNode BuildComposableNode(VisualElement element,
+      Dictionary<IBoundary, List<IBoundary>> boundaryChildren, HashSet<IBoundary> visitedBoundaries,
+      HashSet<VisualElement> visitedElements) {
+      if (element == null || !visitedElements.Add(element)) return null;
 
-    private void UpdateComposableCells() {
-      foreach (var entry in _composableLabelsByCell.ToList())
-        UpdateComposableCell(entry.Key, entry.Value, entry.Key.Descriptor.ColumnId);
-    }
+      if (element is IBoundary boundary && boundaryChildren.ContainsKey(boundary))
+        return visitedBoundaries.Contains(boundary) ? null : ToNode(boundary, boundaryChildren, visitedBoundaries);
 
-    private void UpdateComposableCell(HierarchyViewCell cell, Label label, string columnKey) {
-      var text = _composableDataByNode.TryGetValue(cell.Node, out var data)
-        ? columnKey == "composableType" ? data.composableType : data.cid
-        : null;
-      label.text = text;
-      cell.IsDefaultValue = string.IsNullOrEmpty(text);
-    }
-
-    private ComposableSubtreeNode BuildComposableSubtree(IBoundary boundary) {
-      var visited = new HashSet<VisualElement>(new ReferenceEqualityComparer<VisualElement>());
-      return BuildComposableSubtree(boundary.Element, true, visited);
-    }
-
-    private ComposableSubtreeNode BuildComposableSubtree(VisualElement element, bool isRoot,
-      HashSet<VisualElement> visited) {
-      if (element == null || !visited.Add(element)) return null;
       var composable = GetComposable(element);
-      var boundaryComposable = element is CompositionBoundaryNodeBase boundary
-        ? boundary.BoundaryComposable
+      var boundaryComposable = element is CompositionBoundaryNodeBase boundaryElement
+        ? boundaryElement.BoundaryComposable
         : null;
       var packedId = composable?.PackedId ?? 0;
-      var composableType = GetDisplayTypeName(packedId, boundaryComposable, element, composable);
-      var compositionId = composable == null ? null : FormatCompositionId(new CompositionId { packed = packedId });
-      var label = composableType;
-      var children = new List<ComposableSubtreeNode>();
-      if (isRoot || element is not IBoundary) {
+      var displayName = GetDisplayTypeName(packedId, boundaryComposable, element, composable);
+      var formattedId = composable == null ? null : FormatCompositionId(new CompositionId { packed = packedId });
+      var ussFlags = composable == null ? null : FormatUssFlags(composable.Flag);
+      var children = new List<InspectorTreeNode>();
+      if (element is not IBoundary) {
         for (var index = 0; index < element.childCount; index++) {
-          var child = BuildComposableSubtree(element.ElementAt(index), false, visited);
+          var child = BuildComposableNode(element.ElementAt(index), boundaryChildren, visitedBoundaries, visitedElements);
           if (child != null) children.Add(child);
         }
       }
-      return new ComposableSubtreeNode(ElementKey(element), label, composableType, compositionId, children);
+      return new InspectorTreeNode(ElementKey(element), displayName, formattedId, new[] {
+        Detail("Element Type", element.GetType().FullName),
+        Detail("Composable Type", composable == null ? null : SimpleTypeName(composable.GetType())),
+        Detail("USS Dirty Flags", ussFlags),
+        Detail("ID", formattedId)
+      }, children, new[] {
+        Detail("cid", formattedId), Detail("runtimeType", displayName), Detail("ussFlags", ussFlags)
+      }, new ElementPayload(element));
     }
 
     private static IComposable GetComposable(VisualElement element) =>
       element as IComposable ?? element.userData as IComposable;
+
+    private static string FormatUssFlags(UssFlag flags) => flags.ToString();
 
     private static string GetDisplayTypeName(ulong cid, object contextComposable, VisualElement element,
       IComposable composable) {
@@ -346,7 +243,7 @@ namespace HELIX.Editor {
     }
 
     private static VisualElement GetElement(InspectorTreeNode node) =>
-      node?.payload is BoundaryPayload payload && payload.element.TryGetTarget(out var element) ? element : null;
+      node?.payload is ElementPayload payload && payload.element.TryGetTarget(out var element) ? element : null;
 
     private void DrawHighlight(MeshGenerationContext context) {
       if (_highlightedElement == null) return;
