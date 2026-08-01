@@ -78,7 +78,7 @@ namespace HELIX.Editor {
       }
       toolbar.Add(new ToolbarSpacer());
       _search = new ToolbarSearchField();
-      _search.RegisterValueChangedCallback(evt => _hierarchyView.Filter = evt.newValue ?? string.Empty);
+      _search.RegisterValueChangedCallback(evt => ApplySearchFilter(evt.newValue));
       toolbar.Add(_search);
       _summaryLabel = new Label {
         style = {
@@ -233,6 +233,12 @@ namespace HELIX.Editor {
       } else {
         _scheduledRefresh?.Pause();
       }
+    }
+
+    private void ApplySearchFilter(string filter) {
+      if (_hierarchyView == null) return;
+      _hierarchyView.Filter = filter ?? string.Empty;
+      _hierarchyView.Update();
     }
 
     protected void RefreshFromSource() {
