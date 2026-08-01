@@ -17,5 +17,5 @@ MonoBehaviour:
   m_DefaultRuntimeCanvasTheme: 0
   m_DefaultEditorCanvasTheme: 1
   m_ConsistentAttributeOrderingWhenExporting: 0
-  m_EnableLowLevelDebugger: 0
-  m_EnablePanelRendererAnimation: 0
+  m_EnableLowLevelDebugger: 1
+  m_EnablePanelRendererAnimation: 1

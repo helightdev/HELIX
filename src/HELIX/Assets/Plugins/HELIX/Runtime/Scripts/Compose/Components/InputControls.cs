@@ -6,6 +6,8 @@ using HELIX.Theming;
 using HELIX.Types;
 using HELIX.Widgets.Utilities;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
@@ -196,7 +198,13 @@ namespace HELIX.Compose {
     where TOptions : struct {
     TOptions DefaultOptions { get; }
     TValue DefaultValue { get; }
-    bool SubmitOnEnter(in TOptions options);
+
+    void SubmitOnEnter(
+      in TOptions options,
+      IKeyboardEvent evt,
+      out bool addEnter, out bool submit
+    );
+
     void Apply(TField field, in TOptions options);
   }
 
@@ -205,14 +213,24 @@ namespace HELIX.Compose {
     public TextInputOptions DefaultOptions => TextInputOptions.Default;
     public string DefaultValue => string.Empty;
 
-    public bool SubmitOnEnter(in TextInputOptions options) => options.submitOnEnter && !options.multiline;
+    public void SubmitOnEnter(
+      in TextInputOptions options,
+      IKeyboardEvent evt,
+      out bool addEnter, out bool submit
+    ) {
+      addEnter = false;
+      submit = options.submitOnEnter;
+
+      if (!evt.altKey || !options.multiline || !options.submitOnEnter) return;
+      addEnter = true;
+      submit = false;
+    }
 
     public void Apply(TextField field, in TextInputOptions options) {
       field.multiline = options.multiline;
       field.autoCorrection = options.autocorrect;
       field.isReadOnly = options.readOnly;
       field.isPasswordField = options.password;
-      field.isDelayed = options.delayed;
       field.hideMobileInput = options.hideMobileInput;
       field.keyboardType = options.keyboardType;
       field.maskChar = options.maskCharacter;
@@ -227,13 +245,49 @@ namespace HELIX.Compose {
     where TField : TextValueField<TValue> {
     public NumericInputOptions DefaultOptions => NumericInputOptions.Default;
     public TValue DefaultValue => default;
-    public bool SubmitOnEnter(in NumericInputOptions options) => true;
+
+    public void SubmitOnEnter(
+      in NumericInputOptions options,
+      IKeyboardEvent evt,
+      out bool addEnter, out bool submit
+    ) {
+      addEnter = false;
+      submit = true;
+    }
 
     public void Apply(TField field, in NumericInputOptions options) {
-      field.isDelayed = options.delayed;
       field.formatString = options.format;
       field.Flexible(options.expands ? 1f : 0f, options.expands ? 1f : 0f);
     }
+  }
+
+  public struct InputKeyEventBuffering {
+    public bool isBuffering;
+    public EventModifiers modifiers;
+    public char character;
+    public KeyCode keyCode;
+    public int frame;
+
+    public void Clear() {
+      isBuffering = false;
+      modifiers = EventModifiers.None;
+      character = '\0';
+      keyCode = KeyCode.None;
+      frame = -1;
+    }
+
+    public void ClearIfFrameOutdated() {
+      if (frame == -1) return;
+      if (Time.frameCount != frame) Clear();
+    }
+
+    public void BeginBuffering() {
+      frame = Time.frameCount;
+      isBuffering = true;
+    }
+
+    public readonly bool IsReady => frame == Time.frameCount && isBuffering && (character != 0 || keyCode != KeyCode.None);
+    public readonly bool IsBuffering => frame == Time.frameCount && isBuffering;
   }
 
   internal sealed class TextFieldElement<TValue, TField, TOptions, TAdapter> : VisualElement, IComposable
@@ -257,7 +311,7 @@ namespace HELIX.Compose {
     private CompositionAction<TValue> _onChanged;
     private CompositionAction<TValue> _onSubmitted;
     private CompositionAction _onEditingStarted;
-    private CompositionAction _onEditingEnded;
+    private CompositionAction<TextEditingValue, TextEditEndReason> _onEditingEnded;
     private IBoundary _callbackBoundary;
     private InputFieldStyle _inputStyle;
     private State _inputState;
@@ -267,7 +321,18 @@ namespace HELIX.Compose {
     private TextSelectionStyle _appliedSelectionStyle;
     private Color _appliedSelectionColor;
     private Color _appliedCursorColor;
+
     private int _lastKeyboardSubmitFrame = -1;
+    private int _textInputSkipFrame = -1;
+
+    private TextEditingValue _lastValue;
+    private TextEditingValue _initialValue;
+    private TextEditProcessor _processor;
+    private bool _isModifying = false;
+    private bool _hasTabbedIn = false;
+    private TextEditEndReason _endReason;
+    private InputKeyEventBuffering _buffering;
+
     private TOptions _options;
 
     public TextFieldElement() {
@@ -291,9 +356,6 @@ namespace HELIX.Compose {
         throw new InvalidOperationException($"{typeof(TField).Name} text edition is not a TextElement.");
       }
 
-      // Unity's theme selectors are all rooted in the default field classes.
-      // GenericTextInput deliberately removes those classes so its retained
-      // editor cannot acquire theme hover/focus visuals.
       _field.ClearClassList();
       _textEdition.TextAlign(TextAnchor.MiddleLeft);
 
@@ -301,11 +363,44 @@ namespace HELIX.Compose {
       _field.RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
       RegisterCallback<PointerEnterEvent>(OnPointerEnter);
       RegisterCallback<PointerLeaveEvent>(OnPointerLeave);
-      RegisterCallback<FocusInEvent>(OnFocusIn);
-      RegisterCallback<FocusOutEvent>(OnFocusOut);
+      _textEdition.RegisterCallback<FocusEvent>(OnFocus);
+      _textEdition.RegisterCallback<BlurEvent>(OnBlur);
       RegisterCallback<KeyDownEvent>(OnKeyDown, TrickleDown.TrickleDown);
-      RegisterCallback<NavigationSubmitEvent>(OnNavigationSubmit);
-      RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
+      _textEdition.RegisterCallback<NavigationSubmitEvent>(OnNavigationSubmit);
+      _textEdition.RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
+
+      _textEdition.selection.OnCursorIndexChange += OnSelectionChanged;
+      _textEdition.selection.OnSelectIndexChange += OnSelectionChanged;
+      _textEdition.RegisterCallback<KeyDownEvent>(OnKeyDownEventElement);
+      _lastValue = TextEditingValue.FromElement(_textEdition);
+    }
+
+    private void OnKeyDownEventElement(KeyDownEvent evt) {
+      _buffering.ClearIfFrameOutdated();
+      if (evt.keyCode != KeyCode.None) {
+        _buffering.keyCode = evt.keyCode;
+        _buffering.modifiers |= evt.modifiers;
+        _buffering.BeginBuffering();
+      }
+      if (evt.character != 0) {
+        _buffering.character = evt.character;
+        _buffering.modifiers |= evt.modifiers;
+        _buffering.BeginBuffering();
+      }
+      if (!_buffering.IsReady) return;
+      var physical = TextEditingValue.FromElement(_textEdition);
+      if (_lastValue.Equals(physical)) return;
+
+      var trigger = new TextEditTrigger(
+        TextEditingValue.GetModificationType(in _lastValue, in physical),
+        _buffering.modifiers,
+        _buffering.keyCode,
+        _buffering.character
+      );
+
+      BeginHandle(trigger, out var context);
+      Handle(ref context);
+      EndHandle(in context);
     }
 
     public void Configure(in TOptions options) {
@@ -325,16 +420,18 @@ namespace HELIX.Compose {
       bool error,
       InputFieldStyle style,
       IBoundary callbackBoundary,
+      TextEditProcessor processor,
       CompositionAction<TValue> onChanged,
       CompositionAction<TValue> onSubmitted,
       CompositionAction onEditingStarted,
-      CompositionAction onEditingEnded
+      CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded
     ) {
       _callbackBoundary = callbackBoundary;
       _onChanged = onChanged;
       _onSubmitted = onSubmitted;
       _onEditingStarted = onEditingStarted;
       _onEditingEnded = onEditingEnded;
+      _processor = processor;
 
       if (!_equality.Equals(_field.value, value)) {
         _field.SetValueWithoutNotify(value);
@@ -380,18 +477,26 @@ namespace HELIX.Compose {
     private void BeginEditing() {
       if (_editing || !_enabled) return;
       _editing = true;
+      _lastValue = TextEditingValue.FromElement(_textEdition);
+      _initialValue = _lastValue;
       _onEditingStarted?.Call(_callbackBoundary);
+    }
+
+    private void CheckEndEditingLater() {
+      schedule.Execute(EndEditing).ExecuteLater(1);
     }
 
     private void EndEditing() {
       if (!_editing) return;
       _editing = false;
-      _onEditingEnded?.Call(_callbackBoundary);
-    }
-
-    private void Submit() {
-      if (!_enabled) return;
-      _onSubmitted?.Call(_callbackBoundary, _field.value);
+      try {
+        _onEditingEnded?.Call(_callbackBoundary, _lastValue, _endReason);
+      } catch (Exception ex) {
+        Debug.LogException(ex);
+      } finally {
+        _endReason = TextEditEndReason.FocusLost;
+      }
+      _initialValue = default;
     }
 
     private void ApplyStyle() {
@@ -504,8 +609,105 @@ namespace HELIX.Compose {
       return previous != _inputState;
     }
 
+    public void CommitEditingValue() {
+      _lastValue = TextEditingValue.FromElement(_textEdition);
+    }
+
+    public void ApplyEditingValue(TextEditingValue value) {
+      _isModifying = true;
+      try {
+        _lastValue = value;
+        value.Apply(_textEdition);
+      } finally {
+        _isModifying = false;
+      }
+    }
+
+    public void ApplyLastEditingValue() {
+      _isModifying = true;
+      try {
+        _lastValue.Apply(_textEdition);
+      } finally {
+        _isModifying = false;
+      }
+    }
+
+    private void OnSelectionChanged() {
+      if (_isModifying || !_editing) return;
+      if (_lastValue.SelectionEquals(_textEdition)) return;
+      if (_textInputSkipFrame == Time.frameCount) {
+        ApplyLastEditingValue();
+        return;
+      }
+      _hasTabbedIn = false;
+      if (_buffering.IsBuffering) return;
+
+      BeginHandle(new TextEditTrigger(TextEditTriggerType.SelectionModification), out var context);
+      Handle(ref context);
+      EndHandle(in context);
+    }
+
+    private void Handle(ref TextEditProcessorContext context) {
+      if (_processor == null) return;
+      try {
+        _processor.Invoke(ref context);
+      } catch (Exception ex) {
+        Debug.LogException(ex);
+      }
+    }
+
+    private void BeginHandle(TextEditTrigger trigger, out TextEditProcessorContext context) {
+      var chain = TextEditingValue.FromElement(_textEdition);
+      context = new TextEditProcessorContext(
+        ctx: new CompositionContext(this),
+        trigger: trigger,
+        previous: _lastValue,
+        physical: chain,
+        initial: _initialValue,
+        next: chain,
+        result: TextEditResult.Continue()
+      );
+    }
+
+    private void EndHandle(
+      in TextEditProcessorContext context
+    ) {
+      if (context.next.Equals(context.physical)) {
+        CommitEditingValue(); // Accepted
+      } else {
+        ApplyEditingValue(context.next); // Rejected / Reverted
+        _textInputSkipFrame = Time.frameCount;
+      }
+
+      if (context.result.isInterrupted && context.trigger.evt != null) {
+        context.trigger.evt.StopPropagation();
+        _textInputSkipFrame = Time.frameCount;
+      }
+
+      if (context.HasTextChanged) {
+        _onChanged?.Call(_callbackBoundary, _field.value); // TODO: Replace with adapter
+      }
+
+      if (context.result.endReason == TextEditEndReason.None) return;
+      _endReason = context.result.endReason;
+      if (context.result.endReason == TextEditEndReason.Submitted) _lastKeyboardSubmitFrame = Time.frameCount;
+      _textEdition.Blur();
+    }
+
     private void OnValueChanged(ChangeEvent<TValue> evt) {
-      if (_enabled) _onChanged?.Call(_callbackBoundary, evt.newValue);
+      _hasTabbedIn = false;
+      if (_isModifying) return;
+      if (_textInputSkipFrame == Time.frameCount) {
+        _textInputSkipFrame = -1;
+        ApplyLastEditingValue();
+        return;
+      }
+      if (!_enabled) return;
+      if (_buffering.IsBuffering) return;
+
+      BeginHandle(new TextEditTrigger(evt), out var context);
+      Handle(ref context);
+      EndHandle(in context);
     }
 
     private void OnPointerEnter(PointerEnterEvent evt) {
@@ -516,39 +718,82 @@ namespace HELIX.Compose {
       if (SetState(State.Hovered, false)) ApplyStyle();
     }
 
-    private void OnFocusIn(FocusInEvent evt) {
+    private void OnBlur(BlurEvent evt) {
+      _hasTabbedIn = false;
+      if (!_editing) return;
+      if (SetState(State.Focused, false)) ApplyStyle();
+      CheckEndEditingLater();
+    }
+
+    private void OnFocus(FocusEvent evt) {
+      if (_editing) return;
+      _endReason = TextEditEndReason.FocusLost;
       BeginEditing();
+      _hasTabbedIn = evt.direction == VisualElementFocusChangeDirection.right;
       if (SetState(State.Focused, true)) ApplyStyle();
     }
 
-    private void OnFocusOut(FocusOutEvent evt) {
-      if (evt.relatedTarget is VisualElement related && Contains(related)) return;
-      EndEditing();
-      if (SetState(State.Focused, false)) ApplyStyle();
-    }
-
     private void OnKeyDown(KeyDownEvent evt) {
-      if (!_enabled ||
-          !_adapter.SubmitOnEnter(in _options) ||
-          evt.keyCode is not (KeyCode.Return or KeyCode.KeypadEnter)) return;
-      _lastKeyboardSubmitFrame = Time.frameCount;
-      Submit();
-      evt.StopPropagation();
+      if (evt.target != _textEdition) return;
+      _hasTabbedIn = false;
+      _buffering.BeginBuffering();
+
+      BeginHandle(new TextEditTrigger(evt), out var context);
+      if (context.result.IsContinuedEditing && _enabled) {
+        if (evt.keyCode is KeyCode.Space) _lastKeyboardSubmitFrame = Time.frameCount;
+
+        if (evt.keyCode is KeyCode.Return or KeyCode.KeypadEnter) {
+          _adapter.SubmitOnEnter(in _options, evt, out var addEnter, out var submit);
+          if (addEnter) {
+            context.next = _lastValue.Insert("\n");
+            context.result = TextEditResult.Continue(interrupt: true);
+          }
+          if (submit) context.result = TextEditResult.EndEdit(TextEditEndReason.Submitted, breaking: false);
+        }
+
+        if (evt.keyCode is KeyCode.Escape) {
+          context.result = TextEditResult.EndEdit(TextEditEndReason.Cancelled, breaking: false);
+          context.next = _initialValue;
+        }
+      }
+      Handle(ref context);
+      if (context.result.IsContinuedEditing && context.physical.Equals(context.next)) {
+        if (evt.keyCode == KeyCode.Tab && !evt.shiftKey && (_lastValue.IsSelectedAll || _hasTabbedIn)) {
+          _textInputSkipFrame = Time.frameCount;
+          _hasTabbedIn = false;
+          evt.StopPropagation();
+          new VisualElementFocusRing(panel.visualTree)
+            .GetNextFocusable(_textEdition, VisualElementFocusChangeDirection.right)
+            .Focus();
+          return;
+        }
+      }
+
+      EndHandle(in context);
     }
 
     private void OnNavigationSubmit(NavigationSubmitEvent evt) {
-      if (_lastKeyboardSubmitFrame == Time.frameCount) {
+      if (evt.target != _textEdition) return;
+      if (_lastKeyboardSubmitFrame == Time.frameCount || _textInputSkipFrame == Time.frameCount) {
         evt.StopPropagation();
         return;
       }
-      Submit();
-      evt.StopPropagation();
+
+      _endReason = TextEditEndReason.Submitted;
+      BeginHandle(new TextEditTrigger(evt), out var context);
+      context.result = TextEditResult.EndEdit(TextEditEndReason.Submitted, breaking: false);
+      context.next = _lastValue;
+      Handle(ref context);
+      EndHandle(in context);
     }
 
     private void OnNavigationCancel(NavigationCancelEvent evt) {
-      EndEditing();
-      _field.Blur();
-      evt.StopPropagation();
+      _endReason = TextEditEndReason.Cancelled;
+      BeginHandle(new TextEditTrigger(evt), out var context);
+      context.next = _initialValue;
+      context.result = TextEditResult.EndEdit(breaking: false);
+      Handle(ref context);
+      EndHandle(in context);
     }
   }
 
@@ -560,10 +805,11 @@ namespace HELIX.Compose {
     public static ref ElementRef TextInput(
       this ref Composition cx,
       string value,
+      TextEditProcessor processor = null,
       CompositionAction<string> onChanged = null,
       CompositionAction<string> onSubmitted = null,
       CompositionAction onEditingStarted = null,
-      CompositionAction onEditingEnded = null,
+      CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded = null,
       TextInputOptions? options = null,
       bool enabled = true,
       bool error = false,
@@ -583,6 +829,7 @@ namespace HELIX.Compose {
         error,
         style ?? cx.ReadContextOrDefault(InputFieldStyle.Key, InputFieldStyle.Default),
         cx.boundary,
+        processor,
         onChanged,
         onSubmitted,
         onEditingStarted,
@@ -594,10 +841,11 @@ namespace HELIX.Compose {
     public static ref ElementRef IntInput(
       this ref Composition cx,
       int value,
+      TextEditProcessor processor = null,
       CompositionAction<int> onChanged = null,
       CompositionAction<int> onSubmitted = null,
       CompositionAction onEditingStarted = null,
-      CompositionAction onEditingEnded = null,
+      CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded = null,
       NumericInputOptions? options = null,
       bool enabled = true,
       bool error = false,
@@ -618,6 +866,7 @@ namespace HELIX.Compose {
         error,
         style ?? cx.ReadContextOrDefault(InputFieldStyle.Key, InputFieldStyle.Default),
         cx.boundary,
+        processor,
         onChanged,
         onSubmitted,
         onEditingStarted,
@@ -629,10 +878,11 @@ namespace HELIX.Compose {
     public static ref ElementRef FloatInput(
       this ref Composition cx,
       float value,
+      TextEditProcessor processor = null,
       CompositionAction<float> onChanged = null,
       CompositionAction<float> onSubmitted = null,
       CompositionAction onEditingStarted = null,
-      CompositionAction onEditingEnded = null,
+      CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded = null,
       NumericInputOptions? options = null,
       bool enabled = true,
       bool error = false,
@@ -662,6 +912,7 @@ namespace HELIX.Compose {
         error,
         style ?? cx.ReadContextOrDefault(InputFieldStyle.Key, InputFieldStyle.Default),
         cx.boundary,
+        processor,
         onChanged,
         onSubmitted,
         onEditingStarted,

@@ -16,9 +16,7 @@ namespace HELIX.Examples {
       public Color color;
     }
 
-    protected override void OnRecompose(ref Composition cx) {
-
-    }
+    protected override void OnRecompose(ref Composition cx) { }
   }
 
   [UxmlElement]
@@ -115,7 +113,7 @@ namespace HELIX.Examples {
                 onEditingStarted: (ctx) => {
                   Debug.Log($"Text editing started");
                 },
-                onEditingEnded: (ctx) => {
+                onEditingEnded: (ctx, value, reason) => {
                   Debug.Log($"Text editing ended");
                 }
               );
@@ -123,6 +121,17 @@ namespace HELIX.Examples {
               cx.TextInput(
                 text,
                 options: new TextInputOptions(multiline: true),
+                processor: (ref TextEditProcessorContext context) => {
+                  if (context.AbsoluteLengthDelta > 3) {
+                    context.next = context.previous;
+                    context.result = TextEditResult.Break();
+                    return;
+                  }
+
+                  Debug.Log($"Processor: {context.trigger}\n{context.next.ToFormattedString()}\n/\\ Becomes /\\\n{context.previous.ToFormattedString()}\n;{context.physical}”");
+
+                  //context.result = TextEditResult.Break(true);
+                },
                 onChanged: (ctx, value) => {
                   Debug.Log($"Text changed: {value}");
                   using (ctx.Modify<HomeComposable>(out var composable)) { composable.text = value; }
@@ -133,8 +142,8 @@ namespace HELIX.Examples {
                 onEditingStarted: (ctx) => {
                   Debug.Log($"Text editing started");
                 },
-                onEditingEnded: (ctx) => {
-                  Debug.Log($"Text editing ended");
+                onEditingEnded: (ctx, value, reason) => {
+                  Debug.Log($"Text editing ended: {value.text} {reason}");
                 }
               );
               cx.Spacing(2);
