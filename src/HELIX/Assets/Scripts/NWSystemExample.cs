@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using HELIX.Compose;
 using HELIX.Extensions;
 using HELIX.Theming;
@@ -52,7 +53,12 @@ namespace HELIX.Examples {
       public static readonly SliderOptions VolumeOptionsScroll = new(
         0f, 1f, step: 0f, thumbRange: 0.1f, axis: Axis.Vertical
       );
-      public static readonly NumericInputOptions DecimalOptions = new(format: "0.00");
+      public static readonly TextInputAdapter<float> DecimalAdapter = new(
+        value => value.ToString("0.00", CultureInfo.InvariantCulture),
+        (string text, out float value) => float.TryParse(
+          text, NumberStyles.Float, CultureInfo.InvariantCulture, out value
+        )
+      );
 
       public string text = "Editable text";
       public int integer = 12;
@@ -150,8 +156,9 @@ namespace HELIX.Examples {
 
               cx.Text("Integer");
               cx.Spacing(1);
-              cx.IntInput(
+              cx.TextInput(
                 integer,
+                TextInputAdapters.Int32,
                 onChanged: static (ctx, value) => {
                   using (ctx.Modify<HomeComposable>(out var composable)) { composable.integer = value; }
                 }
@@ -160,11 +167,14 @@ namespace HELIX.Examples {
 
               cx.Text("Float");
               cx.Spacing(1);
-              cx.FloatInput(
+              cx.TextInput(
                 floatingPoint,
-                options: DecimalOptions,
+                DecimalAdapter,
                 onChanged: static (ctx, value) => {
-                  using (ctx.Modify<HomeComposable>(out var state)) { state.volume = value; }
+                  using (ctx.Modify<HomeComposable>(out var state)) {
+                    state.floatingPoint = value;
+                    Debug.Log($"Float changed: {value}");
+                  }
                 }
               );
             }

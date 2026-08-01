@@ -171,7 +171,7 @@ namespace TestNamespace {
     public ExampleVisualElement() {
       var boundaryNode = new CompositionBoundaryNode { composable = ExampleCompositions.MyComposition };
       Add(boundaryNode);
-      RecompositionScope.MarkDirty(boundaryNode);
+      //RecompositionScope.MarkDirty(boundaryNode);
       // schedule.Execute(() => {
       //     RecompositionScope.MarkDirty(boundaryNode);
       //   }

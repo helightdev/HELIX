@@ -32,6 +32,9 @@ namespace HELIX.Signals {
 
     public override void Dispose() {
       if (IsDisposed) return;
+      ContextKeyData.ReleaseAnonymous(contextKey);
+      contextKey = 0;
+
       var list = ListPool<ISignalObserver>.Get();
       try {
         list.AddRange(_observers);

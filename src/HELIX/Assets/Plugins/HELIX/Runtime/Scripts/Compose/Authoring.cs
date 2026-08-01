@@ -158,7 +158,7 @@ namespace HELIX.Compose {
       given.RefreshHierarchy();
       var scope = ScopeHandle.Push(cell, given, null);
       try {
-        RecompositionScope.MarkDirty(given);
+        HXComposer.MarkDirty(given);
       } catch (Exception e) {
         Debug.LogException(e);
       }
@@ -196,6 +196,9 @@ namespace HELIX.Compose {
       complete:
       if (given is IComposable composable) { } else { composable = CompositionInternals.Promote(given); }
       if (composable.TypeId == 0) composable.TypeId = id.packed;
+      if (retention is CompositionRetention.Reset or CompositionRetention.New) {
+        HXProfiling.TrackComposableReset();
+      }
       ctx.CURSOR.Replace(composable, retention);
       cell.cursor++;
       cell.localId.index++;

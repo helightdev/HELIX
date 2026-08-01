@@ -1,0 +1,203 @@
+using System;
+using System.Collections.Generic;
+using HELIX.Compose.Collections;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+namespace HELIX.Compose {
+  public static class HXComposer {
+    public static bool UseEventLoop = false;
+    public static bool AutoDisposeOrphans = true;
+
+    internal static readonly IndexedReferencePriorityQueue<IBoundary, int> Dirty = new();
+    internal static readonly IndexedReferencePriorityQueue<IBoundary, int> DisposalQueue = new();
+    internal static readonly HashSet<IBoundary> Boundaries = new(new ReferenceEqualityComparer<IBoundary>());
+    internal static bool IsScoped = false;
+    internal static bool IsProcessing = false;
+    internal static IBoundary CurrentBoundary = null;
+
+    public static void RegisterActiveBoundary(IBoundary boundary) {
+      Boundaries.Add(boundary);
+
+      var hadDisposal = DisposalQueue.Remove(boundary);
+#if ENABLE_PROFILER
+      if (hadDisposal) HXProfiling.TrackDisposalStats(1, 0);
+#endif
+    }
+
+    public static void UnregisterBoundary(IBoundary boundary) {
+      Dirty.Remove(boundary);
+      Boundaries.Remove(boundary);
+      DisposalQueue.Remove(boundary);
+    }
+
+    public static void MarkDirty(IBoundary boundary) {
+      if (!IsScoped) {
+        if (boundary.Element?.panel is null) {
+          throw new InvalidOperationException("Cannot mark dirty boundary that is not in scope and has no panel");
+        }
+
+        using (BeginBatch()) {
+          Dirty.Enqueue(boundary, boundary.TreeDepth);
+          return;
+        }
+      }
+
+      // // If we descend the tree forward, we can reuse the same context and avoid dictionary initialization.
+      // if (IsProcessing && CurrentBoundary == boundary.Parent) {
+      //   _inlinedRecompositionCount.Value++;
+      //   _inlinedRecompositionCount.Sample();
+      //   Recompose(boundary);
+      //   return;
+      // }
+      /*
+       TODO: This does not work for multiple children and I currently don't know a good way to fix that.
+       For now, I'll just remove it until I have figured out a way determine guaranteed forward composition.
+       My current idea is just pushing this to the queue handler to check if the last processed boundary was the parent,
+       in which case I can just skip populate context in this case. Note: Need to consider batch eligibility.
+      */
+
+      Dirty.Enqueue(boundary, boundary.TreeDepth);
+    }
+
+    public static void EnqueueDirty(IBoundary boundary) {
+      Dirty.Enqueue(boundary, boundary.TreeDepth);
+    }
+
+    public static void RemoveDirty(IBoundary boundary) {
+      Dirty.Remove(boundary);
+    }
+
+    public static void NotifyDetach(IBoundary boundary) {
+      if (!IsScoped) return;
+
+      // We are removed while in scope, if we don't reattach while in scope, we can assume that the removal is final
+      DisposalQueue.Enqueue(boundary, boundary.TreeDepth);
+      HXProfiling.TrackDisposalDiscovery(1);
+    }
+
+    public static void DirtyChildren(IBoundary boundary) {
+      using (BeginBatch()) {
+        foreach (var current in Boundaries) {
+          if (current.Parent == boundary) {
+            Dirty.Enqueue(current, current.TreeDepth);
+          }
+        }
+      }
+    }
+
+    public static bool IsEligibleForDisposal(IBoundary boundary) {
+      if (boundary.IsDisposed) return true;
+      if (boundary.Element?.panel is null) return true;
+      return false;
+    }
+
+    public static void DisposeOrphanedBoundaries() {
+      if (IsProcessing) throw new InvalidOperationException("Recomposition scope is currently processing");
+      var discardCount = 0;
+      var disposedCount = 0;
+#if ENABLE_PROFILER
+      using (HXProfiling.DisposeOrphansMarker.Auto()) {
+#endif
+        try {
+          IsProcessing = true;
+          while (DisposalQueue.TryDequeueTail(out var boundary)) {
+            if (!IsEligibleForDisposal(boundary)) {
+              discardCount++;
+              continue;
+            }
+            disposedCount++;
+            UnregisterBoundary(boundary);
+            var element = boundary.Element;
+            if (element != null) DisposeSectionRecursively(element);
+          }
+        } finally {
+          IsProcessing = false;
+          HXProfiling.TrackDisposalStats(discardCount, disposedCount);
+        }
+#if ENABLE_PROFILER
+      }
+#endif
+    }
+
+    public static void DisposeSectionRecursively(VisualElement root) {
+      if (root == null) throw new ArgumentNullException(nameof(root));
+      try {
+        // Reverse should the child for some reason decide to remove itself
+        for (var i = root.childCount - 1; i >= 0; i--) {
+          var child = root[i];
+          if (child is IBoundary) continue; // Skip descendant boundaries
+          DisposeSectionRecursively(child);
+        }
+      } catch (Exception ex) {
+        Debug.LogException(ex);
+      }
+      if (root is IDisposable disposable) disposable.DisposeSafe();
+      if (root.userData is IDisposable dataDisposable) dataDisposable.DisposeSafe();
+    }
+
+    internal static void ProcessDirty() {
+      if (IsProcessing) throw new InvalidOperationException("NotificationScope is already processing rebuilds");
+
+      var discoveredCount = 0;
+      foreach (var boundary in Boundaries) {
+        boundary.CheckModified();
+
+        // We are in scope which is not done for unmanaged movements.
+        // If the boundary is still disposable at the end, delayed disposal can be skipped.
+        if (IsEligibleForDisposal(boundary)) {
+          DisposalQueue.Enqueue(boundary, boundary.TreeDepth);
+          discoveredCount++;
+        }
+      }
+      HXProfiling.TrackDisposalDiscovery(discoveredCount);
+
+#if ENABLE_PROFILER
+      using (HXProfiling.RecompositionMarker.Auto()) {
+#endif
+        try {
+          IsProcessing = true;
+          var maxIterations = 1024;
+          while (Dirty.TryDequeue(out var boundary) && maxIterations-- > 0) {
+            HXProfiling.TrackToplevelRecomposition();
+            Recompose(boundary);
+          }
+          if (maxIterations == 0) Debug.LogWarning("Maximum recomposition iterations reached.");
+        } finally {
+          IsProcessing = false;
+          IsScoped = false;
+        }
+#if ENABLE_PROFILER
+      }
+      HXProfiling.TrackActive();
+#endif
+
+      if (AutoDisposeOrphans) DisposeOrphanedBoundaries();
+    }
+
+    private static void Recompose(IBoundary boundary) {
+      var previousBoundary = CurrentBoundary;
+      try {
+        CurrentBoundary = boundary;
+        boundary.Recompose();
+      } catch (Exception e) {
+        Debug.LogException(e);
+      } finally {
+        CurrentBoundary = previousBoundary;
+      }
+    }
+
+    public static void Poll() {
+      if (!UseEventLoop) throw new InvalidOperationException("NotificationScope is not using event loop");
+      ProcessDirty();
+    }
+
+    public static RecompositionScope BeginBatch() {
+      HXProfiling.TrackBatchRequest();
+      if (IsProcessing) throw new InvalidOperationException("NotificationScope is processing rebuilds");
+      if (IsScoped) return new RecompositionScope(false);
+      IsScoped = true;
+      return new RecompositionScope(!UseEventLoop);
+    }
+  }
+}

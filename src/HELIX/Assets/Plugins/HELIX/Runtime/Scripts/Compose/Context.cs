@@ -19,12 +19,12 @@ namespace HELIX.Compose {
     }
 
     public ContextKey(string name) {
-      if (ContextKeyData.ByName.TryGetValue(name, out var target)) {
-        var data = ContextKeyData.Registry.GetValueOrDefault(target);
-        throw new ArgumentException(
-          $"ContextKey with name '{name}' already exists for type {data.type} with id {target}."
-        );
-      }
+      // if (ContextKeyData.ByName.TryGetValue(name, out var target)) {
+      //   var data = ContextKeyData.Registry.GetValueOrDefault(target);
+      //   throw new ArgumentException(
+      //     $"ContextKey with name '{name}' already exists for type {data.type} with id {target}."
+      //   );
+      // }
 
       if (ContextKeyData.NextId == int.MaxValue)
         throw new InvalidOperationException("Maximum number of context keys reached.");
@@ -98,8 +98,10 @@ namespace HELIX.Compose {
 
 
   public readonly struct ContextKeyData {
+    internal const int MaxAnonymousPoolSize = 128;
+
     internal static readonly Dictionary<int, ContextKeyData> Registry = new();
-    internal static readonly Dictionary<string, int> ByName = new();
+    internal static readonly Queue<int> AnonymousIdPool = new();
     internal static int NextId = 1;
     internal static int AnonymousId = -1;
 
@@ -112,11 +114,24 @@ namespace HELIX.Compose {
     }
 
     public static int ClaimAnonymous(Type type, string debugName) {
+      int id;
+      if (AnonymousIdPool.Count > 0) {
+        id = AnonymousIdPool.Dequeue();
+      } else {
+        if (AnonymousId == int.MinValue) AnonymousId = -(1 << 8);
+        id = AnonymousId--;
+      }
+
       var data = new ContextKeyData(type, debugName);
-      if (AnonymousId == int.MinValue) AnonymousId = -1;
-      var id = AnonymousId--;
       Registry[id] = data;
       return id;
+    }
+
+    public static void ReleaseAnonymous(int id) {
+      if (id == 0) return;
+      Registry.Remove(id);
+      if (AnonymousIdPool.Count >= MaxAnonymousPoolSize) return;
+      AnonymousIdPool.Enqueue(id);
     }
   }
 
@@ -158,8 +173,8 @@ namespace HELIX.Compose {
       using (HXProfiling.LookupContextMarker.Auto()) {
         data = null;
         if (element == null) return false;
-        if (includeSelf && element is IContextContributor self) return self.TryLookupContext(key, out data);
-        var contributor = element.GetFirstAncestorOfType<IContextContributor>();
+        if (includeSelf && element is IContextComposable self) return self.TryLookupContext(key, out data);
+        var contributor = element.GetFirstAncestorOfType<IContextComposable>();
         return contributor != null && contributor.TryLookupContext(key, out data);
       }
     }
@@ -303,8 +318,8 @@ namespace HELIX.Compose {
     }
   }
 
-  public interface IContextContributor : IComposable {
-    IContextContributor ContextParent { get; }
+  public interface IContextComposable : IComposable {
+    IContextComposable ContextParent { get; }
     void ContributeContext(Dictionary<int, ContextData> context);
     bool TryLookupContext(int key, out ContextData data);
   }
@@ -345,7 +360,7 @@ namespace HELIX.Compose {
       _cache?.Clear();
     }
 
-    public bool TryLookup(IContextContributor parent, int key, out ContextData data) {
+    public bool TryLookup(IContextComposable parent, int key, out ContextData data) {
       data = null;
       if (_cache == null) return parent != null && parent.TryLookupContext(key, out data);
 
@@ -371,12 +386,12 @@ namespace HELIX.Compose {
     }
   }
 
-  public class ContextContributorElement : ComposableElement, IContextContributor, IContextWriteable {
-    public IContextContributor ContextParent { get; private set; }
+  public class ContextComposableElement : ComposableElement, IContextComposable, IContextWriteable {
+    public IContextComposable ContextParent { get; private set; }
 
     public SparseContextMap WrittenContext { get; private set; }
 
-    public ContextContributorElement() {
+    public ContextComposableElement() {
       RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
       RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
     }
@@ -386,7 +401,7 @@ namespace HELIX.Compose {
     }
 
     public void RefreshHierarchy() {
-      ContextParent = GetFirstAncestorOfType<IContextContributor>();
+      ContextParent = GetFirstAncestorOfType<IContextComposable>();
     }
 
     public override void Reset() {

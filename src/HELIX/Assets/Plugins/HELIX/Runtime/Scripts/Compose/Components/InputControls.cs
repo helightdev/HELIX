@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using HELIX.Coloring;
 using HELIX.Extensions;
 using HELIX.Theming;
 using HELIX.Types;
 using HELIX.Widgets.Utilities;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using UnityEngine.UIElements;
 
@@ -99,7 +99,7 @@ namespace HELIX.Compose {
       autocorrect: true,
       readOnly: false,
       password: false,
-      delayed: false,
+      errorOnInvalidValue: true,
       hideMobileInput: true,
       submitOnEnter: true,
       expands: true,
@@ -112,7 +112,7 @@ namespace HELIX.Compose {
     public readonly bool autocorrect;
     public readonly bool readOnly;
     public readonly bool password;
-    public readonly bool delayed;
+    public readonly bool errorOnInvalidValue;
     public readonly bool hideMobileInput;
     public readonly bool submitOnEnter;
     public readonly bool expands;
@@ -125,7 +125,7 @@ namespace HELIX.Compose {
       bool autocorrect = true,
       bool readOnly = false,
       bool password = false,
-      bool delayed = false,
+      bool errorOnInvalidValue = true,
       bool hideMobileInput = true,
       bool submitOnEnter = true,
       bool expands = true,
@@ -137,7 +137,7 @@ namespace HELIX.Compose {
       this.autocorrect = autocorrect;
       this.readOnly = readOnly;
       this.password = password;
-      this.delayed = delayed;
+      this.errorOnInvalidValue = errorOnInvalidValue;
       this.hideMobileInput = hideMobileInput;
       this.submitOnEnter = submitOnEnter;
       this.expands = expands;
@@ -151,7 +151,7 @@ namespace HELIX.Compose {
              autocorrect == other.autocorrect &&
              readOnly == other.readOnly &&
              password == other.password &&
-             delayed == other.delayed &&
+             errorOnInvalidValue == other.errorOnInvalidValue &&
              hideMobileInput == other.hideMobileInput &&
              submitOnEnter == other.submitOnEnter &&
              expands == other.expands &&
@@ -164,101 +164,49 @@ namespace HELIX.Compose {
 
     public override int GetHashCode() {
       var first = HashCode.Combine(
-        multiline, autocorrect, readOnly, password, delayed, hideMobileInput, submitOnEnter, expands
+        multiline, autocorrect, readOnly, password, errorOnInvalidValue, hideMobileInput, submitOnEnter, expands
       );
       return HashCode.Combine(first, keyboardType, maskCharacter, maxLength);
     }
   }
 
-  public readonly struct NumericInputOptions : IEquatable<NumericInputOptions> {
-    public static readonly NumericInputOptions Default = new(expands: true);
+  public delegate bool TextInputParser<TValue>(string text, out TValue value);
 
-    public readonly bool delayed;
-    public readonly string format;
-    public readonly bool expands;
+  public sealed class TextInputAdapter<TValue> {
+    private readonly Func<TValue, string> _toText;
+    private readonly TextInputParser<TValue> _fromText;
 
-    public NumericInputOptions(bool delayed = false, string format = null, bool expands = true) {
-      this.delayed = delayed;
-      this.format = format;
-      this.expands = expands;
+    public TextInputAdapter(Func<TValue, string> toText, TextInputParser<TValue> fromText) {
+      _toText = toText ?? throw new ArgumentNullException(nameof(toText));
+      _fromText = fromText ?? throw new ArgumentNullException(nameof(fromText));
     }
 
-    public bool Equals(NumericInputOptions other) {
-      return delayed == other.delayed &&
-             expands == other.expands &&
-             string.Equals(format, other.format, StringComparison.Ordinal);
-    }
-
-    public override bool Equals(object obj) => obj is NumericInputOptions other && Equals(other);
-    public override int GetHashCode() => HashCode.Combine(delayed, format, expands);
+    public string ToText(TValue value) => _toText(value) ?? string.Empty;
+    public bool TryFromText(string text, out TValue value) => _fromText(text ?? string.Empty, out value);
   }
 
-  internal interface ITextFieldAdapter<TValue, TField, TOptions>
-    where TField : TextInputBaseField<TValue>
-    where TOptions : struct {
-    TOptions DefaultOptions { get; }
-    TValue DefaultValue { get; }
-
-    void SubmitOnEnter(
-      in TOptions options,
-      IKeyboardEvent evt,
-      out bool addEnter, out bool submit
+  public static class TextInputAdapters {
+    public static readonly TextInputAdapter<string> String = new(
+      value => value ?? string.Empty,
+      (string text, out string value) => {
+        value = text;
+        return true;
+      }
     );
 
-    void Apply(TField field, in TOptions options);
-  }
+    public static readonly TextInputAdapter<int> Int32 = new(
+      value => value.ToString(CultureInfo.InvariantCulture),
+      (string text, out int value) => int.TryParse(
+        text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value
+      )
+    );
 
-  internal readonly struct StringTextFieldAdapter
-    : ITextFieldAdapter<string, TextField, TextInputOptions> {
-    public TextInputOptions DefaultOptions => TextInputOptions.Default;
-    public string DefaultValue => string.Empty;
-
-    public void SubmitOnEnter(
-      in TextInputOptions options,
-      IKeyboardEvent evt,
-      out bool addEnter, out bool submit
-    ) {
-      addEnter = false;
-      submit = options.submitOnEnter;
-
-      if (!evt.altKey || !options.multiline || !options.submitOnEnter) return;
-      addEnter = true;
-      submit = false;
-    }
-
-    public void Apply(TextField field, in TextInputOptions options) {
-      field.multiline = options.multiline;
-      field.autoCorrection = options.autocorrect;
-      field.isReadOnly = options.readOnly;
-      field.isPasswordField = options.password;
-      field.hideMobileInput = options.hideMobileInput;
-      field.keyboardType = options.keyboardType;
-      field.maskChar = options.maskCharacter;
-      field.maxLength = options.maxLength;
-      field.Flexible(options.expands ? 1f : 0f, options.expands ? 1f : 0f);
-    }
-  }
-
-  internal readonly struct NumericTextFieldAdapter<TValue, TField>
-    : ITextFieldAdapter<TValue, TField, NumericInputOptions>
-    where TValue : struct
-    where TField : TextValueField<TValue> {
-    public NumericInputOptions DefaultOptions => NumericInputOptions.Default;
-    public TValue DefaultValue => default;
-
-    public void SubmitOnEnter(
-      in NumericInputOptions options,
-      IKeyboardEvent evt,
-      out bool addEnter, out bool submit
-    ) {
-      addEnter = false;
-      submit = true;
-    }
-
-    public void Apply(TField field, in NumericInputOptions options) {
-      field.formatString = options.format;
-      field.Flexible(options.expands ? 1f : 0f, options.expands ? 1f : 0f);
-    }
+    public static readonly TextInputAdapter<float> Single = new(
+      value => value.ToString(CultureInfo.InvariantCulture),
+      (string text, out float value) => float.TryParse(
+        text, NumberStyles.Float, CultureInfo.InvariantCulture, out value
+      )
+    );
   }
 
   public struct InputKeyEventBuffering {
@@ -290,10 +238,7 @@ namespace HELIX.Compose {
     public readonly bool IsBuffering => frame == Time.frameCount && isBuffering;
   }
 
-  internal sealed class TextFieldElement<TValue, TField, TOptions, TAdapter> : VisualElement, IComposable
-    where TField : TextInputBaseField<TValue>, new()
-    where TOptions : struct, IEquatable<TOptions>
-    where TAdapter : struct, ITextFieldAdapter<TValue, TField, TOptions> {
+  public sealed class TextFieldElement<TValue> : VisualElement, IComposable {
     private const string _selectionLightClass = "helix-textfield-style-light";
     private const string _selectionDarkClass = "helix-textfield-style-dark";
     private const string _selectionLightNeutralClass = "helix-textfield-style-light-neutral";
@@ -302,12 +247,11 @@ namespace HELIX.Compose {
     private static readonly CustomStyleProperty<Color> _selectionColorProperty = new("--unity-selection-color");
     private static readonly CustomStyleProperty<Color> _cursorColorProperty = new("--unity-cursor-color");
     private static readonly EqualityComparer<TValue> _equality = EqualityComparer<TValue>.Default;
-
-    private TAdapter _adapter;
     private readonly CompositionBoundaryNode _background;
-    private readonly TField _field;
+    private readonly TextField _field;
     private readonly VisualElement _inputContainer;
     private readonly TextElement _textEdition;
+    private TextInputAdapter<TValue> _adapter;
     private CompositionAction<TValue> _onChanged;
     private CompositionAction<TValue> _onSubmitted;
     private CompositionAction _onEditingStarted;
@@ -316,7 +260,10 @@ namespace HELIX.Compose {
     private InputFieldStyle _inputStyle;
     private State _inputState;
     private bool _enabled = true;
+    private bool _error;
     private bool _editing;
+    private bool _hasEditingValue;
+    private TValue _editingValue;
     private bool _hasAppliedSelectionStyle;
     private TextSelectionStyle _appliedSelectionStyle;
     private Color _appliedSelectionColor;
@@ -332,11 +279,10 @@ namespace HELIX.Compose {
     private bool _hasTabbedIn = false;
     private TextEditEndReason _endReason;
     private InputKeyEventBuffering _buffering;
-
-    private TOptions _options;
+    private TextInputOptions _options;
 
     public TextFieldElement() {
-      _field = new TField();
+      _field = new TextField();
       delegatesFocus = true;
       focusable = false;
       this.MakeRelative();
@@ -353,7 +299,7 @@ namespace HELIX.Compose {
       _inputContainer = _field.Q<VisualElement>(className: "unity-base-field__input");
       _textEdition = _field.textEdition as TextElement ?? _field.Q<TextElement>("unity-text-input");
       if (_textEdition == null) {
-        throw new InvalidOperationException($"{typeof(TField).Name} text edition is not a TextElement.");
+        throw new InvalidOperationException("TextField text edition is not a TextElement.");
       }
 
       _field.ClearClassList();
@@ -400,13 +346,22 @@ namespace HELIX.Compose {
 
       BeginHandle(trigger, out var context);
       Handle(ref context);
-      EndHandle(in context);
+      EndHandle(ref context);
     }
 
-    public void Configure(in TOptions options) {
+    public void Configure(in TextInputOptions options) {
+      _field.isDelayed = false;
       if (_options.Equals(options)) return;
       _options = options;
-      _adapter.Apply(_field, in options);
+      _field.multiline = options.multiline;
+      _field.autoCorrection = options.autocorrect;
+      _field.isReadOnly = options.readOnly;
+      _field.isPasswordField = options.password;
+      _field.hideMobileInput = options.hideMobileInput;
+      _field.keyboardType = options.keyboardType;
+      _field.maskChar = options.maskCharacter;
+      _field.maxLength = options.maxLength;
+      _field.Flexible(options.expands ? 1f : 0f, options.expands ? 1f : 0f);
       ApplyStyle();
     }
 
@@ -416,6 +371,7 @@ namespace HELIX.Compose {
 
     public void Update(
       TValue value,
+      TextInputAdapter<TValue> adapter,
       bool enabled,
       bool error,
       InputFieldStyle style,
@@ -427,18 +383,24 @@ namespace HELIX.Compose {
       CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded
     ) {
       _callbackBoundary = callbackBoundary;
+      _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
       _onChanged = onChanged;
       _onSubmitted = onSubmitted;
       _onEditingStarted = onEditingStarted;
       _onEditingEnded = onEditingEnded;
       _processor = processor;
 
-      if (!_equality.Equals(_field.value, value)) {
-        _field.SetValueWithoutNotify(value);
+      var keepEditingText = _editing && _hasEditingValue && _equality.Equals(value, _editingValue);
+      if (!keepEditingText) {
+        var text = _adapter.ToText(value);
+        if (!string.Equals(_field.value, text, StringComparison.Ordinal)) {
+          _field.SetValueWithoutNotify(text);
+        }
       }
 
       var stateChanged = SetState(State.Disabled, !enabled);
-      stateChanged |= SetState(State.Error, error);
+      _error = error;
+      stateChanged |= SetState(State.Error, HasError());
       if (_enabled != enabled) {
         _enabled = enabled;
         _field.SetEnabled(enabled);
@@ -461,17 +423,21 @@ namespace HELIX.Compose {
       _onSubmitted = null;
       _onEditingStarted = null;
       _onEditingEnded = null;
+      _adapter = null;
       _callbackBoundary = null;
       _inputStyle = null;
       _inputState = State.None;
       _editing = false;
+      _hasEditingValue = false;
+      _editingValue = default;
       _enabled = true;
+      _error = false;
       _hasAppliedSelectionStyle = false;
       _lastKeyboardSubmitFrame = -1;
       _field.SetEnabled(true);
-      var defaults = _adapter.DefaultOptions;
+      var defaults = TextInputOptions.Default;
       Configure(in defaults);
-      _field.SetValueWithoutNotify(_adapter.DefaultValue);
+      _field.SetValueWithoutNotify(string.Empty);
     }
 
     private void BeginEditing() {
@@ -479,6 +445,7 @@ namespace HELIX.Compose {
       _editing = true;
       _lastValue = TextEditingValue.FromElement(_textEdition);
       _initialValue = _lastValue;
+      _hasEditingValue = _adapter.TryFromText(_lastValue.text, out _editingValue);
       _onEditingStarted?.Call(_callbackBoundary);
     }
 
@@ -496,7 +463,15 @@ namespace HELIX.Compose {
       } finally {
         _endReason = TextEditEndReason.FocusLost;
       }
+      if (_adapter.TryFromText(_field.value, out var value)) {
+        _field.SetValueWithoutNotify(_adapter.ToText(value));
+      } else if (_hasEditingValue) {
+        _field.SetValueWithoutNotify(_adapter.ToText(_editingValue));
+      }
+      RefreshErrorState();
       _initialValue = default;
+      _hasEditingValue = false;
+      _editingValue = default;
     }
 
     private void ApplyStyle() {
@@ -609,6 +584,15 @@ namespace HELIX.Compose {
       return previous != _inputState;
     }
 
+    private bool HasError() {
+      return _error ||
+             (_options.errorOnInvalidValue && _adapter != null && !_adapter.TryFromText(_field.value, out _));
+    }
+
+    private void RefreshErrorState() {
+      if (SetState(State.Error, HasError())) ApplyStyle();
+    }
+
     public void CommitEditingValue() {
       _lastValue = TextEditingValue.FromElement(_textEdition);
     }
@@ -644,7 +628,7 @@ namespace HELIX.Compose {
 
       BeginHandle(new TextEditTrigger(TextEditTriggerType.SelectionModification), out var context);
       Handle(ref context);
-      EndHandle(in context);
+      EndHandle(ref context);
     }
 
     private void Handle(ref TextEditProcessorContext context) {
@@ -669,9 +653,12 @@ namespace HELIX.Compose {
       );
     }
 
-    private void EndHandle(
-      in TextEditProcessorContext context
-    ) {
+    private void EndHandle(ref TextEditProcessorContext context) {
+      if (context.result.endReason == TextEditEndReason.Submitted &&
+          !_adapter.TryFromText(context.next.text, out _)) {
+        context.result = TextEditResult.Break();
+      }
+
       if (context.next.Equals(context.physical)) {
         CommitEditingValue(); // Accepted
       } else {
@@ -684,17 +671,30 @@ namespace HELIX.Compose {
         _textInputSkipFrame = Time.frameCount;
       }
 
+      RefreshErrorState();
+
       if (context.HasTextChanged) {
-        _onChanged?.Call(_callbackBoundary, _field.value); // TODO: Replace with adapter
+        if (_adapter.TryFromText(_field.value, out var value)) {
+          _editingValue = value;
+          _hasEditingValue = true;
+          _onChanged?.Call(_callbackBoundary, value);
+        }
       }
 
       if (context.result.endReason == TextEditEndReason.None) return;
       _endReason = context.result.endReason;
-      if (context.result.endReason == TextEditEndReason.Submitted) _lastKeyboardSubmitFrame = Time.frameCount;
+      if (context.result.endReason == TextEditEndReason.Submitted) {
+        _lastKeyboardSubmitFrame = Time.frameCount;
+        if (_adapter.TryFromText(_field.value, out var value)) {
+          _editingValue = value;
+          _hasEditingValue = true;
+          _onSubmitted?.Call(_callbackBoundary, value);
+        }
+      }
       _textEdition.Blur();
     }
 
-    private void OnValueChanged(ChangeEvent<TValue> evt) {
+    private void OnValueChanged(ChangeEvent<string> evt) {
       _hasTabbedIn = false;
       if (_isModifying) return;
       if (_textInputSkipFrame == Time.frameCount) {
@@ -707,7 +707,7 @@ namespace HELIX.Compose {
 
       BeginHandle(new TextEditTrigger(evt), out var context);
       Handle(ref context);
-      EndHandle(in context);
+      EndHandle(ref context);
     }
 
     private void OnPointerEnter(PointerEnterEvent evt) {
@@ -743,7 +743,8 @@ namespace HELIX.Compose {
         if (evt.keyCode is KeyCode.Space) _lastKeyboardSubmitFrame = Time.frameCount;
 
         if (evt.keyCode is KeyCode.Return or KeyCode.KeypadEnter) {
-          _adapter.SubmitOnEnter(in _options, evt, out var addEnter, out var submit);
+          var addEnter = evt.altKey && _options is { multiline: true, submitOnEnter: true };
+          var submit = _options.submitOnEnter && !addEnter;
           if (addEnter) {
             context.next = _lastValue.Insert("\n");
             context.result = TextEditResult.Continue(interrupt: true);
@@ -769,7 +770,7 @@ namespace HELIX.Compose {
         }
       }
 
-      EndHandle(in context);
+      EndHandle(ref context);
     }
 
     private void OnNavigationSubmit(NavigationSubmitEvent evt) {
@@ -784,7 +785,7 @@ namespace HELIX.Compose {
       context.result = TextEditResult.EndEdit(TextEditEndReason.Submitted, breaking: false);
       context.next = _lastValue;
       Handle(ref context);
-      EndHandle(in context);
+      EndHandle(ref context);
     }
 
     private void OnNavigationCancel(NavigationCancelEvent evt) {
@@ -793,14 +794,12 @@ namespace HELIX.Compose {
       context.next = _initialValue;
       context.result = TextEditResult.EndEdit(breaking: false);
       Handle(ref context);
-      EndHandle(in context);
+      EndHandle(ref context);
     }
   }
 
   public static partial class HXBuiltins {
     private static readonly ushort _textInputId = CompositionId.GetTypeId("TextInput");
-    private static readonly ushort _integerInputId = CompositionId.GetTypeId("IntegerInput");
-    private static readonly ushort _floatInputId = CompositionId.GetTypeId("FloatInput");
 
     public static ref ElementRef TextInput(
       this ref Composition cx,
@@ -815,99 +814,47 @@ namespace HELIX.Compose {
       bool error = false,
       InputFieldStyle style = null
     ) {
-      if (!cx.AUTHORING.RequireComposable<
-        TextFieldElement<string, TextField, TextInputOptions, StringTextFieldAdapter>
-      >(_textInputId, out var input, out _)) {
-        input = new TextFieldElement<string, TextField, TextInputOptions, StringTextFieldAdapter>();
+      return ref TextInput<string>(
+        ref cx,
+        value ?? string.Empty,
+        TextInputAdapters.String,
+        processor,
+        onChanged,
+        onSubmitted,
+        onEditingStarted,
+        onEditingEnded,
+        options,
+        enabled,
+        error,
+        style
+      );
+    }
+
+    public static ref ElementRef TextInput<TValue>(
+      this ref Composition cx,
+      TValue value,
+      TextInputAdapter<TValue> adapter,
+      TextEditProcessor processor = null,
+      CompositionAction<TValue> onChanged = null,
+      CompositionAction<TValue> onSubmitted = null,
+      CompositionAction onEditingStarted = null,
+      CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded = null,
+      TextInputOptions? options = null,
+      bool enabled = true,
+      bool error = false,
+      InputFieldStyle style = null
+    ) {
+      if (adapter == null) throw new ArgumentNullException(nameof(adapter));
+
+      if (!cx.AUTHORING.RequireComposable<TextFieldElement<TValue>>(_textInputId, out var input, out _)) {
+        input = new TextFieldElement<TValue>();
       }
 
       var resolvedOptions = options ?? TextInputOptions.Default;
       input.Configure(in resolvedOptions);
       input.Update(
-        value ?? string.Empty,
-        enabled,
-        error,
-        style ?? cx.ReadContextOrDefault(InputFieldStyle.Key, InputFieldStyle.Default),
-        cx.boundary,
-        processor,
-        onChanged,
-        onSubmitted,
-        onEditingStarted,
-        onEditingEnded
-      );
-      return ref cx.AUTHORING.YieldElement(ref cx, input);
-    }
-
-    public static ref ElementRef IntInput(
-      this ref Composition cx,
-      int value,
-      TextEditProcessor processor = null,
-      CompositionAction<int> onChanged = null,
-      CompositionAction<int> onSubmitted = null,
-      CompositionAction onEditingStarted = null,
-      CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded = null,
-      NumericInputOptions? options = null,
-      bool enabled = true,
-      bool error = false,
-      InputFieldStyle style = null
-    ) {
-      if (!cx.AUTHORING.RequireComposable
-        <TextFieldElement<int, IntegerField, NumericInputOptions, NumericTextFieldAdapter<int, IntegerField>>>
-        (_integerInputId, out var input, out _)) {
-        input =
-          new TextFieldElement<int, IntegerField, NumericInputOptions, NumericTextFieldAdapter<int, IntegerField>>();
-      }
-
-      var resolvedOptions = options ?? NumericInputOptions.Default;
-      input.Configure(in resolvedOptions);
-      input.Update(
         value,
-        enabled,
-        error,
-        style ?? cx.ReadContextOrDefault(InputFieldStyle.Key, InputFieldStyle.Default),
-        cx.boundary,
-        processor,
-        onChanged,
-        onSubmitted,
-        onEditingStarted,
-        onEditingEnded
-      );
-      return ref cx.AUTHORING.YieldElement(ref cx, input);
-    }
-
-    public static ref ElementRef FloatInput(
-      this ref Composition cx,
-      float value,
-      TextEditProcessor processor = null,
-      CompositionAction<float> onChanged = null,
-      CompositionAction<float> onSubmitted = null,
-      CompositionAction onEditingStarted = null,
-      CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded = null,
-      NumericInputOptions? options = null,
-      bool enabled = true,
-      bool error = false,
-      InputFieldStyle style = null
-    ) {
-      if (!cx.AUTHORING.RequireComposable<
-        TextFieldElement<
-          float,
-          FloatField,
-          NumericInputOptions,
-          NumericTextFieldAdapter<float, FloatField>
-        >
-      >(_floatInputId, out var input, out _)) {
-        input = new TextFieldElement<
-          float,
-          FloatField,
-          NumericInputOptions,
-          NumericTextFieldAdapter<float, FloatField>
-        >();
-      }
-
-      var resolvedOptions = options ?? NumericInputOptions.Default;
-      input.Configure(in resolvedOptions);
-      input.Update(
-        value,
+        adapter,
         enabled,
         error,
         style ?? cx.ReadContextOrDefault(InputFieldStyle.Key, InputFieldStyle.Default),

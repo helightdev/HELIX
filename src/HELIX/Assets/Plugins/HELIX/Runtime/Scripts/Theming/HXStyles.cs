@@ -58,15 +58,18 @@ namespace HELIX.Theming {
       StateProperty<ColorRole> color,
       StateProperty<ColorRole> onColor,
       out StateProperty<Color> background,
-      StateProperty<float> blendLevels = null
+      StateProperty<float> blendLevels = null,
+      bool isBackground = false
     ) {
       onColor ??= ColorOverlaySelector(color);
       blendLevels ??= BlendLevelSelector(color).Resolve(theme);
       var onBlended = onColor.Resolve(theme);
       var blended = ContrastBlend(color.Resolve(theme), onBlended, blendLevels);
       background = new FuncStateProperty<Color>(state => {
-          if (state.HasFlag(State.Disabled)) return theme[ColorRoles.DisabledLow];
-          if (state.HasFlag(State.Error)) return theme[ColorRoles.Error];
+          if (state.HasFlag(State.Disabled))
+            return isBackground ? theme[ColorRoles.DisabledLow] : theme[ColorRoles.DisabledHigh];
+          if (state.HasFlag(State.Error))
+            return isBackground ? theme[ColorRoles.ErrorContainer] : theme[ColorRoles.Error];
           return blended[state];
         }
       );
@@ -78,15 +81,18 @@ namespace HELIX.Theming {
       StateProperty<ColorRole> onColor,
       out StateProperty<Color> background,
       out StateProperty<Color> foreground,
-      StateProperty<float> blendLevels = null
+      StateProperty<float> blendLevels = null,
+      bool isBackground = true
     ) {
       onColor ??= ColorOverlaySelector(color);
       blendLevels ??= BlendLevelSelector(color).Resolve(theme);
       var onBlended = onColor.Resolve(theme);
       var blended = ContrastBlend(color.Resolve(theme), onBlended, blendLevels);
       background = new FuncStateProperty<Color>(state => {
-          if (state.HasFlag(State.Disabled)) return theme[ColorRoles.DisabledLow];
-          if (state.HasFlag(State.Error)) return theme[ColorRoles.Error];
+          if (state.HasFlag(State.Disabled))
+            return isBackground ? theme[ColorRoles.DisabledLow] : theme[ColorRoles.DisabledHigh];
+          if (state.HasFlag(State.Error))
+            return isBackground ? theme[ColorRoles.ErrorContainer] : theme[ColorRoles.Error];
           return blended[state];
         }
       );
@@ -107,7 +113,8 @@ namespace HELIX.Theming {
       out StateProperty<Color> background,
       out StateProperty<Color> foreground,
       StateProperty<float> inactiveBlendLevels = null,
-      StateProperty<float> activeBlendLevels = null
+      StateProperty<float> activeBlendLevels = null,
+      bool isBackground = true
     ) {
       onInactive ??= ColorOverlaySelector(inactive);
       onActive ??= ColorOverlaySelector(active);
@@ -118,8 +125,8 @@ namespace HELIX.Theming {
       var inactiveBlended = ContrastBlend(inactive.Resolve(theme), onInactiveBlended, inactiveBlendLevels);
       var activeBlended = ContrastBlend(active.Resolve(theme), onActiveBlended, activeBlendLevels);
       background = new FuncStateProperty<Color>(state => {
-          if (state.HasFlag(State.Disabled)) return theme[ColorRoles.DisabledLow];
-          if (state.HasFlag(State.Error)) return theme[ColorRoles.Error];
+          if (state.HasFlag(State.Disabled)) return isBackground ? theme[ColorRoles.DisabledLow] : theme[ColorRoles.DisabledHigh];
+          if (state.HasFlag(State.Error)) return isBackground ? theme[ColorRoles.ErrorContainer] : theme[ColorRoles.Error];
           if (state.HasFlag(State.Selected)) return activeBlended[state];
           return inactiveBlended[state];
         }

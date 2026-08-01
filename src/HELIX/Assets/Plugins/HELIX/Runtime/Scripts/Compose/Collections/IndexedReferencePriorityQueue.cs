@@ -38,6 +38,15 @@ namespace HELIX.Compose.Collections {
       return true;
     }
 
+    public bool TryDequeueTail(out TElement element) {
+      element = null;
+      if (_heap.Count == 0) return false;
+      var lastIndex = _heap.Count - 1;
+      element = _heap[lastIndex].Element;
+      RemoveAt(lastIndex);
+      return true;
+    }
+
     public bool Remove(TElement element) {
       if (!_elementIndices.TryGetValue(element, out var index)) return false;
       RemoveAt(index);

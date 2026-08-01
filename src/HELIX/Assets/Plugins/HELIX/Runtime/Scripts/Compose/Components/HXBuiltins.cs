@@ -360,7 +360,7 @@ namespace HELIX.Compose {
     private static readonly ushort _contextScopeId = CompositionId.GetTypeId();
 
     public static ScopeHandle ContextContributor(this ref Composition cx) {
-      cx.AUTHORING.RequireComposable<ContextContributorElement>(
+      cx.AUTHORING.RequireComposable<ContextComposableElement>(
         _contextScopeId, out var contributor, out var retained
       );
 

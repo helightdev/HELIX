@@ -43,5 +43,10 @@ namespace HELIX.Theming {
     public const ColorRole Focus = ColorRole.Focus;
     public const ColorRole DisabledLow = ColorRole.DisabledLow;
     public const ColorRole DisabledHigh = ColorRole.DisabledHigh;
+
+    public static bool IsBackground(this ColorRole role) {
+      if (role.HasFlag(ColorRole.On)) return false;
+      return role.HasFlag(ColorRole.Container) || role.HasFlag(ColorRole.Surface);
+    }
   }
 }

@@ -253,7 +253,7 @@ namespace HELIX.Compose {
       this.endReason = endReason;
     }
 
-    public static TextEditResult Continue(bool interrupt = false) => new(false, false, TextEditEndReason.None);
+    public static TextEditResult Continue(bool interrupt = false) => new(interrupt, false, TextEditEndReason.None);
 
     public static TextEditResult Break(bool interrupt = true) => new(interrupt, true, TextEditEndReason.None);
 
