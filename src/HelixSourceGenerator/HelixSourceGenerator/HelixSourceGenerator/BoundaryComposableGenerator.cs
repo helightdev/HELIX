@@ -265,7 +265,7 @@ namespace HELIX.SourceGen {
 {namespaceOpen}  {accessibility} static class {escapedName}Extensions {{
     public static readonly ushort compositionId =
       global::{CompositionIdTypeName}.GetCompositionId();
-    public static readonly ushort typeId =7
+    public static readonly ushort typeId =
       global::{CompositionIdTypeName}.GetTypeId();
 {extensionMethod}  }}
 {namespaceClose}";
