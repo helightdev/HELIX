@@ -56,10 +56,9 @@ namespace HELIX.Compose {
       input.Owner = controller;
       input.Configure(Node, controller, selectionStyle);
       input.ApplyEditingValue(controller.value);
+      input.Field.Padding(style.padding[passedState]);
 
       cx.AUTHORING.YieldElement(ref cx, input);
-
-      input.Field.Padding(style.padding[passedState]);
 
       using (input.BackgroundScope(cx)) {
         style.RenderBackground(ref cx, passedState);
@@ -107,13 +106,13 @@ namespace HELIX.Compose {
     }
   }
 
-  public enum TextSelectionStyleType : byte { Light, Dark, Custom, LightNeutral, DarkNeutral }
-
   public struct TextSelectionStyle {
     public Color cursor;
     public Color selection;
     public TextSelectionStyleType type;
   }
+
+  public enum TextSelectionStyleType : byte { Light, Dark, Custom, LightNeutral, DarkNeutral }
 
   public readonly struct TextInputOptions : IEquatable<TextInputOptions> {
     public static readonly TextInputOptions Default = new(
