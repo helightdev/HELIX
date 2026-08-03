@@ -201,7 +201,7 @@ namespace HELIX.Compose {
       }
       ctx.CURSOR.Replace(composable, retention);
       cell.cursor++;
-      cell.localId.index++;
+      unchecked { cell.localId.index++; }
       cursor = null; // Clear authoring element
       retention = CompositionRetention.Undefined;
       return ref ctx.CURSOR;

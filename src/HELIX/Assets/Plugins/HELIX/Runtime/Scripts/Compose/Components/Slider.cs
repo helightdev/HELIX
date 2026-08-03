@@ -1,5 +1,6 @@
 using System;
 using HELIX.Extensions;
+using HELIX.Signals;
 using HELIX.Theming;
 using HELIX.Types;
 using UnityEngine;
@@ -223,11 +224,76 @@ namespace HELIX.Compose {
     }
   }
 
+  public sealed class SliderController : Signal<float> {
+    private float _value;
+
+    public CompositionAction<float> onChanged;
+    public CompositionAction<float> onCommitted;
+    public SliderOptions options = SliderOptions.Default;
+    public bool enabled = true;
+    public bool error;
+
+    public SliderController(float initialValue = 0f) : base("SliderController", typeof(SliderController)) {
+      _value = initialValue;
+    }
+
+
+    public State State {
+      get {
+        var state = State.None;
+        state |= enabled ? State.None : State.Disabled;
+        state |= error ? State.Error : State.None;
+        return state;
+      }
+    }
+
+    public override float PeekValue() => _value;
+
+    public override void SetValue(float newValue) {
+      newValue = NormalizeValue(newValue);
+      if (Mathf.Approximately(_value, newValue)) return;
+      _value = newValue;
+      NotifyListeners();
+    }
+
+    public override void SetWithoutNotify(float newValue) {
+      _value = NormalizeValue(newValue);
+      NotifyDirty();
+    }
+
+    internal void SynchronizeValue(float newValue) {
+      _value = NormalizeValue(newValue);
+    }
+
+    internal void SetUserValue(IBoundary boundary, float newValue, bool commit) {
+      newValue = NormalizeValue(newValue);
+      var changed = !Mathf.Approximately(_value, newValue);
+      if (changed) {
+        _value = newValue;
+        onChanged?.Call(boundary, newValue);
+      }
+      if (commit) onCommitted?.Call(boundary, newValue);
+      if (changed) NotifyListeners();
+    }
+
+    private float NormalizeValue(float newValue) {
+      var normalizedOptions = HXSliderElement.NormalizeOptions(in options);
+      return HXSliderElement.ClampAndSnap(newValue, in normalizedOptions);
+    }
+
+    private void NotifyListeners() {
+      NotifyDirty();
+      NotifyObservers();
+    }
+  }
+
   [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
   public partial class Slider {
-
     public partial struct Props {
-      public float value;
+      // Keep value first to preserve the cx.Slider(value, ...) call shape.
+      [PropDefault(null)] public float? value;
+      [PropDefault(null)] public SliderController controller;
+      [PropDefault(null)] public float? initialValue;
       [PropDefault(null)] public CompositionAction<float> onChanged;
       [PropDefault(null)] public CompositionAction<float> onCommitted;
       [PropDefault("SliderOptions.Default", PropInit.Deferred)] public SliderOptions options;
@@ -236,6 +302,9 @@ namespace HELIX.Compose {
       [PropDefault(null)] public SliderStyle? style;
     }
 
+    public SliderController controller;
+    public bool isAutomaticController = true;
+
     protected override void OnAttach() {
       base.OnAttach();
       Node.RegisterCallback<KeyDownEvent>(OnKeyDown);
@@ -243,18 +312,23 @@ namespace HELIX.Compose {
 
     protected override void OnDetach() {
       Node.UnregisterCallback<KeyDownEvent>(OnKeyDown);
+      DisposeAutomaticController();
       base.OnDetach();
     }
 
     protected override void OnRecompose(ref Composition cx) {
-      var options = HXSliderElement.NormalizeOptions(in props.options);
-      var value = HXSliderElement.ClampAndSnap(props.value, in options);
+      EnsureController(props.controller);
+      cx.SubscribeTo(controller);
+
+      var options = HXSliderElement.NormalizeOptions(in controller.options);
+      var value = HXSliderElement.ClampAndSnap(controller.PeekValue(), in options);
       var style = props.style ?? ThemeProperties.Slider[in cx];
 
-      this.Toggle(State.Disabled, !props.enabled);
-      this.Toggle(State.Error, props.error);
-      cx.CURSOR.Focusable(props.enabled);
-      style.box.RenderBoundary(ref cx, InputState);
+      this.Toggle(State.Disabled, !controller.enabled);
+      this.Toggle(State.Error, controller.error);
+      var passedState = controller.State | InputState;
+      cx.CURSOR.Focusable(controller.enabled);
+      style.box.RenderBoundary(ref cx, passedState);
 
       var normalized = HXSliderElement.NormalizeValue(value, in options);
       using (cx.SliderElement(
@@ -263,18 +337,50 @@ namespace HELIX.Compose {
         cx.CURSOR.Flexible().AlignSelf(Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
 
         using (slots.Track()) {
-          style.track?.Invoke(ref cx, InputState);
-          ComposeProgress(ref cx, style.progress, InputState, normalized, options.axis);
+          style.track?.Invoke(ref cx, passedState);
+          ComposeProgress(ref cx, style.progress, passedState, normalized, options.axis);
         }
 
         using (slots.Thumb()) {
-          style.thumb?.Invoke(ref cx, InputState);
+          style.thumb?.Invoke(ref cx, passedState);
         }
       }
     }
 
+    public void EnsureController(SliderController given) {
+      if (ReferenceEquals(given, controller) && controller != null) return;
+      if (given == null) {
+        if (isAutomaticController && controller != null) {
+          ConfigureAutomaticController();
+          controller.SynchronizeValue(props.value ?? controller.PeekValue());
+        } else {
+          controller = new SliderController();
+          isAutomaticController = true;
+          ConfigureAutomaticController();
+          controller.SynchronizeValue(props.value ?? props.initialValue ?? 0f);
+        }
+      } else {
+        DisposeAutomaticController();
+        controller = given;
+      }
+    }
+
+    private void ConfigureAutomaticController() {
+      controller.onChanged = props.onChanged;
+      controller.onCommitted = props.onCommitted;
+      controller.options = props.options;
+      controller.enabled = props.enabled;
+      controller.error = props.error;
+    }
+
+    private void DisposeAutomaticController() {
+      if (!isAutomaticController) return;
+      controller?.Dispose();
+      isAutomaticController = false;
+    }
+
     protected override void OnPointerDown(PointerDownEvent evt) {
-      if (!props.enabled) return;
+      if (controller == null || !controller.enabled) return;
       base.OnPointerDown(evt);
       if (!Active) return;
       this.Enable(State.Active);
@@ -299,8 +405,8 @@ namespace HELIX.Compose {
     }
 
     private void OnKeyDown(KeyDownEvent evt) {
-      if (!props.enabled) return;
-      var options = HXSliderElement.NormalizeOptions(in props.options);
+      if (controller == null || !controller.enabled) return;
+      var options = HXSliderElement.NormalizeOptions(in controller.options);
       var direction = evt.keyCode switch {
         KeyCode.LeftArrow => options.axis == Axis.Horizontal ? -1 : 0,
         KeyCode.RightArrow => options.axis == Axis.Horizontal ? 1 : 0,
@@ -314,16 +420,14 @@ namespace HELIX.Compose {
       var amount = options.step > 0f
         ? options.step
         : Mathf.Max((options.max - options.min) * 0.01f, Mathf.Epsilon);
-      var value = HXSliderElement.ClampAndSnap(props.value + direction * amount, in options);
-      if (!Mathf.Approximately(props.value, value)) {
-        props.onChanged?.Call(Node, value);
-        props.onCommitted?.Call(Node, value);
-      }
+      var value = HXSliderElement.ClampAndSnap(controller.PeekValue() + direction * amount, in options);
+      if (!Mathf.Approximately(controller.PeekValue(), value)) { controller.SetUserValue(Node, value, true); }
       evt.StopPropagation();
     }
 
     private void SetFromLocalPosition(Vector2 localPosition, bool commit) {
-      var options = HXSliderElement.NormalizeOptions(in props.options);
+      if (controller == null) return;
+      var options = HXSliderElement.NormalizeOptions(in controller.options);
       var style = props.style ?? ThemeProperties.Slider[Node];
       var length = options.axis == Axis.Horizontal ? Node.contentRect.width : Node.contentRect.height;
       var thumbSize = HXSliderElement.ResolveThumbSize(length, in options, style.thumbSize);
@@ -335,13 +439,8 @@ namespace HELIX.Compose {
       var normalized = Mathf.Clamp01((position - start - thumbSize * 0.5f) / available);
       if (options.reverse) normalized = 1f - normalized;
 
-      var value = HXSliderElement.ClampAndSnap(
-        Mathf.Lerp(options.min, options.max, normalized), in options
-      );
-      if (!Mathf.Approximately(props.value, value)) {
-        props.onChanged?.Call(Node, value);
-      }
-      if (commit) props.onCommitted?.Call(Node, value);
+      var value = HXSliderElement.ClampAndSnap(Mathf.Lerp(options.min, options.max, normalized), in options);
+      controller.SetUserValue(Node, value, commit);
     }
 
     private static void ComposeProgress(
@@ -361,37 +460,6 @@ namespace HELIX.Compose {
           .Focusable(false, pickingMode: PickingMode.Ignore);
         progress.Invoke(ref cx, state);
       }
-    }
-  }
-
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
-  public partial class Checkbox {
-
-    public partial struct Props {
-      public bool value;
-      [PropDefault(null)] public CompositionAction<bool> onChanged;
-      [PropDefault(true)] public bool enabled;
-      [PropDefault(false)] public bool error;
-      [PropDefault(null)] public HXControlBoxStyle? style;
-    }
-
-    protected override void OnRecompose(ref Composition cx) {
-      this.Toggle(State.Selected, props.value);
-      this.Toggle(State.Disabled, !props.enabled);
-      this.Toggle(State.Error, props.error);
-      var style = props.style ?? ThemeProperties.Checkbox[in cx];
-
-      using (cx.WriteContext(out var context)) {
-        style.RenderContext(in context, InputState);
-      }
-
-      cx.CURSOR.Focusable(props.enabled);
-      style.RenderContent(ref cx, InputState);
-    }
-
-    protected override void OnClick(EventBase evt) {
-      if (!props.enabled) return;
-      props.onChanged?.Call(Node, !props.value);
     }
   }
 }

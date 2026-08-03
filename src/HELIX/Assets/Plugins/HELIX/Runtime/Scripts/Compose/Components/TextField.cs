@@ -68,30 +68,33 @@ namespace HELIX.Compose {
     public void EnsureController(TextEditingController given) {
       if (ReferenceEquals(given, controller) && controller != null) return;
       if (given == null) {
-        if (isAutomaticController && controller != null) {
+        if (isAutomaticController && controller != null) { // Update retained state
           if (!props.value.HasValue) goto configureAutomatic;
 
           controller.value = props.valueIgnoreSelection
             ? controller.value.ReplaceText(props.value.Value.text)
             : props.value.Value;
-        } else {
+        } else { // Configure initial state
           controller = new TextEditingController<string>(TextInputAdapters.String);
           controller.value = props.value ?? props.initialValue ?? TextEditingValue.Empty;
           controller.initialValue = controller.value;
           isAutomaticController = true;
         }
 
-        configureAutomatic:
-        controller.onChanged = props.onChanged;
-        controller.onEditingStarted = props.onEditingStarted;
-        controller.onEditingEnded = props.onEditingEnded;
-        controller.processor = props.processor;
-        controller.enabled = props.enabled;
-        controller.options = props.options;
+        configureAutomatic: ConfigureAutomaticController(); // Shared non-value updates
       } else {
         DisposeAutomaticController();
         controller = given;
       }
+    }
+
+    private void ConfigureAutomaticController() {
+      controller.onChanged = props.onChanged;
+      controller.onEditingStarted = props.onEditingStarted;
+      controller.onEditingEnded = props.onEditingEnded;
+      controller.processor = props.processor;
+      controller.enabled = props.enabled;
+      controller.options = props.options;
     }
 
     private void DisposeAutomaticController() {
@@ -225,6 +228,8 @@ namespace HELIX.Compose {
         return basis;
       }
     }
+
+    protected TextEditingController() : base("TextEditingController", typeof(TextEditingController)) { }
 
     public abstract void SetEditingValue(in TextEditingValue updated);
 

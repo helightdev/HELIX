@@ -9,6 +9,15 @@ namespace HELIX.Editor {
     private readonly List<KeyValuePair<int, ContextKeyData>> _keys = new();
     protected override string EmptyMessage => "No active context keys.";
 
+    private static readonly IReadOnlyList<InspectorHierarchyColumn> _columns = new[] {
+      new InspectorHierarchyColumn("summary", "Summary", 260, true),
+      new InspectorHierarchyColumn("reference", "Reference", 260),
+      new InspectorHierarchyColumn("type", "Type", 260),
+    };
+
+    protected override IReadOnlyList<InspectorHierarchyColumn> HierarchyColumns => _columns;
+
+
     [MenuItem("Window/HELIX/Inspectors/Context Keys", false, 1010)]
     private static void ShowWindow() {
       var window = GetWindow<ContextKeysInspectorWindow>();
@@ -32,23 +41,30 @@ namespace HELIX.Editor {
       var name = string.IsNullOrEmpty(entry.Value.name) ? "<unnamed>" : entry.Value.name;
       var type = entry.Value.type?.FullName ?? "<unknown type>";
       var details = new List<KeyValuePair<string, string>> {
-        Detail("ID", entry.Key), Detail("Kind", entry.Key < 0 ? "Anonymous" : "Named"),
+        Detail("Context ID", entry.Key), Detail("Kind", entry.Key < 0 ? "Anonymous" : "Named"),
         Detail("Name", name), Detail("Registered Type", type)
       };
-      var summary = type;
+      var columns = new List<KeyValuePair<string, string>> {
+        Detail("type", type)
+      };
+      var summary = "";
       if (entry.Key < 0) {
         if (entry.Value.TryGetInstance(out var target)) {
           details.Add(Detail("Reference", "Alive"));
           details.Add(Detail("Instance Type", target.GetType().FullName));
           details.Add(Detail("Instance", SafeToString(target)));
-          summary += $" · {target.GetType().Name}";
+          columns.Add(Detail("reference", SafeToString(target)));
+          summary += $"{target.GetType().Name}";
         } else {
           var state = entry.Value.reference == null ? "Not tracked" : "Collected";
           details.Add(Detail("Reference", state));
-          summary += $" · {state.ToLowerInvariant()}";
+          summary += "<no instance>";
+          columns.Add(Detail("reference", "<no instance>"));
         }
+      } else {
+        summary += type;
       }
-      return new InspectorTreeNode($"context:key:{entry.Key}", $"[{entry.Key}] {name}", summary, details);
+      return new InspectorTreeNode($"context:key:{entry.Key}", $"[{Mathf.Abs(entry.Key)}] {name}", summary, details, columns: columns);
     }
   }
 }

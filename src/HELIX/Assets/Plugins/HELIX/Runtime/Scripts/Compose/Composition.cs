@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using HELIX.Signals;
 using UnityEngine.UIElements;
+using Debug = UnityEngine.Debug;
 
 namespace HELIX.Compose {
   public delegate void ScopeCompletionCallback(BoundaryCell cell, in ScopeHandle handle);
@@ -215,9 +216,21 @@ namespace HELIX.Compose {
     }
 
     public static LocalId FromData(int data) {
-      var short01 = (ushort)(data & 0xFFFF);
-      var short23 = (ushort)((data >> 16) & 0xFFFF);
-      return new LocalId { index = short01, depth = short23 };
+      unchecked {
+        var mixed = (uint)data;
+        mixed ^= mixed >> 16;
+        mixed *= 0x7FEB352Du;
+        mixed ^= mixed >> 15;
+        mixed *= 0x846CA68Bu;
+        mixed ^= mixed >> 16;
+
+        var index = (ushort)mixed;
+        var depth = (ushort)(mixed >> 16);
+        return new LocalId {
+          index = index,
+          depth = depth
+        };
+      }
     }
   }
 
@@ -267,6 +280,7 @@ namespace HELIX.Compose {
     private static int _generalIdCounter = 1;
 
     public static ushort GeneratedTypeId = GetTypeId("Hash");
+    public static ushort SlotTypeId = GetTypeId("Slot");
     public static ushort GeneratedCompositionId = GetCompositionId("Hash");
 
     [FieldOffset(0)]
@@ -277,6 +291,13 @@ namespace HELIX.Compose {
     public ushort type;
     [FieldOffset(0)]
     public ulong packed;
+
+
+    public CompositionId(LocalId local, ushort composition, ushort type) : this() {
+      this.local = local;
+      this.composition = composition;
+      this.type = type;
+    }
 
     public static ushort GetCompositionId(string name = null, string location = null) {
       if (_compositionIdCounter == ushort.MaxValue) {
@@ -360,7 +381,9 @@ namespace HELIX.Compose {
 
       cell.skip = false;
       cell.cursor = 0;
-      cell.localId = new LocalId { index = 0, depth = (ushort)(_local.depth + 1) };
+      var localDepth = _local.depth;
+      unchecked { localDepth++; }
+      cell.localId = new LocalId { index = 0, depth = localDepth };
     }
 
     public void Dispose() {

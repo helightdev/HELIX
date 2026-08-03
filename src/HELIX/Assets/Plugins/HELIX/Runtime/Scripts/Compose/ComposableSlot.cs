@@ -1,3 +1,4 @@
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
@@ -44,10 +45,10 @@ namespace HELIX.Compose {
     }
 
     public ScopeHandle Scope(Composition cx) {
+      PackedId = new CompositionId(slotLocalId, CompositionId.GeneratedCompositionId, CompositionId.SlotTypeId).packed;
+
       var handle = ScopeHandle.Push(cx.AUTHORING.cell, this, null);
       cx.AUTHORING.cell.slot = this;
-      cx.AUTHORING.cell.localId = slotLocalId;
-      cx.AUTHORING.PrepareId(CompositionId.GeneratedTypeId);
       style.display = DisplayStyle.Flex;
 
       return handle;

@@ -24,9 +24,11 @@ namespace HELIX.Signals {
 
     public int contextKey;
 
-    protected Signal() {
+    protected Signal(string name = "Signal", Type registeredType = null) {
       detached = true;
-      contextKey = ContextKeyData.ClaimAnonymous(typeof(Signal), "SignalHelper", new WeakReference<object>(this));
+      contextKey = ContextKeyData.ClaimAnonymous(
+        registeredType ?? typeof(Signal), name, new WeakReference<object>(this)
+      );
     }
 
     public override void Dispose() {
@@ -201,6 +203,7 @@ namespace HELIX.Signals {
   }
 
   public abstract class Signal<T> : Signal {
+    protected Signal(string name = "ValueSignal", Type registeredType = null) : base(name, registeredType ?? typeof(Signal<T>)) { }
     public T Value {
       get {
         if (HX.ComposingBoundary != null) {
