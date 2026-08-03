@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using HELIX.Signals;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
@@ -92,6 +93,11 @@ namespace HELIX.Compose {
         return false;
       }
       return true;
+    }
+
+
+    public void SubscribeTo(Signal signal) {
+      boundary.SubscribeToContextData(signal.contextKey, signal);
     }
 
     /// <summary>
@@ -261,6 +267,7 @@ namespace HELIX.Compose {
     private static int _generalIdCounter = 1;
 
     public static ushort GeneratedTypeId = GetTypeId("Hash");
+    public static ushort GeneratedCompositionId = GetCompositionId("Hash");
 
     [FieldOffset(0)]
     public LocalId local;
@@ -295,9 +302,22 @@ namespace HELIX.Compose {
       return $"{local}T{type}C{composition}";
     }
 
-    public static CompositionId Generated(ushort composition, int data) {
+    public static CompositionId GeneratedWithComposition(ushort composition, int data) {
       var local = LocalId.FromData(data);
       return new CompositionId { local = local, composition = composition, type = GeneratedTypeId };
+    }
+
+    public static CompositionId GeneratedWithType(ushort type, int data) {
+      var local = LocalId.FromData(data);
+      return new CompositionId { local = local, composition = GeneratedCompositionId, type = type };
+    }
+    public static CompositionId Generated(int data) {
+      var local = LocalId.FromData(data);
+      return new CompositionId { local = local, composition = GeneratedCompositionId, type = GeneratedTypeId };
+    }
+
+    public static CompositionId Generated(LocalId id) {
+      return new CompositionId { local = id, composition = GeneratedCompositionId, type = GeneratedTypeId };
     }
   }
 

@@ -31,10 +31,7 @@ namespace HELIX.Compose {
     public ulong PackedId { get; set; }
 
     public void Recompose(Composable composable) {
-      CompositionId cid = default;
-      cid.packed = Host.PackedId;
-      cid.local = slotLocalId;
-
+      var cid = CompositionId.Generated(slotLocalId);
       var cx = new Composition(Host.Boundary, cid, this) { Slot = this };
       composable(ref cx);
 
@@ -50,7 +47,7 @@ namespace HELIX.Compose {
       var handle = ScopeHandle.Push(cx.AUTHORING.cell, this, null);
       cx.AUTHORING.cell.slot = this;
       cx.AUTHORING.cell.localId = slotLocalId;
-      cx.AUTHORING.PrepareId(cx.AUTHORING.id.type);
+      cx.AUTHORING.PrepareId(CompositionId.GeneratedTypeId);
       style.display = DisplayStyle.Flex;
 
       return handle;

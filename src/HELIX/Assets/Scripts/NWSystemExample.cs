@@ -53,7 +53,7 @@ namespace HELIX.Examples {
       public static readonly SliderOptions VolumeOptionsScroll = new(
         0f, 1f, step: 0f, thumbRange: 0.1f, axis: Axis.Vertical
       );
-      public static readonly TextInputAdapter<float> DecimalAdapter = new(
+      public static readonly TextInputValueAdapter<float> DecimalValueAdapter = new(
         value => value.ToString("0.00", CultureInfo.InvariantCulture),
         (string text, out float value) => float.TryParse(
           text, NumberStyles.Float, CultureInfo.InvariantCulture, out value
@@ -107,76 +107,101 @@ namespace HELIX.Examples {
               if (cx.CursorDirty) cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
               cx.Text("Text");
               cx.Spacing(1);
-              cx.TextInput(
-                text,
-                onChanged: (ctx, value) => {
+              cx.HXTextField(
+                initialValue: new TextEditingValue("Hello World!"),
+                onChanged: static (ctx, value) => {
                   Debug.Log($"Text changed: {value}");
-                  using (ctx.Modify<HomeComposable>(out var composable)) { composable.text = value; }
+                  using (ctx.Modify<HomeComposable>(out var composable)) { composable.text = value.text; }
                 },
-                onSubmitted: (ctx, value) => {
-                  Debug.Log($"Text submitted: {value}");
-                },
-                onEditingStarted: (ctx) => {
-                  Debug.Log($"Text editing started");
-                },
-                onEditingEnded: (ctx, value, reason) => {
-                  Debug.Log($"Text editing ended");
-                }
-              );
-              cx.Spacing(2);
-              cx.TextInput(
-                text,
-                options: new TextInputOptions(multiline: true),
                 processor: (ref TextEditProcessorContext context) => {
-                  if (context.AbsoluteLengthDelta > 3) {
-                    context.next = context.previous;
-                    context.result = TextEditResult.Break();
-                    return;
-                  }
-
-                  Debug.Log($"Processor: {context.trigger}\n{context.next.ToFormattedString()}\n/\\ Becomes /\\\n{context.previous.ToFormattedString()}\n;{context.physical}”");
-
-                  //context.result = TextEditResult.Break(true);
-                },
-                onChanged: (ctx, value) => {
+                  Debug.Log(
+                    $"Processor: {context.trigger}\n{context.next.ToFormattedString()}\n/\\ Becomes /\\\n{context.previous.ToFormattedString()}\n;{context.physical}”"
+                  );
+                }
+              );
+              cx.HXTextField(
+                initialValue: new TextEditingValue("Hello World!"),
+                value: text,
+                onChanged: static (ctx, value) => {
                   Debug.Log($"Text changed: {value}");
-                  using (ctx.Modify<HomeComposable>(out var composable)) { composable.text = value; }
+                  using (ctx.Modify<HomeComposable>(out var composable)) { composable.text = value.text; }
                 },
-                onSubmitted: (ctx, value) => {
-                  Debug.Log($"Text submitted: {value}");
-                },
-                onEditingStarted: (ctx) => {
-                  Debug.Log($"Text editing started");
-                },
-                onEditingEnded: (ctx, value, reason) => {
-                  Debug.Log($"Text editing ended: {value.text} {reason}");
+                processor: (ref TextEditProcessorContext context) => {
+                  Debug.Log(
+                    $"Processor: {context.trigger}\n{context.next.ToFormattedString()}\n/\\ Becomes /\\\n{context.previous.ToFormattedString()}\n;{context.physical}”"
+                  );
                 }
               );
+              // cx.TextInput(
+              //   text,
+              //   onChanged: (ctx, value) => {
+              //     Debug.Log($"Text changed: {value}");
+              //     using (ctx.Modify<HomeComposable>(out var composable)) { composable.text = value; }
+              //   },
+              //   onSubmitted: (ctx, value) => {
+              //     Debug.Log($"Text submitted: {value}");
+              //   },
+              //   onEditingStarted: (ctx) => {
+              //     Debug.Log($"Text editing started");
+              //   },
+              //   onEditingEnded: (ctx, value, reason) => {
+              //     Debug.Log($"Text editing ended");
+              //   }
+              // );
+              cx.Spacing(2);
+              // cx.TextInput(
+              //   text,
+              //   options: new TextInputOptions(multiline: true),
+              //   processor: (ref TextEditProcessorContext context) => {
+              //     if (context.AbsoluteLengthDelta > 3) {
+              //       context.next = context.previous;
+              //       context.result = TextEditResult.Break();
+              //       return;
+              //     }
+              //
+              //     Debug.Log($"Processor: {context.trigger}\n{context.next.ToFormattedString()}\n/\\ Becomes /\\\n{context.previous.ToFormattedString()}\n;{context.physical}”");
+              //
+              //     //context.result = TextEditResult.Break(true);
+              //   },
+              //   onChanged: (ctx, value) => {
+              //     Debug.Log($"Text changed: {value}");
+              //     using (ctx.Modify<HomeComposable>(out var composable)) { composable.text = value; }
+              //   },
+              //   onSubmitted: (ctx, value) => {
+              //     Debug.Log($"Text submitted: {value}");
+              //   },
+              //   onEditingStarted: (ctx) => {
+              //     Debug.Log($"Text editing started");
+              //   },
+              //   onEditingEnded: (ctx, value, reason) => {
+              //     Debug.Log($"Text editing ended: {value.text} {reason}");
+              //   }
+              // );
               cx.Spacing(2);
 
-              cx.Text("Integer");
-              cx.Spacing(1);
-              cx.TextInput(
-                integer,
-                TextInputAdapters.Int32,
-                onChanged: static (ctx, value) => {
-                  using (ctx.Modify<HomeComposable>(out var composable)) { composable.integer = value; }
-                }
-              );
-              cx.Spacing(2);
-
-              cx.Text("Float");
-              cx.Spacing(1);
-              cx.TextInput(
-                floatingPoint,
-                DecimalAdapter,
-                onChanged: static (ctx, value) => {
-                  using (ctx.Modify<HomeComposable>(out var state)) {
-                    state.floatingPoint = value;
-                    Debug.Log($"Float changed: {value}");
-                  }
-                }
-              );
+              // cx.Text("Integer");
+              // cx.Spacing(1);
+              // cx.TextInput(
+              //   integer,
+              //   TextInputAdapters.Int32,
+              //   onChanged: static (ctx, value) => {
+              //     using (ctx.Modify<HomeComposable>(out var composable)) { composable.integer = value; }
+              //   }
+              // );
+              // cx.Spacing(2);
+              //
+              // cx.Text("Float");
+              // cx.Spacing(1);
+              // cx.TextInput(
+              //   floatingPoint,
+              //   DecimalAdapter,
+              //   onChanged: static (ctx, value) => {
+              //     using (ctx.Modify<HomeComposable>(out var state)) {
+              //       state.floatingPoint = value;
+              //       Debug.Log($"Float changed: {value}");
+              //     }
+              //   }
+              // );
             }
             cx.Spacing(2);
 

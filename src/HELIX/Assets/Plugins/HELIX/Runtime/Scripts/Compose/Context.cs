@@ -171,6 +171,8 @@ namespace HELIX.Compose {
       }
     }
 
+    public bool HasValue => (version.flags & ContextFlags.NoValueMask) == 0;
+
     protected ContextFlags CleanFlags => detached ? ContextFlags.Detached : ContextFlags.None;
 
     public void IncrementContextVersion() {

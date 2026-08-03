@@ -2,7 +2,7 @@ using HELIX.Theming;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  public class InputBoundaryComposable<T> : PropsBoundaryComposable<T>, IWidgetStateHolder where T : struct {
+  public class InputBoundaryComposable<T> : PropsBoundaryComposable<T>, IStateHolder where T : struct {
     public bool handleFocus;
     private State _inputState;
 

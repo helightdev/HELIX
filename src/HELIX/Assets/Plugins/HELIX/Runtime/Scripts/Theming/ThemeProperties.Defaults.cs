@@ -164,6 +164,32 @@ namespace HELIX.Theming {
       return solid;
     }
 
+    public static HXControlBoxStyle DefaultInputField(
+      ThemeData data,
+      ColorRole color = SurfaceContainer,
+      ColorRole onColor = OnSurfaceContainerHigh,
+      ColorRole borderColor = SurfaceContainerHighest
+    ) {
+      StateBlend(data, color, onColor, out var background, out var foreground);
+      StateBlend(data, borderColor, onColor, out var border);
+      var solid = new HXSolidBoxStyle(
+        color: background.Derive(Common),
+        border: Func(state =>
+          Border.All(1, state.HasFlag(State.Focused) ? data[Focus] : border[state])
+        ).Derive(CommonFocusable),
+        radius: InputBoxRadius[data]
+      ).Bake();
+
+      return new HXControlBoxStyle(
+        margin: InputFieldMargin[data],
+        padding: InputFieldPadding[data],
+        constraints: InputFieldConstraints[data],
+        textStyle: TextColor(foreground).Derive(Common),
+        alignment: Alignment.CenterLeft,
+        background: solid
+      );
+    }
+
     public static SliderStyle DefaultSlider(
       ThemeData data,
       ColorRole color = Primary,

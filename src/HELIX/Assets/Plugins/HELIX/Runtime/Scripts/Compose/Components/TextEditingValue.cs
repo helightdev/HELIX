@@ -4,9 +4,20 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   public struct TextEditingValue : IEquatable<TextEditingValue> {
+    public static readonly TextEditingValue Empty = new() { text = string.Empty, cursorIndex = 0, selectionIndex = 0 };
+
     public string text;
     public int cursorIndex;
     public int selectionIndex;
+
+    public TextEditingValue(string text, int cursorIndex = 0, int selectionIndex = 0) {
+      this.text = text;
+      this.cursorIndex = cursorIndex;
+      this.selectionIndex = selectionIndex;
+    }
+
+    public static implicit operator TextEditingValue(string text) => new(text);
+    public static implicit operator string(TextEditingValue value) => value.text;
 
     public readonly bool HasSelection => cursorIndex != selectionIndex;
 
@@ -20,6 +31,13 @@ namespace HELIX.Compose {
     public readonly bool IsSelectionAtEnd => cursorIndex == SelectionEnd;
 
     public readonly bool IsSelectedAll => SelectionStart == 0 && SelectionEnd == text.Length;
+
+    public readonly TextEditingValue ReplaceText(string updatedText) {
+      var updated = this;
+      updated.text = updatedText ?? string.Empty;
+      updated.Normalize();
+      return updated;
+    }
 
     public TextEditingValue SelectAll() {
       var value = Normalize();

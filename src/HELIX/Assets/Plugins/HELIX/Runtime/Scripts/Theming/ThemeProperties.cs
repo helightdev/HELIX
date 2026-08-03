@@ -8,18 +8,23 @@ using static HELIX.Theming.ColorRoles;
 using static HELIX.Theming.HXStyles;
 using static HELIX.Theming.RadiusRole;
 using static HELIX.Theming.SpacingRole;
-using static HELIX.Theming.StateProperties;
-using static HELIX.Theming.States;
 using static HELIX.Theming.TextRole;
 
 namespace HELIX.Theming {
   public static partial class ThemeProperties {
     // Colors
     public static readonly ThemeProperty<Color>
-      RoleDisabledHighProvider =
-        new(data => data.ContrastLerp(Surface, OnSurface, High)),
-      RoleDisabledLowProvider =
-        new(data => data.ContrastLerp(Surface, OnSurface, Low));
+      RoleDisabledHighProvider = new(data => data.ContrastLerp(Surface, OnSurface, High)),
+      RoleDisabledLowProvider = new(data => data.ContrastLerp(Surface, OnSurface, Low));
+
+    public static readonly ThemeProperty<TextSelectionStyle> TextSelectionStyle = new(data =>
+      new TextSelectionStyle {
+        cursor = data[OnSurface],
+        selection = data[Focus].WithOpacity(0.4f),
+        type = TextSelectionStyleType.Custom
+      }
+    );
+
 
     // Border Radii
     public static readonly ThemeProperty<BorderRadius>
@@ -34,7 +39,11 @@ namespace HELIX.Theming {
     public static readonly ThemeProperty<StyleLength4>
       ButtonPadding = new(data => EdgeInsets.Symmetric(data[Spacing2], data[Spacing1])),
       CheckInset = new(data => data[BorderRole.Large]),
-      InputBoxPadding = new(data => EdgeInsets.Symmetric(data[Spacing2], data[Spacing1]));
+      InputFieldPadding = new(data => EdgeInsets.Symmetric(data[Spacing1], data[Spacing1])),
+      InputFieldMargin = new(data => EdgeInsets.Zero);
+
+    public static readonly ThemeProperty<BoxConstraints>
+      InputFieldConstraints = new(data => BoxConstraints.Min(new StyleLength2(data[BodyMedium].lineHeight)));
 
     // Lengths
     public static readonly ThemeProperty<Length>
@@ -61,10 +70,12 @@ namespace HELIX.Theming {
       ButtonOutlined = new(data => DefaultButtonOutlined(data)),
       ButtonToggle = new(data => DefaultButtonToggle(data)),
       ButtonGhost = new(data => DefaultButtonGhost(data)),
-      Checkbox = new(data => DefaultCheckbox(data));
+      Checkbox = new(data => DefaultCheckbox(data)),
+      TextField = new(data => DefaultInputField(data));
 
     // Special Components
     public static readonly ThemeProperty<SliderStyle> Slider = new(data => DefaultSlider(data));
-    public static readonly ThemeProperty<SliderStyle> Scroller = new(data => DefaultBoxSlider(data, useProgress: false));
+    public static readonly ThemeProperty<SliderStyle>
+      Scroller = new(data => DefaultBoxSlider(data, useProgress: false));
   }
 }

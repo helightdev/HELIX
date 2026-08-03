@@ -253,6 +253,13 @@ namespace HELIX.Theming {
       TextStyle.Merge(in context, textStyle, state);
     }
 
+    public readonly void RenderContainer(ref Composition cx, State state) {
+      ApplyColumn(state, cx.boundary);
+    }
+
+    public readonly void RenderBackground(ref Composition cx, State state) {
+      background?.Invoke(ref cx, state);
+    }
     public readonly void RenderContent(ref Composition cx, State state) {
       ApplyColumn(state, cx.boundary);
       background?.Invoke(ref cx, state);

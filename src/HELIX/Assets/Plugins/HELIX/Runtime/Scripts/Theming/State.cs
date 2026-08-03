@@ -143,34 +143,34 @@ namespace HELIX.Theming {
     }
   }
 
-  public interface IWidgetStateHolder {
+  public interface IStateHolder {
     ref State InputState { get; }
   }
 
   public static class WidgetStateHolderExtensions {
     public static void Enable<T>(this T state, State widgetState)
-      where T : IWidgetStateHolder {
+      where T : IStateHolder {
       state.InputState |= widgetState;
     }
 
     public static void Disable<T>(this T state, State widgetState)
-      where T : IWidgetStateHolder {
+      where T : IStateHolder {
       state.InputState &= ~widgetState;
     }
 
     public static void Toggle<T>(this T state, State widgetState)
-      where T : IWidgetStateHolder {
+      where T : IStateHolder {
       state.InputState ^= widgetState;
     }
 
     public static void Toggle<T>(this T state, State widgetState, bool toggle)
-      where T : IWidgetStateHolder {
+      where T : IStateHolder {
       if (toggle) state.Enable(widgetState);
       else state.Disable(widgetState);
     }
 
     public static void DisableEnable<T>(this T state, State disable, State enable)
-      where T : IWidgetStateHolder {
+      where T : IStateHolder {
       state.InputState = (state.InputState & ~disable) | enable;
     }
   }
