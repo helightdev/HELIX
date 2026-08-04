@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static HELIX.SourceGen.GeneratorAnalysis;
@@ -99,9 +98,9 @@ namespace HELIX.SourceGen {
       IReadOnlyList<IFieldSymbol> fields,
       IReadOnlyList<PropAssignment> assignments,
       string targetType,
-      out string updates
+      out IReadOnlyList<PropUpdate> updates
     ) {
-      var result = new StringBuilder();
+      var result = new List<PropUpdate>(fields.Count);
       for (var index = 0; index < fields.Count; index++) {
         var field = fields[index];
         var assignment = assignments[index];
@@ -131,7 +130,7 @@ namespace HELIX.SourceGen {
           : $"instance.{setter} = {value};";
         var checkEquality = attribute is not null && BooleanArgument(attribute, "CheckEquality");
         if (!checkEquality) {
-          result.AppendLine(setterCode);
+          result.Add(new PropUpdate(setterCode, null));
           continue;
         }
 
@@ -173,29 +172,18 @@ namespace HELIX.SourceGen {
           return false;
         }
 
-        result.Append(
-          $@"if (!({equality})) {{
-{Indent(setterCode, "  ")}}}
-"
-        );
+        result.Add(new PropUpdate(setterCode, equality));
       }
 
-      updates = result.ToString();
+      updates = result;
       return true;
     }
 
     private static string BuildSource(
       INamedTypeSymbol proxy,
-      string methodName,
-      string targetType,
-      bool isScope,
-      bool requiresTracking,
-      PropStructModel props,
-      string propUpdates,
-      string createSyntax,
-      string prepareSyntax,
-      string preYieldSyntax,
-      string postYieldSyntax,
+      string methodName, string targetType, bool isScope, bool requiresTracking,
+      PropStructModel props, IReadOnlyList<PropUpdate> propUpdates,
+      string createSyntax, string prepareSyntax, string preYieldSyntax, string postYieldSyntax,
       string scopeCallbackSyntax,
       bool generateExtension,
       out string hintName
@@ -206,80 +194,74 @@ namespace HELIX.SourceGen {
         CollectUsings(proxy)
       );
       hintName = wrapper.HintName;
-      var structMembers = BuildStructMembers(
-        methodName, targetType, isScope, requiresTracking, props, propUpdates, createSyntax, prepareSyntax, preYieldSyntax,
-        postYieldSyntax, scopeCallbackSyntax
+      return wrapper.Build(
+        builder => AppendStructMembers(
+          builder, methodName, targetType, isScope, requiresTracking, props, propUpdates, createSyntax, prepareSyntax,
+          preYieldSyntax, postYieldSyntax, scopeCallbackSyntax
+        ),
+        generateExtension
+          ? builder => AppendExtensionClass(builder, proxy, methodName, isScope, props)
+          : null
       );
-      var extensionClass = generateExtension ? BuildExtensionClass(proxy, methodName, isScope, props) : "";
-      return wrapper.Header +
-             Indent(structMembers, new string(' ', wrapper.MemberDepth * 2)) +
-             wrapper.Footer +
-             extensionClass;
     }
 
-    private static string BuildStructMembers(
-      string name,
-      string targetType,
-      bool isScope,
-      bool requiresTracking,
-      PropStructModel props,
-      string propUpdates,
-      string createSyntax,
-      string prepareSyntax,
-      string preYieldSyntax,
-      string postYieldSyntax,
+    private static void AppendStructMembers(
+      SharpStringBuilder builder,
+      string name, string targetType, bool isScope, bool requiresTracking,
+      PropStructModel props, IReadOnlyList<PropUpdate> propUpdates,
+      string createSyntax, string prepareSyntax, string preYieldSyntax, string postYieldSyntax,
       string scopeCallbackSyntax
     ) {
       var unsafeModifier = props.RequiresUnsafe ? " unsafe" : "";
-      var parameters = props.ParameterParts.Count == 0 ? "" : $",\n{IndentL3}" + props.Parameters.Replace("\n", $"\n{IndentL3}");
       var requireMethod = requiresTracking ? "RequireTracked" : "RequireComposable";
       var returnType = isScope ? $"global::{Types.ScopeHandle}" : $"ref global::{Types.ElementRef}";
-      var yieldCode = isScope
-        ? BuildScopeYield(preYieldSyntax, postYieldSyntax, scopeCallbackSyntax)
-        : BuildElementYield(preYieldSyntax, postYieldSyntax);
 
-      return $@"private static readonly ushort _typeId =
-  {GetTypeId(name)};
-
-public static{unsafeModifier} {returnType} Compose(
-  ref global::{Types.Composition} cx{parameters}
-) {{
-  if (!cx.AUTHORING.{requireMethod}<{targetType}>(
-    _typeId,
-    out var instance,
-    out var retained
-  )) {{
-{Indent(createSyntax, "    ")}  }}
-  if (!retained) {{
-{Indent(prepareSyntax, "    ")}  }}
-{Indent(propUpdates, "  ")}{yieldCode}}}
-";
+      builder.Field("private static readonly", "ushort", "_typeId", GetTypeId(name))
+        .BlankLine();
+      using (builder.Method(
+        $"public static{unsafeModifier} {returnType} Compose",
+        props.ParameterParts.Prepend($"ref global::{Types.Composition} cx")
+      )) {
+        builder.Append($"if (!cx.AUTHORING.{requireMethod}<{targetType}>")
+          .AppendDelimitedList(["_typeId", "out var instance", "out var retained"], multiline: true)
+          .Append(")");
+        using (builder.Block()) builder.AppendCode(createSyntax);
+        using (builder.If("!retained")) builder.AppendCode(prepareSyntax);
+        AppendPropUpdates(builder, propUpdates);
+        if (isScope) AppendScopeYield(builder, preYieldSyntax, postYieldSyntax, scopeCallbackSyntax);
+        else AppendElementYield(builder, preYieldSyntax, postYieldSyntax);
+      }
     }
 
-    private static string BuildElementYield(
-      string preYieldSyntax,
-      string postYieldSyntax
-    ) => $@"{Indent(preYieldSyntax, "  ")}  ref var elementRef = ref cx.AUTHORING.YieldElement(ref cx, instance);
-{Indent(postYieldSyntax, "  ")}  return ref elementRef;
-";
+    private static void AppendElementYield(SharpStringBuilder builder, string preYieldSyntax, string postYieldSyntax) {
+      builder.AppendCode(preYieldSyntax)
+        .Statement("ref var elementRef = ref cx.AUTHORING.YieldElement(ref cx, instance)")
+        .AppendCode(postYieldSyntax)
+        .Return("elementRef", byRef: true);
+    }
 
-    private static string BuildScopeYield(
-      string preYieldSyntax,
-      string postYieldSyntax,
-      string scopeCallbackSyntax
-    ) => $@"{Indent(preYieldSyntax, "  ")}  var scopeHandle = cx.AUTHORING.YieldScope(
-    ref cx,
-    instance,
-    static (
-      global::{Types.BoundaryCell} cell,
-      in global::{Types.ScopeHandle} handle
-    ) => {{
-{Indent(scopeCallbackSyntax, "      ")}    }}
-  );
-{Indent(postYieldSyntax, "  ")}  return scopeHandle;
-";
+    private static void AppendScopeYield(
+      SharpStringBuilder builder, string preYieldSyntax, string postYieldSyntax, string scopeCallbackSyntax
+    ) {
+      builder.AppendCode(preYieldSyntax)
+        .Append("var scopeHandle = cx.AUTHORING.YieldScope");
+      using (builder.Delimited("(", ")", closeLine: false)) {
+        builder.AppendLine("ref cx,")
+          .AppendLine("instance,")
+          .Append("static ")
+          .Parameters(
+            [$"global::{Types.BoundaryCell} cell", $"in global::{Types.ScopeHandle} handle"]
+          )
+          .Append(" =>");
+        using (builder.Block()) builder.AppendCode(scopeCallbackSyntax);
+      }
+      builder.AppendLine(";")
+        .AppendCode(postYieldSyntax)
+        .Return("scopeHandle");
+    }
 
-    private static string BuildExtensionClass(
+    private static void AppendExtensionClass(
+      SharpStringBuilder builder,
       INamedTypeSymbol proxy,
       string methodName,
       bool isScope,
@@ -288,24 +270,45 @@ public static{unsafeModifier} {returnType} Compose(
       var namespaceName = proxy.ContainingNamespace is { IsGlobalNamespace: false } ns
         ? ns.ToDisplayString()
         : null;
-      var namespaceOpen = namespaceName is null ? "" : $"namespace {namespaceName} {{\n";
-      var namespaceClose = namespaceName is null ? "" : "}\n";
       var className = EscapeIdentifier(methodName) + "Extensions";
       var accessibility = EffectiveAccessibility(proxy) == Accessibility.Public ? "public" : "internal";
       var unsafeModifier = props.RequiresUnsafe ? " unsafe" : "";
-      var parameters = props.ParameterParts.Count == 0 ? "" : $",\n{IndentL3}" + props.Parameters.Replace("\n",$"\n{IndentL3}");
       var returnType = isScope ? $"global::{Types.ScopeHandle}" : $"ref global::{Types.ElementRef}";
       var returnRef = isScope ? "" : "ref ";
       var proxyType = proxy.ToDisplayString(TypeDisplayFormat);
-      var arguments = props.ParameterParts.Count == 0 ? "" : ", " + props.Arguments;
 
-      return $@"
-{namespaceOpen}  {accessibility} static class {className} {{
-    public static{unsafeModifier} {returnType} {EscapeIdentifier(methodName)}(
-      ref this global::{Types.Composition} cx{parameters}
-    ) => {returnRef}{proxyType}.Compose(ref cx{arguments});
-  }}
-{namespaceClose}";
+      builder.BlankLine();
+      using (builder.Namespace(namespaceName)) {
+        using (builder.Type($"{accessibility} static class {className}")) {
+          builder.Append($"public static{unsafeModifier} {returnType} {EscapeIdentifier(methodName)}")
+            .Parameters(props.ParameterParts.Prepend($"ref this global::{Types.Composition} cx"))
+            .Append(" => ")
+            .Append(returnRef)
+            .Append(proxyType)
+            .Append(".Compose")
+            .Arguments(props.ArgumentParts.Prepend("ref cx"))
+            .AppendLine(";");
+        }
+      }
+    }
+
+    private static void AppendPropUpdates(SharpStringBuilder builder, IEnumerable<PropUpdate> updates) {
+      foreach (var update in updates) {
+        if (update.Equality is null) builder.AppendCode(update.SetterCode);
+        else
+          using (builder.If($"!({update.Equality})"))
+            builder.AppendCode(update.SetterCode);
+      }
+    }
+
+    private readonly struct PropUpdate {
+      internal PropUpdate(string setterCode, string equality) {
+        SetterCode = setterCode;
+        Equality = equality;
+      }
+
+      internal string SetterCode { get; }
+      internal string Equality { get; }
     }
   }
 }

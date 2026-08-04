@@ -10,6 +10,7 @@ namespace HELIX.Compose {
   public class BoundaryComposableAttribute : Attribute {
     public Type Base { get; set; }
     public bool Extension { get; set; } = false;
+    public string Name { get; set; } // Defaults to target type name
     public bool UseLookupCache { get; set; } = false;
   }
 
@@ -42,6 +43,7 @@ namespace HELIX.Compose {
     public bool CheckEquality { get; set; } = false;
     public bool Function { get; set; } = false;
     public string EqualitySyntax { get; set; } = "{0} == {1}";
+    public string HashCodeSyntax { get; set; } = "{0}";
   }
 
   [ComposableProxy(

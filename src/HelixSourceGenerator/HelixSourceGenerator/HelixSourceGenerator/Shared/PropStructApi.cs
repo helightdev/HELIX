@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using static HELIX.SourceGen.GeneratorAnalysis;
@@ -267,27 +266,23 @@ namespace HELIX.SourceGen {
       bool requiresUnsafe
     ) {
       ParameterParts = parameterParts;
-      Parameters = string.Join(",\n", parameterParts);
-      Arguments = string.Join(",", arguments);
+      ArgumentParts = arguments;
       Assignments = assignments;
       RequiresUnsafe = requiresUnsafe;
     }
 
     internal IReadOnlyList<string> ParameterParts { get; }
-    internal string Parameters { get; }
-    internal string Arguments { get; }
+    internal IReadOnlyList<string> ArgumentParts { get; }
     internal IReadOnlyList<PropAssignment> Assignments { get; }
     internal bool RequiresUnsafe { get; }
 
-    internal string RenderAssignments(string target, string indent = "") {
+    internal void AppendAssignments(SharpStringBuilder builder, string target) {
+      if (builder is null) throw new ArgumentNullException(nameof(builder));
       if (target is null) throw new ArgumentNullException(nameof(target));
       var prefix = target.Length == 0 ? "" : target + ".";
-      var result = new StringBuilder();
       foreach (var assignment in Assignments) {
-        result.Append(indent).Append(prefix).Append(assignment.FieldName)
-          .Append(" = ").Append(assignment.ValueExpression).Append(";\n");
+        builder.Assignment(prefix + assignment.FieldName, assignment.ValueExpression);
       }
-      return result.ToString();
     }
   }
 

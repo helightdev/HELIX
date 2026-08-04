@@ -21,20 +21,25 @@ namespace HELIX.SourceGen {
       if (!InheritsFrom(element, Types.BoundaryVisualElement)) return;
 
       var containing = WrapType(element, "boundary-visual-element");
-      var body = $@"
-    private static readonly global::{Types.CompositionId} _compositionId = new() {{
-      composition = {GetCompositionId(element.Name)},
-      type = {GetTypeId(element.Name)},
-      local = global::{Types.LocalId}.Initial
-    }};
+      var source = containing.Build(builder => {
+        builder.BlankLine();
+        using (builder.Block($"private static readonly global::{Types.CompositionId} _compositionId = new()", ";")) {
+          builder.AppendLine($"composition = {GetCompositionId(element.Name)},")
+            .AppendLine($"type = {GetTypeId(element.Name)},")
+            .AppendLine($"local = global::{Types.LocalId}.Initial");
+        }
+        builder.BlankLine();
+        using (builder.Method(
+          "public override void PerformCompose",
+          [$"ref global::{Types.Composition} cx"],
+          multiline: false
+        )) {
+          builder.Statement("cx.AUTHORING.SetId(_compositionId)")
+            .Statement("Compose(ref cx)");
+        }
+      });
 
-    public override void PerformCompose(ref global::{Types.Composition} cx) {{
-      cx.AUTHORING.SetId(_compositionId);
-      Compose(ref cx);
-    }}
-";
-
-      spc.AddSource(containing.HintName, containing.Enclose(body));
+      spc.AddSource(containing.HintName, source);
     }
   }
 }

@@ -50,8 +50,8 @@ namespace HELIX.SourceGen {
       var fieldName = $"_{char.ToLowerInvariant(publicName[0])}{publicName.Substring(1)}Id";
       var arguments = method.Parameters.Skip(1).ToArray();
       var composableType = BuildComposableType(arguments);
-      var lambdaArguments = BuildLambdaArguments(arguments);
-      var invocationArguments = BuildInvocationArguments(arguments);
+      var lambdaParameters = BuildLambdaParameters(arguments).Prepend($"ref {Types.Composition} cx");
+      var invocationArguments = BuildInvocationArguments(arguments).Prepend("ref cx");
 
       var containing = WrapType(
         method.ContainingType,
@@ -59,18 +59,26 @@ namespace HELIX.SourceGen {
         hintDiscriminator: method.Name
       );
 
-      var body = $@"
-    private static readonly ushort {fieldName} = {GetCompositionId(publicName)};
+      var source = containing.Build(builder => {
+        builder.BlankLine()
+          .Field("private static readonly", "ushort", fieldName, GetCompositionId(publicName))
+          .BlankLine()
+          .Append($"public static readonly {composableType} {publicName} = static ")
+          .Parameters(lambdaParameters, multiline: false)
+          .Append(" =>");
+        using (builder.Block(suffix: ";")) {
+          builder.Statement($"var transfer = new {Types.CompositionTransfer}()")
+            .Statement($"{Types.CompositionInternals}.EnterComposition(ref cx, {fieldName}, ref transfer)");
+          using (builder.Try()) {
+            builder.Append(method.Name).Arguments(invocationArguments).AppendLine(";");
+          }
+          using (builder.Finally()) {
+            builder.Statement($"{Types.CompositionInternals}.ExitComposition(ref cx, ref transfer)");
+          }
+        }
+      });
 
-    public static readonly {composableType} {publicName} = static (ref {Types.Composition} cx{lambdaArguments}) => {{
-      var transfer = new {Types.CompositionTransfer}();
-      {Types.CompositionInternals}.EnterComposition(ref cx, {fieldName}, ref transfer);
-      try {{{method.Name}(ref cx{invocationArguments});}}
-      finally {{{Types.CompositionInternals}.ExitComposition(ref cx, ref transfer);}}
-    }};
-";
-
-      spc.AddSource(containing.HintName, containing.Enclose(body));
+      spc.AddSource(containing.HintName, source);
     }
 
     private static bool IsRefComposition(IParameterSymbol p) {
@@ -93,19 +101,16 @@ namespace HELIX.SourceGen {
       ? Types.Composable
       : $"{(IsReadComposable(arguments) ? Types.ReadComposable : Types.Composable)}<{string.Join(", ", arguments.Select(argument => GetTypeDisplayName(argument.Type)))}>";
 
-    private static string BuildLambdaArguments(IReadOnlyCollection<IParameterSymbol> arguments) => string.Concat(
+    private static IEnumerable<string> BuildLambdaParameters(IReadOnlyCollection<IParameterSymbol> arguments) =>
       arguments.Select((argument, index) =>
-        $", {(IsReadComposable(arguments) ? "in " : "")}{GetTypeDisplayName(argument.Type)} arg{index}"
-      )
-    );
+        $"{(IsReadComposable(arguments) ? "in " : "")}{GetTypeDisplayName(argument.Type)} arg{index}"
+      );
 
     private static bool IsReadComposable(IReadOnlyCollection<IParameterSymbol> arguments) =>
       arguments.Count == 1 && arguments.First().RefKind == RefKind.In;
 
-    private static string BuildInvocationArguments(IEnumerable<IParameterSymbol> arguments) => string.Concat(
-      arguments.Select((argument, index) => argument.RefKind == RefKind.In ? $", in arg{index}" : $", arg{index}"
-      )
-    );
+    private static IEnumerable<string> BuildInvocationArguments(IEnumerable<IParameterSymbol> arguments) =>
+      arguments.Select((argument, index) => argument.RefKind == RefKind.In ? $"in arg{index}" : $"arg{index}");
 
     private static string GetTypeDisplayName(ITypeSymbol type) => type.ToDisplayString(
       SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted)
