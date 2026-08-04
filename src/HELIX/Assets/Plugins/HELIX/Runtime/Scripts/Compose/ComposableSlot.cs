@@ -44,10 +44,16 @@ namespace HELIX.Compose {
       style.display = DisplayStyle.None;
     }
 
-    public ScopeHandle Scope(Composition cx) {
+    public ScopeHandle Scope(Composition cx, bool trimChildren = false) {
       PackedId = new CompositionId(slotLocalId, CompositionId.GeneratedCompositionId, CompositionId.SlotTypeId).packed;
 
-      var handle = ScopeHandle.Push(cx.AUTHORING.cell, this, null);
+      var handle = ScopeHandle.Push(
+        cx.AUTHORING.cell,
+        this,
+        trimChildren
+          ? static (BoundaryCell cell, in ScopeHandle _) => cell.TrimChildren()
+          : null
+      );
       cx.AUTHORING.cell.slot = this;
       style.display = DisplayStyle.Flex;
 

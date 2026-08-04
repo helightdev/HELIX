@@ -70,6 +70,20 @@ namespace HELIX.Compose {
       return ref scope;
     }
 
+    public static ref ElementRef Group(
+      this ref ElementRef scope,
+      Axis mainAxis,
+      Justify main = Justify.FlexStart,
+      Align cross = Align.Center,
+      bool reverse = false
+    ) {
+      scope.element.style.flexDirection = mainAxis.ToFlexDirection(reverse);
+      scope.element.style.justifyContent = main;
+      scope.element.style.alignItems = cross;
+      scope.composable.Flag |= UssFlag.GroupAlign;
+      return ref scope;
+    }
+
     public static ref ElementRef FlexGrow(this ref ElementRef scope, float grow) {
       scope.element.style.flexGrow = grow;
       scope.composable.Flag |= UssFlag.Flex;
@@ -472,6 +486,7 @@ namespace HELIX.Compose {
 
 
     private static readonly ushort _textFieldId = CompositionId.GetTypeId("TextField");
+
     public static ref ElementRef TextField(this ref Composition ctx) {
       if (!ctx.AUTHORING.RequireTracked<TextField>(_textFieldId, out var label, out var retained)) {
         label = new TextField();
@@ -493,6 +508,7 @@ namespace HELIX.Compose {
     }
 
     private static readonly ushort _propsBoundaryId = CompositionId.GetTypeId("PropsBoundary");
+
     public static ref ElementRef Boundary<T>(this ref Composition ctx, T props, Composable composable)
       where T : struct {
       if (ctx.AUTHORING.InitializePropsBoundaryNode<T>(_propsBoundaryId, out var node, out var state)) {

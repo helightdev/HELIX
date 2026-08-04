@@ -232,6 +232,12 @@ namespace HELIX.Compose {
         };
       }
     }
+
+    public static LocalId FromDataUnmixed(int data) {
+      var short01 = (ushort)(data & 0xFFFF);
+      var short23 = (ushort)((data >> 16) & 0xFFFF);
+      return new LocalId { index = short01, depth = short23 };
+    }
   }
 
   public static class CompositionIdRegistry {

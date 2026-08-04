@@ -224,7 +224,7 @@ namespace HELIX.Compose {
     }
   }
 
-  public sealed class SliderController : Signal<float> {
+  public class SliderController : Signal<float> {
     private float _value;
 
     public CompositionAction<float> onChanged;
@@ -233,7 +233,11 @@ namespace HELIX.Compose {
     public bool enabled = true;
     public bool error;
 
-    public SliderController(float initialValue = 0f) : base("SliderController", typeof(SliderController)) {
+    public SliderController(float initialValue = 0f)
+      : this(initialValue, "SliderController", typeof(SliderController)) { }
+
+    protected SliderController(float initialValue, string name, Type registeredType)
+      : base(name, registeredType) {
       _value = initialValue;
     }
 
@@ -265,6 +269,22 @@ namespace HELIX.Compose {
       _value = NormalizeValue(newValue);
     }
 
+    internal void SynchronizeScrollValue(
+      float newValue,
+      in SliderOptions newOptions,
+      bool notifyObservers = true
+    ) {
+      var normalizedOptions = HXSliderElement.NormalizeOptions(in newOptions);
+      newValue = HXSliderElement.ClampAndSnap(newValue, in normalizedOptions);
+      var changed = !options.Equals(normalizedOptions) || !Mathf.Approximately(_value, newValue);
+      if (!changed) return;
+
+      options = normalizedOptions;
+      _value = newValue;
+      NotifyDirty();
+      if (notifyObservers) NotifyObservers();
+    }
+
     internal void SetUserValue(IBoundary boundary, float newValue, bool commit) {
       newValue = NormalizeValue(newValue);
       var changed = !Mathf.Approximately(_value, newValue);
@@ -281,9 +301,75 @@ namespace HELIX.Compose {
       return HXSliderElement.ClampAndSnap(newValue, in normalizedOptions);
     }
 
-    private void NotifyListeners() {
+    protected virtual void NotifyListeners() {
       NotifyDirty();
       NotifyObservers();
+    }
+  }
+
+  public sealed class ScrollerSliderController : SliderController {
+    private bool _synchronizing;
+
+    public ScrollerSliderController(float initialValue = 0f)
+      : base(initialValue, "ScrollerSliderController", typeof(ScrollerSliderController)) { }
+
+    public Scroller Scroller { get; private set; }
+
+    public void Bind(Scroller scroller, bool syncValueFromScroller = true) {
+      if (ReferenceEquals(Scroller, scroller)) {
+        if (syncValueFromScroller) RefreshFromScroller();
+        else SynchronizeScroller();
+        return;
+      }
+
+      Unbind();
+      Scroller = scroller;
+      if (Scroller == null) return;
+
+      Scroller.valueChanged += OnScrollerValueChanged;
+      if (syncValueFromScroller) RefreshFromScroller();
+      else SynchronizeScroller();
+    }
+
+    public void Unbind() {
+      if (Scroller == null) return;
+      Scroller.valueChanged -= OnScrollerValueChanged;
+      Scroller = null;
+    }
+
+    public void RefreshFromScroller() {
+      if (Scroller == null) return;
+      SetValue(Scroller.value);
+    }
+
+    public override void SetWithoutNotify(float newValue) {
+      base.SetWithoutNotify(newValue);
+      SynchronizeScroller();
+    }
+
+    public override void Dispose() {
+      Unbind();
+      base.Dispose();
+    }
+
+    protected override void NotifyListeners() {
+      SynchronizeScroller();
+      base.NotifyListeners();
+    }
+
+    private void OnScrollerValueChanged(float value) {
+      if (_synchronizing) return;
+      SetValue(value);
+    }
+
+    private void SynchronizeScroller() {
+      if (Scroller == null || Mathf.Approximately(Scroller.value, PeekValue())) return;
+      try {
+        _synchronizing = true;
+        Scroller.value = PeekValue();
+      } finally {
+        _synchronizing = false;
+      }
     }
   }
 

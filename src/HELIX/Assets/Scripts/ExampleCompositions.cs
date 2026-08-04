@@ -26,13 +26,7 @@ namespace TestNamespace {
 
       cx.CURSOR.Name("MainBoundary");
 
-      if (cx.Conditional(CounterSignal.Value % 2 == 0)) using (cx.ScrollView(
-        verticalScroller: ScrollerVisibility.AlwaysVisible,
-        onVerticalScroll: static (ctx, value) => {
-
-          //Debug.Log($"Geometry has changed on container! {value}");
-        }
-      )) {
+      using (cx.ScrollView()) {
         cx.CURSOR.Size(BoxConstraints.Tight(200, 200));
 
         cx.Text("Scroll Item 1\n\n\n\n\n\n");
@@ -41,6 +35,17 @@ namespace TestNamespace {
         cx.Text("Scroll Item 4\n\n\n\n\n\n");
         cx.Text("Scroll Item 5\n\n\n\n\n\n");
       }
+
+      using (cx.ScrollView(axis: Axis.Horizontal)) {
+        cx.CURSOR.Size(BoxConstraints.Tight(200, 200));
+
+        cx.Text("Scroll Item 1\n\n\n\n\n\n");
+        cx.Text("Scroll Item 2\n\n\n\n\n\n");
+        cx.Text("Scroll Item 3\n\n\n\n\n\n");
+        cx.Text("Scroll Item 4\n\n\n\n\n\n");
+        cx.Text("Scroll Item 5\n\n\n\n\n\n");
+      }
+
 
       // using var exampleContext = cx.WriteContext<ExampleContext>();
       // exampleContext.value.counter = counter;

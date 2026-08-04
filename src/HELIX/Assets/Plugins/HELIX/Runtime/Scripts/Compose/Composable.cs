@@ -52,7 +52,7 @@ namespace HELIX.Compose {
   [ComposableProxy(
     Target = typeof(ScrollView),
     Kind = ComposableKind.ScopeElement,
-    Name = "ScrollView",
+    Name = "NativeScrollView",
     CreateSyntax = "instance = new {TYPE}();"
   )]
   public partial struct ScrollViewProxy {
