@@ -15,7 +15,7 @@ namespace HELIX.SourceGen {
     public void Initialize(IncrementalGeneratorInitializationContext context) {
       var proxies = context.SyntaxProvider.ForAttributeWithMetadataName(
         Attributes.ComposableProxy,
-        predicate: static (node, _) => node is StructDeclarationSyntax,
+        predicate: static (node, _) => node is StructDeclarationSyntax or ClassDeclarationSyntax,
         transform: static (ctx, _) => (INamedTypeSymbol)ctx.TargetSymbol
       );
 
@@ -27,8 +27,9 @@ namespace HELIX.SourceGen {
       var attribute = proxy.GetAttributes().First(item =>
         item.AttributeClass?.ToDisplayString() == Attributes.ComposableProxy
       );
-      var target = TypeArgument(attribute, "Target");
-      if (target is null) {
+      var classProxy = proxy.TypeKind == TypeKind.Class;
+      var target = classProxy ? proxy : TypeArgument(attribute, "Target");
+      if (!classProxy && target is null) {
         context.ReportDiagnostic(Diagnostic.Create(MissingTarget, location, proxy.Name));
         return;
       }
@@ -49,6 +50,11 @@ namespace HELIX.SourceGen {
         return;
       }
 
+      if (classProxy && !InheritsFrom(proxy, Types.VisualElement)) {
+        context.ReportDiagnostic(Diagnostic.Create(ClassMustBeVisualElement, location, proxy.Name));
+        return;
+      }
+
       var methodName = StringArgument(attribute, "Name", target.Name);
       if (!IsValidIdentifier(methodName)) {
         context.ReportDiagnostic(Diagnostic.Create(InvalidName, location, proxy.Name, methodName ?? "null"));
@@ -61,21 +67,28 @@ namespace HELIX.SourceGen {
         return;
       }
 
-      if (!PropStructApi.TryAnalyze(proxy, out var props, out var diagnostic)) {
-        context.ReportDiagnostic(diagnostic);
-        return;
-      }
-      var fields = InstanceFields(proxy);
       var targetType = target.ToDisplayString(TypeDisplayFormat);
-      if (!TryBuildPropUpdates(
-        context,
-        fields,
-        props.Assignments,
-        targetType,
-        out var propUpdates
-      )) return;
+      PropStructModel props;
+      IReadOnlyList<PropUpdate> propUpdates;
+      if (classProxy) {
+        if (!TryAnalyzeClassProxy(context, proxy, targetType, out props, out propUpdates)) return;
+      } else {
+        if (!PropStructApi.TryAnalyze(proxy, out props, out var diagnostic)) {
+          context.ReportDiagnostic(diagnostic);
+          return;
+        }
+        if (!TryBuildPropUpdates(
+          context,
+          InstanceFields(proxy),
+          props.Assignments,
+          targetType,
+          out propUpdates
+        )) return;
+      }
 
-      var requiresTracking = BooleanArgument(attribute, "RequiresTracking", true);
+      var requiresTracking = classProxy
+        ? !Implements(proxy, Types.IComposable)
+        : BooleanArgument(attribute, "RequiresTracking", true);
       var generateExtension = BooleanArgument(attribute, "Extension", true);
       var createSyntax = StringArgument(attribute, "CreateSyntax", Templates.ProxyCreate);
       var prepareSyntax = StringArgument(attribute, "PrepareSyntax", Templates.ProxyPrepare);
@@ -93,6 +106,207 @@ namespace HELIX.SourceGen {
       context.AddSource(hintName, source);
     }
 
+    private static bool TryAnalyzeClassProxy(
+      SourceProductionContext context,
+      INamedTypeSymbol proxy,
+      string targetType,
+      out PropStructModel props,
+      out IReadOnlyList<PropUpdate> updates
+    ) {
+      var definitions = new List<PropDefinition>();
+      var actions = new List<ClassPropAction>();
+      var names = new HashSet<string>(StringComparer.Ordinal);
+
+      foreach (var member in proxy.GetMembers().OrderBy(SourceOrder)) {
+        if (member is IFieldSymbol { IsImplicitlyDeclared: false } field) {
+          var attribute = Attribute(field, Attributes.Prop);
+          if (attribute is null) continue;
+          if (field.IsStatic) {
+            ReportInvalidProp(context, field, "fields on a composable proxy class must be instance fields");
+            props = null;
+            updates = null;
+            return false;
+          }
+          if (!TryAddProp(context, proxy, field, field.Type, attribute, RefKind.None, names, definitions)) {
+            props = null;
+            updates = null;
+            return false;
+          }
+          actions.Add(ClassPropAction.ForMember(field, attribute, definitions.Count - 1));
+          continue;
+        }
+
+        if (member is IPropertySymbol property) {
+          var attribute = Attribute(property, Attributes.Prop);
+          if (attribute is null) continue;
+          if (property.IsStatic || property.IsIndexer) {
+            ReportInvalidProp(
+              context,
+              property,
+              property.IsIndexer
+                ? "indexers cannot define composable props"
+                : "properties on a composable proxy class must be instance properties"
+            );
+            props = null;
+            updates = null;
+            return false;
+          }
+          if (!TryAddProp(context, proxy, property, property.Type, attribute, RefKind.None, names, definitions)) {
+            props = null;
+            updates = null;
+            return false;
+          }
+          actions.Add(ClassPropAction.ForMember(property, attribute, definitions.Count - 1));
+          continue;
+        }
+
+        if (member is not IMethodSymbol method) continue;
+        var parameterAttributes = method.Parameters
+          .Select(parameter => Attribute(parameter, Attributes.Prop))
+          .ToArray();
+        if (!parameterAttributes.Any(attribute => attribute is not null)) continue;
+        if (method.MethodKind != MethodKind.Ordinary) {
+          ReportInvalidMethod(context, method, "it is not an ordinary method");
+          props = null;
+          updates = null;
+          return false;
+        }
+        if (method.IsStatic) {
+          ReportInvalidMethod(context, method, "it is static; prop methods must be instance methods");
+          props = null;
+          updates = null;
+          return false;
+        }
+        if (method.IsGenericMethod) {
+          ReportInvalidMethod(context, method, "generic prop methods are not supported");
+          props = null;
+          updates = null;
+          return false;
+        }
+        if (method.ExplicitInterfaceImplementations.Length != 0) {
+          ReportInvalidMethod(context, method, "explicit interface implementations are not supported");
+          props = null;
+          updates = null;
+          return false;
+        }
+        if (parameterAttributes.Any(attribute => attribute is null)) {
+          ReportInvalidMethod(context, method, "every parameter must be marked [Prop]");
+          props = null;
+          updates = null;
+          return false;
+        }
+        if (method.Parameters.Any(parameter => parameter.RefKind is not (RefKind.None or RefKind.In))) {
+          ReportInvalidMethod(context, method, "ref and out parameters are not supported");
+          props = null;
+          updates = null;
+          return false;
+        }
+
+        var start = definitions.Count;
+        for (var index = 0; index < method.Parameters.Length; index++) {
+          var parameter = method.Parameters[index];
+          if (!TryAddProp(
+            context,
+            proxy,
+            parameter,
+            parameter.Type,
+            parameterAttributes[index],
+            parameter.RefKind,
+            names,
+            definitions
+          )) {
+            props = null;
+            updates = null;
+            return false;
+          }
+        }
+        actions.Add(ClassPropAction.ForMethod(method, start, method.Parameters.Length));
+      }
+
+      if (!PropStructApi.TryAnalyzeProps(definitions, out props, out var diagnostic)) {
+        context.ReportDiagnostic(diagnostic);
+        updates = null;
+        return false;
+      }
+
+      var result = new List<PropUpdate>(actions.Count);
+      foreach (var action in actions) {
+        if (action.Method is not null) {
+          var arguments = new string[action.Count];
+          for (var index = 0; index < action.Count; index++) {
+            var parameter = action.Method.Parameters[index];
+            arguments[index] =
+              (parameter.RefKind == RefKind.In ? "in " : "") +
+              props.Assignments[action.Start + index].ValueExpression;
+          }
+          result.Add(new PropUpdate(
+            $"instance.{EscapeIdentifier(action.Method.Name)}({string.Join(", ", arguments)});",
+            null
+          ));
+          continue;
+        }
+
+        if (!TryBuildPropUpdate(
+          context,
+          action.Member,
+          action.Attribute,
+          props.Assignments[action.Start],
+          targetType,
+          validateClassMember: true,
+          out var update
+        )) {
+          updates = null;
+          return false;
+        }
+        result.Add(update);
+      }
+
+      updates = result;
+      return true;
+    }
+
+    private static bool TryAddProp(
+      SourceProductionContext context,
+      INamedTypeSymbol proxy,
+      ISymbol symbol,
+      ITypeSymbol type,
+      AttributeData attribute,
+      RefKind refKind,
+      ISet<string> names,
+      ICollection<PropDefinition> definitions
+    ) {
+      if (IsGeneratedName(symbol.Name)) {
+        ReportInvalidProp(context, symbol, "the name is reserved by the generated composition method");
+        return false;
+      }
+      if (!names.Add(symbol.Name)) {
+        context.ReportDiagnostic(Diagnostic.Create(
+          DuplicatePropName,
+          LocationOf(symbol),
+          symbol.Name,
+          proxy.Name
+        ));
+        return false;
+      }
+      definitions.Add(new PropDefinition(symbol, type, symbol.Name, attribute, refKind));
+      return true;
+    }
+
+    private static bool IsGeneratedName(string name) => name is
+      "cx" or "instance" or "retained" or "elementRef" or "scopeHandle" or "cell" or "handle" or "_typeId";
+
+    private static void ReportInvalidProp(
+      SourceProductionContext context,
+      ISymbol symbol,
+      string reason
+    ) => context.ReportDiagnostic(Diagnostic.Create(InvalidProp, LocationOf(symbol), symbol.Name, reason));
+
+    private static void ReportInvalidMethod(
+      SourceProductionContext context,
+      IMethodSymbol method,
+      string reason
+    ) => context.ReportDiagnostic(Diagnostic.Create(InvalidMethod, LocationOf(method), method.Name, reason));
+
     private static bool TryBuildPropUpdates(
       SourceProductionContext context,
       IReadOnlyList<IFieldSymbol> fields,
@@ -103,78 +317,106 @@ namespace HELIX.SourceGen {
       var result = new List<PropUpdate>(fields.Count);
       for (var index = 0; index < fields.Count; index++) {
         var field = fields[index];
-        var assignment = assignments[index];
         var attribute = Attribute(field, Attributes.Prop);
-        var defaultSetter = EscapeIdentifier(field.Name);
-        var function = attribute is null ? null : StringArgument(attribute, "ProxyFunction");
-        var setter = attribute is null
-          ? defaultSetter
-          : StringArgument(attribute, "ProxySetter") ?? defaultSetter;
-        if (function is null && string.IsNullOrWhiteSpace(setter)) {
-          context.ReportDiagnostic(
-            Diagnostic.Create(
-              InvalidProp,
-              field.Locations.FirstOrDefault() ?? Location.None,
-              field.Name,
-              "ProxySetter must be a non-empty member name when ProxyFunction is not defined"
-            )
-          );
+        if (!TryBuildPropUpdate(
+          context,
+          field,
+          attribute,
+          assignments[index],
+          targetType,
+          validateClassMember: false,
+          out var update
+        )) {
           updates = null;
           return false;
         }
-
-        var value = assignment.ValueExpression;
-        var setterCode = function is not null
-          ? function.Replace("{VALUE}", value).Replace("{TYPE}", targetType)
-          : $"instance.{setter} = {value};";
-        var checkEquality = attribute is not null && BooleanArgument(attribute, "ProxyEquality");
-        if (!checkEquality) {
-          result.Add(new PropUpdate(setterCode, null));
-          continue;
-        }
-
-        var getter = StringArgument(attribute, "ProxyGetter") ?? setter;
-        if (string.IsNullOrWhiteSpace(getter)) {
-          context.ReportDiagnostic(
-            Diagnostic.Create(
-              InvalidProp,
-              field.Locations.FirstOrDefault() ?? Location.None,
-              field.Name,
-              "ProxyGetter must be a non-empty member name when ProxyEquality is enabled"
-            )
-          );
-          updates = null;
-          return false;
-        }
-
-        var equalitySyntax =
-          StringArgument(attribute, "EqualitySyntax") ??
-          Templates.ProxyEquality;
-        string equality;
-        try {
-          equality = string.Format(
-            CultureInfo.InvariantCulture,
-            equalitySyntax,
-            "instance." + getter,
-            value
-          );
-        } catch (FormatException exception) {
-          context.ReportDiagnostic(
-            Diagnostic.Create(
-              InvalidProp,
-              field.Locations.FirstOrDefault() ?? Location.None,
-              field.Name,
-              "EqualitySyntax could not be formatted: " + exception.Message
-            )
-          );
-          updates = null;
-          return false;
-        }
-
-        result.Add(new PropUpdate(setterCode, equality));
+        result.Add(update);
       }
 
       updates = result;
+      return true;
+    }
+
+    private static bool TryBuildPropUpdate(
+      SourceProductionContext context,
+      ISymbol member,
+      AttributeData attribute,
+      PropAssignment assignment,
+      string targetType,
+      bool validateClassMember,
+      out PropUpdate update
+    ) {
+      var defaultSetter = EscapeIdentifier(member.Name);
+      var function = attribute is null ? null : StringArgument(attribute, "ProxyFunction");
+      var setter = attribute is null
+        ? defaultSetter
+        : StringArgument(attribute, "ProxySetter") ?? defaultSetter;
+      if (function is null && string.IsNullOrWhiteSpace(setter)) {
+        ReportInvalidProp(
+          context,
+          member,
+          "ProxySetter must be a non-empty member name when ProxyFunction is not defined"
+        );
+        update = default;
+        return false;
+      }
+      if (validateClassMember && function is null && setter == defaultSetter) {
+        if (member is IFieldSymbol { IsReadOnly: true } or IFieldSymbol { IsConst: true }) {
+          ReportInvalidProp(context, member, "a readonly field requires ProxySetter or ProxyFunction");
+          update = default;
+          return false;
+        }
+        if (member is IPropertySymbol property &&
+            (property.SetMethod is null || property.SetMethod.IsInitOnly)) {
+          ReportInvalidProp(context, member, "a property without a mutable setter requires ProxySetter or ProxyFunction");
+          update = default;
+          return false;
+        }
+      }
+
+      var value = assignment.ValueExpression;
+      var setterCode = function is not null
+        ? function.Replace("{VALUE}", value).Replace("{TYPE}", targetType)
+        : $"instance.{setter} = {value};";
+      var checkEquality = attribute is not null && BooleanArgument(attribute, "ProxyEquality");
+      if (!checkEquality) {
+        update = new PropUpdate(setterCode, null);
+        return true;
+      }
+
+      var getter = StringArgument(attribute, "ProxyGetter") ?? setter;
+      if (string.IsNullOrWhiteSpace(getter)) {
+        ReportInvalidProp(
+          context,
+          member,
+          "ProxyGetter must be a non-empty member name when ProxyEquality is enabled"
+        );
+        update = default;
+        return false;
+      }
+
+      var equalitySyntax =
+        StringArgument(attribute, "EqualitySyntax") ??
+        Templates.ProxyEquality;
+      string equality;
+      try {
+        equality = string.Format(
+          CultureInfo.InvariantCulture,
+          equalitySyntax,
+          "instance." + getter,
+          value
+        );
+      } catch (FormatException exception) {
+        ReportInvalidProp(
+          context,
+          member,
+          "EqualitySyntax could not be formatted: " + exception.Message
+        );
+        update = default;
+        return false;
+      }
+
+      update = new PropUpdate(setterCode, equality);
       return true;
     }
 
@@ -194,7 +436,7 @@ namespace HELIX.SourceGen {
       );
       hintName = wrapper.HintName;
       return wrapper.Build(
-        builder => AppendStructMembers(
+        builder => AppendProxyMembers(
           builder, methodName, targetType, isScope, requiresTracking, props, propUpdates, createSyntax, prepareSyntax,
           preYieldSyntax, postYieldSyntax, scopeCallbackSyntax
         ),
@@ -204,7 +446,7 @@ namespace HELIX.SourceGen {
       );
     }
 
-    private static void AppendStructMembers(
+    private static void AppendProxyMembers(
       SharpStringBuilder builder,
       string name, string targetType, bool isScope, bool requiresTracking,
       PropStructModel props, IReadOnlyList<PropUpdate> propUpdates,
@@ -299,6 +541,34 @@ namespace HELIX.SourceGen {
           using (builder.If($"!({update.Equality})"))
             builder.AppendCode(update.SetterCode);
       }
+    }
+
+    private readonly struct ClassPropAction {
+      private ClassPropAction(
+        ISymbol member,
+        IMethodSymbol method,
+        AttributeData attribute,
+        int start,
+        int count
+      ) {
+        Member = member;
+        Method = method;
+        Attribute = attribute;
+        Start = start;
+        Count = count;
+      }
+
+      internal static ClassPropAction ForMember(ISymbol member, AttributeData attribute, int index) =>
+        new(member, null, attribute, index, 1);
+
+      internal static ClassPropAction ForMethod(IMethodSymbol method, int start, int count) =>
+        new(null, method, null, start, count);
+
+      internal ISymbol Member { get; }
+      internal IMethodSymbol Method { get; }
+      internal AttributeData Attribute { get; }
+      internal int Start { get; }
+      internal int Count { get; }
     }
 
     private readonly struct PropUpdate {

@@ -520,7 +520,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
+  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true, Name = "Button")]
   public partial class HXButton {
     public partial struct Props {
       public Composable content;

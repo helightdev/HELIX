@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   public struct TextEditingValue : IEquatable<TextEditingValue> {
-    public static readonly TextEditingValue Empty = new() { text = string.Empty, cursorIndex = 0, selectionIndex = 0 };
+    public static readonly TextEditingValue Empty = new(string.Empty);
 
     public string text;
     public int cursorIndex;
@@ -118,11 +118,7 @@ namespace HELIX.Compose {
     }
 
     public static TextEditingValue FromElement(TextElement element) {
-      return new TextEditingValue {
-        text = element.text,
-        cursorIndex = element.selection.cursorIndex,
-        selectionIndex = element.selection.selectIndex
-      };
+      return new TextEditingValue(element.text, element.selection.cursorIndex, element.selection.selectIndex);
     }
 
     public readonly bool SelectionEquals(ITextSelection selection) {

@@ -57,6 +57,9 @@ namespace HELIX.SourceGen {
       return false;
     }
 
+    internal static bool Implements(INamedTypeSymbol type, string metadataName) =>
+      type.AllInterfaces.Any(candidate => candidate.ToDisplayString() == metadataName);
+
     internal static AttributeData Attribute(ISymbol symbol, string metadataName) => symbol.GetAttributes()
       .FirstOrDefault(item =>
         item.AttributeClass?.ToDisplayString() == metadataName

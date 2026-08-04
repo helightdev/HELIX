@@ -7,24 +7,18 @@ using UnityEngine.UIElements;
 using NativeScrollView = UnityEngine.UIElements.ScrollView;
 
 namespace HELIX.Compose {
-  [ComposableProxy(Target = typeof(HXScrollViewElement), RequiresTracking = false, Extension = false)]
-  public partial struct ScrollViewElementProxy {
-    [Prop(ProxySetter = "Boundary")]
-    public IBoundary boundary;
-    [Prop(ProxyFunction = "instance.UpdateAxis({VALUE});")]
-    public Axis axis;
-    [Prop(ProxySetter = "OnGeometryChanged")]
-    public Action<GeometryChangedEvent> onGeometryChanged;
-  }
 
-  public sealed class HXScrollViewElement : ComposableElement, ISlotHost {
+  [ComposableProxy(Extension = false)]
+  public sealed partial class HXScrollViewElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassViewport = new("hx-scroll-view-viewport");
     public static readonly UniqueStyleString ClassContent = new("hx-scroll-view-content");
     public static readonly UniqueStyleString ClassSlider = new("hx-scroll-view-slider");
-    public IBoundary Boundary { get; set; }
+
     public readonly NativeScrollView viewport;
     public readonly ComposableSlot content;
     public readonly ComposableSlot slider;
+
+    public IBoundary Boundary { get; set; }
 
     public Action<GeometryChangedEvent> OnGeometryChanged { get; set; }
 
@@ -60,13 +54,20 @@ namespace HELIX.Compose {
       OnGeometryChanged?.Invoke(evt);
     }
 
+    public void Update(
+      [Prop] IBoundary boundary,
+      [Prop(null)] Action<GeometryChangedEvent> onChanged,
+      [Prop(Axis.Vertical)] Axis axis
+    ) {
+      Boundary = boundary;
+      OnGeometryChanged = onChanged;
 
-    public void UpdateAxis(Axis axis) {
       style.flexDirection = axis == Axis.Vertical ? FlexDirection.Row : FlexDirection.Column;
       slider.style.flexDirection = axis == Axis.Vertical ? FlexDirection.Column : FlexDirection.Row;
       content.style.flexDirection = axis.ToFlexDirection();
       viewport.mode = axis == Axis.Vertical ? ScrollViewMode.Vertical : ScrollViewMode.Horizontal;
     }
+
 
     public override void Reset() {
       base.Reset();
@@ -101,7 +102,7 @@ namespace HELIX.Compose {
     }
 
     protected override void OnRecompose(ref Composition cx) {
-      ScrollViewElementProxy.Compose(ref cx, Node.Parent, props.axis, OnGeometryChanged);
+      HXScrollViewElement.Compose(ref cx, Node.Parent, OnGeometryChanged, props.axis);
       ViewElement = (HXScrollViewElement)cx.CURSOR.element;
       cx.CURSOR.Flexible().AlignSelf(Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
 

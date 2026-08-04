@@ -57,7 +57,6 @@ namespace HELIX.Compose {
   [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
   public partial class Checkbox {
     public partial struct Props {
-      // Keep value first to preserve the cx.Checkbox(value, ...) call shape.
       [Prop(null)] public bool? value;
       [Prop(null)] public CheckboxController controller;
       [Prop(null)] public bool? initialValue;

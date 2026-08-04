@@ -17,13 +17,13 @@ namespace HELIX.SourceGen {
           "HLXP01", "Containing type must be partial",
           "Struct '{0}' is marked [PropStruct], but containing type '{1}' is not declared partial"
         ),
-        RequiredFieldAfterOptionalField = Error(
+        RequiredPropAfterOptionalProp = Error(
           "HLXP02", "Required prop must precede optional props",
-          "Field '{0}' has no [Prop] default but follows a field with a default value"
+          "Prop '{0}' has no [Prop] default but follows a prop with a default value"
         ),
         InvalidDefault = Error(
           "HLXP03", "Invalid prop default",
-          "The [Prop] default on field '{0}' is invalid: {1}"
+          "The [Prop] default on '{0}' is invalid: {1}"
         ),
         InvalidEqualitySyntax = Error(
           "HLXP04", "Invalid prop equality configuration",
@@ -67,27 +67,39 @@ namespace HELIX.SourceGen {
         ),
         GenericNotSupported = Error(
           "HLXCP01", "Generic composable proxies are not supported",
-          "Struct '{0}' is marked [ComposableProxy], but it or its containing type is generic"
+          "Type '{0}' is marked [ComposableProxy], but it or its containing type is generic"
         ),
         InvalidName = Error(
           "HLXCP02", "Composable proxy name is invalid",
-          "Struct '{0}' specifies '{1}' as its composable name, but it is not a valid C# identifier"
+          "Type '{0}' specifies '{1}' as its composable name, but it is not a valid C# identifier"
         ),
         InvalidKind = Error(
           "HLXCP03", "Composable proxy kind is invalid",
-          "Struct '{0}' specifies an unrecognized ComposableKind value"
+          "Type '{0}' specifies an unrecognized ComposableKind value"
         ),
         InvalidProp = Error(
           "HLXCP04", "Proxy prop configuration is invalid",
-          "Field '{0}' has an invalid [Prop]: {1}"
+          "Prop '{0}' has an invalid [Prop]: {1}"
         ),
         MustBePartial = Error(
           "HLXCP05", "Composable proxy must be partial",
-          "Struct '{0}' is marked [ComposableProxy] but is not declared partial"
+          "Type '{0}' is marked [ComposableProxy] but is not declared partial"
         ),
         ContainingTypeMustBePartial = Error(
           "HLXCP06", "Containing type must be partial",
-          "Struct '{0}' is marked [ComposableProxy], but containing type '{1}' is not declared partial"
+          "Type '{0}' is marked [ComposableProxy], but containing type '{1}' is not declared partial"
+        ),
+        ClassMustBeVisualElement = Error(
+          "HLXCP07", "Composable proxy class must be a VisualElement",
+          "Class '{0}' is marked [ComposableProxy] but does not derive from UnityEngine.UIElements.VisualElement"
+        ),
+        InvalidMethod = Error(
+          "HLXCP08", "Composable proxy method is invalid",
+          "Method '{0}' defines [Prop] parameters but {1}"
+        ),
+        DuplicatePropName = Error(
+          "HLXCP09", "Composable proxy prop name is duplicated",
+          "Prop name '{0}' is defined more than once in composable proxy class '{1}'"
         );
     }
 

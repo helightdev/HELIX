@@ -102,7 +102,7 @@ namespace HELIX.Examples {
             if (cx.CursorDirty) cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
             cx.Text("Text");
             cx.Spacing(1);
-            cx.HXTextField(
+            cx.TextField(
               initialValue: new TextEditingValue("Hello World!"),
               onChanged: static (ctx, value) => {
                 Debug.Log($"Text changed: {value}");
@@ -114,7 +114,7 @@ namespace HELIX.Examples {
                 );
               }
             );
-            cx.HXTextField(
+            cx.TextField(
               initialValue: new TextEditingValue("Hello World!"),
               value: text,
               onChanged: static (ctx, value) => {
@@ -220,7 +220,7 @@ namespace HELIX.Examples {
               }
             );
             cx.Spacing(2);
-            cx.HXButton(
+            cx.Button(
               static (ref Composition cx) => cx.Text("Filled"),
               selected: enabled,
               style: ThemeProperties.ButtonFilled[in cx], action: static (ctx) => {
@@ -228,7 +228,7 @@ namespace HELIX.Examples {
               }
             );
             cx.Spacing(2);
-            cx.HXButton(
+            cx.Button(
               static (ref Composition cx) => cx.Text("Outlined"),
               selected: enabled,
               style: ThemeProperties.ButtonOutlined[in cx], action: static (ctx) => {
@@ -236,7 +236,7 @@ namespace HELIX.Examples {
               }
             );
             cx.Spacing(2);
-            cx.HXButton(
+            cx.Button(
               static (ref Composition cx) => cx.Text("Toggle"),
               selected: enabled,
               style: ThemeProperties.ButtonToggle[in cx], action: static (ctx) => {
@@ -244,7 +244,7 @@ namespace HELIX.Examples {
               }
             );
             cx.Spacing(2);
-            cx.HXButton(
+            cx.Button(
               static (ref Composition cx) => cx.Text("Ghost"),
               selected: enabled,
               style: ThemeProperties.ButtonGhost[in cx], action: static (ctx) => {

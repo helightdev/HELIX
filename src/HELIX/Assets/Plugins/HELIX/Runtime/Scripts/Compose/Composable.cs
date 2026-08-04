@@ -14,7 +14,7 @@ namespace HELIX.Compose {
     public bool UseLookupCache { get; set; } = false;
   }
 
-  [AttributeUsage(AttributeTargets.Struct)]
+  [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
   public class ComposableProxyAttribute : Attribute {
     public Type Target { get; set; }
 
@@ -62,7 +62,7 @@ namespace HELIX.Compose {
     public CompositionAction<float> onVerticalScroll;
   }
 
-  [AttributeUsage(AttributeTargets.Field)]
+  [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Parameter)]
   public class PropAttribute : Attribute {
     public object defaultValue;
     public PropInit defaultInit;

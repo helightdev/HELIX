@@ -8,6 +8,7 @@ namespace HELIX.Compose {
   public static class HXComposer {
     public static bool UseEventLoop = false;
     public static bool AutoDisposeOrphans = true;
+    public static int MaxRecompositionDepth = 1024;
 
     internal static readonly IndexedReferencePriorityQueue<IBoundary, int> Dirty = new();
     internal static readonly IndexedReferencePriorityQueue<IBoundary, int> DisposalQueue = new();
@@ -15,6 +16,7 @@ namespace HELIX.Compose {
     internal static bool IsScoped = false;
     internal static bool IsProcessing = false;
     internal static IBoundary CurrentBoundary = null;
+    internal static int RecompositionDepth = 0;
 
     public static bool IsBoundaryDirty(IBoundary boundary) {
       return boundary != null && Dirty.Contains(boundary);
@@ -39,7 +41,7 @@ namespace HELIX.Compose {
       DisposalQueue.Remove(boundary);
     }
 
-    public static void MarkDirty(IBoundary boundary) {
+    public static void MarkDirty(IBoundary boundary, bool mayInline = true) {
       if (!IsScoped) {
         if (boundary.Element?.panel is null) {
           throw new InvalidOperationException("Cannot mark dirty boundary that is not in scope and has no panel");
@@ -54,9 +56,10 @@ namespace HELIX.Compose {
       // If we descend the tree forward, we can skip the queue.
       // Initially, this was for static dictionary initialization, but now it's even saver.
       // However, for safety to possibly prevent some issues, we don't do it for non forward compositions.
-      if (IsProcessing && CurrentBoundary == boundary.Parent) {
+      if (mayInline && IsProcessing && CurrentBoundary == boundary.Parent) {
         // _inlinedRecompositionCount.Value++;
         // _inlinedRecompositionCount.Sample();
+        Dirty.Remove(boundary);
         Recompose(boundary);
         return;
       }
@@ -168,6 +171,7 @@ namespace HELIX.Compose {
 #endif
         try {
           IsProcessing = true;
+          RecompositionDepth = 0; // Maybe conflicting, but I don't wanna hardlock errored states
           var maxIterations = 1024;
           while (Dirty.TryDequeue(out var boundary) && maxIterations-- > 0) {
             HXProfiling.TrackToplevelRecomposition();
@@ -189,12 +193,20 @@ namespace HELIX.Compose {
     private static void Recompose(IBoundary boundary) {
       var previousBoundary = CurrentBoundary;
       try {
+        RecompositionDepth++;
+        if (RecompositionDepth > MaxRecompositionDepth) {
+          RecompositionDepth = 0;
+          throw new InvalidOperationException(
+            $"Maximum recomposition depth of {MaxRecompositionDepth} exceeded. This may indicate an infinite loop in the composition logic."
+          );
+        }
         CurrentBoundary = boundary;
         boundary.Recompose();
       } catch (Exception e) {
         Debug.LogException(e);
       } finally {
         CurrentBoundary = previousBoundary;
+        RecompositionDepth--;
       }
     }
 

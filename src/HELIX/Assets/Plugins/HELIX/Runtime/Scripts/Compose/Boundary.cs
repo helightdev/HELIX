@@ -215,7 +215,7 @@ namespace HELIX.Compose {
     }
 
     public void MarkDirty() {
-      HXComposer.MarkDirty(this);
+      HXComposer.MarkDirty(this, false);
     }
   }
 

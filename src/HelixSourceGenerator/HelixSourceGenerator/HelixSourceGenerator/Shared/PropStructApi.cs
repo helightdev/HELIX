@@ -9,7 +9,7 @@ using static HELIX.SourceGen.GeneratorDiagnostics.PropStruct;
 using static HELIX.SourceGen.GeneratorStrings;
 
 namespace HELIX.SourceGen {
-  /// <summary>Analyzes a prop struct into reusable constructor and assignment fragments.</summary>
+  /// <summary>Analyzes props into reusable parameter and assignment fragments.</summary>
   internal static class PropStructApi {
     internal static bool TryAnalyze(
       INamedTypeSymbol type,
@@ -17,7 +17,13 @@ namespace HELIX.SourceGen {
       out Diagnostic diagnostic
     ) {
       var fields = InstanceFields(type);
-      if (!TryAnalyzeFields(fields, out model, out diagnostic)) return false;
+      var props = fields.Select(field => new PropDefinition(
+        field,
+        field.Type,
+        field.Name,
+        Attribute(field, Attributes.Prop)
+      )).ToArray();
+      if (!TryAnalyzeProps(props, out model, out diagnostic)) return false;
       if (!TryAnalyzeEquality(type, fields, out var equality, out diagnostic)) {
         model = null;
         return false;
@@ -32,64 +38,71 @@ namespace HELIX.SourceGen {
       return true;
     }
 
-    private static bool TryAnalyzeFields(
-      IReadOnlyList<IFieldSymbol> fields,
+    internal static bool TryAnalyzeProps(
+      IReadOnlyList<PropDefinition> props,
       out PropStructModel model,
       out Diagnostic diagnostic
     ) {
-      var parameters = new List<string>(fields.Count);
-      var arguments = new List<string>(fields.Count);
-      var assignments = new List<PropAssignment>(fields.Count);
+      var parameters = new List<string>(props.Count);
+      var arguments = new List<string>(props.Count);
+      var assignments = new List<PropAssignment>(props.Count);
       var encounteredOptional = false;
       var requiresUnsafe = false;
 
-      foreach (var field in fields) {
-        var fieldName = EscapeIdentifier(field.Name);
-        var fieldType = field.Type.ToDisplayString(TypeDisplayFormat);
-        requiresUnsafe |= ContainsPointer(field.Type);
-        var propAttribute = Attribute(field, Attributes.Prop);
+      foreach (var prop in props) {
+        var propName = EscapeIdentifier(prop.Name);
+        var propType = prop.Type.ToDisplayString(TypeDisplayFormat);
+        var refModifier = prop.RefKind == RefKind.In ? "in " : "";
+        requiresUnsafe |= ContainsPointer(prop.Type);
+        var propAttribute = prop.Attribute;
 
         if (propAttribute is null) {
           if (encounteredOptional) {
             model = null;
-            diagnostic = Diagnostic.Create(RequiredFieldAfterOptionalField, LocationOf(field), field.Name);
+            diagnostic = Diagnostic.Create(RequiredPropAfterOptionalProp, LocationOf(prop.Symbol), prop.Name);
             return false;
           }
-          AddDirect(fieldType, fieldName, parameters, arguments, assignments);
+          AddDirect(propType, propName, refModifier, parameters, arguments, assignments);
           continue;
         }
 
         if (!TryReadDefault(propAttribute, out var defaultValue, out var error)) {
           model = null;
-          diagnostic = InvalidDefault(field, error);
+          diagnostic = InvalidDefault(prop.Symbol, prop.Name, error);
           return false;
         }
         if (defaultValue.Mode == PropInitMode.None) {
           if (encounteredOptional) {
             model = null;
-            diagnostic = Diagnostic.Create(RequiredFieldAfterOptionalField, LocationOf(field), field.Name);
+            diagnostic = Diagnostic.Create(RequiredPropAfterOptionalProp, LocationOf(prop.Symbol), prop.Name);
             return false;
           }
-          AddDirect(fieldType, fieldName, parameters, arguments, assignments);
+          AddDirect(propType, propName, refModifier, parameters, arguments, assignments);
           continue;
+        }
+
+        if (prop.RefKind == RefKind.In) {
+          model = null;
+          diagnostic = InvalidDefault(prop.Symbol, prop.Name, "in props cannot declare default values");
+          return false;
         }
 
         encounteredOptional = true;
         if (defaultValue.Mode != PropInitMode.Deferred) {
-          parameters.Add(fieldType + " " + fieldName + " = " + defaultValue.Expression);
-          arguments.Add(fieldName);
-          assignments.Add(new PropAssignment(fieldName, fieldName));
+          parameters.Add(propType + " " + propName + " = " + defaultValue.Expression);
+          arguments.Add(propName);
+          assignments.Add(new PropAssignment(propName, propName));
           continue;
         }
 
-        if (!TryMakeNullableParameterType(field.Type, out var parameterType, out error)) {
+        if (!TryMakeNullableParameterType(prop.Type, out var parameterType, out error)) {
           model = null;
-          diagnostic = InvalidDefault(field, error);
+          diagnostic = InvalidDefault(prop.Symbol, prop.Name, error);
           return false;
         }
-        parameters.Add(parameterType + " " + fieldName + " = null");
-        arguments.Add(fieldName);
-        assignments.Add(new PropAssignment(fieldName, fieldName + " ?? " + defaultValue.Expression));
+        parameters.Add(parameterType + " " + propName + " = null");
+        arguments.Add(propName);
+        assignments.Add(new PropAssignment(propName, propName + " ?? " + defaultValue.Expression));
       }
 
       model = new PropStructModel(parameters, arguments, assignments, requiresUnsafe);
@@ -223,19 +236,20 @@ namespace HELIX.SourceGen {
     private static void AddDirect(
       string fieldType,
       string fieldName,
+      string refModifier,
       ICollection<string> parameters,
       ICollection<string> arguments,
       ICollection<PropAssignment> assignments
     ) {
-      parameters.Add(fieldType + " " + fieldName);
-      arguments.Add(fieldName);
+      parameters.Add(refModifier + fieldType + " " + fieldName);
+      arguments.Add(refModifier + fieldName);
       assignments.Add(new PropAssignment(fieldName, fieldName));
     }
 
-    private static Diagnostic InvalidDefault(IFieldSymbol field, string error) => Diagnostic.Create(
+    private static Diagnostic InvalidDefault(ISymbol symbol, string name, string error) => Diagnostic.Create(
       GeneratorDiagnostics.PropStruct.InvalidDefault,
-      LocationOf(field),
-      field.Name,
+      LocationOf(symbol),
+      name,
       error
     );
 
@@ -406,6 +420,28 @@ namespace HELIX.SourceGen {
       internal PropInitMode Mode { get; }
       internal string Expression { get; }
     }
+  }
+
+  internal readonly struct PropDefinition {
+    internal PropDefinition(
+      ISymbol symbol,
+      ITypeSymbol type,
+      string name,
+      AttributeData attribute,
+      RefKind refKind = RefKind.None
+    ) {
+      Symbol = symbol;
+      Type = type;
+      Name = name;
+      Attribute = attribute;
+      RefKind = refKind;
+    }
+
+    internal ISymbol Symbol { get; }
+    internal ITypeSymbol Type { get; }
+    internal string Name { get; }
+    internal AttributeData Attribute { get; }
+    internal RefKind RefKind { get; }
   }
 
   internal sealed class PropStructModel {

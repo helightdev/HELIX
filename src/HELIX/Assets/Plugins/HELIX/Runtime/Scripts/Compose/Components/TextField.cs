@@ -3,15 +3,14 @@ using System.Globalization;
 using HELIX.Extensions;
 using HELIX.Signals;
 using HELIX.Theming;
+using HELIX.Types;
 using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [BoundaryComposable(Base = typeof(InputBoundaryComposable<>), Extension = true)]
+  [BoundaryComposable(Base = typeof(InputBoundaryComposable<>), Extension = true, Name = "TextField")]
   public partial class HXTextField {
-    private static readonly ushort _textFieldElementId = CompositionId.GetTypeId("TextFieldElement");
-
     public partial struct Props {
       [Prop(null)] public TextEditingController controller;
       [Prop(null)] public TextSelectionStyle? selectionStyle;
@@ -49,16 +48,9 @@ namespace HELIX.Compose {
 
       cx.CURSOR.Margin(style.margin[passedState]).Size(style.constraints[passedState]);
 
-      if (!cx.AUTHORING.RequireComposable<TextFieldElement>(_textFieldElementId, out var input, out _)) {
-        input = new TextFieldElement();
-      }
-
-      input.Owner = controller;
-      input.Configure(Node, controller, selectionStyle);
-      input.ApplyEditingValue(controller.value);
-      input.Field.Padding(style.padding[passedState]);
-
-      cx.AUTHORING.YieldElement(ref cx, input);
+      var handle = TextFieldElement.Compose(ref cx, Node, controller, selectionStyle, style.padding[passedState]);
+      var input = (TextFieldElement)handle.element;
+      input.ApplyEditingValue(in controller.value);
 
       using (input.BackgroundScope(cx)) {
         style.RenderBackground(ref cx, passedState);
@@ -68,20 +60,23 @@ namespace HELIX.Compose {
     public void EnsureController(TextEditingController given) {
       if (ReferenceEquals(given, controller) && controller != null) return;
       if (given == null) {
-        if (isAutomaticController && controller != null) { // Update retained state
+        if (isAutomaticController && controller != null) {
+          // Update retained state
           if (!props.value.HasValue) goto configureAutomatic;
 
           controller.value = props.valueIgnoreSelection
             ? controller.value.ReplaceText(props.value.Value.text)
             : props.value.Value;
-        } else { // Configure initial state
+        } else {
+          // Configure initial state
           controller = new TextEditingController<string>(TextInputAdapters.String);
           controller.value = props.value ?? props.initialValue ?? TextEditingValue.Empty;
           controller.initialValue = controller.value;
           isAutomaticController = true;
         }
 
-        configureAutomatic: ConfigureAutomaticController(); // Shared non-value updates
+        configureAutomatic:
+        ConfigureAutomaticController(); // Shared non-value updates
       } else {
         DisposeAutomaticController();
         controller = given;
@@ -131,7 +126,7 @@ namespace HELIX.Compose {
   // }
 
   [PropStruct] public readonly partial struct TextInputOptions : IEquatable<TextInputOptions> {
-    public static readonly TextInputOptions Default = new();
+    public static readonly TextInputOptions Default = new(maxLength: -1); // Force use of constructor
 
     [Prop(false)] public readonly bool multiline;
     [Prop(true)] public readonly bool autocorrect;
@@ -361,7 +356,8 @@ namespace HELIX.Compose {
     public readonly bool IsBuffering => frame == Time.frameCount && isBuffering;
   }
 
-  public sealed class TextFieldElement : VisualElement, ISlotHost {
+  [ComposableProxy]
+  public sealed partial class TextFieldElement : VisualElement, ISlotHost {
     private const string _selectionLightClass = "helix-textfield-style-light";
     private const string _selectionDarkClass = "helix-textfield-style-dark";
     private const string _selectionLightNeutralClass = "helix-textfield-style-light-neutral";
@@ -456,10 +452,12 @@ namespace HELIX.Compose {
     }
 
     public void Configure(
-      IBoundary boundary, TextEditingController controller,
-      TextSelectionStyle selectionStyle
+      [Prop] IBoundary boundary,
+      [Prop] TextEditingController controller,
+      [Prop] TextSelectionStyle selectionStyle,
+      [Prop] StyleLength4 padding
     ) {
-      this.Owner = controller;
+      Owner = controller;
       Boundary = boundary;
       var options = controller.options;
       _field.isDelayed = false;
@@ -472,6 +470,7 @@ namespace HELIX.Compose {
       _field.maskChar = options.maskCharacter;
       _field.maxLength = options.maxLength;
       _field.Flexible(options.expands ? 1f : 0f, options.expands ? 1f : 0f);
+      _field.Padding(padding);
       ApplySelectionStyle(selectionStyle);
     }
 
@@ -525,8 +524,9 @@ namespace HELIX.Compose {
     }
 
 
-    public void ApplyEditingValue(TextEditingValue value) {
-      if (value.Equals(TextEditingValue.FromElement(_textEdition))) return;
+    public void ApplyEditingValue(in TextEditingValue value) {
+      var physical = TextEditingValue.FromElement(_textEdition);
+      if (value.Equals(physical)) return;
       Owner.isModifying = true;
       try {
         value.Apply(_textEdition);

@@ -20,6 +20,7 @@ namespace HELIX.SourceGen {
         Boundary = "HELIX.Compose.IBoundary",
         BoundaryVisualElement = "HELIX.Compose.BoundaryVisualElement",
         Composable = "HELIX.Compose.Composable",
+        IComposable = "HELIX.Compose.IComposable",
         Composition = "HELIX.Compose.Composition",
         CompositionId = "HELIX.Compose.CompositionId",
         CompositionInternals = "HELIX.Compose.CompositionInternals",
@@ -28,7 +29,8 @@ namespace HELIX.SourceGen {
         LocalId = "HELIX.Compose.LocalId",
         PropsBoundaryComposable = "HELIX.Compose.PropsBoundaryComposable",
         ReadComposable = "HELIX.Compose.ReadComposable",
-        ScopeHandle = "HELIX.Compose.ScopeHandle";
+        ScopeHandle = "HELIX.Compose.ScopeHandle",
+        VisualElement = "UnityEngine.UIElements.VisualElement";
     }
 
     internal static class Templates {

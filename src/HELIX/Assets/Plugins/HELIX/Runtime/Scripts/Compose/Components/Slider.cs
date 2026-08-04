@@ -27,19 +27,8 @@ namespace HELIX.Compose {
     [Prop(16f)] public readonly float thumbSize;
   }
 
-  [ComposableProxy(
-    Target = typeof(HXSliderElement), RequiresTracking = false, Extension = false,
-    PreYieldSyntax = "instance.ApplyLayout();"
-  )]
-  public partial struct SliderElementProxy {
-    [Prop(ProxySetter = "Boundary")] public IBoundary boundary;
-    [Prop(ProxySetter = "Value")] public float value;
-    [Prop(ProxySetter = "Options")] public SliderOptions options;
-    [Prop(ProxySetter = "TrackSize")] public float trackSize;
-    [Prop(ProxySetter = "ThumbSize")] public float thumbSize;
-  }
-
-  public sealed class HXSliderElement : ComposableElement, ISlotHost {
+  [ComposableProxy(Extension = false)]
+  public sealed partial class HXSliderElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassTrack = new("hx-slider-track");
     public static readonly UniqueStyleString ClassThumb = new("hx-slider-thumb");
 
@@ -69,6 +58,21 @@ namespace HELIX.Compose {
 
     public IBoundary Boundary { get; set; }
     public SliderOptions Options { get => _options; set => _options = value; }
+
+    public void Update(
+      [Prop] IBoundary boundary,
+      [Prop] float value,
+      [Prop] in SliderOptions options,
+      [Prop] float trackSize,
+      [Prop] float thumbSize
+    ) {
+      Boundary = boundary;
+      Value = value;
+      Options = options;
+      TrackSize = trackSize;
+      ThumbSize = thumbSize;
+      ApplyLayout();
+    }
 
 
     public override void Reset() {
@@ -337,7 +341,7 @@ namespace HELIX.Compose {
       style.box.RenderBoundary(ref cx, passedState);
 
       var normalized = HXSliderElement.NormalizeValue(value, in options);
-      var elementHandle = SliderElementProxy.Compose(ref cx, Node, value, options, style.trackSize, style.trackSize);
+      var elementHandle = HXSliderElement.Compose(ref cx, Node, value, in options, style.trackSize, style.thumbSize);
       elementHandle.Flexible().AlignSelf(Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
 
       var element = (HXSliderElement)elementHandle.composable;
