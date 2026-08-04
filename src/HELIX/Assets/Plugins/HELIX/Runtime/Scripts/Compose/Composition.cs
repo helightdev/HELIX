@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using HELIX.Signals;
 using UnityEngine.UIElements;
-using Debug = UnityEngine.Debug;
 
 namespace HELIX.Compose {
   public delegate void ScopeCompletionCallback(BoundaryCell cell, in ScopeHandle handle);

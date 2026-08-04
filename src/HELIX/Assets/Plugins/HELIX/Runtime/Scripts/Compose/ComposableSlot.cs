@@ -1,4 +1,3 @@
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
@@ -31,28 +30,25 @@ namespace HELIX.Compose {
 
     public ulong PackedId { get; set; }
 
-    public void Recompose(Composable composable) {
-      var cid = CompositionId.Generated(slotLocalId);
-      var cx = new Composition(Host.Boundary, cid, this) { Slot = this };
-      composable(ref cx);
-
-      style.display = DisplayStyle.Flex;
-    }
+    // public void Recompose(Composable composable) {
+    //   var cid = CompositionId.Generated(slotLocalId);
+    //   var cx = new Composition(Host.Boundary, cid, this) { Slot = this };
+    //   composable(ref cx);
+    //
+    //   style.display = DisplayStyle.Flex;
+    // }
 
     public void Reset() {
       Clear();
       style.display = DisplayStyle.None;
     }
 
-    public ScopeHandle Scope(Composition cx, bool trimChildren = false) {
+    public ScopeHandle Scope(Composition cx, bool trimChildren = true) {
       PackedId = new CompositionId(slotLocalId, CompositionId.GeneratedCompositionId, CompositionId.SlotTypeId).packed;
 
       var handle = ScopeHandle.Push(
-        cx.AUTHORING.cell,
-        this,
-        trimChildren
-          ? static (BoundaryCell cell, in ScopeHandle _) => cell.TrimChildren()
-          : null
+        cx.AUTHORING.cell, this,
+        trimChildren ? static (BoundaryCell cell, in ScopeHandle _) => cell.TrimChildren() : null
       );
       cx.AUTHORING.cell.slot = this;
       style.display = DisplayStyle.Flex;

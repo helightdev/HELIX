@@ -19,7 +19,7 @@ namespace HELIX.Compose {
   }
 
   [PropStruct] public readonly partial struct SliderStyle : IEquatable<SliderStyle> {
-    public readonly HXControlBoxStyle box;
+    [Prop(Equatable = false)] public readonly HXControlBoxStyle box;
     public readonly Composable<State> track;
     public readonly Composable<State> progress;
     public readonly Composable<State> thumb;
@@ -27,42 +27,19 @@ namespace HELIX.Compose {
     [Prop(16f)] public readonly float thumbSize;
   }
 
-  public static class SliderElementExtensions {
-    private static readonly ushort _sliderElementId = CompositionId.GetTypeId("SliderElement");
-
-    public static ScopeHandle SliderElement(
-      this ref Composition cx,
-      out SliderElementSlots slots,
-      float value,
-      in SliderOptions options,
-      float trackSize,
-      float thumbSize
-    ) {
-      if (!cx.AUTHORING.RequireComposable<HXSliderElement>(_sliderElementId, out var element, out var retained)) {
-        element = new HXSliderElement();
-      }
-      if (!retained) element.Initialize(cx);
-
-      element.Update(value, in options, trackSize, thumbSize);
-      slots = new SliderElementSlots(element, cx);
-      return cx.AUTHORING.YieldScope(ref cx, element);
-    }
+  [ComposableProxy(
+    Target = typeof(HXSliderElement), RequiresTracking = false, Extension = false,
+    PreYieldSyntax = "instance.ApplyLayout();"
+  )]
+  public partial struct SliderElementProxy {
+    [Prop(ProxySetter = "Boundary")] public IBoundary boundary;
+    [Prop(ProxySetter = "Value")] public float value;
+    [Prop(ProxySetter = "Options")] public SliderOptions options;
+    [Prop(ProxySetter = "TrackSize")] public float trackSize;
+    [Prop(ProxySetter = "ThumbSize")] public float thumbSize;
   }
 
-  public readonly ref struct SliderElementSlots {
-    private readonly HXSliderElement _element;
-    private readonly Composition _composition;
-
-    public SliderElementSlots(HXSliderElement element, Composition composition) {
-      _element = element;
-      _composition = composition;
-    }
-
-    public ScopeHandle Track() => _element.track.Scope(_composition);
-    public ScopeHandle Thumb() => _element.thumb.Scope(_composition);
-  }
-
-  public sealed class HXSliderElement : VisualElement, ISlotHost {
+  public sealed class HXSliderElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassTrack = new("hx-slider-track");
     public static readonly UniqueStyleString ClassThumb = new("hx-slider-thumb");
 
@@ -70,9 +47,9 @@ namespace HELIX.Compose {
     public readonly ComposableSlot thumb;
 
     private SliderOptions _options;
-    private float _value;
-    private float _trackSize;
-    private float _thumbSize;
+    public float Value { get; set; }
+    public float TrackSize { get; set; }
+    public float ThumbSize { get; set; }
 
     public HXSliderElement() {
       pickingMode = PickingMode.Ignore;
@@ -90,59 +67,46 @@ namespace HELIX.Compose {
       RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
     }
 
-    public VisualElement Element => this;
-    public UssFlag Flag { get; set; }
-    public ulong PackedId { get; set; }
-    public IBoundary Boundary { get; private set; }
-    public SliderOptions Options => _options;
+    public IBoundary Boundary { get; set; }
+    public SliderOptions Options { get => _options; set => _options = value; }
 
-    public void Initialize(in Composition cx) {
-      Boundary = cx.boundary;
-    }
 
-    public void Update(float value, in SliderOptions options, float trackSize, float thumbSize) {
-      _options = NormalizeOptions(in options);
-      _value = ClampAndSnap(value, in _options);
-      _trackSize = Mathf.Max(0f, trackSize);
-      _thumbSize = Mathf.Max(0f, thumbSize);
-      ApplyLayout();
-    }
-
-    public void Reset() {
+    public override void Reset() {
+      base.Reset();
       track.Reset();
       thumb.Reset();
       Boundary = null;
-      _options = SliderOptions.Default;
-      _value = 0f;
-      _trackSize = 0f;
-      _thumbSize = 0f;
+      Options = SliderOptions.Default;
+      Value = 0f;
+      TrackSize = 0f;
+      ThumbSize = 0f;
     }
 
     private void OnGeometryChanged(GeometryChangedEvent evt) => ApplyLayout();
 
-    private void ApplyLayout() {
-      var normalized = NormalizeValue(_value, in _options);
-      if (_options.axis == Axis.Horizontal) {
-        var thumbMainSize = ResolveThumbSize(contentRect.width, in _options, _thumbSize);
+    public void ApplyLayout() {
+      var normalized = NormalizeValue(Value, in _options);
+      if (Options.axis == Axis.Horizontal) {
+        var thumbMainSize = ResolveThumbSize(contentRect.width, in _options, ThumbSize);
         var offset = normalized * Mathf.Max(0f, contentRect.width - thumbMainSize);
         track.style.left = contentRect.xMin;
-        track.style.top = contentRect.yMin + (contentRect.height - _trackSize) * 0.5f;
+        track.style.top = contentRect.yMin + (contentRect.height - TrackSize) * 0.5f;
         track.style.width = contentRect.width;
-        track.style.height = _trackSize;
+        track.style.height = TrackSize;
         thumb.style.left = contentRect.xMin + offset;
-        thumb.style.top = contentRect.yMin + (contentRect.height - _thumbSize) * 0.5f;
+        thumb.style.top = contentRect.yMin + (contentRect.height - ThumbSize) * 0.5f;
         thumb.style.width = thumbMainSize;
-        thumb.style.height = _thumbSize;
+        thumb.style.height = ThumbSize;
       } else {
-        var thumbMainSize = ResolveThumbSize(contentRect.height, in _options, _thumbSize);
+        var thumbMainSize = ResolveThumbSize(contentRect.height, in _options, ThumbSize);
         var offset = normalized * Mathf.Max(0f, contentRect.height - thumbMainSize);
-        track.style.left = contentRect.xMin + (contentRect.width - _trackSize) * 0.5f;
+        track.style.left = contentRect.xMin + (contentRect.width - TrackSize) * 0.5f;
         track.style.top = contentRect.yMin;
-        track.style.width = _trackSize;
+        track.style.width = TrackSize;
         track.style.height = contentRect.height;
-        thumb.style.left = contentRect.xMin + (contentRect.width - _thumbSize) * 0.5f;
+        thumb.style.left = contentRect.xMin + (contentRect.width - ThumbSize) * 0.5f;
         thumb.style.top = contentRect.yMin + offset;
-        thumb.style.width = _thumbSize;
+        thumb.style.width = ThumbSize;
         thumb.style.height = thumbMainSize;
       }
     }
@@ -373,19 +337,17 @@ namespace HELIX.Compose {
       style.box.RenderBoundary(ref cx, passedState);
 
       var normalized = HXSliderElement.NormalizeValue(value, in options);
-      using (cx.SliderElement(
-        out var slots, value, in options, style.trackSize, style.thumbSize
-      )) {
-        cx.CURSOR.Flexible().AlignSelf(Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
+      var elementHandle = SliderElementProxy.Compose(ref cx, Node, value, options, style.trackSize, style.trackSize);
+      elementHandle.Flexible().AlignSelf(Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
 
-        using (slots.Track()) {
-          style.track?.Invoke(ref cx, passedState);
-          ComposeProgress(ref cx, style.progress, passedState, normalized, options.axis);
-        }
+      var element = (HXSliderElement)elementHandle.composable;
+      using (element.track.Scope(cx)) {
+        style.track?.Invoke(ref cx, passedState);
+        ComposeProgress(ref cx, style.progress, passedState, normalized, options.axis);
+      }
 
-        using (slots.Thumb()) {
-          style.thumb?.Invoke(ref cx, passedState);
-        }
+      using (element.thumb.Scope(cx)) {
+        style.thumb?.Invoke(ref cx, passedState);
       }
     }
 

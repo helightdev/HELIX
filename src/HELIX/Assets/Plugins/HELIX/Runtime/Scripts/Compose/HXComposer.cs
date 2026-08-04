@@ -51,13 +51,16 @@ namespace HELIX.Compose {
         }
       }
 
-      // // If we descend the tree forward, we can reuse the same context and avoid dictionary initialization.
-      // if (IsProcessing && CurrentBoundary == boundary.Parent) {
-      //   _inlinedRecompositionCount.Value++;
-      //   _inlinedRecompositionCount.Sample();
-      //   Recompose(boundary);
-      //   return;
-      // }
+      // If we descend the tree forward, we can skip the queue.
+      // Initially, this was for static dictionary initialization, but now it's even saver.
+      // However, for safety to possibly prevent some issues, we don't do it for non forward compositions.
+      if (IsProcessing && CurrentBoundary == boundary.Parent) {
+        // _inlinedRecompositionCount.Value++;
+        // _inlinedRecompositionCount.Sample();
+        Recompose(boundary);
+        return;
+      }
+
       /*
        TODO: This does not work for multiple children and I currently don't know a good way to fix that.
        For now, I'll just remove it until I have figured out a way determine guaranteed forward composition.
