@@ -47,6 +47,7 @@ namespace HELIX.SourceGen {
           props.ParameterParts,
           props.ParameterParts.Count > 0
         )) props.AppendAssignments(builder, "this");
+        props.Equality.AppendMembers(builder);
       });
       context.AddSource(wrapper.HintName, source);
     }

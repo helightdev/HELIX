@@ -95,12 +95,12 @@ namespace HELIX.Compose {
   [BoundaryComposable(Extension = false)]
   public partial class ScrollViewBoundary {
     public partial struct Props {
-      [PropDefault(null)] public ScrollerSliderController controller;
-      [PropDefault(Axis.Vertical)] public Axis axis;
-      [PropDefault(false)] public bool reverse;
-      [PropDefault(true)] public bool showSlider;
-      [PropDefault(null)] public Composable<SliderController> slider;
-      [PropDefault(null)] public SliderStyle? sliderStyle;
+      [Prop(null)] public ScrollerSliderController controller;
+      [Prop(Axis.Vertical)] public Axis axis;
+      [Prop(false)] public bool reverse;
+      [Prop(true)] public bool showSlider;
+      [Prop(null)] public Composable<SliderController> slider;
+      [Prop(null)] public SliderStyle? sliderStyle;
     }
 
     public ScrollerSliderController controller { get; private set; }

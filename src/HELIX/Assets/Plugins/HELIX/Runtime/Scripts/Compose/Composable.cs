@@ -31,21 +31,6 @@ namespace HELIX.Compose {
 
   public enum ComposableKind { ScopeElement, Element }
 
-  [AttributeUsage(AttributeTargets.Field)]
-  public class PropProxyAttribute : Attribute {
-    public string setter;
-
-    public PropProxyAttribute(string setter) {
-      this.setter = setter;
-    }
-
-    public string Getter { get; set; } // Defaults to setter
-    public bool CheckEquality { get; set; } = false;
-    public bool Function { get; set; } = false;
-    public string EqualitySyntax { get; set; } = "{0} == {1}";
-    public string HashCodeSyntax { get; set; } = "{0}";
-  }
-
   [ComposableProxy(
     Target = typeof(ScrollView),
     Kind = ComposableKind.ScopeElement,
@@ -61,44 +46,53 @@ namespace HELIX.Compose {
       targetSelector: static root => root.Q<Scroller>()
     );
 
-    [PropDefault(ScrollViewMode.Vertical)]
+    [Prop(ScrollViewMode.Vertical)]
     public ScrollViewMode mode;
 
-    [PropDefault(ScrollView.NestedInteractionKind.Default)]
+    [Prop(ScrollView.NestedInteractionKind.Default)]
     public ScrollView.NestedInteractionKind nestedInteractionKind;
 
-    [PropDefault(ScrollerVisibility.Hidden)]
-    [PropProxy("horizontalScrollerVisibility")]
+    [Prop(ScrollerVisibility.Hidden, ProxySetter = "horizontalScrollerVisibility")]
     public ScrollerVisibility horizontalScroller;
 
-    [PropDefault(ScrollerVisibility.Hidden)]
-    [PropProxy("verticalScrollerVisibility")]
+    [Prop(ScrollerVisibility.Hidden, ProxySetter = "verticalScrollerVisibility")]
     public ScrollerVisibility verticalScroller;
 
-    [PropDefault(null)]
-    [PropProxy("SliderValueBinding.Bind(instance, {VALUE});", Function = true)]
+    [Prop(null, ProxyFunction = "SliderValueBinding.Bind(instance, {VALUE});")]
     public CompositionAction<float> onVerticalScroll;
   }
 
-  [AttributeUsage(AttributeTargets.Parameter)]
-  public class PropAttribute : Attribute { }
+  [AttributeUsage(AttributeTargets.Field)]
+  public class PropAttribute : Attribute {
+    public object defaultValue;
+    public PropInit defaultInit;
+
+    public bool Equatable { get; set; } = true;
+    public string EqualitySyntax { get; set; } = "{0} == {1}";
+    public string HashCodeSyntax { get; set; } = "{0}";
+
+    public string ProxyFunction { get; set; }
+    public string ProxySetter { get; set; }
+    public string ProxyGetter { get; set; }
+    public bool ProxyEquality { get; set; } = false;
+
+    public PropAttribute(
+      object defaultValue,
+      PropInit defaultInit = PropInit.Literal
+    ) {
+      this.defaultValue = defaultValue;
+      this.defaultInit = defaultInit;
+    }
+
+    public PropAttribute() {
+      defaultValue = null;
+      defaultInit = PropInit.None;
+    }
+
+  }
 
   [AttributeUsage(AttributeTargets.Struct)]
   public class PropStructAttribute : Attribute { }
-
-  [AttributeUsage(AttributeTargets.Field)]
-  public class PropDefaultAttribute : Attribute {
-    public object value;
-    public PropInit init;
-
-    public PropDefaultAttribute(
-      object value,
-      PropInit init = PropInit.Literal
-    ) {
-      this.value = value;
-      this.init = init;
-    }
-  }
 
   public enum PropInit {
     /// <summary>
@@ -115,7 +109,9 @@ namespace HELIX.Compose {
     /// The constructor parameter will be nullable and default to null.
     /// The string content of the annotation is used as the initializer if the parameter is null.
     /// </summary>
-    Deferred
+    Deferred,
+
+    None,
   }
 
   [AttributeUsage(AttributeTargets.Field)]

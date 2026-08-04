@@ -19,11 +19,15 @@ namespace HELIX.SourceGen {
         ),
         RequiredFieldAfterOptionalField = Error(
           "HLXP02", "Required prop must precede optional props",
-          "Field '{0}' has no [PropDefault] but follows a field with a default value"
+          "Field '{0}' has no [Prop] default but follows a field with a default value"
         ),
         InvalidDefault = Error(
           "HLXP03", "Invalid prop default",
-          "The [PropDefault] on field '{0}' is invalid: {1}"
+          "The [Prop] default on field '{0}' is invalid: {1}"
+        ),
+        InvalidEqualitySyntax = Error(
+          "HLXP04", "Invalid prop equality configuration",
+          "The [Prop] on field '{0}' has invalid equality or hash-code syntax: {1}"
         );
     }
 
@@ -48,6 +52,10 @@ namespace HELIX.SourceGen {
         ContainingTypeMustBePartial = Error(
           "HLXC05", "Containing type must be partial",
           "Class '{0}' is marked [BoundaryComposable], but containing type '{1}' is not declared partial"
+        ),
+        InvalidName = Error(
+          "HLXC06", "Boundary composable name is invalid",
+          "Class '{0}' specifies '{1}' as its composable name, but it is not a valid C# identifier"
         );
     }
 
@@ -69,9 +77,9 @@ namespace HELIX.SourceGen {
           "HLXCP03", "Composable proxy kind is invalid",
           "Struct '{0}' specifies an unrecognized ComposableKind value"
         ),
-        InvalidPropProxy = Error(
+        InvalidProp = Error(
           "HLXCP04", "Proxy prop configuration is invalid",
-          "Field '{0}' has an invalid [PropProxy]: {1}"
+          "Field '{0}' has an invalid [Prop]: {1}"
         ),
         MustBePartial = Error(
           "HLXCP05", "Composable proxy must be partial",

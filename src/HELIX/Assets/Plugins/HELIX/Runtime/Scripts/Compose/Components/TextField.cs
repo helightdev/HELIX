@@ -13,22 +13,22 @@ namespace HELIX.Compose {
     private static readonly ushort _textFieldElementId = CompositionId.GetTypeId("TextFieldElement");
 
     public partial struct Props {
-      [PropDefault(null)] public TextEditingController controller;
-      [PropDefault(null)] public TextSelectionStyle? selectionStyle;
-      [PropDefault(null)] public HXControlBoxStyle? style;
+      [Prop(null)] public TextEditingController controller;
+      [Prop(null)] public TextSelectionStyle? selectionStyle;
+      [Prop(null)] public HXControlBoxStyle? style;
 
       // Implicit controller definition
-      [PropDefault(null)] public TextEditingValue? value;
-      [PropDefault(null)] public TextEditingValue? initialValue;
+      [Prop(null)] public TextEditingValue? value;
+      [Prop(null)] public TextEditingValue? initialValue;
 
-      [PropDefault(null)] public CompositionAction<TextEditingValue> onChanged;
-      [PropDefault(null)] public CompositionAction onEditingStarted;
-      [PropDefault(null)] public CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded;
-      [PropDefault(null)] public TextEditProcessor processor;
-      [PropDefault(true)] public bool enabled;
-      [PropDefault(true)] public bool valueIgnoreSelection;
+      [Prop(null)] public CompositionAction<TextEditingValue> onChanged;
+      [Prop(null)] public CompositionAction onEditingStarted;
+      [Prop(null)] public CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded;
+      [Prop(null)] public TextEditProcessor processor;
+      [Prop(true)] public bool enabled;
+      [Prop(true)] public bool valueIgnoreSelection;
 
-      [PropDefault("TextInputOptions.Default", PropInit.Deferred)]
+      [Prop("TextInputOptions.Default", PropInit.Deferred)]
       public TextInputOptions options;
     }
 
@@ -117,81 +117,33 @@ namespace HELIX.Compose {
 
   public enum TextSelectionStyleType : byte { Light, Dark, Custom, LightNeutral, DarkNeutral }
 
-  public readonly struct TextInputOptions : IEquatable<TextInputOptions> {
-    public static readonly TextInputOptions Default = new(
-      multiline: false,
-      autocorrect: true,
-      readOnly: false,
-      password: false,
-      errorOnInvalidValue: true,
-      hideMobileInput: true,
-      submitOnEnter: true,
-      expands: true,
-      keyboardType: TouchScreenKeyboardType.Default,
-      maskCharacter: '*',
-      maxLength: -1
-    );
+  // [Flags]
+  // public enum TextInputFlag {
+  //   None = 0,
+  //   Multiline = 1 << 0,
+  //   Autocorrect = 1 << 1,
+  //   ReadOnly = 1 << 2,
+  //   Password = 1 << 3,
+  //   ErrorOnInvalidValue = 1 << 4,
+  //   HideMobileInput = 1 << 5,
+  //   SubmitOnEnter = 1 << 6,
+  //   Expands = 1 << 7
+  // }
 
-    public readonly bool multiline;
-    public readonly bool autocorrect;
-    public readonly bool readOnly;
-    public readonly bool password;
-    public readonly bool errorOnInvalidValue;
-    public readonly bool hideMobileInput;
-    public readonly bool submitOnEnter;
-    public readonly bool expands;
-    public readonly TouchScreenKeyboardType keyboardType;
-    public readonly char maskCharacter;
-    public readonly int maxLength;
+  [PropStruct] public readonly partial struct TextInputOptions : IEquatable<TextInputOptions> {
+    public static readonly TextInputOptions Default = new();
 
-    public TextInputOptions(
-      bool multiline = false,
-      bool autocorrect = true,
-      bool readOnly = false,
-      bool password = false,
-      bool errorOnInvalidValue = true,
-      bool hideMobileInput = true,
-      bool submitOnEnter = true,
-      bool expands = true,
-      TouchScreenKeyboardType keyboardType = TouchScreenKeyboardType.Default,
-      char maskCharacter = '*',
-      int maxLength = -1
-    ) {
-      this.multiline = multiline;
-      this.autocorrect = autocorrect;
-      this.readOnly = readOnly;
-      this.password = password;
-      this.errorOnInvalidValue = errorOnInvalidValue;
-      this.hideMobileInput = hideMobileInput;
-      this.submitOnEnter = submitOnEnter;
-      this.expands = expands;
-      this.keyboardType = keyboardType;
-      this.maskCharacter = maskCharacter;
-      this.maxLength = maxLength;
-    }
-
-    public bool Equals(TextInputOptions other) {
-      return multiline == other.multiline &&
-             autocorrect == other.autocorrect &&
-             readOnly == other.readOnly &&
-             password == other.password &&
-             errorOnInvalidValue == other.errorOnInvalidValue &&
-             hideMobileInput == other.hideMobileInput &&
-             submitOnEnter == other.submitOnEnter &&
-             expands == other.expands &&
-             keyboardType == other.keyboardType &&
-             maskCharacter == other.maskCharacter &&
-             maxLength == other.maxLength;
-    }
-
-    public override bool Equals(object obj) => obj is TextInputOptions other && Equals(other);
-
-    public override int GetHashCode() {
-      var first = HashCode.Combine(
-        multiline, autocorrect, readOnly, password, errorOnInvalidValue, hideMobileInput, submitOnEnter, expands
-      );
-      return HashCode.Combine(first, keyboardType, maskCharacter, maxLength);
-    }
+    [Prop(false)] public readonly bool multiline;
+    [Prop(true)] public readonly bool autocorrect;
+    [Prop(false)] public readonly bool readOnly;
+    [Prop(false)] public readonly bool password;
+    [Prop(true)] public readonly bool errorOnInvalidValue;
+    [Prop(true)] public readonly bool hideMobileInput;
+    [Prop(true)] public readonly bool submitOnEnter;
+    [Prop(true)] public readonly bool expands;
+    [Prop(TouchScreenKeyboardType.Default)] public readonly TouchScreenKeyboardType keyboardType;
+    [Prop('*')] public readonly char maskCharacter;
+    [Prop(-1)] public readonly int maxLength;
   }
 
 

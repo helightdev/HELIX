@@ -11,21 +11,22 @@ namespace HELIX.SourceGen {
     internal static readonly SymbolDisplayFormat TypeDisplayFormat =
       SymbolDisplayFormat.FullyQualifiedFormat.WithMiscellaneousOptions(
         SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
-        SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+        SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
+      );
 
     internal static Location LocationOf(ISymbol symbol) =>
       symbol.Locations.FirstOrDefault(location => location.IsInSource) ??
       symbol.Locations.FirstOrDefault() ?? Location.None;
 
-    internal static bool IsPartial(INamedTypeSymbol type) =>
-      type.DeclaringSyntaxReferences.Any(reference =>
-        reference.GetSyntax() is TypeDeclarationSyntax declaration &&
-        declaration.Modifiers.Any(SyntaxKind.PartialKeyword));
+    internal static bool IsPartial(INamedTypeSymbol type) => type.DeclaringSyntaxReferences.Any(reference =>
+      reference.GetSyntax() is TypeDeclarationSyntax declaration &&
+      declaration.Modifiers.Any(SyntaxKind.PartialKeyword)
+    );
 
     internal static INamedTypeSymbol FirstNonPartialContainingType(INamedTypeSymbol type) {
       for (var containing = type.ContainingType;
-           containing is not null;
-           containing = containing.ContainingType) {
+        containing is not null;
+        containing = containing.ContainingType) {
         if (!IsPartial(containing)) return containing;
       }
       return null;
@@ -38,11 +39,11 @@ namespace HELIX.SourceGen {
       return false;
     }
 
-    internal static IReadOnlyList<IFieldSymbol> InstanceFields(INamedTypeSymbol type) =>
-      type.GetMembers().OfType<IFieldSymbol>()
-        .Where(field => !field.IsStatic && !field.IsImplicitlyDeclared)
-        .OrderBy(SourceOrder)
-        .ToArray();
+    internal static IReadOnlyList<IFieldSymbol> InstanceFields(INamedTypeSymbol type) => type.GetMembers()
+      .OfType<IFieldSymbol>()
+      .Where(field => !field.IsStatic && !field.IsImplicitlyDeclared)
+      .OrderBy(SourceOrder)
+      .ToArray();
 
     internal static int SourceOrder(ISymbol symbol) {
       var location = symbol.Locations.FirstOrDefault(item => item.IsInSource);
@@ -56,9 +57,10 @@ namespace HELIX.SourceGen {
       return false;
     }
 
-    internal static AttributeData Attribute(ISymbol symbol, string metadataName) =>
-      symbol.GetAttributes().FirstOrDefault(item =>
-        item.AttributeClass?.ToDisplayString() == metadataName);
+    internal static AttributeData Attribute(ISymbol symbol, string metadataName) => symbol.GetAttributes()
+      .FirstOrDefault(item =>
+        item.AttributeClass?.ToDisplayString() == metadataName
+      );
 
     internal static ITypeSymbol TypeArgument(AttributeData attribute, string name) =>
       attribute.NamedArguments.FirstOrDefault(item => item.Key == name).Value.Value as ITypeSymbol;
@@ -73,11 +75,6 @@ namespace HELIX.SourceGen {
       }
       return defaultValue;
     }
-
-    internal static string ConstructorStringArgument(AttributeData attribute, int index) =>
-      attribute.ConstructorArguments.Length > index
-        ? attribute.ConstructorArguments[index].Value as string
-        : null;
 
     internal static bool BooleanArgument(
       AttributeData attribute,
@@ -125,11 +122,11 @@ namespace HELIX.SourceGen {
       _ => "internal"
     };
 
-    internal static bool IsValidIdentifier(string name) =>
-      !string.IsNullOrWhiteSpace(name) &&
-      (SyntaxFacts.IsValidIdentifier(name) ||
-       SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None ||
-       SyntaxFacts.GetContextualKeywordKind(name) != SyntaxKind.None);
+    internal static bool IsValidIdentifier(string name) => !string.IsNullOrWhiteSpace(name) &&
+                                                           (SyntaxFacts.IsValidIdentifier(name) ||
+                                                            SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None ||
+                                                            SyntaxFacts.GetContextualKeywordKind(name) !=
+                                                            SyntaxKind.None);
 
     internal static string EscapeIdentifier(string identifier) =>
       SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ||
@@ -220,13 +217,16 @@ namespace HELIX.SourceGen {
     internal static string TypeKeyword(INamedTypeSymbol type) {
       if (type.IsRecord) return type.TypeKind == TypeKind.Struct ? "record struct" : "record";
       return type.TypeKind == TypeKind.Struct ? "struct" :
-             type.TypeKind == TypeKind.Interface ? "interface" : "class";
+        type.TypeKind == TypeKind.Interface ? "interface" : "class";
     }
 
     internal static string TypeParameters(INamedTypeSymbol type) => type.TypeParameters.Length == 0
       ? ""
-      : "<" + string.Join(", ", type.TypeParameters.Select(parameter =>
-        GeneratorAnalysis.EscapeIdentifier(parameter.Name))) + ">";
+      : "<" + string.Join(
+        ", ", type.TypeParameters.Select(parameter =>
+          GeneratorAnalysis.EscapeIdentifier(parameter.Name)
+        )
+      ) + ">";
 
     private static string Sanitize(string value) {
       var characters = value.ToCharArray();
@@ -266,14 +266,15 @@ namespace HELIX.SourceGen {
       Action<SharpStringBuilder> build,
       Action<SharpStringBuilder> after = null
     ) => GeneratorSource.BuildSource(builder => {
-      if (_usings is not null) {
-        foreach (var directive in _usings) builder.AppendLine(directive);
-        if (_usings.Count > 0) builder.BlankLine();
-      }
+        if (_usings is not null) {
+          foreach (var directive in _usings) builder.AppendLine(directive);
+          if (_usings.Count > 0) builder.BlankLine();
+        }
 
-      using (builder.Namespace(_namespaceName)) AppendContainingType(builder, 0, build);
-      after?.Invoke(builder);
-    });
+        using (builder.Namespace(_namespaceName)) AppendContainingType(builder, 0, build);
+        after?.Invoke(builder);
+      }
+    );
 
     private void AppendContainingType(
       SharpStringBuilder builder,

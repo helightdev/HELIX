@@ -7,68 +7,24 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  public readonly struct SliderOptions : IEquatable<SliderOptions> {
+  [PropStruct] public readonly partial struct SliderOptions : IEquatable<SliderOptions> {
     public static readonly SliderOptions Default = new(0f, 1f);
 
     public readonly float min;
     public readonly float max;
-    public readonly float step;
-    public readonly float thumbRange;
-    public readonly Axis axis;
-    public readonly bool reverse;
-
-    public SliderOptions(
-      float min,
-      float max,
-      float step = 0f,
-      Axis axis = Axis.Horizontal,
-      bool reverse = false,
-      float thumbRange = 0f
-    ) {
-      this.min = min;
-      this.max = max;
-      this.step = Mathf.Max(0f, step);
-      this.thumbRange = Mathf.Max(0f, thumbRange);
-      this.axis = axis;
-      this.reverse = reverse;
-    }
-
-    public bool Equals(SliderOptions other) {
-      return min.Equals(other.min) &&
-             max.Equals(other.max) &&
-             step.Equals(other.step) &&
-             thumbRange.Equals(other.thumbRange) &&
-             axis == other.axis &&
-             reverse == other.reverse;
-    }
-
-    public override bool Equals(object obj) => obj is SliderOptions other && Equals(other);
-    public override int GetHashCode() => HashCode.Combine(min, max, step, thumbRange, (int)axis, reverse);
+    [Prop(0f)] public readonly float step;
+    [Prop(Axis.Horizontal)] public readonly Axis axis;
+    [Prop(false)] public readonly bool reverse;
+    [Prop(0f)] public readonly float thumbRange;
   }
 
-  public readonly struct SliderStyle {
+  [PropStruct] public readonly partial struct SliderStyle : IEquatable<SliderStyle> {
     public readonly HXControlBoxStyle box;
     public readonly Composable<State> track;
     public readonly Composable<State> progress;
     public readonly Composable<State> thumb;
-    public readonly float trackSize;
-    public readonly float thumbSize;
-
-    public SliderStyle(
-      HXControlBoxStyle box,
-      Composable<State> track,
-      Composable<State> progress,
-      Composable<State> thumb,
-      float trackSize = 4f,
-      float thumbSize = 16f
-    ) {
-      this.box = box;
-      this.track = track;
-      this.progress = progress;
-      this.thumb = thumb;
-      this.trackSize = Mathf.Max(0f, trackSize);
-      this.thumbSize = Mathf.Max(0f, thumbSize);
-    }
+    [Prop(4f)] public readonly float trackSize;
+    [Prop(16f)] public readonly float thumbSize;
   }
 
   public static class SliderElementExtensions {
@@ -377,15 +333,15 @@ namespace HELIX.Compose {
   public partial class Slider {
     public partial struct Props {
       // Keep value first to preserve the cx.Slider(value, ...) call shape.
-      [PropDefault(null)] public float? value;
-      [PropDefault(null)] public SliderController controller;
-      [PropDefault(null)] public float? initialValue;
-      [PropDefault(null)] public CompositionAction<float> onChanged;
-      [PropDefault(null)] public CompositionAction<float> onCommitted;
-      [PropDefault("SliderOptions.Default", PropInit.Deferred)] public SliderOptions options;
-      [PropDefault(true)] public bool enabled;
-      [PropDefault(false)] public bool error;
-      [PropDefault(null)] public SliderStyle? style;
+      [Prop(null)] public float? value;
+      [Prop(null)] public SliderController controller;
+      [Prop(null)] public float? initialValue;
+      [Prop(null)] public CompositionAction<float> onChanged;
+      [Prop(null)] public CompositionAction<float> onCommitted;
+      [Prop("SliderOptions.Default", PropInit.Deferred)] public SliderOptions options;
+      [Prop(true)] public bool enabled;
+      [Prop(false)] public bool error;
+      [Prop(null)] public SliderStyle? style;
     }
 
     public SliderController controller;

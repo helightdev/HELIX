@@ -104,19 +104,19 @@ namespace HELIX.SourceGen {
       for (var index = 0; index < fields.Count; index++) {
         var field = fields[index];
         var assignment = assignments[index];
-        var attribute = field.GetAttributes().FirstOrDefault(item =>
-          item.AttributeClass?.ToDisplayString() == Attributes.PropProxy
-        );
+        var attribute = Attribute(field, Attributes.Prop);
+        var defaultSetter = EscapeIdentifier(field.Name);
+        var function = attribute is null ? null : StringArgument(attribute, "ProxyFunction");
         var setter = attribute is null
-          ? EscapeIdentifier(field.Name)
-          : ConstructorStringArgument(attribute, 0);
-        if (string.IsNullOrWhiteSpace(setter)) {
+          ? defaultSetter
+          : StringArgument(attribute, "ProxySetter") ?? defaultSetter;
+        if (function is null && string.IsNullOrWhiteSpace(setter)) {
           context.ReportDiagnostic(
             Diagnostic.Create(
-              InvalidPropProxy,
+              InvalidProp,
               field.Locations.FirstOrDefault() ?? Location.None,
               field.Name,
-              "the setter must be a non-empty member name or function template"
+              "ProxySetter must be a non-empty member name when ProxyFunction is not defined"
             )
           );
           updates = null;
@@ -124,24 +124,23 @@ namespace HELIX.SourceGen {
         }
 
         var value = assignment.ValueExpression;
-        var isFunction = attribute is not null && BooleanArgument(attribute, "Function");
-        var setterCode = isFunction
-          ? setter.Replace("{VALUE}", value).Replace("{TYPE}", targetType)
+        var setterCode = function is not null
+          ? function.Replace("{VALUE}", value).Replace("{TYPE}", targetType)
           : $"instance.{setter} = {value};";
-        var checkEquality = attribute is not null && BooleanArgument(attribute, "CheckEquality");
+        var checkEquality = attribute is not null && BooleanArgument(attribute, "ProxyEquality");
         if (!checkEquality) {
           result.Add(new PropUpdate(setterCode, null));
           continue;
         }
 
-        var getter = StringArgument(attribute, "Getter") ?? setter;
+        var getter = StringArgument(attribute, "ProxyGetter") ?? setter;
         if (string.IsNullOrWhiteSpace(getter)) {
           context.ReportDiagnostic(
             Diagnostic.Create(
-              InvalidPropProxy,
+              InvalidProp,
               field.Locations.FirstOrDefault() ?? Location.None,
               field.Name,
-              "the getter must be a non-empty member name when equality checking is enabled"
+              "ProxyGetter must be a non-empty member name when ProxyEquality is enabled"
             )
           );
           updates = null;
@@ -162,7 +161,7 @@ namespace HELIX.SourceGen {
         } catch (FormatException exception) {
           context.ReportDiagnostic(
             Diagnostic.Create(
-              InvalidPropProxy,
+              InvalidProp,
               field.Locations.FirstOrDefault() ?? Location.None,
               field.Name,
               "EqualitySyntax could not be formatted: " + exception.Message
@@ -231,6 +230,7 @@ namespace HELIX.SourceGen {
         if (isScope) AppendScopeYield(builder, preYieldSyntax, postYieldSyntax, scopeCallbackSyntax);
         else AppendElementYield(builder, preYieldSyntax, postYieldSyntax);
       }
+      props.Equality.AppendMembers(builder);
     }
 
     private static void AppendElementYield(SharpStringBuilder builder, string preYieldSyntax, string postYieldSyntax) {

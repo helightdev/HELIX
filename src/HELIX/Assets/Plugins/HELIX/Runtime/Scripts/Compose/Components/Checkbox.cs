@@ -13,7 +13,7 @@ namespace HELIX.Compose {
     public CheckboxController(bool initialValue = false) : base("CheckboxController", typeof(CheckboxController)) {
       _value = initialValue;
     }
-    
+
     public State State {
       get {
         var state = State.None;
@@ -58,13 +58,13 @@ namespace HELIX.Compose {
   public partial class Checkbox {
     public partial struct Props {
       // Keep value first to preserve the cx.Checkbox(value, ...) call shape.
-      [PropDefault(null)] public bool? value;
-      [PropDefault(null)] public CheckboxController controller;
-      [PropDefault(null)] public bool? initialValue;
-      [PropDefault(null)] public CompositionAction<bool> onChanged;
-      [PropDefault(true)] public bool enabled;
-      [PropDefault(false)] public bool error;
-      [PropDefault(null)] public HXControlBoxStyle? style;
+      [Prop(null)] public bool? value;
+      [Prop(null)] public CheckboxController controller;
+      [Prop(null)] public bool? initialValue;
+      [Prop(null)] public CompositionAction<bool> onChanged;
+      [Prop(true)] public bool enabled;
+      [Prop(false)] public bool error;
+      [Prop(null)] public HXControlBoxStyle? style;
     }
 
     public CheckboxController controller;
@@ -132,11 +132,11 @@ namespace HELIX.Compose {
   [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
   public partial class RawCheckbox {
     public partial struct Props {
-      public bool value;
-      [PropDefault(null)] public CompositionAction<bool> onChanged;
-      [PropDefault(true)] public bool enabled;
-      [PropDefault(false)] public bool error;
-      [PropDefault(null)] public HXControlBoxStyle? style;
+      [Prop] public bool value;
+      [Prop(null)] public CompositionAction<bool> onChanged;
+      [Prop(true)] public bool enabled;
+      [Prop(false)] public bool error;
+      [Prop(null)] public HXControlBoxStyle? style;
     }
 
     protected override void OnRecompose(ref Composition cx) {

@@ -524,10 +524,10 @@ namespace HELIX.Compose {
   public partial class HXButton {
     public partial struct Props {
       public Composable content;
-      [PropDefault(null)] public CompositionAction action;
-      [PropDefault(true)] public bool enabled;
-      [PropDefault(false)] public bool selected;
-      [PropDefault(null)] public HXControlBoxStyle? style;
+      [Prop(null)] public CompositionAction action;
+      [Prop(true)] public bool enabled;
+      [Prop(false)] public bool selected;
+      [Prop(null)] public HXControlBoxStyle? style;
     }
 
     public static readonly ContextKey<HXControlBoxStyle> Style = new("ButtonStyle", HXControlBoxStyle.Default);

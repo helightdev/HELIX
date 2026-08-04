@@ -57,9 +57,13 @@ namespace HELIX.SourceGen {
       var extension = BooleanArgument(attribute, "Extension");
       var useLookupCache = BooleanArgument(attribute, "UseLookupCache");
       var baseArgument = TypeArgument(attribute, "Base");
+      var composableName = StringArgument(attribute, "Name") ?? composable.Name;
+      if (!IsValidIdentifier(composableName)) {
+        context.ReportDiagnostic(Diagnostic.Create(InvalidName, location, composable.Name, composableName));
+        return;
+      }
       if (!TryResolveBase(composable, baseArgument, context, location, out var baseType)) return;
 
-      var composableName = composable.Name;
       var extensionType = FullyQualifiedExtensionType(composable, composableName);
       var wrapper = WrapType(composable, "boundary-composable", CollectUsings(props ?? composable), baseType: baseType);
       var source = wrapper.Build(
@@ -90,7 +94,7 @@ namespace HELIX.SourceGen {
           }
 
           if (props is null) AppendEmptyPropsStruct(builder);
-          else if (hasPropFields) AppendPropsConstructor(builder, props, propCode);
+          else if (hasPropFields || propCode.Equality.HasMembers) AppendPropsMembers(builder, props, propCode);
         },
         builder => AppendExtensionClass(builder, composable, composableName, propCode, extension)
       );
@@ -138,7 +142,7 @@ namespace HELIX.SourceGen {
     private static void AppendEmptyPropsStruct(SharpStringBuilder builder) =>
       builder.BlankLine().AppendLine("public struct Props { }");
 
-    private static void AppendPropsConstructor(
+    private static void AppendPropsMembers(
       SharpStringBuilder builder,
       INamedTypeSymbol props,
       PropStructModel code
@@ -148,11 +152,14 @@ namespace HELIX.SourceGen {
 
       builder.BlankLine();
       using (builder.Type("partial struct Props")) {
-        using (builder.Method(
-          $"{accessibility}{unsafeModifier} Props",
-          code.ParameterParts,
-          code.ParameterParts.Count > 0
-        )) code.AppendAssignments(builder, "this");
+        if (code.ParameterParts.Count > 0) {
+          using (builder.Method(
+            $"{accessibility}{unsafeModifier} Props",
+            code.ParameterParts,
+            multiline: true
+          )) code.AppendAssignments(builder, "this");
+        }
+        code.Equality.AppendMembers(builder);
       }
     }
 

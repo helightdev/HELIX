@@ -13,7 +13,7 @@ namespace HELIX.Examples {
   [BoundaryComposable(Extension = true, UseLookupCache = true)]
   public partial class MyBetterWidget {
     public partial struct Props {
-      [PropDefault("HELIX.Coloring.Colors.Red", PropInit.Deferred)]
+      [Prop("HELIX.Coloring.Colors.Red", PropInit.Deferred)]
       public Color color;
     }
 

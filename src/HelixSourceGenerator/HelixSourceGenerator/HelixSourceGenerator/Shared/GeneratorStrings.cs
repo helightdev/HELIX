@@ -8,8 +8,7 @@ namespace HELIX.SourceGen {
         ComposableProxy = "HELIX.Compose.ComposableProxyAttribute",
         Composition = "HELIX.Compose.CompositionAttribute",
         Context = "HELIX.Compose.ContextAttribute",
-        PropDefault = "HELIX.Compose.PropDefaultAttribute",
-        PropProxy = "HELIX.Compose.PropProxyAttribute",
+        Prop = "HELIX.Compose.PropAttribute",
         PropStruct = "HELIX.Compose.PropStructAttribute",
         UxmlElement = "UnityEngine.UIElements.UxmlElementAttribute";
     }
@@ -39,7 +38,8 @@ namespace HELIX.SourceGen {
         ProxyPreYield = "/* Skip Before Yield */",
         ProxyPostYield = "/* Skip Post Yield */",
         ProxyScopeCallback = "cell.TrimChildren();",
-        ProxyEquality = "{0} == {1}";
+        ProxyEquality = "{0} == {1}",
+        ProxyHashCode = "{0}";
     }
   }
 }
