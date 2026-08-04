@@ -6,11 +6,6 @@ namespace HELIX.Compose {
   [AttributeUsage(AttributeTargets.Method)]
   public class CompositionAttribute : Attribute { }
 
-  [AttributeUsage(AttributeTargets.Method)]
-  public class CompositionBoundaryAttribute : Attribute {
-    public Type Base { get; set; }
-  }
-
   [AttributeUsage(AttributeTargets.Class)]
   public class BoundaryComposableAttribute : Attribute {
     public Type Base { get; set; }

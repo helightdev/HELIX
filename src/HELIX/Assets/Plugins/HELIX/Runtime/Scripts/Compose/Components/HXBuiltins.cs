@@ -520,45 +520,32 @@ namespace HELIX.Compose {
     }
   }
 
-  public static partial class ButtonDefinition {
-    [CompositionBoundary(Base = typeof(InputClickableComposable<>))]
-    public static partial ref ElementRef Button(
-      ref this Composition cx,
-      [Prop] Composable content,
-      [Prop] CompositionAction action = null,
-      [Prop] bool enabled = true,
-      [Prop] bool selected = false,
-      [Prop] HXControlBoxStyle? style = null
-    );
-
-    public static ref ElementRef Button(
-      ref this Composition cx,
-      CompositionAction action = null,
-      bool enabled = true,
-      bool selected = false,
-      HXControlBoxStyle? style = null
-    ) {
-      return ref Button(ref cx, null, action, enabled, selected, style);
+  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
+  public partial class HXButton {
+    public partial struct Props {
+      public Composable content;
+      [PropDefault(null)] public CompositionAction action;
+      [PropDefault(true)] public bool enabled;
+      [PropDefault(false)] public bool selected;
+      [PropDefault(null)] public HXControlBoxStyle? style;
     }
 
     public static readonly ContextKey<HXControlBoxStyle> Style = new("ButtonStyle", HXControlBoxStyle.Default);
 
-    public partial class ButtonComposable {
-      protected override void OnRecompose(ref Composition cx) {
-        this.Toggle(State.Selected, props.Selected);
-        this.Toggle(State.Disabled, !props.Enabled);
-        Node.SetEnabled(props.Enabled);
-        cx.CURSOR.Focusable(props.Enabled);
+    protected override void OnRecompose(ref Composition cx) {
+      this.Toggle(State.Selected, props.selected);
+      this.Toggle(State.Disabled, !props.enabled);
+      Node.SetEnabled(props.selected);
+      cx.CURSOR.Focusable(props.enabled);
 
-        var boxStyle = props.Style ?? Style.ReadOrThemeProperty(in cx, ThemeProperties.ButtonFilled);
-        boxStyle.RenderBoundary(ref cx, InputState);
-        if (props.Content != null) props.Content.Invoke(ref cx);
-      }
+      var boxStyle = props.style ?? Style.ReadOrThemeProperty(in cx, ThemeProperties.ButtonFilled);
+      boxStyle.RenderBoundary(ref cx, InputState);
+      if (props.content != null) props.content.Invoke(ref cx);
+    }
 
-      protected override void OnClick(EventBase evt) {
-        if (!props.Enabled) return;
-        props.Action?.Call(Node);
-      }
+    protected override void OnClick(EventBase evt) {
+      if (!props.enabled) return;
+      props.action?.Call(Node);
     }
   }
 }

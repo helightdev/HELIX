@@ -92,7 +92,7 @@ namespace TestNamespace {
         // ).BackgroundColor(Colors.BlueGrey).Display(counter / 100 % 2 == 0);
 
         cx.Text($"AfterSwitch");
-        cx.Button(
+        cx.HXButton(
           static (ref Composition cx) => {
             cx.Text($"Click me {CounterSignal.Value}");
           },
@@ -136,7 +136,7 @@ namespace TestNamespace {
     }
 
     public static void ButtonSpecDrawer(ref Composition cx, in ButtonSpecs specs) {
-      cx.Button(
+      cx.HXButton(
         static (ref Composition cx) => {
           cx.Text("Click me Spec");
         },
