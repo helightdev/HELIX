@@ -47,6 +47,17 @@ namespace TestNamespace {
       }
 
 
+      cx.ListView(
+        itemCount: 500,
+        itemBuilder: static (ref Composition cx, int index) => {
+          cx.Text($"Item {index}");
+        },
+        separatorBuilder: static (ref Composition cx, int index) => {
+          cx.Gap(10);
+        }
+      );
+      cx.CURSOR.Size(BoxConstraints.Tight(200, 200));
+
       // using var exampleContext = cx.WriteContext<ExampleContext>();
       // exampleContext.value.counter = counter;
       using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {

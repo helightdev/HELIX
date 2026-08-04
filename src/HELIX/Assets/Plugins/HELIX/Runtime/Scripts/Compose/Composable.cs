@@ -31,36 +31,36 @@ namespace HELIX.Compose {
 
   public enum ComposableKind { ScopeElement, Element }
 
-  [ComposableProxy(
-    Target = typeof(ScrollView),
-    Kind = ComposableKind.ScopeElement,
-    Name = "NativeScrollView",
-    CreateSyntax = "instance = new {TYPE}();"
-  )]
-  public partial struct ScrollViewProxy {
-    public static readonly PlainEventListener<float>.Binding SliderValueBinding = new(
-      accessor: PlainEventAccessor<float>.Casting<Scroller>(
-        subscribe: (scroller, action) => scroller.valueChanged += action,
-        unsubscribe: (scroller, action) => scroller.valueChanged -= action
-      ),
-      targetSelector: static root => root.Q<Scroller>()
-    );
-
-    [Prop(ScrollViewMode.Vertical)]
-    public ScrollViewMode mode;
-
-    [Prop(ScrollView.NestedInteractionKind.Default)]
-    public ScrollView.NestedInteractionKind nestedInteractionKind;
-
-    [Prop(ScrollerVisibility.Hidden, ProxySetter = "horizontalScrollerVisibility")]
-    public ScrollerVisibility horizontalScroller;
-
-    [Prop(ScrollerVisibility.Hidden, ProxySetter = "verticalScrollerVisibility")]
-    public ScrollerVisibility verticalScroller;
-
-    [Prop(null, ProxyFunction = "SliderValueBinding.Bind(instance, {VALUE});")]
-    public CompositionAction<float> onVerticalScroll;
-  }
+  // [ComposableProxy(
+  //   Target = typeof(ScrollView),
+  //   Kind = ComposableKind.ScopeElement,
+  //   Name = "NativeScrollView",
+  //   CreateSyntax = "instance = new {TYPE}();"
+  // )]
+  // public partial struct ScrollViewProxy {
+  //   public static readonly PlainEventListener<float>.Binding SliderValueBinding = new(
+  //     accessor: PlainEventAccessor<float>.Casting<Scroller>(
+  //       subscribe: (scroller, action) => scroller.valueChanged += action,
+  //       unsubscribe: (scroller, action) => scroller.valueChanged -= action
+  //     ),
+  //     targetSelector: static root => root.Q<Scroller>()
+  //   );
+  //
+  //   [Prop(ScrollViewMode.Vertical)]
+  //   public ScrollViewMode mode;
+  //
+  //   [Prop(ScrollView.NestedInteractionKind.Default)]
+  //   public ScrollView.NestedInteractionKind nestedInteractionKind;
+  //
+  //   [Prop(ScrollerVisibility.Hidden, ProxySetter = "horizontalScrollerVisibility")]
+  //   public ScrollerVisibility horizontalScroller;
+  //
+  //   [Prop(ScrollerVisibility.Hidden, ProxySetter = "verticalScrollerVisibility")]
+  //   public ScrollerVisibility verticalScroller;
+  //
+  //   [Prop(null, ProxyFunction = "SliderValueBinding.Bind(instance, {VALUE});")]
+  //   public CompositionAction<float> onVerticalScroll;
+  // }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Parameter)]
   public class PropAttribute : Attribute {
