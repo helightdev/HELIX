@@ -139,6 +139,8 @@ namespace HELIX.Coloring {
       Color overlay,
       float time
     ) {
+      if (background.a < 0.5f) return AlphaBlend(background, overlay.MultiplyOpacity(time));
+
       var a = background.ToOkLab();
       var b = overlay.ToOkLab();
       return ContrastBlend(a, b, time).ToGamma();

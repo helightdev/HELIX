@@ -73,6 +73,10 @@ namespace HELIX.Theming {
       Checkbox = new(data => DefaultCheckbox(data)),
       TextField = new(data => DefaultInputField(data));
 
+    public static readonly ThemeProperty<PopupMenuStyle>
+      DropdownButton = new(data => DefaultDropdownButton(data)),
+      MenuButton = new(data => DefaultMenuButton(data));
+
     // Special Components
     public static readonly ThemeProperty<SliderStyle> Slider = new(data => DefaultSlider(data));
     public static readonly ThemeProperty<SliderStyle>

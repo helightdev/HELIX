@@ -131,7 +131,7 @@ namespace HELIX.Theming {
         color: background.Derive(CommonSelectable),
         radius: ButtonRadius[data]
       ).Bake();
-      var focus = DefaultFocusOutline[data];
+      var focus = DefaultFocusOutline(data, focusStyle: ButtonFocusStyle.Indent);
       var textStyle = TextColor(foreground).Derive(CommonSelectable);
       return new HXControlBoxStyle(
         background: (ref Composition cx, State value) => {
@@ -168,7 +168,8 @@ namespace HELIX.Theming {
       ThemeData data,
       ColorRole color = SurfaceContainer,
       ColorRole onColor = OnSurfaceContainerHigh,
-      ColorRole borderColor = SurfaceContainerHighest
+      ColorRole borderColor = SurfaceContainerHighest,
+      bool useButtonPadding = false
     ) {
       StateBlend(data, color, onColor, out var background, out var foreground);
       StateBlend(data, borderColor, onColor, out var border);
@@ -182,11 +183,62 @@ namespace HELIX.Theming {
 
       return new HXControlBoxStyle(
         margin: InputFieldMargin[data],
-        padding: InputFieldPadding[data],
+        padding: useButtonPadding ? ButtonPadding[data] : InputFieldPadding[data],
         constraints: InputFieldConstraints[data],
         textStyle: TextColor(foreground).Derive(Common),
         alignment: Alignment.CenterLeft,
         background: solid
+      );
+    }
+
+    public static PopupMenuStyle DefaultDropdownButton(ThemeData data) =>
+      DefaultPopupMenu(data, DefaultInputField(data, useButtonPadding: true), matchAnchorWidth: true);
+
+    public static PopupMenuStyle DefaultMenuButton(ThemeData data) =>
+      DefaultPopupMenu(data, DefaultButtonOutlined(data), matchAnchorWidth: false);
+
+    private static PopupMenuStyle DefaultPopupMenu(
+      ThemeData data,
+      HXControlBoxStyle button,
+      bool matchAnchorWidth
+    ) {
+      var panelBackground = new HXSolidBoxStyle(
+        border: Border.All(data[BorderRole.Normal], data[Outline]),
+        radius: InputBoxRadius[data],
+        color: data[SurfaceContainer]
+      ).Bake();
+      var panel = new HXControlBoxStyle(
+        padding: EdgeInsets.All(data[Spacing1]),
+        constraints: BoxConstraints.Null,
+        textStyle: new TextStyle(color: data[OnSurface]),
+        alignment: Alignment.CenterLeft,
+        background: panelBackground
+      );
+
+      var itemBase = DefaultButtonGhost(data, color: SurfaceContainer);
+      var item = new HXControlBoxStyle(
+        padding: itemBase.padding,
+        margin: itemBase.margin,
+        alignment: Alignment.CenterLeft,
+        constraints: BoxConstraints.Min(new StyleLength2(0f, data[BodyMedium].lineHeight)),
+        textStyle: itemBase.textStyle,
+        background: itemBase.background
+      );
+      var heading = data[LabelSmall].style;
+      heading.color = data[OnSurfaceVariant];
+
+      return new PopupMenuStyle(
+        button,
+        panel,
+        item,
+        heading,
+        EdgeInsets.Symmetric(data[Spacing2], data[Spacing1]),
+        data[Outline],
+        separatorThickness: data[BorderRole.Normal],
+        gap: Mathf.Max(1f, data[Spacing1] * 0.25f),
+        offset: new Vector2(0f, data[Spacing1]),
+        submenuOffset: new Vector2(data[Spacing2], 0f),
+        matchAnchorWidth: matchAnchorWidth
       );
     }
 

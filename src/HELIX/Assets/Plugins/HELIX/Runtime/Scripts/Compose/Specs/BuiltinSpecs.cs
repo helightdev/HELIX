@@ -8,10 +8,10 @@ using TextStyle = HELIX.Types.TextStyle;
 namespace HELIX.Compose {
   public readonly struct ChevronSpec : ISpec {
     public readonly ArrowPosition position;
-    public readonly float size;
-    public readonly Color color;
+    public readonly StyleLength size;
+    public readonly StyleColor color;
 
-    public ChevronSpec(ArrowPosition position, float size, Color color) {
+    public ChevronSpec(ArrowPosition position, StyleLength size, StyleColor color) {
       this.position = position;
       this.size = size;
       this.color = color;

@@ -12,7 +12,7 @@ namespace HELIX.Types {
       new TimeValue(0f, TimeUnit.Millisecond)
     );
 
-    public const float DefaultDuration = 200f;
+    public const float DefaultDuration = 150f;
 
 
     public EasingFunction easing;

@@ -92,7 +92,7 @@ namespace HELIX.Extensions {
       return element;
     }
 
-    public static T TextColor<T>(this T element, Color color) where T : VisualElement {
+    public static T TextColor<T>(this T element, StyleColor color) where T : VisualElement {
       element.style.color = color;
       return element;
     }

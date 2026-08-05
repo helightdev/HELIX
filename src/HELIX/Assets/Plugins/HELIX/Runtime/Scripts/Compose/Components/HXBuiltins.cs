@@ -21,7 +21,13 @@ namespace HELIX.Compose {
     }
 
     private static readonly List<StylePropertyName> _allTransitionProperties =
-      new(1) { new StylePropertyName("all") };
+      new() {
+        StyleProperties.BackgroundColor,
+        StyleProperties.BorderLeftColor,
+        StyleProperties.BorderTopColor,
+        StyleProperties.BorderRightColor,
+        StyleProperties.BorderBottomColor,
+      };
     private static readonly Dictionary<TransitionOptions, TransitionStyleLists> _transitionStyles = new();
 
     public static ref ElementRef Padding(this ref ElementRef scope, StyleLength4 size) {
@@ -194,7 +200,7 @@ namespace HELIX.Compose {
       return ref scope;
     }
 
-    public static ref ElementRef TextColor(this ref ElementRef scope, Color color) {
+    public static ref ElementRef TextColor(this ref ElementRef scope, StyleColor color) {
       scope.element.TextColor(color);
       scope.composable.Flag |= UssFlag.Text;
       return ref scope;
@@ -535,7 +541,6 @@ namespace HELIX.Compose {
     protected override void OnRecompose(ref Composition cx) {
       this.Toggle(State.Selected, props.selected);
       this.Toggle(State.Disabled, !props.enabled);
-      Node.SetEnabled(props.selected);
       cx.CURSOR.Focusable(props.enabled);
 
       var boxStyle = props.style ?? Style.ReadOrThemeProperty(in cx, ThemeProperties.ButtonFilled);

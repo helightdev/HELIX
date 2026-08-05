@@ -1,6 +1,7 @@
 using HELIX.Coloring;
 using HELIX.Types;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace HELIX.Theming {
   public static class HXThemes {
@@ -82,7 +83,12 @@ namespace HELIX.Theming {
     }
 
     public static void ApplyDefaultTypography(this ThemeData themeData) {
-      var baseStyle = new TextStyle(color: themeData.surface.onValue);
+      var baseStyle = new TextStyle(
+        color: themeData.surface.onValue,
+        style: FontStyle.Normal,
+        wrap: WhiteSpace.Normal,
+        overflow: TextOverflow.Clip
+      );
 
       themeData.display = TypographyGroup.Display(baseStyle);
       themeData.headline = TypographyGroup.Headline(baseStyle);
