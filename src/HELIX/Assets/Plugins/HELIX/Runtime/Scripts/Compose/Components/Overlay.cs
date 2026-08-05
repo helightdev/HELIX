@@ -32,33 +32,43 @@ namespace HELIX.Compose {
     After
   }
 
+  [Flags]
+  public enum OverlayBehavior : ushort {
+    None = 0,
+    FlipToFit = 1 << 0,
+    ClampToHost = 1 << 1,
+    FollowAnchor = 1 << 2,
+    MatchAnchorWidth = 1 << 3,
+    DismissWhenAnchorDetached = 1 << 4,
+    Barrier = 1 << 5,
+    DismissOnOutsidePointer = 1 << 6,
+    DismissOnCancel = 1 << 7,
+    CaptureFocus = 1 << 8,
+    RestoreFocus = 1 << 9,
+    Prelayout = 1 << 10,
+    Stacked = 1 << 11,
+    Default = FlipToFit | ClampToHost | FollowAnchor | DismissWhenAnchorDetached |
+              DismissOnCancel | RestoreFocus | Prelayout
+  }
+
   [PropStruct] public readonly partial struct OverlayOptions {
     // Force the generated constructor to run; an empty struct initializer zeroes every option.
-    public static readonly OverlayOptions Default = new(placement: OverlayPlacement.Center);
+    public static readonly OverlayOptions Default = new(behavior: OverlayBehavior.Default);
 
     [Prop(OverlayPlacement.Center)] public readonly OverlayPlacement placement;
+    [Prop(OverlayBehavior.Default)] public readonly OverlayBehavior behavior;
     [Prop(null)] public readonly OverlayHandle parent;
     [Prop(null)] public readonly VisualElement anchor;
     [Prop("default", PropInit.Constant)] public readonly Vector2 offset;
     [Prop(12f)] public readonly float margin;
-    [Prop(true)] public readonly bool flipToFit;
-    [Prop(true)] public readonly bool clampToHost;
-    [Prop(true)] public readonly bool followAnchor;
-    [Prop(false)] public readonly bool matchAnchorWidth;
-    [Prop(true)] public readonly bool dismissWhenAnchorDetached;
-    [Prop(false)] public readonly bool barrier;
     [Prop("new UnityEngine.Color(0f, 0f, 0f, 0.45f)", PropInit.Deferred)]
     public readonly Color barrierColor;
-    [Prop(false)] public readonly bool dismissOnOutsidePointer;
-    [Prop(true)] public readonly bool dismissOnCancel;
-    [Prop(false)] public readonly bool captureFocus;
-    [Prop(true)] public readonly bool restoreFocus;
-    [Prop(true)] public readonly bool prelayout;
     [Prop(null)] public readonly BoxConstraints? constraints;
-    [Prop(false)] public readonly bool stacked;
     [Prop(8f)] public readonly float stackSpacing;
     [Prop(0)] public readonly int timeoutMs;
     [Prop(null)] public readonly CompositionAction<OverlayDismissReason> onDismissed;
+
+    public bool Has(OverlayBehavior value) => (behavior & value) == value;
   }
 
   public readonly struct OverlayContextData : IEquatable<OverlayContextData> {
@@ -128,20 +138,9 @@ namespace HELIX.Compose {
     private VisualElement _anchor;
     private Vector2 _offset;
     private float _margin;
-    private bool _flipToFit;
-    private bool _clampToHost;
-    private bool _followAnchor;
-    private bool _matchAnchorWidth;
-    private bool _dismissWhenAnchorDetached;
-    private bool _barrier;
+    private OverlayBehavior _behavior;
     private Color _barrierColor;
-    private bool _dismissOnOutsidePointer;
-    private bool _dismissOnCancel;
-    private bool _captureFocus;
-    private bool _restoreFocus;
-    private bool _prelayout;
     private BoxConstraints? _constraints;
-    private bool _stacked;
     private float _stackSpacing;
     private int _timeoutMs;
     private CompositionAction<OverlayDismissReason> _onDismissed;
@@ -156,20 +155,9 @@ namespace HELIX.Compose {
       _anchor = options.anchor;
       _offset = options.offset;
       _margin = options.margin;
-      _flipToFit = options.flipToFit;
-      _clampToHost = options.clampToHost;
-      _followAnchor = options.followAnchor;
-      _matchAnchorWidth = options.matchAnchorWidth;
-      _dismissWhenAnchorDetached = options.dismissWhenAnchorDetached;
-      _barrier = options.barrier;
+      _behavior = options.behavior;
       _barrierColor = options.barrierColor;
-      _dismissOnOutsidePointer = options.dismissOnOutsidePointer;
-      _dismissOnCancel = options.dismissOnCancel;
-      _captureFocus = options.captureFocus;
-      _restoreFocus = options.restoreFocus;
-      _prelayout = options.prelayout;
       _constraints = options.constraints;
-      _stacked = options.stacked;
       _stackSpacing = options.stackSpacing;
       _timeoutMs = options.timeoutMs;
       _onDismissed = options.onDismissed;
@@ -179,9 +167,8 @@ namespace HELIX.Compose {
       bool dismissOnOutsidePointer = false,
       Color? barrierColor = null
     ) {
-      _barrier = true;
-      _captureFocus = true;
-      _dismissOnOutsidePointer = dismissOnOutsidePointer;
+      Set(OverlayBehavior.Barrier | OverlayBehavior.CaptureFocus, true);
+      Set(OverlayBehavior.DismissOnOutsidePointer, dismissOnOutsidePointer);
       if (barrierColor.HasValue) _barrierColor = barrierColor.Value;
       return this;
     }
@@ -204,65 +191,45 @@ namespace HELIX.Compose {
       return this;
     }
 
-    /// <summary>
-    /// Associates this entry with a parent overlay. Outside-pointer dismissal on the parent remains
-    /// active while this entry is topmost, which is useful for nested popovers and menus.
-    /// </summary>
     public OverlayBuilder Parent(OverlayHandle parent) {
       _parent = parent;
       return this;
     }
 
-    public OverlayBuilder FollowAnchor(bool enabled = true) {
-      _followAnchor = enabled;
+    public OverlayBuilder Behaviors(OverlayBehavior behavior) {
+      _behavior = behavior;
       return this;
     }
 
-    public OverlayBuilder MatchAnchorWidth(bool enabled = true) {
-      _matchAnchorWidth = enabled;
-      return this;
-    }
+    public OverlayBuilder FollowAnchor(bool enabled = true) => Set(OverlayBehavior.FollowAnchor, enabled);
 
-    public OverlayBuilder FlipToFit(bool enabled = true) {
-      _flipToFit = enabled;
-      return this;
-    }
+    public OverlayBuilder MatchAnchorWidth(bool enabled = true) => Set(OverlayBehavior.MatchAnchorWidth, enabled);
+
+    public OverlayBuilder FlipToFit(bool enabled = true) => Set(OverlayBehavior.FlipToFit, enabled);
 
     public OverlayBuilder ClampToHost(bool enabled = true, float margin = 12f) {
-      _clampToHost = enabled;
       _margin = Mathf.Max(0f, margin);
-      return this;
+      return Set(OverlayBehavior.ClampToHost, enabled);
     }
 
-    public OverlayBuilder DismissOnOutsidePointer(bool enabled = true) {
-      _dismissOnOutsidePointer = enabled;
-      return this;
-    }
+    public OverlayBuilder DismissOnOutsidePointer(bool enabled = true) =>
+      Set(OverlayBehavior.DismissOnOutsidePointer, enabled);
 
-    public OverlayBuilder DismissOnCancel(bool enabled = true) {
-      _dismissOnCancel = enabled;
-      return this;
-    }
+    public OverlayBuilder DismissOnCancel(bool enabled = true) => Set(OverlayBehavior.DismissOnCancel, enabled);
 
-    public OverlayBuilder DismissWhenAnchorDetaches(bool enabled = true) {
-      _dismissWhenAnchorDetached = enabled;
-      return this;
-    }
+    public OverlayBuilder DismissWhenAnchorDetaches(bool enabled = true) =>
+      Set(OverlayBehavior.DismissWhenAnchorDetached, enabled);
 
     public OverlayBuilder CaptureFocus(bool enabled = true, bool restore = true) {
-      _captureFocus = enabled;
-      _restoreFocus = restore;
-      return this;
+      Set(OverlayBehavior.RestoreFocus, enabled && restore);
+      return Set(OverlayBehavior.CaptureFocus, enabled);
     }
 
     /// <summary>
     /// Measures the composed surface while hidden before placing it. When disabled, content measurements
     /// never request placement updates and positioning uses the supplied constraints instead.
     /// </summary>
-    public OverlayBuilder Prelayout(bool enabled = true) {
-      _prelayout = enabled;
-      return this;
-    }
+    public OverlayBuilder Prelayout(bool enabled = true) => Set(OverlayBehavior.Prelayout, enabled);
 
     /// <summary>
     /// Constrains the overlay surface and provides its expected size to placement without a prelayout pass.
@@ -273,9 +240,8 @@ namespace HELIX.Compose {
     }
 
     public OverlayBuilder Stacked(bool enabled = true, float spacing = 8f) {
-      _stacked = enabled;
       _stackSpacing = Mathf.Max(0f, spacing);
-      return this;
+      return Set(OverlayBehavior.Stacked, enabled);
     }
 
     public OverlayBuilder Timeout(int milliseconds) {
@@ -303,29 +269,16 @@ namespace HELIX.Compose {
       return controller.Show(_content, BuildOptions(), callbackBoundary);
     }
 
+    private OverlayBuilder Set(OverlayBehavior behavior, bool enabled) {
+      if (enabled) _behavior |= behavior;
+      else _behavior &= ~behavior;
+      return this;
+    }
+
     private OverlayOptions BuildOptions() => new(
-      placement: _placement,
-      parent: _parent,
-      anchor: _anchor,
-      offset: _offset,
-      margin: _margin,
-      flipToFit: _flipToFit,
-      clampToHost: _clampToHost,
-      followAnchor: _followAnchor,
-      matchAnchorWidth: _matchAnchorWidth,
-      dismissWhenAnchorDetached: _dismissWhenAnchorDetached,
-      barrier: _barrier,
-      barrierColor: _barrierColor,
-      dismissOnOutsidePointer: _dismissOnOutsidePointer,
-      dismissOnCancel: _dismissOnCancel,
-      captureFocus: _captureFocus,
-      restoreFocus: _restoreFocus,
-      prelayout: _prelayout,
-      constraints: _constraints,
-      stacked: _stacked,
-      stackSpacing: _stackSpacing,
-      timeoutMs: _timeoutMs,
-      onDismissed: _onDismissed
+      placement: _placement, behavior: _behavior, parent: _parent, anchor: _anchor,
+      offset: _offset, margin: _margin, barrierColor: _barrierColor, constraints: _constraints,
+      stackSpacing: _stackSpacing, timeoutMs: _timeoutMs, onDismissed: _onDismissed
     );
   }
 
@@ -405,7 +358,7 @@ namespace HELIX.Compose {
       var current = entry;
       while (current != null && current.Options.parent != null) {
         current = Find(current.Options.parent.Id);
-        if (current != null && current.Options.captureFocus) root = current;
+        if (current != null && current.Options.Has(OverlayBehavior.CaptureFocus)) root = current;
       }
       return root;
     }
@@ -472,473 +425,6 @@ namespace HELIX.Compose {
       NotifyDirty();
       NotifyObservers();
     }
-  }
-
-  internal sealed class OverlayContentBoundary : BoundaryVisualElement {
-    private readonly Func<float> _resolveAnchorWidth;
-    private OverlayEntry _entry;
-    private float _anchorWidth = float.NaN;
-
-    public OverlayContentBoundary(Func<float> resolveAnchorWidth) {
-      _resolveAnchorWidth = resolveAnchorWidth;
-      this.MakeAbsolute().Tight();
-      pickingMode = PickingMode.Position;
-    }
-
-    internal OverlayHandle handle => _entry?.Handle;
-    internal bool hasComposed { get; private set; }
-
-    internal void Bind(OverlayEntry entry) {
-      if (ReferenceEquals(_entry, entry)) return;
-      _anchorWidth = float.NaN;
-      _entry = entry;
-      hasComposed = false;
-      if (panel != null) HXComposer.MarkDirty(this, false);
-    }
-
-    public override void PerformCompose(ref Composition cx) => Compose(ref cx);
-
-    public override void Compose(ref Composition cx) {
-      if (_entry == null) return;
-      var identity = unchecked((int)_entry.Id ^ (int)(_entry.Id >> 32));
-      cx.AUTHORING.SetId(CompositionId.Generated(identity));
-      var contextData = new OverlayContextData(_entry.Handle.Controller, _entry.Handle);
-      using (cx.WriteContext(out var context)) {
-        OverlayContextData.Key[in context] = contextData;
-      }
-      _entry.Content?.Invoke(ref cx, contextData);
-      hasComposed = true;
-      _entry.Options.constraints?.Apply(this);
-      SynchronizeAnchorWidth();
-    }
-
-    internal bool SynchronizeAnchorWidth() {
-      if (_entry == null) return false;
-      var options = _entry.Options;
-      if (!options.matchAnchorWidth || options.anchor?.panel == null) return false;
-      var width = _resolveAnchorWidth?.Invoke() ?? float.NaN;
-      if (!IsFinitePositive(width) || Mathf.Approximately(_anchorWidth, width)) return false;
-      _anchorWidth = width;
-      style.width = width;
-      return true;
-    }
-
-    private static bool IsFinitePositive(float value) => value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
-  }
-
-  internal sealed class OverlayEntryElement : VisualElement, IDisposable {
-    private readonly OverlayContentBoundary _content;
-    private readonly Action _requestPlacement;
-    private IVisualElementScheduledItem _anchorPoll;
-    private IVisualElementScheduledItem _timeout;
-    private IVisualElementScheduledItem _focusRecovery;
-    private VisualElement _previousFocus;
-    private bool _hasCapturedPreviousFocus;
-    private OverlayEntry _entry;
-    private bool _hasContentGeometry;
-    private bool _positioned;
-    private float _placementHeight;
-    private Vector2 _translation = new(float.NaN, float.NaN);
-
-    public OverlayEntryElement(Action requestPlacement) {
-      _requestPlacement = requestPlacement;
-      this.Stretched();
-      pickingMode = PickingMode.Ignore;
-      tabIndex = -1;
-      _content = new OverlayContentBoundary(ResolveAnchorWidth).AddTo(hierarchy);
-      _content.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
-      RegisterCallback<PointerDownEvent>(OnPointerDown);
-      RegisterCallback<KeyDownEvent>(OnKeyDown);
-      RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
-      RegisterCallback<FocusOutEvent>(OnFocusOut);
-      RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
-    }
-
-    public float PlacementHeight => _placementHeight;
-
-    public void Bind(OverlayEntry entry) {
-      var changed = !ReferenceEquals(_entry, entry);
-      _entry = entry;
-      _content.Bind(entry);
-      ConfigureContentLayout(entry.Options);
-      if (changed && !_positioned) {
-        _hasContentGeometry = false;
-        _content.visible = !entry.Options.prelayout;
-      }
-      pickingMode = entry.Options.barrier ? PickingMode.Position : PickingMode.Ignore;
-      style.backgroundColor = entry.Options.barrier ? entry.Options.barrierColor : Color.clear;
-      focusable = entry.Options.captureFocus;
-      _content.focusable = false;
-      ConfigureSchedules(changed);
-      _requestPlacement?.Invoke();
-    }
-
-    public bool ApplyPlacement(float stackOffset) {
-      if (_entry == null || parent == null) return false;
-      var options = _entry.Options;
-      if (options.placement == OverlayPlacement.Fill) {
-        _placementHeight = FiniteOrZero(contentRect.height);
-        SetTranslation(Vector2.zero);
-        RevealPositionedContent();
-        return true;
-      }
-
-      if (options.prelayout && !_hasContentGeometry) return false;
-      if (options.prelayout && options.anchor != null && options.anchor.panel == null) return false;
-
-      var hostRect = contentRect;
-      var contentSize = options.prelayout
-        ? new Vector2(FiniteOrZero(_content.layout.width), FiniteOrZero(_content.layout.height))
-        : ResolveConstraintSize(options.constraints, hostRect.size);
-      var width = contentSize.x;
-      var height = contentSize.y;
-      var margin = Mathf.Max(0f, options.margin);
-      var x = margin;
-      var y = margin;
-
-      if (TryResolveAnchorRect(out var anchor)) {
-        if (options.matchAnchorWidth) width = anchor.width;
-        ResolveAnchored(options.placement, anchor, width, height, out x, out y);
-        if (options.flipToFit) FlipToFit(options.placement, anchor, hostRect, width, height, ref x, ref y);
-      } else {
-        ResolveViewport(options.placement, hostRect, width, height, margin, out x, out y);
-      }
-
-      x += options.offset.x;
-      y += options.offset.y + StackDirection(options.placement) * stackOffset;
-      if (options.clampToHost) {
-        x = Mathf.Clamp(x, margin, Mathf.Max(margin, hostRect.width - width - margin));
-        y = Mathf.Clamp(y, margin, Mathf.Max(margin, hostRect.height - height - margin));
-      }
-      SetTranslation(new Vector2(x, y));
-      _placementHeight = height;
-      RevealPositionedContent();
-      return true;
-    }
-
-    private float ResolveAnchorWidth() => TryResolveAnchorRect(out var anchor) ? anchor.width : float.NaN;
-
-    private bool TryResolveAnchorRect(out Rect anchor) {
-      anchor = default;
-      var element = _entry?.Options.anchor;
-      if (element?.panel == null || panel == null) return false;
-      anchor = this.WorldToLocal(element.worldBound);
-      return true;
-    }
-
-    public void Dispose() {
-      _anchorPoll?.Pause();
-      _timeout?.Pause();
-      _focusRecovery?.Pause();
-      RestoreFocus();
-      _content.RemoveFromHierarchy();
-      _content.Dispose();
-      _entry = null;
-    }
-
-    private void ConfigureSchedules(bool changed) {
-      _anchorPoll?.Pause();
-      _anchorPoll = null;
-      _timeout?.Pause();
-      _timeout = null;
-      if (_entry == null) return;
-
-      var options = _entry.Options;
-      if (options.anchor != null && options.followAnchor) {
-        _anchorPoll = schedule.Execute(PollAnchor).Every(16);
-      }
-      if (options.timeoutMs > 0) {
-        _timeout = schedule.Execute(() => {
-            _entry?.Handle.Dismiss(OverlayDismissReason.Timeout);
-          }
-        );
-        _timeout.ExecuteLater(options.timeoutMs);
-      }
-      if (changed && panel != null) CaptureFocus();
-    }
-
-    private void PollAnchor() {
-      if (_entry == null) return;
-      var options = _entry.Options;
-      if (options.anchor == null) return;
-      if (options.anchor.panel == null) {
-        if (options.dismissWhenAnchorDetached) {
-          _entry.Handle.Dismiss(OverlayDismissReason.AnchorDetached);
-        }
-        return;
-      }
-      _content.SynchronizeAnchorWidth();
-      _requestPlacement?.Invoke();
-    }
-
-    private void OnPointerDown(PointerDownEvent evt) {
-      if (_entry == null || !_entry.Handle.Controller.IsTopOrAncestor(_entry)) return;
-      if (!_entry.Options.barrier ||
-          !_entry.Options.dismissOnOutsidePointer ||
-          _content.worldBound.Contains(evt.position)) return;
-      _entry.Handle.Dismiss(OverlayDismissReason.OutsidePointer);
-      evt.StopImmediatePropagation();
-    }
-
-    private void OnKeyDown(KeyDownEvent evt) {
-      if (evt.keyCode != KeyCode.Escape || !DismissFromCancel()) return;
-      evt.StopImmediatePropagation();
-    }
-
-    private void OnNavigationCancel(NavigationCancelEvent evt) {
-      if (!DismissFromCancel()) return;
-      evt.StopImmediatePropagation();
-    }
-
-    private bool DismissFromCancel() {
-      if (_entry == null || !_entry.Options.dismissOnCancel) return false;
-      if (!ReferenceEquals(_entry.Handle.Controller.Top, _entry)) return false;
-      return _entry.Handle.Dismiss(OverlayDismissReason.Cancel);
-    }
-
-    private void OnFocusOut(FocusOutEvent evt) {
-      if (_entry?.Options.captureFocus != true) return;
-      var next = evt.relatedTarget as VisualElement;
-      if (IsInsideOverlayFamily(next)) return;
-      if (next == null) {
-        RecoverFocus();
-        return;
-      }
-
-      var controller = _entry.Handle.Controller;
-      var scopeRoot = controller.FocusScopeRoot(_entry);
-      if (IsInsideOverlayFamily(next, scopeRoot)) {
-        if (_entry.Options.parent != null) _entry.Handle.Dismiss(OverlayDismissReason.FocusLost);
-        return;
-      }
-      if (!scopeRoot.Options.dismissOnOutsidePointer) {
-        RecoverFocus();
-        return;
-      }
-
-      scopeRoot.Handle.Dismiss(OverlayDismissReason.FocusLost);
-    }
-
-    private bool IsInsideOverlayFamily(VisualElement element) => IsInsideOverlayFamily(element, _entry);
-
-    private static bool IsInsideOverlayFamily(VisualElement element, OverlayEntry entry) {
-      if (element == null || entry == null) return false;
-      var targetOverlay = element as OverlayEntryElement ?? element.GetFirstAncestorOfType<OverlayEntryElement>();
-      return targetOverlay?._entry != null &&
-             entry.Handle.Controller.IsDescendantOf(targetOverlay._entry, entry);
-    }
-
-    private void OnAttachToPanel(AttachToPanelEvent evt) => CaptureFocus();
-
-    private void RecoverFocus() {
-      _focusRecovery?.Pause();
-      _focusRecovery = schedule.Execute(() => {
-          _focusRecovery = null;
-          if (_entry == null || panel == null || !_entry.Handle.IsOpen) return;
-          if (!ReferenceEquals(_entry.Handle.Controller.Top, _entry)) return;
-          var focused = panel.focusController.focusedElement as VisualElement;
-          if (IsInsideOverlayFamily(focused)) return;
-          Focus();
-        }
-      );
-      _focusRecovery.ExecuteLater(1);
-    }
-
-    private void CaptureFocus() {
-      if (_entry?.Options.captureFocus != true || panel == null) return;
-      if (_entry.Options.prelayout && !_positioned) return;
-      if (!_hasCapturedPreviousFocus) {
-        _previousFocus = panel.focusController.focusedElement as VisualElement;
-        _hasCapturedPreviousFocus = true;
-      }
-      RecoverFocus();
-    }
-
-    private void RestoreFocus() {
-      _focusRecovery?.Pause();
-      _focusRecovery = null;
-      if (_entry?.Options.restoreFocus == true &&
-          _entry.DismissReason != OverlayDismissReason.FocusLost &&
-          _previousFocus?.panel != null) _previousFocus.Focus();
-      ForgetPreviousFocus();
-    }
-
-    private void ForgetPreviousFocus() {
-      _previousFocus = null;
-      _hasCapturedPreviousFocus = false;
-    }
-
-    private void OnGeometryChanged(GeometryChangedEvent evt) {
-      if (_entry?.Options.prelayout != true || !_content.hasComposed) return;
-      _hasContentGeometry = true;
-      _requestPlacement?.Invoke();
-    }
-
-    private void ConfigureContentLayout(in OverlayOptions options) {
-      _translation = new Vector2(float.NaN, float.NaN);
-      _content.style.translate = new Translate();
-      if (options.placement == OverlayPlacement.Fill) {
-        _content.Stretched();
-        return;
-      }
-
-      _content.MakeAbsolute();
-      _content.style.left = 0f;
-      _content.style.top = 0f;
-      _content.style.right = StyleKeyword.Auto;
-      _content.style.bottom = StyleKeyword.Auto;
-    }
-
-    private void SetTranslation(Vector2 translation) {
-      if (Approximately(_translation, translation)) return;
-      _translation = translation;
-      _content.style.translate = new Translate(translation.x, translation.y);
-    }
-
-    private static bool Approximately(Vector2 a, Vector2 b) =>
-      Mathf.Approximately(a.x, b.x) && Mathf.Approximately(a.y, b.y);
-
-    private void RevealPositionedContent() {
-      if (_positioned) return;
-      _positioned = true;
-      _content.visible = true;
-      CaptureFocus();
-    }
-
-    private static void ResolveViewport(
-      OverlayPlacement placement, Rect host, float width, float height, float margin,
-      out float x, out float y
-    ) {
-      x = (host.width - width) * 0.5f;
-      y = (host.height - height) * 0.5f;
-      switch (placement) {
-        case OverlayPlacement.TopStart:
-          x = margin;
-          y = margin;
-          break;
-        case OverlayPlacement.Top: y = margin; break;
-        case OverlayPlacement.TopEnd:
-          x = host.width - width - margin;
-          y = margin;
-          break;
-        case OverlayPlacement.BottomStart:
-          x = margin;
-          y = host.height - height - margin;
-          break;
-        case OverlayPlacement.Bottom: y = host.height - height - margin; break;
-        case OverlayPlacement.BottomEnd:
-          x = host.width - width - margin;
-          y = host.height - height - margin;
-          break;
-        case OverlayPlacement.Start: x = margin; break;
-        case OverlayPlacement.End: x = host.width - width - margin; break;
-      }
-    }
-
-    private static void ResolveAnchored(
-      OverlayPlacement placement, Rect anchor, float width, float height,
-      out float x, out float y
-    ) {
-      x = anchor.xMin;
-      y = anchor.yMax;
-      switch (placement) {
-        case OverlayPlacement.AboveStart:
-          x = anchor.xMin;
-          y = anchor.yMin - height;
-          break;
-        case OverlayPlacement.Above:
-          x = anchor.center.x - width * 0.5f;
-          y = anchor.yMin - height;
-          break;
-        case OverlayPlacement.AboveEnd:
-          x = anchor.xMax - width;
-          y = anchor.yMin - height;
-          break;
-        case OverlayPlacement.BelowStart:
-          x = anchor.xMin;
-          y = anchor.yMax;
-          break;
-        case OverlayPlacement.Below:
-          x = anchor.center.x - width * 0.5f;
-          y = anchor.yMax;
-          break;
-        case OverlayPlacement.BelowEnd:
-          x = anchor.xMax - width;
-          y = anchor.yMax;
-          break;
-        case OverlayPlacement.Before:
-          x = anchor.xMin - width;
-          y = anchor.center.y - height * 0.5f;
-          break;
-        case OverlayPlacement.After:
-          x = anchor.xMax;
-          y = anchor.center.y - height * 0.5f;
-          break;
-        default:
-          x = anchor.xMin;
-          y = anchor.yMax;
-          break;
-      }
-    }
-
-    private static void FlipToFit(
-      OverlayPlacement placement, Rect anchor, Rect host, float width, float height,
-      ref float x, ref float y
-    ) {
-      if (IsBelow(placement) && y + height > host.height) y = anchor.yMin - height;
-      else if (IsAbove(placement) && y < 0f) y = anchor.yMax;
-      if (placement == OverlayPlacement.After && x + width > host.width) x = anchor.xMin - width;
-      else if (placement == OverlayPlacement.Before && x < 0f) x = anchor.xMax;
-    }
-
-    private static bool IsAbove(OverlayPlacement placement) =>
-      placement is OverlayPlacement.AboveStart or OverlayPlacement.Above or OverlayPlacement.AboveEnd;
-
-    private static bool IsBelow(OverlayPlacement placement) =>
-      placement is OverlayPlacement.BelowStart or OverlayPlacement.Below or OverlayPlacement.BelowEnd;
-
-    private static float StackDirection(OverlayPlacement placement) =>
-      placement is OverlayPlacement.BottomStart or OverlayPlacement.Bottom or OverlayPlacement.BottomEnd ? -1f : 1f;
-
-    private static Vector2 ResolveConstraintSize(BoxConstraints? constraints, Vector2 available) {
-      if (!constraints.HasValue) return Vector2.zero;
-      var value = constraints.Value;
-      return new Vector2(
-        ResolveConstraint(value.preferred.w, value.min.w, value.max.w, available.x),
-        ResolveConstraint(value.preferred.h, value.min.h, value.max.h, available.y)
-      );
-    }
-
-    private static float ResolveConstraint(
-      StyleLength preferred,
-      StyleLength minimum,
-      StyleLength maximum,
-      float available
-    ) {
-      var min = ResolveLength(minimum, available, 0f);
-      var max = ResolveLength(maximum, available, float.PositiveInfinity);
-      var value = ResolveLength(preferred, available, 0f, available);
-      return Mathf.Clamp(value, min, Mathf.Max(min, max));
-    }
-
-    private static float ResolveLength(
-      StyleLength length,
-      float available,
-      float fallback,
-      float automatic = float.NaN
-    ) {
-      if (length.keyword == StyleKeyword.Undefined) {
-        return length.value.unit == LengthUnit.Percent
-          ? length.value.value * available / 100f
-          : length.value.value;
-      }
-      if ((length.keyword is StyleKeyword.Auto or StyleKeyword.Initial) && !float.IsNaN(automatic)) {
-        return automatic;
-      }
-      return fallback;
-    }
-
-    private static float FiniteOrZero(float value) => float.IsNaN(value) || float.IsInfinity(value) ? 0f : value;
   }
 
   [ComposableProxy(Extension = false)]
@@ -1039,7 +525,7 @@ namespace HELIX.Compose {
         if (!_elements.TryGetValue(entry.Id, out var element)) continue;
         var offset = 0f;
         var options = entry.Options;
-        var stack = options.stacked && options.anchor == null;
+        var stack = options.Has(OverlayBehavior.Stacked) && options.anchor == null;
         if (stack) {
           if (pending.Contains(options.placement)) continue;
           offsets.TryGetValue(options.placement, out offset);
@@ -1048,7 +534,7 @@ namespace HELIX.Compose {
           if (stack) pending.Add(options.placement);
           continue;
         }
-        if (options.stacked && options.anchor == null) {
+        if (stack) {
           offsets[options.placement] = offset + element.PlacementHeight + Mathf.Max(0f, options.stackSpacing);
         }
       }
@@ -1154,6 +640,6 @@ namespace HELIX.Compose {
 
     public static OverlayHandle OverlayEntry(this CompositionContext context) =>
       OverlayContextData.Key.ReadAt(context.element).handle ??
-      context.Lookup<OverlayContentBoundary>()?.handle;
+      context.Lookup<OverlayContentBoundary>()?.Handle;
   }
 }

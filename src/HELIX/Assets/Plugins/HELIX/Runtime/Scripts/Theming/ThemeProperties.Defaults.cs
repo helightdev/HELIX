@@ -227,6 +227,7 @@ namespace HELIX.Theming {
       var heading = data[LabelSmall].style;
       heading.color = data[OnSurfaceVariant];
 
+      var iconColor = data.ContrastLerp(Surface, OnSurfaceContainer, High);
       return new PopupMenuStyle(
         button,
         panel,
@@ -234,10 +235,11 @@ namespace HELIX.Theming {
         heading,
         EdgeInsets.Symmetric(data[Spacing2], data[Spacing1]),
         data[Outline],
+        iconColor,
         separatorThickness: data[BorderRole.Normal],
-        gap: Mathf.Max(1f, data[Spacing1] * 0.25f),
+        gap: data[Spacing1] * 0.75f,
         offset: new Vector2(0f, data[Spacing1]),
-        submenuOffset: new Vector2(data[Spacing2], 0f),
+        submenuOffset: new Vector2(Mathf.Lerp(data[Spacing1], data[Spacing2], 0.25f), 0f),
         matchAnchorWidth: matchAnchorWidth
       );
     }

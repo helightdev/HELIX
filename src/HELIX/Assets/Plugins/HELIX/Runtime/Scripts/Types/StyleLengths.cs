@@ -40,6 +40,36 @@ namespace HELIX.Types {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static float Resolve(
+      StyleLength length,
+      float available,
+      float fallback = 0f,
+      float automatic = float.NaN
+    ) {
+      if (length.keyword == StyleKeyword.Undefined) {
+        return length.value.unit == LengthUnit.Percent
+          ? length.value.value * available / 100f
+          : length.value.value;
+      }
+      return length.keyword is StyleKeyword.Auto or StyleKeyword.Initial && !float.IsNaN(automatic)
+        ? automatic
+        : fallback;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static float ResolveConstraint(
+      StyleLength preferred,
+      StyleLength minimum,
+      StyleLength maximum,
+      float available
+    ) {
+      var min = Resolve(minimum, available);
+      var max = Resolve(maximum, available, float.PositiveInfinity);
+      var value = Resolve(preferred, available, automatic: available);
+      return Mathf.Clamp(value, min, Mathf.Max(min, max));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool Precondition(StyleLength a, StyleLength b, out StyleLength escape) {
       escape = default;
       if (a.keyword != StyleKeyword.Undefined) {

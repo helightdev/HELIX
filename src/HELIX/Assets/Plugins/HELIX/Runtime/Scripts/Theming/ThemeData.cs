@@ -490,7 +490,7 @@ namespace HELIX.Theming {
 
   public struct BorderProgression {
     public static readonly BorderProgression Default = new() {
-      borderSmall = 1f, borderNormal = 2f, borderLarge = 4f, borderExtraLarge = 6f
+      borderSmall = 1f, borderNormal = 1f, borderLarge = 2f, borderExtraLarge = 4f
     };
 
     public float borderSmall;

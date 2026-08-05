@@ -8,25 +8,18 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   [PropStruct] public readonly partial struct PopupMenuStyle {
-    [Prop(Equatable = false)]
     public readonly HXControlBoxStyle button;
-    [Prop(Equatable = false)]
     public readonly HXControlBoxStyle panel;
-    [Prop(Equatable = false)]
     public readonly HXControlBoxStyle item;
     public readonly TextStyle headingTextStyle;
     public readonly StyleLength4 headingPadding;
     public readonly Color separatorColor;
-    [Prop(1f)]
-    public readonly float separatorThickness;
-    [Prop(2f)]
-    public readonly float gap;
-    [Prop("default", PropInit.Constant)]
-    public readonly Vector2 offset;
-    [Prop("default", PropInit.Constant)]
-    public readonly Vector2 submenuOffset;
-    [Prop(false)]
-    public readonly bool matchAnchorWidth;
+    public readonly Color iconColor;
+    [Prop(1f)] public readonly float separatorThickness;
+    [Prop(2f)] public readonly float gap;
+    [Prop("default", PropInit.Constant)] public readonly Vector2 offset;
+    [Prop("default", PropInit.Constant)] public readonly Vector2 submenuOffset;
+    [Prop(false)] public readonly bool matchAnchorWidth;
   }
 
   public readonly struct DropdownOption<T> {
@@ -210,7 +203,9 @@ namespace HELIX.Compose {
         cx.Text(props.label ?? string.Empty);
         if (props.hasChildren) {
           cx.Spacing(1);
-          cx.Text("›");
+          new ChevronSpec(
+             ArrowPosition.Right, ThemeProperties.ChevronSize[in cx],TextStyle.Key[in cx].color
+          ).Compose(ref cx);
         }
       }
     }
@@ -263,9 +258,8 @@ namespace HELIX.Compose {
         cx.Text(controller.SelectedLabel);
         cx.Spacing(1);
 
-        var style = TextStyle.Key[in cx];
         new ChevronSpec(
-          _menu?.IsOpen == true ? ArrowPosition.Up : ArrowPosition.Down, style.size, style.color
+          _menu?.IsOpen == true ? ArrowPosition.Up : ArrowPosition.Down, ThemeProperties.ChevronSize[in cx], _resolvedStyle.iconColor
         ).Compose(ref cx);
       }
     }
@@ -313,14 +307,8 @@ namespace HELIX.Compose {
         for (var i = 0; i < controller.Count; i++) {
           if (i > 0 && style.gap > 0f) cx.Gap(style.gap);
           PopupMenuItemBoundary.ComposeBoundary(
-            ref cx,
-            this,
-            i,
-            controller.Label(i),
-            controller.IsEnabled(i),
-            controller.IsSelected(i),
-            false,
-            style.item
+            ref cx, this, i,
+            controller.Label(i), controller.IsEnabled(i), controller.IsSelected(i), false, style.item
           );
         }
       }
@@ -399,9 +387,8 @@ namespace HELIX.Compose {
         cx.CURSOR.Flexible().AlignSelf(Align.Stretch);
         props.content?.Invoke(ref cx);
         cx.Spacing(1);
-        var style = TextStyle.Key[in cx];
         new ChevronSpec(
-          _presenter?.IsOpen == true ? ArrowPosition.Up : ArrowPosition.Down, style.size, style.color
+          _presenter?.IsOpen == true ? ArrowPosition.Up : ArrowPosition.Down, ThemeProperties.ChevronSize[in cx], _resolvedStyle.iconColor
         ).Compose(ref cx);
       }
     }
@@ -512,7 +499,7 @@ namespace HELIX.Compose {
       spec = default;
       if (_items == null || index < 0 || index >= _items.Count) return false;
       spec = _items[index];
-      return spec.kind == MenuItemKind.Action && spec.enabled;
+      return spec is { kind: MenuItemKind.Action, enabled: true };
     }
 
     private void ShowChild(int index, VisualElement anchor) {
@@ -549,13 +536,8 @@ namespace HELIX.Compose {
               break;
             default:
               PopupMenuItemBoundary.ComposeBoundary(
-                ref cx,
-                this,
-                i,
-                item.label ?? string.Empty,
-                item.enabled,
-                item.selected,
-                item.children != null && item.children.Count > 0,
+                ref cx, this, i,
+                item.label ?? string.Empty, item.enabled, item.selected, item.children is { Count: > 0 },
                 _style.item
               );
               break;
@@ -608,8 +590,7 @@ namespace HELIX.Compose {
       PopupMenuStyle? style = null
     ) {
       ref var result = ref HXDropdownButton.ComposeBoundary(ref cx, null, style);
-      if ((result.element as CompositionBoundaryNodeBase)?.BoundaryComposable
-        is HXDropdownButton boundary) {
+      if ((result.element as CompositionBoundaryNodeBase)?.BoundaryComposable is HXDropdownButton boundary) {
         boundary.ConfigureAutomatic(value, options, onChanged, placeholder, enabled, error);
       }
       return ref result;

@@ -26,10 +26,10 @@ namespace HELIX.Compose {
           cx.Text("\u25BC").TextSize(spec.size).TextColor(spec.color);
           break;
         case ArrowPosition.Left:
-          cx.Text("\u25C0").TextSize(spec.size).TextColor(spec.color);
+          cx.Text("\u25C4").TextSize(spec.size).TextColor(spec.color);
           break;
         case ArrowPosition.Right:
-          cx.Text("\u25B6").TextSize(spec.size).TextColor(spec.color);
+          cx.Text("\u25BA").TextSize(spec.size).TextColor(spec.color);
           break;
         default: throw new ArgumentOutOfRangeException();
       }

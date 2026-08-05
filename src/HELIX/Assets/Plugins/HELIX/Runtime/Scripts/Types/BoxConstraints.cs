@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
@@ -22,6 +23,11 @@ namespace HELIX.Types {
       element.style.maxWidth = max.w;
       element.style.maxHeight = max.h;
     }
+
+    public Vector2 ResolveSize(Vector2 available) => new(
+      StyleLengths.ResolveConstraint(preferred.w, min.w, max.w, available.x),
+      StyleLengths.ResolveConstraint(preferred.h, min.h, max.h, available.y)
+    );
 
     public bool Equals(BoxConstraints other) {
       return preferred.Equals(other.preferred) && min.Equals(other.min) && max.Equals(other.max);

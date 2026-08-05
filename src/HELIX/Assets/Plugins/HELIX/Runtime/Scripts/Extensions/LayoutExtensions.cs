@@ -6,15 +6,7 @@ namespace HELIX.Extensions {
   public static class LayoutExtensions {
     public static float LayoutSimple(this StyleLength length, float available, Vector2 constraints) {
       return Mathf.Clamp(
-        length.keyword switch {
-          StyleKeyword.Auto or StyleKeyword.Initial => available,
-          StyleKeyword.Undefined => length.value.unit switch {
-            LengthUnit.Pixel => length.value.value,
-            LengthUnit.Percent => length.value.value / 100f * available,
-            _ => 0
-          },
-          _ => 0
-        },
+        StyleLengths.Resolve(length, available, automatic: available),
         Mathf.Approximately(constraints.x, -1) ? float.NegativeInfinity : constraints.x,
         Mathf.Approximately(constraints.y, -1) ? float.PositiveInfinity : constraints.y
       );

@@ -498,8 +498,8 @@ namespace HELIX.Examples {
     private static void ComposeExampleModal(ref Composition cx, OverlayContextData overlay) {
       var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark);
       cx.CURSOR
-        .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainerHigh))
-        .TextColor(theme.GetColor(ColorRoles.OnSurface))
+        .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainer))
+        .TextColor(theme.GetColor(ColorRoles.OnSurfaceContainer))
         .BorderRadius(16f);
       using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Padding(20f);
