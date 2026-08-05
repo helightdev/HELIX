@@ -54,7 +54,7 @@ namespace HELIX.Editor {
       });
     }
 
-    [MenuItem("Window/HELIX/Inspectors/Active Boundaries", false, 1012)]
+    [UnityEditor.MenuItem("Window/HELIX/Inspectors/Active Boundaries", false, 1012)]
     private static void ShowWindow() {
       var window = GetWindow<ActiveBoundariesInspectorWindow>();
       window.titleContent = new GUIContent("HELIX Boundaries");

@@ -18,7 +18,7 @@ namespace HELIX.Editor {
     protected override IReadOnlyList<InspectorHierarchyColumn> HierarchyColumns => _columns;
 
 
-    [MenuItem("Window/HELIX/Inspectors/Context Keys", false, 1010)]
+    [UnityEditor.MenuItem("Window/HELIX/Inspectors/Context Keys", false, 1010)]
     private static void ShowWindow() {
       var window = GetWindow<ContextKeysInspectorWindow>();
       window.titleContent = new GUIContent("HELIX Context Keys");

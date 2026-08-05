@@ -50,58 +50,51 @@ namespace HELIX.Examples {
     public static readonly SliderOptions VolumeOptionsScroll = new(
       0f, 1f, step: 0f, thumbRange: 0.1f, axis: Axis.Vertical
     );
+
     public static readonly TextInputValueAdapter<float> DecimalValueAdapter = new(
       value => value.ToString("0.00", CultureInfo.InvariantCulture),
       (string text, out float value) => float.TryParse(
         text, NumberStyles.Float, CultureInfo.InvariantCulture, out value
       )
     );
+
     public static readonly IReadOnlyList<DropdownOption<ExampleMode>> ModeOptions =
       new DropdownOption<ExampleMode>[] {
         new(ExampleMode.Balanced, "Balanced"),
         new(ExampleMode.Performance, "Performance"),
         new(ExampleMode.Quality, "Quality")
       };
-    public static readonly IReadOnlyList<MenuItemSpec> ExampleMenuItems = new MenuItemSpec[] {
-      MenuItemSpec.Heading("Actions"),
-      new(
-        "Toggle controls",
-        static ctx => {
+
+    public static readonly IReadOnlyList<MenuItem> ExampleMenuItems = new[] {
+      new MenuItem(MenuItemKind.Heading, "Actions"),
+      new MenuItem(
+        "Toggle controls", static ctx => {
           using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
         }
       ),
-      new("Selected action", static ctx => Debug.Log("Selected menu action"), selected: true),
-      new("Unavailable action", enabled: false),
-      MenuItemSpec.Separator(),
-      MenuItemSpec.Submenu(
-        "Mode",
-        new MenuItemSpec[] {
-          new(
-            "Balanced",
-            static ctx => {
-              using (ctx.Modify<HomeComposable>(out var state)) { state.mode = ExampleMode.Balanced; }
+      new MenuItem("Selected action", static ctx => Debug.Log("Selected menu action"), selected: true),
+      new MenuItem("Unavailable action", enabled: false),
+      new MenuItem(MenuItemKind.Separator),
+      new MenuItem("Mode") {
+        new MenuItem(
+          "Balanced", static ctx => {
+            using (ctx.Modify<HomeComposable>(out var state)) { state.mode = ExampleMode.Balanced; }
+          }
+        ),
+        new MenuItem(
+          "Performance", static ctx => {
+            using (ctx.Modify<HomeComposable>(out var state)) { state.mode = ExampleMode.Performance; }
+          }
+        ),
+        new MenuItem("Quality") {
+          new MenuItem(
+            "High", static ctx => {
+              using (ctx.Modify<HomeComposable>(out var state)) { state.mode = ExampleMode.Quality; }
             }
           ),
-          new(
-            "Performance",
-            static ctx => {
-              using (ctx.Modify<HomeComposable>(out var state)) { state.mode = ExampleMode.Performance; }
-            }
-          ),
-          MenuItemSpec.Submenu(
-            "Quality",
-            new MenuItemSpec[] {
-              new(
-                "High",
-                static ctx => {
-                  using (ctx.Modify<HomeComposable>(out var state)) { state.mode = ExampleMode.Quality; }
-                }
-              ),
-              new("Ultra", static ctx => Debug.Log("Ultra quality selected"))
-            }
-          )
+          new MenuItem("Ultra", static ctx => Debug.Log("Ultra quality selected"))
         }
-      )
+      }
     };
 
     public string text = "Editable text";
@@ -173,10 +166,12 @@ namespace HELIX.Examples {
               static (ref Composition child) => child.Text("Open modal"),
               action: static ctx => Overlay.Build(ComposeExampleModal)
                 .Modal(dismissOnOutsidePointer: true)
-                .Constraints(BoxConstraints.Only(
-                  min: new StyleLength2(360f, 0f),
-                  max: new StyleLength2(520f, StyleKeyword.None)
-                ))
+                .Constraints(
+                  BoxConstraints.Only(
+                    min: new StyleLength2(360f, 0f),
+                    max: new StyleLength2(520f, StyleKeyword.None)
+                  )
+                )
                 .DismissOnCancel()
                 .Show(ctx)
             );
@@ -485,7 +480,7 @@ namespace HELIX.Examples {
         if (cx.CursorDirty) cx.CURSOR.Padding(16f);
         cx.Text("Details route").TextRole(TextRole.TitleMedium);
         cx.Spacing(1);
-        cx.Text(navigation.arguments.Get("message", "No route argument was supplied."));
+        cx.Text(navigation.Arguments.Get("message", "No route argument was supplied."));
         cx.Spacing(2);
         cx.Button(
           static (ref Composition child) => child.Text("Pop route"),
@@ -505,7 +500,8 @@ namespace HELIX.Examples {
         if (cx.CursorDirty) cx.CURSOR.Padding(20f);
         cx.Text("Composable modal").TextRole(TextRole.TitleLarge);
         cx.Spacing(1);
-        cx.Text("The modal, its barrier, focus policy, and dismissal rules are all an overlay entry.").TextRole(TextRole.BodySmall);
+        cx.Text("The modal, its barrier, focus policy, and dismissal rules are all an overlay entry.")
+          .TextRole(TextRole.BodySmall);
         cx.Spacing(2);
         cx.Button(
           static (ref Composition child) => child.Text("Close"),

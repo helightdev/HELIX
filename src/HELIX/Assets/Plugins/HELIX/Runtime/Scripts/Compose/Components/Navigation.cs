@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using HELIX.Extensions;
 using HELIX.Signals;
+using Unity.Burst;
 using UnityEngine.UIElements;
+// ReSharper disable Unity.BurstLoadingManagedType
+// ReSharper disable Unity.BurstFunctionSignatureContainsManagedTypes
 
 namespace HELIX.Compose {
   public sealed class NavigationArguments {
@@ -43,6 +47,7 @@ namespace HELIX.Compose {
       : new NavigationArguments(new Dictionary<string, object>(_values, StringComparer.Ordinal));
   }
 
+
   public readonly struct NavigationContextData : IEquatable<NavigationContextData> {
     public static readonly ContextKey<NavigationContextData> Key = new("NavigationContext");
 
@@ -54,9 +59,9 @@ namespace HELIX.Compose {
       this.entry = entry;
     }
 
-    public string route => entry?.Name;
-    public NavigationArguments arguments => entry?.Arguments ?? NavigationArguments.Empty;
-    public bool canPop => controller?.CanPop ?? false;
+    public string Route => entry?.Name;
+    public NavigationArguments Arguments => entry?.Arguments ?? NavigationArguments.Empty;
+    public bool CanPop => controller?.CanPop ?? false;
 
     public bool Equals(NavigationContextData other) =>
       ReferenceEquals(controller, other.controller) && ReferenceEquals(entry, other.entry);
@@ -332,7 +337,7 @@ namespace HELIX.Compose {
       public bool covered;
     }
 
-    internal NavigationEntry entry => props.entry;
+    internal NavigationEntry Entry => props.entry;
 
     protected override void OnRecompose(ref Composition cx) {
       Node.Stretched();
@@ -354,7 +359,7 @@ namespace HELIX.Compose {
       [Prop(null)] public NavigationController controller;
     }
 
-    public NavigationController controller { get; private set; }
+    public NavigationController Controller { get; private set; }
     private bool _isAutomaticController;
 
     protected override void OnAttach() {
@@ -364,16 +369,16 @@ namespace HELIX.Compose {
 
     protected override void OnDetach() {
       Node.UnregisterCallback<NavigationCancelEvent>(OnNavigationCancel);
-      if (_isAutomaticController) controller?.Dispose();
-      controller = null;
+      if (_isAutomaticController) Controller?.Dispose();
+      Controller = null;
       _isAutomaticController = false;
       base.OnDetach();
     }
 
     protected override void OnRecompose(ref Composition cx) {
       EnsureController();
-      cx.SubscribeTo(controller);
-      var contextData = new NavigationContextData(controller, null);
+      cx.SubscribeTo(Controller);
+      var contextData = new NavigationContextData(Controller, null);
       using (cx.WriteContext(out var context)) {
         NavigationContextData.Key[in context] = contextData;
       }
@@ -381,37 +386,37 @@ namespace HELIX.Compose {
       Node.focusable = true;
       Node.pickingMode = PickingMode.Ignore;
 
-      var stack = controller.BackStack;
+      var stack = Controller.BackStack;
       for (var i = 0; i < stack.Count; i++) {
         var entry = stack[i];
         var identity = unchecked((int)entry.Id ^ (int)(entry.Id >> 32));
         cx.AUTHORING.SetId(CompositionId.Generated(identity));
-        NavigationPageBoundary.ComposeBoundary(ref cx, controller, entry, IsCovered(stack, i));
+        NavigationPageBoundary.ComposeBoundary(ref cx, Controller, entry, IsCovered(stack, i));
       }
     }
 
     private void EnsureController() {
       if (props.controller == null) {
-        if (controller == null || !_isAutomaticController) {
-          if (_isAutomaticController) controller?.Dispose();
-          controller = new NavigationController(props.graph);
+        if (Controller == null || !_isAutomaticController) {
+          if (_isAutomaticController) Controller?.Dispose();
+          Controller = new NavigationController(props.graph);
           _isAutomaticController = true;
         } else {
-          controller.SetGraph(props.graph);
+          Controller.SetGraph(props.graph);
         }
         return;
       }
 
-      if (!ReferenceEquals(controller, props.controller)) {
-        if (_isAutomaticController) controller?.Dispose();
-        controller = props.controller;
+      if (!ReferenceEquals(Controller, props.controller)) {
+        if (_isAutomaticController) Controller?.Dispose();
+        Controller = props.controller;
         _isAutomaticController = false;
       }
-      controller.SetGraph(props.graph, preserveStack: true);
+      Controller.SetGraph(props.graph, preserveStack: true);
     }
 
     private void OnNavigationCancel(NavigationCancelEvent evt) {
-      if (controller?.Pop() != true) return;
+      if (Controller?.Pop() != true) return;
       evt.StopPropagation();
     }
 
@@ -442,7 +447,7 @@ namespace HELIX.Compose {
       ref var result = ref NavigationHostBoundary.ComposeBoundary(ref cx, graph, controller);
       resolvedController = (result.element as CompositionBoundaryNodeBase)?.BoundaryComposable
         is NavigationHostBoundary boundary
-          ? boundary.controller
+          ? boundary.Controller
           : controller;
       return ref result;
     }
@@ -455,10 +460,10 @@ namespace HELIX.Compose {
 
     public static NavigationController NavigationController(this CompositionContext context) =>
       NavigationContextData.Key.ReadAt(context.element).controller ??
-      context.Lookup<NavigationHostBoundary>()?.controller;
+      context.Lookup<NavigationHostBoundary>()?.Controller;
 
     public static NavigationEntry NavigationEntry(this CompositionContext context) =>
       NavigationContextData.Key.ReadAt(context.element).entry ??
-      context.Lookup<NavigationPageBoundary>()?.entry;
+      context.Lookup<NavigationPageBoundary>()?.Entry;
   }
 }

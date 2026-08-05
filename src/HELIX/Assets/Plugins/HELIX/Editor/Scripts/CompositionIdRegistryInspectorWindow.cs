@@ -8,7 +8,7 @@ namespace HELIX.Editor {
   public sealed class CompositionIdRegistryInspectorWindow : HelixHierarchyInspectorWindow {
     protected override string EmptyMessage => "The composition ID registry is empty.";
 
-    [MenuItem("Window/HELIX/Inspectors/Composition ID Registry", false, 1011)]
+    [UnityEditor.MenuItem("Window/HELIX/Inspectors/Composition ID Registry", false, 1011)]
     private static void ShowWindow() {
       var window = GetWindow<CompositionIdRegistryInspectorWindow>();
       window.titleContent = new GUIContent("HELIX Composition IDs");

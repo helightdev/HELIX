@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using HELIX.Signals;
 using HELIX.Theming;
@@ -132,20 +133,20 @@ namespace HELIX.Compose {
 
   public enum MenuItemKind : byte { Action, Separator, Heading }
 
-  public readonly struct MenuItemSpec {
+  public class MenuItem : IEnumerable<MenuItem> {
     public readonly MenuItemKind kind;
     public readonly string label;
     public readonly CompositionAction action;
     public readonly bool enabled;
     public readonly bool selected;
-    public readonly IReadOnlyList<MenuItemSpec> children;
+    public IReadOnlyList<MenuItem> children;
 
-    public MenuItemSpec(
+    public MenuItem(
       string label,
       CompositionAction action = null,
       bool enabled = true,
       bool selected = false,
-      IReadOnlyList<MenuItemSpec> children = null
+      IReadOnlyList<MenuItem> children = null
     ) {
       kind = MenuItemKind.Action;
       this.label = label;
@@ -155,7 +156,14 @@ namespace HELIX.Compose {
       this.children = children;
     }
 
-    private MenuItemSpec(MenuItemKind kind, string label) {
+    public void Add(MenuItem spec) {
+      children ??= new List<MenuItem>();
+      if (children is not List<MenuItem> list)
+        throw new InvalidOperationException("Cannot add child items to a non-list children collection.");
+      list.Add(spec);
+    }
+
+    public MenuItem(MenuItemKind kind, string label = null) {
       this.kind = kind;
       this.label = label;
       action = null;
@@ -164,14 +172,13 @@ namespace HELIX.Compose {
       children = null;
     }
 
-    public static MenuItemSpec Submenu(
-      string label,
-      IReadOnlyList<MenuItemSpec> children,
-      bool enabled = true
-    ) => new(label, enabled: enabled, children: children);
+    public IEnumerator<MenuItem> GetEnumerator() {
+      throw new NotImplementedException(
+        "MenuItemSpec does not support enumeration. Use the children property to access submenu items."
+      );
+    }
 
-    public static MenuItemSpec Separator() => new(MenuItemKind.Separator, null);
-    public static MenuItemSpec Heading(string label) => new(MenuItemKind.Heading, label);
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
   }
 
   internal interface IPopupMenuItemOwner {
@@ -204,7 +211,7 @@ namespace HELIX.Compose {
         if (props.hasChildren) {
           cx.Spacing(1);
           new ChevronSpec(
-             ArrowPosition.Right, ThemeProperties.ChevronSize[in cx],TextStyle.Key[in cx].color
+            ArrowPosition.Right, ThemeProperties.ChevronSize[in cx], TextStyle.Key[in cx].color
           ).Compose(ref cx);
         }
       }
@@ -259,7 +266,8 @@ namespace HELIX.Compose {
         cx.Spacing(1);
 
         new ChevronSpec(
-          _menu?.IsOpen == true ? ArrowPosition.Up : ArrowPosition.Down, ThemeProperties.ChevronSize[in cx], _resolvedStyle.iconColor
+          _menu?.IsOpen == true ? ArrowPosition.Up : ArrowPosition.Down, ThemeProperties.ChevronSize[in cx],
+          _resolvedStyle.iconColor
         ).Compose(ref cx);
       }
     }
@@ -359,7 +367,7 @@ namespace HELIX.Compose {
   public partial class HXMenuButton {
     public partial struct Props {
       public Composable content;
-      public IReadOnlyList<MenuItemSpec> items;
+      public IReadOnlyList<MenuItem> items;
       [Prop(true)] public bool enabled;
       [Prop(false)] public bool selected;
       [Prop(null)] public PopupMenuStyle? style;
@@ -388,7 +396,8 @@ namespace HELIX.Compose {
         props.content?.Invoke(ref cx);
         cx.Spacing(1);
         new ChevronSpec(
-          _presenter?.IsOpen == true ? ArrowPosition.Up : ArrowPosition.Down, ThemeProperties.ChevronSize[in cx], _resolvedStyle.iconColor
+          _presenter?.IsOpen == true ? ArrowPosition.Up : ArrowPosition.Down, ThemeProperties.ChevronSize[in cx],
+          _resolvedStyle.iconColor
         ).Compose(ref cx);
       }
     }
@@ -424,7 +433,7 @@ namespace HELIX.Compose {
     private readonly CompositionAction<OverlayDismissReason> _externalDismissed;
     private readonly Composable<OverlayContextData> _content;
     private readonly CompositionAction<OverlayDismissReason> _dismissed;
-    private IReadOnlyList<MenuItemSpec> _items;
+    private IReadOnlyList<MenuItem> _items;
     private PopupMenuStyle _style;
     private OverlayHandle _handle;
     private MenuPresenter _child;
@@ -432,7 +441,7 @@ namespace HELIX.Compose {
 
     public MenuPresenter(
       OverlayController controller,
-      IReadOnlyList<MenuItemSpec> items,
+      IReadOnlyList<MenuItem> items,
       PopupMenuStyle style,
       CompositionAction<OverlayDismissReason> dismissed,
       MenuPresenter parent = null
@@ -448,7 +457,7 @@ namespace HELIX.Compose {
 
     public bool IsOpen => _handle?.IsOpen == true;
 
-    public void Update(IReadOnlyList<MenuItemSpec> items, PopupMenuStyle style) {
+    public void Update(IReadOnlyList<MenuItem> items, PopupMenuStyle style) {
       if (ReferenceEquals(_items, items)) return;
       _items = items;
       _style = style;
@@ -495,7 +504,7 @@ namespace HELIX.Compose {
       ShowChild(index, item);
     }
 
-    private bool TryGetAction(int index, out MenuItemSpec spec) {
+    private bool TryGetAction(int index, out MenuItem spec) {
       spec = default;
       if (_items == null || index < 0 || index >= _items.Count) return false;
       spec = _items[index];
