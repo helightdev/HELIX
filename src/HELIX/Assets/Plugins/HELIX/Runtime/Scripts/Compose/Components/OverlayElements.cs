@@ -8,6 +8,7 @@ namespace HELIX.Compose {
   internal sealed class OverlayContentBoundary : BoundaryVisualElement {
     private readonly Func<float> _resolveAnchorWidth;
     private OverlayEntry _entry;
+    private uint _contentRevision;
     private float _anchorWidth = float.NaN;
 
     public OverlayContentBoundary(Func<float> resolveAnchorWidth) {
@@ -20,9 +21,10 @@ namespace HELIX.Compose {
     internal bool HasComposed { get; private set; }
 
     internal void Bind(OverlayEntry entry) {
-      if (ReferenceEquals(_entry, entry)) return;
+      if (ReferenceEquals(_entry, entry) && _contentRevision == entry.ContentRevision) return;
       _anchorWidth = float.NaN;
       _entry = entry;
+      _contentRevision = entry.ContentRevision;
       HasComposed = false;
       if (panel != null) HXComposer.MarkDirty(this, false);
     }
@@ -62,7 +64,7 @@ namespace HELIX.Compose {
     private readonly Action _requestPlacement;
     private IVisualElementScheduledItem _anchorPoll;
     private IVisualElementScheduledItem _timeout;
-    private IVisualElementScheduledItem _focusRecovery;
+    private IVisualElementScheduledItem _focusRequest;
     private VisualElement _previousFocus;
     private bool _hasCapturedPreviousFocus;
     private OverlayEntry _entry;
@@ -80,7 +82,6 @@ namespace HELIX.Compose {
       _content = new OverlayContentBoundary(ResolveAnchorWidth).AddTo(hierarchy);
       _content.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
       RegisterCallback<PointerDownEvent>(OnPointerDown);
-      RegisterCallback<KeyDownEvent>(OnKeyDown);
       RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
       RegisterCallback<FocusOutEvent>(OnFocusOut);
       RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
@@ -162,7 +163,7 @@ namespace HELIX.Compose {
     public void Dispose() {
       _anchorPoll?.Pause();
       _timeout?.Pause();
-      _focusRecovery?.Pause();
+      _focusRequest?.Pause();
       RestoreFocus();
       _content.RemoveFromHierarchy();
       _content.Dispose();
@@ -184,7 +185,7 @@ namespace HELIX.Compose {
         _timeout = schedule.Execute(() => { _entry?.Handle.Dismiss(OverlayDismissReason.Timeout); });
         _timeout.ExecuteLater(options.timeoutMs);
       }
-      if (changed && panel != null) CaptureFocus();
+      if (changed && panel != null) RequestFocus();
     }
 
     private void PollAnchor() {
@@ -209,20 +210,13 @@ namespace HELIX.Compose {
       evt.StopImmediatePropagation();
     }
 
-    private void OnKeyDown(KeyDownEvent evt) {
-      if (evt.keyCode != KeyCode.Escape || !DismissFromCancel()) return;
-      evt.StopImmediatePropagation();
-    }
-
     private void OnNavigationCancel(NavigationCancelEvent evt) {
       if (!DismissFromCancel()) return;
       evt.StopImmediatePropagation();
     }
 
     private bool DismissFromCancel() {
-      if (_entry == null || !_entry.Options.Has(OverlayBehavior.DismissOnCancel)) return false;
-      if (!ReferenceEquals(_entry.Handle.Controller.Top, _entry)) return false;
-      return _entry.Handle.Dismiss(OverlayDismissReason.Cancel);
+      return _entry?.Handle.Controller.DismissFromCancel(_entry) == true;
     }
 
     private void OnFocusOut(FocusOutEvent evt) {
@@ -230,7 +224,7 @@ namespace HELIX.Compose {
       var next = evt.relatedTarget as VisualElement;
       if (IsInsideOverlayFamily(next)) return;
       if (next == null) {
-        RecoverFocus();
+        RequestFocus();
         return;
       }
 
@@ -241,7 +235,7 @@ namespace HELIX.Compose {
         return;
       }
       if (!scopeRoot.Options.Has(OverlayBehavior.DismissOnOutsidePointer)) {
-        RecoverFocus();
+        RequestFocus();
         return;
       }
 
@@ -257,12 +251,15 @@ namespace HELIX.Compose {
              entry.Handle.Controller.IsDescendantOf(targetOverlay._entry, entry);
     }
 
-    private void OnAttachToPanel(AttachToPanelEvent evt) => CaptureFocus();
+    private void OnAttachToPanel(AttachToPanelEvent evt) => RequestFocus();
 
-    private void RecoverFocus() {
-      _focusRecovery?.Pause();
-      _focusRecovery = schedule.Execute(() => {
-          _focusRecovery = null;
+    private void RequestFocus() {
+      if (_entry == null || !_entry.Options.Has(OverlayBehavior.CaptureFocus) || panel == null) return;
+      if (_entry.Options.Has(OverlayBehavior.Prelayout) && !_positioned) return;
+      CapturePreviousFocus();
+      _focusRequest?.Pause();
+      _focusRequest = schedule.Execute(() => {
+          _focusRequest = null;
           if (_entry == null || panel == null || !_entry.Handle.IsOpen) return;
           if (!ReferenceEquals(_entry.Handle.Controller.Top, _entry)) return;
           var focused = panel.focusController.focusedElement as VisualElement;
@@ -270,22 +267,19 @@ namespace HELIX.Compose {
           Focus();
         }
       );
-      _focusRecovery.ExecuteLater(1);
+      _focusRequest.ExecuteLater(1);
     }
 
-    private void CaptureFocus() {
-      if (_entry == null || !_entry.Options.Has(OverlayBehavior.CaptureFocus) || panel == null) return;
-      if (_entry.Options.Has(OverlayBehavior.Prelayout) && !_positioned) return;
+    private void CapturePreviousFocus() {
       if (!_hasCapturedPreviousFocus) {
         _previousFocus = panel.focusController.focusedElement as VisualElement;
         _hasCapturedPreviousFocus = true;
       }
-      RecoverFocus();
     }
 
     private void RestoreFocus() {
-      _focusRecovery?.Pause();
-      _focusRecovery = null;
+      _focusRequest?.Pause();
+      _focusRequest = null;
       if (_entry != null && _entry.Options.Has(OverlayBehavior.RestoreFocus) &&
           _entry.DismissReason != OverlayDismissReason.FocusLost &&
           _previousFocus?.panel != null) _previousFocus.Focus();
@@ -331,7 +325,7 @@ namespace HELIX.Compose {
       if (_positioned) return;
       _positioned = true;
       _content.visible = true;
-      CaptureFocus();
+      RequestFocus();
     }
   }
 }

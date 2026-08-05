@@ -56,6 +56,14 @@ namespace HELIX.Compose {
     public abstract string Label(int index);
     public abstract bool IsEnabled(int index);
     public abstract bool IsSelected(int index);
+    internal abstract void SynchronizeAutomatic(
+      object value,
+      object options,
+      Delegate onChanged,
+      string placeholder,
+      bool enabled,
+      bool error
+    );
     internal abstract void SetUserIndex(IBoundary boundary, int index);
 
     protected void NotifyListeners() {
@@ -120,6 +128,22 @@ namespace HELIX.Compose {
       enabled = updatedEnabled;
       error = updatedError;
     }
+
+    internal override void SynchronizeAutomatic(
+      object updated,
+      object updatedOptions,
+      Delegate updatedOnChanged,
+      string updatedPlaceholder,
+      bool updatedEnabled,
+      bool updatedError
+    ) => Synchronize(
+      updated == null ? default : (T)updated,
+      (IReadOnlyList<DropdownOption<T>>)updatedOptions,
+      (CompositionAction<T>)updatedOnChanged,
+      updatedPlaceholder,
+      updatedEnabled,
+      updatedError
+    );
 
     internal override void SetUserIndex(IBoundary boundary, int index) {
       if (index < 0 || index >= Count || !IsEnabled(index)) return;
@@ -232,6 +256,15 @@ namespace HELIX.Compose {
     public partial struct Props {
       [Prop(null)] public DropdownController controller;
       [Prop(null)] public PopupMenuStyle? style;
+
+      // Implicit controller definition
+      [Prop(null)] public object value;
+      [Prop(null)] public object options;
+      [Prop(null)] public Delegate onChanged;
+      [Prop(null)] public Func<DropdownController> controllerFactory;
+      [Prop(null)] public string placeholder;
+      [Prop(true)] public bool enabled;
+      [Prop(false)] public bool error;
     }
 
     private readonly Composable<OverlayContextData> _menuContent;
@@ -239,6 +272,7 @@ namespace HELIX.Compose {
     private OverlayController _overlays;
     private OverlayHandle _menu;
     private PopupMenuStyle _resolvedStyle;
+    private Func<DropdownController> _automaticControllerFactory;
     public DropdownController controller;
     public bool isAutomaticController = true;
 
@@ -322,31 +356,33 @@ namespace HELIX.Compose {
       }
     }
 
-    internal void ConfigureAutomatic<T>(
-      T value,
-      IReadOnlyList<DropdownOption<T>> options,
-      CompositionAction<T> onChanged,
-      string placeholder,
-      bool enabled,
-      bool error
-    ) {
-      if (!isAutomaticController || controller is not DropdownController<T> typed) {
-        DisposeAutomaticController();
-        typed = new DropdownController<T>();
-        controller = typed;
-        isAutomaticController = true;
-      }
-      typed.Synchronize(value, options, onChanged, placeholder, enabled, error);
-    }
-
     private void EnsureController(DropdownController given) {
       if (given == null) {
-        if (controller != null && isAutomaticController) return;
-        throw new InvalidOperationException("The implicit dropdown controller was not configured.");
+        var factory = props.controllerFactory;
+        if (factory == null) {
+          throw new InvalidOperationException("An implicit dropdown requires a controller factory.");
+        }
+        if (!isAutomaticController || controller == null ||
+            !ReferenceEquals(_automaticControllerFactory, factory)) {
+          DisposeAutomaticController();
+          controller = factory();
+          _automaticControllerFactory = factory;
+          isAutomaticController = true;
+        }
+        controller.SynchronizeAutomatic(
+          props.value,
+          props.options,
+          props.onChanged,
+          props.placeholder,
+          props.enabled,
+          props.error
+        );
+        return;
       }
       if (ReferenceEquals(controller, given)) return;
       DisposeAutomaticController();
       controller = given;
+      _automaticControllerFactory = null;
       isAutomaticController = false;
     }
 
@@ -354,6 +390,7 @@ namespace HELIX.Compose {
       if (!isAutomaticController) return;
       controller?.Dispose();
       controller = null;
+      _automaticControllerFactory = null;
       isAutomaticController = false;
     }
 
@@ -579,6 +616,12 @@ namespace HELIX.Compose {
   }
 
   public static class ManualDropdownButtonExtensions {
+    private static class AutomaticController<T> {
+      public static readonly Func<DropdownController> Factory = Create;
+
+      private static DropdownController Create() => new DropdownController<T>();
+    }
+
     public static ref ElementRef DropdownButton(
       this ref Composition cx,
       DropdownController controller,
@@ -597,12 +640,17 @@ namespace HELIX.Compose {
       bool enabled = true,
       bool error = false,
       PopupMenuStyle? style = null
-    ) {
-      ref var result = ref HXDropdownButton.ComposeBoundary(ref cx, null, style);
-      if ((result.element as CompositionBoundaryNodeBase)?.BoundaryComposable is HXDropdownButton boundary) {
-        boundary.ConfigureAutomatic(value, options, onChanged, placeholder, enabled, error);
-      }
-      return ref result;
-    }
+    ) => ref HXDropdownButton.ComposeBoundary(
+      ref cx,
+      controller: null,
+      style: style,
+      value: value,
+      options: options,
+      onChanged: onChanged,
+      controllerFactory: AutomaticController<T>.Factory,
+      placeholder: placeholder,
+      enabled: enabled,
+      error: error
+    );
   }
 }

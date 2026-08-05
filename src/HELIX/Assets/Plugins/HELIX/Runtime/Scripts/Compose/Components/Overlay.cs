@@ -108,11 +108,17 @@ namespace HELIX.Compose {
     }
 
     public long Id { get; }
-    public Composable<OverlayContextData> Content { get; }
+    public Composable<OverlayContextData> Content { get; private set; }
     public OverlayOptions Options { get; }
     public OverlayHandle Handle { get; }
+    internal uint ContentRevision { get; private set; }
     internal IBoundary CallbackBoundary { get; }
     internal OverlayDismissReason? DismissReason { get; set; }
+
+    internal void Replace(Composable<OverlayContextData> content) {
+      Content = content;
+      unchecked { ContentRevision++; }
+    }
   }
 
   public sealed class OverlayHandle {
@@ -353,6 +359,16 @@ namespace HELIX.Compose {
       return false;
     }
 
+    internal bool DismissFromCancel(OverlayEntry scope) {
+      if (scope == null) return false;
+      for (var i = _entries.Count - 1; i >= 0; i--) {
+        var entry = _entries[i];
+        if (!entry.Options.Has(OverlayBehavior.DismissOnCancel) || !IsDescendantOf(entry, scope)) continue;
+        return Dismiss(entry.Id, OverlayDismissReason.Cancel);
+      }
+      return false;
+    }
+
     internal OverlayEntry FocusScopeRoot(OverlayEntry entry) {
       var root = entry;
       var current = entry;
@@ -367,10 +383,7 @@ namespace HELIX.Compose {
       if (content == null) throw new ArgumentNullException(nameof(content));
       var index = FindIndex(id);
       if (index < 0) return false;
-      var current = _entries[index];
-      _entries[index] = new OverlayEntry(
-        current.Id, content, current.Options, current.Handle, current.CallbackBoundary
-      );
+      _entries[index].Replace(content);
       NotifyChanged();
       return true;
     }
@@ -434,8 +447,12 @@ namespace HELIX.Compose {
 
     private readonly Dictionary<long, OverlayEntryElement> _elements = new();
     private readonly List<long> _removals = new();
+    private readonly List<OverlayEntry> _placementEntries = new();
+    private readonly Dictionary<OverlayPlacement, float> _placementOffsets = new();
+    private readonly HashSet<OverlayPlacement> _pendingPlacements = new();
     private readonly VisualElement _layer;
     private bool _isPlacing;
+    private bool _placementPending;
     private OverlayController _controller;
 
     public readonly ComposableSlot content;
@@ -508,34 +525,49 @@ namespace HELIX.Compose {
     }
 
     private void RequestPlacement() {
-      if (_isPlacing) return;
-      try {
-        _isPlacing = true;
-        PlaceEntries();
-      } finally {
-        _isPlacing = false;
+      if (_isPlacing) {
+        _placementPending = true;
+        return;
       }
+      do {
+        _placementPending = false;
+        try {
+          _isPlacing = true;
+          PlaceEntries();
+        } finally {
+          _isPlacing = false;
+        }
+      } while (_placementPending);
     }
 
     private void PlaceEntries() {
-      var offsets = new Dictionary<OverlayPlacement, float>();
-      var pending = new HashSet<OverlayPlacement>();
-      if (_controller == null) return;
-      foreach (var entry in _controller.Entries) {
+      var controller = _controller;
+      if (controller == null) return;
+      _placementEntries.Clear();
+      var entries = controller.Entries;
+      for (var i = 0; i < entries.Count; i++) _placementEntries.Add(entries[i]);
+      _placementOffsets.Clear();
+      _pendingPlacements.Clear();
+
+      for (var i = 0; i < _placementEntries.Count; i++) {
+        var entry = _placementEntries[i];
+        if (!entry.Handle.IsOpen) continue;
         if (!_elements.TryGetValue(entry.Id, out var element)) continue;
         var offset = 0f;
         var options = entry.Options;
         var stack = options.Has(OverlayBehavior.Stacked) && options.anchor == null;
         if (stack) {
-          if (pending.Contains(options.placement)) continue;
-          offsets.TryGetValue(options.placement, out offset);
+          if (_pendingPlacements.Contains(options.placement)) continue;
+          _placementOffsets.TryGetValue(options.placement, out offset);
         }
         if (!element.ApplyPlacement(offset)) {
-          if (stack) pending.Add(options.placement);
+          if (stack) _pendingPlacements.Add(options.placement);
           continue;
         }
+        if (!entry.Handle.IsOpen || !_elements.ContainsKey(entry.Id)) continue;
         if (stack) {
-          offsets[options.placement] = offset + element.PlacementHeight + Mathf.Max(0f, options.stackSpacing);
+          _placementOffsets[options.placement] =
+            offset + element.PlacementHeight + Mathf.Max(0f, options.stackSpacing);
         }
       }
     }
@@ -547,6 +579,10 @@ namespace HELIX.Compose {
       }
       _elements.Clear();
       _layer.Clear();
+      _placementEntries.Clear();
+      _placementOffsets.Clear();
+      _pendingPlacements.Clear();
+      _placementPending = false;
     }
 
     private void OnLayerGeometryChanged(GeometryChangedEvent evt) => RequestPlacement();

@@ -1,35 +1,32 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using HELIX.Extensions;
-using HELIX.Signals;
-using Unity.Burst;
-using UnityEngine.UIElements;
-// ReSharper disable Unity.BurstLoadingManagedType
-// ReSharper disable Unity.BurstFunctionSignatureContainsManagedTypes
+using UnityEngine;
 
 namespace HELIX.Compose {
   public sealed class NavigationArguments {
     public static readonly NavigationArguments Empty = new();
 
     private readonly Dictionary<string, object> _values;
+    private readonly object _extra;
 
-    public NavigationArguments() {
-      _values = new Dictionary<string, object>(StringComparer.Ordinal);
-    }
+    public NavigationArguments() : this(new Dictionary<string, object>(StringComparer.Ordinal), null) { }
 
-    private NavigationArguments(Dictionary<string, object> values) {
+    private NavigationArguments(Dictionary<string, object> values, object extra) {
       _values = values;
+      _extra = extra;
     }
 
     public int Count => _values.Count;
+    public object Extra => _extra;
     public object this[string key] => _values[key];
 
     public NavigationArguments With(string key, object value) {
       if (string.IsNullOrEmpty(key)) throw new ArgumentException("An argument name is required.", nameof(key));
-      var copy = new Dictionary<string, object>(_values, StringComparer.Ordinal) { [key] = value };
-      return new NavigationArguments(copy);
+      var values = new Dictionary<string, object>(_values, StringComparer.Ordinal) { [key] = value };
+      return new NavigationArguments(values, _extra);
     }
+
+    public NavigationArguments WithExtra(object extra) => new(_values, extra);
 
     public bool TryGet<T>(string key, out T value) {
       if (_values.TryGetValue(key, out var found) && found is T typed) {
@@ -41,12 +38,8 @@ namespace HELIX.Compose {
     }
 
     public T Get<T>(string key, T fallback = default) => TryGet<T>(key, out var value) ? value : fallback;
-
-    internal NavigationArguments Copy() => _values.Count == 0
-      ? Empty
-      : new NavigationArguments(new Dictionary<string, object>(_values, StringComparer.Ordinal));
+    public T GetExtra<T>(T fallback = default) => _extra is T value ? value : fallback;
   }
-
 
   public readonly struct NavigationContextData : IEquatable<NavigationContextData> {
     public static readonly ContextKey<NavigationContextData> Key = new("NavigationContext");
@@ -70,48 +63,232 @@ namespace HELIX.Compose {
     public override int GetHashCode() => HashCode.Combine(controller, entry);
   }
 
-  public sealed class NavigationRoute {
-    internal NavigationRoute(string name, Composable<NavigationContextData> builder, bool opaque) {
+  public enum NavigationEntryOrigin : byte { Registered, Dynamic }
+
+  public enum NavigationOperationKind : byte { Push, Replace, Pop, PopTo, Reset, Go, Activate, Preload }
+
+  public enum NavigationLifecyclePhase : byte { Entering, Entered, Exiting, Exited }
+
+  public enum NavigationDirection : sbyte { Backward = -1, Automatic = 0, Forward = 1 }
+
+  [Flags]
+  public enum NavigationHostBehavior : byte {
+    None = 0,
+    PopOnCancel = 1 << 0,
+    Default = PopOnCancel
+  }
+
+  [Flags]
+  public enum NavigationBehavior : byte {
+    None = 0,
+    SingleTop = 1 << 0,
+    ClearStack = 1 << 1,
+    PopUpToInclusive = 1 << 2
+  }
+
+  [Flags]
+  public enum NavigationPresentation : byte {
+    None = 0,
+    Current = 1 << 0,
+    Covered = 1 << 1,
+    Entering = 1 << 2,
+    Exiting = 1 << 3,
+    Cached = 1 << 4
+  }
+
+  public enum NavigationFailure : byte {
+    None,
+    ControllerDisposed,
+    QueueFull,
+    RouteNotFound,
+    InvalidPage,
+    CannotPop,
+    TargetNotFound,
+    ResultUnavailable
+  }
+
+  public readonly struct NavigationSubmission {
+    internal NavigationSubmission(long operationId, NavigationFailure failure) {
+      OperationId = operationId;
+      Failure = failure;
+    }
+
+    public long OperationId { get; }
+    public NavigationFailure Failure { get; }
+    public bool Accepted => Failure == NavigationFailure.None;
+
+    public static implicit operator bool(NavigationSubmission value) => value.Accepted;
+  }
+
+  public readonly struct NavigationEvent {
+    internal NavigationEvent(
+      NavigationController controller,
+      NavigationEntry entry,
+      NavigationOperationKind operation,
+      NavigationDirection direction,
+      NavigationLifecyclePhase phase
+    ) {
+      Controller = controller;
+      Entry = entry;
+      Operation = operation;
+      Direction = direction;
+      Phase = phase;
+    }
+
+    public NavigationController Controller { get; }
+    public NavigationEntry Entry { get; }
+    public NavigationOperationKind Operation { get; }
+    public NavigationDirection Direction { get; }
+    public NavigationLifecyclePhase Phase { get; }
+  }
+
+  public sealed class NavigationPage {
+    internal NavigationPage(
+      string name,
+      Composable<NavigationContextData> builder,
+      bool opaque,
+      INavigationTransition transition,
+      CompositionAction<NavigationEvent> onEntering,
+      CompositionAction<NavigationEvent> onEntered,
+      CompositionAction<NavigationEvent> onExiting,
+      CompositionAction<NavigationEvent> onExited
+    ) {
       Name = name;
       Builder = builder;
       Opaque = opaque;
+      Transition = transition;
+      OnEntering = onEntering;
+      OnEntered = onEntered;
+      OnExiting = onExiting;
+      OnExited = onExited;
     }
 
     public string Name { get; }
     public Composable<NavigationContextData> Builder { get; }
     public bool Opaque { get; }
+    public INavigationTransition Transition { get; }
+    internal CompositionAction<NavigationEvent> OnEntering { get; }
+    internal CompositionAction<NavigationEvent> OnEntered { get; }
+    internal CompositionAction<NavigationEvent> OnExiting { get; }
+    internal CompositionAction<NavigationEvent> OnExited { get; }
+
+    public static NavigationPageBuilder Build(Composable<NavigationContextData> builder) => new(builder);
+  }
+
+  public sealed class NavigationPageBuilder {
+    private readonly Composable<NavigationContextData> _builder;
+    private string _name;
+    private bool _opaque = true;
+    private INavigationTransition _transition;
+    private CompositionAction<NavigationEvent> _onEntering;
+    private CompositionAction<NavigationEvent> _onEntered;
+    private CompositionAction<NavigationEvent> _onExiting;
+    private CompositionAction<NavigationEvent> _onExited;
+
+    internal NavigationPageBuilder(Composable<NavigationContextData> builder) {
+      _builder = builder ?? throw new ArgumentNullException(nameof(builder));
+    }
+
+    public NavigationPageBuilder Name(string name) {
+      _name = name;
+      return this;
+    }
+
+    public NavigationPageBuilder Opaque(bool opaque = true) {
+      _opaque = opaque;
+      return this;
+    }
+
+    public NavigationPageBuilder Transition(INavigationTransition transition) {
+      _transition = transition;
+      return this;
+    }
+
+    public NavigationPageBuilder OnEntering(CompositionAction<NavigationEvent> action) {
+      _onEntering = action;
+      return this;
+    }
+
+    public NavigationPageBuilder OnEntered(CompositionAction<NavigationEvent> action) {
+      _onEntered = action;
+      return this;
+    }
+
+    public NavigationPageBuilder OnExiting(CompositionAction<NavigationEvent> action) {
+      _onExiting = action;
+      return this;
+    }
+
+    public NavigationPageBuilder OnExited(CompositionAction<NavigationEvent> action) {
+      _onExited = action;
+      return this;
+    }
+
+    public NavigationPage Build() => new(
+      _name,
+      _builder,
+      _opaque,
+      _transition,
+      _onEntering,
+      _onEntered,
+      _onExiting,
+      _onExited
+    );
+  }
+
+  public sealed class NavigationRoute {
+    internal NavigationRoute(string name, NavigationPage page, int index) {
+      Name = name;
+      Page = page;
+      Index = index;
+    }
+
+    public string Name { get; }
+    public string DisplayName => string.IsNullOrWhiteSpace(Page.Name) ? Name : Page.Name;
+    public int Index { get; }
+    public NavigationPage Page { get; }
+    public Composable<NavigationContextData> Builder => Page.Builder;
+    public bool Opaque => Page.Opaque;
+    public INavigationTransition Transition => Page.Transition;
   }
 
   public sealed class NavigationGraph {
+    private readonly IReadOnlyList<NavigationRoute> _orderedRoutes;
     private readonly Dictionary<string, NavigationRoute> _routes;
 
     internal NavigationGraph(
       string initialRoute,
+      NavigationRoute[] orderedRoutes,
       Dictionary<string, NavigationRoute> routes
     ) {
       InitialRoute = initialRoute;
+      _orderedRoutes = Array.AsReadOnly(orderedRoutes);
       _routes = routes;
     }
 
     public string InitialRoute { get; }
-    public int Count => _routes.Count;
+    public int Count => _orderedRoutes.Count;
+    public IReadOnlyList<NavigationRoute> Routes => _orderedRoutes;
+    public NavigationRoute this[int index] => _orderedRoutes[index];
 
     public static NavigationGraphBuilder Builder(string initialRoute) => new(initialRoute);
 
     public bool TryGetRoute(string name, out NavigationRoute route) {
-      if (name == null) {
-        route = null;
-        return false;
-      }
-      return _routes.TryGetValue(name, out route);
+      route = null;
+      return name != null && _routes.TryGetValue(name, out route);
     }
 
     public NavigationRoute GetRoute(string name) => TryGetRoute(name, out var route) ? route : null;
+
+    public int IndexOf(string name) => TryGetRoute(name, out var route) ? route.Index : -1;
+
+    public bool Contains(NavigationRoute route) => route != null &&
+      ReferenceEquals(GetRoute(route.Name), route);
   }
 
   public sealed class NavigationGraphBuilder {
-    private readonly Dictionary<string, NavigationRoute> _routes =
-      new(StringComparer.Ordinal);
+    private readonly Dictionary<string, NavigationRoute> _routes = new(StringComparer.Ordinal);
+    private readonly List<NavigationRoute> _orderedRoutes = new();
     private string _initialRoute;
 
     internal NavigationGraphBuilder(string initialRoute) {
@@ -127,13 +304,20 @@ namespace HELIX.Compose {
       string route,
       Composable<NavigationContextData> builder,
       bool opaque = true
-    ) {
+    ) => Route(route, NavigationPage.Build(builder).Name(route).Opaque(opaque).Build());
+
+    public NavigationGraphBuilder Route(string route, NavigationPageBuilder page) =>
+      Route(route, page?.Build() ?? throw new ArgumentNullException(nameof(page)));
+
+    public NavigationGraphBuilder Route(string route, NavigationPage page) {
       if (string.IsNullOrWhiteSpace(route)) throw new ArgumentException("A route is required.", nameof(route));
-      if (builder == null) throw new ArgumentNullException(nameof(builder));
+      if (page == null) throw new ArgumentNullException(nameof(page));
       if (_routes.ContainsKey(route)) {
         throw new InvalidOperationException($"The navigation route '{route}' is already registered.");
       }
-      _routes.Add(route, new NavigationRoute(route, builder, opaque));
+      var destination = new NavigationRoute(route, page, _orderedRoutes.Count);
+      _routes.Add(route, destination);
+      _orderedRoutes.Add(destination);
       return this;
     }
 
@@ -147,323 +331,205 @@ namespace HELIX.Compose {
       }
       return new NavigationGraph(
         _initialRoute,
+        _orderedRoutes.ToArray(),
         new Dictionary<string, NavigationRoute>(_routes, StringComparer.Ordinal)
       );
     }
   }
 
-  [PropStruct] public readonly partial struct NavigationOptions : IEquatable<NavigationOptions> {
-    public static readonly NavigationOptions Default = new();
+  [PropStruct]
+  public readonly partial struct NavigationOptions : IEquatable<NavigationOptions> {
+    public static readonly NavigationOptions Default = new(behavior: NavigationBehavior.None);
 
-    [Prop(false)] public readonly bool singleTop;
-    [Prop(false)] public readonly bool clearStack;
+    [Prop(NavigationBehavior.None)] public readonly NavigationBehavior behavior;
     [Prop(null)] public readonly string popUpToRoute;
-    [Prop(false)] public readonly bool popUpToInclusive;
+    [Prop(null, Equatable = false)] public readonly INavigationTransition transition;
+    [Prop(NavigationDirection.Automatic)] public readonly NavigationDirection direction;
 
-    public NavigationOptions SingleTop(bool enabled = true) {
-      return new NavigationOptions(enabled, clearStack, popUpToRoute, popUpToInclusive);
-    }
+    public bool Has(NavigationBehavior value) => (behavior & value) == value;
 
-    public NavigationOptions ClearStack(bool enabled = true) {
-      return new NavigationOptions(singleTop, enabled, popUpToRoute, popUpToInclusive);
-    }
+    public NavigationOptions Behavior(NavigationBehavior value, bool enabled = true) => new(
+      enabled ? behavior | value : behavior & ~value,
+      popUpToRoute,
+      transition,
+      direction
+    );
 
-    public NavigationOptions PopUpTo(string route, bool inclusive = false) {
-      return new NavigationOptions(singleTop, clearStack, route, inclusive);
-    }
+    public NavigationOptions SingleTop(bool enabled = true) => Behavior(NavigationBehavior.SingleTop, enabled);
+    public NavigationOptions ClearStack(bool enabled = true) => Behavior(NavigationBehavior.ClearStack, enabled);
+
+    public NavigationOptions PopUpTo(string route, bool inclusive = false) => new(
+      inclusive ? behavior | NavigationBehavior.PopUpToInclusive : behavior & ~NavigationBehavior.PopUpToInclusive,
+      route,
+      transition,
+      direction
+    );
+
+    public NavigationOptions WithTransition(INavigationTransition value) =>
+      new(behavior, popUpToRoute, value, direction);
+
+    public NavigationOptions WithDirection(NavigationDirection value) =>
+      new(behavior, popUpToRoute, transition, value);
   }
 
   public sealed class NavigationEntry {
-    internal NavigationEntry(long id, NavigationRoute route, NavigationArguments arguments) {
+    private INavigationCompletion _completion;
+
+    internal NavigationEntry(
+      long id,
+      NavigationRoute route,
+      NavigationPage page,
+      NavigationArguments arguments,
+      INavigationCompletion completion = null
+    ) {
       Id = id;
       Route = route;
+      Page = page;
       Arguments = arguments ?? NavigationArguments.Empty;
+      _completion = completion;
     }
 
     public long Id { get; }
-    public string Name => Route.Name;
-    public NavigationRoute Route { get; }
-    public NavigationArguments Arguments { get; }
-  }
+    public string Name => Route?.Name ?? Page?.Name;
+    public NavigationEntryOrigin Origin => Route == null ? NavigationEntryOrigin.Dynamic : NavigationEntryOrigin.Registered;
+    public NavigationRoute Route { get; private set; }
+    public NavigationPage Page { get; private set; }
+    public NavigationArguments Arguments { get; private set; }
+    public bool Opaque => Page?.Opaque ?? true;
+    public bool IsCached { get; internal set; }
+    internal IBoundary Boundary { get; set; }
 
-  public sealed class NavigationController : Signal<int> {
-    private readonly List<NavigationEntry> _backStack = new();
-    private int _revision;
-    private long _nextEntryId = 1;
-
-    public NavigationController(NavigationGraph graph = null)
-      : base("NavigationController", typeof(NavigationController)) {
-      SetGraph(graph);
+    internal void Update(NavigationRoute route, NavigationPage page, NavigationArguments arguments) {
+      Route = route;
+      Page = page;
+      Arguments = arguments ?? NavigationArguments.Empty;
     }
 
-    public NavigationGraph Graph { get; private set; }
-    public IReadOnlyList<NavigationEntry> BackStack => _backStack;
-    public NavigationEntry Current => _backStack.Count == 0 ? null : _backStack[_backStack.Count - 1];
-    public bool CanPop => _backStack.Count > 1;
+    internal void Complete(object result) {
+      var completion = _completion;
+      _completion = null;
+      completion?.SetResult(result);
+    }
 
-    public override int PeekValue() => _revision;
+    internal void Fail(Exception exception) {
+      var completion = _completion;
+      _completion = null;
+      completion?.SetException(exception);
+    }
+  }
 
-    public override void SetValue(int newValue) =>
-      throw new NotSupportedException("Navigation state is changed with navigation operations.");
+  public sealed class NavigationChange {
+    private readonly List<NavigationEntry> _added = new(2);
+    private readonly List<NavigationEntry> _removed = new(2);
+    private readonly List<NavigationEntry> _entering = new(2);
+    private readonly List<NavigationEntry> _exiting = new(2);
 
-    public override void SetWithoutNotify(int newValue) =>
-      throw new NotSupportedException("Navigation state is changed with navigation operations.");
+    public long Id { get; internal set; }
+    public NavigationOperationKind Operation { get; internal set; }
+    public NavigationDirection Direction { get; internal set; }
+    public INavigationTransition Transition { get; internal set; }
+    public IReadOnlyList<NavigationEntry> Added => _added;
+    public IReadOnlyList<NavigationEntry> Removed => _removed;
+    public IReadOnlyList<NavigationEntry> Entering => _entering;
+    public IReadOnlyList<NavigationEntry> Exiting => _exiting;
+    internal bool Started { get; set; }
+    internal List<NavigationEntry> AddedMutable => _added;
+    internal List<NavigationEntry> RemovedMutable => _removed;
+    internal List<NavigationEntry> EnteringMutable => _entering;
+    internal List<NavigationEntry> ExitingMutable => _exiting;
 
-    public void SetGraph(NavigationGraph graph, bool preserveStack = false) {
-      if (ReferenceEquals(Graph, graph)) return;
-      Graph = graph;
-      if (preserveStack && _backStack.Count > 0 && IsStackValidFor(graph)) {
-        RemapStack(graph);
-        NotifyChanged();
+    internal void Reset(
+      long id,
+      NavigationOperationKind operation,
+      INavigationTransition transition,
+      NavigationDirection direction
+    ) {
+      Id = id;
+      Operation = operation;
+      Transition = transition;
+      Direction = direction;
+      Started = false;
+      _added.Clear();
+      _removed.Clear();
+      _entering.Clear();
+      _exiting.Clear();
+    }
+  }
+
+  internal interface INavigationCompletion {
+    void SetResult(object value);
+    void SetException(Exception exception);
+  }
+
+  internal sealed class NavigationCompletion<T> : INavigationCompletion {
+    private readonly AwaitableCompletionSource<T> _source = new();
+
+    internal Awaitable<T> Awaitable => _source.Awaitable;
+
+    public void SetResult(object value) {
+      if (value == null) {
+        _source.SetResult(default);
         return;
       }
-
-      _backStack.Clear();
-      if (graph != null && graph.TryGetRoute(graph.InitialRoute, out var initial)) {
-        _backStack.Add(CreateEntry(initial, NavigationArguments.Empty));
-      }
-      NotifyChanged();
-    }
-
-    public bool Navigate(
-      string route,
-      NavigationArguments arguments = null,
-      NavigationOptions? options = null
-    ) {
-      if (Graph == null || !Graph.TryGetRoute(route, out var destination)) return false;
-      var resolvedOptions = options ?? NavigationOptions.Default;
-
-      if (resolvedOptions.clearStack) _backStack.Clear();
-      if (!string.IsNullOrEmpty(resolvedOptions.popUpToRoute)) {
-        PopToInternal(resolvedOptions.popUpToRoute, resolvedOptions.popUpToInclusive);
-      }
-
-      var copiedArguments = (arguments ?? NavigationArguments.Empty).Copy();
-      if (resolvedOptions.singleTop && Current?.Name == route) {
-        var current = Current;
-        _backStack[_backStack.Count - 1] = new NavigationEntry(current.Id, destination, copiedArguments);
-      } else {
-        _backStack.Add(CreateEntry(destination, copiedArguments));
-      }
-
-      NotifyChanged();
-      return true;
-    }
-
-    public bool Replace(string route, NavigationArguments arguments = null) {
-      if (Graph == null || !Graph.TryGetRoute(route, out var destination)) return false;
-      if (_backStack.Count > 0) _backStack.RemoveAt(_backStack.Count - 1);
-      _backStack.Add(CreateEntry(destination, (arguments ?? NavigationArguments.Empty).Copy()));
-      NotifyChanged();
-      return true;
-    }
-
-    public bool Pop() {
-      if (!CanPop) return false;
-      _backStack.RemoveAt(_backStack.Count - 1);
-      NotifyChanged();
-      return true;
-    }
-
-    public bool PopTo(string route, bool inclusive = false) {
-      if (!PopToInternal(route, inclusive)) return false;
-      if (_backStack.Count == 0 && Graph?.TryGetRoute(Graph.InitialRoute, out var initial) == true) {
-        _backStack.Add(CreateEntry(initial, NavigationArguments.Empty));
-      }
-      NotifyChanged();
-      return true;
-    }
-
-    public bool Reset(string route = null, NavigationArguments arguments = null) {
-      route ??= Graph?.InitialRoute;
-      if (Graph == null || !Graph.TryGetRoute(route, out var destination)) return false;
-      _backStack.Clear();
-      _backStack.Add(CreateEntry(destination, (arguments ?? NavigationArguments.Empty).Copy()));
-      NotifyChanged();
-      return true;
-    }
-
-    public override void Dispose() {
-      _backStack.Clear();
-      Graph = null;
-      base.Dispose();
-    }
-
-    private NavigationEntry CreateEntry(NavigationRoute route, NavigationArguments arguments) =>
-      new(_nextEntryId++, route, arguments);
-
-    private bool PopToInternal(string route, bool inclusive) {
-      var index = -1;
-      for (var i = _backStack.Count - 1; i >= 0; i--) {
-        if (_backStack[i].Name != route) continue;
-        index = i;
-        break;
-      }
-      if (index < 0) return false;
-      var keepCount = inclusive ? index : index + 1;
-      if (keepCount == _backStack.Count) return false;
-      _backStack.RemoveRange(keepCount, _backStack.Count - keepCount);
-      return true;
-    }
-
-    private bool IsStackValidFor(NavigationGraph graph) {
-      if (graph == null) return _backStack.Count == 0;
-      foreach (var entry in _backStack) {
-        if (!graph.TryGetRoute(entry.Name, out _)) return false;
-      }
-      return true;
-    }
-
-    private void RemapStack(NavigationGraph graph) {
-      for (var i = 0; i < _backStack.Count; i++) {
-        var entry = _backStack[i];
-        if (!graph.TryGetRoute(entry.Name, out var destination)) continue;
-        _backStack[i] = new NavigationEntry(entry.Id, destination, entry.Arguments);
-      }
-    }
-
-    private void NotifyChanged() {
-      unchecked { _revision++; }
-      NotifyDirty();
-      NotifyObservers();
-    }
-  }
-
-  [BoundaryComposable(Extension = false)]
-  internal partial class NavigationPageBoundary {
-    public partial struct Props {
-      public NavigationController controller;
-      public NavigationEntry entry;
-      public bool covered;
-    }
-
-    internal NavigationEntry Entry => props.entry;
-
-    protected override void OnRecompose(ref Composition cx) {
-      Node.Stretched();
-      Node.pickingMode = PickingMode.Ignore;
-      Node.style.display = props.covered ? DisplayStyle.None : DisplayStyle.Flex;
-
-      var contextData = new NavigationContextData(props.controller, props.entry);
-      using (cx.WriteContext(out var context)) {
-        NavigationContextData.Key[in context] = contextData;
-      }
-      props.entry?.Route.Builder?.Invoke(ref cx, contextData);
-    }
-  }
-
-  [BoundaryComposable(Extension = false)]
-  public partial class NavigationHostBoundary {
-    public partial struct Props {
-      public NavigationGraph graph;
-      [Prop(null)] public NavigationController controller;
-    }
-
-    public NavigationController Controller { get; private set; }
-    private bool _isAutomaticController;
-
-    protected override void OnAttach() {
-      base.OnAttach();
-      Node.RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
-    }
-
-    protected override void OnDetach() {
-      Node.UnregisterCallback<NavigationCancelEvent>(OnNavigationCancel);
-      if (_isAutomaticController) Controller?.Dispose();
-      Controller = null;
-      _isAutomaticController = false;
-      base.OnDetach();
-    }
-
-    protected override void OnRecompose(ref Composition cx) {
-      EnsureController();
-      cx.SubscribeTo(Controller);
-      var contextData = new NavigationContextData(Controller, null);
-      using (cx.WriteContext(out var context)) {
-        NavigationContextData.Key[in context] = contextData;
-      }
-      Node.MakeRelative();
-      Node.focusable = true;
-      Node.pickingMode = PickingMode.Ignore;
-
-      var stack = Controller.BackStack;
-      for (var i = 0; i < stack.Count; i++) {
-        var entry = stack[i];
-        var identity = unchecked((int)entry.Id ^ (int)(entry.Id >> 32));
-        cx.AUTHORING.SetId(CompositionId.Generated(identity));
-        NavigationPageBoundary.ComposeBoundary(ref cx, Controller, entry, IsCovered(stack, i));
-      }
-    }
-
-    private void EnsureController() {
-      if (props.controller == null) {
-        if (Controller == null || !_isAutomaticController) {
-          if (_isAutomaticController) Controller?.Dispose();
-          Controller = new NavigationController(props.graph);
-          _isAutomaticController = true;
-        } else {
-          Controller.SetGraph(props.graph);
-        }
+      if (value is T typed) {
+        _source.SetResult(typed);
         return;
       }
-
-      if (!ReferenceEquals(Controller, props.controller)) {
-        if (_isAutomaticController) Controller?.Dispose();
-        Controller = props.controller;
-        _isAutomaticController = false;
-      }
-      Controller.SetGraph(props.graph, preserveStack: true);
+      _source.SetException(
+        new InvalidCastException($"Navigation returned {value.GetType()} but the caller expects {typeof(T)}.")
+      );
     }
 
-    private void OnNavigationCancel(NavigationCancelEvent evt) {
-      if (Controller?.Pop() != true) return;
-      evt.StopPropagation();
-    }
-
-    private static bool IsCovered(IReadOnlyList<NavigationEntry> stack, int index) {
-      for (var i = stack.Count - 1; i > index; i--) {
-        if (stack[i].Route.Opaque) return true;
-      }
-      return false;
-    }
+    public void SetException(Exception exception) => _source.SetException(exception);
   }
 
-  public static class NavigationExtensions {
-    public static ref ElementRef NavigationHost(
-      this ref Composition cx,
-      NavigationGraph graph,
-      NavigationController controller = null
+  internal sealed class NavigationActionCompletion<T> : INavigationCompletion {
+    private IBoundary _boundary;
+    private CompositionAction<T> _onResult;
+    private CompositionAction<Exception> _onError;
+
+    internal NavigationActionCompletion(
+      IBoundary boundary,
+      CompositionAction<T> onResult,
+      CompositionAction<Exception> onError
     ) {
-      if (graph == null) throw new ArgumentNullException(nameof(graph));
-      return ref NavigationHostBoundary.ComposeBoundary(ref cx, graph, controller);
+      _boundary = boundary ?? throw new ArgumentNullException(nameof(boundary));
+      _onResult = onResult ?? throw new ArgumentNullException(nameof(onResult));
+      _onError = onError;
     }
 
-    public static ref ElementRef NavigationHost(
-      this ref Composition cx,
-      NavigationGraph graph,
-      out NavigationController resolvedController,
-      NavigationController controller = null
-    ) {
-      ref var result = ref NavigationHostBoundary.ComposeBoundary(ref cx, graph, controller);
-      resolvedController = (result.element as CompositionBoundaryNodeBase)?.BoundaryComposable
-        is NavigationHostBoundary boundary
-          ? boundary.Controller
-          : controller;
-      return ref result;
+    public void SetResult(object value) {
+      if (value == null) {
+        Complete(default);
+        return;
+      }
+      if (value is T typed) {
+        Complete(typed);
+        return;
+      }
+      SetException(
+        new InvalidCastException($"Navigation returned {value.GetType()} but the callback expects {typeof(T)}.")
+      );
     }
 
-    public static NavigationController NavigationController(this ref Composition cx, bool listen = true) =>
-      cx.ReadContext(NavigationContextData.Key, listen).controller;
+    public void SetException(Exception exception) {
+      var boundary = _boundary;
+      var action = _onError;
+      Clear();
+      action?.Call(boundary, exception);
+    }
 
-    public static NavigationEntry NavigationEntry(this ref Composition cx, bool listen = true) =>
-      cx.ReadContext(NavigationContextData.Key, listen).entry;
+    private void Complete(T value) {
+      var boundary = _boundary;
+      var action = _onResult;
+      Clear();
+      action.Call(boundary, value);
+    }
 
-    public static NavigationController NavigationController(this CompositionContext context) =>
-      NavigationContextData.Key.ReadAt(context.element).controller ??
-      context.Lookup<NavigationHostBoundary>()?.Controller;
-
-    public static NavigationEntry NavigationEntry(this CompositionContext context) =>
-      NavigationContextData.Key.ReadAt(context.element).entry ??
-      context.Lookup<NavigationPageBoundary>()?.Entry;
+    private void Clear() {
+      _boundary = null;
+      _onResult = null;
+      _onError = null;
+    }
   }
 }
