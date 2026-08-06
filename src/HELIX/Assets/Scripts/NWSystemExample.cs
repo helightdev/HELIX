@@ -43,7 +43,7 @@ namespace HELIX.Examples {
     }
   }
 
-  [BoundaryComposable()]
+  [BoundaryComposable]
   public partial class HomeComposable {
     public enum ExampleMode : byte { Balanced, Performance, Quality }
 
@@ -193,15 +193,19 @@ namespace HELIX.Examples {
 
     protected override void OnRecompose(ref Composition cx) {
       using (cx.OverlayHost(_overlayController))
-      using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.Fill();
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+        if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
+
+        ComposeTabHeader(ref cx);
+        cx.Spacing(2);
         cx.NavigationHost(
             _tabNavigationGraph,
             _tabNavigationController,
             NavigationTransitions.Instant,
             NavigationHostBehavior.None
           )
-          .Flexible();
+          .Flexible()
+          .Overflow(Overflow.Hidden);
       }
     }
 
@@ -215,40 +219,35 @@ namespace HELIX.Examples {
       cx.Lookup<HomeComposable>()?.ComposeInputsTab(ref cx);
 
     private void ComposeInputsTab(ref Composition cx) {
-      using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-        ComposeTabHeader(ref cx);
-        cx.Spacing(2);
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+        if (cx.CursorDirty) cx.CURSOR.Fill();
         ComposeInputsShowcase(ref cx);
       }
     }
 
     private void ComposeNavigationTab(ref Composition cx) {
-      using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-        ComposeTabHeader(ref cx);
-        cx.Spacing(2);
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+        if (cx.CursorDirty) cx.CURSOR.Fill();
         ComposeNavigationShowcase(ref cx);
       }
     }
 
     private void ComposeOverlaysTab(ref Composition cx) {
-      using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-        ComposeTabHeader(ref cx);
-        cx.Spacing(2);
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+        if (cx.CursorDirty) cx.CURSOR.Fill();
         ComposeOverlayShowcase(ref cx);
       }
     }
 
     private void ComposeTabHeader(ref Composition cx) {
-      cx.Text("HELIX NW system example").TextRole(TextRole.TitleLarge);
+      cx.Text("HELIX NW system example", TextRole.TitleLarge);
       cx.Spacing(1);
-      using (cx.Flex(Axis.Horizontal, cross: Align.Stretch)) {
+      using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
         var routes = _tabNavigationGraph.Routes;
         for (var i = 0; i < routes.Count; i++) {
           cx.NavigationLink(
             routes[i],
+            controller: _tabNavigationController,
             style: ThemeProperties.ButtonToggle[in cx]
           );
           if (i + 1 < routes.Count) cx.Spacing(1);
@@ -258,39 +257,35 @@ namespace HELIX.Examples {
 
     private void ComposeNavigationShowcase(ref Composition cx) {
       cx.SubscribeTo(_navigationController);
-      cx.Text("Navigation stack and operation queue").TextRole(TextRole.TitleMedium);
+      cx.Text("Navigation stack and operation queue", TextRole.TitleMedium);
       cx.Spacing(1);
       cx.Text(
         $"Current: {_navigationController.Current?.Name ?? "<empty>"}  •  " +
         $"Stack: {_navigationController.BackStack.Count}  •  " +
         $"Queued: {_navigationController.PendingOperationCount}  •  " +
-        $"Transitioning: {_navigationController.IsTransitioning}"
-      ).TextRole(TextRole.BodySmall);
-      cx.Text($"Lifecycle: {navigationLifecycle}").TextRole(TextRole.BodySmall);
-      cx.Text($"Dynamic result: {navigationResult}").TextRole(TextRole.BodySmall);
+        $"Transitioning: {_navigationController.IsTransitioning}", TextRole.BodySmall
+      );
+      cx.Text($"Lifecycle: {navigationLifecycle}", TextRole.BodySmall);
+      cx.Text($"Dynamic result: {navigationResult}", TextRole.BodySmall);
       cx.Spacing(2);
 
-      using (cx.Flex(Axis.Horizontal, cross: Align.Stretch)) {
-        using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+
+      using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
           cx.CURSOR.AlignSelf(Align.Stretch);
 
-          cx.Text("Presented pages").TextRole(TextRole.LabelLarge);
+          cx.Text("Presented pages", TextRole.LabelLarge);
           cx.Spacing(1);
-          cx.NavigationHost(
-              _navigationGraph,
-              _navigationController,
-              ResolveNavigationTransition()
-            )
-            .Width(640f)
-            .Height(380f)
-            .BorderRadius(12f)
+          cx.NavigationHost(_navigationGraph, _navigationController, ResolveNavigationTransition())
+            .With(BoxConstraints.Preferred(640, 380))
+            .With(BorderRadius.All(12))
             .Overflow(Overflow.Hidden);
         }
 
         cx.Spacing(2);
-        using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
           if (cx.CursorDirty) cx.CURSOR.Width(300f);
-          cx.Text("Operations").TextRole(TextRole.LabelLarge);
+          cx.Text("Operations", TextRole.LabelLarge);
           cx.Spacing(1);
           cx.DropdownButton(
             navigationTransition,
@@ -357,11 +352,11 @@ namespace HELIX.Examples {
     }
 
     private void ComposeOverlayShowcase(ref Composition cx) {
-      cx.Text("Overlay builders and themed popup controls").TextRole(TextRole.TitleMedium);
+      cx.Text("Overlay builders and themed popup controls", TextRole.TitleMedium);
       cx.Spacing(2);
-      using (cx.Flex(Axis.Horizontal, cross: Align.Stretch)) {
-        using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
-          cx.Text("Overlay builders").TextRole(TextRole.LabelLarge);
+      using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+          cx.Text("Overlay builders", TextRole.LabelLarge);
           cx.Spacing(1);
           cx.Button(
             static (ref Composition child) => child.Text("Open modal"),
@@ -406,9 +401,9 @@ namespace HELIX.Examples {
         }
 
         cx.Spacing(2);
-        using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
           if (cx.CursorDirty) cx.CURSOR.Width(240f);
-          cx.Text("Themed popup controls").TextRole(TextRole.LabelLarge);
+          cx.Text("Themed popup controls", TextRole.LabelLarge);
           cx.Spacing(1);
           cx.DropdownButton(
             mode,
@@ -438,7 +433,7 @@ namespace HELIX.Examples {
             new LabelSpec("Prefix", new IconRef(FaSolidIcons.User.ToString(), _iconFont).Composable())
           );
         }
-        using (slots.Element()) cx.Text("Element Data").TextRole(TextRole.BodyMedium);
+        using (slots.Element()) cx.Text("Element Data", TextRole.BodyMedium);
         using (slots.Suffix()) HXDecorator.Label(ref cx, new LabelSpec("Suffix"));
         using (slots.Label()) HXDecorator.Label(ref cx, new LabelSpec("Label"));
         using (slots.Before()) HXDecorator.Label(ref cx, new LabelSpec("Before"));
@@ -446,8 +441,8 @@ namespace HELIX.Examples {
         using (slots.Description()) HXDecorator.Label(ref cx, new LabelSpec("Description"));
       }
 
-      using (cx.Flex(Axis.Horizontal, cross: Align.Stretch)) {
-        using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+      using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
           if (cx.CursorDirty) cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
           cx.Text("Text");
           cx.Spacing(1);
@@ -549,7 +544,7 @@ namespace HELIX.Examples {
         }
         cx.Spacing(2);
 
-        using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
           cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(260f, 0f)));
           cx.Text("Volume");
           cx.Spacing(1);
@@ -664,12 +659,13 @@ namespace HELIX.Examples {
       cx.CURSOR
         .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainerLow))
         .TextColor(theme.GetColor(ColorRoles.OnSurface));
-      using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
+      using (cx.Group(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-        cx.Text("Navigation home").TextRole(TextRole.TitleMedium);
+        cx.Text("Navigation home", TextRole.TitleMedium);
         cx.Spacing(1);
-        cx.Text("Registered routes, dynamic pages, typed results, and queued operations share one stack.")
-          .TextRole(TextRole.BodySmall);
+        cx.Text(
+          "Registered routes, dynamic pages, typed results, and queued operations share one stack.", TextRole.BodySmall
+        );
         cx.Spacing(2);
         cx.Button(
           static (ref Composition child) => child.Text("Push details"),
@@ -701,12 +697,12 @@ namespace HELIX.Examples {
       cx.CURSOR
         .BackgroundColor(theme.GetColor(ColorRoles.SecondaryContainer))
         .TextColor(theme.GetColor(ColorRoles.OnSecondaryContainer));
-      using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
+      using (cx.Group(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-        cx.Text("Details route").TextRole(TextRole.TitleMedium);
+        cx.Text("Details route", TextRole.TitleMedium);
         cx.Spacing(1);
         cx.Text(navigation.Arguments.Get("message", "No route argument was supplied."));
-        cx.Text($"Entry #{navigation.entry.Id}").TextRole(TextRole.BodySmall);
+        cx.Text($"Entry #{navigation.entry.Id}", TextRole.BodySmall);
         cx.Spacing(2);
         cx.Button(
           static (ref Composition child) => child.Text("Push single-top update"),
@@ -736,12 +732,11 @@ namespace HELIX.Examples {
       cx.CURSOR
         .BackgroundColor(theme.GetColor(ColorRoles.PrimaryContainer))
         .TextColor(theme.GetColor(ColorRoles.OnPrimaryContainer));
-      using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
+      using (cx.Group(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-        cx.Text("Settings route").TextRole(TextRole.TitleMedium);
+        cx.Text("Settings route", TextRole.TitleMedium);
         cx.Spacing(1);
-        cx.Text("Use this page to test replacement, go, pop-to, and queued transitions.")
-          .TextRole(TextRole.BodySmall);
+        cx.Text("Use this page to test replacement, go, pop-to, and queued transitions.", TextRole.BodySmall);
         cx.Spacing(2);
         cx.Button(
           static (ref Composition child) => child.Text("Replace with details"),
@@ -774,12 +769,11 @@ namespace HELIX.Examples {
       cx.CURSOR
         .BackgroundColor(theme.GetColor(ColorRoles.TertiaryContainer))
         .TextColor(theme.GetColor(ColorRoles.OnTertiaryContainer));
-      using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
+      using (cx.Group(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-        cx.Text($"Dynamic page #{sequence}").TextRole(TextRole.TitleMedium);
+        cx.Text($"Dynamic page #{sequence}", TextRole.TitleMedium);
         cx.Spacing(1);
-        cx.Text("This page was not registered in the graph. Pop it with a typed result.")
-          .TextRole(TextRole.BodySmall);
+        cx.Text("This page was not registered in the graph. Pop it with a typed result.", TextRole.BodySmall);
         cx.Spacing(2);
         cx.Button(
           static (ref Composition child) => child.Text("Return accepted result"),
@@ -882,13 +876,11 @@ namespace HELIX.Examples {
         .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainer))
         .TextColor(theme.GetColor(ColorRoles.OnSurfaceContainer))
         .BorderRadius(16f);
-      using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(20f);
-        cx.Text("Navigation-driven dialog")
-          .TextRole(TextRole.TitleLarge);
+        cx.Text("Navigation-driven dialog", TextRole.TitleLarge);
         cx.Spacing(1);
-        cx.Text("The dialog owns an independent graph, controller, queue, and back stack.")
-          .TextRole(TextRole.BodySmall);
+        cx.Text("The dialog owns an independent graph, controller, queue, and back stack.", TextRole.BodySmall);
         cx.Spacing(2);
         if (owner?._dialogNavigationController != null) {
           cx.NavigationHost(
@@ -936,14 +928,13 @@ namespace HELIX.Examples {
       cx.CURSOR
         .BackgroundColor(theme.GetColor(ColorRoles.PrimaryContainer))
         .TextColor(theme.GetColor(ColorRoles.OnPrimaryContainer));
-      using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
+      using (cx.Group(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-        cx.Text("Step 3 · Confirm").TextRole(TextRole.TitleMedium);
+        cx.Text("Step 3 · Confirm", TextRole.TitleMedium);
         cx.Spacing(1);
-        cx.Text("Finish dismisses the overlay; Back pops only the dialog navigator.")
-          .TextRole(TextRole.BodySmall);
+        cx.Text("Finish dismisses the overlay; Back pops only the dialog navigator.", TextRole.BodySmall);
         cx.Spacing(2);
-        using (cx.Flex(Axis.Horizontal, cross: Align.Center)) {
+        using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
           cx.Button(
             static (ref Composition child) => child.Text("Back"),
             style: ThemeProperties.ButtonOutlined[in cx],
@@ -970,13 +961,13 @@ namespace HELIX.Examples {
       cx.CURSOR
         .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainerLow))
         .TextColor(theme.GetColor(ColorRoles.OnSurface));
-      using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
+      using (cx.Group(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-        cx.Text(title).TextRole(TextRole.TitleMedium);
+        cx.Text(title, TextRole.TitleMedium);
         cx.Spacing(1);
-        cx.Text(body).TextRole(TextRole.BodySmall);
+        cx.Text(body, TextRole.BodySmall);
         cx.Spacing(2);
-        using (cx.Flex(Axis.Horizontal, cross: Align.Center)) {
+        using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
           cx.Button(
             static (ref Composition child) => child.Text("Back"),
             enabled: canPop,
@@ -995,12 +986,13 @@ namespace HELIX.Examples {
         .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainer))
         .TextColor(theme.GetColor(ColorRoles.OnSurfaceContainer))
         .BorderRadius(16f);
-      using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Padding(20f);
-        cx.Text("Composable modal").TextRole(TextRole.TitleLarge);
+        cx.Text("Composable modal", TextRole.TitleLarge);
         cx.Spacing(1);
-        cx.Text("The modal, its barrier, focus policy, and dismissal rules are all an overlay entry.")
-          .TextRole(TextRole.BodySmall);
+        cx.Text(
+          "The modal, its barrier, focus policy, and dismissal rules are all an overlay entry.", TextRole.BodySmall
+        );
         cx.Spacing(2);
         cx.Button(
           static (ref Composition child) => child.Text("Close"),
@@ -1015,7 +1007,7 @@ namespace HELIX.Examples {
         .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainerHighest))
         .TextColor(theme.GetColor(ColorRoles.OnSurface))
         .BorderRadius(10f);
-      using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Padding(8f);
         cx.Button(
           static (ref Composition child) => child.Text("First menu action"),
@@ -1036,7 +1028,7 @@ namespace HELIX.Examples {
         .BackgroundColor(theme.GetColor(ColorRoles.PrimaryContainer))
         .TextColor(theme.GetColor(ColorRoles.OnPrimaryContainer))
         .BorderRadius(12f);
-      using (cx.Flex(Axis.Horizontal, cross: Align.Center)) {
+      using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
         if (cx.CursorDirty) cx.CURSOR.Padding(12f);
         cx.Text("A stacked notification that dismisses after 3.5 seconds.").Flexible();
         cx.Spacing(1);

@@ -21,6 +21,10 @@ namespace HELIX.Compose {
     /// </summary>
     public ElementRef CURSOR;
 
+    public ElementRef SCOPE => CURSOR.composable != boundary.Cell.scope
+      ? throw new InvalidOperationException("Cursor composable does not match the current scope.")
+      : CURSOR;
+
     // ReSharper disable once InconsistentNaming
     /// <summary>
     /// Low-Level access to composition authoring related data.
@@ -31,11 +35,7 @@ namespace HELIX.Compose {
     /// <summary>
     /// The most recent <see cref="ComposableSlot"/> in the composition if there is one.
     /// </summary>
-    public ComposableSlot Slot {
-      get => AUTHORING.cell.slot;
-      set => AUTHORING.cell.slot = value;
-
-    }
+    public ComposableSlot Slot { get => AUTHORING.cell.slot; set => AUTHORING.cell.slot = value; }
 
     public bool CursorRetained => CURSOR.IsRetained;
     public bool CursorDirty => CURSOR.IsDirty;
@@ -55,8 +55,7 @@ namespace HELIX.Compose {
       AUTHORING.cell.scope = initiator;
       AUTHORING.cursor = initiator.Element;
 
-      CURSOR.element = boundary.Element;
-      CURSOR.composable = boundary;
+      ReplaceCursor(boundary);
     }
 
     public Composition(IBoundary boundary, CompositionId id, IComposable composable) : this() {
@@ -67,7 +66,7 @@ namespace HELIX.Compose {
       AUTHORING.cell.scope = composable;
       AUTHORING.cursor = composable.Element;
       AUTHORING.id = id;
-      CURSOR.Replace(composable);
+      ReplaceCursor(composable);
     }
 
     /// <summary>
@@ -98,6 +97,10 @@ namespace HELIX.Compose {
 
     public void SubscribeTo(Signal signal) {
       boundary.SubscribeToContextData(signal.contextKey, signal);
+    }
+
+    public void ReplaceCursor(IComposable replacement, CompositionRetention ret = CompositionRetention.Undefined) {
+      CURSOR = new ElementRef(replacement.Element, replacement, ret);
     }
 
     /// <summary>
@@ -337,6 +340,7 @@ namespace HELIX.Compose {
       var local = LocalId.FromData(data);
       return new CompositionId { local = local, composition = GeneratedCompositionId, type = type };
     }
+
     public static CompositionId Generated(int data) {
       var local = LocalId.FromData(data);
       return new CompositionId { local = local, composition = GeneratedCompositionId, type = GeneratedTypeId };
@@ -347,16 +351,19 @@ namespace HELIX.Compose {
     }
   }
 
-  public ref struct ElementRef {
-    public VisualElement element;
-    public IComposable composable;
-    public CompositionRetention retention;
+  public readonly ref struct ElementRef {
+    public readonly VisualElement element;
+    public readonly IComposable composable;
+    public readonly CompositionRetention retention;
 
-    public void Replace(IComposable replacement, CompositionRetention ret = CompositionRetention.Undefined) {
-      composable = replacement;
-      element = replacement.Element;
-      retention = ret;
+    public ElementRef(VisualElement element, IComposable composable, CompositionRetention retention) {
+      this.element = element;
+      this.composable = composable;
+      this.retention = retention;
     }
+
+    public ElementRef(IComposable composable) : this(composable.Element, composable, CompositionRetention.Undefined) { }
+    public void MarkFlag(UssFlag flag) => composable.MarkFlag(flag);
 
     public bool IsRetained => retention == CompositionRetention.Retained;
     public bool IsDirty => !IsRetained;
@@ -374,8 +381,9 @@ namespace HELIX.Compose {
     private readonly ScopeCompletionCallback _callback;
     private readonly ComposableSlot _slot;
     private readonly bool _skipCallback;
+    public readonly IComposable current;
 
-    private ScopeHandle(BoundaryCell cell, ScopeCompletionCallback callback) {
+    private ScopeHandle(BoundaryCell cell, IComposable current, ScopeCompletionCallback callback) {
       _cell = cell;
       _return = cell.scope;
       _callback = callback;
@@ -383,6 +391,7 @@ namespace HELIX.Compose {
       _local = cell.localId;
       _slot = cell.slot;
       _skipCallback = cell.skip;
+      this.current = current;
 
       cell.skip = false;
       cell.cursor = 0;
@@ -390,6 +399,7 @@ namespace HELIX.Compose {
       unchecked { localDepth++; }
       cell.localId = new LocalId { index = 0, depth = localDepth };
     }
+
 
     public void Dispose() {
       try {
@@ -405,13 +415,12 @@ namespace HELIX.Compose {
 
     public ref ElementRef Apply(VisualElement given, IComposable composable, ref ElementRef element) {
       Dispose();
-      element.element = given;
-      element.composable = composable;
+      element = new ElementRef(given, composable, element.retention);
       return ref element;
     }
 
     internal static ScopeHandle Push(BoundaryCell cell, IComposable next, ScopeCompletionCallback callback) {
-      var scope = new ScopeHandle(cell, callback);
+      var scope = new ScopeHandle(cell, next, callback);
       cell.scope = next;
       return scope;
     }

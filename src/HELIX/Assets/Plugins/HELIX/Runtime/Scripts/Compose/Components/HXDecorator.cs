@@ -83,7 +83,7 @@ namespace HELIX.Compose {
     public ScopeHandle After() => _element.after.Scope(_composition);
   }
 
-  public class HXDecorator : VisualElement, ISlotHost {
+  public class HXDecorator : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassElement = new("hx-decorator-element");
     public static readonly UniqueStyleString ClassLabel = new("hx-decorator-label");
     public static readonly UniqueStyleString ClassDescription = new("hx-decorator-description");
@@ -111,7 +111,7 @@ namespace HELIX.Compose {
       var type = GetType(cx.Slot);
       var data = cx.ReadContext(ThemeData.Key);
 
-      using (cx.Flex(Axis.Horizontal)) {
+      using (cx.Group(Axis.Horizontal)) {
         cx.CURSOR.AlignSelf(Align.FlexStart);
         cx.CURSOR.Margin(type.GetMargin(data));
         type.GetTextStyle(data)?.Apply(cx.CURSOR.composable);
@@ -122,10 +122,6 @@ namespace HELIX.Compose {
 
     public readonly ComposableSlot before, after, prefix, element, suffix, between; // Decorator slots
     public readonly ComposableSlot label, description; // Semantic primary slots
-
-    public VisualElement Element => this;
-    public UssFlag Flag { get; set; }
-    public ulong PackedId { get; set; }
 
     public IBoundary Boundary { get; private set; }
     public override VisualElement contentContainer => element;
@@ -151,7 +147,8 @@ namespace HELIX.Compose {
       Boundary = cx.boundary;
     }
 
-    public void Reset() {
+    public override void Reset() {
+      base.Reset();
       before?.Reset();
       after?.Reset();
       prefix?.Reset();

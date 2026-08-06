@@ -6,6 +6,8 @@ namespace HELIX.Compose {
   [Flags]
   public enum UssFlag : uint {
     None = 0,
+
+    // Uss based override flags (might be removed later)
     Flex = 1 << 1,
     GroupAlign = 1 << 2,
     Padding = 1 << 3,
@@ -27,9 +29,15 @@ namespace HELIX.Compose {
     Clipping = 1 << 19,
     Transition = 1 << 20,
     Special = 1 << 21,
+
+    // Non uss based native override flags
     Classes = 1 << 22,
     Name = 1 << 23,
     Focus = 1 << 24,
+
+    MaskUssStyle = Flex | GroupAlign | Padding | Margin | Size | Position | BorderColor | BorderWidth | Radius |
+                   Background | BackgroundSlice | BackgroundAdvanced | Transform | Visibility | Text | TextFont |
+                   TextOutline | TextLayout | Clipping | Transition | Special,
   }
 
   public static class UssDirtyFlagsExtensions {
@@ -72,7 +80,8 @@ namespace HELIX.Compose {
     }
 
     public static void ClearFlags(this UssFlag flags, VisualElement element) {
-      flags.ClearFlags(element.style, element);
+      flags.ClearFlagsFast(element);
+      // flags.ClearFlags(element.style, element);
     }
 
     public static void ClearFlags(this UssFlag flags, IStyle style, VisualElement element) {
@@ -83,6 +92,25 @@ namespace HELIX.Compose {
         var bitIndex = _deBruijnTable[(lowestBit * _deBruijnMagic) >> 27];
         ClearFlag(style, element, (UssFlag)(1u << bitIndex));
         mask &= mask - 1;
+      }
+    }
+
+    private static void ClearFlagsFast(this UssFlag flags, VisualElement element) {
+      if (flags.HasFlag(UssFlag.Name)) {
+        element.name = null;
+      }
+      if (flags.HasFlag(UssFlag.Classes)) {
+        element.ClearClassList();
+      }
+      if (flags.HasFlag(UssFlag.Focus)) {
+        element.pickingMode = PickingMode.Position;
+        element.focusable = false;
+        element.delegatesFocus = false;
+        element.tabIndex = -1; // TODO: Probably when initializing I need to make sure the element is initially this
+      }
+
+      if ((flags & UssFlag.MaskUssStyle) != 0) {
+        element.style.Clear();
       }
     }
 

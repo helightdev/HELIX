@@ -357,7 +357,7 @@ namespace HELIX.Compose {
   }
 
   [ComposableProxy]
-  public sealed partial class TextFieldElement : VisualElement, ISlotHost {
+  public sealed partial class TextFieldElement : ComposableElement, ISlotHost {
     private const string _selectionLightClass = "helix-textfield-style-light";
     private const string _selectionDarkClass = "helix-textfield-style-dark";
     private const string _selectionLightNeutralClass = "helix-textfield-style-light-neutral";
@@ -373,13 +373,9 @@ namespace HELIX.Compose {
     private Color _appliedCursorColor;
 
     public IBoundary Boundary { get; private set; }
-    public UssFlag Flag { get; set; }
-    public ulong PackedId { get; set; }
     public TextEditingController Owner { get; set; }
     public TextField Field => _field;
     public TextElement TextEdition => _textEdition;
-    public VisualElement Element => this;
-
     internal ScopeHandle BackgroundScope(Composition cx) => _background.Scope(cx);
 
 
@@ -474,7 +470,8 @@ namespace HELIX.Compose {
       ApplySelectionStyle(selectionStyle);
     }
 
-    public void Reset() {
+    public override void Reset() {
+      base.Reset();
       Boundary = null;
       _hasAppliedSelectionStyle = false;
       _field.SetEnabled(true);

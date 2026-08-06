@@ -48,7 +48,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false)]
+  [BoundaryComposable(Extension = false, UseLookupCache = true)]
   public partial class NavigationHostBoundary {
     public partial struct Props {
       public NavigationGraph graph;
@@ -96,7 +96,7 @@ namespace HELIX.Compose {
       for (var i = 0; i < stack.Count; i++) {
         var entry = stack[i];
         var identity = unchecked((int)entry.Id ^ (int)(entry.Id >> 32));
-        cx.AUTHORING.SetId(CompositionId.Generated(identity));
+        cx.AUTHORING.SetId(CompositionId.Generated(identity)); // TODO: Probably change this
         var presentation = Controller.PresentationOf(entry, IsCovered(stack, i));
         ref var result = ref NavigationPageBoundary.ComposeBoundary(ref cx, Controller, entry, presentation);
         if ((result.element as CompositionBoundaryNodeBase)?.BoundaryComposable
@@ -164,7 +164,7 @@ namespace HELIX.Compose {
     internal void TransitionCompleted(long changeId) => Controller?.CompletePresentation(changeId);
   }
 
-  [BoundaryComposable(Extension = true, Name = "NavigationLink", UseLookupCache = true)]
+  [BoundaryComposable(Extension = true, Name = "NavigationLink")]
   public partial class HXNavigationLink {
     public partial struct Props {
       public NavigationRoute route;

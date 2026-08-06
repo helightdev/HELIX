@@ -43,6 +43,10 @@ namespace HELIX.Compose {
       style.display = DisplayStyle.None;
     }
 
+    public void MarkFlag(UssFlag flag) {
+      Flag |= flag;
+    }
+
     public ScopeHandle Scope(Composition cx, bool trimChildren = true) {
       PackedId = new CompositionId(slotLocalId, CompositionId.GeneratedCompositionId, CompositionId.SlotTypeId).packed;
 

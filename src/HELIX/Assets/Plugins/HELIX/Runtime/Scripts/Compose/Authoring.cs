@@ -199,7 +199,7 @@ namespace HELIX.Compose {
       if (retention is CompositionRetention.Reset or CompositionRetention.New) {
         HXProfiling.TrackComposableReset();
       }
-      ctx.CURSOR.Replace(composable, retention);
+      ctx.ReplaceCursor(composable, retention);
       cell.cursor++;
       unchecked { cell.localId.index++; }
       cursor = null; // Clear authoring element

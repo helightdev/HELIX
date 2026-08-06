@@ -229,7 +229,7 @@ namespace HELIX.Compose {
       cx.CURSOR.Focusable(props.enabled).AlignSelf(Align.Stretch);
       props.style.RenderBoundary(ref cx, InputState);
 
-      using (cx.Flex(Axis.Horizontal, main: Justify.SpaceBetween, cross: Align.Center)) {
+      using (cx.Group(Axis.Horizontal, main: Justify.SpaceBetween, cross: Align.Center)) {
         cx.CURSOR.Flexible().AlignSelf(Align.Stretch);
         cx.Text(props.label ?? string.Empty);
         if (props.hasChildren) {
@@ -294,7 +294,7 @@ namespace HELIX.Compose {
       cx.CURSOR.Focusable(controller.enabled);
       _resolvedStyle.button.RenderBoundary(ref cx, InputState);
 
-      using (cx.Flex(Axis.Horizontal, main: Justify.SpaceBetween, cross: Align.Center)) {
+      using (cx.Group(Axis.Horizontal, main: Justify.SpaceBetween, cross: Align.Center)) {
         cx.CURSOR.Flexible().AlignSelf(Align.Stretch);
         cx.Text(controller.SelectedLabel);
         cx.Spacing(1);
@@ -343,7 +343,7 @@ namespace HELIX.Compose {
     private void ComposeMenu(ref Composition cx, OverlayContextData overlay) {
       var style = props.style ?? ThemeProperties.DropdownButton[in cx];
       style.panel.RenderBoundary(ref cx, State.None);
-      using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         cx.CURSOR.AlignSelf(Align.Stretch);
         if (controller == null) return;
         for (var i = 0; i < controller.Count; i++) {
@@ -428,7 +428,7 @@ namespace HELIX.Compose {
       cx.CURSOR.Focusable(props.enabled);
       _resolvedStyle.button.RenderBoundary(ref cx, InputState);
 
-      using (cx.Flex(Axis.Horizontal, main: Justify.SpaceBetween, cross: Align.Center)) {
+      using (cx.Group(Axis.Horizontal, main: Justify.SpaceBetween, cross: Align.Center)) {
         cx.CURSOR.Flexible().AlignSelf(Align.Stretch);
         props.content?.Invoke(ref cx);
         cx.Spacing(1);
@@ -559,7 +559,7 @@ namespace HELIX.Compose {
 
     private void Compose(ref Composition cx, OverlayContextData overlay) {
       _style.panel.RenderBoundary(ref cx, State.None);
-      using (cx.Flex(Axis.Vertical, cross: Align.Stretch)) {
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         cx.CURSOR.AlignSelf(Align.Stretch);
 
         if (_items == null) return;

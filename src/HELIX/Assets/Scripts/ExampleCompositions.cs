@@ -60,13 +60,13 @@ namespace TestNamespace {
 
       // using var exampleContext = cx.WriteContext<ExampleContext>();
       // exampleContext.value.counter = counter;
-      using (cx.Flex(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
+      using (cx.Group(Axis.Vertical, main: Justify.Center, cross: Align.Center)) {
         cx.CURSOR.Padding(10).Padding(20);
 
         //cx.APPLY.BackgroundColor(theme.GetColor(ColorRoles.Surface));
 
         cx.Text($"Title");
-        using (cx.Flex(Axis.Horizontal)) {
+        using (cx.Group(Axis.Horizontal)) {
           cx.Text($"Hello");
           cx.Text($"World");
         }
@@ -115,7 +115,7 @@ namespace TestNamespace {
         cx.Text($"AfterButton");
 
         cx.Text($"Title2");
-        using (cx.Flex(Axis.Horizontal)) {
+        using (cx.Group(Axis.Horizontal)) {
           cx.Text($"Hello").TextColor(new Color(counter % 20 / 20f, 0f, 0f));
           //if (cx.Conditional(counter % 200 == 0)) cx.Text($"World").Padding(100);
           cx.Text($"Another");
@@ -129,7 +129,7 @@ namespace TestNamespace {
         cx.TextField();
 
         cx.Text($"Title3");
-        using (cx.Flex(Axis.Horizontal)) {
+        using (cx.Group(Axis.Horizontal)) {
           cx.Text($"Hello");
           cx.Text($"World");
         }

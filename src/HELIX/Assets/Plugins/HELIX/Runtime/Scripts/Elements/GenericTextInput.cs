@@ -230,6 +230,10 @@ namespace HELIX.Widgets.Elements {
       OnSubmit = null;
       OnCancel = null;
     }
+
+    public void MarkFlag(UssFlag flag) {
+      Flag |= flag;
+    }
   }
 
   public enum GenericTextInputStyle {

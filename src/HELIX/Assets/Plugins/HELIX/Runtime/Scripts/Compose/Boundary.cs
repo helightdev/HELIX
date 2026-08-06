@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using HELIX.Compose.Collections;
+using HELIX.Diagnostics;
 using HELIX.Extensions;
 using UnityEngine.UIElements;
 using Debug = UnityEngine.Debug;
@@ -137,6 +138,10 @@ namespace HELIX.Compose {
       _lookupCache.Release();
     }
 
+    public void MarkFlag(UssFlag flag) {
+      Flag |= flag;
+    }
+
     protected virtual void BeforeCompose() {
       _lookupCache.Clear();
       WrittenContext?.ResetSubscriptionMarkers();
@@ -162,6 +167,7 @@ namespace HELIX.Compose {
           Debug.LogException(e);
         }
         Cell.TrimChildren(); // TODO: Maybe?
+        // TODO: Explicitly run on this not the last value
       } finally {
         AfterCompose();
         HXComposer.RemoveDirty(this);
@@ -237,6 +243,10 @@ namespace HELIX.Compose {
     //     packed = TypeId
     //   }.ToString(), new Vector2(0, -10), 12, color);
     //
+    // }
+
+    // protected CompositionBoundaryNodeBase() {
+    //   this.WithName(this.ShortHash());
     // }
 
     public void SetDataOnly(BoundaryData data) {

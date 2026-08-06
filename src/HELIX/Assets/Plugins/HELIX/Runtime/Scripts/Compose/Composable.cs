@@ -184,6 +184,7 @@ namespace HELIX.Compose {
     UssFlag Flag { get; set; }
     ulong PackedId { get; set; }
     void Reset();
+    void MarkFlag(UssFlag flag);
   }
 
   public interface IDirty {
@@ -210,6 +211,10 @@ namespace HELIX.Compose {
       OnReset = null;
       StateAttachmentStore.Dispose();
     }
+
+    public void MarkFlag(UssFlag flag) {
+      Flag |= flag;
+    }
   }
 
   public abstract class ComposableElement : VisualElement, IStateAttachmentHolder {
@@ -224,6 +229,10 @@ namespace HELIX.Compose {
 
     public virtual void Reset() {
       _stateAttachmentStore.Dispose();
+    }
+
+    public void MarkFlag(UssFlag flag) {
+      Flag |= flag;
     }
   }
 

@@ -1,9 +1,91 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Types {
+  public sealed class TransitionPreset {
+    public static readonly TransitionPreset Colors = new(
+      new[] {
+        StyleProperties.Color, StyleProperties.BackgroundColor,
+        StyleProperties.BorderColor, StyleProperties.Opacity,
+        StyleProperties.UnityBackgroundImageTintColor
+      }, TransitionOptions.Default
+    );
+
+    public readonly List<StylePropertyName> properties;
+    public readonly List<EasingFunction> easingFunctions;
+    public readonly List<TimeValue> durations;
+    public readonly List<TimeValue> delays;
+
+    public TransitionPreset(
+      List<StylePropertyName> properties,
+      List<EasingFunction> easingFunctions,
+      List<TimeValue> durations,
+      List<TimeValue> delays
+    ) {
+      this.properties = properties;
+      this.easingFunctions = easingFunctions;
+      this.durations = durations;
+      this.delays = delays;
+    }
+
+    public TransitionPreset(
+      IReadOnlyList<StylePropertyName> names,
+      TransitionOptions? options = null
+    ) {
+      var option = options ?? TransitionOptions.Default;
+      properties = new List<StylePropertyName>(names);
+      easingFunctions = new List<EasingFunction>(1) { option.easing };
+      durations = new List<TimeValue>(1) { option.duration };
+      delays = new List<TimeValue>(1) { option.delay };
+    }
+
+    public TransitionPreset CopyWith(TransitionOptions options) => new(properties, options);
+
+    public void Apply(IStyle style) {
+      style.transitionProperty = new StyleList<StylePropertyName>(properties);
+      style.transitionTimingFunction = new StyleList<EasingFunction>(easingFunctions);
+      style.transitionDuration = new StyleList<TimeValue>(durations);
+      style.transitionDelay = new StyleList<TimeValue>(delays);
+    }
+
+    public void Apply(IStyle style, TransitionOptions options) {
+      style.transitionProperty = new StyleList<StylePropertyName>(properties);
+      TransitionApplicator.Load(options, style);
+    }
+  }
+
+  internal static class TransitionApplicator {
+    public static readonly List<StylePropertyName> Properties = new();
+    public static readonly List<EasingFunction> EasingFunctions = new();
+    public static readonly List<TimeValue> Durations = new();
+    public static readonly List<TimeValue> Delays = new();
+
+    public static void Load(TransitionOptions options, IStyle target) {
+      EasingFunctions.Clear();
+      Durations.Clear();
+      Delays.Clear();
+      Durations.Add(options.duration);
+      Durations.Add(options.duration);
+      Durations.Add(options.duration);
+      target.transitionTimingFunction = new StyleList<EasingFunction>(EasingFunctions);
+      target.transitionDuration = new StyleList<TimeValue>(Durations);
+      target.transitionDelay = new StyleList<TimeValue>(Delays);
+    }
+
+    public static void Clear(IStyle style) {
+      Properties.Clear();
+      EasingFunctions.Clear();
+      Durations.Clear();
+      Delays.Clear();
+      style.transitionProperty = new StyleList<StylePropertyName>(Properties);
+      style.transitionTimingFunction = new StyleList<EasingFunction>(EasingFunctions);
+      style.transitionDuration = new StyleList<TimeValue>(Durations);
+      style.transitionDelay = new StyleList<TimeValue>(Delays);
+    }
+  }
 
   public struct TransitionOptions : IEquatable<TransitionOptions> {
     public static readonly TransitionOptions Default = new(
@@ -13,7 +95,6 @@ namespace HELIX.Types {
     );
 
     public const float DefaultDuration = 150f;
-
 
     public EasingFunction easing;
     public TimeValue duration;

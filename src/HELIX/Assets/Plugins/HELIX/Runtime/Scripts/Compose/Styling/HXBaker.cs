@@ -15,7 +15,7 @@ namespace HELIX.Compose {
       bool reverse = false,
       bool clear = false
     ) => (ref Composition cx) => {
-      using (cx.Flex(mainAxis: mainAxis, main: main, cross: cross, reverse: reverse, clear: clear)) {
+      using (cx.Group(mainAxis: mainAxis, main: main, cross: cross, reverse: reverse, clear: clear)) {
         for (var i = 0; i < children.Count; i++) {
           if (i > 0 && gap >= math.EPSILON) cx.Gap(gap);
           children[i](ref cx);
@@ -42,7 +42,7 @@ namespace HELIX.Compose {
       bool reverse = false,
       bool clear = false
     ) => (ref Composition cx, T arg) => {
-      using (cx.Flex(mainAxis: mainAxis, main: main, cross: cross, reverse: reverse, clear: clear)) {
+      using (cx.Group(mainAxis: mainAxis, main: main, cross: cross, reverse: reverse, clear: clear)) {
         for (var i = 0; i < children.Count; i++) {
           if (i > 0 && gap >= math.EPSILON) cx.Gap(gap);
           children[i](ref cx, arg);
