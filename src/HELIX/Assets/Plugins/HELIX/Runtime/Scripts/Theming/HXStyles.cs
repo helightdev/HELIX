@@ -125,8 +125,10 @@ namespace HELIX.Theming {
       var inactiveBlended = ContrastBlend(inactive.Resolve(theme), onInactiveBlended, inactiveBlendLevels);
       var activeBlended = ContrastBlend(active.Resolve(theme), onActiveBlended, activeBlendLevels);
       background = new FuncStateProperty<Color>(state => {
-          if (state.HasFlag(State.Disabled)) return isBackground ? theme[ColorRoles.DisabledLow] : theme[ColorRoles.DisabledHigh];
-          if (state.HasFlag(State.Error)) return isBackground ? theme[ColorRoles.ErrorContainer] : theme[ColorRoles.Error];
+          if (state.HasFlag(State.Disabled))
+            return isBackground ? theme[ColorRoles.DisabledLow] : theme[ColorRoles.DisabledHigh];
+          if (state.HasFlag(State.Error))
+            return isBackground ? theme[ColorRoles.ErrorContainer] : theme[ColorRoles.Error];
           if (state.HasFlag(State.Selected)) return activeBlended[state];
           return inactiveBlended[state];
         }
@@ -214,6 +216,66 @@ namespace HELIX.Theming {
     }
   }
 
+  public struct HXImageStyle {
+    private static BackgroundImage? _noImage = null;
+
+    public StateProperty<BackgroundImage?> image;
+    public StateProperty<Color> tint;
+    public StateProperty<Color> background;
+    public StateProperty<Border> border;
+    public StateProperty<BorderRadius> radius;
+    public StateProperty<float> opacity;
+    public StateProperty<BoxConstraints> constraints;
+    public StateProperty<StyleLength4> position;
+    public StateProperty<bool> absolute;
+    public StateProperty<TransitionOptions> transition;
+
+    public HXImageStyle(
+      StateProperty<BackgroundImage?> image = null,
+      StateProperty<Color> tint = null,
+      StateProperty<Color> background = null,
+      StateProperty<Border> border = null,
+      StateProperty<BorderRadius> radius = null,
+      StateProperty<float> opacity = null,
+      StateProperty<BoxConstraints> constraints = null,
+      StateProperty<StyleLength4> position = null,
+      StateProperty<bool> absolute = null,
+      StateProperty<TransitionOptions> transition = null
+    ) {
+      this.image = image ?? StateProperties.Never<BackgroundImage?>();
+      this.tint = tint ?? StateProperties.Never<Color>();
+      this.background = background ?? StateProperties.Never<Color>();
+      this.border = border ?? StateProperties.Never<Border>();
+      this.radius = radius ?? StateProperties.Never<BorderRadius>();
+      this.opacity = opacity ?? StateProperties.Never<float>();
+      this.constraints = constraints ?? StateProperties.Never<BoxConstraints>();
+      this.position = position ?? StateProperties.Never<StyleLength4>();
+      this.absolute = absolute ?? StateProperties.Never<bool>();
+      this.transition = transition ?? StateProperties.Never<TransitionOptions>();
+    }
+
+    public readonly Composable<State> Bake() {
+      var style = this;
+      return (ref Composition cx, State state) => {
+        var hasImage = style.image.HasValueFor(state);
+        ref var backgroundImage = ref _noImage;
+        if (hasImage) backgroundImage = ref style.image.GetValueRef(state);
+        cx.DrawImage(
+          image: backgroundImage,
+          tint: style.tint.ResolveOrDefault(state, Colors.White),
+          background: style.background.ResolveOrDefault(state, Colors.Transparent),
+          border: style.border.ResolveOrDefault(state, Border.None),
+          radius: style.radius.ResolveOrDefault(state, BorderRadius.None),
+          opacity: style.opacity.ResolveOrDefault(state, 1f),
+          constraints: style.constraints.ResolveOrDefault(state, BoxConstraints.Initial),
+          position: style.position.ResolveOrDefault(state, StyleLength4.Zero),
+          absolute: style.absolute.ResolveOrDefault(state, true),
+          transition: style.transition.ResolveOrDefault(state, TransitionOptions.Default)
+        );
+      };
+    }
+  }
+
   public struct HXControlBoxStyle {
     public static readonly HXControlBoxStyle Default = ThemeProperties.ButtonToggle[HXThemes.DefaultDark];
 
@@ -260,6 +322,7 @@ namespace HELIX.Theming {
     public readonly void RenderBackground(ref Composition cx, State state) {
       background?.Invoke(ref cx, state);
     }
+
     public readonly void RenderContent(ref Composition cx, State state) {
       ApplyColumn(state, cx.boundary);
       background?.Invoke(ref cx, state);

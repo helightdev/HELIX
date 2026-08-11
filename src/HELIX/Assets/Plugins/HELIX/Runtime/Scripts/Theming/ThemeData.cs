@@ -41,9 +41,9 @@ namespace HELIX.Theming {
     public TypographyGroup label;
     public TypographyGroup body;
 
-    private readonly Dictionary<ColorRole, ThemeProperty<Color>> _customColors = new();
-    private readonly Dictionary<ThemeProperty, object> _properties = new();
-    private readonly Dictionary<ThemeProperty, object> _computedProperties = new();
+    private Dictionary<ColorRole, ThemeProperty<Color>> _customColors = new();
+    private Dictionary<ThemeProperty, object> _properties = new();
+    private Dictionary<ThemeProperty, object> _computedProperties = new();
 
     public static ThemeData Build(Action<ThemeData> builder) {
       var theme = new ThemeData();
@@ -118,6 +118,14 @@ namespace HELIX.Theming {
       }
 
       throw new ArgumentOutOfRangeException(nameof(role), role, null);
+    }
+
+    public ThemeData Copy() {
+      var copy = this with { };
+      copy._customColors = new Dictionary<ColorRole, ThemeProperty<Color>>(_customColors);
+      copy._properties = new Dictionary<ThemeProperty, object>(_properties);
+      copy._computedProperties = new Dictionary<ThemeProperty, object>(_computedProperties);
+      return copy;
     }
 
     public Color this[ColorRole role] => GetColor(role);

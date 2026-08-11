@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HELIX.Compose;
 using HELIX.Compose.Collections;
 using Unity.Profiling;
@@ -16,7 +18,7 @@ namespace HELIX {
     public static RecompositionScope BatchScope() => HXComposer.BeginBatch();
   }
 
-  public struct HXOptional<T> {
+  public struct HXOptional<T> : IEquatable<HXOptional<T>> {
     public readonly T value;
     public readonly bool hasValue;
 
@@ -32,6 +34,25 @@ namespace HELIX {
 
     public static readonly HXOptional<T> None = new(default, false);
     public static implicit operator HXOptional<T>(T value) => new(value, true);
+
+    public bool Equals(HXOptional<T> other) {
+      return EqualityComparer<T>.Default.Equals(value, other.value) && hasValue == other.hasValue;
+    }
+
+    public override bool Equals(object obj) {
+      return obj is HXOptional<T> other && Equals(other);
+    }
+
+    public override int GetHashCode() {
+      return HashCode.Combine(value, hasValue);
+    }
+  }
+
+  public static class NullableHelper {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool Equals<T>(in T? a, in T? b) where T : struct {
+      return a.HasValue == b.HasValue && (!a.HasValue || a.Value.Equals(b.Value));
+    }
   }
 
   public static class HXProfiling {

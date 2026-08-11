@@ -89,8 +89,8 @@ namespace HELIX.Compose {
     }
 
     public static ref ElementRef Flexible(this ref ElementRef scope, float grow = 1f, float shrink = 1f) {
-      scope.element.style.flexGrow = grow;
-      scope.element.style.flexShrink = shrink;
+      scope.style.flexGrow = grow;
+      scope.style.flexShrink = shrink;
       scope.MarkFlag(UssFlag.Flex);
       return ref scope;
     }
@@ -102,81 +102,81 @@ namespace HELIX.Compose {
       Align cross = Align.Center,
       bool reverse = false
     ) {
-      scope.element.style.flexDirection = mainAxis.ToFlexDirection(reverse);
-      scope.element.style.justifyContent = main;
-      scope.element.style.alignItems = cross;
+      scope.style.flexDirection = mainAxis.ToFlexDirection(reverse);
+      scope.style.justifyContent = main;
+      scope.style.alignItems = cross;
       scope.MarkFlag(UssFlag.GroupAlign);
       return ref scope;
     }
 
     public static ref ElementRef FlexGrow(this ref ElementRef scope, float grow) {
-      scope.element.style.flexGrow = grow;
+      scope.style.flexGrow = grow;
       scope.MarkFlag(UssFlag.Flex);
       return ref scope;
     }
 
     public static ref ElementRef FlexShrink(this ref ElementRef scope, float shrink) {
-      scope.element.style.flexShrink = shrink;
+      scope.style.flexShrink = shrink;
       scope.MarkFlag(UssFlag.Flex);
       return ref scope;
     }
 
     public static ref ElementRef FlexBasis(this ref ElementRef scope, StyleLength basis) {
-      scope.element.style.flexBasis = basis;
+      scope.style.flexBasis = basis;
       scope.MarkFlag(UssFlag.Flex);
       return ref scope;
     }
 
     public static ref ElementRef AlignSelf(this ref ElementRef scope, Align alignment) {
-      scope.element.style.alignSelf = alignment;
+      scope.style.alignSelf = alignment;
       scope.MarkFlag(UssFlag.GroupAlign);
       return ref scope;
     }
 
     public static ref ElementRef Width(this ref ElementRef scope, StyleLength width) {
-      scope.element.style.width = width;
+      scope.style.width = width;
       scope.MarkFlag(UssFlag.Size);
       return ref scope;
     }
 
     public static ref ElementRef Height(this ref ElementRef scope, StyleLength height) {
-      scope.element.style.height = height;
+      scope.style.height = height;
       scope.MarkFlag(UssFlag.Size);
       return ref scope;
     }
 
     public static ref ElementRef MinWidth(this ref ElementRef scope, StyleLength width) {
-      scope.element.style.minWidth = width;
+      scope.style.minWidth = width;
       scope.MarkFlag(UssFlag.Size);
       return ref scope;
     }
 
     public static ref ElementRef MinHeight(this ref ElementRef scope, StyleLength height) {
-      scope.element.style.minHeight = height;
+      scope.style.minHeight = height;
       scope.MarkFlag(UssFlag.Size);
       return ref scope;
     }
 
     public static ref ElementRef MaxWidth(this ref ElementRef scope, StyleLength width) {
-      scope.element.style.maxWidth = width;
+      scope.style.maxWidth = width;
       scope.MarkFlag(UssFlag.Size);
       return ref scope;
     }
 
     public static ref ElementRef MaxHeight(this ref ElementRef scope, StyleLength height) {
-      scope.element.style.maxHeight = height;
+      scope.style.maxHeight = height;
       scope.MarkFlag(UssFlag.Size);
       return ref scope;
     }
 
     public static ref ElementRef AspectRatio(this ref ElementRef scope, float ratio) {
-      scope.element.style.aspectRatio = ratio;
+      scope.style.aspectRatio = ratio;
       scope.MarkFlag(UssFlag.Size);
       return ref scope;
     }
 
     public static ref ElementRef Absolute(this ref ElementRef scope, bool absolute = true) {
-      scope.element.style.position =
+      scope.style.position =
         absolute ? UnityEngine.UIElements.Position.Absolute : UnityEngine.UIElements.Position.Relative;
       scope.MarkFlag(UssFlag.Position);
       return ref scope;
@@ -201,20 +201,31 @@ namespace HELIX.Compose {
       return ref scope;
     }
 
+    public static ref ElementRef BackgroundImage(this ref ElementRef scope, in BackgroundImage? image) {
+      var flags = UssFlag.None;
+      if (image.HasValue) {
+        image.Value.Apply(scope.style, out flags);
+      } else {
+        Types.BackgroundImage.Unset(scope.style);
+      }
+      scope.MarkFlag(flags);
+      return ref scope;
+    }
+
     public static ref ElementRef BackgroundImage(this ref ElementRef scope, Background image) {
-      scope.element.style.backgroundImage = image;
+      scope.style.backgroundImage = image;
       scope.MarkFlag(UssFlag.Background);
       return ref scope;
     }
 
     public static ref ElementRef BackgroundSize(this ref ElementRef scope, BackgroundSize size) {
-      scope.element.style.backgroundSize = size;
+      scope.style.backgroundSize = size;
       scope.MarkFlag(UssFlag.Background);
       return ref scope;
     }
 
     public static ref ElementRef BackgroundTint(this ref ElementRef scope, Color color) {
-      scope.element.style.unityBackgroundImageTintColor = color;
+      scope.style.unityBackgroundImageTintColor = color;
       scope.MarkFlag(UssFlag.BackgroundAdvanced);
       return ref scope;
     }
@@ -226,31 +237,31 @@ namespace HELIX.Compose {
     }
 
     public static ref ElementRef TextSize(this ref ElementRef scope, StyleLength size) {
-      scope.element.style.fontSize = size;
+      scope.style.fontSize = size;
       scope.MarkFlag(UssFlag.Text);
       return ref scope;
     }
 
     public static ref ElementRef TextFont(this ref ElementRef scope, StyleFont font) {
-      scope.element.style.unityFont = font;
+      scope.style.unityFont = font;
       scope.MarkFlag(UssFlag.Text);
       return ref scope;
     }
 
     public static ref ElementRef TextFont(this ref ElementRef scope, StyleFontDefinition font) {
-      scope.element.style.unityFontDefinition = font;
+      scope.style.unityFontDefinition = font;
       scope.MarkFlag(UssFlag.Text);
       return ref scope;
     }
 
     public static ref ElementRef TextAlign(this ref ElementRef scope, TextAnchor alignment) {
-      scope.element.style.unityTextAlign = alignment;
+      scope.style.unityTextAlign = alignment;
       scope.MarkFlag(UssFlag.Text);
       return ref scope;
     }
 
     public static ref ElementRef WhiteSpace(this ref ElementRef scope, WhiteSpace whiteSpace) {
-      scope.element.style.whiteSpace = whiteSpace;
+      scope.style.whiteSpace = whiteSpace;
       scope.MarkFlag(UssFlag.Text);
       return ref scope;
     }
@@ -268,32 +279,32 @@ namespace HELIX.Compose {
     }
 
     public static ref ElementRef Visible(this ref ElementRef scope, bool visible) {
-      scope.element.style.visibility =
+      scope.style.visibility =
         visible ? Visibility.Visible : Visibility.Hidden;
       scope.MarkFlag(UssFlag.Visibility);
       return ref scope;
     }
 
     public static ref ElementRef Overflow(this ref ElementRef scope, Overflow overflow) {
-      scope.element.style.overflow = overflow;
+      scope.style.overflow = overflow;
       scope.MarkFlag(UssFlag.Clipping);
       return ref scope;
     }
 
     public static ref ElementRef Translate(this ref ElementRef scope, Translate translate) {
-      scope.element.style.translate = translate;
+      scope.style.translate = translate;
       scope.MarkFlag(UssFlag.Transform);
       return ref scope;
     }
 
     public static ref ElementRef Rotate(this ref ElementRef scope, Rotate rotate) {
-      scope.element.style.rotate = rotate;
+      scope.style.rotate = rotate;
       scope.MarkFlag(UssFlag.Transform);
       return ref scope;
     }
 
     public static ref ElementRef Scale(this ref ElementRef scope, Scale scale) {
-      scope.element.style.scale = scale;
+      scope.style.scale = scale;
       scope.MarkFlag(UssFlag.Transform);
       return ref scope;
     }
@@ -302,7 +313,7 @@ namespace HELIX.Compose {
       this ref ElementRef scope,
       TransformOrigin origin
     ) {
-      scope.element.style.transformOrigin = origin;
+      scope.style.transformOrigin = origin;
       scope.MarkFlag(UssFlag.Transform);
       return ref scope;
     }
@@ -311,7 +322,7 @@ namespace HELIX.Compose {
       this ref ElementRef scope,
       UnityEngine.UIElements.Cursor cursor
     ) {
-      scope.element.style.cursor = cursor;
+      scope.style.cursor = cursor;
       scope.MarkFlag(UssFlag.Special);
       return ref scope;
     }
@@ -321,11 +332,11 @@ namespace HELIX.Compose {
       TransitionPreset preset
     ) {
       if (preset == null) {
-        TransitionApplicator.Clear(scope.element.style);
+        TransitionApplicator.Clear(scope.style);
         return ref scope;
       }
 
-      preset.Apply(scope.element.style);
+      preset.Apply(scope.style);
       scope.composable.MarkFlag(UssFlag.Transition);
       return ref scope;
     }
@@ -336,11 +347,11 @@ namespace HELIX.Compose {
       TransitionOptions options
     ) {
       if (preset == null) {
-        TransitionApplicator.Clear(scope.element.style);
+        TransitionApplicator.Clear(scope.style);
         return ref scope;
       }
 
-      preset.Apply(scope.element.style, options);
+      preset.Apply(scope.style, options);
       scope.composable.MarkFlag(UssFlag.Transition);
       return ref scope;
     }

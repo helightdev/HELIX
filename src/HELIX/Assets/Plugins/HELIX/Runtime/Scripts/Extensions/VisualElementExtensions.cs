@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -158,21 +157,7 @@ namespace HELIX.Extensions {
     }
 
     public static T Transitions<T>(this T element, params Transition[] transitions) where T : VisualElement {
-      var names = new List<StylePropertyName>();
-      var durations = new List<TimeValue>();
-      var easings = new List<EasingFunction>();
-      var delays = new List<TimeValue>();
-      foreach (var transition in transitions) {
-        names.Add(transition.property);
-        durations.Add(transition.duration);
-        easings.Add(transition.easing);
-        delays.Add(transition.delay);
-      }
-
-      element.style.transitionProperty = names;
-      element.style.transitionDuration = durations;
-      element.style.transitionTimingFunction = easings;
-      element.style.transitionDelay = delays;
+      TransitionApplicator.Load(transitions, element.style);
       return element;
     }
 

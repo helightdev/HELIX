@@ -355,11 +355,13 @@ namespace HELIX.Compose {
     public readonly VisualElement element;
     public readonly IComposable composable;
     public readonly CompositionRetention retention;
+    public readonly IStyle style;
 
     public ElementRef(VisualElement element, IComposable composable, CompositionRetention retention) {
       this.element = element;
       this.composable = composable;
       this.retention = retention;
+      this.style = element?.style;
     }
 
     public ElementRef(IComposable composable) : this(composable.Element, composable, CompositionRetention.Undefined) { }

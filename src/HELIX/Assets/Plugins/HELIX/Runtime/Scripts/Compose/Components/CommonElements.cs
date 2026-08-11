@@ -164,13 +164,89 @@ namespace HELIX.Compose {
       if (cx.AUTHORING.InitializeNode(_boxId, out var node)) { }
       ref var reference = ref cx.AUTHORING.YieldElement(ref cx, node);
 
-      reference.Border(border ?? Types.Border.None)
-        .BorderRadius(radius ?? Types.BorderRadius.None)
+      reference.Border(border ?? Border.None)
+        .BorderRadius(radius ?? BorderRadius.None)
         .BackgroundColor(color ?? Colors.Transparent)
         .Opacity(opacity)
         .Absolute(absolute)
         .Size(constraints ?? BoxConstraints.Tight(StyleKeyword.Null, StyleKeyword.Null))
         .Position(position ?? new StyleLength4(StyleKeyword.Null));
+
+      if (transition.HasValue) {
+        reference.Transition(TransitionPreset.Colors, transition.Value);
+      } else if ((reference.composable.Flag & UssFlag.Transition) != 0) {
+        reference.Transition(null, default);
+      }
+
+      return ref reference;
+    }
+
+
+    // Solid box
+    private static readonly ushort _image = CompositionId.GetTypeId("Image");
+    public static ref ElementRef DrawImage(
+      this ref Composition cx,
+      in BackgroundImage? image,
+      Color? tint = null,
+      Color? background = null,
+      Border? border = null,
+      BorderRadius? radius = null,
+      float opacity = 1f,
+      BoxConstraints? constraints = null,
+      StyleLength4? position = null,
+      bool absolute = false,
+      TransitionOptions? transition = null
+    ) {
+      if (cx.AUTHORING.InitializeNode(_image, out var node)) { }
+      ref var reference = ref cx.AUTHORING.YieldElement(ref cx, node);
+
+      reference.Border(border ?? Border.None)
+        .BorderRadius(radius ?? BorderRadius.None)
+        .BackgroundColor(background ?? Colors.Transparent)
+        .BackgroundImage(image)
+        .BackgroundTint(tint ?? Colors.White)
+        .Opacity(opacity)
+        .Absolute(absolute)
+        .Name("Image")
+        .Size(constraints ?? BoxConstraints.Tight(StyleKeyword.Null, StyleKeyword.Null))
+        .Position(position ?? new StyleLength4(StyleKeyword.Null));
+
+
+      if (transition.HasValue) {
+        reference.Transition(TransitionPreset.Colors, transition.Value);
+      } else if ((reference.composable.Flag & UssFlag.Transition) != 0) {
+        reference.Transition(null, default);
+      }
+
+      return ref reference;
+    }
+
+    public static ref ElementRef DrawImage(
+      this ref Composition cx,
+      BackgroundImage image,
+      Color? tint = null,
+      Color? background = null,
+      Border? border = null,
+      BorderRadius? radius = null,
+      float opacity = 1f,
+      BoxConstraints? constraints = null,
+      StyleLength4? position = null,
+      bool absolute = false,
+      TransitionOptions? transition = null
+    ) {
+      if (cx.AUTHORING.InitializeNode(_image, out var node)) { }
+      ref var reference = ref cx.AUTHORING.YieldElement(ref cx, node);
+
+      reference.Border(border ?? Border.None)
+        .BorderRadius(radius ?? BorderRadius.None)
+        .BackgroundColor(background ?? Colors.Transparent)
+        .BackgroundImage(image)
+        .BackgroundTint(tint ?? Colors.White)
+        .Opacity(opacity)
+        .Absolute(absolute)
+        .Size(constraints ?? BoxConstraints.Tight(StyleKeyword.Null, StyleKeyword.Null))
+        .Position(position ?? new StyleLength4(StyleKeyword.Null));
+
 
       if (transition.HasValue) {
         reference.Transition(TransitionPreset.Colors, transition.Value);
@@ -191,9 +267,20 @@ namespace HELIX.Compose {
       }
 
       label.text = text;
-
       return ref ctx.AUTHORING.YieldElement(ref ctx, label);
     }
+    /*
+     *      if (ctx.TryReadContextData(TextStyle.Key, out var data)) {
+         data.value.Apply(element.composable);
+       }
+     *
+     */
+    /*
+     *      if (ctx.TryReadContextData(TextStyle.Key, out var data)) {
+         data.value.Apply(element.composable);
+       }
+     *
+     */
 
     public static ref ElementRef Text(this ref Composition cx, string text, TextRole role) {
       ref var elementRef = ref cx.Text(text);

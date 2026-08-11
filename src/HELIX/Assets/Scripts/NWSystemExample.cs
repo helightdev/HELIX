@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using HELIX.Coloring;
 using HELIX.Compose;
 using HELIX.Extensions;
 using HELIX.Theming;
@@ -33,10 +34,33 @@ namespace HELIX.Examples {
   [BoundaryComposable(Extension = true)]
   public partial class NWSystemExample {
     protected override void OnRecompose(ref Composition cx) {
-      var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark);
+      var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark).Copy();
+      //var kennyBg = Resources.Load<Texture2D>("kenney/PNG/Double/button_grey");
+      // var kennyBg = Resources.Load<Texture2D>("kenney/PNG/Double/pattern_diagonal_red_large");
+      // ThemeProperties.ButtonFilled[theme] = new HXControlBoxStyle(
+      //   background: new HXImageStyle(
+      //     image: BackgroundImage.Texture2D(kennyBg, scaling: ImageScaling.RepeatX(32), anchor: ImageAnchor.Left),
+      //     tint: new StatePropertyMap<Color> {
+      //       [State.Active] = Colors.White,
+      //       [State.Hovered] = Colors.White90,
+      //       [State.None] = Colors.White80
+      //     }
+      //   ).Bake(),
+      //   padding: ThemeProperties.ButtonPadding[theme],
+      //   textStyle: HXStyles
+      //     .TextColor(StateProperties.Const(Colors.White))
+      //     .Derive(States.Common)
+      // );
+
+      using (cx.WriteContext(out var context)) {
+        ThemeData.Key[context] = theme;
+      }
+
+
       cx.CURSOR
         .BackgroundColor(theme.GetColor(ColorRoles.Surface))
         .TextColor(theme.GetColor(ColorRoles.OnSurface));
+
 
       HomeComposable.ComposeBoundary(ref cx);
       cx.CURSOR.Fill();

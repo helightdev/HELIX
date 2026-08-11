@@ -63,6 +63,23 @@ namespace HELIX.Types {
     public static readonly List<TimeValue> Durations = new();
     public static readonly List<TimeValue> Delays = new();
 
+    public static void Load(IReadOnlyList<Transition> transitions, IStyle target) {
+      Properties.Clear();
+      EasingFunctions.Clear();
+      Durations.Clear();
+      Delays.Clear();
+      foreach (var transition in transitions) {
+        Properties.Add(transition.property);
+        EasingFunctions.Add(transition.easing);
+        Durations.Add(transition.duration);
+        Delays.Add(transition.delay);
+      }
+      target.transitionProperty = new StyleList<StylePropertyName>(Properties);
+      target.transitionTimingFunction = new StyleList<EasingFunction>(EasingFunctions);
+      target.transitionDuration = new StyleList<TimeValue>(Durations);
+      target.transitionDelay = new StyleList<TimeValue>(Delays);
+    }
+
     public static void Load(TransitionOptions options, IStyle target) {
       EasingFunctions.Clear();
       Durations.Clear();
