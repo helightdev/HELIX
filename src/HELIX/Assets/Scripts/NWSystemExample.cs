@@ -4,6 +4,7 @@ using System.Globalization;
 using HELIX.Compose;
 using HELIX.Compose.Forms;
 using HELIX.Extensions;
+using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;
 using HELIX.Widgets.Universal;
@@ -76,6 +77,7 @@ namespace HELIX.Examples {
     private const string TabNavigation = "examples-navigation";
     private const string TabOverlays = "examples-overlays";
     private const string TabInputs = "examples-inputs";
+    private const string TabProse = "examples-prose";
 
     public static readonly SliderOptions VolumeOptions = new(0f, 1f, step: 0f, thumbRange: 0.1f);
     public static readonly SliderOptions VolumeOptionsScroll = new(
@@ -180,6 +182,12 @@ namespace HELIX.Examples {
             .Name("Inputs")
             .Transition(NavigationTransitions.SlideHorizontal)
         )
+        .Route(
+          TabProse,
+          NavigationPage.Build(ComposeProseTab)
+            .Name("Prose")
+            .Transition(NavigationTransitions.SlideHorizontal)
+        )
         .Build();
       _tabNavigationController = new NavigationController(_tabNavigationGraph);
       for (var i = 0; i < _tabNavigationGraph.Routes.Count; i++) {
@@ -254,6 +262,9 @@ namespace HELIX.Examples {
     private static void ComposeInputsTab(ref Composition cx, NavigationContextData navigation) =>
       cx.Lookup<HomeComposable>()?.ComposeInputsTab(ref cx);
 
+    private static void ComposeProseTab(ref Composition cx, NavigationContextData navigation) =>
+      cx.Lookup<HomeComposable>()?.ComposeProseTab(ref cx);
+
     private void ComposeInputsTab(ref Composition cx) {
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Fill();
@@ -272,6 +283,95 @@ namespace HELIX.Examples {
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Fill();
         ComposeOverlayShowcase(ref cx);
+      }
+    }
+
+    private void ComposeProseTab(ref Composition cx) {
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+        if (cx.CursorDirty) cx.CURSOR.Fill();
+        cx.Text("Semantic Prose writers", TextRole.TitleMedium);
+        cx.Spacing(1);
+        cx.Text(
+          "The same immediate-mode station report can be projected through several allocation-conscious " +
+          "plain-text configurations or the data-only dictionary writer. Open the Unity console to compare them.",
+          TextRole.BodySmall
+        );
+        cx.Spacing(2);
+
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Unicode tree"),
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Unicode tree", ProsePlainTextConfigurations.Unicode
+            )
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("ASCII tree"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "ASCII tree", ProsePlainTextConfigurations.Ascii
+            )
+          );
+        }
+        cx.Spacing(1);
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Whitespace tree"),
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Whitespace tree", ProsePlainTextConfigurations.Whitespace
+            )
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Fully flat"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Fully flat", ProsePlainTextConfigurations.Flat
+            )
+          );
+        }
+        cx.Spacing(1);
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Current object only"),
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Current object only", ProsePlainTextConfigurations.CurrentObjectFlat
+            )
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Test: wide decorated"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "test wide decorated", DetailedProseExample.TestWideDecorated
+            )
+          );
+        }
+        cx.Spacing(1);
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Test: compact sections"),
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "test compact sections", DetailedProseExample.TestCompactSections
+            )
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Dictionary tree"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintDictionary()
+          );
+        }
+
+        cx.Spacing(2);
+        cx.Text("Example contents", TextRole.LabelLarge);
+        cx.Spacing(1);
+        cx.Text(
+          "Mission metadata, typed and constrained properties, hidden data, severity markers, power and " +
+          "communications subsystems, nested reactor and antenna trees, cargo, crew, and active alerts.",
+          TextRole.BodySmall
+        );
       }
     }
 
