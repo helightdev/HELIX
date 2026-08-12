@@ -4,7 +4,8 @@
   "references": [
     "GUID:1450c30e11b017547b276675739915ea",
     "Unity.Mathematics",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "HELIX.Compose"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

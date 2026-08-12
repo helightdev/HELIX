@@ -49,9 +49,9 @@ namespace HELIX.Compose {
     private static readonly ushort _contextScopeId = CompositionId.GetTypeId("Context Contributor");
 
     public static ScopeHandle ContextContributor(this ref Composition cx) {
-      cx.AUTHORING.RequireComposable<ContextComposableElement>(
-        _contextScopeId, out var contributor, out var retained
-      );
+      if (!cx.AUTHORING.RequireComposable<ContextComposableElement>(_contextScopeId, out var contributor, out _)) {
+        contributor = new ContextComposableElement { PackedId = cx.AUTHORING.id.packed };
+      }
 
       return cx.AUTHORING.YieldScope(
         ref cx,

@@ -1,10 +1,9 @@
 {
-  "name": "HELIX.Widgets.Editor",
-  "rootNamespace": "HELIX.Widgets.Editor",
+  "name": "HELIX.Compose.Editor",
+  "rootNamespace": "HELIX.Editor",
   "references": [
     "GUID:1450c30e11b017547b276675739915ea",
-    "GUID:1017dfa468d0004459eb65850872aad9",
-    "HELIX.Compose"
+    "GUID:50814613fed148ed9c89bc88505979f4"
   ],
   "includePlatforms": [
     "Editor"

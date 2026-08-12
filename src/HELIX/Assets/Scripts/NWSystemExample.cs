@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using HELIX.Coloring;
 using HELIX.Compose;
+using HELIX.Compose.Forms;
 using HELIX.Extensions;
 using HELIX.Theming;
 using HELIX.Types;
@@ -154,6 +154,9 @@ namespace HELIX.Examples {
     private NavigationGraph _dialogNavigationGraph;
     private NavigationController _dialogNavigationController;
     private OverlayController _overlayController;
+    private FormController _exampleForm;
+    private FormFieldRegistration<string> _exampleNameField;
+    private FormFieldRegistration<bool> _exampleUpdatesField;
 
     public override void OnAttach(BoundaryData data, IBoundary boundary) {
       base.OnAttach(data, boundary);
@@ -197,6 +200,9 @@ namespace HELIX.Examples {
         .Build();
       _dialogNavigationController = new NavigationController(_dialogNavigationGraph);
       _overlayController = new OverlayController();
+      _exampleForm = new FormController();
+      _exampleNameField = new FormFieldRegistration<string>(static (_, _) => { });
+      _exampleUpdatesField = new FormFieldRegistration<bool>(static (_, _) => { });
     }
 
     public override void OnDetach(BoundaryData data, IBoundary boundary) {
@@ -205,10 +211,16 @@ namespace HELIX.Examples {
       _navigationController?.Dispose();
       _dialogNavigationController?.Dispose();
       _overlayController?.Dispose();
+      _exampleNameField?.Dispose();
+      _exampleUpdatesField?.Dispose();
+      _exampleForm?.Dispose();
       _tabNavigationController = null;
       _navigationController = null;
       _dialogNavigationController = null;
       _overlayController = null;
+      _exampleNameField = null;
+      _exampleUpdatesField = null;
+      _exampleForm = null;
       _tabNavigationGraph = null;
       _navigationGraph = null;
       _dialogNavigationGraph = null;
@@ -676,6 +688,9 @@ namespace HELIX.Examples {
       //
       //   }
       // }
+
+      cx.Spacing(3);
+      ComposeFormExample(ref cx);
     }
 
     private static void ComposeNavigationHome(ref Composition cx, NavigationContextData navigation) {
@@ -969,6 +984,67 @@ namespace HELIX.Examples {
             static (ref Composition child) => child.Text("Finish"),
             action: static ctx => ctx.OverlayEntry()?.Dismiss()
           );
+        }
+      }
+    }
+
+    private void ComposeFormExample(ref Composition cx) {
+      cx.Text("Compose form context", TextRole.TitleMedium);
+      cx.Spacing(1);
+
+      // Form context is published through Compose's retained context contributor.
+      using (cx.ProvideForm(_exampleForm)) {
+        cx.SubscribeTo(_exampleForm);
+        var form = cx.RequireForm();
+        var profile = form.WithPrefix("profile");
+        _exampleNameField.Attach(
+          profile,
+          profile.Resolve("name"),
+          validators: new[] { FormValidators.Required("A display name is required.") },
+          validationMode: ValidationMode.OnDirty | ValidationMode.OnSubmit,
+          initialValue: "Ada"
+        );
+        _exampleUpdatesField.Attach(form, form.Resolve("receiveUpdates"), initialValue: true);
+
+        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+          if (cx.CursorDirty) cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(320f, 0f)));
+          cx.Text("Profile name", TextRole.LabelLarge);
+          cx.TextField(
+            value: new TextEditingValue(_exampleForm.GetValue(profile.Resolve("name"), "")),
+            onChanged: static (context, value) =>
+              context.Lookup<HomeComposable>()?._exampleNameField.SetUserValue(value.text)
+          );
+          cx.Spacing(1);
+          cx.Checkbox(
+            _exampleForm.GetValue(form.Resolve("receiveUpdates"), false),
+            onChanged: static (context, value) =>
+              context.Lookup<HomeComposable>()?._exampleUpdatesField.SetUserValue(value)
+          );
+          cx.Text("Receive product updates", TextRole.BodySmall);
+          cx.Spacing(1);
+          cx.Text(
+            $"Dirty: {_exampleForm.IsDirty}  •  Errors: {_exampleForm.HasErrors}  •  " +
+            $"Submitted: {_exampleForm.SubmitAttempted}",
+            TextRole.BodySmall
+          );
+          cx.Spacing(1);
+          using (cx.Group(Axis.Horizontal)) {
+            cx.Button(
+              static (ref Composition child) => child.Text("Submit"),
+              action: static context => {
+                var form = context.Lookup<HomeComposable>()?._exampleForm;
+                if (form == null) return;
+                var result = form.Submit();
+                Debug.Log($"Compose form submit ({(result.valid ? "valid" : "invalid")}): {form.FormatData(result.data)}");
+              }
+            );
+            cx.Spacing(1);
+            cx.Button(
+              static (ref Composition child) => child.Text("Reset"),
+              style: ThemeProperties.ButtonOutlined[in cx],
+              action: static context => context.Lookup<HomeComposable>()?._exampleForm.Reset()
+            );
+          }
         }
       }
     }

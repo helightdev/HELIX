@@ -3,6 +3,7 @@
     "rootNamespace": "HELIX.Widgets.Tests",
     "references": [
         "HELIX",
+        "HELIX.Compose",
         "HELIX.Widgets",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
