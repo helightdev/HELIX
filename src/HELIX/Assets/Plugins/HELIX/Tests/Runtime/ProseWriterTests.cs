@@ -55,6 +55,84 @@ namespace HELIX.Tests {
     }
 
     [Test]
+    public void PlainTextWriter_AlignsBeforeTheValueContinuationPrefix() {
+      var configuration = new ProsePlainTextConfiguration(
+        root: new ItemAnchors(lineBreak: NonTerminatingLineBreaks()),
+        property: new ItemAnchors(
+          linePrefix: new[] {
+            new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, "• "),
+            new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, "  ")
+          },
+          lineBreak: EnabledLineBreaks()
+        ),
+        propertyValue: new ItemAnchors(
+          prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, ": ") },
+          linePrefix: new[] {
+            new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, ""),
+            new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, "↳ ")
+          },
+          lineBreak: new[] {
+            new LineBreakEvaluationEntry(
+              TextMatching.None,
+              LineMatching.None,
+              0,
+              LineBreakMode.Wrap | LineBreakMode.Hard | LineBreakMode.Align
+            )
+          }
+        )
+      );
+      var writer = new ProsePlainTextWriter(wrapWidth: 20, configuration: configuration);
+
+      Prose.Prose.WriteProperty(
+        writer, "Summary", "alpha beta gamma", ProseStringFormatter.Instance
+      );
+
+      Assert.That(
+        writer.Build(),
+        Is.EqualTo("• Summary: alpha\n           ↳ beta\n           ↳ gamma")
+      );
+    }
+
+    [Test]
+    public void PlainTextWriter_RepeatsASuffixCharacterToTheFullLineWidth() {
+      var configured = new ProsePlainTextWriter(
+        wrapWidth: 7,
+        configuration: new ProsePlainTextConfiguration(
+          root: new ItemAnchors(
+            suffix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, "==]") },
+            suffixRepeater: 1
+          )
+        )
+      );
+      configured.Write("-");
+      Assert.That(configured.Build(), Is.EqualTo("-=====]"));
+
+      var fallback = new ProsePlainTextWriter(
+        wrapWidth: 5,
+        configuration: new ProsePlainTextConfiguration(
+          root: new ItemAnchors(
+            suffix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, "ab") },
+            suffixRepeater: 99
+          )
+        )
+      );
+      fallback.Write("x");
+      Assert.That(fallback.Build(), Is.EqualTo("xaaab"));
+
+      var absent = new ProsePlainTextWriter(
+        wrapWidth: 5,
+        configuration: new ProsePlainTextConfiguration(
+          root: new ItemAnchors(
+            suffix: new[] { new AnchorEvaluationEntry(TextMatching.Odd, 0, "==]") },
+            suffixRepeater: 0
+          )
+        )
+      );
+      absent.Write("-");
+      Assert.That(absent.Build(), Is.EqualTo("-"));
+    }
+
+    [Test]
     public void PlainTextWriter_HonorsTruncation() {
       var writer = new ProsePlainTextWriter(maxTruncatableFrameLength: 5);
 
@@ -127,14 +205,29 @@ namespace HELIX.Tests {
     [Test]
     public void PlainTextWriter_ConfiguresLineBreaksAndContinuationPrefixes() {
       var configuration = new ProsePlainTextConfiguration(
-        childPrefix: "",
-        lastChildPrefix: "",
-        continuationPrefix: "",
-        lastContinuationPrefix: "",
-        lineBreak: "\r\n",
-        wrappedLinePrefix: "> ",
-        explicitLineBreakPrefix: "! ",
-        alignWrappedPropertyValues: false
+        root: new ItemAnchors(
+          linePrefix: new[] {
+            new LineEvaluationEntry(TextMatching.None, LineMatching.First, 1, ""),
+            new LineEvaluationEntry(TextMatching.None, LineMatching.Hard, 0, "! ")
+          },
+          lineBreak: NonTerminatingLineBreaks()
+        ),
+        property: new ItemAnchors(
+          linePrefix: new[] {
+            new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, ""),
+            new LineEvaluationEntry(TextMatching.None, LineMatching.Hard, 0, "! "),
+            new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, "> ")
+          },
+          lineBreak: EnabledLineBreaks()
+        ),
+        propertyValue: new ItemAnchors(
+          prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, ": ") },
+          lineBreak: new[] {
+            new LineBreakEvaluationEntry(
+              TextMatching.None, LineMatching.None, 0, LineBreakMode.Wrap | LineBreakMode.Hard
+            )
+          }
+        )
       );
       var writer = new ProsePlainTextWriter(wrapWidth: 25, configuration: configuration);
 
@@ -146,21 +239,31 @@ namespace HELIX.Tests {
       );
       writer.Write("first\nsecond");
 
-      Assert.That(writer.Build(), Is.EqualTo("Message: alpha beta gamma\r\n> delta\r\nfirst\r\n! second"));
+      Assert.That(writer.Build(), Is.EqualTo("Message: alpha beta gamma\n> delta\n! first\n! second"));
     }
 
     [Test]
     public void PlainTextWriter_InjectsConditionalAndMandatoryPropertyContent() {
       var configuration = new ProsePlainTextConfiguration(
-        childPrefix: "",
-        lastChildPrefix: "",
-        continuationPrefix: "",
-        lastContinuationPrefix: "",
-        lineBreakProperties: false,
-        beforeProperties: "[",
-        afterProperties: "]",
-        mandatoryAfterProperties: "!",
-        propertySeparator: ", "
+        root: new ItemAnchors(
+          prefix: new[] {
+            new AnchorEvaluationEntry(TextMatching.Empty, 0, ""),
+            new AnchorEvaluationEntry(TextMatching.None, 0, "[")
+          },
+          suffix: new[] {
+            new AnchorEvaluationEntry(TextMatching.Empty, 0, "!"),
+            new AnchorEvaluationEntry(TextMatching.None, 0, "]!")
+          }
+        ),
+        property: new ItemAnchors(
+          prefix: new[] {
+            new AnchorEvaluationEntry(TextMatching.First, 0, ""),
+            new AnchorEvaluationEntry(TextMatching.None, 0, ", ")
+          }
+        ),
+        propertyValue: new ItemAnchors(
+          prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, ": ") }
+        )
       );
       var populated = new ProsePlainTextWriter(configuration: configuration);
       Prose.Prose.WriteProperty(populated, "A", 1, ProseIntFormatter.Instance);
@@ -174,13 +277,23 @@ namespace HELIX.Tests {
     [Test]
     public void PlainTextWriter_InjectsChildContentOnlyWhenChildrenExist() {
       var configuration = new ProsePlainTextConfiguration(
-        childPrefix: "",
-        lastChildPrefix: "",
-        continuationPrefix: "",
-        lastContinuationPrefix: "",
-        beforeChildren: "<",
-        footer: ">",
-        mandatoryFooter: "!"
+        root: new ItemAnchors(
+          prefix: new[] {
+            new AnchorEvaluationEntry(TextMatching.Empty, 0, ""),
+            new AnchorEvaluationEntry(TextMatching.None, 0, "<\n")
+          },
+          suffix: new[] {
+            new AnchorEvaluationEntry(TextMatching.Empty, 0, "!"),
+            new AnchorEvaluationEntry(TextMatching.None, 0, "!>!")
+          },
+          lineBreak: NonTerminatingLineBreaks()
+        ),
+        treeName: new ItemAnchors(
+          lineBreak: EnabledLineBreaks()
+        ),
+        tree: new ItemAnchors(
+          lineBreak: EnabledLineBreaks()
+        )
       );
       var populated = new ProsePlainTextWriter(configuration: configuration);
       Assert.That(populated.BeginFrame(ProseTree.Instance), Is.True);
@@ -190,6 +303,111 @@ namespace HELIX.Tests {
 
       var empty = new ProsePlainTextWriter(configuration: configuration);
       Assert.That(empty.Build(), Is.EqualTo("!"));
+    }
+
+    [Test]
+    public void PlainTextWriter_EvaluatesCollectionStateLazilyAndPrioritiesAdditively() {
+      var configuration = new ProsePlainTextConfiguration(
+        property: new ItemAnchors(
+          prefix: new[] {
+            new AnchorEvaluationEntry(TextMatching.First, 0, "["),
+            new AnchorEvaluationEntry(TextMatching.Odd, 1, ";"),
+            new AnchorEvaluationEntry(TextMatching.None, 0, ",")
+          },
+          suffix: new[] { new AnchorEvaluationEntry(TextMatching.Last, 0, "]") },
+          replacement: new[] {
+            new AnchorEvaluationEntry(TextMatching.Odd, 0, "X"),
+            new AnchorEvaluationEntry(TextMatching.Last, 1, "Y")
+          }
+        ),
+        propertyValue: new ItemAnchors(
+          prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, ": ") }
+        )
+      );
+      var writer = new ProsePlainTextWriter(configuration: configuration);
+
+      Prose.Prose.WriteProperty(writer, "A", 1, ProseIntFormatter.Instance);
+      Prose.Prose.WriteProperty(writer, "B", 2, ProseIntFormatter.Instance);
+
+      Assert.That(writer.Build(), Is.EqualTo("[A: 1;XY]"));
+    }
+
+    [Test]
+    public void PlainTextWriter_ReplacesEmptyItems() {
+      var configuration = new ProsePlainTextConfiguration(
+        property: new ItemAnchors(
+          replacement: new[] { new AnchorEvaluationEntry(TextMatching.Empty, 0, "<empty>") }
+        )
+      );
+      var writer = new ProsePlainTextWriter(configuration: configuration);
+
+      Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
+      writer.PopFrame();
+
+      Assert.That(writer.Build(), Is.EqualTo("<empty>"));
+    }
+
+    [Test]
+    public void PlainTextWriter_ConfiguresLineBreaksPerItem() {
+      var configured = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(
+          root: new ItemAnchors(lineBreak: NonTerminatingLineBreaks())
+        )
+      );
+      configured.Write("first\nsecond\nthird");
+      Assert.That(configured.Build(), Is.EqualTo("first\nsecond\nthird"));
+
+      var disabled = new ProsePlainTextWriter(configuration: new ProsePlainTextConfiguration());
+      disabled.Write("first\nsecond");
+      Assert.That(disabled.Build(), Is.EqualTo("firstsecond"));
+
+    }
+
+    [Test]
+    public void PlainTextWriter_OnlyPrefixesLinesWhoseBoundaryIsEnabled() {
+      var linePrefix = new[] {
+        new LineEvaluationEntry(TextMatching.None, LineMatching.First, 1, ""),
+        new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, "> ")
+      };
+      var enabled = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(
+          root: new ItemAnchors(
+            linePrefix: linePrefix,
+            lineBreak: new[] {
+              new LineBreakEvaluationEntry(
+                TextMatching.None, LineMatching.None, 0, LineBreakMode.Hard
+              )
+            }
+          )
+        )
+      );
+      enabled.Write("first\nsecond");
+      Assert.That(enabled.Build(), Is.EqualTo("first\n> second"));
+
+      var disabled = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(
+          root: new ItemAnchors(linePrefix: linePrefix)
+        )
+      );
+      disabled.Write("first\nsecond");
+      Assert.That(disabled.Build(), Is.EqualTo("firstsecond"));
+
+      var nested = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(
+          property: new ItemAnchors(
+            linePrefix: linePrefix,
+            lineBreak: new[] {
+              new LineBreakEvaluationEntry(
+                TextMatching.None, LineMatching.None, 0, LineBreakMode.Hard
+              )
+            }
+          )
+        )
+      );
+      Assert.That(nested.BeginFrame(ProseProperty.Instance), Is.True);
+      nested.Write("first\nsecond");
+      nested.PopFrame();
+      Assert.That(nested.Build(), Is.EqualTo("firstsecond"));
     }
 
     [Test]
@@ -258,6 +476,22 @@ namespace HELIX.Tests {
       }
       return writer.Build();
     }
+
+    private static LineBreakEvaluationEntry[] EnabledLineBreaks() => new[] {
+      new LineBreakEvaluationEntry(
+        TextMatching.None, LineMatching.None, 0,
+        LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard
+      )
+    };
+
+    private static LineBreakEvaluationEntry[] NonTerminatingLineBreaks() => new[] {
+      new LineBreakEvaluationEntry(
+        TextMatching.None, LineMatching.Last, 0, LineBreakMode.None
+      ),
+      new LineBreakEvaluationEntry(
+        TextMatching.None, LineMatching.None, 0, LineBreakMode.Wrap | LineBreakMode.Hard
+      )
+    };
 
     private sealed class WrappedTextFormatter : IProseFormatter<WrappedText> {
       public static readonly WrappedTextFormatter Instance = new();

@@ -1,172 +1,279 @@
 using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace HELIX.Prose {
-  /// <summary>Controls how semantic Prose scopes are projected into plain-text trees.</summary>
+  [Flags]
+  public enum TextMatching : byte {
+    None = 0,
+    First = 1 << 0,
+    Last = 1 << 1,
+    Odd = 1 << 2,
+    Empty = 1 << 3
+  }
+
+  [Flags]
+  public enum LineMatching : byte {
+    None = 0,
+    First = 1 << 0,
+    Hard = 1 << 1,
+    Last = 1 << 2
+  }
+
+  public readonly struct AnchorEvaluationEntry {
+    public AnchorEvaluationEntry(TextMatching matching, int priority, string value) {
+      Matching = matching;
+      Priority = priority;
+      String = value ?? string.Empty;
+    }
+
+    public TextMatching Matching { get; }
+    public int Priority { get; }
+    public string String { get; }
+  }
+
+  public readonly struct LineEvaluationEntry {
+    public LineEvaluationEntry(TextMatching matching, LineMatching lineMatching, int priority, string value) {
+      Matching = matching;
+      LineMatching = lineMatching;
+      Priority = priority;
+      String = value ?? string.Empty;
+    }
+
+    public TextMatching Matching { get; }
+    public LineMatching LineMatching { get; }
+    public int Priority { get; }
+    public string String { get; }
+  }
+
+  /// <summary>Controls which boundaries are emitted and whether wrapped continuations align.</summary>
+  [Flags]
+  public enum LineBreakMode : byte {
+    None = 0,
+    Align = 1 << 0,
+    Item = 1 << 1,
+    Wrap = 1 << 2,
+    Hard = 1 << 3
+  }
+
+  public readonly struct LineBreakEvaluationEntry {
+    public LineBreakEvaluationEntry(
+      TextMatching matching, LineMatching lineMatching, int priority, LineBreakMode value
+    ) {
+      Matching = matching;
+      LineMatching = lineMatching;
+      Priority = priority;
+      Value = value;
+    }
+
+    public TextMatching Matching { get; }
+    public LineMatching LineMatching { get; }
+    public int Priority { get; }
+    public LineBreakMode Value { get; }
+  }
+
+  /// <summary>
+  /// Formatting properties resolved from an item's collection and line state. Entries are evaluated in
+  /// definition order. Matching strings are appended and matching line-break modes are combined. After a
+  /// match, following entries of the same or lower priority are skipped; a later, strictly higher-priority
+  /// match is additive.
+  /// </summary>
+  public sealed class ItemAnchors {
+    private static readonly AnchorEvaluationEntry[] NoAnchors = Array.Empty<AnchorEvaluationEntry>();
+    private static readonly LineEvaluationEntry[] NoLines = Array.Empty<LineEvaluationEntry>();
+    private static readonly LineBreakEvaluationEntry[] NoLineBreaks =
+      Array.Empty<LineBreakEvaluationEntry>();
+
+    public ItemAnchors(
+      IReadOnlyList<AnchorEvaluationEntry> prefix = null,
+      IReadOnlyList<AnchorEvaluationEntry> suffix = null,
+      IReadOnlyList<AnchorEvaluationEntry> replacement = null,
+      IReadOnlyList<LineEvaluationEntry> linePrefix = null,
+      IReadOnlyList<LineBreakEvaluationEntry> lineBreak = null,
+      int suffixRepeater = -1
+    ) {
+      Prefix = prefix ?? NoAnchors;
+      Suffix = suffix ?? NoAnchors;
+      Replacement = replacement ?? NoAnchors;
+      LinePrefix = linePrefix ?? NoLines;
+      LineBreak = lineBreak ?? NoLineBreaks;
+      SuffixRepeater = suffixRepeater;
+    }
+
+    public IReadOnlyList<AnchorEvaluationEntry> Prefix { get; }
+    public IReadOnlyList<AnchorEvaluationEntry> Suffix { get; }
+    public IReadOnlyList<AnchorEvaluationEntry> Replacement { get; }
+    public IReadOnlyList<LineEvaluationEntry> LinePrefix { get; }
+    public IReadOnlyList<LineBreakEvaluationEntry> LineBreak { get; }
+    public int SuffixRepeater { get; }
+
+    internal void AppendPrefix(StringBuilder builder, TextMatching matching) => Append(builder, Prefix, matching);
+    internal void AppendSuffix(StringBuilder builder, TextMatching matching) => Append(builder, Suffix, matching);
+    internal bool AppendReplacement(StringBuilder builder, TextMatching matching) =>
+      Append(builder, Replacement, matching);
+
+    internal bool AppendLinePrefix(
+      StringBuilder builder, TextMatching matching, LineMatching lineMatching
+    ) => Append(builder, LinePrefix, matching, lineMatching);
+
+    internal LineBreakMode EvaluateLineBreak(TextMatching matching, LineMatching lineMatching) {
+      var matched = false;
+      var priority = int.MinValue;
+      var value = LineBreakMode.None;
+      for (var i = 0; i < LineBreak.Count; i++) {
+        var entry = LineBreak[i];
+        if ((matched && entry.Priority <= priority) ||
+            !Matches(entry.Matching, matching) ||
+            !Matches(entry.LineMatching, lineMatching)) continue;
+        value |= entry.Value;
+        priority = entry.Priority;
+        matched = true;
+      }
+      return value;
+    }
+
+    private static bool Append(
+      StringBuilder builder, IReadOnlyList<AnchorEvaluationEntry> entries, TextMatching matching
+    ) {
+      var matched = false;
+      var priority = int.MinValue;
+      for (var i = 0; i < entries.Count; i++) {
+        var entry = entries[i];
+        if ((matched && entry.Priority <= priority) || !Matches(entry.Matching, matching)) continue;
+        builder.Append(entry.String);
+        priority = entry.Priority;
+        matched = true;
+      }
+      return matched;
+    }
+
+    private static bool Append(
+      StringBuilder builder, IReadOnlyList<LineEvaluationEntry> entries,
+      TextMatching matching, LineMatching lineMatching
+    ) {
+      var matched = false;
+      var priority = int.MinValue;
+      for (var i = 0; i < entries.Count; i++) {
+        var entry = entries[i];
+        if ((matched && entry.Priority <= priority) ||
+            !Matches(entry.Matching, matching) ||
+            !Matches(entry.LineMatching, lineMatching)) continue;
+        builder.Append(entry.String);
+        priority = entry.Priority;
+        matched = true;
+      }
+      return matched;
+    }
+
+    private static bool Matches(TextMatching required, TextMatching actual) =>
+      required == TextMatching.None || (actual & required) == required;
+
+    private static bool Matches(LineMatching required, LineMatching actual) =>
+      required == LineMatching.None || (actual & required) == required;
+  }
+
+  /// <summary>State properties used to project semantic Prose items into plain text.</summary>
   public sealed class ProsePlainTextConfiguration {
+    private static readonly ItemAnchors NoAnchors = new();
+
     public ProsePlainTextConfiguration(
-      string childPrefix,
-      string lastChildPrefix,
-      string continuationPrefix,
-      string lastContinuationPrefix,
-      string propertyValueSeparator = ": ",
-      string rootNamePrefix = "",
-      string rootNameSuffix = "",
-      string treeNamePrefix = "",
-      string treeNameSuffix = "",
-      string nameContinuationPrefix = "",
-      string propertyPrefix = "",
-      string propertyContinuationPrefix = "",
-      string treeSeparator = "",
-      bool alignWrappedPropertyValues = true,
+      ItemAnchors root = null,
+      ItemAnchors rootName = null,
+      ItemAnchors treeName = null,
+      ItemAnchors property = null,
+      ItemAnchors propertyValue = null,
+      ItemAnchors tree = null,
       bool showTrees = true,
       bool showNames = true,
-      bool showProperties = true,
-      string lineBreak = "\n",
-      bool lineBreakProperties = true,
-      string wrappedLinePrefix = "",
-      string explicitLineBreakPrefix = "",
-      string beforeProperties = "",
-      string afterProperties = "",
-      string mandatoryAfterProperties = "",
-      string propertySeparator = "",
-      string beforeChildren = "",
-      string footer = "",
-      string mandatoryFooter = ""
+      bool showProperties = true
     ) {
-      ChildPrefix = childPrefix ?? throw new ArgumentNullException(nameof(childPrefix));
-      LastChildPrefix = lastChildPrefix ?? throw new ArgumentNullException(nameof(lastChildPrefix));
-      ContinuationPrefix = continuationPrefix ?? throw new ArgumentNullException(nameof(continuationPrefix));
-      LastContinuationPrefix = lastContinuationPrefix ??
-                               throw new ArgumentNullException(nameof(lastContinuationPrefix));
-      if (ChildPrefix.Length != LastChildPrefix.Length ||
-          ChildPrefix.Length != ContinuationPrefix.Length ||
-          ChildPrefix.Length != LastContinuationPrefix.Length)
-        throw new ArgumentException("All tree boundary prefixes must have the same character width.");
-
-      PropertyValueSeparator = propertyValueSeparator ?? string.Empty;
-      RootNamePrefix = rootNamePrefix ?? string.Empty;
-      RootNameSuffix = rootNameSuffix ?? string.Empty;
-      TreeNamePrefix = treeNamePrefix ?? string.Empty;
-      TreeNameSuffix = treeNameSuffix ?? string.Empty;
-      NameContinuationPrefix = nameContinuationPrefix ?? string.Empty;
-      PropertyPrefix = propertyPrefix ?? string.Empty;
-      PropertyContinuationPrefix = propertyContinuationPrefix ?? string.Empty;
-      TreeSeparator = treeSeparator ?? string.Empty;
-      LineBreak = lineBreak ?? throw new ArgumentNullException(nameof(lineBreak));
-      if (LineBreak.Length == 0 && lineBreakProperties)
-        throw new ArgumentException("A non-empty line break is required when properties break onto lines.");
-      WrappedLinePrefix = wrappedLinePrefix ?? string.Empty;
-      ExplicitLineBreakPrefix = explicitLineBreakPrefix ?? string.Empty;
-      BeforeProperties = beforeProperties ?? string.Empty;
-      AfterProperties = afterProperties ?? string.Empty;
-      MandatoryAfterProperties = mandatoryAfterProperties ?? string.Empty;
-      PropertySeparator = propertySeparator ?? string.Empty;
-      BeforeChildren = beforeChildren ?? string.Empty;
-      Footer = footer ?? string.Empty;
-      MandatoryFooter = mandatoryFooter ?? string.Empty;
-      LineBreakProperties = lineBreakProperties;
-      AlignWrappedPropertyValues = alignWrappedPropertyValues;
+      Root = root ?? NoAnchors;
+      RootName = rootName ?? NoAnchors;
+      TreeName = treeName ?? NoAnchors;
+      Property = property ?? NoAnchors;
+      PropertyValue = propertyValue ?? NoAnchors;
+      Tree = tree ?? NoAnchors;
       ShowTrees = showTrees;
       ShowNames = showNames;
       ShowProperties = showProperties;
     }
 
-    public int BranchWidth => ChildPrefix.Length;
-    public string ChildPrefix { get; }
-    public string LastChildPrefix { get; }
-    public string ContinuationPrefix { get; }
-    public string LastContinuationPrefix { get; }
-    public string PropertyValueSeparator { get; }
-    public string RootNamePrefix { get; }
-    public string RootNameSuffix { get; }
-    public string TreeNamePrefix { get; }
-    public string TreeNameSuffix { get; }
-    public string NameContinuationPrefix { get; }
-    public string PropertyPrefix { get; }
-    public string PropertyContinuationPrefix { get; }
-    public string TreeSeparator { get; }
-    /// <summary>The physical separator emitted for semantic, explicit, and wrapping line breaks.</summary>
-    public string LineBreak { get; }
-    /// <summary>Whether each property is emitted as a separate entry line.</summary>
-    public bool LineBreakProperties { get; }
-    /// <summary>Additional prefix emitted only on automatically wrapped continuation lines.</summary>
-    public string WrappedLinePrefix { get; }
-    /// <summary>Additional prefix emitted only after an explicit line break in written prose.</summary>
-    public string ExplicitLineBreakPrefix { get; }
-    /// <summary>Injected once when an object has at least one property.</summary>
-    public string BeforeProperties { get; }
-    /// <summary>Injected after an object's properties only when at least one property was written.</summary>
-    public string AfterProperties { get; }
-    /// <summary>Injected after the property section even when it is empty.</summary>
-    public string MandatoryAfterProperties { get; }
-    /// <summary>Injected between adjacent properties when <see cref="LineBreakProperties"/> is false.</summary>
-    public string PropertySeparator { get; }
-    /// <summary>Injected once when an object has at least one accepted child tree.</summary>
-    public string BeforeChildren { get; }
-    /// <summary>Injected after child trees only when at least one child was written.</summary>
-    public string Footer { get; }
-    /// <summary>Injected when an object closes, whether or not it has children.</summary>
-    public string MandatoryFooter { get; }
-    public bool AlignWrappedPropertyValues { get; }
+    public ItemAnchors Root { get; }
+    public ItemAnchors RootName { get; }
+    public ItemAnchors TreeName { get; }
+    public ItemAnchors Property { get; }
+    public ItemAnchors PropertyValue { get; }
+    public ItemAnchors Tree { get; }
     public bool ShowTrees { get; }
     public bool ShowNames { get; }
     public bool ShowProperties { get; }
+
   }
 
-  /// <summary>Common projections for plain-text consumers.</summary>
   public static class ProsePlainTextConfigurations {
-    /// <summary>Full Unicode tree boundaries with retained ancestor lines.</summary>
-    public static readonly ProsePlainTextConfiguration Unicode = new(
-      childPrefix: "├─ ",
-      lastChildPrefix: "└─ ",
-      continuationPrefix: "│  ",
-      lastContinuationPrefix: "   ",
-      wrappedLinePrefix: " "
+    public static readonly ProsePlainTextConfiguration Unicode = Tree("├─ ", "└─ ", "│  ", "   ");
+    public static readonly ProsePlainTextConfiguration Ascii = Tree(
+      "+- ", "`- ", "|  ", "   ", alignWrappedPropertyValues: false
     );
+    public static readonly ProsePlainTextConfiguration Whitespace = Tree("  ", "  ", "  ", "  ");
+    public static readonly ProsePlainTextConfiguration Flat = Tree("", "", "", "");
 
-    /// <summary>ASCII-only tree boundaries with retained ancestor lines.</summary>
-    public static readonly ProsePlainTextConfiguration Ascii = new(
-      childPrefix: "+- ",
-      lastChildPrefix: "`- ",
-      continuationPrefix: "|  ",
-      lastContinuationPrefix: "   ",
-      wrappedLinePrefix: " ",
-      alignWrappedPropertyValues: false
-    );
-
-    /// <summary>
-    /// Represents hierarchy using indentation alone. All tree content is retained, but no visible
-    /// branch or continuation glyphs are emitted.
-    /// </summary>
-    public static readonly ProsePlainTextConfiguration Whitespace = new(
-      childPrefix: "  ",
-      lastChildPrefix: "  ",
-      continuationPrefix: "  ",
-      lastContinuationPrefix: "  ",
-      wrappedLinePrefix: " "
-    );
-
-    /// <summary>
-    /// Renders the complete hierarchy as a single flat sequence of lines. Tree frames remain visible,
-    /// so this differs from <see cref="CurrentObjectFlat"/> when children exist.
-    /// </summary>
-    public static readonly ProsePlainTextConfiguration Flat = new(
-      childPrefix: "",
-      lastChildPrefix: "",
-      continuationPrefix: "",
-      lastContinuationPrefix: ""
-    );
-
-    /// <summary>
-    /// Renders only names and properties of the current/root object as flat lines. Child tree frames
-    /// are rejected at <c>BeginFrame</c>, allowing immediate-mode producers to skip their contents.
-    /// </summary>
     public static readonly ProsePlainTextConfiguration CurrentObjectFlat = new(
-      childPrefix: "",
-      lastChildPrefix: "",
-      continuationPrefix: "",
-      lastContinuationPrefix: "",
+      root: ContainerItem(),
+      rootName: LineItem(),
+      property: PropertyItem(),
+      propertyValue: PropertyValue(),
       showTrees: false
     );
+
+    private static ProsePlainTextConfiguration Tree(
+      string child, string lastChild, string continuation, string lastContinuation,
+      bool alignWrappedPropertyValues = true
+    ) => new(
+      root: ContainerItem(),
+      rootName: LineItem(),
+      treeName: LineItem(),
+      property: PropertyItem(),
+      propertyValue: PropertyValue(alignWrappedPropertyValues),
+      tree: new ItemAnchors(
+        linePrefix: new[] {
+          new LineEvaluationEntry(TextMatching.Last, LineMatching.First, 0, lastChild),
+          new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, child),
+          new LineEvaluationEntry(TextMatching.Last, LineMatching.None, 0, lastContinuation),
+          new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, continuation)
+        },
+        lineBreak: NonTerminatingLines()
+      )
+    );
+
+    private static ItemAnchors LineItem() => new(
+      lineBreak: Lines(LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard)
+    );
+
+    private static ItemAnchors ContainerItem() => new(
+      lineBreak: NonTerminatingLines()
+    );
+
+    private static ItemAnchors PropertyItem() => new(
+      lineBreak: Lines(LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard)
+    );
+
+    private static ItemAnchors PropertyValue(bool align = true) => new(
+      prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, ": ") },
+      lineBreak: Lines(
+        LineBreakMode.Wrap | LineBreakMode.Hard | (align ? LineBreakMode.Align : LineBreakMode.None)
+      )
+    );
+
+    private static LineBreakEvaluationEntry[] Lines(LineBreakMode mode) => new[] {
+      new LineBreakEvaluationEntry(TextMatching.None, LineMatching.None, 0, mode)
+    };
+
+    private static LineBreakEvaluationEntry[] NonTerminatingLines() => new[] {
+      new LineBreakEvaluationEntry(TextMatching.None, LineMatching.Last, 0, LineBreakMode.None),
+      new LineBreakEvaluationEntry(
+        TextMatching.None, LineMatching.None, 0, LineBreakMode.Wrap | LineBreakMode.Hard
+      )
+    };
   }
 }

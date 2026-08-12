@@ -39,44 +39,77 @@ namespace HELIX.Examples {
 
     /// <summary>A deliberately ornate style used to exercise wide branch tokens and decorations.</summary>
     public static readonly ProsePlainTextConfiguration TestWideDecorated = new(
-      childPrefix: "├── ",
-      lastChildPrefix: "└── ",
-      continuationPrefix: "│   ",
-      lastContinuationPrefix: "    ",
-      rootNamePrefix: "╔═ ",
-      rootNameSuffix: " ═╗",
-      treeNamePrefix: "[ ",
-      treeNameSuffix: " ]",
-      propertyPrefix: "• ",
-      propertyContinuationPrefix: "  ",
-      treeSeparator: "\n",
-      wrappedLinePrefix: "↳ "
+      root: Anchors(preserveBreaks: true),
+      rootName: Anchors(prefix: "╔═ ", suffix: " ═╗", terminate: true),
+      treeName: Anchors(prefix: "[ ", suffix: " ] ─", terminate: true, repeat: 3),
+      property: Anchors(firstLine: "• ", otherLine: "  ", terminate: true),
+      propertyValue: Anchors(prefix: ": ", otherLine: "↳ ", preserveBreaks: true, align: false),
+      tree: TreeAnchors("├── ", "└── ", "│   ", "    ")
     );
 
     /// <summary>A compact test style with visible sections and deliberately unaligned wrapping.</summary>
     public static readonly ProsePlainTextConfiguration TestCompactSections = new(
-      childPrefix: "> ",
-      lastChildPrefix: "= ",
-      continuationPrefix: ": ",
-      lastContinuationPrefix: "  ",
-      propertyValueSeparator: " = ",
-      rootNamePrefix: "# ",
-      treeNamePrefix: "{ ",
-      treeNameSuffix: " }",
-      nameContinuationPrefix: "  ",
-      propertyPrefix: "- ",
-      propertyContinuationPrefix: "  ",
-      alignWrappedPropertyValues: false,
-      lineBreakProperties: false,
-      wrappedLinePrefix: ".. ",
-      explicitLineBreakPrefix: "!  ",
-      beforeProperties: "[ ",
-      afterProperties: " ]",
-      mandatoryAfterProperties: "",
-      propertySeparator: "; ",
-      beforeChildren: "\n<children>\n",
-      footer: "</children>\n"
+      root: Anchors(preserveBreaks: true),
+      rootName: Anchors(prefix: "# ", terminate: true),
+      treeName: Anchors(prefix: "{ ", suffix: " }", otherLine: "  ", terminate: true),
+      property: new ItemAnchors(
+        prefix: new[] {
+          new AnchorEvaluationEntry(TextMatching.First, 0, "[ "),
+          new AnchorEvaluationEntry(TextMatching.None, 0, "; ")
+        },
+        suffix: new[] { new AnchorEvaluationEntry(TextMatching.Last, 0, " ]") },
+        linePrefix: new[] {
+          new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, "- "),
+          new LineEvaluationEntry(TextMatching.None, LineMatching.Hard, 0, "!  "),
+          new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, ".. ")
+        },
+        lineBreak: LineBreaks(false)
+      ),
+      propertyValue: Anchors(prefix: " = ", otherLine: "  ", preserveBreaks: true),
+      tree: TreeAnchors("> ", "= ", ": ", "  ")
     );
+
+    private static ItemAnchors Anchors(
+      string prefix = "", string suffix = "", string firstLine = "", string otherLine = "",
+      bool terminate = false, bool preserveBreaks = false, bool align = false, int repeat = -1
+    ) => new(
+      prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, prefix) },
+      suffix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, suffix) },
+      linePrefix: new[] {
+        new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, firstLine),
+        new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, otherLine)
+      },
+      lineBreak: terminate || preserveBreaks ? LineBreaks(terminate, align) : null,
+      suffixRepeater: repeat
+    );
+
+    private static ItemAnchors TreeAnchors(
+      string first, string last, string continuation, string lastContinuation
+    ) => new(
+      linePrefix: new[] {
+        new LineEvaluationEntry(TextMatching.Last, LineMatching.First, 0, last),
+        new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, first),
+        new LineEvaluationEntry(TextMatching.Last, LineMatching.None, 0, lastContinuation),
+        new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, continuation)
+      },
+      lineBreak: LineBreaks(false)
+    );
+
+    private static LineBreakEvaluationEntry[] LineBreaks(bool terminate, bool align = false) {
+      var mode = LineBreakMode.Wrap | LineBreakMode.Hard |
+                 (terminate ? LineBreakMode.Item : LineBreakMode.None) |
+                 (align ? LineBreakMode.Align : LineBreakMode.None);
+      return terminate
+        ? new[] {
+          new LineBreakEvaluationEntry(TextMatching.None, LineMatching.None, 0, mode)
+        }
+        : new[] {
+          new LineBreakEvaluationEntry(
+            TextMatching.None, LineMatching.Last, 0, LineBreakMode.None
+          ),
+          new LineBreakEvaluationEntry(TextMatching.None, LineMatching.None, 0, mode)
+        };
+    }
 
     private DetailedProseExample() { }
 
