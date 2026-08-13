@@ -14,13 +14,13 @@ namespace HELIX.Tests {
       writer.Property("Debug", "filtered", ProseFormatters.String, ProseLevel.Debug);
       writer.Property("Tag", (string)null, ProseFormatters.String, hidden: true);
 
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Item 1");
       writer.End();
 
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Subtree");
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Subtree Item");
       writer.End();
       writer.End();
@@ -30,6 +30,51 @@ namespace HELIX.Tests {
         writer.Build(),
         Is.EqualTo("Person\nAge: 12\n│\n├─ Item 1\n└─ Subtree\n   └─ Subtree Item\nTail")
       );
+    }
+
+    [Test]
+    public void BeginFrame_BalancesIgnoredFramesWhileTryBeginFrameRemainsOptIn() {
+      var writer = new ProseTextWriter(
+        configuration: new ProseTextConfiguration(
+          root: PTRuleFactory.Container(),
+          property: PTRuleFactory.Property(),
+          propertyValue: PTRuleFactory.PropertyValue(),
+          showProperties: false
+        )
+      );
+
+      Assert.That(writer.TryBeginFrame(ProseScopes.Property), Is.False);
+
+      writer.BeginFrame(ProseScopes.Property);
+      writer.PushModifier(ProseModifiers.Strong);
+      writer.Write("discarded");
+      writer.BeginFrame(ProseScopes.PropertyValue);
+      writer.Write("value");
+      writer.End();
+      writer.End();
+
+      writer.Write("retained");
+      Assert.That(writer.Build(), Is.EqualTo("retained"));
+    }
+
+    [Test]
+    public void ScopeExtension_EndsFramesIncludingIgnoredFrames() {
+      var writer = new ProseTextWriter(
+        configuration: new ProseTextConfiguration(
+          root: PTRuleFactory.Container(),
+          property: PTRuleFactory.Property(),
+          propertyValue: PTRuleFactory.PropertyValue(),
+          showProperties: false
+        )
+      );
+
+      using (writer.Scope(ProseScopes.Property)) {
+        writer.Write("discarded");
+        using (writer.Scope(ProseScopes.PropertyValue)) writer.Write(" value");
+      }
+
+      using (writer.Scope(ProseScopes.Paragraph)) writer.Write("retained");
+      Assert.That(writer.Build(), Is.EqualTo("retained"));
     }
 
     [Test]
@@ -87,11 +132,11 @@ namespace HELIX.Tests {
     public void PlainTextWriter_WrapsUnlessNoWrapIsActive() {
       var writer = new ProseTextWriter(wrapWidth: 12);
 
-      Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
-      Assert.That(writer.BeginFrame(ProsePropertyKey.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Property), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.PropertyKey), Is.True);
       writer.Write("Key");
       writer.End();
-      Assert.That(writer.BeginFrame(ProsePropertyValue.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.PropertyValue), Is.True);
       writer.Write("one two three");
       writer.End();
       writer.End();
@@ -99,8 +144,8 @@ namespace HELIX.Tests {
       Assert.That(writer.Build(), Is.EqualTo("Key: one two\n three\n\n"));
 
       writer.Reset();
-      Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
-      writer.PushModifier(NoWrap.Instance);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Property), Is.True);
+      writer.PushModifier(ProseModifiers.NoWrap);
       writer.Write("one two three four");
       writer.End();
       Assert.That(writer.Build(), Is.EqualTo("one two three four\n\n"));
@@ -187,8 +232,8 @@ namespace HELIX.Tests {
     public void PlainTextWriter_HonorsTruncation() {
       var writer = new ProseTextWriter(maxTruncatableFrameLength: 5);
 
-      Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
-      writer.PushModifier(AllowTruncate.Instance);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Property), Is.True);
+      writer.PushModifier(ProseModifiers.AllowTruncate);
       writer.Write("abcdefgh");
       writer.Write("ignored");
       writer.End();
@@ -200,13 +245,13 @@ namespace HELIX.Tests {
     public void PlainTextWriter_UsesConfiguredBoundariesAndRetainsAncestors() {
       var writer = new ProseTextWriter(configuration: ProseTextConfigurations.Sparse);
 
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Parent");
       writer.Property("State", "ready", ProseFormatters.String);
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("First");
       writer.End();
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Last");
       writer.End();
       writer.End();
@@ -221,7 +266,7 @@ namespace HELIX.Tests {
     public void PlainTextWriter_RetainsTreeBoundaryAcrossWrappedPropertyLines() {
       var writer = new ProseTextWriter(wrapWidth: 30);
 
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("First");
       writer.Property(
         "Message",
@@ -229,7 +274,7 @@ namespace HELIX.Tests {
         ProseFormatters.String
       );
       writer.End();
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Second");
       writer.End();
 
@@ -341,7 +386,7 @@ namespace HELIX.Tests {
         )
       );
       var populated = new ProseTextWriter(configuration: configuration);
-      Assert.That(populated.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(populated.TryBeginFrame(ProseScopes.Tree), Is.True);
       populated.Name("Child");
       populated.End();
       Assert.That(populated.Build(), Is.EqualTo("<\nChild\n!>!"));
@@ -386,7 +431,7 @@ namespace HELIX.Tests {
       );
       var writer = new ProseTextWriter(configuration: configuration);
 
-      Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Property), Is.True);
       writer.End();
 
       Assert.That(writer.Build(), Is.EqualTo("<empty>"));
@@ -449,7 +494,7 @@ namespace HELIX.Tests {
           )
         )
       );
-      Assert.That(nested.BeginFrame(ProseProperty.Instance), Is.True);
+      Assert.That(nested.TryBeginFrame(ProseScopes.Property), Is.True);
       nested.Write("first\nsecond");
       nested.End();
       Assert.That(nested.Build(), Is.EqualTo("firstsecond"));
@@ -527,10 +572,10 @@ namespace HELIX.Tests {
         )
       );
       var writer = new ProseTextWriter(configuration: configuration);
-      Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Property), Is.True);
       writer.Write("a");
       writer.End();
-      Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Property), Is.True);
       writer.End();
 
       Assert.That(writer.Build(), Is.EqualTo("Fa\nOEL"));
@@ -640,9 +685,9 @@ namespace HELIX.Tests {
         writer.WriteSpan("important", ProseTextStyle.Strong);
         writer.WriteSpan("docs", linkTarget: "https://example.test");
         writer.WriteCodeBlock("run command", "shell");
-        Assert.That(writer.BeginFrame(ProseSection.Instance), Is.False);
-        Assert.That(writer.BeginFrame(ProseList.Unordered), Is.False);
-        Assert.That(writer.BeginFrame(ProseTable.Instance), Is.False);
+        Assert.That(writer.TryBeginFrame(ProseScopes.Section), Is.False);
+        Assert.That(writer.TryBeginFrame(ProseScopes.UnorderedList), Is.False);
+        Assert.That(writer.TryBeginFrame(ProseScopes.Table), Is.False);
 
         var result = writer.Build();
         Assert.That(result, Does.Contain("Root").And.Contain("Value: 1"));
@@ -691,12 +736,12 @@ namespace HELIX.Tests {
     public void ErrorConfiguration_UsesItsDiagnosticPrefixOnlyForProperties() {
       var writer = new ProseTextWriter(configuration: ProseTextConfigurations.Error);
 
-      Assert.That(writer.BeginFrame(ProseParagraph.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Paragraph), Is.True);
       writer.Write("Station narrative.");
       writer.End();
       writer.Property("State", "Degraded", ProseFormatters.String);
 
-      Assert.That(writer.BeginFrame(ProseParagraph.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Paragraph), Is.True);
       writer.WriteSpan("Operator note.", ProseTextStyle.Quote);
       writer.End();
       writer.Property("Owner", "Operations", ProseFormatters.String);
@@ -718,7 +763,7 @@ namespace HELIX.Tests {
       writer.Name("Person");
       writer.Property("Age", 12, ThrowingIntFormatter.Instance, ProseLevel.Warning);
 
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Item");
       writer.Property("Enabled", true, ProseFormatters.Bool);
       writer.End();
@@ -786,12 +831,12 @@ namespace HELIX.Tests {
       var writer = new ProseTextWriter(
         wrapWidth: 16, configuration: ProseTextConfigurations.Markdown
       );
-      Assert.That(writer.BeginFrame(ProseTable.Instance), Is.True);
-      Assert.That(writer.BeginFrame(ProseTableRow.Header), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Table), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.TableHeaderRow), Is.True);
       writer.WriteTableCell("Name");
       writer.WriteTableCell("Kind");
       writer.End();
-      Assert.That(writer.BeginFrame(ProseTableRow.Body), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.TableBodyRow), Is.True);
       writer.WriteTableCell("extraordinary");
       writer.WriteTableCell("x");
       writer.End();
@@ -946,7 +991,7 @@ namespace HELIX.Tests {
       var writer = new ProseUnityRichTextWriter();
       writer.Name("Root");
       writer.Property("Value", 1, ProseFormatters.Int);
-      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Child");
       writer.Property("Child value", 2, ProseFormatters.Int);
       writer.End();
@@ -1002,9 +1047,9 @@ namespace HELIX.Tests {
     [Test]
     public void UnityRichTextWriter_MeasuresFormattedTableCellsByVisibleText() {
       var writer = new ProseUnityRichTextWriter();
-      Assert.That(writer.BeginFrame(ProseTable.Instance), Is.True);
-      Assert.That(writer.BeginFrame(ProseTableRow.Body), Is.True);
-      Assert.That(writer.BeginFrame(ProseTableCell.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Table), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.TableBodyRow), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.TableCell), Is.True);
       writer.WriteSpan("A", ProseTextStyle.Strong);
       writer.End();
       writer.WriteTableCell("longer");
@@ -1074,31 +1119,38 @@ namespace HELIX.Tests {
     }
 
     [Test]
+    public void DefaultScopesAndModifiers_AreOwnedByTheirCentralRegistries() {
+      Assert.That(ProseScopes.Tree, Is.SameAs(ProseScopes.Tree));
+      Assert.That(ProseScopes.OrderedList, Is.SameAs(ProseScopes.OrderedList));
+      Assert.That(ProseModifiers.Strong, Is.SameAs(ProseModifiers.Strong));
+      Assert.That(ProseModifiers.Level(ProseLevel.Info), Is.SameAs(ProseModifiers.Level(ProseLevel.Info)));
+      Assert.That(typeof(ProseTree).GetField("Instance"), Is.Null);
+      Assert.That(typeof(ProseHiddenModifier).GetField("Instance"), Is.Null);
+    }
+
+    [Test]
     public void ScopeExtensions_StartBuiltInScopesAndApplyTheirMetadata() {
       var writer = new ProseTextWriter(configuration: ProseTextConfigurations.Markdown);
 
-      Assert.That(writer.BeginSpan(ProseTextStyle.Strong, "https://example.test"), Is.True);
-      writer.Write("linked");
-      writer.End();
+      writer.WriteSpan("linked", ProseTextStyle.Strong, "https://example.test");
 
-      Assert.That(writer.BeginOrderedList(3), Is.True);
-      Assert.That(writer.BeginListItem(), Is.True);
-      writer.Write("third");
-      writer.End();
-      writer.End();
+      using (writer.Scope(new ProseList(ProseListKind.Ordered, 3)))
+      using (writer.Scope(ProseScopes.ListItem))
+        writer.Write("third");
 
-      Assert.That(writer.BeginTable(), Is.True);
-      Assert.That(writer.BeginTableRow(header: true), Is.True);
-      Assert.That(writer.BeginTableCell(ProseTextAlignment.Center), Is.True);
-      writer.Write("centered");
-      writer.End();
-      writer.End();
-      Assert.That(writer.BeginTableRow(), Is.True);
-      Assert.That(writer.BeginTableCell(ProseTextAlignment.Center), Is.True);
-      writer.Write("x");
-      writer.End();
-      writer.End();
-      writer.End();
+      using (writer.Scope(ProseScopes.Table)) {
+        using (writer.Scope(ProseScopes.TableHeaderRow))
+        using (writer.Scope(ProseScopes.TableCell)) {
+          writer.PushModifier(ProseModifiers.Center);
+          writer.Write("centered");
+        }
+
+        using (writer.Scope(ProseScopes.TableBodyRow))
+        using (writer.Scope(ProseScopes.TableCell)) {
+          writer.PushModifier(ProseModifiers.Center);
+          writer.Write("x");
+        }
+      }
 
       var result = writer.Build();
       Assert.That(result, Does.Contain("[**linked**](https://example.test)"));
@@ -1170,7 +1222,7 @@ namespace HELIX.Tests {
       var writer = new ProseTextWriter(configuration: configuration);
       writer.Name("Root");
       writer.Property("Value", 1, ProseFormatters.Int);
-      if (writer.BeginFrame(ProseTree.Instance)) {
+      if (writer.TryBeginFrame(ProseScopes.Tree)) {
         writer.Name("Child");
         writer.Property("Child value", 2, ProseFormatters.Int);
         writer.End();
@@ -1179,10 +1231,10 @@ namespace HELIX.Tests {
     }
 
     private static void WriteStructuredProse(IProseWriter writer) {
-      Assert.That(writer.BeginFrame(ProseSection.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Section), Is.True);
       writer.WriteSectionHeader("Status");
 
-      Assert.That(writer.BeginFrame(ProseParagraph.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Paragraph), Is.True);
       writer.Write("Everything ");
       writer.WriteSpan("works", ProseTextStyle.Strong);
       writer.Write(". See ");
@@ -1190,17 +1242,17 @@ namespace HELIX.Tests {
       writer.Write(".");
       writer.End();
 
-      Assert.That(writer.BeginFrame(new ProseList(ProseListKind.Ordered, 3)), Is.True);
+      Assert.That(writer.TryBeginFrame(new ProseList(ProseListKind.Ordered, 3)), Is.True);
       writer.WriteListItem("First");
       writer.WriteListItem("Second");
       writer.End();
 
-      Assert.That(writer.BeginFrame(ProseTable.Instance), Is.True);
-      Assert.That(writer.BeginFrame(ProseTableRow.Header), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Table), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.TableHeaderRow), Is.True);
       writer.WriteTableCell("Name");
       writer.WriteTableCell("Count");
       writer.End();
-      Assert.That(writer.BeginFrame(ProseTableRow.Body), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.TableBodyRow), Is.True);
       writer.WriteTableCell("Alpha");
       writer.WriteTableCell(3, ProseFormatters.Int, ProseTextAlignment.Right
       );
@@ -1210,15 +1262,15 @@ namespace HELIX.Tests {
     }
 
     private static void WriteQuoteAndProperty(IProseWriter writer, string note) {
-      Assert.That(writer.BeginFrame(ProseParagraph.Instance), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Paragraph), Is.True);
       writer.WriteSpan(note, ProseTextStyle.Quote);
       writer.End();
       writer.Property("State", "Degraded", ProseFormatters.String);
     }
 
     private static void WriteSingleCellTable(IProseWriter writer, string content) {
-      Assert.That(writer.BeginFrame(ProseTable.Instance), Is.True);
-      Assert.That(writer.BeginFrame(ProseTableRow.Body), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.Table), Is.True);
+      Assert.That(writer.TryBeginFrame(ProseScopes.TableBodyRow), Is.True);
       writer.WriteTableCell(content);
       writer.End();
       writer.End();

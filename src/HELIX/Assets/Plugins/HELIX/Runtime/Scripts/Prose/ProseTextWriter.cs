@@ -107,13 +107,13 @@ namespace HELIX.Prose {
     }
     protected int OutputLength => _builder.Length;
 
-    public override bool BeginFrame(IProseScope scope) {
+    public override bool TryBeginFrame(IProseScope scope) {
       if (scope == null) throw new ArgumentNullException(nameof(scope));
       if (IsWritingInactive()) return false;
       if ((scope is ProseTree && !Configuration.ShowTrees) ||
           (scope is ProseName && !Configuration.ShowNames) ||
           (scope is ProseProperty && !Configuration.ShowProperties) ||
-          (scope is ProsePropertyKey && HasModifier<HideName>()) ||
+          (scope is ProsePropertyKey && HasModifier<ProseHideNameModifier>()) ||
           (IsTextFeature(scope) && !Configuration.ShowTextFeatures))
         return false;
 
@@ -174,6 +174,21 @@ namespace HELIX.Prose {
       }
 
       return true;
+    }
+
+    public override void BeginFrame(IProseScope scope) {
+      if (scope == null) throw new ArgumentNullException(nameof(scope));
+      if (TryBeginFrame(scope)) return;
+
+      EnsureFrameCapacity();
+      _frames[_frameCount++] = new Frame {
+        scope = scope,
+        modifierStart = _modifierCount,
+        outputStart = -1,
+        startLine = _line,
+        treeDepth = _treeDepth,
+        propertyPrepared = true
+      };
     }
 
     public override void End() {
@@ -248,12 +263,13 @@ namespace HELIX.Prose {
     public override void PushModifier(IProseModifier modifier) {
       if (modifier == null) throw new ArgumentNullException(nameof(modifier));
       if (_frameCount == 0) throw new InvalidOperationException("A modifier requires an active Prose frame.");
+      if (IsWritingInactive()) return;
 
       EnsureModifierCapacity();
       _modifiers[_modifierCount++] = modifier;
-      if (modifier is Hidden ||
-          (modifier is LevelMarker level && !Includes(level.Level)) ||
-          (modifier is DefaultValue && !Includes(ProseLevel.Fine)))
+      if (modifier is ProseHiddenModifier ||
+          (modifier is ProseLevelModifier level && !Includes(level.Level)) ||
+          (modifier is ProseDefaultValueModifier && !Includes(ProseLevel.Fine)))
         SuppressCurrentFrame();
     }
 
@@ -274,12 +290,14 @@ namespace HELIX.Prose {
     }
 
     public override void Write(IProse prose) {
+      if (IsWritingInactive()) return;
       if (prose == null) Write(ProseLiterals.Null);
       else prose.ToProse(this);
     }
 
     public override void Write<T>(T value, IProseFormatter<T> formatter) {
       if (formatter == null) throw new ArgumentNullException(nameof(formatter));
+      if (IsWritingInactive()) return;
       formatter.ToProse(this, value);
     }
 
@@ -407,7 +425,7 @@ namespace HELIX.Prose {
     private void CompleteListItem(Frame frame, int frameIndex) {
       var listIndex = FindParentFrame<ProseList>(frameIndex);
       var itemIndex = listIndex >= 0 ? _frames[listIndex].branch.childCount++ : 0;
-      var list = listIndex >= 0 ? (ProseList)_frames[listIndex].scope : ProseList.Unordered;
+      var list = listIndex >= 0 ? (ProseList)_frames[listIndex].scope : ProseScopes.UnorderedList;
       _evaluationBuilder.Clear();
       if (list.Kind == ProseListKind.Ordered) {
         _evaluationBuilder.Append((list.Start + itemIndex).ToString(CultureInfo.InvariantCulture));
@@ -475,8 +493,8 @@ namespace HELIX.Prose {
       string linkTarget = null;
       for (var i = frame.modifierStart; i < _modifierCount; i++) {
         switch (_modifiers[i]) {
-          case TextStyleMarker textStyle: style |= textStyle.Style; break;
-          case LinkMarker link: linkTarget = link.Target; break;
+          case ProseTextStyleModifier textStyle: style |= textStyle.Style; break;
+          case ProseLinkModifier link: linkTarget = link.Target; break;
         }
       }
 
@@ -604,7 +622,7 @@ namespace HELIX.Prose {
 
     private ProseTextAlignment FrameAlignment(Frame frame) {
       for (var i = frame.modifierStart; i < _modifierCount; i++)
-        if (_modifiers[i] is TextAlignmentMarker alignment)
+        if (_modifiers[i] is ProseTextAlignmentModifier alignment)
           return alignment.Alignment;
       return ProseTextAlignment.Left;
     }
@@ -874,7 +892,7 @@ namespace HELIX.Prose {
     private void WriteCharacters(string text, int offset, int count) {
       var end = offset + count;
       var index = offset;
-      var allowWrap = !HasModifier<NoWrap>() &&
+      var allowWrap = !HasModifier<ProseNoWrapModifier>() &&
                       FindFrame<ProseTableCell>() < 0 && FindFrame<ProseCodeBlock>() < 0;
       while (index < end) {
         if (text[index] == '\r') {
@@ -904,7 +922,7 @@ namespace HELIX.Prose {
 
     private void WriteCharacters(ReadOnlySpan<char> text) {
       var index = 0;
-      var allowWrap = !HasModifier<NoWrap>() &&
+      var allowWrap = !HasModifier<ProseNoWrapModifier>() &&
                       FindFrame<ProseTableCell>() < 0 && FindFrame<ProseCodeBlock>() < 0;
       while (index < text.Length) {
         if (text[index] == '\r') {
@@ -1003,7 +1021,7 @@ namespace HELIX.Prose {
     }
 
     private PTNodeFormat CurrentPropertyContentFormat(IProseScope scope) {
-      var hideSeparator = HasModifier<HideName>() || HasModifier<HideSeparator>();
+      var hideSeparator = HasModifier<ProseHideNameModifier>() || HasModifier<ProseHideSeparatorModifier>();
       if (scope is ProsePropertyDescription)
         return hideSeparator
           ? Configuration.PropertyDescriptionWithoutSeparator
@@ -1161,7 +1179,7 @@ namespace HELIX.Prose {
       remaining = length;
       frameIndex = -1;
       if (MaxTruncatableFrameLength < 0 || _frameCount == 0) return false;
-      frameIndex = FindModifierFrame<AllowTruncate>();
+      frameIndex = FindModifierFrame<ProseAllowTruncateModifier>();
       if (frameIndex < 0) return false;
       var frame = _frames[frameIndex];
       remaining = MaxTruncatableFrameLength -

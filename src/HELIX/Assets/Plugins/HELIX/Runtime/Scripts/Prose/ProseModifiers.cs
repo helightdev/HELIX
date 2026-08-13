@@ -9,49 +9,24 @@ namespace HELIX.Prose {
     Error = 1 << 4
   }
 
-  /// <summary>Semantic inline/block markup interpreted by presentation writers.</summary>
-  public sealed class TextStyleMarker : IProseModifier {
-    public static readonly TextStyleMarker Emphasis = new(ProseTextStyle.Emphasis);
-    public static readonly TextStyleMarker Strong = new(ProseTextStyle.Strong);
-    public static readonly TextStyleMarker Code = new(ProseTextStyle.Code);
-    public static readonly TextStyleMarker Quote = new(ProseTextStyle.Quote);
-    public static readonly TextStyleMarker Error = new(ProseTextStyle.Error);
-
-    public TextStyleMarker(ProseTextStyle style) => Style = style;
+  /// <summary>Semantic inline or block markup interpreted by presentation writers.</summary>
+  public sealed class ProseTextStyleModifier : IProseModifier {
+    public ProseTextStyleModifier(ProseTextStyle style) => Style = style;
     public ProseTextStyle Style { get; }
-
-    public static TextStyleMarker For(ProseTextStyle style) => style switch {
-      ProseTextStyle.Emphasis => Emphasis,
-      ProseTextStyle.Strong => Strong,
-      ProseTextStyle.Code => Code,
-      ProseTextStyle.Quote => Quote,
-      ProseTextStyle.Error => Error,
-      _ => new TextStyleMarker(style)
-    };
   }
 
   /// <summary>Associates a semantic link target with a span.</summary>
-  public sealed class LinkMarker : IProseModifier {
-    public LinkMarker(string target) => Target = target ?? throw new System.ArgumentNullException(nameof(target));
+  public sealed class ProseLinkModifier : IProseModifier {
+    public ProseLinkModifier(string target) => Target = target ?? throw new System.ArgumentNullException(nameof(target));
     public string Target { get; }
   }
 
   public enum ProseTextAlignment : byte { Left, Center, Right }
 
   /// <summary>Provides a preferred alignment, primarily for table cells.</summary>
-  public sealed class TextAlignmentMarker : IProseModifier {
-    public static readonly TextAlignmentMarker Left = new(ProseTextAlignment.Left);
-    public static readonly TextAlignmentMarker Center = new(ProseTextAlignment.Center);
-    public static readonly TextAlignmentMarker Right = new(ProseTextAlignment.Right);
-
-    public TextAlignmentMarker(ProseTextAlignment alignment) => Alignment = alignment;
+  public sealed class ProseTextAlignmentModifier : IProseModifier {
+    public ProseTextAlignmentModifier(ProseTextAlignment alignment) => Alignment = alignment;
     public ProseTextAlignment Alignment { get; }
-
-    public static TextAlignmentMarker For(ProseTextAlignment alignment) => alignment switch {
-      ProseTextAlignment.Center => Center,
-      ProseTextAlignment.Right => Right,
-      _ => Left
-    };
   }
 
   public enum ProseLevel {
@@ -66,47 +41,48 @@ namespace HELIX.Prose {
     Off
   }
 
-  public sealed class AllowTruncate : IProseModifier {
-    public static readonly AllowTruncate Instance = new();
-    private AllowTruncate() { }
-  }
-
-  public sealed class NoWrap : IProseModifier {
-    public static readonly NoWrap Instance = new();
-    private NoWrap() { }
-  }
-
-  public sealed class Hidden : IProseModifier {
-    public static readonly Hidden Instance = new();
-    private Hidden() { }
-  }
+  public sealed class ProseAllowTruncateModifier : IProseModifier { }
+  public sealed class ProseNoWrapModifier : IProseModifier { }
+  public sealed class ProseHiddenModifier : IProseModifier { }
 
   /// <summary>Suppresses the property key while retaining its semantic name.</summary>
-  public sealed class HideName : IProseModifier {
-    public static readonly HideName Instance = new();
-    private HideName() { }
-  }
+  public sealed class ProseHideNameModifier : IProseModifier { }
 
   /// <summary>Suppresses the configured separator before a property value or description.</summary>
-  public sealed class HideSeparator : IProseModifier {
-    public static readonly HideSeparator Instance = new();
-    private HideSeparator() { }
-  }
+  public sealed class ProseHideSeparatorModifier : IProseModifier { }
 
   /// <summary>Marks a property whose value equals its configured default.</summary>
-  public sealed class DefaultValue : IProseModifier {
-    public static readonly DefaultValue Instance = new();
-    private DefaultValue() { }
-  }
+  public sealed class ProseDefaultValueModifier : IProseModifier { }
 
   /// <summary>Carries a property's unformatted value when its text presentation uses a description.</summary>
-  public sealed class PropertyValueMarker : IProseModifier {
-    public PropertyValueMarker(object value) => Value = value;
+  public sealed class ProsePropertyValueModifier : IProseModifier {
+    public ProsePropertyValueModifier(object value) => Value = value;
     public object Value { get; }
   }
 
-  public sealed class LevelMarker : IProseModifier {
-    private static readonly LevelMarker[] Cache = {
+  public sealed class ProseLevelModifier : IProseModifier {
+    public ProseLevelModifier(ProseLevel level) => Level = level;
+    public ProseLevel Level { get; }
+  }
+
+  /// <summary>Shared instances and factories for immutable Prose modifiers.</summary>
+  public static class ProseModifiers {
+    public static readonly ProseTextStyleModifier Emphasis = new(ProseTextStyle.Emphasis);
+    public static readonly ProseTextStyleModifier Strong = new(ProseTextStyle.Strong);
+    public static readonly ProseTextStyleModifier Code = new(ProseTextStyle.Code);
+    public static readonly ProseTextStyleModifier Quote = new(ProseTextStyle.Quote);
+    public static readonly ProseTextStyleModifier Error = new(ProseTextStyle.Error);
+    public static readonly ProseTextAlignmentModifier Left = new(ProseTextAlignment.Left);
+    public static readonly ProseTextAlignmentModifier Center = new(ProseTextAlignment.Center);
+    public static readonly ProseTextAlignmentModifier Right = new(ProseTextAlignment.Right);
+    public static readonly ProseAllowTruncateModifier AllowTruncate = new();
+    public static readonly ProseNoWrapModifier NoWrap = new();
+    public static readonly ProseHiddenModifier Hidden = new();
+    public static readonly ProseHideNameModifier HideName = new();
+    public static readonly ProseHideSeparatorModifier HideSeparator = new();
+    public static readonly ProseDefaultValueModifier DefaultValue = new();
+
+    private static readonly ProseLevelModifier[] _levels = {
       new(ProseLevel.Hidden),
       new(ProseLevel.Fine),
       new(ProseLevel.Debug),
@@ -118,15 +94,24 @@ namespace HELIX.Prose {
       new(ProseLevel.Off)
     };
 
-    public LevelMarker(ProseLevel level) {
-      Level = level;
-    }
+    public static ProseTextStyleModifier TextStyle(ProseTextStyle style) => style switch {
+      ProseTextStyle.Emphasis => Emphasis,
+      ProseTextStyle.Strong => Strong,
+      ProseTextStyle.Code => Code,
+      ProseTextStyle.Quote => Quote,
+      ProseTextStyle.Error => Error,
+      _ => new ProseTextStyleModifier(style)
+    };
 
-    public ProseLevel Level { get; }
+    public static ProseTextAlignmentModifier Alignment(ProseTextAlignment alignment) => alignment switch {
+      ProseTextAlignment.Center => Center,
+      ProseTextAlignment.Right => Right,
+      _ => Left
+    };
 
-    public static LevelMarker For(ProseLevel level) {
+    public static ProseLevelModifier Level(ProseLevel level) {
       var index = (int)level;
-      return index >= 0 && index < Cache.Length ? Cache[index] : new LevelMarker(level);
+      return index >= 0 && index < _levels.Length ? _levels[index] : new ProseLevelModifier(level);
     }
   }
 }
