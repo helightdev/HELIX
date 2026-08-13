@@ -303,7 +303,7 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition child) => child.Text("Sparse tree"),
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Sparse tree", ProsePlainTextConfigurations.Sparse
+              "Sparse tree", ProseTextConfigurations.Sparse
             )
           );
           cx.Spacing(1);
@@ -311,7 +311,7 @@ namespace HELIX.Examples {
             static (ref Composition child) => child.Text("Error tree"),
             style: ThemeProperties.ButtonOutlined[in cx],
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Error tree", ProsePlainTextConfigurations.Error
+              "Error tree", ProseTextConfigurations.Error
             )
           );
         }
@@ -320,7 +320,7 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition child) => child.Text("Plain"),
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Plain", ProsePlainTextConfigurations.Plain
+              "Plain", ProseTextConfigurations.Plain
             )
           );
           cx.Spacing(1);
@@ -328,7 +328,7 @@ namespace HELIX.Examples {
             static (ref Composition child) => child.Text("Markdown"),
             style: ThemeProperties.ButtonOutlined[in cx],
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Markdown", ProsePlainTextConfigurations.Markdown
+              "Markdown", ProseTextConfigurations.Markdown
             )
           );
         }
@@ -350,7 +350,7 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition child) => child.Text("Whitespace tree"),
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Whitespace tree", ProsePlainTextConfigurations.Whitespace
+              "Whitespace tree", ProseTextConfigurations.Whitespace
             )
           );
           cx.Spacing(1);
@@ -358,7 +358,7 @@ namespace HELIX.Examples {
             static (ref Composition child) => child.Text("Shallow"),
             style: ThemeProperties.ButtonOutlined[in cx],
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Shallow", ProsePlainTextConfigurations.Shallow
+              "Shallow", ProseTextConfigurations.Shallow
             )
           );
         }

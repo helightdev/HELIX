@@ -38,7 +38,7 @@ namespace HELIX.Examples {
     private static readonly ProseFloatFormatter Megawatts = new("0.00");
 
     /// <summary>A deliberately ornate style used to exercise wide branch tokens and decorations.</summary>
-    public static readonly ProsePlainTextConfiguration TestWideDecorated = new(
+    public static readonly ProseTextConfiguration TestWideDecorated = new(
       root: PTRuleFactory.Container(),
       rootName: PTRuleFactory.Line(prefix: "╔═ ", suffix: " ═╗"),
       treeName: PTRuleFactory.Line(
@@ -54,7 +54,7 @@ namespace HELIX.Examples {
     );
 
     /// <summary>A compact test style with visible sections and deliberately unaligned wrapping.</summary>
-    public static readonly ProsePlainTextConfiguration TestCompactSections = new(
+    public static readonly ProseTextConfiguration TestCompactSections = new(
       root: PTRuleFactory.Container(),
       rootName: PTRuleFactory.Line(prefix: "# "),
       treeName: PTRuleFactory.Line(
@@ -81,9 +81,9 @@ namespace HELIX.Examples {
 
     private DetailedProseExample() { }
 
-    public static string RenderPlainText() => RenderPlainText(ProsePlainTextConfigurations.Sparse);
+    public static string RenderPlainText() => RenderPlainText(ProseTextConfigurations.Sparse);
 
-    public static string RenderPlainText(ProsePlainTextConfiguration configuration) {
+    public static string RenderPlainText(ProseTextConfiguration configuration) {
       var writer = new ProseTextWriter(
         wrapWidth: 96,
         minimumLevel: ProseLevel.Debug,
@@ -116,9 +116,9 @@ namespace HELIX.Examples {
     }
 
     public static void PrintPlainText() =>
-      PrintPlainText("Sparse tree", ProsePlainTextConfigurations.Sparse);
+      PrintPlainText("Sparse tree", ProseTextConfigurations.Sparse);
 
-    public static void PrintPlainText(string configurationName, ProsePlainTextConfiguration configuration) =>
+    public static void PrintPlainText(string configurationName, ProseTextConfiguration configuration) =>
       Debug.Log("Detailed Prose · " + configurationName + "\n" + RenderPlainText(configuration));
 
     public static void PrintDictionary() => Debug.Log("Detailed Prose · dictionary\n" + RenderDictionary());

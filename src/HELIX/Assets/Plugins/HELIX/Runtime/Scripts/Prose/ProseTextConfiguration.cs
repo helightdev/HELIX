@@ -244,10 +244,10 @@ namespace HELIX.Prose {
   }
 
   /// <summary>State properties used to project semantic Prose items into plain text.</summary>
-  public sealed class ProsePlainTextConfiguration {
+  public sealed class ProseTextConfiguration {
     private static readonly PTNodeFormat _noAnchors = new();
 
-    public ProsePlainTextConfiguration(
+    public ProseTextConfiguration(
       PTNodeFormat root = null,
       PTNodeFormat rootName = null,
       PTNodeFormat treeName = null,
@@ -481,14 +481,14 @@ namespace HELIX.Prose {
     );
   }
 
-  public static class ProsePlainTextConfigurations {
+  public static class ProseTextConfigurations {
     /// <summary>A simple tree with a small continuation indent for wrapped properties.</summary>
-    public static readonly ProsePlainTextConfiguration Sparse = Tree(
+    public static readonly ProseTextConfiguration Sparse = Tree(
       "├─ ", "└─ ", "│  ", "   ", propertyChildContinuation: "│"
     );
 
     /// <summary>A cleaned-up diagnostic tree with a clearly delimited root heading.</summary>
-    public static readonly ProsePlainTextConfiguration Error = new(
+    public static readonly ProseTextConfiguration Error = new(
       root: PTRuleFactory.Container(),
       rootName: PTRuleFactory.Line(prefix: "══ ", suffix: " ══", suffixRepeater: 1),
       treeName: PTRuleFactory.Line(),
@@ -516,7 +516,7 @@ namespace HELIX.Prose {
     );
 
     /// <summary>Shows the current object on one line, with its properties in parentheses.</summary>
-    public static readonly ProsePlainTextConfiguration Shallow = new(
+    public static readonly ProseTextConfiguration Shallow = new(
       root: PTRuleFactory.Container(),
       rootName: PTRuleFactory.Block(),
       property: PTRuleFactory.InlineProperties(),
@@ -534,7 +534,7 @@ namespace HELIX.Prose {
     );
 
     /// <summary>An ASCII tree with sparse properties and every supported general-text feature.</summary>
-    public static readonly ProsePlainTextConfiguration Plain = new(
+    public static readonly ProseTextConfiguration Plain = new(
       root: PTRuleFactory.Container(),
       rootName: PTRuleFactory.Line(),
       treeName: PTRuleFactory.Line(),
@@ -563,7 +563,7 @@ namespace HELIX.Prose {
     /// Full Unity rich-text layout with sparse properties and an ASCII-only child tree.
     /// Rich-text tags are supplied by <see cref="ProseUnityRichTextWriter"/>.
     /// </summary>
-    public static readonly ProsePlainTextConfiguration UnityRichText = new(
+    public static readonly ProseTextConfiguration UnityRichText = new(
       root: PTRuleFactory.Container(),
       rootName: PTRuleFactory.Line(),
       treeName: PTRuleFactory.Line(),
@@ -586,12 +586,12 @@ namespace HELIX.Prose {
     );
 
     /// <summary>A Sparse layout that uses indentation only; no tree glyphs are emitted.</summary>
-    public static readonly ProsePlainTextConfiguration Whitespace = Tree("  ", "  ", "  ", "  ");
+    public static readonly ProseTextConfiguration Whitespace = Tree("  ", "  ", "  ", "  ");
 
     /// <summary>
     /// A complete Markdown projection with headings, lists, tables, links, fenced code, and inline markup.
     /// </summary>
-    public static readonly ProsePlainTextConfiguration Markdown = new(
+    public static readonly ProseTextConfiguration Markdown = new(
       root: PTRuleFactory.Container(),
       rootName: PTRuleFactory.Line(prefix: "# "),
       treeName: PTRuleFactory.Line(prefix: "- **", suffix: "**"),
@@ -620,7 +620,7 @@ namespace HELIX.Prose {
       requiredLineBreak: "  \n"
     );
 
-    private static ProsePlainTextConfiguration Tree(
+    private static ProseTextConfiguration Tree(
       string child, string lastChild, string continuation, string lastContinuation,
       string propertyChildContinuation = null
     ) => new(

@@ -18,14 +18,14 @@ namespace HELIX.Prose {
       int maxTruncatableFrameLength = -1,
       int initialCapacity = 256,
       int initialFrameCapacity = 16,
-      ProsePlainTextConfiguration configuration = null,
+      ProseTextConfiguration configuration = null,
       string codeColor = "#DCDCAA",
       string quoteColor = "#A0A0A0",
       string errorColor = "#FF6B6B"
     ) : base(
       wrapWidth, minimumLevel, maxTruncatableFrameLength,
       initialCapacity, initialFrameCapacity,
-      configuration ?? ProsePlainTextConfigurations.UnityRichText
+      configuration ?? ProseTextConfigurations.UnityRichText
     ) {
       CodeColor = NormalizeColor(codeColor, nameof(codeColor));
       QuoteColor = NormalizeColor(quoteColor, nameof(quoteColor));

@@ -20,7 +20,7 @@ namespace HELIX.Prose {
     private int _frameCount, _modifierCount, _treeDepth;
     private LineState _line;
     private BranchState _root;
-    private bool _rootFinalized, _nextBlockFollowsHeading;
+    private bool _rootFinalized, _nextBlockFollowsHeading, _propertyFollowsPaddedBlock;
     private readonly StringBuilder
       _evaluationBuilder = new(), _itemBuilder = new(), _formatBuilder = new(), _resultBuilder = new();
     private int[] _tableColumnWidths = Array.Empty<int>();
@@ -77,7 +77,7 @@ namespace HELIX.Prose {
       int maxTruncatableFrameLength = -1,
       int initialCapacity = 256,
       int initialFrameCapacity = 16,
-      ProsePlainTextConfiguration configuration = null
+      ProseTextConfiguration configuration = null
     ) {
       if (wrapWidth < 1) throw new ArgumentOutOfRangeException(nameof(wrapWidth));
       if (initialCapacity < 0) throw new ArgumentOutOfRangeException(nameof(initialCapacity));
@@ -86,13 +86,13 @@ namespace HELIX.Prose {
       WrapWidth = wrapWidth;
       MinimumLevel = minimumLevel;
       MaxTruncatableFrameLength = maxTruncatableFrameLength;
-      Configuration = configuration ?? ProsePlainTextConfigurations.Sparse;
+      Configuration = configuration ?? ProseTextConfigurations.Sparse;
       _builder = new StringBuilder(initialCapacity);
       _frames = new Frame[initialFrameCapacity];
       _modifiers = new IProseModifier[initialFrameCapacity];
     }
 
-    public ProsePlainTextConfiguration Configuration { get; }
+    public ProseTextConfiguration Configuration { get; }
     public int WrapWidth { get; set; }
     public ProseLevel MinimumLevel { get; set; }
     public int MaxTruncatableFrameLength { get; set; }
@@ -237,6 +237,9 @@ namespace HELIX.Prose {
       else if (frame.scope is ProseProperty && !IsSuppressedFrame(frame)) RecordCompletedProperty(frame);
       else if (frame.scope is ProseSectionHeader && !IsSuppressedFrame(frame))
         _nextBlockFollowsHeading = true;
+      else if ((frame.scope is ProseParagraph or ProseList or ProseTable or ProseCodeBlock) &&
+               !IsSuppressedFrame(frame))
+        _propertyFollowsPaddedBlock = true;
     }
 
     public override void PushModifier(IProseModifier modifier) {
@@ -251,6 +254,7 @@ namespace HELIX.Prose {
     public override void Write(string text) {
       if (string.IsNullOrEmpty(text) || IsWritingInactive()) return;
       _nextBlockFollowsHeading = false;
+      if (_frameCount == 0) _propertyFollowsPaddedBlock = false;
       PrepareCurrentProperty();
       WriteCharacters(text, 0, text.Length);
     }
@@ -258,6 +262,7 @@ namespace HELIX.Prose {
     public void WriteLineBreak(bool force) {
       if (IsWritingInactive()) return;
       _nextBlockFollowsHeading = false;
+      if (_frameCount == 0) _propertyFollowsPaddedBlock = false;
       PrepareCurrentProperty();
       AppendLineBreak(force, LineBreakKind.Explicit, required: true);
     }
@@ -275,6 +280,7 @@ namespace HELIX.Prose {
     public void Write(ReadOnlySpan<char> text) {
       if (text.Length == 0 || IsWritingInactive()) return;
       _nextBlockFollowsHeading = false;
+      if (_frameCount == 0) _propertyFollowsPaddedBlock = false;
       PrepareCurrentProperty();
       WriteCharacters(text);
     }
@@ -289,6 +295,7 @@ namespace HELIX.Prose {
       _root = default;
       _rootFinalized = false;
       _nextBlockFollowsHeading = false;
+      _propertyFollowsPaddedBlock = false;
       _treeDepth = 0;
       _evaluationBuilder.Clear();
       _itemBuilder.Clear();
@@ -369,6 +376,15 @@ namespace HELIX.Prose {
       if (frame.scope is not ProseProperty || frame.propertyPrepared || IsInactive(_frameCount - 1)) return;
 
       FinalizePendingProperty(false);
+      var matching = CurrentPropertyMatching();
+      var lineMode = Configuration.Property.EvaluateLineBreak(
+        matching, LineMatching.First | LineMatching.Hard
+      );
+      if ((lineMode & LineBreakMode.Item) != 0) {
+        if (_propertyFollowsPaddedBlock) EnsureBlankLine();
+        else EnsureNewLine();
+      }
+      _propertyFollowsPaddedBlock = false;
       frame.outputStart = _builder.Length;
       frame.itemOutputStart = _builder.Length;
       frame.startLine = _line;
@@ -1053,6 +1069,17 @@ namespace HELIX.Prose {
 
     private void EnsureNewLine() {
       AppendLineBreak(false, LineBreakKind.Semantic);
+    }
+
+    private void EnsureBlankLine() {
+      EnsureNewLine();
+      var end = _builder.Length - 1;
+      while (end >= 0 && _builder[end] is ' ' or '\t') end--;
+      if (end < 0 || !IsLineBreak(_builder[end])) return;
+      end--;
+      while (end >= 0 && _builder[end] is ' ' or '\t') end--;
+      if (end >= 0 && IsLineBreak(_builder[end])) return;
+      AppendLineBreak(true, LineBreakKind.Semantic);
     }
 
     private void AppendLineBreak(bool force, LineBreakKind kind, bool required = false) {
