@@ -537,12 +537,14 @@ namespace HELIX.Tests {
     }
 
     [Test]
-    public void PlainTextConfigurations_ExposeTheFourSupportedLayouts() {
+    public void PlainTextConfigurations_ExposeTheSupportedLayouts() {
       var configurations = new[] {
         ProsePlainTextConfigurations.Sparse,
         ProsePlainTextConfigurations.Error,
         ProsePlainTextConfigurations.Whitespace,
-        ProsePlainTextConfigurations.Shallow
+        ProsePlainTextConfigurations.Shallow,
+        ProsePlainTextConfigurations.Plain,
+        ProsePlainTextConfigurations.Markdown
       };
 
       Assert.That(configurations, Has.All.Not.Null);
@@ -630,6 +632,58 @@ namespace HELIX.Tests {
     }
 
     [Test]
+    public void PlainTextConfigurations_KeepStructuralPresetsLimitedToTreesAndProperties() {
+      foreach (var configuration in new[] {
+                 ProsePlainTextConfigurations.Sparse,
+                 ProsePlainTextConfigurations.Shallow
+               }) {
+        var writer = new ProsePlainTextWriter(configuration: configuration);
+        Prose.Prose.WriteName(writer, "Root");
+        Prose.Prose.WriteProperty(writer, "Value", 1, ProseIntFormatter.Instance);
+        Prose.Prose.WriteSpan(writer, "important", ProseTextStyle.Strong);
+        Prose.Prose.WriteSpan(writer, "docs", linkTarget: "https://example.test");
+        Prose.Prose.WriteCodeBlock(writer, "run command", "shell");
+        Assert.That(writer.BeginFrame(ProseSection.Instance), Is.False);
+        Assert.That(writer.BeginFrame(ProseList.Unordered), Is.False);
+        Assert.That(writer.BeginFrame(ProseTable.Instance), Is.False);
+
+        var result = writer.Build();
+        Assert.That(result, Does.Contain("Root").And.Contain("Value: 1"));
+        Assert.That(
+          result,
+          Does.Not.Contain("important").And.Not.Contain("docs").And.Not.Contain("run command")
+        );
+      }
+    }
+
+    [Test]
+    public void PlainConfiguration_UsesShallowPropertiesAndIncludesAllTextFeatures() {
+      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Plain);
+      Prose.Prose.WriteName(writer, "Root");
+      Prose.Prose.WriteProperty(writer, "Value", 1, ProseIntFormatter.Instance);
+      WriteStructuredProse(writer);
+      Prose.Prose.WriteCodeBlock(writer, "run command", "shell");
+
+      var result = writer.Build();
+      Assert.That(result, Does.StartWith("Root(Value: 1)\n"));
+      Assert.That(result, Does.Contain("Status:").And.Contain("3. First"));
+      Assert.That(result, Does.Contain("| Name").And.Contain("Code: shell\nrun command"));
+      Assert.That(result, Does.Not.Contain("Child"));
+    }
+
+    [Test]
+    public void ErrorConfiguration_ProjectsMarkupIntoItsDiagnosticStyle() {
+      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Error);
+      Prose.Prose.WriteSpan(writer, "strong", ProseTextStyle.Strong);
+      writer.Write(" ");
+      Prose.Prose.WriteSpan(writer, "code", ProseTextStyle.Code);
+      writer.Write(" ");
+      Prose.Prose.WriteSpan(writer, "failure", ProseTextStyle.Error);
+
+      Assert.That(writer.Build(), Is.EqualTo("«strong» ⟦code⟧ ‼ failure"));
+    }
+
+    [Test]
     public void DictionaryWriter_CapturesTheDataTreeAndIgnoresFormatters() {
       var writer = new ProseDictionaryWriter();
       Prose.Prose.WriteName(writer, "Person");
@@ -647,6 +701,157 @@ namespace HELIX.Tests {
       Assert.That(item[ProseDictionaryWriter.NameKey], Is.EqualTo("Item"));
       Assert.That(item["Enabled"], Is.TypeOf<bool>().And.EqualTo(true));
       Assert.That(writer.Root.ContainsKey("type"), Is.False);
+    }
+
+    [Test]
+    public void DictionaryWriter_PreservesSectionsListsAndTables() {
+      var writer = new ProseDictionaryWriter();
+      WriteStructuredProse(writer);
+
+      var sections = (List<object>)writer.Root[ProseDictionaryWriter.SectionsKey];
+      var section = (Dictionary<string, object>)sections[0];
+      Assert.That(section[ProseDictionaryWriter.HeaderKey], Is.EqualTo("Status"));
+      Assert.That(section[ProseDictionaryWriter.ContentKey], Is.EqualTo("Everything works. See docs."));
+
+      var lists = (List<object>)section[ProseDictionaryWriter.ListsKey];
+      var list = (Dictionary<string, object>)lists[0];
+      Assert.That(list[ProseDictionaryWriter.ListKindKey], Is.EqualTo("ordered"));
+      Assert.That(list[ProseDictionaryWriter.StartKey], Is.EqualTo(3));
+      var items = (List<object>)list[ProseDictionaryWriter.ItemsKey];
+      Assert.That(
+        ((Dictionary<string, object>)items[1])[ProseDictionaryWriter.ContentKey],
+        Is.EqualTo("Second")
+      );
+
+      var tables = (List<object>)section[ProseDictionaryWriter.TablesKey];
+      var table = (Dictionary<string, object>)tables[0];
+      var rows = (List<object>)table[ProseDictionaryWriter.RowsKey];
+      var header = (Dictionary<string, object>)rows[0];
+      Assert.That(header[ProseDictionaryWriter.IsHeaderKey], Is.True);
+      Assert.That((List<object>)header[ProseDictionaryWriter.CellsKey], Is.EqualTo(new[] { "Name", "Count" }));
+      var body = (Dictionary<string, object>)rows[1];
+      Assert.That((List<object>)body[ProseDictionaryWriter.CellsKey], Is.EqualTo(new object[] { "Alpha", 3 }));
+    }
+
+    [Test]
+    public void PlainTextWriter_RendersMarkupListsAndMeasuredTables() {
+      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
+      WriteStructuredProse(writer);
+
+      Assert.That(
+        writer.Build(),
+        Is.EqualTo(
+          "## Status\n\n" +
+          "Everything **works**. See [docs](https://example.test).\n\n" +
+          "3. First\n" +
+          "4. Second\n\n" +
+          "| Name  | Count |\n" +
+          "| ----- | ----- |\n" +
+          "| Alpha |     3 |"
+        )
+      );
+    }
+
+    [Test]
+    public void PlainTextWriter_CombinesGeneralMarkupModifiers() {
+      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
+      Prose.Prose.WriteSpan(
+        writer, "important", ProseTextStyle.Emphasis | ProseTextStyle.Strong
+      );
+      writer.Write(" ");
+      Prose.Prose.WriteSpan(writer, "value", ProseTextStyle.Code);
+      writer.Write(" ");
+      Prose.Prose.WriteSpan(writer, "quoted", ProseTextStyle.Quote);
+      writer.Write(" ");
+      Prose.Prose.WriteSpan(writer, "failed", ProseTextStyle.Error);
+
+      Assert.That(
+        writer.Build(),
+        Is.EqualTo("***important*** `value` > quoted **Error: failed**")
+      );
+    }
+
+    [Test]
+    public void PlainTextWriter_RendersPreformattedCodeBlocksWithoutWrapping() {
+      var writer = new ProsePlainTextWriter(
+        wrapWidth: 8,
+        configuration: ProsePlainTextConfigurations.Markdown
+      );
+
+      Prose.Prose.WriteCodeBlock(writer, "var value = 123;\nreturn value;", "csharp");
+
+      Assert.That(
+        writer.Build(),
+        Is.EqualTo("```csharp\nvar value = 123;\nreturn value;\n```")
+      );
+    }
+
+    [Test]
+    public void DictionaryWriter_PreservesCodeBlockContentAndLanguage() {
+      var writer = new ProseDictionaryWriter();
+
+      Prose.Prose.WriteCodeBlock(writer, "coolant.reset();", "csharp");
+
+      var blocks = (List<object>)writer.Root[ProseDictionaryWriter.CodeBlocksKey];
+      var block = (Dictionary<string, object>)blocks[0];
+      Assert.That(block[ProseDictionaryWriter.ContentKey], Is.EqualTo("coolant.reset();"));
+      Assert.That(block[ProseDictionaryWriter.LanguageKey], Is.EqualTo("csharp"));
+    }
+
+    [Test]
+    public void UnityRichTextWriter_EmitsTagsWithoutCountingThemForWrappingOrLength() {
+      var writer = new ProseUnityRichTextWriter(wrapWidth: 11);
+
+      Prose.Prose.WriteSpan(writer, "alpha beta", ProseTextStyle.Strong);
+      writer.Write(" gamma");
+
+      Assert.That(writer.Build(), Is.EqualTo("<b>alpha beta</b>\ngamma"));
+      Assert.That(writer.Length, Is.EqualTo("alpha beta\ngamma".Length));
+    }
+
+    [Test]
+    public void UnityRichTextWriter_RendersSemanticMarkupLinksAndCodeBlocks() {
+      var writer = new ProseUnityRichTextWriter();
+
+      Prose.Prose.WriteSpan(
+        writer, "important", ProseTextStyle.Emphasis | ProseTextStyle.Strong
+      );
+      writer.Write(" ");
+      Prose.Prose.WriteSpan(writer, "value", ProseTextStyle.Code);
+      writer.Write(" ");
+      Prose.Prose.WriteSpan(writer, "quoted", ProseTextStyle.Quote);
+      writer.Write(" ");
+      Prose.Prose.WriteSpan(writer, "failed", ProseTextStyle.Error);
+      writer.Write(" ");
+      Prose.Prose.WriteSpan(writer, "docs", linkTarget: "https://example.test?a=1&b=2");
+      Prose.Prose.WriteCodeBlock(writer, "coolant.reset();", "csharp");
+
+      Assert.That(
+        writer.Build(),
+        Is.EqualTo(
+          "<b><i>important</i></b> " +
+          "<color=#DCDCAA>value</color> " +
+          "<i><color=#A0A0A0>quoted</color></i> " +
+          "<b><color=#FF6B6B>failed</color></b> " +
+          "<link=\"https://example.test?a=1&amp;b=2\"><u>docs</u></link>\n" +
+          "<color=#DCDCAA>coolant.reset();</color>"
+        )
+      );
+    }
+
+    [Test]
+    public void UnityRichTextWriter_MeasuresFormattedTableCellsByVisibleText() {
+      var writer = new ProseUnityRichTextWriter();
+      Assert.That(writer.BeginFrame(ProseTable.Instance), Is.True);
+      Assert.That(writer.BeginFrame(ProseTableRow.Body), Is.True);
+      Assert.That(writer.BeginFrame(ProseTableCell.Instance), Is.True);
+      Prose.Prose.WriteSpan(writer, "A", ProseTextStyle.Strong);
+      writer.PopFrame();
+      Prose.Prose.WriteTableCell(writer, "longer");
+      writer.PopFrame();
+      writer.PopFrame();
+
+      Assert.That(writer.Build(), Is.EqualTo("| <b>A</b>   | longer |"));
     }
 
     [Test]
@@ -679,6 +884,36 @@ namespace HELIX.Tests {
       Assert.That(writer.Build(), Is.EqualTo("before\nfallback prose"));
     }
 
+    [Test]
+    public void PlainTextWriter_DistinguishesHardAndSoftSemanticLineBreaks() {
+      var writer = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(root: PTRuleFactory.Container())
+      );
+      writer.Write("first");
+      writer.Write(ProseSoftLineBreak.Instance);
+      writer.Write(ProseSoftLineBreak.Instance);
+      writer.Write("second");
+      writer.Write(ProseLineBreak.Instance);
+      writer.Write(ProseLineBreak.Instance);
+      writer.Write(ProseSoftLineBreak.Instance);
+      writer.Write("third");
+
+      Assert.That(writer.Build(), Is.EqualTo("first\nsecond\n\nthird"));
+    }
+
+    [Test]
+    public void MarkdownConfiguration_RendersSemanticBreaksAsMarkdownHardBreaks() {
+      var writer = new ProsePlainTextWriter(
+        configuration: ProsePlainTextConfigurations.Markdown
+      );
+      writer.Write("first");
+      writer.Write(ProseLineBreak.Instance);
+      writer.Write("second");
+
+      Assert.That(writer.Build(), Is.EqualTo("first  \nsecond"));
+      Assert.That(writer.Length, Is.EqualTo("first\nsecond".Length));
+    }
+
     private readonly struct WrappedText {
       public WrappedText(string value) => Value = value;
       public string Value { get; }
@@ -694,6 +929,38 @@ namespace HELIX.Tests {
         writer.PopFrame();
       }
       return writer.Build();
+    }
+
+    private static void WriteStructuredProse(IProseWriter writer) {
+      Assert.That(writer.BeginFrame(ProseSection.Instance), Is.True);
+      Prose.Prose.WriteSectionHeader(writer, "Status");
+
+      Assert.That(writer.BeginFrame(ProseParagraph.Instance), Is.True);
+      writer.Write("Everything ");
+      Prose.Prose.WriteSpan(writer, "works", ProseTextStyle.Strong);
+      writer.Write(". See ");
+      Prose.Prose.WriteSpan(writer, "docs", linkTarget: "https://example.test");
+      writer.Write(".");
+      writer.PopFrame();
+
+      Assert.That(writer.BeginFrame(new ProseList(ProseListKind.Ordered, 3)), Is.True);
+      Prose.Prose.WriteListItem(writer, "First");
+      Prose.Prose.WriteListItem(writer, "Second");
+      writer.PopFrame();
+
+      Assert.That(writer.BeginFrame(ProseTable.Instance), Is.True);
+      Assert.That(writer.BeginFrame(ProseTableRow.Header), Is.True);
+      Prose.Prose.WriteTableCell(writer, "Name");
+      Prose.Prose.WriteTableCell(writer, "Count");
+      writer.PopFrame();
+      Assert.That(writer.BeginFrame(ProseTableRow.Body), Is.True);
+      Prose.Prose.WriteTableCell(writer, "Alpha");
+      Prose.Prose.WriteTableCell(
+        writer, 3, ProseIntFormatter.Instance, ProseTextAlignment.Right
+      );
+      writer.PopFrame();
+      writer.PopFrame();
+      writer.PopFrame();
     }
 
     private static string RenderVisibility(bool showTrees, bool showNames, bool showProperties) {

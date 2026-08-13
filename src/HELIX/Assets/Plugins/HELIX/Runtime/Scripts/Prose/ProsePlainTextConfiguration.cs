@@ -177,6 +177,27 @@ namespace HELIX.Prose {
       required == LineMatching.None || (actual & required) == required;
   }
 
+  /// <summary>Characters and sizing rules used when a plain-text table is measured and rendered.</summary>
+  public sealed class PTTableFormat {
+    public PTTableFormat(
+      string leftBorder = "| ", string columnSeparator = " | ", string rightBorder = " |",
+      char headerFill = '-', int minimumColumnWidth = 3
+    ) {
+      if (minimumColumnWidth < 0) throw new ArgumentOutOfRangeException(nameof(minimumColumnWidth));
+      LeftBorder = leftBorder ?? string.Empty;
+      ColumnSeparator = columnSeparator ?? string.Empty;
+      RightBorder = rightBorder ?? string.Empty;
+      HeaderFill = headerFill;
+      MinimumColumnWidth = minimumColumnWidth;
+    }
+
+    public string LeftBorder { get; }
+    public string ColumnSeparator { get; }
+    public string RightBorder { get; }
+    public char HeaderFill { get; }
+    public int MinimumColumnWidth { get; }
+  }
+
   /// <summary>State properties used to project semantic Prose items into plain text.</summary>
   public sealed class ProsePlainTextConfiguration {
     private static readonly PTNodeFormat _noAnchors = new();
@@ -190,7 +211,28 @@ namespace HELIX.Prose {
       PTNodeFormat tree = null,
       bool showTrees = true,
       bool showNames = true,
-      bool showProperties = true
+      bool showProperties = true,
+      PTNodeFormat section = null,
+      PTNodeFormat sectionHeader = null,
+      PTNodeFormat paragraph = null,
+      PTNodeFormat list = null,
+      PTNodeFormat listItem = null,
+      PTNodeFormat emphasizedText = null,
+      PTNodeFormat strongText = null,
+      PTNodeFormat codeText = null,
+      PTNodeFormat quoteText = null,
+      PTNodeFormat errorText = null,
+      PTTableFormat table = null,
+      string unorderedListMarker = "- ",
+      string orderedListMarkerSuffix = ". ",
+      PTNodeFormat linkText = null,
+      string linkTargetPrefix = " (",
+      string linkTargetSuffix = ")",
+      PTNodeFormat codeBlock = null,
+      string codeBlockPrefix = "```",
+      string codeBlockSuffix = "```",
+      string requiredLineBreak = "\n",
+      bool showTextFeatures = true
     ) {
       Root = root ?? _noAnchors;
       RootName = rootName ?? _noAnchors;
@@ -198,9 +240,30 @@ namespace HELIX.Prose {
       Property = property ?? _noAnchors;
       PropertyValue = propertyValue ?? _noAnchors;
       Tree = tree ?? _noAnchors;
+      Section = section ?? _noAnchors;
+      SectionHeader = sectionHeader ?? _noAnchors;
+      Paragraph = paragraph ?? _noAnchors;
+      List = list ?? _noAnchors;
+      ListItem = listItem ?? _noAnchors;
+      EmphasizedText = emphasizedText ?? _noAnchors;
+      StrongText = strongText ?? _noAnchors;
+      CodeText = codeText ?? _noAnchors;
+      QuoteText = quoteText ?? _noAnchors;
+      ErrorText = errorText ?? _noAnchors;
+      LinkText = linkText ?? _noAnchors;
+      CodeBlock = codeBlock ?? PTRuleFactory.Container();
+      Table = table ?? new PTTableFormat();
+      UnorderedListMarker = unorderedListMarker ?? string.Empty;
+      OrderedListMarkerSuffix = orderedListMarkerSuffix ?? string.Empty;
+      LinkTargetPrefix = linkTargetPrefix ?? string.Empty;
+      LinkTargetSuffix = linkTargetSuffix ?? string.Empty;
+      CodeBlockPrefix = codeBlockPrefix ?? string.Empty;
+      CodeBlockSuffix = codeBlockSuffix ?? string.Empty;
+      RequiredLineBreak = requiredLineBreak ?? string.Empty;
       ShowTrees = showTrees;
       ShowNames = showNames;
       ShowProperties = showProperties;
+      ShowTextFeatures = showTextFeatures;
     }
 
     public PTNodeFormat Root { get; }
@@ -209,9 +272,32 @@ namespace HELIX.Prose {
     public PTNodeFormat Property { get; }
     public PTNodeFormat PropertyValue { get; }
     public PTNodeFormat Tree { get; }
+    public PTNodeFormat Section { get; }
+    public PTNodeFormat SectionHeader { get; }
+    public PTNodeFormat Paragraph { get; }
+    public PTNodeFormat List { get; }
+    public PTNodeFormat ListItem { get; }
+    public PTNodeFormat EmphasizedText { get; }
+    public PTNodeFormat StrongText { get; }
+    public PTNodeFormat CodeText { get; }
+    public PTNodeFormat QuoteText { get; }
+    public PTNodeFormat ErrorText { get; }
+    public PTNodeFormat LinkText { get; }
+    public PTNodeFormat CodeBlock { get; }
+    public PTTableFormat Table { get; }
+    public string UnorderedListMarker { get; }
+    public string OrderedListMarkerSuffix { get; }
+    public string LinkTargetPrefix { get; }
+    public string LinkTargetSuffix { get; }
+    public string CodeBlockPrefix { get; }
+    public string CodeBlockSuffix { get; }
+    /// <summary>External presentation used for semantic required line breaks.</summary>
+    public string RequiredLineBreak { get; }
     public bool ShowTrees { get; }
     public bool ShowNames { get; }
     public bool ShowProperties { get; }
+    /// <summary>Whether sections, paragraphs, spans, lists, tables, and code blocks are accepted.</summary>
+    public bool ShowTextFeatures { get; }
 
   }
 
@@ -312,6 +398,25 @@ namespace HELIX.Prose {
                   (align ? LineBreakMode.Align : LineBreakMode.None)
     );
 
+    public static PTNodeFormat Section() => Container();
+
+    public static PTNodeFormat Paragraph() => Container();
+
+    public static PTNodeFormat ListItem(string continuationPrefix = "  ") => Block(
+      continuationIndent: continuationPrefix,
+      lineBreaks: LineBreakMode.Wrap | LineBreakMode.Hard
+    );
+
+    public static PTNodeFormat Markup(string prefix, string suffix) =>
+      Block(prefix: prefix, suffix: suffix, lineBreaks: LineBreakMode.Wrap | LineBreakMode.Hard);
+
+    public static PTNodeFormat IndentedMarkup(string firstLinePrefix, string continuationPrefix) =>
+      Block(
+        firstLineIndent: firstLinePrefix,
+        continuationIndent: continuationPrefix,
+        lineBreaks: LineBreakMode.Wrap | LineBreakMode.Hard
+      );
+
     public static PTNodeFormat Tree(
       string first, string last, string continuation, string lastContinuation
     ) => new(
@@ -338,7 +443,22 @@ namespace HELIX.Prose {
       treeName: PTRuleFactory.Line(),
       property: PTRuleFactory.Property(firstLinePrefix: "! ", continuationPrefix: "  "),
       propertyValue: PTRuleFactory.PropertyValue(),
-      tree: PTRuleFactory.Tree("├─ ", "└─ ", "│  ", "   ")
+      tree: PTRuleFactory.Tree("├─ ", "└─ ", "│  ", "   "),
+      section: PTRuleFactory.Section(),
+      sectionHeader: PTRuleFactory.Line(prefix: "── ", suffix: " ──"),
+      paragraph: PTRuleFactory.IndentedMarkup("! ", "! "),
+      list: PTRuleFactory.Container(),
+      listItem: PTRuleFactory.ListItem(),
+      emphasizedText: PTRuleFactory.Markup("‹", "›"),
+      strongText: PTRuleFactory.Markup("«", "»"),
+      codeText: PTRuleFactory.Markup("⟦", "⟧"),
+      quoteText: PTRuleFactory.IndentedMarkup("│ ", "│ "),
+      errorText: PTRuleFactory.IndentedMarkup("‼ ", "  "),
+      linkText: PTRuleFactory.Markup("<", ">"),
+      linkTargetPrefix: " [",
+      linkTargetSuffix: "]",
+      codeBlockPrefix: "╭─ code: ",
+      codeBlockSuffix: "╰─"
     );
 
     /// <summary>Shows the current object on one line, with its properties in parentheses.</summary>
@@ -347,11 +467,74 @@ namespace HELIX.Prose {
       rootName: PTRuleFactory.Block(),
       property: PTRuleFactory.InlineProperties(),
       propertyValue: PTRuleFactory.PropertyValue(),
-      showTrees: false
+      showTrees: false,
+      section: PTRuleFactory.Section(),
+      sectionHeader: PTRuleFactory.Line(suffix: ":"),
+      paragraph: PTRuleFactory.Paragraph(),
+      list: PTRuleFactory.Container(),
+      listItem: PTRuleFactory.ListItem(),
+      linkTargetPrefix: "",
+      linkTargetSuffix: "",
+      codeBlockPrefix: "",
+      codeBlockSuffix: "",
+      showTextFeatures: false
+    );
+
+    /// <summary>A shallow property summary followed by every supported general-text feature.</summary>
+    public static readonly ProsePlainTextConfiguration Plain = new(
+      root: PTRuleFactory.Container(),
+      rootName: PTRuleFactory.Block(),
+      property: PTRuleFactory.InlineProperties(trailingNewLine: true),
+      propertyValue: PTRuleFactory.PropertyValue(),
+      showTrees: false,
+      section: PTRuleFactory.Section(),
+      sectionHeader: PTRuleFactory.Line(suffix: ":"),
+      paragraph: PTRuleFactory.Paragraph(),
+      list: PTRuleFactory.Container(),
+      listItem: PTRuleFactory.ListItem(),
+      emphasizedText: PTRuleFactory.Markup("/", "/"),
+      strongText: PTRuleFactory.Markup("*", "*"),
+      codeText: PTRuleFactory.Markup("'", "'"),
+      quoteText: PTRuleFactory.Markup("“", "”"),
+      errorText: PTRuleFactory.Markup("Error: ", ""),
+      codeBlockPrefix: "Code: ",
+      codeBlockSuffix: ""
     );
 
     /// <summary>A Sparse layout that uses indentation only; no tree glyphs are emitted.</summary>
     public static readonly ProsePlainTextConfiguration Whitespace = Tree("  ", "  ", "  ", "  ");
+
+    /// <summary>
+    /// A complete Markdown projection with headings, lists, tables, links, fenced code, and inline markup.
+    /// </summary>
+    public static readonly ProsePlainTextConfiguration Markdown = new(
+      root: PTRuleFactory.Container(),
+      rootName: PTRuleFactory.Line(prefix: "# "),
+      treeName: PTRuleFactory.Line(prefix: "- **", suffix: "**"),
+      property: PTRuleFactory.Property(firstLinePrefix: "- ", continuationPrefix: "  "),
+      propertyValue: PTRuleFactory.PropertyValue(),
+      tree: PTRuleFactory.Tree("  ", "  ", "  ", "  "),
+      section: PTRuleFactory.Section(),
+      sectionHeader: PTRuleFactory.Line(prefix: "## "),
+      paragraph: PTRuleFactory.Block(
+        prefix: "\n", suffix: "\n",
+        lineBreaks: LineBreakMode.Wrap | LineBreakMode.Hard
+      ),
+      list: PTRuleFactory.Block(
+        prefix: "\n", suffix: "\n\n",
+        lineBreaks: LineBreakMode.Wrap | LineBreakMode.Hard
+      ),
+      listItem: PTRuleFactory.ListItem(),
+      emphasizedText: PTRuleFactory.Markup("*", "*"),
+      strongText: PTRuleFactory.Markup("**", "**"),
+      codeText: PTRuleFactory.Markup("`", "`"),
+      quoteText: PTRuleFactory.IndentedMarkup("> ", "> "),
+      errorText: PTRuleFactory.Markup("**Error: ", "**"),
+      linkText: PTRuleFactory.Markup("[", "]"),
+      linkTargetPrefix: "(",
+      linkTargetSuffix: ")",
+      requiredLineBreak: "  \n"
+    );
 
     private static ProsePlainTextConfiguration Tree(
       string child, string lastChild, string continuation, string lastContinuation
@@ -361,7 +544,17 @@ namespace HELIX.Prose {
       treeName: PTRuleFactory.Line(),
       property: PTRuleFactory.Property(continuationPrefix: " "),
       propertyValue: PTRuleFactory.PropertyValue(),
-      tree: PTRuleFactory.Tree(child, lastChild, continuation, lastContinuation)
+      tree: PTRuleFactory.Tree(child, lastChild, continuation, lastContinuation),
+      section: PTRuleFactory.Section(),
+      sectionHeader: PTRuleFactory.Line(suffix: ":"),
+      paragraph: PTRuleFactory.Paragraph(),
+      list: PTRuleFactory.Container(),
+      listItem: PTRuleFactory.ListItem(),
+      linkTargetPrefix: "",
+      linkTargetSuffix: "",
+      codeBlockPrefix: "",
+      codeBlockSuffix: "",
+      showTextFeatures: false
     );
   }
 }

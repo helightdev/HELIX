@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace HELIX.Prose {
@@ -9,7 +9,7 @@ namespace HELIX.Prose {
   /// retained across Reset calls; primitive formatting uses stack buffers and branch completion is patched
   /// in place rather than retaining a semantic tree.
   /// </summary>
-  public sealed class ProsePlainTextWriter : ProseWriter {
+  public class ProsePlainTextWriter : ProseWriter, IProseLineBreakWriter {
     private const char _hardLineBreak = '\uE000';
     private const char _softLineBreak = '\uE001';
     private const char _linePrefixStart = '\uE002';
@@ -19,6 +19,8 @@ namespace HELIX.Prose {
     private const char _suffixRepeatStart = '\uE006';
     private const char _suffixRepeatEnd = '\uE007';
     private const char _requiredLineBreak = '\uE008';
+    private const char _zeroWidthStart = '\uE009';
+    private const char _zeroWidthEnd = '\uE00A';
     private readonly StringBuilder _builder;
     private Frame[] _frames;
     private IProseModifier[] _modifiers;
@@ -51,6 +53,16 @@ namespace HELIX.Prose {
       public bool hasValue;
     }
 
+    private sealed class TableCellData {
+      public string text;
+      public ProseTextAlignment alignment;
+    }
+
+    private sealed class TableRowData {
+      public bool isHeader;
+      public List<TableCellData> cells;
+    }
+
     private struct Frame {
       public IProseScope scope;
       public int modifierStart;
@@ -71,6 +83,8 @@ namespace HELIX.Prose {
       public bool ownerPropertiesWereFinalized;
       public PendingItem pendingProperty;
       public PendingItem pendingChild;
+      public List<TableRowData> tableRows;
+      public List<TableCellData> tableCells;
       public bool propertyPrepared;
       public bool truncated;
     }
@@ -100,17 +114,22 @@ namespace HELIX.Prose {
     public int WrapWidth { get; set; }
     public ProseLevel MinimumLevel { get; set; }
     public int MaxTruncatableFrameLength { get; set; }
-    public int Length => _builder.Length;
+    /// <summary>Rendered character count excluding writer metadata and zero-width presentation text.</summary>
+    public int Length => VisibleLength(_builder.ToString());
+    protected int OutputLength => _builder.Length;
 
     public override bool BeginFrame(IProseScope scope) {
       if (scope == null) throw new ArgumentNullException(nameof(scope));
       if (IsWritingInactive()) return false;
       if ((scope is ProseTree && !Configuration.ShowTrees) ||
           (scope is ProseName && !Configuration.ShowNames) ||
-          (scope is ProseProperty && !Configuration.ShowProperties))
+          (scope is ProseProperty && !Configuration.ShowProperties) ||
+          (IsTextFeature(scope) && !Configuration.ShowTextFeatures))
         return false;
 
       PrepareCurrentProperty();
+      if (scope is ProseSectionHeader or ProseParagraph or ProseCodeBlock or ProseListItem or ProseTable)
+        EnsureNewLine();
       var ownerPropertiesWereFinalized = false;
       if (scope is ProseTree) {
         ownerPropertiesWereFinalized = OwnerPropertiesFinalized;
@@ -141,6 +160,8 @@ namespace HELIX.Prose {
         treeOutputStart = _builder.Length,
         itemOutputStart = _builder.Length,
         ownerPropertiesWereFinalized = ownerPropertiesWereFinalized,
+        tableRows = scope is ProseTable ? new List<TableRowData>() : null,
+        tableCells = scope is ProseTableRow ? new List<TableCellData>() : null,
         propertyPrepared = scope is not ProseProperty
       };
       _frames[_frameCount++] = frame;
@@ -176,21 +197,47 @@ namespace HELIX.Prose {
       var index = _frameCount - 1;
       var frame = _frames[index];
       if (!IsSuppressed(index)) {
-        if (frame.scope is ProseTree) CompleteTree(ref frame);
-        else if (!IsFrameOrAncestorInactive(index)) {
-          if (frame.scope is ProseName) {
-            if (_lineHasContent) {
-              FormatRange(
-                ParentScope is ProseTree ? Configuration.TreeName : Configuration.RootName,
-                frame.itemOutputStart, _builder.Length, TextMatching.First | TextMatching.Last
-              );
-            }
-          } else if (frame.scope is ProsePropertyValue) {
+        ApplyTextModifiers(frame);
+        switch (frame.scope) {
+          case ProseTableCell: CompleteTableCell(frame, index); break;
+          case ProseTableRow row: CompleteTableRow(frame, row, index); break;
+          case ProseTable: CompleteTable(frame); break;
+          case ProseListItem: CompleteListItem(frame, index); break;
+          case ProseList:
+            FormatRange(Configuration.List, frame.itemOutputStart, _builder.Length, SingleItemMatching(frame)); break;
+          case ProseSection:
             FormatRange(
-              Configuration.PropertyValue, frame.itemOutputStart, _builder.Length,
-              TextMatching.First | TextMatching.Last |
-              (_builder.Length == frame.itemOutputStart ? TextMatching.Empty : TextMatching.None)
-            );
+              Configuration.Section, frame.itemOutputStart, _builder.Length, SingleItemMatching(frame)
+            ); break;
+          case ProseSectionHeader:
+            FormatRange(
+              Configuration.SectionHeader, frame.itemOutputStart, _builder.Length, SingleItemMatching(frame)
+            ); break;
+          case ProseParagraph:
+            FormatRange(
+              Configuration.Paragraph, frame.itemOutputStart, _builder.Length, SingleItemMatching(frame)
+            ); break;
+          case ProseCodeBlock codeBlock:
+            ApplyCodeBlock(codeBlock, frame.itemOutputStart, _builder.Length, SingleItemMatching(frame)); break;
+          case ProseTree: CompleteTree(ref frame); break;
+          default: {
+            if (!IsFrameOrAncestorInactive(index)) {
+              if (frame.scope is ProseName) {
+                if (_lineHasContent) {
+                  FormatRange(
+                    ParentScope is ProseTree ? Configuration.TreeName : Configuration.RootName,
+                    frame.itemOutputStart, _builder.Length, TextMatching.First | TextMatching.Last
+                  );
+                }
+              } else if (frame.scope is ProsePropertyValue) {
+                FormatRange(
+                  Configuration.PropertyValue, frame.itemOutputStart, _builder.Length,
+                  TextMatching.First | TextMatching.Last |
+                  (_builder.Length == frame.itemOutputStart ? TextMatching.Empty : TextMatching.None)
+                );
+              }
+            }
+            break;
           }
         }
       }
@@ -219,6 +266,12 @@ namespace HELIX.Prose {
       if (string.IsNullOrEmpty(text) || IsWritingInactive()) return;
       PrepareCurrentProperty();
       WriteCharacters(text, 0, text.Length);
+    }
+
+    public void WriteLineBreak(bool force) {
+      if (IsWritingInactive()) return;
+      PrepareCurrentProperty();
+      AppendLineBreak(force, LineBreakKind.Explicit, required: true);
     }
 
     public override void Write(IProse prose) {
@@ -303,9 +356,257 @@ namespace HELIX.Prose {
     }
 
     private void CompleteTree(ref Frame frame) {
-      FinalizeProperties(ref frame.propertyCount, ref frame.propertiesFinalized);
+      FinalizeProperties(ref frame.propertiesFinalized);
       FinalizePendingTree(true);
       frame.treeOutputStart = Math.Min(frame.treeOutputStart, _builder.Length);
+    }
+
+    private void CompleteListItem(Frame frame, int frameIndex) {
+      var listIndex = FindParentFrame<ProseList>(frameIndex);
+      var itemIndex = listIndex >= 0 ? _frames[listIndex].childCount++ : 0;
+      var list = listIndex >= 0 ? (ProseList)_frames[listIndex].scope : ProseList.Unordered;
+      var marker = list.Kind == ProseListKind.Ordered
+        ? (list.Start + itemIndex).ToString(CultureInfo.InvariantCulture) + Configuration.OrderedListMarkerSuffix
+        : Configuration.UnorderedListMarker;
+      var internalMarker = ToInternalText(marker);
+      _builder.Insert(frame.itemOutputStart, internalMarker);
+      FormatRange(
+        Configuration.ListItem,
+        frame.itemOutputStart,
+        _builder.Length,
+        ItemMatching(itemIndex, false, _builder.Length == frame.itemOutputStart)
+      );
+    }
+
+    private void CompleteTableCell(Frame frame, int frameIndex) {
+      var rowIndex = FindParentFrame<ProseTableRow>(frameIndex);
+      if (rowIndex < 0) return;
+      var text = _builder.ToString(frame.itemOutputStart, _builder.Length - frame.itemOutputStart);
+      _builder.Remove(frame.itemOutputStart, _builder.Length - frame.itemOutputStart);
+      RecalculateLineState();
+      _frames[rowIndex].tableCells.Add(
+        new TableCellData {
+          text = TrimInternalLineBreaks(text),
+          alignment = FrameAlignment(frame)
+        }
+      );
+    }
+
+    private void CompleteTableRow(Frame frame, ProseTableRow row, int frameIndex) {
+      var tableIndex = FindParentFrame<ProseTable>(frameIndex);
+      if (tableIndex < 0) return;
+      _frames[tableIndex].tableRows.Add(
+        new TableRowData {
+          isHeader = row.IsHeader,
+          cells = frame.tableCells
+        }
+      );
+    }
+
+    private void CompleteTable(Frame frame) {
+      var rendered = RenderTable(frame.tableRows);
+      if (rendered.Length == 0) return;
+      _builder.Insert(frame.itemOutputStart, rendered);
+      RecalculateLineState();
+    }
+
+    private void ApplyTextModifiers(Frame frame) {
+      var style = ProseTextStyle.None;
+      string linkTarget = null;
+      for (var i = frame.modifierStart; i < _modifierCount; i++) {
+        if (_modifiers[i] is TextStyleMarker textStyle) style |= textStyle.Style;
+        else if (_modifiers[i] is LinkMarker link) linkTarget = link.Target;
+      }
+
+      var matching = SingleItemMatching(frame);
+      if ((style & ProseTextStyle.Code) != 0)
+        ApplyTextStyle(ProseTextStyle.Code, frame.itemOutputStart, _builder.Length, matching);
+      if ((style & ProseTextStyle.Emphasis) != 0)
+        ApplyTextStyle(ProseTextStyle.Emphasis, frame.itemOutputStart, _builder.Length, matching);
+      if ((style & ProseTextStyle.Strong) != 0)
+        ApplyTextStyle(ProseTextStyle.Strong, frame.itemOutputStart, _builder.Length, matching);
+      if ((style & ProseTextStyle.Quote) != 0)
+        ApplyTextStyle(ProseTextStyle.Quote, frame.itemOutputStart, _builder.Length, matching);
+      if ((style & ProseTextStyle.Error) != 0)
+        ApplyTextStyle(ProseTextStyle.Error, frame.itemOutputStart, _builder.Length, matching);
+      if (linkTarget != null)
+        ApplyLink(linkTarget, frame.itemOutputStart, _builder.Length, matching);
+    }
+
+    /// <summary>Presentation hook for semantic text styles.</summary>
+    protected virtual void ApplyTextStyle(
+      ProseTextStyle style, int start, int end, TextMatching matching
+    ) {
+      var format = style switch {
+        ProseTextStyle.Emphasis => Configuration.EmphasizedText,
+        ProseTextStyle.Strong => Configuration.StrongText,
+        ProseTextStyle.Code => Configuration.CodeText,
+        ProseTextStyle.Quote => Configuration.QuoteText,
+        ProseTextStyle.Error => Configuration.ErrorText,
+        _ => null
+      };
+      if (format != null) ApplyFormat(format, start, end, matching);
+    }
+
+    /// <summary>Presentation hook for semantic links.</summary>
+    protected virtual void ApplyLink(string target, int start, int end, TextMatching matching) {
+      ApplyFormat(Configuration.LinkText, start, end, matching);
+      if (Configuration.LinkTargetPrefix.Length == 0 && Configuration.LinkTargetSuffix.Length == 0)
+        return;
+      _builder.Insert(
+        _builder.Length,
+        ToInternalText(Configuration.LinkTargetPrefix + target + Configuration.LinkTargetSuffix)
+      );
+      RecalculateLineState();
+    }
+
+    /// <summary>Presentation hook for preformatted source blocks.</summary>
+    protected virtual void ApplyCodeBlock(
+      ProseCodeBlock codeBlock, int start, int end, TextMatching matching
+    ) {
+      var prefix = Configuration.CodeBlockPrefix + codeBlock.Language;
+      if (prefix.Length > 0) prefix += "\n";
+      var suffix = Configuration.CodeBlockSuffix;
+      if (suffix.Length > 0) suffix = "\n" + suffix;
+      DecorateRange(start, end, prefix, suffix);
+      ApplyFormat(Configuration.CodeBlock, start, _builder.Length, matching);
+    }
+
+    /// <summary>Applies a configured node format from a derived writer.</summary>
+    protected void ApplyFormat(PTNodeFormat format, int start, int end, TextMatching matching) =>
+      FormatRange(format, start, end, matching);
+
+    /// <summary>Adds visible presentation text around a completed range.</summary>
+    protected void DecorateRange(int start, int end, string prefix, string suffix) {
+      if (!string.IsNullOrEmpty(suffix)) _builder.Insert(end, ToInternalText(suffix));
+      if (!string.IsNullOrEmpty(prefix)) _builder.Insert(start, ToInternalText(prefix));
+      RecalculateLineState();
+    }
+
+    /// <summary>
+    /// Adds presentation text emitted in the result but ignored by wrapping, measurement, and alignment.
+    /// </summary>
+    protected void DecorateRangeZeroWidth(int start, int end, string prefix, string suffix) {
+      var encodedSuffix = EncodeZeroWidth(suffix);
+      var encodedPrefix = EncodeZeroWidth(prefix);
+      if (encodedSuffix.Length > 0) _builder.Insert(end, encodedSuffix);
+      if (encodedPrefix.Length > 0) _builder.Insert(start, encodedPrefix);
+      RecalculateLineState();
+    }
+
+    private ProseTextAlignment FrameAlignment(Frame frame) {
+      for (var i = frame.modifierStart; i < _modifierCount; i++)
+        if (_modifiers[i] is TextAlignmentMarker alignment)
+          return alignment.Alignment;
+      return ProseTextAlignment.Left;
+    }
+
+    private string RenderTable(IReadOnlyList<TableRowData> rows) {
+      if (rows == null || rows.Count == 0) return string.Empty;
+      var columns = 0;
+      for (var i = 0; i < rows.Count; i++) columns = Math.Max(columns, rows[i].cells.Count);
+      if (columns == 0) return string.Empty;
+
+      var widths = new int[columns];
+      for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++) {
+        var cells = rows[rowIndex].cells;
+        for (var column = 0; column < cells.Count; column++) {
+          var lines = CellLines(cells[column].text);
+          for (var line = 0; line < lines.Length; line++)
+            widths[column] = Math.Max(widths[column], VisibleWidth(lines[line], 0, lines[line].Length));
+        }
+      }
+      for (var column = 0; column < widths.Length; column++)
+        widths[column] = Math.Max(widths[column], Configuration.Table.MinimumColumnWidth);
+
+      var result = new StringBuilder();
+      for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++) {
+        if (result.Length > 0) result.Append(_hardLineBreak);
+        AppendTableRow(result, rows[rowIndex], widths);
+        if (rows[rowIndex].isHeader) {
+          result.Append(_hardLineBreak);
+          AppendTableSeparator(result, widths);
+        }
+      }
+      return result.ToString();
+    }
+
+    private void AppendTableRow(StringBuilder result, TableRowData row, IReadOnlyList<int> widths) {
+      var height = 1;
+      var lines = new string[widths.Count][];
+      for (var column = 0; column < widths.Count; column++) {
+        lines[column] = column < row.cells.Count ? CellLines(row.cells[column].text) : new[] { string.Empty };
+        height = Math.Max(height, lines[column].Length);
+      }
+
+      for (var line = 0; line < height; line++) {
+        if (line > 0) result.Append(_hardLineBreak);
+        result.Append(Configuration.Table.LeftBorder);
+        for (var column = 0; column < widths.Count; column++) {
+          if (column > 0) result.Append(Configuration.Table.ColumnSeparator);
+          var text = line < lines[column].Length ? lines[column][line] : string.Empty;
+          var alignment = column < row.cells.Count
+            ? row.cells[column].alignment
+            : ProseTextAlignment.Left;
+          AppendAligned(result, text, widths[column], alignment);
+        }
+        result.Append(Configuration.Table.RightBorder);
+      }
+    }
+
+    private void AppendTableSeparator(StringBuilder result, IReadOnlyList<int> widths) {
+      result.Append(Configuration.Table.LeftBorder);
+      for (var column = 0; column < widths.Count; column++) {
+        if (column > 0) result.Append(Configuration.Table.ColumnSeparator);
+        result.Append(Configuration.Table.HeaderFill, widths[column]);
+      }
+      result.Append(Configuration.Table.RightBorder);
+    }
+
+    private static void AppendAligned(
+      StringBuilder result, string text, int width, ProseTextAlignment alignment
+    ) {
+      var padding = Math.Max(0, width - VisibleWidth(text, 0, text.Length));
+      var before = alignment == ProseTextAlignment.Right
+        ? padding
+        : alignment == ProseTextAlignment.Center
+          ? padding / 2
+          : 0;
+      result.Append(' ', before);
+      result.Append(text);
+      result.Append(' ', padding - before);
+    }
+
+    private static string[] CellLines(string text) {
+      if (string.IsNullOrEmpty(text)) return new[] { string.Empty };
+      var lines = new List<string>();
+      var start = 0;
+      while (start <= text.Length) {
+        var end = IndexOfLineBreak(text, start);
+        if (end < 0) end = text.Length;
+        lines.Add(text.Substring(start, end - start));
+        if (end == text.Length) break;
+        start = end + 1;
+      }
+      return lines.ToArray();
+    }
+
+    private static string TrimInternalLineBreaks(string text) {
+      var length = text.Length;
+      while (length > 0 && IsLineBreak(text[length - 1])) length--;
+      return length == text.Length ? text : text[..length];
+    }
+
+    private TextMatching SingleItemMatching(Frame frame) => TextMatching.First | TextMatching.Last |
+                                                            (_builder.Length == frame.itemOutputStart
+                                                              ? TextMatching.Empty
+                                                              : TextMatching.None);
+
+    private int FindParentFrame<TScope>(int frameIndex) where TScope : IProseScope {
+      for (var i = frameIndex - 1; i >= 0; i--)
+        if (_frames[i].scope is TScope)
+          return i;
+      return -1;
     }
 
     private void RecordCompletedTree(Frame frame) {
@@ -349,14 +650,14 @@ namespace HELIX.Prose {
       _treeDepth == 0 ? _rootPropertiesFinalized : CurrentTreeFrame.propertiesFinalized;
 
     private void PrepareOwnerForChildren() {
-      if (_treeDepth == 0) FinalizeProperties(ref _rootPropertyCount, ref _rootPropertiesFinalized);
+      if (_treeDepth == 0) FinalizeProperties(ref _rootPropertiesFinalized);
       else {
         ref var owner = ref CurrentTreeFrame;
-        FinalizeProperties(ref owner.propertyCount, ref owner.propertiesFinalized);
+        FinalizeProperties(ref owner.propertiesFinalized);
       }
     }
 
-    private void FinalizeProperties(ref int propertyCount, ref bool finalized) {
+    private void FinalizeProperties(ref bool finalized) {
       if (finalized) return;
       FinalizePendingProperty(true);
       finalized = true;
@@ -364,7 +665,7 @@ namespace HELIX.Prose {
 
     private void FinalizeRoot() {
       if (_rootFinalized) return;
-      FinalizeProperties(ref _rootPropertyCount, ref _rootPropertiesFinalized);
+      FinalizeProperties(ref _rootPropertiesFinalized);
       FinalizePendingTree(true);
       _rootFinalized = true;
     }
@@ -391,12 +692,10 @@ namespace HELIX.Prose {
 
       switch (_linePrefixKind) {
         case LinePrefixKind.RootName:
-          break;
         case LinePrefixKind.TreeName:
-          break;
         case LinePrefixKind.NameContinuation:
-          break;
         case LinePrefixKind.Property:
+        case LinePrefixKind.None:
           break;
         case LinePrefixKind.PropertyValue:
           if (PropertyValueAlignsLine() && _column < _propertyValueColumn) {
@@ -405,6 +704,7 @@ namespace HELIX.Prose {
             _builder.Append(_alignmentEnd);
           }
           break;
+        default: throw new ArgumentOutOfRangeException();
       }
 
       _linePrefixWritten = true;
@@ -414,7 +714,8 @@ namespace HELIX.Prose {
     private void WriteCharacters(string text, int offset, int count) {
       var end = offset + count;
       var index = offset;
-      var allowWrap = !HasModifier<NoWrap>();
+      var allowWrap = !HasModifier<NoWrap>() &&
+                      FindFrame<ProseTableCell>() < 0 && FindFrame<ProseCodeBlock>() < 0;
       while (index < end) {
         if (text[index] == '\r') {
           AppendLineBreak(true, LineBreakKind.Explicit);
@@ -443,7 +744,8 @@ namespace HELIX.Prose {
 
     private void WriteCharacters(ReadOnlySpan<char> text) {
       var index = 0;
-      var allowWrap = !HasModifier<NoWrap>();
+      var allowWrap = !HasModifier<NoWrap>() &&
+                      FindFrame<ProseTableCell>() < 0 && FindFrame<ProseCodeBlock>() < 0;
       while (index < text.Length) {
         if (text[index] == '\r') {
           AppendLineBreak(true, LineBreakKind.Explicit);
@@ -473,6 +775,11 @@ namespace HELIX.Prose {
     private bool Includes(ProseLevel level) {
       return level != ProseLevel.Hidden && level != ProseLevel.Off && level >= MinimumLevel;
     }
+
+    private static bool IsTextFeature(IProseScope scope) => scope is ProseSpan or ProseSection or ProseSectionHeader
+      or ProseParagraph or
+      ProseCodeBlock or ProseList or ProseListItem or ProseTable or ProseTableRow or
+      ProseTableCell;
 
     private int DeferredLinePrefixWidth {
       get {
@@ -617,10 +924,16 @@ namespace HELIX.Prose {
       AppendLineBreak(false, LineBreakKind.Semantic);
     }
 
-    private void AppendLineBreak(bool force, LineBreakKind kind) {
+    private void AppendLineBreak(bool force, LineBreakKind kind, bool required = false) {
       if (!force && !_lineHasContent) return;
       TrimCurrentLineEnd();
-      _builder.Append(kind == LineBreakKind.Wrapped ? _softLineBreak : _hardLineBreak);
+      _builder.Append(
+        required
+          ? _requiredLineBreak
+          : kind == LineBreakKind.Wrapped
+            ? _softLineBreak
+            : _hardLineBreak
+      );
       _column = 0;
       _lineHasContent = false;
       if (_linePrefixKind is LinePrefixKind.RootName or LinePrefixKind.TreeName)
@@ -667,7 +980,9 @@ namespace HELIX.Prose {
       frameIndex = FindModifierFrame<AllowTruncate>();
       if (frameIndex < 0) return false;
       var frame = _frames[frameIndex];
-      remaining = MaxTruncatableFrameLength - (_builder.Length - frame.outputStart);
+      remaining = MaxTruncatableFrameLength - VisibleLength(
+        _builder.ToString(frame.outputStart, _builder.Length - frame.outputStart)
+      );
       if (length <= remaining) return false;
       if (remaining < 0) remaining = 0;
       return true;
@@ -681,12 +996,6 @@ namespace HELIX.Prose {
       _lineHasContent = true;
       frame.truncated = true;
       _frames[frameIndex] = frame;
-    }
-
-    private void AppendDecoration(string text) {
-      if (text.Length == 0) return;
-      _builder.Append(text);
-      _column += text.Length;
     }
 
     private void AppendSpaces(int count) {
@@ -756,8 +1065,12 @@ namespace HELIX.Prose {
       _column = 0;
       var hasSuffixRepeat = false;
       for (var i = lastBreak + 1; i < _builder.Length; i++) {
-        if (_builder[i] == _suffixRepeatStart && i + 2 < _builder.Length &&
-            _builder[i + 2] == _suffixRepeatEnd) {
+        if (_builder[i] == _zeroWidthStart) {
+          var zeroWidthEnd = IndexOfZeroWidthEnd(_builder, i + 1, _builder.Length);
+          if (zeroWidthEnd < 0) break;
+          i = zeroWidthEnd;
+        } else if (_builder[i] == _suffixRepeatStart && i + 2 < _builder.Length &&
+                   _builder[i + 2] == _suffixRepeatEnd) {
           hasSuffixRepeat = true;
           i += 2;
         } else if (!IsDecorationMarker(_builder[i])) _column++;
@@ -914,15 +1227,22 @@ namespace HELIX.Prose {
         var remaining = Math.Max(0, WrapWidth - visibleWidth);
         for (var i = lineStart; i < lineEnd; i++) {
           var character = value[i];
-          if (character == _suffixRepeatStart && i + 2 < lineEnd &&
-              value[i + 2] == _suffixRepeatEnd) {
+          if (character == _zeroWidthStart) {
+            var zeroWidthEnd = value.IndexOf(_zeroWidthEnd, i + 1, lineEnd - i - 1);
+            if (zeroWidthEnd < 0) continue;
+            result.Append(value, i + 1, zeroWidthEnd - i - 1);
+            i = zeroWidthEnd;
+          } else if (character == _suffixRepeatStart && i + 2 < lineEnd &&
+                     value[i + 2] == _suffixRepeatEnd) {
             result.Append(value[i + 1], remaining);
             remaining = 0;
             i += 2;
           } else if (!IsDecorationMarker(character)) result.Append(character);
         }
         if (lineEnd == value.Length) break;
-        result.Append('\n');
+        result.Append(
+          value[lineEnd] == _requiredLineBreak ? Configuration.RequiredLineBreak : "\n"
+        );
         lineStart = lineEnd + 1;
       }
       return result.ToString();
@@ -931,9 +1251,16 @@ namespace HELIX.Prose {
     private static int VisibleWidth(string value, int start, int end) {
       var width = 0;
       for (var i = start; i < end; i++) {
-        if (value[i] == _suffixRepeatStart && i + 2 < end && value[i + 2] == _suffixRepeatEnd) {
-          i += 2;
-          continue;
+        switch (value[i]) {
+          case _zeroWidthStart: {
+            var zeroWidthEnd = value.IndexOf(_zeroWidthEnd, i + 1, end - i - 1);
+            if (zeroWidthEnd < 0) continue;
+            i = zeroWidthEnd;
+            break;
+          }
+          case _suffixRepeatStart when i + 2 < end && value[i + 2] == _suffixRepeatEnd:
+            i += 2;
+            continue;
         }
         if (!IsDecorationMarker(value[i])) width++;
       }
@@ -942,16 +1269,33 @@ namespace HELIX.Prose {
 
     private static bool IsDecorationMarker(char value) {
       return value is _linePrefixStart or _linePrefixEnd or _alignmentStart
-        or _alignmentEnd or _suffixRepeatStart or _suffixRepeatEnd;
+        or _alignmentEnd or _suffixRepeatStart or _suffixRepeatEnd
+        or _zeroWidthStart or _zeroWidthEnd;
     }
 
-    private bool MatchesAt(string value, int position) {
-      if (position < 0 || position + value.Length > _builder.Length) return false;
-      for (var i = 0; i < value.Length; i++) {
-        if (_builder[position + i] != value[i])
-          return false;
+    private static string EncodeZeroWidth(string value) => string.IsNullOrEmpty(value)
+      ? string.Empty
+      : _zeroWidthStart + value + _zeroWidthEnd;
+
+    private static int IndexOfZeroWidthEnd(StringBuilder value, int start, int end) {
+      for (var i = start; i < end; i++)
+        if (value[i] == _zeroWidthEnd)
+          return i;
+      return -1;
+    }
+
+    private static int VisibleLength(string value) {
+      var length = 0;
+      var start = 0;
+      while (start <= value.Length) {
+        var end = IndexOfLineBreak(value, start);
+        if (end < 0) end = value.Length;
+        length += VisibleWidth(value, start, end);
+        if (end == value.Length) break;
+        length++;
+        start = end + 1;
       }
-      return true;
+      return length;
     }
 
     private void AppendUnchecked(string text, int start, int length) {

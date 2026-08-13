@@ -3,14 +3,25 @@ using System.Collections.Generic;
 
 namespace HELIX.Prose {
   /// <summary>
-  /// Captures the semantic data represented by Prose. Presentation frames, formatters, and modifiers are not
-  /// serialized: properties become dictionary entries, values remain their original values, and tree scopes
-  /// become dictionaries in a children list.
+  /// Captures the semantic data represented by Prose. Presentation modifiers and formatters are not serialized:
+  /// values retain their original types, while trees, sections, lists, and tables retain their structure.
   /// </summary>
   public sealed class ProseDictionaryWriter : ProseWriter {
     public const string NameKey = "$name";
     public const string ChildrenKey = "$children";
     public const string ContentKey = "$content";
+    public const string SectionsKey = "$sections";
+    public const string HeaderKey = "$header";
+    public const string ListsKey = "$lists";
+    public const string ListKindKey = "$kind";
+    public const string StartKey = "$start";
+    public const string ItemsKey = "$items";
+    public const string TablesKey = "$tables";
+    public const string RowsKey = "$rows";
+    public const string CellsKey = "$cells";
+    public const string IsHeaderKey = "$isHeader";
+    public const string CodeBlocksKey = "$codeBlocks";
+    public const string LanguageKey = "$language";
 
     private readonly Dictionary<string, object> _root = new();
     private Frame[] _frames;
@@ -18,7 +29,8 @@ namespace HELIX.Prose {
 
     private struct Frame {
       public IProseScope Scope;
-      public Dictionary<string, object> Tree;
+      public Dictionary<string, object> Container;
+      public List<object> Items;
       public object Payload;
       public string PropertyKey;
       public object PropertyValue;
@@ -35,10 +47,21 @@ namespace HELIX.Prose {
     public override bool BeginFrame(IProseScope scope) {
       if (scope == null) throw new ArgumentNullException(nameof(scope));
       EnsureFrameCapacity();
-      _frames[_frameCount++] = new Frame {
-        Scope = scope,
-        Tree = scope is ProseTree ? new Dictionary<string, object>() : null
-      };
+      var frame = new Frame { Scope = scope };
+      if (scope is ProseTree or ProseSection or ProseListItem or ProseTable) {
+        frame.Container = new Dictionary<string, object>();
+      }
+      if (scope is ProseList list) {
+        frame.Container = new Dictionary<string, object> {
+          [ListKindKey] = list.Kind == ProseListKind.Ordered ? "ordered" : "unordered"
+        };
+        if (list.Kind == ProseListKind.Ordered && list.Start != 1)
+          frame.Container[StartKey] = list.Start;
+        frame.Items = new List<object>();
+      } else if (scope is ProseTable or ProseTableRow) {
+        frame.Items = new List<object>();
+      }
+      _frames[_frameCount++] = frame;
       return true;
     }
 
@@ -77,11 +100,72 @@ namespace HELIX.Prose {
       }
 
       if (frame.Scope is ProseTree) {
-        AddChild(CurrentDictionary, frame.Tree);
+        AddChild(CurrentDictionary, frame.Container);
         return;
       }
 
-      if (frame.HasPayload) AddValue(CurrentDictionary, ContentKey, frame.Payload);
+      if (frame.Scope is ProseSectionHeader) {
+        var header = PayloadText(frame);
+        if (!string.IsNullOrEmpty(header)) CurrentDictionary[HeaderKey] = header;
+        return;
+      }
+
+      if (frame.Scope is ProseParagraph) {
+        if (frame.HasPayload) AddValue(CurrentDictionary, ContentKey, frame.Payload);
+        return;
+      }
+
+      if (frame.Scope is ProseCodeBlock codeBlock) {
+        var data = new Dictionary<string, object> {
+          [ContentKey] = frame.HasPayload ? frame.Payload : string.Empty
+        };
+        if (!string.IsNullOrEmpty(codeBlock.Language)) data[LanguageKey] = codeBlock.Language;
+        AddCollectionItem(CurrentDictionary, CodeBlocksKey, data);
+        return;
+      }
+
+      if (frame.Scope is ProseSection) {
+        if (frame.HasPayload) AddValue(frame.Container, ContentKey, frame.Payload);
+        AddCollectionItem(CurrentDictionary, SectionsKey, frame.Container);
+        return;
+      }
+
+      if (frame.Scope is ProseListItem) {
+        if (frame.HasPayload) AddValue(frame.Container, ContentKey, frame.Payload);
+        var listIndex = FindFrame<ProseList>();
+        if (listIndex >= 0) _frames[listIndex].Items.Add(frame.Container);
+        else AddValue(CurrentDictionary, ContentKey, frame.Container);
+        return;
+      }
+
+      if (frame.Scope is ProseList) {
+        frame.Container[ItemsKey] = frame.Items;
+        AddCollectionItem(CurrentDictionary, ListsKey, frame.Container);
+        return;
+      }
+
+      if (frame.Scope is ProseTableCell) {
+        var rowIndex = FindFrame<ProseTableRow>();
+        if (rowIndex >= 0)
+          _frames[rowIndex].Items.Add(frame.HasPayload ? frame.Payload : null);
+        return;
+      }
+
+      if (frame.Scope is ProseTableRow row) {
+        var rowData = new Dictionary<string, object> { [CellsKey] = frame.Items };
+        if (row.IsHeader) rowData[IsHeaderKey] = true;
+        var tableIndex = FindFrame<ProseTable>();
+        if (tableIndex >= 0) _frames[tableIndex].Items.Add(rowData);
+        return;
+      }
+
+      if (frame.Scope is ProseTable) {
+        frame.Container[RowsKey] = frame.Items;
+        AddCollectionItem(CurrentDictionary, TablesKey, frame.Container);
+        return;
+      }
+
+      if (frame.HasPayload) StoreCompletedPayload(frame.Payload);
     }
 
     public override void PushModifier(IProseModifier modifier) {
@@ -97,7 +181,7 @@ namespace HELIX.Prose {
 
     public override void Write(IProse prose) {
       if (prose == null) StoreValue<object>(null);
-      else if (prose is ProseLineBreak || prose is ProseSpace) return;
+      else if (prose is ProseLineBreak or ProseSoftLineBreak or ProseSpace) return;
       else prose.ToProse(this);
     }
 
@@ -119,7 +203,7 @@ namespace HELIX.Prose {
     private Dictionary<string, object> CurrentDictionary {
       get {
         for (var i = _frameCount - 1; i >= 0; i--)
-          if (_frames[i].Tree != null) return _frames[i].Tree;
+          if (_frames[i].Container != null) return _frames[i].Container;
         return _root;
       }
     }
@@ -167,6 +251,43 @@ namespace HELIX.Prose {
 
       if (existing is List<object> values) values.Add(value);
       else dictionary[key] = new List<object> { existing, value };
+    }
+
+    private static void AddCollectionItem(
+      Dictionary<string, object> dictionary, string key, object value
+    ) {
+      if (!dictionary.TryGetValue(key, out var existing)) {
+        dictionary[key] = new List<object> { value };
+        return;
+      }
+      ((List<object>)existing).Add(value);
+    }
+
+    private void StoreCompletedPayload(object payload) {
+      if (_frameCount == 0) {
+        AddValue(_root, ContentKey, payload);
+        return;
+      }
+
+      var index = _frameCount - 1;
+      var frame = _frames[index];
+      if (!frame.HasPayload) {
+        frame.Payload = payload;
+        frame.HasPayload = true;
+      } else if (frame.Payload is string previous && payload is string next) {
+        frame.Payload = previous + next;
+      } else if (frame.Payload is List<object> values) {
+        values.Add(payload);
+      } else {
+        frame.Payload = new List<object> { frame.Payload, payload };
+      }
+      _frames[index] = frame;
+    }
+
+    private int FindFrame<TScope>() where TScope : IProseScope {
+      for (var i = _frameCount - 1; i >= 0; i--)
+        if (_frames[i].Scope is TScope) return i;
+      return -1;
     }
 
     private void EnsureFrameCapacity() {

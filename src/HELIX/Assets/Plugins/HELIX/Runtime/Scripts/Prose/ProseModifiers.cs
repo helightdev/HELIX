@@ -1,4 +1,59 @@
 namespace HELIX.Prose {
+  [System.Flags]
+  public enum ProseTextStyle : byte {
+    None = 0,
+    Emphasis = 1 << 0,
+    Strong = 1 << 1,
+    Code = 1 << 2,
+    Quote = 1 << 3,
+    Error = 1 << 4
+  }
+
+  /// <summary>Semantic inline/block markup interpreted by presentation writers.</summary>
+  public sealed class TextStyleMarker : IProseModifier {
+    public static readonly TextStyleMarker Emphasis = new(ProseTextStyle.Emphasis);
+    public static readonly TextStyleMarker Strong = new(ProseTextStyle.Strong);
+    public static readonly TextStyleMarker Code = new(ProseTextStyle.Code);
+    public static readonly TextStyleMarker Quote = new(ProseTextStyle.Quote);
+    public static readonly TextStyleMarker Error = new(ProseTextStyle.Error);
+
+    public TextStyleMarker(ProseTextStyle style) => Style = style;
+    public ProseTextStyle Style { get; }
+
+    public static TextStyleMarker For(ProseTextStyle style) => style switch {
+      ProseTextStyle.Emphasis => Emphasis,
+      ProseTextStyle.Strong => Strong,
+      ProseTextStyle.Code => Code,
+      ProseTextStyle.Quote => Quote,
+      ProseTextStyle.Error => Error,
+      _ => new TextStyleMarker(style)
+    };
+  }
+
+  /// <summary>Associates a semantic link target with a span.</summary>
+  public sealed class LinkMarker : IProseModifier {
+    public LinkMarker(string target) => Target = target ?? throw new System.ArgumentNullException(nameof(target));
+    public string Target { get; }
+  }
+
+  public enum ProseTextAlignment : byte { Left, Center, Right }
+
+  /// <summary>Provides a preferred alignment, primarily for table cells.</summary>
+  public sealed class TextAlignmentMarker : IProseModifier {
+    public static readonly TextAlignmentMarker Left = new(ProseTextAlignment.Left);
+    public static readonly TextAlignmentMarker Center = new(ProseTextAlignment.Center);
+    public static readonly TextAlignmentMarker Right = new(ProseTextAlignment.Right);
+
+    public TextAlignmentMarker(ProseTextAlignment alignment) => Alignment = alignment;
+    public ProseTextAlignment Alignment { get; }
+
+    public static TextAlignmentMarker For(ProseTextAlignment alignment) => alignment switch {
+      ProseTextAlignment.Center => Center,
+      ProseTextAlignment.Right => Right,
+      _ => Left
+    };
+  }
+
   public enum ProseLevel {
     Hidden,
     Fine,

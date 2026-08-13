@@ -17,6 +17,14 @@ namespace HELIX.Prose {
     void Write(string text);
   }
 
+  /// <summary>Optional text-writer capability for semantic required line boundaries.</summary>
+  public interface IProseLineBreakWriter {
+    /// <param name="force">
+    /// When true, always appends a hard break; otherwise appends one only after line content.
+    /// </param>
+    void WriteLineBreak(bool force);
+  }
+
   /// <summary>A self-formatting semantic value.</summary>
   public interface IProse {
     void ToProse(IProseWriter writer);

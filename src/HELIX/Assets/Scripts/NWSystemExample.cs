@@ -293,7 +293,8 @@ namespace HELIX.Examples {
         cx.Spacing(1);
         cx.Text(
           "The same immediate-mode station report can be projected through several allocation-conscious " +
-          "plain-text configurations or the data-only dictionary writer. Open the Unity console to compare them.",
+          "plain-text configurations, Markdown, Unity rich text, or the data-only dictionary writer. " +
+          "Open the Unity console to compare them.",
           TextRole.BodySmall
         );
         cx.Spacing(2);
@@ -312,6 +313,36 @@ namespace HELIX.Examples {
             action: static _ => DetailedProseExample.PrintPlainText(
               "Error tree", ProsePlainTextConfigurations.Error
             )
+          );
+        }
+        cx.Spacing(1);
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Plain"),
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Plain", ProsePlainTextConfigurations.Plain
+            )
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Markdown"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Markdown", ProsePlainTextConfigurations.Markdown
+            )
+          );
+        }
+        cx.Spacing(1);
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Unity rich text"),
+            action: static _ => DetailedProseExample.PrintUnityRichText()
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Dictionary tree"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintDictionary()
           );
         }
         cx.Spacing(1);
@@ -347,12 +378,6 @@ namespace HELIX.Examples {
             action: static _ => DetailedProseExample.PrintPlainText(
               "test compact sections", DetailedProseExample.TestCompactSections
             )
-          );
-          cx.Spacing(1);
-          cx.Button(
-            static (ref Composition child) => child.Text("Dictionary tree"),
-            style: ThemeProperties.ButtonOutlined[in cx],
-            action: static _ => DetailedProseExample.PrintDictionary()
           );
         }
 
