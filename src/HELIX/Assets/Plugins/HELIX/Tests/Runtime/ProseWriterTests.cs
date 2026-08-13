@@ -704,6 +704,48 @@ namespace HELIX.Tests {
     }
 
     [Test]
+    public void PlainTextWriter_LimitsTableColumnTargetsToTheWrapWidth() {
+      var writer = new ProsePlainTextWriter(
+        wrapWidth: 16, configuration: ProsePlainTextConfigurations.Markdown
+      );
+      Assert.That(writer.BeginFrame(ProseTable.Instance), Is.True);
+      Assert.That(writer.BeginFrame(ProseTableRow.Header), Is.True);
+      Prose.Prose.WriteTableCell(writer, "Name");
+      Prose.Prose.WriteTableCell(writer, "Kind");
+      writer.PopFrame();
+      Assert.That(writer.BeginFrame(ProseTableRow.Body), Is.True);
+      Prose.Prose.WriteTableCell(writer, "extraordinary");
+      Prose.Prose.WriteTableCell(writer, "x");
+      writer.PopFrame();
+      writer.PopFrame();
+
+      var lines = writer.Build().Split('\n');
+      Assert.That(lines[0], Is.EqualTo("| Name  | Kind |"));
+      Assert.That(lines[1], Is.EqualTo("| ----- | ---- |"));
+      Assert.That(lines[0].Length, Is.EqualTo(writer.WrapWidth));
+      Assert.That(lines[2], Is.EqualTo("| extraordinary | x    |"));
+      Assert.That(lines[2].Length, Is.GreaterThan(writer.WrapWidth));
+    }
+
+    [Test]
+    public void PlainTextWriter_ReplacesLineBreaksInsideTableCells() {
+      var defaultWriter = new ProsePlainTextWriter(
+        configuration: ProsePlainTextConfigurations.Markdown
+      );
+      WriteSingleCellTable(defaultWriter, "alpha\nbeta");
+      Assert.That(defaultWriter.Build(), Is.EqualTo("| alpha¶beta |"));
+
+      var configuredWriter = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(
+          root: PTRuleFactory.Container(),
+          table: new PTTableFormat(lineBreakReplacement: " / ")
+        )
+      );
+      WriteSingleCellTable(configuredWriter, "alpha\nbeta");
+      Assert.That(configuredWriter.Build(), Is.EqualTo("| alpha / beta |"));
+    }
+
+    [Test]
     public void PlainTextWriter_CombinesGeneralMarkupModifiers() {
       var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
       Prose.Prose.WriteSpan(
@@ -734,6 +776,25 @@ namespace HELIX.Tests {
       Assert.That(
         writer.Build(),
         Is.EqualTo("```csharp\nvar value = 123;\nreturn value;\n```")
+      );
+    }
+
+    [Test]
+    public void PlainTextWriter_FillsCodeBlockBoundariesAndCanHideLanguage() {
+      var configuration = new ProsePlainTextConfiguration(
+        root: PTRuleFactory.Container(),
+        codeBlock: new PTCodeBlockFormat(
+          prefix: "[", prefixSuffix: "]", suffix: "-",
+          prefixFill: '-', suffixFill: '-', showLanguage: false
+        )
+      );
+      var writer = new ProsePlainTextWriter(wrapWidth: 20, configuration: configuration);
+
+      Prose.Prose.WriteCodeBlock(writer, "code", "csharp");
+
+      Assert.That(
+        writer.Build(),
+        Is.EqualTo("[]------------------\ncode\n--------------------")
       );
     }
 
@@ -949,6 +1010,14 @@ namespace HELIX.Tests {
         writer, 3, ProseIntFormatter.Instance, ProseTextAlignment.Right
       );
       writer.PopFrame();
+      writer.PopFrame();
+      writer.PopFrame();
+    }
+
+    private static void WriteSingleCellTable(IProseWriter writer, string content) {
+      Assert.That(writer.BeginFrame(ProseTable.Instance), Is.True);
+      Assert.That(writer.BeginFrame(ProseTableRow.Body), Is.True);
+      Prose.Prose.WriteTableCell(writer, content);
       writer.PopFrame();
       writer.PopFrame();
     }

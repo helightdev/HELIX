@@ -178,7 +178,8 @@ namespace HELIX.Prose {
   public sealed class PTTableFormat {
     public PTTableFormat(
       string leftBorder = "| ", string columnSeparator = " | ", string rightBorder = " |",
-      char headerFill = '-', int minimumColumnWidth = 3
+      char headerFill = '-', int minimumColumnWidth = 3,
+      string lineBreakReplacement = "¶"
     ) {
       if (minimumColumnWidth < 0) throw new ArgumentOutOfRangeException(nameof(minimumColumnWidth));
       LeftBorder = leftBorder ?? string.Empty;
@@ -186,6 +187,7 @@ namespace HELIX.Prose {
       RightBorder = rightBorder ?? string.Empty;
       HeaderFill = headerFill;
       MinimumColumnWidth = minimumColumnWidth;
+      LineBreakReplacement = lineBreakReplacement ?? string.Empty;
     }
 
     public string LeftBorder { get; }
@@ -193,6 +195,40 @@ namespace HELIX.Prose {
     public string RightBorder { get; }
     public char HeaderFill { get; }
     public int MinimumColumnWidth { get; }
+    /// <summary>Text substituted for line breaks inside individual cells.</summary>
+    public string LineBreakReplacement { get; }
+  }
+
+  /// <summary>Presentation and optional line filling for preformatted source blocks.</summary>
+  public sealed class PTCodeBlockFormat {
+    public PTCodeBlockFormat(
+      PTNodeFormat format = null,
+      string prefix = "```",
+      string prefixSuffix = "",
+      string suffix = "```",
+      char prefixFill = '\0',
+      char suffixFill = '\0',
+      bool showLanguage = true
+    ) {
+      Format = format ?? PTRuleFactory.Container();
+      Prefix = prefix ?? string.Empty;
+      PrefixSuffix = prefixSuffix ?? string.Empty;
+      Suffix = suffix ?? string.Empty;
+      PrefixFill = prefixFill;
+      SuffixFill = suffixFill;
+      ShowLanguage = showLanguage;
+    }
+
+    public PTNodeFormat Format { get; }
+    public string Prefix { get; }
+    /// <summary>Text placed after the optional language and before prefix fill.</summary>
+    public string PrefixSuffix { get; }
+    public string Suffix { get; }
+    /// <summary>A null character disables prefix-line filling.</summary>
+    public char PrefixFill { get; }
+    /// <summary>A null character disables suffix-line filling.</summary>
+    public char SuffixFill { get; }
+    public bool ShowLanguage { get; }
   }
 
   /// <summary>State properties used to project semantic Prose items into plain text.</summary>
@@ -225,9 +261,7 @@ namespace HELIX.Prose {
       PTNodeFormat linkText = null,
       string linkTargetPrefix = " (",
       string linkTargetSuffix = ")",
-      PTNodeFormat codeBlock = null,
-      string codeBlockPrefix = "```",
-      string codeBlockSuffix = "```",
+      PTCodeBlockFormat codeBlock = null,
       string requiredLineBreak = "\n",
       bool showTextFeatures = true,
       string propertyChildContinuation = null
@@ -250,14 +284,12 @@ namespace HELIX.Prose {
       QuoteText = quoteText ?? _noAnchors;
       ErrorText = errorText ?? _noAnchors;
       LinkText = linkText ?? _noAnchors;
-      CodeBlock = codeBlock ?? PTRuleFactory.Container();
+      CodeBlock = codeBlock ?? new PTCodeBlockFormat();
       Table = table ?? new PTTableFormat();
       UnorderedListMarker = unorderedListMarker ?? string.Empty;
       OrderedListMarkerSuffix = orderedListMarkerSuffix ?? string.Empty;
       LinkTargetPrefix = linkTargetPrefix ?? string.Empty;
       LinkTargetSuffix = linkTargetSuffix ?? string.Empty;
-      CodeBlockPrefix = codeBlockPrefix ?? string.Empty;
-      CodeBlockSuffix = codeBlockSuffix ?? string.Empty;
       RequiredLineBreak = requiredLineBreak ?? string.Empty;
       ShowTrees = showTrees;
       ShowNames = showNames;
@@ -287,14 +319,12 @@ namespace HELIX.Prose {
     public PTNodeFormat QuoteText { get; }
     public PTNodeFormat ErrorText { get; }
     public PTNodeFormat LinkText { get; }
-    public PTNodeFormat CodeBlock { get; }
+    public PTCodeBlockFormat CodeBlock { get; }
     public PTTableFormat Table { get; }
     public string UnorderedListMarker { get; }
     public string OrderedListMarkerSuffix { get; }
     public string LinkTargetPrefix { get; }
     public string LinkTargetSuffix { get; }
-    public string CodeBlockPrefix { get; }
-    public string CodeBlockSuffix { get; }
     /// <summary>External presentation used for semantic required line breaks.</summary>
     public string RequiredLineBreak { get; }
     public bool ShowTrees { get; }
@@ -456,8 +486,10 @@ namespace HELIX.Prose {
       linkText: PTRuleFactory.Markup("<", ">"),
       linkTargetPrefix: " [",
       linkTargetSuffix: "]",
-      codeBlockPrefix: "╭─ code: ",
-      codeBlockSuffix: "╰─"
+      codeBlock: new PTCodeBlockFormat(
+        prefix: "╭─ code: ", prefixSuffix: " ─", suffix: "╰─",
+        prefixFill: '─', suffixFill: '─'
+      )
     );
 
     /// <summary>Shows the current object on one line, with its properties in parentheses.</summary>
@@ -474,8 +506,7 @@ namespace HELIX.Prose {
       listItem: PTRuleFactory.ListItem(),
       linkTargetPrefix: "",
       linkTargetSuffix: "",
-      codeBlockPrefix: "",
-      codeBlockSuffix: "",
+      codeBlock: new PTCodeBlockFormat(prefix: "", suffix: "", showLanguage: false),
       showTextFeatures: false
     );
 
@@ -496,8 +527,7 @@ namespace HELIX.Prose {
       codeText: PTRuleFactory.Markup("'", "'"),
       quoteText: PTRuleFactory.Markup("“", "”"),
       errorText: PTRuleFactory.Markup("Error: ", ""),
-      codeBlockPrefix: "Code: ",
-      codeBlockSuffix: ""
+      codeBlock: new PTCodeBlockFormat(prefix: "Code: ", suffix: "")
     );
 
     /// <summary>
@@ -519,8 +549,7 @@ namespace HELIX.Prose {
       listItem: PTRuleFactory.ListItem(),
       linkTargetPrefix: "",
       linkTargetSuffix: "",
-      codeBlockPrefix: "",
-      codeBlockSuffix: ""
+      codeBlock: new PTCodeBlockFormat(prefix: "", suffix: "", showLanguage: false)
     );
 
     /// <summary>A Sparse layout that uses indentation only; no tree glyphs are emitted.</summary>
@@ -576,8 +605,7 @@ namespace HELIX.Prose {
       listItem: PTRuleFactory.ListItem(),
       linkTargetPrefix: "",
       linkTargetSuffix: "",
-      codeBlockPrefix: "",
-      codeBlockSuffix: "",
+      codeBlock: new PTCodeBlockFormat(prefix: "", suffix: "", showLanguage: false),
       showTextFeatures: false
     );
   }

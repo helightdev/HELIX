@@ -439,15 +439,26 @@ namespace HELIX.Prose {
     private void CompleteTableCell(Frame frame, int frameIndex) {
       var rowIndex = FindParentFrame<ProseTableRow>(frameIndex);
       if (rowIndex < 0) return;
-      var text = _builder.ToString(frame.itemOutputStart, _builder.Length - frame.itemOutputStart);
+      var text = FlattenTableCell(frame.itemOutputStart, _builder.Length);
       _builder.Remove(frame.itemOutputStart, _builder.Length - frame.itemOutputStart);
       RecalculateLineState();
       _frames[rowIndex].tableCells.Add(
         new TableCellData {
-          text = TrimInternalLineBreaks(text),
+          text = text,
           alignment = FrameAlignment(frame)
         }
       );
+    }
+
+    private string FlattenTableCell(int start, int end) {
+      while (end > start && IsLineBreak(_builder[end - 1])) end--;
+      _evaluationBuilder.Clear();
+      var replacement = Configuration.Table.LineBreakReplacement;
+      for (var i = start; i < end; i++) {
+        if (IsLineBreak(_builder[i])) _evaluationBuilder.Append(replacement);
+        else _evaluationBuilder.Append(_builder[i]);
+      }
+      return _evaluationBuilder.ToString();
     }
 
     private void CompleteTableRow(Frame frame, ProseTableRow row, int frameIndex) {
@@ -523,23 +534,34 @@ namespace HELIX.Prose {
     protected virtual void ApplyCodeBlock(
       ProseCodeBlock codeBlock, int start, int end, TextMatching matching
     ) {
+      var format = Configuration.CodeBlock;
       _evaluationBuilder.Clear();
-      _evaluationBuilder.Append(Configuration.CodeBlockPrefix);
-      _evaluationBuilder.Append(codeBlock.Language);
+      _evaluationBuilder.Append(format.Prefix);
+      if (format.ShowLanguage) _evaluationBuilder.Append(codeBlock.Language);
+      _evaluationBuilder.Append(format.PrefixSuffix);
+      PadLine(_evaluationBuilder, format.PrefixFill);
       if (_evaluationBuilder.Length > 0) _evaluationBuilder.Append('\n');
       var prefixLength = InternalTextLength(_evaluationBuilder);
       InsertInternalText(_builder, start, _evaluationBuilder);
       var decoratedEnd = end + prefixLength;
-      if (Configuration.CodeBlockSuffix.Length > 0) {
+      if (format.Suffix.Length > 0) {
         _evaluationBuilder.Clear();
         _evaluationBuilder.Append('\n');
-        _evaluationBuilder.Append(Configuration.CodeBlockSuffix);
+        _evaluationBuilder.Append(format.Suffix);
+        PadLine(_evaluationBuilder, format.SuffixFill, lineStart: 1);
         var suffixLength = InternalTextLength(_evaluationBuilder);
         InsertInternalText(_builder, decoratedEnd, _evaluationBuilder);
         decoratedEnd += suffixLength;
       }
       RecalculateLineState();
-      ApplyFormat(Configuration.CodeBlock, start, decoratedEnd, matching);
+      ApplyFormat(format.Format, start, decoratedEnd, matching);
+    }
+
+    private void PadLine(StringBuilder line, char fill, int lineStart = 0) {
+      if (fill == '\0') return;
+      var targetWidth = Math.Max(0, WrapWidth - DeferredLinePrefixWidth);
+      var padding = targetWidth - (line.Length - lineStart);
+      if (padding > 0) line.Append(fill, padding);
     }
 
     /// <summary>Applies a configured node format from a derived writer.</summary>
@@ -598,6 +620,7 @@ namespace HELIX.Prose {
         _tableColumnWidths[column] = Math.Max(
           _tableColumnWidths[column], Configuration.Table.MinimumColumnWidth
         );
+      LimitTableWidth(_tableColumnWidths, columns);
 
       for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++) {
         if (result.Length > 0) result.Append(_hardLineBreak);
@@ -606,6 +629,25 @@ namespace HELIX.Prose {
           result.Append(_hardLineBreak);
           AppendTableSeparator(result, _tableColumnWidths, columns);
         }
+      }
+    }
+
+    private void LimitTableWidth(int[] widths, int columnCount) {
+      var table = Configuration.Table;
+      var fixedWidth = table.LeftBorder.Length + table.RightBorder.Length +
+                       Math.Max(0, columnCount - 1) * table.ColumnSeparator.Length;
+      var availableWidth = Math.Max(
+        0, WrapWidth - DeferredLinePrefixWidth - fixedWidth
+      );
+      var totalWidth = 0;
+      for (var column = 0; column < columnCount; column++) totalWidth += widths[column];
+      while (totalWidth > availableWidth) {
+        var widestColumn = 0;
+        for (var column = 1; column < columnCount; column++)
+          if (widths[column] > widths[widestColumn]) widestColumn = column;
+        if (widths[widestColumn] == 0) break;
+        widths[widestColumn]--;
+        totalWidth--;
       }
     }
 
@@ -689,12 +731,6 @@ namespace HELIX.Prose {
       var end = IndexOfLineBreak(text, start);
       if (end < 0) end = text.Length;
       length = end - start;
-    }
-
-    private static string TrimInternalLineBreaks(string text) {
-      var length = text.Length;
-      while (length > 0 && IsLineBreak(text[length - 1])) length--;
-      return length == text.Length ? text : text[..length];
     }
 
     private TextMatching SingleItemMatching(Frame frame) => TextMatching.First | TextMatching.Last |

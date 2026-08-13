@@ -81,7 +81,7 @@ namespace HELIX.Prose {
     protected override void ApplyCodeBlock(
       ProseCodeBlock codeBlock, int start, int end, TextMatching matching
     ) {
-      ApplyFormat(Configuration.CodeBlock, start, end, matching);
+      base.ApplyCodeBlock(codeBlock, start, end, matching);
       DecorateRangeZeroWidth(start, OutputLength, _codeColorTag, "</color>");
     }
 
