@@ -215,7 +215,7 @@ namespace HELIX.Prose {
 
   }
 
-  /// <summary>Reusable factories for the common building blocks of plain-text configurations.</summary>
+  /// <summary>Composable factories for the common parts of a plain-text layout.</summary>
   public static class PTRuleFactory {
     public static PTStringRule Anchor(
       string value, TextMatching matching = TextMatching.None, int priority = 0
@@ -232,48 +232,55 @@ namespace HELIX.Prose {
     ) => new(matching, lineMatching, priority, mode);
 
     public static IReadOnlyList<PTLineRule> LineBreaks(
-      LineBreakMode mode, bool suppressLast = false
-    ) => suppressLast
+      LineBreakMode mode, bool omitFinalItemBreak = false
+    ) => omitFinalItemBreak
       ? new[] {
         LineBreak(LineBreakMode.None, LineMatching.Last),
         LineBreak(mode)
       }
       : new[] { LineBreak(mode) };
 
-    public static PTNodeFormat Item(
-      string prefix = "", string suffix = "", string firstLinePrefix = "",
-      string continuationPrefix = "", LineBreakMode lineBreaks = LineBreakMode.None,
-      bool suppressLastLineBreak = false, int suffixRepeater = -1
+    /// <summary>
+    /// Creates a block whose boundaries, indentation, and line behavior can be combined independently.
+    /// </summary>
+    public static PTNodeFormat Block(
+      string prefix = "", string suffix = "", string firstLineIndent = "",
+      string continuationIndent = "", LineBreakMode lineBreaks = LineBreakMode.None,
+      bool omitFinalItemBreak = false, int suffixRepeater = -1
     ) => new(
       prefix: string.IsNullOrEmpty(prefix) ? null : new[] { Anchor(prefix) },
       suffix: string.IsNullOrEmpty(suffix) ? null : new[] { Anchor(suffix) },
-      indent: string.IsNullOrEmpty(firstLinePrefix) && string.IsNullOrEmpty(continuationPrefix)
+      indent: string.IsNullOrEmpty(firstLineIndent) && string.IsNullOrEmpty(continuationIndent)
         ? null
         : new[] {
-          LinePrefix(firstLinePrefix, LineMatching.First),
-          LinePrefix(continuationPrefix)
+          LinePrefix(firstLineIndent, LineMatching.First),
+          LinePrefix(continuationIndent)
         },
       lines: lineBreaks == LineBreakMode.None
         ? null
-        : LineBreaks(lineBreaks, suppressLastLineBreak),
+        : LineBreaks(lineBreaks, omitFinalItemBreak),
       suffixRepeater: suffixRepeater
     );
 
     public static PTNodeFormat InlineProperties(
-      string before = "(", string separator = ", ", string after = ")"
+      string before = "(", string separator = ", ", string after = ")",
+      bool trailingNewLine = false
     ) => new(
       prefix: new[] {
         Anchor(before, TextMatching.First),
         Anchor(separator)
       },
       suffix: new[] { Anchor(after, TextMatching.Last) },
-      lines: LineBreaks(LineBreakMode.Wrap | LineBreakMode.Hard)
+      lines: LineBreaks(
+        LineBreakMode.Wrap | LineBreakMode.Hard |
+        (trailingNewLine ? LineBreakMode.Post : LineBreakMode.None)
+      )
     );
 
-    public static PTNodeFormat LineItem(
+    public static PTNodeFormat Line(
       string prefix = "", string suffix = "", string firstLinePrefix = "",
       string continuationPrefix = "", int suffixRepeater = -1
-    ) => Item(
+    ) => Block(
       prefix, suffix, firstLinePrefix, continuationPrefix,
       LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard,
       suffixRepeater: suffixRepeater
@@ -282,21 +289,25 @@ namespace HELIX.Prose {
     public static PTNodeFormat Container(
       string prefix = "", string suffix = "", string firstLinePrefix = "",
       string continuationPrefix = "", int suffixRepeater = -1
-    ) => Item(
+    ) => Block(
       prefix, suffix, firstLinePrefix, continuationPrefix,
       LineBreakMode.Wrap | LineBreakMode.Hard, true, suffixRepeater
     );
 
     public static PTNodeFormat Property(
       string prefix = "", string suffix = "", string firstLinePrefix = "",
-      string continuationPrefix = ""
-    ) => LineItem(prefix, suffix, firstLinePrefix, continuationPrefix);
+      string continuationPrefix = "", bool trailingNewLine = false
+    ) => Block(
+      prefix, suffix, firstLinePrefix, continuationPrefix,
+      LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard |
+      (trailingNewLine ? LineBreakMode.Post : LineBreakMode.None)
+    );
 
     public static PTNodeFormat PropertyValue(
       string separator = ": ", string continuationPrefix = "", bool align = false
-    ) => Item(
+    ) => Block(
       prefix: separator,
-      continuationPrefix: continuationPrefix,
+      continuationIndent: continuationPrefix,
       lineBreaks: LineBreakMode.Wrap | LineBreakMode.Hard |
                   (align ? LineBreakMode.Align : LineBreakMode.None)
     );
@@ -315,102 +326,42 @@ namespace HELIX.Prose {
   }
 
   public static class ProsePlainTextConfigurations {
-    private const LineBreakMode AllBreaks = LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard;
+    /// <summary>A simple tree with a small continuation indent for wrapped properties.</summary>
+    public static readonly ProsePlainTextConfiguration Sparse = Tree(
+      "├─ ", "└─ ", "│  ", "   "
+    );
 
-    public static readonly ProsePlainTextConfiguration Sparse = CreateTree(
-      "├─", "└─", "│ ", "  ", propertyPrefix: "│ "
-    );
-    public static readonly ProsePlainTextConfiguration Dashed = CreateTree(
-      "╎╌", "└╌", "╎ ", "  ", propertyPrefix: "│ "
-    );
-    public static readonly ProsePlainTextConfiguration Dense = new(
-      root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.Item(),
-      treeName: PTRuleFactory.Item(),
-      property: PTRuleFactory.InlineProperties(),
-      propertyValue: PTRuleFactory.PropertyValue(),
-      tree: PTRuleFactory.Tree("├", "└", "│", " ")
-    );
-    public static readonly ProsePlainTextConfiguration Transition = Boxed(
-      "╞═╦══ ", "╘═╦══ ", " ║ ", " ╚═══════════", " ═══"
-    );
+    /// <summary>A cleaned-up diagnostic tree with a clearly delimited root heading.</summary>
     public static readonly ProsePlainTextConfiguration Error = new(
-      root: PTRuleFactory.Container(suffix: "\n═════", suffixRepeater: 1),
-      rootName: PTRuleFactory.LineItem(prefix: "══╡ ", suffix: " ╞══", suffixRepeater: 3),
-      treeName: PTRuleFactory.LineItem(),
-      property: PTRuleFactory.Property(firstLinePrefix: "╎ ", continuationPrefix: "╎ "),
-      propertyValue: PTRuleFactory.PropertyValue(),
-      tree: PTRuleFactory.Tree("╎╌", "└╌", "╎ ", "  ")
-    );
-    public static readonly ProsePlainTextConfiguration Whitespace = CreateTree("  ", "  ", "  ", "  ");
-    public static readonly ProsePlainTextConfiguration Flat = CreateTree("", "", "", "");
-    public static readonly ProsePlainTextConfiguration SingleLine = new(
       root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.Item(),
-      property: PTRuleFactory.InlineProperties(),
+      rootName: PTRuleFactory.Line(prefix: "══ ", suffix: " ══"),
+      treeName: PTRuleFactory.Line(),
+      property: PTRuleFactory.Property(firstLinePrefix: "! ", continuationPrefix: "  "),
       propertyValue: PTRuleFactory.PropertyValue(),
-      showTrees: false
+      tree: PTRuleFactory.Tree("├─ ", "└─ ", "│  ", "   ")
     );
-    public static readonly ProsePlainTextConfiguration ErrorProperty = new(
-      root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.LineItem(suffix: ":"),
-      property: PTRuleFactory.InlineProperties("  ("),
-      propertyValue: PTRuleFactory.PropertyValue(),
-      showTrees: false
-    );
+
+    /// <summary>Shows the current object on one line, with its properties in parentheses.</summary>
     public static readonly ProsePlainTextConfiguration Shallow = new(
       root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.LineItem(suffix: ":"),
-      property: PTRuleFactory.Property(firstLinePrefix: "  ", continuationPrefix: "  "),
+      rootName: PTRuleFactory.Block(),
+      property: PTRuleFactory.InlineProperties(),
       propertyValue: PTRuleFactory.PropertyValue(),
       showTrees: false
     );
 
-    public static readonly ProsePlainTextConfiguration Unicode = CreateTree("├─ ", "└─ ", "│  ", "   ");
-    public static readonly ProsePlainTextConfiguration Ascii = CreateTree("+- ", "`- ", "|  ", "   ", false);
+    /// <summary>A Sparse layout that uses indentation only; no tree glyphs are emitted.</summary>
+    public static readonly ProsePlainTextConfiguration Whitespace = Tree("  ", "  ", "  ", "  ");
 
-    public static readonly ProsePlainTextConfiguration CurrentObjectFlat = new(
-      root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.LineItem(),
-      property: PTRuleFactory.Property(),
-      propertyValue: PTRuleFactory.PropertyValue(),
-      showTrees: false
-    );
-
-    public static ProsePlainTextConfiguration CreateTree(
-      string child, string lastChild, string continuation, string lastContinuation,
-      bool alignWrappedPropertyValues = false, string propertyPrefix = "", string propertyContinuation = null
+    private static ProsePlainTextConfiguration Tree(
+      string child, string lastChild, string continuation, string lastContinuation
     ) => new(
       root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.LineItem(),
-      treeName: PTRuleFactory.LineItem(),
-      property: PTRuleFactory.Property(
-        firstLinePrefix: propertyPrefix, continuationPrefix: propertyContinuation ?? propertyPrefix + " "
-      ),
-      propertyValue: PTRuleFactory.PropertyValue(align: alignWrappedPropertyValues),
+      rootName: PTRuleFactory.Line(),
+      treeName: PTRuleFactory.Line(),
+      property: PTRuleFactory.Property(continuationPrefix: " "),
+      propertyValue: PTRuleFactory.PropertyValue(),
       tree: PTRuleFactory.Tree(child, lastChild, continuation, lastContinuation)
-    );
-
-    private static ProsePlainTextConfiguration Boxed(
-      string child, string last, string continuation, string footer, string nameSuffix
-    ) => new(
-      root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.LineItem(suffix: nameSuffix),
-      treeName: PTRuleFactory.LineItem(suffix: nameSuffix),
-      property: PTRuleFactory.Property(firstLinePrefix: "  ", continuationPrefix: "  "),
-      propertyValue: PTRuleFactory.PropertyValue(),
-      tree: new PTNodeFormat(
-        suffix: new[] { PTRuleFactory.Anchor("\n" + footer) },
-        indent: new[] {
-          PTRuleFactory.LinePrefix(last, LineMatching.First, TextMatching.Last),
-          PTRuleFactory.LinePrefix(child, LineMatching.First),
-          PTRuleFactory.LinePrefix("   ", matching: TextMatching.Last),
-          PTRuleFactory.LinePrefix(continuation)
-        },
-        lines: PTRuleFactory.LineBreaks(
-          LineBreakMode.Wrap | LineBreakMode.Hard, true
-        )
-      )
     );
   }
 }

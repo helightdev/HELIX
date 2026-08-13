@@ -44,7 +44,7 @@ namespace HELIX.Tests {
       writer.PopFrame();
       writer.PopFrame();
 
-      Assert.That(writer.Build(), Is.EqualTo("Key: one two\n     three"));
+      Assert.That(writer.Build(), Is.EqualTo("Key: one two\n three"));
 
       writer.Reset();
       Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
@@ -147,7 +147,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_UsesConfiguredBoundariesAndRetainsAncestors() {
-      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Ascii);
+      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Sparse);
 
       Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
       Prose.Prose.WriteName(writer, "Parent");
@@ -162,7 +162,7 @@ namespace HELIX.Tests {
 
       Assert.That(
         writer.Build(),
-        Is.EqualTo("`- Parent\n   State: ready\n   +- First\n   `- Last")
+        Is.EqualTo("└─ Parent\n   State: ready\n   ├─ First\n   └─ Last")
       );
     }
 
@@ -183,22 +183,18 @@ namespace HELIX.Tests {
       Prose.Prose.WriteName(writer, "Second");
       writer.PopFrame();
 
-      Assert.That(writer.Build(), Does.Contain("│  Message: alpha beta gamma\n│           delta epsilon"));
+      Assert.That(writer.Build(), Does.Contain("│  Message: alpha beta gamma\n│   delta epsilon"));
     }
 
     [Test]
-    public void PlainTextWriter_PreconfiguredFlatModesHaveDistinctChildSemantics() {
+    public void PlainTextWriter_ShallowOmitsChildrenWhileWhitespaceRetainsTheirIndentation() {
       Assert.That(
         RenderConfiguration(ProsePlainTextConfigurations.Whitespace),
         Is.EqualTo("Root\nValue: 1\n  Child\n  Child value: 2")
       );
       Assert.That(
-        RenderConfiguration(ProsePlainTextConfigurations.Flat),
-        Is.EqualTo("Root\nValue: 1\nChild\nChild value: 2")
-      );
-      Assert.That(
-        RenderConfiguration(ProsePlainTextConfigurations.CurrentObjectFlat),
-        Is.EqualTo("Root\nValue: 1")
+        RenderConfiguration(ProsePlainTextConfigurations.Shallow),
+        Is.EqualTo("Root(Value: 1)")
       );
     }
 
@@ -412,7 +408,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void AnchorFactory_BuildsReusableCommonAnchors() {
-      var item = PTRuleFactory.LineItem(
+      var item = PTRuleFactory.Line(
         prefix: "[", suffix: "]", firstLinePrefix: ">", continuationPrefix: "|",
         suffixRepeater: 0
       );
@@ -450,7 +446,7 @@ namespace HELIX.Tests {
       var hardOnly = new ProsePlainTextWriter(
         wrapWidth: 4,
         configuration: new ProsePlainTextConfiguration(
-          root: PTRuleFactory.Item(lineBreaks: LineBreakMode.Hard)
+          root: PTRuleFactory.Block(lineBreaks: LineBreakMode.Hard)
         )
       );
       hardOnly.Write("aa bb\ncc");
@@ -459,7 +455,7 @@ namespace HELIX.Tests {
       var wrapOnly = new ProsePlainTextWriter(
         wrapWidth: 4,
         configuration: new ProsePlainTextConfiguration(
-          root: PTRuleFactory.Item(lineBreaks: LineBreakMode.Wrap)
+          root: PTRuleFactory.Block(lineBreaks: LineBreakMode.Wrap)
         )
       );
       wrapOnly.Write("aa bb\ncc");
@@ -470,7 +466,7 @@ namespace HELIX.Tests {
     public void PlainTextWriter_EnsuresPreAndPostLineBreaks() {
       var writer = new ProsePlainTextWriter(
         configuration: new ProsePlainTextConfiguration(
-          root: PTRuleFactory.Item(
+          root: PTRuleFactory.Block(
             lineBreaks: LineBreakMode.Hard | LineBreakMode.Pre | LineBreakMode.Post
           )
         )
@@ -488,7 +484,7 @@ namespace HELIX.Tests {
     public void PlainTextWriter_DoesNotDuplicateRequiredSiblingLineBreaks() {
       var writer = new ProsePlainTextWriter(
         configuration: new ProsePlainTextConfiguration(
-          property: PTRuleFactory.Item(
+          property: PTRuleFactory.Block(
             lineBreaks: LineBreakMode.Pre | LineBreakMode.Post
           )
         )
@@ -541,17 +537,11 @@ namespace HELIX.Tests {
     }
 
     [Test]
-    public void PlainTextConfigurations_ExposeAllFlutterStyles() {
+    public void PlainTextConfigurations_ExposeTheFourSupportedLayouts() {
       var configurations = new[] {
         ProsePlainTextConfigurations.Sparse,
-        ProsePlainTextConfigurations.Dashed,
-        ProsePlainTextConfigurations.Dense,
-        ProsePlainTextConfigurations.Transition,
         ProsePlainTextConfigurations.Error,
         ProsePlainTextConfigurations.Whitespace,
-        ProsePlainTextConfigurations.Flat,
-        ProsePlainTextConfigurations.SingleLine,
-        ProsePlainTextConfigurations.ErrorProperty,
         ProsePlainTextConfigurations.Shallow
       };
 
@@ -561,46 +551,82 @@ namespace HELIX.Tests {
     }
 
     [Test]
-    public void PlainTextConfigurations_RenderSparseAndDashedConnectors() {
-      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Sparse), Does.Contain("└─Child"));
-      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Sparse), Does.Contain("│ Value: 1"));
-      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Dashed), Does.Contain("└╌Child"));
-      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Dashed), Does.Contain("│ Value: 1"));
+    public void PlainTextConfigurations_RenderSparseAndWhitespaceTrees() {
+      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Sparse), Does.Contain("└─ Child"));
+      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Sparse), Does.Contain("Value: 1"));
+      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Whitespace), Does.Not.Contain("└"));
+      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Whitespace), Does.Contain("  Child"));
     }
 
     [Test]
-    public void PlainTextConfigurations_RenderDenseAndSingleLineLayouts() {
+    public void PlainTextConfigurations_RenderShallowLayoutOnOneLine() {
       Assert.That(
-        RenderConfiguration(ProsePlainTextConfigurations.Dense),
-        Is.EqualTo("Root(Value: 1)\n└Child(Child value: 2)")
-      );
-      Assert.That(
-        RenderConfiguration(ProsePlainTextConfigurations.SingleLine),
+        RenderConfiguration(ProsePlainTextConfigurations.Shallow),
         Is.EqualTo("Root(Value: 1)")
       );
     }
 
     [Test]
-    public void PlainTextConfigurations_RenderErrorPropertyAndShallowWithoutChildren() {
-      Assert.That(
-        RenderConfiguration(ProsePlainTextConfigurations.ErrorProperty),
-        Is.EqualTo("Root:\n  (Value: 1)")
-      );
-      Assert.That(
-        RenderConfiguration(ProsePlainTextConfigurations.Shallow),
-        Is.EqualTo("Root:\n  Value: 1")
-      );
+    public void PlainTextConfigurations_ShallowTerminatesTheFinalPropertyList() {
+      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Shallow);
+      Prose.Prose.WriteName(writer, "Root");
+      Prose.Prose.WriteProperty(writer, "First", 1, ProseIntFormatter.Instance);
+      Prose.Prose.WriteProperty(writer, "Second", 2, ProseIntFormatter.Instance);
+
+      Assert.That(writer.Build(), Is.EqualTo("Root(First: 1, Second: 2)"));
     }
 
     [Test]
-    public void PlainTextConfigurations_RenderBoxStyleSignatures() {
-      var transition = RenderConfiguration(ProsePlainTextConfigurations.Transition);
-      Assert.That(transition, Does.Contain("╘═╦══ Child ═══"));
-      Assert.That(transition, Does.Contain("╚═══════════"));
+    public void PlainTextConfigurations_ShallowTerminatesWrappedProductionOutput() {
+      var writer = new ProsePlainTextWriter(
+        wrapWidth: 96,
+        configuration: ProsePlainTextConfigurations.Shallow
+      );
+      Prose.Prose.WriteName(writer, "Asteria Orbital Relay Station");
+      Prose.Prose.WriteProperty(writer, "Mission ID", "HX-ASTERIA-07", ProseStringFormatter.Instance);
+      Prose.Prose.WriteProperty(writer, "State", "Degraded", ProseStringFormatter.Instance);
+      Prose.Prose.WriteProperty(writer, "Crew aboard", "37 people", ProseStringFormatter.Instance);
+      Prose.Prose.WriteProperty(writer, "Orbit", "1842 completed", ProseStringFormatter.Instance);
+      Prose.Prose.WriteProperty(writer, "Autonomous control", "operational", ProseStringFormatter.Instance);
+      Prose.Prose.WriteProperty(
+        writer,
+        "Summary",
+        "Long-range relay and research platform holding a stable polar orbit while its secondary coolant " +
+        "loop is isolated for inspection.",
+        ProseStringFormatter.Instance
+      );
+      Prose.Prose.WriteProperty(
+        writer,
+        "Internal tracking token",
+        "OPS-4A-9912",
+        ProseStringFormatter.Instance,
+        hidden: true
+      );
 
+      Assert.That(writer.Build(), Does.EndWith("inspection.)"));
+    }
+
+    [Test]
+    public void InlineProperties_CanTerminateBeforeAFollowingBody() {
+      var writer = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(
+          root: PTRuleFactory.Container(),
+          rootName: PTRuleFactory.Block(),
+          property: PTRuleFactory.InlineProperties(trailingNewLine: true),
+          propertyValue: PTRuleFactory.PropertyValue()
+        )
+      );
+      Prose.Prose.WriteName(writer, "Root");
+      Prose.Prose.WriteProperty(writer, "Value", 1, ProseIntFormatter.Instance);
+
+      Assert.That(writer.Build(), Is.EqualTo("Root(Value: 1)\n"));
+    }
+
+    [Test]
+    public void PlainTextConfigurations_RenderACleanErrorSignature() {
       var error = RenderConfiguration(ProsePlainTextConfigurations.Error);
-      Assert.That(error, Does.StartWith("══╡ Root ╞"));
-      Assert.That(error, Does.EndWith("═════"));
+      Assert.That(error, Does.StartWith("══ Root ══"));
+      Assert.That(error, Does.Contain("└─ Child"));
     }
 
     [Test]
@@ -673,8 +699,8 @@ namespace HELIX.Tests {
     private static string RenderVisibility(bool showTrees, bool showNames, bool showProperties) {
       var configuration = new ProsePlainTextConfiguration(
         root: PTRuleFactory.Container(),
-        rootName: PTRuleFactory.LineItem(),
-        treeName: PTRuleFactory.LineItem(),
+        rootName: PTRuleFactory.Line(),
+        treeName: PTRuleFactory.Line(),
         property: PTRuleFactory.Property(),
         propertyValue: PTRuleFactory.PropertyValue(),
         tree: PTRuleFactory.Tree("+- ", "`- ", "|  ", "   "),

@@ -40,8 +40,8 @@ namespace HELIX.Examples {
     /// <summary>A deliberately ornate style used to exercise wide branch tokens and decorations.</summary>
     public static readonly ProsePlainTextConfiguration TestWideDecorated = new(
       root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.LineItem(prefix: "╔═ ", suffix: " ═╗"),
-      treeName: PTRuleFactory.LineItem(
+      rootName: PTRuleFactory.Line(prefix: "╔═ ", suffix: " ═╗"),
+      treeName: PTRuleFactory.Line(
         prefix: "[ ", suffix: " ] ─", suffixRepeater: 3
       ),
       property: PTRuleFactory.Property(
@@ -56,8 +56,8 @@ namespace HELIX.Examples {
     /// <summary>A compact test style with visible sections and deliberately unaligned wrapping.</summary>
     public static readonly ProsePlainTextConfiguration TestCompactSections = new(
       root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.LineItem(prefix: "# "),
-      treeName: PTRuleFactory.LineItem(
+      rootName: PTRuleFactory.Line(prefix: "# "),
+      treeName: PTRuleFactory.Line(
         prefix: "{ ", suffix: " }", continuationPrefix: "  "
       ),
       property: new PTNodeFormat(
@@ -81,7 +81,7 @@ namespace HELIX.Examples {
 
     private DetailedProseExample() { }
 
-    public static string RenderPlainText() => RenderPlainText(ProsePlainTextConfigurations.Unicode);
+    public static string RenderPlainText() => RenderPlainText(ProsePlainTextConfigurations.Sparse);
 
     public static string RenderPlainText(ProsePlainTextConfiguration configuration) {
       var writer = new ProsePlainTextWriter(
@@ -102,7 +102,7 @@ namespace HELIX.Examples {
     }
 
     public static void PrintPlainText() =>
-      PrintPlainText("Unicode tree", ProsePlainTextConfigurations.Unicode);
+      PrintPlainText("Sparse tree", ProsePlainTextConfigurations.Sparse);
 
     public static void PrintPlainText(string configurationName, ProsePlainTextConfiguration configuration) =>
       Debug.Log("Detailed Prose · " + configurationName + "\n" + RenderPlainText(configuration));
@@ -208,6 +208,13 @@ namespace HELIX.Examples {
         writer.Write(output, PowerOutput);
         writer.Write(temperature, Temperature);
         ProseApi.WriteProperty(writer, "State", operational, OperationalState);
+        ProseApi.WriteProperty(
+          writer,
+          "Summary",
+          "Long-range relay and research platform holding a stable polar orbit while its secondary coolant " +
+          "loop is isolated for inspection.",
+          ProseStringFormatter.Instance
+        );
         ProseApi.WriteProperty(writer, "Assignment", assignment, ProseStringFormatter.Instance);
         ProseApi.WriteProperty(writer, "Containment", 99, Percent, noWrap: true);
       } finally {

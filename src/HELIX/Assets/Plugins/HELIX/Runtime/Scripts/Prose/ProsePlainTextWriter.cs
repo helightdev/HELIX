@@ -71,6 +71,7 @@ namespace HELIX.Prose {
       public bool ownerPropertiesWereFinalized;
       public PendingItem pendingProperty;
       public PendingItem pendingChild;
+      public bool propertyPrepared;
       public bool truncated;
     }
 
@@ -89,7 +90,7 @@ namespace HELIX.Prose {
       WrapWidth = wrapWidth;
       MinimumLevel = minimumLevel;
       MaxTruncatableFrameLength = maxTruncatableFrameLength;
-      Configuration = configuration ?? ProsePlainTextConfigurations.Unicode;
+      Configuration = configuration ?? ProsePlainTextConfigurations.Sparse;
       _builder = new StringBuilder(initialCapacity);
       _frames = new Frame[initialFrameCapacity];
       _modifiers = new IProseModifier[initialFrameCapacity];
@@ -109,11 +110,12 @@ namespace HELIX.Prose {
           (scope is ProseProperty && !Configuration.ShowProperties))
         return false;
 
+      PrepareCurrentProperty();
       var ownerPropertiesWereFinalized = false;
       if (scope is ProseTree) {
         ownerPropertiesWereFinalized = OwnerPropertiesFinalized;
         PrepareForTree();
-      } else if (scope is ProseProperty) PrepareForProperty();
+      }
 
       var outputStart = _builder.Length;
       var startColumn = _column;
@@ -138,12 +140,12 @@ namespace HELIX.Prose {
         treeDepth = _treeDepth,
         treeOutputStart = _builder.Length,
         itemOutputStart = _builder.Length,
-        ownerPropertiesWereFinalized = ownerPropertiesWereFinalized
+        ownerPropertiesWereFinalized = ownerPropertiesWereFinalized,
+        propertyPrepared = scope is not ProseProperty
       };
       _frames[_frameCount++] = frame;
 
       if (scope is ProseTree) _treeDepth++;
-      else if (scope is ProseProperty) SetLinePrefix(LinePrefixKind.Property, _treeDepth);
       else if (scope is ProseName) {
         EnsureNewLine();
         frame = _frames[_frameCount - 1];
@@ -170,6 +172,7 @@ namespace HELIX.Prose {
     public override void PopFrame() {
       if (_frameCount == 0) throw new InvalidOperationException("There is no Prose frame to pop.");
 
+      PrepareCurrentProperty();
       var index = _frameCount - 1;
       var frame = _frames[index];
       if (!IsSuppressed(index)) {
@@ -214,6 +217,7 @@ namespace HELIX.Prose {
 
     public override void Write(string text) {
       if (string.IsNullOrEmpty(text) || IsWritingInactive()) return;
+      PrepareCurrentProperty();
       WriteCharacters(text, 0, text.Length);
     }
 
@@ -229,6 +233,7 @@ namespace HELIX.Prose {
 
     public void Write(ReadOnlySpan<char> text) {
       if (text.Length == 0 || IsWritingInactive()) return;
+      PrepareCurrentProperty();
       WriteCharacters(text);
     }
 
@@ -278,8 +283,23 @@ namespace HELIX.Prose {
       EnsureNewLine();
     }
 
-    private void PrepareForProperty() {
+    private void PrepareCurrentProperty() {
+      if (_frameCount == 0) return;
+      ref var frame = ref _frames[_frameCount - 1];
+      if (frame.scope is not ProseProperty || frame.propertyPrepared || IsInactive(_frameCount - 1)) return;
+
       FinalizePendingProperty(false);
+      frame.outputStart = _builder.Length;
+      frame.itemOutputStart = _builder.Length;
+      frame.startColumn = _column;
+      frame.startLineHasContent = _lineHasContent;
+      frame.startLinePrefixKind = _linePrefixKind;
+      frame.startLinePrefixTreeDepth = _linePrefixTreeDepth;
+      frame.startLinePrefixWritten = _linePrefixWritten;
+      frame.startPendingLineBreakKind = _pendingLineBreakKind;
+      frame.startPropertyValueColumn = _propertyValueColumn;
+      frame.propertyPrepared = true;
+      SetLinePrefix(LinePrefixKind.Property, _treeDepth);
     }
 
     private void CompleteTree(ref Frame frame) {
