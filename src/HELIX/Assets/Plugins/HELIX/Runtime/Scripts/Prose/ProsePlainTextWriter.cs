@@ -10,14 +10,15 @@ namespace HELIX.Prose {
   /// in place rather than retaining a semantic tree.
   /// </summary>
   public sealed class ProsePlainTextWriter : ProseWriter {
-    private const char HardLineBreak = '\uE000';
-    private const char SoftLineBreak = '\uE001';
-    private const char LinePrefixStart = '\uE002';
-    private const char LinePrefixEnd = '\uE003';
-    private const char AlignmentStart = '\uE004';
-    private const char AlignmentEnd = '\uE005';
-    private const char SuffixRepeatStart = '\uE006';
-    private const char SuffixRepeatEnd = '\uE007';
+    private const char _hardLineBreak = '\uE000';
+    private const char _softLineBreak = '\uE001';
+    private const char _linePrefixStart = '\uE002';
+    private const char _linePrefixEnd = '\uE003';
+    private const char _alignmentStart = '\uE004';
+    private const char _alignmentEnd = '\uE005';
+    private const char _suffixRepeatStart = '\uE006';
+    private const char _suffixRepeatEnd = '\uE007';
+    private const char _requiredLineBreak = '\uE008';
     private readonly StringBuilder _builder;
     private Frame[] _frames;
     private IProseModifier[] _modifiers;
@@ -44,33 +45,33 @@ namespace HELIX.Prose {
     private enum LineBreakKind : byte { Semantic, Wrapped, Explicit }
 
     private struct PendingItem {
-      public int Start;
-      public int End;
-      public int Index;
-      public bool HasValue;
+      public int start;
+      public int end;
+      public int index;
+      public bool hasValue;
     }
 
     private struct Frame {
-      public IProseScope Scope;
-      public int ModifierStart;
-      public int OutputStart;
-      public int StartColumn;
-      public bool StartLineHasContent;
-      public LinePrefixKind StartLinePrefixKind;
-      public int StartLinePrefixTreeDepth;
-      public bool StartLinePrefixWritten;
-      public LineBreakKind StartPendingLineBreakKind;
-      public int StartPropertyValueColumn;
-      public int TreeDepth;
-      public int TreeOutputStart;
-      public int ItemOutputStart;
-      public int ChildCount;
-      public int PropertyCount;
-      public bool PropertiesFinalized;
-      public bool OwnerPropertiesWereFinalized;
-      public PendingItem PendingProperty;
-      public PendingItem PendingChild;
-      public bool Truncated;
+      public IProseScope scope;
+      public int modifierStart;
+      public int outputStart;
+      public int startColumn;
+      public bool startLineHasContent;
+      public LinePrefixKind startLinePrefixKind;
+      public int startLinePrefixTreeDepth;
+      public bool startLinePrefixWritten;
+      public LineBreakKind startPendingLineBreakKind;
+      public int startPropertyValueColumn;
+      public int treeDepth;
+      public int treeOutputStart;
+      public int itemOutputStart;
+      public int childCount;
+      public int propertyCount;
+      public bool propertiesFinalized;
+      public bool ownerPropertiesWereFinalized;
+      public PendingItem pendingProperty;
+      public PendingItem pendingChild;
+      public bool truncated;
     }
 
     public ProsePlainTextWriter(
@@ -103,18 +104,16 @@ namespace HELIX.Prose {
     public override bool BeginFrame(IProseScope scope) {
       if (scope == null) throw new ArgumentNullException(nameof(scope));
       if (IsWritingInactive()) return false;
-      if (scope is ProseTree && !Configuration.ShowTrees ||
-          scope is ProseName && !Configuration.ShowNames ||
-          scope is ProseProperty && !Configuration.ShowProperties)
+      if ((scope is ProseTree && !Configuration.ShowTrees) ||
+          (scope is ProseName && !Configuration.ShowNames) ||
+          (scope is ProseProperty && !Configuration.ShowProperties))
         return false;
 
       var ownerPropertiesWereFinalized = false;
       if (scope is ProseTree) {
         ownerPropertiesWereFinalized = OwnerPropertiesFinalized;
         PrepareForTree();
-      } else if (scope is ProseProperty) {
-        PrepareForProperty();
-      }
+      } else if (scope is ProseProperty) PrepareForProperty();
 
       var outputStart = _builder.Length;
       var startColumn = _column;
@@ -126,36 +125,34 @@ namespace HELIX.Prose {
       var startPropertyValueColumn = _propertyValueColumn;
       EnsureFrameCapacity();
       var frame = new Frame {
-        Scope = scope,
-        ModifierStart = _modifierCount,
-        OutputStart = outputStart,
-        StartColumn = startColumn,
-        StartLineHasContent = startLineHasContent,
-        StartLinePrefixKind = startLinePrefixKind,
-        StartLinePrefixTreeDepth = startLinePrefixTreeDepth,
-        StartLinePrefixWritten = startLinePrefixWritten,
-        StartPendingLineBreakKind = startPendingLineBreakKind,
-        StartPropertyValueColumn = startPropertyValueColumn,
-        TreeDepth = _treeDepth,
-        TreeOutputStart = _builder.Length,
-        ItemOutputStart = _builder.Length,
-        OwnerPropertiesWereFinalized = ownerPropertiesWereFinalized
+        scope = scope,
+        modifierStart = _modifierCount,
+        outputStart = outputStart,
+        startColumn = startColumn,
+        startLineHasContent = startLineHasContent,
+        startLinePrefixKind = startLinePrefixKind,
+        startLinePrefixTreeDepth = startLinePrefixTreeDepth,
+        startLinePrefixWritten = startLinePrefixWritten,
+        startPendingLineBreakKind = startPendingLineBreakKind,
+        startPropertyValueColumn = startPropertyValueColumn,
+        treeDepth = _treeDepth,
+        treeOutputStart = _builder.Length,
+        itemOutputStart = _builder.Length,
+        ownerPropertiesWereFinalized = ownerPropertiesWereFinalized
       };
       _frames[_frameCount++] = frame;
 
-      if (scope is ProseTree) {
-        _treeDepth++;
-      } else if (scope is ProseProperty) {
-        SetLinePrefix(LinePrefixKind.Property, _treeDepth);
-      } else if (scope is ProseName) {
+      if (scope is ProseTree) _treeDepth++;
+      else if (scope is ProseProperty) SetLinePrefix(LinePrefixKind.Property, _treeDepth);
+      else if (scope is ProseName) {
         EnsureNewLine();
         frame = _frames[_frameCount - 1];
-        frame.ItemOutputStart = _builder.Length;
+        frame.itemOutputStart = _builder.Length;
         _frames[_frameCount - 1] = frame;
         SetLinePrefix(ParentScope is ProseTree ? LinePrefixKind.TreeName : LinePrefixKind.RootName, _treeDepth);
       } else if (scope is ProsePropertyValue) {
         frame = _frames[_frameCount - 1];
-        frame.ItemOutputStart = _builder.Length;
+        frame.itemOutputStart = _builder.Length;
         _frames[_frameCount - 1] = frame;
         if (_lineHasContent) {
           _evaluationBuilder.Clear();
@@ -176,35 +173,34 @@ namespace HELIX.Prose {
       var index = _frameCount - 1;
       var frame = _frames[index];
       if (!IsSuppressed(index)) {
-        if (frame.Scope is ProseTree) {
-          CompleteTree(ref frame);
-        } else if (!IsFrameOrAncestorInactive(index)) {
-          if (frame.Scope is ProseName) {
+        if (frame.scope is ProseTree) CompleteTree(ref frame);
+        else if (!IsFrameOrAncestorInactive(index)) {
+          if (frame.scope is ProseName) {
             if (_lineHasContent) {
               FormatRange(
                 ParentScope is ProseTree ? Configuration.TreeName : Configuration.RootName,
-                frame.ItemOutputStart, _builder.Length, TextMatching.First | TextMatching.Last
+                frame.itemOutputStart, _builder.Length, TextMatching.First | TextMatching.Last
               );
             }
-          } else if (frame.Scope is ProsePropertyValue) {
+          } else if (frame.scope is ProsePropertyValue) {
             FormatRange(
-              Configuration.PropertyValue, frame.ItemOutputStart, _builder.Length,
+              Configuration.PropertyValue, frame.itemOutputStart, _builder.Length,
               TextMatching.First | TextMatching.Last |
-              (_builder.Length == frame.ItemOutputStart ? TextMatching.Empty : TextMatching.None)
+              (_builder.Length == frame.itemOutputStart ? TextMatching.Empty : TextMatching.None)
             );
           }
         }
       }
 
-      for (var i = frame.ModifierStart; i < _modifierCount; i++) _modifiers[i] = null;
-      _modifierCount = frame.ModifierStart;
-      _treeDepth = frame.TreeDepth;
-      if (frame.Scope is ProseTree or ProseName or ProseProperty) RestoreLineState(frame);
+      for (var i = frame.modifierStart; i < _modifierCount; i++) _modifiers[i] = null;
+      _modifierCount = frame.modifierStart;
+      _treeDepth = frame.treeDepth;
+      if (frame.scope is ProseTree or ProseName or ProseProperty) RestoreLineState(frame);
       _frames[index] = default;
       _frameCount--;
 
-      if (frame.Scope is ProseTree && !IsSuppressedFrame(frame)) RecordCompletedTree(frame);
-      else if (frame.Scope is ProseProperty && !IsSuppressedFrame(frame)) RecordCompletedProperty(frame);
+      if (frame.scope is ProseTree && !IsSuppressedFrame(frame)) RecordCompletedTree(frame);
+      else if (frame.scope is ProseProperty && !IsSuppressedFrame(frame)) RecordCompletedProperty(frame);
     }
 
     public override void PushModifier(IProseModifier modifier) {
@@ -213,7 +209,7 @@ namespace HELIX.Prose {
 
       EnsureModifierCapacity();
       _modifiers[_modifierCount++] = modifier;
-      if (modifier is Hidden || modifier is LevelMarker level && !Includes(level.Level)) SuppressCurrentFrame();
+      if (modifier is Hidden || (modifier is LevelMarker level && !Includes(level.Level))) SuppressCurrentFrame();
     }
 
     public override void Write(string text) {
@@ -228,42 +224,7 @@ namespace HELIX.Prose {
 
     public override void Write<T>(T value, IProseFormatter<T> formatter) {
       if (formatter == null) throw new ArgumentNullException(nameof(formatter));
-
-      if (typeof(T) == typeof(string) && formatter is ProseStringFormatter stringFormatter) {
-        if (stringFormatter.Prefix != null) Write(stringFormatter.Prefix);
-        Write(Unsafe.As<T, string>(ref value) ?? stringFormatter.NullText);
-        if (stringFormatter.Suffix != null) Write(stringFormatter.Suffix);
-      } else if (typeof(T) == typeof(int) && formatter is ProseIntFormatter intFormatter) {
-        if (intFormatter.Prefix != null) Write(intFormatter.Prefix);
-        Span<char> buffer = stackalloc char[16];
-        Unsafe.As<T, int>(ref value).TryFormat(
-          buffer, out var written, intFormatter.Format, CultureInfo.InvariantCulture
-        );
-        Write(buffer.Slice(0, written));
-        if (intFormatter.Suffix != null) Write(intFormatter.Suffix);
-      } else if (typeof(T) == typeof(long) && formatter is ProseLongFormatter longFormatter) {
-        Span<char> buffer = stackalloc char[32];
-        Unsafe.As<T, long>(ref value).TryFormat(
-          buffer, out var written, longFormatter.Format, CultureInfo.InvariantCulture
-        );
-        Write(buffer.Slice(0, written));
-      } else if (typeof(T) == typeof(float) && formatter is ProseFloatFormatter floatFormatter) {
-        Span<char> buffer = stackalloc char[32];
-        Unsafe.As<T, float>(ref value).TryFormat(
-          buffer, out var written, floatFormatter.Format, CultureInfo.InvariantCulture
-        );
-        Write(buffer.Slice(0, written));
-      } else if (typeof(T) == typeof(double) && formatter is ProseDoubleFormatter doubleFormatter) {
-        Span<char> buffer = stackalloc char[32];
-        Unsafe.As<T, double>(ref value).TryFormat(
-          buffer, out var written, doubleFormatter.Format, CultureInfo.InvariantCulture
-        );
-        Write(buffer.Slice(0, written));
-      } else if (typeof(T) == typeof(bool) && formatter is ProseBoolFormatter boolFormatter) {
-        Write(Unsafe.As<T, bool>(ref value) ? boolFormatter.TrueText : boolFormatter.FalseText);
-      } else {
-        formatter.ToProse(this, value);
-      }
+      formatter.ToProse(this, value);
     }
 
     public void Write(ReadOnlySpan<char> text) {
@@ -305,9 +266,11 @@ namespace HELIX.Prose {
       return ToExternalText(result);
     }
 
-    public override string ToString() => Build();
+    public override string ToString() {
+      return Build();
+    }
 
-    private IProseScope ParentScope => _frameCount < 2 ? null : _frames[_frameCount - 2].Scope;
+    private IProseScope ParentScope => _frameCount < 2 ? null : _frames[_frameCount - 2].scope;
 
     private void PrepareForTree() {
       PrepareOwnerForChildren();
@@ -320,57 +283,56 @@ namespace HELIX.Prose {
     }
 
     private void CompleteTree(ref Frame frame) {
-      FinalizeProperties(ref frame.PropertyCount, ref frame.PropertiesFinalized);
+      FinalizeProperties(ref frame.propertyCount, ref frame.propertiesFinalized);
       FinalizePendingTree(true);
-      frame.TreeOutputStart = Math.Min(frame.TreeOutputStart, _builder.Length);
+      frame.treeOutputStart = Math.Min(frame.treeOutputStart, _builder.Length);
     }
 
     private void RecordCompletedTree(Frame frame) {
       var pending = new PendingItem {
-        Start = frame.TreeOutputStart,
-        End = _builder.Length,
-        HasValue = true
+        start = frame.treeOutputStart,
+        end = _builder.Length,
+        hasValue = true
       };
 
       if (_treeDepth == 0) {
-        pending.Index = _rootTreeCount;
+        pending.index = _rootTreeCount;
         _rootTree = pending;
         _rootTreeCount++;
       } else {
         ref var parent = ref CurrentTreeFrame;
-        pending.Index = parent.ChildCount;
-        parent.PendingChild = pending;
-        parent.ChildCount++;
+        pending.index = parent.childCount;
+        parent.pendingChild = pending;
+        parent.childCount++;
       }
     }
 
     private void RecordCompletedProperty(Frame frame) {
       var pending = new PendingItem {
-        Start = frame.ItemOutputStart,
-        End = _builder.Length,
-        HasValue = true
+        start = frame.itemOutputStart,
+        end = _builder.Length,
+        hasValue = true
       };
       if (_treeDepth == 0) {
-        pending.Index = _rootPropertyCount;
+        pending.index = _rootPropertyCount;
         _rootProperty = pending;
         _rootPropertyCount++;
       } else {
         ref var owner = ref CurrentTreeFrame;
-        pending.Index = owner.PropertyCount;
-        owner.PendingProperty = pending;
-        owner.PropertyCount++;
+        pending.index = owner.propertyCount;
+        owner.pendingProperty = pending;
+        owner.propertyCount++;
       }
     }
 
     private bool OwnerPropertiesFinalized =>
-      _treeDepth == 0 ? _rootPropertiesFinalized : CurrentTreeFrame.PropertiesFinalized;
+      _treeDepth == 0 ? _rootPropertiesFinalized : CurrentTreeFrame.propertiesFinalized;
 
     private void PrepareOwnerForChildren() {
-      if (_treeDepth == 0) {
-        FinalizeProperties(ref _rootPropertyCount, ref _rootPropertiesFinalized);
-      } else {
+      if (_treeDepth == 0) FinalizeProperties(ref _rootPropertyCount, ref _rootPropertiesFinalized);
+      else {
         ref var owner = ref CurrentTreeFrame;
-        FinalizeProperties(ref owner.PropertyCount, ref owner.PropertiesFinalized);
+        FinalizeProperties(ref owner.propertyCount, ref owner.propertiesFinalized);
       }
     }
 
@@ -389,9 +351,10 @@ namespace HELIX.Prose {
 
     private ref Frame CurrentTreeFrame {
       get {
-        for (var i = _frameCount - 1; i >= 0; i--)
-          if (_frames[i].Scope is ProseTree)
+        for (var i = _frameCount - 1; i >= 0; i--) {
+          if (_frames[i].scope is ProseTree)
             return ref _frames[i];
+        }
         throw new InvalidOperationException("No active Prose tree frame.");
       }
     }
@@ -417,9 +380,9 @@ namespace HELIX.Prose {
           break;
         case LinePrefixKind.PropertyValue:
           if (PropertyValueAlignsLine() && _column < _propertyValueColumn) {
-            _builder.Append(AlignmentStart);
+            _builder.Append(_alignmentStart);
             AppendSpaces(_propertyValueColumn - _column);
-            _builder.Append(AlignmentEnd);
+            _builder.Append(_alignmentEnd);
           }
           break;
       }
@@ -487,8 +450,9 @@ namespace HELIX.Prose {
       }
     }
 
-    private bool Includes(ProseLevel level) =>
-      level != ProseLevel.Hidden && level != ProseLevel.Off && level >= MinimumLevel;
+    private bool Includes(ProseLevel level) {
+      return level != ProseLevel.Hidden && level != ProseLevel.Off && level >= MinimumLevel;
+    }
 
     private int DeferredLinePrefixWidth {
       get {
@@ -503,7 +467,7 @@ namespace HELIX.Prose {
 
         var propertyFrame = FindFrame<ProseProperty>();
         if (propertyFrame < 0) return width;
-        var propertyLineMatching = CurrentLineMatching(_frames[propertyFrame].ItemOutputStart);
+        var propertyLineMatching = CurrentLineMatching(_frames[propertyFrame].itemOutputStart);
         var propertyMatching = CurrentPropertyMatching();
         if ((propertyLineMatching & LineMatching.First) != 0) {
           _evaluationBuilder.Clear();
@@ -518,7 +482,7 @@ namespace HELIX.Prose {
 
         var valueFrame = FindFrame<ProsePropertyValue>();
         if (valueFrame < 0) return width;
-        var valueLineMatching = CurrentLineMatching(_frames[valueFrame].ItemOutputStart);
+        var valueLineMatching = CurrentLineMatching(_frames[valueFrame].itemOutputStart);
         if ((valueLineMatching & LineMatching.First) != 0) {
           _evaluationBuilder.Clear();
           Configuration.PropertyValue.AppendPrefix(
@@ -537,21 +501,23 @@ namespace HELIX.Prose {
     }
 
     private int FindFrame<TScope>() where TScope : IProseScope {
-      for (var i = _frameCount - 1; i >= 0; i--)
-        if (_frames[i].Scope is TScope)
+      for (var i = _frameCount - 1; i >= 0; i--) {
+        if (_frames[i].scope is TScope)
           return i;
+      }
       return -1;
     }
 
     private TextMatching CurrentPropertyMatching() {
-      var index = _treeDepth == 0 ? _rootPropertyCount : CurrentTreeFrame.PropertyCount;
+      var index = _treeDepth == 0 ? _rootPropertyCount : CurrentTreeFrame.propertyCount;
       return ItemMatching(index, false, false);
     }
 
     private LineMatching CurrentLineMatching(int itemStart) {
-      for (var i = _builder.Length - 1; i >= itemStart; i--)
+      for (var i = _builder.Length - 1; i >= itemStart; i--) {
         if (IsLineBreak(_builder[i]))
-          return _builder[i] == HardLineBreak ? LineMatching.Hard : LineMatching.None;
+          return IsHardLineBreak(_builder[i]) ? LineMatching.Hard : LineMatching.None;
+      }
       return LineMatching.First | LineMatching.Hard;
     }
 
@@ -566,61 +532,75 @@ namespace HELIX.Prose {
              (boundary | LineBreakMode.Align);
     }
 
-    private bool IsSuppressed(int frameIndex) => _frames[frameIndex].OutputStart < 0;
-    private static bool IsSuppressedFrame(Frame frame) => frame.OutputStart < 0;
-    private bool IsInactive(int frameIndex) => IsSuppressed(frameIndex) || _frames[frameIndex].Truncated;
+    private bool IsSuppressed(int frameIndex) {
+      return _frames[frameIndex].outputStart < 0;
+    }
 
-    private bool IsWritingInactive() => _frameCount > 0 && IsFrameOrAncestorInactive(_frameCount - 1);
+    private static bool IsSuppressedFrame(Frame frame) {
+      return frame.outputStart < 0;
+    }
+
+    private bool IsInactive(int frameIndex) {
+      return IsSuppressed(frameIndex) || _frames[frameIndex].truncated;
+    }
+
+    private bool IsWritingInactive() {
+      return _frameCount > 0 && IsFrameOrAncestorInactive(_frameCount - 1);
+    }
 
     private bool IsFrameOrAncestorInactive(int frameIndex) {
-      for (var i = frameIndex; i >= 0; i--)
+      for (var i = frameIndex; i >= 0; i--) {
         if (IsInactive(i))
           return true;
+      }
       return false;
     }
 
     private void SuppressCurrentFrame() {
       var index = _frameCount - 1;
       var frame = _frames[index];
-      if (frame.OutputStart < 0) return;
-      _builder.Length = frame.OutputStart;
-      _column = frame.StartColumn;
-      _lineHasContent = frame.StartLineHasContent;
-      _linePrefixKind = frame.StartLinePrefixKind;
-      _linePrefixTreeDepth = frame.StartLinePrefixTreeDepth;
-      _linePrefixWritten = frame.StartLinePrefixWritten;
-      _pendingLineBreakKind = frame.StartPendingLineBreakKind;
-      _propertyValueColumn = frame.StartPropertyValueColumn;
-      frame.OutputStart = -1;
+      if (frame.outputStart < 0) return;
+      _builder.Length = frame.outputStart;
+      _column = frame.startColumn;
+      _lineHasContent = frame.startLineHasContent;
+      _linePrefixKind = frame.startLinePrefixKind;
+      _linePrefixTreeDepth = frame.startLinePrefixTreeDepth;
+      _linePrefixWritten = frame.startLinePrefixWritten;
+      _pendingLineBreakKind = frame.startPendingLineBreakKind;
+      _propertyValueColumn = frame.startPropertyValueColumn;
+      frame.outputStart = -1;
       _frames[index] = frame;
-      if (frame.Scope is ProseTree) SetOwnerPropertiesFinalized(frame.OwnerPropertiesWereFinalized);
+      if (frame.scope is ProseTree) SetOwnerPropertiesFinalized(frame.ownerPropertiesWereFinalized);
     }
 
     private void SetOwnerPropertiesFinalized(bool value) {
       if (_treeDepth <= 1) _rootPropertiesFinalized = value;
       else {
-        for (var i = _frameCount - 2; i >= 0; i--)
-          if (_frames[i].Scope is ProseTree) {
-            _frames[i].PropertiesFinalized = value;
+        for (var i = _frameCount - 2; i >= 0; i--) {
+          if (_frames[i].scope is ProseTree) {
+            _frames[i].propertiesFinalized = value;
             return;
           }
+        }
       }
     }
 
     private void RestoreLineState(Frame frame) {
-      _linePrefixKind = frame.StartLinePrefixKind;
-      _linePrefixTreeDepth = frame.StartLinePrefixTreeDepth;
-      _propertyValueColumn = frame.StartPropertyValueColumn;
-      _linePrefixWritten = _column != 0 && frame.StartLinePrefixWritten;
-      _pendingLineBreakKind = frame.StartPendingLineBreakKind;
+      _linePrefixKind = frame.startLinePrefixKind;
+      _linePrefixTreeDepth = frame.startLinePrefixTreeDepth;
+      _propertyValueColumn = frame.startPropertyValueColumn;
+      _linePrefixWritten = _column != 0 && frame.startLinePrefixWritten;
+      _pendingLineBreakKind = frame.startPendingLineBreakKind;
     }
 
-    private void EnsureNewLine() => AppendLineBreak(false, LineBreakKind.Semantic);
+    private void EnsureNewLine() {
+      AppendLineBreak(false, LineBreakKind.Semantic);
+    }
 
     private void AppendLineBreak(bool force, LineBreakKind kind) {
       if (!force && !_lineHasContent) return;
       TrimCurrentLineEnd();
-      _builder.Append(kind == LineBreakKind.Wrapped ? SoftLineBreak : HardLineBreak);
+      _builder.Append(kind == LineBreakKind.Wrapped ? _softLineBreak : _hardLineBreak);
       _column = 0;
       _lineHasContent = false;
       if (_linePrefixKind is LinePrefixKind.RootName or LinePrefixKind.TreeName)
@@ -667,7 +647,7 @@ namespace HELIX.Prose {
       frameIndex = FindModifierFrame<AllowTruncate>();
       if (frameIndex < 0) return false;
       var frame = _frames[frameIndex];
-      remaining = MaxTruncatableFrameLength - (_builder.Length - frame.OutputStart);
+      remaining = MaxTruncatableFrameLength - (_builder.Length - frame.outputStart);
       if (length <= remaining) return false;
       if (remaining < 0) remaining = 0;
       return true;
@@ -675,11 +655,11 @@ namespace HELIX.Prose {
 
     private void MarkTruncated(int frameIndex) {
       var frame = _frames[frameIndex];
-      if (frame.Truncated) return;
+      if (frame.truncated) return;
       _builder.Append('…');
       _column++;
       _lineHasContent = true;
-      frame.Truncated = true;
+      frame.truncated = true;
       _frames[frameIndex] = frame;
     }
 
@@ -707,7 +687,7 @@ namespace HELIX.Prose {
       if (_treeDepth == 0) FinalizePending(ref _rootProperty, Configuration.Property, last);
       else {
         ref var owner = ref CurrentTreeFrame;
-        FinalizePending(ref owner.PendingProperty, Configuration.Property, last);
+        FinalizePending(ref owner.pendingProperty, Configuration.Property, last);
       }
     }
 
@@ -715,21 +695,31 @@ namespace HELIX.Prose {
       if (_treeDepth == 0) FinalizePending(ref _rootTree, Configuration.Tree, last);
       else {
         ref var owner = ref CurrentTreeFrame;
-        FinalizePending(ref owner.PendingChild, Configuration.Tree, last);
+        FinalizePending(ref owner.pendingChild, Configuration.Tree, last);
       }
     }
 
-    private void FinalizePending(ref PendingItem pending, ItemAnchors anchors, bool last) {
-      if (!pending.HasValue) return;
+    private void FinalizePending(ref PendingItem pending, PTNodeFormat format, bool last) {
+      if (!pending.hasValue) return;
       FormatRange(
-        anchors, pending.Start, pending.End,
-        ItemMatching(pending.Index, last, pending.Start == pending.End)
+        format, pending.start, pending.end,
+        ItemMatching(pending.index, last, pending.start == pending.end)
       );
       pending = default;
     }
 
-    private void FormatRange(ItemAnchors anchors, int start, int end, TextMatching matching) {
-      var formatted = FormatItem(anchors, _builder.ToString(start, end - start), matching);
+    private void FormatRange(PTNodeFormat format, int start, int end, TextMatching matching) {
+      var formatted = FormatItem(format, _builder.ToString(start, end - start), matching);
+      if (start > 0 && IsLineBreak(_builder[start - 1]) &&
+          formatted.Length > 0 && formatted[0] == _requiredLineBreak) {
+        _builder[start - 1] = _requiredLineBreak;
+        formatted = formatted[1..];
+      }
+      if (end < _builder.Length && IsLineBreak(_builder[end]) &&
+          formatted.Length > 0 && formatted[^1] == _requiredLineBreak) {
+        _builder[end] = _requiredLineBreak;
+        formatted = formatted[..^1];
+      }
       _builder.Remove(start, end - start);
       _builder.Insert(start, formatted);
       RecalculateLineState();
@@ -737,16 +727,17 @@ namespace HELIX.Prose {
 
     private void RecalculateLineState() {
       var lastBreak = -1;
-      for (var i = _builder.Length - 1; i >= 0; i--)
+      for (var i = _builder.Length - 1; i >= 0; i--) {
         if (IsLineBreak(_builder[i])) {
           lastBreak = i;
           break;
         }
+      }
       _column = 0;
       var hasSuffixRepeat = false;
       for (var i = lastBreak + 1; i < _builder.Length; i++) {
-        if (_builder[i] == SuffixRepeatStart && i + 2 < _builder.Length &&
-            _builder[i + 2] == SuffixRepeatEnd) {
+        if (_builder[i] == _suffixRepeatStart && i + 2 < _builder.Length &&
+            _builder[i + 2] == _suffixRepeatEnd) {
           hasSuffixRepeat = true;
           i += 2;
         } else if (!IsDecorationMarker(_builder[i])) _column++;
@@ -756,35 +747,37 @@ namespace HELIX.Prose {
       _linePrefixWritten = _lineHasContent;
     }
 
-    private string FormatItem(ItemAnchors anchors, string inner, TextMatching matching) {
+    private string FormatItem(PTNodeFormat itemFormat, string inner, TextMatching matching) {
       var replacement = new StringBuilder();
-      if (anchors.AppendReplacement(replacement, matching)) inner = replacement.ToString();
+      if (itemFormat.AppendReplacement(replacement, matching)) inner = replacement.ToString();
 
       var item = new StringBuilder();
-      anchors.AppendPrefix(item, matching);
+      itemFormat.AppendPrefix(item, matching);
       item.Append(inner);
       _evaluationBuilder.Clear();
-      anchors.AppendSuffix(_evaluationBuilder, matching);
-      AppendSuffix(item, _evaluationBuilder, anchors.SuffixRepeater);
+      itemFormat.AppendSuffix(_evaluationBuilder, matching);
+      AppendSuffix(item, _evaluationBuilder, itemFormat.SuffixRepeater);
       var value = ToInternalText(item.ToString());
-      if (value.Length == 0 && anchors.LineBreak.Count == 0) return value;
+      if (value.Length == 0 && itemFormat.LineBreak.Count == 0) return value;
       var result = new StringBuilder(value.Length);
       var lineStart = 0;
       var lineIndex = 0;
       var prefixAllowed = true;
+      var ensureLineBreakBefore = false;
+      var ensureLineBreakAfter = false;
       while (lineStart <= value.Length) {
         var lineEnd = IndexOfLineBreak(value, lineStart);
         var isLast = lineEnd < 0 || lineEnd == value.Length - 1;
-        var lineMatching = lineIndex == 0 || value[lineStart - 1] == HardLineBreak
+        var lineMatching = lineIndex == 0 || IsHardLineBreak(value[lineStart - 1])
           ? LineMatching.Hard
           : LineMatching.None;
         if (lineIndex == 0) lineMatching |= LineMatching.First;
         if (isLast) lineMatching |= LineMatching.Last;
         var contentEnd = lineEnd < 0 ? value.Length : lineEnd;
         var contentStart = lineStart;
-        if (prefixAllowed && contentStart < contentEnd && value[contentStart] == AlignmentStart) {
+        if (prefixAllowed && contentStart < contentEnd && value[contentStart] == _alignmentStart) {
           var alignmentEnd = value.IndexOf(
-            AlignmentEnd, contentStart + 1, contentEnd - contentStart - 1
+            _alignmentEnd, contentStart + 1, contentEnd - contentStart - 1
           );
           if (alignmentEnd >= 0) {
             result.Append(value, contentStart + 1, alignmentEnd - contentStart - 1);
@@ -793,11 +786,11 @@ namespace HELIX.Prose {
         }
         if (prefixAllowed) {
           _evaluationBuilder.Clear();
-          anchors.AppendLinePrefix(_evaluationBuilder, matching, lineMatching);
+          itemFormat.AppendLinePrefix(_evaluationBuilder, matching, lineMatching);
           if (_evaluationBuilder.Length > 0) {
-            result.Append(LinePrefixStart);
+            result.Append(_linePrefixStart);
             result.Append(ToInternalText(_evaluationBuilder.ToString()));
-            result.Append(LinePrefixEnd);
+            result.Append(_linePrefixEnd);
           }
         }
         if (!prefixAllowed) contentStart = SkipLineDecorations(value, contentStart, contentEnd);
@@ -806,16 +799,34 @@ namespace HELIX.Prose {
         var breakMatching = lineMatching;
         var boundary = LineBreakMode.Item;
         if (lineEnd >= 0) {
-          boundary = value[lineEnd] == HardLineBreak ? LineBreakMode.Hard : LineBreakMode.Wrap;
+          boundary = IsHardLineBreak(value[lineEnd]) ? LineBreakMode.Hard : LineBreakMode.Wrap;
           if (boundary == LineBreakMode.Hard) breakMatching |= LineMatching.Hard;
         }
-        var mode = anchors.EvaluateLineBreak(matching, breakMatching);
-        prefixAllowed = (mode & boundary) != 0;
-        if (prefixAllowed)
-          result.Append(boundary == LineBreakMode.Wrap ? SoftLineBreak : HardLineBreak);
+        var mode = itemFormat.EvaluateLineBreak(matching, breakMatching);
+        if (lineIndex == 0) ensureLineBreakBefore = (mode & LineBreakMode.Pre) != 0;
+        if (isLast) ensureLineBreakAfter = (mode & LineBreakMode.Post) != 0;
+        prefixAllowed = (lineEnd >= 0 && value[lineEnd] == _requiredLineBreak) ||
+                        (mode & boundary) != 0;
+        if (prefixAllowed) {
+          result.Append(
+            lineEnd >= 0 && value[lineEnd] == _requiredLineBreak
+              ? _requiredLineBreak
+              : boundary == LineBreakMode.Wrap
+                ? _softLineBreak
+                : _hardLineBreak
+          );
+        }
         if (isLast) break;
         lineStart = lineEnd + 1;
         lineIndex++;
+      }
+      if (ensureLineBreakBefore) {
+        if (result.Length > 0 && IsLineBreak(result[0])) result[0] = _requiredLineBreak;
+        else result.Insert(0, _requiredLineBreak);
+      }
+      if (ensureLineBreakAfter) {
+        if (result.Length > 0 && IsLineBreak(result[^1])) result[^1] = _requiredLineBreak;
+        else result.Append(_requiredLineBreak);
       }
       return result.ToString();
     }
@@ -829,27 +840,34 @@ namespace HELIX.Prose {
 
       var position = repeater >= 0 && repeater < suffix.Length ? repeater : 0;
       item.Append(suffix, 0, position + 1);
-      item.Append(SuffixRepeatStart);
+      item.Append(_suffixRepeatStart);
       item.Append(suffix[position]);
-      item.Append(SuffixRepeatEnd);
+      item.Append(_suffixRepeatEnd);
       item.Append(suffix, position + 1, suffix.Length - position - 1);
     }
 
-    private static bool IsLineBreak(char value) => value == HardLineBreak || value == SoftLineBreak;
+    private static bool IsLineBreak(char value) {
+      return value is _hardLineBreak or _softLineBreak or _requiredLineBreak;
+    }
+
+    private static bool IsHardLineBreak(char value) {
+      return value is _hardLineBreak or _requiredLineBreak;
+    }
 
     private static int IndexOfLineBreak(string value, int start) {
-      for (var i = start; i < value.Length; i++)
+      for (var i = start; i < value.Length; i++) {
         if (IsLineBreak(value[i]))
           return i;
+      }
       return -1;
     }
 
     private static int SkipLineDecorations(string value, int start, int end) {
       while (start < end) {
-        var decorationEnd = value[start] == LinePrefixStart
-          ? LinePrefixEnd
-          : value[start] == AlignmentStart
-            ? AlignmentEnd
+        var decorationEnd = value[start] == _linePrefixStart
+          ? _linePrefixEnd
+          : value[start] == _alignmentStart
+            ? _alignmentEnd
             : '\0';
         if (decorationEnd == '\0') break;
         var position = value.IndexOf(decorationEnd, start + 1, end - start - 1);
@@ -859,10 +877,12 @@ namespace HELIX.Prose {
       return start;
     }
 
-    private string ToInternalText(string value) => value
-      .Replace("\r\n", HardLineBreak.ToString())
-      .Replace("\r", HardLineBreak.ToString())
-      .Replace("\n", HardLineBreak.ToString());
+    private string ToInternalText(string value) {
+      return value
+        .Replace("\r\n", _hardLineBreak.ToString())
+        .Replace("\r", _hardLineBreak.ToString())
+        .Replace("\n", _hardLineBreak.ToString());
+    }
 
     private string ToExternalText(string value) {
       var result = new StringBuilder(value.Length);
@@ -874,8 +894,8 @@ namespace HELIX.Prose {
         var remaining = Math.Max(0, WrapWidth - visibleWidth);
         for (var i = lineStart; i < lineEnd; i++) {
           var character = value[i];
-          if (character == SuffixRepeatStart && i + 2 < lineEnd &&
-              value[i + 2] == SuffixRepeatEnd) {
+          if (character == _suffixRepeatStart && i + 2 < lineEnd &&
+              value[i + 2] == _suffixRepeatEnd) {
             result.Append(value[i + 1], remaining);
             remaining = 0;
             i += 2;
@@ -891,7 +911,7 @@ namespace HELIX.Prose {
     private static int VisibleWidth(string value, int start, int end) {
       var width = 0;
       for (var i = start; i < end; i++) {
-        if (value[i] == SuffixRepeatStart && i + 2 < end && value[i + 2] == SuffixRepeatEnd) {
+        if (value[i] == _suffixRepeatStart && i + 2 < end && value[i + 2] == _suffixRepeatEnd) {
           i += 2;
           continue;
         }
@@ -900,14 +920,17 @@ namespace HELIX.Prose {
       return width;
     }
 
-    private static bool IsDecorationMarker(char value) => value is LinePrefixStart or LinePrefixEnd or AlignmentStart
-      or AlignmentEnd or SuffixRepeatStart or SuffixRepeatEnd;
+    private static bool IsDecorationMarker(char value) {
+      return value is _linePrefixStart or _linePrefixEnd or _alignmentStart
+        or _alignmentEnd or _suffixRepeatStart or _suffixRepeatEnd;
+    }
 
     private bool MatchesAt(string value, int position) {
       if (position < 0 || position + value.Length > _builder.Length) return false;
-      for (var i = 0; i < value.Length; i++)
+      for (var i = 0; i < value.Length; i++) {
         if (_builder[position + i] != value[i])
           return false;
+      }
       return true;
     }
 
@@ -924,19 +947,21 @@ namespace HELIX.Prose {
     }
 
     private bool HasModifier<TModifier>() where TModifier : IProseModifier {
-      for (var i = _modifierCount - 1; i >= 0; i--)
+      for (var i = _modifierCount - 1; i >= 0; i--) {
         if (_modifiers[i] is TModifier)
           return true;
+      }
       return false;
     }
 
     private int FindModifierFrame<TModifier>() where TModifier : IProseModifier {
       for (var frameIndex = _frameCount - 1; frameIndex >= 0; frameIndex--) {
-        var start = _frames[frameIndex].ModifierStart;
-        var end = frameIndex + 1 < _frameCount ? _frames[frameIndex + 1].ModifierStart : _modifierCount;
-        for (var modifierIndex = end - 1; modifierIndex >= start; modifierIndex--)
+        var start = _frames[frameIndex].modifierStart;
+        var end = frameIndex + 1 < _frameCount ? _frames[frameIndex + 1].modifierStart : _modifierCount;
+        for (var modifierIndex = end - 1; modifierIndex >= start; modifierIndex--) {
           if (_modifiers[modifierIndex] is TModifier)
             return frameIndex;
+        }
       }
       return -1;
     }

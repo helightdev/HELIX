@@ -57,22 +57,22 @@ namespace HELIX.Tests {
     [Test]
     public void PlainTextWriter_AlignsBeforeTheValueContinuationPrefix() {
       var configuration = new ProsePlainTextConfiguration(
-        root: new ItemAnchors(lineBreak: NonTerminatingLineBreaks()),
-        property: new ItemAnchors(
-          linePrefix: new[] {
-            new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, "• "),
-            new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, "  ")
+        root: new PTNodeFormat(lines: NonTerminatingLineBreaks()),
+        property: new PTNodeFormat(
+          indent: new[] {
+            new PTIndentRule(TextMatching.None, LineMatching.First, 0, "• "),
+            new PTIndentRule(TextMatching.None, LineMatching.None, 0, "  ")
           },
-          lineBreak: EnabledLineBreaks()
+          lines: EnabledLineBreaks()
         ),
-        propertyValue: new ItemAnchors(
-          prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, ": ") },
-          linePrefix: new[] {
-            new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, ""),
-            new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, "↳ ")
+        propertyValue: new PTNodeFormat(
+          prefix: new[] { new PTStringRule(TextMatching.None, 0, ": ") },
+          indent: new[] {
+            new PTIndentRule(TextMatching.None, LineMatching.First, 0, ""),
+            new PTIndentRule(TextMatching.None, LineMatching.None, 0, "↳ ")
           },
-          lineBreak: new[] {
-            new LineBreakEvaluationEntry(
+          lines: new[] {
+            new PTLineRule(
               TextMatching.None,
               LineMatching.None,
               0,
@@ -98,8 +98,8 @@ namespace HELIX.Tests {
       var configured = new ProsePlainTextWriter(
         wrapWidth: 7,
         configuration: new ProsePlainTextConfiguration(
-          root: new ItemAnchors(
-            suffix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, "==]") },
+          root: new PTNodeFormat(
+            suffix: new[] { new PTStringRule(TextMatching.None, 0, "==]") },
             suffixRepeater: 1
           )
         )
@@ -110,8 +110,8 @@ namespace HELIX.Tests {
       var fallback = new ProsePlainTextWriter(
         wrapWidth: 5,
         configuration: new ProsePlainTextConfiguration(
-          root: new ItemAnchors(
-            suffix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, "ab") },
+          root: new PTNodeFormat(
+            suffix: new[] { new PTStringRule(TextMatching.None, 0, "ab") },
             suffixRepeater: 99
           )
         )
@@ -122,8 +122,8 @@ namespace HELIX.Tests {
       var absent = new ProsePlainTextWriter(
         wrapWidth: 5,
         configuration: new ProsePlainTextConfiguration(
-          root: new ItemAnchors(
-            suffix: new[] { new AnchorEvaluationEntry(TextMatching.Odd, 0, "==]") },
+          root: new PTNodeFormat(
+            suffix: new[] { new PTStringRule(TextMatching.Odd, 0, "==]") },
             suffixRepeater: 0
           )
         )
@@ -205,25 +205,25 @@ namespace HELIX.Tests {
     [Test]
     public void PlainTextWriter_ConfiguresLineBreaksAndContinuationPrefixes() {
       var configuration = new ProsePlainTextConfiguration(
-        root: new ItemAnchors(
-          linePrefix: new[] {
-            new LineEvaluationEntry(TextMatching.None, LineMatching.First, 1, ""),
-            new LineEvaluationEntry(TextMatching.None, LineMatching.Hard, 0, "! ")
+        root: new PTNodeFormat(
+          indent: new[] {
+            new PTIndentRule(TextMatching.None, LineMatching.First, 1, ""),
+            new PTIndentRule(TextMatching.None, LineMatching.Hard, 0, "! ")
           },
-          lineBreak: NonTerminatingLineBreaks()
+          lines: NonTerminatingLineBreaks()
         ),
-        property: new ItemAnchors(
-          linePrefix: new[] {
-            new LineEvaluationEntry(TextMatching.None, LineMatching.First, 0, ""),
-            new LineEvaluationEntry(TextMatching.None, LineMatching.Hard, 0, "! "),
-            new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, "> ")
+        property: new PTNodeFormat(
+          indent: new[] {
+            new PTIndentRule(TextMatching.None, LineMatching.First, 0, ""),
+            new PTIndentRule(TextMatching.None, LineMatching.Hard, 0, "! "),
+            new PTIndentRule(TextMatching.None, LineMatching.None, 0, "> ")
           },
-          lineBreak: EnabledLineBreaks()
+          lines: EnabledLineBreaks()
         ),
-        propertyValue: new ItemAnchors(
-          prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, ": ") },
-          lineBreak: new[] {
-            new LineBreakEvaluationEntry(
+        propertyValue: new PTNodeFormat(
+          prefix: new[] { new PTStringRule(TextMatching.None, 0, ": ") },
+          lines: new[] {
+            new PTLineRule(
               TextMatching.None, LineMatching.None, 0, LineBreakMode.Wrap | LineBreakMode.Hard
             )
           }
@@ -245,24 +245,24 @@ namespace HELIX.Tests {
     [Test]
     public void PlainTextWriter_InjectsConditionalAndMandatoryPropertyContent() {
       var configuration = new ProsePlainTextConfiguration(
-        root: new ItemAnchors(
+        root: new PTNodeFormat(
           prefix: new[] {
-            new AnchorEvaluationEntry(TextMatching.Empty, 0, ""),
-            new AnchorEvaluationEntry(TextMatching.None, 0, "[")
+            new PTStringRule(TextMatching.Empty, 0, ""),
+            new PTStringRule(TextMatching.None, 0, "[")
           },
           suffix: new[] {
-            new AnchorEvaluationEntry(TextMatching.Empty, 0, "!"),
-            new AnchorEvaluationEntry(TextMatching.None, 0, "]!")
+            new PTStringRule(TextMatching.Empty, 0, "!"),
+            new PTStringRule(TextMatching.None, 0, "]!")
           }
         ),
-        property: new ItemAnchors(
+        property: new PTNodeFormat(
           prefix: new[] {
-            new AnchorEvaluationEntry(TextMatching.First, 0, ""),
-            new AnchorEvaluationEntry(TextMatching.None, 0, ", ")
+            new PTStringRule(TextMatching.First, 0, ""),
+            new PTStringRule(TextMatching.None, 0, ", ")
           }
         ),
-        propertyValue: new ItemAnchors(
-          prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, ": ") }
+        propertyValue: new PTNodeFormat(
+          prefix: new[] { new PTStringRule(TextMatching.None, 0, ": ") }
         )
       );
       var populated = new ProsePlainTextWriter(configuration: configuration);
@@ -277,22 +277,22 @@ namespace HELIX.Tests {
     [Test]
     public void PlainTextWriter_InjectsChildContentOnlyWhenChildrenExist() {
       var configuration = new ProsePlainTextConfiguration(
-        root: new ItemAnchors(
+        root: new PTNodeFormat(
           prefix: new[] {
-            new AnchorEvaluationEntry(TextMatching.Empty, 0, ""),
-            new AnchorEvaluationEntry(TextMatching.None, 0, "<\n")
+            new PTStringRule(TextMatching.Empty, 0, ""),
+            new PTStringRule(TextMatching.None, 0, "<\n")
           },
           suffix: new[] {
-            new AnchorEvaluationEntry(TextMatching.Empty, 0, "!"),
-            new AnchorEvaluationEntry(TextMatching.None, 0, "!>!")
+            new PTStringRule(TextMatching.Empty, 0, "!"),
+            new PTStringRule(TextMatching.None, 0, "!>!")
           },
-          lineBreak: NonTerminatingLineBreaks()
+          lines: NonTerminatingLineBreaks()
         ),
-        treeName: new ItemAnchors(
-          lineBreak: EnabledLineBreaks()
+        treeName: new PTNodeFormat(
+          lines: EnabledLineBreaks()
         ),
-        tree: new ItemAnchors(
-          lineBreak: EnabledLineBreaks()
+        tree: new PTNodeFormat(
+          lines: EnabledLineBreaks()
         )
       );
       var populated = new ProsePlainTextWriter(configuration: configuration);
@@ -308,20 +308,20 @@ namespace HELIX.Tests {
     [Test]
     public void PlainTextWriter_EvaluatesCollectionStateLazilyAndPrioritiesAdditively() {
       var configuration = new ProsePlainTextConfiguration(
-        property: new ItemAnchors(
+        property: new PTNodeFormat(
           prefix: new[] {
-            new AnchorEvaluationEntry(TextMatching.First, 0, "["),
-            new AnchorEvaluationEntry(TextMatching.Odd, 1, ";"),
-            new AnchorEvaluationEntry(TextMatching.None, 0, ",")
+            new PTStringRule(TextMatching.First, 0, "["),
+            new PTStringRule(TextMatching.Odd, 1, ";"),
+            new PTStringRule(TextMatching.None, 0, ",")
           },
-          suffix: new[] { new AnchorEvaluationEntry(TextMatching.Last, 0, "]") },
+          suffix: new[] { new PTStringRule(TextMatching.Last, 0, "]") },
           replacement: new[] {
-            new AnchorEvaluationEntry(TextMatching.Odd, 0, "X"),
-            new AnchorEvaluationEntry(TextMatching.Last, 1, "Y")
+            new PTStringRule(TextMatching.Odd, 0, "X"),
+            new PTStringRule(TextMatching.Last, 1, "Y")
           }
         ),
-        propertyValue: new ItemAnchors(
-          prefix: new[] { new AnchorEvaluationEntry(TextMatching.None, 0, ": ") }
+        propertyValue: new PTNodeFormat(
+          prefix: new[] { new PTStringRule(TextMatching.None, 0, ": ") }
         )
       );
       var writer = new ProsePlainTextWriter(configuration: configuration);
@@ -335,8 +335,8 @@ namespace HELIX.Tests {
     [Test]
     public void PlainTextWriter_ReplacesEmptyItems() {
       var configuration = new ProsePlainTextConfiguration(
-        property: new ItemAnchors(
-          replacement: new[] { new AnchorEvaluationEntry(TextMatching.Empty, 0, "<empty>") }
+        property: new PTNodeFormat(
+          replacement: new[] { new PTStringRule(TextMatching.Empty, 0, "<empty>") }
         )
       );
       var writer = new ProsePlainTextWriter(configuration: configuration);
@@ -351,7 +351,7 @@ namespace HELIX.Tests {
     public void PlainTextWriter_ConfiguresLineBreaksPerItem() {
       var configured = new ProsePlainTextWriter(
         configuration: new ProsePlainTextConfiguration(
-          root: new ItemAnchors(lineBreak: NonTerminatingLineBreaks())
+          root: new PTNodeFormat(lines: NonTerminatingLineBreaks())
         )
       );
       configured.Write("first\nsecond\nthird");
@@ -366,15 +366,15 @@ namespace HELIX.Tests {
     [Test]
     public void PlainTextWriter_OnlyPrefixesLinesWhoseBoundaryIsEnabled() {
       var linePrefix = new[] {
-        new LineEvaluationEntry(TextMatching.None, LineMatching.First, 1, ""),
-        new LineEvaluationEntry(TextMatching.None, LineMatching.None, 0, "> ")
+        new PTIndentRule(TextMatching.None, LineMatching.First, 1, ""),
+        new PTIndentRule(TextMatching.None, LineMatching.None, 0, "> ")
       };
       var enabled = new ProsePlainTextWriter(
         configuration: new ProsePlainTextConfiguration(
-          root: new ItemAnchors(
-            linePrefix: linePrefix,
-            lineBreak: new[] {
-              new LineBreakEvaluationEntry(
+          root: new PTNodeFormat(
+            indent: linePrefix,
+            lines: new[] {
+              new PTLineRule(
                 TextMatching.None, LineMatching.None, 0, LineBreakMode.Hard
               )
             }
@@ -386,7 +386,7 @@ namespace HELIX.Tests {
 
       var disabled = new ProsePlainTextWriter(
         configuration: new ProsePlainTextConfiguration(
-          root: new ItemAnchors(linePrefix: linePrefix)
+          root: new PTNodeFormat(indent: linePrefix)
         )
       );
       disabled.Write("first\nsecond");
@@ -394,10 +394,10 @@ namespace HELIX.Tests {
 
       var nested = new ProsePlainTextWriter(
         configuration: new ProsePlainTextConfiguration(
-          property: new ItemAnchors(
-            linePrefix: linePrefix,
-            lineBreak: new[] {
-              new LineBreakEvaluationEntry(
+          property: new PTNodeFormat(
+            indent: linePrefix,
+            lines: new[] {
+              new PTLineRule(
                 TextMatching.None, LineMatching.None, 0, LineBreakMode.Hard
               )
             }
@@ -408,6 +408,199 @@ namespace HELIX.Tests {
       nested.Write("first\nsecond");
       nested.PopFrame();
       Assert.That(nested.Build(), Is.EqualTo("firstsecond"));
+    }
+
+    [Test]
+    public void AnchorFactory_BuildsReusableCommonAnchors() {
+      var item = PTRuleFactory.LineItem(
+        prefix: "[", suffix: "]", firstLinePrefix: ">", continuationPrefix: "|",
+        suffixRepeater: 0
+      );
+
+      Assert.That(item.Prefix[0].String, Is.EqualTo("["));
+      Assert.That(item.Suffix[0].String, Is.EqualTo("]"));
+      Assert.That(item.LinePrefix[0].LineMatching, Is.EqualTo(LineMatching.First));
+      Assert.That(item.LinePrefix[1].String, Is.EqualTo("|"));
+      Assert.That(item.SuffixRepeater, Is.Zero);
+      Assert.That(
+        item.LineBreak[0].Value,
+        Is.EqualTo(LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard)
+      );
+    }
+
+    [Test]
+    public void AnchorFactory_RejectsInvalidSuffixRepeater() {
+      Assert.That(() => new PTNodeFormat(suffixRepeater: -2), Throws.TypeOf<System.ArgumentOutOfRangeException>());
+    }
+
+    [Test]
+    public void AnchorFactory_SuppressesOnlyTheTerminalBoundary() {
+      var writer = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(
+          root: PTRuleFactory.Container(firstLinePrefix: "[", continuationPrefix: ">")
+        )
+      );
+      writer.Write("a\nb");
+
+      Assert.That(writer.Build(), Is.EqualTo("[a\n>b"));
+    }
+
+    [Test]
+    public void PlainTextWriter_ControlsHardWrapAndItemBreaksIndependently() {
+      var hardOnly = new ProsePlainTextWriter(
+        wrapWidth: 4,
+        configuration: new ProsePlainTextConfiguration(
+          root: PTRuleFactory.Item(lineBreaks: LineBreakMode.Hard)
+        )
+      );
+      hardOnly.Write("aa bb\ncc");
+      Assert.That(hardOnly.Build(), Is.EqualTo("aabb\ncc"));
+
+      var wrapOnly = new ProsePlainTextWriter(
+        wrapWidth: 4,
+        configuration: new ProsePlainTextConfiguration(
+          root: PTRuleFactory.Item(lineBreaks: LineBreakMode.Wrap)
+        )
+      );
+      wrapOnly.Write("aa bb\ncc");
+      Assert.That(wrapOnly.Build(), Is.EqualTo("aa\nbbcc"));
+    }
+
+    [Test]
+    public void PlainTextWriter_EnsuresPreAndPostLineBreaks() {
+      var writer = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(
+          root: PTRuleFactory.Item(
+            lineBreaks: LineBreakMode.Hard | LineBreakMode.Pre | LineBreakMode.Post
+          )
+        )
+      );
+
+      writer.Write("entry");
+      Assert.That(writer.Build(), Is.EqualTo("\nentry\n"));
+
+      writer.Reset();
+      writer.Write("\nentry\n");
+      Assert.That(writer.Build(), Is.EqualTo("\nentry\n"));
+    }
+
+    [Test]
+    public void PlainTextWriter_DoesNotDuplicateRequiredSiblingLineBreaks() {
+      var writer = new ProsePlainTextWriter(
+        configuration: new ProsePlainTextConfiguration(
+          property: PTRuleFactory.Item(
+            lineBreaks: LineBreakMode.Pre | LineBreakMode.Post
+          )
+        )
+      );
+
+      Prose.Prose.WriteProperty(writer, "A", 1, ProseIntFormatter.Instance);
+      Prose.Prose.WriteProperty(writer, "B", 2, ProseIntFormatter.Instance);
+
+      Assert.That(writer.Build(), Is.EqualTo("\nA1\nB2\n"));
+    }
+
+    [Test]
+    public void PlainTextWriter_AppliesFirstLastOddAndEmptyStates() {
+      var configuration = new ProsePlainTextConfiguration(
+        root: PTRuleFactory.Container(),
+        property: new PTNodeFormat(
+          prefix: new[] {
+            PTRuleFactory.Anchor("F", TextMatching.First),
+            PTRuleFactory.Anchor("O", TextMatching.Odd, 1),
+            PTRuleFactory.Anchor("N")
+          },
+          suffix: new[] { PTRuleFactory.Anchor("L", TextMatching.Last) },
+          replacement: new[] { PTRuleFactory.Anchor("E", TextMatching.Empty) },
+          lines: PTRuleFactory.LineBreaks(LineBreakMode.Item)
+        )
+      );
+      var writer = new ProsePlainTextWriter(configuration: configuration);
+      Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
+      writer.Write("a");
+      writer.PopFrame();
+      Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
+      writer.PopFrame();
+
+      Assert.That(writer.Build(), Is.EqualTo("Fa\nOEL"));
+    }
+
+    [Test]
+    public void PlainTextWriter_HonorsEachVisibilitySwitch() {
+      var hiddenNames = RenderVisibility(showTrees: true, showNames: false, showProperties: true);
+      Assert.That(hiddenNames, Does.Not.StartWith("Root\n").And.Not.Contain("`- Child\n"));
+      Assert.That(hiddenNames, Does.Contain("Value: 1").And.Contain("Child value: 2"));
+
+      var hiddenProperties = RenderVisibility(showTrees: true, showNames: true, showProperties: false);
+      Assert.That(hiddenProperties, Does.Contain("Root").And.Contain("Child"));
+      Assert.That(hiddenProperties, Does.Not.Contain("Value: 1").And.Not.Contain("Child value: 2"));
+
+      var hiddenTrees = RenderVisibility(showTrees: false, showNames: true, showProperties: true);
+      Assert.That(hiddenTrees, Does.Contain("Root").And.Contain("Value: 1"));
+      Assert.That(hiddenTrees, Does.Not.Contain("Child").And.Not.Contain("Child value: 2"));
+    }
+
+    [Test]
+    public void PlainTextConfigurations_ExposeAllFlutterStyles() {
+      var configurations = new[] {
+        ProsePlainTextConfigurations.Sparse,
+        ProsePlainTextConfigurations.Dashed,
+        ProsePlainTextConfigurations.Dense,
+        ProsePlainTextConfigurations.Transition,
+        ProsePlainTextConfigurations.Error,
+        ProsePlainTextConfigurations.Whitespace,
+        ProsePlainTextConfigurations.Flat,
+        ProsePlainTextConfigurations.SingleLine,
+        ProsePlainTextConfigurations.ErrorProperty,
+        ProsePlainTextConfigurations.Shallow
+      };
+
+      Assert.That(configurations, Has.All.Not.Null);
+      foreach (var configuration in configurations)
+        Assert.That(RenderConfiguration(configuration), Is.Not.Empty);
+    }
+
+    [Test]
+    public void PlainTextConfigurations_RenderSparseAndDashedConnectors() {
+      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Sparse), Does.Contain("└─Child"));
+      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Sparse), Does.Contain("│ Value: 1"));
+      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Dashed), Does.Contain("└╌Child"));
+      Assert.That(RenderConfiguration(ProsePlainTextConfigurations.Dashed), Does.Contain("│ Value: 1"));
+    }
+
+    [Test]
+    public void PlainTextConfigurations_RenderDenseAndSingleLineLayouts() {
+      Assert.That(
+        RenderConfiguration(ProsePlainTextConfigurations.Dense),
+        Is.EqualTo("Root(Value: 1)\n└Child(Child value: 2)")
+      );
+      Assert.That(
+        RenderConfiguration(ProsePlainTextConfigurations.SingleLine),
+        Is.EqualTo("Root(Value: 1)")
+      );
+    }
+
+    [Test]
+    public void PlainTextConfigurations_RenderErrorPropertyAndShallowWithoutChildren() {
+      Assert.That(
+        RenderConfiguration(ProsePlainTextConfigurations.ErrorProperty),
+        Is.EqualTo("Root:\n  (Value: 1)")
+      );
+      Assert.That(
+        RenderConfiguration(ProsePlainTextConfigurations.Shallow),
+        Is.EqualTo("Root:\n  Value: 1")
+      );
+    }
+
+    [Test]
+    public void PlainTextConfigurations_RenderBoxStyleSignatures() {
+      var transition = RenderConfiguration(ProsePlainTextConfigurations.Transition);
+      Assert.That(transition, Does.Contain("╘═╦══ Child ═══"));
+      Assert.That(transition, Does.Contain("╚═══════════"));
+
+      var error = RenderConfiguration(ProsePlainTextConfigurations.Error);
+      Assert.That(error, Does.StartWith("══╡ Root ╞"));
+      Assert.That(error, Does.EndWith("═════"));
     }
 
     [Test]
@@ -477,18 +670,33 @@ namespace HELIX.Tests {
       return writer.Build();
     }
 
-    private static LineBreakEvaluationEntry[] EnabledLineBreaks() => new[] {
-      new LineBreakEvaluationEntry(
+    private static string RenderVisibility(bool showTrees, bool showNames, bool showProperties) {
+      var configuration = new ProsePlainTextConfiguration(
+        root: PTRuleFactory.Container(),
+        rootName: PTRuleFactory.LineItem(),
+        treeName: PTRuleFactory.LineItem(),
+        property: PTRuleFactory.Property(),
+        propertyValue: PTRuleFactory.PropertyValue(),
+        tree: PTRuleFactory.Tree("+- ", "`- ", "|  ", "   "),
+        showTrees: showTrees,
+        showNames: showNames,
+        showProperties: showProperties
+      );
+      return RenderConfiguration(configuration);
+    }
+
+    private static PTLineRule[] EnabledLineBreaks() => new[] {
+      new PTLineRule(
         TextMatching.None, LineMatching.None, 0,
         LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard
       )
     };
 
-    private static LineBreakEvaluationEntry[] NonTerminatingLineBreaks() => new[] {
-      new LineBreakEvaluationEntry(
+    private static PTLineRule[] NonTerminatingLineBreaks() => new[] {
+      new PTLineRule(
         TextMatching.None, LineMatching.Last, 0, LineBreakMode.None
       ),
-      new LineBreakEvaluationEntry(
+      new PTLineRule(
         TextMatching.None, LineMatching.None, 0, LineBreakMode.Wrap | LineBreakMode.Hard
       )
     };

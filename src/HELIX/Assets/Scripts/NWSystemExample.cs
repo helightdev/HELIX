@@ -334,6 +334,74 @@ namespace HELIX.Examples {
         cx.Spacing(1);
         using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
           cx.Button(
+            static (ref Composition child) => child.Text("Flutter sparse"),
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Flutter sparse", ProsePlainTextConfigurations.Sparse
+            )
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Flutter dashed"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Flutter dashed", ProsePlainTextConfigurations.Dashed
+            )
+          );
+        }
+        cx.Spacing(1);
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Flutter dense"),
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Flutter dense", ProsePlainTextConfigurations.Dense
+            )
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Flutter transition"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Flutter transition", ProsePlainTextConfigurations.Transition
+            )
+          );
+        }
+        cx.Spacing(1);
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Flutter error"),
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Flutter error", ProsePlainTextConfigurations.Error
+            )
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Flutter single line"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Flutter single line", ProsePlainTextConfigurations.SingleLine
+            )
+          );
+        }
+        cx.Spacing(1);
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Flutter error property"),
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Flutter error property", ProsePlainTextConfigurations.ErrorProperty
+            )
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Flutter shallow"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static _ => DetailedProseExample.PrintPlainText(
+              "Flutter shallow", ProsePlainTextConfigurations.Shallow
+            )
+          );
+        }
+        cx.Spacing(1);
+        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+          cx.Button(
             static (ref Composition child) => child.Text("Current object only"),
             action: static _ => DetailedProseExample.PrintPlainText(
               "Current object only", ProsePlainTextConfigurations.CurrentObjectFlat
