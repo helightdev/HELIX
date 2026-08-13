@@ -120,6 +120,8 @@ namespace HELIX.Prose {
                                    scope is ProseParagraph or ProseCodeBlock or ProseList or ProseTable;
       _nextBlockFollowsHeading = false;
       PrepareCurrentProperty();
+      if (scope is ProseSectionHeader or ProseParagraph or ProseCodeBlock or ProseList or ProseTable)
+        FinalizePendingProperty(false);
       if (scope is ProseSectionHeader or ProseParagraph or ProseCodeBlock or ProseListItem or ProseTable)
         EnsureNewLine();
       var ownerPropertiesWereFinalized = false;

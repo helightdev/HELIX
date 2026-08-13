@@ -642,6 +642,31 @@ namespace HELIX.Tests {
     }
 
     [Test]
+    public void ErrorConfiguration_UsesExclamationPrefixOnlyForProperties() {
+      var writer = new ProseTextWriter(configuration: ProseTextConfigurations.Error);
+
+      Assert.That(writer.BeginFrame(ProseParagraph.Instance), Is.True);
+      writer.Write("Station narrative.");
+      writer.PopFrame();
+      Prose.Prose.WriteProperty(writer, "State", "Degraded", ProseStringFormatter.Instance);
+
+      Assert.That(writer.BeginFrame(ProseParagraph.Instance), Is.True);
+      Prose.Prose.WriteSpan(writer, "Operator note.", ProseTextStyle.Quote);
+      writer.PopFrame();
+      Prose.Prose.WriteProperty(writer, "Owner", "Operations", ProseStringFormatter.Instance);
+
+      Assert.That(
+        writer.Build(),
+        Is.EqualTo(
+          "\nStation narrative.\n\n" +
+          "! State: Degraded\n\n" +
+          "│ Operator note.\n\n" +
+          "! Owner: Operations"
+        )
+      );
+    }
+
+    [Test]
     public void DictionaryWriter_CapturesTheDataTreeAndIgnoresFormatters() {
       var writer = new ProseDictionaryWriter();
       Prose.Prose.WriteName(writer, "Person");

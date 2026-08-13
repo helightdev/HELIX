@@ -179,7 +179,7 @@ namespace HELIX.Prose {
     public PTTableFormat(
       string leftBorder = "| ", string columnSeparator = " | ", string rightBorder = " |",
       char headerFill = '-', int minimumColumnWidth = 3,
-      string lineBreakReplacement = "¶", PTNodeFormat format = null
+      string lineBreakReplacement = " ¶ ", PTNodeFormat format = null
     ) {
       if (minimumColumnWidth < 0) throw new ArgumentOutOfRangeException(nameof(minimumColumnWidth));
       LeftBorder = leftBorder ?? string.Empty;
@@ -490,28 +490,30 @@ namespace HELIX.Prose {
     /// <summary>A cleaned-up diagnostic tree with a clearly delimited root heading.</summary>
     public static readonly ProseTextConfiguration Error = new(
       root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.Line(prefix: "══ ", suffix: " ══", suffixRepeater: 1),
+      rootName: PTRuleFactory.Line(prefix: "== ", suffix: " ==", suffixRepeater: 1),
       treeName: PTRuleFactory.Line(),
-      property: PTRuleFactory.Property(firstLinePrefix: "! ", continuationPrefix: "  "),
+      property: PTRuleFactory.Property(firstLinePrefix: ": ", continuationPrefix: "  "),
       propertyValue: PTRuleFactory.PropertyValue(),
-      tree: PTRuleFactory.Tree("├─ ", "└─ ", "│  ", "   "),
+      tree: PTRuleFactory.Tree("|- ", "\\- ", "|  ", "   "),
       section: PTRuleFactory.Section(),
-      sectionHeader: PTRuleFactory.Line(prefix: "── ", suffix: " ──", suffixRepeater: 1),
-      paragraph: PTRuleFactory.IndentedMarkup("! ", "! "),
-      list: PTRuleFactory.Container(),
+      sectionHeader: PTRuleFactory.Line(prefix: "-- ", suffix: " --", suffixRepeater: 1),
+      paragraph: PTRuleFactory.PaddedBlock(),
+      list: PTRuleFactory.PaddedBlock(),
       listItem: PTRuleFactory.ListItem(),
-      emphasizedText: PTRuleFactory.Markup("‹", "›"),
-      strongText: PTRuleFactory.Markup("«", "»"),
-      codeText: PTRuleFactory.Markup("⟦", "⟧"),
-      quoteText: PTRuleFactory.IndentedMarkup("│ ", "│ "),
+      table: new PTTableFormat(format: PTRuleFactory.PaddedBlock()),
+      emphasizedText: PTRuleFactory.Markup("*", "*"),
+      strongText: PTRuleFactory.Markup("**", "**"),
+      codeText: PTRuleFactory.Markup("`", "`"),
+      quoteText: PTRuleFactory.IndentedMarkup("> ", "> "),
       errorText: PTRuleFactory.IndentedMarkup("‼ ", "  "),
       linkText: PTRuleFactory.Markup("<", ">"),
       linkTargetPrefix: " [",
       linkTargetSuffix: "]",
       codeBlock: new PTCodeBlockFormat(
-        prefix: "╭─ code: ", prefixSuffix: " ─", suffix: "╰─",
-        prefixFill: "─╮", prefixFillRepeater: 0,
-        suffixFill: "─╯", suffixFillRepeater: 0
+        format: PTRuleFactory.PaddedBlock(),
+        prefix: "/- ", prefixSuffix: " -", suffix: "\\-",
+        prefixFill: "-\\", prefixFillRepeater: 0,
+        suffixFill: "-/", suffixFillRepeater: 0
       )
     );
 

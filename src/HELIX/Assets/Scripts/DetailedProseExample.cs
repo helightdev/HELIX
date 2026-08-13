@@ -239,7 +239,7 @@ namespace HELIX.Examples {
         WriteSubsystemRow(writer, "Primary reactor", "Nominal", 91, "Power");
         WriteSubsystemRow(writer, "Reactor B", "Recovery", 43, "Power");
         WriteSubsystemRow(writer, "Coolant loop C17", "Isolated", 0, "Engineering");
-        WriteSubsystemRow(writer, "Relay array\nThis has a linebreak", "Operational but this is a very very long line, I don't know if it can actually handle this. Operational but this is a very very long line, I don't know if it can actually handle this.", 97, "Communications");
+        WriteSubsystemRow(writer, "Relay array\nThis has a linebreak", "Operational but this is a very very long line, I don't know if it can actually handle this.", 97, "Communications");
         WriteSubsystemRow(writer, "Relay array", "Operational", 97, "Communications");
       } finally {
         writer.PopFrame();
