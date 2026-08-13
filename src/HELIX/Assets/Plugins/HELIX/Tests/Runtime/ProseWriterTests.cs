@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using HELIX.Prose;
 using NUnit.Framework;
@@ -27,7 +28,7 @@ namespace HELIX.Tests {
 
       Assert.That(
         writer.Build(),
-        Is.EqualTo("Person\nAge: 12\n├─ Item 1\n└─ Subtree\n   └─ Subtree Item\nTail")
+        Is.EqualTo("Person\nAge: 12\n│\n├─ Item 1\n└─ Subtree\n   └─ Subtree Item\nTail")
       );
     }
 
@@ -44,14 +45,14 @@ namespace HELIX.Tests {
       writer.PopFrame();
       writer.PopFrame();
 
-      Assert.That(writer.Build(), Is.EqualTo("Key: one two\n three"));
+      Assert.That(writer.Build(), Is.EqualTo("Key: one two\n three\n\n"));
 
       writer.Reset();
       Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
       writer.PushModifier(NoWrap.Instance);
       writer.Write("one two three four");
       writer.PopFrame();
-      Assert.That(writer.Build(), Is.EqualTo("one two three four"));
+      Assert.That(writer.Build(), Is.EqualTo("one two three four\n\n"));
     }
 
     [Test]
@@ -142,7 +143,7 @@ namespace HELIX.Tests {
       writer.Write("ignored");
       writer.PopFrame();
 
-      Assert.That(writer.Build(), Is.EqualTo("abcde…"));
+      Assert.That(writer.Build(), Is.EqualTo("abcde…\n\n"));
     }
 
     [Test]
@@ -162,7 +163,7 @@ namespace HELIX.Tests {
 
       Assert.That(
         writer.Build(),
-        Is.EqualTo("└─ Parent\n   State: ready\n   ├─ First\n   └─ Last")
+        Is.EqualTo("└─ Parent\n   State: ready\n   │\n   ├─ First\n   └─ Last")
       );
     }
 
@@ -463,40 +464,6 @@ namespace HELIX.Tests {
     }
 
     [Test]
-    public void PlainTextWriter_EnsuresPreAndPostLineBreaks() {
-      var writer = new ProsePlainTextWriter(
-        configuration: new ProsePlainTextConfiguration(
-          root: PTRuleFactory.Block(
-            lineBreaks: LineBreakMode.Hard | LineBreakMode.Pre | LineBreakMode.Post
-          )
-        )
-      );
-
-      writer.Write("entry");
-      Assert.That(writer.Build(), Is.EqualTo("\nentry\n"));
-
-      writer.Reset();
-      writer.Write("\nentry\n");
-      Assert.That(writer.Build(), Is.EqualTo("\nentry\n"));
-    }
-
-    [Test]
-    public void PlainTextWriter_DoesNotDuplicateRequiredSiblingLineBreaks() {
-      var writer = new ProsePlainTextWriter(
-        configuration: new ProsePlainTextConfiguration(
-          property: PTRuleFactory.Block(
-            lineBreaks: LineBreakMode.Pre | LineBreakMode.Post
-          )
-        )
-      );
-
-      Prose.Prose.WriteProperty(writer, "A", 1, ProseIntFormatter.Instance);
-      Prose.Prose.WriteProperty(writer, "B", 2, ProseIntFormatter.Instance);
-
-      Assert.That(writer.Build(), Is.EqualTo("\nA1\nB2\n"));
-    }
-
-    [Test]
     public void PlainTextWriter_AppliesFirstLastOddAndEmptyStates() {
       var configuration = new ProsePlainTextConfiguration(
         root: PTRuleFactory.Container(),
@@ -606,22 +573,6 @@ namespace HELIX.Tests {
       );
 
       Assert.That(writer.Build(), Does.EndWith("inspection.)"));
-    }
-
-    [Test]
-    public void InlineProperties_CanTerminateBeforeAFollowingBody() {
-      var writer = new ProsePlainTextWriter(
-        configuration: new ProsePlainTextConfiguration(
-          root: PTRuleFactory.Container(),
-          rootName: PTRuleFactory.Block(),
-          property: PTRuleFactory.InlineProperties(trailingNewLine: true),
-          propertyValue: PTRuleFactory.PropertyValue()
-        )
-      );
-      Prose.Prose.WriteName(writer, "Root");
-      Prose.Prose.WriteProperty(writer, "Value", 1, ProseIntFormatter.Instance);
-
-      Assert.That(writer.Build(), Is.EqualTo("Root(Value: 1)\n"));
     }
 
     [Test]
@@ -810,6 +761,45 @@ namespace HELIX.Tests {
     }
 
     [Test]
+    public void PlainTextWriter_CopiesFormattedOutputToCallerOwnedSpan() {
+      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
+      Prose.Prose.WriteSpan(writer, "important", ProseTextStyle.Strong);
+
+      Assert.That(writer.FormattedLength, Is.EqualTo("**important**".Length));
+      Span<char> tooSmall = stackalloc char[4];
+      Assert.That(writer.TryCopyTo(tooSmall, out var rejectedLength), Is.False);
+      Assert.That(rejectedLength, Is.Zero);
+
+      Span<char> destination = stackalloc char[32];
+      Assert.That(writer.TryCopyTo(destination, out var charsWritten), Is.True);
+      Assert.That(new string(destination[..charsWritten]), Is.EqualTo("**important**"));
+    }
+
+    [Test]
+    public void PlainTextWriter_EmitsAtMostOneFullyBlankLineAtTheEnd() {
+      var writer = new ProsePlainTextWriter();
+      writer.Write("value\n\n\n\n");
+
+      Assert.That(writer.Build(), Is.EqualTo("value\n\n"));
+    }
+
+    [Test]
+    public void UnityRichTextWriter_DefaultConfigurationIncludesAnAsciiTree() {
+      var writer = new ProseUnityRichTextWriter();
+      Prose.Prose.WriteName(writer, "Root");
+      Prose.Prose.WriteProperty(writer, "Value", 1, ProseIntFormatter.Instance);
+      Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
+      Prose.Prose.WriteName(writer, "Child");
+      Prose.Prose.WriteProperty(writer, "Child value", 2, ProseIntFormatter.Instance);
+      writer.PopFrame();
+
+      Assert.That(
+        writer.Build(),
+        Is.EqualTo("Root\nValue: 1\n|\n\\- Child\n   Child value: 2\n\n")
+      );
+    }
+
+    [Test]
     public void UnityRichTextWriter_RendersSemanticMarkupLinksAndCodeBlocks() {
       var writer = new ProseUnityRichTextWriter();
 
@@ -867,7 +857,7 @@ namespace HELIX.Tests {
     public void PropertyFormatter_IsSemanticMacroOrNativeDataDescriptor() {
       var textWriter = new ProsePlainTextWriter();
       textWriter.Write(12, AgeFormatter);
-      Assert.That(textWriter.Build(), Is.EqualTo("Age: 12 years"));
+      Assert.That(textWriter.Build(), Is.EqualTo("Age: 12 years\n\n"));
 
       var dictionaryWriter = new ProseDictionaryWriter();
       dictionaryWriter.Write(12, AgeFormatter);

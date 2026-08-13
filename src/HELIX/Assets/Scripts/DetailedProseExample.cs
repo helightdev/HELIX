@@ -95,15 +95,18 @@ namespace HELIX.Examples {
       return writer.Build();
     }
 
+
+    private static readonly ProseUnityRichTextWriter _writer = new(
+      wrapWidth: 96,
+      minimumLevel: ProseLevel.Debug,
+      maxTruncatableFrameLength: 1024,
+      initialCapacity: 2048
+    );
+
     public static string RenderUnityRichText() {
-      var writer = new ProseUnityRichTextWriter(
-        wrapWidth: 96,
-        minimumLevel: ProseLevel.Debug,
-        maxTruncatableFrameLength: 1024,
-        initialCapacity: 2048
-      );
-      writer.Write(Instance);
-      return writer.Build();
+      _writer.Reset();
+      _writer.Write(Instance);
+      return _writer.Build();
     }
 
     public static string RenderDictionary() {
@@ -126,6 +129,12 @@ namespace HELIX.Examples {
     public void ToProse(IProseWriter writer) {
       ProseApi.WriteName(writer, "Asteria Orbital Relay Station");
       writer.Write("ASTERIA-07", MissionId);
+
+      WriteMissionBriefing(writer);
+      WriteOperatorNote(writer);
+      writer.Write(ProseSoftLineBreak.Instance);
+      writer.Write(ProseLineBreak.Instance);
+
       ProseApi.WriteProperty(writer, "State", StationState.Degraded, ProseEnumFormatter<StationState>.Instance);
       writer.Write(37, CrewAboard);
       writer.Write(1842, OrbitNumber);
@@ -146,9 +155,6 @@ namespace HELIX.Examples {
         hidden: true,
         noWrap: true
       );
-
-      WriteMissionBriefing(writer);
-      WriteOperatorNote(writer);
       WriteCommandDeck(writer);
       WritePowerGrid(writer);
       WriteCommunications(writer);
@@ -233,6 +239,7 @@ namespace HELIX.Examples {
         WriteSubsystemRow(writer, "Primary reactor", "Nominal", 91, "Power");
         WriteSubsystemRow(writer, "Reactor B", "Recovery", 43, "Power");
         WriteSubsystemRow(writer, "Coolant loop C17", "Isolated", 0, "Engineering");
+        WriteSubsystemRow(writer, "Relay array\nThis has a linebreak", "Operational but this is a very very long line, I don't know if it can actually handle this. Operational but this is a very very long line, I don't know if it can actually handle this.", 97, "Communications");
         WriteSubsystemRow(writer, "Relay array", "Operational", 97, "Communications");
       } finally {
         writer.PopFrame();

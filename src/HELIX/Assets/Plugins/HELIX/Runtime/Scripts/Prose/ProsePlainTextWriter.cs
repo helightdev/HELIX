@@ -41,6 +41,12 @@ namespace HELIX.Prose {
     private bool _rootFinalized;
     private int _treeDepth;
     private readonly StringBuilder _evaluationBuilder = new();
+    private readonly StringBuilder _itemBuilder = new();
+    private readonly StringBuilder _normalizedBuilder = new();
+    private readonly StringBuilder _formatBuilder = new();
+    private readonly StringBuilder _resultBuilder = new();
+    private readonly StringBuilder _tableBuilder = new();
+    private int[] _tableColumnWidths = Array.Empty<int>();
 
     private enum LinePrefixKind : byte { None, RootName, TreeName, NameContinuation, Property, PropertyValue }
 
@@ -115,7 +121,14 @@ namespace HELIX.Prose {
     public ProseLevel MinimumLevel { get; set; }
     public int MaxTruncatableFrameLength { get; set; }
     /// <summary>Rendered character count excluding writer metadata and zero-width presentation text.</summary>
-    public int Length => VisibleLength(_builder.ToString());
+    public int Length => VisibleLength(_builder, 0, _builder.Length);
+    /// <summary>Number of characters required to hold the fully formatted output.</summary>
+    public int FormattedLength {
+      get {
+        FormatOutput();
+        return _resultBuilder.Length;
+      }
+    }
     protected int OutputLength => _builder.Length;
 
     public override bool BeginFrame(IProseScope scope) {
@@ -182,7 +195,7 @@ namespace HELIX.Prose {
           Configuration.PropertyValue.AppendPrefix(
             _evaluationBuilder, TextMatching.First | TextMatching.Last
           );
-          _propertyValueColumn = _column + ToInternalText(_evaluationBuilder.ToString()).Length;
+          _propertyValueColumn = _column + InternalTextLength(_evaluationBuilder);
           _linePrefixKind = LinePrefixKind.PropertyValue;
         }
       }
@@ -311,17 +324,61 @@ namespace HELIX.Prose {
       _rootFinalized = false;
       _treeDepth = 0;
       _evaluationBuilder.Clear();
+      _itemBuilder.Clear();
+      _normalizedBuilder.Clear();
+      _formatBuilder.Clear();
+      _resultBuilder.Clear();
+      _tableBuilder.Clear();
     }
 
     public string Build() {
-      if (_frameCount != 0) throw new InvalidOperationException("All Prose frames must be popped before Build.");
+      FormatOutput();
+      return _resultBuilder.ToString();
+    }
+
+    /// <summary>
+    /// Copies the fully formatted output to a caller-owned buffer without allocating a result string.
+    /// </summary>
+    public bool TryCopyTo(Span<char> destination, out int charsWritten) {
+      FormatOutput();
+      if (destination.Length < _resultBuilder.Length) {
+        charsWritten = 0;
+        return false;
+      }
+      for (var i = 0; i < _resultBuilder.Length; i++) destination[i] = _resultBuilder[i];
+      charsWritten = _resultBuilder.Length;
+      return true;
+    }
+
+    private void FormatOutput() {
+      if (_frameCount != 0)
+        throw new InvalidOperationException("All Prose frames must be popped before producing output.");
       FinalizeRoot();
-      var result = FormatItem(
-        Configuration.Root, _builder.ToString(),
+      FormatItem(
+        Configuration.Root, _builder, 0, _builder.Length,
         TextMatching.First | TextMatching.Last |
-        (_builder.Length == 0 ? TextMatching.Empty : TextMatching.None)
+        (_builder.Length == 0 ? TextMatching.Empty : TextMatching.None),
+        _formatBuilder
       );
-      return ToExternalText(result);
+      ToExternalText(_formatBuilder, _resultBuilder);
+      NormalizeTrailingBlankLines(_resultBuilder);
+    }
+
+    private static void NormalizeTrailingBlankLines(StringBuilder value) {
+      var lastContent = value.Length - 1;
+      while (lastContent >= 0 && char.IsWhiteSpace(value[lastContent])) lastContent--;
+      if (lastContent < 0) {
+        var hasCompletedLine = IndexOf(value, '\n', 0, value.Length) >= 0;
+        value.Clear();
+        if (hasCompletedLine) value.Append('\n');
+        return;
+      }
+
+      var contentLineEnd = IndexOf(value, '\n', lastContent + 1, value.Length);
+      if (contentLineEnd < 0) return;
+      var hasBlankLine = IndexOf(value, '\n', contentLineEnd + 1, value.Length) >= 0;
+      value.Length = contentLineEnd + 1;
+      if (hasBlankLine) value.Append('\n');
     }
 
     public override string ToString() {
@@ -356,7 +413,7 @@ namespace HELIX.Prose {
     }
 
     private void CompleteTree(ref Frame frame) {
-      FinalizeProperties(ref frame.propertiesFinalized);
+      FinalizeProperties(ref frame.propertiesFinalized, followedByChildren: false);
       FinalizePendingTree(true);
       frame.treeOutputStart = Math.Min(frame.treeOutputStart, _builder.Length);
     }
@@ -365,11 +422,12 @@ namespace HELIX.Prose {
       var listIndex = FindParentFrame<ProseList>(frameIndex);
       var itemIndex = listIndex >= 0 ? _frames[listIndex].childCount++ : 0;
       var list = listIndex >= 0 ? (ProseList)_frames[listIndex].scope : ProseList.Unordered;
-      var marker = list.Kind == ProseListKind.Ordered
-        ? (list.Start + itemIndex).ToString(CultureInfo.InvariantCulture) + Configuration.OrderedListMarkerSuffix
-        : Configuration.UnorderedListMarker;
-      var internalMarker = ToInternalText(marker);
-      _builder.Insert(frame.itemOutputStart, internalMarker);
+      _evaluationBuilder.Clear();
+      if (list.Kind == ProseListKind.Ordered) {
+        _evaluationBuilder.Append((list.Start + itemIndex).ToString(CultureInfo.InvariantCulture));
+        _evaluationBuilder.Append(Configuration.OrderedListMarkerSuffix);
+      } else _evaluationBuilder.Append(Configuration.UnorderedListMarker);
+      InsertInternalText(_builder, frame.itemOutputStart, _evaluationBuilder);
       FormatRange(
         Configuration.ListItem,
         frame.itemOutputStart,
@@ -404,9 +462,9 @@ namespace HELIX.Prose {
     }
 
     private void CompleteTable(Frame frame) {
-      var rendered = RenderTable(frame.tableRows);
-      if (rendered.Length == 0) return;
-      _builder.Insert(frame.itemOutputStart, rendered);
+      RenderTable(frame.tableRows, _tableBuilder);
+      if (_tableBuilder.Length == 0) return;
+      InsertRange(_builder, frame.itemOutputStart, _tableBuilder, 0, _tableBuilder.Length);
       RecalculateLineState();
     }
 
@@ -453,10 +511,11 @@ namespace HELIX.Prose {
       ApplyFormat(Configuration.LinkText, start, end, matching);
       if (Configuration.LinkTargetPrefix.Length == 0 && Configuration.LinkTargetSuffix.Length == 0)
         return;
-      _builder.Insert(
-        _builder.Length,
-        ToInternalText(Configuration.LinkTargetPrefix + target + Configuration.LinkTargetSuffix)
-      );
+      _evaluationBuilder.Clear();
+      _evaluationBuilder.Append(Configuration.LinkTargetPrefix);
+      _evaluationBuilder.Append(target);
+      _evaluationBuilder.Append(Configuration.LinkTargetSuffix);
+      InsertInternalText(_builder, _builder.Length, _evaluationBuilder);
       RecalculateLineState();
     }
 
@@ -464,12 +523,23 @@ namespace HELIX.Prose {
     protected virtual void ApplyCodeBlock(
       ProseCodeBlock codeBlock, int start, int end, TextMatching matching
     ) {
-      var prefix = Configuration.CodeBlockPrefix + codeBlock.Language;
-      if (prefix.Length > 0) prefix += "\n";
-      var suffix = Configuration.CodeBlockSuffix;
-      if (suffix.Length > 0) suffix = "\n" + suffix;
-      DecorateRange(start, end, prefix, suffix);
-      ApplyFormat(Configuration.CodeBlock, start, _builder.Length, matching);
+      _evaluationBuilder.Clear();
+      _evaluationBuilder.Append(Configuration.CodeBlockPrefix);
+      _evaluationBuilder.Append(codeBlock.Language);
+      if (_evaluationBuilder.Length > 0) _evaluationBuilder.Append('\n');
+      var prefixLength = InternalTextLength(_evaluationBuilder);
+      InsertInternalText(_builder, start, _evaluationBuilder);
+      var decoratedEnd = end + prefixLength;
+      if (Configuration.CodeBlockSuffix.Length > 0) {
+        _evaluationBuilder.Clear();
+        _evaluationBuilder.Append('\n');
+        _evaluationBuilder.Append(Configuration.CodeBlockSuffix);
+        var suffixLength = InternalTextLength(_evaluationBuilder);
+        InsertInternalText(_builder, decoratedEnd, _evaluationBuilder);
+        decoratedEnd += suffixLength;
+      }
+      RecalculateLineState();
+      ApplyFormat(Configuration.CodeBlock, start, decoratedEnd, matching);
     }
 
     /// <summary>Applies a configured node format from a derived writer.</summary>
@@ -478,8 +548,8 @@ namespace HELIX.Prose {
 
     /// <summary>Adds visible presentation text around a completed range.</summary>
     protected void DecorateRange(int start, int end, string prefix, string suffix) {
-      if (!string.IsNullOrEmpty(suffix)) _builder.Insert(end, ToInternalText(suffix));
-      if (!string.IsNullOrEmpty(prefix)) _builder.Insert(start, ToInternalText(prefix));
+      if (!string.IsNullOrEmpty(suffix)) InsertInternalText(_builder, end, suffix);
+      if (!string.IsNullOrEmpty(prefix)) InsertInternalText(_builder, start, prefix);
       RecalculateLineState();
     }
 
@@ -487,10 +557,17 @@ namespace HELIX.Prose {
     /// Adds presentation text emitted in the result but ignored by wrapping, measurement, and alignment.
     /// </summary>
     protected void DecorateRangeZeroWidth(int start, int end, string prefix, string suffix) {
-      var encodedSuffix = EncodeZeroWidth(suffix);
-      var encodedPrefix = EncodeZeroWidth(prefix);
-      if (encodedSuffix.Length > 0) _builder.Insert(end, encodedSuffix);
-      if (encodedPrefix.Length > 0) _builder.Insert(start, encodedPrefix);
+      InsertZeroWidth(_builder, end, suffix);
+      InsertZeroWidth(_builder, start, prefix);
+      RecalculateLineState();
+    }
+
+    /// <summary>Builder overload for allocation-free construction of dynamic presentation text.</summary>
+    protected void DecorateRangeZeroWidth(
+      int start, int end, StringBuilder prefix, string suffix
+    ) {
+      InsertZeroWidth(_builder, end, suffix);
+      InsertZeroWidth(_builder, start, prefix);
       RecalculateLineState();
     }
 
@@ -501,62 +578,62 @@ namespace HELIX.Prose {
       return ProseTextAlignment.Left;
     }
 
-    private string RenderTable(IReadOnlyList<TableRowData> rows) {
-      if (rows == null || rows.Count == 0) return string.Empty;
+    private void RenderTable(IReadOnlyList<TableRowData> rows, StringBuilder result) {
+      result.Clear();
+      if (rows == null || rows.Count == 0) return;
       var columns = 0;
       for (var i = 0; i < rows.Count; i++) columns = Math.Max(columns, rows[i].cells.Count);
-      if (columns == 0) return string.Empty;
+      if (columns == 0) return;
 
-      var widths = new int[columns];
+      if (_tableColumnWidths.Length < columns) _tableColumnWidths = new int[columns];
+      Array.Clear(_tableColumnWidths, 0, columns);
       for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++) {
         var cells = rows[rowIndex].cells;
-        for (var column = 0; column < cells.Count; column++) {
-          var lines = CellLines(cells[column].text);
-          for (var line = 0; line < lines.Length; line++)
-            widths[column] = Math.Max(widths[column], VisibleWidth(lines[line], 0, lines[line].Length));
-        }
+        for (var column = 0; column < cells.Count; column++)
+          _tableColumnWidths[column] = Math.Max(
+            _tableColumnWidths[column], MaximumLineWidth(cells[column].text)
+          );
       }
-      for (var column = 0; column < widths.Length; column++)
-        widths[column] = Math.Max(widths[column], Configuration.Table.MinimumColumnWidth);
+      for (var column = 0; column < columns; column++)
+        _tableColumnWidths[column] = Math.Max(
+          _tableColumnWidths[column], Configuration.Table.MinimumColumnWidth
+        );
 
-      var result = new StringBuilder();
       for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++) {
         if (result.Length > 0) result.Append(_hardLineBreak);
-        AppendTableRow(result, rows[rowIndex], widths);
+        AppendTableRow(result, rows[rowIndex], _tableColumnWidths, columns);
         if (rows[rowIndex].isHeader) {
           result.Append(_hardLineBreak);
-          AppendTableSeparator(result, widths);
+          AppendTableSeparator(result, _tableColumnWidths, columns);
         }
       }
-      return result.ToString();
     }
 
-    private void AppendTableRow(StringBuilder result, TableRowData row, IReadOnlyList<int> widths) {
+    private void AppendTableRow(
+      StringBuilder result, TableRowData row, int[] widths, int columnCount
+    ) {
       var height = 1;
-      var lines = new string[widths.Count][];
-      for (var column = 0; column < widths.Count; column++) {
-        lines[column] = column < row.cells.Count ? CellLines(row.cells[column].text) : new[] { string.Empty };
-        height = Math.Max(height, lines[column].Length);
-      }
+      for (var column = 0; column < row.cells.Count; column++)
+        height = Math.Max(height, LineCount(row.cells[column].text));
 
       for (var line = 0; line < height; line++) {
         if (line > 0) result.Append(_hardLineBreak);
         result.Append(Configuration.Table.LeftBorder);
-        for (var column = 0; column < widths.Count; column++) {
+        for (var column = 0; column < columnCount; column++) {
           if (column > 0) result.Append(Configuration.Table.ColumnSeparator);
-          var text = line < lines[column].Length ? lines[column][line] : string.Empty;
-          var alignment = column < row.cells.Count
-            ? row.cells[column].alignment
-            : ProseTextAlignment.Left;
-          AppendAligned(result, text, widths[column], alignment);
+          if (column < row.cells.Count) {
+            var cell = row.cells[column];
+            FindLine(cell.text, line, out var start, out var length);
+            AppendAligned(result, cell.text, start, length, widths[column], cell.alignment);
+          } else AppendAligned(result, string.Empty, 0, 0, widths[column], ProseTextAlignment.Left);
         }
         result.Append(Configuration.Table.RightBorder);
       }
     }
 
-    private void AppendTableSeparator(StringBuilder result, IReadOnlyList<int> widths) {
+    private void AppendTableSeparator(StringBuilder result, int[] widths, int columnCount) {
       result.Append(Configuration.Table.LeftBorder);
-      for (var column = 0; column < widths.Count; column++) {
+      for (var column = 0; column < columnCount; column++) {
         if (column > 0) result.Append(Configuration.Table.ColumnSeparator);
         result.Append(Configuration.Table.HeaderFill, widths[column]);
       }
@@ -564,31 +641,54 @@ namespace HELIX.Prose {
     }
 
     private static void AppendAligned(
-      StringBuilder result, string text, int width, ProseTextAlignment alignment
+      StringBuilder result, string text, int start, int length,
+      int width, ProseTextAlignment alignment
     ) {
-      var padding = Math.Max(0, width - VisibleWidth(text, 0, text.Length));
+      var padding = Math.Max(0, width - VisibleWidth(text, start, start + length));
       var before = alignment == ProseTextAlignment.Right
         ? padding
         : alignment == ProseTextAlignment.Center
           ? padding / 2
           : 0;
       result.Append(' ', before);
-      result.Append(text);
+      result.Append(text, start, length);
       result.Append(' ', padding - before);
     }
 
-    private static string[] CellLines(string text) {
-      if (string.IsNullOrEmpty(text)) return new[] { string.Empty };
-      var lines = new List<string>();
+    private static int MaximumLineWidth(string text) {
+      var maximum = 0;
       var start = 0;
       while (start <= text.Length) {
         var end = IndexOfLineBreak(text, start);
         if (end < 0) end = text.Length;
-        lines.Add(text.Substring(start, end - start));
+        maximum = Math.Max(maximum, VisibleWidth(text, start, end));
         if (end == text.Length) break;
         start = end + 1;
       }
-      return lines.ToArray();
+      return maximum;
+    }
+
+    private static int LineCount(string text) {
+      var count = 1;
+      for (var i = 0; i < text.Length; i++)
+        if (IsLineBreak(text[i])) count++;
+      return count;
+    }
+
+    private static void FindLine(string text, int lineIndex, out int start, out int length) {
+      start = 0;
+      for (var line = 0; line < lineIndex; line++) {
+        var lineEnd = IndexOfLineBreak(text, start);
+        if (lineEnd < 0) {
+          start = text.Length;
+          length = 0;
+          return;
+        }
+        start = lineEnd + 1;
+      }
+      var end = IndexOfLineBreak(text, start);
+      if (end < 0) end = text.Length;
+      length = end - start;
     }
 
     private static string TrimInternalLineBreaks(string text) {
@@ -650,17 +750,30 @@ namespace HELIX.Prose {
       _treeDepth == 0 ? _rootPropertiesFinalized : CurrentTreeFrame.propertiesFinalized;
 
     private void PrepareOwnerForChildren() {
-      if (_treeDepth == 0) FinalizeProperties(ref _rootPropertiesFinalized);
+      if (_treeDepth == 0)
+        FinalizeProperties(ref _rootPropertiesFinalized, followedByChildren: true);
       else {
         ref var owner = ref CurrentTreeFrame;
-        FinalizeProperties(ref owner.propertiesFinalized);
+        FinalizeProperties(ref owner.propertiesFinalized, followedByChildren: true);
       }
     }
 
-    private void FinalizeProperties(ref bool finalized) {
+    private void FinalizeProperties(ref bool finalized, bool followedByChildren = false) {
       if (finalized) return;
+      var hasProperties = _treeDepth == 0
+        ? _rootPropertyCount > 0
+        : CurrentTreeFrame.propertyCount > 0;
       FinalizePendingProperty(true);
+      if (hasProperties && Configuration.PropertyChildContinuation != null)
+        AppendPropertySpacer(followedByChildren);
       finalized = true;
+    }
+
+    private void AppendPropertySpacer(bool followedByChildren) {
+      if (_builder.Length > 0 && !IsLineBreak(_builder[^1])) _builder.Append(_hardLineBreak);
+      if (followedByChildren) _builder.Append(Configuration.PropertyChildContinuation);
+      _builder.Append(_requiredLineBreak);
+      RecalculateLineState();
     }
 
     private void FinalizeRoot() {
@@ -980,9 +1093,8 @@ namespace HELIX.Prose {
       frameIndex = FindModifierFrame<AllowTruncate>();
       if (frameIndex < 0) return false;
       var frame = _frames[frameIndex];
-      remaining = MaxTruncatableFrameLength - VisibleLength(
-        _builder.ToString(frame.outputStart, _builder.Length - frame.outputStart)
-      );
+      remaining = MaxTruncatableFrameLength -
+                  VisibleLength(_builder, frame.outputStart, _builder.Length);
       if (length <= remaining) return false;
       if (remaining < 0) remaining = 0;
       return true;
@@ -1038,19 +1150,25 @@ namespace HELIX.Prose {
     }
 
     private void FormatRange(PTNodeFormat format, int start, int end, TextMatching matching) {
-      var formatted = FormatItem(format, _builder.ToString(start, end - start), matching);
+      FormatItem(format, _builder, start, end - start, matching, _formatBuilder);
+      var replacementStart = 0;
+      var replacementLength = _formatBuilder.Length;
       if (start > 0 && IsLineBreak(_builder[start - 1]) &&
-          formatted.Length > 0 && formatted[0] == _requiredLineBreak) {
+          replacementLength > 0 && _formatBuilder[replacementStart] == _requiredLineBreak) {
         _builder[start - 1] = _requiredLineBreak;
-        formatted = formatted[1..];
+        replacementStart++;
+        replacementLength--;
       }
       if (end < _builder.Length && IsLineBreak(_builder[end]) &&
-          formatted.Length > 0 && formatted[^1] == _requiredLineBreak) {
+          replacementLength > 0 &&
+          _formatBuilder[replacementStart + replacementLength - 1] == _requiredLineBreak) {
         _builder[end] = _requiredLineBreak;
-        formatted = formatted[..^1];
+        replacementLength--;
       }
-      _builder.Remove(start, end - start);
-      _builder.Insert(start, formatted);
+      ReplaceRange(
+        _builder, start, end - start,
+        _formatBuilder, replacementStart, replacementLength
+      );
       RecalculateLineState();
     }
 
@@ -1080,40 +1198,49 @@ namespace HELIX.Prose {
       _linePrefixWritten = _lineHasContent;
     }
 
-    private string FormatItem(PTNodeFormat itemFormat, string inner, TextMatching matching) {
-      var replacement = new StringBuilder();
-      if (itemFormat.AppendReplacement(replacement, matching)) inner = replacement.ToString();
+    private void FormatItem(
+      PTNodeFormat itemFormat,
+      StringBuilder inner,
+      int innerStart,
+      int innerLength,
+      TextMatching matching,
+      StringBuilder result
+    ) {
+      _evaluationBuilder.Clear();
+      var replaced = itemFormat.AppendReplacement(_evaluationBuilder, matching);
 
-      var item = new StringBuilder();
-      itemFormat.AppendPrefix(item, matching);
-      item.Append(inner);
+      _itemBuilder.Clear();
+      itemFormat.AppendPrefix(_itemBuilder, matching);
+      if (replaced) _itemBuilder.Append(_evaluationBuilder);
+      else AppendRange(_itemBuilder, inner, innerStart, innerLength);
       _evaluationBuilder.Clear();
       itemFormat.AppendSuffix(_evaluationBuilder, matching);
-      AppendSuffix(item, _evaluationBuilder, itemFormat.SuffixRepeater);
-      var value = ToInternalText(item.ToString());
-      if (value.Length == 0 && itemFormat.LineBreak.Count == 0) return value;
-      var result = new StringBuilder(value.Length);
+      AppendSuffix(_itemBuilder, _evaluationBuilder, itemFormat.SuffixRepeater);
+
+      _normalizedBuilder.Clear();
+      AppendInternalText(_normalizedBuilder, _itemBuilder, 0, _itemBuilder.Length);
+      result.Clear();
+      if (_normalizedBuilder.Length == 0 && itemFormat.LineBreak.Count == 0) return;
       var lineStart = 0;
       var lineIndex = 0;
       var prefixAllowed = true;
-      var ensureLineBreakBefore = false;
-      var ensureLineBreakAfter = false;
-      while (lineStart <= value.Length) {
-        var lineEnd = IndexOfLineBreak(value, lineStart);
-        var isLast = lineEnd < 0 || lineEnd == value.Length - 1;
-        var lineMatching = lineIndex == 0 || IsHardLineBreak(value[lineStart - 1])
+      while (lineStart <= _normalizedBuilder.Length) {
+        var lineEnd = IndexOfLineBreak(_normalizedBuilder, lineStart, _normalizedBuilder.Length);
+        var isLast = lineEnd < 0 || lineEnd == _normalizedBuilder.Length - 1;
+        var lineMatching = lineIndex == 0 || IsHardLineBreak(_normalizedBuilder[lineStart - 1])
           ? LineMatching.Hard
           : LineMatching.None;
         if (lineIndex == 0) lineMatching |= LineMatching.First;
         if (isLast) lineMatching |= LineMatching.Last;
-        var contentEnd = lineEnd < 0 ? value.Length : lineEnd;
+        var contentEnd = lineEnd < 0 ? _normalizedBuilder.Length : lineEnd;
         var contentStart = lineStart;
-        if (prefixAllowed && contentStart < contentEnd && value[contentStart] == _alignmentStart) {
-          var alignmentEnd = value.IndexOf(
-            _alignmentEnd, contentStart + 1, contentEnd - contentStart - 1
+        if (prefixAllowed && contentStart < contentEnd &&
+            _normalizedBuilder[contentStart] == _alignmentStart) {
+          var alignmentEnd = IndexOf(
+            _normalizedBuilder, _alignmentEnd, contentStart + 1, contentEnd
           );
           if (alignmentEnd >= 0) {
-            result.Append(value, contentStart + 1, alignmentEnd - contentStart - 1);
+            AppendRange(result, _normalizedBuilder, contentStart + 1, alignmentEnd - contentStart - 1);
             contentStart = alignmentEnd + 1;
           }
         }
@@ -1122,27 +1249,28 @@ namespace HELIX.Prose {
           itemFormat.AppendLinePrefix(_evaluationBuilder, matching, lineMatching);
           if (_evaluationBuilder.Length > 0) {
             result.Append(_linePrefixStart);
-            result.Append(ToInternalText(_evaluationBuilder.ToString()));
+            AppendInternalText(result, _evaluationBuilder, 0, _evaluationBuilder.Length);
             result.Append(_linePrefixEnd);
           }
         }
-        if (!prefixAllowed) contentStart = SkipLineDecorations(value, contentStart, contentEnd);
-        result.Append(value, contentStart, contentEnd - contentStart);
+        if (!prefixAllowed)
+          contentStart = SkipLineDecorations(_normalizedBuilder, contentStart, contentEnd);
+        AppendRange(result, _normalizedBuilder, contentStart, contentEnd - contentStart);
 
         var breakMatching = lineMatching;
         var boundary = LineBreakMode.Item;
         if (lineEnd >= 0) {
-          boundary = IsHardLineBreak(value[lineEnd]) ? LineBreakMode.Hard : LineBreakMode.Wrap;
+          boundary = IsHardLineBreak(_normalizedBuilder[lineEnd])
+            ? LineBreakMode.Hard
+            : LineBreakMode.Wrap;
           if (boundary == LineBreakMode.Hard) breakMatching |= LineMatching.Hard;
         }
         var mode = itemFormat.EvaluateLineBreak(matching, breakMatching);
-        if (lineIndex == 0) ensureLineBreakBefore = (mode & LineBreakMode.Pre) != 0;
-        if (isLast) ensureLineBreakAfter = (mode & LineBreakMode.Post) != 0;
-        prefixAllowed = (lineEnd >= 0 && value[lineEnd] == _requiredLineBreak) ||
+        prefixAllowed = (lineEnd >= 0 && _normalizedBuilder[lineEnd] == _requiredLineBreak) ||
                         (mode & boundary) != 0;
         if (prefixAllowed) {
           result.Append(
-            lineEnd >= 0 && value[lineEnd] == _requiredLineBreak
+            lineEnd >= 0 && _normalizedBuilder[lineEnd] == _requiredLineBreak
               ? _requiredLineBreak
               : boundary == LineBreakMode.Wrap
                 ? _softLineBreak
@@ -1153,15 +1281,6 @@ namespace HELIX.Prose {
         lineStart = lineEnd + 1;
         lineIndex++;
       }
-      if (ensureLineBreakBefore) {
-        if (result.Length > 0 && IsLineBreak(result[0])) result[0] = _requiredLineBreak;
-        else result.Insert(0, _requiredLineBreak);
-      }
-      if (ensureLineBreakAfter) {
-        if (result.Length > 0 && IsLineBreak(result[^1])) result[^1] = _requiredLineBreak;
-        else result.Append(_requiredLineBreak);
-      }
-      return result.ToString();
     }
 
     private static void AppendSuffix(StringBuilder item, StringBuilder suffix, int repeater) {
@@ -1195,7 +1314,19 @@ namespace HELIX.Prose {
       return -1;
     }
 
-    private static int SkipLineDecorations(string value, int start, int end) {
+    private static int IndexOfLineBreak(StringBuilder value, int start, int end) {
+      for (var i = start; i < end; i++)
+        if (IsLineBreak(value[i])) return i;
+      return -1;
+    }
+
+    private static int IndexOf(StringBuilder value, char character, int start, int end) {
+      for (var i = start; i < end; i++)
+        if (value[i] == character) return i;
+      return -1;
+    }
+
+    private static int SkipLineDecorations(StringBuilder value, int start, int end) {
       while (start < end) {
         var decorationEnd = value[start] == _linePrefixStart
           ? _linePrefixEnd
@@ -1203,34 +1334,37 @@ namespace HELIX.Prose {
             ? _alignmentEnd
             : '\0';
         if (decorationEnd == '\0') break;
-        var position = value.IndexOf(decorationEnd, start + 1, end - start - 1);
+        var position = IndexOf(value, decorationEnd, start + 1, end);
         if (position < 0) break;
         start = position + 1;
       }
       return start;
     }
 
-    private string ToInternalText(string value) {
-      return value
-        .Replace("\r\n", _hardLineBreak.ToString())
-        .Replace("\r", _hardLineBreak.ToString())
-        .Replace("\n", _hardLineBreak.ToString());
+    private static int InternalTextLength(StringBuilder value) {
+      var length = value.Length;
+      for (var i = 0; i + 1 < value.Length; i++)
+        if (value[i] == '\r' && value[i + 1] == '\n') {
+          length--;
+          i++;
+        }
+      return length;
     }
 
-    private string ToExternalText(string value) {
-      var result = new StringBuilder(value.Length);
+    private void ToExternalText(StringBuilder value, StringBuilder result) {
+      result.Clear();
       var lineStart = 0;
       while (lineStart <= value.Length) {
-        var lineEnd = IndexOfLineBreak(value, lineStart);
+        var lineEnd = IndexOfLineBreak(value, lineStart, value.Length);
         if (lineEnd < 0) lineEnd = value.Length;
         var visibleWidth = VisibleWidth(value, lineStart, lineEnd);
         var remaining = Math.Max(0, WrapWidth - visibleWidth);
         for (var i = lineStart; i < lineEnd; i++) {
           var character = value[i];
           if (character == _zeroWidthStart) {
-            var zeroWidthEnd = value.IndexOf(_zeroWidthEnd, i + 1, lineEnd - i - 1);
+            var zeroWidthEnd = IndexOf(value, _zeroWidthEnd, i + 1, lineEnd);
             if (zeroWidthEnd < 0) continue;
-            result.Append(value, i + 1, zeroWidthEnd - i - 1);
+            AppendRange(result, value, i + 1, zeroWidthEnd - i - 1);
             i = zeroWidthEnd;
           } else if (character == _suffixRepeatStart && i + 2 < lineEnd &&
                      value[i + 2] == _suffixRepeatEnd) {
@@ -1245,7 +1379,6 @@ namespace HELIX.Prose {
         );
         lineStart = lineEnd + 1;
       }
-      return result.ToString();
     }
 
     private static int VisibleWidth(string value, int start, int end) {
@@ -1267,15 +1400,30 @@ namespace HELIX.Prose {
       return width;
     }
 
+    private static int VisibleWidth(StringBuilder value, int start, int end) {
+      var width = 0;
+      for (var i = start; i < end; i++) {
+        switch (value[i]) {
+          case _zeroWidthStart: {
+            var zeroWidthEnd = IndexOf(value, _zeroWidthEnd, i + 1, end);
+            if (zeroWidthEnd < 0) continue;
+            i = zeroWidthEnd;
+            break;
+          }
+          case _suffixRepeatStart when i + 2 < end && value[i + 2] == _suffixRepeatEnd:
+            i += 2;
+            continue;
+        }
+        if (!IsDecorationMarker(value[i])) width++;
+      }
+      return width;
+    }
+
     private static bool IsDecorationMarker(char value) {
       return value is _linePrefixStart or _linePrefixEnd or _alignmentStart
         or _alignmentEnd or _suffixRepeatStart or _suffixRepeatEnd
         or _zeroWidthStart or _zeroWidthEnd;
     }
-
-    private static string EncodeZeroWidth(string value) => string.IsNullOrEmpty(value)
-      ? string.Empty
-      : _zeroWidthStart + value + _zeroWidthEnd;
 
     private static int IndexOfZeroWidthEnd(StringBuilder value, int start, int end) {
       for (var i = start; i < end; i++)
@@ -1284,18 +1432,114 @@ namespace HELIX.Prose {
       return -1;
     }
 
-    private static int VisibleLength(string value) {
+    private static int VisibleLength(StringBuilder value, int start, int end) {
       var length = 0;
-      var start = 0;
-      while (start <= value.Length) {
-        var end = IndexOfLineBreak(value, start);
-        if (end < 0) end = value.Length;
-        length += VisibleWidth(value, start, end);
-        if (end == value.Length) break;
+      while (start <= end) {
+        var lineEnd = IndexOfLineBreak(value, start, end);
+        if (lineEnd < 0) lineEnd = end;
+        length += VisibleWidth(value, start, lineEnd);
+        if (lineEnd == end) break;
         length++;
-        start = end + 1;
+        start = lineEnd + 1;
       }
       return length;
+    }
+
+    private static void AppendRange(
+      StringBuilder target, StringBuilder source, int start, int length
+    ) {
+      for (var i = start; i < start + length; i++) target.Append(source[i]);
+    }
+
+    private static void AppendInternalText(
+      StringBuilder target, StringBuilder source, int start, int length
+    ) {
+      var end = start + length;
+      for (var i = start; i < end; i++) {
+        var character = source[i];
+        if (character == '\r') {
+          if (i + 1 < end && source[i + 1] == '\n') i++;
+          target.Append(_hardLineBreak);
+        } else target.Append(character == '\n' ? _hardLineBreak : character);
+      }
+    }
+
+    private static void InsertInternalText(
+      StringBuilder target, int index, StringBuilder source
+    ) {
+      var internalLength = InternalTextLength(source);
+      MakeGap(target, index, internalLength);
+      var destination = index;
+      for (var i = 0; i < source.Length; i++) {
+        var character = source[i];
+        if (character == '\r') {
+          if (i + 1 < source.Length && source[i + 1] == '\n') i++;
+          target[destination++] = _hardLineBreak;
+        } else target[destination++] = character == '\n' ? _hardLineBreak : character;
+      }
+    }
+
+    private static void InsertInternalText(StringBuilder target, int index, string source) {
+      var internalLength = source.Length;
+      for (var i = 0; i + 1 < source.Length; i++)
+        if (source[i] == '\r' && source[i + 1] == '\n') {
+          internalLength--;
+          i++;
+        }
+      MakeGap(target, index, internalLength);
+      var destination = index;
+      for (var i = 0; i < source.Length; i++) {
+        var character = source[i];
+        if (character == '\r') {
+          if (i + 1 < source.Length && source[i + 1] == '\n') i++;
+          target[destination++] = _hardLineBreak;
+        } else target[destination++] = character == '\n' ? _hardLineBreak : character;
+      }
+    }
+
+    private static void InsertZeroWidth(StringBuilder target, int index, string value) {
+      if (string.IsNullOrEmpty(value)) return;
+      MakeGap(target, index, value.Length + 2);
+      target[index] = _zeroWidthStart;
+      for (var i = 0; i < value.Length; i++) target[index + i + 1] = value[i];
+      target[index + value.Length + 1] = _zeroWidthEnd;
+    }
+
+    private static void InsertZeroWidth(StringBuilder target, int index, StringBuilder value) {
+      if (value == null || value.Length == 0) return;
+      MakeGap(target, index, value.Length + 2);
+      target[index] = _zeroWidthStart;
+      for (var i = 0; i < value.Length; i++) target[index + i + 1] = value[i];
+      target[index + value.Length + 1] = _zeroWidthEnd;
+    }
+
+    private static void InsertRange(
+      StringBuilder target, int index, StringBuilder value, int valueStart, int valueLength
+    ) => ReplaceRange(target, index, 0, value, valueStart, valueLength);
+
+    private static void ReplaceRange(
+      StringBuilder target, int start, int length,
+      StringBuilder replacement, int replacementStart, int replacementLength
+    ) {
+      var oldLength = target.Length;
+      var tailStart = start + length;
+      var difference = replacementLength - length;
+      if (difference > 0) {
+        target.Length = oldLength + difference;
+        for (var i = oldLength - 1; i >= tailStart; i--) target[i + difference] = target[i];
+      } else if (difference < 0) {
+        for (var i = tailStart; i < oldLength; i++) target[i + difference] = target[i];
+        target.Length = oldLength + difference;
+      }
+      for (var i = 0; i < replacementLength; i++)
+        target[start + i] = replacement[replacementStart + i];
+    }
+
+    private static void MakeGap(StringBuilder target, int index, int length) {
+      if (length == 0) return;
+      var oldLength = target.Length;
+      target.Length += length;
+      for (var i = oldLength - 1; i >= index; i--) target[i + length] = target[i];
     }
 
     private void AppendUnchecked(string text, int start, int length) {

@@ -47,8 +47,7 @@ namespace HELIX.Prose {
   }
 
   /// <summary>
-  /// Controls which boundaries are emitted, whether wrapped continuations align, and whether an item
-  /// requires a line break immediately before or after it.
+  /// Controls which boundaries are emitted and whether wrapped continuations align.
   /// </summary>
   [Flags]
   public enum LineBreakMode : byte {
@@ -56,9 +55,7 @@ namespace HELIX.Prose {
     Align = 1 << 0,
     Item = 1 << 1,
     Wrap = 1 << 2,
-    Hard = 1 << 3,
-    Pre = 1 << 4,
-    Post = 1 << 5
+    Hard = 1 << 3
   }
 
   public readonly struct PTLineRule {
@@ -232,7 +229,8 @@ namespace HELIX.Prose {
       string codeBlockPrefix = "```",
       string codeBlockSuffix = "```",
       string requiredLineBreak = "\n",
-      bool showTextFeatures = true
+      bool showTextFeatures = true,
+      string propertyChildContinuation = null
     ) {
       Root = root ?? _noAnchors;
       RootName = rootName ?? _noAnchors;
@@ -240,6 +238,7 @@ namespace HELIX.Prose {
       Property = property ?? _noAnchors;
       PropertyValue = propertyValue ?? _noAnchors;
       Tree = tree ?? _noAnchors;
+      PropertyChildContinuation = propertyChildContinuation;
       Section = section ?? _noAnchors;
       SectionHeader = sectionHeader ?? _noAnchors;
       Paragraph = paragraph ?? _noAnchors;
@@ -272,6 +271,11 @@ namespace HELIX.Prose {
     public PTNodeFormat Property { get; }
     public PTNodeFormat PropertyValue { get; }
     public PTNodeFormat Tree { get; }
+    /// <summary>
+    /// Content rendered on the property spacer line when the owning node continues into children.
+    /// Null disables property spacer lines; an empty value emits an unadorned spacer.
+    /// </summary>
+    public string PropertyChildContinuation { get; }
     public PTNodeFormat Section { get; }
     public PTNodeFormat SectionHeader { get; }
     public PTNodeFormat Paragraph { get; }
@@ -349,18 +353,14 @@ namespace HELIX.Prose {
     );
 
     public static PTNodeFormat InlineProperties(
-      string before = "(", string separator = ", ", string after = ")",
-      bool trailingNewLine = false
+      string before = "(", string separator = ", ", string after = ")"
     ) => new(
       prefix: new[] {
         Anchor(before, TextMatching.First),
         Anchor(separator)
       },
       suffix: new[] { Anchor(after, TextMatching.Last) },
-      lines: LineBreaks(
-        LineBreakMode.Wrap | LineBreakMode.Hard |
-        (trailingNewLine ? LineBreakMode.Post : LineBreakMode.None)
-      )
+      lines: LineBreaks(LineBreakMode.Wrap | LineBreakMode.Hard)
     );
 
     public static PTNodeFormat Line(
@@ -382,11 +382,10 @@ namespace HELIX.Prose {
 
     public static PTNodeFormat Property(
       string prefix = "", string suffix = "", string firstLinePrefix = "",
-      string continuationPrefix = "", bool trailingNewLine = false
+      string continuationPrefix = ""
     ) => Block(
       prefix, suffix, firstLinePrefix, continuationPrefix,
-      LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard |
-      (trailingNewLine ? LineBreakMode.Post : LineBreakMode.None)
+      LineBreakMode.Item | LineBreakMode.Wrap | LineBreakMode.Hard
     );
 
     public static PTNodeFormat PropertyValue(
@@ -433,19 +432,19 @@ namespace HELIX.Prose {
   public static class ProsePlainTextConfigurations {
     /// <summary>A simple tree with a small continuation indent for wrapped properties.</summary>
     public static readonly ProsePlainTextConfiguration Sparse = Tree(
-      "├─ ", "└─ ", "│  ", "   "
+      "├─ ", "└─ ", "│  ", "   ", propertyChildContinuation: "│"
     );
 
     /// <summary>A cleaned-up diagnostic tree with a clearly delimited root heading.</summary>
     public static readonly ProsePlainTextConfiguration Error = new(
       root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.Line(prefix: "══ ", suffix: " ══"),
+      rootName: PTRuleFactory.Line(prefix: "══ ", suffix: " ══", suffixRepeater: 1),
       treeName: PTRuleFactory.Line(),
       property: PTRuleFactory.Property(firstLinePrefix: "! ", continuationPrefix: "  "),
       propertyValue: PTRuleFactory.PropertyValue(),
       tree: PTRuleFactory.Tree("├─ ", "└─ ", "│  ", "   "),
       section: PTRuleFactory.Section(),
-      sectionHeader: PTRuleFactory.Line(prefix: "── ", suffix: " ──"),
+      sectionHeader: PTRuleFactory.Line(prefix: "── ", suffix: " ──", suffixRepeater: 1),
       paragraph: PTRuleFactory.IndentedMarkup("! ", "! "),
       list: PTRuleFactory.Container(),
       listItem: PTRuleFactory.ListItem(),
@@ -484,7 +483,7 @@ namespace HELIX.Prose {
     public static readonly ProsePlainTextConfiguration Plain = new(
       root: PTRuleFactory.Container(),
       rootName: PTRuleFactory.Block(),
-      property: PTRuleFactory.InlineProperties(trailingNewLine: true),
+      property: PTRuleFactory.InlineProperties(),
       propertyValue: PTRuleFactory.PropertyValue(),
       showTrees: false,
       section: PTRuleFactory.Section(),
@@ -498,6 +497,29 @@ namespace HELIX.Prose {
       quoteText: PTRuleFactory.Markup("“", "”"),
       errorText: PTRuleFactory.Markup("Error: ", ""),
       codeBlockPrefix: "Code: ",
+      codeBlockSuffix: ""
+    );
+
+    /// <summary>
+    /// Full Unity rich-text layout with sparse properties and an ASCII-only child tree.
+    /// Rich-text tags are supplied by <see cref="ProseUnityRichTextWriter"/>.
+    /// </summary>
+    public static readonly ProsePlainTextConfiguration UnityRichText = new(
+      root: PTRuleFactory.Container(),
+      rootName: PTRuleFactory.Line(),
+      treeName: PTRuleFactory.Line(),
+      property: PTRuleFactory.Property(continuationPrefix: " "),
+      propertyValue: PTRuleFactory.PropertyValue(),
+      tree: PTRuleFactory.Tree("|- ", "\\- ", "|  ", "   "),
+      propertyChildContinuation: "|",
+      section: PTRuleFactory.Section(),
+      sectionHeader: PTRuleFactory.Line(suffix: ":"),
+      paragraph: PTRuleFactory.Paragraph(),
+      list: PTRuleFactory.Container(),
+      listItem: PTRuleFactory.ListItem(),
+      linkTargetPrefix: "",
+      linkTargetSuffix: "",
+      codeBlockPrefix: "",
       codeBlockSuffix: ""
     );
 
@@ -537,7 +559,8 @@ namespace HELIX.Prose {
     );
 
     private static ProsePlainTextConfiguration Tree(
-      string child, string lastChild, string continuation, string lastContinuation
+      string child, string lastChild, string continuation, string lastContinuation,
+      string propertyChildContinuation = null
     ) => new(
       root: PTRuleFactory.Container(),
       rootName: PTRuleFactory.Line(),
@@ -545,6 +568,7 @@ namespace HELIX.Prose {
       property: PTRuleFactory.Property(continuationPrefix: " "),
       propertyValue: PTRuleFactory.PropertyValue(),
       tree: PTRuleFactory.Tree(child, lastChild, continuation, lastContinuation),
+      propertyChildContinuation: propertyChildContinuation,
       section: PTRuleFactory.Section(),
       sectionHeader: PTRuleFactory.Line(suffix: ":"),
       paragraph: PTRuleFactory.Paragraph(),
