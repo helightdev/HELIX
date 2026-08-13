@@ -84,7 +84,7 @@ namespace HELIX.Examples {
     public static string RenderPlainText() => RenderPlainText(ProsePlainTextConfigurations.Sparse);
 
     public static string RenderPlainText(ProsePlainTextConfiguration configuration) {
-      var writer = new ProsePlainTextWriter(
+      var writer = new ProseTextWriter(
         wrapWidth: 96,
         minimumLevel: ProseLevel.Debug,
         maxTruncatableFrameLength: 1024,

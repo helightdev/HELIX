@@ -7,7 +7,7 @@ namespace HELIX.Tests {
   public sealed class ProseWriterTests {
     [Test]
     public void PlainTextWriter_RendersPropertiesTreesAndFiltering() {
-      var writer = new ProsePlainTextWriter(minimumLevel: ProseLevel.Info);
+      var writer = new ProseTextWriter(minimumLevel: ProseLevel.Info);
 
       Prose.Prose.WriteName(writer, "Person");
       Prose.Prose.WriteProperty(writer, "Age", 12, ProseIntFormatter.Instance);
@@ -34,7 +34,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_WrapsUnlessNoWrapIsActive() {
-      var writer = new ProsePlainTextWriter(wrapWidth: 12);
+      var writer = new ProseTextWriter(wrapWidth: 12);
 
       Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
       Assert.That(writer.BeginFrame(ProsePropertyKey.Instance), Is.True);
@@ -82,7 +82,7 @@ namespace HELIX.Tests {
           }
         )
       );
-      var writer = new ProsePlainTextWriter(wrapWidth: 20, configuration: configuration);
+      var writer = new ProseTextWriter(wrapWidth: 20, configuration: configuration);
 
       Prose.Prose.WriteProperty(
         writer, "Summary", "alpha beta gamma", ProseStringFormatter.Instance
@@ -96,7 +96,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_RepeatsASuffixCharacterToTheFullLineWidth() {
-      var configured = new ProsePlainTextWriter(
+      var configured = new ProseTextWriter(
         wrapWidth: 7,
         configuration: new ProsePlainTextConfiguration(
           root: new PTNodeFormat(
@@ -108,7 +108,7 @@ namespace HELIX.Tests {
       configured.Write("-");
       Assert.That(configured.Build(), Is.EqualTo("-=====]"));
 
-      var fallback = new ProsePlainTextWriter(
+      var fallback = new ProseTextWriter(
         wrapWidth: 5,
         configuration: new ProsePlainTextConfiguration(
           root: new PTNodeFormat(
@@ -120,7 +120,7 @@ namespace HELIX.Tests {
       fallback.Write("x");
       Assert.That(fallback.Build(), Is.EqualTo("xaaab"));
 
-      var absent = new ProsePlainTextWriter(
+      var absent = new ProseTextWriter(
         wrapWidth: 5,
         configuration: new ProsePlainTextConfiguration(
           root: new PTNodeFormat(
@@ -135,7 +135,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_HonorsTruncation() {
-      var writer = new ProsePlainTextWriter(maxTruncatableFrameLength: 5);
+      var writer = new ProseTextWriter(maxTruncatableFrameLength: 5);
 
       Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
       writer.PushModifier(AllowTruncate.Instance);
@@ -148,7 +148,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_UsesConfiguredBoundariesAndRetainsAncestors() {
-      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Sparse);
+      var writer = new ProseTextWriter(configuration: ProsePlainTextConfigurations.Sparse);
 
       Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
       Prose.Prose.WriteName(writer, "Parent");
@@ -169,7 +169,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_RetainsTreeBoundaryAcrossWrappedPropertyLines() {
-      var writer = new ProsePlainTextWriter(wrapWidth: 30);
+      var writer = new ProseTextWriter(wrapWidth: 30);
 
       Assert.That(writer.BeginFrame(ProseTree.Instance), Is.True);
       Prose.Prose.WriteName(writer, "First");
@@ -226,7 +226,7 @@ namespace HELIX.Tests {
           }
         )
       );
-      var writer = new ProsePlainTextWriter(wrapWidth: 25, configuration: configuration);
+      var writer = new ProseTextWriter(wrapWidth: 25, configuration: configuration);
 
       Prose.Prose.WriteProperty(
         writer,
@@ -262,12 +262,12 @@ namespace HELIX.Tests {
           prefix: new[] { new PTStringRule(TextMatching.None, 0, ": ") }
         )
       );
-      var populated = new ProsePlainTextWriter(configuration: configuration);
+      var populated = new ProseTextWriter(configuration: configuration);
       Prose.Prose.WriteProperty(populated, "A", 1, ProseIntFormatter.Instance);
       Prose.Prose.WriteProperty(populated, "B", 2, ProseIntFormatter.Instance);
       Assert.That(populated.Build(), Is.EqualTo("[A: 1, B: 2]!"));
 
-      var empty = new ProsePlainTextWriter(configuration: configuration);
+      var empty = new ProseTextWriter(configuration: configuration);
       Assert.That(empty.Build(), Is.EqualTo("!"));
     }
 
@@ -292,13 +292,13 @@ namespace HELIX.Tests {
           lines: EnabledLineBreaks()
         )
       );
-      var populated = new ProsePlainTextWriter(configuration: configuration);
+      var populated = new ProseTextWriter(configuration: configuration);
       Assert.That(populated.BeginFrame(ProseTree.Instance), Is.True);
       Prose.Prose.WriteName(populated, "Child");
       populated.PopFrame();
       Assert.That(populated.Build(), Is.EqualTo("<\nChild\n!>!"));
 
-      var empty = new ProsePlainTextWriter(configuration: configuration);
+      var empty = new ProseTextWriter(configuration: configuration);
       Assert.That(empty.Build(), Is.EqualTo("!"));
     }
 
@@ -321,7 +321,7 @@ namespace HELIX.Tests {
           prefix: new[] { new PTStringRule(TextMatching.None, 0, ": ") }
         )
       );
-      var writer = new ProsePlainTextWriter(configuration: configuration);
+      var writer = new ProseTextWriter(configuration: configuration);
 
       Prose.Prose.WriteProperty(writer, "A", 1, ProseIntFormatter.Instance);
       Prose.Prose.WriteProperty(writer, "B", 2, ProseIntFormatter.Instance);
@@ -336,7 +336,7 @@ namespace HELIX.Tests {
           replacement: new[] { new PTStringRule(TextMatching.Empty, 0, "<empty>") }
         )
       );
-      var writer = new ProsePlainTextWriter(configuration: configuration);
+      var writer = new ProseTextWriter(configuration: configuration);
 
       Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
       writer.PopFrame();
@@ -346,7 +346,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_ConfiguresLineBreaksPerItem() {
-      var configured = new ProsePlainTextWriter(
+      var configured = new ProseTextWriter(
         configuration: new ProsePlainTextConfiguration(
           root: new PTNodeFormat(lines: NonTerminatingLineBreaks())
         )
@@ -354,7 +354,7 @@ namespace HELIX.Tests {
       configured.Write("first\nsecond\nthird");
       Assert.That(configured.Build(), Is.EqualTo("first\nsecond\nthird"));
 
-      var disabled = new ProsePlainTextWriter(configuration: new ProsePlainTextConfiguration());
+      var disabled = new ProseTextWriter(configuration: new ProsePlainTextConfiguration());
       disabled.Write("first\nsecond");
       Assert.That(disabled.Build(), Is.EqualTo("firstsecond"));
 
@@ -366,7 +366,7 @@ namespace HELIX.Tests {
         new PTIndentRule(TextMatching.None, LineMatching.First, 1, ""),
         new PTIndentRule(TextMatching.None, LineMatching.None, 0, "> ")
       };
-      var enabled = new ProsePlainTextWriter(
+      var enabled = new ProseTextWriter(
         configuration: new ProsePlainTextConfiguration(
           root: new PTNodeFormat(
             indent: linePrefix,
@@ -381,7 +381,7 @@ namespace HELIX.Tests {
       enabled.Write("first\nsecond");
       Assert.That(enabled.Build(), Is.EqualTo("first\n> second"));
 
-      var disabled = new ProsePlainTextWriter(
+      var disabled = new ProseTextWriter(
         configuration: new ProsePlainTextConfiguration(
           root: new PTNodeFormat(indent: linePrefix)
         )
@@ -389,7 +389,7 @@ namespace HELIX.Tests {
       disabled.Write("first\nsecond");
       Assert.That(disabled.Build(), Is.EqualTo("firstsecond"));
 
-      var nested = new ProsePlainTextWriter(
+      var nested = new ProseTextWriter(
         configuration: new ProsePlainTextConfiguration(
           property: new PTNodeFormat(
             indent: linePrefix,
@@ -432,7 +432,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void AnchorFactory_SuppressesOnlyTheTerminalBoundary() {
-      var writer = new ProsePlainTextWriter(
+      var writer = new ProseTextWriter(
         configuration: new ProsePlainTextConfiguration(
           root: PTRuleFactory.Container(firstLinePrefix: "[", continuationPrefix: ">")
         )
@@ -444,7 +444,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_ControlsHardWrapAndItemBreaksIndependently() {
-      var hardOnly = new ProsePlainTextWriter(
+      var hardOnly = new ProseTextWriter(
         wrapWidth: 4,
         configuration: new ProsePlainTextConfiguration(
           root: PTRuleFactory.Block(lineBreaks: LineBreakMode.Hard)
@@ -453,7 +453,7 @@ namespace HELIX.Tests {
       hardOnly.Write("aa bb\ncc");
       Assert.That(hardOnly.Build(), Is.EqualTo("aabb\ncc"));
 
-      var wrapOnly = new ProsePlainTextWriter(
+      var wrapOnly = new ProseTextWriter(
         wrapWidth: 4,
         configuration: new ProsePlainTextConfiguration(
           root: PTRuleFactory.Block(lineBreaks: LineBreakMode.Wrap)
@@ -478,7 +478,7 @@ namespace HELIX.Tests {
           lines: PTRuleFactory.LineBreaks(LineBreakMode.Item)
         )
       );
-      var writer = new ProsePlainTextWriter(configuration: configuration);
+      var writer = new ProseTextWriter(configuration: configuration);
       Assert.That(writer.BeginFrame(ProseProperty.Instance), Is.True);
       writer.Write("a");
       writer.PopFrame();
@@ -537,7 +537,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextConfigurations_ShallowTerminatesTheFinalPropertyList() {
-      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Shallow);
+      var writer = new ProseTextWriter(configuration: ProsePlainTextConfigurations.Shallow);
       Prose.Prose.WriteName(writer, "Root");
       Prose.Prose.WriteProperty(writer, "First", 1, ProseIntFormatter.Instance);
       Prose.Prose.WriteProperty(writer, "Second", 2, ProseIntFormatter.Instance);
@@ -547,7 +547,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextConfigurations_ShallowTerminatesWrappedProductionOutput() {
-      var writer = new ProsePlainTextWriter(
+      var writer = new ProseTextWriter(
         wrapWidth: 96,
         configuration: ProsePlainTextConfigurations.Shallow
       );
@@ -588,7 +588,7 @@ namespace HELIX.Tests {
                  ProsePlainTextConfigurations.Sparse,
                  ProsePlainTextConfigurations.Shallow
                }) {
-        var writer = new ProsePlainTextWriter(configuration: configuration);
+        var writer = new ProseTextWriter(configuration: configuration);
         Prose.Prose.WriteName(writer, "Root");
         Prose.Prose.WriteProperty(writer, "Value", 1, ProseIntFormatter.Instance);
         Prose.Prose.WriteSpan(writer, "important", ProseTextStyle.Strong);
@@ -609,7 +609,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainConfiguration_UsesShallowPropertiesAndIncludesAllTextFeatures() {
-      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Plain);
+      var writer = new ProseTextWriter(configuration: ProsePlainTextConfigurations.Plain);
       Prose.Prose.WriteName(writer, "Root");
       Prose.Prose.WriteProperty(writer, "Value", 1, ProseIntFormatter.Instance);
       WriteStructuredProse(writer);
@@ -624,7 +624,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void ErrorConfiguration_ProjectsMarkupIntoItsDiagnosticStyle() {
-      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Error);
+      var writer = new ProseTextWriter(configuration: ProsePlainTextConfigurations.Error);
       Prose.Prose.WriteSpan(writer, "strong", ProseTextStyle.Strong);
       writer.Write(" ");
       Prose.Prose.WriteSpan(writer, "code", ProseTextStyle.Code);
@@ -686,7 +686,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_RendersMarkupListsAndMeasuredTables() {
-      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
+      var writer = new ProseTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
       WriteStructuredProse(writer);
 
       Assert.That(
@@ -705,7 +705,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_LimitsTableColumnTargetsToTheWrapWidth() {
-      var writer = new ProsePlainTextWriter(
+      var writer = new ProseTextWriter(
         wrapWidth: 16, configuration: ProsePlainTextConfigurations.Markdown
       );
       Assert.That(writer.BeginFrame(ProseTable.Instance), Is.True);
@@ -729,13 +729,13 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_ReplacesLineBreaksInsideTableCells() {
-      var defaultWriter = new ProsePlainTextWriter(
+      var defaultWriter = new ProseTextWriter(
         configuration: ProsePlainTextConfigurations.Markdown
       );
       WriteSingleCellTable(defaultWriter, "alpha\nbeta");
       Assert.That(defaultWriter.Build(), Is.EqualTo("| alpha¶beta |"));
 
-      var configuredWriter = new ProsePlainTextWriter(
+      var configuredWriter = new ProseTextWriter(
         configuration: new ProsePlainTextConfiguration(
           root: PTRuleFactory.Container(),
           table: new PTTableFormat(lineBreakReplacement: " / ")
@@ -747,7 +747,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_CombinesGeneralMarkupModifiers() {
-      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
+      var writer = new ProseTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
       Prose.Prose.WriteSpan(
         writer, "important", ProseTextStyle.Emphasis | ProseTextStyle.Strong
       );
@@ -766,7 +766,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_RendersPreformattedCodeBlocksWithoutWrapping() {
-      var writer = new ProsePlainTextWriter(
+      var writer = new ProseTextWriter(
         wrapWidth: 8,
         configuration: ProsePlainTextConfigurations.Markdown
       );
@@ -788,7 +788,7 @@ namespace HELIX.Tests {
           prefixFill: '-', suffixFill: '-', showLanguage: false
         )
       );
-      var writer = new ProsePlainTextWriter(wrapWidth: 20, configuration: configuration);
+      var writer = new ProseTextWriter(wrapWidth: 20, configuration: configuration);
 
       Prose.Prose.WriteCodeBlock(writer, "code", "csharp");
 
@@ -823,7 +823,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_CopiesFormattedOutputToCallerOwnedSpan() {
-      var writer = new ProsePlainTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
+      var writer = new ProseTextWriter(configuration: ProsePlainTextConfigurations.Markdown);
       Prose.Prose.WriteSpan(writer, "important", ProseTextStyle.Strong);
 
       Assert.That(writer.FormattedLength, Is.EqualTo("**important**".Length));
@@ -838,7 +838,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_EmitsAtMostOneFullyBlankLineAtTheEnd() {
-      var writer = new ProsePlainTextWriter();
+      var writer = new ProseTextWriter();
       writer.Write("value\n\n\n\n");
 
       Assert.That(writer.Build(), Is.EqualTo("value\n\n"));
@@ -907,7 +907,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_UsesReusableFormatterConfigurationAsAHint() {
-      var writer = new ProsePlainTextWriter();
+      var writer = new ProseTextWriter();
       writer.Write(255, HexFormatter);
       writer.Write(" ");
       writer.Write(true, YesNoFormatter);
@@ -916,7 +916,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PropertyFormatter_IsSemanticMacroOrNativeDataDescriptor() {
-      var textWriter = new ProsePlainTextWriter();
+      var textWriter = new ProseTextWriter();
       textWriter.Write(12, AgeFormatter);
       Assert.That(textWriter.Build(), Is.EqualTo("Age: 12 years\n\n"));
 
@@ -927,7 +927,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void Writers_FallBackToSelfFormattingProseAndCustomFormatters() {
-      var writer = new ProsePlainTextWriter();
+      var writer = new ProseTextWriter();
       writer.Write("before");
       writer.Write(ProseLineBreak.Instance);
       writer.Write(new WrappedText("fallback"), WrappedTextFormatter.Instance);
@@ -937,7 +937,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void PlainTextWriter_DistinguishesHardAndSoftSemanticLineBreaks() {
-      var writer = new ProsePlainTextWriter(
+      var writer = new ProseTextWriter(
         configuration: new ProsePlainTextConfiguration(root: PTRuleFactory.Container())
       );
       writer.Write("first");
@@ -954,7 +954,7 @@ namespace HELIX.Tests {
 
     [Test]
     public void MarkdownConfiguration_RendersSemanticBreaksAsMarkdownHardBreaks() {
-      var writer = new ProsePlainTextWriter(
+      var writer = new ProseTextWriter(
         configuration: ProsePlainTextConfigurations.Markdown
       );
       writer.Write("first");
@@ -971,7 +971,7 @@ namespace HELIX.Tests {
     }
 
     private static string RenderConfiguration(ProsePlainTextConfiguration configuration) {
-      var writer = new ProsePlainTextWriter(configuration: configuration);
+      var writer = new ProseTextWriter(configuration: configuration);
       Prose.Prose.WriteName(writer, "Root");
       Prose.Prose.WriteProperty(writer, "Value", 1, ProseIntFormatter.Instance);
       if (writer.BeginFrame(ProseTree.Instance)) {

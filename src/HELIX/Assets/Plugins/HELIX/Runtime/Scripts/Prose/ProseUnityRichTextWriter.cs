@@ -6,7 +6,7 @@ namespace HELIX.Prose {
   /// Plain-text writer variant that projects semantic markup to Unity rich-text tags. Tags are emitted in
   /// the result but remain zero-width for wrapping, truncation, table measurement, and alignment.
   /// </summary>
-  public sealed class ProseUnityRichTextWriter : ProsePlainTextWriter {
+  public sealed class ProseUnityRichTextWriter : ProseTextWriter {
     private readonly string _codeColorTag;
     private readonly string _quoteColorTag;
     private readonly string _errorColorTag;
