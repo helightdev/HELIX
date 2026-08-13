@@ -65,7 +65,7 @@ namespace HELIX.Prose {
       return true;
     }
 
-    public override void PopFrame() {
+    public override void End() {
       if (_frameCount == 0) throw new InvalidOperationException("There is no Prose frame to pop.");
 
       var index = _frameCount - 1;

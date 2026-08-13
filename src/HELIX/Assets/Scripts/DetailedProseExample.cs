@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Text;
 using HELIX.Prose;
 using UnityEngine;
-using ProseApi = HELIX.Prose.Prose;
 
 namespace HELIX.Examples {
   /// <summary>A deliberately broad immediate-mode Prose sample used by the NW system example.</summary>
@@ -115,19 +114,18 @@ namespace HELIX.Examples {
       return ProseDictionaryText.Format(writer.Root);
     }
 
-    public static void PrintPlainText() =>
-      PrintPlainText("Sparse tree", ProseTextConfigurations.Sparse);
+    public static void PrintPlainText() => PrintPlainText("Sparse tree", ProseTextConfigurations.Sparse);
 
-    public static void PrintPlainText(string configurationName, ProseTextConfiguration configuration) =>
-      Debug.Log("Detailed Prose · " + configurationName + "\n" + RenderPlainText(configuration));
+    public static void PrintPlainText(string configurationName, ProseTextConfiguration configuration) => Debug.Log(
+      "Detailed Prose · " + configurationName + "\n" + RenderPlainText(configuration)
+    );
 
     public static void PrintDictionary() => Debug.Log("Detailed Prose · dictionary\n" + RenderDictionary());
 
-    public static void PrintUnityRichText() =>
-      Debug.Log("Detailed Prose · Unity rich text\n" + RenderUnityRichText());
+    public static void PrintUnityRichText() => Debug.Log("Detailed Prose · Unity rich text\n" + RenderUnityRichText());
 
     public void ToProse(IProseWriter writer) {
-      ProseApi.WriteName(writer, "Asteria Orbital Relay Station");
+      writer.Name("Asteria Orbital Relay Station");
       writer.Write("ASTERIA-07", MissionId);
 
       WriteMissionBriefing(writer);
@@ -135,22 +133,20 @@ namespace HELIX.Examples {
       // writer.Write(ProseSoftLineBreak.Instance);
       // writer.Write(ProseLineBreak.Instance);
 
-      ProseApi.WriteProperty(writer, "State", StationState.Degraded, ProseEnumFormatter<StationState>.Instance);
+      writer.Property("State", StationState.Degraded, ProseFormatters.Enum<StationState>());
       writer.Write(37, CrewAboard);
       writer.Write(1842, OrbitNumber);
-      ProseApi.WriteProperty(writer, "Autonomous control", true, OperationalState);
-      ProseApi.WriteProperty(
-        writer,
+      writer.Property("Autonomous control", true, OperationalState);
+      writer.Property(
         "Summary",
         "Long-range relay and research platform holding a stable polar orbit while its secondary coolant " +
         "loop is isolated for inspection.",
-        ProseStringFormatter.Instance
+        ProseFormatters.String
       );
-      ProseApi.WriteProperty(
-        writer,
+      writer.Property(
         "Internal tracking token",
         "OPS-4A-9912",
-        ProseStringFormatter.Instance,
+        ProseFormatters.String,
         level: ProseLevel.Debug,
         hidden: true,
         noWrap: true
@@ -163,173 +159,147 @@ namespace HELIX.Examples {
     }
 
     private static void WriteMissionBriefing(IProseWriter writer) {
-      if (!writer.BeginFrame(ProseSection.Instance)) return;
+      if (!writer.BeginSection()) return;
       try {
-        ProseApi.WriteSectionHeader(writer, "Mission briefing");
+        writer.WriteSectionHeader("Mission briefing");
 
-        if (writer.BeginFrame(ProseParagraph.Instance)) {
+        if (writer.BeginParagraph()) {
           try {
             writer.Write("Station state is ");
-            ProseApi.WriteSpan(writer, "degraded", ProseTextStyle.Strong);
+            writer.WriteSpan("degraded", ProseTextStyle.Strong);
             writer.Write(" while the ");
-            ProseApi.WriteSpan(writer, "secondary coolant loop", ProseTextStyle.Emphasis);
+            writer.WriteSpan("secondary coolant loop", ProseTextStyle.Emphasis);
             writer.Write(" remains isolated under tracking token ");
-            ProseApi.WriteSpan(writer, "OPS-4A-9912", ProseTextStyle.Code);
+            writer.WriteSpan("OPS-4A-9912", ProseTextStyle.Code);
             writer.Write(". Follow the ");
-            ProseApi.WriteSpan(
-              writer,
+            writer.WriteSpan(
               "thermal recovery runbook",
               linkTarget: "https://helix.local/runbooks/thermal-recovery"
             );
             writer.Write(" until inspection is complete.");
-          } finally {
-            writer.PopFrame();
-          }
+          } finally { writer.End(); }
         }
 
-        if (writer.BeginFrame(ProseParagraph.Instance)) {
+        if (writer.BeginParagraph()) {
           try {
-            ProseApi.WriteSpan(
-              writer,
+            writer.WriteSpan(
               "Keep reactor B below 70% output until valve C17-B passes its pressure cycle.",
               ProseTextStyle.Error
             );
-          } finally {
-            writer.PopFrame();
-          }
+          } finally { writer.End(); }
         }
 
-        ProseApi.WriteCodeBlock(
-          writer,
+        writer.WriteCodeBlock(
           "coolant isolate C17 --tracking OPS-4A-9912\n" +
           "thermal recover --limit-reactor-b 70% --cycles 2",
           "helix"
         );
 
-        if (writer.BeginFrame(new ProseList(ProseListKind.Ordered))) {
+        if (writer.BeginOrderedList()) {
           try {
-            ProseApi.WriteListItem(writer, "Verify coolant isolation telemetry.");
-            ProseApi.WriteListItem(writer, "Inspect valve C17-B and the secondary pump manifold.");
-            ProseApi.WriteListItem(writer, "Return the loop to service after two stable pressure cycles.");
-          } finally {
-            writer.PopFrame();
-          }
+            writer.WriteListItem("Verify coolant isolation telemetry.");
+            writer.WriteListItem("Inspect valve C17-B and the secondary pump manifold.");
+            writer.WriteListItem("Return the loop to service after two stable pressure cycles.");
+          } finally { writer.End(); }
         }
 
         WriteSubsystemTable(writer);
-      } finally {
-        writer.PopFrame();
-      }
+      } finally { writer.End(); }
     }
 
     private static void WriteSubsystemTable(IProseWriter writer) {
-      if (!writer.BeginFrame(ProseTable.Instance)) return;
+      if (!writer.BeginTable()) return;
       try {
-        if (writer.BeginFrame(ProseTableRow.Header)) {
+        if (writer.BeginTableRow(header: true)) {
           try {
-            ProseApi.WriteTableCell(writer, "Subsystem");
-            ProseApi.WriteTableCell(writer, "State", ProseTextAlignment.Center);
-            ProseApi.WriteTableCell(writer, "Load", ProseTextAlignment.Right);
-            ProseApi.WriteTableCell(writer, "Owner");
-          } finally {
-            writer.PopFrame();
-          }
+            writer.WriteTableCell("Subsystem");
+            writer.WriteTableCell("State", ProseTextAlignment.Center);
+            writer.WriteTableCell("Load", ProseTextAlignment.Right);
+            writer.WriteTableCell("Owner");
+          } finally { writer.End(); }
         }
 
         WriteSubsystemRow(writer, "Primary reactor", "Nominal", 91, "Power");
         WriteSubsystemRow(writer, "Reactor B", "Recovery", 43, "Power");
         WriteSubsystemRow(writer, "Coolant loop C17", "Isolated", 0, "Engineering");
-        WriteSubsystemRow(writer, "Relay array\nThis has a linebreak", "Operational but this is a very very long line, I don't know if it can actually handle this.", 97, "Communications");
+        WriteSubsystemRow(
+          writer, "Relay array\nThis has a linebreak",
+          "Operational but this is a very very long line, I don't know if it can actually handle this.", 97,
+          "Communications"
+        );
         WriteSubsystemRow(writer, "Relay array", "Operational", 97, "Communications");
-      } finally {
-        writer.PopFrame();
-      }
+      } finally { writer.End(); }
     }
 
     private static void WriteSubsystemRow(
       IProseWriter writer, string subsystem, string state, int load, string owner
     ) {
-      if (!writer.BeginFrame(ProseTableRow.Body)) return;
+      if (!writer.BeginTableRow()) return;
       try {
-        ProseApi.WriteTableCell(writer, subsystem);
-        ProseApi.WriteTableCell(writer, state, ProseTextAlignment.Center);
-        ProseApi.WriteTableCell(writer, load, Percent, ProseTextAlignment.Right);
-        ProseApi.WriteTableCell(writer, owner);
-      } finally {
-        writer.PopFrame();
-      }
+        writer.WriteTableCell(subsystem);
+        writer.WriteTableCell(state, ProseTextAlignment.Center);
+        writer.WriteTableCell(load, Percent, ProseTextAlignment.Right);
+        writer.WriteTableCell(owner);
+      } finally { writer.End(); }
     }
 
     private static void WriteOperatorNote(IProseWriter writer) {
-      if (!writer.BeginFrame(ProseSection.Instance)) return;
+      if (!writer.BeginSection()) return;
       try {
-        if (!writer.BeginFrame(ProseParagraph.Instance)) return;
+        if (!writer.BeginParagraph()) return;
         try {
-          ProseApi.WriteSpan(
-            writer,
+          writer.WriteSpan(
             "Operator note: the relay remains mission-capable; prioritize thermal stability over throughput.",
             ProseTextStyle.Quote
           );
-        } finally {
-          writer.PopFrame();
-        }
-      } finally {
-        writer.PopFrame();
-      }
+        } finally { writer.End(); }
+      } finally { writer.End(); }
     }
 
     private static void WriteCommandDeck(IProseWriter writer) {
-      if (!writer.BeginFrame(ProseTree.Instance)) return;
+      if (!writer.BeginTree()) return;
       try {
-        ProseApi.WriteName(writer, "Command deck");
-        ProseApi.WriteProperty(writer, "Watch officer", "Cmdr. Imani Vale", ProseStringFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Shift", "Gamma", ProseStringFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Navigation lock", true, EnabledState);
-        ProseApi.WriteProperty(writer, "Attitude error", 0.04f, ProseFloatFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Next maneuver", "2026-08-12 21:40 UTC", ProseStringFormatter.Instance);
+        writer.Name("Command deck");
+        writer.Property("Watch officer", "Cmdr. Imani Vale", ProseFormatters.String);
+        writer.Property("Shift", "Gamma", ProseFormatters.String);
+        writer.Property("Navigation lock", true, EnabledState);
+        writer.Property("Attitude error", 0.04f, ProseFormatters.Float);
+        writer.Property("Next maneuver", "2026-08-12 21:40 UTC", ProseFormatters.String);
 
-        if (!writer.BeginFrame(ProseTree.Instance)) return;
+        if (!writer.BeginTree()) return;
         try {
-          ProseApi.WriteName(writer, "Crew manifest");
-          ProseApi.WriteProperty(writer, "Command", 4, ProseIntFormatter.Instance);
-          ProseApi.WriteProperty(writer, "Engineering", 12, ProseIntFormatter.Instance);
-          ProseApi.WriteProperty(writer, "Science", 9, ProseIntFormatter.Instance);
-          ProseApi.WriteProperty(writer, "Operations", 8, ProseIntFormatter.Instance);
-          ProseApi.WriteProperty(writer, "Medical", 4, ProseIntFormatter.Instance);
-        } finally {
-          writer.PopFrame();
-        }
-      } finally {
-        writer.PopFrame();
-      }
+          writer.Name("Crew manifest");
+          writer.Property("Command", 4, ProseFormatters.Int);
+          writer.Property("Engineering", 12, ProseFormatters.Int);
+          writer.Property("Science", 9, ProseFormatters.Int);
+          writer.Property("Operations", 8, ProseFormatters.Int);
+          writer.Property("Medical", 4, ProseFormatters.Int);
+        } finally { writer.End(); }
+      } finally { writer.End(); }
     }
 
     private static void WritePowerGrid(IProseWriter writer) {
-      if (!writer.BeginFrame(ProseTree.Instance)) return;
+      if (!writer.BeginTree()) return;
       try {
-        ProseApi.WriteName(writer, "Power grid");
-        ProseApi.WriteProperty(writer, "Grid state", "Load balanced", ProseStringFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Battery reserve", 78, Percent);
-        ProseApi.WriteProperty(writer, "Solar tracking", true, EnabledState);
-        ProseApi.WriteProperty(writer, "Peak demand (MW)", 18.72f, Megawatts);
+        writer.Name("Power grid");
+        writer.Property("Grid state", "Load balanced", ProseFormatters.String);
+        writer.Property("Battery reserve", 78, Percent);
+        writer.Property("Solar tracking", true, EnabledState);
+        writer.Property("Peak demand (MW)", 18.72f, Megawatts);
 
         WriteReactor(writer, "Fusion reactor A", 91, 612, true, "Primary bus");
         WriteReactor(writer, "Fusion reactor IR");
         WriteReactor(writer, "Fusion reactor B", 43, 487, true, "Reserve and thermal recovery");
 
-        if (!writer.BeginFrame(ProseTree.Instance)) return;
+        if (!writer.BeginTree()) return;
         try {
-          ProseApi.WriteName(writer, "Solar array wings");
-          ProseApi.WriteProperty(writer, "Port wing", 96, Percent);
-          ProseApi.WriteProperty(writer, "Starboard wing", 94, Percent);
-          ProseApi.WriteProperty(writer, "Sun incidence", 88, Percent);
-          ProseApi.WriteProperty(writer, "Micrometeorite damage", "Minor / stable", ProseStringFormatter.Instance);
-        } finally {
-          writer.PopFrame();
-        }
-      } finally {
-        writer.PopFrame();
-      }
+          writer.Name("Solar array wings");
+          writer.Property("Port wing", 96, Percent);
+          writer.Property("Starboard wing", 94, Percent);
+          writer.Property("Sun incidence", 88, Percent);
+          writer.Property("Micrometeorite damage", "Minor / stable", ProseFormatters.String);
+        } finally { writer.End(); }
+      } finally { writer.End(); }
     }
 
     private static void WriteReactor(
@@ -340,54 +310,47 @@ namespace HELIX.Examples {
       bool operational,
       string assignment
     ) {
-      if (!writer.BeginFrame(ProseTree.Instance)) return;
+      if (!writer.BeginTree()) return;
       try {
-        ProseApi.WriteName(writer, name);
+        writer.Name(name);
         writer.Write(output, PowerOutput);
         writer.Write(temperature, Temperature);
-        ProseApi.WriteProperty(writer, "State", operational, OperationalState);
-        ProseApi.WriteProperty(
-          writer,
+        writer.Property("State", operational, OperationalState);
+        writer.Property(
           "Summary",
           "Long-range relay and research platform holding a stable polar orbit while its secondary coolant " +
           "loop is isolated for inspection.",
-          ProseStringFormatter.Instance
+          ProseFormatters.String
         );
-        ProseApi.WriteProperty(writer, "Assignment", assignment, ProseStringFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Containment", 99, Percent, noWrap: true);
-      } finally {
-        writer.PopFrame();
-      }
+        writer.Property("Assignment", assignment, ProseFormatters.String);
+        writer.Property("Containment", 99, Percent, noWrap: true);
+      } finally { writer.End(); }
     }
 
     private static void WriteReactor(
       IProseWriter writer,
       string name
     ) {
-      if (!writer.BeginFrame(ProseTree.Instance)) return;
+      if (!writer.BeginTree()) return;
       try {
-        ProseApi.WriteName(writer, name);
-      } finally {
-        writer.PopFrame();
-      }
+        writer.Name(name);
+      } finally { writer.End(); }
     }
 
 
     private static void WriteCommunications(IProseWriter writer) {
-      if (!writer.BeginFrame(ProseTree.Instance)) return;
+      if (!writer.BeginTree()) return;
       try {
-        ProseApi.WriteName(writer, "Communications");
-        ProseApi.WriteProperty(writer, "Relay mode", "Store, route, and forward", ProseStringFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Packets queued", 1284, ProseIntFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Oldest packet", "00:00:04.218", ProseStringFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Encryption", "HELIX-Q lattice / epoch 84", ProseStringFormatter.Instance);
+        writer.Name("Communications");
+        writer.Property("Relay mode", "Store, route, and forward", ProseFormatters.String);
+        writer.Property("Packets queued", 1284, ProseFormatters.Int);
+        writer.Property("Oldest packet", "00:00:04.218", ProseFormatters.String);
+        writer.Property("Encryption", "HELIX-Q lattice / epoch 84", ProseFormatters.String);
 
         WriteAntenna(writer, "High-gain antenna North", 97, "Luna Deep Space Array", true);
         WriteAntenna(writer, "High-gain antenna South", 82, "Research vessel Nereid", true);
         WriteAntenna(writer, "Emergency omnidirectional array", 64, "Standby beacon", false);
-      } finally {
-        writer.PopFrame();
-      }
+      } finally { writer.End(); }
     }
 
     private static void WriteAntenna(
@@ -397,67 +360,57 @@ namespace HELIX.Examples {
       string target,
       bool transmitting
     ) {
-      if (!writer.BeginFrame(ProseTree.Instance)) return;
+      if (!writer.BeginTree()) return;
       try {
-        ProseApi.WriteName(writer, name);
+        writer.Name(name);
         writer.Write(signal, SignalStrength);
-        ProseApi.WriteProperty(writer, "Target", target, ProseStringFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Transmitter", transmitting, EnabledState);
-        ProseApi.WriteProperty(writer, "Error correction", "LDPC 7/8", ProseStringFormatter.Instance);
-      } finally {
-        writer.PopFrame();
-      }
+        writer.Property("Target", target, ProseFormatters.String);
+        writer.Property("Transmitter", transmitting, EnabledState);
+        writer.Property("Error correction", "LDPC 7/8", ProseFormatters.String);
+      } finally { writer.End(); }
     }
 
     private static void WriteScienceAndCargo(IProseWriter writer) {
-      if (!writer.BeginFrame(ProseTree.Instance)) return;
+      if (!writer.BeginTree()) return;
       try {
-        ProseApi.WriteName(writer, "Science and cargo");
-        ProseApi.WriteProperty(writer, "Active experiments", 14, ProseIntFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Cold storage", -42, Temperature.ValueFormatter);
-        ProseApi.WriteProperty(writer, "Sample vault", "Sealed / biometric access", ProseStringFormatter.Instance);
-        ProseApi.WriteProperty(writer, "Cargo capacity", 68, Percent);
+        writer.Name("Science and cargo");
+        writer.Property("Active experiments", 14, ProseFormatters.Int);
+        writer.Property("Cold storage", -42, Temperature.ValueFormatter);
+        writer.Property("Sample vault", "Sealed / biometric access", ProseFormatters.String);
+        writer.Property("Cargo capacity", 68, Percent);
 
-        if (!writer.BeginFrame(ProseTree.Instance)) return;
+        if (!writer.BeginTree()) return;
         try {
-          ProseApi.WriteName(writer, "Priority payloads");
-          ProseApi.WriteProperty(writer, "PX-113", "Cryogenic regolith cores", ProseStringFormatter.Instance);
-          ProseApi.WriteProperty(writer, "BX-204", "Replacement coolant manifold", ProseStringFormatter.Instance);
-          ProseApi.WriteProperty(writer, "MED-09", "Emergency tissue printer feedstock", ProseStringFormatter.Instance);
-          ProseApi.WriteProperty(writer, "ARCHIVE", "2.4 PB encrypted survey data", ProseStringFormatter.Instance);
-        } finally {
-          writer.PopFrame();
-        }
-      } finally {
-        writer.PopFrame();
-      }
+          writer.Name("Priority payloads");
+          writer.Property("PX-113", "Cryogenic regolith cores", ProseFormatters.String);
+          writer.Property("BX-204", "Replacement coolant manifold", ProseFormatters.String);
+          writer.Property("MED-09", "Emergency tissue printer feedstock", ProseFormatters.String);
+          writer.Property("ARCHIVE", "2.4 PB encrypted survey data", ProseFormatters.String);
+        } finally { writer.End(); }
+      } finally { writer.End(); }
     }
 
     private static void WriteAlerts(IProseWriter writer) {
-      if (!writer.BeginFrame(ProseTree.Instance)) return;
+      if (!writer.BeginTree()) return;
       try {
         writer.PushModifier(new LevelMarker(ProseLevel.Warning));
         writer.PushModifier(AllowTruncate.Instance);
-        ProseApi.WriteName(writer, "Active alerts");
-        ProseApi.WriteProperty(
-          writer,
+        writer.Name("Active alerts");
+        writer.Property(
           "Warning C-17",
           "Secondary coolant loop pressure oscillation exceeded the preferred envelope three times. " +
           "The loop is isolated; reactor B is carrying thermal recovery while engineering inspects valve C17-B.",
-          ProseStringFormatter.Instance,
+          ProseFormatters.String,
           level: ProseLevel.Warning
         );
-        ProseApi.WriteProperty(
-          writer,
+        writer.Property(
           "Advisory N-04",
           "North radiator deployment motor is 6% above its modeled current draw.",
-          ProseStringFormatter.Instance,
+          ProseFormatters.String,
           level: ProseLevel.Info
         );
-        ProseApi.WriteProperty(writer, "Acknowledged by", "Lt. Sato / 18:22 UTC", ProseStringFormatter.Instance);
-      } finally {
-        writer.PopFrame();
-      }
+        writer.Property("Acknowledged by", "Lt. Sato / 18:22 UTC", ProseFormatters.String);
+      } finally { writer.End(); }
     }
   }
 

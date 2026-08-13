@@ -2,69 +2,147 @@ using System;
 
 namespace HELIX.Prose {
   /// <summary>Low-boilerplate immediate-mode producers for the built-in semantic frames.</summary>
-  public static class Prose {
-    public static void WriteSpan(
-      IProseWriter writer, string text, ProseTextStyle style = ProseTextStyle.None,
+  public static class ProseWriterExtensions {
+    public static bool BeginSpan(
+      this IProseWriter writer, ProseTextStyle style = ProseTextStyle.None,
       string linkTarget = null
     ) {
-      if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (!writer.BeginFrame(ProseSpan.Instance)) return;
+      if (!BeginScope(writer, ProseSpan.Instance)) return false;
+      if (style != ProseTextStyle.None) writer.PushModifier(TextStyleMarker.For(style));
+      if (linkTarget != null) writer.PushModifier(new LinkMarker(linkTarget));
+      return true;
+    }
+
+    public static bool BeginSection(this IProseWriter writer) =>
+      BeginScope(writer, ProseSection.Instance);
+
+    public static bool BeginSectionHeader(this IProseWriter writer) =>
+      BeginScope(writer, ProseSectionHeader.Instance);
+
+    public static bool BeginParagraph(this IProseWriter writer) =>
+      BeginScope(writer, ProseParagraph.Instance);
+
+    public static bool BeginCodeBlock(this IProseWriter writer, string language = null) =>
+      BeginScope(writer, string.IsNullOrEmpty(language) ? ProseCodeBlock.Plain : new ProseCodeBlock(language));
+
+    public static bool BeginList(
+      this IProseWriter writer, ProseListKind kind = ProseListKind.Unordered, int start = 1
+    ) => BeginScope(
+      writer,
+      start == 1
+        ? kind == ProseListKind.Ordered ? ProseList.Ordered : ProseList.Unordered
+        : new ProseList(kind, start)
+    );
+
+    public static bool BeginOrderedList(this IProseWriter writer, int start = 1) =>
+      writer.BeginList(ProseListKind.Ordered, start);
+
+    public static bool BeginUnorderedList(this IProseWriter writer) =>
+      writer.BeginList();
+
+    public static bool BeginListItem(this IProseWriter writer) =>
+      BeginScope(writer, ProseListItem.Instance);
+
+    public static bool BeginTable(this IProseWriter writer) =>
+      BeginScope(writer, ProseTable.Instance);
+
+    public static bool BeginTableRow(this IProseWriter writer, bool header = false) =>
+      BeginScope(writer, header ? ProseTableRow.Header : ProseTableRow.Body);
+
+    public static bool BeginTableCell(
+      this IProseWriter writer, ProseTextAlignment alignment = ProseTextAlignment.Left
+    ) {
+      if (!BeginScope(writer, ProseTableCell.Instance)) return false;
+      if (alignment != ProseTextAlignment.Left)
+        writer.PushModifier(TextAlignmentMarker.For(alignment));
+      return true;
+    }
+
+    public static bool BeginProperty(
+      this IProseWriter writer,
+      ProseLevel level = ProseLevel.Info,
+      bool hidden = false,
+      bool noWrap = false
+    ) {
+      if (!BeginScope(writer, ProseProperty.Instance)) return false;
+      writer.PushModifier(LevelMarker.For(level));
+      if (hidden) writer.PushModifier(Hidden.Instance);
+      if (noWrap) writer.PushModifier(NoWrap.Instance);
+      return true;
+    }
+
+    public static bool BeginTree(this IProseWriter writer) =>
+      BeginScope(writer, ProseTree.Instance);
+
+    public static bool BeginName(this IProseWriter writer) =>
+      BeginScope(writer, ProseName.Instance);
+
+    public static bool BeginPropertyKey(this IProseWriter writer) =>
+      BeginScope(writer, ProsePropertyKey.Instance);
+
+    public static bool BeginPropertyValue(this IProseWriter writer) =>
+      BeginScope(writer, ProsePropertyValue.Instance);
+
+    public static void WriteSpan(
+      this IProseWriter writer, string text, ProseTextStyle style = ProseTextStyle.None,
+      string linkTarget = null
+    ) {
+      if (!writer.BeginSpan(style, linkTarget)) return;
       try {
-        if (style != ProseTextStyle.None) writer.PushModifier(TextStyleMarker.For(style));
-        if (linkTarget != null) writer.PushModifier(new LinkMarker(linkTarget));
         writer.Write(text);
       } finally {
-        writer.PopFrame();
+        writer.End();
       }
     }
 
-    public static void WriteSectionHeader(IProseWriter writer, string header) =>
+    public static void WriteSectionHeader(this IProseWriter writer, string header) =>
       WriteTextFrame(writer, ProseSectionHeader.Instance, header);
 
-    public static void WriteParagraph(IProseWriter writer, string content) =>
+    public static void WriteParagraph(this IProseWriter writer, string content) =>
       WriteTextFrame(writer, ProseParagraph.Instance, content);
 
-    public static void WriteCodeBlock(IProseWriter writer, string code, string language = null) =>
+    public static void WriteCodeBlock(this IProseWriter writer, string code, string language = null) =>
       WriteTextFrame(writer, new ProseCodeBlock(language), code);
 
-    public static void WriteListItem(IProseWriter writer, string content) =>
+    public static void WriteListItem(this IProseWriter writer, string content) =>
       WriteTextFrame(writer, ProseListItem.Instance, content);
 
-    public static void WriteListItem<T>(IProseWriter writer, T value, IProseFormatter<T> formatter) {
+    public static void WriteListItem<T>(
+      this IProseWriter writer, T value, IProseFormatter<T> formatter
+    ) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
       if (formatter == null) throw new ArgumentNullException(nameof(formatter));
-      if (!writer.BeginFrame(ProseListItem.Instance)) return;
-      try { writer.Write(value, formatter); } finally { writer.PopFrame(); }
+      if (!writer.BeginListItem()) return;
+      try { writer.Write(value, formatter); } finally { writer.End(); }
     }
 
     public static void WriteTableCell(
-      IProseWriter writer, string content, ProseTextAlignment alignment = ProseTextAlignment.Left
-    ) => WriteTableCell(writer, content, ProseStringFormatter.Instance, alignment);
+      this IProseWriter writer, string content,
+      ProseTextAlignment alignment = ProseTextAlignment.Left
+    ) => writer.WriteTableCell(content, ProseFormatters.String, alignment);
 
     public static void WriteTableCell<T>(
-      IProseWriter writer, T value, IProseFormatter<T> formatter,
+      this IProseWriter writer, T value, IProseFormatter<T> formatter,
       ProseTextAlignment alignment = ProseTextAlignment.Left
     ) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
       if (formatter == null) throw new ArgumentNullException(nameof(formatter));
-      if (!writer.BeginFrame(ProseTableCell.Instance)) return;
+      if (!writer.BeginTableCell(alignment)) return;
       try {
-        if (alignment != ProseTextAlignment.Left)
-          writer.PushModifier(TextAlignmentMarker.For(alignment));
         writer.Write(value, formatter);
       } finally {
-        writer.PopFrame();
+        writer.End();
       }
     }
 
-    public static void WriteName(IProseWriter writer, string name) {
+    public static void Name(this IProseWriter writer, string name) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (!writer.BeginFrame(ProseName.Instance)) return;
-      try { writer.Write(name); } finally { writer.PopFrame(); }
+      if (!writer.BeginName()) return;
+      try { writer.Write(name); } finally { writer.End(); }
     }
 
-    public static void WriteProperty<T>(
-      IProseWriter writer,
+    public static void Property<T>(
+      this IProseWriter writer,
       string key,
       T value,
       IProseFormatter<T> formatter,
@@ -72,29 +150,28 @@ namespace HELIX.Prose {
       bool hidden = false,
       bool noWrap = false
     ) {
-      if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (!writer.BeginFrame(ProseProperty.Instance)) return;
+      if (!writer.BeginProperty(level, hidden, noWrap)) return;
       try {
-        writer.PushModifier(LevelMarker.For(level));
-        if (hidden) writer.PushModifier(Hidden.Instance);
-        if (noWrap) writer.PushModifier(NoWrap.Instance);
-
-        if (writer.BeginFrame(ProsePropertyKey.Instance)) {
-          try { writer.Write(key); } finally { writer.PopFrame(); }
+        if (writer.BeginPropertyKey()) {
+          try { writer.Write(key); } finally { writer.End(); }
         }
 
-        if (writer.BeginFrame(ProsePropertyValue.Instance)) {
-          try { writer.Write(value, formatter); } finally { writer.PopFrame(); }
+        if (writer.BeginPropertyValue()) {
+          try { writer.Write(value, formatter); } finally { writer.End(); }
         }
       } finally {
-        writer.PopFrame();
+        writer.End();
       }
     }
 
     private static void WriteTextFrame(IProseWriter writer, IProseScope scope, string text) {
+      if (!BeginScope(writer, scope)) return;
+      try { writer.Write(text); } finally { writer.End(); }
+    }
+
+    private static bool BeginScope(IProseWriter writer, IProseScope scope) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (!writer.BeginFrame(scope)) return;
-      try { writer.Write(text); } finally { writer.PopFrame(); }
+      return writer.BeginFrame(scope);
     }
   }
 }
