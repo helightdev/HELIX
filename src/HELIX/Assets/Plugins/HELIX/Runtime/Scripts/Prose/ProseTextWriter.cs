@@ -20,7 +20,7 @@ namespace HELIX.Prose {
     private int _frameCount, _modifierCount, _treeDepth;
     private LineState _line;
     private BranchState _root;
-    private bool _rootFinalized;
+    private bool _rootFinalized, _nextBlockFollowsHeading;
     private readonly StringBuilder
       _evaluationBuilder = new(), _itemBuilder = new(), _formatBuilder = new(), _resultBuilder = new();
     private int[] _tableColumnWidths = Array.Empty<int>();
@@ -65,7 +65,7 @@ namespace HELIX.Prose {
       public LineState startLine;
       public int modifierStart, outputStart;
       public int treeDepth, treeOutputStart, itemOutputStart;
-      public bool propertyPrepared, truncated, ownerPropertiesWereFinalized;
+      public bool propertyPrepared, truncated, ownerPropertiesWereFinalized, suppressLeadingPadding;
       public BranchState branch;
       public List<TableRowData> tableRows;
       public List<TableCellData> tableCells;
@@ -116,6 +116,9 @@ namespace HELIX.Prose {
           (IsTextFeature(scope) && !Configuration.ShowTextFeatures))
         return false;
 
+      var suppressLeadingPadding = _nextBlockFollowsHeading && !Configuration.BlankLineAfterSectionHeader &&
+                                   scope is ProseParagraph or ProseCodeBlock or ProseList or ProseTable;
+      _nextBlockFollowsHeading = false;
       PrepareCurrentProperty();
       if (scope is ProseSectionHeader or ProseParagraph or ProseCodeBlock or ProseListItem or ProseTable)
         EnsureNewLine();
@@ -135,6 +138,7 @@ namespace HELIX.Prose {
         treeOutputStart = _builder.Length,
         itemOutputStart = _builder.Length,
         ownerPropertiesWereFinalized = ownerPropertiesWereFinalized,
+        suppressLeadingPadding = suppressLeadingPadding,
         tableRows = scope is ProseTable ? new List<TableRowData>() : null,
         tableCells = scope is ProseTableRow ? new List<TableCellData>() : null,
         propertyPrepared = scope is not ProseProperty
@@ -219,6 +223,7 @@ namespace HELIX.Prose {
             break;
           }
         }
+        SuppressLeadingPadding(frame);
       }
 
       for (var i = frame.modifierStart; i < _modifierCount; i++) _modifiers[i] = null;
@@ -230,6 +235,8 @@ namespace HELIX.Prose {
 
       if (frame.scope is ProseTree && !IsSuppressedFrame(frame)) RecordCompletedTree(frame);
       else if (frame.scope is ProseProperty && !IsSuppressedFrame(frame)) RecordCompletedProperty(frame);
+      else if (frame.scope is ProseSectionHeader && !IsSuppressedFrame(frame))
+        _nextBlockFollowsHeading = true;
     }
 
     public override void PushModifier(IProseModifier modifier) {
@@ -243,12 +250,14 @@ namespace HELIX.Prose {
 
     public override void Write(string text) {
       if (string.IsNullOrEmpty(text) || IsWritingInactive()) return;
+      _nextBlockFollowsHeading = false;
       PrepareCurrentProperty();
       WriteCharacters(text, 0, text.Length);
     }
 
     public void WriteLineBreak(bool force) {
       if (IsWritingInactive()) return;
+      _nextBlockFollowsHeading = false;
       PrepareCurrentProperty();
       AppendLineBreak(force, LineBreakKind.Explicit, required: true);
     }
@@ -265,6 +274,7 @@ namespace HELIX.Prose {
 
     public void Write(ReadOnlySpan<char> text) {
       if (text.Length == 0 || IsWritingInactive()) return;
+      _nextBlockFollowsHeading = false;
       PrepareCurrentProperty();
       WriteCharacters(text);
     }
@@ -278,11 +288,19 @@ namespace HELIX.Prose {
       _modifierCount = 0;
       _root = default;
       _rootFinalized = false;
+      _nextBlockFollowsHeading = false;
       _treeDepth = 0;
       _evaluationBuilder.Clear();
       _itemBuilder.Clear();
       _formatBuilder.Clear();
       _resultBuilder.Clear();
+    }
+
+    private void SuppressLeadingPadding(Frame frame) {
+      if (!frame.suppressLeadingPadding || frame.itemOutputStart >= _builder.Length ||
+          !IsLineBreak(_builder[frame.itemOutputStart])) return;
+      _builder.Remove(frame.itemOutputStart, 1);
+      RecalculateLineState();
     }
 
     public string Build() {
@@ -422,7 +440,12 @@ namespace HELIX.Prose {
       RenderTable(frame.tableRows, _formatBuilder);
       if (_formatBuilder.Length == 0) return;
       InsertRange(_builder, frame.itemOutputStart, _formatBuilder, 0, _formatBuilder.Length);
-      RecalculateLineState();
+      ApplyFormat(
+        Configuration.Table.Format,
+        frame.itemOutputStart,
+        _builder.Length,
+        SingleItemMatching(frame)
+      );
     }
 
     private void ApplyTextModifiers(Frame frame) {
@@ -487,7 +510,7 @@ namespace HELIX.Prose {
       _evaluationBuilder.Append(format.Prefix);
       if (format.ShowLanguage) _evaluationBuilder.Append(codeBlock.Language);
       _evaluationBuilder.Append(format.PrefixSuffix);
-      PadLine(_evaluationBuilder, format.PrefixFill);
+      PadLine(_evaluationBuilder, format.PrefixFill, format.PrefixFillRepeater);
       if (_evaluationBuilder.Length > 0) _evaluationBuilder.Append('\n');
       var prefixLength = InternalTextLength(_evaluationBuilder);
       InsertInternalText(_builder, start, _evaluationBuilder);
@@ -496,7 +519,9 @@ namespace HELIX.Prose {
         _evaluationBuilder.Clear();
         _evaluationBuilder.Append('\n');
         _evaluationBuilder.Append(format.Suffix);
-        PadLine(_evaluationBuilder, format.SuffixFill, lineStart: 1);
+        PadLine(
+          _evaluationBuilder, format.SuffixFill, format.SuffixFillRepeater, lineStart: 1
+        );
         var suffixLength = InternalTextLength(_evaluationBuilder);
         InsertInternalText(_builder, decoratedEnd, _evaluationBuilder);
         decoratedEnd += suffixLength;
@@ -505,11 +530,25 @@ namespace HELIX.Prose {
       ApplyFormat(format.Format, start, decoratedEnd, matching);
     }
 
-    private void PadLine(StringBuilder line, char fill, int lineStart = 0) {
-      if (fill == '\0') return;
+    private void PadLine(StringBuilder line, string fill, int repeater, int lineStart = 0) {
+      if (fill == null) return;
       var targetWidth = Math.Max(0, WrapWidth - DeferredLinePrefixWidth);
       var padding = targetWidth - (line.Length - lineStart);
-      if (padding > 0) line.Append(fill, padding);
+      if (padding <= 0 || fill.Length == 0) return;
+      if (repeater < 0) {
+        line.Append(fill, 0, Math.Min(fill.Length, padding));
+        return;
+      }
+
+      var position = repeater < fill.Length ? repeater : 0;
+      var fixedLength = fill.Length - 1;
+      if (fixedLength >= padding) {
+        line.Append(fill, 0, padding);
+        return;
+      }
+      line.Append(fill, 0, position);
+      line.Append(fill[position], padding - fixedLength);
+      line.Append(fill, position + 1, fill.Length - position - 1);
     }
 
     /// <summary>Applies a configured node format from a derived writer.</summary>

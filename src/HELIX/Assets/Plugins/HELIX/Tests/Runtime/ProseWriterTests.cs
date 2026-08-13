@@ -608,7 +608,7 @@ namespace HELIX.Tests {
     }
 
     [Test]
-    public void PlainConfiguration_UsesShallowPropertiesAndIncludesAllTextFeatures() {
+    public void PlainConfiguration_UsesAsciiTreeAndIncludesAllTextFeatures() {
       var writer = new ProseTextWriter(configuration: ProsePlainTextConfigurations.Plain);
       Prose.Prose.WriteName(writer, "Root");
       Prose.Prose.WriteProperty(writer, "Value", 1, ProseIntFormatter.Instance);
@@ -616,10 +616,17 @@ namespace HELIX.Tests {
       Prose.Prose.WriteCodeBlock(writer, "run command", "shell");
 
       var result = writer.Build();
-      Assert.That(result, Does.StartWith("Root(Value: 1)\n"));
+      Assert.That(result, Does.StartWith("Root\nValue: 1\n"));
       Assert.That(result, Does.Contain("Status:").And.Contain("3. First"));
       Assert.That(result, Does.Contain("| Name").And.Contain("Code: shell\nrun command"));
-      Assert.That(result, Does.Not.Contain("Child"));
+      Assert.That(result, Does.Contain("Status:\nEverything"));
+      Assert.That(result, Does.Contain("docs (https://example.test).\n\n3. First"));
+      Assert.That(result, Does.Contain("4. Second\n\n| Name"));
+      Assert.That(result, Does.Contain("| Alpha |     3 |\n\nCode: shell"));
+      Assert.That(
+        RenderConfiguration(ProsePlainTextConfigurations.Plain),
+        Is.EqualTo("Root\nValue: 1\n|\n\\- Child\n   Child value: 2\n\n")
+      );
     }
 
     [Test]
@@ -785,7 +792,9 @@ namespace HELIX.Tests {
         root: PTRuleFactory.Container(),
         codeBlock: new PTCodeBlockFormat(
           prefix: "[", prefixSuffix: "]", suffix: "-",
-          prefixFill: '-', suffixFill: '-', showLanguage: false
+          prefixFill: "<->", prefixFillRepeater: 1,
+          suffixFill: "[=]", suffixFillRepeater: 1,
+          showLanguage: false
         )
       );
       var writer = new ProseTextWriter(wrapWidth: 20, configuration: configuration);
@@ -794,7 +803,7 @@ namespace HELIX.Tests {
 
       Assert.That(
         writer.Build(),
-        Is.EqualTo("[]------------------\ncode\n--------------------")
+        Is.EqualTo("[]<---------------->\ncode\n-[=================]")
       );
     }
 
@@ -884,10 +893,23 @@ namespace HELIX.Tests {
           "<color=#DCDCAA>value</color> " +
           "<i><color=#A0A0A0>quoted</color></i> " +
           "<b><color=#FF6B6B>failed</color></b> " +
-          "<link=\"https://example.test?a=1&amp;b=2\"><u>docs</u></link>\n" +
+          "<link=\"https://example.test?a=1&amp;b=2\"><u>docs</u></link>\n\n" +
           "<color=#DCDCAA>coolant.reset();</color>"
         )
       );
+    }
+
+    [Test]
+    public void UnityRichTextWriter_PadsSignificantBlocks() {
+      var writer = new ProseUnityRichTextWriter();
+      WriteStructuredProse(writer);
+      Prose.Prose.WriteCodeBlock(writer, "run command", "shell");
+
+      var result = writer.Build();
+      Assert.That(result, Does.Contain("Status:\nEverything"));
+      Assert.That(result, Does.Contain("</link>.\n\n3. First"));
+      Assert.That(result, Does.Contain("4. Second\n\n| Name"));
+      Assert.That(result, Does.Contain("| Alpha |     3 |\n\n<color=#DCDCAA>run command"));
     }
 
     [Test]
@@ -902,7 +924,7 @@ namespace HELIX.Tests {
       writer.PopFrame();
       writer.PopFrame();
 
-      Assert.That(writer.Build(), Is.EqualTo("| <b>A</b>   | longer |"));
+      Assert.That(writer.Build(), Is.EqualTo("\n| <b>A</b>   | longer |"));
     }
 
     [Test]

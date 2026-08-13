@@ -179,7 +179,7 @@ namespace HELIX.Prose {
     public PTTableFormat(
       string leftBorder = "| ", string columnSeparator = " | ", string rightBorder = " |",
       char headerFill = '-', int minimumColumnWidth = 3,
-      string lineBreakReplacement = "¶"
+      string lineBreakReplacement = "¶", PTNodeFormat format = null
     ) {
       if (minimumColumnWidth < 0) throw new ArgumentOutOfRangeException(nameof(minimumColumnWidth));
       LeftBorder = leftBorder ?? string.Empty;
@@ -188,6 +188,7 @@ namespace HELIX.Prose {
       HeaderFill = headerFill;
       MinimumColumnWidth = minimumColumnWidth;
       LineBreakReplacement = lineBreakReplacement ?? string.Empty;
+      Format = format ?? PTRuleFactory.Container();
     }
 
     public string LeftBorder { get; }
@@ -197,6 +198,7 @@ namespace HELIX.Prose {
     public int MinimumColumnWidth { get; }
     /// <summary>Text substituted for line breaks inside individual cells.</summary>
     public string LineBreakReplacement { get; }
+    public PTNodeFormat Format { get; }
   }
 
   /// <summary>Presentation and optional line filling for preformatted source blocks.</summary>
@@ -206,16 +208,22 @@ namespace HELIX.Prose {
       string prefix = "```",
       string prefixSuffix = "",
       string suffix = "```",
-      char prefixFill = '\0',
-      char suffixFill = '\0',
+      string prefixFill = null,
+      int prefixFillRepeater = -1,
+      string suffixFill = null,
+      int suffixFillRepeater = -1,
       bool showLanguage = true
     ) {
+      if (prefixFillRepeater < -1) throw new ArgumentOutOfRangeException(nameof(prefixFillRepeater));
+      if (suffixFillRepeater < -1) throw new ArgumentOutOfRangeException(nameof(suffixFillRepeater));
       Format = format ?? PTRuleFactory.Container();
       Prefix = prefix ?? string.Empty;
       PrefixSuffix = prefixSuffix ?? string.Empty;
       Suffix = suffix ?? string.Empty;
       PrefixFill = prefixFill;
+      PrefixFillRepeater = prefixFillRepeater;
       SuffixFill = suffixFill;
+      SuffixFillRepeater = suffixFillRepeater;
       ShowLanguage = showLanguage;
     }
 
@@ -224,10 +232,14 @@ namespace HELIX.Prose {
     /// <summary>Text placed after the optional language and before prefix fill.</summary>
     public string PrefixSuffix { get; }
     public string Suffix { get; }
-    /// <summary>A null character disables prefix-line filling.</summary>
-    public char PrefixFill { get; }
-    /// <summary>A null character disables suffix-line filling.</summary>
-    public char SuffixFill { get; }
+    /// <summary>Optional text appended to and expanded across the prefix line.</summary>
+    public string PrefixFill { get; }
+    /// <summary>Index of the character in <see cref="PrefixFill"/> repeated to fill the line.</summary>
+    public int PrefixFillRepeater { get; }
+    /// <summary>Optional text appended to and expanded across the suffix line.</summary>
+    public string SuffixFill { get; }
+    /// <summary>Index of the character in <see cref="SuffixFill"/> repeated to fill the line.</summary>
+    public int SuffixFillRepeater { get; }
     public bool ShowLanguage { get; }
   }
 
@@ -264,7 +276,8 @@ namespace HELIX.Prose {
       PTCodeBlockFormat codeBlock = null,
       string requiredLineBreak = "\n",
       bool showTextFeatures = true,
-      string propertyChildContinuation = null
+      string propertyChildContinuation = null,
+      bool blankLineAfterSectionHeader = true
     ) {
       Root = root ?? _noAnchors;
       RootName = rootName ?? _noAnchors;
@@ -295,6 +308,7 @@ namespace HELIX.Prose {
       ShowNames = showNames;
       ShowProperties = showProperties;
       ShowTextFeatures = showTextFeatures;
+      BlankLineAfterSectionHeader = blankLineAfterSectionHeader;
     }
 
     public PTNodeFormat Root { get; }
@@ -332,6 +346,8 @@ namespace HELIX.Prose {
     public bool ShowProperties { get; }
     /// <summary>Whether sections, paragraphs, spans, lists, tables, and code blocks are accepted.</summary>
     public bool ShowTextFeatures { get; }
+    /// <summary>Whether a padded first block retains its leading blank line after a section header.</summary>
+    public bool BlankLineAfterSectionHeader { get; }
 
   }
 
@@ -431,6 +447,12 @@ namespace HELIX.Prose {
 
     public static PTNodeFormat Paragraph() => Container();
 
+    /// <summary>A block separated from adjacent content by one fully blank line.</summary>
+    public static PTNodeFormat PaddedBlock() => Block(
+      prefix: "\n", suffix: "\n",
+      lineBreaks: LineBreakMode.Wrap | LineBreakMode.Hard
+    );
+
     public static PTNodeFormat ListItem(string continuationPrefix = "  ") => Block(
       continuationIndent: continuationPrefix,
       lineBreaks: LineBreakMode.Wrap | LineBreakMode.Hard
@@ -488,7 +510,8 @@ namespace HELIX.Prose {
       linkTargetSuffix: "]",
       codeBlock: new PTCodeBlockFormat(
         prefix: "╭─ code: ", prefixSuffix: " ─", suffix: "╰─",
-        prefixFill: '─', suffixFill: '─'
+        prefixFill: "─╮", prefixFillRepeater: 0,
+        suffixFill: "─╯", suffixFillRepeater: 0
       )
     );
 
@@ -510,24 +533,30 @@ namespace HELIX.Prose {
       showTextFeatures: false
     );
 
-    /// <summary>A shallow property summary followed by every supported general-text feature.</summary>
+    /// <summary>An ASCII tree with sparse properties and every supported general-text feature.</summary>
     public static readonly ProsePlainTextConfiguration Plain = new(
       root: PTRuleFactory.Container(),
-      rootName: PTRuleFactory.Block(),
-      property: PTRuleFactory.InlineProperties(),
+      rootName: PTRuleFactory.Line(),
+      treeName: PTRuleFactory.Line(),
+      property: PTRuleFactory.Property(continuationPrefix: " "),
       propertyValue: PTRuleFactory.PropertyValue(),
-      showTrees: false,
+      tree: PTRuleFactory.Tree("|- ", "\\- ", "|  ", "   "),
+      propertyChildContinuation: "|",
+      blankLineAfterSectionHeader: false,
       section: PTRuleFactory.Section(),
       sectionHeader: PTRuleFactory.Line(suffix: ":"),
-      paragraph: PTRuleFactory.Paragraph(),
-      list: PTRuleFactory.Container(),
+      paragraph: PTRuleFactory.PaddedBlock(),
+      list: PTRuleFactory.PaddedBlock(),
       listItem: PTRuleFactory.ListItem(),
+      table: new PTTableFormat(format: PTRuleFactory.PaddedBlock()),
       emphasizedText: PTRuleFactory.Markup("/", "/"),
       strongText: PTRuleFactory.Markup("*", "*"),
       codeText: PTRuleFactory.Markup("'", "'"),
       quoteText: PTRuleFactory.Markup("“", "”"),
       errorText: PTRuleFactory.Markup("Error: ", ""),
-      codeBlock: new PTCodeBlockFormat(prefix: "Code: ", suffix: "")
+      codeBlock: new PTCodeBlockFormat(
+        format: PTRuleFactory.PaddedBlock(), prefix: "Code: ", suffix: ""
+      )
     );
 
     /// <summary>
@@ -542,14 +571,18 @@ namespace HELIX.Prose {
       propertyValue: PTRuleFactory.PropertyValue(),
       tree: PTRuleFactory.Tree("|- ", "\\- ", "|  ", "   "),
       propertyChildContinuation: "|",
+      blankLineAfterSectionHeader: false,
       section: PTRuleFactory.Section(),
       sectionHeader: PTRuleFactory.Line(suffix: ":"),
-      paragraph: PTRuleFactory.Paragraph(),
-      list: PTRuleFactory.Container(),
+      paragraph: PTRuleFactory.PaddedBlock(),
+      list: PTRuleFactory.PaddedBlock(),
       listItem: PTRuleFactory.ListItem(),
+      table: new PTTableFormat(format: PTRuleFactory.PaddedBlock()),
       linkTargetPrefix: "",
       linkTargetSuffix: "",
-      codeBlock: new PTCodeBlockFormat(prefix: "", suffix: "", showLanguage: false)
+      codeBlock: new PTCodeBlockFormat(
+        format: PTRuleFactory.PaddedBlock(), prefix: "", suffix: "", showLanguage: false
+      )
     );
 
     /// <summary>A Sparse layout that uses indentation only; no tree glyphs are emitted.</summary>

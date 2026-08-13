@@ -132,8 +132,8 @@ namespace HELIX.Examples {
 
       WriteMissionBriefing(writer);
       WriteOperatorNote(writer);
-      writer.Write(ProseSoftLineBreak.Instance);
-      writer.Write(ProseLineBreak.Instance);
+      // writer.Write(ProseSoftLineBreak.Instance);
+      // writer.Write(ProseLineBreak.Instance);
 
       ProseApi.WriteProperty(writer, "State", StationState.Degraded, ProseEnumFormatter<StationState>.Instance);
       writer.Write(37, CrewAboard);
