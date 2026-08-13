@@ -33,6 +33,57 @@ namespace HELIX.Tests {
     }
 
     [Test]
+    public void TextWriters_HonorPropertyNameSeparatorAndDescriptionPresentation() {
+      var configuration = new ProseTextConfiguration(
+        root: PTRuleFactory.Container(),
+        property: PTRuleFactory.Property(),
+        propertyValue: PTRuleFactory.PropertyValue(),
+        propertyDescription: PTRuleFactory.PropertyDescription(" => ")
+      );
+      var writer = new ProseTextWriter(configuration: configuration);
+
+      writer.Property("Named", "value", ProseFormatters.String, hideSeparator: true);
+      writer.Property("Hidden", "standalone", ProseFormatters.String, hideName: true);
+      writer.Property(
+        "State", 42, ProseFormatters.Int,
+        description: "the answer"
+      );
+
+      Assert.That(writer.Build().TrimEnd(), Is.EqualTo("Namedvalue\nstandalone\nState => the answer"));
+
+      var unity = new ProseUnityRichTextWriter(configuration: configuration);
+      unity.Property("Named", "value", ProseFormatters.String, hideSeparator: true);
+      unity.Property("Hidden", "standalone", ProseFormatters.String, hideName: true);
+      unity.Property("State", 42, ProseFormatters.Int, description: "the answer");
+      Assert.That(unity.Build().TrimEnd(), Is.EqualTo("Namedvalue\nstandalone\nState => the answer"));
+    }
+
+    [Test]
+    public void TextWriter_TreatsConfiguredDefaultValuesAsFine() {
+      var writer = new ProseTextWriter(minimumLevel: ProseLevel.Info);
+      writer.Property("Unchanged", 5, ProseFormatters.Int, defaultValue: 5);
+      writer.Property("Changed", 6, ProseFormatters.Int, defaultValue: 5);
+
+      Assert.That(writer.Build().TrimEnd(), Is.EqualTo("Changed: 6"));
+
+      writer.Reset();
+      writer.MinimumLevel = ProseLevel.Fine;
+      writer.Property("Unchanged", 5, ProseFormatters.Int, defaultValue: 5);
+      Assert.That(writer.Build().TrimEnd(), Is.EqualTo("Unchanged: 5"));
+    }
+
+    [Test]
+    public void DictionaryWriter_RetainsRawValueWhenTextUsesDescription() {
+      var writer = new ProseDictionaryWriter();
+      writer.Property(
+        "Answer", 42, ThrowingIntFormatter.Instance,
+        hideName: true, hideSeparator: true, description: "the answer", defaultValue: 42
+      );
+
+      Assert.That(writer.Root["Answer"], Is.EqualTo(42));
+    }
+
+    [Test]
     public void PlainTextWriter_WrapsUnlessNoWrapIsActive() {
       var writer = new ProseTextWriter(wrapWidth: 12);
 
@@ -994,8 +1045,11 @@ namespace HELIX.Tests {
       writer.Write(" | ");
       writer.Write(12.5f, new ProseFloatFormatter(compact: true, unit: "px"));
       writer.Write(" | ");
-      writer.Write(1.2f, ProseFormatters.Percent);
+      writer.Write(12.5f, ProseFormatters.Percent);
       writer.Write(" load");
+      writer.Write(" | ");
+      writer.Write(1.2f, ProseFormatters.PercentNormalized);
+      writer.Write(" normalized");
       writer.Write(" | ");
       writer.Write((bool?)null, new ProseBoolFormatter("yes", "no", "unknown"));
       writer.Write(" | ");
@@ -1003,7 +1057,9 @@ namespace HELIX.Tests {
 
       Assert.That(
         writer.Build(),
-        Is.EqualTo("<empty> | <\"value\"> | missing | 12.5px | 100.0% load | unknown | #3")
+        Is.EqualTo(
+          "<empty> | <\"value\"> | missing | 12.5px | 12.5% load | 120.0% normalized | unknown | #3"
+        )
       );
     }
 

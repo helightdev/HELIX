@@ -62,12 +62,18 @@ namespace HELIX.Prose {
       this IProseWriter writer,
       ProseLevel level = ProseLevel.Info,
       bool hidden = false,
-      bool noWrap = false
+      bool noWrap = false,
+      bool hideName = false,
+      bool hideSeparator = false,
+      bool isDefaultValue = false
     ) {
       if (!BeginScope(writer, ProseProperty.Instance)) return false;
       writer.PushModifier(LevelMarker.For(level));
       if (hidden) writer.PushModifier(Hidden.Instance);
       if (noWrap) writer.PushModifier(NoWrap.Instance);
+      if (hideName) writer.PushModifier(HideName.Instance);
+      if (hideSeparator) writer.PushModifier(HideSeparator.Instance);
+      if (isDefaultValue) writer.PushModifier(DefaultValue.Instance);
       return true;
     }
 
@@ -82,6 +88,9 @@ namespace HELIX.Prose {
 
     public static bool BeginPropertyValue(this IProseWriter writer) =>
       BeginScope(writer, ProsePropertyValue.Instance);
+
+    public static bool BeginPropertyDescription(this IProseWriter writer) =>
+      BeginScope(writer, ProsePropertyDescription.Instance);
 
     public static void WriteSpan(
       this IProseWriter writer, string text, ProseTextStyle style = ProseTextStyle.None,
@@ -141,6 +150,12 @@ namespace HELIX.Prose {
       try { writer.Write(name); } finally { writer.End(); }
     }
 
+    public static void Description(this IProseWriter writer, string description) {
+      if (writer == null) throw new ArgumentNullException(nameof(writer));
+      if (!writer.BeginPropertyDescription()) return;
+      try { writer.Write(description); } finally { writer.End(); }
+    }
+
     public static void Property<T>(
       this IProseWriter writer,
       string key,
@@ -148,15 +163,26 @@ namespace HELIX.Prose {
       IProseFormatter<T> formatter,
       ProseLevel level = ProseLevel.Info,
       bool hidden = false,
-      bool noWrap = false
+      bool noWrap = false,
+      bool hideName = false,
+      bool hideSeparator = false,
+      string description = null,
+      object defaultValue = null
     ) {
-      if (!writer.BeginProperty(level, hidden, noWrap)) return;
+      if (writer == null) throw new ArgumentNullException(nameof(writer));
+      if (formatter == null) throw new ArgumentNullException(nameof(formatter));
+      var isDefaultValue = defaultValue != null && Equals(value, defaultValue);
+      if (!writer.BeginProperty(level, hidden, noWrap, hideName, hideSeparator, isDefaultValue)) return;
       try {
+        if (description != null) writer.PushModifier(new PropertyValueMarker(value));
+
         if (writer.BeginPropertyKey()) {
           try { writer.Write(key); } finally { writer.End(); }
         }
 
-        if (writer.BeginPropertyValue()) {
+        if (description != null) {
+          writer.Description(description);
+        } else if (writer.BeginPropertyValue()) {
           try { writer.Write(value, formatter); } finally { writer.End(); }
         }
       } finally {

@@ -94,4 +94,9 @@ namespace HELIX.Prose {
     public static readonly ProsePropertyValue Instance = new();
     private ProsePropertyValue() { }
   }
+
+  public sealed class ProsePropertyDescription : IProseScope {
+    public static readonly ProsePropertyDescription Instance = new();
+    private ProsePropertyDescription() { }
+  }
 }

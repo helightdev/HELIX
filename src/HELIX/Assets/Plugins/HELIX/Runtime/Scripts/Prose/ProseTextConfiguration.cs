@@ -102,6 +102,14 @@ namespace HELIX.Prose {
       SuffixRepeater = suffixRepeater;
     }
 
+    internal PTNodeFormat WithoutPrefix() => Prefix.Count == 0 ? this : new PTNodeFormat(
+      suffix: Suffix,
+      replacement: Replacement,
+      indent: LinePrefix,
+      lines: LineBreak,
+      suffixRepeater: SuffixRepeater
+    );
+
     public IReadOnlyList<PTStringRule> Prefix { get; }
     public IReadOnlyList<PTStringRule> Suffix { get; }
     public IReadOnlyList<PTStringRule> Replacement { get; }
@@ -253,6 +261,7 @@ namespace HELIX.Prose {
       PTNodeFormat treeName = null,
       PTNodeFormat property = null,
       PTNodeFormat propertyValue = null,
+      PTNodeFormat propertyDescription = null,
       PTNodeFormat tree = null,
       bool showTrees = true,
       bool showNames = true,
@@ -284,6 +293,9 @@ namespace HELIX.Prose {
       TreeName = treeName ?? _noAnchors;
       Property = property ?? _noAnchors;
       PropertyValue = propertyValue ?? _noAnchors;
+      PropertyDescription = propertyDescription ?? PropertyValue;
+      PropertyValueWithoutSeparator = PropertyValue.WithoutPrefix();
+      PropertyDescriptionWithoutSeparator = PropertyDescription.WithoutPrefix();
       Tree = tree ?? _noAnchors;
       PropertyChildContinuation = propertyChildContinuation;
       Section = section ?? _noAnchors;
@@ -316,11 +328,10 @@ namespace HELIX.Prose {
     public PTNodeFormat TreeName { get; }
     public PTNodeFormat Property { get; }
     public PTNodeFormat PropertyValue { get; }
+    public PTNodeFormat PropertyDescription { get; }
+    internal PTNodeFormat PropertyValueWithoutSeparator { get; }
+    internal PTNodeFormat PropertyDescriptionWithoutSeparator { get; }
     public PTNodeFormat Tree { get; }
-    /// <summary>
-    /// Content rendered on the property spacer line when the owning node continues into children.
-    /// Null disables property spacer lines; an empty value emits an unadorned spacer.
-    /// </summary>
     public string PropertyChildContinuation { get; }
     public PTNodeFormat Section { get; }
     public PTNodeFormat SectionHeader { get; }
@@ -442,6 +453,10 @@ namespace HELIX.Prose {
       lineBreaks: LineBreakMode.Wrap | LineBreakMode.Hard |
                   (align ? LineBreakMode.Align : LineBreakMode.None)
     );
+
+    public static PTNodeFormat PropertyDescription(
+      string separator = ": ", string continuationPrefix = "", bool align = false
+    ) => PropertyValue(separator, continuationPrefix, align);
 
     public static PTNodeFormat Section() => Container();
 

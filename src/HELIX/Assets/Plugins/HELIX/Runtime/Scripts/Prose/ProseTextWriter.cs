@@ -113,6 +113,7 @@ namespace HELIX.Prose {
       if ((scope is ProseTree && !Configuration.ShowTrees) ||
           (scope is ProseName && !Configuration.ShowNames) ||
           (scope is ProseProperty && !Configuration.ShowProperties) ||
+          (scope is ProsePropertyKey && HasModifier<HideName>()) ||
           (IsTextFeature(scope) && !Configuration.ShowTextFeatures))
         return false;
 
@@ -156,13 +157,13 @@ namespace HELIX.Prose {
           _frames[_frameCount - 1] = frame;
           SetLinePrefix(ParentScope is ProseTree ? LinePrefixKind.TreeName : LinePrefixKind.RootName, _treeDepth);
           break;
-        case ProsePropertyValue: {
+        case ProsePropertyValue or ProsePropertyDescription: {
           frame = _frames[_frameCount - 1];
           frame.itemOutputStart = _builder.Length;
           _frames[_frameCount - 1] = frame;
           if (_line.hasContent) {
             _evaluationBuilder.Clear();
-            Configuration.PropertyValue.AppendPrefix(
+            CurrentPropertyContentFormat(scope).AppendPrefix(
               _evaluationBuilder, TextMatching.First | TextMatching.Last
             );
             _line.propertyValueColumn = _line.column + InternalTextLength(_evaluationBuilder);
@@ -214,9 +215,9 @@ namespace HELIX.Prose {
                     frame.itemOutputStart, _builder.Length, TextMatching.First | TextMatching.Last
                   );
                 }
-              } else if (frame.scope is ProsePropertyValue) {
+              } else if (frame.scope is ProsePropertyValue or ProsePropertyDescription) {
                 FormatRange(
-                  Configuration.PropertyValue, frame.itemOutputStart, _builder.Length,
+                  CurrentPropertyContentFormat(frame.scope), frame.itemOutputStart, _builder.Length,
                   TextMatching.First | TextMatching.Last |
                   (_builder.Length == frame.itemOutputStart ? TextMatching.Empty : TextMatching.None)
                 );
@@ -250,7 +251,10 @@ namespace HELIX.Prose {
 
       EnsureModifierCapacity();
       _modifiers[_modifierCount++] = modifier;
-      if (modifier is Hidden || (modifier is LevelMarker level && !Includes(level.Level))) SuppressCurrentFrame();
+      if (modifier is Hidden ||
+          (modifier is LevelMarker level && !Includes(level.Level)) ||
+          (modifier is DefaultValue && !Includes(ProseLevel.Fine)))
+        SuppressCurrentFrame();
     }
 
     public override void Write(string text) {
@@ -963,18 +967,19 @@ namespace HELIX.Prose {
         );
         width += _evaluationBuilder.Length;
 
-        var valueFrame = FindFrame<ProsePropertyValue>();
+        var valueFrame = FindPropertyContentFrame();
         if (valueFrame < 0) return width;
+        var valueFormat = CurrentPropertyContentFormat(_frames[valueFrame].scope);
         var valueLineMatching = CurrentLineMatching(_frames[valueFrame].itemOutputStart);
         if ((valueLineMatching & LineMatching.First) != 0) {
           _evaluationBuilder.Clear();
-          Configuration.PropertyValue.AppendPrefix(
+          valueFormat.AppendPrefix(
             _evaluationBuilder, TextMatching.First | TextMatching.Last
           );
           width += _evaluationBuilder.Length;
         }
         _evaluationBuilder.Clear();
-        Configuration.PropertyValue.AppendLinePrefix(
+        valueFormat.AppendLinePrefix(
           _evaluationBuilder,
           TextMatching.First | TextMatching.Last,
           valueLineMatching
@@ -989,6 +994,21 @@ namespace HELIX.Prose {
           return i;
       }
       return -1;
+    }
+
+    private int FindPropertyContentFrame() {
+      for (var i = _frameCount - 1; i >= 0; i--)
+        if (_frames[i].scope is ProsePropertyValue or ProsePropertyDescription) return i;
+      return -1;
+    }
+
+    private PTNodeFormat CurrentPropertyContentFormat(IProseScope scope) {
+      var hideSeparator = HasModifier<HideName>() || HasModifier<HideSeparator>();
+      if (scope is ProsePropertyDescription)
+        return hideSeparator
+          ? Configuration.PropertyDescriptionWithoutSeparator
+          : Configuration.PropertyDescription;
+      return hideSeparator ? Configuration.PropertyValueWithoutSeparator : Configuration.PropertyValue;
     }
 
     private TextMatching CurrentPropertyMatching() {
@@ -1008,7 +1028,11 @@ namespace HELIX.Prose {
       var wrapped = _line.pendingBreakKind == LineBreakKind.Wrapped;
       var lineMatching = wrapped ? LineMatching.None : LineMatching.Hard;
       var boundary = wrapped ? LineBreakMode.Wrap : LineBreakMode.Hard;
-      var mode = Configuration.PropertyValue.EvaluateLineBreak(
+      var contentFrame = FindPropertyContentFrame();
+      var format = contentFrame < 0
+        ? Configuration.PropertyValue
+        : CurrentPropertyContentFormat(_frames[contentFrame].scope);
+      var mode = format.EvaluateLineBreak(
         TextMatching.First | TextMatching.Last, lineMatching
       );
       return (mode & (boundary | LineBreakMode.Align)) ==

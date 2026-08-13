@@ -79,10 +79,13 @@ namespace HELIX.Prose {
         return;
       }
 
-      if (frame.Scope is ProsePropertyValue) {
+      if (frame.Scope is ProsePropertyValue or ProsePropertyDescription) {
         if (_frameCount > 0 && _frames[_frameCount - 1].Scope is ProseProperty) {
-          _frames[_frameCount - 1].PropertyValue = frame.Payload;
-          _frames[_frameCount - 1].HasPropertyValue = frame.HasPayload;
+          ref var property = ref _frames[_frameCount - 1];
+          if (!property.HasPropertyValue) {
+            property.PropertyValue = frame.Payload;
+            property.HasPropertyValue = frame.HasPayload;
+          }
         }
         return;
       }
@@ -171,7 +174,14 @@ namespace HELIX.Prose {
     public override void PushModifier(IProseModifier modifier) {
       if (modifier == null) throw new ArgumentNullException(nameof(modifier));
       if (_frameCount == 0) throw new InvalidOperationException("A modifier requires an active Prose frame.");
-      // Modifiers describe presentation. This data-only sink intentionally ignores them.
+      if (modifier is PropertyValueMarker value) {
+        var propertyIndex = FindFrame<ProseProperty>();
+        if (propertyIndex >= 0) {
+          _frames[propertyIndex].PropertyValue = value.Value;
+          _frames[propertyIndex].HasPropertyValue = true;
+        }
+      }
+      // Other modifiers describe presentation. This data-only sink intentionally ignores them.
     }
 
     public override void Write(string text) {

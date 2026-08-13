@@ -133,10 +133,22 @@ namespace HELIX.Examples {
       // writer.Write(ProseSoftLineBreak.Instance);
       // writer.Write(ProseLineBreak.Instance);
 
-      writer.Property("State", StationState.Degraded, ProseFormatters.Enum<StationState>());
+      writer.Property(
+        "State", StationState.Degraded, ProseFormatters.Enum<StationState>(),
+        description: "Degraded while the secondary coolant loop is isolated",
+        defaultValue: StationState.Nominal
+      );
       writer.Write(37, CrewAboard);
       writer.Write(1842, OrbitNumber);
-      writer.Property("Autonomous control", true, OperationalState);
+      writer.Property("Autonomous control", true, OperationalState, defaultValue: true);
+      writer.Property(
+        "Status ", "Mission-capable", ProseFormatters.String,
+        hideSeparator: true
+      );
+      writer.Property(
+        "Operator note", "Prioritize thermal stability over throughput.", ProseFormatters.String,
+        hideName: true
+      );
       writer.Property(
         "Summary",
         "Long-range relay and research platform holding a stable polar orbit while its secondary coolant " +

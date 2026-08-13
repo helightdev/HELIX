@@ -81,6 +81,30 @@ namespace HELIX.Prose {
     private Hidden() { }
   }
 
+  /// <summary>Suppresses the property key while retaining its semantic name.</summary>
+  public sealed class HideName : IProseModifier {
+    public static readonly HideName Instance = new();
+    private HideName() { }
+  }
+
+  /// <summary>Suppresses the configured separator before a property value or description.</summary>
+  public sealed class HideSeparator : IProseModifier {
+    public static readonly HideSeparator Instance = new();
+    private HideSeparator() { }
+  }
+
+  /// <summary>Marks a property whose value equals its configured default.</summary>
+  public sealed class DefaultValue : IProseModifier {
+    public static readonly DefaultValue Instance = new();
+    private DefaultValue() { }
+  }
+
+  /// <summary>Carries a property's unformatted value when its text presentation uses a description.</summary>
+  public sealed class PropertyValueMarker : IProseModifier {
+    public PropertyValueMarker(object value) => Value = value;
+    public object Value { get; }
+  }
+
   public sealed class LevelMarker : IProseModifier {
     private static readonly LevelMarker[] Cache = {
       new(ProseLevel.Hidden),
