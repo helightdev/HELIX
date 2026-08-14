@@ -1,0 +1,20 @@
+{
+  "name": "HELIX.UI",
+  "rootNamespace": "HELIX",
+  "references": [
+    "GUID:d8b63aba1907145bea998dd612889d6b",
+    "GUID:b46779583a009f04ba9f5f31d0e7e6ac",
+    "GUID:75469ad4d38634e559750d17036d5f7c",
+    "GUID:1450c30e11b017547b276675739915ea",
+    "GUID:50814613fed148ed9c89bc88505979f4"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": true,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

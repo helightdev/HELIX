@@ -48,13 +48,6 @@ namespace HELIX {
     }
   }
 
-  public static class NullableHelper {
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Equals<T>(in T? a, in T? b) where T : struct {
-      return a.HasValue == b.HasValue && (!a.HasValue || a.Value.Equals(b.Value));
-    }
-  }
-
   public static class HXProfiling {
     public static readonly ProfilerCategory HelixCategory = new("HELIX", ProfilerCategoryColor.UI);
     public static readonly ProfilerMarker LookupContextMarker = new(HelixCategory, "Lookup Context");
