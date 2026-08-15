@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelixSourceGenerator", "HelixSourceGenerator\HelixSourceGenerator\HelixSourceGenerator.csproj", "{2C06BADC-32EE-4DB0-88A2-CE314BC4891A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelixSourceGenerator.Tests", "HelixSourceGenerator\HelixSourceGenerator.Tests\HelixSourceGenerator.Tests.csproj", "{C8CC31ED-80E4-4D63-9694-A7B548481418}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{2C06BADC-32EE-4DB0-88A2-CE314BC4891A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C06BADC-32EE-4DB0-88A2-CE314BC4891A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C06BADC-32EE-4DB0-88A2-CE314BC4891A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

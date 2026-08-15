@@ -179,7 +179,8 @@ namespace HELIX.SourceGen {
       string hintSuffix,
       IReadOnlyList<string> usings = null,
       string hintDiscriminator = null,
-      string baseType = null
+      string baseType = null,
+      IReadOnlyList<string> typeAttributes = null
     ) {
       var chain = ContainingTypes(type);
       var namespaceName = type.ContainingNamespace is { IsGlobalNamespace: false } ns
@@ -194,6 +195,7 @@ namespace HELIX.SourceGen {
         namespaceName,
         usings,
         baseType,
+        typeAttributes,
         Sanitize(string.Join(".", hintParts)) + "." + hintSuffix + ".g.cs"
       );
     }
@@ -246,6 +248,7 @@ namespace HELIX.SourceGen {
     private readonly string _namespaceName;
     private readonly IReadOnlyList<string> _usings;
     private readonly string _baseType;
+    private readonly IReadOnlyList<string> _typeAttributes;
 
     internal TypeWrapper(
       INamedTypeSymbol type,
@@ -253,6 +256,7 @@ namespace HELIX.SourceGen {
       string namespaceName,
       IReadOnlyList<string> usings,
       string baseType,
+      IReadOnlyList<string> typeAttributes,
       string hintName
     ) {
       _type = type;
@@ -260,6 +264,7 @@ namespace HELIX.SourceGen {
       _namespaceName = namespaceName;
       _usings = usings;
       _baseType = baseType;
+      _typeAttributes = typeAttributes;
       HintName = hintName;
     }
 
@@ -267,15 +272,23 @@ namespace HELIX.SourceGen {
 
     internal string Build(
       Action<SharpStringBuilder> build,
-      Action<SharpStringBuilder> after = null
+      Action<SharpStringBuilder> after = null,
+      bool afterInNamespace = false
     ) => GeneratorSource.BuildSource(builder => {
         if (_usings is not null) {
           foreach (var directive in _usings) builder.AppendLine(directive);
           if (_usings.Count > 0) builder.BlankLine();
         }
 
-        using (builder.Namespace(_namespaceName)) AppendContainingType(builder, 0, build);
-        after?.Invoke(builder);
+        if (afterInNamespace) {
+          using (builder.Namespace(_namespaceName)) {
+            AppendContainingType(builder, 0, build);
+            after?.Invoke(builder);
+          }
+        } else {
+          using (builder.Namespace(_namespaceName)) AppendContainingType(builder, 0, build);
+          after?.Invoke(builder);
+        }
       }
     );
 
@@ -290,6 +303,9 @@ namespace HELIX.SourceGen {
       }
 
       var current = _chain[index];
+      if (_typeAttributes is not null && SymbolEqualityComparer.Default.Equals(current, _type)) {
+        foreach (var attribute in _typeAttributes) builder.Attribute(attribute);
+      }
       var declaration = (current.IsStatic ? "static " : "") +
                         "partial " + GeneratorSource.TypeKeyword(current) + " " +
                         GeneratorAnalysis.EscapeIdentifier(current.Name) +

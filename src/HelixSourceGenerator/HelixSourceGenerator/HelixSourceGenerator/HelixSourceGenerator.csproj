@@ -15,7 +15,7 @@
         <PackageReference ExcludeAssets="runtime" Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.3.0"/>
     </ItemGroup>
 
-    <Target Name="CopyDll" AfterTargets="Build">
+    <Target Name="CopyDll" AfterTargets="Build" Condition="'$(SkipCopyDll)' != 'true'">
         <Copy SourceFiles="$(TargetDir)HelixSourceGenerator.dll"
                 DestinationFolder="$(SolutionDir)\..\HELIX\Assets\"
                 SkipUnchangedFiles="true"

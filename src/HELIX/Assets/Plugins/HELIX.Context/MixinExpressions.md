@@ -6,7 +6,9 @@ Mixin Expressions
 - `@this`
 - `@target` (The annotated scope, mostly either a class or a method)
 - `@attr` (Valid only if the expression is declared by an attribute)
-- `@arg0`, `@arg1`, `@arg2`, `@arg3`
+- `@arg` (Access to method arguments by name or index using paths)
+- `@local` (Access to per execution local temporary data)
+- `@var` (Access to per mixin class generation data)
 
 ## Properties
 - `:name` | The name of the variable.
@@ -14,7 +16,7 @@ Mixin Expressions
     @this:name => ClassName
     @target:name => MethodName
     @attr:name => AttributeName
-    @arg0:name => ArgumentName
+    @arg#0:name => ArgumentName
     ```
 
 - `:type` | The type of the variable.
@@ -22,12 +24,13 @@ Mixin Expressions
     @this:type => QualifiedClassName
     @target:type => QualifiedMethodReturnType
     @attr:type => QualifiedAttributeType
-    @arg0:type => QualifiedArgumentType
+    @arg#0:type => QualifiedArgumentType
     ```
 
 ###  Boolean Pseudo Properties
 - `:?is<TYPE>` | Check static inheritance
 - `:?has<MEMBER>` | Check if a member concretely exists.
+- `:?eq<VALUE>` | Checks if a value is equal to the stringified given value.
 - `:?isSelf` | Check if (mostly a method parameter) is the type of @this
 - `:?ref` | Check if a method parameter is ref
 - `:?in` | Check if a method parameter is in
@@ -55,45 +58,74 @@ Member Reference: `<member>#<reference>`
 ```
 All expressions may be wrapped once using `()` round brackets. Example: `@(this:type)`
 
-## Scopes
+## ScopesiedMethodReturnType
+    @attr:type => QualifiedAttributeType
+    @arg#0:type => QualifiedArgumentType
+    ```
 - `@SCOPE` | Begin a new scope ending the previous scope if there is one
+- `@SCOPE<LABEL>` | Begin a new scope ending the previous scope if there is one while storing a local label pointer of the given name
 - `@MATCH` BooleanExpression | Requirement for the scope to match, otherwise performs @SKIP
 - `@ASSERT` BooleanExpression | Accepts the scope and asserts an expression. False will fail the generation
-- `@CODE` StringExpression | Writes a single line expression string
-- `@END`  | Ends the current scope without beginning a new scope. Continue evaluating the next line afterwards
+- `@CODE` StringExpression | Appends a single line of an expression string at the determined target location
+- `@CODE<TARGET>` StringExpression | Same as normal @CODE
+- `@CODE<InjectTarget>` StringExpression | Injects code at the predefined target with the given name.
+- `@CODE<CLASS>` StringExpression | Appends the code line at the end of the current partial class (for new methods, parameters, etc.) 
+- `@CODE<FILE>` StringExpression | Appends the code line in the same namespace scope outside the class (for new types)
+- `@CODE<IMPLEMENTS>` StringExpression | Adds a single implements entry based on the generated string
+- `@LOCAL<NAME>` StringExpression | Stores the value of the given string expression into @local#name
+- `@VAR<NAME>` StringExpression | Stores the value of the given string expression into @var#name
+- `@END`  | Ends the current scope without beginning a new scope. Continue evaluating the next line afterward
 - `@RETURN`  | Returns successfully from the generation
+- `@GOTO<LABEL>` | Jumps to scope at the given local label.
 - `@SKIP` | Skips to the next scope or end label. If the is no jump target, it exits and fails the generation
 - `@FAIL` | Fails the generation unconditionally
 
 Note: Multiple boolean expressions per matcher / assertions are combined into an AND
+Note: Code lines are buffered until the end of the expression's execution and only then applied
 
 Those are effectively equivalent expressions
 ```
 @SCOPE
-    @MATCH @arg0:?argument
-    @ASSERT @arg0:type?is<IEvt>
-    @CODE @this.RegisterEventHandler<@arg0:type>(@target, @attr#Priority)
+    @MATCH @arg#0:?argument
+    @ASSERT @arg#0:type:?is<IEvt>
+    @CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
     @RETURN
 @SCOPE
-    @MATCH @arg0:?ref
-    @ASSERT @arg0:type?is<IEvt>
-    @CODE @this.RegisterEventHandler<@arg0:type>(@target, @attr#Priority)
+    @MATCH @arg#0:?ref
+    @ASSERT @arg#0:type:?is<IEvt>
+    @CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
     @RETURN
 @END
 @FAIL
 ---
 @SCOPE
-    @MATCH @arg0:?argument
-    @ASSERT @arg0:type?is<IEvt>
-    @CODE @this.RegisterEventHandler<@arg0:type>(@target, @attr#Priority)
+    @MATCH @arg#0:?argument
+    @ASSERT @arg#0:type:?is<IEvt>
+    @CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
     @RETURN
 @SCOPE
-    @MATCH @arg0:?ref
-    @ASSERT @arg0:type?is<IEvt>
-    @CODE @this.RegisterEventHandler<@arg0:type>(@target, @attr#Priority)
+    @MATCH @arg#0:?ref
+    @ASSERT @arg#0:type:?is<IEvt>
+    @CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
     @RETURN
 ---
-@MATCH @arg0:!?inout
-@ASSERT @arg0:type?is<IEvt>
-@CODE @this.RegisterEventHandler<@arg0:type>(@target, @attr#Priority)
+@MATCH @arg#0:!?inout
+@ASSERT @arg#0:type:?is<IEvt>
+@CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
 ```
+
+## Targets
+Targets are most commonly the name of the parameterless instance method of a mixin object: `OnAwake`.
+They may implicitly be declared by the `On` prefix together with one of the default targets in `MixinOn`.
+
+There are special cases for lifecycle related targets, they start with `$` and are translated into type specific
+method, usually Awake and OnDestroy.
+
+Static methods may be referenced by prepending `*` in front of the name.
+Methods are forced to be public by prepending `^` in front of the name. (* and ^ may be in any order)
+
+Another way to declare targets is by declaring the fully qualified name of a delegate that is then used as the signature
+of the method prefix by `~`. Example: `~HELIX.Context.RegistrationConfigurator`
+
+This syntax also supports methods with parameters which are otherwise unsupported. The delegate reference-based declaration
+is compatible with the static modifier, allowing `*~HELIX.Context.RegistrationConfigurator` as well. 

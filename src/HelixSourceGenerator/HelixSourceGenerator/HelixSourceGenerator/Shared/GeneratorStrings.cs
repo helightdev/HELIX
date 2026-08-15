@@ -4,10 +4,20 @@ namespace HELIX.SourceGen {
 
     internal static class Attributes {
       internal const string
+        AttributeMixinMethodProxy = "HELIX.Context.AttributeMixinMethodProxyAttribute",
+        MixinExpression = "HELIX.Context.MixinExpressionAttribute",
         BoundaryComposable = "HELIX.Compose.BoundaryComposableAttribute",
         ComposableProxy = "HELIX.Compose.ComposableProxyAttribute",
         Composition = "HELIX.Compose.CompositionAttribute",
         Context = "HELIX.Compose.ContextAttribute",
+        EnableMixins = "HELIX.Context.EnableMixinsAttribute",
+        Mixin = "HELIX.Context.MixinAttribute",
+        MixinDeclareVariable = "HELIX.Context.MixinDeclareVariableAttribute",
+        MixinInject = "HELIX.Context.MixinInjectAttribute",
+        MixinMethod = "HELIX.Context.MixinMethodAttribute",
+        MixinMethodGenericSource = "HELIX.Context.MixinMethodGenericSource",
+        MixinProperty = "HELIX.Context.MixinPropertyAttribute",
+        RequireMixin = "HELIX.Context.RequireMixinAttribute",
         Prop = "HELIX.Compose.PropAttribute",
         PropStruct = "HELIX.Compose.PropStructAttribute",
         UxmlElement = "UnityEngine.UIElements.UxmlElementAttribute";
@@ -27,6 +37,7 @@ namespace HELIX.SourceGen {
         CompositionTransfer = "HELIX.Compose.CompositionInternals.TransferData",
         ElementRef = "HELIX.Compose.ElementRef",
         LocalId = "HELIX.Compose.LocalId",
+        Mixin = "HELIX.Context.IMixin",
         PropsBoundaryComposable = "HELIX.Compose.PropsBoundaryComposable",
         ReadComposable = "HELIX.Compose.ReadComposable",
         ScopeHandle = "HELIX.Compose.ScopeHandle",

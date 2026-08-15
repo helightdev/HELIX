@@ -5,6 +5,7 @@ namespace HELIX.Context {
   public class MixinMethodAttribute : Attribute {
     public readonly string target;
     public readonly int order;
+    public readonly string expression;
 
     public MixinMethodAttribute() { }
 
@@ -17,16 +18,104 @@ namespace HELIX.Context {
       this.target = target;
       this.order = order;
     }
+
+    public MixinMethodAttribute(string target, int order, string expression) {
+      this.target = target;
+      this.order = order;
+      this.expression = expression;
+    }
+
+    public MixinMethodAttribute(string target, string expression) {
+      this.target = target;
+      this.expression = expression;
+      order = 0;
+    }
+  }
+
+  public abstract class SourceSelectorAttribute : Attribute {
+    public readonly MixinInject source;
+    public readonly string sourceName;
+    public readonly int sourceIndex;
+
+    protected SourceSelectorAttribute(MixinInject source) {
+      this.source = source;
+      sourceIndex = -1;
+    }
+
+    protected SourceSelectorAttribute(MixinInject source, string sourceName) {
+      this.source = source;
+      this.sourceName = sourceName;
+      sourceIndex = -1;
+    }
+
+    protected SourceSelectorAttribute(MixinInject source, int sourceIndex) {
+      this.source = source;
+      this.sourceIndex = sourceIndex;
+    }
+  }
+
+  [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+  public class MixinMethodGenericSource : SourceSelectorAttribute {
+    public readonly int index;
+
+    public MixinMethodGenericSource(int index, MixinInject source) : base(source) {
+      this.index = index;
+    }
+
+    public MixinMethodGenericSource(int index, MixinInject source, string sourceName) : base(source, sourceName) {
+      this.index = index;
+    }
+
+    public MixinMethodGenericSource(int index, MixinInject source, int sourceIndex) : base(source, sourceIndex) {
+      this.index = index;
+    }
   }
 
   [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
   public class AttributeMixinMethodProxyAttribute : Attribute {
     public Type target;
     public string method;
+    public string[] variants;
 
     public AttributeMixinMethodProxyAttribute(Type target, string method) {
       this.target = target;
       this.method = method;
+    }
+
+    public AttributeMixinMethodProxyAttribute(Type target, params string[] variants) {
+      this.target = target;
+      this.variants = variants;
+    }
+  }
+
+  // Must be put on an attribute or mixin interface.
+  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
+  public class MixinExpressionAttribute : Attribute {
+    public readonly string[] target;
+    public readonly int[] order;
+    public readonly string expression;
+
+    public MixinExpressionAttribute(string target, int order, string expression) {
+      this.target = new[] { target };
+      this.order = new[] { order };
+      this.expression = expression;
+    }
+
+    public MixinExpressionAttribute(string[] target, int[] order, string expression) {
+      this.target = target;
+      this.order = order;
+      this.expression = expression;
+    }
+  }
+
+  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
+  public class RequireMixinAttribute : Attribute {
+    public readonly Type target;
+    public readonly bool declareImplicit;
+
+    public RequireMixinAttribute(Type target, bool declareImplicit = false) {
+      this.target = target;
+      this.declareImplicit = declareImplicit;
     }
   }
 
@@ -35,6 +124,7 @@ namespace HELIX.Context {
   public class MixinInjectAttribute : Attribute {
     public readonly MixinInject type;
     public readonly string name;
+    public bool CheckAssignment { get; set; } = false;
 
     public MixinInjectAttribute() {
       type = MixinInject.Target;
@@ -51,7 +141,15 @@ namespace HELIX.Context {
     }
   }
 
-  public enum MixinInject { This, Target, Attribute, Delegate, ReturnValue }
+  public enum MixinInject {
+    This = 0,
+    Target = 1,
+    Attribute = 2,
+    Delegate = 3,
+    ReturnValue = 4,
+    Member = 5,
+    Parameter = 6
+  }
 
   [AttributeUsage(AttributeTargets.Property)]
   public class MixinPropertyAttribute : Attribute { }
@@ -68,8 +166,7 @@ namespace HELIX.Context {
   [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
   public class EnableMixinsAttribute : Attribute { }
 
-  [Mixin, EnableMixins]
-  public interface IMixin { }
+  [Mixin] public interface IMixin { }
 
   /// <summary>
   /// Default mixin targets.
@@ -80,6 +177,7 @@ namespace HELIX.Context {
   public static class MixinOn {
     public const string Init = "$Init"; // Automatic lifecycle hook
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
+    public const string ConfigureRegistration = "^*~HELIX.Context.RegistrationConfigurator";
 
     public const string MonoAwake = "Awake";
     public const string MonoStart = "Start";

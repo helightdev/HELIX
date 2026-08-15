@@ -33,6 +33,8 @@ This attribute allows one to specify the source using the MixinInject enum. Foll
   * Property(ref any): The reference to a temporary variable with the value of the property. 
     After invocation, the value is assigned back to the property.
   * Property(any): The current value of the property
+- Member(any): Tries injecting the member of the best matching name. 
+- Member(ref any): Tries injecting the member of the best matching name using a ref similar to target.
 - Attribute: If injected using a mixin attribute, resolves to a constant wired value of the calling mixin attribute
 - Delegate: If injected on a method, tries passing the method as a delegate reference into it.
 - ReturnValue(ref): If injected on a method, passes in the current return value (or default) and lets the method modify it.
