@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace HELIX.Context {
@@ -92,6 +93,17 @@ namespace HELIX.Context {
   }
 
   public delegate void RegistrationConfigurator(RegistrationEntry registration);
+
+  public delegate UniTask AsyncServiceInitializer();
+
+  [MixinExpression(
+    new[] { MixinOn.InitAsync },
+    new[] { 1 },
+    @"
+@CODE<~HELIX.Context.AsyncServiceInitializer> global::UnityEngine.Debug.Log(""Default provider"");
+"
+  )]
+  [Mixin] public interface IAsyncInitMixin : IMixin { }
 
   public delegate ComponentRegistrations RegistrationDiscoveryProvider();
 }

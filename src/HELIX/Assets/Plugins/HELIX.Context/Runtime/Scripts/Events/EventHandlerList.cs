@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace HELIX.Context {
   public readonly struct EventHandlerList {
@@ -8,6 +7,15 @@ namespace HELIX.Context {
 
     public EventHandlerList(List<HandlerRegistration> registrations) {
       this.registrations = registrations;
+    }
+
+    public bool HasHandlerFor<T>() where T : Evt<T> {
+      foreach (var registration in registrations) {
+        if (registration is HandlerRegistration<T> typedRegistration && !typedRegistration.IsDisposed) {
+          return true;
+        }
+      }
+      return false;
     }
 
     public void RaiseLocal<T>(T evt) where T : Evt<T> {

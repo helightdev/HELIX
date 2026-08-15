@@ -22,7 +22,7 @@ namespace HELIX.Context {
 
   // [EnableMixins]
   [Service]
-  public partial class ExampleUser : MonoBehaviour, IExampleMixin {
+  public partial class ExampleUser : MonoBehaviour, IExampleMixin, IAsyncInitMixin {
     [AutoDispose]
     public IDisposable myResource;
 

@@ -93,13 +93,4 @@ namespace HELIX.Context {
   public class ComponentAttribute : Attribute { }
 
   public class ServiceAttribute : ComponentAttribute { }
-
-//   [MixinExpression(
-//     new[] { MixinOn.InitAsync },
-//     new[] { 1 },
-//     @"
-// @CODE<InitAsync> global::UnityEngine.Debug.Log(""Default provider"");
-// "
-//   )]
-//   [Mixin] public interface IAsyncInitMixin : IMixin { }
 }

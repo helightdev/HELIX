@@ -183,7 +183,7 @@ namespace HELIX.Context {
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
     public const string ConfigureRegistration = "^*~HELIX.Context.RegistrationConfigurator";
 
-    public const string InitAsync = "InitAsync";
+    public const string InitAsync = "~HELIX.Context.AsyncServiceInitializer";
 
     public const string MonoAwake = "Awake";
     public const string MonoStart = "Start";
