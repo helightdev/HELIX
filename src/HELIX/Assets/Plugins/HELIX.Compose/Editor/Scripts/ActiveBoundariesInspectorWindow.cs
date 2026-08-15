@@ -63,7 +63,7 @@ namespace HELIX.Editor {
 
     protected override List<InspectorTreeNode> ReadNodes() {
       _boundaries.Clear();
-      _boundaries.AddRange(HX.Boundaries);
+      _boundaries.AddRange(HXC.Boundaries);
       return BuildNodes(_boundaries);
     }
 

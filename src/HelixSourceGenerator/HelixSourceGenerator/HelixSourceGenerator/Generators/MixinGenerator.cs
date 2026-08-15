@@ -56,7 +56,10 @@ namespace HELIX.SourceGen {
 
     private static bool HasMixinsEnabled(INamedTypeSymbol type) {
       for (var current = type; current is not null; current = current.BaseType) {
-        if (Attribute(current, Attributes.EnableMixins) is not null) return true;
+        if (Attribute(current, Attributes.EnableMixins) is not null ||
+            current.GetAttributes().Any(attribute => BuiltinMixinStereotypes.Contains(
+              attribute.AttributeClass?.ToDisplayString() ?? "", StringComparer.Ordinal
+            ))) return true;
       }
       return type.AllInterfaces.Any(item => Attribute(item, Attributes.EnableMixins) is not null);
     }
@@ -206,8 +209,8 @@ namespace HELIX.SourceGen {
       while (providers.Count != 0) {
         var provider = providers.Dequeue();
         if (provider is null || !visited.Add(provider)) continue;
-        foreach (var requirement in OrderedAttributes(provider)
-                   .Where(item => IsAttribute(item, Attributes.RequireMixin))) {
+        foreach (var requirement in InheritedAttributes(
+                   provider, Attributes.RequireMixin, allowMultiple: true)) {
           if (!TryReadRequirement(requirement, out var required, out var declareImplicit) ||
               required is null ||
               !(IsMixinInterface(required) || IsMixinYieldingAttribute(required))) {
@@ -260,10 +263,8 @@ namespace HELIX.SourceGen {
 
     private static bool IsMixinYieldingAttribute(INamedTypeSymbol type) =>
       type is { TypeKind: TypeKind.Class } && InheritsFromSystemAttribute(type) &&
-      OrderedAttributes(type).Any(item =>
-        IsAttribute(item, Attributes.MixinExpression) ||
-        IsAttribute(item, Attributes.AttributeMixinMethodProxy)
-      );
+      (InheritedAttributes(type, Attributes.MixinExpression, allowMultiple: false).Count != 0 ||
+       InheritedAttributes(type, Attributes.AttributeMixinMethodProxy, allowMultiple: true).Count != 0);
 
     private static bool InheritsFromSystemAttribute(INamedTypeSymbol type) {
       for (var current = type; current is not null; current = current.BaseType) {
@@ -354,16 +355,16 @@ namespace HELIX.SourceGen {
         foreach (var applied in OrderedAttributes(annotated)) {
           var attributeType = applied.AttributeClass;
           if (attributeType is null) continue;
-          foreach (var expressionAttribute in OrderedAttributes(attributeType)
-                     .Where(item => IsAttribute(item, Attributes.MixinExpression))) {
+          foreach (var expressionAttribute in InheritedAttributes(
+                     attributeType, Attributes.MixinExpression, allowMultiple: false)) {
             CollectMixinExpressionContributions(
               context, target, annotated, applied, null, expressionAttribute, compilation,
               expressionVariables, expressionOutputs, result, ref sequence,
               ContributionKind.Attribute, attributeType.Name
             );
           }
-          foreach (var proxy in OrderedAttributes(attributeType)
-                     .Where(item => IsAttribute(item, Attributes.AttributeMixinMethodProxy))) {
+          foreach (var proxy in InheritedAttributes(
+                     attributeType, Attributes.AttributeMixinMethodProxy, allowMultiple: true)) {
             if (proxy.ConstructorArguments.Length < 2 ||
                 proxy.ConstructorArguments[0].Value is not INamedTypeSymbol owner) continue;
 
@@ -435,16 +436,16 @@ namespace HELIX.SourceGen {
       ICollection<MixinContribution> result,
       ref int sequence
     ) {
-      foreach (var expressionAttribute in OrderedAttributes(implicitAttribute.Type)
-                 .Where(item => IsAttribute(item, Attributes.MixinExpression))) {
+      foreach (var expressionAttribute in InheritedAttributes(
+                 implicitAttribute.Type, Attributes.MixinExpression, allowMultiple: false)) {
         CollectMixinExpressionContributions(
           context, target, target, null, implicitAttribute, expressionAttribute, compilation,
           expressionVariables, expressionOutputs, result, ref sequence,
           ContributionKind.Attribute, implicitAttribute.Type.Name
         );
       }
-      foreach (var proxy in OrderedAttributes(implicitAttribute.Type)
-                 .Where(item => IsAttribute(item, Attributes.AttributeMixinMethodProxy))) {
+      foreach (var proxy in InheritedAttributes(
+                 implicitAttribute.Type, Attributes.AttributeMixinMethodProxy, allowMultiple: true)) {
         if (proxy.ConstructorArguments.Length < 2 ||
             proxy.ConstructorArguments[0].Value is not INamedTypeSymbol owner) continue;
         MixinContribution selected = null;
@@ -571,7 +572,7 @@ namespace HELIX.SourceGen {
           if (targets.Count != 1) {
             ReportInvalidAttributeExpression(
               context, location, attributeName, annotated.Name,
-              "@CODE<TARGET> is ambiguous because more than one target is declared"
+              "@CODE<TARGET> requires exactly one declared target"
             );
             return;
           }
@@ -619,8 +620,13 @@ namespace HELIX.SourceGen {
       orders = Array.Empty<int>();
       expression = null;
       failure = null;
+      if (configuration.ConstructorArguments.Length == 1) {
+        expression = configuration.ConstructorArguments[0].Value as string;
+        if (expression is null) failure = "the expression cannot be null";
+        return failure is null;
+      }
       if (configuration.ConstructorArguments.Length != 3) {
-        failure = "the configuration constructor must declare targets, orders, and an expression";
+        failure = "the configuration constructor must declare an expression, optionally with targets and orders";
         return false;
       }
 
@@ -643,8 +649,7 @@ namespace HELIX.SourceGen {
         orders = new[] { order };
       }
       expression = configuration.ConstructorArguments[2].Value as string;
-      if (targets.Count == 0) failure = "at least one target must be declared";
-      else if (targets.Any(string.IsNullOrWhiteSpace)) failure = "target names cannot be empty";
+      if (targets.Any(string.IsNullOrWhiteSpace)) failure = "target names cannot be empty";
       else if (targets.Count != orders.Count) failure = "target and order arrays must have the same length";
       else if (expression is null) failure = "the expression cannot be null";
       return failure is null;
@@ -1898,6 +1903,23 @@ namespace HELIX.SourceGen {
       .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
       .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
       .ToArray();
+
+    private static IReadOnlyList<AttributeData> InheritedAttributes(
+      INamedTypeSymbol type,
+      string metadataName,
+      bool allowMultiple
+    ) {
+      var result = new List<AttributeData>();
+      for (var current = type; current is not null; current = current.BaseType) {
+        var declared = OrderedAttributes(current)
+          .Where(item => IsAttribute(item, metadataName))
+          .ToArray();
+        if (declared.Length == 0) continue;
+        result.AddRange(declared);
+        if (!allowMultiple) break;
+      }
+      return result;
+    }
 
     private static bool IsAttribute(AttributeData attribute, string metadataName) =>
       attribute.AttributeClass?.ToDisplayString() == metadataName;

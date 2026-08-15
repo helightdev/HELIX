@@ -1,0 +1,24 @@
+{
+  "name": "HELIX.Devtools.Editor.Odin",
+  "rootNamespace": "HELIX.Devtools.Editor.Odin",
+  "references": [
+    "GUID:1450c30e11b017547b276675739915ea",
+    "GUID:50814613fed148ed9c89bc88505979f4",
+    "GUID:2cdb622091174a838108cd71ec7d6ef2",
+    "GUID:5c7060d56705421a81a048d1a6d8a5e3",
+    "GUID:d5c4ac3b3dbe4a5eb8d0123266325391"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "ODIN_INSPECTOR"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

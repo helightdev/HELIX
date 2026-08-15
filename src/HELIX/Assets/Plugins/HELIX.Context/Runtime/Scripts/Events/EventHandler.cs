@@ -1,25 +1,28 @@
 using System;
-using HELIX.Context.Events;
 
 namespace HELIX.Context {
   [AttributeUsage(AttributeTargets.Method)]
   [RequireMixin(typeof(IEventHandlersMixin), declareImplicit: true)]
   [MixinExpression(
-    MixinOn.Init,
-    1,
+    new[] { MixinOn.Init, MixinOn.ConfigureRegistration },
+    new[] { 1, -90_000 },
     @"
 @SCOPE
-  @MATCH @arg#0:?is<global::HELIX.Context.Events.IAsyncChainEvt>
+  @MATCH @var#IsComponent:?eq<true>
+  @CODE<^*~HELIX.Context.RegistrationConfigurator> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
+
+@SCOPE
+  @MATCH @arg#0:?is<global::HELIX.Context.IAsyncChainEvt>
   @ASSERT @arg#0:?argument
   @CODE<$Init> eventHandlerList.RegisterAsync<@arg#0:type>(@target, @attr#priority);
   @RETURN
 @SCOPE
-  @MATCH @arg#0:?is<global::HELIX.Context.Events.Evt>
+  @MATCH @arg#0:?is<global::HELIX.Context.Evt>
   @MATCH @arg#0:?ref
   @CODE<$Init> eventHandlerList.Register<@arg#0:type>(@target, @attr#priority);
   @RETURN
 @SCOPE
-  @MATCH @arg#0:?is<global::HELIX.Context.Events.Evt>
+  @MATCH @arg#0:?is<global::HELIX.Context.Evt>
   @MATCH @arg#0:?argument
   @CODE<$Init> eventHandlerList.Register<@arg#0:type>(@target, @attr#priority);
   @RETURN

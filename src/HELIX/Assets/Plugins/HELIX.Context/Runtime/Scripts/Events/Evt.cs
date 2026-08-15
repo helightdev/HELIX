@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
-namespace HELIX.Context.Events {
+namespace HELIX.Context {
     // ReSharper disable once InconsistentNaming
     public interface Evt {
 
@@ -135,14 +136,14 @@ namespace HELIX.Context.Events {
     public abstract class AsyncChainEvt<TSelf> : Evt<AsyncChainEvt<TSelf>>, Evt<TSelf>, IAsyncChainEvt
         where TSelf : AsyncChainEvt<TSelf>, Evt<TSelf> {
 
-        private readonly LinkedList<Func<Awaitable>> _chain = new();
+        private readonly LinkedList<Func<UniTask>> _chain = new();
 
-        public event Func<Awaitable> Chain {
+        public event Func<UniTask> Chain {
             add => _chain.AddLast(value);
             remove => throw new NotSupportedException();
         }
 
-        public async Awaitable<TSelf> RaiseAsync() {
+        public async UniTask<TSelf> RaiseAsync() {
             var referenced = this as TSelf;
             Evt<TSelf>.Raise(ref referenced);
             foreach (var action in _chain) {
@@ -156,6 +157,9 @@ namespace HELIX.Context.Events {
             return referenced;
         }
 
+      public void Reset() {
+        _chain.Clear();
+      }
     }
 
     /// <summary>

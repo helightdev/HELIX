@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
-namespace HELIX.Context.Events {
+namespace HELIX.Context {
   /// <summary>
   ///     .Net event based proxy event handler and invocator.
   ///     All events used by the class should have mutable public properties for their data.

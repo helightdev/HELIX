@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace HELIX.Context.Events {
+namespace HELIX.Context {
     public delegate EvtHandler<T> EventInterceptor<T>(EvtHandler<T> handler) where T : Evt<T>;
 
 

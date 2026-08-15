@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace HELIX.Context.Events {
+namespace HELIX.Context {
     public class EventManager {
 
         public static EventManager Instance = new();

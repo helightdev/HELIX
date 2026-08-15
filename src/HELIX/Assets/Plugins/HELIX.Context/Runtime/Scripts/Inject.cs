@@ -1,8 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Reflection;
-using HELIX.Context.Events;
-using UnityEngine;
 
 namespace HELIX.Context {
   // TODO
@@ -34,38 +30,4 @@ namespace HELIX.Context {
   }
 
   public enum Source { Container, Components, Addressables, Resources }
-
-  [MixinExpression(
-    new[] { MixinOn.ConfigureRegistration },
-    new[] { -100_000 },
-    @"
-@CODE<^*~HELIX.Context.RegistrationConfigurator> registration.name = ""@this:name"";
-"
-  )]
-  [Mixin] public interface IComponentMixin : IMixin { }
-
-  public delegate void RegistrationConfigurator(RegistrationEntry registration);
-
-  public class ComponentRegistrations {
-    public readonly Dictionary<Type, RegistrationEntry> components = new();
-
-    public void Register(Type type, RegistrationConfigurator configurator) {
-      var entry = new RegistrationEntry(type);
-      try {
-        configurator(entry);
-        components[type] = entry;
-      } catch (Exception e) {
-        Debug.LogException(e);
-      }
-    }
-  }
-
-  public sealed class RegistrationEntry {
-    public readonly Type type;
-    public RegistrationEntry(Type type) {
-      this.type = type;
-    }
-
-    public string name;
-  }
 }

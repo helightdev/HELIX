@@ -1,5 +1,10 @@
 namespace HELIX.SourceGen {
   internal static class GeneratorStrings {
+    internal static readonly string[] BuiltinMixinStereotypes = {
+      "HELIX.Context.ComponentAttribute",
+      "HELIX.Context.ServiceAttribute"
+    };
+
     internal const string DiagnosticCategory = "HELIX";
 
     internal static class Attributes {

@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using HELIX.Compose;
 using HELIX.Compose.Collections;
 using Unity.Profiling;
 
 namespace HELIX {
   // ReSharper disable once InconsistentNaming
-  public static class HX {
+  public static class HXC {
     public static IReadOnlyCollection<IBoundary> Boundaries => HXComposer.Boundaries;
 
     public static bool InBatchScope => HXComposer.IsScoped;

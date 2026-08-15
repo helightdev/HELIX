@@ -1,0 +1,22 @@
+{
+  "name": "HELIX.Devtools.Editor",
+  "rootNamespace": "HELIX.Devtools.Editor",
+  "references": [
+    "GUID:1450c30e11b017547b276675739915ea",
+    "GUID:50814613fed148ed9c89bc88505979f4",
+    "GUID:2cdb622091174a838108cd71ec7d6ef2",
+    "GUID:71e9815631ba2574b92564e93b8efc9c",
+    "GUID:a3ca9b2d97442e0499ea28b681f751d9"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

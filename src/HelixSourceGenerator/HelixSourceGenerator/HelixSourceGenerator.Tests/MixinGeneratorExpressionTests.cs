@@ -184,6 +184,46 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
+  [Fact]
+  public void ExpressionWithoutTargetsCanEmitClassFileAndInterfaceDeclarations() {
+    const string source = """
+      using System;
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
+        }
+      }
+      public interface IMarker { }
+      [HELIX.Context.MixinExpression(
+        "@CODE<CLASS> public int GeneratedValue => 3;\n" +
+        "@CODE<FILE> internal sealed class GeneratedFileType { }\n" +
+        "@CODE<IMPLEMENTS> global::IMarker"
+      )]
+      [AttributeUsage(AttributeTargets.Class)]
+      public sealed class MarkerAttribute : Attribute { }
+      [HELIX.Context.EnableMixins, Marker]
+      public partial class Demo { }
+      """;
+
+    var compilation = CSharpCompilation.Create(
+      "TargetlessExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("partial class Demo : global::IMarker", generated);
+    Assert.Contains("public int GeneratedValue => 3;", generated);
+    Assert.Contains("internal sealed class GeneratedFileType", generated);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
   private static ImmutableArray<MetadataReference> PlatformReferences { get; } =
     ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
     .Split(Path.PathSeparator)

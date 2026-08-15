@@ -106,6 +106,10 @@ namespace HELIX.Context {
       this.order = order;
       this.expression = expression;
     }
+
+    public MixinExpressionAttribute(string expression) {
+      this.expression = expression;
+    }
   }
 
   [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
@@ -178,6 +182,8 @@ namespace HELIX.Context {
     public const string Init = "$Init"; // Automatic lifecycle hook
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
     public const string ConfigureRegistration = "^*~HELIX.Context.RegistrationConfigurator";
+
+    public const string InitAsync = "InitAsync";
 
     public const string MonoAwake = "Awake";
     public const string MonoStart = "Start";

@@ -1,5 +1,4 @@
 using System;
-using HELIX.Context.Events;
 using UnityEngine;
 
 namespace HELIX.Context {
@@ -21,8 +20,9 @@ namespace HELIX.Context {
     }
   }
 
-  [EnableMixins]
-  public partial class ExampleUser : MonoBehaviour, IExampleMixin, IComponentMixin {
+  // [EnableMixins]
+  [Service]
+  public partial class ExampleUser : MonoBehaviour, IExampleMixin {
     [AutoDispose]
     public IDisposable myResource;
 
@@ -39,11 +39,6 @@ namespace HELIX.Context {
 
     [EventHandler]
     private void OnTestAsync(TestAsyncEvt evt) {
-
-    }
-
-    [MixinMethod(MixinOn.ConfigureRegistration)]
-    private static void OnConfigureRegistration(RegistrationEntry registration) {
 
     }
   }

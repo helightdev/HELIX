@@ -276,7 +276,7 @@ namespace HELIX.Compose {
       if (boundary == null) {
         throw new InvalidOperationException($"Boundary of type {typeof(T)} not found in tree.");
       }
-      var scope = HX.BatchScope();
+      var scope = HXC.BatchScope();
       boundary.MarkDirty();
       return scope;
     }
@@ -319,7 +319,7 @@ namespace HELIX.Compose {
       if (composable == null) {
         throw new InvalidOperationException($"BoundaryComposable of type {typeof(T)} not found in tree.");
       }
-      var scope = HX.BatchScope();
+      var scope = HXC.BatchScope();
       composable.MarkDirty();
       return scope;
     }
@@ -359,29 +359,29 @@ namespace HELIX.Compose {
   public static class CompositionActionExtensions {
     public static void Call(this CompositionAction action, IBoundary boundary) {
       if (action == null) return;
-      using (HX.BatchScope()) action.Invoke(new CompositionContext(boundary));
+      using (HXC.BatchScope()) action.Invoke(new CompositionContext(boundary));
     }
 
     public static void Call<T>(this CompositionAction<T> action, IBoundary boundary, T arg) {
       if (action == null) return;
-      using (HX.BatchScope()) action.Invoke(new CompositionContext(boundary), arg);
+      using (HXC.BatchScope()) action.Invoke(new CompositionContext(boundary), arg);
     }
 
     public static void Call<T0, T1>(this CompositionAction<T0, T1> action, IBoundary boundary, T0 arg0, T1 arg1) {
       if (action == null) return;
-      using (HX.BatchScope()) action.Invoke(new CompositionContext(boundary), arg0, arg1);
+      using (HXC.BatchScope()) action.Invoke(new CompositionContext(boundary), arg0, arg1);
     }
 
     public static void Call<T0, T1, T2>(
       this CompositionAction<T0, T1, T2> action, IBoundary boundary, T0 arg0, T1 arg1, T2 arg2
     ) {
-      using (HX.BatchScope()) action?.Invoke(new CompositionContext(boundary), arg0, arg1, arg2);
+      using (HXC.BatchScope()) action?.Invoke(new CompositionContext(boundary), arg0, arg1, arg2);
     }
 
     public static void Call<T0, T1, T2, T3>(
       this CompositionAction<T0, T1, T2, T3> action, IBoundary boundary, T0 arg0, T1 arg1, T2 arg2, T3 arg3
     ) {
-      using (HX.BatchScope()) action?.Invoke(new CompositionContext(boundary), arg0, arg1, arg2, arg3);
+      using (HXC.BatchScope()) action?.Invoke(new CompositionContext(boundary), arg0, arg1, arg2, arg3);
     }
   }
 }

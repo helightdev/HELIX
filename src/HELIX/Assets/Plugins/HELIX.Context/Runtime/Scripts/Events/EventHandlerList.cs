@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using HELIX.Context.Events;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace HELIX.Context {
@@ -8,6 +8,24 @@ namespace HELIX.Context {
 
     public EventHandlerList(List<HandlerRegistration> registrations) {
       this.registrations = registrations;
+    }
+
+    public void RaiseLocal<T>(T evt) where T : Evt<T> {
+      for (var i = 0; i < registrations.Count; i++) {
+        if (registrations[i] is not HandlerRegistration<T> registration) continue;
+        if (registration.IsDisposed) continue;
+        registration.Handler?.Invoke(ref evt);
+      }
+
+      CleanupRegistrations();
+    }
+
+    public void CleanupRegistrations() {
+      for (var i = registrations.Count - 1; i >= 0; i--) {
+        if (registrations[i].IsDisposed) {
+          registrations.RemoveAt(i);
+        }
+      }
     }
 
     public void RegisterAsync<T>(AsyncHandler<T> func, int priority) where T : AsyncChainEvt<T> {
@@ -27,14 +45,17 @@ namespace HELIX.Context {
         EventReactor<T>.Shared.Subscribe(
           delegate(ref T args) {
             var closed = args;
-            args.Chain += async () => handler(closed);
+            args.Chain += () => {
+              handler(closed);
+              return UniTask.CompletedTask;
+            };
           },
           priority
         )
       );
     }
 
-    public delegate Awaitable AsyncHandler<in T>(T arg) where T : AsyncChainEvt<T>;
+    public delegate UniTask AsyncHandler<in T>(T arg) where T : AsyncChainEvt<T>;
 
     public void Register<T>(EvtHandler<T> handler, int priority) where T : Evt<T> {
       Register(
