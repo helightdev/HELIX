@@ -90,16 +90,18 @@ namespace HELIX.Context {
     new[] { MixinOn.ConfigureComponent, MixinOn.ComponentLoad, MixinOn.ComponentUnload },
     new[] { -100_000, 0, 0 },
     @"
+@USING UnityEngine;
+@USING HELIX.Context;
 @CODE<$ConfigureComponent> registration.name = ""@this:name"";
-@CODE<IMPLEMENTS> global::HELIX.Context.IComponent
+@CODE<IMPLEMENTS> IComponent
 @VAR<IsComponent> true
 
 @SCOPE
-  @MATCH @this:?is<global::UnityEngine.MonoBehaviour>
-  @CODE<$ConfigureComponent> registration.activator = HELIX.Context.DefaultComponentActivators.MonoBehaviour<@this:type>();
+  @MATCH @this:?is<MonoBehaviour>
+  @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
   @RETURN
 @SCOPE
-  @CODE<$ConfigureComponent> registration.activator = HELIX.Context.DefaultComponentActivators.PlainObject<@this:type>();
+  @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
   @RETURN
 "
   )]

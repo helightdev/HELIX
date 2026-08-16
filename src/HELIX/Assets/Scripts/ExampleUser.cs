@@ -25,12 +25,13 @@ namespace HELIX.Context {
   [MixinDefineTarget(MixinOn.Init, MixinOn.MonoEnable), MixinDefineTarget(MixinOn.Dispose, MixinOn.MonoDisable)]
   public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]
-    public IDisposable myResource;
+    public IDisposable myResource2;
+
 
     [MixinMethod]
     private void OnInit() {
       Debug.Log("Self on awake! Implicitly referenced!");
-      myResource = new LoggingDisposable();
+      myResource2 = new LoggingDisposable();
 
     }
 

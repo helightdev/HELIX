@@ -61,6 +61,8 @@ public sealed class MixinExpressionInterpreterTests {
       @CODE<CLASS> class
       @CODE<FILE> file
       @CODE<IMPLEMENTS> global::IFeature
+      @CODE<ANNOTATION> global::Generated
+      @USING System.Collections.Generic
       @CODE<DisposeHook> dispose
       """, new StubContext());
 
@@ -70,9 +72,11 @@ public sealed class MixinExpressionInterpreterTests {
       MixinExpressionOutputTarget.Class,
       MixinExpressionOutputTarget.File,
       MixinExpressionOutputTarget.Implements,
+      MixinExpressionOutputTarget.Annotation,
+      MixinExpressionOutputTarget.Using,
       MixinExpressionOutputTarget.Injection
     }, result.Outputs.Select(item => item.Target));
-    Assert.Equal("DisposeHook", result.Outputs[4].InjectionTarget);
+    Assert.Equal("DisposeHook", result.Outputs[6].InjectionTarget);
   }
 
   [Fact]

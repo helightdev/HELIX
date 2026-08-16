@@ -14,18 +14,19 @@ namespace HELIX.Context {
   @CODE<$ConfigureComponent> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
 @END
 
+@USING HELIX.Context;
 @SCOPE
-  @MATCH @arg#0:?is<global::HELIX.Context.IAsyncChainEvt>
+  @MATCH @arg#0:?is<IAsyncChainEvt>
   @ASSERT @arg#0:?argument
   @CODE<$Init> eventHandlerList.RegisterAsync<@arg#0:type>(@target, @attr#priority);
   @RETURN
 @SCOPE
-  @MATCH @arg#0:?is<global::HELIX.Context.Evt>
+  @MATCH @arg#0:?is<Evt>
   @MATCH @arg#0:?ref
   @CODE<$Init> eventHandlerList.Register<@arg#0:type>(@target, @attr#priority);
   @RETURN
 @SCOPE
-  @MATCH @arg#0:?is<global::HELIX.Context.Evt>
+  @MATCH @arg#0:?is<Evt>
   @MATCH @arg#0:?argument
   @CODE<$Init> eventHandlerList.Register<@arg#0:type>(@target, @attr#priority);
   @RETURN
@@ -43,12 +44,14 @@ namespace HELIX.Context {
     new[] { MixinOn.Dispose },
     new[] { 1 },
     @"
-@CODE<CLASS> [global::System.NonSerializedAttribute]
-@CODE<CLASS> protected readonly global::HELIX.Context.EventHandlerList eventHandlerList = global::HELIX.Context.EventHandlerList.Create();
-@CODE<CLASS> global::HELIX.Context.EventHandlerList global::HELIX.Context.IEventListener.HandlerList => eventHandlerList;
+@USING HELIX.Context;
+@USING System;
+@CODE<CLASS> [NonSerializedAttribute]
+@CODE<CLASS> protected readonly EventHandlerList eventHandlerList = EventHandlerList.Create();
+@CODE<CLASS> EventHandlerList IEventListener.HandlerList => eventHandlerList;
 
 @CODE<$Dispose> eventHandlerList.UnregisterAll();
-@CODE<IMPLEMENTS> global::HELIX.Context.IEventListener
+@CODE<IMPLEMENTS> IEventListener
 "
   )]
   [Mixin] public interface IEventHandlersMixin : IMixin { }

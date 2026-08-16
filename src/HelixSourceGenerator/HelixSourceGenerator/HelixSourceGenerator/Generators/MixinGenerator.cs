@@ -186,11 +186,26 @@ namespace HELIX.SourceGen {
         .Where(item => item.Length != 0)
         .Distinct(StringComparer.Ordinal)
         .ToArray();
-      var wrapper = WrapType(
-        target, "mixins", baseType: implemented.Length == 0 ? null : string.Join(", ", implemented),
-        typeAttributes: implicitAttributes.Select(item =>
+      var annotations = implicitAttributes.Select(item =>
           item.Type.ToDisplayString(TypeDisplayFormat)
-        ).ToArray()
+        )
+        .Concat(expressionOutputs
+          .Where(item => item.Target == MixinExpressionOutputTarget.Annotation)
+          .Select(item => item.Text.Trim())
+          .Where(item => item.Length != 0))
+        .Distinct(StringComparer.Ordinal)
+        .ToArray();
+      var usings = expressionOutputs
+        .Where(item => item.Target == MixinExpressionOutputTarget.Using)
+        .Select(item => item.Text.Trim().TrimEnd(';'))
+        .Where(item => item.Length != 0)
+        .Select(item => "using " + item + ";")
+        .Distinct(StringComparer.Ordinal)
+        .ToArray();
+      var wrapper = WrapType(
+        target, "mixins", usings,
+        baseType: implemented.Length == 0 ? null : string.Join(", ", implemented),
+        typeAttributes: annotations
       );
       var source = wrapper.Build(builder => {
         if (variables.Count != 0) builder.AppendLine("#pragma warning disable CS0169");
@@ -624,7 +639,8 @@ namespace HELIX.SourceGen {
       var targetOutputs = new Dictionary<string, List<MixinExpressionOutput>>(StringComparer.Ordinal);
       foreach (var output in evaluated.Outputs) {
         if (output.Target is MixinExpressionOutputTarget.Class or
-            MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements) {
+            MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements or
+            MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using) {
           if (!string.IsNullOrEmpty(output.Text)) pendingOutputs.Add(output);
           continue;
         }

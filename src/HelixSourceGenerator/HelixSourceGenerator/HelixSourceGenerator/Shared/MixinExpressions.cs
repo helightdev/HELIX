@@ -4,7 +4,15 @@ using System.Linq;
 using System.Text;
 
 namespace HELIX.SourceGen.Expressions {
-  public enum MixinExpressionOutputTarget { Target, Class, File, Implements, Injection }
+  public enum MixinExpressionOutputTarget {
+    Target,
+    Class,
+    File,
+    Implements,
+    Injection,
+    Annotation,
+    Using
+  }
 
   public sealed class MixinExpressionOutput {
     public MixinExpressionOutput(
@@ -151,6 +159,13 @@ namespace HELIX.SourceGen.Expressions {
             TryOutputTarget(argument, out var outputTarget, out var injectionTarget);
             outputs.Add(new MixinExpressionOutput(outputTarget, code, injectionTarget));
             break;
+          case "USING":
+            if (!TryInterpolate(operand, context, locals, pendingVariables, out var usingDirective,
+                  out var usingError)) {
+              return Failure(usingError, lineNumber);
+            }
+            outputs.Add(new MixinExpressionOutput(MixinExpressionOutputTarget.Using, usingDirective));
+            break;
           case "LOCAL":
           case "VAR":
             if (string.IsNullOrEmpty(argument)) return Failure(command + " requires a name", lineNumber);
@@ -252,6 +267,7 @@ namespace HELIX.SourceGen.Expressions {
         case "CLASS": target = MixinExpressionOutputTarget.Class; return;
         case "FILE": target = MixinExpressionOutputTarget.File; return;
         case "IMPLEMENTS": target = MixinExpressionOutputTarget.Implements; return;
+        case "ANNOTATION": target = MixinExpressionOutputTarget.Annotation; return;
         default:
           target = MixinExpressionOutputTarget.Injection;
           injectionTarget = argument;

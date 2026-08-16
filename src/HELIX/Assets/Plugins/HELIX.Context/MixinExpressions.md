@@ -71,7 +71,9 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
 - `@CODE<InjectTarget>` StringExpression | Injects code at the predefined target with the given name.
 - `@CODE<CLASS>` StringExpression | Appends the code line at the end of the current partial class (for new methods, parameters, etc.) 
 - `@CODE<FILE>` StringExpression | Appends the code line in the same namespace scope outside the class (for new types)
-- `@CODE<IMPLEMENTS>` StringExpression | Adds a single implements entry based on the generated string
+- `@CODE<IMPLEMENTS>` StringExpression | Adds a single implements entry based on the generated string.
+- `@CODE<ANNOTATION>` StringExpression | Adds a single annotation entry based on the generated string.
+- `@USING` StringExpression | Adds a using statement at the top of the file
 - `@LOCAL<NAME>` StringExpression | Stores the value of the given string expression into @local#name
 - `@VAR<NAME>` StringExpression | Stores the value of the given string expression into @var#name
 - `@END`  | Ends the current scope without beginning a new scope. Continue evaluating the next line afterward
