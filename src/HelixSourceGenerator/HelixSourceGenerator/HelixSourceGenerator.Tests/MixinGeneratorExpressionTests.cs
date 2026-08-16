@@ -369,6 +369,57 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
+  [Fact]
+  public void AttributeExecutesAllInheritedExpressionsBaseFirst() {
+    const string source = """
+      using System;
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true, Inherited = true)]
+        public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string target, int order, string expression) { }
+        }
+      }
+      [HELIX.Context.MixinExpression("$Init", 0, "@CODE BaseFirst()")]
+      [HELIX.Context.MixinExpression("$Init", 0, "@CODE BaseSecond()")]
+      [AttributeUsage(AttributeTargets.Class, Inherited = true)]
+      public class BaseMarkerAttribute : Attribute { }
+
+      [HELIX.Context.MixinExpression("$Init", 0, "@CODE DerivedFirst()")]
+      [HELIX.Context.MixinExpression("$Init", 0, "@CODE DerivedSecond()")]
+      public sealed class DerivedMarkerAttribute : BaseMarkerAttribute { }
+
+      [HELIX.Context.EnableMixins, DerivedMarker]
+      public partial class Demo {
+        private void BaseFirst() { }
+        private void BaseSecond() { }
+        private void DerivedFirst() { }
+        private void DerivedSecond() { }
+      }
+      """;
+
+    var compilation = CSharpCompilation.Create(
+      "InheritedAttributeExpressionsTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    var baseFirst = generated.IndexOf("BaseFirst();", StringComparison.Ordinal);
+    var baseSecond = generated.IndexOf("BaseSecond();", StringComparison.Ordinal);
+    var derivedFirst = generated.IndexOf("DerivedFirst();", StringComparison.Ordinal);
+    var derivedSecond = generated.IndexOf("DerivedSecond();", StringComparison.Ordinal);
+    Assert.True(baseFirst >= 0 && baseFirst < baseSecond);
+    Assert.True(baseSecond < derivedFirst);
+    Assert.True(derivedFirst < derivedSecond);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
   private static ImmutableArray<MetadataReference> PlatformReferences { get; } =
     ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
     .Split(Path.PathSeparator)

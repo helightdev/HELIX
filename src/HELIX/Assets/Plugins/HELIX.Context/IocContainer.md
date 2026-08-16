@@ -126,3 +126,5 @@ Scope deinitialization mirrors initialization and is performed in the following 
 Deinitialization is idempotent. A failure in one component's cleanup is reported but does not prevent the remaining
 components from being unloaded. This guarantees that the scope releases as much owned state as possible even when an
 individual teardown handler fails.
+
+## Scene Injected Components 

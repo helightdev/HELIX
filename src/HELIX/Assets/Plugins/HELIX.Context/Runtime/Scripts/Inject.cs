@@ -10,8 +10,8 @@ namespace HELIX.Context {
     @"
 @SCOPE<Container>
   @MATCH @attr#source:?eq<0>
-  @CODE<$ConfigureComponent> registration.Dependency(new TypeKey(typeof(@target:type), @attr#qualifier));
-  @CODE<$Init> @target:name = Scope.Resolve(new TypeKey(typeof(@target:type), @attr#qualifier)) as @target:type;
+  @CODE<$ConfigureComponent> registration.Dependency(typeof(@target:type), @attr#qualifier);
+  @CODE<$Init> @target:name = RuntimeComponentData.Resolve<@target:type>(@attr#qualifier);
 "
   )]
   [RequireMixin(typeof(IEventHandlersMixin), true)]

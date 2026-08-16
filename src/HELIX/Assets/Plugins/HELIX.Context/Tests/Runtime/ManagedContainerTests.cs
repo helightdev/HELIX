@@ -290,7 +290,7 @@ namespace HELIX.Context.Tests {
     private sealed class RollbackComponent : IComponent {
       private readonly ICollection<string> _lifecycle;
       public RollbackComponent(ICollection<string> lifecycle) => _lifecycle = lifecycle;
-      public ManagedScope Scope { get; set; }
+      public RuntimeComponentData RuntimeComponentData { get; } = new();
       public void LoadComponent() => _lifecycle.Add("load");
       public void UnloadComponent() => _lifecycle.Add("unload");
     }
@@ -302,7 +302,7 @@ namespace HELIX.Context.Tests {
     private sealed class OrderedProvider : IComponent {
       private readonly ICollection<string> _lifecycle;
       public OrderedProvider(ICollection<string> lifecycle) => _lifecycle = lifecycle;
-      public ManagedScope Scope { get; set; }
+      public RuntimeComponentData RuntimeComponentData { get; } = new();
       public void LoadComponent() => _lifecycle.Add("provider-load");
       public void UnloadComponent() => _lifecycle.Add("provider-unload");
     }
@@ -310,7 +310,7 @@ namespace HELIX.Context.Tests {
     private sealed class OrderedConsumer : IComponent {
       private readonly ICollection<string> _lifecycle;
       public OrderedConsumer(ICollection<string> lifecycle) => _lifecycle = lifecycle;
-      public ManagedScope Scope { get; set; }
+      public RuntimeComponentData RuntimeComponentData { get; } = new();
       public void LoadComponent() => _lifecycle.Add("consumer-load");
       public void UnloadComponent() => _lifecycle.Add("consumer-unload");
     }

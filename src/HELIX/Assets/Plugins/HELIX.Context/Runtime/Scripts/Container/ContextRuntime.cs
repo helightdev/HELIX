@@ -52,6 +52,10 @@ namespace HELIX.Context {
     public ComponentGraphException(string message, Exception innerException) : base(message, innerException) { }
   }
 
+  public sealed class ComponentStateException : ComponentContainerException {
+    public ComponentStateException(string message) : base(message) {}
+  }
+
   public sealed class ComponentActivationException : ComponentContainerException {
     public ComponentActivationException(string message) : base(message) { }
   }

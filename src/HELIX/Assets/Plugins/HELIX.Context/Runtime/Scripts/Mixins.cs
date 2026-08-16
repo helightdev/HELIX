@@ -100,7 +100,7 @@ namespace HELIX.Context {
   }
 
   // Must be put on an attribute or mixin interface.
-  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
+  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
   public class MixinExpressionAttribute : Attribute {
     public readonly string[] target;
     public readonly int[] order;

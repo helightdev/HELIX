@@ -26,17 +26,9 @@ namespace HELIX.Context {
       throw new ScopeLifecycleException("No scope is currently loading.");
     public static ScopeLoader ActiveOrNull => _active.Value;
 
-    public void Record(IScriptedDependency dependency) {
-      _scripted.Add(dependency);
-    }
-
-    public bool Contains(IScriptedDependency dependency) {
-      return _scripted.Contains(dependency);
-    }
-
-    public void Publish(string wireKey) {
-      _anonymousPublications.Add(wireKey);
-    }
+    public void Record(IScriptedDependency dependency) => _scripted.Add(dependency);
+    public bool Contains(IScriptedDependency dependency) => _scripted.Contains(dependency);
+    public void Publish(string wireKey) => _anonymousPublications.Add(wireKey);
 
     public void Publish(RegistrationEntry owner, string wireKey) {
       if (!_publications.TryGetValue(wireKey, out var owners))
@@ -51,13 +43,11 @@ namespace HELIX.Context {
     }
 
     public bool WasPublishedBy(RegistrationEntry owner, string wireKey) {
-      return wireKey != null &&
-        _publications.TryGetValue(wireKey, out var owners) && owners.Contains(owner);
+      return wireKey != null && _publications.TryGetValue(wireKey, out var owners) && owners.Contains(owner);
     }
 
     public IEnumerable<string> PublicationsBy(RegistrationEntry owner) {
-      return _publications
-        .Where(pair => pair.Value.Contains(owner)).Select(static pair => pair.Key);
+      return _publications.Where(pair => pair.Value.Contains(owner)).Select(static pair => pair.Key);
     }
 
     internal void ValidateScope(ManagedScope parent, IScope child) {
@@ -75,29 +65,23 @@ namespace HELIX.Context {
     private static IEnumerable<ComponentDependency> EnumerateImplicitScripted(
       IEnumerable<RegistrationEntry> entries,
       InitializationStage stage
-    ) {
-      return entries
-        .SelectMany(static x => x.dependencies)
-        .Where(x => x.IsScripted && x.scripted.Stage == stage && x.flags.HasFlag(DependencyFlags.ImplicitLoadable))
-        .OrderBy(static x => x.scripted.Order);
-    }
+    ) => entries
+      .SelectMany(static x => x.dependencies)
+      .Where(x => x.IsScripted && x.scripted.Stage == stage && x.flags.HasFlag(DependencyFlags.ImplicitLoadable))
+      .OrderBy(static x => x.scripted.Order);
 
     private bool DependenciesSatisfied(
       ManagedScope managed,
       RegistrationEntry entry,
       IReadOnlyList<RegistrationEntry> allEntries
-    ) {
-      return entry.dependencies.All(dependency => {
-          if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
-          var localProvider = _graph.HasLocalProvider(allEntries, dependency);
-          return localProvider
-            ? managed.HasLocalDependency(dependency)
-            : managed.HasDependency(dependency);
-        }
-      );
-    }
+    ) => entry.dependencies.All(dependency => {
+        if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
+        var localProvider = _graph.HasLocalProvider(allEntries, dependency);
+        return localProvider ? managed.HasLocalDependency(dependency) : managed.HasDependency(dependency);
+      }
+    );
 
-    private static void ValidateRequiredPublications(ManagedScope managed, RegistrationEntry entry) {
+    private static void ValidateAndCompleteComponent(ManagedScope managed, RegistrationEntry entry, object instance) {
       foreach (var publication in entry.publications.Where(static x =>
         x.flags.HasFlag(DependencyFlags.Required)
       )) {
@@ -105,6 +89,10 @@ namespace HELIX.Context {
         throw new ComponentInitializationException(
           $"Component '{entry.name}' did not provide required publication '{publication.wireKey}'."
         );
+      }
+
+      if (instance is IComponent component) {
+        component.RuntimeComponentData.isLoaded = true;
       }
     }
 
@@ -210,7 +198,7 @@ namespace HELIX.Context {
         managed.RecordComponent(entry, instance);
         managed.BindComponent(entry, instance);
         entry.InitializeSync(instance, context);
-        ValidateRequiredPublications(managed, entry);
+        ValidateAndCompleteComponent(managed, entry, instance);
       } catch (Exception exception) {
         if (exception is ComponentContainerException) throw;
         throw new ComponentInitializationException($"Failed to initialize component '{entry.name}'.", exception);
@@ -284,7 +272,7 @@ namespace HELIX.Context {
         managed.BindComponent(entry, instance);
         entry.InitializeSync(instance, context);
         await entry.InitializeAsync(instance, context);
-        ValidateRequiredPublications(managed, entry);
+        ValidateAndCompleteComponent(managed, entry, instance);
       } catch (Exception exception) {
         if (exception is ComponentContainerException) throw;
         throw new ComponentInitializationException($"Failed to initialize component '{entry.name}'.", exception);

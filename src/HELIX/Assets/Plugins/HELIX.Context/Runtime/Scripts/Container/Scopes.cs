@@ -52,6 +52,9 @@ namespace HELIX.Context {
   public sealed partial class ManagedScope {
     private readonly Dictionary<TypeKey, List<Binding>> _bindings = new();
     private readonly CancellationTokenSource _cancellation = new();
+    private readonly List<ManagedScope> _managedChildren = new();
+    private readonly List<LoadedComponent> _loadedComponents = new();
+    private readonly HashSet<object> _owned = new(ReferenceComparer<object>.Instance);
 
     public readonly IScope scope;
     public ManagedScope parent;
@@ -217,10 +220,6 @@ namespace HELIX.Context {
       );
     }
 
-    private readonly List<ManagedScope> _managedChildren = new();
-    private readonly List<LoadedComponent> _loadedComponents = new();
-    private readonly HashSet<object> _owned = new(ReferenceComparer<object>.Instance);
-
     internal void AddChild(ManagedScope child) {
       _managedChildren.Add(child);
       children.Add(child.scope);
@@ -356,7 +355,11 @@ namespace HELIX.Context {
 
     private static void Unload(LoadedComponent loaded, List<Exception> failures) {
       try {
-        if (loaded.instance is IComponent component) component.UnloadComponent();
+        if (loaded.instance is IComponent component) {
+          component.UnloadComponent();
+          component.RuntimeComponentData.isLoaded = false;
+          component.RuntimeComponentData.isDisposed = true;
+        }
       } catch (Exception exception) {
         failures.Add(
           new ComponentDeinitializationException($"Failed to unload component '{loaded.registration.name}'.", exception)

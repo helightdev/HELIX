@@ -253,6 +253,9 @@ namespace HELIX.Context {
       return this;
     }
 
+    public RegistrationEntry Dependency(Type bindingType, string qualifier) =>
+      Dependency(new TypeKey(bindingType, qualifier));
+
     public RegistrationEntry Publication(ComponentDependency publication) {
       publications.Add(publication);
       return this;
@@ -281,7 +284,7 @@ namespace HELIX.Context {
       if (activator == null)
         throw new ComponentActivationException($"Component '{name}' ({type.FullName}) has no activator.");
       var instance = activator(context);
-      if (instance is IComponent component) component.Scope = context.scope;
+      if (instance is IComponent component) component.RuntimeComponentData.scope = context.scope;
 
       if (instance == null)
         throw new ComponentActivationException($"Activator for component '{name}' ({type.FullName}) returned null.");

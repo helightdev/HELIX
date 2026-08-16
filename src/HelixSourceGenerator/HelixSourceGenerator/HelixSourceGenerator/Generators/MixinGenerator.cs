@@ -430,7 +430,8 @@ namespace HELIX.SourceGen {
           var attributeType = applied.AttributeClass;
           if (attributeType is null) continue;
           foreach (var expressionAttribute in InheritedAttributes(
-                     attributeType, Attributes.MixinExpression, allowMultiple: false)) {
+                     attributeType, Attributes.MixinExpression,
+                     allowMultiple: true, baseFirst: true)) {
             CollectMixinExpressionContributions(
               context, target, annotated, applied, null, expressionAttribute, compilation,
               expressionVariables, expressionOutputs, result, ref sequence,
@@ -511,7 +512,8 @@ namespace HELIX.SourceGen {
       ref int sequence
     ) {
       foreach (var expressionAttribute in InheritedAttributes(
-                 implicitAttribute.Type, Attributes.MixinExpression, allowMultiple: false)) {
+                 implicitAttribute.Type, Attributes.MixinExpression,
+                 allowMultiple: true, baseFirst: true)) {
         CollectMixinExpressionContributions(
           context, target, target, null, implicitAttribute, expressionAttribute, compilation,
           expressionVariables, expressionOutputs, result, ref sequence,
@@ -1992,10 +1994,16 @@ namespace HELIX.SourceGen {
     private static IReadOnlyList<AttributeData> InheritedAttributes(
       INamedTypeSymbol type,
       string metadataName,
-      bool allowMultiple
+      bool allowMultiple,
+      bool baseFirst = false
     ) {
       var result = new List<AttributeData>();
+      var hierarchy = new List<INamedTypeSymbol>();
       for (var current = type; current is not null; current = current.BaseType) {
+        hierarchy.Add(current);
+      }
+      if (baseFirst) hierarchy.Reverse();
+      foreach (var current in hierarchy) {
         var declared = OrderedAttributes(current)
           .Where(item => IsAttribute(item, metadataName))
           .ToArray();
