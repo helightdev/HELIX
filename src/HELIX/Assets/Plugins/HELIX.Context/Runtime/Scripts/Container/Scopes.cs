@@ -55,6 +55,7 @@ namespace HELIX.Context {
     private readonly List<ManagedScope> _managedChildren = new();
     private readonly List<LoadedComponent> _loadedComponents = new();
     private readonly HashSet<object> _owned = new(ReferenceComparer<object>.Instance);
+    private ManagedContainer _container;
 
     public readonly IScope scope;
     public ManagedScope parent;
@@ -100,6 +101,8 @@ namespace HELIX.Context {
     internal void BindComponent(RegistrationEntry registration, object instance) {
       foreach (var key in registration.keys.Distinct()) AddBinding(registration, key, instance);
     }
+
+    internal void BindValue(TypeKey key, object value) => AddBinding(null, key, value);
 
     internal void Publish(RegistrationEntry owner, TypeKey key, object value) {
       AddBinding(owner, key, value);
@@ -257,12 +260,10 @@ namespace HELIX.Context {
     }
 
     internal void Activate(ManagedContainer container = null) {
-      if (container != null && scope is GameObjectScope gameObjectScope && gameObjectScope.gameObject != null) {
-        var observer = gameObjectScope.gameObject.AddComponent<GameObjectScopeObserver>();
-        observer.Attach(container, scope);
-      }
+      _container = container;
       parent?.AddChild(this);
       State = ManagedScopeState.Active;
+      container?.NotifyScopeActivated(this);
     }
 
     internal List<Exception> Rollback() {
@@ -290,25 +291,21 @@ namespace HELIX.Context {
 
     private void Teardown(List<Exception> failures, bool cancel = true) {
       if (cancel) Cancel(failures);
-      DetachUnityLifetime(failures);
+      NotifyScopeDisposing(failures);
       UnloadComponents(failures);
       DisposeOwnedResources(failures);
       DestroyOwnedUnityObjects(failures);
       parent?.RemoveChild(this);
     }
 
-    private void DetachUnityLifetime(List<Exception> failures) {
-      if (scope is not GameObjectScope gameObjectScope || gameObjectScope.gameObject == null) return;
+    private void NotifyScopeDisposing(List<Exception> failures) {
+      if (_container == null) return;
       try {
-        foreach (var observer in gameObjectScope.gameObject.GetComponents<GameObjectScopeObserver>()) {
-          if (!observer.Observes(scope)) continue;
-          observer.Detach();
-          if (Application.isPlaying) UnityEngine.Object.Destroy(observer);
-          else UnityEngine.Object.DestroyImmediate(observer);
-        }
+        _container.NotifyScopeDisposing(this);
       } catch (Exception exception) {
-        failures.Add(new ComponentDeinitializationException("Failed to detach a Unity scope lifetime.", exception));
+        failures.Add(new ComponentDeinitializationException("A scope handler failed during disposal.", exception));
       }
+      _container = null;
     }
 
     private void Cancel(List<Exception> failures) {

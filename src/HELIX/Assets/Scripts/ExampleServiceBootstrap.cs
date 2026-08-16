@@ -13,7 +13,7 @@ public class ExampleServiceBootstrap : MonoBehaviour {
     ComponentGraphProse.WriteDeclared(writer, discovered);
     Debug.Log(writer.Build());
 
-    var container = new ManagedContainer();
+    var container = new ManagedContainerBuilder().Build();
     container.PrepareRegistrar(discovered);
     await container.StartApplication();
 

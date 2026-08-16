@@ -26,10 +26,21 @@ namespace HELIX.Context {
     public void ActivateGameObjectScope() {
       testGameObject = new GameObject();
       testGameObject.AddComponent<SceneInjectedService>();
-      RuntimeComponentData.container.CreateScopeSync(
-        RuntimeComponentData.scope,
-        new GameObjectScope() { gameObject = testGameObject }
-      );
+
+      RuntimeComponentData.CreateScope()
+        .From(new GameObjectScope { gameObject = testGameObject })
+        .StartSync();
+
+    }
+
+    [Button]
+    public void ActivateGameObjectScopeBuilder() {
+      testGameObject = new GameObject();
+
+      RuntimeComponentData.CreateScope()
+        .From(new GameObjectScope { gameObject = testGameObject })
+        .AddComponent<SceneInjectedService>()
+        .StartSync();
     }
 
     [Button]

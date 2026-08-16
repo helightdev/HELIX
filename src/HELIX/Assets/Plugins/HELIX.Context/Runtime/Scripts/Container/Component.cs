@@ -7,7 +7,7 @@ namespace HELIX.Context {
     void UnloadComponent() { }
   }
 
-  public class RuntimeComponentData {
+  public sealed class RuntimeComponentData {
     public ManagedScope scope;
     public ManagedContainer container;
     public bool isLoaded;
@@ -22,6 +22,8 @@ namespace HELIX.Context {
 
     public T Resolve<T>(string qualifier = null) where T : class => ResolveKey<T>(new TypeKey(typeof(T), qualifier));
     public T Resolve<T>(Type type, string qualifier = null) where T : class => ResolveKey<T>(new TypeKey(type, qualifier));
+
+    public ManagedScopeBuilder CreateScope() => container.CreateScope(scope);
   }
 
   [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]

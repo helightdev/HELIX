@@ -53,7 +53,7 @@ namespace HELIX.Context.Tests {
 
       var container = CreateContainer(registrations);
       var application = container.StartApplicationSync();
-      var session = container.CreateScopeSync(application, new SessionScope());
+      var session = container.CreateScope(application).From(new SessionScope()).StartSync();
 
       Assert.That(session.Resolve(typeof(IProvider)), Is.SameAs(application.Resolve(typeof(IProvider))));
       Assert.That(((SessionConsumer)session.Resolve(typeof(SessionConsumer))).provider, Is.SameAs(application.Resolve(typeof(IProvider))));
@@ -80,7 +80,7 @@ namespace HELIX.Context.Tests {
 
       var container = CreateContainer(registrations);
       var application = container.StartApplicationSync();
-      var session = container.CreateScopeSync(application, new SessionScope());
+      var session = container.CreateScope(application).From(new SessionScope()).StartSync();
 
       Assert.That(((SessionConsumer)session.Resolve(typeof(SessionConsumer))).provider, Is.SameAs(session.Resolve(typeof(SessionProvider))));
       Assert.That(session.Resolve(typeof(IProvider)), Is.Not.SameAs(application.Resolve(typeof(IProvider))));
@@ -136,8 +136,7 @@ namespace HELIX.Context.Tests {
         entry.activator = context => new Consumer((IProvider)context.Resolve(typeof(IProvider)), null);
         entry.Dependency(Required(typeof(IProvider)));
       });
-      var container = CreateContainer(registrations);
-      container.maxLoadingIterations = 1;
+      var container = CreateContainer(registrations, maxLoadingIterations: 1);
 
       var exception = Assert.Throws<ComponentGraphException>(() => container.StartApplicationSync());
 
@@ -289,7 +288,9 @@ namespace HELIX.Context.Tests {
         var application = container.StartApplicationSync();
         gameObject = new GameObject("Injected component test");
         var existing = gameObject.AddComponent<InjectedTestComponent>();
-        var scope = container.CreateScopeSync(application, new GameObjectScope { gameObject = gameObject });
+        var scope = container.CreateScope(application)
+          .From(new GameObjectScope { gameObject = gameObject })
+          .StartSync();
 
         Assert.That(scope.Resolve(typeof(InjectedTestComponent)), Is.SameAs(existing));
         Assert.That(existing.loadCount, Is.EqualTo(1));
@@ -339,27 +340,112 @@ namespace HELIX.Context.Tests {
       Assert.Throws<ComponentResolutionException>(() => application.Resolve(typeof(ManuallyContributedComponent)));
 
       var contributed = new ManuallyContributedComponent();
-      var session = container.CreateScopeSync(
-        application,
-        new SessionScope(),
-        new[] { contributed }
-      );
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddComponent(contributed)
+        .StartSync();
       Assert.That(session.Resolve(typeof(ManuallyContributedComponent)), Is.SameAs(contributed));
       Assert.That(contributed.RuntimeComponentData.scope, Is.SameAs(session));
       Assert.That(contributed.RuntimeComponentData.isLoaded, Is.True);
       Assert.That(activations, Is.Zero);
     }
 
+    [Test]
+    public void ScopeBuilderBindingsSatisfyDependenciesBeforeActivation() {
+      var registrations = new ComponentRegistrations();
+      registrations.Register(typeof(SessionConsumer), entry => {
+        entry.scope = typeof(SessionScope);
+        entry.activator = context => new SessionConsumer((IProvider)context.Resolve(typeof(IProvider)));
+        entry.Dependency(Required(typeof(IProvider)));
+      });
+      var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
+      var provider = new Provider(null);
+
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddBinding<IProvider>(provider)
+        .StartSync();
+
+      Assert.That(session.Resolve(typeof(IProvider)), Is.SameAs(provider));
+      Assert.That(((SessionConsumer)session.Resolve(typeof(SessionConsumer))).provider, Is.SameAs(provider));
+    }
+
+    [Test]
+    public void ScopeBuilderCanActivateAnUnscopedComponentType() {
+      var activations = 0;
+      var registrations = new ComponentRegistrations();
+      registrations.Register(typeof(ManuallyContributedComponent), entry =>
+        entry.activator = _ => {
+          activations++;
+          return new ManuallyContributedComponent();
+        }
+      );
+      var container = CreateContainer(registrations, false);
+      var application = container.StartApplicationSync();
+
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddComponent<ManuallyContributedComponent>()
+        .StartSync();
+
+      Assert.That(activations, Is.EqualTo(1));
+      Assert.That(session.Resolve(typeof(ManuallyContributedComponent)), Is.TypeOf<ManuallyContributedComponent>());
+    }
+
+    [Test]
+    public void ContainerCreatorCanRegisterCustomScopeHandler() {
+      var contributed = new ManuallyContributedComponent();
+      var registrations = new ComponentRegistrations();
+      registrations.Register(typeof(ManuallyContributedComponent), entry =>
+        entry.activator = _ => throw new AssertionException("The handler contribution should be adopted.")
+      );
+      var container = new ManagedContainerBuilder()
+        .AddScopeHandler(new TestScopeHandler(contributed))
+        .Build();
+      _containers.Add(container);
+      container.PrepareRegistrar(registrations);
+      var application = container.StartApplicationSync();
+
+      var scope = container.CreateScope(application).From(new TestScope()).StartSync();
+
+      Assert.That(scope.Resolve(typeof(ManuallyContributedComponent)), Is.SameAs(contributed));
+    }
+
+    [Test]
+    public void RegistrarServiceCanRegisterCustomScopeHandler() {
+      var contributed = new ManuallyContributedComponent();
+      var registrations = new ComponentRegistrations();
+      registrations.Register(typeof(TestRegistrarScopeHandler), entry => {
+        entry.scope = typeof(RegistrarScope);
+        entry.activator = _ => new TestRegistrarScopeHandler(contributed);
+      });
+      registrations.Register(typeof(ManuallyContributedComponent), entry =>
+        entry.activator = _ => throw new AssertionException("The handler contribution should be adopted.")
+      );
+      var container = new ManagedContainerBuilder().Build();
+      _containers.Add(container);
+      container.PrepareRegistrar(registrations);
+      var application = container.StartApplicationSync();
+
+      var scope = container.CreateScope(application).From(new TestScope()).StartSync();
+
+      Assert.That(scope.Resolve(typeof(ManuallyContributedComponent)), Is.SameAs(contributed));
+    }
+
     private ManagedContainer CreateContainer(
       ComponentRegistrations registrations,
-      bool assignUnscopedToApplication = true
+      bool assignUnscopedToApplication = true,
+      int? maxLoadingIterations = null
     ) {
       if (assignUnscopedToApplication) {
         foreach (var registration in registrations.components.Values) {
           if (registration.scope == null) registration.scope = typeof(ApplicationScope);
         }
       }
-      var container = new ManagedContainer();
+      var builder = new ManagedContainerBuilder();
+      if (maxLoadingIterations.HasValue) builder.WithMaxLoadingIterations(maxLoadingIterations.Value);
+      var container = builder.Build();
       _containers.Add(container);
       container.PrepareRegistrar(registrations);
       return container;
@@ -426,6 +512,22 @@ namespace HELIX.Context.Tests {
   }
 
   public sealed class ManuallyContributedComponent : IComponent {
+    public RuntimeComponentData RuntimeComponentData { get; } = new();
+  }
+
+  public sealed class TestScope : IScope { }
+
+  public class TestScopeHandler : ScopeHandler<TestScope> {
+    private readonly IComponent _component;
+    public TestScopeHandler(IComponent component) => _component = component;
+
+    public override IEnumerable<IComponent> DiscoverComponents(ManagedContainer container, ManagedScope scope) {
+      yield return _component;
+    }
+  }
+
+  public sealed class TestRegistrarScopeHandler : TestScopeHandler, IComponent {
+    public TestRegistrarScopeHandler(IComponent component) : base(component) { }
     public RuntimeComponentData RuntimeComponentData { get; } = new();
   }
 }

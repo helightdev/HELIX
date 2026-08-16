@@ -136,10 +136,24 @@ namespace HELIX.Context {
 
     private IReadOnlyList<RegistrationEntry> EntriesFor(
       ManagedScope managed,
-      IEnumerable<IComponent> contributions
+      IEnumerable<IComponent> contributions,
+      IEnumerable<Type> componentTypes
     ) {
       _injected = _container.DiscoverInjectedComponents(managed, contributions);
-      var entries = _graph.For(managed, _injected.Keys);
+      var selected = new List<RegistrationEntry>(_injected.Keys);
+      foreach (var type in componentTypes ?? Enumerable.Empty<Type>()) {
+        if (!_container.registrarScope.registrations.components.TryGetValue(type, out var registration)) {
+          throw new ComponentGraphException($"Component type {type.FullName} is not registered.");
+        }
+        if (registration.scope != null && registration.scope != managed.scope.GetType()) {
+          throw new ComponentGraphException(
+            $"Component '{registration.name}' is assigned to {registration.scope.FullName} and cannot be added to " +
+            $"{managed.scope.GetType().FullName}."
+          );
+        }
+        selected.Add(registration);
+      }
+      var entries = _graph.For(managed, selected);
       if (_injected.Count == 0) return entries;
 
       var expanded = new List<RegistrationEntry>();
@@ -163,16 +177,27 @@ namespace HELIX.Context {
       }
       return entry.Activate(context);
     }
+
+    private static void ApplyBindings(ManagedScope managed, IEnumerable<ScopeBinding> bindings) {
+      foreach (var binding in bindings ?? Enumerable.Empty<ScopeBinding>())
+        managed.BindValue(binding.key, binding.value);
+    }
   }
 
   internal sealed partial class ScopeLoader {
     // Sync
-    internal void LoadSync(ManagedScope managed, IEnumerable<IComponent> contributions = null) {
+    internal void LoadSync(
+      ManagedScope managed,
+      IEnumerable<IComponent> contributions = null,
+      IEnumerable<Type> componentTypes = null,
+      IEnumerable<ScopeBinding> bindings = null
+    ) {
       if (_scope != null) throw new ScopeLifecycleException("The scope loader is already loading a scope.");
       _scope = managed;
       _active.Value = this;
       try {
-        var entries = EntriesFor(managed, contributions);
+        ApplyBindings(managed, bindings);
+        var entries = EntriesFor(managed, contributions, componentTypes);
         foreach (var entry in entries) {
           if (entry.IsAsync) {
             throw new AsyncScopeInitializationException(
@@ -257,12 +282,18 @@ namespace HELIX.Context {
 
   internal sealed partial class ScopeLoader {
     // Async
-    internal async UniTask LoadAsync(ManagedScope managed, IEnumerable<IComponent> contributions = null) {
+    internal async UniTask LoadAsync(
+      ManagedScope managed,
+      IEnumerable<IComponent> contributions = null,
+      IEnumerable<Type> componentTypes = null,
+      IEnumerable<ScopeBinding> bindings = null
+    ) {
       if (_scope != null) throw new ScopeLifecycleException("The scope loader is already loading a scope.");
       _scope = managed;
       _active.Value = this;
       try {
-        var entries = EntriesFor(managed, contributions);
+        ApplyBindings(managed, bindings);
+        var entries = EntriesFor(managed, contributions, componentTypes);
         var pending = new List<RegistrationEntry>(entries);
         foreach (InitializationStage stage in Enum.GetValues(typeof(InitializationStage))) {
           await LoadScriptedDependenciesAsync(managed, entries, stage);
