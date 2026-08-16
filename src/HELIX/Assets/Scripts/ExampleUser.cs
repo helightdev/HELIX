@@ -22,7 +22,6 @@ namespace HELIX.Context {
 
   // [EnableMixins]
   [Service]
-  [MixinDefineTarget(MixinOn.Init, MixinOn.MonoEnable), MixinDefineTarget(MixinOn.Dispose, MixinOn.MonoDisable)]
   public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]
     public IDisposable myResource2;
