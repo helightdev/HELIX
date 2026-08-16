@@ -2,7 +2,7 @@ using System;
 
 namespace HELIX.Context {
   [AttributeUsage(AttributeTargets.Method)]
-  [RequireMixin(typeof(IEventHandlersMixin), declareImplicit: true)]
+  [RequireMixin(typeof(IEventHandlersMixin), true)]
   [MixinExpression(
     new[] { MixinOn.Init, MixinOn.ConfigureComponent },
     new[] { 1, -90_000 },

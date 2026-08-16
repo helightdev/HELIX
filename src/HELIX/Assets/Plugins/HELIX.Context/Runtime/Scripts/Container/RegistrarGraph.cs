@@ -11,17 +11,15 @@ namespace HELIX.Context {
       if (registrations == null) throw new ArgumentNullException(nameof(registrations));
       foreach (var pair in registrations.components) {
         var entry = pair.Value;
-        if (entry == null || pair.Key != entry.type) {
+        if (entry == null || pair.Key != entry.type)
           throw new ComponentGraphException("The component registration index contains an invalid entry.");
-        }
         if (entry.scope != null && !typeof(IScope).IsAssignableFrom(entry.scope)) {
           throw new ComponentGraphException(
             $"Component '{entry.name}' is assigned to {entry.scope.FullName}, which is not an IScope."
           );
         }
-        if (entry.keys.Any(static key => key.type == null)) {
+        if (entry.keys.Any(static key => key.type == null))
           throw new ComponentGraphException($"Component '{entry.name}' exposes an untyped key.");
-        }
         foreach (var key in entry.keys) {
           if (!key.type.IsAssignableFrom(entry.type)) {
             throw new ComponentGraphException(
@@ -33,13 +31,11 @@ namespace HELIX.Context {
 
       foreach (var pair in registrations.scopes) {
         var registration = pair.Value;
-        if (registration == null || pair.Key != registration.type || !typeof(IScope).IsAssignableFrom(pair.Key)) {
+        if (registration == null || pair.Key != registration.type || !typeof(IScope).IsAssignableFrom(pair.Key))
           throw new ComponentGraphException("The scope registration index contains an invalid entry.");
-        }
         if (registration.parentTypes.Any(static type => !typeof(IScope).IsAssignableFrom(type)) ||
-            registration.parentType != null && !typeof(IScope).IsAssignableFrom(registration.parentType)) {
+          (registration.parentType != null && !typeof(IScope).IsAssignableFrom(registration.parentType)))
           throw new ComponentGraphException($"Scope {pair.Key.FullName} contains a parent type that is not an IScope.");
-        }
       }
 
       return _registrations = registrations;
@@ -70,11 +66,11 @@ namespace HELIX.Context {
               $"Component '{entry.name}' requires '{dependency.key}', but no visible component guarantees that key."
             );
           }
-          if (dependency.scripted == null) {
+          if (dependency.scripted == null)
             throw new ComponentGraphException($"Component '{entry.name}' contains an invalid untyped dependency.");
-          }
           if (dependency.flags.HasFlag(DependencyFlags.ImplicitLoadable)) continue;
-          if (dependency.flags.HasFlag(DependencyFlags.Wirable) && HasPublication(entries, dependency.wireKey)) continue;
+          if (dependency.flags.HasFlag(DependencyFlags.Wirable) &&
+            HasPublication(entries, dependency.wireKey)) continue;
           throw new ComponentGraphException(
             $"Component '{entry.name}' requires scripted dependency '{dependency.wireKey}', but it is not implicitly " +
             "loadable and has no guaranteed publication provider."
@@ -87,16 +83,19 @@ namespace HELIX.Context {
     public bool HasLocalProvider(IEnumerable<RegistrationEntry> entries, ComponentDependency dependency) {
       if (dependency.IsTyped) {
         return entries.Any(entry => entry.keys.Contains(dependency.key) || entry.publications.Any(publication =>
-          publication.IsTyped && publication.key.Equals(dependency.key) &&
-          publication.flags.HasFlag(DependencyFlags.Required)
-        ));
+            publication.IsTyped && publication.key.Equals(dependency.key) &&
+            publication.flags.HasFlag(DependencyFlags.Required)
+          )
+        );
       }
       return dependency.flags.HasFlag(DependencyFlags.Wirable) && HasPublication(entries, dependency.wireKey);
     }
 
-    private static bool HasPublication(IEnumerable<RegistrationEntry> entries, string wireKey) =>
-      entries.Any(entry => entry.publications.Any(publication =>
-        publication.flags.HasFlag(DependencyFlags.Required) && publication.wireKey == wireKey
-      ));
+    private static bool HasPublication(IEnumerable<RegistrationEntry> entries, string wireKey) {
+      return entries.Any(entry => entry.publications.Any(publication =>
+          publication.flags.HasFlag(DependencyFlags.Required) && publication.wireKey == wireKey
+        )
+      );
+    }
   }
 }

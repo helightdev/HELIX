@@ -119,26 +119,23 @@ namespace HELIX.Context {
       var managed = GetScope(scope);
       if (managed is null or { State: ManagedScopeState.Disposed or ManagedScopeState.Disposing }) return;
       ValidateManagedScope(managed);
-      if (ReferenceEquals(managed.scope, registrarScope)) {
+      if (ReferenceEquals(managed.scope, registrarScope))
         throw new ScopeLifecycleException("Dispose the registrar through HXContainer.Dispose().");
-      }
       var failures = managed.Dispose(ForgetDisposedScope);
-      if (failures.Count > 0) {
+      if (failures.Count > 0)
         throw new AggregateException($"Scope {managed.scope.GetType().Name} was disposed with failures.", failures);
-      }
     }
 
     public void Dispose() {
       if (_disposed) return;
       List<Exception> failures = null;
-      if (scopes.TryGetValue(registrarScope, out var registrar)) {
-        failures = registrar.Dispose(ForgetDisposedScope);
-      }
+      if (scopes.TryGetValue(registrarScope, out var registrar)) failures = registrar.Dispose(ForgetDisposedScope);
       scopes.Clear();
       SceneManager.sceneUnloaded -= OnSceneUnloaded;
       if (ReferenceEquals(HX.container, this)) HX.container = null;
       _disposed = true;
-      if (failures is { Count: > 0 }) throw new AggregateException("Container disposal completed with failures.", failures);
+      if (failures is { Count: > 0 })
+        throw new AggregateException("Container disposal completed with failures.", failures);
     }
 
     internal void DisposeScopeFromUnity(IScope scope) {
@@ -153,15 +150,13 @@ namespace HELIX.Context {
       if (parent == null) throw new ArgumentNullException(nameof(parent));
       if (scope == null) throw new ArgumentNullException(nameof(scope));
       ValidateManagedScope(parent);
-      if (parent.State != ManagedScopeState.Active) {
+      if (parent.State != ManagedScopeState.Active)
         throw new ScopeLifecycleException("A child can only be created beneath an active scope.");
-      }
       if (scopes.ContainsKey(scope)) throw new ScopeLifecycleException("This scope instance is already managed.");
       if (_creatingScopes.Contains(scope))
         throw new ScopeLifecycleException("This scope instance is already initializing.");
-      if (_disposedScopes.Contains(scope)) {
+      if (_disposedScopes.Contains(scope))
         throw new ScopeLifecycleException("A disposed scope instance cannot be reused. Create a new scope instance.");
-      }
       _scopeLoader.ValidateScope(parent, scope);
       _creatingScopes.Add(scope);
       var managed = new ManagedScope(parent, scope);
@@ -177,18 +172,15 @@ namespace HELIX.Context {
 
     private void EnsureApplicationCanStart() {
       ThrowIfDisposed();
-      if (!_registrarPrepared) {
+      if (!_registrarPrepared)
         throw new ScopeLifecycleException("Prepare the registrar before starting the application.");
-      }
-      if (_applicationStarted || scopes.ContainsKey(applicationScope) || _creatingScopes.Contains(applicationScope)) {
+      if (_applicationStarted || scopes.ContainsKey(applicationScope) || _creatingScopes.Contains(applicationScope))
         throw new ScopeLifecycleException("The application scope can only be started once per container.");
-      }
     }
 
     private void ValidateManagedScope(ManagedScope managed) {
-      if (managed == null || !scopes.TryGetValue(managed.scope, out var stored) || !ReferenceEquals(stored, managed)) {
+      if (managed == null || !scopes.TryGetValue(managed.scope, out var stored) || !ReferenceEquals(stored, managed))
         throw new ScopeLifecycleException("The supplied managed scope does not belong to this container.");
-      }
     }
 
     private void ForgetCreatingScope(ManagedScope managed) {

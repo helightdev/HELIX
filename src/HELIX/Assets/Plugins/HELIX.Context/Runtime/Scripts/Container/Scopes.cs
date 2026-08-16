@@ -40,9 +40,11 @@ namespace HELIX.Context {
       parentType = parentTypes.FirstOrDefault();
     }
 
-    public bool AllowsParent(Type candidate) => parentTypes.Count > 0
-      ? parentTypes.Contains(candidate)
-      : parentType == null || parentType == candidate;
+    public bool AllowsParent(Type candidate) {
+      return parentTypes.Count > 0
+        ? parentTypes.Contains(candidate)
+        : parentType == null || parentType == candidate;
+    }
   }
 
   public enum ManagedScopeState { Created, Initializing, Active, Disposing, Disposed, Faulted }
@@ -86,7 +88,8 @@ namespace HELIX.Context {
       ValidateKey(key);
       var values = new List<object>();
       for (var current = this; current != null; current = current.parent) {
-        if (current._bindings.TryGetValue(key, out var bindings)) values.AddRange(bindings.Select(static x => x.value));
+        if (current._bindings.TryGetValue(key, out var bindings))
+          values.AddRange(bindings.Select(static x => x.value));
       }
       return values;
     }
@@ -106,25 +109,24 @@ namespace HELIX.Context {
 
     internal bool IsDependencyAvailable(ComponentDependency dependency) {
       if (dependency.IsTyped) return TryResolveValue(dependency.key, out _);
-      if (!dependency.flags.HasFlag(DependencyFlags.Wirable)) {
+      if (!dependency.flags.HasFlag(DependencyFlags.Wirable))
         return dependency.scripted != null && ScopeLoader.Active.Contains(dependency.scripted);
-      }
       return HasWireKey(dependency.wireKey);
     }
 
     internal bool HasWireKey(string wireKey) {
       if (string.IsNullOrEmpty(wireKey)) return false;
       for (var current = this; current != null; current = current.parent) {
-        if (ScopeLoader.ActiveOrNull?.HasPublication(wireKey) == true) return true;
+        if (ScopeLoader.ActiveOrNull?.HasPublication(wireKey) == true)
+          return true;
       }
       return false;
     }
 
     internal bool HasLocalDependency(ComponentDependency dependency) {
       if (dependency.IsTyped) return TryResolveLocalValue(dependency.key, out _);
-      if (!dependency.flags.HasFlag(DependencyFlags.Wirable)) {
+      if (!dependency.flags.HasFlag(DependencyFlags.Wirable))
         return dependency.scripted != null && ScopeLoader.Active.Contains(dependency.scripted);
-      }
       return HasLocalWireKey(dependency.wireKey);
     }
 
@@ -141,16 +143,21 @@ namespace HELIX.Context {
       if (dependency.Flags.HasFlag(DependencyFlags.Wirable)) ScopeLoader.Active.Publish(dependency.CreateWireKey());
     }
 
-    internal bool IsScriptedLoaded(IScriptedDependency dependency) => ScopeLoader.Active.Contains(dependency);
+    internal bool IsScriptedLoaded(IScriptedDependency dependency) {
+      return ScopeLoader.Active.Contains(dependency);
+    }
 
     internal IEnumerable<LoadedComponent> LoadedComponents => _loadedComponents;
 
-    internal IEnumerable<TypeKey> BoundKeys(RegistrationEntry registration) => _bindings
-      .Where(pair => pair.Value.Any(binding => ReferenceEquals(binding.owner, registration)))
-      .Select(static pair => pair.Key);
+    internal IEnumerable<TypeKey> BoundKeys(RegistrationEntry registration) {
+      return _bindings
+        .Where(pair => pair.Value.Any(binding => ReferenceEquals(binding.owner, registration)))
+        .Select(static pair => pair.Key);
+    }
 
-    internal IEnumerable<string> PublishedWireKeys(RegistrationEntry registration) =>
-      ScopeLoader.ActiveOrNull?.PublicationsBy(registration) ?? Array.Empty<string>();
+    internal IEnumerable<string> PublishedWireKeys(RegistrationEntry registration) {
+      return ScopeLoader.ActiveOrNull?.PublicationsBy(registration) ?? Array.Empty<string>();
+    }
 
     private void AddBinding(RegistrationEntry owner, TypeKey key, object value) {
       EnsureCanPublish();
@@ -162,16 +169,16 @@ namespace HELIX.Context {
         );
       }
       if (!_bindings.TryGetValue(key, out var bindings)) _bindings.Add(key, bindings = new List<Binding>());
-      if (!bindings.Any(binding => ReferenceEquals(binding.owner, owner) && ReferenceEquals(binding.value, value))) {
+      if (!bindings.Any(binding => ReferenceEquals(binding.owner, owner) && ReferenceEquals(binding.value, value)))
         bindings.Add(new Binding(owner, value));
-      }
       ScopeLoader.Active.Publish(owner, key.CreateWireKey());
     }
 
     private bool TryResolveValue(TypeKey key, out object value) {
       ValidateKey(key);
       for (var current = this; current != null; current = current.parent) {
-        if (current.TryResolveLocalValue(key, out value)) return true;
+        if (current.TryResolveLocalValue(key, out value))
+          return true;
       }
       value = null;
       return false;
@@ -225,8 +232,9 @@ namespace HELIX.Context {
       if (index >= 0) children.RemoveAt(index);
     }
 
-    internal void RecordComponent(RegistrationEntry registration, object instance) =>
+    internal void RecordComponent(RegistrationEntry registration, object instance) {
       _loadedComponents.Add(new LoadedComponent(registration, instance));
+    }
 
     internal void Own(object value) {
       EnsureCanPublish();
@@ -244,9 +252,8 @@ namespace HELIX.Context {
     }
 
     internal void BeginInitialization() {
-      if (State != ManagedScopeState.Created) {
+      if (State != ManagedScopeState.Created)
         throw new ScopeLifecycleException($"Scope {scope.GetType().FullName} cannot initialize while it is {State}.");
-      }
       State = ManagedScopeState.Initializing;
     }
 
@@ -297,7 +304,7 @@ namespace HELIX.Context {
         foreach (var observer in gameObjectScope.gameObject.GetComponents<GameObjectScopeObserver>()) {
           if (!observer.Observes(scope)) continue;
           observer.Detach();
-          if (UnityEngine.Application.isPlaying) UnityEngine.Object.Destroy(observer);
+          if (Application.isPlaying) UnityEngine.Object.Destroy(observer);
           else UnityEngine.Object.DestroyImmediate(observer);
         }
       } catch (Exception exception) {

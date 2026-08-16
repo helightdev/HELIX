@@ -65,9 +65,8 @@ namespace HELIX.Context {
     }
 
     public string ResolveDebugName(object subscription) {
-      lock (_registrations) {
+      lock (_registrations)
         return _registrations.FirstOrDefault(x => x.Handler == subscription as EvtHandler<T>)?.DebugName;
-      }
     }
 
     public EventReactorInfo CreateInfo() {
@@ -80,19 +79,12 @@ namespace HELIX.Context {
             .ToList();
 
           priorityRows.Add(
-            new EventReactorInfo.PriorityRow {
-              Priority = group.Key,
-              Handlers = handlers
-            }
+            new EventReactorInfo.PriorityRow { Priority = group.Key, Handlers = handlers }
           );
         }
       }
 
-      return new EventReactorInfo {
-        Name = typeof(T).Name,
-        Type = typeof(T),
-        Rows = priorityRows
-      };
+      return new EventReactorInfo { Name = typeof(T).Name, Type = typeof(T), Rows = priorityRows };
     }
 
     /// <summary>
@@ -274,7 +266,7 @@ namespace HELIX.Context {
     /// </summary>
     /// <param name="registration">the registration to unsubscribe</param>
     public void Unsubscribe(HandlerRegistration<T> registration) {
-      lock (_registrations) { _registrations.Remove(registration); }
+      lock (_registrations) _registrations.Remove(registration);
     }
 
     private class SingleConsumer {

@@ -13,9 +13,8 @@ namespace HELIX.Context {
     public void Register(Type type, RegistrationConfigurator configurator) {
       if (type == null) throw new ArgumentNullException(nameof(type));
       if (configurator == null) throw new ArgumentNullException(nameof(configurator));
-      if (components.ContainsKey(type)) {
+      if (components.ContainsKey(type))
         throw new ComponentGraphException($"Component type {type.FullName} is already registered.");
-      }
       var entry = new RegistrationEntry(type);
       try {
         configurator(entry);
@@ -27,9 +26,8 @@ namespace HELIX.Context {
 
     public ScopeRegistration RegisterScope(Type type, params Type[] allowedParentTypes) {
       if (type == null) throw new ArgumentNullException(nameof(type));
-      if (!typeof(IScope).IsAssignableFrom(type)) {
+      if (!typeof(IScope).IsAssignableFrom(type))
         throw new ArgumentException($"{type.FullName} does not implement {nameof(IScope)}.", nameof(type));
-      }
       var registration = new ScopeRegistration(type, allowedParentTypes);
       scopes[type] = registration;
       return registration;
@@ -61,9 +59,13 @@ namespace HELIX.Context {
       return HashCode.Combine(type, qualifier);
     }
 
-    public string CreateWireKey() => type.AssemblyQualifiedName + (qualifier != null ? $"|{qualifier}" : "");
+    public string CreateWireKey() {
+      return type.AssemblyQualifiedName + (qualifier != null ? $"|{qualifier}" : "");
+    }
 
-    public override string ToString() => qualifier == null ? type?.FullName ?? "<untyped>" : $"{type?.FullName}|{qualifier}";
+    public override string ToString() {
+      return qualifier == null ? type?.FullName ?? "<untyped>" : $"{type?.FullName}|{qualifier}";
+    }
   }
 
   [Flags]
@@ -120,7 +122,10 @@ namespace HELIX.Context {
     }
 
     internal ComponentLoadContext(
-      ManagedContainer container, ManagedScope scope, RegistrationEntry registration, ScopeLoader loader
+      ManagedContainer container,
+      ManagedScope scope,
+      RegistrationEntry registration,
+      ScopeLoader loader
     ) {
       this.container = container;
       this.scope = scope;
@@ -130,17 +135,27 @@ namespace HELIX.Context {
 
     public CancellationToken CancellationToken => scope.CancellationToken;
 
-    public object Resolve(TypeKey key) => scope.Resolve(key);
+    public object Resolve(TypeKey key) {
+      return scope.Resolve(key);
+    }
 
-    public bool TryResolve(TypeKey key, out object value) => scope.TryResolve(key, out value);
+    public bool TryResolve(TypeKey key, out object value) {
+      return scope.TryResolve(key, out value);
+    }
 
-    public void Publish(TypeKey key, object value) => scope.Publish(registration, key, value);
+    public void Publish(TypeKey key, object value) {
+      scope.Publish(registration, key, value);
+    }
 
-    public void Publish(string wireKey) => (loader ?? throw new ScopeLifecycleException(
-      "Wire publications are only available during component loading."
-    )).Publish(registration, wireKey);
+    public void Publish(string wireKey) {
+      (loader ?? throw new ScopeLifecycleException(
+        "Wire publications are only available during component loading."
+      )).Publish(registration, wireKey);
+    }
 
-    public void Own(object value) => scope.Own(value);
+    public void Own(object value) {
+      scope.Own(value);
+    }
   }
 
   public interface IScriptedDependency : IComponentLoadable {
@@ -165,7 +180,9 @@ namespace HELIX.Context {
       Stage = stage;
     }
 
-    public virtual string CreateWireKey() => GetType().AssemblyQualifiedName;
+    public virtual string CreateWireKey() {
+      return GetType().AssemblyQualifiedName;
+    }
 
     public virtual UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context) {
       var result = Load(context);
@@ -178,7 +195,6 @@ namespace HELIX.Context {
   }
 
   public interface IComponentLoadable {
-
     UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context);
     ComponentLoadResult Load(ComponentLoadContext context);
   }
@@ -220,9 +236,8 @@ namespace HELIX.Context {
     }
 
     public RegistrationEntry InScope(Type scopeType) {
-      if (scopeType == null || !typeof(IScope).IsAssignableFrom(scopeType)) {
+      if (scopeType == null || !typeof(IScope).IsAssignableFrom(scopeType))
         throw new ArgumentException("A component scope must implement IScope.", nameof(scopeType));
-      }
       scope = scopeType;
       return this;
     }
@@ -248,6 +263,7 @@ namespace HELIX.Context {
     }
 
     public bool IsAsync => handlers.Any(static x => x.eventType == typeof(ComponentAsyncInitEvent));
+
     public async UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context) {
       var instance = Activate(context);
       InitializeSync(instance, context);
@@ -262,15 +278,13 @@ namespace HELIX.Context {
     }
 
     internal object Activate(ComponentLoadContext context) {
-      if (activator == null) {
+      if (activator == null)
         throw new ComponentActivationException($"Component '{name}' ({type.FullName}) has no activator.");
-      }
       var instance = activator(context);
       if (instance is IComponent component) component.Scope = context.scope;
 
-      if (instance == null) {
+      if (instance == null)
         throw new ComponentActivationException($"Activator for component '{name}' ({type.FullName}) returned null.");
-      }
       if (!type.IsInstanceOfType(instance)) {
         throw new ComponentActivationException(
           $"Activator for component '{name}' returned {instance.GetType().FullName}, expected {type.FullName}."
@@ -280,9 +294,7 @@ namespace HELIX.Context {
     }
 
     internal void InitializeSync(object instance, ComponentLoadContext context) {
-      if (instance is IComponent component) {
-        component.LoadComponent();
-      }
+      if (instance is IComponent component) component.LoadComponent();
       if (instance is IEventListener listener) {
         var initEvent = new ComponentInitEvent(context);
         listener.HandlerList.RaiseLocal(initEvent);
@@ -326,6 +338,7 @@ namespace HELIX.Context {
 
   public readonly struct ComponentInitEvent : Evt<ComponentInitEvent> {
     private readonly ComponentLoadContext _context;
+
     public ComponentInitEvent(ComponentLoadContext context) {
       _context = context;
     }

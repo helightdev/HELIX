@@ -26,24 +26,39 @@ namespace HELIX.Context {
       throw new ScopeLifecycleException("No scope is currently loading.");
     public static ScopeLoader ActiveOrNull => _active.Value;
 
-    public void Record(IScriptedDependency dependency) => _scripted.Add(dependency);
-    public bool Contains(IScriptedDependency dependency) => _scripted.Contains(dependency);
-    public void Publish(string wireKey) => _anonymousPublications.Add(wireKey);
+    public void Record(IScriptedDependency dependency) {
+      _scripted.Add(dependency);
+    }
+
+    public bool Contains(IScriptedDependency dependency) {
+      return _scripted.Contains(dependency);
+    }
+
+    public void Publish(string wireKey) {
+      _anonymousPublications.Add(wireKey);
+    }
 
     public void Publish(RegistrationEntry owner, string wireKey) {
-      if (!_publications.TryGetValue(wireKey, out var owners)) _publications.Add(wireKey, owners = new());
+      if (!_publications.TryGetValue(wireKey, out var owners))
+        _publications.Add(wireKey, owners = new HashSet<RegistrationEntry>());
       owners.Add(owner);
     }
 
-    public bool HasPublication(string wireKey) => !string.IsNullOrEmpty(wireKey) &&
-      (_anonymousPublications.Contains(wireKey) ||
-        _publications.TryGetValue(wireKey, out var owners) && owners.Count > 0);
+    public bool HasPublication(string wireKey) {
+      return !string.IsNullOrEmpty(wireKey) &&
+        (_anonymousPublications.Contains(wireKey) ||
+          (_publications.TryGetValue(wireKey, out var owners) && owners.Count > 0));
+    }
 
-    public bool WasPublishedBy(RegistrationEntry owner, string wireKey) => wireKey != null &&
-      _publications.TryGetValue(wireKey, out var owners) && owners.Contains(owner);
+    public bool WasPublishedBy(RegistrationEntry owner, string wireKey) {
+      return wireKey != null &&
+        _publications.TryGetValue(wireKey, out var owners) && owners.Contains(owner);
+    }
 
-    public IEnumerable<string> PublicationsBy(RegistrationEntry owner) => _publications
-      .Where(pair => pair.Value.Contains(owner)).Select(static pair => pair.Key);
+    public IEnumerable<string> PublicationsBy(RegistrationEntry owner) {
+      return _publications
+        .Where(pair => pair.Value.Contains(owner)).Select(static pair => pair.Key);
+    }
 
     internal void ValidateScope(ManagedScope parent, IScope child) {
       _rules.Validate(
@@ -60,23 +75,27 @@ namespace HELIX.Context {
     private static IEnumerable<ComponentDependency> EnumerateImplicitScripted(
       IEnumerable<RegistrationEntry> entries,
       InitializationStage stage
-    ) => entries
-      .SelectMany(static x => x.dependencies)
-      .Where(x => x.IsScripted && x.scripted.Stage == stage && x.flags.HasFlag(DependencyFlags.ImplicitLoadable))
-      .OrderBy(static x => x.scripted.Order);
+    ) {
+      return entries
+        .SelectMany(static x => x.dependencies)
+        .Where(x => x.IsScripted && x.scripted.Stage == stage && x.flags.HasFlag(DependencyFlags.ImplicitLoadable))
+        .OrderBy(static x => x.scripted.Order);
+    }
 
     private bool DependenciesSatisfied(
       ManagedScope managed,
       RegistrationEntry entry,
       IReadOnlyList<RegistrationEntry> allEntries
-    ) => entry.dependencies.All(dependency => {
-        if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
-        var localProvider = _graph.HasLocalProvider(allEntries, dependency);
-        return localProvider
-          ? managed.HasLocalDependency(dependency)
-          : managed.HasDependency(dependency);
-      }
-    );
+    ) {
+      return entry.dependencies.All(dependency => {
+          if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
+          var localProvider = _graph.HasLocalProvider(allEntries, dependency);
+          return localProvider
+            ? managed.HasLocalDependency(dependency)
+            : managed.HasDependency(dependency);
+        }
+      );
+    }
 
     private static void ValidateRequiredPublications(ManagedScope managed, RegistrationEntry entry) {
       foreach (var publication in entry.publications.Where(static x =>
@@ -112,7 +131,8 @@ namespace HELIX.Context {
     }
   }
 
-  internal sealed partial class ScopeLoader { // Sync
+  internal sealed partial class ScopeLoader {
+    // Sync
     internal void LoadSync(ManagedScope managed) {
       if (_scope != null) throw new ScopeLifecycleException("The scope loader is already loading a scope.");
       _scope = managed;
@@ -198,7 +218,8 @@ namespace HELIX.Context {
     }
   }
 
-  internal sealed partial class ScopeLoader { // Async
+  internal sealed partial class ScopeLoader {
+    // Async
     internal async UniTask LoadAsync(ManagedScope managed) {
       if (_scope != null) throw new ScopeLifecycleException("The scope loader is already loading a scope.");
       _scope = managed;

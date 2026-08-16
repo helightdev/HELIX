@@ -15,11 +15,9 @@ namespace HELIX.Context {
     }
 
     public bool HasHandlerFor<T>() where T : Evt<T> {
-      foreach (var registration in registrations) {
-        if (registration is HandlerRegistration<T> typedRegistration && !typedRegistration.IsDisposed) {
+      foreach (var registration in registrations)
+        if (registration is HandlerRegistration<T> typedRegistration && !typedRegistration.IsDisposed)
           return true;
-        }
-      }
       return false;
     }
 
@@ -45,11 +43,9 @@ namespace HELIX.Context {
     }
 
     public void CleanupRegistrations() {
-      for (var i = registrations.Count - 1; i >= 0; i--) {
-        if (registrations[i].IsDisposed) {
+      for (var i = registrations.Count - 1; i >= 0; i--)
+        if (registrations[i].IsDisposed)
           registrations.RemoveAt(i);
-        }
-      }
     }
 
     public void RegisterAsync<T>(AsyncHandler<T> func, int priority) where T : AsyncChainEvt<T> {
@@ -107,9 +103,7 @@ namespace HELIX.Context {
     }
 
     public void UnregisterAll() {
-      foreach (var registration in registrations) {
-        registration.Dispose();
-      }
+      foreach (var registration in registrations) registration.Dispose();
       registrations.Clear();
     }
 

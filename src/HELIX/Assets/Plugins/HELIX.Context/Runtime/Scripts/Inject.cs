@@ -14,7 +14,7 @@ namespace HELIX.Context {
   @CODE<$Init> @target:name = Scope.Resolve(new TypeKey(typeof(@target:type), @attr#qualifier)) as @target:type;
 "
   )]
-  [RequireMixin(typeof(IEventHandlersMixin), declareImplicit: true)]
+  [RequireMixin(typeof(IEventHandlersMixin), true)]
   public class InjectAttribute : Attribute {
     public readonly Source source;
     public readonly string qualifier;

@@ -17,9 +17,8 @@ namespace HELIX.Context {
           .OrderBy(static group => TypeName(group.Key), StringComparer.Ordinal)) {
           using (writer.Tree()) {
             writer.Name(TypeName(group.Key));
-            foreach (var entry in group.OrderBy(static entry => entry.name, StringComparer.Ordinal)) {
+            foreach (var entry in group.OrderBy(static entry => entry.name, StringComparer.Ordinal))
               WriteDeclaredEntry(writer, entry);
-            }
           }
         }
       }
@@ -70,17 +69,25 @@ namespace HELIX.Context {
       IProseWriter writer,
       string name,
       IEnumerable<ComponentDependency> dependencies
-    ) => writer.Property(name, Join(dependencies.Select(FormatDependency)), ProseFormatters.String);
+    ) {
+      writer.Property(name, Join(dependencies.Select(FormatDependency)), ProseFormatters.String);
+    }
 
-    private static string FormatDependency(ComponentDependency dependency) => dependency.IsTyped
-      ? FormatKey(dependency.key)
-      : dependency.wireKey ?? dependency.scripted?.GetType().FullName ?? "<unwired>";
+    private static string FormatDependency(ComponentDependency dependency) {
+      return dependency.IsTyped
+        ? FormatKey(dependency.key)
+        : dependency.wireKey ?? dependency.scripted?.GetType().FullName ?? "<unwired>";
+    }
 
-    private static string FormatKey(TypeKey key) => key.qualifier == null
-      ? TypeName(key.type)
-      : $"{TypeName(key.type)} | {key.qualifier}";
+    private static string FormatKey(TypeKey key) {
+      return key.qualifier == null
+        ? TypeName(key.type)
+        : $"{TypeName(key.type)} | {key.qualifier}";
+    }
 
-    private static string TypeName(Type type) => type?.Name ?? "<unknown>";
+    private static string TypeName(Type type) {
+      return type?.Name ?? "<unknown>";
+    }
 
     private static string Join(IEnumerable<string> values) {
       var text = string.Join(", ", values);

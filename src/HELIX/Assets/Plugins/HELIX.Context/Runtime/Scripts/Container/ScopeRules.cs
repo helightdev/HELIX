@@ -36,7 +36,8 @@ namespace HELIX.Context {
     private readonly IScopeRule[] _rules;
 
     public static ScopeRules Default { get; } = new(
-      new BuiltInScopeRule(), new RegistrationScopeRule()
+      new BuiltInScopeRule(),
+      new RegistrationScopeRule()
     );
 
     public ScopeRules(params IScopeRule[] rules) {
@@ -57,8 +58,11 @@ namespace HELIX.Context {
           $"Scope {context.child.GetType().FullName} cannot be created below {context.parent.scope.GetType().FullName}."
         );
       }
-      if (!registration.allowMultiple && context.managedScopes.Any(scope => scope.GetType() == context.child.GetType())) {
-        throw new ScopeLifecycleException($"Scope {context.child.GetType().FullName} does not allow multiple instances.");
+      if (!registration.allowMultiple &&
+        context.managedScopes.Any(scope => scope.GetType() == context.child.GetType())) {
+        throw new ScopeLifecycleException(
+          $"Scope {context.child.GetType().FullName} does not allow multiple instances."
+        );
       }
     }
   }
@@ -70,17 +74,16 @@ namespace HELIX.Context {
       switch (context.child) {
         case RegistrarScope:
           throw new ScopeLifecycleException("A registrar scope cannot be created as a child.");
-        case ApplicationScope application when !ReferenceEquals(application, context.application) || parent is not RegistrarScope:
+        case ApplicationScope application
+          when !ReferenceEquals(application, context.application) || parent is not RegistrarScope:
           throw new ScopeLifecycleException("The container application scope must be a direct child of the registrar.");
         case SessionScope when parent is not ApplicationScope:
           throw new ScopeLifecycleException("A session scope must be a child of the application scope.");
         case SceneScope sceneScope:
-          if (parent is not ApplicationScope && parent is not SessionScope) {
+          if (parent is not ApplicationScope && parent is not SessionScope)
             throw new ScopeLifecycleException("A scene scope must be a child of an application or session scope.");
-          }
-          if (!sceneScope.scene.IsValid() || !sceneScope.scene.isLoaded) {
+          if (!sceneScope.scene.IsValid() || !sceneScope.scene.isLoaded)
             throw new ScopeLifecycleException("A scene scope requires a valid, loaded scene.");
-          }
           break;
         case GameObjectScope gameObjectScope:
           ValidateGameObjectScope(context.parent, gameObjectScope);
@@ -91,11 +94,12 @@ namespace HELIX.Context {
     private static void ValidateGameObjectScope(ManagedScope parent, GameObjectScope child) {
       if (child.gameObject == null) throw new ScopeLifecycleException("A GameObject scope requires a GameObject.");
       if (parent.scope is not ApplicationScope && parent.scope is not SessionScope && parent.scope is not SceneScope) {
-        throw new ScopeLifecycleException("A GameObject scope must be a child of an application, session or scene scope.");
+        throw new ScopeLifecycleException(
+          "A GameObject scope must be a child of an application, session or scene scope."
+        );
       }
-      if (parent.scope is SceneScope scene && child.gameObject.scene != scene.scene) {
+      if (parent.scope is SceneScope scene && child.gameObject.scene != scene.scene)
         throw new ScopeLifecycleException("A GameObject scope beneath a scene scope must belong to that scene.");
-      }
     }
   }
 }

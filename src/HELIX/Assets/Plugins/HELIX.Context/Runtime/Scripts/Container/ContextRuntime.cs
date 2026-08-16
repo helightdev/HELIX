@@ -1,14 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace HELIX.Context {
-
   internal sealed class GameObjectScopeObserver : MonoBehaviour {
     private ManagedContainer _container;
     private IScope _scope;
@@ -18,7 +13,9 @@ namespace HELIX.Context {
       _scope = scope;
     }
 
-    internal bool Observes(IScope scope) => ReferenceEquals(_scope, scope);
+    internal bool Observes(IScope scope) {
+      return ReferenceEquals(_scope, scope);
+    }
 
     internal void Detach() {
       _container = null;
@@ -35,8 +32,14 @@ namespace HELIX.Context {
 
   internal sealed class ReferenceComparer<T> : IEqualityComparer<T> where T : class {
     public static readonly ReferenceComparer<T> Instance = new();
-    public bool Equals(T x, T y) => ReferenceEquals(x, y);
-    public int GetHashCode(T obj) => RuntimeHelpers.GetHashCode(obj);
+
+    public bool Equals(T x, T y) {
+      return ReferenceEquals(x, y);
+    }
+
+    public int GetHashCode(T obj) {
+      return RuntimeHelpers.GetHashCode(obj);
+    }
   }
 
   public class ComponentContainerException : Exception {
@@ -55,11 +58,14 @@ namespace HELIX.Context {
 
   public sealed class ComponentInitializationException : ComponentContainerException {
     public ComponentInitializationException(string message) : base(message) { }
-    public ComponentInitializationException(string message, Exception innerException) : base(message, innerException) { }
+
+    public ComponentInitializationException(string message, Exception innerException) :
+      base(message, innerException) { }
   }
 
   public sealed class ComponentDeinitializationException : ComponentContainerException {
-    public ComponentDeinitializationException(string message, Exception innerException) : base(message, innerException) { }
+    public ComponentDeinitializationException(string message, Exception innerException) :
+      base(message, innerException) { }
   }
 
   public sealed class ComponentResolutionException : ComponentContainerException {
@@ -82,5 +88,4 @@ namespace HELIX.Context {
       return container.Application.Resolve(key);
     }
   }
-
 }
