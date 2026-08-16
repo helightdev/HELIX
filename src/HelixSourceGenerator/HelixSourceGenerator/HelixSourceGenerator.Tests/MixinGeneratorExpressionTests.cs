@@ -56,6 +56,63 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
+  public void TargetDefinitionsOnTheClassAndItsAttributesOverridePseudonymsInOrder() {
+    const string source = """
+      using System;
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
+        public sealed class MixinDefineTargetAttribute : Attribute {
+          public MixinDefineTargetAttribute(string key, string target) { }
+        }
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
+        }
+      }
+      [HELIX.Context.MixinDefineTarget("Init", "FirstStart")]
+      [HELIX.Context.MixinDefineTarget("$Dispose", "^Cleanup")]
+      [AttributeUsage(AttributeTargets.Class)]
+      public sealed class LifecycleAttribute : Attribute { }
+
+      [HELIX.Context.MixinExpression(
+        new[] { "$Init", "$Dispose" },
+        new[] { 0, 0 },
+        "@CODE<$Init> Initialize();\n@CODE<$Dispose> Release();"
+      )]
+      [AttributeUsage(AttributeTargets.Class)]
+      public sealed class ContributionsAttribute : Attribute { }
+
+      [HELIX.Context.EnableMixins]
+      [Lifecycle]
+      [HELIX.Context.MixinDefineTarget("$Init", "^StartUp")]
+      [Contributions]
+      public partial class Demo {
+        private void Initialize() { }
+        private void Release() { }
+      }
+      """;
+
+    var compilation = CSharpCompilation.Create(
+      "DefinedMixinTargetsTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("public void StartUp()", text);
+    Assert.Contains("public void Cleanup()", text);
+    Assert.DoesNotContain("FirstStart", text);
+    Assert.DoesNotContain("void Awake()", text);
+    Assert.DoesNotContain("void OnDestroy()", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
   public void ExpressionSelectsAndEmitsAttributeMixinCode() {
     const string source = """
       using System;
@@ -100,6 +157,7 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     var generated = Assert.Single(driver.GetRunResult().Results).GeneratedSources;
     var text = Assert.Single(generated).SourceText.ToString();
+    Assert.Contains("private void Awake()", text);
     Assert.Contains("this.Register<global::Evt>(this.React, 7);", text);
     Assert.DoesNotContain("Handlers.Register(", text);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));

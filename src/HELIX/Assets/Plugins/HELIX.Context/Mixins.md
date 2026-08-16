@@ -59,3 +59,8 @@ if it doesn't already have an implementation.
 
 ## MixinDeclareVariableAttribute
 This attribute instructs the generator to generate a variable of the given type and name.
+
+## MixinDefineTarget
+Allows to define `$` pseudonym targets at class or attribute level. They are applied in declaration order top-down
+and are allowed to override default values. One can for example rewrite `$Init` to `OnEnable`. The `$` is
+trimmed when defining the key since it is automatically added (So you can but don't have to define it).

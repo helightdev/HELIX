@@ -85,20 +85,21 @@ namespace HELIX.Context {
 
   // Stereotype attributes
   [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
+  [MixinDefineTarget(MixinOn.ConfigureComponent, MixinOn.RegistrationConfiguratorDelegate)]
   [MixinExpression(
-    new[] { MixinOn.ConfigureRegistration, MixinOn.LoadComponent, MixinOn.UnloadComponent },
+    new[] { MixinOn.ConfigureComponent, MixinOn.ComponentLoad, MixinOn.ComponentUnload },
     new[] { -100_000, 0, 0 },
     @"
-@CODE<^*~HELIX.Context.RegistrationConfigurator> registration.name = ""@this:name"";
+@CODE<$ConfigureComponent> registration.name = ""@this:name"";
 @CODE<IMPLEMENTS> global::HELIX.Context.IComponent
 @VAR<IsComponent> true
 
 @SCOPE
   @MATCH @this:?is<global::UnityEngine.MonoBehaviour>
-  @CODE<^*~HELIX.Context.RegistrationConfigurator> registration.activator = HELIX.Context.DefaultComponentActivators.MonoBehaviour<@this:type>();
+  @CODE<$ConfigureComponent> registration.activator = HELIX.Context.DefaultComponentActivators.MonoBehaviour<@this:type>();
   @RETURN
 @SCOPE
-  @CODE<^*~HELIX.Context.RegistrationConfigurator> registration.activator = HELIX.Context.DefaultComponentActivators.PlainObject<@this:type>();
+  @CODE<$ConfigureComponent> registration.activator = HELIX.Context.DefaultComponentActivators.PlainObject<@this:type>();
   @RETURN
 "
   )]

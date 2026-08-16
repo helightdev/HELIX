@@ -32,6 +32,17 @@ namespace HELIX.Context {
     }
   }
 
+  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
+  public class MixinDefineTargetAttribute : Attribute {
+    public readonly string key;
+    public readonly string target;
+
+    public MixinDefineTargetAttribute(string key, string target) {
+      this.key = key;
+      this.target = target;
+    }
+  }
+
   public abstract class SourceSelectorAttribute : Attribute {
     public readonly MixinInject source;
     public readonly string sourceName;
@@ -181,10 +192,12 @@ namespace HELIX.Context {
   public static class MixinOn {
     public const string Init = "$Init"; // Automatic lifecycle hook
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
-    public const string ConfigureRegistration = "^*~HELIX.Context.RegistrationConfigurator";
+    public const string ConfigureComponent = "$ConfigureComponent";
 
-    public const string LoadComponent = "^LoadComponent";
-    public const string UnloadComponent = "^UnloadComponent";
+    public const string ComponentLoad = "^LoadComponent";
+    public const string ComponentUnload = "^UnloadComponent";
+
+    public const string RegistrationConfiguratorDelegate = "^*~HELIX.Context.RegistrationConfigurator";
 
     public const string MonoAwake = "Awake";
     public const string MonoStart = "Start";

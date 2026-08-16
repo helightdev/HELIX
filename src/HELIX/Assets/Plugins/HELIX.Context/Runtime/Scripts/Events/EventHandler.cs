@@ -4,14 +4,15 @@ namespace HELIX.Context {
   [AttributeUsage(AttributeTargets.Method)]
   [RequireMixin(typeof(IEventHandlersMixin), declareImplicit: true)]
   [MixinExpression(
-    new[] { MixinOn.Init, MixinOn.ConfigureRegistration },
+    new[] { MixinOn.Init, MixinOn.ConfigureComponent },
     new[] { 1, -90_000 },
     @"
 @VAR<IsEventHandler> true
 
 @SCOPE
   @MATCH @var#IsComponent:?eq<true>
-  @CODE<^*~HELIX.Context.RegistrationConfigurator> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
+  @CODE<$ConfigureComponent> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
+@END
 
 @SCOPE
   @MATCH @arg#0:?is<global::HELIX.Context.IAsyncChainEvt>

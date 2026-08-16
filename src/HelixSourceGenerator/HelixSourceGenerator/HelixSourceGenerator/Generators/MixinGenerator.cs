@@ -86,6 +86,43 @@ namespace HELIX.SourceGen {
       return false;
     }
 
+    private static IReadOnlyDictionary<string, string> TargetDefinitions(INamedTypeSymbol type) {
+      var definitions = new Dictionary<string, string>(StringComparer.Ordinal) {
+        ["$Init"] = HasComponentStereotype(type) ? "^LoadComponent" : "Awake",
+        ["$Dispose"] = HasComponentStereotype(type) ? "^UnloadComponent" : "OnDestroy"
+      };
+      var hierarchy = new Stack<INamedTypeSymbol>();
+      for (var current = type; current is not null; current = current.BaseType) hierarchy.Push(current);
+      while (hierarchy.Count != 0) {
+        foreach (var applied in OrderedAttributes(hierarchy.Pop())) {
+          if (IsAttribute(applied, Attributes.MixinDefineTarget)) ApplyTargetDefinition(applied, definitions);
+          if (applied.AttributeClass is null) continue;
+          var attributeHierarchy = new Stack<INamedTypeSymbol>();
+          for (var current = applied.AttributeClass;
+               current is not null;
+               current = current.BaseType) attributeHierarchy.Push(current);
+          while (attributeHierarchy.Count != 0) {
+            foreach (var definition in OrderedAttributes(attributeHierarchy.Pop())
+                       .Where(item => IsAttribute(item, Attributes.MixinDefineTarget))) {
+              ApplyTargetDefinition(definition, definitions);
+            }
+          }
+        }
+      }
+      return definitions;
+    }
+
+    private static void ApplyTargetDefinition(
+      AttributeData attribute,
+      IDictionary<string, string> definitions
+    ) {
+      if (attribute.ConstructorArguments.Length < 2 ||
+          attribute.ConstructorArguments[0].Value is not string key ||
+          attribute.ConstructorArguments[1].Value is not string target ||
+          string.IsNullOrEmpty(key)) return;
+      definitions["$" + key.TrimStart('$')] = target;
+    }
+
     private static void Generate(SourceProductionContext context, MixinTarget candidate) {
       var target = candidate.Type;
       var location = LocationOf(target);
@@ -541,10 +578,10 @@ namespace HELIX.SourceGen {
       }
 
       var declarations = new Dictionary<string, AttributeExpressionTarget>(StringComparer.Ordinal);
-      var componentLifecycle = HasComponentStereotype(target);
+      var targetDefinitions = TargetDefinitions(target);
       for (var index = 0; index < targets.Count; index++) {
         var declared = targets[index];
-        var emitted = EmittedTarget(declared, componentLifecycle);
+        var emitted = EmittedTarget(declared, targetDefinitions);
         if (!IsValidIdentifier(emitted)) {
           ReportInvalidAttributeExpression(
             context, location, attributeName, annotated.Name,
@@ -560,7 +597,7 @@ namespace HELIX.SourceGen {
           return;
         }
         declarations.Add(declared, new AttributeExpressionTarget(
-          declared, orders[index], componentLifecycle
+          declared, orders[index], targetDefinitions
         ));
       }
 
@@ -629,7 +666,7 @@ namespace HELIX.SourceGen {
         contributions.Add(new MixinContribution(
           null, declaration.Target, declaration.Order, null,
           contributionKind, sequence++, annotated, applied,
-          Array.Empty<MixinParameter>(), componentLifecycle
+          Array.Empty<MixinParameter>(), targetDefinitions
         ).WithImplicitAttribute(implicitAttribute).WithExpressionResult(result));
       }
     }
@@ -1036,8 +1073,8 @@ namespace HELIX.SourceGen {
         ? attribute.ConstructorArguments[0].Value as string
         : null;
       if (string.IsNullOrEmpty(targetName)) targetName = ImplicitTarget(method.Name);
-      var componentLifecycle = HasComponentStereotype(target);
-      var emittedName = EmittedTarget(targetName, componentLifecycle);
+      var targetDefinitions = TargetDefinitions(target);
+      var emittedName = EmittedTarget(targetName, targetDefinitions);
       if (!IsValidIdentifier(emittedName)) {
         context.ReportDiagnostic(Diagnostic.Create(
           InvalidTarget, LocationOf(method), targetName ?? "null",
@@ -1111,7 +1148,7 @@ namespace HELIX.SourceGen {
 
       contribution = new MixinContribution(
         method, targetName, order, expression, kind, sequence, source,
-        appliedAttribute, parameters, componentLifecycle
+        appliedAttribute, parameters, targetDefinitions
       );
       return true;
     }
@@ -1132,11 +1169,13 @@ namespace HELIX.SourceGen {
       return methodName;
     }
 
-    private static TargetSyntax ParseTarget(string target, bool componentLifecycle = false) {
+    private static TargetSyntax ParseTarget(
+      string target,
+      IReadOnlyDictionary<string, string> targetDefinitions = null
+    ) {
       var value = target ?? "";
-      if (componentLifecycle) {
-        if (value == "$Init") value = "^LoadComponent";
-        else if (value == "$Dispose") value = "^UnloadComponent";
+      if (targetDefinitions is not null && targetDefinitions.TryGetValue(value, out var defined)) {
+        value = defined ?? "";
       }
       var isStatic = false;
       var isPublic = false;
@@ -1162,16 +1201,14 @@ namespace HELIX.SourceGen {
         var separator = Math.Max(normalized.LastIndexOf('.'), normalized.LastIndexOf('+'));
         value = separator < 0 ? normalized : normalized.Substring(separator + 1);
       }
-      var emitted = value switch {
-        "$Init" => "Awake",
-        "$Dispose" => "OnDestroy",
-        _ => value
-      };
+      var emitted = value switch { "$Init" => "Awake", "$Dispose" => "OnDestroy", _ => value };
       return new TargetSyntax(emitted, isStatic, isPublic, delegateType);
     }
 
-    private static string EmittedTarget(string target, bool componentLifecycle = false) =>
-      ParseTarget(target, componentLifecycle).Name;
+    private static string EmittedTarget(
+      string target,
+      IReadOnlyDictionary<string, string> targetDefinitions = null
+    ) => ParseTarget(target, targetDefinitions).Name;
 
     private static List<MixinVariable> CollectVariables(
       SourceProductionContext context,
@@ -2004,9 +2041,9 @@ namespace HELIX.SourceGen {
         ISymbol source,
         AttributeData appliedAttribute,
         IReadOnlyList<MixinParameter> parameters,
-        bool componentLifecycle
+        IReadOnlyDictionary<string, string> targetDefinitions
       ) {
-        var targetSyntax = ParseTarget(target, componentLifecycle);
+        var targetSyntax = ParseTarget(target, targetDefinitions);
         Method = method;
         Target = target;
         EmittedTarget = targetSyntax.Name;
@@ -2020,7 +2057,7 @@ namespace HELIX.SourceGen {
         Source = source;
         AppliedAttribute = appliedAttribute;
         Parameters = parameters;
-        ComponentLifecycle = componentLifecycle;
+        TargetDefinitions = targetDefinitions;
         GenericArguments = Array.Empty<ITypeSymbol>();
         PositionalCount = string.IsNullOrWhiteSpace(expression)
           ? parameters.Count(item => item.Injection == Unmarked)
@@ -2044,7 +2081,7 @@ namespace HELIX.SourceGen {
       internal IReadOnlyList<ITypeSymbol> GenericArguments { get; private set; }
       internal MixinExpressionResult ExpressionResult { get; private set; }
       internal int PositionalCount { get; }
-      private bool ComponentLifecycle { get; }
+      private IReadOnlyDictionary<string, string> TargetDefinitions { get; }
 
       internal MixinContribution WithMethod(
         IMethodSymbol method,
@@ -2060,7 +2097,7 @@ namespace HELIX.SourceGen {
         }
         var result = new MixinContribution(
           method, Target, Order, Expression, Kind, Sequence, Source,
-          AppliedAttribute, parameters, ComponentLifecycle
+          AppliedAttribute, parameters, TargetDefinitions
         );
         result.GenericArguments = genericArguments;
         result.ImplicitAttribute = ImplicitAttribute;
@@ -2193,8 +2230,12 @@ namespace HELIX.SourceGen {
     }
 
     private sealed class AttributeExpressionTarget {
-      internal AttributeExpressionTarget(string target, int order, bool componentLifecycle) {
-        var targetSyntax = ParseTarget(target, componentLifecycle);
+      internal AttributeExpressionTarget(
+        string target,
+        int order,
+        IReadOnlyDictionary<string, string> targetDefinitions
+      ) {
+        var targetSyntax = ParseTarget(target, targetDefinitions);
         Target = target;
         EmittedTarget = targetSyntax.Name;
         Order = order;
