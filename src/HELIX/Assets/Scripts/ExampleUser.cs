@@ -21,10 +21,10 @@ namespace HELIX.Context {
     }
   }
 
-  [Service]
+  [Service(typeof(ApplicationScope))]
   public partial class MyRootDependency { }
 
-  [Service]
+  [Service(typeof(ApplicationScope))]
   public partial class ExampleSingleton {
     [Inject] public MyRootDependency myRootDependency;
 
@@ -37,7 +37,7 @@ namespace HELIX.Context {
   }
 
   // [EnableMixins]
-  [Service]
+  [Service(typeof(ApplicationScope))]
   public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]
     public IDisposable myResource2;
@@ -60,6 +60,14 @@ namespace HELIX.Context {
 
     [MixinMethod(MixinOn.ComponentLoad)]
     private void OnComponentLoad() { }
+  }
+
+  [Service(typeof(SceneScope))]
+  public partial class SceneService {
+    [MixinMethod]
+    public void OnInit() {
+      Debug.Log("SceneService has initialized!");
+    }
   }
 
   public struct TestEvent : Evt<TestEvent> { }

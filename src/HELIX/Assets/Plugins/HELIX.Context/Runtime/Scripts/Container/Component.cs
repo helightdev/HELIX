@@ -9,6 +9,7 @@ namespace HELIX.Context {
 
   public class RuntimeComponentData {
     public ManagedScope scope;
+    public ManagedContainer container;
     public bool isLoaded;
     public bool isDisposed;
 
@@ -44,6 +45,8 @@ namespace HELIX.Context {
     new[] { MixinOn.ConfigureComponent },
     new[] { -90_000 },
     @"
+@CODE<$ConfigureComponent> registration.scope = @attr#scope;
+
 @SCOPE
   @MATCH @this:?is<MonoBehaviour>
   @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
@@ -53,5 +56,11 @@ namespace HELIX.Context {
   @RETURN
 "
   )]
-  public class ServiceAttribute : ComponentAttribute { }
+  public class ServiceAttribute : ComponentAttribute {
+    public readonly Type scope;
+
+    public ServiceAttribute(Type scope = null) {
+      this.scope = scope;
+    }
+  }
 }

@@ -8,6 +8,7 @@ using UnityEngine.SceneManagement;
 namespace HELIX.Context {
   /// <summary>Container identity, retained state, and construction surface.</summary>
   public sealed class ManagedContainer : IDisposable {
+    public const int DefaultMaxLoadingIterations = 1024;
     public readonly Dictionary<IScope, ManagedScope> scopes = new(ReferenceComparer<IScope>.Instance);
     public readonly RegistrarScope registrarScope = new();
     public readonly ApplicationScope applicationScope = new();
@@ -17,17 +18,21 @@ namespace HELIX.Context {
     private readonly HashSet<IScope> _creatingScopes = new(ReferenceComparer<IScope>.Instance);
     private bool _registrarPrepared, _applicationStarted, _disposed;
 
+    /// <summary>Maximum dependency-resolution passes allowed while initializing one scope.</summary>
+    public int maxLoadingIterations = DefaultMaxLoadingIterations;
+
     public ManagedContainer() : this(ScopeRules.Default) { }
 
     public ManagedContainer(ScopeRules scopeRules) {
       _scopeLoader = new ScopeLoader(this, _registrarGraph, scopeRules);
+      SceneManager.sceneLoaded += OnSceneLoaded;
       SceneManager.sceneUnloaded += OnSceneUnloaded;
     }
 
     public ManagedContainer(RegistrationDiscoveryProvider discoveryProvider) : this() {
       if (discoveryProvider == null) throw new ArgumentNullException(nameof(discoveryProvider));
       try { PrepareRegistrar(discoveryProvider()); } catch {
-        SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        UnsubscribeSceneEvents();
         _disposed = true;
         throw;
       }
@@ -61,9 +66,10 @@ namespace HELIX.Context {
 
     public async UniTask StartApplication() {
       EnsureApplicationCanStart();
-      await CreateScope(Registrar, applicationScope);
+      var application = await CreateScope(Registrar, applicationScope);
       _applicationStarted = true;
       HX.container = this;
+      foreach (var scene in LoadedScenesWithoutScope()) await CreateSceneScope(application, scene);
     }
 
     public ManagedScope StartApplicationSync() {
@@ -71,13 +77,22 @@ namespace HELIX.Context {
       var scope = CreateScopeSync(Registrar, applicationScope);
       _applicationStarted = true;
       HX.container = this;
+      foreach (var scene in LoadedScenesWithoutScope()) CreateSceneScopeSync(scope, scene);
       return scope;
     }
 
     public async UniTask<ManagedScope> CreateScope(ManagedScope parent, IScope scope) {
+      return await CreateScope(parent, scope, null);
+    }
+
+    public async UniTask<ManagedScope> CreateScope(
+      ManagedScope parent,
+      IScope scope,
+      IEnumerable<IComponent> components
+    ) {
       var managed = BeginScopeCreation(parent, scope);
       try {
-        await _scopeLoader.LoadAsync(managed);
+        await _scopeLoader.LoadAsync(managed, components);
         CommitScope(managed);
         return managed;
       } catch (Exception exception) {
@@ -89,9 +104,17 @@ namespace HELIX.Context {
     }
 
     public ManagedScope CreateScopeSync(ManagedScope parent, IScope scope) {
+      return CreateScopeSync(parent, scope, null);
+    }
+
+    public ManagedScope CreateScopeSync(
+      ManagedScope parent,
+      IScope scope,
+      IEnumerable<IComponent> components
+    ) {
       var managed = BeginScopeCreation(parent, scope);
       try {
-        _scopeLoader.LoadSync(managed);
+        _scopeLoader.LoadSync(managed, components);
         CommitScope(managed);
         return managed;
       } catch (Exception exception) {
@@ -131,7 +154,7 @@ namespace HELIX.Context {
       List<Exception> failures = null;
       if (scopes.TryGetValue(registrarScope, out var registrar)) failures = registrar.Dispose(ForgetDisposedScope);
       scopes.Clear();
-      SceneManager.sceneUnloaded -= OnSceneUnloaded;
+      UnsubscribeSceneEvents();
       if (ReferenceEquals(HX.container, this)) HX.container = null;
       _disposed = true;
       if (failures is { Count: > 0 })
@@ -196,6 +219,75 @@ namespace HELIX.Context {
     private void OnSceneUnloaded(Scene scene) {
       var matching = scopes.Values.Where(x => x.scope is SceneScope sceneScope && sceneScope.scene == scene).ToArray();
       foreach (var managed in matching) DisposeScopeFromUnity(managed.scope);
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
+      if (!_applicationStarted || _disposed || HasSceneScope(scene)) return;
+      CreateLoadedSceneScope(scene).Forget();
+    }
+
+    private async UniTaskVoid CreateLoadedSceneScope(Scene scene) {
+      try {
+        await CreateSceneScope(Application, scene);
+      } catch (Exception exception) {
+        Debug.LogException(exception);
+      }
+    }
+
+    private UniTask<ManagedScope> CreateSceneScope(ManagedScope parent, Scene scene) {
+      return CreateScope(parent, new SceneScope { scene = scene });
+    }
+
+    private ManagedScope CreateSceneScopeSync(ManagedScope parent, Scene scene) {
+      return CreateScopeSync(parent, new SceneScope { scene = scene });
+    }
+
+    private IEnumerable<Scene> LoadedScenesWithoutScope() {
+      for (var i = 0; i < SceneManager.sceneCount; i++) {
+        var scene = SceneManager.GetSceneAt(i);
+        if (scene.IsValid() && scene.isLoaded && !HasSceneScope(scene)) yield return scene;
+      }
+    }
+
+    private bool HasSceneScope(Scene scene) {
+      return scopes.Keys.Any(scope => scope is SceneScope sceneScope && sceneScope.scene == scene);
+    }
+
+    internal Dictionary<RegistrationEntry, Queue<object>> DiscoverInjectedComponents(
+      ManagedScope managed,
+      IEnumerable<IComponent> contributions = null
+    ) {
+      IEnumerable<IComponent> discovered = managed.scope switch {
+        SceneScope sceneScope => SceneComponents(sceneScope.scene),
+        GameObjectScope gameObjectScope when gameObjectScope.gameObject != null =>
+          gameObjectScope.gameObject.GetComponents<MonoBehaviour>().OfType<IComponent>(),
+        _ => Enumerable.Empty<IComponent>()
+      };
+      var result = new Dictionary<RegistrationEntry, Queue<object>>();
+      var seen = new HashSet<IComponent>(ReferenceComparer<IComponent>.Instance);
+      foreach (var component in (contributions ?? Enumerable.Empty<IComponent>()).Concat(discovered)) {
+        if (component == null || !seen.Add(component)) continue;
+        var runtime = component.RuntimeComponentData;
+        if (runtime == null || runtime.isLoaded || runtime.isDisposed) continue;
+        if (!registrarScope.registrations.components.TryGetValue(component.GetType(), out var registration)) continue;
+        if (registration.scope != null && registration.scope != managed.scope.GetType()) continue;
+        if (!result.TryGetValue(registration, out var instances))
+          result.Add(registration, instances = new Queue<object>());
+        instances.Enqueue(component);
+      }
+      return result;
+    }
+
+    private static IEnumerable<IComponent> SceneComponents(Scene scene) {
+      if (!scene.IsValid() || !scene.isLoaded) yield break;
+      foreach (var root in scene.GetRootGameObjects())
+      foreach (var component in root.GetComponentsInChildren<MonoBehaviour>(true).OfType<IComponent>())
+        yield return component;
+    }
+
+    private void UnsubscribeSceneEvents() {
+      SceneManager.sceneLoaded -= OnSceneLoaded;
+      SceneManager.sceneUnloaded -= OnSceneUnloaded;
     }
 
     private void ThrowIfDisposed() {

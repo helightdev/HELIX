@@ -15,6 +15,7 @@ namespace HELIX.Context {
     private readonly RegistrarGraph _graph;
     private readonly ScopeRules _rules;
     private ManagedScope _scope;
+    private Dictionary<RegistrationEntry, Queue<object>> _injected;
 
     public ScopeLoader(ManagedContainer container, RegistrarGraph graph, ScopeRules rules) {
       _container = container ?? throw new ArgumentNullException(nameof(container));
@@ -81,6 +82,20 @@ namespace HELIX.Context {
       }
     );
 
+    private void EnsureIterationAvailable(int iteration, ManagedScope managed) {
+      if (_container.maxLoadingIterations <= 0) {
+        throw new ScopeLifecycleException(
+          $"{nameof(ManagedContainer.maxLoadingIterations)} must be greater than zero."
+        );
+      }
+      if (iteration < _container.maxLoadingIterations) return;
+      throw new ComponentGraphException(
+        $"Scope {managed.scope.GetType().FullName} exceeded the maximum of " +
+        $"{_container.maxLoadingIterations} dependency-loading iterations. " +
+        "The graph may contain a publication cycle that continues to make artificial progress."
+      );
+    }
+
     private static void ValidateAndCompleteComponent(ManagedScope managed, RegistrationEntry entry, object instance) {
       foreach (var publication in entry.publications.Where(static x =>
         x.flags.HasFlag(DependencyFlags.Required)
@@ -112,21 +127,52 @@ namespace HELIX.Context {
 
     private void Reset() {
       _scope = null;
+      _injected = null;
       _active.Value = null;
       _publications.Clear();
       _anonymousPublications.Clear();
       _scripted.Clear();
     }
+
+    private IReadOnlyList<RegistrationEntry> EntriesFor(
+      ManagedScope managed,
+      IEnumerable<IComponent> contributions
+    ) {
+      _injected = _container.DiscoverInjectedComponents(managed, contributions);
+      var entries = _graph.For(managed, _injected.Keys);
+      if (_injected.Count == 0) return entries;
+
+      var expanded = new List<RegistrationEntry>();
+      foreach (var entry in entries) {
+        if (_injected.TryGetValue(entry, out var instances)) {
+          for (var i = 0; i < instances.Count; i++) expanded.Add(entry);
+        } else expanded.Add(entry);
+      }
+      return expanded;
+    }
+
+    private object Activate(RegistrationEntry entry, ComponentLoadContext context) {
+      if (_injected != null && _injected.TryGetValue(entry, out var instances) && instances.Count > 0) {
+        var instance = instances.Dequeue();
+        if (instance is IComponent component) {
+          var runtimeData = component.RuntimeComponentData;
+          runtimeData.scope = context.scope;
+          runtimeData.container = context.container;
+        };
+        return instance;
+      }
+      return entry.Activate(context);
+    }
   }
 
   internal sealed partial class ScopeLoader {
     // Sync
-    internal void LoadSync(ManagedScope managed) {
+    internal void LoadSync(ManagedScope managed, IEnumerable<IComponent> contributions = null) {
       if (_scope != null) throw new ScopeLifecycleException("The scope loader is already loading a scope.");
       _scope = managed;
       _active.Value = this;
       try {
-        var entries = _graph.For(managed);
+        var entries = EntriesFor(managed, contributions);
         foreach (var entry in entries) {
           if (entry.IsAsync) {
             throw new AsyncScopeInitializationException(
@@ -178,7 +224,10 @@ namespace HELIX.Context {
       IReadOnlyList<RegistrationEntry> allEntries,
       List<RegistrationEntry> pending
     ) {
+      var iteration = 0;
       while (true) {
+        if (pending.Count == 0) return;
+        EnsureIterationAvailable(iteration++, managed);
         var eligible = pending.Where(entry => DependenciesSatisfied(managed, entry, allEntries))
           .OrderBy(static x => x.order)
           .ThenBy(static x => x.name, StringComparer.Ordinal)
@@ -194,7 +243,7 @@ namespace HELIX.Context {
     private void LoadRegistrationSync(ManagedScope managed, RegistrationEntry entry) {
       var context = new ComponentLoadContext(_container, managed, entry, this);
       try {
-        var instance = entry.Activate(context);
+        var instance = Activate(entry, context);
         managed.RecordComponent(entry, instance);
         managed.BindComponent(entry, instance);
         entry.InitializeSync(instance, context);
@@ -208,12 +257,12 @@ namespace HELIX.Context {
 
   internal sealed partial class ScopeLoader {
     // Async
-    internal async UniTask LoadAsync(ManagedScope managed) {
+    internal async UniTask LoadAsync(ManagedScope managed, IEnumerable<IComponent> contributions = null) {
       if (_scope != null) throw new ScopeLifecycleException("The scope loader is already loading a scope.");
       _scope = managed;
       _active.Value = this;
       try {
-        var entries = _graph.For(managed);
+        var entries = EntriesFor(managed, contributions);
         var pending = new List<RegistrationEntry>(entries);
         foreach (InitializationStage stage in Enum.GetValues(typeof(InitializationStage))) {
           await LoadScriptedDependenciesAsync(managed, entries, stage);
@@ -251,7 +300,10 @@ namespace HELIX.Context {
       IReadOnlyList<RegistrationEntry> allEntries,
       List<RegistrationEntry> pending
     ) {
+      var iteration = 0;
       while (true) {
+        if (pending.Count == 0) return;
+        EnsureIterationAvailable(iteration++, managed);
         var eligible = pending.Where(entry => DependenciesSatisfied(managed, entry, allEntries))
           .OrderBy(static x => x.order)
           .ThenBy(static x => x.name, StringComparer.Ordinal)
@@ -267,7 +319,7 @@ namespace HELIX.Context {
     private async UniTask LoadRegistrationAsync(ManagedScope managed, RegistrationEntry entry) {
       var context = new ComponentLoadContext(_container, managed, entry, this);
       try {
-        var instance = entry.Activate(context);
+        var instance = Activate(entry, context);
         managed.RecordComponent(entry, instance);
         managed.BindComponent(entry, instance);
         entry.InitializeSync(instance, context);

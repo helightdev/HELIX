@@ -13,10 +13,10 @@ namespace HELIX.Context {
       using (writer.Tree()) {
         writer.Name("Declared dependency graph");
         foreach (var group in registrations.components.Values
-          .GroupBy(static entry => entry.scope ?? typeof(ApplicationScope))
-          .OrderBy(static group => TypeName(group.Key), StringComparer.Ordinal)) {
+          .GroupBy(static entry => entry.scope)
+          .OrderBy(static group => group.Key == null ? "" : TypeName(group.Key), StringComparer.Ordinal)) {
           using (writer.Tree()) {
-            writer.Name(TypeName(group.Key));
+            writer.Name(group.Key == null ? "Unscoped" : TypeName(group.Key));
             foreach (var entry in group.OrderBy(static entry => entry.name, StringComparer.Ordinal))
               WriteDeclaredEntry(writer, entry);
           }

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using HELIX.Prose;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace HELIX.Context.Tests {
   public class ManagedContainerTests {
@@ -120,6 +122,26 @@ namespace HELIX.Context.Tests {
       var exception = Assert.Throws<ComponentGraphException>(() => container.StartApplicationSync());
 
       Assert.That(exception.Message, Does.Contain("cannot advance"));
+      Assert.That(container.TryGetScope(container.applicationScope, out _), Is.False);
+    }
+
+    [Test]
+    public void StopsLoadingWhenDependencyPassLimitIsExceeded() {
+      var registrations = new ComponentRegistrations();
+      registrations.Register(typeof(Provider), entry => {
+        entry.activator = _ => new Provider(null);
+        entry.Key(typeof(IProvider));
+      });
+      registrations.Register(typeof(Consumer), entry => {
+        entry.activator = context => new Consumer((IProvider)context.Resolve(typeof(IProvider)), null);
+        entry.Dependency(Required(typeof(IProvider)));
+      });
+      var container = CreateContainer(registrations);
+      container.maxLoadingIterations = 1;
+
+      var exception = Assert.Throws<ComponentGraphException>(() => container.StartApplicationSync());
+
+      Assert.That(exception.Message, Does.Contain("maximum of 1"));
       Assert.That(container.TryGetScope(container.applicationScope, out _), Is.False);
     }
 
@@ -255,7 +277,88 @@ namespace HELIX.Context.Tests {
       Assert.That(liveWriter.ToString(), Does.Contain("Provider"));
     }
 
-    private ManagedContainer CreateContainer(ComponentRegistrations registrations) {
+    [Test]
+    public void GameObjectScopeAdoptsExistingComponentsInsteadOfActivatingNewOnes() {
+      var registrations = new ComponentRegistrations();
+      registrations.Register(typeof(InjectedTestComponent), entry => {
+        entry.activator = _ => throw new AssertionException("The existing component should be adopted.");
+      });
+      GameObject gameObject = null;
+      try {
+        var container = CreateContainer(registrations, false);
+        var application = container.StartApplicationSync();
+        gameObject = new GameObject("Injected component test");
+        var existing = gameObject.AddComponent<InjectedTestComponent>();
+        var scope = container.CreateScopeSync(application, new GameObjectScope { gameObject = gameObject });
+
+        Assert.That(scope.Resolve(typeof(InjectedTestComponent)), Is.SameAs(existing));
+        Assert.That(existing.loadCount, Is.EqualTo(1));
+        Assert.That(existing.RuntimeComponentData.scope, Is.SameAs(scope));
+        Assert.That(existing.RuntimeComponentData.isLoaded, Is.True);
+      } finally {
+        if (gameObject != null) UnityEngine.Object.DestroyImmediate(gameObject);
+      }
+    }
+
+    [Test]
+    public void ApplicationStartupCreatesSceneScopeAndAdoptsExistingSceneComponents() {
+      var registrations = new ComponentRegistrations();
+      registrations.Register(typeof(InjectedTestComponent), entry => {
+        entry.activator = _ => throw new AssertionException("The existing component should be adopted.");
+      });
+      var gameObject = new GameObject("Scene injected component test");
+      try {
+        var existing = gameObject.AddComponent<InjectedTestComponent>();
+        var container = CreateContainer(registrations, false);
+        container.StartApplicationSync();
+        var sceneScope = container.scopes.Values.Single(scope =>
+          scope.scope is SceneScope scene && scene.scene == gameObject.scene
+        );
+
+        Assert.That(sceneScope.Resolve(typeof(InjectedTestComponent)), Is.SameAs(existing));
+        Assert.That(existing.loadCount, Is.EqualTo(1));
+      } finally {
+        UnityEngine.Object.DestroyImmediate(gameObject);
+      }
+    }
+
+    [Test]
+    public void UnscopedComponentsOnlyLoadWhenContributed() {
+      var activations = 0;
+      var registrations = new ComponentRegistrations();
+      registrations.Register(typeof(ManuallyContributedComponent), entry =>
+        entry.activator = _ => {
+          activations++;
+          return new ManuallyContributedComponent();
+        }
+      );
+      var container = CreateContainer(registrations, false);
+      var application = container.StartApplicationSync();
+
+      Assert.That(activations, Is.Zero);
+      Assert.Throws<ComponentResolutionException>(() => application.Resolve(typeof(ManuallyContributedComponent)));
+
+      var contributed = new ManuallyContributedComponent();
+      var session = container.CreateScopeSync(
+        application,
+        new SessionScope(),
+        new[] { contributed }
+      );
+      Assert.That(session.Resolve(typeof(ManuallyContributedComponent)), Is.SameAs(contributed));
+      Assert.That(contributed.RuntimeComponentData.scope, Is.SameAs(session));
+      Assert.That(contributed.RuntimeComponentData.isLoaded, Is.True);
+      Assert.That(activations, Is.Zero);
+    }
+
+    private ManagedContainer CreateContainer(
+      ComponentRegistrations registrations,
+      bool assignUnscopedToApplication = true
+    ) {
+      if (assignUnscopedToApplication) {
+        foreach (var registration in registrations.components.Values) {
+          if (registration.scope == null) registration.scope = typeof(ApplicationScope);
+        }
+      }
       var container = new ManagedContainer();
       _containers.Add(container);
       container.PrepareRegistrar(registrations);
@@ -314,5 +417,15 @@ namespace HELIX.Context.Tests {
       public void LoadComponent() => _lifecycle.Add("consumer-load");
       public void UnloadComponent() => _lifecycle.Add("consumer-unload");
     }
+  }
+
+  public sealed class InjectedTestComponent : MonoBehaviour, IComponent {
+    public int loadCount;
+    public RuntimeComponentData RuntimeComponentData { get; } = new();
+    public void LoadComponent() => loadCount++;
+  }
+
+  public sealed class ManuallyContributedComponent : IComponent {
+    public RuntimeComponentData RuntimeComponentData { get; } = new();
   }
 }

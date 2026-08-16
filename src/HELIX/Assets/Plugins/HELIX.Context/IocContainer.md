@@ -128,3 +128,16 @@ components from being unloaded. This guarantees that the scope releases as much 
 individual teardown handler fails.
 
 ## Scene Injected Components 
+After the application scope started, scenes scopes are retrospectively created and components inside
+the scene are discovered and addedto the scene scope as dynamic components. They are at this point expected
+to not be already initialized (otherwise they are fully ignored, see runtime data). Then, together with
+the normal activation of discovered components, loading is performed in the same way as for 
+normal components, just with the already existing instances also participate in the loading.
+
+For newly loaded scenes, this behaviour is also still defined, since scenes may ship in-scene declared
+components.
+
+## GameObject Injected Components
+Similar to scene components, the user can create a scope for an already existing GameObject.
+In this case, the components for this gameobject are discovered before normal scope activation takes
+place.

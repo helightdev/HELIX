@@ -41,11 +41,16 @@ namespace HELIX.Context {
       return _registrations = registrations;
     }
 
-    public List<RegistrationEntry> For(ManagedScope managed) {
+    public List<RegistrationEntry> For(
+      ManagedScope managed,
+      IEnumerable<RegistrationEntry> contributions = null
+    ) {
       if (_registrations == null) throw new ScopeLifecycleException("The registrar graph has not been prepared.");
       var scopeType = managed.scope.GetType();
       var entries = _registrations.components.Values
-        .Where(entry => (entry.scope ?? typeof(ApplicationScope)) == scopeType)
+        .Where(entry => entry.scope == scopeType)
+        .Concat(contributions ?? Enumerable.Empty<RegistrationEntry>())
+        .Distinct()
         .OrderBy(static entry => entry.name, StringComparer.Ordinal)
         .ToList();
       var providers = new HashSet<TypeKey>();

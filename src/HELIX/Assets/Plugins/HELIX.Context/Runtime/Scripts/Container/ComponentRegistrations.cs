@@ -284,7 +284,11 @@ namespace HELIX.Context {
       if (activator == null)
         throw new ComponentActivationException($"Component '{name}' ({type.FullName}) has no activator.");
       var instance = activator(context);
-      if (instance is IComponent component) component.RuntimeComponentData.scope = context.scope;
+      if (instance is IComponent component) {
+        var runtimeData = component.RuntimeComponentData;
+        runtimeData.scope = context.scope;
+        runtimeData.container = context.container;
+      }
 
       if (instance == null)
         throw new ComponentActivationException($"Activator for component '{name}' ({type.FullName}) returned null.");
