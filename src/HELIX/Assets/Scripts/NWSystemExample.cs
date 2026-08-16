@@ -81,13 +81,20 @@ namespace HELIX.Examples {
 
     public static readonly SliderOptions VolumeOptions = new(0f, 1f, step: 0f, thumbRange: 0.1f);
     public static readonly SliderOptions VolumeOptionsScroll = new(
-      0f, 1f, step: 0f, thumbRange: 0.1f, axis: Axis.Vertical
+      0f,
+      1f,
+      step: 0f,
+      thumbRange: 0.1f,
+      axis: Axis.Vertical
     );
 
     public static readonly TextInputValueAdapter<float> DecimalValueAdapter = new(
       value => value.ToString("0.00", CultureInfo.InvariantCulture),
       (string text, out float value) => float.TryParse(
-        text, NumberStyles.Float, CultureInfo.InvariantCulture, out value
+        text,
+        NumberStyles.Float,
+        CultureInfo.InvariantCulture,
+        out value
       )
     );
 
@@ -108,7 +115,8 @@ namespace HELIX.Examples {
     public static readonly IReadOnlyList<MenuItem> ExampleMenuItems = new[] {
       new MenuItem(MenuItemKind.Heading, "Actions"),
       new MenuItem(
-        "Toggle controls", static ctx => {
+        "Toggle controls",
+        static ctx => {
           using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
         }
       ),
@@ -117,18 +125,21 @@ namespace HELIX.Examples {
       new MenuItem(MenuItemKind.Separator),
       new MenuItem("Mode") {
         new MenuItem(
-          "Balanced", static ctx => {
+          "Balanced",
+          static ctx => {
             using (ctx.Modify<HomeComposable>(out var state)) { state.mode = ExampleMode.Balanced; }
           }
         ),
         new MenuItem(
-          "Performance", static ctx => {
+          "Performance",
+          static ctx => {
             using (ctx.Modify<HomeComposable>(out var state)) { state.mode = ExampleMode.Performance; }
           }
         ),
         new MenuItem("Quality") {
           new MenuItem(
-            "High", static ctx => {
+            "High",
+            static ctx => {
               using (ctx.Modify<HomeComposable>(out var state)) { state.mode = ExampleMode.Quality; }
             }
           ),
@@ -303,7 +314,8 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition child) => child.Text("Sparse tree"),
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Sparse tree", ProseTextConfigurations.Sparse
+              "Sparse tree",
+              ProseTextConfigurations.Sparse
             )
           );
           cx.Spacing(1);
@@ -311,7 +323,8 @@ namespace HELIX.Examples {
             static (ref Composition child) => child.Text("Error tree"),
             style: ThemeProperties.ButtonOutlined[in cx],
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Error tree", ProseTextConfigurations.Error
+              "Error tree",
+              ProseTextConfigurations.Error
             )
           );
         }
@@ -320,7 +333,8 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition child) => child.Text("Plain"),
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Plain", ProseTextConfigurations.Plain
+              "Plain",
+              ProseTextConfigurations.Plain
             )
           );
           cx.Spacing(1);
@@ -328,7 +342,8 @@ namespace HELIX.Examples {
             static (ref Composition child) => child.Text("Markdown"),
             style: ThemeProperties.ButtonOutlined[in cx],
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Markdown", ProseTextConfigurations.Markdown
+              "Markdown",
+              ProseTextConfigurations.Markdown
             )
           );
         }
@@ -350,7 +365,8 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition child) => child.Text("Whitespace tree"),
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Whitespace tree", ProseTextConfigurations.Whitespace
+              "Whitespace tree",
+              ProseTextConfigurations.Whitespace
             )
           );
           cx.Spacing(1);
@@ -358,7 +374,8 @@ namespace HELIX.Examples {
             static (ref Composition child) => child.Text("Shallow"),
             style: ThemeProperties.ButtonOutlined[in cx],
             action: static _ => DetailedProseExample.PrintPlainText(
-              "Shallow", ProseTextConfigurations.Shallow
+              "Shallow",
+              ProseTextConfigurations.Shallow
             )
           );
         }
@@ -367,7 +384,8 @@ namespace HELIX.Examples {
             static (ref Composition child) => child.Text("Test: wide decorated"),
             style: ThemeProperties.ButtonOutlined[in cx],
             action: static _ => DetailedProseExample.PrintPlainText(
-              "test wide decorated", DetailedProseExample.TestWideDecorated
+              "test wide decorated",
+              DetailedProseExample.TestWideDecorated
             )
           );
         }
@@ -376,7 +394,8 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition child) => child.Text("Test: compact sections"),
             action: static _ => DetailedProseExample.PrintPlainText(
-              "test compact sections", DetailedProseExample.TestCompactSections
+              "test compact sections",
+              DetailedProseExample.TestCompactSections
             )
           );
         }
@@ -416,7 +435,8 @@ namespace HELIX.Examples {
         $"Current: {_navigationController.Current?.Name ?? "<empty>"}  •  " +
         $"Stack: {_navigationController.BackStack.Count}  •  " +
         $"Queued: {_navigationController.PendingOperationCount}  •  " +
-        $"Transitioning: {_navigationController.IsTransitioning}", TextRole.BodySmall
+        $"Transitioning: {_navigationController.IsTransitioning}",
+        TextRole.BodySmall
       );
       cx.Text($"Lifecycle: {navigationLifecycle}", TextRole.BodySmall);
       cx.Text($"Dynamic result: {navigationResult}", TextRole.BodySmall);
@@ -472,9 +492,7 @@ namespace HELIX.Examples {
             style: ThemeProperties.ButtonOutlined[in cx],
             action: static ctx => {
               var owner = ctx.Lookup<HomeComposable>();
-              owner?._navigationController?.Replace(
-                "navigation-settings", options: owner.CurrentNavigationOptions()
-              );
+              owner?._navigationController?.Replace("navigation-settings", options: owner.CurrentNavigationOptions());
             }
           );
           cx.Spacing(1);
@@ -720,7 +738,8 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition cx) => cx.Text("Filled"),
             selected: enabled,
-            style: ThemeProperties.ButtonFilled[in cx], action: static (ctx) => {
+            style: ThemeProperties.ButtonFilled[in cx],
+            action: static (ctx) => {
               using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
             }
           );
@@ -728,7 +747,8 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition cx) => cx.Text("Outlined"),
             selected: enabled,
-            style: ThemeProperties.ButtonOutlined[in cx], action: static (ctx) => {
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: static (ctx) => {
               using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
             }
           );
@@ -736,7 +756,8 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition cx) => cx.Text("Toggle"),
             selected: enabled,
-            style: ThemeProperties.ButtonToggle[in cx], action: static (ctx) => {
+            style: ThemeProperties.ButtonToggle[in cx],
+            action: static (ctx) => {
               using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
             }
           );
@@ -744,7 +765,8 @@ namespace HELIX.Examples {
           cx.Button(
             static (ref Composition cx) => cx.Text("Ghost"),
             selected: enabled,
-            style: ThemeProperties.ButtonGhost[in cx], action: static (ctx) => {
+            style: ThemeProperties.ButtonGhost[in cx],
+            action: static (ctx) => {
               using (ctx.Modify<HomeComposable>(out var state)) { state.enabled = !state.enabled; }
             }
           );
@@ -820,7 +842,8 @@ namespace HELIX.Examples {
         cx.Text("Navigation home", TextRole.TitleMedium);
         cx.Spacing(1);
         cx.Text(
-          "Registered routes, dynamic pages, typed results, and queued operations share one stack.", TextRole.BodySmall
+          "Registered routes, dynamic pages, typed results, and queued operations share one stack.",
+          TextRole.BodySmall
         );
         cx.Spacing(2);
         cx.Button(
@@ -841,7 +864,8 @@ namespace HELIX.Examples {
           action: static ctx => {
             var owner = ctx.Lookup<HomeComposable>();
             owner?._navigationController?.Go(
-              "navigation-settings", options: owner.CurrentNavigationOptions()
+              "navigation-settings",
+              options: owner.CurrentNavigationOptions()
             );
           }
         );
@@ -1152,7 +1176,9 @@ namespace HELIX.Examples {
                 var form = context.Lookup<HomeComposable>()?._exampleForm;
                 if (form == null) return;
                 var result = form.Submit();
-                Debug.Log($"Compose form submit ({(result.valid ? "valid" : "invalid")}): {form.FormatData(result.data)}");
+                Debug.Log(
+                  $"Compose form submit ({(result.valid ? "valid" : "invalid")}): {form.FormatData(result.data)}"
+                );
               }
             );
             cx.Spacing(1);
@@ -1208,7 +1234,8 @@ namespace HELIX.Examples {
         cx.Text("Composable modal", TextRole.TitleLarge);
         cx.Spacing(1);
         cx.Text(
-          "The modal, its barrier, focus policy, and dismissal rules are all an overlay entry.", TextRole.BodySmall
+          "The modal, its barrier, focus policy, and dismissal rules are all an overlay entry.",
+          TextRole.BodySmall
         );
         cx.Spacing(2);
         cx.Button(

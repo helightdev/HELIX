@@ -22,13 +22,10 @@ namespace HELIX.Context {
   }
 
   [Service]
-  public partial class MyRootDependency {
-
-  }
+  public partial class MyRootDependency { }
 
   [Service]
   public partial class ExampleSingleton {
-
     [Inject] public MyRootDependency myRootDependency;
 
     [EventHandler]
@@ -37,13 +34,11 @@ namespace HELIX.Context {
       await UniTask.Delay(1000); // Simulate async initialization
       Debug.Log($"ExampleSingleton async init complete! {myRootDependency}");
     }
-
   }
 
   // [EnableMixins]
   [Service]
   public partial class ExampleUser : MonoBehaviour {
-
     [AutoDispose]
     public IDisposable myResource2;
 
@@ -55,25 +50,19 @@ namespace HELIX.Context {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
       myResource2 = new LoggingDisposable();
       //
-
     }
 
     [EventHandler]
-    private void OnTestEvent(ref TestEvent evt) {
-
-    }
+    private void OnTestEvent(ref TestEvent evt) { }
 
     [EventHandler]
-    private void OnTestAsync(TestAsyncEvt evt) {
-
-    }
+    private void OnTestAsync(TestAsyncEvt evt) { }
 
     [MixinMethod(MixinOn.ComponentLoad)]
-    private void OnComponentLoad() {
-
-    }
+    private void OnComponentLoad() { }
   }
 
-  public struct TestEvent : Evt<TestEvent> {}
-  public class TestAsyncEvt : AsyncChainEvt<TestAsyncEvt> {}
+  public struct TestEvent : Evt<TestEvent> { }
+
+  public class TestAsyncEvt : AsyncChainEvt<TestAsyncEvt> { }
 }

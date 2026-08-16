@@ -13,13 +13,12 @@ public class ExampleServiceBootstrap : MonoBehaviour {
     ComponentGraphProse.WriteDeclared(writer, discovered);
     Debug.Log(writer.Build());
 
-    var container = new HXContainer();
+    var container = new ManagedContainer();
     container.PrepareRegistrar(discovered);
     await container.StartApplication();
 
     writer.Reset();
     ComponentGraphProse.WriteLive(writer, container);
     Debug.Log(writer.Build());
-
   }
 }

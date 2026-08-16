@@ -4,8 +4,8 @@ using HELIX.Prose;
 using NUnit.Framework;
 
 namespace HELIX.Context.Tests {
-  public class HXContainerTests {
-    private readonly List<HXContainer> _containers = new();
+  public class ManagedContainerTests {
+    private readonly List<ManagedContainer> _containers = new();
 
     [TearDown]
     public void TearDown() {
@@ -124,7 +124,7 @@ namespace HELIX.Context.Tests {
     }
 
     [Test]
-    public void RejectsAmbiguousGuaranteedKeysBeforeActivation() {
+    public void ResolvesLatestBindingAndReturnsAllBindingsForAKey() {
       var activations = 0;
       var registrations = new ComponentRegistrations();
       registrations.Register(typeof(Provider), entry => {
@@ -143,9 +143,13 @@ namespace HELIX.Context.Tests {
       });
 
       var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
 
-      Assert.Throws<ComponentGraphException>(() => container.StartApplicationSync());
-      Assert.That(activations, Is.Zero);
+      Assert.That(activations, Is.EqualTo(2));
+      Assert.That(application.Resolve(typeof(IProvider)), Is.TypeOf<SecondProvider>());
+      Assert.That(application.ResolveAll(typeof(IProvider)), Has.Count.EqualTo(2));
+      Assert.That(application.ResolveAll(typeof(IProvider))[0], Is.TypeOf<Provider>());
+      Assert.That(application.ResolveAll(typeof(IProvider))[1], Is.TypeOf<SecondProvider>());
     }
 
     [Test]
@@ -251,8 +255,8 @@ namespace HELIX.Context.Tests {
       Assert.That(liveWriter.ToString(), Does.Contain("Provider"));
     }
 
-    private HXContainer CreateContainer(ComponentRegistrations registrations) {
-      var container = new HXContainer();
+    private ManagedContainer CreateContainer(ComponentRegistrations registrations) {
+      var container = new ManagedContainer();
       _containers.Add(container);
       container.PrepareRegistrar(registrations);
       return container;

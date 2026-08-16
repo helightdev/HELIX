@@ -107,20 +107,25 @@ namespace HELIX.Context {
   }
 
   public struct ComponentLoadContext {
-    public readonly HXContainer container;
+    public readonly ManagedContainer container;
     public readonly ManagedScope scope;
     public readonly RegistrationEntry registration;
+    internal readonly ScopeLoader loader;
 
-    public ComponentLoadContext(HXContainer container, ManagedScope scope) {
+    public ComponentLoadContext(ManagedContainer container, ManagedScope scope) {
       this.container = container;
       this.scope = scope;
       registration = null;
+      loader = null;
     }
 
-    internal ComponentLoadContext(HXContainer container, ManagedScope scope, RegistrationEntry registration) {
+    internal ComponentLoadContext(
+      ManagedContainer container, ManagedScope scope, RegistrationEntry registration, ScopeLoader loader
+    ) {
       this.container = container;
       this.scope = scope;
       this.registration = registration;
+      this.loader = loader;
     }
 
     public CancellationToken CancellationToken => scope.CancellationToken;
@@ -131,7 +136,9 @@ namespace HELIX.Context {
 
     public void Publish(TypeKey key, object value) => scope.Publish(registration, key, value);
 
-    public void Publish(string wireKey) => scope.Publish(registration, wireKey);
+    public void Publish(string wireKey) => (loader ?? throw new ScopeLifecycleException(
+      "Wire publications are only available during component loading."
+    )).Publish(registration, wireKey);
 
     public void Own(object value) => scope.Own(value);
   }
@@ -307,7 +314,7 @@ namespace HELIX.Context {
     private ComponentLoadContext _context;
     public ComponentAsyncInitEvent() { }
 
-    public HXContainer Container => _context.container;
+    public ManagedContainer Container => _context.container;
     public ManagedScope Scope => _context.scope;
     public ComponentLoadContext Context => _context;
 
@@ -323,7 +330,7 @@ namespace HELIX.Context {
       _context = context;
     }
 
-    public HXContainer Container => _context.container;
+    public ManagedContainer Container => _context.container;
     public ManagedScope Scope => _context.scope;
     public ComponentLoadContext Context => _context;
   }
