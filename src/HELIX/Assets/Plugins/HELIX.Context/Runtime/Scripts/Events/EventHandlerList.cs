@@ -2,6 +2,10 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 
 namespace HELIX.Context {
+  public interface IEventListener {
+    EventHandlerList HandlerList { get; }
+  }
+
   public readonly struct EventHandlerList {
     public readonly List<HandlerRegistration> registrations;
 
@@ -26,6 +30,17 @@ namespace HELIX.Context {
       }
 
       CleanupRegistrations();
+    }
+
+    public async UniTask<T> RaiseLocalAsync<T>(T evt) where T : AsyncChainEvt<T> {
+      for (var i = 0; i < registrations.Count; i++) {
+        if (registrations[i] is not HandlerRegistration<T> registration) continue;
+        if (registration.IsDisposed) continue;
+        registration.Handler?.Invoke(ref evt);
+      }
+      var result = await AsyncChainEvt<T>.ExecuteAsyncChain(evt);
+      CleanupRegistrations();
+      return result;
     }
 
     public void CleanupRegistrations() {

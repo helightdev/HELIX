@@ -7,6 +7,8 @@ namespace HELIX.Context {
     new[] { MixinOn.Init, MixinOn.ConfigureRegistration },
     new[] { 1, -90_000 },
     @"
+@VAR<IsEventHandler> true
+
 @SCOPE
   @MATCH @var#IsComponent:?eq<true>
   @CODE<^*~HELIX.Context.RegistrationConfigurator> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
@@ -42,8 +44,10 @@ namespace HELIX.Context {
     @"
 @CODE<CLASS> [global::System.NonSerializedAttribute]
 @CODE<CLASS> protected readonly global::HELIX.Context.EventHandlerList eventHandlerList = global::HELIX.Context.EventHandlerList.Create();
+@CODE<CLASS> global::HELIX.Context.EventHandlerList global::HELIX.Context.IEventListener.HandlerList => eventHandlerList;
 
 @CODE<$Dispose> eventHandlerList.UnregisterAll();
+@CODE<IMPLEMENTS> global::HELIX.Context.IEventListener
 "
   )]
   [Mixin] public interface IEventHandlersMixin : IMixin { }

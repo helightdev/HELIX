@@ -185,6 +185,9 @@ namespace HELIX.Context {
 
     public const string InitAsync = "~HELIX.Context.AsyncServiceInitializer";
 
+    public const string LoadComponent = "^LoadComponent";
+    public const string UnloadComponent = "^UnloadComponent";
+
     public const string MonoAwake = "Awake";
     public const string MonoStart = "Start";
     public const string MonoReset = "Reset";

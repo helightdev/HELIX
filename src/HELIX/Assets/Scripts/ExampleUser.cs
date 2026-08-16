@@ -22,7 +22,7 @@ namespace HELIX.Context {
 
   // [EnableMixins]
   [Service]
-  public partial class ExampleUser : MonoBehaviour, IExampleMixin, IAsyncInitMixin {
+  public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]
     public IDisposable myResource;
 
@@ -30,6 +30,7 @@ namespace HELIX.Context {
     private void OnInit() {
       Debug.Log("Self on awake! Implicitly referenced!");
       myResource = new LoggingDisposable();
+
     }
 
     [EventHandler]
@@ -39,6 +40,11 @@ namespace HELIX.Context {
 
     [EventHandler]
     private void OnTestAsync(TestAsyncEvt evt) {
+
+    }
+
+    [MixinMethod(MixinOn.LoadComponent)]
+    private void OnComponentLoad() {
 
     }
   }

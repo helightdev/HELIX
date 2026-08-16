@@ -77,17 +77,25 @@ namespace HELIX.Context {
 
   }
 
-  public interface IComponent { }
+  public interface IComponent {
+    void LoadComponent() {}
+    void UnloadComponent() {}
+
+  }
 
   // Stereotype attributes
   [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
   [MixinExpression(
-    new[] { MixinOn.ConfigureRegistration },
-    new[] { -100_000 },
+    new[] { MixinOn.ConfigureRegistration, MixinOn.LoadComponent, MixinOn.UnloadComponent },
+    new[] { -100_000, 0, 0 },
     @"
 @CODE<^*~HELIX.Context.RegistrationConfigurator> registration.name = ""@this:name"";
 @CODE<IMPLEMENTS> global::HELIX.Context.IComponent
 @VAR<IsComponent> true
+
+@SCOPE
+  @MATCH @this:?is<global::UnityEngine.MonoBehaviour>
+  @CODE<^*~HELIX.Context.RegistrationConfigurator> registration.activator = HELIX.Context.DefaultComponentActivators.MonoBehaviour<@this:type>();
 "
   )]
   public class ComponentAttribute : Attribute { }

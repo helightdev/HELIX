@@ -136,10 +136,9 @@ namespace HELIX.Context {
 
         for (var i = _registrations.Count - 1; i >= 0; i--) {
           var registration = _registrations[i];
-          if (registration.IsDisposed) {
-            registration.Dispose();
-            _registrations.RemoveAt(i);
-          }
+          if (!registration.IsDisposed) continue;
+          registration.Dispose();
+          _registrations.RemoveAt(i);
         }
       }
     }
@@ -175,10 +174,9 @@ namespace HELIX.Context {
         var index = _registrations.Count;
 
         for (var i = 0; i < _registrations.Count; i++) {
-          if (priority < _registrations[i].Priority) {
-            index = i;
-            break;
-          }
+          if (priority >= _registrations[i].Priority) continue;
+          index = i;
+          break;
         }
 
         _registrations.Insert(index, registration);
