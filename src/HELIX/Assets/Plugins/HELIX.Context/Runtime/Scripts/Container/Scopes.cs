@@ -131,7 +131,7 @@ namespace HELIX.Context {
     internal bool WasProvidedBy(RegistrationEntry registration, ComponentDependency dependency) {
       if (dependency.IsTyped) {
         return _bindings.TryGetValue(dependency.key, out var bindings) &&
-               bindings.Any(x => ReferenceEquals(x.owner, registration));
+          bindings.Any(x => ReferenceEquals(x.owner, registration));
       }
       return dependency.wireKey != null && ScopeLoader.Active.WasPublishedBy(registration, dependency.wireKey);
     }
@@ -210,6 +210,172 @@ namespace HELIX.Context {
       );
     }
 
+    private readonly List<ManagedScope> _managedChildren = new();
+    private readonly List<LoadedComponent> _loadedComponents = new();
+    private readonly HashSet<object> _owned = new(ReferenceComparer<object>.Instance);
+
+    internal void AddChild(ManagedScope child) {
+      _managedChildren.Add(child);
+      children.Add(child.scope);
+    }
+
+    internal void RemoveChild(ManagedScope child) {
+      _managedChildren.Remove(child);
+      var index = children.FindIndex(x => ReferenceEquals(x, child.scope));
+      if (index >= 0) children.RemoveAt(index);
+    }
+
+    internal void RecordComponent(RegistrationEntry registration, object instance) =>
+      _loadedComponents.Add(new LoadedComponent(registration, instance));
+
+    internal void Own(object value) {
+      EnsureCanPublish();
+      switch (value) {
+        case null: return;
+        case UnityEngine.Object or IDisposable:
+          _owned.Add(value);
+          return;
+        default:
+          throw new ArgumentException(
+            $"Scope-owned values must be a {nameof(UnityEngine.Object)} or {nameof(IDisposable)}.",
+            nameof(value)
+          );
+      }
+    }
+
+    internal void BeginInitialization() {
+      if (State != ManagedScopeState.Created) {
+        throw new ScopeLifecycleException($"Scope {scope.GetType().FullName} cannot initialize while it is {State}.");
+      }
+      State = ManagedScopeState.Initializing;
+    }
+
+    internal void Activate(ManagedContainer container = null) {
+      if (container != null && scope is GameObjectScope gameObjectScope && gameObjectScope.gameObject != null) {
+        var observer = gameObjectScope.gameObject.AddComponent<GameObjectScopeObserver>();
+        observer.Attach(container, scope);
+      }
+      parent?.AddChild(this);
+      State = ManagedScopeState.Active;
+    }
+
+    internal List<Exception> Rollback() {
+      State = ManagedScopeState.Faulted;
+      var failures = new List<Exception>();
+      Teardown(failures);
+      return failures;
+    }
+
+    internal List<Exception> Dispose(Action<ManagedScope> released = null) {
+      var failures = new List<Exception>();
+      Dispose(failures, released);
+      return failures;
+    }
+
+    private void Dispose(List<Exception> failures, Action<ManagedScope> released) {
+      if (State is ManagedScopeState.Disposed or ManagedScopeState.Disposing) return;
+      State = ManagedScopeState.Disposing;
+      Cancel(failures);
+      foreach (var child in _managedChildren.ToArray()) child.Dispose(failures, released);
+      Teardown(failures, false);
+      State = ManagedScopeState.Disposed;
+      released?.Invoke(this);
+    }
+
+    private void Teardown(List<Exception> failures, bool cancel = true) {
+      if (cancel) Cancel(failures);
+      DetachUnityLifetime(failures);
+      UnloadComponents(failures);
+      DisposeOwnedResources(failures);
+      DestroyOwnedUnityObjects(failures);
+      parent?.RemoveChild(this);
+    }
+
+    private void DetachUnityLifetime(List<Exception> failures) {
+      if (scope is not GameObjectScope gameObjectScope || gameObjectScope.gameObject == null) return;
+      try {
+        foreach (var observer in gameObjectScope.gameObject.GetComponents<GameObjectScopeObserver>()) {
+          if (!observer.Observes(scope)) continue;
+          observer.Detach();
+          if (UnityEngine.Application.isPlaying) UnityEngine.Object.Destroy(observer);
+          else UnityEngine.Object.DestroyImmediate(observer);
+        }
+      } catch (Exception exception) {
+        failures.Add(new ComponentDeinitializationException("Failed to detach a Unity scope lifetime.", exception));
+      }
+    }
+
+    private void Cancel(List<Exception> failures) {
+      if (_cancellation.IsCancellationRequested) return;
+      try { _cancellation.Cancel(); } catch (Exception exception) {
+        failures.Add(new ComponentDeinitializationException("Scope cancellation failed.", exception));
+      }
+    }
+
+    private void UnloadComponents(List<Exception> failures) {
+      if (_loadedComponents == null) return;
+      foreach (var loaded in _loadedComponents.AsEnumerable().Reverse()) Unload(loaded, failures);
+      _bindings.Clear();
+      _loadedComponents.Clear();
+    }
+
+    private void DisposeOwnedResources(List<Exception> failures) {
+      foreach (var resource in _owned.OfType<IDisposable>()) {
+        try { resource.Dispose(); } catch (Exception exception) {
+          failures.Add(new ComponentDeinitializationException("Failed to dispose a scope-owned resource.", exception));
+        }
+      }
+      _owned.RemoveWhere(value => value is IDisposable);
+    }
+
+    private void DestroyOwnedUnityObjects(List<Exception> failures) {
+      foreach (var owned in _owned.OfType<UnityEngine.Object>()) {
+        if (owned == null) continue;
+        try {
+          if (Application.isPlaying) UnityEngine.Object.Destroy(owned);
+          else UnityEngine.Object.DestroyImmediate(owned);
+        } catch (Exception exception) {
+          failures.Add(
+            new ComponentDeinitializationException(
+              $"Failed to destroy Unity object '{owned.name}' owned by {scope.GetType().Name}.",
+              exception
+            )
+          );
+        }
+      }
+      _owned.RemoveWhere(value => value is UnityEngine.Object);
+      _cancellation.Dispose();
+    }
+
+    private static void Unload(LoadedComponent loaded, List<Exception> failures) {
+      try {
+        if (loaded.instance is IComponent component) component.UnloadComponent();
+      } catch (Exception exception) {
+        failures.Add(
+          new ComponentDeinitializationException($"Failed to unload component '{loaded.registration.name}'.", exception)
+        );
+      }
+      try {
+        if (loaded.instance is IEventListener listener) listener.HandlerList.UnregisterAll();
+      } catch (Exception exception) {
+        failures.Add(
+          new ComponentDeinitializationException(
+            $"Failed to unregister handlers for component '{loaded.registration.name}'.",
+            exception
+          )
+        );
+      }
+      try {
+        if (loaded.instance is IDisposable disposable) disposable.Dispose();
+      } catch (Exception exception) {
+        failures.Add(
+          new ComponentDeinitializationException(
+            $"Failed to dispose component '{loaded.registration.name}'.",
+            exception
+          )
+        );
+      }
+    }
 
     private readonly struct Binding {
       public readonly RegistrationEntry owner;
