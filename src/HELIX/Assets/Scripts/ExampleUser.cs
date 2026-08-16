@@ -1,4 +1,5 @@
 using System;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace HELIX.Context {
@@ -20,17 +21,40 @@ namespace HELIX.Context {
     }
   }
 
+  [Service]
+  public partial class MyRootDependency {
+
+  }
+
+  [Service]
+  public partial class ExampleSingleton {
+
+    [Inject] public MyRootDependency myRootDependency;
+
+    [EventHandler]
+    public async UniTask OnAsyncInit(ComponentAsyncInitEvent evt) {
+      Debug.Log($"ExampleSingleton async init starting! {myRootDependency}");
+      await UniTask.Delay(1000); // Simulate async initialization
+      Debug.Log($"ExampleSingleton async init complete! {myRootDependency}");
+    }
+
+  }
+
   // [EnableMixins]
   [Service]
   public partial class ExampleUser : MonoBehaviour {
+
     [AutoDispose]
     public IDisposable myResource2;
 
+    [Inject] public ExampleSingleton mySingleton;
+    [Inject] public MyRootDependency myRootDependency;
 
     [MixinMethod]
     private void OnInit() {
-      Debug.Log("Self on awake! Implicitly referenced!");
+      Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
       myResource2 = new LoggingDisposable();
+      //
 
     }
 

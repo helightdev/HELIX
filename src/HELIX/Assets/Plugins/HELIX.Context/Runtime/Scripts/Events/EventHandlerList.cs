@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 
@@ -90,6 +91,10 @@ namespace HELIX.Context {
       Register(
         EventReactor<T>.Shared.Subscribe(handler, priority)
       );
+    }
+
+    public void RegisterInjector<T>(TypeKey key, Action<T> applicator) where T : class {
+      Register((ref ComponentInitEvent args) => { applicator(args.Scope.Resolve(key) as T); }, 0);
     }
 
     public void Register(HandlerRegistration registration) {

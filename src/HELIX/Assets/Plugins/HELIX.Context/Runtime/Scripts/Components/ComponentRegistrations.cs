@@ -1,21 +1,38 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace HELIX.Context {
   public class ComponentRegistrations {
     public readonly Dictionary<Type, RegistrationEntry> components = new();
+    public readonly Dictionary<Type, ScopeRegistration> scopes = new();
 
     public void Register(Type type, RegistrationConfigurator configurator) {
+      if (type == null) throw new ArgumentNullException(nameof(type));
+      if (configurator == null) throw new ArgumentNullException(nameof(configurator));
+      if (components.ContainsKey(type)) {
+        throw new ComponentGraphException($"Component type {type.FullName} is already registered.");
+      }
       var entry = new RegistrationEntry(type);
       try {
         configurator(entry);
         components[type] = entry;
       } catch (Exception e) {
-        Debug.LogException(e);
+        throw new ComponentGraphException($"Failed to configure component type {type.FullName}.", e);
       }
+    }
+
+    public ScopeRegistration RegisterScope(Type type, params Type[] allowedParentTypes) {
+      if (type == null) throw new ArgumentNullException(nameof(type));
+      if (!typeof(IScope).IsAssignableFrom(type)) {
+        throw new ArgumentException($"{type.FullName} does not implement {nameof(IScope)}.", nameof(type));
+      }
+      var registration = new ScopeRegistration(type, allowedParentTypes);
+      scopes[type] = registration;
+      return registration;
     }
   }
 
@@ -45,6 +62,8 @@ namespace HELIX.Context {
     }
 
     public string CreateWireKey() => type.AssemblyQualifiedName + (qualifier != null ? $"|{qualifier}" : "");
+
+    public override string ToString() => qualifier == null ? type?.FullName ?? "<untyped>" : $"{type?.FullName}|{qualifier}";
   }
 
   [Flags]
@@ -62,6 +81,7 @@ namespace HELIX.Context {
     public bool IsTyped => key.type != null;
 
     public ComponentDependency(TypeKey key, bool required) {
+      if (key.type == null) throw new ArgumentException("A typed dependency requires a type.", nameof(key));
       this.key = key;
       wireKey = key.CreateWireKey();
       scripted = null;
@@ -70,7 +90,7 @@ namespace HELIX.Context {
     }
 
     public ComponentDependency(IScriptedDependency scripted, bool required) {
-      this.scripted = scripted;
+      this.scripted = scripted ?? throw new ArgumentNullException(nameof(scripted));
       key = default;
       flags = scripted.Flags;
       if (required) flags |= DependencyFlags.Required;
@@ -89,11 +109,31 @@ namespace HELIX.Context {
   public struct ComponentLoadContext {
     public readonly HXContainer container;
     public readonly ManagedScope scope;
+    public readonly RegistrationEntry registration;
 
     public ComponentLoadContext(HXContainer container, ManagedScope scope) {
       this.container = container;
       this.scope = scope;
+      registration = null;
     }
+
+    internal ComponentLoadContext(HXContainer container, ManagedScope scope, RegistrationEntry registration) {
+      this.container = container;
+      this.scope = scope;
+      this.registration = registration;
+    }
+
+    public CancellationToken CancellationToken => scope.CancellationToken;
+
+    public object Resolve(TypeKey key) => scope.Resolve(key);
+
+    public bool TryResolve(TypeKey key, out object value) => scope.TryResolve(key, out value);
+
+    public void Publish(TypeKey key, object value) => scope.Publish(registration, key, value);
+
+    public void Publish(string wireKey) => scope.Publish(registration, wireKey);
+
+    public void Own(object value) => scope.Own(value);
   }
 
   public interface IScriptedDependency : IComponentLoadable {
@@ -138,9 +178,11 @@ namespace HELIX.Context {
 
   public readonly struct ComponentLoadResult {
     public readonly bool success;
+    public readonly object value;
 
-    public ComponentLoadResult(bool success) {
+    public ComponentLoadResult(bool success, object value = null) {
       this.success = success;
+      this.value = value;
     }
 
     public static implicit operator ComponentLoadResult(bool success) {
@@ -165,40 +207,86 @@ namespace HELIX.Context {
     public ComponentActivator activator;
 
     public RegistrationEntry(Type type) {
-      this.type = type;
+      this.type = type ?? throw new ArgumentNullException(nameof(type));
       name = type.Name;
+      keys.Add(type);
+    }
+
+    public RegistrationEntry InScope(Type scopeType) {
+      if (scopeType == null || !typeof(IScope).IsAssignableFrom(scopeType)) {
+        throw new ArgumentException("A component scope must implement IScope.", nameof(scopeType));
+      }
+      scope = scopeType;
+      return this;
+    }
+
+    public RegistrationEntry Key(TypeKey key) {
+      if (key.type == null) throw new ArgumentException("A component key requires a type.", nameof(key));
+      keys.Add(key);
+      return this;
+    }
+
+    public RegistrationEntry Dependency(ComponentDependency dependency) {
+      dependencies.Add(dependency);
+      return this;
+    }
+
+    public RegistrationEntry Publication(ComponentDependency publication) {
+      publications.Add(publication);
+      return this;
     }
 
     public void RegisterHandlerBinding<T>(int priority = 0) {
       handlers.Add(new RegistrationHandlerBinding(typeof(T), priority));
     }
 
-    public bool IsAsync => handlers.Any(static x => x.eventType == typeof(IAsyncChainEvt));
+    public bool IsAsync => handlers.Any(static x => x.eventType == typeof(ComponentAsyncInitEvent));
     public async UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context) {
-      var instance = ActivateAndLoadSync(context);
-      if (instance is IEventListener listener) {
-        var initEvent = new ComponentAsyncInitEvent();
-        initEvent.Reset(context);
-        await listener.HandlerList.RaiseLocalAsync(initEvent);
-      }
-      return true;
+      var instance = Activate(context);
+      InitializeSync(instance, context);
+      await InitializeAsync(instance, context);
+      return new ComponentLoadResult(true, instance);
     }
 
     public ComponentLoadResult Load(ComponentLoadContext context) {
-      ActivateAndLoadSync(context);
-      return true;
+      var instance = Activate(context);
+      InitializeSync(instance, context);
+      return new ComponentLoadResult(true, instance);
     }
 
-    private object ActivateAndLoadSync(ComponentLoadContext context) {
+    internal object Activate(ComponentLoadContext context) {
+      if (activator == null) {
+        throw new ComponentActivationException($"Component '{name}' ({type.FullName}) has no activator.");
+      }
       var instance = activator(context);
+      if (instance is IComponent component) component.Scope = context.scope;
+
+      if (instance == null) {
+        throw new ComponentActivationException($"Activator for component '{name}' ({type.FullName}) returned null.");
+      }
+      if (!type.IsInstanceOfType(instance)) {
+        throw new ComponentActivationException(
+          $"Activator for component '{name}' returned {instance.GetType().FullName}, expected {type.FullName}."
+        );
+      }
+      return instance;
+    }
+
+    internal void InitializeSync(object instance, ComponentLoadContext context) {
       if (instance is IComponent component) {
-       component.LoadComponent(); // Trigger mixin injectable load method
+        component.LoadComponent();
       }
       if (instance is IEventListener listener) {
         var initEvent = new ComponentInitEvent(context);
-        listener.HandlerList.RaiseLocal(initEvent); // trigger proper
+        listener.HandlerList.RaiseLocal(initEvent);
       }
-      return instance;
+    }
+
+    internal async UniTask InitializeAsync(object instance, ComponentLoadContext context) {
+      if (instance is not IEventListener listener) return;
+      var initEvent = new ComponentAsyncInitEvent();
+      initEvent.Reset(context);
+      await listener.HandlerList.RaiseLocalAsync(initEvent);
     }
   }
 
