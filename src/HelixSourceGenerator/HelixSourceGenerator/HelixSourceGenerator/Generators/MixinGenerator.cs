@@ -57,11 +57,33 @@ namespace HELIX.SourceGen {
     private static bool HasMixinsEnabled(INamedTypeSymbol type) {
       for (var current = type; current is not null; current = current.BaseType) {
         if (Attribute(current, Attributes.EnableMixins) is not null ||
-            current.GetAttributes().Any(attribute => BuiltinMixinStereotypes.Contains(
-              attribute.AttributeClass?.ToDisplayString() ?? "", StringComparer.Ordinal
+            current.GetAttributes().Any(attribute => IsBuiltinMixinStereotype(
+              attribute.AttributeClass
             ))) return true;
       }
       return type.AllInterfaces.Any(item => Attribute(item, Attributes.EnableMixins) is not null);
+    }
+
+    private static bool IsBuiltinMixinStereotype(INamedTypeSymbol attributeType) {
+      for (var current = attributeType; current is not null; current = current.BaseType) {
+        if (BuiltinMixinStereotypes.Contains(current.ToDisplayString(), StringComparer.Ordinal)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private static bool HasComponentStereotype(INamedTypeSymbol type) {
+      for (var current = type; current is not null; current = current.BaseType) {
+        foreach (var attribute in current.GetAttributes()) {
+          for (var attributeType = attribute.AttributeClass;
+               attributeType is not null;
+               attributeType = attributeType.BaseType) {
+            if (attributeType.ToDisplayString() == Attributes.Component) return true;
+          }
+        }
+      }
+      return false;
     }
 
     private static void Generate(SourceProductionContext context, MixinTarget candidate) {
@@ -304,7 +326,7 @@ namespace HELIX.SourceGen {
         var attribute = Attribute(method, Attributes.MixinMethod);
         if (attribute is null) continue;
         if (TryCreateContribution(
-          context, method, attribute, ContributionKind.Local, target, null, sequence++, out var item
+          context, target, method, attribute, ContributionKind.Local, target, null, sequence++, out var item
         )) result.Add(item);
       }
     }
@@ -332,7 +354,7 @@ namespace HELIX.SourceGen {
           var attribute = Attribute(method, Attributes.MixinMethod);
           if (attribute is null) continue;
           if (TryCreateContribution(
-            context, method, attribute, ContributionKind.Interface, mixin, null, sequence++, out var item
+            context, target, method, attribute, ContributionKind.Interface, mixin, null, sequence++, out var item
           )) result.Add(item);
         }
       }
@@ -387,7 +409,7 @@ namespace HELIX.SourceGen {
                   continue;
                 }
                 if (!TryCreateContribution(
-                      context, method, mixin, ContributionKind.Attribute, annotated, applied,
+                      context, target, method, mixin, ContributionKind.Attribute, annotated, applied,
                       sequence, out var item
                     )) continue;
                 if (!TrySpecializeAndCheck(
@@ -464,7 +486,7 @@ namespace HELIX.SourceGen {
               continue;
             }
             if (!TryCreateContribution(
-                  context, method, mixin, ContributionKind.Attribute, target, null,
+                  context, target, method, mixin, ContributionKind.Attribute, target, null,
                   sequence, out var item
                 )) continue;
             item.WithImplicitAttribute(implicitAttribute);
@@ -519,9 +541,10 @@ namespace HELIX.SourceGen {
       }
 
       var declarations = new Dictionary<string, AttributeExpressionTarget>(StringComparer.Ordinal);
+      var componentLifecycle = HasComponentStereotype(target);
       for (var index = 0; index < targets.Count; index++) {
         var declared = targets[index];
-        var emitted = EmittedTarget(declared);
+        var emitted = EmittedTarget(declared, componentLifecycle);
         if (!IsValidIdentifier(emitted)) {
           ReportInvalidAttributeExpression(
             context, location, attributeName, annotated.Name,
@@ -536,7 +559,9 @@ namespace HELIX.SourceGen {
           );
           return;
         }
-        declarations.Add(declared, new AttributeExpressionTarget(declared, emitted, orders[index]));
+        declarations.Add(declared, new AttributeExpressionTarget(
+          declared, orders[index], componentLifecycle
+        ));
       }
 
       var arguments = annotated is IMethodSymbol method
@@ -602,9 +627,9 @@ namespace HELIX.SourceGen {
         var declaration = declarations[item.Key];
         var result = new MixinExpressionResult(true, null, 0, item.Value);
         contributions.Add(new MixinContribution(
-          null, declaration.Target, declaration.EmittedTarget, declaration.Order, null,
+          null, declaration.Target, declaration.Order, null,
           contributionKind, sequence++, annotated, applied,
-          Array.Empty<MixinParameter>()
+          Array.Empty<MixinParameter>(), componentLifecycle
         ).WithImplicitAttribute(implicitAttribute).WithExpressionResult(result));
       }
     }
@@ -975,6 +1000,7 @@ namespace HELIX.SourceGen {
 
     private static bool TryCreateContribution(
       SourceProductionContext context,
+      INamedTypeSymbol target,
       IMethodSymbol method,
       AttributeData attribute,
       ContributionKind kind,
@@ -1010,7 +1036,8 @@ namespace HELIX.SourceGen {
         ? attribute.ConstructorArguments[0].Value as string
         : null;
       if (string.IsNullOrEmpty(targetName)) targetName = ImplicitTarget(method.Name);
-      var emittedName = EmittedTarget(targetName);
+      var componentLifecycle = HasComponentStereotype(target);
+      var emittedName = EmittedTarget(targetName, componentLifecycle);
       if (!IsValidIdentifier(emittedName)) {
         context.ReportDiagnostic(Diagnostic.Create(
           InvalidTarget, LocationOf(method), targetName ?? "null",
@@ -1083,8 +1110,8 @@ namespace HELIX.SourceGen {
       }
 
       contribution = new MixinContribution(
-        method, targetName, emittedName, order, expression, kind, sequence, source,
-        appliedAttribute, parameters
+        method, targetName, order, expression, kind, sequence, source,
+        appliedAttribute, parameters, componentLifecycle
       );
       return true;
     }
@@ -1105,8 +1132,12 @@ namespace HELIX.SourceGen {
       return methodName;
     }
 
-    private static TargetSyntax ParseTarget(string target) {
+    private static TargetSyntax ParseTarget(string target, bool componentLifecycle = false) {
       var value = target ?? "";
+      if (componentLifecycle) {
+        if (value == "$Init") value = "^LoadComponent";
+        else if (value == "$Dispose") value = "^UnloadComponent";
+      }
       var isStatic = false;
       var isPublic = false;
       while (value.Length != 0) {
@@ -1139,7 +1170,8 @@ namespace HELIX.SourceGen {
       return new TargetSyntax(emitted, isStatic, isPublic, delegateType);
     }
 
-    private static string EmittedTarget(string target) => ParseTarget(target).Name;
+    private static string EmittedTarget(string target, bool componentLifecycle = false) =>
+      ParseTarget(target, componentLifecycle).Name;
 
     private static List<MixinVariable> CollectVariables(
       SourceProductionContext context,
@@ -1965,16 +1997,16 @@ namespace HELIX.SourceGen {
       internal MixinContribution(
         IMethodSymbol method,
         string target,
-        string emittedTarget,
         int order,
         string expression,
         ContributionKind kind,
         int sequence,
         ISymbol source,
         AttributeData appliedAttribute,
-        IReadOnlyList<MixinParameter> parameters
+        IReadOnlyList<MixinParameter> parameters,
+        bool componentLifecycle
       ) {
-        var targetSyntax = ParseTarget(target);
+        var targetSyntax = ParseTarget(target, componentLifecycle);
         Method = method;
         Target = target;
         EmittedTarget = targetSyntax.Name;
@@ -1988,6 +2020,7 @@ namespace HELIX.SourceGen {
         Source = source;
         AppliedAttribute = appliedAttribute;
         Parameters = parameters;
+        ComponentLifecycle = componentLifecycle;
         GenericArguments = Array.Empty<ITypeSymbol>();
         PositionalCount = string.IsNullOrWhiteSpace(expression)
           ? parameters.Count(item => item.Injection == Unmarked)
@@ -2011,6 +2044,7 @@ namespace HELIX.SourceGen {
       internal IReadOnlyList<ITypeSymbol> GenericArguments { get; private set; }
       internal MixinExpressionResult ExpressionResult { get; private set; }
       internal int PositionalCount { get; }
+      private bool ComponentLifecycle { get; }
 
       internal MixinContribution WithMethod(
         IMethodSymbol method,
@@ -2025,8 +2059,8 @@ namespace HELIX.SourceGen {
           );
         }
         var result = new MixinContribution(
-          method, Target, EmittedTarget, Order, Expression, Kind, Sequence, Source,
-          AppliedAttribute, parameters
+          method, Target, Order, Expression, Kind, Sequence, Source,
+          AppliedAttribute, parameters, ComponentLifecycle
         );
         result.GenericArguments = genericArguments;
         result.ImplicitAttribute = ImplicitAttribute;
@@ -2159,8 +2193,8 @@ namespace HELIX.SourceGen {
     }
 
     private sealed class AttributeExpressionTarget {
-      internal AttributeExpressionTarget(string target, string emittedTarget, int order) {
-        var targetSyntax = ParseTarget(target);
+      internal AttributeExpressionTarget(string target, int order, bool componentLifecycle) {
+        var targetSyntax = ParseTarget(target, componentLifecycle);
         Target = target;
         EmittedTarget = targetSyntax.Name;
         Order = order;

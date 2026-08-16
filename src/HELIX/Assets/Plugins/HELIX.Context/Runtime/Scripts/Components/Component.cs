@@ -96,6 +96,10 @@ namespace HELIX.Context {
 @SCOPE
   @MATCH @this:?is<global::UnityEngine.MonoBehaviour>
   @CODE<^*~HELIX.Context.RegistrationConfigurator> registration.activator = HELIX.Context.DefaultComponentActivators.MonoBehaviour<@this:type>();
+  @RETURN
+@SCOPE
+  @CODE<^*~HELIX.Context.RegistrationConfigurator> registration.activator = HELIX.Context.DefaultComponentActivators.PlainObject<@this:type>();
+  @RETURN
 "
   )]
   public class ComponentAttribute : Attribute { }

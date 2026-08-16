@@ -10,6 +10,7 @@ namespace HELIX.SourceGen {
     internal static class Attributes {
       internal const string
         AttributeMixinMethodProxy = "HELIX.Context.AttributeMixinMethodProxyAttribute",
+        Component = "HELIX.Context.ComponentAttribute",
         MixinExpression = "HELIX.Context.MixinExpressionAttribute",
         BoundaryComposable = "HELIX.Compose.BoundaryComposableAttribute",
         ComposableProxy = "HELIX.Compose.ComposableProxyAttribute",
