@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using HELIX.SourceGen.Expressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -20,7 +21,8 @@ internal sealed class ImplicitMixinValue {
   internal object Value { get; }
 }
 
-internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
+internal sealed class RoslynMixinExpressionContext :
+  IMixinExpressionContext, IMixinExpressionSignatureContext {
   private static readonly SymbolDisplayFormat FullNameDisplayFormat =
     SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
       SymbolDisplayGenericsOptions.IncludeTypeParameters
@@ -33,6 +35,7 @@ internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
   private readonly IReadOnlyDictionary<string, ImplicitMixinValue> _implicitValues;
   private readonly IReadOnlyList<IParameterSymbol> _arguments;
   private readonly CSharpCompilation _compilation;
+  private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
 
   internal RoslynMixinExpressionContext(
     INamedTypeSymbol thisType,
@@ -41,7 +44,8 @@ internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
     IReadOnlyList<IParameterSymbol> arguments,
     CSharpCompilation compilation,
     INamedTypeSymbol implicitAttributeType = null,
-    IReadOnlyDictionary<string, ImplicitMixinValue> implicitValues = null
+    IReadOnlyDictionary<string, ImplicitMixinValue> implicitValues = null,
+    IReadOnlyDictionary<string, string> targetDefinitions = null
   ) {
     _thisType = thisType;
     _target = target;
@@ -50,6 +54,7 @@ internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
     _compilation = compilation;
     _implicitAttributeType = implicitAttributeType;
     _implicitValues = implicitValues;
+    _targetDefinitions = targetDefinitions;
   }
 
   public bool TryResolve(
@@ -104,6 +109,73 @@ internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
       if (!TryPredicate(subject, predicate, out var item, out error)) return false;
       value &= predicate.Negated ? !item : item;
     }
+    return true;
+  }
+
+  public bool TryResolveMixin(string target, out string callable, out string error) {
+    error = null;
+    callable = null;
+    var raw = target?.Trim();
+    while (!string.IsNullOrEmpty(raw) && raw[0] is '*' or '^') raw = raw.Substring(1);
+    if (!string.IsNullOrEmpty(raw) && raw[0] == '~') {
+      var delegateType = ResolveType(raw.Substring(1));
+      if (delegateType is { TypeKind: TypeKind.Delegate })
+        callable = delegateType.ToDisplayString(TypeDisplayFormat);
+      return true;
+    }
+    var name = NormalizeMixinTarget(target);
+    if (string.IsNullOrEmpty(name)) return true;
+    var resolvedDelegate = ResolveType(name);
+    if (resolvedDelegate is { TypeKind: TypeKind.Delegate }) {
+      callable = resolvedDelegate.ToDisplayString(TypeDisplayFormat);
+      return true;
+    }
+    var methods = MethodsInHierarchy(_thisType, name).ToArray();
+    if (methods.Length == 1) callable = CallableReference(methods[0]);
+    return true;
+  }
+
+  public bool TryWire(
+    string from,
+    string to,
+    out string arguments,
+    out string error
+  ) {
+    arguments = null;
+    error = null;
+    var fromMethod = ResolveCallable(from);
+    var toMethod = ResolveCallable(to);
+    if (fromMethod is null || toMethod is null) {
+      error = "wire requires two resolvable methods or delegates";
+      return false;
+    }
+    if (!TryWireParameters(fromMethod, toMethod, out arguments)) {
+      error = "method '" + toMethod.Name + "' cannot receive the parameters of '" +
+        fromMethod.Name + "'";
+      return false;
+    }
+    return true;
+  }
+
+  public bool TryHaveSameSignature(
+    string first, string second, out bool value, out string error
+  ) {
+    error = null;
+    var firstMethod = ResolveCallable(first);
+    var secondMethod = ResolveCallable(second);
+    value = firstMethod is not null && secondMethod is not null &&
+      HaveSameSignature(firstMethod, secondMethod);
+    return true;
+  }
+
+  public bool TryWireable(
+    string from, string to, out bool value, out string error
+  ) {
+    error = null;
+    var fromMethod = ResolveCallable(from);
+    var toMethod = ResolveCallable(to);
+    value = fromMethod is not null && toMethod is not null &&
+      TryWireParameters(fromMethod, toMethod, out _);
     return true;
   }
 
@@ -239,6 +311,32 @@ internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
         case "unwrap":
           subject = Unwrap(subject);
           break;
+        case "replace":
+        case "replaceFirst":
+          if (property.Arguments.Count != 2) {
+            error = ":" + property.Name + " requires a regex and replacement";
+            return false;
+          }
+          if (!TryComparableText(subject, out var replaced)) {
+            error = "property ':" + property.Name + "' is not available for this value";
+            return false;
+          }
+          try {
+            subject = property.Name == "replace"
+              ? Regex.Replace(replaced, property.Arguments[0], property.Arguments[1])
+              : new Regex(property.Arguments[0]).Replace(replaced, property.Arguments[1], 1);
+          } catch (ArgumentException exception) {
+            error = "invalid regular expression: " + exception.Message;
+            return false;
+          }
+          break;
+        case "switch":
+          if (property.Arguments.Count != 2) {
+            error = ":switch requires truthy and falsy values";
+            return false;
+          }
+          subject = IsTruthy(subject) ? property.Arguments[0] : property.Arguments[1];
+          break;
         case "path":
           subject = SelectTypeArgument(subject, property.Argument);
           break;
@@ -347,6 +445,32 @@ internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
       case "eq":
         value = EqualTo(subject, property.Argument);
         return true;
+      case "matches":
+        if (property.Arguments.Count != 1) {
+          error = ":?matches requires a regex";
+          return false;
+        }
+        if (!TryComparableText(subject, out var matchText)) {
+          value = false;
+          return true;
+        }
+        try {
+          value = Regex.IsMatch(matchText, property.Argument);
+          return true;
+        } catch (ArgumentException exception) {
+          error = "invalid regular expression: " + exception.Message;
+          return false;
+        }
+      case "signature":
+        var expected = ResolveCallable(property.Argument);
+        var actual = ResolveCallable(subject);
+        value = actual is not null && expected is not null && HaveSameSignature(actual, expected);
+        return true;
+      case "wireable":
+        var from = ResolveCallable(property.Arguments[0]);
+        var to = ResolveCallable(property.Arguments[1]);
+        value = from is not null && to is not null && TryWireParameters(from, to, out _);
+        return true;
       case "isSelf":
         value = type is not null && SymbolEqualityComparer.Default.Equals(type, _thisType);
         return true;
@@ -410,6 +534,96 @@ internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
       error?.StartsWith("unknown value property", StringComparison.Ordinal) == true ||
       error?.StartsWith("unknown boolean pseudo-property", StringComparison.Ordinal) == true ||
       error?.Contains(" requires a ") == true;
+  }
+
+  private IMethodSymbol ResolveCallable(object value) {
+    if (value is IMethodSymbol method) return method;
+    if (value is INamedTypeSymbol { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke })
+      return invoke;
+    if (value is not string text || string.IsNullOrWhiteSpace(text) || text == "null") return null;
+    text = text.Trim();
+    if (text.StartsWith("typeof(", StringComparison.Ordinal) && text.EndsWith(")", StringComparison.Ordinal))
+      text = text.Substring(7, text.Length - 8);
+    if (text.StartsWith("this.", StringComparison.Ordinal)) text = text.Substring(5);
+    var type = ResolveType(text);
+    if (type is { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } delegateInvoke })
+      return delegateInvoke;
+    var separator = text.LastIndexOf('.');
+    var name = separator < 0 ? text : text.Substring(separator + 1);
+    var methods = MethodsInHierarchy(_thisType, name).ToArray();
+    return methods.Length == 1 ? methods[0] : null;
+  }
+
+  private INamedTypeSymbol ResolveType(string name) {
+    var normalized = name.StartsWith("global::", StringComparison.Ordinal)
+      ? name.Substring(8)
+      : name;
+    var direct = _compilation?.GetTypeByMetadataName(normalized);
+    if (direct is not null) return direct;
+    var separator = Math.Max(normalized.LastIndexOf('.'), normalized.LastIndexOf('+'));
+    var simple = separator < 0 ? normalized : normalized.Substring(separator + 1);
+    return _compilation?.GetSymbolsWithName(simple, SymbolFilter.Type)
+      .OfType<INamedTypeSymbol>()
+      .FirstOrDefault(item => item.ToDisplayString() == normalized);
+  }
+
+  private static IEnumerable<IMethodSymbol> MethodsInHierarchy(INamedTypeSymbol type, string name) {
+    for (var current = type; current is not null; current = current.BaseType)
+      foreach (var method in current.GetMembers(name).OfType<IMethodSymbol>())
+        yield return method;
+  }
+
+  private string NormalizeMixinTarget(string target) {
+    if (string.IsNullOrWhiteSpace(target)) return null;
+    var value = target.Trim();
+    while (value.Length != 0 && value[0] is '*' or '^') value = value.Substring(1);
+    if (value.Length == 0) return null;
+    if (_targetDefinitions is not null && _targetDefinitions.TryGetValue(value, out var defined))
+      return NormalizeMixinTarget(defined);
+    if (value[0] == '~') return value.Substring(1);
+    return value switch { "$Init" => "Awake", "$Dispose" => "OnDestroy", _ => value };
+  }
+
+  private static string CallableReference(IMethodSymbol method) {
+    return method.ContainingType.ToDisplayString(TypeDisplayFormat) + "." + method.Name;
+  }
+
+  private static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second) {
+    if (first.RefKind != second.RefKind || first.Parameters.Length != second.Parameters.Length ||
+      first.TypeParameters.Length != second.TypeParameters.Length ||
+      !SymbolEqualityComparer.Default.Equals(first.ReturnType, second.ReturnType)) return false;
+    for (var index = 0; index < first.Parameters.Length; index++) {
+      if (first.Parameters[index].RefKind != second.Parameters[index].RefKind ||
+        !SymbolEqualityComparer.Default.Equals(
+          first.Parameters[index].Type, second.Parameters[index].Type
+        )) return false;
+    }
+    return true;
+  }
+
+  private bool TryWireParameters(
+    IMethodSymbol from,
+    IMethodSymbol to,
+    out string arguments
+  ) {
+    arguments = null;
+    if (to.Parameters.Length > from.Parameters.Length) return false;
+    var result = new string[to.Parameters.Length];
+    for (var index = 0; index < to.Parameters.Length; index++) {
+      var source = from.Parameters[index];
+      var destination = to.Parameters[index];
+      if (source.RefKind != destination.RefKind) return false;
+      if (source.RefKind == RefKind.None) {
+        if (_compilation?.ClassifyConversion(source.Type, destination.Type).IsImplicit != true)
+          return false;
+      } else if (!SymbolEqualityComparer.Default.Equals(source.Type, destination.Type)) return false;
+      var prefix = source.RefKind switch {
+        RefKind.Ref => "ref ", RefKind.In => "in ", RefKind.Out => "out ", _ => ""
+      };
+      result[index] = prefix + EscapeIdentifier(source.Name);
+    }
+    arguments = string.Join(", ", result);
+    return true;
   }
 
   private static bool EqualTo(object subject, string expected) {
@@ -494,7 +708,7 @@ internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
     return property.Name is
       "exists" or "is" or "has" or "eq" or "isSelf" or "ref" or "in" or "out" or "inout" or
       "argument" or "static" or "public" or "exposed" or "top" or "concrete" or
-      "partial" or "generic" or "struct" or "class";
+      "partial" or "generic" or "struct" or "class" or "matches" or "signature" or "wireable";
   }
 
   private static string NameOf(object subject) {

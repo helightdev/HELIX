@@ -656,6 +656,85 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Contains(diagnostics, item => item.GetMessage().Contains("Class: public int Generated;"));
   }
 
+  [Fact]
+  public void MixinExpressionCanDeclareItsOwnDynamicInjectionTargetAndPriority() {
+    const string source = """
+                          using System;
+                          namespace HELIX.Context {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          [HELIX.Context.MixinExpression(
+                            "@VAR<target> $Init\n" +
+                            "@VAR<priority> -10\n" +
+                            "@MIXIN<(@var#target)><(@var#priority)> Before()\n" +
+                            "@MIXIN<$Init><10> After()"
+                          )]
+                          [AttributeUsage(AttributeTargets.Class)] public sealed class MarkAttribute : Attribute { }
+                          [HELIX.Context.EnableMixins, Mark]
+                          public partial class Demo {
+                            private void Before() { }
+                            private void After() { }
+                          }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "SelfDeclaredMixinExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.True(text.IndexOf("Before();", StringComparison.Ordinal) < text.IndexOf("After();", StringComparison.Ordinal));
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
+  public void ExpressionCanResolveCheckAndWireAMixinTarget() {
+    const string source = """
+                          using System;
+                          namespace HELIX.Context {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          [HELIX.Context.MixinExpression(
+                            "@VAR<target> $Init\n" +
+                            "@RESOLVE_MIXIN<Method> @var#target\n" +
+                            "@ASSERT @local#Method:?signature<(@target)>\n" +
+                            "@ASSERT @true:?wireable<(@local#Method)><(@target)>\n" +
+                            "@MIXIN<$Init> @target:name(@local#Method:wire<(@target)>);"
+                          )]
+                          [AttributeUsage(AttributeTargets.Method)] public sealed class HandleAttribute : Attribute { }
+                          [HELIX.Context.EnableMixins]
+                          public partial class Demo {
+                            private partial void Awake(int value);
+                            [Handle] private void Handle(int value) { }
+                          }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "ResolvedMixinWiringTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("Handle(value);", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
   private static ImmutableArray<MetadataReference> PlatformReferences { get; } =
     ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
     .Split(Path.PathSeparator)

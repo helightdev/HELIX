@@ -105,7 +105,7 @@ public sealed partial class MixinGenerator {
     internal IReadOnlyList<ITypeSymbol> GenericArguments { get; private set; }
     internal MixinExpressionResult ExpressionResult { get; private set; }
     internal int PositionalCount { get; }
-    private IReadOnlyDictionary<string, string> TargetDefinitions { get; }
+    internal IReadOnlyDictionary<string, string> TargetDefinitions { get; }
 
     internal MixinContribution WithMethod(
       IMethodSymbol method,

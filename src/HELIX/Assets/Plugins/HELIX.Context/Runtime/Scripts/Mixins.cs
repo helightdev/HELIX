@@ -11,6 +11,38 @@ namespace HELIX.Context {
   }
 
   [AttributeUsage(AttributeTargets.Method)]
+  [MixinExpression(@"
+@LOCAL<Name> @attr#target:unwrap
+@LOCAL<Location>
+
+@SCOPE
+  @MATCH @local#Name:eq<null>
+  @ASSERT @target:name:matches<^On.*>
+  @LOCAL<IsImplicit> true
+  @Local<Name> $@target:name:replaceFirst<^On><>
+@END
+
+@SCOPE
+  @MATCH @arg#0:!?exists
+  @MIXIN<(@local#Name)><(@attr#order)> @target:name();
+  @RETURN
+@END
+
+@RESOLVE_MIXIN<Delegate> @local#Name
+@ASSERT @local#Delegate:!?eq<null>
+@MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);
+")]
+  public class MixinCallbackAttribute : Attribute {
+    public readonly string target;
+    public readonly int order;
+    public MixinCallbackAttribute(string target = null, int order = 0) {
+      this.target = target;
+      this.order = order;
+    }
+  }
+
+
+  [AttributeUsage(AttributeTargets.Method)]
   public class MixinMethodAttribute : Attribute {
     public readonly string target;
     public readonly int order;

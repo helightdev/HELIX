@@ -12,6 +12,82 @@ public sealed class MixinExpressionInterpreterTests {
   private readonly MixinExpressionInterpreter _interpreter = new();
 
   [Fact]
+  public void MixinSupportsConstantAndDynamicTargetsWithPriorities() {
+    var variables = new Dictionary<string, string> {
+      ["destination"] = "$Dispose",
+      ["priority"] = "12"
+    };
+    var result = _interpreter.Execute(
+      "@MIXIN<$Init> First()\n@MIXIN<(@var#destination)><(@var#priority)> Second()",
+      new StubContext(), variables
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Collection(
+      result.Outputs,
+      output => {
+        Assert.Equal(MixinExpressionOutputTarget.Mixin, output.Target);
+        Assert.Equal("$Init", output.InjectionTarget);
+        Assert.Equal(0, output.InjectionPriority);
+        Assert.Equal("First()", output.Text);
+      },
+      output => {
+        Assert.Equal(MixinExpressionOutputTarget.Mixin, output.Target);
+        Assert.Equal("$Dispose", output.InjectionTarget);
+        Assert.Equal(12, output.InjectionPriority);
+        Assert.Equal("Second()", output.Text);
+      }
+    );
+  }
+
+  [Fact]
+  public void ValueFunctionsSupportMultipleAndDynamicArguments() {
+    var result = _interpreter.Execute(
+      """
+      @VAR<text> alpha-alpha
+      @VAR<replacement> omega
+      @CODE @var#text:replaceFirst<alpha><(@var#replacement)>
+      @CODE @true:switch<yes><no>
+      @CODE @false:eq<(@true)>
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(
+      new[] { "omega-alpha", "yes", "false" },
+      result.Outputs.Select(item => item.Text)
+    );
+  }
+
+  [Fact]
+  public void RegexAndLogicalBooleanFunctionsCanBeUsedAsValuesOrConditions() {
+    var result = _interpreter.Execute(
+      """
+      @VAR<text> Event42
+      @ASSERT @var#text:?matches<^Event[0-9]+$>
+      @ASSERT @false:or<(@true)>
+      @CODE @var#text:matches<^Event>
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("true", Assert.Single(result.Outputs).Text);
+  }
+
+  [Theory]
+  [InlineData("@CODE @true:switch<only-one>", ":switch requires 2 arguments")]
+  [InlineData("@ASSERT @true:and<@false>", "dynamic boolean expressions")]
+  [InlineData("@CODE @true:eq<true>:unwrap", "must be terminal")]
+  public void FunctionGrammarRejectsAmbiguousOrInvalidCalls(string expression, string expected) {
+    var validation = _interpreter.ValidateSyntax(expression);
+
+    Assert.False(validation.Success);
+    Assert.Contains(expected, validation.Error);
+  }
+
+  [Fact]
   public void InterpolatesReferencesAndStoredValues() {
     var variables = new Dictionary<string, string>();
     var result = _interpreter.Execute(

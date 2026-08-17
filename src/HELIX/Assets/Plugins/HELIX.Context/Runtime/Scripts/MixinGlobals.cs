@@ -22,6 +22,14 @@ using HELIX.Context;
 "
 )]
 
+// MixinCallback method implementation
+[assembly: MixinPrepareGlobal(
+  @"
+
+
+"
+)]
+
 // Base implementation for the [Inject] attribute
 [assembly: MixinPrepareGlobal(
   @"

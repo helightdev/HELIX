@@ -4,7 +4,6 @@ using Cysharp.Threading.Tasks;
 using HELIX.Widgets.Prompts.Kenny;
 using Sirenix.OdinInspector;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace HELIX.Context {
   [Mixin] public interface IExampleMixin : IMixin {
@@ -59,10 +58,15 @@ namespace HELIX.Context {
     [Inject(Source.Resources), ShowInInspector]
     public List<KennyPromptSvgCollection> svgCollections;
 
-    [MixinMethod]
+    [MixinCallback]
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
       myResource2 = new LoggingDisposable(); //31
+    }
+
+    [MixinCallback(MixinOn.RegistrationConfiguratorDelegate)]
+    private static void OnConfigureSelf(RegistrationEntry entry) {
+
     }
 
     [EventHandler]
@@ -73,6 +77,7 @@ namespace HELIX.Context {
 
     [MixinMethod(MixinOn.ComponentLoad)]
     private void OnComponentLoad() { }
+
   }
 
   [Service(typeof(SceneScope))]

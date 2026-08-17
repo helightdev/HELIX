@@ -422,7 +422,7 @@ public sealed partial class MixinGenerator {
       : Array.Empty<IParameterSymbol>();
     var expressionContext = new RoslynMixinExpressionContext(
       target, annotated, applied, arguments, compilation, implicitAttribute?.Type,
-      implicitAttribute?.Values
+      implicitAttribute?.Values, targetDefinitions
     );
     var evaluated = new MixinExpressionInterpreter().Execute(
       expression, expressionContext, expressionVariables, preparedExpressions
@@ -438,6 +438,17 @@ public sealed partial class MixinGenerator {
 
     // Validate every destination before publishing any output from this expression.
     foreach (var output in evaluated.Outputs) {
+      if (output.Target == MixinExpressionOutputTarget.Mixin) {
+        var emitted = EmittedTarget(output.InjectionTarget, targetDefinitions);
+        if (!IsValidIdentifier(emitted)) {
+          ReportInvalidAttributeExpression(
+            context, location, attributeName, annotated.Name,
+            "mixin target '" + (output.InjectionTarget ?? "") + "' is not a valid mixin target"
+          );
+          return;
+        }
+        continue;
+      }
       if (output.Target is MixinExpressionOutputTarget.Class or
         MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements or
         MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using) continue;
@@ -463,6 +474,21 @@ public sealed partial class MixinGenerator {
     List<AttributeExpressionTarget> activated = null;
     foreach (var output in evaluated.Outputs) {
       if (string.IsNullOrEmpty(output.Text)) continue;
+      if (output.Target == MixinExpressionOutputTarget.Mixin) {
+        var result = new MixinExpressionResult(
+          true, null, 0, new[] {
+            new MixinExpressionOutput(MixinExpressionOutputTarget.Target, output.Text)
+          }
+        );
+        contributions.Add(
+          new MixinContribution(
+            null, output.InjectionTarget, output.InjectionPriority, null,
+            contributionKind, sequence++, annotated, applied,
+            Array.Empty<MixinParameter>(), targetDefinitions
+          ).WithImplicitAttribute(implicitAttribute).WithExpressionResult(result)
+        );
+        continue;
+      }
       if (output.Target is MixinExpressionOutputTarget.Class or
         MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements or
         MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using) {
@@ -653,7 +679,8 @@ public sealed partial class MixinGenerator {
         : target;
       var expressionContext = new RoslynMixinExpressionContext(
         target, expressionTarget, candidate.AppliedAttribute, arguments, compilation,
-        candidate.ImplicitAttribute?.Type, candidate.ImplicitAttribute?.Values
+        candidate.ImplicitAttribute?.Type, candidate.ImplicitAttribute?.Values,
+        candidate.TargetDefinitions
       );
       var expressionResult = new MixinExpressionInterpreter().Execute(
         candidate.Expression, expressionContext, expressionVariables, preparedExpressions
