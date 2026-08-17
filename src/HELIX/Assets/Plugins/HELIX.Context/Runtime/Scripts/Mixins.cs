@@ -1,7 +1,7 @@
 using System;
 
 namespace HELIX.Context {
-  [AttributeUsage(AttributeTargets.Assembly)]
+  [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
   public class MixinPrepareGlobalAttribute : Attribute {
     public readonly string content;
 

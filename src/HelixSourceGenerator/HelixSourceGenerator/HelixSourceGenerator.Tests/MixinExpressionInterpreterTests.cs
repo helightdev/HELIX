@@ -171,6 +171,98 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void PreparedStateIsReusableAndGlobalInitializersAreNotReevaluated() {
+    var prepared = _interpreter.PrepareGlobals(new[] {
+      "@VAR<prefix> prepared\n" +
+      "@FUNC<emit>\n" +
+      "@CODE @var#prefix @this:name\n" +
+      "@END"
+    });
+    var firstVariables = new Dictionary<string, string>();
+    var first = _interpreter.Execute(
+      "@CALL<emit>\n@VAR<prefix> changed", new StubContext(), firstVariables, prepared
+    );
+    var second = _interpreter.Execute(
+      "@CALL<emit>", new StubContext(), new Dictionary<string, string>(), prepared
+    );
+
+    Assert.True(first.Success, first.Error);
+    Assert.True(second.Success, second.Error);
+    Assert.Equal("prepared Demo", Assert.Single(first.Outputs).Text);
+    Assert.Equal("prepared Demo", Assert.Single(second.Outputs).Text);
+    Assert.Equal("changed", firstVariables["prefix"]);
+  }
+
+  [Fact]
+  public void PreparedInitializersCannotCaptureRuntimeContext() {
+    var error = Assert.Throws<ArgumentException>(() =>
+      _interpreter.PrepareGlobals(new[] { "@VAR<invalid> @target:name" })
+    );
+
+    Assert.Contains("only reference an existing @var", error.Message);
+  }
+
+  [Fact]
+  public void RuntimeProgramAstIsBuiltOnlyAsExecutionReachesIt() {
+    var result = _interpreter.Execute(
+      "@CODE reached\n@RETURN\n@UNKNOWN never-parsed", new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("reached", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void PreparedStaticLogsAreCapturedOnceAndNotReplayed() {
+    var prepared = _interpreter.PrepareGlobals(new[] {
+      "@VAR<name> global\n@LOG prepared @var#name"
+    });
+
+    var first = _interpreter.Execute("@CODE first", new StubContext(), null, prepared);
+    var second = _interpreter.Execute("@CODE second", new StubContext(), null, prepared);
+
+    Assert.Equal("prepared global", Assert.Single(prepared.Logs).Text);
+    Assert.Equal(2, prepared.ExecutedOperations);
+    Assert.Empty(first.Logs);
+    Assert.Empty(second.Logs);
+  }
+
+  [Fact]
+  public void PreparedDumpsRunOnceAndStateDumpsExposeOperationCounters() {
+    var prepared = _interpreter.PrepareGlobals(new[] {
+      "@VAR<name> global\n@DUMP<STATE>\n@DUMP<AST>"
+    });
+
+    var result = _interpreter.Execute("@DUMP<STATE>", new StubContext(), null, prepared);
+
+    Assert.Equal(3, prepared.ExecutedOperations);
+    Assert.Equal(2, prepared.Logs.Count);
+    Assert.Contains("operations=3", prepared.Logs[0].Text);
+    Assert.Contains("preparedOperations=3", prepared.Logs[0].Text);
+    var runtimeState = Assert.Single(result.Logs).Text;
+    Assert.Contains("operations=1", runtimeState);
+    Assert.Contains("preparedOperations=3", runtimeState);
+  }
+
+  [Fact]
+  public void DumpAstIncludesPreparedAndCurrentlyAvailableLocalNodes() {
+    var prepared = _interpreter.PrepareGlobals(new[] { "@VAR<name> global" });
+    var result = _interpreter.Execute(
+      "@CODE first\n@DUMP<AST>\n@RETURN\n@CODE unreachable",
+      new StubContext(), null, prepared
+    );
+
+    Assert.True(result.Success, result.Error);
+    var dump = Assert.Single(result.Logs).Text;
+    Assert.Contains("AST GLOBAL", dump);
+    Assert.Contains("@VAR<name> global", dump);
+    Assert.Contains("AST LOCAL", dump);
+    Assert.Contains("@DUMP<AST>", dump);
+    Assert.DoesNotContain("unreachable", dump);
+    Assert.DoesNotContain("\n", dump);
+  }
+
+  [Fact]
   public void FunctionScopesAndFunctionEndAreBalanced() {
     var result = _interpreter.Execute("""
       @FUNC<select>
@@ -226,7 +318,7 @@ public sealed class MixinExpressionInterpreterTests {
     var result = _interpreter.ValidateSyntax("@DUMP<UNKNOWN>");
 
     Assert.False(result.Success);
-    Assert.Contains("STATE or BUFFER", result.Error);
+    Assert.Contains("STATE, BUFFER or AST", result.Error);
   }
 
   [Fact]

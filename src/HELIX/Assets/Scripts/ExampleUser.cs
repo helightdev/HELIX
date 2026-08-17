@@ -56,7 +56,7 @@ namespace HELIX.Context {
     [MixinMethod]
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
-      myResource2 = new LoggingDisposable(); //29
+      myResource2 = new LoggingDisposable(); //30
     }
 
     [EventHandler]

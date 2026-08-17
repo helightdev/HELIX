@@ -40,6 +40,18 @@ namespace HELIX.SourceGen.Expressions {
     public int Line { get; }
   }
 
+  public sealed class MixinExpressionPreparedLog {
+    internal MixinExpressionPreparedLog(string text, int line, int programIndex) {
+      Text = text ?? "";
+      Line = line;
+      ProgramIndex = programIndex;
+    }
+
+    public string Text { get; }
+    public int Line { get; }
+    public int ProgramIndex { get; }
+  }
+
   public sealed class MixinExpressionProperty {
     public MixinExpressionProperty(string name, string argument = null, bool negated = false) {
       Name = name ?? throw new ArgumentNullException(nameof(name));
@@ -118,11 +130,360 @@ namespace HELIX.SourceGen.Expressions {
   }
 
   /// <summary>
+  /// Immutable, context-free result of compiling and evaluating prepared mixins.  The generator
+  /// may safely retain this object in an incremental value and share it between target runs.
+  /// </summary>
+  public sealed class MixinExpressionPreparedState {
+    internal MixinExpressionPreparedState(
+      IReadOnlyList<MixinExpressionInterpreter.Program> programs,
+      IReadOnlyDictionary<string, string> variables,
+      IReadOnlyList<MixinExpressionInterpreter.Instruction> instructions,
+      IReadOnlyDictionary<string, int> labels,
+      IReadOnlyDictionary<string, MixinExpressionInterpreter.FunctionDefinition> functions,
+      IReadOnlyDictionary<int, int> functionStarts,
+      ISet<int> functionEnds,
+      ISet<int> initializers,
+      IReadOnlyList<MixinExpressionPreparedLog> logs,
+      int executedOperations
+    ) {
+      Programs = programs;
+      Variables = variables;
+      Instructions = instructions;
+      Labels = labels;
+      Functions = functions;
+      FunctionStarts = functionStarts;
+      FunctionEnds = functionEnds;
+      Initializers = initializers;
+      Logs = logs;
+      ExecutedOperations = executedOperations;
+    }
+
+    internal IReadOnlyList<MixinExpressionInterpreter.Program> Programs { get; }
+    internal IReadOnlyDictionary<string, string> Variables { get; }
+    internal IReadOnlyList<MixinExpressionInterpreter.Instruction> Instructions { get; }
+    internal IReadOnlyDictionary<string, int> Labels { get; }
+    internal IReadOnlyDictionary<string, MixinExpressionInterpreter.FunctionDefinition> Functions { get; }
+    internal IReadOnlyDictionary<int, int> FunctionStarts { get; }
+    internal ISet<int> FunctionEnds { get; }
+    internal ISet<int> Initializers { get; }
+    public IReadOnlyList<MixinExpressionPreparedLog> Logs { get; }
+    public int ExecutedOperations { get; }
+  }
+
+  /// <summary>
   /// Parses and executes the line-oriented mixin expression language. The interpreter is
   /// independent of Roslyn; callers provide symbol/value semantics through
   /// <see cref="IMixinExpressionContext"/>.
   /// </summary>
   public sealed class MixinExpressionInterpreter {
+    internal sealed class Program {
+      private readonly string[] _lines;
+      private readonly Instruction[] _instructions;
+
+      internal Program(string expression, bool eager) {
+        _lines = SplitLines(expression ?? "");
+        _instructions = new Instruction[_lines.Length];
+        if (eager) {
+          for (var i = 0; i < _lines.Length; i++) Get(i);
+        }
+      }
+
+      internal int Count => _lines.Length;
+      internal Instruction Get(int index) =>
+        _instructions[index] ?? (_instructions[index] = Instruction.Parse(_lines[index], index + 1));
+      internal IEnumerable<Instruction> AvailableInstructions() =>
+        _instructions.Where(instruction => instruction is not null);
+    }
+
+    private sealed class InstructionSequence : IReadOnlyList<Instruction> {
+      private readonly IReadOnlyList<Instruction> _prefix;
+      private readonly Program _tail;
+
+      internal InstructionSequence(IReadOnlyList<Instruction> prefix, Program tail) {
+        _prefix = prefix;
+        _tail = tail;
+      }
+
+      public int Count => _prefix.Count + _tail.Count;
+      public Instruction this[int index] => index < _prefix.Count
+        ? _prefix[index]
+        : _tail.Get(index - _prefix.Count);
+      public IEnumerator<Instruction> GetEnumerator() {
+        for (var index = 0; index < Count; index++) yield return this[index];
+      }
+      System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    internal sealed class Instruction {
+      private Instruction(
+        int line, string command, string argument, string operand, string error
+      ) {
+        Line = line;
+        Command = command;
+        Argument = argument;
+        Operand = operand;
+        Error = error;
+        if (error is null && command is ("MATCH" or "ASSERT")) {
+          BooleanExpression = ParseBooleanExpression(operand);
+        }
+        if (error is null && command is ("CODE" or "USING" or "LOG" or "LOCAL" or "VAR")) {
+          StringExpression = ParseStringExpression(operand);
+        }
+      }
+
+      internal int Line { get; }
+      internal string Command { get; }
+      internal string Argument { get; }
+      internal string Operand { get; }
+      internal string Error { get; }
+      internal IReadOnlyList<MixinExpressionReference> BooleanExpression { get; }
+      internal IReadOnlyList<StringPart> StringExpression { get; }
+
+      internal static Instruction Parse(string text, int line) {
+        if (string.IsNullOrWhiteSpace(text)) return new Instruction(line, "", null, "", null);
+        if (!TryDirective(text, out var command, out var argument, out var operand)) {
+          return new Instruction(line, null, null, null, "expected an expression directive");
+        }
+        if (!IsKnownDirective(command)) {
+          return new Instruction(line, command, argument, operand, "unknown directive '@" + command + "'");
+        }
+        return ValidateDirectiveSyntax(command, argument, operand, out var error)
+          ? new Instruction(line, command, argument, operand, null)
+          : new Instruction(line, command, argument, operand, error);
+      }
+    }
+
+    internal sealed class StringPart {
+      internal StringPart(string literal, MixinExpressionReference reference) {
+        Literal = literal;
+        Reference = reference;
+      }
+
+      internal string Literal { get; }
+      internal MixinExpressionReference Reference { get; }
+    }
+
+    private static IReadOnlyList<MixinExpressionReference> ParseBooleanExpression(string text) {
+      var result = new List<MixinExpressionReference>();
+      var position = 0;
+      while (position < text.Length) {
+        while (position < text.Length && char.IsWhiteSpace(text[position])) position++;
+        if (position == text.Length) break;
+        TryReadReference(text, ref position, out var reference, out _);
+        result.Add(reference);
+      }
+      return result.AsReadOnly();
+    }
+
+    private static IReadOnlyList<StringPart> ParseStringExpression(string text) {
+      var result = new List<StringPart>();
+      var literal = new StringBuilder();
+      var position = 0;
+      while (position < text.Length) {
+        if (text[position] != '@') { literal.Append(text[position++]); continue; }
+        if (position + 1 < text.Length && text[position + 1] == '@') {
+          literal.Append('@'); position += 2; continue;
+        }
+        if (literal.Length != 0) {
+          result.Add(new StringPart(literal.ToString(), null));
+          literal.Clear();
+        }
+        TryReadReference(text, ref position, out var reference, out _);
+        result.Add(new StringPart(null, reference));
+      }
+      if (literal.Length != 0 || result.Count == 0) result.Add(new StringPart(literal.ToString(), null));
+      return result.AsReadOnly();
+    }
+
+    /// <summary>Fully parses and context-independently evaluates prepared global programs.</summary>
+    public MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
+      var programs = new List<Program>();
+      var variables = new Dictionary<string, string>(StringComparer.Ordinal);
+      var logs = new List<MixinExpressionPreparedLog>();
+      var programIndex = 0;
+      var executedOperations = 0;
+      foreach (var expression in expressions ?? Array.Empty<string>()) {
+        var validation = ValidateSyntax(expression);
+        if (!validation.Success) throw new ArgumentException(
+          "invalid prepared expression at line " + validation.ErrorLine + ": " + validation.Error,
+          nameof(expressions)
+        );
+        var program = new Program(expression, true);
+        programs.Add(program);
+        if (!TryEvaluatePreparedInitializers(
+              program, programIndex, variables, logs, ref executedOperations,
+              out var error, out var line
+            )) {
+          throw new ArgumentException(
+            "invalid prepared expression at line " + line + ": " + error, nameof(expressions)
+          );
+        }
+        programIndex++;
+      }
+      var instructions = programs.SelectMany(program =>
+        Enumerable.Range(0, program.Count).Select(program.Get)
+      ).ToArray();
+      var labels = new Dictionary<string, int>(StringComparer.Ordinal);
+      var functions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+      var functionStarts = new Dictionary<int, int>();
+      var functionEnds = new HashSet<int>();
+      if (!TryIndexSymbols(
+            instructions, 0, labels, functions, functionStarts, functionEnds,
+            out var symbolError, out var symbolLine
+          )) throw new ArgumentException(
+        "invalid prepared expression at line " + symbolLine + ": " + symbolError,
+        nameof(expressions)
+      );
+      var initializers = FindPreparedInitializers(instructions);
+      CollectPreparedDumps(programs, instructions, variables, logs, executedOperations);
+      return new MixinExpressionPreparedState(
+        programs.AsReadOnly(),
+        new Dictionary<string, string>(variables, StringComparer.Ordinal),
+        instructions,
+        new Dictionary<string, int>(labels, StringComparer.Ordinal),
+        new Dictionary<string, FunctionDefinition>(functions, StringComparer.Ordinal),
+        new Dictionary<int, int>(functionStarts),
+        new HashSet<int>(functionEnds),
+        initializers,
+        logs.AsReadOnly(),
+        executedOperations
+      );
+    }
+
+    private static ISet<int> FindPreparedInitializers(IReadOnlyList<Instruction> instructions) {
+      var result = new HashSet<int>();
+      var depth = 0;
+      var scope = false;
+      for (var index = 0; index < instructions.Count; index++) {
+        var instruction = instructions[index];
+        if (instruction.Command == "FUNC") { depth++; scope = false; continue; }
+        if (depth != 0) {
+          if (instruction.Command == "SCOPE") scope = true;
+          else if (instruction.Command == "END") { if (scope) scope = false; else depth--; }
+          continue;
+        }
+        if (instruction.Command is "VAR" or "LOG" or "DUMP") result.Add(index);
+      }
+      return result;
+    }
+
+    private static bool TryEvaluatePreparedInitializers(
+      Program program,
+      int programIndex,
+      IDictionary<string, string> variables,
+      ICollection<MixinExpressionPreparedLog> logs,
+      ref int executedOperations,
+      out string error,
+      out int line
+    ) {
+      error = null;
+      line = 0;
+      var functionDepth = 0;
+      var functionScope = false;
+      for (var i = 0; i < program.Count; i++) {
+        var instruction = program.Get(i);
+        if (instruction.Error is not null) { error = instruction.Error; line = instruction.Line; return false; }
+        if (instruction.Command == "FUNC") { functionDepth++; functionScope = false; continue; }
+        if (functionDepth != 0) {
+          if (instruction.Command == "SCOPE") functionScope = true;
+          else if (instruction.Command == "END") {
+            if (functionScope) functionScope = false;
+            else functionDepth--;
+          }
+          continue;
+        }
+        if (instruction.Command == "VAR") {
+          executedOperations++;
+          if (!TryInterpolatePrepared(instruction.StringExpression, variables, out var value, out error)) {
+            line = instruction.Line;
+            return false;
+          }
+          variables[instruction.Argument] = value;
+        }
+        else if (instruction.Command == "LOG") {
+          executedOperations++;
+          if (!TryInterpolatePrepared(instruction.StringExpression, variables, out var value, out error)) {
+            line = instruction.Line;
+            return false;
+          }
+          logs.Add(new MixinExpressionPreparedLog(value, instruction.Line, programIndex));
+        }
+        else if (instruction.Command == "DUMP") executedOperations++;
+      }
+      return true;
+    }
+
+    private static bool TryInterpolatePrepared(
+      IReadOnlyList<StringPart> expression,
+      IDictionary<string, string> variables,
+      out string result,
+      out string error
+    ) {
+      var builder = new StringBuilder();
+      error = null;
+      foreach (var part in expression) {
+        if (part.Reference is null) { builder.Append(part.Literal); continue; }
+        var reference = part.Reference;
+        if (reference.Root != "var" || string.IsNullOrEmpty(reference.Member) ||
+            !variables.TryGetValue(reference.Member, out var value)) {
+          result = null;
+          error = "prepared global initializers may only reference an existing @var value";
+          return false;
+        }
+        if (reference.Properties.Count != 0) {
+          result = null; error = "prepared global initializer references cannot have properties"; return false;
+        }
+        builder.Append(value);
+      }
+      result = builder.ToString();
+      return true;
+    }
+
+    private static void CollectPreparedDumps(
+      IReadOnlyList<Program> programs,
+      IReadOnlyList<Instruction> globalInstructions,
+      IReadOnlyDictionary<string, string> variables,
+      ICollection<MixinExpressionPreparedLog> logs,
+      int executedOperations
+    ) {
+      for (var programIndex = 0; programIndex < programs.Count; programIndex++) {
+        var program = programs[programIndex];
+        var functionDepth = 0;
+        var functionScope = false;
+        for (var index = 0; index < program.Count; index++) {
+          var instruction = program.Get(index);
+          if (instruction.Command == "FUNC") { functionDepth++; functionScope = false; continue; }
+          if (functionDepth != 0) {
+            if (instruction.Command == "SCOPE") functionScope = true;
+            else if (instruction.Command == "END") {
+              if (functionScope) functionScope = false;
+              else functionDepth--;
+            }
+            continue;
+          }
+          if (instruction.Command != "DUMP") continue;
+          string text;
+          switch ((instruction.Argument ?? "").ToUpperInvariant()) {
+            case "STATE":
+              text = DumpState(
+                instruction.Line, index + 1, 0,
+                new Dictionary<string, string>(), variables,
+                executedOperations, executedOperations
+              );
+              break;
+            case "BUFFER":
+              text = DumpBuffer(Array.Empty<MixinExpressionOutput>());
+              break;
+            case "AST":
+              text = DumpAst(globalInstructions, null);
+              break;
+            default:
+              continue;
+          }
+          logs.Add(new MixinExpressionPreparedLog(text, instruction.Line, programIndex));
+        }
+      }
+    }
     public MixinExpressionValidationResult ValidateSyntax(string expression) {
       if (expression is null) return ValidationFailure("the expression is null", 0);
       var lines = SplitLines(expression);
@@ -170,82 +531,74 @@ namespace HELIX.SourceGen.Expressions {
       string expression,
       IMixinExpressionContext context,
       IDictionary<string, string> variables = null
-    ) => Execute(expression, context, variables, null);
+    ) => Execute(expression, context, variables, (MixinExpressionPreparedState)null);
 
     public MixinExpressionResult Execute(
       string expression,
       IMixinExpressionContext context,
       IDictionary<string, string> variables,
       IEnumerable<string> preparedExpressions
+    ) => Execute(
+      expression,
+      context,
+      variables,
+      PrepareGlobals(preparedExpressions ?? Array.Empty<string>())
+    );
+
+    public MixinExpressionResult Execute(
+      string expression,
+      IMixinExpressionContext context,
+      IDictionary<string, string> variables,
+      MixinExpressionPreparedState preparedState
     ) {
       if (context is null) throw new ArgumentNullException(nameof(context));
       if (expression is null) return Failure("the expression is null", 0);
 
-      var lines = new List<string>();
-      if (preparedExpressions is not null) {
-        foreach (var prepared in preparedExpressions) {
-          if (prepared is null) continue;
-          lines.AddRange(SplitLines(prepared));
-        }
-      }
-      lines.AddRange(SplitLines(expression));
-      var labels = new Dictionary<string, int>(StringComparer.Ordinal);
-      var functions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
-      var functionStarts = new Dictionary<int, int>();
-      var functionEnds = new HashSet<int>();
-      string activeFunction = null;
-      var functionStart = -1;
-      var functionScopeOpen = false;
-      for (var index = 0; index < lines.Count; index++) {
-        if (!TryDirective(lines[index], out var command, out var argument, out _)) continue;
-        if (activeFunction is not null) {
-          if (command == "FUNC") return Failure("functions may not be nested", index + 1);
-          if (command == "SCOPE") functionScopeOpen = true;
-          if (command != "END") {
-            AddScopeLabel(command, argument, index, labels, out var labelError);
-            if (labelError is not null) return Failure(labelError, index + 1);
-            continue;
-          }
-          if (functionScopeOpen) {
-            functionScopeOpen = false;
-            continue;
-          }
-          var definition = new FunctionDefinition(functionStart + 1, index);
-          functions.Add(activeFunction, definition);
-          functionStarts.Add(functionStart, index);
-          functionEnds.Add(index);
-          activeFunction = null;
-          functionStart = -1;
-          continue;
-        }
-        if (command == "FUNC") {
-          if (string.IsNullOrEmpty(argument)) return Failure("FUNC requires a name", index + 1);
-          if (functions.ContainsKey(argument)) {
-            return Failure("duplicate function '" + argument + "'", index + 1);
-          }
-          activeFunction = argument;
-          functionStart = index;
-          functionScopeOpen = false;
-          continue;
-        }
-        AddScopeLabel(command, argument, index, labels, out var error);
-        if (error is not null) return Failure(error, index + 1);
-      }
-      if (activeFunction is not null) return Failure("unterminated function '" + activeFunction + "'", functionStart + 1);
-
+      var preparedLines = preparedState?.Instructions ?? Array.Empty<Instruction>();
+      var preparedInitializers = preparedState?.Initializers ?? new HashSet<int>();
+      // Attribute expressions are deliberately lazy: their instruction AST nodes are created
+      // only when this execution's control-flow scan or program counter reaches the line.
+      var localProgram = new Program(expression, false);
+      var preparedCount = preparedLines.Count;
+      IReadOnlyList<Instruction> lines = new InstructionSequence(preparedLines, localProgram);
+      var labels = preparedState is null
+        ? new Dictionary<string, int>(StringComparer.Ordinal)
+        : preparedState.Labels.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+      var functions = preparedState is null
+        ? new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal)
+        : preparedState.Functions.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+      var functionStarts = preparedState is null
+        ? new Dictionary<int, int>()
+        : preparedState.FunctionStarts.ToDictionary(item => item.Key, item => item.Value);
+      var functionEnds = preparedState is null
+        ? new HashSet<int>()
+        : new HashSet<int>(preparedState.FunctionEnds);
       var locals = new Dictionary<string, string>(StringComparer.Ordinal);
-      var pendingVariables = variables is null
-        ? new Dictionary<string, string>(StringComparer.Ordinal)
-        : new Dictionary<string, string>(variables, StringComparer.Ordinal);
+      var pendingVariables = new Dictionary<string, string>(StringComparer.Ordinal);
+      if (preparedState is not null) {
+        foreach (var item in preparedState.Variables) pendingVariables[item.Key] = item.Value;
+      }
+      if (variables is not null) {
+        foreach (var item in variables) pendingVariables[item.Key] = item.Value;
+      }
       var outputs = new List<MixinExpressionOutput>();
       var logs = new List<MixinExpressionLog>();
       var pc = 0;
       var steps = 0;
+      var executedOperations = 0;
       var maximumSteps = Math.Max(1024, lines.Count * 64);
       var calls = new Stack<int>();
+      var localSymbolsIndexed = false;
       while (pc < lines.Count) {
         if (++steps > maximumSteps) {
           return Failure("execution limit exceeded (possible GOTO loop)", pc + 1, logs);
+        }
+        if (pc >= preparedCount && !localSymbolsIndexed && lines[pc].Command == "FUNC") {
+          if (!TryIndexSymbols(
+                lines, preparedCount, labels, functions, functionStarts, functionEnds, out var symbolError,
+                out var symbolLine
+              )) return Failure(symbolError, symbolLine, logs);
+          localSymbolsIndexed = true;
         }
         if (functionStarts.TryGetValue(pc, out var functionEnd)) {
           pc = functionEnd + 1;
@@ -253,11 +606,14 @@ namespace HELIX.SourceGen.Expressions {
         }
         var lineNumber = pc + 1;
         var instruction = pc;
-        var line = lines[pc++];
-        if (string.IsNullOrWhiteSpace(line)) continue;
-        if (!TryDirective(line, out var command, out var argument, out var operand)) {
-          return Failure("expected an expression directive", lineNumber, logs);
-        }
+        var parsed = lines[pc++];
+        if (parsed.Error is not null) return Failure(parsed.Error, lineNumber, logs);
+        var command = parsed.Command;
+        var argument = parsed.Argument;
+        var operand = parsed.Operand;
+        if (string.IsNullOrEmpty(command)) continue;
+        if (preparedInitializers.Contains(instruction)) continue;
+        executedOperations++;
 
         switch (command) {
           case "SCOPE":
@@ -268,7 +624,7 @@ namespace HELIX.SourceGen.Expressions {
             if (functionEnds.Contains(instruction) && calls.Count != 0) pc = calls.Pop();
             break;
           case "MATCH":
-            if (!TryEvaluateAll(operand, context, locals, pendingVariables, out var matched, out var matchError)) {
+            if (!TryEvaluateAll(parsed.BooleanExpression, context, locals, pendingVariables, out var matched, out var matchError)) {
               return Failure(matchError, lineNumber, logs);
             }
             if (!matched) {
@@ -280,27 +636,27 @@ namespace HELIX.SourceGen.Expressions {
             }
             break;
           case "ASSERT":
-            if (!TryEvaluateAll(operand, context, locals, pendingVariables, out var asserted, out var assertError)) {
+            if (!TryEvaluateAll(parsed.BooleanExpression, context, locals, pendingVariables, out var asserted, out var assertError)) {
               return Failure(assertError, lineNumber, logs);
             }
             if (!asserted) return Failure("assertion failed", lineNumber, logs);
             break;
           case "CODE":
-            if (!TryInterpolate(operand, context, locals, pendingVariables, out var code, out var codeError)) {
+            if (!TryInterpolate(parsed.StringExpression, context, locals, pendingVariables, out var code, out var codeError)) {
               return Failure(codeError, lineNumber, logs);
             }
             TryOutputTarget(argument, out var outputTarget, out var injectionTarget);
             outputs.Add(new MixinExpressionOutput(outputTarget, code, injectionTarget));
             break;
           case "USING":
-            if (!TryInterpolate(operand, context, locals, pendingVariables, out var usingDirective,
+            if (!TryInterpolate(parsed.StringExpression, context, locals, pendingVariables, out var usingDirective,
                   out var usingError)) {
               return Failure(usingError, lineNumber, logs);
             }
             outputs.Add(new MixinExpressionOutput(MixinExpressionOutputTarget.Using, usingDirective));
             break;
           case "LOG":
-            if (!TryInterpolate(operand, context, locals, pendingVariables, out var log,
+            if (!TryInterpolate(parsed.StringExpression, context, locals, pendingVariables, out var log,
                   out var logError)) {
               return Failure(logError, lineNumber, logs);
             }
@@ -310,14 +666,22 @@ namespace HELIX.SourceGen.Expressions {
             switch ((argument ?? "").ToUpperInvariant()) {
               case "STATE":
                 logs.Add(new MixinExpressionLog(
-                  DumpState(lineNumber, pc, calls.Count, locals, pendingVariables), lineNumber
+                  DumpState(
+                    lineNumber, pc, calls.Count, locals, pendingVariables,
+                    executedOperations, preparedState?.ExecutedOperations ?? 0
+                  ), lineNumber
                 ));
                 break;
               case "BUFFER":
                 logs.Add(new MixinExpressionLog(DumpBuffer(outputs), lineNumber));
                 break;
+              case "AST":
+                logs.Add(new MixinExpressionLog(
+                  DumpAst(preparedState?.Instructions, localProgram.AvailableInstructions()), lineNumber
+                ));
+                break;
               default:
-                return Failure("DUMP requires STATE or BUFFER", lineNumber, logs);
+                return Failure("DUMP requires STATE, BUFFER or AST", lineNumber, logs);
             }
             break;
           case "LOCAL":
@@ -325,7 +689,7 @@ namespace HELIX.SourceGen.Expressions {
             if (string.IsNullOrEmpty(argument)) {
               return Failure(command + " requires a name", lineNumber, logs);
             }
-            if (!TryInterpolate(operand, context, locals, pendingVariables, out var stored, out var storeError)) {
+            if (!TryInterpolate(parsed.StringExpression, context, locals, pendingVariables, out var stored, out var storeError)) {
               return Failure(storeError, lineNumber, logs);
             }
             (command == "LOCAL" ? locals : pendingVariables)[argument] = stored;
@@ -338,6 +702,13 @@ namespace HELIX.SourceGen.Expressions {
             CommitVariables(variables, pendingVariables);
             return Success(outputs, logs);
           case "CALL":
+            if (!functions.ContainsKey(argument ?? "") && !localSymbolsIndexed) {
+              if (!TryIndexSymbols(
+                    lines, preparedCount, labels, functions, functionStarts, functionEnds,
+                    out var symbolError, out var symbolLine
+                  )) return Failure(symbolError, symbolLine, logs);
+              localSymbolsIndexed = true;
+            }
             if (string.IsNullOrEmpty(argument) || !functions.TryGetValue(argument, out var function)) {
               return Failure("unknown function '" + (argument ?? "") + "'", lineNumber, logs);
             }
@@ -345,6 +716,13 @@ namespace HELIX.SourceGen.Expressions {
             pc = function.Start;
             break;
           case "GOTO":
+            if (!labels.ContainsKey(argument ?? "") && !localSymbolsIndexed) {
+              if (!TryIndexSymbols(
+                    lines, preparedCount, labels, functions, functionStarts, functionEnds,
+                    out var symbolError, out var symbolLine
+                  )) return Failure(symbolError, symbolLine, logs);
+              localSymbolsIndexed = true;
+            }
             if (string.IsNullOrEmpty(argument) || !labels.TryGetValue(argument, out var destination)) {
               return Failure("unknown scope label '" + (argument ?? "") + "'", lineNumber, logs);
             }
@@ -411,8 +789,9 @@ namespace HELIX.SourceGen.Expressions {
         return ValidateStringSyntax(operand, out error);
       }
       if (command == "DUMP" && !string.Equals(argument, "STATE", StringComparison.OrdinalIgnoreCase) &&
-          !string.Equals(argument, "BUFFER", StringComparison.OrdinalIgnoreCase)) {
-        error = "DUMP requires STATE or BUFFER";
+          !string.Equals(argument, "BUFFER", StringComparison.OrdinalIgnoreCase) &&
+          !string.Equals(argument, "AST", StringComparison.OrdinalIgnoreCase)) {
+        error = "DUMP requires STATE, BUFFER or AST";
         return false;
       }
       return true;
@@ -423,8 +802,11 @@ namespace HELIX.SourceGen.Expressions {
       int programCounter,
       int callDepth,
       IReadOnlyDictionary<string, string> locals,
-      IReadOnlyDictionary<string, string> variables
+      IReadOnlyDictionary<string, string> variables,
+      int executedOperations,
+      int preparedOperations
     ) => "STATE line=" + line + " pc=" + programCounter + " callDepth=" + callDepth +
+         " operations=" + executedOperations + " preparedOperations=" + preparedOperations +
          " locals=" + DumpValues(locals) + " variables=" + DumpValues(variables);
 
     private static string DumpValues(IReadOnlyDictionary<string, string> values) =>
@@ -441,6 +823,36 @@ namespace HELIX.SourceGen.Expressions {
             ? ""
             : "<" + item.InjectionTarget + ">") + ": " + item.Text
         ));
+
+    private static string DumpAst(
+      IEnumerable<Instruction> global,
+      IEnumerable<Instruction> local
+    ) {
+      var builder = new StringBuilder("AST GLOBAL [");
+      AppendAst(builder, global);
+      builder.Append("] | AST LOCAL [");
+      AppendAst(builder, local);
+      builder.Append(']');
+      return builder.ToString();
+    }
+
+    private static void AppendAst(StringBuilder builder, IEnumerable<Instruction> instructions) {
+      if (instructions is null) {
+        builder.Append("<unavailable>");
+        return;
+      }
+      var found = false;
+      foreach (var instruction in instructions) {
+        if (found) builder.Append("; ");
+        found = true;
+        builder.Append(instruction.Line).Append(": @")
+          .Append(instruction.Command);
+        if (instruction.Argument is not null) builder.Append('<').Append(instruction.Argument).Append('>');
+        if (!string.IsNullOrEmpty(instruction.Operand)) builder.Append(' ').Append(instruction.Operand);
+        if (instruction.Error is not null) builder.Append(" [invalid: ").Append(instruction.Error).Append(']');
+      }
+      if (!found) builder.Append("<empty>");
+    }
 
     private static bool ValidateBooleanSyntax(string text, out string error) {
       error = null;
@@ -491,7 +903,7 @@ namespace HELIX.SourceGen.Expressions {
     }
 
     private static int FindNextScopeOrEnd(
-      IReadOnlyList<string> lines,
+      IReadOnlyList<Instruction> lines,
       int start,
       IReadOnlyDictionary<int, int> functionStarts,
       ISet<int> functionEnds
@@ -501,14 +913,75 @@ namespace HELIX.SourceGen.Expressions {
           index = functionEnd;
           continue;
         }
-        if (!TryDirective(lines[index], out var command, out _, out _)) continue;
+        var command = lines[index].Command;
+        if (string.IsNullOrEmpty(command)) continue;
         if (command == "SCOPE") return index;
         if (command == "END") return functionEnds.Contains(index) ? index : index + 1;
       }
       return -1;
     }
 
-    private sealed class FunctionDefinition {
+    private static bool TryIndexSymbols(
+      IReadOnlyList<Instruction> lines,
+      int start,
+      IDictionary<string, int> labels,
+      IDictionary<string, FunctionDefinition> functions,
+      IDictionary<int, int> functionStarts,
+      ISet<int> functionEnds,
+      out string error,
+      out int errorLine
+    ) {
+      error = null;
+      errorLine = 0;
+      string activeFunction = null;
+      var functionStart = -1;
+      var functionScopeOpen = false;
+      for (var index = start; index < lines.Count; index++) {
+        var instruction = lines[index];
+        if (instruction.Error is not null) {
+          error = instruction.Error;
+          errorLine = instruction.Line;
+          return false;
+        }
+        var command = instruction.Command;
+        var argument = instruction.Argument;
+        if (string.IsNullOrEmpty(command)) continue;
+        if (activeFunction is not null) {
+          if (command == "FUNC") {
+            error = "functions may not be nested"; errorLine = instruction.Line; return false;
+          }
+          if (command == "SCOPE") functionScopeOpen = true;
+          if (command != "END") {
+            AddScopeLabel(command, argument, index, labels, out error);
+            if (error is not null) { errorLine = instruction.Line; return false; }
+            continue;
+          }
+          if (functionScopeOpen) { functionScopeOpen = false; continue; }
+          functions.Add(activeFunction, new FunctionDefinition(functionStart + 1, index));
+          functionStarts.Add(functionStart, index);
+          functionEnds.Add(index);
+          activeFunction = null;
+          continue;
+        }
+        if (command == "FUNC") {
+          if (functions.ContainsKey(argument)) {
+            error = "duplicate function '" + argument + "'"; errorLine = instruction.Line; return false;
+          }
+          activeFunction = argument;
+          functionStart = index;
+          functionScopeOpen = false;
+          continue;
+        }
+        AddScopeLabel(command, argument, index, labels, out error);
+        if (error is not null) { errorLine = instruction.Line; return false; }
+      }
+      if (activeFunction is null) return true;
+      error = "unterminated function '" + activeFunction + "'";
+      errorLine = lines[functionStart].Line;
+      return false;
+    }
+
+    internal sealed class FunctionDefinition {
       internal FunctionDefinition(int start, int end) {
         Start = start;
         End = end;
@@ -566,7 +1039,7 @@ namespace HELIX.SourceGen.Expressions {
     }
 
     private static bool TryEvaluateAll(
-      string text,
+      IReadOnlyList<MixinExpressionReference> expression,
       IMixinExpressionContext context,
       IReadOnlyDictionary<string, string> locals,
       IReadOnlyDictionary<string, string> variables,
@@ -575,13 +1048,9 @@ namespace HELIX.SourceGen.Expressions {
     ) {
       result = true;
       error = null;
-      var position = 0;
       var found = false;
-      while (position < text.Length) {
-        while (position < text.Length && char.IsWhiteSpace(text[position])) position++;
-        if (position == text.Length) break;
+      foreach (var reference in expression) {
         found = true;
-        if (!TryReadReference(text, ref position, out var reference, out error)) return false;
         if (!TryEvaluate(reference, context, locals, variables, out var value, out error)) return false;
         result &= value;
       }
@@ -591,7 +1060,7 @@ namespace HELIX.SourceGen.Expressions {
     }
 
     private static bool TryInterpolate(
-      string text,
+      IReadOnlyList<StringPart> expression,
       IMixinExpressionContext context,
       IReadOnlyDictionary<string, string> locals,
       IReadOnlyDictionary<string, string> variables,
@@ -600,22 +1069,9 @@ namespace HELIX.SourceGen.Expressions {
     ) {
       error = null;
       var builder = new StringBuilder();
-      var position = 0;
-      while (position < text.Length) {
-        if (text[position] != '@') {
-          builder.Append(text[position++]);
-          continue;
-        }
-        if (position + 1 < text.Length && text[position + 1] == '@') {
-          builder.Append('@');
-          position += 2;
-          continue;
-        }
-        if (!TryReadReference(text, ref position, out var reference, out error)) {
-          result = null;
-          return false;
-        }
-        if (!TryResolve(reference, context, locals, variables, out var value, out error)) {
+      foreach (var part in expression) {
+        if (part.Reference is null) { builder.Append(part.Literal); continue; }
+        if (!TryResolve(part.Reference, context, locals, variables, out var value, out error)) {
           result = null;
           return false;
         }

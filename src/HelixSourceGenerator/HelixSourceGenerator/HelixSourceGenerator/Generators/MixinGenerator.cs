@@ -50,14 +50,12 @@ namespace HELIX.SourceGen {
         static (spc, input) => Generate(
           spc,
           input.Left,
-          input.Right.Where(item => item.Validation.Success)
-            .Select(item => item.Expression)
-            .ToArray()
+          input.Right.State
         )
       );
     }
 
-    private static IReadOnlyList<PreparedMixinExpression> CollectPreparedExpressions(
+    private static PreparedMixinExpressions CollectPreparedExpressions(
       Compilation compilation
     ) {
       var result = new List<PreparedMixinExpression>();
@@ -80,20 +78,32 @@ namespace HELIX.SourceGen {
           ));
         }
       }
-      return result;
+      var state = interpreter.PrepareGlobals(
+        result.Where(item => item.Validation.Success).Select(item => item.Expression)
+      );
+      return new PreparedMixinExpressions(result, state);
     }
 
     private static void ReportPreparedExpressionDiagnostics(
       SourceProductionContext context,
-      IReadOnlyList<PreparedMixinExpression> preparedExpressions
+      PreparedMixinExpressions preparedExpressions
     ) {
-      foreach (var prepared in preparedExpressions.Where(item => !item.Validation.Success)) {
+      foreach (var prepared in preparedExpressions.Items.Where(item => !item.Validation.Success)) {
         context.ReportDiagnostic(Diagnostic.Create(
           InvalidPreparedExpression,
           prepared.Location,
           prepared.Provider,
           prepared.Validation.ErrorLine.ToString(CultureInfo.InvariantCulture),
           prepared.Validation.Error
+        ));
+      }
+      var valid = preparedExpressions.Items.Where(item => item.Validation.Success).ToArray();
+      foreach (var log in preparedExpressions.State.Logs) {
+        if (log.ProgramIndex < 0 || log.ProgramIndex >= valid.Length) continue;
+        context.ReportDiagnostic(Diagnostic.Create(
+          ExpressionLog,
+          valid[log.ProgramIndex].Location,
+          log.Text
         ));
       }
     }
@@ -184,7 +194,7 @@ namespace HELIX.SourceGen {
     private static void Generate(
       SourceProductionContext context,
       MixinTarget candidate,
-      IReadOnlyList<string> preparedExpressions
+      MixinExpressionPreparedState preparedExpressions
     ) {
       var target = candidate.Type;
       var location = LocationOf(target);
@@ -451,7 +461,7 @@ namespace HELIX.SourceGen {
       INamedTypeSymbol target,
       IReadOnlyList<INamedTypeSymbol> interfaces,
       CSharpCompilation compilation,
-      IReadOnlyList<string> preparedExpressions,
+      MixinExpressionPreparedState preparedExpressions,
       IDictionary<string, string> expressionVariables,
       ICollection<MixinExpressionOutput> expressionOutputs,
       ICollection<MixinContribution> result
@@ -481,7 +491,7 @@ namespace HELIX.SourceGen {
       INamedTypeSymbol target,
       IReadOnlyList<MixinResource> resources,
       CSharpCompilation compilation,
-      IReadOnlyList<string> preparedExpressions,
+      MixinExpressionPreparedState preparedExpressions,
       IDictionary<string, string> expressionVariables,
       ICollection<MixinExpressionOutput> expressionOutputs,
       IReadOnlyList<ImplicitMixinAttribute> implicitAttributes,
@@ -572,7 +582,7 @@ namespace HELIX.SourceGen {
       ImplicitMixinAttribute implicitAttribute,
       IReadOnlyList<MixinResource> resources,
       CSharpCompilation compilation,
-      IReadOnlyList<string> preparedExpressions,
+      MixinExpressionPreparedState preparedExpressions,
       IDictionary<string, string> expressionVariables,
       ICollection<MixinExpressionOutput> expressionOutputs,
       ICollection<MixinContribution> result,
@@ -643,7 +653,7 @@ namespace HELIX.SourceGen {
       ImplicitMixinAttribute implicitAttribute,
       AttributeData configuration,
       CSharpCompilation compilation,
-      IReadOnlyList<string> preparedExpressions,
+      MixinExpressionPreparedState preparedExpressions,
       IDictionary<string, string> expressionVariables,
       ICollection<MixinExpressionOutput> expressionOutputs,
       ICollection<MixinContribution> contributions,
@@ -831,7 +841,7 @@ namespace HELIX.SourceGen {
       INamedTypeSymbol target,
       IReadOnlyList<MixinResource> resources,
       CSharpCompilation compilation,
-      IReadOnlyList<string> preparedExpressions,
+      MixinExpressionPreparedState preparedExpressions,
       IDictionary<string, string> expressionVariables,
       IList<MixinContribution> contributions
     ) {
@@ -859,7 +869,7 @@ namespace HELIX.SourceGen {
       INamedTypeSymbol target,
       IReadOnlyList<MixinResource> resources,
       CSharpCompilation compilation,
-      IReadOnlyList<string> preparedExpressions,
+      MixinExpressionPreparedState preparedExpressions,
       IDictionary<string, string> expressionVariables,
       MixinContribution contribution,
       out MixinContribution resolved,
@@ -2455,6 +2465,19 @@ namespace HELIX.SourceGen {
       internal string Expression { get; }
       internal Location Location { get; }
       internal MixinExpressionValidationResult Validation { get; }
+    }
+
+    private sealed class PreparedMixinExpressions {
+      internal PreparedMixinExpressions(
+        IReadOnlyList<PreparedMixinExpression> items,
+        MixinExpressionPreparedState state
+      ) {
+        Items = items;
+        State = state;
+      }
+
+      internal IReadOnlyList<PreparedMixinExpression> Items { get; }
+      internal MixinExpressionPreparedState State { get; }
     }
   }
 }

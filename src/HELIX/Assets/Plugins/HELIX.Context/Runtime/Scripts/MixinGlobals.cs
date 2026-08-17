@@ -1,5 +1,29 @@
 using HELIX.Context;
 
+// Variable guarded event handler mixin block
+[assembly: MixinPrepareGlobal(
+  @"
+@FUNC<RequireEventHandler>
+  @SCOPE
+    @MATCH @var#IsEventHandler:?exists
+    @MATCH @var#IsEventHandler:?eq<true>
+    @RETURN
+  @END
+
+  @USING HELIX.Context;
+  @USING System;
+  @CODE<CLASS> [NonSerializedAttribute]
+  @CODE<CLASS> protected readonly EventHandlerList eventHandlerList = EventHandlerList.Create();
+  @CODE<CLASS> EventHandlerList IEventListener.HandlerList => eventHandlerList;
+
+  @CODE<$Dispose> eventHandlerList.UnregisterAll();
+  @CODE<IMPLEMENTS> IEventListener
+  @VAR<IsEventHandler> true
+@END
+"
+)]
+
+// Base implementation for the [Inject] attribute
 [assembly: MixinPrepareGlobal(
   @"
 @FUNC<InjectImpl>
@@ -47,7 +71,5 @@ using HELIX.Context;
 @END
 
 @END
-
-@DUMP<STATE>
 "
 )]

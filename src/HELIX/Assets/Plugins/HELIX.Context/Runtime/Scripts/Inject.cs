@@ -7,10 +7,10 @@ namespace HELIX.Context {
     new[] { MixinOn.Init, MixinOn.Dispose, MixinOn.ConfigureComponent },
     new[] { -1, 1, 0 },
     @"
+@CALL<RequireEventHandler>
 @CALL<InjectImpl>
 "
   )]
-  [RequireMixin(typeof(IEventHandlersMixin), true)]
   public abstract class InjectAttributeBase : Attribute {
     public readonly Source source;
     public readonly string qualifier;

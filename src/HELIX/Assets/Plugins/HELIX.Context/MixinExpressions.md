@@ -74,6 +74,7 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
 - `@FUNC<LABEL>` | Begin declaring a function of the given name.
 - `@CALL<LABEL>` | Call a function of the given name. Functions share the same locals and variables as the calling scope.
 - `@MATCH` BooleanExpression | Requirement for the scope to match, otherwise performs @SKIP
+- `@MATCH<LABEL>` BooleanExpression | Requirement for the scope to match, otherwise jumps to label
 - `@ASSERT` BooleanExpression | Accepts the scope and asserts an expression. False will fail the generation
 - `@CODE` StringExpression | Appends a single line of an expression string at the determined target location
 - `@CODE<TARGET>` StringExpression | Same as normal @CODE
@@ -90,9 +91,11 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
 - `@GOTO<LABEL>` | Jumps to scope at the given local label.
 - `@SKIP` | Skips to the next scope or end label. If the is no jump target, it exits and fails the generation
 - `@FAIL` | Fails the generation unconditionally
+- `@FAIL` String Expression | Fails the generation with the message being the given string expression
 - `@LOG` String Expression | Logs the given string expression to the console
 - `@DUMP<STATE>` | Dumps the current state of the mixin expression to the console
 - `@DUMP<BUFFER>` | Dumps the current string buffer of the mixin expression to the console
+- `@DUMP<AST>` | Dumps the currently available ast nodes from both the global and when available the local scope
 
 Note: Multiple boolean expressions per matcher / assertions are combined into an AND
 Note: Code lines are buffered until the end of the expression's execution and only then applied
