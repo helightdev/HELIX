@@ -81,10 +81,17 @@ namespace HELIX.SourceGen {
       var predicates = reference.Properties.Where(IsPredicate).ToArray();
       if (!TrySubject(reference, out var subject, out error) ||
           !ApplyValueProperties(reference, ref subject, out error)) {
-        if (predicates.Length != 0 && predicates.All(item => item.Name != "exists")) return false;
+        if (IsDeveloperExpressionError(error)) return false;
         error = null;
-        if (predicates.Length == 0) return true;
-        value = predicates.All(item => item.Negated);
+        if (predicates.Length == 0) {
+          value = false;
+          return true;
+        }
+        value = true;
+        foreach (var predicate in predicates) {
+          var item = predicate.Name == "eq" && EqualTo(null, predicate.Argument);
+          value &= predicate.Negated ? !item : item;
+        }
         return true;
       }
       if (predicates.Length == 0) {
@@ -334,15 +341,7 @@ namespace HELIX.SourceGen {
           value = type is not null && HasConcreteMember(type, property.Argument);
           return true;
         case "eq":
-          var rendered = subject is TypedConstant constant
-            ? Convert.ToString(constant.Value, CultureInfo.InvariantCulture)
-            : subject is ImplicitMixinValue implicitValue
-              ? Convert.ToString(implicitValue.Value, CultureInfo.InvariantCulture)
-            : Convert.ToString(subject, CultureInfo.InvariantCulture);
-          if (subject is ISymbol or AttributeData or ITypeSymbol) {
-            if (!TryRender(subject, null, out rendered, out error)) return false;
-          }
-          value = string.Equals(rendered, property.Argument ?? "", StringComparison.Ordinal);
+          value = EqualTo(subject, property.Argument);
           return true;
         case "isSelf": value = type is not null && SymbolEqualityComparer.Default.Equals(type, _thisType); return true;
         case "ref": value = symbol is IParameterSymbol { RefKind: RefKind.Ref }; return true;
@@ -372,6 +371,61 @@ namespace HELIX.SourceGen {
           error = "unknown boolean pseudo-property ':?" + property.Name + "'";
           return false;
       }
+    }
+
+    private static bool IsDeveloperExpressionError(string error) =>
+      error?.StartsWith("unknown expression root", StringComparison.Ordinal) == true ||
+      error?.StartsWith("unknown value property", StringComparison.Ordinal) == true ||
+      error?.StartsWith("unknown boolean pseudo-property", StringComparison.Ordinal) == true ||
+      error?.Contains(" requires a ") == true;
+
+    private static bool EqualTo(object subject, string expected) {
+      if (IsNullLike(subject)) {
+        return string.Equals(expected, "null", StringComparison.OrdinalIgnoreCase);
+      }
+      if (TryComparableText(subject, out var rendered) &&
+          string.Equals(rendered, expected ?? "", StringComparison.Ordinal)) return true;
+      var unwrapped = Unwrap(subject);
+      return TryComparableText(unwrapped, out rendered) && string.Equals(
+        UnwrapComparable(rendered), UnwrapComparable(expected ?? ""), StringComparison.OrdinalIgnoreCase
+      );
+    }
+
+    private static bool IsNullLike(object subject) => subject switch {
+      null => true,
+      TypedConstant constant => constant.IsNull || constant.Kind == TypedConstantKind.Error,
+      ImplicitMixinValue value => value.Value is null,
+      _ => false
+    };
+
+    private static bool TryComparableText(object subject, out string value) {
+      subject = subject switch {
+        TypedConstant constant => constant.Value,
+        ImplicitMixinValue implicitValue => implicitValue.Value,
+        _ => subject
+      };
+      if (subject is ITypeSymbol type) {
+        value = type.ToDisplayString(TypeDisplayFormat);
+        return true;
+      }
+      if (subject is AttributeData attribute) {
+        value = attribute.AttributeClass?.ToDisplayString(TypeDisplayFormat);
+        return value is not null;
+      }
+      if (subject is ISymbol symbol) {
+        value = symbol.ToDisplayString(TypeDisplayFormat);
+        return true;
+      }
+      value = Convert.ToString(subject, CultureInfo.InvariantCulture);
+      return value is not null;
+    }
+
+    private static string UnwrapComparable(string value) {
+      if (value.StartsWith("global::", StringComparison.Ordinal)) value = value.Substring(8);
+      if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"') {
+        value = value.Substring(1, value.Length - 2);
+      }
+      return value;
     }
 
     private bool IsOrInherits(ITypeSymbol type, string requested) {

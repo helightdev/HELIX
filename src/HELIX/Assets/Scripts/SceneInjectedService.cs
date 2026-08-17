@@ -4,7 +4,8 @@ using Sirenix.OdinInspector;
 using UnityEngine;
 
 namespace HELIX.Context {
-  [Service]
+  [EnableMixins]
+  [Service(typeof(ApplicationScope))]
   public partial class SceneInjectedService : MonoBehaviour {
     [Inject] public SceneService scope;
     [Inject] public ExampleUser user;
@@ -53,7 +54,7 @@ namespace HELIX.Context {
     [Button]
     public void LogState() {
       var writer = new ProseUnityRichTextWriter();
-      ComponentGraphProse.WriteLive(writer, RuntimeComponentData.container);
+      ComponentGraphProse.WriteLive(writer, this.RuntimeComponentData.container);
       Debug.Log(writer.Build());
     }
   }

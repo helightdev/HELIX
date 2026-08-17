@@ -4,6 +4,7 @@ using Cysharp.Threading.Tasks;
 using HELIX.Widgets.Prompts.Kenny;
 using Sirenix.OdinInspector;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace HELIX.Context {
   [Mixin] public interface IExampleMixin : IMixin {
@@ -47,11 +48,13 @@ namespace HELIX.Context {
 
     [Inject] public ExampleSingleton mySingleton;
     [Inject] public MyRootDependency myRootDependency;
+
+
     [Inject(Source.Addressables, "Assets/ExampleAddressable"), ShowInInspector]
-    public IReadOnlyList<GameObject> addressablePrefab;
+    public GameObject addressablePrefab;
 
     [Inject(Source.Resources), ShowInInspector]
-    public ICollection<KennyPromptSvgCollection> svgCollections;
+    public List<KennyPromptSvgCollection> svgCollections;
 
     [MixinMethod]
     private void OnInit() {

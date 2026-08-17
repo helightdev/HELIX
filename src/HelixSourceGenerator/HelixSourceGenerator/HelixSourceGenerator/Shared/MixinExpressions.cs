@@ -226,7 +226,7 @@ namespace HELIX.SourceGen.Expressions {
         if (error is null && command is ("MATCH" or "ASSERT")) {
           BooleanExpression = ParseBooleanExpression(operand);
         }
-        if (error is null && command is ("CODE" or "USING" or "LOG" or "LOCAL" or "VAR")) {
+        if (error is null && command is ("CODE" or "USING" or "LOG" or "LOCAL" or "VAR" or "FAIL")) {
           StringExpression = ParseStringExpression(operand);
         }
       }
@@ -624,22 +624,42 @@ namespace HELIX.SourceGen.Expressions {
             if (functionEnds.Contains(instruction) && calls.Count != 0) pc = calls.Pop();
             break;
           case "MATCH":
-            if (!TryEvaluateAll(parsed.BooleanExpression, context, locals, pendingVariables, out var matched, out var matchError)) {
+            if (!TryEvaluateAll(
+                  parsed.BooleanExpression, context, locals, pendingVariables,
+                  out var matched, out var matchError, out var matchFailure
+                )) {
               return Failure(matchError, lineNumber, logs);
             }
             if (!matched) {
+              if (!string.IsNullOrEmpty(argument)) {
+                if (!labels.ContainsKey(argument) && !localSymbolsIndexed) {
+                  if (!TryIndexSymbols(
+                        lines, preparedCount, labels, functions, functionStarts, functionEnds,
+                        out var symbolError, out var symbolLine
+                      )) return Failure(symbolError, symbolLine, logs);
+                  localSymbolsIndexed = true;
+                }
+                if (!labels.TryGetValue(argument, out var matchDestination)) {
+                  return Failure("unknown scope label '" + argument + "'", lineNumber, logs);
+                }
+                pc = matchDestination + 1;
+                break;
+              }
               var next = FindNextScopeOrEnd(lines, pc, functionStarts, functionEnds);
               if (next < 0) return Failure(
-                "MATCH did not match and there is no following scope", lineNumber, logs
+                matchFailure + "; there is no following scope", lineNumber, logs
               );
               pc = next;
             }
             break;
           case "ASSERT":
-            if (!TryEvaluateAll(parsed.BooleanExpression, context, locals, pendingVariables, out var asserted, out var assertError)) {
+            if (!TryEvaluateAll(
+                  parsed.BooleanExpression, context, locals, pendingVariables,
+                  out var asserted, out var assertError, out var assertFailure
+                )) {
               return Failure(assertError, lineNumber, logs);
             }
-            if (!asserted) return Failure("assertion failed", lineNumber, logs);
+            if (!asserted) return Failure(assertFailure, lineNumber, logs);
             break;
           case "CODE":
             if (!TryInterpolate(parsed.StringExpression, context, locals, pendingVariables, out var code, out var codeError)) {
@@ -734,7 +754,14 @@ namespace HELIX.SourceGen.Expressions {
             pc = skip;
             break;
           case "FAIL":
-            return Failure("expression requested failure", lineNumber, logs);
+            if (string.IsNullOrEmpty(operand)) {
+              return Failure("expression requested failure", lineNumber, logs);
+            }
+            if (!TryInterpolate(
+                  parsed.StringExpression, context, locals, pendingVariables,
+                  out var failureMessage, out var failureError
+                )) return Failure(failureError, lineNumber, logs);
+            return Failure(failureMessage, lineNumber, logs);
           default:
             return Failure("unknown directive '@" + command + "'", lineNumber, logs);
         }
@@ -785,7 +812,7 @@ namespace HELIX.SourceGen.Expressions {
         return false;
       }
       if (command is "MATCH" or "ASSERT") return ValidateBooleanSyntax(operand, out error);
-      if (command is "CODE" or "USING" or "LOG" or "LOCAL" or "VAR") {
+      if (command is "CODE" or "USING" or "LOG" or "LOCAL" or "VAR" or "FAIL") {
         return ValidateStringSyntax(operand, out error);
       }
       if (command == "DUMP" && !string.Equals(argument, "STATE", StringComparison.OrdinalIgnoreCase) &&
@@ -1044,20 +1071,93 @@ namespace HELIX.SourceGen.Expressions {
       IReadOnlyDictionary<string, string> locals,
       IReadOnlyDictionary<string, string> variables,
       out bool result,
-      out string error
+      out string error,
+      out string failure
     ) {
       result = true;
       error = null;
+      failure = null;
       var found = false;
       foreach (var reference in expression) {
         found = true;
         if (!TryEvaluate(reference, context, locals, variables, out var value, out error)) return false;
         result &= value;
+        if (!value && failure is null) failure = DescribeFailedCondition(
+          SelectFailedCondition(reference, context, locals, variables)
+        );
       }
       if (found) return true;
       error = "boolean expression is empty";
       return false;
     }
+
+    private static MixinExpressionReference SelectFailedCondition(
+      MixinExpressionReference reference,
+      IMixinExpressionContext context,
+      IReadOnlyDictionary<string, string> locals,
+      IReadOnlyDictionary<string, string> variables
+    ) {
+      var valueProperties = reference.Properties.Where(property => !IsBooleanProperty(property)).ToArray();
+      foreach (var predicate in reference.Properties.Where(IsBooleanProperty)) {
+        var properties = valueProperties.Concat(new[] { predicate }).ToArray();
+        var candidate = new MixinExpressionReference(reference.Root, reference.Member, properties);
+        if (TryEvaluate(candidate, context, locals, variables, out var value, out _) && !value) {
+          return candidate;
+        }
+      }
+      return reference;
+    }
+
+    private static bool IsBooleanProperty(MixinExpressionProperty property) => property.Name is
+      "eq" or "exists" or "is" or "has" or "isSelf" or "ref" or "in" or "out" or "inout" or
+      "argument" or "static" or "public" or "exposed" or "top" or "concrete" or "partial" or
+      "generic" or "struct" or "class";
+
+    private static string DescribeFailedCondition(MixinExpressionReference reference) {
+      var subject = reference.Root switch {
+        "var" => "Variable " + (reference.Member ?? "<unnamed>"),
+        "local" => "Local variable " + (reference.Member ?? "<unnamed>"),
+        "arg" => "Argument " + (reference.Member ?? "<unspecified>"),
+        "this" => "Current type" + MemberSuffix(reference.Member),
+        "target" => "Target" + MemberSuffix(reference.Member),
+        "attr" => "Attribute" + MemberSuffix(reference.Member),
+        _ => "Value @" + reference.Root + MemberSuffix(reference.Member)
+      };
+      var predicate = reference.Properties.FirstOrDefault(IsBooleanProperty);
+      if (predicate is null) return subject + " is null, false or invalid";
+      var expected = predicate.Argument ?? "";
+      switch (predicate.Name) {
+        case "eq": return subject + (predicate.Negated ? " is " : " is not ") +
+                          (expected.Length == 0 ? "the expected value" : expected);
+        case "exists": return subject + (predicate.Negated ? " exists" : " does not exist");
+        case "is": return subject + (predicate.Negated ? " is of type " : " is not of type ") + expected;
+        case "has": return subject + (predicate.Negated ? " has member " : " does not have member ") + expected;
+        case "isSelf": return subject + (predicate.Negated ? " is the current type" : " is not the current type");
+        default:
+          return subject + (predicate.Negated ? " is " : " is not ") + PredicateDescription(predicate.Name);
+      }
+    }
+
+    private static string MemberSuffix(string member) =>
+      string.IsNullOrEmpty(member) ? "" : " member " + member;
+
+    private static string PredicateDescription(string name) => name switch {
+      "ref" => "a ref parameter",
+      "in" => "an in parameter",
+      "out" => "an out parameter",
+      "inout" => "an in or out parameter",
+      "argument" => "a normal argument",
+      "static" => "static",
+      "public" => "public",
+      "exposed" => "public or internal",
+      "top" => "a top-level type",
+      "concrete" => "concrete",
+      "partial" => "partial",
+      "generic" => "generic",
+      "struct" => "a struct",
+      "class" => "a class",
+      _ => name
+    };
 
     private static bool TryInterpolate(
       IReadOnlyList<StringPart> expression,
@@ -1105,12 +1205,13 @@ namespace HELIX.SourceGen.Expressions {
         TryStored(reference, locals, variables, out var stored, out error);
         var predicates = reference.Properties.Where(item => item.Name is "eq" or "exists").ToArray();
         if (error is not null) {
-          if (predicates.Length != 0 && predicates.All(item => item.Name != "exists")) {
-            value = false;
-            return false;
-          }
+          if (predicates.Length == 0) { value = false; return false; }
           error = null;
-          value = predicates.Length != 0 && predicates.All(item => item.Negated);
+          value = true;
+          foreach (var predicate in predicates) {
+            var item = predicate.Name == "eq" && RelaxedEquals(null, predicate.Argument);
+            value &= predicate.Negated ? !item : item;
+          }
           return true;
         }
         if (predicates.Length == 0) {
@@ -1120,12 +1221,29 @@ namespace HELIX.SourceGen.Expressions {
         value = true;
         foreach (var predicate in predicates) {
           var item = predicate.Name == "exists" ||
-                     string.Equals(stored, predicate.Argument ?? "", StringComparison.Ordinal);
+                     RelaxedEquals(stored, predicate.Argument);
           value &= predicate.Negated ? !item : item;
         }
         return true;
       }
       return context.TryEvaluate(reference, out value, out error);
+    }
+
+    private static bool RelaxedEquals(string actual, string expected) {
+      var expectedIsNull = string.Equals(expected, "null", StringComparison.OrdinalIgnoreCase);
+      if (actual is null) return expectedIsNull;
+      if (string.Equals(actual, expected ?? "", StringComparison.Ordinal)) return true;
+      return string.Equals(
+        UnwrapComparable(actual), UnwrapComparable(expected ?? ""), StringComparison.OrdinalIgnoreCase
+      );
+    }
+
+    private static string UnwrapComparable(string value) {
+      if (value.StartsWith("global::", StringComparison.Ordinal)) value = value.Substring(8);
+      if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"') {
+        value = value.Substring(1, value.Length - 2);
+      }
+      return value;
     }
 
     private static bool TryStored(

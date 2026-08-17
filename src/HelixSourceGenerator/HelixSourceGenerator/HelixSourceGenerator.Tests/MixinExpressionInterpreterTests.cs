@@ -41,6 +41,34 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void LabeledMatchJumpsToTheNamedScopeWhenFalse() {
+    var result = _interpreter.Execute("""
+      @MATCH<selected> @arg#0:?ref
+      @CODE wrong
+      @RETURN
+      @SCOPE<unrelated>
+      @CODE also-wrong
+      @RETURN
+      @SCOPE<selected>
+      @CODE selected
+      """, new StubContext(argumentIsRef: false));
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("selected", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void FailSupportsAnInterpolatedMessageAndKeepsTheBareForm() {
+    var custom = _interpreter.Execute("@FAIL invalid @this:name", new StubContext());
+    var bare = _interpreter.Execute("@FAIL", new StubContext());
+
+    Assert.False(custom.Success);
+    Assert.Equal("invalid Demo", custom.Error);
+    Assert.False(bare.Success);
+    Assert.Equal("expression requested failure", bare.Error);
+  }
+
+  [Fact]
   public void FailedExecutionDoesNotCommitCodeOrVariables() {
     var variables = new Dictionary<string, string> { ["value"] = "before" };
     var result = _interpreter.Execute("""
@@ -52,6 +80,39 @@ public sealed class MixinExpressionInterpreterTests {
     Assert.False(result.Success);
     Assert.Empty(result.Outputs);
     Assert.Equal("before", variables["value"]);
+  }
+
+  [Fact]
+  public void FailedConditionsProduceUserFacingMessages() {
+    var equality = _interpreter.Execute("""
+      @VAR<IsComponent> false
+      @ASSERT @var#IsComponent:?eq<true>
+      """, new StubContext());
+    var inheritance = _interpreter.Execute(
+      "@ASSERT @target:type:?is<global::IComponent>", new StubContext()
+    );
+
+    Assert.Equal("Variable IsComponent is not true", equality.Error);
+    Assert.Equal("Target is not of type global::IComponent", inheritance.Error);
+  }
+
+  [Fact]
+  public void StoredEqualityRetriesAfterUnwrappingAndTreatsMissingAsNull() {
+    var unwrapped = _interpreter.Execute("""
+      @VAR<kind> "Component"
+      @ASSERT @var#kind:?eq<Component>
+      """, new StubContext());
+    var missingIsNull = _interpreter.Execute(
+      "@ASSERT @var#missing:?eq<null>", new StubContext()
+    );
+    var invertedNull = _interpreter.Execute(
+      "@ASSERT @var#missing:!?eq<null>", new StubContext()
+    );
+
+    Assert.True(unwrapped.Success, unwrapped.Error);
+    Assert.True(missingIsNull.Success, missingIsNull.Error);
+    Assert.False(invertedNull.Success);
+    Assert.Equal("Variable missing is null", invertedNull.Error);
   }
 
   [Fact]
