@@ -11,27 +11,21 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class MixinTargetTests {
   [Fact]
-  public void StarTargetGeneratesAStaticMethodAndInjectsNullForTheClassInstance() {
+  public void StarTargetGeneratesAStaticMethod() {
     var result = Run(
       """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-        [AttributeUsage(AttributeTargets.Method)] public sealed class MixinMethodAttribute : Attribute {
-          public MixinMethodAttribute(string target, int order = 0) { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
         }
-        [AttributeUsage(AttributeTargets.Parameter)] public sealed class MixinInjectAttribute : Attribute {
-          public MixinInjectAttribute(MixinInject type) { }
-        }
-        public enum MixinInject { This = 0, Target = 1 }
       }
-      [HELIX.Context.EnableMixins]
+      [HELIX.Context.MixinExpression("@MIXIN<*Configure> Contribute(null, null)")]
+      [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
+      [HELIX.Context.EnableMixins, Configure]
       public partial class Demo {
-        [HELIX.Context.MixinMethod("*Configure")]
-        private static void Contribute(
-          [HELIX.Context.MixinInject(HELIX.Context.MixinInject.This)] Demo instance,
-          [HELIX.Context.MixinInject(HELIX.Context.MixinInject.Target)] object target
-        ) { }
+        private static void Contribute(Demo instance, object target) { }
       }
       """
     );
@@ -50,16 +44,15 @@ public sealed class MixinTargetTests {
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-        [AttributeUsage(AttributeTargets.Method)] public sealed class MixinMethodAttribute : Attribute {
-          public MixinMethodAttribute(string target, int order = 0) { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
         }
       }
-      [HELIX.Context.EnableMixins]
+      [HELIX.Context.MixinExpression("@MIXIN<^*Configure> First()\n@MIXIN<*^Configure> Second()")]
+      [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
+      [HELIX.Context.EnableMixins, Configure]
       public partial class Demo {
-        [HELIX.Context.MixinMethod("^*Configure")]
         private static void First() { }
-
-        [HELIX.Context.MixinMethod("*^Configure")]
         private static void Second() { }
       }
       """
@@ -80,16 +73,17 @@ public sealed class MixinTargetTests {
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-        [AttributeUsage(AttributeTargets.Method)] public sealed class MixinMethodAttribute : Attribute {
-          public MixinMethodAttribute(string target, int order = 0) { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
         }
       }
       namespace DemoApi {
         public delegate void RegistrationConfigurator(ref int value, string name);
       }
-      [HELIX.Context.EnableMixins]
+      [HELIX.Context.MixinExpression("@MIXIN<*^~DemoApi.RegistrationConfigurator> Contribute(ref value)")]
+      [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
+      [HELIX.Context.EnableMixins, Configure]
       public partial class Demo {
-        [HELIX.Context.MixinMethod("*^~DemoApi.RegistrationConfigurator")]
         private static void Contribute(ref int value) { }
       }
       """
@@ -144,15 +138,14 @@ public sealed class MixinTargetTests {
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-        [AttributeUsage(AttributeTargets.Method)] public sealed class MixinMethodAttribute : Attribute {
-          public MixinMethodAttribute(string target, int order = 0) { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
         }
       }
-      [HELIX.Context.EnableMixins]
-      public partial class Demo {
-        [HELIX.Context.MixinMethod("~Missing.Configurator")]
-        private void Contribute() { }
-      }
+      [HELIX.Context.MixinExpression("@MIXIN<~Missing.Configurator> Contribute()")]
+      [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
+      [HELIX.Context.EnableMixins, Configure]
+      public partial class Demo { private void Contribute() { } }
       """
     );
 

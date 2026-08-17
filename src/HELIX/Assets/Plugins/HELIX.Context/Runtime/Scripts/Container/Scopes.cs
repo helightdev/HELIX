@@ -354,8 +354,8 @@ namespace HELIX.Context {
       try {
         if (loaded.instance is IComponent component) {
           component.UnloadComponent();
-          component.RuntimeComponentData.isLoaded = false;
-          component.RuntimeComponentData.isDisposed = true;
+          component.ComponentBinding.isLoaded = false;
+          component.ComponentBinding.isDisposed = true;
         }
       } catch (Exception exception) {
         failures.Add(

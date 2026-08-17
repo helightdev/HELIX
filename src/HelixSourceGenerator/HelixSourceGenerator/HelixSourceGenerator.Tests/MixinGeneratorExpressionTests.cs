@@ -118,24 +118,17 @@ public sealed class MixinGeneratorExpressionTests {
                           using System;
                           namespace HELIX.Context {
                             [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-                            [AttributeUsage(AttributeTargets.Method)] public sealed class MixinMethodAttribute : Attribute {
-                              public MixinMethodAttribute(string target, int order, string expression) { }
-                            }
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class AttributeMixinMethodProxyAttribute : Attribute {
-                              public AttributeMixinMethodProxyAttribute(Type owner, string method) { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
                             }
                           }
                           public interface IEvt { }
                           public struct Evt : IEvt { }
-                          [HELIX.Context.AttributeMixinMethodProxy(typeof(Handlers), "Register")]
+                          [HELIX.Context.MixinExpression("@MATCH @arg#0:!?inout\n@ASSERT @arg#0:type:?is<IEvt>\n@MIXIN<$Init> this.Register<@arg#0:type>(@target, @attr#Priority)")]
                           [AttributeUsage(AttributeTargets.Method)]
                           public sealed class ReactAttribute : Attribute {
                             public ReactAttribute(int priority) { Priority = priority; }
                             public int Priority { get; }
-                          }
-                          public static class Handlers {
-                            [HELIX.Context.MixinMethod("$Init", 0, "@MATCH @arg#0:!?inout\n@ASSERT @arg#0:type:?is<IEvt>\n@CODE this.Register<@arg#0:type>(@target, @attr#Priority)")]
-                            public static void Register() { }
                           }
                           [HELIX.Context.EnableMixins]
                           public partial class Demo {
@@ -159,7 +152,6 @@ public sealed class MixinGeneratorExpressionTests {
     var text = Assert.Single(generated).SourceText.ToString();
     Assert.Contains("private void Awake()", text);
     Assert.Contains("this.Register<global::Evt>(this.React, 7);", text);
-    Assert.DoesNotContain("Handlers.Register(", text);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
@@ -169,9 +161,6 @@ public sealed class MixinGeneratorExpressionTests {
                           using System;
                           namespace HELIX.Context {
                             [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-                            [AttributeUsage(AttributeTargets.Method)] public sealed class MixinMethodAttribute : Attribute {
-                              public MixinMethodAttribute(string target, int order = 0) { }
-                            }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
                             }
@@ -179,7 +168,7 @@ public sealed class MixinGeneratorExpressionTests {
                           [HELIX.Context.MixinExpression(
                             new[] { "$Init", "$Dispose", "Unused" },
                             new[] { -10, 5, 0 },
-                            "@CODE<$Init> Before(@attr#value)\n@CODE<$Dispose> After()\n@CODE<Unused>"
+                            "@CODE<$Init> Before(@attr#value)\n@CODE<$Dispose> After()\n@CODE<Unused>\n@MIXIN<$Init> Normal()"
                           )]
                           [AttributeUsage(AttributeTargets.Method)]
                           public sealed class MarkAttribute : Attribute {
@@ -188,7 +177,7 @@ public sealed class MixinGeneratorExpressionTests {
                           [HELIX.Context.EnableMixins]
                           public partial class Demo {
                             [Mark(7)] private void Work() { }
-                            [HELIX.Context.MixinMethod("$Init", 0)] private void Normal() { }
+                            private void Normal() { }
                             private void Before(int value) { }
                             private void After() { }
                           }

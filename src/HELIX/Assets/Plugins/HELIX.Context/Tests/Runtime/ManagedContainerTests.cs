@@ -294,8 +294,8 @@ namespace HELIX.Context.Tests {
 
         Assert.That(scope.Resolve(typeof(InjectedTestComponent)), Is.SameAs(existing));
         Assert.That(existing.loadCount, Is.EqualTo(1));
-        Assert.That(existing.RuntimeComponentData.scope, Is.SameAs(scope));
-        Assert.That(existing.RuntimeComponentData.isLoaded, Is.True);
+        Assert.That(existing.ComponentBinding.scope, Is.SameAs(scope));
+        Assert.That(existing.ComponentBinding.isLoaded, Is.True);
       } finally {
         if (gameObject != null) UnityEngine.Object.DestroyImmediate(gameObject);
       }
@@ -345,8 +345,8 @@ namespace HELIX.Context.Tests {
         .AddComponent(contributed)
         .StartSync();
       Assert.That(session.Resolve(typeof(ManuallyContributedComponent)), Is.SameAs(contributed));
-      Assert.That(contributed.RuntimeComponentData.scope, Is.SameAs(session));
-      Assert.That(contributed.RuntimeComponentData.isLoaded, Is.True);
+      Assert.That(contributed.ComponentBinding.scope, Is.SameAs(session));
+      Assert.That(contributed.ComponentBinding.isLoaded, Is.True);
       Assert.That(activations, Is.Zero);
     }
 
@@ -479,7 +479,7 @@ namespace HELIX.Context.Tests {
     private sealed class RollbackComponent : IComponent {
       private readonly ICollection<string> _lifecycle;
       public RollbackComponent(ICollection<string> lifecycle) => _lifecycle = lifecycle;
-      public RuntimeComponentData RuntimeComponentData { get; } = new();
+      public RuntimeComponentData ComponentBinding { get; } = new();
       public void LoadComponent() => _lifecycle.Add("load");
       public void UnloadComponent() => _lifecycle.Add("unload");
     }
@@ -491,7 +491,7 @@ namespace HELIX.Context.Tests {
     private sealed class OrderedProvider : IComponent {
       private readonly ICollection<string> _lifecycle;
       public OrderedProvider(ICollection<string> lifecycle) => _lifecycle = lifecycle;
-      public RuntimeComponentData RuntimeComponentData { get; } = new();
+      public RuntimeComponentData ComponentBinding { get; } = new();
       public void LoadComponent() => _lifecycle.Add("provider-load");
       public void UnloadComponent() => _lifecycle.Add("provider-unload");
     }
@@ -499,7 +499,7 @@ namespace HELIX.Context.Tests {
     private sealed class OrderedConsumer : IComponent {
       private readonly ICollection<string> _lifecycle;
       public OrderedConsumer(ICollection<string> lifecycle) => _lifecycle = lifecycle;
-      public RuntimeComponentData RuntimeComponentData { get; } = new();
+      public RuntimeComponentData ComponentBinding { get; } = new();
       public void LoadComponent() => _lifecycle.Add("consumer-load");
       public void UnloadComponent() => _lifecycle.Add("consumer-unload");
     }
@@ -507,12 +507,12 @@ namespace HELIX.Context.Tests {
 
   public sealed class InjectedTestComponent : MonoBehaviour, IComponent {
     public int loadCount;
-    public RuntimeComponentData RuntimeComponentData { get; } = new();
+    public RuntimeComponentData ComponentBinding { get; } = new();
     public void LoadComponent() => loadCount++;
   }
 
   public sealed class ManuallyContributedComponent : IComponent {
-    public RuntimeComponentData RuntimeComponentData { get; } = new();
+    public RuntimeComponentData ComponentBinding { get; } = new();
   }
 
   public sealed class TestScope : IScope { }
@@ -528,6 +528,6 @@ namespace HELIX.Context.Tests {
 
   public sealed class TestRegistrarScopeHandler : TestScopeHandler, IComponent {
     public TestRegistrarScopeHandler(IComponent component) : base(component) { }
-    public RuntimeComponentData RuntimeComponentData { get; } = new();
+    public RuntimeComponentData ComponentBinding { get; } = new();
   }
 }

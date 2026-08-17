@@ -1,7 +1,5 @@
 Mixin Expressions
 
-> This is currently a draft! This is not ready for implementation!
-
 ## Variables
 - `@this`
 - `@target` (The annotated scope, mostly either a class or a method)
@@ -9,6 +7,11 @@ Mixin Expressions
 - `@arg` (Access to method arguments by name or index using paths)
 - `@local` (Access to per execution local temporary data)
 - `@var` (Access to per mixin class generation data)
+- `@true` (The value true)
+- `@false` (The value false)
+- `@null` (The value null)
+- `@table` (An empty immutable table)
+- `@param` (The call parameter if inside an expression function)
 
 ## Properties
 - `:name` | The name of the variable.
@@ -26,8 +29,6 @@ Mixin Expressions
     @attr:type => QualifiedAttributeType
     @arg#0:type => QualifiedArgumentType
     ```
-  
-TODO:
 - `:fullName` | The full (not qualified) name of a type. (Includes generic type parameters)
 - `:unwrap` | Unwraps a 'wrapped' value
   - string to its unquoted literal value
@@ -53,8 +54,50 @@ TODO:
 - `:?generic` | Check if the target is generic
 - `:?struct` | Check if the target's type is a struct
 - `:?class` | Check if the target's type is managed / class
+- `:?matches<REGEX>` | Check if the stringified value matches the regex
+- `:?signature<METHOD>` | Checks if the signatures of two methods or delegates match.
+- `:?wireable<FROM_METHOD><TO_METHOD>` | See :wire
 
 Boolean Pseudo Properties may be inverted with :!?. Example @this:!?static => This class is not static
+
+### Special Operations
+
+- `:replace<REGEX><REPLACEMENT>` | Replaces the matches of the given regex with replacement
+- `:replaceFirst<REGEX><REPLACEMENT>` | Same as replace but just with the first match
+- `:switch<IF_TRUTHY><IF_FALSY>` | Executes on a trueness value and switch between two values
+- `:wire<TO_METHOD>` | Tries wiring the from method/delegate into the other method/delegate. The to method must have a signature
+   capable of receiving the from data, having at maximum the same amount of arguments. The intersection arguments must
+   be assignable from FROM to TO. This returns the rewritten call arguments as a string or fails. No arguments result
+   in an empty string.
+- `:put<KEY><VALUE>` | Returns a new table with Key,Value added. If the value wasn't a table, this creates a new table
+- `:remove<KEY>` | Removes a value from a table and returns the new table
+- `:push<VALUE>` | Pushes a value onto the table, keyed by the length
+- `:pop` | Remove the value with Length-1 from the table. If used as a list, this is the inverse
+   opposite `push`.
+- `:size` | returns the size of a table or string. Otherwise always returns 0.
+- `:floatTime` | parses a time format string into float seconds
+   Empty or null or only `tick`: 0f
+   `<Number>s|second|seconds`: seconds
+   `<Number>ms|millis`: milliseconds
+   `<Integer>t|tick|ticks`: ticks (the value multiplied by -1, must be handled by the supporting structure)
+   `<Number>m|minute|minutes`: minutes
+   `%<Number>`: times per second
+   `<Number>`: seconds (if no unity is specified)
+
+Example for the wire method: `@target:name(@local#Method:wire<(@target)>);`
+
+### Tables
+Are a custom structure similar to lua tables but immutable used as expression lists or objects.
+Values are resolved through `#` paths and `#:?exists`.
+For tables, `:has<>` is defined as checking for contains value.
+Operations on tables generally never fail.
+
+### Dynamic Only Operations
+
+- `:and<(BooleanExpression)><...>`
+- `:or<(BooleanExpression)><...>`
+
+Note: A simple not may be done using `@false:eq<(BooleanExpression)>`
 
 ### Members
 Member Reference: `<member>#<reference>`
@@ -73,19 +116,22 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
 - `@SCOPE<LABEL>` | Begin a new scope ending the previous scope if there is one while storing a local label pointer of the given name
 - `@FUNC<LABEL>` | Begin declaring a function of the given name.
 - `@CALL<LABEL>` | Call a function of the given name. Functions share the same locals and variables as the calling scope.
+- `@CALL<LABEL>` Expression | Call a function of the given name with the value being put as @param.
 - `@MATCH` BooleanExpression | Requirement for the scope to match, otherwise performs @SKIP
 - `@MATCH<LABEL>` BooleanExpression | Requirement for the scope to match, otherwise jumps to label
 - `@ASSERT` BooleanExpression | Accepts the scope and asserts an expression. False will fail the generation
 - `@CODE` StringExpression | Appends a single line of an expression string at the determined target location
 - `@CODE<TARGET>` StringExpression | Same as normal @CODE
 - `@CODE<InjectTarget>` StringExpression | Injects code at the predefined target with the given name.
+- `@MIXIN<Target>` StringExpression | Injects code at given target with default priority (0).
+- `@MIXIN<Target><Priority>` StringExpression | Injects code at given target with a specified priority.
 - `@CODE<CLASS>` StringExpression | Appends the code line at the end of the current partial class (for new methods, parameters, etc.) 
 - `@CODE<FILE>` StringExpression | Appends the code line in the same namespace scope outside the class (for new types)
 - `@CODE<IMPLEMENTS>` StringExpression | Adds a single implements entry based on the generated string.
 - `@CODE<ANNOTATION>` StringExpression | Adds a single annotation entry based on the generated string.
 - `@USING` StringExpression | Adds a using statement at the top of the file
-- `@LOCAL<NAME>` StringExpression | Stores the value of the given string expression into @local#name
-- `@VAR<NAME>` StringExpression | Stores the value of the given string expression into @var#name
+- `@LOCAL<NAME>` Expression | Stores the value of the given string expression into @local#name
+- `@VAR<NAME>` Expression | Stores the value of the given string expression into @var#name
 - `@END`  | Ends the current scope without beginning a new scope. Continue evaluating the next line afterward
 - `@RETURN`  | Returns successfully from the generation
 - `@GOTO<LABEL>` | Jumps to scope at the given local label.
@@ -96,9 +142,19 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
 - `@DUMP<STATE>` | Dumps the current state of the mixin expression to the console
 - `@DUMP<BUFFER>` | Dumps the current string buffer of the mixin expression to the console
 - `@DUMP<AST>` | Dumps the currently available ast nodes from both the global and when available the local scope
+- `@RESOLVE_MIXIN<LocalLabel>` StringExpression | Tries resolving the mixin target assigning it to the local variable at label,
+   otherwise null. This is intended to be used for wiring and allowing dynamic signature checks.
+- `@PUT<LABEL><KEY>` Expression | Shorthand helper for table :put with a given key into a local variable
+- `@PUSH<LABEL>` Expression | Shorthand helper for table :push into a local variable
 
 Note: Multiple boolean expressions per matcher / assertions are combined into an AND
 Note: Code lines are buffered until the end of the expression's execution and only then applied
+
+Arguments written with `<>` are always constant and don't allow variable inputs
+Arugments may be dynamic when written as `<()>`, they will then allow `<(StringExpression)>` as the input of the function.
+A function may definie multiple inputs (though currently not used) by diamonds without delimiters, for example
+`@IMAGINARY<Argument0><Argument1> Primary Expression`, in this case you could maybe also write
+`@IMAGINARY<true><(@var#identifier)> Primary Expression`
 
 Those are effectively equivalent expressions
 ```

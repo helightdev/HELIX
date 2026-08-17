@@ -107,7 +107,7 @@ namespace HELIX.Context {
       }
 
       if (instance is IComponent component) {
-        component.RuntimeComponentData.isLoaded = true;
+        component.ComponentBinding.isLoaded = true;
       }
     }
 
@@ -169,7 +169,7 @@ namespace HELIX.Context {
       if (_injected != null && _injected.TryGetValue(entry, out var instances) && instances.Count > 0) {
         var instance = instances.Dequeue();
         if (instance is IComponent component) {
-          var runtimeData = component.RuntimeComponentData;
+          var runtimeData = component.ComponentBinding;
           runtimeData.scope = context.scope;
           runtimeData.container = context.container;
         };

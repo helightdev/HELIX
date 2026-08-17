@@ -150,10 +150,6 @@ internal static class GeneratorDiagnostics {
         "HLXM01", "Containing type must be partial",
         "Class '{0}' has mixins enabled, but containing type '{1}' is not declared partial"
       ),
-      InvalidMixinMethod = Error(
-        "HLXM02", "Mixin method is invalid",
-        "Mixin method '{0}' is invalid: {1}"
-      ),
       InvalidTarget = Error(
         "HLXM03", "Mixin target is invalid",
         "Mixin target '{0}' on class '{1}' is invalid: {2}"
@@ -161,18 +157,6 @@ internal static class GeneratorDiagnostics {
       ExistingTarget = Error(
         "HLXM04", "Mixin target already exists",
         "Mixin target '{0}' on class '{1}' already has an implementation"
-      ),
-      InvalidVariable = Error(
-        "HLXM05", "Mixin variable is invalid",
-        "Mixin interface '{0}' declares an invalid variable: {1}"
-      ),
-      InvalidProperty = Error(
-        "HLXM06", "Mixin property is invalid",
-        "Mixin property '{0}' is invalid: {1}"
-      ),
-      NoMatchingVariant = Error(
-        "HLXM07", "No mixin proxy variant matches",
-        "Attribute '{0}' has no compatible mixin method variant for '{1}': {2}"
       ),
       InvalidAttributeExpression = Error(
         "HLXM08", "Mixin expression is invalid",

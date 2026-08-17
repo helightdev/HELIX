@@ -303,7 +303,7 @@ namespace HELIX.Context {
         throw new ComponentActivationException($"Component '{name}' ({type.FullName}) has no activator.");
       var instance = activator(context);
       if (instance is IComponent component) {
-        var runtimeData = component.RuntimeComponentData;
+        var runtimeData = component.ComponentBinding;
         runtimeData.scope = context.scope;
         runtimeData.container = context.container;
       }

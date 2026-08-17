@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace HELIX.Context {
   public interface IComponent {
-    RuntimeComponentData RuntimeComponentData { get; }
+    RuntimeComponentData ComponentBinding { get; }
     void LoadComponent() { }
     void UnloadComponent() { }
   }
@@ -41,7 +41,7 @@ namespace HELIX.Context {
 @USING HELIX.Context;
 @CODE<$ConfigureComponent> registration.name = ""@this:name"";
 @CODE<IMPLEMENTS> IComponent
-@CODE<CLASS> public RuntimeComponentData RuntimeComponentData { get; } = new();
+@CODE<CLASS> public RuntimeComponentData ComponentBinding { get; } = new();
 @VAR<IsComponent> true
 "
   )]

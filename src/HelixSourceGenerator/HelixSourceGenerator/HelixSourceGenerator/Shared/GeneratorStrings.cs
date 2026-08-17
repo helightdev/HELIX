@@ -10,7 +10,6 @@ internal static class GeneratorStrings {
 
   internal static class Attributes {
     internal const string
-      AttributeMixinMethodProxy = "HELIX.Context.AttributeMixinMethodProxyAttribute",
       Component = "HELIX.Context.ComponentAttribute",
       MixinExpression = "HELIX.Context.MixinExpressionAttribute",
       MixinPrepareGlobal = "HELIX.Context.MixinPrepareGlobalAttribute",
@@ -21,11 +20,6 @@ internal static class GeneratorStrings {
       Context = "HELIX.Compose.ContextAttribute",
       EnableMixins = "HELIX.Context.EnableMixinsAttribute",
       Mixin = "HELIX.Context.MixinAttribute",
-      MixinDeclareVariable = "HELIX.Context.MixinDeclareVariableAttribute",
-      MixinInject = "HELIX.Context.MixinInjectAttribute",
-      MixinMethod = "HELIX.Context.MixinMethodAttribute",
-      MixinMethodGenericSource = "HELIX.Context.MixinMethodGenericSource",
-      MixinProperty = "HELIX.Context.MixinPropertyAttribute",
       RequireMixin = "HELIX.Context.RequireMixinAttribute",
       Prop = "HELIX.Compose.PropAttribute",
       PropStruct = "HELIX.Compose.PropStructAttribute",

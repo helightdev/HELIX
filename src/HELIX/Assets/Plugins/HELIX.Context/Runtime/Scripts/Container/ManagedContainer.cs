@@ -221,7 +221,7 @@ namespace HELIX.Context {
       var seen = new HashSet<IComponent>(ReferenceComparer<IComponent>.Instance);
       foreach (var component in (contributions ?? Enumerable.Empty<IComponent>()).Concat(discovered)) {
         if (component == null || !seen.Add(component)) continue;
-        var runtime = component.RuntimeComponentData;
+        var runtime = component.ComponentBinding;
         if (runtime == null || runtime.isLoaded || runtime.isDisposed) continue;
         if (!registrarScope.registrations.components.TryGetValue(component.GetType(), out var registration)) continue;
         if (registration.scope != null && registration.scope != managed.scope.GetType()) continue;

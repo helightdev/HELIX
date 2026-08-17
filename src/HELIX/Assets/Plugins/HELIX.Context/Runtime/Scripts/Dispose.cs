@@ -2,14 +2,14 @@ using System;
 
 namespace HELIX.Context {
   [AttributeUsage(AttributeTargets.Field)]
-  [AttributeMixinMethodProxy(typeof(AutoDisposeMethods), nameof(AutoDisposeMethods.DisposeDisposable))]
+  [MixinExpression(MixinOn.Dispose, 1, @"
+@USING HELIX.Context
+@CODE AutoDisposeMethods.DisposeDisposable(ref @target)
+")]
   public class AutoDisposeAttribute : Attribute { }
 
   public static class AutoDisposeMethods {
-    [MixinMethod(MixinOn.Dispose)]
-    public static void DisposeDisposable<T>(
-      [MixinInject(MixinInject.Target)] ref T target
-    ) where T : IDisposable {
+    public static void DisposeDisposable<T>(ref T target) where T : IDisposable {
       if (target == null) return;
       target.Dispose();
       target = default;
