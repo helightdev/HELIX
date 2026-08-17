@@ -22,17 +22,81 @@ using HELIX.Context;
 "
 )]
 
+
+// EventHandler method implementation
+[assembly: MixinPrepareGlobal(
+  @"
+@FUNC<EventHandlerImpl>
+  @CALL<RequireEventHandler>
+
+  @SCOPE
+    @MATCH @var#IsComponent:?eq<true>
+    @CODE<$ConfigureComponent> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
+  @END
+
+  @SCOPE
+    @MATCH @arg#0:?is<IAsyncChainEvt>
+    @ASSERT @arg#0:?argument
+    @CODE<$Init> eventHandlerList.RegisterAsync<@arg#0:type>(@target, @attr#priority);
+    @RETURN
+  @SCOPE
+    @MATCH @arg#0:?is<Evt>
+    @MATCH @arg#0:?ref
+    @CODE<$Init> eventHandlerList.Register<@arg#0:type>(@target, @attr#priority);
+    @RETURN
+  @SCOPE
+    @MATCH @arg#0:?is<Evt>
+    @MATCH @arg#0:?argument
+    @CODE<$Init> eventHandlerList.Register<@arg#0:type>(@target, @attr#priority);
+    @RETURN
+  @END
+@END
+"
+)]
+
 // MixinCallback method implementation
 [assembly: MixinPrepareGlobal(
   @"
+@FUNC<MixinCallbackImpl>
+  @LOCAL<Name> @attr#target:unwrap
+  @SCOPE
+    @MATCH @local#Name:eq<null>
+    @ASSERT @target:name:matches<^On.*>
+    @LOCAL<IsImplicit> true
+    @Local<Name> $@target:name:replaceFirst<^On><>
+  @END
 
+  @SCOPE
+    @MATCH @arg#0:!?exists
+    @MIXIN<(@local#Name)><(@attr#order)> @target:name();
+    @RETURN
+  @END
 
+  @RESOLVE_MIXIN<Delegate> @local#Name
+  @ASSERT @local#Delegate:!?eq<null>
+  @MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);
+@END
 "
 )]
 
 // Base implementation for the [Inject] attribute
 [assembly: MixinPrepareGlobal(
   @"
+@FUNC<InjectImpl>
+  @CALL<RequireEventHandler>
+
+  @SCOPE
+    @MATCH @target:type:?is<System.Collections.IEnumerable>
+    @MATCH @target:type:!?is<string>
+    @MATCH @target:type#0:?exists
+    @CALL<InjectImplList>
+    @RETURN
+  @END
+
+  @CALL<InjectImplSingle>
+  @RETURN
+@END
+
 @FUNC<InjectImplSingle>
   @LOCAL<WireKey> @@""@target:type:unwrap|@attr#source|@attr#qualifier:unwrap""
   @SCOPE
@@ -95,19 +159,6 @@ using HELIX.Context;
   @SCOPE<NoUnityObject>
     @FAIL This source requires the injection of a unity object type, but the target is not a subtype of UnityEngine.Object.
   @END
-@END
-
-@FUNC<InjectImpl>
-  @SCOPE
-    @MATCH @target:type:?is<System.Collections.IEnumerable>
-    @MATCH @target:type:!?is<string>
-    @MATCH @target:type#0:?exists
-    @CALL<InjectImplList>
-    @RETURN
-  @END
-
-  @CALL<InjectImplSingle>
-  @RETURN
 @END
 "
 )]

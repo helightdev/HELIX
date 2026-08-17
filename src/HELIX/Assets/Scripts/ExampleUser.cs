@@ -6,17 +6,6 @@ using Sirenix.OdinInspector;
 using UnityEngine;
 
 namespace HELIX.Context {
-  [Mixin] public interface IExampleMixin : IMixin {
-    [MixinMethod(MixinOn.Init, -1)]
-    static void MixinOnInit<T>(
-      [MixinInject] T target
-    ) { }
-
-    [MixinMethod(MixinOn.Dispose)]
-    static void MixinOnDestroy<T>(
-      [MixinInject] T target
-    ) { }
-  }
 
   public class LoggingDisposable : IDisposable {
     public void Dispose() {
@@ -51,7 +40,6 @@ namespace HELIX.Context {
     [Inject, NonSerialized]
     public MyRootDependency myRootDependency;
 
-
     [Inject(Source.Addressables, "Assets/ExampleAddressable"), ShowInInspector]
     public GameObject addressablePrefab;
 
@@ -64,7 +52,7 @@ namespace HELIX.Context {
       myResource2 = new LoggingDisposable(); //31
     }
 
-    [MixinCallback(MixinOn.RegistrationConfiguratorDelegate)]
+    [MixinCallback(MixinOn.ConfigureComponent)]
     private static void OnConfigureSelf(RegistrationEntry entry) {
 
     }
@@ -75,14 +63,15 @@ namespace HELIX.Context {
     [EventHandler]
     private void OnTestAsync(TestAsyncEvt evt) { }
 
-    [MixinMethod(MixinOn.ComponentLoad)]
-    private void OnComponentLoad() { }
+    [MixinCallback(MixinOn.ComponentLoad)]
+    private void OnComponentLoad() {
 
+    }
   }
 
   [Service(typeof(SceneScope))]
   public partial class SceneService {
-    [MixinMethod]
+    [MixinCallback]
     public void OnInit() {
       Debug.Log("SceneService has initialized!");
     }

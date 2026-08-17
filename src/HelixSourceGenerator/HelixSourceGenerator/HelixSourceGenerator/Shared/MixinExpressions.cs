@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -29,13 +30,15 @@ public sealed class MixinExpressionOutput {
 }
 
 public sealed class MixinExpressionLog {
-  internal MixinExpressionLog(string text, int line) {
+  internal MixinExpressionLog(string text, int line, bool isHint = false) {
     Text = text ?? "";
     Line = line;
+    IsHint = isHint;
   }
 
   public string Text { get; }
   public int Line { get; }
+  public bool IsHint { get; }
 }
 
 public sealed class MixinExpressionPreparedLog {
@@ -54,6 +57,7 @@ public sealed class MixinExpressionProperty {
   public MixinExpressionProperty(string name, string argument = null, bool negated = false) {
     Name = name ?? throw new ArgumentNullException(nameof(name));
     Arguments = argument is null ? Array.Empty<string>() : new[] { argument };
+    Values = Arguments.Cast<object>().ToArray();
     Negated = negated;
   }
 
@@ -62,13 +66,57 @@ public sealed class MixinExpressionProperty {
   ) {
     Name = name ?? throw new ArgumentNullException(nameof(name));
     Arguments = arguments ?? Array.Empty<string>();
+    Values = Arguments.Cast<object>().ToArray();
+    Negated = negated;
+  }
+
+  internal MixinExpressionProperty(
+    string name,
+    IReadOnlyList<string> arguments,
+    IReadOnlyList<object> values,
+    bool negated
+  ) {
+    Name = name ?? throw new ArgumentNullException(nameof(name));
+    Arguments = arguments ?? Array.Empty<string>();
+    Values = values ?? Array.Empty<object>();
     Negated = negated;
   }
 
   public string Name { get; }
   public string Argument => Arguments.Count == 0 ? null : Arguments[0];
   public IReadOnlyList<string> Arguments { get; }
+  internal IReadOnlyList<object> Values { get; }
   public bool Negated { get; }
+}
+
+/// <summary>An immutable expression table. Mutating operations return a new table.</summary>
+public sealed class MixinExpressionTable {
+  private readonly IReadOnlyDictionary<string, object> _values;
+
+  public MixinExpressionTable() : this(new Dictionary<string, object>(StringComparer.Ordinal)) { }
+
+  private MixinExpressionTable(IReadOnlyDictionary<string, object> values) {
+    _values = values;
+  }
+
+  public int Count => _values.Count;
+
+  public bool TryGetValue(string key, out object value) => _values.TryGetValue(key ?? "", out value);
+  internal IEnumerable<object> Values => _values.Values;
+
+  internal MixinExpressionTable Put(string key, object value) {
+    var result = _values.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+    result[key ?? ""] = value;
+    return new MixinExpressionTable(result);
+  }
+
+  internal MixinExpressionTable Remove(string key) {
+    var result = _values.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+    result.Remove(key ?? "");
+    return new MixinExpressionTable(result);
+  }
+
+  public override string ToString() => "table[" + Count.ToString(CultureInfo.InvariantCulture) + "]";
 }
 
 public sealed class MixinExpressionReference {
@@ -151,7 +199,7 @@ public sealed class MixinExpressionValidationResult {
 public sealed class MixinExpressionPreparedState {
   internal MixinExpressionPreparedState(
     IReadOnlyList<MixinExpressionInterpreter.Program> programs,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> variables,
     IReadOnlyList<MixinExpressionInterpreter.Instruction> instructions,
     IReadOnlyDictionary<string, int> labels,
     IReadOnlyDictionary<int, int> instructionScopes,
@@ -176,7 +224,7 @@ public sealed class MixinExpressionPreparedState {
   }
 
   internal IReadOnlyList<MixinExpressionInterpreter.Program> Programs { get; }
-  internal IReadOnlyDictionary<string, string> Variables { get; }
+  internal IReadOnlyDictionary<string, object> Variables { get; }
   internal IReadOnlyList<MixinExpressionInterpreter.Instruction> Instructions { get; }
   internal IReadOnlyDictionary<string, int> Labels { get; }
   internal IReadOnlyDictionary<int, int> InstructionScopes { get; }
@@ -194,6 +242,7 @@ public sealed class MixinExpressionPreparedState {
 /// <see cref="IMixinExpressionContext"/>.
 /// </summary>
 public sealed class MixinExpressionInterpreter {
+  private const string ParameterLocalKey = "\0@param";
   private const int MaximumCachedPrograms = 512;
   private const int MaximumCachedCharacters = 1024 * 1024;
   private static readonly object ProgramCacheLock = new();
@@ -220,7 +269,7 @@ public sealed class MixinExpressionInterpreter {
           ProgramCache.Add(expression, node);
           _cachedCharacters += expression.Length;
           while (ProgramCache.Count > MaximumCachedPrograms ||
-                 _cachedCharacters > MaximumCachedCharacters) {
+            _cachedCharacters > MaximumCachedCharacters) {
             var expired = ProgramCacheUsage.Last;
             ProgramCacheUsage.RemoveLast();
             ProgramCache.Remove(expired.Value.Expression);
@@ -294,7 +343,8 @@ public sealed class MixinExpressionInterpreter {
       Operand = operand;
       Error = error;
       if (error is null && command is "MATCH" or "ASSERT") BooleanExpression = ParseBooleanExpression(operand);
-      if (error is null && command is "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR" or "FAIL")
+      if (error is null && command is "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR"
+        or "PUT" or "PUSH" or "CALL" or "FAIL")
         StringExpression = ParseStringExpression(operand);
     }
 
@@ -320,6 +370,8 @@ public sealed class MixinExpressionInterpreter {
   }
 
   internal sealed record StringPart(string Literal, MixinExpressionReference Reference);
+
+  private sealed record CallFrame(int ReturnAddress, bool HadParameter, object Parameter);
 
   private static IReadOnlyList<MixinExpressionReference> ParseBooleanExpression(string text) {
     var result = new List<MixinExpressionReference>();
@@ -360,8 +412,9 @@ public sealed class MixinExpressionInterpreter {
 
   /// <summary>Fully parses and context-independently evaluates prepared global programs.</summary>
   public MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
+    var evaluationStartedAt = Stopwatch.GetTimestamp();
     var programs = new List<Program>();
-    var variables = new Dictionary<string, string>(StringComparer.Ordinal);
+    var variables = new Dictionary<string, object>(StringComparer.Ordinal);
     var logs = new List<MixinExpressionPreparedLog>();
     var programIndex = 0;
     var executedOperations = 0;
@@ -408,10 +461,12 @@ public sealed class MixinExpressionInterpreter {
       instructionOffset += program.Count;
     }
     var initializers = FindPreparedInitializers(instructions);
-    CollectPreparedDumps(programs, instructions, variables, logs, executedOperations);
+    CollectPreparedDumps(
+      programs, instructions, variables, logs, executedOperations, evaluationStartedAt
+    );
     return new MixinExpressionPreparedState(
       programs.AsReadOnly(),
-      new Dictionary<string, string>(variables, StringComparer.Ordinal),
+      new Dictionary<string, object>(variables, StringComparer.Ordinal),
       instructions,
       new Dictionary<string, int>(labels, StringComparer.Ordinal),
       new Dictionary<int, int>(instructionScopes),
@@ -451,7 +506,7 @@ public sealed class MixinExpressionInterpreter {
   private static bool TryEvaluatePreparedInitializers(
     Program program,
     int programIndex,
-    IDictionary<string, string> variables,
+    IDictionary<string, object> variables,
     ICollection<MixinExpressionPreparedLog> logs,
     ref int executedOperations,
     out string error,
@@ -502,7 +557,7 @@ public sealed class MixinExpressionInterpreter {
 
   private static bool TryInterpolatePrepared(
     IReadOnlyList<StringPart> expression,
-    IDictionary<string, string> variables,
+    IDictionary<string, object> variables,
     out string result,
     out string error
   ) {
@@ -525,7 +580,7 @@ public sealed class MixinExpressionInterpreter {
         error = "prepared global initializer references cannot have properties";
         return false;
       }
-      builder.Append(value);
+      builder.Append(RenderValue(value));
     }
     result = builder.ToString();
     return true;
@@ -534,9 +589,10 @@ public sealed class MixinExpressionInterpreter {
   private static void CollectPreparedDumps(
     IReadOnlyList<Program> programs,
     IReadOnlyList<Instruction> globalInstructions,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> variables,
     ICollection<MixinExpressionPreparedLog> logs,
-    int executedOperations
+    int executedOperations,
+    long evaluationStartedAt
   ) {
     for (var programIndex = 0; programIndex < programs.Count; programIndex++) {
       var program = programs[programIndex];
@@ -563,8 +619,8 @@ public sealed class MixinExpressionInterpreter {
           case "STATE":
             text = DumpState(
               instruction.Line, index + 1, 0,
-              new Dictionary<string, string>(), variables,
-              executedOperations, executedOperations
+              new Dictionary<string, object>(), variables,
+              executedOperations, executedOperations, evaluationStartedAt
             );
             break;
           case "BUFFER":
@@ -622,7 +678,7 @@ public sealed class MixinExpressionInterpreter {
   public MixinExpressionResult Execute(
     string expression,
     IMixinExpressionContext context,
-    IDictionary<string, string> variables = null
+    IDictionary<string, object> variables = null
   ) {
     return Execute(expression, context, variables, (MixinExpressionPreparedState)null);
   }
@@ -630,7 +686,7 @@ public sealed class MixinExpressionInterpreter {
   public MixinExpressionResult Execute(
     string expression,
     IMixinExpressionContext context,
-    IDictionary<string, string> variables,
+    IDictionary<string, object> variables,
     IEnumerable<string> preparedExpressions
   ) {
     return Execute(
@@ -644,9 +700,10 @@ public sealed class MixinExpressionInterpreter {
   public MixinExpressionResult Execute(
     string expression,
     IMixinExpressionContext context,
-    IDictionary<string, string> variables,
+    IDictionary<string, object> variables,
     MixinExpressionPreparedState preparedState
   ) {
+    var evaluationStartedAt = Stopwatch.GetTimestamp();
     if (context is null) throw new ArgumentNullException(nameof(context));
     if (expression is null) return Failure("the expression is null", 0);
 
@@ -672,8 +729,8 @@ public sealed class MixinExpressionInterpreter {
     var functionEnds = preparedState is null
       ? new HashSet<int>()
       : new HashSet<int>(preparedState.FunctionEnds);
-    var locals = new Dictionary<string, string>(StringComparer.Ordinal);
-    var pendingVariables = new Dictionary<string, string>(StringComparer.Ordinal);
+    var locals = new Dictionary<string, object>(StringComparer.Ordinal);
+    var pendingVariables = new Dictionary<string, object>(StringComparer.Ordinal);
     if (preparedState is not null)
       foreach (var item in preparedState.Variables)
         pendingVariables[item.Key] = item.Value;
@@ -686,9 +743,11 @@ public sealed class MixinExpressionInterpreter {
     var steps = 0;
     var executedOperations = 0;
     var maximumSteps = Math.Max(1024, lines.Count * 64);
-    var calls = new Stack<int>();
+    var calls = new Stack<CallFrame>();
     var localSymbolsIndexed = false;
-    while (pc < lines.Count) {
+    var lastLineNumber = 0;
+    try {
+      while (pc < lines.Count) {
       if (++steps > maximumSteps) return Failure("execution limit exceeded (possible GOTO loop)", pc + 1, logs);
       if (pc >= preparedCount && !localSymbolsIndexed && lines[pc].Command == "FUNC") {
         if (!TryIndexSymbols(
@@ -703,6 +762,7 @@ public sealed class MixinExpressionInterpreter {
         continue;
       }
       var lineNumber = pc + 1;
+      lastLineNumber = lineNumber;
       var instruction = pc;
       var parsed = lines[pc++];
       if (parsed.Error is not null) return Failure(parsed.Error, lineNumber, logs);
@@ -715,11 +775,14 @@ public sealed class MixinExpressionInterpreter {
 
       switch (command) {
         case "SCOPE":
-          break;
         case "FUNC":
           break;
         case "END":
-          if (functionEnds.Contains(instruction) && calls.Count != 0) pc = calls.Pop();
+          if (functionEnds.Contains(instruction) && calls.Count != 0) {
+            var frame = calls.Pop();
+            RestoreCallParameter(locals, frame);
+            pc = frame.ReturnAddress;
+          }
           break;
         case "MATCH":
           if (!TryEvaluateAll(
@@ -798,14 +861,17 @@ public sealed class MixinExpressionInterpreter {
             )) return Failure(mixinPriorityArgumentError, lineNumber, logs);
             if (!int.TryParse(
               mixinPriorityText, NumberStyles.Integer, CultureInfo.InvariantCulture, out mixinPriority
-            )) return Failure(
-              "MIXIN priority '" + (mixinPriorityText ?? "") +
-              "' is not a valid 32-bit integer", lineNumber, logs
-            );
+            ))
+              return Failure(
+                "MIXIN priority '" + (mixinPriorityText ?? "") +
+                "' is not a valid 32-bit integer", lineNumber, logs
+              );
           }
-          outputs.Add(new MixinExpressionOutput(
-            MixinExpressionOutputTarget.Mixin, mixinCode, mixinTarget, mixinPriority
-          ));
+          outputs.Add(
+            new MixinExpressionOutput(
+              MixinExpressionOutputTarget.Mixin, mixinCode, mixinTarget, mixinPriority
+            )
+          );
           break;
         case "RESOLVE_MIXIN":
           if (context is not IMixinExpressionSignatureContext signatureContext)
@@ -848,7 +914,8 @@ public sealed class MixinExpressionInterpreter {
                 new MixinExpressionLog(
                   DumpState(
                     lineNumber, pc, calls.Count, locals, pendingVariables,
-                    executedOperations, preparedState?.ExecutedOperations ?? 0
+                    executedOperations, preparedState?.ExecutedOperations ?? 0,
+                    evaluationStartedAt
                   ), lineNumber
                 )
               );
@@ -870,14 +937,41 @@ public sealed class MixinExpressionInterpreter {
         case "LOCAL":
         case "VAR":
           if (string.IsNullOrEmpty(argument)) return Failure(command + " requires a name", lineNumber, logs);
-          if (!TryInterpolate(
+          if (!TryEvaluateExpression(
             parsed.StringExpression, context, locals, pendingVariables, out var stored, out var storeError
           )) return Failure(storeError, lineNumber, logs);
           (command == "LOCAL" ? locals : pendingVariables)[argument] = stored;
           break;
+        case "PUT":
+        case "PUSH":
+          if (!TryResolveDirectiveArgument(
+            parsed.Arguments[0], context, locals, pendingVariables, out var tableLocal,
+            out var tableLocalError
+          )) return Failure(tableLocalError, lineNumber, logs);
+          if (string.IsNullOrEmpty(tableLocal))
+            return Failure(command + " local name is empty", lineNumber, logs);
+          if (!TryEvaluateExpression(
+            parsed.StringExpression, context, locals, pendingVariables,
+            out var tableItem, out var tableItemError
+          )) return Failure(tableItemError, lineNumber, logs);
+          var updatedTable = locals.TryGetValue(tableLocal, out var currentTable) &&
+            currentTable is MixinExpressionTable existingTable
+              ? existingTable
+              : new MixinExpressionTable();
+          string tableKey;
+          if (command == "PUT") {
+            if (!TryResolveDirectiveArgument(
+              parsed.Arguments[1], context, locals, pendingVariables, out tableKey,
+              out var tableKeyError
+            )) return Failure(tableKeyError, lineNumber, logs);
+          } else tableKey = updatedTable.Count.ToString(CultureInfo.InvariantCulture);
+          locals[tableLocal] = updatedTable.Put(tableKey, tableItem);
+          break;
         case "RETURN":
           if (calls.Count != 0) {
-            pc = calls.Pop();
+            var frame = calls.Pop();
+            RestoreCallParameter(locals, frame);
+            pc = frame.ReturnAddress;
             break;
           }
           CommitVariables(variables, pendingVariables);
@@ -893,7 +987,14 @@ public sealed class MixinExpressionInterpreter {
           }
           if (string.IsNullOrEmpty(argument) || !functions.TryGetValue(argument, out var function))
             return Failure("unknown function '" + (argument ?? "") + "'", lineNumber, logs);
-          calls.Push(pc);
+          var hadParameter = locals.TryGetValue(ParameterLocalKey, out var previousParameter);
+          object callParameter = null;
+          if (!string.IsNullOrEmpty(operand) && !TryEvaluateExpression(
+            parsed.StringExpression, context, locals, pendingVariables,
+            out callParameter, out var callParameterError
+          )) return Failure(callParameterError, lineNumber, logs);
+          calls.Push(new CallFrame(pc, hadParameter, previousParameter));
+          locals[ParameterLocalKey] = callParameter;
           pc = function.Start;
           break;
         case "GOTO":
@@ -940,10 +1041,21 @@ public sealed class MixinExpressionInterpreter {
         default:
           return Failure("unknown directive '@" + command + "'", lineNumber, logs);
       }
-    }
+      }
 
-    CommitVariables(variables, pendingVariables);
-    return Success(outputs, logs);
+      CommitVariables(variables, pendingVariables);
+      return Success(outputs, logs);
+    } finally {
+      var duration = ElapsedMillisecondsValue(evaluationStartedAt);
+      if (duration > GeneratorDiagnostics.Mixins.ExpressionHintThresholdMilliseconds) logs.Add(
+        new MixinExpressionLog(
+          "Mixin expression evaluation took " +
+          duration.ToString("F3", CultureInfo.InvariantCulture) + " ms",
+          lastLineNumber,
+          true
+        )
+      );
+    }
   }
 
   public bool TryParseReference(
@@ -958,12 +1070,10 @@ public sealed class MixinExpressionInterpreter {
       return false;
     }
     var position = 0;
-    if (!TryReadReference(text, ref position, out reference, out error) || position != text.Length) {
-      if (error is null) error = "unexpected text after expression reference";
-      reference = null;
-      return false;
-    }
-    return true;
+    if (TryReadReference(text, ref position, out reference, out error) && position == text.Length) return true;
+    error ??= "unexpected text after expression reference";
+    reference = null;
+    return false;
   }
 
   private static string[] SplitLines(string expression) {
@@ -973,7 +1083,8 @@ public sealed class MixinExpressionInterpreter {
   private static bool IsKnownDirective(string command) {
     return command is
       "SCOPE" or "FUNC" or "CALL" or "END" or "MATCH" or "ASSERT" or "CODE" or
-      "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "DUMP" or "LOCAL" or "VAR" or "RETURN" or "GOTO" or
+      "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "DUMP" or "LOCAL" or "VAR" or "PUT" or "PUSH" or "RETURN"
+      or "GOTO" or
       "SKIP" or "FAIL";
   }
 
@@ -985,57 +1096,71 @@ public sealed class MixinExpressionInterpreter {
   ) {
     error = null;
     var argument = arguments.Count == 0 ? null : arguments[0];
-    var maximumArguments = command == "MIXIN" ? 2 : 1;
+    var maximumArguments = command is "MIXIN" or "PUT" ? 2 : 1;
     if (arguments.Count > maximumArguments) {
       error = command + " accepts at most " + maximumArguments +
         (maximumArguments == 1 ? " argument" : " arguments");
       return false;
     }
-    if (command == "MIXIN" && string.IsNullOrEmpty(argument)) {
-      error = "MIXIN requires a target";
-      return false;
+    switch (command) {
+      case "MIXIN" when string.IsNullOrEmpty(argument):
+        error = "MIXIN requires a target";
+        return false;
+      case "RESOLVE_MIXIN" when arguments.Count != 1:
+        error = "RESOLVE_MIXIN requires a local name";
+        return false;
+      case "PUT" when arguments.Count != 2:
+        error = "PUT requires a local name and key";
+        return false;
+      case "PUSH" when arguments.Count != 1:
+        error = "PUSH requires a local name";
+        return false;
+      case "FUNC" or "CALL" or "GOTO" or "LOCAL" or "VAR" when
+        string.IsNullOrEmpty(argument):
+        error = command + " requires a name";
+        return false;
+      case "MATCH" or "ASSERT": return ValidateBooleanSyntax(operand, out error);
+      case "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR" or "PUT" or "PUSH" or "CALL"
+        or "FAIL": return ValidateStringSyntax(operand, out error);
+      case "DUMP" when !string.Equals(argument, "STATE", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(argument, "BUFFER", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(argument, "AST", StringComparison.OrdinalIgnoreCase):
+        error = "DUMP requires STATE, BUFFER or AST";
+        return false;
+      default: return true;
     }
-    if (command == "RESOLVE_MIXIN" && arguments.Count != 1) {
-      error = "RESOLVE_MIXIN requires a local name";
-      return false;
-    }
-    if (command is "FUNC" or "CALL" or "GOTO" or "LOCAL" or "VAR" &&
-      string.IsNullOrEmpty(argument)) {
-      error = command + " requires a name";
-      return false;
-    }
-    if (command is "MATCH" or "ASSERT") return ValidateBooleanSyntax(operand, out error);
-    if (command is "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR" or "FAIL")
-      return ValidateStringSyntax(operand, out error);
-    if (command == "DUMP" && !string.Equals(argument, "STATE", StringComparison.OrdinalIgnoreCase) &&
-      !string.Equals(argument, "BUFFER", StringComparison.OrdinalIgnoreCase) &&
-      !string.Equals(argument, "AST", StringComparison.OrdinalIgnoreCase)) {
-      error = "DUMP requires STATE, BUFFER or AST";
-      return false;
-    }
-    return true;
   }
 
   private static string DumpState(
     int line,
     int programCounter,
     int callDepth,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
     int executedOperations,
-    int preparedOperations
+    int preparedOperations,
+    long evaluationStartedAt
   ) {
     return "STATE line=" + line + " pc=" + programCounter + " callDepth=" + callDepth +
       " operations=" + executedOperations + " preparedOperations=" + preparedOperations +
+      " durationMs=" + ElapsedMilliseconds(evaluationStartedAt) +
       " locals=" + DumpValues(locals) + " variables=" + DumpValues(variables);
   }
 
-  private static string DumpValues(IReadOnlyDictionary<string, string> values) {
+  private static string ElapsedMilliseconds(long startedAt) {
+    return ElapsedMillisecondsValue(startedAt).ToString("F3", CultureInfo.InvariantCulture);
+  }
+
+  private static double ElapsedMillisecondsValue(long startedAt) {
+    return (Stopwatch.GetTimestamp() - startedAt) * 1000d / Stopwatch.Frequency;
+  }
+
+  private static string DumpValues(IReadOnlyDictionary<string, object> values) {
     return values.Count == 0
       ? "{}"
       : "{" + string.Join(
         ", ", values.OrderBy(item => item.Key, StringComparer.Ordinal)
-          .Select(item => item.Key + "=" + item.Value)
+          .Select(item => item.Key + "=" + RenderValue(item.Value))
       ) + "}";
   }
 
@@ -1277,9 +1402,27 @@ public sealed class MixinExpressionInterpreter {
   private static bool TryResolveDirectiveArgument(
     string argument,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
     out string value,
+    out string error
+  ) {
+    if (!TryResolveArgumentValue(
+      argument, context, locals, variables, out var resolved, out error
+    )) {
+      value = null;
+      return false;
+    }
+    value = RenderValue(resolved);
+    return true;
+  }
+
+  private static bool TryResolveArgumentValue(
+    string argument,
+    IMixinExpressionContext context,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
+    out object value,
     out string error
   ) {
     if (argument is not null && argument.Length >= 2 &&
@@ -1289,7 +1432,7 @@ public sealed class MixinExpressionInterpreter {
         value = null;
         return false;
       }
-      return TryInterpolate(
+      return TryEvaluateExpression(
         ParseStringExpression(expression), context, locals, variables, out value, out error
       );
     }
@@ -1330,8 +1473,8 @@ public sealed class MixinExpressionInterpreter {
   private static bool TryEvaluateAll(
     IReadOnlyList<MixinExpressionReference> expression,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
     out bool result,
     out string error,
     out string failure
@@ -1358,8 +1501,8 @@ public sealed class MixinExpressionInterpreter {
   private static MixinExpressionReference SelectFailedCondition(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables
   ) {
     var valueProperties = reference.Properties.Where(property => !IsBooleanProperty(property)).ToArray();
     foreach (var predicate in reference.Properties.Where(IsBooleanProperty)) {
@@ -1430,8 +1573,8 @@ public sealed class MixinExpressionInterpreter {
   private static bool TryInterpolate(
     IReadOnlyList<StringPart> expression,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
     out string result,
     out string error
   ) {
@@ -1446,24 +1589,73 @@ public sealed class MixinExpressionInterpreter {
         result = null;
         return false;
       }
-      builder.Append(value);
+      builder.Append(RenderValue(value));
     }
     result = builder.ToString();
     return true;
   }
 
+  private static bool TryEvaluateExpression(
+    IReadOnlyList<StringPart> expression,
+    IMixinExpressionContext context,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
+    out object result,
+    out string error
+  ) {
+    if (expression is { Count: 1 } && expression[0].Reference is not null)
+      return TryResolve(expression[0].Reference, context, locals, variables, out result, out error);
+    if (TryInterpolate(expression, context, locals, variables, out var text, out error)) {
+      result = text;
+      return true;
+    }
+    result = null;
+    return false;
+  }
+
+  private static void RestoreCallParameter(
+    IDictionary<string, object> locals,
+    CallFrame frame
+  ) {
+    if (frame.HadParameter) locals[ParameterLocalKey] = frame.Parameter;
+    else locals.Remove(ParameterLocalKey);
+  }
+
   private static bool TryResolve(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
-    out string value,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
+    out object value,
     out string error
   ) {
     if (!TryPrepareReference(reference, context, locals, variables, out reference, out error) ||
       !TryReduceLogicalProperties(reference, context, locals, variables, out reference, out error)) {
       value = null;
       return false;
+    }
+    var tableOperationIndex = reference.Properties.ToList()
+      .FindIndex(item => item.Name is "put" or "remove" or "push" or "pop"
+      );
+    if (tableOperationIndex >= 0) {
+      var prefix = new MixinExpressionReference(
+        reference.Root, reference.Member,
+        reference.Properties.Take(tableOperationIndex).ToArray()
+      );
+      if (!TryResolveCore(prefix, context, locals, variables, out value, out error)) return false;
+      var operations = new MixinExpressionReference(
+        "table", null, reference.Properties.Skip(tableOperationIndex).ToArray()
+      );
+      if (!TryApplyStringProperties(operations, null, ref value, out error)) return false;
+      var predicate = operations.Properties.FirstOrDefault(IsBooleanProperty);
+      if (predicate is null) return true;
+      var matched = predicate.Name == "exists" && value is not null ||
+        predicate.Name == "eq" && RelaxedEquals(value, predicate.Values[0]) ||
+        predicate.Name == "matches" && RegexMatches(RenderValue(value), predicate.Argument, out error) ||
+        predicate.Name == "has" && TableContainsValue(value, predicate.Values[0]);
+      if (error is not null) return false;
+      value = predicate.Negated ? !matched : matched;
+      return true;
     }
     var wireIndex = reference.Properties.ToList().FindIndex(item => item.Name == "wire");
     if (wireIndex >= 0) {
@@ -1478,7 +1670,10 @@ public sealed class MixinExpressionInterpreter {
       );
       value = null;
       if (!TryResolveCore(prefix, context, locals, variables, out var from, out error) ||
-        !signatureContext.TryWire(from, wire.Argument, out value, out error)) return false;
+        !signatureContext.TryWire(
+          RenderValue(from), wire.Argument, out var wired, out error
+        )) return false;
+      value = wired;
       return true;
     }
     if (reference.Properties.Any(IsBooleanProperty)) {
@@ -1486,7 +1681,7 @@ public sealed class MixinExpressionInterpreter {
         value = null;
         return false;
       }
-      value = boolean ? "true" : "false";
+      value = boolean;
       return true;
     }
     return TryResolveCore(reference, context, locals, variables, out value, out error);
@@ -1495,24 +1690,41 @@ public sealed class MixinExpressionInterpreter {
   private static bool TryResolveCore(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
-    out string value,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
+    out object value,
     out string error
   ) {
-    if (reference.Root is "true" or "false") {
-      value = reference.Root;
+    if (reference.Root is "true" or "false" or "null" or "table" or "param") {
+      value = reference.Root switch {
+        "true" => (object)true,
+        "false" => false,
+        "null" => null,
+        "table" => new MixinExpressionTable(),
+        "param" => locals.TryGetValue(ParameterLocalKey, out var parameter) ? parameter : null,
+        _ => null
+      };
+      if (!string.IsNullOrEmpty(reference.Member)) {
+        value = value is MixinExpressionTable table && table.TryGetValue(reference.Member, out var selected)
+          ? selected
+          : null;
+      }
       return TryApplyStringProperties(reference, null, ref value, out error);
     }
     if (TryStored(reference, locals, variables, out value, out error)) return error is null;
-    return context.TryResolve(reference, out value, out error);
+    if (context.TryResolve(reference, out var resolved, out error)) {
+      value = resolved;
+      return true;
+    }
+    value = null;
+    return false;
   }
 
   private static bool TryEvaluate(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
     out bool value,
     out string error
   ) {
@@ -1521,8 +1733,43 @@ public sealed class MixinExpressionInterpreter {
       value = false;
       return false;
     }
-    var callablePredicateIndex = reference.Properties.ToList().FindIndex(
-      item => item.Name is "signature" or "wireable"
+    var tableOperationIndex = reference.Properties.ToList()
+      .FindIndex(item => item.Name is "put" or "remove" or "push" or "pop"
+      );
+    if (tableOperationIndex >= 0) {
+      var prefix = new MixinExpressionReference(
+        reference.Root, reference.Member,
+        reference.Properties.Take(tableOperationIndex).ToArray()
+      );
+      if (!TryResolveCore(prefix, context, locals, variables, out var tableValue, out error)) {
+        value = false;
+        return false;
+      }
+      var operations = new MixinExpressionReference(
+        "table", null, reference.Properties.Skip(tableOperationIndex).ToArray()
+      );
+      if (!TryApplyStringProperties(operations, null, ref tableValue, out error)) {
+        value = false;
+        return false;
+      }
+      var predicate = operations.Properties.FirstOrDefault(IsBooleanProperty);
+      if (predicate is null) {
+        value = IsTruthyValue(tableValue);
+        return true;
+      }
+      var matched = predicate.Name == "exists" && tableValue is not null ||
+        predicate.Name == "eq" && RelaxedEquals(tableValue, predicate.Values[0]) ||
+        predicate.Name == "matches" && RegexMatches(
+          RenderValue(tableValue), predicate.Argument, out error
+        ) || predicate.Name == "has" && TableContainsValue(tableValue, predicate.Values[0]);
+      if (error is not null) {
+        value = false;
+        return false;
+      }
+      value = predicate.Negated ? !matched : matched;
+      return true;
+    }
+    var callablePredicateIndex = reference.Properties.ToList().FindIndex(item => item.Name is "signature" or "wireable"
     );
     if (callablePredicateIndex >= 0) {
       if (context is not IMixinExpressionSignatureContext signatureContext) {
@@ -1543,7 +1790,7 @@ public sealed class MixinExpressionInterpreter {
         );
         if (!TryResolveCore(prefix, context, locals, variables, out var first, out error) ||
           !signatureContext.TryHaveSameSignature(
-            first, predicate.Argument, out value, out error
+            RenderValue(first), predicate.Argument, out value, out error
           )) return false;
       }
       if (predicate.Negated) value = !value;
@@ -1555,20 +1802,29 @@ public sealed class MixinExpressionInterpreter {
   private static bool TryEvaluateCore(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
     out bool value,
     out string error
   ) {
-    if (reference.Root is "true" or "false") {
-      value = reference.Root == "true";
-      error = null;
-      foreach (var predicate in reference.Properties.Where(IsBooleanProperty)) {
-        var item = predicate.Name == "exists" ||
-          predicate.Name == "eq" && RelaxedEquals(reference.Root, predicate.Argument) ||
-          predicate.Name == "matches" && RegexMatches(reference.Root, predicate.Argument, out error);
+    if (reference.Root is "true" or "false" or "null" or "table" or "param") {
+      if (!TryResolveCore(reference, context, locals, variables, out var atom, out error)) {
+        value = false;
+        return false;
+      }
+      var predicates = reference.Properties.Where(IsBooleanProperty).ToArray();
+      if (predicates.Length == 0) {
+        value = IsTruthyValue(atom);
+        return true;
+      }
+      value = true;
+      foreach (var predicate in predicates) {
+        var item = predicate.Name == "exists" && atom is not null ||
+          predicate.Name == "eq" && RelaxedEquals(atom, predicate.Values[0]) ||
+          predicate.Name == "matches" && RegexMatches(RenderValue(atom), predicate.Argument, out error) ||
+          predicate.Name == "has" && TableContainsValue(atom, predicate.Values[0]);
         if (error is not null) return false;
-        value = predicate.Negated ? !item : item;
+        value &= predicate.Negated ? !item : item;
       }
       return true;
     }
@@ -1589,14 +1845,15 @@ public sealed class MixinExpressionInterpreter {
         return true;
       }
       if (predicates.Length == 0) {
-        value = !string.Equals(stored, "false", StringComparison.OrdinalIgnoreCase);
+        value = IsTruthyValue(stored);
         return true;
       }
       value = true;
       foreach (var predicate in predicates) {
-        var item = predicate.Name == "exists" ||
-          predicate.Name == "eq" && RelaxedEquals(stored, predicate.Argument) ||
-          predicate.Name == "matches" && RegexMatches(stored, predicate.Argument, out error);
+        var item = predicate.Name == "exists" && stored is not null ||
+          predicate.Name == "eq" && RelaxedEquals(stored, predicate.Values[0]) ||
+          predicate.Name == "matches" && RegexMatches(RenderValue(stored), predicate.Argument, out error) ||
+          predicate.Name == "has" && TableContainsValue(stored, predicate.Values[0]);
         if (error is not null) return false;
         value &= predicate.Negated ? !item : item;
       }
@@ -1608,29 +1865,37 @@ public sealed class MixinExpressionInterpreter {
   private static bool TryPrepareReference(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
     out MixinExpressionReference prepared,
     out string error
   ) {
     var properties = new List<MixinExpressionProperty>(reference.Properties.Count);
     foreach (var property in reference.Properties) {
       var arguments = new List<string>(property.Arguments.Count);
+      var values = new List<object>(property.Arguments.Count);
       foreach (var argument in property.Arguments) {
         if (property.Name is "and" or "or" && argument.Length >= 2 &&
           argument[0] == '(' && argument[argument.Length - 1] == ')') {
-          arguments.Add(argument.Substring(1, argument.Length - 2));
+          var booleanExpression = argument.Substring(1, argument.Length - 2);
+          arguments.Add(booleanExpression);
+          values.Add(booleanExpression);
           continue;
         }
-        if (!TryResolveDirectiveArgument(
-          argument, context, locals, variables, out var resolved, out error
+        if (!TryResolveArgumentValue(
+          argument, context, locals, variables, out var resolvedValue, out error
         )) {
           prepared = null;
           return false;
         }
-        arguments.Add(resolved);
+        arguments.Add(RenderValue(resolvedValue));
+        values.Add(resolvedValue);
       }
-      properties.Add(new MixinExpressionProperty(property.Name, arguments.AsReadOnly(), property.Negated));
+      properties.Add(
+        new MixinExpressionProperty(
+          property.Name, arguments.AsReadOnly(), values.AsReadOnly(), property.Negated
+        )
+      );
     }
     prepared = new MixinExpressionReference(reference.Root, reference.Member, properties.AsReadOnly());
     error = null;
@@ -1640,8 +1905,8 @@ public sealed class MixinExpressionInterpreter {
   private static bool TryReduceLogicalProperties(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
     out MixinExpressionReference reduced,
     out string error
   ) {
@@ -1690,12 +1955,14 @@ public sealed class MixinExpressionInterpreter {
     }
   }
 
-  private static bool RelaxedEquals(string actual, string expected) {
-    var expectedIsNull = string.Equals(expected, "null", StringComparison.OrdinalIgnoreCase);
+  private static bool RelaxedEquals(object actual, object expected) {
+    var expectedIsNull = expected is null ||
+      string.Equals(RenderValue(expected), "null", StringComparison.OrdinalIgnoreCase);
     if (actual is null) return expectedIsNull;
-    if (string.Equals(actual, expected ?? "", StringComparison.Ordinal)) return true;
+    if (Equals(actual, expected)) return true;
     return string.Equals(
-      UnwrapComparable(actual), UnwrapComparable(expected ?? ""), StringComparison.OrdinalIgnoreCase
+      UnwrapComparable(RenderValue(actual)), UnwrapComparable(RenderValue(expected)),
+      StringComparison.OrdinalIgnoreCase
     );
   }
 
@@ -1708,9 +1975,9 @@ public sealed class MixinExpressionInterpreter {
 
   private static bool TryStored(
     MixinExpressionReference reference,
-    IReadOnlyDictionary<string, string> locals,
-    IReadOnlyDictionary<string, string> variables,
-    out string value,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
+    out object value,
     out string error
   ) {
     value = null;
@@ -1732,26 +1999,31 @@ public sealed class MixinExpressionInterpreter {
   private static bool TryApplyStringProperties(
     MixinExpressionReference reference,
     string name,
-    ref string value,
+    ref object value,
     out string error
   ) {
     error = null;
     foreach (var property in reference.Properties) {
       if (IsBooleanProperty(property) || property.Name is "and" or "or") continue;
       if (property.Name == "name") value = name ?? reference.Root;
-      else if (property.Name == "unwrap") value = UnwrapComparable(value);
+      else if (property.Name == "path") {
+        value = value is MixinExpressionTable table && table.TryGetValue(property.Argument, out var selected)
+          ? selected
+          : null;
+      } else if (property.Name == "unwrap") value = UnwrapComparable(RenderValue(value));
       else if (property.Name is "replace" or "replaceFirst") {
         if (property.Arguments.Count != 2) {
           error = ":" + property.Name + " requires a regex and replacement";
           return false;
         }
         try {
+          var text = RenderValue(value);
           value = property.Name == "replace"
             ? System.Text.RegularExpressions.Regex.Replace(
-              value, property.Arguments[0], property.Arguments[1]
+              text, property.Arguments[0], property.Arguments[1]
             )
             : new System.Text.RegularExpressions.Regex(property.Arguments[0])
-              .Replace(value, property.Arguments[1], 1);
+              .Replace(text, property.Arguments[1], 1);
         } catch (ArgumentException exception) {
           error = "invalid regular expression: " + exception.Message;
           return false;
@@ -1761,17 +2033,57 @@ public sealed class MixinExpressionInterpreter {
           error = ":switch requires truthy and falsy values";
           return false;
         }
-        var truthy = value.Length != 0 &&
-          !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) &&
-          !string.Equals(value, "null", StringComparison.OrdinalIgnoreCase);
-        value = property.Arguments[truthy ? 0 : 1];
-      }
-      else {
+        var truthy = IsTruthyValue(value);
+        value = property.Values[truthy ? 0 : 1];
+      } else if (property.Name == "put") {
+        var table = value as MixinExpressionTable ?? new MixinExpressionTable();
+        value = table.Put(RenderValue(property.Values[0]), property.Values[1]);
+      } else if (property.Name == "remove") {
+        value = (value as MixinExpressionTable ?? new MixinExpressionTable())
+          .Remove(property.Argument);
+      } else if (property.Name == "push") {
+        var table = value as MixinExpressionTable ?? new MixinExpressionTable();
+        value = table.Put(table.Count.ToString(CultureInfo.InvariantCulture), property.Values[0]);
+      } else if (property.Name == "pop") {
+        var table = value as MixinExpressionTable ?? new MixinExpressionTable();
+        value = table.Remove((table.Count - 1).ToString(CultureInfo.InvariantCulture));
+      } else if (property.Name == "size") {
+        value = value switch {
+          MixinExpressionTable table => table.Count.ToString(CultureInfo.InvariantCulture),
+          string text => text.Length.ToString(CultureInfo.InvariantCulture),
+          _ => "0"
+        };
+      } else {
         error = "property '" + property.Name + "' is not valid for @" + reference.Root;
         return false;
       }
     }
     return true;
+  }
+
+  private static bool IsTruthyValue(object value) {
+    if (value is null) return false;
+    if (value is bool boolean) return boolean;
+    if (value is string text)
+      return text.Length != 0 &&
+        !string.Equals(text, "false", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(text, "null", StringComparison.OrdinalIgnoreCase);
+    return true;
+  }
+
+  private static bool TableContainsValue(object value, object expected) {
+    if (value is not MixinExpressionTable table) return false;
+    return table.Values.Any(item => RelaxedEquals(item, expected));
+  }
+
+  private static string RenderValue(object value) {
+    return value switch {
+      null => "null",
+      bool boolean => boolean ? "true" : "false",
+      string text => text,
+      MixinExpressionTable table => table.ToString(),
+      _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null"
+    };
   }
 
   private static bool TryReadReference(
@@ -1887,12 +2199,15 @@ public sealed class MixinExpressionInterpreter {
     switch (property.Name) {
       case "replace":
       case "replaceFirst":
-      case "switch": expected = 2; break;
+      case "switch":
+      case "put": expected = 2; break;
       case "is":
       case "has":
       case "eq":
       case "matches": expected = 1; break;
       case "wire": expected = 1; break;
+      case "remove":
+      case "push": expected = 1; break;
       case "exists":
       case "isSelf":
       case "ref":
@@ -1908,7 +2223,9 @@ public sealed class MixinExpressionInterpreter {
       case "partial":
       case "generic":
       case "struct":
-      case "class": expected = 0; break;
+      case "class":
+      case "pop":
+      case "size": expected = 0; break;
       case "signature": expected = 1; break;
       case "wireable": expected = 2; break;
       case "and":
@@ -1918,7 +2235,8 @@ public sealed class MixinExpressionInterpreter {
           return false;
         }
         if (property.Arguments.Any(argument => argument.Length < 2 ||
-          argument[0] != '(' || argument[argument.Length - 1] != ')')) {
+          argument[0] != '(' || argument[argument.Length - 1] != ')'
+        )) {
           error = ":" + property.Name + " arguments must be dynamic boolean expressions";
           return false;
         }
@@ -1932,8 +2250,8 @@ public sealed class MixinExpressionInterpreter {
   }
 
   private static void CommitVariables(
-    IDictionary<string, string> destination,
-    IReadOnlyDictionary<string, string> source
+    IDictionary<string, object> destination,
+    IReadOnlyDictionary<string, object> source
   ) {
     if (destination is null) return;
     destination.Clear();

@@ -6,10 +6,7 @@ namespace HELIX.Context {
   [MixinExpression(
     new[] { MixinOn.Init, MixinOn.Dispose, MixinOn.ConfigureComponent },
     new[] { -1, 1, 0 },
-    @"
-@CALL<RequireEventHandler>
-@CALL<InjectImpl>
-"
+    "@CALL<InjectImpl>"
   )]
   public abstract class InjectAttributeBase : Attribute {
     public readonly Source source;

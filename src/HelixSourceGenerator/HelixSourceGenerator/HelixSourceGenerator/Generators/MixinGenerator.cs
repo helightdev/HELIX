@@ -245,7 +245,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         )
       );
     }
-    var expressionVariables = new Dictionary<string, string>(StringComparer.Ordinal);
+    var expressionVariables = new Dictionary<string, object>(StringComparer.Ordinal);
     CollectLocalContributions(context, target, contributions);
     CollectInterfaceContributions(
       context, target, interfaces, candidate.Compilation, preparedExpressions, expressionVariables,

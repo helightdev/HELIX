@@ -337,6 +337,11 @@ internal sealed class RoslynMixinExpressionContext :
           }
           subject = IsTruthy(subject) ? property.Arguments[0] : property.Arguments[1];
           break;
+        case "size":
+          subject = TryComparableText(subject, out var sized)
+            ? sized.Length.ToString(CultureInfo.InvariantCulture)
+            : "0";
+          break;
         case "path":
           subject = SelectTypeArgument(subject, property.Argument);
           break;

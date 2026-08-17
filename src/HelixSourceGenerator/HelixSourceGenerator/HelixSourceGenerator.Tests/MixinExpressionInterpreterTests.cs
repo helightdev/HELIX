@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using HELIX.SourceGen.Expressions;
 using Xunit;
@@ -12,8 +13,87 @@ public sealed class MixinExpressionInterpreterTests {
   private readonly MixinExpressionInterpreter _interpreter = new();
 
   [Fact]
+  public void SlowEvaluationAddsAnInformationalPerformanceHint() {
+    var result = _interpreter.Execute("@CODE @this:name", new SlowContext());
+
+    Assert.True(result.Success, result.Error);
+    var hint = Assert.Single(result.Logs, item => item.IsHint);
+    Assert.Contains("evaluation took", hint.Text);
+    Assert.Contains(" ms", hint.Text);
+  }
+
+  [Fact]
+  public void VariablesPreserveImmutableTablesAndTableOperations() {
+    var variables = new Dictionary<string, object>();
+    var result = _interpreter.Execute(
+      """
+      @VAR<data> @table:put<name><Ada>:push<first>:push<second>
+      @ASSERT @var#data:?has<second>
+      @CODE @var#data#name
+      @CODE @var#data:size
+      @VAR<nested> @table:put<child><(@var#data)>
+      @VAR<data> @var#data:pop:remove<name>
+      @CODE @var#data:size
+      @CODE @var#nested#child#name
+      @VAR<nothing> @null
+      @ASSERT @var#nothing:!?exists
+      """,
+      new StubContext(), variables
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.IsType<MixinExpressionTable>(variables["data"]);
+    Assert.Null(variables["nothing"]);
+    Assert.Equal(new[] { "Ada", "3", "1", "Ada" }, result.Outputs.Select(item => item.Text));
+  }
+
+  [Fact]
+  public void FunctionParametersAreTypedAndNestedCallsRestoreTheCallerParameter() {
+    var result = _interpreter.Execute(
+      """
+      @FUNC<inner>
+      @CODE inner=@param#value
+      @RETURN
+      @END
+      @FUNC<outer>
+      @CODE outer=@param#value
+      @CALL<inner> @table:put<value><second>
+      @CODE restored=@param#value
+      @RETURN
+      @END
+      @CALL<outer> @table:put<value><first>
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(
+      new[] { "outer=first", "inner=second", "restored=first" },
+      result.Outputs.Select(item => item.Text)
+    );
+  }
+
+  [Fact]
+  public void PutAndPushUpdateImmutableLocalTablesWithTypedValues() {
+    var result = _interpreter.Execute(
+      """
+      @PUT<items><name> Ada
+      @PUSH<items> first
+      @PUSH<items> @table:put<nested><value>
+      @CODE @local#items#name
+      @CODE @local#items#2#nested
+      @CODE @local#items:size
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] { "Ada", "value", "3" }, result.Outputs.Select(item => item.Text));
+  }
+
+  [Fact]
   public void MixinSupportsConstantAndDynamicTargetsWithPriorities() {
-    var variables = new Dictionary<string, string> {
+    var variables = new Dictionary<string, object> {
       ["destination"] = "$Dispose",
       ["priority"] = "12"
     };
@@ -89,7 +169,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void InterpolatesReferencesAndStoredValues() {
-    var variables = new Dictionary<string, string>();
+    var variables = new Dictionary<string, object>();
     var result = _interpreter.Execute(
       """
       @LOCAL<kind> handler
@@ -158,7 +238,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void FailedExecutionDoesNotCommitCodeOrVariables() {
-    var variables = new Dictionary<string, string> { ["value"] = "before" };
+    var variables = new Dictionary<string, object> { ["value"] = "before" };
     var result = _interpreter.Execute(
       """
       @VAR<value> after
@@ -397,7 +477,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void CallsPreparedFunctionsWithSharedLocalsAndVariables() {
-    var variables = new Dictionary<string, string>();
+    var variables = new Dictionary<string, object>();
     var result = _interpreter.Execute(
       "@CALL<emit>\n@CODE caller @var#prefix @local#shared",
       new StubContext(),
@@ -433,7 +513,7 @@ public sealed class MixinExpressionInterpreterTests {
         "@END"
       }
     );
-    var firstVariables = new Dictionary<string, string>();
+    var firstVariables = new Dictionary<string, object>();
     var first = _interpreter.Execute(
       "@CALL<emit>\n@VAR<prefix> changed",
       new StubContext(),
@@ -443,7 +523,7 @@ public sealed class MixinExpressionInterpreterTests {
     var second = _interpreter.Execute(
       "@CALL<emit>",
       new StubContext(),
-      new Dictionary<string, string>(),
+      new Dictionary<string, object>(),
       prepared
     );
 
@@ -502,8 +582,8 @@ public sealed class MixinExpressionInterpreterTests {
 
     Assert.Equal("prepared global", Assert.Single(prepared.Logs).Text);
     Assert.Equal(2, prepared.ExecutedOperations);
-    Assert.Empty(first.Logs);
-    Assert.Empty(second.Logs);
+    Assert.Empty(first.Logs.Where(item => !item.IsHint));
+    Assert.Empty(second.Logs.Where(item => !item.IsHint));
   }
 
   [Fact]
@@ -520,9 +600,11 @@ public sealed class MixinExpressionInterpreterTests {
     Assert.Equal(2, prepared.Logs.Count);
     Assert.Contains("operations=3", prepared.Logs[0].Text);
     Assert.Contains("preparedOperations=3", prepared.Logs[0].Text);
-    var runtimeState = Assert.Single(result.Logs).Text;
+    Assert.Matches(@"durationMs=\d+\.\d{3}", prepared.Logs[0].Text);
+    var runtimeState = Assert.Single(result.Logs, item => !item.IsHint).Text;
     Assert.Contains("operations=1", runtimeState);
     Assert.Contains("preparedOperations=3", runtimeState);
+    Assert.Matches(@"durationMs=\d+\.\d{3}", runtimeState);
   }
 
   [Fact]
@@ -536,7 +618,7 @@ public sealed class MixinExpressionInterpreterTests {
     );
 
     Assert.True(result.Success, result.Error);
-    var dump = Assert.Single(result.Logs).Text;
+    var dump = Assert.Single(result.Logs, item => !item.IsHint).Text;
     Assert.Contains("AST GLOBAL", dump);
     Assert.Contains("@VAR<name> global", dump);
     Assert.Contains("AST LOCAL", dump);
@@ -654,6 +736,22 @@ public sealed class MixinExpressionInterpreterTests {
         _ => false
       };
       if (predicate.Negated) value = !value;
+      return true;
+    }
+  }
+
+  private sealed class SlowContext : IMixinExpressionContext {
+    public bool TryResolve(MixinExpressionReference reference, out string value, out string error) {
+      Thread.Sleep(5);
+      value = "Demo";
+      error = null;
+      return true;
+    }
+
+    public bool TryEvaluate(MixinExpressionReference reference, out bool value, out string error) {
+      Thread.Sleep(5);
+      value = true;
+      error = null;
       return true;
     }
   }

@@ -16,6 +16,12 @@ internal static class GeneratorDiagnostics {
     );
   }
 
+  private static DiagnosticDescriptor Info(string id, string title, string message) {
+    return new DiagnosticDescriptor(
+      id, title, message, DiagnosticCategory, DiagnosticSeverity.Info, true
+    );
+  }
+
   internal static class PropStruct {
     internal static readonly DiagnosticDescriptor
       MustBePartial = Error(
@@ -133,6 +139,8 @@ internal static class GeneratorDiagnostics {
   }
 
   internal static class Mixins {
+    internal const double ExpressionHintThresholdMilliseconds = 5d; // This is very high and should never happen
+
     internal static readonly DiagnosticDescriptor
       MustBePartial = Error(
         "HLXM00", "Mixin target must be partial",
@@ -184,6 +192,9 @@ internal static class GeneratorDiagnostics {
       ),
       ExpressionLog = Warning(
         "HLXM12", "Mixin expression log", "{0}"
+      ),
+      ExpressionHint = Info(
+        "HLXM13", "Mixin expression performance hint", "{0}"
       );
   }
 }

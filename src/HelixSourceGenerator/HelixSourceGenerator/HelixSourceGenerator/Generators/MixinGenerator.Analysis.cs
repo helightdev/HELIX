@@ -181,7 +181,7 @@ public sealed partial class MixinGenerator {
     IReadOnlyList<INamedTypeSymbol> interfaces,
     CSharpCompilation compilation,
     MixinExpressionPreparedState preparedExpressions,
-    IDictionary<string, string> expressionVariables,
+    IDictionary<string, object> expressionVariables,
     ICollection<MixinExpressionOutput> expressionOutputs,
     ICollection<MixinContribution> result
   ) {
@@ -211,7 +211,7 @@ public sealed partial class MixinGenerator {
     IReadOnlyList<MixinResource> resources,
     CSharpCompilation compilation,
     MixinExpressionPreparedState preparedExpressions,
-    IDictionary<string, string> expressionVariables,
+    IDictionary<string, object> expressionVariables,
     ICollection<MixinExpressionOutput> expressionOutputs,
     IReadOnlyList<ImplicitMixinAttribute> implicitAttributes,
     ICollection<MixinContribution> result
@@ -279,7 +279,7 @@ public sealed partial class MixinGenerator {
     IReadOnlyList<MixinResource> resources,
     CSharpCompilation compilation,
     MixinExpressionPreparedState preparedExpressions,
-    IDictionary<string, string> expressionVariables,
+    IDictionary<string, object> expressionVariables,
     ICollection<MixinExpressionOutput> expressionOutputs,
     ICollection<MixinContribution> result,
     ref int sequence
@@ -327,7 +327,7 @@ public sealed partial class MixinGenerator {
     IReadOnlyList<MixinResource> resources,
     CSharpCompilation compilation,
     MixinExpressionPreparedState preparedExpressions,
-    IDictionary<string, string> expressionVariables,
+    IDictionary<string, object> expressionVariables,
     int sequence,
     out MixinContribution selected,
     out string failures
@@ -372,7 +372,7 @@ public sealed partial class MixinGenerator {
     AttributeData configuration,
     CSharpCompilation compilation,
     MixinExpressionPreparedState preparedExpressions,
-    IDictionary<string, string> expressionVariables,
+    IDictionary<string, object> expressionVariables,
     ICollection<MixinExpressionOutput> expressionOutputs,
     ICollection<MixinContribution> contributions,
     ref int sequence,
@@ -593,7 +593,7 @@ public sealed partial class MixinGenerator {
     IReadOnlyList<MixinResource> resources,
     CSharpCompilation compilation,
     MixinExpressionPreparedState preparedExpressions,
-    IDictionary<string, string> expressionVariables,
+    IDictionary<string, object> expressionVariables,
     IList<MixinContribution> contributions
   ) {
     for (var index = 0; index < contributions.Count;) {
@@ -621,7 +621,7 @@ public sealed partial class MixinGenerator {
     IReadOnlyList<MixinResource> resources,
     CSharpCompilation compilation,
     MixinExpressionPreparedState preparedExpressions,
-    IDictionary<string, string> expressionVariables,
+    IDictionary<string, object> expressionVariables,
     MixinContribution contribution,
     out MixinContribution resolved,
     out string failure
@@ -707,7 +707,9 @@ public sealed partial class MixinGenerator {
     Location location,
     IReadOnlyList<MixinExpressionLog> logs
   ) {
-    foreach (var log in logs) context.ReportDiagnostic(Diagnostic.Create(ExpressionLog, location, log.Text));
+    foreach (var log in logs) context.ReportDiagnostic(
+      Diagnostic.Create(log.IsHint ? ExpressionHint : ExpressionLog, location, log.Text)
+    );
   }
 
   private static bool TryReadGenericSelector(
