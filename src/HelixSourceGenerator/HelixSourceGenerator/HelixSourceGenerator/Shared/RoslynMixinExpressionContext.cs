@@ -20,6 +20,11 @@ namespace HELIX.SourceGen {
   }
 
   internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
+    private static readonly SymbolDisplayFormat FullNameDisplayFormat =
+      SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
+        SymbolDisplayGenericsOptions.IncludeTypeParameters
+      );
+
     private readonly INamedTypeSymbol _thisType;
     private readonly ISymbol _target;
     private readonly AttributeData _attribute;
@@ -73,12 +78,18 @@ namespace HELIX.SourceGen {
       out string error
     ) {
       value = false;
-      if (!TrySubject(reference, out var subject, out error) ||
-          !ApplyValueProperties(reference, ref subject, out error)) return false;
       var predicates = reference.Properties.Where(IsPredicate).ToArray();
+      if (!TrySubject(reference, out var subject, out error) ||
+          !ApplyValueProperties(reference, ref subject, out error)) {
+        if (predicates.Length != 0 && predicates.All(item => item.Name != "exists")) return false;
+        error = null;
+        if (predicates.Length == 0) return true;
+        value = predicates.All(item => item.Negated);
+        return true;
+      }
       if (predicates.Length == 0) {
-        error = "boolean expression has no pseudo-property";
-        return false;
+        value = IsTruthy(subject);
+        return true;
       }
       value = true;
       foreach (var predicate in predicates) {
@@ -218,6 +229,15 @@ namespace HELIX.SourceGen {
           case "type":
             subject = AsType(subject);
             break;
+          case "fullName":
+            subject = FullNameOf(subject);
+            break;
+          case "unwrap":
+            subject = Unwrap(subject);
+            break;
+          case "path":
+            subject = SelectTypeArgument(subject, property.Argument);
+            break;
           default:
             error = "unknown value property ':" + property.Name + "'";
             return false;
@@ -230,6 +250,63 @@ namespace HELIX.SourceGen {
       return true;
     }
 
+    private static string FullNameOf(object subject) => TypeValueOf(subject)
+      ?.ToDisplayString(FullNameDisplayFormat);
+
+    private static object Unwrap(object subject) {
+      switch (subject) {
+        case TypedConstant { Kind: TypedConstantKind.Type, Value: ITypeSymbol type }:
+          return UnqualifiedGlobalName(type);
+        case TypedConstant { Value: string text }:
+          return text;
+        case ImplicitMixinValue { Value: ITypeSymbol type }:
+          return UnqualifiedGlobalName(type);
+        case ImplicitMixinValue { Value: string text }:
+          return text;
+        case ITypeSymbol type:
+          return UnqualifiedGlobalName(type);
+        case string text:
+          return text;
+        default:
+          return subject;
+      }
+    }
+
+    private static ITypeSymbol TypeValueOf(object subject) => subject switch {
+      TypedConstant { Kind: TypedConstantKind.Type, Value: ITypeSymbol type } => type,
+      ImplicitMixinValue { Value: ITypeSymbol type } => type,
+      _ => AsType(subject)
+    };
+
+    private static string UnqualifiedGlobalName(ITypeSymbol type) =>
+      type.ToDisplayString(TypeDisplayFormat).Replace("global::", "");
+
+    private static ITypeSymbol SelectTypeArgument(object subject, string path) {
+      if (AsType(subject) is not INamedTypeSymbol type) return null;
+      if (int.TryParse(path, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedIndex)) {
+        return parsedIndex >= 0 && parsedIndex < type.TypeArguments.Length
+          ? type.TypeArguments[parsedIndex]
+          : null;
+      }
+      for (var parameterIndex = 0; parameterIndex < type.TypeParameters.Length; parameterIndex++) {
+        if (string.Equals(
+              type.TypeParameters[parameterIndex].Name, path, StringComparison.OrdinalIgnoreCase
+            )) {
+          return type.TypeArguments[parameterIndex];
+        }
+      }
+      return null;
+    }
+
+    private static bool IsTruthy(object subject) => subject switch {
+      null => false,
+      TypedConstant constant => constant.Kind != TypedConstantKind.Error &&
+                                !constant.IsNull && constant.Value is not false,
+      ImplicitMixinValue value => value.Value is not null && value.Value is not false,
+      bool value => value,
+      _ => true
+    };
+
     private bool TryPredicate(
       object subject,
       MixinExpressionProperty property,
@@ -241,6 +318,7 @@ namespace HELIX.SourceGen {
       var symbol = subject as ISymbol;
       var type = AsType(subject);
       switch (property.Name) {
+        case "exists": value = true; return true;
         case "is":
           if (string.IsNullOrWhiteSpace(property.Argument)) {
             error = ":?is requires a type";
@@ -326,7 +404,7 @@ namespace HELIX.SourceGen {
     }
 
     private static bool IsPredicate(MixinExpressionProperty property) => property.Name is
-      "is" or "has" or "eq" or "isSelf" or "ref" or "in" or "out" or "inout" or
+      "exists" or "is" or "has" or "eq" or "isSelf" or "ref" or "in" or "out" or "inout" or
       "argument" or "static" or "public" or "exposed" or "top" or "concrete" or
       "partial" or "generic" or "struct" or "class";
 

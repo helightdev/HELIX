@@ -420,6 +420,115 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
+  [Fact]
+  public void ExpressionSupportsTypeArgumentPathsExistenceAndValueTruthiness() {
+    const string source = """
+      using System;
+      using System.Collections.Generic;
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
+        public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
+        }
+      }
+      [HELIX.Context.MixinExpression(
+        "@SCOPE<disabled>\n" +
+        "@MATCH @attr#disabled\n" +
+        "@FAIL\n" +
+        "@SCOPE<null>\n" +
+        "@MATCH @attr#optional\n" +
+        "@FAIL\n" +
+        "@SCOPE<missing-value>\n" +
+        "@MATCH @attr#missing\n" +
+        "@FAIL\n" +
+        "@SCOPE<missing-exists>\n" +
+        "@MATCH @attr#missing:?exists\n" +
+        "@FAIL\n" +
+        "@SCOPE<generate>\n" +
+        "@MATCH @attr#enabled\n" +
+        "@MATCH @attr#missing:!?exists\n" +
+        "@MATCH @target:type#0:?is<global::System.Int32>\n" +
+        "@CODE<CLASS> public @target:type#T GeneratedValue;\n" +
+        "@RETURN"
+      )]
+      [AttributeUsage(AttributeTargets.Field)]
+      public sealed class GenerateAttribute : Attribute {
+        public GenerateAttribute(bool enabled, bool disabled = false, string optional = null) { }
+      }
+      [HELIX.Context.EnableMixins]
+      public partial class Demo {
+        [Generate(true)] private List<int> values;
+      }
+      """;
+
+    var compilation = CSharpCompilation.Create(
+      "TypeArgumentPathExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("public global::System.Int32 GeneratedValue;", generated);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
+  public void ExpressionCanRenderFullNamesAndUnwrapStringsAndTypes() {
+    const string source = """
+      using System;
+      using System.Collections.Generic;
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
+        public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
+        }
+      }
+      [HELIX.Context.MixinExpression(
+        "@CODE<CLASS> public const string GeneratedText = \"@attr#text:unwrap\";\n" +
+        "@CODE<CLASS> public const string GeneratedFullName = \"@target:type:fullName\";\n" +
+        "@CODE<CLASS> public @attr#selectedType:unwrap GeneratedValue;\n" +
+        "@CODE<CLASS> public const int GeneratedNumber = @attr#number:unwrap;"
+      )]
+      [AttributeUsage(AttributeTargets.Field)]
+      public sealed class RenderAttribute : Attribute {
+        public RenderAttribute(string text, Type selectedType, int number) { }
+      }
+      [HELIX.Context.EnableMixins]
+      public partial class Demo {
+        [Render("plain text", typeof(Dictionary<string, int>), 42)]
+        private List<int> values;
+      }
+      """;
+
+    var compilation = CSharpCompilation.Create(
+      "FullNameAndUnwrapExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("public const string GeneratedText = \"plain text\";", generated);
+    Assert.Contains("public const string GeneratedFullName = \"List<int>\";", generated);
+    Assert.Contains(
+      "public System.Collections.Generic.Dictionary<System.String, System.Int32> GeneratedValue;",
+      generated
+    );
+    Assert.Contains("public const int GeneratedNumber = 42;", generated);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
   private static ImmutableArray<MetadataReference> PlatformReferences { get; } =
     ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
     .Split(Path.PathSeparator)

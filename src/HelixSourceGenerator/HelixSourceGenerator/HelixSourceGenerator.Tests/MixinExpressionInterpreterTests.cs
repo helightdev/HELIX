@@ -93,6 +93,34 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void ParsesTypeArgumentPaths() {
+    Assert.True(_interpreter.TryParseReference(
+      "@target:type#0:type#T", out var reference, out var error
+    ), error);
+
+    Assert.Equal(new[] { "type", "path", "type", "path" },
+      reference.Properties.Select(item => item.Name));
+    Assert.Equal("0", reference.Properties[1].Argument);
+    Assert.Equal("T", reference.Properties[3].Argument);
+  }
+
+  [Fact]
+  public void StoredValuesSupportTruthinessAndExistence() {
+    var result = _interpreter.Execute("""
+      @LOCAL<disabled> false
+      @SCOPE<disabled>
+      @MATCH @local#disabled
+      @FAIL
+      @SCOPE<missing>
+      @MATCH @local#missing:!?exists
+      @CODE selected
+      """, new StubContext());
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("selected", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
   public void GotoLoopsAreBounded() {
     var result = _interpreter.Execute("""
       @SCOPE<again>

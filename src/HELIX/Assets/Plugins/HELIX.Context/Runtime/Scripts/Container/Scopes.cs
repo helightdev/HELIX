@@ -146,7 +146,7 @@ namespace HELIX.Context {
 
     internal void MarkScriptedLoaded(IScriptedDependency dependency) {
       ScopeLoader.Active.Record(dependency);
-      if (dependency.Flags.HasFlag(DependencyFlags.Wirable)) ScopeLoader.Active.Publish(dependency.CreateWireKey());
+      if (dependency.Flags.HasFlag(DependencyFlags.Wirable)) ScopeLoader.Active.Publish(dependency.WireKey);
     }
 
     internal bool IsScriptedLoaded(IScriptedDependency dependency) {

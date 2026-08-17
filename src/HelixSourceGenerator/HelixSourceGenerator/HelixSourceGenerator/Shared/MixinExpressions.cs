@@ -356,18 +356,27 @@ namespace HELIX.SourceGen.Expressions {
       out string error
     ) {
       if (reference.Root == "local" || reference.Root == "var") {
-        if (!TryStored(reference, locals, variables, out var stored, out error)) {
-          value = false;
-          return false;
+        TryStored(reference, locals, variables, out var stored, out error);
+        var predicates = reference.Properties.Where(item => item.Name is "eq" or "exists").ToArray();
+        if (error is not null) {
+          if (predicates.Length != 0 && predicates.All(item => item.Name != "exists")) {
+            value = false;
+            return false;
+          }
+          error = null;
+          value = predicates.Length != 0 && predicates.All(item => item.Negated);
+          return true;
         }
-        var predicate = reference.Properties.LastOrDefault();
-        if (predicate is null || predicate.Name != "eq") {
-          value = false;
-          error = "stored values require :?eq<VALUE> in boolean expressions";
-          return false;
+        if (predicates.Length == 0) {
+          value = !string.Equals(stored, "false", StringComparison.OrdinalIgnoreCase);
+          return true;
         }
-        value = string.Equals(stored, predicate.Argument ?? "", StringComparison.Ordinal);
-        if (predicate.Negated) value = !value;
+        value = true;
+        foreach (var predicate in predicates) {
+          var item = predicate.Name == "exists" ||
+                     string.Equals(stored, predicate.Argument ?? "", StringComparison.Ordinal);
+          value &= predicate.Negated ? !item : item;
+        }
         return true;
       }
       return context.TryEvaluate(reference, out value, out error);
@@ -393,7 +402,7 @@ namespace HELIX.SourceGen.Expressions {
         return true;
       }
       foreach (var property in reference.Properties) {
-        if (property.Name == "eq") continue;
+        if (property.Name is "eq" or "exists") continue;
         if (property.Name == "name") value = reference.Member;
         else {
           error = "property '" + property.Name + "' is not valid for @" + reference.Root;
@@ -438,7 +447,21 @@ namespace HELIX.SourceGen.Expressions {
       }
 
       var properties = new List<MixinExpressionProperty>();
-      while (position < text.Length && text[position] == ':') {
+      while (position < text.Length && (text[position] == ':' || text[position] == '#')) {
+        if (text[position] == '#') {
+          position++;
+          var pathStart = position;
+          while (position < text.Length &&
+                 (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
+          if (position == pathStart) {
+            error = "type argument path is empty";
+            return false;
+          }
+          properties.Add(new MixinExpressionProperty(
+            "path", text.Substring(pathStart, position - pathStart)
+          ));
+          continue;
+        }
         position++;
         var negated = false;
         if (position < text.Length && text[position] == '!') {

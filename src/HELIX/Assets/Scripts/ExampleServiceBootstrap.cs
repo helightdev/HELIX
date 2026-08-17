@@ -6,6 +6,10 @@ using UnityEngine;
 
 
 public class ExampleServiceBootstrap : MonoBehaviour {
+
+  public ManagedContainer container;
+
+
   private async UniTaskVoid Start() {
     var discovered = ComponentDiscovery.Discover();
 
@@ -13,12 +17,18 @@ public class ExampleServiceBootstrap : MonoBehaviour {
     ComponentGraphProse.WriteDeclared(writer, discovered);
     Debug.Log(writer.Build());
 
-    var container = new ManagedContainerBuilder().Build();
+    container = new ManagedContainerBuilder().Build();
     container.PrepareRegistrar(discovered);
     await container.StartApplication();
 
     writer.Reset();
     ComponentGraphProse.WriteLive(writer, container);
     Debug.Log(writer.Build());
+  }
+
+
+  private void OnDestroy() {
+    container?.Dispose();
+    container = null;
   }
 }

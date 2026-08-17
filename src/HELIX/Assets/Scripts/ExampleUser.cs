@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using HELIX.Widgets.Prompts.Kenny;
+using Sirenix.OdinInspector;
 using UnityEngine;
 
 namespace HELIX.Context {
@@ -44,12 +47,16 @@ namespace HELIX.Context {
 
     [Inject] public ExampleSingleton mySingleton;
     [Inject] public MyRootDependency myRootDependency;
+    [Inject(Source.Addressables, "Assets/ExampleAddressable"), ShowInInspector]
+    public IReadOnlyList<GameObject> addressablePrefab;
+
+    [Inject(Source.Resources), ShowInInspector]
+    public ICollection<KennyPromptSvgCollection> svgCollections;
 
     [MixinMethod]
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
-      myResource2 = new LoggingDisposable();
-      //
+      myResource2 = new LoggingDisposable(); //29
     }
 
     [EventHandler]

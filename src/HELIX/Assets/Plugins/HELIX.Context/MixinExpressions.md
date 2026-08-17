@@ -26,11 +26,18 @@ Mixin Expressions
     @attr:type => QualifiedAttributeType
     @arg#0:type => QualifiedArgumentType
     ```
+  
+TODO:
+- `:fullName` | The full (not qualified) name of a type. (Includes generic type parameters)
+- `:unwrap` | Unwraps a 'wrapped' value
+  - string to its unquoted literal value
+  - type to the qualified name but without `global::`
 
 ###  Boolean Pseudo Properties
 - `:?is<TYPE>` | Check static inheritance
 - `:?has<MEMBER>` | Check if a member concretely exists.
 - `:?eq<VALUE>` | Checks if a value is equal to the stringified given value.
+- `:?exists` | Check if the target exists
 - `:?isSelf` | Check if (mostly a method parameter) is the type of @this
 - `:?ref` | Check if a method parameter is ref
 - `:?in` | Check if a method parameter is in

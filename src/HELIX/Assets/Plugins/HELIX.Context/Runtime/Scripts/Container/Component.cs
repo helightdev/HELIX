@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace HELIX.Context {
   public interface IComponent {
@@ -21,7 +22,11 @@ namespace HELIX.Context {
     }
 
     public T Resolve<T>(string qualifier = null) where T : class => ResolveKey<T>(new TypeKey(typeof(T), qualifier));
-    public T Resolve<T>(Type type, string qualifier = null) where T : class => ResolveKey<T>(new TypeKey(type, qualifier));
+
+    public T Resolve<T>(Type type, string qualifier = null) where T : class =>
+      ResolveKey<T>(new TypeKey(type, qualifier));
+
+    // public IReadOnlyList<T> ResolveAll<T>(TypeKey key) where T : class => scope.ResolveAll(key);
 
     public ManagedScopeBuilder CreateScope() => container.CreateScope(scope);
   }

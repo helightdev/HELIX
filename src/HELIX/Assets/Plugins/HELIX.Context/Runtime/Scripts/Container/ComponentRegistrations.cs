@@ -96,7 +96,7 @@ namespace HELIX.Context {
       key = default;
       flags = scripted.Flags;
       if (required) flags |= DependencyFlags.Required;
-      wireKey = flags.HasFlag(DependencyFlags.Wirable) ? scripted.CreateWireKey() : null;
+      wireKey = flags.HasFlag(DependencyFlags.Wirable) ? scripted.WireKey : null;
     }
 
     public static implicit operator ComponentDependency(TypeKey key) {
@@ -162,13 +162,23 @@ namespace HELIX.Context {
     int Order { get; }
     DependencyFlags Flags { get; }
     InitializationStage Stage { get; }
-    string CreateWireKey();
+    string WireKey { get; }
   }
 
   public abstract class ScriptedDependency : IScriptedDependency {
+    public static string SimpleKey(Type type, Source source, string qualifier, bool list = false) {
+      var src = $"{type.FullName}|{(int)source}|{qualifier ?? "null"}";
+      return list ? $"list|{src}" : src;
+    } // This matches (and MUST match) the roslyn generated name from [Inject]
+
+    public static string SimpleKey(Type type, Source source, string qualifier, string kind) {
+      return $"{kind}|{type.FullName}|{(int)source}|{qualifier ?? "null"}";
+    }
+
     public int Order { get; }
     public DependencyFlags Flags { get; }
     public InitializationStage Stage { get; }
+    public string WireKey { get; protected set; }
 
     protected ScriptedDependency(
       int order = 0,
@@ -180,8 +190,16 @@ namespace HELIX.Context {
       Stage = stage;
     }
 
-    public virtual string CreateWireKey() {
-      return GetType().AssemblyQualifiedName;
+    protected ScriptedDependency(
+      string wireKey,
+      int order = 0,
+      DependencyFlags flags = DependencyFlags.Wirable | DependencyFlags.ImplicitLoadable,
+      InitializationStage stage = InitializationStage.PreInit
+    ) {
+      Order = order;
+      Flags = flags | DependencyFlags.Scripted;
+      Stage = stage;
+      WireKey = wireKey;
     }
 
     public virtual UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context) {
