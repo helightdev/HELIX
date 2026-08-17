@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace HELIX.SourceGen.Expressions;
 
@@ -172,22 +173,65 @@ public sealed class MixinExpressionPreparedState {
 /// <see cref="IMixinExpressionContext"/>.
 /// </summary>
 public sealed class MixinExpressionInterpreter {
+  private const int MaximumCachedPrograms = 512;
+  private const int MaximumCachedCharacters = 1024 * 1024;
+  private static readonly object ProgramCacheLock = new();
+  private static readonly Dictionary<string, LinkedListNode<CachedProgram>> ProgramCache =
+    new(StringComparer.Ordinal);
+  private static readonly LinkedList<CachedProgram> ProgramCacheUsage = new();
+  private static int _cachedCharacters;
+
+  private sealed record CachedProgram(string Expression, Program Program);
+
+  private static Program GetProgram(string expression, bool eager) {
+    Program program;
+    if (expression.Length > MaximumCachedCharacters) {
+      program = new Program(expression);
+    } else {
+      lock (ProgramCacheLock) {
+        if (ProgramCache.TryGetValue(expression, out var cached)) {
+          ProgramCacheUsage.Remove(cached);
+          ProgramCacheUsage.AddFirst(cached);
+          program = cached.Value.Program;
+        } else {
+          program = new Program(expression);
+          var node = ProgramCacheUsage.AddFirst(new CachedProgram(expression, program));
+          ProgramCache.Add(expression, node);
+          _cachedCharacters += expression.Length;
+          while (ProgramCache.Count > MaximumCachedPrograms ||
+                 _cachedCharacters > MaximumCachedCharacters) {
+            var expired = ProgramCacheUsage.Last;
+            ProgramCacheUsage.RemoveLast();
+            ProgramCache.Remove(expired.Value.Expression);
+            _cachedCharacters -= expired.Value.Expression.Length;
+          }
+        }
+      }
+    }
+    if (eager) program.ParseAll();
+    return program;
+  }
+
   internal sealed class Program {
     private readonly string[] _lines;
     private readonly Instruction[] _instructions;
 
-    internal Program(string expression, bool eager) {
+    internal Program(string expression) {
       _lines = SplitLines(expression ?? "");
       _instructions = new Instruction[_lines.Length];
-      if (eager)
-        for (var i = 0; i < _lines.Length; i++)
-          Get(i);
     }
 
     internal int Count => _lines.Length;
 
     internal Instruction Get(int index) {
-      return _instructions[index] ?? (_instructions[index] = Instruction.Parse(_lines[index], index + 1));
+      var instruction = Volatile.Read(ref _instructions[index]);
+      if (instruction is not null) return instruction;
+      var parsed = Instruction.Parse(_lines[index], index + 1);
+      return Interlocked.CompareExchange(ref _instructions[index], parsed, null) ?? parsed;
+    }
+
+    internal void ParseAll() {
+      for (var i = 0; i < _lines.Length; i++) Get(i);
     }
 
     internal IEnumerable<Instruction> AvailableInstructions() {
@@ -252,15 +296,7 @@ public sealed class MixinExpressionInterpreter {
     }
   }
 
-  internal sealed class StringPart {
-    internal StringPart(string literal, MixinExpressionReference reference) {
-      Literal = literal;
-      Reference = reference;
-    }
-
-    internal string Literal { get; }
-    internal MixinExpressionReference Reference { get; }
-  }
+  internal sealed record StringPart(string Literal, MixinExpressionReference Reference);
 
   private static IReadOnlyList<MixinExpressionReference> ParseBooleanExpression(string text) {
     var result = new List<MixinExpressionReference>();
@@ -314,7 +350,7 @@ public sealed class MixinExpressionInterpreter {
           nameof(expressions)
         );
       }
-      var program = new Program(expression, true);
+      var program = GetProgram(expression, true);
       programs.Add(program);
       if (!TryEvaluatePreparedInitializers(
         program, programIndex, variables, logs, ref executedOperations,
@@ -594,7 +630,7 @@ public sealed class MixinExpressionInterpreter {
     var preparedInitializers = preparedState?.Initializers ?? new HashSet<int>();
     // Attribute expressions are deliberately lazy: their instruction AST nodes are created
     // only when this execution's control-flow scan or program counter reaches the line.
-    var localProgram = new Program(expression, false);
+    var localProgram = GetProgram(expression, false);
     var preparedCount = preparedLines.Count;
     IReadOnlyList<Instruction> lines = new InstructionSequence(preparedLines, localProgram);
     var labels = preparedState is null
@@ -1113,15 +1149,7 @@ public sealed class MixinExpressionInterpreter {
     return false;
   }
 
-  internal sealed class FunctionDefinition {
-    internal FunctionDefinition(int start, int end) {
-      Start = start;
-      End = end;
-    }
-
-    internal int Start { get; }
-    internal int End { get; }
-  }
+  internal sealed record FunctionDefinition(int Start, int End);
 
   private static bool TryDirective(
     string line,

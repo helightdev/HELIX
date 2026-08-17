@@ -46,8 +46,11 @@ namespace HELIX.Context {
     [AutoDispose]
     public IDisposable myResource2;
 
-    [Inject] public ExampleSingleton mySingleton;
-    [Inject] public MyRootDependency myRootDependency;
+    [Inject, NonSerialized]
+    public ExampleSingleton mySingleton;
+
+    [Inject, NonSerialized]
+    public MyRootDependency myRootDependency;
 
 
     [Inject(Source.Addressables, "Assets/ExampleAddressable"), ShowInInspector]
@@ -59,7 +62,7 @@ namespace HELIX.Context {
     [MixinMethod]
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
-      myResource2 = new LoggingDisposable(); //30
+      myResource2 = new LoggingDisposable(); //31
     }
 
     [EventHandler]

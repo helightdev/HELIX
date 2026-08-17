@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using HELIX.SourceGen.Expressions;
 using Xunit;
 
@@ -394,6 +396,21 @@ public sealed class MixinExpressionInterpreterTests {
 
     Assert.True(result.Success, result.Error);
     Assert.Equal("reached", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void CachedProgramsCanBeEvaluatedConcurrently() {
+    const string expression = "@CODE @this:name\n@RETURN\n@UNKNOWN unreachable";
+    var failures = new ConcurrentQueue<string>();
+
+    Parallel.For(0, 64, _ => {
+      var result = new MixinExpressionInterpreter().Execute(expression, new StubContext());
+      if (!result.Success || result.Outputs.Count != 1 || result.Outputs[0].Text != "Demo") {
+        failures.Enqueue(result.Error ?? "unexpected output");
+      }
+    });
+
+    Assert.Empty(failures);
   }
 
   [Fact]
