@@ -107,7 +107,7 @@ namespace HELIX.Context {
       }
 
       if (instance is IComponent component) {
-        component.ComponentBinding.isLoaded = true;
+        component.ComponentBinding.SetLoaded(true);
       }
     }
 

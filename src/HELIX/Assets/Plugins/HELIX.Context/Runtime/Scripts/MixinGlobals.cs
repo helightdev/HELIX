@@ -162,3 +162,53 @@ using HELIX.Context;
 @END
 "
 )]
+
+// Ticker method implementation
+[assembly: MixinPrepareGlobal(
+  @"
+@FUNC<TickerImpl>
+  @USING HELIX.Context;
+
+  @LOCAL<Time> -0f
+  @SCOPE
+    @MATCH @attr#time:?exists
+    @LOCAL<Time> @attr#time:floatTime
+  @END
+  @LOCAL<TickerField> _@(target:name)Ticker
+
+  @SCOPE
+    @MATCH @local#Time:matches<^-.*>
+    @LOCAL<Time> @local#Time:replace<-|f><>
+    @CODE<CLASS> private FrameCountTicker @local#TickerField = new(@local#Time);
+    @GOTO<HookCaller>
+  @SCOPE
+    @CODE<CLASS> private FrameTimeTicker @local#TickerField = new(@local#Time);
+  @END
+
+  @SCOPE<HookCaller>
+    @LOCAL<TickerCondition> @local#TickerField.Tick()
+  @SCOPE
+    @MATCH @attr#condition:!?eq<null>
+    @LOCAL<TickerCondition> @attr#condition:unwrap && @local#TickerCondition
+  @SCOPE
+    @MATCH @var#IsComponent:?eq<true>
+    @LOCAL<TickerCondition> ComponentBinding.IsActive && @local#TickerCondition
+  @END
+
+  @LOCAL<InvokeTicker> @target:name();
+  @SCOPE
+    @MATCH @target:?async
+    @ASSERT @target:?is<Cysharp.Threading.Tasks.UniTask>
+    @USING Cysharp.Threading.Tasks;
+    @LOCAL<AsyncProxyName> _@(target:name)AsyncProxy
+    @CODE<CLASS> private async UniTaskVoid @local#AsyncProxyName() {
+    @CODE<CLASS>  try {  @local#TickerField.running = true; await @local#InvokeTicker }
+    @CODE<CLASS>  finally { @local#TickerField.running = false; }
+    @CODE<CLASS> }
+    @LOCAL<InvokeTicker> @local#AsyncProxyName().Forget();
+  @END
+
+  @MIXIN<(@attr#target:unwrap)><(@attr#order)> if (@local#TickerCondition) @local#InvokeTicker
+@END
+"
+)]

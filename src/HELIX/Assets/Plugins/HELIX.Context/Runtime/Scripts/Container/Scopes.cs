@@ -49,7 +49,7 @@ namespace HELIX.Context {
 
   public enum ManagedScopeState { Created, Initializing, Active, Disposing, Disposed, Faulted }
 
-  public sealed partial class ManagedScope {
+  public sealed class ManagedScope {
     private readonly Dictionary<TypeKey, List<Binding>> _bindings = new();
     private readonly CancellationTokenSource _cancellation = new();
     private readonly List<ManagedScope> _managedChildren = new();
@@ -354,8 +354,7 @@ namespace HELIX.Context {
       try {
         if (loaded.instance is IComponent component) {
           component.UnloadComponent();
-          component.ComponentBinding.isLoaded = false;
-          component.ComponentBinding.isDisposed = true;
+          component.ComponentBinding.SetDisposed(true);
         }
       } catch (Exception exception) {
         failures.Add(

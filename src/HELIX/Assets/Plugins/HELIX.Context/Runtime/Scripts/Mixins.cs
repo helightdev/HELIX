@@ -12,10 +12,10 @@ namespace HELIX.Context {
 
   [AttributeUsage(AttributeTargets.Method)]
   [MixinExpression("@CALL<MixinCallbackImpl>")]
-  public class MixinCallbackAttribute : Attribute {
+  public class MixinMethodAttribute : Attribute {
     public readonly string target;
     public readonly int order;
-    public MixinCallbackAttribute(string target = null, int order = 0) {
+    public MixinMethodAttribute(string target = null, int order = 0) {
       this.target = target;
       this.order = order;
     }

@@ -342,6 +342,22 @@ internal sealed class RoslynMixinExpressionContext :
             ? sized.Length.ToString(CultureInfo.InvariantCulture)
             : "0";
           break;
+        case "floatTime":
+          var timeValue = subject switch {
+            TypedConstant constant => constant.Value,
+            ImplicitMixinValue implicitValue => implicitValue.Value,
+            _ => subject
+          };
+          var time = timeValue is null
+            ? null
+            : TryComparableText(timeValue, out var comparableTime) ? comparableTime : timeValue.ToString();
+          if (!(MixinExpressionInterpreter.TryConvertFloat(timeValue, out var seconds) ||
+            MixinExpressionInterpreter.TryParseFloatTime(time, out seconds))) {
+            error = "cannot parse '" + (time ?? "null") + "' as a float time";
+            return false;
+          }
+          subject = MixinExpressionInterpreter.FormatFloatTime(seconds);
+          break;
         case "path":
           subject = SelectTypeArgument(subject, property.Argument);
           break;
@@ -496,6 +512,9 @@ internal sealed class RoslynMixinExpressionContext :
         return true;
       case "static":
         value = symbol?.IsStatic == true;
+        return true;
+      case "async":
+        value = symbol is IMethodSymbol { IsAsync: true };
         return true;
       case "public":
         value = symbol?.DeclaredAccessibility == Accessibility.Public;
@@ -712,7 +731,7 @@ internal sealed class RoslynMixinExpressionContext :
   private static bool IsPredicate(MixinExpressionProperty property) {
     return property.Name is
       "exists" or "is" or "has" or "eq" or "isSelf" or "ref" or "in" or "out" or "inout" or
-      "argument" or "static" or "public" or "exposed" or "top" or "concrete" or
+      "argument" or "static" or "async" or "public" or "exposed" or "top" or "concrete" or
       "partial" or "generic" or "struct" or "class" or "matches" or "signature" or "wireable";
   }
 

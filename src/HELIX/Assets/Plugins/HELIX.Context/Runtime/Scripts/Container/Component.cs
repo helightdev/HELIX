@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace HELIX.Context {
   public interface IComponent {
@@ -14,7 +13,18 @@ namespace HELIX.Context {
     public bool isLoaded;
     public bool isDisposed;
 
-    public bool IsActive => isLoaded && !isDisposed && scope is { IsActive: true };
+    public void SetLoaded(bool loaded) {
+      isLoaded = loaded;
+    }
+
+    public void SetDisposed(bool disposed) {
+      isDisposed = disposed;
+      if (disposed) {
+        isLoaded = false;
+      }
+    }
+
+    public bool IsActive =>isLoaded && !isDisposed && scope is { IsActive: true }; // TODO: Notify from scope to update state
 
     public T ResolveKey<T>(TypeKey key) where T : class {
       if (scope == null) throw new ComponentStateException("Component is not yet attached to a scope");

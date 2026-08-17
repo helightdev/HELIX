@@ -46,15 +46,26 @@ namespace HELIX.Context {
     [Inject(Source.Resources), ShowInInspector]
     public List<KennyPromptSvgCollection> svgCollections;
 
-    [MixinCallback]
+    [MixinMethod]
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
-      myResource2 = new LoggingDisposable(); //32
+      myResource2 = new LoggingDisposable(); //44
     }
 
-    [MixinCallback(MixinOn.ConfigureComponent)]
+    [MixinMethod(MixinOn.ConfigureComponent)]
     private static void OnConfigureSelf(RegistrationEntry entry) {
 
+    }
+
+    [Ticker("10s")]
+    private void MyTickerFunc() {
+      Debug.Log("This runs every 10 seconds!"); //
+    }
+
+    [Ticker]
+    private async UniTask MyTickerFunc2() {
+      Debug.Log("This runs every tick but takes a second!");
+      await UniTask.Delay(1000);
     }
 
     [EventHandler]
@@ -63,7 +74,7 @@ namespace HELIX.Context {
     [EventHandler]
     private void OnTestAsync(TestAsyncEvt evt) { }
 
-    [MixinCallback(MixinOn.ComponentLoad)]
+    [MixinMethod(MixinOn.ComponentLoad)]
     private void OnComponentLoad() {
 
     }
@@ -71,7 +82,7 @@ namespace HELIX.Context {
 
   [Service(typeof(SceneScope))]
   public partial class SceneService {
-    [MixinCallback]
+    [MixinMethod]
     public void OnInit() {
       Debug.Log("SceneService has initialized!");
     }

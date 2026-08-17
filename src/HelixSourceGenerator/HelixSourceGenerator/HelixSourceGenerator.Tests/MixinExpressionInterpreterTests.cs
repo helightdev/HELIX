@@ -141,6 +141,57 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void FloatTimeParsesSecondsMillisecondsTicksMinutesAndFrequency() {
+    var variables = new Dictionary<string, object> {
+      ["integer"] = 7,
+      ["decimal"] = 1.25m,
+      ["tiny"] = -0.0000005d,
+      ["zero"] = 0
+    };
+    var result = _interpreter.Execute(
+      """
+      @VAR<seconds> 1.5 seconds
+      @VAR<millis> 250ms
+      @VAR<frequency> %4
+      @VAR<ticks> 3 ticks
+      @VAR<minutes> 2 minutes
+      @CODE @var#seconds:floatTime
+      @CODE @var#millis:floatTime
+      @CODE @null:floatTime
+      @CODE @var#frequency:floatTime
+      @CODE @var#ticks:floatTime
+      @CODE @var#minutes:floatTime
+      @CODE @var#integer:floatTime
+      @CODE @var#decimal:floatTime
+      @CODE @var#tiny:floatTime
+      @CODE @var#zero:floatTime
+      """,
+      new StubContext(), variables
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(
+      new[] {
+        "1.5f", "0.25f", "-0f", "0.25f", "-3f", "120f", "7f", "1.25f", "-0f", "-0f"
+      },
+      result.Outputs.Select(item => item.Text)
+    );
+  }
+
+  [Theory]
+  [InlineData("1.5 ticks")]
+  [InlineData("%0")]
+  [InlineData("tomorrow")]
+  public void FloatTimeRejectsInvalidFormats(string time) {
+    var result = _interpreter.Execute(
+      "@VAR<time> " + time + "\n@CODE @var#time:floatTime", new StubContext()
+    );
+
+    Assert.False(result.Success);
+    Assert.Contains("as a float time", result.Error);
+  }
+
+  [Fact]
   public void RegexAndLogicalBooleanFunctionsCanBeUsedAsValuesOrConditions() {
     var result = _interpreter.Execute(
       """
@@ -755,4 +806,5 @@ public sealed class MixinExpressionInterpreterTests {
       return true;
     }
   }
+
 }

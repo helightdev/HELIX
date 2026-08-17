@@ -243,6 +243,7 @@ public sealed class MixinExpressionPreparedState {
 /// </summary>
 public sealed class MixinExpressionInterpreter {
   private const string ParameterLocalKey = "\0@param";
+  private const float FloatTimeZeroTolerance = 1e-6f;
   private const int MaximumCachedPrograms = 512;
   private const int MaximumCachedCharacters = 1024 * 1024;
   private static readonly object ProgramCacheLock = new();
@@ -1516,7 +1517,7 @@ public sealed class MixinExpressionInterpreter {
   private static bool IsBooleanProperty(MixinExpressionProperty property) {
     return property.Name is
       "eq" or "exists" or "is" or "has" or "isSelf" or "ref" or "in" or "out" or "inout" or
-      "argument" or "static" or "public" or "exposed" or "top" or "concrete" or "partial" or
+      "argument" or "static" or "async" or "public" or "exposed" or "top" or "concrete" or "partial" or
       "generic" or "struct" or "class" or "matches" or "signature" or "wireable";
   }
 
@@ -2053,6 +2054,13 @@ public sealed class MixinExpressionInterpreter {
           string text => text.Length.ToString(CultureInfo.InvariantCulture),
           _ => "0"
         };
+      } else if (property.Name == "floatTime") {
+        if (!(TryConvertFloat(value, out var seconds) ||
+          TryParseFloatTime(value is null ? null : UnwrapComparable(RenderValue(value)), out seconds))) {
+          error = "cannot parse '" + RenderValue(value) + "' as a float time";
+          return false;
+        }
+        value = FormatFloatTime(seconds);
       } else {
         error = "property '" + property.Name + "' is not valid for @" + reference.Root;
         return false;
@@ -2060,6 +2068,76 @@ public sealed class MixinExpressionInterpreter {
     }
     return true;
   }
+
+  internal static bool TryParseFloatTime(string value, out float seconds) {
+    seconds = 0f;
+    if (value is null) return true;
+    var text = value.Trim();
+    if (text.Length == 0 || string.Equals(text, "null", StringComparison.OrdinalIgnoreCase) ||
+      string.Equals(text, "tick", StringComparison.OrdinalIgnoreCase) ||
+      string.Equals(text, "ticks", StringComparison.OrdinalIgnoreCase)) return true;
+
+    if (text[0] == '%') {
+      if (!double.TryParse(
+        text.Substring(1).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var frequency
+      ) || frequency <= 0d) return false;
+      return TryFloatTimeResult(1d / frequency, out seconds);
+    }
+
+    var match = System.Text.RegularExpressions.Regex.Match(
+      text,
+      @"^(?<number>[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*(?<unit>ms|millis|s|second|seconds|t|tick|ticks|m|minute|minutes)?$",
+      System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+      System.Text.RegularExpressions.RegexOptions.CultureInvariant
+    );
+    if (!match.Success || !double.TryParse(
+      match.Groups["number"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number
+    )) return false;
+
+    var unit = match.Groups["unit"].Value.ToLowerInvariant();
+    if (unit is "t" or "tick" or "ticks") {
+      if (number != Math.Truncate(number)) return false;
+      number = -number;
+    } else if (unit is "ms" or "millis") number /= 1000d;
+    else if (unit is "m" or "minute" or "minutes") number *= 60d;
+    return TryFloatTimeResult(number, out seconds);
+  }
+
+  internal static bool TryConvertFloat(object value, out float result) {
+    result = 0f;
+    if (value is null) return false;
+    switch (Type.GetTypeCode(value.GetType())) {
+      case TypeCode.SByte:
+      case TypeCode.Byte:
+      case TypeCode.Int16:
+      case TypeCode.UInt16:
+      case TypeCode.Int32:
+      case TypeCode.UInt32:
+      case TypeCode.Int64:
+      case TypeCode.UInt64:
+      case TypeCode.Single:
+      case TypeCode.Double:
+      case TypeCode.Decimal:
+        try {
+          result = Convert.ToSingle(value, CultureInfo.InvariantCulture);
+          return !float.IsNaN(result) && !float.IsInfinity(result);
+        } catch (OverflowException) {
+          return false;
+        }
+      default:
+        return false;
+    }
+  }
+
+  private static bool TryFloatTimeResult(double value, out float result) {
+    result = (float)value;
+    return !float.IsNaN(result) && !float.IsInfinity(result);
+  }
+
+  internal static string FormatFloatTime(float seconds) =>
+    Math.Abs(seconds) <= FloatTimeZeroTolerance
+      ? "-0f"
+      : seconds.ToString("R", CultureInfo.InvariantCulture) + "f";
 
   private static bool IsTruthyValue(object value) {
     if (value is null) return false;
@@ -2216,6 +2294,7 @@ public sealed class MixinExpressionInterpreter {
       case "inout":
       case "argument":
       case "static":
+      case "async":
       case "public":
       case "exposed":
       case "top":
@@ -2225,7 +2304,8 @@ public sealed class MixinExpressionInterpreter {
       case "struct":
       case "class":
       case "pop":
-      case "size": expected = 0; break;
+      case "size":
+      case "floatTime": expected = 0; break;
       case "signature": expected = 1; break;
       case "wireable": expected = 2; break;
       case "and":

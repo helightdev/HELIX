@@ -724,6 +724,42 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
+  [Fact]
+  public void AsyncPredicateRecognizesAsyncMethods() {
+    const string source = """
+                          using System;
+                          using System.Threading.Tasks;
+                          namespace HELIX.Context {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          [HELIX.Context.MixinExpression(
+                            "@ASSERT @target:?async\n@CODE<CLASS> public int AsyncMatched;"
+                          )]
+                          [AttributeUsage(AttributeTargets.Method)] public sealed class AsyncMarkerAttribute : Attribute { }
+                          [HELIX.Context.EnableMixins]
+                          public partial class Demo {
+                            [AsyncMarker] private async Task Work() { await Task.Yield(); }
+                          }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "AsyncMixinPredicateTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("public int AsyncMatched;", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
   private static ImmutableArray<MetadataReference> PlatformReferences { get; } =
     ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
     .Split(Path.PathSeparator)

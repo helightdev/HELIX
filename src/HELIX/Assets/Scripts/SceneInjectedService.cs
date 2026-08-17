@@ -12,12 +12,12 @@ namespace HELIX.Context {
     [NonSerialized]
     public GameObject testGameObject;
 
-    [MixinCallback]
+    [MixinMethod]
     public void OnInit() {
       Debug.Log("SceneInjectedService.OnInit");
     }
 
-    [MixinCallback]
+    [MixinMethod]
     public void OnDispose() {
       Debug.Log("SceneInjectedService.OnDispose");
     }

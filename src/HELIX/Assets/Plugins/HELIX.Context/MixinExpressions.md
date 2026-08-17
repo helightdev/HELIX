@@ -43,6 +43,7 @@ Mixin Expressions
 - `:?ref` | Check if a method parameter is ref
 - `:?in` | Check if a method parameter is in
 - `:?out` | Check if a method parameter is out
+- `:?async` | Check if a method is async
 - `:?inout` | Check if a method parameter is in or out
 - `:?argument` | Check if a method parameter is a normal argument, aka. neither in,ref,out
 - `:?static` | Check for static flag for class or method
