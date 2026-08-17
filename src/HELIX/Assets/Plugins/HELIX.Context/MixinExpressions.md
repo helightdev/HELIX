@@ -71,6 +71,8 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
     ```
 - `@SCOPE` | Begin a new scope ending the previous scope if there is one
 - `@SCOPE<LABEL>` | Begin a new scope ending the previous scope if there is one while storing a local label pointer of the given name
+- `@FUNC<LABEL>` | Begin declaring a function of the given name.
+- `@CALL<LABEL>` | Call a function of the given name. Functions share the same locals and variables as the calling scope.
 - `@MATCH` BooleanExpression | Requirement for the scope to match, otherwise performs @SKIP
 - `@ASSERT` BooleanExpression | Accepts the scope and asserts an expression. False will fail the generation
 - `@CODE` StringExpression | Appends a single line of an expression string at the determined target location
@@ -88,6 +90,9 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
 - `@GOTO<LABEL>` | Jumps to scope at the given local label.
 - `@SKIP` | Skips to the next scope or end label. If the is no jump target, it exits and fails the generation
 - `@FAIL` | Fails the generation unconditionally
+- `@LOG` String Expression | Logs the given string expression to the console
+- `@DUMP<STATE>` | Dumps the current state of the mixin expression to the console
+- `@DUMP<BUFFER>` | Dumps the current string buffer of the mixin expression to the console
 
 Note: Multiple boolean expressions per matcher / assertions are combined into an AND
 Note: Code lines are buffered until the end of the expression's execution and only then applied
@@ -138,3 +143,20 @@ of the method prefix by `~`. Example: `~HELIX.Context.RegistrationConfigurator`
 
 This syntax also supports methods with parameters which are otherwise unsupported. The delegate reference-based declaration
 is compatible with the static modifier, allowing `*~HELIX.Context.RegistrationConfigurator` as well. 
+
+## Functions
+
+Functions can be declared and called using `@FUNC` and `@CALL` respectively. 
+Functions share the same locals and variables as the calling scope. A failure inside a function will propagate
+upwards to the calling scope, returns inside the function will only return from the function and continue 
+executing the calling scope. Functions may not be nested and must be closed with `@END` in a balanced manner.
+Functions may include scopes which are also allowed to use the `@END` expression.
+
+## Prepared Expressions
+
+Mixins can be declared in `MixinPrepareGlobal` to be prepared in advance before being
+available to all mixin expression attributes. A model is generated and collected before running subsequent
+mixin source generators. The contents evaluated by those files effectively declares a global scope being present
+in all mixin expressions. Custom procedures are therefore defined using functions that can be called from
+any mixin expression. Target Ordering and Declaration is still left to the called. The prepared mixins may also
+therefore declare global variables that are available to all mixin expressions.

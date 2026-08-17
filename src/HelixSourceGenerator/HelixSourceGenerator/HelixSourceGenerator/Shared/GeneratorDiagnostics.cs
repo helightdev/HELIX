@@ -7,6 +7,10 @@ namespace HELIX.SourceGen {
       id, title, message, DiagnosticCategory, DiagnosticSeverity.Error, true
     );
 
+    private static DiagnosticDescriptor Warning(string id, string title, string message) => new(
+      id, title, message, DiagnosticCategory, DiagnosticSeverity.Warning, true
+    );
+
     internal static class PropStruct {
       internal static readonly DiagnosticDescriptor
         MustBePartial = Error(
@@ -168,6 +172,13 @@ namespace HELIX.SourceGen {
         InvalidRequiredMixin = Error(
           "HLXM10", "Required mixin declaration is invalid",
           "Mixin '{0}' on class '{1}' has an invalid requirement: {2}"
+        ),
+        InvalidPreparedExpression = Error(
+          "HLXM11", "Prepared mixin expression is invalid",
+          "Prepared mixin expression from '{0}' is invalid at line {1}: {2}"
+        ),
+        ExpressionLog = Warning(
+          "HLXM12", "Mixin expression log", "{0}"
         );
     }
   }

@@ -1,6 +1,15 @@
 using System;
 
 namespace HELIX.Context {
+  [AttributeUsage(AttributeTargets.Assembly)]
+  public class MixinPrepareGlobalAttribute : Attribute {
+    public readonly string content;
+
+    public MixinPrepareGlobalAttribute(string content) {
+      this.content = content;
+    }
+  }
+
   [AttributeUsage(AttributeTargets.Method)]
   public class MixinMethodAttribute : Attribute {
     public readonly string target;

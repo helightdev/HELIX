@@ -12,6 +12,7 @@ namespace HELIX.SourceGen {
         AttributeMixinMethodProxy = "HELIX.Context.AttributeMixinMethodProxyAttribute",
         Component = "HELIX.Context.ComponentAttribute",
         MixinExpression = "HELIX.Context.MixinExpressionAttribute",
+        MixinPrepareGlobal = "HELIX.Context.MixinPrepareGlobalAttribute",
         MixinDefineTarget = "HELIX.Context.MixinDefineTargetAttribute",
         BoundaryComposable = "HELIX.Compose.BoundaryComposableAttribute",
         ComposableProxy = "HELIX.Compose.ComposableProxyAttribute",

@@ -529,6 +529,124 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
+  [Fact]
+  public void PreparedExpressionFunctionsAndVariablesAreAvailableToAttributes() {
+    const string source = """
+      using System;
+      [assembly: HELIX.Context.MixinPrepareGlobal(
+        "@VAR<call> Prepared()\n" +
+        "@FUNC<emit>\n" +
+        "@CODE<$Init> @var#call\n" +
+        "@RETURN\n" +
+        "@END"
+      )]
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Assembly)] public sealed class MixinPrepareGlobalAttribute : Attribute {
+          public MixinPrepareGlobalAttribute(string content) { }
+        }
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
+        public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string target, int order, string expression) { }
+        }
+      }
+      [HELIX.Context.MixinExpression("$Init", 0, "@CALL<emit>\n@CODE<$Init> Local()")]
+      [AttributeUsage(AttributeTargets.Method)]
+      public sealed class MarkAttribute : Attribute { }
+      [HELIX.Context.EnableMixins]
+      public partial class Demo {
+        [Mark] private void Work() { }
+        private void Prepared() { }
+        private void Local() { }
+      }
+      """;
+    var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
+    var compilation = CSharpCompilation.Create(
+      "PreparedMixinExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, parseOptions) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(
+      new[] { new MixinGenerator().AsSourceGenerator() }, parseOptions: parseOptions
+    );
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    var preparedCall = generated.IndexOf("Prepared();", StringComparison.Ordinal);
+    var localCall = generated.IndexOf("Local();", StringComparison.Ordinal);
+    Assert.True(preparedCall >= 0 && preparedCall < localCall);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
+  public void InvalidPreparedExpressionReportsDedicatedDiagnostic() {
+    const string source = """
+      using System;
+      [assembly: HELIX.Context.MixinPrepareGlobal("@FUNC<broken>\n@UNKNOWN\n@END")]
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Assembly)] public sealed class MixinPrepareGlobalAttribute : Attribute {
+          public MixinPrepareGlobalAttribute(string content) { }
+        }
+      }
+      """;
+    var compilation = CSharpCompilation.Create(
+      "InvalidPreparedMixinExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGenerators(compilation);
+
+    Assert.Contains(Assert.Single(driver.GetRunResult().Results).Diagnostics, item =>
+      item.Id == "HLXM11" && item.GetMessage().Contains("line 2") &&
+      item.GetMessage().Contains("unknown directive"));
+  }
+
+  [Fact]
+  public void ExpressionLogsAndDumpsAreReportedAsWarningDiagnostics() {
+    const string source = """
+      using System;
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
+        public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
+        }
+      }
+      [HELIX.Context.MixinExpression(
+        "@LOG generating @this:name\n" +
+        "@CODE<CLASS> public int Generated;\n" +
+        "@DUMP<STATE>\n" +
+        "@DUMP<BUFFER>"
+      )]
+      [AttributeUsage(AttributeTargets.Class)]
+      public sealed class MarkAttribute : Attribute { }
+      [HELIX.Context.EnableMixins, Mark]
+      public partial class Demo { }
+      """;
+    var compilation = CSharpCompilation.Create(
+      "MixinExpressionLogTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGenerators(compilation);
+    var diagnostics = Assert.Single(driver.GetRunResult().Results).Diagnostics
+      .Where(item => item.Id == "HLXM12")
+      .ToArray();
+
+    Assert.Equal(3, diagnostics.Length);
+    Assert.All(diagnostics, item => Assert.Equal(DiagnosticSeverity.Warning, item.Severity));
+    Assert.Contains(diagnostics, item => item.GetMessage() == "generating Demo");
+    Assert.Contains(diagnostics, item => item.GetMessage().StartsWith("STATE "));
+    Assert.Contains(diagnostics, item => item.GetMessage().Contains("Class: public int Generated;"));
+  }
+
   private static ImmutableArray<MetadataReference> PlatformReferences { get; } =
     ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
     .Split(Path.PathSeparator)

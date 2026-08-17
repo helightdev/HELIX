@@ -145,6 +145,91 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void CallsPreparedFunctionsWithSharedLocalsAndVariables() {
+    var variables = new Dictionary<string, string>();
+    var result = _interpreter.Execute(
+      "@CALL<emit>\n@CODE caller @var#prefix @local#shared",
+      new StubContext(),
+      variables,
+      new[] {
+        """
+        @VAR<prefix> prepared
+        @FUNC<emit>
+        @LOCAL<shared> value
+        @CODE function @var#prefix @local#shared
+        @RETURN
+        @CODE unreachable
+        @END
+        """
+      }
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] { "function prepared value", "caller prepared value" },
+      result.Outputs.Select(item => item.Text));
+    Assert.Equal("prepared", variables["prefix"]);
+  }
+
+  [Fact]
+  public void FunctionScopesAndFunctionEndAreBalanced() {
+    var result = _interpreter.Execute("""
+      @FUNC<select>
+      @SCOPE<first>
+      @MATCH @arg#0:?ref
+      @CODE wrong
+      @END
+      @CODE selected
+      @END
+      @CALL<select>
+      @CODE caller
+      """, new StubContext(argumentIsRef: false));
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] { "selected", "caller" }, result.Outputs.Select(item => item.Text));
+  }
+
+  [Fact]
+  public void RejectsNestedFunctions() {
+    var result = _interpreter.Execute("""
+      @FUNC<outer>
+      @FUNC<inner>
+      @END
+      @END
+      """, new StubContext());
+
+    Assert.False(result.Success);
+    Assert.Contains("may not be nested", result.Error);
+  }
+
+  [Fact]
+  public void LogsAndDumpsStateAndBufferedOutputs() {
+    var result = _interpreter.Execute("""
+      @LOCAL<kind> handler
+      @VAR<count> one
+      @CODE first
+      @LOG processing @this:name
+      @DUMP<STATE>
+      @DUMP<BUFFER>
+      @FAIL
+      """, new StubContext());
+
+    Assert.False(result.Success);
+    Assert.Equal(3, result.Logs.Count);
+    Assert.Equal("processing Demo", result.Logs[0].Text);
+    Assert.Contains("locals={kind=handler}", result.Logs[1].Text);
+    Assert.Contains("variables={count=one}", result.Logs[1].Text);
+    Assert.Contains("Target: first", result.Logs[2].Text);
+  }
+
+  [Fact]
+  public void PreparedSyntaxValidationRejectsUnknownDumpKinds() {
+    var result = _interpreter.ValidateSyntax("@DUMP<UNKNOWN>");
+
+    Assert.False(result.Success);
+    Assert.Contains("STATE or BUFFER", result.Error);
+  }
+
+  [Fact]
   public void SkipWithoutAnotherScopeFails() {
     var result = _interpreter.Execute("@SKIP", new StubContext());
 

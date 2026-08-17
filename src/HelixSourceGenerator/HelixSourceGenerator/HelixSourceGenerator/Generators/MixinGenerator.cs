@@ -36,8 +36,66 @@ namespace HELIX.SourceGen {
           transform: static (ctx, _) => GetTarget(ctx)
         )
         .Where(static target => target is not null);
+      var preparedExpressions = context.CompilationProvider.Select(
+        static (compilation, _) => CollectPreparedExpressions(compilation)
+      );
 
-      context.RegisterSourceOutput(targets, static (spc, target) => Generate(spc, target));
+      context.RegisterSourceOutput(
+        preparedExpressions,
+        static (spc, prepared) => ReportPreparedExpressionDiagnostics(spc, prepared)
+      );
+
+      context.RegisterSourceOutput(
+        targets.Combine(preparedExpressions),
+        static (spc, input) => Generate(
+          spc,
+          input.Left,
+          input.Right.Where(item => item.Validation.Success)
+            .Select(item => item.Expression)
+            .ToArray()
+        )
+      );
+    }
+
+    private static IReadOnlyList<PreparedMixinExpression> CollectPreparedExpressions(
+      Compilation compilation
+    ) {
+      var result = new List<PreparedMixinExpression>();
+      var assemblies = compilation.SourceModule.ReferencedAssemblySymbols
+        .OrderBy(item => item.Identity.Name, StringComparer.Ordinal)
+        .Concat(new[] { compilation.Assembly });
+      var interpreter = new MixinExpressionInterpreter();
+      foreach (var assembly in assemblies) {
+        foreach (var attribute in assembly.GetAttributes().Where(item =>
+                   IsAttribute(item, Attributes.MixinPrepareGlobal))) {
+          var expression = attribute.ConstructorArguments.Length == 1
+            ? attribute.ConstructorArguments[0].Value as string
+            : null;
+          var validation = interpreter.ValidateSyntax(expression);
+          result.Add(new PreparedMixinExpression(
+            assembly.Identity.Name,
+            expression ?? "",
+            attribute.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? Location.None,
+            validation
+          ));
+        }
+      }
+      return result;
+    }
+
+    private static void ReportPreparedExpressionDiagnostics(
+      SourceProductionContext context,
+      IReadOnlyList<PreparedMixinExpression> preparedExpressions
+    ) {
+      foreach (var prepared in preparedExpressions.Where(item => !item.Validation.Success)) {
+        context.ReportDiagnostic(Diagnostic.Create(
+          InvalidPreparedExpression,
+          prepared.Location,
+          prepared.Provider,
+          prepared.Validation.ErrorLine.ToString(CultureInfo.InvariantCulture),
+          prepared.Validation.Error
+        ));
+      }
     }
 
     private static MixinTarget GetTarget(GeneratorSyntaxContext context) {
@@ -123,7 +181,11 @@ namespace HELIX.SourceGen {
       definitions["$" + key.TrimStart('$')] = target;
     }
 
-    private static void Generate(SourceProductionContext context, MixinTarget candidate) {
+    private static void Generate(
+      SourceProductionContext context,
+      MixinTarget candidate,
+      IReadOnlyList<string> preparedExpressions
+    ) {
       var target = candidate.Type;
       var location = LocationOf(target);
       if (!IsPartial(target)) {
@@ -159,14 +221,15 @@ namespace HELIX.SourceGen {
       var expressionVariables = new Dictionary<string, string>(StringComparer.Ordinal);
       CollectLocalContributions(context, target, contributions);
       CollectInterfaceContributions(
-        context, target, interfaces, candidate.Compilation, expressionVariables,
+        context, target, interfaces, candidate.Compilation, preparedExpressions, expressionVariables,
         attributeExpressionOutputs, contributions
       );
       SpecializeContributions(
-        context, target, resources, candidate.Compilation, expressionVariables, contributions
+        context, target, resources, candidate.Compilation, preparedExpressions,
+        expressionVariables, contributions
       );
       CollectAttributeContributions(
-        context, target, resources, candidate.Compilation, expressionVariables,
+        context, target, resources, candidate.Compilation, preparedExpressions, expressionVariables,
         attributeExpressionOutputs, implicitAttributes, contributions
       );
       var methods = BuildMethods(
@@ -388,6 +451,7 @@ namespace HELIX.SourceGen {
       INamedTypeSymbol target,
       IReadOnlyList<INamedTypeSymbol> interfaces,
       CSharpCompilation compilation,
+      IReadOnlyList<string> preparedExpressions,
       IDictionary<string, string> expressionVariables,
       ICollection<MixinExpressionOutput> expressionOutputs,
       ICollection<MixinContribution> result
@@ -398,7 +462,7 @@ namespace HELIX.SourceGen {
                    .Where(item => IsAttribute(item, Attributes.MixinExpression))) {
           CollectMixinExpressionContributions(
             context, target, target, null, null, expressionAttribute, compilation,
-            expressionVariables, expressionOutputs, result, ref sequence,
+            preparedExpressions, expressionVariables, expressionOutputs, result, ref sequence,
             ContributionKind.Interface, mixin.Name
           );
         }
@@ -417,6 +481,7 @@ namespace HELIX.SourceGen {
       INamedTypeSymbol target,
       IReadOnlyList<MixinResource> resources,
       CSharpCompilation compilation,
+      IReadOnlyList<string> preparedExpressions,
       IDictionary<string, string> expressionVariables,
       ICollection<MixinExpressionOutput> expressionOutputs,
       IReadOnlyList<ImplicitMixinAttribute> implicitAttributes,
@@ -434,7 +499,7 @@ namespace HELIX.SourceGen {
                      allowMultiple: true, baseFirst: true)) {
             CollectMixinExpressionContributions(
               context, target, annotated, applied, null, expressionAttribute, compilation,
-              expressionVariables, expressionOutputs, result, ref sequence,
+              preparedExpressions, expressionVariables, expressionOutputs, result, ref sequence,
               ContributionKind.Attribute, attributeType.Name
             );
           }
@@ -466,7 +531,8 @@ namespace HELIX.SourceGen {
                       sequence, out var item
                     )) continue;
                 if (!TrySpecializeAndCheck(
-                      target, resources, compilation, expressionVariables, item, out selected,
+                      context, target, resources, compilation, preparedExpressions,
+                      expressionVariables, item, out selected,
                       out var failure
                     )) {
                   failures.Add($"'{methodName}': {failure}");
@@ -494,8 +560,8 @@ namespace HELIX.SourceGen {
       }
       foreach (var implicitAttribute in implicitAttributes) {
         CollectImplicitAttributeContributions(
-          context, target, implicitAttribute, resources, compilation, expressionVariables,
-          expressionOutputs, result, ref sequence
+          context, target, implicitAttribute, resources, compilation, preparedExpressions,
+          expressionVariables, expressionOutputs, result, ref sequence
         );
       }
     }
@@ -506,6 +572,7 @@ namespace HELIX.SourceGen {
       ImplicitMixinAttribute implicitAttribute,
       IReadOnlyList<MixinResource> resources,
       CSharpCompilation compilation,
+      IReadOnlyList<string> preparedExpressions,
       IDictionary<string, string> expressionVariables,
       ICollection<MixinExpressionOutput> expressionOutputs,
       ICollection<MixinContribution> result,
@@ -516,7 +583,7 @@ namespace HELIX.SourceGen {
                  allowMultiple: true, baseFirst: true)) {
         CollectMixinExpressionContributions(
           context, target, target, null, implicitAttribute, expressionAttribute, compilation,
-          expressionVariables, expressionOutputs, result, ref sequence,
+          preparedExpressions, expressionVariables, expressionOutputs, result, ref sequence,
           ContributionKind.Attribute, implicitAttribute.Type.Name
         );
       }
@@ -545,7 +612,8 @@ namespace HELIX.SourceGen {
                 )) continue;
             item.WithImplicitAttribute(implicitAttribute);
             if (!TrySpecializeAndCheck(
-                  target, resources, compilation, expressionVariables, item, out selected,
+                  context, target, resources, compilation, preparedExpressions,
+                  expressionVariables, item, out selected,
                   out var failure
                 )) {
               failures.Add("'" + methodName + "': " + failure);
@@ -575,6 +643,7 @@ namespace HELIX.SourceGen {
       ImplicitMixinAttribute implicitAttribute,
       AttributeData configuration,
       CSharpCompilation compilation,
+      IReadOnlyList<string> preparedExpressions,
       IDictionary<string, string> expressionVariables,
       ICollection<MixinExpressionOutput> expressionOutputs,
       ICollection<MixinContribution> contributions,
@@ -627,8 +696,9 @@ namespace HELIX.SourceGen {
       );
       var pendingVariables = new Dictionary<string, string>(expressionVariables, StringComparer.Ordinal);
       var evaluated = new MixinExpressionInterpreter().Execute(
-        expression, expressionContext, pendingVariables
+        expression, expressionContext, pendingVariables, preparedExpressions
       );
+      ReportExpressionLogs(context, location, evaluated.Logs);
       if (!evaluated.Success) {
         ReportInvalidAttributeExpression(
           context, location, attributeName, annotated.Name,
@@ -761,6 +831,7 @@ namespace HELIX.SourceGen {
       INamedTypeSymbol target,
       IReadOnlyList<MixinResource> resources,
       CSharpCompilation compilation,
+      IReadOnlyList<string> preparedExpressions,
       IDictionary<string, string> expressionVariables,
       IList<MixinContribution> contributions
     ) {
@@ -770,7 +841,8 @@ namespace HELIX.SourceGen {
           continue;
         }
         if (TrySpecializeAndCheck(
-              target, resources, compilation, expressionVariables, contributions[index],
+              context, target, resources, compilation, preparedExpressions,
+              expressionVariables, contributions[index],
               out var resolved, out var failure
             )) {
           contributions[index] = resolved;
@@ -783,9 +855,11 @@ namespace HELIX.SourceGen {
     }
 
     private static bool TrySpecializeAndCheck(
+      SourceProductionContext context,
       INamedTypeSymbol target,
       IReadOnlyList<MixinResource> resources,
       CSharpCompilation compilation,
+      IReadOnlyList<string> preparedExpressions,
       IDictionary<string, string> expressionVariables,
       MixinContribution contribution,
       out MixinContribution resolved,
@@ -845,7 +919,13 @@ namespace HELIX.SourceGen {
           candidate.ImplicitAttribute?.Type, candidate.ImplicitAttribute?.Values
         );
         var expressionResult = new MixinExpressionInterpreter().Execute(
-          candidate.Expression, expressionContext, expressionVariables
+          candidate.Expression, expressionContext, expressionVariables, preparedExpressions
+        );
+        ReportExpressionLogs(
+          context,
+          candidate.AppliedAttribute?.ApplicationSyntaxReference?.GetSyntax().GetLocation() ??
+          LocationOf(candidate.Source ?? target),
+          expressionResult.Logs
         );
         if (!expressionResult.Success) {
           failure = "expression line " + expressionResult.ErrorLine.ToString(CultureInfo.InvariantCulture) +
@@ -856,6 +936,16 @@ namespace HELIX.SourceGen {
       }
       resolved = candidate;
       return true;
+    }
+
+    private static void ReportExpressionLogs(
+      SourceProductionContext context,
+      Location location,
+      IReadOnlyList<MixinExpressionLog> logs
+    ) {
+      foreach (var log in logs) {
+        context.ReportDiagnostic(Diagnostic.Create(ExpressionLog, location, log.Text));
+      }
     }
 
     private static bool TryReadGenericSelector(
@@ -2346,6 +2436,25 @@ namespace HELIX.SourceGen {
 
       internal INamedTypeSymbol Type { get; }
       internal CSharpCompilation Compilation { get; }
+    }
+
+    private sealed class PreparedMixinExpression {
+      internal PreparedMixinExpression(
+        string provider,
+        string expression,
+        Location location,
+        MixinExpressionValidationResult validation
+      ) {
+        Provider = provider;
+        Expression = expression;
+        Location = location;
+        Validation = validation;
+      }
+
+      internal string Provider { get; }
+      internal string Expression { get; }
+      internal Location Location { get; }
+      internal MixinExpressionValidationResult Validation { get; }
     }
   }
 }
