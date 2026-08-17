@@ -8,469 +8,507 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static HELIX.SourceGen.GeneratorAnalysis;
 
-namespace HELIX.SourceGen {
-  internal sealed class ImplicitMixinValue {
-    internal ImplicitMixinValue(ITypeSymbol type, object value) {
-      Type = type;
-      Value = value;
-    }
+namespace HELIX.SourceGen;
 
-    internal ITypeSymbol Type { get; }
-    internal object Value { get; }
+internal sealed class ImplicitMixinValue {
+  internal ImplicitMixinValue(ITypeSymbol type, object value) {
+    Type = type;
+    Value = value;
   }
 
-  internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
-    private static readonly SymbolDisplayFormat FullNameDisplayFormat =
-      SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
-        SymbolDisplayGenericsOptions.IncludeTypeParameters
-      );
+  internal ITypeSymbol Type { get; }
+  internal object Value { get; }
+}
 
-    private readonly INamedTypeSymbol _thisType;
-    private readonly ISymbol _target;
-    private readonly AttributeData _attribute;
-    private readonly INamedTypeSymbol _implicitAttributeType;
-    private readonly IReadOnlyDictionary<string, ImplicitMixinValue> _implicitValues;
-    private readonly IReadOnlyList<IParameterSymbol> _arguments;
-    private readonly CSharpCompilation _compilation;
+internal sealed class RoslynMixinExpressionContext : IMixinExpressionContext {
+  private static readonly SymbolDisplayFormat FullNameDisplayFormat =
+    SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
+      SymbolDisplayGenericsOptions.IncludeTypeParameters
+    );
 
-    internal RoslynMixinExpressionContext(
-      INamedTypeSymbol thisType,
-      ISymbol target,
-      AttributeData attribute,
-      IReadOnlyList<IParameterSymbol> arguments,
-      CSharpCompilation compilation,
-      INamedTypeSymbol implicitAttributeType = null,
-      IReadOnlyDictionary<string, ImplicitMixinValue> implicitValues = null
-    ) {
-      _thisType = thisType;
-      _target = target;
-      _attribute = attribute;
-      _arguments = arguments ?? Array.Empty<IParameterSymbol>();
-      _compilation = compilation;
-      _implicitAttributeType = implicitAttributeType;
-      _implicitValues = implicitValues;
+  private readonly INamedTypeSymbol _thisType;
+  private readonly ISymbol _target;
+  private readonly AttributeData _attribute;
+  private readonly INamedTypeSymbol _implicitAttributeType;
+  private readonly IReadOnlyDictionary<string, ImplicitMixinValue> _implicitValues;
+  private readonly IReadOnlyList<IParameterSymbol> _arguments;
+  private readonly CSharpCompilation _compilation;
+
+  internal RoslynMixinExpressionContext(
+    INamedTypeSymbol thisType,
+    ISymbol target,
+    AttributeData attribute,
+    IReadOnlyList<IParameterSymbol> arguments,
+    CSharpCompilation compilation,
+    INamedTypeSymbol implicitAttributeType = null,
+    IReadOnlyDictionary<string, ImplicitMixinValue> implicitValues = null
+  ) {
+    _thisType = thisType;
+    _target = target;
+    _attribute = attribute;
+    _arguments = arguments ?? Array.Empty<IParameterSymbol>();
+    _compilation = compilation;
+    _implicitAttributeType = implicitAttributeType;
+    _implicitValues = implicitValues;
+  }
+
+  public bool TryResolve(
+    MixinExpressionReference reference,
+    out string value,
+    out string error
+  ) {
+    if (!TrySubject(reference, out var subject, out error) ||
+      !ApplyValueProperties(reference, ref subject, out error)) {
+      value = null;
+      return false;
     }
-
-    public bool TryResolve(
-      MixinExpressionReference reference,
-      out string value,
-      out string error
-    ) {
-      if (!TrySubject(reference, out var subject, out error) ||
-          !ApplyValueProperties(reference, ref subject, out error)) {
-        value = null;
-        return false;
-      }
-      if (reference.Properties.Any(IsPredicate)) {
-        value = null;
-        error = "boolean pseudo-properties cannot be interpolated as strings";
-        return false;
-      }
-      var renderRoot = reference.Properties.Any(item => !IsPredicate(item) && item.Name == "type")
-        ? null
-        : reference.Root;
-      return TryRender(subject, renderRoot, out value, out error);
+    if (reference.Properties.Any(IsPredicate)) {
+      value = null;
+      error = "boolean pseudo-properties cannot be interpolated as strings";
+      return false;
     }
+    var renderRoot = reference.Properties.Any(item => !IsPredicate(item) && item.Name == "type")
+      ? null
+      : reference.Root;
+    return TryRender(subject, renderRoot, out value, out error);
+  }
 
-    public bool TryEvaluate(
-      MixinExpressionReference reference,
-      out bool value,
-      out string error
-    ) {
-      value = false;
-      var predicates = reference.Properties.Where(IsPredicate).ToArray();
-      if (!TrySubject(reference, out var subject, out error) ||
-          !ApplyValueProperties(reference, ref subject, out error)) {
-        if (IsDeveloperExpressionError(error)) return false;
-        error = null;
-        if (predicates.Length == 0) {
-          value = false;
-          return true;
-        }
-        value = true;
-        foreach (var predicate in predicates) {
-          var item = predicate.Name == "eq" && EqualTo(null, predicate.Argument);
-          value &= predicate.Negated ? !item : item;
-        }
-        return true;
-      }
+  public bool TryEvaluate(
+    MixinExpressionReference reference,
+    out bool value,
+    out string error
+  ) {
+    value = false;
+    var predicates = reference.Properties.Where(IsPredicate).ToArray();
+    if (!TrySubject(reference, out var subject, out error) ||
+      !ApplyValueProperties(reference, ref subject, out error)) {
+      if (IsDeveloperExpressionError(error)) return false;
+      error = null;
       if (predicates.Length == 0) {
-        value = IsTruthy(subject);
+        value = false;
         return true;
       }
       value = true;
       foreach (var predicate in predicates) {
-        if (!TryPredicate(subject, predicate, out var item, out error)) return false;
+        var item = predicate.Name == "eq" && EqualTo(null, predicate.Argument);
         value &= predicate.Negated ? !item : item;
       }
       return true;
     }
-
-    private bool TrySubject(
-      MixinExpressionReference reference,
-      out object subject,
-      out string error
-    ) {
-      subject = null;
-      error = null;
-      switch (reference.Root) {
-        case "this": subject = _thisType; break;
-        case "target": subject = _target; break;
-        case "attr": subject = (object)_attribute ?? _implicitAttributeType; break;
-        case "arg":
-          subject = SelectArgument(reference.Member);
-          if (subject is null) error = "unknown argument '" + (reference.Member ?? "") + "'";
-          return subject is not null;
-        default:
-          error = "unknown expression root '@" + reference.Root + "'";
-          return false;
-      }
-      if (subject is null) {
-        error = "@" + reference.Root + " is not available in this context";
-        return false;
-      }
-      if (!string.IsNullOrEmpty(reference.Member)) {
-        subject = SelectMember(subject, reference.Member);
-        if (subject is null) {
-          error = "member '" + reference.Member + "' was not found on @" + reference.Root;
-          return false;
-        }
-      }
+    if (predicates.Length == 0) {
+      value = IsTruthy(subject);
       return true;
     }
-
-    private IParameterSymbol SelectArgument(string member) {
-      if (string.IsNullOrEmpty(member)) return null;
-      if (int.TryParse(member, NumberStyles.None, CultureInfo.InvariantCulture, out var index)) {
-        return index >= 0 && index < _arguments.Count ? _arguments[index] : null;
-      }
-      return _arguments.FirstOrDefault(item => item.Name == member) ??
-             _arguments.FirstOrDefault(item => string.Equals(item.Name, member, StringComparison.OrdinalIgnoreCase));
+    value = true;
+    foreach (var predicate in predicates) {
+      if (!TryPredicate(subject, predicate, out var item, out error)) return false;
+      value &= predicate.Negated ? !item : item;
     }
+    return true;
+  }
 
-    private object SelectMember(object subject, string name) {
-      if (_implicitAttributeType is not null &&
-          SymbolEqualityComparer.Default.Equals(subject as ISymbol, _implicitAttributeType)) {
-        if (_implicitValues is not null && _implicitValues.TryGetValue(name, out var implicitValue)) {
-          return implicitValue;
-        }
-        return null;
+  private bool TrySubject(
+    MixinExpressionReference reference,
+    out object subject,
+    out string error
+  ) {
+    subject = null;
+    error = null;
+    switch (reference.Root) {
+      case "this": subject = _thisType; break;
+      case "target": subject = _target; break;
+      case "attr": subject = (object)_attribute ?? _implicitAttributeType; break;
+      case "arg":
+        subject = SelectArgument(reference.Member);
+        if (subject is null) error = "unknown argument '" + (reference.Member ?? "") + "'";
+        return subject is not null;
+      default:
+        error = "unknown expression root '@" + reference.Root + "'";
+        return false;
+    }
+    if (subject is null) {
+      error = "@" + reference.Root + " is not available in this context";
+      return false;
+    }
+    if (!string.IsNullOrEmpty(reference.Member)) {
+      subject = SelectMember(subject, reference.Member);
+      if (subject is null) {
+        error = "member '" + reference.Member + "' was not found on @" + reference.Root;
+        return false;
       }
-      if (subject is AttributeData attribute) {
-        foreach (var named in attribute.NamedArguments) {
-          if (string.Equals(named.Key, name, StringComparison.OrdinalIgnoreCase)) return named.Value;
-        }
-        if (attribute.AttributeConstructor is { } constructor) {
-          for (var index = 0; index < constructor.Parameters.Length && index < attribute.ConstructorArguments.Length; index++) {
-            if (string.Equals(constructor.Parameters[index].Name, name, StringComparison.OrdinalIgnoreCase)) {
-              return attribute.ConstructorArguments[index];
-            }
-          }
-        }
-        if (TryDefaultAttributeMember(attribute.AttributeClass, name, out var defaultValue)) {
-          return defaultValue;
-        }
-        return null;
-      }
-      if (subject is IMethodSymbol method) {
-        return method.Parameters.FirstOrDefault(item => item.Name == name) ??
-               method.Parameters.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
-      }
-      var type = AsType(subject);
-      if (type is null) return null;
-      for (var current = type; current is not null; current = current.BaseType) {
-        var member = current.GetMembers().FirstOrDefault(item => item.Name == name) ??
-                     current.GetMembers().FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
-        if (member is not null) return member;
-      }
+    }
+    return true;
+  }
+
+  private IParameterSymbol SelectArgument(string member) {
+    if (string.IsNullOrEmpty(member)) return null;
+    if (int.TryParse(member, NumberStyles.None, CultureInfo.InvariantCulture, out var index))
+      return index >= 0 && index < _arguments.Count ? _arguments[index] : null;
+    return _arguments.FirstOrDefault(item => item.Name == member) ??
+      _arguments.FirstOrDefault(item => string.Equals(item.Name, member, StringComparison.OrdinalIgnoreCase));
+  }
+
+  private object SelectMember(object subject, string name) {
+    if (_implicitAttributeType is not null &&
+      SymbolEqualityComparer.Default.Equals(subject as ISymbol, _implicitAttributeType)) {
+      if (_implicitValues is not null && _implicitValues.TryGetValue(name, out var implicitValue)) return implicitValue;
       return null;
     }
+    if (subject is AttributeData attribute) {
+      foreach (var named in attribute.NamedArguments)
+        if (string.Equals(named.Key, name, StringComparison.OrdinalIgnoreCase))
+          return named.Value;
+      if (attribute.AttributeConstructor is { } constructor) {
+        for (var index = 0; index < constructor.Parameters.Length && index < attribute.ConstructorArguments.Length;
+          index++)
+          if (string.Equals(constructor.Parameters[index].Name, name, StringComparison.OrdinalIgnoreCase))
+            return attribute.ConstructorArguments[index];
+      }
+      if (TryDefaultAttributeMember(attribute.AttributeClass, name, out var defaultValue)) return defaultValue;
+      return null;
+    }
+    if (subject is IMethodSymbol method) {
+      return method.Parameters.FirstOrDefault(item => item.Name == name) ??
+        method.Parameters.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+    var type = AsType(subject);
+    if (type is null) return null;
+    for (var current = type; current is not null; current = current.BaseType) {
+      var member = current.GetMembers().FirstOrDefault(item => item.Name == name) ??
+        current.GetMembers().FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
+      if (member is not null) return member;
+    }
+    return null;
+  }
 
-    private bool TryDefaultAttributeMember(
-      INamedTypeSymbol attributeType,
-      string name,
-      out ImplicitMixinValue value
-    ) {
-      value = null;
-      if (attributeType is null || _compilation is null) return false;
-      for (var current = attributeType; current is not null; current = current.BaseType) {
-        var member = current.GetMembers().FirstOrDefault(item => item.Name == name) ??
-                     current.GetMembers().FirstOrDefault(item =>
-                       string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
-        if (member is IFieldSymbol { HasConstantValue: true } constantField) {
-          value = new ImplicitMixinValue(constantField.Type, constantField.ConstantValue);
-          return true;
-        }
-        if (member is not (IFieldSymbol or IPropertySymbol)) continue;
-        var initializer = member.DeclaringSyntaxReferences
-          .Select(item => item.GetSyntax())
-          .Select(item => item switch {
+  private bool TryDefaultAttributeMember(
+    INamedTypeSymbol attributeType,
+    string name,
+    out ImplicitMixinValue value
+  ) {
+    value = null;
+    if (attributeType is null || _compilation is null) return false;
+    for (var current = attributeType; current is not null; current = current.BaseType) {
+      var member = current.GetMembers().FirstOrDefault(item => item.Name == name) ??
+        current.GetMembers().FirstOrDefault(item =>
+          string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)
+        );
+      if (member is IFieldSymbol { HasConstantValue: true } constantField) {
+        value = new ImplicitMixinValue(constantField.Type, constantField.ConstantValue);
+        return true;
+      }
+      if (member is not (IFieldSymbol or IPropertySymbol)) continue;
+      var initializer = member.DeclaringSyntaxReferences
+        .Select(item => item.GetSyntax())
+        .Select(item => item switch {
             VariableDeclaratorSyntax field => field.Initializer?.Value,
             PropertyDeclarationSyntax property => property.Initializer?.Value,
             _ => null
-          })
-          .FirstOrDefault(item => item is not null);
-        if (initializer is null) return false;
-        var constant = _compilation.GetSemanticModel(initializer.SyntaxTree).GetConstantValue(initializer);
-        if (!constant.HasValue) return false;
-        value = new ImplicitMixinValue(
-          member is IFieldSymbol fieldSymbol ? fieldSymbol.Type : ((IPropertySymbol)member).Type,
-          constant.Value
-        );
-        return true;
-      }
-      return false;
-    }
-
-    private static bool ApplyValueProperties(
-      MixinExpressionReference reference,
-      ref object subject,
-      out string error
-    ) {
-      error = null;
-      foreach (var property in reference.Properties.Where(item => !IsPredicate(item))) {
-        switch (property.Name) {
-          case "name":
-            subject = NameOf(subject);
-            break;
-          case "type":
-            subject = AsType(subject);
-            break;
-          case "fullName":
-            subject = FullNameOf(subject);
-            break;
-          case "unwrap":
-            subject = Unwrap(subject);
-            break;
-          case "path":
-            subject = SelectTypeArgument(subject, property.Argument);
-            break;
-          default:
-            error = "unknown value property ':" + property.Name + "'";
-            return false;
-        }
-        if (subject is null) {
-          error = "property ':" + property.Name + "' is not available for this value";
-          return false;
-        }
-      }
+          }
+        )
+        .FirstOrDefault(item => item is not null);
+      if (initializer is null) return false;
+      var constant = _compilation.GetSemanticModel(initializer.SyntaxTree).GetConstantValue(initializer);
+      if (!constant.HasValue) return false;
+      value = new ImplicitMixinValue(
+        member is IFieldSymbol fieldSymbol ? fieldSymbol.Type : ((IPropertySymbol)member).Type,
+        constant.Value
+      );
       return true;
     }
+    return false;
+  }
 
-    private static string FullNameOf(object subject) => TypeValueOf(subject)
-      ?.ToDisplayString(FullNameDisplayFormat);
-
-    private static object Unwrap(object subject) {
-      switch (subject) {
-        case TypedConstant { Kind: TypedConstantKind.Type, Value: ITypeSymbol type }:
-          return UnqualifiedGlobalName(type);
-        case TypedConstant { Value: string text }:
-          return text;
-        case ImplicitMixinValue { Value: ITypeSymbol type }:
-          return UnqualifiedGlobalName(type);
-        case ImplicitMixinValue { Value: string text }:
-          return text;
-        case ITypeSymbol type:
-          return UnqualifiedGlobalName(type);
-        case string text:
-          return text;
+  private static bool ApplyValueProperties(
+    MixinExpressionReference reference,
+    ref object subject,
+    out string error
+  ) {
+    error = null;
+    foreach (var property in reference.Properties.Where(item => !IsPredicate(item))) {
+      switch (property.Name) {
+        case "name":
+          subject = NameOf(subject);
+          break;
+        case "type":
+          subject = AsType(subject);
+          break;
+        case "fullName":
+          subject = FullNameOf(subject);
+          break;
+        case "unwrap":
+          subject = Unwrap(subject);
+          break;
+        case "path":
+          subject = SelectTypeArgument(subject, property.Argument);
+          break;
         default:
-          return subject;
+          error = "unknown value property ':" + property.Name + "'";
+          return false;
+      }
+      if (subject is null) {
+        error = "property ':" + property.Name + "' is not available for this value";
+        return false;
       }
     }
+    return true;
+  }
 
-    private static ITypeSymbol TypeValueOf(object subject) => subject switch {
+  private static string FullNameOf(object subject) {
+    return TypeValueOf(subject)
+      ?.ToDisplayString(FullNameDisplayFormat);
+  }
+
+  private static object Unwrap(object subject) {
+    switch (subject) {
+      case TypedConstant { Kind: TypedConstantKind.Type, Value: ITypeSymbol type }:
+        return UnqualifiedGlobalName(type);
+      case TypedConstant { Value: string text }:
+        return text;
+      case ImplicitMixinValue { Value: ITypeSymbol type }:
+        return UnqualifiedGlobalName(type);
+      case ImplicitMixinValue { Value: string text }:
+        return text;
+      case ITypeSymbol type:
+        return UnqualifiedGlobalName(type);
+      case string text:
+        return text;
+      default:
+        return subject;
+    }
+  }
+
+  private static ITypeSymbol TypeValueOf(object subject) {
+    return subject switch {
       TypedConstant { Kind: TypedConstantKind.Type, Value: ITypeSymbol type } => type,
       ImplicitMixinValue { Value: ITypeSymbol type } => type,
       _ => AsType(subject)
     };
+  }
 
-    private static string UnqualifiedGlobalName(ITypeSymbol type) =>
-      type.ToDisplayString(TypeDisplayFormat).Replace("global::", "");
+  private static string UnqualifiedGlobalName(ITypeSymbol type) {
+    return type.ToDisplayString(TypeDisplayFormat).Replace("global::", "");
+  }
 
-    private static ITypeSymbol SelectTypeArgument(object subject, string path) {
-      if (AsType(subject) is not INamedTypeSymbol type) return null;
-      if (int.TryParse(path, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedIndex)) {
-        return parsedIndex >= 0 && parsedIndex < type.TypeArguments.Length
-          ? type.TypeArguments[parsedIndex]
-          : null;
-      }
-      for (var parameterIndex = 0; parameterIndex < type.TypeParameters.Length; parameterIndex++) {
-        if (string.Equals(
-              type.TypeParameters[parameterIndex].Name, path, StringComparison.OrdinalIgnoreCase
-            )) {
-          return type.TypeArguments[parameterIndex];
-        }
-      }
-      return null;
+  private static ITypeSymbol SelectTypeArgument(object subject, string path) {
+    if (AsType(subject) is not INamedTypeSymbol type) return null;
+    if (int.TryParse(path, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedIndex)) {
+      return parsedIndex >= 0 && parsedIndex < type.TypeArguments.Length
+        ? type.TypeArguments[parsedIndex]
+        : null;
     }
+    for (var parameterIndex = 0; parameterIndex < type.TypeParameters.Length; parameterIndex++) {
+      if (string.Equals(
+        type.TypeParameters[parameterIndex].Name, path, StringComparison.OrdinalIgnoreCase
+      )) return type.TypeArguments[parameterIndex];
+    }
+    return null;
+  }
 
-    private static bool IsTruthy(object subject) => subject switch {
+  private static bool IsTruthy(object subject) {
+    return subject switch {
       null => false,
       TypedConstant constant => constant.Kind != TypedConstantKind.Error &&
-                                !constant.IsNull && constant.Value is not false,
+        !constant.IsNull && constant.Value is not false,
       ImplicitMixinValue value => value.Value is not null && value.Value is not false,
       bool value => value,
       _ => true
     };
+  }
 
-    private bool TryPredicate(
-      object subject,
-      MixinExpressionProperty property,
-      out bool value,
-      out string error
-    ) {
-      value = false;
-      error = null;
-      var symbol = subject as ISymbol;
-      var type = AsType(subject);
-      switch (property.Name) {
-        case "exists": value = true; return true;
-        case "is":
-          if (string.IsNullOrWhiteSpace(property.Argument)) {
-            error = ":?is requires a type";
-            return false;
-          }
-          value = type is not null && IsOrInherits(type, property.Argument);
-          return true;
-        case "has":
-          if (string.IsNullOrWhiteSpace(property.Argument)) {
-            error = ":?has requires a member";
-            return false;
-          }
-          value = type is not null && HasConcreteMember(type, property.Argument);
-          return true;
-        case "eq":
-          value = EqualTo(subject, property.Argument);
-          return true;
-        case "isSelf": value = type is not null && SymbolEqualityComparer.Default.Equals(type, _thisType); return true;
-        case "ref": value = symbol is IParameterSymbol { RefKind: RefKind.Ref }; return true;
-        case "in": value = symbol is IParameterSymbol { RefKind: RefKind.In }; return true;
-        case "out": value = symbol is IParameterSymbol { RefKind: RefKind.Out }; return true;
-        case "inout": value = symbol is IParameterSymbol { RefKind: RefKind.In or RefKind.Out }; return true;
-        case "argument": value = symbol is IParameterSymbol { RefKind: RefKind.None }; return true;
-        case "static": value = symbol?.IsStatic == true; return true;
-        case "public": value = symbol?.DeclaredAccessibility == Accessibility.Public; return true;
-        case "exposed": value = symbol?.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal or Accessibility.ProtectedOrInternal; return true;
-        case "top": value = type?.ContainingType is null; return true;
-        case "concrete":
-          value = subject switch {
-            INamedTypeSymbol named => named.TypeKind != TypeKind.Interface && !named.IsAbstract,
-            IMethodSymbol method => !method.IsAbstract && !method.IsVirtual,
-            _ => symbol is not null
-          };
-          return true;
-        case "partial": value = IsPartialSymbol(subject); return true;
-        case "generic":
-          value = subject is IMethodSymbol genericMethod ? genericMethod.TypeParameters.Length != 0 :
-            type is INamedTypeSymbol genericType && genericType.TypeParameters.Length != 0;
-          return true;
-        case "struct": value = type?.TypeKind == TypeKind.Struct; return true;
-        case "class": value = type?.IsReferenceType == true; return true;
-        default:
-          error = "unknown boolean pseudo-property ':?" + property.Name + "'";
+  private bool TryPredicate(
+    object subject,
+    MixinExpressionProperty property,
+    out bool value,
+    out string error
+  ) {
+    value = false;
+    error = null;
+    var symbol = subject as ISymbol;
+    var type = AsType(subject);
+    switch (property.Name) {
+      case "exists":
+        value = true;
+        return true;
+      case "is":
+        if (string.IsNullOrWhiteSpace(property.Argument)) {
+          error = ":?is requires a type";
           return false;
-      }
+        }
+        value = type is not null && IsOrInherits(type, property.Argument);
+        return true;
+      case "has":
+        if (string.IsNullOrWhiteSpace(property.Argument)) {
+          error = ":?has requires a member";
+          return false;
+        }
+        value = type is not null && HasConcreteMember(type, property.Argument);
+        return true;
+      case "eq":
+        value = EqualTo(subject, property.Argument);
+        return true;
+      case "isSelf":
+        value = type is not null && SymbolEqualityComparer.Default.Equals(type, _thisType);
+        return true;
+      case "ref":
+        value = symbol is IParameterSymbol { RefKind: RefKind.Ref };
+        return true;
+      case "in":
+        value = symbol is IParameterSymbol { RefKind: RefKind.In };
+        return true;
+      case "out":
+        value = symbol is IParameterSymbol { RefKind: RefKind.Out };
+        return true;
+      case "inout":
+        value = symbol is IParameterSymbol { RefKind: RefKind.In or RefKind.Out };
+        return true;
+      case "argument":
+        value = symbol is IParameterSymbol { RefKind: RefKind.None };
+        return true;
+      case "static":
+        value = symbol?.IsStatic == true;
+        return true;
+      case "public":
+        value = symbol?.DeclaredAccessibility == Accessibility.Public;
+        return true;
+      case "exposed":
+        value = symbol?.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal
+          or Accessibility.ProtectedOrInternal;
+        return true;
+      case "top":
+        value = type?.ContainingType is null;
+        return true;
+      case "concrete":
+        value = subject switch {
+          INamedTypeSymbol named => named.TypeKind != TypeKind.Interface && !named.IsAbstract,
+          IMethodSymbol method => !method.IsAbstract && !method.IsVirtual,
+          _ => symbol is not null
+        };
+        return true;
+      case "partial":
+        value = IsPartialSymbol(subject);
+        return true;
+      case "generic":
+        value = subject is IMethodSymbol genericMethod
+          ? genericMethod.TypeParameters.Length != 0
+          : type is INamedTypeSymbol genericType && genericType.TypeParameters.Length != 0;
+        return true;
+      case "struct":
+        value = type?.TypeKind == TypeKind.Struct;
+        return true;
+      case "class":
+        value = type?.IsReferenceType == true;
+        return true;
+      default:
+        error = "unknown boolean pseudo-property ':?" + property.Name + "'";
+        return false;
     }
+  }
 
-    private static bool IsDeveloperExpressionError(string error) =>
-      error?.StartsWith("unknown expression root", StringComparison.Ordinal) == true ||
+  private static bool IsDeveloperExpressionError(string error) {
+    return error?.StartsWith("unknown expression root", StringComparison.Ordinal) == true ||
       error?.StartsWith("unknown value property", StringComparison.Ordinal) == true ||
       error?.StartsWith("unknown boolean pseudo-property", StringComparison.Ordinal) == true ||
       error?.Contains(" requires a ") == true;
+  }
 
-    private static bool EqualTo(object subject, string expected) {
-      if (IsNullLike(subject)) {
-        return string.Equals(expected, "null", StringComparison.OrdinalIgnoreCase);
-      }
-      if (TryComparableText(subject, out var rendered) &&
-          string.Equals(rendered, expected ?? "", StringComparison.Ordinal)) return true;
-      var unwrapped = Unwrap(subject);
-      return TryComparableText(unwrapped, out rendered) && string.Equals(
-        UnwrapComparable(rendered), UnwrapComparable(expected ?? ""), StringComparison.OrdinalIgnoreCase
-      );
-    }
+  private static bool EqualTo(object subject, string expected) {
+    if (IsNullLike(subject)) return string.Equals(expected, "null", StringComparison.OrdinalIgnoreCase);
+    if (TryComparableText(subject, out var rendered) &&
+      string.Equals(rendered, expected ?? "", StringComparison.Ordinal)) return true;
+    var unwrapped = Unwrap(subject);
+    return TryComparableText(unwrapped, out rendered) && string.Equals(
+      UnwrapComparable(rendered), UnwrapComparable(expected ?? ""), StringComparison.OrdinalIgnoreCase
+    );
+  }
 
-    private static bool IsNullLike(object subject) => subject switch {
+  private static bool IsNullLike(object subject) {
+    return subject switch {
       null => true,
       TypedConstant constant => constant.IsNull || constant.Kind == TypedConstantKind.Error,
       ImplicitMixinValue value => value.Value is null,
       _ => false
     };
+  }
 
-    private static bool TryComparableText(object subject, out string value) {
-      subject = subject switch {
-        TypedConstant constant => constant.Value,
-        ImplicitMixinValue implicitValue => implicitValue.Value,
-        _ => subject
-      };
-      if (subject is ITypeSymbol type) {
-        value = type.ToDisplayString(TypeDisplayFormat);
-        return true;
-      }
-      if (subject is AttributeData attribute) {
-        value = attribute.AttributeClass?.ToDisplayString(TypeDisplayFormat);
-        return value is not null;
-      }
-      if (subject is ISymbol symbol) {
-        value = symbol.ToDisplayString(TypeDisplayFormat);
-        return true;
-      }
-      value = Convert.ToString(subject, CultureInfo.InvariantCulture);
+  private static bool TryComparableText(object subject, out string value) {
+    subject = subject switch {
+      TypedConstant constant => constant.Value,
+      ImplicitMixinValue implicitValue => implicitValue.Value,
+      _ => subject
+    };
+    if (subject is ITypeSymbol type) {
+      value = type.ToDisplayString(TypeDisplayFormat);
+      return true;
+    }
+    if (subject is AttributeData attribute) {
+      value = attribute.AttributeClass?.ToDisplayString(TypeDisplayFormat);
       return value is not null;
     }
+    if (subject is ISymbol symbol) {
+      value = symbol.ToDisplayString(TypeDisplayFormat);
+      return true;
+    }
+    value = Convert.ToString(subject, CultureInfo.InvariantCulture);
+    return value is not null;
+  }
 
-    private static string UnwrapComparable(string value) {
-      if (value.StartsWith("global::", StringComparison.Ordinal)) value = value.Substring(8);
-      if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"') {
-        value = value.Substring(1, value.Length - 2);
-      }
-      return value;
+  private static string UnwrapComparable(string value) {
+    if (value.StartsWith("global::", StringComparison.Ordinal)) value = value.Substring(8);
+    if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"')
+      value = value.Substring(1, value.Length - 2);
+    return value;
+  }
+
+  private bool IsOrInherits(ITypeSymbol type, string requested) {
+    bool Matches(ITypeSymbol candidate) {
+      var display = candidate.ToDisplayString(TypeDisplayFormat);
+      return candidate.Name == requested || display == requested || display == "global::" + requested ||
+        candidate.ToDisplayString() == requested;
     }
 
-    private bool IsOrInherits(ITypeSymbol type, string requested) {
-      bool Matches(ITypeSymbol candidate) {
-        var display = candidate.ToDisplayString(TypeDisplayFormat);
-        return candidate.Name == requested || display == requested || display == "global::" + requested ||
-               candidate.ToDisplayString() == requested;
-      }
-      if (Matches(type)) return true;
-      if (type is not INamedTypeSymbol named) return false;
-      for (var current = named.BaseType; current is not null; current = current.BaseType) {
-        if (Matches(current)) return true;
-      }
-      return named.AllInterfaces.Any(Matches);
-    }
+    if (Matches(type)) return true;
+    if (type is not INamedTypeSymbol named) return false;
+    for (var current = named.BaseType; current is not null; current = current.BaseType)
+      if (Matches(current))
+        return true;
+    return named.AllInterfaces.Any(Matches);
+  }
 
-    private static bool HasConcreteMember(ITypeSymbol type, string requested) {
-      if (type is not INamedTypeSymbol named) return false;
-      for (var current = named; current is not null; current = current.BaseType) {
-        if (current.GetMembers(requested).Any(item => item is not IMethodSymbol { IsAbstract: true })) return true;
-      }
-      return false;
-    }
+  private static bool HasConcreteMember(ITypeSymbol type, string requested) {
+    if (type is not INamedTypeSymbol named) return false;
+    for (var current = named; current is not null; current = current.BaseType)
+      if (current.GetMembers(requested).Any(item => item is not IMethodSymbol { IsAbstract: true }))
+        return true;
+    return false;
+  }
 
-    private static bool IsPartialSymbol(object subject) {
-      if (subject is INamedTypeSymbol named) return IsPartial(named);
-      return subject is IMethodSymbol method && method.DeclaringSyntaxReferences.Any(item =>
-        item.GetSyntax() is MethodDeclarationSyntax syntax && syntax.Modifiers.Any(SyntaxKind.PartialKeyword)
-      );
-    }
+  private static bool IsPartialSymbol(object subject) {
+    if (subject is INamedTypeSymbol named) return IsPartial(named);
+    return subject is IMethodSymbol method && method.DeclaringSyntaxReferences.Any(item =>
+      item.GetSyntax() is MethodDeclarationSyntax syntax && syntax.Modifiers.Any(SyntaxKind.PartialKeyword)
+    );
+  }
 
-    private static bool IsPredicate(MixinExpressionProperty property) => property.Name is
+  private static bool IsPredicate(MixinExpressionProperty property) {
+    return property.Name is
       "exists" or "is" or "has" or "eq" or "isSelf" or "ref" or "in" or "out" or "inout" or
       "argument" or "static" or "public" or "exposed" or "top" or "concrete" or
       "partial" or "generic" or "struct" or "class";
+  }
 
-    private static string NameOf(object subject) => subject switch {
+  private static string NameOf(object subject) {
+    return subject switch {
       ISymbol symbol => symbol.Name,
       AttributeData attribute => attribute.AttributeClass?.Name,
       TypedConstant constant => Convert.ToString(constant.Value, CultureInfo.InvariantCulture),
       ImplicitMixinValue value => Convert.ToString(value.Value, CultureInfo.InvariantCulture),
       _ => Convert.ToString(subject, CultureInfo.InvariantCulture)
     };
+  }
 
-    private static ITypeSymbol AsType(object subject) => subject switch {
+  private static ITypeSymbol AsType(object subject) {
+    return subject switch {
       ITypeSymbol type => type,
       IMethodSymbol method => method.ReturnType,
       IPropertySymbol property => property.Type,
@@ -482,85 +520,101 @@ namespace HELIX.SourceGen {
       ImplicitMixinValue value => value.Type,
       _ => null
     };
+  }
 
-    private bool TryRender(
-      object subject,
-      string root,
-      out string value,
-      out string error
-    ) {
-      error = null;
-      switch (subject) {
-        case string text: value = text; return true;
-        case INamedTypeSymbol when root is "this" or "target": value = "this"; return true;
-        case ITypeSymbol type: value = type.ToDisplayString(TypeDisplayFormat); return true;
-        case IParameterSymbol parameter: value = EscapeIdentifier(parameter.Name); return true;
-        case IFieldSymbol field: value = SymbolReference(field); return true;
-        case IPropertySymbol property: value = SymbolReference(property); return true;
-        case IMethodSymbol method: value = SymbolReference(method); return true;
-        case ISymbol symbol: value = EscapeIdentifier(symbol.Name); return true;
-        case TypedConstant constant: value = ConstantExpression(constant); return true;
-        case ImplicitMixinValue implicitValue:
-          value = ConstantExpression(implicitValue.Value, implicitValue.Type);
-          return true;
-        case AttributeData attribute: value = attribute.AttributeClass?.ToDisplayString(TypeDisplayFormat); return true;
-        default:
-          value = null;
-          error = "the expression value cannot be rendered";
-          return false;
-      }
+  private bool TryRender(
+    object subject,
+    string root,
+    out string value,
+    out string error
+  ) {
+    error = null;
+    switch (subject) {
+      case string text:
+        value = text;
+        return true;
+      case INamedTypeSymbol when root is "this" or "target":
+        value = "this";
+        return true;
+      case ITypeSymbol type:
+        value = type.ToDisplayString(TypeDisplayFormat);
+        return true;
+      case IParameterSymbol parameter:
+        value = EscapeIdentifier(parameter.Name);
+        return true;
+      case IFieldSymbol field:
+        value = SymbolReference(field);
+        return true;
+      case IPropertySymbol property:
+        value = SymbolReference(property);
+        return true;
+      case IMethodSymbol method:
+        value = SymbolReference(method);
+        return true;
+      case ISymbol symbol:
+        value = EscapeIdentifier(symbol.Name);
+        return true;
+      case TypedConstant constant:
+        value = ConstantExpression(constant);
+        return true;
+      case ImplicitMixinValue implicitValue:
+        value = ConstantExpression(implicitValue.Value, implicitValue.Type);
+        return true;
+      case AttributeData attribute:
+        value = attribute.AttributeClass?.ToDisplayString(TypeDisplayFormat);
+        return true;
+      default:
+        value = null;
+        error = "the expression value cannot be rendered";
+        return false;
     }
+  }
 
-    private static string SymbolReference(ISymbol symbol) {
-      var name = EscapeIdentifier(symbol.Name);
-      return symbol.IsStatic
-        ? symbol.ContainingType.ToDisplayString(TypeDisplayFormat) + "." + name
-        : "this." + name;
-    }
+  private static string SymbolReference(ISymbol symbol) {
+    var name = EscapeIdentifier(symbol.Name);
+    return symbol.IsStatic
+      ? symbol.ContainingType.ToDisplayString(TypeDisplayFormat) + "." + name
+      : "this." + name;
+  }
 
-    private static string ConstantExpression(TypedConstant constant) {
-      if (constant.IsNull) return "null";
-      if (constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol type) {
-        return "typeof(" + type.ToDisplayString(TypeDisplayFormat) + ")";
-      }
-      if (constant.Kind == TypedConstantKind.Array) {
-        return "new[] { " + string.Join(", ", constant.Values.Select(ConstantExpression)) + " }";
-      }
-      return constant.Value switch {
-        string text => SyntaxFactory.Literal(text).ToFullString(),
-        char character => SyntaxFactory.Literal(character).ToFullString(),
-        bool boolean => boolean ? "true" : "false",
-        float single => single.ToString("R", CultureInfo.InvariantCulture) + "F",
-        double number => number.ToString("R", CultureInfo.InvariantCulture) + "D",
-        decimal number => number.ToString(CultureInfo.InvariantCulture) + "M",
-        uint number => number.ToString(CultureInfo.InvariantCulture) + "U",
-        long number => number.ToString(CultureInfo.InvariantCulture) + "L",
-        ulong number => number.ToString(CultureInfo.InvariantCulture) + "UL",
-        _ => Convert.ToString(constant.Value, CultureInfo.InvariantCulture)
-      };
-    }
+  private static string ConstantExpression(TypedConstant constant) {
+    if (constant.IsNull) return "null";
+    if (constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol type)
+      return "typeof(" + type.ToDisplayString(TypeDisplayFormat) + ")";
+    if (constant.Kind == TypedConstantKind.Array)
+      return "new[] { " + string.Join(", ", constant.Values.Select(ConstantExpression)) + " }";
+    return constant.Value switch {
+      string text => SyntaxFactory.Literal(text).ToFullString(),
+      char character => SyntaxFactory.Literal(character).ToFullString(),
+      bool boolean => boolean ? "true" : "false",
+      float single => single.ToString("R", CultureInfo.InvariantCulture) + "F",
+      double number => number.ToString("R", CultureInfo.InvariantCulture) + "D",
+      decimal number => number.ToString(CultureInfo.InvariantCulture) + "M",
+      uint number => number.ToString(CultureInfo.InvariantCulture) + "U",
+      long number => number.ToString(CultureInfo.InvariantCulture) + "L",
+      ulong number => number.ToString(CultureInfo.InvariantCulture) + "UL",
+      _ => Convert.ToString(constant.Value, CultureInfo.InvariantCulture)
+    };
+  }
 
-    internal static string ConstantExpression(object value, ITypeSymbol type = null) {
-      if (value is null) return "null";
-      if (value is ITypeSymbol typeValue) {
-        return "typeof(" + typeValue.ToDisplayString(TypeDisplayFormat) + ")";
-      }
-      if (type?.TypeKind == TypeKind.Enum) {
-        return "(" + type.ToDisplayString(TypeDisplayFormat) + ")" +
-               Convert.ToString(value, CultureInfo.InvariantCulture);
-      }
-      return value switch {
-        string text => SyntaxFactory.Literal(text).ToFullString(),
-        char character => SyntaxFactory.Literal(character).ToFullString(),
-        bool boolean => boolean ? "true" : "false",
-        float single => single.ToString("R", CultureInfo.InvariantCulture) + "F",
-        double number => number.ToString("R", CultureInfo.InvariantCulture) + "D",
-        decimal number => number.ToString(CultureInfo.InvariantCulture) + "M",
-        uint number => number.ToString(CultureInfo.InvariantCulture) + "U",
-        long number => number.ToString(CultureInfo.InvariantCulture) + "L",
-        ulong number => number.ToString(CultureInfo.InvariantCulture) + "UL",
-        _ => Convert.ToString(value, CultureInfo.InvariantCulture)
-      };
+  internal static string ConstantExpression(object value, ITypeSymbol type = null) {
+    if (value is null) return "null";
+    if (value is ITypeSymbol typeValue) return "typeof(" + typeValue.ToDisplayString(TypeDisplayFormat) + ")";
+    if (type?.TypeKind == TypeKind.Enum) {
+      return "(" + type.ToDisplayString(TypeDisplayFormat) + ")" +
+        Convert.ToString(value, CultureInfo.InvariantCulture);
     }
+    return value switch {
+      string text => SyntaxFactory.Literal(text).ToFullString(),
+      char character => SyntaxFactory.Literal(character).ToFullString(),
+      bool boolean => boolean ? "true" : "false",
+      float single => single.ToString("R", CultureInfo.InvariantCulture) + "F",
+      double number => number.ToString("R", CultureInfo.InvariantCulture) + "D",
+      decimal number => number.ToString(CultureInfo.InvariantCulture) + "M",
+      uint number => number.ToString(CultureInfo.InvariantCulture) + "U",
+      long number => number.ToString(CultureInfo.InvariantCulture) + "L",
+      ulong number => number.ToString(CultureInfo.InvariantCulture) + "UL",
+      _ => Convert.ToString(value, CultureInfo.InvariantCulture)
+    };
   }
 }

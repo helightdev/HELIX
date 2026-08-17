@@ -12,11 +12,15 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void InterpolatesReferencesAndStoredValues() {
     var variables = new Dictionary<string, string>();
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @LOCAL<kind> handler
       @VAR<count> one
       @CODE @this:name @local#kind @@ @var#count
-      """, new StubContext(), variables);
+      """,
+      new StubContext(),
+      variables
+    );
 
     Assert.True(result.Success, result.Error);
     Assert.Equal("Demo handler @ one", Assert.Single(result.Outputs).Text);
@@ -25,7 +29,8 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void MatchSkipsToTheNextScope() {
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @SCOPE<first>
       @MATCH @arg#0:?ref
       @CODE wrong
@@ -34,7 +39,9 @@ public sealed class MixinExpressionInterpreterTests {
       @MATCH @arg#0:?argument
       @CODE selected
       @RETURN
-      """, new StubContext(argumentIsRef: false));
+      """,
+      new StubContext(false)
+    );
 
     Assert.True(result.Success, result.Error);
     Assert.Equal("selected", Assert.Single(result.Outputs).Text);
@@ -42,7 +49,8 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void LabeledMatchJumpsToTheNamedScopeWhenFalse() {
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @MATCH<selected> @arg#0:?ref
       @CODE wrong
       @RETURN
@@ -51,7 +59,9 @@ public sealed class MixinExpressionInterpreterTests {
       @RETURN
       @SCOPE<selected>
       @CODE selected
-      """, new StubContext(argumentIsRef: false));
+      """,
+      new StubContext(false)
+    );
 
     Assert.True(result.Success, result.Error);
     Assert.Equal("selected", Assert.Single(result.Outputs).Text);
@@ -71,11 +81,15 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void FailedExecutionDoesNotCommitCodeOrVariables() {
     var variables = new Dictionary<string, string> { ["value"] = "before" };
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @VAR<value> after
       @CODE buffered
       @ASSERT @arg#0:?ref
-      """, new StubContext(argumentIsRef: false), variables);
+      """,
+      new StubContext(false),
+      variables
+    );
 
     Assert.False(result.Success);
     Assert.Empty(result.Outputs);
@@ -84,12 +98,16 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void FailedConditionsProduceUserFacingMessages() {
-    var equality = _interpreter.Execute("""
+    var equality = _interpreter.Execute(
+      """
       @VAR<IsComponent> false
       @ASSERT @var#IsComponent:?eq<true>
-      """, new StubContext());
+      """,
+      new StubContext()
+    );
     var inheritance = _interpreter.Execute(
-      "@ASSERT @target:type:?is<global::IComponent>", new StubContext()
+      "@ASSERT @target:type:?is<global::IComponent>",
+      new StubContext()
     );
 
     Assert.Equal("Variable IsComponent is not true", equality.Error);
@@ -98,15 +116,20 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void StoredEqualityRetriesAfterUnwrappingAndTreatsMissingAsNull() {
-    var unwrapped = _interpreter.Execute("""
+    var unwrapped = _interpreter.Execute(
+      """
       @VAR<kind> "Component"
       @ASSERT @var#kind:?eq<Component>
-      """, new StubContext());
+      """,
+      new StubContext()
+    );
     var missingIsNull = _interpreter.Execute(
-      "@ASSERT @var#missing:?eq<null>", new StubContext()
+      "@ASSERT @var#missing:?eq<null>",
+      new StubContext()
     );
     var invertedNull = _interpreter.Execute(
-      "@ASSERT @var#missing:!?eq<null>", new StubContext()
+      "@ASSERT @var#missing:!?eq<null>",
+      new StubContext()
     );
 
     Assert.True(unwrapped.Success, unwrapped.Error);
@@ -117,7 +140,8 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void SupportsAllCodeTargets() {
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @CODE target
       @CODE<CLASS> class
       @CODE<FILE> file
@@ -125,26 +149,36 @@ public sealed class MixinExpressionInterpreterTests {
       @CODE<ANNOTATION> global::Generated
       @USING System.Collections.Generic
       @CODE<DisposeHook> dispose
-      """, new StubContext());
+      """,
+      new StubContext()
+    );
 
     Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {
-      MixinExpressionOutputTarget.Target,
-      MixinExpressionOutputTarget.Class,
-      MixinExpressionOutputTarget.File,
-      MixinExpressionOutputTarget.Implements,
-      MixinExpressionOutputTarget.Annotation,
-      MixinExpressionOutputTarget.Using,
-      MixinExpressionOutputTarget.Injection
-    }, result.Outputs.Select(item => item.Target));
+    Assert.Equal(
+      new[] {
+        MixinExpressionOutputTarget.Target,
+        MixinExpressionOutputTarget.Class,
+        MixinExpressionOutputTarget.File,
+        MixinExpressionOutputTarget.Implements,
+        MixinExpressionOutputTarget.Annotation,
+        MixinExpressionOutputTarget.Using,
+        MixinExpressionOutputTarget.Injection
+      },
+      result.Outputs.Select(item => item.Target)
+    );
     Assert.Equal("DisposeHook", result.Outputs[6].InjectionTarget);
   }
 
   [Fact]
   public void ParsesParenthesizedAndInvertedReferences() {
-    Assert.True(_interpreter.TryParseReference(
-      "@(arg#name:type:!?is<global::IEvent>)", out var reference, out var error
-    ), error);
+    Assert.True(
+      _interpreter.TryParseReference(
+        "@(arg#name:type:!?is<global::IEvent>)",
+        out var reference,
+        out var error
+      ),
+      error
+    );
 
     Assert.Equal("arg", reference.Root);
     Assert.Equal("name", reference.Member);
@@ -155,19 +189,27 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void ParsesTypeArgumentPaths() {
-    Assert.True(_interpreter.TryParseReference(
-      "@target:type#0:type#T", out var reference, out var error
-    ), error);
+    Assert.True(
+      _interpreter.TryParseReference(
+        "@target:type#0:type#T",
+        out var reference,
+        out var error
+      ),
+      error
+    );
 
-    Assert.Equal(new[] { "type", "path", "type", "path" },
-      reference.Properties.Select(item => item.Name));
+    Assert.Equal(
+      new[] { "type", "path", "type", "path" },
+      reference.Properties.Select(item => item.Name)
+    );
     Assert.Equal("0", reference.Properties[1].Argument);
     Assert.Equal("T", reference.Properties[3].Argument);
   }
 
   [Fact]
   public void StoredValuesSupportTruthinessAndExistence() {
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @LOCAL<disabled> false
       @SCOPE<disabled>
       @MATCH @local#disabled
@@ -175,7 +217,9 @@ public sealed class MixinExpressionInterpreterTests {
       @SCOPE<missing>
       @MATCH @local#missing:!?exists
       @CODE selected
-      """, new StubContext());
+      """,
+      new StubContext()
+    );
 
     Assert.True(result.Success, result.Error);
     Assert.Equal("selected", Assert.Single(result.Outputs).Text);
@@ -183,10 +227,13 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void GotoLoopsAreBounded() {
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @SCOPE<again>
       @GOTO<again>
-      """, new StubContext());
+      """,
+      new StubContext()
+    );
 
     Assert.False(result.Success);
     Assert.Contains("execution limit", result.Error);
@@ -194,15 +241,80 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void GotoContinuesAtTheNamedScope() {
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @GOTO<selected>
       @CODE wrong
       @SCOPE<selected>
       @CODE right
-      """, new StubContext());
+      """,
+      new StubContext()
+    );
 
     Assert.True(result.Success, result.Error);
     Assert.Equal("right", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void ScopeLabelsAreBoundToTheirFunction() {
+    var result = _interpreter.Execute(
+      """
+      @FUNC<emit>
+      @GOTO<outside>
+      @END
+      @SCOPE<outside>
+      @CALL<emit>
+      """,
+      new StubContext()
+    );
+
+    Assert.False(result.Success);
+    Assert.Equal("unknown scope label 'outside'", result.Error);
+  }
+
+  [Fact]
+  public void ScopeLabelsMayBeReusedInSeparateControlFlowRegions() {
+    var result = _interpreter.Execute(
+      """
+      @SCOPE<start>
+      @FUNC<first>
+      @SCOPE<start>
+      @RETURN
+      @END
+      @END
+      @FUNC<second>
+      @SCOPE<start>
+      @RETURN
+      @END
+      @END
+      @CALL<first>
+      @CALL<second>
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+  }
+
+  [Fact]
+  public void ExplicitAndImplicitJumpsCannotCrossPreparedExpressions() {
+    var explicitJump = _interpreter.Execute(
+      "@CODE runtime",
+      new StubContext(),
+      null,
+      new[] { "@GOTO<next>", "@SCOPE<next>\n@CODE escaped" }
+    );
+    var implicitJump = _interpreter.Execute(
+      "@CODE runtime",
+      new StubContext(),
+      null,
+      new[] { "@SKIP", "@SCOPE<next>\n@CODE escaped" }
+    );
+
+    Assert.False(explicitJump.Success);
+    Assert.Equal("unknown scope label 'next'", explicitJump.Error);
+    Assert.False(implicitJump.Success);
+    Assert.Equal("SKIP has no following scope", implicitJump.Error);
   }
 
   [Fact]
@@ -226,25 +338,35 @@ public sealed class MixinExpressionInterpreterTests {
     );
 
     Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] { "function prepared value", "caller prepared value" },
-      result.Outputs.Select(item => item.Text));
+    Assert.Equal(
+      new[] { "function prepared value", "caller prepared value" },
+      result.Outputs.Select(item => item.Text)
+    );
     Assert.Equal("prepared", variables["prefix"]);
   }
 
   [Fact]
   public void PreparedStateIsReusableAndGlobalInitializersAreNotReevaluated() {
-    var prepared = _interpreter.PrepareGlobals(new[] {
-      "@VAR<prefix> prepared\n" +
-      "@FUNC<emit>\n" +
-      "@CODE @var#prefix @this:name\n" +
-      "@END"
-    });
+    var prepared = _interpreter.PrepareGlobals(
+      new[] {
+        "@VAR<prefix> prepared\n" +
+        "@FUNC<emit>\n" +
+        "@CODE @var#prefix @this:name\n" +
+        "@END"
+      }
+    );
     var firstVariables = new Dictionary<string, string>();
     var first = _interpreter.Execute(
-      "@CALL<emit>\n@VAR<prefix> changed", new StubContext(), firstVariables, prepared
+      "@CALL<emit>\n@VAR<prefix> changed",
+      new StubContext(),
+      firstVariables,
+      prepared
     );
     var second = _interpreter.Execute(
-      "@CALL<emit>", new StubContext(), new Dictionary<string, string>(), prepared
+      "@CALL<emit>",
+      new StubContext(),
+      new Dictionary<string, string>(),
+      prepared
     );
 
     Assert.True(first.Success, first.Error);
@@ -266,7 +388,8 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void RuntimeProgramAstIsBuiltOnlyAsExecutionReachesIt() {
     var result = _interpreter.Execute(
-      "@CODE reached\n@RETURN\n@UNKNOWN never-parsed", new StubContext()
+      "@CODE reached\n@RETURN\n@UNKNOWN never-parsed",
+      new StubContext()
     );
 
     Assert.True(result.Success, result.Error);
@@ -275,9 +398,11 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void PreparedStaticLogsAreCapturedOnceAndNotReplayed() {
-    var prepared = _interpreter.PrepareGlobals(new[] {
-      "@VAR<name> global\n@LOG prepared @var#name"
-    });
+    var prepared = _interpreter.PrepareGlobals(
+      new[] {
+        "@VAR<name> global\n@LOG prepared @var#name"
+      }
+    );
 
     var first = _interpreter.Execute("@CODE first", new StubContext(), null, prepared);
     var second = _interpreter.Execute("@CODE second", new StubContext(), null, prepared);
@@ -290,9 +415,11 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void PreparedDumpsRunOnceAndStateDumpsExposeOperationCounters() {
-    var prepared = _interpreter.PrepareGlobals(new[] {
-      "@VAR<name> global\n@DUMP<STATE>\n@DUMP<AST>"
-    });
+    var prepared = _interpreter.PrepareGlobals(
+      new[] {
+        "@VAR<name> global\n@DUMP<STATE>\n@DUMP<AST>"
+      }
+    );
 
     var result = _interpreter.Execute("@DUMP<STATE>", new StubContext(), null, prepared);
 
@@ -310,7 +437,9 @@ public sealed class MixinExpressionInterpreterTests {
     var prepared = _interpreter.PrepareGlobals(new[] { "@VAR<name> global" });
     var result = _interpreter.Execute(
       "@CODE first\n@DUMP<AST>\n@RETURN\n@CODE unreachable",
-      new StubContext(), null, prepared
+      new StubContext(),
+      null,
+      prepared
     );
 
     Assert.True(result.Success, result.Error);
@@ -325,7 +454,8 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void FunctionScopesAndFunctionEndAreBalanced() {
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @FUNC<select>
       @SCOPE<first>
       @MATCH @arg#0:?ref
@@ -335,7 +465,9 @@ public sealed class MixinExpressionInterpreterTests {
       @END
       @CALL<select>
       @CODE caller
-      """, new StubContext(argumentIsRef: false));
+      """,
+      new StubContext(false)
+    );
 
     Assert.True(result.Success, result.Error);
     Assert.Equal(new[] { "selected", "caller" }, result.Outputs.Select(item => item.Text));
@@ -343,12 +475,15 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void RejectsNestedFunctions() {
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @FUNC<outer>
       @FUNC<inner>
       @END
       @END
-      """, new StubContext());
+      """,
+      new StubContext()
+    );
 
     Assert.False(result.Success);
     Assert.Contains("may not be nested", result.Error);
@@ -356,7 +491,8 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void LogsAndDumpsStateAndBufferedOutputs() {
-    var result = _interpreter.Execute("""
+    var result = _interpreter.Execute(
+      """
       @LOCAL<kind> handler
       @VAR<count> one
       @CODE first
@@ -364,7 +500,9 @@ public sealed class MixinExpressionInterpreterTests {
       @DUMP<STATE>
       @DUMP<BUFFER>
       @FAIL
-      """, new StubContext());
+      """,
+      new StubContext()
+    );
 
     Assert.False(result.Success);
     Assert.Equal(3, result.Logs.Count);
@@ -402,7 +540,9 @@ public sealed class MixinExpressionInterpreterTests {
   private sealed class StubContext : IMixinExpressionContext {
     private readonly bool _argumentIsRef;
 
-    internal StubContext(bool argumentIsRef = false) => _argumentIsRef = argumentIsRef;
+    internal StubContext(bool argumentIsRef = false) {
+      _argumentIsRef = argumentIsRef;
+    }
 
     public bool TryResolve(MixinExpressionReference reference, out string value, out string error) {
       error = null;

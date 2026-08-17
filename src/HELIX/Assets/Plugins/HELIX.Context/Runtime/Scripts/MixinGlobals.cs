@@ -71,20 +71,20 @@ using HELIX.Context;
 
   @SCOPE<AddressableList>
     @MATCH @attr#source:?eq<2>
-    @MATCH<NoUnityObjectList> @local#InjectIsUnityObject:?eq<true>
+    @MATCH<NoUnityObject> @local#InjectIsUnityObject:?eq<true>
     @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new AddressableListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
     @CODE<$Init> @target:name = RuntimeComponentData.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
     @RETURN
   @SCOPE<ResourceList>
     @MATCH @attr#source:?eq<3>
-    @MATCH<NoUnityObjectList> @local#InjectIsUnityObject:?eq<true>
+    @MATCH<NoUnityObject> @local#InjectIsUnityObject:?eq<true>
     @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new ResourceListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
     @CODE<$Init> @target:name = RuntimeComponentData.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
     @RETURN
   @END
   @FAIL No valid injection source found for the collected target type.
 
-  @SCOPE<NoUnityObjectList>
+  @SCOPE<NoUnityObject>
     @FAIL This source requires the injection of a unity object type, but the target is not a subtype of UnityEngine.Object.
   @END
 @END

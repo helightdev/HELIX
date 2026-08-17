@@ -12,7 +12,8 @@ namespace HELIX.SourceGen.Tests;
 public sealed class MixinTargetTests {
   [Fact]
   public void StarTargetGeneratesAStaticMethodAndInjectsNullForTheClassInstance() {
-    var result = Run("""
+    var result = Run(
+      """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
@@ -32,7 +33,8 @@ public sealed class MixinTargetTests {
           [HELIX.Context.MixinInject(HELIX.Context.MixinInject.Target)] object target
         ) { }
       }
-      """);
+      """
+    );
 
     Assert.Empty(result.GeneratorDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     Assert.Empty(result.CompilationDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
@@ -43,7 +45,8 @@ public sealed class MixinTargetTests {
 
   [Fact]
   public void PublicAndStaticModifiersMayAppearInEitherOrder() {
-    var result = Run("""
+    var result = Run(
+      """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
@@ -59,7 +62,8 @@ public sealed class MixinTargetTests {
         [HELIX.Context.MixinMethod("*^Configure")]
         private static void Second() { }
       }
-      """);
+      """
+    );
 
     Assert.Empty(result.GeneratorDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     Assert.Empty(result.CompilationDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
@@ -71,7 +75,8 @@ public sealed class MixinTargetTests {
 
   [Fact]
   public void DelegateTargetUsesTheDelegateNameAndSignature() {
-    var result = Run("""
+    var result = Run(
+      """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
@@ -87,7 +92,8 @@ public sealed class MixinTargetTests {
         [HELIX.Context.MixinMethod("*^~DemoApi.RegistrationConfigurator")]
         private static void Contribute(ref int value) { }
       }
-      """);
+      """
+    );
 
     Assert.Empty(result.GeneratorDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     Assert.Empty(result.CompilationDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
@@ -99,7 +105,8 @@ public sealed class MixinTargetTests {
 
   [Fact]
   public void StaticInterfaceExpressionCanResolveTheContainingType() {
-    var result = Run("""
+    var result = Run(
+      """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
@@ -121,7 +128,8 @@ public sealed class MixinTargetTests {
       public interface IComponentMixin : HELIX.Context.IMixin { }
       [HELIX.Context.EnableMixins]
       public partial class Demo : IComponentMixin { }
-      """);
+      """
+    );
 
     Assert.Empty(result.GeneratorDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     Assert.Empty(result.CompilationDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
@@ -131,7 +139,8 @@ public sealed class MixinTargetTests {
 
   [Fact]
   public void MissingDelegateTargetReportsAnInvalidTarget() {
-    var result = Run("""
+    var result = Run(
+      """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
@@ -144,10 +153,14 @@ public sealed class MixinTargetTests {
         [HELIX.Context.MixinMethod("~Missing.Configurator")]
         private void Contribute() { }
       }
-      """);
+      """
+    );
 
-    Assert.Contains(result.GeneratorDiagnostics, item => item.Id == "HLXM03" &&
-      item.GetMessage().Contains("was not found or is not a delegate"));
+    Assert.Contains(
+      result.GeneratorDiagnostics,
+      item => item.Id == "HLXM03" &&
+        item.GetMessage().Contains("was not found or is not a delegate")
+    );
   }
 
   private static TestResult Run(string source) {
@@ -162,7 +175,8 @@ public sealed class MixinTargetTests {
     var run = Assert.Single(driver.GetRunResult().Results);
     return new TestResult(
       run.GeneratedSources.Length == 0 ? "" : Assert.Single(run.GeneratedSources).SourceText.ToString(),
-      diagnostics.AddRange(run.Diagnostics), output.GetDiagnostics()
+      diagnostics.AddRange(run.Diagnostics),
+      output.GetDiagnostics()
     );
   }
 

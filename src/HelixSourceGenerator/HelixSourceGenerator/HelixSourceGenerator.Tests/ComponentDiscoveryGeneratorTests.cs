@@ -13,10 +13,12 @@ public sealed class ComponentDiscoveryGeneratorTests {
   [Fact]
   public void AssemblyCSharpEmitsOneDiscoveryForBuiltinStereotypes() {
     var compilation = CreateCompilation("Assembly-CSharp", RuntimeAndComponents);
-    GeneratorDriver driver = CSharpGeneratorDriver.Create(new ISourceGenerator[] {
-      new MixinGenerator().AsSourceGenerator(),
-      new ComponentDiscoveryGenerator().AsSourceGenerator()
-    });
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(
+      new ISourceGenerator[] {
+        new MixinGenerator().AsSourceGenerator(),
+        new ComponentDiscoveryGenerator().AsSourceGenerator()
+      }
+    );
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
 
     Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
@@ -48,7 +50,9 @@ public sealed class ComponentDiscoveryGeneratorTests {
 
   [Fact]
   public void RootDiscoveryIncludesStereotypesFromReferencedAssemblies() {
-    var plugin = CreateCompilation("FeatureAssembly", """
+    var plugin = CreateCompilation(
+      "FeatureAssembly",
+      """
       using System;
       using System.Collections.Generic;
       namespace HELIX.Context {
@@ -67,7 +71,8 @@ public sealed class ComponentDiscoveryGeneratorTests {
       public sealed class ExternalService {
         public static void RegistrationConfigurator(HELIX.Context.RegistrationEntry registration) { }
       }
-      """);
+      """
+    );
     using var stream = new MemoryStream();
     var emit = plugin.Emit(stream);
     Assert.True(emit.Success, string.Join("\n", emit.Diagnostics));
@@ -93,42 +98,43 @@ public sealed class ComponentDiscoveryGeneratorTests {
     );
   }
 
-  private static CSharpCompilation CreateCompilation(string assemblyName, string source) =>
-    CSharpCompilation.Create(
+  private static CSharpCompilation CreateCompilation(string assemblyName, string source) {
+    return CSharpCompilation.Create(
       assemblyName,
       new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
       PlatformReferences,
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
     );
+  }
 
   private const string RuntimeAndComponents = """
-    using System;
-    using System.Collections.Generic;
-    namespace HELIX.Context {
-      [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-      [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
-        public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
-      }
-      public delegate void RegistrationConfigurator(RegistrationEntry registration);
-      public delegate ComponentRegistrations RegistrationDiscoveryProvider();
-      public sealed class RegistrationEntry { public string name; }
-      public sealed class ComponentRegistrations {
-        public void Register(Type type, RegistrationConfigurator configurator) { }
-      }
-      [MixinExpression(
-        new[] { "^*~HELIX.Context.RegistrationConfigurator" },
-        new[] { -100000 },
-        "@CODE<^*~HELIX.Context.RegistrationConfigurator> registration.name = \"@this:name\";"
-      )]
-      [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
-      public class ComponentAttribute : Attribute { }
-      public class ServiceAttribute : ComponentAttribute { }
-    }
-    [HELIX.Context.Component]
-    public partial class Component { }
-    [HELIX.Context.Service]
-    public partial class Service { }
-    """;
+                                              using System;
+                                              using System.Collections.Generic;
+                                              namespace HELIX.Context {
+                                                [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                                                [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+                                                  public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
+                                                }
+                                                public delegate void RegistrationConfigurator(RegistrationEntry registration);
+                                                public delegate ComponentRegistrations RegistrationDiscoveryProvider();
+                                                public sealed class RegistrationEntry { public string name; }
+                                                public sealed class ComponentRegistrations {
+                                                  public void Register(Type type, RegistrationConfigurator configurator) { }
+                                                }
+                                                [MixinExpression(
+                                                  new[] { "^*~HELIX.Context.RegistrationConfigurator" },
+                                                  new[] { -100000 },
+                                                  "@CODE<^*~HELIX.Context.RegistrationConfigurator> registration.name = \"@this:name\";"
+                                                )]
+                                                [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
+                                                public class ComponentAttribute : Attribute { }
+                                                public class ServiceAttribute : ComponentAttribute { }
+                                              }
+                                              [HELIX.Context.Component]
+                                              public partial class Component { }
+                                              [HELIX.Context.Service]
+                                              public partial class Service { }
+                                              """;
 
   private static ImmutableArray<MetadataReference> PlatformReferences { get; } =
     ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!

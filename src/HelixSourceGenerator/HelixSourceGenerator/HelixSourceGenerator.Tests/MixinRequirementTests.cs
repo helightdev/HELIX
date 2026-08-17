@@ -12,7 +12,8 @@ namespace HELIX.SourceGen.Tests;
 public sealed class MixinRequirementTests {
   [Fact]
   public void ImplicitInterfaceRequirementAddsInterfaceAndItsExpression() {
-    var result = Run("""
+    var result = Run(
+      """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class EnableMixinsAttribute : Attribute { }
@@ -34,7 +35,8 @@ public sealed class MixinRequirementTests {
       public partial class Demo : IFeatureMixin {
         private void Required() { }
       }
-      """);
+      """
+    );
 
     Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     var generated = Assert.Single(result.GeneratedSources).SourceText.ToString();
@@ -44,7 +46,8 @@ public sealed class MixinRequirementTests {
 
   [Fact]
   public void MissingExplicitRequirementReportsDiagnostic() {
-    var result = Run("""
+    var result = Run(
+      """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class EnableMixinsAttribute : Attribute { }
@@ -59,15 +62,20 @@ public sealed class MixinRequirementTests {
       [HELIX.Context.RequireMixin(typeof(IBaseMixin))]
       public interface IFeatureMixin : HELIX.Context.IMixin { }
       public partial class Demo : IFeatureMixin { }
-      """);
+      """
+    );
 
-    Assert.Contains(result.Diagnostics, item => item.Id == "HLXM09" &&
-                                                item.GetMessage().Contains("IBaseMixin"));
+    Assert.Contains(
+      result.Diagnostics,
+      item => item.Id == "HLXM09" &&
+        item.GetMessage().Contains("IBaseMixin")
+    );
   }
 
   [Fact]
   public void ExplicitInterfaceRequirementAcceptsAnAlreadyDeclaredMixin() {
-    var result = Run("""
+    var result = Run(
+      """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class EnableMixinsAttribute : Attribute { }
@@ -82,14 +90,16 @@ public sealed class MixinRequirementTests {
       [HELIX.Context.RequireMixin(typeof(IBaseMixin))]
       public interface IFeatureMixin : HELIX.Context.IMixin { }
       public partial class Demo : IFeatureMixin, IBaseMixin { }
-      """);
+      """
+    );
 
     Assert.DoesNotContain(result.Diagnostics, item => item.Id == "HLXM09");
   }
 
   [Fact]
   public void ImplicitAttributeRequirementUsesDefaultConstructorValues() {
-    var result = Run("""
+    var result = Run(
+      """
       using System;
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class EnableMixinsAttribute : Attribute { }
@@ -116,7 +126,8 @@ public sealed class MixinRequirementTests {
         private void Required(int value) { }
         private void Triggered() { }
       }
-      """);
+      """
+    );
 
     Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     var generated = Assert.Single(result.GeneratedSources).SourceText.ToString();

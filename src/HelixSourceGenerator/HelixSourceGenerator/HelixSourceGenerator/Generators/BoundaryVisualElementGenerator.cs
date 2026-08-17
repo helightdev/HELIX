@@ -4,24 +4,25 @@ using static HELIX.SourceGen.GeneratorAnalysis;
 using static HELIX.SourceGen.GeneratorSource;
 using static HELIX.SourceGen.GeneratorStrings;
 
-namespace HELIX.SourceGen {
-  [Generator(LanguageNames.CSharp)]
-  public sealed class BoundaryVisualElementGenerator : IIncrementalGenerator {
-    public void Initialize(IncrementalGeneratorInitializationContext context) {
-      var elements = context.SyntaxProvider.ForAttributeWithMetadataName(
-        Attributes.UxmlElement,
-        predicate: static (node, _) => node is ClassDeclarationSyntax,
-        transform: static (ctx, _) => (INamedTypeSymbol)ctx.TargetSymbol
-      );
+namespace HELIX.SourceGen;
 
-      context.RegisterSourceOutput(elements, static (spc, element) => Generate(spc, element));
-    }
+[Generator(LanguageNames.CSharp)]
+public sealed class BoundaryVisualElementGenerator : IIncrementalGenerator {
+  public void Initialize(IncrementalGeneratorInitializationContext context) {
+    var elements = context.SyntaxProvider.ForAttributeWithMetadataName(
+      Attributes.UxmlElement,
+      static (node, _) => node is ClassDeclarationSyntax,
+      static (ctx, _) => (INamedTypeSymbol)ctx.TargetSymbol
+    );
 
-    private static void Generate(SourceProductionContext spc, INamedTypeSymbol element) {
-      if (!InheritsFrom(element, Types.BoundaryVisualElement)) return;
+    context.RegisterSourceOutput(elements, static (spc, element) => Generate(spc, element));
+  }
 
-      var containing = WrapType(element, "boundary-visual-element");
-      var source = containing.Build(builder => {
+  private static void Generate(SourceProductionContext spc, INamedTypeSymbol element) {
+    if (!InheritsFrom(element, Types.BoundaryVisualElement)) return;
+
+    var containing = WrapType(element, "boundary-visual-element");
+    var source = containing.Build(builder => {
         builder.BlankLine();
         using (builder.Block($"private static readonly global::{Types.CompositionId} _compositionId = new()", ";")) {
           builder.AppendLine($"composition = {GetCompositionId(element.Name)},")
@@ -32,14 +33,14 @@ namespace HELIX.SourceGen {
         using (builder.Method(
           "public override void PerformCompose",
           [$"ref global::{Types.Composition} cx"],
-          multiline: false
+          false
         )) {
           builder.Statement("cx.AUTHORING.SetId(_compositionId)")
             .Statement("Compose(ref cx)");
         }
-      });
+      }
+    );
 
-      spc.AddSource(containing.HintName, source);
-    }
+    spc.AddSource(containing.HintName, source);
   }
 }
