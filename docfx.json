@@ -5,14 +5,14 @@
         {
           "files": [
             "HELIX.csproj",
-            "HELIX.Editor.csproj",
-            "HELIX.Widgets.csproj",
-            "HELIX.Widgets.Editor.csproj"
+            "HELIX.Context.csproj",
+            "HELIX.Compose.csproj",
           ],
           "src": "src/HELIX/"
         }
       ],
-      "dest": "docs/docfx"
+      "dest": "docs/docfx",
+      "allowCompilationErrors": true
     }
   ]
 }
