@@ -88,7 +88,7 @@ namespace HELIX.Context.Tests.Fixtures {
     public void LoadComponentLate(ComponentLoadContext context) {
       _trace?.Add($"{_marker}:late");
       if (_failLate) throw new InvalidOperationException("late failure");
-      context.Publish(_key, _value);
+      context.PublishKey(_key, _value);
     }
 
     public void UnloadComponent() => _trace?.Add($"{_marker}:unload");
@@ -160,7 +160,7 @@ namespace HELIX.Context.Tests.Fixtures {
 
     public void LoadComponentLate(ComponentLoadContext context) {
       _trace.Add("late");
-      context.Publish(_key, _value);
+      context.PublishKey(_key, _value);
     }
 
     private async UniTask OnAsyncLoad(AsyncComponentLoadEvent evt) {

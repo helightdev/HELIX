@@ -75,11 +75,12 @@ namespace HELIX.Context {
 
     [EventHandler]
     private void OnComponentLoadEvt(ComponentLoadEvent evt) {
-      evt.Context.Publish(new TypeKey(typeof(int), ""), 42);
+      evt.Context.PublishKey(new TypeKey(typeof(int), ""), 42);
     }
 
     [MixinMethod(MixinOn.ComponentLoad)]
     private void OnComponentLoad(ComponentLoadContext context) {
+
 
     }
   }
@@ -94,7 +95,7 @@ namespace HELIX.Context {
   [Component(typeof(ApplicationScope))]
   public partial class StageTwo {
     [Inject("pipeline", required: false)] public string provided;
-    [Bind("pipeline")] public string GetNext => $"{provided}2;";
+    [Bind(typeof(string), "pipeline")] public string GetNext => $"{provided}2;";
   }
 
 

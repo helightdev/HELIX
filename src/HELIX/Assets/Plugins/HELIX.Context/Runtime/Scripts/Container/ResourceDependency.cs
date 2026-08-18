@@ -13,7 +13,7 @@ namespace HELIX.Context {
       var value = Resources.Load<T>(PathOrRoot(Path));
       if (value == null)
         throw new ComponentInitializationException($"Resource '{Path}' was not found as {typeof(T).FullName}.");
-      context.Publish(new TypeKey(typeof(T), WireKey), value);
+      context.PublishKey(new TypeKey(typeof(T), WireKey), value);
 
       return new ComponentLoadResult(true);
     }
@@ -30,7 +30,7 @@ namespace HELIX.Context {
     public override ComponentLoadResult Load(ComponentLoadContext context) {
       var assets = Resources.LoadAll<T>(ResourceDependency<T>.PathOrRoot(Path));
       var list = assets.ToList();
-      context.Publish(new TypeKey(typeof(List<T>), WireKey), list);
+      context.PublishKey(new TypeKey(typeof(List<T>), WireKey), list);
       return new ComponentLoadResult(true);
     }
   }

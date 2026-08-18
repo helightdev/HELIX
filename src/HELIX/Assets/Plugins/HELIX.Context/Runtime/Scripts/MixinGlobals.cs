@@ -115,6 +115,36 @@ using HELIX.Context;
 "
 )]
 
+
+// Bind method impl
+[assembly: MixinPrepareGlobal(
+  @"
+@FUNC<BindImpl>
+  @USING HELIX.Context;
+  @LOCAL<Value> @target:name
+  @LOCAL<Method> PublishKey
+  @LOCAL<Guard> 
+  @LOCAL<Type> typeof(@target:type:unwrap)
+  @SCOPE
+    @MATCH @attr#proxied:?eq<true>
+    @LOCAL<Value> () => @target:name
+    @LOCAL<Method> PublishProxyKey
+  @SCOPE
+    @MATCH @attr#required:?eq<false>
+    @LOCAL<Guard> if (@target:name != null)
+  @SCOPE
+    @MATCH @attr#type:?exists
+    @MATCH @attr#type:!?eq<null>
+    @LOCAL<TYPE> @attr#type
+  @END
+
+  @LOCAL<TypeKey> new TypeKey(@local#Type, @attr#qualifier)
+  @LOCAL<Dependency> new ComponentDependency(@local#TypeKey, @attr#required)
+  @CODE<$ConfigureComponent> registration.Publication(@local#Dependency);
+  @CODE<$LoadComponentLate> @(local#Guard)context.@local#Method(@local#TypeKey, @local#Value);
+@END
+"
+)]
 // Base implementation for the [Resource] attribute
 [assembly: MixinPrepareGlobal(
   @"

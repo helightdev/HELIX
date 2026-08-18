@@ -147,20 +147,28 @@ namespace HELIX.Context {
 
     public bool TryResolve(TypeKey key, out object value) => scope.TryResolve(key, out value);
 
-    public void Publish(TypeKey key, object value) => scope.Publish(registration, key, value, loader);
 
-    public void Publish<T>(T value, string qualifier = null) => Publish(new TypeKey(typeof(T), qualifier), value);
+    public void PublishKey(TypeKey key, object value) => scope.Publish(registration, key, value, loader);
+    public void PublishProxyKey(TypeKey key, Func<object> supplier) => scope.PublishProxy(registration, key, supplier, loader);
+
+    public void Publish<T>(T value, string qualifier = null) => PublishKey(new TypeKey(typeof(T), qualifier), value);
 
     public void Publish(object value, Type type, string qualifier = null) =>
-      Publish(new TypeKey(type, qualifier), value);
-
-    public void PublishProxy(TypeKey key, Func<object> supplier) =>
-      scope.PublishProxy(registration, key, supplier, loader);
+      PublishKey(new TypeKey(type, qualifier), value);
 
     public void PublishProxy<T>(Func<T> supplier, string qualifier = null) where T : class {
       if (supplier == null) throw new ArgumentNullException(nameof(supplier));
-      PublishProxy(new TypeKey(typeof(T), qualifier), supplier);
+      PublishProxyKey(new TypeKey(typeof(T), qualifier), supplier);
     }
+
+    public void PublishProxy(Func<object> supplier, Type type, string qualifier = null) {
+      if (supplier == null) throw new ArgumentNullException(nameof(supplier));
+      PublishProxyKey(new TypeKey(type, qualifier), supplier);
+    }
+
+
+    public void PublishRaw(TypeKey key, object value) => scope.Publish(registration, key, value, loader);
+    public void PublishProxyRaw(TypeKey key, Func<object> supplier) => scope.PublishProxy(registration, key, supplier, loader);
 
     public void PublishKey(string wireKey) {
       (loader ?? throw new ScopeLifecycleException(

@@ -26,7 +26,7 @@ namespace HELIX.Context {
         if (value == null)
           throw new ComponentInitializationException($"Addressable '{Key}' returned null for {typeof(T).FullName}.");
         context.Own(new AddressableHandleLease(handle));
-        context.Publish(new TypeKey(typeof(T), WireKey), value);
+        context.PublishKey(new TypeKey(typeof(T), WireKey), value);
         return new ComponentLoadResult(true);
       } catch {
         Release(handle);
@@ -78,7 +78,7 @@ namespace HELIX.Context {
         );
         var list = values.ToList();
         context.Own(new AddressableDependency<T>.AddressableHandleLease(handle));
-        context.Publish(new TypeKey(typeof(List<T>), WireKey), list);
+        context.PublishKey(new TypeKey(typeof(List<T>), WireKey), list);
         return new ComponentLoadResult(true);
       } catch {
         AddressableDependency<T>.Release(handle);
