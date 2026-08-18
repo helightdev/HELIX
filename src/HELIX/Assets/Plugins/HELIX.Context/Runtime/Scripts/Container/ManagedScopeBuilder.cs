@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using UnityEngine.Assertions;
 
 namespace HELIX.Context {
   /// <summary>Configures and initializes one managed scope.</summary>
@@ -19,20 +20,20 @@ namespace HELIX.Context {
     }
 
     public ManagedScopeBuilder From(IScope scope) {
-      EnsureNotBuilt();
+      Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
       _scope = scope ?? throw new ArgumentNullException(nameof(scope));
       return this;
     }
 
     public ManagedScopeBuilder AddComponent(IComponent component) {
-      EnsureNotBuilt();
+      Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
       if (component == null) throw new ArgumentNullException(nameof(component));
       _components.Add(component);
       return this;
     }
 
     public ManagedScopeBuilder AddComponent(Type componentType) {
-      EnsureNotBuilt();
+      Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
       if (componentType == null) throw new ArgumentNullException(nameof(componentType));
       _componentTypes.Add(componentType);
       return this;
@@ -41,14 +42,14 @@ namespace HELIX.Context {
     public ManagedScopeBuilder AddComponent<T>() => AddComponent(typeof(T));
 
     public ManagedScopeBuilder AddComponents(IEnumerable<IComponent> components) {
-      EnsureNotBuilt();
+      Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
       if (components == null) throw new ArgumentNullException(nameof(components));
       foreach (var component in components) AddComponent(component);
       return this;
     }
 
     public ManagedScopeBuilder AddBinding(TypeKey key, object value) {
-      EnsureNotBuilt();
+      Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
       if (key.type == null) throw new ArgumentException("A binding key must have a type.", nameof(key));
       if (value == null) throw new ArgumentNullException(nameof(value));
       if (!key.type.IsInstanceOfType(value)) {
@@ -66,7 +67,7 @@ namespace HELIX.Context {
     }
 
     public ManagedScopeBuilder AddProxyBinding(TypeKey key, Func<object> supplier) {
-      EnsureNotBuilt();
+      Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
       if (key.type == null) throw new ArgumentException("A binding key must have a type.", nameof(key));
       if (supplier == null) throw new ArgumentNullException(nameof(supplier));
       _bindings.Add(new ScopeBinding(key, supplier));
@@ -89,13 +90,9 @@ namespace HELIX.Context {
     }
 
     private void BeginBuild() {
-      EnsureNotBuilt();
-      if (_scope == null) throw new ScopeLifecycleException("Select a scope before building a managed scope.");
+      Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
+      Assert.IsNotNull(_scope, "Select a scope before building a managed scope.");
       _built = true;
-    }
-
-    private void EnsureNotBuilt() {
-      if (_built) throw new ScopeLifecycleException("A managed scope builder can only build one scope.");
     }
   }
 

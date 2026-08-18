@@ -20,7 +20,7 @@ namespace HELIX.Context {
     private bool _registrarPrepared, _applicationStarted, _disposed;
 
     /// <summary>Maximum dependency-resolution passes allowed while initializing one scope.</summary>
-    public int maxLoadingIterations { get; }
+    public int MaxLoadingIterations { get; }
 
     internal ManagedContainer(
       ScopeRules scopeRules,
@@ -29,7 +29,7 @@ namespace HELIX.Context {
     ) {
       this.scopeRules = scopeRules ?? throw new ArgumentNullException(nameof(scopeRules));
       _scopeLoader = new ScopeLoader(this, _registrarGraph);
-      this.maxLoadingIterations = maxLoadingIterations;
+      MaxLoadingIterations = maxLoadingIterations;
       InstallScopeHandler(new SceneScopeHandler());
       InstallScopeHandler(new GameObjectScopeHandler());
       foreach (var handler in scopeHandlers ?? Enumerable.Empty<IScopeHandler>()) InstallScopeHandler(handler);

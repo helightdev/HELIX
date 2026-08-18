@@ -102,15 +102,15 @@ namespace HELIX.Context {
     }
 
     private void EnsureIterationAvailable(int iteration, ManagedScope managed) {
-      if (_container.maxLoadingIterations <= 0) {
+      if (_container.MaxLoadingIterations <= 0) {
         throw new ScopeLifecycleException(
-          $"{nameof(ManagedContainer.maxLoadingIterations)} must be greater than zero."
+          $"{nameof(ManagedContainer.MaxLoadingIterations)} must be greater than zero."
         );
       }
-      if (iteration < _container.maxLoadingIterations) return;
+      if (iteration < _container.MaxLoadingIterations) return;
       throw new ComponentGraphException(
         $"Scope {managed.scope.GetType().FullName} exceeded the maximum of " +
-        $"{_container.maxLoadingIterations} dependency-loading iterations. " +
+        $"{_container.MaxLoadingIterations} dependency-loading iterations. " +
         "The graph may contain a publication cycle that continues to make artificial progress."
       );
     }

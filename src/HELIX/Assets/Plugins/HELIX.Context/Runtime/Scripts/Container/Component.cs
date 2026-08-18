@@ -14,7 +14,6 @@ namespace HELIX.Context {
   [UsedImplicitly]
   public delegate void ComponentLoadMethod(ComponentLoadContext context);
 
-
   [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
   public sealed class RuntimeComponentData {
     public ManagedScope scope;
@@ -59,46 +58,13 @@ namespace HELIX.Context {
     public ManagedScopeBuilder CreateScope() => container.CreateScope(scope);
   }
 
-  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
+  [AttributeUsage(AttributeTargets.Class)]
   [MixinDefineTarget(MixinOn.ConfigureComponent, MixinOn.RegistrationConfiguratorDelegate)]
   [MixinDefineTarget(MixinOn.ComponentLoad, MixinOn.ComponentLoadDelegate)]
   [MixinDefineTarget(MixinOn.ComponentLoadLate, MixinOn.ComponentLoadLateDelegate)]
   [MixinDefineTarget(MixinOn.Init, MixinOn.ComponentLoadDelegate)]
   [MixinDefineTarget(MixinOn.Dispose, MixinOn.ComponentUnload)]
-  [MixinExpression(
-    new[] { MixinOn.ConfigureComponent },
-    new[] { -100_000 },
-    @"
-@USING UnityEngine;
-@USING HELIX.Context;
-@CODE<$ConfigureComponent> registration.name = ""@this:name"";
-@CODE<$ConfigureComponent> registration.optional = @attr#optional;
-@CODE<$ConfigureComponent> registration.phase = @attr#phase;
-@CODE<$ConfigureComponent> registration.order = @attr#order;
-@CODE<IMPLEMENTS> IComponent
-@CODE<CLASS> public RuntimeComponentData ComponentBinding { get; } = new();
-@VAR<IsComponent> true
-
-@SCOPE
-  @MATCH@attr#scope:?eq<null>
-  @GOTO<Activator>
-@SCOPE
-  @CODE<$ConfigureComponent> registration.scope = @attr#scope;
-@END
-
-@SCOPE<Activator>
-@SCOPE
-  @MATCH @this:?is<MonoBehaviour>
-  @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
-  @GOTO<End>
-@SCOPE
-  @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
-@END
-
-@SCOPE<End>
-@END
-"
-  )]
+  [MixinExpression(new[] { MixinOn.ConfigureComponent }, new[] { -100_000 }, "@CALL<ComponentImpl>")]
   public class ComponentAttribute : Attribute {
     public ComponentAttribute(
       Type scope = null,
@@ -107,30 +73,4 @@ namespace HELIX.Context {
       int phase = InitPhase.Normal
     ) { }
   }
-
-
-//   [MixinExpression(
-//     new[] { MixinOn.ConfigureComponent },
-//     new[] { -90_000 },
-//     @"
-// @ASSERT @var#IsComponent:?eq<true>
-//
-// @CODE<$ConfigureComponent> registration.scope = @attr#scope;
-//
-// @SCOPE
-//   @MATCH @this:?is<MonoBehaviour>
-//   @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
-//   @RETURN
-// @SCOPE
-//   @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
-//   @RETURN
-// "
-//   )]
-//   public class ServiceAttribute : Attribute {
-//     public readonly Type scope;
-//
-//     public ServiceAttribute(Type scope) {
-//       this.scope = scope;
-//     }
-//   }
 }

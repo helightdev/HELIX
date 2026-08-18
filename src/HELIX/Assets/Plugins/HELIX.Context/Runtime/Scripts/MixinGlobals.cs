@@ -54,6 +54,42 @@ using HELIX.Context;
 "
 )]
 
+// Component implementation
+[assembly: MixinPrepareGlobal(
+  @"
+@FUNC<ComponentImpl>
+  @USING HELIX.Context;
+  @USING UnityEngine;
+  @CODE<$ConfigureComponent> registration.name = ""@this:name"";
+  @CODE<$ConfigureComponent> registration.optional = @attr#optional;
+  @CODE<$ConfigureComponent> registration.phase = @attr#phase;
+  @CODE<$ConfigureComponent> registration.order = @attr#order;
+  @CODE<IMPLEMENTS> IComponent
+  @CODE<CLASS> public RuntimeComponentData ComponentBinding { get; } = new();
+  @VAR<IsComponent> true
+
+  @SCOPE
+    @MATCH@attr#scope:?eq<null>
+    @GOTO<Activator>
+  @SCOPE
+    @CODE<$ConfigureComponent> registration.scope = @attr#scope;
+  @END
+
+  @SCOPE<Activator>
+  @SCOPE
+    @MATCH @this:?is<MonoBehaviour>
+    @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
+    @GOTO<End>
+  @SCOPE
+    @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
+  @END
+
+  @SCOPE<End>
+  @END
+@END
+"
+)]
+
 // MixinCallback method implementation
 [assembly: MixinPrepareGlobal(
   @"
@@ -79,7 +115,7 @@ using HELIX.Context;
 "
 )]
 
-// Base implementation for the [Inject] attribute
+// Base implementation for the [Resource] attribute
 [assembly: MixinPrepareGlobal(
   @"
 @FUNC<ResourceImpl>

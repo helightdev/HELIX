@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.Assertions;
 
 namespace HELIX.Context {
   /// <summary>Container-owned registrar index and structural dependency graph.</summary>
@@ -199,7 +200,7 @@ namespace HELIX.Context {
       IEnumerable<ComponentRegistration> contributions = null,
       Func<ComponentRegistration, bool> include = null
     ) {
-      if (_registrations == null) throw new ScopeLifecycleException("The registrar graph has not been prepared.");
+      Assert.IsNotNull(_registrations, "The registrar graph must be prepared before it creates a scope plan.");
       var scopeType = managed.scope.GetType();
       var entries = _scopePlans.TryGetValue(scopeType, out var prepared)
         ? prepared.Where(entry => include?.Invoke(entry) ?? true).ToList()

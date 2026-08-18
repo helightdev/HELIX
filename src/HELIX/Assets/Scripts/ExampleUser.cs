@@ -60,7 +60,6 @@ namespace HELIX.Context {
     [Ticker("10s")]
     private void MyTickerFunc() {
       Debug.Log("This runs every 10 seconds!"); //
-
     }
 
     [Ticker]
@@ -68,9 +67,6 @@ namespace HELIX.Context {
       Debug.Log("This runs every tick but takes a second!");
       await UniTask.Delay(1000);
     }
-
-    [EventHandler]
-    private void OnTestEvent(ref TestEvent evt) { }
 
     [EventHandler]
     private void OnTestAsync(TestAsyncEvt evt) {
