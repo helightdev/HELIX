@@ -11,6 +11,7 @@ namespace HELIX.Context {
     public readonly Dictionary<IScope, ManagedScope> scopes = new(ReferenceComparer<IScope>.Instance);
     public readonly RegistrarScope registrarScope = new();
     public readonly ApplicationScope applicationScope = new();
+    public readonly ScopeRules scopeRules;
     private readonly RegistrarGraph _registrarGraph = new();
     private readonly ScopeLoader _scopeLoader;
     private readonly List<IScopeHandler> _scopeHandlers = new();
@@ -26,7 +27,8 @@ namespace HELIX.Context {
       IEnumerable<IScopeHandler> scopeHandlers,
       int maxLoadingIterations
     ) {
-      _scopeLoader = new ScopeLoader(this, _registrarGraph, scopeRules);
+      this.scopeRules = scopeRules ?? throw new ArgumentNullException(nameof(scopeRules));
+      _scopeLoader = new ScopeLoader(this, _registrarGraph);
       this.maxLoadingIterations = maxLoadingIterations;
       InstallScopeHandler(new SceneScopeHandler());
       InstallScopeHandler(new GameObjectScopeHandler());
@@ -46,7 +48,7 @@ namespace HELIX.Context {
       try {
         _scopeLoader.LoadSync(registrar);
         registrar.Activate();
-        foreach (var handler in registrar.LoadedComponents.Select(static loaded => loaded.instance).OfType<IScopeHandler>())
+        foreach (var handler in registrar.loadedComponents.Select(static loaded => loaded.instance).OfType<IScopeHandler>())
           InstallScopeHandler(handler);
         _registrarPrepared = true;
       } catch (Exception exception) {
@@ -175,7 +177,7 @@ namespace HELIX.Context {
         throw new ScopeLifecycleException("This scope instance is already initializing.");
       if (_disposedScopes.Contains(scope))
         throw new ScopeLifecycleException("A disposed scope instance cannot be reused. Create a new scope instance.");
-      _scopeLoader.ValidateScope(parent, scope);
+      scopeRules.Validate(ScopeValidationContext.Create(this, parent, scope));
       _creatingScopes.Add(scope);
       var managed = new ManagedScope(parent, scope);
       managed.BeginInitialization();

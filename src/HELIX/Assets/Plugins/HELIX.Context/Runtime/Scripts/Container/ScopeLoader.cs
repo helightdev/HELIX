@@ -8,51 +8,27 @@ namespace HELIX.Context {
   /// <summary>Reusable container service that bounds transient dependency evidence to one scope load.</summary>
   internal sealed partial class ScopeLoader {
     private static readonly AsyncLocal<ScopeLoader> _active = new();
-    private readonly Dictionary<string, HashSet<ComponentRegistration>> _publications = new();
-    private readonly HashSet<string> _anonymousPublications = new(StringComparer.Ordinal);
-    private readonly HashSet<IScriptedDependency> _scripted = new(ReferenceComparer<IScriptedDependency>.Instance);
+    public readonly Dictionary<string, HashSet<ComponentRegistration>> publications = new();
+    public readonly HashSet<string> anonymousPublications = new(StringComparer.Ordinal);
+    public readonly HashSet<IScriptedDependency> scripted = new(ReferenceComparer<IScriptedDependency>.Instance);
     private readonly ManagedContainer _container;
     private readonly RegistrarGraph _graph;
-    private readonly ScopeRules _rules;
     private ManagedScope _scope;
     private Dictionary<ComponentRegistration, Queue<object>> _injected;
 
-    public ScopeLoader(ManagedContainer container, RegistrarGraph graph, ScopeRules rules) {
+    public ScopeLoader(ManagedContainer container, RegistrarGraph graph) {
       _container = container ?? throw new ArgumentNullException(nameof(container));
       _graph = graph ?? throw new ArgumentNullException(nameof(graph));
-      _rules = rules ?? throw new ArgumentNullException(nameof(rules));
     }
 
     public static ScopeLoader Active => _active.Value ??
       throw new ScopeLifecycleException("No scope is currently loading.");
     public static ScopeLoader ActiveOrNull => _active.Value;
 
-    public void Record(IScriptedDependency dependency) => _scripted.Add(dependency);
-    public bool Contains(IScriptedDependency dependency) => _scripted.Contains(dependency);
-    public void Publish(string wireKey) => _anonymousPublications.Add(wireKey);
-
     public void Publish(ComponentRegistration owner, string wireKey) {
-      if (!_publications.TryGetValue(wireKey, out var owners))
-        _publications.Add(wireKey, owners = new HashSet<ComponentRegistration>());
+      if (!publications.TryGetValue(wireKey, out var owners))
+        publications.Add(wireKey, owners = new HashSet<ComponentRegistration>());
       owners.Add(owner);
-    }
-
-    public bool HasPublication(string wireKey) {
-      return !string.IsNullOrEmpty(wireKey) &&
-        (_anonymousPublications.Contains(wireKey) ||
-          (_publications.TryGetValue(wireKey, out var owners) && owners.Count > 0));
-    }
-
-    public bool WasPublishedBy(ComponentRegistration owner, string wireKey) {
-      return wireKey != null && _publications.TryGetValue(wireKey, out var owners) && owners.Contains(owner);
-    }
-
-    public IEnumerable<string> PublicationsBy(ComponentRegistration owner) {
-      return _publications.Where(pair => pair.Value.Contains(owner)).Select(static pair => pair.Key);
-    }
-
-    internal void ValidateScope(ManagedScope parent, IScope child) {
-      _rules.Validate(ScopeValidationContext.Create(_container, parent, child));
     }
 
     private static IEnumerable<ComponentDependency> EnumerateImplicitScripted(
@@ -181,9 +157,9 @@ namespace HELIX.Context {
       _scope = null;
       _injected = null;
       _active.Value = null;
-      _publications.Clear();
-      _anonymousPublications.Clear();
-      _scripted.Clear();
+      publications.Clear();
+      anonymousPublications.Clear();
+      scripted.Clear();
     }
 
     private void RestoreActiveContext() {
@@ -290,7 +266,7 @@ namespace HELIX.Context {
       int phase
     ) {
       foreach (var dependency in EnumerateImplicitScripted(entries, phase)) {
-        if (managed.IsScriptedLoaded(dependency.scripted) || managed.IsDependencyAvailable(dependency)) continue;
+        if (scripted.Contains(dependency.scripted) || managed.IsDependencyAvailable(dependency)) continue;
         var result = dependency.scripted.Load(new ComponentLoadContext(_container, managed, null, this));
         if (!result.success) {
           if (dependency.flags.HasFlag(DependencyFlags.Required)) {
@@ -301,7 +277,8 @@ namespace HELIX.Context {
           continue;
         }
         if (result.value != null) managed.Publish(null, result.value.GetType(), result.value);
-        managed.MarkScriptedLoaded(dependency.scripted);
+        scripted.Add(dependency.scripted);
+        if (dependency.flags.HasFlag(DependencyFlags.Wirable)) anonymousPublications.Add(dependency.wireKey);
       }
     }
 
@@ -377,7 +354,7 @@ namespace HELIX.Context {
       int phase
     ) {
       foreach (var dependency in EnumerateImplicitScripted(entries, phase)) {
-        if (managed.IsScriptedLoaded(dependency.scripted) || managed.IsDependencyAvailable(dependency)) continue;
+        if (scripted.Contains(dependency.scripted) || managed.IsDependencyAvailable(dependency)) continue;
         var result = await dependency.scripted.LoadAsync(new ComponentLoadContext(_container, managed, null, this));
         RestoreActiveContext();
         if (!result.success) {
@@ -389,7 +366,8 @@ namespace HELIX.Context {
           continue;
         }
         if (result.value != null) managed.Publish(null, result.value.GetType(), result.value);
-        managed.MarkScriptedLoaded(dependency.scripted);
+        scripted.Add(dependency.scripted);
+        if (dependency.flags.HasFlag(DependencyFlags.Wirable)) anonymousPublications.Add(dependency.wireKey);
       }
     }
 

@@ -47,7 +47,7 @@ namespace HELIX.Context {
       _rules = rules?.Where(static rule => rule != null).ToArray() ?? Array.Empty<IScopeRule>();
     }
 
-    internal void Validate(ScopeValidationContext context) {
+    public void Validate(ScopeValidationContext context) {
       foreach (var rule in _rules) rule.Validate(context);
     }
   }

@@ -76,7 +76,7 @@ namespace HELIX.Context {
     private static void WriteLiveScope(IProseWriter writer, ManagedScope scope) {
       using (writer.Tree()) {
         writer.Name($"{TypeName(scope.scope.GetType())} [{scope.State}]");
-        foreach (var phase in scope.LoadedComponents.GroupBy(static loaded => loaded.registration.phase)) {
+        foreach (var phase in scope.loadedComponents.GroupBy(static loaded => loaded.registration.phase)) {
           using (writer.Tree()) {
             writer.Name(PhaseName(phase.Key));
             foreach (var loaded in phase) {
@@ -85,17 +85,24 @@ namespace HELIX.Context {
                 WriteJoinedProperty(
                   writer,
                   "keys",
-                  scope.BoundKeys(loaded.registration).Select(FormatKey)
+                  scope.bindings.Where(pair => pair.Value.Any(binding =>
+                    ReferenceEquals(binding.owner, loaded.registration)
+                  )).Select(pair => FormatKey(pair.Key))
                 );
-                var publications = scope.PublishedWireKeys(loaded.registration).Where(key =>
-                  loaded.registration.keys.All(componentKey => componentKey.CreateWireKey() != key)
-                );
+                var loader = ScopeLoader.ActiveOrNull;
+                var publications = loader == null
+                  ? Enumerable.Empty<string>()
+                  : loader.publications.Where(pair => pair.Value.Contains(loaded.registration))
+                    .Select(static pair => pair.Key)
+                    .Where(key => loaded.registration.keys.All(componentKey =>
+                      componentKey.CreateWireKey() != key
+                    ));
                 WriteJoinedProperty(writer, "publications", publications);
               }
             }
           }
         }
-        foreach (var child in scope.ManagedChildren) WriteLiveScope(writer, child);
+        foreach (var child in scope.managedChildren) WriteLiveScope(writer, child);
       }
     }
 

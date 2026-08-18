@@ -50,10 +50,10 @@ namespace HELIX.Context {
   public enum ManagedScopeState { Created, Initializing, Active, Disposing, Disposed, Faulted }
 
   public sealed class ManagedScope {
-    private readonly Dictionary<TypeKey, List<Binding>> _bindings = new();
+    public readonly Dictionary<TypeKey, List<Binding>> bindings = new();
     private readonly CancellationTokenSource _cancellation = new();
-    private readonly List<ManagedScope> _managedChildren = new();
-    private readonly List<LoadedComponent> _loadedComponents = new();
+    public readonly List<ManagedScope> managedChildren = new();
+    public readonly List<LoadedComponent> loadedComponents = new();
     private readonly HashSet<object> _owned = new(ReferenceComparer<object>.Instance);
     private ManagedContainer _container;
 
@@ -62,7 +62,6 @@ namespace HELIX.Context {
     public readonly List<IScope> children = new();
     public ManagedScopeState State { get; internal set; } = ManagedScopeState.Created;
 
-    public IReadOnlyList<ManagedScope> ManagedChildren => _managedChildren;
     public CancellationToken CancellationToken => _cancellation.Token;
     public bool IsActive => State == ManagedScopeState.Active;
 
@@ -92,7 +91,7 @@ namespace HELIX.Context {
       ValidateKey(key);
       var values = new List<object>();
       for (var current = this; current != null; current = current.parent) {
-        if (!current._bindings.TryGetValue(key, out var bindings)) continue;
+        if (!current.bindings.TryGetValue(key, out var bindings)) continue;
         foreach (var binding in bindings) {
           if (ResolveBinding(key, binding, out var value)) values.Add(value);
         }
@@ -125,53 +124,32 @@ namespace HELIX.Context {
     internal bool IsDependencyAvailable(ComponentDependency dependency) {
       if (dependency.IsTyped) return HasBinding(dependency.key);
       if (!dependency.flags.HasFlag(DependencyFlags.Wirable))
-        return dependency.scripted != null && ScopeLoader.Active.Contains(dependency.scripted);
+        return dependency.scripted != null && ScopeLoader.Active.scripted.Contains(dependency.scripted);
       return HasWireKey(dependency.wireKey);
     }
 
     internal bool HasWireKey(string wireKey) {
       if (string.IsNullOrEmpty(wireKey)) return false;
-      for (var current = this; current != null; current = current.parent) {
-        if (ScopeLoader.ActiveOrNull?.HasPublication(wireKey) == true)
-          return true;
-      }
-      return false;
+      var loader = ScopeLoader.ActiveOrNull;
+      return loader != null && (loader.anonymousPublications.Contains(wireKey) ||
+        loader.publications.TryGetValue(wireKey, out var owners) && owners.Count > 0);
     }
 
     internal bool HasLocalDependency(ComponentDependency dependency) {
       if (dependency.IsTyped) return HasLocalBinding(dependency.key);
       if (!dependency.flags.HasFlag(DependencyFlags.Wirable))
-        return dependency.scripted != null && ScopeLoader.Active.Contains(dependency.scripted);
-      return HasLocalWireKey(dependency.wireKey);
+        return dependency.scripted != null && ScopeLoader.Active.scripted.Contains(dependency.scripted);
+      return HasWireKey(dependency.wireKey);
     }
 
     internal bool WasProvidedBy(ComponentRegistration registration, ComponentDependency dependency) {
       if (dependency.IsTyped) {
-        return _bindings.TryGetValue(dependency.key, out var bindings) &&
-          bindings.Any(x => ReferenceEquals(x.owner, registration));
+        return bindings.TryGetValue(dependency.key, out var keyBindings) &&
+          keyBindings.Any(x => ReferenceEquals(x.owner, registration));
       }
-      return dependency.wireKey != null && ScopeLoader.Active.WasPublishedBy(registration, dependency.wireKey);
-    }
-
-    internal void MarkScriptedLoaded(IScriptedDependency dependency) {
-      ScopeLoader.Active.Record(dependency);
-      if (dependency.Flags.HasFlag(DependencyFlags.Wirable)) ScopeLoader.Active.Publish(dependency.WireKey);
-    }
-
-    internal bool IsScriptedLoaded(IScriptedDependency dependency) {
-      return ScopeLoader.Active.Contains(dependency);
-    }
-
-    internal IEnumerable<LoadedComponent> LoadedComponents => _loadedComponents;
-
-    internal IEnumerable<TypeKey> BoundKeys(ComponentRegistration registration) {
-      return _bindings
-        .Where(pair => pair.Value.Any(binding => ReferenceEquals(binding.owner, registration)))
-        .Select(static pair => pair.Key);
-    }
-
-    internal IEnumerable<string> PublishedWireKeys(ComponentRegistration registration) {
-      return ScopeLoader.ActiveOrNull?.PublicationsBy(registration) ?? Array.Empty<string>();
+      return dependency.wireKey != null && ScopeLoader.Active.publications.TryGetValue(
+        dependency.wireKey, out var owners
+      ) && owners.Contains(registration);
     }
 
     private void AddBinding(
@@ -188,9 +166,9 @@ namespace HELIX.Context {
           $"Value of type {value.GetType().FullName} cannot be published as '{key}'."
         );
       }
-      if (!_bindings.TryGetValue(key, out var bindings)) _bindings.Add(key, bindings = new List<Binding>());
-      if (!bindings.Any(binding => ReferenceEquals(binding.owner, owner) && ReferenceEquals(binding.value, value)))
-        bindings.Add(new Binding(owner, value));
+      if (!bindings.TryGetValue(key, out var keyBindings)) bindings.Add(key, keyBindings = new List<Binding>());
+      if (!keyBindings.Any(binding => ReferenceEquals(binding.owner, owner) && ReferenceEquals(binding.value, value)))
+        keyBindings.Add(new Binding(owner, value));
       (loader ?? ScopeLoader.Active).Publish(owner, key.CreateWireKey());
     }
 
@@ -203,9 +181,9 @@ namespace HELIX.Context {
       EnsureCanPublish();
       ValidateKey(key);
       if (supplier == null) throw new ArgumentNullException(nameof(supplier));
-      if (!_bindings.TryGetValue(key, out var bindings)) _bindings.Add(key, bindings = new List<Binding>());
-      if (!bindings.Any(binding => ReferenceEquals(binding.owner, owner) &&
-        ReferenceEquals(binding.supplier, supplier))) bindings.Add(new Binding(owner, supplier));
+      if (!bindings.TryGetValue(key, out var keyBindings)) bindings.Add(key, keyBindings = new List<Binding>());
+      if (!keyBindings.Any(binding => ReferenceEquals(binding.owner, owner) &&
+        ReferenceEquals(binding.supplier, supplier))) keyBindings.Add(new Binding(owner, supplier));
       (loader ?? ScopeLoader.Active).Publish(owner, key.CreateWireKey());
     }
 
@@ -227,7 +205,7 @@ namespace HELIX.Context {
 
     private bool HasLocalBinding(TypeKey key) {
       ValidateKey(key);
-      return _bindings.TryGetValue(key, out var bindings) && bindings.Count > 0;
+      return bindings.TryGetValue(key, out var keyBindings) && keyBindings.Count > 0;
     }
     
     private bool TryResolveValue(TypeKey key, out object value) {
@@ -242,9 +220,9 @@ namespace HELIX.Context {
 
     private bool TryResolveLocalValue(TypeKey key, out object value) {
       ValidateKey(key);
-      if (_bindings.TryGetValue(key, out var bindings)) {
-        for (var i = bindings.Count - 1; i >= 0; i--) {
-          if (ResolveBinding(key, bindings[i], out value)) return true;
+      if (bindings.TryGetValue(key, out var keyBindings)) {
+        for (var i = keyBindings.Count - 1; i >= 0; i--) {
+          if (ResolveBinding(key, keyBindings[i], out value)) return true;
         }
       }
       value = null;
@@ -266,11 +244,6 @@ namespace HELIX.Context {
       return true;
     }
 
-    private bool HasLocalWireKey(string wireKey) {
-      if (string.IsNullOrEmpty(wireKey)) return false;
-      return ScopeLoader.ActiveOrNull?.HasPublication(wireKey) == true;
-    }
-
     private static void ValidateKey(TypeKey key) {
       if (key.type == null) throw new ArgumentException("A component key must have a type.", nameof(key));
     }
@@ -290,18 +263,18 @@ namespace HELIX.Context {
     }
 
     internal void AddChild(ManagedScope child) {
-      _managedChildren.Add(child);
+      managedChildren.Add(child);
       children.Add(child.scope);
     }
 
     internal void RemoveChild(ManagedScope child) {
-      _managedChildren.Remove(child);
+      managedChildren.Remove(child);
       var index = children.FindIndex(x => ReferenceEquals(x, child.scope));
       if (index >= 0) children.RemoveAt(index);
     }
 
     internal void RecordComponent(ComponentRegistration registration, object instance) {
-      _loadedComponents.Add(new LoadedComponent(registration, instance));
+      loadedComponents.Add(new LoadedComponent(registration, instance));
     }
 
     internal void Own(object value) {
@@ -349,7 +322,7 @@ namespace HELIX.Context {
       if (State is ManagedScopeState.Disposed or ManagedScopeState.Disposing) return;
       State = ManagedScopeState.Disposing;
       Cancel(failures);
-      foreach (var child in _managedChildren.ToArray()) child.Dispose(failures, released);
+      foreach (var child in managedChildren.ToArray()) child.Dispose(failures, released);
       Teardown(failures, false);
       State = ManagedScopeState.Disposed;
       released?.Invoke(this);
@@ -382,10 +355,9 @@ namespace HELIX.Context {
     }
 
     private void UnloadComponents(List<Exception> failures) {
-      if (_loadedComponents == null) return;
-      foreach (var loaded in _loadedComponents.AsEnumerable().Reverse()) Unload(loaded, failures);
-      _bindings.Clear();
-      _loadedComponents.Clear();
+      foreach (var loaded in loadedComponents.AsEnumerable().Reverse()) Unload(loaded, failures);
+      bindings.Clear();
+      loadedComponents.Clear();
     }
 
     private void DisposeOwnedResources(List<Exception> failures) {
@@ -449,7 +421,7 @@ namespace HELIX.Context {
       }
     }
 
-    private readonly struct Binding {
+    public readonly struct Binding {
       public readonly ComponentRegistration owner;
       public readonly object value;
       public readonly Func<object> supplier;
@@ -467,7 +439,7 @@ namespace HELIX.Context {
       }
     }
 
-    internal readonly struct LoadedComponent {
+    public readonly struct LoadedComponent {
       public readonly ComponentRegistration registration;
       public readonly object instance;
 
