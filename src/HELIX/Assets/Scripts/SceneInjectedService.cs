@@ -4,7 +4,7 @@ using Sirenix.OdinInspector;
 using UnityEngine;
 
 namespace HELIX.Context {
-  [Service]
+  [Component]
   public partial class SceneInjectedService : MonoBehaviour {
     [Inject] public SceneService scope;
     [Inject] public ExampleUser user;

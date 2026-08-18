@@ -10,8 +10,7 @@ namespace HELIX.Context {
     public HelixModuleAttribute(
       string name = null, // Name of the module upper camel case
       string filter = null, // Namespace filter, otherwise everything in the assembly is considered
-      Type[] import = null, // Other module-like types to import verbatim
-      Type[] stereotypes = null // Overrides the stereotypes used to discover components
+      Type[] import = null // Other module-like types to import verbatim
     ) { }
   }
 
@@ -20,8 +19,7 @@ namespace HELIX.Context {
     public HelixApplicationAttribute(
       string name = null, // Name of the module upper camel case
       string filter = null, // Namespace filter, otherwise everything in the assembly is considered
-      Type[] import = null, // Other module-like types to import verbatim
-      Type[] stereotypes = null // Overrides the stereotypes used to discover components
+      Type[] import = null // Other module-like types to import verbatim
     ) { }
   }
 }

@@ -139,7 +139,7 @@ internal static class GeneratorDiagnostics {
   }
 
   internal static class Mixins {
-    internal const double ExpressionHintThresholdMilliseconds = 5d; // This is very high and should never happen
+    internal const double ExpressionHintThresholdMilliseconds = 1d; // This is very high and should never happen
 
     internal static readonly DiagnosticDescriptor
       MustBePartial = Error(

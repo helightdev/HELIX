@@ -11,6 +11,24 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class MixinTargetTests {
   [Fact]
+  public void MultipleCandidateAttributesGenerateTheTargetOnce() {
+    var result = Run(
+      """
+      using System;
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class ComponentAttribute : Attribute { }
+      }
+      [HELIX.Context.EnableMixins, HELIX.Context.Component]
+      public partial class Demo { }
+      """
+    );
+
+    Assert.Empty(result.GeneratorDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Empty(result.CompilationDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
   public void StarTargetGeneratesAStaticMethod() {
     var result = Run(
       """

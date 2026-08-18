@@ -13,10 +13,10 @@ namespace HELIX.Context {
     }
   }
 
-  [Service(typeof(ApplicationScope))]
+  [Component(typeof(ApplicationScope))]
   public partial class MyRootDependency { }
 
-  [Service(typeof(ApplicationScope))]
+  [Component(typeof(ApplicationScope))]
   public partial class ExampleSingleton {
     [Inject] public MyRootDependency myRootDependency;
 
@@ -29,7 +29,7 @@ namespace HELIX.Context {
   }
 
   // [EnableMixins]
-  [Service(typeof(ApplicationScope))]
+  [Component(typeof(ApplicationScope))]
   public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]
     public IDisposable myResource2;
@@ -88,7 +88,7 @@ namespace HELIX.Context {
     }
   }
 
-  [Service(typeof(SceneScope))]
+  [Component(typeof(SceneScope))]
   public partial class SceneService {
     [MixinMethod]
     public void OnInit() {

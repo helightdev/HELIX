@@ -32,6 +32,7 @@ public sealed class MixinRequirementTests {
       public interface IBaseMixin : HELIX.Context.IMixin { }
       [HELIX.Context.RequireMixin(typeof(IBaseMixin), true)]
       public interface IFeatureMixin : HELIX.Context.IMixin { }
+      [HELIX.Context.EnableMixins]
       public partial class Demo : IFeatureMixin {
         private void Required() { }
       }
@@ -61,6 +62,7 @@ public sealed class MixinRequirementTests {
       public interface IBaseMixin : HELIX.Context.IMixin { }
       [HELIX.Context.RequireMixin(typeof(IBaseMixin))]
       public interface IFeatureMixin : HELIX.Context.IMixin { }
+      [HELIX.Context.EnableMixins]
       public partial class Demo : IFeatureMixin { }
       """
     );
@@ -89,6 +91,7 @@ public sealed class MixinRequirementTests {
       public interface IBaseMixin : HELIX.Context.IMixin { }
       [HELIX.Context.RequireMixin(typeof(IBaseMixin))]
       public interface IFeatureMixin : HELIX.Context.IMixin { }
+      [HELIX.Context.EnableMixins]
       public partial class Demo : IFeatureMixin, IBaseMixin { }
       """
     );

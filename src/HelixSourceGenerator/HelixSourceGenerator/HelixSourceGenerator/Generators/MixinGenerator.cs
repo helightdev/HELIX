@@ -20,15 +20,6 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     TargetDefinitionCache = new();
 
   public void Initialize(IncrementalGeneratorInitializationContext context) {
-    var targets = context.SyntaxProvider.CreateSyntaxProvider(
-        static (node, _) =>
-          node is TypeDeclarationSyntax {
-            RawKind: (int)SyntaxKind.ClassDeclaration or (int)SyntaxKind.RecordDeclaration
-          } declaration && (declaration.AttributeLists.Count != 0 || declaration.BaseList is not null ||
-            declaration.Modifiers.Any(SyntaxKind.PartialKeyword)),
-        static (ctx, _) => GetTarget(ctx)
-      )
-      .Where(static target => target is not null);
     var preparedExpressions =
       context.CompilationProvider.Select(static (compilation, _) => CollectPreparedExpressions(compilation)
       );
@@ -38,14 +29,23 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       static (spc, prepared) => ReportPreparedExpressionDiagnostics(spc, prepared)
     );
 
-    context.RegisterSourceOutput(
-      targets.Combine(preparedExpressions),
-      static (spc, input) => Generate(
-        spc,
-        input.Left,
-        input.Right.State
-      )
-    );
+    foreach (var attribute in MixinGeneratorCandidates.AttributeMetadataNames) {
+      var targets = context.SyntaxProvider.ForAttributeWithMetadataName(
+        attribute,
+        static (node, _) => node is TypeDeclarationSyntax {
+          RawKind: (int)SyntaxKind.ClassDeclaration or (int)SyntaxKind.RecordDeclaration
+        },
+        static (ctx, _) => GetTarget(ctx)
+      ).Where(static target => target is not null);
+      context.RegisterSourceOutput(
+        targets.Combine(preparedExpressions),
+        static (spc, input) => Generate(
+          spc,
+          input.Left,
+          input.Right.State
+        )
+      );
+    }
   }
 
   private static PreparedMixinExpressions CollectPreparedExpressions(
@@ -108,35 +108,17 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     }
   }
 
-  private static MixinTarget GetTarget(GeneratorSyntaxContext context) {
-    var declaration = (TypeDeclarationSyntax)context.Node;
-    if (context.SemanticModel.GetDeclaredSymbol(declaration) is not INamedTypeSymbol { TypeKind: TypeKind.Class } type)
+  private static MixinTarget GetTarget(GeneratorAttributeSyntaxContext context) {
+    if (context.TargetSymbol is not INamedTypeSymbol { TypeKind: TypeKind.Class } type)
       return null;
-
-    var first = type.DeclaringSyntaxReferences.FirstOrDefault();
-    if (first is null || first.SyntaxTree != declaration.SyntaxTree ||
-      first.Span.Start != declaration.SpanStart) return null;
-    return HasMixinsEnabled(type) && context.SemanticModel.Compilation is CSharpCompilation compilation
+    var matchedCandidate = context.Attributes.FirstOrDefault()?.AttributeClass?.ToDisplayString();
+    var canonicalCandidate = MixinGeneratorCandidates.AttributeMetadataNames.FirstOrDefault(candidate =>
+      type.GetAttributes().Any(attribute => IsAttribute(attribute, candidate))
+    );
+    if (matchedCandidate != canonicalCandidate) return null;
+    return context.SemanticModel.Compilation is CSharpCompilation compilation
       ? new MixinTarget(type, compilation)
       : null;
-  }
-
-  private static bool HasMixinsEnabled(INamedTypeSymbol type) {
-    for (var current = type; current is not null; current = current.BaseType) {
-      if (Attribute(current, Attributes.EnableMixins) is not null ||
-        current.GetAttributes().Any(attribute => IsBuiltinMixinStereotype(
-            attribute.AttributeClass
-          )
-        )) return true;
-    }
-    return type.AllInterfaces.Any(item => Attribute(item, Attributes.EnableMixins) is not null);
-  }
-
-  private static bool IsBuiltinMixinStereotype(INamedTypeSymbol attributeType) {
-    for (var current = attributeType; current is not null; current = current.BaseType)
-      if (BuiltinMixinStereotypes.Contains(current.ToDisplayString(), StringComparer.Ordinal))
-        return true;
-    return false;
   }
 
   private static bool HasComponentStereotype(INamedTypeSymbol type) {

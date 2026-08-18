@@ -56,31 +56,55 @@ namespace HELIX.Context {
 @CODE<IMPLEMENTS> IComponent
 @CODE<CLASS> public RuntimeComponentData ComponentBinding { get; } = new();
 @VAR<IsComponent> true
-"
-  )]
-  public class ComponentAttribute : Attribute { }
 
-
-  [MixinExpression(
-    new[] { MixinOn.ConfigureComponent },
-    new[] { -90_000 },
-    @"
-@CODE<$ConfigureComponent> registration.scope = @attr#scope;
-
+@SCOPE
+  @MATCH@attr#scope:?eq<null>
+  @GOTO<PhaseTwo>
+@SCOPE
+  @CODE<$ConfigureComponent> registration.scope = @attr#scope;
 @SCOPE
   @MATCH @this:?is<MonoBehaviour>
   @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
-  @RETURN
+  @GOTO<PhaseTwo>
 @SCOPE
   @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
-  @RETURN
+  @GOTO<PhaseTwo>
+@END
+
+@SCOPE<PhaseTwo>
+@END
+
 "
   )]
-  public class ServiceAttribute : ComponentAttribute {
-    public readonly Type scope;
-
-    public ServiceAttribute(Type scope = null) {
-      this.scope = scope;
-    }
+  public class ComponentAttribute : Attribute {
+    public ComponentAttribute(
+      Type scope = null
+    ) { }
   }
+
+
+//   [MixinExpression(
+//     new[] { MixinOn.ConfigureComponent },
+//     new[] { -90_000 },
+//     @"
+// @ASSERT @var#IsComponent:?eq<true>
+//
+// @CODE<$ConfigureComponent> registration.scope = @attr#scope;
+//
+// @SCOPE
+//   @MATCH @this:?is<MonoBehaviour>
+//   @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
+//   @RETURN
+// @SCOPE
+//   @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
+//   @RETURN
+// "
+//   )]
+//   public class ServiceAttribute : Attribute {
+//     public readonly Type scope;
+//
+//     public ServiceAttribute(Type scope) {
+//       this.scope = scope;
+//     }
+//   }
 }
