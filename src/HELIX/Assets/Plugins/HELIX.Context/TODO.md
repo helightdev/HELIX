@@ -1,0 +1,4 @@
+- Bindings DONE
+- Inject Split (requested type vs injected type, also optional) DONE
+- Inject Struct Types DONE
+- Scope Events

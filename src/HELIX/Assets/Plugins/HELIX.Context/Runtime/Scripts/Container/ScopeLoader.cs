@@ -76,43 +76,37 @@ namespace HELIX.Context {
         .OrderBy(static phase => phase);
     }
 
-    private static bool CanProvide(ComponentRegistration entry, ComponentDependency dependency) {
-      return RegistrarGraph.CanProvide(entry, dependency);
-    }
+    private sealed class PendingProviderIndex {
+      private readonly Dictionary<string, int> _counts = new(StringComparer.Ordinal);
 
-    private static bool HasPendingProvider(
-      ComponentRegistration consumer,
-      ComponentDependency dependency,
-      IReadOnlyCollection<ComponentRegistration> pending,
-      int phase
-    ) {
-      var count = pending.Count(entry => entry.phase <= phase && CanProvide(entry, dependency));
-      return count > (CanProvide(consumer, dependency) ? 1 : 0);
-    }
+      public PendingProviderIndex(IEnumerable<ComponentRegistration> entries) {
+        foreach (var entry in entries) Add(entry, 1);
+      }
 
-    private static bool CanLoadWithoutDelay(
-      ManagedScope managed,
-      ComponentRegistration entry,
-      IReadOnlyCollection<ComponentRegistration> pending,
-      int phase
-    ) {
-      if (entry.phase > phase) return false;
-      if (!RequiredDependenciesSatisfied(managed, entry, pending)) return false;
-      return entry.dependencies.All(dependency =>
-        !HasPendingProvider(entry, dependency, pending, phase) &&
-        !(dependency.IsScripted && dependency.flags.HasFlag(DependencyFlags.ImplicitLoadable) &&
-          dependency.scripted.Phase > phase && !managed.IsDependencyAvailable(dependency))
-      );
+      public bool Contains(ComponentDependency dependency) {
+        return dependency.wireKey != null && _counts.TryGetValue(dependency.wireKey, out var count) && count > 0;
+      }
+
+      public void Remove(ComponentRegistration entry) => Add(entry, -1);
+
+      private void Add(ComponentRegistration entry, int amount) {
+        foreach (var wireKey in entry.keys.Select(static key => key.CreateWireKey())
+          .Concat(entry.publications.Select(static publication => publication.wireKey))
+          .Where(static wireKey => wireKey != null)
+          .Distinct(StringComparer.Ordinal)) {
+          _counts.TryGetValue(wireKey, out var count);
+          _counts[wireKey] = count + amount;
+        }
+      }
     }
 
     private static bool RequiredDependenciesSatisfied(
       ManagedScope managed,
       ComponentRegistration entry,
-      IReadOnlyCollection<ComponentRegistration> pending
+      PendingProviderIndex pendingProviders
     ) => entry.dependencies.All(dependency => {
         if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
-        var hasLocalProvider = pending.Any(provider => CanProvide(provider, dependency)) ||
-          managed.HasLocalDependency(dependency);
+        var hasLocalProvider = pendingProviders.Contains(dependency) || managed.HasLocalDependency(dependency);
         return hasLocalProvider ? managed.HasLocalDependency(dependency) : managed.HasDependency(dependency);
       }
     );
@@ -120,14 +114,15 @@ namespace HELIX.Context {
     private static bool RemoveUnavailableOptionalComponents(
       ManagedScope managed,
       List<ComponentRegistration> pending,
-      int phase
+      PendingProviderIndex pendingProviders
     ) {
-      var unavailable = pending.Where(entry =>
-          entry.phase <= phase && entry.optional && !RequiredDependenciesSatisfied(managed, entry, pending)
-        )
-        .ToList();
-      foreach (var entry in unavailable) pending.Remove(entry);
-      return unavailable.Count > 0;
+      var unavailable = pending.FirstOrDefault(entry =>
+        entry.optional && !RequiredDependenciesSatisfied(managed, entry, pendingProviders)
+      );
+      if (unavailable == null) return false;
+      pending.Remove(unavailable);
+      pendingProviders.Remove(unavailable);
+      return true;
     }
 
     private void EnsureIterationAvailable(int iteration, ManagedScope managed) {
@@ -163,7 +158,11 @@ namespace HELIX.Context {
       }
     }
 
-    private static void EnsureFullyLoaded(ManagedScope managed, IReadOnlyCollection<ComponentRegistration> pending) {
+    private static void EnsureFullyLoaded(
+      ManagedScope managed,
+      IReadOnlyCollection<ComponentRegistration> pending,
+      int phase
+    ) {
       if (pending.Count == 0) return;
       var details = pending.Select(entry => {
           var missing = entry.dependencies.Where(x => !managed.HasDependency(x))
@@ -172,7 +171,8 @@ namespace HELIX.Context {
         }
       );
       throw new ComponentGraphException(
-        "The dependency graph cannot advance. It contains a cycle or unresolved dynamic publications: " +
+        $"Initialization phase {phase} cannot advance. It contains a cycle, a dependency assigned to a later " +
+        "phase, or unresolved dynamic publications: " +
         string.Join("; ", details)
       );
     }
@@ -275,12 +275,10 @@ namespace HELIX.Context {
             }
           }
         }
-        var pending = new List<ComponentRegistration>(entries);
         foreach (var phase in EnumeratePhases(entries)) {
           LoadScriptedDependenciesSync(managed, entries, phase);
-          LoadEligibleSync(managed, pending, phase);
+          LoadPhaseSync(managed, entries.Where(entry => entry.phase == phase).ToList(), phase);
         }
-        EnsureFullyLoaded(managed, pending);
       } finally {
         Reset();
       }
@@ -307,31 +305,28 @@ namespace HELIX.Context {
       }
     }
 
-    private void LoadEligibleSync(
+    private void LoadPhaseSync(
       ManagedScope managed,
       List<ComponentRegistration> pending,
       int phase
     ) {
+      if (pending.Count == 0) return;
+      var pendingProviders = new PendingProviderIndex(pending);
       var iteration = 0;
-      while (true) {
-        if (pending.Count == 0) return;
+      while (pending.Count > 0) {
         EnsureIterationAvailable(iteration++, managed);
-        var eligible = pending.Where(entry => CanLoadWithoutDelay(managed, entry, pending, phase))
-          .ToList();
-        if (eligible.Count > 0) {
-          foreach (var entry in eligible) {
-            LoadRegistrationSync(managed, entry);
-            pending.Remove(entry);
-          }
+        var loadIndex = RequiredDependenciesSatisfied(managed, pending[0], pendingProviders)
+          ? 0
+          : pending.FindIndex(1, entry => RequiredDependenciesSatisfied(managed, entry, pendingProviders));
+        if (loadIndex >= 0) {
+          var entry = pending[loadIndex];
+          LoadRegistrationSync(managed, entry);
+          pending.RemoveAt(loadIndex);
+          pendingProviders.Remove(entry);
           continue;
         }
-        if (RemoveUnavailableOptionalComponents(managed, pending, phase)) continue;
-        var fallback = RegistrarGraph.OrderFallbackCandidates(
-          pending.Where(entry => entry.phase <= phase && RequiredDependenciesSatisfied(managed, entry, pending))
-        ).FirstOrDefault();
-        if (fallback == null) return;
-        LoadRegistrationSync(managed, fallback);
-        pending.Remove(fallback);
+        if (RemoveUnavailableOptionalComponents(managed, pending, pendingProviders)) continue;
+        EnsureFullyLoaded(managed, pending, phase);
       }
     }
 
@@ -365,14 +360,12 @@ namespace HELIX.Context {
       try {
         managed.AddBindings(bindings);
         var entries = EntriesFor(managed, contributions, componentTypes);
-        var pending = new List<ComponentRegistration>(entries);
         foreach (var phase in EnumeratePhases(entries)) {
           await LoadScriptedDependenciesAsync(managed, entries, phase);
           RestoreActiveContext();
-          await LoadEligibleAsync(managed, pending, phase);
+          await LoadPhaseAsync(managed, entries.Where(entry => entry.phase == phase).ToList(), phase);
           RestoreActiveContext();
         }
-        EnsureFullyLoaded(managed, pending);
       } finally {
         Reset();
       }
@@ -400,33 +393,29 @@ namespace HELIX.Context {
       }
     }
 
-    private async UniTask LoadEligibleAsync(
+    private async UniTask LoadPhaseAsync(
       ManagedScope managed,
       List<ComponentRegistration> pending,
       int phase
     ) {
+      if (pending.Count == 0) return;
+      var pendingProviders = new PendingProviderIndex(pending);
       var iteration = 0;
-      while (true) {
-        if (pending.Count == 0) return;
+      while (pending.Count > 0) {
         EnsureIterationAvailable(iteration++, managed);
-        var eligible = pending.Where(entry => CanLoadWithoutDelay(managed, entry, pending, phase))
-          .ToList();
-        if (eligible.Count > 0) {
-          foreach (var entry in eligible) {
-            await LoadRegistrationAsync(managed, entry);
-            RestoreActiveContext();
-            pending.Remove(entry);
-          }
+        var loadIndex = RequiredDependenciesSatisfied(managed, pending[0], pendingProviders)
+          ? 0
+          : pending.FindIndex(1, entry => RequiredDependenciesSatisfied(managed, entry, pendingProviders));
+        if (loadIndex >= 0) {
+          var entry = pending[loadIndex];
+          await LoadRegistrationAsync(managed, entry);
+          RestoreActiveContext();
+          pending.RemoveAt(loadIndex);
+          pendingProviders.Remove(entry);
           continue;
         }
-        if (RemoveUnavailableOptionalComponents(managed, pending, phase)) continue;
-        var fallback = RegistrarGraph.OrderFallbackCandidates(
-          pending.Where(entry => entry.phase <= phase && RequiredDependenciesSatisfied(managed, entry, pending))
-        ).FirstOrDefault();
-        if (fallback == null) return;
-        await LoadRegistrationAsync(managed, fallback);
-        RestoreActiveContext();
-        pending.Remove(fallback);
+        if (RemoveUnavailableOptionalComponents(managed, pending, pendingProviders)) continue;
+        EnsureFullyLoaded(managed, pending, phase);
       }
     }
 

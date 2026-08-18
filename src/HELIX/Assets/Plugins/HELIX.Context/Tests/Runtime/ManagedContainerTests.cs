@@ -428,7 +428,7 @@ namespace HELIX.Context.Tests {
     }
 
     [Test]
-    public void EarlierPhaseCannotBypassARequiredDependencyFromALaterPhase() {
+    public void RequiredDependencyFromALaterPhaseViolatesTheHardPhaseBarrier() {
       var trace = new List<string>();
       var registrations = new ComponentRegistrations();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
@@ -436,9 +436,12 @@ namespace HELIX.Context.Tests {
         .phase = -100;
       registrations.Add(_ => new Provider(trace)).Exposes<IProvider>().phase = 100;
 
-      CreateContainer(registrations).StartApplicationSync();
+      var container = CreateContainer(registrations);
 
-      Assert.That(trace, Is.EqualTo(new[] { "primary", "consumer" }));
+      var exception = Assert.Throws<ComponentGraphException>(() => container.StartApplicationSync());
+
+      Assert.That(exception.Message, Does.Contain("phase -100 cannot advance"));
+      Assert.That(trace, Is.Empty);
     }
 
     [Test]
@@ -447,7 +450,8 @@ namespace HELIX.Context.Tests {
       var dependency = new PhasedScriptedDependency(125, trace);
       var registrations = new ComponentRegistrations();
       registrations.Add(_ => new RecordingComponent(trace, "component"))
-        .Dependency(new ComponentDependency(dependency, true));
+        .Dependency(new ComponentDependency(dependency, true))
+        .phase = 125;
 
       CreateContainer(registrations).StartApplicationSync();
 
@@ -889,6 +893,26 @@ namespace HELIX.Context.Tests {
     }
 
     [Test]
+    public void ScopeBuilderInsertsAnUnscopedProviderIntoThePreparedScopePlan() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider(trace)).Exposes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
+        .In<SessionScope>()
+        .Requires<IProvider>();
+      var container = CreateContainer(registrations, assignUnscopedToApplication: false);
+      var application = container.StartApplicationSync();
+
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddComponent<Provider>()
+        .StartSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "primary", "consumer" }));
+      Assert.That(session.Resolve<ProviderConsumer>().Provider, Is.SameAs(session.Resolve<IProvider>()));
+    }
+
+    [Test]
     public void BuilderInstalledScopeHandlerContributesComponent() {
       var contributed = new ContributedComponent();
       var registrations = new ComponentRegistrations();
@@ -937,11 +961,33 @@ namespace HELIX.Context.Tests {
       ComponentGraphProse.WriteLive(live, container);
 
       Assert.That(declared.ToString(), Does.Contain("Declared dependency graph"));
+      Assert.That(declared.ToString(), Does.Contain($"Phase {InitPhase.Normal}"));
       Assert.That(declared.ToString(), Does.Contain(new TypeKey(typeof(IProvider), null).CreateWireKey()));
       Assert.That(declared.ToString(), Does.Contain("optional"));
+      Assert.That(declared.ToString(), Does.Not.Contain("—"));
       Assert.That(live.ToString(), Does.Contain("Live dependency graph"));
       Assert.That(live.ToString(), Does.Contain("ApplicationScope [Active]"));
+      Assert.That(live.ToString(), Does.Contain($"Phase {InitPhase.Normal}"));
       Assert.That(live.ToString(), Does.Contain(new TypeKey(typeof(IProvider), null).CreateWireKey()));
+      Assert.That(live.ToString(), Does.Not.Contain("—"));
+    }
+
+    [Test]
+    public void DeclaredGraphPlacesImplicitScriptedDependenciesInTheirOwnPhase() {
+      var dependency = new PhasedScriptedDependency(InitPhase.Early, new List<string>());
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new RecordingComponent(new List<string>(), "consumer"))
+        .Dependency(new ComponentDependency(dependency, true));
+      var writer = new ProseTextWriter(wrapWidth: 1000);
+
+      ComponentGraphProse.WriteDeclared(writer, registrations);
+
+      var graph = writer.ToString();
+      AssertInOrder(graph,
+        $"Phase {InitPhase.Early}",
+        dependency.WireKey,
+        $"Phase {InitPhase.Normal}",
+        nameof(RecordingComponent));
     }
 
     [Test]

@@ -6,6 +6,7 @@ namespace HELIX.Context {
   /// <summary>Container-owned registrar index and structural dependency graph.</summary>
   internal sealed class RegistrarGraph {
     private ComponentRegistrations _registrations;
+    private readonly Dictionary<Type, List<ComponentRegistration>> _scopePlans = new();
 
     internal static bool PublicationMatches(
       ComponentDependency publication,
@@ -45,15 +46,21 @@ namespace HELIX.Context {
         .ThenBy(static entry => entry.name, StringComparer.Ordinal);
     }
 
-    /// <summary>
-    /// Produces the best statically knowable load order. Runtime availability is still checked by
-    /// <see cref="ScopeLoader"/>, but declared graphs and scope loading start from the same plan.
-    /// </summary>
+    /// <summary>Produces the statically knowable plan while keeping phases as hard barriers.</summary>
     internal static List<ComponentRegistration> Plan(IEnumerable<ComponentRegistration> registrations) {
+      return registrations.Distinct()
+        .GroupBy(static entry => entry.phase)
+        .OrderBy(static group => group.Key)
+        .SelectMany(PlanInnerPhase)
+        .ToList();
+    }
+
+    private static List<ComponentRegistration> PlanInnerPhase(IEnumerable<ComponentRegistration> registrations) {
       var all = registrations.Distinct().ToList();
+      if (all.Count == 0) return new List<ComponentRegistration>();
+      var phase = all[0].phase;
       var pending = all
-        .OrderBy(static entry => entry.phase)
-        .ThenBy(static entry => entry.order)
+        .OrderBy(static entry => entry.order)
         .ThenBy(static entry => entry.name, StringComparer.Ordinal)
         .ToList();
       var loaded = new List<ComponentRegistration>();
@@ -68,7 +75,7 @@ namespace HELIX.Context {
         );
       }
 
-      bool RequiredDependenciesSatisfied(ComponentRegistration entry, int phase) {
+      bool RequiredDependenciesSatisfied(ComponentRegistration entry) {
         return entry.dependencies.All(dependency => {
           if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
           if (dependency.IsScripted && dependency.flags.HasFlag(DependencyFlags.ImplicitLoadable))
@@ -85,35 +92,23 @@ namespace HELIX.Context {
         );
       }
 
-      bool HasPendingProvider(ComponentRegistration consumer, ComponentDependency dependency, int phase) {
-        var count = pending.Count(entry => entry.phase <= phase && CanProvide(entry, dependency));
+      bool HasPendingProvider(ComponentRegistration consumer, ComponentDependency dependency) {
+        var count = pending.Count(entry => CanProvide(entry, dependency));
         return count > (CanProvide(consumer, dependency) ? 1 : 0);
       }
 
-      foreach (var phase in all.Select(static entry => entry.phase)
-        .Concat(all.SelectMany(static entry => entry.dependencies)
-          .Where(static dependency => dependency.IsScripted)
-          .Select(static dependency => dependency.scripted.Phase))
-        .Append(InitPhase.PreInit)
-        .Append(InitPhase.Normal)
-        .Append(InitPhase.PostInit)
-        .Distinct()
-        .OrderBy(static phase => phase)) {
-        while (true) {
-          var available = pending.Where(entry => entry.phase <= phase).ToList();
-          if (available.Count == 0) break;
-          var next = available.FirstOrDefault(entry =>
-            RequiredDependenciesSatisfied(entry, phase) &&
-            !HasFutureScriptedDependency(entry, phase) &&
-            entry.dependencies.All(dependency => !HasPendingProvider(entry, dependency, phase))
-          );
-          next ??= OrderFallbackCandidates(available.Where(entry =>
-            RequiredDependenciesSatisfied(entry, phase) && !HasFutureScriptedDependency(entry, phase)
-          )).FirstOrDefault();
-          if (next == null) break;
-          pending.Remove(next);
-          loaded.Add(next);
-        }
+      while (pending.Count > 0) {
+        var next = pending.FirstOrDefault(entry =>
+          RequiredDependenciesSatisfied(entry) &&
+          !HasFutureScriptedDependency(entry, phase) &&
+          entry.dependencies.All(dependency => !HasPendingProvider(entry, dependency))
+        );
+        next ??= OrderFallbackCandidates(pending.Where(entry =>
+          RequiredDependenciesSatisfied(entry) && !HasFutureScriptedDependency(entry, phase)
+        )).FirstOrDefault();
+        if (next == null) break;
+        pending.Remove(next);
+        loaded.Add(next);
       }
 
       // Retain a deterministic declaration for structurally unresolved cycles. The runtime
@@ -125,6 +120,35 @@ namespace HELIX.Context {
       }
 
       return loaded;
+    }
+
+    private static void InsertIntoPlan(List<ComponentRegistration> plan, ComponentRegistration entry) {
+      if (plan.Contains(entry)) return;
+      var samePhase = plan.Where(candidate => candidate.phase == entry.phase).ToList();
+      if (samePhase.Count == 0) {
+        var phaseIndex = plan.FindIndex(candidate => candidate.phase > entry.phase);
+        plan.Insert(phaseIndex < 0 ? plan.Count : phaseIndex, entry);
+        return;
+      }
+
+      var proposed = PlanInnerPhase(samePhase.Append(entry));
+      var proposedIndex = proposed.IndexOf(entry);
+      ComponentRegistration preceding = null;
+      ComponentRegistration following = null;
+      for (var i = proposedIndex - 1; i >= 0; i--) {
+        if (!samePhase.Contains(proposed[i])) continue;
+        preceding = proposed[i];
+        break;
+      }
+      for (var i = proposedIndex + 1; i < proposed.Count; i++) {
+        if (!samePhase.Contains(proposed[i])) continue;
+        following = proposed[i];
+        break;
+      }
+
+      if (preceding != null) plan.Insert(plan.IndexOf(preceding) + 1, entry);
+      else if (following != null) plan.Insert(plan.IndexOf(following), entry);
+      else plan.Add(entry);
     }
 
     public ComponentRegistrations Prepare(ComponentRegistrations registrations) {
@@ -160,6 +184,13 @@ namespace HELIX.Context {
           throw new ComponentGraphException($"Scope {pair.Key.FullName} contains a parent type that is not an IScope.");
       }
 
+      _scopePlans.Clear();
+      foreach (var group in registrations.components.Values
+        .Where(static entry => entry.scope != null)
+        .GroupBy(static entry => entry.scope)) {
+        _scopePlans.Add(group.Key, Plan(group));
+      }
+
       return _registrations = registrations;
     }
 
@@ -170,12 +201,15 @@ namespace HELIX.Context {
     ) {
       if (_registrations == null) throw new ScopeLifecycleException("The registrar graph has not been prepared.");
       var scopeType = managed.scope.GetType();
-      var entries = _registrations.components.Values
-        .Where(entry => entry.scope == scopeType)
-        .Concat(contributions ?? Enumerable.Empty<ComponentRegistration>())
-        .Distinct()
-        .Where(entry => include?.Invoke(entry) ?? true)
-        .ToList();
+      var entries = _scopePlans.TryGetValue(scopeType, out var prepared)
+        ? prepared.Where(entry => include?.Invoke(entry) ?? true).ToList()
+        : new List<ComponentRegistration>();
+      foreach (var contribution in OrderFallbackCandidates(
+        (contributions ?? Enumerable.Empty<ComponentRegistration>()).Distinct()
+      )) {
+        if (entries.Contains(contribution) || !(include?.Invoke(contribution) ?? true)) continue;
+        InsertIntoPlan(entries, contribution);
+      }
       var providers = new HashSet<TypeKey>();
       foreach (var entry in entries) {
         foreach (var key in entry.keys.Distinct()) providers.Add(key);
@@ -206,7 +240,7 @@ namespace HELIX.Context {
           );
         }
       }
-      return Plan(entries);
+      return entries;
     }
 
     public bool HasLocalProvider(IEnumerable<ComponentRegistration> entries, ComponentDependency dependency) {
