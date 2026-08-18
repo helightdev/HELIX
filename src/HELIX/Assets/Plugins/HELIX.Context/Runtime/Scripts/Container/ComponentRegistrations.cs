@@ -318,7 +318,7 @@ namespace HELIX.Context {
     }
 
     internal void InitializeSync(object instance, ComponentLoadContext context) {
-      if (instance is IComponent component) component.LoadComponent();
+      if (instance is IComponent component) component.LoadComponent(context);
       if (instance is IEventListener listener) {
         var initEvent = new ComponentLoadEvent(context);
         listener.HandlerList.RaiseLocal(initEvent);

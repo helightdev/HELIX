@@ -15,6 +15,7 @@ namespace HELIX.Context {
   public class MixinMethodAttribute : Attribute {
     public readonly string target;
     public readonly int order;
+
     public MixinMethodAttribute(string target = null, int order = 0) {
       this.target = target;
       this.order = order;
@@ -86,7 +87,7 @@ namespace HELIX.Context {
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
     public const string ConfigureComponent = "$ConfigureComponent";
 
-    public const string ComponentLoad = "^LoadComponent";
+    public const string ComponentLoad = "^LoadComponent:HELIX.Context.ComponentLoadMethod";
     public const string ComponentUnload = "^UnloadComponent";
 
     public const string RegistrationConfiguratorDelegate = "^*~HELIX.Context.RegistrationConfigurator";
@@ -101,5 +102,12 @@ namespace HELIX.Context {
     public const string MonoEnable = "OnEnable";
     public const string MonoDisable = "OnDisable";
     public const string MonoValidate = "OnValidate";
+  }
+
+  [AttributeUsage(AttributeTargets.Assembly)]
+  public class MixinConfigurationAttribute : Attribute {
+    public MixinConfigurationAttribute(
+      Type[] candidateTypes = null
+    ) { }
   }
 }

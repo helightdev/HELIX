@@ -21,6 +21,10 @@ internal sealed class ImplicitMixinValue {
   internal object Value { get; }
 }
 
+internal sealed record MixinTargetSyntax(
+  string Name, bool IsStatic, bool IsPublic, string DelegateType
+);
+
 internal sealed class RoslynMixinExpressionContext :
   IMixinExpressionContext, IMixinExpressionSignatureContext {
   private static readonly SymbolDisplayFormat FullNameDisplayFormat =
@@ -115,15 +119,14 @@ internal sealed class RoslynMixinExpressionContext :
   public bool TryResolveMixin(string target, out string callable, out string error) {
     error = null;
     callable = null;
-    var raw = target?.Trim();
-    while (!string.IsNullOrEmpty(raw) && raw[0] is '*' or '^') raw = raw.Substring(1);
-    if (!string.IsNullOrEmpty(raw) && raw[0] == '~') {
-      var delegateType = ResolveType(raw.Substring(1));
+    var syntax = ParseMixinTarget(target, _targetDefinitions);
+    if (!string.IsNullOrEmpty(syntax.DelegateType)) {
+      var delegateType = ResolveType(syntax.DelegateType);
       if (delegateType is { TypeKind: TypeKind.Delegate })
         callable = delegateType.ToDisplayString(TypeDisplayFormat);
       return true;
     }
-    var name = NormalizeMixinTarget(target);
+    var name = syntax.Name;
     if (string.IsNullOrEmpty(name)) return true;
     var resolvedDelegate = ResolveType(name);
     if (resolvedDelegate is { TypeKind: TypeKind.Delegate }) {
@@ -597,15 +600,51 @@ internal sealed class RoslynMixinExpressionContext :
         yield return method;
   }
 
-  private string NormalizeMixinTarget(string target) {
-    if (string.IsNullOrWhiteSpace(target)) return null;
-    var value = target.Trim();
-    while (value.Length != 0 && value[0] is '*' or '^') value = value.Substring(1);
-    if (value.Length == 0) return null;
-    if (_targetDefinitions is not null && _targetDefinitions.TryGetValue(value, out var defined))
-      return NormalizeMixinTarget(defined);
-    if (value[0] == '~') return value.Substring(1);
-    return value switch { "$Init" => "Awake", "$Dispose" => "OnDestroy", _ => value };
+  internal static MixinTargetSyntax ParseMixinTarget(
+    string target,
+    IReadOnlyDictionary<string, string> targetDefinitions = null
+  ) {
+    var value = target?.Trim() ?? "";
+    if (targetDefinitions is not null && targetDefinitions.TryGetValue(value, out var defined))
+      return ParseMixinTarget(defined, targetDefinitions);
+
+    var isStatic = false;
+    var isPublic = false;
+    while (value.Length != 0) {
+      if (value[0] == '*' && !isStatic) {
+        isStatic = true;
+        value = value.Substring(1);
+        continue;
+      }
+      if (value[0] == '^' && !isPublic) {
+        isPublic = true;
+        value = value.Substring(1);
+        continue;
+      }
+      break;
+    }
+
+    string name;
+    string delegateType = null;
+    if (value.StartsWith("~", StringComparison.Ordinal)) {
+      delegateType = value.Substring(1);
+      var normalized = delegateType.StartsWith("global::", StringComparison.Ordinal)
+        ? delegateType.Substring("global::".Length)
+        : delegateType;
+      var separator = Math.Max(normalized.LastIndexOf('.'), normalized.LastIndexOf('+'));
+      name = separator < 0 ? normalized : normalized.Substring(separator + 1);
+    } else {
+      var separator = value.IndexOf(':');
+      if (separator >= 0) {
+        name = value.Substring(0, separator);
+        delegateType = value.Substring(separator + 1);
+      } else {
+        name = value;
+      }
+    }
+
+    name = name switch { "$Init" => "Awake", "$Dispose" => "OnDestroy", _ => name };
+    return new MixinTargetSyntax(name, isStatic, isPublic, delegateType);
   }
 
   private static string CallableReference(IMethodSymbol method) {

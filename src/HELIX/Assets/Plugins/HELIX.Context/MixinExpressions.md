@@ -204,6 +204,11 @@ of the method prefix by `~`. Example: `~HELIX.Context.RegistrationConfigurator`
 This syntax also supports methods with parameters which are otherwise unsupported. The delegate reference-based declaration
 is compatible with the static modifier, allowing `*~HELIX.Context.RegistrationConfigurator` as well. 
 
+Otherwise, general targets can be described by a delegate, but a different name as follows:
+`^*Configure:HELIX.Context.RegistrationConfigurator`
+where modifiers and the name are at the beginning of the expression,
+with the type being delayed and specified after the `:`.
+
 ## Functions
 
 Functions can be declared and called using `@FUNC` and `@CALL` respectively. 

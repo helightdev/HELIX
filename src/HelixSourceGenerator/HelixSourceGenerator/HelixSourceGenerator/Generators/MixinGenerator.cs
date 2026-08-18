@@ -324,7 +324,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       IReadOnlyDictionary<string, string> targetDefinitions,
       MixinExpressionResult expressionResult
     ) {
-      var targetSyntax = ParseTarget(target, targetDefinitions);
+      var targetSyntax = RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions);
       EmittedTarget = targetSyntax.Name;
       IsStaticTarget = targetSyntax.IsStatic;
       IsPublicTarget = targetSyntax.IsPublic;
@@ -374,7 +374,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       int order,
       IReadOnlyDictionary<string, string> targetDefinitions
     ) {
-      var targetSyntax = ParseTarget(target, targetDefinitions);
+      var targetSyntax = RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions);
       Target = target;
       EmittedTarget = targetSyntax.Name;
       Order = order;
@@ -385,8 +385,6 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     internal int Order { get; }
     internal List<MixinExpressionOutput> Outputs { get; set; }
   }
-
-  private sealed record TargetSyntax(string Name, bool IsStatic, bool IsPublic, string DelegateType);
 
   private sealed class ImplicitMixinAttribute {
     private ImplicitMixinAttribute(
@@ -914,45 +912,11 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   }
 
 
-  private static TargetSyntax ParseTarget(
-    string target,
-    IReadOnlyDictionary<string, string> targetDefinitions = null
-  ) {
-    var value = target ?? "";
-    if (targetDefinitions is not null && targetDefinitions.TryGetValue(value, out var defined)) value = defined ?? "";
-    var isStatic = false;
-    var isPublic = false;
-    while (value.Length != 0) {
-      if (value[0] == '*' && !isStatic) {
-        isStatic = true;
-        value = value.Substring(1);
-        continue;
-      }
-      if (value[0] == '^' && !isPublic) {
-        isPublic = true;
-        value = value.Substring(1);
-        continue;
-      }
-      break;
-    }
-    string delegateType = null;
-    if (value.StartsWith("~", StringComparison.Ordinal)) {
-      delegateType = value.Substring(1);
-      var normalized = delegateType.StartsWith("global::", StringComparison.Ordinal)
-        ? delegateType.Substring("global::".Length)
-        : delegateType;
-      var separator = Math.Max(normalized.LastIndexOf('.'), normalized.LastIndexOf('+'));
-      value = separator < 0 ? normalized : normalized.Substring(separator + 1);
-    }
-    var emitted = value switch { "$Init" => "Awake", "$Dispose" => "OnDestroy", _ => value };
-    return new TargetSyntax(emitted, isStatic, isPublic, delegateType);
-  }
-
   private static string EmittedTarget(
     string target,
     IReadOnlyDictionary<string, string> targetDefinitions = null
   ) {
-    return ParseTarget(target, targetDefinitions).Name;
+    return RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions).Name;
   }
 
   private static List<GeneratedMethod> BuildMethods(

@@ -3,9 +3,11 @@ using System;
 namespace HELIX.Context {
   public interface IComponent {
     RuntimeComponentData ComponentBinding { get; }
-    void LoadComponent() { }
+    void LoadComponent(ComponentLoadContext context) { }
     void UnloadComponent() { }
   }
+
+  public delegate void ComponentLoadMethod(ComponentLoadContext context);
 
   public sealed class RuntimeComponentData {
     public ManagedScope scope;

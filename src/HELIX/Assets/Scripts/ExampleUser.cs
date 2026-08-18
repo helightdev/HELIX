@@ -60,6 +60,7 @@ namespace HELIX.Context {
     [Ticker("10s")]
     private void MyTickerFunc() {
       Debug.Log("This runs every 10 seconds!"); //
+
     }
 
     [Ticker]
@@ -72,7 +73,9 @@ namespace HELIX.Context {
     private void OnTestEvent(ref TestEvent evt) { }
 
     [EventHandler]
-    private void OnTestAsync(TestAsyncEvt evt) { }
+    private void OnTestAsync(TestAsyncEvt evt) {
+
+    }
 
     [EventHandler]
     private void OnComponentLoadEvt(ComponentLoadEvent evt) {
@@ -80,7 +83,7 @@ namespace HELIX.Context {
     }
 
     [MixinMethod(MixinOn.ComponentLoad)]
-    private void OnComponentLoad() {
+    private void OnComponentLoad(ComponentLoadContext context) {
 
     }
   }

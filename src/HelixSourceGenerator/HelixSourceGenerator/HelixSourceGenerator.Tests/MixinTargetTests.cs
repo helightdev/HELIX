@@ -98,6 +98,37 @@ public sealed class MixinTargetTests {
   }
 
   [Fact]
+  public void NamedDelegateTargetUsesTheSpecifiedNameAndDelegateSignature() {
+    var result = Run(
+      """
+      using System;
+      namespace HELIX.Context {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
+        }
+      }
+      namespace DemoApi {
+        public delegate void RegistrationConfigurator(ref int value, string name);
+      }
+      [HELIX.Context.MixinExpression("@MIXIN<^*Configure:DemoApi.RegistrationConfigurator> Contribute(ref value)")]
+      [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
+      [HELIX.Context.EnableMixins, Configure]
+      public partial class Demo {
+        private static void Contribute(ref int value) { }
+      }
+      """
+    );
+
+    Assert.Empty(result.GeneratorDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Empty(result.CompilationDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Contains("public static void Configure(", result.Generated);
+    Assert.Contains("ref global::System.Int32 value", result.Generated);
+    Assert.Contains("global::System.String name", result.Generated);
+    Assert.Contains("Contribute(ref value);", result.Generated);
+  }
+
+  [Fact]
   public void StaticInterfaceExpressionCanResolveTheContainingType() {
     var result = Run(
       """
