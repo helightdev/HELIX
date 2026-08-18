@@ -57,29 +57,36 @@ namespace HELIX.Context {
 
     private static IEnumerable<ComponentDependency> EnumerateImplicitScripted(
       IEnumerable<ComponentRegistration> entries,
-      InitializationStage stage
+      int phase
     ) => entries
       .SelectMany(static x => x.dependencies)
-      .Where(x => x.IsScripted && x.scripted.Stage == stage && x.flags.HasFlag(DependencyFlags.ImplicitLoadable))
+      .Where(x => x.IsScripted && x.scripted.Phase == phase && x.flags.HasFlag(DependencyFlags.ImplicitLoadable))
       .OrderBy(static x => x.scripted.Order);
 
+    private static IEnumerable<int> EnumeratePhases(IEnumerable<ComponentRegistration> entries) {
+      return entries
+        .Select(static entry => entry.phase)
+        .Concat(entries.SelectMany(static entry => entry.dependencies)
+          .Where(static dependency => dependency.IsScripted)
+          .Select(static dependency => dependency.scripted.Phase))
+        .Append(InitPhase.PreInit)
+        .Append(InitPhase.Normal)
+        .Append(InitPhase.PostInit)
+        .Distinct()
+        .OrderBy(static phase => phase);
+    }
+
     private static bool CanProvide(ComponentRegistration entry, ComponentDependency dependency) {
-      if (dependency.IsTyped) {
-        return entry.keys.Contains(dependency.key) || entry.publications.Any(publication =>
-          publication.IsTyped && publication.key.Equals(dependency.key)
-        );
-      }
-      return dependency.flags.HasFlag(DependencyFlags.Wirable) && entry.publications.Any(publication =>
-        publication.flags.HasFlag(DependencyFlags.Wirable) && publication.wireKey == dependency.wireKey
-      );
+      return RegistrarGraph.CanProvide(entry, dependency);
     }
 
     private static bool HasPendingProvider(
       ComponentRegistration consumer,
       ComponentDependency dependency,
-      IReadOnlyCollection<ComponentRegistration> pending
+      IReadOnlyCollection<ComponentRegistration> pending,
+      int phase
     ) {
-      var count = pending.Count(entry => CanProvide(entry, dependency));
+      var count = pending.Count(entry => entry.phase <= phase && CanProvide(entry, dependency));
       return count > (CanProvide(consumer, dependency) ? 1 : 0);
     }
 
@@ -87,13 +94,14 @@ namespace HELIX.Context {
       ManagedScope managed,
       ComponentRegistration entry,
       IReadOnlyCollection<ComponentRegistration> pending,
-      InitializationStage stage
+      int phase
     ) {
+      if (entry.phase > phase) return false;
       if (!RequiredDependenciesSatisfied(managed, entry, pending)) return false;
       return entry.dependencies.All(dependency =>
-        !HasPendingProvider(entry, dependency, pending) &&
+        !HasPendingProvider(entry, dependency, pending, phase) &&
         !(dependency.IsScripted && dependency.flags.HasFlag(DependencyFlags.ImplicitLoadable) &&
-          dependency.scripted.Stage > stage && !managed.IsDependencyAvailable(dependency))
+          dependency.scripted.Phase > phase && !managed.IsDependencyAvailable(dependency))
       );
     }
 
@@ -111,10 +119,11 @@ namespace HELIX.Context {
 
     private static bool RemoveUnavailableOptionalComponents(
       ManagedScope managed,
-      List<ComponentRegistration> pending
+      List<ComponentRegistration> pending,
+      int phase
     ) {
       var unavailable = pending.Where(entry =>
-          entry.optional && !RequiredDependenciesSatisfied(managed, entry, pending)
+          entry.phase <= phase && entry.optional && !RequiredDependenciesSatisfied(managed, entry, pending)
         )
         .ToList();
       foreach (var entry in unavailable) pending.Remove(entry);
@@ -267,9 +276,9 @@ namespace HELIX.Context {
           }
         }
         var pending = new List<ComponentRegistration>(entries);
-        foreach (InitializationStage stage in Enum.GetValues(typeof(InitializationStage))) {
-          LoadScriptedDependenciesSync(managed, entries, stage);
-          if (stage != InitializationStage.PreInit) LoadEligibleSync(managed, pending, stage);
+        foreach (var phase in EnumeratePhases(entries)) {
+          LoadScriptedDependenciesSync(managed, entries, phase);
+          LoadEligibleSync(managed, pending, phase);
         }
         EnsureFullyLoaded(managed, pending);
       } finally {
@@ -280,15 +289,15 @@ namespace HELIX.Context {
     private void LoadScriptedDependenciesSync(
       ManagedScope managed,
       IEnumerable<ComponentRegistration> entries,
-      InitializationStage stage
+      int phase
     ) {
-      foreach (var dependency in EnumerateImplicitScripted(entries, stage)) {
+      foreach (var dependency in EnumerateImplicitScripted(entries, phase)) {
         if (managed.IsScriptedLoaded(dependency.scripted) || managed.IsDependencyAvailable(dependency)) continue;
         var result = dependency.scripted.Load(new ComponentLoadContext(_container, managed, null, this));
         if (!result.success) {
           if (dependency.flags.HasFlag(DependencyFlags.Required)) {
             throw new ComponentInitializationException(
-              $"Scripted dependency '{dependency.wireKey}' failed during {stage}."
+              $"Scripted dependency '{dependency.wireKey}' failed during phase {phase}."
             );
           }
           continue;
@@ -301,15 +310,13 @@ namespace HELIX.Context {
     private void LoadEligibleSync(
       ManagedScope managed,
       List<ComponentRegistration> pending,
-      InitializationStage stage
+      int phase
     ) {
       var iteration = 0;
       while (true) {
         if (pending.Count == 0) return;
         EnsureIterationAvailable(iteration++, managed);
-        var eligible = pending.Where(entry => CanLoadWithoutDelay(managed, entry, pending, stage))
-          .OrderBy(static x => x.order)
-          .ThenBy(static x => x.name, StringComparer.Ordinal)
+        var eligible = pending.Where(entry => CanLoadWithoutDelay(managed, entry, pending, phase))
           .ToList();
         if (eligible.Count > 0) {
           foreach (var entry in eligible) {
@@ -318,12 +325,10 @@ namespace HELIX.Context {
           }
           continue;
         }
-        if (stage != InitializationStage.PostInit) return;
-        if (RemoveUnavailableOptionalComponents(managed, pending)) continue;
-        var fallback = pending.Where(entry => RequiredDependenciesSatisfied(managed, entry, pending))
-          .OrderBy(static x => x.order)
-          .ThenBy(static x => x.name, StringComparer.Ordinal)
-          .FirstOrDefault();
+        if (RemoveUnavailableOptionalComponents(managed, pending, phase)) continue;
+        var fallback = RegistrarGraph.OrderFallbackCandidates(
+          pending.Where(entry => entry.phase <= phase && RequiredDependenciesSatisfied(managed, entry, pending))
+        ).FirstOrDefault();
         if (fallback == null) return;
         LoadRegistrationSync(managed, fallback);
         pending.Remove(fallback);
@@ -361,13 +366,11 @@ namespace HELIX.Context {
         managed.AddBindings(bindings);
         var entries = EntriesFor(managed, contributions, componentTypes);
         var pending = new List<ComponentRegistration>(entries);
-        foreach (InitializationStage stage in Enum.GetValues(typeof(InitializationStage))) {
-          await LoadScriptedDependenciesAsync(managed, entries, stage);
+        foreach (var phase in EnumeratePhases(entries)) {
+          await LoadScriptedDependenciesAsync(managed, entries, phase);
           RestoreActiveContext();
-          if (stage != InitializationStage.PreInit) {
-            await LoadEligibleAsync(managed, pending, stage);
-            RestoreActiveContext();
-          }
+          await LoadEligibleAsync(managed, pending, phase);
+          RestoreActiveContext();
         }
         EnsureFullyLoaded(managed, pending);
       } finally {
@@ -378,16 +381,16 @@ namespace HELIX.Context {
     private async UniTask LoadScriptedDependenciesAsync(
       ManagedScope managed,
       IEnumerable<ComponentRegistration> entries,
-      InitializationStage stage
+      int phase
     ) {
-      foreach (var dependency in EnumerateImplicitScripted(entries, stage)) {
+      foreach (var dependency in EnumerateImplicitScripted(entries, phase)) {
         if (managed.IsScriptedLoaded(dependency.scripted) || managed.IsDependencyAvailable(dependency)) continue;
         var result = await dependency.scripted.LoadAsync(new ComponentLoadContext(_container, managed, null, this));
         RestoreActiveContext();
         if (!result.success) {
           if (dependency.flags.HasFlag(DependencyFlags.Required)) {
             throw new ComponentInitializationException(
-              $"Scripted dependency '{dependency.wireKey}' failed during {stage}."
+              $"Scripted dependency '{dependency.wireKey}' failed during phase {phase}."
             );
           }
           continue;
@@ -400,15 +403,13 @@ namespace HELIX.Context {
     private async UniTask LoadEligibleAsync(
       ManagedScope managed,
       List<ComponentRegistration> pending,
-      InitializationStage stage
+      int phase
     ) {
       var iteration = 0;
       while (true) {
         if (pending.Count == 0) return;
         EnsureIterationAvailable(iteration++, managed);
-        var eligible = pending.Where(entry => CanLoadWithoutDelay(managed, entry, pending, stage))
-          .OrderBy(static x => x.order)
-          .ThenBy(static x => x.name, StringComparer.Ordinal)
+        var eligible = pending.Where(entry => CanLoadWithoutDelay(managed, entry, pending, phase))
           .ToList();
         if (eligible.Count > 0) {
           foreach (var entry in eligible) {
@@ -418,12 +419,10 @@ namespace HELIX.Context {
           }
           continue;
         }
-        if (stage != InitializationStage.PostInit) return;
-        if (RemoveUnavailableOptionalComponents(managed, pending)) continue;
-        var fallback = pending.Where(entry => RequiredDependenciesSatisfied(managed, entry, pending))
-          .OrderBy(static x => x.order)
-          .ThenBy(static x => x.name, StringComparer.Ordinal)
-          .FirstOrDefault();
+        if (RemoveUnavailableOptionalComponents(managed, pending, phase)) continue;
+        var fallback = RegistrarGraph.OrderFallbackCandidates(
+          pending.Where(entry => entry.phase <= phase && RequiredDependenciesSatisfied(managed, entry, pending))
+        ).FirstOrDefault();
         if (fallback == null) return;
         await LoadRegistrationAsync(managed, fallback);
         RestoreActiveContext();

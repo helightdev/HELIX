@@ -173,6 +173,91 @@ namespace HELIX.Context.Tests.Fixtures {
 
   public sealed class AsyncHandlerValue { }
 
+  public sealed class PhasedScriptedDependency : ScriptedDependency {
+    private readonly ICollection<string> _trace;
+
+    public PhasedScriptedDependency(int phase, ICollection<string> trace)
+      : base("phased-scripted-dependency", phase: phase) {
+      _trace = trace;
+    }
+
+    public override ComponentLoadResult Load(ComponentLoadContext context) {
+      _trace.Add("scripted");
+      return true;
+    }
+  }
+
+  public abstract class PipelineStage : IComponent {
+    private readonly string _input;
+    private readonly string _suffix;
+    private readonly string _name;
+    private readonly ICollection<string> _trace;
+
+    protected PipelineStage(string input, string suffix, string name, ICollection<string> trace) {
+      _input = input ?? string.Empty;
+      _suffix = suffix;
+      _name = name;
+      _trace = trace;
+    }
+
+    public RuntimeComponentData ComponentBinding { get; } = new();
+
+    public void LoadComponent(ComponentLoadContext context) => _trace.Add(_name);
+
+    public void LoadComponentLate(ComponentLoadContext context) =>
+      context.PublishProxy<string>(() => $"{_input}{_suffix}", "pipeline");
+  }
+
+  public sealed class FallbackPipelineStage : PipelineStage {
+    public FallbackPipelineStage(string input, ICollection<string> trace)
+      : base(input, "2;", "fallback", trace) { }
+  }
+
+  public sealed class FirstPipelineStage : PipelineStage {
+    public FirstPipelineStage(string input, ICollection<string> trace)
+      : base(input, "1;", "first-transformer", trace) { }
+  }
+
+  public sealed class SecondPipelineStage : PipelineStage {
+    public SecondPipelineStage(string input, ICollection<string> trace)
+      : base(input, "3;", "second-transformer", trace) { }
+  }
+
+  public sealed class PipelineConsumer {
+    public PipelineConsumer(string value, ICollection<string> trace) {
+      Value = value;
+      trace.Add("consumer");
+    }
+
+    public string Value { get; }
+  }
+
+  public sealed class CollectingPipelineStage : IComponent {
+    private readonly IReadOnlyList<string> _inputs;
+    private readonly ICollection<string> _trace;
+
+    public CollectingPipelineStage(IReadOnlyList<string> inputs, ICollection<string> trace) {
+      _inputs = inputs;
+      _trace = trace;
+    }
+
+    public RuntimeComponentData ComponentBinding { get; } = new();
+
+    public void LoadComponent(ComponentLoadContext context) => _trace.Add("collection-transformer");
+
+    public void LoadComponentLate(ComponentLoadContext context) =>
+      context.PublishProxy<string>(() => $"{string.Join(",", _inputs)};3", "pipeline");
+  }
+
+  public sealed class PipelineListConsumer {
+    public PipelineListConsumer(IReadOnlyList<string> values, ICollection<string> trace) {
+      Values = values;
+      trace.Add("collection-consumer");
+    }
+
+    public IReadOnlyList<string> Values { get; }
+  }
+
   public sealed class CycleA { }
   public sealed class CycleB { }
   public sealed class MissingDependency { }

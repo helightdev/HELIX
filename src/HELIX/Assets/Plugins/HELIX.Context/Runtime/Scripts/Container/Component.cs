@@ -73,6 +73,7 @@ namespace HELIX.Context {
 @USING HELIX.Context;
 @CODE<$ConfigureComponent> registration.name = ""@this:name"";
 @CODE<$ConfigureComponent> registration.optional = @attr#optional;
+@CODE<$ConfigureComponent> registration.phase = @attr#phase;
 @CODE<$ConfigureComponent> registration.order = @attr#order;
 @CODE<IMPLEMENTS> IComponent
 @CODE<CLASS> public RuntimeComponentData ComponentBinding { get; } = new();
@@ -102,7 +103,8 @@ namespace HELIX.Context {
     public ComponentAttribute(
       Type scope = null,
       bool optional = false,
-      int order = 0
+      int order = 0,
+      int phase = InitPhase.Normal
     ) { }
   }
 

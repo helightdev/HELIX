@@ -7,6 +7,126 @@ namespace HELIX.Context {
   internal sealed class RegistrarGraph {
     private ComponentRegistrations _registrations;
 
+    internal static bool PublicationMatches(
+      ComponentDependency publication,
+      ComponentDependency dependency
+    ) {
+      if (dependency.IsTyped)
+        return publication.IsTyped && publication.key.Equals(dependency.key);
+      return dependency.flags.HasFlag(DependencyFlags.Wirable) &&
+        publication.flags.HasFlag(DependencyFlags.Wirable) &&
+        publication.wireKey == dependency.wireKey;
+    }
+
+    internal static bool CanProvide(ComponentRegistration entry, ComponentDependency dependency) {
+      return dependency.IsTyped && entry.keys.Contains(dependency.key) ||
+        entry.publications.Any(publication => PublicationMatches(publication, dependency));
+    }
+
+    internal static int TransformerPriority(ComponentRegistration entry) {
+      var transformed = entry.dependencies.Where(dependency =>
+        entry.publications.Any(publication => PublicationMatches(publication, dependency))
+      ).ToList();
+      if (transformed.Count == 0) return 0;
+      return transformed.Any(static dependency => !dependency.IsCollection) ? 2 : 1;
+    }
+
+    internal static IOrderedEnumerable<ComponentRegistration> OrderFallbackCandidates(
+      IEnumerable<ComponentRegistration> entries
+    ) {
+      return entries
+        .OrderBy(static entry => entry.phase)
+        // Transformers always precede terminal consumers, regardless of component order.
+        .ThenByDescending(static entry => TransformerPriority(entry) > 0)
+        // Component order is authoritative among transformers (and among consumers).
+        .ThenBy(static entry => entry.order)
+        // At equal order, scalar transformers precede collection transformers.
+        .ThenByDescending(TransformerPriority)
+        .ThenBy(static entry => entry.name, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Produces the best statically knowable load order. Runtime availability is still checked by
+    /// <see cref="ScopeLoader"/>, but declared graphs and scope loading start from the same plan.
+    /// </summary>
+    internal static List<ComponentRegistration> Plan(IEnumerable<ComponentRegistration> registrations) {
+      var all = registrations.Distinct().ToList();
+      var pending = all
+        .OrderBy(static entry => entry.phase)
+        .ThenBy(static entry => entry.order)
+        .ThenBy(static entry => entry.name, StringComparer.Ordinal)
+        .ToList();
+      var loaded = new List<ComponentRegistration>();
+
+      bool IsGuaranteedAvailable(ComponentDependency dependency) {
+        return loaded.Any(entry =>
+          dependency.IsTyped && entry.keys.Contains(dependency.key) ||
+          entry.publications.Any(publication =>
+            publication.flags.HasFlag(DependencyFlags.Required) &&
+            PublicationMatches(publication, dependency)
+          )
+        );
+      }
+
+      bool RequiredDependenciesSatisfied(ComponentRegistration entry, int phase) {
+        return entry.dependencies.All(dependency => {
+          if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
+          if (dependency.IsScripted && dependency.flags.HasFlag(DependencyFlags.ImplicitLoadable))
+            return dependency.scripted.Phase <= phase;
+          var hasDeclaredProvider = all.Any(provider => CanProvide(provider, dependency));
+          return !hasDeclaredProvider || IsGuaranteedAvailable(dependency);
+        });
+      }
+
+      bool HasFutureScriptedDependency(ComponentRegistration entry, int phase) {
+        return entry.dependencies.Any(dependency =>
+          dependency.IsScripted && dependency.flags.HasFlag(DependencyFlags.ImplicitLoadable) &&
+          dependency.scripted.Phase > phase
+        );
+      }
+
+      bool HasPendingProvider(ComponentRegistration consumer, ComponentDependency dependency, int phase) {
+        var count = pending.Count(entry => entry.phase <= phase && CanProvide(entry, dependency));
+        return count > (CanProvide(consumer, dependency) ? 1 : 0);
+      }
+
+      foreach (var phase in all.Select(static entry => entry.phase)
+        .Concat(all.SelectMany(static entry => entry.dependencies)
+          .Where(static dependency => dependency.IsScripted)
+          .Select(static dependency => dependency.scripted.Phase))
+        .Append(InitPhase.PreInit)
+        .Append(InitPhase.Normal)
+        .Append(InitPhase.PostInit)
+        .Distinct()
+        .OrderBy(static phase => phase)) {
+        while (true) {
+          var available = pending.Where(entry => entry.phase <= phase).ToList();
+          if (available.Count == 0) break;
+          var next = available.FirstOrDefault(entry =>
+            RequiredDependenciesSatisfied(entry, phase) &&
+            !HasFutureScriptedDependency(entry, phase) &&
+            entry.dependencies.All(dependency => !HasPendingProvider(entry, dependency, phase))
+          );
+          next ??= OrderFallbackCandidates(available.Where(entry =>
+            RequiredDependenciesSatisfied(entry, phase) && !HasFutureScriptedDependency(entry, phase)
+          )).FirstOrDefault();
+          if (next == null) break;
+          pending.Remove(next);
+          loaded.Add(next);
+        }
+      }
+
+      // Retain a deterministic declaration for structurally unresolved cycles. The runtime
+      // loader remains responsible for rejecting them if no scope binding can break the cycle.
+      while (pending.Count > 0) {
+        var next = OrderFallbackCandidates(pending).First();
+        pending.Remove(next);
+        loaded.Add(next);
+      }
+
+      return loaded;
+    }
+
     public ComponentRegistrations Prepare(ComponentRegistrations registrations) {
       if (registrations == null) throw new ArgumentNullException(nameof(registrations));
       foreach (var pair in registrations.components) {
@@ -55,7 +175,6 @@ namespace HELIX.Context {
         .Concat(contributions ?? Enumerable.Empty<ComponentRegistration>())
         .Distinct()
         .Where(entry => include?.Invoke(entry) ?? true)
-        .OrderBy(static entry => entry.name, StringComparer.Ordinal)
         .ToList();
       var providers = new HashSet<TypeKey>();
       foreach (var entry in entries) {
@@ -87,7 +206,7 @@ namespace HELIX.Context {
           );
         }
       }
-      return entries;
+      return Plan(entries);
     }
 
     public bool HasLocalProvider(IEnumerable<ComponentRegistration> entries, ComponentDependency dependency) {

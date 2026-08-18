@@ -335,6 +335,135 @@ namespace HELIX.Context.Tests {
     }
 
     [Test]
+    public void PipelineTransformersRunBeforeAnAlreadyEligibleConsumer() {
+      var trace = new List<string>();
+      var registrations = PipelineRegistrations(trace);
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] {
+        "fallback", "first-transformer", "second-transformer", "consumer"
+      }));
+      Assert.That(scope.Resolve<PipelineConsumer>().Value, Is.EqualTo("2;1;3;"));
+    }
+
+    [Test]
+    public async Task AsyncPipelineTransformersRunBeforeAnAlreadyEligibleConsumer() {
+      var trace = new List<string>();
+      var container = CreateContainer(PipelineRegistrations(trace));
+
+      await container.StartApplication();
+
+      Assert.That(trace, Is.EqualTo(new[] {
+        "fallback", "first-transformer", "second-transformer", "consumer"
+      }));
+      Assert.That(container.Application.Resolve<PipelineConsumer>().Value, Is.EqualTo("2;1;3;"));
+    }
+
+    [Test]
+    public void EqualOrderCollectionTransformerRunsAfterScalarTransformersAndBeforeConsumers() {
+      var trace = new List<string>();
+      var registrations = CollectionPipelineRegistrations(trace);
+      var declared = new ProseTextWriter(wrapWidth: 1000);
+
+      ComponentGraphProse.WriteDeclared(declared, registrations);
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] {
+        "fallback", "first-transformer", "collection-transformer", "collection-consumer"
+      }));
+      Assert.That(scope.Resolve<PipelineListConsumer>().Values, Is.EqualTo(new[] {
+        "2;", "2;1;", "2;,2;1;;3"
+      }));
+      AssertInOrder(declared.ToString(),
+        nameof(FallbackPipelineStage),
+        nameof(FirstPipelineStage),
+        nameof(CollectingPipelineStage),
+        nameof(PipelineListConsumer));
+    }
+
+    [Test]
+    public void LowerOrderCollectionTransformerRunsBeforeScalarTransformersButNotConsumers() {
+      var trace = new List<string>();
+      var registrations = CollectionPipelineRegistrations(trace, collectionOrder: -10);
+      var declared = new ProseTextWriter(wrapWidth: 1000);
+
+      ComponentGraphProse.WriteDeclared(declared, registrations);
+      CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] {
+        "collection-transformer", "fallback", "first-transformer", "collection-consumer"
+      }));
+      AssertInOrder(declared.ToString(),
+        nameof(CollectingPipelineStage),
+        nameof(FallbackPipelineStage),
+        nameof(FirstPipelineStage),
+        nameof(PipelineListConsumer));
+    }
+
+    [Test]
+    public void GeneratedListInjectionIsMarkedAsACollectionDependency() {
+      var registration = new ComponentRegistration(typeof(GeneratedListInjectionComponent));
+
+      GeneratedListInjectionComponent.RegistrationConfigurator(registration);
+
+      Assert.That(registration.dependencies, Has.Count.EqualTo(1));
+      Assert.That(registration.dependencies[0].IsCollection, Is.True);
+      Assert.That(registration.dependencies[0].flags.HasFlag(DependencyFlags.Required), Is.False);
+    }
+
+    [Test]
+    public void EarlierPhaseCanForceAnOptionalConsumerAheadOfALaterProvider() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new OptionalProviderConsumer(context.ResolveOptional<IProvider>(), trace))
+        .OptionallyRequires<IProvider>()
+        .phase = -100;
+      registrations.Add(_ => new Provider(trace)).Exposes<IProvider>().phase = 100;
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "optional-consumer", "primary" }));
+      Assert.That(scope.Resolve<OptionalProviderConsumer>().Provider, Is.Null);
+    }
+
+    [Test]
+    public void EarlierPhaseCannotBypassARequiredDependencyFromALaterPhase() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
+        .Requires<IProvider>()
+        .phase = -100;
+      registrations.Add(_ => new Provider(trace)).Exposes<IProvider>().phase = 100;
+
+      CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "primary", "consumer" }));
+    }
+
+    [Test]
+    public void ArbitraryScriptedDependencyPhaseParticipatesInLoading() {
+      var trace = new List<string>();
+      var dependency = new PhasedScriptedDependency(125, trace);
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new RecordingComponent(trace, "component"))
+        .Dependency(new ComponentDependency(dependency, true));
+
+      CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "scripted", "component:load" }));
+    }
+
+    [Test]
+    public void GeneratedComponentAttributeConfiguresAnIntegerPhase() {
+      var registration = new ComponentRegistration(typeof(GeneratedPhasedComponent));
+
+      GeneratedPhasedComponent.RegistrationConfigurator(registration);
+
+      Assert.That(registration.phase, Is.EqualTo(-250));
+    }
+
+    [Test]
     public void OptionalComponentIsOmittedWhenRequiredDependencyNeverAppears() {
       var registrations = new ComponentRegistrations();
       registrations.Add<OptionalProviderConsumer>(_ =>
@@ -799,20 +928,35 @@ namespace HELIX.Context.Tests {
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
         .Optional()
         .Requires<IProvider>();
-      var declared = new ProseTextWriter();
+      var declared = new ProseTextWriter(wrapWidth: 1000);
 
       ComponentGraphProse.WriteDeclared(declared, registrations);
       var container = CreateContainer(registrations);
       container.StartApplicationSync();
-      var live = new ProseTextWriter();
+      var live = new ProseTextWriter(wrapWidth: 1000);
       ComponentGraphProse.WriteLive(live, container);
 
       Assert.That(declared.ToString(), Does.Contain("Declared dependency graph"));
-      Assert.That(declared.ToString(), Does.Contain("IProvider"));
+      Assert.That(declared.ToString(), Does.Contain(new TypeKey(typeof(IProvider), null).CreateWireKey()));
       Assert.That(declared.ToString(), Does.Contain("optional"));
       Assert.That(live.ToString(), Does.Contain("Live dependency graph"));
       Assert.That(live.ToString(), Does.Contain("ApplicationScope [Active]"));
-      Assert.That(live.ToString(), Does.Contain("Provider"));
+      Assert.That(live.ToString(), Does.Contain(new TypeKey(typeof(IProvider), null).CreateWireKey()));
+    }
+
+    [Test]
+    public void DeclaredGraphUsesThePlannedTransformerPipelineOrder() {
+      var writer = new ProseTextWriter();
+
+      ComponentGraphProse.WriteDeclared(writer, PipelineRegistrations(new List<string>()));
+
+      var graph = writer.ToString();
+      Assert.That(graph.IndexOf(nameof(FallbackPipelineStage), StringComparison.Ordinal),
+        Is.LessThan(graph.IndexOf(nameof(FirstPipelineStage), StringComparison.Ordinal)));
+      Assert.That(graph.IndexOf(nameof(FirstPipelineStage), StringComparison.Ordinal),
+        Is.LessThan(graph.IndexOf(nameof(SecondPipelineStage), StringComparison.Ordinal)));
+      Assert.That(graph.IndexOf(nameof(SecondPipelineStage), StringComparison.Ordinal),
+        Is.LessThan(graph.IndexOf(nameof(PipelineConsumer), StringComparison.Ordinal)));
     }
 
     private static ComponentRegistrations LateBindingRegistrations(
@@ -825,6 +969,61 @@ namespace HELIX.Context.Tests {
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
         .Requires<IProvider>();
       return registrations;
+    }
+
+    private static ComponentRegistrations PipelineRegistrations(ICollection<string> trace) {
+      const string pipeline = "pipeline";
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new PipelineConsumer(context.Resolve<string>(pipeline), trace))
+        .Requires<string>(pipeline)
+        .order = -100;
+      registrations.Add(context => new FallbackPipelineStage(context.ResolveOptional<string>(pipeline), trace))
+        .OptionallyRequires<string>(pipeline)
+        .Publishes<string>(pipeline)
+        .order = 0;
+      registrations.Add(context => new FirstPipelineStage(context.Resolve<string>(pipeline), trace))
+        .Requires<string>(pipeline)
+        .Publishes<string>(pipeline)
+        .order = 10;
+      registrations.Add(context => new SecondPipelineStage(context.Resolve<string>(pipeline), trace))
+        .Requires<string>(pipeline)
+        .Publishes<string>(pipeline)
+        .order = 20;
+      return registrations;
+    }
+
+    private static ComponentRegistrations CollectionPipelineRegistrations(
+      ICollection<string> trace,
+      int collectionOrder = 0
+    ) {
+      const string pipeline = "pipeline";
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new PipelineListConsumer(context.ResolveAll<string>(pipeline), trace))
+        .Collects<string>(pipeline)
+        .order = -300;
+      registrations.Add(context =>
+          new CollectingPipelineStage(context.ResolveAll<string>(pipeline), trace))
+        .Collects<string>(pipeline)
+        .Publishes<string>(pipeline)
+        .order = collectionOrder;
+      registrations.Add(context => new FallbackPipelineStage(context.ResolveOptional<string>(pipeline), trace))
+        .OptionallyRequires<string>(pipeline)
+        .Publishes<string>(pipeline)
+        .order = 0;
+      registrations.Add(context => new FirstPipelineStage(context.Resolve<string>(pipeline), trace))
+        .Requires<string>(pipeline)
+        .Publishes<string>(pipeline)
+        .order = 0;
+      return registrations;
+    }
+
+    private static void AssertInOrder(string text, params string[] values) {
+      var previous = -1;
+      foreach (var value in values) {
+        var current = text.IndexOf(value, StringComparison.Ordinal);
+        Assert.That(current, Is.GreaterThan(previous), $"Expected '{value}' after the preceding graph entry.");
+        previous = current;
+      }
     }
   }
 }

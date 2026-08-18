@@ -74,4 +74,7 @@ namespace HELIX.Context.Tests.Fixtures {
   [Component(typeof(ApplicationScope), optional: true)]
   [AlwaysEnabled]
   public partial class GeneratedConditionalComponent { }
+
+  [Component(typeof(ApplicationScope), optional: true, phase: -250)]
+  public partial class GeneratedPhasedComponent { }
 }

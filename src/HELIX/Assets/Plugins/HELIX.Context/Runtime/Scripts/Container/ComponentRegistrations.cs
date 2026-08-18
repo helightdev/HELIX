@@ -60,7 +60,7 @@ namespace HELIX.Context {
     }
 
     public string CreateWireKey() {
-      return type.AssemblyQualifiedName + (qualifier != null ? $"|{qualifier}" : "");
+      return type.FullName + (qualifier != null ? $"|{qualifier}" : "");
     }
 
     public override string ToString() {
@@ -70,7 +70,13 @@ namespace HELIX.Context {
 
   [Flags]
   public enum DependencyFlags {
-    None = 0, Wirable = 1 << 0, Async = 1 << 1, Scripted = 1 << 2, Required = 1 << 3, ImplicitLoadable = 1 << 4
+    None = 0,
+    Wirable = 1 << 0,
+    Async = 1 << 1,
+    Scripted = 1 << 2,
+    Required = 1 << 3,
+    ImplicitLoadable = 1 << 4,
+    Collection = 1 << 5
   }
 
   public readonly struct ComponentDependency {
@@ -81,14 +87,16 @@ namespace HELIX.Context {
 
     public bool IsScripted => scripted != null;
     public bool IsTyped => key.type != null;
+    public bool IsCollection => flags.HasFlag(DependencyFlags.Collection);
 
-    public ComponentDependency(TypeKey key, bool required) {
+    public ComponentDependency(TypeKey key, bool required, bool collection = false) {
       if (key.type == null) throw new ArgumentException("A typed dependency requires a type.", nameof(key));
       this.key = key;
       wireKey = key.CreateWireKey();
       scripted = null;
       flags = DependencyFlags.Wirable;
       if (required) flags |= DependencyFlags.Required;
+      if (collection) flags |= DependencyFlags.Collection;
     }
 
     public ComponentDependency(IScriptedDependency scripted, bool required) {
@@ -168,7 +176,7 @@ namespace HELIX.Context {
   public interface IScriptedDependency : IComponentLoadable {
     int Order { get; }
     DependencyFlags Flags { get; }
-    InitializationStage Stage { get; }
+    int Phase { get; }
     string WireKey { get; }
   }
 
@@ -184,28 +192,28 @@ namespace HELIX.Context {
 
     public int Order { get; }
     public DependencyFlags Flags { get; }
-    public InitializationStage Stage { get; }
+    public int Phase { get; }
     public string WireKey { get; protected set; }
 
     protected ScriptedDependency(
       int order = 0,
       DependencyFlags flags = DependencyFlags.Wirable | DependencyFlags.ImplicitLoadable,
-      InitializationStage stage = InitializationStage.PreInit
+      int phase = InitPhase.PreInit
     ) {
       Order = order;
       Flags = flags | DependencyFlags.Scripted;
-      Stage = stage;
+      Phase = phase;
     }
 
     protected ScriptedDependency(
       string wireKey,
       int order = 0,
       DependencyFlags flags = DependencyFlags.Wirable | DependencyFlags.ImplicitLoadable,
-      InitializationStage stage = InitializationStage.PreInit
+      int phase = InitPhase.PreInit
     ) {
       Order = order;
       Flags = flags | DependencyFlags.Scripted;
-      Stage = stage;
+      Phase = phase;
       WireKey = wireKey;
     }
 
@@ -238,7 +246,14 @@ namespace HELIX.Context {
     }
   }
 
-  public enum InitializationStage { PreInit, Init, PostInit }
+  public static class InitPhase {
+    public const int PreInit = -1000;
+    public const int Early = -100;
+    public const int Configuration = -50;
+    public const int Normal = 0;
+    public const int Late = 100;
+    public const int PostInit = 1000;
+  }
 
   public sealed class ComponentRegistration : IComponentLoadable {
     public readonly Type type;
@@ -251,6 +266,7 @@ namespace HELIX.Context {
 
     public Type scope; // Associated scope type
     public string name;
+    public int phase = InitPhase.Normal;
     public int order = 0;
     public bool optional;
     public ComponentActivator activator;

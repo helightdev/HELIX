@@ -168,7 +168,7 @@ using HELIX.Context;
 @FUNC<InjectDiImplList>
   @USING System.Collections.Generic;
   @ASSERT @target:type#0:?class
-  @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type#0), @attr#qualifier), false));
+  @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type#0), @attr#qualifier), false, true));
   @CODE<$Init> @target:name = ComponentBinding.ResolveAll<@target:type#0>(@attr#qualifier) as @target:type;
 @END
 "

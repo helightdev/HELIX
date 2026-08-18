@@ -17,7 +17,7 @@ namespace HELIX.Context {
           .OrderBy(static group => group.Key == null ? "" : TypeName(group.Key), StringComparer.Ordinal)) {
           using (writer.Tree()) {
             writer.Name(group.Key == null ? "Unscoped" : TypeName(group.Key));
-            foreach (var entry in group.OrderBy(static entry => entry.name, StringComparer.Ordinal))
+            foreach (var entry in RegistrarGraph.Plan(group))
               WriteDeclaredEntry(writer, entry);
           }
         }
@@ -73,15 +73,11 @@ namespace HELIX.Context {
     }
 
     private static string FormatDependency(ComponentDependency dependency) {
-      return dependency.IsTyped
-        ? FormatKey(dependency.key)
-        : dependency.wireKey ?? dependency.scripted?.GetType().FullName ?? "<unwired>";
+      return dependency.wireKey ?? "<unwired>";
     }
 
     private static string FormatKey(TypeKey key) {
-      return key.qualifier == null
-        ? TypeName(key.type)
-        : $"{TypeName(key.type)} | {key.qualifier}";
+      return key.CreateWireKey();
     }
 
     private static string TypeName(Type type) {

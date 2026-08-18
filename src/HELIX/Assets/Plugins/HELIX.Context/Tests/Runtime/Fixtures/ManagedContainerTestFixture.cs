@@ -85,7 +85,9 @@ namespace HELIX.Context.Tests.Fixtures {
       this ComponentRegistration registration,
       string qualifier = null
     ) {
-      return registration.OptionallyRequires<T>(qualifier);
+      return registration.Dependency(
+        new ComponentDependency(new TypeKey(typeof(T), qualifier), false, true)
+      );
     }
 
     public static ComponentRegistration Publishes<T>(
