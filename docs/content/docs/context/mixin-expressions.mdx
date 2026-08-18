@@ -1,0 +1,114 @@
+---
+title: Mixin Expressions
+description: Reference for the Context generator's custom mixin expression language.
+icon: CodeXml
+---
+
+Mixin expressions are small generator programs supplied to
+<FREntitySymbolLink uid="MixinExpressionAttribute" /> or assembly-level
+<FREntityCodeLink uid="MixinPrepareGlobalAttribute" /> declarations. They inspect compiler symbols
+and attributes, choose matching paths, then buffer generated C# which is applied only after the
+expression succeeds. This is a generator language, not runtime C#.
+
+## Values and member paths
+
+The main values are `@this` (containing type), `@target` (annotated target), `@attr` (the declaring
+attribute), `@arg` (method argument), `@local` (execution-local data), `@var` (per-mixin generation
+data), `@param` (a function call value), and literals `@true`, `@false`, `@null`, and `@table`.
+
+Use `#` to select a member and `:` to apply a property or operation:
+
+```text
+@this:name                 // containing class name
+@target:type               // target type or method return type
+@attr#order                // the attribute's order member
+@arg#0:type                // first parameter's type
+@target:name:replaceFirst<^On><>
+```
+
+`:unwrap` removes string quoting or the `global::` prefix from a type. `:fullName` includes generic
+type parameters. Tables are immutable list/object-like values; `:put`, `:remove`, `:push`, `:pop`,
+and `:size` return transformed values rather than mutating the input.
+
+## Predicates and transformations
+
+Boolean pseudo-properties begin with `:?`: `:?is<T>`, `:?has<Member>`, `:?eq<Value>`, `:?exists`,
+`:?ref`, `:?in`, `:?out`, `:?argument`, `:?static`, `:?public`, `:?partial`, `:?generic`,
+`:?class`, `:?struct`, `:?matches<Regex>`, and `:?signature<Method>` are the most commonly used.
+Negate one with `:!?`, for example `@this:!?static`.
+
+`@local#Delegate:wire<(@target)>` checks whether a method or delegate can be wired to the target
+signature and returns rewritten call arguments. `:replace`, `:replaceFirst`, `:switch`, and
+`:floatTime` provide string, conditional, and time parsing transformations. Dynamic boolean
+composition is available through `:and<(...)>` and `:or<(...)>`.
+
+## Control-flow instructions
+
+Each instruction begins with `@`. The core flow instructions are:
+
+| Instruction | Effect |
+|---|---|
+| `@SCOPE` / `@SCOPE<Label>` | Starts a scope; labeled scopes are jump destinations. |
+| `@MATCH condition` | Continues only when the condition is true; otherwise skips the scope. |
+| `@ASSERT condition` | Fails generation when the condition is false. |
+| `@GOTO<Label>` / `@SKIP` | Jumps to a labeled scope or the next scope. |
+| `@RETURN` / `@FAIL` | Succeeds immediately or fails, optionally with a message. |
+| `@FUNC<Name>` / `@CALL<Name>` | Defines or calls a reusable expression function. |
+| `@LOCAL<Name>` / `@VAR<Name>` | Stores an expression value in local or per-mixin state. |
+| `@END` | Closes the current scope or function. |
+
+Multiple conditions on `@MATCH` and `@ASSERT` are combined with AND. Functions share the caller's
+locals and variables; failures propagate to the caller, while `@RETURN` ends only the function.
+
+## Emitting generated code
+
+`@CODE expression` appends one line at the current location. Targeted forms inject code into a
+named mixin target: `@CODE<$Init>`, `@MIXIN<Target><Priority>`, `@CODE<CLASS>`,
+`@CODE<FILE>`, `@CODE<IMPLEMENTS>`, `@CODE<ANNOTATION>`, and `@USING` cover the normal generated
+locations. `@RESOLVE_MIXIN<Local>` resolves a target for dynamic signature checks.
+
+Here is the shape of an implicit mixin callback. It derives the `$On...` target from a method name,
+then wires either a parameterless call or a compatible delegate invocation:
+
+```text
+@LOCAL<Name> @attr#target:unwrap
+@SCOPE
+  @MATCH @local#Name:eq<null>
+  @ASSERT @target:name:matches<^On.*>
+  @LOCAL<Name> $@target:name:replaceFirst<^On><>
+@END
+
+@SCOPE
+  @MATCH @arg#0:!?exists
+  @MIXIN<(@local#Name)><(@attr#order)> @target:name();
+  @RETURN
+@END
+
+@RESOLVE_MIXIN<Delegate> @local#Name
+@ASSERT @local#Delegate:!?eq<null>
+@MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);
+```
+
+## Target syntax
+
+Normal targets name a parameterless instance method, such as `OnAwake`. `$` targets are lifecycle
+pseudonyms resolved through <FREntityCodeLink uid="MixinOn" /> or
+<FREntityCodeLink uid="MixinDefineTargetAttribute" />. Prefix `*` for static and `^` for public
+generation in either order. A delegate signature can be referenced with `~`, for example
+`*~HELIX.Context.RegistrationConfigurator`; name a delegate-backed target with
+`^*Configure:HELIX.Context.RegistrationConfigurator`.
+
+## Global libraries
+
+Use <FREntityCodeLink uid="MixinPrepareGlobalAttribute" /> at assembly level to make helper
+functions and variables available to subsequent mixin expressions. The built-in Context globals use this mechanism for component
+registration, event handlers, binding, resource loading, and callback wiring. Keep a prepared
+expression focused on reusable procedures; each consuming attribute should still declare the
+target and ordering appropriate to its own behavior.
+
+<Cards>
+  <FREntityCardLink uid="MixinExpressionAttribute" />
+  <FREntityCardLink uid="MixinPrepareGlobalAttribute" />
+  <FREntityCardLink uid="MixinMethodAttribute" />
+  <FREntityCardLink uid="MixinOn" />
+</Cards>

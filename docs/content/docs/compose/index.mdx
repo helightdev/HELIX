@@ -1,0 +1,146 @@
+---
+title: Compose
+description: The source-generator-guided workflow for retained Unity UI Toolkit interfaces.
+icon: Layers
+---
+
+Compose is designed around generated authoring surfaces. You describe a composition method or a
+reusable boundary component, then the source generator creates the identifiers, delegates, props,
+and proxy methods needed by the retained runtime.
+
+The result feels direct when writing UI, while runtime work stays explicit. HELIX retains Unity
+<FREntityCodeLink uid="UnityEngine.UIElements.VisualElement" /> instances, updates them in place, and recomposes only the
+boundaries that observed changed data.
+
+## The primary workflow
+
+1. Write a static method with <FREntityCodeLink uid="CompositionAttribute" /> for reusable layout.
+2. Use <FREntityCodeLink uid="BoundaryComposableAttribute" /> when a section needs props, retained
+   state, context dependencies, or its own recomposition boundary.
+3. Use <FREntityCodeLink uid="ComposableProxyAttribute" /> to expose native or custom UI Toolkit
+   elements through a generated Compose method.
+4. Pass generated composables into other components instead of manually building delegate wrappers.
+
+```csharp
+public static partial class ProfileCompositions {
+  [Composition]
+  private static void _ProfileHeader(ref Composition cx, string displayName) {
+    using (cx.Row()) {
+      cx.Text(displayName);
+      cx.Gap();
+      cx.Button(
+        content: EditLabel,
+        action: static _ => OpenEditor()
+      );
+    }
+  }
+
+  [Composition]
+  private static void _EditLabel(ref Composition cx) {
+    cx.Text("Edit");
+  }
+}
+```
+
+The generator exposes `ProfileHeader` and `EditLabel` with the correct
+<FREntityCodeLink uid="Composable" /> delegate shapes. It also registers stable IDs for diagnostics
+and retained identity.
+
+## What the generated wrapper provides
+
+For every valid <FREntityCodeLink uid="CompositionAttribute" /> method, the generator creates:
+
+- A public static composable member named without the leading `_`.
+- A stable composition ID associated with the generated member.
+- A wrapper that enters the generated ID before invoking your method.
+- Guaranteed restoration of the parent composition ID after the call.
+- A strongly typed delegate signature for up to four additional value parameters.
+- An `in`-based read composable when the single additional parameter is passed by `in`.
+
+The authored method must be static and non-generic. Its first parameter must be
+`ref Composition`. Additional parameters can be normal value parameters or `in` parameters.
+
+## Generated boundaries
+
+A generated boundary is the normal unit of stateful or independently reactive UI. A class marked
+with <FREntitySymbolLink uid="BoundaryComposableAttribute" /> receives a generated props API,
+retained boundary plumbing, and an optional extension method on
+<FREntityCodeLink uid="Composition" />.
+
+```csharp
+[BoundaryComposable(Extension = true, Name = "UserBadge")]
+public partial class UserBadge {
+  public partial struct Props {
+    public string name;
+    [Prop(false)] public bool selected;
+  }
+
+  protected override void OnRecompose(ref Composition cx) {
+    cx.Text(props.name);
+  }
+}
+
+// Generated authoring API
+cx.UserBadge("Avery", selected: true);
+```
+
+Props are received by the retained attachment before the boundary is yielded. When props change,
+the boundary can be marked dirty without replacing its retained subtree. Fields marked with
+<FREntityCodeLink uid="ContextAttribute" /> are pulled before `OnRecompose` runs.
+
+## Recomposition model
+
+<FREntitySymbolLink uid="HXComposer" /> owns the active boundary set and dirty queue. A boundary
+becomes dirty when its props change, when an observed signal changes, or when subscribed Compose
+context data changes. Dirty boundaries are processed by tree depth inside a batch.
+
+During a boundary recomposition, HELIX:
+
+1. Resets the composition cursor for that boundary.
+2. Invokes the generated composable or boundary implementation.
+3. Reuses retained elements whose generated type and position identity match.
+4. Updates generated props and authored styles.
+5. Trims children no longer emitted by the completed scope.
+
+Most application code should not use `cx.AUTHORING`. That API is intended for framework components
+that implement new retention or scope behavior.
+
+## Reactive inputs
+
+Reading a <FREntityCodeLink uid="Signal-1" /> during composition subscribes the current boundary.
+Writing the signal marks its observers dirty and batches the resulting work.
+
+```csharp
+private static readonly Signal<int> Count = Signal.Value(0);
+
+[Composition]
+private static void _Counter(ref Composition cx) {
+  cx.Text($"Count: {Count.Value}");
+  cx.Button(
+    content: IncrementLabel,
+    action: static _ => Count.Value++
+  );
+}
+
+[Composition]
+private static void _IncrementLabel(ref Composition cx) {
+  cx.Text("Increment");
+}
+```
+
+Compose context uses <FREntityCodeLink uid="ContextKey-1" /> for typed values that flow down the
+retained element tree. Reads subscribe the current boundary by default. This is useful for themes,
+component-local services, form state, and renderer configuration. It is separate from the Context
+dependency-injection system described in [Context](/docs/context).
+
+## Where to go next
+
+Read [Components & Generation](/docs/compose/components-and-generation) for the complete generated
+surface, including props behavior and element proxies.
+
+<Cards>
+  <FREntityCardLink uid="CompositionAttribute" />
+  <FREntityCardLink uid="BoundaryComposableAttribute" />
+  <FREntityCardLink uid="ComposableProxyAttribute" />
+  <FREntityCardLink uid="HXComposer" />
+</Cards>

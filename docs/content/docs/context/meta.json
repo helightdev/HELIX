@@ -1,0 +1,7 @@
+{
+  "title": "Context",
+  "description": "Components, dependency scopes, mixins, and generation expressions.",
+  "icon": "Blocks",
+  "root": true,
+  "pages": ["index", "mixin-expressions"]
+}

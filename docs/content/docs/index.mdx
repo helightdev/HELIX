@@ -1,105 +1,42 @@
 ---
-title: About HELIX
-description: A declarative, theme-aware UI widget framework for Unity UI Toolkit.
+title: Overview
+description: Source-generated Compose UI and Context workflows for Unity.
 icon: House
 ---
 
-HELIX Widgets is a **declarative widget framework** built on top of Unity UI Toolkit. Instead of
-manipulating `VisualElement` trees directly, you describe your interface as a tree of
-<FREntitySymbolLink uid="Widget" /> objects. HELIX creates the underlying
-`VisualElement` tree, reconciles it efficiently on rebuild, and keeps modifiers, theme values, and
-state in sync automatically.
-
-## Where to start
+HELIX provides two systems that share the same design goal: let source generation handle repetitive
+framework wiring while application code stays small, readable, and allocation-conscious.
 
 <Cards>
-  <Card title="Getting Started" description="Install HELIX and mount your first widget tree in a Unity UI Toolkit panel." href="/docs/getting-started" />
-  <Card title="Widget Catalog" description="Browse layout, text, input, scrolling, navigation, and visual widgets." href="/docs/widgets" />
-  <Card title="State & Reconciliation" description="How widgets update, preserve state across rebuilds, and track signal dependencies." href="/docs/state-and-reconciliation" />
-  <Card title="Theming & Modifiers" description="Apply theme tokens, substance layers, and fluent modifier helpers." href="/docs/theming-and-modifiers" />
-  <Card title="Navigation, Scrolling & Prompts" description="Page stacks, scroll controllers, virtualized lists, and input prompt glyphs." href="/docs/navigation-scrolling-prompts" />
+  <Card title="Getting Started" description="Install HELIX and create a generated composition." href="/docs/getting-started" />
+  <Card title="Compose" description="Build retained Unity UI Toolkit interfaces through generated composition APIs." href="/docs/compose" />
+  <Card title="Compose Generation" description="Learn compositions, boundary composables, props, and element proxies." href="/docs/compose/components-and-generation" />
+  <Card title="Context" description="Learn components, scopes, dependency resolution, lifecycle, and mixins." href="/docs/context" />
+  <Card title="Mixin Expressions" description="Read and create generator expressions used by Context attributes." href="/docs/context/mixin-expressions" />
 </Cards>
 
----
+## The two systems
 
-## Mental model
+| System | What you author | What HELIX generates or manages |
+|---|---|---|
+| Compose | Annotated composition methods, boundary components, props, and proxies | Stable composition identities, delegate wrappers, retained elements, props updates, and isolated recomposition |
+| Context | Partial component classes, dependency annotations, lifecycle callbacks, and mixin attributes | Component registrations, dependency graph wiring, lifecycle methods, event subscriptions, cleanup, and mixin glue |
 
-HELIX cleanly separates _configuration_ from _runtime_:
+Compose is built around <FREntitySymbolLink uid="Composition" /> and generated
+<FREntityCodeLink uid="Composable" /> delegates. Context is built around
+<FREntitySymbolLink uid="ManagedContainer" />, <FREntityCodeLink uid="ManagedScope" />, and the
+source-generated implementation of <FREntityCodeLink uid="IComponent" />.
 
-| Concept | Role |
-|---|---|
-| <FREntitySymbolLink uid="Widget" /> | The immutable-ish configuration object you construct in C#. Think of it as a blueprint. |
-| <FREntitySymbolLink uid="IWidgetElement" /> | The mounted runtime element that owns a Unity `VisualElement`. Created once and updated in place. |
-| <FREntitySymbolLink uid="Reconciler" /> | Compares old and new widget trees and decides what to reuse, update, or recreate. |
-| <FREntitySymbolLink uid="BuildContext" /> | Passed to every `Build` call. Gives access to the mounted element, parent context, and theme. |
-| <FREntitySymbolLink uid="Modifier" /> | Small, composable style and behavior deltas applied to the underlying `VisualElement`. |
+These systems can be used together, but their contexts are different. Compose context is
+tree-local reactive data addressed by <FREntityCodeLink uid="ContextKey-1" />. Context is the
+application and scene service system that owns component discovery, dependency resolution, and
+lifecycle.
 
-The mental model is intentionally similar to **Flutter-style UI**:
-
-- **Stateless widgets:** subclasses of <FREntitySymbolLink uid="StatelessWidget-1" /> that rebuild from constructor inputs and context alone.
-- **Stateful widgets:** subclasses of <FREntitySymbolLink uid="StatefulWidget-1" /> that own local state and expose a lifecycle (<FREntitySymbolLink uid="State-1.InitState" />, <FREntitySymbolLink uid="State-1.Build" />, <FREntitySymbolLink uid="State-1.DidUpdateWidget" />, and <FREntitySymbolLink uid="State-1.Dispose" />).
-- **Keys:** preserve mounted element identity when children are reordered or inserted.
-- **Theme providers:** flow values down the tree, resolved at build time through <FREntitySymbolLink uid="BuildContext" />.
-
----
-
-## A complete minimal example
-
-The example below creates a counter label with a button. It covers stateful widgets, `SetState`,
-the collection initializer syntax, and modifiers all in one place.
-
-```csharp
-using HELIX.Types;
-using HELIX.Widgets;
-using HELIX.Widgets.Universal;
-
-// The widget is a lightweight configuration object. Its sole job is to produce a State.
-public class CounterLabel : StatefulWidget<CounterLabel> {
-  public override State<CounterLabel> CreateState() => new CounterLabelState();
-}
-
-// The state owns mutable data and implements Build.
-public class CounterLabelState : State<CounterLabel> {
-  private int _count;
-
-  public override Widget Build(BuildContext context) {
-    return new HColumn(gap: 8, crossAxisAlign: Align.FlexStart) {
-      new HText($"Count: {_count}").Heading(context),
-      new HButton(onClick: SetState(() => _count++)) {
-        new HText("Increment")
-      }
-    }.Padding(16);
-  }
-}
-```
-
-### Mounting the widget
-
-Every HELIX widget tree is rooted in a <FREntitySymbolLink uid="WidgetHostElement" />.
-Subclass it as a `[UxmlElement]` so you can drop it into UI Builder or UXML like any other element.
-
-```csharp
-[UxmlElement]
-public partial class MyWidgetRoot : WidgetHostElement {
-  public MyWidgetRoot() {
-    // ToBuildable() wraps the widget in the IBuildable interface the host expects.
-    Buildable = new CounterLabel().ToBuildable();
-  }
-}
-```
-
-Once the element attaches to a panel, HELIX schedules the first build automatically. After that, calls to `SetState()` trigger reconciled rebuilds where only the parts of the `VisualElement` tree that actually changed get touched.
-
----
-
-## Key API reference
-
-The generated C# reference is available under `/reference`. These are the most useful anchor
-points when reading the conceptual docs:
+## Key reference entry points
 
 <Cards>
-  <FREntityCardLink uid="Widget" />
-  <FREntityCardLink uid="WidgetHostElement" />
-  <FREntityCardLink uid="HButton" />
-  <FREntityCardLink uid="HThemeProvider" />
+  <FREntityCardLink uid="Composition" />
+  <FREntityCardLink uid="BoundaryComposableAttribute" />
+  <FREntityCardLink uid="ManagedContainer" />
+  <FREntityCardLink uid="ComponentAttribute" />
 </Cards>

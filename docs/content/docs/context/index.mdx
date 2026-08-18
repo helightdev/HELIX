@@ -1,0 +1,282 @@
+---
+title: Context
+description: Components, dependency scopes, lifecycle, events, resources, and generated mixins.
+icon: Blocks
+---
+
+Context is HELIX's application framework for components and services. It discovers registered
+component types, builds a dependency graph, creates them inside managed scopes, injects their
+dependencies, runs their lifecycle, and tears everything down in a predictable order.
+
+Most of that behavior is generated. Application code declares intent through attributes such as
+<FREntityCodeLink uid="ComponentAttribute" />, <FREntityCodeLink uid="InjectAttribute" />,
+<FREntityCodeLink uid="BindAttribute" />, and <FREntityCodeLink uid="EventHandlerAttribute" />.
+Mixin expressions translate those declarations into registration and lifecycle code at compile
+time, so the runtime does not need broad reflection-based member discovery.
+
+## What Context owns
+
+Context coordinates five related jobs:
+
+1. Component registration and activation.
+2. Hierarchical application, session, scene, and GameObject scopes.
+3. Typed and qualified dependency resolution.
+4. Ordered synchronous or asynchronous lifecycle execution.
+5. Generated integration for events, resources, ticking, and disposal.
+
+The main runtime object is <FREntitySymbolLink uid="ManagedContainer" />. It owns the registrar,
+the application scope, all active child scopes, scope rules, and the loader responsible for
+resolving each dependency graph.
+
+<Cards>
+  <FREntityCardLink uid="ManagedContainer" />
+  <FREntityCardLink uid="ManagedScope" />
+  <FREntityCardLink uid="ComponentAttribute" />
+  <FREntityCardLink uid="IComponent" />
+</Cards>
+
+## Component workflow
+
+Mark a partial class with <FREntitySymbolLink uid="ComponentAttribute" />. The annotation selects
+the scope type, initialization order, phase, and whether the component is optional.
+
+```csharp
+[Component(typeof(ApplicationScope))]
+public partial class GameSettings {
+  [Bind]
+  public string Locale => "en-US";
+}
+
+[Component(typeof(ApplicationScope), order: 10)]
+public partial class WelcomeService {
+  [Inject]
+  public GameSettings settings;
+
+  [MixinMethod]
+  private void OnInit() {
+    Debug.Log($"Locale: {settings.Locale}");
+  }
+}
+```
+
+For each component, the generator creates the <FREntityCodeLink uid="IComponent" /> implementation,
+the <FREntityCodeLink uid="RuntimeComponentData" /> binding, and the registration configurator. It
+also chooses the correct activator for a plain class or a Unity
+<FREntityCodeLink uid="UnityEngine.MonoBehaviour" />.
+
+At runtime, the registration tells the container:
+
+- Which scope owns the component.
+- Which keys the component itself provides.
+- Which dependencies must exist before activation.
+- Which values it promises to publish later.
+- Which phase and order it belongs to.
+- Whether it needs asynchronous loading.
+- Which event types it handles.
+
+## Container startup
+
+Startup has two top-level stages.
+
+### Registrar preparation
+
+<FREntityCodeLink uid="ManagedContainer.PrepareRegistrar" /> prepares the collected
+<FREntityCodeLink uid="ComponentRegistrations" /> and starts the registrar scope. Registrar
+components can contribute infrastructure such as custom scope handlers. The registrar graph is then
+used for every later scope load.
+
+### Application startup
+
+<FREntityCodeLink uid="ManagedContainer.StartApplication" /> or
+<FREntityCodeLink uid="ManagedContainer.StartApplicationSync" /> creates the
+<FREntityCodeLink uid="ApplicationScope" /> beneath the registrar. Once active, it becomes the root
+for session, scene, GameObject, and custom scopes. The active container is also exposed through
+<FREntityCodeLink uid="HX" />.
+
+Use asynchronous startup when any selected component or scripted dependency requires asynchronous
+initialization. Synchronous startup reports an
+<FREntityCodeLink uid="AsyncScopeInitializationException" /> instead of silently blocking.
+
+## Scopes
+
+A <FREntitySymbolLink uid="ManagedScope" /> owns bindings, loaded components, child scopes,
+cancellation, and resources. Resolution starts in the current scope and walks upward through its
+parents. This lets a scene component resolve application services while keeping scene-specific
+bindings local.
+
+Built-in scope descriptors include:
+
+| Scope | Intended lifetime |
+|---|---|
+| <FREntityCodeLink uid="RegistrarScope" /> | Container registration and infrastructure |
+| <FREntityCodeLink uid="ApplicationScope" /> | Entire application lifetime |
+| <FREntityCodeLink uid="SessionScope" /> | A login, match, or other application session |
+| <FREntityCodeLink uid="SceneScope" /> | A loaded Unity scene |
+| <FREntityCodeLink uid="GameObjectScope" /> | A specific GameObject lifetime |
+
+<FREntityCodeLink uid="ScopeRules" /> validates allowed parents and multiplicity. Scene and
+GameObject handlers connect Unity lifetime events to scope creation and disposal. Destroying an
+observed GameObject disposes its matching scope.
+
+Create a child scope through <FREntityCodeLink uid="ManagedContainer.CreateScope" /> or through a
+component's runtime binding:
+
+```csharp
+var session = await ComponentBinding
+  .CreateScope()
+  .From(new SessionScope())
+  .StartAsync();
+```
+
+A scope moves through <FREntityCodeLink uid="ManagedScopeState" /> values: `Created`,
+`Initializing`, `Active`, `Disposing`, `Disposed`, or `Faulted`. Resolution and publication are only
+valid while the scope is initializing or active.
+
+## How dependency loading works
+
+When a scope starts, the loader selects registrations for that scope and expands injected component
+instances. It then works phase by phase.
+
+For each phase, Context:
+
+1. Loads scripted dependencies assigned to the phase.
+2. Finds components whose required dependencies are available.
+3. Activates those components in registration order.
+4. Binds the component instance under its registered keys.
+5. Runs early lifecycle code, including dependency injection.
+6. Runs normal component load code.
+7. Runs late component load code, where generated publications are normally made.
+8. Verifies that every required publication was actually produced.
+9. Repeats until the phase is complete or no valid progress remains.
+
+The standard phase constants live on <FREntityCodeLink uid="InitPhase" /> and include `PreInit`,
+`Normal`, and `PostInit`. Custom integer phases can participate because phases are collected and
+sorted from component and scripted dependency registrations.
+
+If the loader cannot advance, it reports a <FREntityCodeLink uid="ComponentGraphException" /> with
+the remaining components and missing dependencies. This usually means there is a cycle, a required
+provider is absent, or a component depends on a publication assigned to a later phase.
+
+If startup fails after creating part of a scope, Context rolls the scope back. Loaded components and
+owned resources are torn down, and cleanup failures are attached to the original initialization
+error.
+
+## Injection and resolution
+
+<FREntitySymbolLink uid="InjectAttribute" /> declares a field or property dependency. Resolution
+uses a <FREntityCodeLink uid="TypeKey" />, which combines a type with an optional qualifier.
+
+```csharp
+[Inject]
+public GameSettings settings;
+
+[Inject("pipeline")]
+public List<string> stages;
+
+[Inject(required: false)]
+public OptionalTelemetry telemetry;
+```
+
+A normal injection expects one compatible value. Collection injection gathers matching values from
+the current scope and its ancestors. Optional injection permits the component to load when a value
+is unavailable.
+
+Generated component code can also use <FREntityCodeLink uid="RuntimeComponentData.Resolve-1" />,
+`ResolveOptional`, and `ResolveAll` when resolution must happen imperatively. Prefer annotations for
+stable dependencies because they become part of the dependency graph before activation.
+
+## Bindings and publications
+
+<FREntitySymbolLink uid="BindAttribute" /> publishes a field or property during late component
+load. This separation matters. The component instance is available first, its early dependencies
+are injected, and its published values become available once it reaches the late load stage.
+
+```csharp
+[Component(typeof(ApplicationScope), order: 1)]
+public partial class PipelineStage {
+  [Inject("pipeline", required: false)]
+  public string previous;
+
+  [Bind("pipeline")]
+  public string Output => $"{previous}stage;";
+}
+```
+
+Bindings can publish under another type, use a qualifier, be optional, or be proxied. A proxied
+binding publishes a supplier so later resolutions read the current property value rather than a
+captured value.
+
+Required publications are checked after component loading. If a component declared that it would
+provide a value but did not, scope initialization fails with a clear component initialization
+error.
+
+## Component lifecycle
+
+Generated components expose three main lifecycle targets:
+
+| Lifecycle | Purpose |
+|---|---|
+| `LoadComponent` | Early initialization and generated injection |
+| `LoadComponentLate` | Publications and work that needs the component graph to be further initialized |
+| `UnloadComponent` | Generated cleanup before disposal |
+
+<FREntityCodeLink uid="MixinMethodAttribute" /> lets application methods contribute to those
+targets. An implicit method such as `OnInit` is translated to the `$Init` pseudo-target. Explicit
+targets use constants from <FREntityCodeLink uid="MixinOn" />.
+
+```csharp
+[MixinMethod]
+private void OnInit() {
+  connection.Open();
+}
+
+[MixinMethod(MixinOn.ComponentLoadLate)]
+private void AfterGraphReady(ComponentLoadContext context) {
+  // Dependencies and earlier publications are available here.
+}
+```
+
+Lower order contributions run first. When two contributions share an order, local methods run in
+source order, followed by interface mixins and then attribute mixins.
+
+## Events, resources, ticking, and cleanup
+
+Context attributes build on the same generated lifecycle:
+
+- <FREntityCodeLink uid="EventHandlerAttribute" /> registers synchronous or asynchronous event
+  handlers during initialization and unregisters them during teardown.
+- <FREntityCodeLink uid="ResourceAttribute" /> declares Resources or Addressables dependencies,
+  participates in the dependency graph, and injects the loaded Unity object.
+- <FREntityCodeLink uid="TickerAttribute" /> schedules a method using tick or time-based intervals.
+- <FREntityCodeLink uid="AutoDisposeAttribute" /> adds field cleanup to the generated dispose target.
+
+```csharp
+[EventHandler]
+private void OnComponentLoaded(ComponentLoadEvent evt) {
+  Debug.Log("Component graph advanced");
+}
+
+[Resource(Source.Resources)]
+public SettingsAsset settingsAsset;
+
+[AutoDispose]
+public IDisposable subscription;
+```
+
+Scope teardown is deterministic. Context cancels the scope token, disposes child scopes, notifies
+scope handlers, unloads components in reverse load order, unregisters event handlers, disposes
+owned managed resources, and destroys owned Unity objects. A component that implements
+<FREntityCodeLink uid="System.IDisposable" /> is disposed after its generated unload method.
+
+## Mixins are the compile-time engine
+
+The annotations above are implemented through mixins. A mixin expression inspects the annotated
+symbol and emits registration or lifecycle contributions. Prepared global expressions provide
+shared functions for component setup, injection, binding, events, resources, and disposal.
+
+This design keeps framework features composable. A custom attribute can add registration metadata,
+inject code into an existing lifecycle target, generate members, or require another mixin without
+changing the container runtime.
+
+Read [Mixin Expressions](/docs/context/mixin-expressions) for the expression language and target
+syntax.
