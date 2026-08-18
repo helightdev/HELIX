@@ -82,83 +82,60 @@ using HELIX.Context;
 // Base implementation for the [Inject] attribute
 [assembly: MixinPrepareGlobal(
   @"
-@FUNC<InjectImpl>
+@FUNC<ResourceImpl>
   @CALL<RequireEventHandler>
 
   @SCOPE
     @MATCH @target:type:?is<System.Collections.IEnumerable>
     @MATCH @target:type:!?is<string>
     @MATCH @target:type#0:?exists
-    @CALL<InjectImplList>
+    @CALL<ResourceImplList>
     @RETURN
   @END
 
-  @CALL<InjectImplSingle>
+  @CALL<ResourceImplSingle>
   @RETURN
 @END
 
-@FUNC<InjectImplSingle>
+@FUNC<ResourceImplSingle>
   @LOCAL<WireKey> @@""@target:type:unwrap|@attr#source|@attr#qualifier:unwrap""
-  @SCOPE
-    @MATCH @target:type:?class
-    @MATCH @target:type:?is<UnityEngine.Object>
-    @LOCAL<InjectIsUnityObject> true
-  @END
+  @ASSERT @target:type:?class
+  @ASSERT @target:type:?is<UnityEngine.Object>
 
-  @SCOPE<Container>
-    @MATCH @attr#source:?eq<0>
-    @CODE<$ConfigureComponent> registration.Dependency(typeof(@target:type), @attr#qualifier);
-    @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@attr#qualifier);
-    @RETURN
   @SCOPE<Addressables>
     @MATCH @attr#source:?eq<2>
-    @MATCH<NoUnityObject> @local#InjectIsUnityObject:?eq<true>
     @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new AddressableDependency<@target:type>(@attr#qualifier, @local#WireKey), true));
     @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@local#WireKey);
     @RETURN
   @SCOPE<Resources>
     @MATCH @attr#source:?eq<3>
-    @MATCH<NoUnityObject> @local#InjectIsUnityObject:?eq<true>
     @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new ResourceDependency<@target:type>(@attr#qualifier, @local#WireKey), true));
     @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@local#WireKey);
     @RETURN
   @END
   @FAIL No valid injection source found for the target type.
-
-  @SCOPE<NoUnityObject>
-    @FAIL This source requires the injection of a unity object type, but the target is not a subtype of UnityEngine.Object.
-  @END
 @END
 
-@FUNC<InjectImplList>
+@FUNC<ResourceImplList>
   @USING System.Collections.Generic
   @USING System.Collections
   @LOCAL<WireKey> @@""list|@target:type#0:unwrap|@attr#source|@attr#qualifier:unwrap""
   
-  @SCOPE
-    @MATCH @target:type#0:?class
-    @MATCH @target:type#0:?is<UnityEngine.Object>
-    @LOCAL<InjectIsUnityObject> true
-  @END
+  @ASSERT @target:type#0:?class
+  @ASSERT @target:type#0:?is<UnityEngine.Object>
 
   @SCOPE<AddressableList>
     @MATCH @attr#source:?eq<2>
-    @MATCH<NoUnityObject> @local#InjectIsUnityObject:?eq<true>
     @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new AddressableListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
     @CODE<$Init> @target:name = ComponentBinding.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
     @RETURN
   @SCOPE<ResourceList>
     @MATCH @attr#source:?eq<3>
-    @MATCH<NoUnityObject> @local#InjectIsUnityObject:?eq<true>
     @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new ResourceListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
     @CODE<$Init> @target:name = ComponentBinding.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
     @RETURN
   @END
   @FAIL No valid injection source found for the collected target type.
-
-  @SCOPE<NoUnityObject>
-    @FAIL This source requires the injection of a unity object type, but the target is not a subtype of UnityEngine.Object.
-  @END
 @END
 "
 )]
@@ -168,15 +145,10 @@ using HELIX.Context;
 [assembly: MixinPrepareGlobal(
   @"
 @FUNC<InjectDiImpl>
+  @USING HELIX.Context;
   @CALL<RequireEventHandler>
-
-  @SCOPE<Container>
-    @MATCH @attr#source:?eq<0>
-    @CODE<$ConfigureComponent> registration.Dependency(typeof(@target:type), @attr#qualifier);
-    @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@attr#qualifier);
-    @RETURN
-  @END  
-
+  @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type), @attr#qualifier), @attr#required));
+  @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@attr#qualifier);  
 @END
 "
 )]

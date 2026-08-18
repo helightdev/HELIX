@@ -40,16 +40,16 @@ namespace HELIX.Context {
     [Inject, NonSerialized]
     public MyRootDependency myRootDependency;
 
-    [Inject(Source.Addressables, "Assets/ExampleAddressable"), ShowInInspector]
+    [Resource(Source.Addressables, "Assets/ExampleAddressable"), ShowInInspector]
     public GameObject addressablePrefab;
 
-    [Inject(Source.Resources), ShowInInspector]
+    [Resource(Source.Resources), ShowInInspector]
     public List<KennyPromptSvgCollection> svgCollections;
 
     [MixinMethod]
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
-      myResource2 = new LoggingDisposable(); //44
+      myResource2 = new LoggingDisposable(); //46
     }
 
     [MixinMethod(MixinOn.ConfigureComponent)]
