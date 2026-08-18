@@ -11,8 +11,92 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class ComponentDiscoveryGeneratorTests {
   [Fact]
-  public void AssemblyCSharpEmitsOneDiscoveryForBuiltinStereotypes() {
-    var compilation = CreateCompilation("Assembly-CSharp", RuntimeAndComponents);
+  public void ApplicationModuleDiscoversOnlyExactComponentsAndExposesFactory() {
+    var result = Run(
+      Runtime +
+      """
+      namespace Feature {
+        [HELIX.Context.Component]
+        public partial class Component { }
+
+        [HELIX.Context.Service]
+        public partial class Service { }
+
+        [HELIX.Context.HelixApplication(filter: "Feature")]
+        public partial class Application { }
+      }
+      """
+    );
+
+    Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(result.Generated).SourceText.ToString();
+    Assert.Contains("partial class Application : global::HELIX.Context.IHelixModule", generated);
+    Assert.Contains(
+      "public static readonly global::Feature.Application Instance = new global::Feature.Application();",
+      generated
+    );
+    Assert.Contains(
+      "public void Discover(global::HELIX.Context.ComponentRegistrations registrations)",
+      generated
+    );
+    Assert.Contains("public static global::HELIX.Context.ComponentRegistrations Discover()", generated);
+    Assert.Contains(
+      "registrations.Register(typeof(global::Feature.Component), global::Feature.Component.RegistrationConfigurator);",
+      generated
+    );
+    Assert.DoesNotContain("global::Feature.Service.RegistrationConfigurator", generated);
+  }
+
+  [Fact]
+  public void ModuleImportsInvokeTheImportedInstanceWithoutFactoryGeneration() {
+    var result = Run(
+      Runtime +
+      """
+      namespace Feature {
+        [HELIX.Context.Component]
+        public partial class Component { }
+
+        [HELIX.Context.HelixModule(filter: "Feature")]
+        public partial class FeatureModule { }
+      }
+      namespace Root {
+        [HELIX.Context.HelixApplication(
+          filter: "Root",
+          import: new[] { typeof(Feature.FeatureModule) }
+        )]
+        public partial class Application { }
+      }
+      """
+    );
+
+    Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Equal(2, result.Generated.Length);
+    var module = Assert.Single(result.Generated.Where(item =>
+      item.HintName.Contains("FeatureModule"))).SourceText.ToString();
+    var application = Assert.Single(result.Generated.Where(item =>
+      item.HintName.Contains("Application"))).SourceText.ToString();
+    Assert.Contains("global::Feature.Component.RegistrationConfigurator", module);
+    Assert.DoesNotContain("ComponentRegistrations Discover()", module);
+    Assert.Contains("global::Feature.FeatureModule.Instance.Discover(registrations);", application);
+    Assert.Contains("ComponentRegistrations Discover()", application);
+  }
+
+  [Fact]
+  public void CompilationWithoutAModuleDoesNotEmitDiscovery() {
+    var result = Run(Runtime + "public sealed class OrdinaryType { }");
+
+    Assert.Empty(result.Generated);
+  }
+
+  private static TestResult Run(string source) {
+    var compilation = CSharpCompilation.Create(
+      "FeatureAssembly",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
     GeneratorDriver driver = CSharpGeneratorDriver.Create(
       new ISourceGenerator[] {
         new MixinGenerator().AsSourceGenerator(),
@@ -20,121 +104,59 @@ public sealed class ComponentDiscoveryGeneratorTests {
       }
     );
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
-
-    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
-    var discoveryResult = driver.GetRunResult().Results[1];
-    var generated = Assert.Single(discoveryResult.GeneratedSources).SourceText.ToString();
-    Assert.Contains("public static class ComponentDiscovery", generated);
-    Assert.Contains("public static global::HELIX.Context.ComponentRegistrations Discover()", generated);
-    Assert.Contains(
-      "registrations.Register(typeof(global::Component), global::Component.RegistrationConfigurator);",
-      generated
-    );
-    Assert.Contains(
-      "registrations.Register(typeof(global::Service), global::Service.RegistrationConfigurator);",
-      generated
+    var run = driver.GetRunResult();
+    var generated = run.Results.SelectMany(item => item.GeneratedSources)
+      .Where(item => item.HintName.Contains("helix-"))
+      .ToImmutableArray();
+    return new TestResult(
+      generated,
+      diagnostics.AddRange(run.Diagnostics),
+      output.GetDiagnostics()
     );
   }
 
-  [Fact]
-  public void NonRootAssembliesDoNotEmitDiscovery() {
-    var compilation = CreateCompilation("FeatureAssembly", RuntimeAndComponents);
-    GeneratorDriver driver = CSharpGeneratorDriver.Create(
-      new ComponentDiscoveryGenerator().AsSourceGenerator()
-    );
-    driver = driver.RunGenerators(compilation);
+  private sealed record TestResult(
+    ImmutableArray<GeneratedSourceResult> Generated,
+    ImmutableArray<Diagnostic> Diagnostics,
+    ImmutableArray<Diagnostic> OutputDiagnostics
+  );
 
-    Assert.Empty(Assert.Single(driver.GetRunResult().Results).GeneratedSources);
-  }
-
-  [Fact]
-  public void RootDiscoveryIncludesStereotypesFromReferencedAssemblies() {
-    var plugin = CreateCompilation(
-      "FeatureAssembly",
-      """
-      using System;
-      using System.Collections.Generic;
-      namespace HELIX.Context {
-        public sealed class EnableMixinsAttribute : Attribute { }
-        public delegate void RegistrationConfigurator(RegistrationEntry registration);
-        public delegate ComponentRegistrations RegistrationDiscoveryProvider();
-        public sealed class RegistrationEntry { }
-        public sealed class ComponentRegistrations {
-          public void Register(Type type, RegistrationConfigurator configurator) { }
-        }
-        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
-        public class ComponentAttribute : Attribute { }
-        public class ServiceAttribute : ComponentAttribute { }
-      }
-      [HELIX.Context.Service]
-      public sealed class ExternalService {
-        public static void RegistrationConfigurator(HELIX.Context.RegistrationEntry registration) { }
-      }
-      """
-    );
-    using var stream = new MemoryStream();
-    var emit = plugin.Emit(stream);
-    Assert.True(emit.Success, string.Join("\n", emit.Diagnostics));
-    var references = PlatformReferences.Add(MetadataReference.CreateFromImage(stream.ToArray()));
-    var root = CSharpCompilation.Create(
-      "Assembly-CSharp",
-      new[] { CSharpSyntaxTree.ParseText("public sealed class RootType { }") },
-      references,
-      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-    );
-    GeneratorDriver driver = CSharpGeneratorDriver.Create(
-      new ComponentDiscoveryGenerator().AsSourceGenerator()
-    );
-    driver = driver.RunGeneratorsAndUpdateCompilation(root, out var output, out var diagnostics);
-
-    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
-    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
-      .SourceText.ToString();
-    Assert.Contains(
-      "registrations.Register(typeof(global::ExternalService), global::ExternalService.RegistrationConfigurator);",
-      generated
-    );
-  }
-
-  private static CSharpCompilation CreateCompilation(string assemblyName, string source) {
-    return CSharpCompilation.Create(
-      assemblyName,
-      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
-      PlatformReferences,
-      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-    );
-  }
-
-  private const string RuntimeAndComponents = """
-                                              using System;
-                                              using System.Collections.Generic;
-                                              namespace HELIX.Context {
-                                                [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-                                                [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
-                                                  public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
-                                                }
-                                                public delegate void RegistrationConfigurator(RegistrationEntry registration);
-                                                public delegate ComponentRegistrations RegistrationDiscoveryProvider();
-                                                public sealed class RegistrationEntry { public string name; }
-                                                public sealed class ComponentRegistrations {
-                                                  public void Register(Type type, RegistrationConfigurator configurator) { }
-                                                }
-                                                [MixinExpression(
-                                                  new[] { "^*~HELIX.Context.RegistrationConfigurator" },
-                                                  new[] { -100000 },
-                                                  "@CODE<^*~HELIX.Context.RegistrationConfigurator> registration.name = \"@this:name\";"
-                                                )]
-                                                [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
-                                                public class ComponentAttribute : Attribute { }
-                                                public class ServiceAttribute : ComponentAttribute { }
-                                              }
-                                              [HELIX.Context.Component]
-                                              public partial class Component { }
-                                              [HELIX.Context.Service]
-                                              public partial class Service { }
-                                              """;
+  private const string Runtime = """
+                                 using System;
+                                 namespace HELIX.Context {
+                                   [AttributeUsage(AttributeTargets.Class)]
+                                   public sealed class EnableMixinsAttribute : Attribute { }
+                                   [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
+                                   public sealed class MixinExpressionAttribute : Attribute {
+                                     public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
+                                   }
+                                   public delegate void RegistrationConfigurator(RegistrationEntry registration);
+                                   public sealed class RegistrationEntry { }
+                                   public sealed class ComponentRegistrations {
+                                     public void Register(Type type, RegistrationConfigurator configurator) { }
+                                   }
+                                   public interface IHelixModule {
+                                     void Discover(ComponentRegistrations registrations) { }
+                                   }
+                                   [AttributeUsage(AttributeTargets.Class)]
+                                   public sealed class HelixModuleAttribute : Attribute {
+                                     public HelixModuleAttribute(string name = null, string filter = null, Type[] import = null) { }
+                                   }
+                                   [AttributeUsage(AttributeTargets.Class)]
+                                   public sealed class HelixApplicationAttribute : Attribute {
+                                     public HelixApplicationAttribute(string name = null, string filter = null, Type[] import = null) { }
+                                   }
+                                   [MixinExpression(
+                                     new[] { "^*~HELIX.Context.RegistrationConfigurator" },
+                                     new[] { -100000 },
+                                     "@CODE<^*~HELIX.Context.RegistrationConfigurator> registration.ToString();"
+                                   )]
+                                   [AttributeUsage(AttributeTargets.Class)]
+                                   public sealed class ComponentAttribute : Attribute { }
+                                   [AttributeUsage(AttributeTargets.Class)]
+                                   public sealed class ServiceAttribute : Attribute { }
+                                 }
+                                 """;
 
   private static ImmutableArray<MetadataReference> PlatformReferences { get; } =
     ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!

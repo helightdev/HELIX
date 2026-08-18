@@ -7,11 +7,11 @@ using UnityEngine;
 
 public class ExampleServiceBootstrap : MonoBehaviour {
 
+  [NonSerialized]
   public ManagedContainer container;
 
-
   private async UniTaskVoid Start() {
-    var discovered = ComponentDiscovery.Discover();
+    var discovered = HelixExampleApplication.Discover();
 
     var writer = new ProseUnityRichTextWriter();
     ComponentGraphProse.WriteDeclared(writer, discovered);
@@ -32,3 +32,9 @@ public class ExampleServiceBootstrap : MonoBehaviour {
     container = null;
   }
 }
+
+[HelixApplication(
+  name: "Example",
+  import: new[] { typeof(HelixCoreModule) }
+)]
+public partial class HelixExampleApplication { }

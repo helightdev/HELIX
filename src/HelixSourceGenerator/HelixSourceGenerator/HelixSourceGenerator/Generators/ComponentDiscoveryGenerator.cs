@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static HELIX.SourceGen.GeneratorAnalysis;
 using static HELIX.SourceGen.GeneratorSource;
 using static HELIX.SourceGen.GeneratorStrings;
@@ -10,79 +11,125 @@ namespace HELIX.SourceGen;
 
 [Generator(LanguageNames.CSharp)]
 public sealed class ComponentDiscoveryGenerator : IIncrementalGenerator {
-  private const string RootAssembly = "Assembly-CSharp";
   private const string ComponentRegistrations = "HELIX.Context.ComponentRegistrations";
   private const string RegistrationConfigurator = "RegistrationConfigurator";
 
   public void Initialize(IncrementalGeneratorInitializationContext context) {
-    context.RegisterSourceOutput(
-      context.CompilationProvider,
-      static (productionContext, compilation) => Generate(productionContext, compilation)
+    RegisterModules(
+      context,
+      context.SyntaxProvider.ForAttributeWithMetadataName(
+        Attributes.HelixModule,
+        static (node, _) => node is ClassDeclarationSyntax,
+        static (ctx, _) => GetModule(ctx, false)
+      )
+    );
+    RegisterModules(
+      context,
+      context.SyntaxProvider.ForAttributeWithMetadataName(
+        Attributes.HelixApplication,
+        static (node, _) => node is ClassDeclarationSyntax,
+        static (ctx, _) => GetModule(ctx, true)
+      )
     );
   }
 
-  private static void Generate(SourceProductionContext context, Compilation compilation) {
-    if (!string.Equals(compilation.AssemblyName, RootAssembly, StringComparison.Ordinal) ||
-      compilation.GetTypeByMetadataName(ComponentRegistrations) is null) return;
+  private static void RegisterModules(
+    IncrementalGeneratorInitializationContext context,
+    IncrementalValuesProvider<ModuleCandidate> modules
+  ) {
+    context.RegisterSourceOutput(
+      modules,
+      static (productionContext, module) => Generate(productionContext, module)
+    );
+  }
 
-    var stereotypeAssembly = compilation.GetTypeByMetadataName(
-      "HELIX.Context.ComponentAttribute"
-    )?.ContainingAssembly;
-    if (stereotypeAssembly is null) return;
+  private static ModuleCandidate GetModule(
+    GeneratorAttributeSyntaxContext context,
+    bool isApplication
+  ) {
+    var type = (INamedTypeSymbol)context.TargetSymbol;
+    var attribute = context.Attributes[0];
+    var filter = attribute.ConstructorArguments.Length > 1
+      ? attribute.ConstructorArguments[1].Value as string
+      : null;
+    var importArgument = attribute.ConstructorArguments.Length > 2
+      ? attribute.ConstructorArguments[2]
+      : default;
+    var imports = importArgument.IsNull || importArgument.Values.IsDefaultOrEmpty
+      ? Array.Empty<INamedTypeSymbol>()
+      : importArgument.Values.Select(item => item.Value)
+        .OfType<INamedTypeSymbol>()
+        .ToArray();
+    return new ModuleCandidate(type, context.SemanticModel.Compilation, filter, imports, isApplication);
+  }
 
-    var components = CandidateAssemblies(compilation, stereotypeAssembly)
-      .SelectMany(TypesIn)
-      .Where(type => type.TypeKind == TypeKind.Class &&
-        !HasTypeParameters(type) &&
-        HasBuiltinStereotype(type) &&
-        compilation.IsSymbolAccessibleWithin(type, compilation.Assembly)
-      )
+  private static void Generate(SourceProductionContext context, ModuleCandidate module) {
+    var type = module.Type;
+    if (!IsPartial(type) || HasTypeParameters(type)) return;
+
+    var components = TypesIn(type.ContainingAssembly.GlobalNamespace)
+      .Where(candidate => candidate.TypeKind == TypeKind.Class &&
+        !HasTypeParameters(candidate) &&
+        MatchesFilter(candidate, module.Filter) &&
+        Attribute(candidate, Attributes.Component) is not null &&
+        module.Compilation.IsSymbolAccessibleWithin(candidate, type))
       .Distinct(SymbolEqualityComparer.Default)
-      .OrderBy(type => type.ToDisplayString(TypeDisplayFormat), StringComparer.Ordinal)
+      .OrderBy(candidate => candidate.ToDisplayString(TypeDisplayFormat), StringComparer.Ordinal)
       .ToArray();
 
+    var wrapper = WrapType(
+      type,
+      module.IsApplication ? "helix-application" : "helix-module",
+      baseType: "global::HELIX.Context.IHelixModule"
+    );
     context.AddSource(
-      "ComponentDiscovery.g.cs", BuildSource(builder => {
-          builder.AppendLine("public static class ComponentDiscovery");
+      wrapper.HintName,
+      wrapper.Build(builder => {
+          var moduleType = type.ToDisplayString(TypeDisplayFormat);
+          builder.AppendLine(
+            "public static readonly " + moduleType + " Instance = new " + moduleType + "();"
+          );
+          builder.BlankLine();
+          builder.AppendLine(
+            "public void Discover(global::HELIX.Context.ComponentRegistrations registrations)"
+          );
           using (builder.Block()) {
-            builder.AppendLine(
-              "public static global::HELIX.Context.ComponentRegistrations Discover()"
-            );
-            using (builder.Block()) {
+            foreach (var import in module.Imports) {
               builder.Statement(
-                "var registrations = new global::HELIX.Context.ComponentRegistrations()"
+                import.ToDisplayString(TypeDisplayFormat) + ".Instance.Discover(registrations)"
               );
-              foreach (var component in components) {
-                var type = component.ToDisplayString(TypeDisplayFormat);
-                builder.Statement(
-                  "registrations.Register(typeof(" + type + "), " + type + "." +
-                  RegistrationConfigurator + ")"
-                );
-              }
-              builder.Return("registrations");
             }
+            foreach (var component in components) {
+              var componentType = component.ToDisplayString(TypeDisplayFormat);
+              builder.Statement(
+                "registrations.Register(typeof(" + componentType + "), " + componentType + "." +
+                RegistrationConfigurator + ")"
+              );
+            }
+          }
+          if (!module.IsApplication) return;
+          builder.BlankLine();
+          builder.AppendLine(
+            "public static global::HELIX.Context.ComponentRegistrations Discover()"
+          );
+          using (builder.Block()) {
+            builder.Statement(
+              "var registrations = new global::HELIX.Context.ComponentRegistrations()"
+            );
+            builder.Statement("Instance.Discover(registrations)");
+            builder.Return("registrations");
           }
         }
       )
     );
   }
 
-  private static IEnumerable<IAssemblySymbol> CandidateAssemblies(
-    Compilation compilation,
-    IAssemblySymbol stereotypeAssembly
-  ) {
-    yield return compilation.Assembly;
-    foreach (var assembly in compilation.SourceModule.ReferencedAssemblySymbols) {
-      if (SymbolEqualityComparer.Default.Equals(assembly, stereotypeAssembly) ||
-        assembly.Modules.Any(module => module.ReferencedAssemblySymbols.Any(reference =>
-            SymbolEqualityComparer.Default.Equals(reference, stereotypeAssembly)
-          )
-        )) yield return assembly;
-    }
-  }
-
-  private static IEnumerable<INamedTypeSymbol> TypesIn(IAssemblySymbol assembly) {
-    return TypesIn(assembly.GlobalNamespace);
+  private static bool MatchesFilter(INamedTypeSymbol type, string filter) {
+    if (string.IsNullOrEmpty(filter)) return true;
+    var @namespace = type.ContainingNamespace is { IsGlobalNamespace: false } value
+      ? value.ToDisplayString()
+      : "";
+    return @namespace == filter || @namespace.StartsWith(filter + ".", StringComparison.Ordinal);
   }
 
   private static IEnumerable<INamedTypeSymbol> TypesIn(INamespaceSymbol @namespace) {
@@ -102,10 +149,11 @@ public sealed class ComponentDiscoveryGenerator : IIncrementalGenerator {
     }
   }
 
-  private static bool HasBuiltinStereotype(INamedTypeSymbol type) {
-    return type.GetAttributes().Any(attribute => BuiltinMixinStereotypes.Contains(
-        attribute.AttributeClass?.ToDisplayString() ?? "", StringComparer.Ordinal
-      )
-    );
-  }
+  private sealed record ModuleCandidate(
+    INamedTypeSymbol Type,
+    Compilation Compilation,
+    string Filter,
+    IReadOnlyList<INamedTypeSymbol> Imports,
+    bool IsApplication
+  );
 }

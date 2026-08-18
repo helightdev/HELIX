@@ -27,7 +27,7 @@ public sealed class MixinGeneratorExpressionTests {
                             [AttributeUsage(AttributeTargets.Class)] public class ComponentAttribute : Attribute { }
                             public sealed class ServiceAttribute : ComponentAttribute { }
                           }
-                          [HELIX.Context.Service]
+                          [HELIX.Context.Component]
                           public partial class Demo {
                             private void Initialize() { }
                             private void Release() { }

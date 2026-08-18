@@ -53,9 +53,7 @@ namespace HELIX.Context {
     }
 
     [MixinMethod(MixinOn.ConfigureComponent)]
-    private static void OnConfigureSelf(ComponentRegistration entry) {
-
-    }
+    private static void OnConfigureSelf(ComponentRegistration entry) { }
 
     [Ticker("10s")]
     private void MyTickerFunc() {

@@ -2,7 +2,7 @@ using System;
 
 namespace HELIX.Context {
   public interface IHelixModule {
-    void Discover(ComponentRegistrations registration) {}
+    void Discover(ComponentRegistrations registrations) {}
   }
 
   [AttributeUsage(AttributeTargets.Class)]
@@ -22,4 +22,7 @@ namespace HELIX.Context {
       Type[] import = null // Other module-like types to import verbatim
     ) { }
   }
+
+  [HelixModule("Core")]
+  public partial class HelixCoreModule {}
 }

@@ -11,6 +11,8 @@ internal static class GeneratorStrings {
   internal static class Attributes {
     internal const string
       Component = "HELIX.Context.ComponentAttribute",
+      HelixApplication = "HELIX.Context.HelixApplicationAttribute",
+      HelixModule = "HELIX.Context.HelixModuleAttribute",
       MixinExpression = "HELIX.Context.MixinExpressionAttribute",
       MixinPrepareGlobal = "HELIX.Context.MixinPrepareGlobalAttribute",
       MixinDefineTarget = "HELIX.Context.MixinDefineTargetAttribute",
