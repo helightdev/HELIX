@@ -38,6 +38,7 @@ namespace HELIX.Context {
     private static void WriteDeclaredEntry(IProseWriter writer, ComponentRegistration entry) {
       using (writer.Tree()) {
         writer.Name($"{entry.name} : {TypeName(entry.type)}");
+        if (entry.optional) writer.Property("optional", true, ProseFormatters.Bool);
         writer.Property("keys", Join(entry.keys.Select(FormatKey)), ProseFormatters.String);
         WriteDependencies(writer, "requires", entry.dependencies);
         WriteDependencies(writer, "publishes", entry.publications);
@@ -55,9 +56,7 @@ namespace HELIX.Context {
               Join(scope.BoundKeys(loaded.registration).Select(FormatKey)),
               ProseFormatters.String
             );
-            var publications = scope.PublishedWireKeys(loaded.registration).Where(key =>
-              !loaded.registration.keys.Any(componentKey => componentKey.CreateWireKey() == key)
-            );
+            var publications = scope.PublishedWireKeys(loaded.registration).Where(key => loaded.registration.keys.All(componentKey => componentKey.CreateWireKey() != key));
             writer.Property("publications", Join(publications), ProseFormatters.String);
           }
         }

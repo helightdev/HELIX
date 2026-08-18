@@ -63,16 +63,63 @@ namespace HELIX.Context {
       .Where(x => x.IsScripted && x.scripted.Stage == stage && x.flags.HasFlag(DependencyFlags.ImplicitLoadable))
       .OrderBy(static x => x.scripted.Order);
 
-    private bool DependenciesSatisfied(
+    private static bool CanProvide(ComponentRegistration entry, ComponentDependency dependency) {
+      if (dependency.IsTyped) {
+        return entry.keys.Contains(dependency.key) || entry.publications.Any(publication =>
+          publication.IsTyped && publication.key.Equals(dependency.key)
+        );
+      }
+      return dependency.flags.HasFlag(DependencyFlags.Wirable) && entry.publications.Any(publication =>
+        publication.flags.HasFlag(DependencyFlags.Wirable) && publication.wireKey == dependency.wireKey
+      );
+    }
+
+    private static bool HasPendingProvider(
+      ComponentRegistration consumer,
+      ComponentDependency dependency,
+      IReadOnlyCollection<ComponentRegistration> pending
+    ) {
+      var count = pending.Count(entry => CanProvide(entry, dependency));
+      return count > (CanProvide(consumer, dependency) ? 1 : 0);
+    }
+
+    private static bool CanLoadWithoutDelay(
       ManagedScope managed,
       ComponentRegistration entry,
-      IReadOnlyList<ComponentRegistration> allEntries
+      IReadOnlyCollection<ComponentRegistration> pending,
+      InitializationStage stage
+    ) {
+      if (!RequiredDependenciesSatisfied(managed, entry, pending)) return false;
+      return entry.dependencies.All(dependency =>
+        !HasPendingProvider(entry, dependency, pending) &&
+        !(dependency.IsScripted && dependency.flags.HasFlag(DependencyFlags.ImplicitLoadable) &&
+          dependency.scripted.Stage > stage && !managed.IsDependencyAvailable(dependency))
+      );
+    }
+
+    private static bool RequiredDependenciesSatisfied(
+      ManagedScope managed,
+      ComponentRegistration entry,
+      IReadOnlyCollection<ComponentRegistration> pending
     ) => entry.dependencies.All(dependency => {
         if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
-        var localProvider = _graph.HasLocalProvider(allEntries, dependency);
-        return localProvider ? managed.HasLocalDependency(dependency) : managed.HasDependency(dependency);
+        var hasLocalProvider = pending.Any(provider => CanProvide(provider, dependency)) ||
+          managed.HasLocalDependency(dependency);
+        return hasLocalProvider ? managed.HasLocalDependency(dependency) : managed.HasDependency(dependency);
       }
     );
+
+    private static bool RemoveUnavailableOptionalComponents(
+      ManagedScope managed,
+      List<ComponentRegistration> pending
+    ) {
+      var unavailable = pending.Where(entry =>
+          entry.optional && !RequiredDependenciesSatisfied(managed, entry, pending)
+        )
+        .ToList();
+      foreach (var entry in unavailable) pending.Remove(entry);
+      return unavailable.Count > 0;
+    }
 
     private void EnsureIterationAvailable(int iteration, ManagedScope managed) {
       if (_container.maxLoadingIterations <= 0) {
@@ -130,6 +177,10 @@ namespace HELIX.Context {
       _scripted.Clear();
     }
 
+    private void RestoreActiveContext() {
+      _active.Value = this;
+    }
+
     private IReadOnlyList<ComponentRegistration> EntriesFor(
       ManagedScope managed,
       IEnumerable<IComponent> contributions,
@@ -149,7 +200,7 @@ namespace HELIX.Context {
         }
         selected.Add(registration);
       }
-      var entries = _graph.For(managed, selected);
+      var entries = _graph.For(managed, selected, entry => ConditionsSatisfied(managed, entry));
       if (_injected.Count == 0) return entries;
 
       var expanded = new List<ComponentRegistration>();
@@ -159,6 +210,17 @@ namespace HELIX.Context {
         } else expanded.Add(entry);
       }
       return expanded;
+    }
+
+    private bool ConditionsSatisfied(ManagedScope managed, ComponentRegistration entry) {
+      if (entry.conditions.Count == 0) return true;
+      var context = new ComponentLoadContext(_container, managed, entry, this);
+      try {
+        return entry.conditions.All(condition => condition(context));
+      } catch (Exception exception) {
+        if (exception is ComponentContainerException) throw;
+        throw new ComponentGraphException($"Failed to evaluate conditions for component '{entry.name}'.", exception);
+      }
     }
 
     private object Activate(ComponentRegistration entry, ComponentLoadContext context) {
@@ -207,7 +269,7 @@ namespace HELIX.Context {
         var pending = new List<ComponentRegistration>(entries);
         foreach (InitializationStage stage in Enum.GetValues(typeof(InitializationStage))) {
           LoadScriptedDependenciesSync(managed, entries, stage);
-          if (stage != InitializationStage.PreInit) LoadEligibleSync(managed, entries, pending);
+          if (stage != InitializationStage.PreInit) LoadEligibleSync(managed, pending, stage);
         }
         EnsureFullyLoaded(managed, pending);
       } finally {
@@ -238,22 +300,33 @@ namespace HELIX.Context {
 
     private void LoadEligibleSync(
       ManagedScope managed,
-      IReadOnlyList<ComponentRegistration> allEntries,
-      List<ComponentRegistration> pending
+      List<ComponentRegistration> pending,
+      InitializationStage stage
     ) {
       var iteration = 0;
       while (true) {
         if (pending.Count == 0) return;
         EnsureIterationAvailable(iteration++, managed);
-        var eligible = pending.Where(entry => DependenciesSatisfied(managed, entry, allEntries))
+        var eligible = pending.Where(entry => CanLoadWithoutDelay(managed, entry, pending, stage))
           .OrderBy(static x => x.order)
           .ThenBy(static x => x.name, StringComparer.Ordinal)
           .ToList();
-        if (eligible.Count == 0) return;
-        foreach (var entry in eligible) {
-          LoadRegistrationSync(managed, entry);
-          pending.Remove(entry);
+        if (eligible.Count > 0) {
+          foreach (var entry in eligible) {
+            LoadRegistrationSync(managed, entry);
+            pending.Remove(entry);
+          }
+          continue;
         }
+        if (stage != InitializationStage.PostInit) return;
+        if (RemoveUnavailableOptionalComponents(managed, pending)) continue;
+        var fallback = pending.Where(entry => RequiredDependenciesSatisfied(managed, entry, pending))
+          .OrderBy(static x => x.order)
+          .ThenBy(static x => x.name, StringComparer.Ordinal)
+          .FirstOrDefault();
+        if (fallback == null) return;
+        LoadRegistrationSync(managed, fallback);
+        pending.Remove(fallback);
       }
     }
 
@@ -264,6 +337,7 @@ namespace HELIX.Context {
         managed.RecordComponent(entry, instance);
         managed.BindComponent(entry, instance);
         entry.InitializeSync(instance, context);
+        entry.InitializeLate(instance, context);
         ValidateAndCompleteComponent(managed, entry, instance);
       } catch (Exception exception) {
         if (exception is ComponentContainerException) throw;
@@ -289,7 +363,11 @@ namespace HELIX.Context {
         var pending = new List<ComponentRegistration>(entries);
         foreach (InitializationStage stage in Enum.GetValues(typeof(InitializationStage))) {
           await LoadScriptedDependenciesAsync(managed, entries, stage);
-          if (stage != InitializationStage.PreInit) await LoadEligibleAsync(managed, entries, pending);
+          RestoreActiveContext();
+          if (stage != InitializationStage.PreInit) {
+            await LoadEligibleAsync(managed, pending, stage);
+            RestoreActiveContext();
+          }
         }
         EnsureFullyLoaded(managed, pending);
       } finally {
@@ -305,6 +383,7 @@ namespace HELIX.Context {
       foreach (var dependency in EnumerateImplicitScripted(entries, stage)) {
         if (managed.IsScriptedLoaded(dependency.scripted) || managed.IsDependencyAvailable(dependency)) continue;
         var result = await dependency.scripted.LoadAsync(new ComponentLoadContext(_container, managed, null, this));
+        RestoreActiveContext();
         if (!result.success) {
           if (dependency.flags.HasFlag(DependencyFlags.Required)) {
             throw new ComponentInitializationException(
@@ -320,26 +399,40 @@ namespace HELIX.Context {
 
     private async UniTask LoadEligibleAsync(
       ManagedScope managed,
-      IReadOnlyList<ComponentRegistration> allEntries,
-      List<ComponentRegistration> pending
+      List<ComponentRegistration> pending,
+      InitializationStage stage
     ) {
       var iteration = 0;
       while (true) {
         if (pending.Count == 0) return;
         EnsureIterationAvailable(iteration++, managed);
-        var eligible = pending.Where(entry => DependenciesSatisfied(managed, entry, allEntries))
+        var eligible = pending.Where(entry => CanLoadWithoutDelay(managed, entry, pending, stage))
           .OrderBy(static x => x.order)
           .ThenBy(static x => x.name, StringComparer.Ordinal)
           .ToList();
-        if (eligible.Count == 0) return;
-        foreach (var entry in eligible) {
-          await LoadRegistrationAsync(managed, entry);
-          pending.Remove(entry);
+        if (eligible.Count > 0) {
+          foreach (var entry in eligible) {
+            await LoadRegistrationAsync(managed, entry);
+            RestoreActiveContext();
+            pending.Remove(entry);
+          }
+          continue;
         }
+        if (stage != InitializationStage.PostInit) return;
+        if (RemoveUnavailableOptionalComponents(managed, pending)) continue;
+        var fallback = pending.Where(entry => RequiredDependenciesSatisfied(managed, entry, pending))
+          .OrderBy(static x => x.order)
+          .ThenBy(static x => x.name, StringComparer.Ordinal)
+          .FirstOrDefault();
+        if (fallback == null) return;
+        await LoadRegistrationAsync(managed, fallback);
+        RestoreActiveContext();
+        pending.Remove(fallback);
       }
     }
 
     private async UniTask LoadRegistrationAsync(ManagedScope managed, ComponentRegistration entry) {
+      RestoreActiveContext();
       var context = new ComponentLoadContext(_container, managed, entry, this);
       try {
         var instance = Activate(entry, context);
@@ -347,6 +440,8 @@ namespace HELIX.Context {
         managed.BindComponent(entry, instance);
         entry.InitializeSync(instance, context);
         await entry.InitializeAsync(instance, context);
+        RestoreActiveContext();
+        entry.InitializeLate(instance, context);
         ValidateAndCompleteComponent(managed, entry, instance);
       } catch (Exception exception) {
         if (exception is ComponentContainerException) throw;

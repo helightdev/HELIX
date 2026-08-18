@@ -65,6 +65,19 @@ namespace HELIX.Context {
       return AddBinding(new TypeKey(typeof(T), qualifier), value);
     }
 
+    public ManagedScopeBuilder AddProxyBinding(TypeKey key, Func<object> supplier) {
+      EnsureNotBuilt();
+      if (key.type == null) throw new ArgumentException("A binding key must have a type.", nameof(key));
+      if (supplier == null) throw new ArgumentNullException(nameof(supplier));
+      _bindings.Add(new ScopeBinding(key, supplier));
+      return this;
+    }
+
+    public ManagedScopeBuilder AddProxyBinding<T>(Func<T> supplier, string qualifier = null) where T : class {
+      if (supplier == null) throw new ArgumentNullException(nameof(supplier));
+      return AddProxyBinding(new TypeKey(typeof(T), qualifier), supplier);
+    }
+
     public ManagedScope StartSync() {
       BeginBuild();
       return _container.StartScopeSync(_parent, _scope, _components, _componentTypes, _bindings);
@@ -89,10 +102,18 @@ namespace HELIX.Context {
   internal readonly struct ScopeBinding {
     public readonly TypeKey key;
     public readonly object value;
+    public readonly Func<object> supplier;
 
     public ScopeBinding(TypeKey key, object value) {
       this.key = key;
       this.value = value;
+      supplier = null;
+    }
+
+    public ScopeBinding(TypeKey key, Func<object> supplier) {
+      this.key = key;
+      value = null;
+      this.supplier = supplier;
     }
   }
 }

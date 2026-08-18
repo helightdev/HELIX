@@ -147,8 +147,29 @@ using HELIX.Context;
 @FUNC<InjectDiImpl>
   @USING HELIX.Context;
   @CALL<RequireEventHandler>
+
+  @SCOPE
+    @MATCH @target:type:?is<System.Collections.IEnumerable>
+    @MATCH @target:type:!?is<string>
+    @MATCH @target:type#0:?exists
+    @CALL<InjectDiImplList>
+    @RETURN
+  @END
+
   @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type), @attr#qualifier), @attr#required));
-  @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@attr#qualifier);  
+  @SCOPE
+    @MATCH @attr#required:?eq<false>
+    @CODE<$Init> @target:name = ComponentBinding.ResolveOptional<@target:type>(@attr#qualifier);
+    @RETURN
+  @END
+  @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@attr#qualifier);
+@END
+
+@FUNC<InjectDiImplList>
+  @USING System.Collections.Generic;
+  @ASSERT @target:type#0:?class
+  @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type#0), @attr#qualifier), false));
+  @CODE<$Init> @target:name = ComponentBinding.ResolveAll<@target:type#0>(@attr#qualifier) as @target:type;
 @END
 "
 )]

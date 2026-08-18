@@ -4,6 +4,7 @@
   "references": [
     "HELIX.Context",
     "HELIX",
+    "UniTask",
     "UnityEngine.TestRunner",
     "UnityEditor.TestRunner"
   ],

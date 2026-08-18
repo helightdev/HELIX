@@ -1,14 +1,21 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using JetBrains.Annotations;
 
 namespace HELIX.Context {
   public interface IComponent {
     RuntimeComponentData ComponentBinding { get; }
-    void LoadComponent(ComponentLoadContext context) { }
+    void LoadComponent(ComponentLoadContext context) {}
+    void LoadComponentLate(ComponentLoadContext context) { }
     void UnloadComponent() { }
   }
 
+  [UsedImplicitly]
   public delegate void ComponentLoadMethod(ComponentLoadContext context);
 
+
+  [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
   public sealed class RuntimeComponentData {
     public ManagedScope scope;
     public ManagedContainer container;
@@ -39,13 +46,25 @@ namespace HELIX.Context {
     public T Resolve<T>(Type type, string qualifier = null) where T : class =>
       ResolveKey<T>(new TypeKey(type, qualifier));
 
-    // public IReadOnlyList<T> ResolveAll<T>(TypeKey key) where T : class => scope.ResolveAll(key);
+    public T ResolveOptional<T>(string qualifier = null) where T : class {
+      if (scope == null) throw new ComponentStateException("Component is not yet attached to a scope");
+      return scope.TryResolve(new TypeKey(typeof(T), qualifier), out var value) ? value as T : null;
+    }
+
+    public List<T> ResolveAll<T>(string qualifier = null) where T : class {
+      if (scope == null) throw new ComponentStateException("Component is not yet attached to a scope");
+      return scope.ResolveAll(new TypeKey(typeof(T), qualifier)).Cast<T>().ToList();
+    }
 
     public ManagedScopeBuilder CreateScope() => container.CreateScope(scope);
   }
 
   [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
   [MixinDefineTarget(MixinOn.ConfigureComponent, MixinOn.RegistrationConfiguratorDelegate)]
+  [MixinDefineTarget(MixinOn.ComponentLoad, MixinOn.ComponentLoadDelegate)]
+  [MixinDefineTarget(MixinOn.ComponentLoadLate, MixinOn.ComponentLoadLateDelegate)]
+  [MixinDefineTarget(MixinOn.Init, MixinOn.ComponentLoadDelegate)]
+  [MixinDefineTarget(MixinOn.Dispose, MixinOn.ComponentUnload)]
   [MixinExpression(
     new[] { MixinOn.ConfigureComponent },
     new[] { -100_000 },
@@ -53,32 +72,37 @@ namespace HELIX.Context {
 @USING UnityEngine;
 @USING HELIX.Context;
 @CODE<$ConfigureComponent> registration.name = ""@this:name"";
+@CODE<$ConfigureComponent> registration.optional = @attr#optional;
+@CODE<$ConfigureComponent> registration.order = @attr#order;
 @CODE<IMPLEMENTS> IComponent
 @CODE<CLASS> public RuntimeComponentData ComponentBinding { get; } = new();
 @VAR<IsComponent> true
 
 @SCOPE
   @MATCH@attr#scope:?eq<null>
-  @GOTO<PhaseTwo>
+  @GOTO<Activator>
 @SCOPE
   @CODE<$ConfigureComponent> registration.scope = @attr#scope;
+@END
+
+@SCOPE<Activator>
 @SCOPE
   @MATCH @this:?is<MonoBehaviour>
   @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
-  @GOTO<PhaseTwo>
+  @GOTO<End>
 @SCOPE
   @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
-  @GOTO<PhaseTwo>
 @END
 
-@SCOPE<PhaseTwo>
+@SCOPE<End>
 @END
-
 "
   )]
   public class ComponentAttribute : Attribute {
     public ComponentAttribute(
-      Type scope = null
+      Type scope = null,
+      bool optional = false,
+      int order = 0
     ) { }
   }
 

@@ -139,12 +139,20 @@ namespace HELIX.Context {
 
     public bool TryResolve(TypeKey key, out object value) => scope.TryResolve(key, out value);
 
-    public void Publish(TypeKey key, object value) => scope.Publish(registration, key, value);
+    public void Publish(TypeKey key, object value) => scope.Publish(registration, key, value, loader);
 
     public void Publish<T>(T value, string qualifier = null) => Publish(new TypeKey(typeof(T), qualifier), value);
 
     public void Publish(object value, Type type, string qualifier = null) =>
       Publish(new TypeKey(type, qualifier), value);
+
+    public void PublishProxy(TypeKey key, Func<object> supplier) =>
+      scope.PublishProxy(registration, key, supplier, loader);
+
+    public void PublishProxy<T>(Func<T> supplier, string qualifier = null) where T : class {
+      if (supplier == null) throw new ArgumentNullException(nameof(supplier));
+      PublishProxy(new TypeKey(typeof(T), qualifier), supplier);
+    }
 
     public void PublishKey(string wireKey) {
       (loader ?? throw new ScopeLifecycleException(
@@ -244,7 +252,9 @@ namespace HELIX.Context {
     public Type scope; // Associated scope type
     public string name;
     public int order = 0;
+    public bool optional;
     public ComponentActivator activator;
+    public readonly List<ComponentCondition> conditions = new();
 
     public ComponentRegistration(Type type) {
       this.type = type ?? throw new ArgumentNullException(nameof(type));
@@ -256,6 +266,20 @@ namespace HELIX.Context {
       if (scopeType == null || !typeof(IScope).IsAssignableFrom(scopeType))
         throw new ArgumentException("A component scope must implement IScope.", nameof(scopeType));
       scope = scopeType;
+      return this;
+    }
+
+    /// <summary>
+    /// Makes this component conditional on all of its required dependencies being available.
+    /// An unavailable optional component is omitted instead of failing the scope.
+    /// </summary>
+    public ComponentRegistration Optional(bool value = true) {
+      optional = value;
+      return this;
+    }
+
+    public ComponentRegistration Condition(ComponentCondition condition) {
+      conditions.Add(condition ?? throw new ArgumentNullException(nameof(condition)));
       return this;
     }
 
@@ -288,12 +312,14 @@ namespace HELIX.Context {
       var instance = Activate(context);
       InitializeSync(instance, context);
       await InitializeAsync(instance, context);
+      InitializeLate(instance, context);
       return new ComponentLoadResult(true, instance);
     }
 
     public ComponentLoadResult Load(ComponentLoadContext context) {
       var instance = Activate(context);
       InitializeSync(instance, context);
+      InitializeLate(instance, context);
       return new ComponentLoadResult(true, instance);
     }
 
@@ -331,6 +357,10 @@ namespace HELIX.Context {
       initEvent.Reset(context);
       await listener.HandlerList.RaiseLocalAsync(initEvent);
     }
+
+    internal void InitializeLate(object instance, ComponentLoadContext context) {
+      if (instance is IComponent component) component.LoadComponentLate(context);
+    }
   }
 
   public struct RegistrationHandlerBinding {
@@ -344,6 +374,7 @@ namespace HELIX.Context {
   }
 
   public delegate void RegistrationConfigurator(ComponentRegistration registration);
+  public delegate bool ComponentCondition(ComponentLoadContext context);
 
   public class AsyncComponentLoadEvent : AsyncChainEvt<AsyncComponentLoadEvent> {
     // Pooling capable

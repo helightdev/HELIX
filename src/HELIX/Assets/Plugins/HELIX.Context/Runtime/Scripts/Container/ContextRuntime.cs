@@ -74,6 +74,7 @@ namespace HELIX.Context {
 
   public sealed class ComponentResolutionException : ComponentContainerException {
     public ComponentResolutionException(string message) : base(message) { }
+    public ComponentResolutionException(string message, Exception innerException) : base(message, innerException) { }
   }
 
   public sealed class ScopeLifecycleException : ComponentContainerException {

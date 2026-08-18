@@ -20,6 +20,8 @@ namespace HELIX.Context {
         }
         if (entry.keys.Any(static key => key.type == null))
           throw new ComponentGraphException($"Component '{entry.name}' exposes an untyped key.");
+        if (entry.conditions.Any(static condition => condition == null))
+          throw new ComponentGraphException($"Component '{entry.name}' contains a null condition.");
         foreach (var key in entry.keys) {
           if (!key.type.IsAssignableFrom(entry.type)) {
             throw new ComponentGraphException(
@@ -43,7 +45,8 @@ namespace HELIX.Context {
 
     public List<ComponentRegistration> For(
       ManagedScope managed,
-      IEnumerable<ComponentRegistration> contributions = null
+      IEnumerable<ComponentRegistration> contributions = null,
+      Func<ComponentRegistration, bool> include = null
     ) {
       if (_registrations == null) throw new ScopeLifecycleException("The registrar graph has not been prepared.");
       var scopeType = managed.scope.GetType();
@@ -51,6 +54,7 @@ namespace HELIX.Context {
         .Where(entry => entry.scope == scopeType)
         .Concat(contributions ?? Enumerable.Empty<ComponentRegistration>())
         .Distinct()
+        .Where(entry => include?.Invoke(entry) ?? true)
         .OrderBy(static entry => entry.name, StringComparer.Ordinal)
         .ToList();
       var providers = new HashSet<TypeKey>();
@@ -62,6 +66,7 @@ namespace HELIX.Context {
       }
 
       foreach (var entry in entries) {
+        if (entry.optional) continue;
         foreach (var dependency in entry.dependencies.Where(static dependency =>
           dependency.flags.HasFlag(DependencyFlags.Required)
         )) {

@@ -92,8 +92,10 @@ namespace HELIX.Context {
       ValidateKey(key);
       var values = new List<object>();
       for (var current = this; current != null; current = current.parent) {
-        if (current._bindings.TryGetValue(key, out var bindings))
-          values.AddRange(bindings.Select(static x => x.value));
+        if (!current._bindings.TryGetValue(key, out var bindings)) continue;
+        foreach (var binding in bindings) {
+          if (ResolveBinding(key, binding, out var value)) values.Add(value);
+        }
       }
       return values;
     }
@@ -102,8 +104,17 @@ namespace HELIX.Context {
       foreach (var key in registration.keys.Distinct()) AddBinding(registration, key, instance);
     }
 
-    internal void Publish(ComponentRegistration owner, TypeKey key, object value) {
-      AddBinding(owner, key, value);
+    internal void Publish(ComponentRegistration owner, TypeKey key, object value, ScopeLoader loader = null) {
+      AddBinding(owner, key, value, loader);
+    }
+
+    internal void PublishProxy(
+      ComponentRegistration owner,
+      TypeKey key,
+      Func<object> supplier,
+      ScopeLoader loader = null
+    ) {
+      AddProxyBinding(owner, key, supplier, loader);
     }
 
     internal bool HasDependency(ComponentDependency dependency) {
@@ -112,7 +123,7 @@ namespace HELIX.Context {
     }
 
     internal bool IsDependencyAvailable(ComponentDependency dependency) {
-      if (dependency.IsTyped) return TryResolveValue(dependency.key, out _);
+      if (dependency.IsTyped) return HasBinding(dependency.key);
       if (!dependency.flags.HasFlag(DependencyFlags.Wirable))
         return dependency.scripted != null && ScopeLoader.Active.Contains(dependency.scripted);
       return HasWireKey(dependency.wireKey);
@@ -128,7 +139,7 @@ namespace HELIX.Context {
     }
 
     internal bool HasLocalDependency(ComponentDependency dependency) {
-      if (dependency.IsTyped) return TryResolveLocalValue(dependency.key, out _);
+      if (dependency.IsTyped) return HasLocalBinding(dependency.key);
       if (!dependency.flags.HasFlag(DependencyFlags.Wirable))
         return dependency.scripted != null && ScopeLoader.Active.Contains(dependency.scripted);
       return HasLocalWireKey(dependency.wireKey);
@@ -163,7 +174,12 @@ namespace HELIX.Context {
       return ScopeLoader.ActiveOrNull?.PublicationsBy(registration) ?? Array.Empty<string>();
     }
 
-    private void AddBinding(ComponentRegistration owner, TypeKey key, object value) {
+    private void AddBinding(
+      ComponentRegistration owner,
+      TypeKey key,
+      object value,
+      ScopeLoader loader = null
+    ) {
       EnsureCanPublish();
       ValidateKey(key);
       if (value == null) throw new ComponentResolutionException($"Cannot publish null for '{key}'.");
@@ -175,12 +191,43 @@ namespace HELIX.Context {
       if (!_bindings.TryGetValue(key, out var bindings)) _bindings.Add(key, bindings = new List<Binding>());
       if (!bindings.Any(binding => ReferenceEquals(binding.owner, owner) && ReferenceEquals(binding.value, value)))
         bindings.Add(new Binding(owner, value));
-      ScopeLoader.Active.Publish(owner, key.CreateWireKey());
+      (loader ?? ScopeLoader.Active).Publish(owner, key.CreateWireKey());
+    }
+
+    private void AddProxyBinding(
+      ComponentRegistration owner,
+      TypeKey key,
+      Func<object> supplier,
+      ScopeLoader loader = null
+    ) {
+      EnsureCanPublish();
+      ValidateKey(key);
+      if (supplier == null) throw new ArgumentNullException(nameof(supplier));
+      if (!_bindings.TryGetValue(key, out var bindings)) _bindings.Add(key, bindings = new List<Binding>());
+      if (!bindings.Any(binding => ReferenceEquals(binding.owner, owner) &&
+        ReferenceEquals(binding.supplier, supplier))) bindings.Add(new Binding(owner, supplier));
+      (loader ?? ScopeLoader.Active).Publish(owner, key.CreateWireKey());
     }
 
     internal void AddBindings(IEnumerable<ScopeBinding> bindings) {
-      foreach (var binding in bindings ?? Enumerable.Empty<ScopeBinding>())
-        AddBinding(null, binding.key, binding.value);
+      foreach (var binding in bindings ?? Enumerable.Empty<ScopeBinding>()) {
+        if (binding.supplier != null) AddProxyBinding(null, binding.key, binding.supplier);
+        else AddBinding(null, binding.key, binding.value);
+      }
+    }
+
+
+    private bool HasBinding(TypeKey key) {
+      ValidateKey(key);
+      for (var current = this; current != null; current = current.parent) {
+        if (current.HasLocalBinding(key)) return true;
+      }
+      return false;
+    }
+
+    private bool HasLocalBinding(TypeKey key) {
+      ValidateKey(key);
+      return _bindings.TryGetValue(key, out var bindings) && bindings.Count > 0;
     }
     
     private bool TryResolveValue(TypeKey key, out object value) {
@@ -195,12 +242,28 @@ namespace HELIX.Context {
 
     private bool TryResolveLocalValue(TypeKey key, out object value) {
       ValidateKey(key);
-      if (_bindings.TryGetValue(key, out var bindings) && bindings.Count > 0) {
-        value = bindings[^1].value;
-        return true;
+      if (_bindings.TryGetValue(key, out var bindings)) {
+        for (var i = bindings.Count - 1; i >= 0; i--) {
+          if (ResolveBinding(key, bindings[i], out value)) return true;
+        }
       }
       value = null;
       return false;
+    }
+
+    private static bool ResolveBinding(TypeKey key, Binding binding, out object value) {
+      try {
+        value = binding.supplier != null ? binding.supplier() : binding.value;
+      } catch (Exception exception) {
+        throw new ComponentResolutionException($"Supplier for '{key}' failed.", exception);
+      }
+      if (value == null) return false;
+      if (!key.type.IsInstanceOfType(value)) {
+        throw new ComponentResolutionException(
+          $"Supplier for '{key}' returned incompatible type {value.GetType().FullName}."
+        );
+      }
+      return true;
     }
 
     private bool HasLocalWireKey(string wireKey) {
@@ -389,10 +452,18 @@ namespace HELIX.Context {
     private readonly struct Binding {
       public readonly ComponentRegistration owner;
       public readonly object value;
+      public readonly Func<object> supplier;
 
       public Binding(ComponentRegistration owner, object value) {
         this.owner = owner;
         this.value = value;
+        supplier = null;
+      }
+
+      public Binding(ComponentRegistration owner, Func<object> supplier) {
+        this.owner = owner;
+        value = null;
+        this.supplier = supplier;
       }
     }
 

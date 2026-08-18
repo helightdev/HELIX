@@ -28,7 +28,6 @@ namespace HELIX.Context {
     }
   }
 
-  // [EnableMixins]
   [Component(typeof(ApplicationScope))]
   public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]
@@ -39,6 +38,9 @@ namespace HELIX.Context {
 
     [Inject, NonSerialized]
     public MyRootDependency myRootDependency;
+
+    [Inject("pipeline"), NonSerialized, ShowInInspector]
+    public string pipelineValue;
 
     [Resource(Source.Addressables, "Assets/ExampleAddressable"), ShowInInspector]
     public GameObject addressablePrefab;
@@ -84,6 +86,26 @@ namespace HELIX.Context {
     private void OnComponentLoad(ComponentLoadContext context) {
 
     }
+  }
+
+  [Component(typeof(ApplicationScope))]
+  public partial class StageOne {
+    [Inject("pipeline")] public string provided;
+    [Bind("pipeline", proxied: true)] public string GetNext => $"{provided}1;";
+  }
+
+
+  [Component(typeof(ApplicationScope))]
+  public partial class StageTwo {
+    [Inject("pipeline", required: false)] public string provided;
+    [Bind("pipeline", proxied: true)] public string GetNext => $"{provided}2;";
+  }
+
+
+  [Component(typeof(ApplicationScope))]
+  public partial class StageThree {
+    [Inject("pipeline")] public string provided;
+    [Bind("pipeline", proxied: true)] public string GetNext => $"{provided}3;";
   }
 
   [Component(typeof(SceneScope))]

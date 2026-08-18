@@ -87,10 +87,13 @@ namespace HELIX.Context {
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
     public const string ConfigureComponent = "$ConfigureComponent";
 
-    public const string ComponentLoad = "^LoadComponent:HELIX.Context.ComponentLoadMethod";
+    public const string ComponentLoad = "$LoadComponent";
+    public const string ComponentLoadLate = "$LoadComponentLate";
     public const string ComponentUnload = "^UnloadComponent";
 
     public const string RegistrationConfiguratorDelegate = "^*~HELIX.Context.RegistrationConfigurator";
+    public const string ComponentLoadDelegate = "^LoadComponent:HELIX.Context.ComponentLoadMethod";
+    public const string ComponentLoadLateDelegate = "^LoadComponentLate:HELIX.Context.ComponentLoadMethod";
 
     public const string MonoAwake = "Awake";
     public const string MonoStart = "Start";

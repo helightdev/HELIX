@@ -1,124 +1,571 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using HELIX.Context.Tests.Fixtures;
 using HELIX.Prose;
 using NUnit.Framework;
 using UnityEngine;
 
 namespace HELIX.Context.Tests {
-  public class ManagedContainerTests {
-    private readonly List<ManagedContainer> _containers = new();
+  public class ManagedContainerTests : ManagedContainerTestFixture {
+    private const string Primary = "primary";
+    private const string Secondary = "secondary";
 
-    [TearDown]
-    public void TearDown() {
-      foreach (var container in _containers) {
-        try { container.Dispose(); } catch (AggregateException) { }
-      }
-      _containers.Clear();
+    [Test]
+    public void LoadsProviderBeforeConsumerAndExposesItsInterface() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider(trace)).Exposes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
+        .Requires<IProvider>();
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "primary", "consumer" }));
+      Assert.That(scope.Resolve<IProvider>(), Is.SameAs(scope.Resolve<Provider>()));
+      Assert.That(scope.Resolve<ProviderConsumer>().Provider, Is.SameAs(scope.Resolve<IProvider>()));
     }
 
     [Test]
-    public void LoadsComponentsInDependencyOrderAndResolvesExposedKeys() {
-      var order = new List<string>();
+    public void ChildScopeCanResolveAncestorWithoutPublishingBackToParent() {
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(Provider), entry => {
-        entry.activator = _ => new Provider(order);
-        entry.Key(typeof(IProvider));
-      });
-      registrations.Register(typeof(Consumer), entry => {
-        entry.activator = context => new Consumer((IProvider)context.Resolve(typeof(IProvider)), order);
-        entry.Dependency(Required(typeof(IProvider)));
-      });
-
-      var container = CreateContainer(registrations);
-      var application = container.StartApplicationSync();
-
-      Assert.That(order, Is.EqualTo(new[] { "provider", "consumer" }));
-      Assert.That(application.Resolve(typeof(IProvider)), Is.SameAs(application.Resolve(typeof(Provider))));
-      Assert.That(((Consumer)application.Resolve(typeof(Consumer))).provider, Is.SameAs(application.Resolve(typeof(IProvider))));
-    }
-
-    [Test]
-    public void ChildScopeResolvesAncestorButParentCannotResolveChild() {
-      var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(Provider), entry => {
-        entry.activator = _ => new Provider(null);
-        entry.Key(typeof(IProvider));
-      });
-      registrations.Register(typeof(SessionConsumer), entry => {
-        entry.scope = typeof(SessionScope);
-        entry.activator = context => new SessionConsumer((IProvider)context.Resolve(typeof(IProvider)));
-        entry.Dependency(Required(typeof(IProvider)));
-      });
+      registrations.Add(_ => new Provider()).Exposes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
+        .In<SessionScope>()
+        .Requires<IProvider>();
 
       var container = CreateContainer(registrations);
       var application = container.StartApplicationSync();
       var session = container.CreateScope(application).From(new SessionScope()).StartSync();
 
-      Assert.That(session.Resolve(typeof(IProvider)), Is.SameAs(application.Resolve(typeof(IProvider))));
-      Assert.That(((SessionConsumer)session.Resolve(typeof(SessionConsumer))).provider, Is.SameAs(application.Resolve(typeof(IProvider))));
-      Assert.Throws<ComponentResolutionException>(() => application.Resolve(typeof(SessionConsumer)));
+      Assert.That(session.Resolve<IProvider>(), Is.SameAs(application.Resolve<IProvider>()));
+      Assert.That(session.Resolve<ProviderConsumer>().Provider, Is.SameAs(application.Resolve<IProvider>()));
+      Assert.Throws<ComponentResolutionException>(() => application.Resolve<ProviderConsumer>());
     }
 
     [Test]
-    public void GuaranteedChildProviderShadowsAncestorBeforeChildConsumerLoads() {
+    public void LocalProviderShadowsAncestorBeforeChildConsumerLoads() {
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(Provider), entry => {
-        entry.activator = _ => new Provider(null);
-        entry.Key(typeof(IProvider));
-      });
-      registrations.Register(typeof(SessionProvider), entry => {
-        entry.scope = typeof(SessionScope);
-        entry.activator = _ => new SessionProvider();
-        entry.Key(typeof(IProvider));
-      });
-      registrations.Register(typeof(SessionConsumer), entry => {
-        entry.scope = typeof(SessionScope);
-        entry.activator = context => new SessionConsumer((IProvider)context.Resolve(typeof(IProvider)));
-        entry.Dependency(Required(typeof(IProvider)));
-      });
+      registrations.Add(_ => new Provider()).Exposes<IProvider>();
+      registrations.Add(_ => new SessionProvider())
+        .In<SessionScope>()
+        .Exposes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
+        .In<SessionScope>()
+        .Requires<IProvider>();
 
       var container = CreateContainer(registrations);
       var application = container.StartApplicationSync();
       var session = container.CreateScope(application).From(new SessionScope()).StartSync();
 
-      Assert.That(((SessionConsumer)session.Resolve(typeof(SessionConsumer))).provider, Is.SameAs(session.Resolve(typeof(SessionProvider))));
-      Assert.That(session.Resolve(typeof(IProvider)), Is.Not.SameAs(application.Resolve(typeof(IProvider))));
+      Assert.That(session.Resolve<ProviderConsumer>().Provider, Is.SameAs(session.Resolve<SessionProvider>()));
+      Assert.That(session.Resolve<IProvider>(), Is.Not.SameAs(application.Resolve<IProvider>()));
     }
 
     [Test]
-    public void InitializationFailureRollsBackInReverseOrder() {
-      var lifecycle = new List<string>();
+    public void QualifiersKeepCompetingProvidersIsolated() {
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(RollbackComponent), entry => {
-        entry.order = -1;
-        entry.activator = _ => new RollbackComponent(lifecycle);
-      });
-      registrations.Register(typeof(FailingComponent), entry => {
-        entry.order = 1;
-        entry.activator = _ => throw new InvalidOperationException("failure");
-      });
+      registrations.Add(_ => new Provider()).Exposes<IProvider>(Primary);
+      registrations.Add(_ => new SecondaryProvider()).Exposes<IProvider>(Secondary);
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(Primary)))
+        .Requires<IProvider>(Primary);
+      registrations.Add(context => new OptionalProviderConsumer(context.Resolve<IProvider>(Secondary)))
+        .Requires<IProvider>(Secondary);
 
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(scope.Resolve<ProviderConsumer>().Provider, Is.SameAs(scope.Resolve<IProvider>(Primary)));
+      Assert.That(scope.Resolve<OptionalProviderConsumer>().Provider,
+        Is.SameAs(scope.Resolve<IProvider>(Secondary)));
+      Assert.That(scope.Resolve<IProvider>(Primary), Is.TypeOf<Provider>());
+      Assert.That(scope.Resolve<IProvider>(Secondary), Is.TypeOf<SecondaryProvider>());
+    }
+
+    [Test]
+    public void CollectedDependencyReturnsEmptyListWhenNoProviderExists() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new ProviderListConsumer(context.ResolveAll<IProvider>()))
+        .Collects<IProvider>();
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(scope.Resolve<ProviderListConsumer>().Providers, Is.Empty);
+    }
+
+    [Test]
+    public void CollectedDependencyWaitsForEveryProviderAndPreservesLoadOrder() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new ProviderListConsumer(context.ResolveAll<IProvider>(), trace))
+        .Collects<IProvider>()
+        .order = -100;
+      registrations.Add(_ => new Provider(trace))
+        .Exposes<IProvider>()
+        .order = 10;
+      registrations.Add(_ => new SecondaryProvider(trace))
+        .Exposes<IProvider>()
+        .order = 20;
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+      var providers = scope.Resolve<ProviderListConsumer>().Providers;
+
+      Assert.That(trace, Is.EqualTo(new[] { "primary", "secondary", "list-consumer" }));
+      Assert.That(providers.Select(provider => provider.Name), Is.EqualTo(new[] { "primary", "secondary" }));
+    }
+
+    [Test]
+    public void CollectedDependencyUsesElementQualifierAndIncludesVisibleAncestors() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider()).Exposes<IProvider>(Primary);
+      registrations.Add(_ => new SecondaryProvider())
+        .In<SessionScope>()
+        .Exposes<IProvider>(Primary);
+      registrations.Add(context => new ProviderListConsumer(context.ResolveAll<IProvider>(Primary)))
+        .In<SessionScope>()
+        .Collects<IProvider>(Primary);
+
+      var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
+      var session = container.CreateScope(application).From(new SessionScope()).StartSync();
+      var providers = session.Resolve<ProviderListConsumer>().Providers;
+
+      Assert.That(providers, Has.Count.EqualTo(2));
+      Assert.That(providers[0], Is.TypeOf<SecondaryProvider>());
+      Assert.That(providers[1], Is.SameAs(application.Resolve<IProvider>(Primary)));
+    }
+
+    [Test]
+    public void CollectedDependencyEvaluatesProxyProvidersOnlyWhenConsumerResolvesList() {
+      var trace = new List<string>();
+      var value = new PublishedProvider();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new ProviderListConsumer(context.ResolveAll<IProvider>(), trace))
+        .Collects<IProvider>()
+        .order = -100;
+      registrations.Add(_ => new ProxyBindingComponent(() => value, trace))
+        .Publishes<IProvider>();
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "proxy:load", "proxy:late", "supplier", "list-consumer" }));
+      Assert.That(scope.Resolve<ProviderListConsumer>().Providers, Is.EqualTo(new[] { value }));
+    }
+
+    [Test]
+    public void RegistrationConditionsAreAndedAndEvaluatedOncePerScope() {
+      var firstCalls = 0;
+      var secondCalls = 0;
+      var registrations = new ComponentRegistrations();
+      registrations.Add<Provider>(_ =>
+          throw new AssertionException("Disabled component should not activate."))
+        .Condition(_ => {
+          firstCalls++;
+          return true;
+        })
+        .Condition(_ => {
+          secondCalls++;
+          return false;
+        });
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(scope.TryResolve(typeof(Provider), out _), Is.False);
+      Assert.That(firstCalls, Is.EqualTo(1));
+      Assert.That(secondCalls, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void RegistrationConditionCanReadScopeBindingsIndependentlyForEachScope() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider())
+        .In<SessionScope>()
+        .Condition(context => context.Resolve<FeatureFlag>().Enabled);
+      var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
+
+      var enabled = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddBinding(new FeatureFlag(true))
+        .StartSync();
+      var disabled = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddBinding(new FeatureFlag(false))
+        .StartSync();
+
+      Assert.That(enabled.Resolve<Provider>(), Is.Not.Null);
+      Assert.That(disabled.TryResolve(typeof(Provider), out _), Is.False);
+    }
+
+    [Test]
+    public void ConditionalProvidersAreRemovedBeforeCollectionDependencySettles() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider())
+        .Condition(_ => false)
+        .Exposes<IProvider>();
+      registrations.Add(_ => new SecondaryProvider())
+        .Condition(_ => true)
+        .Exposes<IProvider>();
+      registrations.Add(context => new ProviderListConsumer(context.ResolveAll<IProvider>()))
+        .Collects<IProvider>();
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+      var providers = scope.Resolve<ProviderListConsumer>().Providers;
+
+      Assert.That(providers, Has.Count.EqualTo(1));
+      Assert.That(providers[0], Is.TypeOf<SecondaryProvider>());
+      Assert.That(scope.TryResolve(typeof(Provider), out _), Is.False);
+    }
+
+    [Test]
+    public void DisabledOnlyProviderDoesNotSatisfyRequiredConsumerGraph() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider())
+        .Condition(_ => false)
+        .Exposes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
+        .Requires<IProvider>();
+      var container = CreateContainer(registrations);
+
+      var exception = Assert.Throws<ComponentGraphException>(() => container.StartApplicationSync());
+
+      Assert.That(exception.Message, Does.Contain("no visible component guarantees"));
+    }
+
+    [Test]
+    public void ConditionFailureIsReportedAsGraphFailureBeforeActivation() {
+      var activations = 0;
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => {
+          activations++;
+          return new Provider();
+        })
+        .Condition(_ => throw new InvalidOperationException("condition failure"));
+      var container = CreateContainer(registrations);
+
+      var exception = Assert.Throws<ComponentGraphException>(() => container.StartApplicationSync());
+
+      Assert.That(exception.Message, Does.Contain("Failed to evaluate conditions"));
+      Assert.That(exception.InnerException?.Message, Is.EqualTo("condition failure"));
+      Assert.That(activations, Is.Zero);
+    }
+
+    [Test]
+    public void OptionalDependencyWaitsForAProviderEvenWhenConsumerHasEarlierOrder() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new OptionalProviderConsumer(context.ResolveOptional<IProvider>()))
+        .OptionallyRequires<IProvider>()
+        .order = -100;
+      registrations.Add(_ => new Provider())
+        .Exposes<IProvider>()
+        .order = 100;
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(scope.Resolve<OptionalProviderConsumer>().Provider, Is.SameAs(scope.Resolve<IProvider>()));
+    }
+
+    [Test]
+    public void OptionalDependencyWaitsThroughAnInterconnectedProviderChain() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new OptionalProviderConsumer(context.ResolveOptional<IProvider>(), trace))
+        .OptionallyRequires<IProvider>()
+        .order = -100;
+      registrations.Add(_ => new Provider(trace))
+        .Requires<DependencyGate>()
+        .Exposes<IProvider>()
+        .order = -50;
+      registrations.Add(_ => new DependencyGate(trace));
+
+      CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "gate", "primary", "optional-consumer" }));
+    }
+
+    [Test]
+    public void OptionalDependencyFallsBackToNullWhenNoProviderCanAppear() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new OptionalProviderConsumer(context.ResolveOptional<IProvider>()))
+        .OptionallyRequires<IProvider>();
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(scope.Resolve<OptionalProviderConsumer>().Provider, Is.Null);
+    }
+
+    [Test]
+    public void ConsumerWaitsForEveryMatchingProviderAndUsesLastOrderedBinding() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
+        .Requires<IProvider>()
+        .order = -100;
+      registrations.Add(_ => new Provider())
+        .Exposes<IProvider>()
+        .order = 10;
+      registrations.Add(_ => new SecondaryProvider())
+        .Exposes<IProvider>()
+        .order = 20;
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(scope.Resolve<ProviderConsumer>().Provider, Is.TypeOf<SecondaryProvider>());
+    }
+
+    [Test]
+    public void OptionalDependencyCycleUsesEntryOrderAsFinalTieBreaker() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => {
+          trace.Add("A");
+          return new CycleA();
+        })
+        .OptionallyRequires<CycleB>()
+        .order = 20;
+      registrations.Add(_ => {
+          trace.Add("B");
+          return new CycleB();
+        })
+        .OptionallyRequires<CycleA>()
+        .order = 10;
+
+      CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "B", "A" }));
+    }
+
+    [Test]
+    public void OptionalComponentIsOmittedWhenRequiredDependencyNeverAppears() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add<OptionalProviderConsumer>(_ =>
+          throw new AssertionException("Unsatisfied optional component should not activate."))
+        .Optional()
+        .Requires<IProvider>();
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(scope.TryResolve(typeof(OptionalProviderConsumer), out _), Is.False);
+    }
+
+    [Test]
+    public void OptionalComponentLoadsWhenItsDependencyBecomesAvailableAndFeedsDownstreamConsumer() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new DependencyGate(trace));
+      registrations.Add(_ => new Provider(trace))
+        .Optional()
+        .Requires<DependencyGate>()
+        .Exposes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
+        .Requires<IProvider>();
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "gate", "primary", "consumer" }));
+      Assert.That(scope.Resolve<ProviderConsumer>().Provider, Is.SameAs(scope.Resolve<Provider>()));
+    }
+
+    [Test]
+    public void SkippedOptionalLocalProviderLetsChildConsumerFallBackToAncestor() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider()).Exposes<IProvider>();
+      registrations.Add(_ => new SessionProvider())
+        .In<SessionScope>()
+        .Optional()
+        .Requires<MissingDependency>()
+        .Exposes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
+        .In<SessionScope>()
+        .Requires<IProvider>();
+
+      var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
+      var session = container.CreateScope(application).From(new SessionScope()).StartSync();
+
+      Assert.That(session.TryResolve(typeof(SessionProvider), out _), Is.False);
+      Assert.That(session.Resolve<ProviderConsumer>().Provider, Is.SameAs(application.Resolve<IProvider>()));
+    }
+
+    [Test]
+    public void LateLoadPublishesBindingBeforeBufferedConsumerLoads() {
+      var trace = new List<string>();
+      var value = new PublishedProvider();
+      var registrations = LateBindingRegistrations(trace, value);
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "publisher:load", "publisher:late", "consumer" }));
+      Assert.That(scope.Resolve<ProviderConsumer>().Provider, Is.SameAs(value));
+      Assert.That(scope.Resolve<IProvider>(), Is.SameAs(value));
+    }
+
+    [Test]
+    public async Task AsyncInitializationCompletesBeforeLateLoadPublishes() {
+      var trace = new List<string>();
+      var value = new PublishedProvider();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new AsyncLateBindingComponent(value, typeof(IProvider), trace))
+        .Publishes<IProvider>()
+        .Publishes<AsyncHandlerValue>()
+        .RegisterHandlerBinding<AsyncComponentLoadEvent>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
+        .Requires<IProvider>();
+      var container = CreateContainer(registrations);
+
+      await container.StartApplication();
+
+      Assert.That(trace, Is.EqualTo(new[] {
+        "load", "async:start", "async:end", "late", "consumer"
+      }));
+      Assert.That(container.Application.Resolve<ProviderConsumer>().Provider, Is.SameAs(value));
+      Assert.That(container.Application.Resolve<AsyncHandlerValue>(), Is.Not.Null);
+    }
+
+    [Test]
+    public void ConsumerWaitsForAllCompetingLatePublishers() {
+      var trace = new List<string>();
+      var first = new Provider(name: "first");
+      var second = new SecondaryProvider();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new LateBindingComponent(first, typeof(IProvider), trace))
+        .Publishes<IProvider>()
+        .order = 10;
+      registrations.Add(_ => new SecondLateBindingComponent(second, trace))
+        .Publishes<IProvider>()
+        .order = 20;
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
+        .Requires<IProvider>()
+        .order = -100;
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] {
+        "publisher:load", "publisher:late", "second-publisher:load", "second-publisher:late", "consumer"
+      }));
+      Assert.That(scope.Resolve<ProviderConsumer>().Provider, Is.SameAs(second));
+    }
+
+    [Test]
+    public void ScopeProxyBindingIsLazyAndEvaluatedForEveryResolution() {
+      var calls = 0;
+      var first = new Provider(name: "first");
+      var second = new SecondaryProvider();
+      var registrations = new ComponentRegistrations();
+      var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddProxyBinding<IProvider>(() => ++calls == 1 ? first : second)
+        .StartSync();
+
+      Assert.That(calls, Is.Zero);
+      Assert.That(session.Resolve<IProvider>(), Is.SameAs(first));
+      Assert.That(session.Resolve<IProvider>(), Is.SameAs(second));
+      Assert.That(calls, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void BufferedConsumerResolvesProxyOnlyAfterPublisherLateLoad() {
+      var trace = new List<string>();
+      var value = new PublishedProvider();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new ProxyBindingComponent(() => value, trace))
+        .Publishes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
+        .Requires<IProvider>();
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(trace, Is.EqualTo(new[] { "proxy:load", "proxy:late", "supplier", "consumer" }));
+      Assert.That(scope.Resolve<ProviderConsumer>().Provider, Is.SameAs(value));
+    }
+
+    [Test]
+    public void NullProxyFallsBackToOlderVisibleBindingAndIsOmittedFromResolveAll() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider()).Exposes<IProvider>();
+      var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddProxyBinding<IProvider>(() => null)
+        .StartSync();
+
+      var all = session.ResolveAll(typeof(IProvider));
+
+      Assert.That(session.Resolve<IProvider>(), Is.SameAs(application.Resolve<IProvider>()));
+      Assert.That(all, Has.Count.EqualTo(1));
+      Assert.That(all[0], Is.SameAs(application.Resolve<IProvider>()));
+    }
+
+    [Test]
+    public void ProxyBindingHonorsQualifierAndRejectsIncompatibleSupplierValue() {
+      var registrations = new ComponentRegistrations();
+      var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
+      var expected = new Provider();
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddProxyBinding<IProvider>(() => expected, Primary)
+        .AddProxyBinding(new TypeKey(typeof(IProvider), Secondary), () => new object())
+        .StartSync();
+
+      Assert.That(session.Resolve<IProvider>(Primary), Is.SameAs(expected));
+      var exception = Assert.Throws<ComponentResolutionException>(() => session.Resolve<IProvider>(Secondary));
+      Assert.That(exception.Message, Does.Contain("incompatible type"));
+    }
+
+    [Test]
+    public void LateLoadFailureRollsBackAlreadyRecordedComponent() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new LateBindingComponent(
+          new PublishedProvider(), typeof(IProvider), trace, failLate: true
+        ))
+        .Publishes<IProvider>();
       var container = CreateContainer(registrations);
 
       Assert.Throws<ComponentInitializationException>(() => container.StartApplicationSync());
-      Assert.That(lifecycle, Is.EqualTo(new[] { "load", "unload" }));
+
+      Assert.That(trace, Is.EqualTo(new[] { "publisher:load", "publisher:late", "publisher:unload" }));
       Assert.That(container.TryGetScope(container.applicationScope, out _), Is.False);
     }
 
     [Test]
-    public void DetectsDependencyCycles() {
+    public void RequiredPublicationMustComeFromDeclaringComponent() {
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(CycleA), entry => {
-        entry.activator = _ => new CycleA();
-        entry.Dependency(Required(typeof(CycleB)));
-      });
-      registrations.Register(typeof(CycleB), entry => {
-        entry.activator = _ => new CycleB();
-        entry.Dependency(Required(typeof(CycleA)));
-      });
+      registrations.Add(_ => new PublishedProvider()).Publishes<IProvider>();
 
       var container = CreateContainer(registrations);
+
+      Assert.Throws<ComponentInitializationException>(() => container.StartApplicationSync());
+    }
+
+    [Test]
+    public void ActivationPublicationSatisfiesDeclarationAndConsumer() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => {
+          var provider = new PublishedProvider();
+          context.Publish<IProvider>(provider);
+          return provider;
+        })
+        .Publishes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
+        .Requires<IProvider>();
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+
+      Assert.That(scope.Resolve<IProvider>(), Is.SameAs(scope.Resolve<PublishedProvider>()));
+      Assert.That(scope.Resolve<ProviderConsumer>().Provider, Is.SameAs(scope.Resolve<IProvider>()));
+    }
+
+    [Test]
+    public void RequiredDependencyCycleFailsWithoutActivatingEitherComponent() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new CycleA()).Requires<CycleB>();
+      registrations.Add(_ => new CycleB()).Requires<CycleA>();
+      var container = CreateContainer(registrations);
+
       var exception = Assert.Throws<ComponentGraphException>(() => container.StartApplicationSync());
 
       Assert.That(exception.Message, Does.Contain("cannot advance"));
@@ -126,16 +573,11 @@ namespace HELIX.Context.Tests {
     }
 
     [Test]
-    public void StopsLoadingWhenDependencyPassLimitIsExceeded() {
+    public void LoadingPassLimitStopsAnOtherwiseProgressingGraph() {
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(Provider), entry => {
-        entry.activator = _ => new Provider(null);
-        entry.Key(typeof(IProvider));
-      });
-      registrations.Register(typeof(Consumer), entry => {
-        entry.activator = context => new Consumer((IProvider)context.Resolve(typeof(IProvider)), null);
-        entry.Dependency(Required(typeof(IProvider)));
-      });
+      registrations.Add(_ => new Provider()).Exposes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
+        .Requires<IProvider>();
       var container = CreateContainer(registrations, maxLoadingIterations: 1);
 
       var exception = Assert.Throws<ComponentGraphException>(() => container.StartApplicationSync());
@@ -145,81 +587,29 @@ namespace HELIX.Context.Tests {
     }
 
     [Test]
-    public void ResolvesLatestBindingAndReturnsAllBindingsForAKey() {
+    public void ResolveAllPreservesProviderLoadOrderWhileResolveReturnsLatest() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider()).Exposes<IProvider>().order = 10;
+      registrations.Add(_ => new SecondaryProvider()).Exposes<IProvider>().order = 20;
+
+      var scope = CreateContainer(registrations).StartApplicationSync();
+      var all = scope.ResolveAll(typeof(IProvider));
+
+      Assert.That(scope.Resolve<IProvider>(), Is.TypeOf<SecondaryProvider>());
+      Assert.That(all, Has.Count.EqualTo(2));
+      Assert.That(all[0], Is.TypeOf<Provider>());
+      Assert.That(all[1], Is.TypeOf<SecondaryProvider>());
+    }
+
+    [Test]
+    public void SyncStartRejectsAsyncComponentBeforeActivation() {
       var activations = 0;
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(Provider), entry => {
-        entry.activator = _ => {
+      registrations.Add(_ => {
           activations++;
-          return new Provider(null);
-        };
-        entry.Key(typeof(IProvider));
-      });
-      registrations.Register(typeof(SecondProvider), entry => {
-        entry.activator = _ => {
-          activations++;
-          return new SecondProvider();
-        };
-        entry.Key(typeof(IProvider));
-      });
-
-      var container = CreateContainer(registrations);
-      var application = container.StartApplicationSync();
-
-      Assert.That(activations, Is.EqualTo(2));
-      Assert.That(application.Resolve(typeof(IProvider)), Is.TypeOf<SecondProvider>());
-      Assert.That(application.ResolveAll(typeof(IProvider)), Has.Count.EqualTo(2));
-      Assert.That(application.ResolveAll(typeof(IProvider))[0], Is.TypeOf<Provider>());
-      Assert.That(application.ResolveAll(typeof(IProvider))[1], Is.TypeOf<SecondProvider>());
-    }
-
-    [Test]
-    public void RequiredPublicationMustBeProvidedByDeclaringComponent() {
-      var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(Publisher), entry => {
-        entry.activator = _ => new Publisher();
-        entry.Publication(Required(typeof(IProvider)));
-      });
-
-      var container = CreateContainer(registrations);
-
-      Assert.Throws<ComponentInitializationException>(() => container.StartApplicationSync());
-    }
-
-    [Test]
-    public void ContextPublicationSatisfiesRequiredPublicationAndConsumers() {
-      var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(Publisher), entry => {
-        entry.activator = context => {
-          var instance = new Publisher();
-          context.Publish(typeof(IProvider), instance);
-          return instance;
-        };
-        entry.Publication(Required(typeof(IProvider)));
-      });
-      registrations.Register(typeof(Consumer), entry => {
-        entry.activator = context => new Consumer((IProvider)context.Resolve(typeof(IProvider)), null);
-        entry.Dependency(Required(typeof(IProvider)));
-      });
-
-      var container = CreateContainer(registrations);
-      var application = container.StartApplicationSync();
-
-      Assert.That(application.Resolve(typeof(IProvider)), Is.SameAs(application.Resolve(typeof(Publisher))));
-    }
-
-    [Test]
-    public void SyncInitializationRejectsAsyncHandlerMetadataBeforeActivation() {
-      var activations = 0;
-      var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(Provider), entry => {
-        entry.activator = _ => {
-          activations++;
-          return new Provider(null);
-        };
-        entry.RegisterHandlerBinding<AsyncComponentLoadEvent>();
-      });
-
+          return new Provider();
+        })
+        .RegisterHandlerBinding<AsyncComponentLoadEvent>();
       var container = CreateContainer(registrations);
 
       Assert.Throws<AsyncScopeInitializationException>(() => container.StartApplicationSync());
@@ -227,72 +617,74 @@ namespace HELIX.Context.Tests {
     }
 
     [Test]
-    public void ScopeDisposalUnloadsComponentsInReverseDependencyOrder() {
-      var lifecycle = new List<string>();
+    public void InitializationFailureRollsBackLoadedComponentsInReverseOrder() {
+      var trace = new List<string>();
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(OrderedProvider), entry => entry.activator = _ => new OrderedProvider(lifecycle));
-      registrations.Register(typeof(OrderedConsumer), entry => {
-        entry.activator = _ => new OrderedConsumer(lifecycle);
-        entry.Dependency(Required(typeof(OrderedProvider)));
-      });
+      registrations.Add(_ => new RecordingComponent(trace, "stable")).order = -1;
+      registrations.Add<FailingComponent>(_ => throw new InvalidOperationException("failure")).order = 1;
+      var container = CreateContainer(registrations);
 
+      Assert.Throws<ComponentInitializationException>(() => container.StartApplicationSync());
+
+      Assert.That(trace, Is.EqualTo(new[] { "stable:load", "stable:unload" }));
+      Assert.That(container.TryGetScope(container.applicationScope, out _), Is.False);
+    }
+
+    [Test]
+    public void ScopeDisposalUnloadsInReverseDependencyOrderAndIsIdempotent() {
+      var trace = new List<string>();
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new RecordingComponent(trace, "provider"));
+      registrations.Add(_ => new RecordingConsumerComponent(trace)).Requires<RecordingComponent>();
+      var container = CreateContainer(registrations);
+      var scope = container.StartApplicationSync();
+
+      container.DisposeScope(scope.scope);
+      container.DisposeScope(scope.scope);
+
+      Assert.That(trace, Is.EqualTo(new[] {
+        "provider:load", "consumer:load", "consumer:unload", "provider:unload"
+      }));
+      Assert.That(scope.State, Is.EqualTo(ManagedScopeState.Disposed));
+    }
+
+    [Test]
+    public void ScopeBuilderBindingIsVisibleBeforeComponentActivation() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
+        .In<SessionScope>()
+        .Requires<IProvider>();
       var container = CreateContainer(registrations);
       var application = container.StartApplicationSync();
-      container.DisposeScope(application.scope);
-      container.DisposeScope(application.scope);
-      container.DisposeScope(application.scope);
+      var provider = new Provider();
 
-      Assert.That(lifecycle, Is.EqualTo(new[] {
-        "provider-load", "consumer-load", "consumer-unload", "provider-unload"
-      }));
-      Assert.That(application.State, Is.EqualTo(ManagedScopeState.Disposed));
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddBinding<IProvider>(provider)
+        .StartSync();
+
+      Assert.That(session.Resolve<IProvider>(), Is.SameAs(provider));
+      Assert.That(session.Resolve<ProviderConsumer>().Provider, Is.SameAs(provider));
     }
 
     [Test]
-    public void WritesDeclaredAndLiveDependencyGraphsWithProse() {
+    public void ExistingGameObjectComponentIsAdoptedInsteadOfActivated() {
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(Provider), entry => {
-        entry.activator = _ => new Provider(null);
-        entry.Key(typeof(IProvider));
-      });
-      registrations.Register(typeof(Consumer), entry => {
-        entry.activator = context => new Consumer((IProvider)context.Resolve(typeof(IProvider)), null);
-        entry.Dependency(Required(typeof(IProvider)));
-      });
-
-      var declaredWriter = new ProseTextWriter();
-      ComponentGraphProse.WriteDeclared(declaredWriter, registrations);
-
-      Assert.That(declaredWriter.ToString(), Does.Contain("Declared dependency graph"));
-      Assert.That(declaredWriter.ToString(), Does.Contain("IProvider"));
-
-      var container = CreateContainer(registrations);
-      container.StartApplicationSync();
-      var liveWriter = new ProseTextWriter();
-      ComponentGraphProse.WriteLive(liveWriter, container);
-
-      Assert.That(liveWriter.ToString(), Does.Contain("Live dependency graph"));
-      Assert.That(liveWriter.ToString(), Does.Contain("ApplicationScope [Active]"));
-      Assert.That(liveWriter.ToString(), Does.Contain("Provider"));
-    }
-
-    [Test]
-    public void GameObjectScopeAdoptsExistingComponentsInsteadOfActivatingNewOnes() {
-      var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(InjectedTestComponent), entry => {
-        entry.activator = _ => throw new AssertionException("The existing component should be adopted.");
-      });
+      registrations.Add<InjectedTestComponent>(_ =>
+        throw new AssertionException("Existing component should be adopted."));
       GameObject gameObject = null;
+
       try {
-        var container = CreateContainer(registrations, false);
+        var container = CreateContainer(registrations, assignUnscopedToApplication: false);
         var application = container.StartApplicationSync();
         gameObject = new GameObject("Injected component test");
         var existing = gameObject.AddComponent<InjectedTestComponent>();
+
         var scope = container.CreateScope(application)
           .From(new GameObjectScope { gameObject = gameObject })
           .StartSync();
 
-        Assert.That(scope.Resolve(typeof(InjectedTestComponent)), Is.SameAs(existing));
+        Assert.That(scope.Resolve<InjectedTestComponent>(), Is.SameAs(existing));
         Assert.That(existing.loadCount, Is.EqualTo(1));
         Assert.That(existing.ComponentBinding.scope, Is.SameAs(scope));
         Assert.That(existing.ComponentBinding.isLoaded, Is.True);
@@ -302,21 +694,21 @@ namespace HELIX.Context.Tests {
     }
 
     [Test]
-    public void ApplicationStartupCreatesSceneScopeAndAdoptsExistingSceneComponents() {
+    public void ApplicationStartupCreatesSceneScopeAndAdoptsSceneComponent() {
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(InjectedTestComponent), entry => {
-        entry.activator = _ => throw new AssertionException("The existing component should be adopted.");
-      });
-      var gameObject = new GameObject("Scene injected component test");
+      registrations.Add<InjectedTestComponent>(_ =>
+        throw new AssertionException("Existing component should be adopted."));
+      var gameObject = new GameObject("Scene component test");
+
       try {
         var existing = gameObject.AddComponent<InjectedTestComponent>();
-        var container = CreateContainer(registrations, false);
+        var container = CreateContainer(registrations, assignUnscopedToApplication: false);
         container.StartApplicationSync();
-        var sceneScope = container.scopes.Values.Single(scope =>
-          scope.scope is SceneScope scene && scene.scene == gameObject.scene
+        var scene = container.scopes.Values.Single(candidate =>
+          candidate.scope is SceneScope scope && scope.scene == gameObject.scene
         );
 
-        Assert.That(sceneScope.Resolve(typeof(InjectedTestComponent)), Is.SameAs(existing));
+        Assert.That(scene.Resolve<InjectedTestComponent>(), Is.SameAs(existing));
         Assert.That(existing.loadCount, Is.EqualTo(1));
       } finally {
         UnityEngine.Object.DestroyImmediate(gameObject);
@@ -324,210 +716,115 @@ namespace HELIX.Context.Tests {
     }
 
     [Test]
-    public void UnscopedComponentsOnlyLoadWhenContributed() {
+    public void UnscopedComponentOnlyLoadsWhenExplicitlyContributed() {
       var activations = 0;
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(ManuallyContributedComponent), entry =>
-        entry.activator = _ => {
-          activations++;
-          return new ManuallyContributedComponent();
-        }
-      );
-      var container = CreateContainer(registrations, false);
+      registrations.Add(_ => {
+        activations++;
+        return new ContributedComponent();
+      });
+      var container = CreateContainer(registrations, assignUnscopedToApplication: false);
       var application = container.StartApplicationSync();
+      var contributed = new ContributedComponent();
 
-      Assert.That(activations, Is.Zero);
-      Assert.Throws<ComponentResolutionException>(() => application.Resolve(typeof(ManuallyContributedComponent)));
-
-      var contributed = new ManuallyContributedComponent();
       var session = container.CreateScope(application)
         .From(new SessionScope())
         .AddComponent(contributed)
         .StartSync();
-      Assert.That(session.Resolve(typeof(ManuallyContributedComponent)), Is.SameAs(contributed));
+
+      Assert.That(application.TryResolve(typeof(ContributedComponent), out _), Is.False);
+      Assert.That(session.Resolve<ContributedComponent>(), Is.SameAs(contributed));
       Assert.That(contributed.ComponentBinding.scope, Is.SameAs(session));
       Assert.That(contributed.ComponentBinding.isLoaded, Is.True);
       Assert.That(activations, Is.Zero);
     }
 
     [Test]
-    public void ScopeBuilderBindingsSatisfyDependenciesBeforeActivation() {
-      var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(SessionConsumer), entry => {
-        entry.scope = typeof(SessionScope);
-        entry.activator = context => new SessionConsumer((IProvider)context.Resolve(typeof(IProvider)));
-        entry.Dependency(Required(typeof(IProvider)));
-      });
-      var container = CreateContainer(registrations);
-      var application = container.StartApplicationSync();
-      var provider = new Provider(null);
-
-      var session = container.CreateScope(application)
-        .From(new SessionScope())
-        .AddBinding<IProvider>(provider)
-        .StartSync();
-
-      Assert.That(session.Resolve(typeof(IProvider)), Is.SameAs(provider));
-      Assert.That(((SessionConsumer)session.Resolve(typeof(SessionConsumer))).provider, Is.SameAs(provider));
-    }
-
-    [Test]
-    public void ScopeBuilderCanActivateAnUnscopedComponentType() {
+    public void ScopeBuilderCanActivateExplicitUnscopedComponentType() {
       var activations = 0;
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(ManuallyContributedComponent), entry =>
-        entry.activator = _ => {
-          activations++;
-          return new ManuallyContributedComponent();
-        }
-      );
-      var container = CreateContainer(registrations, false);
+      registrations.Add(_ => {
+        activations++;
+        return new ContributedComponent();
+      });
+      var container = CreateContainer(registrations, assignUnscopedToApplication: false);
       var application = container.StartApplicationSync();
 
       var session = container.CreateScope(application)
         .From(new SessionScope())
-        .AddComponent<ManuallyContributedComponent>()
+        .AddComponent<ContributedComponent>()
         .StartSync();
 
       Assert.That(activations, Is.EqualTo(1));
-      Assert.That(session.Resolve(typeof(ManuallyContributedComponent)), Is.TypeOf<ManuallyContributedComponent>());
+      Assert.That(session.Resolve<ContributedComponent>(), Is.TypeOf<ContributedComponent>());
     }
 
     [Test]
-    public void ContainerCreatorCanRegisterCustomScopeHandler() {
-      var contributed = new ManuallyContributedComponent();
+    public void BuilderInstalledScopeHandlerContributesComponent() {
+      var contributed = new ContributedComponent();
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(ManuallyContributedComponent), entry =>
-        entry.activator = _ => throw new AssertionException("The handler contribution should be adopted.")
+      registrations.Add<ContributedComponent>(_ =>
+        throw new AssertionException("Handler contribution should be adopted."));
+      var container = CreateContainer(
+        registrations,
+        assignUnscopedToApplication: false,
+        handlers: new IScopeHandler[] { new TestScopeHandler(contributed) }
       );
-      var container = new ManagedContainerBuilder()
-        .AddScopeHandler(new TestScopeHandler(contributed))
-        .Build();
-      _containers.Add(container);
-      container.PrepareRegistrar(registrations);
       var application = container.StartApplicationSync();
 
       var scope = container.CreateScope(application).From(new TestScope()).StartSync();
 
-      Assert.That(scope.Resolve(typeof(ManuallyContributedComponent)), Is.SameAs(contributed));
+      Assert.That(scope.Resolve<ContributedComponent>(), Is.SameAs(contributed));
     }
 
     [Test]
-    public void RegistrarServiceCanRegisterCustomScopeHandler() {
-      var contributed = new ManuallyContributedComponent();
+    public void RegistrarComponentCanInstallScopeHandler() {
+      var contributed = new ContributedComponent();
       var registrations = new ComponentRegistrations();
-      registrations.Register(typeof(TestRegistrarScopeHandler), entry => {
-        entry.scope = typeof(RegistrarScope);
-        entry.activator = _ => new TestRegistrarScopeHandler(contributed);
-      });
-      registrations.Register(typeof(ManuallyContributedComponent), entry =>
-        entry.activator = _ => throw new AssertionException("The handler contribution should be adopted.")
-      );
-      var container = new ManagedContainerBuilder().Build();
-      _containers.Add(container);
-      container.PrepareRegistrar(registrations);
+      registrations.Add(_ => new RegistrarScopeHandler(contributed)).In<RegistrarScope>();
+      registrations.Add<ContributedComponent>(_ =>
+        throw new AssertionException("Handler contribution should be adopted."));
+      var container = CreateContainer(registrations, assignUnscopedToApplication: false);
       var application = container.StartApplicationSync();
 
       var scope = container.CreateScope(application).From(new TestScope()).StartSync();
 
-      Assert.That(scope.Resolve(typeof(ManuallyContributedComponent)), Is.SameAs(contributed));
+      Assert.That(scope.Resolve<ContributedComponent>(), Is.SameAs(contributed));
     }
 
-    private ManagedContainer CreateContainer(
-      ComponentRegistrations registrations,
-      bool assignUnscopedToApplication = true,
-      int? maxLoadingIterations = null
+    [Test]
+    public void DeclaredAndLiveGraphsDescribeDependenciesAndOptionalComponents() {
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new Provider()).Exposes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
+        .Optional()
+        .Requires<IProvider>();
+      var declared = new ProseTextWriter();
+
+      ComponentGraphProse.WriteDeclared(declared, registrations);
+      var container = CreateContainer(registrations);
+      container.StartApplicationSync();
+      var live = new ProseTextWriter();
+      ComponentGraphProse.WriteLive(live, container);
+
+      Assert.That(declared.ToString(), Does.Contain("Declared dependency graph"));
+      Assert.That(declared.ToString(), Does.Contain("IProvider"));
+      Assert.That(declared.ToString(), Does.Contain("optional"));
+      Assert.That(live.ToString(), Does.Contain("Live dependency graph"));
+      Assert.That(live.ToString(), Does.Contain("ApplicationScope [Active]"));
+      Assert.That(live.ToString(), Does.Contain("Provider"));
+    }
+
+    private static ComponentRegistrations LateBindingRegistrations(
+      ICollection<string> trace,
+      IProvider value
     ) {
-      if (assignUnscopedToApplication) {
-        foreach (var registration in registrations.components.Values) {
-          if (registration.scope == null) registration.scope = typeof(ApplicationScope);
-        }
-      }
-      var builder = new ManagedContainerBuilder();
-      if (maxLoadingIterations.HasValue) builder.WithMaxLoadingIterations(maxLoadingIterations.Value);
-      var container = builder.Build();
-      _containers.Add(container);
-      container.PrepareRegistrar(registrations);
-      return container;
+      var registrations = new ComponentRegistrations();
+      registrations.Add(_ => new LateBindingComponent(value, typeof(IProvider), trace))
+        .Publishes<IProvider>();
+      registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
+        .Requires<IProvider>();
+      return registrations;
     }
-
-    private static ComponentDependency Required(Type type) => new((TypeKey)type, true);
-
-    private interface IProvider { }
-
-    private sealed class Provider : IProvider {
-      public Provider(ICollection<string> order) => order?.Add("provider");
-    }
-
-    private sealed class SecondProvider : IProvider { }
-    private sealed class Publisher : IProvider { }
-    private sealed class SessionProvider : IProvider { }
-
-    private sealed class Consumer {
-      public readonly IProvider provider;
-      public Consumer(IProvider provider, ICollection<string> order) {
-        this.provider = provider;
-        order?.Add("consumer");
-      }
-    }
-
-    private sealed class SessionConsumer {
-      public readonly IProvider provider;
-      public SessionConsumer(IProvider provider) => this.provider = provider;
-    }
-
-    private sealed class RollbackComponent : IComponent {
-      private readonly ICollection<string> _lifecycle;
-      public RollbackComponent(ICollection<string> lifecycle) => _lifecycle = lifecycle;
-      public RuntimeComponentData ComponentBinding { get; } = new();
-      public void LoadComponent() => _lifecycle.Add("load");
-      public void UnloadComponent() => _lifecycle.Add("unload");
-    }
-
-    private sealed class FailingComponent { }
-    private sealed class CycleA { }
-    private sealed class CycleB { }
-
-    private sealed class OrderedProvider : IComponent {
-      private readonly ICollection<string> _lifecycle;
-      public OrderedProvider(ICollection<string> lifecycle) => _lifecycle = lifecycle;
-      public RuntimeComponentData ComponentBinding { get; } = new();
-      public void LoadComponent() => _lifecycle.Add("provider-load");
-      public void UnloadComponent() => _lifecycle.Add("provider-unload");
-    }
-
-    private sealed class OrderedConsumer : IComponent {
-      private readonly ICollection<string> _lifecycle;
-      public OrderedConsumer(ICollection<string> lifecycle) => _lifecycle = lifecycle;
-      public RuntimeComponentData ComponentBinding { get; } = new();
-      public void LoadComponent() => _lifecycle.Add("consumer-load");
-      public void UnloadComponent() => _lifecycle.Add("consumer-unload");
-    }
-  }
-
-  public sealed class InjectedTestComponent : MonoBehaviour, IComponent {
-    public int loadCount;
-    public RuntimeComponentData ComponentBinding { get; } = new();
-    public void LoadComponent() => loadCount++;
-  }
-
-  public sealed class ManuallyContributedComponent : IComponent {
-    public RuntimeComponentData ComponentBinding { get; } = new();
-  }
-
-  public sealed class TestScope : IScope { }
-
-  public class TestScopeHandler : ScopeHandler<TestScope> {
-    private readonly IComponent _component;
-    public TestScopeHandler(IComponent component) => _component = component;
-
-    public override IEnumerable<IComponent> DiscoverComponents(ManagedContainer container, ManagedScope scope) {
-      yield return _component;
-    }
-  }
-
-  public sealed class TestRegistrarScopeHandler : TestScopeHandler, IComponent {
-    public TestRegistrarScopeHandler(IComponent component) : base(component) { }
-    public RuntimeComponentData ComponentBinding { get; } = new();
   }
 }
