@@ -147,7 +147,6 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
    otherwise null. This is intended to be used for wiring and allowing dynamic signature checks.
 - `@PUT<LABEL><KEY>` Expression | Shorthand helper for table :put with a given key into a local variable
 - `@PUSH<LABEL>` Expression | Shorthand helper for table :push into a local variable
-
 Note: Multiple boolean expressions per matcher / assertions are combined into an AND
 Note: Code lines are buffered until the end of the expression's execution and only then applied
 
@@ -225,3 +224,15 @@ mixin source generators. The contents evaluated by those files effectively decla
 in all mixin expressions. Custom procedures are therefore defined using functions that can be called from
 any mixin expression. Target Ordering and Declaration is still left to the called. The prepared mixins may also
 therefore declare global variables that are available to all mixin expressions.
+
+
+## TODO
+- `@LABEL<LABEL>` | No-Op that acts like `@SCOPE<LABEL>\n@END` to define jump targets more cleanly.
+- `:?method` | Is a method
+- `:?delegate` | Is a delegate
+- `:?event` | Is an event
+- `:?field` | Is a field
+- `:?property` | Is a property
+- Integrate more things with tables
+- Make :?has and some other string based expressions work better with non string types
+- Make behavior more clear in docs

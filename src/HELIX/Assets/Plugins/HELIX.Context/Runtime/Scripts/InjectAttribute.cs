@@ -33,5 +33,5 @@ namespace HELIX.Context {
     public ResourceAttribute(Source source, string qualifier = null) { }
   }
 
-  public enum Source { Container = 0, Components = 1, Addressables = 2, Resources = 3 }
+  public enum Source { Addressables = 2, Resources = 3 }
 }
