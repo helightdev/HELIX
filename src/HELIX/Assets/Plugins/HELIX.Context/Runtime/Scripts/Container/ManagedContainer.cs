@@ -211,13 +211,13 @@ namespace HELIX.Context {
       _disposedScopes.Add(managed.scope);
     }
 
-    internal Dictionary<RegistrationEntry, Queue<object>> DiscoverInjectedComponents(
+    internal Dictionary<ComponentRegistration, Queue<object>> DiscoverInjectedComponents(
       ManagedScope managed,
       IEnumerable<IComponent> contributions = null
     ) {
       var discovered = _scopeHandlers.Where(handler => handler.Handles(managed.scope))
         .SelectMany(handler => handler.DiscoverComponents(this, managed) ?? Enumerable.Empty<IComponent>());
-      var result = new Dictionary<RegistrationEntry, Queue<object>>();
+      var result = new Dictionary<ComponentRegistration, Queue<object>>();
       var seen = new HashSet<IComponent>(ReferenceComparer<IComponent>.Instance);
       foreach (var component in (contributions ?? Enumerable.Empty<IComponent>()).Concat(discovered)) {
         if (component == null || !seen.Add(component)) continue;

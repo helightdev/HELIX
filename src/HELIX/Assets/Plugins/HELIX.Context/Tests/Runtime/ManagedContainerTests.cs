@@ -217,7 +217,7 @@ namespace HELIX.Context.Tests {
           activations++;
           return new Provider(null);
         };
-        entry.RegisterHandlerBinding<ComponentAsyncInitEvent>();
+        entry.RegisterHandlerBinding<AsyncComponentLoadEvent>();
       });
 
       var container = CreateContainer(registrations);

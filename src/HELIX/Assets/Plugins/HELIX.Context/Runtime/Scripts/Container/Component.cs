@@ -24,7 +24,8 @@ namespace HELIX.Context {
       }
     }
 
-    public bool IsActive =>isLoaded && !isDisposed && scope is { IsActive: true }; // TODO: Notify from scope to update state
+    public bool IsActive =>
+      isLoaded && !isDisposed && scope is { IsActive: true }; // TODO: Notify from scope to update state
 
     public T ResolveKey<T>(TypeKey key) where T : class {
       if (scope == null) throw new ComponentStateException("Component is not yet attached to a scope");

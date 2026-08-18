@@ -98,13 +98,11 @@ namespace HELIX.Context {
       return values;
     }
 
-    internal void BindComponent(RegistrationEntry registration, object instance) {
+    internal void BindComponent(ComponentRegistration registration, object instance) {
       foreach (var key in registration.keys.Distinct()) AddBinding(registration, key, instance);
     }
 
-    internal void BindValue(TypeKey key, object value) => AddBinding(null, key, value);
-
-    internal void Publish(RegistrationEntry owner, TypeKey key, object value) {
+    internal void Publish(ComponentRegistration owner, TypeKey key, object value) {
       AddBinding(owner, key, value);
     }
 
@@ -136,7 +134,7 @@ namespace HELIX.Context {
       return HasLocalWireKey(dependency.wireKey);
     }
 
-    internal bool WasProvidedBy(RegistrationEntry registration, ComponentDependency dependency) {
+    internal bool WasProvidedBy(ComponentRegistration registration, ComponentDependency dependency) {
       if (dependency.IsTyped) {
         return _bindings.TryGetValue(dependency.key, out var bindings) &&
           bindings.Any(x => ReferenceEquals(x.owner, registration));
@@ -155,17 +153,17 @@ namespace HELIX.Context {
 
     internal IEnumerable<LoadedComponent> LoadedComponents => _loadedComponents;
 
-    internal IEnumerable<TypeKey> BoundKeys(RegistrationEntry registration) {
+    internal IEnumerable<TypeKey> BoundKeys(ComponentRegistration registration) {
       return _bindings
         .Where(pair => pair.Value.Any(binding => ReferenceEquals(binding.owner, registration)))
         .Select(static pair => pair.Key);
     }
 
-    internal IEnumerable<string> PublishedWireKeys(RegistrationEntry registration) {
+    internal IEnumerable<string> PublishedWireKeys(ComponentRegistration registration) {
       return ScopeLoader.ActiveOrNull?.PublicationsBy(registration) ?? Array.Empty<string>();
     }
 
-    private void AddBinding(RegistrationEntry owner, TypeKey key, object value) {
+    private void AddBinding(ComponentRegistration owner, TypeKey key, object value) {
       EnsureCanPublish();
       ValidateKey(key);
       if (value == null) throw new ComponentResolutionException($"Cannot publish null for '{key}'.");
@@ -180,6 +178,11 @@ namespace HELIX.Context {
       ScopeLoader.Active.Publish(owner, key.CreateWireKey());
     }
 
+    internal void AddBindings(IEnumerable<ScopeBinding> bindings) {
+      foreach (var binding in bindings ?? Enumerable.Empty<ScopeBinding>())
+        AddBinding(null, binding.key, binding.value);
+    }
+    
     private bool TryResolveValue(TypeKey key, out object value) {
       ValidateKey(key);
       for (var current = this; current != null; current = current.parent) {
@@ -234,7 +237,7 @@ namespace HELIX.Context {
       if (index >= 0) children.RemoveAt(index);
     }
 
-    internal void RecordComponent(RegistrationEntry registration, object instance) {
+    internal void RecordComponent(ComponentRegistration registration, object instance) {
       _loadedComponents.Add(new LoadedComponent(registration, instance));
     }
 
@@ -384,20 +387,20 @@ namespace HELIX.Context {
     }
 
     private readonly struct Binding {
-      public readonly RegistrationEntry owner;
+      public readonly ComponentRegistration owner;
       public readonly object value;
 
-      public Binding(RegistrationEntry owner, object value) {
+      public Binding(ComponentRegistration owner, object value) {
         this.owner = owner;
         this.value = value;
       }
     }
 
     internal readonly struct LoadedComponent {
-      public readonly RegistrationEntry registration;
+      public readonly ComponentRegistration registration;
       public readonly object instance;
 
-      public LoadedComponent(RegistrationEntry registration, object instance) {
+      public LoadedComponent(ComponentRegistration registration, object instance) {
         this.registration = registration;
         this.instance = instance;
       }

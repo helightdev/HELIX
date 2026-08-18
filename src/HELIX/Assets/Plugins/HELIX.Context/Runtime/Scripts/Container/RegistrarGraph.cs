@@ -41,15 +41,15 @@ namespace HELIX.Context {
       return _registrations = registrations;
     }
 
-    public List<RegistrationEntry> For(
+    public List<ComponentRegistration> For(
       ManagedScope managed,
-      IEnumerable<RegistrationEntry> contributions = null
+      IEnumerable<ComponentRegistration> contributions = null
     ) {
       if (_registrations == null) throw new ScopeLifecycleException("The registrar graph has not been prepared.");
       var scopeType = managed.scope.GetType();
       var entries = _registrations.components.Values
         .Where(entry => entry.scope == scopeType)
-        .Concat(contributions ?? Enumerable.Empty<RegistrationEntry>())
+        .Concat(contributions ?? Enumerable.Empty<ComponentRegistration>())
         .Distinct()
         .OrderBy(static entry => entry.name, StringComparer.Ordinal)
         .ToList();
@@ -85,7 +85,7 @@ namespace HELIX.Context {
       return entries;
     }
 
-    public bool HasLocalProvider(IEnumerable<RegistrationEntry> entries, ComponentDependency dependency) {
+    public bool HasLocalProvider(IEnumerable<ComponentRegistration> entries, ComponentDependency dependency) {
       if (dependency.IsTyped) {
         return entries.Any(entry => entry.keys.Contains(dependency.key) || entry.publications.Any(publication =>
             publication.IsTyped && publication.key.Equals(dependency.key) &&
@@ -96,7 +96,7 @@ namespace HELIX.Context {
       return dependency.flags.HasFlag(DependencyFlags.Wirable) && HasPublication(entries, dependency.wireKey);
     }
 
-    private static bool HasPublication(IEnumerable<RegistrationEntry> entries, string wireKey) {
+    private static bool HasPublication(IEnumerable<ComponentRegistration> entries, string wireKey) {
       return entries.Any(entry => entry.publications.Any(publication =>
           publication.flags.HasFlag(DependencyFlags.Required) && publication.wireKey == wireKey
         )

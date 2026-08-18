@@ -35,7 +35,7 @@ namespace HELIX.Context {
       }
     }
 
-    private static void WriteDeclaredEntry(IProseWriter writer, RegistrationEntry entry) {
+    private static void WriteDeclaredEntry(IProseWriter writer, ComponentRegistration entry) {
       using (writer.Tree()) {
         writer.Name($"{entry.name} : {TypeName(entry.type)}");
         writer.Property("keys", Join(entry.keys.Select(FormatKey)), ProseFormatters.String);

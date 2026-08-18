@@ -21,7 +21,7 @@ namespace HELIX.Context {
     [Inject] public MyRootDependency myRootDependency;
 
     [EventHandler]
-    public async UniTask OnAsyncInit(ComponentAsyncInitEvent evt) {
+    public async UniTask OnAsyncInit(AsyncComponentLoadEvent evt) {
       Debug.Log($"ExampleSingleton async init starting! {myRootDependency}");
       await UniTask.Delay(1000); // Simulate async initialization
       Debug.Log($"ExampleSingleton async init complete! {myRootDependency}");
@@ -53,7 +53,7 @@ namespace HELIX.Context {
     }
 
     [MixinMethod(MixinOn.ConfigureComponent)]
-    private static void OnConfigureSelf(RegistrationEntry entry) {
+    private static void OnConfigureSelf(ComponentRegistration entry) {
 
     }
 
@@ -73,6 +73,11 @@ namespace HELIX.Context {
 
     [EventHandler]
     private void OnTestAsync(TestAsyncEvt evt) { }
+
+    [EventHandler]
+    private void OnComponentLoadEvt(ComponentLoadEvent evt) {
+      evt.Context.Publish(new TypeKey(typeof(int), ""), 42);
+    }
 
     [MixinMethod(MixinOn.ComponentLoad)]
     private void OnComponentLoad() {

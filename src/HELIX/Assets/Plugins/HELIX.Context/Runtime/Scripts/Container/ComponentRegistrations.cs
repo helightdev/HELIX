@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace HELIX.Context {
   public class ComponentRegistrations {
-    public readonly Dictionary<Type, RegistrationEntry> components = new();
+    public readonly Dictionary<Type, ComponentRegistration> components = new();
     public readonly Dictionary<Type, ScopeRegistration> scopes = new();
 
     public void Register(Type type, RegistrationConfigurator configurator) {
@@ -15,7 +15,7 @@ namespace HELIX.Context {
       if (configurator == null) throw new ArgumentNullException(nameof(configurator));
       if (components.ContainsKey(type))
         throw new ComponentGraphException($"Component type {type.FullName} is already registered.");
-      var entry = new RegistrationEntry(type);
+      var entry = new ComponentRegistration(type);
       try {
         configurator(entry);
         components[type] = entry;
@@ -108,10 +108,10 @@ namespace HELIX.Context {
     }
   }
 
-  public struct ComponentLoadContext {
+  public readonly struct ComponentLoadContext {
     public readonly ManagedContainer container;
     public readonly ManagedScope scope;
-    public readonly RegistrationEntry registration;
+    public readonly ComponentRegistration registration;
     internal readonly ScopeLoader loader;
 
     public ComponentLoadContext(ManagedContainer container, ManagedScope scope) {
@@ -124,7 +124,7 @@ namespace HELIX.Context {
     internal ComponentLoadContext(
       ManagedContainer container,
       ManagedScope scope,
-      RegistrationEntry registration,
+      ComponentRegistration registration,
       ScopeLoader loader
     ) {
       this.container = container;
@@ -135,19 +135,18 @@ namespace HELIX.Context {
 
     public CancellationToken CancellationToken => scope.CancellationToken;
 
-    public object Resolve(TypeKey key) {
-      return scope.Resolve(key);
-    }
+    public object Resolve(TypeKey key) => scope.Resolve(key);
 
-    public bool TryResolve(TypeKey key, out object value) {
-      return scope.TryResolve(key, out value);
-    }
+    public bool TryResolve(TypeKey key, out object value) => scope.TryResolve(key, out value);
 
-    public void Publish(TypeKey key, object value) {
-      scope.Publish(registration, key, value);
-    }
+    public void Publish(TypeKey key, object value) => scope.Publish(registration, key, value);
 
-    public void Publish(string wireKey) {
+    public void Publish<T>(T value, string qualifier = null) => Publish(new TypeKey(typeof(T), qualifier), value);
+
+    public void Publish(object value, Type type, string qualifier = null) =>
+      Publish(new TypeKey(type, qualifier), value);
+
+    public void PublishKey(string wireKey) {
       (loader ?? throw new ScopeLifecycleException(
         "Wire publications are only available during component loading."
       )).Publish(registration, wireKey);
@@ -233,7 +232,7 @@ namespace HELIX.Context {
 
   public enum InitializationStage { PreInit, Init, PostInit }
 
-  public sealed class RegistrationEntry : IComponentLoadable {
+  public sealed class ComponentRegistration : IComponentLoadable {
     public readonly Type type;
     public readonly List<RegistrationHandlerBinding> handlers = new();
     public readonly List<ComponentDependency> dependencies = new(); // Requirements
@@ -247,34 +246,34 @@ namespace HELIX.Context {
     public int order = 0;
     public ComponentActivator activator;
 
-    public RegistrationEntry(Type type) {
+    public ComponentRegistration(Type type) {
       this.type = type ?? throw new ArgumentNullException(nameof(type));
       name = type.Name;
       keys.Add(type);
     }
 
-    public RegistrationEntry InScope(Type scopeType) {
+    public ComponentRegistration InScope(Type scopeType) {
       if (scopeType == null || !typeof(IScope).IsAssignableFrom(scopeType))
         throw new ArgumentException("A component scope must implement IScope.", nameof(scopeType));
       scope = scopeType;
       return this;
     }
 
-    public RegistrationEntry Key(TypeKey key) {
+    public ComponentRegistration Key(TypeKey key) {
       if (key.type == null) throw new ArgumentException("A component key requires a type.", nameof(key));
       keys.Add(key);
       return this;
     }
 
-    public RegistrationEntry Dependency(ComponentDependency dependency) {
+    public ComponentRegistration Dependency(ComponentDependency dependency) {
       dependencies.Add(dependency);
       return this;
     }
 
-    public RegistrationEntry Dependency(Type bindingType, string qualifier) =>
+    public ComponentRegistration Dependency(Type bindingType, string qualifier) =>
       Dependency(new TypeKey(bindingType, qualifier));
 
-    public RegistrationEntry Publication(ComponentDependency publication) {
+    public ComponentRegistration Publication(ComponentDependency publication) {
       publications.Add(publication);
       return this;
     }
@@ -283,7 +282,7 @@ namespace HELIX.Context {
       handlers.Add(new RegistrationHandlerBinding(typeof(T), priority));
     }
 
-    public bool IsAsync => handlers.Any(static x => x.eventType == typeof(ComponentAsyncInitEvent));
+    public bool IsAsync => handlers.Any(static x => x.eventType == typeof(AsyncComponentLoadEvent));
 
     public async UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context) {
       var instance = Activate(context);
@@ -321,14 +320,14 @@ namespace HELIX.Context {
     internal void InitializeSync(object instance, ComponentLoadContext context) {
       if (instance is IComponent component) component.LoadComponent();
       if (instance is IEventListener listener) {
-        var initEvent = new ComponentInitEvent(context);
+        var initEvent = new ComponentLoadEvent(context);
         listener.HandlerList.RaiseLocal(initEvent);
       }
     }
 
     internal async UniTask InitializeAsync(object instance, ComponentLoadContext context) {
       if (instance is not IEventListener listener) return;
-      var initEvent = new ComponentAsyncInitEvent();
+      var initEvent = new AsyncComponentLoadEvent();
       initEvent.Reset(context);
       await listener.HandlerList.RaiseLocalAsync(initEvent);
     }
@@ -344,12 +343,12 @@ namespace HELIX.Context {
     }
   }
 
-  public delegate void RegistrationConfigurator(RegistrationEntry registration);
+  public delegate void RegistrationConfigurator(ComponentRegistration registration);
 
-  public class ComponentAsyncInitEvent : AsyncChainEvt<ComponentAsyncInitEvent> {
+  public class AsyncComponentLoadEvent : AsyncChainEvt<AsyncComponentLoadEvent> {
     // Pooling capable
     private ComponentLoadContext _context;
-    public ComponentAsyncInitEvent() { }
+    public AsyncComponentLoadEvent() { }
 
     public ManagedContainer Container => _context.container;
     public ManagedScope Scope => _context.scope;
@@ -361,10 +360,10 @@ namespace HELIX.Context {
     }
   }
 
-  public readonly struct ComponentInitEvent : Evt<ComponentInitEvent> {
+  public readonly struct ComponentLoadEvent : Evt<ComponentLoadEvent> {
     private readonly ComponentLoadContext _context;
 
-    public ComponentInitEvent(ComponentLoadContext context) {
+    public ComponentLoadEvent(ComponentLoadContext context) {
       _context = context;
     }
 

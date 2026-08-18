@@ -6,7 +6,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace HELIX.Context {
-  public sealed class AddressableDependency<T> : ScriptedDependency where T : class {
+  public sealed class AddressableDependency<T> : ScriptedDependency where T : UnityEngine.Object {
     public string Key { get; }
 
     public AddressableDependency(string address, string wireKey) : base(
@@ -59,7 +59,7 @@ namespace HELIX.Context {
     }
   }
 
-  public sealed class AddressableListDependency<T> : ScriptedDependency where T : class {
+  public sealed class AddressableListDependency<T> : ScriptedDependency where T : UnityEngine.Object {
     public string Key { get; }
 
     public AddressableListDependency(string key, string wireKey) : base(

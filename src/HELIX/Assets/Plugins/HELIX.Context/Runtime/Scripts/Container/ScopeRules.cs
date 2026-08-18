@@ -24,6 +24,9 @@ namespace HELIX.Context {
       this.managedScopes = managedScopes;
       this.application = application;
     }
+
+    public static ScopeValidationContext Create(ManagedContainer container, ManagedScope parent, IScope child) =>
+      new(parent, child, container.registrarScope.registrations, container.scopes.Keys, container.applicationScope);
   }
 
   /// <summary>Extends container scope validation without coupling custom scope types to HXContainer.</summary>

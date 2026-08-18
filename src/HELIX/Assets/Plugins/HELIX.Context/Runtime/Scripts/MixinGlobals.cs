@@ -163,6 +163,24 @@ using HELIX.Context;
 "
 )]
 
+
+// Base DI implementation for the [Inject] attribute
+[assembly: MixinPrepareGlobal(
+  @"
+@FUNC<InjectDiImpl>
+  @CALL<RequireEventHandler>
+
+  @SCOPE<Container>
+    @MATCH @attr#source:?eq<0>
+    @CODE<$ConfigureComponent> registration.Dependency(typeof(@target:type), @attr#qualifier);
+    @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@attr#qualifier);
+    @RETURN
+  @END  
+
+@END
+"
+)]
+
 // Ticker method implementation
 [assembly: MixinPrepareGlobal(
   @"
