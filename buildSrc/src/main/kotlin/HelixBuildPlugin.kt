@@ -92,7 +92,7 @@ class HelixBuildPlugin : Plugin<Project> {
         project.tasks.register("syncGrammars", Copy::class.java) {
             group = "helix"
             description = "Copies TextMate grammars into the documentation project."
-            from(project.layout.projectDirectory.dir("grammars/mixin_expressions/syntaxes")) {
+            from(project.layout.projectDirectory.dir("src/Grammars/mixin_expressions/syntaxes")) {
                 include("*.tmLanguage.json")
             }
             into(project.layout.projectDirectory.dir("docs/grammars"))

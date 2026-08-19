@@ -151,9 +151,6 @@ open class UnityExtension {
             "Set UnityProjectRoot in gradle.properties or pass -PUnityProjectRoot=<path>."
         }
         packages.forEach { packageSpec ->
-            require(packageSpec.publishable != null) {
-                "Unity package '${packageSpec.path}' must explicitly set publishable = true or false."
-            }
             require(!packageSpec.name.isNullOrBlank()) {
                 "Unity package '${packageSpec.path}' must define its package.json name."
             }

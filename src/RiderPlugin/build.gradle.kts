@@ -3,8 +3,63 @@ import groovy.ant.FileNameFinder
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.jetbrains.intellij.platform.gradle.Constants
 import org.gradle.process.ExecOperations
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.TaskAction
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
+
+abstract class DotNetBuildTask @Inject constructor(
+    private val execOperations: ExecOperations,
+) : DefaultTask() {
+    @get:InputFile
+    abstract val solution: RegularFileProperty
+
+    @get:Input
+    abstract val buildConfiguration: Property<String>
+
+    @get:Internal
+    abstract val projectDirectory: DirectoryProperty
+
+    @TaskAction
+    fun build() {
+        var buildExecutable = "dotnet"
+        val buildArguments = mutableListOf("msbuild")
+
+        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+            val stdout = ByteArrayOutputStream()
+            execOperations.exec {
+                executable(projectDirectory.file("tools/vswhere.exe").get().asFile.absolutePath)
+                args("-latest", "-property", "installationPath", "-products", "*")
+                standardOutput = stdout
+                workingDir(projectDirectory)
+            }
+
+            val directory = stdout.toString().trim()
+            if (directory.isNotEmpty()) {
+                val files = FileNameFinder().getFileNames("$directory\\MSBuild", "**/MSBuild.exe")
+                buildExecutable = files.first()
+                buildArguments.clear()
+                buildArguments.add("/v:minimal")
+            }
+        }
+
+        buildArguments.add(solution.get().asFile.absolutePath)
+        buildArguments.add("/p:Configuration=${buildConfiguration.get()}")
+        buildArguments.add("/p:HostFullIdentifier=")
+        buildArguments.add("/t:Restore;Rebuild")
+        execOperations.exec {
+            executable(buildExecutable)
+            args(buildArguments)
+            workingDir(projectDirectory)
+        }
+    }
+}
 
 abstract class ExecOperationsHolder @Inject constructor() {
     @get:Inject
@@ -23,12 +78,12 @@ extra["isWindows"] = isWindows
 
 val execOperations = objects.newInstance<ExecOperationsHolder>().execOperations
 
-val DotnetSolution: String by project
-val BuildConfiguration: String by project
-val ProductVersion: String by project
-val DotnetPluginId: String by project
-val RiderPluginId: String by project
-val PublishToken: String by project
+val DotnetSolution = providers.gradleProperty("DotnetSolution")
+val BuildConfiguration = providers.gradleProperty("BuildConfiguration")
+val ProductVersion = providers.gradleProperty("ProductVersion")
+val DotnetPluginId = providers.gradleProperty("DotnetPluginId")
+val RiderPluginId = providers.gradleProperty("RiderPluginId")
+val PublishToken = providers.gradleProperty("PublishToken")
 
 allprojects {
     repositories {
@@ -60,50 +115,13 @@ sourceSets {
     }
 }
 
-val setBuildTool by tasks.registering {
-    doLast {
-        extra["executable"] = "dotnet"
-        var args = mutableListOf("msbuild")
-
-        if (isWindows) {
-            val stdout = ByteArrayOutputStream()
-            execOperations.exec {
-                executable("${projectDir}\\tools\\vswhere.exe")
-                args("-latest", "-property", "installationPath", "-products", "*")
-                standardOutput = stdout
-                workingDir(projectDir)
-            }
-
-            val directory = stdout.toString().trim()
-            if (directory.isNotEmpty()) {
-                val files = FileNameFinder().getFileNames("${directory}\\MSBuild", "**/MSBuild.exe")
-                extra["executable"] = files.get(0)
-                args = mutableListOf("/v:minimal")
-            }
-        }
-
-        args.add(file(DotnetSolution).absolutePath)
-        args.add("/p:Configuration=${BuildConfiguration}")
-        args.add("/p:HostFullIdentifier=")
-        extra["args"] = args
-    }
+val compileDotNet = tasks.register<DotNetBuildTask>("compileDotNet") {
+    solution.set(layout.projectDirectory.file(DotnetSolution.get()))
+    buildConfiguration.set(BuildConfiguration)
+    projectDirectory.set(layout.projectDirectory)
 }
 
-val compileDotNet by tasks.registering {
-    dependsOn(setBuildTool)
-    doLast {
-        val executable: String by setBuildTool.get().extra
-        val arguments = (setBuildTool.get().extra["args"] as List<String>).toMutableList()
-        arguments.add("/t:Restore;Rebuild")
-        execOperations.exec {
-            executable(executable)
-            args(arguments)
-            workingDir(projectDir)
-        }
-    }
-}
-
-val testDotNet by tasks.registering {
+val testDotNet = tasks.register("testDotNet") {
     doLast {
         execOperations.exec {
             executable("dotnet")
@@ -127,9 +145,8 @@ tasks.buildPlugin {
             it.groups[1]!!.value.replace("(?s)- ".toRegex(), "\u2022 ").replace("`", "").replace(",", "%2C").replace(";", "%3B")
         }.take(1).joinToString()
 
-        val executable: String by setBuildTool.get().extra
-        val arguments = (setBuildTool.get().extra["args"] as List<String>).toMutableList()
-        arguments.add("/t:Pack")
+        val executable = "dotnet"
+        val arguments = mutableListOf("msbuild", file(DotnetSolution).absolutePath, "/p:Configuration=${BuildConfiguration}", "/p:HostFullIdentifier=", "/t:Pack")
         arguments.add("/p:PackageOutputPath=${layout.projectDirectory.dir("output").asFile.absolutePath}")
         arguments.add("/p:PackageReleaseNotes=${changeNotes}")
         arguments.add("/p:PackageVersion=${version}")
@@ -179,31 +196,23 @@ tasks.patchPluginXml {
 tasks.prepareSandbox {
     dependsOn(compileDotNet)
 
-    val outputFolder = "${projectDir}/src/dotnet/${DotnetPluginId}/bin/${DotnetPluginId}.Rider/${BuildConfiguration}"
+    val outputFolder = layout.projectDirectory.dir("src/dotnet/${DotnetPluginId.get()}/bin/${DotnetPluginId.get()}.Rider/${BuildConfiguration.get()}")
     val dllFiles = listOf(
-            "$outputFolder/${DotnetPluginId}.dll",
-            "$outputFolder/${DotnetPluginId}.pdb",
+            outputFolder.file("${DotnetPluginId.get()}.dll"),
+            outputFolder.file("${DotnetPluginId.get()}.pdb"),
 
             // TODO: add additional assemblies
     )
 
-    dllFiles.forEach({ f ->
-        val file = file(f)
-        from(file, { into("${rootProject.name}/dotnet") })
-    })
-
-    doLast {
-        dllFiles.forEach({ f ->
-            val file = file(f)
-            if (!file.exists()) throw RuntimeException("File ${file} does not exist")
-        })
+    dllFiles.forEach { pluginFile ->
+        from(pluginFile) { into("${rootProject.name}/dotnet") }
     }
 }
 
 tasks.publishPlugin {
     dependsOn(testDotNet)
     dependsOn(tasks.buildPlugin)
-    token.set("${PublishToken}")
+    token.set("$PublishToken")
 
     doLast {
         execOperations.exec {
@@ -214,7 +223,7 @@ tasks.publishPlugin {
     }
 }
 
-val riderModel: Configuration by configurations.creating {
+val riderModel: Configuration = configurations.create("riderModel") {
     isCanBeConsumed = true
     isCanBeResolved = false
 }
