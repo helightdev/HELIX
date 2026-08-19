@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Generate Monorepo Solution" type="KotlinStandaloneScriptRunConfigurationType">
+    <module name="docs" />
+    <shortenClasspath name="NONE" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <option name="filePath" value="$PROJECT_DIR$/scripts/monorepo-solution.main.kts" />
+    <method v="2" />
+  </configuration>
+</component>

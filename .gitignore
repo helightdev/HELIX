@@ -155,3 +155,13 @@ _Recovery*
 !src/HELIX/Packages/
 
 *.xsd
+
+# Prevent people from committing their ai configuratins
+**/.claude/
+**/.codex/
+**/.agents/
+**/.junie/
+**/.copilot/
+
+**/CLAUDE.md
+**/Agents.md
