@@ -165,3 +165,14 @@ _Recovery*
 
 **/CLAUDE.md
 **/Agents.md
+
+# Root Gradle build artifacts
+/.gradle/
+/.intellijPlatform/
+/build/
+/buildSrc/.gradle/
+/buildSrc/.kotlin/
+/buildSrc/build/
+
+# Publishing and ci
+.env

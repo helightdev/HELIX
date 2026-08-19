@@ -1,18 +1,23 @@
 {
-  "name": "dev.helight.helix.compose",
-  "displayName": "HELIX Compose",
-  "author": {
-    "name": "Christoph 'HelightDev' Feuerer",
-    "url": "https://helight.dev"
-  },
-  "version": "0.3.1",
-  "unity": "6000.5",
-  "description": "A collection of customizable and reusable UI components, styles, and utilities for UI Toolkit.",
-  "keywords": [
-    "UI Toolkit",
-    "HELIX"
-  ],
-  "license": "MIT",
-  "category": "UI",
-  "dependencies": {}
+    "name": "dev.helight.helix.compose",
+    "displayName": "HELIX Compose",
+    "version": "0.3.1",
+    "unity": "6000.5",
+    "description": "Intermediate-enough ui composition and styling layer on-top of unity ui toolkit.",
+    "license": "MIT",
+    "category": "UI",
+    "author": {
+        "name": "Christoph 'HelightDev' Feuerer",
+        "url": "https://helight.dev"
+    },
+    "keywords": [
+        "HELIX",
+        "UI",
+        "UI Toolkit",
+        "Compose"
+    ],
+    "dependencies": {
+        "com.unity.inputsystem": "1.19.0",
+        "dev.helight.helix.core": "0.3.1"
+    }
 }

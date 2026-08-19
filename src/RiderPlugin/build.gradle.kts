@@ -16,7 +16,6 @@ plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinSerialization)
     id("org.jetbrains.intellij.platform") version "2.18.0"     // See https://github.com/JetBrains/intellij-platform-gradle-plugin/releases
-    id("me.filippov.gradle.jvm.wrapper") version "0.14.0"
 }
 
 val isWindows = Os.isFamily(Os.FAMILY_WINDOWS)
@@ -44,12 +43,6 @@ repositories {
     }
 }
 
-tasks.wrapper {
-    gradleVersion = "9.7.0"
-    distributionType = Wrapper.DistributionType.ALL
-    distributionUrl = "https://cache-redirector.jetbrains.com/services.gradle.org/distributions/gradle-${gradleVersion}-all.zip"
-}
-
 version = extra["PluginVersion"] as String
 
 tasks.processResources {
@@ -75,10 +68,10 @@ val setBuildTool by tasks.registering {
         if (isWindows) {
             val stdout = ByteArrayOutputStream()
             execOperations.exec {
-                executable("${rootDir}\\tools\\vswhere.exe")
+                executable("${projectDir}\\tools\\vswhere.exe")
                 args("-latest", "-property", "installationPath", "-products", "*")
                 standardOutput = stdout
-                workingDir(rootDir)
+                workingDir(projectDir)
             }
 
             val directory = stdout.toString().trim()
@@ -89,7 +82,7 @@ val setBuildTool by tasks.registering {
             }
         }
 
-        args.add("${DotnetSolution}")
+        args.add(file(DotnetSolution).absolutePath)
         args.add("/p:Configuration=${BuildConfiguration}")
         args.add("/p:HostFullIdentifier=")
         extra["args"] = args
@@ -105,7 +98,7 @@ val compileDotNet by tasks.registering {
         execOperations.exec {
             executable(executable)
             args(arguments)
-            workingDir(rootDir)
+            workingDir(projectDir)
         }
     }
 }
@@ -114,8 +107,8 @@ val testDotNet by tasks.registering {
     doLast {
         execOperations.exec {
             executable("dotnet")
-            args("test","${DotnetSolution}","--logger","GitHubActions")
-            workingDir(rootDir)
+            args("test", file(DotnetSolution).absolutePath, "--logger", "GitHubActions")
+            workingDir(projectDir)
         }
     }
 }
@@ -123,12 +116,12 @@ val testDotNet by tasks.registering {
 tasks.buildPlugin {
     doLast {
         copy {
-            from("${buildDir}/distributions/${rootProject.name}-${version}.zip")
-            into("${rootDir}/output")
+            from(layout.buildDirectory.file("distributions/${project.name}-${version}.zip"))
+            into(layout.projectDirectory.dir("output"))
         }
 
         // TODO: See also org.jetbrains.changelog: https://github.com/JetBrains/gradle-changelog-plugin
-        val changelogText = file("${rootDir}/CHANGELOG.md").readText()
+        val changelogText = file("CHANGELOG.md").readText()
         val changelogMatches = Regex("(?s)(-.+?)(?=##|$)").findAll(changelogText)
         val changeNotes = changelogMatches.map {
             it.groups[1]!!.value.replace("(?s)- ".toRegex(), "\u2022 ").replace("`", "").replace(",", "%2C").replace(";", "%3B")
@@ -137,13 +130,13 @@ tasks.buildPlugin {
         val executable: String by setBuildTool.get().extra
         val arguments = (setBuildTool.get().extra["args"] as List<String>).toMutableList()
         arguments.add("/t:Pack")
-        arguments.add("/p:PackageOutputPath=${rootDir}/output")
+        arguments.add("/p:PackageOutputPath=${layout.projectDirectory.dir("output").asFile.absolutePath}")
         arguments.add("/p:PackageReleaseNotes=${changeNotes}")
         arguments.add("/p:PackageVersion=${version}")
         execOperations.exec {
             executable(executable)
             args(arguments)
-            workingDir(rootDir)
+            workingDir(projectDir)
         }
     }
 }
@@ -165,7 +158,7 @@ dependencies {
 }
 
 tasks.test {
-    systemProperty("unityExtensions.projectRoot", rootDir.absolutePath)
+    systemProperty("unityExtensions.projectRoot", projectDir.absolutePath)
 }
 
 tasks.runIde {
@@ -175,7 +168,7 @@ tasks.runIde {
 
 tasks.patchPluginXml {
     // TODO: See also org.jetbrains.changelog: https://github.com/JetBrains/gradle-changelog-plugin
-    val changelogText = file("${rootDir}/CHANGELOG.md").readText()
+    val changelogText = file("CHANGELOG.md").readText()
     val changelogMatches = Regex("(?s)(-.+?)(?=##|\$)").findAll(changelogText)
 
     changeNotes.set(changelogMatches.map {
@@ -186,7 +179,7 @@ tasks.patchPluginXml {
 tasks.prepareSandbox {
     dependsOn(compileDotNet)
 
-    val outputFolder = "${rootDir}/src/dotnet/${DotnetPluginId}/bin/${DotnetPluginId}.Rider/${BuildConfiguration}"
+    val outputFolder = "${projectDir}/src/dotnet/${DotnetPluginId}/bin/${DotnetPluginId}.Rider/${BuildConfiguration}"
     val dllFiles = listOf(
             "$outputFolder/${DotnetPluginId}.dll",
             "$outputFolder/${DotnetPluginId}.pdb",
@@ -215,8 +208,8 @@ tasks.publishPlugin {
     doLast {
         execOperations.exec {
             executable("dotnet")
-            args("nuget","push","output/${DotnetPluginId}.${version}.nupkg","--api-key","${PublishToken}","--source","https://plugins.jetbrains.com")
-            workingDir(rootDir)
+            args("nuget", "push", "output/${DotnetPluginId}.${version}.nupkg", "--api-key", PublishToken, "--source", "https://plugins.jetbrains.com")
+            workingDir(projectDir)
         }
     }
 }

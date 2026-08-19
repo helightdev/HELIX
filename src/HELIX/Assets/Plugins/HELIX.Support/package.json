@@ -1,20 +1,20 @@
 {
-    "name": "dev.helight.helix.ui",
-    "displayName": "HELIX UI",
+    "name": "dev.helight.helix.support",
+    "displayName": "HELIX Support",
     "version": "0.3.1",
     "unity": "6000.5",
-    "description": "A collection of customizable and reusable UI components, styles, and utilities for UI Toolkit.",
+    "description": "Development and debugging tools for HELIX-based Unity projects.",
     "license": "MIT",
-    "category": "UI",
+    "category": "Integration",
     "author": {
         "name": "Christoph 'HelightDev' Feuerer",
         "url": "https://helight.dev"
     },
     "keywords": [
         "HELIX",
-        "UI",
-        "UI Toolkit",
-        "Widgets"
+        "Debugging",
+        "Development",
+        "Support"
     ],
     "dependencies": {
         "dev.helight.helix.core": "0.3.1",

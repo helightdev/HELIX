@@ -1,18 +1,23 @@
 {
-  "name": "dev.helight.helix.context",
-  "displayName": "HELIX Context",
-  "author": {
-    "name": "Christoph 'HelightDev' Feuerer",
-    "url": "https://helight.dev"
-  },
-  "version": "0.3.1",
-  "unity": "6000.5",
-  "description": "A collection of customizable and reusable UI components, styles, and utilities for UI Toolkit.",
-  "keywords": [
-    "UI Toolkit",
-    "HELIX"
-  ],
-  "license": "MIT",
-  "category": "UI",
-  "dependencies": {}
+    "name": "dev.helight.helix.context",
+    "displayName": "HELIX Context",
+    "version": "0.3.1",
+    "unity": "6000.5",
+    "description": "Service and dependency management system with lifecycle management and productivity helpers.",
+    "license": "MIT",
+    "category": "Scripting",
+    "author": {
+        "name": "Christoph 'HelightDev' Feuerer",
+        "url": "https://helight.dev"
+    },
+    "keywords": [
+        "HELIX",
+        "DI",
+        "Dependency Injection",
+        "Service Locator",
+        "Context"
+    ],
+    "dependencies": {
+        "dev.helight.helix.core": "0.3.1"
+    }
 }

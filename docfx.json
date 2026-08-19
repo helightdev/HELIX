@@ -6,7 +6,7 @@
           "files": [
             "HELIX.csproj",
             "HELIX.Context.csproj",
-            "HELIX.Compose.csproj",
+            "HELIX.Compose.csproj"
           ],
           "src": "src/HELIX/"
         }

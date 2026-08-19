@@ -1,0 +1,2 @@
+# Preserve the Gradle wrapper scripts exactly as generated.
+gradlew* -text diff
