@@ -29,9 +29,9 @@ Each non-empty line contains one directive:
 @DIRECTIVE<argument><argument> optional operand
 ```
 
-Directive names are case-insensitive. Arguments use angle brackets and can nest. Whitespace after
-the arguments separates them from the operand. There is no general comment syntax. Blank lines
-are ignored.
+Directive names start with an uppercase letter. Arguments use angle brackets and can nest.
+Whitespace after the arguments separates them from the operand. There is no general comment
+syntax. Blank lines are ignored.
 
 String operands interpolate references beginning with `@`. Write `@@` for a literal `@`.
 Parenthesized arguments are evaluated dynamically rather than treated as literal strings.

@@ -4,28 +4,23 @@
   "scopeName": "source.helix-mixin",
   "fileTypes": ["hxmixin"],
   "patterns": [
-    {
-      "begin": "^",
-      "end": "$",
-      "patterns": [
-        { "include": "#directive" },
-        { "include": "#escaped-at" },
-        { "include": "#parenthesized-expression" },
-        { "include": "#expression" },
-        { "include": "#directive-argument" }
-      ]
-    }
+    { "include": "#directive" },
+    { "include": "#escaped-at" },
+    { "include": "#parenthesized-expression" },
+    { "include": "#expression" },
+    { "include": "#target" },
+    { "include": "#number" }
   ],
   "repository": {
     "directive": {
-      "begin": "^( *)(@[A-Z][a-zA-Z_]+)(?=(?:<[^<>\\s]*>)*(?:\\s|$))",
+      "begin": "^(\\s*)(@[A-Z][A-Za-z_]*)",
       "beginCaptures": {
         "2": { "name": "keyword.control.directive.helix-mixin" }
       },
       "end": "(?=\\s|$)",
       "name": "meta.directive.helix-mixin",
       "patterns": [
-        { "include": "#directive-argument" }
+        { "include": "#argument" }
       ]
     },
     "escaped-at": {
@@ -33,63 +28,28 @@
       "name": "constant.character.escape.helix-mixin"
     },
     "parenthesized-expression": {
+      "begin": "@\\([A-Za-z0-9_]+",
+      "beginCaptures": {
+        "0": { "name": "variable.root.helix-mixin" }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": { "name": "variable.root.helix-mixin" }
+      },
+      "name": "variable.root.helix-mixin",
       "patterns": [
-        {
-          "begin": "(@\\()((?:true|false|null|table))(?=(?:#[a-zA-Z0-9_]+|(?:(?:(?::!\\?|:\\?)[a-zA-Z]+|:[a-z]+)(?:<[^<>\\s]*>)*))*\\)(?=\\s|[,;(){}\\[\\]]|$))",
-          "beginCaptures": {
-            "1": { "name": "variable.root.helix-mixin" },
-            "2": { "name": "variable.root.helix-mixin" }
-          },
-          "end": "(\\))",
-          "endCaptures": {
-            "1": { "name": "variable.root.helix-mixin" }
-          },
-          "name": "meta.expression.parenthesized.helix-mixin",
-          "patterns": [
-            { "include": "#expression-body" }
-          ]
-        },
-        {
-          "begin": "(@\\()([a-z][a-zA-Z_]+)(?=(?:#[a-zA-Z0-9_]+|(?:(?:(?::!\\?|:\\?)[a-zA-Z]+|:[a-z]+)(?:<[^<>\\s]*>)*))*\\)(?=\\s|[,;(){}\\[\\]]|$))",
-          "beginCaptures": {
-            "1": { "name": "variable.root.helix-mixin" },
-            "2": { "name": "variable.root.helix-mixin" }
-          },
-          "end": "(\\))",
-          "endCaptures": {
-            "1": { "name": "variable.root.helix-mixin" }
-          },
-          "name": "meta.expression.parenthesized.helix-mixin",
-          "patterns": [
-            { "include": "#expression-body" }
-          ]
-        }
+        { "include": "#expression-body" }
       ]
     },
     "expression": {
+      "begin": "@[A-Za-z0-9_]+",
+      "beginCaptures": {
+        "0": { "name": "variable.root.helix-mixin" }
+      },
+      "end": "(?=[^A-Za-z0-9_#:<]|$)",
+      "name": "variable.root.helix-mixin",
       "patterns": [
-        {
-          "begin": "(@(?:true|false|null|table))(?=(?:#[a-zA-Z0-9_]+|(?:(?:(?::!\\?|:\\?)[a-zA-Z]+|:[a-z]+)(?:<[^<>\\s]*>)*))*(?=\\s|[,;(){}\\[\\]]|$))",
-          "beginCaptures": {
-            "1": { "name": "variable.root.helix-mixin" }
-          },
-          "end": "(?=\\s|[,;(){}\\[\\]]|$)",
-          "name": "meta.expression.helix-mixin",
-          "patterns": [
-            { "include": "#expression-body" }
-          ]
-        },
-        {
-          "begin": "(@[a-z][a-zA-Z_]+)(?=(?:#[a-zA-Z0-9_]+|(?:(?:(?::!\\?|:\\?)[a-zA-Z]+|:[a-z]+)(?:<[^<>\\s]*>)*))*(?=\\s|[,;(){}\\[\\]]|$))",
-          "beginCaptures": {
-            "1": { "name": "variable.root.helix-mixin" }
-          },
-          "end": "(?=\\s|[,;(){}\\[\\]]|$)",
-          "name": "meta.expression.helix-mixin",
-          "patterns": [
-            { "include": "#expression-body" }
-          ]
-        }
+        { "include": "#expression-body" }
       ]
     },
     "expression-body": {
@@ -103,13 +63,13 @@
         { "include": "#transformation" },
         { "include": "#generic-predicate" },
         { "include": "#generic-transformation" },
-        { "include": "#angle-argument" },
+        { "include": "#argument" },
         { "include": "#target" },
         { "include": "#number" }
       ]
     },
     "member": {
-      "match": "(#+)([A-Za-z0-9_]+)",
+      "match": "#+[A-Za-z0-9_]+",
       "name": "entity.name.member-path.helix-mixin"
     },
     "predicate": {
@@ -125,14 +85,14 @@
       "name": "entity.name.function.transform.helix-mixin"
     },
     "generic-predicate": {
-      "match": ":!?\\?[a-zA-Z]+\\b",
+      "match": ":!?\\?[A-Za-z0-9_]+",
       "name": "support.function.predicate.helix-mixin"
     },
     "generic-transformation": {
-      "match": ":[a-z]+\\b",
+      "match": ":[A-Za-z0-9_]+",
       "name": "entity.name.function.transform.helix-mixin"
     },
-    "angle-argument": {
+    "argument": {
       "begin": "<",
       "beginCaptures": {
         "0": { "name": "punctuation.definition.argument.begin.helix-mixin" }
@@ -146,33 +106,19 @@
         { "include": "#escaped-at" },
         { "include": "#parenthesized-expression" },
         { "include": "#expression" },
-        { "include": "#angle-argument" }
-      ]
-    },
-    "directive-argument": {
-      "begin": "<",
-      "beginCaptures": {
-        "0": { "name": "punctuation.definition.argument.begin.helix-mixin" }
-      },
-      "end": ">",
-      "endCaptures": {
-        "0": { "name": "punctuation.definition.argument.end.helix-mixin" }
-      },
-      "name": "markup.inline.raw.argument.helix-mixin",
-      "patterns": [
-        { "include": "#parenthesized-expression" },
-        { "include": "#expression" },
-        { "include": "#directive-argument" }
+        { "include": "#argument" },
+        { "include": "#target" },
+        { "include": "#number" }
       ]
     },
     "target": {
       "patterns": [
         {
-          "match": "\\$(?:[A-Za-z_][A-Za-z0-9_]*)",
+          "match": "\\$[A-Za-z_][A-Za-z0-9_]*",
           "name": "entity.name.function.target.helix-mixin"
         },
         {
-          "match": "\\b(CLASS|FILE|IMPLEMENTS|ANNOTATION|TARGET|STATE|BUFFER|AST)\\b",
+          "match": "\\b(?:CLASS|FILE|IMPLEMENTS|ANNOTATION|TARGET|STATE|BUFFER|AST)\\b",
           "name": "constant.language.target.helix-mixin"
         }
       ]
