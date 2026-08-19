@@ -24,8 +24,12 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
                 icon: <LucideLayers className="size-full stroke-fd-primary" />,
                 urls: new Set([
                     '/docs/compose',
-                    '/docs/compose/components-and-generation',
-                    '/docs/compose/prop-structs'
+                    '/docs/compose/compositions',
+                    '/docs/compose/boundaries',
+                    '/docs/compose/element-proxies',
+                    '/docs/compose/prop-structs',
+                    '/docs/compose/theming',
+                    '/docs/compose/state-properties'
                 ])
             },
             {
@@ -39,7 +43,9 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
                     '/docs/context/scopes-and-dependencies',
                     '/docs/context/lifecycle',
                     '/docs/context/events',
-                    '/docs/context/tickers-and-auto-dispose',
+                    '/docs/context/mixins',
+                    '/docs/context/scheduling',
+                    '/docs/context/automatic-cleanup',
                     '/docs/context/mixin-expressions',
                     '/docs/context/mixin-values-and-predicates',
                     '/docs/context/mixin-control-flow',

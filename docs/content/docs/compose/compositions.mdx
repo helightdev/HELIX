@@ -1,0 +1,171 @@
+---
+title: Compositions
+description: Reusable generated layout functions, delegate forms, identity scopes, and authoring constraints.
+icon: PanelsTopLeft
+---
+
+A composition is a reusable function that emits UI into an existing
+<FREntityCodeLink uid="Composition" />. It does not create an independent recomposition boundary or
+own retained state. Use it to name and reuse layout, pass content to another component, or package a
+small authoring pattern without introducing another reactive unit.
+
+Mark the authored method with <FREntitySymbolLink uid="CompositionAttribute" />. The source
+generator exposes it as a strongly typed static delegate and wraps every invocation in a stable
+composition identity scope.
+
+```csharp
+public static partial class AccountViews {
+  [Composition]
+  private static void _AccountRow(
+    ref Composition cx,
+    string name,
+    bool online
+  ) {
+    using (cx.Row()) {
+      cx.Text(name);
+      cx.Gap();
+      cx.Text(online ? "Online" : "Offline");
+    }
+  }
+}
+
+AccountViews.AccountRow(ref cx, account.Name, account.IsOnline);
+```
+
+The leading underscore belongs only to the authored method. The generated field removes it, so
+`_AccountRow` becomes `AccountRow`.
+
+## Method contract
+
+A composition method must satisfy all of these rules:
+
+- It is `static`.
+- It is not generic.
+- Its name begins with `_` and contains at least one character after it.
+- Its first parameter is exactly `ref Composition`.
+- It has at most four additional parameters.
+- Additional parameters are passed by value or with `in`. `ref` and `out` are not supported.
+- Its containing type and every containing type are `partial`, because generated members are added
+  alongside the authored method.
+
+The generator reports a diagnostic and emits no wrapper when the signature is unsupported.
+
+## Generated delegate forms
+
+The number and shape of additional parameters selects the delegate type:
+
+| Authored parameters after `ref Composition` | Generated type |
+|---|---|
+| None | `Composable` |
+| One value | `Composable<T>` |
+| Two to four values | `Composable<T0, ...>` |
+| Exactly one `in T` | `ReadComposable<T>` |
+
+`ReadComposable<T>` preserves the readonly-reference call at the public surface:
+
+```csharp
+public static partial class InventoryViews {
+  [Composition]
+  private static void _Item(ref Composition cx, in InventoryItem item) {
+    cx.Text(item.DisplayName);
+  }
+}
+
+InventoryViews.Item(ref cx, in item);
+```
+
+Multiple arguments always use a `Composable<...>` delegate. An authored `in` parameter in such a
+method is still forwarded to the private method with `in`, but the generated delegate receives its
+argument by value.
+
+## What the generator emits
+
+For `_AccountRow`, generation conceptually produces:
+
+```csharp
+private static readonly ushort _accountRowId =
+  CompositionId.GetCompositionId("AccountRow");
+
+public static readonly Composable<string, bool> AccountRow = static (
+  ref Composition cx,
+  string arg0,
+  bool arg1
+) => {
+  var transfer = new CompositionTransfer();
+  CompositionInternals.EnterComposition(
+    ref cx,
+    _accountRowId,
+    ref transfer
+  );
+
+  try {
+    _AccountRow(ref cx, arg0, arg1);
+  } finally {
+    CompositionInternals.ExitComposition(ref cx, ref transfer);
+  }
+};
+```
+
+The exact generated source uses fully qualified type names. The important behavior is the
+`try`/`finally`: the parent composition identity is restored even when authored UI code throws.
+
+## Identity and retention
+
+The generated composition ID becomes part of the identity of elements emitted by the function.
+This prevents two reusable functions that emit the same element types at the same caller position
+from accidentally sharing the same identity path.
+
+Identity within the function still follows normal Compose ordering. If sibling calls can reorder,
+provide stable local identity through the relevant keyed/list API. A generated composition ID
+identifies the function, not a particular data item.
+
+A composition invocation does not create a boundary. It runs whenever its owning boundary
+recomposes, and reads of signals or Compose context subscribe that owning boundary. Choose a
+[Boundary](/docs/compose/boundaries) when a subtree needs its own dirty state, lifecycle, or context
+subscription set.
+
+## Passing content
+
+Because the generated output is a delegate, it can be stored and passed as component content
+without allocating an ad-hoc wrapper at every call site.
+
+```csharp
+public static partial class DialogContent {
+  [Composition]
+  private static void _ConfirmLabel(ref Composition cx) {
+    cx.Text("Confirm");
+  }
+
+  [Composition]
+  private static void _CancelLabel(ref Composition cx) {
+    cx.Text("Cancel");
+  }
+}
+
+cx.Button(
+  content: DialogContent.ConfirmLabel,
+  action: Confirm
+);
+```
+
+Prefer a named generated composition for reusable content. A capturing lambda creates a delegate
+and closure, while a static lambda still bypasses the generated identity scope.
+
+## Choosing a composition
+
+Use a composition when:
+
+- The code is reusable layout or content.
+- It should recompose with the caller.
+- It does not own persistent component state.
+- It does not need an independent context subscription set.
+
+Use a [Boundary](/docs/compose/boundaries) when the unit owns props, state, cleanup, controllers, or
+independent reactive work. Use an [Element Proxy](/docs/compose/element-proxies) when the task is to
+create and update a retained `VisualElement`.
+
+<Cards>
+  <FREntityCardLink uid="CompositionAttribute" />
+  <FREntityCardLink uid="Composable" />
+  <FREntityCardLink uid="ReadComposable-1" />
+</Cards>

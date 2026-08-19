@@ -1,0 +1,77 @@
+---
+title: Automatic Cleanup
+description: Auto-disposed fields, generated teardown behavior, scope ownership, and explicit cleanup choices.
+icon: Trash2
+---
+
+`AutoDisposeAttribute` generates disposal for a component-owned field. It is intended for
+subscriptions, cancellation sources, handles, and other `IDisposable` values whose lifetime is
+exactly the lifetime of one component.
+
+## Auto-disposed fields
+
+Apply `[AutoDispose]` to a field whose type implements `IDisposable`:
+
+```csharp
+[AutoDispose]
+private CancellationTokenSource cancellation;
+
+[AutoDispose]
+private HandlerRegistration<MyEvent> registration;
+```
+
+The generator contributes the following operation to `$Dispose` at order `1`:
+
+```csharp
+AutoDisposeMethods.DisposeDisposable(ref field);
+```
+
+If the field is non-null, the helper calls `Dispose()` and assigns `default` back to the field.
+Clearing the reference releases the component's reference and makes repeated calls harmless for
+that field. The helper's generic constraint enforces `IDisposable` at compile time.
+
+## Ordering and failure behavior
+
+Auto-dispose is an ordinary generated mixin contribution. Its order is relative to other code in
+the component's `$Dispose` target. Component unload itself still follows the scope lifecycle:
+components unload in reverse load order, then scope-owned managed resources are disposed, and
+scope-owned Unity objects are destroyed.
+
+The helper does not catch exceptions from the field's `Dispose()` method. Component and scope
+teardown captures deinitialization failures and continues processing other components and owned
+resources. Do not rely on one auto-disposed field running after another when a strict cleanup
+sequence matters. Use an explicit `[MixinMethod(MixinOn.Dispose)]` method with a chosen order for
+that case.
+
+## Auto-dispose versus other ownership
+
+| Ownership | Mechanism |
+|---|---|
+| One component exclusively owns an `IDisposable` field | `[AutoDispose]` |
+| A value belongs to the entire managed scope | Scope ownership |
+| Cleanup requires ordering or several coordinated steps | Explicit `$Dispose` callback |
+| A generated event handler belongs to the component | Generated `EventHandlerList.UnregisterAll()` cleanup |
+| A `UnityEngine.Object` belongs to the scope | Scope ownership and Unity destruction |
+
+`[AutoDispose]` does not manage `UnityEngine.Object` values merely because they have a cleanup-like
+API. Use scope ownership or explicit Unity destruction for those objects.
+
+## Scope cancellation
+
+The scope cancellation token is cancelled before child scopes and components are torn down. A
+component can use that signal to stop asynchronous work, then use `[AutoDispose]` to release the
+associated `CancellationTokenSource`, registration, or transport handle during its own unload.
+
+```csharp
+[AutoDispose]
+private IDisposable connection;
+
+[MixinMethod(MixinOn.Dispose, order: 0)]
+private void StopWork() {
+  worker.StopAcceptingRequests();
+}
+```
+
+Here the explicit order-zero callback runs before the auto-dispose contribution at order `1`. This
+keeps the shutdown sequence visible in authored code while leaving the final field disposal to the
+generator.

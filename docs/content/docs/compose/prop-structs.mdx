@@ -11,7 +11,7 @@ when requested by the type, equality and hashing members.
 Prop structs are used heavily in Compose because retained nodes must cheaply capture a set of
 inputs, compare it with the previous set, and decide whether work is required. They are also useful
 outside a boundary for any small generated parameter bundle. The generator does not add runtime
-tracking, serialization, validation, or mutability rules; it generates ordinary C# members.
+tracking, serialization, validation, or mutability rules. It generates ordinary C# members.
 
 ## Basic declaration
 
@@ -19,8 +19,11 @@ tracking, serialization, validation, or mutability rules; it generates ordinary 
 [PropStruct]
 public partial struct BadgeProps : IEquatable<BadgeProps> {
   public string label;
+
   public Color color;
-  [Prop(false)] public bool selected;
+
+  [Prop(false)]
+  public bool selected;
 }
 
 var props = new BadgeProps("Inbox", Color.blue, selected: true);
@@ -81,13 +84,13 @@ plain parameter bundles small when they do not need comparisons.
 
 For participating fields the generator creates, when they are not already supplied:
 
-- `bool Equals(T other)`;
-- `override bool Equals(object obj)`;
-- `override int GetHashCode()`;
+- `bool Equals(T other)`.
+- `override bool Equals(object obj)`.
+- `override int GetHashCode()`.
 - `==` and `!=` operators where compatible with the authored members.
 
 Primitive, enum, and pointer fields use direct comparison. Other fields use the format strings on
-`PropAttribute`: `EqualitySyntax` receives the current and other expressions as `{0}` and `{1}`;
+`PropAttribute`: `EqualitySyntax` receives the current and other expressions as `{0}` and `{1}`.
 `HashCodeSyntax` receives the current expression as `{0}`.
 
 ```csharp
@@ -105,7 +108,7 @@ public partial struct QueryProps : IEquatable<QueryProps> {
 ```
 
 `Equatable = false` excludes a field from both equality and hashing. Use it only when changes to
-that field must not affect value identity; excluding a callback or cache handle can otherwise
+that field must not affect value identity. Excluding a callback or cache handle can otherwise
 leave a retained consumer with stale behavior. Custom equality and hash expressions must describe
 the same equivalence relation.
 

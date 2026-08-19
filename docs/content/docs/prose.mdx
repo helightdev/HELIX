@@ -1,17 +1,25 @@
 ---
 title: Prose
-description: Semantic, renderer-independent output for framework messages, structured inspection, and rich text.
-icon: Text
+description: A shared DSL for semantic, renderer-independent text and nestable output structures.
+icon: Pilcrow
 ---
 
-Prose is a small immediate-mode protocol for describing output without choosing its final
-representation. Producers send semantic content to an <FREntityCodeLink uid="IProseWriter" />;
-writers render that stream as plain text, Unity rich text, or nested dictionaries.
+Prose is a small immediate-mode DSL for describing nested output without choosing its final
+representation. Producers send semantic content to an <FREntityCodeLink uid="IProseWriter" />.
+Writers currently render that stream as plain text, Unity rich text, or nested dictionaries.
 
-Use Prose for framework-owned descriptions that have more structure than a log string and may be
-consumed by more than one frontend: component graph failures, object inspection, editor panels,
-tool output, or formatted summaries. Do not use it as mutable application state or as a retained
-document model. Once written, frames are owned and interpreted by the sink.
+Its main uses today are text formatting and diagnostic output. Component graph failures, object
+inspection, editor panels, tool output, and formatted summaries can all share the same producer
+without coupling that producer to a console or Unity rich-text renderer.
+
+The longer-term scope is broader than formatted text. Prose is intended as a general-purpose DSL
+for nestable layouts and as an intermediate representation that can translate markup formats or
+other structured data into code-based systems. The planned form and option integrations will use
+it as a specialized, Compose-decoupled authoring API. This is why Prose belongs to `HELIX.Core`:
+it is a shared protocol, not a UI component framework.
+
+Do not use Prose as mutable application state or as a retained document model. Once written,
+frames are owned and interpreted by the sink.
 
 ## The writing model
 
@@ -25,7 +33,7 @@ An <FREntityCodeLink uid="IProseWriter" /> accepts five kinds of operation:
 | `Write(...)` | Write text, an `IProse` value, or a value through an `IProseFormatter<T>`. |
 | `End()` | Close the most recently opened frame. |
 
-Prefer the extension methods returning `ProseWriterScope`; a `using` statement guarantees a
+Prefer the extension methods returning `ProseWriterScope`. A `using` statement guarantees a
 balanced `End()` even when producer code returns or throws.
 
 ```csharp
@@ -51,7 +59,7 @@ Scopes describe intent rather than layout. Built-in scopes cover `Span`, `Sectio
 
 Some scopes carry data. `ProseCodeBlock` has a language hint, `ProseList` has a kind and starting
 number, and `ProseTableRow` records whether it is a header. Parameterless and common variants are
-cached on <FREntityCodeLink uid="ProseScopes" />; extension methods use those instances to avoid
+cached on <FREntityCodeLink uid="ProseScopes" />. Extension methods use those instances to avoid
 avoidable allocations.
 
 Property and tree scopes are intended for object/framework inspection:
@@ -107,12 +115,12 @@ format strings, prefixes, suffixes, units, ranges, scaling, compaction, and opti
 | `ProseDictionaryWriter` | Nested dictionaries/lists for tools that need semantic fields instead of rendered text. |
 
 Create a new writer when a consumer needs a genuinely different representation. Create new scopes
-or modifiers only when existing semantics cannot express the distinction; writers that do not
+or modifiers only when existing semantics cannot express the distinction. Writers that do not
 recognize them must still degrade safely through the producer's fallback behavior.
 
 ## Producer rules
 
-- Keep frame nesting balanced; use scoped extension methods by default.
+- Keep frame nesting balanced. Use scoped extension methods by default.
 - Use `TryBeginFrame` for expensive content that can be skipped entirely by the sink.
 - Put semantic meaning in scopes and modifiers, not spaces, punctuation, or color escape codes.
 - Reuse immutable scopes, modifiers, and formatters where possible.

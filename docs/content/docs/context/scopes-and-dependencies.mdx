@@ -1,5 +1,5 @@
 ---
-title: Scopes & Dependencies
+title: Scopes
 description: Managed scope hierarchy, parent rules, typed resolution, injection, binding, resources, and ownership.
 icon: Network
 ---
@@ -44,7 +44,9 @@ preserving binding order within each scope. It does not collapse overrides.
 
 ```csharp
 var settings = ComponentBinding.Resolve<GameSettings>();
+
 var pipeline = ComponentBinding.ResolveAll<IStage>("import");
+
 var optional = ComponentBinding.ResolveOptional<ITelemetry>();
 ```
 
@@ -80,7 +82,7 @@ public IStage Output => stage;
 
 The attribute can publish under another type, attach a qualifier, mark the promise optional, or
 publish a proxy. A normal publication captures the current value. A proxied publication stores a
-supplier, so each resolution reads the property again. Null publications are not bindings; a
+supplier, so each resolution reads the property again. Null publications are not bindings. A
 required promised publication must produce a compatible non-null value before loading completes.
 
 ## Resources and scripted dependencies
@@ -100,7 +102,7 @@ Each scope exposes a cancellation token which is cancelled at the beginning of d
 children and components are torn down. Code started by a component should observe this token when
 its work belongs to the scope.
 
-Scope-owned values must be `IDisposable` or `UnityEngine.Object`. Managed disposables are disposed;
+Scope-owned values must be `IDisposable` or `UnityEngine.Object`. Managed disposables are disposed.
 Unity objects are destroyed with `Destroy` in play mode or `DestroyImmediate` otherwise. A value
-owned directly by a component can instead use `[AutoDispose]`; see
-[Tickers & Auto Dispose](/docs/context/tickers-and-auto-dispose).
+owned directly by a component can instead use `[AutoDispose]`. See
+[Automatic Cleanup](/docs/context/automatic-cleanup).

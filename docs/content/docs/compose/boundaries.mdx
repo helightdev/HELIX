@@ -1,0 +1,222 @@
+---
+title: Boundaries
+description: Retained component boundaries, generated props APIs, lifecycle, context, and custom bases.
+icon: Box
+---
+
+A boundary is an independently recomposable retained subtree. It owns a boundary node, a props
+value, context subscriptions, and an attachment object with lifecycle callbacks. This is the normal
+unit for a stateful control or a UI section that should update independently from its parent.
+
+Annotate a partial class with <FREntitySymbolLink uid="BoundaryComposableAttribute" />. The class
+body contains authored lifecycle and rendering logic. The generator supplies its base class,
+props transport, stable IDs, and public composition methods.
+
+```csharp
+[BoundaryComposable(Extension = true, Name = "UserBadge")]
+public partial class UserBadge {
+  public partial struct Props {
+    public string name;
+
+    [Prop(false)]
+    public bool selected;
+  }
+
+  protected override void OnAttach() {
+    controller = new BadgeController();
+  }
+
+  protected override void OnRecompose(ref Composition cx) {
+    cx.Text(props.name);
+    cx.CURSOR.EnableInClassList("selected", props.selected);
+  }
+
+  protected override void OnDetach() {
+    controller.Dispose();
+    controller = null;
+  }
+
+  private BadgeController controller;
+}
+
+cx.UserBadge("Avery", selected: true);
+```
+
+## Type contract
+
+The annotated type must be a non-generic partial class. Every containing type must also be partial.
+If the class declares a nested `Props` type, it must be a non-generic partial struct.
+
+When no `Props` type is authored, the generator adds an empty one. By default, it also makes the
+class derive from `PropsBoundaryComposable<Props>`.
+
+## Generated surface
+
+Every valid boundary receives:
+
+- `ComposeBoundary(ref Composition, ...)`, which returns `ref ElementRef`.
+- A generated constructor for the nested props struct when it has fields.
+- Generated equality members when `Props` implements `IEquatable<Props>`.
+- An override that enters the boundary's composition identity and invokes the base lifecycle.
+- A stable composition ID and type ID in a generated companion class.
+- An optional `ref Composition` extension method.
+- `BakedComposable` when there are no prop fields.
+
+The generated extension is only an authoring convenience. `ComposeBoundary` is always available:
+
+```csharp
+ref var badge = ref UserBadge.ComposeBoundary(
+  ref cx,
+  name: "Avery",
+  selected: true
+);
+
+badge.MarkFlag(UssFlag.Size);
+```
+
+`Extension = true` adds `cx.UserBadge(...)`. Its default is `false`, so opt in when the component is
+part of the ordinary fluent Compose surface. `Name` changes the generated extension and the IDs,
+but does not rename the authored class.
+
+## Props transport
+
+The generated method creates a `Props` value on every parent composition and passes it to
+`ReceiveProps`. The default implementation stores it in retained `BoundaryData<Props>`, exposed by
+reference through the protected `props` member.
+
+```csharp
+protected override void OnRecompose(ref Composition cx) {
+  ref var current = ref props;
+
+  cx.Text(current.name);
+}
+```
+
+The boundary is yielded into the parent and marked dirty. Its actual `OnRecompose` work is handled
+by `HXComposer`, rather than executed inline as part of the parent function. This gives the
+boundary its own cursor, retained child list, context subscriptions, and dirty-queue entry.
+
+Prop fields and defaults use the same generator rules as standalone prop structs. Required fields
+must precede optional fields, deferred defaults use nullable public parameters, and equality can be
+customized or excluded. See [Prop Structs](/docs/compose/prop-structs) for the full contract.
+
+`ReceiveProps` is virtual. Override it only when the component must normalize or observe incoming
+props, and call the base implementation unless storage is deliberately replaced.
+
+```csharp
+public override void ReceiveProps(in Props next) {
+  var controllerChanged = props.controller != next.controller;
+
+  base.ReceiveProps(in next);
+
+  if (controllerChanged) BindController();
+}
+```
+
+## Lifecycle
+
+The attachment object moves through three authored hooks:
+
+| Hook | Timing | Typical work |
+|---|---|---|
+| `OnAttach()` | A new attachment is connected to retained boundary data. | Allocate or bind owned controllers and listeners. |
+| `OnRecompose(ref Composition)` | The boundary is processed from the dirty queue. | Read props and reactive inputs, then emit the subtree. |
+| `OnDetach()` | The attachment is removed, swapped, or its boundary state is disposed. | Unsubscribe and release owned resources. |
+
+`OnAttach` is not the same as UI Toolkit's `AttachToPanelEvent`. It describes the generated
+boundary attachment and retained data relationship. A boundary node can be detached from the panel
+and later disposed according to the Compose runtime's hierarchy lifecycle.
+
+`MarkDirty()` schedules the current boundary when the attachment is connected. Signal and Compose
+context reads also subscribe the boundary and mark it dirty when their versions change.
+
+## Custom boundary bases
+
+`Base` accepts an unbound generic type with exactly one type parameter. The generator closes it
+with the generated `Props` type.
+
+```csharp
+[BoundaryComposable(
+  Base = typeof(InputClickableComposable<>),
+  Extension = true,
+  Name = "Button"
+)]
+public partial class HXButton {
+  // InputClickableComposable<Props> supplies interaction state.
+}
+```
+
+The base must participate in the boundary attachment contract. Built-in input bases add an
+`InputState` bit mask and event behavior, allowing themed state properties to resolve hover,
+focus, active, selected, disabled, and error styles.
+
+## Context references
+
+The generator recognizes fields annotated with <FREntityCodeLink uid="ContextAttribute" /> and
+emits a `Pull()` before the base recomposition method runs. This surface is intended for retained
+`ContextReference<T>` fields.
+
+The current `ContextReference<T>.Pull()` runtime implementation throws `NotImplementedException`.
+Do not use `[Context]` fields until that runtime path is completed. Read Compose context directly
+through `cx.ReadContext(...)` in `OnRecompose` instead.
+
+## Lookup caching
+
+`UseLookupCache = true` calls `boundary.UseLookupCache()` before recomposition. The cache accelerates
+repeated inherited context lookup from that boundary. It claims runtime cache storage and is best
+reserved for boundaries that perform enough context resolution to justify it. The cache is cleared
+before composition and released when the boundary resets or detaches.
+
+```csharp
+[BoundaryComposable(
+  Extension = true,
+  UseLookupCache = true
+)]
+public partial class SettingsPanel {
+  protected override void OnRecompose(ref Composition cx) {
+    var theme = cx.ReadContext(ThemeData.Key);
+    var form = cx.ReadContext(FormContext.Key);
+
+    ComposeFields(ref cx, theme, form);
+  }
+}
+```
+
+## Boundaries without props
+
+A boundary with no prop fields receives a reusable `BakedComposable`:
+
+```csharp
+[BoundaryComposable]
+public partial class StatusPanel {
+  protected override void OnRecompose(ref Composition cx) {
+    cx.Text("Ready");
+  }
+}
+
+cx.Group(content: StatusPanel.BakedComposable);
+```
+
+Use the baked delegate when an API expects `Composable`. Call `ComposeBoundary` directly when the
+returned element reference is needed.
+
+## Choosing a boundary
+
+Create a boundary when the unit needs one or more of the following:
+
+- Its own reactive subscriptions and dirty state.
+- Retained props or controllers.
+- Attachment and cleanup hooks.
+- A subtree-local context provider.
+- A stable public component API.
+
+For layout that should update with its caller, use a [Composition](/docs/compose/compositions).
+For the retained UI Toolkit element itself, use an
+[Element Proxy](/docs/compose/element-proxies).
+
+<Cards>
+  <FREntityCardLink uid="BoundaryComposableAttribute" />
+  <FREntityCardLink uid="PropAttribute" />
+  <FREntityCardLink uid="ContextAttribute" />
+  <FREntityCardLink uid="HXComposer" />
+</Cards>

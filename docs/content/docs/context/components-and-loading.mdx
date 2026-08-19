@@ -1,5 +1,5 @@
 ---
-title: Components & Loading
+title: Components
 description: Component registration, activation, phases, graph scheduling, loading order, and failure behavior.
 icon: Boxes
 ---
@@ -11,7 +11,8 @@ configurator. Plain objects and `MonoBehaviour` components use different generat
 ```csharp
 [Component(typeof(ApplicationScope), order: 10, phase: InitPhase.Normal)]
 public partial class WelcomeService {
-  [Inject] public GameSettings settings;
+  [Inject]
+  public GameSettings settings;
 }
 ```
 
@@ -19,17 +20,17 @@ public partial class WelcomeService {
 
 The component annotation and its member mixins tell the container:
 
-- the owning scope descriptor type;
-- whether the registration itself is optional;
-- its phase and preferred order;
-- the activator used to construct or locate the instance;
-- keys immediately provided by the component instance;
-- required, optional, collected, and scripted dependencies;
-- values promised as late publications;
+- the owning scope descriptor type.
+- whether the registration itself is optional.
+- its phase and preferred order.
+- the activator used to construct or locate the instance.
+- keys immediately provided by the component instance.
+- required, optional, collected, and scripted dependencies.
+- values promised as late publications.
 - handled event types and other generated feature metadata.
 
 Registrations are prepared before application startup. Context does not discover annotated members
-by reflecting every object at runtime; the generator has already converted them into configurator
+by reflecting every object at runtime. The generator has already converted them into configurator
 calls and lifecycle methods.
 
 ## Container startup
@@ -40,7 +41,7 @@ components provide infrastructure used by all later loads, including scope handl
 exposes the active container through `HX`.
 
 Use asynchronous startup whenever a selected scripted dependency or component initialization
-requires awaiting. Synchronous startup reports `AsyncScopeInitializationException`; it never
+requires awaiting. Synchronous startup reports `AsyncScopeInitializationException`. It never
 silently blocks the Unity thread.
 
 ## Phases
@@ -58,45 +59,135 @@ phases, removes duplicates, and processes them in ascending numeric order.
 | `InitPhase.PostInit` | 1000 | Final integration work. |
 
 Custom integer phases are valid. A dependency assigned to a later phase cannot satisfy an earlier
-component; that configuration ends as a graph error.
+component. That configuration ends as a graph error.
 
-## Loading algorithm
+## Graph planning
+
+Context determines a declared load plan before `ScopeLoader` starts activating components. The
+registrar builds and caches one plan per scope type from component inputs, guaranteed component
+keys, and possible publications. Phases are hard barriers and are planned independently.
+
+Within one phase, planning begins with registrations sorted by `ComponentAttribute.order`, then by
+component name for a deterministic tie-breaker. That initial order is only the input to the graph
+planner. It is not necessarily the final plan.
+
+### Guaranteed and possible outputs
+
+The planner makes two distinctions:
+
+- A component's registered keys are guaranteed as soon as that component activates.
+- A declared publication is a *possible provider* for ordering purposes. Only a required
+  publication becomes guaranteed after its provider is placed earlier in the plan.
+
+For each required input, the planner looks for any registration in the phase that could provide a
+matching component key or publication. When at least one declared provider exists, the consumer is
+not considered dependency-ready until a guaranteed matching provider has already been placed.
+
+When no provider is declared in the phase, planning does not reject or delay the input. A scope
+binding or ancestor scope may satisfy it at runtime. Final graph validation later checks required
+inputs against the selected local providers and currently visible scope bindings.
+
+An implicitly loadable scripted dependency is statically ready when its scripted phase is less
+than or equal to the component phase. A scripted dependency assigned to a later phase keeps the
+component out of the normal candidate set.
+
+### Delaying consumers for possible providers
+
+After required inputs are statically ready, the planner checks every declared input, including
+optional and collected inputs, for providers that are still pending. A component is preferred only
+when none of its inputs can still be changed by another pending provider.
+
+This rule deliberately delays consumers even when they already have enough information to run:
+
+- A scalar consumer waits for every possible provider. Singular resolution then observes the last
+  valid binding in planned load order.
+- An optional scalar consumer waits when a provider could still appear, avoiding an early null.
+- An inject-all consumer waits for every provider so its collection is complete and ordered by
+  provider load order.
+
+The check subtracts the current component's own matching output. A component that consumes a key
+and republishes that key is therefore not blocked by itself. It is treated as a transformer in a
+pipeline rather than as an impossible self-dependency.
+
+### Transformers and inject-all planning
+
+A transformer declares an input and a matching publication. The planner distinguishes two forms:
+
+| Transformer | Meaning | Fallback priority at equal component order |
+|---|---|---|
+| Scalar transformer | At least one matching input is singular | Before collection-only transformers |
+| Collection transformer | All matching inputs are inject-all dependencies | After scalar transformers, before terminal consumers |
+
+When the normal candidate search cannot make progress, fallback ordering places transformers ahead
+of components that only consume the value. Component order remains authoritative within the
+transformer group and within the terminal-consumer group. At equal component order, scalar
+transformers precede collection transformers.
+
+This distinction matters for generated list injection. The generator marks an injected enumerable
+as a collection dependency. A component that injects all values and republishes the same key is
+therefore planned as a collection transformer, not as a scalar pipeline stage. A plain inject-all
+consumer remains terminal and is placed after all transformers.
+
+For example, a same-phase pipeline is normally planned as:
+
+```text
+fallback provider
+scalar transformer
+collection transformer
+terminal consumer
+```
+
+An explicitly lower component order can move a collection transformer ahead of scalar
+transformers. It still remains ahead of terminal consumers because all transformers form the first
+fallback group.
+
+### Unresolved declared cycles
+
+If no normal or fallback-ready candidate exists, the planner still emits a deterministic order for
+the remaining registrations. This does not declare the cycle valid. A scope binding may break the
+cycle when the scope starts. Otherwise the runtime loader rejects it when no component can advance.
+
+Components contributed dynamically to a scope are inserted into the existing phase plan by
+replanning that phase and locating the new entry relative to its planned neighbors.
+
+## Runtime loading
+
+`ScopeLoader` executes the prepared plan rather than rebuilding the structural graph. Conditions
+are evaluated once for the scope and disabled registrations are removed before loading. Injected
+instances and explicitly added component types are merged into their planned positions.
 
 For each phase the loader:
 
 1. Loads implicit scripted dependencies for that phase in scripted-dependency order.
-2. Creates the phase's pending component list in registration order.
-3. Selects the first pending component whose required dependencies are available.
+2. Copies that phase's prepared component sequence into a pending list.
+3. Selects the first planned component whose required dependencies are currently available.
 4. Activates and records the instance for potential rollback.
 5. Binds the component instance under its registered keys.
 6. Runs synchronous initialization and, in the async loader, awaits async initialization.
 7. Runs late initialization and validates required publications.
 8. Marks the component loaded and repeats until the phase is empty.
 
-If the first registration is blocked, a later ready registration may pass it. Consequently
-`ComponentAttribute.order` is a preference among ready components, not a command that overrides
-dependencies.
+If a planned entry is blocked by a required dependency, a later runtime-ready entry may pass it.
+The static plan still matters for optional and collection inputs because those inputs do not block
+the runtime readiness check. Their providers were placed first during planning.
 
-## Provider waiting rules
+At runtime, a required dependency with a pending local provider must be satisfied locally before
+the consumer advances. This allows a planned local override to win even when an ancestor already
+has the key. When no local provider is pending, a visible ancestor or explicit scope binding may
+satisfy the input.
 
-A required dependency waits for a pending local provider before considering ancestor availability.
-This ensures a scope-local override wins even if an ancestor already provides the same key.
-Collected dependencies wait for all matching pending providers so the final collection is complete
-and preserves binding order.
-
-An optional dependency does not require a provider, but it still waits when a matching provider is
-scheduled in the current scope. This prevents an earlier consumer from receiving null merely
-because its optional provider has not loaded yet.
-
-An optional *component* has different behavior. If its required dependencies cannot be satisfied,
+An optional *component* has separate semantics. If its required dependencies cannot be satisfied,
 the loader removes the registration and continues. A non-optional component in that state causes
 the phase to fail.
+
+`ComponentAttribute.order` therefore influences both planning and fallback selection, but it never
+overrides a hard phase boundary or a live required dependency.
 
 ## Publications and cycles
 
 Component keys exist immediately after activation. `[Bind]` publications normally appear during
 late initialization. A publication can therefore unblock another component in the same phase.
-Required publications are verified against their owning registration; declaring a publication but
+Required publications are verified against their owning registration. Declaring a publication but
 not producing it fails component initialization.
 
 Changing `order` cannot break a cycle in which two components require one another's late

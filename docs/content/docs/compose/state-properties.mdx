@@ -1,0 +1,213 @@
+---
+title: State Properties
+description: Functional style values resolved from hover, focus, selection, disabled, error, and input state.
+icon: Split
+---
+
+<FREntityCodeLink uid="StateProperty-1" /> represents a value as a function of a control's current
+<FREntityCodeLink uid="State" /> flags. Instead of mutating a style object in separate pointer,
+focus, selection, and validation callbacks, a component carries one state bit mask and resolves all
+of its visual properties from that mask.
+
+This is the functional part of Compose theming: state goes in and a style value comes out. The
+model is inspired by Material/Flutter state properties, but it supports HELIX's combined bit flags,
+ordered mask matching, sparse values, derived maps, and composable visual layers. It keeps stateful
+styling reusable and avoids allocating a new style object for each interaction.
+
+## State flags
+
+`State` is a `[Flags]` enum. A control may be hovered, focused, selected, and gamepad-driven at the
+same time.
+
+| Group | Flags |
+|---|---|
+| Interaction | `Hovered`, `Focused`, `Selected`, `Active`, `Disabled` |
+| Semantic | `Error`, `Navigated`, `Special1`, `Special2` |
+| Input source | `InputKeyboardMouse`, `InputGamepad`, `InputTouch` |
+| Query modifiers | `ModAny`, `ModNot` |
+
+Input components update these flags from UI Toolkit pseudo-state and authored props. The button
+boundary, for example, toggles `Selected` and `Disabled` before resolving its `HXControlBoxStyle`.
+
+## Constant, mapped, functional, and absent values
+
+All state properties implement `TryResolve(State, out T)`, `HasValueFor(State)`, and
+`GetValueRef(State)`. `ResolveOrDefault` is the safe convenience API when absence is expected.
+
+```csharp
+StateProperty<float> fixedOpacity = StateProperties.Const(1f);
+
+StateProperty<float> opacity = new StatePropertyMap<float> {
+  [State.Disabled] = 0.38f,
+  [State.Active] = 0.78f,
+  [State.Hovered] = 0.90f,
+  [State.None] = 1f
+};
+
+StateProperty<Color> foreground = StateProperties.Func(state =>
+  state.HasFlag(State.Error) ? errorColor : normalColor
+);
+
+StateProperty<Border> noBorder = StateProperties.Never<Border>();
+```
+
+Plain values convert implicitly to `StateProperty<T>`, so constructors can accept either a fixed
+value or a resolver:
+
+```csharp
+var box = new HXSolidBoxStyle(
+  color: theme[ColorRoles.SurfaceContainer],
+  opacity: opacity,
+  border: StateProperties.Never<Border>()
+);
+```
+
+The concrete forms are:
+
+| Form | Behavior |
+|---|---|
+| `AllStateProperty<T>` / `Const` | Returns one value for every state. |
+| `StatePropertyMap<T>` | Returns the first mapped mask that matches. Can be sparse. |
+| `FuncStateProperty<T>` / `Func` | Calls a total resolver for every lookup. |
+| `SparseFuncStateProperty<T>` | Calls a resolver returning `HXOptional<T>`. |
+| `NeverStateProperty<T>` / `Never` | Never has a value. Useful for optional style fields. |
+
+## Ordered mask matching
+
+`StatePropertyMap<T>` preserves insertion order and stops at the first match. Put specific or
+high-priority states before general fallbacks.
+
+```csharp
+var color = new StatePropertyMap<Color> {
+  [State.Disabled | State.Selected] = disabledSelected,
+  [State.Disabled] = disabled,
+  [State.Selected] = selected,
+  [State.Hovered] = hovered,
+  [State.None] = normal
+};
+```
+
+`State.None` matches every state because it requires no flags, so it must be last when used as a
+fallback. A query with several ordinary flags requires all of them. `ModAny` changes that to an
+any-bit match, while `ModNot` negates the result.
+
+```csharp
+var interactive = State.ModAny | State.Hovered | State.Active;
+var enabled = State.ModNot | State.Disabled;
+```
+
+The modifiers belong to query masks, not to the control's stored input state.
+
+## Sparse resolution and defaults
+
+A state property does not have to provide a value for every mask. This is important for composable
+style structs where an omitted field means "leave this aspect at the component default."
+
+```csharp
+if (border.TryResolve(state, out var resolvedBorder)) {
+  resolvedBorder.Apply(element);
+}
+
+var opacity = opacityProperty.ResolveOrDefault(state, 1f);
+```
+
+`GetValueRef` is intended for code that must operate on the stored value by reference. A map or
+constant returns its backing storage. Functional properties resolve into an internal buffer, so
+the returned reference is temporary and is overwritten by the next resolution on that property.
+Use `TryResolve` for normal reads.
+
+## Deriving and combining properties
+
+Resolvers are meant to be transformed rather than manually duplicated. `Derive` samples another
+property for an ordered set of states and stores the results in a map. This trades a small amount
+of setup work and storage for predictable, allocation-free reads during interaction.
+
+```csharp
+var roles = new StatePropertyMap<ColorRole> {
+  [State.Disabled] = ColorRoles.DisabledHigh,
+  [State.Selected] = ColorRoles.Primary,
+  [State.None] = ColorRoles.OnSurface
+};
+
+var colors = roles
+  .Resolve(theme)
+  .Derive(States.CommonSelectable);
+```
+
+`Zip` samples two properties for the same state matrix and combines their values:
+
+```csharp
+var borders = StateProperties.Zip(
+  widths,
+  colors,
+  static (_, width, color) => Border.All(width, color),
+  States.CommonFocusable
+);
+```
+
+`PrecomputedBranch` samples a source across a state matrix and a separate branch list.
+`DynamicBranch` selects one of several properties at lookup time, optionally removing the matched
+branch flag before resolving inside it. Use precomputation for a fixed style matrix and dynamic
+branching when the underlying resolvers must remain live.
+
+## Using state properties with themes
+
+Themes commonly resolve in two stages:
+
+1. A `StateProperty<ColorRole>` chooses semantic roles for the current state.
+2. `Resolve(theme)` maps each role through the current `ThemeData` to a concrete color.
+
+HELIX's `StateBlend` helpers extend this pipeline with foreground selection, contrast blending,
+and standard disabled and error handling. Theme defaults then call `Derive` with a standard state
+matrix before placing the property in a reusable style struct.
+
+```csharp
+StateProperty<ColorRole> roles = new StatePropertyMap<ColorRole> {
+  [State.Selected] = ColorRoles.Primary,
+  [State.None] = ColorRoles.SurfaceContainer
+};
+
+StateProperty<Color> background = roles
+  .Resolve(theme)
+  .Derive(States.CommonSelectable);
+
+var style = new HXSolidBoxStyle(
+  color: background,
+  radius: ThemeProperties.ButtonRadius[theme]
+).Bake();
+```
+
+`Bake()` captures the style struct and returns a `Composable<State>`. When rendered, it resolves
+each field against the current state and applies the concrete values to retained UI Toolkit
+elements. More complex controls can compose several baked layers, such as a button background and
+a separate focus outline.
+
+## Standard state matrices
+
+The `States` helpers create consistently ordered lookup sets:
+
+| Helper | Coverage |
+|---|---|
+| `Common` | error, disabled, active, hovered, and fallback |
+| `CommonFocusable` | common states across focused and unfocused variants |
+| `CommonSelectable` | common states across selected and unselected variants |
+| `CommonFocusableSelectable` | common states across focus and selection combinations |
+| `EnabledDisabled` | disabled and fallback |
+| `EnabledDisabledError` | error, disabled, and fallback |
+
+`Matrix`, `Variants`, and `Explode` are available for custom combinations. Their order matters
+because maps use first-match resolution.
+
+## Performance and correctness guidance
+
+- Create maps, functional properties, and baked styles during theme/style setup. Do not recreate
+  them in a per-frame callback.
+- Put `State.None` last in a map.
+- Prefer `TryResolve` or `ResolveOrDefault` unless a stable backing reference is specifically
+  required.
+- Use semantic roles in reusable theme properties. Resolve to concrete colors only against the
+  active theme.
+- Use `Derive` when a dynamic resolver can be safely sampled once. Keep `Func` when it intentionally
+  depends on live external data.
+- Remember that a functional resolver may run more than once. Keep it deterministic and free of
+  side effects.

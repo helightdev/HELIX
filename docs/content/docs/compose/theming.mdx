@@ -1,0 +1,200 @@
+---
+title: Theming
+description: How ThemeData, semantic tokens, computed properties, inheritance, and component overrides work.
+icon: Palette
+---
+
+Compose themes are inherited collections of semantic design values and component style defaults.
+They keep a component's behavior separate from its visual policy. A button asks for the filled
+button style, for example, instead of embedding a particular color, radius, padding, or focus
+effect.
+
+The design takes inspiration from Flutter's `ThemeData` and theme extensions, Material's semantic
+roles, and Compose-style inherited context. HELIX adapts those ideas to its retained UI Toolkit
+runtime and allocation goals. Theme properties can depend on other theme properties, stateful
+values are resolved without rebuilding a style object for every interaction, and component APIs
+remain usable outside the Context/mixin module.
+
+This also reflects the framework's authoring rule: new components should be style-agnostic and
+composable. Put visual defaults in theme properties, reuse semantic roles and generic style
+structs, and derive complex styles from smaller tokens so one override propagates consistently.
+
+## `ThemeData` is a mutable record
+
+<FREntityCodeLink uid="ThemeData" /> is declared as a C# `record`, but its public tokens and private
+property dictionaries are mutable. Record syntax makes the shallow `with` copy convenient. It does
+not make a theme immutable.
+
+A theme contains two kinds of value:
+
+| Kind | Examples | Access |
+|---|---|---|
+| Built-in semantic tokens | color palettes, surfaces, blend levels, radii, spacing, borders, typography | `theme[ColorRoles.Primary]`, `theme[SpacingRole.Spacing2]`, `theme[TextRole.BodyMedium]` |
+| Extensible theme properties | button styles, field padding, focus outlines, application-defined styles | `ThemeProperties.ButtonFilled[theme]` |
+
+`HXThemes.DefaultDark` is assembled with `ThemeData.Build`. Its builder fills the core token groups,
+then applies default progressions, typography, and supporting color providers.
+
+```csharp
+public static readonly ThemeData ProductTheme = ThemeData.Build(theme => {
+  theme.brightness = Brightness.Dark;
+
+  theme.ApplySurface(
+    background: Colors.OkLch(0.15f, 0.01f, 260f),
+    onBackground: Colors.White,
+    onBackgroundVariant: Colors.White70,
+    containerLow: Colors.OkLch(0.20f, 0.01f, 260f),
+    container: Colors.OkLch(0.25f, 0.01f, 260f),
+    containerHigh: Colors.OkLch(0.32f, 0.01f, 260f),
+    containerHighest: Colors.OkLch(0.40f, 0.01f, 260f),
+    onContainer: Colors.White
+  );
+
+  theme.ApplyDefaultProgressions();
+  theme.ApplyDefaultTypography();
+  theme.ApplyDefaultSupports();
+});
+```
+
+When changing an existing shared theme, prefer `Copy()` first. It clones the three internal
+dictionaries in addition to performing the record copy, so property overrides and computed caches
+are not shared with the source theme. Other referenced objects in the record still follow normal
+shallow-copy semantics.
+
+```csharp
+var theme = HXThemes.DefaultDark.Copy();
+
+ThemeProperties.ButtonPadding[theme] = EdgeInsets.Symmetric(
+  horizontal: theme[SpacingRole.Spacing3],
+  vertical: theme[SpacingRole.Spacing1]
+);
+```
+
+`Copy()` preserves the source theme's already-computed values in a new cache. Assigning through a
+`ThemeProperty<T>` indexer clears that cache, but directly changing a public token field does not.
+Set core token fields while building the theme and before resolving derived properties. If a copied
+theme changes core fields after derived values may have been read, follow those changes with a
+theme-property assignment that invalidates the cache or construct a fresh theme instead. Do not
+mutate `HXThemes.DefaultDark` itself.
+
+## Theme properties are typed identity keys
+
+<FREntityCodeLink uid="ThemeProperty-1" /> is an object used as a typed dictionary key. Declare it
+once, normally as a `static readonly` field. A newly allocated property is a different key even if
+it has the same type and compute function.
+
+```csharp
+public static class ProductThemeProperties {
+  public static readonly ThemeProperty<BorderRadius> CardRadius = new(
+    theme => BorderRadius.All(theme[RadiusRole.Radius3])
+  );
+
+  public static readonly ThemeProperty<HXControlBoxStyle> DestructiveButton = new(
+    theme => ThemeProperties.DefaultButtonFilled(theme, ColorRoles.Error)
+  );
+}
+```
+
+A property can be created in three forms:
+
+| Declaration | Resolution behavior |
+|---|---|
+| `new ThemeProperty<T>(value)` | Uses `value` when the theme has no explicit override. |
+| `new ThemeProperty<T>(theme => ...)` | Computes from the current theme, then caches the result. |
+| `new ThemeProperty<T>()` | Requires an explicit value in each theme that uses it. |
+
+Resolution checks explicit overrides first, then the computed cache, then the compute function or
+constant default. If none can supply a value, `GetProperty` throws `KeyNotFoundException`.
+
+Setting any theme property clears the whole computed-property cache. This is deliberate. A
+computed property may depend on any other property, so invalidating all derived values preserves
+correct dependency behavior without maintaining a dependency graph. It also means related
+overrides should normally be applied during theme construction, not every frame.
+
+```csharp
+var compact = ProductTheme.Copy();
+
+ProductThemeProperties.CardRadius[compact] = BorderRadius.All(4f);
+
+// Recomputed against the updated theme on its next read.
+var button = ProductThemeProperties.DestructiveButton[compact];
+```
+
+## Providing and reading a theme
+
+`ThemeData.Key` is a Compose <FREntityCodeLink uid="ContextKey-1" /> whose fallback is
+`HXThemes.DefaultDark`. Write a theme inside a context modification scope. Descendants inherit it,
+and boundaries that read it subscribe to that context value.
+
+```csharp
+[Composition]
+private static void _ThemedArea(ref Composition cx, ThemeData source) {
+  var localTheme = source.Copy();
+  ThemeProperties.ButtonFilled[localTheme] =
+    ThemeProperties.DefaultButtonFilled(localTheme, ColorRoles.Tertiary);
+
+  using (cx.WriteContext(out var context)) {
+    ThemeData.Key[context] = localTheme;
+  }
+
+  cx.Button(content: SaveLabel, action: Save);
+}
+```
+
+The context value applies to descendants emitted after the write at that retained scope. A theme
+read through `ThemeData.Key[in cx]`, `cx.ReadContext(ThemeData.Key)`, or a theme property's
+composition indexer observes the inherited context. Updating the context data causes subscribed
+boundaries to recompose.
+
+Theme properties have convenient indexers for each common lookup location:
+
+```csharp
+var fromTheme = ThemeProperties.ButtonFilled[theme];
+var duringComposition = ThemeProperties.ButtonFilled[in cx];
+var atElement = ThemeProperties.ButtonFilled[element];
+```
+
+The `VisualElement` form walks the Compose context associated with that element. The composition
+form reads and subscribes through the active boundary.
+
+## Component-level overrides
+
+Components normally resolve style in this order:
+
+1. An explicit style prop, when supplied.
+2. A component-specific Compose context value, when the component exposes one.
+3. The corresponding property from the inherited theme.
+
+`HXButton` demonstrates all three levels:
+
+```csharp
+var boxStyle = props.style
+  ?? HXButton.Style.ReadOrThemeProperty(in cx, ThemeProperties.ButtonFilled);
+```
+
+This lets a caller style one instance with a prop, style a local subtree through the component's
+context key, or change the application-wide default through a theme property. Prefer the narrowest
+level that expresses the intended scope.
+
+## Semantic roles and derived styles
+
+Theme properties should depend on semantic tokens instead of duplicating resolved values.
+`ButtonFilled`, for example, derives its colors, radius, padding, text style, and focus outline from
+other theme values. Changing `ButtonRadius` updates every computed style that reads it after cache
+invalidation.
+
+Generic style structs such as `HXControlBoxStyle`, `HXSolidBoxStyle`, and `HXImageStyle` package
+reusable visual behavior. Their fields are usually
+<FREntityCodeLink uid="StateProperty-1" /> values, allowing the same baked style to respond to hover,
+focus, selection, disabled, and error flags. That layer is covered in
+[State Properties](/docs/compose/state-properties).
+
+## Authoring guidance
+
+- Expose semantic component style properties rather than hardcoded visual values.
+- Declare theme-property keys once as `static readonly` fields.
+- Build derived properties from smaller roles and properties so focused overrides propagate.
+- Use `Copy()` before specializing a shared theme.
+- Apply overrides during initialization or composition setup, not in a per-frame callback.
+- Use explicit props for one-off styling, local context for a subtree, and `ThemeData` for shared
+  design policy.

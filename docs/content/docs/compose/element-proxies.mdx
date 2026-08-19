@@ -1,0 +1,243 @@
+---
+title: Element Proxies
+description: Generated retained-element creation, prop application, scope proxies, and integration hooks.
+icon: PanelsTopLeft
+---
+
+An element proxy exposes a retained UI Toolkit element as a generated Compose method. It owns the
+mechanical integration work: locating an element at the current identity, creating it when needed,
+applying authored props, yielding it to the composition cursor, and optionally opening a child
+scope.
+
+Use <FREntitySymbolLink uid="ComposableProxyAttribute" /> for low-level visual primitives and
+custom `VisualElement` integrations. Application components normally consume proxies rather than
+declare them.
+
+## Class proxies
+
+A class proxy is a partial, non-generic class derived from `VisualElement`. The class itself is the
+retained target.
+
+```csharp
+[ComposableProxy(Name = "StatusLabel")]
+public sealed partial class StatusLabel : Label {
+  [Prop]
+  public string Text {
+    get => text;
+    set => text = value;
+  }
+
+  [Prop(false, ProxySetter = "enableRichText")]
+  public bool RichText { get; set; }
+}
+
+ref var label = ref cx.StatusLabel(
+  Text: "Connected",
+  RichText: true
+);
+```
+
+For class proxies, fields and properties marked `[Prop]` become parameters. They must be instance
+members. A property using its own name as the target needs a mutable setter. Readonly fields,
+getter-only properties, and init-only properties require a custom `ProxySetter` or
+`ProxyFunction`.
+
+Member names are preserved in the generated parameters, including their casing.
+
+## Method props
+
+An ordinary instance method can contribute a group of props. Every parameter must be marked
+`[Prop]`. Generic, static, explicit-interface, `ref`, and `out` methods are rejected.
+
+```csharp
+[ComposableProxy]
+public sealed partial class ProgressElement : VisualElement {
+  public void UpdateRange(
+    [Prop(0f)] float minimum,
+    [Prop(1f)] float maximum,
+    [Prop(0f)] float value
+  ) {
+    SetProgress(minimum, maximum, value);
+  }
+}
+
+cx.ProgressElement(
+  minimum: 0f,
+  maximum: 100f,
+  value: download.Percent
+);
+```
+
+The generated proxy invokes the method once per composition call after obtaining the retained
+instance. Method parameters participate in the same required/optional ordering as all other props.
+
+## Struct proxies
+
+A struct proxy describes another target type. Set `Target` to the retained element type and declare
+proxy fields for its public authoring surface.
+
+```csharp
+[ComposableProxy(
+  Target = typeof(Label),
+  Name = "NativeLabel"
+)]
+public partial struct NativeLabelProxy {
+  [Prop(null, ProxySetter = "text")]
+  public string value;
+
+  [Prop(false, ProxySetter = "enableRichText")]
+  public bool richText;
+}
+
+cx.NativeLabel(value: "Connected", richText: true);
+```
+
+Unlike a class proxy, the struct is generator metadata and is not instantiated at runtime. Its
+instance fields become generated arguments and updates on the `Target` instance.
+
+## Generated retention flow
+
+An element proxy's generated method follows this sequence:
+
+1. Compute the stable type identity for the proxy name.
+2. Ask the composition cursor for a matching retained target.
+3. Run `CreateSyntax` when no compatible target exists.
+4. Run `PrepareSyntax` when the target is new or its identity was reset.
+5. Apply every prop update in source order.
+6. Run `PreYieldSyntax`.
+7. Yield the element or scope.
+8. Run `PostYieldSyntax`.
+9. Return the element reference or scope handle.
+
+The generated `retained` flag describes whether both the runtime type and packed identity matched.
+A compatible object found at the cursor can still be reset when its identity differs.
+
+## Tracking modes
+
+Plain UI Toolkit elements do not implement HELIX's `IComposable`, so the runtime stores their
+packed identity in a lightweight `UserdataTracker`. Class proxies automatically request tracking
+unless the class already implements `IComposable`.
+
+For struct proxies, `RequiresTracking` defaults to `true`:
+
+| Setting | Generated lookup |
+|---|---|
+| `RequiresTracking = true` | `RequireTracked<T>` for ordinary `VisualElement` targets. |
+| `RequiresTracking = false` | `RequireComposable<T>`, requiring the target to implement `IComposable`. |
+
+Set it to `false` only when the target implements the Compose retention contract.
+
+## Prop updates
+
+By default, each prop writes to a target member with the same name on every composition. The proxy
+options on <FREntityCodeLink uid="PropAttribute" /> change that behavior:
+
+| Option | Purpose |
+|---|---|
+| `ProxySetter` | Names a different target field or property. |
+| `ProxyFunction` | Supplies an update template. `{VALUE}` and `{TYPE}` are replaced by generated syntax. |
+| `ProxyEquality` | Checks the current target value before applying the update. |
+| `ProxyGetter` | Names the value read for a `ProxyEquality` check. Defaults to the setter name. |
+| `EqualitySyntax` | Formats the equality expression with current value `{0}` and incoming value `{1}`. |
+
+```csharp
+[Prop(
+  null,
+  ProxyFunction = "Binding.Attach(instance, {VALUE});"
+)]
+public CompositionAction<float> onValueChanged;
+
+[Prop(
+  false,
+  ProxySetter = "enabledSelf",
+  ProxyGetter = "enabledSelf",
+  ProxyEquality = true
+)]
+public bool enabled;
+```
+
+`ProxyEquality` is opt-in. Without it, the setter or function runs on every parent composition.
+Enable it for updates that are expensive, produce side effects, or should not be repeated. Ensure
+the chosen getter and equality expression describe the same effective state as the setter.
+
+Prop defaults, nullable deferred parameters, and required ordering are shared with prop structs.
+See [Prop Structs](/docs/compose/prop-structs).
+
+## Element and scope kinds
+
+`ComposableKind.Element` is the default. It yields one element and returns `ref ElementRef`:
+
+```csharp
+ref var element = ref cx.StatusLabel(Text: "Connected");
+element.MarkFlag(UssFlag.Size);
+```
+
+`ComposableKind.ScopeElement` opens the target as the current child scope and returns a
+`ScopeHandle`. Dispose the handle with `using` so the parent cursor and identity are restored:
+
+```csharp
+using (cx.NativePanel()) {
+  cx.Text("First child");
+  cx.Text("Second child");
+}
+```
+
+When the scope closes, `ScopeCallbackSyntax` runs. Its default is `cell.TrimChildren()`, removing
+retained children that were not emitted during the current pass. Element proxies do not accept
+child content and do not run this callback.
+
+## Extension methods
+
+`Extension = true` is the default and emits `cx.Name(...)`. `Extension = false` leaves only the
+static `Compose(ref cx, ...)` method on the proxy type. Framework code often disables the extension
+when the generated primitive is an implementation detail behind a higher-level boundary.
+
+```csharp
+[ComposableProxy(Extension = false)]
+public sealed partial class InternalTrackElement : ComposableElement {
+}
+
+InternalTrackElement.Compose(ref cx);
+```
+
+`Name` controls the generated method name and stable type ID. It must be a valid C# identifier.
+
+## Integration templates
+
+Advanced proxies can replace five generated code fragments:
+
+| Template | Runs |
+|---|---|
+| `CreateSyntax` | When no compatible retained target exists. |
+| `PrepareSyntax` | When the target is not retained under the current identity. |
+| `PreYieldSyntax` | Immediately before the target is yielded. |
+| `PostYieldSyntax` | Immediately after yielding. |
+| `ScopeCallbackSyntax` | When a scope proxy closes. |
+
+`CreateSyntax` defaults to `instance = new {TYPE}();`. The other element hooks are empty by default,
+and the scope callback trims unconsumed children.
+
+These strings are inserted as C# into generated source. They are intended for framework-level
+integrations where a normal constructor and prop setters are insufficient. Keep them short and
+refer only to variables guaranteed by the proxy contract, such as `instance`, `retained`, `cx`,
+and the scope callback's `cell` and `handle`.
+
+## Generator constraints
+
+- The proxy and every containing type must be partial.
+- Generic proxies and proxies nested in generic containing types are not supported.
+- A class proxy must derive from `VisualElement`.
+- A struct proxy must specify `Target`.
+- Prop names must be unique across fields, properties, and method parameters.
+- Names reserved by generated locals, such as `cx`, `instance`, and `retained`, cannot be props.
+- Required props must appear before optional props in source order.
+
+Use a [Composition](/docs/compose/compositions) to package existing Compose calls. Use a
+[Boundary](/docs/compose/boundaries) for a stateful public component. Declare an element proxy when
+you are integrating the retained visual primitive those layers build upon.
+
+<Cards>
+  <FREntityCardLink uid="ComposableProxyAttribute" />
+  <FREntityCardLink uid="ComposableKind" />
+  <FREntityCardLink uid="PropAttribute" />
+</Cards>

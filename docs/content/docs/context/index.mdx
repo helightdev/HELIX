@@ -14,12 +14,14 @@ into registration metadata and generated lifecycle code, avoiding broad runtime 
 ## Architecture
 
 <Cards>
-  <Card title="Components & Loading" description="Registration, activation, phases, graph scheduling, loading order, optional components, and failures." href="/docs/context/components-and-loading" />
-  <Card title="Scopes & Dependencies" description="Scope hierarchy, rules, resolution, injection, publications, resources, and owned values." href="/docs/context/scopes-and-dependencies" />
+  <Card title="Components" description="Registration, activation, phases, graph scheduling, loading order, optional components, and failures." href="/docs/context/components-and-loading" />
+  <Card title="Scopes" description="Scope hierarchy, rules, resolution, injection, publications, resources, and owned values." href="/docs/context/scopes-and-dependencies" />
   <Card title="Lifecycle" description="Generated lifecycle targets, callback ordering, startup, rollback, and deterministic teardown." href="/docs/context/lifecycle" />
   <Card title="Events" description="Typed reactors, priorities, generated handlers, registration lifetime, and asynchronous chains." href="/docs/context/events" />
-  <Card title="Tickers & Auto Dispose" description="Generated scheduling, the complete time-expression syntax, conditions, async exclusion, and field disposal." href="/docs/context/tickers-and-auto-dispose" />
-  <Card title="Mixin Expressions" description="The compile-time language underlying Context attributes and lifecycle contributions." href="/docs/context/mixin-expressions" />
+  <Card title="Mixins" description="Compile-time contributions, lifecycle targets, ordering, interface features, and generated methods." href="/docs/context/mixins" />
+  <Card title="Scheduling" description="Ticker generation, scheduling-expression syntax, conditions, target selection, and async exclusion." href="/docs/context/scheduling" />
+  <Card title="Automatic Cleanup" description="Auto-disposed fields, generated teardown, scope ownership, and explicit cleanup choices." href="/docs/context/automatic-cleanup" />
+  <Card title="Expression Language" description="Advanced configuration for implementing custom attributes and generated framework features." href="/docs/context/mixin-expressions" />
 </Cards>
 
 ## Runtime objects
@@ -40,17 +42,26 @@ public partial class WelcomeService {
   [Inject]
   public GameSettings settings;
 
+  [Inject]
+  public SessionService session;
+
   [EventHandler(EventPriority.Late)]
-  private void OnSessionStarted(SessionStartedEvent evt) { }
+  private void OnSessionStarted(SessionStartedEvent evt) {
+    session = evt.session;
+  }
 
   [Ticker("5 seconds")]
-  private void Refresh() { }
+  private void Refresh() {
+    session.Refresh();
+  }
 
   [AutoDispose]
   private IDisposable subscription;
 
   [MixinMethod]
-  private void OnInit() { }
+  private void OnInit() {
+    subscription = session.Subscribe();
+  }
 }
 ```
 

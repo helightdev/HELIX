@@ -18,6 +18,7 @@ An event implements the self-referential <FREntityCodeLink uid="Evt-1" /> contra
 ```csharp
 public struct DamageEvent : Evt<DamageEvent> {
   public int amount;
+
   public bool cancelled;
 }
 ```
@@ -33,7 +34,9 @@ Use `Evt.Raise(ref evt)` when the caller needs to observe handler mutations:
 
 ```csharp
 var evt = new DamageEvent { amount = rawDamage };
+
 Evt.Raise(ref evt);
+
 if (!evt.cancelled) health -= evt.amount;
 ```
 
@@ -42,7 +45,7 @@ copy, so mutation can still be observed with `var processed = evt.Raise()`.
 
 `Raise` propagates the first handler exception and stops dispatch. `RaiseSafe` catches and logs an
 exception for each handler, then continues. Use normal raising when failure invalidates the
-operation; use safe raising for notifications where one observer must not prevent other observers.
+operation. Use safe raising for notifications where one observer must not prevent other observers.
 
 Dispatch is synchronous and occurs on the calling thread. The reactor holds its registration lock
 during traversal. Do not perform blocking work in an ordinary handler.
@@ -71,7 +74,7 @@ private static void OnDamage(ref DamageEvent evt) {
 `EvtHandler<T>(ref T)` can replace or mutate a struct event. `ConsumerEvtHandler<T>(T)` receives it
 by value and is appropriate for observation or class events. `SubscribeOnce` marks its registration
 for removal after the first invocation, including when the handler throws. `SubscribeStream` calls
-a `bool(ref T)` handler until it returns `true`. Deferred removals are cleaned after dispatch;
+a `bool(ref T)` handler until it returns `true`. Deferred removals are cleaned after dispatch.
 explicit `Dispose()` unsubscribes immediately.
 
 ## Priority and stable order
@@ -98,7 +101,7 @@ public partial class DamageTelemetry {
 }
 ```
 
-Valid synchronous signatures have exactly one event argument and return `void`; the argument can
+Valid synchronous signatures have exactly one event argument and return `void`. The argument can
 be `T` or `ref T`. A generated handler becomes active when its component reaches the event
 registration contribution in `LoadComponent` and remains active until component unload disposes
 the list. `EventHandlerList.RaiseLocal` does not create another event bus: it invokes matching
@@ -115,9 +118,12 @@ public sealed class SaveEvent : AsyncChainEvt<SaveEvent>, Evt<SaveEvent> {
   public string slot;
 }
 
-[EventHandler(EventPriority.Normal)]
-private async UniTask Persist(SaveEvent evt) {
-  await storage.Save(evt.slot);
+[Component(typeof(ApplicationScope))]
+public partial class SaveService {
+  [EventHandler(EventPriority.Normal)]
+  private async UniTask Persist(SaveEvent evt) {
+    await storage.Save(evt.slot);
+  }
 }
 
 await new SaveEvent { slot = "autosave" }.RaiseAsync();
@@ -138,4 +144,4 @@ chain entries remain present.
 - Dispatch iterates the live list. Avoid adding subscriptions from a handler unless their possible
   visibility during that same dispatch is intentional.
 - Prefer generated handlers for Context-owned lifetimes. Dispose every manual registration.
-- Debug names support inspection and error logs; they are not registration identity.
+- Debug names support inspection and error logs. They are not registration identity.

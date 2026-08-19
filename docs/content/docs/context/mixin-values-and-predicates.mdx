@@ -1,5 +1,5 @@
 ---
-title: Mixin Values & Predicates
+title: Values
 description: References, values, paths, transformations, tables, and boolean tests.
 icon: Variable
 ---
@@ -42,7 +42,7 @@ arguments, type parameters, or table entries:
 ```
 
 Available host properties depend on whether the target is a type, method, field, property, or
-parameter. Resolving a missing member as a string fails; test optional data with `:exists`.
+parameter. Resolving a missing member as a string fails. Test optional data with `:exists`.
 
 ## Truthiness and equality
 
@@ -64,12 +64,12 @@ and treat them as null.
 | `:put<key><value>` | Returns a table with an assigned key. |
 | `:remove<key>` | Returns a table without a key. |
 | `:push<value>` / `:pop` | Appends at the count key or removes `count - 1`. |
-| `:size` | Table count or string length; otherwise `0`. |
+| `:size` | Table count or string length. Other values produce `0`. |
 | `#key` | Reads a table entry or host type-argument path. |
 | `:floatTime` | Produces a C# float-seconds/ticks literal. |
 | `:wire<(target)>` | Adapts a resolved callable to a target signature. |
 
-Tables are immutable; store the returned value:
+Tables are immutable. Store the returned value:
 
 ```mixin
 @VAR<Data> @table:put<name><Ada>:push<first>
@@ -93,7 +93,7 @@ becomes `-3f`. Null, empty, `tick`, `ticks`, and effective zero become `-0f`.
 
 ## Predicates
 
-Predicates must be terminal. `:?name` and `:name` are equivalent; the question-mark spelling is
+Predicates must be terminal. `:?name` and `:name` are equivalent. The question-mark spelling is
 preferred. Negate with `:!?name` or `:!name`.
 
 | Predicate | Test |

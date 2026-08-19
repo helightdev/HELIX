@@ -15,15 +15,13 @@ html > body[data-scroll-locked] {
     --removed-body-scroll-bar-size: 0px !important;
 }
 
-/* Markdown code blocks are plain <pre> nodes unless Shiki has created per-line spans. */
-article pre {
-    padding-inline: 1rem !important;
+/* Keep Shiki's empty line spans in the flex-based Fumadocs code-block layout. */
+.shiki pre > code > .line {
+    padding-left: var(--padding-left, 1rem);
+    padding-right: var(--padding-right, 1rem);
+    min-height: 1lh;
 }
 
-article pre.shiki {
-    padding-inline: 0 !important;
-}
-
-article pre.shiki .line {
-    padding-inline: 1rem !important;
+.shiki[data-line-numbers] pre > code > .line {
+    padding-left: calc(var(--padding-left, 1rem) + 1.75rem);
 }

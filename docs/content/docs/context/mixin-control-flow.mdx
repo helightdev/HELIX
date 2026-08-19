@@ -1,12 +1,12 @@
 ---
-title: Mixin Control Flow
+title: Control Flow
 description: Branch scopes, assertions, jumps, transactional state, and reusable functions.
 icon: GitBranch
 ---
 
 ## Scopes and branches
 
-`@SCOPE` starts a branch and `@END` closes it. Scopes delimit matching and jump destinations; they
+`@SCOPE` starts a branch and `@END` closes it. Scopes delimit matching and jump destinations. They
 are not variable scopes, so locals remain visible afterward.
 
 ```mixin
@@ -18,17 +18,17 @@ are not variable scopes, so locals remain visible afterward.
 
 | Directive | Behavior |
 |---|---|
-| `@MATCH expression` | Continue on true; on false jump to the next sibling scope. |
+| `@MATCH expression` | Continue on true. On false, jump to the next sibling scope. |
 | `@MATCH<Label> expression` | On false jump directly to the named sibling scope. |
 | `@ASSERT expression` | Fail with a description of the first false condition. |
 | `@GOTO<Label>` | Enter the named sibling scope after its declaration line. |
-| `@SKIP` | Jump to the next sibling scope; fail if none exists. |
+| `@SKIP` | Jump to the next sibling scope. Fail if none exists. |
 | `@RETURN` | Return from a function, or successfully finish the top-level program. |
 | `@FAIL message` | Fail immediately with an optional interpolated message. |
 | `@END` | Close a scope or function. |
 
 Labels belong to their containing function or top-level program. Functions may reuse label names.
-A failed match only rejects its branch; it does not fail the expression.
+A failed match only rejects its branch. It does not fail the expression.
 
 ```mixin
 @SCOPE<Addressables>

@@ -1,0 +1,148 @@
+---
+title: Scheduling
+description: Generated recurring callbacks, scheduling-expression syntax, conditions, targets, and async overlap prevention.
+icon: TimerReset
+---
+
+`TickerAttribute` generates a gated method call inside an existing lifecycle or update target. It
+does not create a service object, register with a central timer, or run independently. The ticker
+is evaluated only when its target method is invoked.
+
+## Ticker basics
+
+Annotate a parameterless method:
+
+```csharp
+[Ticker]
+private void EveryUpdate() {
+  UpdateInput();
+}
+
+[Ticker("250ms")]
+private void Poll() {
+  PollConnection();
+}
+
+[Ticker("30 ticks", condition: "isVisible")]
+private void RefreshVisibleState() {
+  RefreshView();
+}
+```
+
+The default target is `MixinOn.MonoUpdate` and the default contribution order is `10`. The
+generator creates one private ticker field and contributes a conditional call to that target. If
+the target does not execute, the ticker does not advance.
+
+For a generated Context component, the gate also includes `ComponentBinding.IsActive`. This
+prevents the ticker from running while its scope is initializing, disposing, disposed, or faulted.
+
+## Scheduling-expression string
+
+The string constructor parses `time` at compile time. Parsing is case-insensitive and permits
+whitespace between a number and its unit.
+
+| Form | Meaning | Generated gate state |
+|---|---|---|
+| `tick`, `ticks`, empty, or null | Every target invocation | `FrameCountTicker(0)` |
+| `N t`, `N tick`, `N ticks` | Every `N` target invocations. `N` must be an integer. | `FrameCountTicker(N)` |
+| `N`, `N s`, `N second`, `N seconds` | Every `N` scaled-time seconds | `FrameTimeTicker(N)` |
+| `N ms`, `N millis` | Milliseconds converted to seconds | `FrameTimeTicker(N / 1000)` |
+| `N m`, `N minute`, `N minutes` | Minutes converted to seconds | `FrameTimeTicker(N * 60)` |
+| `%N` | Frequency of `N` calls per second, converted to period `1 / N` | `FrameTimeTicker(1 / N)` |
+
+`N` accepts invariant-culture decimal and scientific notation, including `.5`, `1.5`, and `1e-3`.
+Frequency must be greater than zero. Tick values must be integral. Invalid units, non-positive
+frequency, fractional ticks, NaN, infinity, and out-of-range results produce a source-generator
+error.
+
+```csharp
+[Ticker("tick")]       // every Update target invocation
+[Ticker("5 ticks")]    // every fifth invocation
+[Ticker("0.25s")]      // every 0.25 Time.time seconds
+[Ticker("250 ms")]     // equivalent to 0.25s
+[Ticker("2 minutes")]  // every 120 seconds
+[Ticker("%4")]         // four times per second, or a 0.25s period
+```
+
+Internally, tick counts are represented as negative generated float literals to distinguish them
+from time intervals. This is an implementation detail. Prefer explicit `ticks` syntax instead of
+passing a negative number. The `float` attribute overload represents seconds when non-negative.
+
+### First invocation and clock behavior
+
+`FrameCountTicker(0)` returns true on every invocation. For a positive frame count, `current`
+starts at zero. The first target invocation therefore runs, and subsequent calls run whenever the
+counter is divisible by the rate.
+
+`FrameTimeTicker` uses `UnityEngine.Time.time`, so intervals follow Unity's scaled game time. Its
+initial `lastTick` is `-rate`, allowing the first invocation at ordinary non-negative game time to
+run immediately. It does not use realtime, fixed time, or an accumulated catch-up loop. After
+running, it stores the current `Time.time`.
+
+## Target, condition, and order
+
+```csharp
+[Ticker(
+  "1 second",
+  target: MixinOn.MonoLateUpdate,
+  condition: "enabled && connection != null",
+  order: 20
+)]
+private void Flush() {
+  connection.Flush();
+}
+```
+
+`target` is mixin-target syntax, not a timer name. The generated gate is injected into that target,
+so its cadence cannot exceed the target's invocation cadence. Custom mixin targets are allowed
+when their signature can host the generated statement.
+
+`condition` is a raw C# boolean expression inserted before the ticker gate:
+
+```csharp
+if (enabled && connection != null && _FlushTicker.Tick()) {
+  Flush();
+}
+```
+
+It is not part of the mixin expression language and is not parsed as a duration. Write it as it
+should appear inside the generated component instance. Instance fields, properties, and
+parameterless boolean members can be referenced directly. Invalid names and non-boolean
+expressions produce normal C# compilation errors.
+
+The condition is evaluated first. When it is false, the frame counter does not advance and
+`lastTick` is not updated.
+
+`order` is the mixin contribution order inside the target, not the schedule. Lower orders execute
+first relative to other generated callbacks in that target.
+
+## Async ticker methods
+
+An async ticker method must return `UniTask`. The generator creates an async proxy, sets the
+ticker's `running` flag before awaiting, clears it in `finally`, and invokes the proxy with
+`Forget()`.
+
+```csharp
+[Ticker("5 seconds")]
+private async UniTask RefreshRemoteData() {
+  await client.Refresh();
+}
+```
+
+While the task is running, `Tick()` returns false. Calls never overlap, even if the interval elapses
+before the previous invocation finishes. Exceptions follow `UniTaskVoid` and `Forget` handling.
+Other async return types are rejected by the generator.
+
+The schedule is checked only when the target executes, so a missed interval is not queued. After a
+long async call, the next eligible target invocation may run immediately if enough scaled time has
+passed.
+
+## Runtime control and appropriate use
+
+The generated ticker field contains `enabled` and `running` flags. `enabled` starts true. The field
+is private and named from the target method, so application code should normally control execution
+through the attribute's condition rather than depending on that generated name.
+
+Use a ticker for inexpensive polling or recurring work naturally tied to an existing Unity or
+mixin callback. Use a dedicated async loop with the scope cancellation token when precise
+wall-clock timing, catch-up, backpressure, or independent scheduling is required.

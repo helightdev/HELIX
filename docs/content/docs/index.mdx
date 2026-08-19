@@ -13,9 +13,9 @@ framework data must be rendered as text, rich text, or structured data.
 <Cards>
   <Card title="Getting Started" description="Install HELIX and create a generated composition." href="/docs/getting-started" />
   <Card title="Compose" description="Build retained Unity UI Toolkit interfaces through generated composition APIs." href="/docs/compose" />
-  <Card title="Compose Generation" description="Learn compositions, boundary composables, props, and element proxies." href="/docs/compose/components-and-generation" />
+  <Card title="Compositions" description="Create reusable generated layout and content functions." href="/docs/compose/compositions" />
   <Card title="Context" description="Learn components, scopes, dependency resolution, lifecycle, and mixins." href="/docs/context" />
-  <Card title="Mixin Expressions" description="Read and create generator expressions used by Context attributes." href="/docs/context/mixin-expressions" />
+  <Card title="Mixins" description="Understand compile-time feature composition and generated lifecycle methods." href="/docs/context/mixins" />
   <Card title="Events" description="Event declarations, priorities, subscriptions, generated handlers, and async chains." href="/docs/context/events" />
   <Card title="Prop Structs" description="Generated constructors, defaults, equality, and value-object constraints." href="/docs/compose/prop-structs" />
   <Card title="Prose" description="Write semantic framework output once and render it through different sinks." href="/docs/prose" />
@@ -43,7 +43,7 @@ lifecycle.
 
 Framework code regularly needs to describe the same information in several places: logs, editor
 windows, exception messages, debug overlays, and machine-readable tooling. Building a string at
-the source loses structure; returning a UI model couples the source to one frontend. Prose sits
+the source loses structure. Returning a UI model couples the source to one frontend. Prose sits
 between those choices.
 
 A producer writes semantic frames such as sections, properties, lists, tables, code blocks, and

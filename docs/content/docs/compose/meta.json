@@ -3,5 +3,15 @@
   "description": "Retained, source-generated UI composition for Unity UI Toolkit.",
   "icon": "Layers",
   "root": true,
-  "pages": ["index", "components-and-generation", "prop-structs"]
+  "pages": [
+    "index",
+    "---[Boxes]Generated Authoring---",
+    "compositions",
+    "boundaries",
+    "element-proxies",
+    "prop-structs",
+    "---[Palette]Styling & Themes---",
+    "theming",
+    "state-properties"
+  ]
 }

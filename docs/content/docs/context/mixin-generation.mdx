@@ -1,5 +1,5 @@
 ---
-title: Mixin Generation & Targets
+title: Generation
 description: C# output destinations, ordered contributions, target signatures, globals, and diagnostics.
 icon: FileCode
 ---
@@ -19,7 +19,7 @@ Outputs remain buffered until successful completion.
 | `@USING Namespace;` | Generated using set. |
 | `@MIXIN<Target><Priority> text` | Ordered contribution to a mixin method target. |
 
-Every `@CODE` emits one output item; include required C# punctuation. `@MIXIN` is preferable for
+Every `@CODE` emits one output item. Include required C# punctuation. `@MIXIN` is preferable for
 ordered lifecycle contributions because it creates or contributes to a generated target.
 
 ```mixin
@@ -30,7 +30,7 @@ ordered lifecycle contributions because it creates or contributes to a generated
 @MIXIN<$Dispose><100> initialized = false;
 ```
 
-Mixin target and priority arguments may be dynamic. Missing priority is `0`; a dynamic priority
+Mixin target and priority arguments may be dynamic. Missing priority is `0`. A dynamic priority
 must resolve to an integer.
 
 ## Target syntax
@@ -79,7 +79,7 @@ body executes later in its caller's context.
 ```
 
 HELIX.Context uses prepared functions for components, injection, binding, resources, event
-handlers, tickers, and lifecycle callbacks. Keep custom helpers narrow; the consuming attribute
+handlers, tickers, and lifecycle callbacks. Keep custom helpers narrow. The consuming attribute
 should still own target selection and ordering relevant to its behavior.
 
 ## Contribution ordering

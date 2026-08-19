@@ -72,7 +72,9 @@ retained boundary plumbing, and an optional extension method on
 public partial class UserBadge {
   public partial struct Props {
     public string name;
-    [Prop(false)] public bool selected;
+
+    [Prop(false)]
+    public bool selected;
   }
 
   protected override void OnRecompose(ref Composition cx) {
@@ -133,10 +135,21 @@ retained element tree. Reads subscribe the current boundary by default. This is 
 component-local services, form state, and renderer configuration. It is separate from the Context
 dependency-injection system described in [Context](/docs/context).
 
+## Styling and themes
+
+Compose styling is built from inherited <FREntityCodeLink uid="ThemeData" />, independently
+addressable <FREntityCodeLink uid="ThemeProperty-1" /> values, and
+<FREntityCodeLink uid="StateProperty-1" /> resolvers for interactive state. The design keeps
+components style-agnostic while allowing a small token override to affect every derived component
+style. See [Theming](/docs/compose/theming) and
+[State Properties](/docs/compose/state-properties).
+
 ## Where to go next
 
-Read [Components & Generation](/docs/compose/components-and-generation) for the complete generated
-surface, including props behavior and element proxies.
+Read [Compositions](/docs/compose/compositions) for reusable layout functions,
+[Boundaries](/docs/compose/boundaries) for independently reactive components, and
+[Element Proxies](/docs/compose/element-proxies) for retained UI Toolkit integration. Continue
+with [Theming](/docs/compose/theming) for the styling model.
 
 <Cards>
   <FREntityCardLink uid="CompositionAttribute" />
