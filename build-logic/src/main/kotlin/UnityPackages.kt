@@ -176,13 +176,16 @@ abstract class GenerateUnityPackageManifestsTask : DefaultTask() {
     @get:OutputFiles
     abstract val manifestFiles: ConfigurableFileCollection
 
+    @get:Internal
+    abstract val rootDirectory: DirectoryProperty
+
     @TaskAction
     fun generate() {
         manifests.get().toSortedMap().forEach { (path, json) ->
-            val manifest = project.file(path)
+            val manifest = File(path)
             manifest.parentFile.mkdirs()
             manifest.writeText(json)
-            logger.lifecycle("Generated ${manifest.relativeTo(project.rootDir)}")
+            logger.lifecycle("Generated ${manifest.relativeTo(rootDirectory.get().asFile)}")
         }
     }
 }
@@ -209,6 +212,9 @@ abstract class PackUnityPackagesTask @Inject constructor(
     @get:OutputDirectory
     abstract val destinationDirectory: DirectoryProperty
 
+    @get:Internal
+    abstract val rootDirectory: DirectoryProperty
+
     @TaskAction
     fun pack() {
         val organization = requiredProperty("UpmOrganizationId", organizationId.get())
@@ -220,7 +226,7 @@ abstract class PackUnityPackagesTask @Inject constructor(
             require(File(packageDirectory, "package.json").isFile) {
                 "Unity package directory does not contain package.json: $packageDirectory"
             }
-            logger.lifecycle("Packing Unity package ${packageDirectory.relativeTo(project.rootDir)}")
+            logger.lifecycle("Packing Unity package ${packageDirectory.relativeTo(rootDirectory.get().asFile)}")
             execOperations.exec {
                 executable(upmExecutable.get())
                 args(
@@ -233,7 +239,7 @@ abstract class PackUnityPackagesTask @Inject constructor(
                 )
                 environment("UPM_SERVICE_ACCOUNT_KEY_ID", keyId)
                 environment("UPM_SERVICE_ACCOUNT_KEY_SECRET", keySecret)
-                workingDir(project.rootDir)
+                workingDir(rootDirectory)
             }
         }
     }
@@ -258,6 +264,9 @@ abstract class PublishUnityPackagesTask @Inject constructor(
 
     @get:Internal
     abstract val password: Property<String>
+
+    @get:Internal
+    abstract val rootDirectory: DirectoryProperty
 
     @TaskAction
     fun publish() {
@@ -292,7 +301,7 @@ abstract class PublishUnityPackagesTask @Inject constructor(
                 require(archive.isFile && archive.extension == "tgz") {
                     "Unity package archive must be a .tgz file: $archive"
                 }
-                logger.lifecycle("Publishing Unity package ${archive.relativeTo(project.rootDir)}")
+                logger.lifecycle("Publishing Unity package ${archive.relativeTo(rootDirectory.get().asFile)}")
                 execOperations.exec {
                     executable(npmExecutable.get())
                     args(
@@ -303,7 +312,7 @@ abstract class PublishUnityPackagesTask @Inject constructor(
                         "--userconfig",
                         npmConfig.toAbsolutePath().toString(),
                     )
-                    workingDir(project.rootDir)
+                    workingDir(rootDirectory)
                 }
             }
         } finally {
@@ -332,25 +341,34 @@ internal fun registerUnityPackageTasks(project: Project, extension: UnityExtensi
         manifestFiles.from(project.provider {
             extension.packages.map { extension.manifestFile(project, it) }
         })
+        rootDirectory.set(project.layout.projectDirectory)
     }
 
     val packPackages = project.tasks.register("packUnityPackages", PackUnityPackagesTask::class.java) {
         group = "distribution"
         description = "Creates signed .tgz archives for all publishable Unity packages."
         dependsOn(generateManifests)
-        packageDirectories.from(project.provider {
-            extension.validate()
-            extension.packages.filter { it.publishable == true }.map { extension.packageDirectory(project, it) }
-        })
         organizationId.set(project.providers.gradleProperty("UpmOrganizationId"))
         serviceAccountKeyId.set(project.providers.gradleProperty("UpmServiceAccountKeyId"))
         serviceAccountKeySecret.set(project.providers.gradleProperty("UpmServiceAccountKeySecret"))
         upmExecutable.convention(project.providers.gradleProperty("UpmExecutable").orElse("upm"))
-        destinationDirectory.set(project.layout.dir(
-            project.providers.gradleProperty("UpmPackageDestination")
-                .orElse("build/upm-packages")
-                .map(project::file)
-        ))
+        destinationDirectory.set(
+            project.layout.projectDirectory.dir(
+                project.providers.gradleProperty("UpmPackageDestination")
+                    .orElse("build/upm-packages")
+                    .get()
+            )
+        )
+        rootDirectory.set(project.layout.projectDirectory)
+    }
+
+    project.afterEvaluate {
+        extension.validate()
+        packPackages.configure {
+            packageDirectories.from(
+                extension.packages.filter { it.publishable }.map { extension.packageDirectory(project, it) }
+            )
+        }
     }
 
     project.tasks.register("publishUnityPackages", PublishUnityPackagesTask::class.java) {
@@ -366,6 +384,7 @@ internal fun registerUnityPackageTasks(project: Project, extension: UnityExtensi
         username.set(project.providers.gradleProperty("UpmRegistryUsername"))
         password.set(project.providers.gradleProperty("UpmRegistryPassword"))
         npmExecutable.convention(project.providers.gradleProperty("NpmExecutable").orElse("npm"))
+        rootDirectory.set(project.layout.projectDirectory)
     }
 
     project.tasks.named("assemble") {

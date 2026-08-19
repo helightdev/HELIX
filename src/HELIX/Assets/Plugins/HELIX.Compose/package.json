@@ -6,6 +6,8 @@
     "description": "Intermediate-enough ui composition and styling layer on-top of unity ui toolkit.",
     "license": "MIT",
     "category": "UI",
+    "documentationUrl": "https://helix.helight.dev/docs/",
+    "licensesUrl": "https://github.com/helightdev/HELIX/blob/main/LICENSE",
     "author": {
         "name": "Christoph 'HelightDev' Feuerer",
         "url": "https://helight.dev"

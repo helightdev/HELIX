@@ -6,6 +6,8 @@
     "description": "Development and debugging tools for HELIX-based Unity projects.",
     "license": "MIT",
     "category": "Integration",
+    "documentationUrl": "https://helix.helight.dev/docs/",
+    "licensesUrl": "https://github.com/helightdev/HELIX/blob/main/LICENSE",
     "author": {
         "name": "Christoph 'HelightDev' Feuerer",
         "url": "https://helight.dev"

@@ -6,6 +6,8 @@
     "description": "Core library for other HELIX packages including the generator and mixins.",
     "license": "MIT",
     "category": "Scripting",
+    "documentationUrl": "https://helix.helight.dev/docs/",
+    "licensesUrl": "https://github.com/helightdev/HELIX/blob/main/LICENSE",
     "author": {
         "name": "Christoph 'HelightDev' Feuerer",
         "url": "https://helight.dev"

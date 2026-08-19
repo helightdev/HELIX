@@ -15,6 +15,8 @@ unity {
             url = "https://helight.dev"
         }
         keywords("HELIX")
+        documentationUrl = "https://helix.helight.dev/docs/"
+        licensesUrl = "https://github.com/helightdev/HELIX/blob/main/LICENSE"
         license = "MIT"
     }
 

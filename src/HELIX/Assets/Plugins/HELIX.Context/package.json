@@ -6,6 +6,8 @@
     "description": "Service and dependency management system with lifecycle management and productivity helpers.",
     "license": "MIT",
     "category": "Scripting",
+    "documentationUrl": "https://helix.helight.dev/docs/",
+    "licensesUrl": "https://github.com/helightdev/HELIX/blob/main/LICENSE",
     "author": {
         "name": "Christoph 'HelightDev' Feuerer",
         "url": "https://helight.dev"
