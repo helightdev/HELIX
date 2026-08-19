@@ -78,7 +78,7 @@ namespace HELIX.Context {
       evt.Context.PublishKey(new TypeKey(typeof(int), ""), 42);
     }
 
-    [MixinMethod(MixinOn.ComponentLoad)]
+    [MixinMethod(MixinOn.LoadComponent)]
     private void OnComponentLoad(ComponentLoadContext context) {
 
 

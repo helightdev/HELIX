@@ -90,32 +90,6 @@ using HELIX.Context;
 "
 )]
 
-// MixinCallback method implementation
-[assembly: MixinPrepareGlobal(
-  @"
-@FUNC<MixinCallbackImpl>
-  @LOCAL<Name> @attr#target:unwrap
-  @SCOPE
-    @MATCH @local#Name:eq<null>
-    @ASSERT @target:name:matches<^On.*>
-    @LOCAL<IsImplicit> true
-    @Local<Name> $@target:name:replaceFirst<^On><>
-  @END
-
-  @SCOPE
-    @MATCH @arg#0:!?exists
-    @MIXIN<(@local#Name)><(@attr#order)> @target:name();
-    @RETURN
-  @END
-
-  @RESOLVE_MIXIN<Delegate> @local#Name
-  @ASSERT @local#Delegate:!?eq<null>
-  @MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);
-@END
-"
-)]
-
-
 // Bind method impl
 [assembly: MixinPrepareGlobal(
   @"

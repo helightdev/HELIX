@@ -1,4 +1,30 @@
 using System;
+using HELIX.Context;
+
+// MixinCallback method implementation
+[assembly: MixinPrepareGlobal(
+  @"
+@FUNC<MixinCallbackImpl>
+  @LOCAL<Name> @attr#target:unwrap
+  @SCOPE
+    @MATCH @local#Name:eq<null>
+    @ASSERT @target:name:matches<^On.*>
+    @LOCAL<IsImplicit> true
+    @Local<Name> $@target:name:replaceFirst<^On><>
+  @END
+
+  @SCOPE
+    @MATCH @arg#0:!?exists
+    @MIXIN<(@local#Name)><(@attr#order)> @target:name();
+    @RETURN
+  @END
+
+  @RESOLVE_MIXIN<Delegate> @local#Name
+  @ASSERT @local#Delegate:!?eq<null>
+  @MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);
+@END
+"
+)]
 
 namespace HELIX.Context {
   [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
@@ -87,13 +113,9 @@ namespace HELIX.Context {
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
     public const string ConfigureComponent = "$ConfigureComponent";
 
-    public const string ComponentLoad = "$LoadComponent";
-    public const string ComponentLoadLate = "$LoadComponentLate";
-    public const string ComponentUnload = "^UnloadComponent";
-
-    public const string RegistrationConfiguratorDelegate = "^*~HELIX.Context.RegistrationConfigurator";
-    public const string ComponentLoadDelegate = "^LoadComponent:HELIX.Context.ComponentLoadMethod";
-    public const string ComponentLoadLateDelegate = "^LoadComponentLate:HELIX.Context.ComponentLoadMethod";
+    public const string LoadComponent = "$LoadComponent";
+    public const string LoadComponentLate = "$LoadComponentLate";
+    public const string UnloadComponent = "$UnloadComponent";
 
     public const string MonoAwake = "Awake";
     public const string MonoStart = "Start";
@@ -105,12 +127,5 @@ namespace HELIX.Context {
     public const string MonoEnable = "OnEnable";
     public const string MonoDisable = "OnDisable";
     public const string MonoValidate = "OnValidate";
-  }
-
-  [AttributeUsage(AttributeTargets.Assembly)]
-  public class MixinConfigurationAttribute : Attribute {
-    public MixinConfigurationAttribute(
-      Type[] candidateTypes = null
-    ) { }
   }
 }

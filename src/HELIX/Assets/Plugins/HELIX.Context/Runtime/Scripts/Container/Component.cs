@@ -14,6 +14,9 @@ namespace HELIX.Context {
   [UsedImplicitly]
   public delegate void ComponentLoadMethod(ComponentLoadContext context);
 
+  [UsedImplicitly]
+  public delegate void ComponentUnloadMethod();
+
   [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
   public sealed class RuntimeComponentData {
     public ManagedScope scope;
@@ -58,12 +61,20 @@ namespace HELIX.Context {
     public ManagedScopeBuilder CreateScope() => container.CreateScope(scope);
   }
 
+  public static class ComponentTargets {
+    public const string RegistrationConfiguratorDelegate = "^*~HELIX.Context.RegistrationConfigurator";
+    public const string ComponentLoadDelegate = "^LoadComponent:HELIX.Context.ComponentLoadMethod";
+    public const string ComponentLoadLateDelegate = "^LoadComponentLate:HELIX.Context.ComponentLoadMethod";
+    public const string ComponentUnloadDelegate = "^UnloadComponent:HELIX.Context.ComponentUnloadMethod";
+  }
+
   [AttributeUsage(AttributeTargets.Class)]
-  [MixinDefineTarget(MixinOn.ConfigureComponent, MixinOn.RegistrationConfiguratorDelegate)]
-  [MixinDefineTarget(MixinOn.ComponentLoad, MixinOn.ComponentLoadDelegate)]
-  [MixinDefineTarget(MixinOn.ComponentLoadLate, MixinOn.ComponentLoadLateDelegate)]
-  [MixinDefineTarget(MixinOn.Init, MixinOn.ComponentLoadDelegate)]
-  [MixinDefineTarget(MixinOn.Dispose, MixinOn.ComponentUnload)]
+  [MixinDefineTarget(MixinOn.ConfigureComponent, ComponentTargets.RegistrationConfiguratorDelegate)]
+  [MixinDefineTarget(MixinOn.LoadComponent, ComponentTargets.ComponentLoadDelegate)]
+  [MixinDefineTarget(MixinOn.LoadComponentLate, ComponentTargets.ComponentLoadLateDelegate)]
+  [MixinDefineTarget(MixinOn.UnloadComponent, ComponentTargets.ComponentUnloadDelegate)]
+  [MixinDefineTarget(MixinOn.Init, ComponentTargets.ComponentLoadDelegate)]
+  [MixinDefineTarget(MixinOn.Dispose, MixinOn.UnloadComponent)]
   [MixinExpression(new[] { MixinOn.ConfigureComponent }, new[] { -100_000 }, "@CALL<ComponentImpl>")]
   public class ComponentAttribute : Attribute {
     public ComponentAttribute(

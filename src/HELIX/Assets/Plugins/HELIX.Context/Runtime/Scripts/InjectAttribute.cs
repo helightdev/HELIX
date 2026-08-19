@@ -14,7 +14,7 @@ namespace HELIX.Context {
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
   [MixinExpression(
-    new[] {MixinOn.ComponentLoadLate, MixinOn.ConfigureComponent},
+    new[] {MixinOn.LoadComponentLate, MixinOn.ConfigureComponent},
     new[] { 0, 0 },
     "@CALL<BindImpl>"
   )]
