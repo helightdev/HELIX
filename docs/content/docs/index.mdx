@@ -1,11 +1,14 @@
 ---
 title: Overview
-description: Source-generated Compose UI and Context workflows for Unity.
+description: Developer overview of HELIX Context, Compose, mixins, prop structs, and semantic Prose output.
 icon: House
 ---
 
-HELIX provides two systems that share the same design goal: let source generation handle repetitive
-framework wiring while application code stays small, readable, and allocation-conscious.
+HELIX is an in-house Unity framework split into several cooperating systems. Context owns
+application lifetimes, dependency graphs, and events. Compose owns retained UI composition and
+reactive updates. The source generators provide the glue for both systems, including mixins,
+composition wrappers, and prop structs. Prose is the shared semantic-output layer used when
+framework data must be rendered as text, rich text, or structured data.
 
 <Cards>
   <Card title="Getting Started" description="Install HELIX and create a generated composition." href="/docs/getting-started" />
@@ -13,14 +16,18 @@ framework wiring while application code stays small, readable, and allocation-co
   <Card title="Compose Generation" description="Learn compositions, boundary composables, props, and element proxies." href="/docs/compose/components-and-generation" />
   <Card title="Context" description="Learn components, scopes, dependency resolution, lifecycle, and mixins." href="/docs/context" />
   <Card title="Mixin Expressions" description="Read and create generator expressions used by Context attributes." href="/docs/context/mixin-expressions" />
+  <Card title="Events" description="Event declarations, priorities, subscriptions, generated handlers, and async chains." href="/docs/context/events" />
+  <Card title="Prop Structs" description="Generated constructors, defaults, equality, and value-object constraints." href="/docs/compose/prop-structs" />
+  <Card title="Prose" description="Write semantic framework output once and render it through different sinks." href="/docs/prose" />
 </Cards>
 
-## The two systems
+## Major systems
 
 | System | What you author | What HELIX generates or manages |
 |---|---|---|
 | Compose | Annotated composition methods, boundary components, props, and proxies | Stable composition identities, delegate wrappers, retained elements, props updates, and isolated recomposition |
 | Context | Partial component classes, dependency annotations, lifecycle callbacks, and mixin attributes | Component registrations, dependency graph wiring, lifecycle methods, event subscriptions, cleanup, and mixin glue |
+| Prose | Semantic scopes, values, formatters, and presentation modifiers | Plain text, Unity rich text, or dictionary-shaped output without coupling producers to a renderer |
 
 Compose is built around <FREntitySymbolLink uid="Composition" /> and generated
 <FREntityCodeLink uid="Composable" /> delegates. Context is built around
@@ -31,6 +38,21 @@ These systems can be used together, but their contexts are different. Compose co
 tree-local reactive data addressed by <FREntityCodeLink uid="ContextKey-1" />. Context is the
 application and scene service system that owns component discovery, dependency resolution, and
 lifecycle.
+
+## Prose and why it exists
+
+Framework code regularly needs to describe the same information in several places: logs, editor
+windows, exception messages, debug overlays, and machine-readable tooling. Building a string at
+the source loses structure; returning a UI model couples the source to one frontend. Prose sits
+between those choices.
+
+A producer writes semantic frames such as sections, properties, lists, tables, code blocks, and
+styled spans to an `IProseWriter`. The selected writer decides how those frames appear. For
+example, the Context dependency graph can describe a missing dependency once and let a text writer
+format an exception while a dictionary writer preserves fields for an editor tool. Prose is
+immediate-mode and one-way: it is an output protocol, not a document object model.
+
+Read [Prose](/docs/prose) for the producer/writer contract and examples.
 
 ## Key reference entry points
 

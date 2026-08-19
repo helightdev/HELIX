@@ -3,5 +3,16 @@
   "description": "Components, dependency scopes, mixins, and generation expressions.",
   "icon": "Blocks",
   "root": true,
-  "pages": ["index", "mixin-expressions"]
+  "pages": [
+    "index",
+    "components-and-loading",
+    "scopes-and-dependencies",
+    "lifecycle",
+    "events",
+    "tickers-and-auto-dispose",
+    "mixin-expressions",
+    "mixin-values-and-predicates",
+    "mixin-control-flow",
+    "mixin-generation"
+  ]
 }

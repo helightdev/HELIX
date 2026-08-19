@@ -15,21 +15,36 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
                 title: 'Overview',
                 url: '/docs',
                 icon: <LucideBook className="size-full stroke-fd-primary" />,
-                urls: new Set(['/docs', '/docs/previews', '/docs/getting-started'])
+                urls: new Set(['/docs', '/docs/prose', '/docs/previews', '/docs/getting-started'])
             },
             {
                 title: 'Compose',
                 description: 'Immediate Enough UI',
                 url: '/docs/compose',
                 icon: <LucideLayers className="size-full stroke-fd-primary" />,
-                urls: new Set(['/docs/compose', '/docs/compose/components-and-generation'])
+                urls: new Set([
+                    '/docs/compose',
+                    '/docs/compose/components-and-generation',
+                    '/docs/compose/prop-structs'
+                ])
             },
             {
                 title: 'Context',
                 description: 'Mixins and Services',
                 url: '/docs/context',
                 icon: <LucideBlocks className="size-full stroke-fd-primary" />,
-                urls: new Set(['/docs/context', '/docs/context/mixin-expressions'])
+                urls: new Set([
+                    '/docs/context',
+                    '/docs/context/components-and-loading',
+                    '/docs/context/scopes-and-dependencies',
+                    '/docs/context/lifecycle',
+                    '/docs/context/events',
+                    '/docs/context/tickers-and-auto-dispose',
+                    '/docs/context/mixin-expressions',
+                    '/docs/context/mixin-values-and-predicates',
+                    '/docs/context/mixin-control-flow',
+                    '/docs/context/mixin-generation'
+                ])
             },
             {
                 title: 'Reference',

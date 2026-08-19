@@ -1,0 +1,141 @@
+---
+title: Events
+description: Typed event reactors, generated component handlers, priorities, local lists, and asynchronous chains.
+icon: Radio
+---
+
+The Context event system is a typed, process-wide publish/subscribe mechanism. Each event type has
+one shared `EventReactor<T>` containing ordered handler registrations. Events are mutable and are
+normally passed by `ref`, so an earlier handler may transform the value seen by later handlers.
+
+This page documents reactors and handlers. Event interceptors are intentionally omitted because
+that API is being refactored.
+
+## Declaring an event
+
+An event implements the self-referential <FREntityCodeLink uid="Evt-1" /> contract:
+
+```csharp
+public struct DamageEvent : Evt<DamageEvent> {
+  public int amount;
+  public bool cancelled;
+}
+```
+
+The `TSelf` argument must be the concrete event type. Structs avoid the allocation of ordinary
+event arguments, but classes are supported when reference semantics are required. Event types do
+not form an inheritance-based broadcast hierarchy: raising `DamageEvent` invokes exactly its own
+reactor, not handlers registered for an interface or base event type.
+
+## Raising and mutation
+
+Use `Evt.Raise(ref evt)` when the caller needs to observe handler mutations:
+
+```csharp
+var evt = new DamageEvent { amount = rawDamage };
+Evt.Raise(ref evt);
+if (!evt.cancelled) health -= evt.amount;
+```
+
+`Evt.Raise(evt)` copies a struct into a local value. The fluent extension returns the processed
+copy, so mutation can still be observed with `var processed = evt.Raise()`.
+
+`Raise` propagates the first handler exception and stops dispatch. `RaiseSafe` catches and logs an
+exception for each handler, then continues. Use normal raising when failure invalidates the
+operation; use safe raising for notifications where one observer must not prevent other observers.
+
+Dispatch is synchronous and occurs on the calling thread. The reactor holds its registration lock
+during traversal. Do not perform blocking work in an ordinary handler.
+
+## Subscribing manually
+
+Keep and dispose the returned registration:
+
+```csharp
+private HandlerRegistration<DamageEvent> _subscription;
+
+void Enable() {
+  _subscription = Evt.Subscribe<DamageEvent>(OnDamage, EventPriority.Early);
+}
+
+void Disable() {
+  _subscription?.Dispose();
+  _subscription = null;
+}
+
+private static void OnDamage(ref DamageEvent evt) {
+  evt.amount = Math.Max(0, evt.amount);
+}
+```
+
+`EvtHandler<T>(ref T)` can replace or mutate a struct event. `ConsumerEvtHandler<T>(T)` receives it
+by value and is appropriate for observation or class events. `SubscribeOnce` marks its registration
+for removal after the first invocation, including when the handler throws. `SubscribeStream` calls
+a `bool(ref T)` handler until it returns `true`. Deferred removals are cleaned after dispatch;
+explicit `Dispose()` unsubscribes immediately.
+
+## Priority and stable order
+
+Lower numeric priorities run first. `EventPriority` provides `First`, `Earlier`, `Early`, `Normal`,
+`Late`, `Later`, and `Last`. Equal-priority handlers retain subscription order. Use distinct
+priorities when a semantic dependency exists: validation and mutation generally happen early,
+while observers that consume the final value generally run late.
+
+## Generated component handlers
+
+Annotate a component method with <FREntityCodeLink uid="EventHandlerAttribute" />. The mixin
+generator adds an `EventHandlerList`, subscribes the method during component initialization,
+records the handled event in component registration metadata, and unregisters all handlers from
+the generated dispose target.
+
+```csharp
+[Component(typeof(SceneScope))]
+public partial class DamageTelemetry {
+  [EventHandler(EventPriority.Late)]
+  private void Record(DamageEvent evt) {
+    telemetry.Count(evt.amount, evt.cancelled);
+  }
+}
+```
+
+Valid synchronous signatures have exactly one event argument and return `void`; the argument can
+be `T` or `ref T`. A generated handler becomes active when its component reaches the event
+registration contribution in `LoadComponent` and remains active until component unload disposes
+the list. `EventHandlerList.RaiseLocal` does not create another event bus: it invokes matching
+registrations held by that particular list.
+
+## Async chain events
+
+`AsyncChainEvt<TSelf>` separates synchronous dispatch from ordered asynchronous follow-up work.
+Reactor handlers run first and append `Func<UniTask>` actions to the event's `Chain`.
+`RaiseAsync()` then awaits those actions sequentially in append order.
+
+```csharp
+public sealed class SaveEvent : AsyncChainEvt<SaveEvent>, Evt<SaveEvent> {
+  public string slot;
+}
+
+[EventHandler(EventPriority.Normal)]
+private async UniTask Persist(SaveEvent evt) {
+  await storage.Save(evt.slot);
+}
+
+await new SaveEvent { slot = "autosave" }.RaiseAsync();
+```
+
+The generated wrapper subscribes a synchronous handler that appends the authored async method.
+Priorities therefore determine the order in which work is appended and awaited. Each chain action
+is exception-isolated: its failure is logged and later actions continue. `RaiseAsync()` returns the
+processed event. Call `Reset()` before deliberately reusing the same instance, otherwise earlier
+chain entries remain present.
+
+## Lifetime and concurrency notes
+
+- `EventReactor<T>.Shared` and `EventManager.Instance` are process-wide static state, not scoped DI
+  services. Scope safety comes from registration ownership and deterministic unsubscription.
+- Reactor operations lock the registration list. Event payloads and other state used by handlers
+  still require their own synchronization.
+- Dispatch iterates the live list. Avoid adding subscriptions from a handler unless their possible
+  visibility during that same dispatch is intentional.
+- Prefer generated handlers for Context-owned lifetimes. Dispose every manual registration.
+- Debug names support inspection and error logs; they are not registration identity.

@@ -1,0 +1,106 @@
+---
+title: Scopes & Dependencies
+description: Managed scope hierarchy, parent rules, typed resolution, injection, binding, resources, and ownership.
+icon: Network
+---
+
+A <FREntityCodeLink uid="ManagedScope" /> is a lifetime and resolution boundary. It owns local
+bindings, loaded components, child scopes, a cancellation token, and explicitly owned resources.
+Resolution searches the current scope first, then each ancestor.
+
+## Built-in scopes
+
+| Scope | Lifetime |
+|---|---|
+| `RegistrarScope` | Container registration and infrastructure. |
+| `ApplicationScope` | Entire application lifetime. |
+| `SessionScope` | Login, match, or another application session. |
+| `SceneScope` | A loaded Unity scene. |
+| `GameObjectScope` | A specific GameObject lifetime. |
+
+`ScopeRules` validates allowed parent types and whether multiple scopes of a descriptor may coexist.
+Scene and GameObject handlers connect Unity lifetimes to scope creation and disposal. Destroying an
+observed GameObject disposes its associated scope.
+
+```csharp
+var session = await ComponentBinding
+  .CreateScope()
+  .From(new SessionScope())
+  .StartAsync();
+```
+
+A scope moves through `Created`, `Initializing`, `Active`, `Disposing`, `Disposed`, or `Faulted`.
+Resolution and publication are legal only while initializing or active.
+
+## Keys and lookup
+
+A `TypeKey` combines a runtime type with an optional qualifier. `Resolve` returns the last valid
+binding from the nearest scope containing that key. This makes later local bindings override
+earlier bindings for singular resolution. Proxy bindings invoke their supplier at resolution time
+and skip null results.
+
+`ResolveAll` collects every valid binding from the current scope outward through its ancestors,
+preserving binding order within each scope. It does not collapse overrides.
+
+```csharp
+var settings = ComponentBinding.Resolve<GameSettings>();
+var pipeline = ComponentBinding.ResolveAll<IStage>("import");
+var optional = ComponentBinding.ResolveOptional<ITelemetry>();
+```
+
+## Generated injection
+
+`[Inject]` adds dependency metadata during registration and assignment code to component
+initialization:
+
+```csharp
+[Inject]
+public GameSettings settings;
+
+[Inject("pipeline")]
+public List<IStage> stages;
+
+[Inject(required: false)]
+public ITelemetry telemetry;
+```
+
+Enumerable targets other than `string` become collected dependencies based on their element type.
+Ordinary injection expects one compatible value. Optional injection uses `ResolveOptional`.
+Annotations are preferable to imperative resolution for stable requirements because the loader can
+schedule from them before activation.
+
+## Publications
+
+`[Bind]` declares a value that the component publishes during late load:
+
+```csharp
+[Bind("pipeline")]
+public IStage Output => stage;
+```
+
+The attribute can publish under another type, attach a qualifier, mark the promise optional, or
+publish a proxy. A normal publication captures the current value. A proxied publication stores a
+supplier, so each resolution reads the property again. Null publications are not bindings; a
+required promised publication must produce a compatible non-null value before loading completes.
+
+## Resources and scripted dependencies
+
+`[Resource(Source.Resources)]` and `[Resource(Source.Addressables)]` create scripted dependencies.
+They participate in graph scheduling, load in their declared phase, and inject the resulting Unity
+object during component initialization. Collection-shaped targets load collections of their
+element type.
+
+Resource paths/Addressable keys are the attribute qualifier. The annotated type must be a
+`UnityEngine.Object` class. Use asynchronous scope startup for Addressable or other async scripted
+loads.
+
+## Ownership and cancellation
+
+Each scope exposes a cancellation token which is cancelled at the beginning of disposal, before
+children and components are torn down. Code started by a component should observe this token when
+its work belongs to the scope.
+
+Scope-owned values must be `IDisposable` or `UnityEngine.Object`. Managed disposables are disposed;
+Unity objects are destroyed with `Destroy` in play mode or `DestroyImmediate` otherwise. A value
+owned directly by a component can instead use `[AutoDispose]`; see
+[Tickers & Auto Dispose](/docs/context/tickers-and-auto-dispose).

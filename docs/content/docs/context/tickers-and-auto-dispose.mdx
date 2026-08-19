@@ -1,0 +1,172 @@
+---
+title: Tickers & Auto Dispose
+description: Generated recurring callbacks, scheduling-expression syntax, conditions, async overlap prevention, and field disposal.
+icon: TimerReset
+---
+
+`TickerAttribute` and `AutoDisposeAttribute` generate small pieces of recurring or cleanup
+behavior directly into existing lifecycle/update targets. Neither creates a service object or a
+separate scheduler. Tickers gate a method call whenever their target is invoked; auto-dispose adds
+a field operation to component unload.
+
+## Ticker basics
+
+Annotate a parameterless method:
+
+```csharp
+[Ticker]
+private void EveryUpdate() { }
+
+[Ticker("250ms")]
+private void Poll() { }
+
+[Ticker("30 ticks", condition: "isVisible")]
+private void RefreshVisibleState() { }
+```
+
+The default target is `MixinOn.MonoUpdate` and the default contribution order is `10`. The
+generator creates one private ticker field and contributes a conditional call to that target. It
+does not register with a central timer and it does not run while the target itself is not called.
+
+For a generated Context component, the condition also includes `ComponentBinding.IsActive`. This
+prevents a component ticker from running while its scope is initializing, disposing, disposed, or
+faulted.
+
+## Scheduling-expression string
+
+The string constructor parses `time` at compile time. Parsing is case-insensitive and permits
+whitespace between a number and its unit.
+
+| Form | Meaning | Generated scheduler |
+|---|---|---|
+| `tick`, `ticks`, empty, or null | Every target invocation | `FrameCountTicker(0)` |
+| `N t`, `N tick`, `N ticks` | Every `N` target invocations; `N` must be an integer | `FrameCountTicker(N)` |
+| `N`, `N s`, `N second`, `N seconds` | Every `N` scaled-time seconds | `FrameTimeTicker(N)` |
+| `N ms`, `N millis` | Milliseconds, converted to seconds | `FrameTimeTicker(N / 1000)` |
+| `N m`, `N minute`, `N minutes` | Minutes, converted to seconds | `FrameTimeTicker(N * 60)` |
+| `%N` | Frequency of `N` calls per second, converted to period `1 / N` | `FrameTimeTicker(1 / N)` |
+
+`N` accepts invariant-culture decimal and scientific notation, including `.5`, `1.5`, and `1e-3`.
+Frequency must be greater than zero. Tick values must be integral. Invalid units, zero/negative
+frequency, fractional ticks, NaN, infinity, and out-of-range results produce a source-generator
+error.
+
+```csharp
+[Ticker("tick")]       // every Update target invocation
+[Ticker("5 ticks")]    // every fifth invocation
+[Ticker("0.25s")]      // every 0.25 Time.time seconds
+[Ticker("250 ms")]     // equivalent to 0.25s
+[Ticker("2 minutes")]  // every 120 seconds
+[Ticker("%4")]         // four times per second (0.25s period)
+```
+
+Internally tick counts are represented as negative generated float literals to distinguish them
+from time intervals; this encoding is an implementation detail. Prefer explicit `ticks` syntax
+instead of passing a negative number. The `float` attribute overload always represents seconds
+when non-negative.
+
+### First invocation and clocks
+
+`FrameCountTicker(0)` returns true every invocation. For a positive frame count, `current` starts
+at zero, so the first target invocation runs and subsequent calls run when the counter is divisible
+by the rate.
+
+`FrameTimeTicker` uses `UnityEngine.Time.time`, so intervals follow Unity's scaled game time. Its
+initial `lastTick` is `-rate`, allowing the first target invocation at ordinary non-negative game
+time to run immediately. It does not use realtime, fixed time, or an accumulated catch-up loop;
+after running it stores the current `Time.time`.
+
+## Target, condition, and order
+
+```csharp
+[Ticker(
+  "1 second",
+  target: MixinOn.MonoLateUpdate,
+  condition: "enabled && connection != null",
+  order: 20
+)]
+private void Flush() { }
+```
+
+`target` is mixin-target syntax, not the name of a timer. The generated gate is injected into that
+target, so its cadence is bounded by how often the target executes. Custom defined mixin targets
+are allowed when their signature can host the generated statement.
+
+`condition` is a raw C# boolean expression string inserted before the ticker gate:
+
+```csharp
+if (enabled && connection != null && _FlushTicker.Tick()) Flush();
+```
+
+It is not the mixin expression language and is not parsed as a duration. Write it as it should
+appear inside the generated component instance; instance fields, properties, and parameterless
+boolean members can be referenced directly. Since it is generated C#, invalid names or non-boolean
+expressions produce ordinary C# compilation errors. The condition is evaluated first, so a false
+condition does not advance the frame counter or update `lastTick`.
+
+`order` is the mixin contribution order within the target, not the schedule. Lower orders execute
+first relative to other generated callbacks in the same target.
+
+## Async ticker methods
+
+An async ticker method must return `UniTask`. The generator creates an async proxy, sets the
+ticker's `running` flag before awaiting, clears it in `finally`, and invokes the proxy with
+`Forget()`.
+
+```csharp
+[Ticker("5 seconds")]
+private async UniTask RefreshRemoteData() {
+  await client.Refresh();
+}
+```
+
+While the task is running, `Tick()` returns false. Calls never overlap, even if the interval elapses
+before the previous invocation finishes. Exceptions follow `UniTaskVoid`/`Forget` handling. Other
+async return types are rejected by the generator.
+
+The schedule is checked only when the target executes, so a missed interval is not queued. After a
+long async call, the next eligible target invocation may run immediately if enough scaled time has
+passed.
+
+## Runtime control
+
+The generated ticker field contains `enabled` and `running` flags. `enabled` starts true. The field
+is private and named from the target method, so ordinary application code should normally control
+execution with the attribute's condition rather than depending on the generated field name.
+
+## Auto-dispose
+
+`[AutoDispose]` applies to a field whose type implements `IDisposable`:
+
+```csharp
+[AutoDispose]
+private CancellationTokenSource cancellation;
+
+[AutoDispose]
+private HandlerRegistration<MyEvent> registration;
+```
+
+The generator contributes this operation to `$Dispose` at order `1`:
+
+```csharp
+AutoDisposeMethods.DisposeDisposable(ref field);
+```
+
+If the field is non-null, it calls `Dispose()` and assigns `default` back to the field. Clearing the
+reference makes repeated teardown harmless for that field and releases the component's reference.
+The generic constraint enforces `IDisposable` at compile time.
+
+Auto-dispose does not catch disposal exceptions itself. The surrounding component/scope teardown
+captures component deinitialization failures and continues with other components and resources.
+It also does not manage `UnityEngine.Object`; use scope ownership or explicit Unity destruction for
+those values.
+
+## When to use each feature
+
+Use a ticker for inexpensive polling or recurring work naturally tied to an existing Unity/mixin
+callback. Use a dedicated async loop with the scope cancellation token when precise wall-clock
+timing, catch-up, backpressure, or independent scheduling is required.
+
+Use `[AutoDispose]` for a disposable stored and exclusively owned by one component. Use scope
+ownership when the resource belongs to the scope rather than one component, and explicit
+`OnDispose` logic when several resources require a particular cleanup order.

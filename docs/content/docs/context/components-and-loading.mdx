@@ -1,0 +1,114 @@
+---
+title: Components & Loading
+description: Component registration, activation, phases, graph scheduling, loading order, and failure behavior.
+icon: Boxes
+---
+
+A Context component is a partial class marked with <FREntityCodeLink uid="ComponentAttribute" />.
+The generator implements `IComponent`, adds `RuntimeComponentData`, and emits a static registration
+configurator. Plain objects and `MonoBehaviour` components use different generated activators.
+
+```csharp
+[Component(typeof(ApplicationScope), order: 10, phase: InitPhase.Normal)]
+public partial class WelcomeService {
+  [Inject] public GameSettings settings;
+}
+```
+
+## Registration metadata
+
+The component annotation and its member mixins tell the container:
+
+- the owning scope descriptor type;
+- whether the registration itself is optional;
+- its phase and preferred order;
+- the activator used to construct or locate the instance;
+- keys immediately provided by the component instance;
+- required, optional, collected, and scripted dependencies;
+- values promised as late publications;
+- handled event types and other generated feature metadata.
+
+Registrations are prepared before application startup. Context does not discover annotated members
+by reflecting every object at runtime; the generator has already converted them into configurator
+calls and lifecycle methods.
+
+## Container startup
+
+`PrepareRegistrar` prepares collected registrations and starts `RegistrarScope`. Registrar
+components provide infrastructure used by all later loads, including scope handlers. After that,
+`StartApplication` or `StartApplicationSync` creates `ApplicationScope` beneath the registrar and
+exposes the active container through `HX`.
+
+Use asynchronous startup whenever a selected scripted dependency or component initialization
+requires awaiting. Synchronous startup reports `AsyncScopeInitializationException`; it never
+silently blocks the Unity thread.
+
+## Phases
+
+The loader collects every component and scripted-dependency phase, adds the standard boundary
+phases, removes duplicates, and processes them in ascending numeric order.
+
+| Constant | Value | Conventional purpose |
+|---|---:|---|
+| `InitPhase.PreInit` | -1000 | Foundational scripted dependencies and earliest infrastructure. |
+| `InitPhase.Early` | -100 | Early services. |
+| `InitPhase.Configuration` | -50 | Configuration providers. |
+| `InitPhase.Normal` | 0 | Ordinary components. |
+| `InitPhase.Late` | 100 | Consumers that intentionally follow normal services. |
+| `InitPhase.PostInit` | 1000 | Final integration work. |
+
+Custom integer phases are valid. A dependency assigned to a later phase cannot satisfy an earlier
+component; that configuration ends as a graph error.
+
+## Loading algorithm
+
+For each phase the loader:
+
+1. Loads implicit scripted dependencies for that phase in scripted-dependency order.
+2. Creates the phase's pending component list in registration order.
+3. Selects the first pending component whose required dependencies are available.
+4. Activates and records the instance for potential rollback.
+5. Binds the component instance under its registered keys.
+6. Runs synchronous initialization and, in the async loader, awaits async initialization.
+7. Runs late initialization and validates required publications.
+8. Marks the component loaded and repeats until the phase is empty.
+
+If the first registration is blocked, a later ready registration may pass it. Consequently
+`ComponentAttribute.order` is a preference among ready components, not a command that overrides
+dependencies.
+
+## Provider waiting rules
+
+A required dependency waits for a pending local provider before considering ancestor availability.
+This ensures a scope-local override wins even if an ancestor already provides the same key.
+Collected dependencies wait for all matching pending providers so the final collection is complete
+and preserves binding order.
+
+An optional dependency does not require a provider, but it still waits when a matching provider is
+scheduled in the current scope. This prevents an earlier consumer from receiving null merely
+because its optional provider has not loaded yet.
+
+An optional *component* has different behavior. If its required dependencies cannot be satisfied,
+the loader removes the registration and continues. A non-optional component in that state causes
+the phase to fail.
+
+## Publications and cycles
+
+Component keys exist immediately after activation. `[Bind]` publications normally appear during
+late initialization. A publication can therefore unblock another component in the same phase.
+Required publications are verified against their owning registration; declaring a publication but
+not producing it fails component initialization.
+
+Changing `order` cannot break a cycle in which two components require one another's late
+publications. Change a dependency to optional, supply an initial scope binding, move a provider to
+an earlier phase, or redesign the ownership boundary.
+
+## Failure and rollback
+
+When no pending component can advance, `ComponentGraphException` lists the phase, remaining
+components, and missing wire keys. Typical causes are a missing provider, a dependency cycle, a
+later-phase provider, or a promised dynamic publication that was not produced.
+
+If a scope has partially loaded, startup moves it to `Faulted` and rolls it back. Loaded components
+unload in reverse order and owned resources are released. Cleanup failures are retained alongside
+the original initialization exception rather than replacing it.

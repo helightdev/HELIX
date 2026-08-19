@@ -1,0 +1,128 @@
+---
+title: Prop Structs
+description: Generated constructors, default expressions, equality, hashing, and constraints for Compose value objects.
+icon: Braces
+---
+
+A prop struct is a partial C# struct whose repetitive value-object API is generated from its
+instance fields. Add <FREntityCodeLink uid="PropStructAttribute" /> to generate a constructor and,
+when requested by the type, equality and hashing members.
+
+Prop structs are used heavily in Compose because retained nodes must cheaply capture a set of
+inputs, compare it with the previous set, and decide whether work is required. They are also useful
+outside a boundary for any small generated parameter bundle. The generator does not add runtime
+tracking, serialization, validation, or mutability rules; it generates ordinary C# members.
+
+## Basic declaration
+
+```csharp
+[PropStruct]
+public partial struct BadgeProps : IEquatable<BadgeProps> {
+  public string label;
+  public Color color;
+  [Prop(false)] public bool selected;
+}
+
+var props = new BadgeProps("Inbox", Color.blue, selected: true);
+```
+
+All instance fields, including unannotated fields, participate in the constructor in declaration
+order. Static fields are ignored. The struct and every containing type must be `partial` because
+the generated declaration reopens the same type. Unsafe fields produce an unsafe constructor.
+
+## Required and optional fields
+
+An unannotated field is required. `[Prop]` without a default is also required and is useful when
+configuring equality or proxy behavior consistently with other generated APIs. Optional fields
+must follow all required fields because the generated result is a normal C# constructor.
+
+<FREntityCodeLink uid="PropInit" /> selects how a default is emitted:
+
+| Mode | What the generator emits | Use for |
+|---|---|---|
+| `None` | A required parameter | No default. |
+| `Literal` | A C# literal derived from the attribute value | `false`, `12`, `"text"`, enum-compatible literals. |
+| `Constant` | The supplied string copied as C# default syntax | Named constants or syntax the attribute cannot represent directly. |
+| `Deferred` | A nullable optional parameter and `argument ?? expression` in the constructor body | Non-constant expressions such as a shared style value or factory result. |
+
+The convenience attribute constructors select the appropriate normal mode for common literal
+values. Explicit examples:
+
+```csharp
+[PropStruct]
+public partial struct PanelProps {
+  public string title;
+
+  [Prop(false)]
+  public bool collapsible;
+
+  [Prop("LayoutDefaults.Spacing", PropInit.Constant)]
+  public float spacing;
+
+  [Prop("ThemeColors.Surface", PropInit.Deferred)]
+  public Color background;
+}
+```
+
+Deferred initialization uses nullable input only as an omission marker. It supports reference
+types, nullable types, value types through `Nullable<T>`, and type parameters with a usable class
+or struct constraint. It is not supported for `in` fields or unconstrained type parameters. An
+`in` field remains a required `in` constructor parameter and is assigned without copying at the
+call boundary.
+
+`Constant` and `Deferred` expressions are inserted into generated C#. They must be valid at the
+generated declaration site and should normally be fully qualified or visible through the source
+file's collected usings.
+
+## Equality generation
+
+Equality is generated only when the struct declares `IEquatable<T>` for itself. This opt-in keeps
+plain parameter bundles small when they do not need comparisons.
+
+For participating fields the generator creates, when they are not already supplied:
+
+- `bool Equals(T other)`;
+- `override bool Equals(object obj)`;
+- `override int GetHashCode()`;
+- `==` and `!=` operators where compatible with the authored members.
+
+Primitive, enum, and pointer fields use direct comparison. Other fields use the format strings on
+`PropAttribute`: `EqualitySyntax` receives the current and other expressions as `{0}` and `{1}`;
+`HashCodeSyntax` receives the current expression as `{0}`.
+
+```csharp
+[PropStruct]
+public partial struct QueryProps : IEquatable<QueryProps> {
+  [Prop(
+    EqualitySyntax = "StringComparer.OrdinalIgnoreCase.Equals({0}, {1})",
+    HashCodeSyntax = "StringComparer.OrdinalIgnoreCase.GetHashCode({0} ?? string.Empty)"
+  )]
+  public string query;
+
+  [Prop(Equatable = false)]
+  public Action onCompleted;
+}
+```
+
+`Equatable = false` excludes a field from both equality and hashing. Use it only when changes to
+that field must not affect value identity; excluding a callback or cache handle can otherwise
+leave a retained consumer with stale behavior. Custom equality and hash expressions must describe
+the same equivalence relation.
+
+## Boundary props and standalone prop structs
+
+A nested `Props` struct inside a boundary composable uses the same analysis: field order,
+defaults, assignments, and equality configuration are shared with standalone prop structs. The
+difference is in the consumer. A boundary generator also creates the public Compose call,
+transfers props into its retained attachment, and uses equality to detect updates. A standalone
+`[PropStruct]` only receives its value-object members.
+
+## Common generator errors
+
+| Error | Correction |
+|---|---|
+| Type or containing type is not partial | Mark every declaration in the nesting chain `partial`. |
+| Required field follows an optional field | Move required fields before fields with defaults. |
+| Deferred default on an `in` field | Make it required or remove `in`. |
+| Deferred default on unconstrained `T` | Add a suitable constraint or use another initialization mode. |
+| Invalid equality format string | Supply the required `{0}`/`{1}` placeholders and valid generated C#. |

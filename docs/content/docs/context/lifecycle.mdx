@@ -1,0 +1,103 @@
+---
+title: Component Lifecycle
+description: Generated lifecycle targets, callback ordering, active state, rollback, and deterministic teardown.
+icon: RefreshCw
+---
+
+Every generated component implements three runtime lifecycle methods. Mixins contribute ordered
+code to these methods and to the registration configurator.
+
+| Runtime method | Mixin aliases | Responsibility |
+|---|---|---|
+| `LoadComponent` | `$Init`, `$LoadComponent` | Injection, handler registration, and ordinary initialization. |
+| `LoadComponentLate` | `$LoadComponentLate` | Publications and work requiring a more complete graph. |
+| `UnloadComponent` | `$Dispose` | Generated cleanup before ordinary object disposal. |
+| Registration configurator | `$ConfigureComponent` | Dependency, publication, event, phase, and activation metadata. |
+
+## Instance sequence
+
+For a single component registration the loader:
+
+1. Activates the instance.
+2. Records it so rollback can find it.
+3. Attaches `RuntimeComponentData` and binds registered component keys.
+4. Executes synchronous `LoadComponent` contributions.
+5. Awaits async initialization when present and using the async loader.
+6. Executes `LoadComponentLate` contributions.
+7. Validates required publications.
+8. Marks `RuntimeComponentData` loaded.
+
+The containing scope becomes `Active` only after all phases finish. Therefore
+`ComponentBinding.IsActive` remains false during initialization even after that component's own
+methods have completed.
+
+## Authored callbacks
+
+`[MixinMethod]` contributes an authored method to a target:
+
+```csharp
+[MixinMethod]
+private void OnInit() {
+  connection.Open();
+}
+
+[MixinMethod(MixinOn.ComponentLoadLate, order: 20)]
+private void AfterGraphReady(ComponentLoadContext context) { }
+
+[MixinMethod(MixinOn.Dispose)]
+private void OnShutdown() { }
+```
+
+When no target is supplied, an `OnName` method maps to the `$Name` alias. A parameterless method is
+called directly. A method with parameters is signature-wired against the resolved target delegate;
+invalid signatures become generator errors rather than runtime reflection failures.
+
+## Contribution order
+
+Lower numeric contribution orders run first within one target. Negative contributions may run
+before a generated/base target call and non-negative contributions after it, depending on target
+shape. At equal order, deterministic source and contribution-kind rules apply. Use explicit,
+distinct orders where one callback semantically depends on another.
+
+Component `phase` and `order` select when the *component* is loaded. `MixinMethod.order` selects
+where code runs inside one generated lifecycle method. Event priority selects handler dispatch
+order. These are independent ordering systems.
+
+## Scope activation and failure
+
+A scope remains `Initializing` while components run. Only after every phase succeeds does the
+container attach/announce it as active. A failure moves the scope to `Faulted` and invokes rollback
+for every instance already recorded.
+
+Rollback and normal disposal both use reverse component load order. This ensures consumers usually
+unload before the providers they resolved.
+
+## Deterministic teardown
+
+Normal scope disposal proceeds in this order:
+
+1. Change state to `Disposing` and cancel the scope token.
+2. Dispose child scopes.
+3. Notify registered scope handlers.
+4. Unload components in reverse load order.
+5. Clear bindings and loaded-component records.
+6. Dispose scope-owned managed resources.
+7. Destroy scope-owned Unity objects.
+8. Detach from the parent and enter `Disposed`.
+
+For each component, generated `UnloadComponent` runs first. If the instance implements
+`IDisposable`, its ordinary `Dispose()` runs afterward. Generated event registrations and
+`[AutoDispose]` fields are lifecycle contributions, so their relative position follows their
+target orders. Cleanup continues after individual failures and reports collected
+`ComponentDeinitializationException` instances.
+
+## Choosing the right hook
+
+| Need | Hook |
+|---|---|
+| Dependency assignment | `[Inject]`; generated early load. |
+| Initialization requiring injected values | `$Init` / ordinary `OnInit`. |
+| Publish a value for other components | `[Bind]`; generated late load. |
+| Work requiring earlier components/publications | Later component phase/order, not merely late callback order. |
+| Release a component-owned field | `[AutoDispose]` or `$Dispose`. |
+| Stop scope-owned asynchronous work | Observe `ComponentBinding.scope.CancellationToken`. |

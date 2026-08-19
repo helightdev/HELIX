@@ -1,0 +1,121 @@
+---
+title: Mixin Values & Predicates
+description: References, values, paths, transformations, tables, and boolean tests.
+icon: Variable
+---
+
+## References
+
+A reference has one of these forms:
+
+```mixin
+@root
+@root#member
+@root#member:property<argument>
+@(root#member:property)
+```
+
+`#` selects a root member or nested table/type path. `:` applies a transformation or terminal
+predicate. Operations run left to right.
+
+| Root | Value |
+|---|---|
+| `@this` | Containing type being generated. |
+| `@target` | Symbol annotated by the current mixin attribute. |
+| `@attr` | Applied attribute instance. |
+| `@arg` | Method argument selected by index or name. |
+| `@local` | Execution-local value. |
+| `@var` | Transactional per-mixin value, including prepared globals. |
+| `@param` | Current function-call value. |
+| `@true`, `@false`, `@null`, `@table` | Boolean, null, and empty-table literals. |
+
+Common host selectors include `:name`, `:type`, and `:fullName`. Paths select attribute members,
+arguments, type parameters, or table entries:
+
+```mixin
+@this:name
+@target:type#0
+@attr#qualifier
+@arg#0:type
+@param#value
+@local#items#2#name
+```
+
+Available host properties depend on whether the target is a type, method, field, property, or
+parameter. Resolving a missing member as a string fails; test optional data with `:exists`.
+
+## Truthiness and equality
+
+Null, boolean false, empty strings, and the strings `false` and `null` (case-insensitive) are
+falsey. Other values are truthy. Relaxed equality ignores case and strips one pair of quotes or a
+leading `global::`, allowing attribute constants and generated type names to compare naturally.
+
+Unknown locals and variables fail normal resolution, but `:exists` and `:eq<null>` may probe them
+and treat them as null.
+
+## Transformations
+
+| Transformation | Result |
+|---|---|
+| `:unwrap` | Removes quotes or a `global::` prefix. |
+| `:replace<regex><replacement>` | Replaces all regex matches. |
+| `:replaceFirst<regex><replacement>` | Replaces the first match. |
+| `:switch<truthy><falsy>` | Selects from the current value's truthiness. |
+| `:put<key><value>` | Returns a table with an assigned key. |
+| `:remove<key>` | Returns a table without a key. |
+| `:push<value>` / `:pop` | Appends at the count key or removes `count - 1`. |
+| `:size` | Table count or string length; otherwise `0`. |
+| `#key` | Reads a table entry or host type-argument path. |
+| `:floatTime` | Produces a C# float-seconds/ticks literal. |
+| `:wire<(target)>` | Adapts a resolved callable to a target signature. |
+
+Tables are immutable; store the returned value:
+
+```mixin
+@VAR<Data> @table:put<name><Ada>:push<first>
+@VAR<Data> @var#Data:remove<name>
+@PUT<Items><name> Ada
+@PUSH<Items> @table:put<kind><primary>
+```
+
+`@PUT` and `@PUSH` are local-assignment shortcuts. When an assignment operand is exactly one
+reference its typed value (including table or null) is retained. Mixed literal/interpolated
+operands become strings.
+
+### Time values
+
+`:floatTime` accepts seconds, `ms`/`millis`, `s`/`second`/`seconds`,
+`m`/`minute`/`minutes`, and integer `t`/`tick`/`ticks`. `%frequency` becomes `1 / frequency`.
+Ticks are negative floats so ticker generation distinguishes frames from seconds.
+
+`250ms` becomes `0.25f`, `2 minutes` becomes `120f`, `%4` becomes `0.25f`, and `3 ticks`
+becomes `-3f`. Null, empty, `tick`, `ticks`, and effective zero become `-0f`.
+
+## Predicates
+
+Predicates must be terminal. `:?name` and `:name` are equivalent; the question-mark spelling is
+preferred. Negate with `:!?name` or `:!name`.
+
+| Predicate | Test |
+|---|---|
+| `:?exists`, `:?eq<Value>`, `:?matches<Regex>` | Existence, relaxed equality, and regex match. |
+| `:?is<Type>`, `:?has<Member>`, `:?isSelf` | Type/member relationship and current-type identity. |
+| `:?ref`, `:?in`, `:?out`, `:?inout`, `:?argument` | Parameter passing mode. |
+| `:?static`, `:?async`, `:?public`, `:?exposed` | Declaration properties. |
+| `:?top`, `:?concrete`, `:?partial`, `:?generic` | Type structure. |
+| `:?struct`, `:?class` | Represented type kind. |
+| `:?signature<Method>` | Same callable signature as the method. |
+| `:?wireable<From><To>` | Whether callable signatures can be adapted. |
+
+Multiple references in `@MATCH` or `@ASSERT` are ANDed:
+
+```mixin
+@ASSERT @this:?partial @target:?public @arg#0:!?inout
+```
+
+`:and<(expression)>` and `:or<(expression)>` combine the current result with dynamic boolean
+expressions. Every argument must be parenthesized.
+
+```mixin
+@ASSERT @target:?public:or<(@target:?exposed)>
+```

@@ -1,0 +1,119 @@
+---
+title: Prose
+description: Semantic, renderer-independent output for framework messages, structured inspection, and rich text.
+icon: Text
+---
+
+Prose is a small immediate-mode protocol for describing output without choosing its final
+representation. Producers send semantic content to an <FREntityCodeLink uid="IProseWriter" />;
+writers render that stream as plain text, Unity rich text, or nested dictionaries.
+
+Use Prose for framework-owned descriptions that have more structure than a log string and may be
+consumed by more than one frontend: component graph failures, object inspection, editor panels,
+tool output, or formatted summaries. Do not use it as mutable application state or as a retained
+document model. Once written, frames are owned and interpreted by the sink.
+
+## The writing model
+
+An <FREntityCodeLink uid="IProseWriter" /> accepts five kinds of operation:
+
+| Operation | Meaning |
+|---|---|
+| `BeginFrame(scope)` | Enter a semantic frame. Rejected frames remain balanced but discard their contents. |
+| `TryBeginFrame(scope)` | Enter only if the writer accepts the frame. Call `End()` only when it returns `true`. |
+| `PushModifier(modifier)` | Attach presentation metadata to the current frame. |
+| `Write(...)` | Write text, an `IProse` value, or a value through an `IProseFormatter<T>`. |
+| `End()` | Close the most recently opened frame. |
+
+Prefer the extension methods returning `ProseWriterScope`; a `using` statement guarantees a
+balanced `End()` even when producer code returns or throws.
+
+```csharp
+public void Describe(IProseWriter writer) {
+  using (writer.Section()) {
+    using (writer.SectionHeader()) writer.Write("Scope load");
+    using (writer.Paragraph()) writer.Write("The component graph could not advance.");
+
+    using (writer.UnorderedList()) {
+      writer.WriteListItem("Check the qualifier.");
+      writer.WriteListItem("Check the provider phase.");
+    }
+  }
+}
+```
+
+## Semantic scopes
+
+Scopes describe intent rather than layout. Built-in scopes cover `Span`, `Section`,
+`SectionHeader`, `Paragraph`, `CodeBlock`, ordered and unordered `List`, `ListItem`, `Table`,
+`TableRow`, `TableCell`, `Property`, `Tree`, `Name`, `PropertyKey`, `PropertyValue`, and
+`PropertyDescription`.
+
+Some scopes carry data. `ProseCodeBlock` has a language hint, `ProseList` has a kind and starting
+number, and `ProseTableRow` records whether it is a header. Parameterless and common variants are
+cached on <FREntityCodeLink uid="ProseScopes" />; extension methods use those instances to avoid
+avoidable allocations.
+
+Property and tree scopes are intended for object/framework inspection:
+
+```csharp
+using (writer.Tree()) {
+  writer.Name("PlayerSession");
+  writer.Property("state", state, ProseFormatters.Enum<SessionState>());
+  writer.Property(
+    "latency", latencyMs, new ProseIntFormatter(unit: "ms"),
+    level: ProseLevel.Debug,
+    description: latencyMs < 100 ? "healthy" : "degraded"
+  );
+}
+```
+
+If a description is supplied, the property carries the original value in a modifier while showing
+the description. Structured writers can therefore retain the actual value.
+
+## Modifiers
+
+Modifiers are writer-owned presentation metadata attached after a frame begins. Text styles
+include emphasis, strong, inline code, quote, and error. Other built-ins describe links, table-cell
+alignment, visibility/severity, truncation, wrapping, hidden property names or separators, and
+default-valued properties.
+
+Writers may interpret a modifier differently or ignore it. Producers must not depend on a visual
+effect for correctness. A hidden or debug-level property, for example, can still be retained by a
+structured sink even when a configured text sink omits it.
+
+```csharp
+using (writer.Span(ProseTextStyle.Strong, linkTarget: documentationUrl)) {
+  writer.Write("ManagedScope");
+}
+```
+
+## Values and formatters
+
+Implement <FREntityCodeLink uid="IProse" /> when a value knows how to describe itself. Implement
+`IProseFormatter<T>` when formatting is a reusable policy separate from the value. A formatter's
+fallback should write ordinary Prose operations so every writer can consume it.
+
+`ProseFormatters` provides cached formatters for strings, integers, longs, floats, doubles,
+booleans, colors, percentages, enums, and objects. Configurable number formatters support invariant
+format strings, prefixes, suffixes, units, ranges, scaling, compaction, and optional clamping.
+
+## Choosing a writer
+
+| Writer | Appropriate output |
+|---|---|
+| `ProseTextWriter` | Plain text with configurable indentation, wrapping, list markers, tables, and property formatting. |
+| `ProseUnityRichTextWriter` | Unity-compatible rich text while preserving the text writer's structural behavior. |
+| `ProseDictionaryWriter` | Nested dictionaries/lists for tools that need semantic fields instead of rendered text. |
+
+Create a new writer when a consumer needs a genuinely different representation. Create new scopes
+or modifiers only when existing semantics cannot express the distinction; writers that do not
+recognize them must still degrade safely through the producer's fallback behavior.
+
+## Producer rules
+
+- Keep frame nesting balanced; use scoped extension methods by default.
+- Use `TryBeginFrame` for expensive content that can be skipped entirely by the sink.
+- Put semantic meaning in scopes and modifiers, not spaces, punctuation, or color escape codes.
+- Reuse immutable scopes, modifiers, and formatters where possible.
+- Never assume a writer is textual. Write values through formatters instead of pre-formatting them.
