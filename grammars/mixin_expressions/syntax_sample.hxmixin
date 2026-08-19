@@ -18,3 +18,25 @@
 @SCOPE<Cleanup>
   @MIXIN<$Dispose><(@attr#order)> @local#Hook?.Dispose();
 @END
+
+@CODE @this:name
+@CODE email@@example.test
+@MIXIN<(@local#Target)><(@attr#order)> Invoke();
+@LOCAL<Field> _@(target:name)Ticker
+
+@DIRECTIVE<argument><argument> optional operand
+
+@VAR<Data> @table:put<name><Ada>:push<first>
+@VAR<Data> @var#Data:remove<name>
+@PUT<Items><name> Ada
+@PUSH<Items> @table:put<kind><primary>
+
+@SCOPE<Optional>
+  @MATCH @attr#required:?eq<false>
+  @CODE<$Init> ResolveOptional();
+@END
+
+@root
+@root#member
+@root#member:property<argument> adsdas
+adasd @(root#member:property)

@@ -1,0 +1,175 @@
+---
+title: Mixins
+description: Compile-time feature composition, generated targets, contribution ordering, and the relationship between attributes and interfaces.
+icon: Blend
+---
+
+Mixins are HELIX's compile-time composition mechanism. They collect small contributions from a
+type, its members, implemented mixin interfaces, and applied attributes, then merge those
+contributions into generated partial-class members and methods.
+
+A mixin is not a runtime decorator and does not wrap an object. By the time the application runs,
+the result is ordinary C# generated alongside the authored partial class. This keeps lifecycle
+calls direct and avoids runtime reflection or a collection of dynamically dispatched behaviors.
+
+## Why HELIX uses mixins
+
+Context features frequently need to participate in more than one stage. `[EventHandler]`, for
+example, adds registration metadata, subscribes during initialization, stores the registration,
+and unsubscribes during teardown. `[Inject]` describes a dependency during registration and assigns
+the member during loading. Mixins let each feature contribute to those shared generated targets
+without putting every feature into the component generator itself.
+
+The same mechanism is available to application and framework code for focused cross-cutting
+features.
+
+## Enabling generation
+
+Context components already participate in mixin generation:
+
+```csharp
+using HELIX;
+using HELIX.Context;
+
+[Component(typeof(ApplicationScope))]
+public partial class SessionService {
+  [MixinMethod]
+  private void OnInit() {
+    OpenSession();
+  }
+}
+```
+
+For a plain class that is not a component, use `[EnableMixins]`:
+
+```csharp
+using HELIX;
+
+[EnableMixins]
+public partial class UpdateDriver {
+  [MixinMethod(MixinOn.MonoUpdate)]
+  private void Poll() {
+    source.Poll();
+  }
+}
+```
+
+The target type and every containing type must be `partial`. The generator needs to reopen those
+declarations to add interfaces, fields, methods, and annotations.
+
+## Targets
+
+A target is the generated method that receives contributions. Targets can refer to ordinary Unity
+callbacks such as `Update`, lifecycle aliases such as `$Init`, or a custom signature declared with
+`MixinDefineTargetAttribute`.
+
+Common targets include:
+
+| Target | Generated destination |
+|---|---|
+| `$Init` | Component `LoadComponent`, or `Awake` on an ordinary mixin-enabled type. |
+| `$LoadComponent` | Component early-load method. |
+| `$LoadComponentLate` | Component late-load method. |
+| `$Dispose` | Component `UnloadComponent`, or `OnDestroy` on an ordinary type. |
+| `$ConfigureComponent` | Static component registration configurator. |
+| `MixinOn.MonoUpdate` | Unity `Update`. |
+| `MixinOn.MonoFixedUpdate` | Unity `FixedUpdate`. |
+| `MixinOn.MonoLateUpdate` | Unity `LateUpdate`. |
+
+Aliases let a feature target a semantic lifecycle stage without hard-coding the final method name
+or delegate signature.
+
+## Authored contributions
+
+`MixinMethodAttribute` contributes an authored method call to a target:
+
+```csharp
+using HELIX;
+using HELIX.Context;
+
+[Component(typeof(SceneScope))]
+public partial class SceneTracker {
+  [MixinMethod]
+  private void OnInit() {
+    tracker.Start();
+  }
+
+  [MixinMethod(MixinOn.MonoUpdate, order: 20)]
+  private void Track() {
+    tracker.Update();
+  }
+
+  [MixinMethod(MixinOn.Dispose)]
+  private void Stop() {
+    tracker.Stop();
+  }
+}
+```
+
+When the target argument is omitted, a method named `OnName` maps to the `$Name` alias. `OnInit`
+therefore contributes to `$Init`. Explicit targets are clearer for Unity callbacks and custom
+lifecycle stages.
+
+A parameterless contribution becomes a direct call. A contribution with parameters is checked
+against the target's delegate signature and wired at generation time. Incompatible signatures are
+reported as generator diagnostics.
+
+## Ordering
+
+Every contribution has an integer order. Lower values execute first. Negative contributions may
+run before a generated base call, while zero and positive contributions run afterward when the
+target has a base implementation.
+
+Equal orders remain deterministic, but they should not encode a dependency. Give related
+contributions distinct orders when one must observe another's result.
+
+Mixin contribution order is separate from:
+
+- component phase and registration order, which schedule whole component instances;
+- event priority, which orders handlers during event dispatch;
+- ticker intervals, which determine whether a generated callback runs.
+
+## Interface mixins
+
+An interface marked `[Mixin]` represents a reusable feature contract. A target type opts into the
+feature by implementing that interface. Attributes and contributions declared by the interface can
+then participate in generation for the target type.
+
+`RequireMixinAttribute` declares that an attribute or mixin interface depends on another mixin.
+With implicit declaration enabled, the generator can add the required mixin interface rather than
+forcing every consumer to repeat it. Requirement cycles and incompatible declarations are reported
+during generation.
+
+Use an interface mixin when several types share a recognizable feature contract. Use a member
+attribute when the behavior is naturally attached to one field or method.
+
+## Attributes as mixins
+
+Most Context annotations are mixin-backed attributes. Applying the attribute supplies values and a
+target symbol. The attribute's generator definition validates that symbol and contributes code or
+registration metadata.
+
+Application developers normally consume these attributes without working with their expression
+implementation. Authors of new framework attributes can use `MixinExpressionAttribute` and
+prepared global functions to implement equivalent behavior.
+
+That expression language is an advanced configuration surface. Start with the
+[Language Overview](/docs/overview/mixin-expressions), then use the focused Values, Control Flow,
+and Generation references as needed.
+
+## Generated-code boundaries
+
+Mixins are best for deterministic compile-time plumbing that can be represented as members,
+interfaces, annotations, or statements in known targets. They are not a replacement for runtime
+composition when the set of behaviors must change dynamically.
+
+Prefer a normal method call when only one component owns the behavior. Prefer a mixin when a
+feature must consistently coordinate several generated targets or be applied declaratively across
+many types.
+
+<Cards>
+  <FREntityCardLink uid="MixinMethodAttribute" />
+  <FREntityCardLink uid="MixinAttribute" />
+  <FREntityCardLink uid="EnableMixinsAttribute" />
+  <FREntityCardLink uid="RequireMixinAttribute" />
+</Cards>

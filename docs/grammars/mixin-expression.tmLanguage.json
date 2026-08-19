@@ -1,59 +1,201 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "HELIX Mixin Expression",
-  "scopeName": "source.helix-mixin",
+  "scopeName": "text.helix-mixin",
   "fileTypes": ["hxmixin"],
   "patterns": [
     { "include": "#directive" },
-    { "include": "#escaped-at" },
-    { "include": "#parenthesized-expression" },
-    { "include": "#expression" },
-    { "include": "#target" },
-    { "include": "#number" }
+    { "include": "#non-directive-line" }
   ],
   "repository": {
-    "directive": {
-      "begin": "^(\\s*)(@[A-Z][A-Za-z_]*)",
-      "beginCaptures": {
-        "2": { "name": "keyword.control.directive.helix-mixin" }
-      },
-      "end": "(?=\\s|$)",
-      "name": "meta.directive.helix-mixin",
+    "non-directive-line": {
+      "begin": "^(?!\\s*@[A-Z][A-Za-z_]*)",
+      "end": "$",
+      "name": "meta.non-directive-line.helix-mixin",
       "patterns": [
-        { "include": "#argument" }
+        { "include": "#escaped-at" },
+        { "include": "#parenthesized-expression" },
+        { "include": "#expression" },
+        { "include": "#plain-text" }
       ]
     },
+
+    "directive": {
+      "begin": "^(\\s*)(@[A-Z][A-Za-z_]*)(\\s*)((?:<(?:[^<>]|<[^<>]*>)*>\\s*)*)",
+      "beginCaptures": {
+        "2": {
+          "name": "keyword.control.directive.helix-mixin"
+        },
+        "4": {
+          "name": "meta.directive.arguments.helix-mixin",
+          "patterns": [
+            { "include": "#directive-argument" }
+          ]
+        }
+      },
+      "end": "$",
+      "name": "meta.directive.helix-mixin",
+      "patterns": [
+        { "include": "#escaped-at" },
+        { "include": "#parenthesized-expression" },
+        { "include": "#expression" },
+        { "include": "#target" },
+        { "include": "#number" },
+        { "include": "#plain-text" }
+      ]
+    },
+
+    "directive-argument": {
+      "begin": "<",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.arguments.begin.helix-mixin keyword.control.directive.helix-mixin"
+        }
+      },
+      "end": ">",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.arguments.end.helix-mixin keyword.control.directive.helix-mixin"
+        }
+      },
+      "name": "meta.directive.argument.helix-mixin entity.other.attribute-name",
+      "patterns": [
+        { "include": "#escaped-at" },
+        { "include": "#directive-grouped-expression" },
+        { "include": "#directive-parenthesized-expression" },
+        { "include": "#directive-expression" },
+        { "include": "#directive-argument" },
+        { "include": "#member" },
+        { "include": "#predicate" },
+        { "include": "#logical-operation" },
+        { "include": "#transformation" },
+        { "include": "#generic-predicate" },
+        { "include": "#generic-transformation" },
+        { "include": "#target" },
+        { "include": "#number" }
+      ]
+    },
+
+    "directive-grouped-expression": {
+      "begin": "\\(",
+      "beginCaptures": {
+        "0": {
+          "name": "keyword.control.directive.helix-mixin"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "keyword.control.directive.helix-mixin"
+        }
+      },
+      "name": "meta.directive.grouped-expression.helix-mixin",
+      "patterns": [
+        { "include": "#directive-expression-body" }
+      ]
+    },
+
+    "directive-parenthesized-expression": {
+      "begin": "(@)(\\()([A-Za-z0-9_]*)",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.expression.begin.helix-mixin"
+        },
+        "2": {
+          "name": "keyword.control.directive.helix-mixin"
+        },
+        "3": {
+          "name": "constant.language.mixin-reference.helix-mixin"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "keyword.control.directive.helix-mixin"
+        }
+      },
+      "name": "meta.directive.expression.helix-mixin",
+      "patterns": [
+        { "include": "#directive-expression-body" }
+      ]
+    },
+
+    "directive-expression": {
+      "begin": "@[A-Za-z0-9_]+",
+      "beginCaptures": {
+        "0": {
+          "name": "constant.language.mixin-reference.helix-mixin"
+        }
+      },
+      "end": "(?=[^A-Za-z0-9_#:<]|$)",
+      "name": "meta.directive.expression.helix-mixin",
+      "patterns": [
+        { "include": "#directive-expression-body" }
+      ]
+    },
+
+    "directive-expression-body": {
+      "patterns": [
+        { "include": "#escaped-at" },
+        { "include": "#directive-grouped-expression" },
+        { "include": "#directive-parenthesized-expression" },
+        { "include": "#directive-expression" },
+        { "include": "#member" },
+        { "include": "#predicate" },
+        { "include": "#logical-operation" },
+        { "include": "#transformation" },
+        { "include": "#generic-predicate" },
+        { "include": "#generic-transformation" },
+        { "include": "#directive-argument" },
+        { "include": "#target" },
+        { "include": "#number" }
+      ]
+    },
+
     "escaped-at": {
       "match": "@@",
       "name": "constant.character.escape.helix-mixin"
     },
+
     "parenthesized-expression": {
-      "begin": "(@)(\\()([A-Za-z0-9_]+)",
+      "begin": "(@)(\\()([A-Za-z0-9_]*)",
       "beginCaptures": {
-        "1": { "name": "entity.name.tag.expression.begin.helix-mixin" },
-        "2": { "name": "entity.name.tag.expression.begin.helix-mixin" },
-        "3": { "name": "constant.language.mixin-reference.helix-mixin" }
+        "1": {
+          "name": "punctuation.definition.expression.begin.helix-mixin"
+        },
+        "2": {
+          "name": "punctuation.section.expression.begin.helix-mixin"
+        },
+        "3": {
+          "name": "constant.language.mixin-reference.helix-mixin"
+        }
       },
       "end": "\\)",
       "endCaptures": {
-        "0": { "name": "entity.name.tag.expression.end.helix-mixin" }
+        "0": {
+          "name": "punctuation.section.expression.end.helix-mixin"
+        }
       },
-      "name": "meta.expression.mixin-reference.helix-mixin",
+      "name": "source.helix-mixin.expression",
       "patterns": [
         { "include": "#expression-body" }
       ]
     },
+
     "expression": {
       "begin": "@[A-Za-z0-9_]+",
       "beginCaptures": {
-        "0": { "name": "constant.language.mixin-reference.helix-mixin" }
+        "0": {
+          "name": "constant.language.mixin-reference.helix-mixin"
+        }
       },
       "end": "(?=[^A-Za-z0-9_#:<]|$)",
-      "name": "meta.expression.mixin-reference.helix-mixin",
+      "name": "source.helix-mixin.expression",
       "patterns": [
         { "include": "#expression-body" }
       ]
     },
+
     "expression-body": {
       "patterns": [
         { "include": "#escaped-at" },
@@ -70,49 +212,67 @@
         { "include": "#number" }
       ]
     },
+
     "member": {
       "match": "#+[A-Za-z0-9_]+",
-      "name": "entity.name.member-path.helix-mixin"
+      "name": "entity.name.section.member-path.helix-mixin"
     },
+
     "predicate": {
       "match": ":!?\\??(?:eq|exists|is|has|isSelf|ref|in|out|inout|argument|static|async|public|exposed|top|concrete|partial|generic|struct|class|matches|signature|wireable)\\b",
       "name": "support.function.predicate.helix-mixin"
     },
+
     "logical-operation": {
       "match": ":(?:and|or)\\b",
       "name": "keyword.operator.logical.helix-mixin"
     },
+
     "transformation": {
       "match": ":(?:name|type|fullName|unwrap|replace|replaceFirst|switch|put|remove|push|pop|size|floatTime|wire|path)\\b",
       "name": "entity.name.function.transform.helix-mixin"
     },
+
     "generic-predicate": {
       "match": ":!?\\?[A-Za-z0-9_]+",
       "name": "support.function.predicate.helix-mixin"
     },
+
     "generic-transformation": {
       "match": ":[A-Za-z0-9_]+",
       "name": "entity.name.function.transform.helix-mixin"
     },
+
     "argument": {
       "begin": "<",
       "beginCaptures": {
-        "0": { "name": "entity.name.tag.argument.begin.helix-mixin" }
+        "0": {
+          "name": "punctuation.definition.arguments.begin.helix-mixin"
+        }
       },
       "end": ">",
       "endCaptures": {
-        "0": { "name": "entity.name.tag.argument.end.helix-mixin" }
+        "0": {
+          "name": "punctuation.definition.arguments.end.helix-mixin"
+        }
       },
-      "name": "entity.name.tag.argument.helix-mixin",
+      "name": "source.helix-mixin.argument entity.other.attribute-name",
       "patterns": [
         { "include": "#escaped-at" },
         { "include": "#parenthesized-expression" },
         { "include": "#expression" },
         { "include": "#argument" },
+        { "include": "#member" },
+        { "include": "#predicate" },
+        { "include": "#logical-operation" },
+        { "include": "#transformation" },
+        { "include": "#generic-predicate" },
+        { "include": "#generic-transformation" },
         { "include": "#target" },
         { "include": "#number" }
       ]
     },
+
     "target": {
       "patterns": [
         {
@@ -125,9 +285,23 @@
         }
       ]
     },
+
     "number": {
       "match": "(?<![A-Za-z0-9_])[-+]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][-+]?\\d+)?f?\\b",
       "name": "constant.numeric.helix-mixin"
+    },
+
+    "plain-text": {
+      "patterns": [
+        {
+          "match": "[^@<$]+",
+          "name": "string.unquoted.helix-mixin"
+        },
+        {
+          "match": "[@<$]",
+          "name": "string.unquoted.helix-mixin"
+        }
+      ]
     }
   }
 }

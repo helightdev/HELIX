@@ -1,0 +1,12 @@
+{
+  "title": "Mixins",
+  "description": "Shared HELIX concepts and source-generation facilities.",
+  "icon": "Blend",
+  "pages": [
+    "mixins",
+    "mixin-expressions",
+    "mixin-values-and-predicates",
+    "mixin-control-flow",
+    "mixin-generation"
+  ]
+}

@@ -28,7 +28,7 @@
     "grammars": [
       {
         "language": "helix-mixin-expression",
-        "scopeName": "source.helix-mixin",
+        "scopeName": "text.helix-mixin",
         "path": "./syntaxes/mixin-expression.tmLanguage.json"
       }
     ]
