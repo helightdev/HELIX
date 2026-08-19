@@ -1,6 +1,6 @@
 {
   "title": "Context",
-  "description": "Components, dependency scopes, mixins, and generation expressions.",
+  "description": "Components, dependency scopes, lifecycle, and generated behaviors.",
   "icon": "Blocks",
   "root": true,
   "pages": [
@@ -10,14 +10,8 @@
     "scopes-and-dependencies",
     "lifecycle",
     "events",
-    "mixins",
     "---[TimerReset]Generated Behaviors---",
     "scheduling",
-    "automatic-cleanup",
-    "---[CodeXml]Advanced Configuration---",
-    "mixin-expressions",
-    "mixin-values-and-predicates",
-    "mixin-control-flow",
-    "mixin-generation"
+    "automatic-cleanup"
   ]
 }

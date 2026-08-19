@@ -1,0 +1,20 @@
+@ASSERT @this:?partial
+@ASSERT @target:type:?class
+
+@LOCAL<FieldName> @target:name
+@LOCAL<Hook> _@(target:name)Subscription
+
+@USING System;
+@CODE<CLASS> private IDisposable @local#Hook;
+
+@SCOPE<Qualified>
+  @MATCH @attr#qualifier:!?eq<null>
+  @MIXIN<$Init><(@attr#order)> @local#Hook = Subscribe<@target:type>(@attr#qualifier, @local#FieldName);
+  @GOTO<Cleanup>
+@SCOPE<Default>
+  @MIXIN<$Init><(@attr#order)> @local#Hook = Subscribe<@target:type>(@local#FieldName);
+@END
+
+@SCOPE<Cleanup>
+  @MIXIN<$Dispose><(@attr#order)> @local#Hook?.Dispose();
+@END

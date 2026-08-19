@@ -15,7 +15,7 @@ public sealed class MixinRequirementTests {
     var result = Run(
       """
       using System;
-      namespace HELIX.Context {
+      namespace HELIX {
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class EnableMixinsAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Interface)] public sealed class MixinAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
@@ -28,11 +28,11 @@ public sealed class MixinRequirementTests {
         }
         [Mixin, EnableMixins] public interface IMixin { }
       }
-      [HELIX.Context.MixinExpression("$Init", 0, "@CODE Required()")]
-      public interface IBaseMixin : HELIX.Context.IMixin { }
-      [HELIX.Context.RequireMixin(typeof(IBaseMixin), true)]
-      public interface IFeatureMixin : HELIX.Context.IMixin { }
-      [HELIX.Context.EnableMixins]
+      [HELIX.MixinExpression("$Init", 0, "@CODE Required()")]
+      public interface IBaseMixin : HELIX.IMixin { }
+      [HELIX.RequireMixin(typeof(IBaseMixin), true)]
+      public interface IFeatureMixin : HELIX.IMixin { }
+      [HELIX.EnableMixins]
       public partial class Demo : IFeatureMixin {
         private void Required() { }
       }
@@ -50,7 +50,7 @@ public sealed class MixinRequirementTests {
     var result = Run(
       """
       using System;
-      namespace HELIX.Context {
+      namespace HELIX {
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class EnableMixinsAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Interface)] public sealed class MixinAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
@@ -59,10 +59,10 @@ public sealed class MixinRequirementTests {
         }
         [Mixin, EnableMixins] public interface IMixin { }
       }
-      public interface IBaseMixin : HELIX.Context.IMixin { }
-      [HELIX.Context.RequireMixin(typeof(IBaseMixin))]
-      public interface IFeatureMixin : HELIX.Context.IMixin { }
-      [HELIX.Context.EnableMixins]
+      public interface IBaseMixin : HELIX.IMixin { }
+      [HELIX.RequireMixin(typeof(IBaseMixin))]
+      public interface IFeatureMixin : HELIX.IMixin { }
+      [HELIX.EnableMixins]
       public partial class Demo : IFeatureMixin { }
       """
     );
@@ -79,7 +79,7 @@ public sealed class MixinRequirementTests {
     var result = Run(
       """
       using System;
-      namespace HELIX.Context {
+      namespace HELIX {
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class EnableMixinsAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Interface)] public sealed class MixinAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
@@ -88,10 +88,10 @@ public sealed class MixinRequirementTests {
         }
         [Mixin, EnableMixins] public interface IMixin { }
       }
-      public interface IBaseMixin : HELIX.Context.IMixin { }
-      [HELIX.Context.RequireMixin(typeof(IBaseMixin))]
-      public interface IFeatureMixin : HELIX.Context.IMixin { }
-      [HELIX.Context.EnableMixins]
+      public interface IBaseMixin : HELIX.IMixin { }
+      [HELIX.RequireMixin(typeof(IBaseMixin))]
+      public interface IFeatureMixin : HELIX.IMixin { }
+      [HELIX.EnableMixins]
       public partial class Demo : IFeatureMixin, IBaseMixin { }
       """
     );
@@ -104,7 +104,7 @@ public sealed class MixinRequirementTests {
     var result = Run(
       """
       using System;
-      namespace HELIX.Context {
+      namespace HELIX {
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class EnableMixinsAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
         public sealed class RequireMixinAttribute : Attribute {
@@ -115,16 +115,16 @@ public sealed class MixinRequirementTests {
           public MixinExpressionAttribute(string target, int order, string expression) { }
         }
       }
-      [HELIX.Context.MixinExpression("$Init", 0, "@CODE Required(@attr#value)")]
+      [HELIX.MixinExpression("$Init", 0, "@CODE Required(@attr#value)")]
       [AttributeUsage(AttributeTargets.Class)]
       public sealed class RequiredAttribute : Attribute {
         public RequiredAttribute(int value = 42) { }
       }
-      [HELIX.Context.MixinExpression("$Dispose", 0, "@CODE Triggered()")]
-      [HELIX.Context.RequireMixin(typeof(RequiredAttribute), true)]
+      [HELIX.MixinExpression("$Dispose", 0, "@CODE Triggered()")]
+      [HELIX.RequireMixin(typeof(RequiredAttribute), true)]
       [AttributeUsage(AttributeTargets.Class)]
       public sealed class TriggerAttribute : Attribute { }
-      [HELIX.Context.EnableMixins, Trigger]
+      [HELIX.EnableMixins, Trigger]
       public partial class Demo {
         private void Required(int value) { }
         private void Triggered() { }

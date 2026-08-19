@@ -5,6 +5,12 @@
     "prose",
     "previews",
     "---[Rocket]Start---",
-    "getting-started"
+    "getting-started",
+    "---[Blend]Mixins---",
+    "overview/mixins",
+    "overview/mixin-expressions",
+    "overview/mixin-values-and-predicates",
+    "overview/mixin-control-flow",
+    "overview/mixin-generation"
   ]
 }

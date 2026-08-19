@@ -123,13 +123,15 @@ public sealed class ComponentDiscoveryGeneratorTests {
 
   private const string Runtime = """
                                  using System;
-                                 namespace HELIX.Context {
+                                 namespace HELIX {
                                    [AttributeUsage(AttributeTargets.Class)]
                                    public sealed class EnableMixinsAttribute : Attribute { }
                                    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
                                    public sealed class MixinExpressionAttribute : Attribute {
                                      public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
                                    }
+                                 }
+                                 namespace HELIX.Context {
                                    public delegate void RegistrationConfigurator(RegistrationEntry registration);
                                    public sealed class RegistrationEntry { }
                                    public sealed class ComponentRegistrations {
@@ -146,7 +148,7 @@ public sealed class ComponentDiscoveryGeneratorTests {
                                    public sealed class HelixApplicationAttribute : Attribute {
                                      public HelixApplicationAttribute(string name = null, string filter = null, Type[] import = null) { }
                                    }
-                                   [MixinExpression(
+                                   [HELIX.MixinExpression(
                                      new[] { "^*~HELIX.Context.RegistrationConfigurator" },
                                      new[] { -100000 },
                                      "@CODE<^*~HELIX.Context.RegistrationConfigurator> registration.ToString();"

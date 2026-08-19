@@ -1,0 +1,36 @@
+{
+  "name": "mixin_expressions",
+  "version": "0.1.0",
+  "description": "Syntax highlighting for HELIX mixin expression files.",
+  "license": "MIT",
+  "publisher": "helightdev",
+  "engines": {
+    "node": ">=18.0.0",
+    "vscode": "^1.80.0"
+  },
+  "activationEvents": [
+    "onLanguage:helix-mixin-expression"
+  ],
+  "main": "",
+  "contributes": {
+    "languages": [
+      {
+        "id": "helix-mixin-expression",
+        "aliases": [
+          "HELIX Mixin Expression",
+          "HELIX Mixin"
+        ],
+        "extensions": [
+          ".hxmixin"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "helix-mixin-expression",
+        "scopeName": "source.helix-mixin",
+        "path": "./syntaxes/mixin-expression.tmLanguage.json"
+      }
+    ]
+  }
+}

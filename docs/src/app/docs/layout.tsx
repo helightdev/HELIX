@@ -15,7 +15,17 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
                 title: 'Overview',
                 url: '/docs',
                 icon: <LucideBook className="size-full stroke-fd-primary" />,
-                urls: new Set(['/docs', '/docs/prose', '/docs/previews', '/docs/getting-started'])
+                urls: new Set([
+                    '/docs',
+                    '/docs/prose',
+                    '/docs/previews',
+                    '/docs/getting-started',
+                    '/docs/overview/mixins',
+                    '/docs/overview/mixin-expressions',
+                    '/docs/overview/mixin-values-and-predicates',
+                    '/docs/overview/mixin-control-flow',
+                    '/docs/overview/mixin-generation'
+                ])
             },
             {
                 title: 'Compose',
@@ -43,13 +53,8 @@ export default function Layout({ children }: LayoutProps<'/docs'>) {
                     '/docs/context/scopes-and-dependencies',
                     '/docs/context/lifecycle',
                     '/docs/context/events',
-                    '/docs/context/mixins',
                     '/docs/context/scheduling',
-                    '/docs/context/automatic-cleanup',
-                    '/docs/context/mixin-expressions',
-                    '/docs/context/mixin-values-and-predicates',
-                    '/docs/context/mixin-control-flow',
-                    '/docs/context/mixin-generation'
+                    '/docs/context/automatic-cleanup'
                 ])
             },
             {

@@ -1,4 +1,4 @@
-using HELIX.Context;
+using HELIX;
 
 // Variable guarded event handler mixin block
 [assembly: MixinPrepareGlobal(

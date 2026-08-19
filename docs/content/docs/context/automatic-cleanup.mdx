@@ -13,6 +13,8 @@ exactly the lifetime of one component.
 Apply `[AutoDispose]` to a field whose type implements `IDisposable`:
 
 ```csharp
+using HELIX;
+
 [AutoDispose]
 private CancellationTokenSource cancellation;
 
