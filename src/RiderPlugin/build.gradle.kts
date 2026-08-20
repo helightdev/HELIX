@@ -168,6 +168,7 @@ dependencies {
         jetbrainsRuntime()
         bundledPlugin("com.intellij.resharper.unity")
         bundledPlugin("org.jetbrains.plugins.yaml")
+        bundledModule("intellij.rider.languages")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 

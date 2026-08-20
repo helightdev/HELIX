@@ -22,7 +22,22 @@
 
   <extensions defaultExtensionNs="com.intellij">
     <serviceViewContributor implementation="dev.helight.helix.cli.UnityCliServiceViewContributor" />
-    <statusBarWidgetFactory implementation="dev.helight.helix.cli.UnityCliStatusBarWidgetFactory" />
+    <statusBarWidgetFactory id="dev.helight.helix.UnityCliStatus" implementation="dev.helight.helix.cli.UnityCliStatusBarWidgetFactory" />
+    <fileType name="HELIX Mixin Expression"
+              implementationClass="dev.helight.helix.expression.HelixExpressionFileType"
+              fieldName="INSTANCE"
+              language="HelixMixinExpression"
+              extensions="hxmixin" />
+    <lang.parserDefinition language="HelixMixinExpression"
+                           implementationClass="dev.helight.helix.expression.HelixExpressionParserDefinition" />
+    <lang.syntaxHighlighterFactory language="HelixMixinExpression"
+                              implementationClass="dev.helight.helix.expression.HelixExpressionSyntaxHighlighterFactory" />
+    <syntaxHighlighter key="HELIX Mixin Expression"
+                       implementationClass="dev.helight.helix.expression.HelixExpressionSyntaxHighlighter" />
+    <annotator language="HelixMixinExpression"
+               implementationClass="dev.helight.helix.expression.HelixExpressionAnnotator" />
+    <colorSettingsPage implementation="dev.helight.helix.expression.HelixExpressionColorSettingsPage" />
+    <multiHostInjector implementation="dev.helight.helix.expression.HelixExpressionCSharpInjector" />
     <projectSettings service="dev.helight.helix.workspace.WorkspaceSettings"/>
     <projectViewPane implementation="dev.helight.helix.workspace.UnityWorkspaceProjectViewPane"
                      id="HelixUnityWorkspace"
