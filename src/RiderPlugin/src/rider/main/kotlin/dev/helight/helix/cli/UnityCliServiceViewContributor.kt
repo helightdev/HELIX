@@ -1,10 +1,10 @@
 package dev.helight.helix.cli
 
 import dev.helight.helix.HelixMessagesBundle.message
+import dev.helight.helix.HelixIcons
 import com.intellij.execution.services.ServiceViewContributor
 import com.intellij.execution.services.ServiceViewDescriptor
 import com.intellij.execution.services.SimpleServiceViewDescriptor
-import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
@@ -24,7 +24,7 @@ import javax.swing.JTextArea
 
 internal class UnityCliServiceViewContributor : ServiceViewContributor<UnityCliProjectService> {
     override fun getViewDescriptor(project: Project): ServiceViewDescriptor =
-        SimpleServiceViewDescriptor(message("unity.cli.name"), UnityCliIcons.unity)
+        SimpleServiceViewDescriptor(message("unity.cli.name"), HelixIcons.Unity)
 
     override fun getServices(project: Project): List<UnityCliProjectService> =
         if (UnityCliProjectService.isUnityProject(project)) {
@@ -40,7 +40,7 @@ internal class UnityCliServiceViewContributor : ServiceViewContributor<UnityCliP
 private class UnityCliServiceViewDescriptor(
     private val service: UnityCliProjectService,
     scope: CoroutineScope,
-) : SimpleServiceViewDescriptor(message("unity.cli.name"), UnityCliIcons.unity) {
+) : SimpleServiceViewDescriptor(message("unity.cli.name"), HelixIcons.Unity) {
     private val stateLabel = JBLabel()
     private val details = JTextArea().apply {
         isEditable = false
@@ -63,13 +63,13 @@ private class UnityCliServiceViewDescriptor(
         DefaultActionGroup(object : AnAction(
             message("unity.cli.action.refresh"),
             message("unity.cli.action.refresh.description"),
-            AllIcons.Actions.Refresh,
+            HelixIcons.Refresh,
         ) {
             override fun actionPerformed(event: AnActionEvent) = service.refreshStatus()
         })
 
     private fun render(state: UnityCliStatusState) {
-        stateLabel.icon = if (state.isUnityOnline()) UnityCliIcons.online else UnityCliIcons.offline
+        stateLabel.icon = if (state.isUnityOnline()) HelixIcons.UnityOnline else HelixIcons.UnityOffline
         val (summary, body) = when (state) {
             UnityCliStatusState.NotLoaded -> message("unity.cli.status.not.loaded") to service.unityProjectPath
             is UnityCliStatusState.Loading -> message("unity.cli.status.refreshing") to snapshotText(state.previous)

@@ -1,9 +1,9 @@
 package dev.helight.helix.cli
 
 import dev.helight.helix.HelixMessagesBundle.message
+import dev.helight.helix.HelixIcons
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.EDT
-import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
@@ -14,19 +14,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.awt.event.MouseEvent
 import javax.swing.Icon
-import icons.UnityIcons
-
-internal object UnityCliIcons {
-    val online: Icon = IconLoader.getIcon(
-        "/expui/resharper/Toolbar/UnityToolbarConnected.svg",
-        UnityIcons::class.java,
-    )
-    val offline: Icon = IconLoader.getIcon(
-        "/expui/resharper/Toolbar/UnityToolbarDisconnected.svg",
-        UnityIcons::class.java,
-    )
-    val unity: Icon = UnityIcons.Icons.UnityLogo
-}
 
 internal class UnityCliStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun getId(): String = WIDGET_ID
@@ -75,7 +62,7 @@ private class UnityCliStatusBarWidget(
         statusBar = null
     }
 
-    override fun getIcon(): Icon = if (state.isUnityOnline()) UnityCliIcons.online else UnityCliIcons.offline
+    override fun getIcon(): Icon = if (state.isUnityOnline()) HelixIcons.UnityOnline else HelixIcons.UnityOffline
 
     override fun getTooltipText(): String = when (val current = state) {
         UnityCliStatusState.NotLoaded -> message("unity.cli.status.tooltip.not.loaded")

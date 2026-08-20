@@ -1,26 +1,33 @@
 package dev.helight.helix.workspace
 
-import com.intellij.openapi.components.*
+import com.intellij.openapi.components.SerializablePersistentStateComponent
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.State
+import com.intellij.openapi.components.Storage
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
-import com.intellij.configurationStore.Property
 
 @Service(Service.Level.PROJECT)
-@State(name = "WorkspaceSettings", storages = [Storage("workspacesettings.xml")])
+@State(name = "WorkspaceSettings", storages = [Storage("helixWorkspace.xml")])
 internal class WorkspaceSettings(private val project: Project) :
     SerializablePersistentStateComponent<WorkspaceSettingsState>(WorkspaceSettingsState()) {
     companion object {
         fun getInstance(project: Project): WorkspaceSettings = project.service()
     }
 
-    var value: String?
-        get() = state.storeValue
+    var entries: List<WorkspaceEntry>
+        get() = state.entries.map { entry ->
+            val recovered = if (entry.typeId.isNotBlank()) entry
+            else if (entry.options["path"] != null) entry.copy(typeId = DirectoryWorkspaceEntryProvider.TYPE_ID)
+            else entry.copy(typeId = UnityPackagesWorkspaceEntryProvider.TYPE_ID, showPath = false)
+            recovered.copy(options = recovered.options.toMap())
+        }
         set(value) {
-            updateState {
-                it.copy(storeValue = value)
-            }
+            val snapshot = value.map { it.copy(options = it.options.toMap()) }
+            updateState { it.copy(entries = snapshot) }
         }
 }
 
 internal data class WorkspaceSettingsState(
-    @JvmField @Property val storeValue: String? = null // @Property required for primitives
+    @JvmField val entries: List<WorkspaceEntry> = emptyList()
 )

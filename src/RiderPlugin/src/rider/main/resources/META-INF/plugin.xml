@@ -15,21 +15,33 @@
   </description>
 
   <extensionPoints>
-
+    <extensionPoint name="workspaceEntryProvider"
+                    interface="dev.helight.helix.workspace.WorkspaceEntryProvider"
+                    dynamic="true" />
   </extensionPoints>
 
   <extensions defaultExtensionNs="com.intellij">
     <serviceViewContributor implementation="dev.helight.helix.cli.UnityCliServiceViewContributor" />
     <statusBarWidgetFactory implementation="dev.helight.helix.cli.UnityCliStatusBarWidgetFactory" />
-      <projectSettings service="dev.helight.helix.workspace.WorkspaceSettings"/>
+    <projectSettings service="dev.helight.helix.workspace.WorkspaceSettings"/>
+    <projectViewPane implementation="dev.helight.helix.workspace.UnityWorkspaceProjectViewPane"
+                     id="HelixUnityWorkspace"
+                     order="after UnityExplorer, before SolutionExplorer" />
+    <projectConfigurable id="dev.helight.helix.workspace"
+                         instance="dev.helight.helix.workspace.WorkspaceSettingsConfigurable"
+                         bundle="messages.HelixMessagesBundle"
+                         key="workspace.settings.name" />
   </extensions>
 
   <extensions defaultExtensionNs="dev.helight.helix">
-
+    <workspaceEntryProvider implementation="dev.helight.helix.workspace.DirectoryWorkspaceEntryProvider" />
+    <workspaceEntryProvider implementation="dev.helight.helix.workspace.UnityPackagesWorkspaceEntryProvider" />
   </extensions>
 
-  <actions>
-
+  <actions resource-bundle="messages.HelixMessagesBundle">
+    <action id="Helix.RefreshUnityWorkspace"
+            class="dev.helight.helix.workspace.UnityWorkspaceRefreshAction"
+            icon="dev.helight.helix.HelixIcons.Refresh" />
   </actions>
 
     <resource-bundle>messages.HelixMessagesBundle</resource-bundle>
