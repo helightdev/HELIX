@@ -52,7 +52,9 @@ namespace HelixRider
         {
             if (!File.Exists(request.FilePath))
                 return new MixinContributionsResponse(Array.Empty<MixinContribution>());
-            var lineMap = new FileLineMap(File.ReadAllText(request.FilePath));
+            // The frontend document can contain unsaved edits. Mapping Roslyn's in-memory
+            // diagnostics against the file on disk produces stale or invalid gutter offsets.
+            var lineMap = new FileLineMap(request.SourceText);
             var path = VirtualFileSystemPath.Parse(request.FilePath, InteractionContext.SolutionContext);
             var projectFiles = _solution.FindProjectItemsByLocation(path).OfType<IProjectFile>().ToList();
             var contributions = new HashSet<MixinContribution>();

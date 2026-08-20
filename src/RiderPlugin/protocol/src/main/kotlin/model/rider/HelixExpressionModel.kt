@@ -19,6 +19,8 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
 
         val request = structdef("mixinExpressionRequest") {
             field("filePath", string)
+            field("sourceText", string)
+            field("revision", long)
         }
 
         val response = structdef("mixinExpressionResponse") {

@@ -20,6 +20,8 @@ class HelixMixinContributionLineMarkerProvider : LineMarkerProvider {
         val declaration = PsiTreeUtil.getParentOfType(element, CSharpDeclaration::class.java, false)
         val isDeclarationIdentifier = (declaration as? PsiNameIdentifierOwner)?.nameIdentifier === element
         val cache = element.project.service<HelixMixinContributionCache>()
+        val document = file.viewProvider.document ?: return null
+        cache.request(path, document.modificationStamp, document.text)
         val contributions = buildList {
             addAll(cache.contributionsAt(path, element.textRange.startOffset))
             if (isDeclarationIdentifier) addAll(cache.contributionsFor(path, declaration))

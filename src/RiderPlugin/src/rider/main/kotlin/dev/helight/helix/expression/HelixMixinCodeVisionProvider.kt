@@ -28,7 +28,9 @@ class HelixMixinCodeVisionProvider : CodeVisionProvider<String?> {
     ): CodeVisionState {
         if (uiData == null || editor.isDisposed) return CodeVisionState.Ready(emptyList())
         val contributions: List<MixinContribution> =
-            editor.project?.service<HelixMixinContributionCache>()?.request(uiData).orEmpty()
+            editor.project?.service<HelixMixinContributionCache>()
+                ?.request(uiData, editor.document.modificationStamp, editor.document.text)
+                .orEmpty()
 
         val entries: List<Pair<TextRange, CodeVisionEntry>> = contributions.groupBy { it.offset to it.target }.map { (key, items) ->
             val offset = key.first.coerceIn(0, editor.document.textLength)

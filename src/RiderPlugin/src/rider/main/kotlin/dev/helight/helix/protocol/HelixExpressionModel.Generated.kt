@@ -39,7 +39,7 @@ class HelixExpressionModel private constructor(
         
         
         
-        const val serializationHash = -6964394680188396042L
+        const val serializationHash = -2754755806298592282L
         
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
@@ -94,7 +94,7 @@ val com.jetbrains.rd.ide.model.Solution.helixExpressionModel get() = getOrCreate
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:32]
+ * #### Generated from [HelixExpressionModel.kt:34]
  */
 data class MixinContribution (
     val offset: Int,
@@ -205,7 +205,7 @@ data class MixinContribution (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:44]
+ * #### Generated from [HelixExpressionModel.kt:46]
  */
 data class MixinContributionsResponse (
     val contributions: Array<MixinContribution>
@@ -340,11 +340,15 @@ data class MixinExpressionRange (
  * #### Generated from [HelixExpressionModel.kt:20]
  */
 data class MixinExpressionRequest (
-    val filePath: String
+    val filePath: String,
+    val sourceText: String,
+    val revision: Long
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
         buffer.writeString(filePath)
+        buffer.writeString(sourceText)
+        buffer.writeLong(revision)
     }
     //companion
     
@@ -355,7 +359,9 @@ data class MixinExpressionRequest (
         @Suppress("UNCHECKED_CAST")
         override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinExpressionRequest  {
             val filePath = buffer.readString()
-            return MixinExpressionRequest(filePath)
+            val sourceText = buffer.readString()
+            val revision = buffer.readLong()
+            return MixinExpressionRequest(filePath, sourceText, revision)
         }
         
         override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinExpressionRequest)  {
@@ -376,6 +382,8 @@ data class MixinExpressionRequest (
         other as MixinExpressionRequest
         
         if (filePath != other.filePath) return false
+        if (sourceText != other.sourceText) return false
+        if (revision != other.revision) return false
         
         return true
     }
@@ -383,6 +391,8 @@ data class MixinExpressionRequest (
     override fun hashCode(): Int  {
         var __r = 0
         __r = __r*31 + filePath.hashCode()
+        __r = __r*31 + sourceText.hashCode()
+        __r = __r*31 + revision.hashCode()
         return __r
     }
     //pretty print
@@ -390,6 +400,8 @@ data class MixinExpressionRequest (
         printer.println("MixinExpressionRequest (")
         printer.indent {
             print("filePath = "); filePath.print(printer); println()
+            print("sourceText = "); sourceText.print(printer); println()
+            print("revision = "); revision.print(printer); println()
         }
         printer.print(")")
     }
@@ -400,7 +412,7 @@ data class MixinExpressionRequest (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:24]
+ * #### Generated from [HelixExpressionModel.kt:26]
  */
 data class MixinExpressionResponse (
     val projectFileFound: Boolean,

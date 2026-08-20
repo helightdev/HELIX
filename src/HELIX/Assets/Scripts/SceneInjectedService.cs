@@ -11,16 +11,18 @@ namespace HELIX.Context {
 
     [NonSerialized]
     public GameObject testGameObject;
-
+    
     [MixinMethod]
     public void OnInit() {
       Debug.Log("SceneInjectedService.OnInit");
     }
-
+      
     [MixinMethod]
     public void OnDispose() {
       Debug.Log("SceneInjectedService.OnDispose");
     }
+    
+    
 
     [Button]
     public void ActivateGameObjectScope() {

@@ -67,12 +67,12 @@ namespace HELIX.Context {
       Debug.Log("This runs every tick but takes a second!");
       await UniTask.Delay(1000);
     }
-
+    
     [EventHandler]
     private void OnTestAsync(TestAsyncEvt evt) {
-
+      
     }
-
+    
     [EventHandler]
     private void OnComponentLoadEvt(ComponentLoadEvent evt) {
       evt.Context.PublishKey(new TypeKey(typeof(int), ""), 42);

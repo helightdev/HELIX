@@ -76,7 +76,7 @@ namespace HelixRider.Protocol
     
     
     
-    protected override long SerializationHash => -6964394680188396042L;
+    protected override long SerializationHash => -2754755806298592282L;
     
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -120,7 +120,7 @@ namespace HelixRider.Protocol
   
   
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:32</p>
+  /// <p>Generated from: HelixExpressionModel.kt:34</p>
   /// </summary>
   public sealed class MixinContribution : IPrintable, IEquatable<MixinContribution>
   {
@@ -274,7 +274,7 @@ namespace HelixRider.Protocol
   
   
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:44</p>
+  /// <p>Generated from: HelixExpressionModel.kt:46</p>
   /// </summary>
   public sealed class MixinContributionsResponse : IPrintable, IEquatable<MixinContributionsResponse>
   {
@@ -459,35 +459,48 @@ namespace HelixRider.Protocol
     //fields
     //public fields
     [NotNull] public string FilePath {get; private set;}
+    [NotNull] public string SourceText {get; private set;}
+    public long Revision {get; private set;}
     
     //private fields
     //primary constructor
     public MixinExpressionRequest(
-      [NotNull] string filePath
+      [NotNull] string filePath,
+      [NotNull] string sourceText,
+      long revision
     )
     {
       if (filePath == null) throw new ArgumentNullException("filePath");
+      if (sourceText == null) throw new ArgumentNullException("sourceText");
       
       FilePath = filePath;
+      SourceText = sourceText;
+      Revision = revision;
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string filePath)
+    public void Deconstruct([NotNull] out string filePath, [NotNull] out string sourceText, out long revision)
     {
       filePath = FilePath;
+      sourceText = SourceText;
+      revision = Revision;
     }
     //statics
     
     public static CtxReadDelegate<MixinExpressionRequest> Read = (ctx, reader) => 
     {
       var filePath = reader.ReadString();
-      var _result = new MixinExpressionRequest(filePath);
+      var sourceText = reader.ReadString();
+      var revision = reader.ReadLong();
+      var _result = new MixinExpressionRequest(filePath, sourceText, revision);
       return _result;
     };
     
     public static CtxWriteDelegate<MixinExpressionRequest> Write = (ctx, writer, value) => 
     {
       writer.Write(value.FilePath);
+      writer.Write(value.SourceText);
+      writer.Write(value.Revision);
     };
     
     //constants
@@ -506,7 +519,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return FilePath == other.FilePath;
+      return FilePath == other.FilePath && SourceText == other.SourceText && Revision == other.Revision;
     }
     //hash code trait
     public override int GetHashCode()
@@ -514,6 +527,8 @@ namespace HelixRider.Protocol
       unchecked {
         var hash = 0;
         hash = hash * 31 + FilePath.GetHashCode();
+        hash = hash * 31 + SourceText.GetHashCode();
+        hash = hash * 31 + Revision.GetHashCode();
         return hash;
       }
     }
@@ -523,6 +538,8 @@ namespace HelixRider.Protocol
       printer.Println("MixinExpressionRequest (");
       using (printer.IndentCookie()) {
         printer.Print("filePath = "); FilePath.PrintEx(printer); printer.Println();
+        printer.Print("sourceText = "); SourceText.PrintEx(printer); printer.Println();
+        printer.Print("revision = "); Revision.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }
@@ -537,7 +554,7 @@ namespace HelixRider.Protocol
   
   
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:24</p>
+  /// <p>Generated from: HelixExpressionModel.kt:26</p>
   /// </summary>
   public sealed class MixinExpressionResponse : IPrintable, IEquatable<MixinExpressionResponse>
   {

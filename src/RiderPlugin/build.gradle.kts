@@ -102,6 +102,11 @@ version = extra["PluginVersion"] as String
 
 tasks.processResources {
     from("dependencies.json") { into("META-INF") }
+    // Rider loads ReSharper settings from this exact path inside the IntelliJ plugin JAR.
+    // Embedding a DotSettings file in the backend assembly alone does not register it as a layer.
+    from("src/dotnet/${DotnetPluginId.get()}/HelixLiveTemplates.DotSettings") {
+        into("dotnet/Extensions/${RiderPluginId.get()}/settings")
+    }
 }
 
 sourceSets {
@@ -197,6 +202,13 @@ tasks.patchPluginXml {
 
 tasks.prepareSandbox {
     dependsOn(compileDotNet)
+
+    // Keep the settings available beside the backend DLL in the development
+    // sandbox too. Rider resolves bundled settings from the plugin JAR in a
+    // packaged install, but the sandbox backend scans this physical location.
+    from("src/dotnet/${DotnetPluginId.get()}/HelixLiveTemplates.DotSettings") {
+        into("${project.name}/dotnet/Extensions/${RiderPluginId.get()}/settings")
+    }
 
     val outputFolder = layout.projectDirectory.dir("src/dotnet/${DotnetPluginId.get()}/bin/${DotnetPluginId.get()}.Rider/${BuildConfiguration.get()}")
     val dllFiles = listOf(
