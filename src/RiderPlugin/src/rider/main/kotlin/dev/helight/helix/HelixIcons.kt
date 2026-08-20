@@ -2,6 +2,7 @@ package dev.helight.helix
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.util.IconLoader
+import com.intellij.util.ui.JBScalableIcon
 import icons.UnityIcons
 import javax.swing.Icon
 
@@ -20,4 +21,5 @@ object HelixIcons {
     @JvmField val Settings: Icon = AllIcons.General.Settings
     @JvmField val Warning: Icon = AllIcons.General.Warning
     @JvmField val Folder: Icon = AllIcons.Nodes.Folder
+    @JvmField val MixinContribution: Icon = IconLoader.getIcon("/icons/mixin_contribution.svg", HelixIcons::class.java)
 }

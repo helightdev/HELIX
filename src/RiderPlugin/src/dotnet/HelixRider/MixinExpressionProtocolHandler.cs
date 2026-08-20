@@ -102,11 +102,15 @@ namespace HelixRider
             contribution = null;
             if (message == null)
                 return false;
-            var parts = message.Split(new[] { '|' }, 4);
-            if (parts.Length != 4 || !int.TryParse(
-                    parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var priority))
+            var parts = message.Split(new[] { '|' }, 8);
+            if (parts.Length != 8 || !int.TryParse(
+                    parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var priority) ||
+                !int.TryParse(parts[7], NumberStyles.Integer, CultureInfo.InvariantCulture,
+                    out var sourceParameterCount))
                 return false;
-            contribution = new MixinContribution(offset, parts[0], parts[1], parts[2], priority);
+            contribution = new MixinContribution(
+                offset, parts[0], parts[1], parts[2], priority,
+                parts[4], parts[5], parts[6], sourceParameterCount);
             return true;
         }
 

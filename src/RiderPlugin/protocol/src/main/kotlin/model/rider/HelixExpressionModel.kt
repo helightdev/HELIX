@@ -35,6 +35,10 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("method", string)
             field("mixin", string)
             field("priority", int)
+            field("sourceType", string)
+            field("sourceMember", string)
+            field("sourceKind", string)
+            field("sourceParameterCount", int)
         }
 
         val contributionsResponse = structdef("mixinContributionsResponse") {

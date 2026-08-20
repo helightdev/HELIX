@@ -307,7 +307,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       int sequence,
       IReadOnlyDictionary<string, string> targetDefinitions,
       MixinExpressionResult expressionResult,
-      string provider
+      string provider,
+      ISymbol source
     ) {
       var targetSyntax = RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions);
       EmittedTarget = targetSyntax.Name;
@@ -319,6 +320,11 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       Sequence = sequence;
       ExpressionResult = expressionResult;
       Provider = provider;
+      SourceType = (source as INamedTypeSymbol ?? source.ContainingType)
+        ?.ToDisplayString(TypeDisplayFormat) ?? "";
+      SourceMember = source is INamedTypeSymbol ? "" : source.MetadataName;
+      SourceKind = source.Kind.ToString();
+      SourceParameterCount = source is IMethodSymbol method ? method.Parameters.Length : 0;
     }
 
     internal string EmittedTarget { get; }
@@ -330,6 +336,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     internal int Sequence { get; }
     internal MixinExpressionResult ExpressionResult { get; }
     internal string Provider { get; }
+    internal string SourceType { get; }
+    internal string SourceMember { get; }
+    internal string SourceKind { get; }
+    internal int SourceParameterCount { get; }
   }
 
   private sealed record MixinTargetParameter(
@@ -795,7 +805,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         contributions.Add(
           new MixinContribution(
             output.InjectionTarget, output.InjectionPriority, contributionKind,
-            sequence++, targetDefinitions, result, providerName
+            sequence++, targetDefinitions, result, providerName, annotated
           )
         );
         continue;
@@ -821,7 +831,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       contributions.Add(
         new MixinContribution(
           declaration.Target, declaration.Order, contributionKind,
-          sequence++, targetDefinitions, result, providerName
+          sequence++, targetDefinitions, result, providerName, annotated
         )
       );
     }
@@ -941,12 +951,18 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           .Add("Target", targetName)
           .Add("Method", method.Name)
           .Add("Mixin", contribution.Provider)
-          .Add("Priority", contribution.Order.ToString(CultureInfo.InvariantCulture));
+          .Add("Priority", contribution.Order.ToString(CultureInfo.InvariantCulture))
+          .Add("SourceType", contribution.SourceType)
+          .Add("SourceMember", contribution.SourceMember)
+          .Add("SourceKind", contribution.SourceKind)
+          .Add("SourceParameterCount", contribution.SourceParameterCount.ToString(CultureInfo.InvariantCulture));
         context.ReportDiagnostic(
           Diagnostic.Create(
             ContributionData, location, properties,
             targetName, method.Name, contribution.Provider,
-            contribution.Order.ToString(CultureInfo.InvariantCulture)
+            contribution.Order.ToString(CultureInfo.InvariantCulture),
+            contribution.SourceType, contribution.SourceMember, contribution.SourceKind,
+            contribution.SourceParameterCount.ToString(CultureInfo.InvariantCulture)
           )
         );
       }

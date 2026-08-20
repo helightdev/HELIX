@@ -39,6 +39,8 @@
     <colorSettingsPage implementation="dev.helight.helix.expression.HelixExpressionColorSettingsPage" />
     <multiHostInjector implementation="dev.helight.helix.expression.HelixExpressionCSharpInjector" />
     <codeInsight.codeVisionProvider implementation="dev.helight.helix.expression.HelixMixinCodeVisionProvider" />
+    <codeInsight.lineMarkerProvider language="C#"
+                                    implementationClass="dev.helight.helix.expression.HelixMixinContributionLineMarkerProvider" />
     <projectSettings service="dev.helight.helix.workspace.WorkspaceSettings"/>
     <projectViewPane implementation="dev.helight.helix.workspace.UnityWorkspaceProjectViewPane"
                      id="HelixUnityWorkspace"

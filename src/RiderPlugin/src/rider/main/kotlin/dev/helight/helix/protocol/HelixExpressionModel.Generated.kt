@@ -39,7 +39,7 @@ class HelixExpressionModel private constructor(
         
         
         
-        const val serializationHash = -2344505281666705518L
+        const val serializationHash = -6964394680188396042L
         
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
@@ -101,7 +101,11 @@ data class MixinContribution (
     val target: String,
     val method: String,
     val mixin: String,
-    val priority: Int
+    val priority: Int,
+    val sourceType: String,
+    val sourceMember: String,
+    val sourceKind: String,
+    val sourceParameterCount: Int
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
@@ -110,6 +114,10 @@ data class MixinContribution (
         buffer.writeString(method)
         buffer.writeString(mixin)
         buffer.writeInt(priority)
+        buffer.writeString(sourceType)
+        buffer.writeString(sourceMember)
+        buffer.writeString(sourceKind)
+        buffer.writeInt(sourceParameterCount)
     }
     //companion
     
@@ -124,7 +132,11 @@ data class MixinContribution (
             val method = buffer.readString()
             val mixin = buffer.readString()
             val priority = buffer.readInt()
-            return MixinContribution(offset, target, method, mixin, priority)
+            val sourceType = buffer.readString()
+            val sourceMember = buffer.readString()
+            val sourceKind = buffer.readString()
+            val sourceParameterCount = buffer.readInt()
+            return MixinContribution(offset, target, method, mixin, priority, sourceType, sourceMember, sourceKind, sourceParameterCount)
         }
         
         override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinContribution)  {
@@ -149,6 +161,10 @@ data class MixinContribution (
         if (method != other.method) return false
         if (mixin != other.mixin) return false
         if (priority != other.priority) return false
+        if (sourceType != other.sourceType) return false
+        if (sourceMember != other.sourceMember) return false
+        if (sourceKind != other.sourceKind) return false
+        if (sourceParameterCount != other.sourceParameterCount) return false
         
         return true
     }
@@ -160,6 +176,10 @@ data class MixinContribution (
         __r = __r*31 + method.hashCode()
         __r = __r*31 + mixin.hashCode()
         __r = __r*31 + priority.hashCode()
+        __r = __r*31 + sourceType.hashCode()
+        __r = __r*31 + sourceMember.hashCode()
+        __r = __r*31 + sourceKind.hashCode()
+        __r = __r*31 + sourceParameterCount.hashCode()
         return __r
     }
     //pretty print
@@ -171,6 +191,10 @@ data class MixinContribution (
             print("method = "); method.print(printer); println()
             print("mixin = "); mixin.print(printer); println()
             print("priority = "); priority.print(printer); println()
+            print("sourceType = "); sourceType.print(printer); println()
+            print("sourceMember = "); sourceMember.print(printer); println()
+            print("sourceKind = "); sourceKind.print(printer); println()
+            print("sourceParameterCount = "); sourceParameterCount.print(printer); println()
         }
         printer.print(")")
     }
@@ -181,7 +205,7 @@ data class MixinContribution (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:40]
+ * #### Generated from [HelixExpressionModel.kt:44]
  */
 data class MixinContributionsResponse (
     val contributions: Array<MixinContribution>

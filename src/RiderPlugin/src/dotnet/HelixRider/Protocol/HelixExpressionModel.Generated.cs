@@ -76,7 +76,7 @@ namespace HelixRider.Protocol
     
     
     
-    protected override long SerializationHash => -2344505281666705518L;
+    protected override long SerializationHash => -6964394680188396042L;
     
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -131,6 +131,10 @@ namespace HelixRider.Protocol
     [NotNull] public string Method {get; private set;}
     [NotNull] public string Mixin {get; private set;}
     public int Priority {get; private set;}
+    [NotNull] public string SourceType {get; private set;}
+    [NotNull] public string SourceMember {get; private set;}
+    [NotNull] public string SourceKind {get; private set;}
+    public int SourceParameterCount {get; private set;}
     
     //private fields
     //primary constructor
@@ -139,28 +143,43 @@ namespace HelixRider.Protocol
       [NotNull] string target,
       [NotNull] string method,
       [NotNull] string mixin,
-      int priority
+      int priority,
+      [NotNull] string sourceType,
+      [NotNull] string sourceMember,
+      [NotNull] string sourceKind,
+      int sourceParameterCount
     )
     {
       if (target == null) throw new ArgumentNullException("target");
       if (method == null) throw new ArgumentNullException("method");
       if (mixin == null) throw new ArgumentNullException("mixin");
+      if (sourceType == null) throw new ArgumentNullException("sourceType");
+      if (sourceMember == null) throw new ArgumentNullException("sourceMember");
+      if (sourceKind == null) throw new ArgumentNullException("sourceKind");
       
       Offset = offset;
       Target = target;
       Method = method;
       Mixin = mixin;
       Priority = priority;
+      SourceType = sourceType;
+      SourceMember = sourceMember;
+      SourceKind = sourceKind;
+      SourceParameterCount = sourceParameterCount;
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct(out int offset, [NotNull] out string target, [NotNull] out string method, [NotNull] out string mixin, out int priority)
+    public void Deconstruct(out int offset, [NotNull] out string target, [NotNull] out string method, [NotNull] out string mixin, out int priority, [NotNull] out string sourceType, [NotNull] out string sourceMember, [NotNull] out string sourceKind, out int sourceParameterCount)
     {
       offset = Offset;
       target = Target;
       method = Method;
       mixin = Mixin;
       priority = Priority;
+      sourceType = SourceType;
+      sourceMember = SourceMember;
+      sourceKind = SourceKind;
+      sourceParameterCount = SourceParameterCount;
     }
     //statics
     
@@ -171,7 +190,11 @@ namespace HelixRider.Protocol
       var method = reader.ReadString();
       var mixin = reader.ReadString();
       var priority = reader.ReadInt();
-      var _result = new MixinContribution(offset, target, method, mixin, priority);
+      var sourceType = reader.ReadString();
+      var sourceMember = reader.ReadString();
+      var sourceKind = reader.ReadString();
+      var sourceParameterCount = reader.ReadInt();
+      var _result = new MixinContribution(offset, target, method, mixin, priority, sourceType, sourceMember, sourceKind, sourceParameterCount);
       return _result;
     };
     
@@ -182,6 +205,10 @@ namespace HelixRider.Protocol
       writer.Write(value.Method);
       writer.Write(value.Mixin);
       writer.Write(value.Priority);
+      writer.Write(value.SourceType);
+      writer.Write(value.SourceMember);
+      writer.Write(value.SourceKind);
+      writer.Write(value.SourceParameterCount);
     };
     
     //constants
@@ -200,7 +227,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return Offset == other.Offset && Target == other.Target && Method == other.Method && Mixin == other.Mixin && Priority == other.Priority;
+      return Offset == other.Offset && Target == other.Target && Method == other.Method && Mixin == other.Mixin && Priority == other.Priority && SourceType == other.SourceType && SourceMember == other.SourceMember && SourceKind == other.SourceKind && SourceParameterCount == other.SourceParameterCount;
     }
     //hash code trait
     public override int GetHashCode()
@@ -212,6 +239,10 @@ namespace HelixRider.Protocol
         hash = hash * 31 + Method.GetHashCode();
         hash = hash * 31 + Mixin.GetHashCode();
         hash = hash * 31 + Priority.GetHashCode();
+        hash = hash * 31 + SourceType.GetHashCode();
+        hash = hash * 31 + SourceMember.GetHashCode();
+        hash = hash * 31 + SourceKind.GetHashCode();
+        hash = hash * 31 + SourceParameterCount.GetHashCode();
         return hash;
       }
     }
@@ -225,6 +256,10 @@ namespace HelixRider.Protocol
         printer.Print("method = "); Method.PrintEx(printer); printer.Println();
         printer.Print("mixin = "); Mixin.PrintEx(printer); printer.Println();
         printer.Print("priority = "); Priority.PrintEx(printer); printer.Println();
+        printer.Print("sourceType = "); SourceType.PrintEx(printer); printer.Println();
+        printer.Print("sourceMember = "); SourceMember.PrintEx(printer); printer.Println();
+        printer.Print("sourceKind = "); SourceKind.PrintEx(printer); printer.Println();
+        printer.Print("sourceParameterCount = "); SourceParameterCount.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }
@@ -239,7 +274,7 @@ namespace HelixRider.Protocol
   
   
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:40</p>
+  /// <p>Generated from: HelixExpressionModel.kt:44</p>
   /// </summary>
   public sealed class MixinContributionsResponse : IPrintable, IEquatable<MixinContributionsResponse>
   {

@@ -211,12 +211,48 @@ public sealed class MixinTargetTests {
         .Select(group => group.First())
     );
     Assert.Equal(DiagnosticSeverity.Hidden, diagnostic.Severity);
-    Assert.Equal(4, diagnostic.Properties.Count);
+    Assert.Equal(8, diagnostic.Properties.Count);
     Assert.Equal("global::Demo", diagnostic.Properties["Target"]);
     Assert.Equal("Configure", diagnostic.Properties["Method"]);
     Assert.Equal("global::IConfigureMixin", diagnostic.Properties["Mixin"]);
     Assert.Equal("-12", diagnostic.Properties["Priority"]);
-    Assert.Equal("global::Demo|Configure|global::IConfigureMixin|-12", diagnostic.GetMessage());
+    Assert.Equal("global::Demo", diagnostic.Properties["SourceType"]);
+    Assert.Equal("", diagnostic.Properties["SourceMember"]);
+    Assert.Equal("NamedType", diagnostic.Properties["SourceKind"]);
+    Assert.Equal("0", diagnostic.Properties["SourceParameterCount"]);
+    Assert.Equal(
+      "global::Demo|Configure|global::IConfigureMixin|-12|global::Demo||NamedType|0",
+      diagnostic.GetMessage()
+    );
+  }
+
+  [Fact]
+  public void ContributionMetadataIdentifiesTheAnnotatedMemberSemantically() {
+    var result = Run(
+      """
+      using System;
+      namespace HELIX {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string expression) { }
+        }
+      }
+      [HELIX.MixinExpression("@MIXIN<Configure> Apply()")]
+      [AttributeUsage(AttributeTargets.Method)] public sealed class InjectAttribute : Attribute { }
+      [HELIX.EnableMixins]
+      public partial class Demo {
+        [Inject] private void Apply() { }
+      }
+      """
+    );
+
+    var diagnostic = Assert.Single(
+      result.GeneratorDiagnostics.Where(item => item.Id == "HLXM14")
+    );
+    Assert.Equal("global::Demo", diagnostic.Properties["SourceType"]);
+    Assert.Equal("Apply", diagnostic.Properties["SourceMember"]);
+    Assert.Equal("Method", diagnostic.Properties["SourceKind"]);
+    Assert.Equal("0", diagnostic.Properties["SourceParameterCount"]);
   }
 
   [Fact]

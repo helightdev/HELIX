@@ -188,7 +188,7 @@ internal static class GeneratorDiagnostics {
         "HLXM13", "Mixin expression performance hint", "{0}"
       ),
       ContributionData = Hidden(
-        "HLXM14", "Mixin contribution data", "{0}|{1}|{2}|{3}"
+        "HLXM14", "Mixin contribution data", "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}"
       );
   }
 }
