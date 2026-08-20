@@ -169,6 +169,7 @@ dependencies {
         bundledPlugin("com.intellij.resharper.unity")
         bundledPlugin("org.jetbrains.plugins.yaml")
         bundledModule("intellij.rider.languages")
+        bundledModule("intellij.rider.rdclient.dotnet")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 
@@ -206,7 +207,10 @@ tasks.prepareSandbox {
     )
 
     dllFiles.forEach { pluginFile ->
-        from(pluginFile) { into("${rootProject.name}/dotnet") }
+        // prepareSandbox names this subproject's plugin directory after project.name.
+        // Using rootProject.name here creates a sibling directory that Rider does not
+        // recognise as the IntelliJ plugin, so its ReSharper backend never loads the DLL.
+        from(pluginFile) { into("${project.name}/dotnet") }
     }
 }
 

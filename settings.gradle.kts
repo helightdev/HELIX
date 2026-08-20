@@ -19,3 +19,4 @@ rootProject.name = "HELIX"
 
 include(":riderPlugin")
 project(":riderPlugin").projectDir = file("src/RiderPlugin")
+include(":riderPlugin:protocol")

@@ -1,49 +1,30 @@
 package dev.helight.helix.expression
 
+import com.intellij.openapi.util.TextRange
 import kotlin.test.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class HelixExpressionCSharpInjectorTest {
     @Test
-    fun `injects single expression overload`() {
-        assertTrue(isInjected("[MixinExpression(\"@CALL<emit>\")]", "\"@CALL"))
+    fun `converts Rider absolute content range to injection host offsets`() {
+        assertEquals(TextRange(1, 20), toHostRelativeRange(TextRange(235, 254), 234))
     }
 
     @Test
-    fun `injects only third argument of targeted overload`() {
-        val source = "[HELIX.MixinExpression(\"\$Init\", 10, \"@CODE Run();\")]"
-        assertFalse(isInjected(source, "\"\$Init"))
-        assertTrue(isInjected(source, "\"@CODE"))
+    fun `recognizes supported mixin attribute spellings`() {
+        assertEquals(HelixAttributeKind.EXPRESSION, helixAttributeKind("MixinExpression"))
+        assertEquals(HelixAttributeKind.EXPRESSION, helixAttributeKind("MixinExpressionAttribute"))
+        assertEquals(HelixAttributeKind.EXPRESSION, helixAttributeKind("HELIX.MixinExpression"))
+        assertEquals(
+            HelixAttributeKind.PREPARE_GLOBAL,
+            helixAttributeKind("[assembly: global::HELIX.MixinPrepareGlobalAttribute"),
+        )
     }
 
     @Test
-    fun `injects global prepared expressions`() {
-        assertTrue(isInjected("[assembly: MixinPrepareGlobal(\"@FUNC<x>\\n@END\")]", "\"@FUNC"))
-    }
-
-    @Test
-    fun `injects global prepared verbatim expressions`() {
-        val source = """
-            [assembly: HELIX.MixinPrepareGlobal(
-              @"
-            @FUNC<MixinCallbackImpl>
-            @END
-            "
-            )]
-        """.trimIndent()
-        assertTrue(isInjected(source, "@\""))
-    }
-
-    @Test
-    fun `does not inject unrelated strings`() {
-        assertFalse(isInjected("var text = \"@CODE NotAnExpression();\";", "\"@CODE"))
-    }
-
-    private fun isInjected(source: String, literalPrefix: String): Boolean {
-        val start = source.indexOf(literalPrefix)
-        require(start >= 0)
-        val end = source.indexOf('"', start + 1).let { if (it < 0) source.length else it + 1 }
-        return HelixExpressionCSharpInjector.isMixinExpressionArgument(source, start, end)
+    fun `rejects similarly named attributes in other namespaces`() {
+        assertNull(helixAttributeKind("Other.MixinExpression"))
+        assertNull(helixAttributeKind("MixinExpressionFactory"))
     }
 }
