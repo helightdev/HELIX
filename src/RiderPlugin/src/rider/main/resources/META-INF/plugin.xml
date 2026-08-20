@@ -19,7 +19,9 @@
   </extensionPoints>
 
   <extensions defaultExtensionNs="com.intellij">
-
+    <serviceViewContributor implementation="dev.helight.helix.cli.UnityCliServiceViewContributor" />
+    <statusBarWidgetFactory implementation="dev.helight.helix.cli.UnityCliStatusBarWidgetFactory" />
+      <projectSettings service="dev.helight.helix.workspace.WorkspaceSettings"/>
   </extensions>
 
   <extensions defaultExtensionNs="dev.helight.helix">
@@ -30,4 +32,5 @@
 
   </actions>
 
+    <resource-bundle>messages.HelixMessagesBundle</resource-bundle>
 </idea-plugin>
