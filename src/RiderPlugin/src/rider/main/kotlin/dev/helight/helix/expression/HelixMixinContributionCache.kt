@@ -5,14 +5,46 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.psi.util.PsiTreeUtil
+import com.jetbrains.rider.projectView.solution
 import com.jetbrains.rider.languages.fileTypes.csharp.psi.CSharpDeclaration
 import com.jetbrains.rider.languages.fileTypes.csharp.psi.impl.CSharpParameterDeclaration
 import dev.helight.helix.protocol.MixinContribution
+import dev.helight.helix.protocol.MixinExpressionRequest
+import dev.helight.helix.protocol.helixExpressionModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 @Service(Service.Level.PROJECT)
-class HelixMixinContributionCache(private val project: Project) {
+class HelixMixinContributionCache(
+    private val project: Project,
+    private val coroutineScope: CoroutineScope,
+) {
     private val contributionsByFile = ConcurrentHashMap<String, Map<Int, List<MixinContribution>>>()
+    private val requestsInFlight = ConcurrentHashMap.newKeySet<String>()
+
+    fun request(filePath: String): List<MixinContribution> {
+        if (requestsInFlight.add(filePath)) {
+            coroutineScope.launch {
+                try {
+                    val contributions = project.solution.helixExpressionModel.getMixinContributions
+                        .startSuspending(MixinExpressionRequest(filePath))
+                        .contributions
+                        .toList()
+                    update(filePath, contributions)
+                } catch (exception: CancellationException) {
+                    throw exception
+                } catch (_: Throwable) {
+                    // The Roslyn component may not be registered yet while Rider is starting.
+                    // A later Code Vision pass can retry without blocking editor loading.
+                } finally {
+                    requestsInFlight.remove(filePath)
+                }
+            }
+        }
+        return contributionsByFile[filePath].orEmpty().values.flatten()
+    }
 
     fun contributionsAt(filePath: String, offset: Int): List<MixinContribution> =
         contributionsByFile[filePath]?.get(offset).orEmpty()

@@ -9,12 +9,8 @@ import com.intellij.codeInsight.codeVision.ui.model.ClickableTextCodeVisionEntry
 import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.TextRange
-import com.jetbrains.rd.framework.impl.RpcTimeouts
-import com.jetbrains.rider.projectView.solution
 import dev.helight.helix.HelixMessagesBundle
 import dev.helight.helix.protocol.MixinContribution
-import dev.helight.helix.protocol.MixinExpressionRequest
-import dev.helight.helix.protocol.helixExpressionModel
 
 @Suppress("UnstableApiUsage")
 class HelixMixinCodeVisionProvider : CodeVisionProvider<String?> {
@@ -31,13 +27,8 @@ class HelixMixinCodeVisionProvider : CodeVisionProvider<String?> {
         uiData: String?,
     ): CodeVisionState {
         if (uiData == null || editor.isDisposed) return CodeVisionState.Ready(emptyList())
-        val contributions: List<MixinContribution> = runCatching {
-            editor.project?.solution?.helixExpressionModel?.getMixinContributions?.sync(
-                MixinExpressionRequest(uiData),
-                RpcTimeouts.longRunning,
-            )?.contributions.orEmpty().toList()
-        }.getOrElse { emptyList() }
-        editor.project?.service<HelixMixinContributionCache>()?.update(uiData, contributions)
+        val contributions: List<MixinContribution> =
+            editor.project?.service<HelixMixinContributionCache>()?.request(uiData).orEmpty()
 
         val entries: List<Pair<TextRange, CodeVisionEntry>> = contributions.groupBy { it.offset to it.target }.map { (key, items) ->
             val offset = key.first.coerceIn(0, editor.document.textLength)
