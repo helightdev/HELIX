@@ -17,7 +17,7 @@
 
     <Target Name="CopyDll" AfterTargets="Build" Condition="'$(SkipCopyDll)' != 'true'">
         <Copy SourceFiles="$(TargetDir)HelixSourceGenerator.dll"
-              DestinationFolder="$(SolutionDir)\..\HELIX\Assets\"
+              DestinationFolder="$(ProjectDir)\..\..\..\HELIX\Assets\"
               SkipUnchangedFiles="true"
         />
     </Target>

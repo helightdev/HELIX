@@ -20,7 +20,7 @@ class HelixExpressionCSharpInjector : MultiHostInjector {
 
         val hostRange = literal.textRange ?: return
         val attribute = literal.parentsWithSelf()
-            .firstOrNull { it.node.elementType == CSharpElementTypes.ATTRIBUTE_DECLARATION }
+            .firstOrNull { it.node?.elementType == CSharpElementTypes.ATTRIBUTE_DECLARATION }
             ?: return
         val attributeKind = helixAttributeKind(attribute.text.substringBefore('(')) ?: return
         val literals = PsiTreeUtil.findChildrenOfType(attribute, CSharpStringLiteralExpression::class.java)
@@ -47,7 +47,7 @@ class HelixExpressionCSharpInjector : MultiHostInjector {
 
     private fun isNamedExpressionArgument(literal: CSharpStringLiteralExpression): Boolean {
         val attribute = literal.parentsWithSelf()
-            .firstOrNull { it.node.elementType == CSharpElementTypes.ATTRIBUTE_DECLARATION }
+            .firstOrNull { it.node?.elementType == CSharpElementTypes.ATTRIBUTE_DECLARATION }
             ?: return false
         val relativeStart = literal.textRange.startOffset - attribute.textRange.startOffset
         return EXPRESSION_ARGUMENT_SUFFIX.containsMatchIn(attribute.text.substring(0, relativeStart))

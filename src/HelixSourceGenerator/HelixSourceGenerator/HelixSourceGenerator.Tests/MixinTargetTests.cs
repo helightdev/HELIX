@@ -183,6 +183,43 @@ public sealed class MixinTargetTests {
   }
 
   [Fact]
+  public void SuccessfulContributionsEmitCompactHiddenMetadata() {
+    var result = Run(
+      """
+      using System;
+      namespace HELIX {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Interface)] public sealed class MixinAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+          public MixinExpressionAttribute(string target, int order, string expression) { }
+        }
+        [Mixin] public interface IMixin { }
+      }
+      [HELIX.MixinExpression("Configure", -12, "@CODE<Configure> Apply();")]
+      public interface IConfigureMixin : HELIX.IMixin { }
+      [HELIX.EnableMixins]
+      public partial class Demo : IConfigureMixin {
+        private void Apply() { }
+      }
+      """
+    );
+
+    var diagnostic = Assert.Single(
+      result.GeneratorDiagnostics
+        .Where(item => item.Id == "HLXM14")
+        .GroupBy(item => string.Join("|", item.Properties.OrderBy(pair => pair.Key)))
+        .Select(group => group.First())
+    );
+    Assert.Equal(DiagnosticSeverity.Hidden, diagnostic.Severity);
+    Assert.Equal(4, diagnostic.Properties.Count);
+    Assert.Equal("global::Demo", diagnostic.Properties["Target"]);
+    Assert.Equal("Configure", diagnostic.Properties["Method"]);
+    Assert.Equal("global::IConfigureMixin", diagnostic.Properties["Mixin"]);
+    Assert.Equal("-12", diagnostic.Properties["Priority"]);
+    Assert.Equal("global::Demo|Configure|global::IConfigureMixin|-12", diagnostic.GetMessage());
+  }
+
+  [Fact]
   public void MissingDelegateTargetReportsAnInvalidTarget() {
     var result = Run(
       """

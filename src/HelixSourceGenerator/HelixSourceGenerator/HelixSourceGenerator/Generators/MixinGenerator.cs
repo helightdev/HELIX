@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -224,6 +225,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var methods = BuildMethods(
       context, target, contributions, candidate.Compilation
     );
+    ReportContributionData(context, target, methods);
     var outputs = new ExpressionOutputs();
     foreach (var attribute in implicitAttributes) {
       outputs.AddAnnotation(attribute.Type.ToDisplayString(TypeDisplayFormat));
@@ -304,7 +306,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       ContributionKind kind,
       int sequence,
       IReadOnlyDictionary<string, string> targetDefinitions,
-      MixinExpressionResult expressionResult
+      MixinExpressionResult expressionResult,
+      string provider
     ) {
       var targetSyntax = RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions);
       EmittedTarget = targetSyntax.Name;
@@ -315,6 +318,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       Kind = kind;
       Sequence = sequence;
       ExpressionResult = expressionResult;
+      Provider = provider;
     }
 
     internal string EmittedTarget { get; }
@@ -325,6 +329,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     internal ContributionKind Kind { get; }
     internal int Sequence { get; }
     internal MixinExpressionResult ExpressionResult { get; }
+    internal string Provider { get; }
   }
 
   private sealed record MixinTargetParameter(
@@ -598,7 +603,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         CollectMixinExpressionContributions(
           context, target, target, null, null, expressionAttribute, compilation,
           preparedExpressions, expressionVariables, expressionOutputs, result, ref sequence,
-          ContributionKind.Interface, mixin.Name
+          ContributionKind.Interface, mixin.ToDisplayString(TypeDisplayFormat)
         );
       }
     }
@@ -626,7 +631,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           CollectMixinExpressionContributions(
             context, target, annotated, applied, null, expressionAttribute, compilation,
             preparedExpressions, expressionVariables, expressionOutputs, result, ref sequence,
-            ContributionKind.Attribute, attributeType.Name
+            ContributionKind.Attribute, attributeType.ToDisplayString(TypeDisplayFormat)
           );
         }
       }
@@ -664,7 +669,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       CollectMixinExpressionContributions(
         context, target, target, null, implicitAttribute, expressionAttribute, compilation,
         preparedExpressions, expressionVariables, expressionOutputs, result, ref sequence,
-        ContributionKind.Attribute, implicitAttribute.Type.Name
+        ContributionKind.Attribute, implicitAttribute.Type.ToDisplayString(TypeDisplayFormat)
       );
     }
   }
@@ -790,7 +795,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         contributions.Add(
           new MixinContribution(
             output.InjectionTarget, output.InjectionPriority, contributionKind,
-            sequence++, targetDefinitions, result
+            sequence++, targetDefinitions, result, providerName
           )
         );
         continue;
@@ -816,7 +821,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       contributions.Add(
         new MixinContribution(
           declaration.Target, declaration.Order, contributionKind,
-          sequence++, targetDefinitions, result
+          sequence++, targetDefinitions, result, providerName
         )
       );
     }
@@ -921,6 +926,31 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       )) result.Add(method);
     }
     return result;
+  }
+
+  private static void ReportContributionData(
+    SourceProductionContext context,
+    INamedTypeSymbol target,
+    IReadOnlyList<GeneratedMethod> methods
+  ) {
+    var targetName = target.ToDisplayString(TypeDisplayFormat);
+    var location = LocationOf(target);
+    foreach (var method in methods) {
+      foreach (var contribution in method.Contributions) {
+        var properties = ImmutableDictionary<string, string>.Empty
+          .Add("Target", targetName)
+          .Add("Method", method.Name)
+          .Add("Mixin", contribution.Provider)
+          .Add("Priority", contribution.Order.ToString(CultureInfo.InvariantCulture));
+        context.ReportDiagnostic(
+          Diagnostic.Create(
+            ContributionData, location, properties,
+            targetName, method.Name, contribution.Provider,
+            contribution.Order.ToString(CultureInfo.InvariantCulture)
+          )
+        );
+      }
+    }
   }
 
   private static bool TryBuildMethod(

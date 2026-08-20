@@ -22,6 +22,13 @@ internal static class GeneratorDiagnostics {
     );
   }
 
+  private static DiagnosticDescriptor Hidden(string id, string title, string message) {
+    return new DiagnosticDescriptor(
+      id, title, message, DiagnosticCategory, DiagnosticSeverity.Hidden, true,
+      customTags: [WellKnownDiagnosticTags.NotConfigurable]
+    );
+  }
+
   internal static class PropStruct {
     internal static readonly DiagnosticDescriptor
       MustBePartial = Error(
@@ -179,6 +186,9 @@ internal static class GeneratorDiagnostics {
       ),
       ExpressionHint = Info(
         "HLXM13", "Mixin expression performance hint", "{0}"
+      ),
+      ContributionData = Hidden(
+        "HLXM14", "Mixin contribution data", "{0}|{1}|{2}|{3}"
       );
   }
 }

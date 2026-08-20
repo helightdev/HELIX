@@ -19,7 +19,8 @@ import kotlin.jvm.JvmStatic
  * #### Generated from [HelixExpressionModel.kt:9]
  */
 class HelixExpressionModel private constructor(
-    private val _getMixinExpressionRanges: RdCall<MixinExpressionRequest, MixinExpressionResponse>
+    private val _getMixinExpressionRanges: RdCall<MixinExpressionRequest, MixinExpressionResponse>,
+    private val _getMixinContributions: RdCall<MixinExpressionRequest, MixinContributionsResponse>
 ) : RdExtBase() {
     //companion
     
@@ -30,13 +31,15 @@ class HelixExpressionModel private constructor(
             serializers.register(LazyCompanionMarshaller(RdId(411702552799312759), classLoader, "dev.helight.helix.protocol.MixinExpressionRange"))
             serializers.register(LazyCompanionMarshaller(RdId(8264527692356685385), classLoader, "dev.helight.helix.protocol.MixinExpressionRequest"))
             serializers.register(LazyCompanionMarshaller(RdId(-2054058568823541817), classLoader, "dev.helight.helix.protocol.MixinExpressionResponse"))
+            serializers.register(LazyCompanionMarshaller(RdId(-4666356201977752738), classLoader, "dev.helight.helix.protocol.MixinContribution"))
+            serializers.register(LazyCompanionMarshaller(RdId(-6823870626045400010), classLoader, "dev.helight.helix.protocol.MixinContributionsResponse"))
         }
         
         
         
         
         
-        const val serializationHash = 6376851667827411014L
+        const val serializationHash = -2344505281666705518L
         
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
@@ -44,20 +47,24 @@ class HelixExpressionModel private constructor(
     
     //fields
     val getMixinExpressionRanges: IRdCall<MixinExpressionRequest, MixinExpressionResponse> get() = _getMixinExpressionRanges
+    val getMixinContributions: IRdCall<MixinExpressionRequest, MixinContributionsResponse> get() = _getMixinContributions
     //methods
     //initializer
     init {
         _getMixinExpressionRanges.async = true
+        _getMixinContributions.async = true
     }
     
     init {
         bindableChildren.add("getMixinExpressionRanges" to _getMixinExpressionRanges)
+        bindableChildren.add("getMixinContributions" to _getMixinContributions)
     }
     
     //secondary constructor
     internal constructor(
     ) : this(
-        RdCall<MixinExpressionRequest, MixinExpressionResponse>(MixinExpressionRequest, MixinExpressionResponse)
+        RdCall<MixinExpressionRequest, MixinExpressionResponse>(MixinExpressionRequest, MixinExpressionResponse),
+        RdCall<MixinExpressionRequest, MixinContributionsResponse>(MixinExpressionRequest, MixinContributionsResponse)
     )
     
     //equals trait
@@ -67,13 +74,15 @@ class HelixExpressionModel private constructor(
         printer.println("HelixExpressionModel (")
         printer.indent {
             print("getMixinExpressionRanges = "); _getMixinExpressionRanges.print(printer); println()
+            print("getMixinContributions = "); _getMixinContributions.print(printer); println()
         }
         printer.print(")")
     }
     //deepClone
     override fun deepClone(): HelixExpressionModel   {
         return HelixExpressionModel(
-            _getMixinExpressionRanges.deepClonePolymorphic()
+            _getMixinExpressionRanges.deepClonePolymorphic(),
+            _getMixinContributions.deepClonePolymorphic()
         )
     }
     //contexts
@@ -82,6 +91,156 @@ class HelixExpressionModel private constructor(
 }
 val com.jetbrains.rd.ide.model.Solution.helixExpressionModel get() = getOrCreateExtension("helixExpressionModel", ::HelixExpressionModel)
 
+
+
+/**
+ * #### Generated from [HelixExpressionModel.kt:32]
+ */
+data class MixinContribution (
+    val offset: Int,
+    val target: String,
+    val method: String,
+    val mixin: String,
+    val priority: Int
+) : IPrintable {
+    //write-marshaller
+    private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
+        buffer.writeInt(offset)
+        buffer.writeString(target)
+        buffer.writeString(method)
+        buffer.writeString(mixin)
+        buffer.writeInt(priority)
+    }
+    //companion
+    
+    companion object : IMarshaller<MixinContribution> {
+        override val _type: KClass<MixinContribution> = MixinContribution::class
+        override val id: RdId get() = RdId(-4666356201977752738)
+        
+        @Suppress("UNCHECKED_CAST")
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinContribution  {
+            val offset = buffer.readInt()
+            val target = buffer.readString()
+            val method = buffer.readString()
+            val mixin = buffer.readString()
+            val priority = buffer.readInt()
+            return MixinContribution(offset, target, method, mixin, priority)
+        }
+        
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinContribution)  {
+            value.write(ctx, buffer)
+        }
+        
+        
+    }
+    //fields
+    //methods
+    //initializer
+    //secondary constructor
+    //equals trait
+    override fun equals(other: Any?): Boolean  {
+        if (this === other) return true
+        if (other == null || other::class != this::class) return false
+        
+        other as MixinContribution
+        
+        if (offset != other.offset) return false
+        if (target != other.target) return false
+        if (method != other.method) return false
+        if (mixin != other.mixin) return false
+        if (priority != other.priority) return false
+        
+        return true
+    }
+    //hash code trait
+    override fun hashCode(): Int  {
+        var __r = 0
+        __r = __r*31 + offset.hashCode()
+        __r = __r*31 + target.hashCode()
+        __r = __r*31 + method.hashCode()
+        __r = __r*31 + mixin.hashCode()
+        __r = __r*31 + priority.hashCode()
+        return __r
+    }
+    //pretty print
+    override fun print(printer: PrettyPrinter)  {
+        printer.println("MixinContribution (")
+        printer.indent {
+            print("offset = "); offset.print(printer); println()
+            print("target = "); target.print(printer); println()
+            print("method = "); method.print(printer); println()
+            print("mixin = "); mixin.print(printer); println()
+            print("priority = "); priority.print(printer); println()
+        }
+        printer.print(")")
+    }
+    //deepClone
+    //contexts
+    //threading
+}
+
+
+/**
+ * #### Generated from [HelixExpressionModel.kt:40]
+ */
+data class MixinContributionsResponse (
+    val contributions: Array<MixinContribution>
+) : IPrintable {
+    //write-marshaller
+    private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
+        buffer.writeArray(contributions) { MixinContribution.write(ctx, buffer, it) }
+    }
+    //companion
+    
+    companion object : IMarshaller<MixinContributionsResponse> {
+        override val _type: KClass<MixinContributionsResponse> = MixinContributionsResponse::class
+        override val id: RdId get() = RdId(-6823870626045400010)
+        
+        @Suppress("UNCHECKED_CAST")
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinContributionsResponse  {
+            val contributions = buffer.readArray {MixinContribution.read(ctx, buffer)}
+            return MixinContributionsResponse(contributions)
+        }
+        
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinContributionsResponse)  {
+            value.write(ctx, buffer)
+        }
+        
+        
+    }
+    //fields
+    //methods
+    //initializer
+    //secondary constructor
+    //equals trait
+    override fun equals(other: Any?): Boolean  {
+        if (this === other) return true
+        if (other == null || other::class != this::class) return false
+        
+        other as MixinContributionsResponse
+        
+        if (!(contributions contentDeepEquals other.contributions)) return false
+        
+        return true
+    }
+    //hash code trait
+    override fun hashCode(): Int  {
+        var __r = 0
+        __r = __r*31 + contributions.contentDeepHashCode()
+        return __r
+    }
+    //pretty print
+    override fun print(printer: PrettyPrinter)  {
+        printer.println("MixinContributionsResponse (")
+        printer.indent {
+            print("contributions = "); contributions.print(printer); println()
+        }
+        printer.print(")")
+    }
+    //deepClone
+    //contexts
+    //threading
+}
 
 
 /**

@@ -1,143 +1,136 @@
 #if RIDER
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using HelixRider.Protocol;
 using JetBrains.Application.Parts;
+using JetBrains.DocumentModel;
 using JetBrains.Lifetimes;
-using JetBrains.Metadata.Reader.API;
-using JetBrains.Metadata.Reader.Impl;
 using JetBrains.ProjectModel;
 using JetBrains.Rd.Tasks;
 using JetBrains.ReSharper.Feature.Services.Protocol;
-using JetBrains.ReSharper.Psi;
-using JetBrains.ReSharper.Psi.CSharp.Tree;
-using JetBrains.ReSharper.Psi.Files;
-using JetBrains.ReSharper.Psi.Tree;
+using JetBrains.Roslyn.Host.Core;
+using JetBrains.Roslyn.Host.Facade;
+using JetBrains.Roslyn.Host.Integration.ProjectModel;
+using JetBrains.Roslyn.Host.Models;
 using JetBrains.Util;
 
 namespace HelixRider
 {
     /// <summary>
-    /// Resolves HELIX expression arguments in the ReSharper backend.  The frontend deliberately
-    /// does not try to understand C# attributes: aliases, qualified names and malformed code are
-    /// all handled by the C# PSI here.
+    /// Reads final mixin contributions from the source generator's hidden Roslyn diagnostics.
     /// </summary>
-    [SolutionComponent(Instantiation.ContainerAsyncAnyThreadSafe)]
+    [RoslynComponent(Instantiation.ContainerAsyncAnyThreadUnsafe)]
     public sealed class MixinExpressionProtocolHandler
     {
-        private static readonly IClrTypeName MixinExpressionAttribute =
-            new ClrTypeName("HELIX.MixinExpressionAttribute");
-        private static readonly IClrTypeName MixinPrepareGlobalAttribute =
-            new ClrTypeName("HELIX.MixinPrepareGlobalAttribute");
-
         private readonly ISolution _solution;
-        private readonly IPsiFiles _psiFiles;
+        private readonly RoslynModel _roslynModel;
+        private readonly IRoslynProjectsFacade _projectsFacade;
+        private readonly RoslynTargetFrameworkCache _targetFrameworkCache;
 
-        public MixinExpressionProtocolHandler(Lifetime lifetime, ISolution solution, IPsiFiles psiFiles)
+        public MixinExpressionProtocolHandler(
+            Lifetime lifetime,
+            ISolution solution,
+            RoslynModel roslynModel,
+            IRoslynProjectsFacade projectsFacade,
+            RoslynTargetFrameworkCache targetFrameworkCache)
         {
             _solution = solution;
-            _psiFiles = psiFiles;
+            _roslynModel = roslynModel;
+            _projectsFacade = projectsFacade;
+            _targetFrameworkCache = targetFrameworkCache;
             var model = solution.GetProtocolSolution().GetHelixExpressionModel();
-            model.GetMixinExpressionRanges.SetAsync(CollectRangesAsync);
+            model.GetMixinContributions.SetAsync(CollectContributionsAsync);
         }
 
-        private async Task<MixinExpressionResponse> CollectRangesAsync(
+        private async Task<MixinContributionsResponse> CollectContributionsAsync(
             Lifetime lifetime,
             MixinExpressionRequest request)
         {
-            // Frontend requests are commonly issued while Rider is synchronising an editor
-            // document. GetPrimaryPsiFile asserts for dirty PSI, so wait for a committed snapshot
-            // and automatically retry if a concurrent edit interrupts the commit.
-            return await _psiFiles.CommitWithRetryBackgroundRead(lifetime, () => CollectRanges(request));
-        }
-
-        private MixinExpressionResponse CollectRanges(MixinExpressionRequest request)
-        {
+            if (!File.Exists(request.FilePath))
+                return new MixinContributionsResponse(Array.Empty<MixinContribution>());
+            var lineMap = new FileLineMap(File.ReadAllText(request.FilePath));
             var path = VirtualFileSystemPath.Parse(request.FilePath, InteractionContext.SolutionContext);
-            // Unity can include one physical script in several generated projects. Some of the
-            // corresponding project-model entries don't own a C# PSI file, so selecting the first
-            // item makes the result depend on project load order.
             var projectFiles = _solution.FindProjectItemsByLocation(path).OfType<IProjectFile>().ToList();
-            var csharpFiles = projectFiles
-                .Select(projectFile => projectFile.GetPrimaryPsiFile())
-                .OfType<ICSharpFile>()
-                .Distinct()
-                .ToList();
-            if (csharpFiles.Count == 0)
-                return new MixinExpressionResponse(projectFiles.Count != 0, false, 0, 0,
-                    Array.Empty<MixinExpressionRange>());
-
-            // A Unity source file can have several C# PSI views, one for each generated project
-            // context. References (including the HELIX meta-attributes) are not necessarily
-            // resolvable in the first view. Prefer the view that resolves the most target
-            // attributes; use its ranges so offsets aren't duplicated across contexts.
-            var best = csharpFiles
-                .Select(CollectRanges)
-                .OrderByDescending(result => result.MatchedAttributeCount)
-                .ThenByDescending(result => result.AttributeCount)
-                .First();
-            return new MixinExpressionResponse(true, true, best.AttributeCount,
-                best.MatchedAttributeCount, best.Ranges.ToArray());
-        }
-
-        private static CollectedRanges CollectRanges(ICSharpFile file)
-        {
-            var ranges = new List<MixinExpressionRange>();
-            var attributeCount = 0;
-            var matchedAttributeCount = 0;
-            foreach (var attribute in file.Descendants<IAttribute>())
+            var contributions = new HashSet<MixinContribution>();
+            foreach (var projectFile in projectFiles)
             {
-                attributeCount++;
-                var typeElement = attribute.TypeReference?.Resolve().DeclaredElement as ITypeElement;
-                if (typeElement == null)
+                var project = projectFile.GetProject();
+                if (!_projectsFacade.IsProjectSyncedWithWorker(project))
                     continue;
-
-                var typeName = typeElement.GetClrName();
-                var arguments = attribute.Arguments;
-                if (Equals(typeName, MixinPrepareGlobalAttribute))
+                var projectId = _projectsFacade.GetProjectId(project);
+                if (projectId == null)
+                    continue;
+                foreach (var targetFramework in project.TargetFrameworkIds)
                 {
-                    matchedAttributeCount++;
-                    AddLiteralRange(arguments.FirstOrDefault()?.Value, ranges);
-                }
-                else if (Equals(typeName, MixinExpressionAttribute))
-                {
-                    matchedAttributeCount++;
-                    // Every supported overload names its expression parameter "expression" and
-                    // keeps it last. Named arguments are selected explicitly before that fallback.
-                    var expressionArgument = arguments.FirstOrDefault(argument =>
-                        string.Equals(argument.NameIdentifier?.Name, "expression", StringComparison.Ordinal))
-                        ?? arguments.LastOrDefault();
-                    AddLiteralRange(expressionArgument?.Value, ranges);
+                    var requestData = new RdGetHighlighterArgs(
+                        lineMap.LineCount,
+                        projectId,
+                        _targetFrameworkCache.GetOrCreate(targetFramework),
+                        request.FilePath,
+                        AnalyzersKind.Custom,
+                        false,
+                        0);
+                    var highlighters = await _roslynModel.Analyzers.Value.GetFileHighlighters
+                        .Start(lifetime, requestData).AsTask();
+                    foreach (var highlighter in highlighters)
+                    {
+                        var diagnostic = highlighter.Diagnostic;
+                        if (diagnostic?.Key?.DiagnosticId != "HLXM14")
+                            continue;
+                        var offset = lineMap.GetOffset(diagnostic.Key.StartCoords);
+                        if (TryParseContribution(diagnostic.Key.Message, offset, out var contribution))
+                            contributions.Add(contribution);
+                    }
                 }
             }
 
-            return new CollectedRanges(attributeCount, matchedAttributeCount, ranges);
+            return new MixinContributionsResponse(contributions
+                .OrderBy(item => item.Target, StringComparer.Ordinal)
+                .ThenBy(item => item.Method, StringComparer.Ordinal)
+                .ThenBy(item => item.Priority)
+                .ThenBy(item => item.Mixin, StringComparer.Ordinal)
+                .ToArray());
         }
 
-        private sealed class CollectedRanges
+        private static bool TryParseContribution(
+            string message, int offset, out MixinContribution contribution)
         {
-            public CollectedRanges(int attributeCount, int matchedAttributeCount,
-                List<MixinExpressionRange> ranges)
+            contribution = null;
+            if (message == null)
+                return false;
+            var parts = message.Split(new[] { '|' }, 4);
+            if (parts.Length != 4 || !int.TryParse(
+                    parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var priority))
+                return false;
+            contribution = new MixinContribution(offset, parts[0], parts[1], parts[2], priority);
+            return true;
+        }
+
+        private sealed class FileLineMap
+        {
+            private readonly int[] _lineStarts;
+
+            public FileLineMap(string text)
             {
-                AttributeCount = attributeCount;
-                MatchedAttributeCount = matchedAttributeCount;
-                Ranges = ranges;
+                var starts = new List<int> { 0 };
+                for (var index = 0; index < text.Length; index++)
+                    if (text[index] == '\n')
+                        starts.Add(index + 1);
+                _lineStarts = starts.ToArray();
             }
 
-            public int AttributeCount { get; }
-            public int MatchedAttributeCount { get; }
-            public List<MixinExpressionRange> Ranges { get; }
-        }
+            public int LineCount => _lineStarts.Length;
 
-        private static void AddLiteralRange(ICSharpExpression expression, ICollection<MixinExpressionRange> ranges)
-        {
-            if (!(expression is ICSharpLiteralExpression literal))
-                return;
-
-            var textRange = literal.GetDocumentRange().TextRange;
-            ranges.Add(new MixinExpressionRange(textRange.StartOffset, textRange.EndOffset));
+            public int GetOffset(RdCoords coordinates)
+            {
+                if (coordinates == null || coordinates.Line < 0 || coordinates.Line >= LineCount)
+                    return 0;
+                return _lineStarts[coordinates.Line] + Math.Max(0, coordinates.Column);
+            }
         }
     }
 }
