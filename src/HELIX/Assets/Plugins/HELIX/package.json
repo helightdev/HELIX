@@ -1,7 +1,7 @@
 {
     "name": "dev.helight.helix.core",
     "displayName": "HELIX Core",
-    "version": "0.3.1",
+    "version": "0.3.3",
     "unity": "6000.5",
     "description": "Core library for other HELIX packages including the generator and mixins.",
     "license": "MIT",

@@ -1,4 +1,5 @@
 using System;
+using Cysharp.Threading.Tasks;
 using HELIX.Prose;
 using Sirenix.OdinInspector;
 using UnityEngine;
@@ -16,14 +17,12 @@ namespace HELIX.Context {
     public void OnInit() {
       Debug.Log("SceneInjectedService.OnInit");
     }
-      
+
     [MixinMethod]
     public void OnDispose() {
       Debug.Log("SceneInjectedService.OnDispose");
     }
     
-    
-
     [Button]
     public void ActivateGameObjectScope() {
       testGameObject = new GameObject();

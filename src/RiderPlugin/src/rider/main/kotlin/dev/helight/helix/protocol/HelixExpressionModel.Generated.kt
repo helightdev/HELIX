@@ -20,10 +20,11 @@ import kotlin.jvm.JvmStatic
  */
 class HelixExpressionModel private constructor(
     private val _getMixinExpressionRanges: RdCall<MixinExpressionRequest, MixinExpressionResponse>,
-    private val _getMixinContributions: RdCall<MixinExpressionRequest, MixinContributionsResponse>
+    private val _getMixinContributions: RdCall<MixinExpressionRequest, MixinContributionsResponse>,
+    private val _isHelixEnabled: RdOptionalProperty<Boolean>
 ) : RdExtBase() {
     //companion
-    
+
     companion object : ISerializersOwner {
         
         override fun registerSerializersCore(serializers: ISerializers)  {
@@ -39,7 +40,7 @@ class HelixExpressionModel private constructor(
         
         
         
-        const val serializationHash = -2754755806298592282L
+        const val serializationHash = -5251956373142778403L
         
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
@@ -48,8 +49,13 @@ class HelixExpressionModel private constructor(
     //fields
     val getMixinExpressionRanges: IRdCall<MixinExpressionRequest, MixinExpressionResponse> get() = _getMixinExpressionRanges
     val getMixinContributions: IRdCall<MixinExpressionRequest, MixinContributionsResponse> get() = _getMixinContributions
+    val isHelixEnabled: IOptProperty<Boolean> get() = _isHelixEnabled
     //methods
     //initializer
+    init {
+        _isHelixEnabled.optimizeNested = true
+    }
+
     init {
         _getMixinExpressionRanges.async = true
         _getMixinContributions.async = true
@@ -58,13 +64,15 @@ class HelixExpressionModel private constructor(
     init {
         bindableChildren.add("getMixinExpressionRanges" to _getMixinExpressionRanges)
         bindableChildren.add("getMixinContributions" to _getMixinContributions)
+        bindableChildren.add("isHelixEnabled" to _isHelixEnabled)
     }
     
     //secondary constructor
     internal constructor(
     ) : this(
         RdCall<MixinExpressionRequest, MixinExpressionResponse>(MixinExpressionRequest, MixinExpressionResponse),
-        RdCall<MixinExpressionRequest, MixinContributionsResponse>(MixinExpressionRequest, MixinContributionsResponse)
+        RdCall<MixinExpressionRequest, MixinContributionsResponse>(MixinExpressionRequest, MixinContributionsResponse),
+        RdOptionalProperty<Boolean>(FrameworkMarshallers.Bool)
     )
     
     //equals trait
@@ -75,6 +83,7 @@ class HelixExpressionModel private constructor(
         printer.indent {
             print("getMixinExpressionRanges = "); _getMixinExpressionRanges.print(printer); println()
             print("getMixinContributions = "); _getMixinContributions.print(printer); println()
+            print("isHelixEnabled = "); _isHelixEnabled.print(printer); println()
         }
         printer.print(")")
     }
@@ -82,7 +91,8 @@ class HelixExpressionModel private constructor(
     override fun deepClone(): HelixExpressionModel   {
         return HelixExpressionModel(
             _getMixinExpressionRanges.deepClonePolymorphic(),
-            _getMixinContributions.deepClonePolymorphic()
+            _getMixinContributions.deepClonePolymorphic(),
+            _isHelixEnabled.deepClonePolymorphic()
         )
     }
     //contexts

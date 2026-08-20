@@ -8,6 +8,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.rider.languages.fileTypes.csharp.psi.CSharpStringLiteralExpression
 import com.jetbrains.rider.languages.fileTypes.csharp.psi.impl.CSharpElementTypes
 import com.jetbrains.rider.languages.fileTypes.csharp.psi.impl.CSharpNonInterpolatedStringLiteralExpressionImpl
+import dev.helight.helix.workspace.WorkspaceSettings
 
 /** Injects HELIX expressions by inspecting Rider's local C# syntax tree. */
 class HelixExpressionCSharpInjector : MultiHostInjector {
@@ -15,6 +16,7 @@ class HelixExpressionCSharpInjector : MultiHostInjector {
         listOf(CSharpNonInterpolatedStringLiteralExpressionImpl::class.java)
 
     override fun getLanguagesToInject(registrar: MultiHostRegistrar, context: PsiElement) {
+        if (!WorkspaceSettings.getInstance(context.project).helixEnabled) return
         val literal = context as? CSharpStringLiteralExpression ?: return
         if (!literal.isValidHost) return
 

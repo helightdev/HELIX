@@ -1,6 +1,7 @@
 package dev.helight.helix.workspace
 
 import com.intellij.openapi.options.Configurable
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.ui.CollectionListModel
@@ -8,18 +9,23 @@ import com.intellij.ui.ColoredListCellRenderer
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBList
+import com.intellij.ui.components.JBCheckBox
 import dev.helight.helix.HelixMessagesBundle.message
 import javax.swing.JComponent
 import javax.swing.JList
+import javax.swing.JPanel
+import java.awt.BorderLayout
 
 internal class WorkspaceSettingsConfigurable(private val project: Project) : Configurable {
     private val settings = WorkspaceSettings.getInstance(project)
     private var model = CollectionListModel<WorkspaceEntry>()
     private lateinit var list: JBList<WorkspaceEntry>
+    private lateinit var helixEnabled: JBCheckBox
 
     override fun getDisplayName(): String = message("workspace.settings.name")
 
     override fun createComponent(): JComponent {
+        helixEnabled = JBCheckBox("Enable HELIX Rider features for this project", settings.helixEnabled)
         model = CollectionListModel(settings.entries)
         list = JBList(model).apply {
             cellRenderer = object : ColoredListCellRenderer<WorkspaceEntry>() {
@@ -34,23 +40,33 @@ internal class WorkspaceSettingsConfigurable(private val project: Project) : Con
                 }
             }
         }
-        return ToolbarDecorator.createDecorator(list)
+        val entriesPanel = ToolbarDecorator.createDecorator(list)
             .setAddAction { showProviderChooser() }
             .setEditAction { editSelected() }
             .setRemoveAction { model.remove(list.selectedIndex) }
             .setMoveUpAction { move(-1) }
             .setMoveDownAction { move(1) }
             .createPanel()
+        return JPanel(BorderLayout(0, 8)).apply {
+            add(helixEnabled, BorderLayout.NORTH)
+            add(entriesPanel, BorderLayout.CENTER)
+        }
     }
 
-    override fun isModified(): Boolean = model.items != settings.entries
+    override fun isModified(): Boolean =
+        helixEnabled.isSelected != settings.helixEnabled || model.items != settings.entries
 
     override fun apply() {
+        settings.helixEnabled = helixEnabled.isSelected
         settings.entries = model.items
+        DaemonCodeAnalyzer.getInstance(project).restart()
         UnityWorkspaceProjectViewPane.find(project)?.refreshWorkspace()
     }
 
-    override fun reset() = model.replaceAll(settings.entries)
+    override fun reset() {
+        helixEnabled.isSelected = settings.helixEnabled
+        model.replaceAll(settings.entries)
+    }
 
     private fun showProviderChooser() {
         val configuredTypes = model.items.mapTo(mutableSetOf()) { it.typeId }

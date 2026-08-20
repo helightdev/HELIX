@@ -1,7 +1,7 @@
 {
     "name": "dev.helight.helix.devtools",
     "displayName": "HELIX Devtools",
-    "version": "0.3.1",
+    "version": "0.3.3",
     "unity": "6000.5",
     "description": "Development and debugging tools for HELIX-based Unity projects.",
     "license": "MIT",
@@ -22,9 +22,9 @@
     ],
     "dependencies": {
         "com.unity.pipeline": "0.5.0-exp.1 ",
-        "dev.helight.helix.core": "0.3.1",
-        "dev.helight.helix.compose": "0.3.1",
-        "dev.helight.helix.context": "0.3.1",
-        "dev.helight.helix.support": "0.3.1"
+        "dev.helight.helix.core": "0.3.3",
+        "dev.helight.helix.compose": "0.3.3",
+        "dev.helight.helix.context": "0.3.3",
+        "dev.helight.helix.support": "0.3.3"
     }
 }

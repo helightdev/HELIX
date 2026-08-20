@@ -6,6 +6,8 @@ import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import com.jetbrains.rider.projectView.solution
+import dev.helight.helix.protocol.helixExpressionModel
 
 @Service(Service.Level.PROJECT)
 @State(name = "WorkspaceSettings", storages = [Storage("helixWorkspace.xml")])
@@ -14,6 +16,17 @@ internal class WorkspaceSettings(private val project: Project) :
     companion object {
         fun getInstance(project: Project): WorkspaceSettings = project.service()
     }
+
+    init {
+        syncHelixEnabled(state.helixEnabled)
+    }
+
+    var helixEnabled: Boolean
+        get() = state.helixEnabled
+        set(value) {
+            updateState { it.copy(helixEnabled = value) }
+            syncHelixEnabled(value)
+        }
 
     var entries: List<WorkspaceEntry>
         get() = state.entries.map { entry ->
@@ -26,8 +39,13 @@ internal class WorkspaceSettings(private val project: Project) :
             val snapshot = value.map { it.copy(options = it.options.toMap()) }
             updateState { it.copy(entries = snapshot) }
         }
+
+    private fun syncHelixEnabled(value: Boolean) {
+        project.solution.helixExpressionModel.isHelixEnabled.set(value)
+    }
 }
 
 internal data class WorkspaceSettingsState(
-    @JvmField val entries: List<WorkspaceEntry> = emptyList()
+    @JvmField var helixEnabled: Boolean = false,
+    @JvmField var entries: List<WorkspaceEntry> = emptyList()
 )

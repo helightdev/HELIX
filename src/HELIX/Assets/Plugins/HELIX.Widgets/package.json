@@ -1,7 +1,7 @@
 {
     "name": "dev.helight.helix.widgets",
     "displayName": "HELIX Widgets",
-    "version": "0.3.1",
+    "version": "0.3.3",
     "unity": "6000.5",
     "description": "Provides the widget framework for the HELIX UI Toolkit extensions.",
     "license": "MIT",
@@ -16,7 +16,7 @@
         "HELIX"
     ],
     "dependencies": {
-        "dev.helight.helix.core": "0.3.1",
+        "dev.helight.helix.core": "0.3.3",
         "com.unity.nuget.newtonsoft-json": "3.2.1"
     }
 }

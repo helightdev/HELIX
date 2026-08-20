@@ -49,5 +49,6 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
 
         call("getMixinExpressionRanges", request, response).async
         call("getMixinContributions", request, contributionsResponse).async
+        property("isHelixEnabled", bool)
     }
 }

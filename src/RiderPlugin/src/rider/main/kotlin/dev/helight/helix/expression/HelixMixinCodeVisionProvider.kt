@@ -11,6 +11,7 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.util.TextRange
 import dev.helight.helix.HelixMessagesBundle
 import dev.helight.helix.protocol.MixinContribution
+import dev.helight.helix.workspace.WorkspaceSettings
 
 @Suppress("UnstableApiUsage")
 class HelixMixinCodeVisionProvider : CodeVisionProvider<String?> {
@@ -27,10 +28,12 @@ class HelixMixinCodeVisionProvider : CodeVisionProvider<String?> {
         uiData: String?,
     ): CodeVisionState {
         if (uiData == null || editor.isDisposed) return CodeVisionState.Ready(emptyList())
+        val project = editor.project ?: return CodeVisionState.Ready(emptyList())
+        if (!WorkspaceSettings.getInstance(project).helixEnabled)
+            return CodeVisionState.Ready(emptyList())
         val contributions: List<MixinContribution> =
-            editor.project?.service<HelixMixinContributionCache>()
-                ?.request(uiData, editor.document.modificationStamp, editor.document.text)
-                .orEmpty()
+            project.service<HelixMixinContributionCache>()
+                .request(uiData, editor.document.modificationStamp, editor.document.text)
 
         val entries: List<Pair<TextRange, CodeVisionEntry>> = contributions.groupBy { it.offset to it.target }.map { (key, items) ->
             val offset = key.first.coerceIn(0, editor.document.textLength)

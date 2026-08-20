@@ -28,6 +28,8 @@ public sealed class EventHandlerMemberCompletionProvider : CSharpItemsProviderBa
 
     protected override bool AddLookupItems(CSharpCodeCompletionContext context, IItemsCollector collector)
     {
+        if (!HelixProjectAvailability.IsAvailable(context.PsiModule))
+            return false;
         if (!TryGetContext(context, out var typeUsage, out var typeElement, out var typeDeclaration))
             return false;
 
@@ -54,8 +56,8 @@ public sealed class EventHandlerMemberCompletionProvider : CSharpItemsProviderBa
         if (context.UnterminatedContext.TreeNode is not ICSharpIdentifier identifier)
             return false;
         var typedPrefix = identifier.Name.Replace(SyntheticComments.CodeCompletionIdentifierToken, string.Empty);
-        if (!Shortcut.StartsWith(typedPrefix))
-            return false;
+         if (!Shortcut.StartsWith(typedPrefix))
+             return false;
 
         typeUsage = identifier.GetContainingNode<IUserTypeUsage>();
         typeDeclaration = identifier.GetContainingNode<IClassLikeDeclaration>();

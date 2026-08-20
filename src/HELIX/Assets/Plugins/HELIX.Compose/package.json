@@ -1,7 +1,7 @@
 {
     "name": "dev.helight.helix.compose",
     "displayName": "HELIX Compose",
-    "version": "0.3.1",
+    "version": "0.3.3",
     "unity": "6000.5",
     "description": "Intermediate-enough ui composition and styling layer on-top of unity ui toolkit.",
     "license": "MIT",
@@ -20,6 +20,6 @@
     ],
     "dependencies": {
         "com.unity.inputsystem": "1.19.0",
-        "dev.helight.helix.core": "0.3.1"
+        "dev.helight.helix.core": "0.3.3"
     }
 }

@@ -10,9 +10,11 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.Function
 import com.jetbrains.rider.languages.fileTypes.csharp.psi.CSharpDeclaration
 import dev.helight.helix.HelixIcons
+import dev.helight.helix.workspace.WorkspaceSettings
 
 class HelixMixinContributionLineMarkerProvider : LineMarkerProvider {
     override fun getLineMarkerInfo(element: PsiElement): LineMarkerInfo<*>? {
+        if (!WorkspaceSettings.getInstance(element.project).helixEnabled) return null
         if (element.firstChild != null) return null
         val file = element.containingFile ?: return null
         val path = file.virtualFile?.path ?: return null

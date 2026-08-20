@@ -44,39 +44,47 @@ namespace HelixRider.Protocol
     //public fields
     [NotNull] public IRdEndpoint<MixinExpressionRequest, MixinExpressionResponse> GetMixinExpressionRanges => _GetMixinExpressionRanges;
     [NotNull] public IRdEndpoint<MixinExpressionRequest, MixinContributionsResponse> GetMixinContributions => _GetMixinContributions;
+    [NotNull] public IViewableProperty<bool> IsHelixEnabled => _IsHelixEnabled;
     
     //private fields
     [NotNull] private readonly RdCall<MixinExpressionRequest, MixinExpressionResponse> _GetMixinExpressionRanges;
     [NotNull] private readonly RdCall<MixinExpressionRequest, MixinContributionsResponse> _GetMixinContributions;
+    [NotNull] private readonly RdProperty<bool> _IsHelixEnabled;
     
     //primary constructor
     private HelixExpressionModel(
       [NotNull] RdCall<MixinExpressionRequest, MixinExpressionResponse> getMixinExpressionRanges,
-      [NotNull] RdCall<MixinExpressionRequest, MixinContributionsResponse> getMixinContributions
+      [NotNull] RdCall<MixinExpressionRequest, MixinContributionsResponse> getMixinContributions,
+      [NotNull] RdProperty<bool> isHelixEnabled
     )
     {
       if (getMixinExpressionRanges == null) throw new ArgumentNullException("getMixinExpressionRanges");
       if (getMixinContributions == null) throw new ArgumentNullException("getMixinContributions");
+      if (isHelixEnabled == null) throw new ArgumentNullException("isHelixEnabled");
       
       _GetMixinExpressionRanges = getMixinExpressionRanges;
       _GetMixinContributions = getMixinContributions;
+      _IsHelixEnabled = isHelixEnabled;
+      _IsHelixEnabled.OptimizeNested = true;
       _GetMixinExpressionRanges.Async = true;
       _GetMixinContributions.Async = true;
       BindableChildren.Add(new KeyValuePair<string, object>("getMixinExpressionRanges", _GetMixinExpressionRanges));
       BindableChildren.Add(new KeyValuePair<string, object>("getMixinContributions", _GetMixinContributions));
+      BindableChildren.Add(new KeyValuePair<string, object>("isHelixEnabled", _IsHelixEnabled));
     }
     //secondary constructor
     internal HelixExpressionModel (
     ) : this (
       new RdCall<MixinExpressionRequest, MixinExpressionResponse>(MixinExpressionRequest.Read, MixinExpressionRequest.Write, MixinExpressionResponse.Read, MixinExpressionResponse.Write),
-      new RdCall<MixinExpressionRequest, MixinContributionsResponse>(MixinExpressionRequest.Read, MixinExpressionRequest.Write, MixinContributionsResponse.Read, MixinContributionsResponse.Write)
+      new RdCall<MixinExpressionRequest, MixinContributionsResponse>(MixinExpressionRequest.Read, MixinExpressionRequest.Write, MixinContributionsResponse.Read, MixinContributionsResponse.Write),
+      new RdProperty<bool>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool)
     ) {}
     //deconstruct trait
     //statics
     
     
     
-    protected override long SerializationHash => -2754755806298592282L;
+    protected override long SerializationHash => -5251956373142778403L;
     
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -99,6 +107,7 @@ namespace HelixRider.Protocol
       using (printer.IndentCookie()) {
         printer.Print("getMixinExpressionRanges = "); _GetMixinExpressionRanges.PrintEx(printer); printer.Println();
         printer.Print("getMixinContributions = "); _GetMixinContributions.PrintEx(printer); printer.Println();
+        printer.Print("isHelixEnabled = "); _IsHelixEnabled.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }

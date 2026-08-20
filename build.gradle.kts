@@ -46,6 +46,8 @@ unity {
         category = "Scripting"
         keywords("DI", "Dependency Injection", "Service Locator", "Context")
 
+        dependency("com.unity.addressables", "2.11.1")
+        dependency("com.cysharp.unitask", "2.5.11")
         projectDependency(core)
     }
     val support = unityPackage("Assets/Plugins/HELIX.Support") {

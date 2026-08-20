@@ -1,7 +1,7 @@
 {
     "name": "dev.helight.helix.context",
     "displayName": "HELIX Context",
-    "version": "0.3.1",
+    "version": "0.3.3",
     "unity": "6000.5",
     "description": "Service and dependency management system with lifecycle management and productivity helpers.",
     "license": "MIT",
@@ -20,6 +20,8 @@
         "Context"
     ],
     "dependencies": {
-        "dev.helight.helix.core": "0.3.1"
+        "com.unity.addressables": "2.11.1",
+        "com.cysharp.unitask": "2.5.11",
+        "dev.helight.helix.core": "0.3.3"
     }
 }

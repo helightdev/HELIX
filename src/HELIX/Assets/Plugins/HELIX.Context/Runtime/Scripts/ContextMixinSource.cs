@@ -123,8 +123,6 @@ using HELIX;
 [assembly: MixinPrepareGlobal(
   @"
 @FUNC<ResourceImpl>
-  @CALL<RequireEventHandler>
-
   @SCOPE
     @MATCH @target:type:?is<System.Collections.IEnumerable>
     @MATCH @target:type:!?is<string>
@@ -186,7 +184,6 @@ using HELIX;
   @"
 @FUNC<InjectDiImpl>
   @USING HELIX.Context;
-  @CALL<RequireEventHandler>
 
   @SCOPE
     @MATCH @target:type:?is<System.Collections.IEnumerable>
