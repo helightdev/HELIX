@@ -3,6 +3,7 @@ package dev.helight.helix.expression
 import com.intellij.codeInsight.daemon.LineMarkerInfo
 import com.intellij.codeInsight.daemon.LineMarkerProvider
 import com.intellij.openapi.components.service
+import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNameIdentifierOwner
 import com.intellij.psi.util.PsiTreeUtil
@@ -37,9 +38,10 @@ class HelixMixinContributionLineMarkerProvider : LineMarkerProvider {
                     clickedElement,
                     contributions.first().target,
                     contributions,
+                    showApplicator = false
                 )
             },
-            com.intellij.openapi.editor.markup.GutterIconRenderer.Alignment.LEFT,
+            GutterIconRenderer.Alignment.LEFT,
             { tooltip },
         )
     }

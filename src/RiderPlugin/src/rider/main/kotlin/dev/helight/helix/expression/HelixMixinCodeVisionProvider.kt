@@ -16,6 +16,7 @@ import dev.helight.helix.protocol.MixinContribution
 import dev.helight.helix.protocol.MixinExpressionRequest
 import dev.helight.helix.protocol.helixExpressionModel
 
+@Suppress("UnstableApiUsage")
 class HelixMixinCodeVisionProvider : CodeVisionProvider<String?> {
     override val id: String = "helix.mixin.hooks"
     override val name: String = HelixMessagesBundle.message("mixin.code.vision.name")
@@ -29,19 +30,18 @@ class HelixMixinCodeVisionProvider : CodeVisionProvider<String?> {
         editor: Editor,
         uiData: String?,
     ): CodeVisionState {
-        val filePath = uiData
-        if (filePath == null || editor.isDisposed) return CodeVisionState.Ready(emptyList())
+        if (uiData == null || editor.isDisposed) return CodeVisionState.Ready(emptyList())
         val contributions: List<MixinContribution> = runCatching {
             editor.project?.solution?.helixExpressionModel?.getMixinContributions?.sync(
-                MixinExpressionRequest(filePath),
+                MixinExpressionRequest(uiData),
                 RpcTimeouts.longRunning,
             )?.contributions.orEmpty().toList()
-        }.getOrElse { emptyList<MixinContribution>() }
-        editor.project?.service<HelixMixinContributionCache>()?.update(filePath, contributions)
+        }.getOrElse { emptyList() }
+        editor.project?.service<HelixMixinContributionCache>()?.update(uiData, contributions)
 
         val entries: List<Pair<TextRange, CodeVisionEntry>> = contributions.groupBy { it.offset to it.target }.map { (key, items) ->
             val offset = key.first.coerceIn(0, editor.document.textLength)
-            val text = if (items.size == 1) "1 mixin hoko" else "${items.size} mixin hooks"
+            val text = if (items.size == 1) "1 mixin hook" else "${items.size} mixin hooks"
             TextRange(offset, offset) to ClickableTextCodeVisionEntry(
                 text,
                 id,

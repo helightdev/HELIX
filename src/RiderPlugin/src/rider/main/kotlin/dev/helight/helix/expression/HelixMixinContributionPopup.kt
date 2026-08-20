@@ -1,6 +1,7 @@
 package dev.helight.helix.expression
 
 import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.PsiElement
@@ -17,20 +18,15 @@ object HelixMixinContributionPopup {
         create(target, contributions).showInBestPositionFor(editor)
     }
 
-    fun show(project: Project, element: PsiElement, target: String, contributions: List<MixinContribution>) {
-        create(
-            target,
-            contributions
-        ).showInBestPositionFor(
-            com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).selectedTextEditor ?: return
-        )
+    fun show(project: Project, element: PsiElement, target: String, contributions: List<MixinContribution>, showApplicator: Boolean = true) {
+        create(target, contributions, showApplicator).showInBestPositionFor(FileEditorManager.getInstance(project).selectedTextEditor ?: return)
     }
 
-    private fun create(target: String, contributions: List<MixinContribution>) =
+    private fun create(target: String, contributions: List<MixinContribution>, showApplicator: Boolean = true) =
         JBPopupFactory.getInstance()
             .createPopupChooserBuilder(contributions.sortedWith(ordering))
             .setTitle("Mixins Hooks applied to ${target.removePrefix("global::").substringAfterLast(".")}")
-            .setRenderer(ContributionRenderer())
+            .setRenderer(ContributionRenderer(showApplicator))
             .setNamerForFiltering(Function { contribution ->
                 "${contribution.method} ${contribution.mixin} ${contribution.priority}"
             })
@@ -40,7 +36,7 @@ object HelixMixinContributionPopup {
             .setResizable(true)
             .createPopup()
 
-    private class ContributionRenderer : ColoredListCellRenderer<MixinContribution>() {
+    private class ContributionRenderer(val showApplicator: Boolean = true) : ColoredListCellRenderer<MixinContribution>() {
         override fun customizeCellRenderer(
             list: JList<out MixinContribution>,
             value: MixinContribution,
@@ -50,12 +46,18 @@ object HelixMixinContributionPopup {
         ) {
             icon = dev.helight.helix.HelixIcons.MixinContribution
             append(value.method, SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
-            append(" from ", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+            append(" [${value.priority}]", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+
+            val applicator = value.sourceMember
+            if (showApplicator && applicator.isNotBlank()) {
+                append(" from ", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+                append(value.sourceMember, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+            }
+            append(" by ", SimpleTextAttributes.GRAYED_ATTRIBUTES)
             append(
-                value.mixin.removePrefix("global::").substringAfterLast(".").removePrefix("Attribute"),
+                value.mixin.removePrefix("global::").substringAfterLast(".").removeSuffix("Attribute"),
                 SimpleTextAttributes.REGULAR_ATTRIBUTES
             )
-            append(" [${value.priority}]", SimpleTextAttributes.GRAYED_ATTRIBUTES)
         }
     }
 }
