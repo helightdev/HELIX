@@ -1,2 +1,6 @@
 *.unitypackage
 *.unitypackage.meta
+
+# This is just mostly annoying and not really relevant for vcs currently
+AddressableAssetsData*
+Adaptive Performance*
