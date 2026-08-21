@@ -40,16 +40,27 @@ class HelixMixinContributionCache(
                     var activeRevision = requestedRevision[filePath]
                     var attempt = 0
                     while (attempt < RETRY_COUNT) {
-                        val contributions = project.solution.helixExpressionModel.getMixinContributions
-                            .startSuspending(
-                                MixinExpressionRequest(
-                                    filePath,
-                                    requestedSourceText[filePath].orEmpty(),
-                                    activeRevision ?: revision,
+                        val contributions = try {
+                            project.solution.helixExpressionModel.getMixinContributions
+                                .startSuspending(
+                                    MixinExpressionRequest(
+                                        filePath,
+                                        requestedSourceText[filePath].orEmpty(),
+                                        activeRevision ?: revision,
+                                    )
                                 )
-                            )
-                            .contributions
-                            .toList()
+                                .contributions
+                                .toList()
+                        } catch (exception: CancellationException) {
+                            throw exception
+                        } catch (_: Throwable) {
+                            // Rider can run the first highlighting pass before the Roslyn
+                            // protocol component is ready. Retry here because there may be no
+                            // subsequent pass until the user edits the document.
+                            attempt++
+                            if (attempt < RETRY_COUNT) delay(RETRY_DELAY_MS)
+                            continue
+                        }
                         val newestRevision = requestedRevision[filePath]
                         if (newestRevision != activeRevision) {
                             activeRevision = newestRevision

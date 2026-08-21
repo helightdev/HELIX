@@ -47,7 +47,7 @@ namespace HELIX.Context {
 
     [Resource(Source.Resources), ShowInInspector]
     public List<KennyPromptSvgCollection> svgCollections;
-
+    
     [MixinMethod]
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");

@@ -34,15 +34,15 @@ class HelixExpressionSyntaxHighlighter : SyntaxHighlighterBase() {
         @JvmField val DIRECTIVE = TextAttributesKey.createTextAttributesKey(
             "HELIX_EXPRESSION_DIRECTIVE", DefaultLanguageHighlighterColors.KEYWORD)
         @JvmField val VALUE = TextAttributesKey.createTextAttributesKey(
-            "HELIX_EXPRESSION_VALUE", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
+            "HELIX_EXPRESSION_VALUE", DefaultLanguageHighlighterColors.KEYWORD)
         @JvmField val PATH = TextAttributesKey.createTextAttributesKey(
-            "HELIX_EXPRESSION_PATH", DefaultLanguageHighlighterColors.INSTANCE_METHOD)
+            "HELIX_EXPRESSION_PATH", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
         @JvmField val FUNCTION = TextAttributesKey.createTextAttributesKey(
             "HELIX_EXPRESSION_FUNCTION", DefaultLanguageHighlighterColors.FUNCTION_CALL)
         @JvmField val ARGUMENT = TextAttributesKey.createTextAttributesKey(
-            "HELIX_EXPRESSION_ARGUMENT", DefaultLanguageHighlighterColors.STRING)
+            "HELIX_EXPRESSION_ARGUMENT", DefaultLanguageHighlighterColors.MARKUP_ATTRIBUTE)
         @JvmField val OPERATOR = TextAttributesKey.createTextAttributesKey(
-            "HELIX_EXPRESSION_OPERATOR", DefaultLanguageHighlighterColors.OPERATION_SIGN)
+            "HELIX_EXPRESSION_OPERATOR", DefaultLanguageHighlighterColors.FUNCTION_CALL)
         @JvmField val BRACES = TextAttributesKey.createTextAttributesKey(
             "HELIX_EXPRESSION_BRACES", DefaultLanguageHighlighterColors.PARENTHESES)
         @JvmField val ESCAPE = TextAttributesKey.createTextAttributesKey(

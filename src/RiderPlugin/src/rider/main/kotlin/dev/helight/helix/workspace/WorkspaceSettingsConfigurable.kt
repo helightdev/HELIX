@@ -87,7 +87,7 @@ internal class WorkspaceSettingsConfigurable(private val project: Project) : Con
                 }
             })
             .setItemChosenCallback(::add)
-            .createPopup().showUnderneathOf(list)
+            .createPopup().showInFocusCenter()
     }
 
     private fun add(provider: WorkspaceEntryProvider) {

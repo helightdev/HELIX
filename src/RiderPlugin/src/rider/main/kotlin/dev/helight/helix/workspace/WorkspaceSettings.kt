@@ -21,6 +21,11 @@ internal class WorkspaceSettings(private val project: Project) :
         syncHelixEnabled(state.helixEnabled)
     }
 
+    override fun loadState(state: WorkspaceSettingsState) {
+        super.loadState(state)
+        syncHelixEnabled(state.helixEnabled)
+    }
+
     var helixEnabled: Boolean
         get() = state.helixEnabled
         set(value) {
