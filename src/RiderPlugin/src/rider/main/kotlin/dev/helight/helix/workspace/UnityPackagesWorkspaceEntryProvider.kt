@@ -5,7 +5,12 @@ import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
-import com.jetbrains.rider.plugins.unity.explorer.PackagesRootNode
+import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.platform.backend.workspace.WorkspaceModel
+import com.intellij.psi.PsiManager
+import com.jetbrains.rider.plugins.unity.workspace.getPackages
+import com.jetbrains.rider.projectView.views.FileSystemNodeBase
+import com.jetbrains.rider.projectView.views.NestingNode
 import dev.helight.helix.HelixMessagesBundle.message
 import dev.helight.helix.HelixIcons
 import java.nio.file.Paths
@@ -22,14 +27,14 @@ class UnityPackagesWorkspaceEntryProvider : WorkspaceEntryProvider {
         entry ?: WorkspaceEntry(typeId = TYPE_ID, name = displayName, showPath = false)
 
     override fun createNode(project: Project, entry: WorkspaceEntry, separatorAbove: Boolean): AbstractTreeNode<*> {
-        return packagesRoot(project) ?: MissingPackagesNode(project, separatorAbove)
+        return packagesRoot(project, separatorAbove) ?: MissingPackagesNode(project, separatorAbove)
     }
 
     override fun contains(project: Project, entry: WorkspaceEntry, file: VirtualFile): Boolean {
         val candidate = Paths.get(file.path).normalize()
         val physicalPackages = project.basePath?.let(Paths::get)?.resolve("Packages")?.normalize()
         if (physicalPackages != null && candidate.startsWith(physicalPackages)) return true
-        return packagesRoot(project)?.contains(file) == true
+        return packagesRoot(project, false)?.contains(file) == true
     }
 
     override fun isAffectedByPath(project: Project, entry: WorkspaceEntry, path: String): Boolean {
@@ -42,10 +47,77 @@ class UnityPackagesWorkspaceEntryProvider : WorkspaceEntryProvider {
     companion object {
         const val TYPE_ID = "unity-packages"
 
-        private fun packagesRoot(project: Project): PackagesRootNode? {
+        private fun packagesRoot(project: Project, separatorAbove: Boolean): WorkspacePackagesNode? {
             val packagesDirectory = project.basePath?.let(Paths::get)?.resolve("Packages") ?: return null
             val virtualDirectory = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(packagesDirectory)
-            return virtualDirectory?.takeIf(VirtualFile::isDirectory)?.let { PackagesRootNode(project, it) }
+            return virtualDirectory?.takeIf(VirtualFile::isDirectory)?.let {
+                WorkspacePackagesNode(project, it, separatorAbove = separatorAbove, includeModelPackages = true)
+            }
+        }
+    }
+
+    private class WorkspacePackagesNode(
+        project: Project,
+        file: VirtualFile,
+        nestedFiles: List<NestingNode<VirtualFile>> = emptyList(),
+        private val separatorAbove: Boolean = false,
+        private val includeModelPackages: Boolean = false,
+        private val isPackageRoot: Boolean = false,
+    ) : FileSystemNodeBase(project, file, nestedFiles) {
+        override fun createNode(
+            virtualFile: VirtualFile,
+            nestedFiles: List<NestingNode<VirtualFile>>,
+        ): FileSystemNodeBase = WorkspacePackagesNode(
+            project,
+            virtualFile,
+            nestedFiles,
+            isPackageRoot = includeModelPackages && virtualFile.isDirectory,
+        )
+
+        override fun getVirtualFileChildren(): MutableList<VirtualFile> =
+            super.getVirtualFileChildren()
+                .filterNot { it.extension.equals("meta", ignoreCase = true) }
+                .toMutableList()
+
+        override fun calculateChildren(): MutableList<AbstractTreeNode<*>> {
+            val children = super.calculateChildren()
+            if (!includeModelPackages) return children
+
+            val representedPaths = children.mapNotNullTo(mutableSetOf()) {
+                (it as? FileSystemNodeBase)?.file?.path
+            }
+            WorkspaceModel.getInstance(project).getPackages().forEach { packageEntity ->
+                val packageFolder = packageEntity.packageFolder ?: return@forEach
+                if (representedPaths.add(packageFolder.path)) {
+                    children.add(WorkspacePackagesNode(project, packageFolder, isPackageRoot = true))
+                }
+            }
+            return children
+        }
+
+        override fun contains(file: VirtualFile): Boolean {
+            if (super.contains(file)) return true
+            return includeModelPackages && WorkspaceModel.getInstance(project).getPackages().any { packageEntity ->
+                packageEntity.packageFolder?.let { VfsUtil.isAncestor(it, file, false) } == true
+            }
+        }
+
+        override fun update(presentation: PresentationData) {
+            presentation.presentableText = if (includeModelPackages) {
+                message("workspace.entry.unity.packages")
+            } else if (isPackageRoot) {
+                file.name.substringBeforePackageSuffix()
+            } else {
+                file.name
+            }
+            presentation.setIcon(
+                when {
+                    includeModelPackages || isPackageRoot -> HelixIcons.UnityPackages
+                    file.isDirectory -> HelixIcons.Folder
+                    else -> PsiManager.getInstance(project).findFile(file)?.getIcon(0) ?: file.fileType.icon
+                },
+            )
+            presentation.setSeparatorAbove(separatorAbove)
         }
     }
 
@@ -62,4 +134,9 @@ class UnityPackagesWorkspaceEntryProvider : WorkspaceEntryProvider {
             presentation.setSeparatorAbove(separatorAbove)
         }
     }
+}
+
+private fun String.substringBeforePackageSuffix(): String {
+    val separator = lastIndexOf('@')
+    return if (separator > 0) substring(0, separator) else this
 }

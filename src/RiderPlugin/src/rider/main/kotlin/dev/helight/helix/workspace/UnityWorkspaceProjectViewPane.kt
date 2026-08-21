@@ -4,6 +4,7 @@ import com.intellij.ide.SelectInTarget
 import com.intellij.ide.impl.ProjectViewSelectInTarget
 import com.intellij.ide.projectView.PresentationData
 import com.intellij.ide.projectView.ProjectView
+import com.intellij.ide.util.treeView.AbstractTreeNode
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
@@ -14,6 +15,7 @@ import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFileSystemItem
 import com.jetbrains.rider.projectView.views.SolutionViewPaneBase
 import com.jetbrains.rider.projectView.views.SolutionViewRootNodeBase
@@ -21,6 +23,7 @@ import dev.helight.helix.HelixMessagesBundle.message
 import dev.helight.helix.HelixIcons
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.util.Collections
 import javax.swing.Icon
 
 internal const val UNITY_WORKSPACE_PANE_ID = "HelixUnityWorkspace"
@@ -43,6 +46,11 @@ class UnityWorkspaceProjectViewPane(project: Project) :
     fun refreshWorkspace(refreshFileSystem: Boolean = false) {
         if (refreshFileSystem) LocalFileSystem.getInstance().refresh(false)
         updateFromRoot(true)
+    }
+
+    fun selectWorkspaceFile(file: VirtualFile) {
+        if (!file.isValid || !containsWorkspaceFile(myProject, file)) return
+        select(file, file, false)
     }
 
     override fun addToolbarActions(actionGroup: DefaultActionGroup) {
@@ -88,18 +96,35 @@ private class UnityWorkspaceSelectInTarget(
     override fun getWeight(): Float = 20f
 
     override fun canSelect(file: PsiFileSystemItem): Boolean {
-        if (!file.virtualFile.isValid) return false
-        return WorkspaceSettings.getInstance(workspaceProject).entries.any { entry ->
-            WorkspaceEntryProvider.find(entry.typeId)?.contains(workspaceProject, entry, file.virtualFile) == true
-        }
+        return file.virtualFile.isValid && containsWorkspaceFile(workspaceProject, file.virtualFile)
     }
 }
 
 private class UnityWorkspaceRootNode(project: Project) : SolutionViewRootNodeBase(project) {
-    override fun calculateChildren() =
-        WorkspaceSettings.getInstance(project).entries.mapIndexedNotNullTo(mutableListOf()) { index, entry ->
+    private val entryOrder = Collections.synchronizedMap(mutableMapOf<AbstractTreeNode<*>, Int>())
+
+    override fun calculateChildren(): MutableList<AbstractTreeNode<*>> {
+        val children = WorkspaceSettings.getInstance(project).entries.mapIndexedNotNullTo(mutableListOf()) { index, entry ->
             WorkspaceEntryProvider.find(entry.typeId)?.createNode(project, entry, index > 0)
         }
+        synchronized(entryOrder) {
+            entryOrder.clear()
+            children.forEachIndexed { index, node -> entryOrder[node] = index }
+        }
+        return children
+    }
+
+    override fun createComparator(): Comparator<AbstractTreeNode<*>> {
+        val defaultComparator = super.createComparator()
+        return Comparator { first, second ->
+            val configuredOrder = synchronized(entryOrder) {
+                val firstIndex = entryOrder[first]
+                val secondIndex = entryOrder[second]
+                if (firstIndex != null && secondIndex != null) firstIndex.compareTo(secondIndex) else null
+            }
+            configuredOrder ?: defaultComparator.compare(first, second)
+        }
+    }
 
     override fun update(presentation: PresentationData) {
         presentation.presentableText = message("workspace.pane.title")
@@ -111,3 +136,8 @@ private fun isUnityProject(project: Project): Boolean {
     val root = project.basePath?.let(Paths::get) ?: return false
     return Files.isDirectory(root.resolve("Assets")) && Files.isDirectory(root.resolve("ProjectSettings"))
 }
+
+private fun containsWorkspaceFile(project: Project, file: VirtualFile): Boolean =
+    WorkspaceSettings.getInstance(project).entries.any { entry ->
+        WorkspaceEntryProvider.find(entry.typeId)?.contains(project, entry, file) == true
+    }

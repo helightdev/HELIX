@@ -3,6 +3,9 @@ package dev.helight.helix.workspace
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.fileEditor.FileEditorManagerEvent
+import com.intellij.openapi.fileEditor.FileEditorManagerListener
+import com.intellij.ide.projectView.ProjectView
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
@@ -24,9 +27,20 @@ internal class WorkspaceProjectViewRefreshService(
     private var pendingRefresh: Job? = null
 
     init {
-        project.messageBus.connect(this).subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
+        val connection = project.messageBus.connect(this)
+        connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
             override fun after(events: List<VFileEvent>) {
                 if (events.any(::affectsWorkspace)) scheduleRefresh()
+            }
+        })
+        connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
+            override fun selectionChanged(event: FileEditorManagerEvent) {
+                val file = event.newFile ?: return
+                scope.launch(Dispatchers.EDT) {
+                    UnityWorkspaceProjectViewPane.find(project)?.takeIf {
+                        ProjectView.getInstance(project).currentProjectViewPane === it
+                    }?.selectWorkspaceFile(file)
+                }
             }
         })
     }
