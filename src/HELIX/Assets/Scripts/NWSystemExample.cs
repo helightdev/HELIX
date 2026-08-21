@@ -4,7 +4,6 @@ using System.Globalization;
 using HELIX.Compose;
 using HELIX.Compose.Forms;
 using HELIX.Extensions;
-using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;
 using HELIX.Widgets.Universal;
@@ -288,120 +287,6 @@ namespace HELIX.Examples {
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Fill();
         ComposeOverlayShowcase(ref cx);
-      }
-    }
-
-    private void ComposeProseTab(ref Composition cx) {
-      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.Fill();
-        cx.Text("Semantic Prose writers", TextRole.TitleMedium);
-        cx.Spacing(1);
-        cx.Text(
-          "The same immediate-mode station report can be projected through several allocation-conscious " +
-          "plain-text configurations, Markdown, Unity rich text, or the data-only dictionary writer. " +
-          "Open the Unity console to compare them.",
-          TextRole.BodySmall
-        );
-        cx.Spacing(2);
-
-        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
-          cx.Button(
-            static (ref Composition child) => child.Text("Sparse tree"),
-            action: static _ => DetailedProseExample.PrintPlainText(
-              "Sparse tree",
-              ProseTextConfigurations.Sparse
-            )
-          );
-          cx.Spacing(1);
-          cx.Button(
-            static (ref Composition child) => child.Text("Error tree"),
-            style: ThemeProperties.ButtonOutlined[in cx],
-            action: static _ => DetailedProseExample.PrintPlainText(
-              "Error tree",
-              ProseTextConfigurations.Error
-            )
-          );
-        }
-        cx.Spacing(1);
-        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
-          cx.Button(
-            static (ref Composition child) => child.Text("Plain"),
-            action: static _ => DetailedProseExample.PrintPlainText(
-              "Plain",
-              ProseTextConfigurations.Plain
-            )
-          );
-          cx.Spacing(1);
-          cx.Button(
-            static (ref Composition child) => child.Text("Markdown"),
-            style: ThemeProperties.ButtonOutlined[in cx],
-            action: static _ => DetailedProseExample.PrintPlainText(
-              "Markdown",
-              ProseTextConfigurations.Markdown
-            )
-          );
-        }
-        cx.Spacing(1);
-        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
-          cx.Button(
-            static (ref Composition child) => child.Text("Unity rich text"),
-            action: static _ => DetailedProseExample.PrintUnityRichText()
-          );
-          cx.Spacing(1);
-          cx.Button(
-            static (ref Composition child) => child.Text("Dictionary tree"),
-            style: ThemeProperties.ButtonOutlined[in cx],
-            action: static _ => DetailedProseExample.PrintDictionary()
-          );
-        }
-        cx.Spacing(1);
-        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
-          cx.Button(
-            static (ref Composition child) => child.Text("Whitespace tree"),
-            action: static _ => DetailedProseExample.PrintPlainText(
-              "Whitespace tree",
-              ProseTextConfigurations.Whitespace
-            )
-          );
-          cx.Spacing(1);
-          cx.Button(
-            static (ref Composition child) => child.Text("Shallow"),
-            style: ThemeProperties.ButtonOutlined[in cx],
-            action: static _ => DetailedProseExample.PrintPlainText(
-              "Shallow",
-              ProseTextConfigurations.Shallow
-            )
-          );
-        }
-        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
-          cx.Button(
-            static (ref Composition child) => child.Text("Test: wide decorated"),
-            style: ThemeProperties.ButtonOutlined[in cx],
-            action: static _ => DetailedProseExample.PrintPlainText(
-              "test wide decorated",
-              DetailedProseExample.TestWideDecorated
-            )
-          );
-        }
-        cx.Spacing(1);
-        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
-          cx.Button(
-            static (ref Composition child) => child.Text("Test: compact sections"),
-            action: static _ => DetailedProseExample.PrintPlainText(
-              "test compact sections",
-              DetailedProseExample.TestCompactSections
-            )
-          );
-        }
-
-        cx.Spacing(2);
-        cx.Text("Example contents", TextRole.LabelLarge);
-        cx.Spacing(1);
-        cx.Text(
-          "Mission metadata, typed and constrained properties, hidden data, severity markers, power and " +
-          "communications subsystems, nested reactor and antenna trees, cargo, crew, and active alerts.",
-          TextRole.BodySmall
-        );
       }
     }
 

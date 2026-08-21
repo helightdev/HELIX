@@ -13,6 +13,8 @@ namespace HELIX.Examples {
 
     private static readonly DetailedProseExample Instance = new();
 
+    public static IProse Prose => Instance;
+
     private static readonly ProsePropertyFormatter<string> MissionId =
       new("Mission ID", new ProseStringFormatter(prefix: "HX-"));
 
