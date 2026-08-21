@@ -125,7 +125,7 @@ namespace HELIX.Signals {
         return;
       }
 
-      using (HXC.BatchScope()) {
+      using (HXComposer.BeginBatch()) {
         SendNotifyObservers();
       }
     }
@@ -206,8 +206,8 @@ namespace HELIX.Signals {
     protected Signal(string name = "ValueSignal", Type registeredType = null) : base(name, registeredType ?? typeof(Signal<T>)) { }
     public T Value {
       get {
-        if (HXC.ComposingBoundary != null) {
-          HXC.ComposingBoundary.SubscribeToContextData(contextKey, this);
+        if (HXComposer.CurrentBoundary != null) {
+          HXComposer.CurrentBoundary.SubscribeToContextData(contextKey, this);
           return PeekValue();
         }
 

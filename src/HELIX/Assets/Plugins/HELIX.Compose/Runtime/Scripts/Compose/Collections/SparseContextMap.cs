@@ -17,14 +17,14 @@ namespace HELIX.Compose.Collections {
     );
 
     private static readonly ProfilerCounterValue<int> _poolSize = new(
-      HXProfiling.HelixCategory,
+      HXComposeProfiling.HelixCategory,
       "SCM Pool Size",
       ProfilerMarkerDataUnit.Count,
       ProfilerCounterOptions.FlushOnEndOfFrame
     );
 
     private static readonly ProfilerCounterValue<float> _poolActiveRatio = new(
-      HXProfiling.HelixCategory,
+      HXComposeProfiling.HelixCategory,
       "SCM Pool Active Ratio",
       ProfilerMarkerDataUnit.Percent,
       ProfilerCounterOptions.FlushOnEndOfFrame

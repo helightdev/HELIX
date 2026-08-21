@@ -10,13 +10,13 @@ namespace HELIX.Compose {
     public static bool AutoDisposeOrphans = true;
     public static int MaxRecompositionDepth = 1024;
 
-    internal static readonly IndexedReferencePriorityQueue<IBoundary, int> Dirty = new();
-    internal static readonly IndexedReferencePriorityQueue<IBoundary, int> DisposalQueue = new();
-    internal static readonly HashSet<IBoundary> Boundaries = new(new ReferenceEqualityComparer<IBoundary>());
-    internal static bool IsScoped = false;
-    internal static bool IsProcessing = false;
-    internal static IBoundary CurrentBoundary = null;
-    internal static int RecompositionDepth = 0;
+    public static readonly IndexedReferencePriorityQueue<IBoundary, int> Dirty = new();
+    public static readonly IndexedReferencePriorityQueue<IBoundary, int> DisposalQueue = new();
+    public static readonly HashSet<IBoundary> Boundaries = new(new ReferenceEqualityComparer<IBoundary>());
+    public static bool IsScoped = false;
+    public static bool IsProcessing = false;
+    public static IBoundary CurrentBoundary = null;
+    public static int RecompositionDepth = 0;
 
     public static bool IsBoundaryDirty(IBoundary boundary) {
       return boundary != null && Dirty.Contains(boundary);
@@ -31,7 +31,7 @@ namespace HELIX.Compose {
 
       var hadDisposal = DisposalQueue.Remove(boundary);
 #if ENABLE_PROFILER
-      if (hadDisposal) HXProfiling.TrackDisposalStats(1, 0);
+      if (hadDisposal) HXComposeProfiling.TrackDisposalStats(1, 0);
 #endif
     }
 
@@ -87,7 +87,7 @@ namespace HELIX.Compose {
 
       // We are removed while in scope, if we don't reattach while in scope, we can assume that the removal is final
       DisposalQueue.Enqueue(boundary, boundary.TreeDepth);
-      HXProfiling.TrackDisposalDiscovery(1);
+      HXComposeProfiling.TrackDisposalDiscovery(1);
     }
 
     public static void DirtyChildren(IBoundary boundary) {
@@ -111,7 +111,7 @@ namespace HELIX.Compose {
       var discardCount = 0;
       var disposedCount = 0;
 #if ENABLE_PROFILER
-      using (HXProfiling.DisposeOrphansMarker.Auto()) {
+      using (HXComposeProfiling.DisposeOrphansMarker.Auto()) {
 #endif
         try {
           IsProcessing = true;
@@ -127,7 +127,7 @@ namespace HELIX.Compose {
           }
         } finally {
           IsProcessing = false;
-          HXProfiling.TrackDisposalStats(discardCount, disposedCount);
+          HXComposeProfiling.TrackDisposalStats(discardCount, disposedCount);
         }
 #if ENABLE_PROFILER
       }
@@ -164,17 +164,17 @@ namespace HELIX.Compose {
           discoveredCount++;
         }
       }
-      HXProfiling.TrackDisposalDiscovery(discoveredCount);
+      HXComposeProfiling.TrackDisposalDiscovery(discoveredCount);
 
 #if ENABLE_PROFILER
-      using (HXProfiling.RecompositionMarker.Auto()) {
+      using (HXComposeProfiling.RecompositionMarker.Auto()) {
 #endif
         try {
           IsProcessing = true;
           RecompositionDepth = 0; // Maybe conflicting, but I don't wanna hardlock errored states
           var maxIterations = 1024;
           while (Dirty.TryDequeue(out var boundary) && maxIterations-- > 0) {
-            HXProfiling.TrackToplevelRecomposition();
+            HXComposeProfiling.TrackToplevelRecomposition();
             Recompose(boundary);
           }
           if (maxIterations == 0) Debug.LogWarning("Maximum recomposition iterations reached.");
@@ -184,7 +184,7 @@ namespace HELIX.Compose {
         }
 #if ENABLE_PROFILER
       }
-      HXProfiling.TrackActive();
+      HXComposeProfiling.TrackActive();
 #endif
 
       if (AutoDisposeOrphans) DisposeOrphanedBoundaries();
@@ -216,7 +216,7 @@ namespace HELIX.Compose {
     }
 
     public static RecompositionScope BeginBatch() {
-      HXProfiling.TrackBatchRequest();
+      HXComposeProfiling.TrackBatchRequest();
       if (IsScoped) return new RecompositionScope(false);
       IsScoped = true;
       // Originally, I checked IsProcessing here, but that clashed sometimes with events.

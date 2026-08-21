@@ -1,53 +1,10 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using HELIX.Compose;
 using HELIX.Compose.Collections;
 using Unity.Profiling;
 
 namespace HELIX {
-  // ReSharper disable once InconsistentNaming
-  public static class HXC {
-    public static IReadOnlyCollection<IBoundary> Boundaries => HXComposer.Boundaries;
-
-    public static bool InBatchScope => HXComposer.IsScoped;
-    public static bool IsProcessing => HXComposer.IsProcessing;
-    public static IBoundary ComposingBoundary => HXComposer.CurrentBoundary;
-
-    public static RecompositionScope BatchScope() => HXComposer.BeginBatch();
-  }
-
-  public struct HXOptional<T> : IEquatable<HXOptional<T>> {
-    public readonly T value;
-    public readonly bool hasValue;
-
-    public HXOptional(T value) : this() {
-      this.value = value;
-      this.hasValue = true;
-    }
-
-    public HXOptional(T value, bool hasValue) {
-      this.value = value;
-      this.hasValue = hasValue;
-    }
-
-    public static readonly HXOptional<T> None = new(default, false);
-    public static implicit operator HXOptional<T>(T value) => new(value, true);
-
-    public bool Equals(HXOptional<T> other) {
-      return EqualityComparer<T>.Default.Equals(value, other.value) && hasValue == other.hasValue;
-    }
-
-    public override bool Equals(object obj) {
-      return obj is HXOptional<T> other && Equals(other);
-    }
-
-    public override int GetHashCode() {
-      return HashCode.Combine(value, hasValue);
-    }
-  }
-
-  public static class HXProfiling {
+  public static class HXComposeProfiling {
     public static readonly ProfilerCategory HelixCategory = new("HELIX", ProfilerCategoryColor.UI);
     public static readonly ProfilerMarker LookupContextMarker = new(HelixCategory, "Lookup Context");
     public static readonly ProfilerMarker RecompositionMarker = new(HelixCategory, "Recomposition");

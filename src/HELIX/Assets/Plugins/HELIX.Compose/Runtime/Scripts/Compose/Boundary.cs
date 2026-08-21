@@ -65,7 +65,7 @@ namespace HELIX.Compose {
         //Debug.Log($"Removing child {i} from {element.name}");
         element.RemoveAt(element.childCount - 1);
       }
-      HXProfiling.TrackHierarchyDeletion(overflow);
+      HXComposeProfiling.TrackHierarchyDeletion(overflow);
       //if (overflow > 0) Debug.LogWarning($"Removed {overflow} children");
     }
   }

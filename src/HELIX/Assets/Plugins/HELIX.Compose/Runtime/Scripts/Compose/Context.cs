@@ -191,7 +191,7 @@ namespace HELIX.Compose {
     public abstract void Dispose();
 
     public static bool TryLookup(VisualElement element, int key, out ContextData data, bool includeSelf = false) {
-      using (HXProfiling.LookupContextMarker.Auto()) {
+      using (HXComposeProfiling.LookupContextMarker.Auto()) {
         data = null;
         if (element == null) return false;
         if (includeSelf && element is IContextComposable self) return self.TryLookupContext(key, out data);

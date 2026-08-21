@@ -87,7 +87,7 @@ namespace HELIX.Compose {
     public void Handler(T evt) {
       if (callback == null) return;
       var context = new CompositionContext(_composable, _element);
-      using (HXC.BatchScope()) callback.Invoke(context, evt);
+      using (HXComposer.BeginBatch()) callback.Invoke(context, evt);
     }
 
     public void Dispose() {
@@ -175,7 +175,7 @@ namespace HELIX.Compose {
     public void Handler(T evt) {
       if (callback == null) return;
       var context = new CompositionContext(_composable, _element);
-      using (HXC.BatchScope()) callback.Invoke(context, evt);
+      using (HXComposer.BeginBatch()) callback.Invoke(context, evt);
     }
 
     public void Dispose() {

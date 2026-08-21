@@ -172,7 +172,7 @@ namespace HELIX.Compose {
 
       // If the identified element is already present, move it into position and complete
       if (currentIndex != -1 && given.parent == container) {
-        HXProfiling.TrackHierarchyMovement();
+        HXComposeProfiling.TrackHierarchyMovement();
         // container.RemoveAt(currentIndex);
         // container.Insert(cell.cursor, given);
         // TODO: Maybe do this using Sort() to prevent animation interruptions
@@ -197,7 +197,7 @@ namespace HELIX.Compose {
       if (given is IComposable composable) { } else { composable = CompositionInternals.Promote(given); }
       if (composable.PackedId == 0) composable.PackedId = id.packed;
       if (retention is CompositionRetention.Reset or CompositionRetention.New) {
-        HXProfiling.TrackComposableReset();
+        HXComposeProfiling.TrackComposableReset();
       }
       ctx.ReplaceCursor(composable, retention);
       cell.cursor++;
