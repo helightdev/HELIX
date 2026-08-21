@@ -43,40 +43,32 @@ namespace HelixRider.Protocol
     //fields
     //public fields
     [NotNull] public IRdEndpoint<MixinExpressionRequest, MixinExpressionResponse> GetMixinExpressionRanges => _GetMixinExpressionRanges;
-    [NotNull] public IRdEndpoint<MixinExpressionRequest, MixinContributionsResponse> GetMixinContributions => _GetMixinContributions;
     [NotNull] public IViewableProperty<bool> IsHelixEnabled => _IsHelixEnabled;
     
     //private fields
     [NotNull] private readonly RdCall<MixinExpressionRequest, MixinExpressionResponse> _GetMixinExpressionRanges;
-    [NotNull] private readonly RdCall<MixinExpressionRequest, MixinContributionsResponse> _GetMixinContributions;
     [NotNull] private readonly RdProperty<bool> _IsHelixEnabled;
     
     //primary constructor
     private HelixExpressionModel(
       [NotNull] RdCall<MixinExpressionRequest, MixinExpressionResponse> getMixinExpressionRanges,
-      [NotNull] RdCall<MixinExpressionRequest, MixinContributionsResponse> getMixinContributions,
       [NotNull] RdProperty<bool> isHelixEnabled
     )
     {
       if (getMixinExpressionRanges == null) throw new ArgumentNullException("getMixinExpressionRanges");
-      if (getMixinContributions == null) throw new ArgumentNullException("getMixinContributions");
       if (isHelixEnabled == null) throw new ArgumentNullException("isHelixEnabled");
       
       _GetMixinExpressionRanges = getMixinExpressionRanges;
-      _GetMixinContributions = getMixinContributions;
       _IsHelixEnabled = isHelixEnabled;
       _IsHelixEnabled.OptimizeNested = true;
       _GetMixinExpressionRanges.Async = true;
-      _GetMixinContributions.Async = true;
       BindableChildren.Add(new KeyValuePair<string, object>("getMixinExpressionRanges", _GetMixinExpressionRanges));
-      BindableChildren.Add(new KeyValuePair<string, object>("getMixinContributions", _GetMixinContributions));
       BindableChildren.Add(new KeyValuePair<string, object>("isHelixEnabled", _IsHelixEnabled));
     }
     //secondary constructor
     internal HelixExpressionModel (
     ) : this (
       new RdCall<MixinExpressionRequest, MixinExpressionResponse>(MixinExpressionRequest.Read, MixinExpressionRequest.Write, MixinExpressionResponse.Read, MixinExpressionResponse.Write),
-      new RdCall<MixinExpressionRequest, MixinContributionsResponse>(MixinExpressionRequest.Read, MixinExpressionRequest.Write, MixinContributionsResponse.Read, MixinContributionsResponse.Write),
       new RdProperty<bool>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool)
     ) {}
     //deconstruct trait
@@ -84,7 +76,7 @@ namespace HelixRider.Protocol
     
     
     
-    protected override long SerializationHash => -5251956373142778403L;
+    protected override long SerializationHash => 936167363852658719L;
     
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -106,7 +98,6 @@ namespace HelixRider.Protocol
       printer.Println("HelixExpressionModel (");
       using (printer.IndentCookie()) {
         printer.Print("getMixinExpressionRanges = "); _GetMixinExpressionRanges.PrintEx(printer); printer.Println();
-        printer.Print("getMixinContributions = "); _GetMixinContributions.PrintEx(printer); printer.Println();
         printer.Print("isHelixEnabled = "); _IsHelixEnabled.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
@@ -124,247 +115,6 @@ namespace HelixRider.Protocol
     public static HelixExpressionModel GetHelixExpressionModel(this JetBrains.Rider.Model.Solution solution)
     {
       return solution.GetOrCreateExtension("helixExpressionModel", () => new HelixExpressionModel());
-    }
-  }
-  
-  
-  /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:34</p>
-  /// </summary>
-  public sealed class MixinContribution : IPrintable, IEquatable<MixinContribution>
-  {
-    //fields
-    //public fields
-    public int Offset {get; private set;}
-    [NotNull] public string Target {get; private set;}
-    [NotNull] public string Method {get; private set;}
-    [NotNull] public string Mixin {get; private set;}
-    public int Priority {get; private set;}
-    [NotNull] public string SourceType {get; private set;}
-    [NotNull] public string SourceMember {get; private set;}
-    [NotNull] public string SourceKind {get; private set;}
-    public int SourceParameterCount {get; private set;}
-    
-    //private fields
-    //primary constructor
-    public MixinContribution(
-      int offset,
-      [NotNull] string target,
-      [NotNull] string method,
-      [NotNull] string mixin,
-      int priority,
-      [NotNull] string sourceType,
-      [NotNull] string sourceMember,
-      [NotNull] string sourceKind,
-      int sourceParameterCount
-    )
-    {
-      if (target == null) throw new ArgumentNullException("target");
-      if (method == null) throw new ArgumentNullException("method");
-      if (mixin == null) throw new ArgumentNullException("mixin");
-      if (sourceType == null) throw new ArgumentNullException("sourceType");
-      if (sourceMember == null) throw new ArgumentNullException("sourceMember");
-      if (sourceKind == null) throw new ArgumentNullException("sourceKind");
-      
-      Offset = offset;
-      Target = target;
-      Method = method;
-      Mixin = mixin;
-      Priority = priority;
-      SourceType = sourceType;
-      SourceMember = sourceMember;
-      SourceKind = sourceKind;
-      SourceParameterCount = sourceParameterCount;
-    }
-    //secondary constructor
-    //deconstruct trait
-    public void Deconstruct(out int offset, [NotNull] out string target, [NotNull] out string method, [NotNull] out string mixin, out int priority, [NotNull] out string sourceType, [NotNull] out string sourceMember, [NotNull] out string sourceKind, out int sourceParameterCount)
-    {
-      offset = Offset;
-      target = Target;
-      method = Method;
-      mixin = Mixin;
-      priority = Priority;
-      sourceType = SourceType;
-      sourceMember = SourceMember;
-      sourceKind = SourceKind;
-      sourceParameterCount = SourceParameterCount;
-    }
-    //statics
-    
-    public static CtxReadDelegate<MixinContribution> Read = (ctx, reader) => 
-    {
-      var offset = reader.ReadInt();
-      var target = reader.ReadString();
-      var method = reader.ReadString();
-      var mixin = reader.ReadString();
-      var priority = reader.ReadInt();
-      var sourceType = reader.ReadString();
-      var sourceMember = reader.ReadString();
-      var sourceKind = reader.ReadString();
-      var sourceParameterCount = reader.ReadInt();
-      var _result = new MixinContribution(offset, target, method, mixin, priority, sourceType, sourceMember, sourceKind, sourceParameterCount);
-      return _result;
-    };
-    
-    public static CtxWriteDelegate<MixinContribution> Write = (ctx, writer, value) => 
-    {
-      writer.Write(value.Offset);
-      writer.Write(value.Target);
-      writer.Write(value.Method);
-      writer.Write(value.Mixin);
-      writer.Write(value.Priority);
-      writer.Write(value.SourceType);
-      writer.Write(value.SourceMember);
-      writer.Write(value.SourceKind);
-      writer.Write(value.SourceParameterCount);
-    };
-    
-    //constants
-    
-    //custom body
-    //methods
-    //equals trait
-    public override bool Equals(object obj)
-    {
-      if (ReferenceEquals(null, obj)) return false;
-      if (ReferenceEquals(this, obj)) return true;
-      if (obj.GetType() != GetType()) return false;
-      return Equals((MixinContribution) obj);
-    }
-    public bool Equals(MixinContribution other)
-    {
-      if (ReferenceEquals(null, other)) return false;
-      if (ReferenceEquals(this, other)) return true;
-      return Offset == other.Offset && Target == other.Target && Method == other.Method && Mixin == other.Mixin && Priority == other.Priority && SourceType == other.SourceType && SourceMember == other.SourceMember && SourceKind == other.SourceKind && SourceParameterCount == other.SourceParameterCount;
-    }
-    //hash code trait
-    public override int GetHashCode()
-    {
-      unchecked {
-        var hash = 0;
-        hash = hash * 31 + Offset.GetHashCode();
-        hash = hash * 31 + Target.GetHashCode();
-        hash = hash * 31 + Method.GetHashCode();
-        hash = hash * 31 + Mixin.GetHashCode();
-        hash = hash * 31 + Priority.GetHashCode();
-        hash = hash * 31 + SourceType.GetHashCode();
-        hash = hash * 31 + SourceMember.GetHashCode();
-        hash = hash * 31 + SourceKind.GetHashCode();
-        hash = hash * 31 + SourceParameterCount.GetHashCode();
-        return hash;
-      }
-    }
-    //pretty print
-    public void Print(PrettyPrinter printer)
-    {
-      printer.Println("MixinContribution (");
-      using (printer.IndentCookie()) {
-        printer.Print("offset = "); Offset.PrintEx(printer); printer.Println();
-        printer.Print("target = "); Target.PrintEx(printer); printer.Println();
-        printer.Print("method = "); Method.PrintEx(printer); printer.Println();
-        printer.Print("mixin = "); Mixin.PrintEx(printer); printer.Println();
-        printer.Print("priority = "); Priority.PrintEx(printer); printer.Println();
-        printer.Print("sourceType = "); SourceType.PrintEx(printer); printer.Println();
-        printer.Print("sourceMember = "); SourceMember.PrintEx(printer); printer.Println();
-        printer.Print("sourceKind = "); SourceKind.PrintEx(printer); printer.Println();
-        printer.Print("sourceParameterCount = "); SourceParameterCount.PrintEx(printer); printer.Println();
-      }
-      printer.Print(")");
-    }
-    //toString
-    public override string ToString()
-    {
-      var printer = new SingleLinePrettyPrinter();
-      Print(printer);
-      return printer.ToString();
-    }
-  }
-  
-  
-  /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:46</p>
-  /// </summary>
-  public sealed class MixinContributionsResponse : IPrintable, IEquatable<MixinContributionsResponse>
-  {
-    //fields
-    //public fields
-    [NotNull] public MixinContribution[] Contributions {get; private set;}
-    
-    //private fields
-    //primary constructor
-    public MixinContributionsResponse(
-      [NotNull] MixinContribution[] contributions
-    )
-    {
-      if (contributions == null) throw new ArgumentNullException("contributions");
-      
-      Contributions = contributions;
-    }
-    //secondary constructor
-    //deconstruct trait
-    public void Deconstruct([NotNull] out MixinContribution[] contributions)
-    {
-      contributions = Contributions;
-    }
-    //statics
-    
-    public static CtxReadDelegate<MixinContributionsResponse> Read = (ctx, reader) => 
-    {
-      var contributions = ReadMixinContributionArray(ctx, reader);
-      var _result = new MixinContributionsResponse(contributions);
-      return _result;
-    };
-    public static CtxReadDelegate<MixinContribution[]> ReadMixinContributionArray = MixinContribution.Read.Array();
-    
-    public static CtxWriteDelegate<MixinContributionsResponse> Write = (ctx, writer, value) => 
-    {
-      WriteMixinContributionArray(ctx, writer, value.Contributions);
-    };
-    public static  CtxWriteDelegate<MixinContribution[]> WriteMixinContributionArray = MixinContribution.Write.Array();
-    
-    //constants
-    
-    //custom body
-    //methods
-    //equals trait
-    public override bool Equals(object obj)
-    {
-      if (ReferenceEquals(null, obj)) return false;
-      if (ReferenceEquals(this, obj)) return true;
-      if (obj.GetType() != GetType()) return false;
-      return Equals((MixinContributionsResponse) obj);
-    }
-    public bool Equals(MixinContributionsResponse other)
-    {
-      if (ReferenceEquals(null, other)) return false;
-      if (ReferenceEquals(this, other)) return true;
-      return Contributions.SequenceEqual(other.Contributions);
-    }
-    //hash code trait
-    public override int GetHashCode()
-    {
-      unchecked {
-        var hash = 0;
-        hash = hash * 31 + Contributions.ContentHashCode();
-        return hash;
-      }
-    }
-    //pretty print
-    public void Print(PrettyPrinter printer)
-    {
-      printer.Println("MixinContributionsResponse (");
-      using (printer.IndentCookie()) {
-        printer.Print("contributions = "); Contributions.PrintEx(printer); printer.Println();
-      }
-      printer.Print(")");
-    }
-    //toString
-    public override string ToString()
-    {
-      var printer = new SingleLinePrettyPrinter();
-      Print(printer);
-      return printer.ToString();
     }
   }
   

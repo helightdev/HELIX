@@ -16,5 +16,5 @@ public sealed class HelixProjectSettings
         _model = solution.GetProtocolSolution().GetHelixExpressionModel();
     }
 
-    public bool IsEnabled => _model.IsHelixEnabled.Value;
+    public bool IsEnabled => _model.IsHelixEnabled.Maybe.ValueOrDefault;
 }

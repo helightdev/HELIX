@@ -46,7 +46,10 @@ internal class WorkspaceSettings(private val project: Project) :
         }
 
     private fun syncHelixEnabled(value: Boolean) {
-        project.solution.helixExpressionModel.isHelixEnabled.set(value)
+        val model = project.solution.helixExpressionModel
+        model.protocol?.scheduler?.queue {
+            model.isHelixEnabled.set(value)
+        }
     }
 }
 

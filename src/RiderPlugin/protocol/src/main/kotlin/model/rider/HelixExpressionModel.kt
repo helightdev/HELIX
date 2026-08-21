@@ -31,24 +31,7 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("ranges", array(sourceRange))
         }
 
-        val contribution = structdef("mixinContribution") {
-            field("offset", int)
-            field("target", string)
-            field("method", string)
-            field("mixin", string)
-            field("priority", int)
-            field("sourceType", string)
-            field("sourceMember", string)
-            field("sourceKind", string)
-            field("sourceParameterCount", int)
-        }
-
-        val contributionsResponse = structdef("mixinContributionsResponse") {
-            field("contributions", array(contribution))
-        }
-
         call("getMixinExpressionRanges", request, response).async
-        call("getMixinContributions", request, contributionsResponse).async
         property("isHelixEnabled", bool)
     }
 }
