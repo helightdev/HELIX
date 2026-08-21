@@ -14,6 +14,14 @@ using static HELIX.Theming.TextRole;
 
 namespace HELIX.Theming {
   public static partial class ThemeProperties {
+    public static HXDecoratorStyle DefaultDecorator(ThemeData data) => new(
+      EdgeInsets.Zero,
+      EdgeInsets.Symmetric(0f, data[Spacing1] * 0.25f),
+      data[Spacing1],
+      data[Spacing1],
+      data[Spacing1] * 0.5f
+    );
+
     public static HXControlBoxStyle DefaultButtonFilled(
       ThemeData data,
       ColorRole color = Primary,

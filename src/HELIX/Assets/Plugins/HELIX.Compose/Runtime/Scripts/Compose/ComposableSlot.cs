@@ -51,7 +51,8 @@ namespace HELIX.Compose {
       PackedId = new CompositionId(slotLocalId, CompositionId.GeneratedCompositionId, CompositionId.SlotTypeId).packed;
 
       var handle = ScopeHandle.Push(
-        cx.AUTHORING.cell, this,
+        cx.AUTHORING.cell,
+        this,
         trimChildren ? static (BoundaryCell cell, in ScopeHandle _) => cell.TrimChildren() : null
       );
       cx.AUTHORING.cell.slot = this;

@@ -15,14 +15,11 @@ namespace HELIX.Theming {
     // Colors
     public static readonly ThemeProperty<Color>
       RoleDisabledHighProvider = new(data => data.ContrastLerp(Surface, OnSurface, High)),
-      RoleDisabledLowProvider = new(data => data.ContrastLerp(Surface, OnSurface, Low))
-      ;
+      RoleDisabledLowProvider = new(data => data.ContrastLerp(Surface, OnSurface, Low));
 
     public static readonly ThemeProperty<TextSelectionStyle> TextSelectionStyle = new(data =>
       new TextSelectionStyle {
-        cursor = data[OnSurface],
-        selection = data[Focus].WithOpacity(0.4f),
-        type = TextSelectionStyleType.Custom
+        cursor = data[OnSurface], selection = data[Focus].WithOpacity(0.4f), type = TextSelectionStyleType.Custom
       }
     );
 
@@ -51,6 +48,8 @@ namespace HELIX.Theming {
       TextGap = new(data => data[Spacing1]),
       DecoratorColumnGap = new(data => data[Spacing1]),
       ChevronSize = new(data => data.GetTypographyTokenRef(BodyMedium).lineHeight * 0.33f);
+
+    public static readonly ThemeProperty<HXDecoratorStyle> Decorator = new(data => DefaultDecorator(data));
 
     // State Composables
     public static readonly ThemeProperty<Composable<State>>
