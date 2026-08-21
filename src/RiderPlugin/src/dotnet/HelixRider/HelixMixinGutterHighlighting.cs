@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using JetBrains.Application.UI.Controls.BulbMenu.Anchors;
 using JetBrains.Application.UI.Controls.BulbMenu.Items;
 using JetBrains.DocumentModel;
+using JetBrains.RdBackend.Common.Features.Icons;
 using JetBrains.ReSharper.Feature.Services.Daemon;
-using JetBrains.ReSharper.Resources.Resources.Icons;
 using JetBrains.TextControl.DocumentMarkup;
 using JetBrains.UI.Icons;
 using JetBrains.UI.RichText;
@@ -42,7 +42,7 @@ public sealed class HelixMixinGutterHighlighting : ICustomAttributeIdHighlightin
 
 public sealed class HelixMixinGutterMark : IconGutterMarkType
 {
-    public HelixMixinGutterMark() : base(PsiFeaturesUnsortedThemedIcons.FuncZoneGenerate.Id)
+    public HelixMixinGutterMark() : base(new FrontendIconId("icons/mixin_contribution.svg"))
     {
     }
 

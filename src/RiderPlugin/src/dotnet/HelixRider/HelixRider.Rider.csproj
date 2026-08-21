@@ -12,4 +12,12 @@
     <PackageReference Include="JetBrains.Rider.SDK" Version="$(SdkVersion)" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="HelixLiveTemplates.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>HelixLiveTemplates.DotSettings</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+  </ItemGroup>
+
 </Project>
