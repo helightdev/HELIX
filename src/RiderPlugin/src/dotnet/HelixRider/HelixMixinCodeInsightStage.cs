@@ -11,13 +11,14 @@ using JetBrains.ReSharper.Psi;
 using JetBrains.ReSharper.Psi.CSharp;
 using JetBrains.ReSharper.Psi.CSharp.Tree;
 using JetBrains.ReSharper.Psi.Tree;
+using JetBrains.Roslyn.Host.Integration.Analyzers.Daemon;
 using JetBrains.Util;
 
 namespace HelixRider;
 
 [DaemonStage(Instantiation.ContainerAsyncAnyThreadSafe,
     StagesBefore = new[] { typeof(GlobalFileStructureCollectorStage) },
-    StagesAfter = new[] { typeof(LanguageSpecificDaemonStage) },
+    StagesAfter = new[] { typeof(LanguageSpecificDaemonStage), typeof(RoslynDaemonStage) },
     HighlightingTypes = new[] { typeof(HelixMixinCodeInsightsHighlighting), typeof(HelixMixinGutterHighlighting) })]
 public sealed class HelixMixinCodeInsightStage : CSharpDaemonStageBase
 {
@@ -62,6 +63,9 @@ public sealed class HelixMixinCodeInsightStage : CSharpDaemonStageBase
         {
             var sourceFile = _process.SourceFile;
             var document = sourceFile.Document;
+            // RoslynDaemonStage has just refreshed this file's analyzer diagnostics. The
+            // contribution cache is derived from those diagnostics, not only source text.
+            _cache.Invalidate(sourceFile);
             var contributions = _cache.Request(sourceFile, document.GetText());
             var consumer = new DefaultHighlightingConsumer(sourceFile);
             var gutterOffsets = new System.Collections.Generic.HashSet<int>();
@@ -131,7 +135,10 @@ public sealed class HelixMixinCodeInsightStage : CSharpDaemonStageBase
 
         private static string GetSimpleTypeName(string sourceType)
         {
-            var name = sourceType.Substring(sourceType.LastIndexOf('.') + 1);
+            var normalized = sourceType.StartsWith("global::", StringComparison.Ordinal)
+                ? sourceType.Substring("global::".Length)
+                : sourceType;
+            var name = normalized.Substring(normalized.LastIndexOf('.') + 1);
             name = name.Substring(name.LastIndexOf('+') + 1);
             var genericMarker = name.IndexOf('<');
             return genericMarker < 0 ? name : name.Substring(0, genericMarker);

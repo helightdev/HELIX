@@ -29,8 +29,13 @@ public sealed class HelixMixinContributionCache
         _solution = solution;
     }
 
-    public void RegisterCollector(Func<string, string, Task<IReadOnlyList<HelixMixinContribution>>> collector) =>
+    public void RegisterCollector(Func<string, string, Task<IReadOnlyList<HelixMixinContribution>>> collector)
+    {
         _collector = collector;
+        // The visible-file daemon can run before the Roslyn component is composed.
+        if (_lifetime.IsAlive)
+            _ = _lifetime.StartMainRead(() => DaemonBase.GetInstance(_solution).Invalidate());
+    }
 
     public IReadOnlyList<HelixMixinContribution> Request(IPsiSourceFile sourceFile, string sourceText)
     {
@@ -44,19 +49,35 @@ public sealed class HelixMixinContributionCache
             {
                 entry.RequestedRevision = revision;
                 entry.RequestInFlight = true;
-                _ = CompleteAsync(entry, revision, collector(path, sourceText));
+                _ = CompleteAsync(entry, revision, collector, path, sourceText);
             }
             return entry.Contributions;
         }
     }
 
+    public void Invalidate(IPsiSourceFile sourceFile)
+    {
+        var path = sourceFile.GetLocation().FullPath;
+        if (!_entries.TryGetValue(path, out var entry))
+            return;
+        lock (entry)
+        {
+            entry.Generation++;
+            entry.RequestedRevision = null;
+        }
+    }
+
     private async Task CompleteAsync(CacheEntry entry, string revision,
-        Task<IReadOnlyList<HelixMixinContribution>> task)
+        Func<string, string, Task<IReadOnlyList<HelixMixinContribution>>> collector,
+        string path, string sourceText)
     {
         IReadOnlyList<HelixMixinContribution> result = null;
+        int generation;
+        lock (entry)
+            generation = entry.Generation;
         try
         {
-            result = await task;
+            result = await collector(path, sourceText);
         }
         catch (OperationCanceledException)
         {
@@ -66,16 +87,18 @@ public sealed class HelixMixinContributionCache
             // Roslyn can be temporarily unavailable while its worker is restarting.
         }
         var changed = false;
+        var invalidatedWhileCollecting = false;
         lock (entry)
         {
             entry.RequestInFlight = false;
-            if (result != null && entry.RequestedRevision == revision)
+            invalidatedWhileCollecting = entry.Generation != generation;
+            if (result != null && !invalidatedWhileCollecting && entry.RequestedRevision == revision)
             {
                 changed = !entry.Contributions.SequenceEqual(result);
                 entry.Contributions = result;
             }
         }
-        if (changed && _lifetime.IsAlive)
+        if ((changed || invalidatedWhileCollecting) && _lifetime.IsAlive)
             _ = _lifetime.StartMainRead(() => DaemonBase.GetInstance(_solution).Invalidate());
     }
 
@@ -83,6 +106,7 @@ public sealed class HelixMixinContributionCache
     {
         public string RequestedRevision;
         public bool RequestInFlight;
+        public int Generation;
         public IReadOnlyList<HelixMixinContribution> Contributions = Array.Empty<HelixMixinContribution>();
     }
 
