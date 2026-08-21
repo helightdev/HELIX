@@ -108,7 +108,7 @@ internal class UnityCliProjectService(
 
     private fun commandFailure(name: String, response: UnityCliCommandResponse): UnityCliCommandException {
         val message = response.envelope.errors.joinToString("; ") { it.message }
-            .ifBlank { message("unity.cli.error.pipeline.command.failed", name, response.exitCode) }
+            .ifBlank { message("unity.cli.error.pipeline.command.failed", name, response.exitCode.toString()) }
         return UnityCliCommandException(message)
     }
 
@@ -210,7 +210,7 @@ internal class UnityCliProjectService(
         }
 
         private fun buildExitMessage(exitCode: Int): String = buildString {
-            append(message("unity.cli.error.shell.exit.code", exitCode))
+            append(message("unity.cli.error.shell.exit.code", exitCode.toString()))
             lastError.get()?.let { append(": ").append(it) }
         }
 

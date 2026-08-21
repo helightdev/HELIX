@@ -77,7 +77,7 @@ private class UnityCliServiceViewDescriptor(
             is UnityCliStatusState.Loaded -> {
                 val snapshot = state.snapshot
                 val label = when {
-                    !snapshot.success -> message("unity.cli.status.error", snapshot.exitCode)
+                    !snapshot.success -> message("unity.cli.status.error", snapshot.exitCode.toString())
                     snapshot.instances.isEmpty() -> message("unity.cli.status.offline")
                     else -> message("unity.cli.status.online")
                 }
@@ -97,8 +97,8 @@ private class UnityCliServiceViewDescriptor(
                 "unity.cli.details.instance",
                 instance.version,
                 instance.state,
-                instance.pid,
-                instance.port,
+                instance.pid.toString(),
+                instance.port.toString(),
             ))
         }
         snapshot.warnings.forEach { append("\n\n").append(message("unity.cli.details.warning", it.message)) }

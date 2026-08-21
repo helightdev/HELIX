@@ -1,0 +1,33 @@
+{
+    "name": "dev.helight.helix.boot",
+    "displayName": "HELIX Boot",
+    "version": "0.3.3",
+    "unity": "6000.5",
+    "description": "Boostrap and meta package for fully HELIX based packages.",
+    "license": "MIT",
+    "category": "HELIX",
+    "documentationUrl": "https://helix.helight.dev/docs/",
+    "licensesUrl": "https://github.com/helightdev/HELIX/blob/main/LICENSE",
+    "author": {
+        "name": "Christoph 'HelightDev' Feuerer",
+        "url": "https://helight.dev"
+    },
+    "keywords": [
+        "HELIX",
+        "Boot",
+        "Meta",
+        "Tools",
+        "Framework",
+        "UI",
+        "DI",
+        "Service"
+    ],
+    "dependencies": {
+        "dev.helight.helix.core": "0.3.3",
+        "dev.helight.helix.compose": "0.3.3",
+        "dev.helight.helix.context": "0.3.3",
+        "dev.helight.helix.support": "0.3.3",
+        "dev.helight.helix.ui": "0.3.3",
+        "dev.helight.helix.devtools": "0.3.3"
+    }
+}

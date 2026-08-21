@@ -85,6 +85,22 @@ unity {
         projectDependency(context)
         projectDependency(support)
     }
+
+    val boot = unityPackage("Assets/Plugins/HELIX.Boot") {
+        name = "dev.helight.helix.boot"
+        displayName = "HELIX Boot"
+        description = "Boostrap and meta package for fully HELIX based packages."
+        category = "HELIX"
+        keywords("Boot", "Meta", "Tools", "Framework", "UI", "DI", "Service")
+
+        projectDependency(core)
+        projectDependency(compose)
+        projectDependency(context)
+        projectDependency(support)
+        projectDependency(ui)
+        projectDependency(devtools)
+    }
+
     unityPackage("Assets/Plugins/HELIX.Widgets") {
         name = "dev.helight.helix.widgets"
         displayName = "HELIX Widgets"

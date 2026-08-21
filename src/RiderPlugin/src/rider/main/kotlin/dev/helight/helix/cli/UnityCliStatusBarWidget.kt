@@ -2,6 +2,7 @@ package dev.helight.helix.cli
 
 import dev.helight.helix.HelixMessagesBundle.message
 import dev.helight.helix.HelixIcons
+import com.intellij.execution.services.ServiceViewManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.wm.StatusBar
@@ -24,7 +25,7 @@ internal class UnityCliStatusBarWidgetFactory : StatusBarWidgetFactory {
         UnityCliProjectService.isUnityProject(project)
 
     override fun createWidget(project: Project, scope: CoroutineScope): StatusBarWidget =
-        UnityCliStatusBarWidget(UnityCliProjectService.getInstance(project), scope)
+        UnityCliStatusBarWidget(project, UnityCliProjectService.getInstance(project), scope)
 
     override fun isEnabledByDefault(): Boolean = true
 
@@ -34,6 +35,7 @@ internal class UnityCliStatusBarWidgetFactory : StatusBarWidgetFactory {
 }
 
 private class UnityCliStatusBarWidget(
+    private val project: Project,
     private val service: UnityCliProjectService,
     scope: CoroutineScope,
 ) : StatusBarWidget, StatusBarWidget.IconPresentation {
@@ -78,7 +80,7 @@ private class UnityCliStatusBarWidget(
                     current.snapshot.projectPath,
                     instance.version,
                     instance.state,
-                    instance.pid,
+                    instance.pid.toString(),
                 ))
             }
             current.snapshot.errors.firstOrNull()?.let {
@@ -87,7 +89,14 @@ private class UnityCliStatusBarWidget(
         }
     }
 
-    override fun getClickConsumer(): Consumer<MouseEvent> = Consumer { service.refreshStatus() }
+    override fun getClickConsumer(): Consumer<MouseEvent> = Consumer {
+        ServiceViewManager.getInstance(project).select(
+            service,
+            UnityCliServiceViewContributor::class.java,
+            true,
+            true,
+        )
+    }
 }
 
 internal fun UnityCliStatusState.isUnityOnline(): Boolean = when (this) {
