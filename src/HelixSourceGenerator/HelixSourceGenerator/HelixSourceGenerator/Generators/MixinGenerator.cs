@@ -128,7 +128,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         for (var attributeType = attribute.AttributeClass;
           attributeType is not null;
           attributeType = attributeType.BaseType)
-          if (attributeType.ToDisplayString() == Attributes.Component)
+          if (attributeType.ToDisplayString() == Attributes.Managed)
             return true;
       }
     }

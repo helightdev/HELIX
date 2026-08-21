@@ -33,5 +33,5 @@ namespace HELIX.Context {
     }
   }
 
-  public delegate object ComponentActivator(ComponentLoadContext context);
+  public delegate object ComponentActivator(ManagedLoadContext context);
 }

@@ -2,7 +2,7 @@ using System;
 
 namespace HELIX.Context {
   public interface IHelixModule {
-    void Discover(ComponentRegistrations registrations) {}
+    void Discover(ManagedRegistrations registrations) {}
   }
 
   [AttributeUsage(AttributeTargets.Class)]

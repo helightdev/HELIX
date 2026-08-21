@@ -15,7 +15,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void LoadsProviderBeforeConsumerAndExposesItsInterface() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider(trace)).Exposes<IProvider>();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
         .Requires<IProvider>();
@@ -29,7 +29,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void ChildScopeCanResolveAncestorWithoutPublishingBackToParent() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider()).Exposes<IProvider>();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
         .In<SessionScope>()
@@ -46,7 +46,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void LocalProviderShadowsAncestorBeforeChildConsumerLoads() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider()).Exposes<IProvider>();
       registrations.Add(_ => new SessionProvider())
         .In<SessionScope>()
@@ -65,7 +65,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void QualifiersKeepCompetingProvidersIsolated() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider()).Exposes<IProvider>(Primary);
       registrations.Add(_ => new SecondaryProvider()).Exposes<IProvider>(Secondary);
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(Primary)))
@@ -84,7 +84,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void CollectedDependencyReturnsEmptyListWhenNoProviderExists() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new ProviderListConsumer(context.ResolveAll<IProvider>()))
         .Collects<IProvider>();
 
@@ -96,7 +96,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void CollectedDependencyWaitsForEveryProviderAndPreservesLoadOrder() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new ProviderListConsumer(context.ResolveAll<IProvider>(), trace))
         .Collects<IProvider>()
         .order = -100;
@@ -116,7 +116,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void CollectedDependencyUsesElementQualifierAndIncludesVisibleAncestors() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider()).Exposes<IProvider>(Primary);
       registrations.Add(_ => new SecondaryProvider())
         .In<SessionScope>()
@@ -139,7 +139,7 @@ namespace HELIX.Context.Tests {
     public void CollectedDependencyEvaluatesProxyProvidersOnlyWhenConsumerResolvesList() {
       var trace = new List<string>();
       var value = new PublishedProvider();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new ProviderListConsumer(context.ResolveAll<IProvider>(), trace))
         .Collects<IProvider>()
         .order = -100;
@@ -156,7 +156,7 @@ namespace HELIX.Context.Tests {
     public void RegistrationConditionsAreAndedAndEvaluatedOncePerScope() {
       var firstCalls = 0;
       var secondCalls = 0;
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add<Provider>(_ =>
           throw new AssertionException("Disabled component should not activate."))
         .Condition(_ => {
@@ -177,7 +177,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void RegistrationConditionCanReadScopeBindingsIndependentlyForEachScope() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider())
         .In<SessionScope>()
         .Condition(context => context.Resolve<FeatureFlag>().Enabled);
@@ -199,7 +199,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void ConditionalProvidersAreRemovedBeforeCollectionDependencySettles() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider())
         .Condition(_ => false)
         .Exposes<IProvider>();
@@ -219,7 +219,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void DisabledOnlyProviderDoesNotSatisfyRequiredConsumerGraph() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider())
         .Condition(_ => false)
         .Exposes<IProvider>();
@@ -235,7 +235,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void ConditionFailureIsReportedAsGraphFailureBeforeActivation() {
       var activations = 0;
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => {
           activations++;
           return new Provider();
@@ -252,7 +252,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void OptionalDependencyWaitsForAProviderEvenWhenConsumerHasEarlierOrder() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new OptionalProviderConsumer(context.ResolveOptional<IProvider>()))
         .OptionallyRequires<IProvider>()
         .order = -100;
@@ -268,7 +268,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void OptionalDependencyWaitsThroughAnInterconnectedProviderChain() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new OptionalProviderConsumer(context.ResolveOptional<IProvider>(), trace))
         .OptionallyRequires<IProvider>()
         .order = -100;
@@ -285,7 +285,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void OptionalDependencyFallsBackToNullWhenNoProviderCanAppear() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new OptionalProviderConsumer(context.ResolveOptional<IProvider>()))
         .OptionallyRequires<IProvider>();
 
@@ -296,7 +296,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void ConsumerWaitsForEveryMatchingProviderAndUsesLastOrderedBinding() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
         .Requires<IProvider>()
         .order = -100;
@@ -315,7 +315,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void OptionalDependencyCycleUsesEntryOrderAsFinalTieBreaker() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => {
           trace.Add("A");
           return new CycleA();
@@ -366,7 +366,7 @@ namespace HELIX.Context.Tests {
       var registrations = CollectionPipelineRegistrations(trace);
       var declared = new ProseTextWriter(wrapWidth: 1000);
 
-      ComponentGraphProse.WriteDeclared(declared, registrations);
+      ManagedGraphProse.WriteDeclared(declared, registrations);
       var scope = CreateContainer(registrations).StartApplicationSync();
 
       Assert.That(trace, Is.EqualTo(new[] {
@@ -388,7 +388,7 @@ namespace HELIX.Context.Tests {
       var registrations = CollectionPipelineRegistrations(trace, collectionOrder: -10);
       var declared = new ProseTextWriter(wrapWidth: 1000);
 
-      ComponentGraphProse.WriteDeclared(declared, registrations);
+      ManagedGraphProse.WriteDeclared(declared, registrations);
       CreateContainer(registrations).StartApplicationSync();
 
       Assert.That(trace, Is.EqualTo(new[] {
@@ -403,7 +403,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void GeneratedListInjectionIsMarkedAsACollectionDependency() {
-      var registration = new ComponentRegistration(typeof(GeneratedListInjectionComponent));
+      var registration = new ManagedRegistration(typeof(GeneratedListInjectionComponent));
 
       GeneratedListInjectionComponent.RegistrationConfigurator(registration);
 
@@ -415,7 +415,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void EarlierPhaseCanForceAnOptionalConsumerAheadOfALaterProvider() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new OptionalProviderConsumer(context.ResolveOptional<IProvider>(), trace))
         .OptionallyRequires<IProvider>()
         .phase = -100;
@@ -430,7 +430,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void RequiredDependencyFromALaterPhaseViolatesTheHardPhaseBarrier() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
         .Requires<IProvider>()
         .phase = -100;
@@ -447,8 +447,8 @@ namespace HELIX.Context.Tests {
     [Test]
     public void ArbitraryScriptedDependencyPhaseParticipatesInLoading() {
       var trace = new List<string>();
-      var dependency = new PhasedScriptedDependency(125, trace);
-      var registrations = new ComponentRegistrations();
+      var dependency = new PhasedManagedDependency(125, trace);
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new RecordingComponent(trace, "component"))
         .Dependency(new ComponentDependency(dependency, true))
         .phase = 125;
@@ -460,7 +460,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void GeneratedComponentAttributeConfiguresAnIntegerPhase() {
-      var registration = new ComponentRegistration(typeof(GeneratedPhasedComponent));
+      var registration = new ManagedRegistration(typeof(GeneratedPhasedComponent));
 
       GeneratedPhasedComponent.RegistrationConfigurator(registration);
 
@@ -469,7 +469,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void OptionalComponentIsOmittedWhenRequiredDependencyNeverAppears() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add<OptionalProviderConsumer>(_ =>
           throw new AssertionException("Unsatisfied optional component should not activate."))
         .Optional()
@@ -483,7 +483,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void OptionalComponentLoadsWhenItsDependencyBecomesAvailableAndFeedsDownstreamConsumer() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new DependencyGate(trace));
       registrations.Add(_ => new Provider(trace))
         .Optional()
@@ -500,7 +500,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void SkippedOptionalLocalProviderLetsChildConsumerFallBackToAncestor() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider()).Exposes<IProvider>();
       registrations.Add(_ => new SessionProvider())
         .In<SessionScope>()
@@ -536,11 +536,11 @@ namespace HELIX.Context.Tests {
     public async Task AsyncInitializationCompletesBeforeLateLoadPublishes() {
       var trace = new List<string>();
       var value = new PublishedProvider();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new AsyncLateBindingComponent(value, typeof(IProvider), trace))
         .Publishes<IProvider>()
         .Publishes<AsyncHandlerValue>()
-        .RegisterHandlerBinding<AsyncComponentLoadEvent>();
+        .RegisterHandlerBinding<AsyncManagedLoadEvent>();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
         .Requires<IProvider>();
       var container = CreateContainer(registrations);
@@ -559,7 +559,7 @@ namespace HELIX.Context.Tests {
       var trace = new List<string>();
       var first = new Provider(name: "first");
       var second = new SecondaryProvider();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new LateBindingComponent(first, typeof(IProvider), trace))
         .Publishes<IProvider>()
         .order = 10;
@@ -583,7 +583,7 @@ namespace HELIX.Context.Tests {
       var calls = 0;
       var first = new Provider(name: "first");
       var second = new SecondaryProvider();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       var container = CreateContainer(registrations);
       var application = container.StartApplicationSync();
       var session = container.CreateScope(application)
@@ -601,7 +601,7 @@ namespace HELIX.Context.Tests {
     public void BufferedConsumerResolvesProxyOnlyAfterPublisherLateLoad() {
       var trace = new List<string>();
       var value = new PublishedProvider();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new ProxyBindingComponent(() => value, trace))
         .Publishes<IProvider>();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
@@ -615,7 +615,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void NullProxyFallsBackToOlderVisibleBindingAndIsOmittedFromResolveAll() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider()).Exposes<IProvider>();
       var container = CreateContainer(registrations);
       var application = container.StartApplicationSync();
@@ -633,7 +633,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void ProxyBindingHonorsQualifierAndRejectsIncompatibleSupplierValue() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       var container = CreateContainer(registrations);
       var application = container.StartApplicationSync();
       var expected = new Provider();
@@ -651,7 +651,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void LateLoadFailureRollsBackAlreadyRecordedComponent() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new LateBindingComponent(
           new PublishedProvider(), typeof(IProvider), trace, failLate: true
         ))
@@ -666,7 +666,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void RequiredPublicationMustComeFromDeclaringComponent() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new PublishedProvider()).Publishes<IProvider>();
 
       var container = CreateContainer(registrations);
@@ -676,7 +676,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void ActivationPublicationSatisfiesDeclarationAndConsumer() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => {
           var provider = new PublishedProvider();
           context.Publish<IProvider>(provider);
@@ -694,7 +694,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void RequiredDependencyCycleFailsWithoutActivatingEitherComponent() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new CycleA()).Requires<CycleB>();
       registrations.Add(_ => new CycleB()).Requires<CycleA>();
       var container = CreateContainer(registrations);
@@ -707,7 +707,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void LoadingPassLimitStopsAnOtherwiseProgressingGraph() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider()).Exposes<IProvider>();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
         .Requires<IProvider>();
@@ -721,7 +721,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void ResolveAllPreservesProviderLoadOrderWhileResolveReturnsLatest() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider()).Exposes<IProvider>().order = 10;
       registrations.Add(_ => new SecondaryProvider()).Exposes<IProvider>().order = 20;
 
@@ -737,12 +737,12 @@ namespace HELIX.Context.Tests {
     [Test]
     public void SyncStartRejectsAsyncComponentBeforeActivation() {
       var activations = 0;
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => {
           activations++;
           return new Provider();
         })
-        .RegisterHandlerBinding<AsyncComponentLoadEvent>();
+        .RegisterHandlerBinding<AsyncManagedLoadEvent>();
       var container = CreateContainer(registrations);
 
       Assert.Throws<AsyncScopeInitializationException>(() => container.StartApplicationSync());
@@ -752,7 +752,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void InitializationFailureRollsBackLoadedComponentsInReverseOrder() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new RecordingComponent(trace, "stable")).order = -1;
       registrations.Add<FailingComponent>(_ => throw new InvalidOperationException("failure")).order = 1;
       var container = CreateContainer(registrations);
@@ -766,7 +766,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void ScopeDisposalUnloadsInReverseDependencyOrderAndIsIdempotent() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new RecordingComponent(trace, "provider"));
       registrations.Add(_ => new RecordingConsumerComponent(trace)).Requires<RecordingComponent>();
       var container = CreateContainer(registrations);
@@ -783,7 +783,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void ScopeBuilderBindingIsVisibleBeforeComponentActivation() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
         .In<SessionScope>()
         .Requires<IProvider>();
@@ -802,7 +802,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void ExistingGameObjectComponentIsAdoptedInsteadOfActivated() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add<InjectedTestComponent>(_ =>
         throw new AssertionException("Existing component should be adopted."));
       GameObject gameObject = null;
@@ -819,8 +819,8 @@ namespace HELIX.Context.Tests {
 
         Assert.That(scope.Resolve<InjectedTestComponent>(), Is.SameAs(existing));
         Assert.That(existing.loadCount, Is.EqualTo(1));
-        Assert.That(existing.ComponentBinding.scope, Is.SameAs(scope));
-        Assert.That(existing.ComponentBinding.isLoaded, Is.True);
+        Assert.That(existing.managed.scope, Is.SameAs(scope));
+        Assert.That(existing.managed.isLoaded, Is.True);
       } finally {
         if (gameObject != null) UnityEngine.Object.DestroyImmediate(gameObject);
       }
@@ -828,7 +828,7 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void ApplicationStartupCreatesSceneScopeAndAdoptsSceneComponent() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add<InjectedTestComponent>(_ =>
         throw new AssertionException("Existing component should be adopted."));
       var gameObject = new GameObject("Scene component test");
@@ -851,7 +851,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void UnscopedComponentOnlyLoadsWhenExplicitlyContributed() {
       var activations = 0;
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => {
         activations++;
         return new ContributedComponent();
@@ -867,15 +867,15 @@ namespace HELIX.Context.Tests {
 
       Assert.That(application.TryResolve(typeof(ContributedComponent), out _), Is.False);
       Assert.That(session.Resolve<ContributedComponent>(), Is.SameAs(contributed));
-      Assert.That(contributed.ComponentBinding.scope, Is.SameAs(session));
-      Assert.That(contributed.ComponentBinding.isLoaded, Is.True);
+      Assert.That(contributed.managed.scope, Is.SameAs(session));
+      Assert.That(contributed.managed.isLoaded, Is.True);
       Assert.That(activations, Is.Zero);
     }
 
     [Test]
     public void ScopeBuilderCanActivateExplicitUnscopedComponentType() {
       var activations = 0;
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => {
         activations++;
         return new ContributedComponent();
@@ -895,7 +895,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void ScopeBuilderInsertsAnUnscopedProviderIntoThePreparedScopePlan() {
       var trace = new List<string>();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider(trace)).Exposes<IProvider>();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
         .In<SessionScope>()
@@ -915,7 +915,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void BuilderInstalledScopeHandlerContributesComponent() {
       var contributed = new ContributedComponent();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add<ContributedComponent>(_ =>
         throw new AssertionException("Handler contribution should be adopted."));
       var container = CreateContainer(
@@ -933,7 +933,7 @@ namespace HELIX.Context.Tests {
     [Test]
     public void RegistrarComponentCanInstallScopeHandler() {
       var contributed = new ContributedComponent();
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new RegistrarScopeHandler(contributed)).In<RegistrarScope>();
       registrations.Add<ContributedComponent>(_ =>
         throw new AssertionException("Handler contribution should be adopted."));
@@ -947,18 +947,18 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void DeclaredAndLiveGraphsDescribeDependenciesAndOptionalComponents() {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new Provider()).Exposes<IProvider>();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>()))
         .Optional()
         .Requires<IProvider>();
       var declared = new ProseTextWriter(wrapWidth: 1000);
 
-      ComponentGraphProse.WriteDeclared(declared, registrations);
+      ManagedGraphProse.WriteDeclared(declared, registrations);
       var container = CreateContainer(registrations);
       container.StartApplicationSync();
       var live = new ProseTextWriter(wrapWidth: 1000);
-      ComponentGraphProse.WriteLive(live, container);
+      ManagedGraphProse.WriteLive(live, container);
 
       Assert.That(declared.ToString(), Does.Contain("Declared dependency graph"));
       Assert.That(declared.ToString(), Does.Contain($"Phase {InitPhase.Normal}"));
@@ -974,13 +974,13 @@ namespace HELIX.Context.Tests {
 
     [Test]
     public void DeclaredGraphPlacesImplicitScriptedDependenciesInTheirOwnPhase() {
-      var dependency = new PhasedScriptedDependency(InitPhase.Early, new List<string>());
-      var registrations = new ComponentRegistrations();
+      var dependency = new PhasedManagedDependency(InitPhase.Early, new List<string>());
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new RecordingComponent(new List<string>(), "consumer"))
         .Dependency(new ComponentDependency(dependency, true));
       var writer = new ProseTextWriter(wrapWidth: 1000);
 
-      ComponentGraphProse.WriteDeclared(writer, registrations);
+      ManagedGraphProse.WriteDeclared(writer, registrations);
 
       var graph = writer.ToString();
       AssertInOrder(graph,
@@ -994,7 +994,7 @@ namespace HELIX.Context.Tests {
     public void DeclaredGraphUsesThePlannedTransformerPipelineOrder() {
       var writer = new ProseTextWriter();
 
-      ComponentGraphProse.WriteDeclared(writer, PipelineRegistrations(new List<string>()));
+      ManagedGraphProse.WriteDeclared(writer, PipelineRegistrations(new List<string>()));
 
       var graph = writer.ToString();
       Assert.That(graph.IndexOf(nameof(FallbackPipelineStage), StringComparison.Ordinal),
@@ -1005,11 +1005,11 @@ namespace HELIX.Context.Tests {
         Is.LessThan(graph.IndexOf(nameof(PipelineConsumer), StringComparison.Ordinal)));
     }
 
-    private static ComponentRegistrations LateBindingRegistrations(
+    private static ManagedRegistrations LateBindingRegistrations(
       ICollection<string> trace,
       IProvider value
     ) {
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(_ => new LateBindingComponent(value, typeof(IProvider), trace))
         .Publishes<IProvider>();
       registrations.Add(context => new ProviderConsumer(context.Resolve<IProvider>(), trace))
@@ -1017,9 +1017,9 @@ namespace HELIX.Context.Tests {
       return registrations;
     }
 
-    private static ComponentRegistrations PipelineRegistrations(ICollection<string> trace) {
+    private static ManagedRegistrations PipelineRegistrations(ICollection<string> trace) {
       const string pipeline = "pipeline";
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new PipelineConsumer(context.Resolve<string>(pipeline), trace))
         .Requires<string>(pipeline)
         .order = -100;
@@ -1038,12 +1038,12 @@ namespace HELIX.Context.Tests {
       return registrations;
     }
 
-    private static ComponentRegistrations CollectionPipelineRegistrations(
+    private static ManagedRegistrations CollectionPipelineRegistrations(
       ICollection<string> trace,
       int collectionOrder = 0
     ) {
       const string pipeline = "pipeline";
-      var registrations = new ComponentRegistrations();
+      var registrations = new ManagedRegistrations();
       registrations.Add(context => new PipelineListConsumer(context.ResolveAll<string>(pipeline), trace))
         .Collects<string>(pipeline)
         .order = -300;

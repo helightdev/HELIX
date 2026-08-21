@@ -4,7 +4,7 @@ namespace HELIX.Context {
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
   [MixinExpression(
-    new[] { MixinOn.Init, MixinOn.Dispose, MixinOn.ConfigureComponent },
+    new[] { MixinOn.Init, MixinOn.Dispose, MixinOn.ConfigureManaged },
     new[] { -1, 1, 0 },
     "@CALL<InjectDiImpl>"
   )]
@@ -14,7 +14,7 @@ namespace HELIX.Context {
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
   [MixinExpression(
-    new[] {MixinOn.LoadComponentLate, MixinOn.ConfigureComponent},
+    new[] {MixinOn.LoadManagedLate, MixinOn.ConfigureManaged},
     new[] { 0, 0 },
     "@CALL<BindImpl>"
   )]
@@ -25,7 +25,7 @@ namespace HELIX.Context {
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
   [MixinExpression(
-    new[] { MixinOn.Init, MixinOn.Dispose, MixinOn.ConfigureComponent },
+    new[] { MixinOn.Init, MixinOn.Dispose, MixinOn.ConfigureManaged },
     new[] { -1, 1, 0 },
     "@CALL<ResourceImpl>"
   )]

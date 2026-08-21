@@ -15,7 +15,7 @@ using HELIX;
   @CODE<CLASS> protected readonly EventHandlerList eventHandlerList = EventHandlerList.Create();
   @CODE<CLASS> EventHandlerList IEventListener.HandlerList => eventHandlerList;
 
-  @CODE<$Dispose> eventHandlerList.UnregisterAll();
+  @MIXIN<$Dispose><1> eventHandlerList.UnregisterAll();
   @CODE<IMPLEMENTS> IEventListener
   @VAR<IsEventHandler> true
 @END
@@ -31,7 +31,7 @@ using HELIX;
 
   @SCOPE
     @MATCH @var#IsComponent:?eq<true>
-    @CODE<$ConfigureComponent> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
+    @CODE<$ConfigureManaged> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
   @END
 
   @SCOPE
@@ -54,34 +54,34 @@ using HELIX;
 "
 )]
 
-// Component implementation
+// Managed implementation
 [assembly: MixinPrepareGlobal(
   @"
-@FUNC<ComponentImpl>
+@FUNC<ManagedImpl>
   @USING HELIX.Context;
   @USING UnityEngine;
-  @CODE<$ConfigureComponent> registration.name = ""@this:name"";
-  @CODE<$ConfigureComponent> registration.optional = @attr#optional;
-  @CODE<$ConfigureComponent> registration.phase = @attr#phase;
-  @CODE<$ConfigureComponent> registration.order = @attr#order;
-  @CODE<IMPLEMENTS> IComponent
-  @CODE<CLASS> public RuntimeComponentData ComponentBinding { get; } = new();
+  @CODE<$ConfigureManaged> registration.name = ""@this:name"";
+  @CODE<$ConfigureManaged> registration.optional = @attr#optional;
+  @CODE<$ConfigureManaged> registration.phase = @attr#phase;
+  @CODE<$ConfigureManaged> registration.order = @attr#order;
+  @CODE<IMPLEMENTS> IManaged
+  @CODE<CLASS> public RuntimeManagedData managed { get; } = new();
   @VAR<IsComponent> true
 
   @SCOPE
     @MATCH@attr#scope:?eq<null>
     @GOTO<Activator>
   @SCOPE
-    @CODE<$ConfigureComponent> registration.scope = @attr#scope;
+    @CODE<$ConfigureManaged> registration.scope = @attr#scope;
   @END
 
   @SCOPE<Activator>
   @SCOPE
     @MATCH @this:?is<MonoBehaviour>
-    @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
+    @CODE<$ConfigureManaged> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
     @GOTO<End>
   @SCOPE
-    @CODE<$ConfigureComponent> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
+    @CODE<$ConfigureManaged> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
   @END
 
   @SCOPE<End>
@@ -114,8 +114,8 @@ using HELIX;
 
   @LOCAL<TypeKey> new TypeKey(@local#Type, @attr#qualifier)
   @LOCAL<Dependency> new ComponentDependency(@local#TypeKey, @attr#required)
-  @CODE<$ConfigureComponent> registration.Publication(@local#Dependency);
-  @CODE<$LoadComponentLate> @(local#Guard)context.@local#Method(@local#TypeKey, @local#Value);
+  @CODE<$ConfigureManaged> registration.Publication(@local#Dependency);
+  @CODE<$LoadManagedLate> @(local#Guard)context.@local#Method(@local#TypeKey, @local#Value);
 @END
 "
 )]
@@ -142,13 +142,13 @@ using HELIX;
 
   @SCOPE<Addressables>
     @MATCH @attr#source:?eq<2>
-    @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new AddressableDependency<@target:type>(@attr#qualifier, @local#WireKey), true));
-    @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@local#WireKey);
+    @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new AddressableDependency<@target:type>(@attr#qualifier, @local#WireKey), true));
+    @CODE<$Init> @target:name = managed.Resolve<@target:type>(@local#WireKey);
     @RETURN
   @SCOPE<Resources>
     @MATCH @attr#source:?eq<3>
-    @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new ResourceDependency<@target:type>(@attr#qualifier, @local#WireKey), true));
-    @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@local#WireKey);
+    @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new ResourceDependency<@target:type>(@attr#qualifier, @local#WireKey), true));
+    @CODE<$Init> @target:name = managed.Resolve<@target:type>(@local#WireKey);
     @RETURN
   @END
   @FAIL No valid injection source found for the target type.
@@ -164,13 +164,13 @@ using HELIX;
 
   @SCOPE<AddressableList>
     @MATCH @attr#source:?eq<2>
-    @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new AddressableListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
-    @CODE<$Init> @target:name = ComponentBinding.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
+    @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new AddressableListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
+    @CODE<$Init> @target:name = managed.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
     @RETURN
   @SCOPE<ResourceList>
     @MATCH @attr#source:?eq<3>
-    @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new ResourceListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
-    @CODE<$Init> @target:name = ComponentBinding.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
+    @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new ResourceListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
+    @CODE<$Init> @target:name = managed.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
     @RETURN
   @END
   @FAIL No valid injection source found for the collected target type.
@@ -193,20 +193,20 @@ using HELIX;
     @RETURN
   @END
 
-  @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type), @attr#qualifier), @attr#required));
+  @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type), @attr#qualifier), @attr#required));
   @SCOPE
     @MATCH @attr#required:?eq<false>
-    @CODE<$Init> @target:name = ComponentBinding.ResolveOptional<@target:type>(@attr#qualifier);
+    @CODE<$Init> @target:name = managed.ResolveOptional<@target:type>(@attr#qualifier);
     @RETURN
   @END
-  @CODE<$Init> @target:name = ComponentBinding.Resolve<@target:type>(@attr#qualifier);
+  @CODE<$Init> @target:name = managed.Resolve<@target:type>(@attr#qualifier);
 @END
 
 @FUNC<InjectDiImplList>
   @USING System.Collections.Generic;
   @ASSERT @target:type#0:?class
-  @CODE<$ConfigureComponent> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type#0), @attr#qualifier), false, true));
-  @CODE<$Init> @target:name = ComponentBinding.ResolveAll<@target:type#0>(@attr#qualifier) as @target:type;
+  @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type#0), @attr#qualifier), false, true));
+  @CODE<$Init> @target:name = managed.ResolveAll<@target:type#0>(@attr#qualifier) as @target:type;
 @END
 "
 )]
@@ -240,7 +240,7 @@ using HELIX;
     @LOCAL<TickerCondition> @attr#condition:unwrap && @local#TickerCondition
   @SCOPE
     @MATCH @var#IsComponent:?eq<true>
-    @LOCAL<TickerCondition> ComponentBinding.IsActive && @local#TickerCondition
+    @LOCAL<TickerCondition> managed.IsActive && @local#TickerCondition
   @END
 
   @LOCAL<InvokeTicker> @target:name();

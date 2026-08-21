@@ -4,7 +4,7 @@ using HELIX;
 // MixinCallback method implementation
 [assembly: HELIX.MixinPrepareGlobal(
   @"
-@FUNC<MixinCallbackImpl>
+@FUNC<MixinHookImpl>
   @LOCAL<Name> @attr#target:unwrap
   @SCOPE
     @MATCH @local#Name:eq<null>
@@ -37,12 +37,12 @@ namespace HELIX {
   }
 
   [AttributeUsage(AttributeTargets.Method)]
-  [MixinExpression("@CALL<MixinCallbackImpl>")]
-  public class MixinMethodAttribute : Attribute {
+  [MixinExpression("@CALL<MixinHookImpl>")]
+  public class HookAttribute : Attribute {
     public readonly string target;
     public readonly int order;
 
-    public MixinMethodAttribute(string target = null, int order = 0) {
+    public HookAttribute(string target = null, int order = 0) {
       this.target = target;
       this.order = order;
     }
@@ -111,11 +111,11 @@ namespace HELIX {
   public static class MixinOn {
     public const string Init = "$Init"; // Automatic lifecycle hook
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
-    public const string ConfigureComponent = "$ConfigureComponent";
+    public const string ConfigureManaged = "$ConfigureManaged";
 
-    public const string LoadComponent = "$LoadComponent";
-    public const string LoadComponentLate = "$LoadComponentLate";
-    public const string UnloadComponent = "$UnloadComponent";
+    public const string LoadManaged = "$LoadManaged";
+    public const string LoadManagedLate = "$LoadManagedLate";
+    public const string UnloadManaged = "$UnloadManaged";
 
     public const string MonoAwake = "Awake";
     public const string MonoStart = "Start";

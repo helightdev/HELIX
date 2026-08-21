@@ -13,22 +13,22 @@ namespace HELIX.Context {
     }
   }
 
-  [Component(typeof(ApplicationScope))]
+  [Managed(typeof(ApplicationScope))]
   public partial class MyRootDependency { }
 
-  [Component(typeof(ApplicationScope))]
+  [Managed(typeof(ApplicationScope))]
   public partial class ExampleSingleton {
     [Inject] public MyRootDependency myRootDependency;
 
     [EventHandler]
-    public async UniTask OnAsyncInit(AsyncComponentLoadEvent evt) {
+    public async UniTask OnAsyncInit(AsyncManagedLoadEvent evt) {
       Debug.Log($"ExampleSingleton async init starting! {myRootDependency}");
       await UniTask.Delay(1000); // Simulate async initialization
       Debug.Log($"ExampleSingleton async init complete! {myRootDependency}");
     }
   }
 
-  [Component(typeof(ApplicationScope))]
+  [Managed(typeof(ApplicationScope))]
   public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]
     public IDisposable myResource2;
@@ -48,14 +48,14 @@ namespace HELIX.Context {
     [Resource(Source.Resources), ShowInInspector]
     public List<KennyPromptSvgCollection> svgCollections;
     
-    [MixinMethod]
+    [Hook]
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
       myResource2 = new LoggingDisposable(); //46
     }
 
-    [MixinMethod(MixinOn.ConfigureComponent)]
-    private static void OnConfigureSelf(ComponentRegistration entry) { }
+    [Hook(MixinOn.ConfigureManaged)]
+    private static void OnConfigureSelf(ManagedRegistration entry) { }
 
     [Ticker("10s")]
     private void MyTickerFunc() {
@@ -74,40 +74,40 @@ namespace HELIX.Context {
     }
     
     [EventHandler]
-    private void OnComponentLoadEvt(ComponentLoadEvent evt) {
+    private void OnComponentLoadEvt(ManagedLoadEvent evt) {
       evt.Context.PublishKey(new TypeKey(typeof(int), ""), 42);
     }
 
-    [MixinMethod(MixinOn.LoadComponent)]
-    private void OnComponentLoad(ComponentLoadContext context) {
+    [Hook(MixinOn.LoadManaged)]
+    private void OnComponentLoad(ManagedLoadContext context) {
 
 
     }
   }
 
-  [Component(typeof(ApplicationScope), order: 1)]
+  [Managed(typeof(ApplicationScope), order: 1)]
   public partial class StageOne {
     [Inject("pipeline")] public string provided;
     [Bind("pipeline")] public string GetNext => $"{provided}1;";
   }
 
 
-  [Component(typeof(ApplicationScope))]
+  [Managed(typeof(ApplicationScope))]
   public partial class StageTwo {
     [Inject("pipeline", required: false)] public string provided;
     [Bind(typeof(string), "pipeline")] public string GetNext => $"{provided}2;";
   }
 
 
-  [Component(typeof(ApplicationScope))]
+  [Managed(typeof(ApplicationScope))]
   public partial class StageThree {
     [Inject("pipeline")] public List<string> provided;
     [Bind("pipeline")] public string GetNext => $"{string.Join(",", provided)}+3;";
   }
 
-  [Component(typeof(SceneScope))]
+  [Managed(typeof(SceneScope))]
   public partial class SceneService {
-    [MixinMethod]
+    [Hook]
     public void OnInit() {
       Debug.Log("SceneService has initialized!");
     }

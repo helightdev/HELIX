@@ -2,7 +2,7 @@ namespace HELIX.SourceGen;
 
 internal static class GeneratorStrings {
   internal static readonly string[] BuiltinMixinStereotypes = {
-    "HELIX.Context.ComponentAttribute",
+    "HELIX.Context.ManagedAttribute",
     "HELIX.Context.ServiceAttribute"
   };
 
@@ -10,7 +10,7 @@ internal static class GeneratorStrings {
 
   internal static class Attributes {
     internal const string
-      Component = "HELIX.Context.ComponentAttribute",
+      Managed = "HELIX.Context.ManagedAttribute",
       HelixApplication = "HELIX.Context.HelixApplicationAttribute",
       HelixModule = "HELIX.Context.HelixModuleAttribute",
       MixinExpression = "HELIX.MixinExpressionAttribute",

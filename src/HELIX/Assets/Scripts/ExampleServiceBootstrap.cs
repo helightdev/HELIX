@@ -14,7 +14,7 @@ public class ExampleServiceBootstrap : MonoBehaviour {
     var discovered = HelixExampleApplication.Discover();
 
     var writer = new ProseUnityRichTextWriter();
-    ComponentGraphProse.WriteDeclared(writer, discovered);
+    ManagedGraphProse.WriteDeclared(writer, discovered);
     Debug.Log(writer.Build());
 
     container = new ManagedContainerBuilder().Build();
@@ -22,7 +22,7 @@ public class ExampleServiceBootstrap : MonoBehaviour {
     await container.StartApplication();
 
     writer.Reset();
-    ComponentGraphProse.WriteLive(writer, container);
+    ManagedGraphProse.WriteLive(writer, container);
     Debug.Log(writer.Build());
   }
 

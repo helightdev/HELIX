@@ -1047,15 +1047,15 @@ public sealed class MixinExpressionInterpreter {
       CommitVariables(variables, pendingVariables);
       return Success(outputs, logs);
     } finally {
-      var duration = ElapsedMillisecondsValue(evaluationStartedAt);
-      if (duration > GeneratorDiagnostics.Mixins.ExpressionHintThresholdMilliseconds) logs.Add(
-        new MixinExpressionLog(
-          "Mixin expression evaluation took " +
-          duration.ToString("F3", CultureInfo.InvariantCulture) + " ms",
-          lastLineNumber,
-          true
-        )
-      );
+      // var duration = ElapsedMillisecondsValue(evaluationStartedAt);
+      // if (duration > GeneratorDiagnostics.Mixins.ExpressionHintThresholdMilliseconds) logs.Add(
+      //   new MixinExpressionLog(
+      //     "Mixin expression evaluation took " +
+      //     duration.ToString("F3", CultureInfo.InvariantCulture) + " ms",
+      //     lastLineNumber,
+      //     true
+      //   )
+      // );
     }
   }
 

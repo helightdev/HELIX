@@ -11,7 +11,6 @@ namespace HELIX.SourceGen;
 
 [Generator(LanguageNames.CSharp)]
 public sealed class ComponentDiscoveryGenerator : IIncrementalGenerator {
-  private const string ComponentRegistrations = "HELIX.Context.ComponentRegistrations";
   private const string RegistrationConfigurator = "RegistrationConfigurator";
 
   public void Initialize(IncrementalGeneratorInitializationContext context) {
@@ -71,7 +70,7 @@ public sealed class ComponentDiscoveryGenerator : IIncrementalGenerator {
       .Where(candidate => candidate.TypeKind == TypeKind.Class &&
         !HasTypeParameters(candidate) &&
         MatchesFilter(candidate, module.Filter) &&
-        Attribute(candidate, Attributes.Component) is not null &&
+        Attribute(candidate, Attributes.Managed) is not null &&
         module.Compilation.IsSymbolAccessibleWithin(candidate, type))
       .Distinct(SymbolEqualityComparer.Default)
       .OrderBy(candidate => candidate.ToDisplayString(TypeDisplayFormat), StringComparer.Ordinal)
@@ -91,7 +90,7 @@ public sealed class ComponentDiscoveryGenerator : IIncrementalGenerator {
           );
           builder.BlankLine();
           builder.AppendLine(
-            "public void Discover(global::HELIX.Context.ComponentRegistrations registrations)"
+            "public void Discover(global::HELIX.Context.ManagedRegistrations registrations)"
           );
           using (builder.Block()) {
             foreach (var import in module.Imports) {
@@ -110,11 +109,11 @@ public sealed class ComponentDiscoveryGenerator : IIncrementalGenerator {
           if (!module.IsApplication) return;
           builder.BlankLine();
           builder.AppendLine(
-            "public static global::HELIX.Context.ComponentRegistrations Discover()"
+            "public static global::HELIX.Context.ManagedRegistrations Discover()"
           );
           using (builder.Block()) {
             builder.Statement(
-              "var registrations = new global::HELIX.Context.ComponentRegistrations()"
+              "var registrations = new global::HELIX.Context.ManagedRegistrations()"
             );
             builder.Statement("Instance.Discover(registrations)");
             builder.Return("registrations");

@@ -5,8 +5,8 @@ using HELIX.Prose;
 
 namespace HELIX.Context {
   /// <summary>Renders declared registrations or live scopes as a printable Prose dependency graph.</summary>
-  public static class ComponentGraphProse {
-    public static void WriteDeclared(IProseWriter writer, ComponentRegistrations registrations) {
+  public static class ManagedGraphProse {
+    public static void WriteDeclared(IProseWriter writer, ManagedRegistrations registrations) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
       if (registrations == null) throw new ArgumentNullException(nameof(registrations));
 
@@ -56,7 +56,7 @@ namespace HELIX.Context {
       }
     }
 
-    private static void WriteDeclaredEntry(IProseWriter writer, ComponentRegistration entry) {
+    private static void WriteDeclaredEntry(IProseWriter writer, ManagedRegistration entry) {
       using (writer.Tree()) {
         writer.Name($"{entry.name} : {TypeName(entry.type)}");
         if (entry.optional) writer.Property("optional", true, ProseFormatters.Bool);

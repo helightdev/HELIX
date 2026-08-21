@@ -38,7 +38,7 @@ namespace HELIX.Context {
     public ManagedScope Registrar => GetScope(registrarScope);
     public ManagedScope Application => GetScope(applicationScope);
 
-    public void PrepareRegistrar(ComponentRegistrations registrations) {
+    public void PrepareRegistrar(ManagedRegistrations registrations) {
       ThrowIfDisposed();
       if (_registrarPrepared) throw new ScopeLifecycleException("The registrar has already been prepared.");
       registrarScope.registrations = _registrarGraph.Prepare(registrations);
@@ -85,7 +85,7 @@ namespace HELIX.Context {
     internal async UniTask<ManagedScope> StartScopeAsync(
       ManagedScope parent,
       IScope scope,
-      IEnumerable<IComponent> components,
+      IEnumerable<IManaged> components,
       IEnumerable<Type> componentTypes,
       IEnumerable<ScopeBinding> bindings
     ) {
@@ -105,7 +105,7 @@ namespace HELIX.Context {
     internal ManagedScope StartScopeSync(
       ManagedScope parent,
       IScope scope,
-      IEnumerable<IComponent> components,
+      IEnumerable<IManaged> components,
       IEnumerable<Type> componentTypes,
       IEnumerable<ScopeBinding> bindings
     ) {
@@ -213,17 +213,17 @@ namespace HELIX.Context {
       _disposedScopes.Add(managed.scope);
     }
 
-    internal Dictionary<ComponentRegistration, Queue<object>> DiscoverInjectedComponents(
+    internal Dictionary<ManagedRegistration, Queue<object>> DiscoverInjectedComponents(
       ManagedScope managed,
-      IEnumerable<IComponent> contributions = null
+      IEnumerable<IManaged> contributions = null
     ) {
       var discovered = _scopeHandlers.Where(handler => handler.Handles(managed.scope))
-        .SelectMany(handler => handler.DiscoverComponents(this, managed) ?? Enumerable.Empty<IComponent>());
-      var result = new Dictionary<ComponentRegistration, Queue<object>>();
-      var seen = new HashSet<IComponent>(ReferenceComparer<IComponent>.Instance);
-      foreach (var component in (contributions ?? Enumerable.Empty<IComponent>()).Concat(discovered)) {
+        .SelectMany(handler => handler.DiscoverComponents(this, managed) ?? Enumerable.Empty<IManaged>());
+      var result = new Dictionary<ManagedRegistration, Queue<object>>();
+      var seen = new HashSet<IManaged>(ReferenceComparer<IManaged>.Instance);
+      foreach (var component in (contributions ?? Enumerable.Empty<IManaged>()).Concat(discovered)) {
         if (component == null || !seen.Add(component)) continue;
-        var runtime = component.ComponentBinding;
+        var runtime = component.managed;
         if (runtime == null || runtime.isLoaded || runtime.isDisposed) continue;
         if (!registrarScope.registrations.components.TryGetValue(component.GetType(), out var registration)) continue;
         if (registration.scope != null && registration.scope != managed.scope.GetType()) continue;

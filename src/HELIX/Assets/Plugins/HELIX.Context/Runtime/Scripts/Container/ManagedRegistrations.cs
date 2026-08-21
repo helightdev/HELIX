@@ -6,8 +6,8 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace HELIX.Context {
-  public class ComponentRegistrations {
-    public readonly Dictionary<Type, ComponentRegistration> components = new();
+  public class ManagedRegistrations {
+    public readonly Dictionary<Type, ManagedRegistration> components = new();
     public readonly Dictionary<Type, ScopeRegistration> scopes = new();
 
     public void Register(Type type, RegistrationConfigurator configurator) {
@@ -15,7 +15,7 @@ namespace HELIX.Context {
       if (configurator == null) throw new ArgumentNullException(nameof(configurator));
       if (components.ContainsKey(type))
         throw new ComponentGraphException($"Component type {type.FullName} is already registered.");
-      var entry = new ComponentRegistration(type);
+      var entry = new ManagedRegistration(type);
       try {
         configurator(entry);
         components[type] = entry;
@@ -111,28 +111,28 @@ namespace HELIX.Context {
       return new ComponentDependency(key, true);
     }
 
-    public static implicit operator ComponentDependency(ScriptedDependency scripted) {
-      return new ComponentDependency(scripted, true);
+    public static implicit operator ComponentDependency(ManagedDependency managed) {
+      return new ComponentDependency(managed, true);
     }
   }
 
-  public readonly struct ComponentLoadContext {
+  public readonly struct ManagedLoadContext {
     public readonly ManagedContainer container;
     public readonly ManagedScope scope;
-    public readonly ComponentRegistration registration;
+    public readonly ManagedRegistration registration;
     internal readonly ScopeLoader loader;
 
-    public ComponentLoadContext(ManagedContainer container, ManagedScope scope) {
+    public ManagedLoadContext(ManagedContainer container, ManagedScope scope) {
       this.container = container;
       this.scope = scope;
       registration = null;
       loader = null;
     }
 
-    internal ComponentLoadContext(
+    internal ManagedLoadContext(
       ManagedContainer container,
       ManagedScope scope,
-      ComponentRegistration registration,
+      ManagedRegistration registration,
       ScopeLoader loader
     ) {
       this.container = container;
@@ -181,14 +181,14 @@ namespace HELIX.Context {
     }
   }
 
-  public interface IScriptedDependency : IComponentLoadable {
+  public interface IScriptedDependency : IManagedLoadable {
     int Order { get; }
     DependencyFlags Flags { get; }
     int Phase { get; }
     string WireKey { get; }
   }
 
-  public abstract class ScriptedDependency : IScriptedDependency {
+  public abstract class ManagedDependency : IScriptedDependency {
     public static string SimpleKey(Type type, Source source, string qualifier, bool list = false) {
       var src = $"{type.FullName}|{(int)source}|{qualifier ?? "null"}";
       return list ? $"list|{src}" : src;
@@ -203,7 +203,7 @@ namespace HELIX.Context {
     public int Phase { get; }
     public string WireKey { get; protected set; }
 
-    protected ScriptedDependency(
+    protected ManagedDependency(
       int order = 0,
       DependencyFlags flags = DependencyFlags.Wirable | DependencyFlags.ImplicitLoadable,
       int phase = InitPhase.PreInit
@@ -213,7 +213,7 @@ namespace HELIX.Context {
       Phase = phase;
     }
 
-    protected ScriptedDependency(
+    protected ManagedDependency(
       string wireKey,
       int order = 0,
       DependencyFlags flags = DependencyFlags.Wirable | DependencyFlags.ImplicitLoadable,
@@ -225,32 +225,32 @@ namespace HELIX.Context {
       WireKey = wireKey;
     }
 
-    public virtual UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context) {
+    public virtual UniTask<ManagedLoadResult> LoadAsync(ManagedLoadContext context) {
       var result = Load(context);
       return UniTask.FromResult(result);
     }
 
-    public virtual ComponentLoadResult Load(ComponentLoadContext context) {
+    public virtual ManagedLoadResult Load(ManagedLoadContext context) {
       throw new NotImplementedException();
     }
   }
 
-  public interface IComponentLoadable {
-    UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context);
-    ComponentLoadResult Load(ComponentLoadContext context);
+  public interface IManagedLoadable {
+    UniTask<ManagedLoadResult> LoadAsync(ManagedLoadContext context);
+    ManagedLoadResult Load(ManagedLoadContext context);
   }
 
-  public readonly struct ComponentLoadResult {
+  public readonly struct ManagedLoadResult {
     public readonly bool success;
     public readonly object value;
 
-    public ComponentLoadResult(bool success, object value = null) {
+    public ManagedLoadResult(bool success, object value = null) {
       this.success = success;
       this.value = value;
     }
 
-    public static implicit operator ComponentLoadResult(bool success) {
-      return new ComponentLoadResult(success);
+    public static implicit operator ManagedLoadResult(bool success) {
+      return new ManagedLoadResult(success);
     }
   }
 
@@ -263,7 +263,7 @@ namespace HELIX.Context {
     public const int PostInit = 1000;
   }
 
-  public sealed class ComponentRegistration : IComponentLoadable {
+  public sealed class ManagedRegistration : IManagedLoadable {
     public readonly Type type;
     public readonly List<RegistrationHandlerBinding> handlers = new();
     public readonly List<ComponentDependency> dependencies = new(); // Requirements
@@ -280,13 +280,13 @@ namespace HELIX.Context {
     public ComponentActivator activator;
     public readonly List<ComponentCondition> conditions = new();
 
-    public ComponentRegistration(Type type) {
+    public ManagedRegistration(Type type) {
       this.type = type ?? throw new ArgumentNullException(nameof(type));
       name = type.Name;
       keys.Add(type);
     }
 
-    public ComponentRegistration InScope(Type scopeType) {
+    public ManagedRegistration InScope(Type scopeType) {
       if (scopeType == null || !typeof(IScope).IsAssignableFrom(scopeType))
         throw new ArgumentException("A component scope must implement IScope.", nameof(scopeType));
       scope = scopeType;
@@ -297,31 +297,31 @@ namespace HELIX.Context {
     /// Makes this component conditional on all of its required dependencies being available.
     /// An unavailable optional component is omitted instead of failing the scope.
     /// </summary>
-    public ComponentRegistration Optional(bool value = true) {
+    public ManagedRegistration Optional(bool value = true) {
       optional = value;
       return this;
     }
 
-    public ComponentRegistration Condition(ComponentCondition condition) {
+    public ManagedRegistration Condition(ComponentCondition condition) {
       conditions.Add(condition ?? throw new ArgumentNullException(nameof(condition)));
       return this;
     }
 
-    public ComponentRegistration Key(TypeKey key) {
+    public ManagedRegistration Key(TypeKey key) {
       if (key.type == null) throw new ArgumentException("A component key requires a type.", nameof(key));
       keys.Add(key);
       return this;
     }
 
-    public ComponentRegistration Dependency(ComponentDependency dependency) {
+    public ManagedRegistration Dependency(ComponentDependency dependency) {
       dependencies.Add(dependency);
       return this;
     }
 
-    public ComponentRegistration Dependency(Type bindingType, string qualifier) =>
+    public ManagedRegistration Dependency(Type bindingType, string qualifier) =>
       Dependency(new TypeKey(bindingType, qualifier));
 
-    public ComponentRegistration Publication(ComponentDependency publication) {
+    public ManagedRegistration Publication(ComponentDependency publication) {
       publications.Add(publication);
       return this;
     }
@@ -330,29 +330,29 @@ namespace HELIX.Context {
       handlers.Add(new RegistrationHandlerBinding(typeof(T), priority));
     }
 
-    public bool IsAsync => handlers.Any(static x => x.eventType == typeof(AsyncComponentLoadEvent));
+    public bool IsAsync => handlers.Any(static x => x.eventType == typeof(AsyncManagedLoadEvent));
 
-    public async UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context) {
+    public async UniTask<ManagedLoadResult> LoadAsync(ManagedLoadContext context) {
       var instance = Activate(context);
       InitializeSync(instance, context);
       await InitializeAsync(instance, context);
       InitializeLate(instance, context);
-      return new ComponentLoadResult(true, instance);
+      return new ManagedLoadResult(true, instance);
     }
 
-    public ComponentLoadResult Load(ComponentLoadContext context) {
+    public ManagedLoadResult Load(ManagedLoadContext context) {
       var instance = Activate(context);
       InitializeSync(instance, context);
       InitializeLate(instance, context);
-      return new ComponentLoadResult(true, instance);
+      return new ManagedLoadResult(true, instance);
     }
 
-    internal object Activate(ComponentLoadContext context) {
+    internal object Activate(ManagedLoadContext context) {
       if (activator == null)
         throw new ComponentActivationException($"Component '{name}' ({type.FullName}) has no activator.");
       var instance = activator(context);
-      if (instance is IComponent component) {
-        var runtimeData = component.ComponentBinding;
+      if (instance is IManaged component) {
+        var runtimeData = component.managed;
         runtimeData.scope = context.scope;
         runtimeData.container = context.container;
       }
@@ -367,23 +367,23 @@ namespace HELIX.Context {
       return instance;
     }
 
-    internal void InitializeSync(object instance, ComponentLoadContext context) {
-      if (instance is IComponent component) component.LoadComponent(context);
+    internal void InitializeSync(object instance, ManagedLoadContext context) {
+      if (instance is IManaged component) component.LoadManaged(context);
       if (instance is IEventListener listener) {
-        var initEvent = new ComponentLoadEvent(context);
+        var initEvent = new ManagedLoadEvent(context);
         listener.HandlerList.RaiseLocal(initEvent);
       }
     }
 
-    internal async UniTask InitializeAsync(object instance, ComponentLoadContext context) {
+    internal async UniTask InitializeAsync(object instance, ManagedLoadContext context) {
       if (instance is not IEventListener listener) return;
-      var initEvent = new AsyncComponentLoadEvent();
+      var initEvent = new AsyncManagedLoadEvent();
       initEvent.Reset(context);
       await listener.HandlerList.RaiseLocalAsync(initEvent);
     }
 
-    internal void InitializeLate(object instance, ComponentLoadContext context) {
-      if (instance is IComponent component) component.LoadComponentLate(context);
+    internal void InitializeLate(object instance, ManagedLoadContext context) {
+      if (instance is IManaged component) component.LoadManagedLate(context);
     }
   }
 
@@ -397,35 +397,35 @@ namespace HELIX.Context {
     }
   }
 
-  public delegate void RegistrationConfigurator(ComponentRegistration registration);
-  public delegate bool ComponentCondition(ComponentLoadContext context);
+  public delegate void RegistrationConfigurator(ManagedRegistration registration);
+  public delegate bool ComponentCondition(ManagedLoadContext context);
 
-  public class AsyncComponentLoadEvent : AsyncChainEvt<AsyncComponentLoadEvent> {
+  public class AsyncManagedLoadEvent : AsyncChainEvt<AsyncManagedLoadEvent> {
     // Pooling capable
-    private ComponentLoadContext _context;
-    public AsyncComponentLoadEvent() { }
+    private ManagedLoadContext _context;
+    public AsyncManagedLoadEvent() { }
 
     public ManagedContainer Container => _context.container;
     public ManagedScope Scope => _context.scope;
-    public ComponentLoadContext Context => _context;
+    public ManagedLoadContext Context => _context;
 
-    public void Reset(ComponentLoadContext updated) {
+    public void Reset(ManagedLoadContext updated) {
       Reset();
       _context = updated;
     }
   }
 
-  public readonly struct ComponentLoadEvent : Evt<ComponentLoadEvent> {
-    private readonly ComponentLoadContext _context;
+  public readonly struct ManagedLoadEvent : Evt<ManagedLoadEvent> {
+    private readonly ManagedLoadContext _context;
 
-    public ComponentLoadEvent(ComponentLoadContext context) {
+    public ManagedLoadEvent(ManagedLoadContext context) {
       _context = context;
     }
 
     public ManagedContainer Container => _context.container;
     public ManagedScope Scope => _context.scope;
-    public ComponentLoadContext Context => _context;
+    public ManagedLoadContext Context => _context;
   }
 
-  public delegate ComponentRegistrations RegistrationDiscoveryProvider();
+  public delegate ManagedRegistrations RegistrationDiscoveryProvider();
 }

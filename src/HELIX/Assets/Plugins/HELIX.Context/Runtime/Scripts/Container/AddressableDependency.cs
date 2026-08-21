@@ -6,7 +6,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace HELIX.Context {
-  public sealed class AddressableDependency<T> : ScriptedDependency where T : UnityEngine.Object {
+  public sealed class AddressableDependency<T> : ManagedDependency where T : UnityEngine.Object {
     public string Key { get; }
 
     public AddressableDependency(string address, string wireKey) : base(
@@ -16,7 +16,7 @@ namespace HELIX.Context {
       Key = ValidateAddress(address);
     }
 
-    public override async UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context) {
+    public override async UniTask<ManagedLoadResult> LoadAsync(ManagedLoadContext context) {
       var handle = Addressables.LoadAssetAsync<T>(Key);
       try {
         var value = await handle.ToUniTask(
@@ -27,20 +27,20 @@ namespace HELIX.Context {
           throw new ComponentInitializationException($"Addressable '{Key}' returned null for {typeof(T).FullName}.");
         context.Own(new AddressableHandleLease(handle));
         context.PublishKey(new TypeKey(typeof(T), WireKey), value);
-        return new ComponentLoadResult(true);
+        return new ManagedLoadResult(true);
       } catch {
         Release(handle);
         throw;
       }
     }
 
-    public override ComponentLoadResult Load(ComponentLoadContext context) => AsyncRequired(Key);
+    public override ManagedLoadResult Load(ManagedLoadContext context) => AsyncRequired(Key);
 
     internal static string ValidateAddress(string address) => string.IsNullOrWhiteSpace(address)
       ? throw new ArgumentException("An Addressables address or key is required.", nameof(address))
       : address;
 
-    private static ComponentLoadResult AsyncRequired(string address) => throw new AsyncScopeInitializationException(
+    private static ManagedLoadResult AsyncRequired(string address) => throw new AsyncScopeInitializationException(
       $"Addressable '{address}' requires asynchronous scope initialization."
     );
 
@@ -59,7 +59,7 @@ namespace HELIX.Context {
     }
   }
 
-  public sealed class AddressableListDependency<T> : ScriptedDependency where T : UnityEngine.Object {
+  public sealed class AddressableListDependency<T> : ManagedDependency where T : UnityEngine.Object {
     public string Key { get; }
 
     public AddressableListDependency(string key, string wireKey) : base(
@@ -69,7 +69,7 @@ namespace HELIX.Context {
       Key = AddressableDependency<T>.ValidateAddress(key);
     }
 
-    public override async UniTask<ComponentLoadResult> LoadAsync(ComponentLoadContext context) {
+    public override async UniTask<ManagedLoadResult> LoadAsync(ManagedLoadContext context) {
       var handle = Addressables.LoadAssetsAsync<T>(Key, null);
       try {
         var values = await handle.ToUniTask(
@@ -79,14 +79,14 @@ namespace HELIX.Context {
         var list = values.ToList();
         context.Own(new AddressableDependency<T>.AddressableHandleLease(handle));
         context.PublishKey(new TypeKey(typeof(List<T>), WireKey), list);
-        return new ComponentLoadResult(true);
+        return new ManagedLoadResult(true);
       } catch {
         AddressableDependency<T>.Release(handle);
         throw;
       }
     }
 
-    public override ComponentLoadResult Load(ComponentLoadContext context) {
+    public override ManagedLoadResult Load(ManagedLoadContext context) {
       throw new AsyncScopeInitializationException(
         $"Addressables key '{Key}' requires asynchronous scope initialization."
       );

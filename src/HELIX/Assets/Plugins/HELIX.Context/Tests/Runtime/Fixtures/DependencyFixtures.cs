@@ -60,7 +60,7 @@ namespace HELIX.Context.Tests.Fixtures {
     public PublishedProvider(string name = "published") : base(name: name) { }
   }
 
-  public sealed class LateBindingComponent : IComponent {
+  public sealed class LateBindingComponent : IManaged {
     private readonly ICollection<string> _trace;
     private readonly object _value;
     private readonly TypeKey _key;
@@ -81,20 +81,20 @@ namespace HELIX.Context.Tests.Fixtures {
       _failLate = failLate;
     }
 
-    public RuntimeComponentData ComponentBinding { get; } = new();
+    public RuntimeManagedData managed { get; } = new();
 
-    public void LoadComponent(ComponentLoadContext context) => _trace?.Add($"{_marker}:load");
+    public void LoadManaged(ManagedLoadContext context) => _trace?.Add($"{_marker}:load");
 
-    public void LoadComponentLate(ComponentLoadContext context) {
+    public void LoadManagedLate(ManagedLoadContext context) {
       _trace?.Add($"{_marker}:late");
       if (_failLate) throw new InvalidOperationException("late failure");
       context.PublishKey(_key, _value);
     }
 
-    public void UnloadComponent() => _trace?.Add($"{_marker}:unload");
+    public void UnloadManaged() => _trace?.Add($"{_marker}:unload");
   }
 
-  public sealed class SecondLateBindingComponent : IComponent {
+  public sealed class SecondLateBindingComponent : IManaged {
     private readonly ICollection<string> _trace;
     private readonly IProvider _value;
     private readonly string _qualifier;
@@ -105,15 +105,15 @@ namespace HELIX.Context.Tests.Fixtures {
       _qualifier = qualifier;
     }
 
-    public RuntimeComponentData ComponentBinding { get; } = new();
-    public void LoadComponent(ComponentLoadContext context) => _trace?.Add("second-publisher:load");
-    public void LoadComponentLate(ComponentLoadContext context) {
+    public RuntimeManagedData managed { get; } = new();
+    public void LoadManaged(ManagedLoadContext context) => _trace?.Add("second-publisher:load");
+    public void LoadManagedLate(ManagedLoadContext context) {
       _trace?.Add("second-publisher:late");
       context.Publish(_value, typeof(IProvider), _qualifier);
     }
   }
 
-  public sealed class ProxyBindingComponent : IComponent {
+  public sealed class ProxyBindingComponent : IManaged {
     private readonly Func<IProvider> _supplier;
     private readonly ICollection<string> _trace;
     private readonly string _qualifier;
@@ -128,10 +128,10 @@ namespace HELIX.Context.Tests.Fixtures {
       _qualifier = qualifier;
     }
 
-    public RuntimeComponentData ComponentBinding { get; } = new();
-    public void LoadComponent(ComponentLoadContext context) => _trace?.Add("proxy:load");
+    public RuntimeManagedData managed { get; } = new();
+    public void LoadManaged(ManagedLoadContext context) => _trace?.Add("proxy:load");
 
-    public void LoadComponentLate(ComponentLoadContext context) {
+    public void LoadManagedLate(ManagedLoadContext context) {
       _trace?.Add("proxy:late");
       context.PublishProxy<IProvider>(() => {
         _trace?.Add("supplier");
@@ -140,7 +140,7 @@ namespace HELIX.Context.Tests.Fixtures {
     }
   }
 
-  public sealed class AsyncLateBindingComponent : IComponent, IEventListener {
+  public sealed class AsyncLateBindingComponent : IManaged, IEventListener {
     private readonly ICollection<string> _trace;
     private readonly object _value;
     private readonly TypeKey _key;
@@ -150,20 +150,20 @@ namespace HELIX.Context.Tests.Fixtures {
       _key = key;
       _trace = trace;
       HandlerList = EventHandlerList.Create();
-      HandlerList.RegisterAsync<AsyncComponentLoadEvent>(OnAsyncLoad, 0);
+      HandlerList.RegisterAsync<AsyncManagedLoadEvent>(OnAsyncLoad, 0);
     }
 
-    public RuntimeComponentData ComponentBinding { get; } = new();
+    public RuntimeManagedData managed { get; } = new();
     public EventHandlerList HandlerList { get; }
     public AsyncHandlerValue HandlerValue { get; } = new();
-    public void LoadComponent(ComponentLoadContext context) => _trace.Add("load");
+    public void LoadManaged(ManagedLoadContext context) => _trace.Add("load");
 
-    public void LoadComponentLate(ComponentLoadContext context) {
+    public void LoadManagedLate(ManagedLoadContext context) {
       _trace.Add("late");
       context.PublishKey(_key, _value);
     }
 
-    private async UniTask OnAsyncLoad(AsyncComponentLoadEvent evt) {
+    private async UniTask OnAsyncLoad(AsyncManagedLoadEvent evt) {
       _trace.Add("async:start");
       await UniTask.Yield();
       _trace.Add("async:end");
@@ -173,21 +173,21 @@ namespace HELIX.Context.Tests.Fixtures {
 
   public sealed class AsyncHandlerValue { }
 
-  public sealed class PhasedScriptedDependency : ScriptedDependency {
+  public sealed class PhasedManagedDependency : ManagedDependency {
     private readonly ICollection<string> _trace;
 
-    public PhasedScriptedDependency(int phase, ICollection<string> trace)
+    public PhasedManagedDependency(int phase, ICollection<string> trace)
       : base("phased-scripted-dependency", phase: phase) {
       _trace = trace;
     }
 
-    public override ComponentLoadResult Load(ComponentLoadContext context) {
+    public override ManagedLoadResult Load(ManagedLoadContext context) {
       _trace.Add("scripted");
       return true;
     }
   }
 
-  public abstract class PipelineStage : IComponent {
+  public abstract class PipelineStage : IManaged {
     private readonly string _input;
     private readonly string _suffix;
     private readonly string _name;
@@ -200,11 +200,11 @@ namespace HELIX.Context.Tests.Fixtures {
       _trace = trace;
     }
 
-    public RuntimeComponentData ComponentBinding { get; } = new();
+    public RuntimeManagedData managed { get; } = new();
 
-    public void LoadComponent(ComponentLoadContext context) => _trace.Add(_name);
+    public void LoadManaged(ManagedLoadContext context) => _trace.Add(_name);
 
-    public void LoadComponentLate(ComponentLoadContext context) =>
+    public void LoadManagedLate(ManagedLoadContext context) =>
       context.PublishProxy<string>(() => $"{_input}{_suffix}", "pipeline");
   }
 
@@ -232,7 +232,7 @@ namespace HELIX.Context.Tests.Fixtures {
     public string Value { get; }
   }
 
-  public sealed class CollectingPipelineStage : IComponent {
+  public sealed class CollectingPipelineStage : IManaged {
     private readonly IReadOnlyList<string> _inputs;
     private readonly ICollection<string> _trace;
 
@@ -241,11 +241,11 @@ namespace HELIX.Context.Tests.Fixtures {
       _trace = trace;
     }
 
-    public RuntimeComponentData ComponentBinding { get; } = new();
+    public RuntimeManagedData managed { get; } = new();
 
-    public void LoadComponent(ComponentLoadContext context) => _trace.Add("collection-transformer");
+    public void LoadManaged(ManagedLoadContext context) => _trace.Add("collection-transformer");
 
-    public void LoadComponentLate(ComponentLoadContext context) =>
+    public void LoadManagedLate(ManagedLoadContext context) =>
       context.PublishProxy<string>(() => $"{string.Join(",", _inputs)};3", "pipeline");
   }
 

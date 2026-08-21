@@ -11,7 +11,7 @@ namespace HELIX.Context {
   public interface IScope { }
 
   public class RegistrarScope : IScope {
-    public ComponentRegistrations registrations;
+    public ManagedRegistrations registrations;
   }
 
   public class ApplicationScope : IScope { }
@@ -99,16 +99,16 @@ namespace HELIX.Context {
       return values;
     }
 
-    internal void BindComponent(ComponentRegistration registration, object instance) {
+    internal void BindComponent(ManagedRegistration registration, object instance) {
       foreach (var key in registration.keys.Distinct()) AddBinding(registration, key, instance);
     }
 
-    internal void Publish(ComponentRegistration owner, TypeKey key, object value, ScopeLoader loader = null) {
+    internal void Publish(ManagedRegistration owner, TypeKey key, object value, ScopeLoader loader = null) {
       AddBinding(owner, key, value, loader);
     }
 
     internal void PublishProxy(
-      ComponentRegistration owner,
+      ManagedRegistration owner,
       TypeKey key,
       Func<object> supplier,
       ScopeLoader loader = null
@@ -142,7 +142,7 @@ namespace HELIX.Context {
       return HasWireKey(dependency.wireKey);
     }
 
-    internal bool WasProvidedBy(ComponentRegistration registration, ComponentDependency dependency) {
+    internal bool WasProvidedBy(ManagedRegistration registration, ComponentDependency dependency) {
       if (dependency.IsTyped) {
         return bindings.TryGetValue(dependency.key, out var keyBindings) &&
           keyBindings.Any(x => ReferenceEquals(x.owner, registration));
@@ -153,7 +153,7 @@ namespace HELIX.Context {
     }
 
     private void AddBinding(
-      ComponentRegistration owner,
+      ManagedRegistration owner,
       TypeKey key,
       object value,
       ScopeLoader loader = null
@@ -173,7 +173,7 @@ namespace HELIX.Context {
     }
 
     private void AddProxyBinding(
-      ComponentRegistration owner,
+      ManagedRegistration owner,
       TypeKey key,
       Func<object> supplier,
       ScopeLoader loader = null
@@ -273,7 +273,7 @@ namespace HELIX.Context {
       if (index >= 0) children.RemoveAt(index);
     }
 
-    internal void RecordComponent(ComponentRegistration registration, object instance) {
+    internal void RecordComponent(ManagedRegistration registration, object instance) {
       loadedComponents.Add(new LoadedComponent(registration, instance));
     }
 
@@ -331,7 +331,7 @@ namespace HELIX.Context {
     private void Teardown(List<Exception> failures, bool cancel = true) {
       if (cancel) Cancel(failures);
       NotifyScopeDisposing(failures);
-      UnloadComponents(failures);
+      UnloadManageds(failures);
       DisposeOwnedResources(failures);
       DestroyOwnedUnityObjects(failures);
       parent?.RemoveChild(this);
@@ -354,7 +354,7 @@ namespace HELIX.Context {
       }
     }
 
-    private void UnloadComponents(List<Exception> failures) {
+    private void UnloadManageds(List<Exception> failures) {
       foreach (var loaded in loadedComponents.AsEnumerable().Reverse()) Unload(loaded, failures);
       bindings.Clear();
       loadedComponents.Clear();
@@ -390,9 +390,9 @@ namespace HELIX.Context {
 
     private static void Unload(LoadedComponent loaded, List<Exception> failures) {
       try {
-        if (loaded.instance is IComponent component) {
-          component.UnloadComponent();
-          component.ComponentBinding.SetDisposed(true);
+        if (loaded.instance is IManaged component) {
+          component.UnloadManaged();
+          component.managed.SetDisposed(true);
         }
       } catch (Exception exception) {
         failures.Add(
@@ -422,17 +422,17 @@ namespace HELIX.Context {
     }
 
     public readonly struct Binding {
-      public readonly ComponentRegistration owner;
+      public readonly ManagedRegistration owner;
       public readonly object value;
       public readonly Func<object> supplier;
 
-      public Binding(ComponentRegistration owner, object value) {
+      public Binding(ManagedRegistration owner, object value) {
         this.owner = owner;
         this.value = value;
         supplier = null;
       }
 
-      public Binding(ComponentRegistration owner, Func<object> supplier) {
+      public Binding(ManagedRegistration owner, Func<object> supplier) {
         this.owner = owner;
         value = null;
         this.supplier = supplier;
@@ -440,10 +440,10 @@ namespace HELIX.Context {
     }
 
     public readonly struct LoadedComponent {
-      public readonly ComponentRegistration registration;
+      public readonly ManagedRegistration registration;
       public readonly object instance;
 
-      public LoadedComponent(ComponentRegistration registration, object instance) {
+      public LoadedComponent(ManagedRegistration registration, object instance) {
         this.registration = registration;
         this.instance = instance;
       }

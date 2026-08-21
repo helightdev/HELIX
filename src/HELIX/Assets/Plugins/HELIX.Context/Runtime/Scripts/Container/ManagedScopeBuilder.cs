@@ -9,8 +9,8 @@ namespace HELIX.Context {
     private readonly ManagedContainer _container;
     private readonly ManagedScope _parent;
     private IScope _scope;
-    private readonly List<IComponent> _components = new();
-    private readonly HashSet<Type> _componentTypes = new();
+    private readonly List<IManaged> _managed = new();
+    private readonly HashSet<Type> _managedTypes = new();
     private readonly List<ScopeBinding> _bindings = new();
     private bool _built;
 
@@ -25,23 +25,23 @@ namespace HELIX.Context {
       return this;
     }
 
-    public ManagedScopeBuilder AddComponent(IComponent component) {
+    public ManagedScopeBuilder AddComponent(IManaged component) {
       Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
       if (component == null) throw new ArgumentNullException(nameof(component));
-      _components.Add(component);
+      _managed.Add(component);
       return this;
     }
 
     public ManagedScopeBuilder AddComponent(Type componentType) {
       Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
       if (componentType == null) throw new ArgumentNullException(nameof(componentType));
-      _componentTypes.Add(componentType);
+      _managedTypes.Add(componentType);
       return this;
     }
 
     public ManagedScopeBuilder AddComponent<T>() => AddComponent(typeof(T));
 
-    public ManagedScopeBuilder AddComponents(IEnumerable<IComponent> components) {
+    public ManagedScopeBuilder AddComponents(IEnumerable<IManaged> components) {
       Assert.IsFalse(_built, "A managed scope builder can only build one scope.");
       if (components == null) throw new ArgumentNullException(nameof(components));
       foreach (var component in components) AddComponent(component);
@@ -81,12 +81,12 @@ namespace HELIX.Context {
 
     public ManagedScope StartSync() {
       BeginBuild();
-      return _container.StartScopeSync(_parent, _scope, _components, _componentTypes, _bindings);
+      return _container.StartScopeSync(_parent, _scope, _managed, _managedTypes, _bindings);
     }
 
     public UniTask<ManagedScope> StartAsync() {
       BeginBuild();
-      return _container.StartScopeAsync(_parent, _scope, _components, _componentTypes, _bindings);
+      return _container.StartScopeAsync(_parent, _scope, _managed, _managedTypes, _bindings);
     }
 
     private void BeginBuild() {

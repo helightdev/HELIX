@@ -8,13 +8,13 @@ namespace HELIX.Context {
   /// <summary>Reusable container service that bounds transient dependency evidence to one scope load.</summary>
   internal sealed partial class ScopeLoader {
     private static readonly AsyncLocal<ScopeLoader> _active = new();
-    public readonly Dictionary<string, HashSet<ComponentRegistration>> publications = new();
+    public readonly Dictionary<string, HashSet<ManagedRegistration>> publications = new();
     public readonly HashSet<string> anonymousPublications = new(StringComparer.Ordinal);
     public readonly HashSet<IScriptedDependency> scripted = new(ReferenceComparer<IScriptedDependency>.Instance);
     private readonly ManagedContainer _container;
     private readonly RegistrarGraph _graph;
     private ManagedScope _scope;
-    private Dictionary<ComponentRegistration, Queue<object>> _injected;
+    private Dictionary<ManagedRegistration, Queue<object>> _injected;
 
     public ScopeLoader(ManagedContainer container, RegistrarGraph graph) {
       _container = container ?? throw new ArgumentNullException(nameof(container));
@@ -25,21 +25,21 @@ namespace HELIX.Context {
       throw new ScopeLifecycleException("No scope is currently loading.");
     public static ScopeLoader ActiveOrNull => _active.Value;
 
-    public void Publish(ComponentRegistration owner, string wireKey) {
+    public void Publish(ManagedRegistration owner, string wireKey) {
       if (!publications.TryGetValue(wireKey, out var owners))
-        publications.Add(wireKey, owners = new HashSet<ComponentRegistration>());
+        publications.Add(wireKey, owners = new HashSet<ManagedRegistration>());
       owners.Add(owner);
     }
 
     private static IEnumerable<ComponentDependency> EnumerateImplicitScripted(
-      IEnumerable<ComponentRegistration> entries,
+      IEnumerable<ManagedRegistration> entries,
       int phase
     ) => entries
       .SelectMany(static x => x.dependencies)
       .Where(x => x.IsScripted && x.scripted.Phase == phase && x.flags.HasFlag(DependencyFlags.ImplicitLoadable))
       .OrderBy(static x => x.scripted.Order);
 
-    private static IEnumerable<int> EnumeratePhases(IEnumerable<ComponentRegistration> entries) {
+    private static IEnumerable<int> EnumeratePhases(IEnumerable<ManagedRegistration> entries) {
       return entries
         .Select(static entry => entry.phase)
         .Concat(entries.SelectMany(static entry => entry.dependencies)
@@ -55,7 +55,7 @@ namespace HELIX.Context {
     private sealed class PendingProviderIndex {
       private readonly Dictionary<string, int> _counts = new(StringComparer.Ordinal);
 
-      public PendingProviderIndex(IEnumerable<ComponentRegistration> entries) {
+      public PendingProviderIndex(IEnumerable<ManagedRegistration> entries) {
         foreach (var entry in entries) Add(entry, 1);
       }
 
@@ -63,9 +63,9 @@ namespace HELIX.Context {
         return dependency.wireKey != null && _counts.TryGetValue(dependency.wireKey, out var count) && count > 0;
       }
 
-      public void Remove(ComponentRegistration entry) => Add(entry, -1);
+      public void Remove(ManagedRegistration entry) => Add(entry, -1);
 
-      private void Add(ComponentRegistration entry, int amount) {
+      private void Add(ManagedRegistration entry, int amount) {
         foreach (var wireKey in entry.keys.Select(static key => key.CreateWireKey())
           .Concat(entry.publications.Select(static publication => publication.wireKey))
           .Where(static wireKey => wireKey != null)
@@ -78,7 +78,7 @@ namespace HELIX.Context {
 
     private static bool RequiredDependenciesSatisfied(
       ManagedScope managed,
-      ComponentRegistration entry,
+      ManagedRegistration entry,
       PendingProviderIndex pendingProviders
     ) => entry.dependencies.All(dependency => {
         if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
@@ -89,7 +89,7 @@ namespace HELIX.Context {
 
     private static bool RemoveUnavailableOptionalComponents(
       ManagedScope managed,
-      List<ComponentRegistration> pending,
+      List<ManagedRegistration> pending,
       PendingProviderIndex pendingProviders
     ) {
       var unavailable = pending.FirstOrDefault(entry =>
@@ -117,7 +117,7 @@ namespace HELIX.Context {
 
     private static void ValidateAndCompleteComponent(
       ManagedScope managed,
-      ComponentRegistration entry,
+      ManagedRegistration entry,
       object instance
     ) {
       foreach (var publication in entry.publications.Where(static x =>
@@ -129,14 +129,14 @@ namespace HELIX.Context {
         );
       }
 
-      if (instance is IComponent component) {
-        component.ComponentBinding.SetLoaded(true);
+      if (instance is IManaged component) {
+        component.managed.SetLoaded(true);
       }
     }
 
     private static void EnsureFullyLoaded(
       ManagedScope managed,
-      IReadOnlyCollection<ComponentRegistration> pending,
+      IReadOnlyCollection<ManagedRegistration> pending,
       int phase
     ) {
       if (pending.Count == 0) return;
@@ -166,13 +166,13 @@ namespace HELIX.Context {
       _active.Value = this;
     }
 
-    private IReadOnlyList<ComponentRegistration> EntriesFor(
+    private IReadOnlyList<ManagedRegistration> EntriesFor(
       ManagedScope managed,
-      IEnumerable<IComponent> contributions,
+      IEnumerable<IManaged> contributions,
       IEnumerable<Type> componentTypes
     ) {
       _injected = _container.DiscoverInjectedComponents(managed, contributions);
-      var selected = new List<ComponentRegistration>(_injected.Keys);
+      var selected = new List<ManagedRegistration>(_injected.Keys);
       foreach (var type in componentTypes ?? Enumerable.Empty<Type>()) {
         if (!_container.registrarScope.registrations.components.TryGetValue(type, out var registration)) {
           throw new ComponentGraphException($"Component type {type.FullName} is not registered.");
@@ -188,7 +188,7 @@ namespace HELIX.Context {
       var entries = _graph.For(managed, selected, entry => ConditionsSatisfied(managed, entry));
       if (_injected.Count == 0) return entries;
 
-      var expanded = new List<ComponentRegistration>();
+      var expanded = new List<ManagedRegistration>();
       foreach (var entry in entries) {
         if (_injected.TryGetValue(entry, out var instances)) {
           for (var i = 0; i < instances.Count; i++) expanded.Add(entry);
@@ -197,9 +197,9 @@ namespace HELIX.Context {
       return expanded;
     }
 
-    private bool ConditionsSatisfied(ManagedScope managed, ComponentRegistration entry) {
+    private bool ConditionsSatisfied(ManagedScope managed, ManagedRegistration entry) {
       if (entry.conditions.Count == 0) return true;
-      var context = new ComponentLoadContext(_container, managed, entry, this);
+      var context = new ManagedLoadContext(_container, managed, entry, this);
       try {
         return entry.conditions.All(condition => condition(context));
       } catch (Exception exception) {
@@ -208,11 +208,11 @@ namespace HELIX.Context {
       }
     }
 
-    private object Activate(ComponentRegistration entry, ComponentLoadContext context) {
+    private object Activate(ManagedRegistration entry, ManagedLoadContext context) {
       if (_injected != null && _injected.TryGetValue(entry, out var instances) && instances.Count > 0) {
         var instance = instances.Dequeue();
-        if (instance is IComponent component) {
-          var runtimeData = component.ComponentBinding;
+        if (instance is IManaged component) {
+          var runtimeData = component.managed;
           runtimeData.scope = context.scope;
           runtimeData.container = context.container;
         }
@@ -227,7 +227,7 @@ namespace HELIX.Context {
     // Sync
     internal void LoadSync(
       ManagedScope managed,
-      IEnumerable<IComponent> contributions = null,
+      IEnumerable<IManaged> contributions = null,
       IEnumerable<Type> componentTypes = null,
       IEnumerable<ScopeBinding> bindings = null
     ) {
@@ -262,12 +262,12 @@ namespace HELIX.Context {
 
     private void LoadScriptedDependenciesSync(
       ManagedScope managed,
-      IEnumerable<ComponentRegistration> entries,
+      IEnumerable<ManagedRegistration> entries,
       int phase
     ) {
       foreach (var dependency in EnumerateImplicitScripted(entries, phase)) {
         if (scripted.Contains(dependency.scripted) || managed.IsDependencyAvailable(dependency)) continue;
-        var result = dependency.scripted.Load(new ComponentLoadContext(_container, managed, null, this));
+        var result = dependency.scripted.Load(new ManagedLoadContext(_container, managed, null, this));
         if (!result.success) {
           if (dependency.flags.HasFlag(DependencyFlags.Required)) {
             throw new ComponentInitializationException(
@@ -284,7 +284,7 @@ namespace HELIX.Context {
 
     private void LoadPhaseSync(
       ManagedScope managed,
-      List<ComponentRegistration> pending,
+      List<ManagedRegistration> pending,
       int phase
     ) {
       if (pending.Count == 0) return;
@@ -307,8 +307,8 @@ namespace HELIX.Context {
       }
     }
 
-    private void LoadRegistrationSync(ManagedScope managed, ComponentRegistration entry) {
-      var context = new ComponentLoadContext(_container, managed, entry, this);
+    private void LoadRegistrationSync(ManagedScope managed, ManagedRegistration entry) {
+      var context = new ManagedLoadContext(_container, managed, entry, this);
       try {
         var instance = Activate(entry, context);
         managed.RecordComponent(entry, instance);
@@ -327,7 +327,7 @@ namespace HELIX.Context {
     // Async
     internal async UniTask LoadAsync(
       ManagedScope managed,
-      IEnumerable<IComponent> contributions = null,
+      IEnumerable<IManaged> contributions = null,
       IEnumerable<Type> componentTypes = null,
       IEnumerable<ScopeBinding> bindings = null
     ) {
@@ -350,12 +350,12 @@ namespace HELIX.Context {
 
     private async UniTask LoadScriptedDependenciesAsync(
       ManagedScope managed,
-      IEnumerable<ComponentRegistration> entries,
+      IEnumerable<ManagedRegistration> entries,
       int phase
     ) {
       foreach (var dependency in EnumerateImplicitScripted(entries, phase)) {
         if (scripted.Contains(dependency.scripted) || managed.IsDependencyAvailable(dependency)) continue;
-        var result = await dependency.scripted.LoadAsync(new ComponentLoadContext(_container, managed, null, this));
+        var result = await dependency.scripted.LoadAsync(new ManagedLoadContext(_container, managed, null, this));
         RestoreActiveContext();
         if (!result.success) {
           if (dependency.flags.HasFlag(DependencyFlags.Required)) {
@@ -373,7 +373,7 @@ namespace HELIX.Context {
 
     private async UniTask LoadPhaseAsync(
       ManagedScope managed,
-      List<ComponentRegistration> pending,
+      List<ManagedRegistration> pending,
       int phase
     ) {
       if (pending.Count == 0) return;
@@ -397,9 +397,9 @@ namespace HELIX.Context {
       }
     }
 
-    private async UniTask LoadRegistrationAsync(ManagedScope managed, ComponentRegistration entry) {
+    private async UniTask LoadRegistrationAsync(ManagedScope managed, ManagedRegistration entry) {
       RestoreActiveContext();
-      var context = new ComponentLoadContext(_container, managed, entry, this);
+      var context = new ManagedLoadContext(_container, managed, entry, this);
       try {
         var instance = Activate(entry, context);
         managed.RecordComponent(entry, instance);

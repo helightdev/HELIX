@@ -4,21 +4,21 @@ using System.Linq;
 using JetBrains.Annotations;
 
 namespace HELIX.Context {
-  public interface IComponent {
-    RuntimeComponentData ComponentBinding { get; }
-    void LoadComponent(ComponentLoadContext context) {}
-    void LoadComponentLate(ComponentLoadContext context) { }
-    void UnloadComponent() { }
+  public interface IManaged {
+    RuntimeManagedData managed { get; }
+    void LoadManaged(ManagedLoadContext context) {}
+    void LoadManagedLate(ManagedLoadContext context) { }
+    void UnloadManaged() { }
   }
 
   [UsedImplicitly]
-  public delegate void ComponentLoadMethod(ComponentLoadContext context);
+  public delegate void ManagedLoadMethod(ManagedLoadContext context);
 
   [UsedImplicitly]
-  public delegate void ComponentUnloadMethod();
+  public delegate void ManagedUnloadMethod();
 
   [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
-  public sealed class RuntimeComponentData {
+  public sealed class RuntimeManagedData {
     public ManagedScope scope;
     public ManagedContainer container;
     public bool isLoaded;
@@ -61,23 +61,23 @@ namespace HELIX.Context {
     public ManagedScopeBuilder CreateScope() => container.CreateScope(scope);
   }
 
-  public static class ComponentTargets {
+  public static class ManagedTargets {
     public const string RegistrationConfiguratorDelegate = "^*~HELIX.Context.RegistrationConfigurator";
-    public const string ComponentLoadDelegate = "^LoadComponent:HELIX.Context.ComponentLoadMethod";
-    public const string ComponentLoadLateDelegate = "^LoadComponentLate:HELIX.Context.ComponentLoadMethod";
-    public const string ComponentUnloadDelegate = "^UnloadComponent:HELIX.Context.ComponentUnloadMethod";
+    public const string ComponentLoadDelegate = "^LoadManaged:HELIX.Context.ManagedLoadMethod";
+    public const string ComponentLoadLateDelegate = "^LoadManagedLate:HELIX.Context.ManagedLoadMethod";
+    public const string ComponentUnloadDelegate = "^UnloadManaged:HELIX.Context.ManagedUnloadMethod";
   }
 
   [AttributeUsage(AttributeTargets.Class)]
-  [MixinDefineTarget(MixinOn.ConfigureComponent, ComponentTargets.RegistrationConfiguratorDelegate)]
-  [MixinDefineTarget(MixinOn.LoadComponent, ComponentTargets.ComponentLoadDelegate)]
-  [MixinDefineTarget(MixinOn.LoadComponentLate, ComponentTargets.ComponentLoadLateDelegate)]
-  [MixinDefineTarget(MixinOn.UnloadComponent, ComponentTargets.ComponentUnloadDelegate)]
-  [MixinDefineTarget(MixinOn.Init, ComponentTargets.ComponentLoadDelegate)]
-  [MixinDefineTarget(MixinOn.Dispose, MixinOn.UnloadComponent)]
-  [MixinExpression(new[] { MixinOn.ConfigureComponent }, new[] { -100_000 }, "@CALL<ComponentImpl>")]
-  public class ComponentAttribute : Attribute {
-    public ComponentAttribute(
+  [MixinDefineTarget(MixinOn.ConfigureManaged, ManagedTargets.RegistrationConfiguratorDelegate)]
+  [MixinDefineTarget(MixinOn.LoadManaged, ManagedTargets.ComponentLoadDelegate)]
+  [MixinDefineTarget(MixinOn.LoadManagedLate, ManagedTargets.ComponentLoadLateDelegate)]
+  [MixinDefineTarget(MixinOn.UnloadManaged, ManagedTargets.ComponentUnloadDelegate)]
+  [MixinDefineTarget(MixinOn.Init, ManagedTargets.ComponentLoadDelegate)]
+  [MixinDefineTarget(MixinOn.Dispose, MixinOn.UnloadManaged)]
+  [MixinExpression(new[] { MixinOn.ConfigureManaged }, new[] { -100_000 }, "@CALL<ManagedImpl>")]
+  public class ManagedAttribute : Attribute {
+    public ManagedAttribute(
       Type scope = null,
       bool optional = false,
       int order = 0,

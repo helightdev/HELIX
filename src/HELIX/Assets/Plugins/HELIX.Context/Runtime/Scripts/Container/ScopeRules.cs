@@ -7,14 +7,14 @@ namespace HELIX.Context {
   public readonly struct ScopeValidationContext {
     public readonly ManagedScope parent;
     public readonly IScope child;
-    public readonly ComponentRegistrations registrations;
+    public readonly ManagedRegistrations registrations;
     public readonly IEnumerable<IScope> managedScopes;
     public readonly ApplicationScope application;
 
     internal ScopeValidationContext(
       ManagedScope parent,
       IScope child,
-      ComponentRegistrations registrations,
+      ManagedRegistrations registrations,
       IEnumerable<IScope> managedScopes,
       ApplicationScope application
     ) {

@@ -90,7 +90,7 @@ namespace HELIX.Context {
     }
 
     public void RegisterInjector<T>(TypeKey key, Action<T> applicator) where T : class {
-      Register((ref ComponentLoadEvent args) => { applicator(args.Scope.Resolve(key) as T); }, 0);
+      Register((ref ManagedLoadEvent args) => { applicator(args.Scope.Resolve(key) as T); }, 0);
     }
 
     public void Register(HandlerRegistration registration) {

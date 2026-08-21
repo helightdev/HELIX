@@ -16,7 +16,7 @@ namespace HELIX.Context.Tests.Fixtures {
     }
 
     protected ManagedContainer CreateContainer(
-      ComponentRegistrations registrations,
+      ManagedRegistrations registrations,
       bool assignUnscopedToApplication = true,
       int? maxLoadingIterations = null,
       params IScopeHandler[] handlers
@@ -43,11 +43,11 @@ namespace HELIX.Context.Tests.Fixtures {
   }
 
   public static class RegistrationFixtures {
-    public static ComponentRegistration Add<T>(
-      this ComponentRegistrations registrations,
-      Func<ComponentLoadContext, T> activator
+    public static ManagedRegistration Add<T>(
+      this ManagedRegistrations registrations,
+      Func<ManagedLoadContext, T> activator
     ) where T : class {
-      ComponentRegistration result = null;
+      ManagedRegistration result = null;
       registrations.Register(typeof(T), entry => {
         result = entry;
         entry.activator = context => activator(context);
@@ -55,34 +55,34 @@ namespace HELIX.Context.Tests.Fixtures {
       return result;
     }
 
-    public static ComponentRegistration In<TScope>(this ComponentRegistration registration)
+    public static ManagedRegistration In<TScope>(this ManagedRegistration registration)
       where TScope : IScope {
       return registration.InScope(typeof(TScope));
     }
 
-    public static ComponentRegistration Exposes<T>(
-      this ComponentRegistration registration,
+    public static ManagedRegistration Exposes<T>(
+      this ManagedRegistration registration,
       string qualifier = null
     ) {
       return registration.Key(new TypeKey(typeof(T), qualifier));
     }
 
-    public static ComponentRegistration Requires<T>(
-      this ComponentRegistration registration,
+    public static ManagedRegistration Requires<T>(
+      this ManagedRegistration registration,
       string qualifier = null
     ) {
       return registration.Dependency(new ComponentDependency(new TypeKey(typeof(T), qualifier), true));
     }
 
-    public static ComponentRegistration OptionallyRequires<T>(
-      this ComponentRegistration registration,
+    public static ManagedRegistration OptionallyRequires<T>(
+      this ManagedRegistration registration,
       string qualifier = null
     ) {
       return registration.Dependency(new ComponentDependency(new TypeKey(typeof(T), qualifier), false));
     }
 
-    public static ComponentRegistration Collects<T>(
-      this ComponentRegistration registration,
+    public static ManagedRegistration Collects<T>(
+      this ManagedRegistration registration,
       string qualifier = null
     ) {
       return registration.Dependency(
@@ -90,8 +90,8 @@ namespace HELIX.Context.Tests.Fixtures {
       );
     }
 
-    public static ComponentRegistration Publishes<T>(
-      this ComponentRegistration registration,
+    public static ManagedRegistration Publishes<T>(
+      this ManagedRegistration registration,
       string qualifier = null,
       bool required = true
     ) {
@@ -100,7 +100,7 @@ namespace HELIX.Context.Tests.Fixtures {
       );
     }
 
-    public static T Resolve<T>(this ComponentLoadContext context, string qualifier = null) where T : class {
+    public static T Resolve<T>(this ManagedLoadContext context, string qualifier = null) where T : class {
       return (T)context.Resolve(new TypeKey(typeof(T), qualifier));
     }
 
@@ -108,12 +108,12 @@ namespace HELIX.Context.Tests.Fixtures {
       return (T)scope.Resolve(new TypeKey(typeof(T), qualifier));
     }
 
-    public static T ResolveOptional<T>(this ComponentLoadContext context, string qualifier = null) where T : class {
+    public static T ResolveOptional<T>(this ManagedLoadContext context, string qualifier = null) where T : class {
       return context.TryResolve(new TypeKey(typeof(T), qualifier), out var value) ? value as T : null;
     }
 
     public static IReadOnlyList<T> ResolveAll<T>(
-      this ComponentLoadContext context,
+      this ManagedLoadContext context,
       string qualifier = null
     ) where T : class {
       return context.scope.ResolveAll(new TypeKey(typeof(T), qualifier)).Cast<T>().ToList();

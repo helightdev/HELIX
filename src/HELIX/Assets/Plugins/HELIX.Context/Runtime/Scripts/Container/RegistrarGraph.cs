@@ -6,8 +6,8 @@ using UnityEngine.Assertions;
 namespace HELIX.Context {
   /// <summary>Container-owned registrar index and structural dependency graph.</summary>
   internal sealed class RegistrarGraph {
-    private ComponentRegistrations _registrations;
-    private readonly Dictionary<Type, List<ComponentRegistration>> _scopePlans = new();
+    private ManagedRegistrations _registrations;
+    private readonly Dictionary<Type, List<ManagedRegistration>> _scopePlans = new();
 
     internal static bool PublicationMatches(
       ComponentDependency publication,
@@ -20,12 +20,12 @@ namespace HELIX.Context {
         publication.wireKey == dependency.wireKey;
     }
 
-    internal static bool CanProvide(ComponentRegistration entry, ComponentDependency dependency) {
+    internal static bool CanProvide(ManagedRegistration entry, ComponentDependency dependency) {
       return dependency.IsTyped && entry.keys.Contains(dependency.key) ||
         entry.publications.Any(publication => PublicationMatches(publication, dependency));
     }
 
-    internal static int TransformerPriority(ComponentRegistration entry) {
+    internal static int TransformerPriority(ManagedRegistration entry) {
       var transformed = entry.dependencies.Where(dependency =>
         entry.publications.Any(publication => PublicationMatches(publication, dependency))
       ).ToList();
@@ -33,8 +33,8 @@ namespace HELIX.Context {
       return transformed.Any(static dependency => !dependency.IsCollection) ? 2 : 1;
     }
 
-    internal static IOrderedEnumerable<ComponentRegistration> OrderFallbackCandidates(
-      IEnumerable<ComponentRegistration> entries
+    internal static IOrderedEnumerable<ManagedRegistration> OrderFallbackCandidates(
+      IEnumerable<ManagedRegistration> entries
     ) {
       return entries
         .OrderBy(static entry => entry.phase)
@@ -48,7 +48,7 @@ namespace HELIX.Context {
     }
 
     /// <summary>Produces the statically knowable plan while keeping phases as hard barriers.</summary>
-    internal static List<ComponentRegistration> Plan(IEnumerable<ComponentRegistration> registrations) {
+    internal static List<ManagedRegistration> Plan(IEnumerable<ManagedRegistration> registrations) {
       return registrations.Distinct()
         .GroupBy(static entry => entry.phase)
         .OrderBy(static group => group.Key)
@@ -56,15 +56,15 @@ namespace HELIX.Context {
         .ToList();
     }
 
-    private static List<ComponentRegistration> PlanInnerPhase(IEnumerable<ComponentRegistration> registrations) {
+    private static List<ManagedRegistration> PlanInnerPhase(IEnumerable<ManagedRegistration> registrations) {
       var all = registrations.Distinct().ToList();
-      if (all.Count == 0) return new List<ComponentRegistration>();
+      if (all.Count == 0) return new List<ManagedRegistration>();
       var phase = all[0].phase;
       var pending = all
         .OrderBy(static entry => entry.order)
         .ThenBy(static entry => entry.name, StringComparer.Ordinal)
         .ToList();
-      var loaded = new List<ComponentRegistration>();
+      var loaded = new List<ManagedRegistration>();
 
       bool IsGuaranteedAvailable(ComponentDependency dependency) {
         return loaded.Any(entry =>
@@ -76,7 +76,7 @@ namespace HELIX.Context {
         );
       }
 
-      bool RequiredDependenciesSatisfied(ComponentRegistration entry) {
+      bool RequiredDependenciesSatisfied(ManagedRegistration entry) {
         return entry.dependencies.All(dependency => {
           if (!dependency.flags.HasFlag(DependencyFlags.Required)) return true;
           if (dependency.IsScripted && dependency.flags.HasFlag(DependencyFlags.ImplicitLoadable))
@@ -86,14 +86,14 @@ namespace HELIX.Context {
         });
       }
 
-      bool HasFutureScriptedDependency(ComponentRegistration entry, int phase) {
+      bool HasFutureScriptedDependency(ManagedRegistration entry, int phase) {
         return entry.dependencies.Any(dependency =>
           dependency.IsScripted && dependency.flags.HasFlag(DependencyFlags.ImplicitLoadable) &&
           dependency.scripted.Phase > phase
         );
       }
 
-      bool HasPendingProvider(ComponentRegistration consumer, ComponentDependency dependency) {
+      bool HasPendingProvider(ManagedRegistration consumer, ComponentDependency dependency) {
         var count = pending.Count(entry => CanProvide(entry, dependency));
         return count > (CanProvide(consumer, dependency) ? 1 : 0);
       }
@@ -123,7 +123,7 @@ namespace HELIX.Context {
       return loaded;
     }
 
-    private static void InsertIntoPlan(List<ComponentRegistration> plan, ComponentRegistration entry) {
+    private static void InsertIntoPlan(List<ManagedRegistration> plan, ManagedRegistration entry) {
       if (plan.Contains(entry)) return;
       var samePhase = plan.Where(candidate => candidate.phase == entry.phase).ToList();
       if (samePhase.Count == 0) {
@@ -134,8 +134,8 @@ namespace HELIX.Context {
 
       var proposed = PlanInnerPhase(samePhase.Append(entry));
       var proposedIndex = proposed.IndexOf(entry);
-      ComponentRegistration preceding = null;
-      ComponentRegistration following = null;
+      ManagedRegistration preceding = null;
+      ManagedRegistration following = null;
       for (var i = proposedIndex - 1; i >= 0; i--) {
         if (!samePhase.Contains(proposed[i])) continue;
         preceding = proposed[i];
@@ -152,7 +152,7 @@ namespace HELIX.Context {
       else plan.Add(entry);
     }
 
-    public ComponentRegistrations Prepare(ComponentRegistrations registrations) {
+    public ManagedRegistrations Prepare(ManagedRegistrations registrations) {
       if (registrations == null) throw new ArgumentNullException(nameof(registrations));
       foreach (var pair in registrations.components) {
         var entry = pair.Value;
@@ -195,18 +195,18 @@ namespace HELIX.Context {
       return _registrations = registrations;
     }
 
-    public List<ComponentRegistration> For(
+    public List<ManagedRegistration> For(
       ManagedScope managed,
-      IEnumerable<ComponentRegistration> contributions = null,
-      Func<ComponentRegistration, bool> include = null
+      IEnumerable<ManagedRegistration> contributions = null,
+      Func<ManagedRegistration, bool> include = null
     ) {
       Assert.IsNotNull(_registrations, "The registrar graph must be prepared before it creates a scope plan.");
       var scopeType = managed.scope.GetType();
       var entries = _scopePlans.TryGetValue(scopeType, out var prepared)
         ? prepared.Where(entry => include?.Invoke(entry) ?? true).ToList()
-        : new List<ComponentRegistration>();
+        : new List<ManagedRegistration>();
       foreach (var contribution in OrderFallbackCandidates(
-        (contributions ?? Enumerable.Empty<ComponentRegistration>()).Distinct()
+        (contributions ?? Enumerable.Empty<ManagedRegistration>()).Distinct()
       )) {
         if (entries.Contains(contribution) || !(include?.Invoke(contribution) ?? true)) continue;
         InsertIntoPlan(entries, contribution);
@@ -244,7 +244,7 @@ namespace HELIX.Context {
       return entries;
     }
 
-    public bool HasLocalProvider(IEnumerable<ComponentRegistration> entries, ComponentDependency dependency) {
+    public bool HasLocalProvider(IEnumerable<ManagedRegistration> entries, ComponentDependency dependency) {
       if (dependency.IsTyped) {
         return entries.Any(entry => entry.keys.Contains(dependency.key) || entry.publications.Any(publication =>
             publication.IsTyped && publication.key.Equals(dependency.key) &&
@@ -255,7 +255,7 @@ namespace HELIX.Context {
       return dependency.flags.HasFlag(DependencyFlags.Wirable) && HasPublication(entries, dependency.wireKey);
     }
 
-    private static bool HasPublication(IEnumerable<ComponentRegistration> entries, string wireKey) {
+    private static bool HasPublication(IEnumerable<ManagedRegistration> entries, string wireKey) {
       return entries.Any(entry => entry.publications.Any(publication =>
           publication.flags.HasFlag(DependencyFlags.Required) && publication.wireKey == wireKey
         )

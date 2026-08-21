@@ -9,7 +9,7 @@ namespace HELIX.Context {
   /// <summary>Extends a scope with discovery and lifecycle behavior without coupling it to the container.</summary>
   public interface IScopeHandler {
     bool Handles(IScope scope);
-    IEnumerable<IComponent> DiscoverComponents(ManagedContainer container, ManagedScope scope);
+    IEnumerable<IManaged> DiscoverComponents(ManagedContainer container, ManagedScope scope);
     void Attach(ManagedContainer container) { }
     void Detach(ManagedContainer container) { }
     UniTask ApplicationStarted(ManagedContainer container, ManagedScope application) => UniTask.CompletedTask;
@@ -22,10 +22,10 @@ namespace HELIX.Context {
   public abstract class ScopeHandler<TScope> : IScopeHandler where TScope : IScope {
     public bool Handles(IScope scope) => scope is TScope;
 
-    public virtual IEnumerable<IComponent> DiscoverComponents(
+    public virtual IEnumerable<IManaged> DiscoverComponents(
       ManagedContainer container,
       ManagedScope scope
-    ) => Enumerable.Empty<IComponent>();
+    ) => Enumerable.Empty<IManaged>();
 
     public virtual void Attach(ManagedContainer container) { }
     public virtual void Detach(ManagedContainer container) { }
@@ -55,11 +55,11 @@ namespace HELIX.Context {
       _container = null;
     }
 
-    public override IEnumerable<IComponent> DiscoverComponents(ManagedContainer container, ManagedScope scope) {
+    public override IEnumerable<IManaged> DiscoverComponents(ManagedContainer container, ManagedScope scope) {
       var scene = Scope(scope).scene;
       if (!scene.IsValid() || !scene.isLoaded) yield break;
       foreach (var root in scene.GetRootGameObjects())
-      foreach (var component in root.GetComponentsInChildren<MonoBehaviour>(true).OfType<IComponent>())
+      foreach (var component in root.GetComponentsInChildren<MonoBehaviour>(true).OfType<IManaged>())
         yield return component;
     }
 
@@ -104,11 +104,11 @@ namespace HELIX.Context {
   }
 
   public sealed class GameObjectScopeHandler : ScopeHandler<GameObjectScope> {
-    public override IEnumerable<IComponent> DiscoverComponents(ManagedContainer container, ManagedScope scope) {
+    public override IEnumerable<IManaged> DiscoverComponents(ManagedContainer container, ManagedScope scope) {
       var gameObject = Scope(scope).gameObject;
       return gameObject == null
-        ? Enumerable.Empty<IComponent>()
-        : gameObject.GetComponents<MonoBehaviour>().OfType<IComponent>();
+        ? Enumerable.Empty<IManaged>()
+        : gameObject.GetComponents<MonoBehaviour>().OfType<IManaged>();
     }
 
     public override void ScopeActivated(ManagedContainer container, ManagedScope scope) {

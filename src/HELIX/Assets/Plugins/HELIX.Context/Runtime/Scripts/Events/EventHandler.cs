@@ -4,8 +4,8 @@ namespace HELIX.Context {
   [AttributeUsage(AttributeTargets.Method)]
   // [RequireMixin(typeof(IEventHandlersMixin), true)]
   [MixinExpression(
-    new[] { MixinOn.Init, MixinOn.ConfigureComponent, MixinOn.Dispose },
-    new[] { 1, -90_000, 1 },
+    new[] { MixinOn.Init, MixinOn.ConfigureManaged },
+    new[] { 1, -90_000 },
     "@CALL<EventHandlerImpl>"
   )]
   public class EventHandlerAttribute : Attribute {
