@@ -47,6 +47,8 @@ namespace HELIX.Theming {
     public static readonly ThemeProperty<Length>
       TextGap = new(data => data[Spacing1]),
       DecoratorColumnGap = new(data => data[Spacing1]),
+      CompanionFieldWidth = new(_ => 80f),
+      CheckboxSize = new(data => data.GetTypographyTokenRef(BodyMedium).lineHeight * 0.66f),
       ChevronSize = new(data => data.GetTypographyTokenRef(BodyMedium).lineHeight * 0.33f);
 
     public static readonly ThemeProperty<HXDecoratorStyle> Decorator = new(data => DefaultDecorator(data));

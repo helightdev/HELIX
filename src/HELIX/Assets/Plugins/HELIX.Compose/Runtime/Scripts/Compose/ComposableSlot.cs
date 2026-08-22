@@ -47,7 +47,7 @@ namespace HELIX.Compose {
       Flag |= flag;
     }
 
-    public ScopeHandle Scope(Composition cx, bool trimChildren = true) {
+    public ScopeHandle Scope(ref Composition cx, bool trimChildren = true) {
       PackedId = new CompositionId(slotLocalId, CompositionId.GeneratedCompositionId, CompositionId.SlotTypeId).packed;
 
       var handle = ScopeHandle.Push(
@@ -56,6 +56,7 @@ namespace HELIX.Compose {
         trimChildren ? static (BoundaryCell cell, in ScopeHandle _) => cell.TrimChildren() : null
       );
       cx.AUTHORING.cell.slot = this;
+      cx.ReplaceCursor(this);
       style.display = DisplayStyle.Flex;
 
       return handle;

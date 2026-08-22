@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using HELIX.Compose;
 using HELIX.Compose.Forms;
 using HELIX.Theming;
@@ -11,28 +12,29 @@ namespace HELIX.Examples {
       FormValidators.Required("A display name is required.")
     };
 
-    private static readonly HXFormFieldStyle ProfileNameFieldStyle = new(
-      decorators: new FormFieldDecorators(
-        label: ComposeProfileNameLabel,
-        description: ComposeProfileNameDescription,
-        prefix: ComposeProfileNamePrefix
-      )
+    private static readonly FormFieldDecorators ProfileNameDecorators = new(
+      label: ComposeProfileNameLabel,
+      description: ComposeProfileNameDescription,
+      prefix: ComposeProfileNamePrefix
     );
 
-    private static readonly HXFormFieldStyle UpdatesFieldStyle = new(
-      arrangement: DecoratorArrangement.Inline,
-      decorators: new FormFieldDecorators(
-        label: ComposeUpdatesLabel,
-        description: ComposeUpdatesDescription
-      )
+    private static readonly FormFieldDecorators UpdatesDecorators = new(
+      label: ComposeUpdatesLabel,
+      description: ComposeUpdatesDescription
     );
 
-    private static readonly HXFormFieldStyle VolumeFieldStyle = new(
-      decorators: new FormFieldDecorators(
-        label: ComposeVolumeLabel,
-        suffix: ComposeVolumeSuffix
-      )
+    private static readonly FormFieldDecorators VolumeDecorators = new(
+      label: ComposeVolumeLabel
     );
+
+    private static readonly FormFieldDecorators AgeDecorators = new(label: ComposeAgeLabel);
+    private static readonly FormFieldDecorators ModeDecorators = new(label: ComposeModeLabel);
+
+    private static readonly IReadOnlyList<DropdownOption<object>> FormModeValues = new DropdownOption<object>[] {
+      new DropdownOption<object>(ExampleMode.Balanced, "Balanced"),
+      new DropdownOption<object>(ExampleMode.Performance, "Performance"),
+      new DropdownOption<object>(ExampleMode.Quality, "Quality")
+    };
 
     private void ComposeFormExample(ref Composition cx) {
       cx.Text("Compose form context", TextRole.TitleMedium);
@@ -42,28 +44,41 @@ namespace HELIX.Examples {
         cx.SubscribeTo(_exampleForm);
         using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
           if (cx.CursorDirty) cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(320f, 0f)));
-          cx.FormField(
+          cx.Spec(new StringFormField(new FormField<string>(
             "profile.name",
-            ComposeProfileNameField,
-            style: ProfileNameFieldStyle,
+            initialValue: "Ada",
+            decorators: ProfileNameDecorators,
             validators: ProfileNameValidators,
-            validationMode: ValidationMode.OnDirty | ValidationMode.OnSubmit,
-            initialValue: "Ada"
-          );
+            validationMode: ValidationMode.OnDirty | ValidationMode.OnSubmit
+          ), placeholder: "Display name"));
           cx.Spacing(1);
-          cx.FormField(
-            "receiveUpdates",
-            ComposeUpdatesField,
-            style: UpdatesFieldStyle,
-            initialValue: true
-          );
+          cx.Spec(new IntFormField(
+            new FormField<int>("profile.age", initialValue: 32, decorators: AgeDecorators),
+            min: 0,
+            max: 130,
+            step: 1
+          ));
           cx.Spacing(1);
-          cx.FormField(
-            "volume",
-            ComposeVolumeField,
-            style: VolumeFieldStyle,
-            initialValue: 0.65f
-          );
+          cx.Spec(new FloatFormField(
+            new FormField<float>("volume", initialValue: 0.65f, decorators: VolumeDecorators),
+            min: 0f,
+            max: 1f,
+            step: 0.05f,
+            formatting: new NumericFormatSettings("0", scale: 100f),
+            prefix: ComposeApproximatePrefix,
+            suffix: ComposePercentSuffix
+          ));
+          cx.Spacing(1);
+          cx.Spec(new BoolFormField(new FormField<bool>(
+            "receiveUpdates", initialValue: true, decorators: UpdatesDecorators
+          )));
+          cx.Spacing(1);
+          cx.Spec(new EnumFormField(
+            new FormField<object>(
+              "mode", initialValue: new HXOptional<object>(ExampleMode.Balanced), decorators: ModeDecorators
+            ),
+            FormModeValues
+          ));
           cx.Spacing(1);
           cx.Text(
             $"Dirty: {_exampleForm.IsDirty}  •  Errors: {_exampleForm.HasErrors}  •  " +
@@ -94,32 +109,6 @@ namespace HELIX.Examples {
       }
     }
 
-    private static void ComposeProfileNameField(ref Composition cx) {
-      var field = cx.Lookup<HXFormField>();
-      cx.TextField(
-        value: new TextEditingValue(field.GetValue("")),
-        onChanged: static (context, value) => context.Lookup<HXFormField>()?.SetUserValue(value.text),
-        onEditingEnded: static (context, _, _) => context.Lookup<HXFormField>()?.MarkFinishedEditing()
-      );
-    }
-
-    private static void ComposeUpdatesField(ref Composition cx) {
-      var field = cx.Lookup<HXFormField>();
-      cx.Checkbox(
-        field.GetValue(false),
-        onChanged: static (context, value) => context.Lookup<HXFormField>()?.SetUserValue(value)
-      );
-    }
-
-    private static void ComposeVolumeField(ref Composition cx) {
-      var field = cx.Lookup<HXFormField>();
-      cx.Slider(
-        field.GetValue(0.65f),
-        options: VolumeOptions,
-        onChanged: static (context, value) => context.Lookup<HXFormField>()?.SetUserValue(value)
-      );
-    }
-
     private static void ComposeProfileNameLabel(ref Composition cx) =>
       HXDecorator.Label(ref cx, new LabelSpec("Profile name"));
 
@@ -127,7 +116,7 @@ namespace HELIX.Examples {
       HXDecorator.Label(ref cx, new LabelSpec("User"));
 
     private static void ComposeProfileNameDescription(ref Composition cx) {
-      var errors = cx.Lookup<HXFormField>()?.Data?.errors;
+      var errors = cx.Lookup<HXFormField>()?.FieldData?.errors;
       HXDecorator.Label(
         ref cx,
         new LabelSpec(errors is { Count: > 0 } ? errors[0] : "Required; validated after editing or submit.")
@@ -143,9 +132,14 @@ namespace HELIX.Examples {
     private static void ComposeVolumeLabel(ref Composition cx) =>
       HXDecorator.Label(ref cx, new LabelSpec("Notification volume"));
 
-    private static void ComposeVolumeSuffix(ref Composition cx) {
-      var value = cx.Lookup<HXFormField>()?.GetValue(0.65f) ?? 0.65f;
-      HXDecorator.Label(ref cx, new LabelSpec($"{value:P0}"));
-    }
+    private static void ComposePercentSuffix(ref Composition cx) => cx.Text("%");
+    private static void ComposeApproximatePrefix(ref Composition cx) => cx.Text("≈");
+
+    private static void ComposeAgeLabel(ref Composition cx) =>
+      HXDecorator.Label(ref cx, new LabelSpec("Age"));
+
+    private static void ComposeModeLabel(ref Composition cx) =>
+      HXDecorator.Label(ref cx, new LabelSpec("Preferred mode"));
+
   }
 }

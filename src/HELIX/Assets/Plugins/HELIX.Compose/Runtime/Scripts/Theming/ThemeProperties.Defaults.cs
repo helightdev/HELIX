@@ -91,7 +91,7 @@ namespace HELIX.Theming {
       ).Bake();
 
       return new HXControlBoxStyle(
-        constraints: BoxConstraints.Tight(18f, 18f),
+        constraints: BoxConstraints.Tight(CheckboxSize[data], CheckboxSize[data]),
         background: (ref Composition cx, State state) => {
           outline(ref cx, state);
           check(ref cx, state);

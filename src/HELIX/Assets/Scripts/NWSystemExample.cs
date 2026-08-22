@@ -476,19 +476,21 @@ namespace HELIX.Examples {
       cx.Text("Controlled inputs");
       cx.Spacing(2);
 
-      using (cx.Decorator(out var slots)) {
-        using (slots.Prefix()) {
+      using (cx.Decorator(out var slots, arrangement: DecoratorArrangement.Inline)) {
+        cx.CURSOR.AlignSelf(Align.FlexStart);
+
+        using (slots.Prefix(ref cx)) {
           HXDecorator.Label(
             ref cx,
             new LabelSpec("Prefix", new IconRef(FaSolidIcons.User.ToString(), _iconFont).Composable())
           );
         }
-        using (slots.Element()) cx.Text("Element Data", TextRole.BodyMedium);
-        using (slots.Suffix()) HXDecorator.Label(ref cx, new LabelSpec("Suffix"));
-        using (slots.Label()) HXDecorator.Label(ref cx, new LabelSpec("Label"));
-        using (slots.Before()) HXDecorator.Label(ref cx, new LabelSpec("Before"));
-        using (slots.After()) HXDecorator.Label(ref cx, new LabelSpec("After"));
-        using (slots.Description()) HXDecorator.Label(ref cx, new LabelSpec("Description"));
+        using (slots.Element(ref cx)) cx.Text("Element Data", TextRole.BodyMedium);
+        using (slots.Suffix(ref cx)) HXDecorator.Label(ref cx, new LabelSpec("Suffix"));
+        using (slots.Label(ref cx)) HXDecorator.Label(ref cx, new LabelSpec("Label"));
+        using (slots.Before(ref cx)) HXDecorator.Label(ref cx, new LabelSpec("Before"));
+        using (slots.After(ref cx)) HXDecorator.Label(ref cx, new LabelSpec("After"));
+        using (slots.Description(ref cx)) HXDecorator.Label(ref cx, new LabelSpec("Description"));
       }
 
       using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {

@@ -23,7 +23,13 @@ namespace HELIX.Compose {
     [Prop(false)] public readonly bool matchAnchorWidth;
   }
 
-  public readonly struct DropdownOption<T> {
+  public interface IDropdownOption {
+    public string Label { get; }
+    public bool Enabled { get; }
+    public object RawValue { get; }
+  }
+
+  public readonly struct DropdownOption<T> : IDropdownOption {
     public readonly T value;
     public readonly string label;
     public readonly bool enabled;
@@ -33,6 +39,10 @@ namespace HELIX.Compose {
       this.label = label;
       this.enabled = enabled;
     }
+
+    public string Label => label;
+    public bool Enabled => enabled;
+    public object RawValue => value;
   }
 
   public abstract class DropdownController : Signal {

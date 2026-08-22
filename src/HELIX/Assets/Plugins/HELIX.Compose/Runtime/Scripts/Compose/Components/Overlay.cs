@@ -649,7 +649,7 @@ namespace HELIX.Compose {
       ref var result = ref OverlayHostBoundary.ComposeBoundary(ref cx, controller);
       var boundary = (result.element as CompositionBoundaryNodeBase)?.BoundaryComposable as OverlayHostBoundary;
       if (boundary?.viewElement == null) throw new InvalidOperationException("Overlay host was not initialized.");
-      return boundary.viewElement.content.Scope(cx);
+      return boundary.viewElement.content.Scope(ref cx);
     }
 
     public static ScopeHandle OverlayHost(
@@ -661,7 +661,7 @@ namespace HELIX.Compose {
       var boundary = (result.element as CompositionBoundaryNodeBase)?.BoundaryComposable as OverlayHostBoundary;
       if (boundary?.viewElement == null) throw new InvalidOperationException("Overlay host was not initialized.");
       scope = new OverlayHostScope(boundary);
-      return boundary.viewElement.content.Scope(cx);
+      return boundary.viewElement.content.Scope(ref cx);
     }
 
     public static OverlayController Overlays(this ref Composition cx, bool listen = true) =>

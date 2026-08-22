@@ -29,6 +29,8 @@ namespace HELIX.Compose {
 
       [Prop("TextInputOptions.Default", PropInit.Deferred)]
       public TextInputOptions options;
+      [Prop(null)] public Composable prefix;
+      [Prop(null)] public Composable suffix;
     }
 
     public TextEditingController controller;
@@ -52,6 +54,15 @@ namespace HELIX.Compose {
       var input = (TextFieldElement)handle.element;
       input.ApplyEditingValue(in controller.value);
 
+      if (cx.Conditional(props.prefix != null))
+        using (input.PrefixScope(cx)) {
+          props.prefix.Invoke(ref cx);
+        }
+      if (cx.Conditional(props.suffix != null))
+        using (input.SuffixScope(cx)) {
+          props.suffix.Invoke(ref cx);
+        }
+
       using (input.BackgroundScope(cx)) {
         style.RenderBackground(ref cx, passedState);
       }
@@ -62,7 +73,7 @@ namespace HELIX.Compose {
       if (given == null) {
         if (isAutomaticController && controller != null) {
           // Update retained state
-          if (!props.value.HasValue) goto configureAutomatic;
+          if (!props.value.HasValue || controller.Editing) goto configureAutomatic;
 
           controller.value = props.valueIgnoreSelection
             ? controller.value.ReplaceText(props.value.Value.text)
@@ -190,8 +201,10 @@ namespace HELIX.Compose {
     }
 
     public void BeginHandle(
-      IBoundary boundary, in TextEditingValue physical,
-      TextEditTrigger trigger, out TextEditProcessorContext context
+      IBoundary boundary,
+      in TextEditingValue physical,
+      TextEditTrigger trigger,
+      out TextEditProcessorContext context
     ) {
       context = new TextEditProcessorContext(
         ctx: new CompositionContext(boundary),
@@ -275,9 +288,7 @@ namespace HELIX.Compose {
     public void SetTypedValue(TValue typed) {
       typedValue = typed;
       IsUserInputValid = true;
-      value = new TextEditingValue {
-        text = valueAdapter.ToText(typed)
-      };
+      value = new TextEditingValue { text = valueAdapter.ToText(typed) };
     }
   }
 
@@ -314,14 +325,20 @@ namespace HELIX.Compose {
     public static readonly TextInputValueAdapter<int> Int32 = new(
       value => value.ToString(CultureInfo.InvariantCulture),
       (string text, out int value) => int.TryParse(
-        text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value
+        text,
+        NumberStyles.Integer,
+        CultureInfo.InvariantCulture,
+        out value
       )
     );
 
     public static readonly TextInputValueAdapter<float> Single = new(
       value => value.ToString(CultureInfo.InvariantCulture),
       (string text, out float value) => float.TryParse(
-        text, NumberStyles.Float, CultureInfo.InvariantCulture, out value
+        text,
+        NumberStyles.Float,
+        CultureInfo.InvariantCulture,
+        out value
       )
     );
   }
@@ -364,7 +381,10 @@ namespace HELIX.Compose {
     private const string _selectionDarkNeutralClass = "helix-textfield-style-dark-neutral";
 
     private static readonly UniqueStyleString _backgroundSlotType = new("hx-textfield-background");
-    private readonly ComposableSlot _background;
+    private static readonly UniqueStyleString _prefixSlotType = new("hx-textfield-prefix");
+    private static readonly UniqueStyleString _suffixSlotType = new("hx-textfield-suffix");
+    private readonly ComposableSlot _background, _prefix, _suffix;
+    private readonly VisualElement _row;
     private readonly TextField _field;
     private readonly TextElement _textEdition;
     private bool _hasAppliedSelectionStyle;
@@ -376,7 +396,9 @@ namespace HELIX.Compose {
     public TextEditingController Owner { get; set; }
     public TextField Field => _field;
     public TextElement TextEdition => _textEdition;
-    internal ScopeHandle BackgroundScope(Composition cx) => _background.Scope(cx);
+    internal ScopeHandle BackgroundScope(Composition cx) => _background.Scope(ref cx);
+    internal ScopeHandle PrefixScope(Composition cx) => _prefix.Scope(ref cx);
+    internal ScopeHandle SuffixScope(Composition cx) => _suffix.Scope(ref cx);
 
 
     public TextFieldElement() {
@@ -394,8 +416,19 @@ namespace HELIX.Compose {
       _background.pickingMode = PickingMode.Ignore;
       hierarchy.Add(_background);
 
+      _row = new VisualElement().Fill()
+        .FlexContainer(Axis.Horizontal, crossAxisAlign: Align.Center);
+      hierarchy.Add(_row);
+      _prefix = new ComposableSlot(this, _prefixSlotType)
+        .FlexContainer(Axis.Horizontal)
+        .WithClasses(_prefixSlotType)
+        .AddTo(_row);
       _field.Fill();
-      hierarchy.Add(_field);
+      _row.Add(_field);
+      _suffix = new ComposableSlot(this, _suffixSlotType)
+        .FlexContainer(Axis.Horizontal)
+        .WithClasses(_suffixSlotType)
+        .AddTo(_row);
       _field.Q<VisualElement>(className: "unity-base-field__input");
       _textEdition = _field.textEdition as TextElement ?? _field.Q<TextElement>("unity-text-input");
       if (_textEdition == null) {
@@ -466,7 +499,8 @@ namespace HELIX.Compose {
       _field.maskChar = options.maskCharacter;
       _field.maxLength = options.maxLength;
       _field.Flexible(options.expands ? 1f : 0f, options.expands ? 1f : 0f);
-      _field.Padding(padding);
+      _row.Padding(padding);
+      _field.Padding(EdgeInsets.Zero);
       ApplySelectionStyle(selectionStyle);
     }
 
@@ -476,6 +510,8 @@ namespace HELIX.Compose {
       _hasAppliedSelectionStyle = false;
       _field.SetEnabled(true);
       _background.Reset();
+      _prefix.Reset();
+      _suffix.Reset();
       _field.SetValueWithoutNotify(string.Empty);
     }
 
@@ -495,9 +531,9 @@ namespace HELIX.Compose {
       var customColorsChanged =
         inputStyle.type == TextSelectionStyleType.Custom &&
         (!_appliedSelectionColor.Equals(inputStyle.selection) ||
-         !_appliedCursorColor.Equals(inputStyle.cursor));
+          !_appliedCursorColor.Equals(inputStyle.cursor));
       if (_hasAppliedSelectionStyle && _appliedSelectionStyleType == inputStyle.type &&
-          !customColorsChanged) return;
+        !customColorsChanged) return;
 
       _field.RemoveFromClassList(_selectionLightClass);
       _field.RemoveFromClassList(_selectionDarkClass);

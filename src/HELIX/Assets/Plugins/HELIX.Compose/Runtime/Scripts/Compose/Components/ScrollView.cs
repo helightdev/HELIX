@@ -108,7 +108,7 @@ namespace HELIX.Compose {
 
       EnsureController();
 
-      using (ViewElement.slider.Scope(cx)) {
+      using (ViewElement.slider.Scope(ref cx)) {
         if (!props.showSlider) return;
         if (props.slider != null) {
           props.slider(ref cx, Controller);
@@ -188,7 +188,7 @@ namespace HELIX.Compose {
       var node = boundaryRef.element as CompositionBoundaryNodeBase;
       var boundary = node?.BoundaryComposable as ScrollViewBoundary;
       if (boundary == null) throw new InvalidOperationException("Scroll view boundary was not initialized.");
-      return boundary.ViewElement.content.Scope(cx);
+      return boundary.ViewElement.content.Scope(ref cx);
     }
   }
 }

@@ -226,7 +226,7 @@ namespace HELIX.Compose {
 
       EnsureController();
 
-      using (ViewElement.slider.Scope(cx)) {
+      using (ViewElement.slider.Scope(ref cx)) {
         if (!props.showSlider) return;
         if (props.slider != null) {
           props.slider(ref cx, Controller);

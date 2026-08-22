@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using HELIX.Signals;
+using JetBrains.Annotations;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
@@ -76,6 +77,7 @@ namespace HELIX.Compose {
     /// <param name="condition">Whether to progress the positional indices.</param>
     /// <param name="count">How many composables are skipped if true.</param>
     /// <returns>Whether the condition has matched.</returns>
+    [ContractAnnotation("condition:true => true; condition:false => false")]
     public bool Conditional(bool condition, ushort count = 1) {
       if (condition) return true;
       AUTHORING.cell.localId.index += count;

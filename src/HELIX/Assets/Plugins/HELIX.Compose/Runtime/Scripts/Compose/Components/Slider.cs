@@ -345,12 +345,12 @@ namespace HELIX.Compose {
       elementHandle.Flexible().AlignSelf(Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
 
       var element = (HXSliderElement)elementHandle.composable;
-      using (element.track.Scope(cx)) {
+      using (element.track.Scope(ref cx)) {
         style.track?.Invoke(ref cx, passedState);
         ComposeProgress(ref cx, style.progress, passedState, normalized, options.axis);
       }
 
-      using (element.thumb.Scope(cx)) {
+      using (element.thumb.Scope(ref cx)) {
         style.thumb?.Invoke(ref cx, passedState);
       }
     }

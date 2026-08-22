@@ -105,28 +105,28 @@ namespace HELIX.Compose {
     ) {
       using (cx.Decorator(out var slots, arrangement, style)) {
         if (decorators.label != null)
-          using (slots.Label())
+          using (slots.Label(ref cx))
             decorators.label.Invoke(ref cx);
         if (decorators.before != null)
-          using (slots.Before())
+          using (slots.Before(ref cx))
             decorators.before.Invoke(ref cx);
         if (decorators.prefix != null)
-          using (slots.Prefix())
+          using (slots.Prefix(ref cx))
             decorators.prefix.Invoke(ref cx);
         if (field != null)
-          using (slots.Element())
+          using (slots.Element(ref cx))
             field.Invoke(ref cx);
         if (decorators.suffix != null)
-          using (slots.Suffix())
+          using (slots.Suffix(ref cx))
             decorators.suffix.Invoke(ref cx);
         if (decorators.between != null)
-          using (slots.Between())
+          using (slots.Between(ref cx))
             decorators.between.Invoke(ref cx);
         if (decorators.description != null)
-          using (slots.Description())
+          using (slots.Description(ref cx))
             decorators.description.Invoke(ref cx);
         if (decorators.after != null)
-          using (slots.After())
+          using (slots.After(ref cx))
             decorators.after.Invoke(ref cx);
       }
     }
@@ -175,14 +175,14 @@ namespace HELIX.Compose {
       _composition = composition;
     }
 
-    public ScopeHandle Element() => _element.element.Scope(_composition);
-    public ScopeHandle Label() => _element.label.Scope(_composition);
-    public ScopeHandle Description() => _element.description.Scope(_composition);
-    public ScopeHandle Prefix() => _element.prefix.Scope(_composition);
-    public ScopeHandle Suffix() => _element.suffix.Scope(_composition);
-    public ScopeHandle Before() => _element.before.Scope(_composition);
-    public ScopeHandle Between() => _element.between.Scope(_composition);
-    public ScopeHandle After() => _element.after.Scope(_composition);
+    public ScopeHandle Element(ref Composition cx) => _element.element.Scope(ref cx);
+    public ScopeHandle Label(ref Composition cx) => _element.label.Scope(ref cx);
+    public ScopeHandle Description(ref Composition cx) => _element.description.Scope(ref cx);
+    public ScopeHandle Prefix(ref Composition cx) => _element.prefix.Scope(ref cx);
+    public ScopeHandle Suffix(ref Composition cx) => _element.suffix.Scope(ref cx);
+    public ScopeHandle Before(ref Composition cx) => _element.before.Scope(ref cx);
+    public ScopeHandle Between(ref Composition cx) => _element.between.Scope(ref cx);
+    public ScopeHandle After(ref Composition cx) => _element.after.Scope(ref cx);
   }
 
   public class HXDecorator : ComposableElement, ISlotHost {
