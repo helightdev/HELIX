@@ -20,18 +20,6 @@ namespace HELIX.Compose.Forms {
   }
 
   public static class FormComposition {
-    /// <summary>
-    /// Creates the core context contributor required by Compose, then publishes the form for its child scope.
-    /// The contributor is a retained framework element, not an authoring composition utility.
-    /// </summary>
-    public static ScopeHandle ProvideForm(
-      this ref Composition cx, FormController controller, FormPath prefix = default
-    ) {
-      var scope = cx.ContextContributor();
-      using (cx.WriteContext(out var context)) FormContext.Key[context] = new FormContext(controller, prefix);
-      return scope;
-    }
-
     public static bool TryGetForm(this in Composition cx, out FormContext form) =>
       cx.TryReadContext(FormContext.Key, out form);
 

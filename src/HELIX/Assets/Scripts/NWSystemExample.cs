@@ -4,6 +4,7 @@ using System.Globalization;
 using HELIX.Compose;
 using HELIX.Compose.Forms;
 using HELIX.Extensions;
+using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;
 using HELIX.Widgets.Universal;
@@ -77,6 +78,7 @@ namespace HELIX.Examples {
     private const string TabOverlays = "examples-overlays";
     private const string TabInputs = "examples-inputs";
     private const string TabProse = "examples-prose";
+    private const string TabOptions = "examples-options";
 
     public static readonly SliderOptions VolumeOptions = new(0f, 1f, step: 0f, thumbRange: 0.1f);
     public static readonly SliderOptions VolumeOptionsScroll = new(
@@ -167,6 +169,7 @@ namespace HELIX.Examples {
     private NavigationController _dialogNavigationController;
     private OverlayController _overlayController;
     private FormController _exampleForm;
+    private OptionPages _optionPages;
 
     public override void OnAttach(BoundaryData data, IBoundary boundary) {
       base.OnAttach(data, boundary);
@@ -196,7 +199,14 @@ namespace HELIX.Examples {
             .Name("Prose")
             .Transition(NavigationTransitions.SlideHorizontal)
         )
+        .Route(
+          TabOptions,
+          NavigationPage.Build(ComposeOptionsTab)
+            .Name("Options")
+            .Transition(NavigationTransitions.SlideHorizontal)
+        )
         .Build();
+      _optionPages = CreateProseOptionPages();
       _tabNavigationController = new NavigationController(_tabNavigationGraph);
       for (var i = 0; i < _tabNavigationGraph.Routes.Count; i++) {
         var route = _tabNavigationGraph.Routes[i];
@@ -226,11 +236,13 @@ namespace HELIX.Examples {
       _dialogNavigationController?.Dispose();
       _overlayController?.Dispose();
       _exampleForm?.Dispose();
+      _optionPages?.Dispose();
       _tabNavigationController = null;
       _navigationController = null;
       _dialogNavigationController = null;
       _overlayController = null;
       _exampleForm = null;
+      _optionPages = null;
       _tabNavigationGraph = null;
       _navigationGraph = null;
       _dialogNavigationGraph = null;
@@ -238,6 +250,8 @@ namespace HELIX.Examples {
     }
 
     protected override void OnRecompose(ref Composition cx) {
+      using (cx.WriteContext(out var context))
+        FormContext.Key[context] = new FormContext(_exampleForm);
       using (cx.OverlayHost(_overlayController))
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
@@ -266,6 +280,9 @@ namespace HELIX.Examples {
 
     private static void ComposeProseTab(ref Composition cx, NavigationContextData navigation) =>
       cx.Lookup<HomeComposable>()?.ComposeProseTab(ref cx);
+
+    private static void ComposeOptionsTab(ref Composition cx, NavigationContextData navigation) =>
+      cx.Lookup<HomeComposable>()?.ComposeOptionsTab(ref cx);
 
     private void ComposeInputsTab(ref Composition cx) {
       using (cx.ScrollView()) {

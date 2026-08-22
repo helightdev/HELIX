@@ -6,6 +6,8 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Examples {
   public partial class HomeComposable {
+    private enum DisplayMode { Windowed, Borderless, Fullscreen }
+
     private void ComposeProseTab(ref Composition cx) {
       using (cx.ScrollView())
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
@@ -33,6 +35,81 @@ namespace HELIX.Examples {
           "communications subsystems, nested reactor and antenna trees, cargo, crew, and active alerts.",
           TextRole.BodySmall
         );
+      }
+    }
+
+    private static OptionPages CreateProseOptionPages() {
+      var fieldReducer = new ComposeProseFieldReducer().Add(OptionPageFieldFactory.Create);
+      var handlers = new ProseScopeDelegates<Composable>().Add(new ComposeProseFieldHandler(fieldReducer));
+      var writer = new PathSectionedComposeProseWriter(delegates: handlers);
+      using (writer.Path("graphics")) {
+        writer.PushModifier(PathSectionModifiers.Title("Graphics", TextRole.TitleLarge));
+        using (writer.Field<DisplayMode>(
+          "graphics.display-mode", "Display mode", ProseFormatters.Enum<DisplayMode>()
+        )) {
+          writer.FieldDescription("Select how the game occupies the display.");
+          using (writer.FieldSuffix()) writer.Write("3 choices");
+        }
+        using (writer.Field("graphics.upscaler", "Upscaler", new ProseChoiceFormatter<string>(new[] {
+          new ProseChoice<string>("off", "Off"),
+          new ProseChoice<string>("quality", "Quality"),
+          new ProseChoice<string>("performance", "Performance")
+        }))) { }
+        using (writer.Field("graphics.notice", "Display notice", ProseFormatters.String)) {
+          writer.PushModifier(ProseFields.FullWidth);
+          writer.FieldDescription("Display changes may briefly blank the screen.");
+        }
+        using (writer.Path("quality")) {
+          writer.PushModifier(PathSectionModifiers.Title("Quality presets", TextRole.TitleSmall));
+          writer.PushModifier(PathSectionModifiers.Description("Choose the rendering quality used by the game."));
+          using (writer.Field("graphics.texture-quality", "Texture quality", new ProseChoiceFormatter<string>(new[] {
+            new ProseChoice<string>("low", "Low"),
+            new ProseChoice<string>("medium", "Medium"),
+            new ProseChoice<string>("high", "High")
+          }))) { }
+          using (writer.Field("graphics.shadow-quality", "Shadow quality", new ProseChoiceFormatter<string>(new[] {
+            new ProseChoice<string>("off", "Off"),
+            new ProseChoice<string>("medium", "Medium"),
+            new ProseChoice<string>("high", "High")
+          }))) { }
+        }
+      }
+      using (writer.Path("audio")) {
+        writer.PushModifier(PathSectionModifiers.Title("Audio", TextRole.TitleLarge));
+        using (writer.Field<int>(
+          "audio.master-volume", "Master volume", new ProseIntFormatter(min: 0, max: 100, unit: "%", step: 1)
+        )) {
+          writer.PushModifier(ProseFields.LabelWidth(new Length(32f, LengthUnit.Percent)));
+          writer.FieldDescription("Overall output volume.");
+        }
+        using (writer.Path("voice")) {
+          writer.PushModifier(PathSectionModifiers.Title("Voice communication", TextRole.TitleSmall));
+          using (writer.Field<bool>(
+            "audio.voice-chat", "Voice chat", new ProseFlagFormatter(ifTrue: "Enabled", ifFalse: "Disabled")
+          )) { }
+        }
+      }
+      using (writer.Path("gameplay")) {
+        writer.PushModifier(PathSectionModifiers.Title("Gameplay", TextRole.TitleLarge));
+        using (writer.Field("gameplay.difficulty", "Difficulty", new ProseChoiceFormatter<string>(new[] {
+          new ProseChoice<string>("story", "Story"),
+          new ProseChoice<string>("normal", "Normal"),
+          new ProseChoice<string>("veteran", "Veteran")
+        }))) {
+          writer.PushModifier(ProseFields.LabelWidth(new Length(144f, LengthUnit.Pixel)));
+        }
+        using (writer.Field<bool>("gameplay.autosave", "Autosave", ProseFormatters.Bool)) {
+          writer.PushModifier(ProseFields.LabelWidth(new Length(144f, LengthUnit.Pixel)));
+          using (writer.FieldSuffix()) writer.Write("Recommended");
+        }
+      }
+      return new OptionPages(writer.BuildSections());
+    }
+
+    private void ComposeOptionsTab(ref Composition cx) {
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+        if (cx.CursorDirty) cx.CURSOR.Fill();
+        _optionPages?.Compose(ref cx);
       }
     }
 

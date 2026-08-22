@@ -6,6 +6,39 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Prose {
+  public interface IProseRangeFormatter<T> where T : struct {
+    T? Min { get; }
+    T? Max { get; }
+    T? Step { get; }
+  }
+
+  public interface IProseUnitFormatter { string Unit { get; } }
+  public interface IProsePatternFormatter { string Pattern { get; } }
+  public interface IProseReadOnlyFormatter { bool ReadOnly { get; } }
+
+  public interface IProseChoiceFormatter {
+    int ChoiceCount { get; }
+    object GetChoiceValue(int index);
+    string GetChoiceLabel(int index);
+    bool IsChoiceEnabled(int index);
+  }
+
+  public readonly struct ProseChoice<T> {
+    public ProseChoice(T value, string label, bool enabled = true) {
+      Value = value;
+      Label = label;
+      Enabled = enabled;
+    }
+    public T Value { get; }
+    public string Label { get; }
+    public bool Enabled { get; }
+  }
+
+  public interface IProseDefaultFormatter<out T> {
+    bool HasDefaultValue { get; }
+    T DefaultValue { get; }
+  }
+
   /// <summary>Shared instances of the default, immutable Prose value formatters.</summary>
   public static class ProseFormatters {
     public static readonly ProseStringFormatter String = new();
@@ -74,14 +107,17 @@ namespace HELIX.Prose {
     );
   }
 
-  public sealed class ProseStringFormatter : IProseFormatter<string> {
+  public sealed class ProseStringFormatter :
+    IProseFormatter<string>, IProsePatternFormatter, IProseReadOnlyFormatter {
     public ProseStringFormatter(
       string nullText = ProseLiterals.Null,
       string prefix = null,
       string suffix = null,
       string emptyText = null,
       bool quoted = false,
-      string quote = "\""
+      string quote = "\"",
+      string pattern = null,
+      bool readOnly = false
     ) {
       NullText = nullText;
       Prefix = prefix;
@@ -89,6 +125,8 @@ namespace HELIX.Prose {
       EmptyText = emptyText;
       Quoted = quoted;
       Quote = quote ?? string.Empty;
+      Pattern = pattern;
+      ReadOnly = readOnly;
     }
 
     public string NullText { get; }
@@ -97,6 +135,8 @@ namespace HELIX.Prose {
     public string EmptyText { get; }
     public bool Quoted { get; }
     public string Quote { get; }
+    public string Pattern { get; }
+    public bool ReadOnly { get; }
 
     public void ToProse(IProseWriter writer, string value) {
       if (Prefix != null) writer.Write(Prefix);
@@ -111,7 +151,8 @@ namespace HELIX.Prose {
     }
   }
 
-  public sealed class ProseIntFormatter : IProseFormatter<int>, IProseFormatter<int?> {
+  public sealed class ProseIntFormatter :
+    IProseFormatter<int>, IProseFormatter<int?>, IProseRangeFormatter<int>, IProseUnitFormatter {
     public ProseIntFormatter(
       string format = null,
       int? min = null,
@@ -119,7 +160,8 @@ namespace HELIX.Prose {
       string prefix = null,
       string suffix = null,
       string nullText = ProseLiterals.Null,
-      string unit = null
+      string unit = null,
+      int? step = null
     ) {
       Format = format;
       Min = min;
@@ -128,6 +170,7 @@ namespace HELIX.Prose {
       Suffix = suffix;
       NullText = nullText;
       Unit = unit;
+      Step = step;
     }
 
     public string Format { get; }
@@ -137,6 +180,7 @@ namespace HELIX.Prose {
     public string Suffix { get; }
     public string NullText { get; }
     public string Unit { get; }
+    public int? Step { get; }
 
     public void ToProse(IProseWriter writer, int value) {
       WriteNumber(writer, value.ToString(Format, CultureInfo.InvariantCulture));
@@ -151,11 +195,12 @@ namespace HELIX.Prose {
       ProseFormatterUtility.WriteDecorated(writer, number, Prefix, Suffix, Unit);
   }
 
-  public sealed class ProseLongFormatter : IProseFormatter<long>, IProseFormatter<long?> {
+  public sealed class ProseLongFormatter :
+    IProseFormatter<long>, IProseFormatter<long?>, IProseRangeFormatter<long>, IProseUnitFormatter {
     public ProseLongFormatter(
       string format = null, long? min = null, long? max = null,
       string prefix = null, string suffix = null,
-      string nullText = ProseLiterals.Null, string unit = null
+      string nullText = ProseLiterals.Null, string unit = null, long? step = null
     ) {
       Format = format;
       Min = min;
@@ -164,6 +209,7 @@ namespace HELIX.Prose {
       Suffix = suffix;
       NullText = nullText;
       Unit = unit;
+      Step = step;
     }
 
     public string Format { get; }
@@ -173,6 +219,7 @@ namespace HELIX.Prose {
     public string Suffix { get; }
     public string NullText { get; }
     public string Unit { get; }
+    public long? Step { get; }
 
     public void ToProse(IProseWriter writer, long value) => ProseFormatterUtility.WriteDecorated(
       writer, value.ToString(Format, CultureInfo.InvariantCulture), Prefix, Suffix, Unit
@@ -184,12 +231,13 @@ namespace HELIX.Prose {
     }
   }
 
-  public sealed class ProseFloatFormatter : IProseFormatter<float>, IProseFormatter<float?> {
+  public sealed class ProseFloatFormatter :
+    IProseFormatter<float>, IProseFormatter<float?>, IProseRangeFormatter<float>, IProseUnitFormatter {
     public ProseFloatFormatter(
       string format = "R", float? min = null, float? max = null,
       string prefix = null, string suffix = null,
       string nullText = ProseLiterals.Null, string unit = null,
-      bool compact = false, float scale = 1f, bool clamp = false
+      bool compact = false, float scale = 1f, bool clamp = false, float? step = null
     ) {
       Format = format;
       Min = min;
@@ -201,6 +249,7 @@ namespace HELIX.Prose {
       Compact = compact;
       Scale = scale;
       Clamp = clamp;
+      Step = step;
     }
 
     public string Format { get; }
@@ -213,6 +262,7 @@ namespace HELIX.Prose {
     public bool Compact { get; }
     public float Scale { get; }
     public bool Clamp { get; }
+    public float? Step { get; }
 
     public void ToProse(IProseWriter writer, float value) {
       if (Clamp) value = Math.Max(Min ?? float.MinValue, Math.Min(Max ?? float.MaxValue, value));
@@ -232,12 +282,13 @@ namespace HELIX.Prose {
     }
   }
 
-  public sealed class ProseDoubleFormatter : IProseFormatter<double>, IProseFormatter<double?> {
+  public sealed class ProseDoubleFormatter :
+    IProseFormatter<double>, IProseFormatter<double?>, IProseRangeFormatter<double>, IProseUnitFormatter {
     public ProseDoubleFormatter(
       string format = "R", double? min = null, double? max = null,
       string prefix = null, string suffix = null,
       string nullText = ProseLiterals.Null, string unit = null,
-      bool compact = false
+      bool compact = false, double? step = null
     ) {
       Format = format;
       Min = min;
@@ -247,6 +298,7 @@ namespace HELIX.Prose {
       NullText = nullText;
       Unit = unit;
       Compact = compact;
+      Step = step;
     }
 
     public string Format { get; }
@@ -257,6 +309,7 @@ namespace HELIX.Prose {
     public string NullText { get; }
     public string Unit { get; }
     public bool Compact { get; }
+    public double? Step { get; }
 
     public void ToProse(IProseWriter writer, double value) => ProseFormatterUtility.WriteDecorated(
       writer,
@@ -310,7 +363,9 @@ namespace HELIX.Prose {
       writer.Write(value.HasValue ? value.Value ? IfTrue : IfFalse : IfNull);
   }
 
-  public sealed class ProseEnumFormatter<T> : IProseFormatter<T>, IProseFormatter<T?> where T : struct, Enum {
+  public sealed class ProseEnumFormatter<T> :
+    IProseFormatter<T>, IProseFormatter<T?>, IProseChoiceFormatter where T : struct, Enum {
+    private static readonly T[] Values = (T[])Enum.GetValues(typeof(T));
     public ProseEnumFormatter(
       string nullText = ProseLiterals.Null, string prefix = null, string suffix = null
     ) {
@@ -322,6 +377,10 @@ namespace HELIX.Prose {
     public string NullText { get; }
     public string Prefix { get; }
     public string Suffix { get; }
+    public int ChoiceCount => Values.Length;
+    public object GetChoiceValue(int index) => Values[index];
+    public string GetChoiceLabel(int index) => Values[index].ToString();
+    public bool IsChoiceEnabled(int index) => true;
 
     public void ToProse(IProseWriter writer, T value) =>
       ProseFormatterUtility.WriteDecorated(writer, value.ToString(), Prefix, Suffix);
@@ -329,6 +388,29 @@ namespace HELIX.Prose {
     public void ToProse(IProseWriter writer, T? value) {
       if (value.HasValue) ToProse(writer, value.Value);
       else writer.Write(NullText);
+    }
+  }
+
+  /// <summary>Describes a finite set of choices for values that are not CLR enums.</summary>
+  public sealed class ProseChoiceFormatter<T> : IProseFormatter<T>, IProseChoiceFormatter {
+    private readonly IReadOnlyList<ProseChoice<T>> _choices;
+
+    public ProseChoiceFormatter(IReadOnlyList<ProseChoice<T>> choices) =>
+      _choices = choices ?? throw new ArgumentNullException(nameof(choices));
+
+    public IReadOnlyList<ProseChoice<T>> Choices => _choices;
+    public int ChoiceCount => _choices.Count;
+    public object GetChoiceValue(int index) => _choices[index].Value;
+    public string GetChoiceLabel(int index) => _choices[index].Label;
+    public bool IsChoiceEnabled(int index) => _choices[index].Enabled;
+
+    public void ToProse(IProseWriter writer, T value) {
+      for (var i = 0; i < _choices.Count; i++) {
+        if (!EqualityComparer<T>.Default.Equals(_choices[i].Value, value)) continue;
+        writer.Write(_choices[i].Label);
+        return;
+      }
+      writer.Write(value is null ? ProseLiterals.Null : value.ToString());
     }
   }
 

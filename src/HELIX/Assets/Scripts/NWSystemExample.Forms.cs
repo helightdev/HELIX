@@ -40,9 +40,8 @@ namespace HELIX.Examples {
       cx.Text("Compose form context", TextRole.TitleMedium);
       cx.Spacing(1);
 
-      using (cx.ProvideForm(_exampleForm)) {
-        cx.SubscribeTo(_exampleForm);
-        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+      cx.SubscribeTo(_exampleForm);
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
           if (cx.CursorDirty) cx.CURSOR.Size(BoxConstraints.Only(min: new StyleLength2(320f, 0f)));
           cx.Spec(new StringFormField(new FormField<string>(
             "profile.name",
@@ -105,7 +104,6 @@ namespace HELIX.Examples {
               action: static context => context.Lookup<HomeComposable>()?._exampleForm.Reset()
             );
           }
-        }
       }
     }
 
