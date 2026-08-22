@@ -102,6 +102,10 @@ namespace HELIX.Compose {
     }
 
     protected override void OnRecompose(ref Composition cx) {
+      Node.style.flexGrow = 1f;
+      Node.style.flexShrink = 1f;
+      Node.style.alignSelf = Align.Stretch;
+
       HXScrollViewElement.Compose(ref cx, Node.Parent, OnGeometryChanged, props.axis);
       ViewElement = (HXScrollViewElement)cx.CURSOR.element;
       cx.CURSOR.Flexible().AlignSelf(Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);

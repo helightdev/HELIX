@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using HELIX.Compose;
-using HELIX.Compose.Forms;
 using HELIX.Extensions;
 using HELIX.Prose;
 using HELIX.Theming;
@@ -168,7 +167,6 @@ namespace HELIX.Examples {
     private NavigationGraph _dialogNavigationGraph;
     private NavigationController _dialogNavigationController;
     private OverlayController _overlayController;
-    private FormController _exampleForm;
     private OptionPages _optionPages;
 
     public override void OnAttach(BoundaryData data, IBoundary boundary) {
@@ -226,7 +224,6 @@ namespace HELIX.Examples {
         .Build();
       _dialogNavigationController = new NavigationController(_dialogNavigationGraph);
       _overlayController = new OverlayController();
-      _exampleForm = new FormController();
     }
 
     public override void OnDetach(BoundaryData data, IBoundary boundary) {
@@ -235,13 +232,11 @@ namespace HELIX.Examples {
       _navigationController?.Dispose();
       _dialogNavigationController?.Dispose();
       _overlayController?.Dispose();
-      _exampleForm?.Dispose();
       _optionPages?.Dispose();
       _tabNavigationController = null;
       _navigationController = null;
       _dialogNavigationController = null;
       _overlayController = null;
-      _exampleForm = null;
       _optionPages = null;
       _tabNavigationGraph = null;
       _navigationGraph = null;
@@ -250,8 +245,6 @@ namespace HELIX.Examples {
     }
 
     protected override void OnRecompose(ref Composition cx) {
-      using (cx.WriteContext(out var context))
-        FormContext.Key[context] = new FormContext(_exampleForm);
       using (cx.OverlayHost(_overlayController))
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
@@ -726,8 +719,6 @@ namespace HELIX.Examples {
       //   }
       // }
 
-      cx.Spacing(3);
-      ComposeFormExample(ref cx);
     }
 
     private static void ComposeNavigationHome(ref Composition cx, NavigationContextData navigation) {

@@ -1,5 +1,6 @@
 using HELIX.Theming;
 using HELIX.Types;
+using HELIX.Prose;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
@@ -18,6 +19,7 @@ namespace HELIX.Compose {
       [Prop("default", PropInit.Constant, Equatable = false)] public NumericFormatSettings formatting;
       [Prop(null)] public Composable prefix;
       [Prop(null)] public Composable suffix;
+      [Prop(null, Equatable = false)] public IProseFormatter<float> formatter;
     }
 
     protected override void OnRecompose(ref Composition cx) {
@@ -32,17 +34,23 @@ namespace HELIX.Compose {
           )
           .Flexible();
         cx.Gap(ThemeProperties.TextGap[in cx]);
-        cx.Spec(new FloatControlSpec(
-          new ControlSpec<float>(
-            props.value, props.onChanged, props.onCommitted, props.enabled, props.error
+        cx.Spec(new ControlSpec<float>(
+          props.value,
+          new TextControlFormatter<float>(
+            props.formatter ?? new ProseFloatFormatter(
+              format: props.formatting.format ?? "R",
+              min: props.min,
+              max: props.max,
+              scale: props.formatting.scale == 0f ? 1f : props.formatting.scale,
+              step: props.step
+            ),
+            props.prefix,
+            props.suffix
           ),
-          props.min,
-          props.max,
-          props.step,
-          NumericControlPresentation.Text,
-          props.formatting,
-          props.prefix,
-          props.suffix
+          props.onChanged,
+          props.onCommitted,
+          props.enabled,
+          props.error
         ));
         cx.CURSOR.Width(ThemeProperties.CompanionFieldWidth[in cx]);
       }

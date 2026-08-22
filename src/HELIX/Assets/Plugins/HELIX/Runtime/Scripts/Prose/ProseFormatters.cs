@@ -13,6 +13,10 @@ namespace HELIX.Prose {
   }
 
   public interface IProseUnitFormatter { string Unit { get; } }
+  public interface IProseAffixFormatter {
+    string Prefix { get; }
+    string Suffix { get; }
+  }
   public interface IProsePatternFormatter { string Pattern { get; } }
   public interface IProseReadOnlyFormatter { bool ReadOnly { get; } }
 
@@ -108,7 +112,7 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseStringFormatter :
-    IProseFormatter<string>, IProsePatternFormatter, IProseReadOnlyFormatter {
+    IProseFormatter<string>, IProseAffixFormatter, IProsePatternFormatter, IProseReadOnlyFormatter {
     public ProseStringFormatter(
       string nullText = ProseLiterals.Null,
       string prefix = null,
@@ -152,7 +156,8 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseIntFormatter :
-    IProseFormatter<int>, IProseFormatter<int?>, IProseRangeFormatter<int>, IProseUnitFormatter {
+    IProseFormatter<int>, IProseFormatter<int?>, IProseRangeFormatter<int>, IProseUnitFormatter,
+    IProseAffixFormatter {
     public ProseIntFormatter(
       string format = null,
       int? min = null,
@@ -196,7 +201,8 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseLongFormatter :
-    IProseFormatter<long>, IProseFormatter<long?>, IProseRangeFormatter<long>, IProseUnitFormatter {
+    IProseFormatter<long>, IProseFormatter<long?>, IProseRangeFormatter<long>, IProseUnitFormatter,
+    IProseAffixFormatter {
     public ProseLongFormatter(
       string format = null, long? min = null, long? max = null,
       string prefix = null, string suffix = null,
@@ -232,7 +238,8 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseFloatFormatter :
-    IProseFormatter<float>, IProseFormatter<float?>, IProseRangeFormatter<float>, IProseUnitFormatter {
+    IProseFormatter<float>, IProseFormatter<float?>, IProseRangeFormatter<float>, IProseUnitFormatter,
+    IProseAffixFormatter {
     public ProseFloatFormatter(
       string format = "R", float? min = null, float? max = null,
       string prefix = null, string suffix = null,
@@ -283,7 +290,8 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseDoubleFormatter :
-    IProseFormatter<double>, IProseFormatter<double?>, IProseRangeFormatter<double>, IProseUnitFormatter {
+    IProseFormatter<double>, IProseFormatter<double?>, IProseRangeFormatter<double>, IProseUnitFormatter,
+    IProseAffixFormatter {
     public ProseDoubleFormatter(
       string format = "R", double? min = null, double? max = null,
       string prefix = null, string suffix = null,
@@ -364,7 +372,7 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseEnumFormatter<T> :
-    IProseFormatter<T>, IProseFormatter<T?>, IProseChoiceFormatter where T : struct, Enum {
+    IProseFormatter<T>, IProseFormatter<T?>, IProseChoiceFormatter, IProseAffixFormatter where T : struct, Enum {
     private static readonly T[] Values = (T[])Enum.GetValues(typeof(T));
     public ProseEnumFormatter(
       string nullText = ProseLiterals.Null, string prefix = null, string suffix = null
@@ -414,7 +422,7 @@ namespace HELIX.Prose {
     }
   }
 
-  public sealed class ProseObjectFormatter<T> : IProseFormatter<T> {
+  public sealed class ProseObjectFormatter<T> : IProseFormatter<T>, IProseAffixFormatter {
     public ProseObjectFormatter(
       string nullText = ProseLiterals.Null, string prefix = null, string suffix = null
     ) {

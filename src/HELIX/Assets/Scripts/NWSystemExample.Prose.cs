@@ -64,7 +64,11 @@ namespace HELIX.Examples {
             }
           )
         )) { }
-        using (writer.Field("graphics.notice", "Display notice", ProseFormatters.String)) {
+        using (writer.Field(
+          "graphics.notice",
+          "Display notice",
+          new ProseStringFormatter(prefix: "Prefix", suffix: "Suffix")
+        )) {
           writer.PushModifier(ProseFields.FullWidth);
           writer.FieldDescription("Display changes may briefly blank the screen.");
         }

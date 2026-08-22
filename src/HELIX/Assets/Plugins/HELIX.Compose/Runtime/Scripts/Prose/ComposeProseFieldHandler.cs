@@ -146,21 +146,17 @@ namespace HELIX.Prose {
         result = null;
         return false;
       }
-      var choices = new DropdownOption<object>[formatter.ChoiceCount];
-      for (var i = 0; i < choices.Length; i++)
-        choices[i] = new DropdownOption<object>(
-          formatter.GetChoiceValue(i), formatter.GetChoiceLabel(i), formatter.IsChoiceEnabled(i)
-        );
+      var controlFormatter = new UntypedChoiceFormatter(formatter);
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
-        cx.DropdownButton(
-            formField.Value,
-            choices,
-            onChanged: SetChoice,
-            enabled: formField.FieldData?.HasFlag(FieldFlags.Disabled) != true,
-            error: formField.FieldData?.HasFlag(FieldFlags.Error) == true
-          )
-          .Flexible();
+        cx.Spec(new ControlSpec<object>(
+          formField.Value,
+          controlFormatter,
+          SetChoice,
+          enabled: IsEnabled(formField),
+          error: HasError(formField)
+        ));
+        cx.CURSOR.Flexible();
       };
       result = Field(field.Path, field.Name, FormController.NoInitialValue, parts, modifiers, control);
       return true;
@@ -171,17 +167,13 @@ namespace HELIX.Prose {
       IReadOnlyList<IProseModifier> modifiers, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
-      var readOnly = field.Formatter is IProseReadOnlyFormatter { ReadOnly: true };
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
-        cx.TextField(
-            value: new TextEditingValue(formField.GetValue(string.Empty)),
-            onChanged: SetText,
-            onEditingEnded: FinishText,
-            enabled: formField.FieldData?.HasFlag(FieldFlags.Disabled) != true && !readOnly,
-            options: new TextInputOptions(readOnly: readOnly)
-          )
-          .Flexible();
+        cx.Spec(new ControlSpec<string>(
+          formField.GetValue(string.Empty), field.Formatter, SetText, FinishEditing,
+          IsEnabled(formField), HasError(formField)
+        ));
+        cx.CURSOR.Flexible();
       };
       result = Field(field, parts, modifiers, control);
       return true;
@@ -192,20 +184,13 @@ namespace HELIX.Prose {
       IReadOnlyList<IProseModifier> modifiers, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
-      Bounds(field.Formatter as IProseRangeFormatter<int>, out var min, out var max, out var step);
-      var unit = Unit(field.Formatter);
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
-        cx.FieldSlider(
-            formField.GetValue(0), SetInteger, FinishNumeric,
-            min.hasValue ? min.value : 0,
-            max.hasValue ? max.value : 100,
-            step.hasValue ? step.value : 1,
-            formField.FieldData?.HasFlag(FieldFlags.Disabled) != true,
-            formField.FieldData?.HasFlag(FieldFlags.Error) == true,
-            suffix: unit
-          )
-          .Flexible();
+        cx.Spec(new ControlSpec<int>(
+          formField.GetValue(0), field.Formatter, SetInteger, FinishEditing,
+          IsEnabled(formField), HasError(formField)
+        ));
+        cx.CURSOR.Flexible();
       };
       result = Field(field, parts, modifiers, control);
       return true;
@@ -216,20 +201,13 @@ namespace HELIX.Prose {
       IReadOnlyList<IProseModifier> modifiers, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
-      Bounds(field.Formatter as IProseRangeFormatter<float>, out var min, out var max, out var step);
-      var unit = Unit(field.Formatter);
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
-        cx.FieldSlider(
-            formField.GetValue(0f), SetFloat, FinishNumeric,
-            min.hasValue ? min.value : 0f,
-            max.hasValue ? max.value : 1f,
-            step.hasValue ? step.value : 0f,
-            formField.FieldData?.HasFlag(FieldFlags.Disabled) != true,
-            formField.FieldData?.HasFlag(FieldFlags.Error) == true,
-            suffix: unit
-          )
-          .Flexible();
+        cx.Spec(new ControlSpec<float>(
+          formField.GetValue(0f), field.Formatter, SetFloat, FinishEditing,
+          IsEnabled(formField), HasError(formField)
+        ));
+        cx.CURSOR.Flexible();
       };
       result = Field(field, parts, modifiers, control);
       return true;
@@ -242,11 +220,10 @@ namespace HELIX.Prose {
       if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
-        cx.Checkbox(
-          formField.GetValue(false), onChanged: SetBool,
-          enabled: formField.FieldData?.HasFlag(FieldFlags.Disabled) != true,
-          error: formField.FieldData?.HasFlag(FieldFlags.Error) == true
-        );
+        cx.Spec(new ControlSpec<bool>(
+          formField.GetValue(false), field.Formatter, SetBool,
+          enabled: IsEnabled(formField), error: HasError(formField)
+        ));
       };
       result = Field(field, parts, modifiers, control);
       return true;
@@ -322,32 +299,28 @@ namespace HELIX.Prose {
       ref Composition cx, Composable field, in FormFieldDecorators decorators
     ) => field(ref cx);
 
-    private static void SetText(CompositionContext context, TextEditingValue value) =>
-      context.Lookup<HXFormField>()?.SetUserValue(value.text);
-    private static void FinishText(
-      CompositionContext context, TextEditingValue value, TextEditEndReason reason
-    ) => context.Lookup<HXFormField>()?.MarkFinishedEditing();
-    private static void SetInteger(CompositionContext context, float value) =>
-      context.Lookup<HXFormField>()?.SetUserValue((int)Math.Round(value));
+    private static void SetText(CompositionContext context, string value) =>
+      context.Lookup<HXFormField>()?.SetUserValue(value);
+    private static void SetInteger(CompositionContext context, int value) =>
+      context.Lookup<HXFormField>()?.SetUserValue(value);
     private static void SetFloat(CompositionContext context, float value) =>
       context.Lookup<HXFormField>()?.SetUserValue(value);
     private static void SetBool(CompositionContext context, bool value) =>
       context.Lookup<HXFormField>()?.SetUserValue(value);
     private static void SetChoice(CompositionContext context, object value) =>
       context.Lookup<HXFormField>()?.SetUserValue(value);
-    private static void FinishNumeric(CompositionContext context) =>
+    private static void FinishEditing(CompositionContext context) =>
       context.Lookup<HXFormField>()?.MarkFinishedEditing();
+
+    private static bool IsEnabled(HXFormField field) =>
+      field.FieldData?.HasFlag(FieldFlags.Disabled) != true;
+    private static bool HasError(HXFormField field) =>
+      field.FieldData?.HasFlag(FieldFlags.Error) == true;
 
     private static HXOptional<T> Default<T>(ProseField<T> field) =>
       field.Formatter is IProseDefaultFormatter<T> value && value.HasDefaultValue
         ? new HXOptional<T>(value.DefaultValue)
         : HXOptional<T>.None;
-
-    private static Composable Unit(object formatter) {
-      if (formatter is not IProseUnitFormatter unit || string.IsNullOrEmpty(unit.Unit)) return null;
-      var text = unit.Unit;
-      return (ref Composition cx) => cx.Text(text);
-    }
 
     private static FormFieldDecorators Decorators(IReadOnlyList<ComposeProseFieldPart> parts) {
       Composable label = null, description = null, prefix = null, suffix = null;
@@ -367,13 +340,26 @@ namespace HELIX.Prose {
       return new FormFieldDecorators(label, description, prefix, suffix, before, between, after);
     }
 
-    private static void Bounds<T>(
-      IProseRangeFormatter<T> formatter,
-      out HXOptional<T> min, out HXOptional<T> max, out HXOptional<T> step
-    ) where T : struct {
-      min = formatter?.Min.HasValue == true ? formatter.Min.Value : HXOptional<T>.None;
-      max = formatter?.Max.HasValue == true ? formatter.Max.Value : HXOptional<T>.None;
-      step = formatter?.Step.HasValue == true ? formatter.Step.Value : HXOptional<T>.None;
+    private sealed class UntypedChoiceFormatter :
+      IProseFormatter<object>, IProseChoiceFormatter, IProseAffixFormatter {
+      private readonly IProseChoiceFormatter _formatter;
+
+      public UntypedChoiceFormatter(IProseChoiceFormatter formatter) => _formatter = formatter;
+      public int ChoiceCount => _formatter.ChoiceCount;
+      public object GetChoiceValue(int index) => _formatter.GetChoiceValue(index);
+      public string GetChoiceLabel(int index) => _formatter.GetChoiceLabel(index);
+      public bool IsChoiceEnabled(int index) => _formatter.IsChoiceEnabled(index);
+      public string Prefix => (_formatter as IProseAffixFormatter)?.Prefix;
+      public string Suffix => (_formatter as IProseAffixFormatter)?.Suffix;
+
+      public void ToProse(IProseWriter writer, object value) {
+        for (var i = 0; i < ChoiceCount; i++) {
+          if (!Equals(GetChoiceValue(i), value)) continue;
+          writer.Write(GetChoiceLabel(i));
+          return;
+        }
+        writer.Write(value?.ToString() ?? "null");
+      }
     }
   }
 }

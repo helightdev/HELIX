@@ -4,8 +4,13 @@ using System.Collections.Generic;
 namespace HELIX.Compose {
   public interface ISpec { }
 
+  public interface ISpecHandler {
+    ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec;
+  }
+
   public class SpecConfig {
     public readonly Dictionary<Type, Delegate> transformers = new();
+    public readonly List<ISpecHandler> handlers = new();
     public readonly SpecConfig parent;
 
     public SpecConfig(SpecConfig parent = null) {
@@ -17,11 +22,29 @@ namespace HELIX.Compose {
       return this;
     }
 
+    public SpecConfig AddHandler(ISpecHandler handler) {
+      handlers.Add(handler);
+      return this;
+    }
+
+    public SpecConfig AddHandler<T>() where T : ISpecHandler, new() => AddHandler(new T());
+
     public ReadComposable<T> GetFactory<T>() where T : struct, ISpec {
       if (transformers.TryGetValue(typeof(T), out var factory)) {
         return factory as ReadComposable<T>;
       }
       return parent?.GetFactory<T>();
+    }
+
+    public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec {
+      if (transformers.TryGetValue(typeof(T), out var factory)) {
+        return factory as ReadComposable<T>;
+      }
+      for (var i = 0; i < handlers.Count; i++) {
+        var handled = handlers[i].GetFactory(in spec);
+        if (handled != null) return handled;
+      }
+      return parent?.GetFactory(in spec);
     }
 
     public static readonly ContextKey<SpecConfig> Key = new("specs", Default);
@@ -30,31 +53,18 @@ namespace HELIX.Compose {
       .AddFactory<LabelSpec>(LabelSpec.Default)
       .AddFactory<IconRef>(IconRef.Default)
       .AddFactory<ChevronSpec>(ChevronSpec.Default)
-      .AddFactory<ControlSpec<string>>(ControlSpecFactories.Text)
-      .AddFactory<ControlSpec<int>>(ControlSpecFactories.Integer)
-      .AddFactory<ControlSpec<float>>(ControlSpecFactories.Float)
-      .AddFactory<ControlSpec<bool>>(ControlSpecFactories.Checkbox)
-      .AddFactory<StringControlSpec>(ControlSpecFactories.Text)
-      .AddFactory<IntControlSpec>(ControlSpecFactories.Integer)
-      .AddFactory<FloatControlSpec>(ControlSpecFactories.Float)
-      .AddFactory<BoolControlSpec>(ControlSpecFactories.Checkbox)
-      .AddFactory<EnumControlSpec>(ControlSpecFactories.Enum)
-      .AddFactory<FormField<string>>(FormFieldFactories.Text)
-      .AddFactory<FormField<int>>(FormFieldFactories.Integer)
-      .AddFactory<FormField<float>>(FormFieldFactories.Float)
-      .AddFactory<FormField<bool>>(FormFieldFactories.Checkbox)
-      .AddFactory<StringFormField>(FormFieldFactories.Text)
-      .AddFactory<IntFormField>(FormFieldFactories.Integer)
-      .AddFactory<FloatFormField>(FormFieldFactories.Float)
-      .AddFactory<BoolFormField>(FormFieldFactories.Checkbox)
-      .AddFactory<EnumFormField>(FormFieldFactories.Enum)
+      .AddHandler<ChoiceControlSpecHandler>()
+      .AddHandler<TextControlSpecHandler>()
+      .AddHandler<IntegerControlSpecHandler>()
+      .AddHandler<FloatControlSpecHandler>()
+      .AddHandler<CheckboxControlSpecHandler>()
     ;
   }
 
   public static class SpecExtensions {
     public static void Spec<T>(ref this Composition cx, in T specs) where T : struct, ISpec {
       var configuration = SpecConfig.Key[in cx];
-      var factory = configuration.GetFactory<T>();
+      var factory = configuration.GetFactory(in specs);
       if (factory == null) throw new Exception($"No factory found for spec type {typeof(T)}");
       factory(ref cx, in specs);
     }
