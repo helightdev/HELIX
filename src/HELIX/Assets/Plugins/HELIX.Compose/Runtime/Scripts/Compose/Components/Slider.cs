@@ -25,6 +25,7 @@ namespace HELIX.Compose {
     public readonly Composable<State> thumb;
     [Prop(4f)] public readonly float trackSize;
     [Prop(16f)] public readonly float thumbSize;
+    [Prop(false)] public readonly bool hideWhenThumbCoversTrack;
   }
 
   [ComposableProxy(Extension = false)]
@@ -314,14 +315,21 @@ namespace HELIX.Compose {
 
     public SliderController controller;
     public bool isAutomaticController = true;
+    private float _lastTrackLength;
+    private bool _automaticallyHidden;
 
     protected override void OnAttach() {
       base.OnAttach();
       Node.RegisterCallback<KeyDownEvent>(OnKeyDown);
+      Node.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
     }
 
     protected override void OnDetach() {
       Node.UnregisterCallback<KeyDownEvent>(OnKeyDown);
+      Node.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+      if (_automaticallyHidden) Node.style.display = DisplayStyle.Flex;
+      _automaticallyHidden = false;
+      _lastTrackLength = 0f;
       DisposeAutomaticController();
       base.OnDetach();
     }
@@ -333,6 +341,8 @@ namespace HELIX.Compose {
       var options = HXSliderElement.NormalizeOptions(in controller.options);
       var value = HXSliderElement.ClampAndSnap(controller.PeekValue(), in options);
       var style = props.style ?? ThemeProperties.Slider[in cx];
+
+      UpdateDisplay(in style, in options);
 
       this.Toggle(State.Disabled, !controller.enabled);
       this.Toggle(State.Error, controller.error);
@@ -431,6 +441,31 @@ namespace HELIX.Compose {
       var value = HXSliderElement.ClampAndSnap(controller.PeekValue() + direction * amount, in options);
       if (!Mathf.Approximately(controller.PeekValue(), value)) { controller.SetUserValue(Node, value, true); }
       evt.StopPropagation();
+    }
+
+    private void OnGeometryChanged(GeometryChangedEvent evt) {
+      if (controller == null) return;
+      var options = HXSliderElement.NormalizeOptions(in controller.options);
+      var style = props.style ?? ThemeProperties.Slider[Node];
+      UpdateDisplay(in style, in options);
+    }
+
+    private void UpdateDisplay(in SliderStyle style, in SliderOptions options) {
+      var length = options.axis == Axis.Horizontal ? Node.contentRect.width : Node.contentRect.height;
+      if (length > 0f) _lastTrackLength = length;
+
+      var hide = style.hideWhenThumbCoversTrack && _lastTrackLength > 0f &&
+                 Mathf.Approximately(
+                   HXSliderElement.ResolveThumbSize(_lastTrackLength, in options, style.thumbSize),
+                   _lastTrackLength
+                 );
+      if (hide) {
+        Node.style.display = DisplayStyle.None;
+        _automaticallyHidden = true;
+      } else if (_automaticallyHidden) {
+        Node.style.display = DisplayStyle.Flex;
+        _automaticallyHidden = false;
+      }
     }
 
     private void SetFromLocalPosition(Vector2 localPosition, bool commit) {

@@ -333,7 +333,8 @@ namespace HELIX.Theming {
           thumbFocus(ref cx, value);
         },
         thumbSize: 12,
-        trackSize: 12
+        trackSize: 12,
+        hideWhenThumbCoversTrack: true
       );
     }
   }
