@@ -45,16 +45,25 @@ namespace HELIX.Examples {
       using (writer.Path("graphics")) {
         writer.PushModifier(PathSectionModifiers.Title("Graphics", TextRole.TitleLarge));
         using (writer.Field<DisplayMode>(
-          "graphics.display-mode", "Display mode", ProseFormatters.Enum<DisplayMode>()
+          "graphics.display-mode",
+          "Display mode",
+          ProseFormatters.Enum<DisplayMode>()
         )) {
           writer.FieldDescription("Select how the game occupies the display.");
+          writer.FieldTooltip("Borderless uses the desktop resolution and usually switches applications faster.");
           using (writer.FieldSuffix()) writer.Write("3 choices");
         }
-        using (writer.Field("graphics.upscaler", "Upscaler", new ProseChoiceFormatter<string>(new[] {
-          new ProseChoice<string>("off", "Off"),
-          new ProseChoice<string>("quality", "Quality"),
-          new ProseChoice<string>("performance", "Performance")
-        }))) { }
+        using (writer.Field(
+          "graphics.upscaler",
+          "Upscaler",
+          new ProseChoiceFormatter<string>(
+            new[] {
+              new ProseChoice<string>("off", "Off"),
+              new ProseChoice<string>("quality", "Quality"),
+              new ProseChoice<string>("performance", "Performance")
+            }
+          )
+        )) { }
         using (writer.Field("graphics.notice", "Display notice", ProseFormatters.String)) {
           writer.PushModifier(ProseFields.FullWidth);
           writer.FieldDescription("Display changes may briefly blank the screen.");
@@ -62,22 +71,36 @@ namespace HELIX.Examples {
         using (writer.Path("quality")) {
           writer.PushModifier(PathSectionModifiers.Title("Quality presets", TextRole.TitleSmall));
           writer.PushModifier(PathSectionModifiers.Description("Choose the rendering quality used by the game."));
-          using (writer.Field("graphics.texture-quality", "Texture quality", new ProseChoiceFormatter<string>(new[] {
-            new ProseChoice<string>("low", "Low"),
-            new ProseChoice<string>("medium", "Medium"),
-            new ProseChoice<string>("high", "High")
-          }))) { }
-          using (writer.Field("graphics.shadow-quality", "Shadow quality", new ProseChoiceFormatter<string>(new[] {
-            new ProseChoice<string>("off", "Off"),
-            new ProseChoice<string>("medium", "Medium"),
-            new ProseChoice<string>("high", "High")
-          }))) { }
+          using (writer.Field(
+            "graphics.texture-quality",
+            "Texture quality",
+            new ProseChoiceFormatter<string>(
+              new[] {
+                new ProseChoice<string>("low", "Low"),
+                new ProseChoice<string>("medium", "Medium"),
+                new ProseChoice<string>("high", "High")
+              }
+            )
+          )) { }
+          using (writer.Field(
+            "graphics.shadow-quality",
+            "Shadow quality",
+            new ProseChoiceFormatter<string>(
+              new[] {
+                new ProseChoice<string>("off", "Off"),
+                new ProseChoice<string>("medium", "Medium"),
+                new ProseChoice<string>("high", "High")
+              }
+            )
+          )) { }
         }
       }
       using (writer.Path("audio")) {
         writer.PushModifier(PathSectionModifiers.Title("Audio", TextRole.TitleLarge));
         using (writer.Field<int>(
-          "audio.master-volume", "Master volume", new ProseIntFormatter(min: 0, max: 100, unit: "%", step: 1)
+          "audio.master-volume",
+          "Master volume",
+          new ProseIntFormatter(min: 0, max: 100, unit: "%", step: 1)
         )) {
           writer.PushModifier(ProseFields.LabelWidth(new Length(32f, LengthUnit.Percent)));
           writer.FieldDescription("Overall output volume.");
@@ -85,17 +108,25 @@ namespace HELIX.Examples {
         using (writer.Path("voice")) {
           writer.PushModifier(PathSectionModifiers.Title("Voice communication", TextRole.TitleSmall));
           using (writer.Field<bool>(
-            "audio.voice-chat", "Voice chat", new ProseFlagFormatter(ifTrue: "Enabled", ifFalse: "Disabled")
+            "audio.voice-chat",
+            "Voice chat",
+            new ProseFlagFormatter(ifTrue: "Enabled", ifFalse: "Disabled")
           )) { }
         }
       }
       using (writer.Path("gameplay")) {
         writer.PushModifier(PathSectionModifiers.Title("Gameplay", TextRole.TitleLarge));
-        using (writer.Field("gameplay.difficulty", "Difficulty", new ProseChoiceFormatter<string>(new[] {
-          new ProseChoice<string>("story", "Story"),
-          new ProseChoice<string>("normal", "Normal"),
-          new ProseChoice<string>("veteran", "Veteran")
-        }))) {
+        using (writer.Field(
+          "gameplay.difficulty",
+          "Difficulty",
+          new ProseChoiceFormatter<string>(
+            new[] {
+              new ProseChoice<string>("story", "Story"),
+              new ProseChoice<string>("normal", "Normal"),
+              new ProseChoice<string>("veteran", "Veteran")
+            }
+          )
+        )) {
           writer.PushModifier(ProseFields.LabelWidth(new Length(144f, LengthUnit.Pixel)));
         }
         using (writer.Field<bool>("gameplay.autosave", "Autosave", ProseFormatters.Bool)) {
@@ -103,7 +134,10 @@ namespace HELIX.Examples {
           using (writer.FieldSuffix()) writer.Write("Recommended");
         }
       }
-      return new OptionPages(writer.BuildSections());
+      return new OptionPages(
+        writer.BuildSections(),
+        options: new OptionPagesOptions(collapseTooltipIntoDescription: true)
+      );
     }
 
     private void ComposeOptionsTab(ref Composition cx) {
@@ -182,7 +216,8 @@ namespace HELIX.Examples {
         cx.Button(
           static (ref Composition child) => child.Text("Whitespace tree"),
           action: static _ => DetailedProseExample.PrintPlainText(
-            "Whitespace tree", ProseTextConfigurations.Whitespace
+            "Whitespace tree",
+            ProseTextConfigurations.Whitespace
           )
         );
         cx.Spacing(1);
@@ -198,7 +233,8 @@ namespace HELIX.Examples {
           static (ref Composition child) => child.Text("Test: wide decorated"),
           style: ThemeProperties.ButtonOutlined[in cx],
           action: static _ => DetailedProseExample.PrintPlainText(
-            "test wide decorated", DetailedProseExample.TestWideDecorated
+            "test wide decorated",
+            DetailedProseExample.TestWideDecorated
           )
         );
       }
@@ -207,7 +243,8 @@ namespace HELIX.Examples {
         cx.Button(
           static (ref Composition child) => child.Text("Test: compact sections"),
           action: static _ => DetailedProseExample.PrintPlainText(
-            "test compact sections", DetailedProseExample.TestCompactSections
+            "test compact sections",
+            DetailedProseExample.TestCompactSections
           )
         );
       }

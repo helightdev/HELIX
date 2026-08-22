@@ -4,16 +4,21 @@ using HELIX.Compose;
 using HELIX.Compose.Forms;
 using HELIX.Prose;
 using HELIX.Signals;
+using HELIX.Theming;
+using HELIX.Types;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX {
   public sealed class OptionPageFieldPresentation {
-    public OptionPageFieldPresentation(Composable label, Composable description) {
+    public OptionPageFieldPresentation(Composable label, Composable description, Composable tooltip) {
       Label = label;
       Description = description;
+      Tooltip = tooltip;
     }
     public Composable Label { get; }
     public Composable Description { get; }
+    public Composable Tooltip { get; }
   }
 
   public sealed class OptionPageFieldController : Signal {
@@ -31,9 +36,13 @@ namespace HELIX {
     public static readonly ContextKey<OptionPageFieldContext> Key = new("OptionPageFieldContext");
     public readonly OptionPageFieldController controller;
     public readonly FormController form;
-    public OptionPageFieldContext(OptionPageFieldController controller, FormController form) {
+    public readonly OptionPagesOptions options;
+    public OptionPageFieldContext(
+      OptionPageFieldController controller, FormController form, OptionPagesOptions options
+    ) {
       this.controller = controller;
       this.form = form;
+      this.options = options;
     }
   }
 
@@ -72,6 +81,67 @@ namespace HELIX {
     private void OnFocusIn(FocusInEvent evt) => _controller?.Show(props.presentation);
   }
 
+  [BoundaryComposable(Extension = false)]
+  public partial class OptionPageTooltipElement {
+    public partial struct Props {
+      [Prop(null)] public Composable trigger;
+      [Prop(null)] public Composable content;
+    }
+
+    private OverlayController _overlays;
+    private OverlayHandle _overlay;
+
+    protected override void OnAttach() {
+      base.OnAttach();
+      Node.RegisterCallback<PointerEnterEvent>(OnPointerEnter);
+      Node.RegisterCallback<PointerLeaveEvent>(OnPointerLeave);
+    }
+
+    protected override void OnDetach() {
+      Node.UnregisterCallback<PointerEnterEvent>(OnPointerEnter);
+      Node.UnregisterCallback<PointerLeaveEvent>(OnPointerLeave);
+      _overlay?.Dismiss(OverlayDismissReason.AnchorDetached);
+      _overlay = null;
+      _overlays = null;
+      base.OnDetach();
+    }
+
+    protected override void OnRecompose(ref Composition cx) {
+      _overlays = cx.Overlays(false);
+      Node.style.flexGrow = 0f;
+      Node.style.flexShrink = 0f;
+      Node.style.alignSelf = Align.Center;
+      Node.pickingMode = PickingMode.Position;
+      if (props.trigger != null) props.trigger(ref cx);
+      else cx.Text("\u24D8", TextRole.BodySmall).Opacity(0.7f);
+    }
+
+    private void OnPointerEnter(PointerEnterEvent evt) {
+      if (props.content == null || _overlays == null || _overlay?.IsOpen == true) return;
+      _overlay = Overlay.Build(ComposeTooltip)
+        .AnchorTo(Node, OverlayPlacement.Above, new Vector2(0f, -4f))
+        .Show(_overlays, Node);
+    }
+
+    private void OnPointerLeave(PointerLeaveEvent evt) {
+      _overlay?.Dismiss();
+      _overlay = null;
+    }
+
+    private void ComposeTooltip(ref Composition cx, OverlayContextData overlay) {
+      var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark);
+      cx.CURSOR
+        .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainerHighest))
+        .TextColor(theme.GetColor(ColorRoles.OnSurface))
+        .BorderRadius(8f)
+        .MaxWidth(320f);
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+        if (cx.CursorDirty) cx.CURSOR.Padding(10f);
+        props.content?.Invoke(ref cx);
+      }
+    }
+  }
+
   /// <summary>Consumes option-page help prose, delegates control creation, then wraps the completed field.</summary>
   public static class OptionPageFieldFactory {
     public static bool Create(
@@ -81,21 +151,51 @@ namespace HELIX {
       var delegatedParts = new List<ComposeProseFieldPart>(parts.Count);
       Composable label = null;
       Composable description = null;
+      Composable tooltip = null;
       for (var i = 0; i < parts.Count; i++) {
-        var wrapped = Wrap(parts[i].Content);
-        if (parts[i].Scope is ProseFieldPart { Kind: ProseFieldPartKind.Label }) label = wrapped;
+        var content = parts[i].Content;
+        if (parts[i].Scope is ProseFieldPart { Kind: ProseFieldPartKind.Label }) label = content;
         if (parts[i].Scope is ProseFieldPart { Kind: ProseFieldPartKind.Description }) {
-          description = wrapped;
+          description = content;
           continue;
         }
-        delegatedParts.Add(new ComposeProseFieldPart(parts[i].Scope, wrapped));
+        if (parts[i].Scope is ProseFieldPart { Kind: ProseFieldPartKind.Tooltip }) {
+          tooltip = content;
+          continue;
+        }
+        delegatedParts.Add(parts[i]);
+      }
+      label ??= (ref Composition cx) => cx.Text(field.Name);
+      if (tooltip != null || description != null) {
+        var labelContent = label;
+        var hoverContent = Combine(description, tooltip);
+        Composable decoratedLabel = (ref Composition cx) => {
+          var context = cx.ReadContext(OptionPageFieldContext.Key, false);
+          var hasSidePanel = context.options.hasSidePanel;
+          var collapse = context.options.collapseTooltipIntoDescription;
+          var content = hasSidePanel ? collapse ? null : tooltip : hoverContent;
+          if (content != null && context.options.showTooltipOnLabelHover) {
+            OptionPageTooltipElement.ComposeBoundary(ref cx, labelContent, content);
+            return;
+          }
+          using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
+            labelContent(ref cx);
+            if (content != null) {
+              cx.Spacing(1);
+              OptionPageTooltipElement.ComposeBoundary(ref cx, null, content);
+            }
+          }
+        };
+        for (var i = delegatedParts.Count - 1; i >= 0; i--)
+          if (delegatedParts[i].Scope is ProseFieldPart { Kind: ProseFieldPartKind.Label })
+            delegatedParts.RemoveAt(i);
+        delegatedParts.Add(new ComposeProseFieldPart(ProseFields.Label, decoratedLabel));
       }
       if (!ComposeProseFieldFactories.Standard(field, formatter, delegatedParts, modifiers, out var fieldContent)) {
         result = null;
         return false;
       }
-      label ??= (ref Composition cx) => cx.Text(field.Name);
-      var presentation = new OptionPageFieldPresentation(label, description);
+      var presentation = new OptionPageFieldPresentation(label, description, tooltip);
       result = (ref Composition cx) => {
         var context = cx.ReadContext(OptionPageFieldContext.Key, false);
         OptionPageFieldElement.ComposeBoundary(
@@ -105,20 +205,15 @@ namespace HELIX {
       return true;
     }
 
-    private static Composable Wrap(Composable content) {
-      if (content == null) return null;
+    private static Composable Combine(Composable first, Composable second) {
+      if (first == null) return second;
+      if (second == null) return first;
       return (ref Composition cx) => {
-        var parent = cx.Cell.scope.Element;
-        var first = cx.Cell.cursor;
-        content(ref cx);
-        var last = cx.Cell.cursor;
-        for (var i = first; i < last && i < parent.childCount; i++) EnableWrapping(parent.ElementAt(i));
+        first(ref cx);
+        cx.Spacing(1);
+        second(ref cx);
       };
     }
 
-    private static void EnableWrapping(VisualElement element) {
-      if (element is TextElement) element.style.whiteSpace = WhiteSpace.Normal;
-      for (var i = 0; i < element.childCount; i++) EnableWrapping(element.ElementAt(i));
-    }
   }
 }

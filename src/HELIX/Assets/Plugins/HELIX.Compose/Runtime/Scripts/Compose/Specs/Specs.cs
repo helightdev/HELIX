@@ -67,26 +67,4 @@ namespace HELIX.Compose {
       return (ref Composition cx) => cx.Spec(in specs);
     }
   }
-
-  public struct BakeableComposition<TInput> {
-    private TInput _lastInput;
-    private bool _hasInput;
-    private Composable _composable;
-    private readonly Func<TInput, Composable> _baker;
-
-    public BakeableComposition(Func<TInput, Composable> baker) : this() {
-      _baker = baker;
-    }
-
-    public void Compose(TInput input, ref Composition cx) {
-      if (!_hasInput || !_lastInput.Equals(input)) Regenerate(input);
-      _composable(ref cx);
-    }
-
-    private void Regenerate(TInput input) {
-      _hasInput = true;
-      _lastInput = input;
-      _composable = _baker(input);
-    }
-  }
 }

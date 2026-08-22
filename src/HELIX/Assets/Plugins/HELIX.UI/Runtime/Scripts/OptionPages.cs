@@ -8,6 +8,14 @@ using HELIX.Types;
 using UnityEngine.UIElements;
 
 namespace HELIX {
+  [PropStruct] public readonly partial struct OptionPagesOptions {
+    public static readonly OptionPagesOptions Default = new(hasSidePanel: true);
+
+    [Prop(true)] public readonly bool hasSidePanel;
+    [Prop(false)] public readonly bool collapseTooltipIntoDescription;
+    [Prop(false)] public readonly bool showTooltipOnLabelHover;
+  }
+
   [BoundaryComposable(Extension = false)]
   public partial class OptionPagesElement {
     public partial struct Props {
@@ -25,14 +33,17 @@ namespace HELIX {
   /// <summary>Projects path-sectioned option content into category navigation and structured option pages.</summary>
   public sealed class OptionPages : IDisposable {
     private readonly PathSectionedProse _model;
+    private readonly OptionPagesOptions _options;
     private readonly Dictionary<PathSectionedProse.Section, Composable> _content = new();
     private readonly FormController _form = new();
     private readonly OptionPageFieldController _fieldHelp = new();
+    private readonly OverlayController _overlays = new();
     private readonly NavigationGraph _graph;
     private readonly NavigationController _controller;
 
-    public OptionPages(PathSectionedProse model) {
+    public OptionPages(PathSectionedProse model, OptionPagesOptions? options = null) {
       _model = model ?? throw new ArgumentNullException(nameof(model));
+      _options = options ?? OptionPagesOptions.Default;
       if (model.Root.Children.Count == 0)
         throw new ArgumentException("Option pages require at least one root category.", nameof(model));
 
@@ -56,12 +67,13 @@ namespace HELIX {
     internal void ComposeBoundaryContent(ref Composition cx) {
       using (cx.WriteContext(out var context)) {
         FormContext.Key[context] = new FormContext(_form);
-        OptionPageFieldContext.Key[context] = new OptionPageFieldContext(_fieldHelp, _form);
+        OptionPageFieldContext.Key[context] = new OptionPageFieldContext(_fieldHelp, _form, _options);
       }
       cx.SubscribeTo(_form);
       cx.SubscribeTo(_controller);
       cx.SubscribeTo(_fieldHelp);
 
+      using (cx.OverlayHost(_overlays))
       using (cx.Group(FlexGroup.Column(cross: Align.Stretch), Flex.FillFlexible())) {
         if (cx.CursorDirty) cx.CURSOR.Fill();
         using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
@@ -82,20 +94,25 @@ namespace HELIX {
         using (cx.Group(FlexGroup.Row(cross: Align.Stretch), Flex.FillFlexible())) {
           cx.NavigationHost(_graph, _controller, NavigationTransitions.Instant, NavigationHostBehavior.None)
             .Flexible();
-          cx.Spacing(3);
-          using (var help = cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-            help.With(Flex.Shrink(0));
-            help.With(BoxConstraints.Preferred(new Length(30f, LengthUnit.Percent), StyleKeyword.Auto));
-            var current = _fieldHelp.Current;
-            if (current == null) {
-              cx.Text("Field details", TextRole.TitleSmall);
-              cx.Spacing(1);
-              cx.Text("Focus or point at an option to see more information.", TextRole.BodySmall);
-            } else {
-              current.Label?.Invoke(ref cx);
-              if (current.Description != null) {
+          if (_options.hasSidePanel) {
+            cx.Spacing(3);
+            using (var help = cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+              help.With(Flex.Shrink(0));
+              help.With(BoxConstraints.Preferred(new Length(30f, LengthUnit.Percent), StyleKeyword.Auto));
+              var current = _fieldHelp.Current;
+              if (current == null) {
+                cx.Text("Field details", TextRole.TitleSmall);
                 cx.Spacing(1);
-                current.Description(ref cx);
+                cx.Text("Focus or point at an option to see more information.", TextRole.BodySmall);
+              } else {
+                current.Label?.Invoke(ref cx);
+                var details = _options.collapseTooltipIntoDescription
+                  ? Combine(current.Description, current.Tooltip)
+                  : current.Description;
+                if (details != null) {
+                  cx.Spacing(1);
+                  details(ref cx);
+                }
               }
             }
           }
@@ -107,6 +124,7 @@ namespace HELIX {
       _controller.Dispose();
       _form.Dispose();
       _fieldHelp.Dispose();
+      _overlays.Dispose();
     }
 
     private string Route(PathSectionedProse.Section section) => _model.Paths.Format(section.Path);
@@ -172,6 +190,16 @@ namespace HELIX {
     }
 
     private static string Title(PathSectionedProse.Section section) => Presentation(section).title;
+
+    private static Composable Combine(Composable first, Composable second) {
+      if (first == null) return second;
+      if (second == null) return first;
+      return (ref Composition cx) => {
+        first(ref cx);
+        cx.Spacing(1);
+        second(ref cx);
+      };
+    }
 
     private static void ComposeTitle(
       ref Composition cx, PathSectionedProse.Section section, TextRole fallback,

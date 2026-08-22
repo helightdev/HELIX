@@ -35,11 +35,13 @@ namespace HELIX.Prose {
     void ToProse(IProseWriter writer);
   }
 
+  public interface IProseFormatter { }
+
   /// <summary>
   /// Describes a value and provides its semantic fallback expansion when a sink does not handle it directly.
   /// Implementations should be immutable so configured instances can be defined statically and reused.
   /// </summary>
-  public interface IProseFormatter<in T> {
+  public interface IProseFormatter<in T> : IProseFormatter {
     void ToProse(IProseWriter writer, T value);
   }
 

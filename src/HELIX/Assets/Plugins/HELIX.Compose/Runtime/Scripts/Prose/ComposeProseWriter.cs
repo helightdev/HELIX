@@ -20,7 +20,7 @@ namespace HELIX.Prose {
       var writer = CreateTextWriter(modifiers);
       if (prose == null) writer.Write((IProse)null);
       else prose.ToProse(writer);
-      result = ConvertText(FinishText(writer, modifiers.Count > 0));
+      result = ConvertText(FinishText(writer, modifiers.Count > 0), modifiers);
       return result != null;
     }
 
@@ -31,7 +31,7 @@ namespace HELIX.Prose {
       }
       var writer = CreateTextWriter(modifiers);
       writer.Write(text);
-      result = ConvertText(FinishText(writer, modifiers.Count > 0));
+      result = ConvertText(FinishText(writer, modifiers.Count > 0), modifiers);
       return result != null;
     }
 
@@ -45,7 +45,7 @@ namespace HELIX.Prose {
       }
       var writer = CreateTextWriter(modifiers);
       formatter.ToProse(writer, value);
-      result = ConvertText(FinishText(writer, modifiers.Count > 0));
+      result = ConvertText(FinishText(writer, modifiers.Count > 0), modifiers);
       return result != null;
     }
 
@@ -103,8 +103,21 @@ namespace HELIX.Prose {
       return writer.Build();
     }
 
-    private static Composable ConvertText(string richText) => string.IsNullOrEmpty(richText)
-      ? null
-      : (ref Composition cx) => cx.Text(richText).WhiteSpace(WhiteSpace.Pre);
+    private static Composable ConvertText(
+      string richText, IReadOnlyList<IProseModifier> modifiers
+    ) {
+      if (string.IsNullOrEmpty(richText)) return null;
+      var wrap = WhiteSpace.PreWrap;
+      for (var i = 0; i < modifiers.Count; i++)
+        if (modifiers[i] is ProseNoWrapModifier) {
+          wrap = WhiteSpace.Pre;
+          break;
+        }
+      var style = new TextStyle(wrap: wrap);
+      return (ref Composition cx) => {
+        ref var text = ref cx.Text(richText);
+        style.Apply(text.composable);
+      };
+    }
   }
 }
