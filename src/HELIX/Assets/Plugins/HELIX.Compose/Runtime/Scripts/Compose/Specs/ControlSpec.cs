@@ -15,8 +15,11 @@ namespace HELIX.Compose {
     void Commit(CompositionContext context);
   }
 
-  internal interface ITextControlFormatter {
+  internal interface IControlDatatypeWrapper {
     object Datatype { get; }
+  }
+
+  internal interface ITextControlFormatter : IControlDatatypeWrapper {
     Composable Prefix { get; }
     Composable Suffix { get; }
   }
@@ -103,7 +106,41 @@ namespace HELIX.Compose {
     }
 
     public IControlSpec Control => props.control;
+    private UntypedChoiceDatatype _choiceDatatype;
+
+    public IDatatypeChoice<object> ChoiceDatatype(IDatatypeChoice datatype) {
+      _choiceDatatype ??= new UntypedChoiceDatatype();
+      _choiceDatatype.Synchronize(datatype);
+      return _choiceDatatype;
+    }
     protected override void OnRecompose(ref Composition cx) => props.content?.Invoke(ref cx);
+  }
+
+  internal sealed class UntypedChoiceDatatype : IDatatypeChoice<object> {
+    private IDatatypeChoice _datatype;
+    private object[] _values;
+    private string[] _labels;
+    private bool[] _enabled;
+
+    public int ChoiceCount => _values?.Length ?? 0;
+    public object GetChoiceValue(int index) => _values[index];
+    public object GetTypedChoiceValue(int index) => _values[index];
+    public string GetChoiceLabel(int index) => _labels[index];
+    public bool IsChoiceEnabled(int index) => _enabled[index];
+
+    public void Synchronize(IDatatypeChoice datatype) {
+      var count = datatype.ChoiceCount;
+      if (ReferenceEquals(_datatype, datatype) && _values?.Length == count) return;
+      _datatype = datatype;
+      _values = new object[count];
+      _labels = new string[count];
+      _enabled = new bool[count];
+      for (var i = 0; i < count; i++) {
+        _values[i] = datatype.GetChoiceValue(i);
+        _labels[i] = datatype.GetChoiceLabel(i) ?? string.Empty;
+        _enabled[i] = datatype.IsChoiceEnabled(i);
+      }
+    }
   }
 
   public static class ControlSpecFactories {
@@ -183,34 +220,36 @@ namespace HELIX.Compose {
     }
 
     private static void ComposeChoice(ref Composition cx) {
-      var control = cx.Lookup<ControlSpecBoundary>().Control;
+      var boundary = cx.Lookup<ControlSpecBoundary>();
+      var control = boundary.Control;
       var formatter = (IDatatypeChoice)control.Datatype;
-      var values = new DropdownOption<object>[formatter.ChoiceCount];
-      for (var i = 0; i < values.Length; i++)
-        values[i] = new DropdownOption<object>(
-          formatter.GetChoiceValue(i),
-          formatter.GetChoiceLabel(i),
-          formatter.IsChoiceEnabled(i)
-        );
+      var datatype = boundary.ChoiceDatatype(formatter);
       Decorations(control.Datatype, out var prefix, out var suffix);
       if (prefix == null && suffix == null) {
-        RenderChoice(ref cx, control, values);
+        RenderChoice(ref cx, control, datatype);
         return;
       }
       using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
         prefix?.Invoke(ref cx);
-        RenderChoice(ref cx, control, values);
+        RenderChoice(ref cx, control, datatype);
         cx.CURSOR.Flexible();
         suffix?.Invoke(ref cx);
       }
     }
 
     private static void RenderChoice(
-      ref Composition cx, IControlSpec control, DropdownOption<object>[] values
-    ) => cx.DropdownButton(
-      control.Value, values, onChanged: ChoiceChanged,
-      enabled: control.Enabled, error: control.Error
-    );
+      ref Composition cx, IControlSpec control, IDatatypeChoice<object> datatype
+    ) {
+      if (Unwrap(control.Datatype) is FlagDatatype) {
+        cx.SegmentedChoice(
+          control.Value, datatype, ChoiceChanged, control.Enabled, control.Error
+        );
+      } else {
+        cx.ChoiceSpinbox(
+          control.Value, datatype, ChoiceChanged, control.Enabled, control.Error
+        );
+      }
+    }
 
     private static void TextChanged(CompositionContext context, string value) =>
       Control(context).Change(context, value);
@@ -253,7 +292,7 @@ namespace HELIX.Compose {
       context.Lookup<ControlSpecBoundary>().Control;
 
     private static object Unwrap(object formatter) =>
-      formatter is ITextControlFormatter text ? text.Datatype : formatter;
+      formatter is IControlDatatypeWrapper wrapper ? wrapper.Datatype : formatter;
 
     internal static void Decorations(object formatter, out Composable prefix, out Composable suffix) {
       if (formatter is ITextControlFormatter text && (text.Prefix != null || text.Suffix != null)) {

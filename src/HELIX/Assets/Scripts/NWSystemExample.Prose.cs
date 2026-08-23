@@ -51,7 +51,7 @@ namespace HELIX.Examples {
         )) {
           writer.FieldDescription("Select how the game occupies the display.");
           writer.FieldTooltip("Borderless uses the desktop resolution and usually switches applications faster.");
-          using (writer.FieldSuffix()) writer.Write("3 choices");
+          // using (writer.FieldSuffix()) writer.Write("3 choices");
         }
         using (writer.Field(
           "graphics.upscaler",
@@ -106,7 +106,6 @@ namespace HELIX.Examples {
           "Master volume",
           new IntDatatype(min: 0, max: 100, unit: "%", step: 1)
         )) {
-          writer.PushModifier(ProseFields.LabelWidth(new Length(32f, LengthUnit.Percent)));
           writer.FieldDescription("Overall output volume.");
         }
         using (writer.Path("voice")) {
@@ -131,11 +130,9 @@ namespace HELIX.Examples {
             }
           )
         )) {
-          writer.PushModifier(ProseFields.LabelWidth(new Length(144f, LengthUnit.Pixel)));
         }
         using (writer.Field<bool>("gameplay.autosave", "Autosave", Datatypes.Bool)) {
-          writer.PushModifier(ProseFields.LabelWidth(new Length(144f, LengthUnit.Pixel)));
-          using (writer.FieldSuffix()) writer.Write("Recommended");
+          // using (writer.FieldSuffix()) writer.Write("Recommended");
         }
       }
       return new OptionPages(

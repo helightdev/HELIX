@@ -446,7 +446,7 @@ namespace HELIX {
   }
 
   /// <summary>Maps nullable flag states to configured text.</summary>
-  public sealed class FlagDatatype : IDatatype<bool>, IDatatype<bool?> {
+  public sealed class FlagDatatype : IDatatype<bool>, IDatatype<bool?>, IDatatypeChoice<bool> {
     public FlagDatatype(
       string ifTrue = null, string ifFalse = null, string ifNull = ProseLiterals.Null
     ) {
@@ -460,6 +460,19 @@ namespace HELIX {
     public string IfTrue { get; }
     public string IfFalse { get; }
     public string IfNull { get; }
+    public int ChoiceCount => 2;
+    public object GetChoiceValue(int index) => GetTypedChoiceValue(index);
+    public bool GetTypedChoiceValue(int index) => index switch {
+      0 => false,
+      1 => true,
+      _ => throw new ArgumentOutOfRangeException(nameof(index))
+    };
+    public string GetChoiceLabel(int index) => index switch {
+      0 => IfFalse ?? bool.FalseString,
+      1 => IfTrue ?? bool.TrueString,
+      _ => throw new ArgumentOutOfRangeException(nameof(index))
+    };
+    public bool IsChoiceEnabled(int index) => index is 0 or 1;
     public void ToProse(IProseWriter writer, bool value) => writer.Write(value ? IfTrue : IfFalse);
 
     public void ToProse(IProseWriter writer, bool? value) =>

@@ -9,30 +9,25 @@ namespace HELIX.Compose {
   public readonly struct ChevronSpec : ISpec {
     public readonly ArrowPosition position;
     public readonly StyleLength size;
-    public readonly StyleColor color;
+    public readonly StyleColor? color;
 
-    public ChevronSpec(ArrowPosition position, StyleLength size, StyleColor color) {
+    public ChevronSpec(ArrowPosition position, StyleLength size, StyleColor? color = null) {
       this.position = position;
       this.size = size;
       this.color = color;
     }
 
     public static void Default(ref Composition cx, in ChevronSpec spec) {
+      ref var text = ref cx.CURSOR;
       switch (spec.position) {
-        case ArrowPosition.Up:
-          cx.Text("\u25B2").TextSize(spec.size).TextColor(spec.color);
-          break;
-        case ArrowPosition.Down:
-          cx.Text("\u25BC").TextSize(spec.size).TextColor(spec.color);
-          break;
-        case ArrowPosition.Left:
-          cx.Text("\u25C4").TextSize(spec.size).TextColor(spec.color);
-          break;
-        case ArrowPosition.Right:
-          cx.Text("\u25BA").TextSize(spec.size).TextColor(spec.color);
-          break;
+        case ArrowPosition.Up: text = ref cx.Text("\u25B2"); break;
+        case ArrowPosition.Down: text = ref cx.Text("\u25BC"); break;
+        case ArrowPosition.Left: text = ref cx.Text("\u25C4"); break;
+        case ArrowPosition.Right: text = ref cx.Text("\u25BA"); break;
         default: throw new ArgumentOutOfRangeException();
       }
+      text.TextSize(spec.size);
+      if (spec.color.HasValue) text.TextColor(spec.color.Value);
     }
   }
 

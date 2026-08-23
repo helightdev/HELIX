@@ -105,6 +105,8 @@ namespace HELIX.Examples {
         new(ExampleMode.Quality, "Quality")
       };
 
+    public static readonly EnumDatatype<ExampleMode> ModeDatatype = Datatypes.Enum<ExampleMode>();
+
     public static readonly IReadOnlyList<DropdownOption<NavigationTransitionKind>> NavigationTransitionOptions =
       new DropdownOption<NavigationTransitionKind>[] {
         new(NavigationTransitionKind.Slide, "Slide"),
@@ -615,6 +617,28 @@ namespace HELIX.Examples {
             options: VolumeOptions,
             onChanged: static (ctx, value) => {
               using (ctx.Modify<HomeComposable>(out var state)) { state.volume = value; }
+            }
+          );
+          cx.Spacing(2);
+
+          cx.Text("Segmented choice");
+          cx.Spacing(1);
+          cx.SegmentedChoice(
+            mode,
+            ModeDatatype,
+            onChanged: static (ctx, value) => {
+              using (ctx.Modify<HomeComposable>(out var state)) { state.mode = value; }
+            }
+          );
+          cx.Spacing(2);
+
+          cx.Text("Choice spinbox");
+          cx.Spacing(1);
+          cx.ChoiceSpinbox(
+            mode,
+            ModeDatatype,
+            onChanged: static (ctx, value) => {
+              using (ctx.Modify<HomeComposable>(out var state)) { state.mode = value; }
             }
           );
           cx.Spacing(2);

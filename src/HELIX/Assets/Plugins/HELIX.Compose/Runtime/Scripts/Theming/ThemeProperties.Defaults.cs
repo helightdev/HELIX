@@ -47,7 +47,8 @@ namespace HELIX.Theming {
       ThemeData data,
       ColorRole color = Transparent,
       ColorRole onColor = OnSurface,
-      ColorRole borderColor = SurfaceContainerHighest
+      ColorRole borderColor = SurfaceContainerHighest,
+      BorderRadius? radius = null
     ) {
       StateBlend(data, color, onColor, out var background, out var foreground);
       StateBlend(data, borderColor, onColor, out var border, out _);
@@ -55,7 +56,7 @@ namespace HELIX.Theming {
         color: background.Derive(Common),
         border: Func(state => Border.All(1, state.HasFlag(State.Focused) ? data[Focus] : border[state]))
           .Derive(CommonFocusable),
-        radius: ButtonRadius[data]
+        radius: radius ?? ButtonRadius[data]
       ).Bake();
 
       var textStyle = TextColor(foreground).Derive(Common);
@@ -105,7 +106,8 @@ namespace HELIX.Theming {
       ColorRole colorUnselected = Secondary,
       ColorRole colorSelected = Primary,
       ColorRole onUnselected = OnSecondary,
-      ColorRole onSelected = OnPrimary
+      ColorRole onSelected = OnPrimary,
+      BorderRadius? radius = null
     ) {
       StateBlend(
         data, colorUnselected, onUnselected, colorSelected, onSelected,
@@ -113,7 +115,7 @@ namespace HELIX.Theming {
       );
       var solid = new HXSolidBoxStyle(
         color: background.Derive(CommonSelectable),
-        radius: ButtonRadius[data]
+        radius: radius ?? ButtonRadius[data]
       ).Bake();
       var focus = DefaultFocusOutline[data];
       var textStyle = TextColor(foreground).Derive(CommonSelectable);
@@ -177,7 +179,8 @@ namespace HELIX.Theming {
       ColorRole color = SurfaceContainer,
       ColorRole onColor = OnSurfaceContainerHigh,
       ColorRole borderColor = SurfaceContainerHighest,
-      bool useButtonPadding = false
+      bool useButtonPadding = false,
+      BorderRadius? radius = null
     ) {
       StateBlend(data, color, onColor, out var background, out var foreground);
       StateBlend(data, borderColor, onColor, out var border);
@@ -186,7 +189,7 @@ namespace HELIX.Theming {
         border: Func(state =>
           Border.All(1, state.HasFlag(State.Focused) ? data[Focus] : border[state])
         ).Derive(CommonFocusable),
-        radius: InputBoxRadius[data]
+        radius: radius ?? InputBoxRadius[data]
       ).Bake();
 
       return new HXControlBoxStyle(
@@ -204,6 +207,41 @@ namespace HELIX.Theming {
 
     public static PopupMenuStyle DefaultMenuButton(ThemeData data) =>
       DefaultPopupMenu(data, DefaultButtonOutlined(data), matchAnchorWidth: false);
+
+    public static SegmentedChoiceStyle DefaultSegmentedChoice(ThemeData data) {
+      var radius = ButtonRadius[data];
+      return new SegmentedChoiceStyle(
+        DefaultButtonToggle(data, radius: BorderRadius.Only(
+          topLeft: radius.topLeft, bottomLeft: radius.bottomLeft
+        )),
+        DefaultButtonToggle(data, radius: BorderRadius.None),
+        DefaultButtonToggle(data, radius: BorderRadius.Only(
+          topRight: radius.topRight, bottomRight: radius.bottomRight
+        )),
+        gap: data[SpacingRole.None]
+      );
+    }
+
+    public static SpinboxChoiceStyle DefaultChoiceSpinbox(ThemeData data) {
+      var radius = ButtonRadius[data];
+      return new SpinboxChoiceStyle(
+        DefaultInputField(data, useButtonPadding: true, radius: BorderRadius.None),
+        DefaultButtonOutlined(data, radius: BorderRadius.Only(
+          topLeft: radius.topLeft, bottomLeft: radius.bottomLeft
+        )),
+        DefaultButtonOutlined(data, radius: BorderRadius.Only(
+          topRight: radius.topRight, bottomRight: radius.bottomRight
+        )),
+        DefaultButtonOutlined(data, radius: BorderRadius.Only(
+          topLeft: radius.topLeft, topRight: radius.topRight
+        )),
+        DefaultButtonOutlined(data, radius: BorderRadius.Only(
+          bottomLeft: radius.bottomLeft, bottomRight: radius.bottomRight
+        )),
+        gap: data[Spacing1],
+        wrap: false
+      );
+    }
 
     private static PopupMenuStyle DefaultPopupMenu(
       ThemeData data,

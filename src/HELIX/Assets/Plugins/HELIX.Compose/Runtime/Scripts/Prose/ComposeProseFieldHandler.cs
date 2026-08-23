@@ -341,10 +341,11 @@ namespace HELIX.Prose {
     }
 
     private sealed class UntypedIDatatypeChoiceDatatype :
-      IDatatype<object>, IDatatypeChoice, IDatatypeAffix {
+      IDatatype<object>, IDatatypeChoice, IDatatypeAffix, IControlDatatypeWrapper {
       private readonly IDatatypeChoice _formatter;
 
       public UntypedIDatatypeChoiceDatatype(IDatatypeChoice formatter) => _formatter = formatter;
+      object IControlDatatypeWrapper.Datatype => _formatter;
       public int ChoiceCount => _formatter.ChoiceCount;
       public object GetChoiceValue(int index) => _formatter.GetChoiceValue(index);
       public string GetChoiceLabel(int index) => _formatter.GetChoiceLabel(index);

@@ -80,6 +80,11 @@ namespace HELIX.Theming {
       DropdownButton = new(data => DefaultDropdownButton(data)),
       MenuButton = new(data => DefaultMenuButton(data));
 
+    public static readonly ThemeProperty<SegmentedChoiceStyle>
+      SegmentedChoice = new(data => DefaultSegmentedChoice(data));
+    public static readonly ThemeProperty<SpinboxChoiceStyle>
+      ChoiceSpinbox = new(data => DefaultChoiceSpinbox(data));
+
     // Special Components
     public static readonly ThemeProperty<SliderStyle> Slider = new(data => DefaultSlider(data));
     public static readonly ThemeProperty<SliderStyle>
