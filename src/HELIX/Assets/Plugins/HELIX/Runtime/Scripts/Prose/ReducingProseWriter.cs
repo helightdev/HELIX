@@ -15,7 +15,7 @@ namespace HELIX.Prose {
     );
 
     public abstract bool TryMap<T>(
-      T value, IProseFormatter<T> formatter, IReadOnlyList<IProseModifier> modifiers,
+      T value, IProseDatatype<T> datatype, IReadOnlyList<IProseModifier> modifiers,
       out TReduced result
     );
 
@@ -255,15 +255,15 @@ namespace HELIX.Prose {
       if (Reducer.TryMap(prose, _writeModifiers, out var result)) AddReduced(result);
     }
 
-    public override void Write<T>(T value, IProseFormatter<T> formatter) {
-      if (formatter == null) throw new ArgumentNullException(nameof(formatter));
+    public override void Write<T>(T value, IProseDatatype<T> datatype) {
+      if (datatype == null) throw new ArgumentNullException(nameof(datatype));
       if (_delegated.Count > 0) {
-        _delegated[^1].writer.Write(value, formatter);
+        _delegated[^1].writer.Write(value, datatype);
         return;
       }
       if (IsInactive) return;
       CollectWriteModifiers();
-      if (Reducer.TryMap(value, formatter, _writeModifiers, out var result)) AddReduced(result);
+      if (Reducer.TryMap(value, datatype, _writeModifiers, out var result)) AddReduced(result);
     }
 
     public override void Write(string text) {

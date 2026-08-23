@@ -36,15 +36,15 @@ namespace HELIX.Prose {
     }
 
     public override bool TryMap<T>(
-      T value, IProseFormatter<T> formatter, IReadOnlyList<IProseModifier> modifiers,
+      T value, IProseDatatype<T> datatype, IReadOnlyList<IProseModifier> modifiers,
       out Composable result
     ) {
-      if (formatter is IComposeProseFormatter<T> composeFormatter) {
+      if (datatype is IComposableProseDatatype<T> composeFormatter) {
         result = composeFormatter.ToComposable(value);
         return true;
       }
       var writer = CreateTextWriter(modifiers);
-      formatter.ToProse(writer, value);
+      datatype.ToProse(writer, value);
       result = ConvertText(FinishText(writer, modifiers.Count > 0), modifiers);
       return result != null;
     }

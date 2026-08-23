@@ -15,28 +15,28 @@ namespace HELIX.Examples {
 
     public static IProse Prose => Instance;
 
-    private static readonly ProsePropertyFormatter<string> MissionId =
-      new("Mission ID", new ProseStringFormatter(prefix: "HX-"));
+    private static readonly ProsePropertyDatatype<string> MissionId =
+      new("Mission ID", new ProseStringDatatype(prefix: "HX-"));
 
-    private static readonly ProsePropertyFormatter<int> CrewAboard =
-      new("Crew aboard", new ProseIntFormatter(min: 0, max: 64, suffix: " people"));
+    private static readonly ProsePropertyDatatype<int> CrewAboard =
+      new("Crew aboard", new ProseIntDatatype(min: 0, max: 64, suffix: " people"));
 
-    private static readonly ProsePropertyFormatter<int> OrbitNumber =
-      new("Orbit", new ProseIntFormatter(min: 1, suffix: " completed"));
+    private static readonly ProsePropertyDatatype<int> OrbitNumber =
+      new("Orbit", new ProseIntDatatype(min: 1, suffix: " completed"));
 
-    private static readonly ProsePropertyFormatter<int> Temperature =
-      new("Temperature", new ProseIntFormatter(min: -80, max: 180, suffix: " °C"));
+    private static readonly ProsePropertyDatatype<int> Temperature =
+      new("Temperature", new ProseIntDatatype(min: -80, max: 180, suffix: " °C"));
 
-    private static readonly ProsePropertyFormatter<int> PowerOutput =
-      new("Output", new ProseIntFormatter(min: 0, max: 100, suffix: "%"));
+    private static readonly ProsePropertyDatatype<int> PowerOutput =
+      new("Output", new ProseIntDatatype(min: 0, max: 100, suffix: "%"));
 
-    private static readonly ProsePropertyFormatter<int> SignalStrength =
-      new("Signal", new ProseIntFormatter(min: 0, max: 100, suffix: "%"));
+    private static readonly ProsePropertyDatatype<int> SignalStrength =
+      new("Signal", new ProseIntDatatype(min: 0, max: 100, suffix: "%"));
 
-    private static readonly ProseBoolFormatter OperationalState = new("operational", "offline");
-    private static readonly ProseBoolFormatter EnabledState = new("enabled", "disabled");
-    private static readonly ProseIntFormatter Percent = new(min: 0, max: 100, suffix: "%");
-    private static readonly ProseFloatFormatter Megawatts = new("0.00");
+    private static readonly ProseBoolDatatype OperationalState = new("operational", "offline");
+    private static readonly ProseBoolDatatype EnabledState = new("enabled", "disabled");
+    private static readonly ProseIntDatatype Percent = new(min: 0, max: 100, suffix: "%");
+    private static readonly ProseFloatDatatype Megawatts = new("0.00");
 
     /// <summary>A deliberately ornate style used to exercise wide branch tokens and decorations.</summary>
     public static readonly ProseTextConfiguration TestWideDecorated = new(
@@ -136,7 +136,7 @@ namespace HELIX.Examples {
       // writer.Write(ProseLineBreak.Instance);
 
       writer.Property(
-        "State", StationState.Degraded, ProseFormatters.Enum<StationState>(),
+        "State", StationState.Degraded, ProseDatatypes.Enum<StationState>(),
         description: "Degraded while the secondary coolant loop is isolated",
         defaultValue: StationState.Nominal
       );
@@ -144,23 +144,23 @@ namespace HELIX.Examples {
       writer.Write(1842, OrbitNumber);
       writer.Property("Autonomous control", true, OperationalState, defaultValue: true);
       writer.Property(
-        "Status ", "Mission-capable", ProseFormatters.String,
+        "Status ", "Mission-capable", ProseDatatypes.String,
         hideSeparator: true
       );
       writer.Property(
-        "Operator note", "Prioritize thermal stability over throughput.", ProseFormatters.String,
+        "Operator note", "Prioritize thermal stability over throughput.", ProseDatatypes.String,
         hideName: true
       );
       writer.Property(
         "Summary",
         "Long-range relay and research platform holding a stable polar orbit while its secondary coolant " +
         "loop is isolated for inspection.",
-        ProseFormatters.String
+        ProseDatatypes.String
       );
       writer.Property(
         "Internal tracking token",
         "OPS-4A-9912",
-        ProseFormatters.String,
+        ProseDatatypes.String,
         level: ProseLevel.Debug,
         hidden: true,
         noWrap: true
@@ -258,19 +258,19 @@ namespace HELIX.Examples {
     private static void WriteCommandDeck(IProseWriter writer) {
       using (writer.Tree()) {
         writer.Name("Command deck");
-        writer.Property("Watch officer", "Cmdr. Imani Vale", ProseFormatters.String);
-        writer.Property("Shift", "Gamma", ProseFormatters.String);
+        writer.Property("Watch officer", "Cmdr. Imani Vale", ProseDatatypes.String);
+        writer.Property("Shift", "Gamma", ProseDatatypes.String);
         writer.Property("Navigation lock", true, EnabledState);
-        writer.Property("Attitude error", 0.04f, ProseFormatters.Float);
-        writer.Property("Next maneuver", "2026-08-12 21:40 UTC", ProseFormatters.String);
+        writer.Property("Attitude error", 0.04f, ProseDatatypes.Float);
+        writer.Property("Next maneuver", "2026-08-12 21:40 UTC", ProseDatatypes.String);
 
         using (writer.Tree()) {
           writer.Name("Crew manifest");
-          writer.Property("Command", 4, ProseFormatters.Int);
-          writer.Property("Engineering", 12, ProseFormatters.Int);
-          writer.Property("Science", 9, ProseFormatters.Int);
-          writer.Property("Operations", 8, ProseFormatters.Int);
-          writer.Property("Medical", 4, ProseFormatters.Int);
+          writer.Property("Command", 4, ProseDatatypes.Int);
+          writer.Property("Engineering", 12, ProseDatatypes.Int);
+          writer.Property("Science", 9, ProseDatatypes.Int);
+          writer.Property("Operations", 8, ProseDatatypes.Int);
+          writer.Property("Medical", 4, ProseDatatypes.Int);
         }
       }
     }
@@ -278,7 +278,7 @@ namespace HELIX.Examples {
     private static void WritePowerGrid(IProseWriter writer) {
       using (writer.Tree()) {
         writer.Name("Power grid");
-        writer.Property("Grid state", "Load balanced", ProseFormatters.String);
+        writer.Property("Grid state", "Load balanced", ProseDatatypes.String);
         writer.Property("Battery reserve", 78, Percent);
         writer.Property("Solar tracking", true, EnabledState);
         writer.Property("Peak demand (MW)", 18.72f, Megawatts);
@@ -292,7 +292,7 @@ namespace HELIX.Examples {
           writer.Property("Port wing", 96, Percent);
           writer.Property("Starboard wing", 94, Percent);
           writer.Property("Sun incidence", 88, Percent);
-          writer.Property("Micrometeorite damage", "Minor / stable", ProseFormatters.String);
+          writer.Property("Micrometeorite damage", "Minor / stable", ProseDatatypes.String);
         }
       }
     }
@@ -314,9 +314,9 @@ namespace HELIX.Examples {
           "Summary",
           "Long-range relay and research platform holding a stable polar orbit while its secondary coolant " +
           "loop is isolated for inspection.",
-          ProseFormatters.String
+          ProseDatatypes.String
         );
-        writer.Property("Assignment", assignment, ProseFormatters.String);
+        writer.Property("Assignment", assignment, ProseDatatypes.String);
         writer.Property("Containment", 99, Percent, noWrap: true);
       }
     }
@@ -334,10 +334,10 @@ namespace HELIX.Examples {
     private static void WriteCommunications(IProseWriter writer) {
       using (writer.Tree()) {
         writer.Name("Communications");
-        writer.Property("Relay mode", "Store, route, and forward", ProseFormatters.String);
-        writer.Property("Packets queued", 1284, ProseFormatters.Int);
-        writer.Property("Oldest packet", "00:00:04.218", ProseFormatters.String);
-        writer.Property("Encryption", "HELIX-Q lattice / epoch 84", ProseFormatters.String);
+        writer.Property("Relay mode", "Store, route, and forward", ProseDatatypes.String);
+        writer.Property("Packets queued", 1284, ProseDatatypes.Int);
+        writer.Property("Oldest packet", "00:00:04.218", ProseDatatypes.String);
+        writer.Property("Encryption", "HELIX-Q lattice / epoch 84", ProseDatatypes.String);
 
         WriteAntenna(writer, "High-gain antenna North", 97, "Luna Deep Space Array", true);
         WriteAntenna(writer, "High-gain antenna South", 82, "Research vessel Nereid", true);
@@ -355,26 +355,26 @@ namespace HELIX.Examples {
       using (writer.Tree()) {
         writer.Name(name);
         writer.Write(signal, SignalStrength);
-        writer.Property("Target", target, ProseFormatters.String);
+        writer.Property("Target", target, ProseDatatypes.String);
         writer.Property("Transmitter", transmitting, EnabledState);
-        writer.Property("Error correction", "LDPC 7/8", ProseFormatters.String);
+        writer.Property("Error correction", "LDPC 7/8", ProseDatatypes.String);
       }
     }
 
     private static void WriteScienceAndCargo(IProseWriter writer) {
       using (writer.Tree()) {
         writer.Name("Science and cargo");
-        writer.Property("Active experiments", 14, ProseFormatters.Int);
-        writer.Property("Cold storage", -42, Temperature.ValueFormatter);
-        writer.Property("Sample vault", "Sealed / biometric access", ProseFormatters.String);
+        writer.Property("Active experiments", 14, ProseDatatypes.Int);
+        writer.Property("Cold storage", -42, Temperature.ValueDatatype);
+        writer.Property("Sample vault", "Sealed / biometric access", ProseDatatypes.String);
         writer.Property("Cargo capacity", 68, Percent);
 
         using (writer.Tree()) {
           writer.Name("Priority payloads");
-          writer.Property("PX-113", "Cryogenic regolith cores", ProseFormatters.String);
-          writer.Property("BX-204", "Replacement coolant manifold", ProseFormatters.String);
-          writer.Property("MED-09", "Emergency tissue printer feedstock", ProseFormatters.String);
-          writer.Property("ARCHIVE", "2.4 PB encrypted survey data", ProseFormatters.String);
+          writer.Property("PX-113", "Cryogenic regolith cores", ProseDatatypes.String);
+          writer.Property("BX-204", "Replacement coolant manifold", ProseDatatypes.String);
+          writer.Property("MED-09", "Emergency tissue printer feedstock", ProseDatatypes.String);
+          writer.Property("ARCHIVE", "2.4 PB encrypted survey data", ProseDatatypes.String);
         }
       }
     }
@@ -388,16 +388,16 @@ namespace HELIX.Examples {
           "Warning C-17",
           "Secondary coolant loop pressure oscillation exceeded the preferred envelope three times. " +
           "The loop is isolated; reactor B is carrying thermal recovery while engineering inspects valve C17-B.",
-          ProseFormatters.String,
+          ProseDatatypes.String,
           level: ProseLevel.Warning
         );
         writer.Property(
           "Advisory N-04",
           "North radiator deployment motor is 6% above its modeled current draw.",
-          ProseFormatters.String,
+          ProseDatatypes.String,
           level: ProseLevel.Info
         );
-        writer.Property("Acknowledged by", "Lt. Sato / 18:22 UTC", ProseFormatters.String);
+        writer.Property("Acknowledged by", "Lt. Sato / 18:22 UTC", ProseDatatypes.String);
       }
     }
   }

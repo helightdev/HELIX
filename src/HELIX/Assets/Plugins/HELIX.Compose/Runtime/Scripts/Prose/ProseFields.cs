@@ -10,16 +10,16 @@ namespace HELIX.Prose {
 
   /// <summary>A typed field description whose current value is owned by the destination form.</summary>
   public sealed class ProseField<T> : IProseField {
-    public ProseField(string path, string name, IProseFormatter<T> formatter) {
+    public ProseField(string path, string name, IProseDatatype<T> datatype) {
       Path = path ?? string.Empty;
       if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A field name is required.", nameof(name));
       Name = name;
-      Formatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
+      Datatype = datatype ?? throw new ArgumentNullException(nameof(datatype));
     }
     public string Path { get; }
     public string Name { get; }
-    public IProseFormatter<T> Formatter { get; }
-    object IProseField.Formatter => Formatter;
+    public IProseDatatype<T> Datatype { get; }
+    object IProseField.Formatter => Datatype;
   }
 
   /// <summary>Semantic prose belonging to a field. Writers may ignore parts they do not support.</summary>
@@ -67,8 +67,8 @@ namespace HELIX.Prose {
 
   public static class ProseFieldWriterExtensions {
     public static ProseWriterScope Field<T>(
-      this IProseWriter writer, string path, string name, IProseFormatter<T> formatter
-    ) => writer.Scope(new ProseField<T>(path, name, formatter));
+      this IProseWriter writer, string path, string name, IProseDatatype<T> datatype
+    ) => writer.Scope(new ProseField<T>(path, name, datatype));
 
     public static ProseWriterScope FieldPart(this IProseWriter writer, IProseFieldPart part) => writer.Scope(part);
     public static ProseWriterScope FieldLabel(this IProseWriter writer) => writer.Scope(ProseFields.Label);

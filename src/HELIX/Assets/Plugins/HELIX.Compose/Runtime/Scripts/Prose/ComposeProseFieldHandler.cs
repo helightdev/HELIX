@@ -77,10 +77,10 @@ namespace HELIX.Prose {
     }
 
     public override bool TryMap<T>(
-      T value, IProseFormatter<T> formatter, IReadOnlyList<IProseModifier> modifiers,
+      T value, IProseDatatype<T> datatype, IReadOnlyList<IProseModifier> modifiers,
       out ComposeProseFieldPart result
     ) {
-      var mapped = _compose.TryMap(value, formatter, modifiers, out var content);
+      var mapped = _compose.TryMap(value, datatype, modifiers, out var content);
       result = new ComposeProseFieldPart(null, content);
       return mapped;
     }
@@ -126,13 +126,13 @@ namespace HELIX.Prose {
     ) {
       if (formatter is IProseChoiceFormatter choices)
         return Choice(field, choices, parts, modifiers, out result);
-      if (formatter is IProseFormatter<string> && field is ProseField<string> text)
+      if (formatter is IProseDatatype<string> && field is ProseField<string> text)
         return Text(text, parts, modifiers, out result);
-      if (formatter is IProseFormatter<int> && field is ProseField<int> integer)
+      if (formatter is IProseDatatype<int> && field is ProseField<int> integer)
         return Integer(integer, parts, modifiers, out result);
-      if (formatter is IProseFormatter<float> && field is ProseField<float> number)
+      if (formatter is IProseDatatype<float> && field is ProseField<float> number)
         return Float(number, parts, modifiers, out result);
-      if (formatter is IProseFormatter<bool> && field is ProseField<bool> toggle)
+      if (formatter is IProseDatatype<bool> && field is ProseField<bool> toggle)
         return Checkbox(toggle, parts, modifiers, out result);
       result = null;
       return false;
@@ -146,7 +146,7 @@ namespace HELIX.Prose {
         result = null;
         return false;
       }
-      var controlFormatter = new UntypedChoiceFormatter(formatter);
+      var controlFormatter = new UntypedChoiceDatatype(formatter);
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
         cx.Spec(new ControlSpec<object>(
@@ -170,7 +170,7 @@ namespace HELIX.Prose {
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
         cx.Spec(new ControlSpec<string>(
-          formField.GetValue(string.Empty), field.Formatter, SetText, FinishEditing,
+          formField.GetValue(string.Empty), field.Datatype, SetText, FinishEditing,
           IsEnabled(formField), HasError(formField)
         ));
         cx.CURSOR.Flexible();
@@ -187,7 +187,7 @@ namespace HELIX.Prose {
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
         cx.Spec(new ControlSpec<int>(
-          formField.GetValue(0), field.Formatter, SetInteger, FinishEditing,
+          formField.GetValue(0), field.Datatype, SetInteger, FinishEditing,
           IsEnabled(formField), HasError(formField)
         ));
         cx.CURSOR.Flexible();
@@ -204,7 +204,7 @@ namespace HELIX.Prose {
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
         cx.Spec(new ControlSpec<float>(
-          formField.GetValue(0f), field.Formatter, SetFloat, FinishEditing,
+          formField.GetValue(0f), field.Datatype, SetFloat, FinishEditing,
           IsEnabled(formField), HasError(formField)
         ));
         cx.CURSOR.Flexible();
@@ -221,7 +221,7 @@ namespace HELIX.Prose {
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
         cx.Spec(new ControlSpec<bool>(
-          formField.GetValue(false), field.Formatter, SetBool,
+          formField.GetValue(false), field.Datatype, SetBool,
           enabled: IsEnabled(formField), error: HasError(formField)
         ));
       };
@@ -318,7 +318,7 @@ namespace HELIX.Prose {
       field.FieldData?.HasFlag(FieldFlags.Error) == true;
 
     private static HXOptional<T> Default<T>(ProseField<T> field) =>
-      field.Formatter is IProseDefaultFormatter<T> value && value.HasDefaultValue
+      field.Datatype is IProseDefaultFormatter<T> value && value.HasDefaultValue
         ? new HXOptional<T>(value.DefaultValue)
         : HXOptional<T>.None;
 
@@ -340,11 +340,11 @@ namespace HELIX.Prose {
       return new FormFieldDecorators(label, description, prefix, suffix, before, between, after);
     }
 
-    private sealed class UntypedChoiceFormatter :
-      IProseFormatter<object>, IProseChoiceFormatter, IProseAffixFormatter {
+    private sealed class UntypedChoiceDatatype :
+      IProseDatatype<object>, IProseChoiceFormatter, IProseAffixFormatter {
       private readonly IProseChoiceFormatter _formatter;
 
-      public UntypedChoiceFormatter(IProseChoiceFormatter formatter) => _formatter = formatter;
+      public UntypedChoiceDatatype(IProseChoiceFormatter formatter) => _formatter = formatter;
       public int ChoiceCount => _formatter.ChoiceCount;
       public object GetChoiceValue(int index) => _formatter.GetChoiceValue(index);
       public string GetChoiceLabel(int index) => _formatter.GetChoiceLabel(index);

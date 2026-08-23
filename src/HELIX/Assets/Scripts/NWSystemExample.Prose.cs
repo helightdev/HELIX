@@ -47,7 +47,7 @@ namespace HELIX.Examples {
         using (writer.Field<DisplayMode>(
           "graphics.display-mode",
           "Display mode",
-          ProseFormatters.Enum<DisplayMode>()
+          ProseDatatypes.Enum<DisplayMode>()
         )) {
           writer.FieldDescription("Select how the game occupies the display.");
           writer.FieldTooltip("Borderless uses the desktop resolution and usually switches applications faster.");
@@ -56,7 +56,7 @@ namespace HELIX.Examples {
         using (writer.Field(
           "graphics.upscaler",
           "Upscaler",
-          new ProseChoiceFormatter<string>(
+          new ProseChoiceDatatype<string>(
             new[] {
               new ProseChoice<string>("off", "Off"),
               new ProseChoice<string>("quality", "Quality"),
@@ -67,7 +67,7 @@ namespace HELIX.Examples {
         using (writer.Field(
           "graphics.notice",
           "Display notice",
-          new ProseStringFormatter(prefix: "Prefix", suffix: "Suffix")
+          new ProseStringDatatype(prefix: "Prefix", suffix: "Suffix")
         )) {
           writer.PushModifier(ProseFields.FullWidth);
           writer.FieldDescription("Display changes may briefly blank the screen.");
@@ -78,7 +78,7 @@ namespace HELIX.Examples {
           using (writer.Field(
             "graphics.texture-quality",
             "Texture quality",
-            new ProseChoiceFormatter<string>(
+            new ProseChoiceDatatype<string>(
               new[] {
                 new ProseChoice<string>("low", "Low"),
                 new ProseChoice<string>("medium", "Medium"),
@@ -89,7 +89,7 @@ namespace HELIX.Examples {
           using (writer.Field(
             "graphics.shadow-quality",
             "Shadow quality",
-            new ProseChoiceFormatter<string>(
+            new ProseChoiceDatatype<string>(
               new[] {
                 new ProseChoice<string>("off", "Off"),
                 new ProseChoice<string>("medium", "Medium"),
@@ -104,7 +104,7 @@ namespace HELIX.Examples {
         using (writer.Field<int>(
           "audio.master-volume",
           "Master volume",
-          new ProseIntFormatter(min: 0, max: 100, unit: "%", step: 1)
+          new ProseIntDatatype(min: 0, max: 100, unit: "%", step: 1)
         )) {
           writer.PushModifier(ProseFields.LabelWidth(new Length(32f, LengthUnit.Percent)));
           writer.FieldDescription("Overall output volume.");
@@ -114,7 +114,7 @@ namespace HELIX.Examples {
           using (writer.Field<bool>(
             "audio.voice-chat",
             "Voice chat",
-            new ProseFlagFormatter(ifTrue: "Enabled", ifFalse: "Disabled")
+            new ProseFlagDatatype(ifTrue: "Enabled", ifFalse: "Disabled")
           )) { }
         }
       }
@@ -123,7 +123,7 @@ namespace HELIX.Examples {
         using (writer.Field(
           "gameplay.difficulty",
           "Difficulty",
-          new ProseChoiceFormatter<string>(
+          new ProseChoiceDatatype<string>(
             new[] {
               new ProseChoice<string>("story", "Story"),
               new ProseChoice<string>("normal", "Normal"),
@@ -133,7 +133,7 @@ namespace HELIX.Examples {
         )) {
           writer.PushModifier(ProseFields.LabelWidth(new Length(144f, LengthUnit.Pixel)));
         }
-        using (writer.Field<bool>("gameplay.autosave", "Autosave", ProseFormatters.Bool)) {
+        using (writer.Field<bool>("gameplay.autosave", "Autosave", ProseDatatypes.Bool)) {
           writer.PushModifier(ProseFields.LabelWidth(new Length(144f, LengthUnit.Pixel)));
           using (writer.FieldSuffix()) writer.Write("Recommended");
         }

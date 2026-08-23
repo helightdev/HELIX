@@ -140,26 +140,26 @@ namespace HELIX.Prose {
       WriteTextFrame(writer, ProseScopes.ListItem, content);
 
     public static void WriteListItem<T>(
-      this IProseWriter writer, T value, IProseFormatter<T> formatter
+      this IProseWriter writer, T value, IProseDatatype<T> datatype
     ) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (formatter == null) throw new ArgumentNullException(nameof(formatter));
-      using (writer.ListItem()) writer.Write(value, formatter);
+      if (datatype == null) throw new ArgumentNullException(nameof(datatype));
+      using (writer.ListItem()) writer.Write(value, datatype);
     }
 
     public static void WriteTableCell(
       this IProseWriter writer, string content,
       ProseTextAlignment alignment = ProseTextAlignment.Left
-    ) => writer.WriteTableCell(content, ProseFormatters.String, alignment);
+    ) => writer.WriteTableCell(content, ProseDatatypes.String, alignment);
 
     public static void WriteTableCell<T>(
-      this IProseWriter writer, T value, IProseFormatter<T> formatter,
+      this IProseWriter writer, T value, IProseDatatype<T> datatype,
       ProseTextAlignment alignment = ProseTextAlignment.Left
     ) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (formatter == null) throw new ArgumentNullException(nameof(formatter));
+      if (datatype == null) throw new ArgumentNullException(nameof(datatype));
       using (writer.TableCell(alignment)) {
-        writer.Write(value, formatter);
+        writer.Write(value, datatype);
       }
     }
 
@@ -177,7 +177,7 @@ namespace HELIX.Prose {
       this IProseWriter writer,
       string key,
       T value,
-      IProseFormatter<T> formatter,
+      IProseDatatype<T> datatype,
       ProseLevel level = ProseLevel.Info,
       bool hidden = false,
       bool noWrap = false,
@@ -187,7 +187,7 @@ namespace HELIX.Prose {
       object defaultValue = null
     ) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (formatter == null) throw new ArgumentNullException(nameof(formatter));
+      if (datatype == null) throw new ArgumentNullException(nameof(datatype));
       var isDefaultValue = defaultValue != null && Equals(value, defaultValue);
       if (!writer.TryBeginProperty(level, hidden, noWrap, hideName, hideSeparator, isDefaultValue)) return;
       try {
@@ -197,7 +197,7 @@ namespace HELIX.Prose {
 
         if (description != null) {
           writer.Description(description);
-        } else using (writer.PropertyValue()) writer.Write(value, formatter);
+        } else using (writer.PropertyValue()) writer.Write(value, datatype);
       } finally {
         writer.End();
       }

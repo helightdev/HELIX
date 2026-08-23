@@ -295,10 +295,10 @@ namespace HELIX.Prose {
       else prose.ToProse(this);
     }
 
-    public override void Write<T>(T value, IProseFormatter<T> formatter) {
-      if (formatter == null) throw new ArgumentNullException(nameof(formatter));
+    public override void Write<T>(T value, IProseDatatype<T> datatype) {
+      if (datatype == null) throw new ArgumentNullException(nameof(datatype));
       if (IsWritingInactive()) return;
-      formatter.ToProse(this, value);
+      datatype.ToProse(this, value);
     }
 
     public void Write(ReadOnlySpan<char> text) {

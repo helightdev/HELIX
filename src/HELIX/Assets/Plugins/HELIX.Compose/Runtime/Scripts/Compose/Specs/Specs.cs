@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using HELIX.Prose;
 
 namespace HELIX.Compose {
   public interface ISpec { }
@@ -28,13 +29,6 @@ namespace HELIX.Compose {
     }
 
     public SpecConfig AddHandler<T>() where T : ISpecHandler, new() => AddHandler(new T());
-
-    public ReadComposable<T> GetFactory<T>() where T : struct, ISpec {
-      if (transformers.TryGetValue(typeof(T), out var factory)) {
-        return factory as ReadComposable<T>;
-      }
-      return parent?.GetFactory<T>();
-    }
 
     public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec {
       if (transformers.TryGetValue(typeof(T), out var factory)) {

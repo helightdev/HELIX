@@ -18,7 +18,7 @@ namespace HELIX.Prose {
     void End();
     void PushModifier(IProseModifier modifier);
     void Write(IProse prose);
-    void Write<T>(T value, IProseFormatter<T> formatter);
+    void Write<T>(T value, IProseDatatype<T> datatype);
     void Write(string text);
   }
 
@@ -35,13 +35,13 @@ namespace HELIX.Prose {
     void ToProse(IProseWriter writer);
   }
 
-  public interface IProseFormatter { }
+  public interface IProseDatatype { }
 
   /// <summary>
   /// Describes a value and provides its semantic fallback expansion when a sink does not handle it directly.
   /// Implementations should be immutable so configured instances can be defined statically and reused.
   /// </summary>
-  public interface IProseFormatter<in T> : IProseFormatter {
+  public interface IProseDatatype<in T> : IProseDatatype {
     void ToProse(IProseWriter writer, T value);
   }
 
@@ -58,7 +58,7 @@ namespace HELIX.Prose {
     public abstract void End();
     public abstract void PushModifier(IProseModifier modifier);
     public abstract void Write(IProse prose);
-    public abstract void Write<T>(T value, IProseFormatter<T> formatter);
+    public abstract void Write<T>(T value, IProseDatatype<T> datatype);
     public abstract void Write(string text);
   }
 

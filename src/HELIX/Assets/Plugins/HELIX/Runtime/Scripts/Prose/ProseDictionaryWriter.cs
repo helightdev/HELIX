@@ -197,10 +197,10 @@ namespace HELIX.Prose {
       else prose.ToProse(this);
     }
 
-    public override void Write<T>(T value, IProseFormatter<T> formatter) {
-      if (formatter == null) throw new ArgumentNullException(nameof(formatter));
+    public override void Write<T>(T value, IProseDatatype<T> datatype) {
+      if (datatype == null) throw new ArgumentNullException(nameof(datatype));
 
-      if (formatter is IProsePropertyFormatter<T> propertyFormatter)
+      if (datatype is IProsePropertyDatatype<T> propertyFormatter)
         AddValue(CurrentDictionary, propertyFormatter.Key, value);
       else
         StoreValue(value);

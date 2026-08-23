@@ -19,7 +19,7 @@ namespace HELIX.Compose {
       [Prop("default", PropInit.Constant, Equatable = false)] public NumericFormatSettings formatting;
       [Prop(null)] public Composable prefix;
       [Prop(null)] public Composable suffix;
-      [Prop(null, Equatable = false)] public IProseFormatter<float> formatter;
+      [Prop(null, Equatable = false)] public IProseDatatype<float> datatype;
     }
 
     protected override void OnRecompose(ref Composition cx) {
@@ -36,8 +36,8 @@ namespace HELIX.Compose {
         cx.Gap(ThemeProperties.TextGap[in cx]);
         cx.Spec(new ControlSpec<float>(
           props.value,
-          new TextControlFormatter<float>(
-            props.formatter ?? new ProseFloatFormatter(
+          new TextControlDatatype<float>(
+            props.datatype ?? new ProseFloatDatatype(
               format: props.formatting.format ?? "R",
               min: props.min,
               max: props.max,

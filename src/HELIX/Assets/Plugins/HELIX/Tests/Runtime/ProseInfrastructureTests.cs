@@ -15,7 +15,7 @@ namespace HELIX.Tests {
         return text != null;
       }
       public override bool TryMap<T>(
-        T value, IProseFormatter<T> formatter, IReadOnlyList<IProseModifier> modifiers, out string result
+        T value, IProseDatatype<T> datatype, IReadOnlyList<IProseModifier> modifiers, out string result
       ) {
         result = value is null ? null : value.ToString();
         return result != null;
@@ -63,7 +63,7 @@ namespace HELIX.Tests {
       var writer = new ReducingProseWriter<string>(new StringReducer());
       using (writer.Paragraph()) {
         writer.Write("value=");
-        writer.Write(12, ProseFormatters.Int);
+        writer.Write(12, ProseDatatypes.Int);
       }
 
       Assert.That(writer.Build(), Is.EqualTo("value=12"));

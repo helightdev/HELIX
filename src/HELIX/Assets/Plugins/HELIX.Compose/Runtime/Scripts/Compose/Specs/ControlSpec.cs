@@ -9,7 +9,7 @@ namespace HELIX.Compose {
   internal interface IControlSpec {
     Type ValueType { get; }
     object Value { get; }
-    object Formatter { get; }
+    object Datatype { get; }
     bool Enabled { get; }
     bool Error { get; }
     void Change(CompositionContext context, object value);
@@ -17,41 +17,41 @@ namespace HELIX.Compose {
   }
 
   internal interface ITextControlFormatter {
-    object Formatter { get; }
+    object Datatype { get; }
     Composable Prefix { get; }
     Composable Suffix { get; }
   }
 
-  internal sealed class TextControlFormatter<T> : IProseFormatter<T>, ITextControlFormatter {
-    private readonly IProseFormatter<T> _formatter;
-    public TextControlFormatter(IProseFormatter<T> formatter, Composable prefix = null, Composable suffix = null) {
-      _formatter = formatter;
+  internal sealed class TextControlDatatype<T> : IProseDatatype<T>, ITextControlFormatter {
+    private readonly IProseDatatype<T> _datatype;
+    public TextControlDatatype(IProseDatatype<T> datatype, Composable prefix = null, Composable suffix = null) {
+      _datatype = datatype;
       Prefix = prefix;
       Suffix = suffix;
     }
-    object ITextControlFormatter.Formatter => _formatter;
+    object ITextControlFormatter.Datatype => _datatype;
     public Composable Prefix { get; }
     public Composable Suffix { get; }
-    public void ToProse(IProseWriter writer, T value) => _formatter.ToProse(writer, value);
+    public void ToProse(IProseWriter writer, T value) => _datatype.ToProse(writer, value);
   }
 
   public readonly struct ControlSpec<T> : ISpec, IControlSpec {
     public readonly T value;
-    public readonly IProseFormatter<T> formatter;
+    public readonly IProseDatatype<T> datatype;
     public readonly CompositionAction<T> onChanged;
     public readonly CompositionAction onCommitted;
     public readonly bool enabled, error;
 
     public ControlSpec(
       T value,
-      IProseFormatter<T> formatter,
+      IProseDatatype<T> datatype,
       CompositionAction<T> onChanged = null,
       CompositionAction onCommitted = null,
       bool enabled = true,
       bool error = false
     ) {
       this.value = value;
-      this.formatter = formatter ?? throw new ArgumentNullException(nameof(formatter));
+      this.datatype = datatype ?? throw new ArgumentNullException(nameof(datatype));
       this.onChanged = onChanged;
       this.onCommitted = onCommitted;
       this.enabled = enabled;
@@ -60,7 +60,7 @@ namespace HELIX.Compose {
 
     Type IControlSpec.ValueType => typeof(T);
     object IControlSpec.Value => value;
-    object IControlSpec.Formatter => formatter;
+    object IControlSpec.Datatype => datatype;
     bool IControlSpec.Enabled => enabled;
     bool IControlSpec.Error => error;
 
@@ -71,7 +71,7 @@ namespace HELIX.Compose {
 
   public sealed class ChoiceControlSpecHandler : ISpecHandler {
     public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec =>
-      spec is IControlSpec { Formatter: IProseChoiceFormatter } ? ControlFactory<T>.Choice : null;
+      spec is IControlSpec { Datatype: IProseChoiceFormatter } ? ControlFactory<T>.Choice : null;
   }
 
   public abstract class ControlSpecHandler<TValue> : ISpecHandler {
@@ -92,7 +92,7 @@ namespace HELIX.Compose {
   public sealed class FloatControlSpecHandler : ISpecHandler {
     public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec {
       if (spec is not IControlSpec { ValueType: var type } control || type != typeof(float)) return null;
-      return control.Formatter is ITextControlFormatter ? ControlFactory<T>.FloatText : ControlFactory<T>.Float;
+      return control.Datatype is ITextControlFormatter ? ControlFactory<T>.FloatText : ControlFactory<T>.Float;
     }
   }
 
@@ -167,8 +167,8 @@ namespace HELIX.Compose {
 
     private static void ComposeText(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
-      var readOnly = control.Formatter is IProseReadOnlyFormatter { ReadOnly: true };
-      Decorations(control.Formatter, out var prefix, out var suffix);
+      var readOnly = control.Datatype is IProseReadOnlyFormatter { ReadOnly: true };
+      Decorations(control.Datatype, out var prefix, out var suffix);
       cx.TextField(
         value: new TextEditingValue((string)control.Value ?? ""),
         onChanged: TextChanged,
@@ -182,33 +182,33 @@ namespace HELIX.Compose {
 
     private static void ComposeInteger(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
-      var range = control.Formatter as IProseRangeFormatter<int>;
-      Decorations(control.Formatter, out var prefix, out var suffix);
+      var range = control.Datatype as IProseRangeFormatter<int>;
+      Decorations(control.Datatype, out var prefix, out var suffix);
       cx.FieldSlider(
         (int)control.Value, IntegerChanged, NumericCommitted,
         range?.Min ?? 0, range?.Max ?? 100, range?.Step ?? 1,
         control.Enabled, control.Error,
-        Formatting(control.Formatter), prefix, suffix, control.Formatter as IProseFormatter<float>
+        Formatting(control.Datatype), prefix, suffix, control.Datatype as IProseDatatype<float>
       );
     }
 
     private static void ComposeFloat(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
-      var range = control.Formatter as IProseRangeFormatter<float>;
-      Decorations(control.Formatter, out var prefix, out var suffix);
+      var range = control.Datatype as IProseRangeFormatter<float>;
+      Decorations(control.Datatype, out var prefix, out var suffix);
       cx.FieldSlider(
         (float)control.Value, FloatChanged, NumericCommitted,
         range?.Min ?? 0f, range?.Max ?? 1f, range?.Step ?? 0f,
         control.Enabled, control.Error,
-        Formatting(control.Formatter), prefix, suffix, control.Formatter as IProseFormatter<float>
+        Formatting(control.Datatype), prefix, suffix, control.Datatype as IProseDatatype<float>
       );
     }
 
     private static void ComposeFloatText(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
-      var formatter = Unwrap(control.Formatter);
+      var formatter = Unwrap(control.Datatype);
       var formatting = Formatting(formatter);
-      Decorations(control.Formatter, out var prefix, out var suffix);
+      Decorations(control.Datatype, out var prefix, out var suffix);
       cx.TextField(
         value: new TextEditingValue(formatting.Format((float)control.Value)),
         onEditingEnded: FloatEditingEnded,
@@ -225,7 +225,7 @@ namespace HELIX.Compose {
 
     private static void ComposeChoice(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
-      var formatter = (IProseChoiceFormatter)control.Formatter;
+      var formatter = (IProseChoiceFormatter)control.Datatype;
       var values = new DropdownOption<object>[formatter.ChoiceCount];
       for (var i = 0; i < values.Length; i++)
         values[i] = new DropdownOption<object>(
@@ -233,7 +233,7 @@ namespace HELIX.Compose {
           formatter.GetChoiceLabel(i),
           formatter.IsChoiceEnabled(i)
         );
-      Decorations(control.Formatter, out var prefix, out var suffix);
+      Decorations(control.Datatype, out var prefix, out var suffix);
       if (prefix == null && suffix == null) {
         RenderChoice(ref cx, control, values);
         return;
@@ -268,7 +268,7 @@ namespace HELIX.Compose {
     ) {
       if (reason != TextEditEndReason.Submitted) return;
       var control = Control(context);
-      var formatter = Unwrap(control.Formatter);
+      var formatter = Unwrap(control.Datatype);
       if (Formatting(formatter).TryParse(value.text, out var parsed)) {
         var range = formatter as IProseRangeFormatter<float>;
         if (range?.Min.HasValue == true && range.Max.HasValue) {
@@ -298,13 +298,13 @@ namespace HELIX.Compose {
       context.Lookup<ControlSpecBoundary>().Control;
 
     private static object Unwrap(object formatter) =>
-      formatter is ITextControlFormatter text ? text.Formatter : formatter;
+      formatter is ITextControlFormatter text ? text.Datatype : formatter;
 
     private static NumericFormatSettings Formatting(object formatter) {
       formatter = Unwrap(formatter);
-      if (formatter is ProseFloatFormatter number)
+      if (formatter is ProseFloatDatatype number)
         return new NumericFormatSettings(number.Format, scale: number.Scale);
-      if (formatter is ProseIntFormatter integer)
+      if (formatter is ProseIntDatatype integer)
         return new NumericFormatSettings(integer.Format);
       return default;
     }
