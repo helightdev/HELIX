@@ -10,7 +10,7 @@ namespace HELIX.Prose {
 
   /// <summary>A typed field description whose current value is owned by the destination form.</summary>
   public sealed class ProseField<T> : IProseField {
-    public ProseField(string path, string name, IProseDatatype<T> datatype) {
+    public ProseField(string path, string name, IDatatype<T> datatype) {
       Path = path ?? string.Empty;
       if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A field name is required.", nameof(name));
       Name = name;
@@ -18,7 +18,7 @@ namespace HELIX.Prose {
     }
     public string Path { get; }
     public string Name { get; }
-    public IProseDatatype<T> Datatype { get; }
+    public IDatatype<T> Datatype { get; }
     object IProseField.Formatter => Datatype;
   }
 
@@ -67,7 +67,7 @@ namespace HELIX.Prose {
 
   public static class ProseFieldWriterExtensions {
     public static ProseWriterScope Field<T>(
-      this IProseWriter writer, string path, string name, IProseDatatype<T> datatype
+      this IProseWriter writer, string path, string name, IDatatype<T> datatype
     ) => writer.Scope(new ProseField<T>(path, name, datatype));
 
     public static ProseWriterScope FieldPart(this IProseWriter writer, IProseFieldPart part) => writer.Scope(part);

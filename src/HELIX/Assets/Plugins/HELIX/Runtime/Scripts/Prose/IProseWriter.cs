@@ -18,7 +18,7 @@ namespace HELIX.Prose {
     void End();
     void PushModifier(IProseModifier modifier);
     void Write(IProse prose);
-    void Write<T>(T value, IProseDatatype<T> datatype);
+    void Write<T>(T value, IDatatype<T> datatype);
     void Write(string text);
   }
 
@@ -48,7 +48,7 @@ namespace HELIX.Prose {
     public abstract void End();
     public abstract void PushModifier(IProseModifier modifier);
     public abstract void Write(IProse prose);
-    public abstract void Write<T>(T value, IProseDatatype<T> datatype);
+    public abstract void Write<T>(T value, IDatatype<T> datatype);
     public abstract void Write(string text);
   }
 

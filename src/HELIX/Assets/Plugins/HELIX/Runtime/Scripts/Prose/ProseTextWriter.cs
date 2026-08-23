@@ -295,7 +295,7 @@ namespace HELIX.Prose {
       else prose.ToProse(this);
     }
 
-    public override void Write<T>(T value, IProseDatatype<T> datatype) {
+    public override void Write<T>(T value, IDatatype<T> datatype) {
       if (datatype == null) throw new ArgumentNullException(nameof(datatype));
       if (IsWritingInactive()) return;
       datatype.ToProse(this, value);

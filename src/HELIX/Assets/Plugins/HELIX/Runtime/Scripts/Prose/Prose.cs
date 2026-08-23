@@ -1,5 +1,4 @@
 using System;
-using HELIX.Datatypes;
 
 namespace HELIX.Prose {
   /// <summary>Owns a frame begun through <see cref="ProseWriterExtensions.Scope"/>.</summary>
@@ -141,7 +140,7 @@ namespace HELIX.Prose {
       WriteTextFrame(writer, ProseScopes.ListItem, content);
 
     public static void WriteListItem<T>(
-      this IProseWriter writer, T value, IProseDatatype<T> datatype
+      this IProseWriter writer, T value, IDatatype<T> datatype
     ) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
       if (datatype == null) throw new ArgumentNullException(nameof(datatype));
@@ -151,10 +150,10 @@ namespace HELIX.Prose {
     public static void WriteTableCell(
       this IProseWriter writer, string content,
       ProseTextAlignment alignment = ProseTextAlignment.Left
-    ) => writer.WriteTableCell(content, ProseDatatypes.String, alignment);
+    ) => writer.WriteTableCell(content, Datatypes.String, alignment);
 
     public static void WriteTableCell<T>(
-      this IProseWriter writer, T value, IProseDatatype<T> datatype,
+      this IProseWriter writer, T value, IDatatype<T> datatype,
       ProseTextAlignment alignment = ProseTextAlignment.Left
     ) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
@@ -178,7 +177,7 @@ namespace HELIX.Prose {
       this IProseWriter writer,
       string key,
       T value,
-      IProseDatatype<T> datatype,
+      IDatatype<T> datatype,
       ProseLevel level = ProseLevel.Info,
       bool hidden = false,
       bool noWrap = false,

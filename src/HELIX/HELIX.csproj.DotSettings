@@ -11,4 +11,5 @@
 	<s:Boolean x:Key="/Default/CodeInspection/NamespaceProvider/NamespaceFoldersToSkip/=assets_005Cplugins_005Chelix_005Cruntime_005Cscripts_005Ccompose_005Cspecs/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/CodeInspection/NamespaceProvider/NamespaceFoldersToSkip/=assets_005Cplugins_005Chelix_005Cruntime_005Cscripts_005Ccompose_005Cstyle/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/CodeInspection/NamespaceProvider/NamespaceFoldersToSkip/=assets_005Cplugins_005Chelix_005Cruntime_005Cscripts_005Ccompose_005Cstyling/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/CodeInspection/NamespaceProvider/NamespaceFoldersToSkip/=assets_005Cplugins_005Chelix_005Cruntime_005Cscripts_005Cdatatypes/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/CodeInspection/NamespaceProvider/NamespaceFoldersToSkip/=assets_005Cplugins_005Chelix_005Cruntime_005Cscripts_005Chx/@EntryIndexedValue">True</s:Boolean></wpf:ResourceDictionary>

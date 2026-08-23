@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using HELIX.Compose;
 using HELIX.Compose.Forms;
-using HELIX.Datatypes;
 using HELIX.Types;
 using UnityEngine.UIElements;
 
@@ -78,7 +77,7 @@ namespace HELIX.Prose {
     }
 
     public override bool TryMap<T>(
-      T value, IProseDatatype<T> datatype, IReadOnlyList<IProseModifier> modifiers,
+      T value, IDatatype<T> datatype, IReadOnlyList<IProseModifier> modifiers,
       out ComposeProseFieldPart result
     ) {
       var mapped = _compose.TryMap(value, datatype, modifiers, out var content);
@@ -125,29 +124,29 @@ namespace HELIX.Prose {
       IProseField field, object formatter, IReadOnlyList<ComposeProseFieldPart> parts,
       IReadOnlyList<IProseModifier> modifiers, out Composable result
     ) {
-      if (formatter is IChoice choices)
+      if (formatter is IDatatypeChoice choices)
         return Choice(field, choices, parts, modifiers, out result);
-      if (formatter is IProseDatatype<string> && field is ProseField<string> text)
+      if (formatter is IDatatype<string> && field is ProseField<string> text)
         return Text(text, parts, modifiers, out result);
-      if (formatter is IProseDatatype<int> && field is ProseField<int> integer)
+      if (formatter is IDatatype<int> && field is ProseField<int> integer)
         return Integer(integer, parts, modifiers, out result);
-      if (formatter is IProseDatatype<float> && field is ProseField<float> number)
+      if (formatter is IDatatype<float> && field is ProseField<float> number)
         return Float(number, parts, modifiers, out result);
-      if (formatter is IProseDatatype<bool> && field is ProseField<bool> toggle)
+      if (formatter is IDatatype<bool> && field is ProseField<bool> toggle)
         return Checkbox(toggle, parts, modifiers, out result);
       result = null;
       return false;
     }
 
     private static bool Choice(
-      IProseField field, IChoice formatter, IReadOnlyList<ComposeProseFieldPart> parts,
+      IProseField field, IDatatypeChoice formatter, IReadOnlyList<ComposeProseFieldPart> parts,
       IReadOnlyList<IProseModifier> modifiers, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path) || formatter.ChoiceCount == 0) {
         result = null;
         return false;
       }
-      var controlFormatter = new UntypedChoiceDatatype(formatter);
+      var controlFormatter = new UntypedIDatatypeChoiceDatatype(formatter);
       Composable control = (ref Composition cx) => {
         var formField = cx.Lookup<HXFormField>();
         cx.Spec(new ControlSpec<object>(
@@ -319,7 +318,7 @@ namespace HELIX.Prose {
       field.FieldData?.HasFlag(FieldFlags.Error) == true;
 
     private static HXOptional<T> Default<T>(ProseField<T> field) =>
-      field.Datatype is IDefault<T> value && value.HasDefaultValue
+      field.Datatype is IDatatypeDefault<T> value && value.HasDefaultValue
         ? new HXOptional<T>(value.DefaultValue)
         : HXOptional<T>.None;
 
@@ -341,17 +340,17 @@ namespace HELIX.Prose {
       return new FormFieldDecorators(label, description, prefix, suffix, before, between, after);
     }
 
-    private sealed class UntypedChoiceDatatype :
-      IProseDatatype<object>, IChoice, IAffix {
-      private readonly IChoice _formatter;
+    private sealed class UntypedIDatatypeChoiceDatatype :
+      IDatatype<object>, IDatatypeChoice, IDatatypeAffix {
+      private readonly IDatatypeChoice _formatter;
 
-      public UntypedChoiceDatatype(IChoice formatter) => _formatter = formatter;
+      public UntypedIDatatypeChoiceDatatype(IDatatypeChoice formatter) => _formatter = formatter;
       public int ChoiceCount => _formatter.ChoiceCount;
       public object GetChoiceValue(int index) => _formatter.GetChoiceValue(index);
       public string GetChoiceLabel(int index) => _formatter.GetChoiceLabel(index);
       public bool IsChoiceEnabled(int index) => _formatter.IsChoiceEnabled(index);
-      public string Prefix => (_formatter as IAffix)?.Prefix;
-      public string Suffix => (_formatter as IAffix)?.Suffix;
+      public string Prefix => (_formatter as IDatatypeAffix)?.Prefix;
+      public string Suffix => (_formatter as IDatatypeAffix)?.Suffix;
 
       public void ToProse(IProseWriter writer, object value) {
         for (var i = 0; i < ChoiceCount; i++) {

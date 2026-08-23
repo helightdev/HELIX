@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using HELIX.Datatypes;
 using HELIX.Prose;
 
 namespace HELIX.Context {
@@ -53,14 +52,14 @@ namespace HELIX.Context {
       using (writer.Tree()) {
         writer.Name("Live dependency graph");
         if (container.TryGetScope(container.registrarScope, out var registrar)) WriteLiveScope(writer, registrar);
-        else writer.Property("state", "not prepared", ProseDatatypes.String);
+        else writer.Property("state", "not prepared", Datatypes.String);
       }
     }
 
     private static void WriteDeclaredEntry(IProseWriter writer, ManagedRegistration entry) {
       using (writer.Tree()) {
         writer.Name($"{entry.name} : {TypeName(entry.type)}");
-        if (entry.optional) writer.Property("optional", true, ProseDatatypes.Bool);
+        if (entry.optional) writer.Property("optional", true, Datatypes.Bool);
         WriteJoinedProperty(writer, "keys", entry.keys.Select(FormatKey));
         WriteDependencies(writer, "requires", entry.dependencies);
         WriteDependencies(writer, "publishes", entry.publications);
@@ -70,7 +69,7 @@ namespace HELIX.Context {
     private static void WriteDeclaredScriptedDependency(IProseWriter writer, IScriptedDependency dependency) {
       using (writer.Tree()) {
         writer.Name($"{dependency.WireKey ?? "<unwired>"} : {TypeName(dependency.GetType())}");
-        writer.Property("scripted", true, ProseDatatypes.Bool);
+        writer.Property("scripted", true, Datatypes.Bool);
       }
     }
 
@@ -117,7 +116,7 @@ namespace HELIX.Context {
 
     private static void WriteJoinedProperty(IProseWriter writer, string name, IEnumerable<string> values) {
       var items = values.ToList();
-      writer.Property(name, Join(items), ProseDatatypes.String, hidden: items.Count == 0);
+      writer.Property(name, Join(items), Datatypes.String, hidden: items.Count == 0);
     }
 
     private static string FormatDependency(ComponentDependency dependency) {

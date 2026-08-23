@@ -1,4 +1,3 @@
-using HELIX.Datatypes;
 using HELIX.Theming;
 using HELIX.Types;
 using HELIX.Prose;
@@ -20,7 +19,7 @@ namespace HELIX.Compose {
       [Prop("default", PropInit.Constant, Equatable = false)] public NumericFormatSettings formatting;
       [Prop(null)] public Composable prefix;
       [Prop(null)] public Composable suffix;
-      [Prop(null, Equatable = false)] public IProseDatatype<float> datatype;
+      [Prop(null, Equatable = false)] public IDatatype<float> datatype;
     }
 
     protected override void OnRecompose(ref Composition cx) {
@@ -38,7 +37,7 @@ namespace HELIX.Compose {
         cx.Spec(new ControlSpec<float>(
           props.value,
           new TextControlDatatype<float>(
-            props.datatype ?? new ProseFloatDatatype(
+            props.datatype ?? new FloatDatatype(
               format: props.formatting.format ?? "R",
               min: props.min,
               max: props.max,

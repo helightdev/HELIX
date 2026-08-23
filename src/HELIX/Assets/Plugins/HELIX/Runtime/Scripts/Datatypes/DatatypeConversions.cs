@@ -1,4 +1,4 @@
-namespace HELIX.Datatypes {
+namespace HELIX {
   /// <summary>Describes a datatype that can round-trip values through their string representation.</summary>
   public interface IStringConvertible<T> {
     string ToString(T value);

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using HELIX.Datatypes;
 
 namespace HELIX.Prose {
   /// <summary>
@@ -198,10 +197,10 @@ namespace HELIX.Prose {
       else prose.ToProse(this);
     }
 
-    public override void Write<T>(T value, IProseDatatype<T> datatype) {
+    public override void Write<T>(T value, IDatatype<T> datatype) {
       if (datatype == null) throw new ArgumentNullException(nameof(datatype));
 
-      if (datatype is IProsePropertyDatatype<T> propertyFormatter)
+      if (datatype is IPropertyDatatype<T> propertyFormatter)
         AddValue(CurrentDictionary, propertyFormatter.Key, value);
       else
         StoreValue(value);

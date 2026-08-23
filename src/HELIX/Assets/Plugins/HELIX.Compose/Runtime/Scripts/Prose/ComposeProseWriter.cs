@@ -36,10 +36,10 @@ namespace HELIX.Prose {
     }
 
     public override bool TryMap<T>(
-      T value, IProseDatatype<T> datatype, IReadOnlyList<IProseModifier> modifiers,
+      T value, IDatatype<T> datatype, IReadOnlyList<IProseModifier> modifiers,
       out Composable result
     ) {
-      if (datatype is IComposableProseDatatype<T> composeFormatter) {
+      if (datatype is IComposableIDatatype<T> composeFormatter) {
         result = composeFormatter.ToComposable(value);
         return true;
       }

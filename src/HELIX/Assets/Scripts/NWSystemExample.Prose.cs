@@ -1,5 +1,4 @@
 using HELIX.Compose;
-using HELIX.Datatypes;
 using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;
@@ -48,7 +47,7 @@ namespace HELIX.Examples {
         using (writer.Field<DisplayMode>(
           "graphics.display-mode",
           "Display mode",
-          ProseDatatypes.Enum<DisplayMode>()
+          Datatypes.Enum<DisplayMode>()
         )) {
           writer.FieldDescription("Select how the game occupies the display.");
           writer.FieldTooltip("Borderless uses the desktop resolution and usually switches applications faster.");
@@ -57,18 +56,18 @@ namespace HELIX.Examples {
         using (writer.Field(
           "graphics.upscaler",
           "Upscaler",
-          new ProseChoiceDatatype<string>(
+          new DatatypeChoiceDatatype<string>(
             new[] {
-              new ProseChoice<string>("off", "Off"),
-              new ProseChoice<string>("quality", "Quality"),
-              new ProseChoice<string>("performance", "Performance")
+              new DatatypeChoice<string>("off", "Off"),
+              new DatatypeChoice<string>("quality", "Quality"),
+              new DatatypeChoice<string>("performance", "Performance")
             }
           )
         )) { }
         using (writer.Field(
           "graphics.notice",
           "Display notice",
-          new ProseStringDatatype(prefix: "Prefix", suffix: "Suffix")
+          new StringDatatype(prefix: "Prefix", suffix: "Suffix")
         )) {
           writer.PushModifier(ProseFields.FullWidth);
           writer.FieldDescription("Display changes may briefly blank the screen.");
@@ -79,22 +78,22 @@ namespace HELIX.Examples {
           using (writer.Field(
             "graphics.texture-quality",
             "Texture quality",
-            new ProseChoiceDatatype<string>(
+            new DatatypeChoiceDatatype<string>(
               new[] {
-                new ProseChoice<string>("low", "Low"),
-                new ProseChoice<string>("medium", "Medium"),
-                new ProseChoice<string>("high", "High")
+                new DatatypeChoice<string>("low", "Low"),
+                new DatatypeChoice<string>("medium", "Medium"),
+                new DatatypeChoice<string>("high", "High")
               }
             )
           )) { }
           using (writer.Field(
             "graphics.shadow-quality",
             "Shadow quality",
-            new ProseChoiceDatatype<string>(
+            new DatatypeChoiceDatatype<string>(
               new[] {
-                new ProseChoice<string>("off", "Off"),
-                new ProseChoice<string>("medium", "Medium"),
-                new ProseChoice<string>("high", "High")
+                new DatatypeChoice<string>("off", "Off"),
+                new DatatypeChoice<string>("medium", "Medium"),
+                new DatatypeChoice<string>("high", "High")
               }
             )
           )) { }
@@ -105,7 +104,7 @@ namespace HELIX.Examples {
         using (writer.Field<int>(
           "audio.master-volume",
           "Master volume",
-          new ProseIntDatatype(min: 0, max: 100, unit: "%", step: 1)
+          new IntDatatype(min: 0, max: 100, unit: "%", step: 1)
         )) {
           writer.PushModifier(ProseFields.LabelWidth(new Length(32f, LengthUnit.Percent)));
           writer.FieldDescription("Overall output volume.");
@@ -115,7 +114,7 @@ namespace HELIX.Examples {
           using (writer.Field<bool>(
             "audio.voice-chat",
             "Voice chat",
-            new ProseFlagDatatype(ifTrue: "Enabled", ifFalse: "Disabled")
+            new FlagDatatype(ifTrue: "Enabled", ifFalse: "Disabled")
           )) { }
         }
       }
@@ -124,17 +123,17 @@ namespace HELIX.Examples {
         using (writer.Field(
           "gameplay.difficulty",
           "Difficulty",
-          new ProseChoiceDatatype<string>(
+          new DatatypeChoiceDatatype<string>(
             new[] {
-              new ProseChoice<string>("story", "Story"),
-              new ProseChoice<string>("normal", "Normal"),
-              new ProseChoice<string>("veteran", "Veteran")
+              new DatatypeChoice<string>("story", "Story"),
+              new DatatypeChoice<string>("normal", "Normal"),
+              new DatatypeChoice<string>("veteran", "Veteran")
             }
           )
         )) {
           writer.PushModifier(ProseFields.LabelWidth(new Length(144f, LengthUnit.Pixel)));
         }
-        using (writer.Field<bool>("gameplay.autosave", "Autosave", ProseDatatypes.Bool)) {
+        using (writer.Field<bool>("gameplay.autosave", "Autosave", Datatypes.Bool)) {
           writer.PushModifier(ProseFields.LabelWidth(new Length(144f, LengthUnit.Pixel)));
           using (writer.FieldSuffix()) writer.Write("Recommended");
         }

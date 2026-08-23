@@ -1,4 +1,3 @@
-using HELIX.Datatypes;
 using HELIX.Prose;
 using NUnit.Framework;
 using UnityEngine;
@@ -12,27 +11,27 @@ namespace HELIX.Tests {
 
     [Test]
     public void NumericDatatypes_ConvertToAndFromCommonNumericTypes() {
-      AssertNumericConversions(ProseDatatypes.Int, 12);
-      AssertNumericConversions(ProseDatatypes.Long, 12L);
-      AssertNumericConversions(ProseDatatypes.Float, 12f);
-      AssertNumericConversions(ProseDatatypes.Double, 12d);
+      AssertNumericConversions(Datatypes.Int, 12);
+      AssertNumericConversions(Datatypes.Long, 12L);
+      AssertNumericConversions(Datatypes.Float, 12f);
+      AssertNumericConversions(Datatypes.Double, 12d);
     }
 
     [Test]
     public void BuiltinDatatypes_RoundTripStrings() {
-      AssertStringRoundTrip(ProseDatatypes.String, "value");
-      AssertStringRoundTrip(ProseDatatypes.Int, 42);
-      AssertStringRoundTrip(ProseDatatypes.Long, 42000000000L);
-      AssertStringRoundTrip(ProseDatatypes.Float, 12.5f);
-      AssertStringRoundTrip(ProseDatatypes.Double, 12.5d);
-      AssertStringRoundTrip(ProseDatatypes.Bool, true);
-      AssertStringRoundTrip(ProseDatatypes.Enum<TestChoice>(), TestChoice.Second);
-      AssertStringRoundTrip(ProseDatatypes.Color, (Color)new Color32(0x33, 0x66, 0x99, 0xff));
+      AssertStringRoundTrip(Datatypes.String, "value");
+      AssertStringRoundTrip(Datatypes.Int, 42);
+      AssertStringRoundTrip(Datatypes.Long, 42000000000L);
+      AssertStringRoundTrip(Datatypes.Float, 12.5f);
+      AssertStringRoundTrip(Datatypes.Double, 12.5d);
+      AssertStringRoundTrip(Datatypes.Bool, true);
+      AssertStringRoundTrip(Datatypes.Enum<TestChoice>(), TestChoice.Second);
+      AssertStringRoundTrip(Datatypes.Color, (Color)new Color32(0x33, 0x66, 0x99, 0xff));
     }
 
     [Test]
     public void EnumDatatype_ConvertsNamesAndNumericValues() {
-      var datatype = ProseDatatypes.Enum<TestChoice>();
+      var datatype = Datatypes.Enum<TestChoice>();
 
       Assert.That(datatype.ToString(TestChoice.Second), Is.EqualTo("Second"));
       Assert.That(datatype.FromString("First"), Is.EqualTo(TestChoice.First));
@@ -52,9 +51,9 @@ namespace HELIX.Tests {
 
     [Test]
     public void ChoiceDatatype_ConvertsLabelsAndStoredNumericValues() {
-      var datatype = new ProseChoiceDatatype<TestChoice>(new[] {
-        new ProseChoice<TestChoice>(TestChoice.First, "First choice"),
-        new ProseChoice<TestChoice>(TestChoice.Second, "Second choice")
+      var datatype = new DatatypeChoiceDatatype<TestChoice>(new[] {
+        new DatatypeChoice<TestChoice>(TestChoice.First, "First choice"),
+        new DatatypeChoice<TestChoice>(TestChoice.Second, "Second choice")
       });
 
       Assert.That(datatype.ToString(TestChoice.Second), Is.EqualTo("Second choice"));

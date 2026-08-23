@@ -8,39 +8,39 @@ using UnityEngine.UIElements;
 
 // ReSharper disable MemberCanBePrivate.Global
 
-namespace HELIX.Datatypes {
-  public interface IRange<T> where T : struct {
+namespace HELIX {
+  public interface IDatatypeRange<T> where T : struct {
     T? Min { get; }
     T? Max { get; }
     T? Step { get; }
   }
 
-  public interface IUnit {
+  public interface IDatatypeUnit {
     string Unit { get; }
   }
 
-  public interface IAffix {
+  public interface IDatatypeAffix {
     string Prefix { get; }
     string Suffix { get; }
   }
 
-  public interface IPattern {
+  public interface IDatatypePattern {
     string Pattern { get; }
   }
 
-  public interface IReadOnly {
+  public interface IDatatypeReadOnly {
     bool ReadOnly { get; }
   }
 
-  public interface IChoice {
+  public interface IDatatypeChoice {
     int ChoiceCount { get; }
     object GetChoiceValue(int index);
     string GetChoiceLabel(int index);
     bool IsChoiceEnabled(int index);
   }
 
-  public readonly struct ProseChoice<T> {
-    public ProseChoice(T value, string label, bool enabled = true) {
+  public readonly struct DatatypeChoice<T> {
+    public DatatypeChoice(T value, string label, bool enabled = true) {
       Value = value;
       Label = label;
       Enabled = enabled;
@@ -51,44 +51,44 @@ namespace HELIX.Datatypes {
     public bool Enabled { get; }
   }
 
-  public interface IDefault<out T> {
+  public interface IDatatypeDefault<out T> {
     bool HasDefaultValue { get; }
     T DefaultValue { get; }
   }
 
   /// <summary>Shared instances of the default, immutable Prose value formatters.</summary>
-  public static class ProseDatatypes {
-    public static readonly ProseStringDatatype String = new();
-    public static readonly ProseIntDatatype Int = new();
-    public static readonly ProseLongDatatype Long = new();
-    public static readonly ProseFloatDatatype Float = new();
-    public static readonly ProseDoubleDatatype Double = new();
-    public static readonly ProseBoolDatatype Bool = new();
-    public static readonly ProseColorDatatype Color = new();
-    public static readonly ProseFloatDatatype Percent = new(format: "0.0", suffix: "%");
-    public static readonly ProseFloatDatatype PercentNormalized = new(format: "0.0", suffix: "%", scale: 100f);
+  public static class Datatypes {
+    public static readonly StringDatatype String = new();
+    public static readonly IntDatatype Int = new();
+    public static readonly LongDatatype Long = new();
+    public static readonly FloatDatatype Float = new();
+    public static readonly DoubleDatatype Double = new();
+    public static readonly BoolDatatype Bool = new();
+    public static readonly ColorDatatype Color = new();
+    public static readonly FloatDatatype Percent = new(format: "0.0", suffix: "%");
+    public static readonly FloatDatatype PercentNormalized = new(format: "0.0", suffix: "%", scale: 100f);
 
-    public static ProseEnumDatatype<T> Enum<T>() where T : struct, Enum => EnumCache<T>.Instance;
-    public static ProseObjectDatatype<T> Object<T>() => ObjectCache<T>.Instance;
+    public static EnumDatatype<T> Enum<T>() where T : struct, Enum => EnumCache<T>.Instance;
+    public static ObjectDatatype<T> Object<T>() => ObjectCache<T>.Instance;
 
     private static class EnumCache<T> where T : struct, Enum {
-      internal static readonly ProseEnumDatatype<T> Instance = new();
+      internal static readonly EnumDatatype<T> Instance = new();
     }
 
     private static class ObjectCache<T> {
-      internal static readonly ProseObjectDatatype<T> Instance = new();
+      internal static readonly ObjectDatatype<T> Instance = new();
     }
   }
 
   /// <summary>A semantic property descriptor that can expand itself into property scopes as a fallback.</summary>
-  public interface IProsePropertyDatatype<in T> : IProseDatatype<T> {
+  public interface IPropertyDatatype<in T> : IDatatype<T> {
     string Key { get; }
   }
 
-  public sealed class ProsePropertyDatatype<T> : IProsePropertyDatatype<T> {
-    public ProsePropertyDatatype(
+  public sealed class PropertyDatatype<T> : IPropertyDatatype<T> {
+    public PropertyDatatype(
       string key,
-      IProseDatatype<T> valueDatatype,
+      IDatatype<T> valueDatatype,
       ProseLevel level = ProseLevel.Info,
       bool hidden = false,
       bool noWrap = false,
@@ -109,7 +109,7 @@ namespace HELIX.Datatypes {
     }
 
     public string Key { get; }
-    public IProseDatatype<T> ValueDatatype { get; }
+    public IDatatype<T> ValueDatatype { get; }
     public ProseLevel Level { get; }
     public bool Hidden { get; }
     public bool NoWrap { get; }
@@ -124,9 +124,9 @@ namespace HELIX.Datatypes {
     );
   }
 
-  public sealed class ProseStringDatatype :
-    IProseDatatype<string>, IStringConvertible<string>, IAffix, IPattern, IReadOnly {
-    public ProseStringDatatype(
+  public sealed class StringDatatype :
+    IDatatype<string>, IStringConvertible<string>, IDatatypeAffix, IDatatypePattern, IDatatypeReadOnly {
+    public StringDatatype(
       string nullText = ProseLiterals.Null,
       string prefix = null,
       string suffix = null,
@@ -171,10 +171,10 @@ namespace HELIX.Datatypes {
     }
   }
 
-  public sealed class ProseIntDatatype :
-    IProseDatatype<int>, IProseDatatype<int?>, IRange<int>, IUnit, IAffix,
+  public sealed class IntDatatype :
+    IDatatype<int>, IDatatype<int?>, IDatatypeRange<int>, IDatatypeUnit, IDatatypeAffix,
     INumericConvertible<int>, IStringConvertible<int> {
-    public ProseIntDatatype(
+    public IntDatatype(
       string format = null,
       int? min = null,
       int? max = null,
@@ -231,13 +231,13 @@ namespace HELIX.Datatypes {
     }
 
     private void WriteNumber(IProseWriter writer, string number) =>
-      ProseDatatypeUtility.WriteDecorated(writer, number, Prefix, Suffix, Unit);
+      DatatypeUtility.WriteDecorated(writer, number, Prefix, Suffix, Unit);
   }
 
-  public sealed class ProseLongDatatype :
-    IProseDatatype<long>, IProseDatatype<long?>, IRange<long>, IUnit, IAffix,
+  public sealed class LongDatatype :
+    IDatatype<long>, IDatatype<long?>, IDatatypeRange<long>, IDatatypeUnit, IDatatypeAffix,
     INumericConvertible<long>, IStringConvertible<long> {
-    public ProseLongDatatype(
+    public LongDatatype(
       string format = null, long? min = null, long? max = null,
       string prefix = null, string suffix = null,
       string nullText = ProseLiterals.Null, string unit = null, long? step = null
@@ -279,7 +279,7 @@ namespace HELIX.Datatypes {
       value, NumberStyles.Integer, CultureInfo.InvariantCulture
     );
 
-    public void ToProse(IProseWriter writer, long value) => ProseDatatypeUtility.WriteDecorated(
+    public void ToProse(IProseWriter writer, long value) => DatatypeUtility.WriteDecorated(
       writer, value.ToString(Format, CultureInfo.InvariantCulture), Prefix, Suffix, Unit
     );
 
@@ -289,10 +289,10 @@ namespace HELIX.Datatypes {
     }
   }
 
-  public sealed class ProseFloatDatatype :
-    IProseDatatype<float>, IProseDatatype<float?>, IRange<float>, IUnit, IAffix,
+  public sealed class FloatDatatype :
+    IDatatype<float>, IDatatype<float?>, IDatatypeRange<float>, IDatatypeUnit, IDatatypeAffix,
     INumericConvertible<float>, IStringConvertible<float> {
-    public ProseFloatDatatype(
+    public FloatDatatype(
       string format = "R", float? min = null, float? max = null,
       string prefix = null, string suffix = null,
       string nullText = ProseLiterals.Null, string unit = null,
@@ -344,10 +344,10 @@ namespace HELIX.Datatypes {
     public void ToProse(IProseWriter writer, float value) {
       if (Clamp) value = Math.Max(Min ?? float.MinValue, Math.Min(Max ?? float.MaxValue, value));
       value *= Scale;
-      ProseDatatypeUtility.WriteDecorated(
+      DatatypeUtility.WriteDecorated(
         writer,
         Compact
-          ? ProseDatatypeUtility.FormatCompact(value)
+          ? DatatypeUtility.FormatCompact(value)
           : value.ToString(Format, CultureInfo.InvariantCulture),
         Prefix, Suffix, Unit
       );
@@ -359,10 +359,10 @@ namespace HELIX.Datatypes {
     }
   }
 
-  public sealed class ProseDoubleDatatype :
-    IProseDatatype<double>, IProseDatatype<double?>, IRange<double>, IUnit, IAffix,
+  public sealed class DoubleDatatype :
+    IDatatype<double>, IDatatype<double?>, IDatatypeRange<double>, IDatatypeUnit, IDatatypeAffix,
     INumericConvertible<double>, IStringConvertible<double> {
-    public ProseDoubleDatatype(
+    public DoubleDatatype(
       string format = "R", double? min = null, double? max = null,
       string prefix = null, string suffix = null,
       string nullText = ProseLiterals.Null, string unit = null,
@@ -407,9 +407,9 @@ namespace HELIX.Datatypes {
       value, NumberStyles.Float, CultureInfo.InvariantCulture
     );
 
-    public void ToProse(IProseWriter writer, double value) => ProseDatatypeUtility.WriteDecorated(
+    public void ToProse(IProseWriter writer, double value) => DatatypeUtility.WriteDecorated(
       writer,
-      Compact ? ProseDatatypeUtility.FormatCompact(value) : value.ToString(Format, CultureInfo.InvariantCulture),
+      Compact ? DatatypeUtility.FormatCompact(value) : value.ToString(Format, CultureInfo.InvariantCulture),
       Prefix, Suffix, Unit
     );
 
@@ -419,9 +419,9 @@ namespace HELIX.Datatypes {
     }
   }
 
-  public sealed class ProseBoolDatatype :
-    IProseDatatype<bool>, IProseDatatype<bool?>, IStringConvertible<bool> {
-    public ProseBoolDatatype(
+  public sealed class BoolDatatype :
+    IDatatype<bool>, IDatatype<bool?>, IStringConvertible<bool> {
+    public BoolDatatype(
       string trueText = "true", string falseText = "false",
       string nullText = ProseLiterals.Null
     ) {
@@ -442,8 +442,8 @@ namespace HELIX.Datatypes {
   }
 
   /// <summary>Maps nullable flag states to configured text.</summary>
-  public sealed class ProseFlagDatatype : IProseDatatype<bool>, IProseDatatype<bool?> {
-    public ProseFlagDatatype(
+  public sealed class FlagDatatype : IDatatype<bool>, IDatatype<bool?> {
+    public FlagDatatype(
       string ifTrue = null, string ifFalse = null, string ifNull = ProseLiterals.Null
     ) {
       if (ifTrue == null && ifFalse == null)
@@ -462,12 +462,12 @@ namespace HELIX.Datatypes {
       writer.Write(value.HasValue ? value.Value ? IfTrue : IfFalse : IfNull);
   }
 
-  public sealed class ProseEnumDatatype<T> :
-    IProseDatatype<T>, IProseDatatype<T?>, IChoice, IAffix,
+  public sealed class EnumDatatype<T> :
+    IDatatype<T>, IDatatype<T?>, IDatatypeChoice, IDatatypeAffix,
     IStringConvertible<T>, INumericConvertible<T> where T : struct, Enum {
     private static readonly T[] _values = (T[])Enum.GetValues(typeof(T));
 
-    public ProseEnumDatatype(
+    public EnumDatatype(
       string nullText = ProseLiterals.Null, string prefix = null, string suffix = null
     ) {
       NullText = nullText;
@@ -500,7 +500,7 @@ namespace HELIX.Datatypes {
       (T)Enum.ToObject(typeof(T), Convert.ToInt64(value));
 
     public void ToProse(IProseWriter writer, T value) =>
-      ProseDatatypeUtility.WriteDecorated(writer, value.ToString(), Prefix, Suffix);
+      DatatypeUtility.WriteDecorated(writer, value.ToString(), Prefix, Suffix);
 
     public void ToProse(IProseWriter writer, T? value) {
       if (value.HasValue) ToProse(writer, value.Value);
@@ -509,14 +509,14 @@ namespace HELIX.Datatypes {
   }
 
   /// <summary>Describes a finite set of choices for values that are not CLR enums.</summary>
-  public sealed class ProseChoiceDatatype<T> :
-    IProseDatatype<T>, IChoice, IStringConvertible<T>, INumericConvertible<T> {
-    private readonly IReadOnlyList<ProseChoice<T>> _choices;
+  public sealed class DatatypeChoiceDatatype<T> :
+    IDatatype<T>, IDatatypeChoice, IStringConvertible<T>, INumericConvertible<T> {
+    private readonly IReadOnlyList<DatatypeChoice<T>> _choices;
 
-    public ProseChoiceDatatype(IReadOnlyList<ProseChoice<T>> choices) =>
+    public DatatypeChoiceDatatype(IReadOnlyList<DatatypeChoice<T>> choices) =>
       _choices = choices ?? throw new ArgumentNullException(nameof(choices));
 
-    public IReadOnlyList<ProseChoice<T>> Choices => _choices;
+    public IReadOnlyList<DatatypeChoice<T>> Choices => _choices;
     public int ChoiceCount => _choices.Count;
     public object GetChoiceValue(int index) => _choices[index].Value;
     public string GetChoiceLabel(int index) => _choices[index].Label;
@@ -532,21 +532,21 @@ namespace HELIX.Datatypes {
     public T FromString(string value) {
       for (var i = 0; i < _choices.Count; i++)
         if (_choices[i].Label == value) return _choices[i].Value;
-      return ProseDatatypeUtility.ConvertFrom<T>(value);
+      return DatatypeUtility.ConvertFrom<T>(value);
     }
 
     public byte ToByte(T value) => Convert.ToByte(value);
-    public T FromByte(byte value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public T FromByte(byte value) => DatatypeUtility.ConvertFrom<T>(value);
     public short ToShort(T value) => Convert.ToInt16(value);
-    public T FromShort(short value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public T FromShort(short value) => DatatypeUtility.ConvertFrom<T>(value);
     public int ToInt(T value) => Convert.ToInt32(value);
-    public T FromInt(int value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public T FromInt(int value) => DatatypeUtility.ConvertFrom<T>(value);
     public long ToLong(T value) => Convert.ToInt64(value);
-    public T FromLong(long value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public T FromLong(long value) => DatatypeUtility.ConvertFrom<T>(value);
     public float ToFloat(T value) => Convert.ToSingle(value);
-    public T FromFloat(float value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public T FromFloat(float value) => DatatypeUtility.ConvertFrom<T>(value);
     public double ToDouble(T value) => Convert.ToDouble(value);
-    public T FromDouble(double value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public T FromDouble(double value) => DatatypeUtility.ConvertFrom<T>(value);
 
     public void ToProse(IProseWriter writer, T value) {
       for (var i = 0; i < _choices.Count; i++) {
@@ -558,9 +558,9 @@ namespace HELIX.Datatypes {
     }
   }
 
-  public sealed class ProseObjectDatatype<T> :
-    IProseDatatype<T>, IAffix, IStringConvertible<T> {
-    public ProseObjectDatatype(
+  public sealed class ObjectDatatype<T> :
+    IDatatype<T>, IDatatypeAffix, IStringConvertible<T> {
+    public ObjectDatatype(
       string nullText = ProseLiterals.Null, string prefix = null, string suffix = null
     ) {
       NullText = nullText;
@@ -579,15 +579,15 @@ namespace HELIX.Datatypes {
       : (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
 
     public void ToProse(IProseWriter writer, T value) {
-      ProseDatatypeUtility.WriteDecorated(
+      DatatypeUtility.WriteDecorated(
         writer, value == null ? NullText : value.ToString(), Prefix, Suffix
       );
     }
   }
 
   /// <summary>Maps object presence to configured text.</summary>
-  public sealed class ProseObjectFlagDatatype<T> : IProseDatatype<T> {
-    public ProseObjectFlagDatatype(string ifPresent = null, string ifNull = null) {
+  public sealed class ObjectFlagDatatype<T> : IDatatype<T> {
+    public ObjectFlagDatatype(string ifPresent = null, string ifNull = null) {
       if (ifPresent == null && ifNull == null)
         throw new ArgumentException("At least one object state must be configured.");
       IfPresent = ifPresent;
@@ -600,8 +600,8 @@ namespace HELIX.Datatypes {
   }
 
   /// <summary>Formats Unity colors in the same compact form as diagnostics color properties.</summary>
-  public sealed class ProseColorDatatype : IProseDatatype<Color>, IStringConvertible<Color> {
-    public ProseColorDatatype(
+  public sealed class ColorDatatype : IDatatype<Color>, IStringConvertible<Color> {
+    public ColorDatatype(
       string transparentText = "transparent", string prefix = null, string suffix = null
     ) {
       TransparentText = transparentText;
@@ -621,28 +621,28 @@ namespace HELIX.Datatypes {
       throw new FormatException($"Invalid color format: {value}");
     }
 
-    public void ToProse(IProseWriter writer, Color value) => ProseDatatypeUtility.WriteDecorated(
+    public void ToProse(IProseWriter writer, Color value) => DatatypeUtility.WriteDecorated(
       writer, value.a == 0 ? TransparentText : value.ToHex(), Prefix, Suffix
     );
   }
 
   /// <summary>Formats UI Toolkit style keywords or delegates formatting of their resolved value.</summary>
-  public sealed class ProseStyleValueDatatype<T> : IProseDatatype<IStyleValue<T>> {
-    public ProseStyleValueDatatype(
-      IProseDatatype<T> valueDatatype = null,
+  public sealed class StyleValueDatatype<T> : IDatatype<IStyleValue<T>> {
+    public StyleValueDatatype(
+      IDatatype<T> valueDatatype = null,
       string nullText = ProseLiterals.Null,
       string autoText = "<auto>",
       string noneText = "<none>",
       string initialText = "<initial>"
     ) {
-      ValueDatatype = valueDatatype ?? ProseDatatypes.Object<T>();
+      ValueDatatype = valueDatatype ?? Datatypes.Object<T>();
       NullText = nullText;
       AutoText = autoText;
       NoneText = noneText;
       InitialText = initialText;
     }
 
-    public IProseDatatype<T> ValueDatatype { get; }
+    public IDatatype<T> ValueDatatype { get; }
     public string NullText { get; }
     public string AutoText { get; }
     public string NoneText { get; }
@@ -664,10 +664,10 @@ namespace HELIX.Datatypes {
   }
 
   /// <summary>Adapts a reusable delegate to the semantic formatter contract.</summary>
-  public sealed class ProseFormattingDatatype<T> : IProseDatatype<T> {
+  public sealed class FormattingDatatype<T> : IDatatype<T> {
     private readonly Func<T, string> _formatter;
 
-    public ProseFormattingDatatype(
+    public FormattingDatatype(
       Func<T, string> formatter, string nullText = ProseLiterals.Null,
       string prefix = null, string suffix = null
     ) {
@@ -681,22 +681,22 @@ namespace HELIX.Datatypes {
     public string Prefix { get; }
     public string Suffix { get; }
 
-    public void ToProse(IProseWriter writer, T value) => ProseDatatypeUtility.WriteDecorated(
+    public void ToProse(IProseWriter writer, T value) => DatatypeUtility.WriteDecorated(
       writer, value == null ? NullText : _formatter(value), Prefix, Suffix
     );
   }
 
   /// <summary>Streams iterable items directly to a writer without materializing an intermediate list.</summary>
-  public sealed class ProseIterableDatatype<T> : IProseDatatype<IEnumerable<T>> {
-    public ProseIterableDatatype(
-      IProseDatatype<T> itemDatatype = null,
+  public sealed class IterableDatatype<T> : IDatatype<IEnumerable<T>> {
+    public IterableDatatype(
+      IDatatype<T> itemDatatype = null,
       string nullText = ProseLiterals.Null,
       string emptyText = "[]",
       string prefix = "[",
       string separator = ", ",
       string suffix = "]"
     ) {
-      ItemDatatype = itemDatatype ?? ProseDatatypes.Object<T>();
+      ItemDatatype = itemDatatype ?? Datatypes.Object<T>();
       NullText = nullText;
       EmptyText = emptyText;
       Prefix = prefix;
@@ -704,7 +704,7 @@ namespace HELIX.Datatypes {
       Suffix = suffix;
     }
 
-    public IProseDatatype<T> ItemDatatype { get; }
+    public IDatatype<T> ItemDatatype { get; }
     public string NullText { get; }
     public string EmptyText { get; }
     public string Prefix { get; }
@@ -735,34 +735,5 @@ namespace HELIX.Datatypes {
       }
       if (Suffix != null) writer.Write(Suffix);
     }
-  }
-
-  internal static class ProseDatatypeUtility {
-    internal static T ConvertFrom<T>(object value) {
-      if (!typeof(T).IsEnum)
-        return (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
-      if (value is string text) return (T)Enum.Parse(typeof(T), text);
-      var underlying = Enum.GetUnderlyingType(typeof(T));
-      return (T)Enum.ToObject(
-        typeof(T), Convert.ChangeType(value, underlying, CultureInfo.InvariantCulture)
-      );
-    }
-
-    internal static void WriteDecorated(
-      IProseWriter writer, string value, string prefix, string suffix, string unit = null
-    ) {
-      if (prefix != null) writer.Write(prefix);
-      writer.Write(value);
-      if (suffix != null) writer.Write(suffix);
-      if (unit != null) writer.Write(unit);
-    }
-
-    internal static string FormatCompact(float value) => float.IsNaN(value) || float.IsInfinity(value)
-      ? value.ToString(CultureInfo.InvariantCulture)
-      : value.ToString("0.0###############", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.');
-
-    internal static string FormatCompact(double value) => double.IsNaN(value) || double.IsInfinity(value)
-      ? value.ToString(CultureInfo.InvariantCulture)
-      : value.ToString("0.0###############", CultureInfo.InvariantCulture).TrimEnd('0').TrimEnd('.');
   }
 }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using HELIX.Datatypes;
 using HELIX.Prose;
 using NUnit.Framework;
 
@@ -11,9 +10,9 @@ namespace HELIX.Tests {
       var writer = new ProseTextWriter(minimumLevel: ProseLevel.Info);
 
       writer.Name("Person");
-      writer.Property("Age", 12, ProseDatatypes.Int);
-      writer.Property("Debug", "filtered", ProseDatatypes.String, ProseLevel.Debug);
-      writer.Property("Tag", (string)null, ProseDatatypes.String, hidden: true);
+      writer.Property("Age", 12, Datatypes.Int);
+      writer.Property("Debug", "filtered", Datatypes.String, ProseLevel.Debug);
+      writer.Property("Tag", (string)null, Datatypes.String, hidden: true);
 
       Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Item 1");
@@ -88,33 +87,33 @@ namespace HELIX.Tests {
       );
       var writer = new ProseTextWriter(configuration: configuration);
 
-      writer.Property("Named", "value", ProseDatatypes.String, hideSeparator: true);
-      writer.Property("Hidden", "standalone", ProseDatatypes.String, hideName: true);
+      writer.Property("Named", "value", Datatypes.String, hideSeparator: true);
+      writer.Property("Hidden", "standalone", Datatypes.String, hideName: true);
       writer.Property(
-        "State", 42, ProseDatatypes.Int,
+        "State", 42, Datatypes.Int,
         description: "the answer"
       );
 
       Assert.That(writer.Build().TrimEnd(), Is.EqualTo("Namedvalue\nstandalone\nState => the answer"));
 
       var unity = new ProseUnityRichTextWriter(configuration: configuration);
-      unity.Property("Named", "value", ProseDatatypes.String, hideSeparator: true);
-      unity.Property("Hidden", "standalone", ProseDatatypes.String, hideName: true);
-      unity.Property("State", 42, ProseDatatypes.Int, description: "the answer");
+      unity.Property("Named", "value", Datatypes.String, hideSeparator: true);
+      unity.Property("Hidden", "standalone", Datatypes.String, hideName: true);
+      unity.Property("State", 42, Datatypes.Int, description: "the answer");
       Assert.That(unity.Build().TrimEnd(), Is.EqualTo("Namedvalue\nstandalone\nState => the answer"));
     }
 
     [Test]
     public void TextWriter_TreatsConfiguredDefaultValuesAsFine() {
       var writer = new ProseTextWriter(minimumLevel: ProseLevel.Info);
-      writer.Property("Unchanged", 5, ProseDatatypes.Int, defaultValue: 5);
-      writer.Property("Changed", 6, ProseDatatypes.Int, defaultValue: 5);
+      writer.Property("Unchanged", 5, Datatypes.Int, defaultValue: 5);
+      writer.Property("Changed", 6, Datatypes.Int, defaultValue: 5);
 
       Assert.That(writer.Build().TrimEnd(), Is.EqualTo("Changed: 6"));
 
       writer.Reset();
       writer.MinimumLevel = ProseLevel.Fine;
-      writer.Property("Unchanged", 5, ProseDatatypes.Int, defaultValue: 5);
+      writer.Property("Unchanged", 5, Datatypes.Int, defaultValue: 5);
       Assert.That(writer.Build().TrimEnd(), Is.EqualTo("Unchanged: 5"));
     }
 
@@ -181,7 +180,7 @@ namespace HELIX.Tests {
       );
       var writer = new ProseTextWriter(wrapWidth: 20, configuration: configuration);
 
-      writer.Property("Summary", "alpha beta gamma", ProseDatatypes.String
+      writer.Property("Summary", "alpha beta gamma", Datatypes.String
       );
 
       Assert.That(
@@ -248,7 +247,7 @@ namespace HELIX.Tests {
 
       Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Parent");
-      writer.Property("State", "ready", ProseDatatypes.String);
+      writer.Property("State", "ready", Datatypes.String);
       Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("First");
       writer.End();
@@ -272,7 +271,7 @@ namespace HELIX.Tests {
       writer.Property(
         "Message",
         "alpha beta gamma delta epsilon",
-        ProseDatatypes.String
+        Datatypes.String
       );
       writer.End();
       Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
@@ -326,7 +325,7 @@ namespace HELIX.Tests {
       writer.Property(
         "Message",
         "alpha beta gamma delta",
-        ProseDatatypes.String
+        Datatypes.String
       );
       writer.Write("first\nsecond");
 
@@ -357,8 +356,8 @@ namespace HELIX.Tests {
         )
       );
       var populated = new ProseTextWriter(configuration: configuration);
-      populated.Property("A", 1, ProseDatatypes.Int);
-      populated.Property("B", 2, ProseDatatypes.Int);
+      populated.Property("A", 1, Datatypes.Int);
+      populated.Property("B", 2, Datatypes.Int);
       Assert.That(populated.Build(), Is.EqualTo("[A: 1, B: 2]!"));
 
       var empty = new ProseTextWriter(configuration: configuration);
@@ -417,8 +416,8 @@ namespace HELIX.Tests {
       );
       var writer = new ProseTextWriter(configuration: configuration);
 
-      writer.Property("A", 1, ProseDatatypes.Int);
-      writer.Property("B", 2, ProseDatatypes.Int);
+      writer.Property("A", 1, Datatypes.Int);
+      writer.Property("B", 2, Datatypes.Int);
 
       Assert.That(writer.Build(), Is.EqualTo("[A: 1;XY]"));
     }
@@ -633,8 +632,8 @@ namespace HELIX.Tests {
     public void PlainTextConfigurations_ShallowTerminatesTheFinalPropertyList() {
       var writer = new ProseTextWriter(configuration: ProseTextConfigurations.Shallow);
       writer.Name("Root");
-      writer.Property("First", 1, ProseDatatypes.Int);
-      writer.Property("Second", 2, ProseDatatypes.Int);
+      writer.Property("First", 1, Datatypes.Int);
+      writer.Property("Second", 2, Datatypes.Int);
 
       Assert.That(writer.Build(), Is.EqualTo("Root(First: 1, Second: 2)"));
     }
@@ -646,21 +645,21 @@ namespace HELIX.Tests {
         configuration: ProseTextConfigurations.Shallow
       );
       writer.Name("Asteria Orbital Relay Station");
-      writer.Property("Mission ID", "HX-ASTERIA-07", ProseDatatypes.String);
-      writer.Property("State", "Degraded", ProseDatatypes.String);
-      writer.Property("Crew aboard", "37 people", ProseDatatypes.String);
-      writer.Property("Orbit", "1842 completed", ProseDatatypes.String);
-      writer.Property("Autonomous control", "operational", ProseDatatypes.String);
+      writer.Property("Mission ID", "HX-ASTERIA-07", Datatypes.String);
+      writer.Property("State", "Degraded", Datatypes.String);
+      writer.Property("Crew aboard", "37 people", Datatypes.String);
+      writer.Property("Orbit", "1842 completed", Datatypes.String);
+      writer.Property("Autonomous control", "operational", Datatypes.String);
       writer.Property(
         "Summary",
         "Long-range relay and research platform holding a stable polar orbit while its secondary coolant " +
         "loop is isolated for inspection.",
-        ProseDatatypes.String
+        Datatypes.String
       );
       writer.Property(
         "Internal tracking token",
         "OPS-4A-9912",
-        ProseDatatypes.String,
+        Datatypes.String,
         hidden: true
       );
 
@@ -682,7 +681,7 @@ namespace HELIX.Tests {
                }) {
         var writer = new ProseTextWriter(configuration: configuration);
         writer.Name("Root");
-        writer.Property("Value", 1, ProseDatatypes.Int);
+        writer.Property("Value", 1, Datatypes.Int);
         writer.WriteSpan("important", ProseTextStyle.Strong);
         writer.WriteSpan("docs", linkTarget: "https://example.test");
         writer.WriteCodeBlock("run command", "shell");
@@ -703,7 +702,7 @@ namespace HELIX.Tests {
     public void PlainConfiguration_UsesAsciiTreeAndIncludesAllTextFeatures() {
       var writer = new ProseTextWriter(configuration: ProseTextConfigurations.Plain);
       writer.Name("Root");
-      writer.Property("Value", 1, ProseDatatypes.Int);
+      writer.Property("Value", 1, Datatypes.Int);
       WriteStructuredProse(writer);
       writer.WriteCodeBlock("run command", "shell");
 
@@ -740,12 +739,12 @@ namespace HELIX.Tests {
       Assert.That(writer.TryBeginFrame(ProseScopes.Paragraph), Is.True);
       writer.Write("Station narrative.");
       writer.End();
-      writer.Property("State", "Degraded", ProseDatatypes.String);
+      writer.Property("State", "Degraded", Datatypes.String);
 
       Assert.That(writer.TryBeginFrame(ProseScopes.Paragraph), Is.True);
       writer.WriteSpan("Operator note.", ProseTextStyle.Quote);
       writer.End();
-      writer.Property("Owner", "Operations", ProseDatatypes.String);
+      writer.Property("Owner", "Operations", Datatypes.String);
 
       Assert.That(
         writer.Build(),
@@ -766,7 +765,7 @@ namespace HELIX.Tests {
 
       Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Item");
-      writer.Property("Enabled", true, ProseDatatypes.Bool);
+      writer.Property("Enabled", true, Datatypes.Bool);
       writer.End();
 
       Assert.That(writer.Root[ProseDictionaryWriter.NameKey], Is.EqualTo("Person"));
@@ -991,10 +990,10 @@ namespace HELIX.Tests {
     public void UnityRichTextWriter_DefaultConfigurationIncludesAnAsciiTree() {
       var writer = new ProseUnityRichTextWriter();
       writer.Name("Root");
-      writer.Property("Value", 1, ProseDatatypes.Int);
+      writer.Property("Value", 1, Datatypes.Int);
       Assert.That(writer.TryBeginFrame(ProseScopes.Tree), Is.True);
       writer.Name("Child");
-      writer.Property("Child value", 2, ProseDatatypes.Int);
+      writer.Property("Child value", 2, Datatypes.Int);
       writer.End();
 
       Assert.That(
@@ -1083,23 +1082,23 @@ namespace HELIX.Tests {
     [Test]
     public void ConfiguredFormatters_CoverDiagnosticValuePresentation() {
       var writer = new ProseTextWriter();
-      writer.Write("", new ProseStringDatatype(emptyText: "<empty>", quoted: true));
+      writer.Write("", new StringDatatype(emptyText: "<empty>", quoted: true));
       writer.Write(" | ");
-      writer.Write("value", new ProseStringDatatype(prefix: "<", suffix: ">", quoted: true));
+      writer.Write("value", new StringDatatype(prefix: "<", suffix: ">", quoted: true));
       writer.Write(" | ");
-      writer.Write((int?)null, new ProseIntDatatype(nullText: "missing"));
+      writer.Write((int?)null, new IntDatatype(nullText: "missing"));
       writer.Write(" | ");
-      writer.Write(12.5f, new ProseFloatDatatype(compact: true, unit: "px"));
+      writer.Write(12.5f, new FloatDatatype(compact: true, unit: "px"));
       writer.Write(" | ");
-      writer.Write(12.5f, ProseDatatypes.Percent);
+      writer.Write(12.5f, Datatypes.Percent);
       writer.Write(" load");
       writer.Write(" | ");
-      writer.Write(1.2f, ProseDatatypes.PercentNormalized);
+      writer.Write(1.2f, Datatypes.PercentNormalized);
       writer.Write(" normalized");
       writer.Write(" | ");
-      writer.Write((bool?)null, new ProseBoolDatatype("yes", "no", "unknown"));
+      writer.Write((bool?)null, new BoolDatatype("yes", "no", "unknown"));
       writer.Write(" | ");
-      writer.Write(3, new ProseFormattingDatatype<int>(value => "#" + value));
+      writer.Write(3, new FormattingDatatype<int>(value => "#" + value));
 
       Assert.That(
         writer.Build(),
@@ -1111,12 +1110,12 @@ namespace HELIX.Tests {
 
     [Test]
     public void DefaultFormatters_AreOwnedByTheCentralRegistry() {
-      Assert.That(ProseDatatypes.String, Is.SameAs(ProseDatatypes.String));
-      Assert.That(ProseDatatypes.Int, Is.SameAs(ProseDatatypes.Int));
-      Assert.That(ProseDatatypes.Enum<DayOfWeek>(), Is.SameAs(ProseDatatypes.Enum<DayOfWeek>()));
-      Assert.That(ProseDatatypes.Object<object>(), Is.SameAs(ProseDatatypes.Object<object>()));
-      Assert.That(typeof(ProseStringDatatype).GetField("Instance"), Is.Null);
-      Assert.That(typeof(ProseIntDatatype).GetField("Instance"), Is.Null);
+      Assert.That(Datatypes.String, Is.SameAs(Datatypes.String));
+      Assert.That(Datatypes.Int, Is.SameAs(Datatypes.Int));
+      Assert.That(Datatypes.Enum<DayOfWeek>(), Is.SameAs(Datatypes.Enum<DayOfWeek>()));
+      Assert.That(Datatypes.Object<object>(), Is.SameAs(Datatypes.Object<object>()));
+      Assert.That(typeof(StringDatatype).GetField("Instance"), Is.Null);
+      Assert.That(typeof(IntDatatype).GetField("Instance"), Is.Null);
     }
 
     [Test]
@@ -1161,8 +1160,8 @@ namespace HELIX.Tests {
 
     [Test]
     public void IterableFormatter_StreamsItemsAndHandlesNullAndEmptyValues() {
-      var formatter = new ProseIterableDatatype<int>(
-        new ProseIntDatatype(format: "X"), prefix: "{", separator: "; ", suffix: "}"
+      var formatter = new IterableDatatype<int>(
+        new IntDatatype(format: "X"), prefix: "{", separator: "; ", suffix: "}"
       );
       var writer = new ProseTextWriter();
       writer.Write<IEnumerable<int>>(new[] { 10, 11, 12 }, formatter);
@@ -1222,10 +1221,10 @@ namespace HELIX.Tests {
     private static string RenderConfiguration(ProseTextConfiguration configuration) {
       var writer = new ProseTextWriter(configuration: configuration);
       writer.Name("Root");
-      writer.Property("Value", 1, ProseDatatypes.Int);
+      writer.Property("Value", 1, Datatypes.Int);
       if (writer.TryBeginFrame(ProseScopes.Tree)) {
         writer.Name("Child");
-        writer.Property("Child value", 2, ProseDatatypes.Int);
+        writer.Property("Child value", 2, Datatypes.Int);
         writer.End();
       }
       return writer.Build();
@@ -1255,7 +1254,7 @@ namespace HELIX.Tests {
       writer.End();
       Assert.That(writer.TryBeginFrame(ProseScopes.TableBodyRow), Is.True);
       writer.WriteTableCell("Alpha");
-      writer.WriteTableCell(3, ProseDatatypes.Int, ProseTextAlignment.Right
+      writer.WriteTableCell(3, Datatypes.Int, ProseTextAlignment.Right
       );
       writer.End();
       writer.End();
@@ -1266,7 +1265,7 @@ namespace HELIX.Tests {
       Assert.That(writer.TryBeginFrame(ProseScopes.Paragraph), Is.True);
       writer.WriteSpan(note, ProseTextStyle.Quote);
       writer.End();
-      writer.Property("State", "Degraded", ProseDatatypes.String);
+      writer.Property("State", "Degraded", Datatypes.String);
     }
 
     private static void WriteSingleCellTable(IProseWriter writer, string content) {
@@ -1308,18 +1307,18 @@ namespace HELIX.Tests {
       )
     };
 
-    private sealed class WrappedTextDatatype : IProseDatatype<WrappedText> {
+    private sealed class WrappedTextDatatype : IDatatype<WrappedText> {
       public static readonly WrappedTextDatatype Instance = new();
       private WrappedTextDatatype() { }
       public void ToProse(IProseWriter writer, WrappedText value) => writer.Write(value.Value);
     }
 
-    private static readonly ProseIntDatatype _hexDatatype = new("X");
-    private static readonly ProseBoolDatatype _yesNoDatatype = new("yes", "no");
-    private static readonly ProsePropertyDatatype<int> _ageDatatype =
-      new("Age", new ProseIntDatatype(min: 0, max: 150, suffix: " years"));
+    private static readonly IntDatatype _hexDatatype = new("X");
+    private static readonly BoolDatatype _yesNoDatatype = new("yes", "no");
+    private static readonly PropertyDatatype<int> _ageDatatype =
+      new("Age", new IntDatatype(min: 0, max: 150, suffix: " years"));
 
-    private sealed class ThrowingIntDatatype : IProseDatatype<int> {
+    private sealed class ThrowingIntDatatype : IDatatype<int> {
       public static readonly ThrowingIntDatatype Instance = new();
       private ThrowingIntDatatype() { }
       public void ToProse(IProseWriter writer, int value) =>
