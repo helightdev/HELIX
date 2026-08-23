@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HELIX.Datatypes;
 using HELIX.Prose;
 using NUnit.Framework;
 

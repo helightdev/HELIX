@@ -1,4 +1,5 @@
 using HELIX.Compose;
+using HELIX.Datatypes;
 using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;

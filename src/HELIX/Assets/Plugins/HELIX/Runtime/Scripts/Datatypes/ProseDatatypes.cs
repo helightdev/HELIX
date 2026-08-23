@@ -2,34 +2,37 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using HELIX.Coloring;
+using HELIX.Prose;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Prose {
-  public interface IProseRangeFormatter<T> where T : struct {
+// ReSharper disable MemberCanBePrivate.Global
+
+namespace HELIX.Datatypes {
+  public interface IRange<T> where T : struct {
     T? Min { get; }
     T? Max { get; }
     T? Step { get; }
   }
 
-  public interface IProseUnitFormatter {
+  public interface IUnit {
     string Unit { get; }
   }
 
-  public interface IProseAffixFormatter {
+  public interface IAffix {
     string Prefix { get; }
     string Suffix { get; }
   }
 
-  public interface IProsePatternFormatter {
+  public interface IPattern {
     string Pattern { get; }
   }
 
-  public interface IProseReadOnlyFormatter {
+  public interface IReadOnly {
     bool ReadOnly { get; }
   }
 
-  public interface IProseChoiceFormatter {
+  public interface IChoice {
     int ChoiceCount { get; }
     object GetChoiceValue(int index);
     string GetChoiceLabel(int index);
@@ -48,7 +51,7 @@ namespace HELIX.Prose {
     public bool Enabled { get; }
   }
 
-  public interface IProseDefaultFormatter<out T> {
+  public interface IDefault<out T> {
     bool HasDefaultValue { get; }
     T DefaultValue { get; }
   }
@@ -122,7 +125,7 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseStringDatatype :
-    IProseDatatype<string>, IProseAffixFormatter, IProsePatternFormatter, IProseReadOnlyFormatter {
+    IProseDatatype<string>, IStringConvertible<string>, IAffix, IPattern, IReadOnly {
     public ProseStringDatatype(
       string nullText = ProseLiterals.Null,
       string prefix = null,
@@ -152,6 +155,9 @@ namespace HELIX.Prose {
     public string Pattern { get; }
     public bool ReadOnly { get; }
 
+    public string ToString(string value) => value;
+    public string FromString(string value) => value;
+
     public void ToProse(IProseWriter writer, string value) {
       if (Prefix != null) writer.Write(Prefix);
       if (value == null) writer.Write(NullText);
@@ -166,8 +172,8 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseIntDatatype :
-    IProseDatatype<int>, IProseDatatype<int?>, IProseRangeFormatter<int>,
-    IProseUnitFormatter, IProseAffixFormatter {
+    IProseDatatype<int>, IProseDatatype<int?>, IRange<int>, IUnit, IAffix,
+    INumericConvertible<int>, IStringConvertible<int> {
     public ProseIntDatatype(
       string format = null,
       int? min = null,
@@ -197,6 +203,24 @@ namespace HELIX.Prose {
     public string Unit { get; }
     public int? Step { get; }
 
+    public byte ToByte(int value) => Convert.ToByte(value);
+    public int FromByte(byte value) => value;
+    public short ToShort(int value) => Convert.ToInt16(value);
+    public int FromShort(short value) => value;
+    public int ToInt(int value) => value;
+    public int FromInt(int value) => value;
+    public long ToLong(int value) => value;
+    public int FromLong(long value) => Convert.ToInt32(value);
+    public float ToFloat(int value) => value;
+    public int FromFloat(float value) => Convert.ToInt32(value);
+    public double ToDouble(int value) => value;
+    public int FromDouble(double value) => Convert.ToInt32(value);
+    string IStringConvertible<int>.ToString(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    int IStringConvertible<int>.FromString(string value) => int.Parse(
+      value, NumberStyles.Integer, CultureInfo.InvariantCulture
+    );
+
     public void ToProse(IProseWriter writer, int value) {
       WriteNumber(writer, value.ToString(Format, CultureInfo.InvariantCulture));
     }
@@ -211,8 +235,8 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseLongDatatype :
-    IProseDatatype<long>, IProseDatatype<long?>, IProseRangeFormatter<long>, IProseUnitFormatter,
-    IProseAffixFormatter {
+    IProseDatatype<long>, IProseDatatype<long?>, IRange<long>, IUnit, IAffix,
+    INumericConvertible<long>, IStringConvertible<long> {
     public ProseLongDatatype(
       string format = null, long? min = null, long? max = null,
       string prefix = null, string suffix = null,
@@ -237,6 +261,24 @@ namespace HELIX.Prose {
     public string Unit { get; }
     public long? Step { get; }
 
+    public byte ToByte(long value) => Convert.ToByte(value);
+    public long FromByte(byte value) => value;
+    public short ToShort(long value) => Convert.ToInt16(value);
+    public long FromShort(short value) => value;
+    public int ToInt(long value) => Convert.ToInt32(value);
+    public long FromInt(int value) => value;
+    public long ToLong(long value) => value;
+    public long FromLong(long value) => value;
+    public float ToFloat(long value) => value;
+    public long FromFloat(float value) => Convert.ToInt64(value);
+    public double ToDouble(long value) => value;
+    public long FromDouble(double value) => Convert.ToInt64(value);
+    string IStringConvertible<long>.ToString(long value) => value.ToString(CultureInfo.InvariantCulture);
+
+    long IStringConvertible<long>.FromString(string value) => long.Parse(
+      value, NumberStyles.Integer, CultureInfo.InvariantCulture
+    );
+
     public void ToProse(IProseWriter writer, long value) => ProseDatatypeUtility.WriteDecorated(
       writer, value.ToString(Format, CultureInfo.InvariantCulture), Prefix, Suffix, Unit
     );
@@ -248,8 +290,8 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseFloatDatatype :
-    IProseDatatype<float>, IProseDatatype<float?>, IProseRangeFormatter<float>, IProseUnitFormatter,
-    IProseAffixFormatter {
+    IProseDatatype<float>, IProseDatatype<float?>, IRange<float>, IUnit, IAffix,
+    INumericConvertible<float>, IStringConvertible<float> {
     public ProseFloatDatatype(
       string format = "R", float? min = null, float? max = null,
       string prefix = null, string suffix = null,
@@ -281,6 +323,24 @@ namespace HELIX.Prose {
     public bool Clamp { get; }
     public float? Step { get; }
 
+    public byte ToByte(float value) => Convert.ToByte(value);
+    public float FromByte(byte value) => value;
+    public short ToShort(float value) => Convert.ToInt16(value);
+    public float FromShort(short value) => value;
+    public int ToInt(float value) => Convert.ToInt32(value);
+    public float FromInt(int value) => value;
+    public long ToLong(float value) => Convert.ToInt64(value);
+    public float FromLong(long value) => value;
+    public float ToFloat(float value) => value;
+    public float FromFloat(float value) => value;
+    public double ToDouble(float value) => value;
+    public float FromDouble(double value) => Convert.ToSingle(value);
+    string IStringConvertible<float>.ToString(float value) => value.ToString("R", CultureInfo.InvariantCulture);
+
+    float IStringConvertible<float>.FromString(string value) => float.Parse(
+      value, NumberStyles.Float, CultureInfo.InvariantCulture
+    );
+
     public void ToProse(IProseWriter writer, float value) {
       if (Clamp) value = Math.Max(Min ?? float.MinValue, Math.Min(Max ?? float.MaxValue, value));
       value *= Scale;
@@ -300,8 +360,8 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseDoubleDatatype :
-    IProseDatatype<double>, IProseDatatype<double?>, IProseRangeFormatter<double>, IProseUnitFormatter,
-    IProseAffixFormatter {
+    IProseDatatype<double>, IProseDatatype<double?>, IRange<double>, IUnit, IAffix,
+    INumericConvertible<double>, IStringConvertible<double> {
     public ProseDoubleDatatype(
       string format = "R", double? min = null, double? max = null,
       string prefix = null, string suffix = null,
@@ -329,6 +389,24 @@ namespace HELIX.Prose {
     public bool Compact { get; }
     public double? Step { get; }
 
+    public byte ToByte(double value) => Convert.ToByte(value);
+    public double FromByte(byte value) => value;
+    public short ToShort(double value) => Convert.ToInt16(value);
+    public double FromShort(short value) => value;
+    public int ToInt(double value) => Convert.ToInt32(value);
+    public double FromInt(int value) => value;
+    public long ToLong(double value) => Convert.ToInt64(value);
+    public double FromLong(long value) => value;
+    public float ToFloat(double value) => Convert.ToSingle(value);
+    public double FromFloat(float value) => value;
+    public double ToDouble(double value) => value;
+    public double FromDouble(double value) => value;
+    string IStringConvertible<double>.ToString(double value) => value.ToString("R", CultureInfo.InvariantCulture);
+
+    double IStringConvertible<double>.FromString(string value) => double.Parse(
+      value, NumberStyles.Float, CultureInfo.InvariantCulture
+    );
+
     public void ToProse(IProseWriter writer, double value) => ProseDatatypeUtility.WriteDecorated(
       writer,
       Compact ? ProseDatatypeUtility.FormatCompact(value) : value.ToString(Format, CultureInfo.InvariantCulture),
@@ -341,7 +419,8 @@ namespace HELIX.Prose {
     }
   }
 
-  public sealed class ProseBoolDatatype : IProseDatatype<bool>, IProseDatatype<bool?> {
+  public sealed class ProseBoolDatatype :
+    IProseDatatype<bool>, IProseDatatype<bool?>, IStringConvertible<bool> {
     public ProseBoolDatatype(
       string trueText = "true", string falseText = "false",
       string nullText = ProseLiterals.Null
@@ -354,6 +433,8 @@ namespace HELIX.Prose {
     public string TrueText { get; }
     public string FalseText { get; }
     public string NullText { get; }
+    public string ToString(bool value) => value.ToString();
+    public bool FromString(string value) => bool.Parse(value);
     public void ToProse(IProseWriter writer, bool value) => writer.Write(value ? TrueText : FalseText);
 
     public void ToProse(IProseWriter writer, bool? value) =>
@@ -382,8 +463,9 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseEnumDatatype<T> :
-    IProseDatatype<T>, IProseDatatype<T?>, IProseChoiceFormatter, IProseAffixFormatter where T : struct, Enum {
-    private static readonly T[] Values = (T[])Enum.GetValues(typeof(T));
+    IProseDatatype<T>, IProseDatatype<T?>, IChoice, IAffix,
+    IStringConvertible<T>, INumericConvertible<T> where T : struct, Enum {
+    private static readonly T[] _values = (T[])Enum.GetValues(typeof(T));
 
     public ProseEnumDatatype(
       string nullText = ProseLiterals.Null, string prefix = null, string suffix = null
@@ -396,10 +478,26 @@ namespace HELIX.Prose {
     public string NullText { get; }
     public string Prefix { get; }
     public string Suffix { get; }
-    public int ChoiceCount => Values.Length;
-    public object GetChoiceValue(int index) => Values[index];
-    public string GetChoiceLabel(int index) => Values[index].ToString();
+    public int ChoiceCount => _values.Length;
+    public object GetChoiceValue(int index) => _values[index];
+    public string GetChoiceLabel(int index) => _values[index].ToString();
     public bool IsChoiceEnabled(int index) => true;
+    public string ToString(T value) => value.ToString();
+    public T FromString(string value) => (T)Enum.Parse(typeof(T), value);
+    public byte ToByte(T value) => Convert.ToByte(value);
+    public T FromByte(byte value) => (T)Enum.ToObject(typeof(T), value);
+    public short ToShort(T value) => Convert.ToInt16(value);
+    public T FromShort(short value) => (T)Enum.ToObject(typeof(T), value);
+    public int ToInt(T value) => Convert.ToInt32(value);
+    public T FromInt(int value) => (T)Enum.ToObject(typeof(T), value);
+    public long ToLong(T value) => Convert.ToInt64(value);
+    public T FromLong(long value) => (T)Enum.ToObject(typeof(T), value);
+    public float ToFloat(T value) => Convert.ToSingle(value);
+    public T FromFloat(float value) =>
+      (T)Enum.ToObject(typeof(T), Convert.ToInt64(value));
+    public double ToDouble(T value) => Convert.ToDouble(value);
+    public T FromDouble(double value) =>
+      (T)Enum.ToObject(typeof(T), Convert.ToInt64(value));
 
     public void ToProse(IProseWriter writer, T value) =>
       ProseDatatypeUtility.WriteDecorated(writer, value.ToString(), Prefix, Suffix);
@@ -411,7 +509,8 @@ namespace HELIX.Prose {
   }
 
   /// <summary>Describes a finite set of choices for values that are not CLR enums.</summary>
-  public sealed class ProseChoiceDatatype<T> : IProseDatatype<T>, IProseChoiceFormatter {
+  public sealed class ProseChoiceDatatype<T> :
+    IProseDatatype<T>, IChoice, IStringConvertible<T>, INumericConvertible<T> {
     private readonly IReadOnlyList<ProseChoice<T>> _choices;
 
     public ProseChoiceDatatype(IReadOnlyList<ProseChoice<T>> choices) =>
@@ -423,6 +522,32 @@ namespace HELIX.Prose {
     public string GetChoiceLabel(int index) => _choices[index].Label;
     public bool IsChoiceEnabled(int index) => _choices[index].Enabled;
 
+    public string ToString(T value) {
+      for (var i = 0; i < _choices.Count; i++)
+        if (EqualityComparer<T>.Default.Equals(_choices[i].Value, value))
+          return _choices[i].Label;
+      return value is null ? null : Convert.ToString(value, CultureInfo.InvariantCulture);
+    }
+
+    public T FromString(string value) {
+      for (var i = 0; i < _choices.Count; i++)
+        if (_choices[i].Label == value) return _choices[i].Value;
+      return ProseDatatypeUtility.ConvertFrom<T>(value);
+    }
+
+    public byte ToByte(T value) => Convert.ToByte(value);
+    public T FromByte(byte value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public short ToShort(T value) => Convert.ToInt16(value);
+    public T FromShort(short value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public int ToInt(T value) => Convert.ToInt32(value);
+    public T FromInt(int value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public long ToLong(T value) => Convert.ToInt64(value);
+    public T FromLong(long value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public float ToFloat(T value) => Convert.ToSingle(value);
+    public T FromFloat(float value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+    public double ToDouble(T value) => Convert.ToDouble(value);
+    public T FromDouble(double value) => ProseDatatypeUtility.ConvertFrom<T>(value);
+
     public void ToProse(IProseWriter writer, T value) {
       for (var i = 0; i < _choices.Count; i++) {
         if (!EqualityComparer<T>.Default.Equals(_choices[i].Value, value)) continue;
@@ -433,7 +558,8 @@ namespace HELIX.Prose {
     }
   }
 
-  public sealed class ProseObjectDatatype<T> : IProseDatatype<T>, IProseAffixFormatter {
+  public sealed class ProseObjectDatatype<T> :
+    IProseDatatype<T>, IAffix, IStringConvertible<T> {
     public ProseObjectDatatype(
       string nullText = ProseLiterals.Null, string prefix = null, string suffix = null
     ) {
@@ -445,6 +571,12 @@ namespace HELIX.Prose {
     public string NullText { get; }
     public string Prefix { get; }
     public string Suffix { get; }
+
+    public string ToString(T value) => value == null ? null : Convert.ToString(value, CultureInfo.InvariantCulture);
+
+    public T FromString(string value) => value == null
+      ? default
+      : (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
 
     public void ToProse(IProseWriter writer, T value) {
       ProseDatatypeUtility.WriteDecorated(
@@ -468,7 +600,7 @@ namespace HELIX.Prose {
   }
 
   /// <summary>Formats Unity colors in the same compact form as diagnostics color properties.</summary>
-  public sealed class ProseColorDatatype : IProseDatatype<Color> {
+  public sealed class ProseColorDatatype : IProseDatatype<Color>, IStringConvertible<Color> {
     public ProseColorDatatype(
       string transparentText = "transparent", string prefix = null, string suffix = null
     ) {
@@ -480,6 +612,14 @@ namespace HELIX.Prose {
     public string TransparentText { get; }
     public string Prefix { get; }
     public string Suffix { get; }
+
+    public string ToString(Color value) => value.a == 0 ? TransparentText : value.ToHex();
+
+    public Color FromString(string value) {
+      if (value == TransparentText) return Color.clear;
+      if (ColorUtility.TryParseHtmlString(value, out var color)) return color;
+      throw new FormatException($"Invalid color format: {value}");
+    }
 
     public void ToProse(IProseWriter writer, Color value) => ProseDatatypeUtility.WriteDecorated(
       writer, value.a == 0 ? TransparentText : value.ToHex(), Prefix, Suffix
@@ -598,6 +738,16 @@ namespace HELIX.Prose {
   }
 
   internal static class ProseDatatypeUtility {
+    internal static T ConvertFrom<T>(object value) {
+      if (!typeof(T).IsEnum)
+        return (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
+      if (value is string text) return (T)Enum.Parse(typeof(T), text);
+      var underlying = Enum.GetUnderlyingType(typeof(T));
+      return (T)Enum.ToObject(
+        typeof(T), Convert.ChangeType(value, underlying, CultureInfo.InvariantCulture)
+      );
+    }
+
     internal static void WriteDecorated(
       IProseWriter writer, string value, string prefix, string suffix, string unit = null
     ) {

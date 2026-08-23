@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HELIX.Compose;
 using HELIX.Compose.Forms;
+using HELIX.Datatypes;
 using HELIX.Types;
 using UnityEngine.UIElements;
 
@@ -124,7 +125,7 @@ namespace HELIX.Prose {
       IProseField field, object formatter, IReadOnlyList<ComposeProseFieldPart> parts,
       IReadOnlyList<IProseModifier> modifiers, out Composable result
     ) {
-      if (formatter is IProseChoiceFormatter choices)
+      if (formatter is IChoice choices)
         return Choice(field, choices, parts, modifiers, out result);
       if (formatter is IProseDatatype<string> && field is ProseField<string> text)
         return Text(text, parts, modifiers, out result);
@@ -139,7 +140,7 @@ namespace HELIX.Prose {
     }
 
     private static bool Choice(
-      IProseField field, IProseChoiceFormatter formatter, IReadOnlyList<ComposeProseFieldPart> parts,
+      IProseField field, IChoice formatter, IReadOnlyList<ComposeProseFieldPart> parts,
       IReadOnlyList<IProseModifier> modifiers, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path) || formatter.ChoiceCount == 0) {
@@ -318,7 +319,7 @@ namespace HELIX.Prose {
       field.FieldData?.HasFlag(FieldFlags.Error) == true;
 
     private static HXOptional<T> Default<T>(ProseField<T> field) =>
-      field.Datatype is IProseDefaultFormatter<T> value && value.HasDefaultValue
+      field.Datatype is IDefault<T> value && value.HasDefaultValue
         ? new HXOptional<T>(value.DefaultValue)
         : HXOptional<T>.None;
 
@@ -341,16 +342,16 @@ namespace HELIX.Prose {
     }
 
     private sealed class UntypedChoiceDatatype :
-      IProseDatatype<object>, IProseChoiceFormatter, IProseAffixFormatter {
-      private readonly IProseChoiceFormatter _formatter;
+      IProseDatatype<object>, IChoice, IAffix {
+      private readonly IChoice _formatter;
 
-      public UntypedChoiceDatatype(IProseChoiceFormatter formatter) => _formatter = formatter;
+      public UntypedChoiceDatatype(IChoice formatter) => _formatter = formatter;
       public int ChoiceCount => _formatter.ChoiceCount;
       public object GetChoiceValue(int index) => _formatter.GetChoiceValue(index);
       public string GetChoiceLabel(int index) => _formatter.GetChoiceLabel(index);
       public bool IsChoiceEnabled(int index) => _formatter.IsChoiceEnabled(index);
-      public string Prefix => (_formatter as IProseAffixFormatter)?.Prefix;
-      public string Suffix => (_formatter as IProseAffixFormatter)?.Suffix;
+      public string Prefix => (_formatter as IAffix)?.Prefix;
+      public string Suffix => (_formatter as IAffix)?.Suffix;
 
       public void ToProse(IProseWriter writer, object value) {
         for (var i = 0; i < ChoiceCount; i++) {

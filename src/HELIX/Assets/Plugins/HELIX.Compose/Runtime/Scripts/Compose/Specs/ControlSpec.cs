@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using HELIX.Datatypes;
 using HELIX.Prose;
 using HELIX.Types;
 using UnityEngine;
@@ -71,7 +72,7 @@ namespace HELIX.Compose {
 
   public sealed class ChoiceControlSpecHandler : ISpecHandler {
     public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec =>
-      spec is IControlSpec { Datatype: IProseChoiceFormatter } ? ControlFactory<T>.Choice : null;
+      spec is IControlSpec { Datatype: IChoice } ? ControlFactory<T>.Choice : null;
   }
 
   public abstract class ControlSpecHandler<TValue> : ISpecHandler {
@@ -167,7 +168,7 @@ namespace HELIX.Compose {
 
     private static void ComposeText(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
-      var readOnly = control.Datatype is IProseReadOnlyFormatter { ReadOnly: true };
+      var readOnly = control.Datatype is IReadOnly { ReadOnly: true };
       Decorations(control.Datatype, out var prefix, out var suffix);
       cx.TextField(
         value: new TextEditingValue((string)control.Value ?? ""),
@@ -182,7 +183,7 @@ namespace HELIX.Compose {
 
     private static void ComposeInteger(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
-      var range = control.Datatype as IProseRangeFormatter<int>;
+      var range = control.Datatype as IRange<int>;
       Decorations(control.Datatype, out var prefix, out var suffix);
       cx.FieldSlider(
         (int)control.Value, IntegerChanged, NumericCommitted,
@@ -194,7 +195,7 @@ namespace HELIX.Compose {
 
     private static void ComposeFloat(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
-      var range = control.Datatype as IProseRangeFormatter<float>;
+      var range = control.Datatype as IRange<float>;
       Decorations(control.Datatype, out var prefix, out var suffix);
       cx.FieldSlider(
         (float)control.Value, FloatChanged, NumericCommitted,
@@ -225,7 +226,7 @@ namespace HELIX.Compose {
 
     private static void ComposeChoice(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
-      var formatter = (IProseChoiceFormatter)control.Datatype;
+      var formatter = (IChoice)control.Datatype;
       var values = new DropdownOption<object>[formatter.ChoiceCount];
       for (var i = 0; i < values.Length; i++)
         values[i] = new DropdownOption<object>(
@@ -270,7 +271,7 @@ namespace HELIX.Compose {
       var control = Control(context);
       var formatter = Unwrap(control.Datatype);
       if (Formatting(formatter).TryParse(value.text, out var parsed)) {
-        var range = formatter as IProseRangeFormatter<float>;
+        var range = formatter as IRange<float>;
         if (range?.Min.HasValue == true && range.Max.HasValue) {
           var options = HXSliderElement.NormalizeOptions(
             new SliderOptions(range.Min.Value, range.Max.Value, range.Step ?? 0f)
@@ -316,10 +317,10 @@ namespace HELIX.Compose {
         return;
       }
       formatter = Unwrap(formatter);
-      var affixes = formatter as IProseAffixFormatter;
+      var affixes = formatter as IAffix;
       prefix = Text(affixes?.Prefix);
       var suffixText = affixes?.Suffix;
-      if (formatter is IProseUnitFormatter unit) suffixText += unit.Unit;
+      if (formatter is IUnit unit) suffixText += unit.Unit;
       suffix = Text(suffixText);
     }
 

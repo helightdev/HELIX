@@ -1,4 +1,5 @@
 using System;
+using HELIX.Datatypes;
 
 namespace HELIX.Prose {
   /// <summary>Owns a frame begun through <see cref="ProseWriterExtensions.Scope"/>.</summary>
