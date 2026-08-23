@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using HELIX.Prose;
 using HELIX.Types;
 using UnityEngine;
@@ -20,19 +19,6 @@ namespace HELIX.Compose {
     object Datatype { get; }
     Composable Prefix { get; }
     Composable Suffix { get; }
-  }
-
-  internal sealed class TextControlDatatype<T> : IDatatype<T>, ITextControlFormatter {
-    private readonly IDatatype<T> _datatype;
-    public TextControlDatatype(IDatatype<T> datatype, Composable prefix = null, Composable suffix = null) {
-      _datatype = datatype;
-      Prefix = prefix;
-      Suffix = suffix;
-    }
-    object ITextControlFormatter.Datatype => _datatype;
-    public Composable Prefix { get; }
-    public Composable Suffix { get; }
-    public void ToProse(IProseWriter writer, T value) => _datatype.ToProse(writer, value);
   }
 
   public readonly struct ControlSpec<T> : ISpec, IControlSpec {
@@ -109,29 +95,6 @@ namespace HELIX.Compose {
     internal static readonly ReadComposable<T> Checkbox = ControlSpecFactories.Checkbox;
   }
 
-  public readonly struct NumericFormatSettings {
-    public readonly string format;
-    public readonly IFormatProvider provider;
-    public readonly float scale;
-
-    public NumericFormatSettings(string format = null, IFormatProvider provider = null, float scale = 1f) {
-      this.format = format;
-      this.provider = provider;
-      this.scale = scale == 0f ? 1f : scale;
-    }
-
-    public string Format(float value) =>
-      (value * (scale == 0f ? 1f : scale)).ToString(format, provider ?? CultureInfo.InvariantCulture);
-
-    public bool TryParse(string text, out float value) {
-      if (float.TryParse(text, NumberStyles.Float, provider ?? CultureInfo.InvariantCulture, out value)) {
-        value /= scale == 0f ? 1f : scale;
-        return true;
-      }
-      return false;
-    }
-  }
-
   [BoundaryComposable(Extension = false, UseLookupCache = true)]
   internal partial class ControlSpecBoundary {
     public partial struct Props {
@@ -169,10 +132,9 @@ namespace HELIX.Compose {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
       var readOnly = control.Datatype is IDatatypeReadOnly { ReadOnly: true };
       Decorations(control.Datatype, out var prefix, out var suffix);
-      cx.TextField(
-        value: new TextEditingValue((string)control.Value ?? ""),
-        onChanged: TextChanged,
-        onEditingEnded: EditingEnded,
+      cx.DatatypeTextField(
+        (string)control.Value ?? "", (IStringConvertible<string>)control.Datatype,
+        onChanged: TextChanged, onEditingEnded: TextEditingEnded,
         enabled: control.Enabled && !readOnly,
         options: new TextInputOptions(readOnly: readOnly),
         prefix: prefix,
@@ -184,11 +146,10 @@ namespace HELIX.Compose {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
       var range = control.Datatype as IDatatypeRange<int>;
       Decorations(control.Datatype, out var prefix, out var suffix);
-      cx.FieldSlider(
-        (int)control.Value, IntegerChanged, NumericCommitted,
+      cx.DatatypeFieldSlider(
+        (int)control.Value, (IDatatype<int>)control.Datatype, IntegerChanged, NumericCommitted,
         range?.Min ?? 0, range?.Max ?? 100, range?.Step ?? 1,
-        control.Enabled, control.Error,
-        Formatting(control.Datatype), prefix, suffix, control.Datatype as IDatatype<float>
+        control.Enabled, control.Error, prefix, suffix
       );
     }
 
@@ -196,22 +157,20 @@ namespace HELIX.Compose {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
       var range = control.Datatype as IDatatypeRange<float>;
       Decorations(control.Datatype, out var prefix, out var suffix);
-      cx.FieldSlider(
-        (float)control.Value, FloatChanged, NumericCommitted,
+      cx.DatatypeFieldSlider(
+        (float)control.Value, (IDatatype<float>)control.Datatype, FloatChanged, NumericCommitted,
         range?.Min ?? 0f, range?.Max ?? 1f, range?.Step ?? 0f,
-        control.Enabled, control.Error,
-        Formatting(control.Datatype), prefix, suffix, control.Datatype as IDatatype<float>
+        control.Enabled, control.Error, prefix, suffix
       );
     }
 
     private static void ComposeFloatText(ref Composition cx) {
       var control = cx.Lookup<ControlSpecBoundary>().Control;
       var formatter = Unwrap(control.Datatype);
-      var formatting = Formatting(formatter);
       Decorations(control.Datatype, out var prefix, out var suffix);
-      cx.TextField(
-        value: new TextEditingValue(formatting.Format((float)control.Value)),
-        onEditingEnded: FloatEditingEnded,
+      cx.DatatypeTextField(
+        (float)control.Value, (IStringConvertible<float>)formatter,
+        onEditingEnded: FloatTextEditingEnded,
         enabled: control.Enabled,
         prefix: prefix,
         suffix: suffix
@@ -253,46 +212,42 @@ namespace HELIX.Compose {
       enabled: control.Enabled, error: control.Error
     );
 
-    private static void TextChanged(CompositionContext context, TextEditingValue value) =>
-      Control(context).Change(context, value.text);
+    private static void TextChanged(CompositionContext context, string value) =>
+      Control(context).Change(context, value);
 
-    private static void IntegerChanged(CompositionContext context, float value) =>
-      Control(context).Change(context, (int)Math.Round(value));
+    private static void IntegerChanged(CompositionContext context, int value) =>
+      Control(context).Change(context, value);
     private static void FloatChanged(CompositionContext context, float value) =>
       Control(context).Change(context, value);
 
-    private static void FloatEditingEnded(
-      CompositionContext context,
-      TextEditingValue value,
-      TextEditEndReason reason
+    private static void FloatTextEditingEnded(
+      CompositionContext context, float parsed, TextEditEndReason reason
     ) {
       if (reason != TextEditEndReason.Submitted) return;
       var control = Control(context);
       var formatter = Unwrap(control.Datatype);
-      if (Formatting(formatter).TryParse(value.text, out var parsed)) {
-        var range = formatter as IDatatypeRange<float>;
-        if (range?.Min.HasValue == true && range.Max.HasValue) {
-          var options = HXSliderElement.NormalizeOptions(
-            new SliderOptions(range.Min.Value, range.Max.Value, range.Step ?? 0f)
-          );
-          parsed = HXSliderElement.ClampAndSnap(parsed, in options);
-        } else {
-          if (range?.Step is > 0f) {
-            var origin = range.Min ?? 0f;
-            parsed = origin + Mathf.Round((parsed - origin) / range.Step.Value) * range.Step.Value;
-          }
-          if (range?.Min.HasValue == true) parsed = Mathf.Max(parsed, range.Min.Value);
-          if (range?.Max.HasValue == true) parsed = Mathf.Min(parsed, range.Max.Value);
+      var range = formatter as IDatatypeRange<float>;
+      if (range?.Min.HasValue == true && range.Max.HasValue) {
+        var options = HXSliderElement.NormalizeOptions(
+          new SliderOptions(range.Min.Value, range.Max.Value, range.Step ?? 0f)
+        );
+        parsed = HXSliderElement.ClampAndSnap(parsed, in options);
+      } else {
+        if (range?.Step is > 0f) {
+          var origin = range.Min ?? 0f;
+          parsed = origin + Mathf.Round((parsed - origin) / range.Step.Value) * range.Step.Value;
         }
-        control.Change(context, parsed);
+        if (range?.Min.HasValue == true) parsed = Mathf.Max(parsed, range.Min.Value);
+        if (range?.Max.HasValue == true) parsed = Mathf.Min(parsed, range.Max.Value);
       }
+      control.Change(context, parsed);
       control.Commit(context);
     }
 
     private static void BoolChanged(CompositionContext context, bool value) => Control(context).Change(context, value);
     private static void ChoiceChanged(CompositionContext context, object value) => Control(context).Change(context, value);
     private static void NumericCommitted(CompositionContext context) => Control(context).Commit(context);
-    private static void EditingEnded(CompositionContext context, TextEditingValue _, TextEditEndReason __) =>
+    private static void TextEditingEnded(CompositionContext context, string _, TextEditEndReason __) =>
       Control(context).Commit(context);
     private static IControlSpec Control(CompositionContext context) =>
       context.Lookup<ControlSpecBoundary>().Control;
@@ -300,16 +255,7 @@ namespace HELIX.Compose {
     private static object Unwrap(object formatter) =>
       formatter is ITextControlFormatter text ? text.Datatype : formatter;
 
-    private static NumericFormatSettings Formatting(object formatter) {
-      formatter = Unwrap(formatter);
-      if (formatter is FloatDatatype number)
-        return new NumericFormatSettings(number.Format, scale: number.Scale);
-      if (formatter is IntDatatype integer)
-        return new NumericFormatSettings(integer.Format);
-      return default;
-    }
-
-    private static void Decorations(object formatter, out Composable prefix, out Composable suffix) {
+    internal static void Decorations(object formatter, out Composable prefix, out Composable suffix) {
       if (formatter is ITextControlFormatter text && (text.Prefix != null || text.Suffix != null)) {
         prefix = text.Prefix;
         suffix = text.Suffix;

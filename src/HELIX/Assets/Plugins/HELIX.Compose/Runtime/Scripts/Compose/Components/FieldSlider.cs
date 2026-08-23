@@ -1,7 +1,4 @@
-using HELIX.Theming;
-using HELIX.Types;
 using HELIX.Prose;
-using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   /// <summary>A slider with a compact exact-value editor beside it.</summary>
@@ -16,54 +13,35 @@ namespace HELIX.Compose {
       [Prop(0f)] public float step;
       [Prop(true)] public bool enabled;
       [Prop(false)] public bool error;
-      [Prop("default", PropInit.Constant, Equatable = false)] public NumericFormatSettings formatting;
       [Prop(null)] public Composable prefix;
       [Prop(null)] public Composable suffix;
       [Prop(null, Equatable = false)] public IDatatype<float> datatype;
     }
 
+    private FloatDatatype _automaticDatatype;
+    private float _automaticMin, _automaticMax, _automaticStep;
+
     protected override void OnRecompose(ref Composition cx) {
-      using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
-        cx.Slider(
-            props.value,
-            onChanged: ChangeFromSlider,
-            onCommitted: CommitFromSlider,
-            options: new SliderOptions(props.min, props.max, props.step),
-            enabled: props.enabled,
-            error: props.error
-          )
-          .Flexible();
-        cx.Gap(ThemeProperties.TextGap[in cx]);
-        cx.Spec(new ControlSpec<float>(
-          props.value,
-          new TextControlDatatype<float>(
-            props.datatype ?? new FloatDatatype(
-              format: props.formatting.format ?? "R",
-              min: props.min,
-              max: props.max,
-              scale: props.formatting.scale == 0f ? 1f : props.formatting.scale,
-              step: props.step
-            ),
-            props.prefix,
-            props.suffix
-          ),
-          props.onChanged,
-          props.onCommitted,
-          props.enabled,
-          props.error
-        ));
-        cx.CURSOR.Width(ThemeProperties.CompanionFieldWidth[in cx]);
+      var datatype = props.datatype;
+      if (datatype == null) {
+        if (_automaticDatatype == null || !_automaticMin.Equals(props.min) || !_automaticMax.Equals(props.max) ||
+            !_automaticStep.Equals(props.step)) {
+          _automaticMin = props.min;
+          _automaticMax = props.max;
+          _automaticStep = props.step;
+          _automaticDatatype = new FloatDatatype(
+            min: props.min,
+            max: props.max,
+            step: props.step
+          );
+        }
+        datatype = _automaticDatatype;
       }
-    }
-
-    private static void ChangeFromSlider(CompositionContext context, float value) {
-      var component = context.Lookup<FieldSlider>();
-      component?.props.onChanged?.Call(component.Node, value);
-    }
-
-    private static void CommitFromSlider(CompositionContext context, float _) {
-      var component = context.Lookup<FieldSlider>();
-      component?.props.onCommitted?.Call(component.Node);
+      cx.DatatypeFieldSlider(
+        props.value, datatype, props.onChanged, props.onCommitted,
+        props.min, props.max, props.step, props.enabled, props.error,
+        props.prefix, props.suffix
+      );
     }
   }
 }

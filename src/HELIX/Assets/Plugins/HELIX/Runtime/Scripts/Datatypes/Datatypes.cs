@@ -39,6 +39,10 @@ namespace HELIX {
     bool IsChoiceEnabled(int index);
   }
 
+  public interface IDatatypeChoice<out T> : IDatatypeChoice {
+    T GetTypedChoiceValue(int index);
+  }
+
   public readonly struct DatatypeChoice<T> {
     public DatatypeChoice(T value, string label, bool enabled = true) {
       Value = value;
@@ -463,7 +467,7 @@ namespace HELIX {
   }
 
   public sealed class EnumDatatype<T> :
-    IDatatype<T>, IDatatype<T?>, IDatatypeChoice, IDatatypeAffix,
+    IDatatype<T>, IDatatype<T?>, IDatatypeChoice<T>, IDatatypeAffix,
     IStringConvertible<T>, INumericConvertible<T> where T : struct, Enum {
     private static readonly T[] _values = (T[])Enum.GetValues(typeof(T));
 
@@ -480,6 +484,7 @@ namespace HELIX {
     public string Suffix { get; }
     public int ChoiceCount => _values.Length;
     public object GetChoiceValue(int index) => _values[index];
+    public T GetTypedChoiceValue(int index) => _values[index];
     public string GetChoiceLabel(int index) => _values[index].ToString();
     public bool IsChoiceEnabled(int index) => true;
     public string ToString(T value) => value.ToString();
@@ -510,7 +515,7 @@ namespace HELIX {
 
   /// <summary>Describes a finite set of choices for values that are not CLR enums.</summary>
   public sealed class DatatypeChoiceDatatype<T> :
-    IDatatype<T>, IDatatypeChoice, IStringConvertible<T>, INumericConvertible<T> {
+    IDatatype<T>, IDatatypeChoice<T>, IStringConvertible<T>, INumericConvertible<T> {
     private readonly IReadOnlyList<DatatypeChoice<T>> _choices;
 
     public DatatypeChoiceDatatype(IReadOnlyList<DatatypeChoice<T>> choices) =>
@@ -519,6 +524,7 @@ namespace HELIX {
     public IReadOnlyList<DatatypeChoice<T>> Choices => _choices;
     public int ChoiceCount => _choices.Count;
     public object GetChoiceValue(int index) => _choices[index].Value;
+    public T GetTypedChoiceValue(int index) => _choices[index].Value;
     public string GetChoiceLabel(int index) => _choices[index].Label;
     public bool IsChoiceEnabled(int index) => _choices[index].Enabled;
 
