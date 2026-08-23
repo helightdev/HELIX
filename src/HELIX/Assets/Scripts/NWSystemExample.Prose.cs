@@ -2,6 +2,7 @@ using HELIX.Compose;
 using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;
+using HELIX.UI;
 using UnityEngine.UIElements;
 
 namespace HELIX.Examples {
@@ -9,9 +10,7 @@ namespace HELIX.Examples {
     private enum DisplayMode { Windowed, Borderless, Fullscreen }
 
     private void ComposeProseTab(ref Composition cx) {
-      using (cx.ScrollView())
-      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.AlignSelf(Align.Stretch);
+      using (cx.ScrollView()) {
         cx.Text("Semantic Prose writers", TextRole.TitleMedium);
         cx.Spacing(1);
         cx.Text(

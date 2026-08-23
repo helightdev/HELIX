@@ -96,13 +96,13 @@ using HELIX;
 @FUNC<BindImpl>
   @USING HELIX.Context;
   @LOCAL<Value> @target:name
-  @LOCAL<Method> PublishKey
+  @LOCAL<Method> PublishBind
   @LOCAL<Guard> 
   @LOCAL<Type> typeof(@target:type:unwrap)
   @SCOPE
     @MATCH @attr#proxied:?eq<true>
     @LOCAL<Value> () => @target:name
-    @LOCAL<Method> PublishProxyKey
+    @LOCAL<Method> PublishProxyBind
   @SCOPE
     @MATCH @attr#required:?eq<false>
     @LOCAL<Guard> if (@target:name != null)
@@ -112,10 +112,8 @@ using HELIX;
     @LOCAL<TYPE> @attr#type
   @END
 
-  @LOCAL<TypeKey> new TypeKey(@local#Type, @attr#qualifier)
-  @LOCAL<Dependency> new ComponentDependency(@local#TypeKey, @attr#required)
-  @CODE<$ConfigureManaged> registration.Publication(@local#Dependency);
-  @CODE<$LoadManagedLate> @(local#Guard)context.@local#Method(@local#TypeKey, @local#Value);
+  @CODE<$ConfigureManaged> registration.Publication(@local#Type, @attr#qualifier, @attr#required);
+  @CODE<$LoadManagedLate> @(local#Guard)context.@local#Method(@local#Type, @attr#qualifier, @local#Value);
 @END
 "
 )]
@@ -142,13 +140,13 @@ using HELIX;
 
   @SCOPE<Addressables>
     @MATCH @attr#source:?eq<2>
-    @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new AddressableDependency<@target:type>(@attr#qualifier, @local#WireKey), true));
-    @CODE<$Init> @target:name = managed.Resolve<@target:type>(@local#WireKey);
+    @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new AddressableDependency<@target:type>(@attr#qualifier, @local#WireKey, @attr#required), @attr#required));
+    @CODE<$Init> @target:name = managed.ResolveOptional<@target:type>(@local#WireKey);
     @RETURN
   @SCOPE<Resources>
     @MATCH @attr#source:?eq<3>
-    @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new ResourceDependency<@target:type>(@attr#qualifier, @local#WireKey), true));
-    @CODE<$Init> @target:name = managed.Resolve<@target:type>(@local#WireKey);
+    @CODE<$ConfigureManaged> registration.Dependency(new ComponentDependency(new ResourceDependency<@target:type>(@attr#qualifier, @local#WireKey, @attr#required), @attr#required));
+    @CODE<$Init> @target:name = managed.ResolveOptional<@target:type>(@local#WireKey);
     @RETURN
   @END
   @FAIL No valid injection source found for the target type.

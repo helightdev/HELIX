@@ -45,9 +45,9 @@ namespace HELIX.Context {
         .Concat(entries.SelectMany(static entry => entry.dependencies)
           .Where(static dependency => dependency.IsScripted)
           .Select(static dependency => dependency.scripted.Phase))
-        .Append(InitPhase.PreInit)
-        .Append(InitPhase.Normal)
-        .Append(InitPhase.PostInit)
+        .Append(LoadPhase.PreInit)
+        .Append(LoadPhase.Normal)
+        .Append(LoadPhase.PostInit)
         .Distinct()
         .OrderBy(static phase => phase);
     }

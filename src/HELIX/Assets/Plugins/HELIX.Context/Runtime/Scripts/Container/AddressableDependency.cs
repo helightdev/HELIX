@@ -8,12 +8,14 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 namespace HELIX.Context {
   public sealed class AddressableDependency<T> : ManagedDependency where T : UnityEngine.Object {
     public string Key { get; }
+    public bool IsRequired { get; }
 
-    public AddressableDependency(string address, string wireKey) : base(
+    public AddressableDependency(string address, string wireKey, bool isRequired) : base(
       wireKey,
       flags: DependencyFlags.Wirable | DependencyFlags.ImplicitLoadable | DependencyFlags.Async
     ) {
       Key = ValidateAddress(address);
+      IsRequired = isRequired;
     }
 
     public override async UniTask<ManagedLoadResult> LoadAsync(ManagedLoadContext context) {
@@ -23,8 +25,9 @@ namespace HELIX.Context {
           cancellationToken: context.CancellationToken,
           autoReleaseWhenCanceled: true
         );
-        if (value == null)
+        if (value == null && IsRequired)
           throw new ComponentInitializationException($"Addressable '{Key}' returned null for {typeof(T).FullName}.");
+        if (value == null) return new ManagedLoadResult(false);
         context.Own(new AddressableHandleLease(handle));
         context.PublishKey(new TypeKey(typeof(T), WireKey), value);
         return new ManagedLoadResult(true);

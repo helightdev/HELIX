@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using HELIX.Compose;
 using HELIX.Compose.Forms;
@@ -9,7 +8,7 @@ using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX {
+namespace HELIX.UI {
   public sealed class OptionPageFieldPresentation {
     public OptionPageFieldPresentation(Composable label, Composable description, Composable tooltip) {
       Label = label;

@@ -1,7 +1,10 @@
 using System;
 using Cysharp.Threading.Tasks;
+using HELIX;
+using HELIX.Boot;
 using HELIX.Context;
 using HELIX.Prose;
+using HELIX.UI;
 using UnityEngine;
 
 
@@ -35,6 +38,6 @@ public class ExampleServiceBootstrap : MonoBehaviour {
 
 [HelixApplication(
   name: "Example",
-  import: new[] { typeof(HelixCoreModule) }
+  import: new[] { typeof(HelixCoreModule), typeof(BootModule), typeof(HelixUIModule) }
 )]
 public partial class HelixExampleApplication { }

@@ -6,6 +6,7 @@ using HELIX.Extensions;
 using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;
+using HELIX.UI;
 using HELIX.Widgets.Universal;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
@@ -281,23 +282,18 @@ namespace HELIX.Examples {
 
     private void ComposeInputsTab(ref Composition cx) {
       using (cx.ScrollView()) {
-        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-          if (cx.CursorDirty) cx.CURSOR.AlignSelf(Align.Stretch);
-          ComposeInputsShowcase(ref cx);
-        }
+        ComposeInputsShowcase(ref cx);
       }
     }
 
     private void ComposeNavigationTab(ref Composition cx) {
-      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.Fill();
+      using (cx.Column(cross: Align.Stretch, flex: Flex.Fill())) {
         ComposeNavigationShowcase(ref cx);
       }
     }
 
     private void ComposeOverlaysTab(ref Composition cx) {
-      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.Fill();
+      using (cx.Column(cross: Align.Stretch, flex: Flex.Fill())) {
         ComposeOverlayShowcase(ref cx);
       }
     }
@@ -305,7 +301,7 @@ namespace HELIX.Examples {
     private void ComposeTabHeader(ref Composition cx) {
       cx.Text("HELIX NW system example", TextRole.TitleLarge);
       cx.Spacing(1);
-      using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
+      using (cx.Row(cross: Align.Stretch)) {
         var routes = _tabNavigationGraph.Routes;
         for (var i = 0; i < routes.Count; i++) {
           cx.NavigationLink(
@@ -347,8 +343,7 @@ namespace HELIX.Examples {
         }
 
         cx.Spacing(2);
-        using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-          if (cx.CursorDirty) cx.CURSOR.Width(300f);
+        using (cx.Column(cross: Align.Stretch).With(BoxConstraints.Preferred(300f, StyleKeyword.Null))) {
           cx.Text("Operations", TextRole.LabelLarge);
           cx.Spacing(1);
           cx.DropdownButton(
@@ -742,7 +737,6 @@ namespace HELIX.Examples {
       //
       //   }
       // }
-
     }
 
     private static void ComposeNavigationHome(ref Composition cx, NavigationContextData navigation) {

@@ -961,20 +961,20 @@ namespace HELIX.Context.Tests {
       ManagedGraphProse.WriteLive(live, container);
 
       Assert.That(declared.ToString(), Does.Contain("Declared dependency graph"));
-      Assert.That(declared.ToString(), Does.Contain($"Phase {InitPhase.Normal}"));
+      Assert.That(declared.ToString(), Does.Contain($"Phase {LoadPhase.Normal}"));
       Assert.That(declared.ToString(), Does.Contain(new TypeKey(typeof(IProvider), null).CreateWireKey()));
       Assert.That(declared.ToString(), Does.Contain("optional"));
       Assert.That(declared.ToString(), Does.Not.Contain("—"));
       Assert.That(live.ToString(), Does.Contain("Live dependency graph"));
       Assert.That(live.ToString(), Does.Contain("ApplicationScope [Active]"));
-      Assert.That(live.ToString(), Does.Contain($"Phase {InitPhase.Normal}"));
+      Assert.That(live.ToString(), Does.Contain($"Phase {LoadPhase.Normal}"));
       Assert.That(live.ToString(), Does.Contain(new TypeKey(typeof(IProvider), null).CreateWireKey()));
       Assert.That(live.ToString(), Does.Not.Contain("—"));
     }
 
     [Test]
     public void DeclaredGraphPlacesImplicitScriptedDependenciesInTheirOwnPhase() {
-      var dependency = new PhasedManagedDependency(InitPhase.Early, new List<string>());
+      var dependency = new PhasedManagedDependency(LoadPhase.Early, new List<string>());
       var registrations = new ManagedRegistrations();
       registrations.Add(_ => new RecordingComponent(new List<string>(), "consumer"))
         .Dependency(new ComponentDependency(dependency, true));
@@ -984,9 +984,9 @@ namespace HELIX.Context.Tests {
 
       var graph = writer.ToString();
       AssertInOrder(graph,
-        $"Phase {InitPhase.Early}",
+        $"Phase {LoadPhase.Early}",
         dependency.WireKey,
-        $"Phase {InitPhase.Normal}",
+        $"Phase {LoadPhase.Normal}",
         nameof(RecordingComponent));
     }
 

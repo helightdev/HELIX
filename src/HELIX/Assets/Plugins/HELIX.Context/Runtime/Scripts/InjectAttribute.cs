@@ -12,7 +12,7 @@ namespace HELIX.Context {
     public InjectAttribute(string qualifier = null, bool required = true) { }
   }
 
-  [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+  [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
   [MixinExpression(
     new[] {MixinOn.LoadManagedLate, MixinOn.ConfigureManaged},
     new[] { 0, 0 },
@@ -21,6 +21,7 @@ namespace HELIX.Context {
   public class BindAttribute : Attribute {
     public BindAttribute(string qualifier = null, bool required = true, bool proxied = false) { }
     public BindAttribute(Type type, string qualifier = null, bool required = true, bool proxied = false) { }
+    public BindAttribute(Type[] type, string qualifier = null, bool required = true, bool proxied = false) { }
   }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
@@ -30,7 +31,7 @@ namespace HELIX.Context {
     "@CALL<ResourceImpl>"
   )]
   public class ResourceAttribute : Attribute {
-    public ResourceAttribute(Source source, string qualifier = null) { }
+    public ResourceAttribute(Source source, string qualifier = null, bool required = true) { }
   }
 
   public enum Source { Addressables = 2, Resources = 3 }

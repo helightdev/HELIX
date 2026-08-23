@@ -7,7 +7,7 @@ using HELIX.Theming;
 using HELIX.Types;
 using UnityEngine.UIElements;
 
-namespace HELIX {
+namespace HELIX.UI {
   [PropStruct] public readonly partial struct OptionPagesOptions {
     public static readonly OptionPagesOptions Default = new(hasSidePanel: true);
 
@@ -94,13 +94,13 @@ namespace HELIX {
         using (cx.Group(FlexGroup.Row(cross: Align.Stretch), Flex.FillFlexible())) {
           cx.NavigationHost(_graph, _controller, NavigationTransitions.Instant, NavigationHostBehavior.None)
             .Flexible();
-          if (_options.hasSidePanel) {
+          if (_options.hasSidePanel) { // TODO: Proper conditionals
             cx.Spacing(3);
             using (var help = cx.Group(Axis.Vertical, cross: Align.Stretch)) {
               help.With(Flex.Shrink(0));
               help.With(BoxConstraints.Preferred(new Length(30f, LengthUnit.Percent), StyleKeyword.Auto));
               var current = _fieldHelp.Current;
-              if (current == null) {
+              if (current == null) { // TODO: Proper conditionals
                 cx.Text("Field details", TextRole.TitleSmall);
                 cx.Spacing(1);
                 cx.Text("Focus or point at an option to see more information.", TextRole.BodySmall);
@@ -109,7 +109,7 @@ namespace HELIX {
                 var details = _options.collapseTooltipIntoDescription
                   ? Combine(current.Description, current.Tooltip)
                   : current.Description;
-                if (details != null) {
+                if (details != null) { // TODO: Proper conditionals
                   cx.Spacing(1);
                   details(ref cx);
                 }

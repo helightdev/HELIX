@@ -1,32 +1,48 @@
+using System;
+using System.Collections.Generic;
+using HELIX.Compose;
+using HELIX.Context;
+using HELIX.Extensions;
+using HELIX.Types;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
 
-namespace HELIX {
+namespace HELIX.UI {
+  [Managed(typeof(ApplicationScope))]
+  public partial class HelixPanel {
+    [Resource(Source.Resources, "Settings/PanelSettings.asset", false)]
+    public PanelSettings settings;
 
-  [RequireComponent(typeof(PanelRenderer))]
-  [ExecuteAlways]
-  public class HelixPanel : MonoBehaviour {
-    public HelixGUI gui;
-
-    private PanelRenderer _panelRenderer;
+    private PanelRenderer _renderer;
+    private GameObject _panelBackingObject;
     private VisualElement _rootElement;
-    private HelixGUI _current;
 
-    public void Awake() {
-      _panelRenderer = GetComponent<PanelRenderer>();
+    public HelixGuiHost host;
+
+    [Hook]
+    public void OnInit() {
+      if (!settings) {
+        Debug.LogWarning($"Panel Settings not found, loading defaults");
+        settings = ScriptableObject.CreateInstance<PanelSettings>();
+      }
+
+      _panelBackingObject = new GameObject("Helix Panel");
+      Object.DontDestroyOnLoad(_panelBackingObject);
+      _renderer = _panelBackingObject.AddComponent<PanelRenderer>();
+      _renderer.RegisterUIReloadCallback(OnUIReload);
+      _renderer.panelSettings = settings;
+
+      host = new HelixGuiHost();
     }
 
-    private void OnEnable() {
-      _panelRenderer.RegisterUIReloadCallback(OnUIReload);
-    }
-
-    private void OnDisable() {
-      _panelRenderer.UnregisterUIReloadCallback(OnUIReload);
+    [Hook]
+    public void OnDispose() {
+      if (!_renderer) return;
+      _renderer.UnregisterUIReloadCallback(OnUIReload);
       DestroyGui();
-    }
-
-    private void OnDestroy() {
-      DestroyGui();
+      Object.Destroy(_renderer.gameObject);
     }
 
     private void OnUIReload(PanelRenderer panelRenderer, VisualElement rootElement, int version) {
@@ -39,26 +55,39 @@ namespace HELIX {
         Debug.LogWarning($"Root element is null, cannot recreate ui");
         return;
       }
-      DestroyGui();
-      if (!gui) {
-        Debug.LogWarning($"No gui assigned, cannot recreate ui");
-        return;
-      }
-
       _rootElement.Clear();
-      _current = gui;
-      _current.CreateGui(this);
+      _rootElement.Add(host);
     }
 
     private void DestroyGui() {
-      if (_current == null) return;
-      _current.DestroyGui(this);
-      _current = null;
+      host.Dispose();
+      host = null;
+    }
+  }
+
+  [UxmlElement(visibility = LibraryVisibility.Hidden)]
+  public partial class HelixGuiHost : BoundaryVisualElement {
+    public NavigationController navigation = new();
+    public OverlayController overlays = new();
+    public NavigationGraph graph = NavigationGraph.Builder("/home").Build();
+
+    public HelixGuiHost() {
+      this.Fill();
+    }
+
+    public override void Compose(ref Composition cx) {
+      using (cx.OverlayHost(overlays).With(Flex.Fill())) {
+        cx.NavigationHost(graph, navigation).With(Flex.Fill());
+      }
+    }
+
+    public override void Dispose() {
+      base.Dispose();
     }
   }
 
   public abstract class HelixGUI : ScriptableObject {
     public abstract void CreateGui(HelixPanel panel);
-    public virtual void DestroyGui(HelixPanel panel) {}
+    public virtual void DestroyGui(HelixPanel panel) { }
   }
 }

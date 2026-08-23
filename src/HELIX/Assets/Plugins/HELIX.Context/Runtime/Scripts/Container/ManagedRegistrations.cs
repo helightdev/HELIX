@@ -149,7 +149,9 @@ namespace HELIX.Context {
 
 
     public void PublishKey(TypeKey key, object value) => scope.Publish(registration, key, value, loader);
-    public void PublishProxyKey(TypeKey key, Func<object> supplier) => scope.PublishProxy(registration, key, supplier, loader);
+
+    public void PublishProxyKey(TypeKey key, Func<object> supplier) =>
+      scope.PublishProxy(registration, key, supplier, loader);
 
     public void Publish<T>(T value, string qualifier = null) => PublishKey(new TypeKey(typeof(T), qualifier), value);
 
@@ -168,7 +170,9 @@ namespace HELIX.Context {
 
 
     public void PublishRaw(TypeKey key, object value) => scope.Publish(registration, key, value, loader);
-    public void PublishProxyRaw(TypeKey key, Func<object> supplier) => scope.PublishProxy(registration, key, supplier, loader);
+
+    public void PublishProxyRaw(TypeKey key, Func<object> supplier) =>
+      scope.PublishProxy(registration, key, supplier, loader);
 
     public void PublishKey(string wireKey) {
       (loader ?? throw new ScopeLifecycleException(
@@ -178,6 +182,28 @@ namespace HELIX.Context {
 
     public void Own(object value) {
       scope.Own(value);
+    }
+
+    public void PublishBind(Type type, string qualifier, object value) => scope.Publish(
+      registration,
+      new TypeKey(type, qualifier),
+      value,
+      loader
+    );
+
+    public void PublishBind(IReadOnlyList<Type> types, string qualifier, object value) {
+      foreach (var t in types) PublishBind(t, qualifier, value);
+    }
+
+    public void PublishProxyBind(Type type, string qualifier, Func<object> supplier) => scope.PublishProxy(
+      registration,
+      new TypeKey(type, qualifier),
+      supplier,
+      loader
+    );
+
+    public void PublishProxyBind(IReadOnlyList<Type> types, string qualifier, Func<object> supplier) {
+      foreach (var t in types) PublishProxyBind(t, qualifier, supplier);
     }
   }
 
@@ -206,7 +232,7 @@ namespace HELIX.Context {
     protected ManagedDependency(
       int order = 0,
       DependencyFlags flags = DependencyFlags.Wirable | DependencyFlags.ImplicitLoadable,
-      int phase = InitPhase.PreInit
+      int phase = LoadPhase.PreInit
     ) {
       Order = order;
       Flags = flags | DependencyFlags.Scripted;
@@ -217,7 +243,7 @@ namespace HELIX.Context {
       string wireKey,
       int order = 0,
       DependencyFlags flags = DependencyFlags.Wirable | DependencyFlags.ImplicitLoadable,
-      int phase = InitPhase.PreInit
+      int phase = LoadPhase.PreInit
     ) {
       Order = order;
       Flags = flags | DependencyFlags.Scripted;
@@ -254,10 +280,11 @@ namespace HELIX.Context {
     }
   }
 
-  public static class InitPhase {
+  public static class LoadPhase {
     public const int PreInit = -1000;
     public const int Early = -100;
     public const int Configuration = -50;
+    public const int AfterConfiguration = -25;
     public const int Normal = 0;
     public const int Late = 100;
     public const int PostInit = 1000;
@@ -274,7 +301,7 @@ namespace HELIX.Context {
 
     public Type scope; // Associated scope type
     public string name;
-    public int phase = InitPhase.Normal;
+    public int phase = LoadPhase.Normal;
     public int order = 0;
     public bool optional;
     public ComponentActivator activator;
@@ -324,6 +351,13 @@ namespace HELIX.Context {
     public ManagedRegistration Publication(ComponentDependency publication) {
       publications.Add(publication);
       return this;
+    }
+
+    public ManagedRegistration Publication(Type bindingType, string qualifier, bool required) =>
+      Publication(new ComponentDependency(new TypeKey(bindingType, qualifier), required));
+
+    public void Publication(IReadOnlyList<Type> bindingType, string qualifier, bool required) {
+      foreach (var t in bindingType) Publication(new ComponentDependency(new TypeKey(t, qualifier), required));
     }
 
     public void RegisterHandlerBinding<T>(int priority = 0) {
@@ -398,6 +432,7 @@ namespace HELIX.Context {
   }
 
   public delegate void RegistrationConfigurator(ManagedRegistration registration);
+
   public delegate bool ComponentCondition(ManagedLoadContext context);
 
   public class AsyncManagedLoadEvent : AsyncChainEvt<AsyncManagedLoadEvent> {

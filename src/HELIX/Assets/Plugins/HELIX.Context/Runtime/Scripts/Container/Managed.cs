@@ -5,6 +5,7 @@ using JetBrains.Annotations;
 
 namespace HELIX.Context {
   public interface IManaged {
+    // ReSharper disable once InconsistentNaming
     RuntimeManagedData managed { get; }
     void LoadManaged(ManagedLoadContext context) {}
     void LoadManagedLate(ManagedLoadContext context) { }
@@ -81,7 +82,7 @@ namespace HELIX.Context {
       Type scope = null,
       bool optional = false,
       int order = 0,
-      int phase = InitPhase.Normal
+      int phase = LoadPhase.Normal
     ) { }
   }
 }
