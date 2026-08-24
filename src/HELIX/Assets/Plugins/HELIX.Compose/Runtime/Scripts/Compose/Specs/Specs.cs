@@ -47,6 +47,7 @@ namespace HELIX.Compose {
       .AddFactory<LabelSpec>(LabelSpec.Default)
       .AddFactory<IconRef>(IconRef.Default)
       .AddFactory<ChevronSpec>(ChevronSpec.Default)
+      .AddFactory<InspectorLayout>(InspectorLayout.Default)
       .AddHandler<ChoiceControlSpecHandler>()
       .AddHandler<TextControlSpecHandler>()
       .AddHandler<IntegerControlSpecHandler>()

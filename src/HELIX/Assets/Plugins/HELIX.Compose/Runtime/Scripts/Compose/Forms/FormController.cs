@@ -113,9 +113,7 @@ namespace HELIX.Compose.Forms {
       data.comparer = comparer ?? EqualityComparer<object>.Default;
       data.enabled = enabled;
       if (!data.hasInitialValue) {
-        data.initialValue = _data.TryGetValue(path, out var existing) && !ReferenceEquals(initialValue, NoInitialValue)
-          ? existing
-          : initialValue;
+        data.initialValue = _data.TryGetValue(path, out var existing) ? existing : initialValue;
         data.hasInitialValue = true;
       }
       if (!ReferenceEquals(initialValue, NoInitialValue) && !_data.ContainsKey(path)) _data[path] = initialValue;
@@ -344,7 +342,8 @@ namespace HELIX.Compose.Forms {
           if (pair.Value.isListField) {
             SetListCount(pair.Key, pair.Value.initialValue is int count ? count : 0);
             pair.Value.listRevision = pair.Value.initialListRevision;
-          } else _data[pair.Key] = pair.Value.initialValue;
+          } else if (ReferenceEquals(pair.Value.initialValue, NoInitialValue)) _data.Remove(pair.Key);
+          else _data[pair.Key] = pair.Value.initialValue;
           pair.Value.flags &= ~(FieldFlags.Dirty | FieldFlags.Touched | FieldFlags.Error);
           pair.Value.errors.Clear();
           NotifyField(pair.Key, pair.Value);
@@ -361,7 +360,8 @@ namespace HELIX.Compose.Forms {
           if (field.isListField) {
             SetListCount(pair.Key, field.initialValue is int count ? count : 0);
             field.listRevision = field.initialListRevision;
-          } else _data[pair.Key] = field.initialValue;
+          } else if (ReferenceEquals(field.initialValue, NoInitialValue)) _data.Remove(pair.Key);
+          else _data[pair.Key] = field.initialValue;
           field.flags &= ~(FieldFlags.Dirty | FieldFlags.Touched | FieldFlags.Error);
           field.errors.Clear();
           NotifyField(pair.Key, field);
@@ -418,8 +418,11 @@ namespace HELIX.Compose.Forms {
 
     private void MarkDirty(FormPath path) {
       if (!_fields.TryGetValue(path, out var data) || data.isListField) return;
-      _data.TryGetValue(path, out var current);
-      data.flags = data.comparer.Equals(current, data.initialValue)
+      var hasCurrent = _data.TryGetValue(path, out var current);
+      var unchanged = ReferenceEquals(data.initialValue, NoInitialValue)
+        ? !hasCurrent
+        : data.comparer.Equals(current, data.initialValue);
+      data.flags = unchanged
         ? data.flags & ~FieldFlags.Dirty
         : data.flags | FieldFlags.Dirty;
     }

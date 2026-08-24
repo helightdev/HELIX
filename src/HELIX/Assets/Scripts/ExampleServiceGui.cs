@@ -3,6 +3,7 @@ using HELIX.Boot;
 using HELIX.Compose;
 using HELIX.Context;
 using HELIX.UI;
+using HELIX.UI.Options;
 using HELIX.Widgets.Universal;
 using UnityEngine.UIElements;
 
@@ -17,7 +18,10 @@ namespace DefaultNamespace {
       evt.builder.Route(
         "options",
         NavigationPage.Build((ref Composition cx, NavigationContextData value) => {
-            var pages = optionsService.BuildOptionPages();
+            var pages = optionsService.BuildOptionPages(new OptionPagesOptions(
+              showChangedOptionReset: true,
+              showDefaultOptionReset: true
+            ));
             pages.Compose(ref cx);
           }
         )
@@ -41,14 +45,26 @@ namespace DefaultNamespace {
 
   [Managed(typeof(ApplicationScope), phase: LoadPhase.Configuration)]
   public partial class UserOptionsConfiguration {
-    [RegisterOption]
-    public readonly Option<string> userName = new(Datatypes.String, "User");
 
     [RegisterOption]
-    public readonly Option<int> userAge = new(Datatypes.Int, 18);
+    public readonly Option<float> audioVolume = new(Datatypes.PercentNormalized, 0.9f);
+
+
+    [RegisterOption]
+    public readonly Option<string> userName = new(Datatypes.String, "User") {
+      eagerness = OptionEagerness.Delayed
+    };
+
+    [RegisterOption]
+    public readonly Option<int> userAge = new(Datatypes.Int, 18) {
+      eagerness = OptionEagerness.Delayed
+    };
 
     [RegisterOption("user.anonymous")]
-    public readonly Option<bool> anonymous = new(Datatypes.Bool, false);
+    public readonly Option<bool> anonymous = new(Datatypes.Bool, false) {
+      eagerness = OptionEagerness.Confirmed,
+      defaultResettable = true
+    };
 
     [EventHandler]
     private void OnRender(OptionsRenderEvent evt) {

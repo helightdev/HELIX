@@ -5,7 +5,8 @@
     "GUID:1450c30e11b017547b276675739915ea",
     "Unity.Mathematics",
     "Unity.InputSystem",
-    "HELIX.Compose"
+    "HELIX.Compose",
+    "HELIX.UI"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

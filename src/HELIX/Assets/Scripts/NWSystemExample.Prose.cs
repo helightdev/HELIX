@@ -49,6 +49,7 @@ namespace HELIX.Examples {
           "Display mode",
           Datatypes.Enum<DisplayMode>()
         )) {
+          writer.Push(ProseModifiers.HideName);
           writer.FieldDescription("Select how the game occupies the display.");
           writer.FieldTooltip("Borderless uses the desktop resolution and usually switches applications faster.");
           // using (writer.FieldSuffix()) writer.Write("3 choices");
@@ -85,7 +86,9 @@ namespace HELIX.Examples {
                 new DatatypeChoice<string>("high", "High")
               }
             )
-          )) { }
+          )) {
+            writer.Push(ProseFields.FullWidth);
+          }
           using (writer.Field(
             "graphics.shadow-quality",
             "Shadow quality",
@@ -96,7 +99,9 @@ namespace HELIX.Examples {
                 new DatatypeChoice<string>("high", "High")
               }
             )
-          )) { }
+          )) {
+            writer.Push(ProseFields.FullWidth);
+          }
         }
       }
       using (writer.Path("audio")) {
@@ -129,8 +134,7 @@ namespace HELIX.Examples {
               new DatatypeChoice<string>("veteran", "Veteran")
             }
           )
-        )) {
-        }
+        )) { }
         using (writer.Field<bool>("gameplay.autosave", "Autosave", Datatypes.Bool)) {
           // using (writer.FieldSuffix()) writer.Write("Recommended");
         }

@@ -122,25 +122,26 @@ namespace HELIX.Prose {
   public static class ComposeProseFieldFactories {
     public static bool Standard(
       IProseField field, object formatter, IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers, out Composable result
+      IReadOnlyList<IProseModifier> modifiers, out Composable result,
+      InspectorLayoutSlots layoutSlots = default
     ) {
       if (formatter is IDatatypeChoice choices)
-        return Choice(field, choices, parts, modifiers, out result);
+        return Choice(field, choices, parts, modifiers, layoutSlots, out result);
       if (formatter is IDatatype<string> && field is ProseField<string> text)
-        return Text(text, parts, modifiers, out result);
+        return Text(text, parts, modifiers, layoutSlots, out result);
       if (formatter is IDatatype<int> && field is ProseField<int> integer)
-        return Integer(integer, parts, modifiers, out result);
+        return Integer(integer, parts, modifiers, layoutSlots, out result);
       if (formatter is IDatatype<float> && field is ProseField<float> number)
-        return Float(number, parts, modifiers, out result);
+        return Float(number, parts, modifiers, layoutSlots, out result);
       if (formatter is IDatatype<bool> && field is ProseField<bool> toggle)
-        return Checkbox(toggle, parts, modifiers, out result);
+        return Checkbox(toggle, parts, modifiers, layoutSlots, out result);
       result = null;
       return false;
     }
 
     private static bool Choice(
       IProseField field, IDatatypeChoice formatter, IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers, out Composable result
+      IReadOnlyList<IProseModifier> modifiers, InspectorLayoutSlots layoutSlots, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path) || formatter.ChoiceCount == 0) {
         result = null;
@@ -158,13 +159,13 @@ namespace HELIX.Prose {
         ));
         cx.CURSOR.Flexible();
       };
-      result = Field(field.Path, field.Name, FormController.NoInitialValue, parts, modifiers, control);
+      result = Field(field.Path, field.Name, FormController.NoInitialValue, parts, modifiers, control, layoutSlots);
       return true;
     }
 
     private static bool Text(
       ProseField<string> field, IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers, out Composable result
+      IReadOnlyList<IProseModifier> modifiers, InspectorLayoutSlots layoutSlots, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
       Composable control = (ref Composition cx) => {
@@ -175,13 +176,13 @@ namespace HELIX.Prose {
         ));
         cx.CURSOR.Flexible();
       };
-      result = Field(field, parts, modifiers, control);
+      result = Field(field, parts, modifiers, control, layoutSlots);
       return true;
     }
 
     private static bool Integer(
       ProseField<int> field, IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers, out Composable result
+      IReadOnlyList<IProseModifier> modifiers, InspectorLayoutSlots layoutSlots, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
       Composable control = (ref Composition cx) => {
@@ -192,13 +193,13 @@ namespace HELIX.Prose {
         ));
         cx.CURSOR.Flexible();
       };
-      result = Field(field, parts, modifiers, control);
+      result = Field(field, parts, modifiers, control, layoutSlots);
       return true;
     }
 
     private static bool Float(
       ProseField<float> field, IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers, out Composable result
+      IReadOnlyList<IProseModifier> modifiers, InspectorLayoutSlots layoutSlots, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
       Composable control = (ref Composition cx) => {
@@ -209,13 +210,13 @@ namespace HELIX.Prose {
         ));
         cx.CURSOR.Flexible();
       };
-      result = Field(field, parts, modifiers, control);
+      result = Field(field, parts, modifiers, control, layoutSlots);
       return true;
     }
 
     private static bool Checkbox(
       ProseField<bool> field, IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers, out Composable result
+      IReadOnlyList<IProseModifier> modifiers, InspectorLayoutSlots layoutSlots, out Composable result
     ) {
       if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
       Composable control = (ref Composition cx) => {
@@ -225,13 +226,13 @@ namespace HELIX.Prose {
           enabled: IsEnabled(formField), error: HasError(formField)
         ));
       };
-      result = Field(field, parts, modifiers, control);
+      result = Field(field, parts, modifiers, control, layoutSlots);
       return true;
     }
 
     private static Composable Field<T>(
       ProseField<T> field, IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers, Composable control
+      IReadOnlyList<IProseModifier> modifiers, Composable control, InspectorLayoutSlots layoutSlots
     ) {
       var defaultValue = Default(field);
       return Field(
@@ -240,13 +241,14 @@ namespace HELIX.Prose {
         defaultValue.hasValue ? defaultValue.value : FormController.NoInitialValue,
         parts,
         modifiers,
-        control
+        control,
+        layoutSlots
       );
     }
 
     private static Composable Field(
       string path, string name, object initialValue, IReadOnlyList<ComposeProseFieldPart> parts,
-      IReadOnlyList<IProseModifier> modifiers, Composable control
+      IReadOnlyList<IProseModifier> modifiers, Composable control, InspectorLayoutSlots layoutSlots
     ) {
       var decorators = Decorators(parts);
       if (decorators.label == null) decorators = new FormFieldDecorators(
@@ -255,34 +257,25 @@ namespace HELIX.Prose {
       );
       var labelWidth = new Length(35f, LengthUnit.Percent);
       var fullWidth = false;
+      var hideName = false;
       for (var i = 0; i < modifiers.Count; i++) {
         if (modifiers[i] is ProseFieldLabelWidthModifier width) labelWidth = width.Width;
         else if (modifiers[i] is ProseFullWidthModifier) fullWidth = true;
+        else if (modifiers[i] is ProseHideNameModifier) hideName = true;
       }
 
-      Composable element = (ref Composition cx) => {
-        using (cx.Group(FlexGroup.Row(cross: Align.Center), Flex.FillFlexible())) {
-          decorators.prefix?.Invoke(ref cx);
-          control(ref cx);
-          decorators.suffix?.Invoke(ref cx);
-        }
+      Composable value = (ref Composition cx) => {
+        decorators.prefix?.Invoke(ref cx);
+        control(ref cx);
+        decorators.suffix?.Invoke(ref cx);
       };
       Composable content = (ref Composition cx) => {
         decorators.before?.Invoke(ref cx);
-        if (fullWidth) {
-          decorators.label?.Invoke(ref cx);
-          element(ref cx);
-        } else {
-          using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
-            using (var label = cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-              label.With(Flex.Shrink(0));
-              label.With(BoxConstraints.Preferred(labelWidth, StyleKeyword.Auto));
-              decorators.label?.Invoke(ref cx);
-            }
-            using (cx.Group(FlexGroup.Column(cross: Align.Stretch), Flex.FillFlexible()))
-              element(ref cx);
-          }
-        }
+        cx.Spec(new InspectorLayout(
+          decorators.label, value, layoutSlots, labelWidth,
+          stacked: fullWidth || hideName,
+          hideName: hideName
+        ));
         decorators.between?.Invoke(ref cx);
         decorators.description?.Invoke(ref cx);
         decorators.after?.Invoke(ref cx);

@@ -8,12 +8,30 @@ using HELIX.Types;
 using UnityEngine.UIElements;
 
 namespace HELIX.UI.Options {
+  public enum OptionPagesApplyResult : byte { NothingToApply, Invalid, Applied, ConfirmationRequired }
+
+  public interface IOptionPagesState : IDisposable {
+    bool IsDirty { get; }
+    bool IsChanged(string path);
+    bool IsNonDefault(string path);
+    void ResetChange(string path);
+    void ResetToDefault(string path);
+    OptionPagesApplyResult Apply();
+    void Revert();
+    void Confirm();
+    void Reject();
+  }
+
   [PropStruct] public readonly partial struct OptionPagesOptions {
     public static readonly OptionPagesOptions Default = new(hasSidePanel: true);
 
     [Prop(true)] public readonly bool hasSidePanel;
     [Prop(false)] public readonly bool collapseTooltipIntoDescription;
     [Prop(false)] public readonly bool showTooltipOnLabelHover;
+    [Prop(true)] public readonly bool showChangedOptionReset;
+    [Prop(true)] public readonly bool showDefaultOptionReset;
+    [Prop(null)] public readonly IconRef? changedOptionResetIcon;
+    [Prop(null)] public readonly IconRef? defaultOptionResetIcon;
   }
 
   [BoundaryComposable(Extension = false, UseLookupCache = true)]
@@ -40,12 +58,26 @@ namespace HELIX.UI.Options {
     private readonly OverlayController _overlays = new();
     private readonly NavigationGraph _graph;
     private readonly NavigationController _controller;
+    private readonly IOptionPagesState _state;
+    private readonly CompositionAction _applyAction;
+    private readonly CompositionAction _revertAction;
+    private readonly CompositionAction _confirmAction;
+    private readonly CompositionAction _rejectAction;
+    private readonly Composable<OverlayContextData> _confirmation;
 
     public FormController Form => _form;
 
-    public OptionPages(NavTreeProse model, OptionPagesOptions? options = null) {
+    public OptionPages(
+      NavTreeProse model, OptionPagesOptions? options = null, IOptionPagesState state = null
+    ) {
       _model = model ?? throw new ArgumentNullException(nameof(model));
       _options = options ?? OptionPagesOptions.Default;
+      _state = state;
+      _applyAction = Apply;
+      _revertAction = Revert;
+      _confirmAction = Confirm;
+      _rejectAction = Reject;
+      _confirmation = ComposeConfirmation;
       if (model.Root.Children.Count == 0)
         throw new ArgumentException("Option pages require at least one root category.", nameof(model));
 
@@ -69,7 +101,7 @@ namespace HELIX.UI.Options {
     internal void ComposeBoundaryContent(ref Composition cx) {
       using (cx.WriteContext(out var context)) {
         FormContext.Key[context] = new FormContext(_form);
-        OptionPageFieldContext.Key[context] = new OptionPageFieldContext(_fieldHelp, _form, _options);
+        OptionPageFieldContext.Key[context] = new OptionPageFieldContext(_fieldHelp, _form, _options, _state);
       }
       cx.SubscribeTo(_form);
       cx.SubscribeTo(_controller);
@@ -119,10 +151,73 @@ namespace HELIX.UI.Options {
             }
           }
         }
+        if (_state?.IsDirty == true) {
+          cx.Spacing(2);
+          using (cx.Group(Axis.Horizontal, main: Justify.FlexEnd, cross: Align.Center)) {
+            cx.Button(
+              static (ref Composition child) => child.Text("Revert"),
+              action: _revertAction,
+              style: ThemeProperties.ButtonGhost[in cx]
+            );
+            cx.Spacing(1);
+            cx.Button(
+              static (ref Composition child) => child.Text("Apply"),
+              action: _applyAction,
+              enabled: !_form.HasErrors
+            );
+          }
+        }
+      }
+    }
+
+    private void Apply(CompositionContext context) {
+      if (_state.Apply() != OptionPagesApplyResult.ConfirmationRequired) return;
+      Overlay.Build(_confirmation)
+        .Modal()
+        .DismissOnCancel(false)
+        .Constraints(BoxConstraints.Only(min: new StyleLength2(360f, 0f)))
+        .Show(context);
+    }
+
+    private void Revert(CompositionContext _) => _state.Revert();
+
+    private void Confirm(CompositionContext context) {
+      _state.Confirm();
+      context.OverlayEntry()?.Dismiss();
+    }
+
+    private void Reject(CompositionContext context) {
+      _state.Reject();
+      context.OverlayEntry()?.Dismiss();
+    }
+
+    private void ComposeConfirmation(ref Composition cx, OverlayContextData _) {
+      var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark);
+      cx.CURSOR
+        .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainer))
+        .TextColor(theme.GetColor(ColorRoles.OnSurfaceContainer))
+        .BorderRadius(12f);
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+        if (cx.CursorDirty) cx.CURSOR.Padding(20f);
+        cx.Text("Keep these settings?", TextRole.TitleMedium);
+        cx.Spacing(1);
+        cx.Text("The settings have been applied. Confirm to save them, or revert to restore the previous values.",
+          TextRole.BodySmall);
+        cx.Spacing(2);
+        using (cx.Group(Axis.Horizontal, main: Justify.FlexEnd, cross: Align.Center)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Revert"),
+            action: _rejectAction,
+            style: ThemeProperties.ButtonGhost[in cx]
+          );
+          cx.Spacing(1);
+          cx.Button(static (ref Composition child) => child.Text("Keep"), action: _confirmAction);
+        }
       }
     }
 
     public void Dispose() {
+      _state?.Dispose();
       _controller.Dispose();
       _form.Dispose();
       _fieldHelp.Dispose();

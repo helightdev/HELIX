@@ -25,6 +25,7 @@ namespace HELIX.Boot {
 
       foreach (var option in _options) {
         option.LoadData();
+        option.Apply();
       }
     }
 
@@ -45,7 +46,7 @@ namespace HELIX.Boot {
       }
     }
 
-    public OptionPages BuildOptionPages() {
+    public OptionPages BuildOptionPages(OptionPagesOptions? options = null) {
       var fieldReducer = new ComposeProseFieldReducer().Add(OptionPageFieldFactory.Create);
       var handlers = new ProseReducerChain<Composable>().Add(new ComposeProseFieldHandler(fieldReducer));
       var writer = new NavTreeProseWriter(delegates: handlers);
@@ -56,27 +57,190 @@ namespace HELIX.Boot {
       debugWriter.Write(prose);
       Debug.Log(debugWriter.Build());
 
-      var pages = new OptionPages(prose, OptionPagesOptions.Default);
+      var state = new OptionModificationState(_options);
+      var pages = new OptionPages(prose, options ?? OptionPagesOptions.Default, state);
       new OptionsLoadPageStateEvent(pages).Raise();
-      pages.Form.AcceptCurrentValuesAsInitial();
+      state.Bind(pages.Form);
       return pages;
     }
   }
 
-  // public class OptionModificationState : ISignalObserver {
-  //   public FormController controller;
-  //   public OptionEagerness eagerness;
-  //
-  //   public void Activate() {
-  //     controller.AddObserver(this);
-  //   }
-  //
-  //   public void OnSignalChanged(Signal signal) {
-  //
-  //   }
-  //
-  //   public bool IsDisposed { get; } = false;
-  // }
+  public sealed class OptionModificationState : IOptionPagesState, ISignalObserver {
+    private readonly IReadOnlyList<Option> _options;
+    private readonly Dictionary<Option, object> _confirmationValues = new();
+    private FormController _controller;
+    private bool _updating;
+
+    public OptionModificationState(IReadOnlyList<Option> options) =>
+      _options = options ?? throw new ArgumentNullException(nameof(options));
+
+    public bool IsDisposed { get; private set; }
+    public bool IsDirty {
+      get {
+        if (_controller == null) return false;
+        for (var i = 0; i < _options.Count; i++) {
+          var option = _options[i];
+          if (option.eagerness != OptionEagerness.Immediate && IsOptionDirty(option)) return true;
+        }
+        return false;
+      }
+    }
+
+    public bool IsChanged(string path) => TryGetOption(path, out var option) &&
+                                          option.eagerness >= OptionEagerness.Delayed &&
+                                          IsOptionDirty(option);
+
+    public bool IsNonDefault(string path) => _controller != null && TryGetOption(path, out var option) &&
+                                             !option.IsDefaultValue(_controller.GetValue(
+                                               _controller.Path(option.path)
+                                             ));
+
+    public void ResetChange(string path) {
+      if (!TryGetOption(path, out var option) || option.eagerness < OptionEagerness.Delayed) return;
+      _controller.ResetPath(_controller.Path(option.path));
+    }
+
+    public void ResetToDefault(string path) {
+      if (!TryGetOption(path, out var option)) return;
+      option.LoadDefaultInto(_controller);
+    }
+
+    public void Bind(FormController controller) {
+      if (IsDisposed) throw new ObjectDisposedException(nameof(OptionModificationState));
+      if (controller == null) throw new ArgumentNullException(nameof(controller));
+      if (ReferenceEquals(_controller, controller)) return;
+      _controller?.RemoveObserver(this);
+      _controller = controller;
+      _controller.AddObserver(this);
+      ProcessChanges();
+    }
+
+    public void OnSignalChanged(Signal signal) {
+      if (ReferenceEquals(signal, _controller)) ProcessChanges();
+    }
+
+    public OptionPagesApplyResult Apply() {
+      if (_controller == null || !IsDirty) return OptionPagesApplyResult.NothingToApply;
+      if (!_controller.Submit().valid) return OptionPagesApplyResult.Invalid;
+
+      var changed = false;
+      var needsConfirmation = false;
+      _updating = true;
+      try {
+        for (var i = 0; i < _options.Count; i++) {
+          var option = _options[i];
+          if (option.eagerness == OptionEagerness.Immediate || !IsOptionDirty(option)) continue;
+          if (option.eagerness == OptionEagerness.Confirmed) {
+            _confirmationValues[option] = option.CaptureValue();
+            needsConfirmation = true;
+          }
+          option.AcceptFrom(_controller);
+          option.Apply();
+          if (option.eagerness == OptionEagerness.Delayed) {
+            option.SaveData();
+            AcceptAsInitial(option);
+          }
+          changed = true;
+        }
+        if (changed) new OptionsModifiedEvent().Raise();
+        if (changed) PlayerPrefs.Save();
+      } finally {
+        _updating = false;
+      }
+      return needsConfirmation ? OptionPagesApplyResult.ConfirmationRequired :
+        changed ? OptionPagesApplyResult.Applied : OptionPagesApplyResult.NothingToApply;
+    }
+
+    public void Revert() {
+      if (_controller == null || _confirmationValues.Count != 0) return;
+      _updating = true;
+      try {
+        for (var i = 0; i < _options.Count; i++) {
+          var option = _options[i];
+          if (option.eagerness != OptionEagerness.Immediate && IsOptionDirty(option))
+            _controller.ResetPath(_controller.Path(option.path));
+        }
+      }
+      finally { _updating = false; }
+    }
+
+    public void Confirm() {
+      if (_controller == null || _confirmationValues.Count == 0) return;
+      _updating = true;
+      try {
+        foreach (var pair in _confirmationValues) {
+          pair.Key.SaveData();
+          AcceptAsInitial(pair.Key);
+        }
+        _confirmationValues.Clear();
+        PlayerPrefs.Save();
+      } finally {
+        _updating = false;
+      }
+    }
+
+    public void Reject() {
+      if (_controller == null || _confirmationValues.Count == 0) return;
+      _updating = true;
+      try {
+        foreach (var pair in _confirmationValues) {
+          pair.Key.RestoreValue(pair.Value);
+          pair.Key.LoadInto(_controller);
+          pair.Key.Apply();
+          AcceptAsInitial(pair.Key);
+        }
+        _confirmationValues.Clear();
+        new OptionsModifiedEvent().Raise();
+      } finally {
+        _updating = false;
+      }
+    }
+
+    public void Dispose() {
+      if (IsDisposed) return;
+      Reject();
+      _controller?.RemoveObserver(this);
+      _controller = null;
+      _confirmationValues.Clear();
+      IsDisposed = true;
+    }
+
+    private void ProcessChanges() {
+      if (_updating || _controller == null) return;
+      var changed = false;
+      _updating = true;
+      try {
+        for (var i = 0; i < _options.Count; i++) {
+          var option = _options[i];
+          if (option.eagerness != OptionEagerness.Immediate || !IsOptionDirty(option)) continue;
+          option.AcceptFrom(_controller);
+          option.Apply();
+          option.SaveData();
+          AcceptAsInitial(option);
+          changed = true;
+        }
+        if (changed) {
+          PlayerPrefs.Save();
+          new OptionsModifiedEvent().Raise();
+        }
+      } finally {
+        _updating = false;
+      }
+    }
+
+    private bool IsOptionDirty(Option option) => _controller.IsFieldDirty(_controller.Path(option.path));
+    private bool TryGetOption(string path, out Option option) {
+      for (var i = 0; i < _options.Count; i++) {
+        if (_options[i].path != path) continue;
+        option = _options[i];
+        return true;
+      }
+      option = null;
+      return false;
+    }
+    private void AcceptAsInitial(Option option) =>
+      _controller.AcceptCurrentValuesAsInitial(_controller.Path(option.path));
+  }
 
   [AttributeUsage(AttributeTargets.Field)]
   [MixinExpression(
@@ -150,6 +314,11 @@ namespace HELIX.Boot {
     public abstract void LoadData();
 
     public abstract void SaveData();
+    public virtual void Apply() { }
+    public virtual object CaptureValue() => null;
+    public virtual void RestoreValue(object captured) { }
+    public virtual bool IsDefaultValue(object candidate) => true;
+    public virtual void LoadDefaultInto(FormController controller) { }
     public abstract void ToProse(IProseWriter writer);
   }
 
@@ -175,6 +344,7 @@ namespace HELIX.Boot {
     public IDatatype<T> datatype;
     public T defaultValue;
     public T value;
+    public bool defaultResettable;
 
     public Option(IDatatype<T> datatype, T defaultValue) {
       this.datatype = datatype;
@@ -248,8 +418,18 @@ namespace HELIX.Boot {
       Debug.LogError($"No string converter for {datatype}");
     }
 
+    public override void Apply() => new OptionApplyEvent<T> { option = this }.Raise();
+    public override object CaptureValue() => value;
+    public override void RestoreValue(object captured) => value = (T)captured;
+    public override bool IsDefaultValue(object candidate) => candidate == null
+      ? defaultValue is null
+      : candidate is T typed && EqualityComparer<T>.Default.Equals(typed, defaultValue);
+    public override void LoadDefaultInto(FormController controller) =>
+      controller.SetValue(controller.Path(path), defaultValue, FormChangeReason.User);
+
     public override void ToProse(IProseWriter writer) {
       using (writer.Field(path, name, datatype)) {
+        writer.Push(OptionPageFieldModifiers.DefaultReset(defaultResettable));
         modifiers?.Invoke(writer);
       }
     }
