@@ -16,7 +16,7 @@ namespace TestNamespace {
 
     [Composition]
     private static void _MyComposition(ref Composition cx) {
-      var theme = ThemeData.Key[cx];
+      var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark);
       counter++;
 
       using (cx.WriteContext(out var context)) {

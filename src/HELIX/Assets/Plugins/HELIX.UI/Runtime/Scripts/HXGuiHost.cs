@@ -2,6 +2,7 @@ using HELIX.Compose;
 using HELIX.Extensions;
 using HELIX.Theming;
 using HELIX.Types;
+using HELIX.UI.Prompts;
 using UnityEngine.UIElements;
 
 namespace HELIX.UI {
@@ -21,6 +22,7 @@ namespace HELIX.UI {
     public override void Compose(ref Composition cx) {
       using (cx.WriteContext(out var context)) {
         ThemeData.Key[context] = panel.theme;
+        HelixInputController.Key[context] = panel.inputController;
 
         ref var textStyle = ref panel.theme.body.medium.style;
         TextStyle.Key[context] = textStyle;

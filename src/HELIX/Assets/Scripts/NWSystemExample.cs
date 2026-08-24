@@ -8,6 +8,7 @@ using HELIX.Theming;
 using HELIX.Types;
 using HELIX.UI;
 using HELIX.UI.Options;
+using HELIX.UI.Prompts;
 using HELIX.Widgets.Universal;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
@@ -81,6 +82,7 @@ namespace HELIX.Examples {
     private const string TabProse = "examples-prose";
     private const string TabOptions = "examples-options";
     private const string TabDynamicGroups = "examples-dynamic-groups";
+    private const string TabPrompts = "examples-prompts";
 
     public static readonly SliderOptions VolumeOptions = new(0f, 1f, step: 0f, thumbRange: 0.1f);
     public static readonly SliderOptions VolumeOptionsScroll = new(
@@ -214,9 +216,16 @@ namespace HELIX.Examples {
             .Name("Dynamic groups")
             .Transition(NavigationTransitions.SlideHorizontal)
         )
+        .Route(
+          TabPrompts,
+          NavigationPage.Build(ComposePromptsTab)
+            .Name("Prompts")
+            .Transition(NavigationTransitions.SlideHorizontal)
+        )
         .Build();
       _optionPages = CreateProseOptionPages();
       InitializeDynamicGroupsExample();
+      InitializePromptsExample();
       _tabNavigationController = new NavigationController(_tabNavigationGraph);
       for (var i = 0; i < _tabNavigationGraph.Routes.Count; i++) {
         var route = _tabNavigationGraph.Routes[i];
@@ -246,6 +255,7 @@ namespace HELIX.Examples {
       _overlayController?.Dispose();
       _optionPages?.Dispose();
       DisposeDynamicGroupsExample();
+      DisposePromptsExample();
       _tabNavigationController = null;
       _navigationController = null;
       _dialogNavigationController = null;
@@ -258,6 +268,9 @@ namespace HELIX.Examples {
     }
 
     protected override void OnRecompose(ref Composition cx) {
+      using (cx.WriteContext(out var context)) {
+        HelixInputController.Key[context] = _promptInputController;
+      }
       using (cx.OverlayHost(_overlayController))
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
@@ -292,6 +305,9 @@ namespace HELIX.Examples {
 
     private static void ComposeDynamicGroupsTab(ref Composition cx, NavigationContextData navigation) =>
       cx.Lookup<HomeComposable>()?.ComposeDynamicGroupsTab(ref cx);
+
+    private static void ComposePromptsTab(ref Composition cx, NavigationContextData navigation) =>
+      cx.Lookup<HomeComposable>()?.ComposePromptsTab(ref cx);
 
     private void ComposeInputsTab(ref Composition cx) {
       using (cx.ScrollView()) {
