@@ -73,5 +73,12 @@ namespace HELIX.Compose {
     public static Composable Composable<T>(this T specs) where T : struct, ISpec {
       return (ref Composition cx) => cx.Spec(in specs);
     }
+
+    public static Composable Bake<T>(this T specs, ref Composition cx) where T : struct, ISpec {
+      var configuration = SpecConfig.Key[in cx];
+      var factory = configuration.GetFactory(in specs);
+      if (factory == null) throw new Exception($"No factory found for spec type {typeof(T)}");
+      return (ref Composition cx) => factory(ref cx, in specs);
+    }
   }
 }
