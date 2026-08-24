@@ -38,14 +38,5 @@ namespace HELIX.Widgets.Signals {
       NotifyDirty();
       NotifyObservers();
     }
-
-    public override string ToStringShort() {
-      return $"ValueSignal<{typeof(T).Name}>#{this.ShortHash()}";
-    }
-
-    public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
-      base.DebugFillProperties(properties);
-      properties.Add(new DiagnosticsProperty<T>("value", value, showName: false));
-    }
   }
 }

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using HELIX.Widgets.Prompts.Kenny;
 using Sirenix.OdinInspector;
 using UnityEngine;
 
@@ -45,8 +44,8 @@ namespace HELIX.Context {
     [Resource(Source.Addressables, "Assets/ExampleAddressable"), ShowInInspector]
     public GameObject addressablePrefab;
 
-    [Resource(Source.Resources), ShowInInspector]
-    public List<KennyPromptSvgCollection> svgCollections;
+    // [Resource(Source.Resources), ShowInInspector]
+    // public List<KennyPromptSvgCollection> svgCollections;
     
     [Hook]
     private void OnInit() {

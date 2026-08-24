@@ -1,7 +1,6 @@
 using System;
 using HELIX.Diagnostics;
-using HELIX.Diagnostics.Error;
-using HELIX.Diagnostics.Properties;
+using HELIX.Prose;
 using HELIX.Signals;
 
 namespace HELIX.Widgets.Signals {
@@ -34,9 +33,9 @@ namespace HELIX.Widgets.Signals {
     public override T PeekValue() {
       if (!_isDirty) return _cachedValue;
       if (_isComputing) {
-        throw HelixDiagnostics.Build(
+        throw HelixDiagnostics.ProseError(
           "Circular dependency detected while computing signal value.",
-          details: new DiagnosticsNode[] { new ErrorProperty("The computing signal is", this) },
+          writeDetails: writer => writer.Property("Signal", this, Datatypes.Object<Signal>()),
           stackTrace: Environment.StackTrace
         );
       }
@@ -46,10 +45,10 @@ namespace HELIX.Widgets.Signals {
         using (_tracker.BuildScope()) {
           _cachedValue = _computeFunc();
         }
-      } catch (HelixDiagnosticException) { throw; } catch (Exception ex) {
-        throw HelixDiagnostics.Build(
+      } catch (Exception ex) {
+        throw HelixDiagnostics.ProseError(
           "An error occurred while computing a signal value.",
-          details: new DiagnosticsNode[] { new ErrorProperty("The computing signal is", this) },
+          writeDetails: writer => writer.Property("Signal", this, Datatypes.Object<Signal>()),
           exception: ex
         );
       } finally { _isComputing = false; }
@@ -71,23 +70,5 @@ namespace HELIX.Widgets.Signals {
       base.Dispose();
     }
 
-    public override string ToStringShort() {
-      return $"ComputedSignal<{typeof(T).Name}>#{this.ShortHash()}";
-    }
-
-    public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
-      base.DebugFillProperties(properties);
-      properties.Add(new FlagProperty("isDirty", _isDirty, "Dirty"));
-      properties.Add(new FlagProperty("isComputing", _isComputing, "Computing", level: DiagnosticLevel.Fine));
-      properties.Add(new DiagnosticsProperty<T>("cachedValue", _cachedValue, showName: false));
-      properties.Add(
-        new DiagnosticsProperty<Func<T>>(
-          "computeFunc",
-          _computeFunc,
-          showName: false,
-          level: DiagnosticLevel.Debug
-        )
-      );
-    }
   }
 }

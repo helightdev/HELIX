@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using HELIX.Compose;
 using HELIX.Diagnostics;
-using HELIX.Diagnostics.Error;
+using HELIX.Prose;
 using HELIX.Widgets.Signals;
+using UnityEngine;
 using UnityEngine.Pool;
 
 namespace HELIX.Signals {
@@ -42,12 +43,12 @@ namespace HELIX.Signals {
         foreach (var observer in list) {
           try {
             observer.OnSignalRemoved(this); //
-          } catch (HelixDiagnosticException) { throw; } catch (Exception e) {
-            throw HelixDiagnostics.Build(
+          } catch (Exception e) {
+            throw HelixDiagnostics.ProseError(
               "An error occurred while disposing a signal observer.",
-              details: new DiagnosticsNode[] {
-                new ErrorProperty("The observer is", observer), new ErrorSpacer(),
-                new ErrorProperty("The observed signal is", this)
+              writeDetails: writer => {
+                writer.Property("Observer", observer, Datatypes.Object<ISignalObserver>());
+                writer.Property("Signal", this, Datatypes.Object<Signal>());
               },
               exception: e
             );
@@ -63,18 +64,14 @@ namespace HELIX.Signals {
 
     protected void NotifyDirty() {
       if (_notificationStackDepth >= _maxNotificationStackDepth) {
-        HelixDiagnostics.Build(
+        Debug.LogWarning(HelixDiagnostics.ProseErrorText(
           "Maximum signal notification stack depth exceeded",
           "This warning indicates that the maximum allowed depth for nested signal notifications has been exceeded. " +
           "This can occur when signals have circular dependencies, causing them to notify each other indefinitely. " +
           "To resolve this issue, review your signal dependencies and ensure that there are no circular references.",
-          new DiagnosticsNode[] { new ErrorProperty("The signal that triggered this warning is", this) },
-          hints: new DiagnosticsNode[] {
-            new ErrorHint(
-              "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
-            )
-          }
-        ).Report(DiagnosticLevel.Warning);
+          writeDetails: writer => writer.Property("Signal", this, Datatypes.Object<Signal>()),
+          hint: "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
+        ));
         return;
       }
       IncrementContextVersion();
@@ -91,12 +88,12 @@ namespace HELIX.Signals {
             }
 
             observer.OnSignalDirty(this); //
-          } catch (HelixDiagnosticException) { throw; } catch (Exception e) {
-            throw HelixDiagnostics.Build(
+          } catch (Exception e) {
+            throw HelixDiagnostics.ProseError(
               "An error occurred while notifying a signal observer of a dirty signal.",
-              details: new DiagnosticsNode[] {
-                new ErrorProperty("The observer is", observer), new ErrorSpacer(),
-                new ErrorProperty("The observed signal is", this)
+              writeDetails: writer => {
+                writer.Property("Observer", observer, Datatypes.Object<ISignalObserver>());
+                writer.Property("Signal", this, Datatypes.Object<Signal>());
               },
               exception: e
             );
@@ -110,18 +107,14 @@ namespace HELIX.Signals {
 
     protected void NotifyObservers() {
       if (_notificationStackDepth >= _maxNotificationStackDepth) {
-        HelixDiagnostics.Build(
+        Debug.LogWarning(HelixDiagnostics.ProseErrorText(
           "Maximum signal notification stack depth exceeded",
           "This warning indicates that the maximum allowed depth for nested signal notifications has been exceeded. " +
           "This can occur when signals have circular dependencies, causing them to notify each other indefinitely. " +
           "To resolve this issue, review your signal dependencies and ensure that there are no circular references.",
-          new DiagnosticsNode[] { new ErrorProperty("The signal that triggered this warning is", this) },
-          hints: new DiagnosticsNode[] {
-            new ErrorHint(
-              "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
-            )
-          }
-        ).Report(DiagnosticLevel.Warning);
+          writeDetails: writer => writer.Property("Signal", this, Datatypes.Object<Signal>()),
+          hint: "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
+        ));
         return;
       }
 
@@ -136,13 +129,12 @@ namespace HELIX.Signals {
         _notificationStackDepth++;
         buffer.AddRange(_observers);
         foreach (var observer in buffer) {
-          try { observer.OnSignalChanged(this); } catch (HelixDiagnosticException) { throw; } catch (Exception e) {
-            throw HelixDiagnostics.Build(
+          try { observer.OnSignalChanged(this); } catch (Exception e) {
+            throw HelixDiagnostics.ProseError(
               "An error occurred while notifying a signal observer of a changed value.",
-              details: new DiagnosticsNode[] {
-                new ErrorProperty("The observer is", observer),
-                new ErrorSpacer(),
-                new ErrorProperty("The observed signal is", this)
+              writeDetails: writer => {
+                writer.Property("Observer", observer, Datatypes.Object<ISignalObserver>());
+                writer.Property("Signal", this, Datatypes.Object<Signal>());
               },
               exception: e
             );

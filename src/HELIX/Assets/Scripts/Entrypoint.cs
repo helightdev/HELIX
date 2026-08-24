@@ -13,18 +13,18 @@ public class Entrypoint : MonoBehaviour {
   private void Start() {
     try {
       var previewId = ReadQueryParam("preview");
-      var widgetExamples = FindWidgetExamples();
-
-      if (widgetExamples == null) {
-        Debug.LogWarning("WidgetExamples host not found; preview query parameter was ignored.");
-        return;
-      }
-
-      if (!widgetExamples.ShowPreview(previewId)) {
-        widgetExamples.ShowGallery();
-        Debug.LogWarning($"Unknown preview ID '{previewId}'. Rendering widget gallery.");
-        return;
-      }
+      // var widgetExamples = FindWidgetExamples();
+      //
+      // if (widgetExamples == null) {
+      //   Debug.LogWarning("WidgetExamples host not found; preview query parameter was ignored.");
+      //   return;
+      // }
+      //
+      // if (!widgetExamples.ShowPreview(previewId)) {
+      //   widgetExamples.ShowGallery();
+      //   Debug.LogWarning($"Unknown preview ID '{previewId}'. Rendering widget gallery.");
+      //   return;
+      // }
 
       Debug.Log(string.IsNullOrWhiteSpace(previewId)
         ? "Rendering widget gallery."
@@ -32,12 +32,6 @@ public class Entrypoint : MonoBehaviour {
     } catch (System.Exception e) {
       Debug.LogError($"Error retrieving query parameter: {e.Message}");
     }
-  }
-
-  private static WidgetExamples FindWidgetExamples() {
-    var uiDocument = FindFirstObjectByType<UIDocument>();
-    return uiDocument?.rootVisualElement.Q<WidgetExamples>("NewTestWidget")
-           ?? uiDocument?.rootVisualElement.Q<WidgetExamples>();
   }
 
   private static string ReadQueryParam(string key) {

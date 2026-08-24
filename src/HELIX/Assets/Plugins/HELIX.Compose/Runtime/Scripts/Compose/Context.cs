@@ -154,7 +154,7 @@ namespace HELIX.Compose {
     }
   }
 
-  public abstract class ContextData : DiagnosticableBase, IDisposable {
+  public abstract class ContextData : IDisposable {
     protected internal ContextVersion version = ContextVersion.Initial;
     public ContextVersion Version => version;
 

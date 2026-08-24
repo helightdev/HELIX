@@ -17,7 +17,7 @@ namespace HELIX.Widgets.Signals {
   /// <remarks>
   /// This is an older implementation and this will most likely be reworked quite a bit to be more memory efficient
   /// </remarks>
-  public class SignalDependencyTracker : DiagnosticableBase, ISignalObserver, IDisposable, IPossiblyDisposed {
+  public class SignalDependencyTracker : ISignalObserver, IDisposable, IPossiblyDisposed {
     public static SignalDependencyTracker Current;
     private readonly ISignalObserver _forwarder;
     private readonly HashSet<Signal> _implicitBuffer = new();
@@ -148,11 +148,6 @@ namespace HELIX.Widgets.Signals {
       } else {
         signal.AddObserver(this);
       }
-    }
-
-    public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
-      base.DebugFillProperties(properties);
-      properties.Add(new DiagnosticsProperty<object>("owner", owner, showName: false));
     }
 
     public readonly struct Scope : IDisposable {

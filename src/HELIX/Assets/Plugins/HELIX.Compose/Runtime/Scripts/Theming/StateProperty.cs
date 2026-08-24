@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using HELIX.Compose;
 using HELIX.Diagnostics;
-using HELIX.Diagnostics.Properties;
 
 namespace HELIX.Theming {
   public static class StateProperties {
@@ -133,7 +132,7 @@ namespace HELIX.Theming {
     }
   }
 
-  public abstract class StateProperty<T> : DiagnosticableBase {
+  public abstract class StateProperty<T> {
     public abstract bool TryResolve(State state, out T value);
 
     public T ResolveOrDefault(State state, T defaultValue = default) {
@@ -193,11 +192,6 @@ namespace HELIX.Theming {
     }
 
     public override int GetHashCode() => values != null ? values.GetHashCode() : 0;
-
-    public override void DebugFillProperties(DiagnosticPropertiesBuilder properties) {
-      base.DebugFillProperties(properties);
-      properties.Add(new IterableProperty<Pair>("values", values, showName: false));
-    }
 
     internal class Pair : IEquatable<Pair> {
       public readonly State mask;

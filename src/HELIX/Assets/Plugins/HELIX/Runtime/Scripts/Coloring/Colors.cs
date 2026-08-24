@@ -1,29 +1,28 @@
 using System;
-using HELIX.Coloring.Material;
 using Unity.Mathematics;
 using UnityEngine;
 
 namespace HELIX.Coloring {
   public static class Colors {
-    public static Color Red => MaterialColors.Red;
-    public static Color Green => MaterialColors.Green;
-    public static Color Blue => MaterialColors.Blue;
-    public static Color Yellow => MaterialColors.Yellow;
-    public static Color Cyan => MaterialColors.Cyan;
-    public static Color Pink => MaterialColors.Pink;
-    public static Color Purple => MaterialColors.Purple;
-    public static Color DeepPurple => MaterialColors.DeepPurple;
-    public static Color Indigo => MaterialColors.Indigo;
-    public static Color LightBlue => MaterialColors.LightBlue;
-    public static Color Teal => MaterialColors.Teal;
-    public static Color Orange => MaterialColors.Orange;
-    public static Color DeepOrange => MaterialColors.DeepOrange;
-    public static Color Brown => MaterialColors.Brown;
-    public static Color Grey => MaterialColors.Grey;
-    public static Color BlueGrey => MaterialColors.BlueGrey;
-    public static Color LightGreen => MaterialColors.LightGreen;
-    public static Color Lime => MaterialColors.Lime;
-    public static Color Amber => MaterialColors.Amber;
+    public static readonly Color Red = OkLch(0.637f, 0.237f, 25.331f);
+    public static readonly Color Green = OkLch(0.723f, 0.219f, 149.579f);
+    public static readonly Color Blue = OkLch(0.623f, 0.214f, 259.815f);
+    public static readonly Color Yellow = OkLch(0.795f, 0.184f, 86.047f);
+    public static readonly Color Cyan = OkLch(0.715f, 0.143f, 215.221f);
+    public static readonly Color Pink = OkLch(0.656f, 0.241f, 354.308f);
+    public static readonly Color Purple = OkLch(0.627f, 0.265f, 303.9f);
+    public static readonly Color DeepPurple = OkLch(0.606f, 0.25f, 292.717f);
+    public static readonly Color Indigo = OkLch(0.585f, 0.233f, 277.117f);
+    public static readonly Color LightBlue = OkLch(0.685f, 0.169f, 237.323f);
+    public static readonly Color Teal = OkLch(0.704f, 0.14f, 182.503f);
+    public static readonly Color Orange = OkLch(0.705f, 0.213f, 47.604f);
+    public static readonly Color DeepOrange = OkLch(0.705f, 0.213f, 47.604f);
+    public static readonly Color Brown = OkLch(0.547f, 0.021f, 43.1f);
+    public static readonly Color Grey = OkLch(0.551f, 0.027f, 264.364f);
+    public static readonly Color BlueGrey = OkLch(0.554f, 0.046f, 257.417f);
+    public static readonly Color LightGreen = OkLch(0.768f, 0.233f, 130.85f);
+    public static readonly Color Lime = OkLch(0.768f, 0.233f, 130.85f);
+    public static readonly Color Amber = OkLch(0.769f, 0.188f, 70.08f);
 
     /// <summary>
     /// A gray color with no alpha. Aims to mitigate the effect of straight alpha blending.
@@ -85,6 +84,40 @@ namespace HELIX.Coloring {
     public static Color Argb(uint argb) {
       return argb.ArgbToColor();
     }
+
+    /// <summary>
+    ///   Converts a Unity gamma-space Color into ARGB.
+    /// </summary>
+    public static int ToArgb(this Color color) {
+      var a = Mathf.Clamp(Mathf.RoundToInt(color.a * 255.0f), 0, 255);
+      var r = Mathf.Clamp(Mathf.RoundToInt(color.r * 255.0f), 0, 255);
+      var g = Mathf.Clamp(Mathf.RoundToInt(color.g * 255.0f), 0, 255);
+      var b = Mathf.Clamp(Mathf.RoundToInt(color.b * 255.0f), 0, 255);
+
+      return (a << 24)
+        | (r << 16)
+        | (g << 8)
+        | b;
+    }
+
+    /// <summary>
+    ///   Converts an ARGB integer into a Unity gamma-space Color.
+    /// </summary>
+    public static Color ArgbToColor(this int argb) {
+      var a = ((argb >> 24) & 255) / 255.0f;
+      var r = ((argb >> 16) & 255) / 255.0f;
+      var g = ((argb >> 8) & 255) / 255.0f;
+      var b = (argb & 255) / 255.0f;
+      return new Color(r, g, b, a);
+    }
+
+    /// <summary>
+    ///   Converts an ARGB integer into a Unity gamma-space Color.
+    /// </summary>
+    public static Color ArgbToColor(this uint argb) {
+      return unchecked((int)argb).ArgbToColor();
+    }
+
 
     public static Color OkLch(float l, float c, float h) {
       var lch = new OkLchColor(l, c, h);
