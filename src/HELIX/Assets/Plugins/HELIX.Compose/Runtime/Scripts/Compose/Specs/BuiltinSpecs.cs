@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 using TextStyle = HELIX.Types.TextStyle;
 
 namespace HELIX.Compose {
-  public readonly struct ChevronSpec : ISpec {
+  public readonly struct ChevronSpec : ISpec<ChevronSpec> {
     public readonly ArrowPosition position;
     public readonly StyleLength size;
     public readonly StyleColor? color;
@@ -16,6 +16,8 @@ namespace HELIX.Compose {
       this.size = size;
       this.color = color;
     }
+
+    public ReadComposable<ChevronSpec> GetDefault(in ChevronSpec spec) => Default;
 
     public static void Default(ref Composition cx, in ChevronSpec spec) {
       ref var text = ref cx.CURSOR;
@@ -33,7 +35,7 @@ namespace HELIX.Compose {
 
   public enum ArrowPosition { Up, Down, Left, Right }
 
-  public readonly struct IconRef : ISpec {
+  public readonly struct IconRef : ISpec<IconRef> {
     public readonly string icon;
     public readonly Font font;
     public readonly FontAsset fontAsset;
@@ -53,6 +55,8 @@ namespace HELIX.Compose {
     public IconRef(char icon, Font font) : this(icon.ToString(), font) { }
     public IconRef(char icon, FontAsset fontAsset) : this(icon.ToString(), fontAsset) { }
 
+    public ReadComposable<IconRef> GetDefault(in IconRef spec) => Default;
+
     public static void Default(ref Composition cx, in IconRef spec) {
       if (spec.font != null) {
         cx.Text(spec.icon).TextFont(spec.font);
@@ -62,7 +66,7 @@ namespace HELIX.Compose {
     }
   }
 
-  public readonly struct LabelSpec : ISpec {
+  public readonly struct LabelSpec : ISpec<LabelSpec> {
     public readonly Composable icon;
     public readonly Composable textContent;
     public readonly string text;
@@ -98,6 +102,8 @@ namespace HELIX.Compose {
     public void ComposeIcon(ref Composition cx) {
       if (icon != null) icon(ref cx);
     }
+
+    public ReadComposable<LabelSpec> GetDefault(in LabelSpec spec) => Default;
 
 
     public static void Default(ref Composition cx, in LabelSpec spec) {

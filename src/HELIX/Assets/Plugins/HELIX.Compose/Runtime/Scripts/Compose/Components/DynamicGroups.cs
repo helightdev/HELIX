@@ -6,7 +6,7 @@ using HELIX.Types;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  public class DynamicComposable {
+  public abstract class DynamicComposable {
     private Composable _composable;
     internal DynamicComposableController controller;
     internal long sequence;
@@ -40,7 +40,7 @@ namespace HELIX.Compose {
   }
 
   public sealed class DynamicComposable<TLayout> : DynamicComposable {
-    public TLayout layout;
+    public readonly TLayout layout;
 
     public DynamicComposable(
       object key,

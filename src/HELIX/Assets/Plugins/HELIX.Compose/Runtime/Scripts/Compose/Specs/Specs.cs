@@ -1,9 +1,14 @@
 using System;
 using System.Collections.Generic;
-using HELIX.Prose;
 
 namespace HELIX.Compose {
-  public interface ISpec { }
+  public interface ISpec {
+
+  }
+
+  public interface ISpec<T> : ISpec where T : struct, ISpec {
+    ReadComposable<T> GetDefault(in T spec) => null;
+  }
 
   public interface ISpecHandler {
     ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec;
@@ -38,16 +43,13 @@ namespace HELIX.Compose {
         var handled = handlers[i].GetFactory(in spec);
         if (handled != null) return handled;
       }
-      return parent?.GetFactory(in spec);
+      if (parent != null) return parent.GetFactory(in spec);
+      return spec is ISpec<T> defaults ? defaults.GetDefault(in spec) : null;
     }
 
     public static readonly ContextKey<SpecConfig> Key = new("specs", Default);
     public static SpecConfig Empty => new();
     public static SpecConfig Default => new SpecConfig()
-      .AddFactory<LabelSpec>(LabelSpec.Default)
-      .AddFactory<IconRef>(IconRef.Default)
-      .AddFactory<ChevronSpec>(ChevronSpec.Default)
-      .AddFactory<InspectorLayout>(InspectorLayout.Default)
       .AddHandler<ChoiceControlSpecHandler>()
       .AddHandler<TextControlSpecHandler>()
       .AddHandler<IntegerControlSpecHandler>()

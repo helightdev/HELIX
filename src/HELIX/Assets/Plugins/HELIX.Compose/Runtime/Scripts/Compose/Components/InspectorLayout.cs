@@ -17,7 +17,7 @@ namespace HELIX.Compose {
   }
 
   /// <summary>Pure two-column inspector layout with optional content around both columns.</summary>
-  public readonly struct InspectorLayout : ISpec {
+  public readonly struct InspectorLayout : ISpec<InspectorLayout> {
     public readonly Composable name, value;
     public readonly InspectorLayoutSlots slots;
     public readonly Length nameWidth;
@@ -34,6 +34,8 @@ namespace HELIX.Compose {
       this.stacked = stacked;
       this.hideName = hideName;
     }
+
+    public ReadComposable<InspectorLayout> GetDefault(in InspectorLayout spec) => Default;
 
     public static void Default(ref Composition cx, in InspectorLayout spec) {
       if (spec.stacked) {
