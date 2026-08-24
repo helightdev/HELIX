@@ -44,10 +44,9 @@ namespace HELIX.Prose {
 
   /// <summary>An immutable, path-addressed intermediate representation of completed composables.</summary>
   public sealed class NavTreeProse : IProse {
-    public sealed class Node : IProse {
+    public sealed class Node : LinkedProseTreeNode<Node>, IProse {
       internal readonly List<Composable> entries = new();
       internal readonly List<IProseModifier> modifiers = new();
-      internal readonly List<Node> children = new();
 
       internal Node(FormPath path, string name) {
         Path = path;
@@ -58,12 +57,12 @@ namespace HELIX.Prose {
       public string Name { get; }
       public IReadOnlyList<Composable> Entries => entries;
       public IReadOnlyList<IProseModifier> Modifiers => modifiers;
-      public IReadOnlyList<Node> Children => children;
+      public IReadOnlyList<Node> Children => this;
       public void ToProse(IProseWriter writer) {
         writer.Name(Name);
         writer.Property("Modifiers", modifiers, new IterableDatatype<IProseModifier>());
         using (writer.Tree()) {
-          foreach (var section in children) {
+          foreach (var section in this) {
             section?.ToProse(writer);
           }
         }
@@ -173,7 +172,7 @@ namespace HELIX.Prose {
       _sections.Clear();
       _rootNode.entries.Clear();
       _rootNode.modifiers.Clear();
-      _rootNode.children.Clear();
+      while (_rootNode.firstChild != null) _rootNode.Remove(_rootNode.firstChild);
       _sections.Add(_paths.Root, _rootNode);
     }
 
@@ -195,7 +194,7 @@ namespace HELIX.Prose {
       var separator = formatted.LastIndexOf('.');
       var section = new NavTreeProse.Node(path, formatted.Substring(separator + 1));
       _sections.Add(path, section);
-      parent.children.Add(section);
+      parent.Add(section);
       return section;
     }
 
@@ -203,7 +202,7 @@ namespace HELIX.Prose {
       var result = new NavTreeProse.Node(source.Path, source.Name);
       result.entries.AddRange(source.entries);
       result.modifiers.AddRange(source.modifiers);
-      for (var i = 0; i < source.children.Count; i++) result.children.Add(Snapshot(source.children[i]));
+      foreach (var child in source) result.Add(Snapshot(child));
       return result;
     }
   }
