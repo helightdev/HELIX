@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using HELIX.Diagnostics;
 using HELIX.Signals;
-using HELIX.Widgets.Utilities;
 
 namespace HELIX.Widgets.Signals {
   /// <summary>

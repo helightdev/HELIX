@@ -1,6 +1,5 @@
 using System;
 using HELIX.Signals;
-using HELIX.Widgets.Utilities;
 using UnityEngine;
 
 namespace HELIX.Widgets.Signals {

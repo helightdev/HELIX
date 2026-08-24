@@ -9,7 +9,6 @@ using HELIX.Types;
 using HELIX.UI;
 using HELIX.UI.Options;
 using HELIX.UI.Prompts;
-using HELIX.Widgets.Universal;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;

@@ -4,7 +4,6 @@ using HELIX.Extensions;
 using HELIX.Signals;
 using HELIX.Theming;
 using HELIX.Types;
-using HELIX.Widgets.Utilities;
 using UnityEngine;
 using UnityEngine.UIElements;
 

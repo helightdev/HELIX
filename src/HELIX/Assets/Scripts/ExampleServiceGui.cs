@@ -4,7 +4,6 @@ using HELIX.Compose;
 using HELIX.Context;
 using HELIX.UI;
 using HELIX.UI.Options;
-using HELIX.Widgets.Universal;
 using UnityEngine.UIElements;
 
 namespace DefaultNamespace {

@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
 
-namespace HELIX.Widgets.Universal {
+namespace HELIX.UI {
   public static class FaSolidIcons {
     private static FontDefinition _definition;
 
