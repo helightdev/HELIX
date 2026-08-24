@@ -91,6 +91,7 @@ namespace HELIX.Context {
     ) {
       var managed = BeginScopeCreation(parent, scope);
       try {
+        new ScopeCreateEvent { Container = this, Scope = managed }.Raise();
         await _scopeLoader.LoadAsync(managed, components, componentTypes, bindings);
         CommitScope(managed);
         return managed;
@@ -111,6 +112,7 @@ namespace HELIX.Context {
     ) {
       var managed = BeginScopeCreation(parent, scope);
       try {
+        new ScopeCreateEvent { Container = this, Scope = managed }.Raise();
         _scopeLoader.LoadSync(managed, components, componentTypes, bindings);
         CommitScope(managed);
         return managed;
@@ -188,6 +190,7 @@ namespace HELIX.Context {
       managed.Activate(this);
       scopes.Add(managed.scope, managed);
       _creatingScopes.Remove(managed.scope);
+      new ScopeStartedEvent { Container = this, Scope = managed }.Raise();
     }
 
     private void EnsureApplicationCanStart() {
@@ -248,11 +251,13 @@ namespace HELIX.Context {
     internal void DisposeScopeFromHandler(IScope scope) => DisposeScopeFromUnity(scope);
 
     internal void NotifyScopeActivated(ManagedScope scope) {
+      new ScopeActivateEvent { Container = this, Scope = scope }.Raise();
       foreach (var handler in _scopeHandlers.Where(handler => handler.Handles(scope.scope)).ToArray())
         handler.ScopeActivated(this, scope);
     }
 
     internal void NotifyScopeDisposing(ManagedScope scope) {
+      new ScopeDeactivateEvent { Container = this, Scope = scope }.Raise();
       foreach (var handler in _scopeHandlers.Where(handler => handler.Handles(scope.scope)).Reverse().ToArray())
         handler.ScopeDisposing(this, scope);
     }

@@ -43,8 +43,8 @@ namespace HELIX.Prose {
   }
 
   /// <summary>An immutable, path-addressed intermediate representation of completed composables.</summary>
-  public sealed class PathSectionedProse {
-    public sealed class Section {
+  public sealed class PathSectionedProse : IProse {
+    public sealed class Section : IProse {
       internal readonly List<Composable> entries = new();
       internal readonly List<IProseModifier> modifiers = new();
       internal readonly List<Section> children = new();
@@ -59,6 +59,15 @@ namespace HELIX.Prose {
       public IReadOnlyList<Composable> Entries => entries;
       public IReadOnlyList<IProseModifier> Modifiers => modifiers;
       public IReadOnlyList<Section> Children => children;
+      public void ToProse(IProseWriter writer) {
+        writer.Name(Name);
+        writer.Property("Modifiers", modifiers, new IterableDatatype<IProseModifier>());
+        using (writer.Tree()) {
+          foreach (var section in children) {
+            section?.ToProse(writer);
+          }
+        }
+      }
     }
 
     internal PathSectionedProse(FormPathPool paths, Section root) {
@@ -68,16 +77,19 @@ namespace HELIX.Prose {
 
     public FormPathPool Paths { get; }
     public Section Root { get; }
+    public void ToProse(IProseWriter writer) {
+      Root.ToProse(writer);
+    }
   }
 
   /// <summary>
   /// Compose prose writer whose path scopes select independent output buffers. Nested path scopes are relative,
   /// so <c>Path("graphics")</c> followed by <c>Path("quality")</c> addresses <c>graphics.quality</c>.
   /// </summary>
-  public sealed class PathSectionedComposeProseWriter : ComposeProseWriter {
+  public sealed class NavigableProseWriter : ComposeProseWriter {
     public struct PathScope : IDisposable {
-      private PathSectionedComposeProseWriter _writer;
-      internal PathScope(PathSectionedComposeProseWriter writer) => _writer = writer;
+      private NavigableProseWriter _writer;
+      internal PathScope(NavigableProseWriter writer) => _writer = writer;
 
       public void Dispose() {
         var writer = _writer;
@@ -96,7 +108,7 @@ namespace HELIX.Prose {
     private readonly List<PathFrame> _pathFrames = new();
     private readonly PathSectionedProse.Section _rootSection;
 
-    public PathSectionedComposeProseWriter(
+    public NavigableProseWriter(
       FormPathPool paths = null, ProseReducer<Composable> reducer = null,
       ProseScopeDelegates<Composable> delegates = null
     ) : base(reducer ?? new ComposeProseReducer(), delegates) {

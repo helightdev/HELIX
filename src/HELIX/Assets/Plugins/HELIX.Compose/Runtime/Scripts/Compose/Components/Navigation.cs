@@ -291,6 +291,10 @@ namespace HELIX.Compose {
     private readonly List<NavigationRoute> _orderedRoutes = new();
     private string _initialRoute;
 
+    public int Count => _orderedRoutes.Count;
+    public bool IsInitialRouteSet => _routes.ContainsKey(_initialRoute);
+    public string InitialRoutePath => _initialRoute;
+
     internal NavigationGraphBuilder(string initialRoute) {
       _initialRoute = initialRoute;
     }

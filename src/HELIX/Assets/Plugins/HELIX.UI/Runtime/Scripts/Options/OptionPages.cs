@@ -7,7 +7,7 @@ using HELIX.Theming;
 using HELIX.Types;
 using UnityEngine.UIElements;
 
-namespace HELIX.UI {
+namespace HELIX.UI.Options {
   [PropStruct] public readonly partial struct OptionPagesOptions {
     public static readonly OptionPagesOptions Default = new(hasSidePanel: true);
 
@@ -40,6 +40,8 @@ namespace HELIX.UI {
     private readonly OverlayController _overlays = new();
     private readonly NavigationGraph _graph;
     private readonly NavigationController _controller;
+
+    public FormController Form => _form;
 
     public OptionPages(PathSectionedProse model, OptionPagesOptions? options = null) {
       _model = model ?? throw new ArgumentNullException(nameof(model));

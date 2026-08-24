@@ -325,6 +325,7 @@ namespace HELIX.Context {
       foreach (var child in managedChildren.ToArray()) child.Dispose(failures, released);
       Teardown(failures, false);
       State = ManagedScopeState.Disposed;
+      NotifyScopeDisposed(failures);
       released?.Invoke(this);
     }
 
@@ -343,6 +344,15 @@ namespace HELIX.Context {
         _container.NotifyScopeDisposing(this);
       } catch (Exception exception) {
         failures.Add(new ComponentDeinitializationException("A scope handler failed during disposal.", exception));
+      }
+    }
+
+    private void NotifyScopeDisposed(List<Exception> failures) {
+      if (_container == null) return;
+      try {
+        new ScopeDisposedEvent { Container = _container, Scope = this }.Raise();
+      } catch (Exception exception) {
+        failures.Add(new ComponentDeinitializationException("A scope disposal event handler failed.", exception));
       }
       _container = null;
     }
@@ -449,4 +459,53 @@ namespace HELIX.Context {
       }
     }
   }
+
+  public interface ContextEvt<T> : Evt<T> where T : ContextEvt<T> {
+    public ManagedContainer Container { get; set; }
+  }
+
+  public interface ContextScopeEvt<T> : ContextEvt<T> where T : ContextScopeEvt<T> {
+    public ManagedScope Scope { get; set; }
+  }
+
+  /// <summary>
+  /// Called directly after a scope is created and before any managed bindings are loaded or initialized.
+  /// </summary>
+  public struct ScopeCreateEvent : ContextScopeEvt<ScopeCreateEvent> {
+    public ManagedContainer Container { get; set; }
+    public ManagedScope Scope { get; set; }
+  }
+
+  /// <summary>
+  /// Called directly after all managed bindings have been loaded and initialized in a scope.
+  /// </summary>
+  public struct ScopeActivateEvent : ContextScopeEvt<ScopeActivateEvent> {
+    public ManagedContainer Container { get; set; }
+    public ManagedScope Scope { get; set; }
+  }
+
+  /// <summary>
+  /// Called after all managed bindings have been initialized and after <see cref="ScopeActivateEvent"/>.
+  /// </summary>
+  public struct ScopeStartedEvent : ContextScopeEvt<ScopeStartedEvent> {
+    public ManagedContainer Container { get; set; }
+    public ManagedScope Scope { get; set; }
+  }
+
+  /// <summary>
+  /// Called before a scope and its bindings are disposed.
+  /// </summary>
+  public struct ScopeDeactivateEvent : ContextScopeEvt<ScopeDeactivateEvent> {
+    public ManagedContainer Container { get; set; }
+    public ManagedScope Scope { get; set; }
+  }
+
+  /// <summary>
+  /// Called after a scope and its bindings have been disposed.
+  /// </summary>
+  public struct ScopeDisposedEvent : ContextScopeEvt<ScopeDisposedEvent> {
+    public ManagedContainer Container { get; set; }
+    public ManagedScope Scope { get; set; }
+  }
+
 }

@@ -51,7 +51,7 @@ namespace HELIX.Compose {
   [BoundaryComposable(Extension = false, UseLookupCache = true)]
   public partial class NavigationHostBoundary {
     public partial struct Props {
-      public NavigationGraph graph;
+      [Prop(null)] public NavigationGraph graph;
       [Prop(null)] public NavigationController controller;
       [Prop(null, Equatable = false)] public INavigationTransition transition;
       [Prop(NavigationHostBehavior.Default)] public NavigationHostBehavior behavior;
@@ -114,7 +114,7 @@ namespace HELIX.Compose {
           if (_isAutomaticController) Controller?.Dispose();
           Controller = new NavigationController(props.graph);
           _isAutomaticController = true;
-        } else {
+        } else if (props.graph != null) {
           Controller.SetGraph(props.graph);
         }
       } else if (!ReferenceEquals(Controller, resolved)) {
@@ -122,8 +122,8 @@ namespace HELIX.Compose {
         if (_isAutomaticController) Controller?.Dispose();
         Controller = resolved;
         _isAutomaticController = false;
-        Controller.SetGraph(props.graph, preserveStack: true);
-      } else {
+        if (props.graph != null) Controller.SetGraph(props.graph, preserveStack: true);
+      } else if (props.graph != null) {
         Controller.SetGraph(props.graph, preserveStack: true);
       }
       Controller.AttachPresenter(this);
@@ -328,13 +328,35 @@ namespace HELIX.Compose {
   public static class NavigationExtensions {
     public static ref ElementRef NavigationHost(
       this ref Composition cx,
-      NavigationGraph graph,
+      NavigationGraph graph = null,
       NavigationController controller = null,
       INavigationTransition transition = null,
       NavigationHostBehavior behavior = NavigationHostBehavior.Default
     ) {
-      if (graph == null) throw new ArgumentNullException(nameof(graph));
       return ref NavigationHostBoundary.ComposeBoundary(ref cx, graph, controller, transition, behavior);
+    }
+
+    public static ref ElementRef NavigationHost(
+      this ref Composition cx,
+      NavigationController controller,
+      INavigationTransition transition = null,
+      NavigationHostBehavior behavior = NavigationHostBehavior.Default
+    ) => ref NavigationHostBoundary.ComposeBoundary(ref cx, null, controller, transition, behavior);
+
+    public static ref ElementRef NavigationHost(
+      this ref Composition cx,
+      out NavigationController resolvedController,
+      NavigationGraph graph = null,
+      NavigationController controller = null,
+      INavigationTransition transition = null,
+      NavigationHostBehavior behavior = NavigationHostBehavior.Default
+    ) {
+      ref var result = ref NavigationHostBoundary.ComposeBoundary(ref cx, graph, controller, transition, behavior);
+      resolvedController = (result.element as CompositionBoundaryNodeBase)?.BoundaryComposable
+        is NavigationHostBoundary boundary
+          ? boundary.Controller
+          : controller;
+      return ref result;
     }
 
     public static ref ElementRef NavigationHost(

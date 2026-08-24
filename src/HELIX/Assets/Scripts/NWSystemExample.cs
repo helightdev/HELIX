@@ -7,6 +7,7 @@ using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;
 using HELIX.UI;
+using HELIX.UI.Options;
 using HELIX.Widgets.Universal;
 using UnityEngine;
 using UnityEngine.TextCore.Text;

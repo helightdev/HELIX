@@ -3,6 +3,7 @@ using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;
 using HELIX.UI;
+using HELIX.UI.Options;
 using UnityEngine.UIElements;
 
 namespace HELIX.Examples {
@@ -40,7 +41,7 @@ namespace HELIX.Examples {
     private static OptionPages CreateProseOptionPages() {
       var fieldReducer = new ComposeProseFieldReducer().Add(OptionPageFieldFactory.Create);
       var handlers = new ProseScopeDelegates<Composable>().Add(new ComposeProseFieldHandler(fieldReducer));
-      var writer = new PathSectionedComposeProseWriter(delegates: handlers);
+      var writer = new NavigableProseWriter(delegates: handlers);
       using (writer.Path("graphics")) {
         writer.PushModifier(PathSectionModifiers.Title("Graphics", TextRole.TitleLarge));
         using (writer.Field<DisplayMode>(

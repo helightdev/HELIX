@@ -50,6 +50,9 @@ namespace HELIX.Compose {
       font = null;
     }
 
+    public IconRef(char icon, Font font) : this(icon.ToString(), font) { }
+    public IconRef(char icon, FontAsset fontAsset) : this(icon.ToString(), fontAsset) { }
+
     public static void Default(ref Composition cx, in IconRef spec) {
       if (spec.font != null) {
         cx.Text(spec.icon).TextFont(spec.font);

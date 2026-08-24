@@ -8,7 +8,7 @@ using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.UI {
+namespace HELIX.UI.Options {
   public sealed class OptionPageFieldPresentation {
     public OptionPageFieldPresentation(Composable label, Composable description, Composable tooltip) {
       Label = label;

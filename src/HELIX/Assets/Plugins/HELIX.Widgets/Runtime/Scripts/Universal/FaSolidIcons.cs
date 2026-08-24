@@ -1,3 +1,4 @@
+using HELIX.Compose;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
@@ -14,6 +15,16 @@ namespace HELIX.Widgets.Universal {
         _definition = FontDefinition.FromSDFFont(asset);
         return _definition;
       }
+    }
+
+    public static FontAsset FontAsset {
+      get {
+        return FontDefinition.fontAsset;
+      }
+    }
+
+    public static IconRef Ref(char icon) {
+      return new IconRef(icon, FontAsset);
     }
 
     public const char AddressBook = '\uF2B9';
