@@ -1,38 +1,22 @@
 using System;
 using System.Collections.Generic;
+using HELIX.Extensions;
 using HELIX.Signals;
 using HELIX.Types;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  public sealed class DynamicComposable {
+  public class DynamicComposable {
     private Composable _composable;
     internal DynamicComposableController controller;
     internal long sequence;
     public readonly object key;
-    public StyleFloat flex;
-    public AxisConstraint size;
-    public AxisConstraint cross;
-    public StyleLength4 position;
     public int order;
 
-    public DynamicComposable(
-      object key,
-      Composable composable,
-      object userData = null,
-      StyleFloat? flex = null,
-      int order = 0,
-      AxisConstraint? constraint = null,
-      AxisConstraint? cross = null,
-      StyleLength4? position = null
-    ) {
+    protected DynamicComposable(object key, Composable composable, object userData, int order) {
       this.key = key ?? throw new ArgumentNullException(nameof(key));
       Composable = composable;
       UserData = userData;
-      this.flex = flex.GetValueOrDefault(StyleKeyword.Null);
-      size = constraint ?? AxisConstraint.Null;
-      this.cross = cross ?? AxisConstraint.Null;
-      this.position = position ?? StyleLength4.Null;
       this.order = order;
     }
 
@@ -43,10 +27,9 @@ namespace HELIX.Compose {
       set => _composable = value ?? throw new ArgumentNullException(nameof(value));
     }
 
+    public DynamicComposableController Controller => controller;
     public bool IsBound => controller != null;
     public void Remove() => controller?.RemoveEntry(this);
-
-    public DynamicComposableController Controller => controller;
 
     public static DynamicComposable Lookup(VisualElement element) {
       for (var parent = element; parent != null; parent = parent.hierarchy.parent) {
@@ -56,12 +39,48 @@ namespace HELIX.Compose {
     }
   }
 
+  public sealed class DynamicComposable<TLayout> : DynamicComposable {
+    public TLayout layout;
+
+    public DynamicComposable(
+      object key,
+      Composable composable,
+      TLayout layout,
+      object userData = null,
+      int order = 0
+    ) : base(key, composable, userData, order) {
+      this.layout = layout;
+    }
+  }
+
+  public struct DynamicFlexLayout {
+    public StyleFloat flex;
+    public AxisConstraint size;
+
+    public DynamicFlexLayout(StyleFloat? flex = null, AxisConstraint? size = null) {
+      this.flex = flex.GetValueOrDefault(StyleKeyword.Null);
+      this.size = size ?? AxisConstraint.Null;
+    }
+  }
+
+  public struct DynamicStackLayout {
+    public BoxConstraints constraints;
+    public StyleLength4 position;
+
+    public DynamicStackLayout(
+      StyleLength4? position = null,
+      BoxConstraints? constraints = null
+    ) {
+      this.position = position ?? StyleLength4.Null;
+      this.constraints = constraints ?? BoxConstraints.Null;
+    }
+  }
+
   /// <summary>
   /// A visual-element-independent collection of keyed composable entries. After changing an entry,
   /// call <see cref="NotifyEntriesChanged"/> to publish the change and reapply its ordering.
   /// </summary>
-  public sealed class DynamicComposableController : Signal<int> {
-    private readonly List<DynamicComposable> _entries = new();
+  public abstract class DynamicComposableController : Signal<int> {
     private int _revision;
     private long _nextSequence;
 
@@ -70,40 +89,18 @@ namespace HELIX.Compose {
       typeof(DynamicComposableController)
     ) { }
 
-    public IReadOnlyList<DynamicComposable> Entries => _entries;
-    public int Count => _entries.Count;
+    public abstract int Count { get; }
     internal int Revision => _revision;
+    internal abstract DynamicComposable EntryAt(int index);
+    protected abstract void SortEntries();
+    protected abstract void ClearEntries();
 
-    public DynamicComposable AddEntry(
-      object key,
-      Composable composable,
-      object userData = null,
-      StyleFloat? flex = null,
-      int order = 0,
-      AxisConstraint? constraint = null,
-      AxisConstraint? cross = null,
-      StyleLength4? position = null
-    ) => AddEntry(new DynamicComposable(key, composable, userData, flex, order, constraint, cross, position));
-
-    public DynamicComposable AddEntry(DynamicComposable entry) {
-      if (entry == null) throw new ArgumentNullException(nameof(entry));
-      if (entry.controller != null)
-        throw new InvalidOperationException("The dynamic composable entry already belongs to a controller.");
-      if (FindEntry(entry.key) != null)
-        throw new ArgumentException("An entry with the same key already exists.", nameof(entry));
+    protected void Attach(DynamicComposable entry) {
       entry.controller = this;
       entry.sequence = _nextSequence++;
-      _entries.Add(entry);
-      NotifyEntriesChanged();
-      return entry;
     }
 
-    public bool RemoveEntry(DynamicComposable entry) {
-      if (entry == null || !ReferenceEquals(entry.controller, this) || !_entries.Remove(entry)) return false;
-      entry.controller = null;
-      NotifyEntriesChanged();
-      return true;
-    }
+    public abstract bool RemoveEntry(DynamicComposable entry);
 
     public bool RemoveEntry(object key) {
       var entry = FindEntry(key);
@@ -112,14 +109,15 @@ namespace HELIX.Compose {
 
     public DynamicComposable FindEntry(object key) {
       if (key == null) return null;
-      for (var i = 0; i < _entries.Count; i++)
-        if (Equals(_entries[i].key, key))
-          return _entries[i];
+      for (var i = 0; i < Count; i++) {
+        var entry = EntryAt(i);
+        if (Equals(entry.key, key)) return entry;
+      }
       return null;
     }
 
     public void NotifyEntriesChanged() {
-      _entries.Sort(CompareEntries);
+      SortEntries();
       unchecked { _revision++; }
       NotifyDirty();
       NotifyObservers();
@@ -134,15 +132,56 @@ namespace HELIX.Compose {
       throw new NotSupportedException("Dynamic composable state is changed through its entries.");
 
     public override void Dispose() {
-      for (var i = 0; i < _entries.Count; i++) _entries[i].controller = null;
-      _entries.Clear();
+      for (var i = 0; i < Count; i++) EntryAt(i).controller = null;
+      ClearEntries();
       base.Dispose();
     }
 
-    private static int CompareEntries(DynamicComposable left, DynamicComposable right) {
+    protected static int CompareEntries(DynamicComposable left, DynamicComposable right) {
       var order = left.order.CompareTo(right.order);
       return order != 0 ? order : left.sequence.CompareTo(right.sequence);
     }
+  }
+
+  public sealed class DynamicComposableController<TLayout> : DynamicComposableController {
+    private readonly List<DynamicComposable<TLayout>> _entries = new();
+
+    public IReadOnlyList<DynamicComposable<TLayout>> Entries => _entries;
+    public override int Count => _entries.Count;
+    internal override DynamicComposable EntryAt(int index) => _entries[index];
+
+    public DynamicComposable<TLayout> AddEntry(
+      object key,
+      Composable composable,
+      TLayout layout,
+      object userData = null,
+      int order = 0
+    ) => AddEntry(new DynamicComposable<TLayout>(key, composable, layout, userData, order));
+
+    public DynamicComposable<TLayout> AddEntry(DynamicComposable<TLayout> entry) {
+      if (entry == null) throw new ArgumentNullException(nameof(entry));
+      if (entry.controller != null)
+        throw new InvalidOperationException("The dynamic composable entry already belongs to a controller.");
+      if (FindEntry(entry.key) != null)
+        throw new ArgumentException("An entry with the same key already exists.", nameof(entry));
+      Attach(entry);
+      _entries.Add(entry);
+      NotifyEntriesChanged();
+      return entry;
+    }
+
+    public new DynamicComposable<TLayout> FindEntry(object key) => base.FindEntry(key) as DynamicComposable<TLayout>;
+
+    public override bool RemoveEntry(DynamicComposable entry) {
+      if (entry is not DynamicComposable<TLayout> typed ||
+        !ReferenceEquals(entry.controller, this) || !_entries.Remove(typed)) return false;
+      entry.controller = null;
+      NotifyEntriesChanged();
+      return true;
+    }
+
+    protected override void SortEntries() => _entries.Sort(CompareEntries);
+    protected override void ClearEntries() => _entries.Clear();
   }
 
   /// <summary>Owns the independently composed subtree of one dynamic entry.</summary>
@@ -161,8 +200,6 @@ namespace HELIX.Compose {
       if (ReferenceEquals(_entry, entry) && _revision == revision) return;
       _entry = entry;
       _revision = revision;
-      style.flexGrow = entry.flex;
-      MarkFlag(UssFlag.Flex);
       if (panel != null) HXComposer.MarkDirty(this, false);
     }
 
@@ -192,9 +229,8 @@ namespace HELIX.Compose {
           element.RemoveFromHierarchy();
       }
 
-      var entries = controller.Entries;
-      for (var i = 0; i < entries.Count; i++) {
-        var entry = entries[i];
+      for (var i = 0; i < controller.Count; i++) {
+        var entry = controller.EntryAt(i);
         DynamicComposableElement element = null;
         for (var j = 0; j < parent.childCount; j++) {
           if (parent.ElementAt(j) is not DynamicComposableElement candidate ||
@@ -228,10 +264,10 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false)]
+  [BoundaryComposable(Extension = false, UseLookupCache = true)]
   internal partial class DynamicFlexGroupBoundary {
     public partial struct Props {
-      public DynamicComposableController controller;
+      public DynamicComposableController<DynamicFlexLayout> controller;
       [Prop(Axis.Vertical)] public Axis axis;
       [Prop(Justify.FlexStart)] public Justify main;
       [Prop(Align.Stretch)] public Align cross;
@@ -261,10 +297,11 @@ namespace HELIX.Compose {
     private void ApplyGap() {
       for (var i = 0; i < Node.childCount; i++) {
         var child = Node.ElementAt(i);
-        if (child is DynamicComposableElement entry) {
-          AxisConstraint.Null.Apply(entry, props.axis == Axis.Horizontal ? Axis.Vertical : Axis.Horizontal);
-          entry.Entry.size.Apply(entry, props.axis);
-          entry.MarkFlag(UssFlag.Size);
+        if (child is DynamicComposableElement { Entry: DynamicComposable<DynamicFlexLayout> entry } element) {
+          element.style.flexGrow = entry.layout.flex;
+          AxisConstraint.Null.Apply(element, props.axis == Axis.Horizontal ? Axis.Vertical : Axis.Horizontal);
+          entry.layout.size.Apply(element, props.axis);
+          element.MarkFlag(UssFlag.Flex | UssFlag.Size);
         }
         var hasGap = i > 0;
         child.style.marginTop = props is { axis: Axis.Vertical, reverse: false } && hasGap ? props.gap : 0f;
@@ -275,10 +312,10 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false)]
+  [BoundaryComposable(Extension = false, UseLookupCache = true)]
   internal partial class DynamicScrollGroupBoundary {
     public partial struct Props {
-      public DynamicComposableController controller;
+      public DynamicComposableController<DynamicFlexLayout> controller;
       [Prop(Axis.Vertical)] public Axis axis;
       [Prop(Justify.FlexStart)] public Justify main;
       [Prop(Align.Stretch)] public Align cross;
@@ -311,10 +348,10 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false)]
+  [BoundaryComposable(Extension = false, UseLookupCache = true)]
   internal partial class DynamicStackBoundary {
     public partial struct Props {
-      public DynamicComposableController controller;
+      public DynamicComposableController<DynamicStackLayout> controller;
       [Prop(false)] public bool clear;
     }
 
@@ -335,15 +372,11 @@ namespace HELIX.Compose {
     private void ApplyLayout() {
       for (var i = 0; i < Node.childCount; i++) {
         if (Node.ElementAt(i) is not DynamicComposableElement element) continue;
-        var entry = element.Entry;
+        if (element.Entry is not DynamicComposable<DynamicStackLayout> entry) continue;
         element.style.flexGrow = StyleKeyword.Null;
         element.style.position = Position.Absolute;
-        element.style.left = entry.position.l;
-        element.style.top = entry.position.t;
-        element.style.right = entry.position.r;
-        element.style.bottom = entry.position.b;
-        entry.size.Apply(element, Axis.Horizontal);
-        entry.cross.Apply(element, Axis.Vertical);
+        element.Position(entry.layout.position);
+        entry.layout.constraints.Apply(element);
         element.MarkFlag(UssFlag.Flex | UssFlag.Position | UssFlag.Size);
       }
     }
@@ -352,7 +385,7 @@ namespace HELIX.Compose {
   public static class DynamicGroups {
     public static void DynamicFlexGroup(
       this ref Composition cx,
-      DynamicComposableController controller,
+      DynamicComposableController<DynamicFlexLayout> controller,
       Axis axis = Axis.Vertical,
       Justify main = Justify.FlexStart,
       Align cross = Align.Stretch,
@@ -367,7 +400,7 @@ namespace HELIX.Compose {
 
     public static void DynamicScrollGroup(
       this ref Composition cx,
-      DynamicComposableController controller,
+      DynamicComposableController<DynamicFlexLayout> controller,
       Axis axis = Axis.Vertical,
       Justify main = Justify.FlexStart,
       Align cross = Align.Stretch,
@@ -396,7 +429,7 @@ namespace HELIX.Compose {
 
     public static ref ElementRef DynamicStack(
       this ref Composition cx,
-      DynamicComposableController controller,
+      DynamicComposableController<DynamicStackLayout> controller,
       bool clear = false
     ) {
       if (controller == null) throw new ArgumentNullException(nameof(controller));

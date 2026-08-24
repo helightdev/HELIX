@@ -7,8 +7,8 @@ namespace HELIX.Examples {
   public partial class HomeComposable {
     private enum DynamicEntryKind { Fixed, Grow1, Grow2, Grow3 }
 
-    private static readonly EnumDatatype<DynamicEntryKind> DynamicEntryKindDatatype =
-      Datatypes.Enum<DynamicEntryKind>();
+    private static readonly EnumDatatype<DynamicEntryKind>
+      DynamicEntryKindDatatype = Datatypes.Enum<DynamicEntryKind>();
 
     private sealed class DynamicExampleData {
       public readonly int number;
@@ -22,20 +22,20 @@ namespace HELIX.Examples {
       }
     }
 
-    private DynamicComposableController _dynamicGroupEntries;
-    private DynamicComposableController _dynamicStackEntries;
+    private DynamicComposableController<DynamicFlexLayout> _dynamicGroupEntries;
+    private DynamicComposableController<DynamicStackLayout> _dynamicStackEntries;
     private int _dynamicEntrySequence;
     private int _dynamicStackSequence;
     private bool _dynamicGroupsReversed;
     private DynamicEntryKind _dynamicEntryKind = DynamicEntryKind.Fixed;
 
     private void InitializeDynamicGroupsExample() {
-      _dynamicGroupEntries = new DynamicComposableController();
+      _dynamicGroupEntries = new DynamicComposableController<DynamicFlexLayout>();
       AddDynamicExampleEntry(10, DynamicEntryKind.Fixed);
       AddDynamicExampleEntry(20, DynamicEntryKind.Grow1);
       AddDynamicExampleEntry(30, DynamicEntryKind.Grow2);
       AddDynamicExampleEntry(40, DynamicEntryKind.Grow3);
-      _dynamicStackEntries = new DynamicComposableController();
+      _dynamicStackEntries = new DynamicComposableController<DynamicStackLayout>();
       AddDynamicStackEntry(24f, 24f);
       AddDynamicStackEntry(150f, 70f);
       AddDynamicStackEntry(280f, 116f);
@@ -182,10 +182,9 @@ namespace HELIX.Examples {
       _dynamicGroupEntries.AddEntry(
         $"dynamic-example-{number}",
         ComposeDynamicExampleEntry,
+        new DynamicFlexLayout(flex, constraint),
         new DynamicExampleData(number, resolvedKind, constraintsDescription),
-        flex,
-        order,
-        constraint
+        order
       );
     }
 
@@ -232,11 +231,12 @@ namespace HELIX.Examples {
       _dynamicStackEntries.AddEntry(
         $"dynamic-stack-{number}",
         ComposeDynamicStackEntry,
+        new DynamicStackLayout(
+          StyleLength4.Only(left: left, top: top),
+          BoxConstraints.Tight(190f, 88f)
+        ),
         userData: number,
-        order: number,
-        constraint: AxisConstraint.Tight(190f),
-        cross: AxisConstraint.Tight(88f),
-        position: StyleLength4.Only(left: left, top: top)
+        order: number
       );
     }
 
