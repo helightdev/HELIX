@@ -34,6 +34,161 @@ namespace HELIX.UI.Options {
     [Prop(null)] public readonly IconRef? defaultOptionResetIcon;
   }
 
+  public readonly struct OptionPagesNavigationHeaderSpec : ISpec<OptionPagesNavigationHeaderSpec> {
+    public readonly NavigationGraph graph;
+    public readonly NavigationController controller;
+    public readonly Composable<NavigationRoute> label;
+
+    public OptionPagesNavigationHeaderSpec(
+      NavigationGraph graph, NavigationController controller, Composable<NavigationRoute> label
+    ) {
+      this.graph = graph;
+      this.controller = controller;
+      this.label = label;
+    }
+
+    public ReadComposable<OptionPagesNavigationHeaderSpec> GetDefault(
+      in OptionPagesNavigationHeaderSpec spec
+    ) => Default;
+
+    public static void Default(ref Composition cx, in OptionPagesNavigationHeaderSpec spec) {
+      var label = spec.label;
+      using (cx.Row(cross: Align.Stretch)) {
+        for (var i = 0; i < spec.graph.Routes.Count; i++) {
+          var route = spec.graph.Routes[i];
+          cx.NavigationLink(
+            route, controller: spec.controller,
+            content: (ref Composition child) => label?.Invoke(ref child, route),
+            style: ThemeProperties.ButtonToggle[in cx]
+          );
+          if (i + 1 < spec.graph.Routes.Count) cx.Spacing(1);
+        }
+      }
+    }
+  }
+
+  public readonly struct OptionPagesHelpPanelSpec : ISpec<OptionPagesHelpPanelSpec> {
+    public readonly OptionPageFieldPresentation current;
+    public readonly bool collapseTooltipIntoDescription;
+
+    public OptionPagesHelpPanelSpec(
+      OptionPageFieldPresentation current, bool collapseTooltipIntoDescription
+    ) {
+      this.current = current;
+      this.collapseTooltipIntoDescription = collapseTooltipIntoDescription;
+    }
+
+    public ReadComposable<OptionPagesHelpPanelSpec> GetDefault(in OptionPagesHelpPanelSpec spec) => Default;
+
+    public static void Default(ref Composition cx, in OptionPagesHelpPanelSpec spec) {
+      using (var help = cx.Column(cross: Align.Stretch, flex: Flex.Shrink(0))) {
+        help.With(BoxConstraints.Preferred(new Length(30f, LengthUnit.Percent), StyleKeyword.Auto));
+        if (spec.current == null) {
+          cx.Text("Field details", TextRole.TitleSmall);
+          cx.Spacing(1);
+          cx.Text("Focus or point at an option to see more information.", TextRole.BodySmall);
+          return;
+        }
+        spec.current.Label?.Invoke(ref cx);
+        var description = spec.current.Description;
+        var tooltip = spec.current.Tooltip;
+        if (description == null && (!spec.collapseTooltipIntoDescription || tooltip == null)) return;
+        cx.Spacing(1);
+        description?.Invoke(ref cx);
+        if (!spec.collapseTooltipIntoDescription || tooltip == null) return;
+        if (description != null) cx.Spacing(1);
+        tooltip(ref cx);
+      }
+    }
+  }
+
+  public readonly struct OptionPagesActionBarSpec : ISpec<OptionPagesActionBarSpec> {
+    public readonly CompositionAction revert, apply;
+    public readonly bool canApply;
+
+    public OptionPagesActionBarSpec(CompositionAction revert, CompositionAction apply, bool canApply) {
+      this.revert = revert;
+      this.apply = apply;
+      this.canApply = canApply;
+    }
+
+    public ReadComposable<OptionPagesActionBarSpec> GetDefault(in OptionPagesActionBarSpec spec) => Default;
+
+    public static void Default(ref Composition cx, in OptionPagesActionBarSpec spec) {
+      using (cx.Row(main: Justify.FlexEnd, cross: Align.Center)) {
+        cx.Button(
+          static (ref Composition child) => child.Text("Revert"),
+          action: spec.revert, style: ThemeProperties.ButtonGhost[in cx]
+        );
+        cx.Spacing(1);
+        cx.Button(static (ref Composition child) => child.Text("Apply"), spec.apply, enabled: spec.canApply);
+      }
+    }
+  }
+
+  public readonly struct OptionPagesConfirmationSpec : ISpec<OptionPagesConfirmationSpec> {
+    public readonly CompositionAction reject, confirm;
+
+    public OptionPagesConfirmationSpec(CompositionAction reject, CompositionAction confirm) {
+      this.reject = reject;
+      this.confirm = confirm;
+    }
+
+    public ReadComposable<OptionPagesConfirmationSpec> GetDefault(in OptionPagesConfirmationSpec spec) => Default;
+
+    public static void Default(ref Composition cx, in OptionPagesConfirmationSpec spec) {
+      var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark);
+      cx.CURSOR.BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainer))
+        .TextColor(theme.GetColor(ColorRoles.OnSurfaceContainer)).BorderRadius(12f);
+      using (cx.Column(cross: Align.Stretch)) {
+        if (cx.CursorDirty) cx.CURSOR.Padding(20f);
+        cx.Text("Keep these settings?", TextRole.TitleMedium);
+        cx.Spacing(1);
+        cx.Text(
+          "The settings have been applied. Confirm to save them, or revert to restore the previous values.",
+          TextRole.BodySmall
+        );
+        cx.Spacing(2);
+        using (cx.Row(main: Justify.FlexEnd, cross: Align.Center)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Revert"),
+            action: spec.reject, style: ThemeProperties.ButtonGhost[in cx]
+          );
+          cx.Spacing(1);
+          cx.Button(static (ref Composition child) => child.Text("Keep"), action: spec.confirm);
+        }
+      }
+    }
+  }
+
+  public readonly struct OptionPageSectionHeaderSpec : ISpec<OptionPageSectionHeaderSpec> {
+    public readonly string title, description;
+    public readonly TextRole role;
+    public readonly IconRef? icon;
+
+    public OptionPageSectionHeaderSpec(string title, string description, TextRole role, IconRef? icon) {
+      this.title = title;
+      this.description = description;
+      this.role = role;
+      this.icon = icon;
+    }
+
+    public ReadComposable<OptionPageSectionHeaderSpec> GetDefault(in OptionPageSectionHeaderSpec spec) => Default;
+
+    public static void Default(ref Composition cx, in OptionPageSectionHeaderSpec spec) {
+      using (cx.Row(cross: Align.Center)) {
+        if (spec.icon.HasValue) {
+          spec.icon.Value.Compose(ref cx);
+          cx.Spacing(1);
+        }
+        cx.Text(spec.title, spec.role);
+      }
+      if (string.IsNullOrEmpty(spec.description)) return;
+      cx.Spacing(1);
+      cx.Text(spec.description, TextRole.BodySmall);
+    }
+  }
+
   [BoundaryComposable(Extension = false, UseLookupCache = true)]
   public partial class OptionPagesElement {
     public partial struct Props {
@@ -64,6 +219,7 @@ namespace HELIX.UI.Options {
     private readonly CompositionAction _confirmAction;
     private readonly CompositionAction _rejectAction;
     private readonly Composable<OverlayContextData> _confirmation;
+    private readonly Composable<NavigationRoute> _navigationLabel;
 
     public FormController Form => _form;
 
@@ -78,6 +234,12 @@ namespace HELIX.UI.Options {
       _confirmAction = Confirm;
       _rejectAction = Reject;
       _confirmation = ComposeConfirmation;
+      _navigationLabel = (ref Composition cx, NavigationRoute route) => {
+        var presentation = Presentation(_model.Root.Children[route.Index]);
+        cx.Spec(new OptionPageSectionHeaderSpec(
+          presentation.title, null, TextRole.LabelLarge, presentation.icon
+        ));
+      };
       if (model.Root.Children.Count == 0)
         throw new ArgumentException("Option pages require at least one root category.", nameof(model));
 
@@ -110,62 +272,21 @@ namespace HELIX.UI.Options {
       using (cx.OverlayHost(_overlays))
       using (cx.Group(FlexGroup.Column(cross: Align.Stretch), Flex.FillFlexible())) {
         if (cx.CursorDirty) cx.CURSOR.Fill();
-        using (cx.Group(Axis.Horizontal, cross: Align.Stretch)) {
-          for (var i = 0; i < _model.Root.Children.Count; i++) {
-            var section = _model.Root.Children[i];
-            cx.NavigationLink(
-              _graph.GetRoute(Route(section)),
-              controller: _controller,
-              content: (ref Composition child) => ComposeTitle(
-                ref child, section, TextRole.LabelLarge, useConfiguredRole: false
-              ),
-              style: ThemeProperties.ButtonToggle[in cx]
-            );
-            if (i + 1 < _model.Root.Children.Count) cx.Spacing(1);
-          }
-        }
+        cx.Spec(new OptionPagesNavigationHeaderSpec(_graph, _controller, _navigationLabel));
         cx.Spacing(2);
         using (cx.Group(FlexGroup.Row(cross: Align.Stretch), Flex.FillFlexible())) {
           cx.NavigationHost(_graph, _controller, NavigationTransitions.Instant, NavigationHostBehavior.None)
             .Flexible();
           if (_options.hasSidePanel) { // TODO: Proper conditionals
             cx.Spacing(3);
-            using (var help = cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-              help.With(Flex.Shrink(0));
-              help.With(BoxConstraints.Preferred(new Length(30f, LengthUnit.Percent), StyleKeyword.Auto));
-              var current = _fieldHelp.Current;
-              if (current == null) { // TODO: Proper conditionals
-                cx.Text("Field details", TextRole.TitleSmall);
-                cx.Spacing(1);
-                cx.Text("Focus or point at an option to see more information.", TextRole.BodySmall);
-              } else {
-                current.Label?.Invoke(ref cx);
-                var details = _options.collapseTooltipIntoDescription
-                  ? Combine(current.Description, current.Tooltip)
-                  : current.Description;
-                if (details != null) { // TODO: Proper conditionals
-                  cx.Spacing(1);
-                  details(ref cx);
-                }
-              }
-            }
+            cx.Spec(new OptionPagesHelpPanelSpec(
+              _fieldHelp.Current, _options.collapseTooltipIntoDescription
+            ));
           }
         }
         if (_state?.IsDirty == true) {
           cx.Spacing(2);
-          using (cx.Group(Axis.Horizontal, main: Justify.FlexEnd, cross: Align.Center)) {
-            cx.Button(
-              static (ref Composition child) => child.Text("Revert"),
-              action: _revertAction,
-              style: ThemeProperties.ButtonGhost[in cx]
-            );
-            cx.Spacing(1);
-            cx.Button(
-              static (ref Composition child) => child.Text("Apply"),
-              action: _applyAction,
-              enabled: !_form.HasErrors
-            );
-          }
+          cx.Spec(new OptionPagesActionBarSpec(_revertAction, _applyAction, !_form.HasErrors));
         }
       }
     }
@@ -192,28 +313,7 @@ namespace HELIX.UI.Options {
     }
 
     private void ComposeConfirmation(ref Composition cx, OverlayContextData _) {
-      var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark);
-      cx.CURSOR
-        .BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainer))
-        .TextColor(theme.GetColor(ColorRoles.OnSurfaceContainer))
-        .BorderRadius(12f);
-      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
-        if (cx.CursorDirty) cx.CURSOR.Padding(20f);
-        cx.Text("Keep these settings?", TextRole.TitleMedium);
-        cx.Spacing(1);
-        cx.Text("The settings have been applied. Confirm to save them, or revert to restore the previous values.",
-          TextRole.BodySmall);
-        cx.Spacing(2);
-        using (cx.Group(Axis.Horizontal, main: Justify.FlexEnd, cross: Align.Center)) {
-          cx.Button(
-            static (ref Composition child) => child.Text("Revert"),
-            action: _rejectAction,
-            style: ThemeProperties.ButtonGhost[in cx]
-          );
-          cx.Spacing(1);
-          cx.Button(static (ref Composition child) => child.Text("Keep"), action: _confirmAction);
-        }
-      }
+      cx.Spec(new OptionPagesConfirmationSpec(_rejectAction, _confirmAction));
     }
 
     public void Dispose() {
@@ -230,14 +330,13 @@ namespace HELIX.UI.Options {
       using (cx.ScrollView())
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.AlignSelf(Align.Stretch);
-        ComposeTitle(ref cx, node, TextRole.TitleMedium);
         var presentation = Presentation(node);
-        if (!string.IsNullOrEmpty(presentation.description)) {
-          cx.Spacing(1);
-          cx.Text(presentation.description, TextRole.BodySmall);
-        }
+        cx.Spec(new OptionPageSectionHeaderSpec(
+          presentation.title, presentation.description,
+          presentation.role ?? TextRole.TitleMedium, presentation.icon
+        ));
         cx.Spacing(2);
-        ComposeEntries(ref cx, node);
+        _content[node](ref cx);
         for (var i = 0; i < node.Children.Count; i++) {
           cx.Spacing(3);
           ComposeSubcategory(ref cx, node.Children[i]);
@@ -246,21 +345,18 @@ namespace HELIX.UI.Options {
     }
 
     private void ComposeSubcategory(ref Composition cx, NavTreeProse.Node node) {
-      ComposeTitle(ref cx, node, TextRole.TitleSmall);
       var presentation = Presentation(node);
-      if (!string.IsNullOrEmpty(presentation.description)) {
-        cx.Spacing(1);
-        cx.Text(presentation.description, TextRole.BodySmall);
-      }
+      cx.Spec(new OptionPageSectionHeaderSpec(
+        presentation.title, presentation.description,
+        presentation.role ?? TextRole.TitleSmall, presentation.icon
+      ));
       cx.Spacing(1);
-      ComposeEntries(ref cx, node);
+      _content[node](ref cx);
       for (var i = 0; i < node.Children.Count; i++) {
         cx.Spacing(2);
         ComposeSubcategory(ref cx, node.Children[i]);
       }
     }
-
-    private void ComposeEntries(ref Composition cx, NavTreeProse.Node node) => _content[node](ref cx);
 
     private readonly struct SectionPresentation {
       public readonly string title, description;
@@ -287,30 +383,6 @@ namespace HELIX.UI.Options {
     }
 
     private static string Title(NavTreeProse.Node node) => Presentation(node).title;
-
-    private static Composable Combine(Composable first, Composable second) {
-      if (first == null) return second;
-      if (second == null) return first;
-      return (ref Composition cx) => {
-        first(ref cx);
-        cx.Spacing(1);
-        second(ref cx);
-      };
-    }
-
-    private static void ComposeTitle(
-      ref Composition cx, NavTreeProse.Node node, TextRole fallback,
-      bool useConfiguredRole = true
-    ) {
-      var presentation = Presentation(node);
-      using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
-        if (presentation.icon.HasValue) {
-          presentation.icon.Value.Compose(ref cx);
-          cx.Spacing(1);
-        }
-        cx.Text(presentation.title, useConfiguredRole ? presentation.role ?? fallback : fallback);
-      }
-    }
 
     private void BakeContent(NavTreeProse.Node node) {
       var axis = Axis.Vertical;
