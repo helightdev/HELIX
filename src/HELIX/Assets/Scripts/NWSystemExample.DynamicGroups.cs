@@ -23,7 +23,9 @@ namespace HELIX.Examples {
     }
 
     private DynamicComposableController _dynamicGroupEntries;
+    private DynamicComposableController _dynamicStackEntries;
     private int _dynamicEntrySequence;
+    private int _dynamicStackSequence;
     private bool _dynamicGroupsReversed;
     private DynamicEntryKind _dynamicEntryKind = DynamicEntryKind.Fixed;
 
@@ -33,11 +35,17 @@ namespace HELIX.Examples {
       AddDynamicExampleEntry(20, DynamicEntryKind.Grow1);
       AddDynamicExampleEntry(30, DynamicEntryKind.Grow2);
       AddDynamicExampleEntry(40, DynamicEntryKind.Grow3);
+      _dynamicStackEntries = new DynamicComposableController();
+      AddDynamicStackEntry(24f, 24f);
+      AddDynamicStackEntry(150f, 70f);
+      AddDynamicStackEntry(280f, 116f);
     }
 
     private void DisposeDynamicGroupsExample() {
       _dynamicGroupEntries?.Dispose();
+      _dynamicStackEntries?.Dispose();
       _dynamicGroupEntries = null;
+      _dynamicStackEntries = null;
     }
 
     private void ComposeDynamicGroupsTab(ref Composition cx) {
@@ -77,6 +85,33 @@ namespace HELIX.Examples {
             reverse: _dynamicGroupsReversed
           );
         }
+
+        cx.Spacing(3);
+        cx.Text("DynamicStack", TextRole.LabelLarge);
+        cx.Text("Entries use independent width, height and four-edge positioning.", TextRole.BodySmall);
+        cx.Spacing(1);
+        using (cx.Row(cross: Align.Stretch)) {
+          cx.Button(
+            static (ref Composition child) => child.Text("Add layer"),
+            action: AddDynamicStackLayer
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("Remove top"),
+            style: ThemeProperties.ButtonOutlined[in cx],
+            action: RemoveDynamicStackLayer
+          );
+          cx.Spacing(1);
+          cx.Button(
+            static (ref Composition child) => child.Text("First to front"),
+            style: ThemeProperties.ButtonGhost[in cx],
+            action: BringFirstStackLayerToFront
+          );
+        }
+        cx.Spacing(1);
+        cx.DynamicStack(_dynamicStackEntries)
+          .With(BoxConstraints.Tight(520f, 300f))
+          .BackgroundColor(cx.ReadContext(ThemeData.Key).GetColor(ColorRoles.SurfaceContainerLow));
       }
     }
 
@@ -190,6 +225,53 @@ namespace HELIX.Examples {
           );
         }
       }
+    }
+
+    private void AddDynamicStackEntry(float left, float top) {
+      var number = ++_dynamicStackSequence;
+      _dynamicStackEntries.AddEntry(
+        $"dynamic-stack-{number}",
+        ComposeDynamicStackEntry,
+        userData: number,
+        order: number,
+        constraint: AxisConstraint.Tight(190f),
+        cross: AxisConstraint.Tight(88f),
+        position: StyleLength4.Only(left: left, top: top)
+      );
+    }
+
+    private static void ComposeDynamicStackEntry(ref Composition cx) {
+      var entry = cx.Lookup<DynamicComposableElement>()?.Entry;
+      if (entry?.UserData is not int number) return;
+      using (cx.Column(cross: Align.Stretch)) {
+        if (cx.CursorDirty) {
+          var theme = cx.ReadContext(ThemeData.Key);
+          cx.CURSOR.Padding(12f).BackgroundColor(theme.GetColor(ColorRoles.SurfaceContainerHighest));
+        }
+        cx.Text($"Layer {number}", TextRole.LabelLarge);
+        cx.Text($"Order {entry.order}", TextRole.BodySmall);
+      }
+    }
+
+    private static void AddDynamicStackLayer(CompositionContext context) {
+      var owner = context.Lookup<HomeComposable>();
+      if (owner?._dynamicStackEntries == null) return;
+      var offset = owner._dynamicStackEntries.Count * 34f;
+      owner.AddDynamicStackEntry(24f + offset, 24f + offset * 0.45f);
+    }
+
+    private static void RemoveDynamicStackLayer(CompositionContext context) {
+      var controller = context.Lookup<HomeComposable>()?._dynamicStackEntries;
+      if (controller == null || controller.Count == 0) return;
+      controller.RemoveEntry(controller.Entries[controller.Count - 1]);
+    }
+
+    private static void BringFirstStackLayerToFront(CompositionContext context) {
+      var controller = context.Lookup<HomeComposable>()?._dynamicStackEntries;
+      if (controller == null || controller.Count < 2) return;
+      var entries = controller.Entries;
+      entries[0].order = entries[entries.Count - 1].order + 1;
+      controller.NotifyEntriesChanged();
     }
 
     private static void InsertFirstDynamicEntry(CompositionContext context) {
