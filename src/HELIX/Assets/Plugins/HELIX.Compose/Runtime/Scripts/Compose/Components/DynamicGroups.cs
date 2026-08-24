@@ -13,7 +13,7 @@ namespace HELIX.Compose {
     public readonly object key;
     public int order;
 
-    protected DynamicComposable(object key, Composable composable, object userData, int order) {
+    protected DynamicComposable(object key, Composable composable, int order, object userData) {
       this.key = key ?? throw new ArgumentNullException(nameof(key));
       Composable = composable;
       UserData = userData;
@@ -48,7 +48,7 @@ namespace HELIX.Compose {
       TLayout layout,
       object userData = null,
       int order = 0
-    ) : base(key, composable, userData, order) {
+    ) : base(key, composable, order, userData) {
       this.layout = layout;
     }
   }
@@ -216,7 +216,7 @@ namespace HELIX.Compose {
   /// Reconciles keyed boundary elements directly against a visual-element hierarchy. The helper owns
   /// materialization, ordering and removal; entry contents remain independently composed boundaries.
   /// </summary>
-  public static class BoundaryCollectionHelper {
+  public static class DynamicCollectionHelper {
     private static readonly Comparison<VisualElement> _comparison = CompareElements;
 
     public static void Synchronize(VisualElement parent, DynamicComposableController controller) {
@@ -264,8 +264,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false, UseLookupCache = true)]
-  internal partial class DynamicFlexGroupBoundary {
+  [BoundaryComposable(Extension = true, Name = "DynamicFlexGroup", UseLookupCache = true)]
+  public partial class DynamicFlexGroupBoundary {
     public partial struct Props {
       public DynamicComposableController<DynamicFlexLayout> controller;
       [Prop(Axis.Vertical)] public Axis axis;
@@ -278,18 +278,18 @@ namespace HELIX.Compose {
     }
 
     protected override void OnDetach() {
-      BoundaryCollectionHelper.Clear(Node);
+      DynamicCollectionHelper.Clear(Node);
       base.OnDetach();
     }
 
     protected override void OnRecompose(ref Composition cx) {
       if (props.controller == null) return;
       cx.SubscribeTo(props.controller);
-      if (props.clear) BoundaryCollectionHelper.Clear(Node);
+      if (props.clear) DynamicCollectionHelper.Clear(Node);
       FlexGroup.Of(props.axis, props.main, props.cross, reverse: props.reverse).Apply(Node);
       (props.flex ?? Flex.Null).Apply(Node);
       Node.MarkFlag(UssFlag.GroupAlign | UssFlag.Flex);
-      BoundaryCollectionHelper.Synchronize(Node, props.controller);
+      DynamicCollectionHelper.Synchronize(Node, props.controller);
       ApplyGap();
       cx.AUTHORING.cell.cursor = Node.childCount;
     }
@@ -312,8 +312,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false, UseLookupCache = true)]
-  internal partial class DynamicScrollGroupBoundary {
+  [BoundaryComposable(Extension = true, Name = "DynamicScrollGroup", UseLookupCache = true)]
+  public partial class DynamicScrollGroupBoundary {
     public partial struct Props {
       public DynamicComposableController<DynamicFlexLayout> controller;
       [Prop(Axis.Vertical)] public Axis axis;
@@ -348,23 +348,23 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false, UseLookupCache = true)]
-  internal partial class DynamicStackBoundary {
+  [BoundaryComposable(Extension = true, Name = "DynamicStack", UseLookupCache = true)]
+  public partial class DynamicStackBoundary {
     public partial struct Props {
       public DynamicComposableController<DynamicStackLayout> controller;
       [Prop(false)] public bool clear;
     }
 
     protected override void OnDetach() {
-      BoundaryCollectionHelper.Clear(Node);
+      DynamicCollectionHelper.Clear(Node);
       base.OnDetach();
     }
 
     protected override void OnRecompose(ref Composition cx) {
       if (props.controller == null) return;
       cx.SubscribeTo(props.controller);
-      if (props.clear) BoundaryCollectionHelper.Clear(Node);
-      BoundaryCollectionHelper.Synchronize(Node, props.controller);
+      if (props.clear) DynamicCollectionHelper.Clear(Node);
+      DynamicCollectionHelper.Synchronize(Node, props.controller);
       ApplyLayout();
       cx.AUTHORING.cell.cursor = Node.childCount;
     }
@@ -379,61 +379,6 @@ namespace HELIX.Compose {
         entry.layout.constraints.Apply(element);
         element.MarkFlag(UssFlag.Flex | UssFlag.Position | UssFlag.Size);
       }
-    }
-  }
-
-  public static class DynamicGroups {
-    public static void DynamicFlexGroup(
-      this ref Composition cx,
-      DynamicComposableController<DynamicFlexLayout> controller,
-      Axis axis = Axis.Vertical,
-      Justify main = Justify.FlexStart,
-      Align cross = Align.Stretch,
-      Flex? flex = null,
-      float gap = 0f,
-      bool reverse = false,
-      bool clear = false
-    ) {
-      if (controller == null) throw new ArgumentNullException(nameof(controller));
-      DynamicFlexGroupBoundary.ComposeBoundary(ref cx, controller, axis, main, cross, flex, gap, reverse, clear);
-    }
-
-    public static void DynamicScrollGroup(
-      this ref Composition cx,
-      DynamicComposableController<DynamicFlexLayout> controller,
-      Axis axis = Axis.Vertical,
-      Justify main = Justify.FlexStart,
-      Align cross = Align.Stretch,
-      float gap = 0f,
-      bool reverse = false,
-      ScrollerSliderController scrollController = null,
-      bool showSlider = true,
-      Composable<SliderController> slider = null,
-      SliderStyle? sliderStyle = null
-    ) {
-      if (controller == null) throw new ArgumentNullException(nameof(controller));
-      DynamicScrollGroupBoundary.ComposeBoundary(
-        ref cx,
-        controller,
-        axis,
-        main,
-        cross,
-        gap,
-        reverse,
-        scrollController,
-        showSlider,
-        slider,
-        sliderStyle
-      );
-    }
-
-    public static ref ElementRef DynamicStack(
-      this ref Composition cx,
-      DynamicComposableController<DynamicStackLayout> controller,
-      bool clear = false
-    ) {
-      if (controller == null) throw new ArgumentNullException(nameof(controller));
-      return ref DynamicStackBoundary.ComposeBoundary(ref cx, controller, clear);
     }
   }
 }
