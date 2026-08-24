@@ -11,10 +11,10 @@ namespace HELIX.Prose {
   /// Bridges a Compose spec into prose. Compose writers retain the spec as a composable, while other
   /// prose writers receive its string representation as a useful fallback.
   /// </summary>
-  public sealed class SpecIDatatype<T> : IComposableIDatatype<T> where T : struct, ISpec {
-    public static readonly SpecIDatatype<T> Instance = new();
+  public sealed class SpecDatatype<T> : IComposableIDatatype<T> where T : struct, ISpec {
+    public static readonly SpecDatatype<T> Instance = new();
 
-    private SpecIDatatype() { }
+    private SpecDatatype() { }
 
     public Composable ToComposable(T value) => value.Composable();
     public void ToProse(IProseWriter writer, T value) => writer.Write(value.ToString());
@@ -23,7 +23,7 @@ namespace HELIX.Prose {
   public static class SpecProseWriterExtensions {
     public static void Write<T>(this IProseWriter writer, in T spec) where T : struct, ISpec {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      writer.Write(spec, SpecIDatatype<T>.Instance);
+      writer.Write(spec, SpecDatatype<T>.Instance);
     }
   }
 }

@@ -381,8 +381,8 @@ namespace HELIX.Examples {
 
     private static void WriteAlerts(IProseWriter writer) {
       using (writer.Tree()) {
-        writer.PushModifier(ProseModifiers.Level(ProseLevel.Warning));
-        writer.PushModifier(ProseModifiers.AllowTruncate);
+        writer.Push(ProseModifiers.Level(ProseLevel.Warning));
+        writer.Push(ProseModifiers.AllowTruncate);
         writer.Name("Active alerts");
         writer.Property(
           "Warning C-17",

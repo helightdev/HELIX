@@ -44,7 +44,7 @@ namespace HELIX.Prose {
     }
 
     public Dictionary<string, object> Root => _root;
-    public override bool TryBeginFrame(IProseScope scope) {
+    public override bool TryBegin(IProseScope scope) {
       if (scope == null) throw new ArgumentNullException(nameof(scope));
       EnsureFrameCapacity();
       var frame = new Frame { Scope = scope };
@@ -65,7 +65,7 @@ namespace HELIX.Prose {
       return true;
     }
 
-    public override void BeginFrame(IProseScope scope) => TryBeginFrame(scope);
+    public override void Begin(IProseScope scope) => TryBegin(scope);
 
     public override void End() {
       if (_frameCount == 0) throw new InvalidOperationException("There is no Prose frame to pop.");
@@ -173,7 +173,7 @@ namespace HELIX.Prose {
       if (frame.HasPayload) StoreCompletedPayload(frame.Payload);
     }
 
-    public override void PushModifier(IProseModifier modifier) {
+    public override void Push(IProseModifier modifier) {
       if (modifier == null) throw new ArgumentNullException(nameof(modifier));
       if (_frameCount == 0) throw new InvalidOperationException("A modifier requires an active Prose frame.");
       if (modifier is ProsePropertyValueModifier value) {

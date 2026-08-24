@@ -9,14 +9,14 @@ namespace HELIX.Prose {
     /// <summary>
     /// Begins a semantic frame. A false result means that the producer must skip the frame and must not pop it.
     /// </summary>
-    bool TryBeginFrame(IProseScope scope);
+    bool TryBegin(IProseScope scope);
     /// <summary>
     /// Begins a semantic frame. If the frame is not accepted, it is retained as an ignored frame so a matching
     /// <see cref="End"/> remains valid while all content and modifiers in that frame are discarded.
     /// </summary>
-    void BeginFrame(IProseScope scope);
+    void Begin(IProseScope scope);
     void End();
-    void PushModifier(IProseModifier modifier);
+    void Push(IProseModifier modifier);
     void Write(IProse prose);
     void Write<T>(T value, IDatatype<T> datatype);
     void Write(string text);
@@ -43,10 +43,10 @@ namespace HELIX.Prose {
 
   /// <summary>Convenience base for implementing a monodirectional Prose sink.</summary>
   public abstract class ProseWriter : IProseWriter {
-    public abstract bool TryBeginFrame(IProseScope scope);
-    public abstract void BeginFrame(IProseScope scope);
+    public abstract bool TryBegin(IProseScope scope);
+    public abstract void Begin(IProseScope scope);
     public abstract void End();
-    public abstract void PushModifier(IProseModifier modifier);
+    public abstract void Push(IProseModifier modifier);
     public abstract void Write(IProse prose);
     public abstract void Write<T>(T value, IDatatype<T> datatype);
     public abstract void Write(string text);

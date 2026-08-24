@@ -40,10 +40,10 @@ namespace HELIX.Examples {
 
     private static OptionPages CreateProseOptionPages() {
       var fieldReducer = new ComposeProseFieldReducer().Add(OptionPageFieldFactory.Create);
-      var handlers = new ProseScopeDelegates<Composable>().Add(new ComposeProseFieldHandler(fieldReducer));
-      var writer = new NavigableProseWriter(delegates: handlers);
+      var handlers = new ProseReducerChain<Composable>().Add(new ComposeProseFieldHandler(fieldReducer));
+      var writer = new NavTreeProseWriter(delegates: handlers);
       using (writer.Path("graphics")) {
-        writer.PushModifier(PathSectionModifiers.Title("Graphics", TextRole.TitleLarge));
+        writer.Push(PathSectionModifiers.Title("Graphics", TextRole.TitleLarge));
         using (writer.Field<DisplayMode>(
           "graphics.display-mode",
           "Display mode",
@@ -69,12 +69,12 @@ namespace HELIX.Examples {
           "Display notice",
           new StringDatatype(prefix: "Prefix", suffix: "Suffix")
         )) {
-          writer.PushModifier(ProseFields.FullWidth);
+          writer.Push(ProseFields.FullWidth);
           writer.FieldDescription("Display changes may briefly blank the screen.");
         }
         using (writer.Path("quality")) {
-          writer.PushModifier(PathSectionModifiers.Title("Quality presets", TextRole.TitleSmall));
-          writer.PushModifier(PathSectionModifiers.Description("Choose the rendering quality used by the game."));
+          writer.Push(PathSectionModifiers.Title("Quality presets", TextRole.TitleSmall));
+          writer.Push(PathSectionModifiers.Description("Choose the rendering quality used by the game."));
           using (writer.Field(
             "graphics.texture-quality",
             "Texture quality",
@@ -100,7 +100,7 @@ namespace HELIX.Examples {
         }
       }
       using (writer.Path("audio")) {
-        writer.PushModifier(PathSectionModifiers.Title("Audio", TextRole.TitleLarge));
+        writer.Push(PathSectionModifiers.Title("Audio", TextRole.TitleLarge));
         using (writer.Field<int>(
           "audio.master-volume",
           "Master volume",
@@ -109,7 +109,7 @@ namespace HELIX.Examples {
           writer.FieldDescription("Overall output volume.");
         }
         using (writer.Path("voice")) {
-          writer.PushModifier(PathSectionModifiers.Title("Voice communication", TextRole.TitleSmall));
+          writer.Push(PathSectionModifiers.Title("Voice communication", TextRole.TitleSmall));
           using (writer.Field<bool>(
             "audio.voice-chat",
             "Voice chat",
@@ -118,7 +118,7 @@ namespace HELIX.Examples {
         }
       }
       using (writer.Path("gameplay")) {
-        writer.PushModifier(PathSectionModifiers.Title("Gameplay", TextRole.TitleLarge));
+        writer.Push(PathSectionModifiers.Title("Gameplay", TextRole.TitleLarge));
         using (writer.Field(
           "gameplay.difficulty",
           "Difficulty",

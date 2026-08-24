@@ -72,7 +72,7 @@ namespace HELIX.Tests {
     [Test]
     public void ReducingWriter_DelegatesWholeScopeAndResumesOwner() {
       var reducer = new StringReducer();
-      var delegates = new ProseScopeDelegates<string>()
+      var delegates = new ProseReducerChain<string>()
         .Delegate<ProseSection, ReducingProseWriter<string>>(
           _ => new ReducingProseWriter<string>(reducer),
           delegated => delegated.Build()

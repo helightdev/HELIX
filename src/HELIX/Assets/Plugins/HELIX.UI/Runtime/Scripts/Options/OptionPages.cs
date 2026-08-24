@@ -32,9 +32,9 @@ namespace HELIX.UI.Options {
 
   /// <summary>Projects path-sectioned option content into category navigation and structured option pages.</summary>
   public sealed class OptionPages : IDisposable {
-    private readonly PathSectionedProse _model;
+    private readonly NavTreeProse _model;
     private readonly OptionPagesOptions _options;
-    private readonly Dictionary<PathSectionedProse.Section, Composable> _content = new();
+    private readonly Dictionary<NavTreeProse.Node, Composable> _content = new();
     private readonly FormController _form = new();
     private readonly OptionPageFieldController _fieldHelp = new();
     private readonly OverlayController _overlays = new();
@@ -43,7 +43,7 @@ namespace HELIX.UI.Options {
 
     public FormController Form => _form;
 
-    public OptionPages(PathSectionedProse model, OptionPagesOptions? options = null) {
+    public OptionPages(NavTreeProse model, OptionPagesOptions? options = null) {
       _model = model ?? throw new ArgumentNullException(nameof(model));
       _options = options ?? OptionPagesOptions.Default;
       if (model.Root.Children.Count == 0)
@@ -129,43 +129,43 @@ namespace HELIX.UI.Options {
       _overlays.Dispose();
     }
 
-    private string Route(PathSectionedProse.Section section) => _model.Paths.Format(section.Path);
+    private string Route(NavTreeProse.Node node) => _model.Paths.Format(node.Path);
 
-    private void ComposePage(ref Composition cx, PathSectionedProse.Section section) {
+    private void ComposePage(ref Composition cx, NavTreeProse.Node node) {
       using (cx.ScrollView())
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.AlignSelf(Align.Stretch);
-        ComposeTitle(ref cx, section, TextRole.TitleMedium);
-        var presentation = Presentation(section);
+        ComposeTitle(ref cx, node, TextRole.TitleMedium);
+        var presentation = Presentation(node);
         if (!string.IsNullOrEmpty(presentation.description)) {
           cx.Spacing(1);
           cx.Text(presentation.description, TextRole.BodySmall);
         }
         cx.Spacing(2);
-        ComposeEntries(ref cx, section);
-        for (var i = 0; i < section.Children.Count; i++) {
+        ComposeEntries(ref cx, node);
+        for (var i = 0; i < node.Children.Count; i++) {
           cx.Spacing(3);
-          ComposeSubcategory(ref cx, section.Children[i]);
+          ComposeSubcategory(ref cx, node.Children[i]);
         }
       }
     }
 
-    private void ComposeSubcategory(ref Composition cx, PathSectionedProse.Section section) {
-      ComposeTitle(ref cx, section, TextRole.TitleSmall);
-      var presentation = Presentation(section);
+    private void ComposeSubcategory(ref Composition cx, NavTreeProse.Node node) {
+      ComposeTitle(ref cx, node, TextRole.TitleSmall);
+      var presentation = Presentation(node);
       if (!string.IsNullOrEmpty(presentation.description)) {
         cx.Spacing(1);
         cx.Text(presentation.description, TextRole.BodySmall);
       }
       cx.Spacing(1);
-      ComposeEntries(ref cx, section);
-      for (var i = 0; i < section.Children.Count; i++) {
+      ComposeEntries(ref cx, node);
+      for (var i = 0; i < node.Children.Count; i++) {
         cx.Spacing(2);
-        ComposeSubcategory(ref cx, section.Children[i]);
+        ComposeSubcategory(ref cx, node.Children[i]);
       }
     }
 
-    private void ComposeEntries(ref Composition cx, PathSectionedProse.Section section) => _content[section](ref cx);
+    private void ComposeEntries(ref Composition cx, NavTreeProse.Node node) => _content[node](ref cx);
 
     private readonly struct SectionPresentation {
       public readonly string title, description;
@@ -176,13 +176,13 @@ namespace HELIX.UI.Options {
       }
     }
 
-    private static SectionPresentation Presentation(PathSectionedProse.Section section) {
-      var title = section.Name;
+    private static SectionPresentation Presentation(NavTreeProse.Node node) {
+      var title = node.Name;
       string description = null;
       TextRole? role = null;
       IconRef? icon = null;
-      for (var i = 0; i < section.Modifiers.Count; i++) {
-        if (section.Modifiers[i] is not PathSectionPresentationModifier modifier) continue;
+      for (var i = 0; i < node.Modifiers.Count; i++) {
+        if (node.Modifiers[i] is not PathSectionPresentationModifier modifier) continue;
         if (modifier.Title != null) title = modifier.Title;
         if (modifier.Description != null) description = modifier.Description;
         if (modifier.TitleRole.HasValue) role = modifier.TitleRole;
@@ -191,7 +191,7 @@ namespace HELIX.UI.Options {
       return new SectionPresentation(title, description, role, icon);
     }
 
-    private static string Title(PathSectionedProse.Section section) => Presentation(section).title;
+    private static string Title(NavTreeProse.Node node) => Presentation(node).title;
 
     private static Composable Combine(Composable first, Composable second) {
       if (first == null) return second;
@@ -204,10 +204,10 @@ namespace HELIX.UI.Options {
     }
 
     private static void ComposeTitle(
-      ref Composition cx, PathSectionedProse.Section section, TextRole fallback,
+      ref Composition cx, NavTreeProse.Node node, TextRole fallback,
       bool useConfiguredRole = true
     ) {
-      var presentation = Presentation(section);
+      var presentation = Presentation(node);
       using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
         if (presentation.icon.HasValue) {
           presentation.icon.Value.Compose(ref cx);
@@ -217,15 +217,15 @@ namespace HELIX.UI.Options {
       }
     }
 
-    private void BakeContent(PathSectionedProse.Section section) {
+    private void BakeContent(NavTreeProse.Node node) {
       var axis = Axis.Vertical;
       var main = Justify.FlexStart;
       var cross = Align.Stretch;
       var gap = 8f;
       var reverse = false;
       var clear = false;
-      for (var i = 0; i < section.Modifiers.Count; i++) {
-        if (section.Modifiers[i] is not ComposeFlexModifier modifier) continue;
+      for (var i = 0; i < node.Modifiers.Count; i++) {
+        if (node.Modifiers[i] is not ComposeFlexModifier modifier) continue;
         if (modifier.Axis.HasValue) axis = modifier.Axis.Value;
         if (modifier.Main.HasValue) main = modifier.Main.Value;
         if (modifier.Cross.HasValue) cross = modifier.Cross.Value;
@@ -233,8 +233,8 @@ namespace HELIX.UI.Options {
         if (modifier.Reverse.HasValue) reverse = modifier.Reverse.Value;
         if (modifier.Clear.HasValue) clear = modifier.Clear.Value;
       }
-      _content.Add(section, HXBaker.Flex(section.Entries, axis, main, cross, gap, reverse, clear));
-      for (var i = 0; i < section.Children.Count; i++) BakeContent(section.Children[i]);
+      _content.Add(node, HXBaker.Flex(node.Entries, axis, main, cross, gap, reverse, clear));
+      for (var i = 0; i < node.Children.Count; i++) BakeContent(node.Children[i]);
     }
   }
 }

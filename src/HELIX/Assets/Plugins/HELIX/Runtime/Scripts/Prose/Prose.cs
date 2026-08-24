@@ -23,7 +23,7 @@ namespace HELIX.Prose {
     public static ProseWriterScope Scope(this IProseWriter writer, IProseScope scope) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
       if (scope == null) throw new ArgumentNullException(nameof(scope));
-      writer.BeginFrame(scope);
+      writer.Begin(scope);
       return new ProseWriterScope(writer);
     }
 
@@ -31,8 +31,8 @@ namespace HELIX.Prose {
       this IProseWriter writer, ProseTextStyle style = ProseTextStyle.None, string linkTarget = null
     ) {
       var scope = writer.Scope(ProseScopes.Span);
-      if (style != ProseTextStyle.None) writer.PushModifier(ProseModifiers.TextStyle(style));
-      if (linkTarget != null) writer.PushModifier(new ProseLinkModifier(linkTarget));
+      if (style != ProseTextStyle.None) writer.Push(ProseModifiers.TextStyle(style));
+      if (linkTarget != null) writer.Push(new ProseLinkModifier(linkTarget));
       return scope;
     }
 
@@ -63,7 +63,7 @@ namespace HELIX.Prose {
       this IProseWriter writer, ProseTextAlignment alignment = ProseTextAlignment.Left
     ) {
       var scope = writer.Scope(ProseScopes.TableCell);
-      if (alignment != ProseTextAlignment.Left) writer.PushModifier(ProseModifiers.Alignment(alignment));
+      if (alignment != ProseTextAlignment.Left) writer.Push(ProseModifiers.Alignment(alignment));
       return scope;
     }
 
@@ -77,12 +77,12 @@ namespace HELIX.Prose {
       bool isDefaultValue = false
     ) {
       var scope = writer.Scope(ProseScopes.Property);
-      writer.PushModifier(ProseModifiers.Level(level));
-      if (hidden) writer.PushModifier(ProseModifiers.Hidden);
-      if (noWrap) writer.PushModifier(ProseModifiers.NoWrap);
-      if (hideName) writer.PushModifier(ProseModifiers.HideName);
-      if (hideSeparator) writer.PushModifier(ProseModifiers.HideSeparator);
-      if (isDefaultValue) writer.PushModifier(ProseModifiers.DefaultValue);
+      writer.Push(ProseModifiers.Level(level));
+      if (hidden) writer.Push(ProseModifiers.Hidden);
+      if (noWrap) writer.Push(ProseModifiers.NoWrap);
+      if (hideName) writer.Push(ProseModifiers.HideName);
+      if (hideSeparator) writer.Push(ProseModifiers.HideSeparator);
+      if (isDefaultValue) writer.Push(ProseModifiers.DefaultValue);
       return scope;
     }
 
@@ -103,19 +103,19 @@ namespace HELIX.Prose {
       bool isDefaultValue = false
     ) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (!writer.TryBeginFrame(ProseScopes.Property)) return false;
-      writer.PushModifier(ProseModifiers.Level(level));
-      if (hidden) writer.PushModifier(ProseModifiers.Hidden);
-      if (noWrap) writer.PushModifier(ProseModifiers.NoWrap);
-      if (hideName) writer.PushModifier(ProseModifiers.HideName);
-      if (hideSeparator) writer.PushModifier(ProseModifiers.HideSeparator);
-      if (isDefaultValue) writer.PushModifier(ProseModifiers.DefaultValue);
+      if (!writer.TryBegin(ProseScopes.Property)) return false;
+      writer.Push(ProseModifiers.Level(level));
+      if (hidden) writer.Push(ProseModifiers.Hidden);
+      if (noWrap) writer.Push(ProseModifiers.NoWrap);
+      if (hideName) writer.Push(ProseModifiers.HideName);
+      if (hideSeparator) writer.Push(ProseModifiers.HideSeparator);
+      if (isDefaultValue) writer.Push(ProseModifiers.DefaultValue);
       return true;
     }
 
     public static bool TryBeginTree(this IProseWriter writer) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      return writer.TryBeginFrame(ProseScopes.Tree);
+      return writer.TryBegin(ProseScopes.Tree);
     }
 
     public static void WriteSpan(
@@ -191,7 +191,7 @@ namespace HELIX.Prose {
       var isDefaultValue = defaultValue != null && Equals(value, defaultValue);
       if (!writer.TryBeginProperty(level, hidden, noWrap, hideName, hideSeparator, isDefaultValue)) return;
       try {
-        if (description != null) writer.PushModifier(new ProsePropertyValueModifier(value));
+        if (description != null) writer.Push(new ProsePropertyValueModifier(value));
 
         using (writer.PropertyKey()) writer.Write(key);
 

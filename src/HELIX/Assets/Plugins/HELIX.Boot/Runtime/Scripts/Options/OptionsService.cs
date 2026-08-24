@@ -47,8 +47,8 @@ namespace HELIX.Boot {
 
     public OptionPages BuildOptionPages() {
       var fieldReducer = new ComposeProseFieldReducer().Add(OptionPageFieldFactory.Create);
-      var handlers = new ProseScopeDelegates<Composable>().Add(new ComposeProseFieldHandler(fieldReducer));
-      var writer = new NavigableProseWriter(delegates: handlers);
+      var handlers = new ProseReducerChain<Composable>().Add(new ComposeProseFieldHandler(fieldReducer));
+      var writer = new NavTreeProseWriter(delegates: handlers);
       new OptionsRenderEvent(writer).Raise();
       var prose = writer.BuildSections();
 
@@ -112,20 +112,20 @@ namespace HELIX.Boot {
   }
 
   public struct OptionsRenderEvent : Evt<OptionsRenderEvent> {
-    public NavigableProseWriter writer;
+    public NavTreeProseWriter writer;
 
-    public OptionsRenderEvent(NavigableProseWriter writer) {
+    public OptionsRenderEvent(NavTreeProseWriter writer) {
       this.writer = writer;
     }
 
     public void DeclareCategory(string path, string title, string description = null, IconRef icon = default) {
       using (writer.Path(path)) {
-        writer.PushModifier(PathSectionModifiers.Title(title));
+        writer.Push(PathSectionModifiers.Title(title));
         if (!string.IsNullOrEmpty(description)) {
-          writer.PushModifier(PathSectionModifiers.Description(description));
+          writer.Push(PathSectionModifiers.Description(description));
         }
         if (icon.icon != null) {
-          writer.PushModifier(PathSectionModifiers.Icon(icon));
+          writer.Push(PathSectionModifiers.Icon(icon));
         }
       }
     }

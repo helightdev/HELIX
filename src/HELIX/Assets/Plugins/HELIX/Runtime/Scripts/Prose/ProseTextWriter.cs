@@ -107,7 +107,7 @@ namespace HELIX.Prose {
     }
     protected int OutputLength => _builder.Length;
 
-    public override bool TryBeginFrame(IProseScope scope) {
+    public override bool TryBegin(IProseScope scope) {
       if (scope == null) throw new ArgumentNullException(nameof(scope));
       if (IsWritingInactive()) return false;
       if ((scope is ProseTree && !Configuration.ShowTrees) ||
@@ -176,9 +176,9 @@ namespace HELIX.Prose {
       return true;
     }
 
-    public override void BeginFrame(IProseScope scope) {
+    public override void Begin(IProseScope scope) {
       if (scope == null) throw new ArgumentNullException(nameof(scope));
-      if (TryBeginFrame(scope)) return;
+      if (TryBegin(scope)) return;
 
       EnsureFrameCapacity();
       _frames[_frameCount++] = new Frame {
@@ -260,7 +260,7 @@ namespace HELIX.Prose {
         _propertyFollowsPaddedBlock = true;
     }
 
-    public override void PushModifier(IProseModifier modifier) {
+    public override void Push(IProseModifier modifier) {
       if (modifier == null) throw new ArgumentNullException(nameof(modifier));
       if (_frameCount == 0) throw new InvalidOperationException("A modifier requires an active Prose frame.");
       if (IsWritingInactive()) return;

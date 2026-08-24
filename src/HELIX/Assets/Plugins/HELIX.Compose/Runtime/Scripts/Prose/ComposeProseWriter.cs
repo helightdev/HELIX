@@ -7,11 +7,11 @@ using UnityEngine.UIElements;
 namespace HELIX.Prose {
   public class ComposeProseWriter : ReducingProseWriter<Composable> {
     public ComposeProseWriter(
-      ProseScopeDelegates<Composable> delegates = null
+      ProseReducerChain<Composable> delegates = null
     ) : this(new ComposeProseReducer(), delegates) { }
 
     public ComposeProseWriter(
-      ProseReducer<Composable> reducer, ProseScopeDelegates<Composable> delegates = null
+      ProseReducer<Composable> reducer, ProseReducerChain<Composable> delegates = null
     ) : base(reducer, delegates) { }
   }
 
@@ -93,8 +93,8 @@ namespace HELIX.Prose {
     private static ProseUnityRichTextWriter CreateTextWriter(IReadOnlyList<IProseModifier> modifiers) {
       var writer = new ProseUnityRichTextWriter();
       if (modifiers.Count == 0) return writer;
-      writer.BeginFrame(ProseScopes.Span);
-      for (var i = 0; i < modifiers.Count; i++) writer.PushModifier(modifiers[i]);
+      writer.Begin(ProseScopes.Span);
+      for (var i = 0; i < modifiers.Count; i++) writer.Push(modifiers[i]);
       return writer;
     }
 
