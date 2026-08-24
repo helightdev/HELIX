@@ -69,8 +69,8 @@ namespace HELIX {
     public static readonly DoubleDatatype Double = new();
     public static readonly BoolDatatype Bool = new();
     public static readonly ColorDatatype Color = new();
-    public static readonly FloatDatatype Percent = new(format: "0.0", suffix: "%");
-    public static readonly FloatDatatype PercentNormalized = new(format: "0.0", suffix: "%", scale: 100f);
+    public static readonly FloatDatatype Percent = new(format: "0.0", suffix: "%", min: 0f, max: 100f);
+    public static readonly FloatDatatype PercentNormalized = new(format: "0.0", suffix: "%", scale: 100f, min: 0f, max: 1f);
 
     public static EnumDatatype<T> Enum<T>() where T : struct, Enum => EnumCache<T>.Instance;
     public static ObjectDatatype<T> Object<T>() => ObjectCache<T>.Instance;
@@ -335,15 +335,20 @@ namespace HELIX {
     public float FromInt(int value) => value;
     public long ToLong(float value) => Convert.ToInt64(value);
     public float FromLong(long value) => value;
-    public float ToFloat(float value) => value;
-    public float FromFloat(float value) => value;
+    public float ToFloat(float value) => value * Scale;
+    public float FromFloat(float value) => value / Scale;
     public double ToDouble(float value) => value;
     public float FromDouble(double value) => Convert.ToSingle(value);
-    string IStringConvertible<float>.ToString(float value) => value.ToString("R", CultureInfo.InvariantCulture);
+    string IStringConvertible<float>.ToString(float value) {
+      value *= Scale;
+      return Compact
+        ? DatatypeUtility.FormatCompact(value)
+        : value.ToString(Format, CultureInfo.InvariantCulture);
+    }
 
     float IStringConvertible<float>.FromString(string value) => float.Parse(
       value, NumberStyles.Float, CultureInfo.InvariantCulture
-    );
+    ) / Scale;
 
     public void ToProse(IProseWriter writer, float value) {
       if (Clamp) value = Math.Max(Min ?? float.MinValue, Math.Min(Max ?? float.MaxValue, value));

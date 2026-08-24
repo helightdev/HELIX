@@ -74,15 +74,28 @@ namespace HELIX.Compose {
     protected override ReadComposable<T> Factory<T>() => ControlFactory<T>.Text;
   }
 
-  public sealed class IntegerControlSpecHandler : ControlSpecHandler<int> {
-    protected override ReadComposable<T> Factory<T>() => ControlFactory<T>.Integer;
+  public sealed class IntegerControlSpecHandler : ISpecHandler {
+    public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec {
+      if (spec is not IControlSpec { ValueType: var type } control || type != typeof(int)) return null;
+      var range = control.Datatype as IDatatypeRange<int>;
+      return range?.Min.HasValue == true && range.Max.HasValue
+        ? ControlFactory<T>.Integer
+        : ControlFactory<T>.IntegerText;
+    }
   }
 
   public sealed class FloatControlSpecHandler : ISpecHandler {
     public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec {
       if (spec is not IControlSpec { ValueType: var type } control || type != typeof(float)) return null;
-      return control.Datatype is ITextControlFormatter ? ControlFactory<T>.FloatText : ControlFactory<T>.Float;
+      var range = Unwrap(control.Datatype) as IDatatypeRange<float>;
+      return control.Datatype is not ITextControlFormatter &&
+             range?.Min.HasValue == true && range.Max.HasValue
+        ? ControlFactory<T>.Float
+        : ControlFactory<T>.FloatText;
     }
+
+    private static object Unwrap(object datatype) =>
+      datatype is IControlDatatypeWrapper wrapper ? wrapper.Datatype : datatype;
   }
 
   public sealed class CheckboxControlSpecHandler : ControlSpecHandler<bool> {
@@ -93,6 +106,7 @@ namespace HELIX.Compose {
     internal static readonly ReadComposable<T> Choice = ControlSpecFactories.Choice;
     internal static readonly ReadComposable<T> Text = ControlSpecFactories.Text;
     internal static readonly ReadComposable<T> Integer = ControlSpecFactories.Integer;
+    internal static readonly ReadComposable<T> IntegerText = ControlSpecFactories.IntegerText;
     internal static readonly ReadComposable<T> Float = ControlSpecFactories.Float;
     internal static readonly ReadComposable<T> FloatText = ControlSpecFactories.FloatText;
     internal static readonly ReadComposable<T> Checkbox = ControlSpecFactories.Checkbox;
@@ -153,6 +167,9 @@ namespace HELIX.Compose {
     internal static void Integer<T>(ref Composition cx, in T spec) where T : struct, ISpec =>
       Compose(ref cx, in spec, ComposeInteger);
 
+    internal static void IntegerText<T>(ref Composition cx, in T spec) where T : struct, ISpec =>
+      Compose(ref cx, in spec, ComposeIntegerText);
+
     internal static void Float<T>(ref Composition cx, in T spec) where T : struct, ISpec =>
       Compose(ref cx, in spec, ComposeFloat);
 
@@ -187,6 +204,19 @@ namespace HELIX.Compose {
         (int)control.Value, (IDatatype<int>)control.Datatype, IntegerChanged, NumericCommitted,
         range?.Min ?? 0, range?.Max ?? 100, range?.Step ?? 1,
         control.Enabled, control.Error, prefix, suffix
+      );
+    }
+
+    private static void ComposeIntegerText(ref Composition cx) {
+      var control = cx.Lookup<ControlSpecBoundary>().Control;
+      var formatter = Unwrap(control.Datatype);
+      Decorations(control.Datatype, out var prefix, out var suffix);
+      cx.DatatypeTextField(
+        (int)control.Value, (IStringConvertible<int>)formatter,
+        onEditingEnded: IntegerTextEditingEnded,
+        enabled: control.Enabled,
+        prefix: prefix,
+        suffix: suffix
       );
     }
 
@@ -258,6 +288,22 @@ namespace HELIX.Compose {
       Control(context).Change(context, value);
     private static void FloatChanged(CompositionContext context, float value) =>
       Control(context).Change(context, value);
+
+    private static void IntegerTextEditingEnded(
+      CompositionContext context, int parsed, TextEditEndReason reason
+    ) {
+      if (reason != TextEditEndReason.Submitted) return;
+      var control = Control(context);
+      var range = Unwrap(control.Datatype) as IDatatypeRange<int>;
+      if (range?.Step is > 0) {
+        var origin = range.Min ?? 0;
+        parsed = origin + Mathf.RoundToInt((parsed - origin) / (float)range.Step.Value) * range.Step.Value;
+      }
+      if (range?.Min.HasValue == true) parsed = Mathf.Max(parsed, range.Min.Value);
+      if (range?.Max.HasValue == true) parsed = Mathf.Min(parsed, range.Max.Value);
+      control.Change(context, parsed);
+      control.Commit(context);
+    }
 
     private static void FloatTextEditingEnded(
       CompositionContext context, float parsed, TextEditEndReason reason

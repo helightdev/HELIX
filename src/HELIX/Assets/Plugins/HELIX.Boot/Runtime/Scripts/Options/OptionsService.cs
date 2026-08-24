@@ -27,6 +27,8 @@ namespace HELIX.Boot {
         option.LoadData();
         option.Apply();
       }
+
+      Debug.Log("OptionsService loaded and applied all options.");
     }
 
     [EventHandler]
@@ -34,7 +36,6 @@ namespace HELIX.Boot {
       foreach (var option in _options) {
         using (evt.writer.Path(option.groupPath)) {
           option.ToProse(evt.writer);
-          Debug.Log($"Writing option {option.path} to prose with group path {option.groupPath}");
         }
       }
     }
@@ -53,9 +54,9 @@ namespace HELIX.Boot {
       new OptionsRenderEvent(writer).Raise();
       var prose = writer.BuildSections();
 
-      var debugWriter = new ProseTextWriter();
-      debugWriter.Write(prose);
-      Debug.Log(debugWriter.Build());
+      // var debugWriter = new ProseTextWriter();
+      // debugWriter.Write(prose);
+      // Debug.Log(debugWriter.Build());
 
       var state = new OptionModificationState(_options);
       var pages = new OptionPages(prose, options ?? OptionPagesOptions.Default, state);
@@ -87,13 +88,15 @@ namespace HELIX.Boot {
     }
 
     public bool IsChanged(string path) => TryGetOption(path, out var option) &&
-                                          option.eagerness >= OptionEagerness.Delayed &&
-                                          IsOptionDirty(option);
+      option.eagerness >= OptionEagerness.Delayed &&
+      IsOptionDirty(option);
 
     public bool IsNonDefault(string path) => _controller != null && TryGetOption(path, out var option) &&
-                                             !option.IsDefaultValue(_controller.GetValue(
-                                               _controller.Path(option.path)
-                                             ));
+      !option.IsDefaultValue(
+        _controller.GetValue(
+          _controller.Path(option.path)
+        )
+      );
 
     public void ResetChange(string path) {
       if (!TryGetOption(path, out var option) || option.eagerness < OptionEagerness.Delayed) return;
@@ -160,8 +163,7 @@ namespace HELIX.Boot {
           if (option.eagerness != OptionEagerness.Immediate && IsOptionDirty(option))
             _controller.ResetPath(_controller.Path(option.path));
         }
-      }
-      finally { _updating = false; }
+      } finally { _updating = false; }
     }
 
     public void Confirm() {
@@ -229,6 +231,7 @@ namespace HELIX.Boot {
     }
 
     private bool IsOptionDirty(Option option) => _controller.IsFieldDirty(_controller.Path(option.path));
+
     private bool TryGetOption(string path, out Option option) {
       for (var i = 0; i < _options.Count; i++) {
         if (_options[i].path != path) continue;
@@ -238,6 +241,7 @@ namespace HELIX.Boot {
       option = null;
       return false;
     }
+
     private void AcceptAsInitial(Option option) =>
       _controller.AcceptCurrentValuesAsInitial(_controller.Path(option.path));
   }
@@ -276,7 +280,7 @@ namespace HELIX.Boot {
   }
 
   public struct OptionsRenderEvent : Evt<OptionsRenderEvent> {
-    public NavTreeProseWriter writer;
+    public readonly NavTreeProseWriter writer;
 
     public OptionsRenderEvent(NavTreeProseWriter writer) {
       this.writer = writer;
@@ -296,7 +300,7 @@ namespace HELIX.Boot {
   }
 
   public struct OptionsLoadPageStateEvent : Evt<OptionsLoadPageStateEvent> {
-    public OptionPages pages;
+    public readonly OptionPages pages;
 
     public OptionsLoadPageStateEvent(OptionPages pages) {
       this.pages = pages;
@@ -421,11 +425,16 @@ namespace HELIX.Boot {
     public override void Apply() => new OptionApplyEvent<T> { option = this }.Raise();
     public override object CaptureValue() => value;
     public override void RestoreValue(object captured) => value = (T)captured;
+
     public override bool IsDefaultValue(object candidate) => candidate == null
       ? defaultValue is null
       : candidate is T typed && EqualityComparer<T>.Default.Equals(typed, defaultValue);
-    public override void LoadDefaultInto(FormController controller) =>
-      controller.SetValue(controller.Path(path), defaultValue, FormChangeReason.User);
+
+    public override void LoadDefaultInto(FormController controller) => controller.SetValue(
+      controller.Path(path),
+      defaultValue,
+      FormChangeReason.User
+    );
 
     public override void ToProse(IProseWriter writer) {
       using (writer.Field(path, name, datatype)) {

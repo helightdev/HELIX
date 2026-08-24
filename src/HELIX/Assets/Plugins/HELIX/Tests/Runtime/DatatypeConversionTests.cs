@@ -30,6 +30,17 @@ namespace HELIX.Tests {
     }
 
     [Test]
+    public void FloatDatatype_AppliesDisplayFormatAndScaleToControlConversions() {
+      var datatype = new FloatDatatype(format: "0.00", scale: 100f);
+      var text = (IStringConvertible<float>)datatype;
+
+      Assert.That(text.ToString(0.125f), Is.EqualTo("12.50"));
+      Assert.That(text.FromString("12.50"), Is.EqualTo(0.125f));
+      Assert.That(datatype.ToFloat(0.125f), Is.EqualTo(12.5f));
+      Assert.That(datatype.FromFloat(12.5f), Is.EqualTo(0.125f));
+    }
+
+    [Test]
     public void EnumDatatype_ConvertsNamesAndNumericValues() {
       var datatype = Datatypes.Enum<TestChoice>();
 
