@@ -36,7 +36,10 @@ namespace HELIX.Compose {
     /// <summary>
     /// The most recent <see cref="ComposableSlot"/> in the composition if there is one.
     /// </summary>
-    public ComposableSlot Slot { get => AUTHORING.cell.slot; set => AUTHORING.cell.slot = value; }
+    public ComposableSlot Slot {
+      get => AUTHORING.cell.slot;
+      set => AUTHORING.cell.slot = value;
+    }
 
     public bool CursorRetained => CURSOR.IsRetained;
     public bool CursorDirty => CURSOR.IsDirty;
@@ -70,6 +73,8 @@ namespace HELIX.Compose {
       ReplaceCursor(composable);
     }
 
+    public static implicit operator VisualElement(Composition cx) => cx.CURSOR.element;
+
     /// <summary>
     /// Conditionally composes a visual element without affecting positional indices of following elements should the
     /// element be removed from the composition.
@@ -88,6 +93,7 @@ namespace HELIX.Compose {
       Cell.skip = true;
     }
 
+    [Experimental]
     public bool Stateless() {
       if (CursorRetained) {
         SkipScope();
@@ -101,6 +107,7 @@ namespace HELIX.Compose {
       boundary.SubscribeToContextData(signal.contextKey, signal);
     }
 
+    [InternalApi]
     public void ReplaceCursor(IComposable replacement, CompositionRetention ret = CompositionRetention.Undefined) {
       CURSOR = new ElementRef(replacement.Element, replacement, ret);
     }
@@ -121,7 +128,10 @@ namespace HELIX.Compose {
     }
 
     public readonly bool TryReadContext<T>(
-      ContextKey<T> key, out T value, bool listen = true, bool includeSelf = true
+      ContextKey<T> key,
+      out T value,
+      bool listen = true,
+      bool includeSelf = true
     ) {
       value = default;
       if (!ContextData.TryLookup(CURSOR.element, key.id, out var data, includeSelf)) return false;
@@ -132,7 +142,10 @@ namespace HELIX.Compose {
     }
 
     public readonly bool TryReadContextData<T>(
-      ContextKey<T> key, out ContextData<T> data, bool listen = true, bool includeSelf = true
+      ContextKey<T> key,
+      out ContextData<T> data,
+      bool listen = true,
+      bool includeSelf = true
     ) {
       data = null;
       if (!ContextData.TryLookup(CURSOR.element, key.id, out var found, includeSelf)) return false;
@@ -150,7 +163,10 @@ namespace HELIX.Compose {
     }
 
     public readonly T ReadContextOrDefault<T>(
-      ContextKey<T> key, T defaultValue = default, bool listen = true, bool includeSelf = true
+      ContextKey<T> key,
+      T defaultValue = default,
+      bool listen = true,
+      bool includeSelf = true
     ) {
       if (!ContextData.TryLookup(CURSOR.element, key.id, out var data, includeSelf)) return defaultValue;
       if (data is not ContextData<T> typedData) return defaultValue;
@@ -169,28 +185,31 @@ namespace HELIX.Compose {
     }
   }
 
+  [InternalApi]
   public static class CompositionInternals {
+    [InternalApi]
     public static void EnterComposition(ref Composition cx, ushort composition, ref TransferData transfer) {
       transfer.compositionId = cx.AUTHORING.id.composition;
       cx.AUTHORING.id.composition = composition;
     }
 
+    [InternalApi]
     public static void ExitComposition(ref Composition cx, ref TransferData transfer) {
       cx.AUTHORING.id.composition = transfer.compositionId;
     }
 
+    [InternalApi]
     public static IComposable Promote(VisualElement element) {
       if (element is IComposable composable) {
         return composable;
       } else {
         return (UserdataTracker)(element.userData ??= new UserdataTracker {
-          PackedId = 0,
-          Flag = UssFlag.None,
-          Element = element
+          PackedId = 0, Flag = UssFlag.None, Element = element
         });
       }
     }
 
+    [InternalApi]
     public static IStateAttachmentHolder PromoteHolder(VisualElement element) {
       var composable = Promote(element);
       return composable is not IStateAttachmentHolder holder
@@ -230,10 +249,7 @@ namespace HELIX.Compose {
 
         var index = (ushort)mixed;
         var depth = (ushort)(mixed >> 16);
-        return new LocalId {
-          index = index,
-          depth = depth
-        };
+        return new LocalId { index = index, depth = depth };
       }
     }
 

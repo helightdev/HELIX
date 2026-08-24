@@ -80,6 +80,7 @@ namespace HELIX.Examples {
     private const string TabInputs = "examples-inputs";
     private const string TabProse = "examples-prose";
     private const string TabOptions = "examples-options";
+    private const string TabDynamicGroups = "examples-dynamic-groups";
 
     public static readonly SliderOptions VolumeOptions = new(0f, 1f, step: 0f, thumbRange: 0.1f);
     public static readonly SliderOptions VolumeOptionsScroll = new(
@@ -207,8 +208,15 @@ namespace HELIX.Examples {
             .Name("Options")
             .Transition(NavigationTransitions.SlideHorizontal)
         )
+        .Route(
+          TabDynamicGroups,
+          NavigationPage.Build(ComposeDynamicGroupsTab)
+            .Name("Dynamic groups")
+            .Transition(NavigationTransitions.SlideHorizontal)
+        )
         .Build();
       _optionPages = CreateProseOptionPages();
+      InitializeDynamicGroupsExample();
       _tabNavigationController = new NavigationController(_tabNavigationGraph);
       for (var i = 0; i < _tabNavigationGraph.Routes.Count; i++) {
         var route = _tabNavigationGraph.Routes[i];
@@ -237,6 +245,7 @@ namespace HELIX.Examples {
       _dialogNavigationController?.Dispose();
       _overlayController?.Dispose();
       _optionPages?.Dispose();
+      DisposeDynamicGroupsExample();
       _tabNavigationController = null;
       _navigationController = null;
       _dialogNavigationController = null;
@@ -280,6 +289,9 @@ namespace HELIX.Examples {
 
     private static void ComposeOptionsTab(ref Composition cx, NavigationContextData navigation) =>
       cx.Lookup<HomeComposable>()?.ComposeOptionsTab(ref cx);
+
+    private static void ComposeDynamicGroupsTab(ref Composition cx, NavigationContextData navigation) =>
+      cx.Lookup<HomeComposable>()?.ComposeDynamicGroupsTab(ref cx);
 
     private void ComposeInputsTab(ref Composition cx) {
       using (cx.ScrollView()) {

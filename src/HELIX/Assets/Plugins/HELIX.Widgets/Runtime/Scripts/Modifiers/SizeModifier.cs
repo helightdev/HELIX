@@ -43,11 +43,7 @@ namespace HELIX.Widgets.Modifiers {
     }
 
     public static SizeModifier Of(BoxConstraints constraints) {
-      return new SizeModifier(
-        constraints.preferred,
-        constraints.min,
-        constraints.max
-      );
+      return new SizeModifier(constraints);
     }
 
     public static SizeModifier Tight(StyleLength2 size) {
