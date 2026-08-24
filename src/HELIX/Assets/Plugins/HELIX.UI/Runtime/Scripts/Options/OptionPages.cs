@@ -40,7 +40,9 @@ namespace HELIX.UI.Options {
     public readonly Composable<NavigationRoute> label;
 
     public OptionPagesNavigationHeaderSpec(
-      NavigationGraph graph, NavigationController controller, Composable<NavigationRoute> label
+      NavigationGraph graph,
+      NavigationController controller,
+      Composable<NavigationRoute> label
     ) {
       this.graph = graph;
       this.controller = controller;
@@ -57,7 +59,8 @@ namespace HELIX.UI.Options {
         for (var i = 0; i < spec.graph.Routes.Count; i++) {
           var route = spec.graph.Routes[i];
           cx.NavigationLink(
-            route, controller: spec.controller,
+            route,
+            controller: spec.controller,
             content: (ref Composition child) => label?.Invoke(ref child, route),
             style: ThemeProperties.ButtonToggle[in cx]
           );
@@ -72,7 +75,8 @@ namespace HELIX.UI.Options {
     public readonly bool collapseTooltipIntoDescription;
 
     public OptionPagesHelpPanelSpec(
-      OptionPageFieldPresentation current, bool collapseTooltipIntoDescription
+      OptionPageFieldPresentation current,
+      bool collapseTooltipIntoDescription
     ) {
       this.current = current;
       this.collapseTooltipIntoDescription = collapseTooltipIntoDescription;
@@ -118,7 +122,8 @@ namespace HELIX.UI.Options {
       using (cx.Row(main: Justify.FlexEnd, cross: Align.Center)) {
         cx.Button(
           static (ref Composition child) => child.Text("Revert"),
-          action: spec.revert, style: ThemeProperties.ButtonGhost[in cx]
+          action: spec.revert,
+          style: ThemeProperties.ButtonGhost[in cx]
         );
         cx.Spacing(1);
         cx.Button(static (ref Composition child) => child.Text("Apply"), spec.apply, enabled: spec.canApply);
@@ -152,7 +157,8 @@ namespace HELIX.UI.Options {
         using (cx.Row(main: Justify.FlexEnd, cross: Align.Center)) {
           cx.Button(
             static (ref Composition child) => child.Text("Revert"),
-            action: spec.reject, style: ThemeProperties.ButtonGhost[in cx]
+            action: spec.reject,
+            style: ThemeProperties.ButtonGhost[in cx]
           );
           cx.Spacing(1);
           cx.Button(static (ref Composition child) => child.Text("Keep"), action: spec.confirm);
@@ -224,33 +230,54 @@ namespace HELIX.UI.Options {
     public FormController Form => _form;
 
     public OptionPages(
-      NavTreeProse model, OptionPagesOptions? options = null, IOptionPagesState state = null
+      NavTreeProse model,
+      OptionPagesOptions? options = null,
+      IOptionPagesState state = null
     ) {
       _model = model ?? throw new ArgumentNullException(nameof(model));
       _options = options ?? OptionPagesOptions.Default;
       _state = state;
-      _applyAction = Apply;
-      _revertAction = Revert;
-      _confirmAction = Confirm;
-      _rejectAction = Reject;
-      _confirmation = ComposeConfirmation;
+      _applyAction = context => {
+        if (_state.Apply() != OptionPagesApplyResult.ConfirmationRequired) return;
+        Overlay.Build(_confirmation)
+          .Modal()
+          .DismissOnCancel(false)
+          .Constraints(BoxConstraints.Only(min: new StyleLength2(360f, 0f)))
+          .Show(context);
+      };
+      _revertAction = _ => _state.Revert();
+      _confirmAction = context => {
+        _state.Confirm();
+        context.OverlayEntry()?.Dismiss();
+      };
+      _rejectAction = context => {
+        _state.Reject();
+        context.OverlayEntry()?.Dismiss();
+      };
+      _confirmation = (ref Composition cx, OverlayContextData _) =>
+        cx.Spec(new OptionPagesConfirmationSpec(_rejectAction, _confirmAction));
       _navigationLabel = (ref Composition cx, NavigationRoute route) => {
         var presentation = Presentation(_model.Root.Children[route.Index]);
-        cx.Spec(new OptionPageSectionHeaderSpec(
-          presentation.title, null, TextRole.LabelLarge, presentation.icon
-        ));
+        cx.Spec(
+          new OptionPageSectionHeaderSpec(
+            presentation.title,
+            null,
+            TextRole.LabelLarge,
+            presentation.icon
+          )
+        );
       };
       if (model.Root.Children.Count == 0)
         throw new ArgumentException("Option pages require at least one root category.", nameof(model));
 
       BakeContent(model.Root);
-      var builder = NavigationGraph.Builder(Route(model.Root.Children[0]));
+      var builder = NavigationGraph.Builder(_model.Paths.Format(model.Root.Children[0].Path));
       for (var i = 0; i < model.Root.Children.Count; i++) {
         var section = model.Root.Children[i];
         builder.Route(
-          Route(section),
+          _model.Paths.Format(section.Path),
           NavigationPage.Build((ref Composition cx, NavigationContextData _) => ComposePage(ref cx, section))
-            .Name(Title(section))
+            .Name(Presentation(section).title)
             .Transition(NavigationTransitions.Instant)
         );
       }
@@ -277,11 +304,15 @@ namespace HELIX.UI.Options {
         using (cx.Group(FlexGroup.Row(cross: Align.Stretch), Flex.FillFlexible())) {
           cx.NavigationHost(_graph, _controller, NavigationTransitions.Instant, NavigationHostBehavior.None)
             .Flexible();
-          if (_options.hasSidePanel) { // TODO: Proper conditionals
+          if (_options.hasSidePanel) {
+            // TODO: Proper conditionals
             cx.Spacing(3);
-            cx.Spec(new OptionPagesHelpPanelSpec(
-              _fieldHelp.Current, _options.collapseTooltipIntoDescription
-            ));
+            cx.Spec(
+              new OptionPagesHelpPanelSpec(
+                _fieldHelp.Current,
+                _options.collapseTooltipIntoDescription
+              )
+            );
           }
         }
         if (_state?.IsDirty == true) {
@@ -289,31 +320,6 @@ namespace HELIX.UI.Options {
           cx.Spec(new OptionPagesActionBarSpec(_revertAction, _applyAction, !_form.HasErrors));
         }
       }
-    }
-
-    private void Apply(CompositionContext context) {
-      if (_state.Apply() != OptionPagesApplyResult.ConfirmationRequired) return;
-      Overlay.Build(_confirmation)
-        .Modal()
-        .DismissOnCancel(false)
-        .Constraints(BoxConstraints.Only(min: new StyleLength2(360f, 0f)))
-        .Show(context);
-    }
-
-    private void Revert(CompositionContext _) => _state.Revert();
-
-    private void Confirm(CompositionContext context) {
-      _state.Confirm();
-      context.OverlayEntry()?.Dismiss();
-    }
-
-    private void Reject(CompositionContext context) {
-      _state.Reject();
-      context.OverlayEntry()?.Dismiss();
-    }
-
-    private void ComposeConfirmation(ref Composition cx, OverlayContextData _) {
-      cx.Spec(new OptionPagesConfirmationSpec(_rejectAction, _confirmAction));
     }
 
     public void Dispose() {
@@ -324,17 +330,19 @@ namespace HELIX.UI.Options {
       _overlays.Dispose();
     }
 
-    private string Route(NavTreeProse.Node node) => _model.Paths.Format(node.Path);
-
     private void ComposePage(ref Composition cx, NavTreeProse.Node node) {
       using (cx.ScrollView())
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.AlignSelf(Align.Stretch);
         var presentation = Presentation(node);
-        cx.Spec(new OptionPageSectionHeaderSpec(
-          presentation.title, presentation.description,
-          presentation.role ?? TextRole.TitleMedium, presentation.icon
-        ));
+        cx.Spec(
+          new OptionPageSectionHeaderSpec(
+            presentation.title,
+            presentation.description,
+            presentation.role ?? TextRole.TitleMedium,
+            presentation.icon
+          )
+        );
         cx.Spacing(2);
         _content[node](ref cx);
         for (var i = 0; i < node.Children.Count; i++) {
@@ -346,10 +354,14 @@ namespace HELIX.UI.Options {
 
     private void ComposeSubcategory(ref Composition cx, NavTreeProse.Node node) {
       var presentation = Presentation(node);
-      cx.Spec(new OptionPageSectionHeaderSpec(
-        presentation.title, presentation.description,
-        presentation.role ?? TextRole.TitleSmall, presentation.icon
-      ));
+      cx.Spec(
+        new OptionPageSectionHeaderSpec(
+          presentation.title,
+          presentation.description,
+          presentation.role ?? TextRole.TitleSmall,
+          presentation.icon
+        )
+      );
       cx.Spacing(1);
       _content[node](ref cx);
       for (var i = 0; i < node.Children.Count; i++) {
@@ -362,8 +374,12 @@ namespace HELIX.UI.Options {
       public readonly string title, description;
       public readonly TextRole? role;
       public readonly IconRef? icon;
+
       public SectionPresentation(string title, string description, TextRole? role, IconRef? icon) {
-        this.title = title; this.description = description; this.role = role; this.icon = icon;
+        this.title = title;
+        this.description = description;
+        this.role = role;
+        this.icon = icon;
       }
     }
 
@@ -381,8 +397,6 @@ namespace HELIX.UI.Options {
       }
       return new SectionPresentation(title, description, role, icon);
     }
-
-    private static string Title(NavTreeProse.Node node) => Presentation(node).title;
 
     private void BakeContent(NavTreeProse.Node node) {
       var axis = Axis.Vertical;
