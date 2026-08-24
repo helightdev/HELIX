@@ -16,7 +16,7 @@ namespace HELIX.UI.Options {
     [Prop(false)] public readonly bool showTooltipOnLabelHover;
   }
 
-  [BoundaryComposable(Extension = false)]
+  [BoundaryComposable(Extension = false, UseLookupCache = true)]
   public partial class OptionPagesElement {
     public partial struct Props {
       [Prop(null, Equatable = false)] public OptionPages pages;

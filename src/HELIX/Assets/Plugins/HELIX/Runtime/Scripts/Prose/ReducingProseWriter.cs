@@ -27,7 +27,7 @@ namespace HELIX.Prose {
     public virtual bool IsEmpty(TReduced value) => value is null;
   }
 
-  public interface IProseScopeHandler<TReduced> {
+  public interface IProseScopeHandler<out TReduced> {
     bool TryCreate(IProseScope scope, out IProseWriter writer);
     TReduced Finish(IProseWriter writer);
   }
