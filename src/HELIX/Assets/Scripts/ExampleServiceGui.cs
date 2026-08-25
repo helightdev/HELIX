@@ -1,3 +1,4 @@
+using System;
 using HELIX;
 using HELIX.Boot;
 using HELIX.Compose;
@@ -6,6 +7,7 @@ using HELIX.UI;
 using HELIX.UI.Console;
 using HELIX.UI.Options;
 using UnityEngine.UIElements;
+using UnityEngine;
 
 namespace DefaultNamespace {
   [Managed(typeof(ApplicationScope))]
@@ -51,6 +53,21 @@ namespace DefaultNamespace {
   [Managed(typeof(ApplicationScope), phase: LoadPhase.Configuration)]
   public partial class UserOptionsConfiguration {
 
+    private static readonly CompositeDatatype<UserProfile> _profileDatatype = new(
+      new ICompositeDatatypeComponent<UserProfile>[] {
+        new CompositeDatatypeComponent<UserProfile, string>(
+          "Display name", Datatypes.String, value => value.displayName,
+          (value, component) => new UserProfile(component, value.notifications)
+        ),
+        new CompositeDatatypeComponent<UserProfile, bool>(
+          "Notifications", Datatypes.Bool, value => value.notifications,
+          (value, component) => new UserProfile(value.displayName, component)
+        )
+      },
+      JsonUtility.ToJson,
+      JsonUtility.FromJson<UserProfile>
+    );
+
     [RegisterOption]
     public readonly Option<float> audioVolume = new(Datatypes.PercentNormalized, 0.9f);
 
@@ -63,6 +80,20 @@ namespace DefaultNamespace {
     [RegisterOption]
     public readonly Option<int> userAge = new(Datatypes.Int, 18) {
       eagerness = OptionEagerness.Delayed
+    };
+
+    [RegisterOption("user.spawn-position")]
+    public readonly Option<Vector3> spawnPosition = new(Datatypes.Vector3, new Vector3(1f, 2f, 3f)) {
+      eagerness = OptionEagerness.Delayed,
+      defaultResettable = true
+    };
+
+    [RegisterOption("user.profile")]
+    public readonly Option<UserProfile> profile = new(
+      _profileDatatype, new UserProfile("User", true)
+    ) {
+      eagerness = OptionEagerness.Delayed,
+      defaultResettable = true
     };
 
     [RegisterOption("user.anonymous")]
@@ -80,5 +111,21 @@ namespace DefaultNamespace {
         icon: FaSolidIcons.Ref(FaSolidIcons.Person)
       );
     }
+  }
+
+  [Serializable]
+  public sealed class UserProfile : IEquatable<UserProfile> {
+    public string displayName;
+    public bool notifications;
+
+    public UserProfile(string displayName, bool notifications) {
+      this.displayName = displayName;
+      this.notifications = notifications;
+    }
+
+    public bool Equals(UserProfile other) => other != null &&
+      displayName == other.displayName && notifications == other.notifications;
+    public override bool Equals(object obj) => obj is UserProfile other && Equals(other);
+    public override int GetHashCode() => HashCode.Combine(displayName, notifications);
   }
 }

@@ -60,7 +60,12 @@ namespace HELIX.Prose {
       public IReadOnlyList<Node> Children => this;
       public void ToProse(IProseWriter writer) {
         writer.Name(Name);
-        writer.Property("Modifiers", modifiers, new IterableDatatype<IProseModifier>());
+        writer.Property(
+          "Modifiers", modifiers,
+          new CollectionDatatype<IEnumerable<IProseModifier>, IProseModifier, List<IProseModifier>>(
+            EnumerableCollectionProxy<IProseModifier>.Instance
+          )
+        );
         using (writer.Tree()) {
           foreach (var section in this) {
             section?.ToProse(writer);

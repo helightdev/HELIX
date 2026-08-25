@@ -4,7 +4,8 @@
   "references": [
     "HELIX",
     "UnityEngine.TestRunner",
-    "UnityEditor.TestRunner"
+    "UnityEditor.TestRunner",
+    "GUID:e0cd26848372d4e5c891c569017e11f1"
   ],
   "includePlatforms": [
     "Editor"
@@ -13,7 +14,8 @@
   "allowUnsafeCode": false,
   "overrideReferences": true,
   "precompiledReferences": [
-    "nunit.framework.dll"
+    "nunit.framework.dll",
+    "Newtonsoft.Json.dll"
   ],
   "autoReferenced": false,
   "defineConstraints": [

@@ -1160,7 +1160,8 @@ namespace HELIX.Tests {
 
     [Test]
     public void IterableFormatter_StreamsItemsAndHandlesNullAndEmptyValues() {
-      var formatter = new IterableDatatype<int>(
+      var formatter = new CollectionDatatype<IEnumerable<int>, int, List<int>>(
+        EnumerableCollectionProxy<int>.Instance,
         new IntDatatype(format: "X"), prefix: "{", separator: "; ", suffix: "}"
       );
       var writer = new ProseTextWriter();

@@ -110,7 +110,7 @@ namespace HELIX.Compose {
       var self = context.Lookup<DatatypeTextField<T>>();
       if (self == null || !TryConvert(self.props.datatype, value.text, out var converted)) return;
       self.props.onEditingEnded?.Call(self.Node, converted, reason);
-      self.props.onCommitted?.Call(self.Node);
+      if (reason != TextEditEndReason.Cancelled) self.props.onCommitted?.Call(self.Node);
     }
 
     private static bool TryConvert(IStringConvertible<T> datatype, string text, out T value) {
@@ -190,7 +190,7 @@ namespace HELIX.Compose {
     }
 
     private static void TextCommitted(CompositionContext context, T value, TextEditEndReason reason) {
-      if (reason != TextEditEndReason.Submitted) return;
+      if (reason == TextEditEndReason.Cancelled) return;
       var self = context.Lookup<DatatypeFieldSlider<T>>();
       if (self == null) return;
       self.props.onChanged?.Call(self.Node, self.Normalize(value));

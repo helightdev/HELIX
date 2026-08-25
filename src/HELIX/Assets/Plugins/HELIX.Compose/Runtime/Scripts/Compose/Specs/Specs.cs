@@ -50,6 +50,8 @@ namespace HELIX.Compose {
     public static readonly ContextKey<SpecConfig> Key = new("specs", Default);
     public static SpecConfig Empty => new();
     public static SpecConfig Default => new SpecConfig()
+      .AddHandler<CollectionControlSpecHandler>()
+      .AddHandler<CompositeControlSpecHandler>()
       .AddHandler<ChoiceControlSpecHandler>()
       .AddHandler<TextControlSpecHandler>()
       .AddHandler<IntegerControlSpecHandler>()

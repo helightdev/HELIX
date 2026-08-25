@@ -27,6 +27,22 @@ namespace HELIX.Tests {
       AssertStringRoundTrip(Datatypes.Bool, true);
       AssertStringRoundTrip(Datatypes.Enum<TestChoice>(), TestChoice.Second);
       AssertStringRoundTrip(Datatypes.Color, (Color)new Color32(0x33, 0x66, 0x99, 0xff));
+      AssertStringRoundTrip(Datatypes.Vector2, new Vector2(1.25f, -2.5f));
+      AssertStringRoundTrip(Datatypes.Vector3, new Vector3(1.25f, -2.5f, 3.75f));
+      AssertStringRoundTrip(Datatypes.Vector4, new Vector4(1.25f, -2.5f, 3.75f, 4f));
+    }
+
+    [Test]
+    public void CompositeDatatype_ExposesAndUpdatesTypedComponents() {
+      ICompositeDatatype datatype = Datatypes.Vector3;
+      var value = new Vector3(1f, 2f, 3f);
+
+      Assert.That(datatype.ComponentCount, Is.EqualTo(3));
+      Assert.That(datatype.GetComponentName(1), Is.EqualTo("Y"));
+      Assert.That(datatype.GetComponentType(1), Is.EqualTo(typeof(float)));
+      Assert.That(datatype.GetComponentDatatype(1), Is.SameAs(Datatypes.Float));
+      Assert.That(datatype.GetComponentValue(value, 1), Is.EqualTo(2f));
+      Assert.That(datatype.SetComponentValue(value, 1, 8f), Is.EqualTo(new Vector3(1f, 8f, 3f)));
     }
 
     [Test]

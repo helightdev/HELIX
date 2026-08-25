@@ -125,6 +125,10 @@ namespace HELIX.Prose {
       IReadOnlyList<IProseModifier> modifiers, out Composable result,
       InspectorLayoutSlots layoutSlots = default
     ) {
+      if (formatter is ICollectionDatatype collection)
+        return Collection(field, collection, parts, modifiers, layoutSlots, out result);
+      if (formatter is ICompositeDatatype composite)
+        return Composite(field, composite, parts, modifiers, layoutSlots, out result);
       if (formatter is IDatatypeChoice choices)
         return Choice(field, choices, parts, modifiers, layoutSlots, out result);
       if (formatter is IDatatype<string> && field is ProseField<string> text)
@@ -137,6 +141,42 @@ namespace HELIX.Prose {
         return Checkbox(toggle, parts, modifiers, layoutSlots, out result);
       result = null;
       return false;
+    }
+
+    private static bool Composite(
+      IProseField field, ICompositeDatatype formatter, IReadOnlyList<ComposeProseFieldPart> parts,
+      IReadOnlyList<IProseModifier> modifiers, InspectorLayoutSlots layoutSlots, out Composable result
+    ) {
+      if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
+      var controlDatatype = new UntypedCompositeDatatype(formatter);
+      Composable control = (ref Composition cx) => {
+        var formField = cx.Lookup<HXFormField>();
+        cx.Spec(new ControlSpec<object>(
+          formField.Value, controlDatatype, SetComposite, FinishEditing,
+          IsEnabled(formField), HasError(formField)
+        ));
+        cx.CURSOR.Flexible();
+      };
+      result = Field(field.Path, field.Name, FormController.NoInitialValue, parts, modifiers, control, layoutSlots);
+      return true;
+    }
+
+    private static bool Collection(
+      IProseField field, ICollectionDatatype formatter, IReadOnlyList<ComposeProseFieldPart> parts,
+      IReadOnlyList<IProseModifier> modifiers, InspectorLayoutSlots layoutSlots, out Composable result
+    ) {
+      if (string.IsNullOrEmpty(field.Path)) { result = null; return false; }
+      var controlDatatype = new UntypedCollectionDatatype(formatter);
+      Composable control = (ref Composition cx) => {
+        var formField = cx.Lookup<HXFormField>();
+        cx.Spec(new ControlSpec<object>(
+          formField.Value, controlDatatype, SetComposite, FinishEditing,
+          IsEnabled(formField), HasError(formField)
+        ));
+        cx.CURSOR.Flexible();
+      };
+      result = Field(field.Path, field.Name, FormController.NoInitialValue, parts, modifiers, control, layoutSlots);
+      return true;
     }
 
     private static bool Choice(
@@ -302,6 +342,8 @@ namespace HELIX.Prose {
       context.Lookup<HXFormField>()?.SetUserValue(value);
     private static void SetChoice(CompositionContext context, object value) =>
       context.Lookup<HXFormField>()?.SetUserValue(value);
+    private static void SetComposite(CompositionContext context, object value) =>
+      context.Lookup<HXFormField>()?.SetUserValue(value);
     private static void FinishEditing(CompositionContext context) =>
       context.Lookup<HXFormField>()?.MarkFinishedEditing();
 
@@ -353,6 +395,49 @@ namespace HELIX.Prose {
           return;
         }
         writer.Write(value?.ToString() ?? "null");
+      }
+    }
+
+    private sealed class UntypedCompositeDatatype : IDatatype<object>, ICompositeDatatype {
+      private readonly ICompositeDatatype _datatype;
+      public UntypedCompositeDatatype(ICompositeDatatype datatype) => _datatype = datatype;
+      public int ComponentCount => _datatype.ComponentCount;
+      public string GetComponentName(int index) => _datatype.GetComponentName(index);
+      public Type GetComponentType(int index) => _datatype.GetComponentType(index);
+      public object GetComponentDatatype(int index) => _datatype.GetComponentDatatype(index);
+      public object GetComponentValue(object value, int index) => _datatype.GetComponentValue(value, index);
+      public object SetComponentValue(object value, int index, object componentValue) =>
+        _datatype.SetComponentValue(value, index, componentValue);
+      public void WriteComponent(IProseWriter writer, object value, int index) =>
+        _datatype.WriteComponent(writer, value, index);
+      public void ToProse(IProseWriter writer, object value) {
+        for (var i = 0; i < ComponentCount; i++) {
+          if (i != 0) writer.Write(", ");
+          WriteComponent(writer, value, i);
+        }
+      }
+    }
+
+    private sealed class UntypedCollectionDatatype : IDatatype<object>, ICollectionDatatype {
+      private readonly ICollectionDatatype _datatype;
+      public UntypedCollectionDatatype(ICollectionDatatype datatype) => _datatype = datatype;
+      public object ItemDatatype => _datatype.ItemDatatype;
+      public ICollectionProxy CollectionProxy => _datatype.CollectionProxy;
+      public int ComponentCount => 0;
+      public string GetComponentName(int index) => _datatype.GetComponentName(index);
+      public Type GetComponentType(int index) => _datatype.GetComponentType(index);
+      public object GetComponentDatatype(int index) => _datatype.GetComponentDatatype(index);
+      public object GetComponentValue(object value, int index) => _datatype.GetComponentValue(value, index);
+      public object SetComponentValue(object value, int index, object componentValue) =>
+        _datatype.SetComponentValue(value, index, componentValue);
+      public void WriteComponent(IProseWriter writer, object value, int index) =>
+        _datatype.WriteComponent(writer, value, index);
+      public void ToProse(IProseWriter writer, object value) {
+        var count = value == null ? 0 : CollectionProxy.GetItemCount(value);
+        for (var i = 0; i < count; i++) {
+          if (i != 0) writer.Write(", ");
+          WriteComponent(writer, value, i);
+        }
       }
     }
   }

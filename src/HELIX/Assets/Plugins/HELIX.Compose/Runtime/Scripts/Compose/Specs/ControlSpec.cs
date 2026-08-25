@@ -1,5 +1,6 @@
 using System;
 using HELIX.Prose;
+using HELIX.Theming;
 using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -63,6 +64,20 @@ namespace HELIX.Compose {
       spec is IControlSpec { Datatype: IDatatypeChoice } ? ControlFactory<T>.Choice : null;
   }
 
+  public sealed class CompositeControlSpecHandler : ISpecHandler {
+    public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec =>
+      spec is IControlSpec { Datatype: ICompositeDatatype }
+        ? ControlFactory<T>.Composite
+        : null;
+  }
+
+  public sealed class CollectionControlSpecHandler : ISpecHandler {
+    public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec =>
+      spec is IControlSpec { Datatype: ICollectionDatatype }
+        ? ControlFactory<T>.Collection
+        : null;
+  }
+
   public abstract class ControlSpecHandler<TValue> : ISpecHandler {
     public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec =>
       spec is IControlSpec { ValueType: var type } && type == typeof(TValue) ? Factory<T>() : null;
@@ -104,6 +119,8 @@ namespace HELIX.Compose {
 
   internal static class ControlFactory<T> where T : struct, ISpec {
     internal static readonly ReadComposable<T> Choice = ControlSpecFactories.Choice;
+    internal static readonly ReadComposable<T> Collection = ControlSpecFactories.Collection;
+    internal static readonly ReadComposable<T> Composite = ControlSpecFactories.Composite;
     internal static readonly ReadComposable<T> Text = ControlSpecFactories.Text;
     internal static readonly ReadComposable<T> Integer = ControlSpecFactories.Integer;
     internal static readonly ReadComposable<T> IntegerText = ControlSpecFactories.IntegerText;
@@ -160,6 +177,12 @@ namespace HELIX.Compose {
   public static class ControlSpecFactories {
     internal static void Choice<T>(ref Composition cx, in T spec) where T : struct, ISpec =>
       Compose(ref cx, in spec, ComposeChoice);
+
+    internal static void Composite<T>(ref Composition cx, in T spec) where T : struct, ISpec =>
+      Compose(ref cx, in spec, ComposeComposite);
+
+    internal static void Collection<T>(ref Composition cx, in T spec) where T : struct, ISpec =>
+      Compose(ref cx, in spec, ComposeCollection);
 
     internal static void Text<T>(ref Composition cx, in T spec) where T : struct, ISpec =>
       Compose(ref cx, in spec, ComposeText);
@@ -267,6 +290,38 @@ namespace HELIX.Compose {
       }
     }
 
+    private static void ComposeComposite(ref Composition cx) {
+      var control = cx.Lookup<ControlSpecBoundary>().Control;
+      var datatype = (ICompositeDatatype)control.Datatype;
+      using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
+        for (var i = 0; i < datatype.ComponentCount; i++) {
+          if (i != 0) cx.Spacing(1);
+          cx.Text(datatype.GetComponentName(i));
+          cx.Gap(ThemeProperties.TextGap[in cx]);
+          cx.Spec(new CompositeComponentControlSpec(control, datatype, i));
+          cx.CURSOR.Flexible(1f, 0f);
+        }
+      }
+    }
+
+    private static void ComposeCollection(ref Composition cx) {
+      var control = cx.Lookup<ControlSpecBoundary>().Control;
+      var datatype = (ICollectionDatatype)control.Datatype;
+      var proxy = datatype.CollectionProxy;
+      var count = control.Value == null ? 0 : proxy.GetItemCount(control.Value);
+      using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
+        for (var i = 0; i < count; i++) {
+          if (i != 0) cx.Spacing(1);
+          using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
+            cx.Text(datatype.GetComponentName(i));
+            cx.Gap(ThemeProperties.TextGap[in cx]);
+            cx.Spec(new CollectionItemControlSpec(control, datatype, i));
+            cx.CURSOR.Flexible(1f, 0f);
+          }
+        }
+      }
+    }
+
     private static void RenderChoice(
       ref Composition cx, IControlSpec control, IDatatypeChoice<object> datatype
     ) {
@@ -292,7 +347,7 @@ namespace HELIX.Compose {
     private static void IntegerTextEditingEnded(
       CompositionContext context, int parsed, TextEditEndReason reason
     ) {
-      if (reason != TextEditEndReason.Submitted) return;
+      if (reason == TextEditEndReason.Cancelled) return;
       var control = Control(context);
       var range = Unwrap(control.Datatype) as IDatatypeRange<int>;
       if (range?.Step is > 0) {
@@ -308,7 +363,7 @@ namespace HELIX.Compose {
     private static void FloatTextEditingEnded(
       CompositionContext context, float parsed, TextEditEndReason reason
     ) {
-      if (reason != TextEditEndReason.Submitted) return;
+      if (reason == TextEditEndReason.Cancelled) return;
       var control = Control(context);
       var formatter = Unwrap(control.Datatype);
       var range = formatter as IDatatypeRange<float>;
@@ -332,8 +387,9 @@ namespace HELIX.Compose {
     private static void BoolChanged(CompositionContext context, bool value) => Control(context).Change(context, value);
     private static void ChoiceChanged(CompositionContext context, object value) => Control(context).Change(context, value);
     private static void NumericCommitted(CompositionContext context) => Control(context).Commit(context);
-    private static void TextEditingEnded(CompositionContext context, string _, TextEditEndReason __) =>
-      Control(context).Commit(context);
+    private static void TextEditingEnded(CompositionContext context, string _, TextEditEndReason reason) {
+      if (reason != TextEditEndReason.Cancelled) Control(context).Commit(context);
+    }
     private static IControlSpec Control(CompositionContext context) =>
       context.Lookup<ControlSpecBoundary>().Control;
 
@@ -357,5 +413,49 @@ namespace HELIX.Compose {
     private static Composable Text(string text) => string.IsNullOrEmpty(text)
       ? null
       : (ref Composition cx) => cx.Text(text);
+  }
+
+  internal readonly struct CompositeComponentControlSpec : ISpec, IControlSpec {
+    private readonly IControlSpec _parent;
+    private readonly ICompositeDatatype _datatype;
+    private readonly int _index;
+
+    public CompositeComponentControlSpec(IControlSpec parent, ICompositeDatatype datatype, int index) {
+      _parent = parent;
+      _datatype = datatype;
+      _index = index;
+    }
+
+    Type IControlSpec.ValueType => _datatype.GetComponentType(_index);
+    object IControlSpec.Value => _datatype.GetComponentValue(_parent.Value, _index);
+    object IControlSpec.Datatype => _datatype.GetComponentDatatype(_index);
+    bool IControlSpec.Enabled => _parent.Enabled;
+    bool IControlSpec.Error => _parent.Error;
+    void IControlSpec.Change(CompositionContext context, object value) => _parent.Change(
+      context, _datatype.SetComponentValue(_parent.Value, _index, value)
+    );
+    void IControlSpec.Commit(CompositionContext context) => _parent.Commit(context);
+  }
+
+  internal readonly struct CollectionItemControlSpec : ISpec, IControlSpec {
+    private readonly IControlSpec _parent;
+    private readonly ICollectionDatatype _datatype;
+    private readonly int _index;
+
+    public CollectionItemControlSpec(IControlSpec parent, ICollectionDatatype datatype, int index) {
+      _parent = parent;
+      _datatype = datatype;
+      _index = index;
+    }
+
+    Type IControlSpec.ValueType => _datatype.CollectionProxy.ItemType;
+    object IControlSpec.Value => _datatype.CollectionProxy.GetItem(_parent.Value, _index);
+    object IControlSpec.Datatype => _datatype.ItemDatatype;
+    bool IControlSpec.Enabled => _parent.Enabled;
+    bool IControlSpec.Error => _parent.Error;
+    void IControlSpec.Change(CompositionContext context, object value) => _parent.Change(
+      context, _datatype.CollectionProxy.SetItem(_parent.Value, _index, value)
+    );
+    void IControlSpec.Commit(CompositionContext context) => _parent.Commit(context);
   }
 }

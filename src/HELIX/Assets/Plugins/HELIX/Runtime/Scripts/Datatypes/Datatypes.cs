@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using HELIX.Coloring;
 using HELIX.Prose;
+using HELIX.Serialization;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -60,6 +61,157 @@ namespace HELIX {
     T DefaultValue { get; }
   }
 
+  public interface ICompositeDatatype : IDatatype {
+    int ComponentCount { get; }
+    string GetComponentName(int index);
+    Type GetComponentType(int index);
+    object GetComponentDatatype(int index);
+    object GetComponentValue(object value, int index);
+    object SetComponentValue(object value, int index, object componentValue);
+    void WriteComponent(IProseWriter writer, object value, int index);
+  }
+
+  public interface ICompositeDatatype<T> : IDatatype<T>, ICompositeDatatype { }
+
+  public interface ICollectionProxy {
+    Type ItemType { get; }
+    int GetItemCount(object collection);
+    object GetItem(object collection, int index);
+    object SetItem(object collection, int index, object item);
+    object AddItem(object collection, object item);
+    object RemoveItem(object collection, int index);
+  }
+
+  public interface ICollectionProxy<TCollection, TItem, TAccumulator> : ICollectionProxy {
+    int GetItemCount(TCollection collection);
+    TItem GetItem(TCollection collection, int index);
+    TCollection SetItem(TCollection collection, int index, TItem item);
+    TCollection AddItem(TCollection collection, TItem item);
+    TCollection RemoveItem(TCollection collection, int index);
+    TAccumulator AcquireAccumulator(int capacity);
+    void Add(ref TAccumulator accumulator, TItem item);
+    TCollection Create(ref TAccumulator accumulator);
+    void ReleaseAccumulator(ref TAccumulator accumulator);
+  }
+
+  public interface ICollectionDatatype : ICompositeDatatype {
+    object ItemDatatype { get; }
+    ICollectionProxy CollectionProxy { get; }
+  }
+
+  public interface ICollectionDatatype<TCollection> : IDatatype<TCollection>, ICollectionDatatype { }
+
+  public interface ICompositeDatatypeComponent<T> {
+    string Name { get; }
+    Type ValueType { get; }
+    object Datatype { get; }
+    object GetValue(T value);
+    T SetValue(T value, object componentValue);
+    bool TryRead(IUniversalReader reader, ref T value);
+    bool TryWrite(IUniversalWriter writer, T value);
+    void ToProse(IProseWriter writer, T value);
+  }
+
+  public sealed class CompositeDatatypeComponent<T, TValue> : ICompositeDatatypeComponent<T> {
+    private readonly Func<T, TValue> _getter;
+    private readonly Func<T, TValue, T> _setter;
+
+    public CompositeDatatypeComponent(
+      string name, IDatatype<TValue> datatype, Func<T, TValue> getter, Func<T, TValue, T> setter
+    ) {
+      Name = name ?? throw new ArgumentNullException(nameof(name));
+      Datatype = datatype ?? throw new ArgumentNullException(nameof(datatype));
+      _getter = getter ?? throw new ArgumentNullException(nameof(getter));
+      _setter = setter ?? throw new ArgumentNullException(nameof(setter));
+    }
+
+    public string Name { get; }
+    public Type ValueType => typeof(TValue);
+    public object Datatype { get; }
+    public object GetValue(T value) => _getter(value);
+    public T SetValue(T value, object componentValue) => _setter(value, (TValue)componentValue);
+    public bool TryRead(IUniversalReader reader, ref T value) {
+      if (Datatype is not ISerializableDatatype<TValue> serializable) throw new NotSupportedException(
+        $"Component '{Name}' uses datatype '{Datatype.GetType().Name}', which does not support serialization."
+      );
+      if (!serializable.TryRead(reader, Name, out var component)) return false;
+      value = _setter(value, component);
+      return true;
+    }
+    public bool TryWrite(IUniversalWriter writer, T value) {
+      if (Datatype is not ISerializableDatatype<TValue> serializable) throw new NotSupportedException(
+        $"Component '{Name}' uses datatype '{Datatype.GetType().Name}', which does not support serialization."
+      );
+      return serializable.TryWrite(writer, Name, _getter(value));
+    }
+    public void ToProse(IProseWriter writer, T value) =>
+      writer.Write(_getter(value), (IDatatype<TValue>)Datatype);
+  }
+
+  public sealed class CompositeDatatype<T> :
+    ICompositeDatatype<T>, IStringConvertible<T>, ISerializableDatatype<T> {
+    private readonly IReadOnlyList<ICompositeDatatypeComponent<T>> _components;
+    private readonly Func<T, string> _toString;
+    private readonly Func<string, T> _fromString;
+
+    public CompositeDatatype(
+      IReadOnlyList<ICompositeDatatypeComponent<T>> components,
+      Func<T, string> toString,
+      Func<string, T> fromString,
+      string prefix = "(", string separator = ", ", string suffix = ")"
+    ) {
+      _components = components ?? throw new ArgumentNullException(nameof(components));
+      _toString = toString ?? throw new ArgumentNullException(nameof(toString));
+      _fromString = fromString ?? throw new ArgumentNullException(nameof(fromString));
+      Prefix = prefix;
+      Separator = separator;
+      Suffix = suffix;
+    }
+
+    public int ComponentCount => _components.Count;
+    public string Prefix { get; }
+    public string Separator { get; }
+    public string Suffix { get; }
+    public string GetComponentName(int index) => _components[index].Name;
+    public Type GetComponentType(int index) => _components[index].ValueType;
+    public object GetComponentDatatype(int index) => _components[index].Datatype;
+    public object GetComponentValue(object value, int index) => _components[index].GetValue((T)value);
+    public object SetComponentValue(object value, int index, object componentValue) =>
+      _components[index].SetValue((T)value, componentValue);
+    public void WriteComponent(IProseWriter writer, object value, int index) =>
+      _components[index].ToProse(writer, (T)value);
+    public string ToString(T value) => _toString(value);
+    public T FromString(string value) => _fromString(value);
+
+    public bool TryRead(IUniversalReader reader, string name, out T value) {
+      value = default;
+      if (!reader.TryEnterObject(name)) return false;
+      var success = true;
+      for (var i = 0; i < _components.Count; i++)
+        if (!_components[i].TryRead(reader, ref value)) { success = false; break; }
+      return reader.TryExitObject() && success;
+    }
+
+    public bool TryWrite(IUniversalWriter writer, string name, T value) {
+      if (!writer.TryBeginObject(name)) return false;
+      var success = true;
+      for (var i = 0; i < _components.Count; i++)
+        if (!_components[i].TryWrite(writer, value)) { success = false; break; }
+      return writer.TryEndObject() && success;
+    }
+
+    public void ToProse(IProseWriter writer, T value) {
+      if (Prefix != null) writer.Write(Prefix);
+      for (var i = 0; i < _components.Count; i++) {
+        if (i != 0 && Separator != null) writer.Write(Separator);
+        writer.Write(_components[i].Name);
+        writer.Write(": ");
+        _components[i].ToProse(writer, value);
+      }
+      if (Suffix != null) writer.Write(Suffix);
+    }
+  }
+
   /// <summary>Shared instances of the default, immutable Prose value formatters.</summary>
   public static class Datatypes {
     public static readonly StringDatatype String = new();
@@ -69,6 +221,45 @@ namespace HELIX {
     public static readonly DoubleDatatype Double = new();
     public static readonly BoolDatatype Bool = new();
     public static readonly ColorDatatype Color = new();
+    public static readonly CompositeDatatype<Vector2> Vector2 = new(
+      new ICompositeDatatypeComponent<Vector2>[] {
+        new CompositeDatatypeComponent<Vector2, float>("X", Float, value => value.x,
+          (value, component) => { value.x = component; return value; }),
+        new CompositeDatatypeComponent<Vector2, float>("Y", Float, value => value.y,
+          (value, component) => { value.y = component; return value; })
+      },
+      HelixConvert.ToUssString,
+      value => HelixConvert.ToVector2(value, out var result)
+        ? result : throw new FormatException($"Invalid Vector2 format: {value}")
+    );
+    public static readonly CompositeDatatype<Vector3> Vector3 = new(
+      new ICompositeDatatypeComponent<Vector3>[] {
+        new CompositeDatatypeComponent<Vector3, float>("X", Float, value => value.x,
+          (value, component) => { value.x = component; return value; }),
+        new CompositeDatatypeComponent<Vector3, float>("Y", Float, value => value.y,
+          (value, component) => { value.y = component; return value; }),
+        new CompositeDatatypeComponent<Vector3, float>("Z", Float, value => value.z,
+          (value, component) => { value.z = component; return value; })
+      },
+      HelixConvert.ToUssString,
+      value => HelixConvert.ToVector3(value, out var result)
+        ? result : throw new FormatException($"Invalid Vector3 format: {value}")
+    );
+    public static readonly CompositeDatatype<Vector4> Vector4 = new(
+      new ICompositeDatatypeComponent<Vector4>[] {
+        new CompositeDatatypeComponent<Vector4, float>("X", Float, value => value.x,
+          (value, component) => { value.x = component; return value; }),
+        new CompositeDatatypeComponent<Vector4, float>("Y", Float, value => value.y,
+          (value, component) => { value.y = component; return value; }),
+        new CompositeDatatypeComponent<Vector4, float>("Z", Float, value => value.z,
+          (value, component) => { value.z = component; return value; }),
+        new CompositeDatatypeComponent<Vector4, float>("W", Float, value => value.w,
+          (value, component) => { value.w = component; return value; })
+      },
+      HelixConvert.ToUssString,
+      value => HelixConvert.ToVector4(value, out var result)
+        ? result : throw new FormatException($"Invalid Vector4 format: {value}")
+    );
     public static readonly FloatDatatype Percent = new(format: "0.0", suffix: "%", min: 0f, max: 100f);
     public static readonly FloatDatatype PercentNormalized = new(format: "0.0", suffix: "%", scale: 100f, min: 0f, max: 1f);
 
@@ -129,7 +320,8 @@ namespace HELIX {
   }
 
   public sealed class StringDatatype :
-    IDatatype<string>, IStringConvertible<string>, IDatatypeAffix, IDatatypePattern, IDatatypeReadOnly {
+    IDatatype<string>, IStringConvertible<string>, ISerializableDatatype<string>,
+    IDatatypeAffix, IDatatypePattern, IDatatypeReadOnly {
     public StringDatatype(
       string nullText = ProseLiterals.Null,
       string prefix = null,
@@ -161,6 +353,17 @@ namespace HELIX {
 
     public string ToString(string value) => value;
     public string FromString(string value) => value;
+    public bool TryRead(IUniversalReader reader, string name, out string value) {
+      value = null;
+      if (!reader.TryReadNull(name, out var isNull)) return false;
+      if (isNull) return true;
+      return reader.TryReadString(name, out value);
+    }
+    public bool TryWrite(IUniversalWriter writer, string name, string value) {
+      var isNull = value == null;
+      if (!writer.TryWriteNull(name, isNull)) return false;
+      return isNull || writer.TryWriteString(name, value);
+    }
 
     public void ToProse(IProseWriter writer, string value) {
       if (Prefix != null) writer.Write(Prefix);
@@ -177,7 +380,7 @@ namespace HELIX {
 
   public sealed class IntDatatype :
     IDatatype<int>, IDatatype<int?>, IDatatypeRange<int>, IDatatypeUnit, IDatatypeAffix,
-    INumericConvertible<int>, IStringConvertible<int> {
+    INumericConvertible<int>, IStringConvertible<int>, ISerializableDatatype<int> {
     public IntDatatype(
       string format = null,
       int? min = null,
@@ -224,6 +427,10 @@ namespace HELIX {
     int IStringConvertible<int>.FromString(string value) => int.Parse(
       value, NumberStyles.Integer, CultureInfo.InvariantCulture
     );
+    public bool TryRead(IUniversalReader reader, string name, out int value) =>
+      reader.TryReadInt32(name, out value);
+    public bool TryWrite(IUniversalWriter writer, string name, int value) =>
+      writer.TryWriteInt32(name, value);
 
     public void ToProse(IProseWriter writer, int value) {
       WriteNumber(writer, value.ToString(Format, CultureInfo.InvariantCulture));
@@ -240,7 +447,7 @@ namespace HELIX {
 
   public sealed class LongDatatype :
     IDatatype<long>, IDatatype<long?>, IDatatypeRange<long>, IDatatypeUnit, IDatatypeAffix,
-    INumericConvertible<long>, IStringConvertible<long> {
+    INumericConvertible<long>, IStringConvertible<long>, ISerializableDatatype<long> {
     public LongDatatype(
       string format = null, long? min = null, long? max = null,
       string prefix = null, string suffix = null,
@@ -282,6 +489,10 @@ namespace HELIX {
     long IStringConvertible<long>.FromString(string value) => long.Parse(
       value, NumberStyles.Integer, CultureInfo.InvariantCulture
     );
+    public bool TryRead(IUniversalReader reader, string name, out long value) =>
+      reader.TryReadInt64(name, out value);
+    public bool TryWrite(IUniversalWriter writer, string name, long value) =>
+      writer.TryWriteInt64(name, value);
 
     public void ToProse(IProseWriter writer, long value) => DatatypeUtility.WriteDecorated(
       writer, value.ToString(Format, CultureInfo.InvariantCulture), Prefix, Suffix, Unit
@@ -295,7 +506,7 @@ namespace HELIX {
 
   public sealed class FloatDatatype :
     IDatatype<float>, IDatatype<float?>, IDatatypeRange<float>, IDatatypeUnit, IDatatypeAffix,
-    INumericConvertible<float>, IStringConvertible<float> {
+    INumericConvertible<float>, IStringConvertible<float>, ISerializableDatatype<float> {
     public FloatDatatype(
       string format = "R", float? min = null, float? max = null,
       string prefix = null, string suffix = null,
@@ -349,6 +560,10 @@ namespace HELIX {
     float IStringConvertible<float>.FromString(string value) => float.Parse(
       value, NumberStyles.Float, CultureInfo.InvariantCulture
     ) / Scale;
+    public bool TryRead(IUniversalReader reader, string name, out float value) =>
+      reader.TryReadSingle(name, out value);
+    public bool TryWrite(IUniversalWriter writer, string name, float value) =>
+      writer.TryWriteSingle(name, value);
 
     public void ToProse(IProseWriter writer, float value) {
       if (Clamp) value = Math.Max(Min ?? float.MinValue, Math.Min(Max ?? float.MaxValue, value));
@@ -370,7 +585,7 @@ namespace HELIX {
 
   public sealed class DoubleDatatype :
     IDatatype<double>, IDatatype<double?>, IDatatypeRange<double>, IDatatypeUnit, IDatatypeAffix,
-    INumericConvertible<double>, IStringConvertible<double> {
+    INumericConvertible<double>, IStringConvertible<double>, ISerializableDatatype<double> {
     public DoubleDatatype(
       string format = "R", double? min = null, double? max = null,
       string prefix = null, string suffix = null,
@@ -415,6 +630,10 @@ namespace HELIX {
     double IStringConvertible<double>.FromString(string value) => double.Parse(
       value, NumberStyles.Float, CultureInfo.InvariantCulture
     );
+    public bool TryRead(IUniversalReader reader, string name, out double value) =>
+      reader.TryReadDouble(name, out value);
+    public bool TryWrite(IUniversalWriter writer, string name, double value) =>
+      writer.TryWriteDouble(name, value);
 
     public void ToProse(IProseWriter writer, double value) => DatatypeUtility.WriteDecorated(
       writer,
@@ -429,7 +648,7 @@ namespace HELIX {
   }
 
   public sealed class BoolDatatype :
-    IDatatype<bool>, IDatatype<bool?>, IStringConvertible<bool> {
+    IDatatype<bool>, IDatatype<bool?>, IStringConvertible<bool>, ISerializableDatatype<bool> {
     public BoolDatatype(
       string trueText = "true", string falseText = "false",
       string nullText = ProseLiterals.Null
@@ -444,6 +663,10 @@ namespace HELIX {
     public string NullText { get; }
     public string ToString(bool value) => value.ToString();
     public bool FromString(string value) => bool.Parse(value);
+    public bool TryRead(IUniversalReader reader, string name, out bool value) =>
+      reader.TryReadBoolean(name, out value);
+    public bool TryWrite(IUniversalWriter writer, string name, bool value) =>
+      writer.TryWriteBoolean(name, value);
     public void ToProse(IProseWriter writer, bool value) => writer.Write(value ? TrueText : FalseText);
 
     public void ToProse(IProseWriter writer, bool? value) =>
@@ -486,7 +709,7 @@ namespace HELIX {
 
   public sealed class EnumDatatype<T> :
     IDatatype<T>, IDatatype<T?>, IDatatypeChoice<T>, IDatatypeAffix,
-    IStringConvertible<T>, INumericConvertible<T> where T : struct, Enum {
+    IStringConvertible<T>, INumericConvertible<T>, ISerializableDatatype<T> where T : struct, Enum {
     private static readonly T[] _values = (T[])Enum.GetValues(typeof(T));
 
     public EnumDatatype(
@@ -521,6 +744,14 @@ namespace HELIX {
     public double ToDouble(T value) => Convert.ToDouble(value);
     public T FromDouble(double value) =>
       (T)Enum.ToObject(typeof(T), Convert.ToInt64(value));
+    public bool TryRead(IUniversalReader reader, string name, out T value) {
+      value = default;
+      if (!reader.TryReadInt64(name, out var encoded)) return false;
+      value = (T)Enum.ToObject(typeof(T), encoded);
+      return true;
+    }
+    public bool TryWrite(IUniversalWriter writer, string name, T value) =>
+      writer.TryWriteInt64(name, Convert.ToInt64(value));
 
     public void ToProse(IProseWriter writer, T value) =>
       DatatypeUtility.WriteDecorated(writer, value.ToString(), Prefix, Suffix);
@@ -583,7 +814,7 @@ namespace HELIX {
   }
 
   public sealed class ObjectDatatype<T> :
-    IDatatype<T>, IDatatypeAffix, IStringConvertible<T> {
+    IDatatype<T>, IDatatypeAffix, IStringConvertible<T>, ISerializableDatatype<T> {
     public ObjectDatatype(
       string nullText = ProseLiterals.Null, string prefix = null, string suffix = null
     ) {
@@ -601,6 +832,24 @@ namespace HELIX {
     public T FromString(string value) => value == null
       ? default
       : (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
+
+    public bool TryRead(IUniversalReader reader, string name, out T value) {
+      value = default;
+      if (!typeof(T).IsValueType) {
+        if (!reader.TryReadNull(name, out var isNull)) return false;
+        if (isNull) return true;
+      }
+      return reader.SupportsCustomType(typeof(T)) && reader.TryReadCustom(name, out value);
+    }
+
+    public bool TryWrite(IUniversalWriter writer, string name, T value) {
+      if (!typeof(T).IsValueType) {
+        var isNull = value is null;
+        if (!writer.TryWriteNull(name, isNull)) return false;
+        if (isNull) return true;
+      }
+      return writer.SupportsCustomType(typeof(T)) && writer.TryWriteCustom(name, value);
+    }
 
     public void ToProse(IProseWriter writer, T value) {
       DatatypeUtility.WriteDecorated(
@@ -710,54 +959,4 @@ namespace HELIX {
     );
   }
 
-  /// <summary>Streams iterable items directly to a writer without materializing an intermediate list.</summary>
-  public sealed class IterableDatatype<T> : IDatatype<IEnumerable<T>> {
-    public IterableDatatype(
-      IDatatype<T> itemDatatype = null,
-      string nullText = ProseLiterals.Null,
-      string emptyText = "[]",
-      string prefix = "[",
-      string separator = ", ",
-      string suffix = "]"
-    ) {
-      ItemDatatype = itemDatatype ?? Datatypes.Object<T>();
-      NullText = nullText;
-      EmptyText = emptyText;
-      Prefix = prefix;
-      Separator = separator;
-      Suffix = suffix;
-    }
-
-    public IDatatype<T> ItemDatatype { get; }
-    public string NullText { get; }
-    public string EmptyText { get; }
-    public string Prefix { get; }
-    public string Separator { get; }
-    public string Suffix { get; }
-
-    public void ToProse(IProseWriter writer, IEnumerable<T> values) {
-      if (values == null) {
-        writer.Write(NullText);
-        return;
-      }
-
-      using var enumerator = values.GetEnumerator();
-      if (!enumerator.MoveNext()) {
-        if (EmptyText != null) writer.Write(EmptyText);
-        else {
-          if (Prefix != null) writer.Write(Prefix);
-          if (Suffix != null) writer.Write(Suffix);
-        }
-        return;
-      }
-
-      if (Prefix != null) writer.Write(Prefix);
-      writer.Write(enumerator.Current, ItemDatatype);
-      while (enumerator.MoveNext()) {
-        if (Separator != null) writer.Write(Separator);
-        writer.Write(enumerator.Current, ItemDatatype);
-      }
-      if (Suffix != null) writer.Write(Suffix);
-    }
-  }
 }
