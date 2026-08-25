@@ -67,6 +67,7 @@ namespace HELIX.Compose {
       base.OnAttach();
       Node.RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
       _transitionRunner ??= new NavigationTransitionRunner(this);
+      RequestFocus();
     }
 
     protected override void OnDetach() {
@@ -140,6 +141,7 @@ namespace HELIX.Compose {
       try {
         if (!Controller.TryStartPresentation(change.Id)) return;
         _transitionRunner.Start(change, change.Transition ?? props.transition ?? NavigationTransitions.Default, _pages);
+        RequestFocus();
       } catch {
         Controller.CompletePresentation(change.Id);
         throw;
@@ -151,6 +153,11 @@ namespace HELIX.Compose {
       if (Controller?.Pop() != true) return;
       evt.StopImmediatePropagation();
     }
+
+    private void RequestFocus() => Node.schedule.Execute(() => {
+      if (Node.panel == null || Node.resolvedStyle.display == DisplayStyle.None) return;
+      Node.Focus();
+    }).ExecuteLater(1);
 
     private static bool IsCovered(IReadOnlyList<NavigationEntry> stack, int index) {
       for (var i = stack.Count - 1; i > index; i--) {

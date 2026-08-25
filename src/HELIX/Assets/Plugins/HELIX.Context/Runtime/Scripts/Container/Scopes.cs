@@ -24,6 +24,7 @@ namespace HELIX.Context {
 
   public class GameObjectScope : IScope {
     public GameObject gameObject;
+    public GameObjectScope(GameObject gameObject = null) { this.gameObject = gameObject; }
   }
 
   public class ScopeRegistration {

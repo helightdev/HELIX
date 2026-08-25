@@ -46,7 +46,7 @@ namespace HELIX.Context {
 
     // [Resource(Source.Resources), ShowInInspector]
     // public List<KennyPromptSvgCollection> svgCollections;
-    
+
     [Hook]
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
@@ -54,7 +54,9 @@ namespace HELIX.Context {
     }
 
     [Hook(MixinOn.ConfigureManaged)]
-    private static void OnConfigureSelf(ManagedRegistration entry) { }
+    private static void OnConfigureSelf(ManagedRegistration entry) {
+      
+    }
 
     [Ticker("10s")]
     private void MyTickerFunc() {

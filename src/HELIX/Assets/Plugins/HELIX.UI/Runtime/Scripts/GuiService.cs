@@ -3,6 +3,8 @@ using HELIX.Context;
 using HELIX.Extensions;
 using HELIX.Theming;
 using HELIX.UI.Prompts;
+using HELIX.UI.Console;
+using HELIX.UI.DebugOverlay;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
@@ -26,6 +28,8 @@ namespace HELIX.UI {
     public readonly NavigationController navigation = new();
     public readonly OverlayController overlays = new();
     public readonly HelixInputController inputController = new(InputConfiguration.Default);
+    public readonly DebugOverlayController debugOverlay = new();
+    public ICommandSystem commandSystem;
 
     [Hook]
     public void OnInit() {

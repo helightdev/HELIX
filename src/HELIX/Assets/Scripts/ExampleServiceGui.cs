@@ -3,6 +3,7 @@ using HELIX.Boot;
 using HELIX.Compose;
 using HELIX.Context;
 using HELIX.UI;
+using HELIX.UI.Console;
 using HELIX.UI.Options;
 using UnityEngine.UIElements;
 
@@ -11,6 +12,11 @@ namespace DefaultNamespace {
   public partial class ExampleServiceGui {
     [Inject] public OptionsService optionsService;
     [Inject] public GuiService panel;
+
+    [Hook]
+    private void OnInit() {
+
+    }
 
     [EventHandler]
     public void OnBuildNavigation(BuildNavigationEvent evt) {
