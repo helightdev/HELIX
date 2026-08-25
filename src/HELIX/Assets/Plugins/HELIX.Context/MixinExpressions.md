@@ -84,6 +84,9 @@ Boolean Pseudo Properties may be inverted with :!?. Example @this:!?static => Th
    `<Number>m|minute|minutes`: minutes
    `%<Number>`: times per second
    `<Number>`: seconds (if no unity is specified)
+- `:propStructCall<TARGET><VARIABLE>` | Generates a call to the string TARGET (Possibly the method name or reference)
+  expecting an instance of the prop being accessible through the string VARIABLE. Generates the call signature by
+  unwrapping the struct into the method call. Must be called on a prop struct handle.
 
 Example for the wire method: `@target:name(@local#Method:wire<(@target)>);`
 
@@ -147,6 +150,9 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
    otherwise null. This is intended to be used for wiring and allowing dynamic signature checks.
 - `@PUT<LABEL><KEY>` Expression | Shorthand helper for table :put with a given key into a local variable
 - `@PUSH<LABEL>` Expression | Shorthand helper for table :push into a local variable
+- `@PROP_STRUCT<StructName><LocalLabel>` SyntaxTarget | Generates a prop struct with the given name for syntax target
+  and assigns a reference handle to the local variable at local label.
+
 Note: Multiple boolean expressions per matcher / assertions are combined into an AND
 Note: Code lines are buffered until the end of the expression's execution and only then applied
 

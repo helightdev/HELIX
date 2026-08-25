@@ -41,15 +41,22 @@ namespace HELIX {
 
   /// <summary>A generated or manually declared property of a structured datatype.</summary>
   public abstract class StructurePropertyDatatype<T> : IPropertyDatatype<T> {
-    protected StructurePropertyDatatype(string fieldName, IList<IProseModifier> modifiers = null) {
+    protected StructurePropertyDatatype(
+      string fieldName, IList<IProseModifier> modifiers = null,
+      bool required = true, object defaultValue = null
+    ) {
       if (string.IsNullOrWhiteSpace(fieldName))
         throw new ArgumentException("A field name is required.", nameof(fieldName));
       FieldName = fieldName;
       Modifiers = modifiers == null ? new List<IProseModifier>() : new List<IProseModifier>(modifiers);
+      Required = required;
+      DefaultValue = defaultValue;
     }
 
     public string FieldName { get; }
     public string Key => FieldName;
+    public bool Required { get; }
+    public object DefaultValue { get; }
     public IList<IProseModifier> Modifiers { get; }
     public abstract Type ValueType { get; }
     public abstract IDatatype ValueDatatype { get; }
@@ -76,8 +83,9 @@ namespace HELIX {
     public StructurePropertyDatatype(
       string fieldName, IDatatype<TValue> datatype,
       StructurePropertyGetter<T, TValue> getter, StructurePropertySetter<T, TValue> setter,
-      IList<IProseModifier> modifiers = null
-    ) : base(fieldName, modifiers) {
+      IList<IProseModifier> modifiers = null,
+      bool required = true, object defaultValue = null
+    ) : base(fieldName, modifiers, required, defaultValue) {
       _datatype = datatype ?? throw new ArgumentNullException(nameof(datatype));
       _getter = getter ?? throw new ArgumentNullException(nameof(getter));
       _setter = setter ?? throw new ArgumentNullException(nameof(setter));

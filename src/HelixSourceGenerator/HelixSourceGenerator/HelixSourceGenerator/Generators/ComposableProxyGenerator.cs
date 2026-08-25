@@ -358,10 +358,10 @@ public sealed class ComposableProxyGenerator : IIncrementalGenerator {
     out PropUpdate update
   ) {
     var defaultSetter = EscapeIdentifier(member.Name);
-    var function = attribute is null ? null : StringArgument(attribute, "ProxyFunction");
+    var function = attribute is null ? null : StringArgument(attribute, PropArguments.ProxyFunction);
     var setter = attribute is null
       ? defaultSetter
-      : StringArgument(attribute, "ProxySetter") ?? defaultSetter;
+      : StringArgument(attribute, PropArguments.ProxySetter) ?? defaultSetter;
     if (function is null && string.IsNullOrWhiteSpace(setter)) {
       ReportInvalidProp(
         context,
@@ -389,13 +389,13 @@ public sealed class ComposableProxyGenerator : IIncrementalGenerator {
     var setterCode = function is not null
       ? function.Replace("{VALUE}", value).Replace("{TYPE}", targetType)
       : $"instance.{setter} = {value};";
-    var checkEquality = attribute is not null && BooleanArgument(attribute, "ProxyEquality");
+    var checkEquality = attribute is not null && BooleanArgument(attribute, PropArguments.ProxyEquality);
     if (!checkEquality) {
       update = new PropUpdate(setterCode, null);
       return true;
     }
 
-    var getter = StringArgument(attribute, "ProxyGetter") ?? setter;
+    var getter = StringArgument(attribute, PropArguments.ProxyGetter) ?? setter;
     if (string.IsNullOrWhiteSpace(getter)) {
       ReportInvalidProp(
         context,
@@ -407,7 +407,7 @@ public sealed class ComposableProxyGenerator : IIncrementalGenerator {
     }
 
     var equalitySyntax =
-      StringArgument(attribute, "EqualitySyntax") ??
+      StringArgument(attribute, PropArguments.EqualitySyntax) ??
       Templates.ProxyEquality;
     string equality;
     try {

@@ -23,8 +23,8 @@ internal static class GeneratorStrings {
       EnableMixins = "HELIX.EnableMixinsAttribute",
       Mixin = "HELIX.MixinAttribute",
       RequireMixin = "HELIX.RequireMixinAttribute",
-      Prop = "HELIX.Compose.PropAttribute",
-      PropStruct = "HELIX.Compose.PropStructAttribute",
+      Prop = "HELIX.PropAttribute",
+      PropStruct = "HELIX.PropStructAttribute",
       UxmlElement = "UnityEngine.UIElements.UxmlElementAttribute";
   }
 
@@ -46,7 +46,49 @@ internal static class GeneratorStrings {
       PropsBoundaryComposable = "HELIX.Compose.PropsBoundaryComposable",
       ReadComposable = "HELIX.Compose.ReadComposable",
       ScopeHandle = "HELIX.Compose.ScopeHandle",
+      Datatypes = "HELIX.Datatypes",
+      StructureDatatype = "HELIX.StructureDatatype",
+      ConfigurableStructureDatatype = "HELIX.ConfigurableStructureDatatype",
+      StructurePropertyDatatype = "HELIX.StructurePropertyDatatype",
+      UnityColor = "UnityEngine.Color",
+      UnityVector2 = "UnityEngine.Vector2",
+      UnityVector3 = "UnityEngine.Vector3",
+      UnityVector4 = "UnityEngine.Vector4",
       VisualElement = "UnityEngine.UIElements.VisualElement";
+  }
+
+  internal static class Members {
+    internal const string
+      ConfigureDatatype = "ConfigureDatatype",
+      Datatype = "Datatype";
+  }
+
+  internal static class PropArguments {
+    internal const string
+      Datatype = "Datatype",
+      Equatable = "Equatable",
+      EqualitySyntax = "EqualitySyntax",
+      HashCodeSyntax = "HashCodeSyntax",
+      ProxyFunction = "ProxyFunction",
+      ProxySetter = "ProxySetter",
+      ProxyGetter = "ProxyGetter",
+      ProxyEquality = "ProxyEquality";
+  }
+
+  internal static class DatatypeMembers {
+    internal const string
+      String = "String",
+      Int = "Int",
+      Long = "Long",
+      Float = "Float",
+      Double = "Double",
+      Bool = "Bool",
+      Color = "Color",
+      Vector2 = "Vector2",
+      Vector3 = "Vector3",
+      Vector4 = "Vector4",
+      Enum = "Enum",
+      Object = "Object";
   }
 
   internal static class Templates {

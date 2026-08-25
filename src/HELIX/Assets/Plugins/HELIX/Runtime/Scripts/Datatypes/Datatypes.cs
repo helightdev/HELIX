@@ -290,7 +290,8 @@ namespace HELIX {
       bool hideName = false,
       bool hideSeparator = false,
       string description = null,
-      object defaultValue = null
+      object defaultValue = null,
+      bool required = true
     ) {
       Key = key ?? throw new ArgumentNullException(nameof(key));
       ValueDatatype = valueDatatype ?? throw new ArgumentNullException(nameof(valueDatatype));
@@ -301,6 +302,7 @@ namespace HELIX {
       HideSeparator = hideSeparator;
       Description = description;
       DefaultValue = defaultValue;
+      Required = required;
     }
 
     public string Key { get; }
@@ -312,6 +314,7 @@ namespace HELIX {
     public bool HideSeparator { get; }
     public string Description { get; }
     public object DefaultValue { get; }
+    public bool Required { get; }
 
     public void ToProse(IProseWriter writer, T value) => writer.Property(
       Key, value, ValueDatatype, Level, Hidden, NoWrap, HideName, HideSeparator,

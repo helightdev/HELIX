@@ -15,7 +15,8 @@ internal static class PropStructApi {
   internal static bool TryAnalyze(
     INamedTypeSymbol type,
     out PropStructModel model,
-    out Diagnostic diagnostic
+    out Diagnostic diagnostic,
+    bool datatype = false
   ) {
     var fields = InstanceFields(type);
     var props = fields.Select(field => new PropDefinition(
@@ -35,9 +36,62 @@ internal static class PropStructApi {
       model.ArgumentParts,
       model.Assignments,
       model.RequiresUnsafe,
-      equality
+      equality,
+      datatype ? AnalyzeDatatype(type, fields) : null,
+      model.PropertySymbols
     );
     return true;
+  }
+
+  private static PropDatatypeModel AnalyzeDatatype(
+    INamedTypeSymbol type,
+    IReadOnlyList<IFieldSymbol> fields
+  ) {
+    var structureType = type.ToDisplayString(TypeDisplayFormat);
+    var properties = new List<PropDatatypeProperty>(fields.Count);
+    foreach (var field in fields) {
+      var fieldType = field.Type.ToDisplayString(TypeDisplayFormat);
+      var attribute = Attribute(field, Attributes.Prop);
+      var datatypeExpression = attribute is null ? null : StringArgument(attribute, PropArguments.Datatype);
+      if (string.IsNullOrWhiteSpace(datatypeExpression))
+        datatypeExpression = DefaultDatatypeExpression(field.Type, fieldType);
+      var required = true;
+      var defaultValueExpression = "null";
+      if (attribute is not null && TryReadDefault(attribute, out var defaultValue, out _) &&
+        defaultValue.Mode != PropInitMode.None) {
+        required = false;
+        defaultValueExpression = defaultValue.Expression;
+      }
+      properties.Add(new PropDatatypeProperty(
+        field.Name,
+        fieldType,
+        datatypeExpression,
+        required,
+        defaultValueExpression
+      ));
+    }
+    return new PropDatatypeModel(structureType, type.Name, properties);
+  }
+
+  private static string DefaultDatatypeExpression(ITypeSymbol type, string typeName) {
+    var datatypes = "global::" + Types.Datatypes + ".";
+    switch (type.SpecialType) {
+      case SpecialType.System_String: return datatypes + DatatypeMembers.String;
+      case SpecialType.System_Int32: return datatypes + DatatypeMembers.Int;
+      case SpecialType.System_Int64: return datatypes + DatatypeMembers.Long;
+      case SpecialType.System_Single: return datatypes + DatatypeMembers.Float;
+      case SpecialType.System_Double: return datatypes + DatatypeMembers.Double;
+      case SpecialType.System_Boolean: return datatypes + DatatypeMembers.Bool;
+    }
+    if (type.TypeKind == TypeKind.Enum)
+      return datatypes + DatatypeMembers.Enum + "<" + typeName + ">()";
+    switch (type.ToDisplayString()) {
+      case Types.UnityColor: return datatypes + DatatypeMembers.Color;
+      case Types.UnityVector2: return datatypes + DatatypeMembers.Vector2;
+      case Types.UnityVector3: return datatypes + DatatypeMembers.Vector3;
+      case Types.UnityVector4: return datatypes + DatatypeMembers.Vector4;
+      default: return datatypes + DatatypeMembers.Object + "<" + typeName + ">()";
+    }
   }
 
   internal static bool TryAnalyzeProps(
@@ -107,7 +161,10 @@ internal static class PropStructApi {
       assignments.Add(new PropAssignment(propName, propName + " ?? " + defaultValue.Expression));
     }
 
-    model = new PropStructModel(parameters, arguments, assignments, requiresUnsafe);
+    model = new PropStructModel(
+      parameters, arguments, assignments, requiresUnsafe,
+      propertySymbols: props.Select(prop => prop.Symbol).ToArray()
+    );
     diagnostic = null;
     return true;
   }
@@ -128,7 +185,7 @@ internal static class PropStructApi {
     var hashValues = new List<string>(fields.Count);
     foreach (var field in fields) {
       var attribute = Attribute(field, Attributes.Prop);
-      if (attribute is not null && !BooleanArgument(attribute, "Equatable", true)) continue;
+      if (attribute is not null && !BooleanArgument(attribute, PropArguments.Equatable, true)) continue;
 
       var fieldName = EscapeIdentifier(field.Name);
       var current = "this." + fieldName;
@@ -146,10 +203,10 @@ internal static class PropStructApi {
 
       var equalitySyntax = attribute is null
         ? Templates.ProxyEquality
-        : StringArgument(attribute, "EqualitySyntax", Templates.ProxyEquality);
+        : StringArgument(attribute, PropArguments.EqualitySyntax, Templates.ProxyEquality);
       var hashCodeSyntax = attribute is null
         ? Templates.ProxyHashCode
-        : StringArgument(attribute, "HashCodeSyntax", Templates.ProxyHashCode);
+        : StringArgument(attribute, PropArguments.HashCodeSyntax, Templates.ProxyHashCode);
       if (string.IsNullOrWhiteSpace(equalitySyntax) || string.IsNullOrWhiteSpace(hashCodeSyntax)) {
         equality = null;
         diagnostic = InvalidEqualitySyntax(field, "the syntax must be a non-empty format string");
@@ -472,13 +529,17 @@ internal sealed class PropStructModel {
     IReadOnlyList<string> arguments,
     IReadOnlyList<PropAssignment> assignments,
     bool requiresUnsafe,
-    PropEqualityModel equality = null
+    PropEqualityModel equality = null,
+    PropDatatypeModel datatype = null,
+    IReadOnlyList<ISymbol> propertySymbols = null
   ) {
     ParameterParts = parameterParts;
     ArgumentParts = arguments;
     Assignments = assignments;
     RequiresUnsafe = requiresUnsafe;
     Equality = equality ?? PropEqualityModel.None;
+    Datatype = datatype;
+    PropertySymbols = propertySymbols ?? Array.Empty<ISymbol>();
   }
 
   internal IReadOnlyList<string> ParameterParts { get; }
@@ -486,6 +547,8 @@ internal sealed class PropStructModel {
   internal IReadOnlyList<PropAssignment> Assignments { get; }
   internal bool RequiresUnsafe { get; }
   internal PropEqualityModel Equality { get; }
+  internal PropDatatypeModel Datatype { get; }
+  internal IReadOnlyList<ISymbol> PropertySymbols { get; }
 
   internal void AppendAssignments(SharpStringBuilder builder, string target) {
     if (builder is null) throw new ArgumentNullException(nameof(builder));
@@ -494,6 +557,97 @@ internal sealed class PropStructModel {
     foreach (var assignment in Assignments)
       builder.Assignment(prefix + assignment.FieldName, assignment.ValueExpression);
   }
+}
+
+internal sealed class PropDatatypeModel {
+  internal PropDatatypeModel(
+    string structureType,
+    string name,
+    IReadOnlyList<PropDatatypeProperty> properties
+  ) {
+    StructureType = structureType;
+    Name = name;
+    Properties = properties;
+  }
+
+  internal string StructureType { get; }
+  internal string Name { get; }
+  internal IReadOnlyList<PropDatatypeProperty> Properties { get; }
+
+  internal void AppendMember(
+    SharpStringBuilder builder,
+    IReadOnlyList<string> configuration
+  ) {
+    var structureDatatype = "global::" + Types.StructureDatatype + "<" + StructureType + ">";
+    builder.Append("public static readonly ").Append(structureDatatype)
+      .Append(" ").Append(Members.Datatype).AppendLine(" =");
+    using (builder.Delimited(
+      "new global::" + Types.ConfigurableStructureDatatype + "<" + StructureType + ">(",
+      ")." + Members.Datatype + ";"
+    )) {
+      using (builder.Delimited("new " + structureDatatype + "(", "),", closeLine: true)) {
+        builder.AppendLine(SymbolDisplay.FormatLiteral(Name, true) + ",");
+        using (builder.Delimited(
+          "new global::" + Types.StructurePropertyDatatype + "<" + StructureType + ">[] {",
+          "}",
+          closeLine: true
+        )) {
+          for (var index = 0; index < Properties.Count; index++) {
+            AppendProperty(builder, Properties[index]);
+            if (index != Properties.Count - 1) builder.AppendLine(",");
+            else builder.AppendLine();
+          }
+        }
+      }
+      builder.Append("datatype => ").Append(Members.ConfigureDatatype).AppendLine("(datatype)");
+    }
+    builder.BlankLine();
+    using (builder.Method(
+      "static void " + Members.ConfigureDatatype,
+      new[] { structureDatatype + " datatype" },
+      false
+    )) {
+      foreach (var statement in configuration) builder.Statement(statement);
+    }
+  }
+
+  private void AppendProperty(SharpStringBuilder builder, PropDatatypeProperty property) {
+    var fieldName = EscapeIdentifier(property.Name);
+    using (builder.Delimited(
+      "new global::" + Types.StructurePropertyDatatype + "<" + StructureType + ", " +
+      property.Type + ">(",
+      ")",
+      closeLine: false
+    )) {
+      builder.AppendLine(SymbolDisplay.FormatLiteral(property.Name, true) + ",");
+      builder.AppendLine(property.DatatypeExpression + ",");
+      builder.AppendLine("(ref " + StructureType + " value) => value." + fieldName + ",");
+      builder.Append("(ref ").Append(StructureType).Append(" value, ")
+        .Append(property.Type).Append(" propertyValue) => value.")
+        .Append(fieldName).AppendLine(" = propertyValue,");
+      builder.AppendLine("required: " + (property.Required ? "true" : "false") + ",");
+      builder.Append("defaultValue: ").AppendLine(property.DefaultValueExpression);
+    }
+  }
+}
+
+internal readonly struct PropDatatypeProperty {
+  internal PropDatatypeProperty(
+    string name, string type, string datatypeExpression,
+    bool required, string defaultValueExpression
+  ) {
+    Name = name;
+    Type = type;
+    DatatypeExpression = datatypeExpression;
+    Required = required;
+    DefaultValueExpression = defaultValueExpression;
+  }
+
+  internal string Name { get; }
+  internal string Type { get; }
+  internal string DatatypeExpression { get; }
+  internal bool Required { get; }
+  internal string DefaultValueExpression { get; }
 }
 
 internal sealed class PropEqualityModel {

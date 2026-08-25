@@ -61,58 +61,6 @@ namespace HELIX.Compose {
   //   public CompositionAction<float> onVerticalScroll;
   // }
 
-  [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Parameter)]
-  public class PropAttribute : Attribute {
-    public object defaultValue;
-    public PropInit defaultInit;
-
-    public bool Equatable { get; set; } = true;
-    public string EqualitySyntax { get; set; } = "{0} == {1}";
-    public string HashCodeSyntax { get; set; } = "{0}";
-
-    public string ProxyFunction { get; set; }
-    public string ProxySetter { get; set; }
-    public string ProxyGetter { get; set; }
-    public bool ProxyEquality { get; set; } = false;
-
-    public PropAttribute(
-      object defaultValue,
-      PropInit defaultInit = PropInit.Literal
-    ) {
-      this.defaultValue = defaultValue;
-      this.defaultInit = defaultInit;
-    }
-
-    public PropAttribute() {
-      defaultValue = null;
-      defaultInit = PropInit.None;
-    }
-
-  }
-
-  [AttributeUsage(AttributeTargets.Struct)]
-  public class PropStructAttribute : Attribute { }
-
-  public enum PropInit {
-    /// <summary>
-    /// The literal object value of this will be used as the constructor parameter initializer.
-    /// </summary>
-    Literal,
-
-    /// <summary>
-    /// The constructor parameter will have the string content of this as the constant initializer.
-    /// </summary>
-    Constant,
-
-    /// <summary>
-    /// The constructor parameter will be nullable and default to null.
-    /// The string content of the annotation is used as the initializer if the parameter is null.
-    /// </summary>
-    Deferred,
-
-    None,
-  }
-
   [AttributeUsage(AttributeTargets.Field)]
   public class ContextAttribute : Attribute { }
 

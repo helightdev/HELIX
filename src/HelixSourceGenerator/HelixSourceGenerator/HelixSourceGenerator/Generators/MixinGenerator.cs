@@ -49,7 +49,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     }
   }
 
-  private static PreparedMixinExpressions CollectPreparedExpressions(
+  internal static PreparedMixinExpressions CollectPreparedExpressions(
     Compilation compilation
   ) {
     var result = new List<PreparedMixinExpression>();
@@ -439,17 +439,6 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   }
 
   private sealed record MixinTarget(INamedTypeSymbol Type, CSharpCompilation Compilation);
-
-  private sealed record PreparedMixinExpression(
-    string Provider,
-    string Expression,
-    Location Location,
-    MixinExpressionValidationResult Validation
-  );
-
-  private sealed record PreparedMixinExpressions(
-    IReadOnlyList<PreparedMixinExpression> Items, MixinExpressionPreparedState State
-  );
 
   private static List<INamedTypeSymbol> CollectMixinInterfaces(INamedTypeSymbol target) {
     var result = new List<INamedTypeSymbol>();

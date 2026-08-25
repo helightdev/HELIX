@@ -12,6 +12,18 @@ namespace HELIX.Context {
     }
   }
 
+  [PropStruct(true)]
+  public partial struct SerializerTest {
+    public string name;
+    public int age;
+    public bool isActive;
+    public float height;
+    public double weight;
+    [Prop(1f, Datatype = "HELIX.Datatypes.PercentNormalized")]
+    public float volume;
+  }
+
+
   [Managed(typeof(ApplicationScope))]
   public partial class MyRootDependency { }
 
@@ -24,6 +36,7 @@ namespace HELIX.Context {
       Debug.Log($"ExampleSingleton async init starting! {myRootDependency}");
       await UniTask.Delay(1000); // Simulate async initialization
       Debug.Log($"ExampleSingleton async init complete! {myRootDependency}");
+      Debug.Log($"{SerializerTest.Datatype}");
     }
   }
 
