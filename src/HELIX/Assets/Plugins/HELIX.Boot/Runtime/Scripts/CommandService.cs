@@ -200,6 +200,16 @@ namespace HELIX.Boot {
     }
   }
 
+  [AttributeUsage(AttributeTargets.Method)]
+  [MixinExpression(@"
+@LOCAL<StructName> @(target:name)_Args
+@PROP_STRUCT<(@local#StructName)><StructHandle> @target
+@MIXIN<$Init><1> @local#StructName props = default; @local#StructHandle:propStructCall<(@target:name)><props>
+")]
+  public class GenerateCommandAttribute : Attribute {
+
+  }
+
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
   [MixinExpression(new[] { MixinOn.ConfigureManaged, MixinOn.LoadManagedLate }, new[] { -1, 1 }, @"
 @CODE<$ConfigureManaged> registration.Publication(typeof(HELIX.UI.Console.Command), null, true);

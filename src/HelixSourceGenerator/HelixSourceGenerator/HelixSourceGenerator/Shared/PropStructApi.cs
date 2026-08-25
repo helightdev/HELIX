@@ -37,24 +37,28 @@ internal static class PropStructApi {
       model.Assignments,
       model.RequiresUnsafe,
       equality,
-      datatype ? AnalyzeDatatype(type, fields) : null,
+      datatype ? AnalyzeDatatype(
+        type.ToDisplayString(TypeDisplayFormat),
+        type.Name,
+        props
+      ) : null,
       model.PropertySymbols
     );
     return true;
   }
 
-  private static PropDatatypeModel AnalyzeDatatype(
-    INamedTypeSymbol type,
-    IReadOnlyList<IFieldSymbol> fields
+  internal static PropDatatypeModel AnalyzeDatatype(
+    string structureType,
+    string name,
+    IReadOnlyList<PropDefinition> props
   ) {
-    var structureType = type.ToDisplayString(TypeDisplayFormat);
-    var properties = new List<PropDatatypeProperty>(fields.Count);
-    foreach (var field in fields) {
-      var fieldType = field.Type.ToDisplayString(TypeDisplayFormat);
-      var attribute = Attribute(field, Attributes.Prop);
+    var properties = new List<PropDatatypeProperty>(props.Count);
+    foreach (var prop in props) {
+      var propType = prop.Type.ToDisplayString(TypeDisplayFormat);
+      var attribute = prop.Attribute;
       var datatypeExpression = attribute is null ? null : StringArgument(attribute, PropArguments.Datatype);
       if (string.IsNullOrWhiteSpace(datatypeExpression))
-        datatypeExpression = DefaultDatatypeExpression(field.Type, fieldType);
+        datatypeExpression = DefaultDatatypeExpression(prop.Type, propType);
       var required = true;
       var defaultValueExpression = "null";
       if (attribute is not null && TryReadDefault(attribute, out var defaultValue, out _) &&
@@ -63,14 +67,14 @@ internal static class PropStructApi {
         defaultValueExpression = defaultValue.Expression;
       }
       properties.Add(new PropDatatypeProperty(
-        field.Name,
-        fieldType,
+        prop.Name,
+        propType,
         datatypeExpression,
         required,
         defaultValueExpression
       ));
     }
-    return new PropDatatypeModel(structureType, type.Name, properties);
+    return new PropDatatypeModel(structureType, name, properties);
   }
 
   private static string DefaultDatatypeExpression(ITypeSymbol type, string typeName) {

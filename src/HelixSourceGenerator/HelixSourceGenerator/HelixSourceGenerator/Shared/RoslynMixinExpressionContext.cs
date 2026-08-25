@@ -25,8 +25,14 @@ internal sealed record MixinTargetSyntax(
   string Name, bool IsStatic, bool IsPublic, string DelegateType
 );
 
+internal sealed class MixinPropStructHandle {
+  internal MixinPropStructHandle(IReadOnlyList<PropDefinition> props) => Props = props;
+
+  internal IReadOnlyList<PropDefinition> Props { get; }
+}
+
 internal sealed class RoslynMixinExpressionContext :
-  IMixinExpressionContext, IMixinExpressionSignatureContext {
+  IMixinExpressionContext, IMixinExpressionSignatureContext, IMixinExpressionPropStructContext {
   private static readonly SymbolDisplayFormat FullNameDisplayFormat =
     SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
       SymbolDisplayGenericsOptions.IncludeTypeParameters
@@ -113,6 +119,114 @@ internal sealed class RoslynMixinExpressionContext :
       if (!TryPredicate(subject, predicate, out var item, out error)) return false;
       value &= predicate.Negated ? !item : item;
     }
+    return true;
+  }
+
+  public bool TryCreatePropStruct(
+    string structName,
+    MixinExpressionReference syntaxTarget,
+    out object handle,
+    out string declaration,
+    out string error
+  ) {
+    handle = null;
+    declaration = null;
+    error = null;
+    if (!IsValidIdentifier(structName)) {
+      error = "prop struct name '" + (structName ?? "") + "' is not a valid identifier";
+      return false;
+    }
+    if (syntaxTarget.Properties.Count != 0 ||
+      !TrySubject(syntaxTarget, out var subject, out error)) return false;
+
+    IReadOnlyList<PropDefinition> props;
+    switch (subject) {
+      case IMethodSymbol { TypeParameters.Length: > 0 } method:
+        error = "generic method '" + method.Name + "' cannot be used as a prop struct syntax target";
+        return false;
+      case IMethodSymbol method:
+        props = method.Parameters.Select(parameter => new PropDefinition(
+          parameter,
+          parameter.Type,
+          parameter.Name,
+          Attribute(parameter, GeneratorStrings.Attributes.Prop),
+          parameter.RefKind
+        )).ToArray();
+        break;
+      case INamedTypeSymbol type:
+        props = InstanceFields(type).Select(field => new PropDefinition(
+          field,
+          field.Type,
+          field.Name,
+          Attribute(field, GeneratorStrings.Attributes.Prop)
+        )).ToArray();
+        break;
+      default:
+        error = "PROP_STRUCT syntax target must resolve to a method or named type";
+        return false;
+    }
+
+    if (!PropStructApi.TryAnalyzeProps(props, out var model, out var diagnostic)) {
+      error = diagnostic.GetMessage(CultureInfo.InvariantCulture);
+      return false;
+    }
+
+    var escapedName = EscapeIdentifier(structName);
+    var builder = new SharpStringBuilder();
+    using (builder.Type("public struct " + escapedName)) {
+      foreach (var prop in props)
+        builder.Field(
+          "public",
+          prop.Type.ToDisplayString(TypeDisplayFormat),
+          EscapeIdentifier(prop.Name)
+        );
+      if (props.Count != 0) builder.BlankLine();
+      using (builder.Method(
+        "public" + (model.RequiresUnsafe ? " unsafe " : " ") + escapedName,
+        model.ParameterParts,
+        model.ParameterParts.Count > 0
+      )) model.AppendAssignments(builder, "this");
+      builder.BlankLine();
+      PropStructApi.AnalyzeDatatype(escapedName, structName, props)
+        .AppendMember(builder, Array.Empty<string>());
+    }
+    handle = new MixinPropStructHandle(props);
+    declaration = builder.ToString();
+    return true;
+  }
+
+  public bool TryApplyPropStructProperty(
+    object handle,
+    MixinExpressionProperty property,
+    out object value,
+    out string error
+  ) {
+    value = null;
+    error = null;
+    if (handle is not MixinPropStructHandle propStruct) {
+      error = ":propStructCall must be called on a prop struct handle";
+      return false;
+    }
+    if (property.Name != "propStructCall" || property.Arguments.Count != 2) {
+      error = ":propStructCall requires a target and prop struct variable";
+      return false;
+    }
+    var target = property.Arguments[0];
+    var variable = property.Arguments[1];
+    if (string.IsNullOrWhiteSpace(target) || string.IsNullOrWhiteSpace(variable)) {
+      error = ":propStructCall target and variable cannot be empty";
+      return false;
+    }
+    var arguments = propStruct.Props.Select(prop => {
+      var modifier = prop.RefKind switch {
+        RefKind.Ref => "ref ",
+        RefKind.Out => "out ",
+        RefKind.In => "in ",
+        _ => ""
+      };
+      return modifier + variable + "." + EscapeIdentifier(prop.Name);
+    });
+    value = target + "(" + string.Join(", ", arguments) + ")";
     return true;
   }
 

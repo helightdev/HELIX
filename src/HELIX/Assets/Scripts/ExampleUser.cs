@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using HELIX.Boot;
+using HELIX.UI.Console;
 using Sirenix.OdinInspector;
 using UnityEngine;
 
 namespace HELIX.Context {
-
   public class LoggingDisposable : IDisposable {
     public void Dispose() {
       Debug.Log("LoggingDisposable disposed!");
@@ -66,10 +67,16 @@ namespace HELIX.Context {
       myResource2 = new LoggingDisposable(); //46
     }
 
-    [Hook(MixinOn.ConfigureManaged)]
-    private static void OnConfigureSelf(ManagedRegistration entry) {
-      
+    [GenerateCommand]
+    public void MyCommand(
+      string key,
+      [Prop(1f, Datatype = "HELIX.Datatypes.PercentNormalized")] float value
+    ) {
+      Debug.Log($"MyCommand called with key: {key} and value: {value}");
     }
+
+    [Hook(MixinOn.ConfigureManaged)]
+    private static void OnConfigureSelf(ManagedRegistration entry) { }
 
     [Ticker("10s")]
     private void MyTickerFunc() {
@@ -81,22 +88,17 @@ namespace HELIX.Context {
       Debug.Log("This runs every tick but takes a second!");
       await UniTask.Delay(1000);
     }
-    
+
     [EventHandler]
-    private void OnTestAsync(TestAsyncEvt evt) {
-      
-    }
-    
+    private void OnTestAsync(TestAsyncEvt evt) { }
+
     [EventHandler]
     private void OnComponentLoadEvt(ManagedLoadEvent evt) {
       evt.Context.PublishKey(new TypeKey(typeof(int), ""), 42);
     }
 
     [Hook(MixinOn.LoadManaged)]
-    private void OnComponentLoad(ManagedLoadContext context) {
-
-
-    }
+    private void OnComponentLoad(ManagedLoadContext context) { }
   }
 
   [Managed(typeof(ApplicationScope), order: 1)]

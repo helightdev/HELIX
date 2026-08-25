@@ -12,6 +12,96 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class MixinGeneratorExpressionTests {
   [Fact]
+  public void PropStructDirectiveGeneratesMethodParameterStructAndUnwrappedCall() {
+    const string source = "using System;\n" + PropStructDatatypeRuntime + """
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          [AttributeUsage(AttributeTargets.Method)]
+                          [HELIX.MixinExpression(
+                            "@PROP_STRUCT<WorkProps><workProps> @target\n" +
+                            "@CODE<CLASS> private void Dispatch(WorkProps value) { @local#workProps:propStructCall<this.Work><value>; }"
+                          )]
+                          public sealed class GenerateWorkPropsAttribute : Attribute { }
+
+                          [HELIX.EnableMixins]
+                          public partial class Demo {
+                            [GenerateWorkProps] private void Work(int count, in string label) { }
+                          }
+                          """;
+
+    var compilation = CSharpCompilation.Create(
+      "MethodPropStructExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("public struct WorkProps", text);
+    Assert.Contains("public global::System.Int32 count;", text);
+    Assert.Contains("public global::System.String label;", text);
+    Assert.Contains("public WorkProps(", text);
+    Assert.Contains("public static readonly global::HELIX.StructureDatatype<WorkProps> Datatype =", text);
+    Assert.Contains("new global::HELIX.ConfigurableStructureDatatype<WorkProps>(", text);
+    Assert.Contains("this.Work(value.count, in value.label);", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
+  public void PropStructDirectiveGeneratesClassFieldStructAndUnwrappedCall() {
+    const string source = "using System;\n" + PropStructDatatypeRuntime + """
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          [AttributeUsage(AttributeTargets.Class)]
+                          [HELIX.MixinExpression(
+                            "@PROP_STRUCT<Snapshot><snapshot> @target\n" +
+                            "@CODE<CLASS> private void Dispatch(Snapshot value) { @local#snapshot:propStructCall<Consume><value>; }"
+                          )]
+                          public sealed class GenerateSnapshotAttribute : Attribute { }
+
+                          [HELIX.EnableMixins]
+                          [GenerateSnapshot]
+                          public partial class Demo {
+                            private int count;
+                            private string label;
+                            private void Consume(int count, string label) { }
+                          }
+                          """;
+
+    var compilation = CSharpCompilation.Create(
+      "ClassPropStructExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("public struct Snapshot", text);
+    Assert.Contains("public global::System.Int32 count;", text);
+    Assert.Contains("public global::System.String label;", text);
+    Assert.Contains("public static readonly global::HELIX.StructureDatatype<Snapshot> Datatype =", text);
+    Assert.Contains("new global::HELIX.ConfigurableStructureDatatype<Snapshot>(", text);
+    Assert.Contains("Consume(value.count, value.label);", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
   public void ComponentLifecycleExpressionsEmitPublicComponentTargets() {
     const string source = """
                           using System;
@@ -767,4 +857,43 @@ public sealed class MixinGeneratorExpressionTests {
     .Split(Path.PathSeparator)
     .Select(path => MetadataReference.CreateFromFile(path))
     .ToImmutableArray<MetadataReference>();
+
+  private const string PropStructDatatypeRuntime = """
+                                                     namespace HELIX {
+                                                       public interface IDatatype<T> { }
+                                                       public sealed class PrimitiveDatatype<T> : IDatatype<T> { }
+                                                       public static class Datatypes {
+                                                         public static readonly IDatatype<string> String = new PrimitiveDatatype<string>();
+                                                         public static readonly IDatatype<int> Int = new PrimitiveDatatype<int>();
+                                                         public static IDatatype<T> Object<T>() => new PrimitiveDatatype<T>();
+                                                       }
+                                                       public abstract class StructurePropertyDatatype<T> { }
+                                                       public sealed class StructurePropertyDatatype<T, TValue> : StructurePropertyDatatype<T> {
+                                                         public delegate TValue Getter(ref T value);
+                                                         public delegate void Setter(ref T value, TValue propertyValue);
+                                                         public StructurePropertyDatatype(
+                                                           string name, IDatatype<TValue> datatype, Getter getter, Setter setter,
+                                                           System.Collections.Generic.IList<object> modifiers = null,
+                                                           bool required = true, object defaultValue = null
+                                                         ) { }
+                                                       }
+                                                       public sealed class StructureDatatype<T> {
+                                                         public StructureDatatype(
+                                                           string name,
+                                                           System.Collections.Generic.IList<StructurePropertyDatatype<T>> properties
+                                                         ) { }
+                                                       }
+                                                       public sealed class ConfigurableStructureDatatype<T> {
+                                                         private readonly StructureDatatype<T> datatype;
+                                                         public ConfigurableStructureDatatype(
+                                                           StructureDatatype<T> datatype,
+                                                           System.Action<StructureDatatype<T>> configure
+                                                         ) {
+                                                           this.datatype = datatype;
+                                                           configure(datatype);
+                                                         }
+                                                         public StructureDatatype<T> Datatype => datatype;
+                                                       }
+                                                     }
+                                                     """;
 }

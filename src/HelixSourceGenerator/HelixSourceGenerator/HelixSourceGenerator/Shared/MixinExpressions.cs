@@ -158,6 +158,24 @@ public interface IMixinExpressionSignatureContext {
   bool TryWireable(string from, string to, out bool value, out string error);
 }
 
+/// <summary>Optional host support for creating and consuming generated prop structs.</summary>
+public interface IMixinExpressionPropStructContext {
+  bool TryCreatePropStruct(
+    string structName,
+    MixinExpressionReference syntaxTarget,
+    out object handle,
+    out string declaration,
+    out string error
+  );
+
+  bool TryApplyPropStructProperty(
+    object handle,
+    MixinExpressionProperty property,
+    out object value,
+    out string error
+  );
+}
+
 public sealed class MixinExpressionResult {
   internal MixinExpressionResult(
     bool success,
@@ -345,6 +363,7 @@ public sealed class MixinExpressionInterpreter {
       Error = error;
       if (error is null && command is "MATCH" or "ASSERT") BooleanExpression = ParseBooleanExpression(operand);
       if (error is null && command is "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR"
+        or "PROP_STRUCT"
         or "PUT" or "PUSH" or "CALL" or "FAIL")
         StringExpression = ParseStringExpression(operand);
     }
@@ -943,6 +962,29 @@ public sealed class MixinExpressionInterpreter {
           )) return Failure(storeError, lineNumber, logs);
           (command == "LOCAL" ? locals : pendingVariables)[argument] = stored;
           break;
+        case "PROP_STRUCT":
+          if (context is not IMixinExpressionPropStructContext propStructContext)
+            return Failure("the expression context does not support prop structs", lineNumber, logs);
+          if (!TryResolveDirectiveArgument(
+            parsed.Arguments[0], context, locals, pendingVariables, out var propStructName,
+            out var propStructNameError
+          )) return Failure(propStructNameError, lineNumber, logs);
+          if (!TryResolveDirectiveArgument(
+            parsed.Arguments[1], context, locals, pendingVariables, out var propStructLocal,
+            out var propStructLocalError
+          )) return Failure(propStructLocalError, lineNumber, logs);
+          if (parsed.StringExpression is not { Count: 1 } ||
+            parsed.StringExpression[0].Reference is null)
+            return Failure("PROP_STRUCT syntax target must be a single reference", lineNumber, logs);
+          if (!propStructContext.TryCreatePropStruct(
+            propStructName, parsed.StringExpression[0].Reference,
+            out var propStructHandle, out var propStructDeclaration, out var propStructError
+          )) return Failure(propStructError, lineNumber, logs);
+          locals[propStructLocal] = propStructHandle;
+          outputs.Add(new MixinExpressionOutput(
+            MixinExpressionOutputTarget.Class, propStructDeclaration
+          ));
+          break;
         case "PUT":
         case "PUSH":
           if (!TryResolveDirectiveArgument(
@@ -1084,7 +1126,8 @@ public sealed class MixinExpressionInterpreter {
   private static bool IsKnownDirective(string command) {
     return command is
       "SCOPE" or "FUNC" or "CALL" or "END" or "MATCH" or "ASSERT" or "CODE" or
-      "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "DUMP" or "LOCAL" or "VAR" or "PUT" or "PUSH" or "RETURN"
+      "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "DUMP" or "LOCAL" or "VAR" or
+      "PROP_STRUCT" or "PUT" or "PUSH" or "RETURN"
       or "GOTO" or
       "SKIP" or "FAIL";
   }
@@ -1097,7 +1140,7 @@ public sealed class MixinExpressionInterpreter {
   ) {
     error = null;
     var argument = arguments.Count == 0 ? null : arguments[0];
-    var maximumArguments = command is "MIXIN" or "PUT" ? 2 : 1;
+    var maximumArguments = command is "MIXIN" or "PUT" or "PROP_STRUCT" ? 2 : 1;
     if (arguments.Count > maximumArguments) {
       error = command + " accepts at most " + maximumArguments +
         (maximumArguments == 1 ? " argument" : " arguments");
@@ -1113,6 +1156,10 @@ public sealed class MixinExpressionInterpreter {
       case "PUT" when arguments.Count != 2:
         error = "PUT requires a local name and key";
         return false;
+      case "PROP_STRUCT" when arguments.Count != 2 ||
+        string.IsNullOrEmpty(arguments[0]) || string.IsNullOrEmpty(arguments[1]):
+        error = "PROP_STRUCT requires a struct name and local name";
+        return false;
       case "PUSH" when arguments.Count != 1:
         error = "PUSH requires a local name";
         return false;
@@ -1121,7 +1168,8 @@ public sealed class MixinExpressionInterpreter {
         error = command + " requires a name";
         return false;
       case "MATCH" or "ASSERT": return ValidateBooleanSyntax(operand, out error);
-      case "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR" or "PUT" or "PUSH" or "CALL"
+      case "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR" or
+        "PROP_STRUCT" or "PUT" or "PUSH" or "CALL"
         or "FAIL": return ValidateStringSyntax(operand, out error);
       case "DUMP" when !string.Equals(argument, "STATE", StringComparison.OrdinalIgnoreCase) &&
         !string.Equals(argument, "BUFFER", StringComparison.OrdinalIgnoreCase) &&
@@ -1712,7 +1760,7 @@ public sealed class MixinExpressionInterpreter {
       }
       return TryApplyStringProperties(reference, null, ref value, out error);
     }
-    if (TryStored(reference, locals, variables, out value, out error)) return error is null;
+    if (TryStored(reference, context, locals, variables, out value, out error)) return error is null;
     if (context.TryResolve(reference, out var resolved, out error)) {
       value = resolved;
       return true;
@@ -1830,7 +1878,7 @@ public sealed class MixinExpressionInterpreter {
       return true;
     }
     if (reference.Root == "local" || reference.Root == "var") {
-      TryStored(reference, locals, variables, out var stored, out error);
+      TryStored(reference, context, locals, variables, out var stored, out error);
       var predicates = reference.Properties.Where(IsBooleanProperty).ToArray();
       if (error is not null) {
         if (predicates.Length == 0) {
@@ -1976,6 +2024,7 @@ public sealed class MixinExpressionInterpreter {
 
   private static bool TryStored(
     MixinExpressionReference reference,
+    IMixinExpressionContext context,
     IReadOnlyDictionary<string, object> locals,
     IReadOnlyDictionary<string, object> variables,
     out object value,
@@ -1992,6 +2041,24 @@ public sealed class MixinExpressionInterpreter {
     if (!values.TryGetValue(reference.Member, out value)) {
       error = "unknown @" + reference.Root + " value '" + reference.Member + "'";
       return true;
+    }
+    var propStructCallIndex = reference.Properties.ToList()
+      .FindIndex(property => property.Name == "propStructCall");
+    if (propStructCallIndex >= 0) {
+      if (propStructCallIndex != 0) {
+        error = ":propStructCall must be the first property applied to a prop struct handle";
+        return true;
+      }
+      if (context is not IMixinExpressionPropStructContext propStructContext) {
+        error = "the expression context does not support prop structs";
+        return true;
+      }
+      if (!propStructContext.TryApplyPropStructProperty(
+        value, reference.Properties[0], out value, out error
+      )) return true;
+      reference = new MixinExpressionReference(
+        reference.Root, reference.Member, reference.Properties.Skip(1).ToArray()
+      );
     }
     TryApplyStringProperties(reference, reference.Member, ref value, out error);
     return true;
