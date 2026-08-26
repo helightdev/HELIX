@@ -46,6 +46,7 @@ internal sealed class RoslynMixinExpressionContext :
   private readonly IReadOnlyList<IParameterSymbol> _arguments;
   private readonly CSharpCompilation _compilation;
   private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
+  private readonly MixinExpressionPreparedState _preparedExpressions;
 
   internal RoslynMixinExpressionContext(
     INamedTypeSymbol thisType,
@@ -55,7 +56,8 @@ internal sealed class RoslynMixinExpressionContext :
     CSharpCompilation compilation,
     INamedTypeSymbol implicitAttributeType = null,
     IReadOnlyDictionary<string, ImplicitMixinValue> implicitValues = null,
-    IReadOnlyDictionary<string, string> targetDefinitions = null
+    IReadOnlyDictionary<string, string> targetDefinitions = null,
+    MixinExpressionPreparedState preparedExpressions = null
   ) {
     _thisType = thisType;
     _target = target;
@@ -65,6 +67,7 @@ internal sealed class RoslynMixinExpressionContext :
     _implicitAttributeType = implicitAttributeType;
     _implicitValues = implicitValues;
     _targetDefinitions = targetDefinitions;
+    _preparedExpressions = preparedExpressions;
   }
 
   public bool TryResolve(
@@ -170,6 +173,14 @@ internal sealed class RoslynMixinExpressionContext :
       error = diagnostic.GetMessage(CultureInfo.InvariantCulture);
       return false;
     }
+    if (!PropStructMixinApi.TryAnalyzeInlineConfiguration(
+      _thisType,
+      props.Select(prop => prop.Symbol).ToArray(),
+      _compilation,
+      _preparedExpressions,
+      out var configuration,
+      out error
+    )) return false;
 
     var escapedName = EscapeIdentifier(structName);
     var builder = new SharpStringBuilder();
@@ -188,7 +199,7 @@ internal sealed class RoslynMixinExpressionContext :
       )) model.AppendAssignments(builder, "this");
       builder.BlankLine();
       PropStructApi.AnalyzeDatatype(escapedName, structName, props)
-        .AppendMember(builder, Array.Empty<string>());
+        .AppendMember(builder, configuration);
     }
     handle = new MixinPropStructHandle(props);
     declaration = builder.ToString();

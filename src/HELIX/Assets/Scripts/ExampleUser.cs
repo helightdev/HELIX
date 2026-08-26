@@ -67,14 +67,6 @@ namespace HELIX.Context {
       myResource2 = new LoggingDisposable(); //46
     }
 
-    [GenerateCommand]
-    public void MyCommand(
-      string key,
-      [Prop(1f, Datatype = "HELIX.Datatypes.PercentNormalized")] float value
-    ) {
-      Debug.Log($"MyCommand called with key: {key} and value: {value}");
-    }
-
     [Hook(MixinOn.ConfigureManaged)]
     private static void OnConfigureSelf(ManagedRegistration entry) { }
 

@@ -26,10 +26,15 @@ public sealed class MixinGeneratorExpressionTests {
                             "@CODE<CLASS> private void Dispatch(WorkProps value) { @local#workProps:propStructCall<this.Work><value>; }"
                           )]
                           public sealed class GenerateWorkPropsAttribute : Attribute { }
+                          [AttributeUsage(AttributeTargets.Parameter)]
+                          [HELIX.MixinExpression(
+                            "@CODE global::HELIX.Boot.CommandBridge.Named(datatype, \"@target:name\");"
+                          )]
+                          public sealed class NamedArgAttribute : Attribute { }
 
                           [HELIX.EnableMixins]
                           public partial class Demo {
-                            [GenerateWorkProps] private void Work(int count, in string label) { }
+                            [GenerateWorkProps] private void Work(int count, [NamedArg] in string label) { }
                           }
                           """;
 
@@ -51,6 +56,7 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Contains("public WorkProps(", text);
     Assert.Contains("public static readonly global::HELIX.StructureDatatype<WorkProps> Datatype =", text);
     Assert.Contains("new global::HELIX.ConfigurableStructureDatatype<WorkProps>(", text);
+    Assert.Contains("global::HELIX.Boot.CommandBridge.Named(datatype, \"label\");", text);
     Assert.Contains("this.Work(value.count, in value.label);", text);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
@@ -893,6 +899,13 @@ public sealed class MixinGeneratorExpressionTests {
                                                            configure(datatype);
                                                          }
                                                          public StructureDatatype<T> Datatype => datatype;
+                                                       }
+                                                     }
+                                                     namespace HELIX.Boot {
+                                                       public static class CommandBridge {
+                                                         public static void Named<T>(
+                                                           HELIX.StructureDatatype<T> datatype, string fieldName
+                                                         ) { }
                                                        }
                                                      }
                                                      """;

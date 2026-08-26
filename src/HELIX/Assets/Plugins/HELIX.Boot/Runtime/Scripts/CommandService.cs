@@ -51,7 +51,8 @@ namespace HELIX.Boot {
         while (index < _tokens.Count) {
           var child = Find(command.Subcommands, _tokens[index]);
           if (child == null) break;
-          command = child; index++;
+          command = child;
+          index++;
         }
         var commandContext = new CommandContext(input, command);
         var result = ParseProperties(command, commandContext, index);
@@ -68,16 +69,22 @@ namespace HELIX.Boot {
         var property = FindProperty(command.Properties, token);
         if (property == null) return CommandResult.Failed($"Unknown property: {token}");
         _used.Add(i);
-        if (property.Flag) { context.SetValue(property, property.Parse("true")); continue; }
+        if (property.Flag) {
+          context.SetValue(property, property.Parse("true"));
+          continue;
+        }
         if (++i >= _tokens.Count) return CommandResult.Failed($"Missing value for property: {token}");
-        context.SetValue(property, property.Parse(_tokens[i])); _used.Add(i);
+        context.SetValue(property, property.Parse(_tokens[i]));
+        _used.Add(i);
       }
       var positional = 0;
       for (var i = first; i < _tokens.Count; i++) {
         if (_used.Contains(i)) continue;
-        while (positional < command.Properties.Count && (command.Properties[positional].Named || command.Properties[positional].Flag)) positional++;
+        while (positional < command.Properties.Count &&
+          (command.Properties[positional].Named || command.Properties[positional].Flag)) positional++;
         if (positional >= command.Properties.Count) return CommandResult.Failed($"Unexpected argument: {_tokens[i]}");
-        var property = command.Properties[positional++]; context.SetValue(property, property.Parse(_tokens[i]));
+        var property = command.Properties[positional++];
+        context.SetValue(property, property.Parse(_tokens[i]));
       }
       for (var i = 0; i < command.Properties.Count; i++)
         if (command.Properties[i].Required && !context.HasValue(command.Properties[i]))
@@ -89,29 +96,39 @@ namespace HELIX.Boot {
       Tokenize(input, _tokens);
       if (_tokens.Count == 0) {
         var builder = new StringBuilder("Available commands:\n");
-        for (var i = 0; i < _commands.Count; i++) builder.Append("  ").Append(_commands[i].Name).Append(": ").AppendLine(_commands[i].Description);
+        for (var i = 0; i < _commands.Count; i++)
+          builder.Append("  ").Append(_commands[i].Name).Append(": ").AppendLine(_commands[i].Description);
         return builder.ToString().TrimEnd();
       }
       var command = Find(_commands, _tokens[0]);
       if (command == null) return $"No command matching '{_tokens[0]}'";
-      for (var i = 1; i < _tokens.Count; i++) { var child = Find(command.Subcommands, _tokens[i]); if (child == null) break; command = child; }
+      for (var i = 1; i < _tokens.Count; i++) {
+        var child = Find(command.Subcommands, _tokens[i]);
+        if (child == null) break;
+        command = child;
+      }
       return command.GetHelp();
     }
 
     public CommandCompletion Complete(string input) {
-      Tokenize(input, _tokens); var result = new List<string>();
+      Tokenize(input, _tokens);
+      var result = new List<string>();
       var trailing = input != null && input.EndsWith(" ", StringComparison.Ordinal);
       if (_tokens.Count == 0 || _tokens.Count == 1 && !trailing) {
         var search = _tokens.Count == 0 ? "" : _tokens[0];
-        CompleteCommands(_commands, search, result); return new CommandCompletion(result);
+        CompleteCommands(_commands, search, result);
+        return new CommandCompletion(result);
       }
-      var command = Find(_commands, _tokens[0]); if (command == null) return new CommandCompletion(result);
+      var command = Find(_commands, _tokens[0]);
+      if (command == null) return new CommandCompletion(result);
       var parentPath = "";
       var index = 1;
       while (index < _tokens.Count - (trailing ? 0 : 1)) {
-        var child = Find(command.Subcommands, _tokens[index]); if (child == null) break;
+        var child = Find(command.Subcommands, _tokens[index]);
+        if (child == null) break;
         parentPath = string.IsNullOrEmpty(parentPath) ? command.Name : parentPath + " " + command.Name;
-        command = child; index++;
+        command = child;
+        index++;
       }
       var current = trailing ? "" : _tokens[_tokens.Count - 1];
       var limit = _tokens.Count - (trailing ? 0 : 1);
@@ -122,13 +139,25 @@ namespace HELIX.Boot {
       string error = null;
 
       for (var i = index; i < limit; i++) {
-        var token = _tokens[i]; if (!token.StartsWith("-", StringComparison.Ordinal)) continue;
+        var token = _tokens[i];
+        if (!token.StartsWith("-", StringComparison.Ordinal)) continue;
         var property = FindProperty(command.Properties, token);
-        if (property == null) { error = $"Unknown property: {token}"; continue; }
+        if (property == null) {
+          error = $"Unknown property: {token}";
+          continue;
+        }
         used.Add(i);
-        if (property.Flag) { values[property] = "true"; continue; }
-        if (i + 1 >= limit) { active = property; continue; }
-        var value = _tokens[++i]; used.Add(i); values[property] = value;
+        if (property.Flag) {
+          values[property] = "true";
+          continue;
+        }
+        if (i + 1 >= limit) {
+          active = property;
+          continue;
+        }
+        var value = _tokens[++i];
+        used.Add(i);
+        values[property] = value;
         try { property.Parse(value); } catch { malformed.Add(property); }
       }
 
@@ -136,7 +165,10 @@ namespace HELIX.Boot {
       for (var i = index; i < limit; i++) {
         if (used.Contains(i)) continue;
         var property = PositionalAt(command.Properties, positionalIndex++);
-        if (property == null) { error = $"Unexpected argument: {_tokens[i]}"; continue; }
+        if (property == null) {
+          error = $"Unexpected argument: {_tokens[i]}";
+          continue;
+        }
         values[property] = _tokens[i];
         try { property.Parse(_tokens[i]); } catch { malformed.Add(property); }
       }
@@ -159,8 +191,13 @@ namespace HELIX.Boot {
       }
 
       var help = command.GetShortHelp(
-        CommandCompletionStyle.Default, values, active, malformed,
-        used.Count == 0 && positionalIndex == 0, parentPath, error
+        CommandCompletionStyle.Default,
+        values,
+        active,
+        malformed,
+        used.Count == 0 && positionalIndex == 0,
+        parentPath,
+        error
       );
       if (!string.IsNullOrEmpty(active?.Description)) help = active.Description + "\n" + help;
       return new CommandCompletion(result, help);
@@ -175,55 +212,109 @@ namespace HELIX.Boot {
     }
 
     private static Command Find(IReadOnlyList<Command> commands, string name) {
-      for (var i = 0; i < commands.Count; i++) if (commands[i].Name.Equals(name, StringComparison.OrdinalIgnoreCase)) return commands[i];
+      for (var i = 0; i < commands.Count; i++)
+        if (commands[i].Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+          return commands[i];
       return null;
     }
+
     private static CommandProperty FindProperty(IReadOnlyList<CommandProperty> properties, string token) {
-      for (var i = 0; i < properties.Count; i++) if (properties[i].Token.Equals(token, StringComparison.OrdinalIgnoreCase)) return properties[i];
+      for (var i = 0; i < properties.Count; i++)
+        if (properties[i].Token.Equals(token, StringComparison.OrdinalIgnoreCase))
+          return properties[i];
       return null;
     }
+
     private static void CompleteCommands(IReadOnlyList<Command> commands, string search, List<string> result) {
-      for (var i = 0; i < commands.Count; i++) if (commands[i].Name.StartsWith(search, StringComparison.OrdinalIgnoreCase)) result.Add(commands[i].Name);
+      for (var i = 0; i < commands.Count; i++)
+        if (commands[i].Name.StartsWith(search, StringComparison.OrdinalIgnoreCase))
+          result.Add(commands[i].Name);
     }
+
     internal static void Tokenize(string input, List<string> result) {
-      result.Clear(); if (string.IsNullOrWhiteSpace(input)) return;
-      var builder = new StringBuilder(); var quote = false; var escape = false;
+      result.Clear();
+      if (string.IsNullOrWhiteSpace(input)) return;
+      var builder = new StringBuilder();
+      var quote = false;
+      var escape = false;
       for (var i = 0; i < input.Length; i++) {
         var c = input[i];
-        if (escape) { builder.Append(c); escape = false; continue; }
-        if (c == '\\') { escape = true; continue; }
-        if (c == '"') { quote = !quote; continue; }
-        if (char.IsWhiteSpace(c) && !quote) { if (builder.Length > 0) { result.Add(builder.ToString()); builder.Clear(); } continue; }
+        if (escape) {
+          builder.Append(c);
+          escape = false;
+          continue;
+        }
+        if (c == '\\') {
+          escape = true;
+          continue;
+        }
+        if (c == '"') {
+          quote = !quote;
+          continue;
+        }
+        if (char.IsWhiteSpace(c) && !quote) {
+          if (builder.Length > 0) {
+            result.Add(builder.ToString());
+            builder.Clear();
+          }
+          continue;
+        }
         builder.Append(c);
       }
-      if (escape) builder.Append('\\'); if (builder.Length > 0) result.Add(builder.ToString());
+      if (escape) builder.Append('\\');
+      if (builder.Length > 0) result.Add(builder.ToString());
     }
   }
 
   [AttributeUsage(AttributeTargets.Method)]
-  [MixinExpression(@"
+  [MixinExpression(
+    new[] { MixinOn.LoadManagedLate },
+    new[] { 0 },
+    @"
+@USING HELIX.Boot;
 @LOCAL<StructName> @(target:name)_Args
 @PROP_STRUCT<(@local#StructName)><StructHandle> @target
-@MIXIN<$Init><1> @local#StructName props = default; @local#StructHandle:propStructCall<(@target:name)><props>
-")]
-  public class GenerateCommandAttribute : Attribute {
-
+@LOCAL<InvokeLambda> args => @local#StructHandle:propStructCall<(@target:name)><args>
+@LOCAL<CmdName> @attr#name
+@SCOPE
+  @MATCH @attr#name:?eq<null>
+  @LOCAL<CmdName> ""@target:name""
+@END
+@LOCAL<Bridge> CommandBridge<@local#StructName>.Create(@local#StructName.Datatype, @local#InvokeLambda, @local#CmdName, @attr#description)
+@CODE<$LoadManagedLate> context.PublishBind(typeof(HELIX.UI.Console.Command), null, @local#Bridge);
+"
+  )]
+  public class CommandAttribute : Attribute {
+    public CommandAttribute(
+      string name = null,
+      string description = null
+    ) { }
   }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-  [MixinExpression(new[] { MixinOn.ConfigureManaged, MixinOn.LoadManagedLate }, new[] { -1, 1 }, @"
+  [MixinExpression(
+    new[] { MixinOn.ConfigureManaged, MixinOn.LoadManagedLate },
+    new[] { -1, 1 },
+    @"
 @CODE<$ConfigureManaged> registration.Publication(typeof(HELIX.UI.Console.Command), null, true);
 @CODE<$LoadManagedLate> context.PublishBind(typeof(HELIX.UI.Console.Command), null, @target:name);
 @END
-")]
+"
+  )]
   public sealed class RegisterCommandAttribute : Attribute { }
 
   public sealed class HelpCommand : Command {
     private readonly ICommandSystem _system;
     private readonly CommandProperty<string> _command = CommandProperties.String("command", "Command path to inspect.");
-    public HelpCommand(ICommandSystem system) { _system = system; AddProperties(_command); }
+
+    public HelpCommand(ICommandSystem system) {
+      _system = system;
+      AddProperties(_command);
+    }
+
     public override string Name => "help";
     public override string Description => "Displays information about available commands.";
+
     public override CommandResult Execute(CommandContext context) {
       return CommandResult.Successful(_system.GetHelp(_command.Get(context)));
     }

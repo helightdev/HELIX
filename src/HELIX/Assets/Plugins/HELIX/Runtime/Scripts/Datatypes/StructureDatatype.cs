@@ -5,6 +5,7 @@ using HELIX.Serialization;
 
 namespace HELIX {
   public delegate TValue StructurePropertyGetter<T, out TValue>(ref T structure);
+
   public delegate void StructurePropertySetter<T, in TValue>(ref T structure, TValue value);
 
   /// <summary>Visits a heterogeneous structure property without boxing its value.</summary>
@@ -59,11 +60,13 @@ namespace HELIX {
     public object DefaultValue { get; }
     public IList<IProseModifier> Modifiers { get; }
     public abstract Type ValueType { get; }
-    public abstract IDatatype ValueDatatype { get; }
+    public abstract IDatatype ValueDatatype { get; set; }
     internal abstract object GetBoxed(ref T structure);
     internal abstract void SetBoxed(ref T structure, object value);
+
     public abstract void Visit<TVisitor>(ref T structure, ref TVisitor visitor)
-      where TVisitor : IStructurePropertyVisitor<T>;
+    where TVisitor : IStructurePropertyVisitor<T>;
+
     public abstract bool TryRead(IUniversalReader reader, ref T structure);
     public abstract bool TryWrite(IUniversalWriter writer, ref T structure);
     public abstract void ToProse(IProseWriter writer, ref T value);
@@ -76,7 +79,6 @@ namespace HELIX {
 
   /// <summary>A strongly typed property descriptor used by generated structure datatype wrappers.</summary>
   public sealed class StructurePropertyDatatype<T, TValue> : StructurePropertyDatatype<T> {
-    private readonly IDatatype<TValue> _datatype;
     private readonly StructurePropertyGetter<T, TValue> _getter;
     private readonly StructurePropertySetter<T, TValue> _setter;
 
@@ -86,30 +88,29 @@ namespace HELIX {
       IList<IProseModifier> modifiers = null,
       bool required = true, object defaultValue = null
     ) : base(fieldName, modifiers, required, defaultValue) {
-      _datatype = datatype ?? throw new ArgumentNullException(nameof(datatype));
+      Datatype = datatype ?? throw new ArgumentNullException(nameof(datatype));
       _getter = getter ?? throw new ArgumentNullException(nameof(getter));
       _setter = setter ?? throw new ArgumentNullException(nameof(setter));
     }
 
-    public IDatatype<TValue> Datatype => _datatype;
+    public IDatatype<TValue> Datatype { get; set; }
     public override Type ValueType => typeof(TValue);
-    public override IDatatype ValueDatatype => _datatype;
+    public override IDatatype ValueDatatype { get => Datatype; set => Datatype = value as IDatatype<TValue>; }
     public TValue GetValue(ref T structure) => _getter(ref structure);
     public void SetValue(ref T structure, TValue value) => _setter(ref structure, value);
     internal override object GetBoxed(ref T structure) => _getter(ref structure);
     internal override void SetBoxed(ref T structure, object value) => _setter(ref structure, (TValue)value);
-    public override void Visit<TVisitor>(ref T structure, ref TVisitor visitor) =>
-      visitor.Visit(ref structure, this);
+    public override void Visit<TVisitor>(ref T structure, ref TVisitor visitor) => visitor.Visit(ref structure, this);
 
     public override bool TryRead(IUniversalReader reader, ref T structure) {
-      if (_datatype is not ISerializableDatatype<TValue> serializable) throw NotSerializable();
+      if (Datatype is not ISerializableDatatype<TValue> serializable) throw NotSerializable();
       if (!serializable.TryRead(reader, FieldName, out var value)) return false;
       _setter(ref structure, value);
       return true;
     }
 
     public override bool TryWrite(IUniversalWriter writer, ref T structure) {
-      if (_datatype is not ISerializableDatatype<TValue> serializable) throw NotSerializable();
+      if (Datatype is not ISerializableDatatype<TValue> serializable) throw NotSerializable();
       return serializable.TryWrite(writer, FieldName, _getter(ref structure));
     }
 
@@ -117,12 +118,12 @@ namespace HELIX {
       using (writer.Property()) {
         PushModifiers(writer);
         using (writer.PropertyKey()) writer.Write(FieldName);
-        using (writer.PropertyValue()) writer.Write(_getter(ref value), _datatype);
+        using (writer.PropertyValue()) writer.Write(_getter(ref value), Datatype);
       }
     }
 
     private NotSupportedException NotSerializable() => new(
-      $"Field '{FieldName}' uses datatype '{_datatype.GetType().Name}', which does not support serialization. " +
+      $"Field '{FieldName}' uses datatype '{Datatype.GetType().Name}', which does not support serialization. " +
       $"Implement {nameof(ISerializableDatatype<TValue>)} on the field datatype."
     );
   }
@@ -131,8 +132,7 @@ namespace HELIX {
   /// Describes a prop-like structure as named, typed properties and provides its prose, control and serialization
   /// fallbacks without reflection.
   /// </summary>
-  public sealed class StructureDatatype<T> :
-    IPropertyDatatype<T>, ICompositeDatatype<T>, ISerializableDatatype<T> {
+  public sealed class StructureDatatype<T> : IPropertyDatatype<T>, ICompositeDatatype<T>, ISerializableDatatype<T> {
     private readonly Func<T> _factory;
     private readonly IList<StructurePropertyDatatype<T>> _properties;
 
@@ -157,8 +157,10 @@ namespace HELIX {
     public string Key => Name;
     public IList<IProseModifier> Modifiers { get; }
     public IList<StructurePropertyDatatype<T>> Properties => _properties;
+
     public void VisitComponent<TVisitor>(ref T value, int index, ref TVisitor visitor)
-      where TVisitor : IStructurePropertyVisitor<T> => _properties[index].Visit(ref value, ref visitor);
+    where TVisitor : IStructurePropertyVisitor<T> => _properties[index].Visit(ref value, ref visitor);
+
     public void WriteComponent(IProseWriter writer, ref T value, int index) =>
       _properties[index].ToProse(writer, ref value);
 
@@ -166,18 +168,28 @@ namespace HELIX {
     string ICompositeDatatype.GetComponentName(int index) => _properties[index].FieldName;
     Type ICompositeDatatype.GetComponentType(int index) => _properties[index].ValueType;
     object ICompositeDatatype.GetComponentDatatype(int index) => _properties[index].ValueDatatype;
+
     object ICompositeDatatype.GetComponentValue(object value, int index) {
       var typed = (T)value;
       return _properties[index].GetBoxed(ref typed);
     }
+
     object ICompositeDatatype.SetComponentValue(object value, int index, object componentValue) {
       var typed = (T)value;
       _properties[index].SetBoxed(ref typed, componentValue);
       return typed;
     }
+
     void ICompositeDatatype.WriteComponent(IProseWriter writer, object value, int index) {
       var typed = (T)value;
       _properties[index].ToProse(writer, ref typed);
+    }
+
+    public StructurePropertyDatatype<T> GetProperty(string fieldName) {
+      for (var i = 0; i < _properties.Count; i++)
+        if (_properties[i].FieldName == fieldName)
+          return _properties[i];
+      return null;
     }
 
     public void ToProse(IProseWriter writer, T value) {

@@ -50,6 +50,80 @@ internal static class PropStructMixinApi {
     return model;
   }
 
+  internal static bool TryAnalyzeInlineConfiguration(
+    INamedTypeSymbol type,
+    IReadOnlyList<ISymbol> properties,
+    CSharpCompilation compilation,
+    MixinExpressionPreparedState preparedExpressions,
+    out IReadOnlyList<string> configuration,
+    out string error
+  ) {
+    var model = new PropStructMixinModel();
+    var variables = new Dictionary<string, object>(StringComparer.Ordinal);
+    var targetDefinitions = TargetDefinitions(type);
+    var sequence = 0;
+    foreach (var property in properties) {
+      foreach (var applied in OrderedAttributes(property)) {
+        if (applied.AttributeClass is not { } attributeType) continue;
+        foreach (var expressionAttribute in InheritedExpressionAttributes(attributeType)) {
+          if (!TryReadConfiguration(
+            expressionAttribute, targetDefinitions, out var expression, out var order, out error
+          )) {
+            configuration = null;
+            return false;
+          }
+          var arguments = property is IParameterSymbol { ContainingSymbol: IMethodSymbol method }
+            ? (IReadOnlyList<IParameterSymbol>)method.Parameters
+            : Array.Empty<IParameterSymbol>();
+          var expressionContext = new RoslynMixinExpressionContext(
+            type, property, applied, arguments, compilation,
+            targetDefinitions: targetDefinitions,
+            preparedExpressions: preparedExpressions
+          );
+          var evaluated = new MixinExpressionInterpreter().Execute(
+            expression, expressionContext, variables, preparedExpressions
+          );
+          if (!evaluated.Success) {
+            configuration = null;
+            error = "line " + evaluated.ErrorLine.ToString(CultureInfo.InvariantCulture) +
+              ": " + evaluated.Error;
+            return false;
+          }
+          foreach (var output in evaluated.Outputs) {
+            if (string.IsNullOrEmpty(output.Text)) continue;
+            if (output.Target == MixinExpressionOutputTarget.Target) {
+              model.AddConfiguration(output.Text, order, sequence++);
+              continue;
+            }
+            if (output.Target is MixinExpressionOutputTarget.Injection or
+              MixinExpressionOutputTarget.Mixin) {
+              var target = RoslynMixinExpressionContext.ParseMixinTarget(
+                output.InjectionTarget, targetDefinitions
+              ).Name;
+              if (target == ConfigureTarget) {
+                model.AddConfiguration(
+                  output.Text,
+                  output.Target == MixinExpressionOutputTarget.Mixin
+                    ? output.InjectionPriority
+                    : order,
+                  sequence++
+                );
+                continue;
+              }
+            }
+            configuration = null;
+            error = "property mixins used by PROP_STRUCT may only target " + ConfigureTarget;
+            return false;
+          }
+        }
+      }
+    }
+    model.SortConfiguration();
+    configuration = model.Configuration;
+    error = null;
+    return true;
+  }
+
   private static void EvaluateSymbol(
     SourceProductionContext production,
     INamedTypeSymbol type,
@@ -76,7 +150,8 @@ internal static class PropStructMixinApi {
         };
         var expressionContext = new RoslynMixinExpressionContext(
           type, annotated, applied, arguments, compilation,
-          targetDefinitions: targetDefinitions
+          targetDefinitions: targetDefinitions,
+          preparedExpressions: preparedExpressions
         );
         var evaluated = new MixinExpressionInterpreter().Execute(
           expression, expressionContext, variables, preparedExpressions

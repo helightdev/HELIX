@@ -1,4 +1,3 @@
-using System;
 using System.Text;
 using HELIX.Boot;
 using HELIX.UI.Console;
@@ -7,11 +6,23 @@ using UnityEngine;
 namespace HELIX.Context {
   /// <summary>Example console commands registered into the application command service.</summary>
   [Managed(typeof(ApplicationScope))]
+  [MixinUsing("static HELIX.Datatypes")]
   public partial class ExampleCommands {
     [RegisterCommand] public readonly Command echo = new EchoCommand();
     [RegisterCommand] public readonly Command math = new MathCommand();
     [RegisterCommand] public readonly Command quality = new QualityCommand();
     [RegisterCommand] public readonly Command timeScale = new TimeScaleCommand();
+
+    [Command("mycommand", "An example command demonstrating a custom datatype.")]
+    public CommandResult MyCommand(
+      string key,
+      bool myTestFlag,
+      [PropertyDatatype("PercentNormalized")]
+      [Prop(1f)] float value
+    ) {
+      Debug.Log($"MyCommand called with key: {key} and value: {value}");
+      return CommandResult.Successful();
+    }
   }
 
   public sealed class EchoCommand : Command {

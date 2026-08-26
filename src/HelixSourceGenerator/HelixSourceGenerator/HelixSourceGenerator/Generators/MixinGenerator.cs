@@ -732,7 +732,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       : Array.Empty<IParameterSymbol>();
     var expressionContext = new RoslynMixinExpressionContext(
       target, annotated, applied, arguments, compilation, implicitAttribute?.Type,
-      implicitAttribute?.Values, targetDefinitions
+      implicitAttribute?.Values, targetDefinitions, preparedExpressions
     );
     var evaluated = new MixinExpressionInterpreter().Execute(
       expression, expressionContext, expressionVariables, preparedExpressions

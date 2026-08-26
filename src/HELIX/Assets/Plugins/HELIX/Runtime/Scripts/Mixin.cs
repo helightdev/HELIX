@@ -23,6 +23,14 @@ using HELIX;
   @ASSERT @local#Delegate:!?eq<null>
   @MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);
 @END
+
+@FUNC<SetStructurePropertyDatatype>
+  @CODE datatype.GetProperty(""@target:name"").ValueDatatype = @param;
+@END
+
+@FUNC<AddStructurePropertyModifier>
+  @CODE datatype.GetProperty(""@target:name"").Modifiers.Add(@param);
+@END
 "
 )]
 
@@ -101,6 +109,26 @@ namespace HELIX {
   public class EnableMixinsAttribute : Attribute { }
 
   [Mixin] public interface IMixin { }
+
+
+  [AttributeUsage(
+    AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method,
+    AllowMultiple = true
+  )]
+  [MixinExpression("@USING @attr#statement:unwrap;")]
+  public class MixinUsingAttribute : Attribute, IMixin {
+    public MixinUsingAttribute(string statement) { }
+  }
+
+  [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Parameter)]
+  [MixinExpression("@CALL<SetStructurePropertyDatatype> @attr#datatype:unwrap")]
+  public class PropertyDatatypeAttribute : Attribute {
+
+    public PropertyDatatypeAttribute(string datatype) {
+
+    }
+
+  }
 
   /// <summary>
   /// Default mixin targets.
