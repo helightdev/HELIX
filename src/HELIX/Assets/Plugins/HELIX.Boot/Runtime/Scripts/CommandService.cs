@@ -10,7 +10,8 @@ using UnityEngine.InputSystem;
 namespace HELIX.Boot {
   [Managed(typeof(ApplicationScope))]
   public partial class CommandService : ICommandSystem {
-    private readonly ManagedRegistry<Command, CommandRegistryData> _commands = new();
+    private readonly CommandRegistry _registry = new();
+    private readonly List<Command> _commands = new();
     [Inject] private GuiService _gui;
     private readonly List<string> _tokens = new();
     private readonly HashSet<int> _used = new();
@@ -20,7 +21,8 @@ namespace HELIX.Boot {
 
     [Hook]
     private void OnLoadManaged(ManagedLoadContext context) {
-      context.scope.RegisterBindingObserver(_commands);
+      _registry.roots = _commands;
+      context.scope.RegisterBindingObserver(_registry);
       context.Publish<Command>(new HelpCommand(this));
       _gui.commandSystem = this;
       _gui.RebuildNavigation();
@@ -29,7 +31,73 @@ namespace HELIX.Boot {
       _toggleConsoleAction.Enable();
     }
 
-    private struct CommandRegistryData { }
+    private struct CommandRegistryData {
+      public Command inferredParent;
+    }
+
+    private sealed class CommandRegistry : ManagedRegistry<Command, CommandRegistryData> {
+      private readonly List<ManagedId> _ids = new();
+      public List<Command> roots;
+
+      protected override void BindingAdded(ManagedScope scope, TypeKey key, ManagedBinding binding) {
+        base.BindingAdded(scope, key, binding);
+        Rebuild();
+      }
+
+      protected override void BindingRemoved(ManagedScope scope, TypeKey key, ManagedBinding binding) {
+        if (TryGet(binding.id, out var entry) && entry.data.inferredParent != null)
+          entry.data.inferredParent.Subcommands.Remove(entry.value);
+        base.BindingRemoved(scope, key, binding);
+        Rebuild();
+      }
+
+      private void Rebuild() {
+        if (roots == null) return;
+        roots.Clear();
+        _ids.Clear();
+        foreach (var pair in items) _ids.Add(pair.Key);
+        for (var i = 0; i < _ids.Count; i++) {
+          var id = _ids[i];
+          var entry = items[id];
+          var data = entry.data;
+          if (data.inferredParent != null) {
+            data.inferredParent.Subcommands.Remove(entry.value);
+            data.inferredParent = null;
+            SetData(id, data);
+          }
+        }
+
+        for (var i = 0; i < _ids.Count; i++) {
+          var id = _ids[i];
+          var command = items[id].value;
+          if (string.IsNullOrWhiteSpace(command.ParentPath)) {
+            roots.Add(command);
+            continue;
+          }
+          var parent = FindByPath(command.ParentPath);
+          if (parent == null) {
+            roots.Add(command);
+            continue;
+          }
+          if (parent.Subcommands.Contains(command)) continue;
+          parent.Subcommands.Add(command);
+          var data = items[id].data;
+          data.inferredParent = parent;
+          SetData(id, data);
+        }
+      }
+
+      private Command FindByPath(string path) {
+        foreach (var pair in items) {
+          var command = pair.Value.value;
+          var fullPath = string.IsNullOrWhiteSpace(command.ParentPath)
+            ? command.Name
+            : command.ParentPath.Trim() + " " + command.Name;
+          if (fullPath.Equals(path.Trim(), StringComparison.OrdinalIgnoreCase)) return command;
+        }
+        return null;
+      }
+    }
 
     [Hook]
     private void OnDispose() {
@@ -183,8 +251,9 @@ namespace HELIX.Boot {
       }
 
       if (active == null) active = PositionalAt(command.Properties, positionalIndex);
+      if (limit == index) CompleteCommands(command.Subcommands, current, result);
       if (active != null) active.Complete(current, result);
-      else CompleteCommands(command.Subcommands, current, result);
+      else if (limit != index) CompleteCommands(command.Subcommands, current, result);
 
       for (var i = 0; i < command.Properties.Count; i++) {
         var property = command.Properties[i];
@@ -283,14 +352,15 @@ namespace HELIX.Boot {
   @MATCH @attr#name:?eq<null>
   @LOCAL<CmdName> ""@target:name""
 @END
-@LOCAL<Bridge> CommandBridge<@local#StructName>.Create(@local#StructName.Datatype, @local#InvokeLambda, @local#CmdName, @attr#description)
+@LOCAL<Bridge> CommandBridge<@local#StructName>.Create(@local#StructName.Datatype, @local#InvokeLambda, @local#CmdName, @attr#description, @attr#parent)
 @CODE<$LoadManagedLate> context.PublishBind(typeof(HELIX.UI.Console.Command), null, @local#Bridge);
 "
   )]
   public class CommandAttribute : Attribute {
     public CommandAttribute(
       string name = null,
-      string description = null
+      string description = null,
+      string parent = null
     ) { }
   }
 

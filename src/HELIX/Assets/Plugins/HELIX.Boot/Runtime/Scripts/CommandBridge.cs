@@ -37,7 +37,7 @@ namespace HELIX.Boot {
     public static Command Create(
       StructureDatatype<T> datatype,
       Func<T, CommandResult> callable,
-      string name, string description
+      string name, string description, string parentPath
     ) {
       if (datatype == null) throw new ArgumentNullException(nameof(datatype));
       if (callable == null) throw new ArgumentNullException(nameof(callable));
@@ -52,7 +52,7 @@ namespace HELIX.Boot {
         for (var i = 0; i < collector.Bindings.Count; i++)
           collector.Bindings[i].Assign(context, ref arguments);
         return callable(arguments);
-      }, description ?? "");
+      }, description ?? "", parentPath);
       for (var i = 0; i < collector.Bindings.Count; i++)
         command.Properties.Add(collector.Bindings[i].CommandProperty);
       return command;

@@ -93,6 +93,7 @@ namespace HELIX.UI.Console {
   public abstract class Command {
     public abstract string Name { get; }
     public virtual string Description => "";
+    public string ParentPath { get; set; }
     public readonly List<CommandProperty> Properties = new();
     public readonly List<Command> Subcommands = new();
     protected void AddProperties(params CommandProperty[] properties) => Properties.AddRange(properties);
@@ -136,10 +137,20 @@ namespace HELIX.UI.Console {
       if (!string.IsNullOrEmpty(error)) text.Append(" <color=").Append(style.error).Append('>').Append(error).Append("</color>");
       return text.ToString();
     }
-    public static Command Action(string name, Func<CommandContext, CommandResult> action, string description = "") =>
-      new ActionCommand(name, description, context => UniTask.FromResult(action(context)));
-    public static Command Action(string name, Func<CommandContext, UniTask<CommandResult>> action, string description = "") =>
-      new ActionCommand(name, description, action);
+    public static Command Action(
+      string name,
+      Func<CommandContext, CommandResult> action,
+      string description = "",
+      string parentPath = null
+    ) => new ActionCommand(name, description, context => UniTask.FromResult(action(context))) {
+      ParentPath = parentPath
+    };
+    public static Command Action(
+      string name,
+      Func<CommandContext, UniTask<CommandResult>> action,
+      string description = "",
+      string parentPath = null
+    ) => new ActionCommand(name, description, action) { ParentPath = parentPath };
   }
 
   public sealed class ActionCommand : Command {

@@ -17,10 +17,16 @@ namespace HELIX.Context {
     public CommandResult MyCommand(
       string key,
       bool myTestFlag,
-      [PropertyDatatype("PercentNormalized")]
-      [Prop(1f)] float value
+      [PropertyDatatype("PercentNormalized")] [Prop(1f)] float value
     ) {
       Debug.Log($"MyCommand called with key: {key} and value: {value}");
+      return CommandResult.Successful();
+    }
+
+    [Command("action", parent: "mycommand")]
+    public CommandResult MyCommandSubcommand(
+      string key
+    ) {
       return CommandResult.Successful();
     }
   }
@@ -52,6 +58,7 @@ namespace HELIX.Context {
     public MathCommand() => AddSubcommands(new AddCommand(), new ClampCommand());
     public override string Name => "math";
     public override string Description => "Contains example numeric subcommands.";
+
     public override CommandResult Execute(CommandContext context) =>
       CommandResult.Successful("Choose a subcommand: math add or math clamp");
 
@@ -61,19 +68,37 @@ namespace HELIX.Context {
       public AddCommand() => AddProperties(_a, _b);
       public override string Name => "add";
       public override string Description => "Adds two floating-point values.";
-      public override CommandResult Execute(CommandContext context) =>
-        CommandResult.Successful($"{_a.Get(context)} + {_b.Get(context)} = {_a.Get(context) + _b.Get(context)}");
+
+      public override CommandResult Execute(CommandContext context) => CommandResult.Successful(
+        $"{_a.Get(context)} + {_b.Get(context)} = {_a.Get(context) + _b.Get(context)}"
+      );
     }
 
     private sealed class ClampCommand : Command {
-      private readonly CommandProperty<float> _value = CommandProperties.Float("value", "Value to clamp.", required: true);
-      private readonly CommandProperty<float> _min = CommandProperties.Named("min", Datatypes.Float, "Minimum value.", 0f);
-      private readonly CommandProperty<float> _max = CommandProperties.Named("max", Datatypes.Float, "Maximum value.", 1f);
+      private readonly CommandProperty<float> _value = CommandProperties.Float(
+        "value",
+        "Value to clamp.",
+        required: true
+      );
+      private readonly CommandProperty<float> _min = CommandProperties.Named(
+        "min",
+        Datatypes.Float,
+        "Minimum value.",
+        0f
+      );
+      private readonly CommandProperty<float> _max = CommandProperties.Named(
+        "max",
+        Datatypes.Float,
+        "Maximum value.",
+        1f
+      );
       public ClampCommand() => AddProperties(_value, _min, _max);
       public override string Name => "clamp";
       public override string Description => "Clamps a value using optional --min and --max properties.";
+
       public override CommandResult Execute(CommandContext context) {
-        var min = _min.Get(context); var max = _max.Get(context);
+        var min = _min.Get(context);
+        var max = _max.Get(context);
         if (min > max) return CommandResult.Failed("--min cannot be greater than --max.");
         return CommandResult.Successful(Mathf.Clamp(_value.Get(context), min, max));
       }
@@ -82,11 +107,14 @@ namespace HELIX.Context {
 
   public sealed class QualityCommand : Command {
     private enum Preset { Low, Medium, High, Ultra }
+
     private readonly CommandProperty<Preset> _preset =
       CommandProperties.Enum<Preset>("preset", "Example enum value with datatype-driven completion.", required: true);
     public QualityCommand() => AddProperties(_preset);
     public override string Name => "quality";
-    public override string Description => "Demonstrates enum parsing and Tab completion without changing project settings.";
+    public override string Description =>
+      "Demonstrates enum parsing and Tab completion without changing project settings.";
+
     public override CommandResult Execute(CommandContext context) =>
       CommandResult.Successful($"Selected quality preset: {_preset.Get(context)}");
   }
@@ -97,6 +125,7 @@ namespace HELIX.Context {
     public TimeScaleCommand() => AddProperties(_scale);
     public override string Name => "timescale";
     public override string Description => "Sets Time.timeScale and demonstrates a ranged datatype.";
+
     public override CommandResult Execute(CommandContext context) {
       Time.timeScale = _scale.Get(context);
       return CommandResult.Successful($"Time.timeScale = {Time.timeScale}");
