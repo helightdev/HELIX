@@ -16,7 +16,7 @@ class HelixExpressionParserDefinition : ParserDefinition {
     override fun createParser(project: Project?) = HelixExpressionParser()
     override fun getFileNodeType() = FILE
     override fun getWhitespaceTokens(): TokenSet = HelixExpressionTypes.WHITE_SPACES
-    override fun getCommentTokens(): TokenSet = TokenSet.EMPTY
+    override fun getCommentTokens(): TokenSet = HelixExpressionTypes.COMMENTS
     override fun getStringLiteralElements(): TokenSet = TokenSet.create(HelixExpressionTypes.TEXT)
     override fun createElement(node: ASTNode): PsiElement = ASTWrapperPsiElement(node)
     override fun createFile(viewProvider: FileViewProvider): PsiFile = HelixExpressionFile(viewProvider)

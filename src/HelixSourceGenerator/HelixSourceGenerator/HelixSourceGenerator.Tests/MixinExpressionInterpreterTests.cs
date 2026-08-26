@@ -379,6 +379,40 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void SupportsNewlineAndDirectContinuationsAndLineComments() {
+    const string expression = """
+                              @CODE public static void Example(
+                              @+int first,
+                              @+ int second) {
+                              @\  Use(first);
+                              @\
+                              @\  Use(second);
+                              @\}
+                              @# @UNKNOWN ignored
+                              """;
+
+    var validation = _interpreter.ValidateSyntax(expression);
+    var result = _interpreter.Execute(expression, new StubContext());
+
+    Assert.True(validation.Success, validation.Error);
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(
+      "public static void Example(int first, int second) {\n" +
+      "  Use(first);\n\n  Use(second);\n}",
+      Assert.Single(result.Outputs).Text
+    );
+  }
+
+  [Fact]
+  public void ContinuationsRequireAnImmediatelyPrecedingDirective() {
+    var result = _interpreter.ValidateSyntax("@+orphan");
+
+    Assert.False(result.Success);
+    Assert.Equal(1, result.ErrorLine);
+    Assert.Contains("continuation requires an immediately preceding directive", result.Error);
+  }
+
+  [Fact]
   public void ParsesParenthesizedAndInvertedReferences() {
     Assert.True(
       _interpreter.TryParseReference(

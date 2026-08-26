@@ -38,4 +38,33 @@ class HelixExpressionLexerTest {
             tokens.filterNot { it.first == HelixExpressionTypes.WHITE_SPACE },
         )
     }
+
+    @Test
+    fun `lexes continuations and comments at indented line starts`() {
+        val lexer = HelixExpressionLexer()
+        lexer.start("@CODE First(\n  @+second)\n\t@\\third\n @# ignored @target:name")
+        val tokens = mutableListOf<Pair<IElementType, String>>()
+        while (lexer.tokenType != null) {
+            tokens += lexer.tokenType!! to lexer.bufferSequence
+                .subSequence(lexer.tokenStart, lexer.tokenEnd).toString()
+            lexer.advance()
+        }
+
+        assertEquals(
+            listOf(
+                HelixExpressionTypes.DIRECTIVE to "@CODE",
+                HelixExpressionTypes.TEXT to "First(",
+                HelixExpressionTypes.NEW_LINE to "\n",
+                HelixExpressionTypes.DIRECT_CONTINUATION to "@+",
+                HelixExpressionTypes.TEXT to "second",
+                HelixExpressionTypes.TEXT to ")",
+                HelixExpressionTypes.NEW_LINE to "\n",
+                HelixExpressionTypes.NEWLINE_CONTINUATION to "@\\",
+                HelixExpressionTypes.TEXT to "third",
+                HelixExpressionTypes.NEW_LINE to "\n",
+                HelixExpressionTypes.COMMENT to "@# ignored @target:name",
+            ),
+            tokens.filterNot { it.first == HelixExpressionTypes.WHITE_SPACE },
+        )
+    }
 }

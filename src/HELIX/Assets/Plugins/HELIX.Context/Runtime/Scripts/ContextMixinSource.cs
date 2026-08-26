@@ -11,9 +11,10 @@ using HELIX;
 
   @USING HELIX.Context;
   @USING System;
-  @CODE<CLASS> [NonSerializedAttribute]
-  @CODE<CLASS> protected readonly EventHandlerList eventHandlerList = EventHandlerList.Create();
-  @CODE<CLASS> EventHandlerList IEventListener.HandlerList => eventHandlerList;
+  @CODE<CLASS>
+    @+[NonSerializedAttribute]
+    @\protected readonly EventHandlerList eventHandlerList = EventHandlerList.Create();
+    @\EventHandlerList IEventListener.HandlerList => eventHandlerList;
 
   @MIXIN<$Dispose><1> eventHandlerList.UnregisterAll();
   @CODE<IMPLEMENTS> IEventListener
@@ -248,9 +249,11 @@ using HELIX;
     @USING Cysharp.Threading.Tasks;
     @LOCAL<AsyncProxyName> _@(target:name)AsyncProxy
     @CODE<CLASS> private async UniTaskVoid @local#AsyncProxyName() {
-    @CODE<CLASS>  try {  @local#TickerField.running = true; await @local#InvokeTicker }
-    @CODE<CLASS>  finally { @local#TickerField.running = false; }
-    @CODE<CLASS> }
+      @\  try {  
+      @\    @local#TickerField.running = true;
+      @\    await @local#InvokeTicker 
+      @\  } finally { @local#TickerField.running = false; }
+      @\}
     @LOCAL<InvokeTicker> @local#AsyncProxyName().Forget();
   @END
 

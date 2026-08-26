@@ -16,7 +16,7 @@ namespace HELIX.Context {
     [Command("mycommand", "An example command demonstrating a custom datatype.")]
     public CommandResult MyCommand(
       string key,
-      [PropertyDatatype("PercentNormalized")] [Prop(1f)] float value,
+      [Prop(1f, Datatype = "PercentNormalized")] float value,
       [Prop(false)] bool verbose
     ) {
       return CommandResult.Successful($"MyCommand called with key: {key} and value: {value}, verbose: {verbose}");

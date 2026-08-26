@@ -63,6 +63,14 @@ class HelixExpressionLexer : LexerBase() {
             lineStart = false
             return
         }
+        if (lineStart && startsWith("@#")) {
+            tokenEnd = scanWhile(start + 2) { it != '\r' && it != '\n' }
+            type = HelixExpressionTypes.COMMENT
+            lineStart = false
+            return
+        }
+        if (lineStart && startsWith("@\\")) return token(2, HelixExpressionTypes.NEWLINE_CONTINUATION)
+        if (lineStart && startsWith("@+")) return token(2, HelixExpressionTypes.DIRECT_CONTINUATION)
         if (startsWith("@@")) return token(2, HelixExpressionTypes.ESCAPED_AT)
         if (startsWith("@(")) {
             enclosed = true

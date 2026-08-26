@@ -379,6 +379,12 @@ public sealed class MixinExpressionInterpreter {
 
     internal static Instruction Parse(string text, int line) {
       if (string.IsNullOrWhiteSpace(text)) return new Instruction(line, "", null, "", null);
+      var trimmed = text.TrimStart(' ', '\t');
+      if (trimmed.StartsWith("@\\", StringComparison.Ordinal) ||
+        trimmed.StartsWith("@+", StringComparison.Ordinal))
+        return new Instruction(
+          line, null, null, null, "continuation requires an immediately preceding directive"
+        );
       if (!TryDirective(text, out var command, out var arguments, out var operand))
         return new Instruction(line, null, null, null, "expected an expression directive");
       if (!IsKnownDirective(command))
@@ -667,6 +673,10 @@ public sealed class MixinExpressionInterpreter {
     for (var index = 0; index < lines.Length; index++) {
       var line = lines[index];
       if (string.IsNullOrWhiteSpace(line)) continue;
+      var trimmed = line.TrimStart(' ', '\t');
+      if (trimmed.StartsWith("@\\", StringComparison.Ordinal) ||
+        trimmed.StartsWith("@+", StringComparison.Ordinal))
+        return ValidationFailure("continuation requires an immediately preceding directive", index + 1);
       if (!TryDirective(line, out var command, out var arguments, out var operand))
         return ValidationFailure("expected an expression directive", index + 1);
       var argument = arguments.Count == 0 ? null : arguments[0];
@@ -1120,7 +1130,33 @@ public sealed class MixinExpressionInterpreter {
   }
 
   private static string[] SplitLines(string expression) {
-    return expression.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+    var lines = expression.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+    var continuedLine = -1;
+    for (var index = 0; index < lines.Length; index++) {
+      var line = lines[index];
+      var marker = 0;
+      while (marker < line.Length && (line[marker] == ' ' || line[marker] == '\t')) marker++;
+      if (marker + 1 < line.Length && line[marker] == '@') {
+        var kind = line[marker + 1];
+        if (kind == '#') {
+          lines[index] = "";
+          continuedLine = -1;
+          continue;
+        }
+        if (kind is '\\' or '+') {
+          if (continuedLine >= 0) {
+            lines[continuedLine] += (kind == '\\' ? "\n" : "") + line.Substring(marker + 2);
+            lines[index] = "";
+          }
+          continue;
+        }
+      }
+      continuedLine = marker + 1 < line.Length && line[marker] == '@' &&
+        (char.IsLetter(line[marker + 1]) || line[marker + 1] == '_')
+          ? index
+          : -1;
+    }
+    return lines;
   }
 
   private static bool IsKnownDirective(string command) {

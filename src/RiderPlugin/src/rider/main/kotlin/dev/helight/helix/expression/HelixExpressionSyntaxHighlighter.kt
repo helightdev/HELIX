@@ -26,6 +26,9 @@ class HelixExpressionSyntaxHighlighter : SyntaxHighlighterBase() {
         HelixExpressionTypes.ENCLOSED_START,
         HelixExpressionTypes.ENCLOSED_END -> BRACES
         HelixExpressionTypes.ESCAPED_AT -> ESCAPE
+        HelixExpressionTypes.NEWLINE_CONTINUATION,
+        HelixExpressionTypes.DIRECT_CONTINUATION -> OPERATOR
+        HelixExpressionTypes.COMMENT -> COMMENT
         HelixExpressionTypes.BAD_CHARACTER -> BAD_CHARACTER
         else -> null
     })
@@ -47,6 +50,8 @@ class HelixExpressionSyntaxHighlighter : SyntaxHighlighterBase() {
             "HELIX_EXPRESSION_BRACES", DefaultLanguageHighlighterColors.PARENTHESES)
         @JvmField val ESCAPE = TextAttributesKey.createTextAttributesKey(
             "HELIX_EXPRESSION_ESCAPE", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE)
+        @JvmField val COMMENT = TextAttributesKey.createTextAttributesKey(
+            "HELIX_EXPRESSION_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT)
         @JvmField val BAD_CHARACTER = TextAttributesKey.createTextAttributesKey(
             "HELIX_EXPRESSION_BAD_CHARACTER", HighlighterColors.BAD_CHARACTER)
     }

@@ -19,6 +19,10 @@ class HelixExpressionParser : PsiParser {
             return
         }
         val statement = builder.mark()
+        if (builder.tokenType == HelixExpressionTypes.NEWLINE_CONTINUATION ||
+            builder.tokenType == HelixExpressionTypes.DIRECT_CONTINUATION) {
+            builder.error("Continuation requires an immediately preceding directive")
+        }
         if (builder.tokenType == HelixExpressionTypes.DIRECTIVE) {
             val directive = builder.mark()
             builder.advanceLexer()
@@ -27,14 +31,26 @@ class HelixExpressionParser : PsiParser {
             directive.done(HelixExpressionTypes.DIRECTIVE_CALL)
         }
         val expression = builder.mark()
+        parseExpressionLine(builder)
+        while (builder.tokenType == HelixExpressionTypes.NEW_LINE) {
+            builder.advanceLexer()
+            if (builder.tokenType != HelixExpressionTypes.NEWLINE_CONTINUATION &&
+                builder.tokenType != HelixExpressionTypes.DIRECT_CONTINUATION) break
+            val continuation = builder.mark()
+            builder.advanceLexer()
+            parseExpressionLine(builder)
+            continuation.done(HelixExpressionTypes.CONTINUATION)
+        }
+        expression.done(HelixExpressionTypes.EXPRESSION)
+        statement.done(HelixExpressionTypes.STATEMENT)
+    }
+
+    private fun parseExpressionLine(builder: PsiBuilder) {
         while (!builder.eof() && builder.tokenType != HelixExpressionTypes.NEW_LINE) {
             if (builder.tokenType == HelixExpressionTypes.VALUE ||
                 builder.tokenType == HelixExpressionTypes.ENCLOSED_START) parseReference(builder)
             else builder.advanceLexer()
         }
-        expression.done(HelixExpressionTypes.EXPRESSION)
-        if (builder.tokenType == HelixExpressionTypes.NEW_LINE) builder.advanceLexer()
-        statement.done(HelixExpressionTypes.STATEMENT)
     }
 
     private fun parseReference(builder: PsiBuilder) {

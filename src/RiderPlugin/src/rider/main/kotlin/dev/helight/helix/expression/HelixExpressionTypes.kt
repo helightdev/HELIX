@@ -18,6 +18,9 @@ object HelixExpressionTypes {
     @JvmField val ENCLOSED_START = HelixExpressionTokenType("ENCLOSED_START")
     @JvmField val ENCLOSED_END = HelixExpressionTokenType("ENCLOSED_END")
     @JvmField val ESCAPED_AT = HelixExpressionTokenType("ESCAPED_AT")
+    @JvmField val NEWLINE_CONTINUATION = HelixExpressionTokenType("NEWLINE_CONTINUATION")
+    @JvmField val DIRECT_CONTINUATION = HelixExpressionTokenType("DIRECT_CONTINUATION")
+    @JvmField val COMMENT = HelixExpressionTokenType("COMMENT")
     @JvmField val TEXT = HelixExpressionTokenType("TEXT")
     @JvmField val WHITE_SPACE = HelixExpressionTokenType("WHITE_SPACE")
     @JvmField val NEW_LINE = HelixExpressionTokenType("NEW_LINE")
@@ -29,6 +32,8 @@ object HelixExpressionTypes {
     @JvmField val EXPRESSION = HelixExpressionElementType("EXPRESSION")
     @JvmField val REFERENCE = HelixExpressionElementType("REFERENCE")
     @JvmField val FUNCTION_CALL = HelixExpressionElementType("FUNCTION_CALL")
+    @JvmField val CONTINUATION = HelixExpressionElementType("CONTINUATION")
 
     @JvmField val WHITE_SPACES: TokenSet = TokenSet.create(WHITE_SPACE)
+    @JvmField val COMMENTS: TokenSet = TokenSet.create(COMMENT)
 }
