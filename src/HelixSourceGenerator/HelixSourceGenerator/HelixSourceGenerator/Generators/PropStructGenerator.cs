@@ -72,14 +72,16 @@ public sealed class PropStructGenerator : IIncrementalGenerator {
       typeAttributes: mixins.Annotations
     );
     var source = wrapper.Build(builder => {
-        builder.BlankLine();
-        using (builder.Method(
-          AccessibilityText(type.DeclaredAccessibility) +
-          (props.RequiresUnsafe ? " unsafe " : " ") +
-          EscapeIdentifier(type.Name),
-          props.ParameterParts,
-          props.ParameterParts.Count > 0
-        )) props.AppendAssignments(builder, "this");
+        if (props.ParameterParts.Count > 0) {
+          builder.BlankLine();
+          using (builder.Method(
+            AccessibilityText(type.DeclaredAccessibility) +
+            (props.RequiresUnsafe ? " unsafe " : " ") +
+            EscapeIdentifier(type.Name),
+            props.ParameterParts,
+            true
+          )) props.AppendAssignments(builder, "this");
+        }
         props.Equality.AppendMembers(builder);
         if (props.Datatype is not null) {
           builder.BlankLine();

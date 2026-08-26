@@ -16,18 +16,15 @@ namespace HELIX.Context {
     [Command("mycommand", "An example command demonstrating a custom datatype.")]
     public CommandResult MyCommand(
       string key,
-      bool myTestFlag,
-      [PropertyDatatype("PercentNormalized")] [Prop(1f)] float value
+      [PropertyDatatype("PercentNormalized")] [Prop(1f)] float value,
+      [Prop(false)] bool verbose
     ) {
-      Debug.Log($"MyCommand called with key: {key} and value: {value}");
-      return CommandResult.Successful();
+      return CommandResult.Successful($"MyCommand called with key: {key} and value: {value}, verbose: {verbose}");
     }
 
     [Command("action", parent: "mycommand")]
-    public CommandResult MyCommandSubcommand(
-      string key
-    ) {
-      return CommandResult.Successful();
+    public CommandResult MyCommandSubcommand() {
+      return CommandResult.Successful("MyCommand subcommand executed.");
     }
   }
 

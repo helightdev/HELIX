@@ -108,6 +108,42 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
+  public void PropStructDirectiveDoesNotGenerateConstructorWithoutParameters() {
+    const string source = "using System;\n" + PropStructDatatypeRuntime + """
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          [AttributeUsage(AttributeTargets.Method)]
+                          [HELIX.MixinExpression("@PROP_STRUCT<WorkProps><workProps> @target")]
+                          public sealed class GenerateWorkPropsAttribute : Attribute { }
+
+                          [HELIX.EnableMixins]
+                          public partial class Demo {
+                            [GenerateWorkProps] private void Work() { }
+                          }
+                          """;
+
+    var compilation = CSharpCompilation.Create(
+      "EmptyMethodPropStructExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("public struct WorkProps", text);
+    Assert.DoesNotContain("public WorkProps(", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
   public void ComponentLifecycleExpressionsEmitPublicComponentTargets() {
     const string source = """
                           using System;

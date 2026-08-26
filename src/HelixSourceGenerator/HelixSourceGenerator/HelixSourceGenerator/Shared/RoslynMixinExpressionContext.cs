@@ -191,12 +191,14 @@ internal sealed class RoslynMixinExpressionContext :
           prop.Type.ToDisplayString(TypeDisplayFormat),
           EscapeIdentifier(prop.Name)
         );
-      if (props.Count != 0) builder.BlankLine();
-      using (builder.Method(
-        "public" + (model.RequiresUnsafe ? " unsafe " : " ") + escapedName,
-        model.ParameterParts,
-        model.ParameterParts.Count > 0
-      )) model.AppendAssignments(builder, "this");
+      if (model.ParameterParts.Count > 0) {
+        builder.BlankLine();
+        using (builder.Method(
+          "public" + (model.RequiresUnsafe ? " unsafe " : " ") + escapedName,
+          model.ParameterParts,
+          true
+        )) model.AppendAssignments(builder, "this");
+      }
       builder.BlankLine();
       PropStructApi.AnalyzeDatatype(escapedName, structName, props)
         .AppendMember(builder, configuration);

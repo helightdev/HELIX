@@ -103,6 +103,21 @@ public sealed class PropStructGeneratorTests {
     Assert.Contains("static void ConfigureDatatype", result.Generated);
   }
 
+  [Fact]
+  public void EmptyPropStructDoesNotGenerateConstructor() {
+    var result = Run(
+      Runtime +
+      """
+      [HELIX.PropStruct]
+      public partial struct Settings { }
+      """
+    );
+
+    Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.DoesNotContain(" Settings(", result.Generated);
+  }
+
   private static TestResult Run(string source) {
     var compilation = CSharpCompilation.Create(
       "FeatureAssembly",
