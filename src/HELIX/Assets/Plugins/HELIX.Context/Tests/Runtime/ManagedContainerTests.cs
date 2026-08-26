@@ -1005,6 +1005,135 @@ namespace HELIX.Context.Tests {
         Is.LessThan(graph.IndexOf(nameof(PipelineConsumer), StringComparison.Ordinal)));
     }
 
+    [Test]
+    public void RegistryReceivesExistingAndFutureBindingsThroughoutItsScopeSubtree() {
+      var registrations = new ManagedRegistrations();
+      var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
+      var existingValue = new Provider();
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddBinding<IProvider>(existingValue)
+        .StartSync();
+      var registry = new RecordingRegistry();
+
+      application.RegisterBindingObserver(registry);
+      var futureValue = new SecondaryProvider();
+      var futureSession = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddBinding<IProvider>(futureValue)
+        .StartSync();
+
+      Assert.That(registry.added.Any(entry => ReferenceEquals(entry.scope, session)), Is.True);
+      Assert.That(registry.added.Any(entry => ReferenceEquals(entry.scope, futureSession)), Is.True);
+      Assert.That(registry.added.Any(entry => ReferenceEquals(entry.binding.value, existingValue)), Is.True);
+      Assert.That(registry.added.Any(entry => ReferenceEquals(entry.binding.value, futureValue)), Is.True);
+    }
+
+    [Test]
+    public void RegistryReceivesBindingRemovalWhenDescendantScopeIsDisposed() {
+      var registrations = new ManagedRegistrations();
+      var container = CreateContainer(registrations);
+      var application = container.StartApplicationSync();
+      var registry = new RecordingRegistry();
+      application.RegisterBindingObserver(registry);
+      var value = new Provider();
+      var session = container.CreateScope(application)
+        .From(new SessionScope())
+        .AddBinding<IProvider>(value)
+        .StartSync();
+
+      container.DisposeScope(session.scope);
+
+      Assert.That(registry.removed.Any(entry =>
+        ReferenceEquals(entry.scope, session) && ReferenceEquals(entry.binding.value, value)), Is.True);
+    }
+
+    [Test]
+    public void ContainerAssignsManagedIdsAndMapsThemToRegistrationAndInstance() {
+      var registrations = new ManagedRegistrations();
+      var component = new RecordingComponent(new List<string>(), "registered");
+      var registration = registrations.Add(_ => component);
+      var container = CreateContainer(registrations);
+
+      var scope = container.StartApplicationSync();
+      var loaded = scope.loadedComponents.Single(entry => ReferenceEquals(entry.managed.registration, registration));
+
+      Assert.That(loaded.managed.id.owner, Is.GreaterThanOrEqualTo(1));
+      Assert.That(loaded.managed.id.binding, Is.Zero);
+      Assert.That(container.managedObjects.TryGetValue(loaded.managed.id, out var registered), Is.True);
+      Assert.That(registered.managed.registration, Is.SameAs(registration));
+      Assert.That(registered, Is.SameAs(loaded));
+      Assert.That(component.managed.id, Is.EqualTo(loaded.managed.id));
+      Assert.That(scope.bindings[new TypeKey(typeof(RecordingComponent), null)].Single().id.Owner,
+        Is.EqualTo(loaded.managed.id));
+    }
+
+    [Test]
+    public void ScopeBindingsUseTheScopeLocalManagedOwner() {
+      var container = CreateContainer(new ManagedRegistrations());
+      var value = new Provider();
+
+      var scope = container.CreateScope(container.StartApplicationSync())
+        .From(new SessionScope())
+        .AddBinding<IProvider>(value)
+        .StartSync();
+
+      var binding = scope.bindings[new TypeKey(typeof(IProvider), null)].Single();
+      Assert.That(binding.id.Owner, Is.EqualTo(scope.companion.managed.id));
+      Assert.That(binding.id.binding, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ManagedIdPacksOwnerAndBindingAndReservesCanonicalValues() {
+      var id = new ManagedId(0x123456789ABC, 0xDEF0);
+
+      Assert.That(ManagedId.Invalid.value, Is.Zero);
+      Assert.That(id.value, Is.EqualTo(0x123456789ABCDEF0));
+      Assert.That(id.Owner, Is.EqualTo(new ManagedId(0x123456789ABC, 0)));
+    }
+
+    [Test]
+    public void ManagedRegistryTracksEveryMatchingBindingAndRetainsPerBindingData() {
+      var registrations = new ManagedRegistrations();
+      registrations.Add(_ => new Provider()).Exposes<IProvider>();
+      var container = CreateContainer(registrations);
+      var scope = container.StartApplicationSync();
+      var registry = new ManagedRegistry<object, RegistryData>();
+
+      scope.RegisterBindingObserver(registry);
+
+      Assert.That(registry.Count, Is.EqualTo(2));
+      var enumerator = registry.GetEnumerator();
+      Assert.That(enumerator.MoveNext(), Is.True);
+      var first = enumerator.Current;
+      Assert.That(first.Key.owner, Is.EqualTo(scope.loadedComponents.Single().managed.id.owner));
+      Assert.That(first.Key.binding, Is.GreaterThan(0));
+      Assert.That(registry.SetData(first.Key, new RegistryData { number = 42 }), Is.True);
+      Assert.That(registry[first.Key].data.number, Is.EqualTo(42));
+
+      container.Dispose();
+
+      Assert.That(registry.Count, Is.Zero);
+    }
+
+    private struct RegistryData {
+      public int number;
+    }
+
+    private sealed class RecordingRegistry : BindingObserver {
+      public readonly List<(ManagedScope scope, TypeKey key, ManagedBinding binding)> added = new();
+      public readonly List<(ManagedScope scope, TypeKey key, ManagedBinding binding)> removed = new();
+
+      protected override void BindingAdded(ManagedScope scope, TypeKey key, ManagedBinding binding) {
+        added.Add((scope, key, binding));
+      }
+
+      protected override void BindingRemoved(ManagedScope scope, TypeKey key, ManagedBinding binding) {
+        removed.Add((scope, key, binding));
+      }
+    }
+
     private static ManagedRegistrations LateBindingRegistrations(
       ICollection<string> trace,
       IProvider value

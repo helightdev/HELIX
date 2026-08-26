@@ -24,7 +24,10 @@ namespace HELIX.Context {
 
   public class GameObjectScope : IScope {
     public GameObject gameObject;
-    public GameObjectScope(GameObject gameObject = null) { this.gameObject = gameObject; }
+
+    public GameObjectScope(GameObject gameObject = null) {
+      this.gameObject = gameObject;
+    }
   }
 
   public class ScopeRegistration {
@@ -50,15 +53,66 @@ namespace HELIX.Context {
 
   public enum ManagedScopeState { Created, Initializing, Active, Disposing, Disposed, Faulted }
 
+  public readonly struct ManagedId : IEquatable<ManagedId> {
+    public const ulong MaxOwner = 0x0000FFFFFFFFFFFF;
+    public static readonly ManagedId Invalid = default;
+
+    public readonly ulong value;
+    public ulong owner => value >> 16;
+    public ushort binding => (ushort)value;
+    public ManagedId Owner => new(owner, 0);
+    public bool IsValid => value != 0;
+
+    public ManagedId(ulong owner, ushort binding) {
+      if (owner > MaxOwner) throw new ArgumentOutOfRangeException(nameof(owner));
+      value = owner << 16 | binding;
+    }
+
+    public bool Equals(ManagedId other) => value == other.value;
+    public override bool Equals(object obj) => obj is ManagedId other && Equals(other);
+    public override int GetHashCode() => value.GetHashCode();
+    public override string ToString() => $"{owner}:{binding}";
+    public static bool operator ==(ManagedId left, ManagedId right) => left.Equals(right);
+    public static bool operator !=(ManagedId left, ManagedId right) => !left.Equals(right);
+  }
+
+  internal sealed class ManagedScopeCompanion : IManaged {
+    public RuntimeManagedData managed { get; } = new();
+  }
+
+  public readonly struct ManagedBinding {
+    public readonly ManagedId id;
+    public readonly object value;
+    public readonly Func<object> supplier;
+
+    public ManagedBinding(ManagedId id, object value) {
+      this.id = id;
+      this.value = value;
+      supplier = null;
+    }
+
+    public ManagedBinding(ManagedId id, Func<object> supplier) {
+      this.id = id;
+      value = null;
+      this.supplier = supplier;
+    }
+
+    public object Resolve() {
+      return supplier != null ? supplier() : value;
+    }
+  }
+
   public sealed class ManagedScope {
-    public readonly Dictionary<TypeKey, List<Binding>> bindings = new();
+    public readonly Dictionary<TypeKey, List<ManagedBinding>> bindings = new();
+    private readonly List<BindingObserver> _bindingObservers = new();
     private readonly CancellationTokenSource _cancellation = new();
     public readonly List<ManagedScope> managedChildren = new();
-    public readonly List<LoadedComponent> loadedComponents = new();
+    public readonly List<IManaged> loadedComponents = new();
     private readonly HashSet<object> _owned = new(ReferenceComparer<object>.Instance);
     private ManagedContainer _container;
 
     public readonly IScope scope;
+    public readonly IManaged companion = new ManagedScopeCompanion();
     public ManagedScope parent;
     public readonly List<IScope> children = new();
     public ManagedScopeState State { get; internal set; } = ManagedScopeState.Created;
@@ -100,21 +154,46 @@ namespace HELIX.Context {
       return values;
     }
 
-    internal void BindComponent(ManagedRegistration registration, object instance) {
-      foreach (var key in registration.keys.Distinct()) AddBinding(registration, key, instance);
+    /// <summary>
+    /// Registers an observer for bindings in this scope and its descendants. Existing bindings in
+    /// the subtree are reported before this method returns.
+    /// </summary>
+    public void RegisterBindingObserver(BindingObserver observer) {
+      if (observer == null) throw new ArgumentNullException(nameof(observer));
+      EnsureBindingObserversMutable();
+      if (_bindingObservers.Contains(observer)) return;
+      _bindingObservers.Add(observer);
+      NotifyExistingBindings(observer);
     }
 
-    internal void Publish(ManagedRegistration owner, TypeKey key, object value, ScopeLoader loader = null) {
-      AddBinding(owner, key, value, loader);
+    /// <summary>Stops an observer from receiving binding notifications from this scope.</summary>
+    public void UnregisterBindingObserver(BindingObserver observer) {
+      if (observer == null) throw new ArgumentNullException(nameof(observer));
+      _bindingObservers.Remove(observer);
+    }
+
+    internal void BindComponent(ManagedId ownerId, ManagedRegistration registration, object instance) {
+      foreach (var key in registration.keys.Distinct()) AddBinding(ownerId, key, instance, owner: registration);
+    }
+
+    internal void Publish(
+      ManagedId ownerId,
+      TypeKey key,
+      object value,
+      ScopeLoader loader = null,
+      ManagedRegistration owner = null
+    ) {
+      AddBinding(ownerId, key, value, loader, owner);
     }
 
     internal void PublishProxy(
-      ManagedRegistration owner,
+      ManagedId ownerId,
       TypeKey key,
       Func<object> supplier,
-      ScopeLoader loader = null
+      ScopeLoader loader = null,
+      ManagedRegistration owner = null
     ) {
-      AddProxyBinding(owner, key, supplier, loader);
+      AddProxyBinding(ownerId, key, supplier, loader, owner);
     }
 
     internal bool HasDependency(ComponentDependency dependency) {
@@ -143,21 +222,23 @@ namespace HELIX.Context {
       return HasWireKey(dependency.wireKey);
     }
 
-    internal bool WasProvidedBy(ManagedRegistration registration, ComponentDependency dependency) {
+    internal bool WasProvidedBy(ManagedId ownerId, ManagedRegistration registration, ComponentDependency dependency) {
       if (dependency.IsTyped) {
         return bindings.TryGetValue(dependency.key, out var keyBindings) &&
-          keyBindings.Any(x => ReferenceEquals(x.owner, registration));
+          keyBindings.Any(x => x.id.owner == ownerId.owner);
       }
       return dependency.wireKey != null && ScopeLoader.Active.publications.TryGetValue(
-        dependency.wireKey, out var owners
+        dependency.wireKey,
+        out var owners
       ) && owners.Contains(registration);
     }
 
     private void AddBinding(
-      ManagedRegistration owner,
+      ManagedId ownerId,
       TypeKey key,
       object value,
-      ScopeLoader loader = null
+      ScopeLoader loader = null,
+      ManagedRegistration owner = null
     ) {
       EnsureCanPublish();
       ValidateKey(key);
@@ -167,31 +248,42 @@ namespace HELIX.Context {
           $"Value of type {value.GetType().FullName} cannot be published as '{key}'."
         );
       }
-      if (!bindings.TryGetValue(key, out var keyBindings)) bindings.Add(key, keyBindings = new List<Binding>());
-      if (!keyBindings.Any(binding => ReferenceEquals(binding.owner, owner) && ReferenceEquals(binding.value, value)))
-        keyBindings.Add(new Binding(owner, value));
+      if (!bindings.TryGetValue(key, out var keyBindings))
+        bindings.Add(key, keyBindings = new List<ManagedBinding>());
+      if (!keyBindings.Any(binding => binding.id.owner == ownerId.owner && ReferenceEquals(binding.value, value))) {
+        var binding = new ManagedBinding((loader ?? ScopeLoader.Active).ReserveBindingId(ownerId), value);
+        keyBindings.Add(binding);
+        NotifyBindingAdded(key, binding);
+      }
       (loader ?? ScopeLoader.Active).Publish(owner, key.CreateWireKey());
     }
 
     private void AddProxyBinding(
-      ManagedRegistration owner,
+      ManagedId ownerId,
       TypeKey key,
       Func<object> supplier,
-      ScopeLoader loader = null
+      ScopeLoader loader = null,
+      ManagedRegistration owner = null
     ) {
       EnsureCanPublish();
       ValidateKey(key);
       if (supplier == null) throw new ArgumentNullException(nameof(supplier));
-      if (!bindings.TryGetValue(key, out var keyBindings)) bindings.Add(key, keyBindings = new List<Binding>());
-      if (!keyBindings.Any(binding => ReferenceEquals(binding.owner, owner) &&
-        ReferenceEquals(binding.supplier, supplier))) keyBindings.Add(new Binding(owner, supplier));
+      if (!bindings.TryGetValue(key, out var keyBindings))
+        bindings.Add(key, keyBindings = new List<ManagedBinding>());
+      if (!keyBindings.Any(binding => binding.id.owner == ownerId.owner &&
+        ReferenceEquals(binding.supplier, supplier)
+      )) {
+        var binding = new ManagedBinding((loader ?? ScopeLoader.Active).ReserveBindingId(ownerId), supplier);
+        keyBindings.Add(binding);
+        NotifyBindingAdded(key, binding);
+      }
       (loader ?? ScopeLoader.Active).Publish(owner, key.CreateWireKey());
     }
 
     internal void AddBindings(IEnumerable<ScopeBinding> bindings) {
       foreach (var binding in bindings ?? Enumerable.Empty<ScopeBinding>()) {
-        if (binding.supplier != null) AddProxyBinding(null, binding.key, binding.supplier);
-        else AddBinding(null, binding.key, binding.value);
+        if (binding.supplier != null) AddProxyBinding(companion.managed.id, binding.key, binding.supplier);
+        else AddBinding(companion.managed.id, binding.key, binding.value);
       }
     }
 
@@ -208,7 +300,7 @@ namespace HELIX.Context {
       ValidateKey(key);
       return bindings.TryGetValue(key, out var keyBindings) && keyBindings.Count > 0;
     }
-    
+
     private bool TryResolveValue(TypeKey key, out object value) {
       ValidateKey(key);
       for (var current = this; current != null; current = current.parent) {
@@ -230,7 +322,7 @@ namespace HELIX.Context {
       return false;
     }
 
-    private static bool ResolveBinding(TypeKey key, Binding binding, out object value) {
+    private static bool ResolveBinding(TypeKey key, ManagedBinding binding, out object value) {
       try {
         value = binding.supplier != null ? binding.supplier() : binding.value;
       } catch (Exception exception) {
@@ -263,6 +355,38 @@ namespace HELIX.Context {
       );
     }
 
+    private void EnsureBindingObserversMutable() {
+      if (State is ManagedScopeState.Initializing or ManagedScopeState.Active) return;
+      throw new ScopeLifecycleException(
+        $"Scope {scope.GetType().FullName} cannot register a registry while it is {State}."
+      );
+    }
+
+    private void NotifyExistingBindings(BindingObserver registry) {
+      foreach (var pair in bindings) {
+        foreach (var binding in pair.Value) registry.BindingAdded(this, pair.Key, binding);
+      }
+      foreach (var child in managedChildren) child.NotifyExistingBindings(registry);
+    }
+
+    private void NotifyBindingAdded(TypeKey key, ManagedBinding binding) {
+      for (var current = this; current != null; current = current.parent) {
+        foreach (var registry in current._bindingObservers.ToArray()) registry.BindingAdded(this, key, binding);
+      }
+    }
+
+    private void NotifyBindingRemoved(TypeKey key, ManagedBinding binding, List<Exception> failures) {
+      for (var current = this; current != null; current = current.parent) {
+        foreach (var registry in current._bindingObservers.ToArray()) {
+          try { registry.BindingRemoved(this, key, binding); } catch (Exception exception) {
+            failures.Add(
+              new ComponentDeinitializationException("A binding registry failed during removal.", exception)
+            );
+          }
+        }
+      }
+    }
+
     internal void AddChild(ManagedScope child) {
       managedChildren.Add(child);
       children.Add(child.scope);
@@ -274,8 +398,9 @@ namespace HELIX.Context {
       if (index >= 0) children.RemoveAt(index);
     }
 
-    internal void RecordComponent(ManagedRegistration registration, object instance) {
-      loadedComponents.Add(new LoadedComponent(registration, instance));
+    internal void RecordComponent(ManagedContainer container, IManaged instance) {
+      _container ??= container;
+      loadedComponents.Add(instance);
     }
 
     internal void Own(object value) {
@@ -299,8 +424,16 @@ namespace HELIX.Context {
       State = ManagedScopeState.Initializing;
     }
 
+    internal void Attach(ManagedContainer container) {
+      _container = container ?? throw new ArgumentNullException(nameof(container));
+      var data = companion.managed;
+      data.scope = this;
+      data.container = container;
+      container.RegisterManaged(container.ReserveManagedId(), null, companion);
+    }
+
     internal void Activate(ManagedContainer container = null) {
-      _container = container;
+      _container = container ?? _container;
       parent?.AddChild(this);
       State = ManagedScopeState.Active;
       container?.NotifyScopeActivated(this);
@@ -333,10 +466,15 @@ namespace HELIX.Context {
     private void Teardown(List<Exception> failures, bool cancel = true) {
       if (cancel) Cancel(failures);
       NotifyScopeDisposing(failures);
+      RemoveBindings(failures);
       UnloadManageds(failures);
       DisposeOwnedResources(failures);
       DestroyOwnedUnityObjects(failures);
       parent?.RemoveChild(this);
+      if (companion.managed.id.IsValid) {
+        _container?.UnregisterManaged(companion.managed.id);
+        companion.managed.SetDisposed(true);
+      }
     }
 
     private void NotifyScopeDisposing(List<Exception> failures) {
@@ -366,9 +504,19 @@ namespace HELIX.Context {
     }
 
     private void UnloadManageds(List<Exception> failures) {
-      foreach (var loaded in loadedComponents.AsEnumerable().Reverse()) Unload(loaded, failures);
-      bindings.Clear();
+      foreach (var loaded in loadedComponents.AsEnumerable().Reverse()) {
+        Unload(loaded, failures);
+        _container?.UnregisterManaged(loaded.managed.id);
+      }
       loadedComponents.Clear();
+    }
+
+    private void RemoveBindings(List<Exception> failures) {
+      foreach (var pair in bindings) {
+        foreach (var binding in pair.Value) NotifyBindingRemoved(pair.Key, binding, failures);
+      }
+      bindings.Clear();
+      _bindingObservers.Clear();
     }
 
     private void DisposeOwnedResources(List<Exception> failures) {
@@ -399,64 +547,36 @@ namespace HELIX.Context {
       _cancellation.Dispose();
     }
 
-    private static void Unload(LoadedComponent loaded, List<Exception> failures) {
+    private static void Unload(IManaged loaded, List<Exception> failures) {
       try {
-        if (loaded.instance is IManaged component) {
-          component.UnloadManaged();
-          component.managed.SetDisposed(true);
-        }
-      } catch (Exception exception) {
-        failures.Add(
-          new ComponentDeinitializationException($"Failed to unload component '{loaded.registration.name}'.", exception)
-        );
-      }
-      try {
-        if (loaded.instance is IEventListener listener) listener.HandlerList.UnregisterAll();
+        loaded.UnloadManaged();
+        loaded.managed.SetDisposed(true);
       } catch (Exception exception) {
         failures.Add(
           new ComponentDeinitializationException(
-            $"Failed to unregister handlers for component '{loaded.registration.name}'.",
+            $"Failed to unload component '{loaded.managed.registration.name}'.", exception
+          )
+        );
+      }
+      try {
+        if (loaded is IEventListener listener) listener.HandlerList.UnregisterAll();
+      } catch (Exception exception) {
+        failures.Add(
+          new ComponentDeinitializationException(
+            $"Failed to unregister handlers for component '{loaded.managed.registration.name}'.",
             exception
           )
         );
       }
       try {
-        if (loaded.instance is IDisposable disposable) disposable.Dispose();
+        if (loaded is IDisposable disposable) disposable.Dispose();
       } catch (Exception exception) {
         failures.Add(
           new ComponentDeinitializationException(
-            $"Failed to dispose component '{loaded.registration.name}'.",
+            $"Failed to dispose component '{loaded.managed.registration.name}'.",
             exception
           )
         );
-      }
-    }
-
-    public readonly struct Binding {
-      public readonly ManagedRegistration owner;
-      public readonly object value;
-      public readonly Func<object> supplier;
-
-      public Binding(ManagedRegistration owner, object value) {
-        this.owner = owner;
-        this.value = value;
-        supplier = null;
-      }
-
-      public Binding(ManagedRegistration owner, Func<object> supplier) {
-        this.owner = owner;
-        value = null;
-        this.supplier = supplier;
-      }
-    }
-
-    public readonly struct LoadedComponent {
-      public readonly ManagedRegistration registration;
-      public readonly object instance;
-
-      public LoadedComponent(ManagedRegistration registration, object instance) {
-        this.registration = registration;
-        this.instance = instance;
       }
     }
   }
@@ -508,5 +628,4 @@ namespace HELIX.Context {
     public ManagedContainer Container { get; set; }
     public ManagedScope Scope { get; set; }
   }
-
 }

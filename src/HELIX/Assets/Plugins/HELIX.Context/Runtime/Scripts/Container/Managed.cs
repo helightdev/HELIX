@@ -20,10 +20,23 @@ namespace HELIX.Context {
 
   [UsedImplicitly(ImplicitUseTargetFlags.WithMembers)]
   public sealed class RuntimeManagedData {
+    public ManagedId id;
+    public ManagedRegistration registration;
     public ManagedScope scope;
     public ManagedContainer container;
     public bool isLoaded;
     public bool isDisposed;
+    private int _nextBindingId = 1;
+
+    internal ManagedId ReserveBindingId() {
+      if (_nextBindingId > ushort.MaxValue)
+        throw new ScopeLifecycleException($"Managed object {id.Owner} exceeded the binding ID limit.");
+      return new ManagedId(id.owner, (ushort)_nextBindingId++);
+    }
+
+    internal void ContinueBindingIdsAt(int nextBindingId) {
+      if (nextBindingId > _nextBindingId) _nextBindingId = nextBindingId;
+    }
 
     public void SetLoaded(bool loaded) {
       isLoaded = loaded;

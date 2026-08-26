@@ -4,11 +4,15 @@ using System.Linq;
 using Cysharp.Threading.Tasks;
 
 namespace HELIX.Context.Tests.Fixtures {
+  public abstract class TestManaged : IManaged {
+    public RuntimeManagedData managed { get; } = new();
+  }
+
   public interface IProvider {
     string Name { get; }
   }
 
-  public class Provider : IProvider {
+  public class Provider : TestManaged, IProvider {
     public Provider(ICollection<string> trace = null, string name = "primary") {
       Name = name;
       trace?.Add(name);
@@ -25,7 +29,7 @@ namespace HELIX.Context.Tests.Fixtures {
     public SessionProvider(ICollection<string> trace = null) : base(trace, "session") { }
   }
 
-  public sealed class ProviderConsumer {
+  public sealed class ProviderConsumer : TestManaged {
     public ProviderConsumer(IProvider provider, ICollection<string> trace = null, string marker = "consumer") {
       Provider = provider;
       trace?.Add(marker);
@@ -34,7 +38,7 @@ namespace HELIX.Context.Tests.Fixtures {
     public IProvider Provider { get; }
   }
 
-  public sealed class OptionalProviderConsumer {
+  public sealed class OptionalProviderConsumer : TestManaged {
     public OptionalProviderConsumer(IProvider provider, ICollection<string> trace = null) {
       Provider = provider;
       trace?.Add("optional-consumer");
@@ -43,7 +47,7 @@ namespace HELIX.Context.Tests.Fixtures {
     public IProvider Provider { get; }
   }
 
-  public sealed class ProviderListConsumer {
+  public sealed class ProviderListConsumer : TestManaged {
     public ProviderListConsumer(IEnumerable<IProvider> providers, ICollection<string> trace = null) {
       Providers = providers.ToList();
       trace?.Add("list-consumer");
@@ -52,7 +56,7 @@ namespace HELIX.Context.Tests.Fixtures {
     public IReadOnlyList<IProvider> Providers { get; }
   }
 
-  public sealed class DependencyGate {
+  public sealed class DependencyGate : TestManaged {
     public DependencyGate(ICollection<string> trace = null) => trace?.Add("gate");
   }
 
@@ -223,7 +227,7 @@ namespace HELIX.Context.Tests.Fixtures {
       : base(input, "3;", "second-transformer", trace) { }
   }
 
-  public sealed class PipelineConsumer {
+  public sealed class PipelineConsumer : TestManaged {
     public PipelineConsumer(string value, ICollection<string> trace) {
       Value = value;
       trace.Add("consumer");
@@ -249,7 +253,7 @@ namespace HELIX.Context.Tests.Fixtures {
       context.PublishProxy<string>(() => $"{string.Join(",", _inputs)};3", "pipeline");
   }
 
-  public sealed class PipelineListConsumer {
+  public sealed class PipelineListConsumer : TestManaged {
     public PipelineListConsumer(IReadOnlyList<string> values, ICollection<string> trace) {
       Values = values;
       trace.Add("collection-consumer");
@@ -258,8 +262,8 @@ namespace HELIX.Context.Tests.Fixtures {
     public IReadOnlyList<string> Values { get; }
   }
 
-  public sealed class CycleA { }
-  public sealed class CycleB { }
+  public sealed class CycleA : TestManaged { }
+  public sealed class CycleB : TestManaged { }
   public sealed class MissingDependency { }
   public sealed class FailingComponent { }
   public sealed class FeatureFlag {

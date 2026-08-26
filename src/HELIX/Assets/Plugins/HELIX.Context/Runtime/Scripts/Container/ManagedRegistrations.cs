@@ -120,12 +120,14 @@ namespace HELIX.Context {
     public readonly ManagedContainer container;
     public readonly ManagedScope scope;
     public readonly ManagedRegistration registration;
+    public readonly ManagedId ownerId;
     internal readonly ScopeLoader loader;
 
     public ManagedLoadContext(ManagedContainer container, ManagedScope scope) {
       this.container = container;
       this.scope = scope;
       registration = null;
+      ownerId = scope?.companion.managed.id ?? ManagedId.Invalid;
       loader = null;
     }
 
@@ -133,11 +135,13 @@ namespace HELIX.Context {
       ManagedContainer container,
       ManagedScope scope,
       ManagedRegistration registration,
-      ScopeLoader loader
+      ScopeLoader loader,
+      ManagedId ownerId = default
     ) {
       this.container = container;
       this.scope = scope;
       this.registration = registration;
+      this.ownerId = ownerId.IsValid ? ownerId.Owner : scope?.companion.managed.id ?? ManagedId.Invalid;
       this.loader = loader;
     }
 
@@ -148,10 +152,10 @@ namespace HELIX.Context {
     public bool TryResolve(TypeKey key, out object value) => scope.TryResolve(key, out value);
 
 
-    public void PublishKey(TypeKey key, object value) => scope.Publish(registration, key, value, loader);
+    public void PublishKey(TypeKey key, object value) => scope.Publish(ownerId, key, value, loader, registration);
 
     public void PublishProxyKey(TypeKey key, Func<object> supplier) =>
-      scope.PublishProxy(registration, key, supplier, loader);
+      scope.PublishProxy(ownerId, key, supplier, loader, registration);
 
     public void Publish<T>(T value, string qualifier = null) => PublishKey(new TypeKey(typeof(T), qualifier), value);
 
@@ -169,10 +173,10 @@ namespace HELIX.Context {
     }
 
 
-    public void PublishRaw(TypeKey key, object value) => scope.Publish(registration, key, value, loader);
+    public void PublishRaw(TypeKey key, object value) => scope.Publish(ownerId, key, value, loader, registration);
 
     public void PublishProxyRaw(TypeKey key, Func<object> supplier) =>
-      scope.PublishProxy(registration, key, supplier, loader);
+      scope.PublishProxy(ownerId, key, supplier, loader, registration);
 
     public void PublishKey(string wireKey) {
       (loader ?? throw new ScopeLifecycleException(
@@ -185,10 +189,11 @@ namespace HELIX.Context {
     }
 
     public void PublishBind(Type type, string qualifier, object value) => scope.Publish(
-      registration,
+      ownerId,
       new TypeKey(type, qualifier),
       value,
-      loader
+      loader,
+      registration
     );
 
     public void PublishBind(IReadOnlyList<Type> types, string qualifier, object value) {
@@ -196,10 +201,11 @@ namespace HELIX.Context {
     }
 
     public void PublishProxyBind(Type type, string qualifier, Func<object> supplier) => scope.PublishProxy(
-      registration,
+      ownerId,
       new TypeKey(type, qualifier),
       supplier,
-      loader
+      loader,
+      registration
     );
 
     public void PublishProxyBind(IReadOnlyList<Type> types, string qualifier, Func<object> supplier) {

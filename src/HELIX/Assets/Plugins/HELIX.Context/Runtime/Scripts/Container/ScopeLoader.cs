@@ -25,6 +25,8 @@ namespace HELIX.Context {
       throw new ScopeLifecycleException("No scope is currently loading.");
     public static ScopeLoader ActiveOrNull => _active.Value;
 
+    public ManagedId ReserveBindingId(ManagedId owner) => _container.ReserveBindingId(owner);
+
     public void Publish(ManagedRegistration owner, string wireKey) {
       if (!publications.TryGetValue(wireKey, out var owners))
         publications.Add(wireKey, owners = new HashSet<ManagedRegistration>());
@@ -118,12 +120,13 @@ namespace HELIX.Context {
     private static void ValidateAndCompleteComponent(
       ManagedScope managed,
       ManagedRegistration entry,
-      object instance
+      object instance,
+      ManagedId ownerId
     ) {
       foreach (var publication in entry.publications.Where(static x =>
         x.flags.HasFlag(DependencyFlags.Required)
       )) {
-        if (managed.WasProvidedBy(entry, publication)) continue;
+        if (managed.WasProvidedBy(ownerId, entry, publication)) continue;
         throw new ComponentInitializationException(
           $"Component '{entry.name}' did not provide required publication '{publication.wireKey}'."
         );
@@ -276,7 +279,8 @@ namespace HELIX.Context {
           }
           continue;
         }
-        if (result.value != null) managed.Publish(null, result.value.GetType(), result.value);
+        if (result.value != null)
+          managed.Publish(managed.companion.managed.id, result.value.GetType(), result.value);
         scripted.Add(dependency.scripted);
         if (dependency.flags.HasFlag(DependencyFlags.Wirable)) anonymousPublications.Add(dependency.wireKey);
       }
@@ -308,14 +312,17 @@ namespace HELIX.Context {
     }
 
     private void LoadRegistrationSync(ManagedScope managed, ManagedRegistration entry) {
-      var context = new ManagedLoadContext(_container, managed, entry, this);
+      var id = _container.ReserveManagedId();
+      var context = new ManagedLoadContext(_container, managed, entry, this, id);
       try {
-        var instance = Activate(entry, context);
-        managed.RecordComponent(entry, instance);
-        managed.BindComponent(entry, instance);
+        if (Activate(entry, context) is not IManaged instance)
+          throw new ComponentActivationException($"Component '{entry.name}' must implement {nameof(IManaged)}.");
+        _container.RegisterManaged(id, entry, instance);
+        managed.RecordComponent(_container, instance);
+        managed.BindComponent(id, entry, instance);
         entry.InitializeSync(instance, context);
         entry.InitializeLate(instance, context);
-        ValidateAndCompleteComponent(managed, entry, instance);
+        ValidateAndCompleteComponent(managed, entry, instance, id);
       } catch (Exception exception) {
         if (exception is ComponentContainerException) throw;
         throw new ComponentInitializationException($"Failed to initialize component '{entry.name}'.", exception);
@@ -365,7 +372,8 @@ namespace HELIX.Context {
           }
           continue;
         }
-        if (result.value != null) managed.Publish(null, result.value.GetType(), result.value);
+        if (result.value != null)
+          managed.Publish(managed.companion.managed.id, result.value.GetType(), result.value);
         scripted.Add(dependency.scripted);
         if (dependency.flags.HasFlag(DependencyFlags.Wirable)) anonymousPublications.Add(dependency.wireKey);
       }
@@ -399,16 +407,19 @@ namespace HELIX.Context {
 
     private async UniTask LoadRegistrationAsync(ManagedScope managed, ManagedRegistration entry) {
       RestoreActiveContext();
-      var context = new ManagedLoadContext(_container, managed, entry, this);
+      var id = _container.ReserveManagedId();
+      var context = new ManagedLoadContext(_container, managed, entry, this, id);
       try {
-        var instance = Activate(entry, context);
-        managed.RecordComponent(entry, instance);
-        managed.BindComponent(entry, instance);
+        if (Activate(entry, context) is not IManaged instance)
+          throw new ComponentActivationException($"Component '{entry.name}' must implement {nameof(IManaged)}.");
+        _container.RegisterManaged(id, entry, instance);
+        managed.RecordComponent(_container, instance);
+        managed.BindComponent(id, entry, instance);
         entry.InitializeSync(instance, context);
         await entry.InitializeAsync(instance, context);
         RestoreActiveContext();
         entry.InitializeLate(instance, context);
-        ValidateAndCompleteComponent(managed, entry, instance);
+        ValidateAndCompleteComponent(managed, entry, instance, id);
       } catch (Exception exception) {
         if (exception is ComponentContainerException) throw;
         throw new ComponentInitializationException($"Failed to initialize component '{entry.name}'.", exception);

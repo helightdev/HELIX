@@ -11,12 +11,15 @@ namespace HELIX.Context {
     public readonly Dictionary<IScope, ManagedScope> scopes = new(ReferenceComparer<IScope>.Instance);
     public readonly RegistrarScope registrarScope = new();
     public readonly ApplicationScope applicationScope = new();
+    public readonly Dictionary<ManagedId, IManaged> managedObjects = new();
     public readonly ScopeRules scopeRules;
     private readonly RegistrarGraph _registrarGraph = new();
     private readonly ScopeLoader _scopeLoader;
     private readonly List<IScopeHandler> _scopeHandlers = new();
     private readonly HashSet<IScope> _disposedScopes = new(ReferenceComparer<IScope>.Instance);
     private readonly HashSet<IScope> _creatingScopes = new(ReferenceComparer<IScope>.Instance);
+    private readonly Dictionary<ManagedId, int> _pendingBindingIds = new();
+    private ulong _nextManagedOwner = 1;
     private bool _registrarPrepared, _applicationStarted, _disposed;
 
     /// <summary>Maximum dependency-resolution passes allowed while initializing one scope.</summary>
@@ -43,12 +46,13 @@ namespace HELIX.Context {
       if (_registrarPrepared) throw new ScopeLifecycleException("The registrar has already been prepared.");
       registrarScope.registrations = _registrarGraph.Prepare(registrations);
       var registrar = new ManagedScope(registrarScope);
+      registrar.Attach(this);
       registrar.BeginInitialization();
       scopes.Add(registrarScope, registrar);
       try {
         _scopeLoader.LoadSync(registrar);
         registrar.Activate();
-        foreach (var handler in registrar.loadedComponents.Select(static loaded => loaded.instance).OfType<IScopeHandler>())
+        foreach (var handler in registrar.loadedComponents.OfType<IScopeHandler>())
           InstallScopeHandler(handler);
         _registrarPrepared = true;
       } catch (Exception exception) {
@@ -166,6 +170,34 @@ namespace HELIX.Context {
       foreach (var failure in failures) Debug.LogException(failure);
     }
 
+    internal ManagedId ReserveManagedId() => new(_nextManagedOwner++, 0);
+
+    internal ManagedId ReserveBindingId(ManagedId owner) {
+      owner = owner.Owner;
+      if (!owner.IsValid) throw new ScopeLifecycleException("A binding owner must be managed by the container.");
+      if (managedObjects.TryGetValue(owner, out var instance)) return instance.managed.ReserveBindingId();
+      if (!_pendingBindingIds.TryGetValue(owner, out var next)) next = 1;
+      if (next > ushort.MaxValue)
+        throw new ScopeLifecycleException($"Managed object {owner} exceeded the binding ID limit.");
+      _pendingBindingIds[owner] = next + 1;
+      return new ManagedId(owner.owner, (ushort)next);
+    }
+
+    internal void RegisterManaged(ManagedId id, ManagedRegistration registration, IManaged instance) {
+      var data = instance.managed;
+      data.id = id;
+      data.registration = registration;
+      if (_pendingBindingIds.TryGetValue(id.Owner, out var next)) {
+        data.ContinueBindingIdsAt(next);
+        _pendingBindingIds.Remove(id.Owner);
+      }
+      managedObjects.Add(id, instance);
+    }
+
+    internal void UnregisterManaged(ManagedId id) {
+      managedObjects.Remove(id.Owner);
+    }
+
     private ManagedScope BeginScopeCreation(ManagedScope parent, IScope scope) {
       ThrowIfDisposed();
       if (!_registrarPrepared) throw new ScopeLifecycleException("Prepare the registrar before creating scopes.");
@@ -182,6 +214,7 @@ namespace HELIX.Context {
       scopeRules.Validate(ScopeValidationContext.Create(this, parent, scope));
       _creatingScopes.Add(scope);
       var managed = new ManagedScope(parent, scope);
+      managed.Attach(this);
       managed.BeginInitialization();
       return managed;
     }
