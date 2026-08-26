@@ -10,7 +10,7 @@ using UnityEngine.InputSystem;
 namespace HELIX.Boot {
   [Managed(typeof(ApplicationScope))]
   public partial class CommandService : ICommandSystem {
-    [Inject] private List<Command> _commands;
+    private readonly ManagedRegistry<Command, CommandRegistryData> _commands = new();
     [Inject] private GuiService _gui;
     private readonly List<string> _tokens = new();
     private readonly HashSet<int> _used = new();
@@ -20,13 +20,16 @@ namespace HELIX.Boot {
 
     [Hook]
     private void OnLoadManaged(ManagedLoadContext context) {
-      _commands.Insert(0, new HelpCommand(this));
+      context.scope.RegisterBindingObserver(_commands);
+      context.Publish<Command>(new HelpCommand(this));
       _gui.commandSystem = this;
       _gui.RebuildNavigation();
       _toggleConsoleAction = new InputAction("Toggle Console", InputActionType.Button, "<Keyboard>/f4");
       _toggleConsoleAction.performed += OnToggleConsole;
       _toggleConsoleAction.Enable();
     }
+
+    private struct CommandRegistryData { }
 
     [Hook]
     private void OnDispose() {

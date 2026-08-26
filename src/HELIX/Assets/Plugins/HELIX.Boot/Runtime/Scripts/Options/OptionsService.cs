@@ -15,15 +15,16 @@ using UnityEngine;
 namespace HELIX.Boot {
   [Managed(typeof(ApplicationScope), phase: LoadPhase.AfterConfiguration)]
   public partial class OptionsService {
-    [Inject] private List<Option> _options;
+    private readonly ManagedRegistry<Option, OptionRegistryData> _options = new();
 
     public IReadOnlyList<Option> Options => _options;
 
     [Hook]
     private void OnLoadManaged(ManagedLoadContext context) {
-      Debug.Log($"Discovered options: {string.Join(";", _options)}");
+      context.scope.RegisterBindingObserver(_options);
+      Debug.Log($"Discovered options: {string.Join(";", Options)}");
 
-      foreach (var option in _options) {
+      foreach (var option in Options) {
         option.LoadData();
         option.Apply();
       }
@@ -31,9 +32,11 @@ namespace HELIX.Boot {
       Debug.Log("OptionsService loaded and applied all options.");
     }
 
+    private struct OptionRegistryData { }
+
     [EventHandler]
     private void OnDefaultOptionsRender(OptionsRenderEvent evt) {
-      foreach (var option in _options) {
+      foreach (var option in Options) {
         using (evt.writer.Path(option.groupPath)) {
           option.ToProse(evt.writer);
         }
@@ -42,7 +45,7 @@ namespace HELIX.Boot {
 
     [EventHandler]
     private void OnOptionsLoadPageState(OptionsLoadPageStateEvent evt) {
-      foreach (var option in _options) {
+      foreach (var option in Options) {
         option.LoadInto(evt.pages.Form);
       }
     }
@@ -256,14 +259,12 @@ namespace HELIX.Boot {
   @CODE<$Init> @target:name.SetInferredPath(@attr#path);
   @CODE<$ConfigureManaged> registration.Publication(typeof(@target:type:unwrap), @attr#path, true);
   @CODE<$LoadManagedLate> context.PublishBind(typeof(@target:type:unwrap), @attr#path, @target:name);
-  @GOTO<Next>
+  @RETURN
 @SCOPE
   @CODE<$Init> @target:name.SetInferredName(""@target:name"");
-@END
-
-@SCOPE<Next>
   @CODE<$ConfigureManaged> registration.Publication(typeof(HELIX.Boot.Option), null, true);
-  @CODE<$LoadManagedLate> context.PublishBind(typeof(HELIX.Boot.Option), null, @target:name);
+  @CODE<$LoadManagedLate> context.PublishBind(typeof(HELIX.Boot.Option), null, @target:name)
+  @RETURN
 @END
 "
   )]

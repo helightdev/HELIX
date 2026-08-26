@@ -10,11 +10,12 @@ namespace HELIX.Context {
   }
 
   public class ManagedRegistry<T, TData> : BindingObserver,
-    IEnumerable<KeyValuePair<ManagedId, ManagedRegistry<T, TData>.Entry>> where TData : struct {
+    IEnumerable<KeyValuePair<ManagedId, ManagedRegistry<T, TData>.Entry>>, IReadOnlyList<T> where TData : struct {
     public readonly Dictionary<ManagedId, Entry> items = new();
 
     public int Count => items.Count;
     public Entry this[ManagedId id] => items[id];
+    public T this[int index] => ValueAt(index);
 
     protected internal override void BindingAdded(ManagedScope scope, TypeKey key, ManagedBinding binding) {
       if (binding.id.owner == 0 || binding.value is not T value) return;
@@ -44,6 +45,31 @@ namespace HELIX.Context {
       GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() => new ValueEnumerator(items.GetEnumerator());
+
+    private T ValueAt(int index) {
+      if ((uint)index >= (uint)items.Count) throw new ArgumentOutOfRangeException(nameof(index));
+      var enumerator = items.GetEnumerator();
+      while (enumerator.MoveNext()) {
+        if (index-- == 0) return enumerator.Current.Value.value;
+      }
+      throw new ArgumentOutOfRangeException(nameof(index));
+    }
+
+    private struct ValueEnumerator : IEnumerator<T> {
+      private Dictionary<ManagedId, Entry>.Enumerator _enumerator;
+
+      public ValueEnumerator(Dictionary<ManagedId, Entry>.Enumerator enumerator) {
+        _enumerator = enumerator;
+      }
+
+      public T Current => _enumerator.Current.Value.value;
+      object IEnumerator.Current => Current;
+      public bool MoveNext() => _enumerator.MoveNext();
+      public void Dispose() => _enumerator.Dispose();
+      void IEnumerator.Reset() => throw new NotSupportedException();
+    }
 
     public struct Entry {
       public T value;
