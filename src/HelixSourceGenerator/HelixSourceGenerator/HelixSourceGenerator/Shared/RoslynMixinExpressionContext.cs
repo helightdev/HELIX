@@ -26,13 +26,26 @@ internal sealed record MixinTargetSyntax(
 );
 
 internal sealed class MixinPropStructHandle {
-  internal MixinPropStructHandle(IReadOnlyList<PropDefinition> props) => Props = props;
+  internal MixinPropStructHandle(
+    IReadOnlyList<PropDefinition> props,
+    PropStructModel model,
+    bool augmenting
+  ) {
+    Props = props;
+    Model = model;
+    Augmenting = augmenting;
+  }
 
   internal IReadOnlyList<PropDefinition> Props { get; }
+  internal PropStructModel Model { get; }
+  internal bool Augmenting { get; }
 }
 
 internal sealed class RoslynMixinExpressionContext :
-  IMixinExpressionContext, IMixinExpressionSignatureContext, IMixinExpressionPropStructContext {
+  IMixinExpressionContext,
+  IMixinExpressionSignatureContext,
+  IMixinExpressionPropStructContext,
+  IMixinExpressionStructAugmentationContext {
   private static readonly SymbolDisplayFormat FullNameDisplayFormat =
     SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
       SymbolDisplayGenericsOptions.IncludeTypeParameters
@@ -203,7 +216,59 @@ internal sealed class RoslynMixinExpressionContext :
       PropStructApi.AnalyzeDatatype(escapedName, structName, props)
         .AppendMember(builder, configuration);
     }
-    handle = new MixinPropStructHandle(props);
+    handle = new MixinPropStructHandle(props, model, false);
+    declaration = builder.ToString();
+    return true;
+  }
+
+  public bool TryAugmentPropStruct(
+    MixinExpressionReference syntaxTarget,
+    out object handle,
+    out string declaration,
+    out string error
+  ) {
+    handle = null;
+    declaration = null;
+    error = null;
+    if (syntaxTarget.Properties.Count != 0 ||
+      !TrySubject(syntaxTarget, out var subject, out error)) return false;
+    if (subject is not INamedTypeSymbol { TypeKind: TypeKind.Struct } type) {
+      error = "AUGMENT_STRUCT syntax target must resolve to a struct";
+      return false;
+    }
+    if (!SymbolEqualityComparer.Default.Equals(type.ContainingType, _thisType)) {
+      error = "AUGMENT_STRUCT syntax target must be a struct nested directly in the current type";
+      return false;
+    }
+    if (!IsPartial(type)) {
+      error = "struct '" + type.Name + "' must be partial to be augmented";
+      return false;
+    }
+    if (!PropStructApi.TryAnalyze(type, out var model, out var diagnostic)) {
+      error = diagnostic.GetMessage(CultureInfo.InvariantCulture);
+      return false;
+    }
+
+    var props = InstanceFields(type).Select(field => new PropDefinition(
+      field,
+      field.Type,
+      field.Name,
+      Attribute(field, GeneratorStrings.Attributes.Prop)
+    )).ToArray();
+    var builder = new SharpStringBuilder();
+    using (builder.Type("partial struct " + EscapeIdentifier(type.Name))) {
+      if (model.ParameterParts.Count > 0) {
+        using (builder.Method(
+          AccessibilityText(type.DeclaredAccessibility) +
+          (model.RequiresUnsafe ? " unsafe " : " ") +
+          EscapeIdentifier(type.Name),
+          model.ParameterParts,
+          true
+        )) model.AppendAssignments(builder, "this");
+      }
+      model.Equality.AppendMembers(builder);
+    }
+    handle = new MixinPropStructHandle(props, model, true);
     declaration = builder.ToString();
     return true;
   }
@@ -217,10 +282,26 @@ internal sealed class RoslynMixinExpressionContext :
     value = null;
     error = null;
     if (handle is not MixinPropStructHandle propStruct) {
-      error = ":propStructCall must be called on a prop struct handle";
+      error = ":" + property.Name + " must be called on a prop struct handle";
       return false;
     }
-    if (property.Name != "propStructCall" || property.Arguments.Count != 2) {
+    switch (property.Name) {
+      case "structHasEquality":
+        value = propStruct.Model.Equality.HasMembers;
+        return true;
+      case "structNoArgs":
+        value = propStruct.Model.ParameterParts.Count == 0;
+        return true;
+      case "structAugment":
+        value = propStruct.Augmenting;
+        return true;
+      case "propStructCall":
+        break;
+      default:
+        error = "unknown prop struct property ':" + property.Name + "'";
+        return false;
+    }
+    if (property.Arguments.Count != 2) {
       error = ":propStructCall requires a target and prop struct variable";
       return false;
     }
@@ -421,7 +502,7 @@ internal sealed class RoslynMixinExpressionContext :
     return false;
   }
 
-  private static bool ApplyValueProperties(
+  private bool ApplyValueProperties(
     MixinExpressionReference reference,
     ref object subject,
     out string error
@@ -487,6 +568,33 @@ internal sealed class RoslynMixinExpressionContext :
             return false;
           }
           subject = MixinExpressionInterpreter.FormatFloatTime(seconds);
+          break;
+        case "makeGeneric":
+          if (property.Values.Count != 1) {
+            error = ":makeGeneric requires a type";
+            return false;
+          }
+          var genericType = TypeValueOf(subject) as INamedTypeSymbol;
+          if (genericType is not { IsUnboundGenericType: true, Arity: 1 }) {
+            error = ":makeGeneric requires an unbound generic type of arity 1";
+            return false;
+          }
+          var genericArgument = TypeValueOf(property.Values[0]) ??
+            ResolveType(property.Arguments[0]);
+          if (genericArgument is null) {
+            error = ":makeGeneric type argument '" + property.Arguments[0] + "' was not found";
+            return false;
+          }
+          subject = genericType.ConstructedFrom.Construct(genericArgument);
+          break;
+        case "visibility":
+          var visibilitySymbol = subject as ISymbol ?? TypeValueOf(subject) as ISymbol;
+          if (visibilitySymbol is null ||
+            visibilitySymbol.DeclaredAccessibility == Accessibility.NotApplicable) {
+            error = "property ':visibility' is not available for this value";
+            return false;
+          }
+          subject = AccessibilityText(visibilitySymbol.DeclaredAccessibility);
           break;
         case "path":
           subject = SelectTypeArgument(subject, property.Argument);
@@ -898,7 +1006,8 @@ internal sealed class RoslynMixinExpressionContext :
     return property.Name is
       "exists" or "is" or "has" or "eq" or "isSelf" or "ref" or "in" or "out" or "inout" or
       "argument" or "static" or "async" or "public" or "exposed" or "top" or "concrete" or
-      "partial" or "generic" or "struct" or "class" or "matches" or "signature" or "wireable";
+      "partial" or "generic" or "struct" or "class" or "matches" or "signature" or "wireable" or
+      "structHasEquality" or "structNoArgs" or "structAugment";
   }
 
   private static string NameOf(object subject) {

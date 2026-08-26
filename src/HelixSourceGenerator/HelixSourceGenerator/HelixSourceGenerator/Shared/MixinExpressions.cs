@@ -176,6 +176,16 @@ public interface IMixinExpressionPropStructContext {
   );
 }
 
+/// <summary>Optional host support for augmenting an existing prop struct.</summary>
+public interface IMixinExpressionStructAugmentationContext {
+  bool TryAugmentPropStruct(
+    MixinExpressionReference syntaxTarget,
+    out object handle,
+    out string declaration,
+    out string error
+  );
+}
+
 public sealed class MixinExpressionResult {
   internal MixinExpressionResult(
     bool success,
@@ -363,7 +373,7 @@ public sealed class MixinExpressionInterpreter {
       Error = error;
       if (error is null && command is "MATCH" or "ASSERT") BooleanExpression = ParseBooleanExpression(operand);
       if (error is null && command is "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR"
-        or "PROP_STRUCT"
+        or "PROP_STRUCT" or "AUGMENT_STRUCT"
         or "PUT" or "PUSH" or "CALL" or "FAIL")
         StringExpression = ParseStringExpression(operand);
     }
@@ -1007,6 +1017,29 @@ public sealed class MixinExpressionInterpreter {
             MixinExpressionOutputTarget.Class, propStructDeclaration
           ));
           break;
+        case "AUGMENT_STRUCT":
+          if (context is not IMixinExpressionStructAugmentationContext augmentStructContext)
+            return Failure("the expression context does not support struct augmentation", lineNumber, logs);
+          if (!TryResolveDirectiveArgument(
+            parsed.Arguments[0], context, locals, pendingVariables, out var augmentStructLocal,
+            out var augmentStructLocalError
+          )) return Failure(augmentStructLocalError, lineNumber, logs);
+          if (string.IsNullOrEmpty(augmentStructLocal))
+            return Failure("AUGMENT_STRUCT local name is empty", lineNumber, logs);
+          if (parsed.StringExpression is not { Count: 1 } ||
+            parsed.StringExpression[0].Reference is null)
+            return Failure("AUGMENT_STRUCT syntax target must be a single reference", lineNumber, logs);
+          if (!augmentStructContext.TryAugmentPropStruct(
+            parsed.StringExpression[0].Reference,
+            out var augmentStructHandle,
+            out var augmentStructDeclaration,
+            out var augmentStructError
+          )) return Failure(augmentStructError, lineNumber, logs);
+          locals[augmentStructLocal] = augmentStructHandle;
+          outputs.Add(new MixinExpressionOutput(
+            MixinExpressionOutputTarget.Class, augmentStructDeclaration
+          ));
+          break;
         case "PUT":
         case "PUSH":
           if (!TryResolveDirectiveArgument(
@@ -1175,7 +1208,7 @@ public sealed class MixinExpressionInterpreter {
     return command is
       "SCOPE" or "FUNC" or "CALL" or "END" or "MATCH" or "ASSERT" or "CODE" or
       "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "DUMP" or "LOCAL" or "VAR" or
-      "PROP_STRUCT" or "PUT" or "PUSH" or "RETURN"
+      "PROP_STRUCT" or "AUGMENT_STRUCT" or "PUT" or "PUSH" or "RETURN"
       or "GOTO" or
       "SKIP" or "FAIL";
   }
@@ -1208,6 +1241,9 @@ public sealed class MixinExpressionInterpreter {
         string.IsNullOrEmpty(arguments[0]) || string.IsNullOrEmpty(arguments[1]):
         error = "PROP_STRUCT requires a struct name and local name";
         return false;
+      case "AUGMENT_STRUCT" when arguments.Count != 1 || string.IsNullOrEmpty(argument):
+        error = "AUGMENT_STRUCT requires a local name";
+        return false;
       case "PUSH" when arguments.Count != 1:
         error = "PUSH requires a local name";
         return false;
@@ -1217,7 +1253,7 @@ public sealed class MixinExpressionInterpreter {
         return false;
       case "MATCH" or "ASSERT": return ValidateBooleanSyntax(operand, out error);
       case "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR" or
-        "PROP_STRUCT" or "PUT" or "PUSH" or "CALL"
+        "PROP_STRUCT" or "AUGMENT_STRUCT" or "PUT" or "PUSH" or "CALL"
         or "FAIL": return ValidateStringSyntax(operand, out error);
       case "DUMP" when !string.Equals(argument, "STATE", StringComparison.OrdinalIgnoreCase) &&
         !string.Equals(argument, "BUFFER", StringComparison.OrdinalIgnoreCase) &&
@@ -1614,7 +1650,8 @@ public sealed class MixinExpressionInterpreter {
     return property.Name is
       "eq" or "exists" or "is" or "has" or "isSelf" or "ref" or "in" or "out" or "inout" or
       "argument" or "static" or "async" or "public" or "exposed" or "top" or "concrete" or "partial" or
-      "generic" or "struct" or "class" or "matches" or "signature" or "wireable";
+      "generic" or "struct" or "class" or "matches" or "signature" or "wireable" or
+      "structHasEquality" or "structNoArgs" or "structAugment";
   }
 
   private static string DescribeFailedCondition(MixinExpressionReference reference) {
@@ -1891,6 +1928,36 @@ public sealed class MixinExpressionInterpreter {
           )) return false;
       }
       if (predicate.Negated) value = !value;
+      return true;
+    }
+    var propStructPredicateIndex = reference.Properties.ToList().FindIndex(item =>
+      item.Name is "structHasEquality" or "structNoArgs" or "structAugment"
+    );
+    if (propStructPredicateIndex >= 0) {
+      if (context is not IMixinExpressionPropStructContext propStructContext) {
+        value = false;
+        error = "the expression context does not support prop structs";
+        return false;
+      }
+      var predicate = reference.Properties[propStructPredicateIndex];
+      var prefix = new MixinExpressionReference(
+        reference.Root,
+        reference.Member,
+        reference.Properties.Take(propStructPredicateIndex).ToArray()
+      );
+      if (!TryResolveCore(prefix, context, locals, variables, out var handle, out error) ||
+        !propStructContext.TryApplyPropStructProperty(
+          handle, predicate, out var predicateValue, out error
+        )) {
+        value = false;
+        return false;
+      }
+      if (predicateValue is not bool boolean) {
+        value = false;
+        error = ":" + predicate.Name + " did not produce a boolean value";
+        return false;
+      }
+      value = predicate.Negated ? !boolean : boolean;
       return true;
     }
     return TryEvaluateCore(reference, context, locals, variables, out value, out error);
@@ -2394,6 +2461,7 @@ public sealed class MixinExpressionInterpreter {
       case "replaceFirst":
       case "switch":
       case "put": expected = 2; break;
+      case "makeGeneric":
       case "is":
       case "has":
       case "eq":
@@ -2418,6 +2486,10 @@ public sealed class MixinExpressionInterpreter {
       case "generic":
       case "struct":
       case "class":
+      case "visibility":
+      case "structHasEquality":
+      case "structNoArgs":
+      case "structAugment":
       case "pop":
       case "size":
       case "floatTime": expected = 0; break;

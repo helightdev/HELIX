@@ -211,6 +211,9 @@ public sealed class MixinExpressionInterpreterTests {
   [InlineData("@CODE @true:switch<only-one>", ":switch requires 2 arguments")]
   [InlineData("@ASSERT @true:and<@false>", "dynamic boolean expressions")]
   [InlineData("@CODE @true:eq<true>:unwrap", "must be terminal")]
+  [InlineData("@CODE @this:makeGeneric", ":makeGeneric requires 1 argument")]
+  [InlineData("@CODE @this:visibility<public>", ":visibility requires 0 arguments")]
+  [InlineData("@ASSERT @local#props:?structNoArgs<true>", ":structNoArgs requires 0 arguments")]
   public void FunctionGrammarRejectsAmbiguousOrInvalidCalls(string expression, string expected) {
     var validation = _interpreter.ValidateSyntax(expression);
 

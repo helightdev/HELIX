@@ -23,6 +23,7 @@ public sealed class MixinGeneratorExpressionTests {
                           [AttributeUsage(AttributeTargets.Method)]
                           [HELIX.MixinExpression(
                             "@PROP_STRUCT<WorkProps><workProps> @target\n" +
+                            "@ASSERT @local#workProps:!?structAugment\n" +
                             "@CODE<CLASS> private void Dispatch(WorkProps value) { @local#workProps:propStructCall<this.Work><value>; }"
                           )]
                           public sealed class GenerateWorkPropsAttribute : Attribute { }
@@ -117,7 +118,12 @@ public sealed class MixinGeneratorExpressionTests {
                             }
                           }
                           [AttributeUsage(AttributeTargets.Method)]
-                          [HELIX.MixinExpression("@PROP_STRUCT<WorkProps><workProps> @target")]
+                          [HELIX.MixinExpression(
+                            "@PROP_STRUCT<WorkProps><workProps> @target\n" +
+                            "@ASSERT @local#workProps:?structNoArgs\n" +
+                            "@ASSERT @local#workProps:!?structHasEquality\n" +
+                            "@ASSERT @local#workProps:!?structAugment"
+                          )]
                           public sealed class GenerateWorkPropsAttribute : Attribute { }
 
                           [HELIX.EnableMixins]
@@ -140,6 +146,110 @@ public sealed class MixinGeneratorExpressionTests {
       .SourceText.ToString();
     Assert.Contains("public struct WorkProps", text);
     Assert.DoesNotContain("public WorkProps(", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
+  public void AugmentStructGeneratesPropMembersAndExposesStructModelPredicates() {
+    const string source = "using System;\n" + """
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          public abstract class GenericBase<T> { }
+
+                          [AttributeUsage(AttributeTargets.Class)]
+                          [HELIX.MixinExpression(
+                            "@AUGMENT_STRUCT<props> @this#Props\n" +
+                            "@ASSERT @local#props:?structHasEquality\n" +
+                            "@ASSERT @local#props:!?structNoArgs\n" +
+                            "@ASSERT @local#props:?structAugment\n" +
+                            "@CODE<IMPLEMENTS> @attr#Base:makeGeneric<(@this#Props:type)>\n" +
+                            "@CODE<CLASS> public const string TargetVisibility = \"@this:visibility\";\n" +
+                            "@CODE<CLASS> public const string FieldVisibility = \"@this#hidden:visibility\";\n" +
+                            "@CODE<CLASS> public const string ClosedFromLiteral = \"@attr#Base:makeGeneric<System.Int32>\";"
+                          )]
+                          public sealed class GenerateAttribute : Attribute {
+                            public GenerateAttribute(Type Base) { }
+                          }
+
+                          [HELIX.EnableMixins]
+                          [Generate(typeof(GenericBase<>))]
+                          public partial class Demo {
+                            private int hidden;
+
+                            public partial struct Props : IEquatable<Props> {
+                              public int count;
+                            }
+                          }
+                          """;
+
+    var compilation = CSharpCompilation.Create(
+      "AugmentStructExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("partial class Demo : global::GenericBase<global::Demo.Props>", text);
+    Assert.Contains("partial struct Props", text);
+    Assert.Contains("public Props(", text);
+    Assert.Contains("public bool Equals", text);
+    Assert.Contains("public override int GetHashCode", text);
+    Assert.Contains("TargetVisibility = \"public\";", text);
+    Assert.Contains("FieldVisibility = \"private\";", text);
+    Assert.Contains("ClosedFromLiteral = \"global::GenericBase<global::System.Int32>\";", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
+  public void AugmentStructDoesNotGenerateConstructorForEmptyStruct() {
+    const string source = "using System;\n" + """
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          [AttributeUsage(AttributeTargets.Class)]
+                          [HELIX.MixinExpression(
+                            "@AUGMENT_STRUCT<props> @this#Props\n" +
+                            "@ASSERT @local#props:!?structHasEquality\n" +
+                            "@ASSERT @local#props:?structNoArgs\n" +
+                            "@ASSERT @local#props:?structAugment\n" +
+                            "@CODE<CLASS> public const bool NoConstructor = @local#props:?structNoArgs;"
+                          )]
+                          public sealed class GenerateAttribute : Attribute { }
+
+                          [HELIX.EnableMixins]
+                          [Generate]
+                          public partial class Demo {
+                            public partial struct Props { }
+                          }
+                          """;
+
+    var compilation = CSharpCompilation.Create(
+      "EmptyAugmentStructExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("partial struct Props", text);
+    Assert.DoesNotContain(" Props(", text);
+    Assert.Contains("NoConstructor = true;", text);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 

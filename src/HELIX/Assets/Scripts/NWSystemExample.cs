@@ -14,13 +14,13 @@ using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
 
 namespace HELIX.Examples {
-  [BoundaryComposable(Extension = true, UseLookupCache = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(Extension = true, UseLookupCache = true)]
   public partial class MyBetterWidget {
     public partial struct Props {
       [Prop("HELIX.Coloring.Colors.Red", PropInit.Deferred)]
-      public Color color;
+      public Color color1;
     }
-
     protected override void OnRecompose(ref Composition cx) { }
   }
 
