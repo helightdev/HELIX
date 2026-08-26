@@ -3,6 +3,7 @@ using System;
 namespace HELIX.Context {
   [AttributeUsage(AttributeTargets.Method)]
   // [RequireMixin(typeof(IEventHandlersMixin), true)]
+  [MixinImport(typeof(ContextMixinLibrary))]
   [MixinExpression(
     new[] { MixinOn.Init, MixinOn.ConfigureManaged },
     new[] { 1, -90_000 },

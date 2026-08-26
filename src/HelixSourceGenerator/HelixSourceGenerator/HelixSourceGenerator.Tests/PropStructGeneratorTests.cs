@@ -118,6 +118,32 @@ public sealed class PropStructGeneratorTests {
     Assert.DoesNotContain(" Settings(", result.Generated);
   }
 
+  [Fact]
+  public void DatatypeMixinsImportPreparedFunctionLibraryFromMixinAttribute() {
+    var result = Run(
+      Runtime +
+      """
+      [HELIX.MixinLibrary("@FUNC<configure>\n@CODE datatype.Configured = true\n@END")]
+      public static class DatatypeFunctions { }
+
+      [HELIX.MixinImport(typeof(DatatypeFunctions))]
+      [HELIX.MixinExpression("@CALL<configure>")]
+      [AttributeUsage(AttributeTargets.Struct)]
+      public sealed class ConfigureFromLibraryAttribute : Attribute { }
+
+      [ConfigureFromLibrary]
+      [HELIX.PropStruct(datatype: true)]
+      public partial struct Settings {
+        public int count;
+      }
+      """
+    );
+
+    Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Contains("datatype.Configured = true;", result.Generated);
+  }
+
   private static TestResult Run(string source) {
     var compilation = CSharpCompilation.Create(
       "FeatureAssembly",
@@ -126,7 +152,7 @@ public sealed class PropStructGeneratorTests {
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
     );
     GeneratorDriver driver = CSharpGeneratorDriver.Create(
-      new[] { new PropStructGenerator().AsSourceGenerator() }
+      new[] { new MixinGenerator().AsSourceGenerator() }
     );
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
     var run = driver.GetRunResult();
@@ -159,9 +185,13 @@ public sealed class PropStructGeneratorTests {
                                      public MixinExpressionAttribute(string target, int order, string expression) { }
                                      public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
                                    }
-                                   [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
-                                   public sealed class MixinPrepareGlobalAttribute : Attribute {
-                                     public MixinPrepareGlobalAttribute(string expression) { }
+                                   [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+                                   public sealed class MixinImportAttribute : Attribute {
+                                     public MixinImportAttribute(Type library) { }
+                                   }
+                                   [AttributeUsage(AttributeTargets.Class)]
+                                   public sealed class MixinLibraryAttribute : Attribute {
+                                     public MixinLibraryAttribute(string content) { }
                                    }
                                    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
                                    public sealed class MixinDefineTargetAttribute : Attribute {

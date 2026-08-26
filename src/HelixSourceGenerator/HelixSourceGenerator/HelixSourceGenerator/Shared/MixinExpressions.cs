@@ -664,6 +664,14 @@ public sealed class MixinExpressionInterpreter {
   }
 
   public MixinExpressionValidationResult ValidateSyntax(string expression) {
+    return ValidateSyntax(expression, false);
+  }
+
+  internal MixinExpressionValidationResult ValidateFunctionLibrary(string expression) {
+    return ValidateSyntax(expression, true);
+  }
+
+  private MixinExpressionValidationResult ValidateSyntax(string expression, bool functionsOnly) {
     if (expression is null) return ValidationFailure("the expression is null", 0);
     var lines = SplitLines(expression);
     string activeFunction = null;
@@ -684,7 +692,11 @@ public sealed class MixinExpressionInterpreter {
       if (!ValidateDirectiveSyntax(command, arguments, operand, out var error))
         return ValidationFailure(error, index + 1);
       if (activeFunction is null) {
-        if (command != "FUNC") continue;
+        if (command != "FUNC") {
+          if (functionsOnly)
+            return ValidationFailure("mixin libraries may only contain function declarations", index + 1);
+          continue;
+        }
         if (!functions.Add(argument)) return ValidationFailure("duplicate function '" + argument + "'", index + 1);
         activeFunction = argument;
         functionLine = index + 1;

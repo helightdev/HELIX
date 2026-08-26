@@ -222,14 +222,13 @@ upwards to the calling scope, returns inside the function will only return from 
 executing the calling scope. Functions may not be nested and must be closed with `@END` in a balanced manner.
 Functions may include scopes which are also allowed to use the `@END` expression.
 
-## Prepared Expressions
+## Function Libraries
 
-Mixins can be declared in `MixinPrepareGlobal` to be prepared in advance before being
-available to all mixin expression attributes. A model is generated and collected before running subsequent
-mixin source generators. The contents evaluated by those files effectively declares a global scope being present
-in all mixin expressions. Custom procedures are therefore defined using functions that can be called from
-any mixin expression. Target Ordering and Declaration is still left to the called. The prepared mixins may also
-therefore declare global variables that are available to all mixin expressions.
+Reusable functions can be declared on a static class using `MixinLibrary`. Library contents are parsed and
+prepared before evaluating consumers and may only contain `@FUNC` declarations. A target or mixin attribute opts
+into a library using `MixinImport(typeof(MyLibrary))`. Imports placed on a mixin attribute are available whenever
+that attribute contributes expressions, including attributes introduced through `RequireMixin`. Repeated imports
+of the same library are deduplicated, while conflicting function declarations are reported as errors.
 
 
 ## TODO

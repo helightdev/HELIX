@@ -3,6 +3,7 @@ using System;
 namespace HELIX.Context {
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+  [MixinImport(typeof(ContextMixinLibrary))]
   [MixinExpression(
     new[] { MixinOn.Init, MixinOn.Dispose, MixinOn.ConfigureManaged },
     new[] { -1, 1, 0 },
@@ -13,6 +14,7 @@ namespace HELIX.Context {
   }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
+  [MixinImport(typeof(ContextMixinLibrary))]
   [MixinExpression(
     new[] {MixinOn.LoadManagedLate, MixinOn.ConfigureManaged},
     new[] { 0, 0 },
@@ -25,6 +27,7 @@ namespace HELIX.Context {
   }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+  [MixinImport(typeof(ContextMixinLibrary))]
   [MixinExpression(
     new[] { MixinOn.Init, MixinOn.Dispose, MixinOn.ConfigureManaged },
     new[] { -1, 1, 0 },

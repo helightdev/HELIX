@@ -89,6 +89,7 @@ namespace HELIX.Context {
   [MixinDefineTarget(MixinOn.UnloadManaged, ManagedTargets.ComponentUnloadDelegate)]
   [MixinDefineTarget(MixinOn.Init, ManagedTargets.ComponentLoadDelegate)]
   [MixinDefineTarget(MixinOn.Dispose, MixinOn.UnloadManaged)]
+  [MixinImport(typeof(ContextMixinLibrary))]
   [MixinExpression(new[] { MixinOn.ConfigureManaged }, new[] { -100_000 }, "@CALL<ManagedImpl>")]
   public class ManagedAttribute : Attribute {
     public ManagedAttribute(

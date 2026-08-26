@@ -21,14 +21,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     TargetDefinitionCache = new();
 
   public void Initialize(IncrementalGeneratorInitializationContext context) {
-    var preparedExpressions =
-      context.CompilationProvider.Select(static (compilation, _) => CollectPreparedExpressions(compilation)
-      );
-
-    context.RegisterSourceOutput(
-      preparedExpressions,
-      static (spc, prepared) => ReportPreparedExpressionDiagnostics(spc, prepared)
-    );
+    PropStructGenerator.Register(context);
 
     foreach (var attribute in MixinGeneratorCandidates.AttributeMetadataNames) {
       var targets = context.SyntaxProvider.ForAttributeWithMetadataName(
@@ -39,72 +32,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         static (ctx, _) => GetTarget(ctx)
       ).Where(static target => target is not null);
       context.RegisterSourceOutput(
-        targets.Combine(preparedExpressions),
-        static (spc, input) => Generate(
-          spc,
-          input.Left,
-          input.Right.State
-        )
-      );
-    }
-  }
-
-  internal static PreparedMixinExpressions CollectPreparedExpressions(
-    Compilation compilation
-  ) {
-    var result = new List<PreparedMixinExpression>();
-    var assemblies = compilation.SourceModule.ReferencedAssemblySymbols
-      .OrderBy(item => item.Identity.Name, StringComparer.Ordinal)
-      .Concat(new[] { compilation.Assembly });
-    var interpreter = new MixinExpressionInterpreter();
-    foreach (var assembly in assemblies) {
-      foreach (var attribute in assembly.GetAttributes().Where(item =>
-        IsAttribute(item, Attributes.MixinPrepareGlobal)
-      )) {
-        var expression = attribute.ConstructorArguments.Length == 1
-          ? attribute.ConstructorArguments[0].Value as string
-          : null;
-        var validation = interpreter.ValidateSyntax(expression);
-        result.Add(
-          new PreparedMixinExpression(
-            assembly.Identity.Name,
-            expression ?? "",
-            attribute.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? Location.None,
-            validation
-          )
-        );
-      }
-    }
-    var state = interpreter.PrepareGlobals(
-      result.Where(item => item.Validation.Success).Select(item => item.Expression)
-    );
-    return new PreparedMixinExpressions(result, state);
-  }
-
-  private static void ReportPreparedExpressionDiagnostics(
-    SourceProductionContext context,
-    PreparedMixinExpressions preparedExpressions
-  ) {
-    foreach (var prepared in preparedExpressions.Items.Where(item => !item.Validation.Success)) {
-      context.ReportDiagnostic(
-        Diagnostic.Create(
-          InvalidPreparedExpression,
-          prepared.Location,
-          prepared.Provider,
-          prepared.Validation.ErrorLine.ToString(CultureInfo.InvariantCulture),
-          prepared.Validation.Error
-        )
-      );
-    }
-    var valid = preparedExpressions.Items.Where(item => item.Validation.Success).ToArray();
-    foreach (var log in preparedExpressions.State.Logs) {
-      if (log.ProgramIndex < 0 || log.ProgramIndex >= valid.Length) continue;
-      context.ReportDiagnostic(
-        Diagnostic.Create(
-          ExpressionLog,
-          valid[log.ProgramIndex].Location,
-          log.Text
-        )
+        targets,
+        static (spc, target) => Generate(spc, target)
       );
     }
   }
@@ -177,8 +106,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
 
   private static void Generate(
     SourceProductionContext context,
-    MixinTarget candidate,
-    MixinExpressionPreparedState preparedExpressions
+    MixinTarget candidate
   ) {
     var target = candidate.Type;
     var location = LocationOf(target);
@@ -203,6 +131,12 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     ResolveMixinRequirements(
       context, target, interfaces, implicitAttributes, implicitInterfaces
     );
+    var libraryOwners = new List<INamedTypeSymbol> { target };
+    libraryOwners.AddRange(interfaces);
+    libraryOwners.AddRange(implicitInterfaces);
+    libraryOwners.AddRange(implicitAttributes.Select(item => item.Type));
+    libraryOwners.AddRange(MixinLibraryApi.AttributeOwners(AnnotatedSymbols(target)));
+    var preparedExpressions = MixinLibraryApi.Prepare(context, libraryOwners);
     var contributions = new List<MixinContribution>();
     var attributeExpressionOutputs = new List<MixinExpressionOutput>();
     foreach (var implicitInterface in implicitInterfaces) {

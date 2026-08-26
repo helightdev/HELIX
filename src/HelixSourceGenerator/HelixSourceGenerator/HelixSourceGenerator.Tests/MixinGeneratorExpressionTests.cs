@@ -658,26 +658,31 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
-  public void PreparedExpressionFunctionsAndVariablesAreAvailableToAttributes() {
+  public void ImportedFunctionLibraryIsAvailableToMixinAttributes() {
     const string source = """
                           using System;
-                          [assembly: HELIX.MixinPrepareGlobal(
-                            "@VAR<call> Prepared()\n" +
-                            "@FUNC<emit>\n" +
-                            "@CODE<$Init> @var#call\n" +
-                            "@RETURN\n" +
-                            "@END"
-                          )]
                           namespace HELIX {
                             [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-                            [AttributeUsage(AttributeTargets.Assembly)] public sealed class MixinPrepareGlobalAttribute : Attribute {
-                              public MixinPrepareGlobalAttribute(string content) { }
+                            [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+                            public sealed class MixinImportAttribute : Attribute {
+                              public MixinImportAttribute(Type library) { }
+                            }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixinLibraryAttribute : Attribute {
+                              public MixinLibraryAttribute(string content) { }
                             }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string target, int order, string expression) { }
                             }
                           }
+                          [HELIX.MixinLibrary(
+                            "@FUNC<emit>\n" +
+                            "@CODE<$Init> Prepared()\n" +
+                            "@RETURN\n" +
+                            "@END"
+                          )]
+                          public static class CommonFunctions { }
+                          [HELIX.MixinImport(typeof(CommonFunctions))]
                           [HELIX.MixinExpression("$Init", 0, "@CALL<emit>\n@CODE<$Init> Local()")]
                           [AttributeUsage(AttributeTargets.Method)]
                           public sealed class MarkAttribute : Attribute { }
@@ -711,15 +716,24 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
-  public void InvalidPreparedExpressionReportsDedicatedDiagnostic() {
+  public void InvalidImportedLibraryReportsDedicatedDiagnostic() {
     const string source = """
                           using System;
-                          [assembly: HELIX.MixinPrepareGlobal("@FUNC<broken>\n@UNKNOWN\n@END")]
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Assembly)] public sealed class MixinPrepareGlobalAttribute : Attribute {
-                              public MixinPrepareGlobalAttribute(string content) { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+                            public sealed class MixinImportAttribute : Attribute {
+                              public MixinImportAttribute(Type library) { }
+                            }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixinLibraryAttribute : Attribute {
+                              public MixinLibraryAttribute(string content) { }
                             }
                           }
+                          [HELIX.MixinLibrary("@FUNC<broken>\n@UNKNOWN\n@END")]
+                          public static class BrokenFunctions { }
+                          [HELIX.EnableMixins]
+                          [HELIX.MixinImport(typeof(BrokenFunctions))]
+                          public partial class Demo { }
                           """;
     var compilation = CSharpCompilation.Create(
       "InvalidPreparedMixinExpressionTest",

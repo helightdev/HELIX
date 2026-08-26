@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using HELIX.Boot;
-using HELIX.UI.Console;
 using Sirenix.OdinInspector;
 using UnityEngine;
 

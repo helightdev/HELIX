@@ -11,17 +11,6 @@ using static HELIX.SourceGen.GeneratorStrings;
 
 namespace HELIX.SourceGen;
 
-internal sealed record PreparedMixinExpression(
-  string Provider,
-  string Expression,
-  Location Location,
-  MixinExpressionValidationResult Validation
-);
-
-internal sealed record PreparedMixinExpressions(
-  IReadOnlyList<PreparedMixinExpression> Items, MixinExpressionPreparedState State
-);
-
 /// <summary>Evaluates attribute mixins for generated prop-structure datatype configuration.</summary>
 internal static class PropStructMixinApi {
   private const string ConfigureTarget = Members.ConfigureDatatype;
@@ -58,6 +47,14 @@ internal static class PropStructMixinApi {
     out IReadOnlyList<string> configuration,
     out string error
   ) {
+    if (!MixinLibraryApi.TryPrepare(
+      MixinLibraryApi.AttributeOwners(new ISymbol[] { type }.Concat(properties)),
+      out preparedExpressions,
+      out error
+    )) {
+      configuration = null;
+      return false;
+    }
     var model = new PropStructMixinModel();
     var variables = new Dictionary<string, object>(StringComparer.Ordinal);
     var targetDefinitions = TargetDefinitions(type);

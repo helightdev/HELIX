@@ -17,8 +17,8 @@ class HelixExpressionCSharpInjectorTest {
         assertEquals(HelixAttributeKind.EXPRESSION, helixAttributeKind("MixinExpressionAttribute"))
         assertEquals(HelixAttributeKind.EXPRESSION, helixAttributeKind("HELIX.MixinExpression"))
         assertEquals(
-            HelixAttributeKind.PREPARE_GLOBAL,
-            helixAttributeKind("[assembly: global::HELIX.MixinPrepareGlobalAttribute"),
+            HelixAttributeKind.LIBRARY,
+            helixAttributeKind("global::HELIX.MixinLibraryAttribute"),
         )
     }
 

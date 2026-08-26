@@ -10,25 +10,41 @@ using static HELIX.SourceGen.GeneratorStrings;
 
 namespace HELIX.SourceGen;
 
-[Generator(LanguageNames.CSharp)]
-public sealed class PropStructGenerator : IIncrementalGenerator {
-  public void Initialize(IncrementalGeneratorInitializationContext context) {
+internal static class PropStructGenerator {
+  internal static void Register(IncrementalGeneratorInitializationContext context) {
     var structs = context.SyntaxProvider.ForAttributeWithMetadataName(
       Attributes.PropStruct,
       static (node, _) => node is StructDeclarationSyntax,
-      static (ctx, _) => (INamedTypeSymbol)ctx.TargetSymbol
+      static (ctx, _) => CreateTarget(ctx)
     );
-    var preparedExpressions = context.CompilationProvider.Select(
-      static (compilation, _) => MixinGenerator.CollectPreparedExpressions(compilation)
+
+    context.RegisterSourceOutput(
+      structs.Where(static target => !target.GenerateDatatype),
+      static (production, target) => Generate(
+        production, target.Type, null, null, false
+      )
     );
     context.RegisterSourceOutput(
-      structs.Combine(context.CompilationProvider).Combine(preparedExpressions),
-      static (production, input) => Generate(
+      structs.Where(static target => target.GenerateDatatype),
+      static (production, target) => Generate(
         production,
-        input.Left.Left,
-        (CSharpCompilation)input.Left.Right,
-        input.Right.State
+        target.Type,
+        target.Compilation,
+        null,
+        true
       )
+    );
+  }
+
+  private static PropStructTarget CreateTarget(GeneratorAttributeSyntaxContext context) {
+    var type = (INamedTypeSymbol)context.TargetSymbol;
+    var attribute = Attribute(type, Attributes.PropStruct);
+    var generateDatatype = attribute is { ConstructorArguments.Length: > 0 } &&
+      attribute.ConstructorArguments[0].Value is true;
+    return new PropStructTarget(
+      type,
+      generateDatatype ? (CSharpCompilation)context.SemanticModel.Compilation : null,
+      generateDatatype
     );
   }
 
@@ -36,7 +52,8 @@ public sealed class PropStructGenerator : IIncrementalGenerator {
     SourceProductionContext context,
     INamedTypeSymbol type,
     CSharpCompilation compilation,
-    MixinExpressionPreparedState preparedExpressions
+    MixinExpressionPreparedState preparedExpressions,
+    bool generateDatatype
   ) {
     var location = LocationOf(type);
     if (!IsPartial(type)) {
@@ -52,9 +69,6 @@ public sealed class PropStructGenerator : IIncrementalGenerator {
       return;
     }
 
-    var attribute = Attribute(type, Attributes.PropStruct);
-    var generateDatatype = attribute is { ConstructorArguments.Length: > 0 } &&
-      attribute.ConstructorArguments[0].Value is true;
     if (!PropStructApi.TryAnalyze(type, out var props, out var diagnostic, generateDatatype)) {
       context.ReportDiagnostic(diagnostic);
       return;
@@ -62,7 +76,13 @@ public sealed class PropStructGenerator : IIncrementalGenerator {
 
     var mixins = generateDatatype
       ? PropStructMixinApi.Analyze(
-        context, type, props.PropertySymbols, compilation, preparedExpressions
+        context, type, props.PropertySymbols, compilation,
+        MixinLibraryApi.Prepare(
+          context,
+          MixinLibraryApi.AttributeOwners(
+            new ISymbol[] { type }.Concat(props.PropertySymbols)
+          )
+        )
       )
       : new PropStructMixinModel();
     var usings = CollectUsings(type).Concat(mixins.Usings).Distinct().ToArray();
@@ -98,4 +118,10 @@ public sealed class PropStructGenerator : IIncrementalGenerator {
     );
     context.AddSource(wrapper.HintName, source);
   }
+
+  private sealed record PropStructTarget(
+    INamedTypeSymbol Type,
+    CSharpCompilation Compilation,
+    bool GenerateDatatype
+  );
 }

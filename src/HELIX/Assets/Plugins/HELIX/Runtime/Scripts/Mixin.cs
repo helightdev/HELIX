@@ -1,9 +1,10 @@
 using System;
 using HELIX;
+using NUnit.Framework.Constraints;
 
-// MixinCallback method implementation
-[assembly: HELIX.MixinPrepareGlobal(
-  @"
+namespace HELIX {
+  [MixinLibrary(
+    @"
 @FUNC<MixinHookImpl>
   @LOCAL<Name> @attr#target:unwrap
   @SCOPE
@@ -32,19 +33,11 @@ using HELIX;
   @CODE datatype.GetProperty(""@target:name"").Modifiers.Add(@param);
 @END
 "
-)]
-
-namespace HELIX {
-  [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
-  public class MixinPrepareGlobalAttribute : Attribute {
-    public readonly string content;
-
-    public MixinPrepareGlobalAttribute(string content) {
-      this.content = content;
-    }
-  }
+  )]
+  public static class CoreMixinLibrary { }
 
   [AttributeUsage(AttributeTargets.Method)]
+  [MixinImport(typeof(CoreMixinLibrary))]
   [MixinExpression("@CALL<MixinHookImpl>")]
   public class HookAttribute : Attribute {
     public readonly string target;
@@ -53,6 +46,20 @@ namespace HELIX {
     public HookAttribute(string target = null, int order = 0) {
       this.target = target;
       this.order = order;
+    }
+  }
+
+  [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
+  public sealed class MixinImportAttribute : Attribute {
+    public MixinImportAttribute(Type library) { }
+  }
+
+  [AttributeUsage(AttributeTargets.Class, Inherited = false)]
+  public sealed class MixinLibraryAttribute : Attribute {
+    public readonly string content;
+
+    public MixinLibraryAttribute(string content) {
+      this.content = content;
     }
   }
 
@@ -121,6 +128,7 @@ namespace HELIX {
   }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Parameter)]
+  [MixinImport(typeof(CoreMixinLibrary))]
   [MixinExpression("@CALL<SetStructurePropertyDatatype> @attr#datatype:unwrap")]
   public class PropertyDatatypeAttribute : Attribute {
 

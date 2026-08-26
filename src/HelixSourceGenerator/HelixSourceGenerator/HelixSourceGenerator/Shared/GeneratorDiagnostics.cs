@@ -189,6 +189,10 @@ internal static class GeneratorDiagnostics {
       ),
       ContributionData = Hidden(
         "HLXM14", "Mixin contribution data", "{0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}"
+      ),
+      InvalidLibraryImport = Error(
+        "HLXM15", "Mixin library import is invalid",
+        "Mixin library import on '{0}' is invalid: {1}"
       );
   }
 }

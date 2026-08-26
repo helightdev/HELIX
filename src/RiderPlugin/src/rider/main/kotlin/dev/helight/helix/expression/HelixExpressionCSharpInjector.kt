@@ -28,7 +28,7 @@ class HelixExpressionCSharpInjector : MultiHostInjector {
         val literals = PsiTreeUtil.findChildrenOfType(attribute, CSharpStringLiteralExpression::class.java)
             .sortedBy { it.textRange.startOffset }
         val expressionLiteral = when (attributeKind) {
-            HelixAttributeKind.PREPARE_GLOBAL -> literals.firstOrNull()
+            HelixAttributeKind.LIBRARY -> literals.firstOrNull()
             HelixAttributeKind.EXPRESSION -> literals.firstOrNull(::isNamedExpressionArgument)
                 ?: literals.lastOrNull()
         }
@@ -63,7 +63,7 @@ class HelixExpressionCSharpInjector : MultiHostInjector {
 internal fun toHostRelativeRange(absoluteContentRange: TextRange, hostStartOffset: Int): TextRange =
     absoluteContentRange.shiftLeft(hostStartOffset)
 
-internal enum class HelixAttributeKind { EXPRESSION, PREPARE_GLOBAL }
+internal enum class HelixAttributeKind { EXPRESSION, LIBRARY }
 
 internal fun helixAttributeKind(attributeHeader: String): HelixAttributeKind? {
     val compact = attributeHeader.filterNot(Char::isWhitespace)
@@ -77,7 +77,7 @@ internal fun helixAttributeKind(attributeHeader: String): HelixAttributeKind? {
     }.removeSuffix("Attribute")
     return when (simpleName) {
         "MixinExpression" -> HelixAttributeKind.EXPRESSION
-        "MixinPrepareGlobal" -> HelixAttributeKind.PREPARE_GLOBAL
+        "MixinLibrary" -> HelixAttributeKind.LIBRARY
         else -> null
     }
 }

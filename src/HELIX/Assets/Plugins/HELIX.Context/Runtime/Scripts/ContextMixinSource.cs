@@ -1,7 +1,9 @@
 using HELIX;
 
+namespace HELIX.Context {
+
 // Variable guarded event handler mixin block
-[assembly: MixinPrepareGlobal(
+[MixinLibrary(
   @"
 @FUNC<RequireEventHandler>
   @SCOPE
@@ -21,11 +23,10 @@ using HELIX;
   @VAR<IsEventHandler> true
 @END
 "
-)]
+ +
 
 
 // EventHandler method implementation
-[assembly: MixinPrepareGlobal(
   @"
 @FUNC<EventHandlerImpl>
   @CALL<RequireEventHandler>
@@ -53,10 +54,9 @@ using HELIX;
   @END
 @END
 "
-)]
+ +
 
 // Managed implementation
-[assembly: MixinPrepareGlobal(
   @"
 @FUNC<ManagedImpl>
   @USING HELIX.Context;
@@ -89,10 +89,9 @@ using HELIX;
   @END
 @END
 "
-)]
+ +
 
 // Bind method impl
-[assembly: MixinPrepareGlobal(
   @"
 @FUNC<BindImpl>
   @USING HELIX.Context;
@@ -117,9 +116,8 @@ using HELIX;
   @CODE<$LoadManagedLate> @(local#Guard)context.@local#Method(@local#Type, @attr#qualifier, @local#Value);
 @END
 "
-)]
+ +
 // Base implementation for the [Resource] attribute
-[assembly: MixinPrepareGlobal(
   @"
 @FUNC<ResourceImpl>
   @SCOPE
@@ -175,11 +173,10 @@ using HELIX;
   @FAIL No valid injection source found for the collected target type.
 @END
 "
-)]
+ +
 
 
 // Base DI implementation for the [Inject] attribute
-[assembly: MixinPrepareGlobal(
   @"
 @FUNC<InjectDiImpl>
   @USING HELIX.Context;
@@ -208,10 +205,9 @@ using HELIX;
   @CODE<$Init> @target:name = managed.ResolveAll<@target:type#0>(@attr#qualifier) as @target:type;
 @END
 "
-)]
+ +
 
 // Ticker method implementation
-[assembly: MixinPrepareGlobal(
   @"
 @FUNC<TickerImpl>
   @USING HELIX.Context;
@@ -261,3 +257,6 @@ using HELIX;
 @END
 "
 )]
+public static class ContextMixinLibrary { }
+
+}
