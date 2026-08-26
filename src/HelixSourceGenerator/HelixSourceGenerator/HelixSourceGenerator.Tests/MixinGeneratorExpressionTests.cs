@@ -24,6 +24,7 @@ public sealed class MixinGeneratorExpressionTests {
                           [HELIX.MixinExpression(
                             "@PROP_STRUCT<WorkProps><workProps> @target\n" +
                             "@ASSERT @local#workProps:!?structAugment\n" +
+                            "@CODE<CLASS> private void Forward(@local#workProps:structParams) { Work(@local#workProps:structArgs); }\n" +
                             "@CODE<CLASS> private void Dispatch(WorkProps value) { @local#workProps:propStructCall<this.Work><value>; }"
                           )]
                           public sealed class GenerateWorkPropsAttribute : Attribute { }
@@ -58,6 +59,8 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Contains("public static readonly global::HELIX.StructureDatatype<WorkProps> Datatype =", text);
     Assert.Contains("new global::HELIX.ConfigurableStructureDatatype<WorkProps>(", text);
     Assert.Contains("global::HELIX.Boot.CommandBridge.Named(datatype, \"label\");", text);
+    Assert.Contains("Forward(global::System.Int32 count, in global::System.String label)", text);
+    Assert.Contains("Work(count, in label);", text);
     Assert.Contains("this.Work(value.count, in value.label);", text);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
@@ -167,6 +170,8 @@ public sealed class MixinGeneratorExpressionTests {
                             "@ASSERT @local#props:!?structNoArgs\n" +
                             "@ASSERT @local#props:?structAugment\n" +
                             "@CODE<IMPLEMENTS> @attr#Base:makeGeneric<(@this#Props:type)>\n" +
+                            "@CODE<CLASS> private void Expanded(@local#props:structParams) { Consume(@local#props:structArgs); }\n" +
+                            "@CODE<CLASS> private void ExpandedWithPrefix(@local#props:structParams<int extra>) { ConsumeWithPrefix(@local#props:structArgs<extra>); }\n" +
                             "@CODE<CLASS> public const string TargetVisibility = \"@this:visibility\";\n" +
                             "@CODE<CLASS> public const string FieldVisibility = \"@this#hidden:visibility\";\n" +
                             "@CODE<CLASS> public const string ClosedFromLiteral = \"@attr#Base:makeGeneric<System.Int32>\";"
@@ -179,6 +184,8 @@ public sealed class MixinGeneratorExpressionTests {
                           [Generate(typeof(GenericBase<>))]
                           public partial class Demo {
                             private int hidden;
+                            private void Consume(int count) { }
+                            private void ConsumeWithPrefix(int extra, int count) { }
 
                             public partial struct Props : IEquatable<Props> {
                               public int count;
@@ -203,6 +210,10 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Contains("public Props(", text);
     Assert.Contains("public bool Equals", text);
     Assert.Contains("public override int GetHashCode", text);
+    Assert.Contains("Expanded(global::System.Int32 count)", text);
+    Assert.Contains("Consume(count);", text);
+    Assert.Contains("ExpandedWithPrefix(int extra, global::System.Int32 count)", text);
+    Assert.Contains("ConsumeWithPrefix(extra, count);", text);
     Assert.Contains("TargetVisibility = \"public\";", text);
     Assert.Contains("FieldVisibility = \"private\";", text);
     Assert.Contains("ClosedFromLiteral = \"global::GenericBase<global::System.Int32>\";", text);
@@ -218,20 +229,27 @@ public sealed class MixinGeneratorExpressionTests {
                               public MixinExpressionAttribute(string expression) { }
                             }
                           }
+                          public abstract class GenericBase<T> { }
                           [AttributeUsage(AttributeTargets.Class)]
                           [HELIX.MixinExpression(
                             "@AUGMENT_STRUCT<props> @this#Props\n" +
                             "@ASSERT @local#props:!?structHasEquality\n" +
                             "@ASSERT @local#props:?structNoArgs\n" +
                             "@ASSERT @local#props:?structAugment\n" +
-                            "@CODE<CLASS> public const bool NoConstructor = @local#props:?structNoArgs;"
+                            "@CODE<IMPLEMENTS> @attr#Base:makeGeneric<(@this#Props:type)>\n" +
+                            "@CODE<CLASS> public const string GeneratedPropsType = \"@this#Props:type\";\n" +
+                            "@CODE<CLASS> public const bool NoConstructor = @local#props:?structNoArgs;\n" +
+                            "@CODE<CLASS> private void Expanded(@local#props:structParams) { }\n" +
+                            "@CODE<CLASS> private void ExpandedWithPrefix(@local#props:structParams<int extra>) { Consume(@local#props:structArgs<extra>); }"
                           )]
-                          public sealed class GenerateAttribute : Attribute { }
+                          public sealed class GenerateAttribute : Attribute {
+                            public GenerateAttribute(Type Base) { }
+                          }
 
                           [HELIX.EnableMixins]
-                          [Generate]
+                          [Generate(typeof(GenericBase<>))]
                           public partial class Demo {
-                            public partial struct Props { }
+                            private void Consume(int extra) { }
                           }
                           """;
 
@@ -247,9 +265,14 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
       .SourceText.ToString();
-    Assert.Contains("partial struct Props", text);
+    Assert.Contains("partial class Demo : global::GenericBase<global::Demo.Props>", text);
+    Assert.Contains("public struct Props { }", text);
     Assert.DoesNotContain(" Props(", text);
+    Assert.Contains("GeneratedPropsType = \"global::Demo.Props\";", text);
     Assert.Contains("NoConstructor = true;", text);
+    Assert.Contains("Expanded()", text);
+    Assert.Contains("ExpandedWithPrefix(int extra)", text);
+    Assert.Contains("Consume(extra);", text);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 

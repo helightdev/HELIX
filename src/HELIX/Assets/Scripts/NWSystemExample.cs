@@ -18,9 +18,10 @@ namespace HELIX.Examples {
   [BoundaryComposableMixin(Extension = true, UseLookupCache = true)]
   public partial class MyBetterWidget {
     public partial struct Props {
-      [Prop("HELIX.Coloring.Colors.Red", PropInit.Deferred)]
-      public Color color1;
+      [Prop("Colors.Red", PropInit.Deferred)]
+      public Color color;
     }
+
     protected override void OnRecompose(ref Composition cx) { }
   }
 

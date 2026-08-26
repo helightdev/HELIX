@@ -214,6 +214,7 @@ public sealed class MixinExpressionInterpreterTests {
   [InlineData("@CODE @this:makeGeneric", ":makeGeneric requires 1 argument")]
   [InlineData("@CODE @this:visibility<public>", ":visibility requires 0 arguments")]
   [InlineData("@ASSERT @local#props:?structNoArgs<true>", ":structNoArgs requires 0 arguments")]
+  [InlineData("@CODE @local#props:structParams<first><second>", ":structParams accepts at most 1 argument")]
   public void FunctionGrammarRejectsAmbiguousOrInvalidCalls(string expression, string expected) {
     var validation = _interpreter.ValidateSyntax(expression);
 

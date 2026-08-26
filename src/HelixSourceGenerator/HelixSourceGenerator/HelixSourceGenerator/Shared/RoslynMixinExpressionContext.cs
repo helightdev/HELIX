@@ -41,6 +41,8 @@ internal sealed class MixinPropStructHandle {
   internal bool Augmenting { get; }
 }
 
+internal sealed record MixinGeneratedStructReference(string Name, string TypeName);
+
 internal sealed class RoslynMixinExpressionContext :
   IMixinExpressionContext,
   IMixinExpressionSignatureContext,
@@ -60,6 +62,8 @@ internal sealed class RoslynMixinExpressionContext :
   private readonly CSharpCompilation _compilation;
   private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
   private readonly MixinExpressionPreparedState _preparedExpressions;
+  private readonly Dictionary<string, MixinGeneratedStructReference> _generatedStructs =
+    new(StringComparer.Ordinal);
 
   internal RoslynMixinExpressionContext(
     INamedTypeSymbol thisType,
@@ -230,8 +234,29 @@ internal sealed class RoslynMixinExpressionContext :
     handle = null;
     declaration = null;
     error = null;
-    if (syntaxTarget.Properties.Count != 0 ||
-      !TrySubject(syntaxTarget, out var subject, out error)) return false;
+    if (syntaxTarget.Properties.Count != 0) {
+      error = "AUGMENT_STRUCT syntax target cannot have properties";
+      return false;
+    }
+    if (syntaxTarget.Root == "this" && !string.IsNullOrEmpty(syntaxTarget.Member) &&
+      _thisType.GetMembers(syntaxTarget.Member).Length == 0) {
+      if (!IsValidIdentifier(syntaxTarget.Member)) {
+        error = "struct name '" + syntaxTarget.Member + "' is not a valid identifier";
+        return false;
+      }
+      var name = EscapeIdentifier(syntaxTarget.Member);
+      var generated = new MixinGeneratedStructReference(
+        syntaxTarget.Member,
+        _thisType.ToDisplayString(TypeDisplayFormat) + "." + name
+      );
+      _generatedStructs[syntaxTarget.Member] = generated;
+      handle = new MixinPropStructHandle(
+        Array.Empty<PropDefinition>(), PropStructModel.Empty, true
+      );
+      declaration = "public struct " + name + " { }";
+      return true;
+    }
+    if (!TrySubject(syntaxTarget, out var subject, out error)) return false;
     if (subject is not INamedTypeSymbol { TypeKind: TypeKind.Struct } type) {
       error = "AUGMENT_STRUCT syntax target must resolve to a struct";
       return false;
@@ -295,6 +320,12 @@ internal sealed class RoslynMixinExpressionContext :
       case "structAugment":
         value = propStruct.Augmenting;
         return true;
+      case "structParams":
+        value = JoinStructParts(property.Argument, propStruct.Model.ParameterParts);
+        return true;
+      case "structArgs":
+        value = JoinStructParts(property.Argument, propStruct.Model.ArgumentParts);
+        return true;
       case "propStructCall":
         break;
       default:
@@ -322,6 +353,14 @@ internal sealed class RoslynMixinExpressionContext :
     });
     value = target + "(" + string.Join(", ", arguments) + ")";
     return true;
+  }
+
+  private static string JoinStructParts(string prefix, IReadOnlyList<string> parts) {
+    var hasPrefix = !string.IsNullOrWhiteSpace(prefix);
+    if (!hasPrefix) return string.Join(", ", parts);
+    return parts.Count == 0
+      ? prefix
+      : prefix + ", " + string.Join(", ", parts);
   }
 
   public bool TryResolveMixin(string target, out string callable, out string error) {
@@ -454,6 +493,8 @@ internal sealed class RoslynMixinExpressionContext :
       return method.Parameters.FirstOrDefault(item => item.Name == name) ??
         method.Parameters.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
     }
+    if (SymbolEqualityComparer.Default.Equals(subject as ISymbol, _thisType) &&
+      _generatedStructs.TryGetValue(name, out var generatedStruct)) return generatedStruct;
     var type = AsType(subject);
     if (type is null) return null;
     for (var current = type; current is not null; current = current.BaseType) {
@@ -514,10 +555,12 @@ internal sealed class RoslynMixinExpressionContext :
           subject = NameOf(subject);
           break;
         case "type":
-          subject = AsType(subject);
+          if (subject is not MixinGeneratedStructReference) subject = AsType(subject);
           break;
         case "fullName":
-          subject = FullNameOf(subject);
+          subject = subject is MixinGeneratedStructReference generated
+            ? generated.TypeName.Replace("global::", "")
+            : FullNameOf(subject);
           break;
         case "unwrap":
           subject = Unwrap(subject);
@@ -582,8 +625,24 @@ internal sealed class RoslynMixinExpressionContext :
           var genericArgument = TypeValueOf(property.Values[0]) ??
             ResolveType(property.Arguments[0]);
           if (genericArgument is null) {
-            error = ":makeGeneric type argument '" + property.Arguments[0] + "' was not found";
-            return false;
+            if (!_generatedStructs.Values.Any(item =>
+              string.Equals(item.TypeName, property.Arguments[0], StringComparison.Ordinal) ||
+              string.Equals(
+                item.TypeName.Replace("global::", ""),
+                property.Arguments[0].Replace("global::", ""),
+                StringComparison.Ordinal
+              )
+            )) {
+              error = ":makeGeneric type argument '" + property.Arguments[0] + "' was not found";
+              return false;
+            }
+            var openType = genericType.ConstructedFrom.ToDisplayString(
+              SymbolDisplayFormat.FullyQualifiedFormat.WithGenericsOptions(
+                SymbolDisplayGenericsOptions.None
+              )
+            );
+            subject = openType + "<" + property.Arguments[0] + ">";
+            break;
           }
           subject = genericType.ConstructedFrom.Construct(genericArgument);
           break;
@@ -618,6 +677,8 @@ internal sealed class RoslynMixinExpressionContext :
 
   private static object Unwrap(object subject) {
     switch (subject) {
+      case MixinGeneratedStructReference generated:
+        return generated.TypeName.Replace("global::", "");
       case TypedConstant { Kind: TypedConstantKind.Type, Value: ITypeSymbol type }:
         return UnqualifiedGlobalName(type);
       case TypedConstant { Value: string text }:
@@ -1012,6 +1073,7 @@ internal sealed class RoslynMixinExpressionContext :
 
   private static string NameOf(object subject) {
     return subject switch {
+      MixinGeneratedStructReference generated => generated.Name,
       ISymbol symbol => symbol.Name,
       AttributeData attribute => attribute.AttributeClass?.Name,
       TypedConstant constant => Convert.ToString(constant.Value, CultureInfo.InvariantCulture),
@@ -1045,6 +1107,9 @@ internal sealed class RoslynMixinExpressionContext :
     switch (subject) {
       case string text:
         value = text;
+        return true;
+      case MixinGeneratedStructReference generated:
+        value = generated.TypeName;
         return true;
       case INamedTypeSymbol when root is "this" or "target":
         value = "this";

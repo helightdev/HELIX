@@ -90,6 +90,10 @@ Boolean Pseudo Properties may be inverted with :!?. Example @this:!?static => Th
 - `:propStructCall<TARGET><VARIABLE>` | Generates a call to the string TARGET (Possibly the method name or reference)
   expecting an instance of the prop being accessible through the string VARIABLE. Generates the call signature by
   unwrapping the struct into the method call. Must be called on a prop struct handle.
+- `:structParams` / `:structParams<PREFIX>` | Returns the prop struct's comma-separated constructor parameter
+  declarations. An optional prefix is prepended and joined with a comma only when parameters exist.
+- `:structArgs` / `:structArgs<PREFIX>` | Returns the prop struct's comma-separated constructor/call arguments,
+  preserving parameter modifiers. An optional prefix is prepended and joined with a comma only when arguments exist.
 - `:makeGeneric<TYPE>` | Makes an unbound generic type into a bound generic type with the given type parameter.
 - `:visibility` | Returns the visibility of a type or member (public, private, internal, protected...)
 
@@ -158,7 +162,9 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
 - `@PROP_STRUCT<StructName><LocalLabel>` SyntaxTarget | Generates a prop struct with the given name for syntax target
   and assigns a reference handle to the local variable at local label.
 - `@AUGMENT_STRUCT<LocalLabel>` SyntaxTarget | Augments the prop struct with the given name for syntax target
-  and assigns a reference handle to the local variable at local label.
+  and assigns a reference handle to the local variable at local label. When a direct `@this#StructName` target does
+  not exist, declares an empty public struct with that name; the generated type remains available to later references
+  in the same expression.
 
 Note: Multiple boolean expressions per matcher / assertions are combined into an AND
 Note: Code lines are buffered until the end of the expression's execution and only then applied

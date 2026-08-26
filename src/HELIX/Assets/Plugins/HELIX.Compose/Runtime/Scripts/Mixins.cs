@@ -5,11 +5,12 @@ namespace HELIX.Compose {
   [MixinExpression(
     @"
 @USING HELIX.Compose;
+@USING HELIX.Coloring;
 @LOCAL<Name> @target:name
 
 @SCOPE
   @MATCH @attr#Name:!?eq<null>
-  @LOCAL<Name> @attr#Name
+  @LOCAL<Name> @attr#Name:unwrap
 @END
 
 @SCOPE<ResolveDefaultName>
@@ -32,18 +33,20 @@ namespace HELIX.Compose {
 @END
 
 @CODE<CLASS> public static ref ElementRef ComposeBoundary(
-  @\ ref Composition cx, Props props
-  @\) { 
-  @\  cx.AUTHORING.PropsBoundaryStateComposable<@this:type, Props>(@local#ExtensionName.typeId, out var node, out _, out var attachment);
-  @\  attachment.ReceiveProps(props); 
-  @\  node.composable = null; 
-  @\  return ref cx.AUTHORING.YieldBoundary(ref cx, node); 
+  @\ @local#PropsModel:structParams<ref Composition cx>
+  @\) {
+  @\  cx.AUTHORING.PropsBoundaryStateComposable<@this:type, Props>(
+  @\    @local#ExtensionName.typeId, out var node, out _, out var attachment
+  @\  );
+  @\  var props = new Props(@local#PropsModel:structArgs);
+  @\  attachment.ReceiveProps(props);
+  @\  node.composable = null;
+  @\  return ref cx.AUTHORING.YieldBoundary(ref cx, node);
   @\}
 
 @SCOPE<NoArgs>
   @MATCH @local#PropsModel:?structNoArgs
-  @CODE<CLASS> public static ref ElementRef ComposeBoundary(ref Composition cx) => ref ComposeBoundary(ref cx, default);
-    @\public static readonly Composable BakedComposable = static (ref Composition cx) => { ComposeBoundary(ref cx); };
+  @CODE<CLASS> public static readonly Composable BakedComposable = static (ref Composition cx) => { ComposeBoundary(ref cx); };
 @END
 
 @CODE<CLASS> public override void OnRecompose(
@@ -51,7 +54,8 @@ namespace HELIX.Compose {
   @\) { 
   @\  var transfer = new CompositionInternals.TransferData();
   @\  CompositionInternals.EnterComposition(ref cx, @local#ExtensionName.compositionId, ref transfer);
-  @\  try { @attr#UseLookupCache:switch<boundary.UseLookupCache();><> base.OnRecompose(ref cx, state, boundary);
+  @\  try { 
+  @\    @attr#UseLookupCache:switch<boundary.UseLookupCache();><> base.OnRecompose(ref cx, state, boundary);
   @\  } finally { 
   @\    CompositionInternals.ExitComposition(ref cx, ref transfer); 
   @\  } 
@@ -64,10 +68,12 @@ namespace HELIX.Compose {
 
 @SCOPE<Extension>
   @MATCH @attr#Extension
-  @CODE<FILE> @this:visibility static class @(local#Name)CompositionExtensions { 
-    @\  public static ref ElementRef @local#Name
-    @+(ref this Composition cx, @this#Props:type props)
-    @+ => ref @this:type.ComposeBoundary(ref cx, props); 
+  @CODE<FILE> @this:visibility static class @(local#Name)CompositionExtensions {
+    @\  public static ref ElementRef @local#Name(
+    @\    @local#PropsModel:structParams<ref this Composition cx>
+    @\  ) => ref @this:type.ComposeBoundary(
+    @\    @local#PropsModel:structArgs<ref cx>
+    @\  );
     @\}
 @END
 "

@@ -2014,7 +2014,14 @@ public sealed class MixinExpressionInterpreter {
       }
       value = true;
       foreach (var predicate in predicates) {
-        var item = predicate.Name == "exists" && stored is not null ||
+        bool item;
+        if (predicate.Name is "structHasEquality" or "structNoArgs" or "structAugment") {
+          if (context is not IMixinExpressionPropStructContext propStructContext ||
+            !propStructContext.TryApplyPropStructProperty(
+              stored, predicate, out var predicateValue, out error
+            )) return false;
+          item = predicateValue is true;
+        } else item = predicate.Name == "exists" && stored is not null ||
           predicate.Name == "eq" && RelaxedEquals(stored, predicate.Values[0]) ||
           predicate.Name == "matches" && RegexMatches(RenderValue(stored), predicate.Argument, out error) ||
           predicate.Name == "has" && TableContainsValue(stored, predicate.Values[0]);
@@ -2157,11 +2164,12 @@ public sealed class MixinExpressionInterpreter {
       error = "unknown @" + reference.Root + " value '" + reference.Member + "'";
       return true;
     }
-    var propStructCallIndex = reference.Properties.ToList()
-      .FindIndex(property => property.Name == "propStructCall");
-    if (propStructCallIndex >= 0) {
-      if (propStructCallIndex != 0) {
-        error = ":propStructCall must be the first property applied to a prop struct handle";
+    var propStructOperationIndex = reference.Properties.ToList()
+      .FindIndex(property => property.Name is "propStructCall" or "structParams" or "structArgs");
+    if (propStructOperationIndex >= 0) {
+      var operation = reference.Properties[propStructOperationIndex];
+      if (propStructOperationIndex != 0) {
+        error = ":" + operation.Name + " must be the first property applied to a prop struct handle";
         return true;
       }
       if (context is not IMixinExpressionPropStructContext propStructContext) {
@@ -2169,7 +2177,7 @@ public sealed class MixinExpressionInterpreter {
         return true;
       }
       if (!propStructContext.TryApplyPropStructProperty(
-        value, reference.Properties[0], out value, out error
+        value, operation, out value, out error
       )) return true;
       reference = new MixinExpressionReference(
         reference.Root, reference.Member, reference.Properties.Skip(1).ToArray()
@@ -2455,6 +2463,11 @@ public sealed class MixinExpressionInterpreter {
     out string error
   ) {
     error = null;
+    if (property.Name is "structParams" or "structArgs") {
+      if (property.Arguments.Count <= 1) return true;
+      error = ":" + property.Name + " accepts at most 1 argument";
+      return false;
+    }
     int expected;
     switch (property.Name) {
       case "replace":
