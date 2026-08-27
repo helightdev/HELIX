@@ -264,7 +264,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = true, Name = "DynamicFlexGroup", UseLookupCache = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(name: "DynamicFlexGroup", extension: true, cacheLookups: true)]
   public partial class DynamicFlexGroupBoundary {
     public partial struct Props {
       public DynamicComposableController<DynamicFlexLayout> controller;
@@ -312,7 +313,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = true, Name = "DynamicScrollGroup", UseLookupCache = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(name: "DynamicScrollGroup", extension: true, cacheLookups: true)]
   public partial class DynamicScrollGroupBoundary {
     public partial struct Props {
       public DynamicComposableController<DynamicFlexLayout> controller;
@@ -348,7 +350,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = true, Name = "DynamicStack", UseLookupCache = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(name: "DynamicStack", extension: true, cacheLookups: true)]
   public partial class DynamicStackBoundary {
     public partial struct Props {
       public DynamicComposableController<DynamicStackLayout> controller;

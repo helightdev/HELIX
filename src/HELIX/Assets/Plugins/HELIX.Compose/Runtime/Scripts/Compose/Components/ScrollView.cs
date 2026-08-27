@@ -8,7 +8,7 @@ using NativeScrollView = UnityEngine.UIElements.ScrollView;
 
 namespace HELIX.Compose {
 
-  [ComposableProxy(Extension = false)]
+  [EnableMixins]
   public sealed partial class HXScrollViewElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassViewport = new("hx-scroll-view-viewport");
     public static readonly UniqueStyleString ClassContent = new("hx-scroll-view-content");
@@ -54,6 +54,7 @@ namespace HELIX.Compose {
       OnGeometryChanged?.Invoke(evt);
     }
 
+    [ComposableMethod]
     public void Update(
       [Prop] IBoundary boundary,
       [Prop(null)] Action<GeometryChangedEvent> onChanged,
@@ -77,7 +78,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false)]
+  [EnableMixins]
+  [BoundaryComposableMixin]
   public partial class ScrollViewBoundary {
     public partial struct Props {
       [Prop(null)] public ScrollerSliderController controller;

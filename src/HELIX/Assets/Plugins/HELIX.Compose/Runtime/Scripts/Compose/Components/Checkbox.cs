@@ -54,7 +54,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), extension: true)]
   public partial class Checkbox {
     public partial struct Props {
       [Prop(null)] public bool? value;
@@ -128,7 +129,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), extension: true)]
   public partial class RawCheckbox {
     public partial struct Props {
       [Prop] public bool value;

@@ -220,7 +220,8 @@ namespace HELIX.Compose {
     void PreviewItem(int index, CompositionBoundaryNodeBase item);
   }
 
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = false)]
+  [EnableMixins]
+  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>))]
   internal partial class PopupMenuItemBoundary {
     public partial struct Props {
       public IPopupMenuItemOwner owner;
@@ -261,7 +262,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = false, Name = "DropdownButton")]
+  [EnableMixins]
+  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), name: "DropdownButton")]
   public partial class HXDropdownButton : IPopupMenuItemOwner {
     public partial struct Props {
       [Prop(null)] public DropdownController controller;
@@ -410,7 +412,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true, Name = "MenuButton")]
+  [EnableMixins]
+  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), name: "MenuButton", extension: true)]
   public partial class HXMenuButton {
     public partial struct Props {
       public Composable content;

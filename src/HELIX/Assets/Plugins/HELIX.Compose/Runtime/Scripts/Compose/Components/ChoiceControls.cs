@@ -56,7 +56,8 @@ namespace HELIX.Compose {
     void Select(int index);
   }
 
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = false)]
+  [EnableMixins]
+  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>))]
   internal partial class SegmentedChoiceItem {
     public partial struct Props {
       public int index;

@@ -129,7 +129,8 @@ namespace HELIX.Compose {
     internal static readonly ReadComposable<T> Checkbox = ControlSpecFactories.Checkbox;
   }
 
-  [BoundaryComposable(Extension = false, UseLookupCache = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(cacheLookups: true)]
   internal partial class ControlSpecBoundary {
     public partial struct Props {
       public Composable content;

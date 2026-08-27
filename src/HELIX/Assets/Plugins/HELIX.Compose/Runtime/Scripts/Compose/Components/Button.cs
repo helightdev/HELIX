@@ -2,7 +2,8 @@ using HELIX.Theming;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true, Name = "Button")]
+  [EnableMixins]
+  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), name: "Button", extension: true)]
   public partial class HXButton {
     public partial struct Props {
       public Composable content;

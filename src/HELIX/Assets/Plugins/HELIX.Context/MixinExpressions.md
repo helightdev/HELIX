@@ -159,8 +159,11 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
    otherwise null. This is intended to be used for wiring and allowing dynamic signature checks.
 - `@PUT<LABEL><KEY>` Expression | Shorthand helper for table :put with a given key into a local variable
 - `@PUSH<LABEL>` Expression | Shorthand helper for table :push into a local variable
-- `@PROP_STRUCT<StructName><LocalLabel>` SyntaxTarget | Generates a prop struct with the given name for syntax target
-  and assigns a reference handle to the local variable at local label.
+- `@PROP_STRUCT<StructName><LocalLabel>[<datatype>][<noGenerate>]` SyntaxTarget | Analyzes the syntax target as
+  a prop struct and assigns its reference handle to the local variable at local label. By default it declares the
+  struct without a datatype member. The optional `datatype` flag includes the datatype member when the struct is
+  generated. The optional `noGenerate` flag suppresses the complete struct declaration while still returning the
+  handle. Flags may be supplied in either order.
 - `@AUGMENT_STRUCT<LocalLabel>` SyntaxTarget | Augments the prop struct with the given name for syntax target
   and assigns a reference handle to the local variable at local label. When a direct `@this#StructName` target does
   not exist, declares an empty public struct with that name; the generated type remains available to later references

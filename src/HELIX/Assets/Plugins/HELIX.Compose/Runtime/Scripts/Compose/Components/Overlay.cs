@@ -440,7 +440,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [ComposableProxy(Extension = false)]
+  [EnableMixins]
   public sealed partial class HXOverlayHostElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassContent = new("hx-overlay-host-content");
     public static readonly UniqueStyleString ClassLayer = new("hx-overlay-host-layer");
@@ -472,6 +472,7 @@ namespace HELIX.Compose {
       _layer.RegisterCallback<GeometryChangedEvent>(OnLayerGeometryChanged);
     }
 
+    [ComposableMethod]
     public void Update([Prop] IBoundary boundary, [Prop] OverlayController controller) {
       Boundary = boundary;
       _controller = controller;
@@ -588,7 +589,8 @@ namespace HELIX.Compose {
     private void OnLayerGeometryChanged(GeometryChangedEvent evt) => RequestPlacement();
   }
 
-  [BoundaryComposable(Extension = false)]
+  [EnableMixins]
+  [BoundaryComposableMixin]
   public partial class OverlayHostBoundary {
     public partial struct Props {
       [Prop(null)] public OverlayController controller;

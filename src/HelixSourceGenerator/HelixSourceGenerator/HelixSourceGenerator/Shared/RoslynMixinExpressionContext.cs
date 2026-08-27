@@ -47,6 +47,7 @@ internal sealed class RoslynMixinExpressionContext :
   IMixinExpressionContext,
   IMixinExpressionSignatureContext,
   IMixinExpressionPropStructContext,
+  IMixinExpressionConfigurablePropStructContext,
   IMixinExpressionStructAugmentationContext {
   private static readonly SymbolDisplayFormat FullNameDisplayFormat =
     SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
@@ -148,6 +149,19 @@ internal sealed class RoslynMixinExpressionContext :
     out object handle,
     out string declaration,
     out string error
+  ) => TryCreatePropStruct(
+    structName, syntaxTarget, false, true,
+    out handle, out declaration, out error
+  );
+
+  public bool TryCreatePropStruct(
+    string structName,
+    MixinExpressionReference syntaxTarget,
+    bool generateDatatype,
+    bool generateDeclaration,
+    out object handle,
+    out string declaration,
+    out string error
   ) {
     handle = null;
     declaration = null;
@@ -190,14 +204,18 @@ internal sealed class RoslynMixinExpressionContext :
       error = diagnostic.GetMessage(CultureInfo.InvariantCulture);
       return false;
     }
-    if (!PropStructMixinApi.TryAnalyzeInlineConfiguration(
-      _thisType,
-      props.Select(prop => prop.Symbol).ToArray(),
-      _compilation,
-      _preparedExpressions,
-      out var configuration,
-      out error
-    )) return false;
+    handle = new MixinPropStructHandle(props, model, false);
+    if (!generateDeclaration) return true;
+
+    IReadOnlyList<string> configuration = Array.Empty<string>();
+    if (generateDatatype && !PropStructMixinApi.TryAnalyzeInlineConfiguration(
+        _thisType,
+        props.Select(prop => prop.Symbol).ToArray(),
+        _compilation,
+        _preparedExpressions,
+        out configuration,
+        out error
+      )) return false;
 
     var escapedName = EscapeIdentifier(structName);
     var builder = new SharpStringBuilder();
@@ -216,11 +234,12 @@ internal sealed class RoslynMixinExpressionContext :
           true
         )) model.AppendAssignments(builder, "this");
       }
-      builder.BlankLine();
-      PropStructApi.AnalyzeDatatype(escapedName, structName, props)
-        .AppendMember(builder, configuration);
+      if (generateDatatype) {
+        builder.BlankLine();
+        PropStructApi.AnalyzeDatatype(escapedName, structName, props)
+          .AppendMember(builder, configuration);
+      }
     }
-    handle = new MixinPropStructHandle(props, model, false);
     declaration = builder.ToString();
     return true;
   }

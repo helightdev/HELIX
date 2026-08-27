@@ -15,7 +15,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Examples {
   [EnableMixins]
-  [BoundaryComposableMixin(Extension = true, UseLookupCache = true)]
+  [BoundaryComposableMixin(extension: true, cacheLookups: true)]
   public partial class MyBetterWidget {
     public partial struct Props {
       [Prop("Colors.Red", PropInit.Deferred)]
@@ -34,7 +34,8 @@ namespace HELIX.Examples {
     }
   }
 
-  [BoundaryComposable(Extension = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(extension: true)]
   public partial class NWSystemExample {
     protected override void OnRecompose(ref Composition cx) {
       var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark).Copy();
@@ -70,7 +71,8 @@ namespace HELIX.Examples {
     }
   }
 
-  [BoundaryComposable]
+  [EnableMixins]
+  [BoundaryComposableMixin]
   public partial class HomeComposable {
     public enum ExampleMode : byte { Balanced, Performance, Quality }
 
@@ -176,8 +178,7 @@ namespace HELIX.Examples {
     private OverlayController _overlayController;
     private OptionPages _optionPages;
 
-    public override void OnAttach(BoundaryData data, IBoundary boundary) {
-      base.OnAttach(data, boundary);
+    protected override void OnAttach() {
       _iconFont = Resources.Load<FontAsset>("helix/fa/FontAwesome7FreeSolid");
       _tabNavigationGraph = NavigationGraph.Builder(TabNavigation)
         .Route(
@@ -247,7 +248,7 @@ namespace HELIX.Examples {
       _overlayController = new OverlayController();
     }
 
-    public override void OnDetach(BoundaryData data, IBoundary boundary) {
+    protected override void OnDetach() {
       _tabNavigationController?.Dispose();
       if (_navigationController != null) _navigationController.onLifecycle = null;
       _navigationController?.Dispose();
@@ -264,7 +265,6 @@ namespace HELIX.Examples {
       _tabNavigationGraph = null;
       _navigationGraph = null;
       _dialogNavigationGraph = null;
-      base.OnDetach(data, boundary);
     }
 
     protected override void OnRecompose(ref Composition cx) {
@@ -286,6 +286,16 @@ namespace HELIX.Examples {
           .Flexible()
           .Overflow(Overflow.Hidden);
       }
+    }
+
+    [Hook]
+    public void OnInit() {
+
+    }
+
+    [Hook]
+    public void OnDispose() {
+
     }
 
     private static void ComposeNavigationTab(ref Composition cx, NavigationContextData navigation) =>

@@ -222,6 +222,27 @@ public sealed class MixinExpressionInterpreterTests {
     Assert.Contains(expected, validation.Error);
   }
 
+  [Theory]
+  [InlineData("@PROP_STRUCT<Props><props><unknown> @target", "unknown PROP_STRUCT flag 'unknown'")]
+  [InlineData("@PROP_STRUCT<Props><props><datatype><DATATYPE> @target", "specified more than once")]
+  [InlineData("@PROP_STRUCT<Props><props><datatype><noGenerate><extra> @target", "accepts at most 4 arguments")]
+  public void PropStructDirectiveRejectsInvalidFlags(string expression, string expected) {
+    var validation = _interpreter.ValidateSyntax(expression);
+
+    Assert.False(validation.Success);
+    Assert.Contains(expected, validation.Error);
+  }
+
+  [Theory]
+  [InlineData("@PROP_STRUCT<Props><props> @target")]
+  [InlineData("@PROP_STRUCT<Props><props><datatype> @target")]
+  [InlineData("@PROP_STRUCT<Props><props><noGenerate><datatype> @target")]
+  public void PropStructDirectiveAcceptsOptionalFlags(string expression) {
+    var validation = _interpreter.ValidateSyntax(expression);
+
+    Assert.True(validation.Success, validation.Error);
+  }
+
   [Fact]
   public void InterpolatesReferencesAndStoredValues() {
     var variables = new Dictionary<string, object>();

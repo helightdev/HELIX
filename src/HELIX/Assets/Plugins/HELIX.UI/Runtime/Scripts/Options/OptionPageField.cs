@@ -58,7 +58,8 @@ namespace HELIX.UI.Options {
     }
   }
 
-  [BoundaryComposable(Extension = false)]
+  [EnableMixins]
+  [BoundaryComposableMixin]
   public partial class OptionPageFieldElement {
     public partial struct Props {
       public FormController form;
@@ -116,7 +117,8 @@ namespace HELIX.UI.Options {
     private void OnFocusIn(FocusInEvent evt) => _controller?.Show(props.presentation);
   }
 
-  [BoundaryComposable(Extension = false)]
+  [EnableMixins]
+  [BoundaryComposableMixin]
   public partial class OptionPageTooltipElement {
     public partial struct Props {
       [Prop(null)] public Composable trigger;

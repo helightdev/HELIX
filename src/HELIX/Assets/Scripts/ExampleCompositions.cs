@@ -1,3 +1,4 @@
+using HELIX;
 using HELIX.Coloring;
 using HELIX.Compose;
 using HELIX.Signals;
@@ -7,6 +8,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace TestNamespace {
+  [EnableMixins]
   public static partial class ExampleCompositions {
     public static ulong counter = 0;
     public static readonly Signal<int> CounterSignal = Signal.Value(0);
@@ -14,7 +16,7 @@ namespace TestNamespace {
     public static readonly SpecConfig MyFactory = new SpecConfig(SpecConfig.Default)
       .AddFactory<ButtonSpecs>(ButtonSpecDrawer);
 
-    [Composition]
+    [ComposableDelegate]
     private static void _MyComposition(ref Composition cx) {
       var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark);
       counter++;
@@ -136,7 +138,7 @@ namespace TestNamespace {
       }
     }
 
-    [Composition]
+    [ComposableDelegate]
     public static void _InnerComposition(ref Composition cx) {
       new ButtonSpecs {
         Label = "Click me from InnerComposition", OnClick = static x => {

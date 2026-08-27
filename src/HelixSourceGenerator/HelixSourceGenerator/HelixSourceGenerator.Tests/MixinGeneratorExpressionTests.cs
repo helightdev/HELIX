@@ -22,7 +22,7 @@ public sealed class MixinGeneratorExpressionTests {
                           }
                           [AttributeUsage(AttributeTargets.Method)]
                           [HELIX.MixinExpression(
-                            "@PROP_STRUCT<WorkProps><workProps> @target\n" +
+                            "@PROP_STRUCT<WorkProps><workProps><datatype> @target\n" +
                             "@ASSERT @local#workProps:!?structAugment\n" +
                             "@CODE<CLASS> private void Forward(@local#workProps:structParams) { Work(@local#workProps:structArgs); }\n" +
                             "@CODE<CLASS> private void Dispatch(WorkProps value) { @local#workProps:propStructCall<this.Work><value>; }"
@@ -76,7 +76,7 @@ public sealed class MixinGeneratorExpressionTests {
                           }
                           [AttributeUsage(AttributeTargets.Class)]
                           [HELIX.MixinExpression(
-                            "@PROP_STRUCT<Snapshot><snapshot> @target\n" +
+                            "@PROP_STRUCT<Snapshot><snapshot><datatype> @target\n" +
                             "@CODE<CLASS> private void Dispatch(Snapshot value) { @local#snapshot:propStructCall<Consume><value>; }"
                           )]
                           public sealed class GenerateSnapshotAttribute : Attribute { }
@@ -149,6 +149,49 @@ public sealed class MixinGeneratorExpressionTests {
       .SourceText.ToString();
     Assert.Contains("public struct WorkProps", text);
     Assert.DoesNotContain("public WorkProps(", text);
+    Assert.DoesNotContain("StructureDatatype<WorkProps>", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
+  public void PropStructNoGenerateFlagOnlyReturnsTheHandle() {
+    const string source = "using System;\n" + """
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          [AttributeUsage(AttributeTargets.Method)]
+                          [HELIX.MixinExpression(
+                            "@PROP_STRUCT<WorkProps><workProps><noGenerate><datatype> @target\n" +
+                            "@ASSERT @local#workProps:!?structNoArgs\n" +
+                            "@CODE<CLASS> private void Forward(@local#workProps:structParams) { Work(@local#workProps:structArgs); }"
+                          )]
+                          public sealed class GenerateWorkPropsAttribute : Attribute { }
+
+                          [HELIX.EnableMixins]
+                          public partial class Demo {
+                            [GenerateWorkProps] private void Work(int count) { }
+                          }
+                          """;
+
+    var compilation = CSharpCompilation.Create(
+      "NoGenerateMethodPropStructExpressionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.DoesNotContain("public struct WorkProps", text);
+    Assert.DoesNotContain("StructureDatatype<WorkProps>", text);
+    Assert.Contains("Forward(global::System.Int32 count)", text);
+    Assert.Contains("Work(count);", text);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 

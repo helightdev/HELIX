@@ -176,6 +176,19 @@ public interface IMixinExpressionPropStructContext {
   );
 }
 
+/// <summary>Optional host support for configuring prop struct declaration generation.</summary>
+public interface IMixinExpressionConfigurablePropStructContext : IMixinExpressionPropStructContext {
+  bool TryCreatePropStruct(
+    string structName,
+    MixinExpressionReference syntaxTarget,
+    bool generateDatatype,
+    bool generateDeclaration,
+    out object handle,
+    out string declaration,
+    out string error
+  );
+}
+
 /// <summary>Optional host support for augmenting an existing prop struct.</summary>
 public interface IMixinExpressionStructAugmentationContext {
   bool TryAugmentPropStruct(
@@ -1008,14 +1021,48 @@ public sealed class MixinExpressionInterpreter {
           if (parsed.StringExpression is not { Count: 1 } ||
             parsed.StringExpression[0].Reference is null)
             return Failure("PROP_STRUCT syntax target must be a single reference", lineNumber, logs);
-          if (!propStructContext.TryCreatePropStruct(
-            propStructName, parsed.StringExpression[0].Reference,
-            out var propStructHandle, out var propStructDeclaration, out var propStructError
-          )) return Failure(propStructError, lineNumber, logs);
+          var generatePropStructDatatype = false;
+          var generatePropStructDeclaration = true;
+          for (var flagIndex = 2; flagIndex < parsed.Arguments.Count; flagIndex++) {
+            if (!TryResolveDirectiveArgument(
+              parsed.Arguments[flagIndex], context, locals, pendingVariables, out var flag,
+              out var flagError
+            )) return Failure(flagError, lineNumber, logs);
+            if (string.Equals(flag, "datatype", StringComparison.OrdinalIgnoreCase)) {
+              if (generatePropStructDatatype)
+                return Failure("PROP_STRUCT flag 'datatype' was specified more than once", lineNumber, logs);
+              generatePropStructDatatype = true;
+            } else if (string.Equals(flag, "noGenerate", StringComparison.OrdinalIgnoreCase)) {
+              if (!generatePropStructDeclaration)
+                return Failure("PROP_STRUCT flag 'noGenerate' was specified more than once", lineNumber, logs);
+              generatePropStructDeclaration = false;
+            } else {
+              return Failure("unknown PROP_STRUCT flag '" + flag + "'", lineNumber, logs);
+            }
+          }
+          object propStructHandle;
+          string propStructDeclaration;
+          string propStructError;
+          if (propStructContext is IMixinExpressionConfigurablePropStructContext configurablePropStructContext) {
+            if (!configurablePropStructContext.TryCreatePropStruct(
+              propStructName, parsed.StringExpression[0].Reference,
+              generatePropStructDatatype && generatePropStructDeclaration,
+              generatePropStructDeclaration,
+              out propStructHandle, out propStructDeclaration, out propStructError
+            )) return Failure(propStructError, lineNumber, logs);
+          } else {
+            if (generatePropStructDatatype || !generatePropStructDeclaration)
+              return Failure("the expression context does not support configurable prop structs", lineNumber, logs);
+            if (!propStructContext.TryCreatePropStruct(
+              propStructName, parsed.StringExpression[0].Reference,
+              out propStructHandle, out propStructDeclaration, out propStructError
+            )) return Failure(propStructError, lineNumber, logs);
+          }
           locals[propStructLocal] = propStructHandle;
-          outputs.Add(new MixinExpressionOutput(
-            MixinExpressionOutputTarget.Class, propStructDeclaration
-          ));
+          if (generatePropStructDeclaration)
+            outputs.Add(new MixinExpressionOutput(
+              MixinExpressionOutputTarget.Class, propStructDeclaration
+            ));
           break;
         case "AUGMENT_STRUCT":
           if (context is not IMixinExpressionStructAugmentationContext augmentStructContext)
@@ -1221,7 +1268,11 @@ public sealed class MixinExpressionInterpreter {
   ) {
     error = null;
     var argument = arguments.Count == 0 ? null : arguments[0];
-    var maximumArguments = command is "MIXIN" or "PUT" or "PROP_STRUCT" ? 2 : 1;
+    var maximumArguments = command switch {
+      "PROP_STRUCT" => 4,
+      "MIXIN" or "PUT" => 2,
+      _ => 1
+    };
     if (arguments.Count > maximumArguments) {
       error = command + " accepts at most " + maximumArguments +
         (maximumArguments == 1 ? " argument" : " arguments");
@@ -1237,7 +1288,7 @@ public sealed class MixinExpressionInterpreter {
       case "PUT" when arguments.Count != 2:
         error = "PUT requires a local name and key";
         return false;
-      case "PROP_STRUCT" when arguments.Count != 2 ||
+      case "PROP_STRUCT" when arguments.Count < 2 ||
         string.IsNullOrEmpty(arguments[0]) || string.IsNullOrEmpty(arguments[1]):
         error = "PROP_STRUCT requires a struct name and local name";
         return false;
@@ -1251,9 +1302,25 @@ public sealed class MixinExpressionInterpreter {
         string.IsNullOrEmpty(argument):
         error = command + " requires a name";
         return false;
+      case "PROP_STRUCT":
+        var propStructFlags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 2; index < arguments.Count; index++) {
+          var flag = arguments[index];
+          if (flag.Length >= 2 && flag[0] == '(' && flag[flag.Length - 1] == ')') continue;
+          if (!string.Equals(flag, "datatype", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(flag, "noGenerate", StringComparison.OrdinalIgnoreCase)) {
+            error = "unknown PROP_STRUCT flag '" + flag + "'";
+            return false;
+          }
+          if (!propStructFlags.Add(flag)) {
+            error = "PROP_STRUCT flag '" + flag + "' was specified more than once";
+            return false;
+          }
+        }
+        return ValidateStringSyntax(operand, out error);
       case "MATCH" or "ASSERT": return ValidateBooleanSyntax(operand, out error);
       case "CODE" or "MIXIN" or "RESOLVE_MIXIN" or "USING" or "LOG" or "LOCAL" or "VAR" or
-        "PROP_STRUCT" or "AUGMENT_STRUCT" or "PUT" or "PUSH" or "CALL"
+        "AUGMENT_STRUCT" or "PUT" or "PUSH" or "CALL"
         or "FAIL": return ValidateStringSyntax(operand, out error);
       case "DUMP" when !string.Equals(argument, "STATE", StringComparison.OrdinalIgnoreCase) &&
         !string.Equals(argument, "BUFFER", StringComparison.OrdinalIgnoreCase) &&

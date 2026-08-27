@@ -345,7 +345,7 @@ namespace HELIX.Boot {
     @"
 @USING HELIX.Boot;
 @LOCAL<StructName> @(target:name)_Args
-@PROP_STRUCT<(@local#StructName)><StructHandle> @target
+@PROP_STRUCT<(@local#StructName)><StructHandle><datatype> @target
 @LOCAL<InvokeLambda> args => @local#StructHandle:propStructCall<(@target:name)><args>
 @LOCAL<CmdName> @attr#name
 @SCOPE

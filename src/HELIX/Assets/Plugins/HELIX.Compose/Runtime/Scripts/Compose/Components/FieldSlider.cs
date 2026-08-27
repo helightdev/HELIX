@@ -2,7 +2,8 @@ using HELIX.Prose;
 
 namespace HELIX.Compose {
   /// <summary>A slider with a compact exact-value editor beside it.</summary>
-  [BoundaryComposable(Extension = true, Name = "FieldSlider", UseLookupCache = false)]
+  [EnableMixins]
+  [BoundaryComposableMixin(name: "FieldSlider", extension: true)]
   public partial class FieldSlider {
     public partial struct Props {
       public float value;

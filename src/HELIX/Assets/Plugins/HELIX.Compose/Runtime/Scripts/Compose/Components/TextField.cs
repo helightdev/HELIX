@@ -8,7 +8,9 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [BoundaryComposable(Base = typeof(InputBoundaryComposable<>), Extension = true, Name = "TextField")]
+
+  [EnableMixins]
+  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), extension: true, name: "TextField")]
   public partial class HXTextField {
     public partial struct Props {
       [Prop(null)] public TextEditingController controller;
@@ -372,7 +374,7 @@ namespace HELIX.Compose {
     public readonly bool IsBuffering => frame == Time.frameCount && isBuffering;
   }
 
-  [ComposableProxy]
+  [EnableMixins]
   public sealed partial class TextFieldElement : ComposableElement, ISlotHost {
     private const string _selectionLightClass = "helix-textfield-style-light";
     private const string _selectionDarkClass = "helix-textfield-style-dark";
@@ -479,6 +481,7 @@ namespace HELIX.Compose {
       EndHandle(ref context);
     }
 
+    [ComposableMethod]
     public void Configure(
       [Prop] IBoundary boundary,
       [Prop] TextEditingController controller,

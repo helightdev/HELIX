@@ -6,7 +6,8 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [BoundaryComposable(Extension = false)]
+  [EnableMixins]
+  [BoundaryComposableMixin]
   internal partial class NavigationPageBoundary {
     public partial struct Props {
       public NavigationController controller;
@@ -48,7 +49,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false, UseLookupCache = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(cacheLookups: true)]
   public partial class NavigationHostBoundary {
     public partial struct Props {
       [Prop(null)] public NavigationGraph graph;
@@ -171,7 +173,8 @@ namespace HELIX.Compose {
     internal void TransitionCompleted(long changeId) => Controller?.CompletePresentation(changeId);
   }
 
-  [BoundaryComposable(Extension = true, Name = "NavigationLink")]
+  [EnableMixins]
+  [BoundaryComposableMixin(name: "NavigationLink", extension: true)]
   public partial class HXNavigationLink {
     public partial struct Props {
       public NavigationRoute route;

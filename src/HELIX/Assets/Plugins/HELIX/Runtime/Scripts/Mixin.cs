@@ -32,6 +32,26 @@ namespace HELIX {
 @FUNC<AddStructurePropertyModifier>
   @CODE datatype.GetProperty(""@target:name"").Modifiers.Add(@param);
 @END
+
+@FUNC<RequireCompanion> 
+  @SCOPE
+    @MATCH @var#CompanionName:!?exists
+    @VAR<CompanionName> @(this:name)Companion
+    @VAR<DeclareCompanion> public static partial class @var#CompanionName
+    @CODE<FILE> @var#DeclareCompanion {}
+  @END
+@END
+
+@FUNC<DeclareCompanion> 
+  @SCOPE
+    @MATCH @var#CompanionName:!?exists
+    @VAR<CompanionName> @(this:name)Companion
+    @VAR<DeclareCompanion> public static partial class @var#CompanionName
+  @END
+  @CODE<FILE> @var#DeclareCompanion { 
+    @\  @param
+    @\}
+@END
 "
   )]
   public static class CoreMixinLibrary { }
@@ -148,6 +168,7 @@ namespace HELIX {
     public const string Init = "$Init"; // Automatic lifecycle hook
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
     public const string ConfigureManaged = "$ConfigureManaged";
+    public const string Recompose = "$Recompose";
 
     public const string LoadManaged = "$LoadManaged";
     public const string LoadManagedLate = "$LoadManagedLate";

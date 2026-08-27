@@ -195,7 +195,8 @@ namespace HELIX.UI.Options {
     }
   }
 
-  [BoundaryComposable(Extension = false, UseLookupCache = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(cacheLookups: true)]
   public partial class OptionPagesElement {
     public partial struct Props {
       [Prop(null, Equatable = false)] public OptionPages pages;

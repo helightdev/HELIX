@@ -73,7 +73,7 @@ namespace HELIX.Compose {
     public void RemoveAt(int index) => throw new NotSupportedException();
   }
 
-  [ComposableProxy(Extension = false)]
+  [EnableMixins]
   public sealed partial class HXListViewElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassViewport = new("hx-list-view-viewport");
     public static readonly UniqueStyleString ClassSlider = new("hx-list-view-slider");
@@ -121,6 +121,7 @@ namespace HELIX.Compose {
       scrollView.contentViewport.RegisterCallback<GeometryChangedEvent>(GeometryChangedHandler);
     }
 
+    [ComposableMethod]
     public void Update(
       [Prop] IBoundary boundary,
       [Prop] int itemCount,
@@ -190,7 +191,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Extension = false)]
+  [EnableMixins]
+  [BoundaryComposableMixin]
   public partial class ListViewBoundary {
     public partial struct Props {
       public int itemCount;

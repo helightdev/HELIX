@@ -28,7 +28,8 @@ namespace HELIX.Compose {
     [Prop(false)] public readonly bool hideWhenThumbCoversTrack;
   }
 
-  [ComposableProxy(Extension = false)]
+  [EnableMixins]
+  // [ComposableProxy(Extension = false)]
   public sealed partial class HXSliderElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassTrack = new("hx-slider-track");
     public static readonly UniqueStyleString ClassThumb = new("hx-slider-thumb");
@@ -58,8 +59,12 @@ namespace HELIX.Compose {
     }
 
     public IBoundary Boundary { get; set; }
-    public SliderOptions Options { get => _options; set => _options = value; }
+    public SliderOptions Options {
+      get => _options;
+      set => _options = value;
+    }
 
+    [ComposableMethod]
     public void Update(
       [Prop] IBoundary boundary,
       [Prop] float value,
@@ -119,7 +124,12 @@ namespace HELIX.Compose {
     internal static SliderOptions NormalizeOptions(in SliderOptions options) {
       if (options.max >= options.min) return options;
       return new SliderOptions(
-        options.max, options.min, options.step, options.axis, options.reverse, options.thumbRange
+        options.max,
+        options.min,
+        options.step,
+        options.axis,
+        options.reverse,
+        options.thumbRange
       );
     }
 
@@ -146,6 +156,22 @@ namespace HELIX.Compose {
       var totalRange = valueRange + options.thumbRange;
       if (totalRange <= 0f) return length;
       return Mathf.Clamp(length * options.thumbRange / totalRange, minimum, length);
+    }
+  }
+
+  [EnableMixins]
+  public partial class ExampleElement : VisualElement {
+    [ComposableMethod(scope: true, requiresTracking: true, extension: true, name: "FancyExampleElement")]
+    public void Update() {
+      var a = "";
+    }
+
+
+    [ComposableMethod(scope: true, requiresTracking: true, extension: true, name: "FancyExampleElement")]
+    public void Update(
+      [Prop] int arg
+    ) {
+      var a = "";
     }
   }
 
@@ -298,7 +324,8 @@ namespace HELIX.Compose {
     }
   }
 
-  [BoundaryComposable(Base = typeof(InputClickableComposable<>), Extension = true)]
+  [EnableMixins]
+  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), extension: true)]
   public partial class Slider {
     public partial struct Props {
       // Keep value first to preserve the cx.Slider(value, ...) call shape.
@@ -455,10 +482,10 @@ namespace HELIX.Compose {
       if (length > 0f) _lastTrackLength = length;
 
       var hide = style.hideWhenThumbCoversTrack && _lastTrackLength > 0f &&
-                 Mathf.Approximately(
-                   HXSliderElement.ResolveThumbSize(_lastTrackLength, in options, style.thumbSize),
-                   _lastTrackLength
-                 );
+        Mathf.Approximately(
+          HXSliderElement.ResolveThumbSize(_lastTrackLength, in options, style.thumbSize),
+          _lastTrackLength
+        );
       if (hide) {
         Node.style.display = DisplayStyle.None;
         _automaticallyHidden = true;
