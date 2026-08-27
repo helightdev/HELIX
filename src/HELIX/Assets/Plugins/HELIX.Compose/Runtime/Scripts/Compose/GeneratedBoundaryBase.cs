@@ -2,6 +2,7 @@ using HELIX.Compose.Collections;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
+  [InternalApi]
   public abstract class GeneratedBoundaryBase : VisualElement, IBoundary {
     public VisualElement Element => this;
     public BoundaryCell Cell { get; } = BoundaryCell.Shared;
