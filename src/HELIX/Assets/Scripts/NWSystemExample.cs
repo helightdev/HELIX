@@ -26,8 +26,12 @@ namespace HELIX.Examples {
   }
 
   [UxmlElement]
-  public partial class NwSystemExampleElement : BoundaryVisualElement {
-    public override void Compose(ref Composition cx) {
+  [EnableMixins]
+  [BoundaryElement]
+  public partial class NwSystemExampleElement : CustomBoundaryElementBase {
+
+    [Hook]
+    private void OnRecompose(ref Composition cx) {
       this.Fill();
       cx.NWSystemExample();
       cx.CURSOR.Fill();

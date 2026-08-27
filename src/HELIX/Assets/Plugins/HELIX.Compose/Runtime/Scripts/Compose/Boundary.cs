@@ -83,6 +83,7 @@ namespace HELIX.Compose {
     public UssFlag Flag { get; set; }
 
     public ulong PackedId { get; set; }
+    public virtual bool IsDisposeFinal => true;
 
 
     private bool _initialAttachment = true;
@@ -182,13 +183,14 @@ namespace HELIX.Compose {
     public abstract void PerformCompose(ref Composition cx);
 
     protected virtual void OnAttachToPanel(AttachToPanelEvent evt) {
-      if (IsDisposed) {
+      if (IsDisposed && IsDisposeFinal) {
         Debug.LogError("Attaching already disposed boundary to panel!");
         HXComposer.RemoveDirty(this);
         HXComposer.UnregisterBoundary(this);
         RemoveFromHierarchy();
         return;
       }
+      IsDisposed = false;
 
       HXComposer.RegisterActiveBoundary(this);
       TreeDepth = this.GetDepth();
@@ -377,9 +379,16 @@ namespace HELIX.Compose {
     }
   }
 
-  public abstract class PropsBoundaryComposable<TProps> : BoundaryComposable<BoundaryData<TProps>>
-    where TProps : struct {
-    public ref TProps props { get => ref Data.props; }
+  public interface IProps<T> where T : struct {
+    ref T props { get; }
+    void ReceiveProps(in T props);
+  }
+
+  public abstract class PropsBoundaryComposable<TProps> : BoundaryComposable<BoundaryData<TProps>>, IProps<TProps>
+  where TProps : struct {
+    public ref TProps props {
+      get => ref Data.props;
+    }
 
     public virtual void ReceiveProps(in TProps props) {
       Data.props = props;
@@ -396,5 +405,10 @@ namespace HELIX.Compose {
 
   public abstract class BoundaryVisualElement : BoundaryElementBase {
     public abstract void Compose(ref Composition cx);
+  }
+
+  public abstract class CustomBoundaryElementBase : BoundaryElementBase {
+    public override bool IsDisposeFinal => false;
+    public bool IsInitialized { get; protected set; }
   }
 }

@@ -1,6 +1,4 @@
 using System;
-using HELIX;
-using NUnit.Framework.Constraints;
 
 namespace HELIX {
   [MixinLibrary(
@@ -36,7 +34,7 @@ namespace HELIX {
 @FUNC<RequireCompanion> 
   @SCOPE
     @MATCH @var#CompanionName:!?exists
-    @VAR<CompanionName> @(this:name)Companion
+    @VAR<CompanionName> @(this:name)_Companion
     @VAR<DeclareCompanion> public static partial class @var#CompanionName
     @CODE<FILE> @var#DeclareCompanion {}
   @END
@@ -45,7 +43,7 @@ namespace HELIX {
 @FUNC<DeclareCompanion> 
   @SCOPE
     @MATCH @var#CompanionName:!?exists
-    @VAR<CompanionName> @(this:name)Companion
+    @VAR<CompanionName> @(this:name)_Companion
     @VAR<DeclareCompanion> public static partial class @var#CompanionName
   @END
   @CODE<FILE> @var#DeclareCompanion { 
@@ -169,6 +167,7 @@ namespace HELIX {
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
     public const string ConfigureManaged = "$ConfigureManaged";
     public const string Recompose = "$Recompose";
+    public const string Reset = "$Reset";
 
     public const string LoadManaged = "$LoadManaged";
     public const string LoadManagedLate = "$LoadManagedLate";

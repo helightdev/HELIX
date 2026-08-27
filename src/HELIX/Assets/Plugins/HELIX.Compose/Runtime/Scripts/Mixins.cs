@@ -41,7 +41,7 @@ namespace HELIX.Compose {
     @\    @local#ExtensionName.typeId, out var node, out _, out var attachment
     @\  );
     @\  var props = new Props(@local#PropsModel:structArgs);
-    @\  attachment.ReceiveProps(props);
+    @\  attachment.ReceiveProps(in props);
     @\  node.composable = null;
     @\  return ref cx.AUTHORING.YieldBoundary(ref cx, node);
     @\}
@@ -72,6 +72,7 @@ namespace HELIX.Compose {
 
   @CODE<CLASS> public override void OnDetach(BoundaryData data, IBoundary boundary) {
     @\  base.OnDetach(data, boundary);
+    @\  ((IRecomposeMixinTargets)this).MixinReset();
     @\  ((IRecomposeMixinTargets)this).MixinDispose();
     @\}
 
@@ -99,6 +100,15 @@ namespace HELIX.Compose {
     @CALL<DeclareCompanion> public static readonly ushort typeId = CompositionId.GetTypeId(""@this:name"");
   @END
 @END
+
+@FUNC<RequireCompositionId>
+  @SCOPE
+    @MATCH @var#HasCompositionId:!?eq<true>
+    @VAR<HasCompositionId> true
+    @CALL<DeclareCompanion> public static readonly ushort compositionId = CompositionId.GetCompositionId(""@this:name"");
+  @END
+@END
+
 
 @FUNC<ComposableMethodImpl>
   @USING HELIX.Compose;
@@ -200,6 +210,69 @@ namespace HELIX.Compose {
     @\};
 @END
 
+@# The props and compose calls are currently experimental
+@FUNC<BoundaryElementImpl>
+  @USING HELIX.Compose;
+  @CODE<IMPLEMENTS> IRecomposeMixinTargets
+
+  @LOCAL<ComposeCalls>
+  @LOCAL<ComposeArgs> ref Composition cx
+
+  @CALL<RequireCompositionTypeId>
+  @CALL<RequireCompositionId>
+  @CALL<DeclareCompanion> public static readonly CompositionId fullId = new() {
+    @\  composition = compositionId,
+    @\  type = typeId,
+    @\  local = LocalId.Initial
+    @\};
+
+  @SCOPE
+    @MATCH @this#Props:?exists
+    @AUGMENT_STRUCT<PropsModel> @this#Props
+    @CODE<IMPLEMENTS> IProps<@this:name.Props>
+    @CODE<CLASS> private Props _props;
+      @\public ref Props props => ref _props;
+      @\public void ReceiveProps(in Props props) => _props = props;
+    @MIXIN<$Reset><1> _props = default;
+    @LOCAL<ComposeArgs> @local#ComposeArgs, @local#PropsModel:structParams
+    @LOCAL<ComposeCalls> @local#ComposeCalls
+      @\var props = new Props(@local#PropsModel:structArgs);
+      @\instance.ReceiveProps(in props);
+  @END
+
+
+  @CODE<CLASS> public static ref ElementRef Compose(
+    @\  @local#ComposeArgs
+    @\) {
+    @\  if (!cx.AUTHORING.RequireComposable<@this:name>(@(var#CompanionName).typeId, out var instance, out var retained)) {
+    @\    instance = new @this:name();
+    @\  }
+    @\  @local#ComposeCalls
+    @\  return ref cx.AUTHORING.YieldBoundary(ref cx, instance);
+    @\}
+
+  @CODE<CLASS> public override void PerformCompose(ref Composition cx) {
+    @\  if (!IsInitialized) { 
+    @\    ((IRecomposeMixinTargets)this).MixinInit();
+    @\    IsInitialized = true;
+    @\  }
+    @\  cx.AUTHORING.SetId(@(var#CompanionName).fullId);
+    @\  ((IRecomposeMixinTargets)this).MixinRecompose(ref cx);
+    @\}
+
+  @CODE<CLASS> public override void Dispose() {
+    @\  ((IRecomposeMixinTargets)this).MixinDispose();
+    @\  base.Dispose();
+    @\  IsInitialized = false;
+    @\}
+
+  @CODE<CLASS> public override void Reset() {
+    @\  ((IRecomposeMixinTargets)this).MixinReset();
+    @\  base.Reset(); 
+    @\  IsInitialized = false;
+    @\}
+@END
+
 "
   )]
   public static class ComposeMixinLibrary { }
@@ -207,12 +280,14 @@ namespace HELIX.Compose {
   public interface IRecomposeMixinTargets {
     void MixinInit() { }
     void MixinDispose() { }
+    void MixinReset() { }
     void MixinRecompose(ref Composition cx) { }
   }
 
   public static class RecomposeMixinTargets {
     public const string Init = "^MixinInit";
     public const string Dispose = "^MixinDispose";
+    public const string Reset = "^MixinReset";
     public const string Recompose = "^MixinRecompose:HELIX.Compose.Composable";
   }
 
@@ -220,6 +295,7 @@ namespace HELIX.Compose {
   [MixinImport(typeof(ComposeMixinLibrary))]
   [MixinExpression("@CALL<BoundaryComposableImpl>")]
   [MixinDefineTarget(MixinOn.Init, RecomposeMixinTargets.Init)]
+  [MixinDefineTarget(MixinOn.Reset, RecomposeMixinTargets.Reset)]
   [MixinDefineTarget(MixinOn.Dispose, RecomposeMixinTargets.Dispose)]
   [MixinDefineTarget(MixinOn.Recompose, RecomposeMixinTargets.Recompose)]
   public sealed class BoundaryComposableMixinAttribute : Attribute {
@@ -252,5 +328,17 @@ namespace HELIX.Compose {
     public ComposableDelegateAttribute(
       string name = null
     ) { }
+  }
+
+  [AttributeUsage(AttributeTargets.Class)]
+  [MixinImport(typeof(ComposeMixinLibrary))]
+  [MixinImport(typeof(CoreMixinLibrary))]
+  [MixinExpression("@CALL<BoundaryElementImpl>")]
+  [MixinDefineTarget(MixinOn.Init, RecomposeMixinTargets.Init)]
+  [MixinDefineTarget(MixinOn.Reset, RecomposeMixinTargets.Reset)]
+  [MixinDefineTarget(MixinOn.Dispose, RecomposeMixinTargets.Dispose)]
+  [MixinDefineTarget(MixinOn.Recompose, RecomposeMixinTargets.Recompose)]
+  public sealed class BoundaryElementAttribute : Attribute {
+    public BoundaryElementAttribute() { }
   }
 }
