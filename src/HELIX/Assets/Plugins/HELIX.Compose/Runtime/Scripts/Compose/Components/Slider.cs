@@ -159,22 +159,6 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
-  public partial class ExampleElement : VisualElement {
-    [ComposableMethod(scope: true, requiresTracking: true, extension: true, name: "FancyExampleElement")]
-    public void Update() {
-      var a = "";
-    }
-
-
-    [ComposableMethod(scope: true, requiresTracking: true, extension: true, name: "FancyExampleElement")]
-    public void Update(
-      [Prop] int arg
-    ) {
-      var a = "";
-    }
-  }
-
   public class SliderController : Signal<float> {
     private float _value;
 

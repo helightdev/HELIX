@@ -341,15 +341,22 @@ namespace HELIX.Compose {
 
   public interface IContextComposable : IComposable {
     IContextComposable ContextParent { get; }
-    void ContributeContext(Dictionary<int, ContextData> context);
     bool TryLookupContext(int key, out ContextData data);
   }
 
   public interface IContextWriteable : IComposable {
-    SparseContextMap WrittenContext { get; }
-    SparseContextMap AcquireWriteableContext();
-    void BeginContextModification();
-    void EndContextModification();
+    SparseContextMap WrittenContext { get; set;  }
+
+    SparseContextMap AcquireWriteableContext() {
+      return WrittenContext ??= SparseContextMap.Get();
+    }
+    void BeginContextModification()  {
+      WrittenContext?.ResetPublicationMarkers();
+    }
+
+    void EndContextModification() {
+      WrittenContext?.PrunePublications();
+    }
   }
 
   public struct LookupCache {
@@ -410,7 +417,7 @@ namespace HELIX.Compose {
   public class ContextComposableElement : ComposableElement, IContextComposable, IContextWriteable {
     public IContextComposable ContextParent { get; private set; }
 
-    public SparseContextMap WrittenContext { get; private set; }
+    public SparseContextMap WrittenContext { get; set; }
 
     public ContextComposableElement() {
       RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
@@ -430,10 +437,6 @@ namespace HELIX.Compose {
       if (WrittenContext != null) SparseContextMap.Release(WrittenContext);
     }
 
-    public void ContributeContext(Dictionary<int, ContextData> context) {
-      WrittenContext?.LoadInto(context);
-    }
-
     public bool TryLookupContext(int key, out ContextData data) {
       data = null;
       if (WrittenContext != null && WrittenContext.TryGet(key, out data)) return true;
@@ -446,10 +449,6 @@ namespace HELIX.Compose {
 
     public SparseContextMap AcquireWriteableContext() {
       return WrittenContext ??= SparseContextMap.Get();
-    }
-
-    public void BeginContextModification() {
-      WrittenContext?.ResetPublicationMarkers();
     }
 
     public void EndContextModification() {
@@ -468,7 +467,9 @@ namespace HELIX.Compose {
       _contributor = contributor;
     }
 
-    public void Dispose() => _contributor.EndContextModification();
+    public void Dispose() {
+      _contributor.EndContextModification();
+    }
   }
 
   public readonly ref struct ContextAccessor {

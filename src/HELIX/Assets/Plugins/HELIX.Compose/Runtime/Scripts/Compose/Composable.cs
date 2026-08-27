@@ -1,34 +1,8 @@
 using System;
+using System.Runtime.CompilerServices;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [AttributeUsage(AttributeTargets.Method)]
-  public class CompositionAttribute : Attribute { }
-
-  [AttributeUsage(AttributeTargets.Class)]
-  public class BoundaryComposableAttribute : Attribute {
-    public Type Base { get; set; }
-    public bool Extension { get; set; } = false;
-    public string Name { get; set; } // Defaults to target type name
-    public bool UseLookupCache { get; set; } = false;
-  }
-
-  [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
-  public class ComposableProxyAttribute : Attribute {
-    public Type Target { get; set; }
-
-    public ComposableKind Kind { get; set; } = ComposableKind.Element;
-    public string Name { get; set; } // Defaults to target type name
-    public bool RequiresTracking { get; set; } = true;
-    public bool Extension { get; set; } = true;
-    public string CreateSyntax { get; set; } = "instance = new {TYPE}();";
-    public string PrepareSyntax { get; set; } = "/* Skip Prepare */";
-    public string PreYieldSyntax { get; set; } = "/* Skip Before Yield */";
-    public string PostYieldSyntax { get; set; } = "/* Skip Post Yield */";
-    public string ScopeCallbackSyntax { get; set; } = "cell.TrimChildren();";
-  }
-
-  public enum ComposableKind { ScopeElement, Element }
 
   // [ComposableProxy(
   //   Target = typeof(ScrollView),
@@ -60,9 +34,6 @@ namespace HELIX.Compose {
   //   [Prop(null, ProxyFunction = "SliderValueBinding.Bind(instance, {VALUE});")]
   //   public CompositionAction<float> onVerticalScroll;
   // }
-
-  [AttributeUsage(AttributeTargets.Field)]
-  public class ContextAttribute : Attribute { }
 
   public delegate void Composable(ref Composition cx);
 
@@ -131,7 +102,15 @@ namespace HELIX.Compose {
     UssFlag Flag { get; set; }
     ulong PackedId { get; set; }
     void Reset();
-    void MarkFlag(UssFlag flag);
+  }
+
+  public static class ComposableExtensions {
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void MarkFlag<T>(this T composable, UssFlag flag) where T : IComposable {
+      composable.Flag |= flag;
+    }
+
   }
 
   public interface IDirty {

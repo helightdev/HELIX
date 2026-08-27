@@ -166,8 +166,13 @@ namespace HELIX {
     public const string Init = "$Init"; // Automatic lifecycle hook
     public const string Dispose = "$Dispose"; // Automatic lifecycle hook
     public const string ConfigureManaged = "$ConfigureManaged";
+    public const string Compose = "$Compose";
     public const string Recompose = "$Recompose";
     public const string Reset = "$Reset";
+
+    public const string BoundaryPostConstruct = "$PostConstruct";
+    public const string InputStateChanged = "^OnStateChanged:HELIX.Theming.StateChangedHandler";
+
 
     public const string LoadManaged = "$LoadManaged";
     public const string LoadManagedLate = "$LoadManagedLate";

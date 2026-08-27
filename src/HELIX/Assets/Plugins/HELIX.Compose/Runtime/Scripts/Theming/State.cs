@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using HELIX.Compose;
 using UnityEngine.UIElements;
 
 // ReSharper disable Unity.BurstLoadingManagedType
@@ -24,7 +25,7 @@ namespace HELIX.Theming {
     InputGamepad = 1 << 11,
     InputTouch = 1 << 12,
     MetaState = Hovered | Focused | Active | Selected | Disabled | Error | Navigated | Special1 |
-                Special2,
+      Special2,
     MetaInput = InputKeyboardMouse | InputGamepad | InputTouch,
     MetaAll = MetaState | MetaInput,
     ModNot = 1 << 14,
@@ -143,35 +144,55 @@ namespace HELIX.Theming {
     }
   }
 
-  public interface IStateHolder {
+  public interface IStateHolder : IDirty {
     ref State InputState { get; }
+    void OnStateChanged(State oldState, State newState) { }
   }
 
+  public delegate void StateChangedHandler(State oldState, State newState);
+
   public static class WidgetStateHolderExtensions {
-    public static void Enable<T>(this T state, State widgetState)
-      where T : IStateHolder {
-      state.InputState |= widgetState;
+    private static bool DoChange<T>(this T state, State old, State next)
+    where T : IStateHolder {
+      if (old == next) return false;
+      state.InputState = next;
+      state.OnStateChanged(old, next);
+      return true;
     }
 
-    public static void Disable<T>(this T state, State widgetState)
-      where T : IStateHolder {
-      state.InputState &= ~widgetState;
+    public static bool Enable<T>(this T state, State widgetState)
+    where T : IStateHolder {
+      var old = state.InputState;
+      var next = old | widgetState;
+      return state.DoChange(old, next);
     }
 
-    public static void Toggle<T>(this T state, State widgetState)
-      where T : IStateHolder {
-      state.InputState ^= widgetState;
+    public static bool Disable<T>(this T state, State widgetState)
+    where T : IStateHolder {
+      var old = state.InputState;
+      var next = old & ~widgetState;
+      return state.DoChange(old, next);
     }
 
-    public static void Toggle<T>(this T state, State widgetState, bool toggle)
-      where T : IStateHolder {
-      if (toggle) state.Enable(widgetState);
-      else state.Disable(widgetState);
+    public static bool Toggle<T>(this T state, State widgetState)
+    where T : IStateHolder {
+      var old = state.InputState;
+      var next = old ^ widgetState;
+      state.InputState = next;
+      state.OnStateChanged(old, next);
+      return true;
     }
 
-    public static void DisableEnable<T>(this T state, State disable, State enable)
-      where T : IStateHolder {
-      state.InputState = (state.InputState & ~disable) | enable;
+    public static bool Toggle<T>(this T state, State widgetState, bool toggle)
+    where T : IStateHolder {
+      return toggle ? state.Enable(widgetState) : state.Disable(widgetState);
+    }
+
+    public static bool DisableEnable<T>(this T state, State disable, State enable)
+    where T : IStateHolder {
+      var old = state.InputState;
+      var next = (old & ~disable) | enable;
+      return state.DoChange(old, next);
     }
   }
 }

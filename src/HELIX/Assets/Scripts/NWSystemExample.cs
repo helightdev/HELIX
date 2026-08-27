@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using HELIX.Compose;
 using HELIX.Extensions;
-using HELIX.Prose;
 using HELIX.Theming;
 using HELIX.Types;
 using HELIX.UI;
@@ -14,24 +13,14 @@ using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
 
 namespace HELIX.Examples {
-  [EnableMixins]
-  [BoundaryComposableMixin(extension: true, cacheLookups: true)]
-  public partial class MyBetterWidget {
-    public partial struct Props {
-      [Prop("Colors.Red", PropInit.Deferred)]
-      public Color color;
-    }
-
-    protected override void OnRecompose(ref Composition cx) { }
-  }
 
   [UxmlElement]
   [EnableMixins]
-  [BoundaryElement]
-  public partial class NwSystemExampleElement : CustomBoundaryElementBase {
+  [CustomBoundaryElement]
+  public partial class NwSystemExampleElement : VisualElement {
 
     [Hook]
-    private void OnRecompose(ref Composition cx) {
+    private void OnCompose(ref Composition cx) {
       this.Fill();
       cx.NWSystemExample();
       cx.CURSOR.Fill();
@@ -39,39 +28,22 @@ namespace HELIX.Examples {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(extension: true)]
+  [BoundaryElementMixin(extension: true)]
   public partial class NWSystemExample {
-    protected override void OnRecompose(ref Composition cx) {
+
+    [Hook]
+    private static void OnCompose(ref Composition cx) {
+      HomeComposable.ComposeBoundary(ref cx).Fill();
+    }
+
+    [WriteContextHandler]
+    private static void WriteContext2(ref Composition cx, ContextAccessor context) {
       var theme = cx.ReadContextOrDefault(ThemeData.Key, HXThemes.DefaultDark).Copy();
-      //var kennyBg = Resources.Load<Texture2D>("kenney/PNG/Double/button_grey");
-      // var kennyBg = Resources.Load<Texture2D>("kenney/PNG/Double/pattern_diagonal_red_large");
-      // ThemeProperties.ButtonFilled[theme] = new HXControlBoxStyle(
-      //   background: new HXImageStyle(
-      //     image: BackgroundImage.Texture2D(kennyBg, scaling: ImageScaling.RepeatX(32), anchor: ImageAnchor.Left),
-      //     tint: new StatePropertyMap<Color> {
-      //       [State.Active] = Colors.White,
-      //       [State.Hovered] = Colors.White90,
-      //       [State.None] = Colors.White80
-      //     }
-      //   ).Bake(),
-      //   padding: ThemeProperties.ButtonPadding[theme],
-      //   textStyle: HXStyles
-      //     .TextColor(StateProperties.Const(Colors.White))
-      //     .Derive(States.Common)
-      // );
-
-      using (cx.WriteContext(out var context)) {
-        ThemeData.Key[context] = theme;
-      }
-
+      ThemeData.Key[context] = theme;
 
       cx.CURSOR
         .BackgroundColor(theme.GetColor(ColorRoles.Surface))
         .TextColor(theme.GetColor(ColorRoles.OnSurface));
-
-
-      HomeComposable.ComposeBoundary(ref cx);
-      cx.CURSOR.Fill();
     }
   }
 

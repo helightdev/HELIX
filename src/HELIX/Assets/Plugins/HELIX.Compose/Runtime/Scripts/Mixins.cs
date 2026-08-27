@@ -1,4 +1,6 @@
 using System;
+using HELIX.Compose.Collections;
+using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   [MixinLibrary(
@@ -210,13 +212,129 @@ namespace HELIX.Compose {
     @\};
 @END
 
-@# The props and compose calls are currently experimental
-@FUNC<BoundaryElementImpl>
+@FUNC<BoundaryElementMixinFastImpl>
   @USING HELIX.Compose;
+  @USING HELIX.Compose.Collections;
+  @USING HELIX.Coloring;
+
+  @CODE<IMPLEMENTS> HELIX.Compose.GeneratedBoundaryBase
+  @CODE<IMPLEMENTS> HELIX.Compose.IBoundaryHooks
+
+  @CODE<CLASS> public @this:name() : base(@attr#cacheLookups, @attr#trimChildren) {}
+
+  @MIXIN<$Recompose><0> ((IBoundaryHooks)this).MixinCompose(ref cx);
+
+  @SCOPE
+    @MATCH @attr#composable:?eq<true>
+    @CALL<BoundaryElementCompositionImpl>
+  @END
+@END
+
+@FUNC<BoundaryElementMixinImpl>
+  @USING HELIX.Compose;
+  @USING HELIX.Compose.Collections;
+  @USING HELIX.Coloring;
+
+  @SCOPE
+    @MATCH @this:!?is<global::UnityEngine.UIElements.VisualElement>
+    @CODE<IMPLEMENTS> global::UnityEngine.UIElements.VisualElement
+  @END
+
+  @CODE<IMPLEMENTS> IBoundary
   @CODE<IMPLEMENTS> IRecomposeMixinTargets
 
+  @CODE<CLASS>
+    @\public global::UnityEngine.UIElements.VisualElement Element => this;
+    @\public BoundaryCell Cell { get; } = BoundaryCell.Shared;
+    @\public int TreeDepth { get; protected set; }
+    @\public IBoundary Parent { get; protected set; }
+    @\public IContextComposable ContextParent { get; protected set; }
+    @\public bool IsDisposed { get; protected set; }
+    @\public UssFlag Flag { get; set; }
+    @\public ulong PackedId { get; set; }
+    @\public SparseContextMap WrittenContext { get;set; }
+    @\
+    @\private LookupCache _lookupCache;
+    @\private bool _initialAttachment = true;
+    @\private bool _initialized = false;
+    @\public void UseLookupCache() => _lookupCache.Claim();
+    @\public bool TryLookupContext(int key, out ContextData data) {
+    @\  data = null;
+    @\  if (WrittenContext != null && WrittenContext.TryGet(key, out data)) return true;
+    @\  return _lookupCache.TryLookup(ContextParent, key, out data);
+    @\}
+    @\
+    @\public void RefreshHierarchy() {
+    @\  Parent = GetFirstAncestorOfType<IBoundary>();
+    @\  ContextParent = GetFirstAncestorOfType<IContextComposable>();
+    @\}
+    @\public void MarkDirty() => HXComposer.MarkDirty(this, false);
+
+  @MIXIN<$Recompose><-1000> try {
+  @MIXIN<$Recompose><-100> BoundaryHelper.ContextBefore(this);
+  @MIXIN<$Recompose><-75> _lookupCache.Clear();
+
+  @Mixin<$Recompose><-60> if (!_initialized) Init(); 
+  @MIXIN<$Recompose><-55> @attr#cacheLookups:switch<_lookupCache.Claim();><>
+  @MIXIN<$Recompose><-50> try {
+  @MIXIN<$Recompose><-25> var cx = new Composition(this);
+  @MIXIN<$Recompose><0> PerformCompose(ref cx)
+  @MIXIN<$Recompose><50> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
+
+  @MIXIN<$Recompose><100> BoundaryHelper.ContextAfter(this);
+  @MIXIN<$Recompose><200> @attr#trimChildren:switch<Cell.TrimChildren();><>
+  @MIXIN<$Recompose><1000> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
+
+  @MIXIN<$Reset><-1> HXComposer.RemoveDirty(this);
+  @MIXIN<$Reset><1> _lookupCache.Release();
+  @MIXIN<$Reset><100> _initialized = false;
+
+  @MIXIN<$Compose> // Default handle
+
+  @MIXIN<$Init><100> _initialized = true;
+  @MIXIN<$Dispose><-100> if (IsDisposed) return; IsDisposed = true; _initialized = false;
+  @MIXIN<$Dispose><-1> Reset();
+
+  @MIXIN<$PostConstruct><1000> if (HXComposer.IsProcessing) { 
+    @\  _initialAttachment = false;
+    @\  HXComposer.MarkDirty(this);
+    @\}
+
+  @MIXIN<DetachBoundary> 
+    @\_initialAttachment = true;
+    @\_lookupCache.Release();
+    @\HXComposer.NotifyDetach(this);
+
+  @MIXIN<AttachBoundary>
+    @\IsDisposed = false;
+    @\RefreshHierarchy();
+
+  @MIXIN<AttachBoundary><100>HXComposer.RegisterActiveBoundary(this);
+
+  @MIXIN<AttachBoundary><200>if (_initialAttachment) {
+    @\  _initialAttachment = false;
+    @\  HXComposer.MarkDirty(this);
+    @\}
+
+  @SCOPE
+    @MATCH @attr#constructor:?eq<true>
+    @CODE<CLASS> public @this:name() {
+      @\  RegisterCallback<global::UnityEngine.UIElements.AttachToPanelEvent>(_ => AttachBoundary());
+      @\  RegisterCallback<global::UnityEngine.UIElements.DetachFromPanelEvent>(_ => DetachBoundary());
+      @\  PostConstruct();
+      @\}
+  @END
+
+
+  @SCOPE
+    @MATCH @attr#composable:?eq<true>
+    @CALL<BoundaryElementCompositionImpl>
+  @END
+@END
+
+@FUNC<BoundaryElementCompositionImpl>
   @LOCAL<ComposeCalls>
-  @LOCAL<ComposeArgs> ref Composition cx
+  @LOCAL<ComposeArgs>
 
   @CALL<RequireCompositionTypeId>
   @CALL<RequireCompositionId>
@@ -229,6 +347,7 @@ namespace HELIX.Compose {
   @SCOPE
     @MATCH @this#Props:?exists
     @AUGMENT_STRUCT<PropsModel> @this#Props
+    @MATCH @local#PropsModel:!?structNoArgs
     @CODE<IMPLEMENTS> IProps<@this:name.Props>
     @CODE<CLASS> private Props _props;
       @\public ref Props props => ref _props;
@@ -238,12 +357,15 @@ namespace HELIX.Compose {
     @LOCAL<ComposeCalls> @local#ComposeCalls
       @\var props = new Props(@local#PropsModel:structArgs);
       @\instance.ReceiveProps(in props);
+    @GOTO<GenerateCompose>
   @END
 
+  @CODE<CLASS> public static readonly Composable BakedComposable = static (ref Composition cx) => { ComposeBoundary(ref cx); };
 
-  @CODE<CLASS> public static ref ElementRef Compose(
-    @\  @local#ComposeArgs
-    @\) {
+  @SCOPE<GenerateCompose>
+  @END
+
+  @LOCAL<Body> {
     @\  if (!cx.AUTHORING.RequireComposable<@this:name>(@(var#CompanionName).typeId, out var instance, out var retained)) {
     @\    instance = new @this:name();
     @\  }
@@ -251,26 +373,35 @@ namespace HELIX.Compose {
     @\  return ref cx.AUTHORING.YieldBoundary(ref cx, instance);
     @\}
 
-  @CODE<CLASS> public override void PerformCompose(ref Composition cx) {
-    @\  if (!IsInitialized) { 
-    @\    ((IRecomposeMixinTargets)this).MixinInit();
-    @\    IsInitialized = true;
-    @\  }
-    @\  cx.AUTHORING.SetId(@(var#CompanionName).fullId);
-    @\  ((IRecomposeMixinTargets)this).MixinRecompose(ref cx);
-    @\}
+  @CODE<CLASS> public static ref ElementRef ComposeBoundary(
+    @\  ref Composition cx@local#ComposeArgs
+    @\) @local#Body
 
-  @CODE<CLASS> public override void Dispose() {
-    @\  ((IRecomposeMixinTargets)this).MixinDispose();
-    @\  base.Dispose();
-    @\  IsInitialized = false;
-    @\}
+  @LOCAL<Name> @this:name
+  @SCOPE
+    @MATCH @attr#name:!?eq<null>
+    @LOCAL<Name> @attr#name:unwrap
+  @END
 
-  @CODE<CLASS> public override void Reset() {
-    @\  ((IRecomposeMixinTargets)this).MixinReset();
-    @\  base.Reset(); 
-    @\  IsInitialized = false;
-    @\}
+  @SCOPE
+    @MATCH @attr#extension:?eq<true>
+    @CALL<DeclareCompanion> public static ref ElementRef @local#Name(
+      @\ ref this Composition cx@local#ComposeArgs
+      @\) @local#Body
+  @END
+
+  @MIXIN<$Recompose><-24> cx.AUTHORING.SetId(@(var#CompanionName).fullId);
+@END
+
+@FUNC<RequireInputState>
+  @SCOPE
+    @MATCH @var#HasInputState:!?eq<true>
+    @VAR<HasInputState> true
+    @USING HELIX.Theming;
+    @CODE<IMPLEMENTS> IStateHolder
+    @CODE<CLASS> protected State inputState;
+      @\ public ref State InputState => ref inputState;
+  @END
 @END
 
 "
@@ -282,6 +413,15 @@ namespace HELIX.Compose {
     void MixinDispose() { }
     void MixinReset() { }
     void MixinRecompose(ref Composition cx) { }
+  }
+
+  public interface IBoundaryHooks {
+    void MixinPostConstruct() { }
+    void MixinRecompose(ref Composition cx) { }
+    void MixinCompose(ref Composition cx) { }
+    void MixinInit() { }
+    void MixinReset() { }
+    void MixinDispose() { }
   }
 
   public static class RecomposeMixinTargets {
@@ -297,7 +437,7 @@ namespace HELIX.Compose {
   [MixinDefineTarget(MixinOn.Init, RecomposeMixinTargets.Init)]
   [MixinDefineTarget(MixinOn.Reset, RecomposeMixinTargets.Reset)]
   [MixinDefineTarget(MixinOn.Dispose, RecomposeMixinTargets.Dispose)]
-  [MixinDefineTarget(MixinOn.Recompose, RecomposeMixinTargets.Recompose)]
+  [MixinDefineTarget(MixinOn.Compose, RecomposeMixinTargets.Recompose)]
   public sealed class BoundaryComposableMixinAttribute : Attribute {
     public BoundaryComposableMixinAttribute(
       Type super = null,
@@ -331,14 +471,58 @@ namespace HELIX.Compose {
   }
 
   [AttributeUsage(AttributeTargets.Class)]
-  [MixinImport(typeof(ComposeMixinLibrary))]
+  [MixinExpression("@CALL<BoundaryElementMixinImpl>")]
+  [MixinDefineTarget(MixinOn.Compose, "PerformCompose:HELIX.Compose.Composable")]
+  [MixinDefineTarget(MixinOn.Recompose, "^Recompose")]
+  [MixinDefineTarget(MixinOn.Reset, "^Reset")]
+  [MixinDefineTarget(MixinOn.Init, "Init")]
+  [MixinDefineTarget(MixinOn.Dispose, "^Dispose")]
+  [MixinDefineTarget(MixinOn.BoundaryPostConstruct, "^PostConstruct")]
   [MixinImport(typeof(CoreMixinLibrary))]
-  [MixinExpression("@CALL<BoundaryElementImpl>")]
-  [MixinDefineTarget(MixinOn.Init, RecomposeMixinTargets.Init)]
-  [MixinDefineTarget(MixinOn.Reset, RecomposeMixinTargets.Reset)]
-  [MixinDefineTarget(MixinOn.Dispose, RecomposeMixinTargets.Dispose)]
-  [MixinDefineTarget(MixinOn.Recompose, RecomposeMixinTargets.Recompose)]
-  public sealed class BoundaryElementAttribute : Attribute {
-    public BoundaryElementAttribute() { }
+  [MixinImport(typeof(ComposeMixinLibrary))]
+  public class CustomBoundaryElementAttribute : Attribute {
+    public CustomBoundaryElementAttribute(
+      bool constructor = true,
+      bool composable = true,
+      bool extension = false,
+      bool cacheLookups = false,
+      bool trimChildren = true,
+      string name = null
+    ) { }
+  }
+
+
+  [AttributeUsage(AttributeTargets.Class)]
+  [MixinExpression("@CALL<BoundaryElementMixinFastImpl>")]
+  [MixinDefineTarget(MixinOn.Init, "^MixinInit")]
+  [MixinDefineTarget(MixinOn.Compose, "^MixinCompose:HELIX.Compose.Composable")]
+  [MixinDefineTarget(MixinOn.Recompose, "^MixinRecompose:HELIX.Compose.Composable")]
+  [MixinDefineTarget(MixinOn.Reset, "^MixinReset")]
+  [MixinDefineTarget(MixinOn.Dispose, "^MixinDispose")]
+  [MixinDefineTarget(MixinOn.BoundaryPostConstruct, "^MixinPostConstruct")]
+  [MixinImport(typeof(CoreMixinLibrary))]
+  [MixinImport(typeof(ComposeMixinLibrary))]
+  public class BoundaryElementMixinAttribute : Attribute {
+    public BoundaryElementMixinAttribute(
+      bool composable = true,
+      bool extension = false,
+      bool cacheLookups = false,
+      bool trimChildren = true,
+      string name = null
+    ) { }
+  }
+
+  [MixinExpression(
+    @"
+@ASSERT @var#HasWriteContext:!?eq<true>
+
+@MIXIN<$Compose><-1> using (cx.WriteContext(out var context)) {
+  @\  @target:name(ref cx, context);
+  @\}
+@VAR<HasWriteContext> true
+"
+  )]
+  public class WriteContextHandlerAttribute : Attribute {
+
   }
 }
