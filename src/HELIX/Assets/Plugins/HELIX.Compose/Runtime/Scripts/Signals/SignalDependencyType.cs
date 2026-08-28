@@ -1,6 +1,3 @@
-namespace HELIX.Widgets.Signals {
-  public enum SignalDependencyType : byte {
-    Implicit,
-    Explicit
-  }
+namespace HELIX.Compose {
+  public enum SignalDependencyType : byte { Implicit, Explicit }
 }

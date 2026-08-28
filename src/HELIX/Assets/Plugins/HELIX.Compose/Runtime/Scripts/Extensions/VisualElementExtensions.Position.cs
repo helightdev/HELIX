@@ -1,9 +1,8 @@
 using System.Runtime.CompilerServices;
-using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Extensions {
+namespace HELIX.Compose {
   public static partial class VisualElementExtensions {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static T NoPosition<T>(this T element) where T : VisualElement {
@@ -100,7 +99,7 @@ namespace HELIX.Extensions {
       StyleLength? left = null,
       Position type = UnityEngine.UIElements.Position.Absolute
     )
-      where T : VisualElement {
+    where T : VisualElement {
       element.style.position = type;
       element.style.top = top.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));
       element.style.right = right.GetValueOrDefault(new StyleLength(StyleKeyword.Initial));

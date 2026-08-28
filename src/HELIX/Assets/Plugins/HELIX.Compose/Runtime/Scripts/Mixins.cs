@@ -1,6 +1,4 @@
 using System;
-using HELIX.Compose.Collections;
-using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   [MixinLibrary(
@@ -124,7 +122,6 @@ namespace HELIX.Compose {
 
 @FUNC<BoundaryElementMixinFastImpl>
   @USING HELIX.Compose;
-  @USING HELIX.Compose.Collections;
   @USING HELIX.Coloring;
 
   @CODE<IMPLEMENTS> HELIX.Compose.GeneratedBoundaryBase
@@ -142,7 +139,6 @@ namespace HELIX.Compose {
 
 @FUNC<BoundaryElementMixinImpl>
   @USING HELIX.Compose;
-  @USING HELIX.Compose.Collections;
   @USING HELIX.Coloring;
 
   @SCOPE
@@ -307,13 +303,33 @@ namespace HELIX.Compose {
   @SCOPE
     @MATCH @var#HasInputState:!?eq<true>
     @VAR<HasInputState> true
-    @USING HELIX.Theming;
+    @USING HELIX.Compose;
     @CODE<IMPLEMENTS> IStateHolder
-    @CODE<CLASS> protected State inputState;
+    @CODE<CLASS> private State inputState;
       @\ public ref State InputState => ref inputState;
   @END
 @END
 
+@FUNC<InputStateListenerImpl>
+  @CALL<RequireInputState>
+
+  @MIXIN<$PostConstruct> global::UnityEngine.UIElements.VisualElementExtensions.AddManipulator(this,
+    @\  new InputListenerManipulator(this, this, @attr#focus)
+    @\);
+
+  @SCOPE
+    @MATCH @attr#dirty:?eq<true>
+    @MIXIN<^OnStateChanged:HELIX.Compose.StateChangedHandler> this.MarkDirty();
+  @END
+@END
+
+@FUNC<ClickHandlerImpl>
+  @CALL<RequireInputState>
+
+  @MIXIN<$PostConstruct> global::UnityEngine.UIElements.VisualElementExtensions.AddManipulator(this,
+    @\  new InputClickableManipulator(this, this, @target:name)
+    @\);
+@END
 "
   )]
   public static class ComposeMixinLibrary { }
@@ -416,7 +432,5 @@ namespace HELIX.Compose {
 @VAR<HasWriteContext> true
 "
   )]
-  public class WriteContextHandlerAttribute : Attribute {
-
-  }
+  public class WriteContextHandlerAttribute : Attribute { }
 }

@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using System.Collections;
 using HELIX.Compose;
-using HELIX.Theming;
-using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
 

@@ -1,7 +1,7 @@
 using System;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public readonly struct Flex : IEquatable<Flex> {
     public readonly StyleFloat grow;
     public readonly StyleFloat shrink;
@@ -17,23 +17,59 @@ namespace HELIX.Types {
       this.align = align;
     }
 
-    public static Flex Grow(StyleFloat factor) => new(factor, 0, StyleKeyword.Null, StyleKeyword.Null);
-    public static Flex Grow() => new(1f, 0, StyleKeyword.Null, StyleKeyword.Null);
-    public static Flex Shrink(StyleFloat factor) => new(0, factor, StyleKeyword.Null, StyleKeyword.Null);
-    public static Flex Shrink() => new(0, 1f, StyleKeyword.Null, StyleKeyword.Null);
-    public static Flex Flexible(StyleFloat grow) => new(grow, 1f, StyleKeyword.Null, StyleKeyword.Null);
-    public static Flex Flexible() => new(1f, 1f, StyleKeyword.Null, StyleKeyword.Null);
-    public static Flex Fill(StyleFloat grow) => new(grow, 0, StyleKeyword.Null, Align.Stretch);
-    public static Flex Fill() => new(1f, 0, StyleKeyword.Null, Align.Stretch);
-    public static Flex FillFlexible(StyleFloat grow) => new(grow, 1f, StyleKeyword.Null, Align.Stretch);
-    public static Flex FillFlexible() => new(1f, 1f, StyleKeyword.Null, Align.Stretch);
+    public static Flex Grow(StyleFloat factor) {
+      return new Flex(factor, 0, StyleKeyword.Null, StyleKeyword.Null);
+    }
+
+    public static Flex Grow() {
+      return new Flex(1f, 0, StyleKeyword.Null, StyleKeyword.Null);
+    }
+
+    public static Flex Shrink(StyleFloat factor) {
+      return new Flex(0, factor, StyleKeyword.Null, StyleKeyword.Null);
+    }
+
+    public static Flex Shrink() {
+      return new Flex(0, 1f, StyleKeyword.Null, StyleKeyword.Null);
+    }
+
+    public static Flex Flexible(StyleFloat grow) {
+      return new Flex(grow, 1f, StyleKeyword.Null, StyleKeyword.Null);
+    }
+
+    public static Flex Flexible() {
+      return new Flex(1f, 1f, StyleKeyword.Null, StyleKeyword.Null);
+    }
+
+    public static Flex Fill(StyleFloat grow) {
+      return new Flex(grow, 0, StyleKeyword.Null, Align.Stretch);
+    }
+
+    public static Flex Fill() {
+      return new Flex(1f, 0, StyleKeyword.Null, Align.Stretch);
+    }
+
+    public static Flex FillFlexible(StyleFloat grow) {
+      return new Flex(grow, 1f, StyleKeyword.Null, Align.Stretch);
+    }
+
+    public static Flex FillFlexible() {
+      return new Flex(1f, 1f, StyleKeyword.Null, Align.Stretch);
+    }
 
     public static Flex Of(
-      StyleFloat? grow = null, StyleFloat? shrink = null, StyleEnum<Align>? align = null, StyleLength? basis = null
-    ) => new(
-      grow.GetValueOrDefault(StyleKeyword.Null), shrink.GetValueOrDefault(StyleKeyword.Null),
-      basis.GetValueOrDefault(StyleKeyword.Null), align.GetValueOrDefault(StyleKeyword.Null)
-    );
+      StyleFloat? grow = null,
+      StyleFloat? shrink = null,
+      StyleEnum<Align>? align = null,
+      StyleLength? basis = null
+    ) {
+      return new Flex(
+        grow.GetValueOrDefault(StyleKeyword.Null),
+        shrink.GetValueOrDefault(StyleKeyword.Null),
+        basis.GetValueOrDefault(StyleKeyword.Null),
+        align.GetValueOrDefault(StyleKeyword.Null)
+      );
+    }
 
     public void Apply(VisualElement element) {
       element.style.flexGrow = grow;
@@ -43,7 +79,8 @@ namespace HELIX.Types {
     }
 
     public bool Equals(Flex other) {
-      return grow.Equals(other.grow) && shrink.Equals(other.shrink) && basis.Equals(other.basis) && align.Equals(other.align);
+      return grow.Equals(other.grow) && shrink.Equals(other.shrink) && basis.Equals(other.basis) &&
+        align.Equals(other.align);
     }
 
     public override bool Equals(object obj) {

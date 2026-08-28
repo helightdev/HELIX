@@ -1,9 +1,6 @@
 using System;
-using System.Runtime.CompilerServices;
-using HELIX.Signals;
-using UnityEngine;
 
-namespace HELIX.Widgets.Signals {
+namespace HELIX.Compose {
   public interface ISignalObserver : IPossiblyDisposed {
     void OnSignalChanged(Signal signal) { }
     void OnSignalRemoved(Signal signal) { }
@@ -19,7 +16,7 @@ namespace HELIX.Widgets.Signals {
     }
 
     public bool IsDisposed => !_reference.TryGetTarget(out var observer) ||
-                              observer is IPossiblyDisposed { IsDisposed: true };
+      observer is IPossiblyDisposed { IsDisposed: true };
 
     public void OnSignalChanged(Signal signal) {
       if (_reference.TryGetTarget(out var observer)) observer.OnSignalChanged(signal);

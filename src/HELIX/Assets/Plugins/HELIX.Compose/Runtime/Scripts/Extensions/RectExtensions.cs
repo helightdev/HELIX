@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Extensions {
+namespace HELIX.Compose {
   public static class RectExtensions {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector2 TopLeft(this Rect rect) {

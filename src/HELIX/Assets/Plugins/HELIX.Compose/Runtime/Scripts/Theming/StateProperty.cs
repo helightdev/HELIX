@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using HELIX.Compose;
-using HELIX.Diagnostics;
 
-namespace HELIX.Theming {
+namespace HELIX.Compose {
   public static class StateProperties {
     public static StateProperty<T> PrecomputedBranch<T>(
       StateProperty<T> property,
@@ -117,22 +115,19 @@ namespace HELIX.Theming {
 
     public static StateProperty<TValue> Zip<TValue>(State[] states, TValue[] values) {
       var map = new StatePropertyMap<TValue>();
-      for (var i = 0; i < states.Length; i++) {
-        map[states[i]] = values[i];
-      }
+      for (var i = 0; i < states.Length; i++) map[states[i]] = values[i];
       return map;
     }
 
     public static Composable<State> ToComposable(this StateProperty<Composable> property) {
       return (ref Composition cx, State state) => {
-        if (property.TryResolve(state, out var composable)) {
-          composable(ref cx);
-        }
+        if (property.TryResolve(state, out var composable)) composable(ref cx);
       };
     }
   }
 
   public abstract class StateProperty<T> {
+    public T this[State state] => ResolveOrDefault(state);
     public abstract bool TryResolve(State state, out T value);
 
     public T ResolveOrDefault(State state, T defaultValue = default) {
@@ -142,8 +137,6 @@ namespace HELIX.Theming {
     public abstract bool HasValueFor(State state);
     public abstract ref T GetValueRef(State state);
 
-    public T this[State state] => ResolveOrDefault(state);
-
     public static implicit operator StateProperty<T>(T constant) {
       return StateProperties.Const(constant);
     }
@@ -152,7 +145,10 @@ namespace HELIX.Theming {
   public class StatePropertyMap<T> : StateProperty<T> {
     internal readonly List<Pair> values = new();
 
-    public new T this[State state] { get => base[state]; set => values.Add(new Pair(state, value)); }
+    public new T this[State state] {
+      get => base[state];
+      set => values.Add(new Pair(state, value));
+    }
 
     public override bool TryResolve(State state, out T value) {
       value = default;
@@ -181,8 +177,10 @@ namespace HELIX.Theming {
       throw new KeyNotFoundException($"No value found for state {state}");
     }
 
-    protected bool Equals(StatePropertyMap<T> other) => values != null && other.values != null &&
-                                                        values.SequenceEqual(other.values);
+    protected bool Equals(StatePropertyMap<T> other) {
+      return values != null && other.values != null &&
+        values.SequenceEqual(other.values);
+    }
 
     public override bool Equals(object obj) {
       if (obj is null) return false;
@@ -191,7 +189,9 @@ namespace HELIX.Theming {
       return Equals((StatePropertyMap<T>)obj);
     }
 
-    public override int GetHashCode() => values != null ? values.GetHashCode() : 0;
+    public override int GetHashCode() {
+      return values != null ? values.GetHashCode() : 0;
+    }
 
     internal class Pair : IEquatable<Pair> {
       public readonly State mask;
@@ -206,11 +206,17 @@ namespace HELIX.Theming {
         return other != null && mask == other.mask && EqualityComparer<T>.Default.Equals(value, other.value);
       }
 
-      public override bool Equals(object obj) => obj is Pair other && Equals(other);
+      public override bool Equals(object obj) {
+        return obj is Pair other && Equals(other);
+      }
 
-      public override int GetHashCode() => HashCode.Combine((int)mask, value);
+      public override int GetHashCode() {
+        return HashCode.Combine((int)mask, value);
+      }
 
-      public override string ToString() => $"{mask.ToStateString()} => {value}";
+      public override string ToString() {
+        return $"{mask.ToStateString()} => {value}";
+      }
     }
   }
 
@@ -223,12 +229,17 @@ namespace HELIX.Theming {
       return false;
     }
 
-    public override bool HasValueFor(State state) => false;
+    public override bool HasValueFor(State state) {
+      return false;
+    }
 
-    public override ref T GetValueRef(State state) =>
+    public override ref T GetValueRef(State state) {
       throw new KeyNotFoundException($"No value found for state {state}");
+    }
 
-    public bool Equals(NeverStateProperty<T> other) => true;
+    public bool Equals(NeverStateProperty<T> other) {
+      return true;
+    }
 
     public override bool Equals(object obj) {
       if (obj is null) return false;
@@ -237,8 +248,13 @@ namespace HELIX.Theming {
       return Equals((NeverStateProperty<T>)obj);
     }
 
-    public override int GetHashCode() => 0;
-    public override string ToString() => "Never";
+    public override int GetHashCode() {
+      return 0;
+    }
+
+    public override string ToString() {
+      return "Never";
+    }
   }
 
   public class AllStateProperty<T> : StateProperty<T>, IEquatable<AllStateProperty<T>> {
@@ -258,16 +274,26 @@ namespace HELIX.Theming {
       return true;
     }
 
-    public override bool HasValueFor(State state) => true;
+    public override bool HasValueFor(State state) {
+      return true;
+    }
 
-    public override ref T GetValueRef(State state) => ref _constant;
+    public override ref T GetValueRef(State state) {
+      return ref _constant;
+    }
 
-    public override bool Equals(object obj) => obj is AllStateProperty<T> other && Equals(other);
+    public override bool Equals(object obj) {
+      return obj is AllStateProperty<T> other && Equals(other);
+    }
 
     // ReSharper disable once NonReadonlyMemberInGetHashCode
-    public override int GetHashCode() => EqualityComparer<T>.Default.GetHashCode(_constant);
+    public override int GetHashCode() {
+      return EqualityComparer<T>.Default.GetHashCode(_constant);
+    }
 
-    public override string ToString() => $"All({_constant})";
+    public override string ToString() {
+      return $"All({_constant})";
+    }
   }
 
   public class FuncStateProperty<T> : StateProperty<T>,
@@ -289,16 +315,22 @@ namespace HELIX.Theming {
       return true;
     }
 
-    public override bool HasValueFor(State state) => true;
+    public override bool HasValueFor(State state) {
+      return true;
+    }
 
     public override ref T GetValueRef(State state) {
       _buffer = _resolver(state);
       return ref _buffer;
     }
 
-    public override bool Equals(object obj) => obj is FuncStateProperty<T> other && Equals(other);
+    public override bool Equals(object obj) {
+      return obj is FuncStateProperty<T> other && Equals(other);
+    }
 
-    public override int GetHashCode() => _resolver != null ? _resolver.GetHashCode() : 0;
+    public override int GetHashCode() {
+      return _resolver != null ? _resolver.GetHashCode() : 0;
+    }
   }
 
   public class SparseFuncStateProperty<T> : StateProperty<T> {
@@ -320,14 +352,21 @@ namespace HELIX.Theming {
       return optional.hasValue;
     }
 
-    public override bool HasValueFor(State state) => true;
+    public override bool HasValueFor(State state) {
+      return true;
+    }
 
     public override ref T GetValueRef(State state) {
       _buffer = _resolver(state).value;
       return ref _buffer;
     }
 
-    public override bool Equals(object obj) => obj is SparseFuncStateProperty<T> other && Equals(other);
-    public override int GetHashCode() => _resolver != null ? _resolver.GetHashCode() : 0;
+    public override bool Equals(object obj) {
+      return obj is SparseFuncStateProperty<T> other && Equals(other);
+    }
+
+    public override int GetHashCode() {
+      return _resolver != null ? _resolver.GetHashCode() : 0;
+    }
   }
 }

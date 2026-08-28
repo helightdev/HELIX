@@ -1,14 +1,13 @@
 using System;
-using HELIX.Extensions;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Animation {
-    /// <summary>
-    ///   Represents a base class for managing the transition of states using tweening logic.
-    ///   Provides static creation methods to construct typed tweening arenas such as for colors or floats.
-    /// </summary>
-    public abstract class TweenStateArena {
+namespace HELIX.Compose {
+  /// <summary>
+  ///   Represents a base class for managing the transition of states using tweening logic.
+  ///   Provides static creation methods to construct typed tweening arenas such as for colors or floats.
+  /// </summary>
+  public abstract class TweenStateArena {
     internal TweenStateArena() { }
 
     public static TweenStateArena<Color> ColorArena(
@@ -73,16 +72,16 @@ namespace HELIX.Animation {
       set => Set(value);
     }
 
-      /// <summary>
-      ///   Initiates a tweening operation transitioning the current value to the specified new value
-      ///   over the configured duration using the provided interpolation function.
-      ///   The transition updates the value at regular intervals and invokes the update action
-      ///   accordingly.
-      /// </summary>
-      /// <param name="newValue">
-      ///   The target value to which the tween animation will transition.
-      /// </param>
-      public void Push(T newValue) {
+    /// <summary>
+    ///   Initiates a tweening operation transitioning the current value to the specified new value
+    ///   over the configured duration using the provided interpolation function.
+    ///   The transition updates the value at regular intervals and invokes the update action
+    ///   accordingly.
+    /// </summary>
+    /// <param name="newValue">
+    ///   The target value to which the tween animation will transition.
+    /// </param>
+    public void Push(T newValue) {
       if (DurationMs == 0) {
         Set(newValue);
         return;
@@ -99,14 +98,14 @@ namespace HELIX.Animation {
       );
     }
 
-      /// <summary>
-      ///   Sets the current value of the tween without initiating a transition or animation.
-      ///   Immediately applies the specified value and invokes the update action to reflect the change.
-      /// </summary>
-      /// <param name="newValue">
-      ///   The value to be directly assigned as the current state.
-      /// </param>
-      public void Set(T newValue) {
+    /// <summary>
+    ///   Sets the current value of the tween without initiating a transition or animation.
+    ///   Immediately applies the specified value and invokes the update action to reflect the change.
+    /// </summary>
+    /// <param name="newValue">
+    ///   The value to be directly assigned as the current state.
+    /// </param>
+    public void Set(T newValue) {
       _scheduler.Stop();
       _value = newValue;
       _updateFunc(Value);

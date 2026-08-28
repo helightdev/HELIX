@@ -171,7 +171,7 @@ namespace HELIX {
     public const string Reset = "$Reset";
 
     public const string BoundaryPostConstruct = "$PostConstruct";
-    public const string InputStateChanged = "^OnStateChanged:HELIX.Theming.StateChangedHandler";
+    public const string InputStateChanged = "^OnStateChanged:HELIX.Compose.StateChangedHandler";
 
 
     public const string LoadManaged = "$LoadManaged";

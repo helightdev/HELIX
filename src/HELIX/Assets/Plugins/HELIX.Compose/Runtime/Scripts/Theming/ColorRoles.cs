@@ -1,4 +1,4 @@
-namespace HELIX.Theming {
+namespace HELIX.Compose {
   public static class ColorRoles {
     public const ColorRole Transparent = ColorRole.Transparent;
     public const ColorRole Primary = ColorRole.Primary;

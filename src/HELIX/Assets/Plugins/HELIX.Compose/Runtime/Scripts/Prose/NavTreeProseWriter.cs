@@ -1,22 +1,22 @@
 using System;
 using System.Collections.Generic;
-using HELIX.Compose;
-using HELIX.Compose.Forms;
-using HELIX.Theming;
-using HELIX.Types;
-using UnityEngine.UIElements;
+using HELIX.Prose;
 
-namespace HELIX.Prose {
+namespace HELIX.Compose {
   /// <summary>Optional presentation metadata attached to a path section.</summary>
   public sealed class PathSectionPresentationModifier : IProseModifier {
     public PathSectionPresentationModifier(
-      string title = null, TextRole? titleRole = null, IconRef? icon = null, string description = null
+      string title = null,
+      TextRole? titleRole = null,
+      IconRef? icon = null,
+      string description = null
     ) {
       Title = title;
       TitleRole = titleRole;
       Icon = icon;
       Description = description;
     }
+
     public string Title { get; }
     public TextRole? TitleRole { get; }
     public IconRef? Icon { get; }
@@ -25,15 +25,22 @@ namespace HELIX.Prose {
 
   public static class PathSectionModifiers {
     public static PathSectionPresentationModifier Presentation(
-      string title = null, TextRole? titleRole = null, IconRef? icon = null, string description = null
-    ) => new(title, titleRole, icon, description);
+      string title = null,
+      TextRole? titleRole = null,
+      IconRef? icon = null,
+      string description = null
+    ) {
+      return new PathSectionPresentationModifier(title, titleRole, icon, description);
+    }
 
     public static PathSectionPresentationModifier Title(string title, TextRole? role = null) {
       if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("A section title is required.", nameof(title));
-      return new PathSectionPresentationModifier(title: title, titleRole: role);
+      return new PathSectionPresentationModifier(title, role);
     }
 
-    public static PathSectionPresentationModifier Icon(IconRef icon) => new(icon: icon);
+    public static PathSectionPresentationModifier Icon(IconRef icon) {
+      return new PathSectionPresentationModifier(icon: icon);
+    }
 
     public static PathSectionPresentationModifier Description(string description) {
       if (string.IsNullOrWhiteSpace(description))
@@ -44,6 +51,18 @@ namespace HELIX.Prose {
 
   /// <summary>An immutable, path-addressed intermediate representation of completed composables.</summary>
   public sealed class NavTreeProse : IProse {
+    internal NavTreeProse(FormPathPool paths, Node root) {
+      Paths = paths;
+      Root = root;
+    }
+
+    public FormPathPool Paths { get; }
+    public Node Root { get; }
+
+    public void ToProse(IProseWriter writer) {
+      Root.ToProse(writer);
+    }
+
     public sealed class Node : LinkedProseTreeNode<Node>, IProse {
       internal readonly List<Composable> entries = new();
       internal readonly List<IProseModifier> modifiers = new();
@@ -58,80 +77,53 @@ namespace HELIX.Prose {
       public IReadOnlyList<Composable> Entries => entries;
       public IReadOnlyList<IProseModifier> Modifiers => modifiers;
       public IReadOnlyList<Node> Children => this;
+
       public void ToProse(IProseWriter writer) {
         writer.Name(Name);
         writer.Property(
-          "Modifiers", modifiers,
+          "Modifiers",
+          modifiers,
           new CollectionDatatype<IEnumerable<IProseModifier>, IProseModifier, List<IProseModifier>>(
             EnumerableCollectionProxy<IProseModifier>.Instance
           )
         );
-        using (writer.Tree()) {
-          foreach (var section in this) {
+        using (writer.Tree())
+          foreach (var section in this)
             section?.ToProse(writer);
-          }
-        }
       }
-    }
-
-    internal NavTreeProse(FormPathPool paths, Node root) {
-      Paths = paths;
-      Root = root;
-    }
-
-    public FormPathPool Paths { get; }
-    public Node Root { get; }
-    public void ToProse(IProseWriter writer) {
-      Root.ToProse(writer);
     }
   }
 
   /// <summary>
-  /// Compose prose writer whose path scopes select independent output buffers. Nested path scopes are relative,
-  /// so <c>Path("graphics")</c> followed by <c>Path("quality")</c> addresses <c>graphics.quality</c>.
+  ///   Compose prose writer whose path scopes select independent output buffers. Nested path scopes are relative,
+  ///   so <c>Path("graphics")</c> followed by <c>Path("quality")</c> addresses <c>graphics.quality</c>.
   /// </summary>
   public sealed class NavTreeProseWriter : ComposeProseWriter {
-    public struct PathScope : IDisposable {
-      private NavTreeProseWriter _writer;
-      internal PathScope(NavTreeProseWriter writer) => _writer = writer;
-
-      public void Dispose() {
-        var writer = _writer;
-        _writer = null;
-        writer?.EndPath();
-      }
-    }
-
-    private sealed class PathFrame {
-      public NavTreeProse.Node node;
-      public bool acceptsModifiers = true;
-    }
-
-    private readonly FormPathPool _paths;
-    private readonly Dictionary<FormPath, NavTreeProse.Node> _sections = new();
     private readonly List<PathFrame> _pathFrames = new();
+
     private readonly NavTreeProse.Node _rootNode;
+    private readonly Dictionary<FormPath, NavTreeProse.Node> _sections = new();
 
     public NavTreeProseWriter(
-      FormPathPool paths = null, ProseReducer<Composable> reducer = null,
+      FormPathPool paths = null,
+      ProseReducer<Composable> reducer = null,
       ProseReducerChain<Composable> delegates = null
     ) : base(reducer ?? new ComposeProseReducer(), delegates) {
-      _paths = paths ?? new FormPathPool();
-      _rootNode = new NavTreeProse.Node(_paths.Root, string.Empty);
-      _sections.Add(_paths.Root, _rootNode);
+      Paths = paths ?? new FormPathPool();
+      _rootNode = new NavTreeProse.Node(Paths.Root, string.Empty);
+      _sections.Add(Paths.Root, _rootNode);
     }
 
-    public FormPathPool Paths => _paths;
+    public FormPathPool Paths { get; }
     public FormPath CurrentPath => CurrentNode.Path;
-    private NavTreeProse.Node CurrentNode =>
-      _pathFrames.Count == 0 ? _rootNode : _pathFrames[^1].node;
+    private NavTreeProse.Node CurrentNode => _pathFrames.Count == 0 ? _rootNode : _pathFrames[^1].node;
 
     public PathScope Path(string path) {
       if (HasActiveDelegation)
         throw new InvalidOperationException("A path cannot be switched inside a delegated Prose frame.");
       if (FrameCount != 0)
         throw new InvalidOperationException("A path can only be switched between completed Prose frames.");
-      var resolved = _paths.ParseRelative(CurrentPath, path);
+      var resolved = Paths.ParseRelative(CurrentPath, path);
       var section = GetOrCreateSection(resolved);
       _pathFrames.Add(new PathFrame { node = section });
       return new PathScope(this);
@@ -164,12 +156,14 @@ namespace HELIX.Prose {
       if (FrameCount != 0) throw new InvalidOperationException("All Prose frames must be ended before building.");
       if (_pathFrames.Count != 0)
         throw new InvalidOperationException("All path contexts must be ended before building.");
-      return new NavTreeProse(_paths, Snapshot(_rootNode));
+      return new NavTreeProse(Paths, Snapshot(_rootNode));
     }
 
-    public override Composable Build() => throw new InvalidOperationException(
-      "Path-sectioned prose is an intermediate representation. Use BuildSections() and a projection instead."
-    );
+    public override Composable Build() {
+      throw new InvalidOperationException(
+        "Path-sectioned prose is an intermediate representation. Use BuildSections() and a projection instead."
+      );
+    }
 
     public override void Reset() {
       base.Reset();
@@ -178,7 +172,7 @@ namespace HELIX.Prose {
       _rootNode.entries.Clear();
       _rootNode.modifiers.Clear();
       while (_rootNode.firstChild != null) _rootNode.Remove(_rootNode.firstChild);
-      _sections.Add(_paths.Root, _rootNode);
+      _sections.Add(Paths.Root, _rootNode);
     }
 
     protected override void Accumulate(Composable composable) {
@@ -193,9 +187,9 @@ namespace HELIX.Prose {
 
     private NavTreeProse.Node GetOrCreateSection(FormPath path) {
       if (_sections.TryGetValue(path, out var existing)) return existing;
-      var parentPath = _paths.Parent(path);
+      var parentPath = Paths.Parent(path);
       var parent = GetOrCreateSection(parentPath);
-      var formatted = _paths.Format(path);
+      var formatted = Paths.Format(path);
       var separator = formatted.LastIndexOf('.');
       var section = new NavTreeProse.Node(path, formatted.Substring(separator + 1));
       _sections.Add(path, section);
@@ -210,6 +204,24 @@ namespace HELIX.Prose {
       foreach (var child in source) result.Add(Snapshot(child));
       return result;
     }
-  }
 
+    public struct PathScope : IDisposable {
+      private NavTreeProseWriter _writer;
+
+      internal PathScope(NavTreeProseWriter writer) {
+        _writer = writer;
+      }
+
+      public void Dispose() {
+        var writer = _writer;
+        _writer = null;
+        writer?.EndPath();
+      }
+    }
+
+    private sealed class PathFrame {
+      public bool acceptsModifiers = true;
+      public NavTreeProse.Node node;
+    }
+  }
 }

@@ -1,10 +1,9 @@
-using HELIX.Types;
 using UnityEngine.UIElements;
 
-namespace HELIX.Extensions {
+namespace HELIX.Compose {
   public static partial class VisualElementExtensions {
     public static T Flexible<T>(this T element, float grow = 1, float shrink = 1, Align selfAlign = Align.Auto)
-      where T : VisualElement {
+    where T : VisualElement {
       element.style.flexGrow = grow;
       element.style.flexShrink = shrink;
       element.style.alignSelf = selfAlign;

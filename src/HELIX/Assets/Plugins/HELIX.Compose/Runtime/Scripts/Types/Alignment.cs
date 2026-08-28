@@ -3,7 +3,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   [Serializable]
   public struct Alignment {
     [Range(-1f, 1f)] public float x;

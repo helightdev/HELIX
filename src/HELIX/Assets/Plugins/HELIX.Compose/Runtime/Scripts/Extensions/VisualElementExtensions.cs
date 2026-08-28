@@ -1,11 +1,8 @@
 using System;
-using HELIX.Compose;
-using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
-using IEventHandler = HELIX.Types.IEventHandler;
 
-namespace HELIX.Extensions {
+namespace HELIX.Compose {
   public static partial class VisualElementExtensions {
     public static bool IsInitial<T>(this IStyleValue<T> value) {
       return value.keyword == StyleKeyword.Initial;

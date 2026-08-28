@@ -1,7 +1,7 @@
 using System;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public readonly struct FlexGroup : IEquatable<FlexGroup> {
     public readonly StyleEnum<Justify> main;
     public readonly StyleEnum<Align> cross;
@@ -10,7 +10,11 @@ namespace HELIX.Types {
     public readonly StyleEnum<Wrap> wrap;
 
     public static readonly FlexGroup Null = new(
-      StyleKeyword.Null, StyleKeyword.Null, StyleKeyword.Null, StyleKeyword.Null, StyleKeyword.Null
+      StyleKeyword.Null,
+      StyleKeyword.Null,
+      StyleKeyword.Null,
+      StyleKeyword.Null,
+      StyleKeyword.Null
     );
 
     public FlexGroup(
@@ -28,27 +32,61 @@ namespace HELIX.Types {
     }
 
     public static FlexGroup Of(
-      Axis axis, Justify main, Align cross, Align? wrapCross = null, Wrap? wrap = null, bool reverse = false
-    ) => new(main, cross, wrapCross ?? cross, axis.ToFlexDirection(reverse), wrap ?? Wrap.NoWrap);
+      Axis axis,
+      Justify main,
+      Align cross,
+      Align? wrapCross = null,
+      Wrap? wrap = null,
+      bool reverse = false
+    ) {
+      return new FlexGroup(main, cross, wrapCross ?? cross, axis.ToFlexDirection(reverse), wrap ?? Wrap.NoWrap);
+    }
 
     public static FlexGroup Row(
-      Justify main = Justify.FlexStart, Align cross = Align.Center, bool reverse = false
-    ) => new(main, cross, cross, reverse ? FlexDirection.RowReverse : FlexDirection.Row, Wrap.NoWrap);
+      Justify main = Justify.FlexStart,
+      Align cross = Align.Center,
+      bool reverse = false
+    ) {
+      return new FlexGroup(main, cross, cross, reverse ? FlexDirection.RowReverse : FlexDirection.Row, Wrap.NoWrap);
+    }
 
     public static FlexGroup Column(
-      Justify main = Justify.FlexStart, Align cross = Align.Center, bool reverse = false
-    ) => new(main, cross, cross, reverse ? FlexDirection.ColumnReverse : FlexDirection.Column, Wrap.NoWrap);
+      Justify main = Justify.FlexStart,
+      Align cross = Align.Center,
+      bool reverse = false
+    ) {
+      return new FlexGroup(
+        main,
+        cross,
+        cross,
+        reverse ? FlexDirection.ColumnReverse : FlexDirection.Column,
+        Wrap.NoWrap
+      );
+    }
 
     public static FlexGroup Wrapping(
-      Justify main = Justify.FlexStart, Align cross = Align.Center, Align? wrapCross = null,
-      Axis axis = Axis.Horizontal, bool reverse = false, bool wrapReverse = false
-    ) => new(
-      main, cross, wrapCross ?? cross, axis.ToFlexDirection(reverse), wrapReverse ? Wrap.WrapReverse : Wrap.Wrap
-    );
+      Justify main = Justify.FlexStart,
+      Align cross = Align.Center,
+      Align? wrapCross = null,
+      Axis axis = Axis.Horizontal,
+      bool reverse = false,
+      bool wrapReverse = false
+    ) {
+      return new FlexGroup(
+        main,
+        cross,
+        wrapCross ?? cross,
+        axis.ToFlexDirection(reverse),
+        wrapReverse ? Wrap.WrapReverse : Wrap.Wrap
+      );
+    }
 
     public static FlexGroup Center(
-      Axis axis = Axis.Vertical, bool reverse = false
-    ) => new(Justify.Center, Align.Center, Align.Center, axis.ToFlexDirection(reverse), Wrap.NoWrap);
+      Axis axis = Axis.Vertical,
+      bool reverse = false
+    ) {
+      return new FlexGroup(Justify.Center, Align.Center, Align.Center, axis.ToFlexDirection(reverse), Wrap.NoWrap);
+    }
 
     public void Apply(VisualElement element) {
       element.style.justifyContent = main;
@@ -60,8 +98,8 @@ namespace HELIX.Types {
 
     public bool Equals(FlexGroup other) {
       return main.Equals(other.main) && cross.Equals(other.cross) &&
-             wrapCross.Equals(other.wrapCross) && direction.Equals(other.direction) &&
-             wrap.Equals(other.wrap);
+        wrapCross.Equals(other.wrapCross) && direction.Equals(other.direction) &&
+        wrap.Equals(other.wrap);
     }
 
     public override bool Equals(object obj) {

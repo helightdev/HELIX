@@ -1,7 +1,8 @@
 using System;
+using HELIX.Prose;
 using UnityEngine.UIElements;
 
-namespace HELIX.Prose {
+namespace HELIX.Compose {
   public interface IProseField : IProseScope {
     string Path { get; }
     string Name { get; }
@@ -16,9 +17,10 @@ namespace HELIX.Prose {
       Name = name;
       Datatype = datatype ?? throw new ArgumentNullException(nameof(datatype));
     }
+
+    public IDatatype<T> Datatype { get; }
     public string Path { get; }
     public string Name { get; }
-    public IDatatype<T> Datatype { get; }
     object IProseField.Formatter => Datatype;
   }
 
@@ -37,12 +39,18 @@ namespace HELIX.Prose {
   }
 
   public sealed class ProseFieldPart : IProseFieldPart {
-    public ProseFieldPart(ProseFieldPartKind kind) => Kind = kind;
+    public ProseFieldPart(ProseFieldPartKind kind) {
+      Kind = kind;
+    }
+
     public ProseFieldPartKind Kind { get; }
   }
 
   public sealed class ProseFieldLabelWidthModifier : IProseModifier {
-    public ProseFieldLabelWidthModifier(Length width) => Width = width;
+    public ProseFieldLabelWidthModifier(Length width) {
+      Width = width;
+    }
+
     public Length Width { get; }
   }
 
@@ -62,28 +70,68 @@ namespace HELIX.Prose {
     public static readonly ProseFieldPart After = new(ProseFieldPartKind.After);
     public static readonly ProseFullWidthModifier FullWidth = ProseFullWidthModifier.Default;
 
-    public static ProseFieldLabelWidthModifier LabelWidth(Length width) => new(width);
+    public static ProseFieldLabelWidthModifier LabelWidth(Length width) {
+      return new ProseFieldLabelWidthModifier(width);
+    }
   }
 
   public static class ProseFieldWriterExtensions {
     public static ProseWriterScope Field<T>(
-      this IProseWriter writer, string path, string name, IDatatype<T> datatype
-    ) => writer.Scope(new ProseField<T>(path, name, datatype));
+      this IProseWriter writer,
+      string path,
+      string name,
+      IDatatype<T> datatype
+    ) {
+      return writer.Scope(new ProseField<T>(path, name, datatype));
+    }
 
-    public static ProseWriterScope FieldPart(this IProseWriter writer, IProseFieldPart part) => writer.Scope(part);
-    public static ProseWriterScope FieldLabel(this IProseWriter writer) => writer.Scope(ProseFields.Label);
-    public static ProseWriterScope FieldDescription(this IProseWriter writer) => writer.Scope(ProseFields.Description);
-    public static ProseWriterScope FieldTooltip(this IProseWriter writer) => writer.Scope(ProseFields.Tooltip);
-    public static ProseWriterScope FieldPrefix(this IProseWriter writer) => writer.Scope(ProseFields.Prefix);
-    public static ProseWriterScope FieldSuffix(this IProseWriter writer) => writer.Scope(ProseFields.Suffix);
-    public static ProseWriterScope FieldBefore(this IProseWriter writer) => writer.Scope(ProseFields.Before);
-    public static ProseWriterScope FieldBetween(this IProseWriter writer) => writer.Scope(ProseFields.Between);
-    public static ProseWriterScope FieldAfter(this IProseWriter writer) => writer.Scope(ProseFields.After);
+    public static ProseWriterScope FieldPart(this IProseWriter writer, IProseFieldPart part) {
+      return writer.Scope(part);
+    }
 
-    public static void FieldLabel(this IProseWriter writer, string text) => WritePart(writer, ProseFields.Label, text);
-    public static void FieldDescription(this IProseWriter writer, string text) =>
+    public static ProseWriterScope FieldLabel(this IProseWriter writer) {
+      return writer.Scope(ProseFields.Label);
+    }
+
+    public static ProseWriterScope FieldDescription(this IProseWriter writer) {
+      return writer.Scope(ProseFields.Description);
+    }
+
+    public static ProseWriterScope FieldTooltip(this IProseWriter writer) {
+      return writer.Scope(ProseFields.Tooltip);
+    }
+
+    public static ProseWriterScope FieldPrefix(this IProseWriter writer) {
+      return writer.Scope(ProseFields.Prefix);
+    }
+
+    public static ProseWriterScope FieldSuffix(this IProseWriter writer) {
+      return writer.Scope(ProseFields.Suffix);
+    }
+
+    public static ProseWriterScope FieldBefore(this IProseWriter writer) {
+      return writer.Scope(ProseFields.Before);
+    }
+
+    public static ProseWriterScope FieldBetween(this IProseWriter writer) {
+      return writer.Scope(ProseFields.Between);
+    }
+
+    public static ProseWriterScope FieldAfter(this IProseWriter writer) {
+      return writer.Scope(ProseFields.After);
+    }
+
+    public static void FieldLabel(this IProseWriter writer, string text) {
+      WritePart(writer, ProseFields.Label, text);
+    }
+
+    public static void FieldDescription(this IProseWriter writer, string text) {
       WritePart(writer, ProseFields.Description, text);
-    public static void FieldTooltip(this IProseWriter writer, string text) => WritePart(writer, ProseFields.Tooltip, text);
+    }
+
+    public static void FieldTooltip(this IProseWriter writer, string text) {
+      WritePart(writer, ProseFields.Tooltip, text);
+    }
 
     private static void WritePart(IProseWriter writer, IProseScope part, string text) {
       if (writer == null) throw new ArgumentNullException(nameof(writer));

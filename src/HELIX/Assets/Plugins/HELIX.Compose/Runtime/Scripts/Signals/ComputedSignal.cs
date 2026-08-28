@@ -1,13 +1,12 @@
 using System;
 using HELIX.Diagnostics;
 using HELIX.Prose;
-using HELIX.Signals;
 
-namespace HELIX.Widgets.Signals {
+namespace HELIX.Compose {
   /// <summary>
-  /// A signal that recomputes its value whenever any of its dependencies change.
+  ///   A signal that recomputes its value whenever any of its dependencies change.
   /// </summary>
-  /// <seealso cref="Signal.Computed"/>
+  /// <seealso cref="Signal.Computed" />
   public class ComputedSignal<T> : Signal<T>, ISignalObserver {
     private readonly Func<T> _computeFunc;
     private readonly SignalDependencyTracker _tracker;
@@ -42,9 +41,7 @@ namespace HELIX.Widgets.Signals {
 
       try {
         _isComputing = true;
-        using (_tracker.BuildScope()) {
-          _cachedValue = _computeFunc();
-        }
+        using (_tracker.BuildScope()) _cachedValue = _computeFunc();
       } catch (Exception ex) {
         throw HelixDiagnostics.ProseError(
           "An error occurred while computing a signal value.",
@@ -69,6 +66,5 @@ namespace HELIX.Widgets.Signals {
       _tracker.Dispose();
       base.Dispose();
     }
-
   }
 }

@@ -1,21 +1,14 @@
 using HELIX.Coloring;
-using HELIX.Compose;
-using HELIX.Extensions;
-using HELIX.Types;
 using UnityEngine;
 
-namespace HELIX.Theming {
+namespace HELIX.Compose {
   public static class HXStyles {
     public static readonly StateProperty<BlendLevel>
       DefaultBlendLevels = new StatePropertyMap<BlendLevel> {
-        [State.Active] = BlendLevel.Normal,
-        [State.Hovered] = BlendLevel.Low,
-        [State.None] = BlendLevel.None
+        [State.Active] = BlendLevel.Normal, [State.Hovered] = BlendLevel.Low, [State.None] = BlendLevel.None
       },
       DefaultAccentBlendLevels = new StatePropertyMap<BlendLevel> {
-        [State.Active] = BlendLevel.AccentHigh,
-        [State.Hovered] = BlendLevel.AccentLow,
-        [State.None] = BlendLevel.None
+        [State.Active] = BlendLevel.AccentHigh, [State.Hovered] = BlendLevel.AccentLow, [State.None] = BlendLevel.None
       };
 
     public static StateProperty<BlendLevel> BlendLevelSelector(StateProperty<ColorRole> roles) {
@@ -38,20 +31,28 @@ namespace HELIX.Theming {
     }
 
     public static StateProperty<Color> Resolve(
-      this StateProperty<ColorRole> roles, ThemeData theme
-    ) => StateProperties.Func(states => theme[roles.ResolveOrDefault(states)]);
+      this StateProperty<ColorRole> roles,
+      ThemeData theme
+    ) {
+      return StateProperties.Func(states => theme[roles.ResolveOrDefault(states)]);
+    }
 
     public static StateProperty<float> Resolve(
-      this StateProperty<BlendLevel> roles, ThemeData theme
-    ) => StateProperties.Func(states => theme[roles[states]]);
+      this StateProperty<BlendLevel> roles,
+      ThemeData theme
+    ) {
+      return StateProperties.Func(states => theme[roles[states]]);
+    }
 
     public static StateProperty<Color> ContrastBlend(
       StateProperty<Color> color,
       StateProperty<Color> onColor,
       StateProperty<float> blendLevels
-    ) => StateProperties.Func(states =>
-      Colors.ContrastBlend(color[states], onColor[states], blendLevels[states])
-    );
+    ) {
+      return StateProperties.Func(states =>
+        Colors.ContrastBlend(color[states], onColor[states], blendLevels[states])
+      );
+    }
 
     public static void StateBlend(
       ThemeData theme,
@@ -144,7 +145,9 @@ namespace HELIX.Theming {
 
     public static StateProperty<TextStyle> TextColor(
       StateProperty<Color> color
-    ) => StateProperties.Func(state => new TextStyle(color: color[state]));
+    ) {
+      return StateProperties.Func(state => new TextStyle(color: color[state]));
+    }
 
     public static Composable<State> DefaultFocusOutline(
       ThemeData theme,
@@ -159,12 +162,9 @@ namespace HELIX.Theming {
       return new HXSolidBoxStyle(
         radius: new AllStateProperty<BorderRadius>(outdent ? theme[radius] + theme[inset] : theme[radius]),
         border: new StatePropertyMap<Border> {
-          [focusState] = Border.All(theme[border], theme[focusColor]),
-          [State.None] = Border.None
+          [focusState] = Border.All(theme[border], theme[focusColor]), [State.None] = Border.None
         },
-        position: new StatePropertyMap<StyleLength4> {
-          [State.None] = outdent ? -theme[inset] : 0f,
-        }
+        position: new StatePropertyMap<StyleLength4> { [State.None] = outdent ? -theme[inset] : 0f }
       ).Bake();
     }
   }
@@ -204,20 +204,20 @@ namespace HELIX.Theming {
     public readonly Composable<State> Bake() {
       var style = this;
       return (ref Composition cx, State state) => cx.DrawSolidBox(
-        border: style.border.ResolveOrDefault(state, Border.None),
-        radius: style.radius.ResolveOrDefault(state, BorderRadius.None),
-        color: style.color.ResolveOrDefault(state, Colors.Transparent),
-        opacity: style.opacity.ResolveOrDefault(state, 1f),
-        constraints: style.constraints.ResolveOrDefault(state, BoxConstraints.Initial),
-        position: style.position.ResolveOrDefault(state, StyleLength4.Zero),
-        absolute: style.absolute.ResolveOrDefault(state, true),
-        transition: style.transition.ResolveOrDefault(state, TransitionOptions.Default)
+        style.border.ResolveOrDefault(state, Border.None),
+        style.radius.ResolveOrDefault(state, BorderRadius.None),
+        style.color.ResolveOrDefault(state, Colors.Transparent),
+        style.opacity.ResolveOrDefault(state, 1f),
+        style.constraints.ResolveOrDefault(state, BoxConstraints.Initial),
+        style.position.ResolveOrDefault(state, StyleLength4.Zero),
+        style.absolute.ResolveOrDefault(state, true),
+        style.transition.ResolveOrDefault(state, TransitionOptions.Default)
       );
     }
   }
 
   public struct HXImageStyle {
-    private static BackgroundImage? _noImage = null;
+    private static BackgroundImage? _noImage;
 
     public StateProperty<BackgroundImage?> image;
     public StateProperty<Color> tint;
@@ -261,16 +261,16 @@ namespace HELIX.Theming {
         ref var backgroundImage = ref _noImage;
         if (hasImage) backgroundImage = ref style.image.GetValueRef(state);
         cx.DrawImage(
-          image: backgroundImage,
-          tint: style.tint.ResolveOrDefault(state, Colors.White),
-          background: style.background.ResolveOrDefault(state, Colors.Transparent),
-          border: style.border.ResolveOrDefault(state, Border.None),
-          radius: style.radius.ResolveOrDefault(state, BorderRadius.None),
-          opacity: style.opacity.ResolveOrDefault(state, 1f),
-          constraints: style.constraints.ResolveOrDefault(state, BoxConstraints.Initial),
-          position: style.position.ResolveOrDefault(state, StyleLength4.Zero),
-          absolute: style.absolute.ResolveOrDefault(state, true),
-          transition: style.transition.ResolveOrDefault(state, TransitionOptions.Default)
+          backgroundImage,
+          style.tint.ResolveOrDefault(state, Colors.White),
+          style.background.ResolveOrDefault(state, Colors.Transparent),
+          style.border.ResolveOrDefault(state, Border.None),
+          style.radius.ResolveOrDefault(state, BorderRadius.None),
+          style.opacity.ResolveOrDefault(state, 1f),
+          style.constraints.ResolveOrDefault(state, BoxConstraints.Initial),
+          style.position.ResolveOrDefault(state, StyleLength4.Zero),
+          style.absolute.ResolveOrDefault(state, true),
+          style.transition.ResolveOrDefault(state, TransitionOptions.Default)
         );
       };
     }
@@ -330,9 +330,7 @@ namespace HELIX.Theming {
 
     public readonly void RenderBoundary(ref Composition cx, State state) {
       ApplyColumn(state, cx.boundary);
-      using (cx.WriteContext(out var context)) {
-        TextStyle.Merge(in context, textStyle, state);
-      }
+      using (cx.WriteContext(out var context)) TextStyle.Merge(in context, textStyle, state);
       background?.Invoke(ref cx, state);
     }
   }

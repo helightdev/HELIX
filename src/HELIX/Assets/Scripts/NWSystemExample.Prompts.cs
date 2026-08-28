@@ -1,7 +1,5 @@
 using HELIX.Coloring;
 using HELIX.Compose;
-using HELIX.Theming;
-using HELIX.Types;
 using HELIX.UI.Prompts;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;

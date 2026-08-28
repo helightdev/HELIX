@@ -1,0 +1,85 @@
+using System;
+using System.Collections.Generic;
+
+namespace HELIX.Compose {
+  public interface ISpec { }
+
+  public interface ISpec<T> : ISpec where T : struct, ISpec {
+    ReadComposable<T> GetDefault(in T spec) {
+      return null;
+    }
+  }
+
+  public interface ISpecHandler {
+    ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec;
+  }
+
+  public class SpecConfig {
+    public static readonly ContextKey<SpecConfig> Key = new("specs", Default);
+    public readonly List<ISpecHandler> handlers = new();
+    public readonly SpecConfig parent;
+    public readonly Dictionary<Type, Delegate> transformers = new();
+
+    public SpecConfig(SpecConfig parent = null) {
+      this.parent = parent;
+    }
+
+    public static SpecConfig Empty => new();
+    public static SpecConfig Default => new SpecConfig()
+      .AddHandler<CollectionControlSpecHandler>()
+      .AddHandler<CompositeControlSpecHandler>()
+      .AddHandler<ChoiceControlSpecHandler>()
+      .AddHandler<TextControlSpecHandler>()
+      .AddHandler<IntegerControlSpecHandler>()
+      .AddHandler<FloatControlSpecHandler>()
+      .AddHandler<CheckboxControlSpecHandler>();
+
+    public SpecConfig AddFactory<T>(ReadComposable<T> composable) where T : struct, ISpec {
+      transformers[typeof(T)] = composable;
+      return this;
+    }
+
+    public SpecConfig AddHandler(ISpecHandler handler) {
+      handlers.Add(handler);
+      return this;
+    }
+
+    public SpecConfig AddHandler<T>() where T : ISpecHandler, new() {
+      return AddHandler(new T());
+    }
+
+    public ReadComposable<T> GetFactory<T>(in T spec) where T : struct, ISpec {
+      if (transformers.TryGetValue(typeof(T), out var factory)) return factory as ReadComposable<T>;
+      for (var i = 0; i < handlers.Count; i++) {
+        var handled = handlers[i].GetFactory(in spec);
+        if (handled != null) return handled;
+      }
+      if (parent != null) return parent.GetFactory(in spec);
+      return spec is ISpec<T> defaults ? defaults.GetDefault(in spec) : null;
+    }
+  }
+
+  public static class SpecExtensions {
+    public static void Spec<T>(ref this Composition cx, in T specs) where T : struct, ISpec {
+      var configuration = SpecConfig.Key[in cx];
+      var factory = configuration.GetFactory(in specs);
+      if (factory == null) throw new Exception($"No factory found for spec type {typeof(T)}");
+      factory(ref cx, in specs);
+    }
+
+    public static void Compose<T>(this T specs, ref Composition cx) where T : struct, ISpec {
+      cx.Spec(specs);
+    }
+
+    public static Composable Composable<T>(this T specs) where T : struct, ISpec {
+      return (ref Composition cx) => cx.Spec(in specs);
+    }
+
+    public static Composable Bake<T>(this T specs, ref Composition cx) where T : struct, ISpec {
+      var configuration = SpecConfig.Key[in cx];
+      var factory = configuration.GetFactory(in specs);
+      if (factory == null) throw new Exception($"No factory found for spec type {typeof(T)}");
+      return (ref Composition cx) => factory(ref cx, in specs);
+    }
+  }
+}

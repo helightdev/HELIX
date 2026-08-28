@@ -1,10 +1,9 @@
 using System;
-using HELIX.Compose;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public readonly struct BackgroundImage : IEquatable<BackgroundImage> {
     public static readonly BackgroundImage Default = new(default, null, null, null);
 
@@ -14,7 +13,10 @@ namespace HELIX.Types {
     public readonly ImageAnchor? anchor;
 
     public BackgroundImage(
-      Background image, ImageScaling? scaling, ImageSlice? slice, ImageAnchor? anchor
+      Background image,
+      ImageScaling? scaling,
+      ImageSlice? slice,
+      ImageAnchor? anchor
     ) {
       this.image = image;
       this.scaling = scaling;
@@ -22,37 +24,77 @@ namespace HELIX.Types {
       this.anchor = anchor;
     }
 
-    public static implicit operator BackgroundImage(Texture2D texture) => new(
-      Background.FromTexture2D(texture), null, null, null
-    );
+    public static implicit operator BackgroundImage(Texture2D texture) {
+      return new BackgroundImage(
+        Background.FromTexture2D(texture),
+        null,
+        null,
+        null
+      );
+    }
 
-    public static implicit operator BackgroundImage(Sprite sprite) => new(
-      Background.FromSprite(sprite), null, null, null
-    );
+    public static implicit operator BackgroundImage(Sprite sprite) {
+      return new BackgroundImage(
+        Background.FromSprite(sprite),
+        null,
+        null,
+        null
+      );
+    }
 
-    public static implicit operator BackgroundImage(VectorImage vectorImage) => new(
-      Background.FromVectorImage(vectorImage), null, null, null
-    );
+    public static implicit operator BackgroundImage(VectorImage vectorImage) {
+      return new BackgroundImage(
+        Background.FromVectorImage(vectorImage),
+        null,
+        null,
+        null
+      );
+    }
 
-    public static implicit operator BackgroundImage(RenderTexture renderTexture) => new(
-      Background.FromRenderTexture(renderTexture), null, null, null
-    );
+    public static implicit operator BackgroundImage(RenderTexture renderTexture) {
+      return new BackgroundImage(
+        Background.FromRenderTexture(renderTexture),
+        null,
+        null,
+        null
+      );
+    }
 
     public static BackgroundImage Texture2D(
-      Texture2D texture, ImageScaling? scaling = null, ImageSlice? slice = null, ImageAnchor? anchor = null
-    ) => new(Background.FromTexture2D(texture), scaling, slice, anchor);
+      Texture2D texture,
+      ImageScaling? scaling = null,
+      ImageSlice? slice = null,
+      ImageAnchor? anchor = null
+    ) {
+      return new BackgroundImage(Background.FromTexture2D(texture), scaling, slice, anchor);
+    }
 
     public static BackgroundImage Sprite(
-      Sprite sprite, ImageScaling? scaling = null, ImageSlice? slice = null, ImageAnchor? anchor = null
-    ) => new(Background.FromSprite(sprite), scaling, slice, anchor);
+      Sprite sprite,
+      ImageScaling? scaling = null,
+      ImageSlice? slice = null,
+      ImageAnchor? anchor = null
+    ) {
+      return new BackgroundImage(Background.FromSprite(sprite), scaling, slice, anchor);
+    }
 
     public static BackgroundImage VectorImage(
-      VectorImage vectorImage, ImageScaling? scaling = null, ImageSlice? slice = null, ImageAnchor? anchor = null
-    ) => new(Background.FromVectorImage(vectorImage), scaling, slice, anchor);
+      VectorImage vectorImage,
+      ImageScaling? scaling = null,
+      ImageSlice? slice = null,
+      ImageAnchor? anchor = null
+    ) {
+      return new BackgroundImage(Background.FromVectorImage(vectorImage), scaling, slice, anchor);
+    }
 
     public static BackgroundImage RenderTexture(
-      RenderTexture renderTexture, ImageScaling? scaling = null, ImageSlice? slice = null, ImageAnchor? anchor = null
-    ) => new(Background.FromRenderTexture(renderTexture), scaling, slice, anchor);
+      RenderTexture renderTexture,
+      ImageScaling? scaling = null,
+      ImageSlice? slice = null,
+      ImageAnchor? anchor = null
+    ) {
+      return new BackgroundImage(Background.FromRenderTexture(renderTexture), scaling, slice, anchor);
+    }
 
     public void ApplyShallow(IStyle style) {
       style.backgroundImage = image;
@@ -93,7 +135,7 @@ namespace HELIX.Types {
 
     public bool Equals(BackgroundImage other) {
       return image.Equals(other.image) && Nullable.Equals(scaling, other.scaling) &&
-             Nullable.Equals(slice, other.slice) && Nullable.Equals(anchor, other.anchor);
+        Nullable.Equals(slice, other.slice) && Nullable.Equals(anchor, other.anchor);
     }
 
     public override bool Equals(object obj) {
@@ -251,8 +293,10 @@ namespace HELIX.Types {
     }
 
     public static ImageScaling Tile(
-      Length sizeX, Length sizeY,
-      Repeat modeX = Repeat.Repeat, Repeat modeY = Repeat.Repeat
+      Length sizeX,
+      Length sizeY,
+      Repeat modeX = Repeat.Repeat,
+      Repeat modeY = Repeat.Repeat
     ) {
       return new ImageScaling(
         new BackgroundSize(sizeX, sizeY),
@@ -300,7 +344,12 @@ namespace HELIX.Types {
     }
 
     public static ImageSlice Of(
-      int left, int top, int right, int bottom, float scale = 1f, SliceType type = SliceType.Sliced
+      int left,
+      int top,
+      int right,
+      int bottom,
+      float scale = 1f,
+      SliceType type = SliceType.Sliced
     ) {
       return new ImageSlice(new int4(left, top, right, bottom), scale, type);
     }

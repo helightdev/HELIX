@@ -1,49 +1,54 @@
 using System;
 using System.Collections.Generic;
 using HELIX.Coloring;
-using HELIX.Compose;
-using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Theming {
+namespace HELIX.Compose {
   public record ThemeData {
     public static readonly ContextKey<ThemeData> Key = new("Theme", HXThemes.DefaultDark);
-
-    public ColorTokenPalette primary;
-    public ColorTokenPalette secondary;
-    public ColorTokenPalette tertiary;
-    public ColorTokenPalette error;
-
-    public ColorPair surface;
-    public ColorPair surfaceContainerLow;
-    public ColorPair surfaceContainer;
-    public ColorPair surfaceContainerHigh;
-    public ColorPair surfaceContainerHighest;
-    public ColorPair surfaceInverse;
-    public ColorPair surfaceVariant;
-
-    public Brightness brightness;
-    public Color scrimColor;
-    public Color shadowColor;
-    public Color surfaceTintColor;
-    public Color outlineColor;
-    public Color focusColor;
-
-    public BlendProgression blend;
-    public RadiusProgression radius;
-    public SpacingProgression spacing;
-    public BorderProgression border;
-
-    public TypographyGroup display;
-    public TypographyGroup headline;
-    public TypographyGroup title;
-    public TypographyGroup label;
-    public TypographyGroup body;
+    private Dictionary<ThemeProperty, object> _computedProperties = new();
 
     private Dictionary<ColorRole, ThemeProperty<Color>> _customColors = new();
     private Dictionary<ThemeProperty, object> _properties = new();
-    private Dictionary<ThemeProperty, object> _computedProperties = new();
+
+    public BlendProgression blend;
+    public TypographyGroup body;
+    public BorderProgression border;
+
+    public Brightness brightness;
+
+    public TypographyGroup display;
+    public ColorTokenPalette error;
+    public Color focusColor;
+    public TypographyGroup headline;
+    public TypographyGroup label;
+    public Color outlineColor;
+
+    public ColorTokenPalette primary;
+    public RadiusProgression radius;
+    public Color scrimColor;
+    public ColorTokenPalette secondary;
+    public Color shadowColor;
+    public SpacingProgression spacing;
+
+    public ColorPair surface;
+    public ColorPair surfaceContainer;
+    public ColorPair surfaceContainerHigh;
+    public ColorPair surfaceContainerHighest;
+    public ColorPair surfaceContainerLow;
+    public ColorPair surfaceInverse;
+    public Color surfaceTintColor;
+    public ColorPair surfaceVariant;
+    public ColorTokenPalette tertiary;
+    public TypographyGroup title;
+
+    public Color this[ColorRole role] => GetColor(role);
+    public float this[BlendLevel level] => GetBlendLevel(level);
+    public float this[BorderRole role] => GetBorderWidth(role);
+    public float this[RadiusRole role] => GetRadius(role);
+    public float this[SpacingRole role] => GetSpacing(role);
+    public ref TypographyToken this[TextRole role] => ref GetTypographyTokenRef(role);
 
     public static ThemeData Build(Action<ThemeData> builder) {
       var theme = new ThemeData();
@@ -105,9 +110,7 @@ namespace HELIX.Theming {
     }
 
     private Color ResolvedFallbackColor(ColorRole role) {
-      if (_customColors.TryGetValue(role, out var color)) {
-        return GetProperty(color);
-      }
+      if (_customColors.TryGetValue(role, out var color)) return GetProperty(color);
 
       // Special handling to make transparent be based on the color it is used with
       if (role.HasFlag(ColorRole.Transparent)) {
@@ -128,20 +131,9 @@ namespace HELIX.Theming {
       return copy;
     }
 
-    public Color this[ColorRole role] => GetColor(role);
-    public float this[BlendLevel level] => GetBlendLevel(level);
-    public float this[BorderRole role] => GetBorderWidth(role);
-    public float this[RadiusRole role] => GetRadius(role);
-    public float this[SpacingRole role] => GetSpacing(role);
-    public ref TypographyToken this[TextRole role] => ref GetTypographyTokenRef(role);
-
     public T GetProperty<T>(ThemeProperty<T> property) {
-      if (_properties.TryGetValue(property, out var value)) {
-        return (T)value;
-      }
-      if (_computedProperties.TryGetValue(property, out var computedValue)) {
-        return (T)computedValue;
-      }
+      if (_properties.TryGetValue(property, out var value)) return (T)value;
+      if (_computedProperties.TryGetValue(property, out var computedValue)) return (T)computedValue;
 
       if (property.Compute(this, out var computed)) {
         _computedProperties[property] = computed;
@@ -163,7 +155,9 @@ namespace HELIX.Theming {
       _computedProperties.Clear();
     }
 
-    public void SetColorProvider(ThemeProperty<Color> provider, ColorRole role) => _customColors[role] = provider;
+    public void SetColorProvider(ThemeProperty<Color> provider, ColorRole role) {
+      _customColors[role] = provider;
+    }
 
     public float GetBlendLevel(BlendLevel level) {
       return level switch {
@@ -299,7 +293,7 @@ namespace HELIX.Theming {
   }
 
   [Flags]
-  public enum ColorRole : int {
+  public enum ColorRole {
     Primary = 1 << 0,
     Secondary = 1 << 1,
     Tertiary = 1 << 2,
@@ -319,7 +313,6 @@ namespace HELIX.Theming {
     Custom7 = 1 << 16,
     Custom8 = 1 << 17,
     Custom9 = 1 << 18,
-
     ModA = 1 << 19,
     ModB = 1 << 20,
     ModC = 1 << 21,
@@ -329,14 +322,13 @@ namespace HELIX.Theming {
     On = 1 << 25,
     Transparent = 1 << 26,
     None = 0,
-
-    Scrim = 1 << 1 | Colors,
-    Shadow = 1 << 2 | Colors,
-    SurfaceTint = 1 << 3 | Colors,
-    Outline = 1 << 4 | Colors,
-    Focus = 1 << 5 | Colors,
-    DisabledLow = 1 << 6 | Colors,
-    DisabledHigh = 1 << 7 | Colors
+    Scrim = (1 << 1) | Colors,
+    Shadow = (1 << 2) | Colors,
+    SurfaceTint = (1 << 3) | Colors,
+    Outline = (1 << 4) | Colors,
+    Focus = (1 << 5) | Colors,
+    DisabledLow = (1 << 6) | Colors,
+    DisabledHigh = (1 << 7) | Colors
   }
 
   public enum TextRole {
@@ -408,7 +400,11 @@ namespace HELIX.Theming {
 
   public enum BlendLevel {
     None,
-    Low, Normal, High, AccentLow, AccentHigh,
+    Low,
+    Normal,
+    High,
+    AccentLow,
+    AccentHigh,
     Full
   }
 
@@ -652,15 +648,17 @@ namespace HELIX.Theming {
       this.style = style;
     }
 
-    public static implicit operator TextStyle(TypographyToken token) => token.style;
+    public static implicit operator TextStyle(TypographyToken token) {
+      return token.style;
+    }
   }
 
   public abstract class ThemeProperty { }
 
   public sealed class ThemeProperty<T> : ThemeProperty {
-    public readonly bool hasDefault;
-    public readonly T defaultValue;
     public readonly Func<ThemeData, T> computeFunc;
+    public readonly T defaultValue;
+    public readonly bool hasDefault;
 
     public ThemeProperty(T defaultValue) {
       this.defaultValue = defaultValue;
@@ -676,6 +674,14 @@ namespace HELIX.Theming {
       hasDefault = false;
     }
 
+    public T this[ThemeData themeData] {
+      get => themeData.GetProperty(this);
+      set => themeData.SetProperty(this, value);
+    }
+
+    public T this[VisualElement element] => ThemeData.Key.ReadAt(element).GetProperty(this);
+    public T this[in Composition cx] => ThemeData.Key[in cx].GetProperty(this);
+
     public bool Compute(ThemeData themeData, out T value) {
       if (computeFunc != null) {
         value = computeFunc(themeData);
@@ -684,13 +690,5 @@ namespace HELIX.Theming {
       value = default;
       return false;
     }
-
-    public T this[ThemeData themeData] {
-      get => themeData.GetProperty(this);
-      set => themeData.SetProperty(this, value);
-    }
-
-    public T this[VisualElement element] => ThemeData.Key.ReadAt(element).GetProperty(this);
-    public T this[in Composition cx] => ThemeData.Key[in cx].GetProperty(this);
   }
 }

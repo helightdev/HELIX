@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   [Serializable]
   public struct StyleLength2 : IEquatable<StyleLength2> {
     public StyleLength w, h;
@@ -22,7 +22,9 @@ namespace HELIX.Types {
     }
 
 
-    public StyleLength2 Abs() => new(StyleLengths.Abs(w), StyleLengths.Abs(h));
+    public StyleLength2 Abs() {
+      return new StyleLength2(StyleLengths.Abs(w), StyleLengths.Abs(h));
+    }
 
     public static StyleLength2 operator +(StyleLength2 a, StyleLength2 b) {
       return new StyleLength2(StyleLengths.Add(a.w, b.w), StyleLengths.Add(a.h, b.h));

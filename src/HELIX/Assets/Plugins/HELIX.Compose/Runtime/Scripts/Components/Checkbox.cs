@@ -1,0 +1,164 @@
+using UnityEngine.UIElements;
+
+namespace HELIX.Compose {
+  public sealed class CheckboxController : Signal<bool> {
+    private bool _value;
+    public bool enabled = true;
+    public bool error;
+
+    public CompositionAction<bool> onChanged;
+
+    public CheckboxController(bool initialValue = false) : base("CheckboxController", typeof(CheckboxController)) {
+      _value = initialValue;
+    }
+
+    public State State {
+      get {
+        var state = State.None;
+        state |= _value ? State.Selected : State.None;
+        state |= enabled ? State.None : State.Disabled;
+        state |= error ? State.Error : State.None;
+        return state;
+      }
+    }
+
+    public override bool PeekValue() {
+      return _value;
+    }
+
+    public override void SetValue(bool newValue) {
+      if (_value == newValue) return;
+      _value = newValue;
+      NotifyListeners();
+    }
+
+    public override void SetWithoutNotify(bool newValue) {
+      _value = newValue;
+      NotifyDirty();
+    }
+
+    internal void SynchronizeValue(bool newValue) {
+      _value = newValue;
+    }
+
+    internal void SetUserValue(IBoundary boundary, bool newValue) {
+      if (_value == newValue) return;
+      _value = newValue;
+      onChanged?.Call(boundary, newValue);
+      NotifyListeners();
+    }
+
+    private void NotifyListeners() {
+      NotifyDirty();
+      NotifyObservers();
+    }
+  }
+
+  [EnableMixins]
+  [BoundaryElementMixin(extension: true)]
+  [InputStateListener]
+  public partial class Checkbox {
+    public CheckboxController controller;
+    public bool isAutomaticController = true;
+
+    [Hook]
+    private void OnDispose() {
+      DisposeAutomaticController();
+    }
+
+    [Hook]
+    private void OnCompose(ref Composition cx) {
+      EnsureController(props.controller);
+      cx.SubscribeTo(controller);
+
+      this.Toggle(State.Selected, controller.PeekValue());
+      this.Toggle(State.Disabled, !controller.enabled);
+      this.Toggle(State.Error, controller.error);
+      var passedState = controller.State | InputState;
+      var style = props.style ?? ThemeProperties.Checkbox[in cx];
+
+      using (cx.WriteContext(out var context)) style.RenderContext(in context, passedState);
+
+      cx.CURSOR.Focusable(controller.enabled);
+      style.RenderContent(ref cx, passedState);
+    }
+
+    public void EnsureController(CheckboxController given) {
+      if (ReferenceEquals(given, controller) && controller != null) return;
+      if (given == null) {
+        if (isAutomaticController && controller != null) {
+          ConfigureAutomaticController();
+          controller.SynchronizeValue(props.value ?? controller.PeekValue());
+        } else {
+          controller = new CheckboxController();
+          isAutomaticController = true;
+          ConfigureAutomaticController();
+          controller.SynchronizeValue(props.value ?? props.initialValue ?? false);
+        }
+      } else {
+        DisposeAutomaticController();
+        controller = given;
+      }
+    }
+
+    private void ConfigureAutomaticController() {
+      controller.onChanged = props.onChanged;
+      controller.enabled = props.enabled;
+      controller.error = props.error;
+    }
+
+    private void DisposeAutomaticController() {
+      if (!isAutomaticController) return;
+      controller?.Dispose();
+      isAutomaticController = false;
+    }
+
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
+      if (controller == null || !controller.enabled) return;
+      controller.SetUserValue(this, !controller.PeekValue());
+    }
+
+    public partial struct Props {
+      [Prop(null)] public bool? value;
+      [Prop(null)] public CheckboxController controller;
+      [Prop(null)] public bool? initialValue;
+      [Prop(null)] public CompositionAction<bool> onChanged;
+      [Prop(true)] public bool enabled;
+      [Prop(false)] public bool error;
+      [Prop(null)] public HXControlBoxStyle? style;
+    }
+  }
+
+  [EnableMixins]
+  [BoundaryElementMixin(extension: true)]
+  [InputStateListener]
+  public partial class RawCheckbox {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
+      this.Toggle(State.Selected, props.value);
+      this.Toggle(State.Disabled, !props.enabled);
+      this.Toggle(State.Error, props.error);
+      var style = props.style ?? ThemeProperties.Checkbox[in cx];
+
+      using (cx.WriteContext(out var context)) style.RenderContext(in context, InputState);
+
+      cx.CURSOR.Focusable(props.enabled);
+      style.RenderContent(ref cx, InputState);
+    }
+
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
+      if (!props.enabled) return;
+      props.onChanged?.Call(this, !props.value);
+    }
+
+    public partial struct Props {
+      [Prop] public bool value;
+      [Prop(null)] public CompositionAction<bool> onChanged;
+      [Prop(true)] public bool enabled;
+      [Prop(false)] public bool error;
+      [Prop(null)] public HXControlBoxStyle? style;
+    }
+  }
+}

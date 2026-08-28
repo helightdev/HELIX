@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   [Serializable]
   public struct RRect : IEquatable<RRect> {
     public Rect rect;

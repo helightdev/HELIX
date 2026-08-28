@@ -1,13 +1,10 @@
 using System.Collections.Generic;
-using HELIX.Diagnostics;
-using HELIX.Signals;
 
-namespace HELIX.Widgets.Signals {
-
+namespace HELIX.Compose {
   /// <summary>
-  /// A signal that holds a single value.
+  ///   A signal that holds a single value.
   /// </summary>
-  /// <seealso cref="Signal.Value"/>
+  /// <seealso cref="Signal.Value" />
   public class ValueSignal<T> : Signal<T> {
     private readonly bool _equality;
     protected IEqualityComparer<T> comparer = EqualityComparer<T>.Default;

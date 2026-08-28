@@ -1,26 +1,24 @@
 using HELIX.Coloring;
-using HELIX.Compose;
-using HELIX.Types;
 using UnityEngine;
-using UnityEngine.UIElements;
-using static HELIX.Theming.BlendLevel;
-using static HELIX.Theming.ColorRoles;
-using static HELIX.Theming.HXStyles;
-using static HELIX.Theming.RadiusRole;
-using static HELIX.Theming.SpacingRole;
-using static HELIX.Theming.StateProperties;
-using static HELIX.Theming.States;
-using static HELIX.Theming.TextRole;
+using static HELIX.Compose.BlendLevel;
+using static HELIX.Compose.ColorRoles;
+using static HELIX.Compose.HXStyles;
+using static HELIX.Compose.SpacingRole;
+using static HELIX.Compose.StateProperties;
+using static HELIX.Compose.States;
+using static HELIX.Compose.TextRole;
 
-namespace HELIX.Theming {
+namespace HELIX.Compose {
   public static partial class ThemeProperties {
-    public static HXDecoratorStyle DefaultDecorator(ThemeData data) => new(
-      EdgeInsets.Zero,
-      EdgeInsets.Symmetric(0f, data[Spacing1] * 0.25f),
-      data[Spacing1],
-      data[Spacing1],
-      data[Spacing1] * 0.5f
-    );
+    public static HXDecoratorStyle DefaultDecorator(ThemeData data) {
+      return new HXDecoratorStyle(
+        EdgeInsets.Zero,
+        EdgeInsets.Symmetric(0f, data[Spacing1] * 0.25f),
+        data[Spacing1],
+        data[Spacing1],
+        data[Spacing1] * 0.5f
+      );
+    }
 
     public static HXControlBoxStyle DefaultButtonFilled(
       ThemeData data,
@@ -110,8 +108,13 @@ namespace HELIX.Theming {
       BorderRadius? radius = null
     ) {
       StateBlend(
-        data, colorUnselected, onUnselected, colorSelected, onSelected,
-        out var background, out var foreground
+        data,
+        colorUnselected,
+        onUnselected,
+        colorSelected,
+        onSelected,
+        out var background,
+        out var foreground
       );
       var solid = new HXSolidBoxStyle(
         color: background.Derive(CommonSelectable),
@@ -202,22 +205,32 @@ namespace HELIX.Theming {
       );
     }
 
-    public static PopupMenuStyle DefaultDropdownButton(ThemeData data) =>
-      DefaultPopupMenu(data, DefaultInputField(data, useButtonPadding: true), matchAnchorWidth: true);
+    public static PopupMenuStyle DefaultDropdownButton(ThemeData data) {
+      return DefaultPopupMenu(data, DefaultInputField(data, useButtonPadding: true), true);
+    }
 
-    public static PopupMenuStyle DefaultMenuButton(ThemeData data) =>
-      DefaultPopupMenu(data, DefaultButtonOutlined(data), matchAnchorWidth: false);
+    public static PopupMenuStyle DefaultMenuButton(ThemeData data) {
+      return DefaultPopupMenu(data, DefaultButtonOutlined(data), false);
+    }
 
     public static SegmentedChoiceStyle DefaultSegmentedChoice(ThemeData data) {
       var radius = ButtonRadius[data];
       return new SegmentedChoiceStyle(
-        DefaultButtonToggle(data, radius: BorderRadius.Only(
-          topLeft: radius.topLeft, bottomLeft: radius.bottomLeft
-        )),
+        DefaultButtonToggle(
+          data,
+          radius: BorderRadius.Only(
+            radius.topLeft,
+            bottomLeft: radius.bottomLeft
+          )
+        ),
         DefaultButtonToggle(data, radius: BorderRadius.None),
-        DefaultButtonToggle(data, radius: BorderRadius.Only(
-          topRight: radius.topRight, bottomRight: radius.bottomRight
-        )),
+        DefaultButtonToggle(
+          data,
+          radius: BorderRadius.Only(
+            topRight: radius.topRight,
+            bottomRight: radius.bottomRight
+          )
+        ),
         gap: data[SpacingRole.None]
       );
     }
@@ -226,18 +239,34 @@ namespace HELIX.Theming {
       var radius = ButtonRadius[data];
       return new SpinboxChoiceStyle(
         DefaultInputField(data, useButtonPadding: true, radius: BorderRadius.None),
-        DefaultButtonOutlined(data, radius: BorderRadius.Only(
-          topLeft: radius.topLeft, bottomLeft: radius.bottomLeft
-        )),
-        DefaultButtonOutlined(data, radius: BorderRadius.Only(
-          topRight: radius.topRight, bottomRight: radius.bottomRight
-        )),
-        DefaultButtonOutlined(data, radius: BorderRadius.Only(
-          topLeft: radius.topLeft, topRight: radius.topRight
-        )),
-        DefaultButtonOutlined(data, radius: BorderRadius.Only(
-          bottomLeft: radius.bottomLeft, bottomRight: radius.bottomRight
-        )),
+        DefaultButtonOutlined(
+          data,
+          radius: BorderRadius.Only(
+            radius.topLeft,
+            bottomLeft: radius.bottomLeft
+          )
+        ),
+        DefaultButtonOutlined(
+          data,
+          radius: BorderRadius.Only(
+            topRight: radius.topRight,
+            bottomRight: radius.bottomRight
+          )
+        ),
+        DefaultButtonOutlined(
+          data,
+          radius: BorderRadius.Only(
+            radius.topLeft,
+            radius.topRight
+          )
+        ),
+        DefaultButtonOutlined(
+          data,
+          radius: BorderRadius.Only(
+            bottomLeft: radius.bottomLeft,
+            bottomRight: radius.bottomRight
+          )
+        ),
         gap: data[Spacing1],
         wrap: false
       );
@@ -249,45 +278,44 @@ namespace HELIX.Theming {
       bool matchAnchorWidth
     ) {
       var panelBackground = new HXSolidBoxStyle(
-        border: Border.All(data[BorderRole.Normal], data[Outline]),
-        radius: InputBoxRadius[data],
-        color: data[SurfaceContainer]
+        Border.All(data[BorderRole.Normal], data[Outline]),
+        InputBoxRadius[data],
+        data[SurfaceContainer]
       ).Bake();
       var panel = new HXControlBoxStyle(
-        padding: EdgeInsets.All(data[Spacing1]),
+        EdgeInsets.All(data[Spacing1]),
         constraints: BoxConstraints.Null,
         textStyle: new TextStyle(color: data[OnSurface]),
         alignment: Alignment.CenterLeft,
         background: panelBackground
       );
 
-      var itemBase = DefaultButtonGhost(data, color: SurfaceContainer);
+      var itemBase = DefaultButtonGhost(data, SurfaceContainer);
       var item = new HXControlBoxStyle(
-        padding: itemBase.padding,
-        margin: itemBase.margin,
-        alignment: Alignment.CenterLeft,
-        constraints: BoxConstraints.Min(new StyleLength2(0f, data[BodyMedium].lineHeight)),
-        textStyle: itemBase.textStyle,
-        background: itemBase.background
+        itemBase.padding,
+        itemBase.margin,
+        Alignment.CenterLeft,
+        BoxConstraints.Min(new StyleLength2(0f, data[BodyMedium].lineHeight)),
+        itemBase.textStyle,
+        itemBase.background
       );
       var heading = data[LabelSmall].style;
       heading.color = data[OnSurfaceVariant];
 
       var iconColor = data.ContrastLerp(Surface, OnSurfaceContainer, High);
       return new PopupMenuStyle(
-        button: button, panel: panel, item: item,
-
-        headingTextStyle: heading,
-        headingPadding: EdgeInsets.Symmetric(data[Spacing2], data[Spacing1]),
-
-        separatorColor: data[Outline],
-        iconColor: iconColor,
-        separatorThickness: data[BorderRole.Normal],
-        gap: data[Spacing1] * 0.75f,
-
-        offset: new Vector2(0f, data[Spacing1]),
-        submenuOffset: new Vector2(Mathf.Lerp(data[Spacing1], data[Spacing2], 0.25f), 0f),
-        matchAnchorWidth: matchAnchorWidth
+        button,
+        panel,
+        item,
+        heading,
+        EdgeInsets.Symmetric(data[Spacing2], data[Spacing1]),
+        data[Outline],
+        iconColor,
+        data[BorderRole.Normal],
+        data[Spacing1] * 0.75f,
+        new Vector2(0f, data[Spacing1]),
+        new Vector2(Mathf.Lerp(data[Spacing1], data[Spacing2], 0.25f), 0f),
+        matchAnchorWidth
       );
     }
 
@@ -317,7 +345,7 @@ namespace HELIX.Theming {
 
       return new SliderStyle(
         new HXControlBoxStyle(
-          padding: StyleLength4.Zero,
+          StyleLength4.Zero,
           alignment: Alignment.Center,
           constraints: BoxConstraints.Min(
             new StyleLength2(data.GetTypographyTokenRef(BodyMedium).lineHeight)
@@ -325,7 +353,7 @@ namespace HELIX.Theming {
         ),
         trackSolid,
         progressSolid,
-        thumb: (ref Composition cx, State value) => {
+        (ref Composition cx, State value) => {
           thumbSolid(ref cx, value);
           thumbFocus(ref cx, value);
         }
@@ -358,7 +386,7 @@ namespace HELIX.Theming {
 
       return new SliderStyle(
         new HXControlBoxStyle(
-          padding: StyleLength4.Zero,
+          StyleLength4.Zero,
           alignment: Alignment.Center,
           constraints: BoxConstraints.Min(
             new StyleLength2(data.GetTypographyTokenRef(BodyMedium).lineHeight)
@@ -366,7 +394,7 @@ namespace HELIX.Theming {
         ),
         trackSolid,
         progressSolid,
-        thumb: (ref Composition cx, State value) => {
+        (ref Composition cx, State value) => {
           thumbSolid(ref cx, value);
           thumbFocus(ref cx, value);
         },

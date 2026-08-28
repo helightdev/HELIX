@@ -1,10 +1,10 @@
-using HELIX.Types;
+using HELIX.Prose;
 using UnityEngine.UIElements;
 
-namespace HELIX.Prose {
+namespace HELIX.Compose {
   /// <summary>
-  /// Overrides selected <see cref="Flex"/> arguments when a Compose prose frame is baked.
-  /// Multiple modifiers may be applied; later non-null values take precedence.
+  ///   Overrides selected <see cref="Flex" /> arguments when a Compose prose frame is baked.
+  ///   Multiple modifiers may be applied; later non-null values take precedence.
   /// </summary>
   public sealed class ComposeFlexModifier : IProseModifier {
     public ComposeFlexModifier(
@@ -39,6 +39,8 @@ namespace HELIX.Prose {
       float? gap = null,
       bool? reverse = null,
       bool? clear = null
-    ) => new(axis, main, cross, gap, reverse, clear);
+    ) {
+      return new ComposeFlexModifier(axis, main, cross, gap, reverse, clear);
+    }
   }
 }

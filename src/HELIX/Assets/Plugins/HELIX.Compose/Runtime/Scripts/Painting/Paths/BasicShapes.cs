@@ -1,7 +1,6 @@
-using HELIX.Types;
 using UnityEngine;
 
-namespace HELIX.Painting.Paths {
+namespace HELIX.Compose {
   public static class BasicShapes {
     public static void Rect(this IPathBuilder builder, Rect rect) {
       builder.MoveTo(rect.position);

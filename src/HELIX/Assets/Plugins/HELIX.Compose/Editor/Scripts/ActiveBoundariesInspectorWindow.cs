@@ -5,7 +5,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using HELIX.Compose;
-using HELIX.Compose.Collections;
 using Unity.Hierarchy;
 using UnityEditor;
 using UnityEditor.UIElements;

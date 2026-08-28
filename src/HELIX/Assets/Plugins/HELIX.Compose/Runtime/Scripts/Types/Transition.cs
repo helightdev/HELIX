@@ -4,20 +4,23 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public sealed class TransitionPreset {
     public static readonly TransitionPreset Colors = new(
       new[] {
-        StyleProperties.Color, StyleProperties.BackgroundColor,
-        StyleProperties.BorderColor, StyleProperties.Opacity,
+        StyleProperties.Color,
+        StyleProperties.BackgroundColor,
+        StyleProperties.BorderColor,
+        StyleProperties.Opacity,
         StyleProperties.UnityBackgroundImageTintColor
-      }, TransitionOptions.Default
+      },
+      TransitionOptions.Default
     );
+    public readonly List<TimeValue> delays;
+    public readonly List<TimeValue> durations;
+    public readonly List<EasingFunction> easingFunctions;
 
     public readonly List<StylePropertyName> properties;
-    public readonly List<EasingFunction> easingFunctions;
-    public readonly List<TimeValue> durations;
-    public readonly List<TimeValue> delays;
 
     public TransitionPreset(
       List<StylePropertyName> properties,
@@ -42,7 +45,9 @@ namespace HELIX.Types {
       delays = new List<TimeValue>(1) { option.delay };
     }
 
-    public TransitionPreset CopyWith(TransitionOptions options) => new(properties, options);
+    public TransitionPreset CopyWith(TransitionOptions options) {
+      return new TransitionPreset(properties, options);
+    }
 
     public void Apply(IStyle style) {
       style.transitionProperty = new StyleList<StylePropertyName>(properties);
@@ -159,7 +164,7 @@ namespace HELIX.Types {
 
     public bool Equals(Transition other) {
       return property.Equals(other.property) && easing.Equals(other.easing) && duration.Equals(other.duration) &&
-             delay.Equals(other.delay);
+        delay.Equals(other.delay);
     }
 
     public override bool Equals(object obj) {

@@ -1,6 +1,4 @@
 using HELIX.Compose;
-using HELIX.Theming;
-using HELIX.Types;
 using UnityEngine.UIElements;
 
 namespace HELIX.Examples {

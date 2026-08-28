@@ -1,10 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HELIX.Compose;
-using HELIX.Compose.Forms;
 using HELIX.Prose;
-using HELIX.Theming;
-using HELIX.Types;
 using UnityEngine.UIElements;
 
 namespace HELIX.UI.Options {

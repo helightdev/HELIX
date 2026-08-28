@@ -2,20 +2,20 @@ using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Extensions {
+namespace HELIX.Compose {
   public static class EasingExtensions {
     public static long ToMilliseconds(this TimeValue value) {
       return value.unit == TimeUnit.Millisecond ? (long)value.value : (long)(value.value * 1000);
     }
 
-      /// <summary>
-      ///   Evaluates an easing function at normalized time t (typically 0..1),
-      ///   matching how Unity UI Toolkit / web (CSS) easings behave:
-      ///   - Linear, ease, ease-in, ease-out, ease-in-out use CSS cubic-bezier curves.
-      ///   - The named Sine/Cubic/Circ/Elastic/Back/Bounce use the same standard formulas
-      ///   you’ll find in common web easing references (e.g., easings.net style).
-      /// </summary>
-      public static float Eval(this EasingMode mode, float t) {
+    /// <summary>
+    ///   Evaluates an easing function at normalized time t (typically 0..1),
+    ///   matching how Unity UI Toolkit / web (CSS) easings behave:
+    ///   - Linear, ease, ease-in, ease-out, ease-in-out use CSS cubic-bezier curves.
+    ///   - The named Sine/Cubic/Circ/Elastic/Back/Bounce use the same standard formulas
+    ///   you’ll find in common web easing references (e.g., easings.net style).
+    /// </summary>
+    public static float Eval(this EasingMode mode, float t) {
       t = Mathf.Clamp01(t);
       return mode switch {
         // CSS timing functions:
@@ -111,8 +111,8 @@ namespace HELIX.Extensions {
       var inv = 1f - u;
       // derivative of: 3(1-u)^2 u p1 + 3(1-u) u^2 p2 + u^3
       return 3f * inv * inv * p1
-             + 6f * inv * u * (p2 - p1)
-             + 3f * u * u * (1f - p2);
+        + 6f * inv * u * (p2 - p1)
+        + 3f * u * u * (1f - p2);
     }
 
     // -----------------------

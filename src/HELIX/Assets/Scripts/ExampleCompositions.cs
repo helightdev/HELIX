@@ -1,9 +1,6 @@
 using HELIX;
 using HELIX.Coloring;
 using HELIX.Compose;
-using HELIX.Signals;
-using HELIX.Theming;
-using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
 

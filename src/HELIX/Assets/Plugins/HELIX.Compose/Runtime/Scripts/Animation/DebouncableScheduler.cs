@@ -1,12 +1,12 @@
 using System;
 using UnityEngine.UIElements;
 
-namespace HELIX.Animation {
-    /// <summary>
-    ///   Represents a scheduler that executes tasks in a debounced manner, ensuring that only one task
-    ///   is scheduled at a time within the Unity UIElements system.
-    /// </summary>
-    public class DebouncedScheduler : IVisualElementScheduler {
+namespace HELIX.Compose {
+  /// <summary>
+  ///   Represents a scheduler that executes tasks in a debounced manner, ensuring that only one task
+  ///   is scheduled at a time within the Unity UIElements system.
+  /// </summary>
+  public class DebouncedScheduler : IVisualElementScheduler {
     private readonly IVisualElementScheduler _scheduler;
     private IVisualElementScheduledItem _scheduledItem;
 

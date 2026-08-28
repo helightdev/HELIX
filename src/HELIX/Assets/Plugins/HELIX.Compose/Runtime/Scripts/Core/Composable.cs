@@ -1,0 +1,226 @@
+using System;
+using System.Runtime.CompilerServices;
+using UnityEngine.UIElements;
+
+namespace HELIX.Compose {
+  public delegate void Composable(ref Composition cx);
+
+  public delegate void Composable<in T>(ref Composition cx, T value);
+
+  public delegate void Composable<in T0, in T1>(ref Composition cx, T0 arg0, T1 arg1);
+
+  public delegate void Composable<in T0, in T1, in T2>(ref Composition cx, T0 arg0, T1 arg1, T2 arg2);
+
+  public delegate void Composable<in T0, in T1, in T2, in T3>(ref Composition cx, T0 arg0, T1 arg1, T2 arg2, T3 arg3);
+
+  public delegate void ReadComposable<T>(ref Composition cx, in T value);
+
+  public delegate void CompositionAction(CompositionContext ctx);
+
+  public delegate void CompositionAction<in T>(CompositionContext ctx, T arg);
+
+  public delegate void CompositionAction<in T0, in T1>(CompositionContext ctx, T0 arg0, T1 arg1);
+
+  public delegate void CompositionAction<in T0, in T1, in T2>(CompositionContext ctx, T0 arg0, T1 arg1, T2 arg2);
+
+  public delegate void CompositionAction<in T0, in T1, in T2, in T3>(
+    CompositionContext ctx,
+    T0 arg0,
+    T1 arg1,
+    T2 arg2,
+    T3 arg3
+  );
+
+  public readonly ref struct CompositionContext {
+    /// <summary>
+    ///   The owning boundary of this context.
+    /// </summary>
+    public readonly IBoundary boundary;
+
+    /// <summary>
+    ///   The closest composable in the owner chain.
+    /// </summary>
+    public readonly IComposable composable;
+
+    /// <summary>
+    ///   The target element to which the context instance belongs.
+    /// </summary>
+    public readonly VisualElement element;
+
+    public CompositionContext(IBoundary boundary) {
+      this.boundary = boundary;
+      composable = boundary;
+      element = boundary.Element;
+    }
+
+    public CompositionContext(IComposable composable, VisualElement element) : this() {
+      this.composable = composable;
+      this.element = element;
+      if (composable is IBoundary selfBoundary) boundary = selfBoundary;
+      else boundary = composable.Element.GetFirstAncestorOfType<IBoundary>();
+    }
+
+    public CompositionContext(IComposable composable) : this(composable, composable.Element) { }
+
+    public static implicit operator CompositionContext(Composition cx) {
+      return new CompositionContext(cx.boundary);
+    }
+  }
+
+  public interface IComposable : IElement {
+    UssFlag Flag { get; set; }
+    ulong PackedId { get; set; }
+    void Reset();
+  }
+
+  public static class ComposableExtensions {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void MarkFlag<T>(this T composable, UssFlag flag) where T : IComposable {
+      composable.Flag |= flag;
+    }
+  }
+
+  public interface IDirty {
+    void MarkDirty();
+  }
+
+  public interface IStateAttachmentHolder : IComposable {
+    ref StateAttachmentStore StateAttachmentStore { get; }
+  }
+
+  public sealed class UserdataTracker : IComposable, IStateAttachmentHolder {
+    private StateAttachmentStore _stateAttachmentStore;
+
+    public Action OnReset { get; set; }
+    public VisualElement Element { get; set; }
+    public UssFlag Flag { get; set; }
+    public ulong PackedId { get; set; }
+
+    public void Reset() {
+      OnReset?.Invoke();
+      OnReset = null;
+      StateAttachmentStore.Dispose();
+    }
+
+    public ref StateAttachmentStore StateAttachmentStore => ref _stateAttachmentStore;
+
+    public void MarkFlag(UssFlag flag) {
+      Flag |= flag;
+    }
+  }
+
+  public abstract class ComposableElement : VisualElement, IStateAttachmentHolder {
+    private StateAttachmentStore _stateAttachmentStore;
+    public object ComposableUserData { get; set; }
+    public VisualElement Element => this;
+
+    public UssFlag Flag { get; set; }
+    public ulong PackedId { get; set; }
+
+    public ref StateAttachmentStore StateAttachmentStore => ref _stateAttachmentStore;
+
+    public virtual void Reset() {
+      _stateAttachmentStore.Dispose();
+    }
+
+    public void MarkFlag(UssFlag flag) {
+      Flag |= flag;
+    }
+  }
+
+  public sealed class CompositionNode : ComposableElement {
+    public override void Reset() {
+      if (ComposableUserData is IDisposable disposable) disposable.Dispose();
+      ComposableUserData = null;
+    }
+  }
+
+  public static class BoundaryLookupExtensions {
+    public static T LookupBoundary<T>(this IBoundary boundary, bool includeHost = true) {
+      var current = includeHost ? boundary : boundary.Parent;
+      while (current != null) {
+        if (current is T typed) return typed;
+        current = current.Parent;
+      }
+      return default;
+    }
+
+    public static T Lookup<T>(this IBoundary boundary, bool includeHost = true) where T : IBoundary {
+      return boundary.LookupBoundary<T>(includeHost);
+    }
+
+    public static T Lookup<T>(this CompositionContext context, bool includeHost = true) where T : IBoundary {
+      return context.boundary.LookupBoundary<T>(includeHost);
+    }
+
+    public static T Lookup<T>(this Composition context, bool includeHost = true) where T : IBoundary {
+      return context.boundary.LookupBoundary<T>(includeHost);
+    }
+
+    public static RecompositionScope Modify<T>(
+      this IBoundary self,
+      out T boundary,
+      bool includeHost = true
+    ) where T : IBoundary {
+      boundary = self.LookupBoundary<T>(includeHost);
+      if (boundary == null) throw new InvalidOperationException($"Boundary of type {typeof(T)} not found in tree.");
+      var scope = HXComposer.BeginBatch();
+      boundary.MarkDirty();
+      return scope;
+    }
+
+    public static RecompositionScope Modify<T>(
+      this CompositionContext self,
+      out T boundary,
+      bool includeHost = true
+    ) where T : IBoundary {
+      return self.boundary.Modify(out boundary, includeHost);
+    }
+
+    public static RecompositionScope Modify<T>(
+      this Composition self,
+      out T boundary,
+      bool includeHost = true
+    ) where T : IBoundary {
+      return self.boundary.Modify(out boundary, includeHost);
+    }
+  }
+
+  public static class CompositionActionExtensions {
+    public static void Call(this CompositionAction action, IBoundary boundary) {
+      if (action == null) return;
+      using (HXComposer.BeginBatch()) action.Invoke(new CompositionContext(boundary));
+    }
+
+    public static void Call<T>(this CompositionAction<T> action, IBoundary boundary, T arg) {
+      if (action == null) return;
+      using (HXComposer.BeginBatch()) action.Invoke(new CompositionContext(boundary), arg);
+    }
+
+    public static void Call<T0, T1>(this CompositionAction<T0, T1> action, IBoundary boundary, T0 arg0, T1 arg1) {
+      if (action == null) return;
+      using (HXComposer.BeginBatch()) action.Invoke(new CompositionContext(boundary), arg0, arg1);
+    }
+
+    public static void Call<T0, T1, T2>(
+      this CompositionAction<T0, T1, T2> action,
+      IBoundary boundary,
+      T0 arg0,
+      T1 arg1,
+      T2 arg2
+    ) {
+      using (HXComposer.BeginBatch()) action?.Invoke(new CompositionContext(boundary), arg0, arg1, arg2);
+    }
+
+    public static void Call<T0, T1, T2, T3>(
+      this CompositionAction<T0, T1, T2, T3> action,
+      IBoundary boundary,
+      T0 arg0,
+      T1 arg1,
+      T2 arg2,
+      T3 arg3
+    ) {
+      using (HXComposer.BeginBatch()) action?.Invoke(new CompositionContext(boundary), arg0, arg1, arg2, arg3);
+    }
+  }
+}

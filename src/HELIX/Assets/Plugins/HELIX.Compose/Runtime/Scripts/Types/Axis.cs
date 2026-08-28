@@ -1,11 +1,8 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
-  public enum Axis : byte {
-    Horizontal = 0,
-    Vertical = 1
-  }
+namespace HELIX.Compose {
+  public enum Axis : byte { Horizontal = 0, Vertical = 1 }
 
   public static class AxisExtensions {
     public static Axis Opposite(this Axis axis) {

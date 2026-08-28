@@ -1,16 +1,14 @@
 using HELIX.Coloring;
-using HELIX.Compose;
-using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
-using static HELIX.Theming.BlendLevel;
-using static HELIX.Theming.ColorRoles;
-using static HELIX.Theming.HXStyles;
-using static HELIX.Theming.RadiusRole;
-using static HELIX.Theming.SpacingRole;
-using static HELIX.Theming.TextRole;
+using static HELIX.Compose.BlendLevel;
+using static HELIX.Compose.ColorRoles;
+using static HELIX.Compose.HXStyles;
+using static HELIX.Compose.RadiusRole;
+using static HELIX.Compose.SpacingRole;
+using static HELIX.Compose.TextRole;
 
-namespace HELIX.Theming {
+namespace HELIX.Compose {
   public static partial class ThemeProperties {
     // Colors
     public static readonly ThemeProperty<Color>

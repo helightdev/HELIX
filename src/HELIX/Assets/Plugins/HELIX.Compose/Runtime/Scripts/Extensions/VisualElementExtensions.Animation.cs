@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Extensions {
+namespace HELIX.Compose {
   public static partial class VisualElementExtensions {
     public static IVisualElementScheduledItem Tween(
       this IVisualElementScheduler scheduler,

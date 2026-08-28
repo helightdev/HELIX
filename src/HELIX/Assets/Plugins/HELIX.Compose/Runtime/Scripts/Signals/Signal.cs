@@ -1,34 +1,33 @@
 using System;
 using System.Collections.Generic;
-using HELIX.Compose;
 using HELIX.Diagnostics;
 using HELIX.Prose;
-using HELIX.Widgets.Signals;
 using UnityEngine;
 using UnityEngine.Pool;
 
-namespace HELIX.Signals {
+namespace HELIX.Compose {
   /// <summary>
-  /// <para>A signal represents a piece of reactive state that can be observed for changes.</para>
-  /// <para>
-  /// Signals can be observed by implementing the <see cref="ISignalObserver"/> interface and subscribing to the signal
-  /// using <see cref="AddObserver(ISignalObserver)"/>. <see cref="StatefulWidget{T}"/>s may also access signals inside
-  /// their build methods, which will automatically subscribe to the signal and rebuild the widget when the signal changes.
-  /// </para>
+  ///   <para>A signal represents a piece of reactive state that can be observed for changes.</para>
+  ///   <para>
+  ///     Signals can be observed by implementing the <see cref="ISignalObserver" /> interface and subscribing to the signal
+  ///     using <see cref="AddObserver(ISignalObserver)" />. <see cref="StatefulWidget{T}" />s may also access signals inside
+  ///     their build methods, which will automatically subscribe to the signal and rebuild the widget when the signal
+  ///     changes.
+  ///   </para>
   /// </summary>
   public abstract class Signal : ContextData, IDisposable, IPossiblyDisposed {
     private const int _maxNotificationStackDepth = 16;
     private readonly HashSet<ISignalObserver> _observers = new();
     private int _notificationStackDepth;
 
-    public bool IsDisposed { get; private set; }
-
     public int contextKey;
 
     protected Signal(string name = "Signal", Type registeredType = null) {
       detached = true;
       contextKey = ContextKeyData.ClaimAnonymous(
-        registeredType ?? typeof(Signal), name, new WeakReference<object>(this)
+        registeredType ?? typeof(Signal),
+        name,
+        new WeakReference<object>(this)
       );
     }
 
@@ -62,16 +61,20 @@ namespace HELIX.Signals {
       DisposeContext();
     }
 
+    public bool IsDisposed { get; private set; }
+
     protected void NotifyDirty() {
       if (_notificationStackDepth >= _maxNotificationStackDepth) {
-        Debug.LogWarning(HelixDiagnostics.ProseErrorText(
-          "Maximum signal notification stack depth exceeded",
-          "This warning indicates that the maximum allowed depth for nested signal notifications has been exceeded. " +
-          "This can occur when signals have circular dependencies, causing them to notify each other indefinitely. " +
-          "To resolve this issue, review your signal dependencies and ensure that there are no circular references.",
-          writeDetails: writer => writer.Property("Signal", this, Datatypes.Object<Signal>()),
-          hint: "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
-        ));
+        Debug.LogWarning(
+          HelixDiagnostics.ProseErrorText(
+            "Maximum signal notification stack depth exceeded",
+            "This warning indicates that the maximum allowed depth for nested signal notifications has been exceeded. " +
+            "This can occur when signals have circular dependencies, causing them to notify each other indefinitely. " +
+            "To resolve this issue, review your signal dependencies and ensure that there are no circular references.",
+            writer => writer.Property("Signal", this, Datatypes.Object<Signal>()),
+            "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
+          )
+        );
         return;
       }
       IncrementContextVersion();
@@ -107,20 +110,20 @@ namespace HELIX.Signals {
 
     protected void NotifyObservers() {
       if (_notificationStackDepth >= _maxNotificationStackDepth) {
-        Debug.LogWarning(HelixDiagnostics.ProseErrorText(
-          "Maximum signal notification stack depth exceeded",
-          "This warning indicates that the maximum allowed depth for nested signal notifications has been exceeded. " +
-          "This can occur when signals have circular dependencies, causing them to notify each other indefinitely. " +
-          "To resolve this issue, review your signal dependencies and ensure that there are no circular references.",
-          writeDetails: writer => writer.Property("Signal", this, Datatypes.Object<Signal>()),
-          hint: "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
-        ));
+        Debug.LogWarning(
+          HelixDiagnostics.ProseErrorText(
+            "Maximum signal notification stack depth exceeded",
+            "This warning indicates that the maximum allowed depth for nested signal notifications has been exceeded. " +
+            "This can occur when signals have circular dependencies, causing them to notify each other indefinitely. " +
+            "To resolve this issue, review your signal dependencies and ensure that there are no circular references.",
+            writer => writer.Property("Signal", this, Datatypes.Object<Signal>()),
+            "Check the signals that depend on this signal and ensure that they do not create a circular dependency."
+          )
+        );
         return;
       }
 
-      using (HXComposer.BeginBatch()) {
-        SendNotifyObservers();
-      }
+      using (HXComposer.BeginBatch()) SendNotifyObservers();
     }
 
     private void SendNotifyObservers() {
@@ -159,43 +162,48 @@ namespace HELIX.Signals {
     }
 
     public FunctionSignalObserver AddObserver(Action onChanged, bool fireImmediately = false) {
-      var observer = new FunctionSignalObserver((_) => onChanged?.Invoke());
+      var observer = new FunctionSignalObserver(_ => onChanged?.Invoke());
       observer.Observe(this);
       if (fireImmediately) onChanged?.Invoke();
       return observer;
     }
 
     /// <summary>
-    /// Creates a signal that holds a single value.
+    ///   Creates a signal that holds a single value.
     /// </summary>
-    /// <param name="initialValue">The initial value of the signal. Defaults to the default value of <typeparamref name="T"/>.</param>
+    /// <param name="initialValue">The initial value of the signal. Defaults to the default value of <typeparamref name="T" />.</param>
     /// <param name="equality">
-    /// If true, the signal will only notify observers when the value changes to a different value
-    /// (as determined by <see cref="EqualityComparer{T}.Default"/>). If false, the signal will notify observers
-    /// whenever the value is set, even if it's the same as the current value.</param>
+    ///   If true, the signal will only notify observers when the value changes to a different value
+    ///   (as determined by <see cref="EqualityComparer{T}.Default" />). If false, the signal will notify observers
+    ///   whenever the value is set, even if it's the same as the current value.
+    /// </param>
     public static ValueSignal<T> Value<T>(T initialValue = default, bool equality = true) {
       return new ValueSignal<T>(initialValue, equality);
     }
 
     /// <summary>
-    /// Creates a signal that recomputes its value whenever any of its dependencies change.
+    ///   Creates a signal that recomputes its value whenever any of its dependencies change.
     /// </summary>
     /// <param name="computeFunc">
-    /// A function that computes the value of the signal based on its dependencies.
-    /// This function will be called whenever any of the signal's dependencies change.
+    ///   A function that computes the value of the signal based on its dependencies.
+    ///   This function will be called whenever any of the signal's dependencies change.
     /// </param>
     /// <remarks>
-    /// The current value of a signal will be invalidated on <see cref="Signal.NotifyDirty"/> and
-    /// only recomputed when accessed.
+    ///   The current value of a signal will be invalidated on <see cref="Signal.NotifyDirty" /> and
+    ///   only recomputed when accessed.
     /// </remarks>
-    /// <seealso cref="SignalDependencyTracker"/>
+    /// <seealso cref="SignalDependencyTracker" />
     public static ComputedSignal<T> Computed<T>(Func<T> computeFunc) {
       return new ComputedSignal<T>(computeFunc);
     }
   }
 
   public abstract class Signal<T> : Signal {
-    protected Signal(string name = "ValueSignal", Type registeredType = null) : base(name, registeredType ?? typeof(Signal<T>)) { }
+    protected Signal(string name = "ValueSignal", Type registeredType = null) : base(
+      name,
+      registeredType ?? typeof(Signal<T>)
+    ) { }
+
     public T Value {
       get {
         if (HXComposer.CurrentBoundary != null) {

@@ -1,8 +1,7 @@
 using System.Runtime.CompilerServices;
-using HELIX.Types;
 using UnityEngine.UIElements;
 
-namespace HELIX.Extensions {
+namespace HELIX.Compose {
   public static partial class VisualElementExtensions {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static T Size<T>(this T element, StyleLength2 size) where T : VisualElement {
@@ -13,7 +12,7 @@ namespace HELIX.Extensions {
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static T Constraints<T>(this T element, StyleLength2 width, StyleLength2 height)
-      where T : VisualElement {
+    where T : VisualElement {
       element.style.minWidth = width.w;
       element.style.maxWidth = width.h;
       element.style.minHeight = height.w;

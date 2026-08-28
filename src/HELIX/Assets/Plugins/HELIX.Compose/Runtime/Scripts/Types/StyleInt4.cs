@@ -2,7 +2,7 @@ using System;
 using Unity.Mathematics;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public struct StyleInt4 : IStyleValue<int4>, IEquatable<StyleInt4> {
     private int4 _value;
 
@@ -36,17 +36,11 @@ namespace HELIX.Types {
     }
 
     public static implicit operator StyleInt4(StyleKeyword k) {
-      return new StyleInt4 {
-        _value = default,
-        keyword = k
-      };
+      return new StyleInt4 { _value = default, keyword = k };
     }
 
     public static implicit operator StyleInt4(int4 v) {
-      return new StyleInt4 {
-        _value = v,
-        keyword = StyleKeyword.Undefined
-      };
+      return new StyleInt4 { _value = v, keyword = StyleKeyword.Undefined };
     }
   }
 }

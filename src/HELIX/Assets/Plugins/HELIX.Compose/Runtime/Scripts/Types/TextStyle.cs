@@ -1,31 +1,17 @@
 using System;
-using HELIX.Compose;
-using HELIX.Theming;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public struct TextStyle : IEquatable<TextStyle> {
     private static readonly TextStyle _fallback = new() {
-      align = TextAnchor.MiddleLeft,
-      color = Color.black,
-      size = 14,
-      letterSpacing = StyleKeyword.Null,
-      style = FontStyle.Normal,
-      wrap = WhiteSpace.Normal,
-      overflow = TextOverflow.Clip,
-      font = StyleKeyword.Null
+      align = TextAnchor.MiddleLeft, color = Color.black, size = 14, letterSpacing = StyleKeyword.Null,
+      style = FontStyle.Normal, wrap = WhiteSpace.Normal, overflow = TextOverflow.Clip, font = StyleKeyword.Null
     };
 
     private static readonly TextStyle _null = new() {
-      align = StyleKeyword.Null,
-      color = StyleKeyword.Null,
-      size = StyleKeyword.Null,
-      letterSpacing = StyleKeyword.Null,
-      style = StyleKeyword.Null,
-      wrap = StyleKeyword.Null,
-      overflow = StyleKeyword.Null,
-      font = StyleKeyword.Null
+      align = StyleKeyword.Null, color = StyleKeyword.Null, size = StyleKeyword.Null, letterSpacing = StyleKeyword.Null,
+      style = StyleKeyword.Null, wrap = StyleKeyword.Null, overflow = StyleKeyword.Null, font = StyleKeyword.Null
     };
 
     public static readonly ContextKey<TextStyle> Key = new("TextStyle", _fallback);
@@ -86,8 +72,8 @@ namespace HELIX.Types {
 
     public readonly bool Equals(TextStyle other) {
       return align.Equals(other.align) && color.Equals(other.color) && size.Equals(other.size) &&
-             letterSpacing.Equals(other.letterSpacing) && style.Equals(other.style) &&
-             wrap.Equals(other.wrap) && overflow.Equals(other.overflow) && font.Equals(other.font);
+        letterSpacing.Equals(other.letterSpacing) && style.Equals(other.style) &&
+        wrap.Equals(other.wrap) && overflow.Equals(other.overflow) && font.Equals(other.font);
     }
 
     public readonly override bool Equals(object obj) {
@@ -124,11 +110,8 @@ namespace HELIX.Types {
       ref var target = ref data.GetValueRef();
       data.IncrementContextVersion();
 
-      if (hasBasis) {
-        Merge(ref target, in basis.GetValueRef(), in overrides);
-      } else {
-        Merge(ref target, in _fallback, in overrides);
-      }
+      if (hasBasis) Merge(ref target, in basis.GetValueRef(), in overrides);
+      else Merge(ref target, in _fallback, in overrides);
       return ref target;
     }
 
@@ -140,9 +123,8 @@ namespace HELIX.Types {
       if (property.HasValueFor(flag)) {
         ref var overrides = ref property.GetValueRef(flag);
         return ref WriteMerged(in accessor, in overrides);
-      } else {
-        return ref WriteMerged(in accessor, in _null);
       }
+      return ref WriteMerged(in accessor, in _null);
     }
 
     public static ref TextStyle Merge(

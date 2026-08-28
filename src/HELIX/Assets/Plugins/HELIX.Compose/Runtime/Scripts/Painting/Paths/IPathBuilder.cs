@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Painting.Paths {
+namespace HELIX.Compose {
   public interface IPathBuilder {
     void MoveTo(Vector2 pos);
     void LineTo(Vector2 pos);

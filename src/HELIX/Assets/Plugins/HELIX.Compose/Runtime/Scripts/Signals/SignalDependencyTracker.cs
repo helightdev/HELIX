@@ -2,19 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using HELIX.Diagnostics;
-using HELIX.Signals;
 
-namespace HELIX.Widgets.Signals {
+namespace HELIX.Compose {
   /// <summary>
-  /// <para>Provides a mechanism for tracking dependencies between signals.</para>
-  /// <para>
-  /// When inside the scope of this tracker, all direct value accesses
-  /// to a signal will track the signal as a dependency.
-  /// </para>
+  ///   <para>Provides a mechanism for tracking dependencies between signals.</para>
+  ///   <para>
+  ///     When inside the scope of this tracker, all direct value accesses
+  ///     to a signal will track the signal as a dependency.
+  ///   </para>
   /// </summary>
   /// <remarks>
-  /// This is an older implementation and this will most likely be reworked quite a bit to be more memory efficient
+  ///   This is an older implementation and this will most likely be reworked quite a bit to be more memory efficient
   /// </remarks>
   public class SignalDependencyTracker : ISignalObserver, IDisposable, IPossiblyDisposed {
     public static SignalDependencyTracker Current;
@@ -24,7 +22,6 @@ namespace HELIX.Widgets.Signals {
 
     public readonly Dictionary<Signal, SignalDependencyType> dependencies = new();
     public object owner;
-    public event Action<Signal> OnDependenciesChanged;
 
     public SignalDependencyTracker(Action onDependenciesChanged) {
       OnDependenciesChanged += signal => onDependenciesChanged?.Invoke();
@@ -42,13 +39,6 @@ namespace HELIX.Widgets.Signals {
 
       dependencies.Clear();
       IsDisposed = true;
-    }
-
-    public void Clear() {
-      IsDisposed = false;
-      IsBuilding = false;
-      _implicitBuffer.Clear();
-      _removalQueue.Clear();
     }
 
     public bool IsDisposed { get; private set; }
@@ -73,6 +63,15 @@ namespace HELIX.Widgets.Signals {
     public void OnSignalDirty(Signal signal) {
       if (IsDisposed) return;
       _forwarder?.OnSignalDirty(signal);
+    }
+
+    public event Action<Signal> OnDependenciesChanged;
+
+    public void Clear() {
+      IsDisposed = false;
+      IsBuilding = false;
+      _implicitBuffer.Clear();
+      _removalQueue.Clear();
     }
 
     public Scope BuildScope() {
@@ -142,11 +141,8 @@ namespace HELIX.Widgets.Signals {
       }
 
       dependencies[signal] = SignalDependencyType.Explicit;
-      if (weak) {
-        signal.AddObserver(new WeakSignalObserver(this));
-      } else {
-        signal.AddObserver(this);
-      }
+      if (weak) signal.AddObserver(new WeakSignalObserver(this));
+      else signal.AddObserver(this);
     }
 
     public readonly struct Scope : IDisposable {

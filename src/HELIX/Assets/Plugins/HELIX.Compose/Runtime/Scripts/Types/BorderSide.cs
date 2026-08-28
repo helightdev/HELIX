@@ -2,7 +2,7 @@ using System;
 using HELIX.Coloring;
 using UnityEngine;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public struct BorderSide : IEquatable<BorderSide> {
     public float width;
     public Color color;

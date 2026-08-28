@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Painting.Paths {
+namespace HELIX.Compose {
   [StructLayout(LayoutKind.Sequential)]
   public struct PathCommand {
     public PathCommandType type;
@@ -16,54 +16,30 @@ namespace HELIX.Painting.Paths {
     public bool flag; // Arc direction for Arc
 
     public static PathCommand MoveTo(Vector2 pos) {
-      return new PathCommand {
-        type = PathCommandType.MoveTo,
-        p0 = pos
-      };
+      return new PathCommand { type = PathCommandType.MoveTo, p0 = pos };
     }
 
     public static PathCommand LineTo(Vector2 pos) {
-      return new PathCommand {
-        type = PathCommandType.LineTo,
-        p0 = pos
-      };
+      return new PathCommand { type = PathCommandType.LineTo, p0 = pos };
     }
 
     public static PathCommand ArcTo(Vector2 control, Vector2 end, float radius) {
-      return new PathCommand {
-        type = PathCommandType.ArcTo,
-        p0 = control,
-        p1 = end,
-        f0 = radius
-      };
+      return new PathCommand { type = PathCommandType.ArcTo, p0 = control, p1 = end, f0 = radius };
     }
 
     public static PathCommand Arc(Vector2 center, float radius, Angle startRad, Angle endRad, ArcDirection dir) {
       return new PathCommand {
-        type = PathCommandType.Arc,
-        p0 = center,
-        f0 = radius,
-        f1 = startRad.ToRadians(),
-        f2 = endRad.ToRadians(),
+        type = PathCommandType.Arc, p0 = center, f0 = radius, f1 = startRad.ToRadians(), f2 = endRad.ToRadians(),
         flag = dir == ArcDirection.Clockwise
       };
     }
 
     public static PathCommand BezierCurveTo(Vector2 c1, Vector2 c2, Vector2 end) {
-      return new PathCommand {
-        type = PathCommandType.BezierCurveTo,
-        p0 = c1,
-        p1 = c2,
-        p2 = end
-      };
+      return new PathCommand { type = PathCommandType.BezierCurveTo, p0 = c1, p1 = c2, p2 = end };
     }
 
     public static PathCommand QuadraticCurveTo(Vector2 control, Vector2 end) {
-      return new PathCommand {
-        type = PathCommandType.QuadraticCurveTo,
-        p0 = control,
-        p1 = end
-      };
+      return new PathCommand { type = PathCommandType.QuadraticCurveTo, p0 = control, p1 = end };
     }
 
     public static PathCommand ClosePath() {

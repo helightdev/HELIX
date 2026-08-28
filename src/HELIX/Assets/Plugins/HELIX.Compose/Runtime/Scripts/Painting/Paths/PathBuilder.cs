@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Painting.Paths {
+namespace HELIX.Compose {
   public class PathBuilder : IPathBuilder {
     private readonly List<PathCommand> _commands = new();
 

@@ -1,8 +1,7 @@
-using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Extensions {
+namespace HELIX.Compose {
   public static class LayoutExtensions {
     public static float LayoutSimple(this StyleLength length, float available, Vector2 constraints) {
       return Mathf.Clamp(

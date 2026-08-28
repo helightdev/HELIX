@@ -1,6 +1,6 @@
 using System;
 using System.Globalization;
-using HELIX.Types;
+using HELIX.Compose;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 

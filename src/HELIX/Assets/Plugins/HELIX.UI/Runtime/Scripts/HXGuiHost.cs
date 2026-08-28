@@ -1,7 +1,4 @@
 using HELIX.Compose;
-using HELIX.Extensions;
-using HELIX.Theming;
-using HELIX.Types;
 using HELIX.UI.Prompts;
 using HELIX.UI.Console;
 using HELIX.UI.DebugOverlay;

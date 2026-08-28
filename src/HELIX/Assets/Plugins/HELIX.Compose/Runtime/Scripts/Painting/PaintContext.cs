@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Painting {
+namespace HELIX.Compose {
   public readonly struct PaintCanvas {
     public readonly Rect canvasRect;
     public readonly MeshGenerationContext mgc;

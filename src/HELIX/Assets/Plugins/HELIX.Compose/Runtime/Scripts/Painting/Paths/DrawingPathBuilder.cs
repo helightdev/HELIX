@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Painting.Paths {
+namespace HELIX.Compose {
   public class DrawingPathBuilder : IPathBuilder {
     private readonly Painter2D _painter;
 

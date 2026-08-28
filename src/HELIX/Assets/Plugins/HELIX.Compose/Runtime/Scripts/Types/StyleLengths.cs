@@ -2,7 +2,7 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public class StyleLengths {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static StyleLength Add(StyleLength a, StyleLength b) {
@@ -111,10 +111,14 @@ namespace HELIX.Types {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Length Negate(Length a) => new(-a.value, a.unit);
+    public static Length Negate(Length a) {
+      return new Length(-a.value, a.unit);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Length Abs(Length a) => new(Mathf.Abs(a.value), a.unit);
+    public static Length Abs(Length a) {
+      return new Length(Mathf.Abs(a.value), a.unit);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Length Interpolate(Length a, Length b, float t) {

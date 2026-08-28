@@ -1,7 +1,7 @@
 using System;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public struct BorderRadius : IEquatable<BorderRadius>, IStyleLength4 {
     public StyleLength topLeft;
     public StyleLength topRight;
@@ -29,7 +29,7 @@ namespace HELIX.Types {
 
     public bool Equals(BorderRadius other) {
       return topLeft.Equals(other.topLeft) && topRight.Equals(other.topRight) &&
-             bottomRight.Equals(other.bottomRight) && bottomLeft.Equals(other.bottomLeft);
+        bottomRight.Equals(other.bottomRight) && bottomLeft.Equals(other.bottomLeft);
     }
 
     public override bool Equals(object obj) {

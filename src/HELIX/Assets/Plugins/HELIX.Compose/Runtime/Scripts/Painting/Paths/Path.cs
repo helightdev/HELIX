@@ -1,6 +1,6 @@
 using UnityEngine.UIElements;
 
-namespace HELIX.Painting.Paths {
+namespace HELIX.Compose {
   public class Path {
     public PathCommand[] commands;
 

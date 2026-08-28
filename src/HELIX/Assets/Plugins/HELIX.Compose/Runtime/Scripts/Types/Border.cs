@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Types {
+namespace HELIX.Compose {
   public struct Border : IEquatable<Border> {
     public BorderSide left;
     public BorderSide top;
@@ -29,7 +29,7 @@ namespace HELIX.Types {
 
     public bool Equals(Border other) {
       return left.Equals(other.left) && top.Equals(other.top) && right.Equals(other.right) &&
-             bottom.Equals(other.bottom);
+        bottom.Equals(other.bottom);
     }
 
     public override bool Equals(object obj) {

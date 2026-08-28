@@ -1,17 +1,16 @@
-using System;
 using System.Collections.Generic;
-using HELIX.Compose;
-using HELIX.Types;
+using HELIX.Prose;
 using UnityEngine.UIElements;
 
-namespace HELIX.Prose {
+namespace HELIX.Compose {
   public class ComposeProseWriter : ReducingProseWriter<Composable> {
     public ComposeProseWriter(
       ProseReducerChain<Composable> delegates = null
     ) : this(new ComposeProseReducer(), delegates) { }
 
     public ComposeProseWriter(
-      ProseReducer<Composable> reducer, ProseReducerChain<Composable> delegates = null
+      ProseReducer<Composable> reducer,
+      ProseReducerChain<Composable> delegates = null
     ) : base(reducer, delegates) { }
   }
 
@@ -36,7 +35,9 @@ namespace HELIX.Prose {
     }
 
     public override bool TryMap<T>(
-      T value, IDatatype<T> datatype, IReadOnlyList<IProseModifier> modifiers,
+      T value,
+      IDatatype<T> datatype,
+      IReadOnlyList<IProseModifier> modifiers,
       out Composable result
     ) {
       if (datatype is IComposableIDatatype<T> composeFormatter) {
@@ -50,7 +51,9 @@ namespace HELIX.Prose {
     }
 
     public override Composable Reduce(
-      IProseScope scope, IReadOnlyList<Composable> children, IReadOnlyList<IProseModifier> modifiers
+      IProseScope scope,
+      IReadOnlyList<Composable> children,
+      IReadOnlyList<IProseModifier> modifiers
     ) {
       var axis = scope is ProseSection or ProseList or ProseTable or ProseTree
         ? Axis.Vertical
@@ -59,8 +62,11 @@ namespace HELIX.Prose {
     }
 
     protected Composable ReduceFlex(
-      IReadOnlyList<Composable> children, IReadOnlyList<IProseModifier> modifiers, Axis axis,
-      float defaultGap = 0f, Align? defaultCross = null
+      IReadOnlyList<Composable> children,
+      IReadOnlyList<IProseModifier> modifiers,
+      Axis axis,
+      float defaultGap = 0f,
+      Align? defaultCross = null
     ) {
       if (children.Count == 0) return null;
       var main = Justify.FlexStart;
@@ -104,15 +110,17 @@ namespace HELIX.Prose {
     }
 
     private static Composable ConvertText(
-      string richText, IReadOnlyList<IProseModifier> modifiers
+      string richText,
+      IReadOnlyList<IProseModifier> modifiers
     ) {
       if (string.IsNullOrEmpty(richText)) return null;
       var wrap = WhiteSpace.PreWrap;
-      for (var i = 0; i < modifiers.Count; i++)
+      for (var i = 0; i < modifiers.Count; i++) {
         if (modifiers[i] is ProseNoWrapModifier) {
           wrap = WhiteSpace.Pre;
           break;
         }
+      }
       var style = new TextStyle(wrap: wrap);
       return (ref Composition cx) => {
         ref var text = ref cx.Text(richText);

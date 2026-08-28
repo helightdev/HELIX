@@ -1,16 +1,15 @@
 using HELIX.Coloring;
-using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace HELIX.Theming {
+namespace HELIX.Compose {
   public static class HXThemes {
     public static readonly ThemeData DefaultDark = ThemeData.Build(theme => {
         theme.brightness = Brightness.Dark;
         theme.ApplySurface(
-          background: Colors.OkLch(0.145f, 0f, 0f),
-          onBackground: Colors.OkLch(0.97f, 0f, 0f),
-          onBackgroundVariant: Colors.OkLch(0.708f, 0f, 0f),
+          Colors.OkLch(0.145f, 0f, 0f),
+          Colors.OkLch(0.97f, 0f, 0f),
+          Colors.OkLch(0.708f, 0f, 0f),
           containerLow: Colors.OkLch(0.205f, 0f, 0f),
           container: Colors.OkLch(0.269f, 0f, 0f),
           containerHigh: Colors.OkLch(0.371f, 0f, 0f),

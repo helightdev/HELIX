@@ -2,13 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using HELIX.Compose;
 using UnityEngine.UIElements;
 
 // ReSharper disable Unity.BurstLoadingManagedType
 // ReSharper disable Unity.BurstAccessingManagedMethod
 
-namespace HELIX.Theming {
+namespace HELIX.Compose {
   [Flags]
   public enum State : ushort {
     None = 0,
@@ -54,22 +53,20 @@ namespace HELIX.Theming {
         values.Add(State.Error);
         if (flags.Contains(State.Selected)) values.Add(State.Disabled | State.Selected);
         values.Add(State.Disabled);
-      } else {
-        values.AddRange(prefix);
-      }
+      } else values.AddRange(prefix);
       values.AddRange(Explode(states, variants));
       return values.ToArray();
     }
 
-    public static State[] Matrix(params State[] flags) => Matrix(null, null, flags);
+    public static State[] Matrix(params State[] flags) {
+      return Matrix(null, null, flags);
+    }
 
     public static State[] Variants(IReadOnlyList<State> ordered, bool none = true) {
       var results = new List<State>();
       for (var n = ordered.Count; n >= 0; n--) {
         var flag = State.None;
-        for (var i = 0; i < n; i++) {
-          flag |= ordered[i];
-        }
+        for (var i = 0; i < n; i++) flag |= ordered[i];
         if (flag == State.None && !none) continue;
         results.Add(flag);
       }
@@ -78,16 +75,14 @@ namespace HELIX.Theming {
 
     public static State[] Explode(IReadOnlyList<State> states, params State[] variants) {
       var results = new List<State>();
-      foreach (var branch in variants) {
-        results.AddRange(states.Select(s => s | branch));
-      }
+      foreach (var branch in variants) results.AddRange(states.Select(s => s | branch));
       return results.ToArray();
     }
 
     public static int FirstMatch(IReadOnlyList<State> flags, State query) {
-      for (var i = 0; i < flags.Count; i++) {
-        if (flags[i].Matches(query)) return i;
-      }
+      for (var i = 0; i < flags.Count; i++)
+        if (flags[i].Matches(query))
+          return i;
       return -1;
     }
   }
@@ -106,26 +101,40 @@ namespace HELIX.Theming {
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Hovered(this State state) => (state & State.Hovered) != 0;
+    public static bool Hovered(this State state) {
+      return (state & State.Hovered) != 0;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Focused(this State state) => (state & State.Focused) != 0;
+    public static bool Focused(this State state) {
+      return (state & State.Focused) != 0;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Active(this State state) => (state & State.Active) != 0;
+    public static bool Active(this State state) {
+      return (state & State.Active) != 0;
+    }
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Selected(this State state) => (state & State.Selected) != 0;
+    public static bool Selected(this State state) {
+      return (state & State.Selected) != 0;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Disabled(this State state) => (state & State.Disabled) != 0;
+    public static bool Disabled(this State state) {
+      return (state & State.Disabled) != 0;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Enabled(this State state) => (state & State.Disabled) == 0;
+    public static bool Enabled(this State state) {
+      return (state & State.Disabled) == 0;
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool Error(this State state) => (state & State.Error) != 0;
+    public static bool Error(this State state) {
+      return (state & State.Error) != 0;
+    }
 
     public static bool Matches(this State actual, State query) {
       var subject = query & ~OperatorMask;
