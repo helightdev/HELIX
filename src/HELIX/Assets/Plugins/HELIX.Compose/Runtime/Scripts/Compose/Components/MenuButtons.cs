@@ -216,12 +216,13 @@ namespace HELIX.Compose {
   }
 
   internal interface IPopupMenuItemOwner {
-    void ActivateItem(int index, CompositionBoundaryNodeBase item);
-    void PreviewItem(int index, CompositionBoundaryNodeBase item);
+    void ActivateItem(int index, IBoundary item);
+    void PreviewItem(int index, IBoundary item);
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>))]
+  [BoundaryElementMixin]
+  [InputStateListener]
   internal partial class PopupMenuItemBoundary {
     public partial struct Props {
       public IPopupMenuItemOwner owner;
@@ -233,10 +234,11 @@ namespace HELIX.Compose {
       public HXControlBoxStyle style;
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       this.Toggle(State.Disabled, !props.enabled);
       this.Toggle(State.Selected, props.selected);
-      Node.SetEnabled(props.enabled);
+      SetEnabled(props.enabled);
       cx.CURSOR.Focusable(props.enabled).AlignSelf(Align.Stretch);
       props.style.RenderBoundary(ref cx, InputState);
 
@@ -252,18 +254,25 @@ namespace HELIX.Compose {
       }
     }
 
-    protected override void OnPointerEnter(PointerEnterEvent evt) {
-      base.OnPointerEnter(evt);
-      if (props.enabled) props.owner?.PreviewItem(props.index, Node);
+    [Hook]
+    private void OnInit() => RegisterCallback<PointerEnterEvent>(OnPointerEnter);
+
+    [Hook]
+    private void OnDispose() => UnregisterCallback<PointerEnterEvent>(OnPointerEnter);
+
+    private void OnPointerEnter(PointerEnterEvent evt) {
+      if (props.enabled) props.owner?.PreviewItem(props.index, this);
     }
 
-    protected override void OnClick(EventBase evt) {
-      if (props.enabled) props.owner?.ActivateItem(props.index, Node);
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
+      if (props.enabled) props.owner?.ActivateItem(props.index, this);
     }
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), name: "DropdownButton")]
+  [BoundaryElementMixin(name: "DropdownButton")]
+  [InputStateListener]
   public partial class HXDropdownButton : IPopupMenuItemOwner {
     public partial struct Props {
       [Prop(null)] public DropdownController controller;
@@ -279,8 +288,8 @@ namespace HELIX.Compose {
       [Prop(false)] public bool error;
     }
 
-    private readonly Composable<OverlayContextData> _menuContent;
-    private readonly CompositionAction<OverlayDismissReason> _dismissed;
+    private Composable<OverlayContextData> _menuContent;
+    private CompositionAction<OverlayDismissReason> _dismissed;
     private OverlayController _overlays;
     private OverlayHandle _menu;
     private PopupMenuStyle _resolvedStyle;
@@ -288,12 +297,14 @@ namespace HELIX.Compose {
     public DropdownController controller;
     public bool isAutomaticController = true;
 
-    public HXDropdownButton() {
-      _menuContent = ComposeMenu;
-      _dismissed = HandleDismissed;
+    [Hook]
+    private void OnInit() {
+      _menuContent ??= ComposeMenu;
+      _dismissed ??= HandleDismissed;
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       EnsureController(props.controller);
       cx.SubscribeTo(controller);
       _overlays = cx.Overlays();
@@ -302,7 +313,7 @@ namespace HELIX.Compose {
       this.Toggle(State.Selected, _menu?.IsOpen == true);
       this.Toggle(State.Disabled, !controller.enabled);
       this.Toggle(State.Error, controller.error);
-      Node.SetEnabled(controller.enabled);
+      SetEnabled(controller.enabled);
       cx.CURSOR.Focusable(controller.enabled);
       _resolvedStyle.button.RenderBoundary(ref cx, InputState);
 
@@ -318,7 +329,8 @@ namespace HELIX.Compose {
       }
     }
 
-    protected override void OnClick(EventBase evt) {
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
       if (controller?.enabled != true || _overlays == null) return;
       if (_menu?.IsOpen == true) {
         _menu.Dismiss();
@@ -326,31 +338,31 @@ namespace HELIX.Compose {
       }
 
       _menu = Overlay.Build(_menuContent)
-        .AnchorTo(Node, OverlayPlacement.BelowStart, _resolvedStyle.offset)
+        .AnchorTo(this, OverlayPlacement.BelowStart, _resolvedStyle.offset)
         .MatchAnchorWidth(_resolvedStyle.matchAnchorWidth)
         .DismissOnOutsidePointer()
         .DismissOnCancel()
         .CaptureFocus()
         .OnDismissed(_dismissed)
-        .Show(_overlays, Node);
-      Node.MarkDirty();
+        .Show(_overlays, this);
+      MarkDirty();
     }
 
-    protected override void OnDetach() {
+    [Hook]
+    private void OnDispose() {
       _menu?.Dismiss(OverlayDismissReason.AnchorDetached);
       _menu = null;
       _overlays = null;
       DisposeAutomaticController();
-      base.OnDetach();
     }
 
-    public void ActivateItem(int index, CompositionBoundaryNodeBase item) {
+    public void ActivateItem(int index, IBoundary item) {
       if (controller == null || index < 0 || index >= controller.Count || !controller.IsEnabled(index)) return;
       _menu?.Dismiss(OverlayDismissReason.Action);
-      controller.SetUserIndex(Node, index);
+      controller.SetUserIndex(this, index);
     }
 
-    public void PreviewItem(int index, CompositionBoundaryNodeBase item) { }
+    public void PreviewItem(int index, IBoundary item) { }
 
     private void ComposeMenu(ref Composition cx, OverlayContextData overlay) {
       var style = props.style ?? ThemeProperties.DropdownButton[in cx];
@@ -408,12 +420,13 @@ namespace HELIX.Compose {
 
     private void HandleDismissed(CompositionContext context, OverlayDismissReason reason) {
       _menu = null;
-      Node?.MarkDirty();
+      if (panel != null) MarkDirty();
     }
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), name: "MenuButton", extension: true)]
+  [BoundaryElementMixin(name: "MenuButton", extension: true)]
+  [InputStateListener]
   public partial class HXMenuButton {
     public partial struct Props {
       public Composable content;
@@ -427,7 +440,8 @@ namespace HELIX.Compose {
     private MenuPresenter _presenter;
     private PopupMenuStyle _resolvedStyle;
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       _overlays = cx.Overlays();
       _resolvedStyle = props.style ?? ThemeProperties.MenuButton[in cx];
       if (_presenter != null) {
@@ -437,7 +451,7 @@ namespace HELIX.Compose {
       }
       this.Toggle(State.Selected, props.selected || _presenter?.IsOpen == true);
       this.Toggle(State.Disabled, !props.enabled);
-      Node.SetEnabled(props.enabled);
+      SetEnabled(props.enabled);
       cx.CURSOR.Focusable(props.enabled);
       _resolvedStyle.button.RenderBoundary(ref cx, InputState);
 
@@ -452,7 +466,8 @@ namespace HELIX.Compose {
       }
     }
 
-    protected override void OnClick(EventBase evt) {
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
       if (!props.enabled || _overlays == null || props.items == null || props.items.Count == 0) return;
       if (_presenter?.IsOpen == true) {
         _presenter.Dismiss();
@@ -460,20 +475,20 @@ namespace HELIX.Compose {
       }
 
       _presenter = new MenuPresenter(_overlays, props.items, _resolvedStyle, HandleDismissed);
-      _presenter.Show(Node);
-      Node.MarkDirty();
+      _presenter.Show(this);
+      MarkDirty();
     }
 
-    protected override void OnDetach() {
+    [Hook]
+    private void OnDispose() {
       _presenter?.Dismiss(OverlayDismissReason.AnchorDetached);
       _presenter = null;
       _overlays = null;
-      base.OnDetach();
     }
 
     private void HandleDismissed(CompositionContext context, OverlayDismissReason reason) {
       _presenter = null;
-      Node?.MarkDirty();
+      if (panel != null) MarkDirty();
     }
   }
 
@@ -534,10 +549,10 @@ namespace HELIX.Compose {
 
     public void Dismiss(OverlayDismissReason reason = OverlayDismissReason.Manual) => _handle?.Dismiss(reason);
 
-    public void ActivateItem(int index, CompositionBoundaryNodeBase item) {
+    public void ActivateItem(int index, IBoundary item) {
       if (!TryGetAction(index, out var spec)) return;
       if (spec.children != null && spec.children.Count > 0) {
-        ShowChild(index, item);
+        ShowChild(index, item.Element);
         return;
       }
 
@@ -545,13 +560,13 @@ namespace HELIX.Compose {
       DismissChain();
     }
 
-    public void PreviewItem(int index, CompositionBoundaryNodeBase item) {
+    public void PreviewItem(int index, IBoundary item) {
       if (!TryGetAction(index, out var spec)) return;
       if (spec.children == null || spec.children.Count == 0) {
         _child?.Dismiss(OverlayDismissReason.Replaced);
         return;
       }
-      ShowChild(index, item);
+      ShowChild(index, item.Element);
     }
 
     private bool TryGetAction(int index, out MenuItem spec) {

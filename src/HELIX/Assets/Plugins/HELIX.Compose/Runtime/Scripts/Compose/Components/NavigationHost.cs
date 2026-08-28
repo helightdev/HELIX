@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   [EnableMixins]
-  [BoundaryComposableMixin]
+  [BoundaryElementMixin]
   internal partial class NavigationPageBoundary {
     public partial struct Props {
       public NavigationController controller;
@@ -16,25 +16,25 @@ namespace HELIX.Compose {
     }
 
     internal NavigationEntry Entry => props.entry;
-    internal VisualElement Element => Node;
 
-    protected override void OnDetach() {
-      if (ReferenceEquals(props.entry?.Boundary, Node))
+    [Hook]
+    private void OnDispose() {
+      if (ReferenceEquals(props.entry?.Boundary, this))
         if (props.entry != null) props.entry.Boundary = null;
-      base.OnDetach();
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       var transitioning = (props.presentation &
                             (NavigationPresentation.Entering | NavigationPresentation.Exiting)) != 0;
       var hidden = (props.presentation & NavigationPresentation.Cached) != 0 ||
                    (props.presentation & NavigationPresentation.Covered) != 0 && !transitioning;
 
-      Node.Stretched();
-      Node.pickingMode = PickingMode.Ignore;
-      Node.style.display = hidden ? DisplayStyle.None : DisplayStyle.Flex;
-      Node.SetEnabled((props.presentation & NavigationPresentation.Exiting) == 0);
-      props.entry.Boundary = Node;
+      this.Stretched();
+      pickingMode = PickingMode.Ignore;
+      style.display = hidden ? DisplayStyle.None : DisplayStyle.Flex;
+      SetEnabled((props.presentation & NavigationPresentation.Exiting) == 0);
+      props.entry.Boundary = this;
 
       var contextData = new NavigationContextData(props.controller, props.entry);
       using (cx.WriteContext(out var context)) {
@@ -50,7 +50,7 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(cacheLookups: true)]
+  [BoundaryElementMixin(cacheLookups: true)]
   public partial class NavigationHostBoundary {
     public partial struct Props {
       [Prop(null)] public NavigationGraph graph;
@@ -65,24 +65,25 @@ namespace HELIX.Compose {
 
     public NavigationController Controller { get; private set; }
 
-    protected override void OnAttach() {
-      base.OnAttach();
-      Node.RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
+    [Hook]
+    private void OnInit() {
+      RegisterCallback<NavigationCancelEvent>(OnNavigationCancel);
       _transitionRunner ??= new NavigationTransitionRunner(this);
       RequestFocus();
     }
 
-    protected override void OnDetach() {
-      Node.UnregisterCallback<NavigationCancelEvent>(OnNavigationCancel);
+    [Hook]
+    private void OnDispose() {
+      UnregisterCallback<NavigationCancelEvent>(OnNavigationCancel);
       _transitionRunner?.Cancel();
       Controller?.DetachPresenter(this);
       if (_isAutomaticController) Controller?.Dispose();
       Controller = null;
       _isAutomaticController = false;
-      base.OnDetach();
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       EnsureController();
       cx.SubscribeTo(Controller);
       var contextData = new NavigationContextData(Controller, null);
@@ -90,9 +91,9 @@ namespace HELIX.Compose {
         NavigationContextData.Key[in context] = contextData;
       }
 
-      Node.MakeRelative().Flexible(1f, 1f, Align.Stretch);
-      Node.focusable = true;
-      Node.pickingMode = PickingMode.Ignore;
+      this.MakeRelative().Flexible(1f, 1f, Align.Stretch);
+      focusable = true;
+      pickingMode = PickingMode.Ignore;
 
       _pages.Clear();
       var stack = Controller.PresentationStack;
@@ -102,8 +103,7 @@ namespace HELIX.Compose {
         cx.AUTHORING.SetId(CompositionId.Generated(identity)); // TODO: Probably change this
         var presentation = Controller.PresentationOf(entry, IsCovered(stack, i));
         ref var result = ref NavigationPageBoundary.ComposeBoundary(ref cx, Controller, entry, presentation);
-        if ((result.element as CompositionBoundaryNodeBase)?.BoundaryComposable
-            is NavigationPageBoundary boundary) _pages.Add(boundary);
+        if (result.element is NavigationPageBoundary boundary) _pages.Add(boundary);
       }
 
       PresentActiveChange();
@@ -156,9 +156,9 @@ namespace HELIX.Compose {
       evt.StopImmediatePropagation();
     }
 
-    private void RequestFocus() => Node.schedule.Execute(() => {
-      if (Node.panel == null || Node.resolvedStyle.display == DisplayStyle.None) return;
-      Node.Focus();
+    private void RequestFocus() => schedule.Execute(() => {
+      if (panel == null || resolvedStyle.display == DisplayStyle.None) return;
+      Focus();
     }).ExecuteLater(1);
 
     private static bool IsCovered(IReadOnlyList<NavigationEntry> stack, int index) {
@@ -168,13 +168,14 @@ namespace HELIX.Compose {
       return false;
     }
 
-    internal IVisualElementScheduler Scheduler => Node.schedule;
+    internal IVisualElementScheduler Scheduler => schedule;
 
     internal void TransitionCompleted(long changeId) => Controller?.CompletePresentation(changeId);
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(name: "NavigationLink", extension: true)]
+  [BoundaryElementMixin(name: "NavigationLink", extension: true)]
+  [InputStateListener]
   public partial class HXNavigationLink {
     public partial struct Props {
       public NavigationRoute route;
@@ -188,30 +189,27 @@ namespace HELIX.Compose {
 
     private NavigationController _controller;
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       _controller = props.controller ?? cx.ReadContext(NavigationContextData.Key, false).controller;
       if (_controller != null) cx.SubscribeTo(_controller);
       var available = _controller?.Graph?.Contains(props.route) == true;
+      var enabled = props.enabled && available;
 
-      Node.pickingMode = PickingMode.Ignore;
-      cx.Button(
-        props.content ?? ComposeDefaultContent,
-        Activate,
-        props.enabled && available,
-        _controller?.Current?.Route == props.route,
-        props.style
-      );
+      this.Toggle(State.Selected, _controller?.Current?.Route == props.route);
+      this.Toggle(State.Disabled, !enabled);
+      focusable = enabled;
+
+      var boxStyle = props.style ?? HXButton.Style.ReadOrThemeProperty(in cx, ThemeProperties.ButtonFilled);
+      boxStyle.RenderBoundary(ref cx, InputState);
+      if (props.content != null) props.content(ref cx);
+      else cx.Text(props.route?.DisplayName ?? string.Empty);
     }
 
-    private static void ComposeDefaultContent(ref Composition cx) {
-      var link = cx.Lookup<HXNavigationLink>();
-      cx.Text(link?.props.route?.DisplayName ?? string.Empty);
-    }
-
-    private static void Activate(CompositionContext context) {
-      var link = context.Lookup<HXNavigationLink>();
-      if (link?._controller == null || link.props.route == null) return;
-      link._controller.Activate(link.props.route, options: link.props.options);
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
+      if (!props.enabled || _controller?.Graph?.Contains(props.route) != true) return;
+      _controller.Activate(props.route, options: props.options);
     }
   }
 
@@ -362,10 +360,7 @@ namespace HELIX.Compose {
       NavigationHostBehavior behavior = NavigationHostBehavior.Default
     ) {
       ref var result = ref NavigationHostBoundary.ComposeBoundary(ref cx, graph, controller, transition, behavior);
-      resolvedController = (result.element as CompositionBoundaryNodeBase)?.BoundaryComposable
-        is NavigationHostBoundary boundary
-          ? boundary.Controller
-          : controller;
+      resolvedController = result.element is NavigationHostBoundary boundary ? boundary.Controller : controller;
       return ref result;
     }
 
@@ -378,10 +373,7 @@ namespace HELIX.Compose {
       NavigationHostBehavior behavior = NavigationHostBehavior.Default
     ) {
       ref var result = ref NavigationHostBoundary.ComposeBoundary(ref cx, graph, controller, transition, behavior);
-      resolvedController = (result.element as CompositionBoundaryNodeBase)?.BoundaryComposable
-        is NavigationHostBoundary boundary
-          ? boundary.Controller
-          : controller;
+      resolvedController = result.element is NavigationHostBoundary boundary ? boundary.Controller : controller;
       return ref result;
     }
 

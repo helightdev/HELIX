@@ -15,6 +15,7 @@ namespace HELIX.Compose {
     public static readonly HashSet<IBoundary> Boundaries = new(new ReferenceEqualityComparer<IBoundary>());
     public static bool IsScoped = false;
     public static bool IsProcessing = false;
+    private static bool _processRequested = false;
     public static IBoundary CurrentBoundary = null;
     public static int RecompositionDepth = 0;
 
@@ -151,7 +152,10 @@ namespace HELIX.Compose {
     }
 
     internal static void ProcessDirty() {
-      if (IsProcessing) throw new InvalidOperationException("NotificationScope is already processing rebuilds");
+      if (IsProcessing) {
+        _processRequested = true;
+        return;
+      }
 
       var discoveredCount = 0;
       foreach (var boundary in Boundaries) {
@@ -188,6 +192,11 @@ namespace HELIX.Compose {
 #endif
 
       if (AutoDisposeOrphans) DisposeOrphanedBoundaries();
+
+      if (!_processRequested) return;
+      _processRequested = false;
+      IsScoped = false;
+      ProcessDirty();
     }
 
     private static void Recompose(IBoundary boundary) {

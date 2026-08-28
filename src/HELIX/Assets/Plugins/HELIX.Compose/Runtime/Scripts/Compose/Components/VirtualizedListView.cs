@@ -74,6 +74,7 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
+  [CustomBoundaryElement(constructor: false, trimChildren: false)]
   public sealed partial class HXListViewElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassViewport = new("hx-list-view-viewport");
     public static readonly UniqueStyleString ClassSlider = new("hx-list-view-slider");
@@ -86,8 +87,24 @@ namespace HELIX.Compose {
     public readonly NativeScrollView scrollView;
     public readonly ComposableSlot slider;
 
-    public IBoundary Boundary { get; set; }
-    public Action<GeometryChangedEvent> OnGeometryChanged { get; set; }
+    public partial struct Props {
+      public int itemCount;
+      public Composable<int> itemBuilder;
+      [Prop(null)] public Composable<int> separatorBuilder;
+      [Prop(-1f)] public float fixedItemHeight;
+      [Prop(null)] public ScrollerSliderController controller;
+      [Prop(false)] public bool reverse;
+      [Prop(true)] public bool showSlider;
+      [Prop(null)] public Composable<SliderController> slider;
+      [Prop(null)] public SliderStyle? sliderStyle;
+    }
+
+    public IBoundary Boundary => this;
+    public ScrollerSliderController Controller { get; private set; }
+    public NativeListView ListView => listView;
+    public NativeScrollView ScrollView => scrollView;
+
+    private bool _automaticController;
 
     public HXListViewElement() {
       this.FlexContainer(Axis.Horizontal, crossAxisAlign: Align.Stretch);
@@ -119,44 +136,47 @@ namespace HELIX.Compose {
       listView.RegisterCallback<GeometryChangedEvent>(GeometryChangedHandler);
       scrollView.contentContainer.RegisterCallback<GeometryChangedEvent>(GeometryChangedHandler);
       scrollView.contentViewport.RegisterCallback<GeometryChangedEvent>(GeometryChangedHandler);
+      RegisterCallback<AttachToPanelEvent>(_ => AttachBoundary());
+      RegisterCallback<DetachFromPanelEvent>(_ => DetachBoundary());
+      PostConstruct();
     }
 
-    [ComposableMethod]
-    public void Update(
-      [Prop] IBoundary boundary,
-      [Prop] int itemCount,
-      [Prop] Composable<int> itemBuilder,
-      [Prop(null)] Composable<int> separatorBuilder,
-      [Prop(null)] Action<GeometryChangedEvent> onChanged,
-      [Prop(-1f)] float fixedItemHeight
-    ) {
-      Boundary = boundary;
-      OnGeometryChanged = onChanged;
-      _itemBuilder = itemBuilder;
-      _separatorBuilder = separatorBuilder;
+    [Hook]
+    private void OnCompose(ref Composition cx) {
+      this.Flexible(selfAlign: Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
+      _itemBuilder = props.itemBuilder;
+      _separatorBuilder = props.separatorBuilder;
 
-      var visualCount = ResolveVisualCount(itemCount, separatorBuilder != null);
+      var visualCount = ResolveVisualCount(props.itemCount, props.separatorBuilder != null);
       if (_indices.Count != visualCount) _indices.Count = visualCount;
 
-      if (fixedItemHeight >= 0f) {
-        listView.fixedItemHeight = fixedItemHeight;
+      if (props.fixedItemHeight >= 0f) {
+        listView.fixedItemHeight = props.fixedItemHeight;
         listView.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
       } else {
         listView.virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight;
       }
 
       listView.RefreshItems();
+      EnsureController();
+      using (slider.Scope(ref cx)) {
+        if (!props.showSlider) return;
+        if (props.slider != null) props.slider(ref cx, Controller);
+        else cx.Slider(controller: Controller, style: props.sliderStyle ?? ThemeProperties.Scroller[in cx]).Flexible();
+      }
     }
 
-    public override void Reset() {
+    [Hook]
+    private void OnReset() {
       base.Reset();
       slider.Reset();
       _itemBuilder = null;
       _separatorBuilder = null;
       _indices.Count = 0;
-      Boundary = null;
-      OnGeometryChanged = null;
     }
+
+    [Hook]
+    private void OnDispose() => ReleaseController();
 
     private VisualElement MakeItem() => new VirtualizedListItemBoundary();
 
@@ -182,60 +202,12 @@ namespace HELIX.Compose {
       }
     }
 
-    private void GeometryChangedHandler(GeometryChangedEvent evt) => OnGeometryChanged?.Invoke(evt);
+    private void GeometryChangedHandler(GeometryChangedEvent evt) => SynchronizeControllerOptions();
 
     private static int ResolveVisualCount(int itemCount, bool separated) {
       if (!separated || itemCount == 0) return itemCount;
       var maximumItemCount = (int.MaxValue / 2) + 1;
       return itemCount >= maximumItemCount ? int.MaxValue : itemCount * 2 - 1;
-    }
-  }
-
-  [EnableMixins]
-  [BoundaryComposableMixin]
-  public partial class ListViewBoundary {
-    public partial struct Props {
-      public int itemCount;
-      public Composable<int> itemBuilder;
-      [Prop(null)] public Composable<int> separatorBuilder;
-      [Prop(-1f)] public float fixedItemHeight;
-      [Prop(null)] public ScrollerSliderController controller;
-      [Prop(false)] public bool reverse;
-      [Prop(true)] public bool showSlider;
-      [Prop(null)] public Composable<SliderController> slider;
-      [Prop(null)] public SliderStyle? sliderStyle;
-    }
-
-    public ScrollerSliderController Controller { get; private set; }
-    public HXListViewElement ViewElement { get; private set; }
-    public NativeListView ListView => ViewElement.listView;
-    public NativeScrollView ScrollView => ViewElement.scrollView;
-
-    private bool _automaticController;
-
-    protected override void OnDetach() {
-      ReleaseController();
-      ViewElement = null;
-    }
-
-    protected override void OnRecompose(ref Composition cx) {
-      HXListViewElement.Compose(
-        ref cx, Node.Parent,
-        props.itemCount, props.itemBuilder, props.separatorBuilder, OnGeometryChanged, props.fixedItemHeight
-      );
-      ViewElement = (HXListViewElement)cx.CURSOR.element;
-      cx.CURSOR.Flexible().AlignSelf(Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
-
-      EnsureController();
-
-      using (ViewElement.slider.Scope(ref cx)) {
-        if (!props.showSlider) return;
-        if (props.slider != null) {
-          props.slider(ref cx, Controller);
-        } else {
-          cx.Slider(controller: Controller, style: props.sliderStyle ?? ThemeProperties.Scroller[in cx]).Flexible();
-        }
-      }
     }
 
     private void EnsureController() {
@@ -255,10 +227,8 @@ namespace HELIX.Compose {
       Controller.Bind(ScrollView.verticalScroller);
     }
 
-    private void OnGeometryChanged(GeometryChangedEvent evt) => SynchronizeControllerOptions();
-
     private void SynchronizeControllerOptions() {
-      if (Controller == null || ViewElement == null) return;
+      if (Controller == null) return;
       var scroller = ScrollView.verticalScroller;
       var min = FiniteOrZero(scroller.lowValue);
       var max = Mathf.Max(min, FiniteOrZero(scroller.highValue));
@@ -294,7 +264,7 @@ namespace HELIX.Compose {
       SliderStyle? sliderStyle = null
     ) {
       Validate(itemCount, itemBuilder, nameof(itemBuilder));
-      return ref ListViewBoundary.ComposeBoundary(
+      return ref HXListViewElement.ComposeBoundary(
         ref cx, itemCount, itemBuilder, null, fixedItemHeight,
         controller, reverse, showSlider, slider, sliderStyle
       );
@@ -314,7 +284,7 @@ namespace HELIX.Compose {
     ) {
       Validate(itemCount, itemBuilder, nameof(itemBuilder));
       if (separatorBuilder == null) throw new ArgumentNullException(nameof(separatorBuilder));
-      return ref ListViewBoundary.ComposeBoundary(
+      return ref HXListViewElement.ComposeBoundary(
         ref cx, itemCount, itemBuilder, separatorBuilder, fixedItemHeight,
         controller, reverse, showSlider, slider, sliderStyle
       );

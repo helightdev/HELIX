@@ -57,7 +57,8 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>))]
+  [BoundaryElementMixin]
+  [InputStateListener]
   internal partial class SegmentedChoiceItem {
     public partial struct Props {
       public int index;
@@ -67,7 +68,8 @@ namespace HELIX.Compose {
       [Prop(null)] public HXControlBoxStyle? style;
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       var selected = props.owner?.IsSelected(props.index) == true;
       this.Toggle(State.Selected, selected);
       this.Toggle(State.Disabled, !props.enabled);
@@ -80,7 +82,8 @@ namespace HELIX.Compose {
       cx.Text(props.label ?? string.Empty);
     }
 
-    protected override void OnClick(EventBase evt) {
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
       if (props.enabled) props.owner?.Select(props.index);
     }
   }

@@ -5,96 +5,6 @@ using UnityEngine.UIElements;
 namespace HELIX.Compose {
   [MixinLibrary(
     @"
-@FUNC<BoundaryComposableImpl>
-  @USING HELIX.Compose;
-  @USING HELIX.Coloring;
-  @LOCAL<Name> @target:name
-
-  @SCOPE
-    @MATCH @attr#name:!?eq<null>
-    @LOCAL<Name> @attr#name:unwrap
-  @END
-
-  @SCOPE<ResolveDefaultName>
-    @MATCH @local#Name:?eq<null>
-    @LOCAL<Name> @this:name
-  @END
-
-  @LOCAL<ExtensionName> @(local#Name)Extensions
-
-  @AUGMENT_STRUCT<PropsModel> @this#Props
-
-  @SCOPE<DefaultBase>
-    @MATCH @attr#super:?eq<null>
-    @CODE<IMPLEMENTS> PropsBoundaryComposable<@this#Props:type>
-  @END
-
-  @SCOPE<CustomBase>
-    @MATCH @attr#super:!?eq<null>
-    @CODE<IMPLEMENTS> @attr#super:makeGeneric<(@this#Props:type)>
-  @END
-
-  @CODE<IMPLEMENTS> IRecomposeMixinTargets
-
-  @CODE<CLASS> public static ref ElementRef ComposeBoundary(
-    @\ @local#PropsModel:structParams<ref Composition cx>
-    @\) {
-    @\  cx.AUTHORING.PropsBoundaryStateComposable<@this:type, Props>(
-    @\    @local#ExtensionName.typeId, out var node, out _, out var attachment
-    @\  );
-    @\  var props = new Props(@local#PropsModel:structArgs);
-    @\  attachment.ReceiveProps(in props);
-    @\  node.composable = null;
-    @\  return ref cx.AUTHORING.YieldBoundary(ref cx, node);
-    @\}
-
-  @SCOPE<NoArgs>
-    @MATCH @local#PropsModel:?structNoArgs
-    @CODE<CLASS> public static readonly Composable BakedComposable = static (ref Composition cx) => { ComposeBoundary(ref cx); };
-  @END
-
-  @CODE<CLASS> public override void OnRecompose(
-    @\ ref Composition cx, BoundaryData state, IBoundary boundary
-    @\) { 
-    @\  var transfer = new CompositionInternals.TransferData();
-    @\  CompositionInternals.EnterComposition(ref cx, @local#ExtensionName.compositionId, ref transfer);
-    @\  try { 
-    @\    @attr#cacheLookups:switch<boundary.UseLookupCache();><>
-    @\    ((IRecomposeMixinTargets)this).MixinRecompose(ref cx);
-    @\    base.OnRecompose(ref cx, state, boundary);
-    @\  } finally { 
-    @\    CompositionInternals.ExitComposition(ref cx, ref transfer); 
-    @\  } 
-    @\}
-
-  @CODE<CLASS> public override void OnAttach(BoundaryData data, IBoundary boundary) {
-    @\  base.OnAttach(data, boundary);
-    @\  ((IRecomposeMixinTargets)this).MixinInit();
-    @\}
-
-  @CODE<CLASS> public override void OnDetach(BoundaryData data, IBoundary boundary) {
-    @\  base.OnDetach(data, boundary);
-    @\  ((IRecomposeMixinTargets)this).MixinReset();
-    @\  ((IRecomposeMixinTargets)this).MixinDispose();
-    @\}
-
-  @CODE<FILE> @this:visibility static class @local#ExtensionName { 
-    @\  public static readonly ushort compositionId = CompositionId.GetCompositionId(""@local#Name"");
-    @\  public static readonly ushort typeId = CompositionId.GetTypeId(""@local#Name""); 
-    @\}
-
-  @SCOPE<Extension>
-    @MATCH @attr#extension
-    @CODE<FILE> @this:visibility static class @(local#Name)CompositionExtensions {
-      @\  public static ref ElementRef @local#Name(
-      @\    @local#PropsModel:structParams<ref this Composition cx>
-      @\  ) => ref @this:type.ComposeBoundary(
-      @\    @local#PropsModel:structArgs<ref cx>
-      @\  );
-      @\}
-  @END
-@END
-
 @FUNC<RequireCompositionTypeId>
   @SCOPE
     @MATCH @var#HasTypeId:!?eq<true>
@@ -257,7 +167,6 @@ namespace HELIX.Compose {
     @\private LookupCache _lookupCache;
     @\private bool _initialAttachment = true;
     @\private bool _initialized = false;
-    @\public void UseLookupCache() => _lookupCache.Claim();
     @\public bool TryLookupContext(int key, out ContextData data) {
     @\  data = null;
     @\  if (WrittenContext != null && WrittenContext.TryGet(key, out data)) return true;
@@ -267,6 +176,7 @@ namespace HELIX.Compose {
     @\public void RefreshHierarchy() {
     @\  Parent = GetFirstAncestorOfType<IBoundary>();
     @\  ContextParent = GetFirstAncestorOfType<IContextComposable>();
+    @\  TreeDepth = BoundaryHelper.GetDepth(this);
     @\}
     @\public void MarkDirty() => HXComposer.MarkDirty(this, false);
 
@@ -355,7 +265,7 @@ namespace HELIX.Compose {
     @MIXIN<$Reset><1> _props = default;
     @LOCAL<ComposeArgs> @local#ComposeArgs, @local#PropsModel:structParams
     @LOCAL<ComposeCalls> @local#ComposeCalls
-      @\var props = new Props(@local#PropsModel:structArgs);
+      @\var props = new @(this:name).Props(@local#PropsModel:structArgs);
       @\instance.ReceiveProps(in props);
     @GOTO<GenerateCompose>
   @END
@@ -429,22 +339,6 @@ namespace HELIX.Compose {
     public const string Dispose = "^MixinDispose";
     public const string Reset = "^MixinReset";
     public const string Recompose = "^MixinRecompose:HELIX.Compose.Composable";
-  }
-
-  [AttributeUsage(AttributeTargets.Class)]
-  [MixinImport(typeof(ComposeMixinLibrary))]
-  [MixinExpression("@CALL<BoundaryComposableImpl>")]
-  [MixinDefineTarget(MixinOn.Init, RecomposeMixinTargets.Init)]
-  [MixinDefineTarget(MixinOn.Reset, RecomposeMixinTargets.Reset)]
-  [MixinDefineTarget(MixinOn.Dispose, RecomposeMixinTargets.Dispose)]
-  [MixinDefineTarget(MixinOn.Compose, RecomposeMixinTargets.Recompose)]
-  public sealed class BoundaryComposableMixinAttribute : Attribute {
-    public BoundaryComposableMixinAttribute(
-      Type super = null,
-      bool extension = false,
-      string name = null,
-      bool cacheLookups = false
-    ) { }
   }
 
   [AttributeUsage(AttributeTargets.Method)]

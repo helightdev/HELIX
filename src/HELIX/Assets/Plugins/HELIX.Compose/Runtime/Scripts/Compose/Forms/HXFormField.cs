@@ -43,7 +43,7 @@ namespace HELIX.Compose {
   /// </summary>
   [EnableMixins]
   [MixinUsing("HELIX.Compose.Forms")]
-  [BoundaryComposableMixin(name: "FormField", extension: true, cacheLookups: true)]
+  [BoundaryElementMixin(name: "FormField", extension: true, cacheLookups: true)]
   public partial class HXFormField : IFormField {
     public partial struct Props {
       public string path;
@@ -85,7 +85,8 @@ namespace HELIX.Compose {
       if (_registered) Controller.MarkFinishedEditing(Path);
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       var context = cx.RequireForm();
       var path = context.Resolve(props.path);
       if (RegistrationChanged(context.controller, path)) Register(context.controller, path);
@@ -122,15 +123,15 @@ namespace HELIX.Compose {
     }
 
     public void OnFormFieldChanged(FormController form, FormPath path) {
-      if (_registered && ReferenceEquals(form, Controller) && path == Path) Node.MarkDirty();
+      if (_registered && ReferenceEquals(form, Controller) && path == Path) MarkDirty();
     }
 
-    protected override void OnDetach() {
+    [Hook]
+    private void OnDispose() {
       if (_registered) Controller.UnregisterField(Path, this);
       _registered = false;
       Controller = null;
       Path = default;
-      base.OnDetach();
     }
   }
 }

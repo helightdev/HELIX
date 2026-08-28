@@ -13,7 +13,6 @@ namespace HELIX.Compose {
     int TreeDepth { get; }
 
     void RefreshHierarchy();
-    void UseLookupCache();
 
     void Recompose();
     void CheckModified() => BoundaryHelper.CheckModifiedDefault(this);
@@ -95,6 +94,8 @@ namespace HELIX.Compose {
       HXComposer.UnregisterBoundary(boundary);
       boundary.Element.RemoveFromHierarchy();
     }
+
+    public static int GetDepth(IBoundary boundary) => boundary.Element.GetDepth();
   }
 
   public abstract class BoundaryElementBase : VisualElement, IBoundary {

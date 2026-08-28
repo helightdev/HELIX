@@ -3,7 +3,8 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   [EnableMixins]
-  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), name: "Button", extension: true)]
+  [BoundaryElementMixin(name: "Button", extension: true)]
+  [InputStateListener]
   public partial class HXButton {
     public partial struct Props {
       public Composable content;
@@ -15,7 +16,8 @@ namespace HELIX.Compose {
 
     public static readonly ContextKey<HXControlBoxStyle> Style = new("ButtonStyle", HXControlBoxStyle.Default);
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       this.Toggle(State.Selected, props.selected);
       this.Toggle(State.Disabled, !props.enabled);
       cx.CURSOR.Focusable(props.enabled);
@@ -25,9 +27,10 @@ namespace HELIX.Compose {
       if (props.content != null) props.content.Invoke(ref cx);
     }
 
-    protected override void OnClick(EventBase evt) {
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
       if (!props.enabled) return;
-      props.action?.Call(Node);
+      props.action?.Call(this);
     }
   }
 }

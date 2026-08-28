@@ -55,7 +55,8 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), extension: true)]
+  [BoundaryElementMixin(extension: true)]
+  [InputStateListener]
   public partial class Checkbox {
     public partial struct Props {
       [Prop(null)] public bool? value;
@@ -70,12 +71,13 @@ namespace HELIX.Compose {
     public CheckboxController controller;
     public bool isAutomaticController = true;
 
-    protected override void OnDetach() {
+    [Hook]
+    private void OnDispose() {
       DisposeAutomaticController();
-      base.OnDetach();
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       EnsureController(props.controller);
       cx.SubscribeTo(controller);
 
@@ -123,14 +125,16 @@ namespace HELIX.Compose {
       isAutomaticController = false;
     }
 
-    protected override void OnClick(EventBase evt) {
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
       if (controller == null || !controller.enabled) return;
-      controller.SetUserValue(Node, !controller.PeekValue());
+      controller.SetUserValue(this, !controller.PeekValue());
     }
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), extension: true)]
+  [BoundaryElementMixin(extension: true)]
+  [InputStateListener]
   public partial class RawCheckbox {
     public partial struct Props {
       [Prop] public bool value;
@@ -140,7 +144,8 @@ namespace HELIX.Compose {
       [Prop(null)] public HXControlBoxStyle? style;
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       this.Toggle(State.Selected, props.value);
       this.Toggle(State.Disabled, !props.enabled);
       this.Toggle(State.Error, props.error);
@@ -154,9 +159,10 @@ namespace HELIX.Compose {
       style.RenderContent(ref cx, InputState);
     }
 
-    protected override void OnClick(EventBase evt) {
+    [ClickHandler]
+    private void OnClick(EventBase evt) {
       if (!props.enabled) return;
-      props.onChanged?.Call(Node, !props.value);
+      props.onChanged?.Call(this, !props.value);
     }
   }
 }

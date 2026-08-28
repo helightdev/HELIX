@@ -29,7 +29,8 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
-  // [ComposableProxy(Extension = false)]
+  [CustomBoundaryElement(constructor: false, extension: true, trimChildren: false, name: "Slider")]
+  [InputStateListener]
   public sealed partial class HXSliderElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassTrack = new("hx-slider-track");
     public static readonly UniqueStyleString ClassThumb = new("hx-slider-thumb");
@@ -38,12 +39,30 @@ namespace HELIX.Compose {
     public readonly ComposableSlot thumb;
 
     private SliderOptions _options;
+    private float _lastTrackLength;
+    private bool _automaticallyHidden;
+
+    public partial struct Props {
+      [Prop(null)] public float? value;
+      [Prop(null)] public SliderController controller;
+      [Prop(null)] public float? initialValue;
+      [Prop(null)] public CompositionAction<float> onChanged;
+      [Prop(null)] public CompositionAction<float> onCommitted;
+      [Prop("SliderOptions.Default", PropInit.Deferred)] public SliderOptions options;
+      [Prop(true)] public bool enabled;
+      [Prop(false)] public bool error;
+      [Prop(null)] public SliderStyle? style;
+    }
+
+    public IBoundary Boundary => this;
+    public SliderController controller;
+    public bool isAutomaticController = true;
     public float Value { get; set; }
     public float TrackSize { get; set; }
     public float ThumbSize { get; set; }
 
     public HXSliderElement() {
-      pickingMode = PickingMode.Ignore;
+      pickingMode = PickingMode.Position;
       this.MakeRelative();
 
       track = new ComposableSlot(this, ClassTrack)
@@ -56,43 +75,67 @@ namespace HELIX.Compose {
         .AddTo(this);
 
       RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+      RegisterCallback<KeyDownEvent>(OnKeyDown);
+      this.AddManipulator(new SliderManipulator(this));
+      RegisterCallback<AttachToPanelEvent>(_ => AttachBoundary());
+      RegisterCallback<DetachFromPanelEvent>(_ => DetachBoundary());
+      PostConstruct();
     }
 
-    public IBoundary Boundary { get; set; }
     public SliderOptions Options {
       get => _options;
       set => _options = value;
     }
 
-    [ComposableMethod]
-    public void Update(
-      [Prop] IBoundary boundary,
-      [Prop] float value,
-      [Prop] in SliderOptions options,
-      [Prop] float trackSize,
-      [Prop] float thumbSize
-    ) {
-      Boundary = boundary;
+    [Hook]
+    private void OnCompose(ref Composition cx) {
+      EnsureController(props.controller);
+      cx.SubscribeTo(controller);
+
+      var options = NormalizeOptions(in controller.options);
+      var value = ClampAndSnap(controller.PeekValue(), in options);
+      var sliderStyle = props.style ?? ThemeProperties.Slider[in cx];
+      UpdateDisplay(in sliderStyle, in options);
+
+      this.Toggle(State.Disabled, !controller.enabled);
+      this.Toggle(State.Error, controller.error);
+      var passedState = controller.State | InputState;
+      this.Focusable(controller.enabled);
+      sliderStyle.box.RenderBoundary(ref cx, passedState);
+
       Value = value;
       Options = options;
-      TrackSize = trackSize;
-      ThumbSize = thumbSize;
+      TrackSize = sliderStyle.trackSize;
+      ThumbSize = sliderStyle.thumbSize;
       ApplyLayout();
+
+      var normalized = NormalizeValue(value, in options);
+      using (track.Scope(ref cx)) {
+        sliderStyle.track?.Invoke(ref cx, passedState);
+        ComposeProgress(ref cx, sliderStyle.progress, passedState, normalized, options.axis);
+      }
+      using (thumb.Scope(ref cx)) sliderStyle.thumb?.Invoke(ref cx, passedState);
     }
 
 
-    public override void Reset() {
+    [Hook]
+    private void OnReset() {
       base.Reset();
       track.Reset();
       thumb.Reset();
-      Boundary = null;
       Options = SliderOptions.Default;
       Value = 0f;
       TrackSize = 0f;
       ThumbSize = 0f;
     }
 
-    private void OnGeometryChanged(GeometryChangedEvent evt) => ApplyLayout();
+    [Hook]
+    private void OnDispose() {
+      if (_automaticallyHidden) style.display = DisplayStyle.Flex;
+      _automaticallyHidden = false;
+      _lastTrackLength = 0f;
+      DisposeAutomaticController();
+    }
 
     public void ApplyLayout() {
       var normalized = NormalizeValue(Value, in _options);
@@ -156,6 +199,136 @@ namespace HELIX.Compose {
       var totalRange = valueRange + options.thumbRange;
       if (totalRange <= 0f) return length;
       return Mathf.Clamp(length * options.thumbRange / totalRange, minimum, length);
+    }
+
+    public void EnsureController(SliderController given) {
+      if (ReferenceEquals(given, controller) && controller != null) return;
+      if (given == null) {
+        if (isAutomaticController && controller != null) {
+          ConfigureAutomaticController();
+          controller.SynchronizeValue(props.value ?? controller.PeekValue());
+        } else {
+          controller = new SliderController();
+          isAutomaticController = true;
+          ConfigureAutomaticController();
+          controller.SynchronizeValue(props.value ?? props.initialValue ?? 0f);
+        }
+      } else {
+        DisposeAutomaticController();
+        controller = given;
+      }
+    }
+
+    private void ConfigureAutomaticController() {
+      controller.onChanged = props.onChanged;
+      controller.onCommitted = props.onCommitted;
+      controller.options = props.options;
+      controller.enabled = props.enabled;
+      controller.error = props.error;
+    }
+
+    private void DisposeAutomaticController() {
+      if (!isAutomaticController) return;
+      controller?.Dispose();
+      controller = null;
+      isAutomaticController = false;
+    }
+
+    private void OnKeyDown(KeyDownEvent evt) {
+      if (controller == null || !controller.enabled) return;
+      var options = NormalizeOptions(in controller.options);
+      var direction = evt.keyCode switch {
+        KeyCode.LeftArrow => options.axis == Axis.Horizontal ? -1 : 0,
+        KeyCode.RightArrow => options.axis == Axis.Horizontal ? 1 : 0,
+        KeyCode.DownArrow => options.axis == Axis.Vertical ? 1 : 0,
+        KeyCode.UpArrow => options.axis == Axis.Vertical ? -1 : 0,
+        _ => 0
+      };
+      if (direction == 0) return;
+      if (options.reverse) direction = -direction;
+
+      var amount = options.step > 0f
+        ? options.step
+        : Mathf.Max((options.max - options.min) * 0.01f, Mathf.Epsilon);
+      var value = ClampAndSnap(controller.PeekValue() + direction * amount, in options);
+      if (!Mathf.Approximately(controller.PeekValue(), value)) controller.SetUserValue(this, value, true);
+      evt.StopPropagation();
+    }
+
+    private void OnGeometryChanged(GeometryChangedEvent evt) {
+      ApplyLayout();
+      if (controller == null) return;
+      var options = NormalizeOptions(in controller.options);
+      var sliderStyle = props.style ?? ThemeProperties.Slider[this];
+      UpdateDisplay(in sliderStyle, in options);
+    }
+
+    private void UpdateDisplay(in SliderStyle sliderStyle, in SliderOptions options) {
+      var length = options.axis == Axis.Horizontal ? contentRect.width : contentRect.height;
+      if (length > 0f) _lastTrackLength = length;
+      var hide = sliderStyle.hideWhenThumbCoversTrack && _lastTrackLength > 0f &&
+        Mathf.Approximately(ResolveThumbSize(_lastTrackLength, in options, sliderStyle.thumbSize), _lastTrackLength);
+      if (hide) {
+        style.display = DisplayStyle.None;
+        _automaticallyHidden = true;
+      } else if (_automaticallyHidden) {
+        style.display = DisplayStyle.Flex;
+        _automaticallyHidden = false;
+      }
+    }
+
+    private void SetFromLocalPosition(Vector2 localPosition, bool commit) {
+      if (controller == null) return;
+      var options = NormalizeOptions(in controller.options);
+      var sliderStyle = props.style ?? ThemeProperties.Slider[this];
+      var length = options.axis == Axis.Horizontal ? contentRect.width : contentRect.height;
+      var thumbSize = ResolveThumbSize(length, in options, sliderStyle.thumbSize);
+      var available = Mathf.Max(0f, length - thumbSize);
+      if (available <= 0f) return;
+
+      var position = options.axis == Axis.Horizontal ? localPosition.x : localPosition.y;
+      var start = options.axis == Axis.Horizontal ? contentRect.xMin : contentRect.yMin;
+      var normalized = Mathf.Clamp01((position - start - thumbSize * 0.5f) / available);
+      if (options.reverse) normalized = 1f - normalized;
+      var value = ClampAndSnap(Mathf.Lerp(options.min, options.max, normalized), in options);
+      controller.SetUserValue(this, value, commit);
+    }
+
+    private static void ComposeProgress(
+      ref Composition cx, Composable<State> progress, State state, float normalized, Axis axis
+    ) {
+      if (progress == null) return;
+      using (cx.Container()) {
+        cx.CURSOR
+          .Absolute()
+          .Position(StyleLength4.Zero)
+          .Width(axis == Axis.Horizontal ? normalized.NormalizedPercent() : 100f.Percent())
+          .Height(axis == Axis.Vertical ? normalized.NormalizedPercent() : 100f.Percent())
+          .Focusable(false, pickingMode: PickingMode.Ignore);
+        progress.Invoke(ref cx, state);
+      }
+    }
+
+    private sealed class SliderManipulator : InputClickableManipulator {
+      private readonly HXSliderElement _slider;
+
+      public SliderManipulator(HXSliderElement slider) : base(slider, slider) => _slider = slider;
+
+      public override void OnPointerDown(PointerDownEvent evt) {
+        if (_slider.controller?.enabled != true) return;
+        base.OnPointerDown(evt);
+        if (Active) _slider.SetFromLocalPosition(evt.localPosition, false);
+      }
+
+      public override void OnPointerMove(PointerMoveEvent evt) {
+        base.OnPointerMove(evt);
+        if (Active) _slider.SetFromLocalPosition(evt.localPosition, false);
+      }
+
+      public override void OnPointerUp(PointerUpEvent evt) {
+        if (Active) _slider.SetFromLocalPosition(evt.localPosition, true);
+        base.OnPointerUp(evt);
+      }
     }
   }
 
@@ -308,212 +481,4 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
-  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), extension: true)]
-  public partial class Slider {
-    public partial struct Props {
-      // Keep value first to preserve the cx.Slider(value, ...) call shape.
-      [Prop(null)] public float? value;
-      [Prop(null)] public SliderController controller;
-      [Prop(null)] public float? initialValue;
-      [Prop(null)] public CompositionAction<float> onChanged;
-      [Prop(null)] public CompositionAction<float> onCommitted;
-      [Prop("SliderOptions.Default", PropInit.Deferred)] public SliderOptions options;
-      [Prop(true)] public bool enabled;
-      [Prop(false)] public bool error;
-      [Prop(null)] public SliderStyle? style;
-    }
-
-    public SliderController controller;
-    public bool isAutomaticController = true;
-    private float _lastTrackLength;
-    private bool _automaticallyHidden;
-
-    protected override void OnAttach() {
-      base.OnAttach();
-      Node.RegisterCallback<KeyDownEvent>(OnKeyDown);
-      Node.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
-    }
-
-    protected override void OnDetach() {
-      Node.UnregisterCallback<KeyDownEvent>(OnKeyDown);
-      Node.UnregisterCallback<GeometryChangedEvent>(OnGeometryChanged);
-      if (_automaticallyHidden) Node.style.display = DisplayStyle.Flex;
-      _automaticallyHidden = false;
-      _lastTrackLength = 0f;
-      DisposeAutomaticController();
-      base.OnDetach();
-    }
-
-    protected override void OnRecompose(ref Composition cx) {
-      EnsureController(props.controller);
-      cx.SubscribeTo(controller);
-
-      var options = HXSliderElement.NormalizeOptions(in controller.options);
-      var value = HXSliderElement.ClampAndSnap(controller.PeekValue(), in options);
-      var style = props.style ?? ThemeProperties.Slider[in cx];
-
-      UpdateDisplay(in style, in options);
-
-      this.Toggle(State.Disabled, !controller.enabled);
-      this.Toggle(State.Error, controller.error);
-      var passedState = controller.State | InputState;
-      cx.CURSOR.Focusable(controller.enabled);
-      style.box.RenderBoundary(ref cx, passedState);
-
-      var normalized = HXSliderElement.NormalizeValue(value, in options);
-      var elementHandle = HXSliderElement.Compose(ref cx, Node, value, in options, style.trackSize, style.thumbSize);
-      elementHandle.Flexible().AlignSelf(Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
-
-      var element = (HXSliderElement)elementHandle.composable;
-      using (element.track.Scope(ref cx)) {
-        style.track?.Invoke(ref cx, passedState);
-        ComposeProgress(ref cx, style.progress, passedState, normalized, options.axis);
-      }
-
-      using (element.thumb.Scope(ref cx)) {
-        style.thumb?.Invoke(ref cx, passedState);
-      }
-    }
-
-    public void EnsureController(SliderController given) {
-      if (ReferenceEquals(given, controller) && controller != null) return;
-      if (given == null) {
-        if (isAutomaticController && controller != null) {
-          ConfigureAutomaticController();
-          controller.SynchronizeValue(props.value ?? controller.PeekValue());
-        } else {
-          controller = new SliderController();
-          isAutomaticController = true;
-          ConfigureAutomaticController();
-          controller.SynchronizeValue(props.value ?? props.initialValue ?? 0f);
-        }
-      } else {
-        DisposeAutomaticController();
-        controller = given;
-      }
-    }
-
-    private void ConfigureAutomaticController() {
-      controller.onChanged = props.onChanged;
-      controller.onCommitted = props.onCommitted;
-      controller.options = props.options;
-      controller.enabled = props.enabled;
-      controller.error = props.error;
-    }
-
-    private void DisposeAutomaticController() {
-      if (!isAutomaticController) return;
-      controller?.Dispose();
-      isAutomaticController = false;
-    }
-
-    protected override void OnPointerDown(PointerDownEvent evt) {
-      if (controller == null || !controller.enabled) return;
-      base.OnPointerDown(evt);
-      if (!Active) return;
-      this.Enable(State.Active);
-      SetFromLocalPosition(evt.localPosition, false);
-    }
-
-    protected override void OnPointerMove(PointerMoveEvent evt) {
-      base.OnPointerMove(evt);
-      if (Active) SetFromLocalPosition(evt.localPosition, false);
-    }
-
-    protected override void OnPointerUp(PointerUpEvent evt) {
-      if (!Active) return;
-      SetFromLocalPosition(evt.localPosition, true);
-      this.Disable(State.Active);
-      base.OnPointerUp(evt);
-    }
-
-    protected override void Cancel(EventBase evt, int pointerId) {
-      this.Disable(State.Active);
-      base.Cancel(evt, pointerId);
-    }
-
-    private void OnKeyDown(KeyDownEvent evt) {
-      if (controller == null || !controller.enabled) return;
-      var options = HXSliderElement.NormalizeOptions(in controller.options);
-      var direction = evt.keyCode switch {
-        KeyCode.LeftArrow => options.axis == Axis.Horizontal ? -1 : 0,
-        KeyCode.RightArrow => options.axis == Axis.Horizontal ? 1 : 0,
-        KeyCode.DownArrow => options.axis == Axis.Vertical ? 1 : 0,
-        KeyCode.UpArrow => options.axis == Axis.Vertical ? -1 : 0,
-        _ => 0
-      };
-      if (direction == 0) return;
-      if (options.reverse) direction = -direction;
-
-      var amount = options.step > 0f
-        ? options.step
-        : Mathf.Max((options.max - options.min) * 0.01f, Mathf.Epsilon);
-      var value = HXSliderElement.ClampAndSnap(controller.PeekValue() + direction * amount, in options);
-      if (!Mathf.Approximately(controller.PeekValue(), value)) { controller.SetUserValue(Node, value, true); }
-      evt.StopPropagation();
-    }
-
-    private void OnGeometryChanged(GeometryChangedEvent evt) {
-      if (controller == null) return;
-      var options = HXSliderElement.NormalizeOptions(in controller.options);
-      var style = props.style ?? ThemeProperties.Slider[Node];
-      UpdateDisplay(in style, in options);
-    }
-
-    private void UpdateDisplay(in SliderStyle style, in SliderOptions options) {
-      var length = options.axis == Axis.Horizontal ? Node.contentRect.width : Node.contentRect.height;
-      if (length > 0f) _lastTrackLength = length;
-
-      var hide = style.hideWhenThumbCoversTrack && _lastTrackLength > 0f &&
-        Mathf.Approximately(
-          HXSliderElement.ResolveThumbSize(_lastTrackLength, in options, style.thumbSize),
-          _lastTrackLength
-        );
-      if (hide) {
-        Node.style.display = DisplayStyle.None;
-        _automaticallyHidden = true;
-      } else if (_automaticallyHidden) {
-        Node.style.display = DisplayStyle.Flex;
-        _automaticallyHidden = false;
-      }
-    }
-
-    private void SetFromLocalPosition(Vector2 localPosition, bool commit) {
-      if (controller == null) return;
-      var options = HXSliderElement.NormalizeOptions(in controller.options);
-      var style = props.style ?? ThemeProperties.Slider[Node];
-      var length = options.axis == Axis.Horizontal ? Node.contentRect.width : Node.contentRect.height;
-      var thumbSize = HXSliderElement.ResolveThumbSize(length, in options, style.thumbSize);
-      var available = Mathf.Max(0f, length - thumbSize);
-      if (available <= 0f) return;
-
-      var position = options.axis == Axis.Horizontal ? localPosition.x : localPosition.y;
-      var start = options.axis == Axis.Horizontal ? Node.contentRect.xMin : Node.contentRect.yMin;
-      var normalized = Mathf.Clamp01((position - start - thumbSize * 0.5f) / available);
-      if (options.reverse) normalized = 1f - normalized;
-
-      var value = HXSliderElement.ClampAndSnap(Mathf.Lerp(options.min, options.max, normalized), in options);
-      controller.SetUserValue(Node, value, commit);
-    }
-
-    private static void ComposeProgress(
-      ref Composition cx,
-      Composable<State> progress,
-      State state,
-      float normalized,
-      Axis axis
-    ) {
-      if (progress == null) return;
-      using (cx.Container()) {
-        cx.CURSOR
-          .Absolute()
-          .Position(StyleLength4.Zero)
-          .Width(axis == Axis.Horizontal ? normalized.NormalizedPercent() : 100f.Percent())
-          .Height(axis == Axis.Vertical ? normalized.NormalizedPercent() : 100f.Percent())
-          .Focusable(false, pickingMode: PickingMode.Ignore);
-        progress.Invoke(ref cx, state);
-      }
-    }
-  }
 }

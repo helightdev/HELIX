@@ -8,114 +8,6 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-
-  [EnableMixins]
-  [BoundaryComposableMixin(super: typeof(InputClickableComposable<>), extension: true, name: "TextField")]
-  public partial class HXTextField {
-    public partial struct Props {
-      [Prop(null)] public TextEditingController controller;
-      [Prop(null)] public TextSelectionStyle? selectionStyle;
-      [Prop(null)] public HXControlBoxStyle? style;
-
-      // Implicit controller definition
-      [Prop(null)] public TextEditingValue? value;
-      [Prop(null)] public TextEditingValue? initialValue;
-
-      [Prop(null)] public CompositionAction<TextEditingValue> onChanged;
-      [Prop(null)] public CompositionAction onEditingStarted;
-      [Prop(null)] public CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded;
-      [Prop(null)] public TextEditProcessor processor;
-      [Prop(true)] public bool enabled;
-      [Prop(true)] public bool valueIgnoreSelection;
-
-      [Prop("TextInputOptions.Default", PropInit.Deferred)]
-      public TextInputOptions options;
-      [Prop(null)] public Composable prefix;
-      [Prop(null)] public Composable suffix;
-    }
-
-    public TextEditingController controller;
-    public bool isAutomaticController = true;
-
-    protected override void OnRecompose(ref Composition cx) {
-      EnsureController(props.controller);
-      cx.SubscribeTo(controller);
-
-      var style = props.style ?? ThemeProperties.TextField[in cx];
-      var selectionStyle = props.selectionStyle ?? ThemeProperties.TextSelectionStyle[in cx];
-
-      var passedState = controller.State | InputState;
-      using (cx.WriteContext(out var context)) {
-        style.RenderContext(in context, passedState);
-      }
-
-      cx.CURSOR.Margin(style.margin[passedState]).Size(style.constraints[passedState]);
-
-      var handle = TextFieldElement.Compose(ref cx, Node, controller, selectionStyle, style.padding[passedState]);
-      var input = (TextFieldElement)handle.element;
-      input.ApplyEditingValue(in controller.value);
-
-      if (cx.Conditional(props.prefix != null))
-        using (input.PrefixScope(cx)) {
-          props.prefix.Invoke(ref cx);
-        }
-      if (cx.Conditional(props.suffix != null))
-        using (input.SuffixScope(cx)) {
-          props.suffix.Invoke(ref cx);
-        }
-
-      using (input.BackgroundScope(cx)) {
-        style.RenderBackground(ref cx, passedState);
-      }
-    }
-
-    public void EnsureController(TextEditingController given) {
-      if (ReferenceEquals(given, controller) && controller != null) return;
-      if (given == null) {
-        if (isAutomaticController && controller != null) {
-          // Update retained state
-          if (!props.value.HasValue || controller.Editing) goto configureAutomatic;
-
-          controller.value = props.valueIgnoreSelection
-            ? controller.value.ReplaceText(props.value.Value.text)
-            : props.value.Value;
-        } else {
-          // Configure initial state
-          controller = new TextEditingController<string>(TextInputAdapters.String);
-          controller.value = props.value ?? props.initialValue ?? TextEditingValue.Empty;
-          controller.initialValue = controller.value;
-          isAutomaticController = true;
-        }
-
-        configureAutomatic:
-        ConfigureAutomaticController(); // Shared non-value updates
-      } else {
-        DisposeAutomaticController();
-        controller = given;
-      }
-    }
-
-    private void ConfigureAutomaticController() {
-      controller.onChanged = props.onChanged;
-      controller.onEditingStarted = props.onEditingStarted;
-      controller.onEditingEnded = props.onEditingEnded;
-      controller.processor = props.processor;
-      controller.enabled = props.enabled;
-      controller.options = props.options;
-    }
-
-    private void DisposeAutomaticController() {
-      if (!isAutomaticController) return;
-      controller?.Dispose();
-      isAutomaticController = false;
-    }
-
-    protected override void OnDetach() {
-      DisposeAutomaticController();
-      base.OnDetach();
-    }
-  }
-
   public struct TextSelectionStyle {
     public Color cursor;
     public Color selection;
@@ -375,6 +267,8 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
+  [CustomBoundaryElement(constructor: false, extension: true, trimChildren: false, name: "TextField")]
+  [InputStateListener]
   public sealed partial class TextFieldElement : ComposableElement, ISlotHost {
     private const string _selectionLightClass = "helix-textfield-style-light";
     private const string _selectionDarkClass = "helix-textfield-style-dark";
@@ -393,7 +287,26 @@ namespace HELIX.Compose {
     private Color _appliedSelectionColor;
     private Color _appliedCursorColor;
 
-    public IBoundary Boundary { get; private set; }
+    public partial struct Props {
+      [Prop(null)] public TextEditingController controller;
+      [Prop(null)] public TextSelectionStyle? selectionStyle;
+      [Prop(null)] public HXControlBoxStyle? style;
+      [Prop(null)] public TextEditingValue? value;
+      [Prop(null)] public TextEditingValue? initialValue;
+      [Prop(null)] public CompositionAction<TextEditingValue> onChanged;
+      [Prop(null)] public CompositionAction onEditingStarted;
+      [Prop(null)] public CompositionAction<TextEditingValue, TextEditEndReason> onEditingEnded;
+      [Prop(null)] public TextEditProcessor processor;
+      [Prop(true)] public bool enabled;
+      [Prop(true)] public bool valueIgnoreSelection;
+      [Prop("TextInputOptions.Default", PropInit.Deferred)] public TextInputOptions options;
+      [Prop(null)] public Composable prefix;
+      [Prop(null)] public Composable suffix;
+    }
+
+    public IBoundary Boundary => this;
+    public TextEditingController controller;
+    public bool isAutomaticController = true;
     public TextEditingController Owner { get; set; }
     public TextField Field => _field;
     public TextElement TextEdition => _textEdition;
@@ -449,6 +362,9 @@ namespace HELIX.Compose {
       _textEdition.selection.OnCursorIndexChange += OnSelectionChanged;
       _textEdition.selection.OnSelectIndexChange += OnSelectionChanged;
       _textEdition.RegisterCallback<KeyDownEvent>(OnKeyDownEventElement);
+      RegisterCallback<AttachToPanelEvent>(_ => AttachBoundary());
+      RegisterCallback<DetachFromPanelEvent>(_ => DetachBoundary());
+      PostConstruct();
     }
 
     private void OnKeyDownEventElement(KeyDownEvent evt) {
@@ -481,15 +397,19 @@ namespace HELIX.Compose {
       EndHandle(ref context);
     }
 
-    [ComposableMethod]
-    public void Configure(
-      [Prop] IBoundary boundary,
-      [Prop] TextEditingController controller,
-      [Prop] TextSelectionStyle selectionStyle,
-      [Prop] StyleLength4 padding
-    ) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
+      EnsureController(props.controller);
+      cx.SubscribeTo(controller);
+      var boxStyle = props.style ?? ThemeProperties.TextField[in cx];
+      var selectionStyle = props.selectionStyle ?? ThemeProperties.TextSelectionStyle[in cx];
+      var passedState = controller.State | InputState;
+      using (cx.WriteContext(out var context)) boxStyle.RenderContext(in context, passedState);
+      this.Margin(boxStyle.margin[passedState]);
+      boxStyle.constraints[passedState].Apply(this);
+      this.MarkFlag(UssFlag.Size);
+
       Owner = controller;
-      Boundary = boundary;
       var options = controller.options;
       _field.isDelayed = false;
       _field.multiline = options.multiline;
@@ -501,20 +421,66 @@ namespace HELIX.Compose {
       _field.maskChar = options.maskCharacter;
       _field.maxLength = options.maxLength;
       _field.Flexible(options.expands ? 1f : 0f, options.expands ? 1f : 0f);
-      _row.Padding(padding);
+      _row.Padding(boxStyle.padding[passedState]);
       _field.Padding(EdgeInsets.Zero);
       ApplySelectionStyle(selectionStyle);
+      ApplyEditingValue(in controller.value);
+
+      if (cx.Conditional(props.prefix != null))
+        using (PrefixScope(cx)) props.prefix(ref cx);
+      if (cx.Conditional(props.suffix != null))
+        using (SuffixScope(cx)) props.suffix(ref cx);
+      using (BackgroundScope(cx)) boxStyle.RenderBackground(ref cx, passedState);
     }
 
-    public override void Reset() {
+    [Hook]
+    private void OnReset() {
       base.Reset();
-      Boundary = null;
+      Owner = null;
       _hasAppliedSelectionStyle = false;
       _field.SetEnabled(true);
       _background.Reset();
       _prefix.Reset();
       _suffix.Reset();
       _field.SetValueWithoutNotify(string.Empty);
+    }
+
+    [Hook]
+    private void OnDispose() => DisposeAutomaticController();
+
+    public void EnsureController(TextEditingController given) {
+      if (ReferenceEquals(given, controller) && controller != null) return;
+      if (given == null) {
+        if (isAutomaticController && controller != null) {
+          if (!props.value.HasValue || controller.Editing) goto configureAutomatic;
+          controller.value = props.valueIgnoreSelection
+            ? controller.value.ReplaceText(props.value.Value.text)
+            : props.value.Value;
+        } else {
+          controller = new TextEditingController<string>(TextInputAdapters.String);
+          controller.value = props.value ?? props.initialValue ?? TextEditingValue.Empty;
+          controller.initialValue = controller.value;
+          isAutomaticController = true;
+        }
+
+        configureAutomatic:
+        controller.onChanged = props.onChanged;
+        controller.onEditingStarted = props.onEditingStarted;
+        controller.onEditingEnded = props.onEditingEnded;
+        controller.processor = props.processor;
+        controller.enabled = props.enabled;
+        controller.options = props.options;
+      } else {
+        DisposeAutomaticController();
+        controller = given;
+      }
+    }
+
+    private void DisposeAutomaticController() {
+      if (!isAutomaticController) return;
+      controller?.Dispose();
+      controller = null;
+      isAutomaticController = false;
     }
 
     private void CheckEndEditingLater() {

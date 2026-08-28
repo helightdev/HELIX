@@ -8,7 +8,7 @@ namespace HELIX.Compose {
   [MixinExpression(@"
 @CALL<RequireInputState>
 
-@MIXIN<PostConstruct> global::UnityEngine.UIElements.VisualElementExtensions.AddManipulator(this, 
+@MIXIN<$PostConstruct> global::UnityEngine.UIElements.VisualElementExtensions.AddManipulator(this,
   @\  new InputBoundaryManipulator(this, this, @attr#focus)
   @\);
 

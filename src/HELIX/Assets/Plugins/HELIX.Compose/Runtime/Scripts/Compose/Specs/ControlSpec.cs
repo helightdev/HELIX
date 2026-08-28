@@ -130,7 +130,7 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(cacheLookups: true)]
+  [BoundaryElementMixin(cacheLookups: true)]
   internal partial class ControlSpecBoundary {
     public partial struct Props {
       public Composable content;
@@ -145,7 +145,8 @@ namespace HELIX.Compose {
       _choiceDatatype.Synchronize(datatype);
       return _choiceDatatype;
     }
-    protected override void OnRecompose(ref Composition cx) => props.content?.Invoke(ref cx);
+    [Hook]
+    private void OnCompose(ref Composition cx) => props.content?.Invoke(ref cx);
   }
 
   internal sealed class UntypedChoiceDatatype : IDatatypeChoice<object> {

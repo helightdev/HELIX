@@ -196,16 +196,17 @@ namespace HELIX.UI.Options {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(cacheLookups: true)]
+  [BoundaryElementMixin(cacheLookups: true)]
   public partial class OptionPagesElement {
     public partial struct Props {
       [Prop(null, Equatable = false)] public OptionPages pages;
     }
 
-    protected override void OnRecompose(ref Composition cx) {
-      Node.style.flexGrow = 1f;
-      Node.style.flexShrink = 1f;
-      Node.style.alignSelf = Align.Stretch;
+    [Hook]
+    private void OnCompose(ref Composition cx) {
+      style.flexGrow = 1f;
+      style.flexShrink = 1f;
+      style.alignSelf = Align.Stretch;
       props.pages?.ComposeBoundaryContent(ref cx);
     }
   }

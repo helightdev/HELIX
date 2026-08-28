@@ -1,4 +1,5 @@
 using System;
+using HELIX.Compose;
 using HELIX.Types;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -79,6 +80,21 @@ namespace HELIX.Extensions {
 
     public static T Pickable<T>(this T element, bool pickable) where T : VisualElement {
       element.pickingMode = pickable ? PickingMode.Position : PickingMode.Ignore;
+      return element;
+    }
+
+    public static T Focusable<T>(
+      this T element,
+      bool focusable = true,
+      int tabIndex = 0,
+      bool delegatesFocus = false,
+      PickingMode pickingMode = PickingMode.Position
+    ) where T : VisualElement {
+      element.focusable = focusable;
+      element.tabIndex = tabIndex;
+      element.delegatesFocus = delegatesFocus;
+      element.pickingMode = pickingMode;
+      if (element is IComposable composable) composable.MarkFlag(UssFlag.Focus);
       return element;
     }
 

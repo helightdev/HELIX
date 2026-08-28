@@ -3,7 +3,7 @@ using HELIX.Prose;
 namespace HELIX.Compose {
   /// <summary>A slider with a compact exact-value editor beside it.</summary>
   [EnableMixins]
-  [BoundaryComposableMixin(name: "FieldSlider", extension: true)]
+  [BoundaryElementMixin(name: "FieldSlider", extension: true)]
   public partial class FieldSlider {
     public partial struct Props {
       public float value;
@@ -22,7 +22,8 @@ namespace HELIX.Compose {
     private FloatDatatype _automaticDatatype;
     private float _automaticMin, _automaticMax, _automaticStep;
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       var datatype = props.datatype;
       if (datatype == null) {
         if (_automaticDatatype == null || !_automaticMin.Equals(props.min) || !_automaticMax.Equals(props.max) ||

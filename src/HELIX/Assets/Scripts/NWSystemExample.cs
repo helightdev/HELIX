@@ -48,7 +48,7 @@ namespace HELIX.Examples {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin]
+  [BoundaryElementMixin]
   public partial class HomeComposable {
     public enum ExampleMode : byte { Balanced, Performance, Quality }
 
@@ -154,7 +154,8 @@ namespace HELIX.Examples {
     private OverlayController _overlayController;
     private OptionPages _optionPages;
 
-    protected override void OnAttach() {
+    [Hook]
+    private void OnInit() {
       _iconFont = Resources.Load<FontAsset>("helix/fa/FontAwesome7FreeSolid");
       _tabNavigationGraph = NavigationGraph.Builder(TabNavigation)
         .Route(
@@ -224,7 +225,8 @@ namespace HELIX.Examples {
       _overlayController = new OverlayController();
     }
 
-    protected override void OnDetach() {
+    [Hook]
+    private void OnDispose() {
       _tabNavigationController?.Dispose();
       if (_navigationController != null) _navigationController.onLifecycle = null;
       _navigationController?.Dispose();
@@ -243,7 +245,8 @@ namespace HELIX.Examples {
       _dialogNavigationGraph = null;
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       using (cx.WriteContext(out var context)) {
         HelixInputController.Key[context] = _promptInputController;
       }
@@ -262,16 +265,6 @@ namespace HELIX.Examples {
           .Flexible()
           .Overflow(Overflow.Hidden);
       }
-    }
-
-    [Hook]
-    public void OnInit() {
-
-    }
-
-    [Hook]
-    public void OnDispose() {
-
     }
 
     private static void ComposeNavigationTab(ref Composition cx, NavigationContextData navigation) =>

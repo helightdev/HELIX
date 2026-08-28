@@ -59,7 +59,7 @@ namespace HELIX.UI.Options {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin]
+  [BoundaryElementMixin]
   public partial class OptionPageFieldElement {
     public partial struct Props {
       public FormController form;
@@ -73,23 +73,24 @@ namespace HELIX.UI.Options {
 
     private OptionPageFieldController _controller;
 
-    protected override void OnAttach() {
-      base.OnAttach();
-      Node.RegisterCallback<PointerEnterEvent>(OnPointerEnter);
-      Node.RegisterCallback<FocusInEvent>(OnFocusIn);
+    [Hook]
+    private void OnInit() {
+      RegisterCallback<PointerEnterEvent>(OnPointerEnter);
+      RegisterCallback<FocusInEvent>(OnFocusIn);
     }
 
-    protected override void OnDetach() {
-      Node.UnregisterCallback<PointerEnterEvent>(OnPointerEnter);
-      Node.UnregisterCallback<FocusInEvent>(OnFocusIn);
+    [Hook]
+    private void OnDispose() {
+      UnregisterCallback<PointerEnterEvent>(OnPointerEnter);
+      UnregisterCallback<FocusInEvent>(OnFocusIn);
       _controller = null;
-      base.OnDetach();
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       _controller = props.controller;
       using (cx.WriteContext(out var context)) FormContext.Key[context] = new FormContext(props.form);
-      Node.style.alignSelf = Align.Stretch;
+      style.alignSelf = Align.Stretch;
       props.content?.Invoke(ref cx);
     }
 
@@ -118,7 +119,7 @@ namespace HELIX.UI.Options {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin]
+  [BoundaryElementMixin]
   public partial class OptionPageTooltipElement {
     public partial struct Props {
       [Prop(null)] public Composable trigger;
@@ -128,27 +129,28 @@ namespace HELIX.UI.Options {
     private OverlayController _overlays;
     private OverlayHandle _overlay;
 
-    protected override void OnAttach() {
-      base.OnAttach();
-      Node.RegisterCallback<PointerEnterEvent>(OnPointerEnter);
-      Node.RegisterCallback<PointerLeaveEvent>(OnPointerLeave);
+    [Hook]
+    private void OnInit() {
+      RegisterCallback<PointerEnterEvent>(OnPointerEnter);
+      RegisterCallback<PointerLeaveEvent>(OnPointerLeave);
     }
 
-    protected override void OnDetach() {
-      Node.UnregisterCallback<PointerEnterEvent>(OnPointerEnter);
-      Node.UnregisterCallback<PointerLeaveEvent>(OnPointerLeave);
+    [Hook]
+    private void OnDispose() {
+      UnregisterCallback<PointerEnterEvent>(OnPointerEnter);
+      UnregisterCallback<PointerLeaveEvent>(OnPointerLeave);
       _overlay?.Dismiss(OverlayDismissReason.AnchorDetached);
       _overlay = null;
       _overlays = null;
-      base.OnDetach();
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       _overlays = cx.Overlays(false);
-      Node.style.flexGrow = 0f;
-      Node.style.flexShrink = 0f;
-      Node.style.alignSelf = Align.Center;
-      Node.pickingMode = PickingMode.Position;
+      style.flexGrow = 0f;
+      style.flexShrink = 0f;
+      style.alignSelf = Align.Center;
+      pickingMode = PickingMode.Position;
       if (props.trigger != null) props.trigger(ref cx);
       else cx.Text("\u24D8", TextRole.BodySmall).Opacity(0.7f);
     }
@@ -156,8 +158,8 @@ namespace HELIX.UI.Options {
     private void OnPointerEnter(PointerEnterEvent evt) {
       if (props.content == null || _overlays == null || _overlay?.IsOpen == true) return;
       _overlay = Overlay.Build(ComposeTooltip)
-        .AnchorTo(Node, OverlayPlacement.Above, new Vector2(0f, -4f))
-        .Show(_overlays, Node);
+        .AnchorTo(this, OverlayPlacement.Above, new Vector2(0f, -4f))
+        .Show(_overlays, this);
     }
 
     private void OnPointerLeave(PointerLeaveEvent evt) {

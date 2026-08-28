@@ -441,6 +441,7 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
+  [CustomBoundaryElement(constructor: false, trimChildren: false)]
   public sealed partial class HXOverlayHostElement : ComposableElement, ISlotHost {
     public static readonly UniqueStyleString ClassContent = new("hx-overlay-host-content");
     public static readonly UniqueStyleString ClassLayer = new("hx-overlay-host-layer");
@@ -453,10 +454,15 @@ namespace HELIX.Compose {
     private readonly VisualElement _layer;
     private bool _isPlacing;
     private bool _placementPending;
-    private OverlayController _controller;
+    private bool _isAutomaticController;
 
     public readonly ComposableSlot content;
-    public IBoundary Boundary { get; set; }
+    public partial struct Props {
+      [Prop(null)] public OverlayController controller;
+    }
+
+    public IBoundary Boundary => this;
+    public OverlayController controller { get; private set; }
 
     public HXOverlayHostElement() {
       this.MakeRelative();
@@ -470,30 +476,57 @@ namespace HELIX.Compose {
       _layer = new VisualElement().WithClasses(ClassLayer).Stretched().AddTo(hierarchy);
       _layer.pickingMode = PickingMode.Ignore;
       _layer.RegisterCallback<GeometryChangedEvent>(OnLayerGeometryChanged);
+      RegisterCallback<AttachToPanelEvent>(_ => AttachBoundary());
+      RegisterCallback<DetachFromPanelEvent>(_ => DetachBoundary());
+      PostConstruct();
     }
 
-    [ComposableMethod]
-    public void Update([Prop] IBoundary boundary, [Prop] OverlayController controller) {
-      Boundary = boundary;
-      _controller = controller;
+    [Hook]
+    private void OnCompose(ref Composition cx) {
+      EnsureController();
+      cx.SubscribeTo(controller);
+      using (cx.WriteContext(out var context)) {
+        OverlayContextData.Key[in context] = new OverlayContextData(controller, null);
+      }
+      this.MakeRelative().Flexible(1f, 1f, Align.Stretch).Focusable(false, pickingMode: PickingMode.Ignore);
       SynchronizeEntries();
     }
 
-    public override void Reset() {
+    [Hook]
+    private void OnReset() {
       base.Reset();
       content.Reset();
       ClearEntries();
-      Boundary = null;
-      _controller = null;
+    }
+
+    [Hook]
+    private void OnDispose() {
+      if (_isAutomaticController) controller?.Dispose();
+      controller = null;
+      _isAutomaticController = false;
+    }
+
+    private void EnsureController() {
+      if (props.controller == null) {
+        if (controller != null && _isAutomaticController) return;
+        if (_isAutomaticController) controller?.Dispose();
+        controller = new OverlayController();
+        _isAutomaticController = true;
+        return;
+      }
+      if (ReferenceEquals(controller, props.controller)) return;
+      if (_isAutomaticController) controller?.Dispose();
+      controller = props.controller;
+      _isAutomaticController = false;
     }
 
     private void SynchronizeEntries() {
-      if (_controller == null) {
+      if (controller == null) {
         ClearEntries();
         return;
       }
 
-      var entries = _controller.Entries;
+      var entries = controller.Entries;
       for (var i = 0; i < entries.Count; i++) {
         var entry = entries[i];
         if (!_elements.TryGetValue(entry.Id, out var element)) {
@@ -542,10 +575,10 @@ namespace HELIX.Compose {
     }
 
     private void PlaceEntries() {
-      var controller = _controller;
-      if (controller == null) return;
+      var currentController = controller;
+      if (currentController == null) return;
       _placementEntries.Clear();
-      var entries = controller.Entries;
+      var entries = currentController.Entries;
       for (var i = 0; i < entries.Count; i++) _placementEntries.Add(entries[i]);
       _placementOffsets.Clear();
       _pendingPlacements.Clear();
@@ -589,54 +622,8 @@ namespace HELIX.Compose {
     private void OnLayerGeometryChanged(GeometryChangedEvent evt) => RequestPlacement();
   }
 
-  [EnableMixins]
-  [BoundaryComposableMixin]
-  public partial class OverlayHostBoundary {
-    public partial struct Props {
-      [Prop(null)] public OverlayController controller;
-    }
-
-    public OverlayController controller { get; private set; }
-    public HXOverlayHostElement viewElement { get; private set; }
-    private bool _isAutomaticController;
-
-    protected override void OnDetach() {
-      if (_isAutomaticController) controller?.Dispose();
-      controller = null;
-      viewElement = null;
-      _isAutomaticController = false;
-    }
-
-    protected override void OnRecompose(ref Composition cx) {
-      EnsureController();
-      cx.SubscribeTo(controller);
-      var contextData = new OverlayContextData(controller, null);
-      using (cx.WriteContext(out var context)) {
-        OverlayContextData.Key[in context] = contextData;
-      }
-      Node.MakeRelative().Flexible(1f, 1f, Align.Stretch);
-      HXOverlayHostElement.Compose(ref cx, Node.Parent, controller);
-      viewElement = (HXOverlayHostElement)cx.CURSOR.element;
-      cx.CURSOR.Fill().Focusable(false, pickingMode: PickingMode.Ignore);
-    }
-
-    private void EnsureController() {
-      if (props.controller == null) {
-        if (controller != null && _isAutomaticController) return;
-        if (_isAutomaticController) controller?.Dispose();
-        controller = new OverlayController();
-        _isAutomaticController = true;
-        return;
-      }
-      if (ReferenceEquals(controller, props.controller)) return;
-      if (_isAutomaticController) controller?.Dispose();
-      controller = props.controller;
-      _isAutomaticController = false;
-    }
-  }
-
   public readonly struct OverlayHostScope {
-    internal OverlayHostScope(OverlayHostBoundary boundary) {
+    internal OverlayHostScope(HXOverlayHostElement boundary) {
       controller = boundary.controller;
     }
 
@@ -648,10 +635,10 @@ namespace HELIX.Compose {
       this ref Composition cx,
       OverlayController controller = null
     ) {
-      ref var result = ref OverlayHostBoundary.ComposeBoundary(ref cx, controller);
-      var boundary = (result.element as CompositionBoundaryNodeBase)?.BoundaryComposable as OverlayHostBoundary;
-      if (boundary?.viewElement == null) throw new InvalidOperationException("Overlay host was not initialized.");
-      return boundary.viewElement.content.Scope(ref cx);
+      ref var result = ref HXOverlayHostElement.ComposeBoundary(ref cx, controller);
+      var boundary = result.element as HXOverlayHostElement;
+      if (boundary == null) throw new InvalidOperationException("Overlay host was not initialized.");
+      return boundary.content.Scope(ref cx);
     }
 
     public static ScopeHandle OverlayHost(
@@ -659,11 +646,11 @@ namespace HELIX.Compose {
       out OverlayHostScope scope,
       OverlayController controller = null
     ) {
-      ref var result = ref OverlayHostBoundary.ComposeBoundary(ref cx, controller);
-      var boundary = (result.element as CompositionBoundaryNodeBase)?.BoundaryComposable as OverlayHostBoundary;
-      if (boundary?.viewElement == null) throw new InvalidOperationException("Overlay host was not initialized.");
+      ref var result = ref HXOverlayHostElement.ComposeBoundary(ref cx, controller);
+      var boundary = result.element as HXOverlayHostElement;
+      if (boundary == null) throw new InvalidOperationException("Overlay host was not initialized.");
       scope = new OverlayHostScope(boundary);
-      return boundary.viewElement.content.Scope(ref cx);
+      return boundary.content.Scope(ref cx);
     }
 
     public static OverlayController Overlays(this ref Composition cx, bool listen = true) =>
@@ -671,7 +658,7 @@ namespace HELIX.Compose {
 
     public static OverlayController Overlays(this CompositionContext context) =>
       OverlayContextData.Key.ReadAt(context.element).controller ??
-      context.Lookup<OverlayHostBoundary>()?.controller;
+      context.Lookup<HXOverlayHostElement>()?.controller;
 
     public static OverlayHandle OverlayEntry(this ref Composition cx, bool listen = true) =>
       cx.ReadContext(OverlayContextData.Key, listen).handle;

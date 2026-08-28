@@ -94,6 +94,7 @@ namespace HELIX.Compose {
     public void RefreshHierarchy() {
       Parent = GetFirstAncestorOfType<IBoundary>();
       ContextParent = GetFirstAncestorOfType<IContextComposable>();
+      TreeDepth = BoundaryHelper.GetDepth(this);
     }
 
     public void MarkDirty() => HXComposer.MarkDirty(this, false);

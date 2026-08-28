@@ -265,7 +265,7 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(name: "DynamicFlexGroup", extension: true, cacheLookups: true)]
+  [BoundaryElementMixin(name: "DynamicFlexGroup", extension: true, cacheLookups: true)]
   public partial class DynamicFlexGroupBoundary {
     public partial struct Props {
       public DynamicComposableController<DynamicFlexLayout> controller;
@@ -278,26 +278,25 @@ namespace HELIX.Compose {
       [Prop(false)] public bool clear;
     }
 
-    protected override void OnDetach() {
-      DynamicCollectionHelper.Clear(Node);
-      base.OnDetach();
-    }
+    [Hook]
+    private void OnDispose() => DynamicCollectionHelper.Clear(this);
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       if (props.controller == null) return;
       cx.SubscribeTo(props.controller);
-      if (props.clear) DynamicCollectionHelper.Clear(Node);
-      FlexGroup.Of(props.axis, props.main, props.cross, reverse: props.reverse).Apply(Node);
-      (props.flex ?? Flex.Null).Apply(Node);
-      Node.MarkFlag(UssFlag.GroupAlign | UssFlag.Flex);
-      DynamicCollectionHelper.Synchronize(Node, props.controller);
+      if (props.clear) DynamicCollectionHelper.Clear(this);
+      FlexGroup.Of(props.axis, props.main, props.cross, reverse: props.reverse).Apply(this);
+      (props.flex ?? Flex.Null).Apply(this);
+      this.MarkFlag(UssFlag.GroupAlign | UssFlag.Flex);
+      DynamicCollectionHelper.Synchronize(this, props.controller);
       ApplyGap();
-      cx.AUTHORING.cell.cursor = Node.childCount;
+      cx.AUTHORING.cell.cursor = childCount;
     }
 
     private void ApplyGap() {
-      for (var i = 0; i < Node.childCount; i++) {
-        var child = Node.ElementAt(i);
+      for (var i = 0; i < childCount; i++) {
+        var child = ElementAt(i);
         if (child is DynamicComposableElement { Entry: DynamicComposable<DynamicFlexLayout> entry } element) {
           element.style.flexGrow = entry.layout.flex;
           AxisConstraint.Null.Apply(element, props.axis == Axis.Horizontal ? Axis.Vertical : Axis.Horizontal);
@@ -314,7 +313,7 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(name: "DynamicScrollGroup", extension: true, cacheLookups: true)]
+  [BoundaryElementMixin(name: "DynamicScrollGroup", extension: true, cacheLookups: true)]
   public partial class DynamicScrollGroupBoundary {
     public partial struct Props {
       public DynamicComposableController<DynamicFlexLayout> controller;
@@ -329,7 +328,8 @@ namespace HELIX.Compose {
       [Prop(null)] public SliderStyle? sliderStyle;
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       if (props.controller == null) return;
       using (cx.ScrollView(
         props.scrollController,
@@ -351,30 +351,29 @@ namespace HELIX.Compose {
   }
 
   [EnableMixins]
-  [BoundaryComposableMixin(name: "DynamicStack", extension: true, cacheLookups: true)]
+  [BoundaryElementMixin(name: "DynamicStack", extension: true, cacheLookups: true)]
   public partial class DynamicStackBoundary {
     public partial struct Props {
       public DynamicComposableController<DynamicStackLayout> controller;
       [Prop(false)] public bool clear;
     }
 
-    protected override void OnDetach() {
-      DynamicCollectionHelper.Clear(Node);
-      base.OnDetach();
-    }
+    [Hook]
+    private void OnDispose() => DynamicCollectionHelper.Clear(this);
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       if (props.controller == null) return;
       cx.SubscribeTo(props.controller);
-      if (props.clear) DynamicCollectionHelper.Clear(Node);
-      DynamicCollectionHelper.Synchronize(Node, props.controller);
+      if (props.clear) DynamicCollectionHelper.Clear(this);
+      DynamicCollectionHelper.Synchronize(this, props.controller);
       ApplyLayout();
-      cx.AUTHORING.cell.cursor = Node.childCount;
+      cx.AUTHORING.cell.cursor = childCount;
     }
 
     private void ApplyLayout() {
-      for (var i = 0; i < Node.childCount; i++) {
-        if (Node.ElementAt(i) is not DynamicComposableElement element) continue;
+      for (var i = 0; i < childCount; i++) {
+        if (ElementAt(i) is not DynamicComposableElement element) continue;
         if (element.Entry is not DynamicComposable<DynamicStackLayout> entry) continue;
         element.style.flexGrow = StyleKeyword.Null;
         element.style.position = Position.Absolute;
