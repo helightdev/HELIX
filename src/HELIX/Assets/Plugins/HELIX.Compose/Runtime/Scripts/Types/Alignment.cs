@@ -43,7 +43,7 @@ namespace HELIX.Types {
       return AlignmentHelper.FromTextAnchor(anchor);
     }
 
-    public TextAnchor Quantize() {
+    public readonly TextAnchor Quantize() {
       var horizontalMiddle = Mathf.Approximately(x, 0f);
       var verticalMiddle = Mathf.Approximately(y, 0f);
 

@@ -86,3 +86,10 @@ internal static class GeneratorStrings {
       HashCode = "{0}";
   }
 }
+
+internal static class MixinGeneratorCandidates {
+  internal static readonly string[] AttributeMetadataNames = [
+    GeneratorStrings.Attributes.EnableMixins,
+    GeneratorStrings.Attributes.Managed
+  ];
+}

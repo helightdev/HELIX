@@ -156,10 +156,10 @@ namespace HELIX.Compose {
   @CODE<CLASS>
     @\public global::UnityEngine.UIElements.VisualElement Element => this;
     @\public BoundaryCell Cell { get; } = BoundaryCell.Shared;
-    @\public int TreeDepth { get; protected set; }
-    @\public IBoundary Parent { get; protected set; }
-    @\public IContextComposable ContextParent { get; protected set; }
-    @\public bool IsDisposed { get; protected set; }
+    @\public int TreeDepth { get; set; }
+    @\public IBoundary Parent { get; set; }
+    @\public IContextComposable ContextParent { get; set; }
+    @\public bool IsDisposed { get; set; }
     @\public UssFlag Flag { get; set; }
     @\public ulong PackedId { get; set; }
     @\public SparseContextMap WrittenContext { get;set; }

@@ -10,7 +10,7 @@ namespace HELIX.Compose {
 
   [EnableMixins]
   [CustomBoundaryElement(constructor: false, trimChildren: false)]
-  public sealed partial class HXScrollViewElement : ComposableElement, ISlotHost {
+  public sealed partial class HXScrollViewElement : VisualElement, ISlotHost {
     public static readonly UniqueStyleString ClassViewport = new("hx-scroll-view-viewport");
     public static readonly UniqueStyleString ClassContent = new("hx-scroll-view-content");
     public static readonly UniqueStyleString ClassSlider = new("hx-scroll-view-slider");
@@ -83,7 +83,6 @@ namespace HELIX.Compose {
 
     [Hook]
     private void OnReset() {
-      base.Reset();
       content.Reset();
       slider.Reset();
     }

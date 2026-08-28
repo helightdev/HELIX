@@ -442,7 +442,7 @@ namespace HELIX.Compose {
 
   [EnableMixins]
   [CustomBoundaryElement(constructor: false, trimChildren: false)]
-  public sealed partial class HXOverlayHostElement : ComposableElement, ISlotHost {
+  public sealed partial class HXOverlayHostElement : VisualElement, ISlotHost {
     public static readonly UniqueStyleString ClassContent = new("hx-overlay-host-content");
     public static readonly UniqueStyleString ClassLayer = new("hx-overlay-host-layer");
 
@@ -494,7 +494,6 @@ namespace HELIX.Compose {
 
     [Hook]
     private void OnReset() {
-      base.Reset();
       content.Reset();
       ClearEntries();
     }

@@ -61,7 +61,7 @@ namespace HELIX.Compose.Forms {
 
     public void OnFormFieldChanged(FormController form, FormPath path) {
       if (!_attached || !ReferenceEquals(form, _controller) || path != _path) return;
-      _apply(_controller.GetValue(_path, default(T)), _controller.HasValue(_path));
+      _apply(_controller.GetValue(_path, default(T)), _controller.FieldHasValue(_path));
     }
 
     public void Dispose() {

@@ -134,7 +134,7 @@ namespace HELIX.UI.Console {
       if (value == null) return;
       var lines = value.Replace("\r\n", "\n").Split('\n');
       for (var i = 0; i < lines.Length; i++) _output.Add(new HistoryEntry(lines[i]));
-      _historyView?.Refresh();
+      _historyView?.RefreshList();
     }
 
     private void RequestRecompose() {
@@ -176,7 +176,7 @@ namespace HELIX.UI.Console {
       RefreshItems();
     }
 
-    public void Refresh() {
+    public void RefreshList() {
       RefreshItems();
       if (_items?.Count > 0) ScrollToItem(_items.Count - 1);
     }

@@ -1,0 +1,514 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+
+namespace HELIX.SourceGen.Expressions;
+
+using static MixinExpressionEvaluator;
+using static MixinExpressionInterpreter;
+
+internal static class MixinExpressionCompiler {
+  internal static MixinExpressionValidationResult ValidateSyntax(
+    string expression, bool functionsOnly
+  ) {
+    if (expression is null) return ValidationFailure("the expression is null", 0);
+    var lines = MixinExpressionParser.SplitLines(expression);
+    string activeFunction = null;
+    var functionLine = 0;
+    var functionScopeOpen = false;
+    var functions = new HashSet<string>(StringComparer.Ordinal);
+    for (var index = 0; index < lines.Length; index++) {
+      var line = lines[index];
+      if (string.IsNullOrWhiteSpace(line)) continue;
+      var parsed = MixinExpressionParser.ParseDirective(line, index + 1);
+      if (parsed.Error is not null) return ValidationFailure(parsed.Error, index + 1);
+      var command = parsed.Command;
+      var argument = parsed.Argument;
+      if (activeFunction is null) {
+        if (command != "FUNC") {
+          if (functionsOnly)
+            return ValidationFailure("mixin libraries may only contain function declarations", index + 1);
+          continue;
+        }
+        if (!functions.Add(argument))
+          return ValidationFailure("duplicate function '" + argument + "'", index + 1);
+        activeFunction = argument;
+        functionLine = index + 1;
+        functionScopeOpen = false;
+        continue;
+      }
+      if (command == "FUNC") return ValidationFailure("functions may not be nested", index + 1);
+      if (command == "SCOPE") functionScopeOpen = true;
+      if (command != "END") continue;
+      if (functionScopeOpen) functionScopeOpen = false;
+      else activeFunction = null;
+    }
+    return activeFunction is null
+      ? new MixinExpressionValidationResult(true, null, 0)
+      : ValidationFailure("unterminated function '" + activeFunction + "'", functionLine);
+  }
+
+  internal static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
+    var evaluationStartedAt = Stopwatch.GetTimestamp();
+    var programs = new List<MixinProgramSyntax>();
+    var variables = new Dictionary<string, object>(StringComparer.Ordinal);
+    var logs = new List<MixinExpressionPreparedLog>();
+    var programIndex = 0;
+    var executedOperations = 0;
+    foreach (var expression in expressions ?? Array.Empty<string>()) {
+      var validation = ValidateSyntax(expression, false);
+      if (!validation.Success) {
+        throw new ArgumentException(
+          "invalid prepared expression at line " + validation.ErrorLine + ": " + validation.Error,
+          nameof(expressions)
+        );
+      }
+      var program = GetProgram(expression, true);
+      programs.Add(program);
+      if (!TryEvaluatePreparedInitializers(
+        program, programIndex, variables, logs, ref executedOperations,
+        out var error, out var line
+      )) {
+        throw new ArgumentException(
+          "invalid prepared expression at line " + line + ": " + error, nameof(expressions)
+        );
+      }
+      programIndex++;
+    }
+    var instructions = programs.SelectMany(program =>
+      Enumerable.Range(0, program.Count).Select(program.Get)
+    ).ToArray();
+    var labels = new Dictionary<string, int>(StringComparer.Ordinal);
+    var instructionScopes = new Dictionary<int, int>();
+    var functions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+    var functionStarts = new Dictionary<int, int>();
+    var functionEnds = new HashSet<int>();
+    var instructionOffset = 0;
+    foreach (var program in programs) {
+      if (!TryIndexSymbols(
+        instructions, instructionOffset, instructionOffset + program.Count,
+        labels, instructionScopes, functions, functionStarts, functionEnds,
+        out var symbolError, out var symbolLine
+      )) {
+        throw new ArgumentException(
+          "invalid prepared expression at line " + symbolLine + ": " + symbolError,
+          nameof(expressions)
+        );
+      }
+      instructionOffset += program.Count;
+    }
+    var initializers = FindPreparedInitializers(instructions);
+    CollectPreparedDumps(
+      programs, instructions, variables, logs, executedOperations, evaluationStartedAt
+    );
+    return new MixinExpressionPreparedState(
+      programs.AsReadOnly(),
+      new Dictionary<string, object>(variables, StringComparer.Ordinal),
+      instructions,
+      new Dictionary<string, int>(labels, StringComparer.Ordinal),
+      new Dictionary<int, int>(instructionScopes),
+      new Dictionary<string, FunctionDefinition>(functions, StringComparer.Ordinal),
+      new Dictionary<int, int>(functionStarts),
+      new HashSet<int>(functionEnds),
+      initializers,
+      logs.AsReadOnly(),
+      executedOperations
+    );
+  }
+
+  private static ISet<int> FindPreparedInitializers(IReadOnlyList<DirectiveInstruction> instructions) {
+    var result = new HashSet<int>();
+    var depth = 0;
+    var scope = false;
+    for (var index = 0; index < instructions.Count; index++) {
+      var instruction = instructions[index];
+      if (instruction.Command == "FUNC") {
+        depth++;
+        scope = false;
+        continue;
+      }
+      if (depth != 0) {
+        if (instruction.Command == "SCOPE") scope = true;
+        else if (instruction.Command == "END") {
+          if (scope) scope = false;
+          else depth--;
+        }
+        continue;
+      }
+      if (instruction.Command is "VAR" or "LOG" or "DUMP") result.Add(index);
+    }
+    return result;
+  }
+
+  private static bool TryEvaluatePreparedInitializers(
+    MixinProgramSyntax program,
+    int programIndex,
+    IDictionary<string, object> variables,
+    ICollection<MixinExpressionPreparedLog> logs,
+    ref int executedOperations,
+    out string error,
+    out int line
+  ) {
+    error = null;
+    line = 0;
+    var functionDepth = 0;
+    var functionScope = false;
+    for (var i = 0; i < program.Count; i++) {
+      var instruction = program.Get(i);
+      if (instruction.Error is not null) {
+        error = instruction.Error;
+        line = instruction.Line;
+        return false;
+      }
+      if (instruction.Command == "FUNC") {
+        functionDepth++;
+        functionScope = false;
+        continue;
+      }
+      if (functionDepth != 0) {
+        if (instruction.Command == "SCOPE") functionScope = true;
+        else if (instruction.Command == "END") {
+          if (functionScope) functionScope = false;
+          else functionDepth--;
+        }
+        continue;
+      }
+      if (instruction.Command == "VAR") {
+        executedOperations++;
+        if (!TryInterpolatePrepared(instruction.ValueExpression, variables, out var value, out error)) {
+          line = instruction.Line;
+          return false;
+        }
+        variables[instruction.Argument] = value;
+      } else if (instruction.Command == "LOG") {
+        executedOperations++;
+        if (!TryInterpolatePrepared(instruction.ValueExpression, variables, out var value, out error)) {
+          line = instruction.Line;
+          return false;
+        }
+        logs.Add(new MixinExpressionPreparedLog(value, instruction.Line, programIndex));
+      } else if (instruction.Command == "DUMP") executedOperations++;
+    }
+    return true;
+  }
+
+  private static bool TryInterpolatePrepared(
+    IReadOnlyList<ValueExpressionPart> expression,
+    IDictionary<string, object> variables,
+    out string result,
+    out string error
+  ) {
+    var builder = new StringBuilder();
+    error = null;
+    foreach (var part in expression) {
+      if (part.Reference is null) {
+        builder.Append(part.Literal);
+        continue;
+      }
+      var reference = part.Reference;
+      if (reference.Root != "var" || string.IsNullOrEmpty(reference.Member) ||
+        !variables.TryGetValue(reference.Member, out var value)) {
+        result = null;
+        error = "prepared global initializers may only reference an existing @var value";
+        return false;
+      }
+      if (reference.Properties.Count != 0) {
+        result = null;
+        error = "prepared global initializer references cannot have properties";
+        return false;
+      }
+      builder.Append(RenderValue(value));
+    }
+    result = builder.ToString();
+    return true;
+  }
+
+  private static void CollectPreparedDumps(
+    IReadOnlyList<MixinProgramSyntax> programs,
+    IReadOnlyList<DirectiveInstruction> globalInstructions,
+    IReadOnlyDictionary<string, object> variables,
+    ICollection<MixinExpressionPreparedLog> logs,
+    int executedOperations,
+    long evaluationStartedAt
+  ) {
+    for (var programIndex = 0; programIndex < programs.Count; programIndex++) {
+      var program = programs[programIndex];
+      var functionDepth = 0;
+      var functionScope = false;
+      for (var index = 0; index < program.Count; index++) {
+        var instruction = program.Get(index);
+        if (instruction.Command == "FUNC") {
+          functionDepth++;
+          functionScope = false;
+          continue;
+        }
+        if (functionDepth != 0) {
+          if (instruction.Command == "SCOPE") functionScope = true;
+          else if (instruction.Command == "END") {
+            if (functionScope) functionScope = false;
+            else functionDepth--;
+          }
+          continue;
+        }
+        if (instruction.Command != "DUMP") continue;
+        string text;
+        switch ((instruction.Argument ?? "").ToUpperInvariant()) {
+          case "STATE":
+            text = DumpState(
+              instruction.Line, index + 1, 0,
+              new Dictionary<string, object>(), variables,
+              executedOperations, executedOperations, evaluationStartedAt
+            );
+            break;
+          case "BUFFER":
+            text = DumpBuffer(Array.Empty<MixinExpressionOutput>());
+            break;
+          case "AST":
+            text = DumpAst(globalInstructions, null);
+            break;
+          default:
+            continue;
+        }
+        logs.Add(new MixinExpressionPreparedLog(text, instruction.Line, programIndex));
+      }
+    }
+  }
+
+  internal static string DumpState(
+    int line,
+    int programCounter,
+    int callDepth,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
+    int executedOperations,
+    int preparedOperations,
+    long evaluationStartedAt
+  ) {
+    return "STATE line=" + line + " pc=" + programCounter + " callDepth=" + callDepth +
+      " operations=" + executedOperations + " preparedOperations=" + preparedOperations +
+      " durationMs=" + ElapsedMilliseconds(evaluationStartedAt) +
+      " locals=" + DumpValues(locals) + " variables=" + DumpValues(variables);
+  }
+
+  private static string ElapsedMilliseconds(long startedAt) {
+    return ElapsedMillisecondsValue(startedAt).ToString("F3", CultureInfo.InvariantCulture);
+  }
+
+  private static double ElapsedMillisecondsValue(long startedAt) {
+    return (Stopwatch.GetTimestamp() - startedAt) * 1000d / Stopwatch.Frequency;
+  }
+
+  private static string DumpValues(IReadOnlyDictionary<string, object> values) {
+    return values.Count == 0
+      ? "{}"
+      : "{" + string.Join(
+        ", ", values.OrderBy(item => item.Key, StringComparer.Ordinal)
+          .Select(item => item.Key + "=" + RenderValue(item.Value))
+      ) + "}";
+  }
+
+  internal static string DumpBuffer(IReadOnlyList<MixinExpressionOutput> outputs) {
+    return outputs.Count == 0
+      ? "BUFFER <empty>"
+      : "BUFFER " + string.Join(
+        "\n", outputs.Select(item =>
+          item.Target + (string.IsNullOrEmpty(item.InjectionTarget)
+            ? ""
+            : "<" + item.InjectionTarget + ">") + ": " + item.Text
+        )
+      );
+  }
+
+  internal static string DumpAst(
+    IEnumerable<DirectiveInstruction> global,
+    IEnumerable<DirectiveInstruction> local
+  ) {
+    var builder = new StringBuilder("AST GLOBAL [");
+    AppendAst(builder, global);
+    builder.Append("] | AST LOCAL [");
+    AppendAst(builder, local);
+    builder.Append(']');
+    return builder.ToString();
+  }
+
+  private static void AppendAst(StringBuilder builder, IEnumerable<DirectiveInstruction> instructions) {
+    if (instructions is null) {
+      builder.Append("<unavailable>");
+      return;
+    }
+    var found = false;
+    foreach (var instruction in instructions) {
+      if (found) builder.Append("; ");
+      found = true;
+      builder.Append(instruction.Line).Append(": @")
+        .Append(instruction.Command);
+      if (instruction.Argument is not null) builder.Append('<').Append(instruction.Argument).Append('>');
+      if (!string.IsNullOrEmpty(instruction.Operand)) builder.Append(' ').Append(instruction.Operand);
+      if (instruction.Error is not null) builder.Append(" [invalid: ").Append(instruction.Error).Append(']');
+    }
+    if (!found) builder.Append("<empty>");
+  }
+
+  internal static bool ValidateBooleanExpressionSyntax(string text, out string error) {
+    error = null;
+    var position = 0;
+    var found = false;
+    while (position < text.Length) {
+      while (position < text.Length && char.IsWhiteSpace(text[position])) position++;
+      if (position == text.Length) break;
+      found = true;
+      if (!TryReadReferenceNode(text, ref position, out _, out error)) return false;
+    }
+    if (found) return true;
+    error = "boolean expression is empty";
+    return false;
+  }
+
+  private static MixinExpressionValidationResult ValidationFailure(string error, int line) {
+    return new MixinExpressionValidationResult(false, error, line);
+  }
+
+  internal static bool ValidateValueExpressionSyntax(string text, out string error) {
+    error = null;
+    var position = 0;
+    while (position < text.Length) {
+      if (text[position] != '@') {
+        position++;
+        continue;
+      }
+      if (position + 1 < text.Length && text[position + 1] == '@') {
+        position += 2;
+        continue;
+      }
+      if (!TryReadReferenceNode(text, ref position, out _, out error)) return false;
+    }
+    return true;
+  }
+
+  private static void AddScopeLabel(
+    string command,
+    string argument,
+    int index,
+    int scope,
+    IDictionary<string, int> labels,
+    out string error
+  ) {
+    error = null;
+    if (command != "SCOPE" || string.IsNullOrEmpty(argument)) return;
+    var key = ScopeLabelKey(scope, argument);
+    if (labels.ContainsKey(key)) {
+      error = "duplicate scope label '" + argument + "'";
+      return;
+    }
+    labels.Add(key, index);
+  }
+
+  internal static string ScopeLabelKey(int scope, string label) {
+    return scope + "\0" + label;
+  }
+
+  internal static int FindNextScopeOrEnd(
+    IReadOnlyList<DirectiveInstruction> lines,
+    int start,
+    int scope,
+    IReadOnlyDictionary<int, int> instructionScopes,
+    IReadOnlyDictionary<int, int> functionStarts,
+    ISet<int> functionEnds
+  ) {
+    for (var index = start; index < lines.Count; index++) {
+      if (!instructionScopes.TryGetValue(index, out var candidateScope) || candidateScope != scope) return -1;
+      if (functionStarts.TryGetValue(index, out var functionEnd)) {
+        index = functionEnd;
+        continue;
+      }
+      var command = lines[index].Command;
+      if (string.IsNullOrEmpty(command)) continue;
+      if (command == "SCOPE") return index;
+      if (command == "END") return functionEnds.Contains(index) ? index : index + 1;
+    }
+    return -1;
+  }
+
+  internal static bool TryIndexSymbols(
+    IReadOnlyList<DirectiveInstruction> lines,
+    int start,
+    int end,
+    IDictionary<string, int> labels,
+    IDictionary<int, int> instructionScopes,
+    IDictionary<string, FunctionDefinition> functions,
+    IDictionary<int, int> functionStarts,
+    ISet<int> functionEnds,
+    out string error,
+    out int errorLine
+  ) {
+    error = null;
+    errorLine = 0;
+    string activeFunction = null;
+    var functionStart = -1;
+    var functionScopeOpen = false;
+    for (var index = start; index < end; index++) {
+      var instruction = lines[index];
+      // Expression and function regions use disjoint ID ranges, including when both begin at 0.
+      var scope = activeFunction is null ? -start - 1 : functionStart + 1;
+      instructionScopes[index] = scope;
+      if (instruction.Error is not null) {
+        error = instruction.Error;
+        errorLine = instruction.Line;
+        return false;
+      }
+      var command = instruction.Command;
+      var argument = instruction.Argument;
+      if (string.IsNullOrEmpty(command)) continue;
+      if (activeFunction is not null) {
+        if (command == "FUNC") {
+          error = "functions may not be nested";
+          errorLine = instruction.Line;
+          return false;
+        }
+        if (command == "SCOPE") functionScopeOpen = true;
+        if (command != "END") {
+          AddScopeLabel(command, argument, index, scope, labels, out error);
+          if (error is not null) {
+            errorLine = instruction.Line;
+            return false;
+          }
+          continue;
+        }
+        if (functionScopeOpen) {
+          functionScopeOpen = false;
+          continue;
+        }
+        functions.Add(activeFunction, new FunctionDefinition(functionStart + 1, index));
+        functionStarts.Add(functionStart, index);
+        functionEnds.Add(index);
+        activeFunction = null;
+        continue;
+      }
+      if (command == "FUNC") {
+        if (functions.ContainsKey(argument)) {
+          error = "duplicate function '" + argument + "'";
+          errorLine = instruction.Line;
+          return false;
+        }
+        activeFunction = argument;
+        functionStart = index;
+        functionScopeOpen = false;
+        continue;
+      }
+      AddScopeLabel(command, argument, index, scope, labels, out error);
+      if (error is not null) {
+        errorLine = instruction.Line;
+        return false;
+      }
+    }
+    if (activeFunction is null) return true;
+    error = "unterminated function '" + activeFunction + "'";
+    errorLine = lines[functionStart].Line;
+    return false;
+  }
+
+  internal sealed record FunctionDefinition(int Start, int End);
+}

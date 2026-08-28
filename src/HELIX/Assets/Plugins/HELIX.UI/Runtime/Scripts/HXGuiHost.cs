@@ -12,11 +12,11 @@ namespace HELIX.UI {
   [EnableMixins]
   [CustomBoundaryElement(constructor: false)]
   public partial class HXGuiHost : VisualElement {
-    public GuiService panel;
+    public GuiService service;
     private CommandConsoleElement _console;
 
-    public HXGuiHost(GuiService panel) : this() {
-      this.panel = panel;
+    public HXGuiHost(GuiService service) : this() {
+      this.service = service;
     }
 
     public HXGuiHost() {
@@ -29,20 +29,20 @@ namespace HELIX.UI {
     [Hook]
     private void OnCompose(ref Composition cx) {
       using (cx.WriteContext(out var context)) {
-        ThemeData.Key[context] = panel.theme;
-        HelixInputController.Key[context] = panel.inputController;
+        ThemeData.Key[context] = service.theme;
+        HelixInputController.Key[context] = service.inputController;
 
-        ref var textStyle = ref panel.theme.body.medium.style;
+        ref var textStyle = ref service.theme.body.medium.style;
         TextStyle.Key[context] = textStyle;
         textStyle.Apply(this);
       }
 
-      using (cx.OverlayHost(panel.overlays).With(Flex.Fill())) {
-        cx.NavigationHost(panel.navigation).With(Flex.Fill());
+      using (cx.OverlayHost(service.overlays).With(Flex.Fill())) {
+        cx.NavigationHost(service.navigation).With(Flex.Fill());
       }
 
-      DebugOverlayComposition.Compose(ref cx, panel.debugOverlay);
-      _console = DebugOverlayComposition.ComposeConsole(ref cx, panel.commandSystem);
+      DebugOverlayComposition.Compose(ref cx, service.debugOverlay);
+      _console = DebugOverlayComposition.ComposeConsole(ref cx, service.commandSystem);
     }
 
     public void ToggleCommandConsole() => _console?.Toggle();

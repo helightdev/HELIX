@@ -7,8 +7,8 @@ using UnityEngine;
 namespace HELIX.Context {
   [Managed]
   public partial class SceneInjectedService : MonoBehaviour {
-    [Inject] public SceneService scope;
-    [Inject] public ExampleUser user;
+    [Inject, NonSerialized] public SceneService scope;
+    [Inject, NonSerialized] public ExampleUser user;
 
     [NonSerialized]
     public GameObject testGameObject;

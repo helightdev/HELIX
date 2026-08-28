@@ -63,7 +63,7 @@ namespace HELIX.Compose {
     public FormController Controller { get; private set; }
     public FormPath Path { get; private set; }
     public FieldData FieldData => Controller?.GetFieldData(Path);
-    public bool HasValue => Controller?.HasValue(Path) == true;
+    public bool HasValue => Controller?.FieldHasValue(Path) == true;
     public object Value => Controller?.GetValue(Path);
     public T Metadata<T>() => props.metadata is T value ? value : default;
 

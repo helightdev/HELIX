@@ -136,14 +136,16 @@ internal static class PropStructMixinApi {
       if (applied.AttributeClass is not { } attributeType) continue;
       foreach (var configuration in InheritedExpressionAttributes(attributeType)) {
         var location = applied.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? LocationOf(annotated);
-        if (!TryReadConfiguration(configuration, targetDefinitions, out var expression, out var order, out var failure)) {
+        if (!TryReadConfiguration(
+          configuration, targetDefinitions, out var expression, out var order, out var failure
+        )) {
           ReportFailure(production, location, attributeType.Name, annotated.Name, failure);
           continue;
         }
         var arguments = annotated switch {
           IMethodSymbol method => (IReadOnlyList<IParameterSymbol>)method.Parameters,
           IParameterSymbol { ContainingSymbol: IMethodSymbol method } => method.Parameters,
-          _ => Array.Empty<IParameterSymbol>()
+          _ => []
         };
         var expressionContext = new RoslynMixinExpressionContext(
           type, annotated, applied, arguments, compilation,
@@ -279,11 +281,10 @@ internal static class PropStructMixinApi {
     definitions["$" + key.TrimStart('$')] = target;
   }
 
-  private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) =>
-    symbol.GetAttributes()
-      .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
-      .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
-      .ToArray();
+  private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) => symbol.GetAttributes()
+    .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
+    .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
+    .ToArray();
 
   private static IEnumerable<AttributeData> InheritedExpressionAttributes(INamedTypeSymbol type) {
     var hierarchy = new Stack<INamedTypeSymbol>();
@@ -335,9 +336,10 @@ internal sealed class PropStructMixinModel {
     _configuration.Add(new ConfigurationOutput(text, order, sequence));
 
   internal void SortConfiguration() => _configuration.Sort((left, right) => {
-    var order = left.Order.CompareTo(right.Order);
-    return order != 0 ? order : left.Sequence.CompareTo(right.Sequence);
-  });
+      var order = left.Order.CompareTo(right.Order);
+      return order != 0 ? order : left.Sequence.CompareTo(right.Sequence);
+    }
+  );
 
   internal void AddOutput(MixinExpressionOutput output) {
     var text = output.Text.Trim();

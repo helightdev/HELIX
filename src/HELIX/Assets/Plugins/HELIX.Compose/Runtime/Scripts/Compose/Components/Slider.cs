@@ -31,7 +31,7 @@ namespace HELIX.Compose {
   [EnableMixins]
   [CustomBoundaryElement(constructor: false, extension: true, trimChildren: false, name: "Slider")]
   [InputStateListener]
-  public sealed partial class HXSliderElement : ComposableElement, ISlotHost {
+  public sealed partial class HXSliderElement : VisualElement, ISlotHost {
     public static readonly UniqueStyleString ClassTrack = new("hx-slider-track");
     public static readonly UniqueStyleString ClassThumb = new("hx-slider-thumb");
 
@@ -120,7 +120,6 @@ namespace HELIX.Compose {
 
     [Hook]
     private void OnReset() {
-      base.Reset();
       track.Reset();
       thumb.Reset();
       Options = SliderOptions.Default;

@@ -60,8 +60,8 @@ namespace HELIX.Compose.Forms {
       using (BeginUpdate()) action();
     }
 
-    public bool HasValue(FormPath path) => _data.ContainsKey(path);
-    public bool HasValue(string path) => HasValue(Path(path));
+    public bool FieldHasValue(FormPath path) => _data.ContainsKey(path);
+    public bool FieldHasValue(string path) => FieldHasValue(Path(path));
 
     public bool TryGetValue<T>(FormPath path, out T value) {
       if (_data.TryGetValue(path, out var raw) && raw is T typed) {

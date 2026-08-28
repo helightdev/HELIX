@@ -269,7 +269,7 @@ namespace HELIX.Compose {
   [EnableMixins]
   [CustomBoundaryElement(constructor: false, extension: true, trimChildren: false, name: "TextField")]
   [InputStateListener]
-  public sealed partial class TextFieldElement : ComposableElement, ISlotHost {
+  public sealed partial class TextFieldElement : VisualElement, ISlotHost {
     private const string _selectionLightClass = "helix-textfield-style-light";
     private const string _selectionDarkClass = "helix-textfield-style-dark";
     private const string _selectionLightNeutralClass = "helix-textfield-style-light-neutral";
@@ -435,7 +435,6 @@ namespace HELIX.Compose {
 
     [Hook]
     private void OnReset() {
-      base.Reset();
       Owner = null;
       _hasAppliedSelectionStyle = false;
       _field.SetEnabled(true);

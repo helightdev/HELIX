@@ -77,7 +77,7 @@ namespace HELIX.Compose {
 
   [EnableMixins]
   [CustomBoundaryElement(constructor: false, trimChildren: false)]
-  public sealed partial class HXListViewElement : ComposableElement, ISlotHost {
+  public sealed partial class HXListViewElement : VisualElement, ISlotHost {
     public static readonly UniqueStyleString ClassViewport = new("hx-list-view-viewport");
     public static readonly UniqueStyleString ClassSlider = new("hx-list-view-slider");
 
@@ -170,7 +170,6 @@ namespace HELIX.Compose {
 
     [Hook]
     private void OnReset() {
-      base.Reset();
       slider.Reset();
       _itemBuilder = null;
       _separatorBuilder = null;
