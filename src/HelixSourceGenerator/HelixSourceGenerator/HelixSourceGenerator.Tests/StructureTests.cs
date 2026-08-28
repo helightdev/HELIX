@@ -9,7 +9,7 @@ using Xunit;
 
 namespace HELIX.SourceGen.Tests;
 
-public sealed class PropStructGeneratorTests {
+public sealed class StructureTests {
   [Fact]
   public void DatatypeOptInGeneratesConfigurableStructureDatatype() {
     var result = Run(
@@ -19,7 +19,7 @@ public sealed class PropStructGeneratorTests {
         public enum Mode { First, Second }
 
         [Feature.ConfigureSettings]
-        [HELIX.PropStruct(datatype: true)]
+        [HELIX.Structure(datatype: true)]
         public partial struct Settings {
           [Feature.ConfigureProperty]
           public int count;
@@ -73,7 +73,7 @@ public sealed class PropStructGeneratorTests {
     var result = Run(
       Runtime +
       """
-      [HELIX.PropStruct]
+      [HELIX.Structure]
       public partial struct Settings {
         public int count;
       }
@@ -91,7 +91,7 @@ public sealed class PropStructGeneratorTests {
     var result = Run(
       Runtime +
       """
-      [HELIX.PropStruct(datatype: true)]
+      [HELIX.Structure(datatype: true)]
       public partial struct Settings {
         public int count;
       }
@@ -104,11 +104,11 @@ public sealed class PropStructGeneratorTests {
   }
 
   [Fact]
-  public void EmptyPropStructDoesNotGenerateConstructor() {
+  public void EmptyStructureDoesNotGenerateConstructor() {
     var result = Run(
       Runtime +
       """
-      [HELIX.PropStruct]
+      [HELIX.Structure]
       public partial struct Settings { }
       """
     );
@@ -132,7 +132,7 @@ public sealed class PropStructGeneratorTests {
       public sealed class ConfigureFromLibraryAttribute : Attribute { }
 
       [ConfigureFromLibrary]
-      [HELIX.PropStruct(datatype: true)]
+      [HELIX.Structure(datatype: true)]
       public partial struct Settings {
         public int count;
       }
@@ -171,8 +171,8 @@ public sealed class PropStructGeneratorTests {
                                  using System.Collections.Generic;
                                  namespace HELIX {
                                    [AttributeUsage(AttributeTargets.Struct)]
-                                   public sealed class PropStructAttribute : Attribute {
-                                     public PropStructAttribute(bool datatype = false) { }
+                                   public sealed class StructureAttribute : Attribute {
+                                     public StructureAttribute(bool datatype = false) { }
                                    }
                                    [AttributeUsage(AttributeTargets.Field)]
                                    public sealed class PropAttribute : Attribute {

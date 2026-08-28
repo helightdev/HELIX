@@ -5,7 +5,7 @@ using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using static HELIX.SourceGen.GeneratorAnalysis;
-using static HELIX.SourceGen.GeneratorDiagnostics.PropStruct;
+using static HELIX.SourceGen.GeneratorDiagnostics.Structure;
 using static HELIX.SourceGen.GeneratorStrings;
 
 namespace HELIX.SourceGen;
@@ -206,11 +206,11 @@ internal static class PropStructApi {
       }
 
       var equalitySyntax = attribute is null
-        ? Templates.ProxyEquality
-        : StringArgument(attribute, PropArguments.EqualitySyntax, Templates.ProxyEquality);
+        ? Templates.Equality
+        : StringArgument(attribute, PropArguments.EqualitySyntax, Templates.Equality);
       var hashCodeSyntax = attribute is null
-        ? Templates.ProxyHashCode
-        : StringArgument(attribute, PropArguments.HashCodeSyntax, Templates.ProxyHashCode);
+        ? Templates.HashCode
+        : StringArgument(attribute, PropArguments.HashCodeSyntax, Templates.HashCode);
       if (string.IsNullOrWhiteSpace(equalitySyntax) || string.IsNullOrWhiteSpace(hashCodeSyntax)) {
         equality = null;
         diagnostic = InvalidEqualitySyntax(field, "the syntax must be a non-empty format string");
@@ -305,7 +305,7 @@ internal static class PropStructApi {
 
   private static Diagnostic InvalidEqualitySyntax(IFieldSymbol field, string error) {
     return Diagnostic.Create(
-      GeneratorDiagnostics.PropStruct.InvalidEqualitySyntax,
+      GeneratorDiagnostics.Structure.InvalidEqualitySyntax,
       LocationOf(field),
       field.Name,
       error
@@ -327,7 +327,7 @@ internal static class PropStructApi {
 
   private static Diagnostic InvalidDefault(ISymbol symbol, string name, string error) {
     return Diagnostic.Create(
-      GeneratorDiagnostics.PropStruct.InvalidDefault,
+      GeneratorDiagnostics.Structure.InvalidDefault,
       LocationOf(symbol),
       name,
       error

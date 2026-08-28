@@ -16,7 +16,7 @@ public sealed class ComponentDiscoveryGeneratorTests {
       Runtime +
       """
       namespace Feature {
-        [HELIX.Context.Component]
+        [HELIX.Context.Managed]
         public partial class Component { }
 
         [HELIX.Context.Service]
@@ -37,10 +37,10 @@ public sealed class ComponentDiscoveryGeneratorTests {
       generated
     );
     Assert.Contains(
-      "public void Discover(global::HELIX.Context.ComponentRegistrations registrations)",
+      "public void Discover(global::HELIX.Context.ManagedRegistrations registrations)",
       generated
     );
-    Assert.Contains("public static global::HELIX.Context.ComponentRegistrations Discover()", generated);
+    Assert.Contains("public static global::HELIX.Context.ManagedRegistrations Discover()", generated);
     Assert.Contains(
       "registrations.Register(typeof(global::Feature.Component), global::Feature.Component.RegistrationConfigurator);",
       generated
@@ -54,7 +54,7 @@ public sealed class ComponentDiscoveryGeneratorTests {
       Runtime +
       """
       namespace Feature {
-        [HELIX.Context.Component]
+        [HELIX.Context.Managed]
         public partial class Component { }
 
         [HELIX.Context.HelixModule(filter: "Feature")]
@@ -78,9 +78,9 @@ public sealed class ComponentDiscoveryGeneratorTests {
     var application = Assert.Single(result.Generated.Where(item =>
       item.HintName.Contains("Application"))).SourceText.ToString();
     Assert.Contains("global::Feature.Component.RegistrationConfigurator", module);
-    Assert.DoesNotContain("ComponentRegistrations Discover()", module);
+    Assert.DoesNotContain("ManagedRegistrations Discover()", module);
     Assert.Contains("global::Feature.FeatureModule.Instance.Discover(registrations);", application);
-    Assert.Contains("ComponentRegistrations Discover()", application);
+    Assert.Contains("ManagedRegistrations Discover()", application);
   }
 
   [Fact]
@@ -134,11 +134,11 @@ public sealed class ComponentDiscoveryGeneratorTests {
                                  namespace HELIX.Context {
                                    public delegate void RegistrationConfigurator(RegistrationEntry registration);
                                    public sealed class RegistrationEntry { }
-                                   public sealed class ComponentRegistrations {
+                                   public sealed class ManagedRegistrations {
                                      public void Register(Type type, RegistrationConfigurator configurator) { }
                                    }
                                    public interface IHelixModule {
-                                     void Discover(ComponentRegistrations registrations) { }
+                                     void Discover(ManagedRegistrations registrations) { }
                                    }
                                    [AttributeUsage(AttributeTargets.Class)]
                                    public sealed class HelixModuleAttribute : Attribute {
@@ -154,7 +154,7 @@ public sealed class ComponentDiscoveryGeneratorTests {
                                      "@CODE<^*~HELIX.Context.RegistrationConfigurator> registration.ToString();"
                                    )]
                                    [AttributeUsage(AttributeTargets.Class)]
-                                   public sealed class ComponentAttribute : Attribute { }
+                                   public sealed class ManagedAttribute : Attribute { }
                                    [AttributeUsage(AttributeTargets.Class)]
                                    public sealed class ServiceAttribute : Attribute { }
                                  }

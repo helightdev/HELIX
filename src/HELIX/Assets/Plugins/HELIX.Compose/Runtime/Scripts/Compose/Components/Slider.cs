@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [PropStruct] public readonly partial struct SliderOptions : IEquatable<SliderOptions> {
+  [Structure] public readonly partial struct SliderOptions : IEquatable<SliderOptions> {
     public static readonly SliderOptions Default = new(0f, 1f);
 
     public readonly float min;
@@ -18,7 +18,7 @@ namespace HELIX.Compose {
     [Prop(0f)] public readonly float thumbRange;
   }
 
-  [PropStruct] public readonly partial struct SliderStyle : IEquatable<SliderStyle> {
+  [Structure] public readonly partial struct SliderStyle : IEquatable<SliderStyle> {
     [Prop(Equatable = false)] public readonly HXControlBoxStyle box;
     public readonly Composable<State> track;
     public readonly Composable<State> progress;

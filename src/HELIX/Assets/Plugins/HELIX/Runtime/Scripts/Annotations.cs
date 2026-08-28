@@ -27,11 +27,6 @@ namespace HELIX {
     public string HashCodeSyntax { get; set; } = "{0}";
     public string Datatype { get; set; }
 
-    public string ProxyFunction { get; set; }
-    public string ProxySetter { get; set; }
-    public string ProxyGetter { get; set; }
-    public bool ProxyEquality { get; set; }
-
     public PropAttribute(
       object defaultValue,
       PropInit defaultInit = PropInit.Literal
@@ -47,8 +42,8 @@ namespace HELIX {
   }
 
   [AttributeUsage(AttributeTargets.Struct)]
-  public class PropStructAttribute : Attribute {
-    public PropStructAttribute(bool datatype = false) { }
+  public class StructureAttribute : Attribute {
+    public StructureAttribute(bool datatype = false) { }
   }
 
   public enum PropInit {

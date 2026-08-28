@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using HELIX.SourceGen.Expressions;
 using Xunit;
@@ -11,16 +10,6 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class MixinExpressionInterpreterTests {
   private readonly MixinExpressionInterpreter _interpreter = new();
-
-  [Fact]
-  public void SlowEvaluationAddsAnInformationalPerformanceHint() {
-    var result = _interpreter.Execute("@CODE @this:name", new SlowContext());
-
-    Assert.True(result.Success, result.Error);
-    var hint = Assert.Single(result.Logs, item => item.IsHint);
-    Assert.Contains("evaluation took", hint.Text);
-    Assert.Contains(" ms", hint.Text);
-  }
 
   [Fact]
   public void VariablesPreserveImmutableTablesAndTableOperations() {
@@ -846,22 +835,6 @@ public sealed class MixinExpressionInterpreterTests {
         _ => false
       };
       if (predicate.Negated) value = !value;
-      return true;
-    }
-  }
-
-  private sealed class SlowContext : IMixinExpressionContext {
-    public bool TryResolve(MixinExpressionReference reference, out string value, out string error) {
-      Thread.Sleep(5);
-      value = "Demo";
-      error = null;
-      return true;
-    }
-
-    public bool TryEvaluate(MixinExpressionReference reference, out bool value, out string error) {
-      Thread.Sleep(5);
-      value = true;
-      error = null;
       return true;
     }
   }

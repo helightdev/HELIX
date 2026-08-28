@@ -21,7 +21,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     TargetDefinitionCache = new();
 
   public void Initialize(IncrementalGeneratorInitializationContext context) {
-    PropStructGenerator.Register(context);
+    StructureSupport.Register(context);
 
     foreach (var attribute in MixinGeneratorCandidates.AttributeMetadataNames) {
       var targets = context.SyntaxProvider.ForAttributeWithMetadataName(

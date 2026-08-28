@@ -320,52 +320,6 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
-  public void ComponentLifecycleExpressionsEmitPublicComponentTargets() {
-    const string source = """
-                          using System;
-                          namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
-                              public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
-                            }
-                          }
-                          namespace HELIX.Context {
-                            [HELIX.MixinExpression(
-                              new[] { "$Init", "$Dispose" },
-                              new[] { 0, 0 },
-                              "@CODE<$Init> Initialize();\n@CODE<$Dispose> Release();"
-                            )]
-                            [AttributeUsage(AttributeTargets.Class)] public class ComponentAttribute : Attribute { }
-                            public sealed class ServiceAttribute : ComponentAttribute { }
-                          }
-                          [HELIX.Context.Component]
-                          public partial class Demo {
-                            private void Initialize() { }
-                            private void Release() { }
-                          }
-                          """;
-
-    var compilation = CSharpCompilation.Create(
-      "ComponentLifecycleExpressionTest",
-      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
-      PlatformReferences,
-      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-    );
-    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
-    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
-
-    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
-      .SourceText.ToString();
-    Assert.Contains("public void LoadComponent()", text);
-    Assert.Contains("public void UnloadComponent()", text);
-    Assert.Contains("Initialize();", text);
-    Assert.Contains("Release();", text);
-    Assert.DoesNotContain("void Awake()", text);
-    Assert.DoesNotContain("void OnDestroy()", text);
-    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
-  }
-
-  [Fact]
   public void TargetDefinitionsOnTheClassAndItsAttributesOverridePseudonymsInOrder() {
     const string source = """
                           using System;

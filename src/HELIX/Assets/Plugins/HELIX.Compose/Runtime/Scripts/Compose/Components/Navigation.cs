@@ -341,7 +341,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [PropStruct]
+  [Structure]
   public readonly partial struct NavigationOptions : IEquatable<NavigationOptions> {
     public static readonly NavigationOptions Default = new(behavior: NavigationBehavior.None);
 

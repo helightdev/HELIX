@@ -17,24 +17,17 @@ internal static class GeneratorStrings {
       MixinImport = "HELIX.MixinImportAttribute",
       MixinLibrary = "HELIX.MixinLibraryAttribute",
       MixinDefineTarget = "HELIX.MixinDefineTargetAttribute",
-      BoundaryComposable = "HELIX.Compose.BoundaryComposableAttribute",
-      ComposableProxy = "HELIX.Compose.ComposableProxyAttribute",
-      Composition = "HELIX.Compose.CompositionAttribute",
       Context = "HELIX.Compose.ContextAttribute",
       EnableMixins = "HELIX.EnableMixinsAttribute",
       Mixin = "HELIX.MixinAttribute",
       RequireMixin = "HELIX.RequireMixinAttribute",
       Prop = "HELIX.PropAttribute",
-      PropStruct = "HELIX.PropStructAttribute",
+      Structure = "HELIX.StructureAttribute",
       UxmlElement = "UnityEngine.UIElements.UxmlElementAttribute";
   }
 
   internal static class Types {
     internal const string
-      BoundaryCell = "HELIX.Compose.BoundaryCell",
-      BoundaryData = "HELIX.Compose.BoundaryData",
-      Boundary = "HELIX.Compose.IBoundary",
-      BoundaryVisualElement = "HELIX.Compose.BoundaryVisualElement",
       Composable = "HELIX.Compose.Composable",
       IComposable = "HELIX.Compose.IComposable",
       Composition = "HELIX.Compose.Composition",
@@ -44,7 +37,6 @@ internal static class GeneratorStrings {
       ElementRef = "HELIX.Compose.ElementRef",
       LocalId = "HELIX.Compose.LocalId",
       Mixin = "HELIX.IMixin",
-      PropsBoundaryComposable = "HELIX.Compose.PropsBoundaryComposable",
       ReadComposable = "HELIX.Compose.ReadComposable",
       ScopeHandle = "HELIX.Compose.ScopeHandle",
       Datatypes = "HELIX.Datatypes",
@@ -69,11 +61,7 @@ internal static class GeneratorStrings {
       Datatype = "Datatype",
       Equatable = "Equatable",
       EqualitySyntax = "EqualitySyntax",
-      HashCodeSyntax = "HashCodeSyntax",
-      ProxyFunction = "ProxyFunction",
-      ProxySetter = "ProxySetter",
-      ProxyGetter = "ProxyGetter",
-      ProxyEquality = "ProxyEquality";
+      HashCodeSyntax = "HashCodeSyntax";
   }
 
   internal static class DatatypeMembers {
@@ -94,12 +82,7 @@ internal static class GeneratorStrings {
 
   internal static class Templates {
     internal const string
-      ProxyCreate = "instance = new {TYPE}();",
-      ProxyPrepare = "/* Skip Prepare */",
-      ProxyPreYield = "/* Skip Before Yield */",
-      ProxyPostYield = "/* Skip Post Yield */",
-      ProxyScopeCallback = "cell.TrimChildren();",
-      ProxyEquality = "{0} == {1}",
-      ProxyHashCode = "{0}";
+      Equality = "{0} == {1}",
+      HashCode = "{0}";
   }
 }

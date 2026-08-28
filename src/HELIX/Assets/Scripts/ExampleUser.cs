@@ -11,7 +11,7 @@ namespace HELIX.Context {
     }
   }
 
-  [PropStruct(true)]
+  [Structure(true)]
   public partial struct SerializerTest {
     public string name;
     public int age;

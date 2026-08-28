@@ -22,7 +22,7 @@ namespace HELIX.UI.Options {
     void Reject();
   }
 
-  [PropStruct] public readonly partial struct OptionPagesOptions {
+  [Structure] public readonly partial struct OptionPagesOptions {
     public static readonly OptionPagesOptions Default = new(hasSidePanel: true);
 
     [Prop(true)] public readonly bool hasSidePanel;

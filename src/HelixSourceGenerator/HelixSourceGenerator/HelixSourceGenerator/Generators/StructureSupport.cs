@@ -4,16 +4,16 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static HELIX.SourceGen.GeneratorAnalysis;
-using static HELIX.SourceGen.GeneratorDiagnostics.PropStruct;
+using static HELIX.SourceGen.GeneratorDiagnostics.Structure;
 using static HELIX.SourceGen.GeneratorSource;
 using static HELIX.SourceGen.GeneratorStrings;
 
 namespace HELIX.SourceGen;
 
-internal static class PropStructGenerator {
+internal static class StructureSupport {
   internal static void Register(IncrementalGeneratorInitializationContext context) {
     var structs = context.SyntaxProvider.ForAttributeWithMetadataName(
-      Attributes.PropStruct,
+      Attributes.Structure,
       static (node, _) => node is StructDeclarationSyntax,
       static (ctx, _) => CreateTarget(ctx)
     );
@@ -38,7 +38,7 @@ internal static class PropStructGenerator {
 
   private static PropStructTarget CreateTarget(GeneratorAttributeSyntaxContext context) {
     var type = (INamedTypeSymbol)context.TargetSymbol;
-    var attribute = Attribute(type, Attributes.PropStruct);
+    var attribute = Attribute(type, Attributes.Structure);
     var generateDatatype = attribute is { ConstructorArguments.Length: > 0 } &&
       attribute.ConstructorArguments[0].Value is true;
     return new PropStructTarget(

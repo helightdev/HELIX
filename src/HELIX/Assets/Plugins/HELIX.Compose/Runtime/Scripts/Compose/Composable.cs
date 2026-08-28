@@ -4,37 +4,6 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
 
-  // [ComposableProxy(
-  //   Target = typeof(ScrollView),
-  //   Kind = ComposableKind.ScopeElement,
-  //   Name = "NativeScrollView",
-  //   CreateSyntax = "instance = new {TYPE}();"
-  // )]
-  // public partial struct ScrollViewProxy {
-  //   public static readonly PlainEventListener<float>.Binding SliderValueBinding = new(
-  //     accessor: PlainEventAccessor<float>.Casting<Scroller>(
-  //       subscribe: (scroller, action) => scroller.valueChanged += action,
-  //       unsubscribe: (scroller, action) => scroller.valueChanged -= action
-  //     ),
-  //     targetSelector: static root => root.Q<Scroller>()
-  //   );
-  //
-  //   [Prop(ScrollViewMode.Vertical)]
-  //   public ScrollViewMode mode;
-  //
-  //   [Prop(ScrollView.NestedInteractionKind.Default)]
-  //   public ScrollView.NestedInteractionKind nestedInteractionKind;
-  //
-  //   [Prop(ScrollerVisibility.Hidden, ProxySetter = "horizontalScrollerVisibility")]
-  //   public ScrollerVisibility horizontalScroller;
-  //
-  //   [Prop(ScrollerVisibility.Hidden, ProxySetter = "verticalScrollerVisibility")]
-  //   public ScrollerVisibility verticalScroller;
-  //
-  //   [Prop(null, ProxyFunction = "SliderValueBinding.Bind(instance, {VALUE});")]
-  //   public CompositionAction<float> onVerticalScroll;
-  // }
-
   public delegate void Composable(ref Composition cx);
 
   public delegate void Composable<in T>(ref Composition cx, T value);

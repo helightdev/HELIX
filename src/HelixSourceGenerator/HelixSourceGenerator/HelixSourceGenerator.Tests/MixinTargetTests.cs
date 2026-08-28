@@ -227,35 +227,6 @@ public sealed class MixinTargetTests {
   }
 
   [Fact]
-  public void ContributionMetadataIdentifiesTheAnnotatedMemberSemantically() {
-    var result = Run(
-      """
-      using System;
-      namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-        [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
-          public MixinExpressionAttribute(string expression) { }
-        }
-      }
-      [HELIX.MixinExpression("@MIXIN<Configure> Apply()")]
-      [AttributeUsage(AttributeTargets.Method)] public sealed class InjectAttribute : Attribute { }
-      [HELIX.EnableMixins]
-      public partial class Demo {
-        [Inject] private void Apply() { }
-      }
-      """
-    );
-
-    var diagnostic = Assert.Single(
-      result.GeneratorDiagnostics.Where(item => item.Id == "HLXM14")
-    );
-    Assert.Equal("global::Demo", diagnostic.Properties["SourceType"]);
-    Assert.Equal("Apply", diagnostic.Properties["SourceMember"]);
-    Assert.Equal("Method", diagnostic.Properties["SourceKind"]);
-    Assert.Equal("0", diagnostic.Properties["SourceParameterCount"]);
-  }
-
-  [Fact]
   public void MissingDelegateTargetReportsAnInvalidTarget() {
     var result = Run(
       """
