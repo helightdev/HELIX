@@ -302,27 +302,43 @@ namespace HELIX.Compose {
       return ref ctx.AUTHORING.YieldElement(ref ctx, label);
     }
 
-    // Boundary
-    private static readonly ushort _anonymousBoundaryId = CompositionId.GetTypeId("AnonymousBoundary");
-
     public static ref ElementRef Boundary(this ref Composition ctx, Composable composable) {
-      if (ctx.AUTHORING.InitializeAnonymouseBoundaryNode(_anonymousBoundaryId, out var node, out var state)) {
-        // No state initialization
-      }
-      node.composable = composable;
-      return ref ctx.AUTHORING.YieldBoundary(ref ctx, node);
+      if (!ctx.AUTHORING.RequireComposable<AnonymousBoundaryElement>(
+        AnonymousBoundaryElement.typeId, out var boundary, out _
+      )) boundary = new AnonymousBoundaryElement();
+      boundary.content = composable;
+      return ref ctx.AUTHORING.YieldBoundary(ref ctx, boundary);
     }
-
-    private static readonly ushort _propsBoundaryId = CompositionId.GetTypeId("PropsBoundary");
 
     public static ref ElementRef Boundary<T>(this ref Composition ctx, T props, Composable composable)
       where T : struct {
-      if (ctx.AUTHORING.InitializePropsBoundaryNode<T>(_propsBoundaryId, out var node, out var state)) {
-        // No state initialization
-      }
-      state.props = props;
-      node.composable = composable;
-      return ref ctx.AUTHORING.YieldBoundary(ref ctx, node);
+      if (!ctx.AUTHORING.RequireComposable<PropsBoundaryElement<T>>(
+        PropsBoundaryElement<T>.typeId, out var boundary, out _
+      )) boundary = new PropsBoundaryElement<T>();
+      boundary.props = props;
+      boundary.content = composable;
+      return ref ctx.AUTHORING.YieldBoundary(ref ctx, boundary);
     }
+  }
+
+  [EnableMixins]
+  [BoundaryElementMixin(composable: false)]
+  internal partial class AnonymousBoundaryElement {
+    internal static readonly ushort typeId = CompositionId.GetTypeId(nameof(AnonymousBoundaryElement));
+    internal Composable content;
+
+    [Hook]
+    private void OnCompose(ref Composition cx) => content?.Invoke(ref cx);
+  }
+
+  [EnableMixins]
+  [BoundaryElementMixin(composable: false)]
+  internal partial class PropsBoundaryElement<T> where T : struct {
+    internal static readonly ushort typeId = CompositionId.GetTypeId(nameof(PropsBoundaryElement<T>));
+    internal T props;
+    internal Composable content;
+
+    [Hook]
+    private void OnCompose(ref Composition cx) => content?.Invoke(ref cx);
   }
 }

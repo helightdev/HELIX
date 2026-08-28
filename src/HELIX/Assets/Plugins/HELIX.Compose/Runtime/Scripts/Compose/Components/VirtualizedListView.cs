@@ -10,12 +10,15 @@ using NativeScrollView = UnityEngine.UIElements.ScrollView;
 
 namespace HELIX.Compose {
 
-  public sealed class VirtualizedListItemBoundary : BoundaryVisualElement {
+  [EnableMixins]
+  [BoundaryElementMixin(composable: false)]
+  public sealed partial class VirtualizedListItemBoundary {
     private Composable<int> _builder;
     private int _index;
     private bool _separator;
 
-    public VirtualizedListItemBoundary() {
+    [Hook]
+    private void OnInit() {
       this.TightStretch().Sized(100.Percent());
       pickingMode = PickingMode.Ignore;
     }
@@ -35,9 +38,8 @@ namespace HELIX.Compose {
       if (panel != null) HXComposer.MarkDirty(this, false);
     }
 
-    public override void PerformCompose(ref Composition cx) => Compose(ref cx);
-
-    public override void Compose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       var identity = _separator ? _index | int.MinValue : _index;
       cx.AUTHORING.SetId(CompositionId.Generated(identity));
       _builder?.Invoke(ref cx, _index);

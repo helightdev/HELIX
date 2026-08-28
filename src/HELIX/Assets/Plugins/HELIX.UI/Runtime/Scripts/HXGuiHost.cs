@@ -9,20 +9,25 @@ using UnityEngine.UIElements;
 
 namespace HELIX.UI {
   [UxmlElement(visibility = LibraryVisibility.Hidden)]
-  public partial class HXGuiHost : BoundaryVisualElement {
+  [EnableMixins]
+  [CustomBoundaryElement(constructor: false)]
+  public partial class HXGuiHost : VisualElement {
     public GuiService panel;
     private CommandConsoleElement _console;
 
-    public HXGuiHost(GuiService panel) {
+    public HXGuiHost(GuiService panel) : this() {
       this.panel = panel;
-      this.Stretched();
     }
 
     public HXGuiHost() {
       this.Stretched();
+      RegisterCallback<AttachToPanelEvent>(_ => AttachBoundary());
+      RegisterCallback<DetachFromPanelEvent>(_ => DetachBoundary());
+      PostConstruct();
     }
 
-    public override void Compose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       using (cx.WriteContext(out var context)) {
         ThemeData.Key[context] = panel.theme;
         HelixInputController.Key[context] = panel.inputController;

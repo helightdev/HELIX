@@ -5,14 +5,20 @@ using UnityEngine.UIElements;
 using static HELIX.Compose.OverlayPlacementResolver;
 
 namespace HELIX.Compose {
-  internal sealed class OverlayContentBoundary : BoundaryVisualElement {
+  [EnableMixins]
+  [BoundaryElementMixin(composable: false)]
+  internal sealed partial class OverlayContentBoundary {
     private readonly Func<float> _resolveAnchorWidth;
     private OverlayEntry _entry;
     private uint _contentRevision;
     private float _anchorWidth = float.NaN;
 
-    public OverlayContentBoundary(Func<float> resolveAnchorWidth) {
+    public OverlayContentBoundary(Func<float> resolveAnchorWidth) : this() {
       _resolveAnchorWidth = resolveAnchorWidth;
+    }
+
+    [Hook]
+    private void OnInit() {
       this.MakeAbsolute().Tight();
       pickingMode = PickingMode.Position;
     }
@@ -29,9 +35,8 @@ namespace HELIX.Compose {
       if (panel != null) HXComposer.MarkDirty(this, false);
     }
 
-    public override void PerformCompose(ref Composition cx) => Compose(ref cx);
-
-    public override void Compose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       if (_entry == null) return;
       var identity = unchecked((int)_entry.Id ^ (int)(_entry.Id >> 32));
       cx.AUTHORING.SetId(CompositionId.Generated(identity));

@@ -185,14 +185,17 @@ namespace HELIX.Compose {
   }
 
   /// <summary>Owns the independently composed subtree of one dynamic entry.</summary>
-  public sealed class DynamicComposableElement : BoundaryVisualElement {
+  [EnableMixins]
+  [BoundaryElementMixin(composable: false)]
+  public sealed partial class DynamicComposableElement {
     private DynamicComposable _entry;
     private int _revision = -1;
 
     public DynamicComposable Entry => _entry;
     public object UserData => _entry?.UserData;
 
-    public DynamicComposableElement() {
+    [Hook]
+    private void OnInit() {
       pickingMode = PickingMode.Ignore;
     }
 
@@ -203,9 +206,8 @@ namespace HELIX.Compose {
       if (panel != null) HXComposer.MarkDirty(this, false);
     }
 
-    public override void PerformCompose(ref Composition cx) => Compose(ref cx);
-
-    public override void Compose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       if (_entry == null) return;
       cx.AUTHORING.SetId(CompositionId.Generated(_entry.key.GetHashCode()));
       _entry.Composable.Invoke(ref cx);

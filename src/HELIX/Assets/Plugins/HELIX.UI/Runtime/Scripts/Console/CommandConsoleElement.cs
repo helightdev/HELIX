@@ -8,7 +8,9 @@ using UnityEngine.UIElements;
 
 namespace HELIX.UI.Console {
   /// <summary>A Compose console whose command-line behavior is entirely implemented by a TextEditProcessor.</summary>
-  public sealed class CommandConsoleElement : BoundaryVisualElement {
+  [EnableMixins]
+  [BoundaryElementMixin(composable: false)]
+  public sealed partial class CommandConsoleElement {
     private readonly List<HistoryEntry> _output = new();
     private readonly List<string> _history = new();
     private TextEditingValue _input = TextEditingValue.Empty;
@@ -18,7 +20,8 @@ namespace HELIX.UI.Console {
     private ConsoleHistoryListElement _historyView;
     private IVisualElementScheduledItem _recomposeRequest;
 
-    public CommandConsoleElement() {
+    [Hook]
+    private void OnInit() {
       style.position = Position.Absolute; style.left = 0; style.right = 0; style.top = 0;
       style.bottom = 0; style.backgroundColor = new Color(.018f, .022f, .03f, .96f);
       style.paddingLeft = 12; style.paddingRight = 12; style.paddingTop = 10; style.paddingBottom = 10;
@@ -43,9 +46,8 @@ namespace HELIX.UI.Console {
       }
     }
 
-    public override void PerformCompose(ref Composition cx) => Compose(ref cx);
-
-    public override void Compose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       using (cx.Column(cross: Align.Stretch).With(Flex.FillFlexible())) {
         _historyView = ConsoleHistoryComposition.Compose(ref cx, _output);
         var completion = _system?.Complete(_input.text);

@@ -88,25 +88,16 @@ namespace HELIX.Compose {
     }
   }
 
-  public sealed class SegmentedChoice<T> : PropsBoundaryComposable<SegmentedChoice<T>.Props>, IChoiceItemOwner {
-    public readonly struct Props {
+  [EnableMixins]
+  [BoundaryElementMixin]
+  public sealed partial class SegmentedChoice<T> : IChoiceItemOwner {
+    public partial struct Props {
       public readonly T value;
       public readonly IDatatypeChoice<T> datatype;
       public readonly CompositionAction<T> onChanged;
       public readonly bool enabled, error;
       public readonly SegmentedChoiceStyle? style;
 
-      public Props(
-        T value, IDatatypeChoice<T> datatype, CompositionAction<T> onChanged,
-        bool enabled, bool error, SegmentedChoiceStyle? style
-      ) {
-        this.value = value;
-        this.datatype = datatype;
-        this.onChanged = onChanged;
-        this.enabled = enabled;
-        this.error = error;
-        this.style = style;
-      }
     }
 
     private static readonly EqualityComparer<T> _equality = EqualityComparer<T>.Default;
@@ -115,7 +106,8 @@ namespace HELIX.Compose {
     private string[] _labels;
     private bool[] _enabled;
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       EnsureChoices();
       var style = props.style ?? ThemeProperties.SegmentedChoice[in cx];
       using (cx.Group(style.axis, cross: Align.Stretch)) {
@@ -137,7 +129,7 @@ namespace HELIX.Compose {
 
     void IChoiceItemOwner.Select(int index) {
       var value = _values[index];
-      if (!_equality.Equals(props.value, value)) props.onChanged?.Call(Node, value);
+      if (!_equality.Equals(props.value, value)) props.onChanged?.Call(this, value);
     }
 
     private void EnsureChoices() {
@@ -155,7 +147,9 @@ namespace HELIX.Compose {
     }
   }
 
-  public sealed class ChoiceSpinbox<T> : PropsBoundaryComposable<ChoiceSpinbox<T>.Props> {
+  [EnableMixins]
+  [BoundaryElementMixin]
+  public sealed partial class ChoiceSpinbox<T> {
     private static readonly Composable _left = (ref Composition cx) =>
       new ChevronSpec(ArrowPosition.Left, ThemeProperties.ChevronSize[in cx]).Compose(ref cx);
     private static readonly Composable _right = (ref Composition cx) =>
@@ -165,24 +159,13 @@ namespace HELIX.Compose {
     private static readonly Composable _down = (ref Composition cx) =>
       new ChevronSpec(ArrowPosition.Down, ThemeProperties.ChevronSize[in cx]).Compose(ref cx);
     private static readonly Composable _selectedLabel = ComposeSelectedLabel;
-    public readonly struct Props {
+    public partial struct Props {
       public readonly T value;
       public readonly IDatatypeChoice<T> datatype;
       public readonly CompositionAction<T> onChanged;
       public readonly bool enabled, error;
       public readonly SpinboxChoiceStyle? style;
 
-      public Props(
-        T value, IDatatypeChoice<T> datatype, CompositionAction<T> onChanged,
-        bool enabled, bool error, SpinboxChoiceStyle? style
-      ) {
-        this.value = value;
-        this.datatype = datatype;
-        this.onChanged = onChanged;
-        this.enabled = enabled;
-        this.error = error;
-        this.style = style;
-      }
     }
 
     private static readonly EqualityComparer<T> _equality = EqualityComparer<T>.Default;
@@ -191,7 +174,8 @@ namespace HELIX.Compose {
     private string[] _labels;
     private bool[] _enabled;
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       EnsureChoices();
       var style = props.style ?? ThemeProperties.ChoiceSpinbox[in cx];
       var axis = style.vertical ? Axis.Vertical : Axis.Horizontal;
@@ -252,7 +236,7 @@ namespace HELIX.Compose {
       if (selected < 0) selected = direction > 0 ? -1 : count;
       for (var offset = 1; offset <= count; offset++) {
         var index = selected + direction * offset;
-        var style = props.style ?? ThemeProperties.ChoiceSpinbox[Node];
+        var style = props.style ?? ThemeProperties.ChoiceSpinbox[this];
         if (style.wrap) index = (index % count + count) % count;
         else if (index < 0 || index >= count) return -1;
         if (_enabled[index]) return index;
@@ -265,7 +249,7 @@ namespace HELIX.Compose {
 
     private void Change(int direction) {
       var index = FindNext(direction);
-      if (index >= 0) props.onChanged?.Call(Node, _values[index]);
+      if (index >= 0) props.onChanged?.Call(this, _values[index]);
     }
 
     private void EnsureChoices() {

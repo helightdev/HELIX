@@ -258,14 +258,14 @@ namespace HELIX.Compose {
     @MATCH @this#Props:?exists
     @AUGMENT_STRUCT<PropsModel> @this#Props
     @MATCH @local#PropsModel:!?structNoArgs
-    @CODE<IMPLEMENTS> IProps<@this:name.Props>
+    @CODE<IMPLEMENTS> IProps<@this:type.Props>
     @CODE<CLASS> private Props _props;
       @\public ref Props props => ref _props;
       @\public void ReceiveProps(in Props props) => _props = props;
     @MIXIN<$Reset><1> _props = default;
     @LOCAL<ComposeArgs> @local#ComposeArgs, @local#PropsModel:structParams
     @LOCAL<ComposeCalls> @local#ComposeCalls
-      @\var props = new @(this:name).Props(@local#PropsModel:structArgs);
+      @\var props = new @(this:type).Props(@local#PropsModel:structArgs);
       @\instance.ReceiveProps(in props);
     @GOTO<GenerateCompose>
   @END
@@ -276,8 +276,8 @@ namespace HELIX.Compose {
   @END
 
   @LOCAL<Body> {
-    @\  if (!cx.AUTHORING.RequireComposable<@this:name>(@(var#CompanionName).typeId, out var instance, out var retained)) {
-    @\    instance = new @this:name();
+    @\  if (!cx.AUTHORING.RequireComposable<@this:type>(@(var#CompanionName).typeId, out var instance, out var retained)) {
+    @\    instance = new @this:type();
     @\  }
     @\  @local#ComposeCalls
     @\  return ref cx.AUTHORING.YieldBoundary(ref cx, instance);

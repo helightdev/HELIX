@@ -117,11 +117,8 @@ namespace HELIX.Editor {
       descendants.Sort(CompareBoundaries);
       var element = boundary.Element;
       var name = string.IsNullOrEmpty(element?.name) ? boundary.GetType().Name : element.name;
-      var boundaryComposable = boundary is CompositionBoundaryNodeBase { BoundaryComposable: { } composable }
-        ? composable
-        : null;
-      var hierarchyName = GetDisplayTypeName(boundary.PackedId, boundaryComposable, element, boundary);
-      var composableType = boundaryComposable == null ? null : SimpleTypeName(boundaryComposable.GetType());
+      var hierarchyName = GetDisplayTypeName(boundary.PackedId, null, element, boundary);
+      string composableType = null;
       var dirty = HXComposer.IsBoundaryDirty(boundary);
       var pendingDisposal = HXComposer.IsBoundaryPendingDisposal(boundary);
       var disposal = boundary.IsDisposed ? "Disposed" : pendingDisposal ? "Pending" : "Active";
@@ -196,11 +193,8 @@ namespace HELIX.Editor {
         return visitedBoundaries.Contains(boundary) ? null : ToNode(boundary, boundaryChildren, visitedBoundaries);
 
       var composable = GetComposable(element);
-      var boundaryComposable = element is CompositionBoundaryNodeBase boundaryElement
-        ? boundaryElement.BoundaryComposable
-        : null;
       var packedId = composable?.PackedId ?? 0;
-      var displayName = GetDisplayTypeName(packedId, boundaryComposable, element, composable);
+      var displayName = GetDisplayTypeName(packedId, null, element, composable);
       var formattedId = composable == null ? null : FormatCompositionId(new CompositionId { packed = packedId });
       var ussFlags = composable == null ? null : FormatUssFlags(composable.Flag);
       var children = new List<InspectorTreeNode>();

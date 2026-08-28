@@ -7,17 +7,18 @@ namespace HELIX.Compose {
   internal static class DatatypeControlBoundary {
     public static ref ElementRef Compose<TComponent, TProps>(
       ref Composition cx, ushort typeId, TProps props
-    ) where TComponent : PropsBoundaryComposable<TProps>, new() where TProps : struct {
-      cx.AUTHORING.PropsBoundaryStateComposable<TComponent, TProps>(
-        typeId, out var node, out _, out var component
-      );
+    ) where TComponent : GeneratedBoundaryBase, IProps<TProps>, new() where TProps : struct {
+      if (!cx.AUTHORING.RequireComposable<TComponent>(typeId, out var component, out _))
+        component = new TComponent();
       component.ReceiveProps(in props);
-      return ref cx.AUTHORING.YieldBoundary(ref cx, node);
+      return ref cx.AUTHORING.YieldBoundary(ref cx, component);
     }
   }
 
-  public sealed class DatatypeSlider<T> : PropsBoundaryComposable<DatatypeSlider<T>.Props> {
-    public readonly struct Props {
+  [EnableMixins]
+  [BoundaryElementMixin]
+  public sealed partial class DatatypeSlider<T> {
+    public partial struct Props {
       public readonly T value;
       public readonly INumericConvertible<T> datatype;
       public readonly CompositionAction<T> onChanged;
@@ -26,40 +27,29 @@ namespace HELIX.Compose {
       public readonly bool enabled, error;
       public readonly SliderStyle? style;
 
-      public Props(
-        T value, INumericConvertible<T> datatype, CompositionAction<T> onChanged,
-        CompositionAction<T> onCommitted, in SliderOptions options, bool enabled,
-        bool error, SliderStyle? style
-      ) {
-        this.value = value;
-        this.datatype = datatype;
-        this.onChanged = onChanged;
-        this.onCommitted = onCommitted;
-        this.options = options;
-        this.enabled = enabled;
-        this.error = error;
-        this.style = style;
-      }
     }
 
-    protected override void OnRecompose(ref Composition cx) => cx.Slider(
+    [Hook]
+    private void OnCompose(ref Composition cx) => cx.Slider(
       props.datatype.ToFloat(props.value), onChanged: Changed, onCommitted: Committed,
       options: props.options, enabled: props.enabled, error: props.error, style: props.style
     );
 
     private static void Changed(CompositionContext context, float value) {
       var self = context.Lookup<DatatypeSlider<T>>();
-      self?.props.onChanged?.Call(self.Node, self.props.datatype.FromFloat(value));
+      self?.props.onChanged?.Call(self, self.props.datatype.FromFloat(value));
     }
 
     private static void Committed(CompositionContext context, float value) {
       var self = context.Lookup<DatatypeSlider<T>>();
-      self?.props.onCommitted?.Call(self.Node, self.props.datatype.FromFloat(value));
+      self?.props.onCommitted?.Call(self, self.props.datatype.FromFloat(value));
     }
   }
 
-  public sealed class DatatypeTextField<T> : PropsBoundaryComposable<DatatypeTextField<T>.Props> {
-    public readonly struct Props {
+  [EnableMixins]
+  [BoundaryElementMixin]
+  public sealed partial class DatatypeTextField<T> {
+    public partial struct Props {
       public readonly T value;
       public readonly IStringConvertible<T> datatype;
       public readonly CompositionAction<T> onChanged;
@@ -71,27 +61,10 @@ namespace HELIX.Compose {
       public readonly TextSelectionStyle? selectionStyle;
       public readonly HXControlBoxStyle? style;
 
-      public Props(
-        T value, IStringConvertible<T> datatype, CompositionAction<T> onChanged,
-        CompositionAction<T, TextEditEndReason> onEditingEnded, CompositionAction onCommitted, bool enabled,
-        in TextInputOptions options, Composable prefix, Composable suffix,
-        TextSelectionStyle? selectionStyle, HXControlBoxStyle? style
-      ) {
-        this.value = value;
-        this.datatype = datatype;
-        this.onChanged = onChanged;
-        this.onEditingEnded = onEditingEnded;
-        this.onCommitted = onCommitted;
-        this.enabled = enabled;
-        this.options = options;
-        this.prefix = prefix;
-        this.suffix = suffix;
-        this.selectionStyle = selectionStyle;
-        this.style = style;
-      }
     }
 
-    protected override void OnRecompose(ref Composition cx) => cx.TextField(
+    [Hook]
+    private void OnCompose(ref Composition cx) => cx.TextField(
       value: new TextEditingValue(props.datatype.ToString(props.value) ?? string.Empty),
       onChanged: Changed, onEditingEnded: EditingEnded, enabled: props.enabled,
       options: props.options, prefix: props.prefix, suffix: props.suffix,
@@ -101,7 +74,7 @@ namespace HELIX.Compose {
     private static void Changed(CompositionContext context, TextEditingValue value) {
       var self = context.Lookup<DatatypeTextField<T>>();
       if (self == null || !TryConvert(self.props.datatype, value.text, out var converted)) return;
-      self.props.onChanged?.Call(self.Node, converted);
+      self.props.onChanged?.Call(self, converted);
     }
 
     private static void EditingEnded(
@@ -109,8 +82,8 @@ namespace HELIX.Compose {
     ) {
       var self = context.Lookup<DatatypeTextField<T>>();
       if (self == null || !TryConvert(self.props.datatype, value.text, out var converted)) return;
-      self.props.onEditingEnded?.Call(self.Node, converted, reason);
-      if (reason != TextEditEndReason.Cancelled) self.props.onCommitted?.Call(self.Node);
+      self.props.onEditingEnded?.Call(self, converted, reason);
+      if (reason != TextEditEndReason.Cancelled) self.props.onCommitted?.Call(self);
     }
 
     private static bool TryConvert(IStringConvertible<T> datatype, string text, out T value) {
@@ -126,9 +99,10 @@ namespace HELIX.Compose {
     }
   }
 
-  public sealed class DatatypeFieldSlider<T> : PropsBoundaryComposable<DatatypeFieldSlider<T>.Props>
-    where T : struct {
-    public readonly struct Props {
+  [EnableMixins]
+  [BoundaryElementMixin]
+  public sealed partial class DatatypeFieldSlider<T> where T : struct {
+    public partial struct Props {
       public readonly T value, min, max, step;
       public readonly IDatatype<T> datatype;
       public readonly INumericConvertible<T> numeric;
@@ -138,29 +112,10 @@ namespace HELIX.Compose {
       public readonly bool enabled, error;
       public readonly Composable prefix, suffix;
 
-      public Props(
-        T value, T min, T max, T step, IDatatype<T> datatype,
-        INumericConvertible<T> numeric, IStringConvertible<T> text,
-        CompositionAction<T> onChanged, CompositionAction onCommitted,
-        bool enabled, bool error, Composable prefix, Composable suffix
-      ) {
-        this.value = value;
-        this.min = min;
-        this.max = max;
-        this.step = step;
-        this.datatype = datatype;
-        this.numeric = numeric;
-        this.text = text;
-        this.onChanged = onChanged;
-        this.onCommitted = onCommitted;
-        this.enabled = enabled;
-        this.error = error;
-        this.prefix = prefix;
-        this.suffix = suffix;
-      }
     }
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       using (cx.Group(Axis.Horizontal, cross: Align.Center)) {
         cx.DatatypeSlider(
           props.value, props.numeric, Changed, SliderCommitted,
@@ -181,20 +136,20 @@ namespace HELIX.Compose {
     private static void Changed(CompositionContext context, T value) {
       var self = context.Lookup<DatatypeFieldSlider<T>>();
       if (self == null) return;
-      self.props.onChanged?.Call(self.Node, self.Normalize(value));
+      self.props.onChanged?.Call(self, self.Normalize(value));
     }
 
     private static void SliderCommitted(CompositionContext context, T _) {
       var self = context.Lookup<DatatypeFieldSlider<T>>();
-      self?.props.onCommitted?.Call(self.Node);
+      self?.props.onCommitted?.Call(self);
     }
 
     private static void TextCommitted(CompositionContext context, T value, TextEditEndReason reason) {
       if (reason == TextEditEndReason.Cancelled) return;
       var self = context.Lookup<DatatypeFieldSlider<T>>();
       if (self == null) return;
-      self.props.onChanged?.Call(self.Node, self.Normalize(value));
-      self.props.onCommitted?.Call(self.Node);
+      self.props.onChanged?.Call(self, self.Normalize(value));
+      self.props.onCommitted?.Call(self);
     }
 
     private T Normalize(T value) {
@@ -208,8 +163,10 @@ namespace HELIX.Compose {
     }
   }
 
-  public sealed class DatatypeDropdown<T> : PropsBoundaryComposable<DatatypeDropdown<T>.Props> {
-    public readonly struct Props {
+  [EnableMixins]
+  [BoundaryElementMixin]
+  public sealed partial class DatatypeDropdown<T> {
+    public partial struct Props {
       public readonly T value;
       public readonly IDatatypeChoice<T> datatype;
       public readonly CompositionAction<T> onChanged;
@@ -217,25 +174,14 @@ namespace HELIX.Compose {
       public readonly bool enabled, error;
       public readonly PopupMenuStyle? style;
 
-      public Props(
-        T value, IDatatypeChoice<T> datatype, CompositionAction<T> onChanged,
-        string placeholder, bool enabled, bool error, PopupMenuStyle? style
-      ) {
-        this.value = value;
-        this.datatype = datatype;
-        this.onChanged = onChanged;
-        this.placeholder = placeholder;
-        this.enabled = enabled;
-        this.error = error;
-        this.style = style;
-      }
     }
 
     private IDatatypeChoice<T> _optionsDatatype;
     private DropdownOption<T>[] _options;
     private DropdownController<T> _controller;
 
-    protected override void OnRecompose(ref Composition cx) {
+    [Hook]
+    private void OnCompose(ref Composition cx) {
       if (!ReferenceEquals(_optionsDatatype, props.datatype) || _options?.Length != props.datatype.ChoiceCount) {
         _optionsDatatype = props.datatype;
         _options = new DropdownOption<T>[props.datatype.ChoiceCount];
@@ -251,15 +197,15 @@ namespace HELIX.Compose {
       cx.DropdownButton(_controller, props.style);
     }
 
-    protected override void OnDetach() {
+    [Hook]
+    private void OnDispose() {
       _controller?.Dispose();
       _controller = null;
-      base.OnDetach();
     }
 
     private static void Changed(CompositionContext context, T value) {
       var self = context.Lookup<DatatypeDropdown<T>>();
-      self?.props.onChanged?.Call(self.Node, value);
+      self?.props.onChanged?.Call(self, value);
     }
   }
 
@@ -275,7 +221,7 @@ namespace HELIX.Compose {
       if (datatype == null) throw new ArgumentNullException(nameof(datatype));
       var resolvedOptions = options ?? SliderOptions.Default;
       var props = new DatatypeSlider<T>.Props(
-        value, datatype, onChanged, onCommitted, in resolvedOptions, enabled, error, style
+        value, datatype, onChanged, onCommitted, resolvedOptions, enabled, error, style
       );
       return ref DatatypeControlBoundary.Compose<DatatypeSlider<T>, DatatypeSlider<T>.Props>(
         ref cx, Id<DatatypeSlider<T>>.Value, props
@@ -294,7 +240,7 @@ namespace HELIX.Compose {
       if (datatype == null) throw new ArgumentNullException(nameof(datatype));
       var resolvedOptions = options ?? TextInputOptions.Default;
       var props = new DatatypeTextField<T>.Props(
-        value, datatype, onChanged, onEditingEnded, onCommitted, enabled, in resolvedOptions,
+        value, datatype, onChanged, onEditingEnded, onCommitted, enabled, resolvedOptions,
         prefix, suffix, selectionStyle, style
       );
       return ref DatatypeControlBoundary.Compose<DatatypeTextField<T>, DatatypeTextField<T>.Props>(

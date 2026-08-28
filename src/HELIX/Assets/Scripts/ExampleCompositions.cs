@@ -185,15 +185,16 @@ namespace TestNamespace {
 
 
   [UxmlElement]
+  [EnableMixins]
+  [CustomBoundaryElement(constructor: false)]
   public partial class ExampleVisualElement : VisualElement {
     public ExampleVisualElement() {
-      var boundaryNode = new CompositionBoundaryNode { composable = ExampleCompositions.MyComposition };
-      Add(boundaryNode);
-      //RecompositionScope.MarkDirty(boundaryNode);
-      // schedule.Execute(() => {
-      //     RecompositionScope.MarkDirty(boundaryNode);
-      //   }
-      // ).Every(0).Resume();
+      RegisterCallback<AttachToPanelEvent>(_ => AttachBoundary());
+      RegisterCallback<DetachFromPanelEvent>(_ => DetachBoundary());
+      PostConstruct();
     }
+
+    [Hook]
+    private static void OnCompose(ref Composition cx) => ExampleCompositions.MyComposition(ref cx);
   }
 }

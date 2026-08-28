@@ -95,7 +95,6 @@ namespace HELIX.Compose {
     public CompositionContext(IComposable composable) : this(composable, composable.Element) { }
 
     public static implicit operator CompositionContext(Composition cx) => new(cx.boundary);
-    public static implicit operator CompositionContext(BoundaryElementBase boundary) => new(boundary);
   }
 
   public interface IComposable : IElement {
@@ -214,72 +213,6 @@ namespace HELIX.Compose {
     public static RecompositionScope Modify<T>(
       this Composition self, out T boundary, bool includeHost = true
     ) where T : IBoundary => self.boundary.Modify(out boundary, includeHost);
-  }
-
-  public static class ComposableLookupExtensions {
-    public static T LookupComposable<T>(this IBoundary boundary, bool includeHost = true) {
-      var current = includeHost ? boundary : boundary.Parent;
-      while (current != null) {
-        if (current is CompositionBoundaryNodeBase { BoundaryComposable: T attachment }) return attachment;
-        current = current.Parent;
-      }
-      return default;
-    }
-
-    public static T Lookup<T>(this IBoundary boundary, bool includeHost = true) where T : IBoundaryComposable {
-      return boundary.LookupComposable<T>(includeHost);
-    }
-
-    public static T Lookup<T>(this CompositionContext context, bool includeHost = true) where T : IBoundaryComposable {
-      return context.boundary.LookupComposable<T>(includeHost);
-    }
-
-    public static T Lookup<T>(this Composition context, bool includeHost = true) where T : IBoundaryComposable {
-      return context.boundary.LookupComposable<T>(includeHost);
-    }
-
-    public static RecompositionScope Modify<T>(
-      this IBoundary self, out T composable, bool includeHost = true
-    ) where T : IBoundaryComposable {
-      composable = self.LookupComposable<T>(includeHost);
-      if (composable == null) {
-        throw new InvalidOperationException($"BoundaryComposable of type {typeof(T)} not found in tree.");
-      }
-      var scope = HXComposer.BeginBatch();
-      composable.MarkDirty();
-      return scope;
-    }
-
-    public static RecompositionScope Modify<T>(
-      this CompositionContext self, out T composable, bool includeHost = true
-    ) where T : IBoundaryComposable => self.boundary.Modify(out composable, includeHost);
-
-    public static RecompositionScope Modify<T>(
-      this Composition self, out T composable, bool includeHost = true
-    ) where T : IBoundaryComposable => self.boundary.Modify(out composable, includeHost);
-  }
-
-  public static class DataLookupExtensions {
-    public static T LookupData<T>(this IBoundary boundary, bool includeHost = true) {
-      var current = includeHost ? boundary : boundary.Parent;
-      while (current != null) {
-        if (current is CompositionBoundaryNodeBase { Data: T data }) return data;
-        current = current.Parent;
-      }
-      return default;
-    }
-
-    public static T Lookup<T>(this IBoundary boundary, bool includeHost = true) where T : BoundaryData {
-      return boundary.LookupData<T>(includeHost);
-    }
-
-    public static T Lookup<T>(this CompositionContext context, bool includeHost = true) where T : BoundaryData {
-      return context.boundary.LookupData<T>(includeHost);
-    }
-
-    public static T Lookup<T>(this Composition context, bool includeHost = true) where T : BoundaryData {
-      return context.boundary.LookupData<T>(includeHost);
-    }
   }
 
   public static class CompositionActionExtensions {

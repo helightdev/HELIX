@@ -86,53 +86,6 @@ namespace HELIX.Compose {
       return false;
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool RequireCompositionBoundaryNode(ushort typeId, out CompositionBoundaryNode node, out bool retained) {
-      if (RequireComposable(typeId, out node, out retained)) {
-        retention = retained ? CompositionRetention.Retained : CompositionRetention.Reset;
-        return true;
-      }
-
-      node = new CompositionBoundaryNode { PackedId = id.packed };
-      retention = CompositionRetention.New;
-      return false;
-    }
-
-    public bool RequireBoundaryStateComposable<TData, TStateComposable>(
-      ushort typeId,
-      out CompositionBoundaryNode node,
-      out TData data,
-      out TStateComposable attachment
-    ) where TData : BoundaryData, new() where TStateComposable : IBoundaryComposable, new() {
-      if (RequireCompositionBoundaryNode(typeId, out node, out var retained)) {
-        if (node.Data is not TData currentProps) {
-          data = new TData();
-          attachment = new TStateComposable();
-          node.SetComposable(data, attachment);
-          retention = CompositionRetention.Reset;
-          return false;
-        }
-        if (node.BoundaryComposable is not TStateComposable currentAttachment || !retained) {
-          attachment = new TStateComposable();
-          data = currentProps;
-          node.SwapComposable(attachment);
-          retention = CompositionRetention.Reset;
-          return false;
-        }
-
-        attachment = currentAttachment;
-        data = currentProps;
-        retention = CompositionRetention.Retained;
-        return true;
-      }
-
-      data = new TData();
-      attachment = new TStateComposable();
-      node.SetComposable(data, attachment);
-      retention = CompositionRetention.New;
-      return false;
-    }
-
     public bool InitializeNode(ushort typeId, out CompositionNode node) {
       var packed = PrepareId(typeId);
       var current = cell.ReadCursorOrFind(packed);
