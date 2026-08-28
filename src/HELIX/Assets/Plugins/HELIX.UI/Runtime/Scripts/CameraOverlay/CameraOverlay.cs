@@ -7,12 +7,6 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.UI.CameraOverlays {
-  public readonly struct CameraOverlayBox : IProseScope {
-    public readonly ulong Id;
-    public CameraOverlayBox(ulong id) => Id = id;
-    public CameraOverlayBox(string key) => Id = CameraOverlayUtility.StableId(key);
-  }
-
   public enum CameraOverlaySpace : byte { Screen, World }
 
   /// <summary>Allocation-free placement metadata, consumed immediately when pushed inside a box.</summary>
@@ -42,16 +36,6 @@ namespace HELIX.UI.CameraOverlays {
   }
 
   public static class CameraOverlayProse {
-    public static ProseWriterScope Box(
-      this IProseWriter writer, ulong id, CameraOverlayPosition position
-    ) {
-      var scope = writer.Scope(new CameraOverlayBox(id));
-      writer.Push(position);
-      return scope;
-    }
-    public static ProseWriterScope Box(
-      this IProseWriter writer, string key, CameraOverlayPosition position
-    ) => writer.Box(CameraOverlayUtility.StableId(key), position);
     public static void Content(this IProseWriter writer, Composable content) =>
       writer.Write(new CameraOverlayContent(content));
   }
@@ -67,15 +51,18 @@ namespace HELIX.UI.CameraOverlays {
     }
   }
 
+  public delegate void CameraOverlayProducer(IProseWriter writer);
+  public enum CameraOverlayUpdateMode : byte { EveryVisibleFrame, WhenInvalidated }
+
+  /// <summary>Global registration and handle-management event.</summary>
   public struct CollectCameraOverlayEvent : Context.Evt<CollectCameraOverlayEvent> {
-    public readonly IProseWriter prose;
-    public CollectCameraOverlayEvent(IProseWriter prose) => this.prose = prose;
+    public readonly CameraOverlayController overlays;
+    public CollectCameraOverlayEvent(CameraOverlayController overlays) => this.overlays = overlays;
   }
 
   internal abstract class OverlayFieldModel {
     public string label, description;
     public Color? color;
-    public float seen;
     public abstract string Prefix { get; }
     public abstract string Suffix { get; }
     public abstract string Unit { get; }
@@ -125,28 +112,99 @@ namespace HELIX.UI.CameraOverlays {
     public int order;
     public Composable content;
     public DynamicComposable dynamicEntry;
-    public float seen;
+    public int revision;
+    public int renderedRevision = -1;
+    public CameraOverlayEntry owner;
     public readonly Dictionary<string, OverlayFieldModel> fields = new();
+  }
+
+  /// <summary>A caller-owned overlay registration. Dispose it to remove the entry.</summary>
+  public sealed class CameraOverlayEntry : IDisposable {
+    private readonly CameraOverlayController _controller;
+    internal readonly OverlayEntryModel model;
+    private readonly CameraOverlayProseWriter _writer;
+    private CameraOverlayProducer _producer;
+    private Transform _trackedTransform;
+    private Vector3 _trackingOffset;
+    private bool _dirty = true;
+    private bool _disposed;
+
+    internal CameraOverlayEntry(
+      CameraOverlayController controller, OverlayEntryModel model, CameraOverlayProducer producer
+    ) {
+      _controller = controller; this.model = model;
+      _producer = producer ?? throw new ArgumentNullException(nameof(producer));
+      _writer = new CameraOverlayProseWriter(controller, model);
+      model.owner = this;
+    }
+
+    public bool Enabled { get; set; } = true;
+    public CameraOverlayUpdateMode UpdateMode { get; set; } = CameraOverlayUpdateMode.EveryVisibleFrame;
+    public CameraOverlayProducer Producer {
+      get => _producer;
+      set { _producer = value ?? throw new ArgumentNullException(nameof(value)); Invalidate(); }
+    }
+    public CameraOverlayPosition Position {
+      set {
+        ThrowIfDisposed();
+        _controller.Place(model, in value);
+      }
+    }
+    public Vector3 ResolvedPosition => model.position;
+
+    public void Track(Transform transform, Vector3 offset = default) {
+      ThrowIfDisposed();
+      _trackedTransform = transform;
+      _trackingOffset = offset;
+    }
+
+    public void StopTracking() => _trackedTransform = null;
+    public void Invalidate() => _dirty = true;
+
+    public void Dispose() {
+      if (_disposed) return;
+      _disposed = true;
+      _controller.Remove(model);
+    }
+
+    internal void ResolveTrackedPosition() {
+      if (_trackedTransform) model.position = _trackedTransform.position + _trackingOffset;
+    }
+
+    internal void Produce() {
+      if (!Enabled || (UpdateMode == CameraOverlayUpdateMode.WhenInvalidated && !_dirty)) return;
+      _writer.StartUpdate();
+      try { _producer(_writer); }
+      finally { _writer.FinishUpdate(); }
+      _dirty = false;
+    }
+
+    private void ThrowIfDisposed() {
+      if (_disposed) throw new ObjectDisposedException(nameof(CameraOverlayEntry));
+    }
   }
 
   public sealed class CameraOverlayController {
     internal readonly DynamicComposableController<DynamicFlexLayout> screen = new();
     internal readonly DynamicComposableController<DynamicStackLayout> world = new();
-    private readonly CameraOverlayProseWriter _writer;
-    private readonly Dictionary<ulong, OverlayEntryModel> _entries = new();
     internal Camera camera;
-    public CameraOverlayController() => _writer = new CameraOverlayProseWriter(this);
-    public IProseWriter Writer => _writer;
-    public void BeginFrame() => _writer.Reset();
     public void SetCamera(Camera value) => camera = value;
 
-    internal OverlayEntryModel GetOrCreate(ulong id) {
+    public CameraOverlayEntry Subscribe(
+      string key, CameraOverlayPosition position, CameraOverlayProducer producer
+    ) => Subscribe(CameraOverlayUtility.StableId(key), position, producer);
+
+    public CameraOverlayEntry Subscribe(
+      ulong id, CameraOverlayPosition position, CameraOverlayProducer producer
+    ) {
       if (id == 0) throw new ArgumentOutOfRangeException(nameof(id));
-      if (_entries.TryGetValue(id, out var model)) return model;
-      model = new OverlayEntryModel { space = CameraOverlaySpace.Screen };
-      model.dynamicEntry = screen.AddEntry(id, CameraOverlayElement.ComposeBox, default, model);
-      _entries.Add(id, model);
-      return model;
+      var model = new OverlayEntryModel {
+        space = position.Space, position = position.Value, order = position.Order
+      };
+      model.dynamicEntry = position.Space == CameraOverlaySpace.World
+        ? world.AddEntry(id, CameraOverlayElement.ComposeBox, default, model, position.Order)
+        : screen.AddEntry(id, CameraOverlayElement.ComposeBox, default, model, position.Order);
+      return new CameraOverlayEntry(this, model, producer);
     }
 
     internal void Place(OverlayEntryModel model, in CameraOverlayPosition placement) {
@@ -168,34 +226,46 @@ namespace HELIX.UI.CameraOverlays {
 
     internal void Remove(OverlayEntryModel model) {
       model.dynamicEntry.Remove();
-      _entries.Remove((ulong)model.dynamicEntry.key);
+    }
+
+    internal void ContentChanged(OverlayEntryModel model) {
+      if (model.space == CameraOverlaySpace.World) world.NotifyEntriesChanged();
+      else screen.NotifyEntriesChanged();
     }
   }
 
   /// <summary>Allocation-stable semantic sink used to write overlay properties directly into an entry model.</summary>
   internal sealed class CameraOverlayProseWriter : ProseWriter {
-    private enum Frame : byte { Box, Property, Key, Value, Description, Header, Paragraph, Span }
+    private enum Frame : byte { Property, Key, Value, Description, Header, Paragraph, Span }
     private readonly Frame[] _frames = new Frame[8];
     private readonly CameraOverlayController _controller;
+    private readonly OverlayEntryModel _target;
     private int _frameCount;
+    private bool _updating;
     private string _key, _unit;
     private Color? _color;
     private OverlayFieldModel _field;
 
-    internal OverlayEntryModel Target { get; private set; }
-    internal CameraOverlayProseWriter(CameraOverlayController controller) => _controller = controller;
-    internal void Reset() { _frameCount = 0; Target = null; }
+    internal CameraOverlayProseWriter(CameraOverlayController controller, OverlayEntryModel target) {
+      _controller = controller; _target = target;
+    }
+    internal void StartUpdate() {
+      if (_updating) throw new InvalidOperationException("The camera overlay entry is already being updated.");
+      _updating = true;
+    }
+    internal void FinishUpdate() {
+      if (_frameCount != 0) throw new InvalidOperationException("All prose scopes must be ended before finishing an overlay update.");
+      if (!_updating) return;
+      _updating = false;
+      unchecked { _target.revision++; }
+    }
 
     public override bool TryBegin<T>(T scope) {
+      if (!_updating) throw new InvalidOperationException("Begin an update through the owning camera overlay entry first.");
       if (IsNull(scope)) throw new ArgumentNullException(nameof(scope));
       if (_frameCount == _frames.Length) throw new InvalidOperationException("Camera overlay prose nesting exceeds its fixed capacity.");
       Frame frame;
-      if (typeof(T) == typeof(CameraOverlayBox)) {
-        ref var box = ref Unsafe.As<T, CameraOverlayBox>(ref scope);
-        Target = _controller.GetOrCreate(box.Id); Target.seen = Time.unscaledTime; frame = Frame.Box;
-      }
-      else if (Target == null) return false;
-      else switch (scope) {
+      switch (scope) {
         case ProseProperty:
           _key = null;
           _unit = null;
@@ -225,16 +295,15 @@ namespace HELIX.UI.CameraOverlays {
       if (_frameCount == 0) throw new InvalidOperationException("There is no camera overlay prose frame to end.");
       var scope = _frames[--_frameCount];
       if (scope == Frame.Property && _field != null) {
-        _field.description = _unit; _field.color = _color; _field.seen = Time.unscaledTime;
-      } else if (scope == Frame.Box) Target = null;
+        _field.description = _unit; _field.color = _color;
+      }
     }
 
     public override void Push<T>(T modifier) {
       if (IsNull(modifier)) throw new ArgumentNullException(nameof(modifier));
-      if (Target == null) return;
       if (typeof(T) == typeof(CameraOverlayPosition)) {
         ref var position = ref Unsafe.As<T, CameraOverlayPosition>(ref modifier);
-        _controller.Place(Target, in position);
+        _controller.Place(_target, in position);
       } else if (typeof(T) == typeof(CameraOverlayColor)) {
         _color = Unsafe.As<T, CameraOverlayColor>(ref modifier).Value;
       }
@@ -243,17 +312,17 @@ namespace HELIX.UI.CameraOverlays {
     public override void Write<T>(T prose) {
       if (IsNull(prose)) Write("null");
       else if (typeof(T) == typeof(CameraOverlayContent))
-        Target.content = Unsafe.As<T, CameraOverlayContent>(ref prose).Value;
+        SetContent(Unsafe.As<T, CameraOverlayContent>(ref prose).Value);
       else prose.ToProse(this);
     }
 
     public override void Write<T>(T value, IDatatype<T> datatype) {
       if (datatype == null) throw new ArgumentNullException(nameof(datatype));
-      if (_frameCount == 0 || _frames[_frameCount - 1] != Frame.Value || Target == null || _key == null)
+      if (_frameCount == 0 || _frames[_frameCount - 1] != Frame.Value || _key == null)
         return;
-      if (!Target.fields.TryGetValue(_key, out var current) || current is not OverlayFieldModel<T> field) {
+      if (!_target.fields.TryGetValue(_key, out var current) || current is not OverlayFieldModel<T> field) {
         field = new OverlayFieldModel<T> { label = _key };
-        Target.fields[_key] = field;
+        _target.fields[_key] = field;
       }
       field.value = value;
       field.datatype = datatype;
@@ -265,8 +334,14 @@ namespace HELIX.UI.CameraOverlays {
       var scope = _frames[_frameCount - 1];
       if (scope == Frame.Key) _key = text;
       else if (scope == Frame.Description) _unit = text;
-      else if (scope == Frame.Header) Target.title = text;
-      else if (scope == Frame.Paragraph) Target.subtitle = text;
+      else if (scope == Frame.Header) _target.title = text;
+      else if (scope == Frame.Paragraph) _target.subtitle = text;
+    }
+
+    private void SetContent(Composable content) {
+      if (ReferenceEquals(_target.content, content)) return;
+      _target.content = content;
+      _controller.ContentChanged(_target);
     }
 
     private static bool IsNull<T>(T value) {
@@ -314,8 +389,7 @@ namespace HELIX.UI.CameraOverlays {
       _description.style.color = new Color(.61f, .65f, .71f);
     }
 
-    public void Bind(OverlayFieldModel field, float now) {
-      style.display = now - field.seen < .15f ? DisplayStyle.Flex : DisplayStyle.None;
+    public void Bind(OverlayFieldModel field) {
       _key.SetText(field.label.AsSpan());
       SetOptional(_prefix, field.Prefix);
       var parts = field.SetText(_value, _value2, _value3);
@@ -349,7 +423,7 @@ namespace HELIX.UI.CameraOverlays {
       Add(_subtitle = new Label()); _subtitle.style.fontSize = 10; _subtitle.style.color = new Color(.65f, .7f, .78f);
       Add(_fields = new VisualElement());
     }
-    public void Bind(OverlayEntryModel entry, float now) {
+    public void Bind(OverlayEntryModel entry) {
       _title.text = entry.title; _title.style.display = string.IsNullOrEmpty(entry.title) ? DisplayStyle.None : DisplayStyle.Flex;
       _subtitle.text = entry.subtitle; _subtitle.style.display = string.IsNullOrEmpty(entry.subtitle) ? DisplayStyle.None : DisplayStyle.Flex;
       foreach (var pair in entry.fields) {
@@ -358,7 +432,7 @@ namespace HELIX.UI.CameraOverlays {
           _properties[pair.Key] = property = new OverlayPropertyElement();
           _fields.Add(property);
         }
-        property.Bind(field, now);
+        property.Bind(field);
       }
     }
   }
@@ -370,14 +444,14 @@ namespace HELIX.UI.CameraOverlays {
         box = new CameraOverlayBoxElement();
       var entry = DynamicComposable.Lookup(cx.boundary.Element);
       var model = (OverlayEntryModel)entry.UserData;
-      box.Bind(model, Time.unscaledTime);
+      box.Bind(model);
+      model.renderedRevision = model.revision;
       cx.AUTHORING.YieldElement(ref cx, box);
       model.content?.Invoke(ref cx);
     };
 
     private readonly CameraOverlayController _controller;
     private readonly VisualElement _screen, _world;
-    private readonly List<string> _deadFields = new();
     private readonly Comparison<VisualElement> _worldDepth;
     private Vector3 _cameraPosition;
     public CameraOverlayElement(CameraOverlayController controller) {
@@ -399,24 +473,12 @@ namespace HELIX.UI.CameraOverlays {
       UpdateScreen(now); UpdateWorld(now);
     }
     private void UpdateScreen(float now) {
-      for (var i = _controller.screen.Count - 1; i >= 0; i--) {
-        var entry = _controller.screen.Entries[i];
-        var model = (OverlayEntryModel)entry.UserData;
-        if (now - model.seen > 2) { _controller.Remove(model); continue; }
-        CleanupFields(model, now);
-      }
       DynamicCollectionHelper.Synchronize(_screen, _controller.screen);
       UpdateElements(_screen, now, false, null);
     }
     private void UpdateWorld(float now) {
       var camera = _controller.camera ? _controller.camera : Camera.main; if (!camera) return;
       _cameraPosition = camera.transform.position;
-      for (var i = _controller.world.Count - 1; i >= 0; i--) {
-        var entry = _controller.world.Entries[i];
-        var model = (OverlayEntryModel)entry.UserData;
-        if (now - model.seen > 2) { _controller.Remove(model); continue; }
-        CleanupFields(model, now);
-      }
       DynamicCollectionHelper.Synchronize(_world, _controller.world);
       UpdateElements(_world, now, true, camera);
       _world.hierarchy.Sort(_worldDepth);
@@ -426,8 +488,9 @@ namespace HELIX.UI.CameraOverlays {
       for (var i = 0; i < parent.childCount; i++) {
         if (parent.ElementAt(i) is not DynamicComposableElement element) continue;
         var model = (OverlayEntryModel)element.Entry.UserData;
-        var visible = now - model.seen < .15f;
-        if (world) {
+        var visible = model.owner.Enabled;
+        if (world && visible) {
+          model.owner.ResolveTrackedPosition();
           var point = camera.WorldToScreenPoint(model.position);
           visible &= point.z > 0;
           if (visible) {
@@ -445,15 +508,14 @@ namespace HELIX.UI.CameraOverlays {
           element.style.translate = new Translate(0, 0);
           element.style.scale = new Scale(Vector3.one);
         }
+        if (visible) model.owner.Produce();
         element.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
-        if (element.childCount > 0 && element.ElementAt(0) is CameraOverlayBoxElement box) box.Bind(model, now);
+        if (model.renderedRevision != model.revision && element.childCount > 0 &&
+            element.ElementAt(0) is CameraOverlayBoxElement box) {
+          box.Bind(model);
+          model.renderedRevision = model.revision;
+        }
       }
-    }
-
-    private void CleanupFields(OverlayEntryModel entry, float now) {
-      _deadFields.Clear();
-      foreach (var pair in entry.fields) if (now - pair.Value.seen > 2f) _deadFields.Add(pair.Key);
-      for (var i = 0; i < _deadFields.Count; i++) entry.fields.Remove(_deadFields[i]);
     }
 
     private static OverlayEntryModel Model(VisualElement element) =>

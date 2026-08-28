@@ -8,46 +8,69 @@ using UnityEngine;
 /// <summary>Live examples for prose-authored screen and world camera-overlay boxes.</summary>
 [Managed(typeof(ApplicationScope))]
 public partial class ExampleCameraOverlays : MonoBehaviour {
+  private CameraOverlayEntry _screen, _camera, _world;
   private Camera _namedCamera;
   private string _cameraName;
 
+  [Hook]
+  private void OnDispose() {
+    _screen?.Dispose();
+    _camera?.Dispose();
+    _world?.Dispose();
+  }
+
   [EventHandler]
   private void OnCollectCameraOverlay(CollectCameraOverlayEvent evt) {
-    var prose = evt.prose;
-    using (prose.Box("helix.overlay.example.screen", CameraOverlayPosition.Screen(10, 10, -100))) {
-      prose.WriteSectionHeader("HELIX");
-      prose.WriteParagraph("Per-frame camera overlay");
-      prose.Property("Frame", Time.frameCount, Datatypes.Int);
-      prose.Property("Time", Time.unscaledTime, Datatypes.Float);
-      prose.Property("Time scale", Time.timeScale, Datatypes.Float);
-      prose.Content(ExtraContent);
+    if (_screen == null) {
+      _screen = evt.overlays.Subscribe(
+        "helix.overlay.example.screen", CameraOverlayPosition.Screen(10, 10, -100), WriteScreen
+      );
+      _camera = evt.overlays.Subscribe(
+        "helix.overlay.example.camera", CameraOverlayPosition.Screen(10, 170), WriteCamera
+      );
+      _world = evt.overlays.Subscribe(
+        "helix.overlay.example.world", CameraOverlayPosition.World(Vector3.zero), WriteWorld
+      );
+      _world.Track(transform, Vector3.up * 2f);
     }
 
     var camera = Camera.main;
-    if (!camera) return;
-    if (!object.ReferenceEquals(_namedCamera, camera)) {
+    _camera.Enabled = _world.Enabled = camera;
+    if (camera && !object.ReferenceEquals(_namedCamera, camera)) {
       _namedCamera = camera;
       _cameraName = camera.name;
     }
-    using (prose.Box("helix.overlay.example.camera", CameraOverlayPosition.Screen(10, 170))) {
-      prose.WriteSectionHeader("Camera");
-      prose.WriteParagraph(_cameraName);
-      prose.Property("Position", camera.transform.position, Datatypes.Vector3);
-      using (prose.Property()) {
-        prose.Push(new CameraOverlayColor(new Color(.55f, .85f, 1f)));
-        using (prose.PropertyKey()) prose.Write("FOV");
-        using (prose.PropertyValue()) prose.Write(camera.fieldOfView, Datatypes.Float);
-      }
-    }
+  }
 
-    var position = Vector3.zero;
-    using (prose.Box("helix.overlay.example.world", CameraOverlayPosition.World(position))) {
-      prose.WriteSectionHeader("HELIX World");
-      prose.WriteParagraph("World-positioned box");
-      prose.Property("Position", position, Datatypes.Vector3);
-      prose.Property("Distance", Vector3.Distance(camera.transform.position, position), Datatypes.Float);
+  private void WriteScreen(IProseWriter prose) {
+    prose.WriteSectionHeader("HELIX");
+    prose.WriteParagraph("Per-frame camera overlay");
+    prose.Property("Frame", Time.frameCount, Datatypes.Int);
+    prose.Property("Time", Time.unscaledTime, Datatypes.Float);
+    prose.Property("Time scale", Time.timeScale, Datatypes.Float);
+    prose.Content(ExtraContent);
+  }
+
+  private void WriteCamera(IProseWriter prose) {
+    var camera = _namedCamera;
+    prose.WriteSectionHeader("Camera");
+    prose.WriteParagraph(_cameraName);
+    prose.Property("Position", camera.transform.position, Datatypes.Vector3);
+    using (prose.Property()) {
+      prose.Push(new CameraOverlayColor(new Color(.55f, .85f, 1f)));
+      using (prose.PropertyKey()) prose.Write("FOV");
+      using (prose.PropertyValue()) prose.Write(camera.fieldOfView, Datatypes.Float);
     }
   }
 
-  private static void ExtraContent(ref Composition cx) => cx.Text("Arbitrary composable content");
+  private void WriteWorld(IProseWriter prose) {
+    var position = _world.ResolvedPosition;
+    prose.WriteSectionHeader("HELIX World");
+    prose.WriteParagraph("Transform-tracked box");
+    prose.Property("Position", position, Datatypes.Vector3);
+    prose.Property("Distance", Vector3.Distance(_namedCamera.transform.position, position), Datatypes.Float);
+  }
+
+  [ComposableDelegate]
+  private static void _ExtraContent(ref Composition cx) => cx.Text("Arbitrary composable content");
 }

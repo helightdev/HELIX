@@ -12,9 +12,8 @@ namespace HELIX.Boot {
     [Ticker]
     private void CollectOverlays() {
       var overlay = _gui.cameraOverlays;
-      overlay.BeginFrame();
       overlay.SetCamera(_gui.cameraProvider.GetGuiReferenceCamera());
-      new CollectCameraOverlayEvent(overlay.Writer).Raise();
+      new CollectCameraOverlayEvent(overlay).Raise();
     }
   }
 }
