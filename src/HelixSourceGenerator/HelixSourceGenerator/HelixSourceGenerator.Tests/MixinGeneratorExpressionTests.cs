@@ -12,6 +12,135 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class MixinGeneratorExpressionTests {
   [Fact]
+  public void MapValuesCanSelectConstructorArgumentFromAttributeParameter() {
+    const string source = """
+                          using System;
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
+                          public sealed class MarkerAttribute : Attribute {
+                            public MarkerAttribute(string name) { }
+                          }
+                          [HELIX.MixinExpression(
+                            "@FUNC<ReadName>\n@RETURN @param#name:unwrap\n@END\n" +
+                            "@LOCAL<items> @target:attributesOf<MarkerAttribute>\n" +
+                            "@LOCAL<names> @local#items:mapValues<ReadName>\n" +
+                            "@CODE<CLASS> public const string Names = \"@local#names:joinValues<,>\";"
+                          )]
+                          [AttributeUsage(AttributeTargets.Method)] public sealed class ReadMarkersAttribute : Attribute { }
+                          [HELIX.EnableMixins]
+                          public partial class Demo {
+                            [ReadMarkers, Marker("Hello"), Marker("World"), Marker("Test")]
+                            public void Work() { }
+                          }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "AttributeMapValueTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources).SourceText.ToString();
+    Assert.Contains("Names = \"Hello,World,Test\"", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
+  public void ImportedHookFunctionKeepsRoslynConstantsRawUntilRendering() {
+    const string source = """
+                          using System;
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixinLibraryAttribute : Attribute {
+                              public MixinLibraryAttribute(string content) { }
+                            }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixinImportAttribute : Attribute {
+                              public MixinImportAttribute(Type type) { }
+                            }
+                            [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)] public sealed class MixinDefineTargetAttribute : Attribute {
+                              public MixinDefineTargetAttribute(string key, string target) { }
+                            }
+                            [AttributeUsage(AttributeTargets.Method)]
+                            [MixinImport(typeof(CoreLibrary))]
+                            [MixinExpression("@CALL<HookImpl>")]
+                            public sealed class HookAttribute : Attribute {
+                              public HookAttribute(string target = null, int order = 0) { }
+                            }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                            [MixinLibrary("@FUNC<HookImpl>\n@LOCAL<Name> @attr#target:unwrap\n@SCOPE\n@MATCH @local#Name:eq<null>\n@LOCAL<Name> $@target:name:replaceFirst<^On><>\n@END\n@RESOLVE_MIXIN<Delegate> @local#Name\n@ASSERT @local#Delegate:!?eq<null>\n@MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);\n@END")]
+                            public static class CoreLibrary { }
+                          }
+                          [HELIX.EnableMixins, HELIX.MixinDefineTarget("$Compose", "Compose")]
+                          public partial class Demo {
+                            private delegate void ComposeDelegate(int value);
+                            private partial void Compose(int value);
+                            [HELIX.Hook(order: -2)] private void OnCompose(int value) { }
+                          }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "HookRawValueTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources).SourceText.ToString();
+    Assert.Contains("OnCompose", text);
+  }
+
+  [Fact]
+  public void AttributeFunctionsReturnOrderedAndFilteredAttributeValues() {
+    const string source = "using System;\n" + """
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
+                              public MixinExpressionAttribute(string expression) { }
+                            }
+                          }
+                          public class BaseMarkerAttribute : Attribute { }
+                          public sealed class DerivedMarkerAttribute : BaseMarkerAttribute { }
+                          public sealed class OtherMarkerAttribute : Attribute { }
+                          [HELIX.MixinExpression(
+                            "@LOCAL<markers> @target:attributesOf<BaseMarkerAttribute>\n" +
+                            "@CODE<CLASS> public const string Counts = \"@target:attributes:size|@local#markers:size|@target:attributesOfExact<DerivedMarkerAttribute>:size\";\n" +
+                            "@CODE<CLASS> public const string First = \"@target:attributeOf<BaseMarkerAttribute>:name\";"
+                          )]
+                          [AttributeUsage(AttributeTargets.Method)] public sealed class InspectAttribute : Attribute { }
+                          [HELIX.EnableMixins]
+                          public partial class Demo {
+                            [Inspect, DerivedMarker, OtherMarker] private void Work() { }
+                          }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "AttributeFunctionTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources).SourceText.ToString();
+    Assert.Contains("Counts = \"3|1|1\"", text);
+    Assert.Contains("First = \"DerivedMarkerAttribute\"", text);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
   public void PropStructDirectiveGeneratesMethodParameterStructAndUnwrappedCall() {
     const string source = "using System;\n" + PropStructDatatypeRuntime + """
                           namespace HELIX {

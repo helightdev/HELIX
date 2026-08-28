@@ -45,6 +45,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var canonicalCandidate = MixinGeneratorCandidates.AttributeMetadataNames.FirstOrDefault(candidate =>
       type.GetAttributes().Any(attribute => IsAttribute(attribute, candidate))
     );
+
     if (matchedCandidate != canonicalCandidate) return null;
     return context.SemanticModel.Compilation is CSharpCompilation compilation
       ? new MixinTarget(type, compilation)

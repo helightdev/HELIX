@@ -173,5 +173,21 @@ public sealed class MixinExpressionInterpreter {
     }
   }
 
-  internal sealed record CallFrame(int ReturnAddress, bool HadParameter, object Parameter);
+  internal enum FrameContinuation { Call, StoreLocal, StoreVariable, EmitCode, Return }
+
+  internal sealed class CallFrame {
+    internal int ReturnAddress;
+    internal bool HadParameter;
+    internal object Parameter;
+    internal string ReturnLocal;
+    internal FrameContinuation Continuation;
+    internal MixinTransformRequest Transform;
+    internal KeyValuePair<string, IMixinValue>[] Inputs;
+    internal int InputIndex;
+    internal MixinExpressionTable Accumulator;
+    internal int FunctionStart;
+    internal string Destination;
+    internal MixinExpressionOutputTarget OutputTarget;
+    internal string InjectionTarget;
+  }
 }

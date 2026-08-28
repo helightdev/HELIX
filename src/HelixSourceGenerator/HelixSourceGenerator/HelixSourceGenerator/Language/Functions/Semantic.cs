@@ -85,6 +85,31 @@ internal static class FunctionResults {
   }
 }
 
+internal enum AttributeFunctionKind { All, Assignable, Exact, First }
+
+internal sealed class AttributeFunction : FunctionDefinition {
+  private readonly AttributeFunctionKind _kind;
+  internal AttributeFunction(string name, int arguments, AttributeFunctionKind kind) : base(name, arguments, arguments) {
+    _kind = kind;
+  }
+
+  internal override bool Invoke(
+    FunctionInvocation invocation, IMixinExpressionContext context,
+    string root, string member, ref object value, out string error
+  ) {
+    var typed = MixinValue.From(value, context);
+    value = _kind switch {
+      AttributeFunctionKind.All => typed.Attributes(null, false),
+      AttributeFunctionKind.Assignable => typed.Attributes(invocation.Argument, false),
+      AttributeFunctionKind.Exact => typed.Attributes(invocation.Argument, true),
+      AttributeFunctionKind.First => typed.FirstAttribute(invocation.Argument),
+      _ => null
+    };
+    error = null;
+    return true;
+  }
+}
+
 internal sealed class WireFunction : FunctionDefinition {
   internal WireFunction() : base("wire", 1, 1) { }
 

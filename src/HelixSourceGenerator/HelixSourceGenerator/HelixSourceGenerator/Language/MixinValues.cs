@@ -29,6 +29,8 @@ public interface IMixinValue {
   bool IsWireable(string from, string to);
   bool TryWire(string to, out string arguments, out string error);
   bool TryApplyPropStruct(MixinExpressionProperty property, out object result, out string error);
+  MixinExpressionTable Attributes(string type, bool exact);
+  object FirstAttribute(string type);
   bool HasTrait(MixinValueTrait trait);
   ITypeSymbol ResolveType(string name);
   bool IsGeneratedType(string name);
@@ -61,6 +63,8 @@ public abstract class MixinValue : IMixinValue {
   public virtual bool TryApplyPropStruct(MixinExpressionProperty property, out object result, out string error) {
     result = null; error = ":" + property.Name + " must be called on a prop struct handle"; return false;
   }
+  public virtual MixinExpressionTable Attributes(string type, bool exact) => new MixinExpressionTable();
+  public virtual object FirstAttribute(string type) => null;
   public virtual bool HasTrait(MixinValueTrait trait) => false;
   public virtual ITypeSymbol ResolveType(string name) => null;
   public virtual bool IsGeneratedType(string name) => false;

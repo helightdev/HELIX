@@ -25,6 +25,8 @@ internal static class MixinExpressionEvaluator {
       value = null;
       return false;
     }
+    if (context is IMixinExpressionValueContext valueContext)
+      return valueContext.TryRenderValue(resolved, null, out value, out error);
     value = RenderValue(resolved);
     return true;
   }
@@ -198,7 +200,16 @@ internal static class MixinExpressionEvaluator {
         result = null;
         return false;
       }
-      builder.Append(RenderValue(value));
+      if (context is IMixinExpressionValueContext valueContext) {
+        var renderRoot = part.Reference.Properties.Any(item =>
+          !IsBooleanProperty(item) && item.Name == "type"
+        ) ? null : part.Reference.Root;
+        if (!valueContext.TryRenderValue(value, renderRoot, out var rendered, out error)) {
+          result = null;
+          return false;
+        }
+        builder.Append(rendered);
+      } else builder.Append(RenderValue(value));
     }
     result = builder.ToString();
     return true;
@@ -294,13 +305,18 @@ internal static class MixinExpressionEvaluator {
         _ => null
       };
       if (!string.IsNullOrEmpty(reference.Member)) {
-        value = value is MixinExpressionTable table && table.TryGetValue(reference.Member, out var selected)
-          ? selected
-          : null;
+        if (value is MixinExpressionTable table)
+          value = table.TryGetValue(reference.Member, out var selected) ? selected : null;
+        else value = MixinValue.From(value, context).Select(reference.Member);
       }
       return TryApplyStringProperties(reference, context, null, ref value, out error);
     }
     if (TryStored(reference, context, locals, variables, out value, out error)) return error is null;
+    if (context is IMixinExpressionValueContext valueContext) {
+      if (valueContext.TryResolveValue(reference, out value, out error)) return true;
+      value = null;
+      return false;
+    }
     if (context.TryResolve(reference, out var resolved, out error)) {
       value = resolved;
       return true;
@@ -519,7 +535,13 @@ internal static class MixinExpressionEvaluator {
           prepared = null;
           return false;
         }
-        arguments.Add(RenderValue(resolvedValue));
+        if (context is IMixinExpressionValueContext valueContext) {
+          if (!valueContext.TryRenderValue(resolvedValue, null, out var rendered, out error)) {
+            prepared = null;
+            return false;
+          }
+          arguments.Add(rendered);
+        } else arguments.Add(RenderValue(resolvedValue));
         values.Add(resolvedValue);
       }
       properties.Add(
@@ -636,10 +658,29 @@ internal static class MixinExpressionEvaluator {
     out string error
   ) {
     error = null;
-    foreach (var property in reference.Properties) {
+    for (var index = 0; index < reference.Properties.Count; index++) {
+      var property = reference.Properties[index];
       if (IsBooleanProperty(property) || property.Name is "and" or "or") continue;
       if (!FunctionLibrary.TryInvoke(property, context, reference.Root, name, ref value, out error)) return false;
+      if (value is MixinTransformRequest request) {
+        request.RemainingProperties = reference.Properties.Skip(index + 1).ToArray();
+        return true;
+      }
     }
+    return true;
+  }
+
+  internal static bool TryResumeTransform(
+    MixinTransformRequest request,
+    IMixinExpressionContext context,
+    object accumulated,
+    out object value,
+    out string error
+  ) {
+    value = accumulated;
+    error = null;
+    foreach (var property in request.RemainingProperties ?? Array.Empty<MixinExpressionProperty>())
+      if (!FunctionLibrary.TryInvoke(property, context, "table", null, ref value, out error)) return false;
     return true;
   }
 

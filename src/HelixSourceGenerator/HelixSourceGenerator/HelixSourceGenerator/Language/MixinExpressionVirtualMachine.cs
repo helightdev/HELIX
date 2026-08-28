@@ -61,6 +61,87 @@ internal static class MixinExpressionVirtualMachine {
     var maximumSteps = Math.Max(1024, lines.Count * 64);
     var calls = new Stack<CallFrame>();
     var localSymbolsIndexed = false;
+
+    bool FinishTransform(CallFrame frame, out string finishError) {
+      if (!TryResumeTransform(
+        frame.Transform, context, frame.Accumulator, out var completed, out finishError
+      )) return false;
+      switch (frame.Continuation) {
+        case FrameContinuation.StoreLocal: locals[frame.Destination] = completed; break;
+        case FrameContinuation.StoreVariable: pendingVariables[frame.Destination] = completed; break;
+        case FrameContinuation.EmitCode:
+          outputs.Add(new MixinExpressionOutput(
+            frame.OutputTarget, Render(completed), frame.InjectionTarget
+          ));
+          break;
+        case FrameContinuation.Return:
+          return CompleteCall(completed, out finishError);
+      }
+      return true;
+    }
+
+    object TransformParameter(CallFrame frame) {
+      var item = frame.Inputs[frame.InputIndex];
+      if (frame.Transform.Kind == TableTransformKind.MapValues) return item.Value.BackingValue;
+      return new MixinExpressionTable().Put("k", item.Key).Put("v", item.Value.BackingValue);
+    }
+
+    bool BeginTransform(
+      MixinTransformRequest request, FrameContinuation continuation, string destination,
+      MixinExpressionOutputTarget outputTarget, string injectionTarget, out string beginError
+    ) {
+      beginError = null;
+      if (!functions.TryGetValue(request.FunctionLabel ?? "", out var callback)) {
+        beginError = "unknown function '" + (request.FunctionLabel ?? "") + "'";
+        return false;
+      }
+      var frame = new CallFrame {
+        ReturnAddress = pc,
+        HadParameter = locals.TryGetValue(ParameterLocalKey, out var previous),
+        Parameter = previous,
+        Continuation = continuation,
+        Transform = request,
+        Inputs = request.Source.Entries.ToArray(),
+        Accumulator = new MixinExpressionTable(),
+        FunctionStart = callback.Start,
+        Destination = destination,
+        OutputTarget = outputTarget,
+        InjectionTarget = injectionTarget
+      };
+      if (frame.Inputs.Length == 0) return FinishTransform(frame, out beginError);
+      calls.Push(frame);
+      locals[ParameterLocalKey] = TransformParameter(frame);
+      pc = frame.FunctionStart;
+      return true;
+    }
+
+    bool CompleteCall(object returned, out string completeError) {
+      completeError = null;
+      var frame = calls.Peek();
+      if (frame.Transform is null) {
+        calls.Pop();
+        RestoreCallParameter(locals, frame);
+        if (!string.IsNullOrEmpty(frame.ReturnLocal)) locals[frame.ReturnLocal] = returned;
+        pc = frame.ReturnAddress;
+        return true;
+      }
+      var input = frame.Inputs[frame.InputIndex];
+      if (frame.Transform.Kind == TableTransformKind.Filter) {
+        if (MixinValue.From(returned, context).IsTruthy)
+          frame.Accumulator = frame.Accumulator.Put(input.Key, input.Value.BackingValue);
+      } else frame.Accumulator = frame.Accumulator.Put(input.Key, returned);
+      frame.InputIndex++;
+      if (frame.InputIndex < frame.Inputs.Length) {
+        locals[ParameterLocalKey] = TransformParameter(frame);
+        pc = frame.FunctionStart;
+        return true;
+      }
+      calls.Pop();
+      RestoreCallParameter(locals, frame);
+      pc = frame.ReturnAddress;
+      return FinishTransform(frame, out completeError);
+    }
+
     while (pc < lines.Count) {
       if (++steps > maximumSteps) return Failure("execution limit exceeded (possible GOTO loop)", pc + 1, logs);
       if (pc >= preparedCount && !localSymbolsIndexed && lines[pc].Command == "FUNC") {
@@ -94,9 +175,8 @@ internal static class MixinExpressionVirtualMachine {
           break;
         case DirectiveOpcode.End:
           if (functionEnds.Contains(instruction) && calls.Count != 0) {
-            var frame = calls.Pop();
-            RestoreCallParameter(locals, frame);
-            pc = frame.ReturnAddress;
+            if (!CompleteCall(null, out var endCallError))
+              return Failure(endCallError, lineNumber, logs);
           }
           break;
         case DirectiveOpcode.Match:
@@ -152,10 +232,22 @@ internal static class MixinExpressionVirtualMachine {
           if (!asserted) return Failure(assertFailure, lineNumber, logs);
           break;
         case DirectiveOpcode.Code:
+          TryOutputTarget(argument, out var outputTarget, out var injectionTarget);
+          if (parsed.ValueExpression is { Count: 1 } && parsed.ValueExpression[0].Reference is not null) {
+            if (!TryEvaluateExpression(
+              parsed.ValueExpression, context, locals, pendingVariables, out var codeValue, out var codeValueError
+            )) return Failure(codeValueError, lineNumber, logs);
+            if (codeValue is MixinTransformRequest codeTransform) {
+              if (!BeginTransform(
+                codeTransform, FrameContinuation.EmitCode, null, outputTarget, injectionTarget,
+                out var beginCodeError
+              )) return Failure(beginCodeError, lineNumber, logs);
+              break;
+            }
+          }
           if (!TryInterpolate(
             parsed.ValueExpression, context, locals, pendingVariables, out var code, out var codeError
           )) return Failure(codeError, lineNumber, logs);
-          TryOutputTarget(argument, out var outputTarget, out var injectionTarget);
           outputs.Add(new MixinExpressionOutput(outputTarget, code, injectionTarget));
           break;
         case DirectiveOpcode.Mixin:
@@ -256,6 +348,16 @@ internal static class MixinExpressionVirtualMachine {
           if (!TryEvaluateExpression(
             parsed.ValueExpression, context, locals, pendingVariables, out var stored, out var storeError
           )) return Failure(storeError, lineNumber, logs);
+          if (stored is MixinTransformRequest storeTransform) {
+            if (!BeginTransform(
+              storeTransform,
+              parsed.Opcode == DirectiveOpcode.Local
+                ? FrameContinuation.StoreLocal
+                : FrameContinuation.StoreVariable,
+              argument, default, null, out var beginStoreError
+            )) return Failure(beginStoreError, lineNumber, logs);
+            break;
+          }
           (parsed.Opcode == DirectiveOpcode.Local ? locals : pendingVariables)[argument] = stored;
           break;
         case DirectiveOpcode.PropStruct:
@@ -368,15 +470,28 @@ internal static class MixinExpressionVirtualMachine {
           break;
         case DirectiveOpcode.Return:
           if (calls.Count != 0) {
-            var frame = calls.Pop();
-            RestoreCallParameter(locals, frame);
-            pc = frame.ReturnAddress;
+            object returnValue = null;
+            if (!string.IsNullOrEmpty(operand) && !TryEvaluateExpression(
+              parsed.ValueExpression, context, locals, pendingVariables,
+              out returnValue, out var returnError
+            )) return Failure(returnError, lineNumber, logs);
+            if (returnValue is MixinTransformRequest returnTransform) {
+              if (!BeginTransform(
+                returnTransform, FrameContinuation.Return, null, default, null,
+                out var beginReturnError
+              )) return Failure(beginReturnError, lineNumber, logs);
+              break;
+            }
+            if (!CompleteCall(returnValue, out var completeCallError))
+              return Failure(completeCallError, lineNumber, logs);
             break;
           }
           CommitVariables(variables, pendingVariables);
           return Success(outputs, logs);
         case DirectiveOpcode.Call:
-          if (!functions.ContainsKey(argument ?? "") && !localSymbolsIndexed) {
+          var callFunctionLabel = parsed.Arguments.Count == 2 ? parsed.Arguments[1] : argument;
+          var callReturnLocal = parsed.Arguments.Count == 2 ? argument : null;
+          if (!functions.ContainsKey(callFunctionLabel ?? "") && !localSymbolsIndexed) {
             if (!TryIndexSymbols(
               lines, preparedCount, lines.Count, labels, instructionScopes,
               functions, functionStarts, functionEnds,
@@ -384,15 +499,21 @@ internal static class MixinExpressionVirtualMachine {
             )) return Failure(symbolError, symbolLine, logs);
             localSymbolsIndexed = true;
           }
-          if (string.IsNullOrEmpty(argument) || !functions.TryGetValue(argument, out var function))
-            return Failure("unknown function '" + (argument ?? "") + "'", lineNumber, logs);
+          if (string.IsNullOrEmpty(callFunctionLabel) || !functions.TryGetValue(callFunctionLabel, out var function))
+            return Failure("unknown function '" + (callFunctionLabel ?? "") + "'", lineNumber, logs);
           var hadParameter = locals.TryGetValue(ParameterLocalKey, out var previousParameter);
           object callParameter = null;
           if (!string.IsNullOrEmpty(operand) && !TryEvaluateExpression(
             parsed.ValueExpression, context, locals, pendingVariables,
             out callParameter, out var callParameterError
           )) return Failure(callParameterError, lineNumber, logs);
-          calls.Push(new CallFrame(pc, hadParameter, previousParameter));
+          calls.Push(new CallFrame {
+            ReturnAddress = pc,
+            HadParameter = hadParameter,
+            Parameter = previousParameter,
+            ReturnLocal = callReturnLocal,
+            Continuation = FrameContinuation.Call
+          });
           locals[ParameterLocalKey] = callParameter;
           pc = function.Start;
           break;

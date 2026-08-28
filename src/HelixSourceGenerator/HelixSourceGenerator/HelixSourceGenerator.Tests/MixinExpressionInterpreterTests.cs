@@ -36,6 +36,74 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void TableFunctionUsesScalarAndNullConversionSemantics() {
+    var result = _interpreter.Execute(
+      """
+      @CODE @true:table:size
+      @CODE @true:table:path<0>
+      @CODE @null:table:size
+      @CODE @table:put<a><b>:table:size
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] { "1", "true", "0", "1" }, result.Outputs.Select(item => item.Text));
+  }
+
+  [Fact]
+  public void CallsCanReturnValuesIntoLocals() {
+    var result = _interpreter.Execute(
+      """
+      @FUNC<select>
+      @RETURN @param#value
+      @END
+      @CALL<selected><select> @table:put<value><chosen>
+      @CODE @local#selected
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("chosen", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void TablesSupportJoiningMappingAndFiltering() {
+    var result = _interpreter.Execute(
+      """
+      @FUNC<bracket>
+      @RETURN [@param]
+      @END
+      @FUNC<decorate>
+      @CALL<decorated><bracket> @param
+      @RETURN @local#decorated
+      @END
+      @FUNC<pair>
+      @RETURN @param#k=@param#v
+      @END
+      @FUNC<keep>
+      @RETURN @param#v:?eq<two>
+      @END
+      @VAR<data> @table:put<a><one>:put<b><two>
+      @CODE @var#data:joinKeys<,>
+      @CODE @var#data:joinValues<|>
+      @CODE @var#data:join<:><;>
+      @CODE @var#data:mapValues<decorate>:joinValues<,>
+      @CODE @var#data:map<pair>:joinValues<,>
+      @CODE @var#data:filter<keep>:joinValues<,>
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(
+      new[] { "a,b", "one|two", "a:one;b:two", "[one],[two]", "a=one,b=two", "two" },
+      result.Outputs.Select(item => item.Text)
+    );
+  }
+
+  [Fact]
   public void VariablesPreserveImmutableTablesAndTableOperations() {
     var variables = new Dictionary<string, object>();
     var result = _interpreter.Execute(

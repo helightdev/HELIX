@@ -41,7 +41,8 @@ internal sealed class UnwrapFunction : FunctionDefinition {
     string root, string member, ref object value, out string error
   ) {
     value = MixinValue.From(value, context).Unwrap();
-    return FunctionResult(Name, value, out error);
+    error = null;
+    return true;
   }
 }
 

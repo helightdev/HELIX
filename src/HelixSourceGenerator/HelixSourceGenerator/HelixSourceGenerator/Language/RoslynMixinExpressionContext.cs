@@ -44,7 +44,7 @@ internal sealed class MixinPropStructHandle {
 internal sealed record MixinGeneratedStructReference(string Name, string TypeName);
 
 internal sealed class RoslynMixinExpressionContext :
-  IMixinExpressionContext,
+  IMixinExpressionValueContext,
   IMixinExpressionSignatureContext,
   IMixinExpressionPropStructContext,
   IMixinExpressionConfigurablePropStructContext,
@@ -94,14 +94,8 @@ internal sealed class RoslynMixinExpressionContext :
     out string value,
     out string error
   ) {
-    if (!TrySubject(reference, out var subject, out error) ||
-      !ApplyValueProperties(reference, ref subject, out error)) {
+    if (!TryResolveValue(reference, out var subject, out error)) {
       value = null;
-      return false;
-    }
-    if (reference.Properties.Any(IsPredicate)) {
-      value = null;
-      error = "boolean pseudo-properties cannot be interpolated as strings";
       return false;
     }
     var renderRoot = reference.Properties.Any(item => !IsPredicate(item) && item.Name == "type")
@@ -109,6 +103,22 @@ internal sealed class RoslynMixinExpressionContext :
       : reference.Root;
     return TryRender(subject, renderRoot, out value, out error);
   }
+
+  public bool TryResolveValue(
+    MixinExpressionReference reference,
+    out object value,
+    out string error
+  ) {
+    if (!TrySubject(reference, out value, out error) ||
+      !ApplyValueProperties(reference, ref value, out error)) return false;
+    if (!reference.Properties.Any(IsPredicate)) return true;
+    value = null;
+    error = "boolean pseudo-properties cannot be used as values";
+    return false;
+  }
+
+  public bool TryRenderValue(object value, string root, out string text, out string error) =>
+    TryRender(value, root, out text, out error);
 
   public bool TryEvaluate(
     MixinExpressionReference reference,
@@ -461,7 +471,7 @@ internal sealed class RoslynMixinExpressionContext :
       case "target": subject = _target; break;
       case "attr": subject = (object)_attribute ?? _implicitAttributeType; break;
       case "arg":
-        subject = SelectArgument(reference.Member);
+        subject = string.IsNullOrEmpty(reference.Member) ? ArgumentsTable() : SelectArgument(reference.Member);
         if (subject is null) error = "unknown argument '" + (reference.Member ?? "") + "'";
         return subject is not null;
       default:
@@ -488,6 +498,13 @@ internal sealed class RoslynMixinExpressionContext :
       return index >= 0 && index < _arguments.Count ? _arguments[index] : null;
     return _arguments.FirstOrDefault(item => item.Name == member) ??
       _arguments.FirstOrDefault(item => string.Equals(item.Name, member, StringComparison.OrdinalIgnoreCase));
+  }
+
+  private MixinExpressionTable ArgumentsTable() {
+    var table = new MixinExpressionTable();
+    for (var index = 0; index < _arguments.Count; index++)
+      table = table.Put(index.ToString(CultureInfo.InvariantCulture), _arguments[index]);
+    return table;
   }
 
   private object SelectMember(object subject, string name) {
@@ -524,6 +541,8 @@ internal sealed class RoslynMixinExpressionContext :
     }
     return null;
   }
+
+  internal object SelectValueMember(object subject, string name) => SelectMember(subject, name);
 
   private bool TryDefaultAttributeMember(
     INamedTypeSymbol attributeType,
@@ -595,6 +614,8 @@ internal sealed class RoslynMixinExpressionContext :
         return UnqualifiedGlobalName(type);
       case TypedConstant { Value: string text }:
         return text;
+      case TypedConstant constant:
+        return constant.Value;
       case ImplicitMixinValue { Value: ITypeSymbol type }:
         return UnqualifiedGlobalName(type);
       case ImplicitMixinValue { Value: string text }:
@@ -747,7 +768,12 @@ internal sealed class RoslynMixinExpressionContext :
       }
     }
 
-    name = name switch { "$Init" => "Awake", "$Dispose" => "OnDestroy", _ => name };
+    name = name switch {
+      "$Init" => "Awake",
+      "$Dispose" => "OnDestroy",
+      _ when name.StartsWith("$", StringComparison.Ordinal) => name.Substring(1),
+      _ => name
+    };
     return new MixinTargetSyntax(name, isStatic, isPublic, delegateType);
   }
 
@@ -909,6 +935,15 @@ internal sealed class RoslynMixinExpressionContext :
   ) {
     error = null;
     switch (subject) {
+      case null:
+        value = "null";
+        return true;
+      case bool boolean:
+        value = boolean ? "true" : "false";
+        return true;
+      case char or sbyte or byte or short or ushort or int or uint or long or ulong or float or double or decimal:
+        value = ConstantExpression(subject);
+        return true;
       case string text:
         value = text;
         return true;
@@ -945,6 +980,10 @@ internal sealed class RoslynMixinExpressionContext :
       case AttributeData attribute:
         value = attribute.AttributeClass?.ToDisplayString(TypeDisplayFormat);
         return true;
+      case MixinExpressionTable table:
+        value = null;
+        error = "a table cannot be rendered directly; select an entry or use :joinKeys, :joinValues or :join";
+        return false;
       default:
         value = null;
         error = "the expression value cannot be rendered";

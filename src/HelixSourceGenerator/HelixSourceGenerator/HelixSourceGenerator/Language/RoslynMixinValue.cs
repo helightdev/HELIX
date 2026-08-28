@@ -30,7 +30,9 @@ internal readonly struct RoslynMixinValue : IMixinValue {
     : Convert.ToString(_value);
   public object Unwrap() => RoslynMixinExpressionContext.Unwrap(_value);
   public bool TryGetText(out string text) => RoslynMixinExpressionContext.TryComparableText(_value, out text);
-  public object Select(string path) => RoslynMixinExpressionContext.SelectTypeArgument(_value, path);
+  public object Select(string path) =>
+    _context.SelectValueMember(_value, path) ??
+    RoslynMixinExpressionContext.SelectTypeArgument(_value, path);
   public bool Is(string type) => Type is not null && _context.IsOrInherits(Type, type);
   public bool Has(object member) => Type is not null &&
     RoslynMixinExpressionContext.HasConcreteMember(Type, Convert.ToString(member));
@@ -66,6 +68,41 @@ internal readonly struct RoslynMixinValue : IMixinValue {
 
   public bool TryApplyPropStruct(MixinExpressionProperty property, out object result, out string error) =>
     _context.TryApplyPropStructProperty(_value, property, out result, out error);
+
+  public MixinExpressionTable Attributes(string type, bool exact) {
+    var table = new MixinExpressionTable();
+    var index = 0;
+    foreach (var attribute in SourceAttributes()) {
+      if (type is not null && !(exact
+        ? MatchesExact(attribute.AttributeClass, type)
+        : attribute.AttributeClass is not null && _context.IsOrInherits(attribute.AttributeClass, type))) continue;
+      table = table.Put((index++).ToString(System.Globalization.CultureInfo.InvariantCulture), attribute);
+    }
+    return table;
+  }
+
+  public object FirstAttribute(string type) {
+    foreach (var attribute in SourceAttributes())
+      if (attribute.AttributeClass is not null && _context.IsOrInherits(attribute.AttributeClass, type))
+        return attribute;
+    return null;
+  }
+
+  private System.Collections.Generic.IEnumerable<AttributeData> SourceAttributes() {
+    if (_value is ISymbol symbol) return symbol.GetAttributes();
+    if (_value is AttributeData attribute) {
+      var attributeType = attribute.AttributeClass;
+      if (attributeType is not null) return attributeType.GetAttributes();
+    }
+    var type = Type;
+    return type is null ? Array.Empty<AttributeData>() : type.GetAttributes();
+  }
+
+  private static bool MatchesExact(ITypeSymbol type, string expected) => type is not null && (
+    string.Equals(type.Name, expected, StringComparison.Ordinal) ||
+    string.Equals(type.ToDisplayString(), expected, StringComparison.Ordinal) ||
+    string.Equals(type.ToDisplayString().Replace("global::", ""), expected.Replace("global::", ""), StringComparison.Ordinal)
+  );
 
   public ITypeSymbol ResolveType(string name) => _context.ResolveType(name);
   public bool IsGeneratedType(string name) => _context.IsGeneratedStructType(name);

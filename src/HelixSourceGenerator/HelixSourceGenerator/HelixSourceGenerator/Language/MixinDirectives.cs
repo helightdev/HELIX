@@ -62,6 +62,20 @@ internal sealed class BooleanDirective : DirectiveDefinition {
   ) { }
 }
 
+internal sealed class CallDirective : DirectiveDefinition {
+  internal CallDirective() : base("CALL", DirectiveOpcode.Call, DirectiveOperandKind.Value) { }
+  protected override int MaximumArguments => 2;
+
+  internal override bool Validate(IReadOnlyList<string> arguments, string operand, out string error) {
+    if (arguments.Count is 1 or 2 && arguments.All(item => !string.IsNullOrEmpty(item))) {
+      error = null;
+      return true;
+    }
+    error = "CALL requires a function label and optionally a return local";
+    return false;
+  }
+}
+
 internal sealed class DumpDirective : MarkerDirective {
   internal DumpDirective() : base("DUMP", DirectiveOpcode.Dump) { }
 
@@ -132,7 +146,7 @@ internal sealed class PropStructDirective : ValueDirective {
 internal static class DirectiveLibrary {
   private static readonly DirectiveDefinition Scope = new MarkerDirective("SCOPE", DirectiveOpcode.Scope);
   private static readonly DirectiveDefinition Function = new NamedDirective("FUNC", DirectiveOpcode.Function);
-  private static readonly DirectiveDefinition Call = new NamedDirective("CALL", DirectiveOpcode.Call, DirectiveOperandKind.Value);
+  private static readonly DirectiveDefinition Call = new CallDirective();
   private static readonly DirectiveDefinition End = new MarkerDirective("END", DirectiveOpcode.End);
   private static readonly DirectiveDefinition Match = new BooleanDirective("MATCH", DirectiveOpcode.Match);
   private static readonly DirectiveDefinition Assert = new BooleanDirective("ASSERT", DirectiveOpcode.Assert);
@@ -142,7 +156,7 @@ internal static class DirectiveLibrary {
   private static readonly DirectiveDefinition Using = new ValueDirective("USING", DirectiveOpcode.Using);
   private static readonly DirectiveDefinition Local = new NamedDirective("LOCAL", DirectiveOpcode.Local, DirectiveOperandKind.Value);
   private static readonly DirectiveDefinition Variable = new NamedDirective("VAR", DirectiveOpcode.Variable, DirectiveOperandKind.Value);
-  private static readonly DirectiveDefinition Return = new MarkerDirective("RETURN", DirectiveOpcode.Return);
+  private static readonly DirectiveDefinition Return = new ValueDirective("RETURN", DirectiveOpcode.Return);
   private static readonly DirectiveDefinition Goto = new NamedDirective("GOTO", DirectiveOpcode.Goto);
   private static readonly DirectiveDefinition Skip = new MarkerDirective("SKIP", DirectiveOpcode.Skip);
   private static readonly DirectiveDefinition Fail = new ValueDirective("FAIL", DirectiveOpcode.Fail);

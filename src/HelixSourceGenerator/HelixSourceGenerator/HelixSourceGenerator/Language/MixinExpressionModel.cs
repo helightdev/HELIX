@@ -90,6 +90,7 @@ public sealed class MixinExpressionTable : MixinValue {
   public bool IsClosed => _closed;
 
   internal IEnumerable<IMixinValue> Values => _values.Values;
+  internal IEnumerable<KeyValuePair<string, IMixinValue>> Entries => _values;
 
   public override object BackingValue => this;
   public override bool IsTruthy => true;
@@ -170,6 +171,16 @@ public interface IMixinExpressionContext {
     out bool value,
     out string error
   );
+}
+
+/// <summary>Resolves a host value without forcing it through string rendering.</summary>
+public interface IMixinExpressionValueContext : IMixinExpressionContext {
+  bool TryResolveValue(
+    MixinExpressionReference reference,
+    out object value,
+    out string error
+  );
+  bool TryRenderValue(object value, string root, out string text, out string error);
 }
 
 /// <summary>Optional host support for resolving generated targets and callable signatures.</summary>
