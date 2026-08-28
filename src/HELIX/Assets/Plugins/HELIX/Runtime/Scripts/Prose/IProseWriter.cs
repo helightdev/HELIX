@@ -55,4 +55,11 @@ namespace HELIX.Prose {
   internal static class ProseLiterals {
     internal const string Null = "null";
   }
+
+  internal static class ProseValues {
+    internal static bool IsNull<T>(T value) {
+      if (typeof(T).IsValueType) return false;
+      return ReferenceEquals(value, null);
+    }
+  }
 }

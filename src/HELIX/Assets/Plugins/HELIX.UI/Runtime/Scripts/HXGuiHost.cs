@@ -1,7 +1,7 @@
 using HELIX.Compose;
 using HELIX.UI.Prompts;
 using HELIX.UI.Console;
-using HELIX.UI.DebugOverlay;
+using HELIX.UI.CameraOverlays;
 using UnityEngine.UIElements;
 
 namespace HELIX.UI {
@@ -38,20 +38,20 @@ namespace HELIX.UI {
         cx.NavigationHost(service.navigation).With(Flex.Fill());
       }
 
-      DebugOverlayComposition.Compose(ref cx, service.debugOverlay);
-      _console = DebugOverlayComposition.ComposeConsole(ref cx, service.commandSystem);
+      CameraOverlayComposition.Compose(ref cx, service.cameraOverlays);
+      _console = CameraOverlayComposition.ComposeConsole(ref cx, service.commandSystem);
     }
 
     public void ToggleCommandConsole() => _console?.Toggle();
   }
 
-  internal static class DebugOverlayComposition {
-    private static readonly ushort OverlayId = CompositionId.GetTypeId(nameof(DebugOverlayElement));
+  internal static class CameraOverlayComposition {
+    private static readonly ushort OverlayId = CompositionId.GetTypeId(nameof(CameraOverlayElement));
     private static readonly ushort ConsoleId = CompositionId.GetTypeId(nameof(CommandConsoleElement));
 
-    public static void Compose(ref Composition cx, DebugOverlayController controller) {
-      if (!cx.AUTHORING.RequireTracked<DebugOverlayElement>(OverlayId, out var element, out _))
-        element = new DebugOverlayElement(controller);
+    public static void Compose(ref Composition cx, CameraOverlayController controller) {
+      if (!cx.AUTHORING.RequireTracked<CameraOverlayElement>(OverlayId, out var element, out _))
+        element = new CameraOverlayElement(controller);
       cx.AUTHORING.YieldElement(ref cx, element);
     }
 

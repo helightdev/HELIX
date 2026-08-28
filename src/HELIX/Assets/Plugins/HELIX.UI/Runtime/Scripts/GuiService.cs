@@ -2,7 +2,7 @@ using HELIX.Compose;
 using HELIX.Context;
 using HELIX.UI.Prompts;
 using HELIX.UI.Console;
-using HELIX.UI.DebugOverlay;
+using HELIX.UI.CameraOverlays;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
@@ -26,7 +26,7 @@ namespace HELIX.UI {
     public readonly NavigationController navigation = new();
     public readonly OverlayController overlays = new();
     public readonly HelixInputController inputController = new(InputConfiguration.Default);
-    public readonly DebugOverlayController debugOverlay = new();
+    public readonly CameraOverlayController cameraOverlays = new();
     public ICommandSystem commandSystem;
 
     [Hook]

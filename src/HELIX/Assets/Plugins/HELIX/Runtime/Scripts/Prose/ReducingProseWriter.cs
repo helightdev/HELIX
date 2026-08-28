@@ -99,7 +99,7 @@ namespace HELIX.Prose {
     }
 
     public override bool TryBegin<T>(T scope) {
-      if (scope is null) throw new ArgumentNullException(nameof(scope));
+      if (ProseValues.IsNull(scope)) throw new ArgumentNullException(nameof(scope));
       BeforeBegin(scope);
       if (_delegated.Count > 0) {
         var current = _delegated[^1];
@@ -126,7 +126,7 @@ namespace HELIX.Prose {
     }
 
     public override void Begin<T>(T scope) {
-      if (scope is null) throw new ArgumentNullException(nameof(scope));
+      if (ProseValues.IsNull(scope)) throw new ArgumentNullException(nameof(scope));
       BeforeBegin(scope);
       if (_delegated.Count > 0) {
         var current = _delegated[^1];
@@ -179,7 +179,7 @@ namespace HELIX.Prose {
     }
 
     public override void Push<T>(T modifier) {
-      if (modifier is null) throw new ArgumentNullException(nameof(modifier));
+      if (ProseValues.IsNull(modifier)) throw new ArgumentNullException(nameof(modifier));
       if (_delegated.Count > 0) {
         _delegated[^1].writer.Push(modifier);
         return;

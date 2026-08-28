@@ -108,7 +108,7 @@ namespace HELIX.Prose {
     protected int OutputLength => _builder.Length;
 
     public override bool TryBegin<T>(T scope) {
-      if (scope is null) throw new ArgumentNullException(nameof(scope));
+      if (ProseValues.IsNull(scope)) throw new ArgumentNullException(nameof(scope));
       if (IsWritingInactive()) return false;
       if ((scope is ProseTree && !Configuration.ShowTrees) ||
           (scope is ProseName && !Configuration.ShowNames) ||
@@ -177,7 +177,7 @@ namespace HELIX.Prose {
     }
 
     public override void Begin<T>(T scope) {
-      if (scope is null) throw new ArgumentNullException(nameof(scope));
+      if (ProseValues.IsNull(scope)) throw new ArgumentNullException(nameof(scope));
       if (TryBegin(scope)) return;
 
       EnsureFrameCapacity();
@@ -261,7 +261,7 @@ namespace HELIX.Prose {
     }
 
     public override void Push<T>(T modifier) {
-      if (modifier is null) throw new ArgumentNullException(nameof(modifier));
+      if (ProseValues.IsNull(modifier)) throw new ArgumentNullException(nameof(modifier));
       if (_frameCount == 0) throw new InvalidOperationException("A modifier requires an active Prose frame.");
       if (IsWritingInactive()) return;
 
@@ -291,7 +291,7 @@ namespace HELIX.Prose {
 
     public override void Write<T>(T prose) {
       if (IsWritingInactive()) return;
-      if (prose is null) Write(ProseLiterals.Null);
+      if (ProseValues.IsNull(prose)) Write(ProseLiterals.Null);
       else prose.ToProse(this);
     }
 

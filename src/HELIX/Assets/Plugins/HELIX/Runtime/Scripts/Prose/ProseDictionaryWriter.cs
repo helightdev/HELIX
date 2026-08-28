@@ -45,7 +45,7 @@ namespace HELIX.Prose {
 
     public Dictionary<string, object> Root => _root;
     public override bool TryBegin<T>(T scope) {
-      if (scope is null) throw new ArgumentNullException(nameof(scope));
+      if (ProseValues.IsNull(scope)) throw new ArgumentNullException(nameof(scope));
       EnsureFrameCapacity();
       var frame = new Frame { Scope = scope };
       if (scope is ProseTree or ProseSection or ProseListItem or ProseTable) {
@@ -174,7 +174,7 @@ namespace HELIX.Prose {
     }
 
     public override void Push<T>(T modifier) {
-      if (modifier is null) throw new ArgumentNullException(nameof(modifier));
+      if (ProseValues.IsNull(modifier)) throw new ArgumentNullException(nameof(modifier));
       if (_frameCount == 0) throw new InvalidOperationException("A modifier requires an active Prose frame.");
       if (modifier is ProsePropertyValueModifier value) {
         var propertyIndex = FindFrame<ProseProperty>();
@@ -192,7 +192,7 @@ namespace HELIX.Prose {
     }
 
     public override void Write<T>(T prose) {
-      if (prose is null) StoreValue<object>(null);
+      if (ProseValues.IsNull(prose)) StoreValue<object>(null);
       else if (prose is ProseLineBreak or ProseSoftLineBreak or ProseSpace) return;
       else prose.ToProse(this);
     }

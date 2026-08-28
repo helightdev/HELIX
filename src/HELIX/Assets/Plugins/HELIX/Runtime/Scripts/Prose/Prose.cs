@@ -22,7 +22,7 @@ namespace HELIX.Prose {
     /// </summary>
     public static ProseWriterScope Scope<T>(this IProseWriter writer, T scope) where T : IProseScope {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (scope is null) throw new ArgumentNullException(nameof(scope));
+      if (ProseValues.IsNull(scope)) throw new ArgumentNullException(nameof(scope));
       writer.Begin(scope);
       return new ProseWriterScope(writer);
     }
