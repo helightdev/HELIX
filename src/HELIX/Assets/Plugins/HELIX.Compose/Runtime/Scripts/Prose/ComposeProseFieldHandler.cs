@@ -30,7 +30,7 @@ namespace HELIX.Compose {
       _reducer = reducer ?? throw new ArgumentNullException(nameof(reducer));
     }
 
-    public bool TryCreate(IProseScope scope, out IProseWriter writer) {
+    public bool TryCreate<T>(T scope, out IProseWriter writer) where T : IProseScope {
       if (scope is not IProseField) {
         writer = null;
         return false;
@@ -61,8 +61,8 @@ namespace HELIX.Compose {
       return this;
     }
 
-    public override bool TryMap(
-      IProse prose,
+    public override bool TryMap<TProse>(
+      TProse prose,
       IReadOnlyList<IProseModifier> modifiers,
       out ComposeProseFieldPart result
     ) {

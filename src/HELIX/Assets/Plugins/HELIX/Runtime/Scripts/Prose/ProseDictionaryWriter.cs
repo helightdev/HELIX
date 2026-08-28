@@ -44,8 +44,8 @@ namespace HELIX.Prose {
     }
 
     public Dictionary<string, object> Root => _root;
-    public override bool TryBegin(IProseScope scope) {
-      if (scope == null) throw new ArgumentNullException(nameof(scope));
+    public override bool TryBegin<T>(T scope) {
+      if (scope is null) throw new ArgumentNullException(nameof(scope));
       EnsureFrameCapacity();
       var frame = new Frame { Scope = scope };
       if (scope is ProseTree or ProseSection or ProseListItem or ProseTable) {
@@ -65,7 +65,7 @@ namespace HELIX.Prose {
       return true;
     }
 
-    public override void Begin(IProseScope scope) => TryBegin(scope);
+    public override void Begin<T>(T scope) => TryBegin(scope);
 
     public override void End() {
       if (_frameCount == 0) throw new InvalidOperationException("There is no Prose frame to pop.");
@@ -173,8 +173,8 @@ namespace HELIX.Prose {
       if (frame.HasPayload) StoreCompletedPayload(frame.Payload);
     }
 
-    public override void Push(IProseModifier modifier) {
-      if (modifier == null) throw new ArgumentNullException(nameof(modifier));
+    public override void Push<T>(T modifier) {
+      if (modifier is null) throw new ArgumentNullException(nameof(modifier));
       if (_frameCount == 0) throw new InvalidOperationException("A modifier requires an active Prose frame.");
       if (modifier is ProsePropertyValueModifier value) {
         var propertyIndex = FindFrame<ProseProperty>();
@@ -191,8 +191,8 @@ namespace HELIX.Prose {
       StoreValue(text);
     }
 
-    public override void Write(IProse prose) {
-      if (prose == null) StoreValue<object>(null);
+    public override void Write<T>(T prose) {
+      if (prose is null) StoreValue<object>(null);
       else if (prose is ProseLineBreak or ProseSoftLineBreak or ProseSpace) return;
       else prose.ToProse(this);
     }

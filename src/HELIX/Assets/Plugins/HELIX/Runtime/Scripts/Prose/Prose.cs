@@ -20,9 +20,9 @@ namespace HELIX.Prose {
     /// Begins a frame that is ended automatically when the returned scope is disposed. Unlike the TryBegin
     /// helpers, this always retains a balanced frame, including frames ignored by the writer.
     /// </summary>
-    public static ProseWriterScope Scope(this IProseWriter writer, IProseScope scope) {
+    public static ProseWriterScope Scope<T>(this IProseWriter writer, T scope) where T : IProseScope {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
-      if (scope == null) throw new ArgumentNullException(nameof(scope));
+      if (scope is null) throw new ArgumentNullException(nameof(scope));
       writer.Begin(scope);
       return new ProseWriterScope(writer);
     }
@@ -203,7 +203,7 @@ namespace HELIX.Prose {
       }
     }
 
-    private static void WriteTextFrame(IProseWriter writer, IProseScope scope, string text) {
+    private static void WriteTextFrame<T>(IProseWriter writer, T scope, string text) where T : IProseScope {
       if (writer == null) throw new ArgumentNullException(nameof(writer));
       using (writer.Scope(scope)) writer.Write(text);
     }

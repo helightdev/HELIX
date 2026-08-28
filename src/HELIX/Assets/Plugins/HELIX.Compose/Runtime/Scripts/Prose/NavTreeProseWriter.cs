@@ -138,7 +138,7 @@ namespace HELIX.Compose {
       _pathFrames.RemoveAt(_pathFrames.Count - 1);
     }
 
-    protected override void BeforeBegin(IProseScope scope) {
+    protected override void BeforeBegin<T>(T scope) {
       StopPathModifiers();
     }
 

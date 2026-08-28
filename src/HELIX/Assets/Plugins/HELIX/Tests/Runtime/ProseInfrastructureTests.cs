@@ -6,8 +6,10 @@ namespace HELIX.Tests {
   public sealed class ProseInfrastructureTests {
     private sealed class StringReducer : ProseReducer<string> {
       public override bool IsEmpty(string value) => string.IsNullOrEmpty(value);
-      public override bool TryMap(IProse prose, IReadOnlyList<IProseModifier> modifiers, out string result) {
-        result = prose?.ToString();
+      public override bool TryMap<TProse>(
+        TProse prose, IReadOnlyList<IProseModifier> modifiers, out string result
+      ) {
+        result = prose is null ? null : prose.ToString();
         return result != null;
       }
       public override bool TryMap(string text, IReadOnlyList<IProseModifier> modifiers, out string result) {

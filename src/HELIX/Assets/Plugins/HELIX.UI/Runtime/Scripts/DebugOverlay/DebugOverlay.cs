@@ -237,8 +237,8 @@ namespace HELIX.UI.DebugOverlay {
       End();
     }
 
-    public override bool TryBegin(IProseScope scope) {
-      if (scope == null) throw new ArgumentNullException(nameof(scope));
+    public override bool TryBegin<T>(T scope) {
+      if (scope is null) throw new ArgumentNullException(nameof(scope));
       if (_frameCount == _frames.Length)
         throw new InvalidOperationException("Debug overlay prose nesting exceeds its fixed capacity.");
       if (scope is not ProseProperty and not ProsePropertyKey and not ProsePropertyValue and
@@ -252,9 +252,9 @@ namespace HELIX.UI.DebugOverlay {
       return true;
     }
 
-    public override void Begin(IProseScope scope) {
+    public override void Begin<T>(T scope) {
       if (!TryBegin(scope)) throw new NotSupportedException(
-        $"The debug overlay prose writer does not support {scope?.GetType().Name ?? "null"}."
+        $"The debug overlay prose writer does not support {(scope is null ? "null" : scope.GetType().Name)}."
       );
     }
 
@@ -268,12 +268,12 @@ namespace HELIX.UI.DebugOverlay {
       _field.seen = Time.unscaledTime;
     }
 
-    public override void Push(IProseModifier modifier) {
-      if (modifier == null) throw new ArgumentNullException(nameof(modifier));
+    public override void Push<T>(T modifier) {
+      if (modifier is null) throw new ArgumentNullException(nameof(modifier));
     }
 
-    public override void Write(IProse prose) {
-      if (prose == null) Write("null");
+    public override void Write<T>(T prose) {
+      if (prose is null) Write("null");
       else prose.ToProse(this);
     }
 
@@ -300,11 +300,13 @@ namespace HELIX.UI.DebugOverlay {
 
   internal sealed class TextElementProseWriter : ProseWriter {
     public TextElement Element { get; set; }
-    public override bool TryBegin(IProseScope scope) => true;
-    public override void Begin(IProseScope scope) { }
+    public override bool TryBegin<T>(T scope) => true;
+    public override void Begin<T>(T scope) { }
     public override void End() { }
-    public override void Push(IProseModifier modifier) { }
-    public override void Write(IProse prose) => prose?.ToProse(this);
+    public override void Push<T>(T modifier) { }
+    public override void Write<T>(T prose) {
+      if (prose is not null) prose.ToProse(this);
+    }
     public override void Write<T>(T value, IDatatype<T> datatype) => datatype.ToProse(this, value);
     public override void Write(string text) => Element.SetText((text ?? "null").AsSpan());
   }

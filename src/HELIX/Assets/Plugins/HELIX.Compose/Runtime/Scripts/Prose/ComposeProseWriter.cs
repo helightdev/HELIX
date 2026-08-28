@@ -15,9 +15,11 @@ namespace HELIX.Compose {
   }
 
   public class ComposeProseReducer : ProseReducer<Composable> {
-    public override bool TryMap(IProse prose, IReadOnlyList<IProseModifier> modifiers, out Composable result) {
+    public override bool TryMap<TProse>(
+      TProse prose, IReadOnlyList<IProseModifier> modifiers, out Composable result
+    ) {
       var writer = CreateTextWriter(modifiers);
-      if (prose == null) writer.Write((IProse)null);
+      if (prose is null) writer.Write((IProse)null);
       else prose.ToProse(writer);
       result = ConvertText(FinishText(writer, modifiers.Count > 0), modifiers);
       return result != null;

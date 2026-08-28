@@ -4,11 +4,11 @@ using System.Collections.Generic;
 namespace HELIX.Prose {
   /// <summary>Maps leaf writes to an intermediate type and reduces completed frames into that same type.</summary>
   public abstract class ProseReducer<TReduced> {
-    public virtual bool Accepts(IProseScope scope) => true;
+    public virtual bool Accepts<T>(T scope) where T : IProseScope => true;
 
-    public abstract bool TryMap(
-      IProse prose, IReadOnlyList<IProseModifier> modifiers, out TReduced result
-    );
+    public abstract bool TryMap<TProse>(
+      TProse prose, IReadOnlyList<IProseModifier> modifiers, out TReduced result
+    ) where TProse : IProse;
 
     public abstract bool TryMap(
       string text, IReadOnlyList<IProseModifier> modifiers, out TReduced result
@@ -28,7 +28,7 @@ namespace HELIX.Prose {
   }
 
   public interface IProseScopeHandler<out TReduced> {
-    bool TryCreate(IProseScope scope, out IProseWriter writer);
+    bool TryCreate<T>(T scope, out IProseWriter writer) where T : IProseScope;
     TReduced Finish(IProseWriter writer);
   }
 
@@ -98,8 +98,8 @@ namespace HELIX.Prose {
       _writeModifiers.Clear();
     }
 
-    public override bool TryBegin(IProseScope scope) {
-      if (scope == null) throw new ArgumentNullException(nameof(scope));
+    public override bool TryBegin<T>(T scope) {
+      if (scope is null) throw new ArgumentNullException(nameof(scope));
       BeforeBegin(scope);
       if (_delegated.Count > 0) {
         var current = _delegated[^1];
@@ -125,8 +125,8 @@ namespace HELIX.Prose {
       return true;
     }
 
-    public override void Begin(IProseScope scope) {
-      if (scope == null) throw new ArgumentNullException(nameof(scope));
+    public override void Begin<T>(T scope) {
+      if (scope is null) throw new ArgumentNullException(nameof(scope));
       BeforeBegin(scope);
       if (_delegated.Count > 0) {
         var current = _delegated[^1];
@@ -178,8 +178,8 @@ namespace HELIX.Prose {
       Accumulate(result);
     }
 
-    public override void Push(IProseModifier modifier) {
-      if (modifier == null) throw new ArgumentNullException(nameof(modifier));
+    public override void Push<T>(T modifier) {
+      if (modifier is null) throw new ArgumentNullException(nameof(modifier));
       if (_delegated.Count > 0) {
         _delegated[^1].writer.Push(modifier);
         return;
@@ -192,7 +192,7 @@ namespace HELIX.Prose {
       if (!IsInactive) _frames.Current.modifiers.Add(modifier);
     }
 
-    public override void Write(IProse prose) {
+    public override void Write<T>(T prose) {
       if (_delegated.Count > 0) {
         _delegated[^1].writer.Write(prose);
         return;
@@ -229,7 +229,7 @@ namespace HELIX.Prose {
       else _frames.Current.children.Add(value);
     }
 
-    protected virtual void BeforeBegin(IProseScope scope) { }
+    protected virtual void BeforeBegin<T>(T scope) where T : IProseScope { }
 
     private void CollectWriteModifiers() {
       _writeModifiers.Clear();
@@ -248,7 +248,7 @@ namespace HELIX.Prose {
         _finish = finish;
       }
 
-      public bool TryCreate(IProseScope scope, out IProseWriter writer) {
+      public bool TryCreate<T>(T scope, out IProseWriter writer) where T : IProseScope {
         if (scope is not TScope typed) {
           writer = null;
           return false;
@@ -279,9 +279,9 @@ namespace HELIX.Prose {
 
     public void Clear() => _handlers.Clear();
 
-    internal bool TryCreate(
-      IProseScope scope, out IProseScopeHandler<TReduced> handler, out IProseWriter writer
-    ) {
+    internal bool TryCreate<T>(
+      T scope, out IProseScopeHandler<TReduced> handler, out IProseWriter writer
+    ) where T : IProseScope {
       for (var i = 0; i < _handlers.Count; i++) {
         handler = _handlers[i];
         if (handler.TryCreate(scope, out writer)) return true;
