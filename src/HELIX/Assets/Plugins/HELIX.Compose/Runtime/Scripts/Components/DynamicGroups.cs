@@ -26,6 +26,15 @@ namespace HELIX.Compose {
 
     public DynamicComposableController Controller => controller;
     public bool IsBound => controller != null;
+    public bool IsAttached => controller?.IsAttached(this) ?? false;
+
+    public bool Detach() {
+      return controller?.DetachEntry(this) ?? false;
+    }
+
+    public bool Reattach() {
+      return controller?.ReattachEntry(this) ?? false;
+    }
 
     public void Remove() {
       controller?.RemoveEntry(this);
@@ -89,8 +98,12 @@ namespace HELIX.Compose {
     ) { }
 
     public abstract int Count { get; }
+    public abstract int DetachedCount { get; }
     internal int Revision { get; private set; }
     internal abstract DynamicComposable EntryAt(int index);
+    internal abstract DynamicComposable DetachedEntryAt(int index);
+    internal abstract void PoolDetachedElement(DynamicComposableElement element);
+    internal abstract DynamicComposableElement TakeDetachedElement(DynamicComposable entry);
     protected abstract void SortEntries();
     protected abstract void ClearEntries();
 
@@ -100,6 +113,19 @@ namespace HELIX.Compose {
     }
 
     public abstract bool RemoveEntry(DynamicComposable entry);
+    public abstract bool DetachEntry(DynamicComposable entry);
+    public abstract bool ReattachEntry(DynamicComposable entry);
+    public abstract bool IsAttached(DynamicComposable entry);
+
+    public bool DetachEntry(object key) {
+      var entry = FindEntry(key);
+      return entry != null && DetachEntry(entry);
+    }
+
+    public bool ReattachEntry(object key) {
+      var entry = FindEntry(key);
+      return entry != null && ReattachEntry(entry);
+    }
 
     public bool RemoveEntry(object key) {
       var entry = FindEntry(key);
@@ -110,6 +136,10 @@ namespace HELIX.Compose {
       if (key == null) return null;
       for (var i = 0; i < Count; i++) {
         var entry = EntryAt(i);
+        if (Equals(entry.key, key)) return entry;
+      }
+      for (var i = 0; i < DetachedCount; i++) {
+        var entry = DetachedEntryAt(i);
         if (Equals(entry.key, key)) return entry;
       }
       return null;
@@ -136,6 +166,7 @@ namespace HELIX.Compose {
 
     public override void Dispose() {
       for (var i = 0; i < Count; i++) EntryAt(i).controller = null;
+      for (var i = 0; i < DetachedCount; i++) DetachedEntryAt(i).controller = null;
       ClearEntries();
       base.Dispose();
     }
@@ -148,12 +179,35 @@ namespace HELIX.Compose {
 
   public sealed class DynamicComposableController<TLayout> : DynamicComposableController {
     private readonly List<DynamicComposable<TLayout>> _entries = new();
+    private readonly List<DynamicComposable<TLayout>> _detachedEntries = new();
+    private readonly List<DynamicComposableElement> _detachedElements = new();
+    private int _detachedElementCapacity;
 
     public IReadOnlyList<DynamicComposable<TLayout>> Entries => _entries;
+    public IReadOnlyList<DynamicComposable<TLayout>> DetachedEntries => _detachedEntries;
     public override int Count => _entries.Count;
+    public override int DetachedCount => _detachedEntries.Count;
+
+    /// <summary>Maximum number of detached visual subtrees retained for later reattachment.</summary>
+    public int DetachedElementCapacity {
+      get => _detachedElementCapacity;
+      set {
+        if (value < 0) throw new ArgumentOutOfRangeException(nameof(value));
+        _detachedElementCapacity = value;
+        while (_detachedElements.Count > value) _detachedElements.RemoveAt(0);
+      }
+    }
+
+    public DynamicComposableController(int detachedElementCapacity = 0) {
+      DetachedElementCapacity = detachedElementCapacity;
+    }
 
     internal override DynamicComposable EntryAt(int index) {
       return _entries[index];
+    }
+
+    internal override DynamicComposable DetachedEntryAt(int index) {
+      return _detachedEntries[index];
     }
 
     public DynamicComposable<TLayout> AddEntry(
@@ -183,11 +237,55 @@ namespace HELIX.Compose {
     }
 
     public override bool RemoveEntry(DynamicComposable entry) {
-      if (entry is not DynamicComposable<TLayout> typed ||
-        !ReferenceEquals(entry.controller, this) || !_entries.Remove(typed)) return false;
+      if (entry is not DynamicComposable<TLayout> typed || !ReferenceEquals(entry.controller, this)) return false;
+      if (!_entries.Remove(typed) && !_detachedEntries.Remove(typed)) return false;
+      DiscardDetachedElement(entry);
       entry.controller = null;
       NotifyEntriesChanged();
       return true;
+    }
+
+    public override bool DetachEntry(DynamicComposable entry) {
+      if (entry is not DynamicComposable<TLayout> typed ||
+        !ReferenceEquals(entry.controller, this) || !_entries.Remove(typed)) return false;
+      _detachedEntries.Add(typed);
+      NotifyEntriesChanged();
+      return true;
+    }
+
+    public override bool ReattachEntry(DynamicComposable entry) {
+      if (entry is not DynamicComposable<TLayout> typed ||
+        !ReferenceEquals(entry.controller, this) || !_detachedEntries.Remove(typed)) return false;
+      _entries.Add(typed);
+      NotifyEntriesChanged();
+      return true;
+    }
+
+    public override bool IsAttached(DynamicComposable entry) {
+      return entry is DynamicComposable<TLayout> typed &&
+        ReferenceEquals(entry.controller, this) && _entries.Contains(typed);
+    }
+
+    internal override void PoolDetachedElement(DynamicComposableElement element) {
+      if (_detachedElementCapacity == 0 || element?.Entry == null) return;
+      DiscardDetachedElement(element.Entry);
+      if (_detachedElements.Count == _detachedElementCapacity) _detachedElements.RemoveAt(0);
+      _detachedElements.Add(element);
+    }
+
+    internal override DynamicComposableElement TakeDetachedElement(DynamicComposable entry) {
+      for (var i = 0; i < _detachedElements.Count; i++) {
+        var element = _detachedElements[i];
+        if (!ReferenceEquals(element.Entry, entry)) continue;
+        _detachedElements.RemoveAt(i);
+        return element;
+      }
+      return null;
+    }
+
+    private void DiscardDetachedElement(DynamicComposable entry) {
+      for (var i = _detachedElements.Count - 1; i >= 0; i--)
+        if (ReferenceEquals(_detachedElements[i].Entry, entry)) _detachedElements.RemoveAt(i);
     }
 
     protected override void SortEntries() {
@@ -196,6 +294,8 @@ namespace HELIX.Compose {
 
     protected override void ClearEntries() {
       _entries.Clear();
+      _detachedEntries.Clear();
+      _detachedElements.Clear();
     }
   }
 
@@ -240,8 +340,10 @@ namespace HELIX.Compose {
       if (controller == null) throw new ArgumentNullException(nameof(controller));
 
       for (var i = parent.childCount - 1; i >= 0; i--) {
-        if (parent.ElementAt(i) is DynamicComposableElement element &&
-          !ReferenceEquals(element.Entry?.controller, controller))
+        if (parent.ElementAt(i) is not DynamicComposableElement element) continue;
+        if (ReferenceEquals(element.Entry?.controller, controller) && !controller.IsAttached(element.Entry))
+          controller.PoolDetachedElement(element);
+        if (!ReferenceEquals(element.Entry?.controller, controller) || !controller.IsAttached(element.Entry))
           element.RemoveFromHierarchy();
       }
 
@@ -255,9 +357,10 @@ namespace HELIX.Compose {
           break;
         }
         if (element == null) {
-          element = new DynamicComposableElement { PackedId = CompositionId.Generated(entry.key.GetHashCode()).packed };
+          element = controller.TakeDetachedElement(entry) ??
+            new DynamicComposableElement { PackedId = CompositionId.Generated(entry.key.GetHashCode()).packed };
           parent.Add(element);
-          element.RefreshHierarchy();
+          if (element.Entry == null) element.RefreshHierarchy();
         }
         element.Bind(entry, controller.Revision);
       }

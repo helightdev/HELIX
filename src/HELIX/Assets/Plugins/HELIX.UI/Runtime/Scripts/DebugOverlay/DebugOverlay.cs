@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.CompilerServices;
+using HELIX.Compose;
+using HELIX.Prose;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -8,15 +11,19 @@ namespace HELIX.UI.DebugOverlay {
   public readonly struct ScreenOverlayBuilder {
     private readonly IScreenOverlay _overlay;
     internal ScreenOverlayBuilder(IScreenOverlay overlay) => _overlay = overlay;
-    public ScreenOverlayBuilder Field(string label, object value, string unit = null, Color? color = null) {
-      _overlay?.Field(label, value, unit, color); return this;
+    public ScreenOverlayBuilder Field<T>(string label, T value, string unit = null, Color? color = null) {
+      _overlay?.Field(label, value, Datatypes.Object<T>(), unit, color); return this;
+    }
+    public ScreenOverlayBuilder Field<T>(
+      string label, T value, IDatatype<T> datatype, string unit = null, Color? color = null
+    ) {
+      _overlay?.Field(label, value, datatype, unit, color); return this;
     }
     public ScreenOverlayBuilder Field(string label, float value, int decimals = 2, string unit = null, Color? color = null) {
-      _overlay?.Field(label, value.ToString($"F{decimals}", CultureInfo.InvariantCulture), unit, color); return this;
+      _overlay?.Field(label, value, OverlayDatatypes.Float(decimals), unit, color); return this;
     }
     public ScreenOverlayBuilder Field(string label, Vector3 value, int decimals = 1, string unit = null, Color? color = null) {
-      var format = $"F{decimals}";
-      return Field(label, $"{value.x.ToString(format, CultureInfo.InvariantCulture)}, {value.y.ToString(format, CultureInfo.InvariantCulture)}, {value.z.ToString(format, CultureInfo.InvariantCulture)}", unit, color);
+      _overlay?.Field(label, value, OverlayDatatypes.Vector3(decimals), unit, color); return this;
     }
   }
 
@@ -33,15 +40,20 @@ namespace HELIX.UI.DebugOverlay {
     private readonly ulong _id;
     private readonly IWorldOverlay _overlay;
     internal WorldOverlayBuilder(ulong id, IWorldOverlay overlay) { _id = id; _overlay = overlay; }
-    public WorldOverlayBuilder Field(string label, object value, string unit = null, Color? color = null) {
-      _overlay?.Field(_id, label, value, unit, color); return this;
+    public WorldOverlayBuilder Field<T>(string label, T value, string unit = null, Color? color = null) {
+      _overlay?.Field(_id, label, value, Datatypes.Object<T>(), unit, color); return this;
+    }
+    public WorldOverlayBuilder Field<T>(
+      string label, T value, IDatatype<T> datatype, string unit = null, Color? color = null
+    ) {
+      _overlay?.Field(_id, label, value, datatype, unit, color); return this;
     }
     public WorldOverlayBuilder Field(string label, float value, int decimals = 2, string unit = null, Color? color = null) =>
-      Field(label, value.ToString($"F{decimals}", CultureInfo.InvariantCulture), unit, color);
+      Field(label, value, OverlayDatatypes.Float(decimals), unit, color);
     public WorldOverlayBuilder Field(string label, Vector3 value, int decimals = 1, string unit = null, Color? color = null) {
-      var format = $"F{decimals}";
-      return Field(label, $"{value.x.ToString(format, CultureInfo.InvariantCulture)}, {value.y.ToString(format, CultureInfo.InvariantCulture)}, {value.z.ToString(format, CultureInfo.InvariantCulture)}", unit, color);
+      _overlay?.Field(_id, label, value, OverlayDatatypes.Vector3(decimals), unit, color); return this;
     }
+
   }
 
   public readonly struct WorldOverlayInitiator {
@@ -60,14 +72,45 @@ namespace HELIX.UI.DebugOverlay {
 
   public interface IScreenOverlay {
     void BeginSection(string title, int order = 0, string subtitle = null);
-    void Field(string label, object value, string unit = null, Color? color = null);
+    void Field<T>(string label, T value, IDatatype<T> datatype, string unit = null, Color? color = null);
   }
 
   public interface IWorldOverlay {
     void Begin(ulong id, string title, Vector3 position, string subtitle = null);
     bool Contains(ulong id);
-    void Field(ulong id, string label, object value, string unit = null, Color? color = null);
+    void Field<T>(ulong id, string label, T value, IDatatype<T> datatype, string unit = null, Color? color = null);
     void SetCamera(Camera camera);
+  }
+
+  internal static class OverlayDatatypes {
+    private static readonly FloatDatatype[] Floats = {
+      new("F0"), new("F1"), new("F2"), new("F3"), new("F4"),
+      new("F5"), new("F6"), new("F7"), new("F8"), new("F9")
+    };
+    private static readonly OverlayVector3Datatype[] Vectors = {
+      new("F0"), new("F1"), new("F2"), new("F3"), new("F4"),
+      new("F5"), new("F6"), new("F7"), new("F8"), new("F9")
+    };
+
+    public static FloatDatatype Float(int decimals) => Floats[ValidateDecimals(decimals)];
+    public static OverlayVector3Datatype Vector3(int decimals) => Vectors[ValidateDecimals(decimals)];
+
+    private static int ValidateDecimals(int decimals) {
+      if ((uint)decimals >= Floats.Length) throw new ArgumentOutOfRangeException(nameof(decimals));
+      return decimals;
+    }
+  }
+
+  internal sealed class OverlayVector3Datatype : IDatatype<Vector3> {
+    public OverlayVector3Datatype(string format) => Format = format;
+    public string Format { get; }
+    public void ToProse(IProseWriter writer, Vector3 value) {
+      writer.Write(value.x, Datatypes.Float);
+      writer.Write(", ");
+      writer.Write(value.y, Datatypes.Float);
+      writer.Write(", ");
+      writer.Write(value.z, Datatypes.Float);
+    }
   }
 
   public struct CollectScreenOverlayEvent : Context.Evt<CollectScreenOverlayEvent> {
@@ -79,56 +122,222 @@ namespace HELIX.UI.DebugOverlay {
     public CollectWorldOverlayEvent(IWorldOverlay overlay) => this.overlay = new WorldOverlayInitiator(overlay);
   }
 
-  internal sealed class OverlayFieldModel {
-    public string label, value, unit;
+  internal abstract class OverlayFieldModel {
+    public string label, unit;
     public Color? color;
     public float seen;
+    public abstract void SetText(TextElement element);
+  }
+
+  internal sealed class OverlayFieldModel<T> : OverlayFieldModel {
+    private TextElementProseWriter _fallbackWriter;
+    public T value;
+    public IDatatype<T> datatype;
+
+    public override void SetText(TextElement element) {
+      if (typeof(T) == typeof(int)) {
+        element.SetText(Unsafe.As<T, int>(ref value));
+      } else if (typeof(T) == typeof(float) && datatype is FloatDatatype floatDatatype) {
+        element.SetText(Unsafe.As<T, float>(ref value), floatDatatype.Format);
+      } else if (typeof(T) == typeof(string)) {
+        var text = Unsafe.As<T, string>(ref value);
+        element.SetText(text == null ? "null".AsSpan() : text.AsSpan());
+      } else if (typeof(T) == typeof(Vector3) && datatype is OverlayVector3Datatype vectorDatatype) {
+        var vector = Unsafe.As<T, Vector3>(ref value);
+        Span<char> buffer = stackalloc char[96];
+        var cursor = 0;
+        if (!vector.x.TryFormat(buffer[cursor..], out var written, vectorDatatype.Format, CultureInfo.InvariantCulture)) return;
+        cursor += written; buffer[cursor++] = ','; buffer[cursor++] = ' ';
+        if (!vector.y.TryFormat(buffer[cursor..], out written, vectorDatatype.Format, CultureInfo.InvariantCulture)) return;
+        cursor += written; buffer[cursor++] = ','; buffer[cursor++] = ' ';
+        if (!vector.z.TryFormat(buffer[cursor..], out written, vectorDatatype.Format, CultureInfo.InvariantCulture)) return;
+        element.SetText(buffer[..(cursor + written)]);
+      } else {
+        (_fallbackWriter ??= new TextElementProseWriter()).Element = element;
+        datatype.ToProse(_fallbackWriter, value);
+      }
+    }
   }
   internal sealed class OverlayEntryModel {
-    public ulong id;
     public string title, subtitle;
-    public int order;
     public Vector3 position;
     public float seen;
     public readonly Dictionary<string, OverlayFieldModel> fields = new();
-    public OverlayCardElement element;
   }
 
   public sealed class DebugOverlayController : IScreenOverlay, IWorldOverlay {
-    internal readonly Dictionary<string, OverlayEntryModel> screen = new();
-    internal readonly Dictionary<ulong, OverlayEntryModel> world = new();
+    internal readonly DynamicComposableController<DynamicFlexLayout> screen = new();
+    internal readonly DynamicComposableController<DynamicStackLayout> world = new();
+    private readonly DebugOverlayProseWriter _screenWriter = new();
+    private readonly DebugOverlayProseWriter _worldWriter = new();
     internal Camera camera;
     private OverlayEntryModel _section;
     public void BeginFrame() => _section = null;
     public void BeginSection(string title, int order = 0, string subtitle = null) {
-      if (!screen.TryGetValue(title, out _section)) screen[title] = _section = new OverlayEntryModel { title = title };
-      _section.subtitle = subtitle; _section.order = order; _section.seen = Time.unscaledTime;
+      var entry = screen.FindEntry(title);
+      if (entry == null) {
+        _section = new OverlayEntryModel { title = title };
+        entry = screen.AddEntry(title, DebugOverlayElement.ComposeCard, default, _section, order);
+      } else {
+        _section = (OverlayEntryModel)entry.UserData;
+        if (entry.order != order) { entry.order = order; screen.NotifyEntriesChanged(); }
+      }
+      _section.subtitle = subtitle; _section.seen = Time.unscaledTime;
+      _screenWriter.Target = _section;
     }
-    public void Field(string label, object value, string unit = null, Color? color = null) {
+    public void Field<T>(string label, T value, IDatatype<T> datatype, string unit = null, Color? color = null) {
       if (_section == null) BeginSection("");
-      UpdateField(_section, label, value, unit, color);
+      _screenWriter.Property(label, value, datatype, unit, color);
     }
     public void Begin(ulong id, string title, Vector3 position, string subtitle = null) {
       if (id == 0) return;
-      if (!world.TryGetValue(id, out var entry)) world[id] = entry = new OverlayEntryModel { id = id };
+      var dynamicEntry = world.FindEntry(id);
+      OverlayEntryModel entry;
+      if (dynamicEntry == null) {
+        entry = new OverlayEntryModel();
+        world.AddEntry(id, DebugOverlayElement.ComposeCard, default, entry);
+      } else entry = (OverlayEntryModel)dynamicEntry.UserData;
       entry.title = title; entry.subtitle = subtitle; entry.position = position; entry.seen = Time.unscaledTime;
+      _worldWriter.Target = entry;
     }
-    public bool Contains(ulong id) => world.ContainsKey(id);
-    public void Field(ulong id, string label, object value, string unit = null, Color? color = null) {
-      if (world.TryGetValue(id, out var entry)) UpdateField(entry, label, value, unit, color);
+    public bool Contains(ulong id) => world.FindEntry(id) != null;
+    public void Field<T>(ulong id, string label, T value, IDatatype<T> datatype, string unit = null, Color? color = null) {
+      var entry = world.FindEntry(id);
+      if (entry == null) return;
+      _worldWriter.Target = (OverlayEntryModel)entry.UserData;
+      _worldWriter.Property(label, value, datatype, unit, color);
     }
     public void SetCamera(Camera value) => camera = value;
-    private static void UpdateField(OverlayEntryModel entry, string label, object value, string unit, Color? color) {
-      if (!entry.fields.TryGetValue(label, out var field)) entry.fields[label] = field = new OverlayFieldModel { label = label };
-      field.value = value?.ToString() ?? "null"; field.unit = unit; field.color = color; field.seen = Time.unscaledTime;
+  }
+
+  /// <summary>Allocation-stable semantic sink used to write overlay properties directly into an entry model.</summary>
+  internal sealed class DebugOverlayProseWriter : ProseWriter {
+    private readonly IProseScope[] _frames = new IProseScope[8];
+    private int _frameCount;
+    private string _key, _unit;
+    private Color? _color;
+    private OverlayFieldModel _field;
+
+    internal OverlayEntryModel Target { get; set; }
+
+    internal void Property<T>(string key, T value, IDatatype<T> datatype, string unit, Color? color) {
+      _color = color;
+      Begin(ProseScopes.Property);
+      Begin(ProseScopes.PropertyKey);
+      Write(key);
+      End();
+      Begin(ProseScopes.PropertyValue);
+      Write(value, datatype);
+      End();
+      if (unit != null) {
+        Begin(ProseScopes.PropertyDescription);
+        Write(unit);
+        End();
+      }
+      End();
+    }
+
+    public override bool TryBegin(IProseScope scope) {
+      if (scope == null) throw new ArgumentNullException(nameof(scope));
+      if (_frameCount == _frames.Length)
+        throw new InvalidOperationException("Debug overlay prose nesting exceeds its fixed capacity.");
+      if (scope is not ProseProperty and not ProsePropertyKey and not ProsePropertyValue and
+        not ProsePropertyDescription and not ProseSpan) return false;
+      if (scope is ProseProperty) {
+        _key = null;
+        _unit = null;
+        _field = null;
+      }
+      _frames[_frameCount++] = scope;
+      return true;
+    }
+
+    public override void Begin(IProseScope scope) {
+      if (!TryBegin(scope)) throw new NotSupportedException(
+        $"The debug overlay prose writer does not support {scope?.GetType().Name ?? "null"}."
+      );
+    }
+
+    public override void End() {
+      if (_frameCount == 0) throw new InvalidOperationException("There is no debug overlay prose frame to end.");
+      var scope = _frames[--_frameCount];
+      _frames[_frameCount] = null;
+      if (scope is not ProseProperty || _field == null) return;
+      _field.unit = _unit;
+      _field.color = _color;
+      _field.seen = Time.unscaledTime;
+    }
+
+    public override void Push(IProseModifier modifier) {
+      if (modifier == null) throw new ArgumentNullException(nameof(modifier));
+    }
+
+    public override void Write(IProse prose) {
+      if (prose == null) Write("null");
+      else prose.ToProse(this);
+    }
+
+    public override void Write<T>(T value, IDatatype<T> datatype) {
+      if (datatype == null) throw new ArgumentNullException(nameof(datatype));
+      if (_frameCount == 0 || _frames[_frameCount - 1] is not ProsePropertyValue || Target == null || _key == null)
+        return;
+      if (!Target.fields.TryGetValue(_key, out var current) || current is not OverlayFieldModel<T> field) {
+        field = new OverlayFieldModel<T> { label = _key };
+        Target.fields[_key] = field;
+      }
+      field.value = value;
+      field.datatype = datatype;
+      _field = field;
+    }
+
+    public override void Write(string text) {
+      if (_frameCount == 0 || text == null) return;
+      var scope = _frames[_frameCount - 1];
+      if (scope is ProsePropertyKey) _key = text;
+      else if (scope is ProsePropertyDescription) _unit = text;
+    }
+  }
+
+  internal sealed class TextElementProseWriter : ProseWriter {
+    public TextElement Element { get; set; }
+    public override bool TryBegin(IProseScope scope) => true;
+    public override void Begin(IProseScope scope) { }
+    public override void End() { }
+    public override void Push(IProseModifier modifier) { }
+    public override void Write(IProse prose) => prose?.ToProse(this);
+    public override void Write<T>(T value, IDatatype<T> datatype) => datatype.ToProse(this, value);
+    public override void Write(string text) => Element.SetText((text ?? "null").AsSpan());
+  }
+
+  internal sealed class OverlayPropertyElement : VisualElement {
+    private readonly TextElement _key, _value, _unit;
+
+    public OverlayPropertyElement() {
+      pickingMode = PickingMode.Ignore;
+      style.flexDirection = FlexDirection.Row;
+      Add(_key = new TextElement());
+      Add(_value = new TextElement());
+      Add(_unit = new TextElement());
+      _key.style.color = new Color(.61f, .65f, .71f);
+      _key.style.marginRight = 8;
+      _unit.style.marginLeft = 4;
+    }
+
+    public void Bind(OverlayFieldModel field, float now) {
+      style.display = now - field.seen < .15f ? DisplayStyle.Flex : DisplayStyle.None;
+      _key.SetText(field.label.AsSpan());
+      field.SetText(_value);
+      _value.style.color = field.color ?? Color.white;
+      _unit.SetText(field.unit == null ? ReadOnlySpan<char>.Empty : field.unit.AsSpan());
+      _unit.style.display = string.IsNullOrEmpty(field.unit) ? DisplayStyle.None : DisplayStyle.Flex;
+      _unit.style.color = field.color ?? Color.white;
     }
   }
 
   internal sealed class OverlayCardElement : VisualElement {
     private readonly Label _title, _subtitle;
     private readonly VisualElement _fields;
-    private readonly Dictionary<string, Label> _labels = new();
-    public OverlayEntryModel Entry { get; private set; }
+    private readonly Dictionary<string, OverlayPropertyElement> _properties = new();
     public OverlayCardElement() {
       pickingMode = PickingMode.Ignore;
       style.backgroundColor = new Color(.035f, .045f, .06f, .88f); style.borderTopLeftRadius = 5;
@@ -140,38 +349,45 @@ namespace HELIX.UI.DebugOverlay {
       Add(_fields = new VisualElement());
     }
     public void Bind(OverlayEntryModel entry, float now) {
-      Entry = entry;
       _title.text = entry.title; _title.style.display = string.IsNullOrEmpty(entry.title) ? DisplayStyle.None : DisplayStyle.Flex;
       _subtitle.text = entry.subtitle; _subtitle.style.display = string.IsNullOrEmpty(entry.subtitle) ? DisplayStyle.None : DisplayStyle.Flex;
       foreach (var pair in entry.fields) {
         var field = pair.Value;
-        if (!_labels.TryGetValue(pair.Key, out var label)) { _labels[pair.Key] = label = new Label(); _fields.Add(label); label.enableRichText = true; }
-        label.style.display = now - field.seen < .15f ? DisplayStyle.Flex : DisplayStyle.None;
-        label.style.color = field.color ?? Color.white;
-        label.text = $"<color=#9BA7B5>{field.label}</color>  {field.value}{(string.IsNullOrEmpty(field.unit) ? "" : " " + field.unit)}";
+        if (!_properties.TryGetValue(pair.Key, out var property)) {
+          _properties[pair.Key] = property = new OverlayPropertyElement();
+          _fields.Add(property);
+        }
+        property.Bind(field, now);
       }
     }
   }
 
   public sealed class DebugOverlayElement : VisualElement {
+    private static readonly ushort CardId = CompositionId.GetTypeId(nameof(OverlayCardElement));
+    internal static readonly Composable ComposeCard = static (ref Composition cx) => {
+      if (!cx.AUTHORING.RequireTracked<OverlayCardElement>(CardId, out var card, out _))
+        card = new OverlayCardElement();
+      var entry = DynamicComposable.Lookup(cx.boundary.Element);
+      card.Bind((OverlayEntryModel)entry.UserData, Time.unscaledTime);
+      cx.AUTHORING.YieldElement(ref cx, card);
+    };
+
     private readonly DebugOverlayController _controller;
     private readonly VisualElement _screen, _world;
-    private readonly List<string> _deadScreen = new();
-    private readonly List<ulong> _deadWorld = new();
     private readonly List<string> _deadFields = new();
-    private readonly Comparison<VisualElement> _screenOrder;
     private readonly Comparison<VisualElement> _worldDepth;
     private Vector3 _cameraPosition;
     public DebugOverlayElement(DebugOverlayController controller) {
       _controller = controller; pickingMode = PickingMode.Ignore;
-      _screenOrder = (left, right) => Entry(left)?.order.CompareTo(Entry(right)?.order ?? 0) ?? 0;
       _worldDepth = (left, right) => {
-        var a = Entry(left); var b = Entry(right); if (a == null || b == null) return 0;
+        var a = Model(left); var b = Model(right); if (a == null || b == null) return 0;
         return (b.position - _cameraPosition).sqrMagnitude.CompareTo((a.position - _cameraPosition).sqrMagnitude);
       };
       style.position = Position.Absolute; style.left = 0; style.right = 0; style.top = 0; style.bottom = 0;
       Add(_world = new VisualElement { pickingMode = PickingMode.Ignore });
       Add(_screen = new VisualElement { pickingMode = PickingMode.Ignore });
+      _world.style.position = Position.Absolute; _world.style.left = 0; _world.style.right = 0;
+      _world.style.top = 0; _world.style.bottom = 0;
       _screen.style.position = Position.Absolute; _screen.style.left = 10; _screen.style.top = 10;
       schedule.Execute(UpdateOverlay).Every(16);
     }
@@ -180,37 +396,49 @@ namespace HELIX.UI.DebugOverlay {
       UpdateScreen(now); UpdateWorld(now);
     }
     private void UpdateScreen(float now) {
-      _deadScreen.Clear();
-      foreach (var pair in _controller.screen) {
-        var entry = pair.Value;
-        if (now - entry.seen > 2) { entry.element?.RemoveFromHierarchy(); _deadScreen.Add(pair.Key); continue; }
-        entry.element ??= new OverlayCardElement(); if (entry.element.parent == null) _screen.Add(entry.element);
-        entry.element.style.display = now - entry.seen < .15f ? DisplayStyle.Flex : DisplayStyle.None; entry.element.Bind(entry, now);
-        CleanupFields(entry, now);
+      for (var i = _controller.screen.Count - 1; i >= 0; i--) {
+        var entry = _controller.screen.Entries[i];
+        var model = (OverlayEntryModel)entry.UserData;
+        if (now - model.seen > 2) { _controller.screen.RemoveEntry(entry); continue; }
+        CleanupFields(model, now);
       }
-      for (var i = 0; i < _deadScreen.Count; i++) _controller.screen.Remove(_deadScreen[i]);
-      _screen.hierarchy.Sort(_screenOrder);
+      DynamicCollectionHelper.Synchronize(_screen, _controller.screen);
+      UpdateElements(_screen, now, false, null);
     }
     private void UpdateWorld(float now) {
       var camera = _controller.camera ? _controller.camera : Camera.main; if (!camera) return;
       _cameraPosition = camera.transform.position;
-      _deadWorld.Clear();
-      foreach (var pair in _controller.world) {
-        var entry = pair.Value;
-        if (now - entry.seen > 2) { entry.element?.RemoveFromHierarchy(); _deadWorld.Add(pair.Key); continue; }
-        entry.element ??= new OverlayCardElement(); if (entry.element.parent == null) _world.Add(entry.element);
-        var point = camera.WorldToScreenPoint(entry.position); var visible = point.z > 0 && now - entry.seen < .15f;
-        entry.element.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
-        if (visible) { entry.element.style.position = Position.Absolute; entry.element.style.left = point.x;
-          entry.element.style.top = resolvedStyle.height - point.y; entry.element.style.translate = new Translate(Length.Percent(-50), 0);
-          var distance = Vector3.Distance(_cameraPosition, entry.position);
-          var scale = Mathf.Clamp(10f / Mathf.Max(.001f, distance), .5f, 1.5f);
-          entry.element.style.scale = new Scale(new Vector3(scale, scale, 1f));
-          entry.element.Bind(entry, now); }
-        CleanupFields(entry, now);
+      for (var i = _controller.world.Count - 1; i >= 0; i--) {
+        var entry = _controller.world.Entries[i];
+        var model = (OverlayEntryModel)entry.UserData;
+        if (now - model.seen > 2) { _controller.world.RemoveEntry(entry); continue; }
+        CleanupFields(model, now);
       }
-      for (var i = 0; i < _deadWorld.Count; i++) _controller.world.Remove(_deadWorld[i]);
+      DynamicCollectionHelper.Synchronize(_world, _controller.world);
+      UpdateElements(_world, now, true, camera);
       _world.hierarchy.Sort(_worldDepth);
+    }
+
+    private void UpdateElements(VisualElement parent, float now, bool world, Camera camera) {
+      for (var i = 0; i < parent.childCount; i++) {
+        if (parent.ElementAt(i) is not DynamicComposableElement element) continue;
+        var model = (OverlayEntryModel)element.Entry.UserData;
+        var visible = now - model.seen < .15f;
+        if (world) {
+          var point = camera.WorldToScreenPoint(model.position);
+          visible &= point.z > 0;
+          if (visible) {
+            element.style.position = Position.Absolute; element.style.left = point.x;
+            element.style.top = resolvedStyle.height - point.y;
+            element.style.translate = new Translate(Length.Percent(-50), 0);
+            var distance = Vector3.Distance(_cameraPosition, model.position);
+            var scale = Mathf.Clamp(10f / Mathf.Max(.001f, distance), .5f, 1.5f);
+            element.style.scale = new Scale(new Vector3(scale, scale, 1f));
+          }
+        }
+        element.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        if (element.childCount > 0 && element.ElementAt(0) is OverlayCardElement card) card.Bind(model, now);
+      }
     }
 
     private void CleanupFields(OverlayEntryModel entry, float now) {
@@ -219,6 +447,7 @@ namespace HELIX.UI.DebugOverlay {
       for (var i = 0; i < _deadFields.Count; i++) entry.fields.Remove(_deadFields[i]);
     }
 
-    private static OverlayEntryModel Entry(VisualElement element) => (element as OverlayCardElement)?.Entry;
+    private static OverlayEntryModel Model(VisualElement element) =>
+      (element as DynamicComposableElement)?.Entry?.UserData as OverlayEntryModel;
   }
 }
