@@ -43,8 +43,8 @@ internal static class MixinExpressionVirtualMachine {
     var functionEnds = preparedState is null
       ? new HashSet<int>()
       : new HashSet<int>(preparedState.FunctionEnds);
-    var locals = new Dictionary<string, object>(StringComparer.Ordinal);
-    var pendingVariables = new Dictionary<string, object>(StringComparer.Ordinal);
+    var locals = new MixinValueDictionary();
+    var pendingVariables = new MixinValueDictionary();
     if (preparedState is not null) {
       foreach (var item in preparedState.Variables)
         pendingVariables[item.Key] = item.Value;

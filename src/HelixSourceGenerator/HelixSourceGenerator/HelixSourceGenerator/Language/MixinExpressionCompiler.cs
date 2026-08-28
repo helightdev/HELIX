@@ -54,7 +54,7 @@ internal static class MixinExpressionCompiler {
   internal static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
     var evaluationStartedAt = Stopwatch.GetTimestamp();
     var programs = new List<MixinProgramSyntax>();
-    var variables = new Dictionary<string, object>(StringComparer.Ordinal);
+    var variables = new MixinValueDictionary();
     var logs = new List<MixinExpressionPreparedLog>();
     var programIndex = 0;
     var executedOperations = 0;
@@ -106,7 +106,7 @@ internal static class MixinExpressionCompiler {
     );
     return new MixinExpressionPreparedState(
       programs.AsReadOnly(),
-      new Dictionary<string, object>(variables, StringComparer.Ordinal),
+      new MixinValueDictionary(variables),
       instructions,
       new Dictionary<string, int>(labels, StringComparer.Ordinal),
       new Dictionary<int, int>(instructionScopes),
@@ -259,7 +259,7 @@ internal static class MixinExpressionCompiler {
           case "STATE":
             text = DumpState(
               instruction.Line, index + 1, 0,
-              new Dictionary<string, object>(), variables,
+              new MixinValueDictionary(), variables,
               executedOperations, executedOperations, evaluationStartedAt
             );
             break;

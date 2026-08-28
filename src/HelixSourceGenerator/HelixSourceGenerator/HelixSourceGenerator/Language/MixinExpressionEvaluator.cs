@@ -254,7 +254,7 @@ internal static class MixinExpressionEvaluator {
       var operations = new MixinExpressionReference(
         "table", null, reference.Properties.Skip(tableOperationIndex).ToArray()
       );
-      if (!TryApplyStringProperties(operations, null, ref value, out error)) return false;
+      if (!TryApplyStringProperties(operations, context, null, ref value, out error)) return false;
       var predicate = operations.Properties.FirstOrDefault(IsBooleanProperty);
       if (predicate is null) return true;
       var matched = (predicate.Name == "exists" && value is not null) ||
@@ -263,25 +263,6 @@ internal static class MixinExpressionEvaluator {
         (predicate.Name == "has" && TableContainsValue(value, predicate.Values[0]));
       if (error is not null) return false;
       value = predicate.Negated ? !matched : matched;
-      return true;
-    }
-    var wireIndex = reference.Properties.ToList().FindIndex(item => item.Name == "wire");
-    if (wireIndex >= 0) {
-      if (context is not IMixinExpressionSignatureContext signatureContext) {
-        value = null;
-        error = "the expression context does not support method wiring";
-        return false;
-      }
-      var wire = reference.Properties[wireIndex];
-      var prefix = new MixinExpressionReference(
-        reference.Root, reference.Member, reference.Properties.Take(wireIndex).ToArray()
-      );
-      value = null;
-      if (!TryResolveCore(prefix, context, locals, variables, out var from, out error) ||
-        !signatureContext.TryWire(
-          RenderValue(from), wire.Argument, out var wired, out error
-        )) return false;
-      value = wired;
       return true;
     }
     if (reference.Properties.Any(IsBooleanProperty)) {
@@ -317,7 +298,7 @@ internal static class MixinExpressionEvaluator {
           ? selected
           : null;
       }
-      return TryApplyStringProperties(reference, null, ref value, out error);
+      return TryApplyStringProperties(reference, context, null, ref value, out error);
     }
     if (TryStored(reference, context, locals, variables, out value, out error)) return error is null;
     if (context.TryResolve(reference, out var resolved, out error)) {
@@ -356,7 +337,7 @@ internal static class MixinExpressionEvaluator {
       var operations = new MixinExpressionReference(
         "table", null, reference.Properties.Skip(tableOperationIndex).ToArray()
       );
-      if (!TryApplyStringProperties(operations, null, ref tableValue, out error)) {
+      if (!TryApplyStringProperties(operations, context, null, ref tableValue, out error)) {
         value = false;
         return false;
       }
@@ -643,31 +624,13 @@ internal static class MixinExpressionEvaluator {
       error = "unknown @" + reference.Root + " value '" + reference.Member + "'";
       return true;
     }
-    var propStructOperationIndex = reference.Properties.ToList()
-      .FindIndex(property => property.Name is "propStructCall" or "structParams" or "structArgs");
-    if (propStructOperationIndex >= 0) {
-      var operation = reference.Properties[propStructOperationIndex];
-      if (propStructOperationIndex != 0) {
-        error = ":" + operation.Name + " must be the first property applied to a prop struct handle";
-        return true;
-      }
-      if (context is not IMixinExpressionPropStructContext propStructContext) {
-        error = "the expression context does not support prop structs";
-        return true;
-      }
-      if (!propStructContext.TryApplyPropStructProperty(
-        value, operation, out value, out error
-      )) return true;
-      reference = new MixinExpressionReference(
-        reference.Root, reference.Member, reference.Properties.Skip(1).ToArray()
-      );
-    }
-    TryApplyStringProperties(reference, reference.Member, ref value, out error);
+    TryApplyStringProperties(reference, context, reference.Member, ref value, out error);
     return true;
   }
 
   private static bool TryApplyStringProperties(
     MixinExpressionReference reference,
+    IMixinExpressionContext context,
     string name,
     ref object value,
     out string error
@@ -675,7 +638,7 @@ internal static class MixinExpressionEvaluator {
     error = null;
     foreach (var property in reference.Properties) {
       if (IsBooleanProperty(property) || property.Name is "and" or "or") continue;
-      if (!FunctionLibrary.TryInvoke(property, reference.Root, name, ref value, out error)) return false;
+      if (!FunctionLibrary.TryInvoke(property, context, reference.Root, name, ref value, out error)) return false;
     }
     return true;
   }
@@ -765,6 +728,7 @@ internal static class MixinExpressionEvaluator {
   }
 
   private static bool IsTruthyValue(object value) {
+    if (value is IMixinValue typed) return typed.IsTruthy;
     if (value is null) return false;
     if (value is bool boolean) return boolean;
     if (value is string text) {
@@ -782,10 +746,10 @@ internal static class MixinExpressionEvaluator {
 
   internal static string RenderValue(object value) {
     return value switch {
+      IMixinValue typed => typed.Render(),
       null => "null",
       bool boolean => boolean ? "true" : "false",
       string text => text,
-      MixinExpressionTable table => table.ToString(),
       _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null"
     };
   }

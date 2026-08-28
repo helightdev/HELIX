@@ -130,33 +130,45 @@ internal sealed class PropStructDirective : ValueDirective {
 }
 
 internal static class DirectiveLibrary {
-  private static readonly IReadOnlyDictionary<string, DirectiveDefinition> Definitions =
-    new DirectiveDefinition[] {
-      new MarkerDirective("SCOPE", DirectiveOpcode.Scope),
-      new NamedDirective("FUNC", DirectiveOpcode.Function),
-      new NamedDirective("CALL", DirectiveOpcode.Call, DirectiveOperandKind.Value),
-      new MarkerDirective("END", DirectiveOpcode.End),
-      new BooleanDirective("MATCH", DirectiveOpcode.Match),
-      new BooleanDirective("ASSERT", DirectiveOpcode.Assert),
-      new ValueDirective("CODE", DirectiveOpcode.Code),
-      new MixinDirective(),
-      new NamedDirective("RESOLVE_MIXIN", DirectiveOpcode.ResolveMixin, DirectiveOperandKind.Value),
-      new ValueDirective("USING", DirectiveOpcode.Using),
-      new ValueDirective("LOG", DirectiveOpcode.Log),
-      new DumpDirective(),
-      new NamedDirective("LOCAL", DirectiveOpcode.Local, DirectiveOperandKind.Value),
-      new NamedDirective("VAR", DirectiveOpcode.Variable, DirectiveOperandKind.Value),
-      new PropStructDirective(),
-      new NamedDirective("AUGMENT_STRUCT", DirectiveOpcode.AugmentStruct, DirectiveOperandKind.Value),
-      new PutDirective(),
-      new NamedDirective("PUSH", DirectiveOpcode.Push, DirectiveOperandKind.Value),
-      new MarkerDirective("RETURN", DirectiveOpcode.Return),
-      new NamedDirective("GOTO", DirectiveOpcode.Goto),
-      new MarkerDirective("SKIP", DirectiveOpcode.Skip),
-      new ValueDirective("FAIL", DirectiveOpcode.Fail)
-    }.ToDictionary(definition => definition.Name, StringComparer.Ordinal);
+  private static readonly DirectiveDefinition Scope = new MarkerDirective("SCOPE", DirectiveOpcode.Scope);
+  private static readonly DirectiveDefinition Function = new NamedDirective("FUNC", DirectiveOpcode.Function);
+  private static readonly DirectiveDefinition Call = new NamedDirective("CALL", DirectiveOpcode.Call, DirectiveOperandKind.Value);
+  private static readonly DirectiveDefinition End = new MarkerDirective("END", DirectiveOpcode.End);
+  private static readonly DirectiveDefinition Match = new BooleanDirective("MATCH", DirectiveOpcode.Match);
+  private static readonly DirectiveDefinition Assert = new BooleanDirective("ASSERT", DirectiveOpcode.Assert);
+  private static readonly DirectiveDefinition Code = new ValueDirective("CODE", DirectiveOpcode.Code);
+  private static readonly DirectiveDefinition Mixin = new MixinDirective();
+  private static readonly DirectiveDefinition ResolveMixin = new NamedDirective("RESOLVE_MIXIN", DirectiveOpcode.ResolveMixin, DirectiveOperandKind.Value);
+  private static readonly DirectiveDefinition Using = new ValueDirective("USING", DirectiveOpcode.Using);
+  private static readonly DirectiveDefinition Local = new NamedDirective("LOCAL", DirectiveOpcode.Local, DirectiveOperandKind.Value);
+  private static readonly DirectiveDefinition Variable = new NamedDirective("VAR", DirectiveOpcode.Variable, DirectiveOperandKind.Value);
+  private static readonly DirectiveDefinition Return = new MarkerDirective("RETURN", DirectiveOpcode.Return);
+  private static readonly DirectiveDefinition Goto = new NamedDirective("GOTO", DirectiveOpcode.Goto);
+  private static readonly DirectiveDefinition Skip = new MarkerDirective("SKIP", DirectiveOpcode.Skip);
+  private static readonly DirectiveDefinition Fail = new ValueDirective("FAIL", DirectiveOpcode.Fail);
+
+  // Expanded directives live in a registry so adding one does not grow intrinsic dispatch.
+  private static readonly IReadOnlyDictionary<string, DirectiveDefinition> Expanded =
+    new Dictionary<string, DirectiveDefinition>(StringComparer.Ordinal) {
+      ["LOG"] = new ValueDirective("LOG", DirectiveOpcode.Log),
+      ["DUMP"] = new DumpDirective(),
+      ["PROP_STRUCT"] = new PropStructDirective(),
+      ["AUGMENT_STRUCT"] = new NamedDirective(
+        "AUGMENT_STRUCT", DirectiveOpcode.AugmentStruct, DirectiveOperandKind.Value
+      ),
+      ["PUSH"] = new NamedDirective("PUSH", DirectiveOpcode.Push, DirectiveOperandKind.Value),
+      ["PUT"] = new PutDirective()
+    };
 
   internal static bool TryGet(string name, out DirectiveDefinition definition) {
-    return Definitions.TryGetValue(name ?? "", out definition);
+    definition = name switch {
+      "SCOPE" => Scope, "FUNC" => Function, "CALL" => Call, "END" => End,
+      "MATCH" => Match, "ASSERT" => Assert, "CODE" => Code, "MIXIN" => Mixin,
+      "RESOLVE_MIXIN" => ResolveMixin, "USING" => Using,
+      "LOCAL" => Local, "VAR" => Variable,
+      "RETURN" => Return, "GOTO" => Goto, "SKIP" => Skip, "FAIL" => Fail,
+      _ => null
+    };
+    return definition is not null || Expanded.TryGetValue(name ?? "", out definition);
   }
 }

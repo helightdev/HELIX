@@ -55,6 +55,7 @@ internal sealed class RoslynMixinExpressionContext :
     );
 
   private readonly INamedTypeSymbol _thisType;
+  internal INamedTypeSymbol CurrentType => _thisType;
   private readonly ISymbol _target;
   private readonly AttributeData _attribute;
   private readonly INamedTypeSymbol _implicitAttributeType;
@@ -126,7 +127,7 @@ internal sealed class RoslynMixinExpressionContext :
       }
       value = true;
       foreach (var predicate in predicates) {
-        var item = predicate.Name == "eq" && EqualTo(null, predicate.Argument);
+        if (!TryEvaluatePredicate(null, predicate, out var item, out error)) return false;
         value &= predicate.Negated ? !item : item;
       }
       return true;
@@ -137,7 +138,7 @@ internal sealed class RoslynMixinExpressionContext :
     }
     value = true;
     foreach (var predicate in predicates) {
-      if (!TryPredicate(subject, predicate, out var item, out error)) return false;
+      if (!TryEvaluatePredicate(subject, predicate, out var item, out error)) return false;
       value &= predicate.Negated ? !item : item;
     }
     return true;
@@ -567,134 +568,26 @@ internal sealed class RoslynMixinExpressionContext :
     ref object subject,
     out string error
   ) {
-    error = null;
     foreach (var property in reference.Properties.Where(item => !IsPredicate(item))) {
-      switch (property.Name) {
-        case "name":
-          subject = NameOf(subject);
-          break;
-        case "type":
-          if (subject is not MixinGeneratedStructReference) subject = AsType(subject);
-          break;
-        case "fullName":
-          subject = subject is MixinGeneratedStructReference generated
-            ? generated.TypeName.Replace("global::", "")
-            : FullNameOf(subject);
-          break;
-        case "unwrap":
-          subject = Unwrap(subject);
-          break;
-        case "replace":
-        case "replaceFirst":
-          if (property.Arguments.Count != 2) {
-            error = ":" + property.Name + " requires a regex and replacement";
-            return false;
-          }
-          if (!TryComparableText(subject, out var replaced)) {
-            error = "property ':" + property.Name + "' is not available for this value";
-            return false;
-          }
-          try {
-            subject = property.Name == "replace"
-              ? Regex.Replace(replaced, property.Arguments[0], property.Arguments[1])
-              : new Regex(property.Arguments[0]).Replace(replaced, property.Arguments[1], 1);
-          } catch (ArgumentException exception) {
-            error = "invalid regular expression: " + exception.Message;
-            return false;
-          }
-          break;
-        case "switch":
-          if (property.Arguments.Count != 2) {
-            error = ":switch requires truthy and falsy values";
-            return false;
-          }
-          subject = IsTruthy(subject) ? property.Arguments[0] : property.Arguments[1];
-          break;
-        case "size":
-          subject = TryComparableText(subject, out var sized)
-            ? sized.Length.ToString(CultureInfo.InvariantCulture)
-            : "0";
-          break;
-        case "floatTime":
-          var timeValue = subject switch {
-            TypedConstant constant => constant.Value,
-            ImplicitMixinValue implicitValue => implicitValue.Value,
-            _ => subject
-          };
-          var time = timeValue is null
-            ? null
-            : TryComparableText(timeValue, out var comparableTime) ? comparableTime : timeValue.ToString();
-          if (!(MixinExpressionInterpreter.TryConvertFloat(timeValue, out var seconds) ||
-            MixinExpressionInterpreter.TryParseFloatTime(time, out seconds))) {
-            error = "cannot parse '" + (time ?? "null") + "' as a float time";
-            return false;
-          }
-          subject = MixinExpressionInterpreter.FormatFloatTime(seconds);
-          break;
-        case "makeGeneric":
-          if (property.Values.Count != 1) {
-            error = ":makeGeneric requires a type";
-            return false;
-          }
-          var genericType = TypeValueOf(subject) as INamedTypeSymbol;
-          if (genericType is not { IsUnboundGenericType: true, Arity: 1 }) {
-            error = ":makeGeneric requires an unbound generic type of arity 1";
-            return false;
-          }
-          var genericArgument = TypeValueOf(property.Values[0]) ??
-            ResolveType(property.Arguments[0]);
-          if (genericArgument is null) {
-            if (!_generatedStructs.Values.Any(item =>
-              string.Equals(item.TypeName, property.Arguments[0], StringComparison.Ordinal) ||
-              string.Equals(
-                item.TypeName.Replace("global::", ""),
-                property.Arguments[0].Replace("global::", ""),
-                StringComparison.Ordinal
-              )
-            )) {
-              error = ":makeGeneric type argument '" + property.Arguments[0] + "' was not found";
-              return false;
-            }
-            var openType = genericType.ConstructedFrom.ToDisplayString(
-              SymbolDisplayFormat.FullyQualifiedFormat.WithGenericsOptions(
-                SymbolDisplayGenericsOptions.None
-              )
-            );
-            subject = openType + "<" + property.Arguments[0] + ">";
-            break;
-          }
-          subject = genericType.ConstructedFrom.Construct(genericArgument);
-          break;
-        case "visibility":
-          var visibilitySymbol = subject as ISymbol ?? TypeValueOf(subject) as ISymbol;
-          if (visibilitySymbol is null ||
-            visibilitySymbol.DeclaredAccessibility == Accessibility.NotApplicable) {
-            error = "property ':visibility' is not available for this value";
-            return false;
-          }
-          subject = AccessibilityText(visibilitySymbol.DeclaredAccessibility);
-          break;
-        case "path":
-          subject = SelectTypeArgument(subject, property.Argument);
-          break;
-        default:
-          error = "unknown value property ':" + property.Name + "'";
-          return false;
-      }
-      if (subject is null) {
-        error = "property ':" + property.Name + "' is not available for this value";
-        return false;
-      }
+      if (!FunctionLibrary.TryInvoke(
+        property, this, reference.Root, reference.Member, ref subject, out error
+      )) return false;
     }
+    error = null;
     return true;
   }
 
-  private static string FullNameOf(object subject) {
+  internal bool IsGeneratedStructType(string name) => _generatedStructs.Values.Any(item =>
+    string.Equals(item.TypeName, name, StringComparison.Ordinal) ||
+    string.Equals(item.TypeName.Replace("global::", ""), name.Replace("global::", ""), StringComparison.Ordinal)
+  );
+
+  internal static string FullNameOf(object subject) {
     return TypeValueOf(subject)
       ?.ToDisplayString(FullNameDisplayFormat);
   }
 
-  private static object Unwrap(object subject) {
+  internal static object Unwrap(object subject) {
     switch (subject) {
       case MixinGeneratedStructReference generated:
         return generated.TypeName.Replace("global::", "");
@@ -715,7 +608,7 @@ internal sealed class RoslynMixinExpressionContext :
     }
   }
 
-  private static ITypeSymbol TypeValueOf(object subject) {
+  internal static ITypeSymbol TypeValueOf(object subject) {
     return subject switch {
       TypedConstant { Kind: TypedConstantKind.Type, Value: ITypeSymbol type } => type,
       ImplicitMixinValue { Value: ITypeSymbol type } => type,
@@ -727,7 +620,7 @@ internal sealed class RoslynMixinExpressionContext :
     return type.ToDisplayString(TypeDisplayFormat).Replace("global::", "");
   }
 
-  private static ITypeSymbol SelectTypeArgument(object subject, string path) {
+  internal static ITypeSymbol SelectTypeArgument(object subject, string path) {
     if (AsType(subject) is not INamedTypeSymbol type) return null;
     if (int.TryParse(path, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedIndex)) {
       return parsedIndex >= 0 && parsedIndex < type.TypeArguments.Length
@@ -742,7 +635,7 @@ internal sealed class RoslynMixinExpressionContext :
     return null;
   }
 
-  private static bool IsTruthy(object subject) {
+  internal static bool IsTruthy(object subject) {
     return subject switch {
       null => false,
       TypedConstant constant => constant.Kind != TypedConstantKind.Error &&
@@ -753,122 +646,18 @@ internal sealed class RoslynMixinExpressionContext :
     };
   }
 
-  private bool TryPredicate(
+  private bool TryEvaluatePredicate(
     object subject,
     MixinExpressionProperty property,
     out bool value,
     out string error
   ) {
+    if (FunctionLibrary.TryGet(property.Name, out var function) &&
+      function is PredicateFunctionDefinition predicate)
+      return predicate.Evaluate(new RoslynMixinValue(this, subject), property, out value, out error);
     value = false;
-    error = null;
-    var symbol = subject as ISymbol;
-    var type = AsType(subject);
-    switch (property.Name) {
-      case "exists":
-        value = true;
-        return true;
-      case "is":
-        if (string.IsNullOrWhiteSpace(property.Argument)) {
-          error = ":?is requires a type";
-          return false;
-        }
-        value = type is not null && IsOrInherits(type, property.Argument);
-        return true;
-      case "has":
-        if (string.IsNullOrWhiteSpace(property.Argument)) {
-          error = ":?has requires a member";
-          return false;
-        }
-        value = type is not null && HasConcreteMember(type, property.Argument);
-        return true;
-      case "eq":
-        value = EqualTo(subject, property.Argument);
-        return true;
-      case "matches":
-        if (property.Arguments.Count != 1) {
-          error = ":?matches requires a regex";
-          return false;
-        }
-        if (!TryComparableText(subject, out var matchText)) {
-          value = false;
-          return true;
-        }
-        try {
-          value = Regex.IsMatch(matchText, property.Argument);
-          return true;
-        } catch (ArgumentException exception) {
-          error = "invalid regular expression: " + exception.Message;
-          return false;
-        }
-      case "signature":
-        var expected = ResolveCallable(property.Argument);
-        var actual = ResolveCallable(subject);
-        value = actual is not null && expected is not null && HaveSameSignature(actual, expected);
-        return true;
-      case "wireable":
-        var from = ResolveCallable(property.Arguments[0]);
-        var to = ResolveCallable(property.Arguments[1]);
-        value = from is not null && to is not null && TryWireParameters(from, to, out _);
-        return true;
-      case "isSelf":
-        value = type is not null && SymbolEqualityComparer.Default.Equals(type, _thisType);
-        return true;
-      case "ref":
-        value = symbol is IParameterSymbol { RefKind: RefKind.Ref };
-        return true;
-      case "in":
-        value = symbol is IParameterSymbol { RefKind: RefKind.In };
-        return true;
-      case "out":
-        value = symbol is IParameterSymbol { RefKind: RefKind.Out };
-        return true;
-      case "inout":
-        value = symbol is IParameterSymbol { RefKind: RefKind.In or RefKind.Out };
-        return true;
-      case "argument":
-        value = symbol is IParameterSymbol { RefKind: RefKind.None };
-        return true;
-      case "static":
-        value = symbol?.IsStatic == true;
-        return true;
-      case "async":
-        value = symbol is IMethodSymbol { IsAsync: true };
-        return true;
-      case "public":
-        value = symbol?.DeclaredAccessibility == Accessibility.Public;
-        return true;
-      case "exposed":
-        value = symbol?.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal
-          or Accessibility.ProtectedOrInternal;
-        return true;
-      case "top":
-        value = type?.ContainingType is null;
-        return true;
-      case "concrete":
-        value = subject switch {
-          INamedTypeSymbol named => named.TypeKind != TypeKind.Interface && !named.IsAbstract,
-          IMethodSymbol method => !method.IsAbstract && !method.IsVirtual,
-          _ => symbol is not null
-        };
-        return true;
-      case "partial":
-        value = IsPartialSymbol(subject);
-        return true;
-      case "generic":
-        value = subject is IMethodSymbol genericMethod
-          ? genericMethod.TypeParameters.Length != 0
-          : type is INamedTypeSymbol genericType && genericType.TypeParameters.Length != 0;
-        return true;
-      case "struct":
-        value = type?.TypeKind == TypeKind.Struct;
-        return true;
-      case "class":
-        value = type?.IsReferenceType == true;
-        return true;
-      default:
-        error = "unknown boolean pseudo-property ':?" + property.Name + "'";
-        return false;
-    }
+    error = "unknown boolean pseudo-property ':?" + property.Name + "'";
+    return false;
   }
 
   private static bool IsDeveloperExpressionError(string error) {
@@ -878,7 +667,7 @@ internal sealed class RoslynMixinExpressionContext :
       error?.Contains(" requires a ") == true;
   }
 
-  private IMethodSymbol ResolveCallable(object value) {
+  internal IMethodSymbol ResolveCallable(object value) {
     if (value is IMethodSymbol method) return method;
     if (value is INamedTypeSymbol { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke })
       return invoke;
@@ -896,7 +685,7 @@ internal sealed class RoslynMixinExpressionContext :
     return methods.Length == 1 ? methods[0] : null;
   }
 
-  private INamedTypeSymbol ResolveType(string name) {
+  internal INamedTypeSymbol ResolveType(string name) {
     var normalized = name.StartsWith("global::", StringComparison.Ordinal)
       ? name.Substring(8)
       : name;
@@ -966,7 +755,7 @@ internal sealed class RoslynMixinExpressionContext :
     return method.ContainingType.ToDisplayString(TypeDisplayFormat) + "." + method.Name;
   }
 
-  private static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second) {
+  internal static bool HaveSameSignature(IMethodSymbol first, IMethodSymbol second) {
     if (first.RefKind != second.RefKind || first.Parameters.Length != second.Parameters.Length ||
       first.TypeParameters.Length != second.TypeParameters.Length ||
       !SymbolEqualityComparer.Default.Equals(first.ReturnType, second.ReturnType)) return false;
@@ -979,7 +768,7 @@ internal sealed class RoslynMixinExpressionContext :
     return true;
   }
 
-  private bool TryWireParameters(
+  internal bool TryWireParameters(
     IMethodSymbol from,
     IMethodSymbol to,
     out string arguments
@@ -1004,7 +793,7 @@ internal sealed class RoslynMixinExpressionContext :
     return true;
   }
 
-  private static bool EqualTo(object subject, string expected) {
+  internal static bool EqualTo(object subject, string expected) {
     if (IsNullLike(subject)) return string.Equals(expected, "null", StringComparison.OrdinalIgnoreCase);
     if (TryComparableText(subject, out var rendered) &&
       string.Equals(rendered, expected ?? "", StringComparison.Ordinal)) return true;
@@ -1023,7 +812,7 @@ internal sealed class RoslynMixinExpressionContext :
     };
   }
 
-  private static bool TryComparableText(object subject, out string value) {
+  internal static bool TryComparableText(object subject, out string value) {
     subject = subject switch {
       TypedConstant constant => constant.Value,
       ImplicitMixinValue implicitValue => implicitValue.Value,
@@ -1052,7 +841,7 @@ internal sealed class RoslynMixinExpressionContext :
     return value;
   }
 
-  private bool IsOrInherits(ITypeSymbol type, string requested) {
+  internal bool IsOrInherits(ITypeSymbol type, string requested) {
     bool Matches(ITypeSymbol candidate) {
       var display = candidate.ToDisplayString(TypeDisplayFormat);
       return candidate.Name == requested || display == requested || display == "global::" + requested ||
@@ -1067,7 +856,7 @@ internal sealed class RoslynMixinExpressionContext :
     return named.AllInterfaces.Any(Matches);
   }
 
-  private static bool HasConcreteMember(ITypeSymbol type, string requested) {
+  internal static bool HasConcreteMember(ITypeSymbol type, string requested) {
     if (type is not INamedTypeSymbol named) return false;
     for (var current = named; current is not null; current = current.BaseType)
       if (current.GetMembers(requested).Any(item => item is not IMethodSymbol { IsAbstract: true }))
@@ -1075,7 +864,7 @@ internal sealed class RoslynMixinExpressionContext :
     return false;
   }
 
-  private static bool IsPartialSymbol(object subject) {
+  internal static bool IsPartialSymbol(object subject) {
     if (subject is INamedTypeSymbol named) return IsPartial(named);
     return subject is IMethodSymbol method && method.DeclaringSyntaxReferences.Any(item =>
       item.GetSyntax() is MethodDeclarationSyntax syntax && syntax.Modifiers.Any(SyntaxKind.PartialKeyword)
@@ -1083,14 +872,10 @@ internal sealed class RoslynMixinExpressionContext :
   }
 
   private static bool IsPredicate(MixinExpressionProperty property) {
-    return property.Name is
-      "exists" or "is" or "has" or "eq" or "isSelf" or "ref" or "in" or "out" or "inout" or
-      "argument" or "static" or "async" or "public" or "exposed" or "top" or "concrete" or
-      "partial" or "generic" or "struct" or "class" or "matches" or "signature" or "wireable" or
-      "structHasEquality" or "structNoArgs" or "structAugment";
+    return FunctionLibrary.IsPredicate(property.Name);
   }
 
-  private static string NameOf(object subject) {
+  internal static string NameOf(object subject) {
     return subject switch {
       MixinGeneratedStructReference generated => generated.Name,
       ISymbol symbol => symbol.Name,
@@ -1101,7 +886,7 @@ internal sealed class RoslynMixinExpressionContext :
     };
   }
 
-  private static ITypeSymbol AsType(object subject) {
+  internal static ITypeSymbol AsType(object subject) {
     return subject switch {
       ITypeSymbol type => type,
       IMethodSymbol method => method.ReturnType,

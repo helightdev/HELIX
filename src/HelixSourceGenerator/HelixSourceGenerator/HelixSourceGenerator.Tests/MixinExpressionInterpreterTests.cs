@@ -12,6 +12,30 @@ public sealed class MixinExpressionInterpreterTests {
   private readonly MixinExpressionInterpreter _interpreter = new();
 
   [Fact]
+  public void TablesMutateWhileOpenAndCopyAfterAssignmentClosesThem() {
+    var variables = new Dictionary<string, object>();
+    var created = _interpreter.Execute(
+      "@VAR<table> @table:put<first><one>:put<second><two>",
+      new StubContext(), variables
+    );
+    Assert.True(created.Success, created.Error);
+    var original = Assert.IsType<MixinExpressionTable>(variables["table"]);
+    Assert.True(original.IsClosed);
+    Assert.Equal(2, original.Count);
+
+    var changed = _interpreter.Execute(
+      "@VAR<table> @var#table:put<third><three>",
+      new StubContext(), variables
+    );
+    Assert.True(changed.Success, changed.Error);
+    var replacement = Assert.IsType<MixinExpressionTable>(variables["table"]);
+    Assert.NotSame(original, replacement);
+    Assert.True(replacement.IsClosed);
+    Assert.Equal(2, original.Count);
+    Assert.Equal(3, replacement.Count);
+  }
+
+  [Fact]
   public void VariablesPreserveImmutableTablesAndTableOperations() {
     var variables = new Dictionary<string, object>();
     var result = _interpreter.Execute(

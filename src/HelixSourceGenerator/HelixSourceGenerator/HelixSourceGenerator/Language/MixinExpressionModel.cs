@@ -76,33 +76,64 @@ public sealed class MixinExpressionProperty : FunctionInvocation {
 }
 
 /// <summary>An immutable expression table. Mutating operations return a new table.</summary>
-public sealed class MixinExpressionTable {
-  private readonly IReadOnlyDictionary<string, object> _values;
+public sealed class MixinExpressionTable : MixinValue {
+  private readonly Dictionary<string, IMixinValue> _values;
+  private bool _closed;
 
-  public MixinExpressionTable() : this(new Dictionary<string, object>(StringComparer.Ordinal)) { }
+  public MixinExpressionTable() : this(new Dictionary<string, IMixinValue>(StringComparer.Ordinal)) { }
 
-  private MixinExpressionTable(IReadOnlyDictionary<string, object> values) {
+  private MixinExpressionTable(Dictionary<string, IMixinValue> values) {
     _values = values;
   }
 
   public int Count => _values.Count;
+  public bool IsClosed => _closed;
 
-  internal IEnumerable<object> Values => _values.Values;
+  internal IEnumerable<IMixinValue> Values => _values.Values;
+
+  public override object BackingValue => this;
+  public override bool IsTruthy => true;
+  public override string Render() => ToString();
+  public override bool TryGetText(out string text) { text = null; return false; }
+  public override object Select(string path) => TryGetValue(path, out var value) ? value : null;
+  public override bool Has(object member) => _values.ContainsKey(Convert.ToString(member) ?? "");
 
   public bool TryGetValue(string key, out object value) {
-    return _values.TryGetValue(key ?? "", out value);
+    if (_values.TryGetValue(key ?? "", out var typed)) {
+      value = typed.BackingValue;
+      return true;
+    }
+    value = null;
+    return false;
   }
 
+  internal bool TryGetMixinValue(string key, out IMixinValue value) => _values.TryGetValue(key ?? "", out value);
+
   internal MixinExpressionTable Put(string key, object value) {
-    var result = _values.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
-    result[key ?? ""] = value;
-    return new MixinExpressionTable(result);
+    var result = Writable();
+    var typed = MixinValue.From(value);
+    if (typed.BackingValue is MixinExpressionTable nested) nested.Close();
+    result._values[key ?? ""] = typed;
+    return result;
   }
 
   internal MixinExpressionTable Remove(string key) {
-    var result = _values.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
-    result.Remove(key ?? "");
-    return new MixinExpressionTable(result);
+    var result = Writable();
+    result._values.Remove(key ?? "");
+    return result;
+  }
+
+  internal MixinExpressionTable Close() {
+    if (_closed) return this;
+    _closed = true;
+    return this;
+  }
+
+  private MixinExpressionTable Writable() {
+    if (!_closed) return this;
+    return new MixinExpressionTable(
+      _values.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal)
+    );
   }
 
   public override string ToString() {
