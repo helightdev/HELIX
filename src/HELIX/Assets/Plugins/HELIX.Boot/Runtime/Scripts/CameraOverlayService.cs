@@ -11,9 +11,11 @@ namespace HELIX.Boot {
 
     [Ticker]
     private void CollectOverlays() {
-      var overlay = _gui.cameraOverlays;
-      overlay.SetCamera(_gui.cameraProvider.GetGuiReferenceCamera());
-      new CollectCameraOverlayEvent(overlay).Raise();
+      var screen = _gui.screenCameraOverlays;
+      var world = _gui.worldCameraOverlays;
+      world.SetCamera(_gui.cameraProvider.GetGuiReferenceCamera());
+      new CollectScreenCameraOverlayEvent(screen).Raise();
+      new CollectWorldCameraOverlayEvent(world).Raise();
     }
   }
 }

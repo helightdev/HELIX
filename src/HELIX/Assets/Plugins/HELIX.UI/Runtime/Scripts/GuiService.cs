@@ -26,7 +26,8 @@ namespace HELIX.UI {
     public readonly NavigationController navigation = new();
     public readonly OverlayController overlays = new();
     public readonly HelixInputController inputController = new(InputConfiguration.Default);
-    public readonly CameraOverlayController cameraOverlays = new();
+    public readonly ScreenCameraOverlayController screenCameraOverlays = new();
+    public readonly WorldCameraOverlayController worldCameraOverlays = new();
     public ICommandSystem commandSystem;
 
     [Hook]

@@ -38,7 +38,7 @@ namespace HELIX.UI {
         cx.NavigationHost(service.navigation).With(Flex.Fill());
       }
 
-      CameraOverlayComposition.Compose(ref cx, service.cameraOverlays);
+      CameraOverlayComposition.Compose(ref cx, service.screenCameraOverlays, service.worldCameraOverlays);
       _console = CameraOverlayComposition.ComposeConsole(ref cx, service.commandSystem);
     }
 
@@ -49,9 +49,11 @@ namespace HELIX.UI {
     private static readonly ushort OverlayId = CompositionId.GetTypeId(nameof(CameraOverlayElement));
     private static readonly ushort ConsoleId = CompositionId.GetTypeId(nameof(CommandConsoleElement));
 
-    public static void Compose(ref Composition cx, CameraOverlayController controller) {
+    public static void Compose(
+      ref Composition cx, ScreenCameraOverlayController screen, WorldCameraOverlayController world
+    ) {
       if (!cx.AUTHORING.RequireTracked<CameraOverlayElement>(OverlayId, out var element, out _))
-        element = new CameraOverlayElement(controller);
+        element = new CameraOverlayElement(screen, world);
       cx.AUTHORING.YieldElement(ref cx, element);
     }
 

@@ -4,13 +4,17 @@ using HELIX.Compose;
 using HELIX.Prose;
 using HELIX.UI.CameraOverlays;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>Live examples for prose-authored screen and world camera-overlay boxes.</summary>
 [Managed(typeof(ApplicationScope))]
 public partial class ExampleCameraOverlays : MonoBehaviour {
-  private CameraOverlayEntry _screen, _camera, _world;
+  private ScreenCameraOverlayEntry _screen, _camera;
+  private WorldCameraOverlayEntry _world;
   private Camera _namedCamera;
   private string _cameraName;
+
+  [FormerlySerializedAs("enabledCameraOverlay")] public bool enabledCamera = true;
 
   [Hook]
   private void OnDispose() {
@@ -20,27 +24,33 @@ public partial class ExampleCameraOverlays : MonoBehaviour {
   }
 
   [EventHandler]
-  private void OnCollectCameraOverlay(CollectCameraOverlayEvent evt) {
+  private void OnCollectScreenCameraOverlay(CollectScreenCameraOverlayEvent evt) {
     if (_screen == null) {
       _screen = evt.overlays.Subscribe(
-        "helix.overlay.example.screen", CameraOverlayPosition.Screen(10, 10, -100), WriteScreen
+        "helix.overlay.example.screen", new ScreenCameraOverlayPosition(10, 10, -100), WriteScreen
       );
       _camera = evt.overlays.Subscribe(
-        "helix.overlay.example.camera", CameraOverlayPosition.Screen(10, 170), WriteCamera
+        "helix.overlay.example.camera", new ScreenCameraOverlayPosition(10, 170), WriteCamera, HasCamera
       );
-      _world = evt.overlays.Subscribe(
-        "helix.overlay.example.world", CameraOverlayPosition.World(Vector3.zero), WriteWorld
-      );
-      _world.Track(transform, Vector3.up * 2f);
     }
 
     var camera = Camera.main;
-    _camera.Enabled = _world.Enabled = camera;
     if (camera && !object.ReferenceEquals(_namedCamera, camera)) {
       _namedCamera = camera;
       _cameraName = camera.name;
     }
   }
+
+  [EventHandler]
+  private void OnCollectWorldCameraOverlay(CollectWorldCameraOverlayEvent evt) {
+    if (_world != null) return;
+    _world = evt.overlays.Subscribe(
+      "helix.overlay.example.world", Vector3.zero, WriteWorld, HasCamera
+    );
+    _world.Track(transform, Vector3.up * 2f);
+  }
+
+  private bool HasCamera() => _namedCamera && enabledCamera;
 
   private void WriteScreen(IProseWriter prose) {
     prose.WriteSectionHeader("HELIX");
