@@ -45,32 +45,27 @@ namespace HELIX.Compose {
     protected virtual void OnFocusOut(FocusOutEvent evt) {
       if (!focus || (holder.InputState & State.Focused) == 0) return;
       holder.Disable(State.Focused);
-      holder.MarkDirty();
     }
 
     protected virtual void OnFocusIn(FocusInEvent evt) {
       if (!focus || (holder.InputState & State.Focused) != 0) return;
       holder.Enable(State.Focused);
-      holder.MarkDirty();
       //if (WidgetStateController.LastNavigated) state.Enable(WidgetState.Navigated);
     }
 
     protected virtual void OnPointerLeave(PointerLeaveEvent evt) {
       if ((holder.InputState & State.Hovered) == 0) return;
       holder.Disable(State.Hovered);
-      holder.MarkDirty();
     }
 
     protected virtual void OnPointerEnter(PointerEnterEvent evt) {
       if ((holder.InputState & State.Hovered) != 0) return;
       holder.Enable(State.Hovered);
-      holder.MarkDirty();
     }
 
     protected virtual void OnNavigationMove(NavigationMoveEvent evt) {
       if ((holder.InputState & State.Navigated) != 0) return;
       holder.Enable(State.Navigated);
-      holder.MarkDirty();
     }
   }
 }
