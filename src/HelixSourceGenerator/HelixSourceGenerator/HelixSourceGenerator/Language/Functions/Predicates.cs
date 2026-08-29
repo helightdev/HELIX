@@ -116,7 +116,7 @@ internal sealed class PropStructPredicate : PredicateFunctionDefinition {
   }
 
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
-    if (value.BackingValue is not MixinPropStructHandle propStruct) {
+    if (value.Value is not MixinPropStructHandle propStruct) {
       result = false;
       error = ":" + Name + " must be called on a prop struct handle";
       return false;

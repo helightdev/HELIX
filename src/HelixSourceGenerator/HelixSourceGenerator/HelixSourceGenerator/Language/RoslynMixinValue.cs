@@ -14,13 +14,13 @@ internal readonly struct RoslynMixinValue : IMixinValue {
 
   internal RoslynMixinValue(RoslynMixinExpressionContext context, object value) {
     _context = context;
-    BackingValue = value;
+    Value = value;
   }
 
-  private ISymbol Symbol => BackingValue as ISymbol;
-  private ITypeSymbol Type => RoslynMixinExpressionContext.TypeValueOf(BackingValue);
+  public object Value { get; }
+  private ISymbol Symbol => Value as ISymbol;
+  private ITypeSymbol Type => RoslynMixinExpressionContext.TypeValueOf(Value);
 
-  public object BackingValue { get; }
   public ISymbol RoslynSymbol => Symbol;
   public ITypeSymbol RoslynType => Type;
   public string Visibility {
@@ -31,51 +31,40 @@ internal readonly struct RoslynMixinValue : IMixinValue {
         : GeneratorAnalysis.AccessibilityText(symbol.DeclaredAccessibility);
     }
   }
-  public string Name => RoslynMixinExpressionContext.NameOf(BackingValue);
-  public string FullName => RoslynMixinExpressionContext.FullNameOf(BackingValue);
-  public bool Exists => BackingValue is not null;
-  public bool IsTruthy => RoslynMixinExpressionContext.IsTruthy(BackingValue);
+  public string Name => RoslynMixinExpressionContext.NameOf(Value);
+  public string FullName => RoslynMixinExpressionContext.FullNameOf(Value);
+  public bool Exists => Value is not null;
+  public bool IsTruthy => RoslynMixinExpressionContext.IsTruthy(Value);
 
-  public string Render() {
-    return RoslynMixinExpressionContext.TryComparableText(BackingValue, out var text)
-      ? text
-      : Convert.ToString(BackingValue);
-  }
+  public string Render() => RoslynMixinExpressionContext.TryComparableText(Value, out var text)
+    ? text
+    : Convert.ToString(Value);
 
   public void Fingerprint(MixinFingerprintBuilder builder) {
     builder.Append(nameof(RoslynMixinValue));
     builder.Append(Render());
   }
 
-  public object Unwrap() {
-    return RoslynMixinExpressionContext.Unwrap(BackingValue);
-  }
+  public object Unwrap() => RoslynMixinExpressionContext.Unwrap(Value);
 
-  public bool TryGetText(out string text) {
-    return RoslynMixinExpressionContext.TryComparableText(BackingValue, out text);
-  }
+  public bool TryGetText(out string text) => RoslynMixinExpressionContext.TryComparableText(Value, out text);
 
-  public object Select(string path) {
-    return _context.SelectValueMember(BackingValue, path) ??
-      RoslynMixinExpressionContext.SelectTypeArgument(BackingValue, path);
-  }
+  public object Select(string path) => _context.SelectMember(Value, path) ??
+    RoslynMixinExpressionContext.SelectTypeArgument(Value, path);
 
-  public bool Is(string type) {
-    return Type is not null && _context.IsOrInherits(Type, type);
-  }
+  public bool Is(string type) => Type is not null && _context.IsOrInherits(Type, type);
 
   public bool Has(object member) {
-    return Type is not null &&
-      RoslynMixinExpressionContext.HasConcreteMember(Type, Convert.ToString(member));
+    return Type is not null && RoslynMixinExpressionContext.HasConcreteMember(Type, Convert.ToString(member));
   }
 
   public bool EqualsTo(object expected) {
-    return RoslynMixinExpressionContext.EqualTo(BackingValue, Convert.ToString(expected));
+    return RoslynMixinExpressionContext.EqualTo(Value, Convert.ToString(expected));
   }
 
   public bool Matches(string pattern, out string error) {
     error = null;
-    if (!RoslynMixinExpressionContext.TryComparableText(BackingValue, out var text)) return false;
+    if (!RoslynMixinExpressionContext.TryComparableText(Value, out var text)) return false;
     try {
       return Regex.IsMatch(text, pattern);
     } catch (ArgumentException exception) {
@@ -85,7 +74,7 @@ internal readonly struct RoslynMixinValue : IMixinValue {
   }
 
   public bool HasSameSignature(string expected) {
-    var actual = _context.ResolveCallable(BackingValue);
+    var actual = _context.ResolveCallable(Value);
     var target = _context.ResolveCallable(expected);
     return actual is not null && target is not null &&
       RoslynMixinExpressionContext.HaveSameSignature(actual, target);
@@ -102,7 +91,7 @@ internal readonly struct RoslynMixinValue : IMixinValue {
   }
 
   public bool TryApplyPropStruct(MixinExpressionProperty property, out object result, out string error) {
-    return _context.TryApplyPropStructProperty(BackingValue, property, out result, out error);
+    return _context.TryApplyPropStructProperty(Value, property, out result, out error);
   }
 
   public MixinExpressionTable Attributes(string type, bool exact) {
@@ -129,10 +118,13 @@ internal readonly struct RoslynMixinValue : IMixinValue {
   }
 
   private IEnumerable<AttributeData> SourceAttributes() {
-    if (BackingValue is ISymbol symbol) return symbol.GetAttributes();
-    if (BackingValue is AttributeData attribute) {
-      var attributeType = attribute.AttributeClass;
-      if (attributeType is not null) return attributeType.GetAttributes();
+    switch (Value) {
+      case ISymbol symbol: return symbol.GetAttributes();
+      case AttributeData attribute: {
+        var attributeType = attribute.AttributeClass;
+        if (attributeType is not null) return attributeType.GetAttributes();
+        break;
+      }
     }
     var type = Type;
     return type is null ? Array.Empty<AttributeData>() : type.GetAttributes();
@@ -148,16 +140,12 @@ internal readonly struct RoslynMixinValue : IMixinValue {
     );
   }
 
-  public ITypeSymbol ResolveType(string name) {
-    return _context.ResolveType(name);
-  }
+  public ITypeSymbol ResolveType(string name) => _context.ResolveType(name);
 
-  public bool IsGeneratedType(string name) {
-    return _context.IsGeneratedStructType(name);
-  }
+  public bool IsGeneratedType(string name) => _context.IsGeneratedStructType(name);
 
   public IMixinValue Unlink() {
-    if (BackingValue is ISymbol || BackingValue is TypedConstant)
+    if (Value is ISymbol || Value is TypedConstant)
       return DetachedSemantic();
     var value = Unwrap();
     if (value is null) return MixinValue.From(null);
@@ -171,11 +159,9 @@ internal readonly struct RoslynMixinValue : IMixinValue {
     var members = Members(Type);
     var traits = Enum.GetValues(typeof(MixinValueTrait)).Cast<MixinValueTrait>().Where(HasTrait).ToArray();
     var render = Render();
-    if (BackingValue is TypedConstant &&
-      _context.TryRenderValue(
-        BackingValue, MixinExpressionRoot.Attribute, out var constantExpression, out _
-      ))
-      render = constantExpression;
+    if (Value is TypedConstant &&
+      _context.TryRenderValue(Value, MixinExpressionRoot.Attribute, out var constantExpression, out _)
+    ) render = constantExpression;
     return new DetachedSemanticValue(Name, FullName, render, Visibility, type, members, traits);
   }
 
@@ -185,7 +171,8 @@ internal readonly struct RoslynMixinValue : IMixinValue {
     for (var current = type; current is not null; current = current.ContainingType) names.Push(current.Name);
     return new DetachedTypeValue(
       type.ContainingNamespace?.IsGlobalNamespace == false ? type.ContainingNamespace.ToDisplayString() : "",
-      names.ToArray(), Members(type),
+      [.. names],
+      Members(type),
       type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
       AssignableTypes(type),
       type is INamedTypeSymbol named
@@ -200,28 +187,27 @@ internal readonly struct RoslynMixinValue : IMixinValue {
   private static string[] AssignableTypes(ITypeSymbol type) {
     var result = new HashSet<string>(StringComparer.Ordinal);
 
+    Add(type);
+    if (type is not INamedTypeSymbol named) return [.. result.OrderBy(item => item, StringComparer.Ordinal)];
+    for (var current = named.BaseType; current is not null; current = current.BaseType) Add(current);
+    foreach (var implemented in named.AllInterfaces) Add(implemented);
+    return [.. result.OrderBy(item => item, StringComparer.Ordinal)];
+
     void Add(ITypeSymbol item) {
       if (item is null) return;
       result.Add(item.Name);
       result.Add(item.ToDisplayString().Replace("global::", ""));
       result.Add(item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""));
     }
-
-    Add(type);
-    if (type is INamedTypeSymbol named) {
-      for (var current = named.BaseType; current is not null; current = current.BaseType) Add(current);
-      foreach (var implemented in named.AllInterfaces) Add(implemented);
-    }
-    return result.OrderBy(item => item, StringComparer.Ordinal).ToArray();
   }
 
   private static string[] Members(ITypeSymbol type) {
-    if (type is not INamedTypeSymbol named) return Array.Empty<string>();
-    return named.GetMembers().Select(item => item.Name).Distinct(StringComparer.Ordinal).ToArray();
+    if (type is not INamedTypeSymbol named) return [];
+    return [.. named.GetMembers().Select(item => item.Name).Distinct(StringComparer.Ordinal)];
   }
 
   public bool HasTrait(MixinValueTrait trait) {
-    if (BackingValue is null) return false;
+    if (Value is null) return false;
     return trait switch {
       MixinValueTrait.Self => Type is not null && SymbolEqualityComparer.Default.Equals(Type, _context.CurrentType),
       MixinValueTrait.Ref => Symbol is IParameterSymbol { RefKind: RefKind.Ref },
@@ -235,13 +221,13 @@ internal readonly struct RoslynMixinValue : IMixinValue {
       MixinValueTrait.Exposed => Symbol?.DeclaredAccessibility is Accessibility.Public or
         Accessibility.Internal or Accessibility.ProtectedOrInternal,
       MixinValueTrait.Top => Type?.ContainingType is null,
-      MixinValueTrait.Concrete => BackingValue switch {
+      MixinValueTrait.Concrete => Value switch {
         INamedTypeSymbol named => named.TypeKind != TypeKind.Interface && !named.IsAbstract,
         IMethodSymbol method => !method.IsAbstract && !method.IsVirtual,
         _ => Symbol is not null
       },
-      MixinValueTrait.Partial => RoslynMixinExpressionContext.IsPartialSymbol(BackingValue),
-      MixinValueTrait.Generic => BackingValue is IMethodSymbol method
+      MixinValueTrait.Partial => RoslynMixinExpressionContext.IsPartialSymbol(Value),
+      MixinValueTrait.Generic => Value is IMethodSymbol method
         ? method.TypeParameters.Length != 0
         : Type is INamedTypeSymbol type && type.TypeParameters.Length != 0,
       MixinValueTrait.Struct => Type?.TypeKind == TypeKind.Struct,

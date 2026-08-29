@@ -67,7 +67,7 @@ internal static class PropStructMixinApi {
           const int order = 0;
           var arguments = owner is IParameterSymbol { ContainingSymbol: IMethodSymbol method }
             ? (IReadOnlyList<IParameterSymbol>)method.Parameters
-            : Array.Empty<IParameterSymbol>();
+            : [];
           var expressionContext = new RoslynMixinExpressionContext(
             type, owner, applied, arguments, compilation,
             targetDefinitions: targetDefinitions,
@@ -211,10 +211,11 @@ internal static class PropStructMixinApi {
   }
 
   private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) {
-    return symbol.GetAttributes()
-      .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
-      .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
-      .ToArray();
+    return [
+      .. symbol.GetAttributes()
+        .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
+        .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
+    ];
   }
 
   private static void ReportFailure(
@@ -243,23 +244,22 @@ internal static class PropStructMixinApi {
 }
 
 internal sealed class PropStructMixinModel {
-  private readonly List<string> _annotations = new();
-  private readonly List<string> _class = new();
-  private readonly List<ConfigurationOutput> _configuration = new();
-  private readonly List<string> _file = new();
-  private readonly List<string> _implements = new();
-  private readonly List<string> _usings = new();
+  private readonly List<string> _annotations = [];
+  private readonly List<string> _class = [];
+  private readonly List<ConfigurationOutput> _configuration = [];
+  private readonly List<string> _file = [];
+  private readonly List<string> _implements = [];
+  private readonly List<string> _usings = [];
 
-  internal IReadOnlyList<string> Configuration => _configuration.Select(item => item.Text).ToArray();
+  internal IReadOnlyList<string> Configuration => [.. _configuration.Select(item => item.Text)];
   internal IReadOnlyList<string> Class => _class;
   internal IReadOnlyList<string> File => _file;
   internal IReadOnlyList<string> Implements => _implements;
   internal IReadOnlyList<string> Annotations => _annotations;
   internal IReadOnlyList<string> Usings => _usings;
 
-  internal void AddConfiguration(string text, int order, int sequence) {
+  internal void AddConfiguration(string text, int order, int sequence) =>
     _configuration.Add(new ConfigurationOutput(text, order, sequence));
-  }
 
   internal void SortConfiguration() {
     _configuration.Sort((left, right) => {

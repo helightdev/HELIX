@@ -10,9 +10,9 @@ using static MixinExpressionEvaluator;
 using static MixinExpressionInterpreter;
 
 public static class MixinExpressionCompiler {
-  private static readonly HashSet<MixinExpressionRoot> RoslynRoots = new() {
+  private static readonly HashSet<MixinExpressionRoot> RoslynRoots = [
     MixinExpressionRoot.Target, MixinExpressionRoot.This, MixinExpressionRoot.Attribute, MixinExpressionRoot.Argument
-  };
+  ];
 
   public static string RewriteTargetAsThis(string expression) {
     if (string.IsNullOrEmpty(expression)) return expression ?? "";
@@ -38,8 +38,7 @@ public static class MixinExpressionCompiler {
     if (start + root.Length > expression.Length ||
       string.CompareOrdinal(expression, start, root, 0, root.Length) != 0) return false;
     var end = start + root.Length;
-    return end == expression.Length ||
-      !(char.IsLetterOrDigit(expression[end]) || expression[end] == '_');
+    return end == expression.Length || !(char.IsLetterOrDigit(expression[end]) || expression[end] == '_');
   }
 
   public static bool TryHoistPrelude(
@@ -133,8 +132,10 @@ public static class MixinExpressionCompiler {
     var functions = new Dictionary<string, IReadOnlyList<DirectiveInstruction>>(StringComparer.Ordinal);
     if (preparedState is not null) {
       foreach (var function in preparedState.Functions) {
-        functions[function.Key] = preparedState.Instructions
-          .Skip(function.Value.Start).Take(function.Value.End - function.Value.Start).ToArray();
+        functions[function.Key] = [
+          .. preparedState.Instructions
+            .Skip(function.Value.Start).Take(function.Value.End - function.Value.Start)
+        ];
       }
     }
     if (!TryCollectInlineFunctions(explicitPrelude, functions, out error, out errorLine) ||
@@ -179,7 +180,7 @@ public static class MixinExpressionCompiler {
       }
       functions.Add(
         function.Key,
-        instructions.Skip(function.Value.Start).Take(function.Value.End - function.Value.Start).ToArray()
+        [.. instructions.Skip(function.Value.Start).Take(function.Value.End - function.Value.Start)]
       );
     }
     error = null;
@@ -230,19 +231,20 @@ public static class MixinExpressionCompiler {
         .ToDictionary(item => item, item => item + suffix, StringComparer.Ordinal);
       var bodyLines = new List<string>();
       foreach (var item in body) {
-        if (item.Opcode == DirectiveOpcode.Return) {
-          if (!string.IsNullOrEmpty(item.Operand))
-            bodyLines.Add("@LOCAL<" + suffix + "_return> " + item.Operand);
-          bodyLines.Add("@GOTO<" + endLabel + ">");
-          continue;
+        switch (item.Opcode) {
+          case DirectiveOpcode.Return: {
+            if (!string.IsNullOrEmpty(item.Operand))
+              bodyLines.Add("@LOCAL<" + suffix + "_return> " + item.Operand);
+            bodyLines.Add("@GOTO<" + endLabel + ">");
+            continue;
+          }
+          case DirectiveOpcode.Scope or DirectiveOpcode.Goto or DirectiveOpcode.Match
+            when !string.IsNullOrEmpty(item.Argument) &&
+            labels.TryGetValue(item.Argument, out var renamed):
+            bodyLines.Add(SerializeInstruction(item, renamed));
+            continue;
+          default: bodyLines.Add(SerializeInstruction(item)); break;
         }
-        if ((item.Opcode == DirectiveOpcode.Scope || item.Opcode == DirectiveOpcode.Goto ||
-            item.Opcode == DirectiveOpcode.Match) && !string.IsNullOrEmpty(item.Argument) &&
-          labels.TryGetValue(item.Argument, out var renamed)) {
-          bodyLines.Add(SerializeInstruction(item, renamed));
-          continue;
-        }
-        bodyLines.Add(SerializeInstruction(item));
       }
       var bodySource = string.Join("\n", bodyLines);
       if (!TryExpandInlineProgram(
@@ -406,8 +408,10 @@ public static class MixinExpressionCompiler {
         functionScopeOpen = false;
         continue;
       }
-      if (command == "FUNC") return ValidationFailure("functions may not be nested", index + 1);
-      if (command == "SCOPE") functionScopeOpen = true;
+      switch (command) {
+        case "FUNC": return ValidationFailure("functions may not be nested", index + 1);
+        case "SCOPE": functionScopeOpen = true; break;
+      }
       if (command != "END") continue;
       if (functionScopeOpen) functionScopeOpen = false;
       else activeFunction = null;
@@ -419,7 +423,7 @@ public static class MixinExpressionCompiler {
 
   internal static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
     var programs = new List<MixinProgramSyntax>();
-    foreach (var expression in expressions ?? Array.Empty<string>()) {
+    foreach (var expression in expressions ?? []) {
       var validation = ValidateSyntax(expression, false);
       if (!validation.Success) {
         throw new ArgumentException(
@@ -435,7 +439,7 @@ public static class MixinExpressionCompiler {
   internal static MixinExpressionPreparedState PrepareGlobals(
     IReadOnlyList<MixinProgramSyntax> programs
   ) {
-    programs ??= Array.Empty<MixinProgramSyntax>();
+    programs ??= [];
     var poolBuilder = new MixinStringPoolBuilder();
     foreach (var program in programs) program.CollectConstants(poolBuilder);
     var stringPool = poolBuilder.Freeze();
@@ -479,7 +483,7 @@ public static class MixinExpressionCompiler {
     var initializers = FindPreparedInitializers(instructions);
     return new MixinExpressionPreparedState(
       stringPool,
-      programs.ToArray(),
+      [.. programs],
       new MixinValueDictionary(variables, stringPool),
       instructions,
       new MixinStringDictionary<int>(labels, stringPool),
@@ -598,15 +602,6 @@ public static class MixinExpressionCompiler {
     }
     result = builder.ToString();
     return true;
-  }
-
-  private static string DumpValues(IReadOnlyDictionary<string, object> values) {
-    return values.Count == 0
-      ? "{}"
-      : "{" + string.Join(
-        ", ", values.OrderBy(item => item.Key, StringComparer.Ordinal)
-          .Select(item => item.Key + "=" + RenderValue(item.Value))
-      ) + "}";
   }
 
   internal static bool ValidateBooleanExpressionSyntax(string text, out string error) {
@@ -756,10 +751,9 @@ public static class MixinExpressionCompiler {
         continue;
       }
       AddScopeLabel(command, argument, index, scope, labels, out error);
-      if (error is not null) {
-        errorLine = instruction.Line;
-        return false;
-      }
+      if (error is null) continue;
+      errorLine = instruction.Line;
+      return false;
     }
     if (activeFunction is null) return true;
     error = "unterminated function '" + activeFunction + "'";

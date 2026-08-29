@@ -4,10 +4,10 @@ using System.Linq;
 
 namespace HelixSourceGenerator.Language;
 
-internal enum DirectiveOperandKind { None, Value, Boolean }
+public enum DirectiveOperandKind { None, Value, Boolean }
 
 /// <summary>Definition and compiler contract for a source-language directive.</summary>
-internal abstract class DirectiveDefinition {
+public abstract class DirectiveDefinition {
   protected DirectiveDefinition(string name, DirectiveOpcode opcode, DirectiveOperandKind operandKind) {
     Name = name;
     Opcode = opcode;
@@ -138,36 +138,36 @@ internal sealed class DefineTargetDirective : DirectiveDefinition {
   }
 }
 
-internal static class DirectiveLibrary {
-  private static readonly DirectiveDefinition Scope = new MarkerDirective("SCOPE", DirectiveOpcode.Scope);
-  private static readonly DirectiveDefinition Function = new NamedDirective("FUNC", DirectiveOpcode.Function);
-  private static readonly DirectiveDefinition Call = new CallDirective();
-  private static readonly DirectiveDefinition Inline = new NamedDirective("INLINE", DirectiveOpcode.Inline);
-  private static readonly DirectiveDefinition End = new MarkerDirective("END", DirectiveOpcode.End);
-  private static readonly DirectiveDefinition Match = new BooleanDirective("MATCH", DirectiveOpcode.Match);
-  private static readonly DirectiveDefinition Assert = new BooleanDirective("ASSERT", DirectiveOpcode.Assert);
-  private static readonly DirectiveDefinition Code = new ValueDirective("CODE", DirectiveOpcode.Code);
-  private static readonly DirectiveDefinition Mixin = new MixinDirective();
-  private static readonly DirectiveDefinition ResolveMixin = new NamedDirective(
+public static class DirectiveLibrary {
+  public static readonly DirectiveDefinition Scope = new MarkerDirective("SCOPE", DirectiveOpcode.Scope);
+  public static readonly DirectiveDefinition Function = new NamedDirective("FUNC", DirectiveOpcode.Function);
+  public static readonly DirectiveDefinition Call = new CallDirective();
+  public static readonly DirectiveDefinition Inline = new NamedDirective("INLINE", DirectiveOpcode.Inline);
+  public static readonly DirectiveDefinition End = new MarkerDirective("END", DirectiveOpcode.End);
+  public static readonly DirectiveDefinition Match = new BooleanDirective("MATCH", DirectiveOpcode.Match);
+  public static readonly DirectiveDefinition Assert = new BooleanDirective("ASSERT", DirectiveOpcode.Assert);
+  public static readonly DirectiveDefinition Code = new ValueDirective("CODE", DirectiveOpcode.Code);
+  public static readonly DirectiveDefinition Mixin = new MixinDirective();
+  public static readonly DirectiveDefinition ResolveMixin = new NamedDirective(
     "RESOLVE_MIXIN", DirectiveOpcode.ResolveMixin, DirectiveOperandKind.Value
   );
-  private static readonly DirectiveDefinition Using = new ValueDirective("USING", DirectiveOpcode.Using);
-  private static readonly DirectiveDefinition Local = new NamedDirective(
+  public static readonly DirectiveDefinition Using = new ValueDirective("USING", DirectiveOpcode.Using);
+  public static readonly DirectiveDefinition Local = new NamedDirective(
     "LOCAL", DirectiveOpcode.Local, DirectiveOperandKind.Value
   );
-  private static readonly DirectiveDefinition Variable = new NamedDirective(
+  public static readonly DirectiveDefinition Variable = new NamedDirective(
     "VAR", DirectiveOpcode.Variable, DirectiveOperandKind.Value
   );
-  private static readonly DirectiveDefinition Carry = new NamedDirective(
+  public static readonly DirectiveDefinition Carry = new NamedDirective(
     "CARRY", DirectiveOpcode.Carry, DirectiveOperandKind.Value
   );
-  private static readonly DirectiveDefinition Return = new ValueDirective("RETURN", DirectiveOpcode.Return);
-  private static readonly DirectiveDefinition Goto = new NamedDirective("GOTO", DirectiveOpcode.Goto);
-  private static readonly DirectiveDefinition Skip = new MarkerDirective("SKIP", DirectiveOpcode.Skip);
-  private static readonly DirectiveDefinition Fail = new ValueDirective("FAIL", DirectiveOpcode.Fail);
+  public static readonly DirectiveDefinition Return = new ValueDirective("RETURN", DirectiveOpcode.Return);
+  public static readonly DirectiveDefinition Goto = new NamedDirective("GOTO", DirectiveOpcode.Goto);
+  public static readonly DirectiveDefinition Skip = new MarkerDirective("SKIP", DirectiveOpcode.Skip);
+  public static readonly DirectiveDefinition Fail = new ValueDirective("FAIL", DirectiveOpcode.Fail);
 
   // Expanded directives live in a registry so adding one does not grow intrinsic dispatch.
-  private static readonly IReadOnlyDictionary<string, DirectiveDefinition> Expanded =
+  public static readonly IReadOnlyDictionary<string, DirectiveDefinition> Expanded =
     new Dictionary<string, DirectiveDefinition>(StringComparer.Ordinal) {
       ["LOG"] = new ValueDirective("LOG", DirectiveOpcode.Log), ["PROP_STRUCT"] = new PropStructDirective(),
       ["AUGMENT_STRUCT"] = new NamedDirective(
@@ -179,7 +179,7 @@ internal static class DirectiveLibrary {
       ["DEFINE_TARGET"] = new DefineTargetDirective()
     };
 
-  internal static bool TryGet(string name, out DirectiveDefinition definition) {
+  public static bool TryGet(string name, out DirectiveDefinition definition) {
     definition = name switch {
       "SCOPE" => Scope, "FUNC" => Function, "CALL" => Call, "INLINE" => Inline, "END" => End,
       "MATCH" => Match, "ASSERT" => Assert, "CODE" => Code, "MIXIN" => Mixin,

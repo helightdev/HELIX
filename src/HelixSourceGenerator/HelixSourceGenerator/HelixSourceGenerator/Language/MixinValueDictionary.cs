@@ -23,12 +23,12 @@ internal sealed class MixinValueDictionary : IDictionary<string, object>, IReadO
   internal IEnumerable<KeyValuePair<MixinString, IMixinValue>> TypedValues => _values;
 
   public object this[string key] {
-    get => _values[Key(key)].BackingValue;
+    get => _values[Key(key)].Value;
     set => _values[Key(key)] = Close(MixinValue.From(value));
   }
 
-  public ICollection<string> Keys => _values.Keys.Select(Name).ToArray();
-  public ICollection<object> Values => _values.Values.Select(item => item.BackingValue).ToArray();
+  public ICollection<string> Keys => [.. _values.Keys.Select(Name)];
+  public ICollection<object> Values => [.. _values.Values.Select(item => item.Value)];
   public int Count => _values.Count;
   public bool IsReadOnly => false;
 
@@ -50,7 +50,7 @@ internal sealed class MixinValueDictionary : IDictionary<string, object>, IReadO
 
   public bool TryGetValue(string key, out object value) {
     if (_values.TryGetValue(Key(key), out var typed)) {
-      value = typed.BackingValue;
+      value = typed.Value;
       return true;
     }
     value = null;
@@ -75,7 +75,7 @@ internal sealed class MixinValueDictionary : IDictionary<string, object>, IReadO
 
   public IEnumerator<KeyValuePair<string, object>> GetEnumerator() {
     return _values
-      .Select(item => new KeyValuePair<string, object>(Name(item.Key), item.Value.BackingValue)).GetEnumerator();
+      .Select(item => new KeyValuePair<string, object>(Name(item.Key), item.Value.Value)).GetEnumerator();
   }
 
   IEnumerator IEnumerable.GetEnumerator() {
@@ -83,7 +83,7 @@ internal sealed class MixinValueDictionary : IDictionary<string, object>, IReadO
   }
 
   IEnumerable<string> IReadOnlyDictionary<string, object>.Keys => _values.Keys.Select(Name);
-  IEnumerable<object> IReadOnlyDictionary<string, object>.Values => _values.Values.Select(item => item.BackingValue);
+  IEnumerable<object> IReadOnlyDictionary<string, object>.Values => _values.Values.Select(item => item.Value);
 
   private MixinString Key(string key) {
     return _pool.Get(key);
@@ -98,7 +98,7 @@ internal sealed class MixinValueDictionary : IDictionary<string, object>, IReadO
   }
 
   private static IMixinValue Close(IMixinValue value) {
-    if (value.BackingValue is MixinExpressionTable table) table.Close();
+    if (value.Value is MixinExpressionTable table) table.Close();
     return value;
   }
 }

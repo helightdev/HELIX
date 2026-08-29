@@ -183,7 +183,7 @@ internal static class MixinExpressionEvaluator {
   ) {
     var valueProperties = reference.Properties.Where(property => !IsBooleanProperty(property)).ToArray();
     foreach (var predicate in reference.Properties.Where(IsBooleanProperty)) {
-      var properties = valueProperties.Concat(new[] { predicate }).ToArray();
+      var properties = valueProperties.Concat([predicate]).ToArray();
       var candidate = new MixinExpressionReference(reference.Root, reference.Member, properties);
       if (TryEvaluate(candidate, context, locals, variables, out var value, out _) && !value) return candidate;
     }
@@ -340,7 +340,7 @@ internal static class MixinExpressionEvaluator {
     IDictionary<string, object> locals,
     CallFrame frame
   ) {
-    if (frame.HadParameter) locals[ParameterLocalKey] = frame.Parameter;
+    if (frame.hadParameter) locals[ParameterLocalKey] = frame.parameter;
     else locals.Remove(ParameterLocalKey);
   }
 
@@ -362,11 +362,11 @@ internal static class MixinExpressionEvaluator {
     if (tableOperationIndex >= 0) {
       var prefix = new MixinExpressionReference(
         reference.Root, reference.Member,
-        reference.Properties.Take(tableOperationIndex).ToArray()
+        [.. reference.Properties.Take(tableOperationIndex)]
       );
       if (!TryResolveCore(prefix, context, locals, variables, out value, out error)) return false;
       var operations = new MixinExpressionReference(
-        MixinExpressionRoot.Table, null, reference.Properties.Skip(tableOperationIndex).ToArray()
+        MixinExpressionRoot.Table, null, [.. reference.Properties.Skip(tableOperationIndex)]
       );
       if (!TryApplyStringProperties(operations, context, null, ref value, out error)) return false;
       var predicate = operations.Properties.FirstOrDefault(IsBooleanProperty);
@@ -452,14 +452,14 @@ internal static class MixinExpressionEvaluator {
     if (tableOperationIndex >= 0) {
       var prefix = new MixinExpressionReference(
         reference.Root, reference.Member,
-        reference.Properties.Take(tableOperationIndex).ToArray()
+        [.. reference.Properties.Take(tableOperationIndex)]
       );
       if (!TryResolveCore(prefix, context, locals, variables, out var tableValue, out error)) {
         value = false;
         return false;
       }
       var operations = new MixinExpressionReference(
-        MixinExpressionRoot.Table, null, reference.Properties.Skip(tableOperationIndex).ToArray()
+        MixinExpressionRoot.Table, null, [.. reference.Properties.Skip(tableOperationIndex)]
       );
       if (!TryApplyStringProperties(operations, context, null, ref tableValue, out error)) {
         value = false;
@@ -499,7 +499,7 @@ internal static class MixinExpressionEvaluator {
       } else {
         var prefix = new MixinExpressionReference(
           reference.Root, reference.Member,
-          reference.Properties.Take(callablePredicateIndex).ToArray()
+          [.. reference.Properties.Take(callablePredicateIndex)]
         );
         if (!TryResolveCore(prefix, context, locals, variables, out var first, out error) ||
           !signatureContext.TryHaveSameSignature(
@@ -522,7 +522,7 @@ internal static class MixinExpressionEvaluator {
       var prefix = new MixinExpressionReference(
         reference.Root,
         reference.Member,
-        reference.Properties.Take(propStructPredicateIndex).ToArray()
+        [.. reference.Properties.Take(propStructPredicateIndex)]
       );
       if (!TryResolveCore(prefix, context, locals, variables, out var handle, out error) ||
         !propStructContext.TryApplyPropStructProperty(
@@ -711,7 +711,7 @@ internal static class MixinExpressionEvaluator {
         error = ":" + operation.Name + " requires at least one boolean expression";
         return false;
       }
-      var prefix = new MixinExpressionReference(root, member, properties.Take(index).ToArray());
+      var prefix = new MixinExpressionReference(root, member, [.. properties.Take(index)]);
       if (!TryEvaluateCore(prefix, context, locals, variables, out var result, out error)) {
         reduced = null;
         return false;
@@ -727,7 +727,7 @@ internal static class MixinExpressionEvaluator {
       }
       root = result ? MixinExpressionRoot.True : MixinExpressionRoot.False;
       member = null;
-      properties = properties.Skip(index + 1).ToList();
+      properties = [.. properties.Skip(index + 1)];
     }
     reduced = new MixinExpressionReference(root, member, properties.AsReadOnly());
     error = null;
@@ -802,7 +802,7 @@ internal static class MixinExpressionEvaluator {
         property, context, reference.Root.Keyword(), name, ref value, out error
       )) return false;
       if (value is MixinTransformRequest request) {
-        request.RemainingProperties = reference.Properties.Skip(index + 1).ToArray();
+        request.RemainingProperties = [.. reference.Properties.Skip(index + 1)];
         return true;
       }
     }
@@ -818,7 +818,7 @@ internal static class MixinExpressionEvaluator {
   ) {
     value = accumulated;
     error = null;
-    foreach (var property in request.RemainingProperties ?? Array.Empty<MixinExpressionProperty>())
+    foreach (var property in request.RemainingProperties ?? [])
       if (!FunctionLibrary.TryInvoke(property, context, "table", null, ref value, out error))
         return false;
     return true;

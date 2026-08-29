@@ -13,7 +13,7 @@ internal sealed class AsTableFunction : FunctionDefinition {
     string root, string member, ref object value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    if (typed.BackingValue is not MixinExpressionTable) {
+    if (typed.Value is not MixinExpressionTable) {
       var table = new MixinExpressionTable();
       value = typed.Exists ? table.Put("0", typed) : table;
     }

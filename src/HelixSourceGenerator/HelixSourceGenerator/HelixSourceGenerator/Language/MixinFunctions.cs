@@ -4,29 +4,17 @@ using HelixSourceGenerator.Language.Functions;
 
 namespace HelixSourceGenerator.Language;
 
-public abstract class FunctionInvocation {
-  protected FunctionInvocation(string name, IReadOnlyList<string> arguments, bool negated) {
-    Name = name ?? throw new ArgumentNullException(nameof(name));
-    Arguments = arguments ?? Array.Empty<string>();
-    Negated = negated;
-  }
-
-  public string Name { get; }
+public abstract class FunctionInvocation(string name, IReadOnlyList<string> arguments, bool negated) {
+  public string Name { get; } = name ?? throw new ArgumentNullException(nameof(name));
   public string Argument => Arguments.Count == 0 ? null : Arguments[0];
-  public IReadOnlyList<string> Arguments { get; }
-  public bool Negated { get; }
+  public IReadOnlyList<string> Arguments { get; } = arguments ?? [];
+  public bool Negated { get; } = negated;
 }
 
-internal abstract class FunctionDefinition {
-  protected FunctionDefinition(string name, int minimumArguments, int maximumArguments) {
-    Name = name;
-    MinimumArguments = minimumArguments;
-    MaximumArguments = maximumArguments;
-  }
-
-  internal string Name { get; }
-  internal int MinimumArguments { get; }
-  internal int MaximumArguments { get; }
+internal abstract class FunctionDefinition(string name, int minimumArguments, int maximumArguments) {
+  internal string Name { get; } = name;
+  internal int MinimumArguments { get; } = minimumArguments;
+  internal int MaximumArguments { get; } = maximumArguments;
   internal virtual bool IsPredicate => false;
 
   internal virtual void CollectConstants(MixinStringPoolBuilder pool) {
@@ -125,10 +113,9 @@ internal static class FunctionLibrary {
     MixinExpressionProperty invocation, IMixinExpressionContext context,
     string root, string member, ref object value, out string error
   ) {
-    if (!TryGet(invocation.Name, out var function)) {
-      error = "property '" + invocation.Name + "' is not valid for @" + root;
-      return false;
-    }
-    return function.Invoke(invocation, context, root, member, ref value, out error);
+    if (TryGet(invocation.Name, out var function))
+      return function.Invoke(invocation, context, root, member, ref value, out error);
+    error = "property '" + invocation.Name + "' is not valid for @" + root;
+    return false;
   }
 }

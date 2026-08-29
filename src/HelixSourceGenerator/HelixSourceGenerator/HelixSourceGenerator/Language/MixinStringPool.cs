@@ -60,7 +60,7 @@ public sealed class MixinStringPool {
   private readonly string[] _values;
 
   internal MixinStringPool(string[] values, IReadOnlyDictionary<string, int> ids) {
-    _values = values ?? Array.Empty<string>();
+    _values = values ?? [];
     _ids = ids ?? new Dictionary<string, int>(StringComparer.Ordinal);
   }
 
@@ -80,7 +80,7 @@ public sealed class MixinStringPool {
 
 internal sealed class MixinStringPoolBuilder {
   private readonly Dictionary<string, int> _ids = new(StringComparer.Ordinal);
-  private readonly List<string> _values = new();
+  private readonly List<string> _values = [];
 
   internal MixinString Intern(string value) {
     value ??= "";
@@ -93,7 +93,7 @@ internal sealed class MixinStringPoolBuilder {
 
   internal MixinStringPool Freeze() {
     return new MixinStringPool(
-      _values.ToArray(), new Dictionary<string, int>(_ids, StringComparer.Ordinal)
+      [.. _values], new Dictionary<string, int>(_ids, StringComparer.Ordinal)
     );
   }
 }
@@ -115,7 +115,7 @@ internal sealed class MixinStringDictionary<T> : IDictionary<string, T>, IReadOn
     get => _values[Key(key)];
     set => _values[Key(key)] = value;
   }
-  public ICollection<string> Keys => _values.Keys.Select(key => key.Resolve(_pool)).ToArray();
+  public ICollection<string> Keys => [.. _values.Keys.Select(key => key.Resolve(_pool))];
   public ICollection<T> Values => _values.Values;
   public int Count => _values.Count;
   public bool IsReadOnly => false;

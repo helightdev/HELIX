@@ -321,15 +321,16 @@ internal static class MixinLibraryApi {
           InvalidLibraryImport, Location.None, "import set", exception.Message
         )
       );
-      return interpreter.PrepareGlobals(Array.Empty<string>());
+      return interpreter.PrepareGlobals([]);
     }
   }
 
   private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) {
-    return symbol.GetAttributes()
-      .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
-      .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
-      .ToArray();
+    return [
+      .. symbol.GetAttributes()
+        .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
+        .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
+    ];
   }
 
   private sealed record Library(
@@ -373,7 +374,7 @@ internal sealed class MixinLibraryCatalog {
   private readonly Dictionary<string, MixinLibraryFile> _files;
 
   internal MixinLibraryCatalog(IEnumerable<MixinLibraryFile> files) {
-    _files = (files ?? Array.Empty<MixinLibraryFile>())
+    _files = (files ?? [])
       .Where(item => item is not null)
       .GroupBy(item => item.Key, StringComparer.Ordinal)
       .ToDictionary(item => item.Key, item => item.Last(), StringComparer.Ordinal);

@@ -31,7 +31,7 @@ internal static class MixinExpressionVirtualMachine {
     if (context is null) throw new ArgumentNullException(nameof(context));
     if (localProgram is null) return Failure("the expression is null", 0);
 
-    var preparedLines = preparedState?.Instructions ?? Array.Empty<DirectiveInstruction>();
+    var preparedLines = preparedState?.Instructions ?? [];
     var preparedInitializers = preparedState?.Initializers ?? new HashSet<int>();
     // Attribute expressions are deliberately lazy: their instruction AST nodes are created
     // only when this execution's control-flow scan or program counter reaches the line.
@@ -92,17 +92,17 @@ internal static class MixinExpressionVirtualMachine {
 
     bool FinishTransform(CallFrame frame, out string finishError) {
       if (!TryResumeTransform(
-        frame.Transform, context, frame.Accumulator, out var completed, out finishError
+        frame.transform, context, frame.accumulator, out var completed, out finishError
       )) return false;
-      switch (frame.Continuation) {
-        case FrameContinuation.StoreLocal: locals[frame.Destination] = completed; break;
-        case FrameContinuation.StoreVariable: pendingVariables[frame.Destination] = completed; break;
+      switch (frame.continuation) {
+        case FrameContinuation.StoreLocal: locals[frame.destination] = completed; break;
+        case FrameContinuation.StoreVariable: pendingVariables[frame.destination] = completed; break;
         case FrameContinuation.EmitCode:
           outputs.Add(
             new MixinExpressionOutput(
-              frame.OutputTarget,
-              new[] { MixinString.Dynamic(Render(completed)) }, executionPool,
-              executionPool.Get(frame.InjectionTarget)
+              frame.outputTarget,
+              [MixinString.Dynamic(Render(completed))], executionPool,
+              executionPool.Get(frame.injectionTarget)
             )
           );
           break;
@@ -113,8 +113,8 @@ internal static class MixinExpressionVirtualMachine {
     }
 
     object TransformParameter(CallFrame frame) {
-      var item = frame.Inputs[frame.InputIndex];
-      if (frame.Transform.Kind == TableTransformKind.MapValues) return item.Value.BackingValue;
+      var item = frame.inputs[frame.inputIndex];
+      if (frame.transform.Kind == TableTransformKind.MapValues) return item.Value.Value;
       return new MixinExpressionTable().Put("k", item.Key).Put("v", item.Value);
     }
 
@@ -128,43 +128,43 @@ internal static class MixinExpressionVirtualMachine {
         return false;
       }
       var frame = new CallFrame {
-        ReturnAddress = pc, HadParameter = locals.TryGetValue(ParameterLocalKey, out var previous),
-        Parameter = previous, Continuation = continuation, Transform = request,
-        Inputs = request.Source.Entries.ToArray(), Accumulator = new MixinExpressionTable(),
-        FunctionStart = callback.Start, Destination = destination, OutputTarget = outputTarget,
-        InjectionTarget = injectionTarget
+        returnAddress = pc, hadParameter = locals.TryGetValue(ParameterLocalKey, out var previous),
+        parameter = previous, continuation = continuation, transform = request,
+        inputs = [.. request.Source.Entries], accumulator = new MixinExpressionTable(),
+        functionStart = callback.Start, destination = destination, outputTarget = outputTarget,
+        injectionTarget = injectionTarget
       };
-      if (frame.Inputs.Length == 0) return FinishTransform(frame, out beginError);
+      if (frame.inputs.Length == 0) return FinishTransform(frame, out beginError);
       calls.Push(frame);
       locals[ParameterLocalKey] = TransformParameter(frame);
-      pc = frame.FunctionStart;
+      pc = frame.functionStart;
       return true;
     }
 
     bool CompleteCall(object returned, out string completeError) {
       completeError = null;
       var frame = calls.Peek();
-      if (frame.Transform is null) {
+      if (frame.transform is null) {
         calls.Pop();
         RestoreCallParameter(locals, frame);
-        if (!string.IsNullOrEmpty(frame.ReturnLocal)) locals[frame.ReturnLocal] = returned;
-        pc = frame.ReturnAddress;
+        if (!string.IsNullOrEmpty(frame.returnLocal)) locals[frame.returnLocal] = returned;
+        pc = frame.returnAddress;
         return true;
       }
-      var input = frame.Inputs[frame.InputIndex];
-      if (frame.Transform.Kind == TableTransformKind.Filter) {
+      var input = frame.inputs[frame.inputIndex];
+      if (frame.transform.Kind == TableTransformKind.Filter) {
         if (MixinValue.From(returned, context).IsTruthy)
-          frame.Accumulator = frame.Accumulator.Put(input.Key, input.Value);
-      } else frame.Accumulator = frame.Accumulator.Put(input.Key, returned);
-      frame.InputIndex++;
-      if (frame.InputIndex < frame.Inputs.Length) {
+          frame.accumulator = frame.accumulator.Put(input.Key, input.Value);
+      } else frame.accumulator = frame.accumulator.Put(input.Key, returned);
+      frame.inputIndex++;
+      if (frame.inputIndex < frame.inputs.Length) {
         locals[ParameterLocalKey] = TransformParameter(frame);
-        pc = frame.FunctionStart;
+        pc = frame.functionStart;
         return true;
       }
       calls.Pop();
       RestoreCallParameter(locals, frame);
-      pc = frame.ReturnAddress;
+      pc = frame.returnAddress;
       return FinishTransform(frame, out completeError);
     }
 
@@ -528,8 +528,8 @@ internal static class MixinExpressionVirtualMachine {
           )) return Failure(callParameterError, lineNumber, logs);
           calls.Push(
             new CallFrame {
-              ReturnAddress = pc, HadParameter = hadParameter, Parameter = previousParameter,
-              ReturnLocal = callReturnLocal, Continuation = FrameContinuation.Call
+              returnAddress = pc, hadParameter = hadParameter, parameter = previousParameter,
+              returnLocal = callReturnLocal, continuation = FrameContinuation.Call
             }
           );
           locals[ParameterLocalKey] = callParameter;

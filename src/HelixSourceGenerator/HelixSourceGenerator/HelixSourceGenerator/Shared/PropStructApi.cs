@@ -151,7 +151,7 @@ internal static class PropStructApi {
 
     model = new PropStructModel(
       parameters, arguments, assignments, requiresUnsafe,
-      propertySymbols: props.Select(prop => prop.Symbol).ToArray()
+      propertySymbols: [.. props.Select(prop => prop.Symbol)]
     );
     diagnostic = null;
     return true;
@@ -518,7 +518,7 @@ internal sealed class PropStructModel {
     RequiresUnsafe = requiresUnsafe;
     Equality = equality ?? PropEqualityModel.None;
     Datatype = datatype;
-    PropertySymbols = propertySymbols ?? Array.Empty<ISymbol>();
+    PropertySymbols = propertySymbols ?? [];
   }
 
   internal static PropStructModel Empty { get; } = new([], [], [], false, PropEqualityModel.None);

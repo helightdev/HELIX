@@ -12,8 +12,8 @@ internal sealed class TypeFunction : FunctionDefinition {
     string root, string member, ref object value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    if (typed.BackingValue is DetachedSemanticValue detached) value = detached.Type;
-    else if (typed.BackingValue is not MixinGeneratedStructReference) value = typed.RoslynType;
+    if (typed.Value is DetachedSemanticValue detached) value = detached.Type;
+    else if (typed.Value is not MixinGeneratedStructReference) value = typed.RoslynType;
     return FunctionResult(Name, value, out error);
   }
 }
@@ -26,7 +26,7 @@ internal sealed class FullNameFunction : FunctionDefinition {
     string root, string member, ref object value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    value = typed.BackingValue is MixinGeneratedStructReference generated
+    value = typed.Value is MixinGeneratedStructReference generated
       ? generated.TypeName.Replace("global::", "")
       : typed.FullName;
     return FunctionResult(Name, value, out error);

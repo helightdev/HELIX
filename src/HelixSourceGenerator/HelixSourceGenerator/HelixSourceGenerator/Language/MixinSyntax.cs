@@ -50,7 +50,7 @@ public sealed class MixinProgramSyntax {
   }
 }
 
-internal enum DirectiveOpcode {
+public enum DirectiveOpcode {
   None,
   Scope,
   Function,
@@ -89,7 +89,7 @@ public sealed class DirectiveInstruction : MixinSyntaxNode {
     string error
   ) : base(line) {
     Directive = directive;
-    Arguments = arguments ?? Array.Empty<string>();
+    Arguments = arguments ?? [];
     Operand = operand ?? "";
     Error = error;
     if (error is null && directive?.OperandKind == DirectiveOperandKind.Boolean)
@@ -112,9 +112,9 @@ public sealed class DirectiveInstruction : MixinSyntaxNode {
     pool.Intern(Command);
     pool.Intern(Operand);
     foreach (var argument in Arguments) pool.Intern(argument);
-    foreach (var reference in BooleanExpression ?? Array.Empty<MixinExpressionReference>())
+    foreach (var reference in BooleanExpression ?? [])
       reference.CollectConstants(pool);
-    foreach (var part in ValueExpression ?? Array.Empty<ValueExpressionPart>()) {
+    foreach (var part in ValueExpression ?? []) {
       if (part.Reference is null) pool.Intern(part.Literal);
       else part.Reference.CollectConstants(pool);
     }

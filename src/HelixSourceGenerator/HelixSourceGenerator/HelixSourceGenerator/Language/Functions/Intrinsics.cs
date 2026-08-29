@@ -72,7 +72,7 @@ internal sealed class SizeFunction : FunctionDefinition {
     var typed = MixinValue.From(value, context);
     value = typed.TryGetText(out var text)
       ? text.Length.ToString(CultureInfo.InvariantCulture)
-      : typed.BackingValue switch {
+      : typed.Value switch {
         MixinExpressionTable table => table.Count.ToString(CultureInfo.InvariantCulture),
         string rawText => rawText.Length.ToString(CultureInfo.InvariantCulture),
         _ => "0"

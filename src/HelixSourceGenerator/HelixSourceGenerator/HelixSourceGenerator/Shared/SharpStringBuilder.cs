@@ -41,7 +41,7 @@ internal sealed class SharpStringBuilder {
   internal SharpStringBuilder AppendCode(string code) {
     if (string.IsNullOrEmpty(code)) return this;
     var normalized = code.Replace("\r\n", "\n").Replace('\r', '\n').TrimEnd('\n');
-    foreach (var line in normalized.Split(new[] { '\n' }, StringSplitOptions.None)) AppendLine(line);
+    foreach (var line in normalized.Split(['\n'], StringSplitOptions.None)) AppendLine(line);
     return this;
   }
 
@@ -103,7 +103,7 @@ internal sealed class SharpStringBuilder {
     string closing = ")",
     bool multiline = false
   ) {
-    var items = values as IReadOnlyList<string> ?? values.ToArray();
+    var items = values as IReadOnlyList<string> ?? [.. values];
     if (!multiline || items.Count == 0) {
       Append(opening).AppendList(items).Append(closing);
       return this;

@@ -46,11 +46,12 @@ internal static class GeneratorAnalysis {
   }
 
   internal static IReadOnlyList<IFieldSymbol> InstanceFields(INamedTypeSymbol type) {
-    return type.GetMembers()
-      .OfType<IFieldSymbol>()
-      .Where(field => !field.IsStatic && !field.IsImplicitlyDeclared)
-      .OrderBy(SourceOrder)
-      .ToArray();
+    return [
+      .. type.GetMembers()
+        .OfType<IFieldSymbol>()
+        .Where(field => !field.IsStatic && !field.IsImplicitlyDeclared)
+        .OrderBy(SourceOrder)
+    ];
   }
 
   internal static int SourceOrder(ISymbol symbol) {
@@ -302,11 +303,13 @@ internal sealed class TypeWrapper {
   internal DetachedTypeWrapper Detach() {
     return new DetachedTypeWrapper(
       _namespaceName,
-      _chain.Select(current => (current.IsStatic ? "static " : "") +
-        "partial " + GeneratorSource.TypeKeyword(current) + " " +
-        GeneratorAnalysis.EscapeIdentifier(current.Name) +
-        GeneratorSource.TypeParameters(current)
-      ).ToArray(),
+      [
+        .. _chain.Select(current => (current.IsStatic ? "static " : "") +
+          "partial " + GeneratorSource.TypeKeyword(current) + " " +
+          GeneratorAnalysis.EscapeIdentifier(current.Name) +
+          GeneratorSource.TypeParameters(current)
+        )
+      ],
       HintName
     );
   }

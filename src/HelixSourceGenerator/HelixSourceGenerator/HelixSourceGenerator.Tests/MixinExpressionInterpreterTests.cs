@@ -521,7 +521,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void ParsesParenthesizedAndInvertedReferences() {
     Assert.True(
-      _interpreter.TryParseReference(
+      MixinExpressionInterpreter.TryParseReference(
         "@(arg#name:type:!?is<global::IEvent>)",
         out var reference,
         out var error
@@ -548,7 +548,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void ParsesTypeArgumentPaths() {
     Assert.True(
-      _interpreter.TryParseReference(
+      MixinExpressionInterpreter.TryParseReference(
         "@target:type#0:type#T",
         out var reference,
         out var error

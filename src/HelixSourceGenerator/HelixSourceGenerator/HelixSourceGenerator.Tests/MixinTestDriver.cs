@@ -16,12 +16,12 @@ internal static class MixinTestDriver {
     IEnumerable<ISourceGenerator> generators = null,
     IEnumerable<AdditionalText> additionalTexts = null
   ) {
-    var files = (additionalTexts ?? Array.Empty<AdditionalText>()).ToList();
+    var files = (additionalTexts ?? []).ToList();
     var legacy = LegacyAnnotations(compilation);
     if (!string.IsNullOrWhiteSpace(legacy))
       files.Add(new TextFile("/tests/Legacy.HelixSourceGenerator.additionalfile", legacy));
     return CSharpGeneratorDriver.Create(
-      generators ?? new[] { new MixinGenerator().AsSourceGenerator() },
+      generators ?? [new MixinGenerator().AsSourceGenerator()],
       files,
       (CSharpParseOptions)compilation.SyntaxTrees.First().Options
     );
@@ -128,16 +128,14 @@ internal static class MixinTestDriver {
     value.Kind == TypedConstantKind.Array ? value.Values : new[] { value };
 
   private static IEnumerable<INamedTypeSymbol> Types(INamespaceSymbol root) {
-    foreach (var type in root.GetTypeMembers())
-      foreach (var nested in Types(type)) yield return nested;
+    foreach (var nested in root.GetTypeMembers().SelectMany(Types)) yield return nested;
     foreach (var child in root.GetNamespaceMembers())
       foreach (var type in Types(child)) yield return type;
   }
 
   private static IEnumerable<INamedTypeSymbol> Types(INamedTypeSymbol root) {
     yield return root;
-    foreach (var nested in root.GetTypeMembers())
-      foreach (var type in Types(nested)) yield return type;
+    foreach (var type in root.GetTypeMembers().SelectMany(Types)) yield return type;
   }
 
   private sealed class TextFile : AdditionalText {

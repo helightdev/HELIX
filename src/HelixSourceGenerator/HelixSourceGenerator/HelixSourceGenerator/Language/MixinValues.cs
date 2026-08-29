@@ -28,7 +28,7 @@ public enum MixinValueTrait {
 
 /// <summary>Typed value passed through the interpreter and its functions.</summary>
 public interface IMixinValue {
-  object BackingValue { get; }
+  object Value { get; }
   ISymbol RoslynSymbol { get; }
   ITypeSymbol RoslynType { get; }
   string Visibility { get; }
@@ -58,37 +58,29 @@ public interface IMixinValue {
 }
 
 public abstract class MixinValue : IMixinValue {
-  public abstract object BackingValue { get; }
+  public abstract object Value { get; }
   public virtual ISymbol RoslynSymbol => null;
   public virtual ITypeSymbol RoslynType => null;
   public virtual string Visibility => null;
-  public virtual string Name => Convert.ToString(BackingValue);
+  public virtual string Name => Convert.ToString(Value);
   public virtual string FullName => null;
-  public virtual bool Exists => BackingValue is not null;
+  public virtual bool Exists => Value is not null;
   public abstract bool IsTruthy { get; }
   public abstract string Render();
   public abstract void Fingerprint(MixinFingerprintBuilder builder);
 
-  public virtual object Unwrap() {
-    return BackingValue;
-  }
+  public virtual object Unwrap() => Value;
 
   public virtual bool TryGetText(out string text) {
     text = Render();
     return true;
   }
 
-  public virtual object Select(string path) {
-    return null;
-  }
+  public virtual object Select(string path) => null;
 
-  public virtual bool Is(string type) {
-    return false;
-  }
+  public virtual bool Is(string type) => false;
 
-  public virtual bool Has(object member) {
-    return false;
-  }
+  public virtual bool Has(object member) => false;
 
   public virtual bool EqualsTo(object expected) {
     return string.Equals(Render(), Convert.ToString(expected), StringComparison.Ordinal);
@@ -104,13 +96,9 @@ public abstract class MixinValue : IMixinValue {
     }
   }
 
-  public virtual bool HasSameSignature(string expected) {
-    return false;
-  }
+  public virtual bool HasSameSignature(string expected) => false;
 
-  public virtual bool IsWireable(string from, string to) {
-    return false;
-  }
+  public virtual bool IsWireable(string from, string to) => false;
 
   public virtual bool TryWire(string to, out string arguments, out string error) {
     arguments = null;
@@ -124,29 +112,17 @@ public abstract class MixinValue : IMixinValue {
     return false;
   }
 
-  public virtual MixinExpressionTable Attributes(string type, bool exact) {
-    return new MixinExpressionTable();
-  }
+  public virtual MixinExpressionTable Attributes(string type, bool exact) => new();
 
-  public virtual object FirstAttribute(string type) {
-    return null;
-  }
+  public virtual object FirstAttribute(string type) => null;
 
-  public virtual bool HasTrait(MixinValueTrait trait) {
-    return false;
-  }
+  public virtual bool HasTrait(MixinValueTrait trait) => false;
 
-  public virtual ITypeSymbol ResolveType(string name) {
-    return null;
-  }
+  public virtual ITypeSymbol ResolveType(string name) => null;
 
-  public virtual bool IsGeneratedType(string name) {
-    return false;
-  }
+  public virtual bool IsGeneratedType(string name) => false;
 
-  public virtual IMixinValue Unlink() {
-    return this;
-  }
+  public virtual IMixinValue Unlink() => this;
 
   internal static IMixinValue From(object value) {
     return value switch {
@@ -165,7 +141,7 @@ public abstract class MixinValue : IMixinValue {
   }
 
   internal static object Unlink(object value, IMixinExpressionContext context) {
-    return From(value, context).Unlink().BackingValue;
+    return From(value, context).Unlink().Value;
   }
 }
 
@@ -185,23 +161,26 @@ internal sealed class DetachedTypeValue : MixinValue {
     IReadOnlyList<string> typeParameterNames = null
   ) {
     Namespace = @namespace ?? "";
-    Names = (names ?? Array.Empty<string>()).ToArray();
-    _members = (members ?? Array.Empty<string>()).Distinct(StringComparer.Ordinal)
-      .OrderBy(item => item, StringComparer.Ordinal).ToArray();
+    Names = [.. names ?? []];
+    _members = [
+      .. (members ?? []).Distinct(StringComparer.Ordinal)
+      .OrderBy(item => item, StringComparer.Ordinal)
+    ];
     QualifiedName = qualifiedName;
-    _assignableTypes = (assignableTypes ?? Array.Empty<string>())
+    _assignableTypes = [
+      .. (assignableTypes ?? [])
       .Select(NormalizeTypeName)
       .Distinct(StringComparer.Ordinal)
       .OrderBy(item => item, StringComparer.Ordinal)
-      .ToArray();
-    _typeArguments = (typeArguments ?? Array.Empty<DetachedTypeValue>()).ToArray();
-    _typeParameterNames = (typeParameterNames ?? Array.Empty<string>()).ToArray();
+    ];
+    _typeArguments = [.. typeArguments ?? []];
+    _typeParameterNames = [.. typeParameterNames ?? []];
   }
 
   internal string Namespace { get; }
   internal IReadOnlyList<string> Names { get; }
   private string QualifiedName { get; }
-  public override object BackingValue => this;
+  public override object Value => this;
   public override string Name => Names.Count == 0 ? "" : Names[Names.Count - 1];
   public override string FullName => Render();
   public override bool IsTruthy => Names.Count != 0;
@@ -229,9 +208,7 @@ internal sealed class DetachedTypeValue : MixinValue {
     foreach (var parameter in _typeParameterNames) builder.Append(parameter);
   }
 
-  public override object Unwrap() {
-    return Render();
-  }
+  public override object Unwrap() => Render();
 
   public override object Select(string path) {
     if (int.TryParse(path, out var index))
@@ -250,9 +227,7 @@ internal sealed class DetachedTypeValue : MixinValue {
       string.Equals(Name, expected, StringComparison.Ordinal);
   }
 
-  public override bool Has(object member) {
-    return _members.Contains(Convert.ToString(member) ?? "", StringComparer.Ordinal);
-  }
+  public override bool Has(object member) => _members.Contains(Convert.ToString(member), StringComparer.Ordinal);
 
   public override bool Equals(object obj) {
     return obj is DetachedTypeValue other && Namespace == other.Namespace && QualifiedName == other.QualifiedName &&
@@ -273,9 +248,7 @@ internal sealed class DetachedTypeValue : MixinValue {
     return hash;
   }
 
-  private static string NormalizeTypeName(string value) {
-    return (value ?? "").Replace("global::", "").Trim();
-  }
+  private static string NormalizeTypeName(string value) => (value ?? "").Replace("global::", "").Trim();
 }
 
 internal sealed class DetachedSemanticValue : MixinValue {
@@ -291,9 +264,11 @@ internal sealed class DetachedSemanticValue : MixinValue {
     RenderValue = render ?? name ?? "null";
     VisibilityValue = visibility;
     Type = type;
-    _members = (members ?? Array.Empty<string>()).Distinct(StringComparer.Ordinal)
-      .OrderBy(item => item, StringComparer.Ordinal).ToArray();
-    _traits = new HashSet<MixinValueTrait>(traits ?? Array.Empty<MixinValueTrait>());
+    _members = [
+      .. (members ?? []).Distinct(StringComparer.Ordinal)
+      .OrderBy(item => item, StringComparer.Ordinal)
+    ];
+    _traits = [.. traits ?? []];
   }
 
   private string NameValue { get; }
@@ -301,15 +276,13 @@ internal sealed class DetachedSemanticValue : MixinValue {
   private string RenderValue { get; }
   private string VisibilityValue { get; }
   internal DetachedTypeValue Type { get; }
-  public override object BackingValue => this;
+  public override object Value => this;
   public override string Name => NameValue;
   public override string FullName => FullNameValue;
   public override string Visibility => VisibilityValue;
   public override bool IsTruthy => true;
 
-  public override string Render() {
-    return RenderValue;
-  }
+  public override string Render() => RenderValue;
 
   public override void Fingerprint(MixinFingerprintBuilder builder) {
     builder.Append(nameof(DetachedSemanticValue));
@@ -325,27 +298,19 @@ internal sealed class DetachedSemanticValue : MixinValue {
     foreach (var trait in _traits.OrderBy(item => item)) builder.Append((int)trait);
   }
 
-  public override object Unwrap() {
-    return RenderValue;
-  }
+  public override object Unwrap() => RenderValue;
 
   public override object Select(string path) {
-    return string.Equals(path, "type", StringComparison.Ordinal)
-      ? Type
-      : Type?.Select(path);
+    return string.Equals(path, "type", StringComparison.Ordinal) ? Type : Type?.Select(path);
   }
 
   public override bool Has(object member) {
     return _members.Contains(Convert.ToString(member) ?? "", StringComparer.Ordinal) || Type?.Has(member) == true;
   }
 
-  public override bool Is(string type) {
-    return Type?.Is(type) == true;
-  }
+  public override bool Is(string type) => Type?.Is(type) == true;
 
-  public override bool HasTrait(MixinValueTrait trait) {
-    return _traits.Contains(trait);
-  }
+  public override bool HasTrait(MixinValueTrait trait) => _traits.Contains(trait);
 
   public override bool Equals(object obj) {
     return obj is DetachedSemanticValue other && NameValue == other.NameValue && FullNameValue == other.FullNameValue &&
@@ -365,7 +330,7 @@ internal sealed class DetachedSemanticValue : MixinValue {
 internal sealed class NullMixinValue : MixinValue {
   internal static readonly NullMixinValue Instance = new();
   private NullMixinValue() { }
-  public override object BackingValue => null;
+  public override object Value => null;
   public override bool IsTruthy => false;
 
   public override string Render() {
@@ -393,7 +358,7 @@ internal sealed class BooleanMixinValue : MixinValue {
     IsTruthy = value;
   }
 
-  public override object BackingValue => IsTruthy;
+  public override object Value => IsTruthy;
   public override bool IsTruthy { get; }
 
   public override string Render() {
@@ -421,44 +386,37 @@ internal sealed class StringMixinValue : MixinValue {
     _value = value ?? "";
   }
 
-  public override object BackingValue => _value;
+  public override object Value => _value;
   public override bool IsTruthy => _value.Length != 0 &&
     !string.Equals(_value, "false", StringComparison.OrdinalIgnoreCase) &&
     !string.Equals(_value, "null", StringComparison.OrdinalIgnoreCase);
 
-  public override string Render() {
-    return _value;
-  }
+  public override string Render() => _value;
 
   public override void Fingerprint(MixinFingerprintBuilder builder) {
     builder.Append(nameof(StringMixinValue));
     builder.Append(_value);
   }
 
-  public override bool Equals(object obj) {
-    return obj is StringMixinValue other && _value == other._value;
-  }
-
-  public override int GetHashCode() {
-    return StringComparer.Ordinal.GetHashCode(_value);
-  }
+  public override bool Equals(object obj) => obj is StringMixinValue other && _value == other._value;
+  public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(_value);
 }
 
 internal sealed class ObjectMixinValue : MixinValue {
   internal ObjectMixinValue(object value) {
-    BackingValue = value;
+    Value = value;
   }
 
-  public override object BackingValue { get; }
-  public override bool IsTruthy => BackingValue is not null;
+  public override object Value { get; }
+  public override bool IsTruthy => Value is not null;
 
   public override string Render() {
-    return Convert.ToString(BackingValue, CultureInfo.InvariantCulture) ?? "null";
+    return Convert.ToString(Value, CultureInfo.InvariantCulture) ?? "null";
   }
 
   public override void Fingerprint(MixinFingerprintBuilder builder) {
     builder.Append(nameof(ObjectMixinValue));
-    switch (BackingValue) {
+    switch (Value) {
       case null: return;
       case bool boolean:
         builder.Append(boolean);
@@ -482,14 +440,14 @@ internal sealed class ObjectMixinValue : MixinValue {
         builder.Append(text);
         return;
       default:
-        builder.Append(BackingValue.GetType().FullName);
-        builder.Append(Convert.ToString(BackingValue, CultureInfo.InvariantCulture));
+        builder.Append(Value.GetType().FullName);
+        builder.Append(Convert.ToString(Value, CultureInfo.InvariantCulture));
         return;
     }
   }
 
   public override IMixinValue Unlink() {
-    return BackingValue switch {
+    return Value switch {
       null => NullMixinValue.Instance,
       bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
       string text => new StringMixinValue(text),
@@ -498,11 +456,11 @@ internal sealed class ObjectMixinValue : MixinValue {
   }
 
   public override bool Equals(object obj) {
-    return obj is ObjectMixinValue other && Equals(BackingValue, other.BackingValue);
+    return obj is ObjectMixinValue other && Equals(Value, other.Value);
   }
 
   public override int GetHashCode() {
-    return BackingValue?.GetHashCode() ?? 0;
+    return Value?.GetHashCode() ?? 0;
   }
 }
 
@@ -512,7 +470,7 @@ internal sealed class FailedMixinValue : MixinValue {
   }
 
   internal string Error { get; }
-  public override object BackingValue => this;
+  public override object Value => this;
   public override bool Exists => false;
   public override bool IsTruthy => false;
 
