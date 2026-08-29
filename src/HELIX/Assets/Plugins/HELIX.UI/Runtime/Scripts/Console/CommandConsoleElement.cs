@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.UI.Console {
   /// <summary>A Compose console whose command-line behavior is entirely implemented by a TextEditProcessor.</summary>
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(composable: false)]
   public sealed partial class CommandConsoleElement {
     private readonly List<HistoryEntry> _output = new();

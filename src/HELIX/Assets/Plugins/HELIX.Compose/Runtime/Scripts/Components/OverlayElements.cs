@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 using static HELIX.Compose.OverlayPlacementResolver;
 
 namespace HELIX.Compose {
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(false)]
   internal sealed partial class OverlayContentBoundary {
     private readonly Func<float> _resolveAnchorWidth;

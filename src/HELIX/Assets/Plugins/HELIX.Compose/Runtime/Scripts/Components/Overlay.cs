@@ -56,7 +56,7 @@ namespace HELIX.Compose {
       DismissOnCancel | RestoreFocus | Prelayout
   }
 
-  [EnableMixins, Structure] public readonly partial struct OverlayOptions {
+  [Mixable, Structure] public readonly partial struct OverlayOptions {
     // Force the generated constructor to run; an empty struct initializer zeroes every option.
     public static readonly OverlayOptions Default = new(behavior: OverlayBehavior.Default);
 
@@ -493,7 +493,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [CustomBoundaryElement(false, trimChildren: false)]
   public sealed partial class HXOverlayHostElement : VisualElement, ISlotHost {
     public static readonly UniqueStyleString ClassContent = new("hx-overlay-host-content");

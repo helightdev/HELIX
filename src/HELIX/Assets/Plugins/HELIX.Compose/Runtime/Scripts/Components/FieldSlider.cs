@@ -1,6 +1,6 @@
 namespace HELIX.Compose {
   /// <summary>A slider with a compact exact-value editor beside it.</summary>
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(name: "FieldSlider", extension: true)]
   public partial class FieldSlider {
     private FloatDatatype _automaticDatatype;

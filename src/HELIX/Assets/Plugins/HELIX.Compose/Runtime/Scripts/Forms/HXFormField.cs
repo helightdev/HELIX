@@ -41,7 +41,7 @@ namespace HELIX.Compose {
   ///   Retained registration and decoration boundary shared by Compose form controls. A control composed inside
   ///   <see cref="Props.content" /> can use <c>cx.Lookup&lt;HXFormField&gt;()</c> to read or update its value.
   /// </summary>
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(name: "FormField", extension: true, cacheLookups: true)]
   public partial class HXFormField : IFormField {
     public static readonly ContextKey<HXFormFieldStyle> Style = new("FormFieldStyle", HXFormFieldStyle.Default);

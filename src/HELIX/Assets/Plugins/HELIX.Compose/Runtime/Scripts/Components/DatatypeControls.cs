@@ -15,7 +15,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   public sealed partial class DatatypeSlider<T> {
     [Hook]
@@ -52,7 +52,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   public sealed partial class DatatypeTextField<T> {
     [Hook]
@@ -113,7 +113,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   public sealed partial class DatatypeFieldSlider<T> where T : struct {
     [Hook]
@@ -189,7 +189,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   public sealed partial class DatatypeDropdown<T> {
     private DropdownController<T> _controller;

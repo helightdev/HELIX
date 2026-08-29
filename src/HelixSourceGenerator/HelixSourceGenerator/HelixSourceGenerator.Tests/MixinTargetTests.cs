@@ -16,12 +16,12 @@ public sealed class MixinTargetTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
       }
       namespace HELIX.Context {
         [AttributeUsage(AttributeTargets.Class)] public sealed class ComponentAttribute : Attribute { }
       }
-      [HELIX.EnableMixins, HELIX.Context.Component]
+      [HELIX.Mixable, HELIX.Context.Component]
       public partial class Demo { }
       """
     );
@@ -36,14 +36,14 @@ public sealed class MixinTargetTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
         }
       }
       [HELIX.MixinExpression("@MIXIN<*Configure> Contribute(null, null)")]
       [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
-      [HELIX.EnableMixins, Configure]
+      [HELIX.Mixable, Configure]
       public partial class Demo {
         private static void Contribute(Demo instance, object target) { }
       }
@@ -63,14 +63,14 @@ public sealed class MixinTargetTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
         }
       }
       [HELIX.MixinExpression("@MIXIN<^*Configure> First()\n@MIXIN<*^Configure> Second()")]
       [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
-      [HELIX.EnableMixins, Configure]
+      [HELIX.Mixable, Configure]
       public partial class Demo {
         private static void First() { }
         private static void Second() { }
@@ -92,7 +92,7 @@ public sealed class MixinTargetTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
         }
@@ -102,7 +102,7 @@ public sealed class MixinTargetTests {
       }
       [HELIX.MixinExpression("@MIXIN<*^~DemoApi.RegistrationConfigurator> Contribute(ref value)")]
       [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
-      [HELIX.EnableMixins, Configure]
+      [HELIX.Mixable, Configure]
       public partial class Demo {
         private static void Contribute(ref int value) { }
       }
@@ -123,7 +123,7 @@ public sealed class MixinTargetTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
         }
@@ -133,7 +133,7 @@ public sealed class MixinTargetTests {
       }
       [HELIX.MixinExpression("@MIXIN<^*Configure:DemoApi.RegistrationConfigurator> Contribute(ref value)")]
       [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
-      [HELIX.EnableMixins, Configure]
+      [HELIX.Mixable, Configure]
       public partial class Demo {
         private static void Contribute(ref int value) { }
       }
@@ -153,7 +153,7 @@ public sealed class MixinTargetTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Interface)] public sealed class MixinAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string target, int order, string expression) { }
@@ -170,7 +170,7 @@ public sealed class MixinTargetTests {
         "@CODE<^*~DemoApi.RegistrationConfigurator> registration.type = typeof(@this:type);"
       )]
       public interface IComponentMixin : HELIX.IMixin { }
-      [HELIX.EnableMixins]
+      [HELIX.Mixable]
       public partial class Demo : IComponentMixin { }
       """
     );
@@ -187,7 +187,7 @@ public sealed class MixinTargetTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string target, int order, string expression) { }
         }
@@ -196,7 +196,7 @@ public sealed class MixinTargetTests {
       [AttributeUsage(AttributeTargets.Class)]
       public sealed class ConfigureAttribute : Attribute { }
       [Configure]
-      [HELIX.EnableMixins]
+      [HELIX.Mixable]
       public partial class Demo {
         private void Apply() { }
       }
@@ -231,14 +231,14 @@ public sealed class MixinTargetTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
         }
       }
       [HELIX.MixinExpression("@MIXIN<~Missing.Configurator> Contribute()")]
       [AttributeUsage(AttributeTargets.Class)] public sealed class ConfigureAttribute : Attribute { }
-      [HELIX.EnableMixins, Configure]
+      [HELIX.Mixable, Configure]
       public partial class Demo { private void Contribute() { } }
       """
     );

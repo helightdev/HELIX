@@ -13,7 +13,7 @@ using UnityEngine.UIElements;
 namespace HELIX.Examples {
 
   [UxmlElement]
-  [EnableMixins]
+  [Mixable]
   [CustomBoundaryElement]
   public partial class NwSystemExampleElement : VisualElement {
 
@@ -25,7 +25,7 @@ namespace HELIX.Examples {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(extension: true)]
   public partial class NWSystemExample {
 
@@ -45,7 +45,7 @@ namespace HELIX.Examples {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   public partial class HomeComposable {
     public enum ExampleMode : byte { Balanced, Performance, Quality }

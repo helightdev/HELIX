@@ -1,11 +1,6 @@
 namespace HELIX.SourceGen;
 
 internal static class GeneratorStrings {
-  internal static readonly string[] BuiltinMixinStereotypes = {
-    "HELIX.Context.ManagedAttribute",
-    "HELIX.Context.ServiceAttribute"
-  };
-
   internal const string DiagnosticCategory = "HELIX";
 
   internal static class Attributes {
@@ -13,30 +8,14 @@ internal static class GeneratorStrings {
       Managed = "HELIX.Context.ManagedAttribute",
       HelixApplication = "HELIX.Context.HelixApplicationAttribute",
       HelixModule = "HELIX.Context.HelixModuleAttribute",
-      MixinImport = "HELIX.MixinImportAttribute",
-      MixinLibrary = "HELIX.MixinLibraryAttribute",
-      Context = "HELIX.Compose.ContextAttribute",
-      EnableMixins = "HELIX.EnableMixinsAttribute",
-      Mixin = "HELIX.MixinAttribute",
-      RequireMixin = "HELIX.RequireMixinAttribute",
+      Mixable = "HELIX.MixableAttribute",
       Prop = "HELIX.PropAttribute",
-      Structure = "HELIX.StructureAttribute",
-      UxmlElement = "UnityEngine.UIElements.UxmlElementAttribute";
+      Structure = "HELIX.StructureAttribute";
   }
 
   internal static class Types {
     internal const string
-      Composable = "HELIX.Compose.Composable",
-      IComposable = "HELIX.Compose.IComposable",
-      Composition = "HELIX.Compose.Composition",
       CompositionId = "HELIX.Compose.CompositionId",
-      CompositionInternals = "HELIX.Compose.CompositionInternals",
-      CompositionTransfer = "HELIX.Compose.CompositionInternals.TransferData",
-      ElementRef = "HELIX.Compose.ElementRef",
-      LocalId = "HELIX.Compose.LocalId",
-      Mixin = "HELIX.IMixin",
-      ReadComposable = "HELIX.Compose.ReadComposable",
-      ScopeHandle = "HELIX.Compose.ScopeHandle",
       Datatypes = "HELIX.Datatypes",
       StructureDatatype = "HELIX.StructureDatatype",
       ConfigurableStructureDatatype = "HELIX.ConfigurableStructureDatatype",
@@ -44,8 +23,8 @@ internal static class GeneratorStrings {
       UnityColor = "UnityEngine.Color",
       UnityVector2 = "UnityEngine.Vector2",
       UnityVector3 = "UnityEngine.Vector3",
-      UnityVector4 = "UnityEngine.Vector4",
-      VisualElement = "UnityEngine.UIElements.VisualElement";
+      UnityVector4 = "UnityEngine.Vector4"
+      ;
   }
 
   internal static class Members {
@@ -87,7 +66,7 @@ internal static class GeneratorStrings {
 
 internal static class MixinGeneratorCandidates {
   internal static readonly string[] AttributeMetadataNames = [
-    GeneratorStrings.Attributes.EnableMixins,
+    GeneratorStrings.Attributes.Mixable,
     GeneratorStrings.Attributes.Managed
   ];
 }

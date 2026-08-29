@@ -1,7 +1,7 @@
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(name: "Button", extension: true)]
   [InputStateListener]
   public partial class HXButton {

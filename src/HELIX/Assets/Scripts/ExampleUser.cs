@@ -13,7 +13,7 @@ namespace HELIX.Context {
     }
   }
 
-  [EnableMixins, Structure(true)]
+  [Mixable, Structure(true)]
   public partial struct SerializerTest {
     public string name;
     public int age;

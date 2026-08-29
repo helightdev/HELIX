@@ -3,7 +3,6 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   [AttributeUsage(AttributeTargets.Class)]
-  [MixinImport(typeof(ComposeMixinLibrary))]
   public class InputStateListenerAttribute : Attribute {
     public InputStateListenerAttribute(bool focus = true, bool hover = true, bool dirty = true) { }
   }

@@ -1,8 +1,6 @@
 using System;
 
 namespace HELIX.Compose {
-  [MixinLibrary("Compose")]
-  public static class ComposeMixinLibrary { }
 
   public interface IRecomposeMixinTargets {
     void MixinInit() { }
@@ -28,8 +26,6 @@ namespace HELIX.Compose {
   }
 
   [AttributeUsage(AttributeTargets.Method)]
-  [MixinImport(typeof(ComposeMixinLibrary))]
-  [MixinImport(typeof(CoreMixinLibrary))]
   public sealed class ComposableMethodAttribute : Attribute {
     public ComposableMethodAttribute(
       bool requiresTracking = false,
@@ -41,7 +37,6 @@ namespace HELIX.Compose {
   }
 
   [AttributeUsage(AttributeTargets.Method)]
-  [MixinImport(typeof(ComposeMixinLibrary))]
   public sealed class ComposableDelegateAttribute : Attribute {
     public ComposableDelegateAttribute(
       string name = null
@@ -49,8 +44,6 @@ namespace HELIX.Compose {
   }
 
   [AttributeUsage(AttributeTargets.Class)]
-  [MixinImport(typeof(CoreMixinLibrary))]
-  [MixinImport(typeof(ComposeMixinLibrary))]
   public class CustomBoundaryElementAttribute : Attribute {
     public CustomBoundaryElementAttribute(
       bool constructor = true,
@@ -64,8 +57,6 @@ namespace HELIX.Compose {
 
 
   [AttributeUsage(AttributeTargets.Class)]
-  [MixinImport(typeof(CoreMixinLibrary))]
-  [MixinImport(typeof(ComposeMixinLibrary))]
   public class BoundaryElementMixinAttribute : Attribute {
     public BoundaryElementMixinAttribute(
       bool composable = true,

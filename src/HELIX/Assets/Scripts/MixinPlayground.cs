@@ -2,7 +2,7 @@ using System;
 using HELIX;
 
 namespace DefaultNamespace {
-  [EnableMixins]
+  [Mixable]
   public partial class MixinPlayground {
 
     // [TextMixin]

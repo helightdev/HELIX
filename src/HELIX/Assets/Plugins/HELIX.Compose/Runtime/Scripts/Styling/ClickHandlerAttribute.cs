@@ -4,7 +4,6 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   [AttributeUsage(AttributeTargets.Method)]
-  [MixinImport(typeof(ComposeMixinLibrary))]
   public class ClickHandlerAttribute : Attribute { }
 
   public class InputClickableManipulator : Manipulator {

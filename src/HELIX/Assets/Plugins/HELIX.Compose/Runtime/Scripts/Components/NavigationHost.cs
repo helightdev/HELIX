@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   internal partial class NavigationPageBoundary {
     internal NavigationEntry Entry => props.entry;
@@ -46,7 +46,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(cacheLookups: true)]
   public partial class NavigationHostBoundary {
     private readonly List<NavigationPageBoundary> _pages = new(8);
@@ -169,7 +169,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(name: "NavigationLink", extension: true)]
   [InputStateListener]
   public partial class HXNavigationLink {

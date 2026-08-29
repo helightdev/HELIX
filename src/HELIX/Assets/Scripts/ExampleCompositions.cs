@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace TestNamespace {
-  [EnableMixins]
+  [Mixable]
   public static partial class ExampleCompositions {
     public static ulong counter = 0;
     public static readonly Signal<int> CounterSignal = Signal.Value(0);
@@ -182,7 +182,7 @@ namespace TestNamespace {
 
 
   [UxmlElement]
-  [EnableMixins]
+  [Mixable]
   [CustomBoundaryElement(constructor: false)]
   public partial class ExampleVisualElement : VisualElement {
     public ExampleVisualElement() {

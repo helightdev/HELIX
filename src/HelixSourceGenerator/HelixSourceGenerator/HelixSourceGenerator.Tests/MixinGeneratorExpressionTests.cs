@@ -44,7 +44,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class)] public sealed class MixinLibraryAttribute : Attribute { public MixinLibraryAttribute(string reference) { } }
                             [AttributeUsage(AttributeTargets.Class)] public sealed class MixinImportAttribute : Attribute { public MixinImportAttribute(Type library) { } }
                           }
@@ -52,7 +52,7 @@ public sealed class MixinGeneratorExpressionTests {
                           public static class ExternalLibrary { }
                           [HELIX.MixinImport(typeof(ExternalLibrary))]
                           [AttributeUsage(AttributeTargets.Class)] public sealed class ExternalAttribute : Attribute { }
-                          [HELIX.EnableMixins, External] public partial class Demo { private void Run() { } }
+                          [HELIX.Mixable, External] public partial class Demo { private void Run() { } }
                           """;
     var compilation = CSharpCompilation.Create(
       "AdditionalMixinLibraryTest",
@@ -90,11 +90,11 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                           }
                           [AttributeUsage(AttributeTargets.Class)] public sealed class PreludeOnlyAttribute : Attribute { }
                           [AttributeUsage(AttributeTargets.Field)] public sealed class ExternalAttribute : Attribute { }
-                          [HELIX.EnableMixins, PreludeOnly] public partial class Demo {
+                          [HELIX.Mixable, PreludeOnly] public partial class Demo {
                             [External] private int Value;
                             private void PreludeOnlyLogic() { }
                           }
@@ -163,10 +163,10 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                           }
                           [AttributeUsage(AttributeTargets.Class)] public sealed class PooledAttribute : Attribute { }
-                          [HELIX.EnableMixins, Pooled] public partial class Demo { }
+                          [HELIX.Mixable, Pooled] public partial class Demo { }
                           """;
     var compilation = CSharpCompilation.Create(
       "DebugStringPoolTest",
@@ -203,13 +203,13 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                           }
                           [AttributeUsage(AttributeTargets.Method)]
                           public sealed class InlineAttribute : Attribute {
                             public InlineAttribute(bool skip) { }
                           }
-                          [HELIX.EnableMixins] public partial class Demo {
+                          [HELIX.Mixable] public partial class Demo {
                             [Inline(false)] private void Run() { }
                             private void Accept(int value) { }
                           }
@@ -262,11 +262,11 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                           }
                           [AttributeUsage(AttributeTargets.Class)] public sealed class ListenerAttribute : Attribute { }
                           [AttributeUsage(AttributeTargets.Method)] public sealed class ClickAttribute : Attribute { }
-                          [HELIX.EnableMixins, Listener] public partial class Demo {
+                          [HELIX.Mixable, Listener] public partial class Demo {
                             [Click] private void OnClick() { }
                             private void Listen() { }
                           }
@@ -310,7 +310,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
@@ -319,7 +319,7 @@ public sealed class MixinGeneratorExpressionTests {
                           }
                           [HELIX.MixinExpression("@SCOPE\n@MATCH @var#Declared:!?eq<true>\n@CODE<CLASS> private int shared;\n@VAR<Declared> true\n@END", Prelude = "")]
                           [AttributeUsage(AttributeTargets.Method)] public sealed class LateAttribute : Attribute { }
-                          [HELIX.EnableMixins] public partial class Demo {
+                          [HELIX.Mixable] public partial class Demo {
                             [Late] private void First() { }
                             [Late] private void Second() { }
                           }
@@ -344,7 +344,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Field)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
@@ -355,7 +355,7 @@ public sealed class MixinGeneratorExpressionTests {
                           [AttributeUsage(AttributeTargets.Field)] public sealed class LateAttribute : Attribute {
                             public LateAttribute(Type scope, string text = "quoted") { }
                           }
-                          [HELIX.EnableMixins] public partial class Demo {
+                          [HELIX.Mixable] public partial class Demo {
                             [Late(typeof(string))] private int Value;
                           }
                           """;
@@ -381,7 +381,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
@@ -393,7 +393,7 @@ public sealed class MixinGeneratorExpressionTests {
                           public sealed class LateAttribute : Attribute {
                             public LateAttribute(string target = "Tick", int order = 3) { }
                           }
-                          [HELIX.EnableMixins] public partial class Demo {
+                          [HELIX.Mixable] public partial class Demo {
                             [Late] public void Source() { }
                             private void Consume() { }
                           }
@@ -419,7 +419,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
@@ -431,7 +431,7 @@ public sealed class MixinGeneratorExpressionTests {
                           public sealed class LateAttribute : Attribute {
                             public LateAttribute(string time = "tick", string target = "Update", string condition = null, int order = 10) { }
                           }
-                          [HELIX.EnableMixins] public partial class Demo {
+                          [HELIX.Mixable] public partial class Demo {
                             [Late] private void Source() { }
                           }
                           """;
@@ -456,7 +456,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string target, int order, string expression) { }
@@ -465,7 +465,7 @@ public sealed class MixinGeneratorExpressionTests {
                           }
                           [HELIX.MixinExpression("Generated", 7, "@CODE<TARGET> Consume(\"@target:name\");", Prelude = "")]
                           [AttributeUsage(AttributeTargets.Method)] public sealed class LateAttribute : Attribute { }
-                          [HELIX.EnableMixins] public partial class Demo {
+                          [HELIX.Mixable] public partial class Demo {
                             [Late] public void Source() { }
                             private void Consume(string value) { }
                           }
@@ -491,7 +491,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class)] public sealed class MixinLibraryAttribute : Attribute { public MixinLibraryAttribute(string value) { } }
                             [AttributeUsage(AttributeTargets.Class)] public sealed class MixinImportAttribute : Attribute { public MixinImportAttribute(Type value) { } }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
@@ -505,7 +505,7 @@ public sealed class MixinGeneratorExpressionTests {
                           [HELIX.MixinImport(typeof(Library))]
                           [HELIX.MixinExpression("@CALL<Imported>", Prelude = "")]
                           [AttributeUsage(AttributeTargets.Class)] public sealed class LateAttribute : Attribute { }
-                          [HELIX.EnableMixins, Late] public partial class Demo { }
+                          [HELIX.Mixable, Late] public partial class Demo { }
                           """;
     var compilation = CSharpCompilation.Create(
       "PreludeImportedCallTest",
@@ -525,7 +525,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Field)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
@@ -537,7 +537,7 @@ public sealed class MixinGeneratorExpressionTests {
                             Prelude = ""
                           )]
                           [AttributeUsage(AttributeTargets.Field)] public sealed class LateAttribute : Attribute { }
-                          [HELIX.EnableMixins] public partial class Demo {
+                          [HELIX.Mixable] public partial class Demo {
                             [Late] public string Text;
                           }
                           """;
@@ -561,7 +561,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string prefix = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
                               public string LateExpression { get; set; }
@@ -569,7 +569,7 @@ public sealed class MixinGeneratorExpressionTests {
                           }
                           [HELIX.MixinExpression("@CARRY<Name> @target:name", LateExpression = "@CODE<CLASS> public const string Value = \"@carry#Name\";")]
                           [AttributeUsage(AttributeTargets.Method)] public sealed class CachedAttribute : Attribute { }
-                          [HELIX.EnableMixins] public partial class Demo {
+                          [HELIX.Mixable] public partial class Demo {
                             [Cached] public void Work() { int value =
                           """;
 
@@ -602,7 +602,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
@@ -620,7 +620,7 @@ public sealed class MixinGeneratorExpressionTests {
                               "@CODE<CLASS> public const string Carried = \"@carry#Target:name|@carry#Target:type|@carry#Target:visibility|@carry#AttributeTable#0:name\";"
                           )]
                           [AttributeUsage(AttributeTargets.Field)] public sealed class CarryAttribute : Attribute { }
-                          [HELIX.EnableMixins]
+                          [HELIX.Mixable]
                           public partial class Demo {
                             [Carry] public string Text;
                           }
@@ -646,7 +646,7 @@ public sealed class MixinGeneratorExpressionTests {
                           using System;
                           using System.Collections.Generic;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Field)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
@@ -660,7 +660,7 @@ public sealed class MixinGeneratorExpressionTests {
                             Prelude = "@CARRY<Type> @target:type"
                           )]
                           [AttributeUsage(AttributeTargets.Field)] public sealed class GenericAttribute : Attribute { }
-                          [HELIX.EnableMixins] public partial class Demo {
+                          [HELIX.Mixable] public partial class Demo {
                             [Generic] private List<string> Values;
                           }
                           """;
@@ -684,7 +684,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
                             public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
@@ -696,7 +696,7 @@ public sealed class MixinGeneratorExpressionTests {
                             LateExpression = "@CODE<CLASS> public const string LateName = \"@var#Name\";"
                           )]
                           [AttributeUsage(AttributeTargets.Method)] public sealed class LateAttribute : Attribute { }
-                          [HELIX.EnableMixins]
+                          [HELIX.Mixable]
                           public partial class Demo {
                             [Late] public void Work() { }
                           }
@@ -721,7 +721,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
                             }
@@ -737,7 +737,7 @@ public sealed class MixinGeneratorExpressionTests {
                             "@CODE<CLASS> public const string Names = \"@local#names:joinValues<,>\";"
                           )]
                           [AttributeUsage(AttributeTargets.Method)] public sealed class ReadMarkersAttribute : Attribute { }
-                          [HELIX.EnableMixins]
+                          [HELIX.Mixable]
                           public partial class Demo {
                             [ReadMarkers, Marker("Hello"), Marker("World"), Marker("Test")]
                             public void Work() { }
@@ -762,7 +762,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class)] public sealed class MixinLibraryAttribute : Attribute {
                               public MixinLibraryAttribute(string content) { }
                             }
@@ -784,7 +784,7 @@ public sealed class MixinGeneratorExpressionTests {
                             [MixinLibrary("@FUNC<HookImpl>\n@LOCAL<Name> @attr#target:unwrap\n@SCOPE\n@MATCH @local#Name:eq<null>\n@LOCAL<Name> $@target:name:replaceFirst<^On><>\n@END\n@RESOLVE_MIXIN<Delegate> @local#Name\n@ASSERT @local#Delegate:!?eq<null>\n@MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);\n@END")]
                             public static class CoreLibrary { }
                           }
-                          [HELIX.EnableMixins, HELIX.MixinDefineTarget("$Compose", "Compose")]
+                          [HELIX.Mixable, HELIX.MixinDefineTarget("$Compose", "Compose")]
                           public partial class Demo {
                             private delegate void ComposeDelegate(int value);
                             private partial void Compose(int value);
@@ -809,7 +809,7 @@ public sealed class MixinGeneratorExpressionTests {
   public void AttributeFunctionsReturnOrderedAndFilteredAttributeValues() {
     const string source = "using System;\n" + """
                                               namespace HELIX {
-                                                [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                                                [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                                                 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
                                                   public MixinExpressionAttribute(string expression) { }
                                                 }
@@ -823,7 +823,7 @@ public sealed class MixinGeneratorExpressionTests {
                                                 "@CODE<CLASS> public const string First = \"@target:attributeOf<BaseMarkerAttribute>:name\";"
                                               )]
                                               [AttributeUsage(AttributeTargets.Method)] public sealed class InspectAttribute : Attribute { }
-                                              [HELIX.EnableMixins]
+                                              [HELIX.Mixable]
                                               public partial class Demo {
                                                 [Inspect, DerivedMarker, OtherMarker] private void Work() { }
                                               }
@@ -848,7 +848,7 @@ public sealed class MixinGeneratorExpressionTests {
   public void PropStructDirectiveGeneratesMethodParameterStructAndUnwrappedCall() {
     const string source = "using System;\n" + PropStructDatatypeRuntime + """
                                                                           namespace HELIX {
-                                                                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                                                                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                                                                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
                                                                               public MixinExpressionAttribute(string expression) { }
                                                                             }
@@ -867,7 +867,7 @@ public sealed class MixinGeneratorExpressionTests {
                                                                           )]
                                                                           public sealed class NamedArgAttribute : Attribute { }
 
-                                                                          [HELIX.EnableMixins]
+                                                                          [HELIX.Mixable]
                                                                           public partial class Demo {
                                                                             [GenerateWorkProps] private void Work(int count, [NamedArg] in string label) { }
                                                                           }
@@ -902,7 +902,7 @@ public sealed class MixinGeneratorExpressionTests {
   public void PropStructDirectiveGeneratesClassFieldStructAndUnwrappedCall() {
     const string source = "using System;\n" + PropStructDatatypeRuntime + """
                                                                           namespace HELIX {
-                                                                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                                                                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                                                                             [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
                                                                               public MixinExpressionAttribute(string expression) { }
                                                                             }
@@ -914,7 +914,7 @@ public sealed class MixinGeneratorExpressionTests {
                                                                           )]
                                                                           public sealed class GenerateSnapshotAttribute : Attribute { }
 
-                                                                          [HELIX.EnableMixins]
+                                                                          [HELIX.Mixable]
                                                                           [GenerateSnapshot]
                                                                           public partial class Demo {
                                                                             private int count;
@@ -948,7 +948,7 @@ public sealed class MixinGeneratorExpressionTests {
   public void PropStructDirectiveDoesNotGenerateConstructorWithoutParameters() {
     const string source = "using System;\n" + PropStructDatatypeRuntime + """
                                                                           namespace HELIX {
-                                                                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                                                                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                                                                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
                                                                               public MixinExpressionAttribute(string expression) { }
                                                                             }
@@ -962,7 +962,7 @@ public sealed class MixinGeneratorExpressionTests {
                                                                           )]
                                                                           public sealed class GenerateWorkPropsAttribute : Attribute { }
 
-                                                                          [HELIX.EnableMixins]
+                                                                          [HELIX.Mixable]
                                                                           public partial class Demo {
                                                                             [GenerateWorkProps] private void Work() { }
                                                                           }
@@ -990,7 +990,7 @@ public sealed class MixinGeneratorExpressionTests {
   public void PropStructNoGenerateFlagOnlyReturnsTheHandle() {
     const string source = "using System;\n" + """
                                               namespace HELIX {
-                                                [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                                                [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                                                 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)] public sealed class MixinExpressionAttribute : Attribute {
                                                   public MixinExpressionAttribute(string expression) { }
                                                 }
@@ -1003,7 +1003,7 @@ public sealed class MixinGeneratorExpressionTests {
                                               )]
                                               public sealed class GenerateWorkPropsAttribute : Attribute { }
 
-                                              [HELIX.EnableMixins]
+                                              [HELIX.Mixable]
                                               public partial class Demo {
                                                 [GenerateWorkProps] private void Work(int count) { }
                                               }
@@ -1032,7 +1032,7 @@ public sealed class MixinGeneratorExpressionTests {
   public void AugmentStructGeneratesPropMembersAndExposesStructModelPredicates() {
     const string source = "using System;\n" + """
                                               namespace HELIX {
-                                                [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                                                [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                                                 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
                                                   public MixinExpressionAttribute(string expression) { }
                                                 }
@@ -1056,7 +1056,7 @@ public sealed class MixinGeneratorExpressionTests {
                                                 public GenerateAttribute(Type Base) { }
                                               }
 
-                                              [HELIX.EnableMixins]
+                                              [HELIX.Mixable]
                                               [Generate(typeof(GenericBase<>))]
                                               public partial class Demo {
                                                 private int hidden;
@@ -1100,7 +1100,7 @@ public sealed class MixinGeneratorExpressionTests {
   public void AugmentStructDoesNotGenerateConstructorForEmptyStruct() {
     const string source = "using System;\n" + """
                                               namespace HELIX {
-                                                [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                                                [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                                                 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
                                                   public MixinExpressionAttribute(string expression) { }
                                                 }
@@ -1122,7 +1122,7 @@ public sealed class MixinGeneratorExpressionTests {
                                                 public GenerateAttribute(Type Base) { }
                                               }
 
-                                              [HELIX.EnableMixins]
+                                              [HELIX.Mixable]
                                               [Generate(typeof(GenericBase<>))]
                                               public partial class Demo {
                                                 private void Consume(int extra) { }
@@ -1157,7 +1157,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
                             public sealed class MixinDefineTargetAttribute : Attribute {
                               public MixinDefineTargetAttribute(string key, string target) { }
@@ -1179,7 +1179,7 @@ public sealed class MixinGeneratorExpressionTests {
                           [AttributeUsage(AttributeTargets.Class)]
                           public sealed class ContributionsAttribute : Attribute { }
 
-                          [HELIX.EnableMixins]
+                          [HELIX.Mixable]
                           [Lifecycle]
                           [HELIX.MixinDefineTarget("$Init", "^StartUp")]
                           [Contributions]
@@ -1214,7 +1214,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
                             }
@@ -1227,7 +1227,7 @@ public sealed class MixinGeneratorExpressionTests {
                             public ReactAttribute(int priority) { Priority = priority; }
                             public int Priority { get; }
                           }
-                          [HELIX.EnableMixins]
+                          [HELIX.Mixable]
                           public partial class Demo {
                             [React(7)] private void React(ref Evt evt) { }
                             private void Register<T>(ActionRef<T> handler, int priority) { }
@@ -1257,7 +1257,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string[] target, int[] order, string expression) { }
                             }
@@ -1271,7 +1271,7 @@ public sealed class MixinGeneratorExpressionTests {
                           public sealed class MarkAttribute : Attribute {
                             public MarkAttribute(int value) { }
                           }
-                          [HELIX.EnableMixins]
+                          [HELIX.Mixable]
                           public partial class Demo {
                             [Mark(7)] private void Work() { }
                             private void Normal() { }
@@ -1307,7 +1307,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string target, int order, string expression) { }
                             }
@@ -1315,7 +1315,7 @@ public sealed class MixinGeneratorExpressionTests {
                           [HELIX.MixinExpression("$Init", 0, "@CODE<Other> Wrong()")]
                           [AttributeUsage(AttributeTargets.Method)]
                           public sealed class MarkAttribute : Attribute { }
-                          [HELIX.EnableMixins]
+                          [HELIX.Mixable]
                           public partial class Demo {
                             [Mark] private void Work() { }
                           }
@@ -1342,7 +1342,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string target, int order, string expression) { }
                             }
@@ -1352,7 +1352,7 @@ public sealed class MixinGeneratorExpressionTests {
                           public sealed class EventHandlerAttribute : Attribute {
                             public int Priority { get; set; } = 0;
                           }
-                          [HELIX.EnableMixins]
+                          [HELIX.Mixable]
                           public partial class Demo {
                             [EventHandler] private void Handle() { }
                             private void Capture(int priority) { }
@@ -1380,7 +1380,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
                             }
@@ -1393,7 +1393,7 @@ public sealed class MixinGeneratorExpressionTests {
                           )]
                           [AttributeUsage(AttributeTargets.Class)]
                           public sealed class MarkerAttribute : Attribute { }
-                          [HELIX.EnableMixins, Marker]
+                          [HELIX.Mixable, Marker]
                           public partial class Demo { }
                           """;
 
@@ -1420,7 +1420,7 @@ public sealed class MixinGeneratorExpressionTests {
     const string source = """
                           using System;
                           namespace HELIX {
-                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
                             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
                               public MixinExpressionAttribute(string expression) { }
                             }
@@ -1437,7 +1437,7 @@ public sealed class MixinGeneratorExpressionTests {
                           )]
                           [AttributeUsage(AttributeTargets.Class)]
                           public sealed class MarkerAttribute : Attribute { }
-                          [HELIX.EnableMixins, Marker]
+                          [HELIX.Mixable, Marker]
                           public partial class Demo { }
                           """;
 
@@ -1463,7 +1463,7 @@ public sealed class MixinGeneratorExpressionTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true, Inherited = true)]
         public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string target, int order, string expression) { }
@@ -1478,7 +1478,7 @@ public sealed class MixinGeneratorExpressionTests {
       [HELIX.MixinExpression("$Init", 0, "@CODE DerivedSecond()")]
       public sealed class DerivedMarkerAttribute : BaseMarkerAttribute { }
 
-      [HELIX.EnableMixins, DerivedMarker]
+      [HELIX.Mixable, DerivedMarker]
       public partial class Demo {
         private void BaseFirst() { }
         private void BaseSecond() { }
@@ -1516,7 +1516,7 @@ public sealed class MixinGeneratorExpressionTests {
       using System;
       using System.Collections.Generic;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
         public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
@@ -1546,7 +1546,7 @@ public sealed class MixinGeneratorExpressionTests {
       public sealed class GenerateAttribute : Attribute {
         public GenerateAttribute(bool enabled, bool disabled = false, string optional = null) { }
       }
-      [HELIX.EnableMixins]
+      [HELIX.Mixable]
       public partial class Demo {
         [Generate(true)] private List<int> values;
       }
@@ -1575,7 +1575,7 @@ public sealed class MixinGeneratorExpressionTests {
       using System;
       using System.Collections.Generic;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
         public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
@@ -1591,7 +1591,7 @@ public sealed class MixinGeneratorExpressionTests {
       public sealed class RenderAttribute : Attribute {
         public RenderAttribute(string text, Type selectedType, int number) { }
       }
-      [HELIX.EnableMixins]
+      [HELIX.Mixable]
       public partial class Demo {
         [Render("plain text", typeof(Dictionary<string, int>), 42)]
         private List<int> values;
@@ -1625,7 +1625,7 @@ public sealed class MixinGeneratorExpressionTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
         public sealed class MixinImportAttribute : Attribute {
           public MixinImportAttribute(Type library) { }
@@ -1649,7 +1649,7 @@ public sealed class MixinGeneratorExpressionTests {
       [HELIX.MixinExpression("$Init", 0, "@CALL<emit>\n@CODE<$Init> Local()")]
       [AttributeUsage(AttributeTargets.Method)]
       public sealed class MarkAttribute : Attribute { }
-      [HELIX.EnableMixins]
+      [HELIX.Mixable]
       public partial class Demo {
         [Mark] private void Work() { }
         private void Prepared() { }
@@ -1680,7 +1680,7 @@ public sealed class MixinGeneratorExpressionTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
         public sealed class MixinImportAttribute : Attribute {
           public MixinImportAttribute(Type library) { }
@@ -1691,7 +1691,7 @@ public sealed class MixinGeneratorExpressionTests {
       }
       [HELIX.MixinLibrary("@FUNC<broken>\n@UNKNOWN\n@END")]
       public static class BrokenFunctions { }
-      [HELIX.EnableMixins]
+      [HELIX.Mixable]
       [HELIX.MixinImport(typeof(BrokenFunctions))]
       public partial class Demo { }
       """;
@@ -1718,7 +1718,7 @@ public sealed class MixinGeneratorExpressionTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
         public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
@@ -1730,7 +1730,7 @@ public sealed class MixinGeneratorExpressionTests {
       )]
       [AttributeUsage(AttributeTargets.Class)]
       public sealed class MarkAttribute : Attribute { }
-      [HELIX.EnableMixins, Mark]
+      [HELIX.Mixable, Mark]
       public partial class Demo { }
       """;
     var compilation = CSharpCompilation.Create(
@@ -1756,7 +1756,7 @@ public sealed class MixinGeneratorExpressionTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
         }
@@ -1768,7 +1768,7 @@ public sealed class MixinGeneratorExpressionTests {
         "@MIXIN<$Init><10> After()"
       )]
       [AttributeUsage(AttributeTargets.Class)] public sealed class MarkAttribute : Attribute { }
-      [HELIX.EnableMixins, Mark]
+      [HELIX.Mixable, Mark]
       public partial class Demo {
         private void Before() { }
         private void After() { }
@@ -1798,7 +1798,7 @@ public sealed class MixinGeneratorExpressionTests {
       """
       using System;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
         }
@@ -1811,7 +1811,7 @@ public sealed class MixinGeneratorExpressionTests {
         "@MIXIN<$Init> @target:name(@local#Method:wire<(@target)>);"
       )]
       [AttributeUsage(AttributeTargets.Method)] public sealed class HandleAttribute : Attribute { }
-      [HELIX.EnableMixins]
+      [HELIX.Mixable]
       public partial class Demo {
         private partial void Awake(int value);
         [Handle] private void Handle(int value) { }
@@ -1840,7 +1840,7 @@ public sealed class MixinGeneratorExpressionTests {
       using System;
       using System.Threading.Tasks;
       namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
         [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string expression) { }
         }
@@ -1849,7 +1849,7 @@ public sealed class MixinGeneratorExpressionTests {
         "@ASSERT @target:?async\n@CODE<CLASS> public int AsyncMatched;"
       )]
       [AttributeUsage(AttributeTargets.Method)] public sealed class AsyncMarkerAttribute : Attribute { }
-      [HELIX.EnableMixins]
+      [HELIX.Mixable]
       public partial class Demo {
         [AsyncMarker] private async Task Work() { await Task.Yield(); }
       }

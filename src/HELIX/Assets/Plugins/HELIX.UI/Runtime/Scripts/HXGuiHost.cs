@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 
 namespace HELIX.UI {
   [UxmlElement(visibility = LibraryVisibility.Hidden)]
-  [EnableMixins]
+  [Mixable]
   [CustomBoundaryElement(constructor: false)]
   public partial class HXGuiHost : VisualElement {
     public GuiService service;

@@ -6,7 +6,7 @@ using NativeListView = UnityEngine.UIElements.ListView;
 using NativeScrollView = UnityEngine.UIElements.ScrollView;
 
 namespace HELIX.Compose {
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(false)]
   public sealed partial class VirtualizedListItemBoundary {
     private Composable<int> _builder;
@@ -91,7 +91,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [CustomBoundaryElement(false, trimChildren: false)]
   public sealed partial class HXListViewElement : VisualElement, ISlotHost {
     public static readonly UniqueStyleString ClassViewport = new("hx-list-view-viewport");

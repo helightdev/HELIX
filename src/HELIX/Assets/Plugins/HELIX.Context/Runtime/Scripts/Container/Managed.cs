@@ -83,7 +83,6 @@ namespace HELIX.Context {
   }
 
   [AttributeUsage(AttributeTargets.Class)]
-  [MixinImport(typeof(ContextMixinLibrary))]
   public class ManagedAttribute : Attribute {
     public ManagedAttribute(
       Type scope = null,

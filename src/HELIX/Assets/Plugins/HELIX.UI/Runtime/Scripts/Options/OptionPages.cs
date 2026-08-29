@@ -19,7 +19,7 @@ namespace HELIX.UI.Options {
     void Reject();
   }
 
-  [EnableMixins, Structure] public readonly partial struct OptionPagesOptions {
+  [Mixable, Structure] public readonly partial struct OptionPagesOptions {
     public static readonly OptionPagesOptions Default = new(hasSidePanel: true);
 
     [Prop(true)] public readonly bool hasSidePanel;
@@ -192,7 +192,7 @@ namespace HELIX.UI.Options {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(cacheLookups: true)]
   public partial class OptionPagesElement {
     public partial struct Props {

@@ -54,7 +54,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(extension: true)]
   [InputStateListener]
   public partial class Checkbox {
@@ -130,7 +130,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(extension: true)]
   [InputStateListener]
   public partial class RawCheckbox {

@@ -62,7 +62,7 @@ namespace HELIX.Compose {
     void Select(int index);
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   [InputStateListener]
   internal partial class SegmentedChoiceItem {
@@ -95,7 +95,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   public sealed partial class SegmentedChoice<T> : IChoiceItemOwner {
     private static readonly EqualityComparer<T> _equality = EqualityComparer<T>.Default;
@@ -158,7 +158,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   public sealed partial class ChoiceSpinbox<T> {
     private static readonly Composable _left = (ref Composition cx) =>

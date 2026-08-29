@@ -44,7 +44,6 @@ namespace HELIX.Context {
 
 
   [AttributeUsage(AttributeTargets.Method)]
-  [MixinImport(typeof(ContextMixinLibrary))]
   public class TickerAttribute : Attribute {
     public TickerAttribute(string time = "tick", string target = MixinOn.MonoUpdate, string condition = null, int order = 10) {  }
 

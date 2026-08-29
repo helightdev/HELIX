@@ -19,7 +19,7 @@ public sealed class StructureTests {
         public enum Mode { First, Second }
 
         [Feature.ConfigureSettings]
-        [HELIX.EnableMixins, HELIX.Structure(datatype: true)]
+        [HELIX.Mixable, HELIX.Structure(datatype: true)]
         public partial struct Settings {
           [Feature.ConfigureProperty]
           public int count;
@@ -73,7 +73,7 @@ public sealed class StructureTests {
     var result = Run(
       Runtime +
       """
-      [HELIX.EnableMixins, HELIX.Structure]
+      [HELIX.Mixable, HELIX.Structure]
       public partial struct Settings {
         public int count;
       }
@@ -91,7 +91,7 @@ public sealed class StructureTests {
     var result = Run(
       Runtime +
       """
-      [HELIX.EnableMixins, HELIX.Structure(datatype: true)]
+      [HELIX.Mixable, HELIX.Structure(datatype: true)]
       public partial struct Settings {
         public int count;
       }
@@ -108,7 +108,7 @@ public sealed class StructureTests {
     var result = Run(
       Runtime +
       """
-      [HELIX.EnableMixins, HELIX.Structure]
+      [HELIX.Mixable, HELIX.Structure]
       public partial struct Settings { }
       """
     );
@@ -131,7 +131,7 @@ public sealed class StructureTests {
       public sealed class ConfigureFromLibraryAttribute : Attribute { }
 
       [ConfigureFromLibrary]
-      [HELIX.EnableMixins, HELIX.Structure(datatype: true)]
+      [HELIX.Mixable, HELIX.Structure(datatype: true)]
       public partial struct Settings {
         public int count;
       }
@@ -177,7 +177,7 @@ public sealed class StructureTests {
                                  using System.Collections.Generic;
                                  namespace HELIX {
                                    [AttributeUsage(AttributeTargets.Struct)]
-                                   public sealed class EnableMixinsAttribute : Attribute { }
+                                   public sealed class MixableAttribute : Attribute { }
                                    [AttributeUsage(AttributeTargets.Struct)]
                                    public sealed class StructureAttribute : Attribute {
                                      public StructureAttribute(bool datatype = false) { }

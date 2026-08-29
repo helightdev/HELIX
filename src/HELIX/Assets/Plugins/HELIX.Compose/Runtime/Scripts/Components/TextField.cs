@@ -25,7 +25,7 @@ namespace HELIX.Compose {
   //   Expands = 1 << 7
   // }
 
-  [EnableMixins, Structure] public readonly partial struct TextInputOptions : IEquatable<TextInputOptions> {
+  [Mixable, Structure] public readonly partial struct TextInputOptions : IEquatable<TextInputOptions> {
     public static readonly TextInputOptions Default = new(maxLength: -1); // Force use of constructor
 
     [Prop(false)] public readonly bool multiline;
@@ -267,7 +267,7 @@ namespace HELIX.Compose {
     public readonly bool IsBuffering => frame == Time.frameCount && isBuffering;
   }
 
-  [EnableMixins]
+  [Mixable]
   [CustomBoundaryElement(false, extension: true, trimChildren: false, name: "TextField")]
   [InputStateListener]
   public sealed partial class TextFieldElement : VisualElement, ISlotHost {

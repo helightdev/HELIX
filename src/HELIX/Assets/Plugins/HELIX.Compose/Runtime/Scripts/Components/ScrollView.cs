@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 using NativeScrollView = UnityEngine.UIElements.ScrollView;
 
 namespace HELIX.Compose {
-  [EnableMixins]
+  [Mixable]
   [CustomBoundaryElement(false, trimChildren: false)]
   public sealed partial class HXScrollViewElement : VisualElement, ISlotHost {
     public static readonly UniqueStyleString ClassViewport = new("hx-scroll-view-viewport");

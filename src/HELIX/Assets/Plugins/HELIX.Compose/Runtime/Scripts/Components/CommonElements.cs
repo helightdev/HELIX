@@ -315,7 +315,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(false)]
   internal partial class AnonymousBoundaryElement {
     internal static readonly ushort typeId = CompositionId.GetTypeId(nameof(AnonymousBoundaryElement));
@@ -327,7 +327,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(false)]
   internal partial class PropsBoundaryElement<T> where T : struct {
     internal static readonly ushort typeId = CompositionId.GetTypeId(nameof(PropsBoundaryElement<T>));

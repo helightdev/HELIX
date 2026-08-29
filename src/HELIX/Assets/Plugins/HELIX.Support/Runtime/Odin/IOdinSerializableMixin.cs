@@ -1,7 +1,6 @@
 using HELIX;
 
 namespace HELIX {
-  [Mixin] public interface IOdinSerializableMixin : IMixin { }
-
-  [Mixin] public interface IOdinSerializableScriptMixin : IMixin { }
+  public interface IOdinSerializableMixin : IMixin { }
+  public interface IOdinSerializableScriptMixin : IMixin { }
 }

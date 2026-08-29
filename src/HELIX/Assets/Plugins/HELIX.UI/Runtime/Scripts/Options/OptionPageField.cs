@@ -54,7 +54,7 @@ namespace HELIX.UI.Options {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   public partial class OptionPageFieldElement {
     public partial struct Props {
@@ -114,7 +114,7 @@ namespace HELIX.UI.Options {
     private void OnFocusIn(FocusInEvent evt) => _controller?.Show(props.presentation);
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   public partial class OptionPageTooltipElement {
     public partial struct Props {

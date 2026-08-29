@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [EnableMixins, Structure] public readonly partial struct SliderOptions : IEquatable<SliderOptions> {
+  [Mixable, Structure] public readonly partial struct SliderOptions : IEquatable<SliderOptions> {
     public static readonly SliderOptions Default = new(0f, 1f);
 
     public readonly float min;
@@ -14,7 +14,7 @@ namespace HELIX.Compose {
     [Prop(0f)] public readonly float thumbRange;
   }
 
-  [EnableMixins, Structure] public readonly partial struct SliderStyle : IEquatable<SliderStyle> {
+  [Mixable, Structure] public readonly partial struct SliderStyle : IEquatable<SliderStyle> {
     [Prop(Equatable = false)] public readonly HXControlBoxStyle box;
     public readonly Composable<State> track;
     public readonly Composable<State> progress;
@@ -24,7 +24,7 @@ namespace HELIX.Compose {
     [Prop(false)] public readonly bool hideWhenThumbCoversTrack;
   }
 
-  [EnableMixins]
+  [Mixable]
   [CustomBoundaryElement(false, extension: true, trimChildren: false, name: "Slider")]
   [InputStateListener]
   public sealed partial class HXSliderElement : VisualElement, ISlotHost {

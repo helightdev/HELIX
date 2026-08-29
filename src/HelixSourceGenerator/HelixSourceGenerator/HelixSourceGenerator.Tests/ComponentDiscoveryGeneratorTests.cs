@@ -126,7 +126,7 @@ public sealed class ComponentDiscoveryGeneratorTests {
                                  using System;
                                  namespace HELIX {
                                    [AttributeUsage(AttributeTargets.Class)]
-                                   public sealed class EnableMixinsAttribute : Attribute { }
+                                   public sealed class MixableAttribute : Attribute { }
                                    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
                                    public sealed class MixinExpressionAttribute : Attribute {
                                      public MixinExpressionAttribute(string[] target, int[] order, string expression) { }

@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [EnableMixins, Structure] public readonly partial struct PopupMenuStyle {
+  [Mixable, Structure] public readonly partial struct PopupMenuStyle {
     public readonly HXControlBoxStyle button;
     public readonly HXControlBoxStyle panel;
     public readonly HXControlBoxStyle item;
@@ -231,7 +231,7 @@ namespace HELIX.Compose {
     void PreviewItem(int index, IBoundary item);
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin]
   [InputStateListener]
   internal partial class PopupMenuItemBoundary {
@@ -287,7 +287,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(name: "DropdownButton")]
   [InputStateListener]
   public partial class HXDropdownButton : IPopupMenuItemOwner {
@@ -447,7 +447,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(name: "MenuButton", extension: true)]
   [InputStateListener]
   public partial class HXMenuButton {

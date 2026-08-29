@@ -300,7 +300,7 @@ namespace HELIX.Compose {
   }
 
   /// <summary>Owns the independently composed subtree of one dynamic entry.</summary>
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(false)]
   public sealed partial class DynamicComposableElement {
     private int _revision = -1;
@@ -384,7 +384,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(name: "DynamicFlexGroup", extension: true, cacheLookups: true)]
   public partial class DynamicFlexGroupBoundary {
     [Hook]
@@ -434,7 +434,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(name: "DynamicScrollGroup", extension: true, cacheLookups: true)]
   public partial class DynamicScrollGroupBoundary {
     [Hook]
@@ -473,7 +473,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [EnableMixins]
+  [Mixable]
   [BoundaryElementMixin(name: "DynamicStack", extension: true, cacheLookups: true)]
   public partial class DynamicStackBoundary {
     [Hook]

@@ -1,20 +1,8 @@
 using System;
 
 namespace HELIX {
-  [MixinLibrary("Core")]
-  public static class CoreMixinLibrary { }
-
-  public enum MixinRequirements {
-    None = 0,
-    TypeName = 1,
-    TypeSignature = 1 << 1,
-    TypeAttributes = 1 << 2
-
-
-  }
 
   [AttributeUsage(AttributeTargets.Method)]
-  [MixinImport(typeof(CoreMixinLibrary))]
   public class HookAttribute : Attribute {
     public readonly string target;
     public readonly int order;
@@ -25,38 +13,11 @@ namespace HELIX {
     }
   }
 
-  [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
-  public sealed class MixinImportAttribute : Attribute {
-    public MixinImportAttribute(Type library) { }
-  }
-
-  [AttributeUsage(AttributeTargets.Class, Inherited = false)]
-  public sealed class MixinLibraryAttribute : Attribute {
-    public readonly string reference;
-
-    public MixinLibraryAttribute(string reference) {
-      this.reference = reference;
-    }
-  }
-
-  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
-  public class RequireMixinAttribute : Attribute {
-    public readonly Type target;
-    public readonly bool declareImplicit;
-
-    public RequireMixinAttribute(Type target, bool declareImplicit = false) {
-      this.target = target;
-      this.declareImplicit = declareImplicit;
-    }
-  }
-
-  [AttributeUsage(AttributeTargets.Interface)]
-  public class MixinAttribute : Attribute { }
 
   [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface)]
-  public class EnableMixinsAttribute : Attribute { }
+  public class MixableAttribute : Attribute { }
 
-  [Mixin] public interface IMixin { }
+  public interface IMixin { }
 
 
   [AttributeUsage(
@@ -68,7 +29,6 @@ namespace HELIX {
   }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Parameter)]
-  [MixinImport(typeof(CoreMixinLibrary))]
   public class PropertyDatatypeAttribute : Attribute {
 
     public PropertyDatatypeAttribute(string datatype) {

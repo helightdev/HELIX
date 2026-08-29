@@ -112,6 +112,5 @@ namespace HELIX.Boot {
   }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Parameter)]
-  [MixinImport(typeof(CoreMixinLibrary))]
   public sealed class NamedArgAttribute : Attribute { }
 }
