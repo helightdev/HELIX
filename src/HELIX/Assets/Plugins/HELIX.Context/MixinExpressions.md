@@ -130,6 +130,7 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
 - `@FUNC<LABEL>` | Begin declaring a function of the given name.
 - `@CALL<LABEL>` | Call a function of the given name. Functions share the same locals and variables as the calling scope.
 - `@CALL<LABEL>` Expression | Call a function of the given name with the value being put as @param.
+- `@INLINE<LABEL>` | Expands a function body at the directive before prelude/late carry hoisting.
 - `@MATCH` BooleanExpression | Requirement for the scope to match, otherwise performs @SKIP
 - `@MATCH<LABEL>` BooleanExpression | Requirement for the scope to match, otherwise jumps to label
 - `@ASSERT` BooleanExpression | Accepts the scope and asserts an expression. False will fail the generation
@@ -237,6 +238,9 @@ Functions share the same locals and variables as the calling scope. A failure in
 upwards to the calling scope, returns inside the function will only return from the function and continue 
 executing the calling scope. Functions may not be nested and must be closed with `@END` in a balanced manner.
 Functions may include scopes which are also allowed to use the `@END` expression.
+`@INLINE` may reference either a prepared library function or a function declared in the same expression. Each
+expansion receives private scope labels. A successful `@RETURN` exits only the inlined body by jumping to its end;
+return expressions are evaluated for failures, but their values are discarded. Recursive inlining is invalid.
 
 ## Additional-file mixins
 

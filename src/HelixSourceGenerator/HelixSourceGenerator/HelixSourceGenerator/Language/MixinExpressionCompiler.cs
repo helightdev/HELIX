@@ -18,11 +18,20 @@ internal static class MixinExpressionCompiler {
   internal static bool TryHoistPrelude(
     string explicitPrelude,
     string expression,
+    MixinExpressionPreparedState preparedState,
     out string prelude,
     out string lateExpression,
     out string error,
     out int errorLine
   ) {
+    if (!TryExpandInlines(
+      explicitPrelude, expression, preparedState,
+      out explicitPrelude, out expression, out error, out errorLine
+    )) {
+      prelude = explicitPrelude ?? "";
+      lateExpression = expression ?? "";
+      return false;
+    }
     var generated = new List<string>();
     var labels = new Dictionary<string, string>(StringComparer.Ordinal);
     var structuralLocals = new HashSet<string>(StringComparer.Ordinal);
@@ -82,6 +91,155 @@ internal static class MixinExpressionCompiler {
     prelude = string.Join("\n", parts);
     lateExpression = string.Join("\n", late);
     return true;
+  }
+
+  private static bool TryExpandInlines(
+    string explicitPrelude,
+    string expression,
+    MixinExpressionPreparedState preparedState,
+    out string expandedPrelude,
+    out string expandedExpression,
+    out string error,
+    out int errorLine
+  ) {
+    var functions = new Dictionary<string, IReadOnlyList<DirectiveInstruction>>(StringComparer.Ordinal);
+    if (preparedState is not null)
+      foreach (var function in preparedState.Functions)
+        functions[function.Key] = preparedState.Instructions
+          .Skip(function.Value.Start).Take(function.Value.End - function.Value.Start).ToArray();
+    if (!TryCollectInlineFunctions(explicitPrelude, functions, out error, out errorLine) ||
+      !TryCollectInlineFunctions(expression, functions, out error, out errorLine)) {
+      expandedPrelude = explicitPrelude ?? "";
+      expandedExpression = expression ?? "";
+      return false;
+    }
+    var inlineSequence = 0;
+    if (!TryExpandInlineProgram(
+      explicitPrelude, functions, new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
+      out expandedPrelude, out error, out errorLine
+    )) {
+      expandedExpression = expression ?? "";
+      return false;
+    }
+    return TryExpandInlineProgram(
+      expression, functions, new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
+      out expandedExpression, out error, out errorLine
+    );
+  }
+
+  private static bool TryCollectInlineFunctions(
+    string source,
+    IDictionary<string, IReadOnlyList<DirectiveInstruction>> functions,
+    out string error,
+    out int errorLine
+  ) {
+    var program = GetProgram(source ?? "", true);
+    var instructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
+    var localFunctions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+    if (!TryIndexSymbols(
+      instructions, 0, instructions.Length,
+      new Dictionary<string, int>(), new Dictionary<int, int>(), localFunctions,
+      new Dictionary<int, int>(), new HashSet<int>(), out error, out errorLine
+    )) return false;
+    foreach (var function in localFunctions) {
+      if (functions.ContainsKey(function.Key)) {
+        error = "duplicate function '" + function.Key + "'";
+        errorLine = instructions[function.Value.Start - 1].Line;
+        return false;
+      }
+      functions.Add(
+        function.Key,
+        instructions.Skip(function.Value.Start).Take(function.Value.End - function.Value.Start).ToArray()
+      );
+    }
+    error = null;
+    errorLine = 0;
+    return true;
+  }
+
+  private static bool TryExpandInlineProgram(
+    string source,
+    IReadOnlyDictionary<string, IReadOnlyList<DirectiveInstruction>> functions,
+    ISet<string> activeFunctions,
+    ref int inlineSequence,
+    out string expanded,
+    out string error,
+    out int errorLine
+  ) {
+    var result = new List<string>();
+    var program = GetProgram(source ?? "", true);
+    for (var index = 0; index < program.Count; index++) {
+      var instruction = program.Get(index);
+      if (instruction.Error is not null) {
+        expanded = source ?? "";
+        error = instruction.Error;
+        errorLine = instruction.Line;
+        return false;
+      }
+      if (instruction.Opcode != DirectiveOpcode.Inline) {
+        result.Add(SerializeInstruction(instruction));
+        continue;
+      }
+      var name = instruction.Argument ?? "";
+      if (!functions.TryGetValue(name, out var body)) {
+        expanded = source ?? "";
+        error = "unknown inline function '" + name + "'";
+        errorLine = instruction.Line;
+        return false;
+      }
+      if (!activeFunctions.Add(name)) {
+        expanded = source ?? "";
+        error = "recursive inline function '" + name + "'";
+        errorLine = instruction.Line;
+        return false;
+      }
+      var suffix = "__inline_" + inlineSequence++.ToString(CultureInfo.InvariantCulture);
+      var endLabel = suffix + "_end";
+      var labels = body.Where(item => item.Opcode == DirectiveOpcode.Scope && !string.IsNullOrEmpty(item.Argument))
+        .Select(item => item.Argument).Distinct(StringComparer.Ordinal)
+        .ToDictionary(item => item, item => item + suffix, StringComparer.Ordinal);
+      var bodyLines = new List<string>();
+      foreach (var item in body) {
+        if (item.Opcode == DirectiveOpcode.Return) {
+          if (!string.IsNullOrEmpty(item.Operand))
+            bodyLines.Add("@LOCAL<" + suffix + "_return> " + item.Operand);
+          bodyLines.Add("@GOTO<" + endLabel + ">");
+          continue;
+        }
+        if ((item.Opcode == DirectiveOpcode.Scope || item.Opcode == DirectiveOpcode.Goto ||
+          item.Opcode == DirectiveOpcode.Match) && !string.IsNullOrEmpty(item.Argument) &&
+          labels.TryGetValue(item.Argument, out var renamed)) {
+          bodyLines.Add(SerializeInstruction(item, renamed));
+          continue;
+        }
+        bodyLines.Add(SerializeInstruction(item));
+      }
+      var bodySource = string.Join("\n", bodyLines);
+      if (!TryExpandInlineProgram(
+        bodySource, functions, activeFunctions, ref inlineSequence,
+        out var expandedBody, out error, out errorLine
+      )) {
+        expanded = source ?? "";
+        activeFunctions.Remove(name);
+        return false;
+      }
+      activeFunctions.Remove(name);
+      if (!string.IsNullOrEmpty(expandedBody)) result.Add(expandedBody);
+      result.Add("@SCOPE<" + endLabel + ">");
+    }
+    expanded = string.Join("\n", result);
+    error = null;
+    errorLine = 0;
+    return true;
+  }
+
+  private static string SerializeInstruction(DirectiveInstruction instruction, string argument = null) {
+    if (string.IsNullOrEmpty(instruction.Command)) return instruction.Operand ?? "";
+    var builder = new StringBuilder("@").Append(instruction.Command);
+    for (var index = 0; index < instruction.Arguments.Count; index++)
+      builder.Append('<').Append(index == 0 && argument is not null ? argument : instruction.Arguments[index]).Append('>');
+    if (!string.IsNullOrEmpty(instruction.Operand)) builder.Append(' ').Append(instruction.Operand);
+    return SerializeLogicalLine(builder.ToString());
   }
 
   private static string SerializeLogicalLine(string line) =>

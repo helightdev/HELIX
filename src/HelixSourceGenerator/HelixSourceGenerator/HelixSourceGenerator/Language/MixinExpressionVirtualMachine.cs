@@ -540,6 +540,8 @@ internal static class MixinExpressionVirtualMachine {
           locals[ParameterLocalKey] = callParameter;
           pc = function.Start;
           break;
+        case DirectiveOpcode.Inline:
+          return Failure("INLINE must be expanded before evaluation", lineNumber, logs);
         case DirectiveOpcode.Goto:
           var gotoScope = instructionScopes.TryGetValue(instruction, out var indexedGotoScope)
             ? indexedGotoScope

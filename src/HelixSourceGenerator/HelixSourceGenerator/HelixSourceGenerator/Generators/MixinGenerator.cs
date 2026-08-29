@@ -160,7 +160,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         wrapper.Detach(), methods.ToImmutableArray(),
         outputs.Annotations.ToImmutableArray(), outputs.Class.ToImmutableArray(),
         outputs.File.ToImmutableArray(), outputs.Implements.ToImmutableArray(),
-        outputs.Usings.ToImmutableArray(), context.DebugExpressions.ToImmutableArray(), context.Debug
+        outputs.Usings.ToImmutableArray(), expressionVariables
+          .Where(item => !item.Key.StartsWith(MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal))
+          .ToImmutableDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal),
+        context.DebugExpressions.ToImmutableArray(), context.Debug
       )
     );
   }
@@ -194,7 +197,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var logs = new List<MixinReportedLog>();
     var lateContributions = new List<MixinContribution>();
     var lateSequence = 1_000_000;
-    var sharedVariables = new Dictionary<string, object>(StringComparer.Ordinal);
+    var sharedVariables = model.Render.PrimaryVariables
+      .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
     var interpreter = new MixinExpressionInterpreter();
     foreach (var work in model.LateExpressions) {
       var variables = work.Variables.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
@@ -458,6 +462,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     ImmutableArray<string> File,
     ImmutableArray<string> Implements,
     ImmutableArray<string> Usings,
+    ImmutableDictionary<string, object> PrimaryVariables,
     ImmutableArray<DebugExpressionWork> DebugExpressions,
     bool Debug
   );
@@ -551,6 +556,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       values.AddRange(render.File);
       values.AddRange(render.Implements);
       values.AddRange(render.Usings);
+      foreach (var variable in render.PrimaryVariables.OrderBy(item => item.Key, StringComparer.Ordinal)) {
+        values.Add(variable.Key);
+        values.Add(MixinValue.From(variable.Value).Render());
+      }
       foreach (var work in render.DebugExpressions) {
         values.Add(work.PreludeProgram);
         values.Add(work.LateProgram);
@@ -910,7 +919,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         return;
       }
       if (!MixinExpressionCompiler.TryHoistPrelude(
-        prelude, expression, out expression, out lateExpression,
+        prelude, expression, preparedExpressions, out expression, out lateExpression,
         out var hoistError, out var hoistLine
       )) {
         ReportInvalidAttributeExpression(

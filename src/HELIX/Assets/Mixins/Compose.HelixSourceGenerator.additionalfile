@@ -201,102 +201,102 @@
   @DEFINE_TARGET<Dispose><^Dispose>
   @DEFINE_TARGET<PostConstruct><^PostConstruct>
   @PRELUDE
-    @USING HELIX.Compose;
-    @USING HELIX.Coloring;
-    @SCOPE
-      @MATCH @this:!?is<global::UnityEngine.UIElements.VisualElement>
-      @CODE<IMPLEMENTS> global::UnityEngine.UIElements.VisualElement
-    @END
-
-    @CODE<IMPLEMENTS> IBoundary
-    @CODE<IMPLEMENTS> IRecomposeMixinTargets
-
-    @CODE<CLASS>
-      @\public global::UnityEngine.UIElements.VisualElement Element => this;
-      @\public BoundaryCell Cell { get; } = BoundaryCell.Shared;
-      @\public int TreeDepth { get; set; }
-      @\public IBoundary Parent { get; set; }
-      @\public IContextComposable ContextParent { get; set; }
-      @\public bool IsDisposed { get; set; }
-      @\public UssFlag Flag { get; set; }
-      @\public ulong PackedId { get; set; }
-      @\public SparseContextMap WrittenContext { get;set; }
-      @\
-      @\private LookupCache _lookupCache;
-      @\private bool _initialAttachment = true;
-      @\private bool _initialized = false;
-      @\public bool TryLookupContext(int key, out ContextData data) {
-      @\  data = null;
-      @\  if (WrittenContext != null && WrittenContext.TryGet(key, out data)) return true;
-      @\  return _lookupCache.TryLookup(ContextParent, key, out data);
-      @\}
-      @\
-      @\public void RefreshHierarchy() {
-      @\  Parent = GetFirstAncestorOfType<IBoundary>();
-      @\  ContextParent = GetFirstAncestorOfType<IContextComposable>();
-      @\  TreeDepth = BoundaryHelper.GetDepth(this);
-      @\}
-      @\public void MarkDirty() => HXComposer.MarkDirty(this, false);
-
-    @MIXIN<$Recompose><-1000> try {
-    @MIXIN<$Recompose><-100> BoundaryHelper.ContextBefore(this);
-    @MIXIN<$Recompose><-75> _lookupCache.Clear();
-
-    @Mixin<$Recompose><-60> if (!_initialized) Init();
-    @MIXIN<$Recompose><-55> @attr#cacheLookups:switch<_lookupCache.Claim();><>
-    @MIXIN<$Recompose><-50> try {
-    @MIXIN<$Recompose><-25> var cx = new Composition(this);
-    @MIXIN<$Recompose><0> PerformCompose(ref cx)
-    @MIXIN<$Recompose><50> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
-
-    @MIXIN<$Recompose><100> BoundaryHelper.ContextAfter(this);
-    @MIXIN<$Recompose><200> @attr#trimChildren:switch<Cell.TrimChildren();><>
-    @MIXIN<$Recompose><1000> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
-
-    @MIXIN<$Reset><-1> HXComposer.RemoveDirty(this);
-    @MIXIN<$Reset><1> _lookupCache.Release();
-    @MIXIN<$Reset><100> _initialized = false;
-
-    @MIXIN<$Compose> // Default handle
-
-    @MIXIN<$Init><100> _initialized = true;
-    @MIXIN<$Dispose><-100> if (IsDisposed) return; IsDisposed = true; _initialized = false;
-    @MIXIN<$Dispose><-1> Reset();
-
-    @MIXIN<$PostConstruct><1000> if (HXComposer.IsProcessing) {
-      @\  _initialAttachment = false;
-      @\  HXComposer.MarkDirty(this);
-      @\}
-
-    @MIXIN<DetachBoundary>
-      @\_initialAttachment = true;
-      @\_lookupCache.Release();
-      @\HXComposer.NotifyDetach(this);
-
-    @MIXIN<AttachBoundary>
-      @\IsDisposed = false;
-      @\RefreshHierarchy();
-
-    @MIXIN<AttachBoundary><100>HXComposer.RegisterActiveBoundary(this);
-
-    @MIXIN<AttachBoundary><200>if (_initialAttachment) {
-      @\  _initialAttachment = false;
-      @\  HXComposer.MarkDirty(this);
-      @\}
-
-    @SCOPE
-      @MATCH @attr#constructor:?eq<true>
-      @CODE<CLASS> public @this:name() {
-        @\  RegisterCallback<global::UnityEngine.UIElements.AttachToPanelEvent>(_ => AttachBoundary());
-        @\  RegisterCallback<global::UnityEngine.UIElements.DetachFromPanelEvent>(_ => DetachBoundary());
-        @\  PostConstruct();
-        @\}
-    @END
-
     @SCOPE
       @MATCH @attr#composable:?eq<true>
       @CALL<GenerateBoundaryElement>
     @END
+  @END
+  
+  @USING HELIX.Compose;
+  @USING HELIX.Coloring;
+  @SCOPE
+    @MATCH @this:!?is<global::UnityEngine.UIElements.VisualElement>
+    @CODE<IMPLEMENTS> global::UnityEngine.UIElements.VisualElement
+  @END
+
+  @CODE<IMPLEMENTS> IBoundary
+  @CODE<IMPLEMENTS> IRecomposeMixinTargets
+
+  @CODE<CLASS>
+    @\public global::UnityEngine.UIElements.VisualElement Element => this;
+    @\public BoundaryCell Cell { get; } = BoundaryCell.Shared;
+    @\public int TreeDepth { get; set; }
+    @\public IBoundary Parent { get; set; }
+    @\public IContextComposable ContextParent { get; set; }
+    @\public bool IsDisposed { get; set; }
+    @\public UssFlag Flag { get; set; }
+    @\public ulong PackedId { get; set; }
+    @\public SparseContextMap WrittenContext { get;set; }
+    @\
+    @\private LookupCache _lookupCache;
+    @\private bool _initialAttachment = true;
+    @\private bool _initialized = false;
+    @\public bool TryLookupContext(int key, out ContextData data) {
+    @\  data = null;
+    @\  if (WrittenContext != null && WrittenContext.TryGet(key, out data)) return true;
+    @\  return _lookupCache.TryLookup(ContextParent, key, out data);
+    @\}
+    @\
+    @\public void RefreshHierarchy() {
+    @\  Parent = GetFirstAncestorOfType<IBoundary>();
+    @\  ContextParent = GetFirstAncestorOfType<IContextComposable>();
+    @\  TreeDepth = BoundaryHelper.GetDepth(this);
+    @\}
+    @\public void MarkDirty() => HXComposer.MarkDirty(this, false);
+
+  @MIXIN<$Recompose><-1000> try {
+  @MIXIN<$Recompose><-100> BoundaryHelper.ContextBefore(this);
+  @MIXIN<$Recompose><-75> _lookupCache.Clear();
+
+  @Mixin<$Recompose><-60> if (!_initialized) Init();
+  @MIXIN<$Recompose><-55> @attr#cacheLookups:switch<_lookupCache.Claim();><>
+  @MIXIN<$Recompose><-50> try {
+  @MIXIN<$Recompose><-25> var cx = new Composition(this);
+  @MIXIN<$Recompose><0> PerformCompose(ref cx)
+  @MIXIN<$Recompose><50> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
+
+  @MIXIN<$Recompose><100> BoundaryHelper.ContextAfter(this);
+  @MIXIN<$Recompose><200> @attr#trimChildren:switch<Cell.TrimChildren();><>
+  @MIXIN<$Recompose><1000> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
+
+  @MIXIN<$Reset><-1> HXComposer.RemoveDirty(this);
+  @MIXIN<$Reset><1> _lookupCache.Release();
+  @MIXIN<$Reset><100> _initialized = false;
+
+  @MIXIN<$Compose> // Default handle
+
+  @MIXIN<$Init><100> _initialized = true;
+  @MIXIN<$Dispose><-100> if (IsDisposed) return; IsDisposed = true; _initialized = false;
+  @MIXIN<$Dispose><-1> Reset();
+
+  @MIXIN<$PostConstruct><1000> if (HXComposer.IsProcessing) {
+    @\  _initialAttachment = false;
+    @\  HXComposer.MarkDirty(this);
+    @\}
+
+  @MIXIN<DetachBoundary>
+    @\_initialAttachment = true;
+    @\_lookupCache.Release();
+    @\HXComposer.NotifyDetach(this);
+
+  @MIXIN<AttachBoundary>
+    @\IsDisposed = false;
+    @\RefreshHierarchy();
+
+  @MIXIN<AttachBoundary><100>HXComposer.RegisterActiveBoundary(this);
+
+  @MIXIN<AttachBoundary><200>if (_initialAttachment) {
+    @\  _initialAttachment = false;
+    @\  HXComposer.MarkDirty(this);
+    @\}
+
+  @SCOPE
+    @MATCH @attr#constructor:?eq<true>
+    @CODE<CLASS> public @this:name() {
+      @\  RegisterCallback<global::UnityEngine.UIElements.AttachToPanelEvent>(_ => AttachBoundary());
+      @\  RegisterCallback<global::UnityEngine.UIElements.DetachFromPanelEvent>(_ => DetachBoundary());
+      @\  PostConstruct();
+      @\}
   @END
 @END
 
@@ -308,20 +308,19 @@
   @DEFINE_TARGET<Dispose><^MixinDispose>
   @DEFINE_TARGET<PostConstruct><^MixinPostConstruct>
   @PRELUDE
-    @USING HELIX.Compose;
-    @USING HELIX.Coloring;
-    @CODE<IMPLEMENTS> HELIX.Compose.GeneratedBoundaryBase
-    @CODE<IMPLEMENTS> HELIX.Compose.IBoundaryHooks
-
     @CODE<CLASS> public @this:name() : base(@attr#cacheLookups, @attr#trimChildren) {}
-
-    @MIXIN<$Recompose><0> ((IBoundaryHooks)this).MixinCompose(ref cx);
-
+    @CODE<IMPLEMENTS> HELIX.Compose.GeneratedBoundaryBase
+    
     @SCOPE
       @MATCH @attr#composable:?eq<true>
       @CALL<GenerateBoundaryElement>
     @END
   @END
+  
+  @USING HELIX.Compose;
+  @USING HELIX.Coloring;
+  @CODE<IMPLEMENTS> HELIX.Compose.IBoundaryHooks
+  @MIXIN<$Recompose><0> ((IBoundaryHooks)this).MixinCompose(ref cx);
 @END
 
 @ANNOTATION<HELIX.Compose.WriteContextHandlerAttribute>
@@ -333,18 +332,14 @@
 @END
 
 @ANNOTATION<HELIX.Compose.ClickHandlerAttribute>
-  @PRELUDE
-    @CALL<RequireInputState>
-  @END
+  @INLINE<RequireInputState>
   @MIXIN<$PostConstruct><0> global::UnityEngine.UIElements.VisualElementExtensions.AddManipulator(this,
     @\  new InputClickableManipulator(this, this, @target:name)
     @\);
 @END
 
 @ANNOTATION<HELIX.Compose.InputStateListenerAttribute>
-  @PRELUDE
-    @CALL<RequireInputState>
-  @END
+  @INLINE<RequireInputState>
   @MIXIN<$PostConstruct><0> global::UnityEngine.UIElements.VisualElementExtensions.AddManipulator(this,
     @\  new InputListenerManipulator(this, this, @attr#focus)
     @\);

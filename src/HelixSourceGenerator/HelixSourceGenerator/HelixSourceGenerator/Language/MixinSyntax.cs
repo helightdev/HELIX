@@ -50,6 +50,7 @@ internal enum DirectiveOpcode {
   Scope,
   Function,
   Call,
+  Inline,
   End,
   Match,
   Assert,

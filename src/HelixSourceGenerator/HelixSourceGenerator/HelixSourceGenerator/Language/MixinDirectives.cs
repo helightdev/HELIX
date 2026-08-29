@@ -164,6 +164,7 @@ internal static class DirectiveLibrary {
   private static readonly DirectiveDefinition Scope = new MarkerDirective("SCOPE", DirectiveOpcode.Scope);
   private static readonly DirectiveDefinition Function = new NamedDirective("FUNC", DirectiveOpcode.Function);
   private static readonly DirectiveDefinition Call = new CallDirective();
+  private static readonly DirectiveDefinition Inline = new NamedDirective("INLINE", DirectiveOpcode.Inline);
   private static readonly DirectiveDefinition End = new MarkerDirective("END", DirectiveOpcode.End);
   private static readonly DirectiveDefinition Match = new BooleanDirective("MATCH", DirectiveOpcode.Match);
   private static readonly DirectiveDefinition Assert = new BooleanDirective("ASSERT", DirectiveOpcode.Assert);
@@ -197,7 +198,7 @@ internal static class DirectiveLibrary {
 
   internal static bool TryGet(string name, out DirectiveDefinition definition) {
     definition = name switch {
-      "SCOPE" => Scope, "FUNC" => Function, "CALL" => Call, "END" => End,
+      "SCOPE" => Scope, "FUNC" => Function, "CALL" => Call, "INLINE" => Inline, "END" => End,
       "MATCH" => Match, "ASSERT" => Assert, "CODE" => Code, "MIXIN" => Mixin,
       "RESOLVE_MIXIN" => ResolveMixin, "USING" => Using,
       "LOCAL" => Local, "VAR" => Variable, "CARRY" => Carry,
