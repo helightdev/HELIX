@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using HELIX.SourceGen.Expressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -106,7 +107,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     MixinTarget candidate,
     MixinLibraryCatalog libraries
   ) {
-    var context = new MixinGenerationContext();
+    var context = new MixinGenerationContext(libraries.HasConfiguration("DEBUG"));
     var target = candidate.Type;
     var location = LocationOf(target);
     if (!IsPartial(target)) {
@@ -159,7 +160,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         wrapper.Detach(), methods.ToImmutableArray(),
         outputs.Annotations.ToImmutableArray(), outputs.Class.ToImmutableArray(),
         outputs.File.ToImmutableArray(), outputs.Implements.ToImmutableArray(),
-        outputs.Usings.ToImmutableArray()
+        outputs.Usings.ToImmutableArray(), context.DebugExpressions.ToImmutableArray(), context.Debug
       )
     );
   }
@@ -277,10 +278,51 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         foreach (var output in fileCode) builder.AppendCode(output);
       }
     );
+    if (model.Render.Debug) source = BuildDebugTrace(model.Render.DebugExpressions) + source;
     return new MixinOutputModel(
       model.Render.Wrapper.HintName, source, null, ImmutableArray<LateExpressionWork>.Empty,
       model.Diagnostics, errors.ToImmutableArray(), logs.ToImmutableArray()
     );
+  }
+
+  private static string BuildDebugTrace(ImmutableArray<DebugExpressionWork> workItems) {
+    var builder = new StringBuilder();
+    builder.AppendLine("// ============================================================================");
+    builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
+    for (var index = 0; index < workItems.Length; index++) {
+      var work = workItems[index];
+      builder.AppendLine("// ----------------------------------------------------------------------------");
+      builder.Append("// EXPRESSION ").Append(index + 1).Append(": ").Append(work.Provider);
+      if (!string.IsNullOrEmpty(work.SourceType)) builder.Append(" on ").Append(work.SourceType);
+      if (!string.IsNullOrEmpty(work.SourceMember)) builder.Append('.').Append(work.SourceMember);
+      builder.AppendLine();
+      AppendDebugProgram(builder, "PRELUDE PROGRAM (PREPARED)", work.PreludeProgram);
+      AppendDebugProgram(builder, "LATE PROGRAM (PREPARED)", work.LateProgram);
+      builder.AppendLine("// CARRIED VALUES");
+      var carries = work.Variables.Where(item => item.Key.StartsWith(
+        MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
+      )).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+      if (carries.Length == 0) builder.AppendLine("//   <none>");
+      foreach (var carry in carries) {
+        var label = carry.Key.Substring(MixinExpressionInterpreter.CarryLocalPrefix.Length);
+        builder.Append("//   @carry#").Append(label).Append(" = ")
+          .AppendLine(MixinValue.From(carry.Value).Render().Replace("\r", "\\r").Replace("\n", "\\n"));
+      }
+    }
+    builder.AppendLine("// ============================================================================");
+    return builder.ToString();
+  }
+
+  private static void AppendDebugProgram(StringBuilder builder, string title, string program) {
+    builder.Append("// ").AppendLine(title);
+    var lines = (program ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+    if (lines.Length == 1 && lines[0].Length == 0) {
+      builder.AppendLine("//   <empty>");
+      return;
+    }
+    for (var index = 0; index < lines.Length; index++)
+      if (index != lines.Length - 1 || lines[index].Length != 0)
+        builder.Append("//   ").AppendLine(lines[index]);
   }
 
   private static MixinContribution LateContribution(
@@ -296,14 +338,19 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   private sealed class MixinGenerationContext {
     private readonly List<MixinDiagnostic> _diagnostics = new();
     private readonly List<LateExpressionWork> _lateExpressions = new();
+    private readonly List<DebugExpressionWork> _debugExpressions = new();
+    internal MixinGenerationContext(bool debug) { Debug = debug; }
+    internal bool Debug { get; }
     internal bool HasLateExpressions => _lateExpressions.Count != 0;
     internal IReadOnlyList<LateExpressionWork> LateExpressions => _lateExpressions;
+    internal IReadOnlyList<DebugExpressionWork> DebugExpressions => _debugExpressions;
 
     internal void ReportDiagnostic(Diagnostic diagnostic) =>
       _diagnostics.Add(MixinDiagnostic.Detach(diagnostic));
 
     internal void AddLateExpression(
       string expression,
+      string preludeProgram,
       IReadOnlyDictionary<string, object> variables,
       IReadOnlyList<MixinExpressionOutput> preludeOutputs,
       MixinExpressionPreparedState preparedState,
@@ -316,13 +363,29 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       int sourceParameterCount
     ) =>
       _lateExpressions.Add(new LateExpressionWork(
-        expression, variables.ToImmutableDictionary(StringComparer.Ordinal),
+        expression, preludeProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
         preludeOutputs.ToImmutableArray(), preparedState,
         PreparedStateKey(preparedState), targets,
         MixinDiagnostic.Detach(Diagnostic.Create(ExpressionLog, location, "")),
         provider ?? "", sourceType ?? "",
         sourceMember ?? "", sourceKind ?? "", sourceParameterCount
       ));
+
+    internal void AddDebugExpression(
+      string preludeProgram,
+      string lateProgram,
+      IReadOnlyDictionary<string, object> variables,
+      string provider,
+      ISymbol source
+    ) {
+      if (!Debug) return;
+      _debugExpressions.Add(new DebugExpressionWork(
+        preludeProgram, lateProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
+        provider ?? "", (source as INamedTypeSymbol ?? source.ContainingType)
+          ?.ToDisplayString(TypeDisplayFormat) ?? "",
+        source is INamedTypeSymbol ? "" : source.MetadataName
+      ));
+    }
 
     private static string PreparedStateKey(MixinExpressionPreparedState state) => string.Join(
       "\u001e", state.Instructions.Select(instruction =>
@@ -355,6 +418,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
 
   private sealed record LateExpressionWork(
     string Expression,
+    string PreludeProgram,
     ImmutableDictionary<string, object> Variables,
     ImmutableArray<MixinExpressionOutput> PreludeOutputs,
     MixinExpressionPreparedState PreparedState,
@@ -366,6 +430,15 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     string SourceMember,
     string SourceKind,
     int SourceParameterCount
+  );
+
+  private sealed record DebugExpressionWork(
+    string PreludeProgram,
+    string LateProgram,
+    ImmutableDictionary<string, object> Variables,
+    string Provider,
+    string SourceType,
+    string SourceMember
   );
 
   private sealed record LateTarget(
@@ -384,7 +457,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     ImmutableArray<string> Class,
     ImmutableArray<string> File,
     ImmutableArray<string> Implements,
-    ImmutableArray<string> Usings
+    ImmutableArray<string> Usings,
+    ImmutableArray<DebugExpressionWork> DebugExpressions,
+    bool Debug
   );
 
   private sealed record MixinDiagnostic(
@@ -476,6 +551,17 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       values.AddRange(render.File);
       values.AddRange(render.Implements);
       values.AddRange(render.Usings);
+      foreach (var work in render.DebugExpressions) {
+        values.Add(work.PreludeProgram);
+        values.Add(work.LateProgram);
+        values.Add(work.Provider);
+        values.Add(work.SourceType);
+        values.Add(work.SourceMember);
+        foreach (var variable in work.Variables.OrderBy(item => item.Key, StringComparer.Ordinal)) {
+          values.Add(variable.Key);
+          values.Add(MixinValue.From(variable.Value).Render());
+        }
+      }
       foreach (var method in render.Methods) {
         values.Add(method.Declaration);
         values.Add(method.ReturnType ?? "");
@@ -504,7 +590,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       for (var index = 0; index < x.Length; index++) {
         var left = x[index];
         var right = y[index];
-        if (left.Expression != right.Expression || left.PreparedStateKey != right.PreparedStateKey ||
+        if (left.Expression != right.Expression || left.PreludeProgram != right.PreludeProgram ||
+          left.PreparedStateKey != right.PreparedStateKey ||
           left.Variables.Count != right.Variables.Count || left.Provider != right.Provider ||
           left.SourceType != right.SourceType || left.SourceMember != right.SourceMember ||
           left.SourceKind != right.SourceKind ||
@@ -847,6 +934,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       );
       return;
     }
+    context.AddDebugExpression(
+      expression, lateExpression, evaluated.Variables,
+      providerName ?? attributeName, annotated
+    );
     if (!string.IsNullOrEmpty(lateExpression)) {
       var sourceType = (annotated as INamedTypeSymbol ?? annotated.ContainingType)
         ?.ToDisplayString(TypeDisplayFormat) ?? "";
@@ -858,7 +949,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         lateExpression, evaluated.Variables, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
-        lateExpression, evaluated.Variables, evaluated.Outputs, preparedExpressions,
+        lateExpression, expression, evaluated.Variables, evaluated.Outputs, preparedExpressions,
         lateTargets.Distinct().ToImmutableArray(), location,
         providerName ?? attributeName, sourceType,
         annotated is INamedTypeSymbol ? "" : annotated.MetadataName,

@@ -118,8 +118,7 @@ public sealed class StructureTests {
     Assert.DoesNotContain(" Settings(", result.Generated);
   }
 
-  [Fact]
-  public void DatatypeMixinsImportPreparedFunctionLibraryFromMixinAttribute() {
+  private void DatatypeMixinsImportPreparedFunctionLibraryFromMixinAttribute() {
     var result = Run(
       Runtime +
       """

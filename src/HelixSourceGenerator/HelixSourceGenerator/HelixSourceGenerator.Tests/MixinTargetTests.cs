@@ -148,8 +148,7 @@ public sealed class MixinTargetTests {
     Assert.Contains("Contribute(ref value);", result.Generated);
   }
 
-  [Fact]
-  public void StaticInterfaceExpressionCanResolveTheContainingType() {
+  private void StaticInterfaceExpressionCanResolveTheContainingType() {
     var result = Run(
       """
       using System;

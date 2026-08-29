@@ -31,13 +31,14 @@ internal static class MixinLibraryApi {
       key, file.Path, content, parsed.Success,
       parsed.Error, parsed.ErrorLine,
       parsed.Success ? MixinExpressionInterpreter.GetProgram(parsed.Functions, true) : null,
-      parsed.Annotations
+      parsed.Annotations, parsed.Configuration
     );
   }
 
   private static ParsedAdditionalFile ParseAdditionalFile(string content) {
     var functions = new StringBuilder();
     var annotations = new Dictionary<string, MixinAnnotationDefinition>(StringComparer.Ordinal);
+    var configuration = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     var lines = (content ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
     string annotationName = null;
     var prelude = new StringBuilder();
@@ -51,7 +52,7 @@ internal static class MixinLibraryApi {
     var annotationLine = 0;
 
     ParsedAdditionalFile Failure(string error, int line) =>
-      new(false, functions.ToString(), annotations, error, line);
+      new(false, functions.ToString(), annotations, configuration, error, line);
     void Append(StringBuilder target, string line) => target.AppendLine(line);
     for (var index = 0; index < lines.Length; index++) {
       var line = lines[index];
@@ -64,6 +65,12 @@ internal static class MixinLibraryApi {
       }
 
       if (annotationName is null) {
+        if (command == "CONFIG") {
+          if (arguments.Count != 1 || string.IsNullOrWhiteSpace(arguments[0]))
+            return Failure("CONFIG requires a key", index + 1);
+          configuration[arguments[0]] = ReadConfigurationValue(line);
+          continue;
+        }
         if (command != "ANNOTATION") {
           Append(functions, line);
           continue;
@@ -156,8 +163,15 @@ internal static class MixinLibraryApi {
     var functionText = functions.ToString();
     var functionValidation = new MixinExpressionInterpreter().ValidateFunctionLibrary(functionText);
     return functionValidation.Success
-      ? new ParsedAdditionalFile(true, functionText, annotations, null, 0)
+      ? new ParsedAdditionalFile(true, functionText, annotations, configuration, null, 0)
       : Failure(functionValidation.Error, functionValidation.ErrorLine);
+  }
+
+  private static string ReadConfigurationValue(string line) {
+    var closing = line?.IndexOf('>') ?? -1;
+    if (closing < 0 || closing + 1 >= line.Length) return "";
+    var value = line.Substring(closing + 1).Trim();
+    return value.StartsWith("|", StringComparison.Ordinal) ? value.Substring(1).Trim() : value;
   }
 
   internal static MixinExpressionPreparedState Prepare(
@@ -252,7 +266,8 @@ internal sealed record MixinLibraryFile(
   string Error,
   int ErrorLine,
   MixinProgramSyntax Program,
-  IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations
+  IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations,
+  IReadOnlyDictionary<string, string> Configuration
 );
 
 internal sealed record MixinAnnotationDefinition(
@@ -266,6 +281,7 @@ internal sealed record ParsedAdditionalFile(
   bool Success,
   string Functions,
   IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations,
+  IReadOnlyDictionary<string, string> Configuration,
   string Error,
   int ErrorLine
 );
@@ -289,6 +305,9 @@ internal sealed class MixinLibraryCatalog {
     );
   }
   internal IEnumerable<MixinLibraryFile> Files => _files.Values;
+  internal bool HasConfiguration(string key) => _files.Values.Any(file =>
+    file.Success && file.Configuration.ContainsKey(key ?? "")
+  );
   internal string Key { get; }
   internal string AvailableKeys => _files.Count == 0
     ? "<none>"

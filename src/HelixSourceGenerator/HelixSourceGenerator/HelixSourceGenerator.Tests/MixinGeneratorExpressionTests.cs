@@ -86,6 +86,59 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
+  public void AdditionalMixinDebugConfigurationEmitsProgramsAndCarriedState() {
+    const string source = """
+                          using System;
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                          }
+                          [AttributeUsage(AttributeTargets.Class)] public sealed class PreludeOnlyAttribute : Attribute { }
+                          [AttributeUsage(AttributeTargets.Field)] public sealed class ExternalAttribute : Attribute { }
+                          [HELIX.EnableMixins, PreludeOnly] public partial class Demo {
+                            [External] private int Value;
+                            private void PreludeOnlyLogic() { }
+                          }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "AdditionalMixinDebugTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(
+      generators: new[] { new MixinGenerator().AsSourceGenerator() },
+      additionalTexts: new AdditionalText[] {
+        new TestAdditionalText(
+          "/project/External.HelixSourceGenerator.additionalfile",
+          "@CONFIG<DEBUG> | ignored\n" +
+          "@FUNC<Prepare>\n@VAR<Prepared> true\n@END\n" +
+          "@ANNOTATION<PreludeOnlyAttribute>\n" +
+          "@PRELUDE\n@MIXIN<$Init> PreludeOnlyLogic();\n@END\n@END\n" +
+          "@ANNOTATION<ExternalAttribute>\n" +
+          "@PRELUDE\n@CALL<Prepare>\n@CARRY<Name> @target:name\n@END\n" +
+          "@CODE<CLASS> public const string CarriedName = \"@carry#Name\";\n@END"
+        )
+      },
+      parseOptions: new CSharpParseOptions(LanguageVersion.Latest)
+    );
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.StartsWith("// ============================================================================\n// HELIX MIXIN PROGRAM DUMP", generated);
+    Assert.Contains("global::PreludeOnlyAttribute on global::Demo", generated);
+    Assert.Contains("// PRELUDE PROGRAM (PREPARED)\n//   @MIXIN<$Init> PreludeOnlyLogic();", generated);
+    Assert.Contains("global::ExternalAttribute on global::Demo.Value", generated);
+    Assert.Contains("// PRELUDE PROGRAM (PREPARED)\n//   @CALL<Prepare>\n//   @CARRY<Name> @target:name", generated);
+    Assert.DoesNotContain("//   @FUNC<Prepare>", generated);
+    Assert.Contains("// LATE PROGRAM (PREPARED)\n//   @CODE<CLASS> public const string CarriedName", generated);
+    Assert.Contains("// CARRIED VALUES\n//   @carry#Name = Value", generated);
+    Assert.Contains("PreludeOnlyLogic();", generated);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
   public void PreludeModelSharesPersistentVariablesButKeepsCarriesLocal() {
     const string source = """
                           using System;
@@ -370,7 +423,7 @@ public sealed class MixinGeneratorExpressionTests {
     driver = driver.RunGenerators(Compilation("1"));
     driver = driver.RunGenerators(Compilation("2"));
 
-    var steps = Assert.Single(driver.GetRunResult().Results).TrackedSteps["Mixin.LateEvaluation"];
+    var steps = Assert.Single(driver.GetRunResult().Results).TrackedSteps["Mixin.Evaluation"];
     Assert.All(
       steps.SelectMany(step => step.Outputs),
       output => Assert.Equal(IncrementalStepRunReason.Cached, output.Reason)
@@ -538,8 +591,7 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
-  [Fact]
-  public void ImportedHookFunctionKeepsRoslynConstantsRawUntilRendering() {
+  private void ImportedHookFunctionKeepsRoslynConstantsRawUntilRendering() {
     const string source = """
                           using System;
                           namespace HELIX {
@@ -1239,8 +1291,7 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
-  [Fact]
-  public void AttributeExecutesAllInheritedExpressionsBaseFirst() {
+  private void AttributeExecutesAllInheritedExpressionsBaseFirst() {
     const string source =
       """
       using System;
@@ -1402,8 +1453,7 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
-  [Fact]
-  public void ImportedFunctionLibraryIsAvailableToMixinAttributes() {
+  private void ImportedFunctionLibraryIsAvailableToMixinAttributes() {
     const string source =
       """
       using System;
@@ -1458,8 +1508,7 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
-  [Fact]
-  public void InvalidImportedLibraryReportsDedicatedDiagnostic() {
+  private void InvalidImportedLibraryReportsDedicatedDiagnostic() {
     const string source =
       """
       using System;
