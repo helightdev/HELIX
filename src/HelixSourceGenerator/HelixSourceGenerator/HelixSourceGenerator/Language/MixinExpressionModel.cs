@@ -7,12 +7,46 @@ namespace HELIX.SourceGen.Expressions;
 
 public enum MixinExpressionOutputTarget { Target, Class, File, Implements, Injection, Annotation, Using, Mixin }
 
-public record MixinExpressionOutput(
-  MixinExpressionOutputTarget Target,
-  string Text,
-  string InjectionTarget = null,
-  int InjectionPriority = 0
-);
+public sealed record MixinExpressionOutput {
+  private readonly IReadOnlyList<MixinString> _segments;
+  private readonly MixinStringPool _pool;
+  private readonly MixinString _injectionTarget;
+
+  public MixinExpressionOutput(
+    MixinExpressionOutputTarget target,
+    string text,
+    string injectionTarget = null,
+    int injectionPriority = 0
+  ) : this(
+    target, new[] { MixinString.Dynamic(text) }, new MixinStringPoolBuilder().Freeze(),
+    MixinString.Dynamic(injectionTarget), injectionPriority
+  ) { }
+
+  internal MixinExpressionOutput(
+    MixinExpressionOutputTarget target,
+    IReadOnlyList<MixinString> segments,
+    MixinStringPool pool,
+    MixinString injectionTarget,
+    int injectionPriority = 0
+  ) {
+    Target = target;
+    _segments = segments ?? Array.Empty<MixinString>();
+    _pool = pool ?? throw new ArgumentNullException(nameof(pool));
+    _injectionTarget = injectionTarget;
+    InjectionPriority = injectionPriority;
+  }
+
+  public MixinExpressionOutputTarget Target { get; }
+  public string Text => string.Concat(_segments.Select(segment => segment.Resolve(_pool)));
+  public string InjectionTarget => _injectionTarget.Resolve(_pool);
+  public int InjectionPriority { get; }
+  internal IReadOnlyList<MixinString> Segments => _segments;
+  internal string Resolve(MixinString segment) => segment.Resolve(_pool);
+  internal bool IsEmpty => _segments.All(segment => string.IsNullOrEmpty(segment.Resolve(_pool)));
+  internal MixinExpressionOutput Retarget(MixinExpressionOutputTarget target) => new(
+    target, _segments, _pool, _injectionTarget, InjectionPriority
+  );
+}
 
 public record MixinExpressionLog(string Text = "", int Line = -1, bool IsHint = false);
 
@@ -168,6 +202,14 @@ public sealed class MixinExpressionReference {
   public MixinExpressionRoot Root { get; }
   public string Member { get; }
   public IReadOnlyList<MixinExpressionProperty> Properties { get; }
+
+  internal void CollectConstants(MixinStringPoolBuilder pool) {
+    if (Member is not null) pool.Intern(Member);
+    foreach (var property in Properties) {
+      pool.Intern(property.Name);
+      foreach (var argument in property.Arguments) pool.Intern(argument);
+    }
+  }
 }
 
 /// <summary>Resolves host-specific values and predicates used by a mixin expression.</summary>
@@ -285,6 +327,7 @@ public sealed record MixinExpressionValidationResult(bool Success, string Error,
 ///   may safely retain this object in an incremental value and share it between target runs.
 /// </summary>
 public sealed record MixinExpressionPreparedState(
+  MixinStringPool StringPool,
   IReadOnlyList<MixinProgramSyntax> Programs,
   IReadOnlyDictionary<string, object> Variables,
   IReadOnlyList<DirectiveInstruction> Instructions,

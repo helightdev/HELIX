@@ -43,6 +43,11 @@ public sealed class MixinProgramSyntax {
   internal IEnumerable<DirectiveInstruction> AvailableInstructions() {
     return _instructions.Where(instruction => instruction is not null);
   }
+
+  internal void CollectConstants(MixinStringPoolBuilder pool) {
+    pool.Intern(Source);
+    for (var index = 0; index < Count; index++) Get(index).CollectConstants(pool);
+  }
 }
 
 internal enum DirectiveOpcode {
@@ -102,6 +107,18 @@ public sealed class DirectiveInstruction : MixinSyntaxNode {
   internal string Error { get; }
   internal IReadOnlyList<MixinExpressionReference> BooleanExpression { get; }
   internal IReadOnlyList<ValueExpressionPart> ValueExpression { get; }
+
+  internal void CollectConstants(MixinStringPoolBuilder pool) {
+    pool.Intern(Command);
+    pool.Intern(Operand);
+    foreach (var argument in Arguments) pool.Intern(argument);
+    foreach (var reference in BooleanExpression ?? Array.Empty<MixinExpressionReference>())
+      reference.CollectConstants(pool);
+    foreach (var part in ValueExpression ?? Array.Empty<ValueExpressionPart>()) {
+      if (part.Reference is null) pool.Intern(part.Literal);
+      else part.Reference.CollectConstants(pool);
+    }
+  }
 }
 
 internal sealed record ValueExpressionPart(string Literal, MixinExpressionReference Reference);

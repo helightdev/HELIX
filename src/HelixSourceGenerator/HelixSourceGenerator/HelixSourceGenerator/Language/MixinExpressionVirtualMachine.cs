@@ -34,23 +34,31 @@ internal static class MixinExpressionVirtualMachine {
     // only when this execution's control-flow scan or program counter reaches the line.
     var preparedCount = preparedLines.Count;
     IReadOnlyList<DirectiveInstruction> lines = new InstructionSequence(preparedLines, localProgram);
-    var labels = preparedState is null
+    IDictionary<string, int> labels = preparedState is null
       ? new Dictionary<string, int>(StringComparer.Ordinal)
-      : preparedState.Labels.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+      : new MixinStringDictionary<int>(preparedState.Labels, preparedState.StringPool);
     var instructionScopes = preparedState is null
       ? new Dictionary<int, int>()
       : preparedState.InstructionScopes.ToDictionary(item => item.Key, item => item.Value);
-    var functions = preparedState is null
+    IDictionary<string, MixinExpressionCompiler.FunctionDefinition> functions = preparedState is null
       ? new Dictionary<string, MixinExpressionCompiler.FunctionDefinition>(StringComparer.Ordinal)
-      : preparedState.Functions.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+      : new MixinStringDictionary<MixinExpressionCompiler.FunctionDefinition>(
+        preparedState.Functions, preparedState.StringPool
+      );
     var functionStarts = preparedState is null
       ? new Dictionary<int, int>()
       : preparedState.FunctionStarts.ToDictionary(item => item.Key, item => item.Value);
     var functionEnds = preparedState is null
       ? new HashSet<int>()
       : new HashSet<int>(preparedState.FunctionEnds);
-    var locals = new MixinValueDictionary();
-    var pendingVariables = new MixinValueDictionary();
+    var executionPool = preparedState?.StringPool;
+    if (executionPool is null) {
+      var poolBuilder = new MixinStringPoolBuilder();
+      localProgram.CollectConstants(poolBuilder);
+      executionPool = poolBuilder.Freeze();
+    }
+    var locals = new MixinValueDictionary(executionPool);
+    var pendingVariables = new MixinValueDictionary(executionPool);
     if (preparedState is not null) {
       foreach (var item in preparedState.Variables)
         pendingVariables[item.Key] = item.Value;
@@ -88,7 +96,9 @@ internal static class MixinExpressionVirtualMachine {
         case FrameContinuation.StoreVariable: pendingVariables[frame.Destination] = completed; break;
         case FrameContinuation.EmitCode:
           outputs.Add(new MixinExpressionOutput(
-            frame.OutputTarget, Render(completed), frame.InjectionTarget
+            frame.OutputTarget,
+            new[] { MixinString.Dynamic(Render(completed)) }, executionPool,
+            executionPool.Get(frame.InjectionTarget)
           ));
           break;
         case FrameContinuation.Return:
@@ -262,14 +272,17 @@ internal static class MixinExpressionVirtualMachine {
               break;
             }
           }
-          if (!TryInterpolate(
-            parsed.ValueExpression, context, locals, pendingVariables, out var code, out var codeError
+          if (!TryInterpolateSegments(
+            parsed.ValueExpression, context, locals, pendingVariables, executionPool,
+            out var code, out var codeError
           )) return Failure(codeError, lineNumber, logs);
-          outputs.Add(new MixinExpressionOutput(outputTarget, code, injectionTarget));
+          outputs.Add(new MixinExpressionOutput(
+            outputTarget, code, executionPool, executionPool.Get(injectionTarget)
+          ));
           break;
         case DirectiveOpcode.Mixin:
-          if (!TryInterpolate(
-            parsed.ValueExpression, context, locals, pendingVariables, out var mixinCode,
+          if (!TryInterpolateSegments(
+            parsed.ValueExpression, context, locals, pendingVariables, executionPool, out var mixinCode,
             out var mixinCodeError
           )) return Failure(mixinCodeError, lineNumber, logs);
           if (!TryResolveDirectiveArgument(
@@ -294,7 +307,8 @@ internal static class MixinExpressionVirtualMachine {
           }
           outputs.Add(
             new MixinExpressionOutput(
-              MixinExpressionOutputTarget.Mixin, mixinCode, mixinTarget, mixinPriority
+              MixinExpressionOutputTarget.Mixin, mixinCode, executionPool,
+              executionPool.Get(mixinTarget), mixinPriority
             )
           );
           break;
@@ -319,11 +333,15 @@ internal static class MixinExpressionVirtualMachine {
           locals[resolvedLocal] = callable;
           break;
         case DirectiveOpcode.Using:
-          if (!TryInterpolate(
-            parsed.ValueExpression, context, locals, pendingVariables, out var usingDirective,
+          if (!TryInterpolateSegments(
+            parsed.ValueExpression, context, locals, pendingVariables, executionPool,
+            out var usingDirective,
             out var usingError
           )) return Failure(usingError, lineNumber, logs);
-          outputs.Add(new MixinExpressionOutput(MixinExpressionOutputTarget.Using, usingDirective));
+          outputs.Add(new MixinExpressionOutput(
+            MixinExpressionOutputTarget.Using, usingDirective, executionPool,
+            MixinString.Dynamic(null)
+          ));
           break;
         case DirectiveOpcode.Log:
           if (!TryInterpolate(

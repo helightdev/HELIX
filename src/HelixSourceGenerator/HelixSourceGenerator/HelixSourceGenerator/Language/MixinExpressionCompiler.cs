@@ -430,7 +430,10 @@ public static class MixinExpressionCompiler {
     IReadOnlyList<MixinProgramSyntax> programs
   ) {
     programs ??= Array.Empty<MixinProgramSyntax>();
-    var variables = new MixinValueDictionary();
+    var poolBuilder = new MixinStringPoolBuilder();
+    foreach (var program in programs) program.CollectConstants(poolBuilder);
+    var stringPool = poolBuilder.Freeze();
+    var variables = new MixinValueDictionary(stringPool);
     var logs = new List<MixinExpressionPreparedLog>();
     var programIndex = 0;
     var executedOperations = 0;
@@ -469,12 +472,13 @@ public static class MixinExpressionCompiler {
     }
     var initializers = FindPreparedInitializers(instructions);
     return new MixinExpressionPreparedState(
+      stringPool,
       programs.ToArray(),
-      new MixinValueDictionary(variables),
+      new MixinValueDictionary(variables, stringPool),
       instructions,
-      new Dictionary<string, int>(labels, StringComparer.Ordinal),
+      new MixinStringDictionary<int>(labels, stringPool),
       new Dictionary<int, int>(instructionScopes),
-      new Dictionary<string, FunctionDefinition>(functions, StringComparer.Ordinal),
+      new MixinStringDictionary<FunctionDefinition>(functions, stringPool),
       new Dictionary<int, int>(functionStarts),
       new HashSet<int>(functionEnds),
       initializers,

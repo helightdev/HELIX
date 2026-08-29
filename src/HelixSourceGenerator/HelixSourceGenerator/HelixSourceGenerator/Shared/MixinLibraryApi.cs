@@ -31,7 +31,25 @@ internal static class MixinLibraryApi {
       }
       annotations[annotation.Name] = new CompiledMixinAnnotation(annotation, member, type);
     }
-    return new MixinCompilation(catalog, prepared, annotations, diagnostics.ToImmutableArray());
+    var poolBuilder = new MixinStringPoolBuilder();
+    FunctionLibrary.CollectConstants(poolBuilder);
+    foreach (var program in prepared.Programs) program.CollectConstants(poolBuilder);
+    foreach (var annotation in annotations.Values) {
+      poolBuilder.Intern(annotation.Definition.Name);
+      foreach (var definition in annotation.Definition.TargetDefinitions) {
+        poolBuilder.Intern(definition.Key);
+        poolBuilder.Intern(definition.Value);
+      }
+      annotation.MemberProgram.Prelude.CollectConstants(poolBuilder);
+      annotation.MemberProgram.Late.CollectConstants(poolBuilder);
+      annotation.TypeProgram.Prelude.CollectConstants(poolBuilder);
+      annotation.TypeProgram.Late.CollectConstants(poolBuilder);
+    }
+    var stringPool = poolBuilder.Freeze();
+    prepared = prepared with { StringPool = stringPool };
+    return new MixinCompilation(
+      catalog, stringPool, prepared, annotations, diagnostics.ToImmutableArray()
+    );
   }
 
   private static bool TryCompileAnnotation(
@@ -375,6 +393,7 @@ internal sealed record CompiledMixinAnnotation(
 
 internal sealed record MixinCompilation(
   MixinLibraryCatalog Catalog,
+  MixinStringPool StringPool,
   MixinExpressionPreparedState PreparedState,
   IReadOnlyDictionary<string, CompiledMixinAnnotation> Annotations,
   ImmutableArray<Diagnostic> Diagnostics

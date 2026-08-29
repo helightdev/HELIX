@@ -209,7 +209,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     if (model.Render is null) return model;
     var classCode = model.Render.Class.ToList();
     var fileCode = model.Render.File.ToList();
-    var usings = new HashSet<string>(model.Render.Usings, StringComparer.Ordinal);
+    var usings = model.Render.Usings.ToList();
     var implements = model.Render.Implements.ToList();
     var annotations = model.Render.Annotations.ToList();
     var errors = new List<string>();
@@ -247,19 +247,19 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         if (!item.Key.StartsWith(MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal))
           sharedVariables[item.Key] = item.Value;
       foreach (var output in result.Outputs) switch (output.Target) {
-        case MixinExpressionOutputTarget.Class: classCode.Add(output.Text); break;
-        case MixinExpressionOutputTarget.File: fileCode.Add(output.Text); break;
+        case MixinExpressionOutputTarget.Class: classCode.Add(output); break;
+        case MixinExpressionOutputTarget.File: fileCode.Add(output); break;
         case MixinExpressionOutputTarget.Using:
-          usings.Add("using " + output.Text.Trim().TrimEnd(';') + ";"); break;
-        case MixinExpressionOutputTarget.Implements: implements.Add(output.Text.Trim()); break;
-        case MixinExpressionOutputTarget.Annotation: annotations.Add(output.Text.Trim()); break;
+          usings.Add(output); break;
+        case MixinExpressionOutputTarget.Implements: implements.Add(output); break;
+        case MixinExpressionOutputTarget.Annotation: annotations.Add(output); break;
         case MixinExpressionOutputTarget.Target:
           if (work.Targets.Length != 1) {
             errors.Add("@CODE<TARGET> requires exactly one declared target");
             break;
           }
           lateContributions.Add(LateContribution(
-            work.Targets[0], work.Targets[0].Order, output.Text, work, lateSequence++
+            work.Targets[0], work.Targets[0].Order, output, work, lateSequence++
           ));
           break;
         case MixinExpressionOutputTarget.Injection: {
@@ -267,7 +267,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
             item.DeclaredTarget == output.InjectionTarget || item.EmittedTarget == output.InjectionTarget
           );
           if (target is null) errors.Add("late code target '" + output.InjectionTarget + "' was not declared");
-          else lateContributions.Add(LateContribution(target, target.Order, output.Text, work, lateSequence++));
+          else lateContributions.Add(LateContribution(target, target.Order, output, work, lateSequence++));
           break;
         }
         case MixinExpressionOutputTarget.Mixin: {
@@ -276,7 +276,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           );
           if (target is null) errors.Add("late mixin target '" + output.InjectionTarget + "' was not prepared by the Prelude");
           else lateContributions.Add(LateContribution(
-            target, output.InjectionPriority, output.Text, work, lateSequence++
+            target, output.InjectionPriority, output, work, lateSequence++
           ));
           break;
         }
@@ -296,9 +296,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       };
     }).Where(item => item is not null).ToImmutableArray();
     var source = model.Render.Wrapper.Build(
-      usings.OrderBy(item => item, StringComparer.Ordinal).ToArray(),
-      implements.Distinct(StringComparer.Ordinal).ToArray(),
-      annotations.Distinct(StringComparer.Ordinal).ToArray(),
+      usings.Select(item => NormalizeUsing(item.Text)).Distinct(StringComparer.Ordinal)
+        .OrderBy(item => item, StringComparer.Ordinal).ToArray(),
+      implements.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal).ToArray(),
+      annotations.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal).ToArray(),
       builder => {
         for (var index = 0; index < methods.Length; index++) {
           AppendMethod(builder, methods[index]);
@@ -306,10 +307,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         }
         foreach (var output in classCode) {
           if (methods.Length != 0) builder.BlankLine();
-          builder.AppendCode(output);
+          builder.AppendCode(output.Text);
         }
       }, builder => {
-        foreach (var output in fileCode) builder.AppendCode(output);
+        foreach (var output in fileCode) builder.AppendCode(output.Text);
       }
     );
     if (model.Render.Debug)
@@ -349,6 +350,11 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     }
     builder.AppendLine("// ============================================================================");
     return builder.ToString();
+  }
+
+  private static string NormalizeUsing(string text) {
+    text = (text ?? "").Trim().TrimEnd(';');
+    return text.Length == 0 ? "" : "using " + text + ";";
   }
 
   private static string BuildFinalDebugState(
@@ -428,12 +434,12 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   }
 
   private static MixinContribution LateContribution(
-    LateTarget target, int order, string text, LateExpressionWork work, int sequence
+    LateTarget target, int order, MixinExpressionOutput output, LateExpressionWork work, int sequence
   ) => new(
     target, order, sequence,
-    new MixinExpressionResult(true, null, 0, new[] {
-      new MixinExpressionOutput(MixinExpressionOutputTarget.Target, text)
-    }),
+    new MixinExpressionResult(
+      true, null, 0, new[] { output.Retarget(MixinExpressionOutputTarget.Target) }
+    ),
     work
   );
 
@@ -564,11 +570,11 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   private sealed record MixinRenderModel(
     DetachedTypeWrapper Wrapper,
     ImmutableArray<GeneratedMethod> Methods,
-    ImmutableArray<string> Annotations,
-    ImmutableArray<string> Class,
-    ImmutableArray<string> File,
-    ImmutableArray<string> Implements,
-    ImmutableArray<string> Usings,
+    ImmutableArray<MixinExpressionOutput> Annotations,
+    ImmutableArray<MixinExpressionOutput> Class,
+    ImmutableArray<MixinExpressionOutput> File,
+    ImmutableArray<MixinExpressionOutput> Implements,
+    ImmutableArray<MixinExpressionOutput> Usings,
     ImmutableDictionary<string, object> PrimaryVariables,
     ImmutableArray<DebugExpressionWork> DebugExpressions,
     bool Debug
@@ -658,11 +664,11 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         render.Wrapper.NamespaceName ?? "", render.Wrapper.HintName ?? ""
       };
       values.AddRange(render.Wrapper.Declarations);
-      values.AddRange(render.Annotations);
-      values.AddRange(render.Class);
-      values.AddRange(render.File);
-      values.AddRange(render.Implements);
-      values.AddRange(render.Usings);
+      foreach (var output in render.Annotations) AppendOutputKey(values, output);
+      foreach (var output in render.Class) AppendOutputKey(values, output);
+      foreach (var output in render.File) AppendOutputKey(values, output);
+      foreach (var output in render.Implements) AppendOutputKey(values, output);
+      foreach (var output in render.Usings) AppendOutputKey(values, output);
       foreach (var variable in render.PrimaryVariables.OrderBy(item => item.Key, StringComparer.Ordinal)) {
         values.Add(variable.Key);
         values.Add(MixinValue.From(variable.Value).Render());
@@ -695,12 +701,19 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           values.Add(contribution.EmittedTarget);
           values.Add(contribution.Order.ToString(CultureInfo.InvariantCulture));
           foreach (var output in contribution.ExpressionResult.Outputs) {
-            values.Add(output.Target.ToString());
-            values.Add(output.Text);
+            AppendOutputKey(values, output);
           }
         }
       }
       return string.Join("\u001f", values);
+    }
+
+    private static void AppendOutputKey(ICollection<string> values, MixinExpressionOutput output) {
+      values.Add(output.Target.ToString());
+      foreach (var segment in output.Segments) {
+        values.Add(segment.IsInterned ? "#" : "$");
+        values.Add(output.Resolve(segment) ?? "");
+      }
     }
 
     private static bool LateEqual(ImmutableArray<LateExpressionWork> x, ImmutableArray<LateExpressionWork> y) {
@@ -752,40 +765,49 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   }
 
   private sealed class ExpressionOutputs {
-    private List<string> _annotations, _class, _file, _implements, _usings;
-    private HashSet<string> _annotationSet, _implementSet, _usingSet;
-    internal IReadOnlyList<string> Annotations => _annotations ?? (IReadOnlyList<string>)Array.Empty<string>();
-    internal IReadOnlyList<string> Class => _class ?? (IReadOnlyList<string>)Array.Empty<string>();
-    internal IReadOnlyList<string> File => _file ?? (IReadOnlyList<string>)Array.Empty<string>();
-    internal IReadOnlyList<string> Implements => _implements ?? (IReadOnlyList<string>)Array.Empty<string>();
-    internal IReadOnlyList<string> Usings => _usings ?? (IReadOnlyList<string>)Array.Empty<string>();
+    private List<MixinExpressionOutput> _annotations, _class, _file, _implements, _usings;
+    internal IReadOnlyList<MixinExpressionOutput> Annotations =>
+      _annotations ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
+    internal IReadOnlyList<MixinExpressionOutput> Class =>
+      _class ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
+    internal IReadOnlyList<MixinExpressionOutput> File =>
+      _file ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
+    internal IReadOnlyList<MixinExpressionOutput> Implements =>
+      _implements ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
+    internal IReadOnlyList<MixinExpressionOutput> Usings =>
+      _usings ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
     internal bool Any { get; private set; }
 
-    internal void AddAnnotation(string text) => AddUnique(
-      ref _annotations, ref _annotationSet, text
-    );
-
-    internal void Add(MixinExpressionOutput output) {
-      if (string.IsNullOrEmpty(output.Text)) return;
+    internal void AddAnnotation(string text) {
+      if (string.IsNullOrEmpty(text)) return;
       Any = true;
-      var text = output.Text.Trim();
-      switch (output.Target) {
-        case MixinExpressionOutputTarget.Implements:
-          AddUnique(ref _implements, ref _implementSet, text); break;
-        case MixinExpressionOutputTarget.Annotation:
-          AddUnique(ref _annotations, ref _annotationSet, text); break;
-        case MixinExpressionOutputTarget.Using:
-          text = text.TrimEnd(';');
-          AddUnique(ref _usings, ref _usingSet, text.Length == 0 ? "" : "using " + text + ";");
-          break;
-        case MixinExpressionOutputTarget.Class: (_class ??= new List<string>()).Add(output.Text); break;
-        case MixinExpressionOutputTarget.File: (_file ??= new List<string>()).Add(output.Text); break;
-      }
+      (_annotations ??= new List<MixinExpressionOutput>()).Add(
+        new MixinExpressionOutput(MixinExpressionOutputTarget.Annotation, text)
+      );
     }
 
-    private static void AddUnique(ref List<string> values, ref HashSet<string> seen, string value) {
-      if (value.Length == 0 || !(seen ??= new HashSet<string>(StringComparer.Ordinal)).Add(value)) return;
-      (values ??= new List<string>()).Add(value);
+    internal void Add(MixinExpressionOutput output) {
+      if (output.IsEmpty) return;
+      if (output.Target == MixinExpressionOutputTarget.Class) {
+        Any = true;
+        (_class ??= new List<MixinExpressionOutput>()).Add(output);
+        return;
+      }
+      if (output.Target == MixinExpressionOutputTarget.File) {
+        Any = true;
+        (_file ??= new List<MixinExpressionOutput>()).Add(output);
+        return;
+      }
+      Any = true;
+      switch (output.Target) {
+        case MixinExpressionOutputTarget.Implements:
+          (_implements ??= new List<MixinExpressionOutput>()).Add(output); break;
+        case MixinExpressionOutputTarget.Annotation:
+          (_annotations ??= new List<MixinExpressionOutput>()).Add(output); break;
+        case MixinExpressionOutputTarget.Using:
+          (_usings ??= new List<MixinExpressionOutput>()).Add(output);
+          break;
+      }
     }
   }
 
@@ -1092,12 +1114,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
 
     List<AttributeExpressionTarget> activated = null;
     foreach (var output in evaluated.Outputs) {
-      if (string.IsNullOrEmpty(output.Text)) continue;
+      if (output.IsEmpty) continue;
       if (output.Target == MixinExpressionOutputTarget.Mixin) {
         var result = new MixinExpressionResult(
-          true, null, 0, new[] {
-            new MixinExpressionOutput(MixinExpressionOutputTarget.Target, output.Text)
-          }
+          true, null, 0, new[] { output.Retarget(MixinExpressionOutputTarget.Target) }
         );
         contributions.Add(
           new MixinContribution(
@@ -1113,9 +1133,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           new MixinContribution(
             output.InjectionTarget, 0,
             sequence++, targetDefinitions,
-            new MixinExpressionResult(true, null, 0, new[] {
-              new MixinExpressionOutput(MixinExpressionOutputTarget.Target, output.Text)
-            }), providerName, annotated
+            new MixinExpressionResult(
+              true, null, 0, new[] { output.Retarget(MixinExpressionOutputTarget.Target) }
+            ), providerName, annotated
           )
         );
         continue;
@@ -1134,7 +1154,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         declaration.Outputs = new List<MixinExpressionOutput>();
         (activated ??= new List<AttributeExpressionTarget>()).Add(declaration);
       }
-      declaration.Outputs.Add(new MixinExpressionOutput(MixinExpressionOutputTarget.Target, output.Text));
+      declaration.Outputs.Add(output.Retarget(MixinExpressionOutputTarget.Target));
     }
     foreach (var declaration in activated ?? Enumerable.Empty<AttributeExpressionTarget>()) {
       var result = new MixinExpressionResult(true, null, 0, declaration.Outputs);

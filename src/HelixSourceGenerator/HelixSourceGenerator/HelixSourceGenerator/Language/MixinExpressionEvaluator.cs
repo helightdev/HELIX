@@ -248,6 +248,42 @@ internal static class MixinExpressionEvaluator {
     return true;
   }
 
+  internal static bool TryInterpolateSegments(
+    IReadOnlyList<ValueExpressionPart> expression,
+    IMixinExpressionContext context,
+    IReadOnlyDictionary<string, object> locals,
+    IReadOnlyDictionary<string, object> variables,
+    MixinStringPool pool,
+    out IReadOnlyList<MixinString> result,
+    out string error
+  ) {
+    error = null;
+    var segments = new List<MixinString>(expression.Count);
+    foreach (var part in expression) {
+      if (part.Reference is null) {
+        segments.Add(pool.Get(part.Literal));
+        continue;
+      }
+      if (!TryResolve(part.Reference, context, locals, variables, out var value, out error)) {
+        result = null;
+        return false;
+      }
+      string rendered;
+      if (context is IMixinExpressionValueContext valueContext) {
+        MixinExpressionRoot? renderRoot = part.Reference.Properties.Any(item =>
+          !IsBooleanProperty(item) && item.Name == "type"
+        ) ? null : part.Reference.Root;
+        if (!valueContext.TryRenderValue(value, renderRoot, out rendered, out error)) {
+          result = null;
+          return false;
+        }
+      } else rendered = RenderValue(value);
+      segments.Add(MixinString.Dynamic(rendered));
+    }
+    result = segments;
+    return true;
+  }
+
   internal static bool TryEvaluateExpression(
     IReadOnlyList<ValueExpressionPart> expression,
     IMixinExpressionContext context,

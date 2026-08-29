@@ -27,6 +27,9 @@ internal abstract class FunctionDefinition {
   internal int MinimumArguments { get; }
   internal int MaximumArguments { get; }
   internal virtual bool IsPredicate => false;
+  internal virtual void CollectConstants(MixinStringPoolBuilder pool) {
+    pool.Intern(Name);
+  }
 
   internal virtual bool Validate(FunctionInvocation invocation, out string error) {
     var count = invocation.Arguments.Count;
@@ -126,6 +129,10 @@ internal static class FunctionLibrary {
 
   internal static bool IsPredicate(string name) =>
     TryGet(name, out var definition) && definition.IsPredicate;
+
+  internal static void CollectConstants(MixinStringPoolBuilder pool) {
+    foreach (var definition in Definitions.Values) definition.CollectConstants(pool);
+  }
 
   internal static bool TryInvoke(
     MixinExpressionProperty invocation, IMixinExpressionContext context,
