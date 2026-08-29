@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace HelixSourceGenerator.Language;
+namespace HelixSourceGenerator.Language.Compiler;
 
 public readonly struct MixinString : IEquatable<MixinString> {
   private MixinString(int id, string dynamicValue) {

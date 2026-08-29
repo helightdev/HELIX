@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Linq;
+using HelixSourceGenerator.Language.Compiler;
 using static HelixSourceGenerator.Language.Functions.FunctionResults;
 
 namespace HelixSourceGenerator.Language.Functions;

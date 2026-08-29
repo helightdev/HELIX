@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using HelixSourceGenerator.Language.Compiler;
 using HelixSourceGenerator.Language.Functions;
 
 namespace HelixSourceGenerator.Language;

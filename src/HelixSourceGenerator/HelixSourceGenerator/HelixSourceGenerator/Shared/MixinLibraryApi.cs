@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using HelixSourceGenerator.Language;
+using HelixSourceGenerator.Language.Compiler;
 using Microsoft.CodeAnalysis;
 using static HelixSourceGenerator.Shared.GeneratorAnalysis;
 using static HelixSourceGenerator.Shared.GeneratorDiagnostics.Mixins;

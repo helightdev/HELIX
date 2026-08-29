@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using HelixSourceGenerator.Language;
+using HelixSourceGenerator.Language.Compiler;
 using Xunit;
 
 namespace HELIX.SourceGen.Tests;

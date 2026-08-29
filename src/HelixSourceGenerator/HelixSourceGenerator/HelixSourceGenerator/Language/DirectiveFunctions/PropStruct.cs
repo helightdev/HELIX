@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using HelixSourceGenerator.Language.Compiler;
 
 namespace HelixSourceGenerator.Language.DirectiveFunctions;
 

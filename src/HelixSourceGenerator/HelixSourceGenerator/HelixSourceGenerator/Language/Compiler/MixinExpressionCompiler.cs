@@ -4,7 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
-namespace HelixSourceGenerator.Language;
+namespace HelixSourceGenerator.Language.Compiler;
 
 using static MixinExpressionEvaluator;
 using static MixinExpressionInterpreter;
@@ -202,7 +202,10 @@ public static class MixinExpressionCompiler {
     var result = new List<string>();
     var program = GetProgram(source ?? "");
     if (program.Diagnostics.Count != 0) {
-      expanded = source ?? ""; error = program.Diagnostics[0].Message; errorLine = program.Diagnostics[0].Line; return false;
+      expanded = source ?? "";
+      error = program.Diagnostics[0].Message;
+      errorLine = program.Diagnostics[0].Line;
+      return false;
     }
     for (var index = 0; index < program.Count; index++) {
       var instruction = program.Get(index);
@@ -290,7 +293,8 @@ public static class MixinExpressionCompiler {
     out string error
   ) {
     var localIndex = (instruction as DirectiveInvocationSyntax)?.Definition is DirectiveFunctionDefinition function
-      ? function.HoistedLocalArgumentIndex : -1;
+      ? function.HoistedLocalArgumentIndex
+      : -1;
     var local = localIndex >= 0 && instruction.Arguments.Count > localIndex
       ? instruction.Arguments[localIndex]
       : null;
@@ -467,9 +471,14 @@ public static class MixinExpressionCompiler {
     compiled = null;
     error = null;
     errorLine = 0;
-    if (program is null) { error = "the expression is null"; return false; }
+    if (program is null) {
+      error = "the expression is null";
+      return false;
+    }
     if (program.Diagnostics.Count != 0) {
-      error = program.Diagnostics[0].Message; errorLine = program.Diagnostics[0].Line; return false;
+      error = program.Diagnostics[0].Message;
+      errorLine = program.Diagnostics[0].Line;
+      return false;
     }
     var preparedInstructions = prepared?.Instructions ?? [];
     var localInstructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
@@ -540,7 +549,11 @@ public static class MixinExpressionCompiler {
   ) {
     error = null;
     line = 0;
-    if (program.Diagnostics.Count != 0) { error = program.Diagnostics[0].Message; line = program.Diagnostics[0].Line; return false; }
+    if (program.Diagnostics.Count != 0) {
+      error = program.Diagnostics[0].Message;
+      line = program.Diagnostics[0].Line;
+      return false;
+    }
     var functionDepth = 0;
     var functionScope = false;
     for (var i = 0; i < program.Count; i++) {
