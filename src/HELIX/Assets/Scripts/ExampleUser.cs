@@ -38,12 +38,12 @@ namespace HELIX.Context {
       Debug.Log($"{SerializerTest.Datatype}");
     }
   }
-
+  
   [Managed(typeof(ApplicationScope))]
   public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]
     public IDisposable myResource2;
-
+    
     [Inject, NonSerialized]
     public ExampleSingleton mySingleton;
 
@@ -68,7 +68,7 @@ namespace HELIX.Context {
     [Hook(MixinOn.ConfigureManaged)]
     private static void OnConfigureSelf(ManagedRegistration entry) { }
 
-    [Ticker("5s")]
+    [Ticker("10s")]
     private void MyTickerFunc() {
       Debug.Log("This runs every 10 seconds!"); //
     }

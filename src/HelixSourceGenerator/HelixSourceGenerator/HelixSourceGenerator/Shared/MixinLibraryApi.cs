@@ -161,33 +161,20 @@ internal static class MixinLibraryApi {
   }
 
   internal static MixinExpressionPreparedState Prepare(
-    SourceProductionContext context,
-    IEnumerable<INamedTypeSymbol> owners
-  ) => Prepare(context.ReportDiagnostic, owners);
-
-  internal static MixinExpressionPreparedState Prepare(
-    SourceProductionContext context,
-    IEnumerable<INamedTypeSymbol> owners,
-    MixinLibraryCatalog catalog
-  ) => Prepare(context.ReportDiagnostic, owners, catalog);
-
-  internal static MixinExpressionPreparedState Prepare(
     Action<Diagnostic> reportDiagnostic,
-    IEnumerable<INamedTypeSymbol> owners,
-    MixinLibraryCatalog catalog = null
+    MixinLibraryCatalog catalog
   ) {
-    if (!TryCollect(owners, catalog, out var libraries, out var failures)) {
-      foreach (var failure in failures)
+    var libraries = new List<Library>();
+    foreach (var file in catalog.Files) {
+      if (!file.Success) {
         reportDiagnostic(Diagnostic.Create(
-          InvalidLibraryImport, failure.Location, failure.Owner, failure.Message
+          InvalidPreparedExpression, Location.None, file.Key,
+          file.ErrorLine.ToString(CultureInfo.InvariantCulture), file.Error
         ));
-      return new MixinExpressionInterpreter().PrepareGlobals(Array.Empty<string>());
+        continue;
+      }
+      libraries.Add(new Library(file.Key, "", Location.None, file.Program));
     }
-
-    foreach (var failure in failures)
-      reportDiagnostic(Diagnostic.Create(
-        InvalidLibraryImport, failure.Location, failure.Owner, failure.Message
-      ));
     return PrepareLibraries(reportDiagnostic, libraries);
   }
 
@@ -205,12 +192,8 @@ internal static class MixinLibraryApi {
     MixinLibraryCatalog catalog
   ) {
     if (type is null || catalog is null) yield break;
-    var hierarchy = new Stack<INamedTypeSymbol>();
-    for (var current = type; current is not null; current = current.BaseType) hierarchy.Push(current);
-    while (hierarchy.Count != 0) {
-      var name = hierarchy.Pop().ToDisplayString(TypeDisplayFormat);
-      if (catalog.TryGetAnnotation(name, out var annotation)) yield return annotation;
-    }
+    var name = type.ToDisplayString(TypeDisplayFormat);
+    if (catalog.TryGetAnnotation(name, out var annotation)) yield return annotation;
   }
 
   private static MixinExpressionPreparedState PrepareLibraries(
@@ -247,85 +230,11 @@ internal static class MixinLibraryApi {
     }
   }
 
-  private static bool TryCollect(
-    IEnumerable<INamedTypeSymbol> owners,
-    MixinLibraryCatalog catalog,
-    out IReadOnlyList<Library> libraries,
-    out List<ImportFailure> failures
-  ) {
-    var result = new List<Library>();
-    failures = new List<ImportFailure>();
-    var visitedOwners = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-    var visitedLibraries = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-    var queue = new Queue<INamedTypeSymbol>(owners.Where(item => item is not null));
-    while (queue.Count != 0) {
-      var owner = queue.Dequeue();
-      if (!visitedOwners.Add(owner)) continue;
-      for (var current = owner; current is not null; current = current.BaseType) {
-        foreach (var import in OrderedAttributes(current).Where(item =>
-          IsAttribute(item, Attributes.MixinImport)
-        )) {
-          var location = import.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? LocationOf(owner);
-          if (import.ConstructorArguments.Length != 1 ||
-            import.ConstructorArguments[0].Value is not INamedTypeSymbol libraryType) {
-            failures.Add(new ImportFailure(owner.Name, location, "the imported library type is missing"));
-            continue;
-          }
-          if (!visitedLibraries.Add(libraryType)) continue;
-          var declaration = Attribute(libraryType, Attributes.MixinLibrary);
-          if (declaration is null || declaration.ConstructorArguments.Length != 1 ||
-            declaration.ConstructorArguments[0].Value is not string reference) {
-            failures.Add(new ImportFailure(
-              owner.Name, location,
-              "'" + libraryType.ToDisplayString() + "' is not a valid [MixinLibrary]"
-            ));
-            continue;
-          }
-          var content = reference;
-          var libraryLocation = declaration.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? location;
-          MixinLibraryFile external = null;
-          if (catalog is not null && catalog.TryGet(reference, out external)) {
-            if (!external.Success) {
-              failures.Add(new ImportFailure(
-                owner.Name, Location.None,
-                "mixin library '" + reference + "' is invalid at line " +
-                external.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + external.Error
-              ));
-              continue;
-            }
-            content = external.Content;
-            libraryLocation = Location.None;
-          } else if (IsAdditionalFileReference(reference)) {
-            failures.Add(new ImportFailure(
-              owner.Name, location, "additional mixin library '" + reference +
-              "' was not provided; available libraries: " + (catalog?.AvailableKeys ?? "<none>")
-            ));
-            continue;
-          }
-          result.Add(new Library(
-            libraryType.ToDisplayString(), content, libraryLocation,
-            external?.Program
-          ));
-          queue.Enqueue(libraryType);
-        }
-      }
-    }
-    libraries = result;
-    return failures.Count == 0;
-  }
-
-  private static bool IsAdditionalFileReference(string value) =>
-    value is not null && value.IndexOf('\n') < 0 && value.IndexOf('\r') < 0 &&
-    !value.Contains("@FUNC<");
-
   private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) =>
     symbol.GetAttributes()
       .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
       .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
       .ToArray();
-
-  private static bool IsAttribute(AttributeData attribute, string metadataName) =>
-    attribute.AttributeClass?.ToDisplayString() == metadataName;
 
   private sealed record Library(
     string Name,
@@ -333,7 +242,6 @@ internal static class MixinLibraryApi {
     Location Location,
     MixinProgramSyntax Program
   );
-  private sealed record ImportFailure(string Owner, Location Location, string Message);
 }
 
 internal sealed record MixinLibraryFile(
@@ -380,6 +288,7 @@ internal sealed class MixinLibraryCatalog {
         .Select(item => item.Key + "\u001f" + item.Value.Content)
     );
   }
+  internal IEnumerable<MixinLibraryFile> Files => _files.Values;
   internal string Key { get; }
   internal string AvailableKeys => _files.Count == 0
     ? "<none>"

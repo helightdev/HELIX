@@ -1570,9 +1570,11 @@ public sealed class MixinGeneratorExpressionTests {
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
 
     Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    var dump = Assert.Single(
+    var dumpDiagnostic = Assert.Single(
       Assert.Single(driver.GetRunResult().Results).Diagnostics.Where(item => item.Id == "HLXM12")
-    ).GetMessage();
+    );
+    Assert.NotEqual(Location.None, dumpDiagnostic.Location);
+    var dump = dumpDiagnostic.GetMessage();
     Assert.StartsWith("PRELUDE variables=", dump);
     Assert.Contains("Saved=collected", dump);
     Assert.Contains("carry#__0=Value", dump);

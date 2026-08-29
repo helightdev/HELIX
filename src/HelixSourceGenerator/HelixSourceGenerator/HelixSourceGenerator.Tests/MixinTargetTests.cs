@@ -189,16 +189,16 @@ public sealed class MixinTargetTests {
       using System;
       namespace HELIX {
         [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-        [AttributeUsage(AttributeTargets.Interface)] public sealed class MixinAttribute : Attribute { }
-        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)] public sealed class MixinExpressionAttribute : Attribute {
+        [AttributeUsage(AttributeTargets.Class)] public sealed class MixinExpressionAttribute : Attribute {
           public MixinExpressionAttribute(string target, int order, string expression) { }
         }
-        [Mixin] public interface IMixin { }
       }
       [HELIX.MixinExpression("Configure", -12, "@CODE<Configure> Apply();")]
-      public interface IConfigureMixin : HELIX.IMixin { }
+      [AttributeUsage(AttributeTargets.Class)]
+      public sealed class ConfigureAttribute : Attribute { }
+      [Configure]
       [HELIX.EnableMixins]
-      public partial class Demo : IConfigureMixin {
+      public partial class Demo {
         private void Apply() { }
       }
       """
@@ -214,14 +214,14 @@ public sealed class MixinTargetTests {
     Assert.Equal(8, diagnostic.Properties.Count);
     Assert.Equal("global::Demo", diagnostic.Properties["Target"]);
     Assert.Equal("Configure", diagnostic.Properties["Method"]);
-    Assert.Equal("global::IConfigureMixin", diagnostic.Properties["Mixin"]);
+    Assert.Equal("global::ConfigureAttribute", diagnostic.Properties["Mixin"]);
     Assert.Equal("-12", diagnostic.Properties["Priority"]);
     Assert.Equal("global::Demo", diagnostic.Properties["SourceType"]);
     Assert.Equal("", diagnostic.Properties["SourceMember"]);
     Assert.Equal("NamedType", diagnostic.Properties["SourceKind"]);
     Assert.Equal("0", diagnostic.Properties["SourceParameterCount"]);
     Assert.Equal(
-      "global::Demo|Configure|global::IConfigureMixin|-12|global::Demo||NamedType|0",
+      "global::Demo|Configure|global::ConfigureAttribute|-12|global::Demo||NamedType|0",
       diagnostic.GetMessage()
     );
   }

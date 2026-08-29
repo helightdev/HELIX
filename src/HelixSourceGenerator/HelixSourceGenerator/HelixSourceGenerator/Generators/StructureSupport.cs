@@ -80,12 +80,7 @@ internal static class StructureSupport {
     var mixins = generateDatatype
       ? PropStructMixinApi.Analyze(
         context, type, props.PropertySymbols, compilation,
-        MixinLibraryApi.Prepare(
-          context,
-          MixinLibraryApi.AttributeOwners(
-            new ISymbol[] { type }.Concat(props.PropertySymbols)
-          ), libraries
-        ), libraries
+        MixinLibraryApi.Prepare(context.ReportDiagnostic, libraries), libraries
       )
       : new PropStructMixinModel();
     var usings = CollectUsings(type).Concat(mixins.Usings).Distinct().ToArray();
