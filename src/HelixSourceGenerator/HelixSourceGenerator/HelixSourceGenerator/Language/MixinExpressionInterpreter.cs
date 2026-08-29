@@ -75,6 +75,13 @@ public sealed class MixinExpressionInterpreter {
     return MixinExpressionVirtualMachine.Execute(expression, context, variables, preparedState);
   }
 
+  internal MixinExpressionResult ExecuteCompiled(
+    MixinProgramSyntax program,
+    IMixinExpressionContext context,
+    IDictionary<string, object> variables,
+    MixinExpressionPreparedState preparedState
+  ) => MixinExpressionVirtualMachine.Execute(program, context, variables, preparedState);
+
   public MixinExpressionResult Execute(
     string expression,
     IMixinExpressionContext context,

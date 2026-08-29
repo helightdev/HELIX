@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -14,6 +15,52 @@ namespace HELIX.SourceGen;
 
 internal static class MixinLibraryApi {
   internal const string AdditionalFileSuffix = ".HelixSourceGenerator.additionalfile";
+
+  internal static MixinCompilation Compile(MixinLibraryCatalog catalog) {
+    var diagnostics = new List<Diagnostic>();
+    var prepared = Prepare(diagnostics.Add, catalog);
+    var annotations = new Dictionary<string, CompiledMixinAnnotation>(StringComparer.Ordinal);
+    foreach (var annotation in catalog.Annotations) {
+      if (!TryCompileAnnotation(annotation, prepared, false, out var member, out var error, out var line) ||
+        !TryCompileAnnotation(annotation, prepared, true, out var type, out error, out line)) {
+        diagnostics.Add(Diagnostic.Create(
+          InvalidPreparedExpression, Location.None, annotation.Name,
+          line.ToString(CultureInfo.InvariantCulture), error
+        ));
+        continue;
+      }
+      annotations[annotation.Name] = new CompiledMixinAnnotation(annotation, member, type);
+    }
+    return new MixinCompilation(catalog, prepared, annotations, diagnostics.ToImmutableArray());
+  }
+
+  private static bool TryCompileAnnotation(
+    MixinAnnotationDefinition annotation,
+    MixinExpressionPreparedState prepared,
+    bool typeLevel,
+    out CompiledMixinProgram program,
+    out string error,
+    out int errorLine
+  ) {
+    var prelude = typeLevel
+      ? MixinExpressionCompiler.RewriteTargetAsThis(annotation.Prelude)
+      : annotation.Prelude;
+    var expression = typeLevel
+      ? MixinExpressionCompiler.RewriteTargetAsThis(annotation.Expression)
+      : annotation.Expression;
+    if (!MixinExpressionCompiler.TryHoistPrelude(
+      prelude, expression, prepared, out var compiledPrelude, out var compiledLate,
+      out error, out errorLine
+    )) {
+      program = null;
+      return false;
+    }
+    program = new CompiledMixinProgram(
+      MixinExpressionInterpreter.GetProgram(compiledPrelude, true),
+      MixinExpressionInterpreter.GetProgram(compiledLate, true)
+    );
+    return true;
+  }
 
   internal static MixinLibraryFile ReadAdditionalFile(
     AdditionalText file,
@@ -305,6 +352,7 @@ internal sealed class MixinLibraryCatalog {
     );
   }
   internal IEnumerable<MixinLibraryFile> Files => _files.Values;
+  internal IEnumerable<MixinAnnotationDefinition> Annotations => _annotations.Values;
   internal bool HasConfiguration(string key) => _files.Values.Any(file =>
     file.Success && file.Configuration.ContainsKey(key ?? "")
   );
@@ -315,6 +363,24 @@ internal sealed class MixinLibraryCatalog {
   internal bool TryGet(string key, out MixinLibraryFile file) => _files.TryGetValue(key ?? "", out file);
   internal bool TryGetAnnotation(string name, out MixinAnnotationDefinition annotation) =>
     _annotations.TryGetValue((name ?? "").Replace("global::", ""), out annotation);
+}
+
+internal sealed record CompiledMixinProgram(MixinProgramSyntax Prelude, MixinProgramSyntax Late);
+
+internal sealed record CompiledMixinAnnotation(
+  MixinAnnotationDefinition Definition,
+  CompiledMixinProgram MemberProgram,
+  CompiledMixinProgram TypeProgram
+);
+
+internal sealed record MixinCompilation(
+  MixinLibraryCatalog Catalog,
+  MixinExpressionPreparedState PreparedState,
+  IReadOnlyDictionary<string, CompiledMixinAnnotation> Annotations,
+  ImmutableArray<Diagnostic> Diagnostics
+) {
+  internal bool TryGetAnnotation(string name, out CompiledMixinAnnotation annotation) =>
+    Annotations.TryGetValue((name ?? "").Replace("global::", ""), out annotation);
 }
 
 internal sealed class MixinLibraryCatalogComparer : IEqualityComparer<MixinLibraryCatalog> {

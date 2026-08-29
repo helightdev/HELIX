@@ -27,6 +27,16 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       .Select(static (files, _) => new MixinLibraryCatalog(files))
       .WithComparer(MixinLibraryCatalogComparer.Instance)
       .WithTrackingName("Mixin.LibraryCatalog");
+    var mixinCompilation = libraryCatalog
+      .Select(static (catalog, _) => MixinLibraryApi.Compile(catalog))
+      .WithTrackingName("Mixin.Compilation");
+
+    context.RegisterSourceOutput(
+      mixinCompilation,
+      static (spc, compilation) => {
+        foreach (var diagnostic in compilation.Diagnostics) spc.ReportDiagnostic(diagnostic);
+      }
+    );
 
     StructureSupport.Register(context, libraryCatalog);
 
@@ -38,7 +48,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         },
         static (ctx, _) => GetTarget(ctx)
       ).Where(static target => target is not null);
-      var primary = targets.Combine(libraryCatalog)
+      var primary = targets.Combine(mixinCompilation)
         .Select(static (item, _) => Generate(item.Left, item.Right).Output)
         .WithComparer(MixinOutputModelComparer.Instance)
         .WithTrackingName("Mixin.Prelude");
@@ -103,10 +113,20 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     MixinLibraryCatalog libraries
   ) => MixinLibraryApi.Annotations(type, libraries);
 
+  private static IEnumerable<CompiledMixinAnnotation> CompiledAnnotationDefinitions(
+    INamedTypeSymbol type,
+    MixinCompilation compilation
+  ) {
+    if (type is null || compilation is null) yield break;
+    if (compilation.TryGetAnnotation(type.ToDisplayString(TypeDisplayFormat), out var annotation))
+      yield return annotation;
+  }
+
   private static MixinGenerationResult Generate(
     MixinTarget candidate,
-    MixinLibraryCatalog libraries
+    MixinCompilation mixinCompilation
   ) {
+    var libraries = mixinCompilation.Catalog;
     var context = new MixinGenerationContext(libraries.HasConfiguration("DEBUG"));
     var target = candidate.Type;
     var location = LocationOf(target);
@@ -125,9 +145,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       return context.Complete();
     }
 
-    var preparedExpressions = MixinLibraryApi.Prepare(
-      context.ReportDiagnostic, libraries
-    );
+    var preparedExpressions = mixinCompilation.PreparedState;
     var annotationProviders = MixinLibraryApi.AttributeOwners(AnnotatedSymbols(target));
     var targetDefinitions = TargetDefinitions(target, annotationProviders, libraries);
     var contributions = new List<MixinContribution>();
@@ -135,7 +153,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var expressionVariables = new Dictionary<string, object>(StringComparer.Ordinal);
     CollectAttributeContributions(
       context, target, candidate.Compilation, preparedExpressions, expressionVariables,
-      attributeExpressionOutputs, contributions, targetDefinitions, libraries
+      attributeExpressionOutputs, contributions, targetDefinitions, libraries,
+      mixinCompilation
     );
     var placeholderSequence = contributions.Count;
     foreach (var work in context.LateExpressions)
@@ -210,7 +229,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     foreach (var work in model.LateExpressions) {
       var variables = work.Variables.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
       foreach (var item in sharedVariables) variables[item.Key] = item.Value;
-      var result = interpreter.Execute(
+      var result = interpreter.ExecuteCompiled(
         work.Expression, UnlinkedMixinExpressionContext.Instance, variables, work.PreparedState
       );
       foreach (var log in result.Logs)
@@ -393,7 +412,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   );
 
   private static string DebugStateKey(LateExpressionWork work) => string.Join(
-    "\u001f", work.Provider, work.SourceType, work.SourceMember, work.Expression
+    "\u001f", work.Provider, work.SourceType, work.SourceMember, work.Expression.Source
   );
 
   private static void AppendDebugProgram(StringBuilder builder, string title, string program) {
@@ -432,7 +451,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       _diagnostics.Add(MixinDiagnostic.Detach(diagnostic));
 
     internal void AddLateExpression(
-      string expression,
+      MixinProgramSyntax expression,
       string preludeProgram,
       IReadOnlyDictionary<string, object> variables,
       MixinExpressionPreparedState preparedState,
@@ -502,7 +521,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   }
 
   private sealed record LateExpressionWork(
-    string Expression,
+    MixinProgramSyntax Expression,
     string PreludeProgram,
     ImmutableDictionary<string, object> Variables,
     MixinExpressionPreparedState PreparedState,
@@ -907,14 +926,17 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     ICollection<MixinExpressionOutput> expressionOutputs,
     ICollection<MixinContribution> result,
     IReadOnlyDictionary<string, string> targetDefinitions,
-    MixinLibraryCatalog libraries
+    MixinLibraryCatalog libraries,
+    MixinCompilation mixinCompilation
   ) {
     var sequence = 0;
     foreach (var annotated in AnnotatedSymbols(target)) {
       foreach (var applied in OrderedAttributes(annotated)) {
         var attributeType = applied.AttributeClass;
         if (attributeType is null) continue;
-        foreach (var expressionAttribute in AnnotationDefinitions(attributeType, libraries)) {
+        foreach (var expressionAttribute in CompiledAnnotationDefinitions(
+          attributeType, mixinCompilation
+        )) {
           CollectMixinExpressionContributions(
             context, target, annotated, applied, expressionAttribute, compilation,
             preparedExpressions, expressionVariables, expressionOutputs, result, ref sequence,
@@ -938,7 +960,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     INamedTypeSymbol target,
     ISymbol annotated,
     AttributeData applied,
-    MixinAnnotationDefinition configuration,
+    CompiledMixinAnnotation configuration,
     CSharpCompilation compilation,
     MixinExpressionPreparedState preparedExpressions,
     IDictionary<string, object> expressionVariables,
@@ -953,15 +975,11 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var attributeName = providerName ?? applied?.AttributeClass?.Name ?? "<unknown>";
     IReadOnlyList<string> targets = Array.Empty<string>();
     IReadOnlyList<int> orders = Array.Empty<int>();
-    var expression = configuration.Expression;
-    var prelude = configuration.Prelude;
-    var preludeModel = true;
-    string lateExpression = null;
-
-    if (annotated is INamedTypeSymbol) {
-      expression = MixinExpressionCompiler.RewriteTargetAsThis(expression);
-      prelude = MixinExpressionCompiler.RewriteTargetAsThis(prelude);
-    }
+    var compiledProgram = annotated is INamedTypeSymbol
+      ? configuration.TypeProgram
+      : configuration.MemberProgram;
+    var expression = compiledProgram.Prelude;
+    var lateExpression = compiledProgram.Late;
 
     var declarations = new Dictionary<string, AttributeExpressionTarget>(StringComparer.Ordinal);
     for (var index = 0; index < targets.Count; index++) {
@@ -997,29 +1015,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       preparedExpressions: preparedExpressions,
       libraries: libraries
     );
-    if (preludeModel) {
-      if (!string.IsNullOrEmpty(lateExpression)) {
-        ReportInvalidAttributeExpression(
-          context, location, attributeName, annotated.Name,
-          "Prelude and LateExpression cannot be used together"
-        );
-        return;
-      }
-      if (!MixinExpressionCompiler.TryHoistPrelude(
-        prelude, expression, preparedExpressions, out expression, out lateExpression,
-        out var hoistError, out var hoistLine
-      )) {
-        ReportInvalidAttributeExpression(
-          context, location, attributeName, annotated.Name,
-          "line " + hoistLine.ToString(CultureInfo.InvariantCulture) + ": " + hoistError
-        );
-        return;
-      }
-    } else MixinExpressionCompiler.HoistLateCarries(
-      expression, lateExpression, out expression, out lateExpression
-    );
     var interpreter = new MixinExpressionInterpreter();
-    var evaluated = interpreter.Execute(
+    var evaluated = interpreter.ExecuteCompiled(
       expression, expressionContext, expressionVariables, preparedExpressions
     );
     ReportExpressionLogs(context, location, evaluated.Logs);
@@ -1031,11 +1028,11 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       return;
     }
     context.AddDebugExpression(
-      expression, lateExpression, evaluated.Variables,
+      expression.Source, lateExpression.Source, evaluated.Variables,
       providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
       evaluated.ExecutionMilliseconds
     );
-    if (!string.IsNullOrEmpty(lateExpression)) {
+    if (lateExpression.Count != 0) {
       var sourceType = (annotated as INamedTypeSymbol ?? annotated.ContainingType)
         ?.ToDisplayString(TypeDisplayFormat) ?? "";
       var lateTargets = declarations.Values.Select(item => new LateTarget(
@@ -1043,10 +1040,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         item.DelegateTarget, item.Order
       )).ToList();
       DiscoverLateMixinTargets(
-        lateExpression, evaluated.Variables, targetDefinitions, lateTargets
+        lateExpression.Source, evaluated.Variables, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
-        lateExpression, expression, evaluated.Variables, preparedExpressions,
+        lateExpression, expression.Source, evaluated.Variables, preparedExpressions,
         lateTargets.Distinct().ToImmutableArray(), location,
         providerName ?? attributeName, sourceType,
         annotated is INamedTypeSymbol ? "" : annotated.MetadataName,

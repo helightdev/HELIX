@@ -476,7 +476,7 @@ public sealed class MixinGeneratorExpressionTests {
     GeneratorDriver driver = MixinTestDriver.Create(compilation);
     driver = driver.RunGenerators(compilation);
 
-    var diagnostic = Assert.Single(driver.GetRunResult().Diagnostics.Where(item => item.Id == "HLXM08"));
+    var diagnostic = Assert.Single(driver.GetRunResult().Diagnostics.Where(item => item.Id == "HLXM11"));
     Assert.Contains("may only call functions declared in the same expression", diagnostic.GetMessage());
   }
 

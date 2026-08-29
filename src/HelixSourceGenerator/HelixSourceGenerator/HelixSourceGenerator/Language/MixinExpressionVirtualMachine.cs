@@ -16,16 +16,22 @@ internal static class MixinExpressionVirtualMachine {
     IMixinExpressionContext context,
     IDictionary<string, object> variables,
     MixinExpressionPreparedState preparedState
+  ) => Execute(expression is null ? null : GetProgram(expression, false), context, variables, preparedState);
+
+  internal static MixinExpressionResult Execute(
+    MixinProgramSyntax localProgram,
+    IMixinExpressionContext context,
+    IDictionary<string, object> variables,
+    MixinExpressionPreparedState preparedState
   ) {
     var executionStartedAt = Stopwatch.GetTimestamp();
     if (context is null) throw new ArgumentNullException(nameof(context));
-    if (expression is null) return Failure("the expression is null", 0);
+    if (localProgram is null) return Failure("the expression is null", 0);
 
     var preparedLines = preparedState?.Instructions ?? Array.Empty<DirectiveInstruction>();
     var preparedInitializers = preparedState?.Initializers ?? new HashSet<int>();
     // Attribute expressions are deliberately lazy: their instruction AST nodes are created
     // only when this execution's control-flow scan or program counter reaches the line.
-    var localProgram = GetProgram(expression, false);
     var preparedCount = preparedLines.Count;
     IReadOnlyList<DirectiveInstruction> lines = new InstructionSequence(preparedLines, localProgram);
     var labels = preparedState is null
