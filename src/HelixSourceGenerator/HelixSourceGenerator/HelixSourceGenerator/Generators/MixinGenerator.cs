@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using HelixSourceGenerator.Language;
 using HelixSourceGenerator.Language.Compiler;
@@ -180,7 +179,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         finalizedOutputs.Annotations, finalizedOutputs.Class,
         finalizedOutputs.File, finalizedOutputs.Implements,
         finalizedOutputs.Usings, expressionVariables
-          .Where(item => !item.Key.StartsWith(MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal)),
+          .Where(item => !item.Key.StartsWith(
+              MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
+            )
+          ),
         preparedExpressions.StringPool,
         context.DebugExpressions.ToImmutableArray(), context.Debug, context.DebugStringPool
       )
@@ -258,7 +260,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
           case MixinExpressionOutputTarget.File: fileCode.Add(output); break;
           case MixinExpressionOutputTarget.Using:
             usings.Add(output); break;
-          case MixinExpressionOutputTarget.Implements: implements.Add(output); break;
+          case MixinExpressionOutputTarget.Extends or MixinExpressionOutputTarget.Implements:
+            implements.Add(output); break;
           case MixinExpressionOutputTarget.Annotation: annotations.Add(output); break;
           case MixinExpressionOutputTarget.Target:
             if (work.Targets.Length != 1) {
@@ -320,7 +323,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         .. usings.Select(item => NormalizeUsing(item.Text)).Distinct(StringComparer.Ordinal)
           .OrderBy(item => item, StringComparer.Ordinal)
       ],
-      [.. implements.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)],
+      [
+        .. implements.OrderBy(item => item.Target == MixinExpressionOutputTarget.Extends ? 0 : 1)
+          .Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)
+      ],
       [.. annotations.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)],
       builder => {
         for (var index = 0; index < methods.Length; index++) {
@@ -466,7 +472,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       return;
     }
     context.AddDebugExpression(
-      MixinSyntaxRenderer.RenderProgram(expression), MixinSyntaxRenderer.RenderProgram(lateExpression), evaluated.Variables,
+      MixinSyntaxRenderer.RenderProgram(expression), MixinSyntaxRenderer.RenderProgram(lateExpression),
+      evaluated.Variables,
       providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
       evaluated.ExecutionMilliseconds
     );
@@ -507,7 +514,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       if (output.Target == MixinExpressionOutputTarget.Injection &&
         !declarations.ContainsKey(output.InjectionTarget)) continue;
       if (output.Target is MixinExpressionOutputTarget.Class or
-        MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements or
+        MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Extends or
+        MixinExpressionOutputTarget.Implements or
         MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using) continue;
 
       if (output.Target == MixinExpressionOutputTarget.Target && targets.Count != 1) {
@@ -556,7 +564,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
           );
           continue;
         case MixinExpressionOutputTarget.Class or
-          MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements or
+          MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Extends or
+          MixinExpressionOutputTarget.Implements or
           MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using:
           expressionOutputs.Add(output);
           continue;
@@ -591,20 +600,15 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     foreach (var line in MixinExpressionParser.SplitLines(expression ?? "")) {
       var parsed = MixinExpressionParser.ParseDirective(line, 0);
       var instruction = parsed.Node;
-      if (parsed.Error is not null || instruction is not MixinDirectiveSyntax ||
-        instruction.Arguments.Count == 0) continue;
-      var argument = instruction.Arguments[0];
+      if (parsed.Error is not null || instruction is not MixinDirectiveSyntax mixin ||
+        mixin.Target is null) continue;
       string resolved = null;
-      if (!MixinExpressionParser.IsDynamicArgument(argument)) resolved = argument;
-      else {
-        var inner = argument.Substring(1, argument.Length - 2).Trim();
-        const string carryPrefix = "@carry#";
-        if (inner.StartsWith(carryPrefix, StringComparison.Ordinal) &&
-          variables.TryGetValue(
-            MixinExpressionVirtualMachine.CarryLocalPrefix + inner.Substring(carryPrefix.Length),
-            out var carried
-          )) resolved = MixinValue.From(carried).Render();
-      }
+      if (!mixin.Target.IsDynamic) resolved = mixin.Target.Literal;
+      else if (mixin.Target.Expression is { Count: 1 } &&
+        mixin.Target.Expression[0].Reference is {
+          Root: MixinExpressionRoot.Carry, Member: { } carry, Properties.Count: 0
+        } && variables.TryGetValue(MixinExpressionVirtualMachine.CarryLocalPrefix + carry, out var carried))
+        resolved = MixinValue.From(carried).Render();
       if (string.IsNullOrWhiteSpace(resolved)) continue;
       var syntax = RoslynMixinContext.ParseMixinTarget(resolved, targetDefinitions);
       targets.Add(
@@ -975,9 +979,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     SharpStringBuilder builder,
     MixinContribution contribution
   ) {
-    foreach (var output in contribution.ExpressionResult.Outputs)
+    foreach (var output in contribution.ExpressionResult.Outputs) {
       if (output.Target == MixinExpressionOutputTarget.Target)
         builder.Statement(output.Text);
+    }
   }
 
   private static string RefPrefix(RefKind kind) {
@@ -1081,7 +1086,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     private static string PreparedStateKey(MixinExpressionPreparedState state) {
       return string.Join(
         "\u001e", state.Instructions.Select(instruction =>
-          instruction.Command + "\u001f" + string.Join("\u001f", instruction.Arguments) + "\u001f" + instruction.Operand
+          MixinSyntaxRenderer.RenderInstruction(instruction)
         )
       );
     }
@@ -1371,8 +1376,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
 
     public override int GetHashCode() {
       return unchecked(
-        (((Outputs.GetHashCode() * 397 ^ Variables.GetHashCode()) * 397 ^
-          Signatures.GetHashCode()) * 397 ^ Debug.GetHashCode()) * 397 ^
+        (((((((Outputs.GetHashCode() * 397) ^ Variables.GetHashCode()) * 397) ^
+          Signatures.GetHashCode()) * 397) ^ Debug.GetHashCode()) * 397) ^
         DebugStringPool.GetHashCode()
       );
     }
@@ -1395,7 +1400,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       }
 
       public override int GetHashCode() {
-        return unchecked((int)(Hash ^ Hash >> 32) * 397 ^ Length.GetHashCode());
+        return unchecked(((int)(Hash ^ (Hash >> 32)) * 397) ^ Length.GetHashCode());
       }
     }
   }
@@ -1404,17 +1409,17 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     internal static readonly MixinOutputModelComparer Instance = new();
 
     public bool Equals(MixinOutputModel x, MixinOutputModel y) {
-      return ReferenceEquals(x, y) || x is not null &&
+      return ReferenceEquals(x, y) || (x is not null &&
         y is not null &&
         string.Equals(x.HintName, y.HintName, StringComparison.Ordinal) &&
         Nullable.Equals(x.Render?.Fingerprint, y.Render?.Fingerprint) &&
         DiagnosticKey(x.Diagnostics) == DiagnosticKey(y.Diagnostics) &&
-        LateEqual(x.LateExpressions, y.LateExpressions);
+        LateEqual(x.LateExpressions, y.LateExpressions));
     }
 
     public int GetHashCode(MixinOutputModel value) {
       return unchecked(
-        StringComparer.Ordinal.GetHashCode(value.HintName ?? "") * 397 ^
+        (StringComparer.Ordinal.GetHashCode(value.HintName ?? "") * 397) ^
         (value.Render?.Fingerprint.GetHashCode() ?? 0)
       );
     }
@@ -1507,7 +1512,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       }
       Any = true;
       switch (output.Target) {
-        case MixinExpressionOutputTarget.Implements:
+        case MixinExpressionOutputTarget.Extends or MixinExpressionOutputTarget.Implements:
           (_implements ??= new MixinOutputAccumulator()).Add(output); break;
         case MixinExpressionOutputTarget.Annotation:
           (_annotations ??= new MixinOutputAccumulator()).Add(output); break;

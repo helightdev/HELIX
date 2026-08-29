@@ -10,13 +10,13 @@ internal sealed class NameFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
     value = typed is DetachedSemanticValue or DetachedTypeValue ||
       typed.RoslynSymbol is not null || typed.RoslynType is not null
-        ? typed.Name
-        : member ?? root;
+        ? MixinValue.From(typed.Name)
+        : MixinValue.From(member ?? root);
     error = null;
     return true;
   }
@@ -27,7 +27,7 @@ internal sealed class PathFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
     value = typed.Select(invocation.Argument);
@@ -40,7 +40,7 @@ internal sealed class UnwrapFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     value = MixinValue.From(value, context).Unwrap();
     error = null;
@@ -53,7 +53,7 @@ internal sealed class SwitchFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var property = (MixinExpressionProperty)invocation;
     var truthy = MixinValue.From(value, context).IsTruthy;
@@ -68,16 +68,18 @@ internal sealed class SizeFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    value = typed.TryGetText(out var text)
-      ? text.Length.ToString(CultureInfo.InvariantCulture)
-      : typed.Value switch {
-        MixinExpressionTable table => table.Count.ToString(CultureInfo.InvariantCulture),
-        string rawText => rawText.Length.ToString(CultureInfo.InvariantCulture),
-        _ => "0"
-      };
+    value = MixinValue.From(
+      typed.TryGetText(out var text)
+        ? text.Length.ToString(CultureInfo.InvariantCulture)
+        : typed.Value switch {
+          MixinExpressionTable table => table.Count.ToString(CultureInfo.InvariantCulture),
+          string rawText => rawText.Length.ToString(CultureInfo.InvariantCulture),
+          _ => "0"
+        }
+    );
     error = null;
     return true;
   }
@@ -93,5 +95,7 @@ internal sealed class LogicalFunctionDefinition : FunctionDefinition {
     return false;
   }
 
-  internal bool Combine(bool left, bool right) => Name == "and" ? left && right : left || right;
+  internal bool Combine(bool left, bool right) {
+    return Name == "and" ? left && right : left || right;
+  }
 }

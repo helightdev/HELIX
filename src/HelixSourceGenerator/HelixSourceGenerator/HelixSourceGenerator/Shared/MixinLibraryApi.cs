@@ -444,7 +444,7 @@ internal sealed class MixinLibraryCatalogComparer : IEqualityComparer<MixinLibra
   internal static readonly MixinLibraryCatalogComparer Instance = new();
 
   public bool Equals(MixinLibraryCatalog x, MixinLibraryCatalog y) {
-    return ReferenceEquals(x, y) || x is not null && y is not null && x.Key == y.Key;
+    return ReferenceEquals(x, y) || (x is not null && y is not null && x.Key == y.Key);
   }
 
   public int GetHashCode(MixinLibraryCatalog value) {
@@ -456,7 +456,7 @@ internal sealed class MixinCompilationComparer : IEqualityComparer<MixinCompilat
   internal static readonly MixinCompilationComparer Instance = new();
 
   public bool Equals(MixinCompilation x, MixinCompilation y) {
-    return ReferenceEquals(x, y) || x is not null && y is not null && x.Catalog.Key == y.Catalog.Key;
+    return ReferenceEquals(x, y) || (x is not null && y is not null && x.Catalog.Key == y.Catalog.Key);
   }
 
   public int GetHashCode(MixinCompilation value) {

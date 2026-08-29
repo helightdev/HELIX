@@ -211,7 +211,7 @@
   @USING HELIX.Coloring;
   @SCOPE
     @MATCH @this:!?is<global::UnityEngine.UIElements.VisualElement>
-    @CODE<IMPLEMENTS> global::UnityEngine.UIElements.VisualElement
+    @CODE<EXTENDS> global::UnityEngine.UIElements.VisualElement
   @END
 
   @CODE<IMPLEMENTS> IBoundary
@@ -309,7 +309,7 @@
   @DEFINE_TARGET<PostConstruct><^MixinPostConstruct>
   @PRELUDE
     @CODE<CLASS> public @this:name() : base(@attr#cacheLookups, @attr#trimChildren) {}
-    @CODE<IMPLEMENTS> HELIX.Compose.GeneratedBoundaryBase
+    @CODE<EXTENDS> HELIX.Compose.GeneratedBoundaryBase
     
     @SCOPE
       @MATCH @attr#composable:?eq<true>

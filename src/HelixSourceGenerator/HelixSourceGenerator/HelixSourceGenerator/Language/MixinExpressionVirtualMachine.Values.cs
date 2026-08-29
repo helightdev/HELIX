@@ -1,16 +1,10 @@
-using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using HelixSourceGenerator.Language.Compiler;
 using HelixSourceGenerator.Language.Functions;
 
 namespace HelixSourceGenerator.Language;
-
-using static MixinExpressionVirtualMachine;
-using static MixinExpressionCompiler;
 
 public static partial class MixinExpressionVirtualMachine {
   internal static bool TryResolveDirectiveArgument(
@@ -27,7 +21,7 @@ public static partial class MixinExpressionVirtualMachine {
     }
     if (context is IMixinExpressionValueContext valueContext)
       return valueContext.TryRenderValue(resolved, null, out value, out error);
-    value = Render(resolved);
+    value = resolved.Render();
     return true;
   }
 
@@ -36,12 +30,12 @@ public static partial class MixinExpressionVirtualMachine {
     IMixinExpressionContext context,
     MixinValueDictionary locals,
     MixinValueDictionary variables,
-    out object value,
+    out IMixinValue value,
     out string error
   ) {
     if (argument?.Expression is not null)
       return TryEvaluateExpression(argument.Expression, context, locals, variables, out value, out error);
-    value = argument?.Literal;
+    value = MixinValue.From(argument?.Literal);
     error = null;
     return true;
   }
@@ -121,7 +115,7 @@ public static partial class MixinExpressionVirtualMachine {
           return false;
         }
         builder.Append(rendered);
-      } else builder.Append(Render(value));
+      } else builder.Append(value.Render());
     }
     result = builder.ToString();
     return true;
@@ -156,7 +150,7 @@ public static partial class MixinExpressionVirtualMachine {
           result = null;
           return false;
         }
-      } else rendered = Render(value);
+      } else rendered = value.Render();
       segments.Add(MixinString.Dynamic(rendered));
     }
     result = segments;
@@ -168,13 +162,13 @@ public static partial class MixinExpressionVirtualMachine {
     IMixinExpressionContext context,
     MixinValueDictionary locals,
     MixinValueDictionary variables,
-    out object result,
+    out IMixinValue result,
     out string error
   ) {
     if (expression is { Count: 1 } && expression[0].Reference is not null)
       return TryResolve(expression[0].Reference, context, locals, variables, out result, out error);
     if (TryInterpolate(expression, context, locals, variables, out var text, out error)) {
-      result = text;
+      result = MixinValue.From(text);
       return true;
     }
     result = null;
@@ -194,7 +188,7 @@ public static partial class MixinExpressionVirtualMachine {
     IMixinExpressionContext context,
     MixinValueDictionary locals,
     MixinValueDictionary variables,
-    out object value,
+    out IMixinValue value,
     out string error
   ) {
     if (!TryPrepareReference(reference, context, locals, variables, out reference, out error) ||
@@ -212,11 +206,11 @@ public static partial class MixinExpressionVirtualMachine {
       var operations = new MixinExpressionReference(
         MixinExpressionRoot.Table, null, [.. reference.Properties.Skip(tableOperationIndex)]
       );
-      if (!TryApplyStringProperties(operations, context, null, ref value, out error)) return false;
+      if (!FunctionLibrary.TryApply(operations, context, null, ref value, out error)) return false;
       var predicate = operations.Properties.FirstOrDefault(IsBooleanProperty);
       if (predicate is null) return true;
       if (!TryEvaluateValuePredicate(value, predicate, context, operations, out var matched, out error)) return false;
-      value = predicate.Negated ? !matched : matched;
+      value = MixinValue.From(predicate.Negated ? !matched : matched);
       return true;
     }
     if (reference.Properties.Any(IsBooleanProperty)) {
@@ -224,7 +218,7 @@ public static partial class MixinExpressionVirtualMachine {
         value = null;
         return false;
       }
-      value = boolean;
+      value = MixinValue.From(boolean);
       return true;
     }
     return TryResolveCore(reference, context, locals, variables, out value, out error);
@@ -235,38 +229,45 @@ public static partial class MixinExpressionVirtualMachine {
     IMixinExpressionContext context,
     MixinValueDictionary locals,
     MixinValueDictionary variables,
-    out object value,
+    out IMixinValue value,
     out string error
   ) {
     if (reference.Root is MixinExpressionRoot.True or MixinExpressionRoot.False or
       MixinExpressionRoot.Null or MixinExpressionRoot.Table or MixinExpressionRoot.Parameter or
       MixinExpressionRoot.Carry) {
       value = reference.Root switch {
-        MixinExpressionRoot.True => true,
-        MixinExpressionRoot.False => false,
-        MixinExpressionRoot.Null => null,
+        MixinExpressionRoot.True => MixinValue.From(true),
+        MixinExpressionRoot.False => MixinValue.From(false),
+        MixinExpressionRoot.Null => NullMixinValue.Instance,
         MixinExpressionRoot.Table => new MixinExpressionTable(),
-        MixinExpressionRoot.Parameter => locals.TryGetValue(ParameterLocalKey, out var parameter) ? parameter : null,
+        MixinExpressionRoot.Parameter => locals.TryGetValue(ParameterLocalKey, out var parameter)
+          ? MixinValue.From(parameter, context)
+          : NullMixinValue.Instance,
         MixinExpressionRoot.Carry => variables.TryGetValue(CarryLocalPrefix + (reference.Member ?? ""), out var carried)
-          ? carried
-          : null,
-        _ => null
+          ? MixinValue.From(carried, context)
+          : NullMixinValue.Instance,
+        _ => NullMixinValue.Instance
       };
       if (reference.Root == MixinExpressionRoot.Carry || string.IsNullOrEmpty(reference.Member))
-        return TryApplyStringProperties(reference, context, null, ref value, out error);
-      if (value is MixinExpressionTable table)
-        value = table.TryGetValue(reference.Member, out var selected) ? selected : null;
-      else value = MixinValue.From(value, context).Select(reference.Member);
-      return TryApplyStringProperties(reference, context, null, ref value, out error);
+        return FunctionLibrary.TryApply(reference, context, null, ref value, out error);
+      if (value is MixinExpressionTable table) {
+        value = table.TryGetValue(reference.Member, out var selected)
+          ? MixinValue.From(selected, context)
+          : NullMixinValue.Instance;
+      } else value = value.Select(reference.Member);
+      return FunctionLibrary.TryApply(reference, context, null, ref value, out error);
     }
     if (TryStored(reference, context, locals, variables, out value, out error)) return error is null;
     if (context is IMixinExpressionValueContext valueContext) {
-      if (valueContext.TryResolveValue(reference, out value, out error)) return true;
+      if (valueContext.TryResolveValue(reference, out var resolvedValue, out error)) {
+        value = resolvedValue;
+        return true;
+      }
       value = null;
       return false;
     }
     if (context.TryResolve(reference, out var resolved, out error)) {
-      value = resolved;
+      value = MixinValue.From(resolved);
       return true;
     }
     value = null;
@@ -299,13 +300,13 @@ public static partial class MixinExpressionVirtualMachine {
     var operations = new MixinExpressionReference(
       MixinExpressionRoot.Table, null, [.. reference.Properties.Skip(tableOperationIndex)]
     );
-    if (!TryApplyStringProperties(operations, context, null, ref tableValue, out error)) {
+    if (!FunctionLibrary.TryApply(operations, context, null, ref tableValue, out error)) {
       value = false;
       return false;
     }
     var predicate = operations.Properties.FirstOrDefault(IsBooleanProperty);
     if (predicate is null) {
-      value = IsTruthy(tableValue);
+      value = tableValue.IsTruthy;
       return true;
     }
     if (!TryEvaluateValuePredicate(tableValue, predicate, context, operations, out var matched, out error)) {
@@ -333,7 +334,7 @@ public static partial class MixinExpressionVirtualMachine {
         }
         var predicates = reference.Properties.Where(IsBooleanProperty).ToArray();
         if (predicates.Length == 0) {
-          value = IsTruthy(atom);
+          value = atom.IsTruthy;
           return true;
         }
         value = true;
@@ -355,13 +356,15 @@ public static partial class MixinExpressionVirtualMachine {
           error = null;
           value = true;
           foreach (var predicate in predicates) {
-            if (!TryEvaluateValuePredicate(null, predicate, context, reference, out var item, out error)) return false;
+            if (!TryEvaluateValuePredicate(
+              NullMixinValue.Instance, predicate, context, reference, out var item, out error
+            )) return false;
             value &= predicate.Negated ? !item : item;
           }
           return true;
         }
         if (predicates.Length == 0) {
-          value = IsTruthy(stored);
+          value = stored.IsTruthy;
           return true;
         }
         value = true;
@@ -383,7 +386,7 @@ public static partial class MixinExpressionVirtualMachine {
             value = false;
             return false;
           }
-          subject = null;
+          subject = NullMixinValue.Instance;
           error = null;
         }
         value = true;
@@ -397,7 +400,7 @@ public static partial class MixinExpressionVirtualMachine {
   }
 
   private static bool TryEvaluateValuePredicate(
-    object subject,
+    IMixinValue subject,
     MixinExpressionProperty property,
     IMixinExpressionContext context,
     MixinExpressionReference reference,
@@ -405,17 +408,19 @@ public static partial class MixinExpressionVirtualMachine {
     out string error
   ) {
     if (FunctionLibrary.TryGet(property.Name, out var function) &&
-      function is PredicateFunctionDefinition predicate)
+      function is PredicateFunctionDefinition predicate) {
       return predicate.EvaluateReference(
-        MixinValue.From(subject, context), reference, property, context, out value, out error
+        subject, reference, property, context, out value, out error
       );
+    }
     value = false;
     error = "unknown boolean pseudo-property ':?" + property.Name + "'";
     return false;
   }
 
-  private static bool IsTableMutation(MixinExpressionProperty property) =>
-    FunctionLibrary.TryGet(property.Name, out var function) && function is TableMutationFunction;
+  private static bool IsTableMutation(MixinExpressionProperty property) {
+    return FunctionLibrary.TryGet(property.Name, out var function) && function is TableMutationFunction;
+  }
 
   private static bool TryPrepareReference(
     MixinExpressionReference reference,
@@ -428,7 +433,7 @@ public static partial class MixinExpressionVirtualMachine {
     var properties = new List<MixinExpressionProperty>(reference.Properties.Count);
     foreach (var property in reference.Properties) {
       var arguments = new List<string>(property.Arguments.Count);
-      var values = new List<object>(property.Arguments.Count);
+      var values = new List<IMixinValue>(property.Arguments.Count);
       for (var argumentIndex = 0; argumentIndex < property.Arguments.Count; argumentIndex++) {
         var argument = property.Arguments[argumentIndex];
         var syntax = property.ParsedArguments.Count > argumentIndex
@@ -436,7 +441,7 @@ public static partial class MixinExpressionVirtualMachine {
           : new MixinPropertyArgumentSyntax(argument, null, null);
         if (syntax.BooleanExpression is not null) {
           arguments.Add(argument);
-          values.Add(syntax.BooleanExpression);
+          values.Add(new StringMixinValue(argument));
           continue;
         }
         var parsedArgument = new DirectiveArgumentSyntax(syntax.Literal, syntax.ValueExpression);
@@ -450,12 +455,13 @@ public static partial class MixinExpressionVirtualMachine {
             return false;
           }
           arguments.Add(rendered);
-        } else arguments.Add(Render(resolvedValue));
+        } else arguments.Add(resolvedValue.Render());
         values.Add(resolvedValue);
       }
       properties.Add(
         new MixinExpressionProperty(
-          property.Name, arguments.AsReadOnly(), values.AsReadOnly(), property.Negated
+          property.Name, arguments.AsReadOnly(), values.AsReadOnly(), property.Negated,
+          property.ParsedArguments
         )
       );
     }
@@ -491,8 +497,8 @@ public static partial class MixinExpressionVirtualMachine {
         reduced = null;
         return false;
       }
-      foreach (var argument in operation.Values) {
-        if (argument is not IReadOnlyList<MixinExpressionReference> parsed ||
+      foreach (var argument in operation.ParsedArguments) {
+        if (argument.BooleanExpression is not { } parsed ||
           !TryEvaluateAll(parsed, context, locals, variables, out var item, out error, out _)) {
           reduced = null;
           error ??= ":" + operation.Name + " has an invalid boolean expression";
@@ -509,40 +515,12 @@ public static partial class MixinExpressionVirtualMachine {
     return true;
   }
 
-  private static bool RegexMatches(string value, string pattern, out string error) {
-    try {
-      error = null;
-      return Regex.IsMatch(value ?? "", pattern ?? "");
-    } catch (ArgumentException exception) {
-      error = "invalid regular expression: " + exception.Message;
-      return false;
-    }
-  }
-
-  private static bool RelaxedEquals(object actual, object expected) {
-    var expectedIsNull = expected is null ||
-      string.Equals(Render(expected), "null", StringComparison.OrdinalIgnoreCase);
-    if (actual is null) return expectedIsNull;
-    if (Equals(actual, expected)) return true;
-    return string.Equals(
-      UnwrapComparable(Render(actual)), UnwrapComparable(Render(expected)),
-      StringComparison.OrdinalIgnoreCase
-    );
-  }
-
-  private static string UnwrapComparable(string value) {
-    if (value.StartsWith("global::", StringComparison.Ordinal)) value = value.Substring(8);
-    if (value.Length >= 2 && value[0] == '"' && value[value.Length - 1] == '"')
-      value = value.Substring(1, value.Length - 2);
-    return value;
-  }
-
   private static bool TryStored(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
     MixinValueDictionary locals,
     MixinValueDictionary variables,
-    out object value,
+    out IMixinValue value,
     out string error
   ) {
     value = null;
@@ -554,80 +532,31 @@ public static partial class MixinExpressionVirtualMachine {
       return true;
     }
     var values = reference.Root == MixinExpressionRoot.Local ? locals : variables;
-    if (!values.TryGetValue(reference.Member, out value)) {
+    if (!values.TryGetValue(reference.Member, out var stored)) {
       error = "unknown @" + reference.Root.Keyword() + " value '" + reference.Member + "'";
       return true;
     }
-    TryApplyStringProperties(reference, context, reference.Member, ref value, out error);
+    value = MixinValue.From(stored, context);
+    FunctionLibrary.TryApply(reference, context, reference.Member, ref value, out error);
     return true;
   }
 
-  private static bool TryApplyStringProperties(
-    MixinExpressionReference reference,
-    IMixinExpressionContext context,
-    string name,
-    ref object value,
-    out string error
-  ) {
-    error = null;
-    for (var index = 0; index < reference.Properties.Count; index++) {
-      var property = reference.Properties[index];
-      if (IsBooleanProperty(property) || IsLogicalFunction(property)) continue;
-      if (!FunctionLibrary.TryInvoke(
-        property, context, reference.Root.Keyword(), name, ref value, out error
-      )) return false;
-      if (value is MixinTransformRequest request) {
-        request.RemainingProperties = [.. reference.Properties.Skip(index + 1)];
-        return true;
-      }
-    }
-    return true;
+  private static bool IsLogicalFunction(MixinExpressionProperty property) {
+    return FunctionLibrary.IsLogical(property);
   }
 
-  private static bool IsLogicalFunction(MixinExpressionProperty property) =>
-    FunctionLibrary.TryGet(property.Name, out var function) && function is LogicalFunctionDefinition;
-
-  private static bool IsTypeFunction(MixinExpressionProperty property) =>
-    FunctionLibrary.TryGet(property.Name, out var function) && function is TypeFunction;
+  private static bool IsTypeFunction(MixinExpressionProperty property) {
+    return FunctionLibrary.TryGet(property.Name, out var function) && function is TypeFunction;
+  }
 
   internal static bool TryResumeTransform(
     MixinTransformRequest request,
     IMixinExpressionContext context,
-    object accumulated,
-    out object value,
+    IMixinValue accumulated,
+    out IMixinValue value,
     out string error
   ) {
     value = accumulated;
-    error = null;
-    foreach (var property in request.RemainingProperties ?? [])
-      if (!FunctionLibrary.TryInvoke(property, context, "table", null, ref value, out error))
-        return false;
-    return true;
-  }
-
-  private static bool IsTruthy(object value) {
-    return value switch {
-      IMixinValue typed => typed.IsTruthy,
-      null => false,
-      bool boolean => boolean,
-      string text => text.Length != 0 && !string.Equals(text, "false", StringComparison.OrdinalIgnoreCase) &&
-        !string.Equals(text, "null", StringComparison.OrdinalIgnoreCase),
-      _ => true
-    };
-  }
-
-  private static bool TableContainsValue(object value, object expected) {
-    if (value is not MixinExpressionTable table) return false;
-    return table.Values.Any(item => RelaxedEquals(item, expected));
-  }
-
-  internal static string Render(object value) {
-    return value switch {
-      IMixinValue typed => typed.Render(),
-      null => "null",
-      bool boolean => boolean ? "true" : "false",
-      string text => text,
-      _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null"
-    };
+    return FunctionLibrary.TryResume(request, context, ref value, out error);
   }
 }

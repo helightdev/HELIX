@@ -10,6 +10,7 @@ public enum MixinExpressionOutputTarget {
   Target,
   Class,
   File,
+  Extends,
   Implements,
   Injection,
   Annotation,
@@ -51,7 +52,11 @@ public sealed record MixinExpressionOutput {
   public int InjectionPriority { get; }
   internal IReadOnlyList<MixinString> Segments { get; }
   internal bool IsEmpty => Segments.All(segment => string.IsNullOrEmpty(segment.Resolve(_pool)));
-  internal string Resolve(MixinString segment) => segment.Resolve(_pool);
+
+  internal string Resolve(MixinString segment) {
+    return segment.Resolve(_pool);
+  }
+
   internal MixinExpressionOutput Retarget(MixinExpressionOutputTarget target) {
     return new MixinExpressionOutput(target, Segments, _pool, _injectionTarget, InjectionPriority);
   }
@@ -65,34 +70,35 @@ public sealed class MixinExpressionProperty : FunctionInvocation {
   public MixinExpressionProperty(
     string name, string argument = null, bool negated = false
   ) : base(name, argument is null ? Array.Empty<string>() : new[] { argument }, negated) {
-    Values = [.. Arguments];
+    Values = [.. Arguments.Select(MixinValue.From)];
   }
 
   public MixinExpressionProperty(
     string name, IReadOnlyList<string> arguments, bool negated = false
   ) : base(name, arguments, negated) {
-    Values = [.. Arguments];
+    Values = [.. Arguments.Select(MixinValue.From)];
   }
 
   internal MixinExpressionProperty(
     string name,
     IReadOnlyList<string> arguments,
-    IReadOnlyList<object> values,
-    bool negated
+    IReadOnlyList<IMixinValue> values,
+    bool negated,
+    IReadOnlyList<MixinPropertyArgumentSyntax> parsedArguments = null
   ) : base(name, arguments, negated) {
     Values = values ?? [];
-    ParsedArguments = [];
+    ParsedArguments = parsedArguments ?? [];
   }
 
   internal MixinExpressionProperty(
     string name, IReadOnlyList<string> arguments,
     IReadOnlyList<MixinPropertyArgumentSyntax> parsedArguments, bool negated
   ) : base(name, arguments, negated) {
-    Values = [.. Arguments];
+    Values = [.. Arguments.Select(MixinValue.From)];
     ParsedArguments = parsedArguments ?? [];
   }
 
-  internal IReadOnlyList<object> Values { get; }
+  internal IReadOnlyList<IMixinValue> Values { get; }
   internal IReadOnlyList<MixinPropertyArgumentSyntax> ParsedArguments { get; } = [];
 }
 
@@ -114,7 +120,10 @@ public sealed class MixinExpressionTable : MixinValue {
 
   public override object Value => this;
   public override bool IsTruthy => true;
-  public override string Render() => ToString();
+
+  public override string Render() {
+    return ToString();
+  }
 
   public override void Fingerprint(MixinFingerprintBuilder builder) {
     builder.Append(nameof(MixinExpressionTable));
@@ -130,10 +139,17 @@ public sealed class MixinExpressionTable : MixinValue {
     return false;
   }
 
-  public override object Select(string path) => TryGetValue(path, out var value) ? value : null;
+  public override IMixinValue Select(string path) {
+    return _values.TryGetValue(path, out var value) ? value : NullMixinValue.Instance;
+  }
 
-  public override bool Has(object member) => _values.ContainsKey(Convert.ToString(member));
-  internal bool ContainsValue(object expected) => Values.Any(item => MixinValue.RelaxedEquals(item, expected));
+  public override bool Has(IMixinValue member) {
+    return _values.ContainsKey(member.Render());
+  }
+
+  internal bool ContainsValue(IMixinValue expected) {
+    return Values.Any(item => RelaxedEquals(item, expected));
+  }
 
   public override IMixinValue Unlink() {
     var result = new MixinExpressionTable();
@@ -144,9 +160,9 @@ public sealed class MixinExpressionTable : MixinValue {
   public override bool Equals(object obj) {
     if (ReferenceEquals(this, obj)) return true;
     if (obj is not MixinExpressionTable other || Count != other.Count) return false;
-    foreach (var item in _values) {
-      if (!other._values.TryGetValue(item.Key, out var value) || !Equals(item.Value, value)) return false;
-    }
+    foreach (var item in _values)
+      if (!other._values.TryGetValue(item.Key, out var value) || !Equals(item.Value, value))
+        return false;
     return true;
   }
 
@@ -168,7 +184,9 @@ public sealed class MixinExpressionTable : MixinValue {
     return false;
   }
 
-  internal bool TryGetMixinValue(string key, out IMixinValue value) => _values.TryGetValue(key ?? "", out value);
+  internal bool TryGetMixinValue(string key, out IMixinValue value) {
+    return _values.TryGetValue(key ?? "", out value);
+  }
 
   internal MixinExpressionTable Put(string key, object value) {
     var result = Writable();
@@ -190,11 +208,15 @@ public sealed class MixinExpressionTable : MixinValue {
     return this;
   }
 
-  private MixinExpressionTable Writable() => !IsClosed
-    ? this
-    : new MixinExpressionTable(_values.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal));
+  private MixinExpressionTable Writable() {
+    return !IsClosed
+      ? this
+      : new MixinExpressionTable(_values.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal));
+  }
 
-  public override string ToString() => "table[" + Count.ToString(CultureInfo.InvariantCulture) + "]";
+  public override string ToString() {
+    return "table[" + Count.ToString(CultureInfo.InvariantCulture) + "]";
+  }
 }
 
 public enum MixinExpressionRoot {
@@ -215,11 +237,13 @@ public enum MixinExpressionRoot {
 public sealed class MixinExpressionReference(
   MixinExpressionRoot root,
   string member,
-  IReadOnlyList<MixinExpressionProperty> properties
+  IReadOnlyList<MixinExpressionProperty> properties,
+  bool parenthesized = false
 ) {
   public MixinExpressionRoot Root { get; } = root;
   public string Member { get; } = member;
   public IReadOnlyList<MixinExpressionProperty> Properties { get; } = properties ?? [];
+  internal bool Parenthesized { get; } = parenthesized;
 
   internal void CollectConstants(MixinStringPoolBuilder pool) {
     if (Member is not null) pool.Intern(Member);
@@ -238,8 +262,8 @@ public interface IMixinExpressionContext {
 
 /// <summary>Resolves a host value without forcing it through string rendering.</summary>
 public interface IMixinExpressionValueContext : IMixinExpressionContext {
-  bool TryResolveValue(MixinExpressionReference reference, out object value, out string error);
-  bool TryRenderValue(object value, MixinExpressionRoot? root, out string text, out string error);
+  bool TryResolveValue(MixinExpressionReference reference, out IMixinValue value, out string error);
+  bool TryRenderValue(IMixinValue value, MixinExpressionRoot? root, out string text, out string error);
 }
 
 /// <summary>Optional host support for resolving generated targets and callable signatures.</summary>

@@ -2,12 +2,167 @@ using System.Collections.Generic;
 
 namespace HelixSourceGenerator.Language.Compiler;
 
-internal enum MixinTokenKind { At, Identifier, Argument, Operand, EndOfLine, Invalid }
+internal enum MixinTokenKind {
+  At,
+  Identifier,
+  Argument,
+  Operand,
+  EndOfLine,
+  OrphanContinuation,
+  Invalid
+}
 
 internal sealed record MixinToken(MixinTokenKind Kind, string Text, int Line);
 
+internal enum MixinExpressionTokenKind {
+  Literal,
+  At,
+  OpenParenthesis,
+  CloseParenthesis,
+  NullRoot,
+  Identifier,
+  Member,
+  Path,
+  Property,
+  Predicate,
+  Negation,
+  Argument,
+  Invalid
+}
+
+internal sealed record MixinExpressionToken(
+  MixinExpressionTokenKind Kind, string Text, int Start, int End
+);
+
 /// <summary>Turns source text into tokens without applying directive semantics.</summary>
 internal static class MixinExpressionLexer {
+  internal static IReadOnlyList<MixinExpressionToken> LexExpression(string source) {
+    source ??= "";
+    var tokens = new List<MixinExpressionToken>();
+    var position = 0;
+    var literalStart = 0;
+    while (position < source.Length) {
+      if (source[position] != '@') {
+        position++;
+        continue;
+      }
+      if (position + 1 < source.Length && source[position + 1] == '@') {
+        AddLiteral(tokens, source, literalStart, position);
+        tokens.Add(new MixinExpressionToken(MixinExpressionTokenKind.Literal, "@", position, position + 2));
+        position += 2;
+        literalStart = position;
+        continue;
+      }
+      AddLiteral(tokens, source, literalStart, position);
+      if (!LexReference(source, ref position, tokens)) {
+        tokens.Add(new MixinExpressionToken(MixinExpressionTokenKind.Invalid, "", position, position));
+        return tokens.AsReadOnly();
+      }
+      literalStart = position;
+    }
+    AddLiteral(tokens, source, literalStart, source.Length);
+    return tokens.AsReadOnly();
+  }
+
+  internal static bool TryUnwrapDynamicArgument(string source, out string inner) {
+    inner = null;
+    if (source is not { Length: >= 2 } || source[0] != '(' || source[source.Length - 1] != ')') return false;
+    inner = source.Substring(1, source.Length - 2);
+    return true;
+  }
+
+  private static bool LexReference(
+    string source, ref int position, ICollection<MixinExpressionToken> tokens
+  ) {
+    var start = position;
+    tokens.Add(new MixinExpressionToken(MixinExpressionTokenKind.At, "@", position, ++position));
+    var parenthesized = position < source.Length && source[position] == '(';
+    if (parenthesized) {
+      tokens.Add(new MixinExpressionToken(MixinExpressionTokenKind.OpenParenthesis, "(", position, position + 1));
+      position++;
+    }
+    var nullRoot = position < source.Length && source[position] == ':';
+    if (nullRoot) {
+      tokens.Add(new MixinExpressionToken(MixinExpressionTokenKind.NullRoot, "", position, position + 1));
+      position++;
+    } else if (!LexIdentifier(source, ref position, MixinExpressionTokenKind.Identifier, tokens)) {
+      position = start;
+      return false;
+    }
+    if (!nullRoot && position < source.Length && source[position] == '#') {
+      position++;
+      if (!LexIdentifier(source, ref position, MixinExpressionTokenKind.Member, tokens)) return false;
+    }
+    if (nullRoot && position < source.Length &&
+      (char.IsLetterOrDigit(source[position]) || source[position] == '_' || source[position] is '!' or '?'))
+      if (!LexProperty(source, ref position, tokens))
+        return false;
+    while (position < source.Length && source[position] is ':' or '#') {
+      var path = source[position++] == '#';
+      if (path) {
+        if (!LexIdentifier(source, ref position, MixinExpressionTokenKind.Path, tokens)) return false;
+        continue;
+      }
+      if (!LexProperty(source, ref position, tokens)) return false;
+    }
+    if (!parenthesized) return true;
+    if (position >= source.Length || source[position] != ')') return false;
+    tokens.Add(new MixinExpressionToken(MixinExpressionTokenKind.CloseParenthesis, ")", position, position + 1));
+    position++;
+    return true;
+  }
+
+  private static bool LexProperty(
+    string source, ref int position, ICollection<MixinExpressionToken> tokens
+  ) {
+    if (position < source.Length && source[position] == '!') {
+      tokens.Add(new MixinExpressionToken(MixinExpressionTokenKind.Negation, "!", position, position + 1));
+      position++;
+    }
+    if (position < source.Length && source[position] == '?') {
+      tokens.Add(new MixinExpressionToken(MixinExpressionTokenKind.Predicate, "?", position, position + 1));
+      position++;
+    }
+    if (!LexIdentifier(source, ref position, MixinExpressionTokenKind.Property, tokens)) return false;
+    while (position < source.Length && source[position] == '<') {
+      var argumentStart = ++position;
+      var depth = 1;
+      while (position < source.Length && depth != 0) {
+        if (source[position] == '<') depth++;
+        else if (source[position] == '>') depth--;
+        position++;
+      }
+      if (depth != 0) return false;
+      tokens.Add(
+        new MixinExpressionToken(
+          MixinExpressionTokenKind.Argument,
+          source.Substring(argumentStart, position - argumentStart - 1), argumentStart - 1, position
+        )
+      );
+    }
+    return true;
+  }
+
+  private static bool LexIdentifier(
+    string source, ref int position, MixinExpressionTokenKind kind,
+    ICollection<MixinExpressionToken> tokens
+  ) {
+    var start = position;
+    while (position < source.Length && (char.IsLetterOrDigit(source[position]) || source[position] == '_')) position++;
+    if (position == start) return false;
+    tokens.Add(new MixinExpressionToken(kind, source.Substring(start, position - start), start, position));
+    return true;
+  }
+
+  private static void AddLiteral(
+    ICollection<MixinExpressionToken> tokens, string source, int start, int end
+  ) {
+    if (end > start)
+      tokens.Add(
+        new MixinExpressionToken(MixinExpressionTokenKind.Literal, source.Substring(start, end - start), start, end)
+      );
+  }
+
   internal static IReadOnlyList<MixinToken> Lex(string source) {
     var logical = SplitLogicalLines(source);
     var tokens = new List<MixinToken>();
@@ -62,6 +217,11 @@ internal static class MixinExpressionLexer {
       Invalid(tokens, text, line);
       return;
     }
+    if (position + 1 < text.Length && text[position + 1] is '\\' or '+') {
+      tokens.Add(new MixinToken(MixinTokenKind.OrphanContinuation, "", line));
+      End(tokens, line);
+      return;
+    }
     tokens.Add(new MixinToken(MixinTokenKind.At, "@", line));
     var start = ++position;
     while (position < text.Length && (char.IsLetter(text[position]) || text[position] == '_')) position++;
@@ -98,8 +258,9 @@ internal static class MixinExpressionLexer {
     End(tokens, line);
   }
 
-  private static void End(ICollection<MixinToken> tokens, int line) =>
+  private static void End(ICollection<MixinToken> tokens, int line) {
     tokens.Add(new MixinToken(MixinTokenKind.EndOfLine, "", line));
+  }
 
   private static int SkipWhitespace(string text, int position) {
     while (position < text.Length && char.IsWhiteSpace(text[position])) position++;

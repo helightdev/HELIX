@@ -41,7 +41,9 @@ internal sealed class PutDirectiveFunction() : TableMutationDirectiveFunction("P
   protected override bool TryGetKey(
     DirectiveFunctionInvocation invocation, MixinExpressionTable table,
     out string key, out string error
-  ) => invocation.ResolveArgument(1, out key, out error);
+  ) {
+    return invocation.ResolveArgument(1, out key, out error);
+  }
 }
 
 internal sealed class PushDirectiveFunction() : TableMutationDirectiveFunction("PUSH", 1) {

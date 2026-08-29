@@ -587,9 +587,10 @@ internal sealed class PropDatatypeModel {
       "static void " + Members.ConfigureDatatype,
       [structureDatatype + " datatype"],
       false
-    ))
+    )) {
       foreach (var statement in configuration)
         builder.Statement(statement);
+    }
   }
 
   private void AppendProperty(SharpStringBuilder builder, PropDatatypeProperty property) {

@@ -400,9 +400,10 @@ internal sealed record DetachedTypeWrapper(
       return;
     }
     var target = index == Declarations.Count - 1;
-    if (target && annotations is not null)
+    if (target && annotations is not null) {
       foreach (var annotation in annotations)
         builder.Attribute(annotation);
+    }
     var declaration = Declarations[index];
     if (target && interfaces is { Count: > 0 }) declaration += " : " + string.Join(", ", interfaces);
     using (builder.Type(declaration)) Append(builder, index + 1, interfaces, annotations, build);

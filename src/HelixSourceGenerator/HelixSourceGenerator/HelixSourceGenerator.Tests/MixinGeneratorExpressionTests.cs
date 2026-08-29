@@ -1386,11 +1386,13 @@ public sealed class MixinGeneratorExpressionTests {
                               public MixinExpressionAttribute(string expression) { }
                             }
                           }
+                          public class Base { }
                           public interface IMarker { }
                           [HELIX.MixinExpression(
                             "@CODE<CLASS> public int GeneratedValue => 3;\n" +
                             "@CODE<FILE> internal sealed class GeneratedFileType { }\n" +
-                            "@CODE<IMPLEMENTS> global::IMarker"
+                            "@CODE<IMPLEMENTS> global::IMarker\n" +
+                            "@CODE<EXTENDS> global::Base"
                           )]
                           [AttributeUsage(AttributeTargets.Class)]
                           public sealed class MarkerAttribute : Attribute { }
@@ -1410,7 +1412,7 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
       .SourceText.ToString();
-    Assert.Contains("partial class Demo : global::IMarker", generated);
+    Assert.Contains("partial class Demo : global::Base, global::IMarker", generated);
     Assert.Contains("public int GeneratedValue => 3;", generated);
     Assert.Contains("internal sealed class GeneratedFileType", generated);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));

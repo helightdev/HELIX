@@ -15,7 +15,13 @@ internal abstract class PredicateFunctionDefinition : FunctionDefinition {
   internal virtual bool EvaluateReference(
     IMixinValue value, MixinExpressionReference reference, MixinExpressionProperty invocation,
     IMixinExpressionContext context, out bool result, out string error
-  ) => Evaluate(value, invocation, out result, out error);
+  ) {
+    return Evaluate(value, invocation, out result, out error);
+  }
+
+  protected static bool HasCompleteSemanticInformation(IMixinValue value) {
+    return value is RoslynMixinValue or DetachedSemanticValue or DetachedTypeValue;
+  }
 }
 
 internal sealed class ExistsPredicate : PredicateFunctionDefinition {
@@ -46,7 +52,8 @@ internal sealed class IsPredicate : PredicateFunctionDefinition {
     IMixinValue value, MixinExpressionReference reference, MixinExpressionProperty invocation,
     IMixinExpressionContext context, out bool result, out string error
   ) {
-    if (!Evaluate(value, invocation, out result, out error) || result) return error is null;
+    if (!Evaluate(value, invocation, out result, out error) || result || HasCompleteSemanticInformation(value))
+      return error is null;
     var neutral = new MixinExpressionProperty(invocation.Name, invocation.Arguments, invocation.Values, false);
     var contextual = new MixinExpressionReference(
       reference.Root, reference.Member,
@@ -112,6 +119,15 @@ internal sealed class WireablePredicate : PredicateFunctionDefinition {
     error = null;
     return true;
   }
+
+  internal override bool EvaluateReference(
+    IMixinValue value, MixinExpressionReference reference, MixinExpressionProperty invocation,
+    IMixinExpressionContext context, out bool result, out string error
+  ) {
+    if (context is IMixinExpressionSignatureContext signature)
+      return signature.TryWireable(invocation.Arguments[0], invocation.Arguments[1], out result, out error);
+    return Evaluate(value, invocation, out result, out error);
+  }
 }
 
 internal abstract class TraitPredicate(string name) : PredicateFunctionDefinition(name, 0) {
@@ -127,7 +143,16 @@ internal abstract class TraitPredicate(string name) : PredicateFunctionDefinitio
     IMixinValue value, MixinExpressionReference reference, MixinExpressionProperty invocation,
     IMixinExpressionContext context, out bool result, out string error
   ) {
-    if (value.HasTrait(Trait)) { result = true; error = null; return true; }
+    if (value.HasTrait(Trait)) {
+      result = true;
+      error = null;
+      return true;
+    }
+    if (HasCompleteSemanticInformation(value)) {
+      result = false;
+      error = null;
+      return true;
+    }
     var neutral = new MixinExpressionProperty(
       invocation.Name, invocation.Arguments, invocation.Values, false
     );
@@ -139,25 +164,71 @@ internal abstract class TraitPredicate(string name) : PredicateFunctionDefinitio
   }
 }
 
-internal sealed class SelfPredicate() : TraitPredicate("isSelf") { protected override MixinValueTrait Trait => MixinValueTrait.Self; }
-internal sealed class RefPredicate() : TraitPredicate("ref") { protected override MixinValueTrait Trait => MixinValueTrait.Ref; }
-internal sealed class InPredicate() : TraitPredicate("in") { protected override MixinValueTrait Trait => MixinValueTrait.In; }
-internal sealed class OutPredicate() : TraitPredicate("out") { protected override MixinValueTrait Trait => MixinValueTrait.Out; }
-internal sealed class InOutPredicate() : TraitPredicate("inout") { protected override MixinValueTrait Trait => MixinValueTrait.InOut; }
-internal sealed class ArgumentPredicate() : TraitPredicate("argument") { protected override MixinValueTrait Trait => MixinValueTrait.Argument; }
-internal sealed class StaticPredicate() : TraitPredicate("static") { protected override MixinValueTrait Trait => MixinValueTrait.Static; }
-internal sealed class AsyncPredicate() : TraitPredicate("async") { protected override MixinValueTrait Trait => MixinValueTrait.Async; }
-internal sealed class PublicPredicate() : TraitPredicate("public") { protected override MixinValueTrait Trait => MixinValueTrait.Public; }
-internal sealed class ExposedPredicate() : TraitPredicate("exposed") { protected override MixinValueTrait Trait => MixinValueTrait.Exposed; }
-internal sealed class TopPredicate() : TraitPredicate("top") { protected override MixinValueTrait Trait => MixinValueTrait.Top; }
-internal sealed class ConcretePredicate() : TraitPredicate("concrete") { protected override MixinValueTrait Trait => MixinValueTrait.Concrete; }
-internal sealed class PartialPredicate() : TraitPredicate("partial") { protected override MixinValueTrait Trait => MixinValueTrait.Partial; }
-internal sealed class GenericPredicate() : TraitPredicate("generic") { protected override MixinValueTrait Trait => MixinValueTrait.Generic; }
-internal sealed class StructPredicate() : TraitPredicate("struct") { protected override MixinValueTrait Trait => MixinValueTrait.Struct; }
-internal sealed class ClassPredicate() : TraitPredicate("class") { protected override MixinValueTrait Trait => MixinValueTrait.Class; }
+internal sealed class SelfPredicate() : TraitPredicate("isSelf") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Self;
+}
+
+internal sealed class RefPredicate() : TraitPredicate("ref") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Ref;
+}
+
+internal sealed class InPredicate() : TraitPredicate("in") {
+  protected override MixinValueTrait Trait => MixinValueTrait.In;
+}
+
+internal sealed class OutPredicate() : TraitPredicate("out") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Out;
+}
+
+internal sealed class InOutPredicate() : TraitPredicate("inout") {
+  protected override MixinValueTrait Trait => MixinValueTrait.InOut;
+}
+
+internal sealed class ArgumentPredicate() : TraitPredicate("argument") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Argument;
+}
+
+internal sealed class StaticPredicate() : TraitPredicate("static") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Static;
+}
+
+internal sealed class AsyncPredicate() : TraitPredicate("async") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Async;
+}
+
+internal sealed class PublicPredicate() : TraitPredicate("public") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Public;
+}
+
+internal sealed class ExposedPredicate() : TraitPredicate("exposed") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Exposed;
+}
+
+internal sealed class TopPredicate() : TraitPredicate("top") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Top;
+}
+
+internal sealed class ConcretePredicate() : TraitPredicate("concrete") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Concrete;
+}
+
+internal sealed class PartialPredicate() : TraitPredicate("partial") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Partial;
+}
+
+internal sealed class GenericPredicate() : TraitPredicate("generic") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Generic;
+}
+
+internal sealed class StructPredicate() : TraitPredicate("struct") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Struct;
+}
+
+internal sealed class ClassPredicate() : TraitPredicate("class") {
+  protected override MixinValueTrait Trait => MixinValueTrait.Class;
+}
 
 internal abstract class PropStructPredicate(string name) : PredicateFunctionDefinition(name, 0) {
-
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
     if (value.Value is not MixinPropStructHandle propStruct) {
       result = false;
@@ -173,13 +244,19 @@ internal abstract class PropStructPredicate(string name) : PredicateFunctionDefi
 }
 
 internal sealed class StructHasEqualityPredicate() : PropStructPredicate("structHasEquality") {
-  protected override bool Evaluate(MixinPropStructHandle propStruct) => propStruct.Model.Equality.HasMembers;
+  protected override bool Evaluate(MixinPropStructHandle propStruct) {
+    return propStruct.Model.Equality.HasMembers;
+  }
 }
 
 internal sealed class StructNoArgsPredicate() : PropStructPredicate("structNoArgs") {
-  protected override bool Evaluate(MixinPropStructHandle propStruct) => propStruct.Model.ParameterParts.Count == 0;
+  protected override bool Evaluate(MixinPropStructHandle propStruct) {
+    return propStruct.Model.ParameterParts.Count == 0;
+  }
 }
 
 internal sealed class StructAugmentPredicate() : PropStructPredicate("structAugment") {
-  protected override bool Evaluate(MixinPropStructHandle propStruct) => propStruct.Augmenting;
+  protected override bool Evaluate(MixinPropStructHandle propStruct) {
+    return propStruct.Augmenting;
+  }
 }

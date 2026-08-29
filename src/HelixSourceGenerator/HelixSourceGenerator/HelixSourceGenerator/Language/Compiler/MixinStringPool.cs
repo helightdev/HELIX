@@ -15,11 +15,17 @@ public readonly struct MixinString : IEquatable<MixinString> {
   public string DynamicValue { get; }
   public bool IsInterned => Id >= 0;
 
-  internal static MixinString Interned(int id) => new(id, null);
+  internal static MixinString Interned(int id) {
+    return new MixinString(id, null);
+  }
 
-  public static MixinString Dynamic(string value) => new(-1, value);
+  public static MixinString Dynamic(string value) {
+    return new MixinString(-1, value);
+  }
 
-  public string Resolve(MixinStringPool pool) => IsInterned ? pool[Id] : DynamicValue;
+  public string Resolve(MixinStringPool pool) {
+    return IsInterned ? pool[Id] : DynamicValue;
+  }
 
   public bool Equals(MixinString other) {
     return IsInterned == other.IsInterned && (IsInterned
@@ -27,12 +33,21 @@ public readonly struct MixinString : IEquatable<MixinString> {
       : string.Equals(DynamicValue, other.DynamicValue, StringComparison.Ordinal));
   }
 
-  public override bool Equals(object value) => value is MixinString other && Equals(other);
+  public override bool Equals(object value) {
+    return value is MixinString other && Equals(other);
+  }
 
-  public override int GetHashCode() => IsInterned ? Id : StringComparer.Ordinal.GetHashCode(DynamicValue ?? "");
+  public override int GetHashCode() {
+    return IsInterned ? Id : StringComparer.Ordinal.GetHashCode(DynamicValue ?? "");
+  }
 
-  public static bool operator ==(MixinString left, MixinString right) => left.Equals(right);
-  public static bool operator !=(MixinString left, MixinString right) => !left.Equals(right);
+  public static bool operator ==(MixinString left, MixinString right) {
+    return left.Equals(right);
+  }
+
+  public static bool operator !=(MixinString left, MixinString right) {
+    return !left.Equals(right);
+  }
 }
 
 public sealed class MixinStringPool {
@@ -98,17 +113,29 @@ public sealed class MixinStringDictionary<T> : IDictionary<string, T>, IReadOnly
   public int Count => _values.Count;
   public bool IsReadOnly => false;
 
-  public void Add(string key, T value) => _values.Add(Key(key), value);
+  public void Add(string key, T value) {
+    _values.Add(Key(key), value);
+  }
 
-  public bool ContainsKey(string key) => _values.ContainsKey(Key(key));
+  public bool ContainsKey(string key) {
+    return _values.ContainsKey(Key(key));
+  }
 
-  public bool Remove(string key) => _values.Remove(Key(key));
+  public bool Remove(string key) {
+    return _values.Remove(Key(key));
+  }
 
-  public bool TryGetValue(string key, out T value) => _values.TryGetValue(Key(key), out value);
+  public bool TryGetValue(string key, out T value) {
+    return _values.TryGetValue(Key(key), out value);
+  }
 
-  public void Add(KeyValuePair<string, T> item) => Add(item.Key, item.Value);
+  public void Add(KeyValuePair<string, T> item) {
+    Add(item.Key, item.Value);
+  }
 
-  public void Clear() => _values.Clear();
+  public void Clear() {
+    _values.Clear();
+  }
 
   public bool Contains(KeyValuePair<string, T> item) {
     return TryGetValue(item.Key, out var value) && EqualityComparer<T>.Default.Equals(value, item.Value);
@@ -118,7 +145,9 @@ public sealed class MixinStringDictionary<T> : IDictionary<string, T>, IReadOnly
     foreach (var item in this) array[arrayIndex++] = item;
   }
 
-  public bool Remove(KeyValuePair<string, T> item) => Contains(item) && Remove(item.Key);
+  public bool Remove(KeyValuePair<string, T> item) {
+    return Contains(item) && Remove(item.Key);
+  }
 
   public IEnumerator<KeyValuePair<string, T>> GetEnumerator() {
     return _values.Select(item =>
@@ -126,8 +155,14 @@ public sealed class MixinStringDictionary<T> : IDictionary<string, T>, IReadOnly
     ).GetEnumerator();
   }
 
-  IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+  IEnumerator IEnumerable.GetEnumerator() {
+    return GetEnumerator();
+  }
+
   IEnumerable<string> IReadOnlyDictionary<string, T>.Keys => Keys;
   IEnumerable<T> IReadOnlyDictionary<string, T>.Values => Values;
-  private MixinString Key(string key) => _pool.Get(key);
+
+  private MixinString Key(string key) {
+    return _pool.Get(key);
+  }
 }

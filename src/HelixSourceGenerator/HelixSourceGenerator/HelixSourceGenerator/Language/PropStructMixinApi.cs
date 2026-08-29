@@ -258,8 +258,9 @@ internal sealed class PropStructMixinModel {
   internal IReadOnlyList<string> Annotations => _annotations;
   internal IReadOnlyList<string> Usings => _usings;
 
-  internal void AddConfiguration(string text, int order, int sequence) =>
+  internal void AddConfiguration(string text, int order, int sequence) {
     _configuration.Add(new ConfigurationOutput(text, order, sequence));
+  }
 
   internal void SortConfiguration() {
     _configuration.Sort((left, right) => {
@@ -274,6 +275,9 @@ internal sealed class PropStructMixinModel {
     switch (output.Target) {
       case MixinExpressionOutputTarget.Class: _class.Add(output.Text); break;
       case MixinExpressionOutputTarget.File: _file.Add(output.Text); break;
+      case MixinExpressionOutputTarget.Extends:
+        if (text.Length != 0 && !_implements.Contains(text)) _implements.Insert(0, text);
+        break;
       case MixinExpressionOutputTarget.Implements: AddUnique(_implements, text); break;
       case MixinExpressionOutputTarget.Annotation: AddUnique(_annotations, text); break;
       case MixinExpressionOutputTarget.Using:

@@ -1,8 +1,8 @@
 using System;
-using HelixSourceGenerator.Language.Compiler;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using HelixSourceGenerator.Language.Compiler;
 using HelixSourceGenerator.Language.Functions;
 using HelixSourceGenerator.Shared;
 using Microsoft.CodeAnalysis;
@@ -450,11 +450,15 @@ internal sealed class RoslynMixinContext :
 
   public bool TryResolveValue(
     MixinExpressionReference reference,
-    out object value,
+    out IMixinValue value,
     out string error
   ) {
-    if (!TrySubject(reference, out value, out error) ||
-      !ApplyValueProperties(reference, ref value, out error)) return false;
+    if (!TrySubject(reference, out var subject, out error)) {
+      value = null;
+      return false;
+    }
+    value = MixinValue.From(subject, this);
+    if (!ApplyValueProperties(reference, ref value, out error)) return false;
     if (!reference.Properties.Any(IsPredicate)) return true;
     value = null;
     error = "boolean pseudo-properties cannot be used as values";
@@ -462,8 +466,10 @@ internal sealed class RoslynMixinContext :
   }
 
   public bool TryRenderValue(
-    object value, MixinExpressionRoot? root, out string text, out string error
-  ) => TryRender(value, root, out text, out error);
+    IMixinValue value, MixinExpressionRoot? root, out string text, out string error
+  ) {
+    return TryRender(value?.Value, root, out text, out error);
+  }
 
   public bool TryEvaluate(
     MixinExpressionReference reference,
@@ -472,8 +478,7 @@ internal sealed class RoslynMixinContext :
   ) {
     value = false;
     var predicates = reference.Properties.Where(IsPredicate).ToArray();
-    if (!TrySubject(reference, out var subject, out error) ||
-      !ApplyValueProperties(reference, ref subject, out error)) {
+    if (!TrySubject(reference, out var rawSubject, out error)) {
       if (IsDeveloperExpressionError(error)) return false;
       error = null;
       if (predicates.Length == 0) {
@@ -482,13 +487,15 @@ internal sealed class RoslynMixinContext :
       }
       value = true;
       foreach (var predicate in predicates) {
-        if (!TryEvaluatePredicate(null, predicate, out var item, out error)) return false;
+        if (!TryEvaluatePredicate(NullMixinValue.Instance, predicate, out var item, out error)) return false;
         value &= predicate.Negated ? !item : item;
       }
       return true;
     }
+    var subject = MixinValue.From(rawSubject, this);
+    if (!ApplyValueProperties(reference, ref subject, out error)) return false;
     if (predicates.Length == 0) {
-      value = IsTruthy(subject);
+      value = subject.IsTruthy;
       return true;
     }
     value = true;
@@ -539,18 +546,16 @@ internal sealed class RoslynMixinContext :
 
   private IParameterSymbol SelectArgument(string member) {
     if (string.IsNullOrEmpty(member)) return null;
-    if (int.TryParse(member, NumberStyles.None, CultureInfo.InvariantCulture, out var index)) {
+    if (int.TryParse(member, NumberStyles.None, CultureInfo.InvariantCulture, out var index))
       return index >= 0 && index < _arguments.Count ? _arguments[index] : null;
-    }
     return _arguments.FirstOrDefault(item => item.Name == member) ??
       _arguments.FirstOrDefault(item => string.Equals(item.Name, member, StringComparison.OrdinalIgnoreCase));
   }
 
   private MixinExpressionTable ArgumentsTable() {
     var table = new MixinExpressionTable();
-    for (var index = 0; index < _arguments.Count; index++) {
+    for (var index = 0; index < _arguments.Count; index++)
       table = table.Put(index.ToString(CultureInfo.InvariantCulture), _arguments[index]);
-    }
     return table;
   }
 
@@ -631,12 +636,12 @@ internal sealed class RoslynMixinContext :
 
   private bool ApplyValueProperties(
     MixinExpressionReference reference,
-    ref object subject,
+    ref IMixinValue value,
     out string error
   ) {
     foreach (var property in reference.Properties.Where(item => !IsPredicate(item))) {
       if (!FunctionLibrary.TryInvoke(
-        property, this, reference.Root.Keyword(), reference.Member, ref subject, out error
+        property, this, reference.Root.Keyword(), reference.Member, ref value, out error
       )) return false;
     }
     error = null;
@@ -705,26 +710,15 @@ internal sealed class RoslynMixinContext :
     return null;
   }
 
-  internal static bool IsTruthy(object subject) {
-    return subject switch {
-      null => false,
-      TypedConstant constant => constant.Kind != TypedConstantKind.Error &&
-        !constant.IsNull && constant.Value is not false,
-      ImplicitMixinValue value => value.Value is not null && value.Value is not false,
-      bool value => value,
-      _ => true
-    };
-  }
-
   private bool TryEvaluatePredicate(
-    object subject,
+    IMixinValue subject,
     MixinExpressionProperty property,
     out bool value,
     out string error
   ) {
     if (FunctionLibrary.TryGet(property.Name, out var function) &&
       function is PredicateFunctionDefinition predicate)
-      return predicate.Evaluate(new RoslynMixinValue(this, subject), property, out value, out error);
+      return predicate.Evaluate(subject, property, out value, out error);
     value = false;
     error = "unknown boolean pseudo-property ':?" + property.Name + "'";
     return false;
@@ -947,7 +941,9 @@ internal sealed class RoslynMixinContext :
     );
   }
 
-  private static bool IsPredicate(MixinExpressionProperty property) => FunctionLibrary.IsPredicate(property.Name);
+  private static bool IsPredicate(MixinExpressionProperty property) {
+    return FunctionLibrary.IsPredicate(property.Name);
+  }
 
   internal static string NameOf(object subject) {
     return subject switch {

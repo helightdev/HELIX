@@ -63,6 +63,47 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void HoistedStructuralDirectiveKeepsItsRoslynSyntaxTarget() {
+    var success = MixinExpressionCompiler.TryHoistPrelude(
+      "",
+      "@AUGMENT_STRUCT<PropsModel> @this\n@CODE @local#PropsModel:structArgs",
+      null,
+      out var prelude,
+      out var lateExpression,
+      out var error,
+      out var errorLine
+    );
+
+    Assert.True(success, $"line {errorLine}: {error}");
+    Assert.Contains("@AUGMENT_STRUCT<PropsModel> @this", prelude);
+    Assert.DoesNotContain("@AUGMENT_STRUCT<PropsModel> @carry", prelude);
+    Assert.Contains("@CARRY<__0> @local#PropsModel", prelude);
+    Assert.Contains("@CARRY<__1> @local#PropsModel:structArgs", prelude);
+    Assert.Contains("@CODE @carry#__1", lateExpression);
+  }
+
+  [Fact]
+  public void HoistingCarriesBooleanSubjectsButKeepsTheirPredicates() {
+    var success = MixinExpressionCompiler.TryHoistPrelude(
+      "",
+      "@MATCH @this:?is<MonoBehaviour>\n@MATCH @attr#type:?exists",
+      null,
+      out var prelude,
+      out var lateExpression,
+      out var error,
+      out var errorLine
+    );
+
+    Assert.True(success, $"line {errorLine}: {error}");
+    Assert.Contains("@CARRY<__0> @this", prelude);
+    Assert.Contains("@CARRY<__1> @attr#type", prelude);
+    Assert.DoesNotContain(":?is<MonoBehaviour>", prelude);
+    Assert.DoesNotContain(":?exists", prelude);
+    Assert.Contains("@MATCH @carry#__0:is<MonoBehaviour>", lateExpression);
+    Assert.Contains("@MATCH @carry#__1:exists", lateExpression);
+  }
+
+  [Fact]
   public void CallsCanReturnValuesIntoLocals() {
     var result = MixinExpressionVirtualMachine.Execute(
       """
@@ -506,6 +547,7 @@ public sealed class MixinExpressionInterpreterTests {
       @CODE target
       @CODE<CLASS> class
       @CODE<FILE> file
+      @CODE<EXTENDS> global::Base
       @CODE<IMPLEMENTS> global::IFeature
       @CODE<ANNOTATION> global::Generated
       @USING System.Collections.Generic
@@ -520,6 +562,7 @@ public sealed class MixinExpressionInterpreterTests {
         MixinExpressionOutputTarget.Target,
         MixinExpressionOutputTarget.Class,
         MixinExpressionOutputTarget.File,
+        MixinExpressionOutputTarget.Extends,
         MixinExpressionOutputTarget.Implements,
         MixinExpressionOutputTarget.Annotation,
         MixinExpressionOutputTarget.Using,
@@ -527,7 +570,7 @@ public sealed class MixinExpressionInterpreterTests {
       },
       result.Outputs.Select(item => item.Target)
     );
-    Assert.Equal("DisposeHook", result.Outputs[6].InjectionTarget);
+    Assert.Equal("DisposeHook", result.Outputs[7].InjectionTarget);
   }
 
   [Fact]

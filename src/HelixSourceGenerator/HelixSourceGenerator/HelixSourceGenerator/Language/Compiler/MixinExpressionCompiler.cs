@@ -3,172 +3,51 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using HelixSourceGenerator.Language.Functions;
 
 namespace HelixSourceGenerator.Language.Compiler;
 
-using static MixinExpressionVirtualMachine;
-
 public static class MixinExpressionCompiler {
-  internal static MixinProgramSyntax GetProgram(string expression) => new(expression);
-
-  public static MixinExpressionValidationResult ValidateSyntax(string expression) =>
-    MixinExpressionParser.ValidateSyntax(expression, false);
-
-  internal static MixinExpressionValidationResult ValidateFunctionLibrary(string expression) =>
-    MixinExpressionParser.ValidateSyntax(expression, true);
-
-  public static bool TryParseReference(string text, out MixinExpressionReference reference, out string error) {
-    reference = null;
-    error = null;
-    if (text is null) { error = "reference is null"; return false; }
-    var position = 0;
-    if (TryReadReferenceNode(text, ref position, out reference, out error) &&
-      position == text.Length) return true;
-    error ??= "unexpected text after expression reference";
-    reference = null;
-    return false;
-  }
-
-  internal static bool TryReadReferenceNode(
-    string text, ref int position, out MixinExpressionReference reference, out string error
-  ) {
-    reference = null;
-    error = null;
-    if (position >= text.Length || text[position] != '@') {
-      error = "expected '@' expression reference";
-      return false;
-    }
-    position++;
-    var parenthesized = position < text.Length && text[position] == '(';
-    if (parenthesized) position++;
-    MixinExpressionRoot root;
-    if (position < text.Length && text[position] == ':') root = MixinExpressionRoot.Null;
-    else {
-      var rootStart = position;
-      while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
-      if (position == rootStart) { error = "expression reference has no root"; return false; }
-      var keyword = text.Substring(rootStart, position - rootStart);
-      if (!TryParseRoot(keyword, out root)) { error = "unknown expression root '@" + keyword + "'"; return false; }
-    }
-    string member = null;
-    if (position < text.Length && text[position] == '#') {
-      position++;
-      var start = position;
-      while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
-      if (position == start) { error = "member reference is empty"; return false; }
-      member = text.Substring(start, position - start);
-    }
-    var properties = new List<MixinExpressionProperty>();
-    while (position < text.Length && (text[position] == ':' || text[position] == '#')) {
-      if (text[position] == '#') {
-        position++;
-        var start = position;
-        while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
-        if (position == start) { error = "type argument path is empty"; return false; }
-        properties.Add(new MixinExpressionProperty("path", text.Substring(start, position - start)));
-        continue;
-      }
-      position++;
-      var negated = false;
-      if (position < text.Length && text[position] == '!') { negated = true; position++; }
-      if (position < text.Length && text[position] == '?') position++;
-      var propertyStart = position;
-      while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
-      if (position == propertyStart) { error = "property name is empty"; return false; }
-      var name = text.Substring(propertyStart, position - propertyStart);
-      var arguments = new List<string>();
-      while (position < text.Length && text[position] == '<') {
-        position++;
-        var argumentStart = position;
-        var depth = 1;
-        while (position < text.Length && depth != 0) {
-          if (text[position] == '<') depth++;
-          else if (text[position] == '>') depth--;
-          if (depth != 0) position++;
-        }
-        if (depth != 0) { error = "unterminated property argument"; return false; }
-        arguments.Add(text.Substring(argumentStart, position - argumentStart));
-        position++;
-      }
-      var parsedArguments = arguments.Select(argument => ParsePropertyArgument(name, argument)).ToArray();
-      var property = new MixinExpressionProperty(name, arguments.AsReadOnly(), parsedArguments, negated);
-      if (FunctionLibrary.TryGet(name, out var function) && !function.Validate(property, out error)) return false;
-      properties.Add(property);
-    }
-    for (var index = 0; index + 1 < properties.Count; index++) {
-      if (!FunctionLibrary.IsPredicate(properties[index].Name)) continue;
-      error = "boolean operation ':" + properties[index].Name + "' must be terminal";
-      return false;
-    }
-    if (parenthesized) {
-      if (position >= text.Length || text[position] != ')') { error = "unterminated parenthesized reference"; return false; }
-      position++;
-    }
-    reference = new MixinExpressionReference(root, member, properties.AsReadOnly());
-    return true;
-  }
-
-  private static MixinPropertyArgumentSyntax ParsePropertyArgument(string property, string argument) {
-    if (property is "and" or "or" && MixinExpressionParser.IsDynamicArgument(argument))
-      return new MixinPropertyArgumentSyntax(
-        null, null,
-        MixinExpressionParser.ParseBooleanExpression(argument.Substring(1, argument.Length - 2))
-      );
-    if (MixinExpressionParser.IsDynamicArgument(argument))
-      return new MixinPropertyArgumentSyntax(
-        null, MixinExpressionParser.ParseValueExpression(argument.Substring(1, argument.Length - 2)), null
-      );
-    return new MixinPropertyArgumentSyntax(argument, null, null);
-  }
-
-  private static bool TryParseRoot(string keyword, out MixinExpressionRoot root) {
-    switch (keyword) {
-      case "target": root = MixinExpressionRoot.Target; return true;
-      case "this": root = MixinExpressionRoot.This; return true;
-      case "attr": root = MixinExpressionRoot.Attribute; return true;
-      case "arg": root = MixinExpressionRoot.Argument; return true;
-      case "var": root = MixinExpressionRoot.Variable; return true;
-      case "local": root = MixinExpressionRoot.Local; return true;
-      case "true": root = MixinExpressionRoot.True; return true;
-      case "false": root = MixinExpressionRoot.False; return true;
-      case "null": root = MixinExpressionRoot.Null; return true;
-      case "table": root = MixinExpressionRoot.Table; return true;
-      case "param": root = MixinExpressionRoot.Parameter; return true;
-      case "carry": root = MixinExpressionRoot.Carry; return true;
-      default: root = default; return false;
-    }
-  }
-
   private static readonly HashSet<MixinExpressionRoot> RoslynRoots = [
     MixinExpressionRoot.Target, MixinExpressionRoot.This, MixinExpressionRoot.Attribute, MixinExpressionRoot.Argument
   ];
 
-  public static string RewriteTargetAsThis(string expression) {
-    if (string.IsNullOrEmpty(expression)) return expression ?? "";
-    var builder = new StringBuilder(expression.Length);
-    for (var index = 0; index < expression.Length;) {
-      var rootStart = -1;
-      if (expression[index] == '@') {
-        if (MatchesRoot(expression, index + 1, "target")) rootStart = index + 1;
-        else if (index + 1 < expression.Length && expression[index + 1] == '(' &&
-          MatchesRoot(expression, index + 2, "target")) rootStart = index + 2;
-      }
-      if (rootStart < 0) {
-        builder.Append(expression[index++]);
-        continue;
-      }
-      builder.Append(expression, index, rootStart - index).Append("this");
-      index = rootStart + "target".Length;
-    }
-    return builder.ToString();
+  internal static MixinProgramSyntax GetProgram(string expression) {
+    return new MixinProgramSyntax(expression);
   }
 
-  private static bool MatchesRoot(string expression, int start, string root) {
-    if (start + root.Length > expression.Length ||
-      string.CompareOrdinal(expression, start, root, 0, root.Length) != 0) return false;
-    var end = start + root.Length;
-    return end == expression.Length || !(char.IsLetterOrDigit(expression[end]) || expression[end] == '_');
+  public static MixinExpressionValidationResult ValidateSyntax(string expression) {
+    return MixinExpressionParser.ValidateSyntax(expression, false);
+  }
+
+  internal static MixinExpressionValidationResult ValidateFunctionLibrary(string expression) {
+    return MixinExpressionParser.ValidateSyntax(expression, true);
+  }
+
+  public static bool TryParseReference(string text, out MixinExpressionReference reference, out string error) {
+    return MixinExpressionParser.TryParseReference(text, out reference, out error);
+  }
+
+  public static string RewriteTargetAsThis(string expression) {
+    MixinExpressionReference Rewrite(MixinExpressionReference reference) {
+      var properties = reference.Properties.Select(property => RewriteProperty(property, Rewrite)).ToArray();
+      return new MixinExpressionReference(
+        reference.Root == MixinExpressionRoot.Target ? MixinExpressionRoot.This : reference.Root,
+        reference.Member, properties, reference.Parenthesized
+      );
+    }
+
+    var program = GetProgram(expression ?? "");
+    if (program.Diagnostics.Count == 0) {
+      return MixinSyntaxRenderer.RenderInstructions(
+        program.AvailableInstructions().Select(instruction =>
+          RewriteReferences(instruction, Rewrite)
+        )
+      );
+    }
+    var value = MixinExpressionParser.ParseValueExpression(expression ?? "").Select(part =>
+      part.Reference is null ? part : new ValueExpressionPart(null, Rewrite(part.Reference))
+    ).ToArray();
+    return MixinSyntaxRenderer.RenderValue(value);
   }
 
   public static bool TryHoistPrelude(
@@ -182,73 +61,46 @@ public static class MixinExpressionCompiler {
   ) {
     if (!TryExpandInlines(
       explicitPrelude, expression, preparedState,
-      out explicitPrelude, out expression, out error, out errorLine
+      out var expandedPrelude, out var expandedExpression, out error, out errorLine
     )) {
       prelude = explicitPrelude ?? "";
       lateExpression = expression ?? "";
       return false;
     }
-    var generated = new List<string>();
+    var generated = new List<DirectiveInstruction>();
     var labels = new Dictionary<string, string>(StringComparer.Ordinal);
     var structuralLocals = new HashSet<string>(StringComparer.Ordinal);
-    var late = new List<string>();
+    var late = new List<DirectiveInstruction>();
     error = null;
     errorLine = 0;
-    var lines = MixinExpressionParser.SplitLines(expression ?? "");
-    var localFunctions = new HashSet<string>(StringComparer.Ordinal);
-    for (var index = 0; index < lines.Length; index++) {
-      var candidate = MixinExpressionParser.ParseDirective(lines[index], index + 1);
-      if (candidate.Error is null && candidate.Node is FunctionDirectiveSyntax)
-        localFunctions.Add(candidate.Node.Argument);
-    }
-    for (var index = 0; index < lines.Length; index++) {
-      var line = lines[index];
-      var parseResult = MixinExpressionParser.ParseDirective(line, index + 1);
-      var parsed = parseResult.Node;
-      if (parseResult.Error is not null) {
-        prelude = explicitPrelude ?? "";
-        lateExpression = expression ?? "";
-        error = parseResult.Error;
-        errorLine = index + 1;
-        return false;
-      }
-      if (parsed is CallDirectiveSyntax && (
-        parsed.Arguments.Count == 0 ||
-        MixinExpressionParser.IsDynamicArgument(parsed.Arguments[0]) ||
-        !localFunctions.Contains(parsed.Arguments[0])
-      )) {
+    var localFunctions = new HashSet<string>(
+      expandedExpression.OfType<FunctionDirectiveSyntax>().Select(item => item.Name), StringComparer.Ordinal
+    );
+    foreach (var parsed in expandedExpression) {
+      if (parsed is CallDirectiveSyntax call && !localFunctions.Contains(call.Function ?? "")) {
         prelude = explicitPrelude ?? "";
         lateExpression = expression ?? "";
         error = "Prelude-model expressions may only call functions declared in the same expression; imported call '" +
-          (parsed.Arguments.Count == 0 ? "" : parsed.Arguments[0]) + "' is not supported";
-        errorLine = index + 1;
+          (call.Function ?? "") + "' is not supported";
+        errorLine = parsed.Line;
         return false;
       }
       if (parsed is DirectiveInvocationSyntax {
         Definition: DirectiveFunctionDefinition { HoistedLocalArgumentIndex: >= 0 }
       }) {
-        if (!TryHoistStructuralDirective(parsed, line, generated, labels, structuralLocals, out error)) {
+        if (!TryHoistStructuralDirective(parsed, generated, labels, structuralLocals, out error)) {
           prelude = explicitPrelude ?? "";
           lateExpression = expression ?? "";
-          errorLine = index + 1;
+          errorLine = parsed.Line;
           return false;
         }
-        late.Add("");
+        late.Add(new EmptyDirectiveSyntax(parsed.Line));
         continue;
       }
-      if (!TryRewriteRoslynReferences(line, generated, labels, structuralLocals, out var rewritten, out error)) {
-        prelude = explicitPrelude ?? "";
-        lateExpression = expression ?? "";
-        errorLine = index + 1;
-        return false;
-      }
-      late.Add(MixinSyntaxRenderer.RenderLogicalLine(rewritten));
+      late.Add(RewriteRoslynReferences(parsed, generated, labels, structuralLocals));
     }
-    var parts = new List<string>();
-    if (!string.IsNullOrWhiteSpace(explicitPrelude)) parts.Add(explicitPrelude);
-    if (generated.Count != 0) parts.Add(string.Join("\n", generated));
-    prelude = string.Join("\n", parts);
-    lateExpression = string.Join("\n", late);
+    prelude = MixinSyntaxRenderer.RenderInstructions(expandedPrelude.Concat(generated));
+    lateExpression = MixinSyntaxRenderer.RenderInstructions(late);
     return true;
   }
 
@@ -256,8 +108,8 @@ public static class MixinExpressionCompiler {
     string explicitPrelude,
     string expression,
     MixinExpressionPreparedState preparedState,
-    out string expandedPrelude,
-    out string expandedExpression,
+    out IReadOnlyList<DirectiveInstruction> expandedPrelude,
+    out IReadOnlyList<DirectiveInstruction> expandedExpression,
     out string error,
     out int errorLine
   ) {
@@ -272,20 +124,22 @@ public static class MixinExpressionCompiler {
     }
     if (!TryCollectInlineFunctions(explicitPrelude, functions, out error, out errorLine) ||
       !TryCollectInlineFunctions(expression, functions, out error, out errorLine)) {
-      expandedPrelude = explicitPrelude ?? "";
-      expandedExpression = expression ?? "";
+      expandedPrelude = [];
+      expandedExpression = [];
       return false;
     }
     var inlineSequence = 0;
     if (!TryExpandInlineProgram(
-      explicitPrelude, functions, new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
+      GetProgram(explicitPrelude ?? "").AvailableInstructions(), functions,
+      new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
       out expandedPrelude, out error, out errorLine
     )) {
-      expandedExpression = expression ?? "";
+      expandedExpression = [];
       return false;
     }
     return TryExpandInlineProgram(
-      expression, functions, new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
+      GetProgram(expression ?? "").AvailableInstructions(), functions,
+      new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
       out expandedExpression, out error, out errorLine
     );
   }
@@ -321,80 +175,67 @@ public static class MixinExpressionCompiler {
   }
 
   private static bool TryExpandInlineProgram(
-    string source,
+    IEnumerable<DirectiveInstruction> source,
     IReadOnlyDictionary<string, IReadOnlyList<DirectiveInstruction>> functions,
     ISet<string> activeFunctions,
     ref int inlineSequence,
-    out string expanded,
+    out IReadOnlyList<DirectiveInstruction> expanded,
     out string error,
     out int errorLine
   ) {
-    var result = new List<string>();
-    var program = GetProgram(source ?? "");
-    if (program.Diagnostics.Count != 0) {
-      expanded = source ?? "";
-      error = program.Diagnostics[0].Message;
-      errorLine = program.Diagnostics[0].Line;
-      return false;
-    }
-    for (var index = 0; index < program.Count; index++) {
-      var instruction = program.Get(index);
-      if (instruction is not InlineDirectiveSyntax) {
-        result.Add(MixinSyntaxRenderer.RenderInstruction(instruction));
+    var result = new List<DirectiveInstruction>();
+    foreach (var instruction in source) {
+      if (instruction is not InlineDirectiveSyntax inline) {
+        result.Add(instruction);
         continue;
       }
-      var name = instruction.Argument ?? "";
+      var name = inline.Name ?? "";
       if (!functions.TryGetValue(name, out var body)) {
-        expanded = source ?? "";
+        expanded = [];
         error = "unknown inline function '" + name + "'";
         errorLine = instruction.Line;
         return false;
       }
       if (!activeFunctions.Add(name)) {
-        expanded = source ?? "";
+        expanded = [];
         error = "recursive inline function '" + name + "'";
         errorLine = instruction.Line;
         return false;
       }
       var suffix = "__inline_" + inlineSequence++.ToString(CultureInfo.InvariantCulture);
       var endLabel = suffix + "_end";
-      var labels = body.Where(item =>
-          item is ScopeDirectiveSyntax or LabelDirectiveSyntax &&
-          !string.IsNullOrEmpty(item.Argument)
-        )
-        .Select(item => item.Argument).Distinct(StringComparer.Ordinal)
+      var labels = body.Select(LabelOf).Where(item => !string.IsNullOrEmpty(item))
+        .Distinct(StringComparer.Ordinal)
         .ToDictionary(item => item, item => item + suffix, StringComparer.Ordinal);
-      var bodyLines = new List<string>();
+      var bodyNodes = new List<DirectiveInstruction>();
       foreach (var item in body) {
         switch (item) {
-          case ReturnDirectiveSyntax: {
-            if (!string.IsNullOrEmpty(item.Operand))
-              bodyLines.Add("@LOCAL<" + suffix + "_return> " + item.Operand);
-            bodyLines.Add("@GOTO<" + endLabel + ">");
+          case ReturnDirectiveSyntax returned: {
+            if (!IsEmptyValue(returned.Expression))
+              bodyNodes.Add(new LocalDirectiveSyntax(item.Line, suffix + "_return", returned.Expression));
+            bodyNodes.Add(new GotoDirectiveSyntax(item.Line, endLabel));
             continue;
           }
           case ScopeDirectiveSyntax or LabelDirectiveSyntax or GotoDirectiveSyntax or MatchDirectiveSyntax
-            when !string.IsNullOrEmpty(item.Argument) &&
-            labels.TryGetValue(item.Argument, out var renamed):
-            bodyLines.Add(MixinSyntaxRenderer.RenderInstruction(item, renamed));
+            when LabelOf(item) is { Length: > 0 } label && labels.TryGetValue(label, out var renamed):
+            bodyNodes.Add(RenameLabel(item, renamed));
             continue;
-          default: bodyLines.Add(MixinSyntaxRenderer.RenderInstruction(item)); break;
+          default: bodyNodes.Add(item); break;
         }
       }
-      var bodySource = string.Join("\n", bodyLines);
       if (!TryExpandInlineProgram(
-        bodySource, functions, activeFunctions, ref inlineSequence,
+        bodyNodes, functions, activeFunctions, ref inlineSequence,
         out var expandedBody, out error, out errorLine
       )) {
-        expanded = source ?? "";
+        expanded = [];
         activeFunctions.Remove(name);
         return false;
       }
       activeFunctions.Remove(name);
-      if (!string.IsNullOrEmpty(expandedBody)) result.Add(expandedBody);
-      result.Add("@SCOPE<" + endLabel + ">");
+      result.AddRange(expandedBody);
+      result.Add(new ScopeDirectiveSyntax(inline.Line, endLabel));
     }
-    expanded = string.Join("\n", result);
+    expanded = result.AsReadOnly();
     error = null;
     errorLine = 0;
     return true;
@@ -402,8 +243,7 @@ public static class MixinExpressionCompiler {
 
   private static bool TryHoistStructuralDirective(
     DirectiveInstruction instruction,
-    string line,
-    ICollection<string> generated,
+    ICollection<DirectiveInstruction> generated,
     IDictionary<string, string> labels,
     ISet<string> structuralLocals,
     out string error
@@ -411,64 +251,194 @@ public static class MixinExpressionCompiler {
     var localIndex = (instruction as DirectiveInvocationSyntax)?.Definition is DirectiveFunctionDefinition function
       ? function.HoistedLocalArgumentIndex
       : -1;
-    var local = localIndex >= 0 && instruction.Arguments.Count > localIndex
-      ? instruction.Arguments[localIndex]
+    var invocation = (DirectiveInvocationSyntax)instruction;
+    var localArgument = localIndex >= 0 && invocation.ParsedArguments.Count > localIndex
+      ? invocation.ParsedArguments[localIndex]
       : null;
-    if (string.IsNullOrEmpty(local) || MixinExpressionParser.IsDynamicArgument(local)) {
-      error = "@" + instruction.Command + " cannot be hoisted because its result local is dynamic";
+    var local = localArgument?.Literal;
+    if (string.IsNullOrEmpty(local) || localArgument.IsDynamic) {
+      error = "@" + invocation.Definition.Name + " cannot be hoisted because its result local is dynamic";
       return false;
     }
-    if (!TryRewriteRoslynReferences(
-      line, generated, labels, structuralLocals, out var rewritten, out error
-    )) return false;
-    generated.Add(rewritten);
-    var access = "@local#" + local;
+    // Structural directives execute in the Roslyn-backed prelude and consume their syntax target
+    // directly. Rewriting that target to @carry would make the host context receive a runtime root.
+    generated.Add(instruction);
+    var localReference = new MixinExpressionReference(MixinExpressionRoot.Local, local, []);
+    var access = MixinSyntaxRenderer.RenderReference(localReference);
     var label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
     labels[access] = label;
-    generated.Add("@CARRY<" + label + "> " + access);
+    generated.Add(
+      new CarryDirectiveSyntax(
+        instruction.Line, label, [new ValueExpressionPart(null, localReference)]
+      )
+    );
     structuralLocals.Add(local);
+    error = null;
     return true;
   }
 
-  private static bool TryRewriteRoslynReferences(
-    string text,
-    ICollection<string> generated,
+  private static DirectiveInstruction RewriteRoslynReferences(
+    DirectiveInstruction instruction,
+    ICollection<DirectiveInstruction> generated,
     IDictionary<string, string> labels,
-    ISet<string> structuralLocals,
-    out string rewritten,
-    out string error
+    ISet<string> structuralLocals
   ) {
-    var builder = new StringBuilder(text.Length);
-    var position = 0;
-    error = null;
-    while (position < text.Length) {
-      if (text[position] != '@' || (position + 1 < text.Length && text[position + 1] == '@')) {
-        builder.Append(text[position++]);
-        continue;
-      }
-      var start = position;
-      if (!TryReadReferenceNode(text, ref position, out var reference, out _)) {
-        builder.Append(text[start]);
-        position = start + 1;
-        continue;
-      }
+    MixinExpressionReference RewriteReference(MixinExpressionReference reference) {
       var roslyn = RoslynRoots.Contains(reference.Root) ||
         (reference.Root == MixinExpressionRoot.Local &&
           structuralLocals?.Contains(reference.Member ?? "") == true);
-      if (!roslyn) {
-        builder.Append(text, start, position - start);
-        continue;
-      }
-      var access = text.Substring(start, position - start);
+      if (!roslyn) return RewriteNested(reference);
+      var access = MixinSyntaxRenderer.RenderReference(reference);
       if (!labels.TryGetValue(access, out var label)) {
         label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
         labels.Add(access, label);
-        generated.Add("@CARRY<" + label + "> " + access);
+        generated.Add(
+          new CarryDirectiveSyntax(
+            instruction.Line, label, [new ValueExpressionPart(null, reference)]
+          )
+        );
       }
-      builder.Append(access.StartsWith("@(", StringComparison.Ordinal) ? "@(carry#" + label + ")" : "@carry#" + label);
+      return new MixinExpressionReference(
+        MixinExpressionRoot.Carry, label, [], reference.Parenthesized
+      );
     }
-    rewritten = builder.ToString();
-    return true;
+
+    MixinExpressionReference RewriteNested(MixinExpressionReference reference) {
+      var properties = reference.Properties.Select(property => RewriteProperty(property, RewriteReference)).ToArray();
+      return new MixinExpressionReference(
+        reference.Root, reference.Member, properties, reference.Parenthesized
+      );
+    }
+
+    return RewriteReferences(instruction, RewriteReference);
+  }
+
+  private static DirectiveInstruction RewriteReferences(
+    DirectiveInstruction instruction,
+    Func<MixinExpressionReference, MixinExpressionReference> rewrite
+  ) {
+    IReadOnlyList<ValueExpressionPart> Value(IReadOnlyList<ValueExpressionPart> value) {
+      return [
+        .. (value ?? []).Select(part => part.Reference is null
+          ? part
+          : new ValueExpressionPart(null, RewriteComplete(part.Reference))
+        )
+      ];
+    }
+
+    IReadOnlyList<MixinExpressionReference> Boolean(IReadOnlyList<MixinExpressionReference> value) {
+      return [.. (value ?? []).Select(item => item is null ? null : RewriteBoolean(item))];
+    }
+
+    DirectiveArgumentSyntax Argument(DirectiveArgumentSyntax value) {
+      return value is null
+        ? null
+        : value.IsDynamic
+          ? new DirectiveArgumentSyntax(null, Value(value.Expression))
+          : value;
+    }
+
+    MixinExpressionReference RewriteComplete(MixinExpressionReference reference) {
+      var properties = reference.Properties.Select(property => RewriteProperty(property, RewriteComplete)).ToArray();
+      return rewrite(
+        new MixinExpressionReference(
+          reference.Root, reference.Member, properties, reference.Parenthesized
+        )
+      );
+    }
+
+    MixinExpressionReference RewriteBoolean(MixinExpressionReference reference) {
+      var properties = reference.Properties.Select(property => RewriteProperty(property, RewriteComplete)).ToArray();
+      var predicateIndex = Array.FindIndex(properties, property => FunctionLibrary.IsPredicate(property.Name));
+      if (predicateIndex < 0) {
+        return rewrite(
+          new MixinExpressionReference(
+            reference.Root, reference.Member, properties, reference.Parenthesized
+          )
+        );
+      }
+      var subject = rewrite(
+        new MixinExpressionReference(
+          reference.Root, reference.Member, [.. properties.Take(predicateIndex)]
+        )
+      );
+      return new MixinExpressionReference(
+        subject.Root, subject.Member,
+        [.. subject.Properties, .. properties.Skip(predicateIndex)], reference.Parenthesized
+      );
+    }
+
+    return instruction switch {
+      DirectiveInvocationSyntax item => new DirectiveInvocationSyntax(
+        item.Line, item.Definition, [.. item.ParsedArguments.Select(Argument)], Value(item.Expression)
+      ),
+      CallDirectiveSyntax item => new CallDirectiveSyntax(
+        item.Line, item.Function, item.ReturnLocal, Value(item.Expression)
+      ),
+      MatchDirectiveSyntax item => new MatchDirectiveSyntax(item.Line, item.FailureLabel, Boolean(item.Expression)),
+      AssertDirectiveSyntax item => new AssertDirectiveSyntax(item.Line, Boolean(item.Expression)),
+      CodeDirectiveSyntax item => new CodeDirectiveSyntax(
+        item.Line, item.Target, item.InjectionTarget, Value(item.Expression)
+      ),
+      MixinDirectiveSyntax item => new MixinDirectiveSyntax(
+        item.Line, Argument(item.Target), Argument(item.Priority), Value(item.Expression)
+      ),
+      UsingDirectiveSyntax item => new UsingDirectiveSyntax(item.Line, Value(item.Expression)),
+      LogDirectiveSyntax item => new LogDirectiveSyntax(item.Line, Value(item.Expression)),
+      LocalDirectiveSyntax item => new LocalDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
+      VariableDirectiveSyntax item => new VariableDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
+      CarryDirectiveSyntax item => new CarryDirectiveSyntax(item.Line, item.Label, Value(item.Expression)),
+      ReturnDirectiveSyntax item => new ReturnDirectiveSyntax(item.Line, Value(item.Expression)),
+      FailDirectiveSyntax item => new FailDirectiveSyntax(item.Line, Value(item.Expression)),
+      _ => instruction
+    };
+  }
+
+  private static MixinExpressionProperty RewriteProperty(
+    MixinExpressionProperty property,
+    Func<MixinExpressionReference, MixinExpressionReference> rewrite
+  ) {
+    if (property.ParsedArguments.Count == 0)
+      return new MixinExpressionProperty(property.Name, property.Arguments, property.Negated);
+    var parsed = property.ParsedArguments.Select(argument => {
+        var value = argument.ValueExpression is null
+          ? null
+          : argument.ValueExpression.Select(part =>
+            part.Reference is null ? part : new ValueExpressionPart(null, rewrite(part.Reference))
+          ).ToArray();
+        var boolean = argument.BooleanExpression is null ? null : argument.BooleanExpression.Select(rewrite).ToArray();
+        return new MixinPropertyArgumentSyntax(argument.Literal, value, boolean);
+      }
+    ).ToArray();
+    var arguments = parsed.Select(argument => argument.Literal ?? (argument.BooleanExpression is not null
+      ? "(" + MixinSyntaxRenderer.RenderBoolean(argument.BooleanExpression) + ")"
+      : "(" + MixinSyntaxRenderer.RenderValue(argument.ValueExpression) + ")")
+    ).ToArray();
+    return new MixinExpressionProperty(property.Name, arguments, parsed, property.Negated);
+  }
+
+  private static string LabelOf(DirectiveInstruction instruction) {
+    return instruction switch {
+      ScopeDirectiveSyntax item => item.Label,
+      LabelDirectiveSyntax item => item.Name,
+      GotoDirectiveSyntax item => item.Label,
+      MatchDirectiveSyntax item => item.FailureLabel,
+      _ => null
+    };
+  }
+
+  private static DirectiveInstruction RenameLabel(DirectiveInstruction instruction, string label) {
+    return instruction switch {
+      ScopeDirectiveSyntax item => new ScopeDirectiveSyntax(item.Line, label),
+      LabelDirectiveSyntax item => new LabelDirectiveSyntax(item.Line, label),
+      GotoDirectiveSyntax item => new GotoDirectiveSyntax(item.Line, label),
+      MatchDirectiveSyntax item => new MatchDirectiveSyntax(item.Line, label, item.Expression),
+      _ => instruction
+    };
+  }
+
+  private static bool IsEmptyValue(IReadOnlyList<ValueExpressionPart> expression) {
+    return expression is null || expression.All(item => item.Reference is null && string.IsNullOrEmpty(item.Literal));
   }
 
   internal static void HoistLateCarries(
@@ -481,24 +451,12 @@ public static class MixinExpressionCompiler {
     late = lateExpression;
     if (string.IsNullOrEmpty(lateExpression)) return;
 
-    var carries = new List<string>();
-    var remaining = new List<string>();
-    var lines = MixinExpressionParser.SplitLines(lateExpression);
-    for (var index = 0; index < lines.Length; index++) {
-      var line = lines[index];
-      if (!string.IsNullOrWhiteSpace(line)) {
-        var parseResult = MixinExpressionParser.ParseDirective(line, index + 1);
-        var parsed = parseResult.Node;
-        if (parseResult.Error is null && parsed is CarryDirectiveSyntax) {
-          carries.Add(line);
-          continue;
-        }
-      }
-      remaining.Add(line);
-    }
-    if (carries.Count == 0) return;
-    primary = string.Join("\n", carries) + (primary.Length == 0 ? "" : "\n" + primary);
-    late = string.Join("\n", remaining);
+    var parsed = GetProgram(lateExpression);
+    var carries = parsed.AvailableInstructions().OfType<CarryDirectiveSyntax>().Cast<DirectiveInstruction>().ToArray();
+    var remaining = parsed.AvailableInstructions().Where(item => item is not CarryDirectiveSyntax).ToArray();
+    if (carries.Length == 0) return;
+    primary = MixinSyntaxRenderer.RenderInstructions(carries) + (primary.Length == 0 ? "" : "\n" + primary);
+    late = MixinSyntaxRenderer.RenderInstructions(remaining);
   }
 
   public static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
@@ -635,21 +593,21 @@ public static class MixinExpressionCompiler {
     var scope = false;
     for (var index = 0; index < instructions.Count; index++) {
       var instruction = instructions[index];
-      if (instruction.Command == "FUNC") {
+      if (instruction is FunctionDirectiveSyntax) {
         depth++;
         scope = false;
         continue;
       }
       if (depth != 0) {
-        switch (instruction.Command) {
-          case "SCOPE": scope = true; break;
-          case "LABEL":
-          case "END" when scope: scope = false; break;
-          case "END": depth--; break;
+        switch (instruction) {
+          case ScopeDirectiveSyntax: scope = true; break;
+          case LabelDirectiveSyntax:
+          case EndDirectiveSyntax when scope: scope = false; break;
+          case EndDirectiveSyntax: depth--; break;
         }
         continue;
       }
-      if (instruction.Command is "VAR" or "LOG") result.Add(index);
+      if (instruction is VariableDirectiveSyntax or LogDirectiveSyntax) result.Add(index);
     }
     return result;
   }
@@ -674,33 +632,33 @@ public static class MixinExpressionCompiler {
     var functionScope = false;
     for (var i = 0; i < program.Count; i++) {
       var instruction = program.Get(i);
-      if (instruction.Command == "FUNC") {
+      if (instruction is FunctionDirectiveSyntax) {
         functionDepth++;
         functionScope = false;
         continue;
       }
       if (functionDepth != 0) {
-        switch (instruction.Command) {
-          case "SCOPE": functionScope = true; break;
-          case "LABEL":
-          case "END" when functionScope: functionScope = false; break;
-          case "END": functionDepth--; break;
+        switch (instruction) {
+          case ScopeDirectiveSyntax: functionScope = true; break;
+          case LabelDirectiveSyntax:
+          case EndDirectiveSyntax when functionScope: functionScope = false; break;
+          case EndDirectiveSyntax: functionDepth--; break;
         }
         continue;
       }
-      switch (instruction.Command) {
-        case "VAR": {
+      switch (instruction) {
+        case VariableDirectiveSyntax variable: {
           executedOperations++;
-          if (!TryInterpolatePrepared(instruction.ValueExpression, variables, out var value, out error)) {
+          if (!TryInterpolatePrepared(variable.Expression, variables, out var value, out error)) {
             line = instruction.Line;
             return false;
           }
-          variables[instruction.Argument] = value;
+          variables[variable.Name] = value;
           break;
         }
-        case "LOG": {
+        case LogDirectiveSyntax log: {
           executedOperations++;
-          if (!TryInterpolatePrepared(instruction.ValueExpression, variables, out var value, out error)) {
+          if (!TryInterpolatePrepared(log.Expression, variables, out var value, out error)) {
             line = instruction.Line;
             return false;
           }
@@ -737,22 +695,26 @@ public static class MixinExpressionCompiler {
         error = "prepared global initializer references cannot have properties";
         return false;
       }
-      builder.Append(Render(value));
+      builder.Append(MixinValue.From(value).Render());
     }
     result = builder.ToString();
     return true;
   }
 
   private static void AddScopeLabel(
-    string command,
-    string argument,
+    DirectiveInstruction instruction,
     int index,
     int scope,
     IDictionary<string, int> labels,
     out string error
   ) {
     error = null;
-    if (command is not ("SCOPE" or "LABEL") || string.IsNullOrEmpty(argument)) return;
+    var argument = instruction switch {
+      ScopeDirectiveSyntax item => item.Label,
+      LabelDirectiveSyntax item => item.Name,
+      _ => null
+    };
+    if (string.IsNullOrEmpty(argument)) return;
     var key = ScopeLabelKey(scope, argument);
     if (labels.ContainsKey(key)) {
       error = "duplicate scope label '" + argument + "'";
@@ -779,11 +741,9 @@ public static class MixinExpressionCompiler {
         index = functionEnd;
         continue;
       }
-      var command = lines[index].Command;
-      if (string.IsNullOrEmpty(command)) continue;
-      switch (command) {
-        case "SCOPE" or "LABEL": return index;
-        case "END": return functionEnds.Contains(index) ? index : index + 1;
+      switch (lines[index]) {
+        case ScopeDirectiveSyntax or LabelDirectiveSyntax: return index;
+        case EndDirectiveSyntax: return functionEnds.Contains(index) ? index : index + 1;
       }
     }
     return -1;
@@ -811,19 +771,17 @@ public static class MixinExpressionCompiler {
       // Expression and function regions use disjoint ID ranges, including when both begin at 0.
       var scope = activeFunction is null ? -start - 1 : functionStart + 1;
       instructionScopes[index] = scope;
-      var command = instruction.Command;
-      var argument = instruction.Argument;
-      if (string.IsNullOrEmpty(command)) continue;
+      if (instruction is EmptyDirectiveSyntax) continue;
       if (activeFunction is not null) {
-        if (command == "FUNC") {
+        if (instruction is FunctionDirectiveSyntax) {
           error = "functions may not be nested";
           errorLine = instruction.Line;
           return false;
         }
-        if (command == "SCOPE") functionScopeOpen = true;
-        else if (command == "LABEL") functionScopeOpen = false;
-        if (command != "END") {
-          AddScopeLabel(command, argument, index, scope, labels, out error);
+        if (instruction is ScopeDirectiveSyntax) functionScopeOpen = true;
+        else if (instruction is LabelDirectiveSyntax) functionScopeOpen = false;
+        if (instruction is not EndDirectiveSyntax) {
+          AddScopeLabel(instruction, index, scope, labels, out error);
           if (error is not null) {
             errorLine = instruction.Line;
             return false;
@@ -840,18 +798,18 @@ public static class MixinExpressionCompiler {
         activeFunction = null;
         continue;
       }
-      if (command == "FUNC") {
-        if (functions.ContainsKey(argument)) {
-          error = "duplicate function '" + argument + "'";
+      if (instruction is FunctionDirectiveSyntax function) {
+        if (functions.ContainsKey(function.Name)) {
+          error = "duplicate function '" + function.Name + "'";
           errorLine = instruction.Line;
           return false;
         }
-        activeFunction = argument;
+        activeFunction = function.Name;
         functionStart = index;
         functionScopeOpen = false;
         continue;
       }
-      AddScopeLabel(command, argument, index, scope, labels, out error);
+      AddScopeLabel(instruction, index, scope, labels, out error);
       if (error is null) continue;
       errorLine = instruction.Line;
       return false;

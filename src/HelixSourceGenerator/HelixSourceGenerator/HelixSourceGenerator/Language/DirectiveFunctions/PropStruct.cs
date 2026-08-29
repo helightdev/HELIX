@@ -40,14 +40,14 @@ internal sealed class PropStructDirectiveFunction()
     }
     if (!invocation.ResolveArgument(0, out var name, out error) ||
       !invocation.ResolveArgument(1, out var local, out error)) return false;
-    if (invocation.Instruction.ValueExpression is not { Count: 1 } expression ||
+    if (invocation.Instruction.Expression is not { Count: 1 } expression ||
       expression[0].Reference is null) {
       error = "PROP_STRUCT syntax target must be a single reference";
       return false;
     }
     var datatype = false;
     var declaration = true;
-    for (var index = 2; index < invocation.Instruction.Arguments.Count; index++) {
+    for (var index = 2; index < invocation.Instruction.ParsedArguments.Count; index++) {
       if (!invocation.ResolveArgument(index, out var flag, out error)) return false;
       if (string.Equals(flag, "datatype", StringComparison.OrdinalIgnoreCase)) {
         if (datatype) {
@@ -108,7 +108,7 @@ internal sealed class AugmentStructDirectiveFunction()
       error = "AUGMENT_STRUCT local name is empty";
       return false;
     }
-    if (invocation.Instruction.ValueExpression is not { Count: 1 } expression ||
+    if (invocation.Instruction.Expression is not { Count: 1 } expression ||
       expression[0].Reference is null) {
       error = "AUGMENT_STRUCT syntax target must be a single reference";
       return false;

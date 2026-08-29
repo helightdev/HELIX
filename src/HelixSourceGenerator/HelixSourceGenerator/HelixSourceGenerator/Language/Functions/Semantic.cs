@@ -9,11 +9,12 @@ internal sealed class TypeFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    if (typed.Value is DetachedSemanticValue detached) value = detached.Type;
-    else if (typed.Value is not MixinGeneratedStructReference) value = typed.RoslynType;
+    if (typed.Value is DetachedSemanticValue detached)
+      value = detached.Type is null ? NullMixinValue.Instance : detached.Type;
+    else if (typed.Value is not MixinGeneratedStructReference) value = MixinValue.From(typed.RoslynType, context);
     return FunctionResult(Name, value, out error);
   }
 }
@@ -23,12 +24,14 @@ internal sealed class FullNameFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    value = typed.Value is MixinGeneratedStructReference generated
-      ? generated.TypeName.Replace("global::", "")
-      : typed.FullName;
+    value = MixinValue.From(
+      typed.Value is MixinGeneratedStructReference generated
+        ? generated.TypeName.Replace("global::", "")
+        : typed.FullName, context
+    );
     return FunctionResult(Name, value, out error);
   }
 }
@@ -38,7 +41,7 @@ internal sealed class MakeGenericFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
     var property = (MixinExpressionProperty)invocation;
@@ -57,8 +60,8 @@ internal sealed class MakeGenericFunction : FunctionDefinition {
       var openType = genericType.ConstructedFrom.ToDisplayString(
         SymbolDisplayFormat.FullyQualifiedFormat.WithGenericsOptions(SymbolDisplayGenericsOptions.None)
       );
-      value = openType + "<" + property.Argument + ">";
-    } else value = genericType.ConstructedFrom.Construct(genericArgument);
+      value = MixinValue.From(openType + "<" + property.Argument + ">", context);
+    } else value = MixinValue.From(genericType.ConstructedFrom.Construct(genericArgument), context);
     error = null;
     return true;
   }
@@ -69,11 +72,11 @@ internal sealed class VisibilityFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
     if (typed.Visibility is { } detachedVisibility) {
-      value = detachedVisibility;
+      value = MixinValue.From(detachedVisibility);
       error = null;
       return true;
     }
@@ -82,25 +85,24 @@ internal sealed class VisibilityFunction : FunctionDefinition {
       error = "property ':visibility' is not available for this value";
       return false;
     }
-    value = AccessibilityText(symbol.DeclaredAccessibility);
+    value = MixinValue.From(AccessibilityText(symbol.DeclaredAccessibility));
     error = null;
     return true;
   }
 }
 
 internal static class FunctionResults {
-  internal static bool FunctionResult(string name, object value, out string error) {
-    error = value is null ? "property ':" + name + "' is not available for this value" : null;
+  internal static bool FunctionResult(string name, IMixinValue value, out string error) {
+    error = value is null or NullMixinValue ? "property ':" + name + "' is not available for this value" : null;
     return error is null;
   }
 }
 
 internal abstract class AttributeFunction(string name, int arguments)
   : FunctionDefinition(name, arguments, arguments) {
-
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
     value = Select(typed, invocation);
@@ -108,27 +110,31 @@ internal abstract class AttributeFunction(string name, int arguments)
     return true;
   }
 
-  protected abstract object Select(IMixinValue value, FunctionInvocation invocation);
+  protected abstract IMixinValue Select(IMixinValue value, FunctionInvocation invocation);
 }
 
 internal sealed class AttributesFunction() : AttributeFunction("attributes", 0) {
-  protected override object Select(IMixinValue value, FunctionInvocation invocation) =>
-    value.Attributes(null, false);
+  protected override IMixinValue Select(IMixinValue value, FunctionInvocation invocation) {
+    return value.Attributes(null, false);
+  }
 }
 
 internal sealed class AttributesOfFunction() : AttributeFunction("attributesOf", 1) {
-  protected override object Select(IMixinValue value, FunctionInvocation invocation) =>
-    value.Attributes(invocation.Argument, false);
+  protected override IMixinValue Select(IMixinValue value, FunctionInvocation invocation) {
+    return value.Attributes(invocation.Argument, false);
+  }
 }
 
 internal sealed class AttributesOfExactFunction() : AttributeFunction("attributesOfExact", 1) {
-  protected override object Select(IMixinValue value, FunctionInvocation invocation) =>
-    value.Attributes(invocation.Argument, true);
+  protected override IMixinValue Select(IMixinValue value, FunctionInvocation invocation) {
+    return value.Attributes(invocation.Argument, true);
+  }
 }
 
 internal sealed class AttributeOfFunction() : AttributeFunction("attributeOf", 1) {
-  protected override object Select(IMixinValue value, FunctionInvocation invocation) =>
-    value.FirstAttribute(invocation.Argument);
+  protected override IMixinValue Select(IMixinValue value, FunctionInvocation invocation) {
+    return value.FirstAttribute(invocation.Argument);
+  }
 }
 
 internal sealed class WireFunction : FunctionDefinition {
@@ -136,11 +142,11 @@ internal sealed class WireFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
     if (!typed.TryWire(invocation.Argument, out var wired, out error)) return false;
-    value = wired;
+    value = MixinValue.From(wired);
     return true;
   }
 }
@@ -150,9 +156,11 @@ internal sealed class PropStructFunction : FunctionDefinition {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    return typed.TryApplyPropStruct((MixinExpressionProperty)invocation, out value, out error);
+    if (!typed.TryApplyPropStruct((MixinExpressionProperty)invocation, out var result, out error)) return false;
+    value = result;
+    return true;
   }
 }

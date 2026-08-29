@@ -17,15 +17,25 @@ public sealed class MixinFingerprintBuilder {
     Length += value.Length;
   }
 
-  public void Append(bool value) => Mix(value ? 1UL : 0UL);
+  public void Append(bool value) {
+    Mix(value ? 1UL : 0UL);
+  }
 
-  public void Append(int value) => Mix(unchecked((ulong)value));
+  public void Append(int value) {
+    Mix(unchecked((ulong)value));
+  }
 
-  public void Append(long value) => Mix(unchecked((ulong)value));
+  public void Append(long value) {
+    Mix(unchecked((ulong)value));
+  }
 
-  public void Append(ulong value) => Mix(value);
+  public void Append(ulong value) {
+    Mix(value);
+  }
 
-  public void Append(double value) => Append(BitConverter.DoubleToInt64Bits(value));
+  public void Append(double value) {
+    Append(BitConverter.DoubleToInt64Bits(value));
+  }
 
   private void Mix(ulong value) {
     if (_hash == 0) _hash = Offset;

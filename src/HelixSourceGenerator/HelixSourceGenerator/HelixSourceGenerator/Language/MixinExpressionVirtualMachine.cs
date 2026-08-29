@@ -16,22 +16,30 @@ public static partial class MixinExpressionVirtualMachine {
 
   public static MixinExpressionResult Execute(
     string expression, IMixinExpressionContext context, IDictionary<string, object> variables = null
-  ) => Execute(expression, context, variables, (MixinExpressionPreparedState)null);
+  ) {
+    return Execute(expression, context, variables, (MixinExpressionPreparedState)null);
+  }
 
   public static MixinExpressionResult Execute(
     string expression, IMixinExpressionContext context, IDictionary<string, object> variables,
     MixinExpressionPreparedState preparedState
-  ) => CompileAndExecute(expression is null ? null : GetProgram(expression), context, variables, preparedState);
+  ) {
+    return CompileAndExecute(expression is null ? null : GetProgram(expression), context, variables, preparedState);
+  }
 
   public static MixinExpressionResult Execute(
     string expression, IMixinExpressionContext context, IDictionary<string, object> variables,
     IEnumerable<string> preparedExpressions
-  ) => Execute(expression, context, variables, PrepareGlobals(preparedExpressions ?? []));
+  ) {
+    return Execute(expression, context, variables, PrepareGlobals(preparedExpressions ?? []));
+  }
 
   internal static MixinExpressionResult ExecuteCompiled(
     MixinProgramSyntax program, IMixinExpressionContext context, IDictionary<string, object> variables,
     MixinExpressionPreparedState preparedState
-  ) => CompileAndExecute(program, context, variables, preparedState);
+  ) {
+    return CompileAndExecute(program, context, variables, preparedState);
+  }
 
   private static MixinExpressionResult CompileAndExecute(
     MixinProgramSyntax program, IMixinExpressionContext context, IDictionary<string, object> variables,
@@ -61,9 +69,9 @@ public static partial class MixinExpressionVirtualMachine {
     var locals = new MixinValueDictionary(executionPool);
     var pendingVariables = new MixinValueDictionary(executionPool);
     foreach (var item in program.Variables) pendingVariables[item.Key] = item.Value;
-    if (variables is not null) {
-      foreach (var item in variables) pendingVariables[item.Key] = item.Value;
-    }
+    if (variables is not null)
+      foreach (var item in variables)
+        pendingVariables[item.Key] = item.Value;
     var outputs = new List<MixinExpressionOutput>();
     var logs = new List<MixinExpressionLog>();
     var pc = 0;
@@ -94,7 +102,7 @@ public static partial class MixinExpressionVirtualMachine {
           outputs.Add(
             new MixinExpressionOutput(
               frame.outputTarget,
-              [MixinString.Dynamic(Render(completed))], executionPool,
+              [MixinString.Dynamic(completed.Render())], executionPool,
               executionPool.Get(frame.injectionTarget)
             )
           );
@@ -105,9 +113,9 @@ public static partial class MixinExpressionVirtualMachine {
       return true;
     }
 
-    object TransformParameter(CallFrame frame) {
+    IMixinValue TransformParameter(CallFrame frame) {
       var item = frame.inputs[frame.inputIndex];
-      if (frame.transform.Kind == TableTransformKind.MapValues) return item.Value.Value;
+      if (frame.transform.Kind == TableTransformKind.MapValues) return item.Value;
       return new MixinExpressionTable().Put("k", item.Key).Put("v", item.Value);
     }
 
@@ -122,9 +130,9 @@ public static partial class MixinExpressionVirtualMachine {
       }
       var frame = new CallFrame {
         returnAddress = pc, hadParameter = locals.TryGetValue(ParameterLocalKey, out var previous),
-        parameter = previous, continuation = continuation, transform = request, inputs = [.. request.Source.Entries],
-        accumulator = new MixinExpressionTable(), functionStart = callback.Start, destination = destination,
-        outputTarget = outputTarget, injectionTarget = injectionTarget
+        parameter = MixinValue.From(previous, context), continuation = continuation, transform = request,
+        inputs = [.. request.Source.Entries], accumulator = new MixinExpressionTable(), functionStart = callback.Start,
+        destination = destination, outputTarget = outputTarget, injectionTarget = injectionTarget
       };
       if (frame.inputs.Length == 0) return FinishTransform(frame, out beginError);
       calls.Push(frame);
@@ -133,7 +141,7 @@ public static partial class MixinExpressionVirtualMachine {
       return true;
     }
 
-    bool CompleteCall(object returned, out string completeError) {
+    bool CompleteCall(IMixinValue returned, out string completeError) {
       completeError = null;
       var frame = calls.Peek();
       if (frame.transform is null) {
@@ -145,7 +153,7 @@ public static partial class MixinExpressionVirtualMachine {
       }
       var input = frame.inputs[frame.inputIndex];
       if (frame.transform.Kind == TableTransformKind.Filter) {
-        if (MixinValue.From(returned, context).IsTruthy)
+        if (returned.IsTruthy)
           frame.accumulator = frame.accumulator.Put(input.Key, input.Value);
       } else frame.accumulator = frame.accumulator.Put(input.Key, returned);
       frame.inputIndex++;
@@ -173,9 +181,10 @@ public static partial class MixinExpressionVirtualMachine {
       if (preparedInitializers.Contains(instruction)) continue;
       executedOperations++;
 
-      if (parsed is DirectiveInvocationSyntax { Definition: DirectiveFunctionDefinition directiveFunction }) {
+      if (parsed is DirectiveInvocationSyntax invocationSyntax &&
+        invocationSyntax.Definition is DirectiveFunctionDefinition directiveFunction) {
         var invocation = new DirectiveFunctionInvocation(
-          parsed, context, locals, pendingVariables, outputs
+          invocationSyntax, context, locals, pendingVariables, outputs
         );
         if (!directiveFunction.Invoke(invocation, out var directiveFunctionError))
           return Failure(directiveFunctionError, lineNumber, logs);
@@ -190,7 +199,7 @@ public static partial class MixinExpressionVirtualMachine {
           break;
         case EndDirectiveSyntax:
           if (functionEnds.Contains(instruction) && calls.Count != 0) {
-            if (!CompleteCall(null, out var endCallError))
+            if (!CompleteCall(NullMixinValue.Instance, out var endCallError))
               return Failure(endCallError, lineNumber, logs);
           }
           break;
@@ -310,7 +319,8 @@ public static partial class MixinExpressionVirtualMachine {
             ? localSyntax.Name
             : ((VariableDirectiveSyntax)parsed).Name;
           if (!TryEvaluateExpression(
-            ((ValueDirectiveSyntax)parsed).Expression, context, locals, pendingVariables, out var stored, out var storeError
+            ((ValueDirectiveSyntax)parsed).Expression, context, locals, pendingVariables, out var stored,
+            out var storeError
           )) return Failure(storeError, lineNumber, logs);
           if (stored is MixinTransformRequest storeTransform) {
             if (!BeginTransform(
@@ -333,7 +343,7 @@ public static partial class MixinExpressionVirtualMachine {
           break;
         case ReturnDirectiveSyntax returnSyntax:
           if (calls.Count != 0) {
-            object returnValue = null;
+            IMixinValue returnValue = NullMixinValue.Instance;
             if (HasExpression(returnSyntax.Expression) && !TryEvaluateExpression(
               returnSyntax.Expression, context, locals, pendingVariables,
               out returnValue, out var returnError
@@ -357,14 +367,14 @@ public static partial class MixinExpressionVirtualMachine {
           if (string.IsNullOrEmpty(callFunctionLabel) || !functions.TryGetValue(callFunctionLabel, out var function))
             return Failure("unknown function '" + (callFunctionLabel ?? "") + "'", lineNumber, logs);
           var hadParameter = locals.TryGetValue(ParameterLocalKey, out var previousParameter);
-          object callParameter = null;
+          IMixinValue callParameter = NullMixinValue.Instance;
           if (HasExpression(callSyntax.Expression) && !TryEvaluateExpression(
             callSyntax.Expression, context, locals, pendingVariables,
             out callParameter, out var callParameterError
           )) return Failure(callParameterError, lineNumber, logs);
           calls.Push(
             new CallFrame {
-              returnAddress = pc, hadParameter = hadParameter, parameter = previousParameter,
+              returnAddress = pc, hadParameter = hadParameter, parameter = MixinValue.From(previousParameter, context),
               returnLocal = callReturnLocal, continuation = FrameContinuation.Call
             }
           );
@@ -390,9 +400,13 @@ public static partial class MixinExpressionVirtualMachine {
           break;
         case FailDirectiveSyntax failSyntax:
           if (!HasExpression(failSyntax.Expression)) return Failure("expression requested failure", lineNumber, logs);
-          return Failure(!TryInterpolate(
-            failSyntax.Expression, context, locals, pendingVariables, out var failureMessage, out var failureError
-          ) ? failureError : failureMessage, lineNumber, logs);
+          return Failure(
+            !TryInterpolate(
+              failSyntax.Expression, context, locals, pendingVariables, out var failureMessage, out var failureError
+            )
+              ? failureError
+              : failureMessage, lineNumber, logs
+          );
         default:
           return Failure("invalid compiled instruction", lineNumber, logs);
       }
@@ -402,9 +416,10 @@ public static partial class MixinExpressionVirtualMachine {
     return SuccessfulResult();
   }
 
-  private static bool HasExpression(IReadOnlyList<ValueExpressionPart> expression) =>
-    expression is { Count: > 1 } || expression is { Count: 1 } &&
-    (expression[0].Reference is not null || !string.IsNullOrEmpty(expression[0].Literal));
+  private static bool HasExpression(IReadOnlyList<ValueExpressionPart> expression) {
+    return expression is { Count: > 1 } || expression is { Count: 1 } &&
+      (expression[0].Reference is not null || !string.IsNullOrEmpty(expression[0].Literal));
+  }
 
   internal static void CommitVariables(
     IDictionary<string, object> destination, IReadOnlyDictionary<string, object> source
@@ -418,11 +433,17 @@ public static partial class MixinExpressionVirtualMachine {
     IReadOnlyList<MixinExpressionOutput> outputs, IReadOnlyList<MixinExpressionLog> logs,
     IReadOnlyDictionary<string, object> variables = null, int executedOperations = 0,
     double executionMilliseconds = 0
-  ) => new(true, null, 0, outputs, logs, variables, executedOperations, executionMilliseconds);
+  ) {
+    return new MixinExpressionResult(
+      true, null, 0, outputs, logs, variables, executedOperations, executionMilliseconds
+    );
+  }
 
   internal static MixinExpressionResult Failure(
     string error, int line, IReadOnlyList<MixinExpressionLog> logs = null
-  ) => new(false, error, line, [], logs);
+  ) {
+    return new MixinExpressionResult(false, error, line, [], logs);
+  }
 
   internal enum FrameContinuation { Call, StoreLocal, StoreVariable, EmitCode, Return }
 
@@ -436,7 +457,7 @@ public static partial class MixinExpressionVirtualMachine {
     internal int inputIndex;
     internal KeyValuePair<string, IMixinValue>[] inputs;
     internal MixinExpressionOutputTarget outputTarget;
-    internal object parameter;
+    internal IMixinValue parameter;
     internal int returnAddress;
     internal string returnLocal;
     internal MixinTransformRequest transform;

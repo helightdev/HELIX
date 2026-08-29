@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using HelixSourceGenerator.Language.Compiler;
 using HelixSourceGenerator.Language.Functions;
 
@@ -18,7 +19,9 @@ internal abstract class FunctionDefinition(string name, int minimumArguments, in
   internal int MaximumArguments { get; } = maximumArguments;
   internal virtual bool IsPredicate => false;
 
-  internal virtual void CollectConstants(MixinStringPoolBuilder pool) => pool.Intern(Name);
+  internal virtual void CollectConstants(MixinStringPoolBuilder pool) {
+    pool.Intern(Name);
+  }
 
   internal virtual bool Validate(FunctionInvocation invocation, out string error) {
     var count = invocation.Arguments.Count;
@@ -38,7 +41,7 @@ internal abstract class FunctionDefinition(string name, int minimumArguments, in
 
   internal virtual bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     error = "function ':" + Name + "' cannot be used as a value transformation";
     return false;
@@ -77,10 +80,13 @@ internal static class FunctionLibrary {
       ["structAugment"] = new StructAugmentPredicate()
     };
 
-  internal static bool TryGet(string name, out FunctionDefinition definition) =>
-    Definitions.TryGetValue(name ?? "", out definition);
+  internal static bool TryGet(string name, out FunctionDefinition definition) {
+    return Definitions.TryGetValue(name ?? "", out definition);
+  }
 
-  internal static bool IsPredicate(string name) => TryGet(name, out var definition) && definition.IsPredicate;
+  internal static bool IsPredicate(string name) {
+    return TryGet(name, out var definition) && definition.IsPredicate;
+  }
 
   internal static void CollectConstants(MixinStringPoolBuilder pool) {
     foreach (var definition in Definitions.Values) definition.CollectConstants(pool);
@@ -88,11 +94,42 @@ internal static class FunctionLibrary {
 
   internal static bool TryInvoke(
     MixinExpressionProperty invocation, IMixinExpressionContext context,
-    string root, string member, ref object value, out string error
+    string root, string member, ref IMixinValue value, out string error
   ) {
     if (TryGet(invocation.Name, out var function))
       return function.Invoke(invocation, context, root, member, ref value, out error);
     error = "property '" + invocation.Name + "' is not valid for @" + root;
     return false;
+  }
+
+  internal static bool TryApply(
+    MixinExpressionReference reference, IMixinExpressionContext context, string member,
+    ref IMixinValue value, out string error
+  ) {
+    error = null;
+    for (var index = 0; index < reference.Properties.Count; index++) {
+      var property = reference.Properties[index];
+      if (IsPredicate(property.Name) || IsLogical(property)) continue;
+      if (!TryInvoke(property, context, reference.Root.Keyword(), member, ref value, out error)) return false;
+      if (value is not MixinTransformRequest request) continue;
+      request.RemainingProperties = [.. reference.Properties.Skip(index + 1)];
+      return true;
+    }
+    return true;
+  }
+
+  internal static bool TryResume(
+    MixinTransformRequest request, IMixinExpressionContext context,
+    ref IMixinValue value, out string error
+  ) {
+    error = null;
+    foreach (var property in request.RemainingProperties ?? [])
+      if (!TryInvoke(property, context, "table", null, ref value, out error))
+        return false;
+    return true;
+  }
+
+  internal static bool IsLogical(MixinExpressionProperty property) {
+    return TryGet(property.Name, out var function) && function is LogicalFunctionDefinition;
   }
 }
