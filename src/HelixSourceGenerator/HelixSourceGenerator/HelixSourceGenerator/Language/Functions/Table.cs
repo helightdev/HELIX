@@ -43,7 +43,7 @@ internal sealed class PutFunction() : TableMutationFunction("put", 2) {
   protected override MixinExpressionTable Mutate(
     MixinExpressionTable table, MixinExpressionProperty property, IMixinExpressionContext context
   ) => table.Put(
-    MixinExpressionEvaluator.Render(property.Values[0]),
+    MixinValue.From(property.Values[0], context).Render(),
     MixinValue.From(property.Values[1], context)
   );
 }

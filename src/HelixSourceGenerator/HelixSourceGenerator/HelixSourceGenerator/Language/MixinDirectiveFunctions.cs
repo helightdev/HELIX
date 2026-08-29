@@ -18,15 +18,15 @@ internal sealed class DirectiveFunctionInvocation(
   internal MixinValueDictionary Variables { get; } = variables;
 
   internal bool ResolveArgument(int index, out string value, out string error) =>
-    MixinExpressionEvaluator.TryResolveDirectiveArgument(
-      Instruction.Arguments[index], Context, Locals, Variables, out value, out error
+    MixinExpressionVirtualMachine.TryResolveDirectiveArgument(
+      ((DirectiveInvocationSyntax)Instruction).ParsedArguments[index], Context, Locals, Variables, out value, out error
     );
 
-  internal bool Evaluate(out object value, out string error) => MixinExpressionEvaluator.TryEvaluateExpression(
+  internal bool Evaluate(out object value, out string error) => MixinExpressionVirtualMachine.TryEvaluateExpression(
     Instruction.ValueExpression, Context, Locals, Variables, out value, out error
   );
 
-  internal bool Interpolate(out string value, out string error) => MixinExpressionEvaluator.TryInterpolate(
+  internal bool Interpolate(out string value, out string error) => MixinExpressionVirtualMachine.TryInterpolate(
     Instruction.ValueExpression, Context, Locals, Variables, out value, out error
   );
 

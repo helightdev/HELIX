@@ -12,7 +12,7 @@ public sealed partial class MixinGenerator {
   private static string DebugStateKey(DebugExpressionWork work) =>
     string.Join("\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateProgram);
   private static string DebugStateKey(LateExpressionWork work) =>
-    string.Join("\u001f", work.Provider, work.SourceType, work.SourceMember, work.Expression.Source);
+    string.Join("\u001f", work.Provider, work.SourceType, work.SourceMember, MixinSyntaxRenderer.RenderProgram(work.Expression));
 
   private static string BuildDebugTrace(MixinRenderModel render) {
     var builder = new StringBuilder();

@@ -61,17 +61,20 @@ internal static class MixinExpressionParser {
     var operand = tokens.FirstOrDefault(token => token.Kind == MixinTokenKind.Operand)?.Text ?? "";
     var syntax = CreateBuiltinSyntax(name, line, arguments, operand);
     if (syntax is not null) {
-      var valid = ValidateBuiltin(name, arguments, operand, out var error);
+      var valid = ValidateBuiltin(name, arguments, operand, out var error) &&
+        ValidateDynamicArguments(arguments, out error);
       return new MixinDirectiveParseResult(syntax, valid ? null : error);
     }
     if (!DirectiveLibrary.TryGet(name, out var directive))
       return new MixinDirectiveParseResult(
-        new UnknownDirectiveSyntax(line, name, arguments, operand), "unknown directive '@" + name + "'"
+        new UnknownDirectiveSyntax(line, name), "unknown directive '@" + name + "'"
       );
     var invocationValid = directive.Validate(arguments, operand, out var invocationError) &&
-      ValidateOperand(directive.OperandKind, operand, out invocationError);
+      ValidateOperand(directive.OperandKind, operand, out invocationError) &&
+      ValidateDynamicArguments(arguments, out invocationError);
+    var parsedArguments = arguments.Select(ParseDirectiveArgument).ToArray();
     return new MixinDirectiveParseResult(
-      new DirectiveInvocationSyntax(line, directive, arguments, operand), invocationValid ? null : invocationError
+      new DirectiveInvocationSyntax(line, directive, parsedArguments, ParseValueExpression(operand)), invocationValid ? null : invocationError
     );
   }
 
@@ -80,21 +83,46 @@ internal static class MixinExpressionParser {
       "SCOPE" => new ScopeDirectiveSyntax(l, a.FirstOrDefault()),
       "LABEL" => new LabelDirectiveSyntax(l, a.FirstOrDefault()),
       "FUNC" => new FunctionDirectiveSyntax(l, a.FirstOrDefault()),
-      "CALL" => new CallDirectiveSyntax(l, a.Count == 2 ? a[1] : a.FirstOrDefault(), a.Count == 2 ? a[0] : null, o),
+      "CALL" => new CallDirectiveSyntax(l, a.Count == 2 ? a[1] : a.FirstOrDefault(), a.Count == 2 ? a[0] : null, ParseValueExpression(o)),
       "INLINE" => new InlineDirectiveSyntax(l, a.FirstOrDefault()), "END" => new EndDirectiveSyntax(l),
-      "MATCH" => new MatchDirectiveSyntax(l, a.FirstOrDefault(), o), "ASSERT" => new AssertDirectiveSyntax(l, o),
-      "CODE" => new CodeDirectiveSyntax(l, a.FirstOrDefault(), o),
-      "MIXIN" => new MixinDirectiveSyntax(l, a.FirstOrDefault(), a.Count > 1 ? a[1] : null, o),
-      "USING" => new UsingDirectiveSyntax(l, o), "LOG" => new LogDirectiveSyntax(l, o),
-      "LOCAL" => new LocalDirectiveSyntax(l, a.FirstOrDefault(), o),
-      "VAR" => new VariableDirectiveSyntax(l, a.FirstOrDefault(), o),
-      "CARRY" => new CarryDirectiveSyntax(l, a.FirstOrDefault(), o), "RETURN" => new ReturnDirectiveSyntax(l, o),
+      "MATCH" => new MatchDirectiveSyntax(l, a.FirstOrDefault(), ParseBooleanExpression(o)), "ASSERT" => new AssertDirectiveSyntax(l, ParseBooleanExpression(o)),
+      "CODE" => CreateCodeSyntax(l, a.FirstOrDefault(), o),
+      "MIXIN" => new MixinDirectiveSyntax(l, ParseDirectiveArgument(a.FirstOrDefault()), a.Count > 1 ? ParseDirectiveArgument(a[1]) : null, ParseValueExpression(o)),
+      "USING" => new UsingDirectiveSyntax(l, ParseValueExpression(o)), "LOG" => new LogDirectiveSyntax(l, ParseValueExpression(o)),
+      "LOCAL" => new LocalDirectiveSyntax(l, a.FirstOrDefault(), ParseValueExpression(o)),
+      "VAR" => new VariableDirectiveSyntax(l, a.FirstOrDefault(), ParseValueExpression(o)),
+      "CARRY" => new CarryDirectiveSyntax(l, a.FirstOrDefault(), ParseValueExpression(o)), "RETURN" => new ReturnDirectiveSyntax(l, ParseValueExpression(o)),
       "GOTO" => new GotoDirectiveSyntax(l, a.FirstOrDefault()), "SKIP" => new SkipDirectiveSyntax(l),
-      "FAIL" => new FailDirectiveSyntax(l, o), "ANNOTATION" => new AnnotationDirectiveSyntax(l, a.FirstOrDefault()),
+      "FAIL" => new FailDirectiveSyntax(l, ParseValueExpression(o)), "ANNOTATION" => new AnnotationDirectiveSyntax(l, a.FirstOrDefault()),
       "PRELUDE" => new PreludeDirectiveSyntax(l),
       "DEFINE_TARGET" => new DefineTargetDirectiveSyntax(l, a.FirstOrDefault(), a.Count > 1 ? a[1] : null),
       _ => null
     };
+
+  private static DirectiveArgumentSyntax ParseDirectiveArgument(string source) {
+    if (!IsDynamicArgument(source)) return new DirectiveArgumentSyntax(source, null);
+    return new DirectiveArgumentSyntax(null, ParseValueExpression(source.Substring(1, source.Length - 2)));
+  }
+
+  private static bool ValidateDynamicArguments(IReadOnlyList<string> arguments, out string error) {
+    foreach (var argument in arguments) {
+      if (!IsDynamicArgument(argument)) continue;
+      if (!ValidateValueExpressionSyntax(argument.Substring(1, argument.Length - 2), out error)) return false;
+    }
+    error = null;
+    return true;
+  }
+
+  private static CodeDirectiveSyntax CreateCodeSyntax(int line, string argument, string code) {
+    switch ((argument ?? "TARGET").ToUpperInvariant()) {
+      case "TARGET": return new CodeDirectiveSyntax(line, MixinExpressionOutputTarget.Target, null, ParseValueExpression(code));
+      case "CLASS": return new CodeDirectiveSyntax(line, MixinExpressionOutputTarget.Class, null, ParseValueExpression(code));
+      case "FILE": return new CodeDirectiveSyntax(line, MixinExpressionOutputTarget.File, null, ParseValueExpression(code));
+      case "IMPLEMENTS": return new CodeDirectiveSyntax(line, MixinExpressionOutputTarget.Implements, null, ParseValueExpression(code));
+      case "ANNOTATION": return new CodeDirectiveSyntax(line, MixinExpressionOutputTarget.Annotation, null, ParseValueExpression(code));
+      default: return new CodeDirectiveSyntax(line, MixinExpressionOutputTarget.Injection, argument, ParseValueExpression(code));
+    }
+  }
 
   private static bool ValidateBuiltin(string name, IReadOnlyList<string> arguments, string operand, out string error) {
     if (name == "CALL") {
@@ -147,7 +175,7 @@ internal static class MixinExpressionParser {
     while (position < text.Length) {
       while (position < text.Length && char.IsWhiteSpace(text[position])) position++;
       if (position == text.Length) break;
-      if (!MixinExpressionEvaluator.TryReadReferenceNode(text, ref position, out var reference, out _)) {
+      if (!MixinExpressionCompiler.TryReadReferenceNode(text, ref position, out var reference, out _)) {
         result.Add(null);
         break;
       }
@@ -174,7 +202,7 @@ internal static class MixinExpressionParser {
         result.Add(new ValueExpressionPart(literal.ToString(), null));
         literal.Clear();
       }
-      if (!MixinExpressionEvaluator.TryReadReferenceNode(text, ref position, out var reference, out _)) break;
+      if (!MixinExpressionCompiler.TryReadReferenceNode(text, ref position, out var reference, out _)) break;
       result.Add(new ValueExpressionPart(null, reference));
     }
     if (literal.Length != 0 || result.Count == 0) result.Add(new ValueExpressionPart(literal.ToString(), null));
@@ -189,7 +217,7 @@ internal static class MixinExpressionParser {
       while (position < text.Length && char.IsWhiteSpace(text[position])) position++;
       if (position == text.Length) break;
       found = true;
-      if (!MixinExpressionEvaluator.TryReadReferenceNode(text, ref position, out _, out error)) return false;
+      if (!MixinExpressionCompiler.TryReadReferenceNode(text, ref position, out _, out error)) return false;
     }
     if (found) return true;
     error = "boolean expression is empty";
@@ -208,7 +236,7 @@ internal static class MixinExpressionParser {
         position += 2;
         continue;
       }
-      if (!MixinExpressionEvaluator.TryReadReferenceNode(text, ref position, out _, out error)) return false;
+      if (!MixinExpressionCompiler.TryReadReferenceNode(text, ref position, out _, out error)) return false;
     }
     return true;
   }

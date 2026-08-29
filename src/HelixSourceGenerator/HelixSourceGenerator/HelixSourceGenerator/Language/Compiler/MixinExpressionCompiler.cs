@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using HelixSourceGenerator.Language.Functions;
 
 namespace HelixSourceGenerator.Language.Compiler;
 
-using static MixinExpressionEvaluator;
+using static MixinExpressionVirtualMachine;
 
 public static class MixinExpressionCompiler {
   internal static MixinProgramSyntax GetProgram(string expression) => new(expression);
@@ -22,11 +23,121 @@ public static class MixinExpressionCompiler {
     error = null;
     if (text is null) { error = "reference is null"; return false; }
     var position = 0;
-    if (MixinExpressionEvaluator.TryReadReferenceNode(text, ref position, out reference, out error) &&
+    if (TryReadReferenceNode(text, ref position, out reference, out error) &&
       position == text.Length) return true;
     error ??= "unexpected text after expression reference";
     reference = null;
     return false;
+  }
+
+  internal static bool TryReadReferenceNode(
+    string text, ref int position, out MixinExpressionReference reference, out string error
+  ) {
+    reference = null;
+    error = null;
+    if (position >= text.Length || text[position] != '@') {
+      error = "expected '@' expression reference";
+      return false;
+    }
+    position++;
+    var parenthesized = position < text.Length && text[position] == '(';
+    if (parenthesized) position++;
+    MixinExpressionRoot root;
+    if (position < text.Length && text[position] == ':') root = MixinExpressionRoot.Null;
+    else {
+      var rootStart = position;
+      while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
+      if (position == rootStart) { error = "expression reference has no root"; return false; }
+      var keyword = text.Substring(rootStart, position - rootStart);
+      if (!TryParseRoot(keyword, out root)) { error = "unknown expression root '@" + keyword + "'"; return false; }
+    }
+    string member = null;
+    if (position < text.Length && text[position] == '#') {
+      position++;
+      var start = position;
+      while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
+      if (position == start) { error = "member reference is empty"; return false; }
+      member = text.Substring(start, position - start);
+    }
+    var properties = new List<MixinExpressionProperty>();
+    while (position < text.Length && (text[position] == ':' || text[position] == '#')) {
+      if (text[position] == '#') {
+        position++;
+        var start = position;
+        while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
+        if (position == start) { error = "type argument path is empty"; return false; }
+        properties.Add(new MixinExpressionProperty("path", text.Substring(start, position - start)));
+        continue;
+      }
+      position++;
+      var negated = false;
+      if (position < text.Length && text[position] == '!') { negated = true; position++; }
+      if (position < text.Length && text[position] == '?') position++;
+      var propertyStart = position;
+      while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
+      if (position == propertyStart) { error = "property name is empty"; return false; }
+      var name = text.Substring(propertyStart, position - propertyStart);
+      var arguments = new List<string>();
+      while (position < text.Length && text[position] == '<') {
+        position++;
+        var argumentStart = position;
+        var depth = 1;
+        while (position < text.Length && depth != 0) {
+          if (text[position] == '<') depth++;
+          else if (text[position] == '>') depth--;
+          if (depth != 0) position++;
+        }
+        if (depth != 0) { error = "unterminated property argument"; return false; }
+        arguments.Add(text.Substring(argumentStart, position - argumentStart));
+        position++;
+      }
+      var parsedArguments = arguments.Select(argument => ParsePropertyArgument(name, argument)).ToArray();
+      var property = new MixinExpressionProperty(name, arguments.AsReadOnly(), parsedArguments, negated);
+      if (FunctionLibrary.TryGet(name, out var function) && !function.Validate(property, out error)) return false;
+      properties.Add(property);
+    }
+    for (var index = 0; index + 1 < properties.Count; index++) {
+      if (!FunctionLibrary.IsPredicate(properties[index].Name)) continue;
+      error = "boolean operation ':" + properties[index].Name + "' must be terminal";
+      return false;
+    }
+    if (parenthesized) {
+      if (position >= text.Length || text[position] != ')') { error = "unterminated parenthesized reference"; return false; }
+      position++;
+    }
+    reference = new MixinExpressionReference(root, member, properties.AsReadOnly());
+    return true;
+  }
+
+  private static MixinPropertyArgumentSyntax ParsePropertyArgument(string property, string argument) {
+    if (property is "and" or "or" && MixinExpressionParser.IsDynamicArgument(argument))
+      return new MixinPropertyArgumentSyntax(
+        null, null,
+        MixinExpressionParser.ParseBooleanExpression(argument.Substring(1, argument.Length - 2))
+      );
+    if (MixinExpressionParser.IsDynamicArgument(argument))
+      return new MixinPropertyArgumentSyntax(
+        null, MixinExpressionParser.ParseValueExpression(argument.Substring(1, argument.Length - 2)), null
+      );
+    return new MixinPropertyArgumentSyntax(argument, null, null);
+  }
+
+  private static bool TryParseRoot(string keyword, out MixinExpressionRoot root) {
+    switch (keyword) {
+      case "target": root = MixinExpressionRoot.Target; return true;
+      case "this": root = MixinExpressionRoot.This; return true;
+      case "attr": root = MixinExpressionRoot.Attribute; return true;
+      case "arg": root = MixinExpressionRoot.Argument; return true;
+      case "var": root = MixinExpressionRoot.Variable; return true;
+      case "local": root = MixinExpressionRoot.Local; return true;
+      case "true": root = MixinExpressionRoot.True; return true;
+      case "false": root = MixinExpressionRoot.False; return true;
+      case "null": root = MixinExpressionRoot.Null; return true;
+      case "table": root = MixinExpressionRoot.Table; return true;
+      case "param": root = MixinExpressionRoot.Parameter; return true;
+      case "carry": root = MixinExpressionRoot.Carry; return true;
+      default: root = default; return false;
+    }
   }
 
   private static readonly HashSet<MixinExpressionRoot> RoslynRoots = [
@@ -131,7 +242,7 @@ public static class MixinExpressionCompiler {
         errorLine = index + 1;
         return false;
       }
-      late.Add(SerializeLogicalLine(rewritten));
+      late.Add(MixinSyntaxRenderer.RenderLogicalLine(rewritten));
     }
     var parts = new List<string>();
     if (!string.IsNullOrWhiteSpace(explicitPrelude)) parts.Add(explicitPrelude);
@@ -229,7 +340,7 @@ public static class MixinExpressionCompiler {
     for (var index = 0; index < program.Count; index++) {
       var instruction = program.Get(index);
       if (instruction is not InlineDirectiveSyntax) {
-        result.Add(SerializeInstruction(instruction));
+        result.Add(MixinSyntaxRenderer.RenderInstruction(instruction));
         continue;
       }
       var name = instruction.Argument ?? "";
@@ -265,9 +376,9 @@ public static class MixinExpressionCompiler {
           case ScopeDirectiveSyntax or LabelDirectiveSyntax or GotoDirectiveSyntax or MatchDirectiveSyntax
             when !string.IsNullOrEmpty(item.Argument) &&
             labels.TryGetValue(item.Argument, out var renamed):
-            bodyLines.Add(SerializeInstruction(item, renamed));
+            bodyLines.Add(MixinSyntaxRenderer.RenderInstruction(item, renamed));
             continue;
-          default: bodyLines.Add(SerializeInstruction(item)); break;
+          default: bodyLines.Add(MixinSyntaxRenderer.RenderInstruction(item)); break;
         }
       }
       var bodySource = string.Join("\n", bodyLines);
@@ -287,20 +398,6 @@ public static class MixinExpressionCompiler {
     error = null;
     errorLine = 0;
     return true;
-  }
-
-  private static string SerializeInstruction(DirectiveInstruction instruction, string argument = null) {
-    if (string.IsNullOrEmpty(instruction.Command)) return instruction.Operand ?? "";
-    var builder = new StringBuilder("@").Append(instruction.Command);
-    for (var index = 0; index < instruction.Arguments.Count; index++)
-      builder.Append('<').Append(index == 0 && argument is not null ? argument : instruction.Arguments[index])
-        .Append('>');
-    if (!string.IsNullOrEmpty(instruction.Operand)) builder.Append(' ').Append(instruction.Operand);
-    return SerializeLogicalLine(builder.ToString());
-  }
-
-  private static string SerializeLogicalLine(string line) {
-    return (line ?? "").Replace("\n", "\n@\\");
   }
 
   private static bool TryHoistStructuralDirective(
@@ -640,7 +737,7 @@ public static class MixinExpressionCompiler {
         error = "prepared global initializer references cannot have properties";
         return false;
       }
-      builder.Append(RenderValue(value));
+      builder.Append(Render(value));
     }
     result = builder.ToString();
     return true;

@@ -81,9 +81,19 @@ public sealed class MixinExpressionProperty : FunctionInvocation {
     bool negated
   ) : base(name, arguments, negated) {
     Values = values ?? [];
+    ParsedArguments = [];
+  }
+
+  internal MixinExpressionProperty(
+    string name, IReadOnlyList<string> arguments,
+    IReadOnlyList<MixinPropertyArgumentSyntax> parsedArguments, bool negated
+  ) : base(name, arguments, negated) {
+    Values = [.. Arguments];
+    ParsedArguments = parsedArguments ?? [];
   }
 
   internal IReadOnlyList<object> Values { get; }
+  internal IReadOnlyList<MixinPropertyArgumentSyntax> ParsedArguments { get; } = [];
 }
 
 /// <summary>An immutable expression table. Mutating operations return a new table.</summary>
@@ -123,6 +133,7 @@ public sealed class MixinExpressionTable : MixinValue {
   public override object Select(string path) => TryGetValue(path, out var value) ? value : null;
 
   public override bool Has(object member) => _values.ContainsKey(Convert.ToString(member));
+  internal bool ContainsValue(object expected) => Values.Any(item => MixinValue.RelaxedEquals(item, expected));
 
   public override IMixinValue Unlink() {
     var result = new MixinExpressionTable();

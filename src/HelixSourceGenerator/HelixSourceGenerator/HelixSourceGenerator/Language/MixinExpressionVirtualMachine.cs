@@ -8,13 +8,11 @@ using HelixSourceGenerator.Language.Functions;
 
 namespace HelixSourceGenerator.Language;
 
-using static MixinExpressionEvaluator;
 using static MixinExpressionCompiler;
 
-public static class MixinExpressionVirtualMachine {
+public static partial class MixinExpressionVirtualMachine {
   internal const string ParameterLocalKey = "\0@param";
   internal const string CarryLocalPrefix = "\0@carry:";
-  internal const float FloatTimeZeroTolerance = 1e-6f;
 
   public static MixinExpressionResult Execute(
     string expression, IMixinExpressionContext context, IDictionary<string, object> variables = null
@@ -171,10 +169,7 @@ public static class MixinExpressionVirtualMachine {
       var lineNumber = pc + 1;
       var instruction = pc;
       var parsed = lines[pc++];
-      var command = parsed.Command;
-      var argument = parsed.Argument;
-      var operand = parsed.Operand;
-      if (string.IsNullOrEmpty(command)) continue;
+      if (parsed is EmptyDirectiveSyntax) continue;
       if (preparedInitializers.Contains(instruction)) continue;
       executedOperations++;
 
@@ -199,17 +194,17 @@ public static class MixinExpressionVirtualMachine {
               return Failure(endCallError, lineNumber, logs);
           }
           break;
-        case MatchDirectiveSyntax:
+        case MatchDirectiveSyntax matchSyntax:
           if (!TryEvaluateAll(
-            parsed.BooleanExpression, context, locals, pendingVariables,
+            matchSyntax.Expression, context, locals, pendingVariables,
             out var matched, out var matchError, out var matchFailure
           )) return Failure(matchError, lineNumber, logs);
           if (!matched) {
-            if (!string.IsNullOrEmpty(argument)) {
+            if (!string.IsNullOrEmpty(matchSyntax.FailureLabel)) {
               var matchScope = instructionScopes[instruction];
-              var matchKey = ScopeLabelKey(matchScope, argument);
+              var matchKey = ScopeLabelKey(matchScope, matchSyntax.FailureLabel);
               if (!labels.TryGetValue(matchKey, out var matchDestination))
-                return Failure("unknown scope label '" + argument + "'", lineNumber, logs);
+                return Failure("unknown scope label '" + matchSyntax.FailureLabel + "'", lineNumber, logs);
               pc = matchDestination + 1;
               break;
             }
@@ -225,18 +220,19 @@ public static class MixinExpressionVirtualMachine {
             pc = next;
           }
           break;
-        case AssertDirectiveSyntax:
+        case AssertDirectiveSyntax assertSyntax:
           if (!TryEvaluateAll(
-            parsed.BooleanExpression, context, locals, pendingVariables,
+            assertSyntax.Expression, context, locals, pendingVariables,
             out var asserted, out var assertError, out var assertFailure
           )) return Failure(assertError, lineNumber, logs);
           if (!asserted) return Failure(assertFailure, lineNumber, logs);
           break;
-        case CodeDirectiveSyntax:
-          TryOutputTarget(argument, out var outputTarget, out var injectionTarget);
-          if (parsed.ValueExpression is { Count: 1 } && parsed.ValueExpression[0].Reference is not null) {
+        case CodeDirectiveSyntax codeSyntax:
+          var outputTarget = codeSyntax.Target;
+          var injectionTarget = codeSyntax.InjectionTarget;
+          if (codeSyntax.Expression is { Count: 1 } && codeSyntax.Expression[0].Reference is not null) {
             if (!TryEvaluateExpression(
-              parsed.ValueExpression, context, locals, pendingVariables, out var codeValue, out var codeValueError
+              codeSyntax.Expression, context, locals, pendingVariables, out var codeValue, out var codeValueError
             )) return Failure(codeValueError, lineNumber, logs);
             if (codeValue is MixinTransformRequest codeTransform) {
               if (!BeginTransform(
@@ -247,7 +243,7 @@ public static class MixinExpressionVirtualMachine {
             }
           }
           if (!TryInterpolateSegments(
-            parsed.ValueExpression, context, locals, pendingVariables, executionPool,
+            codeSyntax.Expression, context, locals, pendingVariables, executionPool,
             out var code, out var codeError
           )) return Failure(codeError, lineNumber, logs);
           outputs.Add(
@@ -256,20 +252,20 @@ public static class MixinExpressionVirtualMachine {
             )
           );
           break;
-        case MixinDirectiveSyntax:
+        case MixinDirectiveSyntax mixinSyntax:
           if (!TryInterpolateSegments(
-            parsed.ValueExpression, context, locals, pendingVariables, executionPool, out var mixinCode,
+            mixinSyntax.Expression, context, locals, pendingVariables, executionPool, out var mixinCode,
             out var mixinCodeError
           )) return Failure(mixinCodeError, lineNumber, logs);
           if (!TryResolveDirectiveArgument(
-            argument, context, locals, pendingVariables, out var mixinTarget,
+            mixinSyntax.Target, context, locals, pendingVariables, out var mixinTarget,
             out var mixinArgumentError
           )) return Failure(mixinArgumentError, lineNumber, logs);
           if (string.IsNullOrEmpty(mixinTarget)) return Failure("MIXIN target is empty", lineNumber, logs);
           var mixinPriority = 0;
-          if (parsed.Arguments.Count == 2) {
+          if (mixinSyntax.Priority is not null) {
             if (!TryResolveDirectiveArgument(
-              parsed.Arguments[1], context, locals, pendingVariables, out var mixinPriorityText,
+              mixinSyntax.Priority, context, locals, pendingVariables, out var mixinPriorityText,
               out var mixinPriorityArgumentError
             )) return Failure(mixinPriorityArgumentError, lineNumber, logs);
             if (!int.TryParse(
@@ -288,9 +284,9 @@ public static class MixinExpressionVirtualMachine {
             )
           );
           break;
-        case UsingDirectiveSyntax:
+        case UsingDirectiveSyntax usingSyntax:
           if (!TryInterpolateSegments(
-            parsed.ValueExpression, context, locals, pendingVariables, executionPool,
+            usingSyntax.Expression, context, locals, pendingVariables, executionPool,
             out var usingDirective,
             out var usingError
           )) return Failure(usingError, lineNumber, logs);
@@ -301,18 +297,20 @@ public static class MixinExpressionVirtualMachine {
             )
           );
           break;
-        case LogDirectiveSyntax:
+        case LogDirectiveSyntax logSyntax:
           if (!TryInterpolate(
-            parsed.ValueExpression, context, locals, pendingVariables, out var log,
+            logSyntax.Expression, context, locals, pendingVariables, out var log,
             out var logError
           )) return Failure(logError, lineNumber, logs);
           logs.Add(new MixinExpressionLog(log, lineNumber));
           break;
         case LocalDirectiveSyntax:
         case VariableDirectiveSyntax:
-          if (string.IsNullOrEmpty(argument)) return Failure(command + " requires a name", lineNumber, logs);
+          var storeName = parsed is LocalDirectiveSyntax localSyntax
+            ? localSyntax.Name
+            : ((VariableDirectiveSyntax)parsed).Name;
           if (!TryEvaluateExpression(
-            parsed.ValueExpression, context, locals, pendingVariables, out var stored, out var storeError
+            ((ValueDirectiveSyntax)parsed).Expression, context, locals, pendingVariables, out var stored, out var storeError
           )) return Failure(storeError, lineNumber, logs);
           if (stored is MixinTransformRequest storeTransform) {
             if (!BeginTransform(
@@ -320,25 +318,24 @@ public static class MixinExpressionVirtualMachine {
               parsed is LocalDirectiveSyntax
                 ? FrameContinuation.StoreLocal
                 : FrameContinuation.StoreVariable,
-              argument, default, null, out var beginStoreError
+              storeName, default, null, out var beginStoreError
             )) return Failure(beginStoreError, lineNumber, logs);
             break;
           }
-          (parsed is LocalDirectiveSyntax ? locals : pendingVariables)[argument] = stored;
+          (parsed is LocalDirectiveSyntax ? locals : pendingVariables)[storeName] = stored;
           break;
-        case CarryDirectiveSyntax:
-          if (string.IsNullOrEmpty(argument)) return Failure("CARRY requires a label", lineNumber, logs);
+        case CarryDirectiveSyntax carrySyntax:
           if (TryEvaluateExpression(
-            parsed.ValueExpression, context, locals, pendingVariables,
+            carrySyntax.Expression, context, locals, pendingVariables,
             out var carried, out var carryError
-          )) pendingVariables[CarryLocalPrefix + argument] = MixinValue.Unlink(carried, context);
-          else pendingVariables[CarryLocalPrefix + argument] = new FailedMixinValue(carryError);
+          )) pendingVariables[CarryLocalPrefix + carrySyntax.Label] = MixinValue.Unlink(carried, context);
+          else pendingVariables[CarryLocalPrefix + carrySyntax.Label] = new FailedMixinValue(carryError);
           break;
-        case ReturnDirectiveSyntax:
+        case ReturnDirectiveSyntax returnSyntax:
           if (calls.Count != 0) {
             object returnValue = null;
-            if (!string.IsNullOrEmpty(operand) && !TryEvaluateExpression(
-              parsed.ValueExpression, context, locals, pendingVariables,
+            if (HasExpression(returnSyntax.Expression) && !TryEvaluateExpression(
+              returnSyntax.Expression, context, locals, pendingVariables,
               out returnValue, out var returnError
             )) return Failure(returnError, lineNumber, logs);
             if (returnValue is MixinTransformRequest returnTransform) {
@@ -354,15 +351,15 @@ public static class MixinExpressionVirtualMachine {
           }
           CommitVariables(variables, pendingVariables);
           return SuccessfulResult();
-        case CallDirectiveSyntax:
-          var callFunctionLabel = parsed.Arguments.Count == 2 ? parsed.Arguments[1] : argument;
-          var callReturnLocal = parsed.Arguments.Count == 2 ? argument : null;
+        case CallDirectiveSyntax callSyntax:
+          var callFunctionLabel = callSyntax.Function;
+          var callReturnLocal = callSyntax.ReturnLocal;
           if (string.IsNullOrEmpty(callFunctionLabel) || !functions.TryGetValue(callFunctionLabel, out var function))
             return Failure("unknown function '" + (callFunctionLabel ?? "") + "'", lineNumber, logs);
           var hadParameter = locals.TryGetValue(ParameterLocalKey, out var previousParameter);
           object callParameter = null;
-          if (!string.IsNullOrEmpty(operand) && !TryEvaluateExpression(
-            parsed.ValueExpression, context, locals, pendingVariables,
+          if (HasExpression(callSyntax.Expression) && !TryEvaluateExpression(
+            callSyntax.Expression, context, locals, pendingVariables,
             out callParameter, out var callParameterError
           )) return Failure(callParameterError, lineNumber, logs);
           calls.Push(
@@ -376,11 +373,11 @@ public static class MixinExpressionVirtualMachine {
           break;
         case InlineDirectiveSyntax:
           return Failure("INLINE must be expanded before evaluation", lineNumber, logs);
-        case GotoDirectiveSyntax:
+        case GotoDirectiveSyntax gotoSyntax:
           var gotoScope = instructionScopes[instruction];
-          var gotoKey = ScopeLabelKey(gotoScope, argument ?? "");
-          if (string.IsNullOrEmpty(argument) || !labels.TryGetValue(gotoKey, out var destination))
-            return Failure("unknown scope label '" + (argument ?? "") + "'", lineNumber, logs);
+          var gotoKey = ScopeLabelKey(gotoScope, gotoSyntax.Label ?? "");
+          if (string.IsNullOrEmpty(gotoSyntax.Label) || !labels.TryGetValue(gotoKey, out var destination))
+            return Failure("unknown scope label '" + (gotoSyntax.Label ?? "") + "'", lineNumber, logs);
           pc = destination + 1;
           break;
         case SkipDirectiveSyntax:
@@ -391,19 +388,23 @@ public static class MixinExpressionVirtualMachine {
           if (skip < 0) return Failure("SKIP has no following scope", lineNumber, logs);
           pc = skip;
           break;
-        case FailDirectiveSyntax:
-          if (string.IsNullOrEmpty(operand)) return Failure("expression requested failure", lineNumber, logs);
+        case FailDirectiveSyntax failSyntax:
+          if (!HasExpression(failSyntax.Expression)) return Failure("expression requested failure", lineNumber, logs);
           return Failure(!TryInterpolate(
-            parsed.ValueExpression, context, locals, pendingVariables, out var failureMessage, out var failureError
+            failSyntax.Expression, context, locals, pendingVariables, out var failureMessage, out var failureError
           ) ? failureError : failureMessage, lineNumber, logs);
         default:
-          return Failure("unknown directive '@" + command + "'", lineNumber, logs);
+          return Failure("invalid compiled instruction", lineNumber, logs);
       }
     }
 
     CommitVariables(variables, pendingVariables);
     return SuccessfulResult();
   }
+
+  private static bool HasExpression(IReadOnlyList<ValueExpressionPart> expression) =>
+    expression is { Count: > 1 } || expression is { Count: 1 } &&
+    (expression[0].Reference is not null || !string.IsNullOrEmpty(expression[0].Literal));
 
   internal static void CommitVariables(
     IDictionary<string, object> destination, IReadOnlyDictionary<string, object> source

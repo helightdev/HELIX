@@ -92,4 +92,6 @@ internal sealed class LogicalFunctionDefinition : FunctionDefinition {
     error = ":" + Name + " arguments must be dynamic boolean expressions";
     return false;
   }
+
+  internal bool Combine(bool left, bool right) => Name == "and" ? left && right : left || right;
 }

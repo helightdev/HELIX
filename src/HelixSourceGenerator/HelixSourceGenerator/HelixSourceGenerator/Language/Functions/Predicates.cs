@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace HelixSourceGenerator.Language.Functions;
 
 /// <summary>An executable boolean function in the unified function registry.</summary>
@@ -9,6 +11,11 @@ internal abstract class PredicateFunctionDefinition : FunctionDefinition {
   internal abstract bool Evaluate(
     IMixinValue value, FunctionInvocation invocation, out bool result, out string error
   );
+
+  internal virtual bool EvaluateReference(
+    IMixinValue value, MixinExpressionReference reference, MixinExpressionProperty invocation,
+    IMixinExpressionContext context, out bool result, out string error
+  ) => Evaluate(value, invocation, out result, out error);
 }
 
 internal sealed class ExistsPredicate : PredicateFunctionDefinition {
@@ -34,6 +41,19 @@ internal sealed class IsPredicate : PredicateFunctionDefinition {
     error = null;
     return true;
   }
+
+  internal override bool EvaluateReference(
+    IMixinValue value, MixinExpressionReference reference, MixinExpressionProperty invocation,
+    IMixinExpressionContext context, out bool result, out string error
+  ) {
+    if (!Evaluate(value, invocation, out result, out error) || result) return error is null;
+    var neutral = new MixinExpressionProperty(invocation.Name, invocation.Arguments, invocation.Values, false);
+    var contextual = new MixinExpressionReference(
+      reference.Root, reference.Member,
+      [.. reference.Properties.Select(item => ReferenceEquals(item, invocation) ? neutral : item)]
+    );
+    return context.TryEvaluate(contextual, out result, out error);
+  }
 }
 
 internal sealed class HasPredicate : PredicateFunctionDefinition {
@@ -46,7 +66,9 @@ internal sealed class HasPredicate : PredicateFunctionDefinition {
       return false;
     }
     var property = (MixinExpressionProperty)invocation;
-    result = value.Has(property.Values[0]);
+    result = value is MixinExpressionTable table
+      ? table.ContainsValue(property.Values[0])
+      : value.Has(property.Values[0]);
     error = null;
     return true;
   }
@@ -99,6 +121,21 @@ internal abstract class TraitPredicate(string name) : PredicateFunctionDefinitio
     result = value.HasTrait(Trait);
     error = null;
     return true;
+  }
+
+  internal override bool EvaluateReference(
+    IMixinValue value, MixinExpressionReference reference, MixinExpressionProperty invocation,
+    IMixinExpressionContext context, out bool result, out string error
+  ) {
+    if (value.HasTrait(Trait)) { result = true; error = null; return true; }
+    var neutral = new MixinExpressionProperty(
+      invocation.Name, invocation.Arguments, invocation.Values, false
+    );
+    var contextual = new MixinExpressionReference(
+      reference.Root, reference.Member,
+      [.. reference.Properties.Select(item => ReferenceEquals(item, invocation) ? neutral : item)]
+    );
+    return context.TryEvaluate(contextual, out result, out error);
   }
 }
 

@@ -466,7 +466,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       return;
     }
     context.AddDebugExpression(
-      expression.Source, lateExpression.Source, evaluated.Variables,
+      MixinSyntaxRenderer.RenderProgram(expression), MixinSyntaxRenderer.RenderProgram(lateExpression), evaluated.Variables,
       providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
       evaluated.ExecutionMilliseconds
     );
@@ -479,10 +479,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         )
       ).ToList();
       DiscoverLateMixinTargets(
-        lateExpression.Source, evaluated.Variables, targetDefinitions, lateTargets
+        MixinSyntaxRenderer.RenderProgram(lateExpression), evaluated.Variables, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
-        lateExpression, expression.Source, evaluated.Variables, preparedExpressions,
+        lateExpression, MixinSyntaxRenderer.RenderProgram(expression), evaluated.Variables, preparedExpressions,
         lateTargets.Distinct().ToImmutableArray(), location,
         providerName ?? attributeName, sourceType,
         annotated is INamedTypeSymbol ? "" : annotated.MetadataName,

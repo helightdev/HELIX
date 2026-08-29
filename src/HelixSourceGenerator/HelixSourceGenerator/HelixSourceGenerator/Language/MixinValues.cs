@@ -83,7 +83,22 @@ public abstract class MixinValue : IMixinValue {
   public virtual bool Has(object member) => false;
 
   public virtual bool EqualsTo(object expected) {
-    return string.Equals(Render(), Convert.ToString(expected), StringComparison.Ordinal);
+    return RelaxedEquals(Value, expected);
+  }
+
+  internal static bool RelaxedEquals(object actual, object expected) {
+    static string Comparable(object item) {
+      var text = From(item).Render();
+      if (text.StartsWith("global::", StringComparison.Ordinal)) text = text.Substring(8);
+      if (text.Length >= 2 && text[0] == '"' && text[text.Length - 1] == '"')
+        text = text.Substring(1, text.Length - 2);
+      return text;
+    }
+    var expectedIsNull = expected is null ||
+      string.Equals(From(expected).Render(), "null", StringComparison.OrdinalIgnoreCase);
+    if (actual is null) return expectedIsNull;
+    if (Equals(actual, expected)) return true;
+    return string.Equals(Comparable(actual), Comparable(expected), StringComparison.OrdinalIgnoreCase);
   }
 
   public virtual bool Matches(string pattern, out string error) {
