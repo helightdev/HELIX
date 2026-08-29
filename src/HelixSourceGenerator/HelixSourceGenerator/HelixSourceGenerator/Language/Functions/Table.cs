@@ -15,7 +15,7 @@ internal sealed class AsTableFunction : FunctionDefinition {
     var typed = MixinValue.From(value, context);
     if (typed.BackingValue is not MixinExpressionTable) {
       var table = new MixinExpressionTable();
-      value = typed.Exists ? table.Put("0", typed.BackingValue) : table;
+      value = typed.Exists ? table.Put("0", typed) : table;
     }
     error = null;
     return true;
@@ -37,10 +37,16 @@ internal sealed class TableFunction : FunctionDefinition {
     var table = value as MixinExpressionTable ?? new MixinExpressionTable();
     switch (_kind) {
       case TableFunctionKind.Put:
-        value = table.Put(MixinExpressionEvaluator.Render(property.Values[0]), property.Values[1]); break;
+        value = table.Put(
+          MixinExpressionEvaluator.Render(property.Values[0]),
+          MixinValue.From(property.Values[1], context)
+        ); break;
       case TableFunctionKind.Remove: value = table.Remove(invocation.Argument); break;
       case TableFunctionKind.Push:
-        value = table.Put(table.Count.ToString(CultureInfo.InvariantCulture), property.Values[0]); break;
+        value = table.Put(
+          table.Count.ToString(CultureInfo.InvariantCulture),
+          MixinValue.From(property.Values[0], context)
+        ); break;
       case TableFunctionKind.Pop:
         value = table.Remove((table.Count - 1).ToString(CultureInfo.InvariantCulture)); break;
     }

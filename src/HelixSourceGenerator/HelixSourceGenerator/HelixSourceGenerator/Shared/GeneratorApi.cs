@@ -291,6 +291,15 @@ internal sealed class TypeWrapper {
 
   internal string HintName { get; }
 
+  internal DetachedTypeWrapper Detach() => new(
+    _namespaceName,
+    _chain.Select(current => (current.IsStatic ? "static " : "") +
+      "partial " + GeneratorSource.TypeKeyword(current) + " " +
+      GeneratorAnalysis.EscapeIdentifier(current.Name) +
+      GeneratorSource.TypeParameters(current)).ToArray(),
+    HintName
+  );
+
   internal string Build(
     Action<SharpStringBuilder> build,
     Action<SharpStringBuilder> after = null,
@@ -336,5 +345,47 @@ internal sealed class TypeWrapper {
     if (_baseType is not null && SymbolEqualityComparer.Default.Equals(current, _type))
       declaration += " : " + _baseType;
     using (builder.Type(declaration)) AppendContainingType(builder, index + 1, build);
+  }
+}
+
+internal sealed record DetachedTypeWrapper(
+  string NamespaceName,
+  IReadOnlyList<string> Declarations,
+  string HintName
+) {
+  internal string Build(
+    IReadOnlyList<string> usings,
+    IReadOnlyList<string> interfaces,
+    IReadOnlyList<string> annotations,
+    Action<SharpStringBuilder> build,
+    Action<SharpStringBuilder> after = null
+  ) => GeneratorSource.BuildSource(builder => {
+    if (usings is not null) {
+      foreach (var directive in usings) builder.AppendLine(directive);
+      if (usings.Count != 0) builder.BlankLine();
+    }
+    using (builder.Namespace(NamespaceName)) {
+      Append(builder, 0, interfaces, annotations, build);
+      after?.Invoke(builder);
+    }
+  });
+
+  private void Append(
+    SharpStringBuilder builder,
+    int index,
+    IReadOnlyList<string> interfaces,
+    IReadOnlyList<string> annotations,
+    Action<SharpStringBuilder> build
+  ) {
+    if (index == Declarations.Count) {
+      build(builder);
+      return;
+    }
+    var target = index == Declarations.Count - 1;
+    if (target && annotations is not null)
+      foreach (var annotation in annotations) builder.Attribute(annotation);
+    var declaration = Declarations[index];
+    if (target && interfaces is { Count: > 0 }) declaration += " : " + string.Join(", ", interfaces);
+    using (builder.Type(declaration)) Append(builder, index + 1, interfaces, annotations, build);
   }
 }

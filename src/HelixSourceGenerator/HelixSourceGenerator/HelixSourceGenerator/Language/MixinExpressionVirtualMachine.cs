@@ -15,7 +15,8 @@ internal static class MixinExpressionVirtualMachine {
     string expression,
     IMixinExpressionContext context,
     IDictionary<string, object> variables,
-    MixinExpressionPreparedState preparedState
+    MixinExpressionPreparedState preparedState,
+    MixinExpressionPreludeSnapshot preludeSnapshot = null
   ) {
     var evaluationStartedAt = Stopwatch.GetTimestamp();
     if (context is null) throw new ArgumentNullException(nameof(context));
@@ -62,6 +63,15 @@ internal static class MixinExpressionVirtualMachine {
     var calls = new Stack<CallFrame>();
     var localSymbolsIndexed = false;
 
+    MixinExpressionResult SuccessfulResult() {
+      var unlinkedVariables = pendingVariables.ToDictionary(
+        item => item.Key,
+        item => MixinValue.Unlink(item.Value, context),
+        StringComparer.Ordinal
+      );
+      return Success(outputs, logs, unlinkedVariables);
+    }
+
     bool FinishTransform(CallFrame frame, out string finishError) {
       if (!TryResumeTransform(
         frame.Transform, context, frame.Accumulator, out var completed, out finishError
@@ -83,7 +93,7 @@ internal static class MixinExpressionVirtualMachine {
     object TransformParameter(CallFrame frame) {
       var item = frame.Inputs[frame.InputIndex];
       if (frame.Transform.Kind == TableTransformKind.MapValues) return item.Value.BackingValue;
-      return new MixinExpressionTable().Put("k", item.Key).Put("v", item.Value.BackingValue);
+      return new MixinExpressionTable().Put("k", item.Key).Put("v", item.Value);
     }
 
     bool BeginTransform(
@@ -128,7 +138,7 @@ internal static class MixinExpressionVirtualMachine {
       var input = frame.Inputs[frame.InputIndex];
       if (frame.Transform.Kind == TableTransformKind.Filter) {
         if (MixinValue.From(returned, context).IsTruthy)
-          frame.Accumulator = frame.Accumulator.Put(input.Key, input.Value.BackingValue);
+          frame.Accumulator = frame.Accumulator.Put(input.Key, input.Value);
       } else frame.Accumulator = frame.Accumulator.Put(input.Key, returned);
       frame.InputIndex++;
       if (frame.InputIndex < frame.Inputs.Length) {
@@ -338,8 +348,13 @@ internal static class MixinExpressionVirtualMachine {
                 )
               );
               break;
+            case "PRELUDE":
+              if (preludeSnapshot is null)
+                return Failure("DUMP<PRELUDE> is only available during late evaluation", lineNumber, logs);
+              logs.Add(new MixinExpressionLog(DumpPrelude(preludeSnapshot), lineNumber));
+              break;
             default:
-              return Failure("DUMP requires STATE, BUFFER or AST", lineNumber, logs);
+              return Failure("DUMP requires STATE, BUFFER, AST or PRELUDE", lineNumber, logs);
           }
           break;
         case DirectiveOpcode.Local:
@@ -359,6 +374,14 @@ internal static class MixinExpressionVirtualMachine {
             break;
           }
           (parsed.Opcode == DirectiveOpcode.Local ? locals : pendingVariables)[argument] = stored;
+          break;
+        case DirectiveOpcode.Carry:
+          if (string.IsNullOrEmpty(argument)) return Failure("CARRY requires a label", lineNumber, logs);
+          if (TryEvaluateExpression(
+            parsed.ValueExpression, context, locals, pendingVariables,
+            out var carried, out var carryError
+          )) pendingVariables[CarryLocalPrefix + argument] = MixinValue.Unlink(carried, context);
+          else pendingVariables[CarryLocalPrefix + argument] = new FailedMixinValue(carryError);
           break;
         case DirectiveOpcode.PropStruct:
           if (context is not IMixinExpressionPropStructContext propStructContext)
@@ -487,7 +510,7 @@ internal static class MixinExpressionVirtualMachine {
             break;
           }
           CommitVariables(variables, pendingVariables);
-          return Success(outputs, logs);
+          return SuccessfulResult();
         case DirectiveOpcode.Call:
           var callFunctionLabel = parsed.Arguments.Count == 2 ? parsed.Arguments[1] : argument;
           var callReturnLocal = parsed.Arguments.Count == 2 ? argument : null;
@@ -564,6 +587,6 @@ internal static class MixinExpressionVirtualMachine {
     }
 
     CommitVariables(variables, pendingVariables);
-    return Success(outputs, logs);
+    return SuccessfulResult();
   }
 }

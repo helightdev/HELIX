@@ -238,13 +238,37 @@ upwards to the calling scope, returns inside the function will only return from 
 executing the calling scope. Functions may not be nested and must be closed with `@END` in a balanced manner.
 Functions may include scopes which are also allowed to use the `@END` expression.
 
-## Function Libraries
+## Additional-file mixins
 
-Reusable functions can be declared on a static class using `MixinLibrary`. Library contents are parsed and
-prepared before evaluating consumers and may only contain `@FUNC` declarations. A target or mixin attribute opts
-into a library using `MixinImport(typeof(MyLibrary))`. Imports placed on a mixin attribute are available whenever
-that attribute contributes expressions, including attributes introduced through `RequireMixin`. Repeated imports
-of the same library are deduplicated, while conflicting function declarations are reported as errors.
+All mixin behavior lives in Unity additional files under `Assets/Mixins`. The filename must be
+`<Name>.HelixSourceGenerator.additionalfile`. An attribute or mixin interface is associated with its behavior by a
+qualified-name companion block:
+
+```text
+@ANNOTATION<My.Namespace.MyAttribute>
+  @DEFINE_TARGET<Init><^Initialize>
+  @PRELUDE
+    @CARRY<MemberName> @target:name
+  @END
+
+  @MIXIN<$Init><0> InitializeMember("@carry#MemberName");
+@END
+```
+
+The optional `@PRELUDE ... @END` section performs Roslyn-dependent analysis and collection. Everything else in the
+annotation block is the normal late expression. `@DEFINE_TARGET<Name><Value>` declares an annotation-provided target
+alias, referenced as `$Name`. C# attribute classes contain only their normal constructor/data API; expression text,
+orders, and target declarations are not stored in C# metadata.
+
+Reusable `@FUNC` declarations can be placed in the same files. A static marker class associates a function library
+with a file using `[MixinLibrary("Name")]`, and a target or mixin attribute opts into those functions using
+`[MixinImport(typeof(MyLibrary))]`. HELIX additional files must therefore be imported into the consuming project's
+`Assets/Mixins` directory together with the corresponding HELIX modules.
+
+Additional-file libraries are parsed and prepared independently of the compilation before evaluating consumers.
+Imports placed on a mixin attribute are available whenever that attribute contributes expressions, including
+attributes introduced through `RequireMixin`. Repeated imports of the same library are deduplicated, while
+conflicting function declarations are reported as errors.
 
 
 ## TODO

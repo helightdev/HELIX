@@ -247,24 +247,6 @@ namespace HELIX.Boot {
   }
 
   [AttributeUsage(AttributeTargets.Field)]
-  [MixinExpression(
-    new[] { MixinOn.Init, MixinOn.ConfigureManaged, MixinOn.LoadManagedLate },
-    new[] { -1, -1, 1 },
-    @"
-@SCOPE
-  @MATCH @attr#path:?exists
-  @CODE<$Init> @target:name.SetInferredPath(@attr#path);
-  @CODE<$ConfigureManaged> registration.Publication(typeof(@target:type:unwrap), @attr#path, true);
-  @CODE<$LoadManagedLate> context.PublishBind(typeof(@target:type:unwrap), @attr#path, @target:name);
-  @RETURN
-@SCOPE
-  @CODE<$Init> @target:name.SetInferredName(""@target:name"");
-  @CODE<$ConfigureManaged> registration.Publication(typeof(HELIX.Boot.Option), null, true);
-  @CODE<$LoadManagedLate> context.PublishBind(typeof(HELIX.Boot.Option), null, @target:name)
-  @RETURN
-@END
-"
-  )]
   public class RegisterOptionAttribute : Attribute {
     public RegisterOptionAttribute() { }
 

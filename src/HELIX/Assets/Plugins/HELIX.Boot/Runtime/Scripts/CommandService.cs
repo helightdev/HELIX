@@ -339,23 +339,6 @@ namespace HELIX.Boot {
   }
 
   [AttributeUsage(AttributeTargets.Method)]
-  [MixinExpression(
-    new[] { MixinOn.LoadManagedLate },
-    new[] { 0 },
-    @"
-@USING HELIX.Boot;
-@LOCAL<StructName> @(target:name)_Args
-@PROP_STRUCT<(@local#StructName)><StructHandle><datatype> @target
-@LOCAL<InvokeLambda> args => @local#StructHandle:propStructCall<(@target:name)><args>
-@LOCAL<CmdName> @attr#name
-@SCOPE
-  @MATCH @attr#name:?eq<null>
-  @LOCAL<CmdName> ""@target:name""
-@END
-@LOCAL<Bridge> CommandBridge<@local#StructName>.Create(@local#StructName.Datatype, @local#InvokeLambda, @local#CmdName, @attr#description, @attr#parent)
-@CODE<$LoadManagedLate> context.PublishBind(typeof(HELIX.UI.Console.Command), null, @local#Bridge);
-"
-  )]
   public class CommandAttribute : Attribute {
     public CommandAttribute(
       string name = null,
@@ -365,15 +348,6 @@ namespace HELIX.Boot {
   }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-  [MixinExpression(
-    new[] { MixinOn.ConfigureManaged, MixinOn.LoadManagedLate },
-    new[] { -1, 1 },
-    @"
-@CODE<$ConfigureManaged> registration.Publication(typeof(HELIX.UI.Console.Command), null, true);
-@CODE<$LoadManagedLate> context.PublishBind(typeof(HELIX.UI.Console.Command), null, @target:name);
-@END
-"
-  )]
   public sealed class RegisterCommandAttribute : Attribute { }
 
   public sealed class HelpCommand : Command {

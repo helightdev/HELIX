@@ -883,7 +883,7 @@ public sealed class MixinExpressionInterpreterTests {
     var result = _interpreter.ValidateSyntax("@DUMP<UNKNOWN>");
 
     Assert.False(result.Success);
-    Assert.Contains("STATE, BUFFER or AST", result.Error);
+    Assert.Contains("STATE, BUFFER, AST or PRELUDE", result.Error);
   }
 
   [Fact]

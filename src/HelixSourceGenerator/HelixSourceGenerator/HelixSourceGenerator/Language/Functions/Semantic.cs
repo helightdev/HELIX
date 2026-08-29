@@ -11,7 +11,8 @@ internal sealed class TypeFunction : FunctionDefinition {
     string root, string member, ref object value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    if (typed.BackingValue is not MixinGeneratedStructReference) value = typed.RoslynType;
+    if (typed.BackingValue is DetachedSemanticValue detached) value = detached.Type;
+    else if (typed.BackingValue is not MixinGeneratedStructReference) value = typed.RoslynType;
     return FunctionResult(Name, value, out error);
   }
 }
@@ -67,6 +68,11 @@ internal sealed class VisibilityFunction : FunctionDefinition {
     string root, string member, ref object value, out string error
   ) {
     var typed = MixinValue.From(value, context);
+    if (typed.Visibility is { } detachedVisibility) {
+      value = detachedVisibility;
+      error = null;
+      return true;
+    }
     var symbol = typed.RoslynSymbol ?? typed.RoslynType as ISymbol;
     if (symbol is null || symbol.DeclaredAccessibility == Accessibility.NotApplicable) {
       error = "property ':visibility' is not available for this value";

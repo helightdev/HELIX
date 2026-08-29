@@ -7,6 +7,7 @@ namespace HELIX.SourceGen.Expressions;
 /// <summary>Public facade for compiling and executing mixin programs.</summary>
 public sealed class MixinExpressionInterpreter {
   internal const string ParameterLocalKey = "\0@param";
+  internal const string CarryLocalPrefix = "\0@carry:";
   internal const float FloatTimeZeroTolerance = 1e-6f;
   private const int MaximumCachedPrograms = 512;
   private const int MaximumCachedCharacters = 1024 * 1024;
@@ -74,6 +75,18 @@ public sealed class MixinExpressionInterpreter {
     return MixinExpressionVirtualMachine.Execute(expression, context, variables, preparedState);
   }
 
+  internal MixinExpressionResult Execute(
+    string expression,
+    IMixinExpressionContext context,
+    IDictionary<string, object> variables,
+    MixinExpressionPreparedState preparedState,
+    MixinExpressionPreludeSnapshot preludeSnapshot
+  ) {
+    return MixinExpressionVirtualMachine.Execute(
+      expression, context, variables, preparedState, preludeSnapshot
+    );
+  }
+
   public MixinExpressionResult Execute(
     string expression,
     IMixinExpressionContext context,
@@ -131,9 +144,10 @@ public sealed class MixinExpressionInterpreter {
 
   internal static MixinExpressionResult Success(
     IReadOnlyList<MixinExpressionOutput> outputs,
-    IReadOnlyList<MixinExpressionLog> logs
+    IReadOnlyList<MixinExpressionLog> logs,
+    IReadOnlyDictionary<string, object> variables = null
   ) {
-    return new MixinExpressionResult(true, null, 0, outputs, logs);
+    return new MixinExpressionResult(true, null, 0, outputs, logs, variables);
   }
 
   internal static MixinExpressionResult Failure(

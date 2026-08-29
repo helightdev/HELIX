@@ -66,9 +66,6 @@ namespace HELIX.Context.Tests.Fixtures {
   }
 
   [AttributeUsage(AttributeTargets.Class)]
-  [MixinExpression(MixinOn.ConfigureManaged, 0, @"
-@CODE registration.Condition(context => true);
-")]
   public sealed class AlwaysEnabledAttribute : Attribute { }
 
   [Managed(typeof(ApplicationScope), optional: true)]

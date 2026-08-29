@@ -20,20 +20,21 @@ internal static class PropStructMixinApi {
     INamedTypeSymbol type,
     IReadOnlyList<ISymbol> properties,
     CSharpCompilation compilation,
-    MixinExpressionPreparedState preparedExpressions
+    MixinExpressionPreparedState preparedExpressions,
+    MixinLibraryCatalog libraries
   ) {
     var model = new PropStructMixinModel();
     var variables = new Dictionary<string, object>(StringComparer.Ordinal);
-    var targetDefinitions = TargetDefinitions(type);
+    var targetDefinitions = TargetDefinitions(type, properties, libraries);
     var sequence = 0;
     EvaluateSymbol(
       production, type, type, compilation, preparedExpressions, variables,
-      targetDefinitions, model, ref sequence
+      targetDefinitions, model, ref sequence, libraries
     );
     foreach (var property in properties)
       EvaluateSymbol(
         production, type, property, compilation, preparedExpressions, variables,
-        targetDefinitions, model, ref sequence
+        targetDefinitions, model, ref sequence, libraries
       );
     model.SortConfiguration();
     return model;
@@ -44,38 +45,28 @@ internal static class PropStructMixinApi {
     IReadOnlyList<ISymbol> properties,
     CSharpCompilation compilation,
     MixinExpressionPreparedState preparedExpressions,
+    MixinLibraryCatalog libraries,
     out IReadOnlyList<string> configuration,
     out string error
   ) {
-    if (!MixinLibraryApi.TryPrepare(
-      MixinLibraryApi.AttributeOwners(new ISymbol[] { type }.Concat(properties)),
-      out preparedExpressions,
-      out error
-    )) {
-      configuration = null;
-      return false;
-    }
     var model = new PropStructMixinModel();
     var variables = new Dictionary<string, object>(StringComparer.Ordinal);
-    var targetDefinitions = TargetDefinitions(type);
+    var targetDefinitions = TargetDefinitions(type, properties, libraries);
     var sequence = 0;
     foreach (var property in properties) {
       foreach (var applied in OrderedAttributes(property)) {
         if (applied.AttributeClass is not { } attributeType) continue;
-        foreach (var expressionAttribute in InheritedExpressionAttributes(attributeType)) {
-          if (!TryReadConfiguration(
-            expressionAttribute, targetDefinitions, out var expression, out var order, out error
-          )) {
-            configuration = null;
-            return false;
-          }
+        foreach (var expressionAttribute in MixinLibraryApi.Annotations(attributeType, libraries)) {
+          var expression = expressionAttribute.Prelude + expressionAttribute.Expression;
+          const int order = 0;
           var arguments = property is IParameterSymbol { ContainingSymbol: IMethodSymbol method }
             ? (IReadOnlyList<IParameterSymbol>)method.Parameters
             : Array.Empty<IParameterSymbol>();
           var expressionContext = new RoslynMixinExpressionContext(
             type, property, applied, arguments, compilation,
             targetDefinitions: targetDefinitions,
-            preparedExpressions: preparedExpressions
+            preparedExpressions: preparedExpressions,
+            libraries: libraries
           );
           var evaluated = new MixinExpressionInterpreter().Execute(
             expression, expressionContext, variables, preparedExpressions
@@ -130,18 +121,15 @@ internal static class PropStructMixinApi {
     IDictionary<string, object> variables,
     IReadOnlyDictionary<string, string> targetDefinitions,
     PropStructMixinModel model,
-    ref int sequence
+    ref int sequence,
+    MixinLibraryCatalog libraries
   ) {
     foreach (var applied in OrderedAttributes(annotated)) {
       if (applied.AttributeClass is not { } attributeType) continue;
-      foreach (var configuration in InheritedExpressionAttributes(attributeType)) {
+      foreach (var configuration in MixinLibraryApi.Annotations(attributeType, libraries)) {
         var location = applied.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? LocationOf(annotated);
-        if (!TryReadConfiguration(
-          configuration, targetDefinitions, out var expression, out var order, out var failure
-        )) {
-          ReportFailure(production, location, attributeType.Name, annotated.Name, failure);
-          continue;
-        }
+        var expression = configuration.Prelude + configuration.Expression;
+        const int order = 0;
         var arguments = annotated switch {
           IMethodSymbol method => (IReadOnlyList<IParameterSymbol>)method.Parameters,
           IParameterSymbol { ContainingSymbol: IMethodSymbol method } => method.Parameters,
@@ -150,7 +138,8 @@ internal static class PropStructMixinApi {
         var expressionContext = new RoslynMixinExpressionContext(
           type, annotated, applied, arguments, compilation,
           targetDefinitions: targetDefinitions,
-          preparedExpressions: preparedExpressions
+          preparedExpressions: preparedExpressions,
+          libraries: libraries
         );
         var evaluated = new MixinExpressionInterpreter().Execute(
           expression, expressionContext, variables, preparedExpressions
@@ -199,101 +188,27 @@ internal static class PropStructMixinApi {
     }
   }
 
-  private static bool TryReadConfiguration(
-    AttributeData configuration,
-    IReadOnlyDictionary<string, string> targetDefinitions,
-    out string expression,
-    out int configureOrder,
-    out string failure
+  private static IReadOnlyDictionary<string, string> TargetDefinitions(
+    INamedTypeSymbol type,
+    IEnumerable<ISymbol> properties,
+    MixinLibraryCatalog libraries
   ) {
-    expression = null;
-    configureOrder = 0;
-    failure = null;
-    if (configuration.ConstructorArguments.Length == 1) {
-      expression = configuration.ConstructorArguments[0].Value as string;
-      if (expression is null) failure = "the expression cannot be null";
-      return failure is null;
-    }
-    if (configuration.ConstructorArguments.Length != 3) {
-      failure = "the configuration constructor must declare an expression, optionally with targets and orders";
-      return false;
-    }
-    expression = configuration.ConstructorArguments[2].Value as string;
-    if (expression is null) {
-      failure = "the expression cannot be null";
-      return false;
-    }
-    var targets = Constants(configuration.ConstructorArguments[0]);
-    var orders = Constants(configuration.ConstructorArguments[1]);
-    if (targets.Count != orders.Count) {
-      failure = "target and order arrays must have the same length";
-      return false;
-    }
-    for (var index = 0; index < targets.Count; index++) {
-      if (targets[index].Value is not string target || string.IsNullOrWhiteSpace(target)) {
-        failure = "target names cannot be empty";
-        return false;
-      }
-      if (!TryConvertToInt32(orders[index].Value, out var order)) {
-        failure = "an order value is not a valid integer";
-        return false;
-      }
-      if (RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions).Name == ConfigureTarget)
-        configureOrder = order;
-    }
-    return true;
-  }
-
-  private static IReadOnlyList<TypedConstant> Constants(TypedConstant value) =>
-    value.Kind == TypedConstantKind.Array ? value.Values : new[] { value };
-
-  private static IReadOnlyDictionary<string, string> TargetDefinitions(INamedTypeSymbol type) {
     var result = new Dictionary<string, string>(StringComparer.Ordinal) {
       ["$Init"] = "*" + ConfigureTarget,
       ["$Configure"] = "*" + ConfigureTarget
     };
-    var hierarchy = new Stack<INamedTypeSymbol>();
-    for (var current = type; current is not null; current = current.BaseType) hierarchy.Push(current);
-    while (hierarchy.Count != 0) {
-      foreach (var applied in OrderedAttributes(hierarchy.Pop())) {
-        ApplyTargetDefinition(applied, result);
-        if (applied.AttributeClass is not { } attributeType) continue;
-        var attributeHierarchy = new Stack<INamedTypeSymbol>();
-        for (var current = attributeType; current is not null; current = current.BaseType)
-          attributeHierarchy.Push(current);
-        while (attributeHierarchy.Count != 0)
-          foreach (var definition in OrderedAttributes(attributeHierarchy.Pop()))
-            ApplyTargetDefinition(definition, result);
-      }
-    }
+    foreach (var owner in new ISymbol[] { type }.Concat(properties))
+      foreach (var applied in OrderedAttributes(owner))
+        foreach (var annotation in MixinLibraryApi.Annotations(applied.AttributeClass, libraries))
+          foreach (var definition in annotation.TargetDefinitions)
+            result[definition.Key] = definition.Value;
     return result;
-  }
-
-  private static void ApplyTargetDefinition(
-    AttributeData attribute,
-    IDictionary<string, string> definitions
-  ) {
-    if (attribute.AttributeClass?.ToDisplayString() != Attributes.MixinDefineTarget ||
-      attribute.ConstructorArguments.Length < 2 ||
-      attribute.ConstructorArguments[0].Value is not string key ||
-      attribute.ConstructorArguments[1].Value is not string target ||
-      string.IsNullOrWhiteSpace(key)) return;
-    definitions["$" + key.TrimStart('$')] = target;
   }
 
   private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) => symbol.GetAttributes()
     .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
     .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
     .ToArray();
-
-  private static IEnumerable<AttributeData> InheritedExpressionAttributes(INamedTypeSymbol type) {
-    var hierarchy = new Stack<INamedTypeSymbol>();
-    for (var current = type; current is not null; current = current.BaseType) hierarchy.Push(current);
-    while (hierarchy.Count != 0)
-      foreach (var attribute in OrderedAttributes(hierarchy.Pop()))
-        if (attribute.AttributeClass?.ToDisplayString() == Attributes.MixinExpression)
-          yield return attribute;
-  }
 
   private static void ReportFailure(
     SourceProductionContext production,

@@ -258,7 +258,7 @@ public sealed class MixinTargetTests {
       PlatformReferences,
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
     );
-    GeneratorDriver driver = CSharpGeneratorDriver.Create(new MixinGenerator());
+    GeneratorDriver driver = MixinTestDriver.Create(compilation);
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
     var run = Assert.Single(driver.GetRunResult().Results);
     return new TestResult(

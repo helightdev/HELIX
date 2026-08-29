@@ -19,11 +19,13 @@ internal sealed class MixinProgramSyntax {
   private readonly string[] _lines;
 
   internal MixinProgramSyntax(string expression) {
+    Source = expression ?? "";
     _lines = MixinExpressionParser.SplitLines(expression ?? "");
     _instructions = new DirectiveInstruction[_lines.Length];
   }
 
   internal int Count => _lines.Length;
+  internal string Source { get; }
 
   internal DirectiveInstruction Get(int index) {
     var instruction = Volatile.Read(ref _instructions[index]);
@@ -59,6 +61,7 @@ internal enum DirectiveOpcode {
   Dump,
   Local,
   Variable,
+  Carry,
   PropStruct,
   AugmentStruct,
   Put,
@@ -66,7 +69,10 @@ internal enum DirectiveOpcode {
   Return,
   Goto,
   Skip,
-  Fail
+  Fail,
+  Annotation,
+  Prelude,
+  DefineTarget
 }
 
 internal sealed class DirectiveInstruction : MixinSyntaxNode {

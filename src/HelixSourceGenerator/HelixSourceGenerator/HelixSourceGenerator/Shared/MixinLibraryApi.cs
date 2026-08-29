@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text;
 using HELIX.SourceGen.Expressions;
 using Microsoft.CodeAnalysis;
 using static HELIX.SourceGen.GeneratorAnalysis;
@@ -11,59 +13,182 @@ using static HELIX.SourceGen.GeneratorStrings;
 namespace HELIX.SourceGen;
 
 internal static class MixinLibraryApi {
-  private const int MaximumCachedLibrarySets = 128;
-  private const int MaximumCachedCharacters = 1024 * 1024;
-  private static readonly object CacheLock = new();
-  private static readonly Dictionary<string, CacheEntry> StateCache = new(StringComparer.Ordinal);
-  private static readonly LinkedList<string> StateLru = new();
-  private static int _cachedCharacters;
+  internal const string AdditionalFileSuffix = ".HelixSourceGenerator.additionalfile";
+
+  internal static MixinLibraryFile ReadAdditionalFile(
+    AdditionalText file,
+    System.Threading.CancellationToken cancellationToken
+  ) {
+    if (!file.Path.EndsWith(AdditionalFileSuffix, StringComparison.OrdinalIgnoreCase))
+      return null;
+    var name = Path.GetFileName(file.Path);
+    var key = name.EndsWith(AdditionalFileSuffix, StringComparison.OrdinalIgnoreCase)
+      ? name.Substring(0, name.Length - AdditionalFileSuffix.Length)
+      : name;
+    var content = file.GetText(cancellationToken)?.ToString() ?? "";
+    var parsed = ParseAdditionalFile(content);
+    return new MixinLibraryFile(
+      key, file.Path, content, parsed.Success,
+      parsed.Error, parsed.ErrorLine,
+      parsed.Success ? MixinExpressionInterpreter.GetProgram(parsed.Functions, true) : null,
+      parsed.Annotations
+    );
+  }
+
+  private static ParsedAdditionalFile ParseAdditionalFile(string content) {
+    var functions = new StringBuilder();
+    var annotations = new Dictionary<string, MixinAnnotationDefinition>(StringComparer.Ordinal);
+    var lines = (content ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+    string annotationName = null;
+    var prelude = new StringBuilder();
+    var expression = new StringBuilder();
+    Dictionary<string, string> targets = null;
+    var inPrelude = false;
+    var sawPrelude = false;
+    var sectionScope = false;
+    var functionScope = false;
+    var inFunction = false;
+    var annotationLine = 0;
+
+    ParsedAdditionalFile Failure(string error, int line) =>
+      new(false, functions.ToString(), annotations, error, line);
+    void Append(StringBuilder target, string line) => target.AppendLine(line);
+    for (var index = 0; index < lines.Length; index++) {
+      var line = lines[index];
+      if (!MixinExpressionParser.TryReadDirective(
+        line, out var command, out var arguments, out _
+      )) {
+        if (annotationName is null) Append(functions, line);
+        else Append(inPrelude ? prelude : expression, line);
+        continue;
+      }
+
+      if (annotationName is null) {
+        if (command != "ANNOTATION") {
+          Append(functions, line);
+          continue;
+        }
+        if (arguments.Count != 1 || string.IsNullOrWhiteSpace(arguments[0]))
+          return Failure("ANNOTATION requires a qualified type name", index + 1);
+        annotationName = arguments[0];
+        annotationLine = index + 1;
+        prelude.Clear();
+        expression.Clear();
+        targets = new Dictionary<string, string>(StringComparer.Ordinal);
+        inPrelude = false;
+        sawPrelude = false;
+        sectionScope = false;
+        functionScope = false;
+        inFunction = false;
+        continue;
+      }
+
+      if (command == "ANNOTATION")
+        return Failure("annotations may not be nested", index + 1);
+      if (command == "PRELUDE" && !inPrelude && !inFunction && !sectionScope) {
+        if (sawPrelude) return Failure("PRELUDE may only be declared once", index + 1);
+        inPrelude = true;
+        sawPrelude = true;
+        continue;
+      }
+      if (command == "DEFINE_TARGET" && !inPrelude && !inFunction && !sectionScope) {
+        if (arguments.Count != 2 || arguments.Any(string.IsNullOrWhiteSpace))
+          return Failure("DEFINE_TARGET requires a name and value", index + 1);
+        var targetKey = "$" + arguments[0].TrimStart('$');
+        if (targets.ContainsKey(targetKey))
+          return Failure("target '" + targetKey + "' is defined more than once", index + 1);
+        targets.Add(targetKey, arguments[1]);
+        continue;
+      }
+      if (command == "FUNC") {
+        if (inFunction) return Failure("functions may not be nested", index + 1);
+        inFunction = true;
+        functionScope = false;
+        Append(inPrelude ? prelude : expression, line);
+        continue;
+      }
+      if (command == "SCOPE") {
+        if (inFunction) functionScope = true;
+        else sectionScope = true;
+        Append(inPrelude ? prelude : expression, line);
+        continue;
+      }
+      if (command != "END") {
+        Append(inPrelude ? prelude : expression, line);
+        continue;
+      }
+      if (inFunction && functionScope) {
+        functionScope = false;
+        Append(inPrelude ? prelude : expression, line);
+        continue;
+      }
+      if (inFunction) {
+        inFunction = false;
+        Append(inPrelude ? prelude : expression, line);
+        continue;
+      }
+      if (sectionScope) {
+        sectionScope = false;
+        Append(inPrelude ? prelude : expression, line);
+        continue;
+      }
+      if (inPrelude) {
+        inPrelude = false;
+        continue;
+      }
+
+      if (annotations.ContainsKey(annotationName))
+        return Failure("annotation '" + annotationName + "' is defined more than once", annotationLine);
+      var preludeText = prelude.ToString();
+      var expressionText = expression.ToString();
+      foreach (var part in new[] { preludeText, expressionText }) {
+        var validation = MixinExpressionCompiler.ValidateSyntax(part, false);
+        if (!validation.Success)
+          return Failure(validation.Error, annotationLine + validation.ErrorLine);
+      }
+      annotations.Add(annotationName, new MixinAnnotationDefinition(
+        annotationName, preludeText, expressionText, targets
+      ));
+      annotationName = null;
+    }
+    if (annotationName is not null)
+      return Failure("unterminated annotation '" + annotationName + "'", annotationLine);
+    var functionText = functions.ToString();
+    var functionValidation = new MixinExpressionInterpreter().ValidateFunctionLibrary(functionText);
+    return functionValidation.Success
+      ? new ParsedAdditionalFile(true, functionText, annotations, null, 0)
+      : Failure(functionValidation.Error, functionValidation.ErrorLine);
+  }
 
   internal static MixinExpressionPreparedState Prepare(
     SourceProductionContext context,
     IEnumerable<INamedTypeSymbol> owners
+  ) => Prepare(context.ReportDiagnostic, owners);
+
+  internal static MixinExpressionPreparedState Prepare(
+    SourceProductionContext context,
+    IEnumerable<INamedTypeSymbol> owners,
+    MixinLibraryCatalog catalog
+  ) => Prepare(context.ReportDiagnostic, owners, catalog);
+
+  internal static MixinExpressionPreparedState Prepare(
+    Action<Diagnostic> reportDiagnostic,
+    IEnumerable<INamedTypeSymbol> owners,
+    MixinLibraryCatalog catalog = null
   ) {
-    if (!TryCollect(owners, out var libraries, out var failures)) {
+    if (!TryCollect(owners, catalog, out var libraries, out var failures)) {
       foreach (var failure in failures)
-        context.ReportDiagnostic(Diagnostic.Create(
+        reportDiagnostic(Diagnostic.Create(
           InvalidLibraryImport, failure.Location, failure.Owner, failure.Message
         ));
       return new MixinExpressionInterpreter().PrepareGlobals(Array.Empty<string>());
     }
 
     foreach (var failure in failures)
-      context.ReportDiagnostic(Diagnostic.Create(
+      reportDiagnostic(Diagnostic.Create(
         InvalidLibraryImport, failure.Location, failure.Owner, failure.Message
       ));
-    return PrepareLibraries(context, libraries);
-  }
-
-  internal static bool TryPrepare(
-    IEnumerable<INamedTypeSymbol> owners,
-    out MixinExpressionPreparedState state,
-    out string error
-  ) {
-    state = null;
-    if (!TryCollect(owners, out var libraries, out var failures) || failures.Count != 0) {
-      error = failures.Count == 0 ? "mixin library import is invalid" : failures[0].Message;
-      return false;
-    }
-    var interpreter = new MixinExpressionInterpreter();
-    foreach (var library in libraries) {
-      var validation = interpreter.ValidateFunctionLibrary(library.Content);
-      if (!validation.Success) {
-        error = "mixin library '" + library.Name + "' is invalid at line " +
-          validation.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + validation.Error;
-        return false;
-      }
-    }
-    try {
-      state = PrepareCached(libraries.Select(item => item.Content).ToArray(), interpreter);
-      error = null;
-      return true;
-    } catch (ArgumentException exception) {
-      error = exception.Message;
-      return false;
-    }
+    return PrepareLibraries(reportDiagnostic, libraries);
   }
 
   internal static IEnumerable<INamedTypeSymbol> AttributeOwners(IEnumerable<ISymbol> symbols) {
@@ -75,16 +200,33 @@ internal static class MixinLibraryApi {
     }
   }
 
+  internal static IEnumerable<MixinAnnotationDefinition> Annotations(
+    INamedTypeSymbol type,
+    MixinLibraryCatalog catalog
+  ) {
+    if (type is null || catalog is null) yield break;
+    var hierarchy = new Stack<INamedTypeSymbol>();
+    for (var current = type; current is not null; current = current.BaseType) hierarchy.Push(current);
+    while (hierarchy.Count != 0) {
+      var name = hierarchy.Pop().ToDisplayString(TypeDisplayFormat);
+      if (catalog.TryGetAnnotation(name, out var annotation)) yield return annotation;
+    }
+  }
+
   private static MixinExpressionPreparedState PrepareLibraries(
-    SourceProductionContext context,
+    Action<Diagnostic> reportDiagnostic,
     IReadOnlyList<Library> libraries
   ) {
     var interpreter = new MixinExpressionInterpreter();
-    var valid = new List<string>(libraries.Count);
+    var valid = new List<MixinProgramSyntax>(libraries.Count);
     foreach (var library in libraries) {
+      if (library.Program is not null) {
+        valid.Add(library.Program);
+        continue;
+      }
       var validation = interpreter.ValidateFunctionLibrary(library.Content);
       if (!validation.Success) {
-        context.ReportDiagnostic(Diagnostic.Create(
+        reportDiagnostic(Diagnostic.Create(
           InvalidPreparedExpression,
           library.Location,
           library.Name,
@@ -93,12 +235,12 @@ internal static class MixinLibraryApi {
         ));
         continue;
       }
-      valid.Add(library.Content);
+      valid.Add(MixinExpressionInterpreter.GetProgram(library.Content, true));
     }
     try {
-      return PrepareCached(valid, interpreter);
+      return MixinExpressionCompiler.PrepareGlobals(valid);
     } catch (ArgumentException exception) {
-      context.ReportDiagnostic(Diagnostic.Create(
+      reportDiagnostic(Diagnostic.Create(
         InvalidLibraryImport, Location.None, "import set", exception.Message
       ));
       return interpreter.PrepareGlobals(Array.Empty<string>());
@@ -107,6 +249,7 @@ internal static class MixinLibraryApi {
 
   private static bool TryCollect(
     IEnumerable<INamedTypeSymbol> owners,
+    MixinLibraryCatalog catalog,
     out IReadOnlyList<Library> libraries,
     out List<ImportFailure> failures
   ) {
@@ -131,16 +274,37 @@ internal static class MixinLibraryApi {
           if (!visitedLibraries.Add(libraryType)) continue;
           var declaration = Attribute(libraryType, Attributes.MixinLibrary);
           if (declaration is null || declaration.ConstructorArguments.Length != 1 ||
-            declaration.ConstructorArguments[0].Value is not string content) {
+            declaration.ConstructorArguments[0].Value is not string reference) {
             failures.Add(new ImportFailure(
               owner.Name, location,
               "'" + libraryType.ToDisplayString() + "' is not a valid [MixinLibrary]"
             ));
             continue;
           }
+          var content = reference;
+          var libraryLocation = declaration.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? location;
+          MixinLibraryFile external = null;
+          if (catalog is not null && catalog.TryGet(reference, out external)) {
+            if (!external.Success) {
+              failures.Add(new ImportFailure(
+                owner.Name, Location.None,
+                "mixin library '" + reference + "' is invalid at line " +
+                external.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + external.Error
+              ));
+              continue;
+            }
+            content = external.Content;
+            libraryLocation = Location.None;
+          } else if (IsAdditionalFileReference(reference)) {
+            failures.Add(new ImportFailure(
+              owner.Name, location, "additional mixin library '" + reference +
+              "' was not provided; available libraries: " + (catalog?.AvailableKeys ?? "<none>")
+            ));
+            continue;
+          }
           result.Add(new Library(
-            libraryType.ToDisplayString(), content,
-            declaration.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? location
+            libraryType.ToDisplayString(), content, libraryLocation,
+            external?.Program
           ));
           queue.Enqueue(libraryType);
         }
@@ -150,39 +314,9 @@ internal static class MixinLibraryApi {
     return failures.Count == 0;
   }
 
-  private static MixinExpressionPreparedState PrepareCached(
-    IReadOnlyList<string> contents,
-    MixinExpressionInterpreter interpreter
-  ) {
-    if (contents.Count == 0) return interpreter.PrepareGlobals(Array.Empty<string>());
-    var key = string.Concat(contents.Select(content => content.Length + ":" + content));
-    lock (CacheLock) {
-      if (StateCache.TryGetValue(key, out var cached)) {
-        StateLru.Remove(cached.Node);
-        StateLru.AddFirst(cached.Node);
-        return cached.State;
-      }
-    }
-
-    var prepared = interpreter.PrepareGlobals(contents);
-    if (key.Length > MaximumCachedCharacters) return prepared;
-    lock (CacheLock) {
-      if (StateCache.TryGetValue(key, out var existing)) return existing.State;
-      var node = StateLru.AddFirst(key);
-      StateCache.Add(key, new CacheEntry(prepared, node));
-      _cachedCharacters += key.Length;
-      while (StateCache.Count > MaximumCachedLibrarySets ||
-        _cachedCharacters > MaximumCachedCharacters) {
-        var last = StateLru.Last;
-        if (last is null) break;
-        StateLru.RemoveLast();
-        if (!StateCache.ContainsKey(last.Value)) continue;
-        StateCache.Remove(last.Value);
-        _cachedCharacters -= last.Value.Length;
-      }
-    }
-    return prepared;
-  }
+  private static bool IsAdditionalFileReference(string value) =>
+    value is not null && value.IndexOf('\n') < 0 && value.IndexOf('\r') < 0 &&
+    !value.Contains("@FUNC<");
 
   private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) =>
     symbol.GetAttributes()
@@ -193,10 +327,71 @@ internal static class MixinLibraryApi {
   private static bool IsAttribute(AttributeData attribute, string metadataName) =>
     attribute.AttributeClass?.ToDisplayString() == metadataName;
 
-  private sealed record Library(string Name, string Content, Location Location);
-  private sealed record ImportFailure(string Owner, Location Location, string Message);
-  private sealed record CacheEntry(
-    MixinExpressionPreparedState State,
-    LinkedListNode<string> Node
+  private sealed record Library(
+    string Name,
+    string Content,
+    Location Location,
+    MixinProgramSyntax Program
   );
+  private sealed record ImportFailure(string Owner, Location Location, string Message);
+}
+
+internal sealed record MixinLibraryFile(
+  string Key,
+  string Path,
+  string Content,
+  bool Success,
+  string Error,
+  int ErrorLine,
+  MixinProgramSyntax Program,
+  IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations
+);
+
+internal sealed record MixinAnnotationDefinition(
+  string Name,
+  string Prelude,
+  string Expression,
+  IReadOnlyDictionary<string, string> TargetDefinitions
+);
+
+internal sealed record ParsedAdditionalFile(
+  bool Success,
+  string Functions,
+  IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations,
+  string Error,
+  int ErrorLine
+);
+
+internal sealed class MixinLibraryCatalog {
+  private readonly Dictionary<string, MixinLibraryFile> _files;
+  private readonly Dictionary<string, MixinAnnotationDefinition> _annotations;
+  internal MixinLibraryCatalog(IEnumerable<MixinLibraryFile> files) {
+    _files = (files ?? Array.Empty<MixinLibraryFile>())
+      .Where(item => item is not null)
+      .GroupBy(item => item.Key, StringComparer.Ordinal)
+      .ToDictionary(item => item.Key, item => item.Last(), StringComparer.Ordinal);
+    _annotations = _files.Values
+      .Where(file => file.Success)
+      .SelectMany(file => file.Annotations.Values)
+      .GroupBy(annotation => annotation.Name, StringComparer.Ordinal)
+      .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+    Key = string.Join(
+      "\u001e", _files.OrderBy(item => item.Key, StringComparer.Ordinal)
+        .Select(item => item.Key + "\u001f" + item.Value.Content)
+    );
+  }
+  internal string Key { get; }
+  internal string AvailableKeys => _files.Count == 0
+    ? "<none>"
+    : string.Join(", ", _files.Keys.OrderBy(item => item, StringComparer.Ordinal));
+  internal bool TryGet(string key, out MixinLibraryFile file) => _files.TryGetValue(key ?? "", out file);
+  internal bool TryGetAnnotation(string name, out MixinAnnotationDefinition annotation) =>
+    _annotations.TryGetValue((name ?? "").Replace("global::", ""), out annotation);
+}
+
+internal sealed class MixinLibraryCatalogComparer : IEqualityComparer<MixinLibraryCatalog> {
+  internal static readonly MixinLibraryCatalogComparer Instance = new();
+  public bool Equals(MixinLibraryCatalog x, MixinLibraryCatalog y) =>
+    ReferenceEquals(x, y) || x is not null && y is not null && x.Key == y.Key;
+  public int GetHashCode(MixinLibraryCatalog value) => StringComparer.Ordinal.GetHashCode(value?.Key ?? "");
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.RegularExpressions;
 using HELIX.SourceGen.Expressions;
 using Microsoft.CodeAnalysis;
@@ -21,6 +22,14 @@ internal readonly struct RoslynMixinValue : IMixinValue {
   public object BackingValue => _value;
   public ISymbol RoslynSymbol => Symbol;
   public ITypeSymbol RoslynType => Type;
+  public string Visibility {
+    get {
+      var symbol = Symbol ?? Type as ISymbol;
+      return symbol is null || symbol.DeclaredAccessibility == Accessibility.NotApplicable
+        ? null
+        : GeneratorAnalysis.AccessibilityText(symbol.DeclaredAccessibility);
+    }
+  }
   public string Name => RoslynMixinExpressionContext.NameOf(_value);
   public string FullName => RoslynMixinExpressionContext.FullNameOf(_value);
   public bool Exists => _value is not null;
@@ -76,7 +85,10 @@ internal readonly struct RoslynMixinValue : IMixinValue {
       if (type is not null && !(exact
         ? MatchesExact(attribute.AttributeClass, type)
         : attribute.AttributeClass is not null && _context.IsOrInherits(attribute.AttributeClass, type))) continue;
-      table = table.Put((index++).ToString(System.Globalization.CultureInfo.InvariantCulture), attribute);
+      table = table.Put(
+        (index++).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        new RoslynMixinValue(_context, attribute)
+      );
     }
     return table;
   }
@@ -106,6 +118,65 @@ internal readonly struct RoslynMixinValue : IMixinValue {
 
   public ITypeSymbol ResolveType(string name) => _context.ResolveType(name);
   public bool IsGeneratedType(string name) => _context.IsGeneratedStructType(name);
+  public IMixinValue Unlink() {
+    if (_value is ISymbol || _value is TypedConstant)
+      return DetachedSemantic();
+    var value = Unwrap();
+    if (value is null) return MixinValue.From(null);
+    if (value is bool boolean) return MixinValue.From(boolean);
+    if (value is string text) return MixinValue.From(text);
+    return DetachedSemantic();
+  }
+
+  private IMixinValue DetachedSemantic() {
+    var type = DetachedType(Type);
+    var members = Members(Type);
+    var traits = Enum.GetValues(typeof(MixinValueTrait)).Cast<MixinValueTrait>().Where(HasTrait).ToArray();
+    var render = Render();
+    if (_value is TypedConstant &&
+      _context.TryRenderValue(_value, "attr", out var constantExpression, out _))
+      render = constantExpression;
+    return new DetachedSemanticValue(Name, FullName, render, Visibility, type, members, traits);
+  }
+
+  private static DetachedTypeValue DetachedType(ITypeSymbol type) {
+    if (type is null) return null;
+    var names = new System.Collections.Generic.Stack<string>();
+    for (var current = type; current is not null; current = current.ContainingType) names.Push(current.Name);
+    return new DetachedTypeValue(
+      type.ContainingNamespace?.IsGlobalNamespace == false ? type.ContainingNamespace.ToDisplayString() : "",
+      names.ToArray(), Members(type),
+      type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
+      AssignableTypes(type),
+      type is INamedTypeSymbol named
+        ? named.TypeArguments.Select(DetachedType).ToArray()
+        : Array.Empty<DetachedTypeValue>(),
+      type is INamedTypeSymbol generic
+        ? generic.TypeParameters.Select(item => item.Name).ToArray()
+        : Array.Empty<string>()
+    );
+  }
+
+  private static string[] AssignableTypes(ITypeSymbol type) {
+    var result = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+    void Add(ITypeSymbol item) {
+      if (item is null) return;
+      result.Add(item.Name);
+      result.Add(item.ToDisplayString().Replace("global::", ""));
+      result.Add(item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""));
+    }
+    Add(type);
+    if (type is INamedTypeSymbol named) {
+      for (var current = named.BaseType; current is not null; current = current.BaseType) Add(current);
+      foreach (var implemented in named.AllInterfaces) Add(implemented);
+    }
+    return result.OrderBy(item => item, StringComparer.Ordinal).ToArray();
+  }
+
+  private static string[] Members(ITypeSymbol type) {
+    if (type is not INamedTypeSymbol named) return Array.Empty<string>();
+    return named.GetMembers().Select(item => item.Name).Distinct(StringComparer.Ordinal).ToArray();
+  }
 
   public bool HasTrait(MixinValueTrait trait) {
     if (_value is null) return false;

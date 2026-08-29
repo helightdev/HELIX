@@ -64,6 +64,7 @@ internal sealed class RoslynMixinExpressionContext :
   private readonly CSharpCompilation _compilation;
   private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
   private readonly MixinExpressionPreparedState _preparedExpressions;
+  private readonly MixinLibraryCatalog _libraries;
   private readonly Dictionary<string, MixinGeneratedStructReference> _generatedStructs =
     new(StringComparer.Ordinal);
 
@@ -76,7 +77,8 @@ internal sealed class RoslynMixinExpressionContext :
     INamedTypeSymbol implicitAttributeType = null,
     IReadOnlyDictionary<string, ImplicitMixinValue> implicitValues = null,
     IReadOnlyDictionary<string, string> targetDefinitions = null,
-    MixinExpressionPreparedState preparedExpressions = null
+    MixinExpressionPreparedState preparedExpressions = null,
+    MixinLibraryCatalog libraries = null
   ) {
     _thisType = thisType;
     _target = target;
@@ -87,6 +89,7 @@ internal sealed class RoslynMixinExpressionContext :
     _implicitValues = implicitValues;
     _targetDefinitions = targetDefinitions;
     _preparedExpressions = preparedExpressions;
+    _libraries = libraries;
   }
 
   public bool TryResolve(
@@ -224,6 +227,7 @@ internal sealed class RoslynMixinExpressionContext :
         props.Select(prop => prop.Symbol).ToArray(),
         _compilation,
         _preparedExpressions,
+        _libraries,
         out configuration,
         out error
       )) return false;

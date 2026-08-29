@@ -4,7 +4,6 @@ using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
   [AttributeUsage(AttributeTargets.Method)]
-  [MixinExpression("@CALL<ClickHandlerImpl>")]
   [MixinImport(typeof(ComposeMixinLibrary))]
   public class ClickHandlerAttribute : Attribute { }
 

@@ -1,62 +1,20 @@
 using System;
 
 namespace HELIX {
-  [MixinLibrary(
-    @"
-@FUNC<MixinHookImpl>
-  @LOCAL<Name> @attr#target:unwrap
-  @SCOPE
-    @MATCH @local#Name:eq<null>
-    @ASSERT @target:name:matches<^On.*>
-    @LOCAL<IsImplicit> true
-    @Local<Name> $@target:name:replaceFirst<^On><>
-  @END
-
-  @SCOPE
-    @MATCH @arg#0:!?exists
-    @MIXIN<(@local#Name)><(@attr#order)> @target:name();
-    @RETURN
-  @END
-
-  @RESOLVE_MIXIN<Delegate> @local#Name
-  @ASSERT @local#Delegate:!?eq<null>
-  @MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);
-@END
-
-@FUNC<SetStructurePropertyDatatype>
-  @CODE datatype.GetProperty(""@target:name"").ValueDatatype = @param;
-@END
-
-@FUNC<AddStructurePropertyModifier>
-  @CODE datatype.GetProperty(""@target:name"").Modifiers.Add(@param);
-@END
-
-@FUNC<RequireCompanion> 
-  @SCOPE
-    @MATCH @var#CompanionName:!?exists
-    @VAR<CompanionName> @(this:name)_Companion
-    @VAR<DeclareCompanion> public static partial class @var#CompanionName
-    @CODE<FILE> @var#DeclareCompanion {}
-  @END
-@END
-
-@FUNC<DeclareCompanion> 
-  @SCOPE
-    @MATCH @var#CompanionName:!?exists
-    @VAR<CompanionName> @(this:name)_Companion
-    @VAR<DeclareCompanion> public static partial class @var#CompanionName
-  @END
-  @CODE<FILE> @var#DeclareCompanion { 
-    @\  @param
-    @\}
-@END
-"
-  )]
+  [MixinLibrary("Core")]
   public static class CoreMixinLibrary { }
+
+  public enum MixinRequirements {
+    None = 0,
+    TypeName = 1,
+    TypeSignature = 1 << 1,
+    TypeAttributes = 1 << 2
+
+
+  }
 
   [AttributeUsage(AttributeTargets.Method)]
   [MixinImport(typeof(CoreMixinLibrary))]
-  [MixinExpression("@CALL<MixinHookImpl>")]
   public class HookAttribute : Attribute {
     public readonly string target;
     public readonly int order;
@@ -74,45 +32,10 @@ namespace HELIX {
 
   [AttributeUsage(AttributeTargets.Class, Inherited = false)]
   public sealed class MixinLibraryAttribute : Attribute {
-    public readonly string content;
+    public readonly string reference;
 
-    public MixinLibraryAttribute(string content) {
-      this.content = content;
-    }
-  }
-
-  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
-  public class MixinDefineTargetAttribute : Attribute {
-    public readonly string key;
-    public readonly string target;
-
-    public MixinDefineTargetAttribute(string key, string target) {
-      this.key = key;
-      this.target = target;
-    }
-  }
-
-  // Must be put on an attribute or mixin interface.
-  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
-  public class MixinExpressionAttribute : Attribute {
-    public readonly string[] target;
-    public readonly int[] order;
-    public readonly string expression;
-
-    public MixinExpressionAttribute(string target, int order, string expression) {
-      this.target = new[] { target };
-      this.order = new[] { order };
-      this.expression = expression;
-    }
-
-    public MixinExpressionAttribute(string[] target, int[] order, string expression) {
-      this.target = target;
-      this.order = order;
-      this.expression = expression;
-    }
-
-    public MixinExpressionAttribute(string expression) {
-      this.expression = expression;
+    public MixinLibraryAttribute(string reference) {
+      this.reference = reference;
     }
   }
 
@@ -140,14 +63,12 @@ namespace HELIX {
     AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Method,
     AllowMultiple = true
   )]
-  [MixinExpression("@USING @attr#statement:unwrap;")]
   public class MixinUsingAttribute : Attribute, IMixin {
     public MixinUsingAttribute(string statement) { }
   }
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Parameter)]
   [MixinImport(typeof(CoreMixinLibrary))]
-  [MixinExpression("@CALL<SetStructurePropertyDatatype> @attr#datatype:unwrap")]
   public class PropertyDatatypeAttribute : Attribute {
 
     public PropertyDatatypeAttribute(string datatype) {

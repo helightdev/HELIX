@@ -1,0 +1,239 @@
+@### Functions #########################################################################################################
+@FUNC<RequireHandler>
+  @SCOPE
+    @MATCH @var#IsEventHandler:!?eq<true>
+    @USING System;
+    @CODE<CLASS> [NonSerializedAttribute]
+      @\protected readonly EventHandlerList eventHandlerList = EventHandlerList.Create();
+      @\EventHandlerList IEventListener.HandlerList => eventHandlerList;
+    @MIXIN<$Dispose><1> eventHandlerList.UnregisterAll();
+    @CODE<IMPLEMENTS> IEventListener
+    @VAR<IsEventHandler> true
+  @END
+@END
+
+@### Annotations #######################################################################################################
+
+@ANNOTATION<HELIX.Context.EventHandlerAttribute>
+  @PRELUDE
+    @CALL<RequireHandler>
+  @END
+  
+  @SCOPE
+    @MATCH @var#IsComponent:?eq<true>
+    @MIXIN<$ConfigureManaged><-90000> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
+  @END
+
+  @SCOPE
+    @MATCH @arg#0:?is<IAsyncChainEvt>
+    @ASSERT @arg#0:?argument
+    @MIXIN<$Init><1> eventHandlerList.RegisterAsync<@arg#0:type>(@target:name, @attr#priority);
+    @RETURN
+  @SCOPE
+    @MATCH @arg#0:?is<Evt>
+    @MATCH @arg#0:?ref
+    @MIXIN<$Init><1> eventHandlerList.Register<@arg#0:type>(@target:name, @attr#priority);
+    @RETURN
+  @SCOPE
+    @MATCH @arg#0:?is<Evt>
+    @MATCH @arg#0:?argument
+    @MIXIN<$Init><1> eventHandlerList.Register<@arg#0:type>(@target:name, @attr#priority);
+    @RETURN
+  @END
+@END
+
+@ANNOTATION<HELIX.Context.Tests.Fixtures.AlwaysEnabledAttribute>
+  @MIXIN<$ConfigureManaged><0> registration.Condition(context => true);
+@END
+
+@ANNOTATION<HELIX.Context.InjectAttribute>
+  @FUNC<InjectList>
+    @USING System.Collections.Generic;
+    @ASSERT @target:type#0:?class
+    @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type#0), @attr#qualifier), false, true));
+    @MIXIN<$Init><-1> @target:name = managed.ResolveAll<@target:type#0>(@attr#qualifier) as @target:type;
+  @END
+
+  @USING HELIX.Context;
+  @SCOPE
+    @MATCH @target:type:?is<System.Collections.IEnumerable>
+    @MATCH @target:type:!?is<string>
+    @MATCH @target:type#0:?exists
+    @CALL<InjectList>
+    @RETURN
+  @END
+
+  @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type), @attr#qualifier), @attr#required));
+  @SCOPE
+    @MATCH @attr#required:?eq<false>
+    @MIXIN<$Init><-1> @target:name = managed.ResolveOptional<@target:type>(@attr#qualifier);
+    @RETURN
+  @END
+  @MIXIN<$Init><-1> @target:name = managed.Resolve<@target:type>(@attr#qualifier);
+@END
+
+@ANNOTATION<HELIX.Context.BindAttribute>
+  @USING HELIX.Context;
+  @LOCAL<Value> @target:name
+  @LOCAL<Method> PublishBind
+  @LOCAL<Guard>
+  @LOCAL<Type> typeof(@target:type:unwrap)
+  @SCOPE
+    @MATCH @attr#proxied:?eq<true>
+    @LOCAL<Value> () => @target:name
+    @LOCAL<Method> PublishProxyBind
+  @SCOPE
+    @MATCH @attr#required:?eq<false>
+    @LOCAL<Guard> if (@target:name != null)
+  @SCOPE
+    @MATCH @attr#type:?exists
+    @MATCH @attr#type:!?eq<null>
+    @LOCAL<Type> @attr#type
+  @END
+
+  @MIXIN<$ConfigureManaged><0> registration.Publication(@local#Type, @attr#qualifier, @attr#required);
+  @MIXIN<$LoadManagedLate><0> @(local#Guard)context.@local#Method(@local#Type, @attr#qualifier, @local#Value);
+@END
+
+@ANNOTATION<HELIX.Context.ResourceAttribute>
+  @FUNC<ResourceSingle>
+    @LOCAL<WireKey> @@"@target:type:unwrap|@attr#source|@attr#qualifier:unwrap"
+    @ASSERT @target:type:?class
+    @ASSERT @target:type:?is<UnityEngine.Object>
+
+    @SCOPE<Addressables>
+      @MATCH @attr#source:?eq<2>
+      @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new AddressableDependency<@target:type>(@attr#qualifier, @local#WireKey, @attr#required), @attr#required));
+      @MIXIN<$Init><-1> @target:name = managed.ResolveOptional<@target:type>(@local#WireKey);
+      @RETURN
+    @SCOPE<Resources>
+      @MATCH @attr#source:?eq<3>
+      @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new ResourceDependency<@target:type>(@attr#qualifier, @local#WireKey, @attr#required), @attr#required));
+      @MIXIN<$Init><-1> @target:name = managed.ResolveOptional<@target:type>(@local#WireKey);
+      @RETURN
+    @END
+    @FAIL No valid injection source found for the target type.
+  @END
+
+  @FUNC<ResourceList>
+    @USING System.Collections.Generic
+    @USING System.Collections
+    @LOCAL<WireKey> @@"list|@target:type#0:unwrap|@attr#source|@attr#qualifier:unwrap"
+    @ASSERT @target:type#0:?class
+    @ASSERT @target:type#0:?is<UnityEngine.Object>
+
+    @SCOPE<AddressableList>
+      @MATCH @attr#source:?eq<2>
+      @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new AddressableListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
+      @MIXIN<$Init><-1> @target:name = managed.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
+      @RETURN
+    @SCOPE<ResourceList>
+      @MATCH @attr#source:?eq<3>
+      @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new ResourceListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
+      @MIXIN<$Init><-1> @target:name = managed.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
+      @RETURN
+    @END
+    @FAIL No valid injection source found for the collected target type.
+  @END
+
+  @SCOPE
+    @MATCH @target:type:?is<System.Collections.IEnumerable>
+    @MATCH @target:type:!?is<string>
+    @MATCH @target:type#0:?exists
+    @CALL<ResourceList>
+    @RETURN
+  @END
+
+  @CALL<ResourceSingle>
+  @RETURN
+@END
+
+@ANNOTATION<HELIX.Context.AutoDisposeAttribute>
+  @USING HELIX.Context
+  @MIXIN<$Dispose><1> AutoDisposeMethods.DisposeDisposable(ref @target:name)
+@END
+
+@ANNOTATION<HELIX.Context.ManagedAttribute>
+  @DEFINE_TARGET<ConfigureManaged><^*~HELIX.Context.RegistrationConfigurator>
+  @DEFINE_TARGET<LoadManaged><^LoadManaged:HELIX.Context.ManagedLoadMethod>
+  @DEFINE_TARGET<LoadManagedLate><^LoadManagedLate:HELIX.Context.ManagedLoadMethod>
+  @DEFINE_TARGET<UnloadManaged><^UnloadManaged:HELIX.Context.ManagedUnloadMethod>
+  @DEFINE_TARGET<Init><^LoadManaged:HELIX.Context.ManagedLoadMethod>
+  @DEFINE_TARGET<Dispose><$UnloadManaged>
+  @PRELUDE
+    @VAR<IsComponent> true
+  @END
+  @USING HELIX.Context;
+  @USING UnityEngine;
+  @MIXIN<$ConfigureManaged><-100000> registration.name = "@this:name";
+  @MIXIN<$ConfigureManaged><-100000> registration.optional = @attr#optional;
+  @MIXIN<$ConfigureManaged><-100000> registration.phase = @attr#phase;
+  @MIXIN<$ConfigureManaged><-100000> registration.order = @attr#order;
+  @CODE<IMPLEMENTS> IManaged
+  @CODE<CLASS> public RuntimeManagedData managed { get; } = new();
+
+  @SCOPE
+    @MATCH @attr#scope:?eq<null>
+    @GOTO<Activator>
+  @SCOPE
+    @MIXIN<$ConfigureManaged><-100000> registration.scope = @attr#scope;
+  @END
+
+  @SCOPE<Activator>
+  @SCOPE
+    @MATCH @this:?is<MonoBehaviour>
+    @MIXIN<$ConfigureManaged><-100000> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
+    @GOTO<End>
+  @SCOPE
+    @MIXIN<$ConfigureManaged><-100000> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
+  @END
+
+  @SCOPE<End>
+  @END
+@END
+
+@ANNOTATION<HELIX.Context.TickerAttribute>
+  @USING HELIX.Context;
+  @LOCAL<Time> -0f
+  @SCOPE
+    @MATCH @attr#time:?exists
+    @LOCAL<Time> @attr#time:floatTime
+  @END
+  @LOCAL<TickerField> _@(target:name)Ticker
+
+  @SCOPE
+    @MATCH @local#Time:matches<^-.*>
+    @LOCAL<Time> @local#Time:replace<-|f><>
+    @CODE<CLASS> private FrameCountTicker @local#TickerField = new(@local#Time);
+    @GOTO<HookCaller>
+  @SCOPE
+    @CODE<CLASS> private FrameTimeTicker @local#TickerField = new(@local#Time);
+  @END
+
+  @SCOPE<HookCaller>
+    @LOCAL<TickerCondition> @local#TickerField.Tick()
+  @SCOPE
+    @MATCH @attr#condition:!?eq<null>
+    @LOCAL<TickerCondition> @attr#condition:unwrap && @local#TickerCondition
+  @SCOPE
+    @MATCH @var#IsComponent:?eq<true>
+    @LOCAL<TickerCondition> managed.IsActive && @local#TickerCondition
+  @END
+
+  @LOCAL<InvokeTicker> @target:name();
+  @SCOPE
+    @MATCH @target:?async
+    @ASSERT @target:?is<Cysharp.Threading.Tasks.UniTask>
+    @USING Cysharp.Threading.Tasks;
+    @LOCAL<AsyncProxyName> _@(target:name)AsyncProxy
+    @CODE<CLASS> private async UniTaskVoid @local#AsyncProxyName() {
+      @\  try {
+      @\    @local#TickerField.running = true;
+      @\    await @local#InvokeTicker
+      @\  } finally { @local#TickerField.running = false; }
+      @\}
+    @LOCAL<InvokeTicker> @local#AsyncProxyName().Forget();
+  @END
+
+  @MIXIN<(@attr#target:unwrap)><(@attr#order)> if (@local#TickerCondition) @local#InvokeTicker
+@END

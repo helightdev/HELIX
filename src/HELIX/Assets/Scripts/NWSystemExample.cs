@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using HELIX.Compose;
+using HELIX.Context;
 using HELIX.UI;
 using HELIX.UI.Options;
 using HELIX.UI.Prompts;
@@ -223,6 +224,11 @@ namespace HELIX.Examples {
     }
 
     [Hook]
+    private void OnMonoEnable() {
+      
+    }
+    
+    [Hook]
     private void OnDispose() {
       _tabNavigationController?.Dispose();
       if (_navigationController != null) _navigationController.onLifecycle = null;
@@ -241,16 +247,17 @@ namespace HELIX.Examples {
       _navigationGraph = null;
       _dialogNavigationGraph = null;
     }
-
+    
     [Hook]
     private void OnCompose(ref Composition cx) {
+      
       using (cx.WriteContext(out var context)) {
         HelixInputController.Key[context] = _promptInputController;
       }
       using (cx.OverlayHost(_overlayController))
       using (cx.Group(Axis.Vertical, cross: Align.Stretch)) {
         if (cx.CursorDirty) cx.CURSOR.Fill().Padding(16f);
-
+        
         ComposeTabHeader(ref cx);
         cx.Spacing(2);
         cx.NavigationHost(

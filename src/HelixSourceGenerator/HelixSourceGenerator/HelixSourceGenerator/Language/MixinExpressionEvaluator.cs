@@ -295,16 +295,17 @@ internal static class MixinExpressionEvaluator {
     out object value,
     out string error
   ) {
-    if (reference.Root is "true" or "false" or "null" or "table" or "param") {
+    if (reference.Root is "true" or "false" or "null" or "table" or "param" or "carry") {
       value = reference.Root switch {
         "true" => true,
         "false" => false,
         "null" => null,
         "table" => new MixinExpressionTable(),
         "param" => locals.TryGetValue(ParameterLocalKey, out var parameter) ? parameter : null,
+        "carry" => variables.TryGetValue(CarryLocalPrefix + (reference.Member ?? ""), out var carried) ? carried : null,
         _ => null
       };
-      if (!string.IsNullOrEmpty(reference.Member)) {
+      if (reference.Root != "carry" && !string.IsNullOrEmpty(reference.Member)) {
         if (value is MixinExpressionTable table)
           value = table.TryGetValue(reference.Member, out var selected) ? selected : null;
         else value = MixinValue.From(value, context).Select(reference.Member);
@@ -443,7 +444,7 @@ internal static class MixinExpressionEvaluator {
     out string error
   ) {
     switch (reference.Root) {
-      case "true" or "false" or "null" or "table" or "param": {
+      case "true" or "false" or "null" or "table" or "param" or "carry": {
         if (!TryResolveCore(reference, context, locals, variables, out var atom, out error)) {
           value = false;
           return false;
@@ -455,11 +456,7 @@ internal static class MixinExpressionEvaluator {
         }
         value = true;
         foreach (var predicate in predicates) {
-          var item = (predicate.Name == "exists" && atom is not null) ||
-            (predicate.Name == "eq" && RelaxedEquals(atom, predicate.Values[0])) ||
-            (predicate.Name == "matches" && RegexMatches(RenderValue(atom), predicate.Argument, out error)) ||
-            (predicate.Name == "has" && TableContainsValue(atom, predicate.Values[0]));
-          if (error is not null) return false;
+          if (!TryEvaluateValuePredicate(atom, predicate, context, out var item, out error)) return false;
           value &= predicate.Negated ? !item : item;
         }
         return true;
@@ -495,10 +492,7 @@ internal static class MixinExpressionEvaluator {
               )) return false;
             item = predicateValue is true;
           } else {
-            item = (predicate.Name == "exists" && stored is not null) ||
-              (predicate.Name == "eq" && RelaxedEquals(stored, predicate.Values[0])) ||
-              (predicate.Name == "matches" && RegexMatches(RenderValue(stored), predicate.Argument, out error)) ||
-              (predicate.Name == "has" && TableContainsValue(stored, predicate.Values[0]));
+            if (!TryEvaluateValuePredicate(stored, predicate, context, out item, out error)) return false;
           }
           if (error is not null) return false;
           value &= predicate.Negated ? !item : item;
@@ -507,6 +501,40 @@ internal static class MixinExpressionEvaluator {
       }
       default: return context.TryEvaluate(reference, out value, out error);
     }
+  }
+
+  private static bool TryEvaluateValuePredicate(
+    object subject,
+    MixinExpressionProperty property,
+    IMixinExpressionContext context,
+    out bool value,
+    out string error
+  ) {
+    switch (property.Name) {
+      case "exists":
+        value = subject is not null;
+        error = null;
+        return true;
+      case "eq":
+        value = RelaxedEquals(subject, property.Values[0]);
+        error = null;
+        return true;
+      case "matches":
+        value = RegexMatches(RenderValue(subject), property.Argument, out error);
+        return error is null;
+      case "has":
+        value = subject is MixinExpressionTable
+          ? TableContainsValue(subject, property.Values[0])
+          : MixinValue.From(subject, context).Has(property.Values[0]);
+        error = null;
+        return true;
+    }
+    if (FunctionLibrary.TryGet(property.Name, out var function) &&
+      function is PredicateFunctionDefinition predicate)
+      return predicate.Evaluate(MixinValue.From(subject, context), property, out value, out error);
+    value = false;
+    error = "unknown boolean pseudo-property ':?" + property.Name + "'";
+    return false;
   }
 
   private static bool TryPrepareReference(

@@ -11,7 +11,10 @@ using static HELIX.SourceGen.GeneratorStrings;
 namespace HELIX.SourceGen;
 
 internal static class StructureSupport {
-  internal static void Register(IncrementalGeneratorInitializationContext context) {
+  internal static void Register(
+    IncrementalGeneratorInitializationContext context,
+    IncrementalValueProvider<MixinLibraryCatalog> libraries
+  ) {
     var structs = context.SyntaxProvider.ForAttributeWithMetadataName(
       Attributes.Structure,
       static (node, _) => node is StructDeclarationSyntax,
@@ -25,12 +28,12 @@ internal static class StructureSupport {
       )
     );
     context.RegisterSourceOutput(
-      structs.Where(static target => target.GenerateDatatype),
-      static (production, target) => Generate(
+      structs.Where(static target => target.GenerateDatatype).Combine(libraries),
+      static (production, item) => Generate(
         production,
-        target.Type,
-        target.Compilation,
-        null,
+        item.Left.Type,
+        item.Left.Compilation,
+        item.Right,
         true
       )
     );
@@ -52,7 +55,7 @@ internal static class StructureSupport {
     SourceProductionContext context,
     INamedTypeSymbol type,
     CSharpCompilation compilation,
-    MixinExpressionPreparedState preparedExpressions,
+    MixinLibraryCatalog libraries,
     bool generateDatatype
   ) {
     var location = LocationOf(type);
@@ -81,8 +84,8 @@ internal static class StructureSupport {
           context,
           MixinLibraryApi.AttributeOwners(
             new ISymbol[] { type }.Concat(props.PropertySymbols)
-          )
-        )
+          ), libraries
+        ), libraries
       )
       : new PropStructMixinModel();
     var usings = CollectUsings(type).Concat(mixins.Usings).Distinct().ToArray();

@@ -151,9 +151,7 @@ public sealed class StructureTests {
       PlatformReferences,
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
     );
-    GeneratorDriver driver = CSharpGeneratorDriver.Create(
-      new[] { new MixinGenerator().AsSourceGenerator() }
-    );
+    GeneratorDriver driver = MixinTestDriver.Create(compilation);
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
     var run = driver.GetRunResult();
     var generated = Assert.Single(run.Results.SelectMany(item => item.GeneratedSources)).SourceText.ToString();

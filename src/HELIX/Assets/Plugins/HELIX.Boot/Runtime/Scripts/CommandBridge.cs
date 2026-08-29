@@ -113,10 +113,5 @@ namespace HELIX.Boot {
 
   [AttributeUsage(AttributeTargets.Field | AttributeTargets.Parameter)]
   [MixinImport(typeof(CoreMixinLibrary))]
-  [MixinExpression(
-    @"
-@CALL<AddStructurePropertyModifier> NamedArgModifier.Instance
-"
-  )]
   public sealed class NamedArgAttribute : Attribute { }
 }

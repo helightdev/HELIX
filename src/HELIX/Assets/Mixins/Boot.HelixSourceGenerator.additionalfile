@@ -1,0 +1,49 @@
+@### Functions #########################################################################################################
+
+@### Annotations #######################################################################################################
+
+@ANNOTATION<HELIX.Boot.NamedArgAttribute>
+  @PRELUDE
+    @CALL<AddStructurePropertyModifier> NamedArgModifier.Instance
+  @END
+@END
+
+@ANNOTATION<HELIX.Boot.CommandAttribute>
+  @PRELUDE
+    @LOCAL<StructName> @(target:name)_Args
+    @PROP_STRUCT<(@local#StructName)><StructHandle><datatype> @target
+    @LOCAL<InvokeLambda> args => @local#StructHandle:propStructCall<(@target:name)><args>
+    @LOCAL<CmdName> @attr#name
+    @SCOPE
+      @MATCH @attr#name:?eq<null>
+      @LOCAL<CmdName> "@target:name"
+    @END
+    @LOCAL<Bridge> CommandBridge<@local#StructName>.Create(
+      @+@local#StructName.Datatype, @local#InvokeLambda, @local#CmdName, @attr#description, @attr#parent)
+    @MIXIN<$LoadManagedLate><0> context.PublishBind(typeof(HELIX.UI.Console.Command), null, @local#Bridge);
+  @END
+  @USING HELIX.Boot;
+@END
+
+@ANNOTATION<HELIX.Boot.RegisterCommandAttribute>
+  @MIXIN<$ConfigureManaged><-1> registration.Publication(typeof(HELIX.UI.Console.Command), null, true);
+  @MIXIN<$LoadManagedLate><1> context.PublishBind(typeof(HELIX.UI.Console.Command), null, @target:name);
+@END
+
+@ANNOTATION<HELIX.Boot.RegisterOptionAttribute>
+  @SCOPE
+    @MATCH @attr#path:?exists
+    @MIXIN<$Init><-1> @target:name.SetInferredPath(@attr#path);
+    @MIXIN<$ConfigureManaged><-1> registration.Publication(typeof(@target:type:unwrap), @attr#path, true);
+    @MIXIN<$LoadManagedLate><1> context.PublishBind(typeof(@target:type:unwrap), @attr#path, @target:name);
+    @RETURN
+  @SCOPE
+    @MIXIN<$Init><-1> @target:name.SetInferredName("@target:name");
+    @MIXIN<$ConfigureManaged><-1> registration.Publication(typeof(HELIX.Boot.Option), null, true);
+    @MIXIN<$LoadManagedLate><1> context.PublishBind(typeof(HELIX.Boot.Option), null, @target:name)
+    @RETURN
+  @END
+@END
+
+@ANNOTATION<DefaultNamespace.TextMixin>
+@END

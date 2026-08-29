@@ -11,6 +11,179 @@ using static MixinExpressionEvaluator;
 using static MixinExpressionInterpreter;
 
 internal static class MixinExpressionCompiler {
+  private static readonly HashSet<string> RoslynRoots = new(StringComparer.Ordinal) {
+    "target", "this", "attr", "arg"
+  };
+
+  internal static bool TryHoistPrelude(
+    string explicitPrelude,
+    string expression,
+    out string prelude,
+    out string lateExpression,
+    out string error,
+    out int errorLine
+  ) {
+    var generated = new List<string>();
+    var labels = new Dictionary<string, string>(StringComparer.Ordinal);
+    var structuralLocals = new HashSet<string>(StringComparer.Ordinal);
+    var late = new List<string>();
+    error = null;
+    errorLine = 0;
+    var lines = MixinExpressionParser.SplitLines(expression ?? "");
+    var localFunctions = new HashSet<string>(StringComparer.Ordinal);
+    for (var index = 0; index < lines.Length; index++) {
+      var candidate = MixinExpressionParser.ParseDirective(lines[index], index + 1);
+      if (candidate.Error is null && candidate.Opcode == DirectiveOpcode.Function)
+        localFunctions.Add(candidate.Argument);
+    }
+    for (var index = 0; index < lines.Length; index++) {
+      var line = lines[index];
+      var parsed = MixinExpressionParser.ParseDirective(line, index + 1);
+      if (parsed.Error is not null) {
+        prelude = explicitPrelude ?? "";
+        lateExpression = expression ?? "";
+        error = parsed.Error;
+        errorLine = index + 1;
+        return false;
+      }
+      if (parsed.Opcode == DirectiveOpcode.Call && (
+        parsed.Arguments.Count == 0 ||
+        MixinExpressionParser.IsDynamicArgument(parsed.Arguments[0]) ||
+        !localFunctions.Contains(parsed.Arguments[0])
+      )) {
+        prelude = explicitPrelude ?? "";
+        lateExpression = expression ?? "";
+        error = "Prelude-model expressions may only call functions declared in the same expression; imported call '" +
+          (parsed.Arguments.Count == 0 ? "" : parsed.Arguments[0]) + "' is not supported";
+        errorLine = index + 1;
+        return false;
+      }
+      if (parsed.Opcode is DirectiveOpcode.PropStruct or DirectiveOpcode.AugmentStruct or DirectiveOpcode.ResolveMixin) {
+        if (!TryHoistStructuralDirective(parsed, line, generated, labels, structuralLocals, out error)) {
+          prelude = explicitPrelude ?? "";
+          lateExpression = expression ?? "";
+          errorLine = index + 1;
+          return false;
+        }
+        late.Add("");
+        continue;
+      }
+      if (!TryRewriteRoslynReferences(line, generated, labels, structuralLocals, out var rewritten, out error)) {
+        prelude = explicitPrelude ?? "";
+        lateExpression = expression ?? "";
+        errorLine = index + 1;
+        return false;
+      }
+      late.Add(SerializeLogicalLine(rewritten));
+    }
+    var parts = new List<string>();
+    if (!string.IsNullOrWhiteSpace(explicitPrelude)) parts.Add(explicitPrelude);
+    if (generated.Count != 0) parts.Add(string.Join("\n", generated));
+    prelude = string.Join("\n", parts);
+    lateExpression = string.Join("\n", late);
+    return true;
+  }
+
+  private static string SerializeLogicalLine(string line) =>
+    (line ?? "").Replace("\n", "\n@\\");
+
+  private static bool TryHoistStructuralDirective(
+    DirectiveInstruction instruction,
+    string line,
+    ICollection<string> generated,
+    IDictionary<string, string> labels,
+    ISet<string> structuralLocals,
+    out string error
+  ) {
+    var local = instruction.Opcode switch {
+      DirectiveOpcode.PropStruct when instruction.Arguments.Count >= 2 => instruction.Arguments[1],
+      DirectiveOpcode.AugmentStruct when instruction.Arguments.Count >= 1 => instruction.Arguments[0],
+      DirectiveOpcode.ResolveMixin when instruction.Arguments.Count >= 1 => instruction.Arguments[0],
+      _ => null
+    };
+    if (string.IsNullOrEmpty(local) || MixinExpressionParser.IsDynamicArgument(local)) {
+      error = "@" + instruction.Command + " cannot be hoisted because its result local is dynamic";
+      return false;
+    }
+    if (!TryRewriteRoslynReferences(line, generated, labels, structuralLocals, out var rewritten, out error)) return false;
+    generated.Add(rewritten);
+    var access = "@local#" + local;
+    var label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
+    labels[access] = label;
+    generated.Add("@CARRY<" + label + "> " + access);
+    structuralLocals.Add(local);
+    return true;
+  }
+
+  private static bool TryRewriteRoslynReferences(
+    string text,
+    ICollection<string> generated,
+    IDictionary<string, string> labels,
+    ISet<string> structuralLocals,
+    out string rewritten,
+    out string error
+  ) {
+    var builder = new StringBuilder(text.Length);
+    var position = 0;
+    error = null;
+    while (position < text.Length) {
+      if (text[position] != '@' || position + 1 < text.Length && text[position + 1] == '@') {
+        builder.Append(text[position++]);
+        continue;
+      }
+      var start = position;
+      if (!MixinExpressionEvaluator.TryReadReferenceNode(text, ref position, out var reference, out _)) {
+        builder.Append(text[start]);
+        position = start + 1;
+        continue;
+      }
+      var roslyn = RoslynRoots.Contains(reference.Root) ||
+        reference.Root == "local" && structuralLocals?.Contains(reference.Member ?? "") == true;
+      if (!roslyn) {
+        builder.Append(text, start, position - start);
+        continue;
+      }
+      var access = text.Substring(start, position - start);
+      if (!labels.TryGetValue(access, out var label)) {
+        label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
+        labels.Add(access, label);
+        generated.Add("@CARRY<" + label + "> " + access);
+      }
+      builder.Append(access.StartsWith("@(", StringComparison.Ordinal) ? "@(carry#" + label + ")" : "@carry#" + label);
+    }
+    rewritten = builder.ToString();
+    return true;
+  }
+
+  internal static void HoistLateCarries(
+    string expression,
+    string lateExpression,
+    out string primary,
+    out string late
+  ) {
+    primary = expression ?? "";
+    late = lateExpression;
+    if (string.IsNullOrEmpty(lateExpression)) return;
+
+    var carries = new List<string>();
+    var remaining = new List<string>();
+    var lines = MixinExpressionParser.SplitLines(lateExpression);
+    for (var index = 0; index < lines.Length; index++) {
+      var line = lines[index];
+      if (!string.IsNullOrWhiteSpace(line)) {
+        var parsed = MixinExpressionParser.ParseDirective(line, index + 1);
+        if (parsed.Error is null && parsed.Opcode == DirectiveOpcode.Carry) {
+          carries.Add(line);
+          continue;
+        }
+      }
+      remaining.Add(line);
+    }
+    if (carries.Count == 0) return;
+    primary = string.Join("\n", carries) + (primary.Length == 0 ? "" : "\n" + primary);
+    late = string.Join("\n", remaining);
+  }
+
   internal static MixinExpressionValidationResult ValidateSyntax(
     string expression, bool functionsOnly
   ) {
@@ -52,12 +225,7 @@ internal static class MixinExpressionCompiler {
   }
 
   internal static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
-    var evaluationStartedAt = Stopwatch.GetTimestamp();
     var programs = new List<MixinProgramSyntax>();
-    var variables = new MixinValueDictionary();
-    var logs = new List<MixinExpressionPreparedLog>();
-    var programIndex = 0;
-    var executedOperations = 0;
     foreach (var expression in expressions ?? Array.Empty<string>()) {
       var validation = ValidateSyntax(expression, false);
       if (!validation.Success) {
@@ -66,14 +234,27 @@ internal static class MixinExpressionCompiler {
           nameof(expressions)
         );
       }
-      var program = GetProgram(expression, true);
-      programs.Add(program);
+      programs.Add(GetProgram(expression, true));
+    }
+    return PrepareGlobals(programs);
+  }
+
+  internal static MixinExpressionPreparedState PrepareGlobals(
+    IReadOnlyList<MixinProgramSyntax> programs
+  ) {
+    var evaluationStartedAt = Stopwatch.GetTimestamp();
+    programs ??= Array.Empty<MixinProgramSyntax>();
+    var variables = new MixinValueDictionary();
+    var logs = new List<MixinExpressionPreparedLog>();
+    var programIndex = 0;
+    var executedOperations = 0;
+    foreach (var program in programs) {
       if (!TryEvaluatePreparedInitializers(
         program, programIndex, variables, logs, ref executedOperations,
         out var error, out var line
       )) {
         throw new ArgumentException(
-          "invalid prepared expression at line " + line + ": " + error, nameof(expressions)
+          "invalid prepared expression at line " + line + ": " + error, nameof(programs)
         );
       }
       programIndex++;
@@ -95,7 +276,7 @@ internal static class MixinExpressionCompiler {
       )) {
         throw new ArgumentException(
           "invalid prepared expression at line " + symbolLine + ": " + symbolError,
-          nameof(expressions)
+          nameof(programs)
         );
       }
       instructionOffset += program.Count;
@@ -105,7 +286,7 @@ internal static class MixinExpressionCompiler {
       programs, instructions, variables, logs, executedOperations, evaluationStartedAt
     );
     return new MixinExpressionPreparedState(
-      programs.AsReadOnly(),
+      programs.ToArray(),
       new MixinValueDictionary(variables),
       instructions,
       new Dictionary<string, int>(labels, StringComparer.Ordinal),
@@ -269,6 +450,9 @@ internal static class MixinExpressionCompiler {
           case "AST":
             text = DumpAst(globalInstructions, null);
             break;
+          case "PRELUDE":
+            // The snapshot does not exist until primary evaluation has completed.
+            continue;
           default:
             continue;
         }
@@ -308,6 +492,17 @@ internal static class MixinExpressionCompiler {
         ", ", values.OrderBy(item => item.Key, StringComparer.Ordinal)
           .Select(item => item.Key + "=" + RenderValue(item.Value))
       ) + "}";
+  }
+
+  internal static string DumpPrelude(MixinExpressionPreludeSnapshot snapshot) {
+    var variables = snapshot.Variables.ToDictionary(
+      item => item.Key.StartsWith(CarryLocalPrefix, StringComparison.Ordinal)
+        ? "carry#" + item.Key.Substring(CarryLocalPrefix.Length)
+        : item.Key,
+      item => item.Value,
+      StringComparer.Ordinal
+    );
+    return "PRELUDE variables=" + DumpValues(variables) + " buffers=" + DumpBuffer(snapshot.Outputs);
   }
 
   internal static string DumpBuffer(IReadOnlyList<MixinExpressionOutput> outputs) {

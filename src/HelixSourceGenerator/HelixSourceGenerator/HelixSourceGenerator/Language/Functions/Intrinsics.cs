@@ -12,7 +12,8 @@ internal sealed class NameFunction : FunctionDefinition {
     string root, string member, ref object value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    value = typed.RoslynSymbol is not null || typed.RoslynType is not null
+    value = typed is DetachedSemanticValue or DetachedTypeValue ||
+      typed.RoslynSymbol is not null || typed.RoslynType is not null
       ? typed.Name
       : member ?? root;
     error = null;

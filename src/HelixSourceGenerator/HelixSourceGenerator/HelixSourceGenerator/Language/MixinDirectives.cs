@@ -84,8 +84,9 @@ internal sealed class DumpDirective : MarkerDirective {
     var kind = arguments.Count == 0 ? null : arguments[0];
     if (string.Equals(kind, "STATE", StringComparison.OrdinalIgnoreCase) ||
       string.Equals(kind, "BUFFER", StringComparison.OrdinalIgnoreCase) ||
-      string.Equals(kind, "AST", StringComparison.OrdinalIgnoreCase)) return true;
-    error = "DUMP requires STATE, BUFFER or AST";
+      string.Equals(kind, "AST", StringComparison.OrdinalIgnoreCase) ||
+      string.Equals(kind, "PRELUDE", StringComparison.OrdinalIgnoreCase)) return true;
+    error = "DUMP requires STATE, BUFFER, AST or PRELUDE";
     return false;
   }
 }
@@ -143,6 +144,22 @@ internal sealed class PropStructDirective : ValueDirective {
   }
 }
 
+internal sealed class DefineTargetDirective : DirectiveDefinition {
+  internal DefineTargetDirective() : base(
+    "DEFINE_TARGET", DirectiveOpcode.DefineTarget, DirectiveOperandKind.None
+  ) { }
+  protected override int MaximumArguments => 2;
+
+  internal override bool Validate(IReadOnlyList<string> arguments, string operand, out string error) {
+    if (arguments.Count == 2 && arguments.All(item => !string.IsNullOrWhiteSpace(item))) {
+      error = null;
+      return true;
+    }
+    error = "DEFINE_TARGET requires a name and value";
+    return false;
+  }
+}
+
 internal static class DirectiveLibrary {
   private static readonly DirectiveDefinition Scope = new MarkerDirective("SCOPE", DirectiveOpcode.Scope);
   private static readonly DirectiveDefinition Function = new NamedDirective("FUNC", DirectiveOpcode.Function);
@@ -156,6 +173,7 @@ internal static class DirectiveLibrary {
   private static readonly DirectiveDefinition Using = new ValueDirective("USING", DirectiveOpcode.Using);
   private static readonly DirectiveDefinition Local = new NamedDirective("LOCAL", DirectiveOpcode.Local, DirectiveOperandKind.Value);
   private static readonly DirectiveDefinition Variable = new NamedDirective("VAR", DirectiveOpcode.Variable, DirectiveOperandKind.Value);
+  private static readonly DirectiveDefinition Carry = new NamedDirective("CARRY", DirectiveOpcode.Carry, DirectiveOperandKind.Value);
   private static readonly DirectiveDefinition Return = new ValueDirective("RETURN", DirectiveOpcode.Return);
   private static readonly DirectiveDefinition Goto = new NamedDirective("GOTO", DirectiveOpcode.Goto);
   private static readonly DirectiveDefinition Skip = new MarkerDirective("SKIP", DirectiveOpcode.Skip);
@@ -171,7 +189,10 @@ internal static class DirectiveLibrary {
         "AUGMENT_STRUCT", DirectiveOpcode.AugmentStruct, DirectiveOperandKind.Value
       ),
       ["PUSH"] = new NamedDirective("PUSH", DirectiveOpcode.Push, DirectiveOperandKind.Value),
-      ["PUT"] = new PutDirective()
+      ["PUT"] = new PutDirective(),
+      ["ANNOTATION"] = new NamedDirective("ANNOTATION", DirectiveOpcode.Annotation),
+      ["PRELUDE"] = new MarkerDirective("PRELUDE", DirectiveOpcode.Prelude),
+      ["DEFINE_TARGET"] = new DefineTargetDirective()
     };
 
   internal static bool TryGet(string name, out DirectiveDefinition definition) {
@@ -179,7 +200,7 @@ internal static class DirectiveLibrary {
       "SCOPE" => Scope, "FUNC" => Function, "CALL" => Call, "END" => End,
       "MATCH" => Match, "ASSERT" => Assert, "CODE" => Code, "MIXIN" => Mixin,
       "RESOLVE_MIXIN" => ResolveMixin, "USING" => Using,
-      "LOCAL" => Local, "VAR" => Variable,
+      "LOCAL" => Local, "VAR" => Variable, "CARRY" => Carry,
       "RETURN" => Return, "GOTO" => Goto, "SKIP" => Skip, "FAIL" => Fail,
       _ => null
     };

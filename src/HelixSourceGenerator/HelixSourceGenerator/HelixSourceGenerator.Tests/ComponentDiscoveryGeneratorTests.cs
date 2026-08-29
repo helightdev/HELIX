@@ -97,7 +97,8 @@ public sealed class ComponentDiscoveryGeneratorTests {
       PlatformReferences,
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
     );
-    GeneratorDriver driver = CSharpGeneratorDriver.Create(
+    GeneratorDriver driver = MixinTestDriver.Create(
+      compilation,
       new ISourceGenerator[] {
         new MixinGenerator().AsSourceGenerator(),
         new ComponentDiscoveryGenerator().AsSourceGenerator()

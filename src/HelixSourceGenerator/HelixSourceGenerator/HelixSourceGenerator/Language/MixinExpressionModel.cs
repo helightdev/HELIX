@@ -38,6 +38,19 @@ public sealed class MixinExpressionLog {
   public bool IsHint { get; }
 }
 
+internal sealed class MixinExpressionPreludeSnapshot {
+  internal MixinExpressionPreludeSnapshot(
+    IReadOnlyDictionary<string, object> variables,
+    IReadOnlyList<MixinExpressionOutput> outputs
+  ) {
+    Variables = variables ?? new Dictionary<string, object>();
+    Outputs = outputs ?? Array.Empty<MixinExpressionOutput>();
+  }
+
+  internal IReadOnlyDictionary<string, object> Variables { get; }
+  internal IReadOnlyList<MixinExpressionOutput> Outputs { get; }
+}
+
 public sealed class MixinExpressionPreparedLog {
   internal MixinExpressionPreparedLog(string text, int line, int programIndex) {
     Text = text ?? "";
@@ -98,6 +111,28 @@ public sealed class MixinExpressionTable : MixinValue {
   public override bool TryGetText(out string text) { text = null; return false; }
   public override object Select(string path) => TryGetValue(path, out var value) ? value : null;
   public override bool Has(object member) => _values.ContainsKey(Convert.ToString(member) ?? "");
+  public override IMixinValue Unlink() {
+    var result = new MixinExpressionTable();
+    foreach (var item in _values) result = result.Put(item.Key, item.Value.Unlink().BackingValue);
+    return result.Close();
+  }
+
+  public override bool Equals(object obj) {
+    if (ReferenceEquals(this, obj)) return true;
+    if (obj is not MixinExpressionTable other || Count != other.Count) return false;
+    foreach (var item in _values)
+      if (!other._values.TryGetValue(item.Key, out var value) || !Equals(item.Value, value)) return false;
+    return true;
+  }
+
+  public override int GetHashCode() {
+    var hash = 17;
+    foreach (var item in _values.OrderBy(item => item.Key, StringComparer.Ordinal)) {
+      hash = unchecked(hash * 31 + StringComparer.Ordinal.GetHashCode(item.Key));
+      hash = unchecked(hash * 31 + (item.Value?.GetHashCode() ?? 0));
+    }
+    return hash;
+  }
 
   public bool TryGetValue(string key, out object value) {
     if (_values.TryGetValue(key ?? "", out var typed)) {
@@ -238,13 +273,15 @@ public sealed class MixinExpressionResult {
     string error,
     int errorLine,
     IReadOnlyList<MixinExpressionOutput> outputs,
-    IReadOnlyList<MixinExpressionLog> logs = null
+    IReadOnlyList<MixinExpressionLog> logs = null,
+    IReadOnlyDictionary<string, object> variables = null
   ) {
     Success = success;
     Error = error;
     ErrorLine = errorLine;
     Outputs = outputs ?? Array.Empty<MixinExpressionOutput>();
     Logs = logs ?? Array.Empty<MixinExpressionLog>();
+    Variables = variables ?? new Dictionary<string, object>();
   }
 
   public bool Success { get; }
@@ -252,6 +289,7 @@ public sealed class MixinExpressionResult {
   public int ErrorLine { get; }
   public IReadOnlyList<MixinExpressionOutput> Outputs { get; }
   public IReadOnlyList<MixinExpressionLog> Logs { get; }
+  public IReadOnlyDictionary<string, object> Variables { get; }
 }
 
 public sealed class MixinExpressionValidationResult {

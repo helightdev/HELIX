@@ -1,0 +1,63 @@
+@### Functions #########################################################################################################
+
+@FUNC<SetStructurePropertyDatatype>
+  @CODE datatype.GetProperty("@target:name").ValueDatatype = @param;
+@END
+
+@FUNC<AddStructurePropertyModifier>
+  @CODE datatype.GetProperty("@target:name").Modifiers.Add(@param);
+@END
+
+@FUNC<RequireCompanion> 
+  @SCOPE
+    @MATCH @var#CompanionName:!?exists
+    @VAR<CompanionName> @(this:name)_Companion
+    @VAR<DeclareCompanion> public static partial class @var#CompanionName
+    @CODE<FILE> @var#DeclareCompanion {}
+  @END
+@END
+
+@FUNC<DeclareCompanion> 
+  @SCOPE
+    @MATCH @var#CompanionName:!?exists
+    @VAR<CompanionName> @(this:name)_Companion
+    @VAR<DeclareCompanion> public static partial class @var#CompanionName
+  @END
+  @CODE<FILE> @var#DeclareCompanion { 
+    @\  @param
+    @\}
+@END
+
+@### Annotations #######################################################################################################
+
+@ANNOTATION<HELIX.HookAttribute>
+  @PRELUDE
+    @LOCAL<Name> @attr#target:unwrap
+    @SCOPE
+      @MATCH @local#Name:eq<null>
+      @ASSERT @target:name:matches<^On.*>
+      @LOCAL<IsImplicit> true
+      @Local<Name> $@target:name:replaceFirst<^On><>
+    @END
+
+    @SCOPE
+      @MATCH @arg#0:!?exists
+      @MIXIN<(@local#Name)><(@attr#order)> @target:name();
+      @RETURN
+    @END
+
+    @RESOLVE_MIXIN<Delegate> @local#Name
+    @ASSERT @local#Delegate:!?eq<null>
+    @MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);
+  @END
+@END
+
+@ANNOTATION<HELIX.MixinUsingAttribute>
+  @USING @attr#statement:unwrap;
+@END
+
+@ANNOTATION<HELIX.PropertyDatatypeAttribute>
+  @PRELUDE
+    @CALL<SetStructurePropertyDatatype> @attr#datatype:unwrap
+  @END
+@END
