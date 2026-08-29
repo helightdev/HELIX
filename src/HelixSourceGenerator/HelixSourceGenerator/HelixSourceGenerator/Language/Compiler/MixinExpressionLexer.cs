@@ -26,7 +26,11 @@ internal enum MixinExpressionTokenKind {
   Property,
   Predicate,
   Negation,
-  Argument,
+  ArgumentStart,
+  ArgumentLiteral,
+  ArgumentExpressionStart,
+  ArgumentExpressionEnd,
+  ArgumentEnd,
   Invalid
 }
 
@@ -133,12 +137,31 @@ internal static class MixinExpressionLexer {
         position++;
       }
       if (depth != 0) return false;
-      tokens.Add(
-        new MixinExpressionToken(
-          MixinExpressionTokenKind.Argument,
-          source.Substring(argumentStart, position - argumentStart - 1), argumentStart - 1, position
-        )
-      );
+      var argumentEnd = position - 1;
+      tokens.Add(new MixinExpressionToken(
+        MixinExpressionTokenKind.ArgumentStart, "<", argumentStart - 1, argumentStart
+      ));
+      if (argumentEnd - argumentStart >= 2 && source[argumentStart] == '(' &&
+        source[argumentEnd - 1] == ')') {
+        tokens.Add(new MixinExpressionToken(
+          MixinExpressionTokenKind.ArgumentExpressionStart, "(", argumentStart, argumentStart + 1
+        ));
+        foreach (var token in LexExpression(source.Substring(
+          argumentStart + 1, argumentEnd - argumentStart - 2
+        ))) tokens.Add(token with {
+          Start = token.Start + argumentStart + 1,
+          End = token.End + argumentStart + 1
+        });
+        tokens.Add(new MixinExpressionToken(
+          MixinExpressionTokenKind.ArgumentExpressionEnd, ")", argumentEnd - 1, argumentEnd
+        ));
+      } else tokens.Add(new MixinExpressionToken(
+        MixinExpressionTokenKind.ArgumentLiteral,
+        source.Substring(argumentStart, argumentEnd - argumentStart), argumentStart, argumentEnd
+      ));
+      tokens.Add(new MixinExpressionToken(
+        MixinExpressionTokenKind.ArgumentEnd, ">", argumentEnd, position
+      ));
     }
     return true;
   }

@@ -16,6 +16,11 @@ public sealed class MixinProgramSyntax {
     Diagnostics = parsed.Diagnostics;
   }
 
+  internal MixinProgramSyntax(IEnumerable<DirectiveInstruction> instructions) {
+    _instructions = (instructions ?? []).ToArray();
+    Diagnostics = [];
+  }
+
   internal int Count => _instructions.Length;
   internal IReadOnlyList<MixinParseDiagnostic> Diagnostics { get; }
 

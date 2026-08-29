@@ -24,7 +24,9 @@ public static partial class MixinExpressionVirtualMachine {
     string expression, IMixinExpressionContext context, IDictionary<string, object> variables,
     MixinExpressionPreparedState preparedState
   ) {
-    return CompileAndExecute(expression is null ? null : GetProgram(expression), context, variables, preparedState);
+    return CompileAndExecute(
+      expression is null ? null : MixinExpressionParser.Parse(expression), context, variables, preparedState
+    );
   }
 
   public static MixinExpressionResult Execute(

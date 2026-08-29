@@ -13,7 +13,11 @@ internal sealed record MixinProgramParseResult(DirectiveInstruction[] Instructio
 internal sealed record MixinDirectiveParseResult(DirectiveInstruction Node, string Error);
 
 /// <summary>Builds the mixin AST from lexer tokens.</summary>
-internal static class MixinExpressionParser {
+public static class MixinExpressionParser {
+  public static MixinProgramSyntax Parse(string expression) {
+    return new MixinProgramSyntax(expression);
+  }
+
   internal static string[] SplitLines(string expression) {
     return MixinExpressionLexer.SplitLogicalLines(expression);
   }
@@ -78,13 +82,15 @@ internal static class MixinExpressionParser {
         }
         break;
       }
-      var arguments = new List<string>();
-      while (Take(tokens, ref position, MixinExpressionTokenKind.Argument, out var argument))
-        arguments.Add(argument.Text);
-      var parsed = arguments.Select(argument => ParsePropertyArgument(propertyToken.Text, argument)).ToArray();
-      var property = new MixinExpressionProperty(
-        propertyToken.Text, arguments.AsReadOnly(), parsed, negated
-      );
+      var arguments = new List<MixinPropertyArgumentSyntax>();
+      while (Take(tokens, ref position, MixinExpressionTokenKind.ArgumentStart, out _)) {
+        if (!TryParsePropertyArgument(tokens, ref position, propertyToken.Text, out var argument)) {
+          error = "invalid argument for property ':" + propertyToken.Text + "'";
+          return false;
+        }
+        arguments.Add(argument);
+      }
+      var property = new MixinExpressionProperty(propertyToken.Text, arguments.AsReadOnly(), negated);
       if (FunctionLibrary.TryGet(property.Name, out var function) && !function.Validate(property, out error))
         return false;
       properties.Add(property);
@@ -103,18 +109,39 @@ internal static class MixinExpressionParser {
     return true;
   }
 
-  private static MixinPropertyArgumentSyntax ParsePropertyArgument(string property, string argument) {
-    if (property is "and" or "or" && MixinExpressionLexer.TryUnwrapDynamicArgument(argument, out var boolean)) {
-      return new MixinPropertyArgumentSyntax(
-        null, null, ParseBooleanExpression(boolean)
-      );
+  private static bool TryParsePropertyArgument(
+    IReadOnlyList<MixinExpressionToken> tokens, ref int position, string property,
+    out MixinPropertyArgumentSyntax argument
+  ) {
+    if (Take(tokens, ref position, MixinExpressionTokenKind.ArgumentLiteral, out var literal)) {
+      argument = new MixinPropertyArgumentSyntax(literal.Text, null, null);
+      return Take(tokens, ref position, MixinExpressionTokenKind.ArgumentEnd, out _);
     }
-    if (MixinExpressionLexer.TryUnwrapDynamicArgument(argument, out var value)) {
-      return new MixinPropertyArgumentSyntax(
-        null, ParseValueExpression(value), null
-      );
+    if (!Take(tokens, ref position, MixinExpressionTokenKind.ArgumentExpressionStart, out _)) {
+      argument = null;
+      return false;
     }
-    return new MixinPropertyArgumentSyntax(argument, null, null);
+    var start = position;
+    var depth = 1;
+    while (position < tokens.Count && depth != 0) {
+      if (tokens[position].Kind == MixinExpressionTokenKind.ArgumentExpressionStart) depth++;
+      else if (tokens[position].Kind == MixinExpressionTokenKind.ArgumentExpressionEnd) depth--;
+      if (depth != 0) position++;
+    }
+    if (depth != 0) {
+      argument = null;
+      return false;
+    }
+    var expression = tokens.Skip(start).Take(position - start).ToArray();
+    position++;
+    if (!Take(tokens, ref position, MixinExpressionTokenKind.ArgumentEnd, out _)) {
+      argument = null;
+      return false;
+    }
+    argument = property is "and" or "or"
+      ? new MixinPropertyArgumentSyntax(null, null, ParseBooleanExpression(expression))
+      : new MixinPropertyArgumentSyntax(null, ParseValueExpression(expression), null);
+    return true;
   }
 
   private static bool Take(
@@ -208,12 +235,13 @@ internal static class MixinExpressionParser {
     if (tokens.Count < 3 || tokens[0].Kind != MixinTokenKind.At || tokens[1].Kind != MixinTokenKind.Identifier)
       return new MixinDirectiveParseResult(new EmptyDirectiveSyntax(line), "expected an expression directive");
     var name = tokens[1].Text.ToUpperInvariant();
-    var arguments = tokens.Where(token => token.Kind == MixinTokenKind.Argument).Select(token => token.Text).ToArray();
+    var argumentTokens = tokens.Where(token => token.Kind == MixinTokenKind.Argument).ToArray();
+    var arguments = argumentTokens.Select(token => token.Text).ToArray();
     var operand = tokens.FirstOrDefault(token => token.Kind == MixinTokenKind.Operand)?.Text ?? "";
     var syntax = CreateBuiltinSyntax(name, line, arguments, operand);
     if (syntax is not null) {
       var valid = ValidateBuiltin(name, arguments, operand, out var error) &&
-        ValidateDynamicArguments(arguments, out error);
+        ValidateExpressionArguments(arguments, out error);
       return new MixinDirectiveParseResult(syntax, valid ? null : error);
     }
     if (!DirectiveLibrary.TryGet(name, out var directive)) {
@@ -223,7 +251,7 @@ internal static class MixinExpressionParser {
     }
     var invocationValid = directive.Validate(arguments, operand, out var invocationError) &&
       ValidateOperand(directive.OperandKind, operand, out invocationError) &&
-      ValidateDynamicArguments(arguments, out invocationError);
+      ValidateExpressionArguments(arguments, out invocationError);
     var parsedArguments = arguments.Select(ParseDirectiveArgument).ToArray();
     return new MixinDirectiveParseResult(
       new DirectiveInvocationSyntax(line, directive, parsedArguments, ParseValueExpression(operand)),
@@ -231,7 +259,9 @@ internal static class MixinExpressionParser {
     );
   }
 
-  private static DirectiveInstruction CreateBuiltinSyntax(string name, int l, IReadOnlyList<string> a, string o) {
+  private static DirectiveInstruction CreateBuiltinSyntax(
+    string name, int l, IReadOnlyList<string> a, string o
+  ) {
     return name switch {
       "SCOPE" => new ScopeDirectiveSyntax(l, a.FirstOrDefault()),
       "LABEL" => new LabelDirectiveSyntax(l, a.FirstOrDefault()),
@@ -244,7 +274,8 @@ internal static class MixinExpressionParser {
       "ASSERT" => new AssertDirectiveSyntax(l, ParseBooleanExpression(o)),
       "CODE" => CreateCodeSyntax(l, a.FirstOrDefault(), o),
       "MIXIN" => new MixinDirectiveSyntax(
-        l, ParseDirectiveArgument(a.FirstOrDefault()), a.Count > 1 ? ParseDirectiveArgument(a[1]) : null,
+        l, a.Count == 0 ? null : ParseDirectiveArgument(a[0]),
+        a.Count > 1 ? ParseDirectiveArgument(a[1]) : null,
         ParseValueExpression(o)
       ),
       "USING" => new UsingDirectiveSyntax(l, ParseValueExpression(o)),
@@ -268,7 +299,7 @@ internal static class MixinExpressionParser {
     return new DirectiveArgumentSyntax(null, ParseValueExpression(expression));
   }
 
-  private static bool ValidateDynamicArguments(IReadOnlyList<string> arguments, out string error) {
+  private static bool ValidateExpressionArguments(IReadOnlyList<string> arguments, out string error) {
     foreach (var argument in arguments) {
       if (!MixinExpressionLexer.TryUnwrapDynamicArgument(argument, out var expression)) continue;
       if (!ValidateValueExpressionSyntax(expression, out error)) return false;
@@ -276,6 +307,7 @@ internal static class MixinExpressionParser {
     error = null;
     return true;
   }
+
 
   private static CodeDirectiveSyntax CreateCodeSyntax(int line, string argument, string code) {
     switch ((argument ?? "TARGET").ToUpperInvariant()) {
@@ -344,8 +376,13 @@ internal static class MixinExpressionParser {
   }
 
   internal static IReadOnlyList<MixinExpressionReference> ParseBooleanExpression(string text) {
+    return ParseBooleanExpression(MixinExpressionLexer.LexExpression(text));
+  }
+
+  private static IReadOnlyList<MixinExpressionReference> ParseBooleanExpression(
+    IReadOnlyList<MixinExpressionToken> tokens
+  ) {
     var result = new List<MixinExpressionReference>();
-    var tokens = MixinExpressionLexer.LexExpression(text);
     var position = 0;
     while (position < tokens.Count) {
       if (tokens[position].Kind == MixinExpressionTokenKind.Literal &&
@@ -363,8 +400,19 @@ internal static class MixinExpressionParser {
   }
 
   internal static IReadOnlyList<ValueExpressionPart> ParseValueExpression(string text) {
+    return ParseValueExpression(MixinExpressionLexer.LexExpression(text), text);
+  }
+
+  private static IReadOnlyList<ValueExpressionPart> ParseValueExpression(
+    IReadOnlyList<MixinExpressionToken> tokens
+  ) {
+    return ParseValueExpression(tokens, null);
+  }
+
+  private static IReadOnlyList<ValueExpressionPart> ParseValueExpression(
+    IReadOnlyList<MixinExpressionToken> tokens, string source
+  ) {
     var result = new List<ValueExpressionPart>();
-    var tokens = MixinExpressionLexer.LexExpression(text);
     var position = 0;
     while (position < tokens.Count) {
       if (Take(tokens, ref position, MixinExpressionTokenKind.Literal, out var literal)) {
@@ -377,10 +425,11 @@ internal static class MixinExpressionParser {
         while (position < tokens.Count && tokens[position].Kind is not (
           MixinExpressionTokenKind.At or MixinExpressionTokenKind.Literal
           )) position++;
-        var end = position < tokens.Count ? tokens[position].Start : text.Length;
+        var end = position < tokens.Count ? tokens[position].Start : source?.Length ?? tokens[referenceStart].End;
         result.Add(
           new ValueExpressionPart(
-            text.Substring(tokens[referenceStart].Start, end - tokens[referenceStart].Start), null, true
+            source is null ? tokens[referenceStart].Text :
+              source.Substring(tokens[referenceStart].Start, end - tokens[referenceStart].Start), null, true
           )
         );
         continue;

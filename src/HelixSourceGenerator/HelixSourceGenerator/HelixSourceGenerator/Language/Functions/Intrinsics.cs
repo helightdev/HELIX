@@ -90,7 +90,8 @@ internal sealed class LogicalFunctionDefinition : FunctionDefinition {
 
   internal override bool Validate(FunctionInvocation invocation, out string error) {
     if (!base.Validate(invocation, out error)) return false;
-    if (invocation.Arguments.All(MixinExpressionParser.IsDynamicArgument)) return true;
+    if (invocation is MixinExpressionProperty property &&
+      property.ParsedArguments.All(item => item.BooleanExpression is not null)) return true;
     error = ":" + Name + " arguments must be dynamic boolean expressions";
     return false;
   }

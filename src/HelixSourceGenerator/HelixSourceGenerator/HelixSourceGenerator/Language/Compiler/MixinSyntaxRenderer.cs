@@ -5,7 +5,7 @@ using System.Text;
 namespace HelixSourceGenerator.Language.Compiler;
 
 /// <summary>Produces a canonical textual representation from semantic syntax nodes.</summary>
-internal static class MixinSyntaxRenderer {
+public static class MixinSyntaxRenderer {
   internal static string Keyword(this MixinExpressionRoot root) {
     return Root(root);
   }
@@ -48,7 +48,7 @@ internal static class MixinSyntaxRenderer {
     };
   }
 
-  internal static string RenderProgram(MixinProgramSyntax program) {
+  public static string RenderProgram(MixinProgramSyntax program) {
     return RenderInstructions(program.AvailableInstructions());
   }
 
@@ -116,7 +116,14 @@ internal static class MixinSyntaxRenderer {
       builder.Append(':');
       if (property.Negated) builder.Append('!');
       builder.Append(property.Name);
-      foreach (var argument in property.Arguments) builder.Append('<').Append(argument).Append('>');
+      foreach (var argument in property.ParsedArguments) {
+        builder.Append('<');
+        if (argument.Literal is not null) builder.Append(argument.Literal);
+        else if (argument.BooleanExpression is not null)
+          builder.Append('(').Append(RenderBoolean(argument.BooleanExpression)).Append(')');
+        else builder.Append('(').Append(RenderValue(argument.ValueExpression)).Append(')');
+        builder.Append('>');
+      }
     }
     if (parenthesized) builder.Append(')');
     return builder.ToString();

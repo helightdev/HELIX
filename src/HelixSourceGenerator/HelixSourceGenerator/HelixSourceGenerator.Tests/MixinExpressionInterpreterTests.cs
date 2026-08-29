@@ -64,9 +64,9 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void HoistedStructuralDirectiveKeepsItsRoslynSyntaxTarget() {
-    var success = MixinExpressionCompiler.TryHoistPrelude(
-      "",
-      "@AUGMENT_STRUCT<PropsModel> @this\n@CODE @local#PropsModel:structArgs",
+    var success = MixinExpressionCompiler.TryCompileSyntax(
+      MixinExpressionParser.Parse(""),
+      MixinExpressionParser.Parse("@AUGMENT_STRUCT<PropsModel> @this\n@CODE @local#PropsModel:structArgs"),
       null,
       out var prelude,
       out var lateExpression,
@@ -75,18 +75,20 @@ public sealed class MixinExpressionInterpreterTests {
     );
 
     Assert.True(success, $"line {errorLine}: {error}");
-    Assert.Contains("@AUGMENT_STRUCT<PropsModel> @this", prelude);
-    Assert.DoesNotContain("@AUGMENT_STRUCT<PropsModel> @carry", prelude);
-    Assert.Contains("@CARRY<__0> @local#PropsModel", prelude);
-    Assert.Contains("@CARRY<__1> @local#PropsModel:structArgs", prelude);
-    Assert.Contains("@CODE @carry#__1", lateExpression);
+    var renderedPrelude = MixinSyntaxRenderer.RenderProgram(prelude);
+    var renderedLate = MixinSyntaxRenderer.RenderProgram(lateExpression);
+    Assert.Contains("@AUGMENT_STRUCT<PropsModel> @this", renderedPrelude);
+    Assert.DoesNotContain("@AUGMENT_STRUCT<PropsModel> @carry", renderedPrelude);
+    Assert.Contains("@CARRY<__0> @local#PropsModel", renderedPrelude);
+    Assert.Contains("@CARRY<__1> @local#PropsModel:structArgs", renderedPrelude);
+    Assert.Contains("@CODE @carry#__1", renderedLate);
   }
 
   [Fact]
   public void HoistingCarriesBooleanSubjectsButKeepsTheirPredicates() {
-    var success = MixinExpressionCompiler.TryHoistPrelude(
-      "",
-      "@MATCH @this:?is<MonoBehaviour>\n@MATCH @attr#type:?exists",
+    var success = MixinExpressionCompiler.TryCompileSyntax(
+      MixinExpressionParser.Parse(""),
+      MixinExpressionParser.Parse("@MATCH @this:?is<MonoBehaviour>\n@MATCH @attr#type:?exists"),
       null,
       out var prelude,
       out var lateExpression,
@@ -95,12 +97,14 @@ public sealed class MixinExpressionInterpreterTests {
     );
 
     Assert.True(success, $"line {errorLine}: {error}");
-    Assert.Contains("@CARRY<__0> @this", prelude);
-    Assert.Contains("@CARRY<__1> @attr#type", prelude);
-    Assert.DoesNotContain(":?is<MonoBehaviour>", prelude);
-    Assert.DoesNotContain(":?exists", prelude);
-    Assert.Contains("@MATCH @carry#__0:is<MonoBehaviour>", lateExpression);
-    Assert.Contains("@MATCH @carry#__1:exists", lateExpression);
+    var renderedPrelude = MixinSyntaxRenderer.RenderProgram(prelude);
+    var renderedLate = MixinSyntaxRenderer.RenderProgram(lateExpression);
+    Assert.Contains("@CARRY<__0> @this", renderedPrelude);
+    Assert.Contains("@CARRY<__1> @attr#type", renderedPrelude);
+    Assert.DoesNotContain(":?is<MonoBehaviour>", renderedPrelude);
+    Assert.DoesNotContain(":?exists", renderedPrelude);
+    Assert.Contains("@MATCH @carry#__0:is<MonoBehaviour>", renderedLate);
+    Assert.Contains("@MATCH @carry#__1:exists", renderedLate);
   }
 
   [Fact]
@@ -628,10 +632,15 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void RewritesOnlyTargetReferenceRootsAsThis() {
     var rewritten = MixinExpressionCompiler.RewriteTargetAsThis(
-      "@target:name | @(target:type) | @targeted:name | @var#target"
+      MixinExpressionParser.Parse(
+        "@CODE @target:name | @(target:type) | @targeted:name | @var#target"
+      )
     );
 
-    Assert.Equal("@this:name | @(this:type) | @targeted:name | @var#target", rewritten);
+    Assert.Equal(
+      "@CODE @this:name | @(this:type) | @targeted:name | @var#target",
+      MixinSyntaxRenderer.RenderProgram(rewritten)
+    );
   }
 
   [Fact]

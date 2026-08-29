@@ -63,23 +63,20 @@ internal static class MixinLibraryApi {
     out string error,
     out int errorLine
   ) {
-    var prelude = typeLevel
-      ? MixinExpressionCompiler.RewriteTargetAsThis(annotation.Prelude)
-      : annotation.Prelude;
-    var expression = typeLevel
-      ? MixinExpressionCompiler.RewriteTargetAsThis(annotation.Expression)
-      : annotation.Expression;
-    if (!MixinExpressionCompiler.TryHoistPrelude(
+    var prelude = MixinExpressionParser.Parse(annotation.Prelude);
+    var expression = MixinExpressionParser.Parse(annotation.Expression);
+    if (typeLevel) {
+      prelude = MixinExpressionCompiler.RewriteTargetAsThis(prelude);
+      expression = MixinExpressionCompiler.RewriteTargetAsThis(expression);
+    }
+    if (!MixinExpressionCompiler.TryCompileSyntax(
       prelude, expression, prepared, out var compiledPrelude, out var compiledLate,
       out error, out errorLine
     )) {
       program = null;
       return false;
     }
-    program = new CompiledMixinProgram(
-      MixinExpressionCompiler.GetProgram(compiledPrelude),
-      MixinExpressionCompiler.GetProgram(compiledLate)
-    );
+    program = new CompiledMixinProgram(compiledPrelude, compiledLate);
     return true;
   }
 
@@ -98,7 +95,7 @@ internal static class MixinLibraryApi {
     return new MixinLibraryFile(
       key, file.Path, content, parsed.Success,
       parsed.Error, parsed.ErrorLine,
-      parsed.Success ? MixinExpressionCompiler.GetProgram(parsed.Functions) : null,
+      parsed.Success ? MixinExpressionParser.Parse(parsed.Functions) : null,
       parsed.Annotations, parsed.Configuration
     );
   }
@@ -311,7 +308,7 @@ internal static class MixinLibraryApi {
         );
         continue;
       }
-      valid.Add(MixinExpressionCompiler.GetProgram(library.Content));
+      valid.Add(MixinExpressionParser.Parse(library.Content));
     }
     try {
       return MixinExpressionCompiler.PrepareGlobals(valid);

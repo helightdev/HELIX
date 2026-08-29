@@ -71,12 +71,14 @@ public sealed class MixinExpressionProperty : FunctionInvocation {
     string name, string argument = null, bool negated = false
   ) : base(name, argument is null ? Array.Empty<string>() : new[] { argument }, negated) {
     Values = [.. Arguments.Select(MixinValue.From)];
+    ParsedArguments = [.. Arguments.Select(item => new MixinPropertyArgumentSyntax(item, null, null))];
   }
 
   public MixinExpressionProperty(
     string name, IReadOnlyList<string> arguments, bool negated = false
   ) : base(name, arguments, negated) {
     Values = [.. Arguments.Select(MixinValue.From)];
+    ParsedArguments = [.. Arguments.Select(item => new MixinPropertyArgumentSyntax(item, null, null))];
   }
 
   internal MixinExpressionProperty(
@@ -96,6 +98,13 @@ public sealed class MixinExpressionProperty : FunctionInvocation {
   ) : base(name, arguments, negated) {
     Values = [.. Arguments.Select(MixinValue.From)];
     ParsedArguments = parsedArguments ?? [];
+  }
+
+  internal MixinExpressionProperty(
+    string name, IReadOnlyList<MixinPropertyArgumentSyntax> arguments, bool negated
+  ) : base(name, [.. (arguments ?? []).Select(item => item.Literal)], negated) {
+    ParsedArguments = arguments ?? [];
+    Values = [.. ParsedArguments.Select(item => MixinValue.From(item.Literal))];
   }
 
   internal IReadOnlyList<IMixinValue> Values { get; }
@@ -249,7 +258,14 @@ public sealed class MixinExpressionReference(
     if (Member is not null) pool.Intern(Member);
     foreach (var property in Properties) {
       pool.Intern(property.Name);
-      foreach (var argument in property.Arguments) pool.Intern(argument);
+      foreach (var argument in property.ParsedArguments) {
+        pool.Intern(argument.Literal);
+        foreach (var part in argument.ValueExpression ?? []) {
+          if (part.Reference is null) pool.Intern(part.Literal);
+          else part.Reference.CollectConstants(pool);
+        }
+        foreach (var reference in argument.BooleanExpression ?? []) reference.CollectConstants(pool);
+      }
     }
   }
 }
