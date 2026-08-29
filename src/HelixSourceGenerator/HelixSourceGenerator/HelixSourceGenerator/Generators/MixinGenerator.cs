@@ -21,7 +21,7 @@ using static HelixSourceGenerator.Shared.GeneratorStrings;
 namespace HelixSourceGenerator.Generators;
 
 [Generator(LanguageNames.CSharp)]
-public sealed class MixinGenerator : IIncrementalGenerator {
+public sealed partial class MixinGenerator : IIncrementalGenerator {
   private const string LateClassMarker = "// __HELIX_LATE_CLASS__";
   private const string LateFileMarker = "// __HELIX_LATE_FILE__";
   private static long _generationCounter;
@@ -180,7 +180,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         finalizedOutputs.Annotations, finalizedOutputs.Class,
         finalizedOutputs.File, finalizedOutputs.Implements,
         finalizedOutputs.Usings, expressionVariables
-          .Where(item => !item.Key.StartsWith(MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal)),
+          .Where(item => !item.Key.StartsWith(MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal)),
         preparedExpressions.StringPool,
         context.DebugExpressions.ToImmutableArray(), context.Debug, context.DebugStringPool
       )
@@ -229,11 +229,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var sharedVariables = model.Render.PrimaryVariables.ToDictionary(
       item => item.Key, item => item.Value, StringComparer.Ordinal
     );
-    var interpreter = new MixinExpressionInterpreter();
     foreach (var work in model.LateExpressions) {
       var variables = work.Variables.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
       foreach (var item in sharedVariables) variables[item.Key] = item.Value;
-      var result = MixinExpressionInterpreter.ExecuteCompiled(
+      var result = MixinExpressionVirtualMachine.ExecuteCompiled(
         work.Expression, UnlinkedMixinExpressionContext.Instance, variables, work.PreparedState
       );
       foreach (var log in result.Logs)
@@ -250,7 +249,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       }
       foreach (var item in variables
         .Where(static item => !item.Key.StartsWith(
-            MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
+            MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
           )
         )) sharedVariables[item.Key] = item.Value;
       foreach (var output in result.Outputs) {
@@ -346,193 +345,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     );
   }
 
-  private static string BuildDebugTrace(MixinRenderModel render) {
-    var workItems = render.DebugExpressions;
-    var builder = new StringBuilder();
-    builder.AppendLine("// ============================================================================");
-    builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
-    if (render.DebugStringPool) AppendDebugStringPool(builder, render.StringPool);
-    builder.Append("// generationVersion = ").AppendLine(
-      render.GenerationVersion.ToString(CultureInfo.InvariantCulture)
-    );
-    AppendDebugFingerprint(builder, "outputs", render.Fingerprint.Outputs);
-    AppendDebugFingerprint(builder, "variables", render.Fingerprint.Variables);
-    AppendDebugFingerprint(builder, "signatures", render.Fingerprint.Signatures);
-    for (var index = 0; index < workItems.Length; index++) {
-      var work = workItems[index];
-      builder.AppendLine("// ----------------------------------------------------------------------------");
-      builder.Append("// EXPRESSION ").Append(index + 1).Append(": ").Append(work.Provider);
-      if (!string.IsNullOrEmpty(work.SourceType)) builder.Append(" on ").Append(work.SourceType);
-      if (!string.IsNullOrEmpty(work.SourceMember)) builder.Append('.').Append(work.SourceMember);
-      builder.AppendLine();
-      AppendDebugProgram(builder, "PRELUDE PROGRAM (PREPARED)", work.PreludeProgram, render);
-      AppendDebugProgram(builder, "LATE PROGRAM (PREPARED)", work.LateProgram, render);
-      builder.AppendLine("// CARRIED VALUES");
-      var carries = work.Variables.Where(item => item.Key.StartsWith(
-          MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
-        ) && IsCarryReferenced(
-          work.LateProgram, item.Key.Substring(
-            MixinExpressionInterpreter.CarryLocalPrefix.Length
-          )
-        )
-      ).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
-      if (carries.Length == 0) builder.AppendLine("//   <none>");
-      foreach (var carry in carries) {
-        var label = carry.Key.Substring(MixinExpressionInterpreter.CarryLocalPrefix.Length);
-        builder.Append("//   @carry#").Append(label).Append(" = ")
-          .AppendLine(MixinValue.From(carry.Value).Render().Replace("\r", "\\r").Replace("\n", "\\n"));
-      }
-    }
-    builder.AppendLine("// ============================================================================");
-    return builder.ToString();
-  }
-
-  private static void AppendDebugFingerprint(
-    StringBuilder builder,
-    string name,
-    MixinRenderFingerprint.FingerprintPart fingerprint
-  ) {
-    builder.Append("// ").Append(name).Append("Fingerprint = 0x")
-      .Append(fingerprint.Hash.ToString("X16", CultureInfo.InvariantCulture))
-      .Append("; length = ")
-      .AppendLine(fingerprint.Length.ToString(CultureInfo.InvariantCulture));
-  }
-
   private static string NormalizeUsing(string text) {
     text = (text ?? "").Trim().TrimEnd(';');
     return text.Length == 0 ? "" : "using " + text + ";";
-  }
-
-  private static string BuildFinalDebugState(
-    IEnumerable<FinalDebugState> states,
-    IReadOnlyDictionary<string, object> sharedVariables
-  ) {
-    var builder = new StringBuilder();
-    builder.AppendLine().AppendLine("// ============================================================================");
-    builder.AppendLine("// HELIX MIXIN FINAL STATE");
-    var finalDebugStates = states as FinalDebugState[] ?? [.. states];
-    foreach (var state in finalDebugStates) {
-      builder.Append("// ").Append(state.Work.Provider);
-      if (!string.IsNullOrEmpty(state.Work.SourceType)) builder.Append(" on ").Append(state.Work.SourceType);
-      if (!string.IsNullOrEmpty(state.Work.SourceMember)) builder.Append('.').Append(state.Work.SourceMember);
-      builder.AppendLine();
-      builder.Append("//   preludeOperations = ")
-        .AppendLine(state.Work.PreludeOperations.ToString(CultureInfo.InvariantCulture));
-      builder.Append("//   preludeDurationMs = ")
-        .AppendLine(FormatDebugMilliseconds(state.Work.PreludeMilliseconds));
-      builder.Append("//   lateOperations = ")
-        .AppendLine(state.LateOperations.ToString(CultureInfo.InvariantCulture));
-      builder.Append("//   lateDurationMs = ")
-        .AppendLine(FormatDebugMilliseconds(state.LateMilliseconds));
-    }
-    builder.AppendLine("// SHARED VARIABLES");
-    var persistentVariables = sharedVariables.Where(item => !item.Key.StartsWith(
-        MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
-      )
-    ).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
-    if (persistentVariables.Length == 0) builder.AppendLine("//   <empty>");
-    else {
-      foreach (var variable in persistentVariables) {
-        builder.Append("//   @var#").Append(variable.Key).Append(" = ")
-          .AppendLine(MixinValue.From(variable.Value).Render().Replace("\r", "\\r").Replace("\n", "\\n"));
-      }
-    }
-    var totalMilliseconds = finalDebugStates.Sum(state =>
-      state.Work.PreludeMilliseconds + state.LateMilliseconds
-    );
-    builder.Append("// TOTAL durationMs = ").AppendLine(FormatDebugMilliseconds(totalMilliseconds));
-    builder.AppendLine("// ============================================================================");
-    return builder.ToString();
-  }
-
-  private static bool IsCarryReferenced(string program, string label) {
-    var reference = "@carry#" + label;
-    var offset = 0;
-    while (offset < (program?.Length ?? 0)) {
-      if (program == null) continue;
-      var index = program.IndexOf(reference, offset, StringComparison.Ordinal);
-      if (index < 0) return false;
-      var end = index + reference.Length;
-      if (end == program.Length || !IsReferenceNameCharacter(program[end])) return true;
-      offset = end;
-    }
-    return false;
-  }
-
-  private static bool IsReferenceNameCharacter(char character) {
-    return char.IsLetterOrDigit(character) || character is '_' or '$';
-  }
-
-  private static string FormatDebugMilliseconds(double milliseconds) {
-    return milliseconds.ToString("F3", CultureInfo.InvariantCulture);
-  }
-
-  private static string DebugStateKey(DebugExpressionWork work) {
-    return string.Join(
-      "\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateProgram
-    );
-  }
-
-  private static string DebugStateKey(LateExpressionWork work) {
-    return string.Join(
-      "\u001f", work.Provider, work.SourceType, work.SourceMember, work.Expression.Source
-    );
-  }
-
-  private static void AppendDebugStringPool(StringBuilder builder, MixinStringPool pool) {
-    builder.AppendLine("// INTERNED STRING POOL");
-    for (var id = 0; id < pool.Count; id++) {
-      builder
-        .Append("//   §").Append(id).Append(" = ")
-        .AppendLine(EscapeDebugString(pool[id]));
-    }
-  }
-
-  private static string EscapeDebugString(string value) {
-    return (value ?? "")
-      .Replace("\\", @"\\")
-      .Replace("\r", "\\r")
-      .Replace("\n", "\\n");
-  }
-
-  private static string InternDebugLine(string line, MixinStringPool pool) {
-    var candidates = Enumerable.Range(0, pool.Count)
-      .Select(id => new { Id = id, Value = pool[id] })
-      .Where(item => !string.IsNullOrEmpty(item.Value) && item.Value.IndexOfAny(['\r', '\n']) < 0)
-      .OrderByDescending(item => item.Value.Length).ThenBy(item => item.Id).ToArray();
-    var builder = new StringBuilder(line.Length);
-    for (var offset = 0; offset < line.Length;) {
-      var match = candidates.FirstOrDefault(item =>
-        offset + item.Value.Length <= line.Length &&
-        string.CompareOrdinal(line, offset, item.Value, 0, item.Value.Length) == 0
-      );
-      if (match is null) builder.Append(line[offset++]);
-      else {
-        builder.Append('§').Append(match.Id.ToString(CultureInfo.InvariantCulture));
-        offset += match.Value.Length;
-      }
-    }
-    return builder.ToString();
-  }
-
-  private static void AppendDebugProgram(
-    StringBuilder builder, string title, string program, MixinRenderModel render
-  ) {
-    builder.Append("// ").AppendLine(title);
-    var lines = (program ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-    if (lines.Length == 1 && lines[0].Length == 0) {
-      builder.AppendLine("//   <empty>");
-      return;
-    }
-    for (var index = 0; index < lines.Length; index++) {
-      if (index != lines.Length - 1 || lines[index].Length != 0) {
-        builder.Append("//   ").AppendLine(
-          render.DebugStringPool
-            ? InternDebugLine(lines[index], render.StringPool)
-            : lines[index]
-        );
-      }
-    }
   }
 
   private static MixinContribution LateContribution(
@@ -639,8 +454,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       target, annotated, applied, arguments, compilation, targetDefinitions: targetDefinitions,
       preparedExpressions: preparedExpressions, libraries: libraries
     );
-    var interpreter = new MixinExpressionInterpreter();
-    var evaluated = MixinExpressionInterpreter.ExecuteCompiled(
+    var evaluated = MixinExpressionVirtualMachine.ExecuteCompiled(
       expression, expressionContext, expressionVariables, preparedExpressions
     );
     ReportExpressionLogs(context, location, evaluated.Logs);
@@ -787,7 +601,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         const string carryPrefix = "@carry#";
         if (inner.StartsWith(carryPrefix, StringComparison.Ordinal) &&
           variables.TryGetValue(
-            MixinExpressionInterpreter.CarryLocalPrefix + inner.Substring(carryPrefix.Length),
+            MixinExpressionVirtualMachine.CarryLocalPrefix + inner.Substring(carryPrefix.Length),
             out var carried
           )) resolved = MixinValue.From(carried).Render();
       }

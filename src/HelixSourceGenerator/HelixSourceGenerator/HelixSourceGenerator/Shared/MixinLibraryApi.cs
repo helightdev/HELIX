@@ -77,8 +77,8 @@ internal static class MixinLibraryApi {
       return false;
     }
     program = new CompiledMixinProgram(
-      MixinExpressionInterpreter.GetProgram(compiledPrelude),
-      MixinExpressionInterpreter.GetProgram(compiledLate)
+      MixinExpressionCompiler.GetProgram(compiledPrelude),
+      MixinExpressionCompiler.GetProgram(compiledLate)
     );
     return true;
   }
@@ -98,7 +98,7 @@ internal static class MixinLibraryApi {
     return new MixinLibraryFile(
       key, file.Path, content, parsed.Success,
       parsed.Error, parsed.ErrorLine,
-      parsed.Success ? MixinExpressionInterpreter.GetProgram(parsed.Functions) : null,
+      parsed.Success ? MixinExpressionCompiler.GetProgram(parsed.Functions) : null,
       parsed.Annotations, parsed.Configuration
     );
   }
@@ -236,7 +236,7 @@ internal static class MixinLibraryApi {
     if (annotationName is not null)
       return Failure("unterminated annotation '" + annotationName + "'", annotationLine);
     var functionText = functions.ToString();
-    var functionValidation = MixinExpressionInterpreter.ValidateFunctionLibrary(functionText);
+    var functionValidation = MixinExpressionCompiler.ValidateFunctionLibrary(functionText);
     return functionValidation.Success
       ? new ParsedAdditionalFile(true, functionText, annotations, configuration, null, 0)
       : Failure(functionValidation.Error, functionValidation.ErrorLine);
@@ -292,14 +292,13 @@ internal static class MixinLibraryApi {
     Action<Diagnostic> reportDiagnostic,
     IReadOnlyList<Library> libraries
   ) {
-    var interpreter = new MixinExpressionInterpreter();
     var valid = new List<MixinProgramSyntax>(libraries.Count);
     foreach (var library in libraries) {
       if (library.Program is not null) {
         valid.Add(library.Program);
         continue;
       }
-      var validation = MixinExpressionInterpreter.ValidateFunctionLibrary(library.Content);
+      var validation = MixinExpressionCompiler.ValidateFunctionLibrary(library.Content);
       if (!validation.Success) {
         reportDiagnostic(
           Diagnostic.Create(
@@ -312,7 +311,7 @@ internal static class MixinLibraryApi {
         );
         continue;
       }
-      valid.Add(MixinExpressionInterpreter.GetProgram(library.Content));
+      valid.Add(MixinExpressionCompiler.GetProgram(library.Content));
     }
     try {
       return MixinExpressionCompiler.PrepareGlobals(valid);
@@ -322,7 +321,7 @@ internal static class MixinLibraryApi {
           InvalidLibraryImport, Location.None, "import set", exception.Message
         )
       );
-      return MixinExpressionInterpreter.PrepareGlobals([]);
+      return MixinExpressionCompiler.PrepareGlobals(Array.Empty<string>());
     }
   }
 

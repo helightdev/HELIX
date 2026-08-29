@@ -9,7 +9,7 @@ using HelixSourceGenerator.Language.Functions;
 
 namespace HelixSourceGenerator.Language;
 
-using static MixinExpressionInterpreter;
+using static MixinExpressionVirtualMachine;
 using static MixinExpressionCompiler;
 
 internal static class MixinExpressionEvaluator {
@@ -78,8 +78,8 @@ internal static class MixinExpressionEvaluator {
   internal static bool TryResolveDirectiveArgument(
     string argument,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out string value,
     out string error
   ) {
@@ -98,8 +98,8 @@ internal static class MixinExpressionEvaluator {
   private static bool TryResolveArgumentValue(
     string argument,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out object value,
     out string error
   ) {
@@ -151,8 +151,8 @@ internal static class MixinExpressionEvaluator {
   internal static bool TryEvaluateAll(
     IReadOnlyList<MixinExpressionReference> expression,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out bool result,
     out string error,
     out string failure
@@ -179,8 +179,8 @@ internal static class MixinExpressionEvaluator {
   private static MixinExpressionReference SelectFailedCondition(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables
+    MixinValueDictionary locals,
+    MixinValueDictionary variables
   ) {
     var valueProperties = reference.Properties.Where(property => !IsBooleanProperty(property)).ToArray();
     foreach (var predicate in reference.Properties.Where(IsBooleanProperty)) {
@@ -248,8 +248,8 @@ internal static class MixinExpressionEvaluator {
   internal static bool TryInterpolate(
     IReadOnlyList<ValueExpressionPart> expression,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out string result,
     out string error
   ) {
@@ -284,8 +284,8 @@ internal static class MixinExpressionEvaluator {
   internal static bool TryInterpolateSegments(
     IReadOnlyList<ValueExpressionPart> expression,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     MixinStringPool pool,
     out IReadOnlyList<MixinString> result,
     out string error
@@ -322,8 +322,8 @@ internal static class MixinExpressionEvaluator {
   internal static bool TryEvaluateExpression(
     IReadOnlyList<ValueExpressionPart> expression,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out object result,
     out string error
   ) {
@@ -338,7 +338,7 @@ internal static class MixinExpressionEvaluator {
   }
 
   internal static void RestoreCallParameter(
-    IDictionary<string, object> locals,
+    MixinValueDictionary locals,
     CallFrame frame
   ) {
     if (frame.hadParameter) locals[ParameterLocalKey] = frame.parameter;
@@ -348,8 +348,8 @@ internal static class MixinExpressionEvaluator {
   private static bool TryResolve(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out object value,
     out string error
   ) {
@@ -394,8 +394,8 @@ internal static class MixinExpressionEvaluator {
   private static bool TryResolveCore(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out object value,
     out string error
   ) {
@@ -437,8 +437,8 @@ internal static class MixinExpressionEvaluator {
   private static bool TryEvaluate(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out bool value,
     out string error
   ) {
@@ -546,8 +546,8 @@ internal static class MixinExpressionEvaluator {
   private static bool TryEvaluateCore(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out bool value,
     out string error
   ) {
@@ -649,8 +649,8 @@ internal static class MixinExpressionEvaluator {
   private static bool TryPrepareReference(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out MixinExpressionReference prepared,
     out string error
   ) {
@@ -695,8 +695,8 @@ internal static class MixinExpressionEvaluator {
   private static bool TryReduceLogicalProperties(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out MixinExpressionReference reduced,
     out string error
   ) {
@@ -766,8 +766,8 @@ internal static class MixinExpressionEvaluator {
   private static bool TryStored(
     MixinExpressionReference reference,
     IMixinExpressionContext context,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
+    MixinValueDictionary locals,
+    MixinValueDictionary variables,
     out object value,
     out string error
   ) {

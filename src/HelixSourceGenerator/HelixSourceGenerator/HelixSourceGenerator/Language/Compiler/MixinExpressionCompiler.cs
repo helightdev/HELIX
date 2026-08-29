@@ -7,9 +7,28 @@ using System.Text;
 namespace HelixSourceGenerator.Language.Compiler;
 
 using static MixinExpressionEvaluator;
-using static MixinExpressionInterpreter;
 
 public static class MixinExpressionCompiler {
+  internal static MixinProgramSyntax GetProgram(string expression) => new(expression);
+
+  public static MixinExpressionValidationResult ValidateSyntax(string expression) =>
+    MixinExpressionParser.ValidateSyntax(expression, false);
+
+  internal static MixinExpressionValidationResult ValidateFunctionLibrary(string expression) =>
+    MixinExpressionParser.ValidateSyntax(expression, true);
+
+  public static bool TryParseReference(string text, out MixinExpressionReference reference, out string error) {
+    reference = null;
+    error = null;
+    if (text is null) { error = "reference is null"; return false; }
+    var position = 0;
+    if (MixinExpressionEvaluator.TryReadReferenceNode(text, ref position, out reference, out error) &&
+      position == text.Length) return true;
+    error ??= "unexpected text after expression reference";
+    reference = null;
+    return false;
+  }
+
   private static readonly HashSet<MixinExpressionRoot> RoslynRoots = [
     MixinExpressionRoot.Target, MixinExpressionRoot.This, MixinExpressionRoot.Attribute, MixinExpressionRoot.Argument
   ];
@@ -385,7 +404,7 @@ public static class MixinExpressionCompiler {
     late = string.Join("\n", remaining);
   }
 
-  internal static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
+  public static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
     var programs = new List<MixinProgramSyntax>();
     foreach (var expression in expressions ?? []) {
       var validation = MixinExpressionParser.ValidateSyntax(expression, false);
@@ -525,11 +544,11 @@ public static class MixinExpressionCompiler {
         continue;
       }
       if (depth != 0) {
-        if (instruction.Command == "SCOPE") scope = true;
-        else if (instruction.Command == "LABEL") scope = false;
-        else if (instruction.Command == "END") {
-          if (scope) scope = false;
-          else depth--;
+        switch (instruction.Command) {
+          case "SCOPE": scope = true; break;
+          case "LABEL":
+          case "END" when scope: scope = false; break;
+          case "END": depth--; break;
         }
         continue;
       }
@@ -541,7 +560,7 @@ public static class MixinExpressionCompiler {
   private static bool TryEvaluatePreparedInitializers(
     MixinProgramSyntax program,
     int programIndex,
-    IDictionary<string, object> variables,
+    MixinValueDictionary variables,
     ICollection<MixinExpressionPreparedLog> logs,
     ref int executedOperations,
     out string error,
@@ -564,28 +583,33 @@ public static class MixinExpressionCompiler {
         continue;
       }
       if (functionDepth != 0) {
-        if (instruction.Command == "SCOPE") functionScope = true;
-        else if (instruction.Command == "LABEL") functionScope = false;
-        else if (instruction.Command == "END") {
-          if (functionScope) functionScope = false;
-          else functionDepth--;
+        switch (instruction.Command) {
+          case "SCOPE": functionScope = true; break;
+          case "LABEL":
+          case "END" when functionScope: functionScope = false; break;
+          case "END": functionDepth--; break;
         }
         continue;
       }
-      if (instruction.Command == "VAR") {
-        executedOperations++;
-        if (!TryInterpolatePrepared(instruction.ValueExpression, variables, out var value, out error)) {
-          line = instruction.Line;
-          return false;
+      switch (instruction.Command) {
+        case "VAR": {
+          executedOperations++;
+          if (!TryInterpolatePrepared(instruction.ValueExpression, variables, out var value, out error)) {
+            line = instruction.Line;
+            return false;
+          }
+          variables[instruction.Argument] = value;
+          break;
         }
-        variables[instruction.Argument] = value;
-      } else if (instruction.Command == "LOG") {
-        executedOperations++;
-        if (!TryInterpolatePrepared(instruction.ValueExpression, variables, out var value, out error)) {
-          line = instruction.Line;
-          return false;
+        case "LOG": {
+          executedOperations++;
+          if (!TryInterpolatePrepared(instruction.ValueExpression, variables, out var value, out error)) {
+            line = instruction.Line;
+            return false;
+          }
+          logs.Add(new MixinExpressionPreparedLog(value, instruction.Line, programIndex));
+          break;
         }
-        logs.Add(new MixinExpressionPreparedLog(value, instruction.Line, programIndex));
       }
     }
     return true;
@@ -593,7 +617,7 @@ public static class MixinExpressionCompiler {
 
   private static bool TryInterpolatePrepared(
     IReadOnlyList<ValueExpressionPart> expression,
-    IDictionary<string, object> variables,
+    MixinValueDictionary variables,
     out string result,
     out string error
   ) {
@@ -660,8 +684,10 @@ public static class MixinExpressionCompiler {
       }
       var command = lines[index].Command;
       if (string.IsNullOrEmpty(command)) continue;
-      if (command is "SCOPE" or "LABEL") return index;
-      if (command == "END") return functionEnds.Contains(index) ? index : index + 1;
+      switch (command) {
+        case "SCOPE" or "LABEL": return index;
+        case "END": return functionEnds.Contains(index) ? index : index + 1;
+      }
     }
     return -1;
   }

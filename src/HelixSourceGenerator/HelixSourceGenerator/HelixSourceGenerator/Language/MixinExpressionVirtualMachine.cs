@@ -8,11 +8,43 @@ using HelixSourceGenerator.Language.Functions;
 
 namespace HelixSourceGenerator.Language;
 
-using static MixinExpressionInterpreter;
 using static MixinExpressionEvaluator;
 using static MixinExpressionCompiler;
 
-internal static class MixinExpressionVirtualMachine {
+public static class MixinExpressionVirtualMachine {
+  internal const string ParameterLocalKey = "\0@param";
+  internal const string CarryLocalPrefix = "\0@carry:";
+  internal const float FloatTimeZeroTolerance = 1e-6f;
+
+  public static MixinExpressionResult Execute(
+    string expression, IMixinExpressionContext context, IDictionary<string, object> variables = null
+  ) => Execute(expression, context, variables, (MixinExpressionPreparedState)null);
+
+  public static MixinExpressionResult Execute(
+    string expression, IMixinExpressionContext context, IDictionary<string, object> variables,
+    MixinExpressionPreparedState preparedState
+  ) => CompileAndExecute(expression is null ? null : GetProgram(expression), context, variables, preparedState);
+
+  public static MixinExpressionResult Execute(
+    string expression, IMixinExpressionContext context, IDictionary<string, object> variables,
+    IEnumerable<string> preparedExpressions
+  ) => Execute(expression, context, variables, PrepareGlobals(preparedExpressions ?? []));
+
+  internal static MixinExpressionResult ExecuteCompiled(
+    MixinProgramSyntax program, IMixinExpressionContext context, IDictionary<string, object> variables,
+    MixinExpressionPreparedState preparedState
+  ) => CompileAndExecute(program, context, variables, preparedState);
+
+  private static MixinExpressionResult CompileAndExecute(
+    MixinProgramSyntax program, IMixinExpressionContext context, IDictionary<string, object> variables,
+    MixinExpressionPreparedState preparedState
+  ) {
+    if (context is null) throw new ArgumentNullException(nameof(context));
+    if (!TryCompileExecution(program, preparedState, out var compiled, out var error, out var line))
+      return Failure(error, line);
+    return Execute(compiled, context, variables);
+  }
+
   internal static MixinExpressionResult Execute(
     MixinExpressionExecutionProgram program,
     IMixinExpressionContext context,
@@ -371,5 +403,41 @@ internal static class MixinExpressionVirtualMachine {
 
     CommitVariables(variables, pendingVariables);
     return SuccessfulResult();
+  }
+
+  internal static void CommitVariables(
+    IDictionary<string, object> destination, IReadOnlyDictionary<string, object> source
+  ) {
+    if (destination is null) return;
+    destination.Clear();
+    foreach (var item in source) destination[item.Key] = item.Value;
+  }
+
+  internal static MixinExpressionResult Success(
+    IReadOnlyList<MixinExpressionOutput> outputs, IReadOnlyList<MixinExpressionLog> logs,
+    IReadOnlyDictionary<string, object> variables = null, int executedOperations = 0,
+    double executionMilliseconds = 0
+  ) => new(true, null, 0, outputs, logs, variables, executedOperations, executionMilliseconds);
+
+  internal static MixinExpressionResult Failure(
+    string error, int line, IReadOnlyList<MixinExpressionLog> logs = null
+  ) => new(false, error, line, [], logs);
+
+  internal enum FrameContinuation { Call, StoreLocal, StoreVariable, EmitCode, Return }
+
+  internal sealed class CallFrame {
+    internal MixinExpressionTable accumulator;
+    internal FrameContinuation continuation;
+    internal string destination;
+    internal int functionStart;
+    internal bool hadParameter;
+    internal string injectionTarget;
+    internal int inputIndex;
+    internal KeyValuePair<string, IMixinValue>[] inputs;
+    internal MixinExpressionOutputTarget outputTarget;
+    internal object parameter;
+    internal int returnAddress;
+    internal string returnLocal;
+    internal MixinTransformRequest transform;
   }
 }
