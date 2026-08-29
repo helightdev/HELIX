@@ -68,7 +68,7 @@ internal static class PropStructMixinApi {
           var arguments = owner is IParameterSymbol { ContainingSymbol: IMethodSymbol method }
             ? (IReadOnlyList<IParameterSymbol>)method.Parameters
             : [];
-          var expressionContext = new RoslynMixinExpressionContext(
+          var expressionContext = new RoslynMixinContext(
             type, owner, applied, arguments, compilation,
             targetDefinitions: targetDefinitions,
             preparedExpressions: preparedExpressions,
@@ -91,7 +91,7 @@ internal static class PropStructMixinApi {
             }
             if (output.Target is MixinExpressionOutputTarget.Injection or
               MixinExpressionOutputTarget.Mixin) {
-              var target = RoslynMixinExpressionContext.ParseMixinTarget(
+              var target = RoslynMixinContext.ParseMixinTarget(
                 output.InjectionTarget, targetDefinitions
               ).Name;
               if (target == ConfigureTarget) {
@@ -141,7 +141,7 @@ internal static class PropStructMixinApi {
           IParameterSymbol { ContainingSymbol: IMethodSymbol method } => method.Parameters,
           _ => []
         };
-        var expressionContext = new RoslynMixinExpressionContext(
+        var expressionContext = new RoslynMixinContext(
           type, annotated, applied, arguments, compilation,
           targetDefinitions: targetDefinitions,
           preparedExpressions: preparedExpressions,
@@ -166,7 +166,7 @@ internal static class PropStructMixinApi {
               break;
             case MixinExpressionOutputTarget.Injection:
             case MixinExpressionOutputTarget.Mixin:
-              var target = RoslynMixinExpressionContext.ParseMixinTarget(
+              var target = RoslynMixinContext.ParseMixinTarget(
                 output.InjectionTarget, targetDefinitions
               ).Name;
               if (target != ConfigureTarget) {

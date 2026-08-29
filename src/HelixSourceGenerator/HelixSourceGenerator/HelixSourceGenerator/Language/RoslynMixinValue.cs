@@ -10,17 +10,16 @@ namespace HelixSourceGenerator.Language;
 
 /// <summary>Allocation-light adapter from Roslyn values to interpreter value semantics.</summary>
 internal readonly struct RoslynMixinValue : IMixinValue {
-  private readonly RoslynMixinExpressionContext _context;
+  private readonly RoslynMixinContext _context;
 
-  internal RoslynMixinValue(RoslynMixinExpressionContext context, object value) {
+  internal RoslynMixinValue(RoslynMixinContext context, object value) {
     _context = context;
     Value = value;
   }
 
   public object Value { get; }
   private ISymbol Symbol => Value as ISymbol;
-  private ITypeSymbol Type => RoslynMixinExpressionContext.TypeValueOf(Value);
-
+  private ITypeSymbol Type => RoslynMixinContext.TypeValueOf(Value);
   public ISymbol RoslynSymbol => Symbol;
   public ITypeSymbol RoslynType => Type;
   public string Visibility {
@@ -31,40 +30,39 @@ internal readonly struct RoslynMixinValue : IMixinValue {
         : GeneratorAnalysis.AccessibilityText(symbol.DeclaredAccessibility);
     }
   }
-  public string Name => RoslynMixinExpressionContext.NameOf(Value);
-  public string FullName => RoslynMixinExpressionContext.FullNameOf(Value);
+  public string Name => RoslynMixinContext.NameOf(Value);
+  public string FullName => RoslynMixinContext.FullNameOf(Value);
   public bool Exists => Value is not null;
-  public bool IsTruthy => RoslynMixinExpressionContext.IsTruthy(Value);
+  public bool IsTruthy => RoslynMixinContext.IsTruthy(Value);
 
-  public string Render() => RoslynMixinExpressionContext.TryComparableText(Value, out var text)
-    ? text
-    : Convert.ToString(Value);
+  public string Render() => RoslynMixinContext.TryComparableText(Value, out var text) ? text : Convert.ToString(Value);
 
   public void Fingerprint(MixinFingerprintBuilder builder) {
     builder.Append(nameof(RoslynMixinValue));
     builder.Append(Render());
   }
 
-  public object Unwrap() => RoslynMixinExpressionContext.Unwrap(Value);
+  public object Unwrap() => RoslynMixinContext.Unwrap(Value);
 
-  public bool TryGetText(out string text) => RoslynMixinExpressionContext.TryComparableText(Value, out text);
+  public bool TryGetText(out string text) => RoslynMixinContext.TryComparableText(Value, out text);
 
-  public object Select(string path) => _context.SelectMember(Value, path) ??
-    RoslynMixinExpressionContext.SelectTypeArgument(Value, path);
+  public object Select(string path) {
+    return _context.SelectMember(Value, path) ?? RoslynMixinContext.SelectTypeArgument(Value, path);
+  }
 
   public bool Is(string type) => Type is not null && _context.IsOrInherits(Type, type);
 
   public bool Has(object member) {
-    return Type is not null && RoslynMixinExpressionContext.HasConcreteMember(Type, Convert.ToString(member));
+    return Type is not null && RoslynMixinContext.HasConcreteMember(Type, Convert.ToString(member));
   }
 
   public bool EqualsTo(object expected) {
-    return RoslynMixinExpressionContext.EqualTo(Value, Convert.ToString(expected));
+    return RoslynMixinContext.EqualTo(Value, Convert.ToString(expected));
   }
 
   public bool Matches(string pattern, out string error) {
     error = null;
-    if (!RoslynMixinExpressionContext.TryComparableText(Value, out var text)) return false;
+    if (!RoslynMixinContext.TryComparableText(Value, out var text)) return false;
     try {
       return Regex.IsMatch(text, pattern);
     } catch (ArgumentException exception) {
@@ -76,8 +74,7 @@ internal readonly struct RoslynMixinValue : IMixinValue {
   public bool HasSameSignature(string expected) {
     var actual = _context.ResolveCallable(Value);
     var target = _context.ResolveCallable(expected);
-    return actual is not null && target is not null &&
-      RoslynMixinExpressionContext.HaveSameSignature(actual, target);
+    return actual is not null && target is not null && RoslynMixinContext.HaveSameSignature(actual, target);
   }
 
   public bool IsWireable(string from, string to) {
@@ -145,13 +142,14 @@ internal readonly struct RoslynMixinValue : IMixinValue {
   public bool IsGeneratedType(string name) => _context.IsGeneratedStructType(name);
 
   public IMixinValue Unlink() {
-    if (Value is ISymbol || Value is TypedConstant)
-      return DetachedSemantic();
+    if (Value is ISymbol or TypedConstant) return DetachedSemantic();
     var value = Unwrap();
-    if (value is null) return MixinValue.From(null);
-    if (value is bool boolean) return MixinValue.From(boolean);
-    if (value is string text) return MixinValue.From(text);
-    return DetachedSemantic();
+    return value switch {
+      null => MixinValue.From(null),
+      bool boolean => MixinValue.From(boolean),
+      string text => MixinValue.From(text),
+      _ => DetachedSemantic()
+    };
   }
 
   private IMixinValue DetachedSemantic() {
@@ -218,15 +216,15 @@ internal readonly struct RoslynMixinValue : IMixinValue {
       MixinValueTrait.Static => Symbol?.IsStatic == true,
       MixinValueTrait.Async => Symbol is IMethodSymbol { IsAsync: true },
       MixinValueTrait.Public => Symbol?.DeclaredAccessibility == Accessibility.Public,
-      MixinValueTrait.Exposed => Symbol?.DeclaredAccessibility is Accessibility.Public or
-        Accessibility.Internal or Accessibility.ProtectedOrInternal,
+      MixinValueTrait.Exposed => Symbol?.DeclaredAccessibility
+        is Accessibility.Public or Accessibility.Internal or Accessibility.ProtectedOrInternal,
       MixinValueTrait.Top => Type?.ContainingType is null,
       MixinValueTrait.Concrete => Value switch {
         INamedTypeSymbol named => named.TypeKind != TypeKind.Interface && !named.IsAbstract,
         IMethodSymbol method => !method.IsAbstract && !method.IsVirtual,
         _ => Symbol is not null
       },
-      MixinValueTrait.Partial => RoslynMixinExpressionContext.IsPartialSymbol(Value),
+      MixinValueTrait.Partial => RoslynMixinContext.IsPartialSymbol(Value),
       MixinValueTrait.Generic => Value is IMethodSymbol method
         ? method.TypeParameters.Length != 0
         : Type is INamedTypeSymbol type && type.TypeParameters.Length != 0,

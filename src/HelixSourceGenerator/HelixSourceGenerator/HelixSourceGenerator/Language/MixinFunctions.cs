@@ -17,9 +17,7 @@ internal abstract class FunctionDefinition(string name, int minimumArguments, in
   internal int MaximumArguments { get; } = maximumArguments;
   internal virtual bool IsPredicate => false;
 
-  internal virtual void CollectConstants(MixinStringPoolBuilder pool) {
-    pool.Intern(Name);
-  }
+  internal virtual void CollectConstants(MixinStringPoolBuilder pool) => pool.Intern(Name);
 
   internal virtual bool Validate(FunctionInvocation invocation, out string error) {
     var count = invocation.Arguments.Count;
@@ -97,13 +95,10 @@ internal static class FunctionLibrary {
       ["structAugment"] = new PropStructPredicate("structAugment", PropStructPredicateKind.Augmenting)
     };
 
-  internal static bool TryGet(string name, out FunctionDefinition definition) {
-    return Definitions.TryGetValue(name ?? "", out definition);
-  }
+  internal static bool TryGet(string name, out FunctionDefinition definition) =>
+    Definitions.TryGetValue(name ?? "", out definition);
 
-  internal static bool IsPredicate(string name) {
-    return TryGet(name, out var definition) && definition.IsPredicate;
-  }
+  internal static bool IsPredicate(string name) => TryGet(name, out var definition) && definition.IsPredicate;
 
   internal static void CollectConstants(MixinStringPoolBuilder pool) {
     foreach (var definition in Definitions.Values) definition.CollectConstants(pool);

@@ -41,7 +41,7 @@ internal sealed class MixinPropStructHandle {
 
 internal sealed record MixinGeneratedStructReference(string Name, string TypeName);
 
-internal sealed class RoslynMixinExpressionContext :
+internal sealed class RoslynMixinContext :
   IMixinExpressionValueContext,
   IMixinExpressionSignatureContext,
   IMixinExpressionPropStructContext,
@@ -63,7 +63,7 @@ internal sealed class RoslynMixinExpressionContext :
   private readonly ISymbol _target;
   private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
 
-  internal RoslynMixinExpressionContext(
+  internal RoslynMixinContext(
     INamedTypeSymbol thisType,
     ISymbol target,
     AttributeData attribute,

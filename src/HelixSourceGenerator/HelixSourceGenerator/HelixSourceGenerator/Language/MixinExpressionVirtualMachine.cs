@@ -17,9 +17,7 @@ internal static class MixinExpressionVirtualMachine {
     IMixinExpressionContext context,
     IDictionary<string, object> variables,
     MixinExpressionPreparedState preparedState
-  ) {
-    return Execute(expression is null ? null : GetProgram(expression, false), context, variables, preparedState);
-  }
+  ) => Execute(expression is null ? null : GetProgram(expression, false), context, variables, preparedState);
 
   internal static MixinExpressionResult Execute(
     MixinProgramSyntax localProgram,
@@ -63,12 +61,10 @@ internal static class MixinExpressionVirtualMachine {
     var locals = new MixinValueDictionary(executionPool);
     var pendingVariables = new MixinValueDictionary(executionPool);
     if (preparedState is not null) {
-      foreach (var item in preparedState.Variables)
-        pendingVariables[item.Key] = item.Value;
+      foreach (var item in preparedState.Variables) pendingVariables[item.Key] = item.Value;
     }
     if (variables is not null) {
-      foreach (var item in variables)
-        pendingVariables[item.Key] = item.Value;
+      foreach (var item in variables) pendingVariables[item.Key] = item.Value;
     }
     var outputs = new List<MixinExpressionOutput>();
     var logs = new List<MixinExpressionLog>();
@@ -129,10 +125,9 @@ internal static class MixinExpressionVirtualMachine {
       }
       var frame = new CallFrame {
         returnAddress = pc, hadParameter = locals.TryGetValue(ParameterLocalKey, out var previous),
-        parameter = previous, continuation = continuation, transform = request,
-        inputs = [.. request.Source.Entries], accumulator = new MixinExpressionTable(),
-        functionStart = callback.Start, destination = destination, outputTarget = outputTarget,
-        injectionTarget = injectionTarget
+        parameter = previous, continuation = continuation, transform = request, inputs = [.. request.Source.Entries],
+        accumulator = new MixinExpressionTable(), functionStart = callback.Start, destination = destination,
+        outputTarget = outputTarget, injectionTarget = injectionTarget
       };
       if (frame.inputs.Length == 0) return FinishTransform(frame, out beginError);
       calls.Push(frame);
@@ -430,11 +425,7 @@ internal static class MixinExpressionVirtualMachine {
           }
           locals[propStructLocal] = propStructHandle;
           if (generatePropStructDeclaration) {
-            outputs.Add(
-              new MixinExpressionOutput(
-                MixinExpressionOutputTarget.Class, propStructDeclaration
-              )
-            );
+            outputs.Add(new MixinExpressionOutput(MixinExpressionOutputTarget.Class, propStructDeclaration));
           }
           break;
         case DirectiveOpcode.AugmentStruct:
@@ -457,9 +448,7 @@ internal static class MixinExpressionVirtualMachine {
           )) return Failure(augmentStructError, lineNumber, logs);
           locals[augmentStructLocal] = augmentStructHandle;
           outputs.Add(
-            new MixinExpressionOutput(
-              MixinExpressionOutputTarget.Class, augmentStructDeclaration
-            )
+            new MixinExpressionOutput(MixinExpressionOutputTarget.Class, augmentStructDeclaration)
           );
           break;
         case DirectiveOpcode.Put:
@@ -573,11 +562,9 @@ internal static class MixinExpressionVirtualMachine {
           break;
         case DirectiveOpcode.Fail:
           if (string.IsNullOrEmpty(operand)) return Failure("expression requested failure", lineNumber, logs);
-          if (!TryInterpolate(
-            parsed.ValueExpression, context, locals, pendingVariables,
-            out var failureMessage, out var failureError
-          )) return Failure(failureError, lineNumber, logs);
-          return Failure(failureMessage, lineNumber, logs);
+          return Failure(!TryInterpolate(
+            parsed.ValueExpression, context, locals, pendingVariables, out var failureMessage, out var failureError
+          ) ? failureError : failureMessage, lineNumber, logs);
         default:
           return Failure("unknown directive '@" + command + "'", lineNumber, logs);
       }

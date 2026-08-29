@@ -136,7 +136,7 @@ public abstract class MixinValue : IMixinValue {
 
   internal static IMixinValue From(object value, IMixinExpressionContext context) {
     if (value is IMixinValue typed) return typed;
-    if (context is RoslynMixinExpressionContext roslyn) return new RoslynMixinValue(roslyn, value);
+    if (context is RoslynMixinContext roslyn) return new RoslynMixinValue(roslyn, value);
     return From(value);
   }
 

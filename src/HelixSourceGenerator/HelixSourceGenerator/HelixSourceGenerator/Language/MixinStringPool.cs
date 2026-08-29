@@ -15,44 +15,26 @@ public readonly struct MixinString : IEquatable<MixinString> {
   public string DynamicValue { get; }
   public bool IsInterned => Id >= 0;
 
-  internal static MixinString Interned(int id) {
-    return new MixinString(id, null);
-  }
+  internal static MixinString Interned(int id) => new(id, null);
 
-  public static MixinString Dynamic(string value) {
-    return new MixinString(-1, value);
-  }
+  public static MixinString Dynamic(string value) => new(-1, value);
 
-  public string Resolve(MixinStringPool pool) {
-    return IsInterned ? pool[Id] : DynamicValue;
-  }
+  public string Resolve(MixinStringPool pool) => IsInterned ? pool[Id] : DynamicValue;
 
   public bool Equals(MixinString other) {
-    return IsInterned == other.IsInterned &&
-      (IsInterned
-        ? Id == other.Id
-        : string.Equals(
-          DynamicValue, other.DynamicValue, StringComparison.Ordinal
-        ));
+    return IsInterned == other.IsInterned && (IsInterned
+      ? Id == other.Id
+      : string.Equals(DynamicValue, other.DynamicValue, StringComparison.Ordinal));
   }
 
-  public override bool Equals(object value) {
-    return value is MixinString other && Equals(other);
-  }
+  public override bool Equals(object value) => value is MixinString other && Equals(other);
 
   public override int GetHashCode() {
-    return IsInterned
-      ? Id
-      : StringComparer.Ordinal.GetHashCode(DynamicValue ?? "");
+    return IsInterned ? Id : StringComparer.Ordinal.GetHashCode(DynamicValue ?? "");
   }
 
-  public static bool operator ==(MixinString left, MixinString right) {
-    return left.Equals(right);
-  }
-
-  public static bool operator !=(MixinString left, MixinString right) {
-    return !left.Equals(right);
-  }
+  public static bool operator ==(MixinString left, MixinString right) => left.Equals(right);
+  public static bool operator !=(MixinString left, MixinString right) => !left.Equals(right);
 }
 
 public sealed class MixinStringPool {
@@ -72,9 +54,7 @@ public sealed class MixinStringPool {
   }
 
   public MixinString Get(string value) {
-    return TryGetId(value, out var id)
-      ? MixinString.Interned(id)
-      : MixinString.Dynamic(value);
+    return TryGetId(value, out var id) ? MixinString.Interned(id) : MixinString.Dynamic(value);
   }
 }
 

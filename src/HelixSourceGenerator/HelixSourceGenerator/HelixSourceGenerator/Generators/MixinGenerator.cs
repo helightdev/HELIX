@@ -634,7 +634,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     }
 
     var arguments = annotated is IMethodSymbol method ? (IReadOnlyList<IParameterSymbol>)method.Parameters : [];
-    var expressionContext = new RoslynMixinExpressionContext(
+    var expressionContext = new RoslynMixinContext(
       target, annotated, applied, arguments, compilation, targetDefinitions: targetDefinitions,
       preparedExpressions: preparedExpressions, libraries: libraries
     );
@@ -790,7 +790,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           )) resolved = MixinValue.From(carried).Render();
       }
       if (string.IsNullOrWhiteSpace(resolved)) continue;
-      var syntax = RoslynMixinExpressionContext.ParseMixinTarget(resolved, targetDefinitions);
+      var syntax = RoslynMixinContext.ParseMixinTarget(resolved, targetDefinitions);
       targets.Add(
         new LateTarget(
           resolved, syntax.Name, syntax.IsStatic, syntax.IsPublic, syntax.DelegateType, 0
@@ -830,7 +830,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     string target,
     IReadOnlyDictionary<string, string> targetDefinitions = null
   ) {
-    return RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions).Name;
+    return RoslynMixinContext.ParseMixinTarget(target, targetDefinitions).Name;
   }
 
   private static List<GeneratedMethod> BuildMethods(
@@ -1846,7 +1846,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       string provider,
       ISymbol source
     ) {
-      var targetSyntax = RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions);
+      var targetSyntax = RoslynMixinContext.ParseMixinTarget(target, targetDefinitions);
       EmittedTarget = targetSyntax.Name;
       IsStaticTarget = targetSyntax.IsStatic;
       IsPublicTarget = targetSyntax.IsPublic;
@@ -1914,7 +1914,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       int order,
       IReadOnlyDictionary<string, string> targetDefinitions
     ) {
-      var targetSyntax = RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions);
+      var targetSyntax = RoslynMixinContext.ParseMixinTarget(target, targetDefinitions);
       Target = target;
       EmittedTarget = targetSyntax.Name;
       IsStatic = targetSyntax.IsStatic;
