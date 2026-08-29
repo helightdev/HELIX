@@ -13,7 +13,7 @@ namespace HELIX.Context {
     }
   }
 
-  [Structure(true)]
+  [EnableMixins, Structure(true)]
   public partial struct SerializerTest {
     public string name;
     public int age;
@@ -65,10 +65,6 @@ namespace HELIX.Context {
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
       myResource2 = new LoggingDisposable(); //46
-    }
-
-    public void Test() {
-
     }
 
     [Hook(MixinOn.ConfigureManaged)]

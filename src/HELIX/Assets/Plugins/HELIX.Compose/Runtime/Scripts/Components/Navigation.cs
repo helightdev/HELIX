@@ -360,7 +360,7 @@ namespace HELIX.Compose {
     }
   }
 
-  [Structure]
+  [EnableMixins, Structure]
   public readonly partial struct NavigationOptions : IEquatable<NavigationOptions> {
     public static readonly NavigationOptions Default = new(NavigationBehavior.None);
 

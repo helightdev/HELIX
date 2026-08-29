@@ -19,7 +19,7 @@ namespace HELIX.UI.Options {
     void Reject();
   }
 
-  [Structure] public readonly partial struct OptionPagesOptions {
+  [EnableMixins, Structure] public readonly partial struct OptionPagesOptions {
     public static readonly OptionPagesOptions Default = new(hasSidePanel: true);
 
     [Prop(true)] public readonly bool hasSidePanel;

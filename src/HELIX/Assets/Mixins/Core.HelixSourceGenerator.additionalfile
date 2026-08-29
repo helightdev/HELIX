@@ -30,6 +30,12 @@
 
 @### Annotations #######################################################################################################
 
+@ANNOTATION<HELIX.StructureAttribute>
+  @PRELUDE
+    @AUGMENT_STRUCT<PropsModel> @this
+  @END
+@END
+
 @ANNOTATION<HELIX.HookAttribute>
   @PRELUDE
     @LOCAL<Name> @attr#target:unwrap

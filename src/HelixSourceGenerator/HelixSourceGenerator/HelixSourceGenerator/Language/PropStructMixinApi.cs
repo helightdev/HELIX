@@ -47,23 +47,28 @@ internal static class PropStructMixinApi {
     MixinExpressionPreparedState preparedExpressions,
     MixinLibraryCatalog libraries,
     out IReadOnlyList<string> configuration,
-    out string error
+    out string error,
+    bool includeTypeConfiguration = false
   ) {
     var model = new PropStructMixinModel();
     var variables = new Dictionary<string, object>(StringComparer.Ordinal);
     var targetDefinitions = TargetDefinitions(type, properties, libraries);
     var sequence = 0;
-    foreach (var property in properties) {
-      foreach (var applied in OrderedAttributes(property)) {
+    var owners = includeTypeConfiguration
+      ? new ISymbol[] { type }.Concat(properties)
+      : properties;
+    foreach (var owner in owners) {
+      foreach (var applied in OrderedAttributes(owner)) {
         if (applied.AttributeClass is not { } attributeType) continue;
+        if (attributeType.ToDisplayString() == GeneratorStrings.Attributes.Structure) continue;
         foreach (var expressionAttribute in MixinLibraryApi.Annotations(attributeType, libraries)) {
           var expression = expressionAttribute.Prelude + expressionAttribute.Expression;
           const int order = 0;
-          var arguments = property is IParameterSymbol { ContainingSymbol: IMethodSymbol method }
+          var arguments = owner is IParameterSymbol { ContainingSymbol: IMethodSymbol method }
             ? (IReadOnlyList<IParameterSymbol>)method.Parameters
             : Array.Empty<IParameterSymbol>();
           var expressionContext = new RoslynMixinExpressionContext(
-            type, property, applied, arguments, compilation,
+            type, owner, applied, arguments, compilation,
             targetDefinitions: targetDefinitions,
             preparedExpressions: preparedExpressions,
             libraries: libraries

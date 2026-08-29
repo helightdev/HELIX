@@ -53,7 +53,7 @@ namespace HELIX {
   [AttributeUsage(AttributeTargets.Interface)]
   public class MixinAttribute : Attribute { }
 
-  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface)]
+  [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface)]
   public class EnableMixinsAttribute : Attribute { }
 
   [Mixin] public interface IMixin { }

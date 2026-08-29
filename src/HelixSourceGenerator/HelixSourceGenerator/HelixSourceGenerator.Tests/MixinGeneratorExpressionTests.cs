@@ -159,6 +159,46 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
+  public void DebugStringPoolOptionPrintsPoolAndInternedProgramIds() {
+    const string source = """
+                          using System;
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
+                          }
+                          [AttributeUsage(AttributeTargets.Class)] public sealed class PooledAttribute : Attribute { }
+                          [HELIX.EnableMixins, Pooled] public partial class Demo { }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "DebugStringPoolTest",
+      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(
+      generators: new[] { new MixinGenerator().AsSourceGenerator() },
+      additionalTexts: new AdditionalText[] {
+        new TestAdditionalText(
+          "/project/Pool.HelixSourceGenerator.additionalfile",
+          "@CONFIG<DEBUG> | Other StringPool\n" +
+          "@ANNOTATION<PooledAttribute>\n" +
+          "@CODE<CLASS> public int PooledValue;\n@END"
+        )
+      },
+      parseOptions: new CSharpParseOptions(LanguageVersion.Latest)
+    );
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("// INTERNED STRING POOL\n//   §", generated);
+    Assert.Contains(" = CODE", generated);
+    Assert.Contains("// LATE PROGRAM (PREPARED)\n//   @§", generated);
+    Assert.Contains("public int PooledValue;", generated);
+    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+  }
+
+  [Fact]
   public void InlineExpandsPreparedFunctionsBeforePreludeAndLateHoisting() {
     const string source = """
                           using System;

@@ -19,7 +19,7 @@ public sealed class StructureTests {
         public enum Mode { First, Second }
 
         [Feature.ConfigureSettings]
-        [HELIX.Structure(datatype: true)]
+        [HELIX.EnableMixins, HELIX.Structure(datatype: true)]
         public partial struct Settings {
           [Feature.ConfigureProperty]
           public int count;
@@ -73,7 +73,7 @@ public sealed class StructureTests {
     var result = Run(
       Runtime +
       """
-      [HELIX.Structure]
+      [HELIX.EnableMixins, HELIX.Structure]
       public partial struct Settings {
         public int count;
       }
@@ -91,7 +91,7 @@ public sealed class StructureTests {
     var result = Run(
       Runtime +
       """
-      [HELIX.Structure(datatype: true)]
+      [HELIX.EnableMixins, HELIX.Structure(datatype: true)]
       public partial struct Settings {
         public int count;
       }
@@ -108,7 +108,7 @@ public sealed class StructureTests {
     var result = Run(
       Runtime +
       """
-      [HELIX.Structure]
+      [HELIX.EnableMixins, HELIX.Structure]
       public partial struct Settings { }
       """
     );
@@ -131,7 +131,7 @@ public sealed class StructureTests {
       public sealed class ConfigureFromLibraryAttribute : Attribute { }
 
       [ConfigureFromLibrary]
-      [HELIX.Structure(datatype: true)]
+      [HELIX.EnableMixins, HELIX.Structure(datatype: true)]
       public partial struct Settings {
         public int count;
       }
@@ -150,7 +150,16 @@ public sealed class StructureTests {
       PlatformReferences,
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
     );
-    GeneratorDriver driver = MixinTestDriver.Create(compilation);
+    GeneratorDriver driver = MixinTestDriver.Create(
+      compilation,
+      additionalTexts: new AdditionalText[] {
+        new TestAdditionalText(
+          "/tests/Core.HelixSourceGenerator.additionalfile",
+          "@ANNOTATION<HELIX.StructureAttribute>\n" +
+          "@PRELUDE\n@AUGMENT_STRUCT<PropsModel> @this\n@END\n@END"
+        )
+      }
+    );
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
     var run = driver.GetRunResult();
     var generated = Assert.Single(run.Results.SelectMany(item => item.GeneratedSources)).SourceText.ToString();
@@ -167,6 +176,8 @@ public sealed class StructureTests {
                                  using System;
                                  using System.Collections.Generic;
                                  namespace HELIX {
+                                   [AttributeUsage(AttributeTargets.Struct)]
+                                   public sealed class EnableMixinsAttribute : Attribute { }
                                    [AttributeUsage(AttributeTargets.Struct)]
                                    public sealed class StructureAttribute : Attribute {
                                      public StructureAttribute(bool datatype = false) { }

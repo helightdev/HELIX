@@ -56,7 +56,7 @@ namespace HELIX.Compose {
       DismissOnCancel | RestoreFocus | Prelayout
   }
 
-  [Structure] public readonly partial struct OverlayOptions {
+  [EnableMixins, Structure] public readonly partial struct OverlayOptions {
     // Force the generated constructor to run; an empty struct initializer zeroes every option.
     public static readonly OverlayOptions Default = new(behavior: OverlayBehavior.Default);
 

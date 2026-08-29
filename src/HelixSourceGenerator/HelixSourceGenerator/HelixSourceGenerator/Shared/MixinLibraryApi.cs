@@ -374,6 +374,11 @@ internal sealed class MixinLibraryCatalog {
   internal bool HasConfiguration(string key) => _files.Values.Any(file =>
     file.Success && file.Configuration.ContainsKey(key ?? "")
   );
+  internal bool HasConfigurationOption(string key, string option) => _files.Values.Any(file =>
+    file.Success && file.Configuration.TryGetValue(key ?? "", out var value) &&
+    (value ?? "").Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
+      .Contains(option ?? "", StringComparer.OrdinalIgnoreCase)
+  );
   internal string Key { get; }
   internal string AvailableKeys => _files.Count == 0
     ? "<none>"

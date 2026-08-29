@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace HELIX.Compose {
-  [Structure] public readonly partial struct PopupMenuStyle {
+  [EnableMixins, Structure] public readonly partial struct PopupMenuStyle {
     public readonly HXControlBoxStyle button;
     public readonly HXControlBoxStyle panel;
     public readonly HXControlBoxStyle item;

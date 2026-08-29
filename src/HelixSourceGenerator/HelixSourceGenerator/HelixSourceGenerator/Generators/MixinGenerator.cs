@@ -41,13 +41,12 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       }
     );
 
-    StructureSupport.Register(context, libraryCatalog);
-
     foreach (var attribute in MixinGeneratorCandidates.AttributeMetadataNames) {
       var targets = context.SyntaxProvider.ForAttributeWithMetadataName(
         attribute,
         static (node, _) => node is TypeDeclarationSyntax {
-          RawKind: (int)SyntaxKind.ClassDeclaration or (int)SyntaxKind.RecordDeclaration
+          RawKind: (int)SyntaxKind.ClassDeclaration or (int)SyntaxKind.RecordDeclaration or
+            (int)SyntaxKind.StructDeclaration or (int)SyntaxKind.RecordStructDeclaration
         },
         static (ctx, _) => GetTarget(ctx)
       ).Where(static target => target is not null);
@@ -71,7 +70,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   }
 
   private static MixinTarget GetTarget(GeneratorAttributeSyntaxContext context) {
-    if (context.TargetSymbol is not INamedTypeSymbol { TypeKind: TypeKind.Class } type)
+    if (context.TargetSymbol is not INamedTypeSymbol {
+      TypeKind: TypeKind.Class or TypeKind.Struct
+    } type)
       return null;
     var matchedCandidate = context.Attributes.FirstOrDefault()?.AttributeClass?.ToDisplayString();
     var canonicalCandidate = MixinGeneratorCandidates.AttributeMetadataNames.FirstOrDefault(candidate =>
@@ -130,7 +131,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     MixinCompilation mixinCompilation
   ) {
     var libraries = mixinCompilation.Catalog;
-    var context = new MixinGenerationContext(libraries.HasConfiguration("DEBUG"));
+    var context = new MixinGenerationContext(
+      libraries.HasConfiguration("DEBUG"),
+      libraries.HasConfigurationOption("DEBUG", "StringPool")
+    );
     var target = candidate.Type;
     var location = LocationOf(target);
     if (!IsPartial(target)) {
@@ -187,7 +191,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           .Where(item => !item.Key.StartsWith(
             MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
           )), preparedExpressions.StringPool,
-        context.DebugExpressions.ToImmutableArray(), context.Debug
+        context.DebugExpressions.ToImmutableArray(), context.Debug, context.DebugStringPool
       )
     );
   }
@@ -332,6 +336,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var builder = new StringBuilder();
     builder.AppendLine("// ============================================================================");
     builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
+    if (render.DebugStringPool) AppendDebugStringPool(builder, render.StringPool);
     builder.Append("// generationVersion = ").AppendLine(
       render.GenerationVersion.ToString(CultureInfo.InvariantCulture)
     );
@@ -345,8 +350,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       if (!string.IsNullOrEmpty(work.SourceType)) builder.Append(" on ").Append(work.SourceType);
       if (!string.IsNullOrEmpty(work.SourceMember)) builder.Append('.').Append(work.SourceMember);
       builder.AppendLine();
-      AppendDebugProgram(builder, "PRELUDE PROGRAM (PREPARED)", work.PreludeProgram);
-      AppendDebugProgram(builder, "LATE PROGRAM (PREPARED)", work.LateProgram);
+      AppendDebugProgram(builder, "PRELUDE PROGRAM (PREPARED)", work.PreludeProgram, render);
+      AppendDebugProgram(builder, "LATE PROGRAM (PREPARED)", work.LateProgram, render);
       builder.AppendLine("// CARRIED VALUES");
       var carries = work.Variables.Where(item => item.Key.StartsWith(
         MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
@@ -444,7 +449,41 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     "\u001f", work.Provider, work.SourceType, work.SourceMember, work.Expression.Source
   );
 
-  private static void AppendDebugProgram(StringBuilder builder, string title, string program) {
+  private static void AppendDebugStringPool(StringBuilder builder, MixinStringPool pool) {
+    builder.AppendLine("// INTERNED STRING POOL");
+    for (var id = 0; id < pool.Count; id++)
+      builder.Append("//   §").Append(id).Append(" = ")
+        .AppendLine(EscapeDebugString(pool[id]));
+  }
+
+  private static string EscapeDebugString(string value) => (value ?? "")
+    .Replace("\\", "\\\\").Replace("\r", "\\r").Replace("\n", "\\n");
+
+  private static string InternDebugLine(string line, MixinStringPool pool) {
+    var candidates = Enumerable.Range(0, pool.Count)
+      .Select(id => new { Id = id, Value = pool[id] })
+      .Where(item => !string.IsNullOrEmpty(item.Value) &&
+        item.Value.IndexOfAny(new[] { '\r', '\n' }) < 0)
+      .OrderByDescending(item => item.Value.Length).ThenBy(item => item.Id).ToArray();
+    var builder = new StringBuilder(line.Length);
+    for (var offset = 0; offset < line.Length;) {
+      var match = candidates.FirstOrDefault(item =>
+        offset + item.Value.Length <= line.Length && string.CompareOrdinal(
+          line, offset, item.Value, 0, item.Value.Length
+        ) == 0
+      );
+      if (match is null) builder.Append(line[offset++]);
+      else {
+        builder.Append('§').Append(match.Id.ToString(CultureInfo.InvariantCulture));
+        offset += match.Value.Length;
+      }
+    }
+    return builder.ToString();
+  }
+
+  private static void AppendDebugProgram(
+    StringBuilder builder, string title, string program, MixinRenderModel render
+  ) {
     builder.Append("// ").AppendLine(title);
     var lines = (program ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
     if (lines.Length == 1 && lines[0].Length == 0) {
@@ -453,7 +492,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     }
     for (var index = 0; index < lines.Length; index++)
       if (index != lines.Length - 1 || lines[index].Length != 0)
-        builder.Append("//   ").AppendLine(lines[index]);
+        builder.Append("//   ").AppendLine(render.DebugStringPool
+          ? InternDebugLine(lines[index], render.StringPool)
+          : lines[index]);
   }
 
   private static MixinContribution LateContribution(
@@ -470,8 +511,12 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     private readonly List<MixinDiagnostic> _diagnostics = new();
     private readonly List<LateExpressionWork> _lateExpressions = new();
     private readonly List<DebugExpressionWork> _debugExpressions = new();
-    internal MixinGenerationContext(bool debug) { Debug = debug; }
+    internal MixinGenerationContext(bool debug, bool debugStringPool) {
+      Debug = debug;
+      DebugStringPool = debugStringPool;
+    }
     internal bool Debug { get; }
+    internal bool DebugStringPool { get; }
     internal bool HasLateExpressions => _lateExpressions.Count != 0;
     internal IReadOnlyList<LateExpressionWork> LateExpressions => _lateExpressions;
     internal IReadOnlyList<DebugExpressionWork> DebugExpressions => _debugExpressions;
@@ -602,7 +647,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       IEnumerable<KeyValuePair<string, object>> primaryVariables,
       MixinStringPool stringPool,
       ImmutableArray<DebugExpressionWork> debugExpressions,
-      bool debug
+      bool debug,
+      bool debugStringPool
     ) {
       Wrapper = wrapper;
       Methods = methods;
@@ -614,6 +660,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       PrimaryVariables = new MixinValueDictionary(primaryVariables, stringPool);
       DebugExpressions = debugExpressions;
       Debug = debug;
+      DebugStringPool = debugStringPool;
+      StringPool = stringPool;
       GenerationVersion = Interlocked.Increment(ref _generationCounter);
       Fingerprint = MixinRenderFingerprint.Create(this);
     }
@@ -628,6 +676,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     internal MixinValueDictionary PrimaryVariables { get; }
     internal ImmutableArray<DebugExpressionWork> DebugExpressions { get; }
     internal bool Debug { get; }
+    internal bool DebugStringPool { get; }
+    internal MixinStringPool StringPool { get; }
     internal long GenerationVersion { get; }
     internal MixinRenderFingerprint Fingerprint { get; }
   }
@@ -689,18 +739,21 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       FingerprintPart outputs,
       FingerprintPart variables,
       FingerprintPart signatures,
-      bool debug
+      bool debug,
+      bool debugStringPool
     ) {
       Outputs = outputs;
       Variables = variables;
       Signatures = signatures;
       Debug = debug;
+      DebugStringPool = debugStringPool;
     }
 
     internal FingerprintPart Outputs { get; }
     internal FingerprintPart Variables { get; }
     internal FingerprintPart Signatures { get; }
     private bool Debug { get; }
+    private bool DebugStringPool { get; }
 
     internal static MixinRenderFingerprint Create(MixinRenderModel render) {
       var outputs = new MixinFingerprintBuilder();
@@ -748,11 +801,17 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           AppendOutputs(outputs, contribution.ExpressionResult.Outputs);
         }
       }
+      signatures.Append(render.DebugStringPool);
+      if (render.DebugStringPool) {
+        signatures.Append(render.StringPool.Count);
+        for (var id = 0; id < render.StringPool.Count; id++)
+          signatures.Append(render.StringPool[id]);
+      }
       return new MixinRenderFingerprint(
         new FingerprintPart(outputs.Hash, outputs.Length),
         new FingerprintPart(variables.Hash, variables.Length),
         new FingerprintPart(signatures.Hash, signatures.Length),
-        render.Debug
+        render.Debug, render.DebugStringPool
       );
     }
 
@@ -784,14 +843,16 @@ public sealed class MixinGenerator : IIncrementalGenerator {
 
     public bool Equals(MixinRenderFingerprint other) =>
       Outputs.Equals(other.Outputs) && Variables.Equals(other.Variables) &&
-      Signatures.Equals(other.Signatures) && Debug == other.Debug;
+      Signatures.Equals(other.Signatures) && Debug == other.Debug &&
+      DebugStringPool == other.DebugStringPool;
 
     public override bool Equals(object value) =>
       value is MixinRenderFingerprint other && Equals(other);
 
     public override int GetHashCode() => unchecked(
-      ((Outputs.GetHashCode() * 397 ^ Variables.GetHashCode()) * 397 ^
-        Signatures.GetHashCode()) * 397 ^ Debug.GetHashCode()
+      (((Outputs.GetHashCode() * 397 ^ Variables.GetHashCode()) * 397 ^
+        Signatures.GetHashCode()) * 397 ^ Debug.GetHashCode()) * 397 ^
+        DebugStringPool.GetHashCode()
     );
 
     internal readonly struct FingerprintPart : IEquatable<FingerprintPart> {
@@ -1157,10 +1218,14 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     MixinCompilation mixinCompilation
   ) {
     var sequence = 0;
+    var structureTarget = target.TypeKind == TypeKind.Struct &&
+      Attribute(target, GeneratorStrings.Attributes.Structure) is not null;
     foreach (var annotated in AnnotatedSymbols(target)) {
       foreach (var applied in OrderedAttributes(annotated)) {
         var attributeType = applied.AttributeClass;
         if (attributeType is null) continue;
+        if (structureTarget && attributeType.ToDisplayString() !=
+          GeneratorStrings.Attributes.Structure) continue;
         foreach (var expressionAttribute in CompiledAnnotationDefinitions(
           attributeType, mixinCompilation
         )) {

@@ -299,6 +299,50 @@ internal sealed class RoslynMixinExpressionContext :
       error = "AUGMENT_STRUCT syntax target must resolve to a struct";
       return false;
     }
+    var augmentingThis = SymbolEqualityComparer.Default.Equals(type, _thisType);
+    if (augmentingThis) {
+      if (!IsPartial(type)) {
+        error = "struct '" + type.Name + "' must be partial to be augmented";
+        return false;
+      }
+      var generateDatatype = _attribute?.AttributeClass?.ToDisplayString() ==
+        GeneratorStrings.Attributes.Structure &&
+        _attribute.ConstructorArguments.Length > 0 &&
+        _attribute.ConstructorArguments[0].Value is true;
+      if (!PropStructApi.TryAnalyze(type, out var selfModel, out var selfDiagnostic, generateDatatype)) {
+        error = selfDiagnostic.GetMessage(CultureInfo.InvariantCulture);
+        return false;
+      }
+      var selfProps = InstanceFields(type).Select(field => new PropDefinition(
+        field,
+        field.Type,
+        field.Name,
+        Attribute(field, GeneratorStrings.Attributes.Prop)
+      )).ToArray();
+      IReadOnlyList<string> configuration = Array.Empty<string>();
+      if (generateDatatype && !PropStructMixinApi.TryAnalyzeInlineConfiguration(
+          type, selfProps.Select(prop => prop.Symbol).ToArray(), _compilation,
+          _preparedExpressions, _libraries, out configuration, out error,
+          includeTypeConfiguration: true
+        )) return false;
+      var selfBuilder = new SharpStringBuilder();
+      if (selfModel.ParameterParts.Count > 0) {
+        using (selfBuilder.Method(
+          AccessibilityText(type.DeclaredAccessibility) +
+          (selfModel.RequiresUnsafe ? " unsafe " : " ") + EscapeIdentifier(type.Name),
+          selfModel.ParameterParts,
+          true
+        )) selfModel.AppendAssignments(selfBuilder, "this");
+      }
+      selfModel.Equality.AppendMembers(selfBuilder);
+      if (selfModel.Datatype is not null) {
+        selfBuilder.BlankLine();
+        selfModel.Datatype.AppendMember(selfBuilder, configuration);
+      }
+      handle = new MixinPropStructHandle(selfProps, selfModel, true);
+      declaration = selfBuilder.ToString();
+      return true;
+    }
     if (!SymbolEqualityComparer.Default.Equals(type.ContainingType, _thisType)) {
       error = "AUGMENT_STRUCT syntax target must be a struct nested directly in the current type";
       return false;

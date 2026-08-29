@@ -25,7 +25,7 @@ namespace HELIX.Compose {
   //   Expands = 1 << 7
   // }
 
-  [Structure] public readonly partial struct TextInputOptions : IEquatable<TextInputOptions> {
+  [EnableMixins, Structure] public readonly partial struct TextInputOptions : IEquatable<TextInputOptions> {
     public static readonly TextInputOptions Default = new(maxLength: -1); // Force use of constructor
 
     [Prop(false)] public readonly bool multiline;
