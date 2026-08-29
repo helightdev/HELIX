@@ -11,6 +11,39 @@ using static MixinExpressionInterpreter;
 using static MixinExpressionCompiler;
 
 internal static class MixinExpressionEvaluator {
+  internal static string Keyword(this MixinExpressionRoot root) => root switch {
+    MixinExpressionRoot.Target => "target",
+    MixinExpressionRoot.This => "this",
+    MixinExpressionRoot.Attribute => "attr",
+    MixinExpressionRoot.Argument => "arg",
+    MixinExpressionRoot.Variable => "var",
+    MixinExpressionRoot.Local => "local",
+    MixinExpressionRoot.True => "true",
+    MixinExpressionRoot.False => "false",
+    MixinExpressionRoot.Null => "null",
+    MixinExpressionRoot.Table => "table",
+    MixinExpressionRoot.Parameter => "param",
+    MixinExpressionRoot.Carry => "carry",
+    _ => throw new ArgumentOutOfRangeException(nameof(root), root, null)
+  };
+
+  private static bool TryParseRoot(string keyword, out MixinExpressionRoot root) {
+    switch (keyword) {
+      case "target": root = MixinExpressionRoot.Target; return true;
+      case "this": root = MixinExpressionRoot.This; return true;
+      case "attr": root = MixinExpressionRoot.Attribute; return true;
+      case "arg": root = MixinExpressionRoot.Argument; return true;
+      case "var": root = MixinExpressionRoot.Variable; return true;
+      case "local": root = MixinExpressionRoot.Local; return true;
+      case "true": root = MixinExpressionRoot.True; return true;
+      case "false": root = MixinExpressionRoot.False; return true;
+      case "null": root = MixinExpressionRoot.Null; return true;
+      case "table": root = MixinExpressionRoot.Table; return true;
+      case "param": root = MixinExpressionRoot.Parameter; return true;
+      case "carry": root = MixinExpressionRoot.Carry; return true;
+      default: root = default; return false;
+    }
+  }
   internal static bool TryResolveDirectiveArgument(
     string argument,
     IMixinExpressionContext context,
@@ -133,13 +166,13 @@ internal static class MixinExpressionEvaluator {
 
   private static string DescribeFailedCondition(MixinExpressionReference reference) {
     var subject = reference.Root switch {
-      "var" => "Variable " + (reference.Member ?? "<unnamed>"),
-      "local" => "Local variable " + (reference.Member ?? "<unnamed>"),
-      "arg" => "Argument " + (reference.Member ?? "<unspecified>"),
-      "this" => "Current type" + MemberSuffix(reference.Member),
-      "target" => "Target" + MemberSuffix(reference.Member),
-      "attr" => "Attribute" + MemberSuffix(reference.Member),
-      _ => "Value @" + reference.Root + MemberSuffix(reference.Member)
+      MixinExpressionRoot.Variable => "Variable " + (reference.Member ?? "<unnamed>"),
+      MixinExpressionRoot.Local => "Local variable " + (reference.Member ?? "<unnamed>"),
+      MixinExpressionRoot.Argument => "Argument " + (reference.Member ?? "<unspecified>"),
+      MixinExpressionRoot.This => "Current type" + MemberSuffix(reference.Member),
+      MixinExpressionRoot.Target => "Target" + MemberSuffix(reference.Member),
+      MixinExpressionRoot.Attribute => "Attribute" + MemberSuffix(reference.Member),
+      _ => "Value @" + reference.Root.Keyword() + MemberSuffix(reference.Member)
     };
     var predicate = reference.Properties.FirstOrDefault(IsBooleanProperty);
     if (predicate is null) return subject + " is null, false or invalid";
@@ -201,7 +234,7 @@ internal static class MixinExpressionEvaluator {
         return false;
       }
       if (context is IMixinExpressionValueContext valueContext) {
-        var renderRoot = part.Reference.Properties.Any(item =>
+        MixinExpressionRoot? renderRoot = part.Reference.Properties.Any(item =>
           !IsBooleanProperty(item) && item.Name == "type"
         ) ? null : part.Reference.Root;
         if (!valueContext.TryRenderValue(value, renderRoot, out var rendered, out error)) {
@@ -263,7 +296,7 @@ internal static class MixinExpressionEvaluator {
       );
       if (!TryResolveCore(prefix, context, locals, variables, out value, out error)) return false;
       var operations = new MixinExpressionReference(
-        "table", null, reference.Properties.Skip(tableOperationIndex).ToArray()
+        MixinExpressionRoot.Table, null, reference.Properties.Skip(tableOperationIndex).ToArray()
       );
       if (!TryApplyStringProperties(operations, context, null, ref value, out error)) return false;
       var predicate = operations.Properties.FirstOrDefault(IsBooleanProperty);
@@ -295,17 +328,19 @@ internal static class MixinExpressionEvaluator {
     out object value,
     out string error
   ) {
-    if (reference.Root is "true" or "false" or "null" or "table" or "param" or "carry") {
+    if (reference.Root is MixinExpressionRoot.True or MixinExpressionRoot.False or
+      MixinExpressionRoot.Null or MixinExpressionRoot.Table or MixinExpressionRoot.Parameter or
+      MixinExpressionRoot.Carry) {
       value = reference.Root switch {
-        "true" => true,
-        "false" => false,
-        "null" => null,
-        "table" => new MixinExpressionTable(),
-        "param" => locals.TryGetValue(ParameterLocalKey, out var parameter) ? parameter : null,
-        "carry" => variables.TryGetValue(CarryLocalPrefix + (reference.Member ?? ""), out var carried) ? carried : null,
+        MixinExpressionRoot.True => true,
+        MixinExpressionRoot.False => false,
+        MixinExpressionRoot.Null => null,
+        MixinExpressionRoot.Table => new MixinExpressionTable(),
+        MixinExpressionRoot.Parameter => locals.TryGetValue(ParameterLocalKey, out var parameter) ? parameter : null,
+        MixinExpressionRoot.Carry => variables.TryGetValue(CarryLocalPrefix + (reference.Member ?? ""), out var carried) ? carried : null,
         _ => null
       };
-      if (reference.Root != "carry" && !string.IsNullOrEmpty(reference.Member)) {
+      if (reference.Root != MixinExpressionRoot.Carry && !string.IsNullOrEmpty(reference.Member)) {
         if (value is MixinExpressionTable table)
           value = table.TryGetValue(reference.Member, out var selected) ? selected : null;
         else value = MixinValue.From(value, context).Select(reference.Member);
@@ -352,7 +387,7 @@ internal static class MixinExpressionEvaluator {
         return false;
       }
       var operations = new MixinExpressionReference(
-        "table", null, reference.Properties.Skip(tableOperationIndex).ToArray()
+        MixinExpressionRoot.Table, null, reference.Properties.Skip(tableOperationIndex).ToArray()
       );
       if (!TryApplyStringProperties(operations, context, null, ref tableValue, out error)) {
         value = false;
@@ -444,7 +479,8 @@ internal static class MixinExpressionEvaluator {
     out string error
   ) {
     switch (reference.Root) {
-      case "true" or "false" or "null" or "table" or "param" or "carry": {
+      case MixinExpressionRoot.True or MixinExpressionRoot.False or MixinExpressionRoot.Null or
+        MixinExpressionRoot.Table or MixinExpressionRoot.Parameter or MixinExpressionRoot.Carry: {
         if (!TryResolveCore(reference, context, locals, variables, out var atom, out error)) {
           value = false;
           return false;
@@ -461,8 +497,8 @@ internal static class MixinExpressionEvaluator {
         }
         return true;
       }
-      case "local":
-      case "var": {
+      case MixinExpressionRoot.Local:
+      case MixinExpressionRoot.Variable: {
         TryStored(reference, context, locals, variables, out var stored, out error);
         var predicates = reference.Properties.Where(IsBooleanProperty).ToArray();
         if (error is not null) {
@@ -617,7 +653,7 @@ internal static class MixinExpressionEvaluator {
         }
         result = operation.Name == "and" ? result && item : result || item;
       }
-      root = result ? "true" : "false";
+      root = result ? MixinExpressionRoot.True : MixinExpressionRoot.False;
       member = null;
       properties = properties.Skip(index + 1).ToList();
     }
@@ -664,14 +700,15 @@ internal static class MixinExpressionEvaluator {
   ) {
     value = null;
     error = null;
-    if (reference.Root != "local" && reference.Root != "var") return false;
+    if (reference.Root != MixinExpressionRoot.Local &&
+      reference.Root != MixinExpressionRoot.Variable) return false;
     if (string.IsNullOrEmpty(reference.Member)) {
-      error = "@" + reference.Root + " requires a member name";
+      error = "@" + reference.Root.Keyword() + " requires a member name";
       return true;
     }
-    var values = reference.Root == "local" ? locals : variables;
+    var values = reference.Root == MixinExpressionRoot.Local ? locals : variables;
     if (!values.TryGetValue(reference.Member, out value)) {
-      error = "unknown @" + reference.Root + " value '" + reference.Member + "'";
+      error = "unknown @" + reference.Root.Keyword() + " value '" + reference.Member + "'";
       return true;
     }
     TryApplyStringProperties(reference, context, reference.Member, ref value, out error);
@@ -689,7 +726,9 @@ internal static class MixinExpressionEvaluator {
     for (var index = 0; index < reference.Properties.Count; index++) {
       var property = reference.Properties[index];
       if (IsBooleanProperty(property) || property.Name is "and" or "or") continue;
-      if (!FunctionLibrary.TryInvoke(property, context, reference.Root, name, ref value, out error)) return false;
+      if (!FunctionLibrary.TryInvoke(
+        property, context, reference.Root.Keyword(), name, ref value, out error
+      )) return false;
       if (value is MixinTransformRequest request) {
         request.RemainingProperties = reference.Properties.Skip(index + 1).ToArray();
         return true;
@@ -844,7 +883,11 @@ internal static class MixinExpressionEvaluator {
       error = "expression reference has no root";
       return false;
     }
-    var root = text.Substring(rootStart, position - rootStart);
+    var rootKeyword = text.Substring(rootStart, position - rootStart);
+    if (!TryParseRoot(rootKeyword, out var root)) {
+      error = "unknown expression root '@" + rootKeyword + "'";
+      return false;
+    }
     string member = null;
     if (position < text.Length && text[position] == '#') {
       position++;

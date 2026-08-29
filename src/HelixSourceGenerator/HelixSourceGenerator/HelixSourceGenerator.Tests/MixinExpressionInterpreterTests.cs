@@ -529,11 +529,20 @@ public sealed class MixinExpressionInterpreterTests {
       error
     );
 
-    Assert.Equal("arg", reference.Root);
+    Assert.Equal(MixinExpressionRoot.Argument, reference.Root);
     Assert.Equal("name", reference.Member);
     Assert.Equal("type", reference.Properties[0].Name);
     Assert.True(reference.Properties[1].Negated);
     Assert.Equal("global::IEvent", reference.Properties[1].Argument);
+  }
+
+  [Fact]
+  public void RewritesOnlyTargetReferenceRootsAsThis() {
+    var rewritten = MixinExpressionCompiler.RewriteTargetAsThis(
+      "@target:name | @(target:type) | @targeted:name | @var#target"
+    );
+
+    Assert.Equal("@this:name | @(this:type) | @targeted:name | @var#target", rewritten);
   }
 
   [Fact]
@@ -865,9 +874,16 @@ public sealed class MixinExpressionInterpreterTests {
 
     public bool TryResolve(MixinExpressionReference reference, out string value, out string error) {
       error = null;
-      value = reference.Root == "this" && reference.Properties.Any(item => item.Name == "name")
+      value = reference.Root == MixinExpressionRoot.This &&
+        reference.Properties.Any(item => item.Name == "name")
         ? "Demo"
-        : reference.Root;
+        : reference.Root switch {
+          MixinExpressionRoot.Attribute => "attr",
+          MixinExpressionRoot.Argument => "arg",
+          MixinExpressionRoot.Variable => "var",
+          MixinExpressionRoot.Parameter => "param",
+          _ => reference.Root.ToString().ToLowerInvariant()
+        };
       return true;
     }
 

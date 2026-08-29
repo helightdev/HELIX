@@ -139,18 +139,33 @@ public sealed class MixinExpressionTable : MixinValue {
   }
 }
 
+public enum MixinExpressionRoot {
+  Target,
+  This,
+  Attribute,
+  Argument,
+  Variable,
+  Local,
+  True,
+  False,
+  Null,
+  Table,
+  Parameter,
+  Carry
+}
+
 public sealed class MixinExpressionReference {
   public MixinExpressionReference(
-    string root,
+    MixinExpressionRoot root,
     string member,
     IReadOnlyList<MixinExpressionProperty> properties
   ) {
-    Root = root ?? throw new ArgumentNullException(nameof(root));
+    Root = root;
     Member = member;
     Properties = properties ?? Array.Empty<MixinExpressionProperty>();
   }
 
-  public string Root { get; }
+  public MixinExpressionRoot Root { get; }
   public string Member { get; }
   public IReadOnlyList<MixinExpressionProperty> Properties { get; }
 }
@@ -178,7 +193,9 @@ public interface IMixinExpressionValueContext : IMixinExpressionContext {
     out string error
   );
 
-  bool TryRenderValue(object value, string root, out string text, out string error);
+  bool TryRenderValue(
+    object value, MixinExpressionRoot? root, out string text, out string error
+  );
 }
 
 /// <summary>Optional host support for resolving generated targets and callable signatures.</summary>

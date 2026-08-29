@@ -134,7 +134,9 @@ internal readonly struct RoslynMixinValue : IMixinValue {
     var traits = Enum.GetValues(typeof(MixinValueTrait)).Cast<MixinValueTrait>().Where(HasTrait).ToArray();
     var render = Render();
     if (_value is TypedConstant &&
-      _context.TryRenderValue(_value, "attr", out var constantExpression, out _))
+      _context.TryRenderValue(
+        _value, MixinExpressionRoot.Attribute, out var constantExpression, out _
+      ))
       render = constantExpression;
     return new DetachedSemanticValue(Name, FullName, render, Visibility, type, members, traits);
   }

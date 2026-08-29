@@ -719,7 +719,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       MixinExpressionReference reference, out string value, out string error
     ) {
       value = null;
-      error = "late expressions cannot resolve Roslyn value '@" + reference.Root + "'";
+      error = "late expressions cannot resolve Roslyn value '@" + reference.Root.Keyword() + "'";
       return false;
     }
 
@@ -727,7 +727,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       MixinExpressionReference reference, out bool value, out string error
     ) {
       value = false;
-      error = "late expressions cannot evaluate Roslyn value '@" + reference.Root + "'";
+      error = "late expressions cannot evaluate Roslyn value '@" + reference.Root.Keyword() + "'";
       return false;
     }
   }
@@ -957,6 +957,11 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var prelude = configuration.Prelude;
     var preludeModel = true;
     string lateExpression = null;
+
+    if (annotated is INamedTypeSymbol) {
+      expression = MixinExpressionCompiler.RewriteTargetAsThis(expression);
+      prelude = MixinExpressionCompiler.RewriteTargetAsThis(prelude);
+    }
 
     var declarations = new Dictionary<string, AttributeExpressionTarget>(StringComparer.Ordinal);
     for (var index = 0; index < targets.Count; index++) {

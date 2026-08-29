@@ -101,7 +101,9 @@ internal sealed class RoslynMixinExpressionContext :
       value = null;
       return false;
     }
-    var renderRoot = reference.Properties.Any(item => !IsPredicate(item) && item.Name == "type")
+    MixinExpressionRoot? renderRoot = reference.Properties.Any(
+      item => !IsPredicate(item) && item.Name == "type"
+    )
       ? null
       : reference.Root;
     return TryRender(subject, renderRoot, out value, out error);
@@ -120,7 +122,9 @@ internal sealed class RoslynMixinExpressionContext :
     return false;
   }
 
-  public bool TryRenderValue(object value, string root, out string text, out string error) =>
+  public bool TryRenderValue(
+    object value, MixinExpressionRoot? root, out string text, out string error
+  ) =>
     TryRender(value, root, out text, out error);
 
   public bool TryEvaluate(
@@ -272,7 +276,7 @@ internal sealed class RoslynMixinExpressionContext :
       error = "AUGMENT_STRUCT syntax target cannot have properties";
       return false;
     }
-    if (syntaxTarget.Root == "this" && !string.IsNullOrEmpty(syntaxTarget.Member) &&
+    if (syntaxTarget.Root == MixinExpressionRoot.This && !string.IsNullOrEmpty(syntaxTarget.Member) &&
       _thisType.GetMembers(syntaxTarget.Member).Length == 0) {
       if (!IsValidIdentifier(syntaxTarget.Member)) {
         error = "struct name '" + syntaxTarget.Member + "' is not a valid identifier";
@@ -471,25 +475,25 @@ internal sealed class RoslynMixinExpressionContext :
     subject = null;
     error = null;
     switch (reference.Root) {
-      case "this": subject = _thisType; break;
-      case "target": subject = _target; break;
-      case "attr": subject = (object)_attribute ?? _implicitAttributeType; break;
-      case "arg":
+      case MixinExpressionRoot.This: subject = _thisType; break;
+      case MixinExpressionRoot.Target: subject = _target; break;
+      case MixinExpressionRoot.Attribute: subject = (object)_attribute ?? _implicitAttributeType; break;
+      case MixinExpressionRoot.Argument:
         subject = string.IsNullOrEmpty(reference.Member) ? ArgumentsTable() : SelectArgument(reference.Member);
         if (subject is null) error = "unknown argument '" + (reference.Member ?? "") + "'";
         return subject is not null;
       default:
-        error = "unknown expression root '@" + reference.Root + "'";
+        error = "unknown expression root '@" + reference.Root.Keyword() + "'";
         return false;
     }
     if (subject is null) {
-      error = "@" + reference.Root + " is not available in this context";
+      error = "@" + reference.Root.Keyword() + " is not available in this context";
       return false;
     }
     if (!string.IsNullOrEmpty(reference.Member)) {
       subject = SelectMember(subject, reference.Member);
       if (subject is null) {
-        error = "member '" + reference.Member + "' was not found on @" + reference.Root;
+        error = "member '" + reference.Member + "' was not found on @" + reference.Root.Keyword();
         return false;
       }
     }
@@ -593,7 +597,7 @@ internal sealed class RoslynMixinExpressionContext :
   ) {
     foreach (var property in reference.Properties.Where(item => !IsPredicate(item))) {
       if (!FunctionLibrary.TryInvoke(
-        property, this, reference.Root, reference.Member, ref subject, out error
+        property, this, reference.Root.Keyword(), reference.Member, ref subject, out error
       )) return false;
     }
     error = null;
@@ -933,7 +937,7 @@ internal sealed class RoslynMixinExpressionContext :
 
   private bool TryRender(
     object subject,
-    string root,
+    MixinExpressionRoot? root,
     out string value,
     out string error
   ) {
@@ -954,7 +958,7 @@ internal sealed class RoslynMixinExpressionContext :
       case MixinGeneratedStructReference generated:
         value = generated.TypeName;
         return true;
-      case INamedTypeSymbol when root is "this" or "target":
+      case INamedTypeSymbol when root is MixinExpressionRoot.This or MixinExpressionRoot.Target:
         value = "this";
         return true;
       case ITypeSymbol type:

@@ -10,9 +10,38 @@ using static MixinExpressionEvaluator;
 using static MixinExpressionInterpreter;
 
 public static class MixinExpressionCompiler {
-  private static readonly HashSet<string> RoslynRoots = new(StringComparer.Ordinal) {
-    "target", "this", "attr", "arg"
+  private static readonly HashSet<MixinExpressionRoot> RoslynRoots = new() {
+    MixinExpressionRoot.Target, MixinExpressionRoot.This,
+    MixinExpressionRoot.Attribute, MixinExpressionRoot.Argument
   };
+
+  public static string RewriteTargetAsThis(string expression) {
+    if (string.IsNullOrEmpty(expression)) return expression ?? "";
+    var builder = new StringBuilder(expression.Length);
+    for (var index = 0; index < expression.Length;) {
+      var rootStart = -1;
+      if (expression[index] == '@') {
+        if (MatchesRoot(expression, index + 1, "target")) rootStart = index + 1;
+        else if (index + 1 < expression.Length && expression[index + 1] == '(' &&
+          MatchesRoot(expression, index + 2, "target")) rootStart = index + 2;
+      }
+      if (rootStart < 0) {
+        builder.Append(expression[index++]);
+        continue;
+      }
+      builder.Append(expression, index, rootStart - index).Append("this");
+      index = rootStart + "target".Length;
+    }
+    return builder.ToString();
+  }
+
+  private static bool MatchesRoot(string expression, int start, string root) {
+    if (start + root.Length > expression.Length ||
+      string.CompareOrdinal(expression, start, root, 0, root.Length) != 0) return false;
+    var end = start + root.Length;
+    return end == expression.Length ||
+      !(char.IsLetterOrDigit(expression[end]) || expression[end] == '_');
+  }
 
   public static bool TryHoistPrelude(
     string explicitPrelude,
@@ -295,7 +324,8 @@ public static class MixinExpressionCompiler {
         continue;
       }
       var roslyn = RoslynRoots.Contains(reference.Root) ||
-        reference.Root == "local" && structuralLocals?.Contains(reference.Member ?? "") == true;
+        reference.Root == MixinExpressionRoot.Local &&
+        structuralLocals?.Contains(reference.Member ?? "") == true;
       if (!roslyn) {
         builder.Append(text, start, position - start);
         continue;
@@ -543,7 +573,7 @@ public static class MixinExpressionCompiler {
         continue;
       }
       var reference = part.Reference;
-      if (reference.Root != "var" || string.IsNullOrEmpty(reference.Member) ||
+      if (reference.Root != MixinExpressionRoot.Variable || string.IsNullOrEmpty(reference.Member) ||
         !variables.TryGetValue(reference.Member, out var value)) {
         result = null;
         error = "prepared global initializers may only reference an existing @var value";

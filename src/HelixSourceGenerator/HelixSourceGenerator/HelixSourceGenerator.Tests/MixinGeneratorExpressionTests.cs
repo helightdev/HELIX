@@ -113,7 +113,8 @@ public sealed class MixinGeneratorExpressionTests {
           "@CONFIG<DEBUG> | ignored\n" +
           "@FUNC<Prepare>\n@VAR<Prepared> true\n@END\n" +
           "@ANNOTATION<PreludeOnlyAttribute>\n" +
-          "@PRELUDE\n@MIXIN<$Init> PreludeOnlyLogic();\n@END\n@END\n" +
+          "@PRELUDE\n@MIXIN<$Init> PreludeOnlyLogic();\n" +
+          "@CODE<CLASS> public const string RewrittenName = \"@target:name\";\n@END\n@END\n" +
           "@ANNOTATION<ExternalAttribute>\n" +
           "@PRELUDE\n@CALL<Prepare>\n@CARRY<Name> @target:name\n@CARRY<Unused> ignored\n@END\n" +
           "@CODE<CLASS> public const string CarriedName = \"@carry#Name\";\n@END"
@@ -140,6 +141,8 @@ public sealed class MixinGeneratorExpressionTests {
     );
     Assert.Contains("global::PreludeOnlyAttribute on global::Demo", generated);
     Assert.Contains("// PRELUDE PROGRAM (PREPARED)\n//   @MIXIN<$Init> PreludeOnlyLogic();", generated);
+    Assert.Contains("//   @CODE<CLASS> public const string RewrittenName = \"@this:name\";", generated);
+    Assert.Contains("public const string RewrittenName = \"Demo\";", generated);
     Assert.Contains("global::ExternalAttribute on global::Demo.Value", generated);
     Assert.Contains("// PRELUDE PROGRAM (PREPARED)\n//   @CALL<Prepare>\n//   @CARRY<Name> @target:name", generated);
     Assert.DoesNotContain("//   @FUNC<Prepare>", generated);
