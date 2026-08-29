@@ -20,6 +20,8 @@ internal sealed class MixinValueDictionary : IDictionary<string, object>, IReadO
     foreach (var item in values) this[item.Key] = item.Value;
   }
 
+  internal IEnumerable<KeyValuePair<MixinString, IMixinValue>> TypedValues => _values;
+
   private MixinString Key(string key) => _pool.Get(key);
 
   private string Name(MixinString key) => key.Resolve(_pool);

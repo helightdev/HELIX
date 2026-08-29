@@ -21,6 +21,7 @@ public interface IMixinValue {
   bool Exists { get; }
   bool IsTruthy { get; }
   string Render();
+  void Fingerprint(MixinFingerprintBuilder builder);
   object Unwrap();
   bool TryGetText(out string text);
   object Select(string path);
@@ -50,6 +51,7 @@ public abstract class MixinValue : IMixinValue {
   public virtual bool Exists => BackingValue is not null;
   public abstract bool IsTruthy { get; }
   public abstract string Render();
+  public abstract void Fingerprint(MixinFingerprintBuilder builder);
   public virtual object Unwrap() => BackingValue;
   public virtual bool TryGetText(out string text) { text = Render(); return true; }
   public virtual object Select(string path) => null;
@@ -127,6 +129,24 @@ internal sealed class DetachedTypeValue : MixinValue {
   public override string FullName => Render();
   public override bool IsTruthy => Names.Count != 0;
   public override string Render() => QualifiedName ?? (Namespace.Length == 0 ? "" : Namespace + ".") + string.Join(".", Names);
+  public override void Fingerprint(MixinFingerprintBuilder builder) {
+    builder.Append(nameof(DetachedTypeValue));
+    builder.Append(Namespace);
+    builder.Append(QualifiedName);
+    builder.Append(Names.Count);
+    foreach (var name in Names) builder.Append(name);
+    builder.Append(_members.Length);
+    foreach (var member in _members) builder.Append(member);
+    builder.Append(_assignableTypes.Length);
+    foreach (var type in _assignableTypes) builder.Append(type);
+    builder.Append(_typeArguments.Length);
+    foreach (var argument in _typeArguments) {
+      builder.Append(argument is not null);
+      argument?.Fingerprint(builder);
+    }
+    builder.Append(_typeParameterNames.Length);
+    foreach (var parameter in _typeParameterNames) builder.Append(parameter);
+  }
   public override object Unwrap() => Render();
   public override object Select(string path) {
     if (int.TryParse(path, out var index))
@@ -182,6 +202,19 @@ internal sealed class DetachedSemanticValue : MixinValue {
   public override string Visibility => VisibilityValue;
   public override bool IsTruthy => true;
   public override string Render() => RenderValue;
+  public override void Fingerprint(MixinFingerprintBuilder builder) {
+    builder.Append(nameof(DetachedSemanticValue));
+    builder.Append(NameValue);
+    builder.Append(FullNameValue);
+    builder.Append(RenderValue);
+    builder.Append(VisibilityValue);
+    builder.Append(Type is not null);
+    Type?.Fingerprint(builder);
+    builder.Append(_members.Length);
+    foreach (var member in _members) builder.Append(member);
+    builder.Append(_traits.Count);
+    foreach (var trait in _traits.OrderBy(item => item)) builder.Append((int)trait);
+  }
   public override object Unwrap() => RenderValue;
   public override object Select(string path) => string.Equals(path, "type", StringComparison.Ordinal)
     ? Type
@@ -205,6 +238,7 @@ internal sealed class NullMixinValue : MixinValue {
   public override object BackingValue => null;
   public override bool IsTruthy => false;
   public override string Render() => "null";
+  public override void Fingerprint(MixinFingerprintBuilder builder) => builder.Append(nameof(NullMixinValue));
   public override bool Equals(object obj) => obj is NullMixinValue;
   public override int GetHashCode() => 0;
 }
@@ -217,6 +251,10 @@ internal sealed class BooleanMixinValue : MixinValue {
   public override object BackingValue => _value;
   public override bool IsTruthy => _value;
   public override string Render() => _value ? "true" : "false";
+  public override void Fingerprint(MixinFingerprintBuilder builder) {
+    builder.Append(nameof(BooleanMixinValue));
+    builder.Append(_value);
+  }
   public override bool Equals(object obj) => obj is BooleanMixinValue other && _value == other._value;
   public override int GetHashCode() => _value.GetHashCode();
 }
@@ -229,6 +267,10 @@ internal sealed class StringMixinValue : MixinValue {
     !string.Equals(_value, "false", StringComparison.OrdinalIgnoreCase) &&
     !string.Equals(_value, "null", StringComparison.OrdinalIgnoreCase);
   public override string Render() => _value;
+  public override void Fingerprint(MixinFingerprintBuilder builder) {
+    builder.Append(nameof(StringMixinValue));
+    builder.Append(_value);
+  }
   public override bool Equals(object obj) => obj is StringMixinValue other && _value == other._value;
   public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(_value);
 }
@@ -239,6 +281,23 @@ internal sealed class ObjectMixinValue : MixinValue {
   public override object BackingValue => _value;
   public override bool IsTruthy => _value is not null;
   public override string Render() => Convert.ToString(_value, System.Globalization.CultureInfo.InvariantCulture) ?? "null";
+  public override void Fingerprint(MixinFingerprintBuilder builder) {
+    builder.Append(nameof(ObjectMixinValue));
+    switch (_value) {
+      case null: return;
+      case bool boolean: builder.Append(boolean); return;
+      case int integer: builder.Append(integer); return;
+      case long integer: builder.Append(integer); return;
+      case uint integer: builder.Append((ulong)integer); return;
+      case ulong integer: builder.Append(integer); return;
+      case double number: builder.Append(number); return;
+      case string text: builder.Append(text); return;
+      default:
+        builder.Append(_value.GetType().FullName);
+        builder.Append(Convert.ToString(_value, System.Globalization.CultureInfo.InvariantCulture));
+        return;
+    }
+  }
   public override IMixinValue Unlink() => _value switch {
     null => NullMixinValue.Instance,
     bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
@@ -256,6 +315,10 @@ internal sealed class FailedMixinValue : MixinValue {
   public override bool Exists => false;
   public override bool IsTruthy => false;
   public override string Render() => "null";
+  public override void Fingerprint(MixinFingerprintBuilder builder) {
+    builder.Append(nameof(FailedMixinValue));
+    builder.Append(Error);
+  }
   public override object Unwrap() => null;
   public override bool Equals(object obj) => obj is FailedMixinValue other && Error == other.Error;
   public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Error);

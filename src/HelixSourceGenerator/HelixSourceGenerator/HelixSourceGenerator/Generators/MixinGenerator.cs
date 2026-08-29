@@ -1,9 +1,11 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using HELIX.SourceGen.Expressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -20,6 +22,7 @@ namespace HELIX.SourceGen;
 public sealed class MixinGenerator : IIncrementalGenerator {
   private const string LateClassMarker = "// __HELIX_LATE_CLASS__";
   private const string LateFileMarker = "// __HELIX_LATE_FILE__";
+  private static long _generationCounter;
   public void Initialize(IncrementalGeneratorInitializationContext context) {
     var libraryCatalog = context.AdditionalTextsProvider
       .Select(MixinLibraryApi.ReadAdditionalFile)
@@ -171,17 +174,19 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     }
     foreach (var output in attributeExpressionOutputs) outputs.Add(output);
     if (methods.Count == 0 && !outputs.Any && !context.HasLateExpressions) return context.Complete();
+    var finalizedOutputs = outputs.Finish();
     var wrapper = WrapType(
       target, "mixins"
     );
     return context.Complete(
       new MixinRenderModel(
         wrapper.Detach(), methods.ToImmutableArray(),
-        outputs.Annotations.ToImmutableArray(), outputs.Class.ToImmutableArray(),
-        outputs.File.ToImmutableArray(), outputs.Implements.ToImmutableArray(),
-        outputs.Usings.ToImmutableArray(), expressionVariables
-          .Where(item => !item.Key.StartsWith(MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal))
-          .ToImmutableDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal),
+        finalizedOutputs.Annotations, finalizedOutputs.Class,
+        finalizedOutputs.File, finalizedOutputs.Implements,
+        finalizedOutputs.Usings, expressionVariables
+          .Where(item => !item.Key.StartsWith(
+            MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
+          )), preparedExpressions.StringPool,
         context.DebugExpressions.ToImmutableArray(), context.Debug
       )
     );
@@ -314,7 +319,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       }
     );
     if (model.Render.Debug)
-      source = BuildDebugTrace(model.Render.DebugExpressions) + source +
+      source = BuildDebugTrace(model.Render) + source +
         BuildFinalDebugState(finalDebugStates.Values, sharedVariables);
     return new MixinOutputModel(
       model.Render.Wrapper.HintName, source, null, ImmutableArray<LateExpressionWork>.Empty,
@@ -322,10 +327,17 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     );
   }
 
-  private static string BuildDebugTrace(ImmutableArray<DebugExpressionWork> workItems) {
+  private static string BuildDebugTrace(MixinRenderModel render) {
+    var workItems = render.DebugExpressions;
     var builder = new StringBuilder();
     builder.AppendLine("// ============================================================================");
     builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
+    builder.Append("// generationVersion = ").AppendLine(
+      render.GenerationVersion.ToString(CultureInfo.InvariantCulture)
+    );
+    AppendDebugFingerprint(builder, "outputs", render.Fingerprint.Outputs);
+    AppendDebugFingerprint(builder, "variables", render.Fingerprint.Variables);
+    AppendDebugFingerprint(builder, "signatures", render.Fingerprint.Signatures);
     for (var index = 0; index < workItems.Length; index++) {
       var work = workItems[index];
       builder.AppendLine("// ----------------------------------------------------------------------------");
@@ -350,6 +362,17 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     }
     builder.AppendLine("// ============================================================================");
     return builder.ToString();
+  }
+
+  private static void AppendDebugFingerprint(
+    StringBuilder builder,
+    string name,
+    MixinRenderFingerprint.FingerprintPart fingerprint
+  ) {
+    builder.Append("// ").Append(name).Append("Fingerprint = 0x")
+      .Append(fingerprint.Hash.ToString("X16", CultureInfo.InvariantCulture))
+      .Append("; length = ")
+      .AppendLine(fingerprint.Length.ToString(CultureInfo.InvariantCulture));
   }
 
   private static string NormalizeUsing(string text) {
@@ -567,18 +590,47 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     int Order
   );
 
-  private sealed record MixinRenderModel(
-    DetachedTypeWrapper Wrapper,
-    ImmutableArray<GeneratedMethod> Methods,
-    ImmutableArray<MixinExpressionOutput> Annotations,
-    ImmutableArray<MixinExpressionOutput> Class,
-    ImmutableArray<MixinExpressionOutput> File,
-    ImmutableArray<MixinExpressionOutput> Implements,
-    ImmutableArray<MixinExpressionOutput> Usings,
-    ImmutableDictionary<string, object> PrimaryVariables,
-    ImmutableArray<DebugExpressionWork> DebugExpressions,
-    bool Debug
-  );
+  private sealed class MixinRenderModel {
+    internal MixinRenderModel(
+      DetachedTypeWrapper wrapper,
+      ImmutableArray<GeneratedMethod> methods,
+      MixinOutputCollection annotations,
+      MixinOutputCollection @class,
+      MixinOutputCollection file,
+      MixinOutputCollection implements,
+      MixinOutputCollection usings,
+      IEnumerable<KeyValuePair<string, object>> primaryVariables,
+      MixinStringPool stringPool,
+      ImmutableArray<DebugExpressionWork> debugExpressions,
+      bool debug
+    ) {
+      Wrapper = wrapper;
+      Methods = methods;
+      Annotations = annotations;
+      Class = @class;
+      File = file;
+      Implements = implements;
+      Usings = usings;
+      PrimaryVariables = new MixinValueDictionary(primaryVariables, stringPool);
+      DebugExpressions = debugExpressions;
+      Debug = debug;
+      GenerationVersion = Interlocked.Increment(ref _generationCounter);
+      Fingerprint = MixinRenderFingerprint.Create(this);
+    }
+
+    internal DetachedTypeWrapper Wrapper { get; }
+    internal ImmutableArray<GeneratedMethod> Methods { get; }
+    internal MixinOutputCollection Annotations { get; }
+    internal MixinOutputCollection Class { get; }
+    internal MixinOutputCollection File { get; }
+    internal MixinOutputCollection Implements { get; }
+    internal MixinOutputCollection Usings { get; }
+    internal MixinValueDictionary PrimaryVariables { get; }
+    internal ImmutableArray<DebugExpressionWork> DebugExpressions { get; }
+    internal bool Debug { get; }
+    internal long GenerationVersion { get; }
+    internal MixinRenderFingerprint Fingerprint { get; }
+  }
 
   private sealed record MixinDiagnostic(
     DiagnosticDescriptor Descriptor,
@@ -632,13 +684,139 @@ public sealed class MixinGenerator : IIncrementalGenerator {
 
   private sealed record MixinReportedLog(MixinExpressionLog Log, MixinDiagnostic Location);
 
+  private readonly struct MixinRenderFingerprint : IEquatable<MixinRenderFingerprint> {
+    private MixinRenderFingerprint(
+      FingerprintPart outputs,
+      FingerprintPart variables,
+      FingerprintPart signatures,
+      bool debug
+    ) {
+      Outputs = outputs;
+      Variables = variables;
+      Signatures = signatures;
+      Debug = debug;
+    }
+
+    internal FingerprintPart Outputs { get; }
+    internal FingerprintPart Variables { get; }
+    internal FingerprintPart Signatures { get; }
+    private bool Debug { get; }
+
+    internal static MixinRenderFingerprint Create(MixinRenderModel render) {
+      var outputs = new MixinFingerprintBuilder();
+      AppendOutputCollection(outputs, render.Annotations);
+      AppendOutputCollection(outputs, render.Class);
+      AppendOutputCollection(outputs, render.File);
+      AppendOutputCollection(outputs, render.Implements);
+      AppendOutputCollection(outputs, render.Usings);
+
+      var variables = new MixinFingerprintBuilder();
+      variables.Append(render.PrimaryVariables.Count);
+      foreach (var variable in render.PrimaryVariables.TypedValues
+        .OrderBy(item => item.Key.Id)
+        .ThenBy(item => item.Key.DynamicValue, StringComparer.Ordinal)) {
+        variables.Append(variable.Key.IsInterned);
+        variables.Append(variable.Key.Id);
+        if (!variable.Key.IsInterned) variables.Append(variable.Key.DynamicValue);
+        variable.Value.Fingerprint(variables);
+      }
+
+      var signatures = new MixinFingerprintBuilder();
+      signatures.Append(render.Wrapper.NamespaceName);
+      signatures.Append(render.Wrapper.HintName);
+      signatures.Append(render.Wrapper.Declarations.Count);
+      foreach (var declaration in render.Wrapper.Declarations) signatures.Append(declaration);
+      signatures.Append(render.Methods.Length);
+      foreach (var method in render.Methods) {
+        signatures.Append(method.Declaration);
+        signatures.Append(method.ReturnType);
+        signatures.Append(method.CallBase);
+        signatures.Append(method.Name);
+        signatures.Append(method.TypeParameters.Count);
+        foreach (var parameter in method.TypeParameters) signatures.Append(parameter);
+        signatures.Append(method.Constraints.Count);
+        foreach (var constraint in method.Constraints) signatures.Append(constraint);
+        signatures.Append(method.Parameters.Count);
+        foreach (var parameter in method.Parameters) {
+          signatures.Append(parameter.Declaration);
+          signatures.Append(parameter.Argument);
+        }
+        outputs.Append(method.Contributions.Count);
+        foreach (var contribution in method.Contributions) {
+          outputs.Append(contribution.EmittedTarget);
+          outputs.Append(contribution.Order);
+          AppendOutputs(outputs, contribution.ExpressionResult.Outputs);
+        }
+      }
+      return new MixinRenderFingerprint(
+        new FingerprintPart(outputs.Hash, outputs.Length),
+        new FingerprintPart(variables.Hash, variables.Length),
+        new FingerprintPart(signatures.Hash, signatures.Length),
+        render.Debug
+      );
+    }
+
+    private static void AppendOutputCollection(
+      MixinFingerprintBuilder builder,
+      MixinOutputCollection outputs
+    ) {
+      builder.Append(outputs.Count);
+      builder.Append(unchecked((long)outputs.Hash));
+      builder.Append(outputs.Length);
+    }
+
+    private static void AppendOutputs(
+      MixinFingerprintBuilder builder,
+      IReadOnlyCollection<MixinExpressionOutput> outputs
+    ) {
+      builder.Append(outputs.Count);
+      foreach (var output in outputs) {
+        builder.Append((int)output.Target);
+        builder.Append(output.InjectionTarget);
+        builder.Append(output.InjectionPriority);
+        builder.Append(output.Segments.Count);
+        foreach (var segment in output.Segments) {
+          builder.Append(segment.IsInterned);
+          builder.Append(output.Resolve(segment));
+        }
+      }
+    }
+
+    public bool Equals(MixinRenderFingerprint other) =>
+      Outputs.Equals(other.Outputs) && Variables.Equals(other.Variables) &&
+      Signatures.Equals(other.Signatures) && Debug == other.Debug;
+
+    public override bool Equals(object value) =>
+      value is MixinRenderFingerprint other && Equals(other);
+
+    public override int GetHashCode() => unchecked(
+      ((Outputs.GetHashCode() * 397 ^ Variables.GetHashCode()) * 397 ^
+        Signatures.GetHashCode()) * 397 ^ Debug.GetHashCode()
+    );
+
+    internal readonly struct FingerprintPart : IEquatable<FingerprintPart> {
+      internal FingerprintPart(ulong hash, long length) {
+        Hash = hash;
+        Length = length;
+      }
+
+      internal ulong Hash { get; }
+      internal long Length { get; }
+      public bool Equals(FingerprintPart other) => Hash == other.Hash && Length == other.Length;
+      public override bool Equals(object value) => value is FingerprintPart other && Equals(other);
+      public override int GetHashCode() => unchecked(
+        (int)(Hash ^ Hash >> 32) * 397 ^ Length.GetHashCode()
+      );
+    }
+
+  }
+
   private sealed class MixinOutputModelComparer : IEqualityComparer<MixinOutputModel> {
     internal static readonly MixinOutputModelComparer Instance = new();
     public bool Equals(MixinOutputModel x, MixinOutputModel y) =>
       ReferenceEquals(x, y) || x is not null && y is not null &&
       string.Equals(x.HintName, y.HintName, StringComparison.Ordinal) &&
-      string.Equals(x.Source, y.Source, StringComparison.Ordinal) &&
-      string.Equals(RenderKey(x.Render), RenderKey(y.Render), StringComparison.Ordinal) &&
+      Nullable.Equals(x.Render?.Fingerprint, y.Render?.Fingerprint) &&
       DiagnosticKey(x.Diagnostics) == DiagnosticKey(y.Diagnostics) &&
       LateEqual(x.LateExpressions, y.LateExpressions);
 
@@ -657,64 +835,6 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         string.Join("\u001d", diagnostic.Properties.OrderBy(item => item.Key).Select(item => item.Key + "=" + item.Value))
       }))
     );
-
-    private static string RenderKey(MixinRenderModel render) {
-      if (render is null) return "";
-      var values = new List<string> {
-        render.Wrapper.NamespaceName ?? "", render.Wrapper.HintName ?? ""
-      };
-      values.AddRange(render.Wrapper.Declarations);
-      foreach (var output in render.Annotations) AppendOutputKey(values, output);
-      foreach (var output in render.Class) AppendOutputKey(values, output);
-      foreach (var output in render.File) AppendOutputKey(values, output);
-      foreach (var output in render.Implements) AppendOutputKey(values, output);
-      foreach (var output in render.Usings) AppendOutputKey(values, output);
-      foreach (var variable in render.PrimaryVariables.OrderBy(item => item.Key, StringComparer.Ordinal)) {
-        values.Add(variable.Key);
-        values.Add(MixinValue.From(variable.Value).Render());
-      }
-      foreach (var work in render.DebugExpressions) {
-        values.Add(work.PreludeProgram);
-        values.Add(work.LateProgram);
-        values.Add(work.Provider);
-        values.Add(work.SourceType);
-        values.Add(work.SourceMember);
-        values.Add(work.PreludeOperations.ToString(CultureInfo.InvariantCulture));
-        values.Add(work.PreludeMilliseconds.ToString("R", CultureInfo.InvariantCulture));
-        foreach (var variable in work.Variables.OrderBy(item => item.Key, StringComparer.Ordinal)) {
-          values.Add(variable.Key);
-          values.Add(MixinValue.From(variable.Value).Render());
-        }
-      }
-      foreach (var method in render.Methods) {
-        values.Add(method.Declaration);
-        values.Add(method.ReturnType ?? "");
-        values.Add(method.CallBase.ToString());
-        values.Add(method.Name);
-        values.AddRange(method.TypeParameters);
-        values.AddRange(method.Constraints);
-        foreach (var parameter in method.Parameters) {
-          values.Add(parameter.Declaration);
-          values.Add(parameter.Argument);
-        }
-        foreach (var contribution in method.Contributions) {
-          values.Add(contribution.EmittedTarget);
-          values.Add(contribution.Order.ToString(CultureInfo.InvariantCulture));
-          foreach (var output in contribution.ExpressionResult.Outputs) {
-            AppendOutputKey(values, output);
-          }
-        }
-      }
-      return string.Join("\u001f", values);
-    }
-
-    private static void AppendOutputKey(ICollection<string> values, MixinExpressionOutput output) {
-      values.Add(output.Target.ToString());
-      foreach (var segment in output.Segments) {
-        values.Add(segment.IsInterned ? "#" : "$");
-        values.Add(output.Resolve(segment) ?? "");
-      }
-    }
 
     private static bool LateEqual(ImmutableArray<LateExpressionWork> x, ImmutableArray<LateExpressionWork> y) {
       if (x.Length != y.Length) return false;
@@ -739,8 +859,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       ? 0
       : unchecked(
         StringComparer.Ordinal.GetHashCode(value.HintName ?? "") * 397 ^
-        StringComparer.Ordinal.GetHashCode(value.Source ?? "") * 31 ^
-        StringComparer.Ordinal.GetHashCode(RenderKey(value.Render))
+        (value.Render?.Fingerprint.GetHashCode() ?? 0)
       );
   }
 
@@ -765,23 +884,13 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   }
 
   private sealed class ExpressionOutputs {
-    private List<MixinExpressionOutput> _annotations, _class, _file, _implements, _usings;
-    internal IReadOnlyList<MixinExpressionOutput> Annotations =>
-      _annotations ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
-    internal IReadOnlyList<MixinExpressionOutput> Class =>
-      _class ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
-    internal IReadOnlyList<MixinExpressionOutput> File =>
-      _file ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
-    internal IReadOnlyList<MixinExpressionOutput> Implements =>
-      _implements ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
-    internal IReadOnlyList<MixinExpressionOutput> Usings =>
-      _usings ?? (IReadOnlyList<MixinExpressionOutput>)Array.Empty<MixinExpressionOutput>();
+    private MixinOutputAccumulator _annotations, _class, _file, _implements, _usings;
     internal bool Any { get; private set; }
 
     internal void AddAnnotation(string text) {
       if (string.IsNullOrEmpty(text)) return;
       Any = true;
-      (_annotations ??= new List<MixinExpressionOutput>()).Add(
+      (_annotations ??= new MixinOutputAccumulator()).Add(
         new MixinExpressionOutput(MixinExpressionOutputTarget.Annotation, text)
       );
     }
@@ -790,24 +899,120 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       if (output.IsEmpty) return;
       if (output.Target == MixinExpressionOutputTarget.Class) {
         Any = true;
-        (_class ??= new List<MixinExpressionOutput>()).Add(output);
+        (_class ??= new MixinOutputAccumulator()).Add(output);
         return;
       }
       if (output.Target == MixinExpressionOutputTarget.File) {
         Any = true;
-        (_file ??= new List<MixinExpressionOutput>()).Add(output);
+        (_file ??= new MixinOutputAccumulator()).Add(output);
         return;
       }
       Any = true;
       switch (output.Target) {
         case MixinExpressionOutputTarget.Implements:
-          (_implements ??= new List<MixinExpressionOutput>()).Add(output); break;
+          (_implements ??= new MixinOutputAccumulator()).Add(output); break;
         case MixinExpressionOutputTarget.Annotation:
-          (_annotations ??= new List<MixinExpressionOutput>()).Add(output); break;
+          (_annotations ??= new MixinOutputAccumulator()).Add(output); break;
         case MixinExpressionOutputTarget.Using:
-          (_usings ??= new List<MixinExpressionOutput>()).Add(output);
+          (_usings ??= new MixinOutputAccumulator()).Add(output);
           break;
       }
+    }
+
+    internal ExpressionOutputSet Finish() => new(
+      MixinOutputCollection.Finish(_annotations),
+      MixinOutputCollection.Finish(_class),
+      MixinOutputCollection.Finish(_file),
+      MixinOutputCollection.Finish(_implements),
+      MixinOutputCollection.Finish(_usings)
+    );
+  }
+
+  private sealed record ExpressionOutputSet(
+    MixinOutputCollection Annotations,
+    MixinOutputCollection Class,
+    MixinOutputCollection File,
+    MixinOutputCollection Implements,
+    MixinOutputCollection Usings
+  );
+
+  private sealed class MixinOutputAccumulator {
+    private readonly List<MixinExpressionOutput> _outputs = new();
+    private OutputFingerprintBuilder _fingerprint;
+
+    internal IReadOnlyList<MixinExpressionOutput> Outputs => _outputs;
+    internal ulong Hash => _fingerprint.Hash;
+    internal long Length => _fingerprint.Length;
+
+    internal void Add(MixinExpressionOutput output) {
+      _outputs.Add(output);
+      _fingerprint.Append(output);
+    }
+  }
+
+  private sealed class MixinOutputCollection : IReadOnlyList<MixinExpressionOutput> {
+    private static readonly MixinOutputCollection Empty = new(
+      Array.Empty<MixinExpressionOutput>(), OutputFingerprintBuilder.EmptyHash, 0
+    );
+    private readonly MixinExpressionOutput[] _outputs;
+
+    private MixinOutputCollection(MixinExpressionOutput[] outputs, ulong hash, long length) {
+      _outputs = outputs;
+      Hash = hash;
+      Length = length;
+    }
+
+    internal ulong Hash { get; }
+    internal long Length { get; }
+    public int Count => _outputs.Length;
+    public MixinExpressionOutput this[int index] => _outputs[index];
+
+    internal static MixinOutputCollection Finish(MixinOutputAccumulator accumulator) =>
+      accumulator is null || accumulator.Outputs.Count == 0
+        ? Empty
+        : new MixinOutputCollection(
+          accumulator.Outputs.ToArray(), accumulator.Hash, accumulator.Length
+        );
+
+    public IEnumerator<MixinExpressionOutput> GetEnumerator() =>
+      ((IEnumerable<MixinExpressionOutput>)_outputs).GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => _outputs.GetEnumerator();
+  }
+
+  private struct OutputFingerprintBuilder {
+    internal const ulong EmptyHash = 14695981039346656037UL;
+    private const ulong Prime = 1099511628211UL;
+    private ulong _hash;
+
+    internal ulong Hash => _hash == 0 ? EmptyHash : _hash;
+    internal long Length { get; private set; }
+
+    internal void Append(MixinExpressionOutput output) {
+      Mix((ulong)output.Target);
+      Append(output.InjectionTarget);
+      Mix(unchecked((ulong)output.InjectionPriority));
+      Mix((ulong)output.Segments.Count);
+      foreach (var segment in output.Segments) {
+        Mix(segment.IsInterned ? 1UL : 0UL);
+        Append(output.Resolve(segment));
+      }
+    }
+
+    private void Append(string value) {
+      Mix((ulong)(value?.Length ?? -1));
+      if (value is null) return;
+      for (var index = 0; index < value.Length; index++) Mix(value[index]);
+      Length += value.Length;
+    }
+
+    private void Mix(ulong value) {
+      if (_hash == 0) _hash = EmptyHash;
+      unchecked {
+        _hash ^= value;
+        _hash *= Prime;
+      }
+      Length++;
     }
   }
 

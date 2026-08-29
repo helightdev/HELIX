@@ -58,7 +58,6 @@ namespace HELIX.Context {
 
     [Resource(Source.Addressables, "Assets/ExampleAddressable"), ShowInInspector]
     public GameObject addressablePrefab;
-
     // [Resource(Source.Resources), ShowInInspector]
     // public List<KennyPromptSvgCollection> svgCollections;
 
@@ -66,6 +65,10 @@ namespace HELIX.Context {
     private void OnInit() {
       Debug.Log($"Self on awake! Implicitly referenced! {mySingleton} and {myRootDependency};");
       myResource2 = new LoggingDisposable(); //46
+    }
+
+    public void Test() {
+
     }
 
     [Hook(MixinOn.ConfigureManaged)]

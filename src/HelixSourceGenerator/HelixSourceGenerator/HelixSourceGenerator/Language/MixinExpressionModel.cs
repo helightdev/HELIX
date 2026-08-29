@@ -97,6 +97,14 @@ public sealed class MixinExpressionTable : MixinValue {
   public override object BackingValue => this;
   public override bool IsTruthy => true;
   public override string Render() => ToString();
+  public override void Fingerprint(MixinFingerprintBuilder builder) {
+    builder.Append(nameof(MixinExpressionTable));
+    builder.Append(Count);
+    foreach (var item in _values.OrderBy(item => item.Key, StringComparer.Ordinal)) {
+      builder.Append(item.Key);
+      item.Value.Fingerprint(builder);
+    }
+  }
 
   public override bool TryGetText(out string text) {
     text = null;

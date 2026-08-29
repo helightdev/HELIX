@@ -37,6 +37,10 @@ internal readonly struct RoslynMixinValue : IMixinValue {
   public string Render() => RoslynMixinExpressionContext.TryComparableText(_value, out var text)
     ? text
     : Convert.ToString(_value);
+  public void Fingerprint(MixinFingerprintBuilder builder) {
+    builder.Append(nameof(RoslynMixinValue));
+    builder.Append(Render());
+  }
   public object Unwrap() => RoslynMixinExpressionContext.Unwrap(_value);
   public bool TryGetText(out string text) => RoslynMixinExpressionContext.TryComparableText(_value, out text);
   public object Select(string path) =>
