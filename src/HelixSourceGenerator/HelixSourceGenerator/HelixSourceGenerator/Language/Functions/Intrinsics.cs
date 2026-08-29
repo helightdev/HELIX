@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Linq;
-using static HELIX.SourceGen.Expressions.FunctionResults;
+using static HelixSourceGenerator.Language.Functions.FunctionResults;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language.Functions;
 
 internal sealed class NameFunction : FunctionDefinition {
   internal NameFunction() : base("name", 0, 0) { }
@@ -14,8 +14,8 @@ internal sealed class NameFunction : FunctionDefinition {
     var typed = MixinValue.From(value, context);
     value = typed is DetachedSemanticValue or DetachedTypeValue ||
       typed.RoslynSymbol is not null || typed.RoslynType is not null
-      ? typed.Name
-      : member ?? root;
+        ? typed.Name
+        : member ?? root;
     error = null;
     return true;
   }
@@ -73,10 +73,10 @@ internal sealed class SizeFunction : FunctionDefinition {
     value = typed.TryGetText(out var text)
       ? text.Length.ToString(CultureInfo.InvariantCulture)
       : typed.BackingValue switch {
-          MixinExpressionTable table => table.Count.ToString(CultureInfo.InvariantCulture),
-          string rawText => rawText.Length.ToString(CultureInfo.InvariantCulture),
-          _ => "0"
-        };
+        MixinExpressionTable table => table.Count.ToString(CultureInfo.InvariantCulture),
+        string rawText => rawText.Length.ToString(CultureInfo.InvariantCulture),
+        _ => "0"
+      };
     error = null;
     return true;
   }

@@ -3,27 +3,26 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Shared;
 
 /// <summary>Builds consistently indented C# source with disposable delimiter scopes.</summary>
 internal sealed class SharpStringBuilder {
   private readonly StringBuilder _builder = new();
   private readonly string _indentText;
-  private int _indent;
   private bool _atLineStart = true;
 
   internal SharpStringBuilder(string indentText = "  ") {
     _indentText = indentText ?? throw new ArgumentNullException(nameof(indentText));
   }
 
-  internal int IndentLevel => _indent;
+  internal int IndentLevel { get; private set; }
 
   internal SharpStringBuilder Append(string value) {
     if (string.IsNullOrEmpty(value)) return this;
     var normalized = value.Replace("\r\n", "\n").Replace('\r', '\n');
     foreach (var character in normalized) {
       if (_atLineStart && character != '\n') {
-        for (var level = 0; level < _indent; level++) _builder.Append(_indentText);
+        for (var level = 0; level < IndentLevel; level++) _builder.Append(_indentText);
         _atLineStart = false;
       }
       _builder.Append(character);
@@ -178,24 +177,24 @@ internal sealed class SharpStringBuilder {
 
   private IDisposable OpenScope(string closing, string suffix, bool closeLine) {
     AppendLine();
-    _indent++;
-    return new Scope(this, _indent, closing, suffix, closeLine);
+    IndentLevel++;
+    return new Scope(this, IndentLevel, closing, suffix, closeLine);
   }
 
   private void CloseScope(int depth, string closing, string suffix, bool closeLine) {
-    if (_indent != depth)
+    if (IndentLevel != depth)
       throw new InvalidOperationException("SharpStringBuilder scopes must be disposed in reverse order.");
-    _indent--;
+    IndentLevel--;
     Append(closing).Append(suffix);
     if (closeLine) AppendLine();
   }
 
   private sealed class Scope : IDisposable {
-    private SharpStringBuilder _owner;
-    private readonly int _depth;
-    private readonly string _closing;
-    private readonly string _suffix;
     private readonly bool _closeLine;
+    private readonly string _closing;
+    private readonly int _depth;
+    private readonly string _suffix;
+    private SharpStringBuilder _owner;
 
     internal Scope(SharpStringBuilder owner, int depth, string closing, string suffix, bool closeLine) {
       _owner = owner;

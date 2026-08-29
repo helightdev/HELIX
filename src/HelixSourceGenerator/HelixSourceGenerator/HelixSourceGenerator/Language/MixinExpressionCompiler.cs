@@ -4,15 +4,14 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
 using static MixinExpressionEvaluator;
 using static MixinExpressionInterpreter;
 
 public static class MixinExpressionCompiler {
   private static readonly HashSet<MixinExpressionRoot> RoslynRoots = new() {
-    MixinExpressionRoot.Target, MixinExpressionRoot.This,
-    MixinExpressionRoot.Attribute, MixinExpressionRoot.Argument
+    MixinExpressionRoot.Target, MixinExpressionRoot.This, MixinExpressionRoot.Attribute, MixinExpressionRoot.Argument
   };
 
   public static string RewriteTargetAsThis(string expression) {
@@ -95,7 +94,8 @@ public static class MixinExpressionCompiler {
         errorLine = index + 1;
         return false;
       }
-      if (parsed.Opcode is DirectiveOpcode.PropStruct or DirectiveOpcode.AugmentStruct or DirectiveOpcode.ResolveMixin) {
+      if (parsed.Opcode is DirectiveOpcode.PropStruct or DirectiveOpcode.AugmentStruct
+        or DirectiveOpcode.ResolveMixin) {
         if (!TryHoistStructuralDirective(parsed, line, generated, labels, structuralLocals, out error)) {
           prelude = explicitPrelude ?? "";
           lateExpression = expression ?? "";
@@ -131,10 +131,12 @@ public static class MixinExpressionCompiler {
     out int errorLine
   ) {
     var functions = new Dictionary<string, IReadOnlyList<DirectiveInstruction>>(StringComparer.Ordinal);
-    if (preparedState is not null)
-      foreach (var function in preparedState.Functions)
+    if (preparedState is not null) {
+      foreach (var function in preparedState.Functions) {
         functions[function.Key] = preparedState.Instructions
           .Skip(function.Value.Start).Take(function.Value.End - function.Value.Start).ToArray();
+      }
+    }
     if (!TryCollectInlineFunctions(explicitPrelude, functions, out error, out errorLine) ||
       !TryCollectInlineFunctions(expression, functions, out error, out errorLine)) {
       expandedPrelude = explicitPrelude ?? "";
@@ -235,7 +237,7 @@ public static class MixinExpressionCompiler {
           continue;
         }
         if ((item.Opcode == DirectiveOpcode.Scope || item.Opcode == DirectiveOpcode.Goto ||
-          item.Opcode == DirectiveOpcode.Match) && !string.IsNullOrEmpty(item.Argument) &&
+            item.Opcode == DirectiveOpcode.Match) && !string.IsNullOrEmpty(item.Argument) &&
           labels.TryGetValue(item.Argument, out var renamed)) {
           bodyLines.Add(SerializeInstruction(item, renamed));
           continue;
@@ -265,13 +267,15 @@ public static class MixinExpressionCompiler {
     if (string.IsNullOrEmpty(instruction.Command)) return instruction.Operand ?? "";
     var builder = new StringBuilder("@").Append(instruction.Command);
     for (var index = 0; index < instruction.Arguments.Count; index++)
-      builder.Append('<').Append(index == 0 && argument is not null ? argument : instruction.Arguments[index]).Append('>');
+      builder.Append('<').Append(index == 0 && argument is not null ? argument : instruction.Arguments[index])
+        .Append('>');
     if (!string.IsNullOrEmpty(instruction.Operand)) builder.Append(' ').Append(instruction.Operand);
     return SerializeLogicalLine(builder.ToString());
   }
 
-  private static string SerializeLogicalLine(string line) =>
-    (line ?? "").Replace("\n", "\n@\\");
+  private static string SerializeLogicalLine(string line) {
+    return (line ?? "").Replace("\n", "\n@\\");
+  }
 
   private static bool TryHoistStructuralDirective(
     DirectiveInstruction instruction,
@@ -291,7 +295,9 @@ public static class MixinExpressionCompiler {
       error = "@" + instruction.Command + " cannot be hoisted because its result local is dynamic";
       return false;
     }
-    if (!TryRewriteRoslynReferences(line, generated, labels, structuralLocals, out var rewritten, out error)) return false;
+    if (!TryRewriteRoslynReferences(
+      line, generated, labels, structuralLocals, out var rewritten, out error
+    )) return false;
     generated.Add(rewritten);
     var access = "@local#" + local;
     var label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
@@ -313,19 +319,19 @@ public static class MixinExpressionCompiler {
     var position = 0;
     error = null;
     while (position < text.Length) {
-      if (text[position] != '@' || position + 1 < text.Length && text[position + 1] == '@') {
+      if (text[position] != '@' || (position + 1 < text.Length && text[position + 1] == '@')) {
         builder.Append(text[position++]);
         continue;
       }
       var start = position;
-      if (!MixinExpressionEvaluator.TryReadReferenceNode(text, ref position, out var reference, out _)) {
+      if (!TryReadReferenceNode(text, ref position, out var reference, out _)) {
         builder.Append(text[start]);
         position = start + 1;
         continue;
       }
       var roslyn = RoslynRoots.Contains(reference.Root) ||
-        reference.Root == MixinExpressionRoot.Local &&
-        structuralLocals?.Contains(reference.Member ?? "") == true;
+        (reference.Root == MixinExpressionRoot.Local &&
+          structuralLocals?.Contains(reference.Member ?? "") == true);
       if (!roslyn) {
         builder.Append(text, start, position - start);
         continue;

@@ -4,11 +4,11 @@ using System.Globalization;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using static HELIX.SourceGen.GeneratorAnalysis;
-using static HELIX.SourceGen.GeneratorDiagnostics.Structure;
-using static HELIX.SourceGen.GeneratorStrings;
+using static HelixSourceGenerator.Shared.GeneratorAnalysis;
+using static HelixSourceGenerator.Shared.GeneratorDiagnostics.Structure;
+using static HelixSourceGenerator.Shared.GeneratorStrings;
 
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Shared;
 
 /// <summary>Analyzes props into reusable parameter and assignment fragments.</summary>
 internal static class PropStructApi {
@@ -20,10 +20,7 @@ internal static class PropStructApi {
   ) {
     var fields = InstanceFields(type);
     var props = fields.Select(field => new PropDefinition(
-        field,
-        field.Type,
-        field.Name,
-        Attribute(field, Attributes.Prop)
+        field, field.Type, field.Name, Attribute(field, Attributes.Prop)
       )
     ).ToArray();
     if (!TryAnalyzeProps(props, out model, out diagnostic)) return false;
@@ -32,16 +29,8 @@ internal static class PropStructApi {
       return false;
     }
     model = new PropStructModel(
-      model.ParameterParts,
-      model.ArgumentParts,
-      model.Assignments,
-      model.RequiresUnsafe,
-      equality,
-      datatype ? AnalyzeDatatype(
-        type.ToDisplayString(TypeDisplayFormat),
-        type.Name,
-        props
-      ) : null,
+      model.ParameterParts, model.ArgumentParts, model.Assignments, model.RequiresUnsafe, equality,
+      datatype ? AnalyzeDatatype(type.ToDisplayString(TypeDisplayFormat), type.Name, props) : null,
       model.PropertySymbols
     );
     return true;
@@ -66,13 +55,9 @@ internal static class PropStructApi {
         required = false;
         defaultValueExpression = defaultValue.Expression;
       }
-      properties.Add(new PropDatatypeProperty(
-        prop.Name,
-        propType,
-        datatypeExpression,
-        required,
-        defaultValueExpression
-      ));
+      properties.Add(
+        new PropDatatypeProperty(prop.Name, propType, datatypeExpression, required, defaultValueExpression)
+      );
     }
     return new PropDatatypeModel(structureType, name, properties);
   }
@@ -87,15 +72,14 @@ internal static class PropStructApi {
       case SpecialType.System_Double: return datatypes + DatatypeMembers.Double;
       case SpecialType.System_Boolean: return datatypes + DatatypeMembers.Bool;
     }
-    if (type.TypeKind == TypeKind.Enum)
-      return datatypes + DatatypeMembers.Enum + "<" + typeName + ">()";
-    switch (type.ToDisplayString()) {
-      case Types.UnityColor: return datatypes + DatatypeMembers.Color;
-      case Types.UnityVector2: return datatypes + DatatypeMembers.Vector2;
-      case Types.UnityVector3: return datatypes + DatatypeMembers.Vector3;
-      case Types.UnityVector4: return datatypes + DatatypeMembers.Vector4;
-      default: return datatypes + DatatypeMembers.Object + "<" + typeName + ">()";
-    }
+    if (type.TypeKind == TypeKind.Enum) return datatypes + DatatypeMembers.Enum + "<" + typeName + ">()";
+    return type.ToDisplayString() switch {
+      Types.UnityColor => datatypes + DatatypeMembers.Color,
+      Types.UnityVector2 => datatypes + DatatypeMembers.Vector2,
+      Types.UnityVector3 => datatypes + DatatypeMembers.Vector3,
+      Types.UnityVector4 => datatypes + DatatypeMembers.Vector4,
+      _ => datatypes + DatatypeMembers.Object + "<" + typeName + ">()"
+    };
   }
 
   internal static bool TryAnalyzeProps(
@@ -326,12 +310,7 @@ internal static class PropStructApi {
   }
 
   private static Diagnostic InvalidDefault(ISymbol symbol, string name, string error) {
-    return Diagnostic.Create(
-      GeneratorDiagnostics.Structure.InvalidDefault,
-      LocationOf(symbol),
-      name,
-      error
-    );
+    return Diagnostic.Create(GeneratorDiagnostics.Structure.InvalidDefault, LocationOf(symbol), name, error);
   }
 
   private static bool TryReadDefault(
@@ -388,24 +367,22 @@ internal static class PropStructApi {
       expression = "null";
       return true;
     }
-    if (constant.Kind == TypedConstantKind.Enum && constant.Type is INamedTypeSymbol enumType) {
-      var matchingMember = enumType.GetMembers().OfType<IFieldSymbol>().FirstOrDefault(member =>
-        member.HasConstantValue && Equals(member.ConstantValue, constant.Value)
-      );
-      var enumName = enumType.ToDisplayString(TypeDisplayFormat);
-      if (matchingMember is not null) {
-        expression = enumName + "." + EscapeIdentifier(matchingMember.Name);
-        return true;
-      }
-      if (TryFormatPrimitive(constant.Value, out var underlying)) {
-        expression = "(" + enumName + ")" + underlying;
-        return true;
-      }
-      expression = null;
-      return false;
+    if (constant.Kind != TypedConstantKind.Enum || constant.Type is not INamedTypeSymbol enumType)
+      return constant.Kind == TypedConstantKind.Primitive && TryFormatPrimitive(constant.Value, out expression);
+    var matchingMember = enumType.GetMembers().OfType<IFieldSymbol>().FirstOrDefault(member =>
+      member.HasConstantValue && Equals(member.ConstantValue, constant.Value)
+    );
+    var enumName = enumType.ToDisplayString(TypeDisplayFormat);
+    if (matchingMember is not null) {
+      expression = enumName + "." + EscapeIdentifier(matchingMember.Name);
+      return true;
     }
-    return constant.Kind == TypedConstantKind.Primitive &&
-      TryFormatPrimitive(constant.Value, out expression);
+    if (TryFormatPrimitive(constant.Value, out var underlying)) {
+      expression = "(" + enumName + ")" + underlying;
+      return true;
+    }
+    expression = null;
+    return false;
   }
 
   private static bool TryFormatPrimitive(object value, out string expression) {
@@ -526,8 +503,6 @@ internal readonly struct PropDefinition {
 }
 
 internal sealed class PropStructModel {
-  internal static PropStructModel Empty { get; } = new([], [], [], false, PropEqualityModel.None);
-
   internal PropStructModel(
     IReadOnlyList<string> parameterParts,
     IReadOnlyList<string> arguments,
@@ -545,6 +520,8 @@ internal sealed class PropStructModel {
     Datatype = datatype;
     PropertySymbols = propertySymbols ?? Array.Empty<ISymbol>();
   }
+
+  internal static PropStructModel Empty { get; } = new([], [], [], false, PropEqualityModel.None);
 
   internal IReadOnlyList<string> ParameterParts { get; }
   internal IReadOnlyList<string> ArgumentParts { get; }
@@ -608,11 +585,11 @@ internal sealed class PropDatatypeModel {
     builder.BlankLine();
     using (builder.Method(
       "static void " + Members.ConfigureDatatype,
-      new[] { structureDatatype + " datatype" },
+      [structureDatatype + " datatype"],
       false
-    )) {
-      foreach (var statement in configuration) builder.Statement(statement);
-    }
+    ))
+      foreach (var statement in configuration)
+        builder.Statement(statement);
   }
 
   private void AppendProperty(SharpStringBuilder builder, PropDatatypeProperty property) {
@@ -655,8 +632,6 @@ internal readonly struct PropDatatypeProperty {
 }
 
 internal sealed class PropEqualityModel {
-  internal static PropEqualityModel None { get; } = new(null, [], [], false, false, false, false, false);
-
   internal PropEqualityModel(
     string typeName,
     IReadOnlyList<string> comparisons,
@@ -676,6 +651,8 @@ internal sealed class PropEqualityModel {
     GenerateHashCode = generateHashCode;
     RequiresUnsafe = requiresUnsafe;
   }
+
+  internal static PropEqualityModel None { get; } = new(null, [], [], false, false, false, false, false);
 
   internal string TypeName { get; }
   internal IReadOnlyList<string> Comparisons { get; }

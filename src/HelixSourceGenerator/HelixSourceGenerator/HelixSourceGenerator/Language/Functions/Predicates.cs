@@ -1,4 +1,4 @@
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language.Functions;
 
 /// <summary>An executable boolean function in the unified function registry.</summary>
 internal abstract class PredicateFunctionDefinition : FunctionDefinition {
@@ -13,66 +13,96 @@ internal abstract class PredicateFunctionDefinition : FunctionDefinition {
 
 internal sealed class ExistsPredicate : PredicateFunctionDefinition {
   internal ExistsPredicate() : base("exists", 0) { }
+
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
-    result = value.Exists; error = null; return true;
+    result = value.Exists;
+    error = null;
+    return true;
   }
 }
 
 internal sealed class IsPredicate : PredicateFunctionDefinition {
   internal IsPredicate() : base("is", 1) { }
+
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
     if (string.IsNullOrWhiteSpace(invocation.Argument)) {
-      result = false; error = ":?is requires a type"; return false;
+      result = false;
+      error = ":?is requires a type";
+      return false;
     }
-    result = value.Is(invocation.Argument); error = null; return true;
+    result = value.Is(invocation.Argument);
+    error = null;
+    return true;
   }
 }
 
 internal sealed class HasPredicate : PredicateFunctionDefinition {
   internal HasPredicate() : base("has", 1) { }
+
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
     if (string.IsNullOrWhiteSpace(invocation.Argument)) {
-      result = false; error = ":?has requires a member"; return false;
+      result = false;
+      error = ":?has requires a member";
+      return false;
     }
     var property = (MixinExpressionProperty)invocation;
-    result = value.Has(property.Values[0]); error = null; return true;
+    result = value.Has(property.Values[0]);
+    error = null;
+    return true;
   }
 }
 
 internal sealed class EqualPredicate : PredicateFunctionDefinition {
   internal EqualPredicate() : base("eq", 1) { }
+
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
     var property = (MixinExpressionProperty)invocation;
-    result = value.EqualsTo(property.Values[0]); error = null; return true;
+    result = value.EqualsTo(property.Values[0]);
+    error = null;
+    return true;
   }
 }
 
 internal sealed class MatchesPredicate : PredicateFunctionDefinition {
   internal MatchesPredicate() : base("matches", 1) { }
+
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
-    result = value.Matches(invocation.Argument, out error); return error is null;
+    result = value.Matches(invocation.Argument, out error);
+    return error is null;
   }
 }
 
 internal sealed class SignaturePredicate : PredicateFunctionDefinition {
   internal SignaturePredicate() : base("signature", 1) { }
+
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
-    result = value.HasSameSignature(invocation.Argument); error = null; return true;
+    result = value.HasSameSignature(invocation.Argument);
+    error = null;
+    return true;
   }
 }
 
 internal sealed class WireablePredicate : PredicateFunctionDefinition {
   internal WireablePredicate() : base("wireable", 2) { }
+
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
-    result = value.IsWireable(invocation.Arguments[0], invocation.Arguments[1]); error = null; return true;
+    result = value.IsWireable(invocation.Arguments[0], invocation.Arguments[1]);
+    error = null;
+    return true;
   }
 }
 
 internal sealed class TraitPredicate : PredicateFunctionDefinition {
   private readonly MixinValueTrait _trait;
-  internal TraitPredicate(string name, MixinValueTrait trait) : base(name, 0) { _trait = trait; }
+
+  internal TraitPredicate(string name, MixinValueTrait trait) : base(name, 0) {
+    _trait = trait;
+  }
+
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
-    result = value.HasTrait(_trait); error = null; return true;
+    result = value.HasTrait(_trait);
+    error = null;
+    return true;
   }
 }
 
@@ -80,7 +110,10 @@ internal enum PropStructPredicateKind { HasEquality, NoArguments, Augmenting }
 
 internal sealed class PropStructPredicate : PredicateFunctionDefinition {
   private readonly PropStructPredicateKind _kind;
-  internal PropStructPredicate(string name, PropStructPredicateKind kind) : base(name, 0) { _kind = kind; }
+
+  internal PropStructPredicate(string name, PropStructPredicateKind kind) : base(name, 0) {
+    _kind = kind;
+  }
 
   internal override bool Evaluate(IMixinValue value, FunctionInvocation invocation, out bool result, out string error) {
     if (value.BackingValue is not MixinPropStructHandle propStruct) {

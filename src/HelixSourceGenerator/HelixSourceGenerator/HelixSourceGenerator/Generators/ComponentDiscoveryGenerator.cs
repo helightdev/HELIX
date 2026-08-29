@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using static HELIX.SourceGen.GeneratorAnalysis;
-using static HELIX.SourceGen.GeneratorSource;
-using static HELIX.SourceGen.GeneratorStrings;
+using static HelixSourceGenerator.Shared.GeneratorAnalysis;
+using static HelixSourceGenerator.Shared.GeneratorSource;
+using static HelixSourceGenerator.Shared.GeneratorStrings;
 
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Generators;
 
 [Generator(LanguageNames.CSharp)]
 public sealed class ComponentDiscoveryGenerator : IIncrementalGenerator {
@@ -71,7 +71,8 @@ public sealed class ComponentDiscoveryGenerator : IIncrementalGenerator {
         !HasTypeParameters(candidate) &&
         MatchesFilter(candidate, module.Filter) &&
         Attribute(candidate, Attributes.Managed) is not null &&
-        module.Compilation.IsSymbolAccessibleWithin(candidate, type))
+        module.Compilation.IsSymbolAccessibleWithin(candidate, type)
+      )
       .Distinct(SymbolEqualityComparer.Default)
       .OrderBy(candidate => candidate.ToDisplayString(TypeDisplayFormat), StringComparer.Ordinal)
       .ToArray();

@@ -4,46 +4,76 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using HelixSourceGenerator.Language.Functions;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
 using static MixinExpressionInterpreter;
 using static MixinExpressionCompiler;
 
 internal static class MixinExpressionEvaluator {
-  internal static string Keyword(this MixinExpressionRoot root) => root switch {
-    MixinExpressionRoot.Target => "target",
-    MixinExpressionRoot.This => "this",
-    MixinExpressionRoot.Attribute => "attr",
-    MixinExpressionRoot.Argument => "arg",
-    MixinExpressionRoot.Variable => "var",
-    MixinExpressionRoot.Local => "local",
-    MixinExpressionRoot.True => "true",
-    MixinExpressionRoot.False => "false",
-    MixinExpressionRoot.Null => "null",
-    MixinExpressionRoot.Table => "table",
-    MixinExpressionRoot.Parameter => "param",
-    MixinExpressionRoot.Carry => "carry",
-    _ => throw new ArgumentOutOfRangeException(nameof(root), root, null)
-  };
+  internal static string Keyword(this MixinExpressionRoot root) {
+    return root switch {
+      MixinExpressionRoot.Target => "target",
+      MixinExpressionRoot.This => "this",
+      MixinExpressionRoot.Attribute => "attr",
+      MixinExpressionRoot.Argument => "arg",
+      MixinExpressionRoot.Variable => "var",
+      MixinExpressionRoot.Local => "local",
+      MixinExpressionRoot.True => "true",
+      MixinExpressionRoot.False => "false",
+      MixinExpressionRoot.Null => "null",
+      MixinExpressionRoot.Table => "table",
+      MixinExpressionRoot.Parameter => "param",
+      MixinExpressionRoot.Carry => "carry",
+      _ => throw new ArgumentOutOfRangeException(nameof(root), root, null)
+    };
+  }
 
   private static bool TryParseRoot(string keyword, out MixinExpressionRoot root) {
     switch (keyword) {
-      case "target": root = MixinExpressionRoot.Target; return true;
-      case "this": root = MixinExpressionRoot.This; return true;
-      case "attr": root = MixinExpressionRoot.Attribute; return true;
-      case "arg": root = MixinExpressionRoot.Argument; return true;
-      case "var": root = MixinExpressionRoot.Variable; return true;
-      case "local": root = MixinExpressionRoot.Local; return true;
-      case "true": root = MixinExpressionRoot.True; return true;
-      case "false": root = MixinExpressionRoot.False; return true;
-      case "null": root = MixinExpressionRoot.Null; return true;
-      case "table": root = MixinExpressionRoot.Table; return true;
-      case "param": root = MixinExpressionRoot.Parameter; return true;
-      case "carry": root = MixinExpressionRoot.Carry; return true;
-      default: root = default; return false;
+      case "target":
+        root = MixinExpressionRoot.Target;
+        return true;
+      case "this":
+        root = MixinExpressionRoot.This;
+        return true;
+      case "attr":
+        root = MixinExpressionRoot.Attribute;
+        return true;
+      case "arg":
+        root = MixinExpressionRoot.Argument;
+        return true;
+      case "var":
+        root = MixinExpressionRoot.Variable;
+        return true;
+      case "local":
+        root = MixinExpressionRoot.Local;
+        return true;
+      case "true":
+        root = MixinExpressionRoot.True;
+        return true;
+      case "false":
+        root = MixinExpressionRoot.False;
+        return true;
+      case "null":
+        root = MixinExpressionRoot.Null;
+        return true;
+      case "table":
+        root = MixinExpressionRoot.Table;
+        return true;
+      case "param":
+        root = MixinExpressionRoot.Parameter;
+        return true;
+      case "carry":
+        root = MixinExpressionRoot.Carry;
+        return true;
+      default:
+        root = default;
+        return false;
     }
   }
+
   internal static bool TryResolveDirectiveArgument(
     string argument,
     IMixinExpressionContext context,
@@ -236,7 +266,9 @@ internal static class MixinExpressionEvaluator {
       if (context is IMixinExpressionValueContext valueContext) {
         MixinExpressionRoot? renderRoot = part.Reference.Properties.Any(item =>
           !IsBooleanProperty(item) && item.Name == "type"
-        ) ? null : part.Reference.Root;
+        )
+          ? null
+          : part.Reference.Root;
         if (!valueContext.TryRenderValue(value, renderRoot, out var rendered, out error)) {
           result = null;
           return false;
@@ -272,7 +304,9 @@ internal static class MixinExpressionEvaluator {
       if (context is IMixinExpressionValueContext valueContext) {
         MixinExpressionRoot? renderRoot = part.Reference.Properties.Any(item =>
           !IsBooleanProperty(item) && item.Name == "type"
-        ) ? null : part.Reference.Root;
+        )
+          ? null
+          : part.Reference.Root;
         if (!valueContext.TryRenderValue(value, renderRoot, out rendered, out error)) {
           result = null;
           return false;
@@ -373,7 +407,9 @@ internal static class MixinExpressionEvaluator {
         MixinExpressionRoot.Null => null,
         MixinExpressionRoot.Table => new MixinExpressionTable(),
         MixinExpressionRoot.Parameter => locals.TryGetValue(ParameterLocalKey, out var parameter) ? parameter : null,
-        MixinExpressionRoot.Carry => variables.TryGetValue(CarryLocalPrefix + (reference.Member ?? ""), out var carried) ? carried : null,
+        MixinExpressionRoot.Carry => variables.TryGetValue(CarryLocalPrefix + (reference.Member ?? ""), out var carried)
+          ? carried
+          : null,
         _ => null
       };
       if (reference.Root != MixinExpressionRoot.Carry && !string.IsNullOrEmpty(reference.Member)) {
@@ -783,7 +819,8 @@ internal static class MixinExpressionEvaluator {
     value = accumulated;
     error = null;
     foreach (var property in request.RemainingProperties ?? Array.Empty<MixinExpressionProperty>())
-      if (!FunctionLibrary.TryInvoke(property, context, "table", null, ref value, out error)) return false;
+      if (!FunctionLibrary.TryInvoke(property, context, "table", null, ref value, out error))
+        return false;
     return true;
   }
 

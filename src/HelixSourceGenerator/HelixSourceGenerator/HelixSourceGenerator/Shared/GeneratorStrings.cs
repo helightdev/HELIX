@@ -1,4 +1,4 @@
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Shared;
 
 internal static class GeneratorStrings {
   internal const string DiagnosticCategory = "HELIX";
@@ -23,8 +23,7 @@ internal static class GeneratorStrings {
       UnityColor = "UnityEngine.Color",
       UnityVector2 = "UnityEngine.Vector2",
       UnityVector3 = "UnityEngine.Vector3",
-      UnityVector4 = "UnityEngine.Vector4"
-      ;
+      UnityVector4 = "UnityEngine.Vector4";
   }
 
   internal static class Members {
@@ -65,7 +64,5 @@ internal static class GeneratorStrings {
 }
 
 internal static class MixinGeneratorCandidates {
-  internal static readonly string[] AttributeMetadataNames = [
-    GeneratorStrings.Attributes.Mixable
-  ];
+  internal static readonly string[] AttributeMetadataNames = [GeneratorStrings.Attributes.Mixable];
 }

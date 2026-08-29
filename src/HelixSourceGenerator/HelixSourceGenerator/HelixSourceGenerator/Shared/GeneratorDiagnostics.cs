@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
-using static HELIX.SourceGen.GeneratorStrings;
+using static HelixSourceGenerator.Shared.GeneratorStrings;
 
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Shared;
 
 internal static class GeneratorDiagnostics {
   private static DiagnosticDescriptor Error(string id, string title, string message) {
@@ -54,8 +54,6 @@ internal static class GeneratorDiagnostics {
   }
 
   internal static class Mixins {
-    internal const double ExpressionHintThresholdMilliseconds = 1d; // This is very high and should never happen
-
     internal static readonly DiagnosticDescriptor
       MustBePartial = Error(
         "HLXM00", "Mixin target must be partial",

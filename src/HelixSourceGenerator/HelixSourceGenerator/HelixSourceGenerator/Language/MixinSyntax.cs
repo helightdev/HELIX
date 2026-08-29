@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
 public abstract class MixinSyntaxNode {
   protected MixinSyntaxNode(int line) {

@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using HELIX.SourceGen.Expressions;
+using HelixSourceGenerator.Language;
 using Xunit;
 
 namespace HELIX.SourceGen.Tests;

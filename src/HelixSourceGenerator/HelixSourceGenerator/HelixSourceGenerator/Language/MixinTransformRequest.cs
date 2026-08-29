@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using HelixSourceGenerator.Language.Functions;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
 /// <summary>A suspended table-transform property pipeline resumed by the VM.</summary>
 internal sealed class MixinTransformRequest {

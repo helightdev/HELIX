@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
 internal static class MixinExpressionParser {
   internal static string[] SplitLines(string expression) {
@@ -28,7 +28,10 @@ internal static class MixinExpressionParser {
           }
         }
       }
-      continuedLine = marker + 1 < line.Length && line[marker] == '@' && (char.IsLetter(line[marker + 1]) || line[marker + 1] == '_') ? index : -1;
+      continuedLine =
+        marker + 1 < line.Length && line[marker] == '@' && (char.IsLetter(line[marker + 1]) || line[marker + 1] == '_')
+          ? index
+          : -1;
     }
     return lines;
   }
@@ -53,7 +56,8 @@ internal static class MixinExpressionParser {
 
   private static bool ValidateOperand(DirectiveDefinition directive, string operand, out string error) {
     switch (directive.OperandKind) {
-      case DirectiveOperandKind.Boolean: return MixinExpressionCompiler.ValidateBooleanExpressionSyntax(operand, out error);
+      case DirectiveOperandKind.Boolean:
+        return MixinExpressionCompiler.ValidateBooleanExpressionSyntax(operand, out error);
       case DirectiveOperandKind.Value: return MixinExpressionCompiler.ValidateValueExpressionSyntax(operand, out error);
       case DirectiveOperandKind.None:
       default:

@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using HELIX.SourceGen.Expressions;
+using HelixSourceGenerator.Shared;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using static HELIX.SourceGen.GeneratorAnalysis;
-using static HELIX.SourceGen.GeneratorDiagnostics.Mixins;
-using static HELIX.SourceGen.GeneratorStrings;
+using static HelixSourceGenerator.Shared.GeneratorAnalysis;
+using static HelixSourceGenerator.Shared.GeneratorDiagnostics.Mixins;
+using static HelixSourceGenerator.Shared.GeneratorStrings;
 
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Language;
 
 /// <summary>Evaluates attribute mixins for generated prop-structure datatype configuration.</summary>
 internal static class PropStructMixinApi {
@@ -31,11 +31,12 @@ internal static class PropStructMixinApi {
       production, type, type, compilation, preparedExpressions, variables,
       targetDefinitions, model, ref sequence, libraries
     );
-    foreach (var property in properties)
+    foreach (var property in properties) {
       EvaluateSymbol(
         production, type, property, compilation, preparedExpressions, variables,
         targetDefinitions, model, ref sequence, libraries
       );
+    }
     model.SortConfiguration();
     return model;
   }
@@ -60,7 +61,7 @@ internal static class PropStructMixinApi {
     foreach (var owner in owners) {
       foreach (var applied in OrderedAttributes(owner)) {
         if (applied.AttributeClass is not { } attributeType) continue;
-        if (attributeType.ToDisplayString() == GeneratorStrings.Attributes.Structure) continue;
+        if (attributeType.ToDisplayString() == Attributes.Structure) continue;
         foreach (var expressionAttribute in MixinLibraryApi.Annotations(attributeType, libraries)) {
           var expression = expressionAttribute.Prelude + expressionAttribute.Expression;
           const int order = 0;
@@ -199,21 +200,22 @@ internal static class PropStructMixinApi {
     MixinLibraryCatalog libraries
   ) {
     var result = new Dictionary<string, string>(StringComparer.Ordinal) {
-      ["$Init"] = "*" + ConfigureTarget,
-      ["$Configure"] = "*" + ConfigureTarget
+      ["$Init"] = "*" + ConfigureTarget, ["$Configure"] = "*" + ConfigureTarget
     };
     foreach (var owner in new ISymbol[] { type }.Concat(properties))
-      foreach (var applied in OrderedAttributes(owner))
-        foreach (var annotation in MixinLibraryApi.Annotations(applied.AttributeClass, libraries))
-          foreach (var definition in annotation.TargetDefinitions)
-            result[definition.Key] = definition.Value;
+    foreach (var applied in OrderedAttributes(owner))
+    foreach (var annotation in MixinLibraryApi.Annotations(applied.AttributeClass, libraries))
+    foreach (var definition in annotation.TargetDefinitions)
+      result[definition.Key] = definition.Value;
     return result;
   }
 
-  private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) => symbol.GetAttributes()
-    .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
-    .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
-    .ToArray();
+  private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) {
+    return symbol.GetAttributes()
+      .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
+      .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
+      .ToArray();
+  }
 
   private static void ReportFailure(
     SourceProductionContext production,
@@ -221,28 +223,31 @@ internal static class PropStructMixinApi {
     string attribute,
     string annotated,
     string failure
-  ) => production.ReportDiagnostic(
-    Diagnostic.Create(InvalidAttributeExpression, location, attribute, annotated, failure)
-  );
+  ) {
+    production.ReportDiagnostic(
+      Diagnostic.Create(InvalidAttributeExpression, location, attribute, annotated, failure)
+    );
+  }
 
   private static void ReportLogs(
     SourceProductionContext production,
     Location location,
     IReadOnlyList<MixinExpressionLog> logs
   ) {
-    foreach (var log in logs)
+    foreach (var log in logs) {
       production.ReportDiagnostic(
         Diagnostic.Create(log.IsHint ? ExpressionHint : ExpressionLog, location, log.Text)
       );
+    }
   }
 }
 
 internal sealed class PropStructMixinModel {
-  private readonly List<ConfigurationOutput> _configuration = new();
+  private readonly List<string> _annotations = new();
   private readonly List<string> _class = new();
+  private readonly List<ConfigurationOutput> _configuration = new();
   private readonly List<string> _file = new();
   private readonly List<string> _implements = new();
-  private readonly List<string> _annotations = new();
   private readonly List<string> _usings = new();
 
   internal IReadOnlyList<string> Configuration => _configuration.Select(item => item.Text).ToArray();
@@ -252,14 +257,17 @@ internal sealed class PropStructMixinModel {
   internal IReadOnlyList<string> Annotations => _annotations;
   internal IReadOnlyList<string> Usings => _usings;
 
-  internal void AddConfiguration(string text, int order, int sequence) =>
+  internal void AddConfiguration(string text, int order, int sequence) {
     _configuration.Add(new ConfigurationOutput(text, order, sequence));
+  }
 
-  internal void SortConfiguration() => _configuration.Sort((left, right) => {
-      var order = left.Order.CompareTo(right.Order);
-      return order != 0 ? order : left.Sequence.CompareTo(right.Sequence);
-    }
-  );
+  internal void SortConfiguration() {
+    _configuration.Sort((left, right) => {
+        var order = left.Order.CompareTo(right.Order);
+        return order != 0 ? order : left.Sequence.CompareTo(right.Sequence);
+      }
+    );
+  }
 
   internal void AddOutput(MixinExpressionOutput output) {
     var text = output.Text.Trim();

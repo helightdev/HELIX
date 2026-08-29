@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text.RegularExpressions;
-using HELIX.SourceGen.Expressions;
+using HelixSourceGenerator.Language.Functions;
+using HelixSourceGenerator.Shared;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using static HELIX.SourceGen.GeneratorAnalysis;
+using static HelixSourceGenerator.Shared.GeneratorAnalysis;
 
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Language;
 
 internal sealed class ImplicitMixinValue {
   internal ImplicitMixinValue(ITypeSymbol type, object value) {
@@ -53,20 +53,17 @@ internal sealed class RoslynMixinExpressionContext :
     SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
       SymbolDisplayGenericsOptions.IncludeTypeParameters
     );
-
-  private readonly INamedTypeSymbol _thisType;
-  internal INamedTypeSymbol CurrentType => _thisType;
-  private readonly ISymbol _target;
-  private readonly AttributeData _attribute;
-  private readonly INamedTypeSymbol _implicitAttributeType;
-  private readonly IReadOnlyDictionary<string, ImplicitMixinValue> _implicitValues;
   private readonly IReadOnlyList<IParameterSymbol> _arguments;
+  private readonly AttributeData _attribute;
   private readonly CSharpCompilation _compilation;
-  private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
-  private readonly MixinExpressionPreparedState _preparedExpressions;
-  private readonly MixinLibraryCatalog _libraries;
   private readonly Dictionary<string, MixinGeneratedStructReference> _generatedStructs =
     new(StringComparer.Ordinal);
+  private readonly INamedTypeSymbol _implicitAttributeType;
+  private readonly IReadOnlyDictionary<string, ImplicitMixinValue> _implicitValues;
+  private readonly MixinLibraryCatalog _libraries;
+  private readonly MixinExpressionPreparedState _preparedExpressions;
+  private readonly ISymbol _target;
+  private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
 
   internal RoslynMixinExpressionContext(
     INamedTypeSymbol thisType,
@@ -80,7 +77,7 @@ internal sealed class RoslynMixinExpressionContext :
     MixinExpressionPreparedState preparedExpressions = null,
     MixinLibraryCatalog libraries = null
   ) {
-    _thisType = thisType;
+    CurrentType = thisType;
     _target = target;
     _attribute = attribute;
     _arguments = arguments ?? Array.Empty<IParameterSymbol>();
@@ -92,85 +89,7 @@ internal sealed class RoslynMixinExpressionContext :
     _libraries = libraries;
   }
 
-  public bool TryResolve(
-    MixinExpressionReference reference,
-    out string value,
-    out string error
-  ) {
-    if (!TryResolveValue(reference, out var subject, out error)) {
-      value = null;
-      return false;
-    }
-    MixinExpressionRoot? renderRoot = reference.Properties.Any(
-      item => !IsPredicate(item) && item.Name == "type"
-    )
-      ? null
-      : reference.Root;
-    return TryRender(subject, renderRoot, out value, out error);
-  }
-
-  public bool TryResolveValue(
-    MixinExpressionReference reference,
-    out object value,
-    out string error
-  ) {
-    if (!TrySubject(reference, out value, out error) ||
-      !ApplyValueProperties(reference, ref value, out error)) return false;
-    if (!reference.Properties.Any(IsPredicate)) return true;
-    value = null;
-    error = "boolean pseudo-properties cannot be used as values";
-    return false;
-  }
-
-  public bool TryRenderValue(
-    object value, MixinExpressionRoot? root, out string text, out string error
-  ) =>
-    TryRender(value, root, out text, out error);
-
-  public bool TryEvaluate(
-    MixinExpressionReference reference,
-    out bool value,
-    out string error
-  ) {
-    value = false;
-    var predicates = reference.Properties.Where(IsPredicate).ToArray();
-    if (!TrySubject(reference, out var subject, out error) ||
-      !ApplyValueProperties(reference, ref subject, out error)) {
-      if (IsDeveloperExpressionError(error)) return false;
-      error = null;
-      if (predicates.Length == 0) {
-        value = false;
-        return true;
-      }
-      value = true;
-      foreach (var predicate in predicates) {
-        if (!TryEvaluatePredicate(null, predicate, out var item, out error)) return false;
-        value &= predicate.Negated ? !item : item;
-      }
-      return true;
-    }
-    if (predicates.Length == 0) {
-      value = IsTruthy(subject);
-      return true;
-    }
-    value = true;
-    foreach (var predicate in predicates) {
-      if (!TryEvaluatePredicate(subject, predicate, out var item, out error)) return false;
-      value &= predicate.Negated ? !item : item;
-    }
-    return true;
-  }
-
-  public bool TryCreatePropStruct(
-    string structName,
-    MixinExpressionReference syntaxTarget,
-    out object handle,
-    out string declaration,
-    out string error
-  ) => TryCreatePropStruct(
-    structName, syntaxTarget, false, true,
-    out handle, out declaration, out error
-  );
+  internal INamedTypeSymbol CurrentType { get; }
 
   public bool TryCreatePropStruct(
     string structName,
@@ -198,20 +117,22 @@ internal sealed class RoslynMixinExpressionContext :
         return false;
       case IMethodSymbol method:
         props = method.Parameters.Select(parameter => new PropDefinition(
-          parameter,
-          parameter.Type,
-          parameter.Name,
-          Attribute(parameter, GeneratorStrings.Attributes.Prop),
-          parameter.RefKind
-        )).ToArray();
+            parameter,
+            parameter.Type,
+            parameter.Name,
+            Attribute(parameter, GeneratorStrings.Attributes.Prop),
+            parameter.RefKind
+          )
+        ).ToArray();
         break;
       case INamedTypeSymbol type:
         props = InstanceFields(type).Select(field => new PropDefinition(
-          field,
-          field.Type,
-          field.Name,
-          Attribute(field, GeneratorStrings.Attributes.Prop)
-        )).ToArray();
+            field,
+            field.Type,
+            field.Name,
+            Attribute(field, GeneratorStrings.Attributes.Prop)
+          )
+        ).ToArray();
         break;
       default:
         error = "PROP_STRUCT syntax target must resolve to a method or named type";
@@ -227,30 +148,30 @@ internal sealed class RoslynMixinExpressionContext :
 
     IReadOnlyList<string> configuration = Array.Empty<string>();
     if (generateDatatype && !PropStructMixinApi.TryAnalyzeInlineConfiguration(
-        _thisType,
-        props.Select(prop => prop.Symbol).ToArray(),
-        _compilation,
-        _preparedExpressions,
-        _libraries,
-        out configuration,
-        out error
-      )) return false;
+      CurrentType,
+      props.Select(prop => prop.Symbol).ToArray(),
+      _compilation,
+      _preparedExpressions,
+      _libraries,
+      out configuration,
+      out error
+    )) return false;
 
     var escapedName = EscapeIdentifier(structName);
     var builder = new SharpStringBuilder();
     using (builder.Type("public struct " + escapedName)) {
-      foreach (var prop in props)
+      foreach (var prop in props) {
         builder.Field(
           "public",
           prop.Type.ToDisplayString(TypeDisplayFormat),
           EscapeIdentifier(prop.Name)
         );
+      }
       if (model.ParameterParts.Count > 0) {
         builder.BlankLine();
         using (builder.Method(
           "public" + (model.RequiresUnsafe ? " unsafe " : " ") + escapedName,
-          model.ParameterParts,
-          true
+          model.ParameterParts
         )) model.AppendAssignments(builder, "this");
       }
       if (generateDatatype) {
@@ -263,121 +184,17 @@ internal sealed class RoslynMixinExpressionContext :
     return true;
   }
 
-  public bool TryAugmentPropStruct(
+  public bool TryCreatePropStruct(
+    string structName,
     MixinExpressionReference syntaxTarget,
     out object handle,
     out string declaration,
     out string error
   ) {
-    handle = null;
-    declaration = null;
-    error = null;
-    if (syntaxTarget.Properties.Count != 0) {
-      error = "AUGMENT_STRUCT syntax target cannot have properties";
-      return false;
-    }
-    if (syntaxTarget.Root == MixinExpressionRoot.This && !string.IsNullOrEmpty(syntaxTarget.Member) &&
-      _thisType.GetMembers(syntaxTarget.Member).Length == 0) {
-      if (!IsValidIdentifier(syntaxTarget.Member)) {
-        error = "struct name '" + syntaxTarget.Member + "' is not a valid identifier";
-        return false;
-      }
-      var name = EscapeIdentifier(syntaxTarget.Member);
-      var generated = new MixinGeneratedStructReference(
-        syntaxTarget.Member,
-        _thisType.ToDisplayString(TypeDisplayFormat) + "." + name
-      );
-      _generatedStructs[syntaxTarget.Member] = generated;
-      handle = new MixinPropStructHandle(
-        Array.Empty<PropDefinition>(), PropStructModel.Empty, true
-      );
-      declaration = "public struct " + name + " { }";
-      return true;
-    }
-    if (!TrySubject(syntaxTarget, out var subject, out error)) return false;
-    if (subject is not INamedTypeSymbol { TypeKind: TypeKind.Struct } type) {
-      error = "AUGMENT_STRUCT syntax target must resolve to a struct";
-      return false;
-    }
-    var augmentingThis = SymbolEqualityComparer.Default.Equals(type, _thisType);
-    if (augmentingThis) {
-      if (!IsPartial(type)) {
-        error = "struct '" + type.Name + "' must be partial to be augmented";
-        return false;
-      }
-      var generateDatatype = _attribute?.AttributeClass?.ToDisplayString() ==
-        GeneratorStrings.Attributes.Structure &&
-        _attribute.ConstructorArguments.Length > 0 &&
-        _attribute.ConstructorArguments[0].Value is true;
-      if (!PropStructApi.TryAnalyze(type, out var selfModel, out var selfDiagnostic, generateDatatype)) {
-        error = selfDiagnostic.GetMessage(CultureInfo.InvariantCulture);
-        return false;
-      }
-      var selfProps = InstanceFields(type).Select(field => new PropDefinition(
-        field,
-        field.Type,
-        field.Name,
-        Attribute(field, GeneratorStrings.Attributes.Prop)
-      )).ToArray();
-      IReadOnlyList<string> configuration = Array.Empty<string>();
-      if (generateDatatype && !PropStructMixinApi.TryAnalyzeInlineConfiguration(
-          type, selfProps.Select(prop => prop.Symbol).ToArray(), _compilation,
-          _preparedExpressions, _libraries, out configuration, out error,
-          includeTypeConfiguration: true
-        )) return false;
-      var selfBuilder = new SharpStringBuilder();
-      if (selfModel.ParameterParts.Count > 0) {
-        using (selfBuilder.Method(
-          AccessibilityText(type.DeclaredAccessibility) +
-          (selfModel.RequiresUnsafe ? " unsafe " : " ") + EscapeIdentifier(type.Name),
-          selfModel.ParameterParts,
-          true
-        )) selfModel.AppendAssignments(selfBuilder, "this");
-      }
-      selfModel.Equality.AppendMembers(selfBuilder);
-      if (selfModel.Datatype is not null) {
-        selfBuilder.BlankLine();
-        selfModel.Datatype.AppendMember(selfBuilder, configuration);
-      }
-      handle = new MixinPropStructHandle(selfProps, selfModel, true);
-      declaration = selfBuilder.ToString();
-      return true;
-    }
-    if (!SymbolEqualityComparer.Default.Equals(type.ContainingType, _thisType)) {
-      error = "AUGMENT_STRUCT syntax target must be a struct nested directly in the current type";
-      return false;
-    }
-    if (!IsPartial(type)) {
-      error = "struct '" + type.Name + "' must be partial to be augmented";
-      return false;
-    }
-    if (!PropStructApi.TryAnalyze(type, out var model, out var diagnostic)) {
-      error = diagnostic.GetMessage(CultureInfo.InvariantCulture);
-      return false;
-    }
-
-    var props = InstanceFields(type).Select(field => new PropDefinition(
-      field,
-      field.Type,
-      field.Name,
-      Attribute(field, GeneratorStrings.Attributes.Prop)
-    )).ToArray();
-    var builder = new SharpStringBuilder();
-    using (builder.Type("partial struct " + EscapeIdentifier(type.Name))) {
-      if (model.ParameterParts.Count > 0) {
-        using (builder.Method(
-          AccessibilityText(type.DeclaredAccessibility) +
-          (model.RequiresUnsafe ? " unsafe " : " ") +
-          EscapeIdentifier(type.Name),
-          model.ParameterParts,
-          true
-        )) model.AppendAssignments(builder, "this");
-      }
-      model.Equality.AppendMembers(builder);
-    }
-    handle = new MixinPropStructHandle(props, model, true);
-    declaration = builder.ToString();
-    return true;
+    return TryCreatePropStruct(
+      structName, syntaxTarget, false, true,
+      out handle, out declaration, out error
+    );
   }
 
   public bool TryApplyPropStructProperty(
@@ -425,24 +242,17 @@ internal sealed class RoslynMixinExpressionContext :
       return false;
     }
     var arguments = propStruct.Props.Select(prop => {
-      var modifier = prop.RefKind switch {
-        RefKind.Ref => "ref ",
-        RefKind.Out => "out ",
-        RefKind.In => "in ",
-        _ => ""
-      };
-      return modifier + variable + "." + EscapeIdentifier(prop.Name);
-    });
+        var modifier = prop.RefKind switch {
+          RefKind.Ref => "ref ",
+          RefKind.Out => "out ",
+          RefKind.In => "in ",
+          _ => ""
+        };
+        return modifier + variable + "." + EscapeIdentifier(prop.Name);
+      }
+    );
     value = target + "(" + string.Join(", ", arguments) + ")";
     return true;
-  }
-
-  private static string JoinStructParts(string prefix, IReadOnlyList<string> parts) {
-    var hasPrefix = !string.IsNullOrWhiteSpace(prefix);
-    if (!hasPrefix) return string.Join(", ", parts);
-    return parts.Count == 0
-      ? prefix
-      : prefix + ", " + string.Join(", ", parts);
   }
 
   public bool TryResolveMixin(string target, out string callable, out string error) {
@@ -462,7 +272,7 @@ internal sealed class RoslynMixinExpressionContext :
       callable = resolvedDelegate.ToDisplayString(TypeDisplayFormat);
       return true;
     }
-    var methods = MethodsInHierarchy(_thisType, name).ToArray();
+    var methods = MethodsInHierarchy(CurrentType, name).ToArray();
     if (methods.Length == 1) callable = CallableReference(methods[0]);
     return true;
   }
@@ -511,6 +321,200 @@ internal sealed class RoslynMixinExpressionContext :
     return true;
   }
 
+  public bool TryAugmentPropStruct(
+    MixinExpressionReference syntaxTarget,
+    out object handle,
+    out string declaration,
+    out string error
+  ) {
+    handle = null;
+    declaration = null;
+    error = null;
+    if (syntaxTarget.Properties.Count != 0) {
+      error = "AUGMENT_STRUCT syntax target cannot have properties";
+      return false;
+    }
+    if (syntaxTarget.Root == MixinExpressionRoot.This && !string.IsNullOrEmpty(syntaxTarget.Member) &&
+      CurrentType.GetMembers(syntaxTarget.Member).Length == 0) {
+      if (!IsValidIdentifier(syntaxTarget.Member)) {
+        error = "struct name '" + syntaxTarget.Member + "' is not a valid identifier";
+        return false;
+      }
+      var name = EscapeIdentifier(syntaxTarget.Member);
+      var generated = new MixinGeneratedStructReference(
+        syntaxTarget.Member,
+        CurrentType.ToDisplayString(TypeDisplayFormat) + "." + name
+      );
+      _generatedStructs[syntaxTarget.Member] = generated;
+      handle = new MixinPropStructHandle(
+        Array.Empty<PropDefinition>(), PropStructModel.Empty, true
+      );
+      declaration = "public struct " + name + " { }";
+      return true;
+    }
+    if (!TrySubject(syntaxTarget, out var subject, out error)) return false;
+    if (subject is not INamedTypeSymbol { TypeKind: TypeKind.Struct } type) {
+      error = "AUGMENT_STRUCT syntax target must resolve to a struct";
+      return false;
+    }
+    var augmentingThis = SymbolEqualityComparer.Default.Equals(type, CurrentType);
+    if (augmentingThis) {
+      if (!IsPartial(type)) {
+        error = "struct '" + type.Name + "' must be partial to be augmented";
+        return false;
+      }
+      var generateDatatype = _attribute?.AttributeClass?.ToDisplayString() ==
+        GeneratorStrings.Attributes.Structure &&
+        _attribute.ConstructorArguments.Length > 0 &&
+        _attribute.ConstructorArguments[0].Value is true;
+      if (!PropStructApi.TryAnalyze(type, out var selfModel, out var selfDiagnostic, generateDatatype)) {
+        error = selfDiagnostic.GetMessage(CultureInfo.InvariantCulture);
+        return false;
+      }
+      var selfProps = InstanceFields(type).Select(field => new PropDefinition(
+          field,
+          field.Type,
+          field.Name,
+          Attribute(field, GeneratorStrings.Attributes.Prop)
+        )
+      ).ToArray();
+      IReadOnlyList<string> configuration = Array.Empty<string>();
+      if (generateDatatype && !PropStructMixinApi.TryAnalyzeInlineConfiguration(
+        type, selfProps.Select(prop => prop.Symbol).ToArray(), _compilation,
+        _preparedExpressions, _libraries, out configuration, out error,
+        true
+      )) return false;
+      var selfBuilder = new SharpStringBuilder();
+      if (selfModel.ParameterParts.Count > 0) {
+        using (selfBuilder.Method(
+          AccessibilityText(type.DeclaredAccessibility) +
+          (selfModel.RequiresUnsafe ? " unsafe " : " ") + EscapeIdentifier(type.Name),
+          selfModel.ParameterParts
+        )) selfModel.AppendAssignments(selfBuilder, "this");
+      }
+      selfModel.Equality.AppendMembers(selfBuilder);
+      if (selfModel.Datatype is not null) {
+        selfBuilder.BlankLine();
+        selfModel.Datatype.AppendMember(selfBuilder, configuration);
+      }
+      handle = new MixinPropStructHandle(selfProps, selfModel, true);
+      declaration = selfBuilder.ToString();
+      return true;
+    }
+    if (!SymbolEqualityComparer.Default.Equals(type.ContainingType, CurrentType)) {
+      error = "AUGMENT_STRUCT syntax target must be a struct nested directly in the current type";
+      return false;
+    }
+    if (!IsPartial(type)) {
+      error = "struct '" + type.Name + "' must be partial to be augmented";
+      return false;
+    }
+    if (!PropStructApi.TryAnalyze(type, out var model, out var diagnostic)) {
+      error = diagnostic.GetMessage(CultureInfo.InvariantCulture);
+      return false;
+    }
+
+    var props = InstanceFields(type).Select(field => new PropDefinition(
+        field,
+        field.Type,
+        field.Name,
+        Attribute(field, GeneratorStrings.Attributes.Prop)
+      )
+    ).ToArray();
+    var builder = new SharpStringBuilder();
+    using (builder.Type("partial struct " + EscapeIdentifier(type.Name))) {
+      if (model.ParameterParts.Count > 0) {
+        using (builder.Method(
+          AccessibilityText(type.DeclaredAccessibility) +
+          (model.RequiresUnsafe ? " unsafe " : " ") +
+          EscapeIdentifier(type.Name),
+          model.ParameterParts
+        )) model.AppendAssignments(builder, "this");
+      }
+      model.Equality.AppendMembers(builder);
+    }
+    handle = new MixinPropStructHandle(props, model, true);
+    declaration = builder.ToString();
+    return true;
+  }
+
+  public bool TryResolve(
+    MixinExpressionReference reference,
+    out string value,
+    out string error
+  ) {
+    if (!TryResolveValue(reference, out var subject, out error)) {
+      value = null;
+      return false;
+    }
+    MixinExpressionRoot? renderRoot = reference.Properties.Any(item => !IsPredicate(item) && item.Name == "type"
+    )
+      ? null
+      : reference.Root;
+    return TryRender(subject, renderRoot, out value, out error);
+  }
+
+  public bool TryResolveValue(
+    MixinExpressionReference reference,
+    out object value,
+    out string error
+  ) {
+    if (!TrySubject(reference, out value, out error) ||
+      !ApplyValueProperties(reference, ref value, out error)) return false;
+    if (!reference.Properties.Any(IsPredicate)) return true;
+    value = null;
+    error = "boolean pseudo-properties cannot be used as values";
+    return false;
+  }
+
+  public bool TryRenderValue(
+    object value, MixinExpressionRoot? root, out string text, out string error
+  ) {
+    return TryRender(value, root, out text, out error);
+  }
+
+  public bool TryEvaluate(
+    MixinExpressionReference reference,
+    out bool value,
+    out string error
+  ) {
+    value = false;
+    var predicates = reference.Properties.Where(IsPredicate).ToArray();
+    if (!TrySubject(reference, out var subject, out error) ||
+      !ApplyValueProperties(reference, ref subject, out error)) {
+      if (IsDeveloperExpressionError(error)) return false;
+      error = null;
+      if (predicates.Length == 0) {
+        value = false;
+        return true;
+      }
+      value = true;
+      foreach (var predicate in predicates) {
+        if (!TryEvaluatePredicate(null, predicate, out var item, out error)) return false;
+        value &= predicate.Negated ? !item : item;
+      }
+      return true;
+    }
+    if (predicates.Length == 0) {
+      value = IsTruthy(subject);
+      return true;
+    }
+    value = true;
+    foreach (var predicate in predicates) {
+      if (!TryEvaluatePredicate(subject, predicate, out var item, out error)) return false;
+      value &= predicate.Negated ? !item : item;
+    }
+    return true;
+  }
+
+  private static string JoinStructParts(string prefix, IReadOnlyList<string> parts) {
+    var hasPrefix = !string.IsNullOrWhiteSpace(prefix);
+    if (!hasPrefix) return string.Join(", ", parts);
+    return parts.Count == 0
+      ? prefix
+      : prefix + ", " + string.Join(", ", parts);
+  }
+
   private bool TrySubject(
     MixinExpressionReference reference,
     out object subject,
@@ -519,7 +523,7 @@ internal sealed class RoslynMixinExpressionContext :
     subject = null;
     error = null;
     switch (reference.Root) {
-      case MixinExpressionRoot.This: subject = _thisType; break;
+      case MixinExpressionRoot.This: subject = CurrentType; break;
       case MixinExpressionRoot.Target: subject = _target; break;
       case MixinExpressionRoot.Attribute: subject = (object)_attribute ?? _implicitAttributeType; break;
       case MixinExpressionRoot.Argument:
@@ -566,14 +570,16 @@ internal sealed class RoslynMixinExpressionContext :
       return null;
     }
     if (subject is AttributeData attribute) {
-      foreach (var named in attribute.NamedArguments)
+      foreach (var named in attribute.NamedArguments) {
         if (string.Equals(named.Key, name, StringComparison.OrdinalIgnoreCase))
           return named.Value;
+      }
       if (attribute.AttributeConstructor is { } constructor) {
         for (var index = 0; index < constructor.Parameters.Length && index < attribute.ConstructorArguments.Length;
-          index++)
+          index++) {
           if (string.Equals(constructor.Parameters[index].Name, name, StringComparison.OrdinalIgnoreCase))
             return attribute.ConstructorArguments[index];
+        }
       }
       if (TryDefaultAttributeMember(attribute.AttributeClass, name, out var defaultValue)) return defaultValue;
       return null;
@@ -582,7 +588,7 @@ internal sealed class RoslynMixinExpressionContext :
       return method.Parameters.FirstOrDefault(item => item.Name == name) ??
         method.Parameters.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
     }
-    if (SymbolEqualityComparer.Default.Equals(subject as ISymbol, _thisType) &&
+    if (SymbolEqualityComparer.Default.Equals(subject as ISymbol, CurrentType) &&
       _generatedStructs.TryGetValue(name, out var generatedStruct)) return generatedStruct;
     var type = AsType(subject);
     if (type is null) return null;
@@ -594,7 +600,9 @@ internal sealed class RoslynMixinExpressionContext :
     return null;
   }
 
-  internal object SelectValueMember(object subject, string name) => SelectMember(subject, name);
+  internal object SelectValueMember(object subject, string name) {
+    return SelectMember(subject, name);
+  }
 
   private bool TryDefaultAttributeMember(
     INamedTypeSymbol attributeType,
@@ -648,10 +656,12 @@ internal sealed class RoslynMixinExpressionContext :
     return true;
   }
 
-  internal bool IsGeneratedStructType(string name) => _generatedStructs.Values.Any(item =>
-    string.Equals(item.TypeName, name, StringComparison.Ordinal) ||
-    string.Equals(item.TypeName.Replace("global::", ""), name.Replace("global::", ""), StringComparison.Ordinal)
-  );
+  internal bool IsGeneratedStructType(string name) {
+    return _generatedStructs.Values.Any(item =>
+      string.Equals(item.TypeName, name, StringComparison.Ordinal) ||
+      string.Equals(item.TypeName.Replace("global::", ""), name.Replace("global::", ""), StringComparison.Ordinal)
+    );
+  }
 
   internal static string FullNameOf(object subject) {
     return TypeValueOf(subject)
@@ -754,7 +764,7 @@ internal sealed class RoslynMixinExpressionContext :
       return delegateInvoke;
     var separator = text.LastIndexOf('.');
     var name = separator < 0 ? text : text.Substring(separator + 1);
-    var methods = MethodsInHierarchy(_thisType, name).ToArray();
+    var methods = MethodsInHierarchy(CurrentType, name).ToArray();
     return methods.Length == 1 ? methods[0] : null;
   }
 
@@ -772,9 +782,10 @@ internal sealed class RoslynMixinExpressionContext :
   }
 
   private static IEnumerable<IMethodSymbol> MethodsInHierarchy(INamedTypeSymbol type, string name) {
-    for (var current = type; current is not null; current = current.BaseType)
+    for (var current = type; current is not null; current = current.BaseType) {
       foreach (var method in current.GetMembers(name).OfType<IMethodSymbol>())
         yield return method;
+    }
   }
 
   internal static MixinTargetSyntax ParseMixinTarget(
@@ -815,9 +826,7 @@ internal sealed class RoslynMixinExpressionContext :
       if (separator >= 0) {
         name = value.Substring(0, separator);
         delegateType = value.Substring(separator + 1);
-      } else {
-        name = value;
-      }
+      } else name = value;
     }
 
     name = name switch {
@@ -928,17 +937,19 @@ internal sealed class RoslynMixinExpressionContext :
 
     if (Matches(type)) return true;
     if (type is not INamedTypeSymbol named) return false;
-    for (var current = named.BaseType; current is not null; current = current.BaseType)
+    for (var current = named.BaseType; current is not null; current = current.BaseType) {
       if (Matches(current))
         return true;
+    }
     return named.AllInterfaces.Any(Matches);
   }
 
   internal static bool HasConcreteMember(ITypeSymbol type, string requested) {
     if (type is not INamedTypeSymbol named) return false;
-    for (var current = named; current is not null; current = current.BaseType)
+    for (var current = named; current is not null; current = current.BaseType) {
       if (current.GetMembers(requested).Any(item => item is not IMethodSymbol { IsAbstract: true }))
         return true;
+    }
     return false;
   }
 

@@ -1,8 +1,7 @@
 using System;
 using System.Text.RegularExpressions;
-using Microsoft.CodeAnalysis;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language.Functions;
 
 internal sealed class RegexFunction : FunctionDefinition {
   private readonly bool _firstOnly;
@@ -31,7 +30,6 @@ internal sealed class RegexFunction : FunctionDefinition {
       return false;
     }
   }
-
 }
 
 internal sealed class FloatTimeFunction : FunctionDefinition {

@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using HelixSourceGenerator.Language.Functions;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
 public abstract class FunctionInvocation {
   protected FunctionInvocation(string name, IReadOnlyList<string> arguments, bool negated) {
@@ -27,6 +28,7 @@ internal abstract class FunctionDefinition {
   internal int MinimumArguments { get; }
   internal int MaximumArguments { get; }
   internal virtual bool IsPredicate => false;
+
   internal virtual void CollectConstants(MixinStringPoolBuilder pool) {
     pool.Intern(Name);
   }
@@ -54,34 +56,24 @@ internal abstract class FunctionDefinition {
     error = "function ':" + Name + "' cannot be used as a value transformation";
     return false;
   }
-
 }
 
 internal static class FunctionLibrary {
   private static readonly IReadOnlyDictionary<string, FunctionDefinition> Definitions =
     new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal) {
-      ["name"] = new NameFunction(),
-      ["type"] = new TypeFunction(),
-      ["fullName"] = new FullNameFunction(),
-      ["makeGeneric"] = new MakeGenericFunction(),
-      ["visibility"] = new VisibilityFunction(),
-      ["path"] = new PathFunction(),
-      ["unwrap"] = new UnwrapFunction(),
-      ["replace"] = new RegexFunction("replace", false),
-      ["replaceFirst"] = new RegexFunction("replaceFirst", true),
-      ["switch"] = new SwitchFunction(),
-      ["table"] = new AsTableFunction(),
-      ["put"] = new TableFunction("put", 2, TableFunctionKind.Put),
-      ["wire"] = new WireFunction(),
+      ["name"] = new NameFunction(), ["type"] = new TypeFunction(), ["fullName"] = new FullNameFunction(),
+      ["makeGeneric"] = new MakeGenericFunction(), ["visibility"] = new VisibilityFunction(),
+      ["path"] = new PathFunction(), ["unwrap"] = new UnwrapFunction(),
+      ["replace"] = new RegexFunction("replace", false), ["replaceFirst"] = new RegexFunction("replaceFirst", true),
+      ["switch"] = new SwitchFunction(), ["table"] = new AsTableFunction(),
+      ["put"] = new TableFunction("put", 2, TableFunctionKind.Put), ["wire"] = new WireFunction(),
       ["remove"] = new TableFunction("remove", 1, TableFunctionKind.Remove),
       ["push"] = new TableFunction("push", 1, TableFunctionKind.Push),
       ["structParams"] = new PropStructFunction("structParams", 0, 1),
       ["structArgs"] = new PropStructFunction("structArgs", 0, 1),
       ["propStructCall"] = new PropStructFunction("propStructCall", 2, 2),
-      ["pop"] = new TableFunction("pop", 0, TableFunctionKind.Pop),
-      ["size"] = new SizeFunction(),
-      ["floatTime"] = new FloatTimeFunction(),
-      ["joinKeys"] = new TableJoinFunction("joinKeys", 1, TableJoinKind.Keys),
+      ["pop"] = new TableFunction("pop", 0, TableFunctionKind.Pop), ["size"] = new SizeFunction(),
+      ["floatTime"] = new FloatTimeFunction(), ["joinKeys"] = new TableJoinFunction("joinKeys", 1, TableJoinKind.Keys),
       ["joinValues"] = new TableJoinFunction("joinValues", 1, TableJoinKind.Values),
       ["join"] = new TableJoinFunction("join", 2, TableJoinKind.Entries),
       ["mapValues"] = new TableTransformFunction("mapValues", TableTransformKind.MapValues),
@@ -93,18 +85,12 @@ internal static class FunctionLibrary {
       ["attributeOf"] = new AttributeFunction("attributeOf", 1, AttributeFunctionKind.First),
 
       // Predicates
-      ["and"] = new LogicalFunctionDefinition("and"),
-      ["or"] = new LogicalFunctionDefinition("or"),
-      ["is"] = new IsPredicate(),
-      ["has"] = new HasPredicate(),
-      ["eq"] = new EqualPredicate(),
-      ["matches"] = new MatchesPredicate(),
-      ["signature"] = new SignaturePredicate(),
-      ["wireable"] = new WireablePredicate(),
-      ["exists"] = new ExistsPredicate(),
+      ["and"] = new LogicalFunctionDefinition("and"), ["or"] = new LogicalFunctionDefinition("or"),
+      ["is"] = new IsPredicate(), ["has"] = new HasPredicate(), ["eq"] = new EqualPredicate(),
+      ["matches"] = new MatchesPredicate(), ["signature"] = new SignaturePredicate(),
+      ["wireable"] = new WireablePredicate(), ["exists"] = new ExistsPredicate(),
       ["isSelf"] = new TraitPredicate("isSelf", MixinValueTrait.Self),
-      ["ref"] = new TraitPredicate("ref", MixinValueTrait.Ref),
-      ["in"] = new TraitPredicate("in", MixinValueTrait.In),
+      ["ref"] = new TraitPredicate("ref", MixinValueTrait.Ref), ["in"] = new TraitPredicate("in", MixinValueTrait.In),
       ["out"] = new TraitPredicate("out", MixinValueTrait.Out),
       ["inout"] = new TraitPredicate("inout", MixinValueTrait.InOut),
       ["argument"] = new TraitPredicate("argument", MixinValueTrait.Argument),
@@ -127,8 +113,9 @@ internal static class FunctionLibrary {
     return Definitions.TryGetValue(name ?? "", out definition);
   }
 
-  internal static bool IsPredicate(string name) =>
-    TryGet(name, out var definition) && definition.IsPredicate;
+  internal static bool IsPredicate(string name) {
+    return TryGet(name, out var definition) && definition.IsPredicate;
+  }
 
   internal static void CollectConstants(MixinStringPoolBuilder pool) {
     foreach (var definition in Definitions.Values) definition.CollectConstants(pool);

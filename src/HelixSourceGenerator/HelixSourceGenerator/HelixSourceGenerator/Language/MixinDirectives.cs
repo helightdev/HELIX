@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
 internal enum DirectiveOperandKind { None, Value, Boolean }
 
@@ -32,9 +32,7 @@ internal abstract class DirectiveDefinition {
 }
 
 internal class MarkerDirective : DirectiveDefinition {
-  internal MarkerDirective(string name, DirectiveOpcode opcode) : base(
-    name, opcode, DirectiveOperandKind.None
-  ) { }
+  internal MarkerDirective(string name, DirectiveOpcode opcode) : base(name, opcode, DirectiveOperandKind.None) { }
 }
 
 internal class NamedDirective : DirectiveDefinition {
@@ -51,15 +49,11 @@ internal class NamedDirective : DirectiveDefinition {
 }
 
 internal class ValueDirective : DirectiveDefinition {
-  internal ValueDirective(string name, DirectiveOpcode opcode) : base(
-    name, opcode, DirectiveOperandKind.Value
-  ) { }
+  internal ValueDirective(string name, DirectiveOpcode opcode) : base(name, opcode, DirectiveOperandKind.Value) { }
 }
 
 internal sealed class BooleanDirective : DirectiveDefinition {
-  internal BooleanDirective(string name, DirectiveOpcode opcode) : base(
-    name, opcode, DirectiveOperandKind.Boolean
-  ) { }
+  internal BooleanDirective(string name, DirectiveOpcode opcode) : base(name, opcode, DirectiveOperandKind.Boolean) { }
 }
 
 internal sealed class CallDirective : DirectiveDefinition {
@@ -130,9 +124,8 @@ internal sealed class PropStructDirective : ValueDirective {
 }
 
 internal sealed class DefineTargetDirective : DirectiveDefinition {
-  internal DefineTargetDirective() : base(
-    "DEFINE_TARGET", DirectiveOpcode.DefineTarget, DirectiveOperandKind.None
-  ) { }
+  internal DefineTargetDirective() : base("DEFINE_TARGET", DirectiveOpcode.DefineTarget, DirectiveOperandKind.None) { }
+
   protected override int MaximumArguments => 2;
 
   internal override bool Validate(IReadOnlyList<string> arguments, string operand, out string error) {
@@ -155,11 +148,19 @@ internal static class DirectiveLibrary {
   private static readonly DirectiveDefinition Assert = new BooleanDirective("ASSERT", DirectiveOpcode.Assert);
   private static readonly DirectiveDefinition Code = new ValueDirective("CODE", DirectiveOpcode.Code);
   private static readonly DirectiveDefinition Mixin = new MixinDirective();
-  private static readonly DirectiveDefinition ResolveMixin = new NamedDirective("RESOLVE_MIXIN", DirectiveOpcode.ResolveMixin, DirectiveOperandKind.Value);
+  private static readonly DirectiveDefinition ResolveMixin = new NamedDirective(
+    "RESOLVE_MIXIN", DirectiveOpcode.ResolveMixin, DirectiveOperandKind.Value
+  );
   private static readonly DirectiveDefinition Using = new ValueDirective("USING", DirectiveOpcode.Using);
-  private static readonly DirectiveDefinition Local = new NamedDirective("LOCAL", DirectiveOpcode.Local, DirectiveOperandKind.Value);
-  private static readonly DirectiveDefinition Variable = new NamedDirective("VAR", DirectiveOpcode.Variable, DirectiveOperandKind.Value);
-  private static readonly DirectiveDefinition Carry = new NamedDirective("CARRY", DirectiveOpcode.Carry, DirectiveOperandKind.Value);
+  private static readonly DirectiveDefinition Local = new NamedDirective(
+    "LOCAL", DirectiveOpcode.Local, DirectiveOperandKind.Value
+  );
+  private static readonly DirectiveDefinition Variable = new NamedDirective(
+    "VAR", DirectiveOpcode.Variable, DirectiveOperandKind.Value
+  );
+  private static readonly DirectiveDefinition Carry = new NamedDirective(
+    "CARRY", DirectiveOpcode.Carry, DirectiveOperandKind.Value
+  );
   private static readonly DirectiveDefinition Return = new ValueDirective("RETURN", DirectiveOpcode.Return);
   private static readonly DirectiveDefinition Goto = new NamedDirective("GOTO", DirectiveOpcode.Goto);
   private static readonly DirectiveDefinition Skip = new MarkerDirective("SKIP", DirectiveOpcode.Skip);
@@ -168,14 +169,12 @@ internal static class DirectiveLibrary {
   // Expanded directives live in a registry so adding one does not grow intrinsic dispatch.
   private static readonly IReadOnlyDictionary<string, DirectiveDefinition> Expanded =
     new Dictionary<string, DirectiveDefinition>(StringComparer.Ordinal) {
-      ["LOG"] = new ValueDirective("LOG", DirectiveOpcode.Log),
-      ["PROP_STRUCT"] = new PropStructDirective(),
+      ["LOG"] = new ValueDirective("LOG", DirectiveOpcode.Log), ["PROP_STRUCT"] = new PropStructDirective(),
       ["AUGMENT_STRUCT"] = new NamedDirective(
         "AUGMENT_STRUCT", DirectiveOpcode.AugmentStruct, DirectiveOperandKind.Value
       ),
       ["PUSH"] = new NamedDirective("PUSH", DirectiveOpcode.Push, DirectiveOperandKind.Value),
-      ["PUT"] = new PutDirective(),
-      ["ANNOTATION"] = new NamedDirective("ANNOTATION", DirectiveOpcode.Annotation),
+      ["PUT"] = new PutDirective(), ["ANNOTATION"] = new NamedDirective("ANNOTATION", DirectiveOpcode.Annotation),
       ["PRELUDE"] = new MarkerDirective("PRELUDE", DirectiveOpcode.Prelude),
       ["DEFINE_TARGET"] = new DefineTargetDirective()
     };

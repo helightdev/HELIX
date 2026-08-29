@@ -5,13 +5,13 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using HELIX.SourceGen.Expressions;
+using System.Threading;
+using HelixSourceGenerator.Language;
 using Microsoft.CodeAnalysis;
-using static HELIX.SourceGen.GeneratorAnalysis;
-using static HELIX.SourceGen.GeneratorDiagnostics.Mixins;
-using static HELIX.SourceGen.GeneratorStrings;
+using static HelixSourceGenerator.Shared.GeneratorAnalysis;
+using static HelixSourceGenerator.Shared.GeneratorDiagnostics.Mixins;
 
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Shared;
 
 internal static class MixinLibraryApi {
   internal const string AdditionalFileSuffix = ".HelixSourceGenerator.additionalfile";
@@ -23,10 +23,12 @@ internal static class MixinLibraryApi {
     foreach (var annotation in catalog.Annotations) {
       if (!TryCompileAnnotation(annotation, prepared, false, out var member, out var error, out var line) ||
         !TryCompileAnnotation(annotation, prepared, true, out var type, out error, out line)) {
-        diagnostics.Add(Diagnostic.Create(
-          InvalidPreparedExpression, Location.None, annotation.Name,
-          line.ToString(CultureInfo.InvariantCulture), error
-        ));
+        diagnostics.Add(
+          Diagnostic.Create(
+            InvalidPreparedExpression, Location.None, annotation.Name,
+            line.ToString(CultureInfo.InvariantCulture), error
+          )
+        );
         continue;
       }
       annotations[annotation.Name] = new CompiledMixinAnnotation(annotation, member, type);
@@ -82,7 +84,7 @@ internal static class MixinLibraryApi {
 
   internal static MixinLibraryFile ReadAdditionalFile(
     AdditionalText file,
-    System.Threading.CancellationToken cancellationToken
+    CancellationToken cancellationToken
   ) {
     if (!file.Path.EndsWith(AdditionalFileSuffix, StringComparison.OrdinalIgnoreCase))
       return null;
@@ -116,9 +118,14 @@ internal static class MixinLibraryApi {
     var inFunction = false;
     var annotationLine = 0;
 
-    ParsedAdditionalFile Failure(string error, int line) =>
-      new(false, functions.ToString(), annotations, configuration, error, line);
-    void Append(StringBuilder target, string line) => target.AppendLine(line);
+    ParsedAdditionalFile Failure(string error, int line) {
+      return new ParsedAdditionalFile(false, functions.ToString(), annotations, configuration, error, line);
+    }
+
+    void Append(StringBuilder target, string line) {
+      target.AppendLine(line);
+    }
+
     for (var index = 0; index < lines.Length; index++) {
       var line = lines[index];
       if (!MixinExpressionParser.TryReadDirective(
@@ -218,9 +225,11 @@ internal static class MixinLibraryApi {
         if (!validation.Success)
           return Failure(validation.Error, annotationLine + validation.ErrorLine);
       }
-      annotations.Add(annotationName, new MixinAnnotationDefinition(
-        annotationName, preludeText, expressionText, targets
-      ));
+      annotations.Add(
+        annotationName, new MixinAnnotationDefinition(
+          annotationName, preludeText, expressionText, targets
+        )
+      );
       annotationName = null;
     }
     if (annotationName is not null)
@@ -246,10 +255,12 @@ internal static class MixinLibraryApi {
     var libraries = new List<Library>();
     foreach (var file in catalog.Files) {
       if (!file.Success) {
-        reportDiagnostic(Diagnostic.Create(
-          InvalidPreparedExpression, Location.None, file.Key,
-          file.ErrorLine.ToString(CultureInfo.InvariantCulture), file.Error
-        ));
+        reportDiagnostic(
+          Diagnostic.Create(
+            InvalidPreparedExpression, Location.None, file.Key,
+            file.ErrorLine.ToString(CultureInfo.InvariantCulture), file.Error
+          )
+        );
         continue;
       }
       libraries.Add(new Library(file.Key, "", Location.None, file.Program));
@@ -260,9 +271,10 @@ internal static class MixinLibraryApi {
   internal static IEnumerable<INamedTypeSymbol> AttributeOwners(IEnumerable<ISymbol> symbols) {
     foreach (var symbol in symbols) {
       if (symbol is INamedTypeSymbol type) yield return type;
-      foreach (var attribute in OrderedAttributes(symbol))
+      foreach (var attribute in OrderedAttributes(symbol)) {
         if (attribute.AttributeClass is { } attributeType)
           yield return attributeType;
+      }
     }
   }
 
@@ -288,13 +300,15 @@ internal static class MixinLibraryApi {
       }
       var validation = interpreter.ValidateFunctionLibrary(library.Content);
       if (!validation.Success) {
-        reportDiagnostic(Diagnostic.Create(
-          InvalidPreparedExpression,
-          library.Location,
-          library.Name,
-          validation.ErrorLine.ToString(CultureInfo.InvariantCulture),
-          validation.Error
-        ));
+        reportDiagnostic(
+          Diagnostic.Create(
+            InvalidPreparedExpression,
+            library.Location,
+            library.Name,
+            validation.ErrorLine.ToString(CultureInfo.InvariantCulture),
+            validation.Error
+          )
+        );
         continue;
       }
       valid.Add(MixinExpressionInterpreter.GetProgram(library.Content, true));
@@ -302,18 +316,21 @@ internal static class MixinLibraryApi {
     try {
       return MixinExpressionCompiler.PrepareGlobals(valid);
     } catch (ArgumentException exception) {
-      reportDiagnostic(Diagnostic.Create(
-        InvalidLibraryImport, Location.None, "import set", exception.Message
-      ));
+      reportDiagnostic(
+        Diagnostic.Create(
+          InvalidLibraryImport, Location.None, "import set", exception.Message
+        )
+      );
       return interpreter.PrepareGlobals(Array.Empty<string>());
     }
   }
 
-  private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) =>
-    symbol.GetAttributes()
+  private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) {
+    return symbol.GetAttributes()
       .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
       .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
       .ToArray();
+  }
 
   private sealed record Library(
     string Name,
@@ -352,8 +369,9 @@ internal sealed record ParsedAdditionalFile(
 );
 
 internal sealed class MixinLibraryCatalog {
-  private readonly Dictionary<string, MixinLibraryFile> _files;
   private readonly Dictionary<string, MixinAnnotationDefinition> _annotations;
+  private readonly Dictionary<string, MixinLibraryFile> _files;
+
   internal MixinLibraryCatalog(IEnumerable<MixinLibraryFile> files) {
     _files = (files ?? Array.Empty<MixinLibraryFile>())
       .Where(item => item is not null)
@@ -369,23 +387,36 @@ internal sealed class MixinLibraryCatalog {
         .Select(item => item.Key + "\u001f" + item.Value.Content)
     );
   }
+
   internal IEnumerable<MixinLibraryFile> Files => _files.Values;
   internal IEnumerable<MixinAnnotationDefinition> Annotations => _annotations.Values;
-  internal bool HasConfiguration(string key) => _files.Values.Any(file =>
-    file.Success && file.Configuration.ContainsKey(key ?? "")
-  );
-  internal bool HasConfigurationOption(string key, string option) => _files.Values.Any(file =>
-    file.Success && file.Configuration.TryGetValue(key ?? "", out var value) &&
-    (value ?? "").Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
-      .Contains(option ?? "", StringComparer.OrdinalIgnoreCase)
-  );
+
   internal string Key { get; }
   internal string AvailableKeys => _files.Count == 0
     ? "<none>"
     : string.Join(", ", _files.Keys.OrderBy(item => item, StringComparer.Ordinal));
-  internal bool TryGet(string key, out MixinLibraryFile file) => _files.TryGetValue(key ?? "", out file);
-  internal bool TryGetAnnotation(string name, out MixinAnnotationDefinition annotation) =>
-    _annotations.TryGetValue((name ?? "").Replace("global::", ""), out annotation);
+
+  internal bool HasConfiguration(string key) {
+    return _files.Values.Any(file =>
+      file.Success && file.Configuration.ContainsKey(key ?? "")
+    );
+  }
+
+  internal bool HasConfigurationOption(string key, string option) {
+    return _files.Values.Any(file =>
+      file.Success && file.Configuration.TryGetValue(key ?? "", out var value) &&
+      (value ?? "").Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
+      .Contains(option ?? "", StringComparer.OrdinalIgnoreCase)
+    );
+  }
+
+  internal bool TryGet(string key, out MixinLibraryFile file) {
+    return _files.TryGetValue(key ?? "", out file);
+  }
+
+  internal bool TryGetAnnotation(string name, out MixinAnnotationDefinition annotation) {
+    return _annotations.TryGetValue((name ?? "").Replace("global::", ""), out annotation);
+  }
 }
 
 internal sealed record CompiledMixinProgram(MixinProgramSyntax Prelude, MixinProgramSyntax Late);
@@ -403,13 +434,31 @@ internal sealed record MixinCompilation(
   IReadOnlyDictionary<string, CompiledMixinAnnotation> Annotations,
   ImmutableArray<Diagnostic> Diagnostics
 ) {
-  internal bool TryGetAnnotation(string name, out CompiledMixinAnnotation annotation) =>
-    Annotations.TryGetValue((name ?? "").Replace("global::", ""), out annotation);
+  internal bool TryGetAnnotation(string name, out CompiledMixinAnnotation annotation) {
+    return Annotations.TryGetValue((name ?? "").Replace("global::", ""), out annotation);
+  }
 }
 
 internal sealed class MixinLibraryCatalogComparer : IEqualityComparer<MixinLibraryCatalog> {
   internal static readonly MixinLibraryCatalogComparer Instance = new();
-  public bool Equals(MixinLibraryCatalog x, MixinLibraryCatalog y) =>
-    ReferenceEquals(x, y) || x is not null && y is not null && x.Key == y.Key;
-  public int GetHashCode(MixinLibraryCatalog value) => StringComparer.Ordinal.GetHashCode(value?.Key ?? "");
+
+  public bool Equals(MixinLibraryCatalog x, MixinLibraryCatalog y) {
+    return ReferenceEquals(x, y) || x is not null && y is not null && x.Key == y.Key;
+  }
+
+  public int GetHashCode(MixinLibraryCatalog value) {
+    return StringComparer.Ordinal.GetHashCode(value?.Key ?? "");
+  }
+}
+
+internal sealed class MixinCompilationComparer : IEqualityComparer<MixinCompilation> {
+  internal static readonly MixinCompilationComparer Instance = new();
+
+  public bool Equals(MixinCompilation x, MixinCompilation y) {
+    return ReferenceEquals(x, y) || x is not null && y is not null && x.Catalog.Key == y.Catalog.Key;
+  }
+
+  public int GetHashCode(MixinCompilation value) {
+    return StringComparer.Ordinal.GetHashCode(value?.Catalog.Key ?? "");
+  }
 }

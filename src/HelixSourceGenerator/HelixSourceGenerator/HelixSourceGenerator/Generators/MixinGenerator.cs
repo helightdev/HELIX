@@ -6,32 +6,33 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using HELIX.SourceGen.Expressions;
+using HelixSourceGenerator.Language;
+using HelixSourceGenerator.Shared;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
-using static HELIX.SourceGen.GeneratorAnalysis;
-using static HELIX.SourceGen.GeneratorDiagnostics.Mixins;
-using static HELIX.SourceGen.GeneratorSource;
-using static HELIX.SourceGen.GeneratorStrings;
+using static HelixSourceGenerator.Shared.GeneratorAnalysis;
+using static HelixSourceGenerator.Shared.GeneratorDiagnostics.Mixins;
+using static HelixSourceGenerator.Shared.GeneratorSource;
+using static HelixSourceGenerator.Shared.GeneratorStrings;
 
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Generators;
 
 [Generator(LanguageNames.CSharp)]
 public sealed class MixinGenerator : IIncrementalGenerator {
   private const string LateClassMarker = "// __HELIX_LATE_CLASS__";
   private const string LateFileMarker = "// __HELIX_LATE_FILE__";
   private static long _generationCounter;
+
   public void Initialize(IncrementalGeneratorInitializationContext context) {
-    var libraryCatalog = context.AdditionalTextsProvider
+    var mixinCompilation = context.AdditionalTextsProvider
       .Select(MixinLibraryApi.ReadAdditionalFile)
       .Collect()
       .Select(static (files, _) => new MixinLibraryCatalog(files))
-      .WithComparer(MixinLibraryCatalogComparer.Instance)
-      .WithTrackingName("Mixin.LibraryCatalog");
-    var mixinCompilation = libraryCatalog
+      .WithComparer(MixinLibraryCatalogComparer.Instance) // Just to be sure, we'll also try caching before
       .Select(static (catalog, _) => MixinLibraryApi.Compile(catalog))
+      .WithComparer(MixinCompilationComparer.Instance)
       .WithTrackingName("Mixin.Compilation");
 
     context.RegisterSourceOutput(
@@ -46,33 +47,28 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         attribute,
         static (node, _) => node is TypeDeclarationSyntax {
           RawKind: (int)SyntaxKind.ClassDeclaration or (int)SyntaxKind.RecordDeclaration or
-            (int)SyntaxKind.StructDeclaration or (int)SyntaxKind.RecordStructDeclaration
+          (int)SyntaxKind.StructDeclaration or (int)SyntaxKind.RecordStructDeclaration
         },
         static (ctx, _) => GetTarget(ctx)
       ).Where(static target => target is not null);
+
       var primary = targets.Combine(mixinCompilation)
         .Select(static (item, _) => Generate(item.Left, item.Right).Output)
         .WithComparer(MixinOutputModelComparer.Instance)
         .WithTrackingName("Mixin.Prelude");
-      context.RegisterSourceOutput(
-        primary,
-        static (spc, model) => EmitDiagnostics(spc, model.Diagnostics)
-      );
+
+      context.RegisterSourceOutput(primary, static (spc, model) => EmitDiagnostics(spc, model.Diagnostics));
       var finalized = primary
         .Select(static (model, _) => EvaluateLate(model))
-        // .WithComparer(MixinOutputModelComparer.Instance)
+        .WithComparer(MixinOutputModelComparer.Instance)
         .WithTrackingName("Mixin.Evaluation");
-      context.RegisterSourceOutput(
-        finalized,
-        static (spc, model) => EmitSource(spc, model)
-      );
+
+      context.RegisterSourceOutput(finalized, static (spc, model) => EmitSource(spc, model));
     }
   }
 
   private static MixinTarget GetTarget(GeneratorAttributeSyntaxContext context) {
-    if (context.TargetSymbol is not INamedTypeSymbol {
-      TypeKind: TypeKind.Class or TypeKind.Struct
-    } type)
+    if (context.TargetSymbol is not INamedTypeSymbol { TypeKind: TypeKind.Class or TypeKind.Struct } type)
       return null;
     var matchedCandidate = context.Attributes.FirstOrDefault()?.AttributeClass?.ToDisplayString();
     var canonicalCandidate = MixinGeneratorCandidates.AttributeMetadataNames.FirstOrDefault(candidate =>
@@ -103,19 +99,21 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     foreach (var provider in providers.Where(item => item is not null)) {
       if (SymbolEqualityComparer.Default.Equals(provider, type)) continue;
       foreach (var annotation in AnnotationDefinitions(provider, libraries))
-        foreach (var definition in annotation.TargetDefinitions)
-          definitions[definition.Key] = definition.Value;
-    }
-    foreach (var annotation in AnnotationDefinitions(type, libraries))
       foreach (var definition in annotation.TargetDefinitions)
         definitions[definition.Key] = definition.Value;
+    }
+    foreach (var annotation in AnnotationDefinitions(type, libraries))
+    foreach (var definition in annotation.TargetDefinitions)
+      definitions[definition.Key] = definition.Value;
     return definitions;
   }
 
   private static IEnumerable<MixinAnnotationDefinition> AnnotationDefinitions(
     INamedTypeSymbol type,
     MixinLibraryCatalog libraries
-  ) => MixinLibraryApi.Annotations(type, libraries);
+  ) {
+    return MixinLibraryApi.Annotations(type, libraries);
+  }
 
   private static IEnumerable<CompiledMixinAnnotation> CompiledAnnotationDefinitions(
     INamedTypeSymbol type,
@@ -144,11 +142,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
 
     var containing = FirstNonPartialContainingType(target);
     if (containing is not null) {
-      context.ReportDiagnostic(
-        Diagnostic.Create(
-          ContainingTypeMustBePartial, location, target.Name, containing.Name
-        )
-      );
+      context.ReportDiagnostic(Diagnostic.Create(ContainingTypeMustBePartial, location, target.Name, containing.Name));
       return context.Complete();
     }
 
@@ -164,45 +158,45 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       mixinCompilation
     );
     var placeholderSequence = contributions.Count;
-    foreach (var work in context.LateExpressions)
-      foreach (var lateTarget in work.Targets)
-        contributions.Add(MixinContribution.Placeholder(lateTarget, placeholderSequence++, work));
-    var methods = BuildMethods(
-      context, target, contributions, candidate.Compilation
-    );
+    foreach (var work in context.LateExpressions) {
+      contributions.AddRange(
+        work.Targets.Select(lateTarget => MixinContribution.Placeholder(lateTarget, placeholderSequence++, work))
+      );
+    }
+    var methods = BuildMethods(context, target, contributions, candidate.Compilation);
     ReportContributionData(context, target, methods);
     var outputs = new ExpressionOutputs();
-    foreach (var contribution in contributions) {
-      if (contribution.ExpressionResult is null) continue;
-      foreach (var output in contribution.ExpressionResult.Outputs) outputs.Add(output);
-    }
+    foreach (var output in contributions
+      .Where(contribution => contribution.ExpressionResult is not null)
+      .SelectMany(contribution => contribution.ExpressionResult.Outputs)) outputs.Add(output);
     foreach (var output in attributeExpressionOutputs) outputs.Add(output);
     if (methods.Count == 0 && !outputs.Any && !context.HasLateExpressions) return context.Complete();
     var finalizedOutputs = outputs.Finish();
-    var wrapper = WrapType(
-      target, "mixins"
-    );
+    var wrapper = WrapType(target, "mixins");
     return context.Complete(
       new MixinRenderModel(
         wrapper.Detach(), methods.ToImmutableArray(),
         finalizedOutputs.Annotations, finalizedOutputs.Class,
         finalizedOutputs.File, finalizedOutputs.Implements,
         finalizedOutputs.Usings, expressionVariables
-          .Where(item => !item.Key.StartsWith(
-            MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
-          )), preparedExpressions.StringPool,
+          .Where(item => !item.Key.StartsWith(MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal)),
+        preparedExpressions.StringPool,
         context.DebugExpressions.ToImmutableArray(), context.Debug, context.DebugStringPool
       )
     );
   }
 
   private static void EmitSource(SourceProductionContext context, MixinOutputModel model) {
-    foreach (var log in model.Logs)
-      context.ReportDiagnostic(log.Location.Create(
-        log.Log.IsHint ? ExpressionHint : ExpressionLog, log.Log.Text
-      ));
-    foreach (var error in model.Errors)
-      context.ReportDiagnostic(Diagnostic.Create(InvalidAttributeExpression, Location.None, "late expression", "late evaluation", error));
+    foreach (var log in model.Logs) {
+      context.ReportDiagnostic(
+        log.Location.Create(log.Log.IsHint ? ExpressionHint : ExpressionLog, log.Log.Text)
+      );
+    }
+    foreach (var error in model.Errors) {
+      context.ReportDiagnostic(
+        Diagnostic.Create(InvalidAttributeExpression, Location.None, "late expression", "late evaluation", error)
+      );
+    }
     if (model.Source is not null) context.AddSource(model.HintName, model.Source);
   }
 
@@ -210,8 +204,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     SourceProductionContext context,
     ImmutableArray<MixinDiagnostic> diagnostics
   ) {
-    foreach (var diagnostic in diagnostics)
-      context.ReportDiagnostic(diagnostic.Create());
+    foreach (var diagnostic in diagnostics) context.ReportDiagnostic(diagnostic.Create());
   }
 
   private static MixinOutputModel EvaluateLate(MixinOutputModel model) {
@@ -232,8 +225,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         group => new FinalDebugState(group.Last(), 0, 0),
         StringComparer.Ordinal
       );
-    var sharedVariables = model.Render.PrimaryVariables
-      .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+    var sharedVariables = model.Render.PrimaryVariables.ToDictionary(
+      item => item.Key, item => item.Value, StringComparer.Ordinal
+    );
     var interpreter = new MixinExpressionInterpreter();
     foreach (var work in model.LateExpressions) {
       var variables = work.Variables.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
@@ -248,67 +242,86 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         continue;
       }
       var debugStateKey = DebugStateKey(work);
-      if (finalDebugStates.TryGetValue(debugStateKey, out var debugState))
+      if (finalDebugStates.TryGetValue(debugStateKey, out var debugState)) {
         finalDebugStates[debugStateKey] = new FinalDebugState(
           debugState.Work, result.ExecutedOperations, result.ExecutionMilliseconds
         );
-      foreach (var item in variables)
-        if (!item.Key.StartsWith(MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal))
-          sharedVariables[item.Key] = item.Value;
-      foreach (var output in result.Outputs) switch (output.Target) {
-        case MixinExpressionOutputTarget.Class: classCode.Add(output); break;
-        case MixinExpressionOutputTarget.File: fileCode.Add(output); break;
-        case MixinExpressionOutputTarget.Using:
-          usings.Add(output); break;
-        case MixinExpressionOutputTarget.Implements: implements.Add(output); break;
-        case MixinExpressionOutputTarget.Annotation: annotations.Add(output); break;
-        case MixinExpressionOutputTarget.Target:
-          if (work.Targets.Length != 1) {
-            errors.Add("@CODE<TARGET> requires exactly one declared target");
+      }
+      foreach (var item in variables
+        .Where(static item => !item.Key.StartsWith(
+            MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
+          )
+        )) sharedVariables[item.Key] = item.Value;
+      foreach (var output in result.Outputs) {
+        switch (output.Target) {
+          case MixinExpressionOutputTarget.Class: classCode.Add(output); break;
+          case MixinExpressionOutputTarget.File: fileCode.Add(output); break;
+          case MixinExpressionOutputTarget.Using:
+            usings.Add(output); break;
+          case MixinExpressionOutputTarget.Implements: implements.Add(output); break;
+          case MixinExpressionOutputTarget.Annotation: annotations.Add(output); break;
+          case MixinExpressionOutputTarget.Target:
+            if (work.Targets.Length != 1) {
+              errors.Add("@CODE<TARGET> requires exactly one declared target");
+              break;
+            }
+            lateContributions.Add(
+              LateContribution(work.Targets[0], work.Targets[0].Order, output, work, lateSequence++)
+            );
+            break;
+          case MixinExpressionOutputTarget.Injection: {
+            var target = work.Targets.FirstOrDefault(item =>
+              item.DeclaredTarget == output.InjectionTarget || item.EmittedTarget == output.InjectionTarget
+            );
+            if (target is null) errors.Add("late code target '" + output.InjectionTarget + "' was not declared");
+            else lateContributions.Add(LateContribution(target, target.Order, output, work, lateSequence++));
             break;
           }
-          lateContributions.Add(LateContribution(
-            work.Targets[0], work.Targets[0].Order, output, work, lateSequence++
-          ));
-          break;
-        case MixinExpressionOutputTarget.Injection: {
-          var target = work.Targets.FirstOrDefault(item =>
-            item.DeclaredTarget == output.InjectionTarget || item.EmittedTarget == output.InjectionTarget
-          );
-          if (target is null) errors.Add("late code target '" + output.InjectionTarget + "' was not declared");
-          else lateContributions.Add(LateContribution(target, target.Order, output, work, lateSequence++));
-          break;
+          case MixinExpressionOutputTarget.Mixin: {
+            var target = work.Targets.FirstOrDefault(item =>
+              item.DeclaredTarget == output.InjectionTarget || item.EmittedTarget == output.InjectionTarget
+            );
+            if (target is null)
+              errors.Add("late mixin target '" + output.InjectionTarget + "' was not prepared by the Prelude");
+            else {
+              lateContributions.Add(
+                LateContribution(
+                  target, output.InjectionPriority, output, work, lateSequence++
+                )
+              );
+            }
+            break;
+          }
+          default:
+            errors.Add("late expression output '" + output.Target + "' requires a detached method contribution"); break;
         }
-        case MixinExpressionOutputTarget.Mixin: {
-          var target = work.Targets.FirstOrDefault(item =>
-            item.DeclaredTarget == output.InjectionTarget || item.EmittedTarget == output.InjectionTarget
-          );
-          if (target is null) errors.Add("late mixin target '" + output.InjectionTarget + "' was not prepared by the Prelude");
-          else lateContributions.Add(LateContribution(
-            target, output.InjectionPriority, output, work, lateSequence++
-          ));
-          break;
-        }
-        default:
-          errors.Add("late expression output '" + output.Target + "' requires a detached method contribution"); break;
       }
     }
     var methods = model.Render.Methods.Select(method => {
-      var retained = method.Contributions.Where(item => !item.IsPlaceholder).ToList();
-      retained.AddRange(lateContributions.Where(item =>
-        item.EmittedTarget == method.Name &&
-        item.IsStaticTarget == method.Contributions.First().IsStaticTarget
-      ));
-      return retained.Count == 0 ? null : method with {
-        Contributions = retained.OrderBy(item => item.Order)
-          .ThenBy(item => item.Sequence).ToArray()
-      };
-    }).Where(item => item is not null).ToImmutableArray();
+        var retained = method.Contributions.Where(item => !item.IsPlaceholder).ToList();
+        retained.AddRange(
+          lateContributions.Where(item =>
+            item.EmittedTarget == method.Name &&
+            item.IsStaticTarget == method.Contributions.First().IsStaticTarget
+          )
+        );
+        return retained.Count == 0
+          ? null
+          : method with {
+            Contributions = [
+              .. retained.OrderBy(item => item.Order)
+                .ThenBy(item => item.Sequence)
+            ]
+          };
+      }
+    ).Where(item => item is not null).ToImmutableArray();
     var source = model.Render.Wrapper.Build(
-      usings.Select(item => NormalizeUsing(item.Text)).Distinct(StringComparer.Ordinal)
-        .OrderBy(item => item, StringComparer.Ordinal).ToArray(),
-      implements.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal).ToArray(),
-      annotations.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal).ToArray(),
+      [
+        .. usings.Select(item => NormalizeUsing(item.Text)).Distinct(StringComparer.Ordinal)
+          .OrderBy(item => item, StringComparer.Ordinal)
+      ],
+      [.. implements.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)],
+      [.. annotations.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)],
       builder => {
         for (var index = 0; index < methods.Length; index++) {
           AppendMethod(builder, methods[index]);
@@ -322,9 +335,10 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         foreach (var output in fileCode) builder.AppendCode(output.Text);
       }
     );
-    if (model.Render.Debug)
+    if (model.Render.Debug) {
       source = BuildDebugTrace(model.Render) + source +
         BuildFinalDebugState(finalDebugStates.Values, sharedVariables);
+    }
     return new MixinOutputModel(
       model.Render.Wrapper.HintName, source, null, ImmutableArray<LateExpressionWork>.Empty,
       model.Diagnostics, errors.ToImmutableArray(), logs.ToImmutableArray()
@@ -354,10 +368,13 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       AppendDebugProgram(builder, "LATE PROGRAM (PREPARED)", work.LateProgram, render);
       builder.AppendLine("// CARRIED VALUES");
       var carries = work.Variables.Where(item => item.Key.StartsWith(
-        MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
-      ) && IsCarryReferenced(work.LateProgram, item.Key.Substring(
-        MixinExpressionInterpreter.CarryLocalPrefix.Length
-      ))).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+          MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
+        ) && IsCarryReferenced(
+          work.LateProgram, item.Key.Substring(
+            MixinExpressionInterpreter.CarryLocalPrefix.Length
+          )
+        )
+      ).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
       if (carries.Length == 0) builder.AppendLine("//   <none>");
       foreach (var carry in carries) {
         var label = carry.Key.Substring(MixinExpressionInterpreter.CarryLocalPrefix.Length);
@@ -392,7 +409,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var builder = new StringBuilder();
     builder.AppendLine().AppendLine("// ============================================================================");
     builder.AppendLine("// HELIX MIXIN FINAL STATE");
-    foreach (var state in states) {
+    var finalDebugStates = states as FinalDebugState[] ?? [.. states];
+    foreach (var state in finalDebugStates) {
       builder.Append("// ").Append(state.Work.Provider);
       if (!string.IsNullOrEmpty(state.Work.SourceType)) builder.Append(" on ").Append(state.Work.SourceType);
       if (!string.IsNullOrEmpty(state.Work.SourceMember)) builder.Append('.').Append(state.Work.SourceMember);
@@ -408,13 +426,17 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     }
     builder.AppendLine("// SHARED VARIABLES");
     var persistentVariables = sharedVariables.Where(item => !item.Key.StartsWith(
-      MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
-    )).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+        MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
+      )
+    ).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
     if (persistentVariables.Length == 0) builder.AppendLine("//   <empty>");
-    else foreach (var variable in persistentVariables)
+    else {
+      foreach (var variable in persistentVariables) {
         builder.Append("//   @var#").Append(variable.Key).Append(" = ")
           .AppendLine(MixinValue.From(variable.Value).Render().Replace("\r", "\\r").Replace("\n", "\\n"));
-    var totalMilliseconds = states.Sum(state =>
+      }
+    }
+    var totalMilliseconds = finalDebugStates.Sum(state =>
       state.Work.PreludeMilliseconds + state.LateMilliseconds
     );
     builder.Append("// TOTAL durationMs = ").AppendLine(FormatDebugMilliseconds(totalMilliseconds));
@@ -426,6 +448,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var reference = "@carry#" + label;
     var offset = 0;
     while (offset < (program?.Length ?? 0)) {
+      if (program == null) continue;
       var index = program.IndexOf(reference, offset, StringComparison.Ordinal);
       if (index < 0) return false;
       var end = index + reference.Length;
@@ -435,42 +458,52 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     return false;
   }
 
-  private static bool IsReferenceNameCharacter(char character) =>
-    char.IsLetterOrDigit(character) || character is '_' or '$';
+  private static bool IsReferenceNameCharacter(char character) {
+    return char.IsLetterOrDigit(character) || character is '_' or '$';
+  }
 
-  private static string FormatDebugMilliseconds(double milliseconds) =>
-    milliseconds.ToString("F3", CultureInfo.InvariantCulture);
+  private static string FormatDebugMilliseconds(double milliseconds) {
+    return milliseconds.ToString("F3", CultureInfo.InvariantCulture);
+  }
 
-  private static string DebugStateKey(DebugExpressionWork work) => string.Join(
-    "\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateProgram
-  );
+  private static string DebugStateKey(DebugExpressionWork work) {
+    return string.Join(
+      "\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateProgram
+    );
+  }
 
-  private static string DebugStateKey(LateExpressionWork work) => string.Join(
-    "\u001f", work.Provider, work.SourceType, work.SourceMember, work.Expression.Source
-  );
+  private static string DebugStateKey(LateExpressionWork work) {
+    return string.Join(
+      "\u001f", work.Provider, work.SourceType, work.SourceMember, work.Expression.Source
+    );
+  }
 
   private static void AppendDebugStringPool(StringBuilder builder, MixinStringPool pool) {
     builder.AppendLine("// INTERNED STRING POOL");
-    for (var id = 0; id < pool.Count; id++)
-      builder.Append("//   §").Append(id).Append(" = ")
+    for (var id = 0; id < pool.Count; id++) {
+      builder
+        .Append("//   §").Append(id).Append(" = ")
         .AppendLine(EscapeDebugString(pool[id]));
+    }
   }
 
-  private static string EscapeDebugString(string value) => (value ?? "")
-    .Replace("\\", "\\\\").Replace("\r", "\\r").Replace("\n", "\\n");
+  private static string EscapeDebugString(string value) {
+    return (value ?? "")
+      .Replace("\\", @"\\")
+      .Replace("\r", "\\r")
+      .Replace("\n", "\\n");
+  }
 
   private static string InternDebugLine(string line, MixinStringPool pool) {
     var candidates = Enumerable.Range(0, pool.Count)
       .Select(id => new { Id = id, Value = pool[id] })
-      .Where(item => !string.IsNullOrEmpty(item.Value) &&
-        item.Value.IndexOfAny(new[] { '\r', '\n' }) < 0)
+      .Where(item => !string.IsNullOrEmpty(item.Value) && item.Value.IndexOfAny(['\r', '\n']) < 0)
       .OrderByDescending(item => item.Value.Length).ThenBy(item => item.Id).ToArray();
     var builder = new StringBuilder(line.Length);
     for (var offset = 0; offset < line.Length;) {
       var match = candidates.FirstOrDefault(item =>
-        offset + item.Value.Length <= line.Length && string.CompareOrdinal(
-          line, offset, item.Value, 0, item.Value.Length
-        ) == 0
+        offset + item.Value.Length <= line.Length &&
+        string.CompareOrdinal(line, offset, item.Value, 0, item.Value.Length) == 0
       );
       if (match is null) builder.Append(line[offset++]);
       else {
@@ -490,39 +523,698 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       builder.AppendLine("//   <empty>");
       return;
     }
-    for (var index = 0; index < lines.Length; index++)
-      if (index != lines.Length - 1 || lines[index].Length != 0)
-        builder.Append("//   ").AppendLine(render.DebugStringPool
-          ? InternDebugLine(lines[index], render.StringPool)
-          : lines[index]);
+    for (var index = 0; index < lines.Length; index++) {
+      if (index != lines.Length - 1 || lines[index].Length != 0) {
+        builder.Append("//   ").AppendLine(
+          render.DebugStringPool
+            ? InternDebugLine(lines[index], render.StringPool)
+            : lines[index]
+        );
+      }
+    }
   }
 
   private static MixinContribution LateContribution(
     LateTarget target, int order, MixinExpressionOutput output, LateExpressionWork work, int sequence
-  ) => new(
-    target, order, sequence,
-    new MixinExpressionResult(
-      true, null, 0, new[] { output.Retarget(MixinExpressionOutputTarget.Target) }
-    ),
-    work
-  );
+  ) {
+    return new MixinContribution(
+      target, order, sequence,
+      new MixinExpressionResult(
+        true, null, 0, [output.Retarget(MixinExpressionOutputTarget.Target)]
+      ),
+      work
+    );
+  }
+
+  private static void CollectAttributeContributions(
+    MixinGenerationContext context,
+    INamedTypeSymbol target,
+    CSharpCompilation compilation,
+    MixinExpressionPreparedState preparedExpressions,
+    IDictionary<string, object> expressionVariables,
+    ICollection<MixinExpressionOutput> expressionOutputs,
+    ICollection<MixinContribution> result,
+    IReadOnlyDictionary<string, string> targetDefinitions,
+    MixinLibraryCatalog libraries,
+    MixinCompilation mixinCompilation
+  ) {
+    var sequence = 0;
+    var structureTarget = target.TypeKind == TypeKind.Struct && Attribute(target, Attributes.Structure) is not null;
+    foreach (var annotated in AnnotatedSymbols(target)) {
+      foreach (var applied in OrderedAttributes(annotated)) {
+        var attributeType = applied.AttributeClass;
+        if (attributeType is null) continue;
+        if (structureTarget && attributeType.ToDisplayString() != Attributes.Structure) continue;
+        foreach (var expressionAttribute in CompiledAnnotationDefinitions(attributeType, mixinCompilation)) {
+          CollectMixinExpressionContributions(
+            context, target, annotated, applied, expressionAttribute, compilation,
+            preparedExpressions, expressionVariables, expressionOutputs, result, ref sequence,
+            attributeType.ToDisplayString(TypeDisplayFormat), targetDefinitions,
+            libraries
+          );
+        }
+      }
+    }
+  }
+
+  private static IEnumerable<ISymbol> AnnotatedSymbols(INamedTypeSymbol target) {
+    yield return target;
+    foreach (var member in OrderedMembers(target)) {
+      if (!member.IsImplicitlyDeclared)
+        yield return member;
+    }
+  }
+
+  private static void CollectMixinExpressionContributions(
+    MixinGenerationContext context,
+    INamedTypeSymbol target,
+    ISymbol annotated,
+    AttributeData applied,
+    CompiledMixinAnnotation configuration,
+    CSharpCompilation compilation,
+    MixinExpressionPreparedState preparedExpressions,
+    IDictionary<string, object> expressionVariables,
+    ICollection<MixinExpressionOutput> expressionOutputs,
+    ICollection<MixinContribution> contributions,
+    ref int sequence,
+    string providerName,
+    IReadOnlyDictionary<string, string> targetDefinitions,
+    MixinLibraryCatalog libraries
+  ) {
+    var location = applied?.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? LocationOf(annotated);
+    var attributeName = providerName ?? applied?.AttributeClass?.Name ?? "<unknown>";
+    IReadOnlyList<string> targets = [];
+    IReadOnlyList<int> orders = [];
+    var (expression, lateExpression) =
+      annotated is INamedTypeSymbol ? configuration.TypeProgram : configuration.MemberProgram;
+
+    var declarations = new Dictionary<string, AttributeExpressionTarget>(StringComparer.Ordinal);
+    for (var index = 0; index < targets.Count; index++) {
+      var declared = targets[index];
+      var emitted = EmittedTarget(declared, targetDefinitions);
+      if (!IsValidIdentifier(emitted)) {
+        ReportInvalidAttributeExpression(
+          context, location, attributeName, annotated.Name,
+          "target '" + (declared ?? "null") + "' is not a valid mixin target"
+        );
+        return;
+      }
+      if (declarations.ContainsKey(declared)) {
+        ReportInvalidAttributeExpression(
+          context, location, attributeName, annotated.Name,
+          "target '" + declared + "' is declared more than once"
+        );
+        return;
+      }
+      declarations.Add(
+        declared, new AttributeExpressionTarget(
+          declared, orders[index], targetDefinitions
+        )
+      );
+    }
+
+    var arguments = annotated is IMethodSymbol method ? (IReadOnlyList<IParameterSymbol>)method.Parameters : [];
+    var expressionContext = new RoslynMixinExpressionContext(
+      target, annotated, applied, arguments, compilation, targetDefinitions: targetDefinitions,
+      preparedExpressions: preparedExpressions, libraries: libraries
+    );
+    var interpreter = new MixinExpressionInterpreter();
+    var evaluated = interpreter.ExecuteCompiled(
+      expression, expressionContext, expressionVariables, preparedExpressions
+    );
+    ReportExpressionLogs(context, location, evaluated.Logs);
+    if (!evaluated.Success) {
+      ReportInvalidAttributeExpression(
+        context, location, attributeName, annotated.Name,
+        "line " + evaluated.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + evaluated.Error
+      );
+      return;
+    }
+    context.AddDebugExpression(
+      expression.Source, lateExpression.Source, evaluated.Variables,
+      providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
+      evaluated.ExecutionMilliseconds
+    );
+    if (lateExpression.Count != 0) {
+      var sourceType = (annotated as INamedTypeSymbol ?? annotated.ContainingType)
+        ?.ToDisplayString(TypeDisplayFormat) ?? "";
+      var lateTargets = declarations.Values.Select(item => new LateTarget(
+          item.Target, item.EmittedTarget, item.IsStatic, item.IsPublic,
+          item.DelegateTarget, item.Order
+        )
+      ).ToList();
+      DiscoverLateMixinTargets(
+        lateExpression.Source, evaluated.Variables, targetDefinitions, lateTargets
+      );
+      context.AddLateExpression(
+        lateExpression, expression.Source, evaluated.Variables, preparedExpressions,
+        lateTargets.Distinct().ToImmutableArray(), location,
+        providerName ?? attributeName, sourceType,
+        annotated is INamedTypeSymbol ? "" : annotated.MetadataName,
+        annotated.Kind.ToString(),
+        annotated is IMethodSymbol sourceMethod ? sourceMethod.Parameters.Length : 0
+      );
+    }
+
+    // Validate every destination before publishing any output from this expression.
+    foreach (var output in evaluated.Outputs) {
+      if (output.Target == MixinExpressionOutputTarget.Mixin) {
+        var emitted = EmittedTarget(output.InjectionTarget, targetDefinitions);
+        if (!IsValidIdentifier(emitted)) {
+          ReportInvalidAttributeExpression(
+            context, location, attributeName, annotated.Name,
+            "mixin target '" + (output.InjectionTarget ?? "") + "' is not a valid mixin target"
+          );
+          return;
+        }
+        continue;
+      }
+      if (output.Target == MixinExpressionOutputTarget.Injection &&
+        !declarations.ContainsKey(output.InjectionTarget)) continue;
+      if (output.Target is MixinExpressionOutputTarget.Class or
+        MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements or
+        MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using) continue;
+
+      if (output.Target == MixinExpressionOutputTarget.Target && targets.Count != 1) {
+        ReportInvalidAttributeExpression(
+          context, location, attributeName, annotated.Name,
+          "@CODE<TARGET> requires exactly one declared target"
+        );
+        return;
+      }
+      var injectionTarget = output.Target == MixinExpressionOutputTarget.Target
+        ? targets[0]
+        : output.InjectionTarget;
+      if (string.IsNullOrEmpty(injectionTarget) || !declarations.ContainsKey(injectionTarget)) {
+        ReportInvalidAttributeExpression(
+          context, location, attributeName, annotated.Name,
+          "code target '" + (injectionTarget ?? "") + "' was not declared"
+        );
+        return;
+      }
+    }
+
+    List<AttributeExpressionTarget> activated = null;
+    foreach (var output in evaluated.Outputs) {
+      if (output.IsEmpty) continue;
+      switch (output.Target) {
+        case MixinExpressionOutputTarget.Mixin: {
+          var result = new MixinExpressionResult(
+            true, null, 0, [output.Retarget(MixinExpressionOutputTarget.Target)]
+          );
+          contributions.Add(
+            new MixinContribution(
+              output.InjectionTarget, output.InjectionPriority,
+              sequence++, targetDefinitions, result, providerName, annotated
+            )
+          );
+          continue;
+        }
+        case MixinExpressionOutputTarget.Injection when
+          !declarations.ContainsKey(output.InjectionTarget):
+          contributions.Add(
+            new MixinContribution(
+              output.InjectionTarget, 0, sequence++, targetDefinitions,
+              new MixinExpressionResult(true, null, 0, [output.Retarget(MixinExpressionOutputTarget.Target)]),
+              providerName, annotated
+            )
+          );
+          continue;
+        case MixinExpressionOutputTarget.Class or
+          MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements or
+          MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using:
+          expressionOutputs.Add(output);
+          continue;
+      }
+      var injectionTarget = output.Target == MixinExpressionOutputTarget.Target
+        ? targets[0]
+        : output.InjectionTarget;
+      var declaration = declarations[injectionTarget];
+      if (declaration.Outputs is null) {
+        declaration.Outputs = [];
+        (activated ??= []).Add(declaration);
+      }
+      declaration.Outputs.Add(output.Retarget(MixinExpressionOutputTarget.Target));
+    }
+    foreach (var declaration in activated ?? Enumerable.Empty<AttributeExpressionTarget>()) {
+      var result = new MixinExpressionResult(true, null, 0, declaration.Outputs);
+      contributions.Add(
+        new MixinContribution(
+          declaration.Target, declaration.Order,
+          sequence++, targetDefinitions, result, providerName, annotated
+        )
+      );
+    }
+  }
+
+  private static void DiscoverLateMixinTargets(
+    string expression,
+    IReadOnlyDictionary<string, object> variables,
+    IReadOnlyDictionary<string, string> targetDefinitions,
+    ICollection<LateTarget> targets
+  ) {
+    foreach (var line in MixinExpressionParser.SplitLines(expression ?? "")) {
+      var instruction = MixinExpressionParser.ParseDirective(line, 0);
+      if (instruction.Error is not null || instruction.Opcode != DirectiveOpcode.Mixin ||
+        instruction.Arguments.Count == 0) continue;
+      var argument = instruction.Arguments[0];
+      string resolved = null;
+      if (!MixinExpressionParser.IsDynamicArgument(argument)) resolved = argument;
+      else {
+        var inner = argument.Substring(1, argument.Length - 2).Trim();
+        const string carryPrefix = "@carry#";
+        if (inner.StartsWith(carryPrefix, StringComparison.Ordinal) &&
+          variables.TryGetValue(
+            MixinExpressionInterpreter.CarryLocalPrefix + inner.Substring(carryPrefix.Length),
+            out var carried
+          )) resolved = MixinValue.From(carried).Render();
+      }
+      if (string.IsNullOrWhiteSpace(resolved)) continue;
+      var syntax = RoslynMixinExpressionContext.ParseMixinTarget(resolved, targetDefinitions);
+      targets.Add(
+        new LateTarget(
+          resolved, syntax.Name, syntax.IsStatic, syntax.IsPublic, syntax.DelegateType, 0
+        )
+      );
+    }
+  }
+
+  private static void ReportInvalidAttributeExpression(
+    MixinGenerationContext context,
+    Location location,
+    string attributeName,
+    string annotatedName,
+    string reason
+  ) {
+    context.ReportDiagnostic(
+      Diagnostic.Create(
+        InvalidAttributeExpression, location, attributeName, annotatedName, reason
+      )
+    );
+  }
+
+  private static void ReportExpressionLogs(
+    MixinGenerationContext context,
+    Location location,
+    IReadOnlyList<MixinExpressionLog> logs
+  ) {
+    foreach (var log in logs) {
+      context.ReportDiagnostic(
+        Diagnostic.Create(log.IsHint ? ExpressionHint : ExpressionLog, location, log.Text)
+      );
+    }
+  }
+
+
+  private static string EmittedTarget(
+    string target,
+    IReadOnlyDictionary<string, string> targetDefinitions = null
+  ) {
+    return RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions).Name;
+  }
+
+  private static List<GeneratedMethod> BuildMethods(
+    MixinGenerationContext context,
+    INamedTypeSymbol target,
+    IReadOnlyList<MixinContribution> contributions,
+    CSharpCompilation compilation
+  ) {
+    var result = new List<GeneratedMethod>();
+    foreach (var group in contributions.GroupBy(
+      item => (item.IsStaticTarget ? "*" : "") + item.EmittedTarget,
+      StringComparer.Ordinal
+    )) {
+      var ordered = group.OrderBy(item => item.Order).ThenBy(item => item.Sequence).ToArray();
+      if (TryBuildMethod(
+        context, target, ordered[0].EmittedTarget, ordered, compilation, out var method
+      )) result.Add(method);
+    }
+    return result;
+  }
+
+  private static void ReportContributionData(
+    MixinGenerationContext context,
+    INamedTypeSymbol target,
+    IReadOnlyList<GeneratedMethod> methods
+  ) {
+    var targetName = target.ToDisplayString(TypeDisplayFormat);
+    var location = LocationOf(target);
+    foreach (var method in methods) {
+      foreach (var contribution in method.Contributions) {
+        if (contribution.IsPlaceholder) continue;
+        var properties = ImmutableDictionary<string, string>.Empty
+          .Add("Target", targetName)
+          .Add("Method", method.Name)
+          .Add("Mixin", contribution.Provider)
+          .Add("Priority", contribution.Order.ToString(CultureInfo.InvariantCulture))
+          .Add("SourceType", contribution.SourceType)
+          .Add("SourceMember", contribution.SourceMember)
+          .Add("SourceKind", contribution.SourceKind)
+          .Add("SourceParameterCount", contribution.SourceParameterCount.ToString(CultureInfo.InvariantCulture));
+        context.ReportDiagnostic(
+          Diagnostic.Create(
+            ContributionData, location, properties,
+            targetName, method.Name, contribution.Provider,
+            contribution.Order.ToString(CultureInfo.InvariantCulture),
+            contribution.SourceType, contribution.SourceMember, contribution.SourceKind,
+            contribution.SourceParameterCount.ToString(CultureInfo.InvariantCulture)
+          )
+        );
+      }
+    }
+  }
+
+  private static bool TryBuildMethod(
+    MixinGenerationContext context,
+    INamedTypeSymbol target,
+    string name,
+    IReadOnlyList<MixinContribution> contributions,
+    CSharpCompilation compilation,
+    out GeneratedMethod generated
+  ) {
+    generated = null;
+    var isStatic = contributions[0].IsStaticTarget;
+    var isPublic = contributions.Any(item => item.IsPublicTarget);
+    var delegateTargets = contributions
+      .Select(item => item.DelegateTarget)
+      .Where(item => !string.IsNullOrEmpty(item))
+      .Distinct(StringComparer.Ordinal)
+      .ToArray();
+    IMethodSymbol delegateInvoke = null;
+    INamedTypeSymbol resolvedDelegate = null;
+    foreach (var delegateTarget in delegateTargets) {
+      var delegateType = ResolveDelegateTarget(compilation, delegateTarget);
+      if (delegateType is not { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke }) {
+        ReportInvalidTarget(
+          context, target, name,
+          "delegate type '" + delegateTarget + "' was not found or is not a delegate"
+        );
+        return false;
+      }
+      if (delegateType.IsGenericType) {
+        ReportInvalidTarget(context, target, name, "generic delegate target types are not supported");
+        return false;
+      }
+      if (resolvedDelegate is not null &&
+        !SymbolEqualityComparer.Default.Equals(resolvedDelegate, delegateType)) {
+        ReportInvalidTarget(context, target, name, "contributions specify conflicting delegate signatures");
+        return false;
+      }
+      resolvedDelegate = delegateType;
+      delegateInvoke = invoke;
+    }
+
+    var declared = target.GetMembers(name).ToArray();
+    IMethodSymbol signature = null;
+    MethodDeclarationSyntax partialSyntax = null;
+    foreach (var member in declared) {
+      if (member is IMethodSymbol method && TryGetUnimplementedPartial(method, out var syntax)) {
+        if (method.IsStatic != isStatic) {
+          ReportInvalidTarget(
+            context, target, name, "the partial declaration does not match the target's static modifier"
+          );
+          return false;
+        }
+        if (isPublic && method.DeclaredAccessibility != Accessibility.Public) {
+          ReportInvalidTarget(
+            context, target, name, "the partial declaration is not public but the target uses the '^' modifier"
+          );
+          return false;
+        }
+        if (signature is not null) {
+          ReportInvalidTarget(context, target, name, "more than one partial overload matches the target");
+          return false;
+        }
+        signature = method;
+        partialSyntax = syntax;
+        continue;
+      }
+      context.ReportDiagnostic(Diagnostic.Create(ExistingTarget, LocationOf(member), name, target.Name));
+      return false;
+    }
+
+    IMethodSymbol baseMethod = null;
+    if (signature is null && !isStatic && delegateInvoke is null) {
+      baseMethod = FindBaseMethod(target, name, 0);
+      signature = baseMethod;
+    }
+    if (isPublic && baseMethod is not null &&
+      baseMethod.DeclaredAccessibility != Accessibility.Public) {
+      ReportInvalidTarget(
+        context, target, name,
+        "the inherited declaration is not public but the target uses the '^' modifier"
+      );
+      return false;
+    }
+    if (signature is not null && delegateInvoke is not null &&
+      !HasSameSignature(signature, delegateInvoke)) {
+      ReportInvalidTarget(
+        context, target, name,
+        "the partial declaration does not match delegate '" + delegateTargets[0] + "'"
+      );
+      return false;
+    }
+
+    var targetSignature = delegateInvoke ?? signature;
+    if (targetSignature is { ReturnsByRef: true } or { ReturnsByRefReadonly: true }) {
+      ReportInvalidTarget(context, target, name, "ref returns are not supported");
+      return false;
+    }
+    var parameters = targetSignature?.Parameters.Select(MixinTargetParameter.FromSymbol).ToArray() ?? [];
+    var returnType = targetSignature?.ReturnType;
+    var returnsVoid = returnType is null || returnType.SpecialType == SpecialType.System_Void;
+    var declaration = signature is null
+      ? (isPublic ? "public " : "private ") + (isStatic ? "static " : "") +
+      (returnsVoid ? "void" : returnType.ToDisplayString(TypeDisplayFormat)) + " " + EscapeIdentifier(name)
+      : BuildMethodDeclaration(signature, partialSyntax, baseMethod is not null);
+    generated = new GeneratedMethod(
+      declaration,
+      signature?.TypeParameters.Select(item => EscapeIdentifier(item.Name)).ToArray() ?? [],
+      partialSyntax is null ? [] : TypeParameterConstraints(signature),
+      parameters,
+      returnsVoid ? null : returnType.ToDisplayString(TypeDisplayFormat),
+      baseMethod is { IsAbstract: false },
+      name,
+      contributions
+    );
+    return true;
+  }
+
+  private static void ReportInvalidTarget(
+    MixinGenerationContext context,
+    INamedTypeSymbol target,
+    string name,
+    string reason
+  ) {
+    context.ReportDiagnostic(
+      Diagnostic.Create(
+        InvalidTarget, LocationOf(target), name, target.Name, reason
+      )
+    );
+  }
+
+  private static bool TryGetUnimplementedPartial(
+    IMethodSymbol method,
+    out MethodDeclarationSyntax syntax
+  ) {
+    syntax = method.DeclaringSyntaxReferences
+      .Select(item => item.GetSyntax())
+      .OfType<MethodDeclarationSyntax>()
+      .FirstOrDefault(item => item.Modifiers.Any(SyntaxKind.PartialKeyword) &&
+        item.Body is null && item.ExpressionBody is null
+      );
+    return syntax is not null && method.PartialImplementationPart is null;
+  }
+
+  private static IMethodSymbol FindBaseMethod(
+    INamedTypeSymbol target,
+    string name,
+    int parameterCount
+  ) {
+    for (var current = target.BaseType; current is not null; current = current.BaseType) {
+      var methods = current.GetMembers(name).OfType<IMethodSymbol>()
+        .Where(item => !item.IsStatic && item.DeclaredAccessibility != Accessibility.Private &&
+          !item.IsSealed && (item.IsAbstract || item.IsVirtual || item.IsOverride)
+        ).ToArray();
+      var exact = methods.FirstOrDefault(item => item.Parameters.Length == parameterCount);
+      if (exact is not null) return exact;
+      if (methods.Length == 1) return methods[0];
+    }
+    return null;
+  }
+
+  private static INamedTypeSymbol ResolveDelegateTarget(
+    CSharpCompilation compilation,
+    string typeName
+  ) {
+    var normalized = typeName.StartsWith("global::", StringComparison.Ordinal)
+      ? typeName.Substring("global::".Length)
+      : typeName;
+    var direct = compilation.GetTypeByMetadataName(normalized);
+    if (direct is not null) return direct;
+    var separator = Math.Max(normalized.LastIndexOf('.'), normalized.LastIndexOf('+'));
+    var simpleName = separator < 0 ? normalized : normalized.Substring(separator + 1);
+    return compilation.GetSymbolsWithName(simpleName, SymbolFilter.Type)
+      .OfType<INamedTypeSymbol>()
+      .FirstOrDefault(item => item.ToDisplayString() == normalized);
+  }
+
+  private static bool HasSameSignature(IMethodSymbol method, IMethodSymbol expected) {
+    if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, expected.ReturnType) ||
+      method.RefKind != expected.RefKind || method.Parameters.Length != expected.Parameters.Length ||
+      method.TypeParameters.Length != 0) return false;
+    for (var index = 0; index < method.Parameters.Length; index++) {
+      var actual = method.Parameters[index];
+      var wanted = expected.Parameters[index];
+      if (actual.RefKind != wanted.RefKind ||
+        !SymbolEqualityComparer.Default.Equals(actual.Type, wanted.Type)) return false;
+    }
+    return true;
+  }
+
+  private static string BuildMethodDeclaration(
+    IMethodSymbol method,
+    MethodDeclarationSyntax partialSyntax,
+    bool isOverride
+  ) {
+    var modifiers = new List<string>();
+    if (partialSyntax is not null) {
+      modifiers.AddRange(
+        partialSyntax.Modifiers
+          .Where(item => item.IsKind(SyntaxKind.PublicKeyword) ||
+            item.IsKind(SyntaxKind.PrivateKeyword) ||
+            item.IsKind(SyntaxKind.ProtectedKeyword) ||
+            item.IsKind(SyntaxKind.InternalKeyword) ||
+            item.IsKind(SyntaxKind.StaticKeyword) ||
+            item.IsKind(SyntaxKind.UnsafeKeyword) ||
+            item.IsKind(SyntaxKind.PartialKeyword)
+          )
+          .Select(item => item.Text)
+      );
+    } else if (isOverride) {
+      modifiers.Add(AccessibilityText(method.DeclaredAccessibility));
+      modifiers.Add("override");
+    }
+
+    var typeParameters = method.TypeParameters.Length == 0
+      ? ""
+      : "<" + string.Join(", ", method.TypeParameters.Select(item => EscapeIdentifier(item.Name))) + ">";
+    return string.Join(" ", modifiers) +
+      (modifiers.Count == 0 ? "" : " ") +
+      (method.ReturnsVoid ? "void" : method.ReturnType.ToDisplayString(TypeDisplayFormat)) + " " +
+      EscapeIdentifier(method.Name) + typeParameters;
+  }
+
+  private static IReadOnlyList<string> TypeParameterConstraints(IMethodSymbol method) {
+    var result = new List<string>();
+    foreach (var parameter in method.TypeParameters) {
+      var constraints = new List<string>();
+      if (parameter.HasUnmanagedTypeConstraint) constraints.Add("unmanaged");
+      else if (parameter.HasValueTypeConstraint) constraints.Add("struct");
+      else if (parameter.HasReferenceTypeConstraint) {
+        constraints.Add(
+          parameter.ReferenceTypeConstraintNullableAnnotation == NullableAnnotation.Annotated ? "class?" : "class"
+        );
+      }
+      if (parameter.HasNotNullConstraint) constraints.Add("notnull");
+      constraints.AddRange(parameter.ConstraintTypes.Select(item => item.ToDisplayString(TypeDisplayFormat)));
+      if (parameter.HasConstructorConstraint) constraints.Add("new()");
+      if (constraints.Count != 0)
+        result.Add("where " + EscapeIdentifier(parameter.Name) + " : " + string.Join(", ", constraints));
+    }
+    return result;
+  }
+
+  private static void AppendMethod(SharpStringBuilder builder, GeneratedMethod method) {
+    var declaration = method.Declaration;
+    if (method.TypeParameters.Count != 0 && !declaration.EndsWith(
+      ">", StringComparison.Ordinal
+    )) declaration += "<" + string.Join(", ", method.TypeParameters) + ">";
+    var parameters = method.Parameters.Select(item => item.Declaration).ToArray();
+    builder.Append(declaration).Parameters(parameters, parameters.Length > 1);
+    foreach (var constraint in method.Constraints) builder.Append(" ").Append(constraint);
+    using (builder.Block()) {
+      if (method.ReturnType is not null) builder.Statement(method.ReturnType + " __mixinReturnValue = default");
+
+      var baseEmitted = !method.CallBase;
+      foreach (var contribution in method.Contributions) {
+        if (!baseEmitted && contribution.Order >= 0) {
+          AppendBaseCall(builder, method);
+          baseEmitted = true;
+        }
+        AppendInvocation(builder, contribution);
+      }
+      if (!baseEmitted) AppendBaseCall(builder, method);
+      if (method.ReturnType is not null) builder.Return("__mixinReturnValue");
+    }
+  }
+
+  private static void AppendBaseCall(SharpStringBuilder builder, GeneratedMethod method) {
+    var call = "base." + EscapeIdentifier(method.Name) + "(" +
+      string.Join(", ", method.Parameters.Select(item => item.Argument)) + ")";
+    builder.Statement(method.ReturnType is null ? call : "__mixinReturnValue = " + call);
+  }
+
+  private static void AppendInvocation(
+    SharpStringBuilder builder,
+    MixinContribution contribution
+  ) {
+    foreach (var output in contribution.ExpressionResult.Outputs)
+      if (output.Target == MixinExpressionOutputTarget.Target)
+        builder.Statement(output.Text);
+  }
+
+  private static string RefPrefix(RefKind kind) {
+    return kind switch {
+      RefKind.Ref => "ref ",
+      RefKind.Out => "out ",
+      RefKind.In => "in ",
+      _ => ""
+    };
+  }
+
+  private static IReadOnlyList<ISymbol> OrderedMembers(INamedTypeSymbol type) {
+    return [
+      .. type.GetMembers()
+        .OrderBy(
+          item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath,
+          StringComparer.Ordinal
+        )
+        .ThenBy(SourceOrder)
+    ];
+  }
+
+  private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) {
+    return [
+      .. symbol.GetAttributes()
+        .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
+        .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
+    ];
+  }
+
+  private static bool IsAttribute(AttributeData attribute, string metadataName) {
+    return attribute.AttributeClass?.ToDisplayString() == metadataName;
+  }
 
   private sealed class MixinGenerationContext {
-    private readonly List<MixinDiagnostic> _diagnostics = new();
-    private readonly List<LateExpressionWork> _lateExpressions = new();
-    private readonly List<DebugExpressionWork> _debugExpressions = new();
+    private readonly List<DebugExpressionWork> _debugExpressions = [];
+    private readonly List<MixinDiagnostic> _diagnostics = [];
+    private readonly List<LateExpressionWork> _lateExpressions = [];
+
     internal MixinGenerationContext(bool debug, bool debugStringPool) {
       Debug = debug;
       DebugStringPool = debugStringPool;
     }
+
     internal bool Debug { get; }
     internal bool DebugStringPool { get; }
     internal bool HasLateExpressions => _lateExpressions.Count != 0;
     internal IReadOnlyList<LateExpressionWork> LateExpressions => _lateExpressions;
     internal IReadOnlyList<DebugExpressionWork> DebugExpressions => _debugExpressions;
 
-    internal void ReportDiagnostic(Diagnostic diagnostic) =>
+    internal void ReportDiagnostic(Diagnostic diagnostic) {
       _diagnostics.Add(MixinDiagnostic.Detach(diagnostic));
+    }
 
     internal void AddLateExpression(
       MixinProgramSyntax expression,
@@ -536,15 +1228,18 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       string sourceMember,
       string sourceKind,
       int sourceParameterCount
-    ) =>
-      _lateExpressions.Add(new LateExpressionWork(
-        expression, preludeProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
-        preparedState,
-        PreparedStateKey(preparedState), targets,
-        MixinDiagnostic.Detach(Diagnostic.Create(ExpressionLog, location, "")),
-        provider ?? "", sourceType ?? "",
-        sourceMember ?? "", sourceKind ?? "", sourceParameterCount
-      ));
+    ) {
+      _lateExpressions.Add(
+        new LateExpressionWork(
+          expression, preludeProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
+          preparedState,
+          PreparedStateKey(preparedState), targets,
+          MixinDiagnostic.Detach(Diagnostic.Create(ExpressionLog, location, "")),
+          provider ?? "", sourceType ?? "",
+          sourceMember ?? "", sourceKind ?? "", sourceParameterCount
+        )
+      );
+    }
 
     internal void AddDebugExpression(
       string preludeProgram,
@@ -556,23 +1251,30 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       double preludeMilliseconds
     ) {
       if (!Debug) return;
-      _debugExpressions.Add(new DebugExpressionWork(
-        preludeProgram, lateProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
-        provider ?? "", (source as INamedTypeSymbol ?? source.ContainingType)
+      _debugExpressions.Add(
+        new DebugExpressionWork(
+          preludeProgram, lateProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
+          provider ?? "", (source as INamedTypeSymbol ?? source.ContainingType)
           ?.ToDisplayString(TypeDisplayFormat) ?? "",
-        source is INamedTypeSymbol ? "" : source.MetadataName,
-        preludeOperations, preludeMilliseconds
-      ));
+          source is INamedTypeSymbol ? "" : source.MetadataName,
+          preludeOperations, preludeMilliseconds
+        )
+      );
     }
 
-    private static string PreparedStateKey(MixinExpressionPreparedState state) => string.Join(
-      "\u001e", state.Instructions.Select(instruction =>
-        instruction.Command + "\u001f" + string.Join("\u001f", instruction.Arguments) + "\u001f" + instruction.Operand
-      )
-    );
+    private static string PreparedStateKey(MixinExpressionPreparedState state) {
+      return string.Join(
+        "\u001e", state.Instructions.Select(instruction =>
+          instruction.Command + "\u001f" + string.Join("\u001f", instruction.Arguments) + "\u001f" + instruction.Operand
+        )
+      );
+    }
 
-    internal MixinGenerationResult Complete(MixinRenderModel render = null) =>
-      new(_diagnostics.ToImmutableArray(), render, _lateExpressions.ToImmutableArray());
+    internal MixinGenerationResult Complete(MixinRenderModel render = null) {
+      return new MixinGenerationResult(
+        _diagnostics.ToImmutableArray(), render, _lateExpressions.ToImmutableArray()
+      );
+    }
   }
 
   private sealed class MixinGenerationResult {
@@ -693,11 +1395,12 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   ) {
     internal static MixinDiagnostic Detach(Diagnostic diagnostic) {
       var location = diagnostic.Location;
-      if (location is null || location == Location.None || !location.IsInSource)
+      if (location == Location.None || !location.IsInSource) {
         return new MixinDiagnostic(
           diagnostic.Descriptor, diagnostic.GetMessage(CultureInfo.InvariantCulture),
           "", default, default, false, diagnostic.Properties
         );
+      }
       var lineSpan = location.GetLineSpan();
       return new MixinDiagnostic(
         diagnostic.Descriptor, diagnostic.GetMessage(CultureInfo.InvariantCulture),
@@ -709,11 +1412,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       var descriptor = new DiagnosticDescriptor(
         Descriptor.Id, Descriptor.Title, "{0}", Descriptor.Category,
         Descriptor.DefaultSeverity, Descriptor.IsEnabledByDefault,
-        Descriptor.Description, Descriptor.HelpLinkUri, Descriptor.CustomTags.ToArray()
+        Descriptor.Description, Descriptor.HelpLinkUri, [.. Descriptor.CustomTags]
       );
-      var location = HasLocation
-        ? Location.Create(Path, SourceSpan, LineSpan)
-        : Location.None;
+      var location = HasLocation ? Location.Create(Path, SourceSpan, LineSpan) : Location.None;
       return Diagnostic.Create(descriptor, location, null, Properties, Message);
     }
 
@@ -841,19 +1542,24 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       }
     }
 
-    public bool Equals(MixinRenderFingerprint other) =>
-      Outputs.Equals(other.Outputs) && Variables.Equals(other.Variables) &&
-      Signatures.Equals(other.Signatures) && Debug == other.Debug &&
-      DebugStringPool == other.DebugStringPool;
+    public bool Equals(MixinRenderFingerprint other) {
+      return Outputs.Equals(other.Outputs) &&
+        Variables.Equals(other.Variables) &&
+        Signatures.Equals(other.Signatures) && Debug == other.Debug &&
+        DebugStringPool == other.DebugStringPool;
+    }
 
-    public override bool Equals(object value) =>
-      value is MixinRenderFingerprint other && Equals(other);
+    public override bool Equals(object value) {
+      return value is MixinRenderFingerprint other && Equals(other);
+    }
 
-    public override int GetHashCode() => unchecked(
-      (((Outputs.GetHashCode() * 397 ^ Variables.GetHashCode()) * 397 ^
-        Signatures.GetHashCode()) * 397 ^ Debug.GetHashCode()) * 397 ^
+    public override int GetHashCode() {
+      return unchecked(
+        (((Outputs.GetHashCode() * 397 ^ Variables.GetHashCode()) * 397 ^
+          Signatures.GetHashCode()) * 397 ^ Debug.GetHashCode()) * 397 ^
         DebugStringPool.GetHashCode()
-    );
+      );
+    }
 
     internal readonly struct FingerprintPart : IEquatable<FingerprintPart> {
       internal FingerprintPart(ulong hash, long length) {
@@ -863,39 +1569,56 @@ public sealed class MixinGenerator : IIncrementalGenerator {
 
       internal ulong Hash { get; }
       internal long Length { get; }
-      public bool Equals(FingerprintPart other) => Hash == other.Hash && Length == other.Length;
-      public override bool Equals(object value) => value is FingerprintPart other && Equals(other);
-      public override int GetHashCode() => unchecked(
-        (int)(Hash ^ Hash >> 32) * 397 ^ Length.GetHashCode()
-      );
-    }
 
+      public bool Equals(FingerprintPart other) {
+        return Hash == other.Hash && Length == other.Length;
+      }
+
+      public override bool Equals(object value) {
+        return value is FingerprintPart other && Equals(other);
+      }
+
+      public override int GetHashCode() {
+        return unchecked((int)(Hash ^ Hash >> 32) * 397 ^ Length.GetHashCode());
+      }
+    }
   }
 
   private sealed class MixinOutputModelComparer : IEqualityComparer<MixinOutputModel> {
     internal static readonly MixinOutputModelComparer Instance = new();
-    public bool Equals(MixinOutputModel x, MixinOutputModel y) =>
-      ReferenceEquals(x, y) || x is not null && y is not null &&
-      string.Equals(x.HintName, y.HintName, StringComparison.Ordinal) &&
-      Nullable.Equals(x.Render?.Fingerprint, y.Render?.Fingerprint) &&
-      DiagnosticKey(x.Diagnostics) == DiagnosticKey(y.Diagnostics) &&
-      LateEqual(x.LateExpressions, y.LateExpressions);
 
-    private static string DiagnosticKey(ImmutableArray<MixinDiagnostic> diagnostics) => string.Join(
-      "\u001e", diagnostics.Select(diagnostic => string.Join("\u001f", new[] {
-        diagnostic.Descriptor.Id,
-        diagnostic.Descriptor.DefaultSeverity.ToString(),
-        diagnostic.Message,
-        diagnostic.Path,
-        diagnostic.SourceSpan.Start.ToString(CultureInfo.InvariantCulture),
-        diagnostic.SourceSpan.Length.ToString(CultureInfo.InvariantCulture),
-        diagnostic.LineSpan.Start.Line.ToString(CultureInfo.InvariantCulture),
-        diagnostic.LineSpan.Start.Character.ToString(CultureInfo.InvariantCulture),
-        diagnostic.LineSpan.End.Line.ToString(CultureInfo.InvariantCulture),
-        diagnostic.LineSpan.End.Character.ToString(CultureInfo.InvariantCulture),
-        string.Join("\u001d", diagnostic.Properties.OrderBy(item => item.Key).Select(item => item.Key + "=" + item.Value))
-      }))
-    );
+    public bool Equals(MixinOutputModel x, MixinOutputModel y) {
+      return ReferenceEquals(x, y) || x is not null &&
+        y is not null &&
+        string.Equals(x.HintName, y.HintName, StringComparison.Ordinal) &&
+        Nullable.Equals(x.Render?.Fingerprint, y.Render?.Fingerprint) &&
+        DiagnosticKey(x.Diagnostics) == DiagnosticKey(y.Diagnostics) &&
+        LateEqual(x.LateExpressions, y.LateExpressions);
+    }
+
+    public int GetHashCode(MixinOutputModel value) {
+      return unchecked(
+        StringComparer.Ordinal.GetHashCode(value.HintName ?? "") * 397 ^
+        (value.Render?.Fingerprint.GetHashCode() ?? 0)
+      );
+    }
+
+    private static string DiagnosticKey(ImmutableArray<MixinDiagnostic> diagnostics) {
+      return string.Join(
+        "\u001e", diagnostics.Select(diagnostic => string.Join(
+            "\u001f", diagnostic.Descriptor.Id, diagnostic.Descriptor.DefaultSeverity.ToString(), diagnostic.Message,
+            diagnostic.Path, diagnostic.SourceSpan.Start.ToString(CultureInfo.InvariantCulture),
+            diagnostic.SourceSpan.Length.ToString(CultureInfo.InvariantCulture),
+            diagnostic.LineSpan.Start.Line.ToString(CultureInfo.InvariantCulture),
+            diagnostic.LineSpan.Start.Character.ToString(CultureInfo.InvariantCulture),
+            diagnostic.LineSpan.End.Line.ToString(CultureInfo.InvariantCulture),
+            diagnostic.LineSpan.End.Character.ToString(CultureInfo.InvariantCulture), string.Join(
+              "\u001d", diagnostic.Properties.OrderBy(item => item.Key).Select(item => item.Key + "=" + item.Value)
+            )
+          )
+        )
+      );
+    }
 
     private static bool LateEqual(ImmutableArray<LateExpressionWork> x, ImmutableArray<LateExpressionWork> y) {
       if (x.Length != y.Length) return false;
@@ -909,19 +1632,17 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           left.SourceKind != right.SourceKind ||
           left.SourceParameterCount != right.SourceParameterCount ||
           left.Targets.Length != right.Targets.Length) return false;
-        for (var targetIndex = 0; targetIndex < left.Targets.Length; targetIndex++)
-          if (left.Targets[targetIndex] != right.Targets[targetIndex]) return false;
-        foreach (var item in left.Variables)
-          if (!right.Variables.TryGetValue(item.Key, out var value) || !Equals(item.Value, value)) return false;
+        for (var targetIndex = 0; targetIndex < left.Targets.Length; targetIndex++) {
+          if (left.Targets[targetIndex] != right.Targets[targetIndex])
+            return false;
+        }
+        foreach (var item in left.Variables) {
+          if (!right.Variables.TryGetValue(item.Key, out var value) || !Equals(item.Value, value))
+            return false;
+        }
       }
       return true;
     }
-    public int GetHashCode(MixinOutputModel value) => value is null
-      ? 0
-      : unchecked(
-        StringComparer.Ordinal.GetHashCode(value.HintName ?? "") * 397 ^
-        (value.Render?.Fingerprint.GetHashCode() ?? 0)
-      );
   }
 
   private sealed class UnlinkedMixinExpressionContext : IMixinExpressionContext {
@@ -980,13 +1701,15 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       }
     }
 
-    internal ExpressionOutputSet Finish() => new(
-      MixinOutputCollection.Finish(_annotations),
-      MixinOutputCollection.Finish(_class),
-      MixinOutputCollection.Finish(_file),
-      MixinOutputCollection.Finish(_implements),
-      MixinOutputCollection.Finish(_usings)
-    );
+    internal ExpressionOutputSet Finish() {
+      return new ExpressionOutputSet(
+        MixinOutputCollection.Finish(_annotations),
+        MixinOutputCollection.Finish(_class),
+        MixinOutputCollection.Finish(_file),
+        MixinOutputCollection.Finish(_implements),
+        MixinOutputCollection.Finish(_usings)
+      );
+    }
   }
 
   private sealed record ExpressionOutputSet(
@@ -998,7 +1721,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   );
 
   private sealed class MixinOutputAccumulator {
-    private readonly List<MixinExpressionOutput> _outputs = new();
+    private readonly List<MixinExpressionOutput> _outputs = [];
     private OutputFingerprintBuilder _fingerprint;
 
     internal IReadOnlyList<MixinExpressionOutput> Outputs => _outputs;
@@ -1013,7 +1736,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
 
   private sealed class MixinOutputCollection : IReadOnlyList<MixinExpressionOutput> {
     private static readonly MixinOutputCollection Empty = new(
-      Array.Empty<MixinExpressionOutput>(), OutputFingerprintBuilder.EmptyHash, 0
+      [], OutputFingerprintBuilder.EmptyHash, 0
     );
     private readonly MixinExpressionOutput[] _outputs;
 
@@ -1028,17 +1751,21 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     public int Count => _outputs.Length;
     public MixinExpressionOutput this[int index] => _outputs[index];
 
-    internal static MixinOutputCollection Finish(MixinOutputAccumulator accumulator) =>
-      accumulator is null || accumulator.Outputs.Count == 0
+    public IEnumerator<MixinExpressionOutput> GetEnumerator() {
+      return ((IEnumerable<MixinExpressionOutput>)_outputs).GetEnumerator();
+    }
+
+    IEnumerator IEnumerable.GetEnumerator() {
+      return _outputs.GetEnumerator();
+    }
+
+    internal static MixinOutputCollection Finish(MixinOutputAccumulator accumulator) {
+      return accumulator is null || accumulator.Outputs.Count == 0
         ? Empty
         : new MixinOutputCollection(
-          accumulator.Outputs.ToArray(), accumulator.Hash, accumulator.Length
+          [.. accumulator.Outputs], accumulator.Hash, accumulator.Length
         );
-
-    public IEnumerator<MixinExpressionOutput> GetEnumerator() =>
-      ((IEnumerable<MixinExpressionOutput>)_outputs).GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator() => _outputs.GetEnumerator();
+    }
   }
 
   private struct OutputFingerprintBuilder {
@@ -1088,14 +1815,6 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     ) : this(target, order, sequence, expressionResult, work) {
       IsPlaceholder = placeholder;
     }
-
-    internal static MixinContribution Placeholder(
-      LateTarget target, int sequence, LateExpressionWork work
-    ) => new(
-      target, target.Order, sequence,
-      new MixinExpressionResult(true, null, 0, Array.Empty<MixinExpressionOutput>()),
-      work, true
-    );
 
     internal MixinContribution(
       LateTarget target,
@@ -1156,6 +1875,16 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     internal string SourceKind { get; }
     internal int SourceParameterCount { get; }
     internal bool IsPlaceholder { get; }
+
+    internal static MixinContribution Placeholder(
+      LateTarget target, int sequence, LateExpressionWork work
+    ) {
+      return new MixinContribution(
+        target, target.Order, sequence,
+        new MixinExpressionResult(true, null, 0, []),
+        work, true
+      );
+    }
   }
 
   private sealed record MixinTargetParameter(string Declaration, string Argument) {
@@ -1204,666 +1933,4 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   }
 
   private sealed record MixinTarget(INamedTypeSymbol Type, CSharpCompilation Compilation);
-
-  private static void CollectAttributeContributions(
-    MixinGenerationContext context,
-    INamedTypeSymbol target,
-    CSharpCompilation compilation,
-    MixinExpressionPreparedState preparedExpressions,
-    IDictionary<string, object> expressionVariables,
-    ICollection<MixinExpressionOutput> expressionOutputs,
-    ICollection<MixinContribution> result,
-    IReadOnlyDictionary<string, string> targetDefinitions,
-    MixinLibraryCatalog libraries,
-    MixinCompilation mixinCompilation
-  ) {
-    var sequence = 0;
-    var structureTarget = target.TypeKind == TypeKind.Struct &&
-      Attribute(target, GeneratorStrings.Attributes.Structure) is not null;
-    foreach (var annotated in AnnotatedSymbols(target)) {
-      foreach (var applied in OrderedAttributes(annotated)) {
-        var attributeType = applied.AttributeClass;
-        if (attributeType is null) continue;
-        if (structureTarget && attributeType.ToDisplayString() !=
-          GeneratorStrings.Attributes.Structure) continue;
-        foreach (var expressionAttribute in CompiledAnnotationDefinitions(
-          attributeType, mixinCompilation
-        )) {
-          CollectMixinExpressionContributions(
-            context, target, annotated, applied, expressionAttribute, compilation,
-            preparedExpressions, expressionVariables, expressionOutputs, result, ref sequence,
-            attributeType.ToDisplayString(TypeDisplayFormat), targetDefinitions,
-            libraries
-          );
-        }
-      }
-    }
-  }
-
-  private static IEnumerable<ISymbol> AnnotatedSymbols(INamedTypeSymbol target) {
-    yield return target;
-    foreach (var member in OrderedMembers(target))
-      if (!member.IsImplicitlyDeclared)
-        yield return member;
-  }
-
-  private static void CollectMixinExpressionContributions(
-    MixinGenerationContext context,
-    INamedTypeSymbol target,
-    ISymbol annotated,
-    AttributeData applied,
-    CompiledMixinAnnotation configuration,
-    CSharpCompilation compilation,
-    MixinExpressionPreparedState preparedExpressions,
-    IDictionary<string, object> expressionVariables,
-    ICollection<MixinExpressionOutput> expressionOutputs,
-    ICollection<MixinContribution> contributions,
-    ref int sequence,
-    string providerName,
-    IReadOnlyDictionary<string, string> targetDefinitions,
-    MixinLibraryCatalog libraries
-  ) {
-    var location = applied?.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? LocationOf(annotated);
-    var attributeName = providerName ?? applied?.AttributeClass?.Name ?? "<unknown>";
-    IReadOnlyList<string> targets = Array.Empty<string>();
-    IReadOnlyList<int> orders = Array.Empty<int>();
-    var compiledProgram = annotated is INamedTypeSymbol
-      ? configuration.TypeProgram
-      : configuration.MemberProgram;
-    var expression = compiledProgram.Prelude;
-    var lateExpression = compiledProgram.Late;
-
-    var declarations = new Dictionary<string, AttributeExpressionTarget>(StringComparer.Ordinal);
-    for (var index = 0; index < targets.Count; index++) {
-      var declared = targets[index];
-      var emitted = EmittedTarget(declared, targetDefinitions);
-      if (!IsValidIdentifier(emitted)) {
-        ReportInvalidAttributeExpression(
-          context, location, attributeName, annotated.Name,
-          "target '" + (declared ?? "null") + "' is not a valid mixin target"
-        );
-        return;
-      }
-      if (declarations.ContainsKey(declared)) {
-        ReportInvalidAttributeExpression(
-          context, location, attributeName, annotated.Name,
-          "target '" + declared + "' is declared more than once"
-        );
-        return;
-      }
-      declarations.Add(
-        declared, new AttributeExpressionTarget(
-          declared, orders[index], targetDefinitions
-        )
-      );
-    }
-
-    var arguments = annotated is IMethodSymbol method
-      ? (IReadOnlyList<IParameterSymbol>)method.Parameters
-      : Array.Empty<IParameterSymbol>();
-    var expressionContext = new RoslynMixinExpressionContext(
-      target, annotated, applied, arguments, compilation,
-      targetDefinitions: targetDefinitions,
-      preparedExpressions: preparedExpressions,
-      libraries: libraries
-    );
-    var interpreter = new MixinExpressionInterpreter();
-    var evaluated = interpreter.ExecuteCompiled(
-      expression, expressionContext, expressionVariables, preparedExpressions
-    );
-    ReportExpressionLogs(context, location, evaluated.Logs);
-    if (!evaluated.Success) {
-      ReportInvalidAttributeExpression(
-        context, location, attributeName, annotated.Name,
-        "line " + evaluated.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + evaluated.Error
-      );
-      return;
-    }
-    context.AddDebugExpression(
-      expression.Source, lateExpression.Source, evaluated.Variables,
-      providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
-      evaluated.ExecutionMilliseconds
-    );
-    if (lateExpression.Count != 0) {
-      var sourceType = (annotated as INamedTypeSymbol ?? annotated.ContainingType)
-        ?.ToDisplayString(TypeDisplayFormat) ?? "";
-      var lateTargets = declarations.Values.Select(item => new LateTarget(
-        item.Target, item.EmittedTarget, item.IsStatic, item.IsPublic,
-        item.DelegateTarget, item.Order
-      )).ToList();
-      DiscoverLateMixinTargets(
-        lateExpression.Source, evaluated.Variables, targetDefinitions, lateTargets
-      );
-      context.AddLateExpression(
-        lateExpression, expression.Source, evaluated.Variables, preparedExpressions,
-        lateTargets.Distinct().ToImmutableArray(), location,
-        providerName ?? attributeName, sourceType,
-        annotated is INamedTypeSymbol ? "" : annotated.MetadataName,
-        annotated.Kind.ToString(),
-        annotated is IMethodSymbol sourceMethod ? sourceMethod.Parameters.Length : 0
-      );
-    }
-
-    // Validate every destination before publishing any output from this expression.
-    foreach (var output in evaluated.Outputs) {
-      if (output.Target == MixinExpressionOutputTarget.Mixin) {
-        var emitted = EmittedTarget(output.InjectionTarget, targetDefinitions);
-        if (!IsValidIdentifier(emitted)) {
-          ReportInvalidAttributeExpression(
-            context, location, attributeName, annotated.Name,
-            "mixin target '" + (output.InjectionTarget ?? "") + "' is not a valid mixin target"
-          );
-          return;
-        }
-        continue;
-      }
-      if (output.Target == MixinExpressionOutputTarget.Injection &&
-        !declarations.ContainsKey(output.InjectionTarget)) continue;
-      if (output.Target is MixinExpressionOutputTarget.Class or
-        MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements or
-        MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using) continue;
-
-      if (output.Target == MixinExpressionOutputTarget.Target && targets.Count != 1) {
-        ReportInvalidAttributeExpression(
-          context, location, attributeName, annotated.Name,
-          "@CODE<TARGET> requires exactly one declared target"
-        );
-        return;
-      }
-      var injectionTarget = output.Target == MixinExpressionOutputTarget.Target
-        ? targets[0]
-        : output.InjectionTarget;
-      if (string.IsNullOrEmpty(injectionTarget) || !declarations.ContainsKey(injectionTarget)) {
-        ReportInvalidAttributeExpression(
-          context, location, attributeName, annotated.Name,
-          "code target '" + (injectionTarget ?? "") + "' was not declared"
-        );
-        return;
-      }
-    }
-
-    List<AttributeExpressionTarget> activated = null;
-    foreach (var output in evaluated.Outputs) {
-      if (output.IsEmpty) continue;
-      if (output.Target == MixinExpressionOutputTarget.Mixin) {
-        var result = new MixinExpressionResult(
-          true, null, 0, new[] { output.Retarget(MixinExpressionOutputTarget.Target) }
-        );
-        contributions.Add(
-          new MixinContribution(
-            output.InjectionTarget, output.InjectionPriority,
-            sequence++, targetDefinitions, result, providerName, annotated
-          )
-        );
-        continue;
-      }
-      if (output.Target == MixinExpressionOutputTarget.Injection &&
-        !declarations.ContainsKey(output.InjectionTarget)) {
-        contributions.Add(
-          new MixinContribution(
-            output.InjectionTarget, 0,
-            sequence++, targetDefinitions,
-            new MixinExpressionResult(
-              true, null, 0, new[] { output.Retarget(MixinExpressionOutputTarget.Target) }
-            ), providerName, annotated
-          )
-        );
-        continue;
-      }
-      if (output.Target is MixinExpressionOutputTarget.Class or
-        MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Implements or
-        MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using) {
-        expressionOutputs.Add(output);
-        continue;
-      }
-      var injectionTarget = output.Target == MixinExpressionOutputTarget.Target
-        ? targets[0]
-        : output.InjectionTarget;
-      var declaration = declarations[injectionTarget];
-      if (declaration.Outputs is null) {
-        declaration.Outputs = new List<MixinExpressionOutput>();
-        (activated ??= new List<AttributeExpressionTarget>()).Add(declaration);
-      }
-      declaration.Outputs.Add(output.Retarget(MixinExpressionOutputTarget.Target));
-    }
-    foreach (var declaration in activated ?? Enumerable.Empty<AttributeExpressionTarget>()) {
-      var result = new MixinExpressionResult(true, null, 0, declaration.Outputs);
-      contributions.Add(
-        new MixinContribution(
-          declaration.Target, declaration.Order,
-          sequence++, targetDefinitions, result, providerName, annotated
-        )
-      );
-    }
-  }
-
-  private static void DiscoverLateMixinTargets(
-    string expression,
-    IReadOnlyDictionary<string, object> variables,
-    IReadOnlyDictionary<string, string> targetDefinitions,
-    ICollection<LateTarget> targets
-  ) {
-    foreach (var line in MixinExpressionParser.SplitLines(expression ?? "")) {
-      var instruction = MixinExpressionParser.ParseDirective(line, 0);
-      if (instruction.Error is not null || instruction.Opcode != DirectiveOpcode.Mixin ||
-        instruction.Arguments.Count == 0) continue;
-      var argument = instruction.Arguments[0];
-      string resolved = null;
-      if (!MixinExpressionParser.IsDynamicArgument(argument)) resolved = argument;
-      else {
-        var inner = argument.Substring(1, argument.Length - 2).Trim();
-        const string carryPrefix = "@carry#";
-        if (inner.StartsWith(carryPrefix, StringComparison.Ordinal) &&
-          variables.TryGetValue(
-            MixinExpressionInterpreter.CarryLocalPrefix + inner.Substring(carryPrefix.Length),
-            out var carried
-          )) resolved = MixinValue.From(carried).Render();
-      }
-      if (string.IsNullOrWhiteSpace(resolved)) continue;
-      var syntax = RoslynMixinExpressionContext.ParseMixinTarget(resolved, targetDefinitions);
-      targets.Add(new LateTarget(
-        resolved, syntax.Name, syntax.IsStatic, syntax.IsPublic, syntax.DelegateType, 0
-      ));
-    }
-  }
-
-  private static void ReportInvalidAttributeExpression(
-    MixinGenerationContext context,
-    Location location,
-    string attributeName,
-    string annotatedName,
-    string reason
-  ) {
-    context.ReportDiagnostic(
-      Diagnostic.Create(
-        InvalidAttributeExpression, location, attributeName, annotatedName, reason
-      )
-    );
-  }
-
-  private static void ReportExpressionLogs(
-    MixinGenerationContext context,
-    Location location,
-    IReadOnlyList<MixinExpressionLog> logs
-  ) {
-    foreach (var log in logs)
-      context.ReportDiagnostic(
-        Diagnostic.Create(log.IsHint ? ExpressionHint : ExpressionLog, location, log.Text)
-      );
-  }
-
-
-  private static string EmittedTarget(
-    string target,
-    IReadOnlyDictionary<string, string> targetDefinitions = null
-  ) {
-    return RoslynMixinExpressionContext.ParseMixinTarget(target, targetDefinitions).Name;
-  }
-
-  private static List<GeneratedMethod> BuildMethods(
-    MixinGenerationContext context,
-    INamedTypeSymbol target,
-    IReadOnlyList<MixinContribution> contributions,
-    CSharpCompilation compilation
-  ) {
-    var result = new List<GeneratedMethod>();
-    foreach (var group in contributions.GroupBy(
-      item => (item.IsStaticTarget ? "*" : "") + item.EmittedTarget,
-      StringComparer.Ordinal
-    )) {
-      var ordered = group.OrderBy(item => item.Order)
-        .ThenBy(item => item.Sequence)
-        .ToArray();
-      if (TryBuildMethod(
-        context, target, ordered[0].EmittedTarget, ordered, compilation, out var method
-      )) result.Add(method);
-    }
-    return result;
-  }
-
-  private static void ReportContributionData(
-    MixinGenerationContext context,
-    INamedTypeSymbol target,
-    IReadOnlyList<GeneratedMethod> methods
-  ) {
-    var targetName = target.ToDisplayString(TypeDisplayFormat);
-    var location = LocationOf(target);
-    foreach (var method in methods) {
-      foreach (var contribution in method.Contributions) {
-        if (contribution.IsPlaceholder) continue;
-        var properties = ImmutableDictionary<string, string>.Empty
-          .Add("Target", targetName)
-          .Add("Method", method.Name)
-          .Add("Mixin", contribution.Provider)
-          .Add("Priority", contribution.Order.ToString(CultureInfo.InvariantCulture))
-          .Add("SourceType", contribution.SourceType)
-          .Add("SourceMember", contribution.SourceMember)
-          .Add("SourceKind", contribution.SourceKind)
-          .Add("SourceParameterCount", contribution.SourceParameterCount.ToString(CultureInfo.InvariantCulture));
-        context.ReportDiagnostic(Diagnostic.Create(
-          ContributionData, location, properties,
-          targetName, method.Name, contribution.Provider,
-          contribution.Order.ToString(CultureInfo.InvariantCulture),
-          contribution.SourceType, contribution.SourceMember, contribution.SourceKind,
-          contribution.SourceParameterCount.ToString(CultureInfo.InvariantCulture)
-        ));
-      }
-    }
-  }
-
-  private static bool TryBuildMethod(
-    MixinGenerationContext context,
-    INamedTypeSymbol target,
-    string name,
-    IReadOnlyList<MixinContribution> contributions,
-    CSharpCompilation compilation,
-    out GeneratedMethod generated
-  ) {
-    generated = null;
-    var isStatic = contributions[0].IsStaticTarget;
-    var isPublic = contributions.Any(item => item.IsPublicTarget);
-    var delegateTargets = contributions
-      .Select(item => item.DelegateTarget)
-      .Where(item => !string.IsNullOrEmpty(item))
-      .Distinct(StringComparer.Ordinal)
-      .ToArray();
-    IMethodSymbol delegateInvoke = null;
-    INamedTypeSymbol resolvedDelegate = null;
-    foreach (var delegateTarget in delegateTargets) {
-      var delegateType = ResolveDelegateTarget(compilation, delegateTarget);
-      if (delegateType is not { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke }) {
-        ReportInvalidTarget(
-          context, target, name,
-          "delegate type '" + delegateTarget + "' was not found or is not a delegate"
-        );
-        return false;
-      }
-      if (delegateType.IsGenericType) {
-        ReportInvalidTarget(context, target, name, "generic delegate target types are not supported");
-        return false;
-      }
-      if (resolvedDelegate is not null &&
-        !SymbolEqualityComparer.Default.Equals(resolvedDelegate, delegateType)) {
-        ReportInvalidTarget(context, target, name, "contributions specify conflicting delegate signatures");
-        return false;
-      }
-      resolvedDelegate = delegateType;
-      delegateInvoke = invoke;
-    }
-
-    var declared = target.GetMembers(name).ToArray();
-    IMethodSymbol signature = null;
-    MethodDeclarationSyntax partialSyntax = null;
-    foreach (var member in declared) {
-      if (member is IMethodSymbol method && TryGetUnimplementedPartial(method, out var syntax)) {
-        if (method.IsStatic != isStatic) {
-          ReportInvalidTarget(
-            context, target, name,
-            "the partial declaration does not match the target's static modifier"
-          );
-          return false;
-        }
-        if (isPublic && method.DeclaredAccessibility != Accessibility.Public) {
-          ReportInvalidTarget(
-            context, target, name,
-            "the partial declaration is not public but the target uses the '^' modifier"
-          );
-          return false;
-        }
-        if (signature is not null) {
-          ReportInvalidTarget(context, target, name, "more than one partial overload matches the target");
-          return false;
-        }
-        signature = method;
-        partialSyntax = syntax;
-        continue;
-      }
-      context.ReportDiagnostic(Diagnostic.Create(ExistingTarget, LocationOf(member), name, target.Name));
-      return false;
-    }
-
-    IMethodSymbol baseMethod = null;
-    if (signature is null && !isStatic && delegateInvoke is null) {
-      baseMethod = FindBaseMethod(target, name, 0);
-      signature = baseMethod;
-    }
-    if (isPublic && baseMethod is not null &&
-      baseMethod.DeclaredAccessibility != Accessibility.Public) {
-      ReportInvalidTarget(
-        context, target, name,
-        "the inherited declaration is not public but the target uses the '^' modifier"
-      );
-      return false;
-    }
-    if (signature is not null && delegateInvoke is not null &&
-      !HasSameSignature(signature, delegateInvoke)) {
-      ReportInvalidTarget(
-        context, target, name,
-        "the partial declaration does not match delegate '" + delegateTargets[0] + "'"
-      );
-      return false;
-    }
-
-    var targetSignature = delegateInvoke ?? signature;
-    if (targetSignature is { ReturnsByRef: true } or { ReturnsByRefReadonly: true }) {
-      ReportInvalidTarget(context, target, name, "ref returns are not supported");
-      return false;
-    }
-    var parameters = targetSignature?.Parameters.Select(MixinTargetParameter.FromSymbol).ToArray() ??
-      Array.Empty<MixinTargetParameter>();
-    var returnType = targetSignature?.ReturnType;
-    var returnsVoid = returnType is null || returnType.SpecialType == SpecialType.System_Void;
-    var declaration = signature is null
-      ? (isPublic ? "public " : "private ") + (isStatic ? "static " : "") +
-      (returnsVoid ? "void" : returnType.ToDisplayString(TypeDisplayFormat)) + " " + EscapeIdentifier(name)
-      : BuildMethodDeclaration(signature, partialSyntax, baseMethod is not null);
-    generated = new GeneratedMethod(
-      declaration,
-      signature?.TypeParameters.Select(item => EscapeIdentifier(item.Name)).ToArray() ?? Array.Empty<string>(),
-      partialSyntax is null ? Array.Empty<string>() : TypeParameterConstraints(signature),
-      parameters,
-      returnsVoid ? null : returnType.ToDisplayString(TypeDisplayFormat),
-      baseMethod is { IsAbstract: false },
-      name,
-      contributions
-    );
-    return true;
-  }
-
-  private static void ReportInvalidTarget(
-    MixinGenerationContext context,
-    INamedTypeSymbol target,
-    string name,
-    string reason
-  ) {
-    context.ReportDiagnostic(
-      Diagnostic.Create(
-        InvalidTarget, LocationOf(target), name, target.Name, reason
-      )
-    );
-  }
-
-  private static bool TryGetUnimplementedPartial(
-    IMethodSymbol method,
-    out MethodDeclarationSyntax syntax
-  ) {
-    syntax = method.DeclaringSyntaxReferences
-      .Select(item => item.GetSyntax())
-      .OfType<MethodDeclarationSyntax>()
-      .FirstOrDefault(item => item.Modifiers.Any(SyntaxKind.PartialKeyword) &&
-        item.Body is null && item.ExpressionBody is null
-      );
-    return syntax is not null && method.PartialImplementationPart is null;
-  }
-
-  private static IMethodSymbol FindBaseMethod(
-    INamedTypeSymbol target,
-    string name,
-    int parameterCount
-  ) {
-    for (var current = target.BaseType; current is not null; current = current.BaseType) {
-      var methods = current.GetMembers(name).OfType<IMethodSymbol>()
-        .Where(item => !item.IsStatic && item.DeclaredAccessibility != Accessibility.Private &&
-          !item.IsSealed && (item.IsAbstract || item.IsVirtual || item.IsOverride)
-        )
-        .ToArray();
-      var exact = methods.FirstOrDefault(item => item.Parameters.Length == parameterCount);
-      if (exact is not null) return exact;
-      if (methods.Length == 1) return methods[0];
-    }
-    return null;
-  }
-
-  private static INamedTypeSymbol ResolveDelegateTarget(
-    CSharpCompilation compilation,
-    string typeName
-  ) {
-    var normalized = typeName.StartsWith("global::", StringComparison.Ordinal)
-      ? typeName.Substring("global::".Length)
-      : typeName;
-    var direct = compilation.GetTypeByMetadataName(normalized);
-    if (direct is not null) return direct;
-    var separator = Math.Max(normalized.LastIndexOf('.'), normalized.LastIndexOf('+'));
-    var simpleName = separator < 0 ? normalized : normalized.Substring(separator + 1);
-    return compilation.GetSymbolsWithName(simpleName, SymbolFilter.Type)
-      .OfType<INamedTypeSymbol>()
-      .FirstOrDefault(item => item.ToDisplayString() == normalized);
-  }
-
-  private static bool HasSameSignature(IMethodSymbol method, IMethodSymbol expected) {
-    if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, expected.ReturnType) ||
-      method.RefKind != expected.RefKind || method.Parameters.Length != expected.Parameters.Length ||
-      method.TypeParameters.Length != 0) return false;
-    for (var index = 0; index < method.Parameters.Length; index++) {
-      var actual = method.Parameters[index];
-      var wanted = expected.Parameters[index];
-      if (actual.RefKind != wanted.RefKind ||
-        !SymbolEqualityComparer.Default.Equals(actual.Type, wanted.Type)) return false;
-    }
-    return true;
-  }
-
-  private static string BuildMethodDeclaration(
-    IMethodSymbol method,
-    MethodDeclarationSyntax partialSyntax,
-    bool isOverride
-  ) {
-    var modifiers = new List<string>();
-    if (partialSyntax is not null) {
-      modifiers.AddRange(
-        partialSyntax.Modifiers
-          .Where(item => item.IsKind(SyntaxKind.PublicKeyword) ||
-            item.IsKind(SyntaxKind.PrivateKeyword) ||
-            item.IsKind(SyntaxKind.ProtectedKeyword) ||
-            item.IsKind(SyntaxKind.InternalKeyword) ||
-            item.IsKind(SyntaxKind.StaticKeyword) ||
-            item.IsKind(SyntaxKind.UnsafeKeyword) ||
-            item.IsKind(SyntaxKind.PartialKeyword)
-          )
-          .Select(item => item.Text)
-      );
-    } else if (isOverride) {
-      modifiers.Add(AccessibilityText(method.DeclaredAccessibility));
-      modifiers.Add("override");
-    }
-
-    var typeParameters = method.TypeParameters.Length == 0
-      ? ""
-      : "<" + string.Join(", ", method.TypeParameters.Select(item => EscapeIdentifier(item.Name))) + ">";
-    return string.Join(" ", modifiers) +
-      (modifiers.Count == 0 ? "" : " ") +
-      (method.ReturnsVoid ? "void" : method.ReturnType.ToDisplayString(TypeDisplayFormat)) + " " +
-      EscapeIdentifier(method.Name) + typeParameters;
-  }
-
-  private static IReadOnlyList<string> TypeParameterConstraints(IMethodSymbol method) {
-    var result = new List<string>();
-    foreach (var parameter in method.TypeParameters) {
-      var constraints = new List<string>();
-      if (parameter.HasUnmanagedTypeConstraint) constraints.Add("unmanaged");
-      else if (parameter.HasValueTypeConstraint) constraints.Add("struct");
-      else if (parameter.HasReferenceTypeConstraint) {
-        constraints.Add(
-          parameter.ReferenceTypeConstraintNullableAnnotation == NullableAnnotation.Annotated
-            ? "class?"
-            : "class"
-        );
-      }
-      if (parameter.HasNotNullConstraint) constraints.Add("notnull");
-      constraints.AddRange(parameter.ConstraintTypes.Select(item => item.ToDisplayString(TypeDisplayFormat)));
-      if (parameter.HasConstructorConstraint) constraints.Add("new()");
-      if (constraints.Count != 0)
-        result.Add("where " + EscapeIdentifier(parameter.Name) + " : " + string.Join(", ", constraints));
-    }
-    return result;
-  }
-
-  private static void AppendMethod(SharpStringBuilder builder, GeneratedMethod method) {
-    var declaration = method.Declaration;
-    if (method.TypeParameters.Count != 0 && !declaration.EndsWith(
-      ">", StringComparison.Ordinal
-    )) declaration += "<" + string.Join(", ", method.TypeParameters) + ">";
-    var parameters = method.Parameters.Select(item => item.Declaration).ToArray();
-    builder.Append(declaration).Parameters(parameters, parameters.Length > 1);
-    foreach (var constraint in method.Constraints) builder.Append(" ").Append(constraint);
-    using (builder.Block()) {
-      if (method.ReturnType is not null) builder.Statement(method.ReturnType + " __mixinReturnValue = default");
-
-      var baseEmitted = !method.CallBase;
-      foreach (var contribution in method.Contributions) {
-        if (!baseEmitted && contribution.Order >= 0) {
-          AppendBaseCall(builder, method);
-          baseEmitted = true;
-        }
-        AppendInvocation(builder, contribution);
-      }
-      if (!baseEmitted) AppendBaseCall(builder, method);
-      if (method.ReturnType is not null) builder.Return("__mixinReturnValue");
-    }
-  }
-
-  private static void AppendBaseCall(SharpStringBuilder builder, GeneratedMethod method) {
-    var call = "base." + EscapeIdentifier(method.Name) + "(" +
-      string.Join(", ", method.Parameters.Select(item => item.Argument)) + ")";
-    builder.Statement(method.ReturnType is null ? call : "__mixinReturnValue = " + call);
-  }
-
-  private static void AppendInvocation(
-    SharpStringBuilder builder,
-    MixinContribution contribution
-  ) {
-    foreach (var output in contribution.ExpressionResult.Outputs) {
-      if (output.Target == MixinExpressionOutputTarget.Target) builder.Statement(output.Text);
-    }
-  }
-
-  private static string RefPrefix(RefKind kind) {
-    return kind switch {
-      RefKind.Ref => "ref ",
-      RefKind.Out => "out ",
-      RefKind.In => "in ",
-      _ => ""
-    };
-  }
-
-  private static IReadOnlyList<ISymbol> OrderedMembers(INamedTypeSymbol type) {
-    return type.GetMembers()
-      .OrderBy(
-        item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath,
-        StringComparer.Ordinal
-      )
-      .ThenBy(SourceOrder)
-      .ToArray();
-  }
-
-  private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) {
-    return symbol.GetAttributes()
-      .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
-      .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
-      .ToArray();
-  }
-
-  private static bool IsAttribute(AttributeData attribute, string metadataName) {
-    return attribute.AttributeClass?.ToDisplayString() == metadataName;
-  }
 }

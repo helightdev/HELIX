@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using HelixSourceGenerator.Language.Functions;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
 using static MixinExpressionInterpreter;
 using static MixinExpressionEvaluator;
@@ -16,7 +17,9 @@ internal static class MixinExpressionVirtualMachine {
     IMixinExpressionContext context,
     IDictionary<string, object> variables,
     MixinExpressionPreparedState preparedState
-  ) => Execute(expression is null ? null : GetProgram(expression, false), context, variables, preparedState);
+  ) {
+    return Execute(expression is null ? null : GetProgram(expression, false), context, variables, preparedState);
+  }
 
   internal static MixinExpressionResult Execute(
     MixinProgramSyntax localProgram,
@@ -95,11 +98,13 @@ internal static class MixinExpressionVirtualMachine {
         case FrameContinuation.StoreLocal: locals[frame.Destination] = completed; break;
         case FrameContinuation.StoreVariable: pendingVariables[frame.Destination] = completed; break;
         case FrameContinuation.EmitCode:
-          outputs.Add(new MixinExpressionOutput(
-            frame.OutputTarget,
-            new[] { MixinString.Dynamic(Render(completed)) }, executionPool,
-            executionPool.Get(frame.InjectionTarget)
-          ));
+          outputs.Add(
+            new MixinExpressionOutput(
+              frame.OutputTarget,
+              new[] { MixinString.Dynamic(Render(completed)) }, executionPool,
+              executionPool.Get(frame.InjectionTarget)
+            )
+          );
           break;
         case FrameContinuation.Return:
           return CompleteCall(completed, out finishError);
@@ -123,16 +128,10 @@ internal static class MixinExpressionVirtualMachine {
         return false;
       }
       var frame = new CallFrame {
-        ReturnAddress = pc,
-        HadParameter = locals.TryGetValue(ParameterLocalKey, out var previous),
-        Parameter = previous,
-        Continuation = continuation,
-        Transform = request,
-        Inputs = request.Source.Entries.ToArray(),
-        Accumulator = new MixinExpressionTable(),
-        FunctionStart = callback.Start,
-        Destination = destination,
-        OutputTarget = outputTarget,
+        ReturnAddress = pc, HadParameter = locals.TryGetValue(ParameterLocalKey, out var previous),
+        Parameter = previous, Continuation = continuation, Transform = request,
+        Inputs = request.Source.Entries.ToArray(), Accumulator = new MixinExpressionTable(),
+        FunctionStart = callback.Start, Destination = destination, OutputTarget = outputTarget,
         InjectionTarget = injectionTarget
       };
       if (frame.Inputs.Length == 0) return FinishTransform(frame, out beginError);
@@ -276,9 +275,11 @@ internal static class MixinExpressionVirtualMachine {
             parsed.ValueExpression, context, locals, pendingVariables, executionPool,
             out var code, out var codeError
           )) return Failure(codeError, lineNumber, logs);
-          outputs.Add(new MixinExpressionOutput(
-            outputTarget, code, executionPool, executionPool.Get(injectionTarget)
-          ));
+          outputs.Add(
+            new MixinExpressionOutput(
+              outputTarget, code, executionPool, executionPool.Get(injectionTarget)
+            )
+          );
           break;
         case DirectiveOpcode.Mixin:
           if (!TryInterpolateSegments(
@@ -338,10 +339,12 @@ internal static class MixinExpressionVirtualMachine {
             out var usingDirective,
             out var usingError
           )) return Failure(usingError, lineNumber, logs);
-          outputs.Add(new MixinExpressionOutput(
-            MixinExpressionOutputTarget.Using, usingDirective, executionPool,
-            MixinString.Dynamic(null)
-          ));
+          outputs.Add(
+            new MixinExpressionOutput(
+              MixinExpressionOutputTarget.Using, usingDirective, executionPool,
+              MixinString.Dynamic(null)
+            )
+          );
           break;
         case DirectiveOpcode.Log:
           if (!TryInterpolate(
@@ -523,13 +526,12 @@ internal static class MixinExpressionVirtualMachine {
             parsed.ValueExpression, context, locals, pendingVariables,
             out callParameter, out var callParameterError
           )) return Failure(callParameterError, lineNumber, logs);
-          calls.Push(new CallFrame {
-            ReturnAddress = pc,
-            HadParameter = hadParameter,
-            Parameter = previousParameter,
-            ReturnLocal = callReturnLocal,
-            Continuation = FrameContinuation.Call
-          });
+          calls.Push(
+            new CallFrame {
+              ReturnAddress = pc, HadParameter = hadParameter, Parameter = previousParameter,
+              ReturnLocal = callReturnLocal, Continuation = FrameContinuation.Call
+            }
+          );
           locals[ParameterLocalKey] = callParameter;
           pc = function.Start;
           break;

@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace HELIX.SourceGen;
+namespace HelixSourceGenerator.Shared;
 
 internal static class GeneratorAnalysis {
   internal static readonly SymbolDisplayFormat TypeDisplayFormat =
@@ -30,16 +30,18 @@ internal static class GeneratorAnalysis {
   internal static INamedTypeSymbol FirstNonPartialContainingType(INamedTypeSymbol type) {
     for (var containing = type.ContainingType;
       containing is not null;
-      containing = containing.ContainingType)
+      containing = containing.ContainingType) {
       if (!IsPartial(containing))
         return containing;
+    }
     return null;
   }
 
   internal static bool HasTypeParameters(INamedTypeSymbol type) {
-    for (var current = type; current is not null; current = current.ContainingType)
+    for (var current = type; current is not null; current = current.ContainingType) {
       if (current.TypeParameters.Length != 0)
         return true;
+    }
     return false;
   }
 
@@ -57,9 +59,10 @@ internal static class GeneratorAnalysis {
   }
 
   internal static bool InheritsFrom(INamedTypeSymbol type, string metadataName) {
-    for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
+    for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType) {
       if (baseType.ToDisplayString() == metadataName)
         return true;
+    }
     return false;
   }
 
@@ -83,9 +86,10 @@ internal static class GeneratorAnalysis {
     string name,
     string defaultValue = null
   ) {
-    foreach (var argument in attribute.NamedArguments)
+    foreach (var argument in attribute.NamedArguments) {
       if (argument.Key == name)
         return argument.Value.Value as string;
+    }
     return defaultValue;
   }
 
@@ -94,9 +98,10 @@ internal static class GeneratorAnalysis {
     string name,
     bool defaultValue = false
   ) {
-    foreach (var argument in attribute.NamedArguments)
+    foreach (var argument in attribute.NamedArguments) {
       if (argument.Key == name && argument.Value.Value is bool value)
         return value;
+    }
     return defaultValue;
   }
 
@@ -119,9 +124,10 @@ internal static class GeneratorAnalysis {
   }
 
   internal static Accessibility EffectiveAccessibility(INamedTypeSymbol type) {
-    for (var current = type; current is not null; current = current.ContainingType)
+    for (var current = type; current is not null; current = current.ContainingType) {
       if (current.DeclaredAccessibility != Accessibility.Public)
         return Accessibility.Internal;
+    }
     return Accessibility.Public;
   }
 
@@ -163,9 +169,10 @@ internal static class GeneratorAnalysis {
     var seen = new HashSet<string>(StringComparer.Ordinal);
     foreach (var syntaxReference in type.DeclaringSyntaxReferences) {
       if (syntaxReference.GetSyntax() is not TypeDeclarationSyntax declaration) continue;
-      if (declaration.SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit)
+      if (declaration.SyntaxTree.GetRoot() is CompilationUnitSyntax compilationUnit) {
         foreach (var directive in compilationUnit.Usings)
           AddUsing(directive, seen, result);
+      }
       for (var node = declaration.Parent; node is not null; node = node.Parent) {
         if (node is not BaseNamespaceDeclarationSyntax namespaceDeclaration) continue;
         foreach (var directive in namespaceDeclaration.Usings) AddUsing(directive, seen, result);
@@ -256,20 +263,21 @@ internal static class GeneratorSource {
 
   private static string Sanitize(string value) {
     var characters = value.ToCharArray();
-    for (var index = 0; index < characters.Length; index++)
+    for (var index = 0; index < characters.Length; index++) {
       if (!char.IsLetterOrDigit(characters[index]))
         characters[index] = '_';
+    }
     return new string(characters);
   }
 }
 
 internal sealed class TypeWrapper {
-  private readonly INamedTypeSymbol _type;
+  private readonly string _baseType;
   private readonly IReadOnlyList<INamedTypeSymbol> _chain;
   private readonly string _namespaceName;
-  private readonly IReadOnlyList<string> _usings;
-  private readonly string _baseType;
+  private readonly INamedTypeSymbol _type;
   private readonly IReadOnlyList<string> _typeAttributes;
+  private readonly IReadOnlyList<string> _usings;
 
   internal TypeWrapper(
     INamedTypeSymbol type,
@@ -291,14 +299,17 @@ internal sealed class TypeWrapper {
 
   internal string HintName { get; }
 
-  internal DetachedTypeWrapper Detach() => new(
-    _namespaceName,
-    _chain.Select(current => (current.IsStatic ? "static " : "") +
-      "partial " + GeneratorSource.TypeKeyword(current) + " " +
-      GeneratorAnalysis.EscapeIdentifier(current.Name) +
-      GeneratorSource.TypeParameters(current)).ToArray(),
-    HintName
-  );
+  internal DetachedTypeWrapper Detach() {
+    return new DetachedTypeWrapper(
+      _namespaceName,
+      _chain.Select(current => (current.IsStatic ? "static " : "") +
+        "partial " + GeneratorSource.TypeKeyword(current) + " " +
+        GeneratorAnalysis.EscapeIdentifier(current.Name) +
+        GeneratorSource.TypeParameters(current)
+      ).ToArray(),
+      HintName
+    );
+  }
 
   internal string Build(
     Action<SharpStringBuilder> build,
@@ -335,9 +346,10 @@ internal sealed class TypeWrapper {
     }
 
     var current = _chain[index];
-    if (_typeAttributes is not null && SymbolEqualityComparer.Default.Equals(current, _type))
+    if (_typeAttributes is not null && SymbolEqualityComparer.Default.Equals(current, _type)) {
       foreach (var attribute in _typeAttributes)
         builder.Attribute(attribute);
+    }
     var declaration = (current.IsStatic ? "static " : "") +
       "partial " + GeneratorSource.TypeKeyword(current) + " " +
       GeneratorAnalysis.EscapeIdentifier(current.Name) +
@@ -359,16 +371,19 @@ internal sealed record DetachedTypeWrapper(
     IReadOnlyList<string> annotations,
     Action<SharpStringBuilder> build,
     Action<SharpStringBuilder> after = null
-  ) => GeneratorSource.BuildSource(builder => {
-    if (usings is not null) {
-      foreach (var directive in usings) builder.AppendLine(directive);
-      if (usings.Count != 0) builder.BlankLine();
-    }
-    using (builder.Namespace(NamespaceName)) {
-      Append(builder, 0, interfaces, annotations, build);
-      after?.Invoke(builder);
-    }
-  });
+  ) {
+    return GeneratorSource.BuildSource(builder => {
+        if (usings is not null) {
+          foreach (var directive in usings) builder.AppendLine(directive);
+          if (usings.Count != 0) builder.BlankLine();
+        }
+        using (builder.Namespace(NamespaceName)) {
+          Append(builder, 0, interfaces, annotations, build);
+          after?.Invoke(builder);
+        }
+      }
+    );
+  }
 
   private void Append(
     SharpStringBuilder builder,
@@ -383,7 +398,8 @@ internal sealed record DetachedTypeWrapper(
     }
     var target = index == Declarations.Count - 1;
     if (target && annotations is not null)
-      foreach (var annotation in annotations) builder.Attribute(annotation);
+      foreach (var annotation in annotations)
+        builder.Attribute(annotation);
     var declaration = Declarations[index];
     if (target && interfaces is { Count: > 0 }) declaration += " : " + string.Join(", ", interfaces);
     using (builder.Type(declaration)) Append(builder, index + 1, interfaces, annotations, build);

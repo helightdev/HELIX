@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Linq;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language.Functions;
 
 internal enum TableFunctionKind { Put, Remove, Push, Pop }
 
@@ -59,6 +59,7 @@ internal enum TableJoinKind { Keys, Values, Entries }
 
 internal sealed class TableJoinFunction : FunctionDefinition {
   private readonly TableJoinKind _kind;
+
   internal TableJoinFunction(string name, int arguments, TableJoinKind kind) : base(name, arguments, arguments) {
     _kind = kind;
   }
@@ -89,7 +90,10 @@ internal enum TableTransformKind { MapValues, Map, Filter }
 
 internal sealed class TableTransformFunction : FunctionDefinition {
   private readonly TableTransformKind _kind;
-  internal TableTransformFunction(string name, TableTransformKind kind) : base(name, 1, 1) { _kind = kind; }
+
+  internal TableTransformFunction(string name, TableTransformKind kind) : base(name, 1, 1) {
+    _kind = kind;
+  }
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,

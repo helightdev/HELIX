@@ -3,14 +3,22 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
-public enum MixinExpressionOutputTarget { Target, Class, File, Implements, Injection, Annotation, Using, Mixin }
+public enum MixinExpressionOutputTarget {
+  Target,
+  Class,
+  File,
+  Implements,
+  Injection,
+  Annotation,
+  Using,
+  Mixin
+}
 
 public sealed record MixinExpressionOutput {
-  private readonly IReadOnlyList<MixinString> _segments;
-  private readonly MixinStringPool _pool;
   private readonly MixinString _injectionTarget;
+  private readonly MixinStringPool _pool;
 
   public MixinExpressionOutput(
     MixinExpressionOutputTarget target,
@@ -30,22 +38,29 @@ public sealed record MixinExpressionOutput {
     int injectionPriority = 0
   ) {
     Target = target;
-    _segments = segments ?? Array.Empty<MixinString>();
+    Segments = segments ?? Array.Empty<MixinString>();
     _pool = pool ?? throw new ArgumentNullException(nameof(pool));
     _injectionTarget = injectionTarget;
     InjectionPriority = injectionPriority;
   }
 
   public MixinExpressionOutputTarget Target { get; }
-  public string Text => string.Concat(_segments.Select(segment => segment.Resolve(_pool)));
+  public string Text => string.Concat(Segments.Select(segment => segment.Resolve(_pool)));
   public string InjectionTarget => _injectionTarget.Resolve(_pool);
   public int InjectionPriority { get; }
-  internal IReadOnlyList<MixinString> Segments => _segments;
-  internal string Resolve(MixinString segment) => segment.Resolve(_pool);
-  internal bool IsEmpty => _segments.All(segment => string.IsNullOrEmpty(segment.Resolve(_pool)));
-  internal MixinExpressionOutput Retarget(MixinExpressionOutputTarget target) => new(
-    target, _segments, _pool, _injectionTarget, InjectionPriority
-  );
+  internal IReadOnlyList<MixinString> Segments { get; }
+
+  internal bool IsEmpty => Segments.All(segment => string.IsNullOrEmpty(segment.Resolve(_pool)));
+
+  internal string Resolve(MixinString segment) {
+    return segment.Resolve(_pool);
+  }
+
+  internal MixinExpressionOutput Retarget(MixinExpressionOutputTarget target) {
+    return new MixinExpressionOutput(
+      target, Segments, _pool, _injectionTarget, InjectionPriority
+    );
+  }
 }
 
 public record MixinExpressionLog(string Text = "", int Line = -1, bool IsHint = false);
@@ -80,7 +95,6 @@ public sealed class MixinExpressionProperty : FunctionInvocation {
 /// <summary>An immutable expression table. Mutating operations return a new table.</summary>
 public sealed class MixinExpressionTable : MixinValue {
   private readonly Dictionary<string, IMixinValue> _values;
-  private bool _closed;
 
   public MixinExpressionTable() : this(new Dictionary<string, IMixinValue>(StringComparer.Ordinal)) { }
 
@@ -89,14 +103,18 @@ public sealed class MixinExpressionTable : MixinValue {
   }
 
   public int Count => _values.Count;
-  public bool IsClosed => _closed;
+  public bool IsClosed { get; private set; }
 
   internal IEnumerable<IMixinValue> Values => _values.Values;
   internal IEnumerable<KeyValuePair<string, IMixinValue>> Entries => _values;
 
   public override object BackingValue => this;
   public override bool IsTruthy => true;
-  public override string Render() => ToString();
+
+  public override string Render() {
+    return ToString();
+  }
+
   public override void Fingerprint(MixinFingerprintBuilder builder) {
     builder.Append(nameof(MixinExpressionTable));
     builder.Append(Count);
@@ -111,8 +129,13 @@ public sealed class MixinExpressionTable : MixinValue {
     return false;
   }
 
-  public override object Select(string path) => TryGetValue(path, out var value) ? value : null;
-  public override bool Has(object member) => _values.ContainsKey(Convert.ToString(member) ?? "");
+  public override object Select(string path) {
+    return TryGetValue(path, out var value) ? value : null;
+  }
+
+  public override bool Has(object member) {
+    return _values.ContainsKey(Convert.ToString(member) ?? "");
+  }
 
   public override IMixinValue Unlink() {
     var result = new MixinExpressionTable();
@@ -123,9 +146,10 @@ public sealed class MixinExpressionTable : MixinValue {
   public override bool Equals(object obj) {
     if (ReferenceEquals(this, obj)) return true;
     if (obj is not MixinExpressionTable other || Count != other.Count) return false;
-    foreach (var item in _values)
+    foreach (var item in _values) {
       if (!other._values.TryGetValue(item.Key, out var value) || !Equals(item.Value, value))
         return false;
+    }
     return true;
   }
 
@@ -147,11 +171,13 @@ public sealed class MixinExpressionTable : MixinValue {
     return false;
   }
 
-  internal bool TryGetMixinValue(string key, out IMixinValue value) => _values.TryGetValue(key ?? "", out value);
+  internal bool TryGetMixinValue(string key, out IMixinValue value) {
+    return _values.TryGetValue(key ?? "", out value);
+  }
 
   internal MixinExpressionTable Put(string key, object value) {
     var result = Writable();
-    var typed = MixinValue.From(value);
+    var typed = From(value);
     if (typed.BackingValue is MixinExpressionTable nested) nested.Close();
     result._values[key ?? ""] = typed;
     return result;
@@ -164,13 +190,13 @@ public sealed class MixinExpressionTable : MixinValue {
   }
 
   internal MixinExpressionTable Close() {
-    if (_closed) return this;
-    _closed = true;
+    if (IsClosed) return this;
+    IsClosed = true;
     return this;
   }
 
   private MixinExpressionTable Writable() {
-    if (!_closed) return this;
+    if (!IsClosed) return this;
     return new MixinExpressionTable(
       _values.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal)
     );

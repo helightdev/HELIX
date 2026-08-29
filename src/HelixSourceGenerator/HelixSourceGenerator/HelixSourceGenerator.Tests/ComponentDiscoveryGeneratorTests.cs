@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using HELIX.SourceGen;
+using HelixSourceGenerator.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
@@ -16,13 +17,13 @@ public sealed class ComponentDiscoveryGeneratorTests {
       Runtime +
       """
       namespace Feature {
-        [HELIX.Context.Managed]
+        [HELIX.Mixable, HELIX.Context.Managed]
         public partial class Component { }
 
-        [HELIX.Context.Service]
+        [HELIX.Mixable, HELIX.Context.Service]
         public partial class Service { }
 
-        [HELIX.Context.HelixApplication(filter: "Feature")]
+        [HELIX.Mixable, HELIX.Context.HelixApplication(filter: "Feature")]
         public partial class Application { }
       }
       """
@@ -54,10 +55,10 @@ public sealed class ComponentDiscoveryGeneratorTests {
       Runtime +
       """
       namespace Feature {
-        [HELIX.Context.Managed]
+        [HELIX.Mixable, HELIX.Context.Managed]
         public partial class Component { }
 
-        [HELIX.Context.HelixModule(filter: "Feature")]
+        [HELIX.Mixable, HELIX.Context.HelixModule(filter: "Feature")]
         public partial class FeatureModule { }
       }
       namespace Root {

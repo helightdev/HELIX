@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace HELIX.SourceGen.Expressions;
+namespace HelixSourceGenerator.Language;
 
 /// <summary>Public facade for compiling and executing mixin programs.</summary>
 public sealed class MixinExpressionInterpreter {
@@ -80,7 +80,9 @@ public sealed class MixinExpressionInterpreter {
     IMixinExpressionContext context,
     IDictionary<string, object> variables,
     MixinExpressionPreparedState preparedState
-  ) => MixinExpressionVirtualMachine.Execute(program, context, variables, preparedState);
+  ) {
+    return MixinExpressionVirtualMachine.Execute(program, context, variables, preparedState);
+  }
 
   public MixinExpressionResult Execute(
     string expression,
@@ -189,18 +191,18 @@ public sealed class MixinExpressionInterpreter {
   internal enum FrameContinuation { Call, StoreLocal, StoreVariable, EmitCode, Return }
 
   internal sealed class CallFrame {
-    internal int ReturnAddress;
-    internal bool HadParameter;
-    internal object Parameter;
-    internal string ReturnLocal;
-    internal FrameContinuation Continuation;
-    internal MixinTransformRequest Transform;
-    internal KeyValuePair<string, IMixinValue>[] Inputs;
-    internal int InputIndex;
     internal MixinExpressionTable Accumulator;
-    internal int FunctionStart;
+    internal FrameContinuation Continuation;
     internal string Destination;
-    internal MixinExpressionOutputTarget OutputTarget;
+    internal int FunctionStart;
+    internal bool HadParameter;
     internal string InjectionTarget;
+    internal int InputIndex;
+    internal KeyValuePair<string, IMixinValue>[] Inputs;
+    internal MixinExpressionOutputTarget OutputTarget;
+    internal object Parameter;
+    internal int ReturnAddress;
+    internal string ReturnLocal;
+    internal MixinTransformRequest Transform;
   }
 }
