@@ -226,7 +226,10 @@ public static class MixinExpressionCompiler {
       }
       var suffix = "__inline_" + inlineSequence++.ToString(CultureInfo.InvariantCulture);
       var endLabel = suffix + "_end";
-      var labels = body.Where(item => item.Opcode == DirectiveOpcode.Scope && !string.IsNullOrEmpty(item.Argument))
+      var labels = body.Where(item =>
+          item.Opcode is DirectiveOpcode.Scope or DirectiveOpcode.Label &&
+          !string.IsNullOrEmpty(item.Argument)
+        )
         .Select(item => item.Argument).Distinct(StringComparer.Ordinal)
         .ToDictionary(item => item, item => item + suffix, StringComparer.Ordinal);
       var bodyLines = new List<string>();
@@ -238,7 +241,7 @@ public static class MixinExpressionCompiler {
             bodyLines.Add("@GOTO<" + endLabel + ">");
             continue;
           }
-          case DirectiveOpcode.Scope or DirectiveOpcode.Goto or DirectiveOpcode.Match
+          case DirectiveOpcode.Scope or DirectiveOpcode.Label or DirectiveOpcode.Goto or DirectiveOpcode.Match
             when !string.IsNullOrEmpty(item.Argument) &&
             labels.TryGetValue(item.Argument, out var renamed):
             bodyLines.Add(SerializeInstruction(item, renamed));
@@ -510,6 +513,7 @@ public static class MixinExpressionCompiler {
       }
       if (depth != 0) {
         if (instruction.Command == "SCOPE") scope = true;
+        else if (instruction.Command == "LABEL") scope = false;
         else if (instruction.Command == "END") {
           if (scope) scope = false;
           else depth--;
@@ -548,6 +552,7 @@ public static class MixinExpressionCompiler {
       }
       if (functionDepth != 0) {
         if (instruction.Command == "SCOPE") functionScope = true;
+        else if (instruction.Command == "LABEL") functionScope = false;
         else if (instruction.Command == "END") {
           if (functionScope) functionScope = false;
           else functionDepth--;
@@ -649,7 +654,7 @@ public static class MixinExpressionCompiler {
     out string error
   ) {
     error = null;
-    if (command != "SCOPE" || string.IsNullOrEmpty(argument)) return;
+    if (command is not ("SCOPE" or "LABEL") || string.IsNullOrEmpty(argument)) return;
     var key = ScopeLabelKey(scope, argument);
     if (labels.ContainsKey(key)) {
       error = "duplicate scope label '" + argument + "'";
@@ -678,7 +683,7 @@ public static class MixinExpressionCompiler {
       }
       var command = lines[index].Command;
       if (string.IsNullOrEmpty(command)) continue;
-      if (command == "SCOPE") return index;
+      if (command is "SCOPE" or "LABEL") return index;
       if (command == "END") return functionEnds.Contains(index) ? index : index + 1;
     }
     return -1;
@@ -721,6 +726,7 @@ public static class MixinExpressionCompiler {
           return false;
         }
         if (command == "SCOPE") functionScopeOpen = true;
+        else if (command == "LABEL") functionScopeOpen = false;
         if (command != "END") {
           AddScopeLabel(command, argument, index, scope, labels, out error);
           if (error is not null) {

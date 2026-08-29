@@ -52,6 +52,17 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void EmptyReferenceRootIsNullShorthand() {
+    var result = _interpreter.Execute(
+      "@CODE @:table:size\n@CODE @@:literal",
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] { "0", "@:literal" }, result.Outputs.Select(item => item.Text));
+  }
+
+  [Fact]
   public void CallsCanReturnValuesIntoLocals() {
     var result = _interpreter.Execute(
       """
@@ -376,6 +387,41 @@ public sealed class MixinExpressionInterpreterTests {
       @CODE selected
       """,
       new StubContext(false)
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("selected", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void LabelIsAnImmediatelyClosedScopeJumpTarget() {
+    var result = _interpreter.Execute(
+      """
+      @GOTO<selected>
+      @CODE wrong
+      @LABEL<selected>
+      @CODE selected
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("selected", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void LabelClosesThePreviousFunctionScopeWithoutOpeningAnother() {
+    var result = _interpreter.Execute(
+      """
+      @FUNC<emit>
+      @SCOPE<previous>
+      @LABEL<selected>
+      @RETURN selected
+      @END
+      @CALL<value><emit>
+      @CODE @local#value
+      """,
+      new StubContext()
     );
 
     Assert.True(result.Success, result.Error);

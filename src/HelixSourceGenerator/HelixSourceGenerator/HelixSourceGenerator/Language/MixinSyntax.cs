@@ -53,6 +53,7 @@ public sealed class MixinProgramSyntax {
 public enum DirectiveOpcode {
   None,
   Scope,
+  Label,
   Function,
   Call,
   Inline,

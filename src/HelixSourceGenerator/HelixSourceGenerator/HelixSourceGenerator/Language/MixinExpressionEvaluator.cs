@@ -950,16 +950,20 @@ internal static class MixinExpressionEvaluator {
     position++;
     var parenthesized = position < text.Length && text[position] == '(';
     if (parenthesized) position++;
-    var rootStart = position;
-    while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
-    if (position == rootStart) {
-      error = "expression reference has no root";
-      return false;
-    }
-    var rootKeyword = text.Substring(rootStart, position - rootStart);
-    if (!TryParseRoot(rootKeyword, out var root)) {
-      error = "unknown expression root '@" + rootKeyword + "'";
-      return false;
+    MixinExpressionRoot root;
+    if (position < text.Length && text[position] == ':') root = MixinExpressionRoot.Null;
+    else {
+      var rootStart = position;
+      while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
+      if (position == rootStart) {
+        error = "expression reference has no root";
+        return false;
+      }
+      var rootKeyword = text.Substring(rootStart, position - rootStart);
+      if (!TryParseRoot(rootKeyword, out root)) {
+        error = "unknown expression root '@" + rootKeyword + "'";
+        return false;
+      }
     }
     string member = null;
     if (position < text.Length && text[position] == '#') {

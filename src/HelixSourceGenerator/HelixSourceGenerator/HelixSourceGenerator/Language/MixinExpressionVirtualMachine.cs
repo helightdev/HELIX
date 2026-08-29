@@ -192,6 +192,7 @@ internal static class MixinExpressionVirtualMachine {
       // deliberately a small stack VM; directive spelling and syntax do not leak into dispatch.
       switch (parsed.Opcode) {
         case DirectiveOpcode.Scope:
+        case DirectiveOpcode.Label:
         case DirectiveOpcode.Function:
           break;
         case DirectiveOpcode.End:

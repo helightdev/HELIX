@@ -140,6 +140,7 @@ internal sealed class DefineTargetDirective : DirectiveDefinition {
 
 public static class DirectiveLibrary {
   public static readonly DirectiveDefinition Scope = new MarkerDirective("SCOPE", DirectiveOpcode.Scope);
+  public static readonly DirectiveDefinition Label = new NamedDirective("LABEL", DirectiveOpcode.Label);
   public static readonly DirectiveDefinition Function = new NamedDirective("FUNC", DirectiveOpcode.Function);
   public static readonly DirectiveDefinition Call = new CallDirective();
   public static readonly DirectiveDefinition Inline = new NamedDirective("INLINE", DirectiveOpcode.Inline);
@@ -181,7 +182,7 @@ public static class DirectiveLibrary {
 
   public static bool TryGet(string name, out DirectiveDefinition definition) {
     definition = name switch {
-      "SCOPE" => Scope, "FUNC" => Function, "CALL" => Call, "INLINE" => Inline, "END" => End,
+      "SCOPE" => Scope, "LABEL" => Label, "FUNC" => Function, "CALL" => Call, "INLINE" => Inline, "END" => End,
       "MATCH" => Match, "ASSERT" => Assert, "CODE" => Code, "MIXIN" => Mixin,
       "RESOLVE_MIXIN" => ResolveMixin, "USING" => Using,
       "LOCAL" => Local, "VAR" => Variable, "CARRY" => Carry,
