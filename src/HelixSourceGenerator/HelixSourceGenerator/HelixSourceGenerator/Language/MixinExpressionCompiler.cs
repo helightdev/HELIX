@@ -93,8 +93,7 @@ public static class MixinExpressionCompiler {
         errorLine = index + 1;
         return false;
       }
-      if (parsed.Opcode is DirectiveOpcode.PropStruct or DirectiveOpcode.AugmentStruct
-        or DirectiveOpcode.ResolveMixin) {
+      if (parsed.Directive is DirectiveFunctionDefinition { HoistedLocalArgumentIndex: >= 0 }) {
         if (!TryHoistStructuralDirective(parsed, line, generated, labels, structuralLocals, out error)) {
           prelude = explicitPrelude ?? "";
           lateExpression = expression ?? "";
@@ -164,7 +163,7 @@ public static class MixinExpressionCompiler {
     out string error,
     out int errorLine
   ) {
-    var program = GetProgram(source ?? "", true);
+    var program = GetProgram(source ?? "");
     var instructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
     var localFunctions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
     if (!TryIndexSymbols(
@@ -198,7 +197,7 @@ public static class MixinExpressionCompiler {
     out int errorLine
   ) {
     var result = new List<string>();
-    var program = GetProgram(source ?? "", true);
+    var program = GetProgram(source ?? "");
     for (var index = 0; index < program.Count; index++) {
       var instruction = program.Get(index);
       if (instruction.Error is not null) {
@@ -290,12 +289,11 @@ public static class MixinExpressionCompiler {
     ISet<string> structuralLocals,
     out string error
   ) {
-    var local = instruction.Opcode switch {
-      DirectiveOpcode.PropStruct when instruction.Arguments.Count >= 2 => instruction.Arguments[1],
-      DirectiveOpcode.AugmentStruct when instruction.Arguments.Count >= 1 => instruction.Arguments[0],
-      DirectiveOpcode.ResolveMixin when instruction.Arguments.Count >= 1 => instruction.Arguments[0],
-      _ => null
-    };
+    var localIndex = (instruction.Directive as DirectiveFunctionDefinition)
+      ?.HoistedLocalArgumentIndex ?? -1;
+    var local = localIndex >= 0 && instruction.Arguments.Count > localIndex
+      ? instruction.Arguments[localIndex]
+      : null;
     if (string.IsNullOrEmpty(local) || MixinExpressionParser.IsDynamicArgument(local)) {
       error = "@" + instruction.Command + " cannot be hoisted because its result local is dynamic";
       return false;
@@ -434,7 +432,7 @@ public static class MixinExpressionCompiler {
           nameof(expressions)
         );
       }
-      programs.Add(GetProgram(expression, true));
+      programs.Add(GetProgram(expression));
     }
     return PrepareGlobals(programs);
   }
@@ -498,6 +496,50 @@ public static class MixinExpressionCompiler {
       logs.AsReadOnly(),
       executedOperations
     );
+  }
+
+  internal static bool TryCompileExecution(
+    MixinProgramSyntax program,
+    MixinExpressionPreparedState prepared,
+    out MixinExpressionExecutionProgram compiled,
+    out string error,
+    out int errorLine
+  ) {
+    compiled = null;
+    error = null;
+    errorLine = 0;
+    if (program is null) { error = "the expression is null"; return false; }
+    var preparedInstructions = prepared?.Instructions ?? [];
+    var localInstructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
+    var instructions = preparedInstructions.Concat(localInstructions).ToArray();
+    var pool = prepared?.StringPool;
+    if (pool is null) {
+      var poolBuilder = new MixinStringPoolBuilder();
+      program.CollectConstants(poolBuilder);
+      pool = poolBuilder.Freeze();
+    }
+    var labels = prepared is null
+      ? new Dictionary<string, int>(StringComparer.Ordinal)
+      : prepared.Labels.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+    var instructionScopes = prepared?.InstructionScopes.ToDictionary(item => item.Key, item => item.Value)
+      ?? new Dictionary<int, int>();
+    var functions = prepared is null
+      ? new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal)
+      : prepared.Functions.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+    var functionStarts = prepared?.FunctionStarts.ToDictionary(item => item.Key, item => item.Value)
+      ?? new Dictionary<int, int>();
+    var functionEnds = prepared is null ? new HashSet<int>() : new HashSet<int>(prepared.FunctionEnds);
+    if (!TryIndexSymbols(
+      instructions, preparedInstructions.Count, instructions.Length,
+      labels, instructionScopes, functions, functionStarts, functionEnds,
+      out error, out errorLine
+    )) return false;
+    compiled = new MixinExpressionExecutionProgram(
+      pool, instructions, prepared?.Variables ?? new Dictionary<string, object>(),
+      labels, instructionScopes, functions, functionStarts, functionEnds,
+      prepared is null ? new HashSet<int>() : new HashSet<int>(prepared.Initializers)
+    );
+    return true;
   }
 
   private static ISet<int> FindPreparedInitializers(IReadOnlyList<DirectiveInstruction> instructions) {

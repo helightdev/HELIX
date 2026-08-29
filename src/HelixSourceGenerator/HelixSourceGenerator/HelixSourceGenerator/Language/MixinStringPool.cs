@@ -29,9 +29,7 @@ public readonly struct MixinString : IEquatable<MixinString> {
 
   public override bool Equals(object value) => value is MixinString other && Equals(other);
 
-  public override int GetHashCode() {
-    return IsInterned ? Id : StringComparer.Ordinal.GetHashCode(DynamicValue ?? "");
-  }
+  public override int GetHashCode() => IsInterned ? Id : StringComparer.Ordinal.GetHashCode(DynamicValue ?? "");
 
   public static bool operator ==(MixinString left, MixinString right) => left.Equals(right);
   public static bool operator !=(MixinString left, MixinString right) => !left.Equals(right);
@@ -58,11 +56,11 @@ public sealed class MixinStringPool {
   }
 }
 
-internal sealed class MixinStringPoolBuilder {
+public sealed class MixinStringPoolBuilder {
   private readonly Dictionary<string, int> _ids = new(StringComparer.Ordinal);
   private readonly List<string> _values = [];
 
-  internal MixinString Intern(string value) {
+  public MixinString Intern(string value) {
     value ??= "";
     if (_ids.TryGetValue(value, out var id)) return MixinString.Interned(id);
     id = _values.Count;
@@ -78,11 +76,11 @@ internal sealed class MixinStringPoolBuilder {
   }
 }
 
-internal sealed class MixinStringDictionary<T> : IDictionary<string, T>, IReadOnlyDictionary<string, T> {
+public sealed class MixinStringDictionary<T> : IDictionary<string, T>, IReadOnlyDictionary<string, T> {
   private readonly MixinStringPool _pool;
   private readonly Dictionary<MixinString, T> _values = new();
 
-  internal MixinStringDictionary(MixinStringPool pool) {
+  private MixinStringDictionary(MixinStringPool pool) {
     _pool = pool ?? throw new ArgumentNullException(nameof(pool));
   }
 
@@ -100,29 +98,17 @@ internal sealed class MixinStringDictionary<T> : IDictionary<string, T>, IReadOn
   public int Count => _values.Count;
   public bool IsReadOnly => false;
 
-  public void Add(string key, T value) {
-    _values.Add(Key(key), value);
-  }
+  public void Add(string key, T value) => _values.Add(Key(key), value);
 
-  public bool ContainsKey(string key) {
-    return _values.ContainsKey(Key(key));
-  }
+  public bool ContainsKey(string key) => _values.ContainsKey(Key(key));
 
-  public bool Remove(string key) {
-    return _values.Remove(Key(key));
-  }
+  public bool Remove(string key) => _values.Remove(Key(key));
 
-  public bool TryGetValue(string key, out T value) {
-    return _values.TryGetValue(Key(key), out value);
-  }
+  public bool TryGetValue(string key, out T value) => _values.TryGetValue(Key(key), out value);
 
-  public void Add(KeyValuePair<string, T> item) {
-    Add(item.Key, item.Value);
-  }
+  public void Add(KeyValuePair<string, T> item) => Add(item.Key, item.Value);
 
-  public void Clear() {
-    _values.Clear();
-  }
+  public void Clear() => _values.Clear();
 
   public bool Contains(KeyValuePair<string, T> item) {
     return TryGetValue(item.Key, out var value) && EqualityComparer<T>.Default.Equals(value, item.Value);
@@ -132,9 +118,7 @@ internal sealed class MixinStringDictionary<T> : IDictionary<string, T>, IReadOn
     foreach (var item in this) array[arrayIndex++] = item;
   }
 
-  public bool Remove(KeyValuePair<string, T> item) {
-    return Contains(item) && Remove(item.Key);
-  }
+  public bool Remove(KeyValuePair<string, T> item) => Contains(item) && Remove(item.Key);
 
   public IEnumerator<KeyValuePair<string, T>> GetEnumerator() {
     return _values.Select(item =>
@@ -142,14 +126,8 @@ internal sealed class MixinStringDictionary<T> : IDictionary<string, T>, IReadOn
     ).GetEnumerator();
   }
 
-  IEnumerator IEnumerable.GetEnumerator() {
-    return GetEnumerator();
-  }
-
+  IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
   IEnumerable<string> IReadOnlyDictionary<string, T>.Keys => Keys;
   IEnumerable<T> IReadOnlyDictionary<string, T>.Values => Values;
-
-  private MixinString Key(string key) {
-    return _pool.Get(key);
-  }
+  private MixinString Key(string key) => _pool.Get(key);
 }

@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 
 namespace HelixSourceGenerator.Language;
 
@@ -16,37 +14,27 @@ public abstract class MixinSyntaxNode {
 /// <summary>A typed invocation in a reference pipeline (for example <c>:replace&lt;a&gt;&lt;b&gt;</c>).</summary>
 public sealed class MixinProgramSyntax {
   private readonly DirectiveInstruction[] _instructions;
-  private readonly string[] _lines;
 
   internal MixinProgramSyntax(string expression) {
     Source = expression ?? "";
-    _lines = MixinExpressionParser.SplitLines(expression ?? "");
-    _instructions = new DirectiveInstruction[_lines.Length];
+    var lines = MixinExpressionParser.SplitLines(expression ?? "");
+    _instructions = new DirectiveInstruction[lines.Length];
+    for (var index = 0; index < lines.Length; index++)
+      _instructions[index] = MixinExpressionParser.ParseDirective(lines[index], index + 1);
   }
 
-  internal int Count => _lines.Length;
+  internal int Count => _instructions.Length;
   internal string Source { get; }
 
-  internal DirectiveInstruction Get(int index) {
-    var instruction = Volatile.Read(ref _instructions[index]);
-    if (instruction is not null) return instruction;
-    var parsed = MixinExpressionParser.ParseDirective(_lines[index], index + 1);
-    return Interlocked.CompareExchange(
-      ref _instructions[index], parsed, null
-    ) ?? parsed;
-  }
-
-  internal void ParseAll() {
-    for (var index = 0; index < Count; index++) Get(index);
-  }
+  internal DirectiveInstruction Get(int index) => _instructions[index];
 
   internal IEnumerable<DirectiveInstruction> AvailableInstructions() {
-    return _instructions.Where(instruction => instruction is not null);
+    return _instructions;
   }
 
   internal void CollectConstants(MixinStringPoolBuilder pool) {
     pool.Intern(Source);
-    for (var index = 0; index < Count; index++) Get(index).CollectConstants(pool);
+    foreach (var instruction in _instructions) instruction.CollectConstants(pool);
   }
 }
 
@@ -62,16 +50,11 @@ public enum DirectiveOpcode {
   Assert,
   Code,
   Mixin,
-  ResolveMixin,
   Using,
   Log,
   Local,
   Variable,
   Carry,
-  PropStruct,
-  AugmentStruct,
-  Put,
-  Push,
   Return,
   Goto,
   Skip,

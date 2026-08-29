@@ -82,47 +82,6 @@ internal sealed class MixinDirective : ValueDirective {
   }
 }
 
-internal sealed class PutDirective : ValueDirective {
-  internal PutDirective() : base("PUT", DirectiveOpcode.Put) { }
-  protected override int MaximumArguments => 2;
-
-  internal override bool Validate(IReadOnlyList<string> arguments, string operand, out string error) {
-    if (!base.Validate(arguments, operand, out error)) return false;
-    if (arguments.Count == 2) return true;
-    error = "PUT requires a local name and key";
-    return false;
-  }
-}
-
-internal sealed class PropStructDirective : ValueDirective {
-  internal PropStructDirective() : base("PROP_STRUCT", DirectiveOpcode.PropStruct) { }
-  protected override int MaximumArguments => 4;
-
-  internal override bool Validate(IReadOnlyList<string> arguments, string operand, out string error) {
-    if (!base.Validate(arguments, operand, out error)) return false;
-    if (arguments.Count < 2 || string.IsNullOrEmpty(arguments[0]) || string.IsNullOrEmpty(arguments[1])) {
-      error = "PROP_STRUCT requires a struct name and local name";
-      return false;
-    }
-    var flags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    for (var index = 2; index < arguments.Count; index++) {
-      var flag = arguments[index];
-      if (MixinExpressionParser.IsDynamicArgument(flag)) continue;
-      if (!string.Equals(flag, "datatype", StringComparison.OrdinalIgnoreCase) &&
-        !string.Equals(flag, "noGenerate", StringComparison.OrdinalIgnoreCase)) {
-        error = "unknown PROP_STRUCT flag '" + flag + "'";
-        return false;
-      }
-      if (!flags.Add(flag)) {
-        error = "PROP_STRUCT flag '" + flag + "' was specified more than once";
-        return false;
-      }
-    }
-    error = null;
-    return true;
-  }
-}
-
 internal sealed class DefineTargetDirective : DirectiveDefinition {
   internal DefineTargetDirective() : base("DEFINE_TARGET", DirectiveOpcode.DefineTarget, DirectiveOperandKind.None) { }
 
@@ -149,9 +108,6 @@ public static class DirectiveLibrary {
   public static readonly DirectiveDefinition Assert = new BooleanDirective("ASSERT", DirectiveOpcode.Assert);
   public static readonly DirectiveDefinition Code = new ValueDirective("CODE", DirectiveOpcode.Code);
   public static readonly DirectiveDefinition Mixin = new MixinDirective();
-  public static readonly DirectiveDefinition ResolveMixin = new NamedDirective(
-    "RESOLVE_MIXIN", DirectiveOpcode.ResolveMixin, DirectiveOperandKind.Value
-  );
   public static readonly DirectiveDefinition Using = new ValueDirective("USING", DirectiveOpcode.Using);
   public static readonly DirectiveDefinition Local = new NamedDirective(
     "LOCAL", DirectiveOpcode.Local, DirectiveOperandKind.Value
@@ -162,33 +118,35 @@ public static class DirectiveLibrary {
   public static readonly DirectiveDefinition Carry = new NamedDirective(
     "CARRY", DirectiveOpcode.Carry, DirectiveOperandKind.Value
   );
+  public static readonly DirectiveDefinition Log = new ValueDirective("LOG", DirectiveOpcode.Log);
+  public static readonly DirectiveDefinition Annotation = new NamedDirective(
+    "ANNOTATION", DirectiveOpcode.Annotation
+  );
+  public static readonly DirectiveDefinition Prelude = new MarkerDirective(
+    "PRELUDE", DirectiveOpcode.Prelude
+  );
+  public static readonly DirectiveDefinition DefineTarget = new DefineTargetDirective();
   public static readonly DirectiveDefinition Return = new ValueDirective("RETURN", DirectiveOpcode.Return);
   public static readonly DirectiveDefinition Goto = new NamedDirective("GOTO", DirectiveOpcode.Goto);
   public static readonly DirectiveDefinition Skip = new MarkerDirective("SKIP", DirectiveOpcode.Skip);
   public static readonly DirectiveDefinition Fail = new ValueDirective("FAIL", DirectiveOpcode.Fail);
 
-  // Expanded directives live in a registry so adding one does not grow intrinsic dispatch.
-  public static readonly IReadOnlyDictionary<string, DirectiveDefinition> Expanded =
-    new Dictionary<string, DirectiveDefinition>(StringComparer.Ordinal) {
-      ["LOG"] = new ValueDirective("LOG", DirectiveOpcode.Log), ["PROP_STRUCT"] = new PropStructDirective(),
-      ["AUGMENT_STRUCT"] = new NamedDirective(
-        "AUGMENT_STRUCT", DirectiveOpcode.AugmentStruct, DirectiveOperandKind.Value
-      ),
-      ["PUSH"] = new NamedDirective("PUSH", DirectiveOpcode.Push, DirectiveOperandKind.Value),
-      ["PUT"] = new PutDirective(), ["ANNOTATION"] = new NamedDirective("ANNOTATION", DirectiveOpcode.Annotation),
-      ["PRELUDE"] = new MarkerDirective("PRELUDE", DirectiveOpcode.Prelude),
-      ["DEFINE_TARGET"] = new DefineTargetDirective()
-    };
-
   public static bool TryGet(string name, out DirectiveDefinition definition) {
     definition = name switch {
       "SCOPE" => Scope, "LABEL" => Label, "FUNC" => Function, "CALL" => Call, "INLINE" => Inline, "END" => End,
       "MATCH" => Match, "ASSERT" => Assert, "CODE" => Code, "MIXIN" => Mixin,
-      "RESOLVE_MIXIN" => ResolveMixin, "USING" => Using,
-      "LOCAL" => Local, "VAR" => Variable, "CARRY" => Carry,
+      "USING" => Using,
+      "LOCAL" => Local, "VAR" => Variable, "CARRY" => Carry, "LOG" => Log,
+      "ANNOTATION" => Annotation, "PRELUDE" => Prelude,
+      "DEFINE_TARGET" => DefineTarget,
       "RETURN" => Return, "GOTO" => Goto, "SKIP" => Skip, "FAIL" => Fail,
       _ => null
     };
-    return definition is not null || Expanded.TryGetValue(name ?? "", out definition);
+    if (definition is not null) return true;
+    if (DirectiveFunctionLibrary.TryGet(name, out var function)) {
+      definition = function;
+      return true;
+    }
+    return false;
   }
 }

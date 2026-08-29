@@ -232,7 +232,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     foreach (var work in model.LateExpressions) {
       var variables = work.Variables.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
       foreach (var item in sharedVariables) variables[item.Key] = item.Value;
-      var result = interpreter.ExecuteCompiled(
+      var result = MixinExpressionInterpreter.ExecuteCompiled(
         work.Expression, UnlinkedMixinExpressionContext.Instance, variables, work.PreparedState
       );
       foreach (var log in result.Logs)
@@ -639,7 +639,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       preparedExpressions: preparedExpressions, libraries: libraries
     );
     var interpreter = new MixinExpressionInterpreter();
-    var evaluated = interpreter.ExecuteCompiled(
+    var evaluated = MixinExpressionInterpreter.ExecuteCompiled(
       expression, expressionContext, expressionVariables, preparedExpressions
     );
     ReportExpressionLogs(context, location, evaluated.Logs);

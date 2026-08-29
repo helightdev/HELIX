@@ -74,7 +74,7 @@ internal static class PropStructMixinApi {
             preparedExpressions: preparedExpressions,
             libraries: libraries
           );
-          var evaluated = new MixinExpressionInterpreter().Execute(
+          var evaluated = MixinExpressionInterpreter.Execute(
             expression, expressionContext, variables, preparedExpressions
           );
           if (!evaluated.Success) {
@@ -147,7 +147,7 @@ internal static class PropStructMixinApi {
           preparedExpressions: preparedExpressions,
           libraries: libraries
         );
-        var evaluated = new MixinExpressionInterpreter().Execute(
+        var evaluated = MixinExpressionInterpreter.Execute(
           expression, expressionContext, variables, preparedExpressions
         );
         ReportLogs(production, location, evaluated.Logs);

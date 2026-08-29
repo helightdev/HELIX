@@ -321,3 +321,15 @@ public sealed record MixinExpressionPreparedState(
   IReadOnlyList<MixinExpressionPreparedLog> Logs,
   int ExecutedOperations
 );
+
+internal sealed record MixinExpressionExecutionProgram(
+  MixinStringPool StringPool,
+  IReadOnlyList<DirectiveInstruction> Instructions,
+  IReadOnlyDictionary<string, object> Variables,
+  IReadOnlyDictionary<string, int> Labels,
+  IReadOnlyDictionary<int, int> InstructionScopes,
+  IReadOnlyDictionary<string, MixinExpressionCompiler.FunctionDefinition> Functions,
+  IReadOnlyDictionary<int, int> FunctionStarts,
+  ISet<int> FunctionEnds,
+  ISet<int> Initializers
+);

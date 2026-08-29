@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace HelixSourceGenerator.Language;
@@ -17,7 +16,7 @@ public sealed class MixinExpressionInterpreter {
   private static readonly LinkedList<CachedProgram> _programCacheUsage = new();
   private static int _cachedCharacters;
 
-  internal static MixinProgramSyntax GetProgram(string expression, bool eager) {
+  internal static MixinProgramSyntax GetProgram(string expression) {
     MixinProgramSyntax program;
     if (expression.Length > _maximumCachedCharacters) program = new MixinProgramSyntax(expression);
     else {
@@ -41,37 +40,51 @@ public sealed class MixinExpressionInterpreter {
         }
       }
     }
-    if (eager) program.ParseAll();
     return program;
   }
 
   /// <summary>Fully parses and context-independently evaluates prepared global programs.</summary>
-  public MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) =>
+  public static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) =>
     MixinExpressionCompiler.PrepareGlobals(expressions);
 
-  public MixinExpressionValidationResult ValidateSyntax(string expression) =>
+  public static MixinExpressionValidationResult ValidateSyntax(string expression) =>
     MixinExpressionCompiler.ValidateSyntax(expression, false);
 
-  internal MixinExpressionValidationResult ValidateFunctionLibrary(string expression) =>
+  internal static MixinExpressionValidationResult ValidateFunctionLibrary(string expression) =>
     MixinExpressionCompiler.ValidateSyntax(expression, true);
 
-  public MixinExpressionResult Execute(
+  public static MixinExpressionResult Execute(
     string expression, IMixinExpressionContext context, IDictionary<string, object> variables = null
   ) {
     return Execute(expression, context, variables, (MixinExpressionPreparedState)null);
   }
 
-  public MixinExpressionResult Execute(
+  public static MixinExpressionResult Execute(
     string expression,
     IMixinExpressionContext context, IDictionary<string, object> variables, MixinExpressionPreparedState preparedState
-  ) => MixinExpressionVirtualMachine.Execute(expression, context, variables, preparedState);
+  ) => CompileAndExecute(
+    expression is null ? null : GetProgram(expression), context, variables, preparedState
+  );
 
-  internal MixinExpressionResult ExecuteCompiled(
+  internal static MixinExpressionResult ExecuteCompiled(
     MixinProgramSyntax program,
     IMixinExpressionContext context, IDictionary<string, object> variables, MixinExpressionPreparedState preparedState
-  ) => MixinExpressionVirtualMachine.Execute(program, context, variables, preparedState);
+  ) => CompileAndExecute(program, context, variables, preparedState);
 
-  public MixinExpressionResult Execute(
+  private static MixinExpressionResult CompileAndExecute(
+    MixinProgramSyntax program,
+    IMixinExpressionContext context,
+    IDictionary<string, object> variables,
+    MixinExpressionPreparedState preparedState
+  ) {
+    if (context is null) throw new ArgumentNullException(nameof(context));
+    if (!MixinExpressionCompiler.TryCompileExecution(
+      program, preparedState, out var compiled, out var error, out var line
+    )) return Failure(error, line);
+    return MixinExpressionVirtualMachine.Execute(compiled, context, variables);
+  }
+
+  public static MixinExpressionResult Execute(
     string expression,
     IMixinExpressionContext context, IDictionary<string, object> variables, IEnumerable<string> preparedExpressions
   ) => Execute(expression, context, variables, PrepareGlobals(preparedExpressions ?? []));
@@ -122,29 +135,6 @@ public sealed class MixinExpressionInterpreter {
   }
 
   private sealed record CachedProgram(string Expression, MixinProgramSyntax Program);
-
-  internal sealed class InstructionSequence : IReadOnlyList<DirectiveInstruction> {
-    private readonly IReadOnlyList<DirectiveInstruction> _prefix;
-    private readonly MixinProgramSyntax _tail;
-
-    internal InstructionSequence(IReadOnlyList<DirectiveInstruction> prefix, MixinProgramSyntax tail) {
-      _prefix = prefix;
-      _tail = tail;
-    }
-
-    public int Count => _prefix.Count + _tail.Count;
-    public DirectiveInstruction this[int index] => index < _prefix.Count
-      ? _prefix[index]
-      : _tail.Get(index - _prefix.Count);
-
-    public IEnumerator<DirectiveInstruction> GetEnumerator() {
-      for (var index = 0; index < Count; index++) yield return this[index];
-    }
-
-    IEnumerator IEnumerable.GetEnumerator() {
-      return GetEnumerator();
-    }
-  }
 
   internal enum FrameContinuation { Call, StoreLocal, StoreVariable, EmitCode, Return }
 
