@@ -96,7 +96,7 @@ internal static class FunctionLibrary {
     MixinExpressionProperty invocation, IMixinExpressionContext context,
     string root, string member, ref IMixinValue value, out string error
   ) {
-    if (TryGet(invocation.Name, out var function))
+    if (invocation.Definition is { } function)
       return function.Invoke(invocation, context, root, member, ref value, out error);
     error = "property '" + invocation.Name + "' is not valid for @" + root;
     return false;
@@ -109,7 +109,7 @@ internal static class FunctionLibrary {
     error = null;
     for (var index = 0; index < reference.Properties.Count; index++) {
       var property = reference.Properties[index];
-      if (IsPredicate(property.Name) || IsLogical(property)) continue;
+      if (property.Definition?.IsPredicate == true || IsLogical(property)) continue;
       if (!TryInvoke(property, context, reference.Root.Keyword(), member, ref value, out error)) return false;
       if (value is not MixinTransformRequest request) continue;
       request.RemainingProperties = [.. reference.Properties.Skip(index + 1)];
@@ -130,6 +130,6 @@ internal static class FunctionLibrary {
   }
 
   internal static bool IsLogical(MixinExpressionProperty property) {
-    return TryGet(property.Name, out var function) && function is LogicalFunctionDefinition;
+    return property.Definition is LogicalFunctionDefinition;
   }
 }

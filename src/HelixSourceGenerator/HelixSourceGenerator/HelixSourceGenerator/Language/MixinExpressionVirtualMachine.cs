@@ -9,7 +9,6 @@ using HelixSourceGenerator.Language.Functions;
 namespace HelixSourceGenerator.Language;
 
 using static MixinExpressionCompiler;
-
 public static partial class MixinExpressionVirtualMachine {
   internal const string ParameterLocalKey = "\0@param";
   internal const string CarryLocalPrefix = "\0@carry:";
@@ -421,6 +420,11 @@ public static partial class MixinExpressionVirtualMachine {
   private static bool HasExpression(IReadOnlyList<ValueExpressionPart> expression) {
     return expression is { Count: > 1 } || expression is { Count: 1 } &&
       (expression[0].Reference is not null || !string.IsNullOrEmpty(expression[0].Literal));
+  }
+
+  private static void RestoreCallParameter(MixinValueDictionary locals, CallFrame frame) {
+    if (frame.hadParameter) locals[ParameterLocalKey] = frame.parameter;
+    else locals.Remove(ParameterLocalKey);
   }
 
   internal static void CommitVariables(

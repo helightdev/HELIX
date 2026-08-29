@@ -67,6 +67,7 @@ public record MixinExpressionLog(string Text = "", int Line = -1, bool IsHint = 
 public record MixinExpressionPreparedLog(string Text, int Line, int ProgramIndex);
 
 public sealed class MixinExpressionProperty : FunctionInvocation {
+  internal FunctionDefinition Definition { get; }
   public MixinExpressionProperty(
     string name, string argument = null, bool negated = false
   ) : base(name, argument is null ? Array.Empty<string>() : new[] { argument }, negated) {
@@ -86,23 +87,29 @@ public sealed class MixinExpressionProperty : FunctionInvocation {
     IReadOnlyList<string> arguments,
     IReadOnlyList<IMixinValue> values,
     bool negated,
-    IReadOnlyList<MixinPropertyArgumentSyntax> parsedArguments = null
+    IReadOnlyList<MixinPropertyArgumentSyntax> parsedArguments = null,
+    FunctionDefinition definition = null
   ) : base(name, arguments, negated) {
+    Definition = definition;
     Values = values ?? [];
     ParsedArguments = parsedArguments ?? [];
   }
 
   internal MixinExpressionProperty(
     string name, IReadOnlyList<string> arguments,
-    IReadOnlyList<MixinPropertyArgumentSyntax> parsedArguments, bool negated
+    IReadOnlyList<MixinPropertyArgumentSyntax> parsedArguments, bool negated,
+    FunctionDefinition definition = null
   ) : base(name, arguments, negated) {
+    Definition = definition;
     Values = [.. Arguments.Select(MixinValue.From)];
     ParsedArguments = parsedArguments ?? [];
   }
 
   internal MixinExpressionProperty(
-    string name, IReadOnlyList<MixinPropertyArgumentSyntax> arguments, bool negated
+    string name, IReadOnlyList<MixinPropertyArgumentSyntax> arguments, bool negated,
+    FunctionDefinition definition = null
   ) : base(name, [.. (arguments ?? []).Select(item => item.Literal)], negated) {
+    Definition = definition;
     ParsedArguments = arguments ?? [];
     Values = [.. ParsedArguments.Select(item => MixinValue.From(item.Literal))];
   }

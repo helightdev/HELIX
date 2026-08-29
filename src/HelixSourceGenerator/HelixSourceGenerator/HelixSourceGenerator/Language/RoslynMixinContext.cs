@@ -716,8 +716,7 @@ internal sealed class RoslynMixinContext :
     out bool value,
     out string error
   ) {
-    if (FunctionLibrary.TryGet(property.Name, out var function) &&
-      function is PredicateFunctionDefinition predicate)
+    if (property.Definition is PredicateFunctionDefinition predicate)
       return predicate.Evaluate(subject, property, out value, out error);
     value = false;
     error = "unknown boolean pseudo-property ':?" + property.Name + "'";
@@ -942,7 +941,7 @@ internal sealed class RoslynMixinContext :
   }
 
   private static bool IsPredicate(MixinExpressionProperty property) {
-    return FunctionLibrary.IsPredicate(property.Name);
+    return property.Definition?.IsPredicate == true;
   }
 
   internal static string NameOf(object subject) {

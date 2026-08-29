@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using HelixSourceGenerator.Language.Compiler;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 
@@ -39,6 +40,7 @@ public interface IMixinValue {
   string Render();
   void Fingerprint(MixinFingerprintBuilder builder);
   IMixinValue Unwrap();
+  IMixinValue Evaluate();
   bool TryGetText(out string text);
   IMixinValue Select(string path);
   bool Is(string type);
@@ -70,6 +72,10 @@ public abstract class MixinValue : IMixinValue {
   public abstract void Fingerprint(MixinFingerprintBuilder builder);
 
   public virtual IMixinValue Unwrap() {
+    return this;
+  }
+
+  public virtual IMixinValue Evaluate() {
     return this;
   }
 
@@ -182,6 +188,108 @@ public abstract class MixinValue : IMixinValue {
 
   internal static object Unlink(object value, IMixinExpressionContext context) {
     return From(value, context).Unlink().Value;
+  }
+}
+
+/// <summary>An unevaluated value-expression AST together with its lexical evaluation environment.</summary>
+internal sealed partial class ExpressionMixinValue(
+  IReadOnlyList<ValueExpressionPart> expression,
+  IMixinExpressionContext context,
+  MixinValueDictionary locals,
+  MixinValueDictionary variables
+) : MixinValue {
+  public override object Value => Evaluate().Value;
+  public override bool IsTruthy => Evaluate().IsTruthy;
+
+  public override IMixinValue Evaluate() {
+    return TryEvaluate(out var value, out _) ? value : NullMixinValue.Instance;
+  }
+
+  internal bool TryEvaluate(out IMixinValue value, out string error) {
+    return MixinExpressionVirtualMachine.TryEvaluateExpressionCore(
+      expression, context, locals, variables, out value, out error
+    );
+  }
+
+  public override string Render() {
+    return Evaluate().Render();
+  }
+
+  public override void Fingerprint(MixinFingerprintBuilder builder) {
+    Evaluate().Fingerprint(builder);
+  }
+}
+
+/// <summary>A bound reference root which produces its value when the VM evaluates it.</summary>
+internal sealed class RootMixinValue(
+  MixinExpressionReference reference,
+  IMixinExpressionContext context,
+  MixinValueDictionary locals,
+  MixinValueDictionary variables
+) : MixinValue {
+  public override object Value => Evaluate().Value;
+  public override bool IsTruthy => Evaluate().IsTruthy;
+
+  public override IMixinValue Evaluate() {
+    return TryEvaluate(out var value, out _) ? value : NullMixinValue.Instance;
+  }
+
+  internal bool TryEvaluate(out IMixinValue value, out string error) {
+    error = null;
+    switch (reference.Root) {
+      case MixinExpressionRoot.True: value = BooleanMixinValue.True; break;
+      case MixinExpressionRoot.False: value = BooleanMixinValue.False; break;
+      case MixinExpressionRoot.Null: value = NullMixinValue.Instance; break;
+      case MixinExpressionRoot.Table: value = new MixinExpressionTable(); break;
+      case MixinExpressionRoot.Parameter:
+        value = locals.TryGetValue(MixinExpressionVirtualMachine.ParameterLocalKey, out var parameter)
+          ? MixinValue.From(parameter, context) : NullMixinValue.Instance;
+        break;
+      case MixinExpressionRoot.Carry:
+        value = variables.TryGetValue(
+          MixinExpressionVirtualMachine.CarryLocalPrefix + (reference.Member ?? ""), out var carried
+        ) ? MixinValue.From(carried, context) : NullMixinValue.Instance;
+        return true;
+      case MixinExpressionRoot.Local:
+      case MixinExpressionRoot.Variable: {
+        if (string.IsNullOrEmpty(reference.Member)) {
+          value = null;
+          error = "@" + reference.Root.Keyword() + " requires a member name";
+          return false;
+        }
+        var values = reference.Root == MixinExpressionRoot.Local ? locals : variables;
+        if (!values.TryGetValue(reference.Member, out var stored)) {
+          value = null;
+          error = "unknown @" + reference.Root.Keyword() + " value '" + reference.Member + "'";
+          return false;
+        }
+        value = MixinValue.From(stored, context);
+        return true;
+      }
+      default:
+        var rootReference = new MixinExpressionReference(reference.Root, reference.Member, []);
+        if (context is IMixinExpressionValueContext valueContext)
+          return valueContext.TryResolveValue(rootReference, out value, out error);
+        // Legacy text contexts resolve the complete reference; typed contexts only resolve the root.
+        if (context.TryResolve(reference, out var resolved, out error)) {
+          value = MixinValue.From(resolved);
+          return true;
+        }
+        value = null;
+        return false;
+    }
+    if (string.IsNullOrEmpty(reference.Member)) return true;
+    if (value is MixinExpressionTable table)
+      value = table.TryGetValue(reference.Member, out var selected)
+        ? MixinValue.From(selected, context) : NullMixinValue.Instance;
+    else value = value.Select(reference.Member);
+    return true;
+  }
+
+  public override string Render() => Evaluate().Render();
+
+  public override void Fingerprint(MixinFingerprintBuilder builder) {
+    Evaluate().Fingerprint(builder);
   }
 }
 

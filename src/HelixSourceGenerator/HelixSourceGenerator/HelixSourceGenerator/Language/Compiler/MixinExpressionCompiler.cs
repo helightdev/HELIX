@@ -12,7 +12,8 @@ public static class MixinExpressionCompiler {
   ];
   private static readonly IReadOnlyList<MixinExpressionCompilerStep> Steps = [
     new InlineExpansionStep(),
-    new PreludeHoistingStep()
+    new PreludeHoistingStep(),
+    new FunctionBindingStep()
   ];
 
   public static MixinExpressionValidationResult ValidateSyntax(string expression) {
@@ -153,6 +154,24 @@ public static class MixinExpressionCompiler {
       output = new MixinCompilerSyntax(prelude, late);
       return true;
     }
+  }
+
+  private sealed class FunctionBindingStep : MixinExpressionCompilerStep {
+    public override bool TryTransform(
+      MixinCompilerSyntax input, MixinExpressionPreparedState preparedState,
+      out MixinCompilerSyntax output, out string error, out int errorLine
+    ) {
+      output = new MixinCompilerSyntax(BindFunctions(input.Prelude), BindFunctions(input.Expression));
+      error = null;
+      errorLine = 0;
+      return true;
+    }
+  }
+
+  private static MixinProgramSyntax BindFunctions(MixinProgramSyntax program) {
+    return new MixinProgramSyntax(program.AvailableInstructions().Select(instruction =>
+      RewriteReferences(instruction, reference => reference)
+    ));
   }
 
   private static bool TryExpandInlines(
@@ -447,7 +466,9 @@ public static class MixinExpressionCompiler {
     Func<MixinExpressionReference, MixinExpressionReference> rewrite
   ) {
     if (property.ParsedArguments.Count == 0)
-      return new MixinExpressionProperty(property.Name, property.Arguments, property.Negated);
+      return new MixinExpressionProperty(
+        property.Name, property.ParsedArguments, property.Negated, BoundFunction(property)
+      );
     var parsed = property.ParsedArguments.Select(argument => {
         var value = argument.ValueExpression is null
           ? null
@@ -458,7 +479,15 @@ public static class MixinExpressionCompiler {
         return new MixinPropertyArgumentSyntax(argument.Literal, value, boolean);
       }
     ).ToArray();
-    return new MixinExpressionProperty(property.Name, parsed, property.Negated);
+    return new MixinExpressionProperty(property.Name, parsed, property.Negated, BoundFunction(property));
+  }
+
+  private static global::HelixSourceGenerator.Language.FunctionDefinition BoundFunction(
+    MixinExpressionProperty property
+  ) {
+    if (property.Definition is not null) return property.Definition;
+    FunctionLibrary.TryGet(property.Name, out var definition);
+    return definition;
   }
 
   private static string LabelOf(DirectiveInstruction instruction) {
@@ -520,7 +549,7 @@ public static class MixinExpressionCompiler {
   internal static MixinExpressionPreparedState PrepareGlobals(
     IReadOnlyList<MixinProgramSyntax> programs
   ) {
-    programs ??= [];
+    programs = [.. (programs ?? []).Select(BindFunctions)];
     var poolBuilder = new MixinStringPoolBuilder();
     foreach (var program in programs) program.CollectConstants(poolBuilder);
     var stringPool = poolBuilder.Freeze();
@@ -598,6 +627,7 @@ public static class MixinExpressionCompiler {
       return false;
     }
     var preparedInstructions = prepared?.Instructions ?? [];
+    program = BindFunctions(program);
     var localInstructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
     var instructions = preparedInstructions.Concat(localInstructions).ToArray();
     var pool = prepared?.StringPool;

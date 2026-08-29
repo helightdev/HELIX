@@ -55,6 +55,10 @@ internal readonly struct RoslynMixinValue : IMixinValue {
     return MixinValue.From(RoslynMixinContext.Unwrap(Value), _context);
   }
 
+  public IMixinValue Evaluate() {
+    return this;
+  }
+
   public bool TryGetText(out string text) {
     return RoslynMixinContext.TryComparableText(Value, out text);
   }
