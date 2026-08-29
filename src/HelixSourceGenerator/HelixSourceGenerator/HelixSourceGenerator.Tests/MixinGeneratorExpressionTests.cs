@@ -115,7 +115,7 @@ public sealed class MixinGeneratorExpressionTests {
           "@ANNOTATION<PreludeOnlyAttribute>\n" +
           "@PRELUDE\n@MIXIN<$Init> PreludeOnlyLogic();\n@END\n@END\n" +
           "@ANNOTATION<ExternalAttribute>\n" +
-          "@PRELUDE\n@CALL<Prepare>\n@CARRY<Name> @target:name\n@END\n" +
+          "@PRELUDE\n@CALL<Prepare>\n@CARRY<Name> @target:name\n@CARRY<Unused> ignored\n@END\n" +
           "@CODE<CLASS> public const string CarriedName = \"@carry#Name\";\n@END"
         )
       },
@@ -127,6 +127,17 @@ public sealed class MixinGeneratorExpressionTests {
     var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
       .SourceText.ToString();
     Assert.StartsWith("// ============================================================================\n// HELIX MIXIN PROGRAM DUMP", generated);
+    Assert.DoesNotContain("// GLOBAL STATE", generated);
+    Assert.Contains("// HELIX MIXIN FINAL STATE", generated);
+    Assert.Contains("//   preludeOperations = ", generated);
+    Assert.Contains("//   preludeDurationMs = ", generated);
+    Assert.Contains("//   lateOperations = ", generated);
+    Assert.Contains("//   lateDurationMs = ", generated);
+    Assert.Contains("// TOTAL durationMs = ", generated);
+    Assert.True(
+      generated.IndexOf("// HELIX MIXIN FINAL STATE", StringComparison.Ordinal) >
+      generated.IndexOf("partial class Demo", StringComparison.Ordinal)
+    );
     Assert.Contains("global::PreludeOnlyAttribute on global::Demo", generated);
     Assert.Contains("// PRELUDE PROGRAM (PREPARED)\n//   @MIXIN<$Init> PreludeOnlyLogic();", generated);
     Assert.Contains("global::ExternalAttribute on global::Demo.Value", generated);
@@ -134,6 +145,12 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.DoesNotContain("//   @FUNC<Prepare>", generated);
     Assert.Contains("// LATE PROGRAM (PREPARED)\n//   @CODE<CLASS> public const string CarriedName", generated);
     Assert.Contains("// CARRIED VALUES\n//   @carry#Name = Value", generated);
+    Assert.DoesNotContain("//   @carry#Unused =", generated);
+    Assert.Contains("// SHARED VARIABLES\n//   @var#Prepared = true", generated);
+    Assert.Equal(
+      1,
+      generated.Split(new[] { "//   @var#Prepared = true" }, StringSplitOptions.None).Length - 1
+    );
     Assert.Contains("PreludeOnlyLogic();", generated);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
@@ -1653,7 +1670,7 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
-  public void ExpressionLogsAndDumpsAreReportedAsWarningDiagnostics() {
+  public void ExpressionLogsAreReportedAsWarningDiagnostics() {
     const string source =
       """
       using System;
@@ -1666,9 +1683,7 @@ public sealed class MixinGeneratorExpressionTests {
       }
       [HELIX.MixinExpression(
         "@LOG generating @this:name\n" +
-        "@CODE<CLASS> public int Generated;\n" +
-        "@DUMP<STATE>\n" +
-        "@DUMP<BUFFER>"
+        "@CODE<CLASS> public int Generated;"
       )]
       [AttributeUsage(AttributeTargets.Class)]
       public sealed class MarkAttribute : Attribute { }
@@ -1687,55 +1702,9 @@ public sealed class MixinGeneratorExpressionTests {
       .Where(item => item.Id == "HLXM12")
       .ToArray();
 
-    Assert.Equal(3, diagnostics.Length);
+    Assert.Single(diagnostics);
     Assert.All(diagnostics, item => Assert.Equal(DiagnosticSeverity.Warning, item.Severity));
-    Assert.Contains(diagnostics, item => item.GetMessage() == "generating Demo");
-    Assert.Contains(diagnostics, item => item.GetMessage().StartsWith("STATE "));
-    Assert.Contains(diagnostics, item => item.GetMessage().Contains("Class: public int Generated;"));
-  }
-
-  [Fact]
-  public void PreludeDumpReportsDetachedVariablesCarriesAndBuffersDuringLateEvaluation() {
-    const string source =
-      """
-      using System;
-      namespace HELIX {
-        [AttributeUsage(AttributeTargets.Class)] public sealed class EnableMixinsAttribute : Attribute { }
-        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Field)]
-        public sealed class MixinExpressionAttribute : Attribute {
-          public MixinExpressionAttribute(string expression) { }
-          public string Prelude { get; set; }
-        }
-      }
-      [HELIX.MixinExpression(
-        "@DUMP<PRELUDE>\n@CODE<CLASS> public const string SavedName = \"@target:name\";",
-        Prelude = "@VAR<Saved> collected\n@CODE<CLASS> private int CollectedInPrelude;"
-      )]
-      [AttributeUsage(AttributeTargets.Field)] public sealed class MarkAttribute : Attribute { }
-      [HELIX.EnableMixins] public partial class Demo {
-        [Mark] private int Value;
-      }
-      """;
-    var compilation = CSharpCompilation.Create(
-      "MixinPreludeDumpTest",
-      new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest)) },
-      PlatformReferences,
-      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-    );
-    GeneratorDriver driver = MixinTestDriver.Create(compilation);
-    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
-
-    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    var dumpDiagnostic = Assert.Single(
-      Assert.Single(driver.GetRunResult().Results).Diagnostics.Where(item => item.Id == "HLXM12")
-    );
-    Assert.NotEqual(Location.None, dumpDiagnostic.Location);
-    var dump = dumpDiagnostic.GetMessage();
-    Assert.StartsWith("PRELUDE variables=", dump);
-    Assert.Contains("Saved=collected", dump);
-    Assert.Contains("carry#__0=Value", dump);
-    Assert.Contains("buffers=BUFFER Class: private int CollectedInPrelude;", dump);
-    Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Equal("generating Demo", diagnostics[0].GetMessage());
   }
 
   [Fact]

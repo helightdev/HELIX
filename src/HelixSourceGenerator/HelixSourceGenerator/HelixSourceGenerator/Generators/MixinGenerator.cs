@@ -197,6 +197,13 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     var logs = new List<MixinReportedLog>();
     var lateContributions = new List<MixinContribution>();
     var lateSequence = 1_000_000;
+    var finalDebugStates = model.Render.DebugExpressions
+      .GroupBy(DebugStateKey, StringComparer.Ordinal)
+      .ToDictionary(
+        group => group.Key,
+        group => new FinalDebugState(group.Last(), 0, 0),
+        StringComparer.Ordinal
+      );
     var sharedVariables = model.Render.PrimaryVariables
       .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
     var interpreter = new MixinExpressionInterpreter();
@@ -204,8 +211,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       var variables = work.Variables.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
       foreach (var item in sharedVariables) variables[item.Key] = item.Value;
       var result = interpreter.Execute(
-        work.Expression, UnlinkedMixinExpressionContext.Instance, variables, work.PreparedState,
-        new MixinExpressionPreludeSnapshot(work.Variables, work.PreludeOutputs)
+        work.Expression, UnlinkedMixinExpressionContext.Instance, variables, work.PreparedState
       );
       foreach (var log in result.Logs)
         logs.Add(new MixinReportedLog(log, work.Location));
@@ -213,6 +219,11 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         errors.Add("line " + result.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + result.Error);
         continue;
       }
+      var debugStateKey = DebugStateKey(work);
+      if (finalDebugStates.TryGetValue(debugStateKey, out var debugState))
+        finalDebugStates[debugStateKey] = new FinalDebugState(
+          debugState.Work, result.ExecutedOperations, result.ExecutionMilliseconds
+        );
       foreach (var item in variables)
         if (!item.Key.StartsWith(MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal))
           sharedVariables[item.Key] = item.Value;
@@ -282,7 +293,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         foreach (var output in fileCode) builder.AppendCode(output);
       }
     );
-    if (model.Render.Debug) source = BuildDebugTrace(model.Render.DebugExpressions) + source;
+    if (model.Render.Debug)
+      source = BuildDebugTrace(model.Render.DebugExpressions) + source +
+        BuildFinalDebugState(finalDebugStates.Values, sharedVariables);
     return new MixinOutputModel(
       model.Render.Wrapper.HintName, source, null, ImmutableArray<LateExpressionWork>.Empty,
       model.Diagnostics, errors.ToImmutableArray(), logs.ToImmutableArray()
@@ -305,7 +318,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       builder.AppendLine("// CARRIED VALUES");
       var carries = work.Variables.Where(item => item.Key.StartsWith(
         MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
-      )).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+      ) && IsCarryReferenced(work.LateProgram, item.Key.Substring(
+        MixinExpressionInterpreter.CarryLocalPrefix.Length
+      ))).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
       if (carries.Length == 0) builder.AppendLine("//   <none>");
       foreach (var carry in carries) {
         var label = carry.Key.Substring(MixinExpressionInterpreter.CarryLocalPrefix.Length);
@@ -316,6 +331,70 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     builder.AppendLine("// ============================================================================");
     return builder.ToString();
   }
+
+  private static string BuildFinalDebugState(
+    IEnumerable<FinalDebugState> states,
+    IReadOnlyDictionary<string, object> sharedVariables
+  ) {
+    var builder = new StringBuilder();
+    builder.AppendLine().AppendLine("// ============================================================================");
+    builder.AppendLine("// HELIX MIXIN FINAL STATE");
+    foreach (var state in states) {
+      builder.Append("// ").Append(state.Work.Provider);
+      if (!string.IsNullOrEmpty(state.Work.SourceType)) builder.Append(" on ").Append(state.Work.SourceType);
+      if (!string.IsNullOrEmpty(state.Work.SourceMember)) builder.Append('.').Append(state.Work.SourceMember);
+      builder.AppendLine();
+      builder.Append("//   preludeOperations = ")
+        .AppendLine(state.Work.PreludeOperations.ToString(CultureInfo.InvariantCulture));
+      builder.Append("//   preludeDurationMs = ")
+        .AppendLine(FormatDebugMilliseconds(state.Work.PreludeMilliseconds));
+      builder.Append("//   lateOperations = ")
+        .AppendLine(state.LateOperations.ToString(CultureInfo.InvariantCulture));
+      builder.Append("//   lateDurationMs = ")
+        .AppendLine(FormatDebugMilliseconds(state.LateMilliseconds));
+    }
+    builder.AppendLine("// SHARED VARIABLES");
+    var persistentVariables = sharedVariables.Where(item => !item.Key.StartsWith(
+      MixinExpressionInterpreter.CarryLocalPrefix, StringComparison.Ordinal
+    )).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+    if (persistentVariables.Length == 0) builder.AppendLine("//   <empty>");
+    else foreach (var variable in persistentVariables)
+        builder.Append("//   @var#").Append(variable.Key).Append(" = ")
+          .AppendLine(MixinValue.From(variable.Value).Render().Replace("\r", "\\r").Replace("\n", "\\n"));
+    var totalMilliseconds = states.Sum(state =>
+      state.Work.PreludeMilliseconds + state.LateMilliseconds
+    );
+    builder.Append("// TOTAL durationMs = ").AppendLine(FormatDebugMilliseconds(totalMilliseconds));
+    builder.AppendLine("// ============================================================================");
+    return builder.ToString();
+  }
+
+  private static bool IsCarryReferenced(string program, string label) {
+    var reference = "@carry#" + label;
+    var offset = 0;
+    while (offset < (program?.Length ?? 0)) {
+      var index = program.IndexOf(reference, offset, StringComparison.Ordinal);
+      if (index < 0) return false;
+      var end = index + reference.Length;
+      if (end == program.Length || !IsReferenceNameCharacter(program[end])) return true;
+      offset = end;
+    }
+    return false;
+  }
+
+  private static bool IsReferenceNameCharacter(char character) =>
+    char.IsLetterOrDigit(character) || character is '_' or '$';
+
+  private static string FormatDebugMilliseconds(double milliseconds) =>
+    milliseconds.ToString("F3", CultureInfo.InvariantCulture);
+
+  private static string DebugStateKey(DebugExpressionWork work) => string.Join(
+    "\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateProgram
+  );
+
+  private static string DebugStateKey(LateExpressionWork work) => string.Join(
+    "\u001f", work.Provider, work.SourceType, work.SourceMember, work.Expression
+  );
 
   private static void AppendDebugProgram(StringBuilder builder, string title, string program) {
     builder.Append("// ").AppendLine(title);
@@ -356,7 +435,6 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       string expression,
       string preludeProgram,
       IReadOnlyDictionary<string, object> variables,
-      IReadOnlyList<MixinExpressionOutput> preludeOutputs,
       MixinExpressionPreparedState preparedState,
       ImmutableArray<LateTarget> targets,
       Location location,
@@ -368,7 +446,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     ) =>
       _lateExpressions.Add(new LateExpressionWork(
         expression, preludeProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
-        preludeOutputs.ToImmutableArray(), preparedState,
+        preparedState,
         PreparedStateKey(preparedState), targets,
         MixinDiagnostic.Detach(Diagnostic.Create(ExpressionLog, location, "")),
         provider ?? "", sourceType ?? "",
@@ -380,14 +458,17 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       string lateProgram,
       IReadOnlyDictionary<string, object> variables,
       string provider,
-      ISymbol source
+      ISymbol source,
+      int preludeOperations,
+      double preludeMilliseconds
     ) {
       if (!Debug) return;
       _debugExpressions.Add(new DebugExpressionWork(
         preludeProgram, lateProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
         provider ?? "", (source as INamedTypeSymbol ?? source.ContainingType)
           ?.ToDisplayString(TypeDisplayFormat) ?? "",
-        source is INamedTypeSymbol ? "" : source.MetadataName
+        source is INamedTypeSymbol ? "" : source.MetadataName,
+        preludeOperations, preludeMilliseconds
       ));
     }
 
@@ -424,7 +505,6 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     string Expression,
     string PreludeProgram,
     ImmutableDictionary<string, object> Variables,
-    ImmutableArray<MixinExpressionOutput> PreludeOutputs,
     MixinExpressionPreparedState PreparedState,
     string PreparedStateKey,
     ImmutableArray<LateTarget> Targets,
@@ -442,7 +522,15 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     ImmutableDictionary<string, object> Variables,
     string Provider,
     string SourceType,
-    string SourceMember
+    string SourceMember,
+    int PreludeOperations,
+    double PreludeMilliseconds
+  );
+
+  private sealed record FinalDebugState(
+    DebugExpressionWork Work,
+    int LateOperations,
+    double LateMilliseconds
   );
 
   private sealed record LateTarget(
@@ -566,6 +654,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         values.Add(work.Provider);
         values.Add(work.SourceType);
         values.Add(work.SourceMember);
+        values.Add(work.PreludeOperations.ToString(CultureInfo.InvariantCulture));
+        values.Add(work.PreludeMilliseconds.ToString("R", CultureInfo.InvariantCulture));
         foreach (var variable in work.Variables.OrderBy(item => item.Key, StringComparer.Ordinal)) {
           values.Add(variable.Key);
           values.Add(MixinValue.From(variable.Value).Render());
@@ -605,15 +695,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
           left.SourceType != right.SourceType || left.SourceMember != right.SourceMember ||
           left.SourceKind != right.SourceKind ||
           left.SourceParameterCount != right.SourceParameterCount ||
-          left.PreludeOutputs.Length != right.PreludeOutputs.Length ||
           left.Targets.Length != right.Targets.Length) return false;
-        for (var outputIndex = 0; outputIndex < left.PreludeOutputs.Length; outputIndex++) {
-          var leftOutput = left.PreludeOutputs[outputIndex];
-          var rightOutput = right.PreludeOutputs[outputIndex];
-          if (leftOutput.Target != rightOutput.Target || leftOutput.Text != rightOutput.Text ||
-            leftOutput.InjectionTarget != rightOutput.InjectionTarget ||
-            leftOutput.InjectionPriority != rightOutput.InjectionPriority) return false;
-        }
         for (var targetIndex = 0; targetIndex < left.Targets.Length; targetIndex++)
           if (left.Targets[targetIndex] != right.Targets[targetIndex]) return false;
         foreach (var item in left.Variables)
@@ -945,7 +1027,8 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     }
     context.AddDebugExpression(
       expression, lateExpression, evaluated.Variables,
-      providerName ?? attributeName, annotated
+      providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
+      evaluated.ExecutionMilliseconds
     );
     if (!string.IsNullOrEmpty(lateExpression)) {
       var sourceType = (annotated as INamedTypeSymbol ?? annotated.ContainingType)
@@ -958,7 +1041,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         lateExpression, evaluated.Variables, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
-        lateExpression, expression, evaluated.Variables, evaluated.Outputs, preparedExpressions,
+        lateExpression, expression, evaluated.Variables, preparedExpressions,
         lateTargets.Distinct().ToImmutableArray(), location,
         providerName ?? attributeName, sourceType,
         annotated is INamedTypeSymbol ? "" : annotated.MetadataName,

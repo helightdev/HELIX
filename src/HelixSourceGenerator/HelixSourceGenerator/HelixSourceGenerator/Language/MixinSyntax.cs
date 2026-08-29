@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace HELIX.SourceGen.Expressions;
 
-internal abstract class MixinSyntaxNode {
+public abstract class MixinSyntaxNode {
   protected MixinSyntaxNode(int line) {
     Line = line;
   }
@@ -14,7 +14,7 @@ internal abstract class MixinSyntaxNode {
 }
 
 /// <summary>A typed invocation in a reference pipeline (for example <c>:replace&lt;a&gt;&lt;b&gt;</c>).</summary>
-internal sealed class MixinProgramSyntax {
+public sealed class MixinProgramSyntax {
   private readonly DirectiveInstruction[] _instructions;
   private readonly string[] _lines;
 
@@ -59,7 +59,6 @@ internal enum DirectiveOpcode {
   ResolveMixin,
   Using,
   Log,
-  Dump,
   Local,
   Variable,
   Carry,
@@ -76,7 +75,7 @@ internal enum DirectiveOpcode {
   DefineTarget
 }
 
-internal sealed class DirectiveInstruction : MixinSyntaxNode {
+public sealed class DirectiveInstruction : MixinSyntaxNode {
   internal DirectiveInstruction(
     int line,
     DirectiveDefinition directive,

@@ -76,21 +76,6 @@ internal sealed class CallDirective : DirectiveDefinition {
   }
 }
 
-internal sealed class DumpDirective : MarkerDirective {
-  internal DumpDirective() : base("DUMP", DirectiveOpcode.Dump) { }
-
-  internal override bool Validate(IReadOnlyList<string> arguments, string operand, out string error) {
-    if (!base.Validate(arguments, operand, out error)) return false;
-    var kind = arguments.Count == 0 ? null : arguments[0];
-    if (string.Equals(kind, "STATE", StringComparison.OrdinalIgnoreCase) ||
-      string.Equals(kind, "BUFFER", StringComparison.OrdinalIgnoreCase) ||
-      string.Equals(kind, "AST", StringComparison.OrdinalIgnoreCase) ||
-      string.Equals(kind, "PRELUDE", StringComparison.OrdinalIgnoreCase)) return true;
-    error = "DUMP requires STATE, BUFFER, AST or PRELUDE";
-    return false;
-  }
-}
-
 internal sealed class MixinDirective : ValueDirective {
   internal MixinDirective() : base("MIXIN", DirectiveOpcode.Mixin) { }
   protected override int MaximumArguments => 2;
@@ -184,7 +169,6 @@ internal static class DirectiveLibrary {
   private static readonly IReadOnlyDictionary<string, DirectiveDefinition> Expanded =
     new Dictionary<string, DirectiveDefinition>(StringComparer.Ordinal) {
       ["LOG"] = new ValueDirective("LOG", DirectiveOpcode.Log),
-      ["DUMP"] = new DumpDirective(),
       ["PROP_STRUCT"] = new PropStructDirective(),
       ["AUGMENT_STRUCT"] = new NamedDirective(
         "AUGMENT_STRUCT", DirectiveOpcode.AugmentStruct, DirectiveOperandKind.Value

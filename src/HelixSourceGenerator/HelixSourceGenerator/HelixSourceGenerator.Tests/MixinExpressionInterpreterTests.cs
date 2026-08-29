@@ -778,44 +778,11 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
-  public void PreparedDumpsRunOnceAndStateDumpsExposeOperationCounters() {
-    var prepared = _interpreter.PrepareGlobals(
-      new[] {
-        "@VAR<name> global\n@DUMP<STATE>\n@DUMP<AST>"
-      }
-    );
+  public void DumpIsNotAnExpressionDirective() {
+    var result = _interpreter.ValidateSyntax("@DUMP<STATE>");
 
-    var result = _interpreter.Execute("@DUMP<STATE>", new StubContext(), null, prepared);
-
-    Assert.Equal(3, prepared.ExecutedOperations);
-    Assert.Equal(2, prepared.Logs.Count);
-    Assert.Contains("operations=3", prepared.Logs[0].Text);
-    Assert.Contains("preparedOperations=3", prepared.Logs[0].Text);
-    Assert.Matches(@"durationMs=\d+\.\d{3}", prepared.Logs[0].Text);
-    var runtimeState = Assert.Single(result.Logs, item => !item.IsHint).Text;
-    Assert.Contains("operations=1", runtimeState);
-    Assert.Contains("preparedOperations=3", runtimeState);
-    Assert.Matches(@"durationMs=\d+\.\d{3}", runtimeState);
-  }
-
-  [Fact]
-  public void DumpAstIncludesPreparedAndCurrentlyAvailableLocalNodes() {
-    var prepared = _interpreter.PrepareGlobals(new[] { "@VAR<name> global" });
-    var result = _interpreter.Execute(
-      "@CODE first\n@DUMP<AST>\n@RETURN\n@CODE unreachable",
-      new StubContext(),
-      null,
-      prepared
-    );
-
-    Assert.True(result.Success, result.Error);
-    var dump = Assert.Single(result.Logs, item => !item.IsHint).Text;
-    Assert.Contains("AST GLOBAL", dump);
-    Assert.Contains("@VAR<name> global", dump);
-    Assert.Contains("AST LOCAL", dump);
-    Assert.Contains("@DUMP<AST>", dump);
-    Assert.DoesNotContain("unreachable", dump);
-    Assert.DoesNotContain("\n", dump);
+    Assert.False(result.Success);
+    Assert.Contains("unknown directive", result.Error);
   }
 
   [Fact]
@@ -856,34 +823,20 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
-  public void LogsAndDumpsStateAndBufferedOutputs() {
+  public void LogsArePreservedWhenEvaluationFails() {
     var result = _interpreter.Execute(
       """
       @LOCAL<kind> handler
       @VAR<count> one
       @CODE first
       @LOG processing @this:name
-      @DUMP<STATE>
-      @DUMP<BUFFER>
       @FAIL
       """,
       new StubContext()
     );
 
     Assert.False(result.Success);
-    Assert.Equal(3, result.Logs.Count);
-    Assert.Equal("processing Demo", result.Logs[0].Text);
-    Assert.Contains("locals={kind=handler}", result.Logs[1].Text);
-    Assert.Contains("variables={count=one}", result.Logs[1].Text);
-    Assert.Contains("Target: first", result.Logs[2].Text);
-  }
-
-  [Fact]
-  public void PreparedSyntaxValidationRejectsUnknownDumpKinds() {
-    var result = _interpreter.ValidateSyntax("@DUMP<UNKNOWN>");
-
-    Assert.False(result.Success);
-    Assert.Contains("STATE, BUFFER, AST or PRELUDE", result.Error);
+    Assert.Equal("processing Demo", Assert.Single(result.Logs).Text);
   }
 
   [Fact]

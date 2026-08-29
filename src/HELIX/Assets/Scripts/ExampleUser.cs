@@ -41,6 +41,7 @@ namespace HELIX.Context {
     }
   }
   
+  
   [Managed(typeof(ApplicationScope))]
   public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]

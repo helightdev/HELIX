@@ -7,61 +7,16 @@ namespace HELIX.SourceGen.Expressions;
 
 public enum MixinExpressionOutputTarget { Target, Class, File, Implements, Injection, Annotation, Using, Mixin }
 
-public sealed class MixinExpressionOutput {
-  public MixinExpressionOutput(
-    MixinExpressionOutputTarget target,
-    string text,
-    string injectionTarget = null,
-    int injectionPriority = 0
-  ) {
-    Target = target;
-    Text = text ?? "";
-    InjectionTarget = injectionTarget;
-    InjectionPriority = injectionPriority;
-  }
+public record MixinExpressionOutput(
+  MixinExpressionOutputTarget Target,
+  string Text,
+  string InjectionTarget = null,
+  int InjectionPriority = 0
+);
 
-  public MixinExpressionOutputTarget Target { get; }
-  public string Text { get; }
-  public string InjectionTarget { get; }
-  public int InjectionPriority { get; }
-}
+public record MixinExpressionLog(string Text = "", int Line = -1, bool IsHint = false);
 
-public sealed class MixinExpressionLog {
-  internal MixinExpressionLog(string text, int line, bool isHint = false) {
-    Text = text ?? "";
-    Line = line;
-    IsHint = isHint;
-  }
-
-  public string Text { get; }
-  public int Line { get; }
-  public bool IsHint { get; }
-}
-
-internal sealed class MixinExpressionPreludeSnapshot {
-  internal MixinExpressionPreludeSnapshot(
-    IReadOnlyDictionary<string, object> variables,
-    IReadOnlyList<MixinExpressionOutput> outputs
-  ) {
-    Variables = variables ?? new Dictionary<string, object>();
-    Outputs = outputs ?? Array.Empty<MixinExpressionOutput>();
-  }
-
-  internal IReadOnlyDictionary<string, object> Variables { get; }
-  internal IReadOnlyList<MixinExpressionOutput> Outputs { get; }
-}
-
-public sealed class MixinExpressionPreparedLog {
-  internal MixinExpressionPreparedLog(string text, int line, int programIndex) {
-    Text = text ?? "";
-    Line = line;
-    ProgramIndex = programIndex;
-  }
-
-  public string Text { get; }
-  public int Line { get; }
-  public int ProgramIndex { get; }
-}
+public record MixinExpressionPreparedLog(string Text, int Line, int ProgramIndex);
 
 public sealed class MixinExpressionProperty : FunctionInvocation {
   public MixinExpressionProperty(
@@ -108,9 +63,15 @@ public sealed class MixinExpressionTable : MixinValue {
   public override object BackingValue => this;
   public override bool IsTruthy => true;
   public override string Render() => ToString();
-  public override bool TryGetText(out string text) { text = null; return false; }
+
+  public override bool TryGetText(out string text) {
+    text = null;
+    return false;
+  }
+
   public override object Select(string path) => TryGetValue(path, out var value) ? value : null;
   public override bool Has(object member) => _values.ContainsKey(Convert.ToString(member) ?? "");
+
   public override IMixinValue Unlink() {
     var result = new MixinExpressionTable();
     foreach (var item in _values) result = result.Put(item.Key, item.Value.Unlink().BackingValue);
@@ -121,7 +82,8 @@ public sealed class MixinExpressionTable : MixinValue {
     if (ReferenceEquals(this, obj)) return true;
     if (obj is not MixinExpressionTable other || Count != other.Count) return false;
     foreach (var item in _values)
-      if (!other._values.TryGetValue(item.Key, out var value) || !Equals(item.Value, value)) return false;
+      if (!other._values.TryGetValue(item.Key, out var value) || !Equals(item.Value, value))
+        return false;
     return true;
   }
 
@@ -215,6 +177,7 @@ public interface IMixinExpressionValueContext : IMixinExpressionContext {
     out object value,
     out string error
   );
+
   bool TryRenderValue(object value, string root, out string text, out string error);
 }
 
@@ -267,14 +230,16 @@ public interface IMixinExpressionStructAugmentationContext {
   );
 }
 
-public sealed class MixinExpressionResult {
+public sealed record MixinExpressionResult {
   internal MixinExpressionResult(
     bool success,
     string error,
     int errorLine,
     IReadOnlyList<MixinExpressionOutput> outputs,
     IReadOnlyList<MixinExpressionLog> logs = null,
-    IReadOnlyDictionary<string, object> variables = null
+    IReadOnlyDictionary<string, object> variables = null,
+    int executedOperations = 0,
+    double executionMilliseconds = 0
   ) {
     Success = success;
     Error = error;
@@ -282,6 +247,8 @@ public sealed class MixinExpressionResult {
     Outputs = outputs ?? Array.Empty<MixinExpressionOutput>();
     Logs = logs ?? Array.Empty<MixinExpressionLog>();
     Variables = variables ?? new Dictionary<string, object>();
+    ExecutedOperations = executedOperations;
+    ExecutionMilliseconds = executionMilliseconds;
   }
 
   public bool Success { get; }
@@ -290,60 +257,26 @@ public sealed class MixinExpressionResult {
   public IReadOnlyList<MixinExpressionOutput> Outputs { get; }
   public IReadOnlyList<MixinExpressionLog> Logs { get; }
   public IReadOnlyDictionary<string, object> Variables { get; }
+  public int ExecutedOperations { get; }
+  public double ExecutionMilliseconds { get; }
 }
 
-public sealed class MixinExpressionValidationResult {
-  internal MixinExpressionValidationResult(bool success, string error, int errorLine) {
-    Success = success;
-    Error = error;
-    ErrorLine = errorLine;
-  }
-
-  public bool Success { get; }
-  public string Error { get; }
-  public int ErrorLine { get; }
-}
+public sealed record MixinExpressionValidationResult(bool Success, string Error, int ErrorLine);
 
 /// <summary>
 ///   Immutable, context-free result of compiling and evaluating prepared mixins.  The generator
 ///   may safely retain this object in an incremental value and share it between target runs.
 /// </summary>
-public sealed class MixinExpressionPreparedState {
-  internal MixinExpressionPreparedState(
-    IReadOnlyList<MixinProgramSyntax> programs,
-    IReadOnlyDictionary<string, object> variables,
-    IReadOnlyList<DirectiveInstruction> instructions,
-    IReadOnlyDictionary<string, int> labels,
-    IReadOnlyDictionary<int, int> instructionScopes,
-    IReadOnlyDictionary<string, MixinExpressionCompiler.FunctionDefinition> functions,
-    IReadOnlyDictionary<int, int> functionStarts,
-    ISet<int> functionEnds,
-    ISet<int> initializers,
-    IReadOnlyList<MixinExpressionPreparedLog> logs,
-    int executedOperations
-  ) {
-    Programs = programs;
-    Variables = variables;
-    Instructions = instructions;
-    Labels = labels;
-    InstructionScopes = instructionScopes;
-    Functions = functions;
-    FunctionStarts = functionStarts;
-    FunctionEnds = functionEnds;
-    Initializers = initializers;
-    Logs = logs;
-    ExecutedOperations = executedOperations;
-  }
-
-  internal IReadOnlyList<MixinProgramSyntax> Programs { get; }
-  internal IReadOnlyDictionary<string, object> Variables { get; }
-  internal IReadOnlyList<DirectiveInstruction> Instructions { get; }
-  internal IReadOnlyDictionary<string, int> Labels { get; }
-  internal IReadOnlyDictionary<int, int> InstructionScopes { get; }
-  internal IReadOnlyDictionary<string, MixinExpressionCompiler.FunctionDefinition> Functions { get; }
-  internal IReadOnlyDictionary<int, int> FunctionStarts { get; }
-  internal ISet<int> FunctionEnds { get; }
-  internal ISet<int> Initializers { get; }
-  public IReadOnlyList<MixinExpressionPreparedLog> Logs { get; }
-  public int ExecutedOperations { get; }
-}
+public sealed record MixinExpressionPreparedState(
+  IReadOnlyList<MixinProgramSyntax> Programs,
+  IReadOnlyDictionary<string, object> Variables,
+  IReadOnlyList<DirectiveInstruction> Instructions,
+  IReadOnlyDictionary<string, int> Labels,
+  IReadOnlyDictionary<int, int> InstructionScopes,
+  IReadOnlyDictionary<string, MixinExpressionCompiler.FunctionDefinition> Functions,
+  IReadOnlyDictionary<int, int> FunctionStarts,
+  ISet<int> FunctionEnds,
+  ISet<int> Initializers,
+  IReadOnlyList<MixinExpressionPreparedLog> Logs,
+  int ExecutedOperations
+);

@@ -15,10 +15,9 @@ internal static class MixinExpressionVirtualMachine {
     string expression,
     IMixinExpressionContext context,
     IDictionary<string, object> variables,
-    MixinExpressionPreparedState preparedState,
-    MixinExpressionPreludeSnapshot preludeSnapshot = null
+    MixinExpressionPreparedState preparedState
   ) {
-    var evaluationStartedAt = Stopwatch.GetTimestamp();
+    var executionStartedAt = Stopwatch.GetTimestamp();
     if (context is null) throw new ArgumentNullException(nameof(context));
     if (expression is null) return Failure("the expression is null", 0);
 
@@ -69,7 +68,9 @@ internal static class MixinExpressionVirtualMachine {
         item => MixinValue.Unlink(item.Value, context),
         StringComparer.Ordinal
       );
-      return Success(outputs, logs, unlinkedVariables);
+      var elapsedMilliseconds =
+        (Stopwatch.GetTimestamp() - executionStartedAt) * 1000d / Stopwatch.Frequency;
+      return Success(outputs, logs, unlinkedVariables, executedOperations, elapsedMilliseconds);
     }
 
     bool FinishTransform(CallFrame frame, out string finishError) {
@@ -324,38 +325,6 @@ internal static class MixinExpressionVirtualMachine {
             out var logError
           )) return Failure(logError, lineNumber, logs);
           logs.Add(new MixinExpressionLog(log, lineNumber));
-          break;
-        case DirectiveOpcode.Dump:
-          switch ((argument ?? "").ToUpperInvariant()) {
-            case "STATE":
-              logs.Add(
-                new MixinExpressionLog(
-                  DumpState(
-                    lineNumber, pc, calls.Count, locals, pendingVariables,
-                    executedOperations, preparedState?.ExecutedOperations ?? 0,
-                    evaluationStartedAt
-                  ), lineNumber
-                )
-              );
-              break;
-            case "BUFFER":
-              logs.Add(new MixinExpressionLog(DumpBuffer(outputs), lineNumber));
-              break;
-            case "AST":
-              logs.Add(
-                new MixinExpressionLog(
-                  DumpAst(preparedState?.Instructions, localProgram.AvailableInstructions()), lineNumber
-                )
-              );
-              break;
-            case "PRELUDE":
-              if (preludeSnapshot is null)
-                return Failure("DUMP<PRELUDE> is only available during late evaluation", lineNumber, logs);
-              logs.Add(new MixinExpressionLog(DumpPrelude(preludeSnapshot), lineNumber));
-              break;
-            default:
-              return Failure("DUMP requires STATE, BUFFER, AST or PRELUDE", lineNumber, logs);
-          }
           break;
         case DirectiveOpcode.Local:
         case DirectiveOpcode.Variable:

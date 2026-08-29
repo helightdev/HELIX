@@ -75,18 +75,6 @@ public sealed class MixinExpressionInterpreter {
     return MixinExpressionVirtualMachine.Execute(expression, context, variables, preparedState);
   }
 
-  internal MixinExpressionResult Execute(
-    string expression,
-    IMixinExpressionContext context,
-    IDictionary<string, object> variables,
-    MixinExpressionPreparedState preparedState,
-    MixinExpressionPreludeSnapshot preludeSnapshot
-  ) {
-    return MixinExpressionVirtualMachine.Execute(
-      expression, context, variables, preparedState, preludeSnapshot
-    );
-  }
-
   public MixinExpressionResult Execute(
     string expression,
     IMixinExpressionContext context,
@@ -145,9 +133,13 @@ public sealed class MixinExpressionInterpreter {
   internal static MixinExpressionResult Success(
     IReadOnlyList<MixinExpressionOutput> outputs,
     IReadOnlyList<MixinExpressionLog> logs,
-    IReadOnlyDictionary<string, object> variables = null
+    IReadOnlyDictionary<string, object> variables = null,
+    int executedOperations = 0,
+    double executionMilliseconds = 0
   ) {
-    return new MixinExpressionResult(true, null, 0, outputs, logs, variables);
+    return new MixinExpressionResult(
+      true, null, 0, outputs, logs, variables, executedOperations, executionMilliseconds
+    );
   }
 
   internal static MixinExpressionResult Failure(

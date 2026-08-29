@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -10,12 +9,12 @@ namespace HELIX.SourceGen.Expressions;
 using static MixinExpressionEvaluator;
 using static MixinExpressionInterpreter;
 
-internal static class MixinExpressionCompiler {
+public static class MixinExpressionCompiler {
   private static readonly HashSet<string> RoslynRoots = new(StringComparer.Ordinal) {
     "target", "this", "attr", "arg"
   };
 
-  internal static bool TryHoistPrelude(
+  public static bool TryHoistPrelude(
     string explicitPrelude,
     string expression,
     MixinExpressionPreparedState preparedState,
@@ -400,7 +399,6 @@ internal static class MixinExpressionCompiler {
   internal static MixinExpressionPreparedState PrepareGlobals(
     IReadOnlyList<MixinProgramSyntax> programs
   ) {
-    var evaluationStartedAt = Stopwatch.GetTimestamp();
     programs ??= Array.Empty<MixinProgramSyntax>();
     var variables = new MixinValueDictionary();
     var logs = new List<MixinExpressionPreparedLog>();
@@ -440,9 +438,6 @@ internal static class MixinExpressionCompiler {
       instructionOffset += program.Count;
     }
     var initializers = FindPreparedInitializers(instructions);
-    CollectPreparedDumps(
-      programs, instructions, variables, logs, executedOperations, evaluationStartedAt
-    );
     return new MixinExpressionPreparedState(
       programs.ToArray(),
       new MixinValueDictionary(variables),
@@ -477,7 +472,7 @@ internal static class MixinExpressionCompiler {
         }
         continue;
       }
-      if (instruction.Command is "VAR" or "LOG" or "DUMP") result.Add(index);
+      if (instruction.Command is "VAR" or "LOG") result.Add(index);
     }
     return result;
   }
@@ -529,7 +524,7 @@ internal static class MixinExpressionCompiler {
           return false;
         }
         logs.Add(new MixinExpressionPreparedLog(value, instruction.Line, programIndex));
-      } else if (instruction.Command == "DUMP") executedOperations++;
+      }
     }
     return true;
   }
@@ -565,84 +560,6 @@ internal static class MixinExpressionCompiler {
     return true;
   }
 
-  private static void CollectPreparedDumps(
-    IReadOnlyList<MixinProgramSyntax> programs,
-    IReadOnlyList<DirectiveInstruction> globalInstructions,
-    IReadOnlyDictionary<string, object> variables,
-    ICollection<MixinExpressionPreparedLog> logs,
-    int executedOperations,
-    long evaluationStartedAt
-  ) {
-    for (var programIndex = 0; programIndex < programs.Count; programIndex++) {
-      var program = programs[programIndex];
-      var functionDepth = 0;
-      var functionScope = false;
-      for (var index = 0; index < program.Count; index++) {
-        var instruction = program.Get(index);
-        if (instruction.Command == "FUNC") {
-          functionDepth++;
-          functionScope = false;
-          continue;
-        }
-        if (functionDepth != 0) {
-          if (instruction.Command == "SCOPE") functionScope = true;
-          else if (instruction.Command == "END") {
-            if (functionScope) functionScope = false;
-            else functionDepth--;
-          }
-          continue;
-        }
-        if (instruction.Command != "DUMP") continue;
-        string text;
-        switch ((instruction.Argument ?? "").ToUpperInvariant()) {
-          case "STATE":
-            text = DumpState(
-              instruction.Line, index + 1, 0,
-              new MixinValueDictionary(), variables,
-              executedOperations, executedOperations, evaluationStartedAt
-            );
-            break;
-          case "BUFFER":
-            text = DumpBuffer(Array.Empty<MixinExpressionOutput>());
-            break;
-          case "AST":
-            text = DumpAst(globalInstructions, null);
-            break;
-          case "PRELUDE":
-            // The snapshot does not exist until primary evaluation has completed.
-            continue;
-          default:
-            continue;
-        }
-        logs.Add(new MixinExpressionPreparedLog(text, instruction.Line, programIndex));
-      }
-    }
-  }
-
-  internal static string DumpState(
-    int line,
-    int programCounter,
-    int callDepth,
-    IReadOnlyDictionary<string, object> locals,
-    IReadOnlyDictionary<string, object> variables,
-    int executedOperations,
-    int preparedOperations,
-    long evaluationStartedAt
-  ) {
-    return "STATE line=" + line + " pc=" + programCounter + " callDepth=" + callDepth +
-      " operations=" + executedOperations + " preparedOperations=" + preparedOperations +
-      " durationMs=" + ElapsedMilliseconds(evaluationStartedAt) +
-      " locals=" + DumpValues(locals) + " variables=" + DumpValues(variables);
-  }
-
-  private static string ElapsedMilliseconds(long startedAt) {
-    return ElapsedMillisecondsValue(startedAt).ToString("F3", CultureInfo.InvariantCulture);
-  }
-
-  private static double ElapsedMillisecondsValue(long startedAt) {
-    return (Stopwatch.GetTimestamp() - startedAt) * 1000d / Stopwatch.Frequency;
-  }
-
   private static string DumpValues(IReadOnlyDictionary<string, object> values) {
     return values.Count == 0
       ? "{}"
@@ -650,59 +567,6 @@ internal static class MixinExpressionCompiler {
         ", ", values.OrderBy(item => item.Key, StringComparer.Ordinal)
           .Select(item => item.Key + "=" + RenderValue(item.Value))
       ) + "}";
-  }
-
-  internal static string DumpPrelude(MixinExpressionPreludeSnapshot snapshot) {
-    var variables = snapshot.Variables.ToDictionary(
-      item => item.Key.StartsWith(CarryLocalPrefix, StringComparison.Ordinal)
-        ? "carry#" + item.Key.Substring(CarryLocalPrefix.Length)
-        : item.Key,
-      item => item.Value,
-      StringComparer.Ordinal
-    );
-    return "PRELUDE variables=" + DumpValues(variables) + " buffers=" + DumpBuffer(snapshot.Outputs);
-  }
-
-  internal static string DumpBuffer(IReadOnlyList<MixinExpressionOutput> outputs) {
-    return outputs.Count == 0
-      ? "BUFFER <empty>"
-      : "BUFFER " + string.Join(
-        "\n", outputs.Select(item =>
-          item.Target + (string.IsNullOrEmpty(item.InjectionTarget)
-            ? ""
-            : "<" + item.InjectionTarget + ">") + ": " + item.Text
-        )
-      );
-  }
-
-  internal static string DumpAst(
-    IEnumerable<DirectiveInstruction> global,
-    IEnumerable<DirectiveInstruction> local
-  ) {
-    var builder = new StringBuilder("AST GLOBAL [");
-    AppendAst(builder, global);
-    builder.Append("] | AST LOCAL [");
-    AppendAst(builder, local);
-    builder.Append(']');
-    return builder.ToString();
-  }
-
-  private static void AppendAst(StringBuilder builder, IEnumerable<DirectiveInstruction> instructions) {
-    if (instructions is null) {
-      builder.Append("<unavailable>");
-      return;
-    }
-    var found = false;
-    foreach (var instruction in instructions) {
-      if (found) builder.Append("; ");
-      found = true;
-      builder.Append(instruction.Line).Append(": @")
-        .Append(instruction.Command);
-      if (instruction.Argument is not null) builder.Append('<').Append(instruction.Argument).Append('>');
-      if (!string.IsNullOrEmpty(instruction.Operand)) builder.Append(' ').Append(instruction.Operand);
-      if (instruction.Error is not null) builder.Append(" [invalid: ").Append(instruction.Error).Append(']');
-    }
-    if (!found) builder.Append("<empty>");
   }
 
   internal static bool ValidateBooleanExpressionSyntax(string text, out string error) {
@@ -863,5 +727,5 @@ internal static class MixinExpressionCompiler {
     return false;
   }
 
-  internal sealed record FunctionDefinition(int Start, int End);
+  public sealed record FunctionDefinition(int Start, int End);
 }
