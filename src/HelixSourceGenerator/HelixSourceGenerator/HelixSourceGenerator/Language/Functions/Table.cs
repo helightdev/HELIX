@@ -3,8 +3,6 @@ using System.Linq;
 
 namespace HelixSourceGenerator.Language.Functions;
 
-internal enum TableFunctionKind { Put, Remove, Push, Pop }
-
 internal sealed class AsTableFunction : FunctionDefinition {
   internal AsTableFunction() : base("table", 0, 0) { }
 
@@ -22,12 +20,8 @@ internal sealed class AsTableFunction : FunctionDefinition {
   }
 }
 
-internal sealed class TableFunction : FunctionDefinition {
-  private readonly TableFunctionKind _kind;
-
-  internal TableFunction(string name, int arguments, TableFunctionKind kind) : base(name, arguments, arguments) {
-    _kind = kind;
-  }
+internal abstract class TableMutationFunction(string name, int arguments)
+  : FunctionDefinition(name, arguments, arguments) {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
@@ -35,34 +29,48 @@ internal sealed class TableFunction : FunctionDefinition {
   ) {
     var property = (MixinExpressionProperty)invocation;
     var table = value as MixinExpressionTable ?? new MixinExpressionTable();
-    switch (_kind) {
-      case TableFunctionKind.Put:
-        value = table.Put(
-          MixinExpressionEvaluator.Render(property.Values[0]),
-          MixinValue.From(property.Values[1], context)
-        ); break;
-      case TableFunctionKind.Remove: value = table.Remove(invocation.Argument); break;
-      case TableFunctionKind.Push:
-        value = table.Put(
-          table.Count.ToString(CultureInfo.InvariantCulture),
-          MixinValue.From(property.Values[0], context)
-        ); break;
-      case TableFunctionKind.Pop:
-        value = table.Remove((table.Count - 1).ToString(CultureInfo.InvariantCulture)); break;
-    }
+    value = Mutate(table, property, context);
     error = null;
     return true;
   }
+
+  protected abstract MixinExpressionTable Mutate(
+    MixinExpressionTable table, MixinExpressionProperty property, IMixinExpressionContext context
+  );
 }
 
-internal enum TableJoinKind { Keys, Values, Entries }
+internal sealed class PutFunction() : TableMutationFunction("put", 2) {
+  protected override MixinExpressionTable Mutate(
+    MixinExpressionTable table, MixinExpressionProperty property, IMixinExpressionContext context
+  ) => table.Put(
+    MixinExpressionEvaluator.Render(property.Values[0]),
+    MixinValue.From(property.Values[1], context)
+  );
+}
 
-internal sealed class TableJoinFunction : FunctionDefinition {
-  private readonly TableJoinKind _kind;
+internal sealed class RemoveFunction() : TableMutationFunction("remove", 1) {
+  protected override MixinExpressionTable Mutate(
+    MixinExpressionTable table, MixinExpressionProperty property, IMixinExpressionContext context
+  ) => table.Remove(property.Argument);
+}
 
-  internal TableJoinFunction(string name, int arguments, TableJoinKind kind) : base(name, arguments, arguments) {
-    _kind = kind;
-  }
+internal sealed class PushFunction() : TableMutationFunction("push", 1) {
+  protected override MixinExpressionTable Mutate(
+    MixinExpressionTable table, MixinExpressionProperty property, IMixinExpressionContext context
+  ) => table.Put(
+    table.Count.ToString(CultureInfo.InvariantCulture),
+    MixinValue.From(property.Values[0], context)
+  );
+}
+
+internal sealed class PopFunction() : TableMutationFunction("pop", 0) {
+  protected override MixinExpressionTable Mutate(
+    MixinExpressionTable table, MixinExpressionProperty property, IMixinExpressionContext context
+  ) => table.Remove((table.Count - 1).ToString(CultureInfo.InvariantCulture));
+}
+
+internal abstract class TableJoinFunction(string name, int arguments)
+  : FunctionDefinition(name, arguments, arguments) {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
@@ -72,28 +80,35 @@ internal sealed class TableJoinFunction : FunctionDefinition {
       error = ":" + Name + " requires a table";
       return false;
     }
-    value = _kind switch {
-      TableJoinKind.Keys => string.Join(invocation.Argument, table.Entries.Select(item => item.Key)),
-      TableJoinKind.Values => string.Join(invocation.Argument, table.Entries.Select(item => item.Value.Render())),
-      TableJoinKind.Entries => string.Join(
-        invocation.Arguments[1],
-        table.Entries.Select(item => item.Key + invocation.Arguments[0] + item.Value.Render())
-      ),
-      _ => ""
-    };
+    value = Join(table, invocation);
     error = null;
     return true;
   }
+
+  protected abstract string Join(MixinExpressionTable table, FunctionInvocation invocation);
+}
+
+internal sealed class JoinKeysFunction() : TableJoinFunction("joinKeys", 1) {
+  protected override string Join(MixinExpressionTable table, FunctionInvocation invocation) =>
+    string.Join(invocation.Argument, table.Entries.Select(item => item.Key));
+}
+
+internal sealed class JoinValuesFunction() : TableJoinFunction("joinValues", 1) {
+  protected override string Join(MixinExpressionTable table, FunctionInvocation invocation) =>
+    string.Join(invocation.Argument, table.Entries.Select(item => item.Value.Render()));
+}
+
+internal sealed class JoinEntriesFunction() : TableJoinFunction("join", 2) {
+  protected override string Join(MixinExpressionTable table, FunctionInvocation invocation) =>
+    string.Join(
+      invocation.Arguments[1],
+      table.Entries.Select(item => item.Key + invocation.Arguments[0] + item.Value.Render())
+    );
 }
 
 internal enum TableTransformKind { MapValues, Map, Filter }
 
-internal sealed class TableTransformFunction : FunctionDefinition {
-  private readonly TableTransformKind _kind;
-
-  internal TableTransformFunction(string name, TableTransformKind kind) : base(name, 1, 1) {
-    _kind = kind;
-  }
+internal abstract class TableTransformFunction(string name) : FunctionDefinition(name, 1, 1) {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
@@ -103,8 +118,25 @@ internal sealed class TableTransformFunction : FunctionDefinition {
       error = ":" + Name + " requires a table";
       return false;
     }
-    value = new MixinTransformRequest(table, _kind, invocation.Argument);
+    value = CreateRequest(table, invocation.Argument);
     error = null;
     return true;
   }
+
+  protected abstract MixinTransformRequest CreateRequest(MixinExpressionTable table, string function);
+}
+
+internal sealed class MapValuesFunction() : TableTransformFunction("mapValues") {
+  protected override MixinTransformRequest CreateRequest(MixinExpressionTable table, string function) =>
+    new(table, TableTransformKind.MapValues, function);
+}
+
+internal sealed class MapFunction() : TableTransformFunction("map") {
+  protected override MixinTransformRequest CreateRequest(MixinExpressionTable table, string function) =>
+    new(table, TableTransformKind.Map, function);
+}
+
+internal sealed class FilterFunction() : TableTransformFunction("filter") {
+  protected override MixinTransformRequest CreateRequest(MixinExpressionTable table, string function) =>
+    new(table, TableTransformKind.Filter, function);
 }

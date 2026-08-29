@@ -3,12 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace HelixSourceGenerator.Language.Functions;
 
-internal sealed class RegexFunction : FunctionDefinition {
-  private readonly bool _firstOnly;
-
-  internal RegexFunction(string name, bool firstOnly) : base(name, 2, 2) {
-    _firstOnly = firstOnly;
-  }
+internal abstract class RegexFunction(string name) : FunctionDefinition(name, 2, 2) {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
@@ -20,9 +15,7 @@ internal sealed class RegexFunction : FunctionDefinition {
         error = "property ':" + Name + "' is not available for this value";
         return false;
       }
-      value = _firstOnly
-        ? new Regex(invocation.Arguments[0]).Replace(text, invocation.Arguments[1], 1)
-        : Regex.Replace(text, invocation.Arguments[0], invocation.Arguments[1]);
+      value = Replace(text, invocation.Arguments[0], invocation.Arguments[1]);
       error = null;
       return true;
     } catch (ArgumentException exception) {
@@ -30,6 +23,18 @@ internal sealed class RegexFunction : FunctionDefinition {
       return false;
     }
   }
+
+  protected abstract string Replace(string text, string pattern, string replacement);
+}
+
+internal sealed class ReplaceFunction() : RegexFunction("replace") {
+  protected override string Replace(string text, string pattern, string replacement) =>
+    Regex.Replace(text, pattern, replacement);
+}
+
+internal sealed class ReplaceFirstFunction() : RegexFunction("replaceFirst") {
+  protected override string Replace(string text, string pattern, string replacement) =>
+    new Regex(pattern).Replace(text, replacement, 1);
 }
 
 internal sealed class FloatTimeFunction : FunctionDefinition {

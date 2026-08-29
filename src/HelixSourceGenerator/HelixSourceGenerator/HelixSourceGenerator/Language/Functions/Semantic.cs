@@ -95,31 +95,40 @@ internal static class FunctionResults {
   }
 }
 
-internal enum AttributeFunctionKind { All, Assignable, Exact, First }
-
-internal sealed class AttributeFunction : FunctionDefinition {
-  private readonly AttributeFunctionKind _kind;
-
-  internal AttributeFunction(string name, int arguments, AttributeFunctionKind kind) :
-    base(name, arguments, arguments) {
-    _kind = kind;
-  }
+internal abstract class AttributeFunction(string name, int arguments)
+  : FunctionDefinition(name, arguments, arguments) {
 
   internal override bool Invoke(
     FunctionInvocation invocation, IMixinExpressionContext context,
     string root, string member, ref object value, out string error
   ) {
     var typed = MixinValue.From(value, context);
-    value = _kind switch {
-      AttributeFunctionKind.All => typed.Attributes(null, false),
-      AttributeFunctionKind.Assignable => typed.Attributes(invocation.Argument, false),
-      AttributeFunctionKind.Exact => typed.Attributes(invocation.Argument, true),
-      AttributeFunctionKind.First => typed.FirstAttribute(invocation.Argument),
-      _ => null
-    };
+    value = Select(typed, invocation);
     error = null;
     return true;
   }
+
+  protected abstract object Select(IMixinValue value, FunctionInvocation invocation);
+}
+
+internal sealed class AttributesFunction() : AttributeFunction("attributes", 0) {
+  protected override object Select(IMixinValue value, FunctionInvocation invocation) =>
+    value.Attributes(null, false);
+}
+
+internal sealed class AttributesOfFunction() : AttributeFunction("attributesOf", 1) {
+  protected override object Select(IMixinValue value, FunctionInvocation invocation) =>
+    value.Attributes(invocation.Argument, false);
+}
+
+internal sealed class AttributesOfExactFunction() : AttributeFunction("attributesOfExact", 1) {
+  protected override object Select(IMixinValue value, FunctionInvocation invocation) =>
+    value.Attributes(invocation.Argument, true);
+}
+
+internal sealed class AttributeOfFunction() : AttributeFunction("attributeOf", 1) {
+  protected override object Select(IMixinValue value, FunctionInvocation invocation) =>
+    value.FirstAttribute(invocation.Argument);
 }
 
 internal sealed class WireFunction : FunctionDefinition {
