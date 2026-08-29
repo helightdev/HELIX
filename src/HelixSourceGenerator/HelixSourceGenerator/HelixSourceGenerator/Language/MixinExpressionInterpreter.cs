@@ -48,10 +48,10 @@ public sealed class MixinExpressionInterpreter {
     MixinExpressionCompiler.PrepareGlobals(expressions);
 
   public static MixinExpressionValidationResult ValidateSyntax(string expression) =>
-    MixinExpressionCompiler.ValidateSyntax(expression, false);
+    MixinExpressionParser.ValidateSyntax(expression, false);
 
   internal static MixinExpressionValidationResult ValidateFunctionLibrary(string expression) =>
-    MixinExpressionCompiler.ValidateSyntax(expression, true);
+    MixinExpressionParser.ValidateSyntax(expression, true);
 
   public static MixinExpressionResult Execute(
     string expression, IMixinExpressionContext context, IDictionary<string, object> variables = null

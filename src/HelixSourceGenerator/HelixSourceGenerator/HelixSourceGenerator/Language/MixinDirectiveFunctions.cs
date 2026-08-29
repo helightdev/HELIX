@@ -40,7 +40,7 @@ internal abstract class DirectiveFunctionDefinition(
   string name,
   DirectiveOperandKind operandKind,
   int hoistedLocalArgumentIndex = -1
-) : DirectiveDefinition(name, DirectiveOpcode.None, operandKind) {
+) : DirectiveDefinition(name, operandKind) {
   internal int HoistedLocalArgumentIndex { get; } = hoistedLocalArgumentIndex;
   internal abstract bool Invoke(DirectiveFunctionInvocation invocation, out string error);
 }

@@ -221,7 +221,7 @@ internal static class MixinLibraryApi {
       var preludeText = prelude.ToString();
       var expressionText = expression.ToString();
       foreach (var part in new[] { preludeText, expressionText }) {
-        var validation = MixinExpressionCompiler.ValidateSyntax(part, false);
+        var validation = MixinExpressionParser.ValidateSyntax(part, false);
         if (!validation.Success)
           return Failure(validation.Error, annotationLine + validation.ErrorLine);
       }

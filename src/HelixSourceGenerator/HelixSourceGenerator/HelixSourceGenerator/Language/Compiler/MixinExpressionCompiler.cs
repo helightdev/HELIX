@@ -68,20 +68,21 @@ public static class MixinExpressionCompiler {
     var localFunctions = new HashSet<string>(StringComparer.Ordinal);
     for (var index = 0; index < lines.Length; index++) {
       var candidate = MixinExpressionParser.ParseDirective(lines[index], index + 1);
-      if (candidate.Error is null && candidate.Opcode == DirectiveOpcode.Function)
-        localFunctions.Add(candidate.Argument);
+      if (candidate.Error is null && candidate.Node is FunctionDirectiveSyntax)
+        localFunctions.Add(candidate.Node.Argument);
     }
     for (var index = 0; index < lines.Length; index++) {
       var line = lines[index];
-      var parsed = MixinExpressionParser.ParseDirective(line, index + 1);
-      if (parsed.Error is not null) {
+      var parseResult = MixinExpressionParser.ParseDirective(line, index + 1);
+      var parsed = parseResult.Node;
+      if (parseResult.Error is not null) {
         prelude = explicitPrelude ?? "";
         lateExpression = expression ?? "";
-        error = parsed.Error;
+        error = parseResult.Error;
         errorLine = index + 1;
         return false;
       }
-      if (parsed.Opcode == DirectiveOpcode.Call && (
+      if (parsed is CallDirectiveSyntax && (
         parsed.Arguments.Count == 0 ||
         MixinExpressionParser.IsDynamicArgument(parsed.Arguments[0]) ||
         !localFunctions.Contains(parsed.Arguments[0])
@@ -93,7 +94,9 @@ public static class MixinExpressionCompiler {
         errorLine = index + 1;
         return false;
       }
-      if (parsed.Directive is DirectiveFunctionDefinition { HoistedLocalArgumentIndex: >= 0 }) {
+      if (parsed is DirectiveInvocationSyntax {
+        Definition: DirectiveFunctionDefinition { HoistedLocalArgumentIndex: >= 0 }
+      }) {
         if (!TryHoistStructuralDirective(parsed, line, generated, labels, structuralLocals, out error)) {
           prelude = explicitPrelude ?? "";
           lateExpression = expression ?? "";
@@ -198,15 +201,12 @@ public static class MixinExpressionCompiler {
   ) {
     var result = new List<string>();
     var program = GetProgram(source ?? "");
+    if (program.Diagnostics.Count != 0) {
+      expanded = source ?? ""; error = program.Diagnostics[0].Message; errorLine = program.Diagnostics[0].Line; return false;
+    }
     for (var index = 0; index < program.Count; index++) {
       var instruction = program.Get(index);
-      if (instruction.Error is not null) {
-        expanded = source ?? "";
-        error = instruction.Error;
-        errorLine = instruction.Line;
-        return false;
-      }
-      if (instruction.Opcode != DirectiveOpcode.Inline) {
+      if (instruction is not InlineDirectiveSyntax) {
         result.Add(SerializeInstruction(instruction));
         continue;
       }
@@ -226,21 +226,21 @@ public static class MixinExpressionCompiler {
       var suffix = "__inline_" + inlineSequence++.ToString(CultureInfo.InvariantCulture);
       var endLabel = suffix + "_end";
       var labels = body.Where(item =>
-          item.Opcode is DirectiveOpcode.Scope or DirectiveOpcode.Label &&
+          item is ScopeDirectiveSyntax or LabelDirectiveSyntax &&
           !string.IsNullOrEmpty(item.Argument)
         )
         .Select(item => item.Argument).Distinct(StringComparer.Ordinal)
         .ToDictionary(item => item, item => item + suffix, StringComparer.Ordinal);
       var bodyLines = new List<string>();
       foreach (var item in body) {
-        switch (item.Opcode) {
-          case DirectiveOpcode.Return: {
+        switch (item) {
+          case ReturnDirectiveSyntax: {
             if (!string.IsNullOrEmpty(item.Operand))
               bodyLines.Add("@LOCAL<" + suffix + "_return> " + item.Operand);
             bodyLines.Add("@GOTO<" + endLabel + ">");
             continue;
           }
-          case DirectiveOpcode.Scope or DirectiveOpcode.Label or DirectiveOpcode.Goto or DirectiveOpcode.Match
+          case ScopeDirectiveSyntax or LabelDirectiveSyntax or GotoDirectiveSyntax or MatchDirectiveSyntax
             when !string.IsNullOrEmpty(item.Argument) &&
             labels.TryGetValue(item.Argument, out var renamed):
             bodyLines.Add(SerializeInstruction(item, renamed));
@@ -289,8 +289,8 @@ public static class MixinExpressionCompiler {
     ISet<string> structuralLocals,
     out string error
   ) {
-    var localIndex = (instruction.Directive as DirectiveFunctionDefinition)
-      ?.HoistedLocalArgumentIndex ?? -1;
+    var localIndex = (instruction as DirectiveInvocationSyntax)?.Definition is DirectiveFunctionDefinition function
+      ? function.HoistedLocalArgumentIndex : -1;
     var local = localIndex >= 0 && instruction.Arguments.Count > localIndex
       ? instruction.Arguments[localIndex]
       : null;
@@ -367,8 +367,9 @@ public static class MixinExpressionCompiler {
     for (var index = 0; index < lines.Length; index++) {
       var line = lines[index];
       if (!string.IsNullOrWhiteSpace(line)) {
-        var parsed = MixinExpressionParser.ParseDirective(line, index + 1);
-        if (parsed.Error is null && parsed.Opcode == DirectiveOpcode.Carry) {
+        var parseResult = MixinExpressionParser.ParseDirective(line, index + 1);
+        var parsed = parseResult.Node;
+        if (parseResult.Error is null && parsed is CarryDirectiveSyntax) {
           carries.Add(line);
           continue;
         }
@@ -380,52 +381,10 @@ public static class MixinExpressionCompiler {
     late = string.Join("\n", remaining);
   }
 
-  internal static MixinExpressionValidationResult ValidateSyntax(
-    string expression, bool functionsOnly
-  ) {
-    if (expression is null) return ValidationFailure("the expression is null", 0);
-    var lines = MixinExpressionParser.SplitLines(expression);
-    string activeFunction = null;
-    var functionLine = 0;
-    var functionScopeOpen = false;
-    var functions = new HashSet<string>(StringComparer.Ordinal);
-    for (var index = 0; index < lines.Length; index++) {
-      var line = lines[index];
-      if (string.IsNullOrWhiteSpace(line)) continue;
-      var parsed = MixinExpressionParser.ParseDirective(line, index + 1);
-      if (parsed.Error is not null) return ValidationFailure(parsed.Error, index + 1);
-      var command = parsed.Command;
-      var argument = parsed.Argument;
-      if (activeFunction is null) {
-        if (command != "FUNC") {
-          if (functionsOnly)
-            return ValidationFailure("mixin libraries may only contain function declarations", index + 1);
-          continue;
-        }
-        if (!functions.Add(argument))
-          return ValidationFailure("duplicate function '" + argument + "'", index + 1);
-        activeFunction = argument;
-        functionLine = index + 1;
-        functionScopeOpen = false;
-        continue;
-      }
-      switch (command) {
-        case "FUNC": return ValidationFailure("functions may not be nested", index + 1);
-        case "SCOPE": functionScopeOpen = true; break;
-      }
-      if (command != "END") continue;
-      if (functionScopeOpen) functionScopeOpen = false;
-      else activeFunction = null;
-    }
-    return activeFunction is null
-      ? new MixinExpressionValidationResult(true, null, 0)
-      : ValidationFailure("unterminated function '" + activeFunction + "'", functionLine);
-  }
-
   internal static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
     var programs = new List<MixinProgramSyntax>();
     foreach (var expression in expressions ?? []) {
-      var validation = ValidateSyntax(expression, false);
+      var validation = MixinExpressionParser.ValidateSyntax(expression, false);
       if (!validation.Success) {
         throw new ArgumentException(
           "invalid prepared expression at line " + validation.ErrorLine + ": " + validation.Error,
@@ -509,6 +468,9 @@ public static class MixinExpressionCompiler {
     error = null;
     errorLine = 0;
     if (program is null) { error = "the expression is null"; return false; }
+    if (program.Diagnostics.Count != 0) {
+      error = program.Diagnostics[0].Message; errorLine = program.Diagnostics[0].Line; return false;
+    }
     var preparedInstructions = prepared?.Instructions ?? [];
     var localInstructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
     var instructions = preparedInstructions.Concat(localInstructions).ToArray();
@@ -578,15 +540,11 @@ public static class MixinExpressionCompiler {
   ) {
     error = null;
     line = 0;
+    if (program.Diagnostics.Count != 0) { error = program.Diagnostics[0].Message; line = program.Diagnostics[0].Line; return false; }
     var functionDepth = 0;
     var functionScope = false;
     for (var i = 0; i < program.Count; i++) {
       var instruction = program.Get(i);
-      if (instruction.Error is not null) {
-        error = instruction.Error;
-        line = instruction.Line;
-        return false;
-      }
       if (instruction.Command == "FUNC") {
         functionDepth++;
         functionScope = false;
@@ -648,42 +606,6 @@ public static class MixinExpressionCompiler {
       builder.Append(RenderValue(value));
     }
     result = builder.ToString();
-    return true;
-  }
-
-  internal static bool ValidateBooleanExpressionSyntax(string text, out string error) {
-    error = null;
-    var position = 0;
-    var found = false;
-    while (position < text.Length) {
-      while (position < text.Length && char.IsWhiteSpace(text[position])) position++;
-      if (position == text.Length) break;
-      found = true;
-      if (!TryReadReferenceNode(text, ref position, out _, out error)) return false;
-    }
-    if (found) return true;
-    error = "boolean expression is empty";
-    return false;
-  }
-
-  private static MixinExpressionValidationResult ValidationFailure(string error, int line) {
-    return new MixinExpressionValidationResult(false, error, line);
-  }
-
-  internal static bool ValidateValueExpressionSyntax(string text, out string error) {
-    error = null;
-    var position = 0;
-    while (position < text.Length) {
-      if (text[position] != '@') {
-        position++;
-        continue;
-      }
-      if (position + 1 < text.Length && text[position + 1] == '@') {
-        position += 2;
-        continue;
-      }
-      if (!TryReadReferenceNode(text, ref position, out _, out error)) return false;
-    }
     return true;
   }
 
@@ -753,11 +675,6 @@ public static class MixinExpressionCompiler {
       // Expression and function regions use disjoint ID ranges, including when both begin at 0.
       var scope = activeFunction is null ? -start - 1 : functionStart + 1;
       instructionScopes[index] = scope;
-      if (instruction.Error is not null) {
-        error = instruction.Error;
-        errorLine = instruction.Line;
-        return false;
-      }
       var command = instruction.Command;
       var argument = instruction.Argument;
       if (string.IsNullOrEmpty(command)) continue;

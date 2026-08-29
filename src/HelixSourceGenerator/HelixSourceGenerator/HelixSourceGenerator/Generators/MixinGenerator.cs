@@ -774,8 +774,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     ICollection<LateTarget> targets
   ) {
     foreach (var line in MixinExpressionParser.SplitLines(expression ?? "")) {
-      var instruction = MixinExpressionParser.ParseDirective(line, 0);
-      if (instruction.Error is not null || instruction.Opcode != DirectiveOpcode.Mixin ||
+      var parsed = MixinExpressionParser.ParseDirective(line, 0);
+      var instruction = parsed.Node;
+      if (parsed.Error is not null || instruction is not MixinDirectiveSyntax ||
         instruction.Arguments.Count == 0) continue;
       var argument = instruction.Arguments[0];
       string resolved = null;

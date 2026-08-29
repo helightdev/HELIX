@@ -138,7 +138,6 @@ internal static class MixinExpressionVirtualMachine {
       var lineNumber = pc + 1;
       var instruction = pc;
       var parsed = lines[pc++];
-      if (parsed.Error is not null) return Failure(parsed.Error, lineNumber, logs);
       var command = parsed.Command;
       var argument = parsed.Argument;
       var operand = parsed.Operand;
@@ -146,7 +145,7 @@ internal static class MixinExpressionVirtualMachine {
       if (preparedInitializers.Contains(instruction)) continue;
       executedOperations++;
 
-      if (parsed.Directive is DirectiveFunctionDefinition directiveFunction) {
+      if (parsed is DirectiveInvocationSyntax { Definition: DirectiveFunctionDefinition directiveFunction }) {
         var invocation = new DirectiveFunctionInvocation(
           parsed, context, locals, pendingVariables, outputs
         );
@@ -155,20 +154,19 @@ internal static class MixinExpressionVirtualMachine {
         continue;
       }
 
-      // The interpreter has already compiled source names to opcodes. From here on this is
-      // deliberately a small stack VM; directive spelling and syntax do not leak into dispatch.
-      switch (parsed.Opcode) {
-        case DirectiveOpcode.Scope:
-        case DirectiveOpcode.Label:
-        case DirectiveOpcode.Function:
+      // Dispatch on AST node kinds. Directive spelling and parser details do not leak into execution.
+      switch (parsed) {
+        case ScopeDirectiveSyntax:
+        case LabelDirectiveSyntax:
+        case FunctionDirectiveSyntax:
           break;
-        case DirectiveOpcode.End:
+        case EndDirectiveSyntax:
           if (functionEnds.Contains(instruction) && calls.Count != 0) {
             if (!CompleteCall(null, out var endCallError))
               return Failure(endCallError, lineNumber, logs);
           }
           break;
-        case DirectiveOpcode.Match:
+        case MatchDirectiveSyntax:
           if (!TryEvaluateAll(
             parsed.BooleanExpression, context, locals, pendingVariables,
             out var matched, out var matchError, out var matchFailure
@@ -194,14 +192,14 @@ internal static class MixinExpressionVirtualMachine {
             pc = next;
           }
           break;
-        case DirectiveOpcode.Assert:
+        case AssertDirectiveSyntax:
           if (!TryEvaluateAll(
             parsed.BooleanExpression, context, locals, pendingVariables,
             out var asserted, out var assertError, out var assertFailure
           )) return Failure(assertError, lineNumber, logs);
           if (!asserted) return Failure(assertFailure, lineNumber, logs);
           break;
-        case DirectiveOpcode.Code:
+        case CodeDirectiveSyntax:
           TryOutputTarget(argument, out var outputTarget, out var injectionTarget);
           if (parsed.ValueExpression is { Count: 1 } && parsed.ValueExpression[0].Reference is not null) {
             if (!TryEvaluateExpression(
@@ -225,7 +223,7 @@ internal static class MixinExpressionVirtualMachine {
             )
           );
           break;
-        case DirectiveOpcode.Mixin:
+        case MixinDirectiveSyntax:
           if (!TryInterpolateSegments(
             parsed.ValueExpression, context, locals, pendingVariables, executionPool, out var mixinCode,
             out var mixinCodeError
@@ -257,7 +255,7 @@ internal static class MixinExpressionVirtualMachine {
             )
           );
           break;
-        case DirectiveOpcode.Using:
+        case UsingDirectiveSyntax:
           if (!TryInterpolateSegments(
             parsed.ValueExpression, context, locals, pendingVariables, executionPool,
             out var usingDirective,
@@ -270,15 +268,15 @@ internal static class MixinExpressionVirtualMachine {
             )
           );
           break;
-        case DirectiveOpcode.Log:
+        case LogDirectiveSyntax:
           if (!TryInterpolate(
             parsed.ValueExpression, context, locals, pendingVariables, out var log,
             out var logError
           )) return Failure(logError, lineNumber, logs);
           logs.Add(new MixinExpressionLog(log, lineNumber));
           break;
-        case DirectiveOpcode.Local:
-        case DirectiveOpcode.Variable:
+        case LocalDirectiveSyntax:
+        case VariableDirectiveSyntax:
           if (string.IsNullOrEmpty(argument)) return Failure(command + " requires a name", lineNumber, logs);
           if (!TryEvaluateExpression(
             parsed.ValueExpression, context, locals, pendingVariables, out var stored, out var storeError
@@ -286,16 +284,16 @@ internal static class MixinExpressionVirtualMachine {
           if (stored is MixinTransformRequest storeTransform) {
             if (!BeginTransform(
               storeTransform,
-              parsed.Opcode == DirectiveOpcode.Local
+              parsed is LocalDirectiveSyntax
                 ? FrameContinuation.StoreLocal
                 : FrameContinuation.StoreVariable,
               argument, default, null, out var beginStoreError
             )) return Failure(beginStoreError, lineNumber, logs);
             break;
           }
-          (parsed.Opcode == DirectiveOpcode.Local ? locals : pendingVariables)[argument] = stored;
+          (parsed is LocalDirectiveSyntax ? locals : pendingVariables)[argument] = stored;
           break;
-        case DirectiveOpcode.Carry:
+        case CarryDirectiveSyntax:
           if (string.IsNullOrEmpty(argument)) return Failure("CARRY requires a label", lineNumber, logs);
           if (TryEvaluateExpression(
             parsed.ValueExpression, context, locals, pendingVariables,
@@ -303,7 +301,7 @@ internal static class MixinExpressionVirtualMachine {
           )) pendingVariables[CarryLocalPrefix + argument] = MixinValue.Unlink(carried, context);
           else pendingVariables[CarryLocalPrefix + argument] = new FailedMixinValue(carryError);
           break;
-        case DirectiveOpcode.Return:
+        case ReturnDirectiveSyntax:
           if (calls.Count != 0) {
             object returnValue = null;
             if (!string.IsNullOrEmpty(operand) && !TryEvaluateExpression(
@@ -323,7 +321,7 @@ internal static class MixinExpressionVirtualMachine {
           }
           CommitVariables(variables, pendingVariables);
           return SuccessfulResult();
-        case DirectiveOpcode.Call:
+        case CallDirectiveSyntax:
           var callFunctionLabel = parsed.Arguments.Count == 2 ? parsed.Arguments[1] : argument;
           var callReturnLocal = parsed.Arguments.Count == 2 ? argument : null;
           if (string.IsNullOrEmpty(callFunctionLabel) || !functions.TryGetValue(callFunctionLabel, out var function))
@@ -343,16 +341,16 @@ internal static class MixinExpressionVirtualMachine {
           locals[ParameterLocalKey] = callParameter;
           pc = function.Start;
           break;
-        case DirectiveOpcode.Inline:
+        case InlineDirectiveSyntax:
           return Failure("INLINE must be expanded before evaluation", lineNumber, logs);
-        case DirectiveOpcode.Goto:
+        case GotoDirectiveSyntax:
           var gotoScope = instructionScopes[instruction];
           var gotoKey = ScopeLabelKey(gotoScope, argument ?? "");
           if (string.IsNullOrEmpty(argument) || !labels.TryGetValue(gotoKey, out var destination))
             return Failure("unknown scope label '" + (argument ?? "") + "'", lineNumber, logs);
           pc = destination + 1;
           break;
-        case DirectiveOpcode.Skip:
+        case SkipDirectiveSyntax:
           var skip = FindNextScopeOrEnd(
             lines, pc, instructionScopes[instruction], instructionScopes,
             functionStarts, functionEnds
@@ -360,7 +358,7 @@ internal static class MixinExpressionVirtualMachine {
           if (skip < 0) return Failure("SKIP has no following scope", lineNumber, logs);
           pc = skip;
           break;
-        case DirectiveOpcode.Fail:
+        case FailDirectiveSyntax:
           if (string.IsNullOrEmpty(operand)) return Failure("expression requested failure", lineNumber, logs);
           return Failure(!TryInterpolate(
             parsed.ValueExpression, context, locals, pendingVariables, out var failureMessage, out var failureError

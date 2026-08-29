@@ -105,7 +105,7 @@ internal static class MixinExpressionEvaluator {
     if (argument is not null && argument.Length >= 2 &&
       argument[0] == '(' && argument[argument.Length - 1] == ')') {
       var expression = argument.Substring(1, argument.Length - 2);
-      if (!ValidateValueExpressionSyntax(expression, out error)) {
+      if (!MixinExpressionParser.ValidateValueExpressionSyntax(expression, out error)) {
         value = null;
         return false;
       }
@@ -718,7 +718,7 @@ internal static class MixinExpressionEvaluator {
       }
       foreach (var argument in operation.Arguments) {
         var parsed = MixinExpressionParser.ParseBooleanExpression(argument);
-        if (!ValidateBooleanExpressionSyntax(argument, out error) ||
+        if (!MixinExpressionParser.ValidateBooleanExpressionSyntax(argument, out error) ||
           !TryEvaluateAll(parsed, context, locals, variables, out var item, out error, out _)) {
           reduced = null;
           return false;
