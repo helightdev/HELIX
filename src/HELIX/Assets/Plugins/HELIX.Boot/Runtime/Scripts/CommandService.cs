@@ -8,7 +8,7 @@ using HELIX.UI.Console;
 using UnityEngine.InputSystem;
 
 namespace HELIX.Boot {
-  [Managed(typeof(ApplicationScope))]
+  [Mixable, Managed(typeof(ApplicationScope))]
   public partial class CommandService : ICommandSystem {
     private readonly CommandRegistry _registry = new();
     private readonly List<Command> _commands = new();

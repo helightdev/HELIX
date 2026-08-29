@@ -8,7 +8,7 @@ using UnityEngine.Serialization;
 
 /// <summary>Live examples for prose-authored screen and world camera-overlay boxes.</summary>
 [Managed(typeof(ApplicationScope))]
-public partial class ExampleCameraOverlays : MonoBehaviour {
+[Mixable] public partial class ExampleCameraOverlays : MonoBehaviour {
   private ScreenCameraOverlayEntry _screen, _camera;
   private WorldCameraOverlayEntry _world;
   private Camera _namedCamera;

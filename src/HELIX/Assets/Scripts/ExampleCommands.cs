@@ -7,7 +7,7 @@ namespace HELIX.Context {
   /// <summary>Example console commands registered into the application command service.</summary>
   [Managed(typeof(ApplicationScope))]
   [MixinUsing("static HELIX.Datatypes")]
-  public partial class ExampleCommands {
+  [Mixable] public partial class ExampleCommands {
     [RegisterCommand] public readonly Command echo = new EchoCommand();
     [RegisterCommand] public readonly Command math = new MathCommand();
     [RegisterCommand] public readonly Command quality = new QualityCommand();

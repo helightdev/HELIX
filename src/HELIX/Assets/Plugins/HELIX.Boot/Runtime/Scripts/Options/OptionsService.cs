@@ -10,7 +10,7 @@ using HELIX.UI.Options;
 using UnityEngine;
 
 namespace HELIX.Boot {
-  [Managed(typeof(ApplicationScope), phase: LoadPhase.AfterConfiguration)]
+  [Mixable, Managed(typeof(ApplicationScope), phase: LoadPhase.AfterConfiguration)]
   public partial class OptionsService {
     private readonly ManagedRegistry<Option, OptionRegistryData> _options = new();
 

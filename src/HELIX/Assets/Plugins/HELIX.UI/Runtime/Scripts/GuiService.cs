@@ -8,7 +8,7 @@ using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 namespace HELIX.UI {
-  [Managed(typeof(ApplicationScope))]
+  [Mixable, Managed(typeof(ApplicationScope))]
   public partial class GuiService {
     [Resource(Source.Resources, "Settings/PanelSettings.asset", false)]
     public PanelSettings settings;

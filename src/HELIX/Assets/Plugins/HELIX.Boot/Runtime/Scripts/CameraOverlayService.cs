@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace HELIX.Boot {
   /// <summary>Owns per-frame collection of HELIX camera overlays.</summary>
-  [Managed(typeof(ApplicationScope))]
+  [Mixable, Managed(typeof(ApplicationScope))]
   public partial class CameraOverlayService : MonoBehaviour {
     [Inject] private GuiService _gui;
 

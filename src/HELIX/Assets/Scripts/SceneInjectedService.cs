@@ -6,13 +6,13 @@ using UnityEngine;
 
 namespace HELIX.Context {
   [Managed]
-  public partial class SceneInjectedService : MonoBehaviour {
+  [Mixable] public partial class SceneInjectedService : MonoBehaviour {
     [Inject, NonSerialized] public SceneService scope;
     [Inject, NonSerialized] public ExampleUser user;
 
     [NonSerialized]
     public GameObject testGameObject;
-    
+
     [Hook]
     public void OnInit() {
       Debug.Log("SceneInjectedService.OnInit");
@@ -22,7 +22,7 @@ namespace HELIX.Context {
     public void OnDispose() {
       Debug.Log("SceneInjectedService.OnDispose");
     }
-    
+
     [Button]
     public void ActivateGameObjectScope() {
       testGameObject = new GameObject();

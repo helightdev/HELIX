@@ -66,7 +66,6 @@ internal static class GeneratorStrings {
 
 internal static class MixinGeneratorCandidates {
   internal static readonly string[] AttributeMetadataNames = [
-    GeneratorStrings.Attributes.Mixable,
-    GeneratorStrings.Attributes.Managed
+    GeneratorStrings.Attributes.Mixable
   ];
 }

@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace DefaultNamespace {
   [Managed(typeof(ApplicationScope))]
-  public partial class ExampleServiceGui {
+  [Mixable] public partial class ExampleServiceGui {
     [Inject] public OptionsService optionsService;
     [Inject] public GuiService panel;
 
@@ -50,7 +50,7 @@ namespace DefaultNamespace {
   }
 
 
-  [Managed(typeof(ApplicationScope), phase: LoadPhase.Configuration)]
+  [Mixable, Managed(typeof(ApplicationScope), phase: LoadPhase.Configuration)]
   public partial class UserOptionsConfiguration {
 
     private static readonly CompositeDatatype<UserProfile> _profileDatatype = new(

@@ -13,8 +13,8 @@ namespace HELIX.Context {
     }
   }
 
-  [Mixable, Structure(true)]
-  public partial struct SerializerTest {
+  [Structure(true)]
+  [Mixable] public partial struct SerializerTest {
     public string name;
     public int age;
     public bool isActive;
@@ -26,10 +26,10 @@ namespace HELIX.Context {
 
 
   [Managed(typeof(ApplicationScope))]
-  public partial class MyRootDependency { }
+  [Mixable] public partial class MyRootDependency { }
 
   [Managed(typeof(ApplicationScope))]
-  public partial class ExampleSingleton {
+  [Mixable] public partial class ExampleSingleton {
     [Inject] public MyRootDependency myRootDependency;
 
     [EventHandler]
@@ -40,13 +40,13 @@ namespace HELIX.Context {
       Debug.Log($"{SerializerTest.Datatype}");
     }
   }
-  
-  
+
+
   [Managed(typeof(ApplicationScope))]
-  public partial class ExampleUser : MonoBehaviour {
+  [Mixable] public partial class ExampleUser : MonoBehaviour {
     [AutoDispose]
     public IDisposable myResource2;
-    
+
     [Inject, NonSerialized]
     public ExampleSingleton mySingleton;
 
@@ -74,7 +74,7 @@ namespace HELIX.Context {
     private void MyTickerFunc() {
       Debug.Log("This runs every 10 seconds!"); //
     }
-    
+
     [Ticker]
     private async UniTask MyTickerFunc2() {
       Debug.Log("This runs every tick but takes a second!");
@@ -94,27 +94,27 @@ namespace HELIX.Context {
   }
 
   [Managed(typeof(ApplicationScope), order: 1)]
-  public partial class StageOne {
+  [Mixable] public partial class StageOne {
     [Inject("pipeline")] public string provided;
     [Bind("pipeline")] public string GetNext => $"{provided}1;";
   }
 
 
   [Managed(typeof(ApplicationScope))]
-  public partial class StageTwo {
+  [Mixable] public partial class StageTwo {
     [Inject("pipeline", required: false)] public string provided;
     [Bind(typeof(string), "pipeline")] public string GetNext => $"{provided}2;";
   }
 
 
   [Managed(typeof(ApplicationScope))]
-  public partial class StageThree {
+  [Mixable] public partial class StageThree {
     [Inject("pipeline")] public List<string> provided;
     [Bind("pipeline")] public string GetNext => $"{string.Join(",", provided)}+3;";
   }
 
   [Managed(typeof(SceneScope))]
-  public partial class SceneService {
+  [Mixable] public partial class SceneService {
     [Hook]
     public void OnInit() {
       Debug.Log("SceneService has initialized!");

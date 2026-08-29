@@ -52,7 +52,7 @@ namespace HELIX.Context.Tests.Fixtures {
     public RuntimeManagedData managed { get; } = new();
   }
 
-  [Managed(typeof(ApplicationScope), optional: true)]
+  [Mixable, Managed(typeof(ApplicationScope), optional: true)]
   public partial class GeneratedBindTestComponent {
     [Bind] public GeneratedBindTestValue value = new();
     [Bind(required: false, proxied: true)] public GeneratedBindTestValue proxiedValue => null;
@@ -60,7 +60,7 @@ namespace HELIX.Context.Tests.Fixtures {
 
   public sealed class GeneratedBindTestValue { }
 
-  [Managed(typeof(ApplicationScope), optional: true)]
+  [Mixable, Managed(typeof(ApplicationScope), optional: true)]
   public partial class GeneratedListInjectionComponent {
     [Inject(required: true)] public IReadOnlyList<IProvider> providers;
   }
@@ -68,10 +68,10 @@ namespace HELIX.Context.Tests.Fixtures {
   [AttributeUsage(AttributeTargets.Class)]
   public sealed class AlwaysEnabledAttribute : Attribute { }
 
-  [Managed(typeof(ApplicationScope), optional: true)]
+  [Mixable, Managed(typeof(ApplicationScope), optional: true)]
   [AlwaysEnabled]
   public partial class GeneratedConditionalComponent { }
 
-  [Managed(typeof(ApplicationScope), optional: true, phase: -250)]
+  [Mixable, Managed(typeof(ApplicationScope), optional: true, phase: -250)]
   public partial class GeneratedPhasedComponent { }
 }
