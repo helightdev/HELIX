@@ -7,6 +7,7 @@ using HELIX.SourceGen.Expressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 using static HELIX.SourceGen.GeneratorAnalysis;
 using static HELIX.SourceGen.GeneratorDiagnostics.Mixins;
 using static HELIX.SourceGen.GeneratorSource;
@@ -38,23 +39,13 @@ public sealed class MixinGenerator : IIncrementalGenerator {
         },
         static (ctx, _) => GetTarget(ctx)
       ).Where(static target => target is not null);
-      var collected = targets.Combine(libraryCatalog)
-        .Select(static (item, _) => new CollectedMixinProgram(item.Left, item.Right))
-        .WithTrackingName("Mixin.Collect");
-      var primary = collected
-        .Select(static (program, _) => Generate(program.Target, program.Libraries))
-        .WithTrackingName("Mixin.PrimaryEvaluation");
-      var outputModels = primary
-        .Select(static (result, _) => result.Output)
+      var primary = targets.Combine(libraryCatalog)
+        .Select(static (item, _) => Generate(item.Left, item.Right).Output)
         .WithComparer(MixinOutputModelComparer.Instance)
-        .WithTrackingName("Mixin.UnlinkedModel");
-      var finalized = outputModels
+        .WithTrackingName("Mixin.Prelude");
+      var finalized = primary
         .Select(static (model, _) => EvaluateLate(model))
-        .WithTrackingName("Mixin.LateEvaluation");
-      context.RegisterSourceOutput(
-        primary,
-        static (spc, result) => EmitDiagnostics(spc, result)
-      );
+        .WithTrackingName("Mixin.Evaluation");
       context.RegisterSourceOutput(
         finalized,
         static (spc, model) => EmitSource(spc, model)
@@ -209,11 +200,9 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     );
   }
 
-  private static void EmitDiagnostics(SourceProductionContext context, MixinGenerationResult result) {
-    foreach (var diagnostic in result.Diagnostics) context.ReportDiagnostic(diagnostic);
-  }
-
   private static void EmitSource(SourceProductionContext context, MixinOutputModel model) {
+    foreach (var diagnostic in model.Diagnostics)
+      context.ReportDiagnostic(diagnostic.Create());
     foreach (var log in model.Logs)
       context.ReportDiagnostic(Diagnostic.Create(log.IsHint ? ExpressionHint : ExpressionLog, Location.None, log.Text));
     foreach (var error in model.Errors)
@@ -317,7 +306,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     );
     return new MixinOutputModel(
       model.Render.Wrapper.HintName, source, null, ImmutableArray<LateExpressionWork>.Empty,
-      errors.ToImmutableArray(), logs.ToImmutableArray()
+      model.Diagnostics, errors.ToImmutableArray(), logs.ToImmutableArray()
     );
   }
 
@@ -332,12 +321,13 @@ public sealed class MixinGenerator : IIncrementalGenerator {
   );
 
   private sealed class MixinGenerationContext {
-    private readonly List<Diagnostic> _diagnostics = new();
+    private readonly List<MixinDiagnostic> _diagnostics = new();
     private readonly List<LateExpressionWork> _lateExpressions = new();
     internal bool HasLateExpressions => _lateExpressions.Count != 0;
     internal IReadOnlyList<LateExpressionWork> LateExpressions => _lateExpressions;
 
-    internal void ReportDiagnostic(Diagnostic diagnostic) => _diagnostics.Add(diagnostic);
+    internal void ReportDiagnostic(Diagnostic diagnostic) =>
+      _diagnostics.Add(MixinDiagnostic.Detach(diagnostic));
 
     internal void AddLateExpression(
       string expression,
@@ -371,7 +361,7 @@ public sealed class MixinGenerator : IIncrementalGenerator {
 
   private sealed class MixinGenerationResult {
     internal MixinGenerationResult(
-      ImmutableArray<Diagnostic> diagnostics, MixinRenderModel render,
+      ImmutableArray<MixinDiagnostic> diagnostics, MixinRenderModel render,
       ImmutableArray<LateExpressionWork> lateExpressions
     ) {
       Diagnostics = diagnostics;
@@ -379,19 +369,14 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       LateExpressions = lateExpressions;
     }
 
-    internal ImmutableArray<Diagnostic> Diagnostics { get; }
+    internal ImmutableArray<MixinDiagnostic> Diagnostics { get; }
     internal MixinRenderModel Render { get; }
     internal ImmutableArray<LateExpressionWork> LateExpressions { get; }
     internal MixinOutputModel Output => new(
       Render?.Wrapper.HintName, null, Render, LateExpressions,
-      ImmutableArray<string>.Empty, ImmutableArray<MixinExpressionLog>.Empty
+      Diagnostics, ImmutableArray<string>.Empty, ImmutableArray<MixinExpressionLog>.Empty
     );
   }
-
-  private sealed record CollectedMixinProgram(
-    MixinTarget Target,
-    MixinLibraryCatalog Libraries
-  );
 
   private sealed record LateExpressionWork(
     string Expression,
@@ -427,9 +412,46 @@ public sealed class MixinGenerator : IIncrementalGenerator {
     ImmutableArray<string> Usings
   );
 
+  private sealed record MixinDiagnostic(
+    DiagnosticDescriptor Descriptor,
+    string Message,
+    string Path,
+    TextSpan SourceSpan,
+    LinePositionSpan LineSpan,
+    bool HasLocation,
+    ImmutableDictionary<string, string> Properties
+  ) {
+    internal static MixinDiagnostic Detach(Diagnostic diagnostic) {
+      var location = diagnostic.Location;
+      if (location is null || location == Location.None || !location.IsInSource)
+        return new MixinDiagnostic(
+          diagnostic.Descriptor, diagnostic.GetMessage(CultureInfo.InvariantCulture),
+          "", default, default, false, diagnostic.Properties
+        );
+      var lineSpan = location.GetLineSpan();
+      return new MixinDiagnostic(
+        diagnostic.Descriptor, diagnostic.GetMessage(CultureInfo.InvariantCulture),
+        lineSpan.Path ?? "", location.SourceSpan, lineSpan.Span, true, diagnostic.Properties
+      );
+    }
+
+    internal Diagnostic Create() {
+      var descriptor = new DiagnosticDescriptor(
+        Descriptor.Id, Descriptor.Title, "{0}", Descriptor.Category,
+        Descriptor.DefaultSeverity, Descriptor.IsEnabledByDefault,
+        Descriptor.Description, Descriptor.HelpLinkUri, Descriptor.CustomTags.ToArray()
+      );
+      var location = HasLocation
+        ? Location.Create(Path, SourceSpan, LineSpan)
+        : Location.None;
+      return Diagnostic.Create(descriptor, location, null, Properties, Message);
+    }
+  }
+
   private sealed record MixinOutputModel(
     string HintName, string Source, MixinRenderModel Render,
-    ImmutableArray<LateExpressionWork> LateExpressions, ImmutableArray<string> Errors,
+    ImmutableArray<LateExpressionWork> LateExpressions,
+    ImmutableArray<MixinDiagnostic> Diagnostics, ImmutableArray<string> Errors,
     ImmutableArray<MixinExpressionLog> Logs
   );
 
@@ -440,7 +462,24 @@ public sealed class MixinGenerator : IIncrementalGenerator {
       string.Equals(x.HintName, y.HintName, StringComparison.Ordinal) &&
       string.Equals(x.Source, y.Source, StringComparison.Ordinal) &&
       string.Equals(RenderKey(x.Render), RenderKey(y.Render), StringComparison.Ordinal) &&
+      DiagnosticKey(x.Diagnostics) == DiagnosticKey(y.Diagnostics) &&
       LateEqual(x.LateExpressions, y.LateExpressions);
+
+    private static string DiagnosticKey(ImmutableArray<MixinDiagnostic> diagnostics) => string.Join(
+      "\u001e", diagnostics.Select(diagnostic => string.Join("\u001f", new[] {
+        diagnostic.Descriptor.Id,
+        diagnostic.Descriptor.DefaultSeverity.ToString(),
+        diagnostic.Message,
+        diagnostic.Path,
+        diagnostic.SourceSpan.Start.ToString(CultureInfo.InvariantCulture),
+        diagnostic.SourceSpan.Length.ToString(CultureInfo.InvariantCulture),
+        diagnostic.LineSpan.Start.Line.ToString(CultureInfo.InvariantCulture),
+        diagnostic.LineSpan.Start.Character.ToString(CultureInfo.InvariantCulture),
+        diagnostic.LineSpan.End.Line.ToString(CultureInfo.InvariantCulture),
+        diagnostic.LineSpan.End.Character.ToString(CultureInfo.InvariantCulture),
+        string.Join("\u001d", diagnostic.Properties.OrderBy(item => item.Key).Select(item => item.Key + "=" + item.Value))
+      }))
+    );
 
     private static string RenderKey(MixinRenderModel render) {
       if (render is null) return "";
