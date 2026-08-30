@@ -41,7 +41,17 @@ internal static class MixinLibraryApi {
     var prepared = Prepare(diagnostics.Add, catalog);
     var stringPool = prepared.StringPool;
     var annotations = new Dictionary<string, CompiledMixinAnnotation>(StringComparer.Ordinal);
-    foreach (var annotation in catalog.Annotations) {
+    foreach (var group in catalog.AnnotationDefinitions.GroupBy(item => item.Name, StringComparer.Ordinal)) {
+      if (group.Count() != 1 || catalog.Derivations.Any(item => item.Name == group.Key)) {
+        diagnostics.Add(Diagnostic.Create(
+          InvalidPreparedExpression, Location.None, group.Key, "1",
+          group.Count() != 1
+            ? "annotation provider is defined more than once"
+            : "a provider cannot be both ANNOTATION and DERIVATION"
+        ));
+        continue;
+      }
+      var annotation = group.Single();
       if (!TryCompileAnnotation(annotation, prepared, false, out var member, out var error, out var line) ||
         !TryCompileAnnotation(annotation, prepared, true, out var type, out error, out line)) {
         diagnostics.Add(
@@ -54,8 +64,23 @@ internal static class MixinLibraryApi {
       }
       annotations[annotation.Name] = new CompiledMixinAnnotation(annotation, member, type);
     }
+    var derivations = new List<CompiledMixinDerivation>();
+    foreach (var group in catalog.Derivations.GroupBy(item => item.Name, StringComparer.Ordinal)) {
+      if (group.Count() != 1 || catalog.AnnotationDefinitions.Any(item => item.Name == group.Key)) {
+        diagnostics.Add(Diagnostic.Create(
+          InvalidPreparedExpression, Location.None, group.Key, "1",
+          catalog.AnnotationDefinitions.Any(item => item.Name == group.Key)
+            ? "a provider cannot be both ANNOTATION and DERIVATION"
+            : "derivation provider is defined more than once"
+        ));
+        continue;
+      }
+      var definition = group.Single();
+      if (prepared.FunctionEntries.TryGetValue(stringPool.Get(definition.Function), out var entry))
+        derivations.Add(new CompiledMixinDerivation(definition, new ProgramFunctionMixinValue(entry)));
+    }
     return new MixinCompilation(
-      catalog, stringPool, prepared, annotations, diagnostics.ToImmutableArray()
+      catalog, stringPool, prepared, annotations, derivations, diagnostics.ToImmutableArray()
     );
   }
 
@@ -111,20 +136,21 @@ internal static class MixinLibraryApi {
       ? name.Substring(0, name.Length - AdditionalFileSuffix.Length)
       : name;
     var content = file.GetText(cancellationToken)?.ToString() ?? "";
-    var parsed = ParseAdditionalFile(content);
+    var parsed = ParseAdditionalFile(content, key);
     if (parsed.Configuration.ContainsKey("PROFILE"))
       MixinProfiler.Configure(true, MixinLibraryCatalog.ProjectPathFrom(file.Path));
     return new MixinLibraryFile(
       key, file.Path, content, parsed.Success,
       parsed.Error, parsed.ErrorLine,
       parsed.Success ? MixinExpressionParser.Parse(parsed.Functions) : null,
-      parsed.Annotations, parsed.Configuration
+      parsed.Annotations, parsed.Derivations, parsed.Configuration
     );
   }
 
-  private static ParsedAdditionalFile ParseAdditionalFile(string content) {
+  private static ParsedAdditionalFile ParseAdditionalFile(string content, string libraryKey = "inline") {
     var functions = new StringBuilder();
     var annotations = new Dictionary<string, MixinAnnotationDefinition>(StringComparer.Ordinal);
+    var derivations = new List<MixinDerivationDefinition>();
     var configuration = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     var lines = (content ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
     string annotationName = null;
@@ -137,9 +163,12 @@ internal static class MixinLibraryApi {
     var functionScope = false;
     var inFunction = false;
     var annotationLine = 0;
+    var isDerivation = false;
 
     ParsedAdditionalFile Failure(string error, int line) {
-      return new ParsedAdditionalFile(false, functions.ToString(), annotations, configuration, error, line);
+      return new ParsedAdditionalFile(
+        false, functions.ToString(), annotations, derivations, configuration, error, line
+      );
     }
 
     void Append(StringBuilder target, string line) {
@@ -152,7 +181,7 @@ internal static class MixinLibraryApi {
         line, out var command, out var arguments, out _
       )) {
         if (annotationName is null) Append(functions, line);
-        else Append(inPrelude ? prelude : expression, line);
+        else Append(isDerivation ? expression : inPrelude ? prelude : expression, line);
         continue;
       }
 
@@ -163,13 +192,18 @@ internal static class MixinLibraryApi {
           configuration[arguments[0]] = ReadConfigurationValue(line);
           continue;
         }
-        if (command != "ANNOTATION") {
+        if (command is not ("ANNOTATION" or "DERIVATION")) {
           Append(functions, line);
           continue;
         }
         if (arguments.Count != 1 || string.IsNullOrWhiteSpace(arguments[0]))
-          return Failure("ANNOTATION requires a qualified type name", index + 1);
+          return Failure(command + " requires a qualified type name", index + 1);
+        if (command == "DERIVATION" && !IsQualifiedProviderName(arguments[0]))
+          return Failure("DERIVATION requires a qualified type name", index + 1);
         annotationName = arguments[0];
+        isDerivation = command == "DERIVATION";
+        if (annotations.ContainsKey(annotationName) || derivations.Any(item => item.Name == annotationName))
+          return Failure("provider '" + annotationName + "' is defined more than once", index + 1);
         annotationLine = index + 1;
         prelude.Clear();
         expression.Clear();
@@ -182,8 +216,10 @@ internal static class MixinLibraryApi {
         continue;
       }
 
-      if (command == "ANNOTATION")
-        return Failure("annotations may not be nested", index + 1);
+      if (command is "ANNOTATION" or "DERIVATION")
+        return Failure("annotation and derivation blocks may not be nested", index + 1);
+      if (isDerivation && command == "PRELUDE")
+        return Failure("DERIVATION is already a prelude expression", index + 1);
       if (command == "PRELUDE" && !inPrelude && !inFunction && !sectionScope) {
         if (sawPrelude) return Failure("PRELUDE may only be declared once", index + 1);
         inPrelude = true;
@@ -203,27 +239,27 @@ internal static class MixinLibraryApi {
         if (inFunction) return Failure("functions may not be nested", index + 1);
         inFunction = true;
         functionScope = false;
-        Append(inPrelude ? prelude : expression, line);
+        Append(isDerivation ? expression : inPrelude ? prelude : expression, line);
         continue;
       }
       if (command == "SCOPE") {
         if (inFunction) functionScope = true;
         else sectionScope = true;
-        Append(inPrelude ? prelude : expression, line);
+        Append(isDerivation ? expression : inPrelude ? prelude : expression, line);
         continue;
       }
       if (command != "END") {
-        Append(inPrelude ? prelude : expression, line);
+        Append(isDerivation ? expression : inPrelude ? prelude : expression, line);
         continue;
       }
       if (inFunction && functionScope) {
         functionScope = false;
-        Append(inPrelude ? prelude : expression, line);
+        Append(isDerivation ? expression : inPrelude ? prelude : expression, line);
         continue;
       }
       if (inFunction) {
         inFunction = false;
-        Append(inPrelude ? prelude : expression, line);
+        Append(isDerivation ? expression : inPrelude ? prelude : expression, line);
         continue;
       }
       if (sectionScope) {
@@ -236,8 +272,6 @@ internal static class MixinLibraryApi {
         continue;
       }
 
-      if (annotations.ContainsKey(annotationName))
-        return Failure("annotation '" + annotationName + "' is defined more than once", annotationLine);
       var preludeText = prelude.ToString();
       var expressionText = expression.ToString();
       foreach (var part in new[] { preludeText, expressionText }) {
@@ -245,20 +279,39 @@ internal static class MixinLibraryApi {
         if (!validation.Success)
           return Failure(validation.Error, annotationLine + validation.ErrorLine);
       }
-      annotations.Add(
-        annotationName, new MixinAnnotationDefinition(
-          annotationName, preludeText, expressionText, targets
-        )
-      );
+      if (isDerivation) {
+        var function = "__derive::" + libraryKey + "::" + annotationName;
+        functions.Append("@FUNC<").Append(function).AppendLine(">");
+        functions.Append(expressionText);
+        functions.AppendLine("@END");
+        derivations.Add(new MixinDerivationDefinition(
+          annotationName, function, libraryKey, annotationLine
+        ));
+      } else {
+        annotations.Add(
+          annotationName, new MixinAnnotationDefinition(
+            annotationName, preludeText, expressionText, targets
+          )
+        );
+      }
       annotationName = null;
+      isDerivation = false;
     }
     if (annotationName is not null)
-      return Failure("unterminated annotation '" + annotationName + "'", annotationLine);
+      return Failure(
+        "unterminated " + (isDerivation ? "derivation" : "annotation") + " '" + annotationName + "'",
+        annotationLine
+      );
     var functionText = functions.ToString();
     var functionValidation = MixinExpressionCompiler.ValidateFunctionLibrary(functionText);
     return functionValidation.Success
-      ? new ParsedAdditionalFile(true, functionText, annotations, configuration, null, 0)
+      ? new ParsedAdditionalFile(true, functionText, annotations, derivations, configuration, null, 0)
       : Failure(functionValidation.Error, functionValidation.ErrorLine);
+  }
+
+  private static bool IsQualifiedProviderName(string name) {
+    var normalized = (name ?? "").Replace("global::", "").Trim();
+    return normalized.IndexOf('.') > 0 || normalized.IndexOf('+') > 0;
   }
 
   private static string ReadConfigurationValue(string line) {
@@ -381,7 +434,12 @@ internal sealed record MixinLibraryFile(
   int ErrorLine,
   MixinProgramSyntax Program,
   IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations,
+  IReadOnlyList<MixinDerivationDefinition> Derivations,
   IReadOnlyDictionary<string, string> Configuration
+);
+
+internal sealed record MixinDerivationDefinition(
+  string Name, string Function, string Source, int SourceLine
 );
 
 internal sealed record MixinAnnotationDefinition(
@@ -395,6 +453,7 @@ internal sealed record ParsedAdditionalFile(
   bool Success,
   string Functions,
   IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations,
+  IReadOnlyList<MixinDerivationDefinition> Derivations,
   IReadOnlyDictionary<string, string> Configuration,
   string Error,
   int ErrorLine
@@ -403,11 +462,12 @@ internal sealed record ParsedAdditionalFile(
 internal sealed class MixinLibraryCatalog {
   private readonly Dictionary<string, MixinAnnotationDefinition> _annotations;
   private readonly Dictionary<string, MixinLibraryFile> _files;
+  private readonly IReadOnlyList<MixinLibraryFile> _orderedFiles;
 
   internal MixinLibraryCatalog(IEnumerable<MixinLibraryFile> files) {
     using var profile = MixinProfiler.Measure("model.library_catalog.create");
-    _files = (files ?? [])
-      .Where(item => item is not null)
+    _orderedFiles = [.. (files ?? []).Where(item => item is not null)];
+    _files = _orderedFiles
       .GroupBy(item => item.Key, StringComparer.Ordinal)
       .ToDictionary(item => item.Key, item => item.Last(), StringComparer.Ordinal);
     _annotations = _files.Values
@@ -416,13 +476,18 @@ internal sealed class MixinLibraryCatalog {
       .GroupBy(annotation => annotation.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
     Key = string.Join(
-      "\u001e", _files.OrderBy(item => item.Key, StringComparer.Ordinal)
-        .Select(item => item.Key + "\u001f" + item.Value.Content)
+      "\u001e", _orderedFiles.Select(item =>
+        item.Key + "\u001f" + item.Path + "\u001f" + item.Content
+      )
     );
   }
 
-  internal IEnumerable<MixinLibraryFile> Files => _files.Values;
+  internal IEnumerable<MixinLibraryFile> Files => _orderedFiles;
   internal IEnumerable<MixinAnnotationDefinition> Annotations => _annotations.Values;
+  internal IEnumerable<MixinAnnotationDefinition> AnnotationDefinitions =>
+    _orderedFiles.Where(file => file.Success).SelectMany(file => file.Annotations.Values);
+  internal IEnumerable<MixinDerivationDefinition> Derivations =>
+    _orderedFiles.Where(file => file.Success).SelectMany(file => file.Derivations ?? []);
 
   internal string ProjectPath {
     get {
@@ -480,11 +545,16 @@ internal sealed record CompiledMixinAnnotation(
   CompiledMixinProgram TypeProgram
 );
 
+internal sealed record CompiledMixinDerivation(
+  MixinDerivationDefinition Definition, ProgramFunctionMixinValue Function
+);
+
 internal sealed record MixinCompilation(
   MixinLibraryCatalog Catalog,
   MixinStringPool StringPool,
   MixinExpressionPreparedState PreparedState,
   IReadOnlyDictionary<string, CompiledMixinAnnotation> Annotations,
+  IReadOnlyList<CompiledMixinDerivation> Derivations,
   ImmutableArray<Diagnostic> Diagnostics
 ) {
   internal bool TryGetAnnotation(string name, out CompiledMixinAnnotation annotation) {

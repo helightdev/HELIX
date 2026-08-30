@@ -53,6 +53,8 @@ public static class MixinExpressionVirtualMachine {
     var setupProfile = MixinProfiler.Measure("vm.execute.setup");
     context.Strings = program.StringPool;
     var previousInvoker = context.ProgramInvoker;
+    var previousOutputSink = context.OutputSink;
+    var previousLogSink = context.LogSink;
     context.ProgramInvoker = (function, parameter) =>
       RunProgramFunction(program, context, function.Entry, parameter);
     context.Locals.Clear();
@@ -78,6 +80,8 @@ public static class MixinExpressionVirtualMachine {
     }
     var outputs = new List<MixinExpressionOutput>();
     var logs = new List<MixinExpressionLog>();
+    context.OutputSink = outputs.Add;
+    context.LogSink = logs.Add;
     var calls = new Stack<(int Return, MixinString Local, IMixinValue Parameter)>();
     var pc = 0;
     var operations = 0;
@@ -162,12 +166,15 @@ public static class MixinExpressionVirtualMachine {
             break;
           case MixinOpcode.StoreLocal:
           case MixinOpcode.StoreVariable:
+          case MixinOpcode.StoreTargetVariable:
           case MixinOpcode.Carry:
             if (!Evaluate(instruction, out var stored)) return Error(stored, instruction);
             if (instruction.Opcode == MixinOpcode.Carry)
               context.Carries.Store(context, instruction.Name, stored);
             else if (instruction.Opcode == MixinOpcode.StoreLocal)
               context.Locals.StoreIsolated(instruction.Name, stored);
+            else if (instruction.Opcode == MixinOpcode.StoreTargetVariable)
+              context.StoreTargetVariable(instruction.Name, stored);
             else context.Variables.Store(context, instruction.Name, stored);
             break;
           case MixinOpcode.Call:
@@ -254,6 +261,8 @@ public static class MixinExpressionVirtualMachine {
       }
     } finally {
       context.ProgramInvoker = previousInvoker;
+      context.OutputSink = previousOutputSink;
+      context.LogSink = previousLogSink;
     }
   }
 
@@ -264,11 +273,12 @@ public static class MixinExpressionVirtualMachine {
     return context.Evaluate(source);
   }
 
-  private static IMixinValue RunProgramFunction(
+  private static ProgramFunctionResult RunProgramFunction(
     MixinExpressionExecutionProgram program,
     ExecutionContext context, int entry, IMixinValue parameter
   ) {
-    if (entry < 0 || entry >= program.Instructions.Count) return context.Error("invalid function entry");
+    if (entry < 0 || entry >= program.Instructions.Count)
+      return new ProgramFunctionResult(false, context.Error("invalid function entry"));
     var previousParameter = context.Parameter;
     context.Parameter = parameter;
     try {
@@ -289,32 +299,84 @@ public static class MixinExpressionVirtualMachine {
           case MixinOpcode.Function:
             pc = instruction.Destination;
             continue;
-          case MixinOpcode.End when instruction.SecondaryDestination != 0: return NullMixinValue.Instance;
+          case MixinOpcode.End when instruction.SecondaryDestination != 0:
+            return new ProgramFunctionResult(false, NullMixinValue.Instance);
           case MixinOpcode.End: continue;
           case MixinOpcode.Match: {
             var condition = Value();
-            if (condition is ErrorMixinValue) return condition;
+            if (condition is ErrorMixinValue) return new ProgramFunctionResult(false, condition);
             if (!condition.IsTruthy(context)) {
               var destination = instruction.Destination >= 0
                 ? instruction.Destination
                 : instruction.SecondaryDestination;
-              if (destination < 0) return context.Error("MATCH has no following scope");
+              if (destination < 0)
+                return new ProgramFunctionResult(false, context.Error("MATCH has no following scope"));
               pc = destination;
             }
             continue;
           }
           case MixinOpcode.Assert: {
             var condition = Value();
-            if (condition is ErrorMixinValue) return condition;
-            if (!condition.IsTruthy(context)) return context.Error(instruction.Message.Resolve(context.Strings));
+            if (condition is ErrorMixinValue) return new ProgramFunctionResult(false, condition);
+            if (!condition.IsTruthy(context))
+              return new ProgramFunctionResult(false, context.Error(instruction.Message.Resolve(context.Strings)));
             continue;
           }
-          case MixinOpcode.StoreLocal:
-            context.Locals.StoreIsolated(instruction.Name, Value());
+          case MixinOpcode.Emit:
+          case MixinOpcode.Using: {
+            var emitted = Value();
+            if (emitted is ErrorMixinValue) return new ProgramFunctionResult(false, emitted);
+            context.OutputSink?.Invoke(new MixinExpressionOutput(
+              instruction.OutputTarget == default && instruction.Opcode == MixinOpcode.Using
+                ? MixinExpressionOutputTarget.Using
+                : instruction.OutputTarget,
+              [emitted.Render(context)], context.Strings, instruction.Name
+            ));
             continue;
-          case MixinOpcode.StoreVariable:
-            context.Variables.Store(context, instruction.Name, Value());
+          }
+          case MixinOpcode.Mixin: {
+            var code = Value();
+            if (code is ErrorMixinValue) return new ProgramFunctionResult(false, code);
+            var target = context.Evaluate(instruction.Arguments[0]);
+            var priorityValue = context.Evaluate(instruction.Arguments[1]);
+            if (target is ErrorMixinValue) return new ProgramFunctionResult(false, target);
+            if (priorityValue is ErrorMixinValue) return new ProgramFunctionResult(false, priorityValue);
+            int.TryParse(
+              priorityValue.Render(context).Resolve(context.Strings), NumberStyles.Integer,
+              CultureInfo.InvariantCulture, out var priority
+            );
+            context.OutputSink?.Invoke(new MixinExpressionOutput(
+              MixinExpressionOutputTarget.Mixin, [code.Render(context)], context.Strings,
+              target.Render(context), priority
+            ));
             continue;
+          }
+          case MixinOpcode.Log: {
+            var logged = Value();
+            if (logged is ErrorMixinValue) return new ProgramFunctionResult(false, logged);
+            context.LogSink?.Invoke(new MixinExpressionLog(
+              logged.Render(context).Resolve(context.Strings), instruction.Location.Line
+            ));
+            continue;
+          }
+          case MixinOpcode.StoreLocal: {
+            var stored = Value();
+            if (stored is ErrorMixinValue) return new ProgramFunctionResult(false, stored);
+            context.Locals.StoreIsolated(instruction.Name, stored);
+            continue;
+          }
+          case MixinOpcode.StoreVariable: {
+            var stored = Value();
+            if (stored is ErrorMixinValue) return new ProgramFunctionResult(false, stored);
+            context.Variables.Store(context, instruction.Name, stored);
+            continue;
+          }
+          case MixinOpcode.StoreTargetVariable: {
+            var stored = Value();
+            if (stored is ErrorMixinValue) return new ProgramFunctionResult(false, stored);
+            context.StoreTargetVariable(instruction.Name, stored);
+            continue;
+          }
           case MixinOpcode.Carry: {
             var carried = Value();
             context.Carries.Store(context, instruction.Name, carried);
@@ -322,27 +384,49 @@ public static class MixinExpressionVirtualMachine {
           }
           case MixinOpcode.Call: {
             var argument = Value();
-            if (argument is ErrorMixinValue) return argument;
+            if (argument is ErrorMixinValue) return new ProgramFunctionResult(false, argument);
             var result = RunProgramFunction(program, context, instruction.Destination, argument);
-            if (result is ErrorMixinValue) return result;
+            if (result.Value is ErrorMixinValue) return result;
             if (instruction.Name.IsInterned || !string.IsNullOrEmpty(instruction.Name.DynamicValue))
-              context.Locals.StoreIsolated(instruction.Name, result);
+              context.Locals.StoreIsolated(instruction.Name, result.Value);
             continue;
           }
-          case MixinOpcode.Return: return Value();
+          case MixinOpcode.Return:
+            return new ProgramFunctionResult(instruction.SecondaryDestination != 0, Value());
           case MixinOpcode.Goto:
-            if (instruction.Destination < 0) return context.Error("unknown scope label");
+            if (instruction.Destination < 0)
+              return new ProgramFunctionResult(false, context.Error("unknown scope label"));
             pc = instruction.Destination;
             continue;
           case MixinOpcode.Skip:
-            if (instruction.Destination < 0) return context.Error("SKIP has no following scope");
+            if (instruction.Destination < 0)
+              return new ProgramFunctionResult(false, context.Error("SKIP has no following scope"));
             pc = instruction.Destination;
             continue;
-          case MixinOpcode.Fail: return context.Error(Value().Render(context).Resolve(context.Strings));
-          default: return context.Error("function callback contains unsupported opcode");
+          case MixinOpcode.Fail:
+            return new ProgramFunctionResult(
+              false, context.Error(Value().Render(context).Resolve(context.Strings))
+            );
+          case MixinOpcode.Directive: {
+            if (instruction.Directive is not DirectiveFunctionDefinition directive)
+              return new ProgramFunctionResult(false, context.Error("directive has no resolved runtime function"));
+            var result = directive.Invoke(
+              context, instruction.Arguments ?? [], instruction.Operand ?? NullMixinValue.Instance
+            );
+            if (result is ErrorMixinValue) return new ProgramFunctionResult(false, result);
+            if (result is DirectiveEffectMixinValue effect &&
+              !string.IsNullOrEmpty(effect.ClassCode.Resolve(context.Strings))) {
+              context.OutputSink?.Invoke(new MixinExpressionOutput(
+                MixinExpressionOutputTarget.Class, [effect.ClassCode], context.Strings
+              ));
+            }
+            continue;
+          }
+          default:
+            return new ProgramFunctionResult(false, context.Error("function callback contains unsupported opcode"));
         }
       }
-      return context.Error("function callback exceeded execution limit");
+      return new ProgramFunctionResult(false, context.Error("function callback exceeded execution limit"));
     } finally { context.Parameter = previousParameter; }
   }
 

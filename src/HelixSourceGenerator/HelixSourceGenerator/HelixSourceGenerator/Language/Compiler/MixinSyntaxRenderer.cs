@@ -13,6 +13,7 @@ public static class MixinSyntaxRenderer {
   internal static string DescribeFailedCondition(MixinExpressionReference reference) {
     var subject = reference.Root switch {
       MixinExpressionRoot.Variable => "Variable " + (reference.Member ?? "<unnamed>"),
+      MixinExpressionRoot.TargetVariable => "Target variable " + (reference.Member ?? "<unnamed>"),
       MixinExpressionRoot.Local => "Local variable " + (reference.Member ?? "<unnamed>"),
       MixinExpressionRoot.Argument => "Argument " + (reference.Member ?? "<unspecified>"),
       MixinExpressionRoot.This => "Current type" + MemberSuffix(reference.Member),
@@ -134,7 +135,8 @@ public static class MixinSyntaxRenderer {
     return root switch {
       MixinExpressionRoot.Target => "target", MixinExpressionRoot.This => "this",
       MixinExpressionRoot.Attribute => "attr", MixinExpressionRoot.Argument => "arg",
-      MixinExpressionRoot.Variable => "var", MixinExpressionRoot.Local => "local",
+      MixinExpressionRoot.Variable => "var", MixinExpressionRoot.TargetVariable => "tar",
+      MixinExpressionRoot.Local => "local",
       MixinExpressionRoot.True => "true", MixinExpressionRoot.False => "false",
       MixinExpressionRoot.Null => "null", MixinExpressionRoot.Table => "table",
       MixinExpressionRoot.Parameter => "param", MixinExpressionRoot.Carry => "carry", _ => "null"

@@ -41,16 +41,24 @@
 
   @SCOPE
     @MATCH @this#Props:?exists
-    @AUGMENT_STRUCT<PropsModel> @this#Props
-    @MATCH @local#PropsModel:!?structNoArgs
+    @CALL<PropsModel><DeriveFields> @this#Props
+    @MATCH @local#PropsModel:size:!?eq<0>
+    @LOCAL<PropsParameters> @local#PropsModel:mapValues<SelectParameter>:joinValues<, >
+    @LOCAL<PropsArguments> @local#PropsModel:mapValues<SelectArgument>:joinValues<, >
+    @LOCAL<PropsAssignments> @local#PropsModel:mapValues<SelectAssignment>:joinValues< >
+    @CODE<CLASS> public partial struct Props {
+      @\  public Props(@local#PropsParameters) {
+      @\    @local#PropsAssignments
+      @\  }
+      @\}
     @CODE<IMPLEMENTS> IProps<@this:type.Props>
     @CODE<CLASS> private Props _props;
       @\public ref Props props => ref _props;
       @\public void ReceiveProps(in Props props) => _props = props;
     @MIXIN<$Reset><1> _props = default;
-    @LOCAL<ComposeArgs> @local#ComposeArgs, @local#PropsModel:structParams
+    @LOCAL<ComposeArgs> @local#ComposeArgs, @local#PropsParameters
     @LOCAL<ComposeCalls> @local#ComposeCalls
-      @\var props = new @(this:type).Props(@local#PropsModel:structArgs);
+      @\var props = new @(this:type).Props(@local#PropsArguments);
       @\instance.ReceiveProps(in props);
     @GOTO<GenerateCompose>
   @END
@@ -97,7 +105,9 @@
     @USING HELIX.Compose;
 
     @LOCAL<StructName> @(target:name)Props
-    @PROP_STRUCT<(@local#StructName)><StructHandle><noGenerate> @target
+    @CALL<StructHandle><DeriveParameters> @target
+    @LOCAL<StructArgs> @local#StructHandle:mapValues<SelectArgument>:joinValues<, >
+    @LOCAL<StructParams> @local#StructHandle:mapValues<SelectParameter>:joinValues<, >
 
     @LOCAL<RequireMethod> RequireComposable
     @LOCAL<ReturnStatement> return ref cx.AUTHORING.YieldElement(ref cx, instance);
@@ -127,21 +137,21 @@
     @LOCAL<Body> if (!cx.AUTHORING.@(local#RequireMethod)<@this:name>(@(var#CompanionName).typeId, out var instance, out var retained)) {
       @\    instance = new @this:name();
       @\  }
-      @\  instance.@target:name(@local#StructHandle:structArgs);
+      @\  instance.@target:name(@local#StructArgs);
       @\  @local#ReturnStatement
 
     @SCOPE
       @MATCH @attr#extension:?eq<true>
       @CALL<DeclareCompanion>
         @\  public static @local#ReturnType @(local#Name)(
-        @\    @local#StructHandle:structParams<ref this Composition cx>
+        @\    ref this Composition cx@local#StructParams:switch<, @local#StructParams><>
         @\  ) {
         @\    @local#Body
         @\  }
       @RETURN
     @SCOPE
       @CODE<CLASS> public static @local#ReturnType Compose(
-        @\ @local#StructHandle:structParams<ref Composition cx>
+        @\ ref Composition cx@local#StructParams:switch<, @local#StructParams><>
         @\) {
         @\  @local#Body
         @\}

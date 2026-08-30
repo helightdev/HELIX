@@ -12,6 +12,7 @@ public enum MixinExpressionRoot {
   Attribute,
   Argument,
   Variable,
+  TargetVariable,
   Local,
   True,
   False,
@@ -118,9 +119,12 @@ public abstract class ExecutionContext {
   public MixinStringPool Strings { get; internal set; }
   internal MixinValueDictionary Locals { get; } = new();
   internal MixinValueDictionary Variables { get; } = new();
+  internal MixinValueDictionary TargetVariables { get; } = new();
   internal MixinValueDictionary Carries { get; } = new();
   internal IMixinValue Parameter { get; set; } = NullMixinValue.Instance;
-  internal Func<ProgramFunctionMixinValue, IMixinValue, IMixinValue> ProgramInvoker { get; set; }
+  internal Func<ProgramFunctionMixinValue, IMixinValue, ProgramFunctionResult> ProgramInvoker { get; set; }
+  internal Action<MixinExpressionOutput> OutputSink { get; set; }
+  internal Action<MixinExpressionLog> LogSink { get; set; }
 
   public IMixinValue Resolve(MixinExpressionRoot root, MixinString member) {
     switch (root) {
@@ -135,6 +139,12 @@ public abstract class ExecutionContext {
         return Variables.TryGetValue(member, out var variable)
           ? variable
           : NullMixinValue.Instance;
+      case MixinExpressionRoot.TargetVariable:
+        var targetName = member.Resolve(Strings);
+        foreach (var item in TargetVariables)
+          if (string.Equals(item.Key.Resolve(Strings), targetName, StringComparison.Ordinal))
+            return item.Value;
+        return NullMixinValue.Instance;
       case MixinExpressionRoot.Parameter:
         return string.IsNullOrEmpty(member.Resolve(Strings))
           ? Parameter
@@ -194,7 +204,8 @@ public abstract class ExecutionContext {
             new KeyValuePair<MixinString, IMixinValue>(ResolveString("v"), item.Value)
           ]
         );
-      var result = ProgramInvoker(transform.Function, parameter);
+      var invocation = ProgramInvoker(transform.Function, parameter);
+      var result = invocation.Value;
       if (result is ErrorMixinValue) return result;
       if (transform.Kind == TableTransformKind.Filter) {
         if (result.IsTruthy(this)) entries.Add(item);
@@ -241,12 +252,8 @@ public abstract class ExecutionContext {
     return Error("mixin resolution is not supported by this execution context");
   }
 
-  public virtual IMixinValue CreatePropStruct(IReadOnlyList<IMixinValue> arguments, IMixinValue operand) {
-    return Error("prop structs are not supported by this execution context");
-  }
-
-  public virtual IMixinValue AugmentPropStruct(MixinString local, IMixinValue operand) {
-    return Error("struct augmentation is not supported by this execution context");
+  public virtual IMixinValue Derive(IMixinValue value) {
+    return Error(":derive is not available in this context");
   }
 
   public virtual bool HasTrait(IMixinValue value, MixinString trait) {
@@ -260,16 +267,32 @@ public abstract class ExecutionContext {
   internal virtual IMixinValue DetachValue(IMixinValue value) {
     value = Evaluate(value);
     return value switch {
+      LiteralMixinValue literal => new LiteralMixinValue(
+        MixinString.Dynamic(literal.Value.Resolve(Strings))
+      ),
       MixinTableValue table => new MixinTableValue(
         [
           .. table.Entries.Select(item =>
-            new KeyValuePair<MixinString, IMixinValue>(item.Key, DetachValue(item.Value))
+            new KeyValuePair<MixinString, IMixinValue>(
+              MixinString.Dynamic(item.Key.Resolve(Strings)), DetachValue(item.Value)
+            )
           )
         ]
       ),
       DirectiveEffectMixinValue effect => effect with { Value = DetachValue(effect.Value) },
       _ => value
     };
+  }
+
+  internal void StoreTargetVariable(MixinString key, IMixinValue value) {
+    var name = key.Resolve(Strings);
+    var existing = TargetVariables.Keys.FirstOrDefault(item =>
+      string.Equals(item.Resolve(Strings), name, StringComparison.Ordinal)
+    );
+    value = Evaluate(value);
+    if (existing.IsInterned || existing.DynamicValue is not null)
+      TargetVariables.StoreIsolated(existing, value);
+    else TargetVariables.StoreIsolated(ResolveString(name), value);
   }
 
   public MixinString ResolveString(string value) {
@@ -443,7 +466,10 @@ public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMi
   }
 
   public IMixinValue Select(ExecutionContext context, MixinString member) {
-    return Entries.FirstOrDefault(item => item.Key == member).Value ?? NullMixinValue.Instance;
+    var name = member.Resolve(context.Strings);
+    return Entries.FirstOrDefault(item => string.Equals(
+      item.Key.Resolve(context.Strings), name, StringComparison.Ordinal
+    )).Value ?? NullMixinValue.Instance;
   }
 
   public object Unlink(ExecutionContext context) {
@@ -456,18 +482,27 @@ public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMi
     return other is MixinTableValue table && Entries.SequenceEqual(table.Entries);
   }
 
-  public MixinTableValue Put(MixinString key, IMixinValue value) {
+  public MixinTableValue Put(ExecutionContext context, MixinString key, IMixinValue value) {
+    var name = key.Resolve(context.Strings);
     return new MixinTableValue(
-      [.. Entries.Where(item => item.Key != key), new KeyValuePair<MixinString, IMixinValue>(key, value)]
+      [
+        .. Entries.Where(item => !string.Equals(
+          item.Key.Resolve(context.Strings), name, StringComparison.Ordinal
+        )),
+        new KeyValuePair<MixinString, IMixinValue>(key, value)
+      ]
     );
   }
 
-  public MixinTableValue Remove(MixinString key) {
-    return new MixinTableValue([.. Entries.Where(item => item.Key != key)]);
+  public MixinTableValue Remove(ExecutionContext context, MixinString key) {
+    var name = key.Resolve(context.Strings);
+    return new MixinTableValue([.. Entries.Where(item => !string.Equals(
+      item.Key.Resolve(context.Strings), name, StringComparison.Ordinal
+    ))]);
   }
 
   public MixinTableValue Push(ExecutionContext context, IMixinValue value) {
-    return Put(context.ResolveString(Count.ToString()), value);
+    return Put(context, context.ResolveString(Count.ToString()), value);
   }
 
   public MixinTableValue Pop() {
@@ -501,20 +536,22 @@ internal static class FunctionLibrary {
     using var profile = Shared.MixinProfiler.Measure("static.function_library");
     return new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal) {
       ["name"] = new NameFunction(), ["type"] = new TypeFunction(), ["fullName"] = new FullNameFunction(),
+      ["members"] = new MembersFunction(), ["parameters"] = new ParametersFunction(),
+      ["nullableType"] = new NullableTypeFunction(), ["csharpLiteral"] = new CSharpLiteralFunction(),
       ["makeGeneric"] = new MakeGenericFunction(), ["visibility"] = new VisibilityFunction(),
       ["path"] = new PathFunction(), ["unwrap"] = new UnwrapFunction(), ["switch"] = new SwitchFunction(),
       ["size"] = new SizeFunction(), ["replace"] = new ReplaceFunction(), ["replaceFirst"] = new ReplaceFirstFunction(),
+      ["format"] = new FormatFunction(),
+      ["identifier"] = new IdentifierFunction(),
       ["floatTime"] = new FloatTimeFunction(), ["table"] = new AsTableFunction(), ["put"] = new PutFunction(),
       ["remove"] = new RemoveFunction(), ["push"] = new PushFunction(), ["pop"] = new PopFunction(),
       ["joinKeys"] = new JoinKeysFunction(), ["joinValues"] = new JoinValuesFunction(),
       ["join"] = new JoinEntriesFunction(), ["mapValues"] = new MapValuesFunction(), ["map"] = new MapFunction(),
-      ["filter"] = new FilterFunction(), ["attributes"] = new AttributesFunction(),
+      ["filter"] = new FilterFunction(), ["reduce"] = new ReduceFunction(), ["attributes"] = new AttributesFunction(),
+      ["derive"] = new DeriveFunction(),
       ["attributesOf"] = new AttributesOfFunction(), ["attributesOfExact"] = new AttributesOfExactFunction(),
       ["attributeOf"] = new AttributeOfFunction(), ["wire"] = new WireFunction(),
-      ["structParams"] = new StructParamsFunction(), ["structArgs"] = new StructArgsFunction(),
-      ["propStructCall"] = new PropStructCallFunction(), ["signature"] = new SignaturePredicate(),
-      ["wireable"] = new WireablePredicate(), ["structHasEquality"] = new StructHasEqualityPredicate(),
-      ["structNoArgs"] = new StructNoArgsPredicate(), ["structAugment"] = new StructAugmentPredicate(),
+      ["signature"] = new SignaturePredicate(), ["wireable"] = new WireablePredicate(),
       ["exists"] = new ExistsPredicate(), ["and"] = new AndPredicate(), ["or"] = new OrPredicate(),
       ["is"] = new IsPredicate(), ["has"] = new HasPredicate(), ["eq"] = new EqualPredicate(),
       ["matches"] = new MatchesPredicate(), ["isSelf"] = new TraitPredicate("isSelf"),
@@ -524,7 +561,21 @@ internal static class FunctionLibrary {
       ["public"] = new TraitPredicate("public"), ["exposed"] = new TraitPredicate("exposed"),
       ["top"] = new TraitPredicate("top"), ["concrete"] = new TraitPredicate("concrete"),
       ["partial"] = new TraitPredicate("partial"), ["generic"] = new TraitPredicate("generic"),
-      ["struct"] = new TraitPredicate("struct"), ["class"] = new TraitPredicate("class")
+      ["genericMethod"] = new TraitPredicate("genericMethod"),
+      ["struct"] = new TraitPredicate("struct"), ["class"] = new TraitPredicate("class"),
+      ["field"] = new TraitPredicate("field"), ["property"] = new TraitPredicate("property"),
+      ["method"] = new TraitPredicate("method"), ["event"] = new TraitPredicate("event"),
+      ["parameter"] = new TraitPredicate("parameter"), ["typeSymbol"] = new TraitPredicate("typeSymbol"),
+      ["referenceType"] = new TraitPredicate("referenceType"), ["valueType"] = new TraitPredicate("valueType"),
+      ["nullable"] = new TraitPredicate("nullable"), ["pointer"] = new TraitPredicate("pointer"),
+      ["containsPointer"] = new TraitPredicate("containsPointer"),
+      ["enum"] = new TraitPredicate("enum"), ["primitive"] = new TraitPredicate("primitive"),
+      ["parameterDefault"] = new TraitPredicate("parameterDefault"),
+      ["nonEmptyStringConstant"] = new TraitPredicate("nonEmptyStringConstant"),
+      ["equatableSelf"] = new TraitPredicate("equatableSelf"),
+      ["typedEqualsSelf"] = new TraitPredicate("typedEqualsSelf"),
+      ["ordinaryTypedEqualsSelf"] = new TraitPredicate("ordinaryTypedEqualsSelf"),
+      ["objectEquals"] = new TraitPredicate("objectEquals"), ["hashCode"] = new TraitPredicate("hashCode")
     };
   }
 

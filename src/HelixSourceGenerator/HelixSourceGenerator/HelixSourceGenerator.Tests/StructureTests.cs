@@ -59,13 +59,11 @@ public sealed class StructureTests {
     Assert.Contains("global::HELIX.Datatypes.Enum<global::Feature.Mode>(),", result.Generated);
     Assert.Contains("Custom.Text,", result.Generated);
     Assert.Contains("datatype => ConfigureDatatype(datatype)", result.Generated);
-    Assert.Contains("datatype.Configured = true;", result.Generated);
-    Assert.Contains("datatype.ConfiguredProperties.Add(\"count\");", result.Generated);
     Assert.Contains("value.count = propertyValue", result.Generated);
     Assert.Contains("value.label = propertyValue", result.Generated);
-    Assert.Contains("required: true,\n            defaultValue: null", result.Generated);
-    Assert.Contains("required: false,\n            defaultValue: 18", result.Generated);
-    Assert.Contains("required: false,\n            defaultValue: null", result.Generated);
+    Assert.Contains("required: true, defaultValue: null", result.Generated);
+    Assert.Contains("required: false, defaultValue: 18", result.Generated);
+    Assert.Contains("required: false, defaultValue: null", result.Generated);
   }
 
   [Fact]
@@ -118,6 +116,48 @@ public sealed class StructureTests {
     Assert.DoesNotContain(" Settings(", result.Generated);
   }
 
+  [Fact]
+  public void StructureDerivationPreservesCustomEqualityAndHashFormats() {
+    var result = Run(
+      Runtime +
+      """
+      [HELIX.Mixable, HELIX.Structure]
+      public partial struct Settings : System.IEquatable<Settings> {
+        [HELIX.Prop(null,
+          EqualitySyntax = "global::System.String.Equals({0}, {1})",
+          HashCodeSyntax = "{0}.Length")]
+        public string text;
+      }
+      """
+    );
+
+    Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Contains("global::System.String.Equals(this.text, other.text)", result.Generated);
+    Assert.Contains("hashCode.Add(this.text.Length)", result.Generated);
+  }
+
+  [Fact]
+  public void StructureDerivationDoesNotDuplicateExistingEqualityMembers() {
+    var result = Run(
+      Runtime +
+      """
+      [HELIX.Mixable, HELIX.Structure]
+      public partial struct Settings : System.IEquatable<Settings> {
+        public int value;
+        public bool Equals(Settings other) => value == other.value;
+        public override bool Equals(object obj) => obj is Settings other && Equals(other);
+        public override int GetHashCode() => value;
+      }
+      """
+    );
+
+    Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.DoesNotContain("bool Equals", result.Generated);
+    Assert.DoesNotContain("GetHashCode", result.Generated);
+  }
+
   private void DatatypeMixinsImportPreparedFunctionLibraryFromMixinAttribute() {
     var result = Run(
       Runtime +
@@ -141,6 +181,10 @@ public sealed class StructureTests {
     Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     Assert.Contains("datatype.Configured = true;", result.Generated);
+    Assert.Contains(
+      "),\n      new global::HELIX.StructurePropertyDatatype<", result.Generated,
+      StringComparison.Ordinal
+    );
   }
 
   private static TestResult Run(string source) {
@@ -154,9 +198,10 @@ public sealed class StructureTests {
       compilation,
       additionalTexts: new AdditionalText[] {
         new TestAdditionalText(
-          "/tests/Core.HelixSourceGenerator.additionalfile",
-          "@ANNOTATION<HELIX.StructureAttribute>\n" +
-          "@PRELUDE\n@AUGMENT_STRUCT<PropsModel> @this\n@END\n@END"
+          "/tests/Core.HelixSourceGenerator.additionalfile", File.ReadAllText(Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../../../../../HELIX/Assets/Mixins/Core.HelixSourceGenerator.additionalfile"
+          )))
         )
       }
     );
@@ -182,10 +227,23 @@ public sealed class StructureTests {
                                    public sealed class StructureAttribute : Attribute {
                                      public StructureAttribute(bool datatype = false) { }
                                    }
+                                   public enum PropInit { Literal, Constant, Deferred, None }
                                    [AttributeUsage(AttributeTargets.Field)]
                                    public sealed class PropAttribute : Attribute {
-                                     public PropAttribute(object value) { }
+                                     public object defaultValue;
+                                     public PropInit defaultInit;
+                                     public PropAttribute(object defaultValue, PropInit defaultInit = PropInit.Literal) {
+                                       this.defaultValue = defaultValue;
+                                       this.defaultInit = defaultInit;
+                                     }
+                                     public PropAttribute() { defaultInit = PropInit.None; }
+                                     public bool Equatable { get; set; } = true;
+                                     public string EqualitySyntax { get; set; } = "{0} == {1}";
+                                     public string HashCodeSyntax { get; set; } = "{0}";
                                      public string Datatype { get; set; }
+                                   }
+                                   public sealed class PropertyDatatypeAttribute : Attribute {
+                                     public PropertyDatatypeAttribute(string datatype) { }
                                    }
                                    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface, AllowMultiple = true)]
                                    public sealed class MixinExpressionAttribute : Attribute {

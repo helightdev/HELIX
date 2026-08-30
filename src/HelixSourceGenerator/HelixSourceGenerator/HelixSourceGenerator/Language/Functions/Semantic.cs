@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HelixSourceGenerator.Language.Compiler;
+using HelixSourceGenerator.Shared;
 using Microsoft.CodeAnalysis;
 
 namespace HelixSourceGenerator.Language.Functions;
@@ -122,5 +123,71 @@ internal sealed class AttributesOfExactFunction() : AttributeFunction("attribute
 internal sealed class AttributeOfFunction() : AttributeFunction("attributeOf", 1) {
   protected override IMixinValue Select(ExecutionContext context, IMixinValue value, MixinString type) {
     return context.Attributes(value, type, false, true);
+  }
+}
+
+internal sealed class MembersFunction() : EvaluatedFunctionDefinition("members", 0, 0) {
+  protected override IMixinValue Apply(
+    ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
+  ) {
+    if (value is not RoslynMixinValue { Value: INamedTypeSymbol type })
+      return context.Error(":members requires a named type");
+    var members = type.GetMembers().Where(item => !item.IsImplicitlyDeclared && item is not IMethodSymbol {
+        MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or
+        MethodKind.EventRemove or MethodKind.EventRaise
+      })
+      .OrderBy(item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath ?? "",
+        StringComparer.Ordinal)
+      .ThenBy(item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceSpan.Start ?? int.MaxValue)
+      .ThenBy(item => item.MetadataName, StringComparer.Ordinal)
+      .ThenBy(item => item.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), StringComparer.Ordinal)
+      .Select((item, index) => new KeyValuePair<MixinString, IMixinValue>(
+        context.ResolveString(index.ToString()), new RoslynMixinValue(item)
+      ));
+    return new MixinTableValue(members.ToArray());
+  }
+}
+
+internal sealed class ParametersFunction() : EvaluatedFunctionDefinition("parameters", 0, 0) {
+  protected override IMixinValue Apply(
+    ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
+  ) {
+    IReadOnlyList<IParameterSymbol> parameters = value switch {
+      RoslynMixinValue { Value: IMethodSymbol method } => method.Parameters,
+      RoslynMixinValue { Value: INamedTypeSymbol { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke } } =>
+        invoke.Parameters,
+      _ => null
+    };
+    if (parameters is null) return context.Error(":parameters requires a method or delegate");
+    return new MixinTableValue(parameters.Select((item, index) =>
+      new KeyValuePair<MixinString, IMixinValue>(
+        context.ResolveString(index.ToString()), new RoslynMixinValue(item)
+      )
+    ).ToArray());
+  }
+}
+
+internal sealed class NullableTypeFunction() : EvaluatedFunctionDefinition("nullableType", 0, 0) {
+  protected override IMixinValue Apply(
+    ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
+  ) {
+    if (value is not RoslynMixinValue roslyn || RoslynMixinContext.TypeOf(roslyn.Value) is not ITypeSymbol type)
+      return context.Error(":nullableType requires a typed semantic value");
+    var text = type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat);
+    if (type.IsReferenceType || type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
+      return new LiteralMixinValue(context.ResolveString(text));
+    if (type.IsValueType || type is ITypeParameterSymbol { HasValueTypeConstraint: true })
+      return new LiteralMixinValue(context.ResolveString("global::System.Nullable<" + text + ">"));
+    return context.Error(":nullableType does not support an unconstrained type parameter");
+  }
+}
+
+internal sealed class CSharpLiteralFunction() : EvaluatedFunctionDefinition("csharpLiteral", 0, 0) {
+  protected override IMixinValue Apply(
+    ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
+  ) {
+    return value is RoslynMixinValue { Value: TypedConstant constant }
+      ? new LiteralMixinValue(context.ResolveString(RoslynMixinValue.RenderCSharpConstant(constant)))
+      : value;
   }
 }

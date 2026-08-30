@@ -91,6 +91,9 @@ public static partial class MixinExpressionCompiler {
         LogDirectiveSyntax item => new LogDirectiveSyntax(item.Line, Value(item.Expression)),
         LocalDirectiveSyntax item => new LocalDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
         VariableDirectiveSyntax item => new VariableDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
+        TargetVariableDirectiveSyntax item => new TargetVariableDirectiveSyntax(
+          item.Line, item.Name, Value(item.Expression)
+        ),
         CarryDirectiveSyntax item => new CarryDirectiveSyntax(item.Line, item.Label, Value(item.Expression)),
         ReturnDirectiveSyntax item => new ReturnDirectiveSyntax(item.Line, Value(item.Expression)),
         FailDirectiveSyntax item => new FailDirectiveSyntax(item.Line, Value(item.Expression)), _ => instruction

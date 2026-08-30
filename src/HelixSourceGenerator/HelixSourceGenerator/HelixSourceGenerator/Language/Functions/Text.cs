@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
+using HelixSourceGenerator.Shared;
 
 namespace HelixSourceGenerator.Language.Functions;
 
@@ -10,14 +12,18 @@ internal abstract class RegexFunction(string name) : EvaluatedFunctionDefinition
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
   ) {
-    return new LiteralMixinValue(
-      ExecutionContext.Dynamic(
-        Replace(
-          value.Render(context).Resolve(context.Strings), arguments[0].Render(context).Resolve(context.Strings),
-          arguments[1].Render(context).Resolve(context.Strings)
+    try {
+      return new LiteralMixinValue(
+        ExecutionContext.Dynamic(
+          Replace(
+            value.Render(context).Resolve(context.Strings), arguments[0].Render(context).Resolve(context.Strings),
+            arguments[1].Render(context).Resolve(context.Strings)
+          )
         )
-      )
-    );
+      );
+    } catch (ArgumentException exception) {
+      return context.Error("invalid regular expression: " + exception.Message);
+    }
   }
 
   protected abstract string Replace(string text, string pattern, string replacement);
@@ -32,6 +38,32 @@ internal sealed class ReplaceFunction() : RegexFunction("replace") {
 internal sealed class ReplaceFirstFunction() : RegexFunction("replaceFirst") {
   protected override string Replace(string text, string pattern, string replacement) {
     return new Regex(pattern).Replace(text, replacement, 1);
+  }
+}
+
+internal sealed class FormatFunction() : EvaluatedFunctionDefinition("format", 1, 2) {
+  protected override IMixinValue Apply(
+    ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
+  ) {
+    try {
+      return new LiteralMixinValue(ExecutionContext.Dynamic(string.Format(
+        CultureInfo.InvariantCulture,
+        value.Render(context).Resolve(context.Strings),
+        arguments.Select(item => (object)item.Render(context).Resolve(context.Strings)).ToArray()
+      )));
+    } catch (FormatException exception) {
+      return context.Error("invalid format string: " + exception.Message);
+    }
+  }
+}
+
+internal sealed class IdentifierFunction() : EvaluatedFunctionDefinition("identifier", 0, 0) {
+  protected override IMixinValue Apply(
+    ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
+  ) {
+    return new LiteralMixinValue(ExecutionContext.Dynamic(GeneratorAnalysis.EscapeIdentifier(
+      value.Render(context).Resolve(context.Strings)
+    )));
   }
 }
 

@@ -43,7 +43,7 @@ internal sealed class PutFunction() : TableMutationFunction("put", 2) {
     ExecutionContext context, MixinTableValue table,
     IReadOnlyList<IMixinValue> arguments
   ) {
-    return table.Put(arguments[0].Render(context), arguments[1]);
+    return table.Put(context, arguments[0].Render(context), arguments[1]);
   }
 }
 
@@ -52,7 +52,7 @@ internal sealed class RemoveFunction() : TableMutationFunction("remove", 1) {
     ExecutionContext context, MixinTableValue table,
     IReadOnlyList<IMixinValue> arguments
   ) {
-    return table.Remove(arguments[0].Render(context));
+    return table.Remove(context, arguments[0].Render(context));
   }
 }
 
@@ -148,3 +148,37 @@ internal sealed class MapValuesFunction() : TableTransformFunction("mapValues", 
 internal sealed class MapFunction() : TableTransformFunction("map", TableTransformKind.Map);
 
 internal sealed class FilterFunction() : TableTransformFunction("filter", TableTransformKind.Filter);
+
+internal sealed class ReduceFunction() : EvaluatedFunctionDefinition("reduce", 2, 2) {
+  protected override IMixinValue Apply(
+    ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
+  ) {
+    if (value is not MixinTableValue table) return context.Error(":reduce requires a table");
+    if (arguments[1] is not ProgramFunctionMixinValue callback)
+      return context.Error(":reduce requires a resolved function");
+    if (context.ProgramInvoker is null) return context.Error("program function invocation is not available");
+    var accumulator = arguments[0];
+    foreach (var item in table.Entries) {
+      var parameter = new MixinTableValue([
+        new KeyValuePair<MixinString, IMixinValue>(context.ResolveString("acc"), accumulator),
+        new KeyValuePair<MixinString, IMixinValue>(
+          context.ResolveString("key"), new LiteralMixinValue(item.Key)
+        ),
+        new KeyValuePair<MixinString, IMixinValue>(context.ResolveString("value"), item.Value)
+      ]);
+      var result = context.ProgramInvoker(callback, parameter);
+      if (result.Value is ErrorMixinValue) return result.Value;
+      if (!result.HasValue) return context.Error(":reduce transformer must return a value");
+      accumulator = result.Value;
+    }
+    return accumulator;
+  }
+}
+
+internal sealed class DeriveFunction() : EvaluatedFunctionDefinition("derive", 0, 0) {
+  protected override IMixinValue Apply(
+    ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
+  ) {
+    return context.Derive(value);
+  }
+}

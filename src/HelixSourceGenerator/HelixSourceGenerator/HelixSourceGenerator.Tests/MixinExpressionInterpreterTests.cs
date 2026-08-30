@@ -95,28 +95,6 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
-  public void HoistedStructuralDirectiveKeepsItsRoslynSyntaxTarget() {
-    var success = MixinExpressionCompiler.TryCompileSyntax(
-      MixinExpressionParser.Parse(""),
-      MixinExpressionParser.Parse("@AUGMENT_STRUCT<PropsModel> @this\n@CODE @local#PropsModel:structArgs"),
-      null,
-      out var prelude,
-      out var lateExpression,
-      out var error,
-      out var errorLine
-    );
-
-    Assert.True(success, $"line {errorLine}: {error}");
-    var renderedPrelude = MixinSyntaxRenderer.RenderProgram(prelude);
-    var renderedLate = MixinSyntaxRenderer.RenderProgram(lateExpression);
-    Assert.Contains("@AUGMENT_STRUCT<PropsModel> @this", renderedPrelude);
-    Assert.DoesNotContain("@AUGMENT_STRUCT<PropsModel> @carry", renderedPrelude);
-    Assert.Contains("@CARRY<__0> @local#PropsModel", renderedPrelude);
-    Assert.Contains("@CARRY<__1> @local#PropsModel:structArgs", renderedPrelude);
-    Assert.Contains("@CODE @carry#__1", renderedLate);
-  }
-
-  [Fact]
   public void HoistingCarriesCompleteRoslynPredicates() {
     var success = MixinExpressionCompiler.TryCompileSyntax(
       MixinExpressionParser.Parse(""),
@@ -400,34 +378,11 @@ public sealed class MixinExpressionInterpreterTests {
   [InlineData("@CODE @true:eq<true>:unwrap", "must be terminal")]
   [InlineData("@CODE @this:makeGeneric", ":makeGeneric requires 1 argument")]
   [InlineData("@CODE @this:visibility<public>", ":visibility requires 0 arguments")]
-  [InlineData("@ASSERT @local#props:?structNoArgs<true>", ":structNoArgs requires 0 arguments")]
-  [InlineData("@CODE @local#props:structParams<first><second>", ":structParams accepts at most 1 argument")]
   public void FunctionGrammarRejectsAmbiguousOrInvalidCalls(string expression, string expected) {
     var validation = MixinExpressionCompiler.ValidateSyntax(expression);
 
     Assert.False(validation.Success);
     Assert.Contains(expected, validation.Error);
-  }
-
-  [Theory]
-  [InlineData("@PROP_STRUCT<Props><props><unknown> @target", "unknown PROP_STRUCT flag 'unknown'")]
-  [InlineData("@PROP_STRUCT<Props><props><datatype><DATATYPE> @target", "specified more than once")]
-  [InlineData("@PROP_STRUCT<Props><props><datatype><noGenerate><extra> @target", "accepts at most 4 arguments")]
-  public void PropStructDirectiveRejectsInvalidFlags(string expression, string expected) {
-    var validation = MixinExpressionCompiler.ValidateSyntax(expression);
-
-    Assert.False(validation.Success);
-    Assert.Contains(expected, validation.Error);
-  }
-
-  [Theory]
-  [InlineData("@PROP_STRUCT<Props><props> @target")]
-  [InlineData("@PROP_STRUCT<Props><props><datatype> @target")]
-  [InlineData("@PROP_STRUCT<Props><props><noGenerate><datatype> @target")]
-  public void PropStructDirectiveAcceptsOptionalFlags(string expression) {
-    var validation = MixinExpressionCompiler.ValidateSyntax(expression);
-
-    Assert.True(validation.Success, validation.Error);
   }
 
   [Fact]
@@ -1012,6 +967,101 @@ public sealed class MixinExpressionInterpreterTests {
     Assert.False(result.Success);
     Assert.Equal(2, result.ErrorLine);
     Assert.Contains("unknown directive", result.Error);
+  }
+
+  [Fact]
+  public void TargetVariablesAndReducePreserveTypedValues() {
+    var result = MixinExpressionVirtualMachine.Execute(
+      """
+      @TAR<Model> @table:push<a>:push<b>:push<c>
+      @FUNC<Append>
+      @RETURN @param#acc@param#key=@param#value;
+      @END
+      @CODE @tar#Model:reduce<><Append>
+      """,
+      new StubContext()
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("0=a;1=b;2=c;", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void ReduceRequiresAValueProducingReturn() {
+    var result = MixinExpressionVirtualMachine.Execute(
+      """
+      @FUNC<NoValue>
+      @RETURN
+      @END
+      @CODE @table:push<a>:reduce<><NoValue>
+      """,
+      new StubContext()
+    );
+
+    Assert.False(result.Success);
+    Assert.Contains("must return a value", result.Error);
+  }
+
+  [Fact]
+  public void ReduceReturnsInitialForEmptyTableAndSharesCallbackVariables() {
+    var variables = new Dictionary<string, object>();
+    var result = MixinExpressionVirtualMachine.Execute(
+      """
+      @VAR<Calls> 0
+      @FUNC<Fold>
+      @VAR<Calls> @var#Calls@param#value
+      @RETURN @param#acc:push<(@param#key)>:push<(@param#value)>
+      @END
+      @LOCAL<Empty> @table:reduce<(@table:push<initial>)><Fold>
+      @LOCAL<Folded> @table:push<a>:push<b>:reduce<(@table)><Fold>
+      @CODE @local#Empty#0|@local#Folded#0,@local#Folded#1,@local#Folded#2,@local#Folded#3|@var#Calls
+      """,
+      new StubContext(), variables
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("initial|0,a,1,b|0ab", Assert.Single(result.Outputs).Text);
+    Assert.Equal("0ab", variables["Calls"]);
+  }
+
+  [Theory]
+  [InlineData("@null:reduce<seed><Fold>", ":reduce requires a table")]
+  [InlineData("@table:push<a>:reduce<seed><Missing>", "unknown function")]
+  public void ReduceRejectsInvalidReceiverAndMissingCallback(string expression, string expected) {
+    var result = MixinExpressionVirtualMachine.Execute(
+      "@FUNC<Fold>\n@RETURN @param#acc\n@END\n@CODE " + expression,
+      new StubContext()
+    );
+
+    Assert.False(result.Success);
+    Assert.Contains(expected, result.Error, StringComparison.OrdinalIgnoreCase);
+  }
+
+  [Fact]
+  public void ReduceAcceptsExplicitNullAndPropagatesCallbackFailures() {
+    var nullResult = MixinExpressionVirtualMachine.Execute(
+      """
+      @FUNC<Null>
+      @RETURN @null
+      @END
+      @CODE @table:push<a>:reduce<seed><Null>
+      """,
+      new StubContext()
+    );
+    Assert.True(nullResult.Success, nullResult.Error);
+    Assert.Equal("null", Assert.Single(nullResult.Outputs).Text);
+
+    var failure = MixinExpressionVirtualMachine.Execute(
+      """
+      @FUNC<Broken>
+      @FAIL callback failed
+      @END
+      @CODE @table:push<a>:reduce<seed><Broken>
+      """,
+      new StubContext()
+    );
+    Assert.False(failure.Success);
+    Assert.Contains("callback failed", failure.Error);
   }
 
   private sealed class StubContext : ExecutionContext {

@@ -280,7 +280,7 @@
           "name": "entity.name.function.target.helix-mixin"
         },
         {
-          "match": "\\b(?:CLASS|FILE|IMPLEMENTS|ANNOTATION|TARGET|STATE|BUFFER|AST)\\b",
+          "match": "\\b(?:CLASS|FILE|IMPLEMENTS|ANNOTATION|DERIVATION|TARGET|STATE|BUFFER|AST|TAR)\\b",
           "name": "constant.language.target.helix-mixin"
         }
       ]

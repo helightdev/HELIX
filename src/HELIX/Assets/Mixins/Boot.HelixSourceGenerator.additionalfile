@@ -2,17 +2,22 @@
 
 @### Annotations #######################################################################################################
 
-@ANNOTATION<HELIX.Boot.NamedArgAttribute>
-  @PRELUDE
-    @CALL<AddStructurePropertyModifier> NamedArgModifier.Instance
+@DERIVATION<HELIX.Boot.NamedArgAttribute>
+  @LOCAL<Named> @param#symbol:attributeOf<HELIX.Boot.NamedArgAttribute>
+  @SCOPE
+    @MATCH @local#Named:?exists
+    @RETURN @param#value:put<configuration><(datatype.GetProperty("@param#value#name").Modifiers.Add(NamedArgModifier.Instance);)>
   @END
+  @RETURN @param#value
 @END
 
 @ANNOTATION<HELIX.Boot.CommandAttribute>
   @PRELUDE
     @LOCAL<StructName> @(target:name)_Args
-    @PROP_STRUCT<(@local#StructName)><StructHandle><datatype> @target
-    @LOCAL<InvokeLambda> args => @local#StructHandle:propStructCall<(@target:name)><args>
+    @CALL<StructHandle><DeriveParameters> @target
+    @CALL<EmitGeneratedStructure> @table:put<name><(@local#StructName)>:put<props><(@local#StructHandle)>:put<datatype><true>
+    @LOCAL<InvokeArguments> @local#StructHandle:mapValues<SelectObjectCallArgument>:joinValues<, >
+    @LOCAL<InvokeLambda> args => @target:name(@local#InvokeArguments)
     @CARRY<StructName> @local#StructName
     @CARRY<InvokeLambda> @local#InvokeLambda
   @END

@@ -64,4 +64,9 @@ internal sealed class MixinValueDictionary :
   internal void Clear() {
     _values.Clear();
   }
+
+  internal void ReplaceWith(IEnumerable<KeyValuePair<MixinString, IMixinValue>> values) {
+    _values.Clear();
+    StoreIsolatedRange(values);
+  }
 }

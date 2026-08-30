@@ -167,11 +167,12 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     var contributions = new List<MixinContribution>();
     var attributeExpressionOutputs = new List<MixinExpressionOutput>();
     var expressionVariables = new Dictionary<string, object>(StringComparer.Ordinal);
+    var hostValues = new RoslynHostExpressionCache();
     using (MixinProfiler.Measure("generator.collect_contributions")) {
       CollectAttributeContributions(
         context, target, candidate.Compilation, preparedExpressions, expressionVariables,
         attributeExpressionOutputs, contributions, targetDefinitions, libraries,
-        mixinCompilation, annotatedSymbols,
+        mixinCompilation, annotatedSymbols, hostValues,
         targetAttributes.Any(attribute => IsAttribute(attribute, Attributes.Structure))
       );
     }
@@ -204,6 +205,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
             )
           ),
         preparedExpressions.StringPool,
+        hostValues.TargetVariableFingerprintValues(preparedExpressions.StringPool),
         context.DebugExpressions.ToImmutableArray(), context.Debug, context.DebugStringPool
       )
     );
@@ -264,7 +266,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       foreach (var log in result.Logs)
         logs.Add(new MixinReportedLog(log, work.Location));
       if (!result.Success) {
-        errors.Add("line " + result.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + result.Error);
+        errors.Add(
+          work.Provider + " on " + work.SourceType + "." + work.SourceMember + ", line " +
+          result.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + result.Error
+        );
         continue;
       }
       var debugStateKey = DebugStateKey(work);
@@ -408,11 +413,11 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     MixinLibraryCatalog libraries,
     MixinCompilation mixinCompilation,
     IReadOnlyList<AnnotatedSymbolData> annotatedSymbols,
+    RoslynHostExpressionCache hostValues,
     bool structureTarget
   ) {
     using var profile = MixinProfiler.Measure("generator.roslyn.attribute_contributions");
     var sequence = 0;
-    var hostValues = new RoslynHostExpressionCache();
     structureTarget &= target.TypeKind == TypeKind.Struct;
     foreach (var annotatedData in annotatedSymbols) {
       var annotated = annotatedData.Symbol;
@@ -507,6 +512,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       );
       return;
     }
+    expressionContext.CommitTargetVariables();
     context.AddDebugExpression(
       selectedProgram.PreludeSource, selectedProgram.LateSource,
       evaluated.Variables,
@@ -1211,6 +1217,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       MixinOutputCollection usings,
       IEnumerable<KeyValuePair<string, object>> primaryVariables,
       MixinStringPool stringPool,
+      IEnumerable<KeyValuePair<MixinString, IMixinValue>> targetVariables,
       ImmutableArray<DebugExpressionWork> debugExpressions,
       bool debug,
       bool debugStringPool
@@ -1230,6 +1237,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
           )
         )
       );
+      TargetVariables = new MixinValueDictionary(targetVariables);
       DebugExpressions = debugExpressions;
       Debug = debug;
       DebugStringPool = debugStringPool;
@@ -1246,6 +1254,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     internal MixinOutputCollection Implements { get; }
     internal MixinOutputCollection Usings { get; }
     internal MixinValueDictionary PrimaryVariables { get; }
+    internal MixinValueDictionary TargetVariables { get; }
     internal ImmutableArray<DebugExpressionWork> DebugExpressions { get; }
     internal bool Debug { get; }
     internal bool DebugStringPool { get; }
@@ -1356,6 +1365,12 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         variables.Append(variable.Key.IsInterned);
         variables.Append(variable.Key.Id);
         if (!variable.Key.IsInterned) variables.Append(variable.Key.DynamicValue);
+        variable.Value.Fingerprint(variables, fingerprintContext);
+      }
+      variables.Append(render.TargetVariables.Count);
+      foreach (var variable in render.TargetVariables
+        .OrderBy(item => item.Key.DynamicValue, StringComparer.Ordinal)) {
+        variables.Append(variable.Key.DynamicValue);
         variable.Value.Fingerprint(variables, fingerprintContext);
       }
 

@@ -180,6 +180,11 @@ public sealed class VariableDirectiveSyntax(int l, string name, IReadOnlyList<IM
   internal string Name { get; } = name;
 }
 
+public sealed class TargetVariableDirectiveSyntax(int l, string name, IReadOnlyList<IMixinValue> value)
+  : ValueDirectiveSyntax(l, value) {
+  internal string Name { get; } = name;
+}
+
 public sealed class CarryDirectiveSyntax(int l, string label, IReadOnlyList<IMixinValue> value)
   : ValueDirectiveSyntax(l, value) {
   internal string Label { get; } = label;
@@ -248,7 +253,8 @@ internal static class MixinSyntaxFacts {
       CallDirectiveSyntax => "CALL", InlineDirectiveSyntax => "INLINE", EndDirectiveSyntax => "END",
       MatchDirectiveSyntax => "MATCH", AssertDirectiveSyntax => "ASSERT", CodeDirectiveSyntax => "CODE",
       MixinDirectiveSyntax => "MIXIN", UsingDirectiveSyntax => "USING", LogDirectiveSyntax => "LOG",
-      LocalDirectiveSyntax => "LOCAL", VariableDirectiveSyntax => "VAR", CarryDirectiveSyntax => "CARRY",
+      LocalDirectiveSyntax => "LOCAL", VariableDirectiveSyntax => "VAR", TargetVariableDirectiveSyntax => "TAR",
+      CarryDirectiveSyntax => "CARRY",
       ReturnDirectiveSyntax => "RETURN", GotoDirectiveSyntax => "GOTO", SkipDirectiveSyntax => "SKIP",
       FailDirectiveSyntax => "FAIL", AnnotationDirectiveSyntax => "ANNOTATION", PreludeDirectiveSyntax => "PRELUDE",
       DefineTargetDirectiveSyntax => "DEFINE_TARGET", _ => null
@@ -271,7 +277,8 @@ internal static class MixinSyntaxFacts {
         MixinSyntaxRenderer.RenderArgument(x.Target), MixinSyntaxRenderer.RenderArgument(x.Priority)
       ],
       MixinDirectiveSyntax x => [MixinSyntaxRenderer.RenderArgument(x.Target)],
-      LocalDirectiveSyntax x => [x.Name], VariableDirectiveSyntax x => [x.Name], CarryDirectiveSyntax x => [x.Label],
+      LocalDirectiveSyntax x => [x.Name], VariableDirectiveSyntax x => [x.Name],
+      TargetVariableDirectiveSyntax x => [x.Name], CarryDirectiveSyntax x => [x.Label],
       GotoDirectiveSyntax x => [x.Label], AnnotationDirectiveSyntax x => [x.Name],
       DefineTargetDirectiveSyntax x => [x.Name, x.Value], _ => []
     };

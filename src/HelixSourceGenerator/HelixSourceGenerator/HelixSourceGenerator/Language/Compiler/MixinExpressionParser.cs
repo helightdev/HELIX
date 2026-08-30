@@ -74,7 +74,7 @@ public static class MixinExpressionParser {
         continue;
       }
       var negated = Take(tokens, ref position, MixinExpressionTokenKind.Negation, out _);
-      Take(tokens, ref position, MixinExpressionTokenKind.Predicate, out _);
+      var predicate = Take(tokens, ref position, MixinExpressionTokenKind.Predicate, out _);
       if (!Take(tokens, ref position, MixinExpressionTokenKind.Property, out var propertyToken)) {
         if (negated) {
           error = "property name is empty";
@@ -90,7 +90,8 @@ public static class MixinExpressionParser {
         }
         arguments.Add(argument);
       }
-      var property = new MixinExpressionProperty(propertyToken.Text, arguments.AsReadOnly(), negated);
+      var propertyName = predicate && propertyToken.Text == "type" ? "typeSymbol" : propertyToken.Text;
+      var property = new MixinExpressionProperty(propertyName, arguments.AsReadOnly(), negated);
       if (FunctionLibrary.TryGet(property.Name, out var function) &&
         (property.Arguments.Count < function.MinimumArguments ||
           property.Arguments.Count > function.MaximumArguments)) {
@@ -183,6 +184,9 @@ public static class MixinExpressionParser {
         return true;
       case "var":
         root = MixinExpressionRoot.Variable;
+        return true;
+      case "tar":
+        root = MixinExpressionRoot.TargetVariable;
         return true;
       case "local":
         root = MixinExpressionRoot.Local;
@@ -293,6 +297,7 @@ public static class MixinExpressionParser {
       "LOG" => new LogDirectiveSyntax(l, ParseValueExpression(o)),
       "LOCAL" => new LocalDirectiveSyntax(l, a.FirstOrDefault(), ParseValueExpression(o)),
       "VAR" => new VariableDirectiveSyntax(l, a.FirstOrDefault(), ParseValueExpression(o)),
+      "TAR" => new TargetVariableDirectiveSyntax(l, a.FirstOrDefault(), ParseValueExpression(o)),
       "CARRY" => new CarryDirectiveSyntax(l, a.FirstOrDefault(), ParseValueExpression(o)),
       "RETURN" => new ReturnDirectiveSyntax(l, ParseValueExpression(o)),
       "GOTO" => new GotoDirectiveSyntax(l, a.FirstOrDefault()), "SKIP" => new SkipDirectiveSyntax(l),
@@ -358,7 +363,7 @@ public static class MixinExpressionParser {
         return false;
       }
     } else {
-      var named = name is "LABEL" or "FUNC" or "INLINE" or "LOCAL" or "VAR" or "CARRY" or "ANNOTATION" or "GOTO";
+      var named = name is "LABEL" or "FUNC" or "INLINE" or "LOCAL" or "VAR" or "TAR" or "CARRY" or "ANNOTATION" or "GOTO";
       if (named && (arguments.Count != 1 || string.IsNullOrEmpty(arguments[0]))) {
         error = name + " requires a name";
         return false;
@@ -370,7 +375,7 @@ public static class MixinExpressionParser {
     }
     var kind = name is "MATCH" or "ASSERT"
       ? DirectiveOperandKind.Boolean
-      : name is "CALL" or "CODE" or "MIXIN" or "USING" or "LOCAL" or "VAR" or "CARRY" or "LOG" or "RETURN" or "FAIL"
+      : name is "CALL" or "CODE" or "MIXIN" or "USING" or "LOCAL" or "VAR" or "TAR" or "CARRY" or "LOG" or "RETURN" or "FAIL"
         ? DirectiveOperandKind.Value
         : DirectiveOperandKind.None;
     return ValidateOperand(kind, operand, out error);

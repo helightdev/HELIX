@@ -17,6 +17,7 @@ internal enum MixinOpcode {
   Log,
   StoreLocal,
   StoreVariable,
+  StoreTargetVariable,
   Carry,
   Return,
   Call,
@@ -212,6 +213,8 @@ internal sealed record ProgramFunctionMixinValue(int Entry) : IMixinValue {
     return other is ProgramFunctionMixinValue function && function.Entry == Entry;
   }
 }
+
+internal readonly record struct ProgramFunctionResult(bool HasValue, IMixinValue Value);
 
 internal sealed record DirectiveEffectMixinValue(IMixinValue Value, MixinString ClassCode) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) {

@@ -37,7 +37,7 @@ internal abstract class EvaluatedFunctionDefinition(string name, int minimumArgu
         }
       } else result = Apply(context, instance, values);
     } catch (ArgumentException exception) {
-      return context.Error("invalid regular expression: " + exception.Message);
+      return context.Error("function ':" + Name + "' failed: " + exception.Message);
     }
     if (predicate) {
       var truth = result.IsTruthy(context);

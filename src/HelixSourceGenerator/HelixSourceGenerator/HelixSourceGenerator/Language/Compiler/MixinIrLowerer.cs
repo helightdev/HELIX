@@ -130,12 +130,16 @@ public static partial class MixinExpressionCompiler {
       VariableDirectiveSyntax variable => new MixinInstruction(
         MixinOpcode.StoreVariable, location, LowerValue(variable.Expression, strings), Name: Name(variable.Name)
       ),
+      TargetVariableDirectiveSyntax variable => new MixinInstruction(
+        MixinOpcode.StoreTargetVariable, location, LowerValue(variable.Expression, strings), Name: Name(variable.Name)
+      ),
       CarryDirectiveSyntax carry => new MixinInstruction(
         MixinOpcode.Carry, location, LowerValue(carry.Expression, strings),
         Name: Name(carry.Label)
       ),
       ReturnDirectiveSyntax returned => new MixinInstruction(
-        MixinOpcode.Return, location, LowerValue(returned.Expression, strings)
+        MixinOpcode.Return, location, LowerValue(returned.Expression, strings),
+        SecondaryDestination: string.IsNullOrEmpty(MixinSyntaxRenderer.RenderValue(returned.Expression)) ? 0 : 1
       ),
       CallDirectiveSyntax call => new MixinInstruction(
         MixinOpcode.Call, location, LowerValue(call.Expression, strings),
@@ -193,15 +197,16 @@ public static partial class MixinExpressionCompiler {
       }
       var instance = ResolveProgramFunctions(invocation.Instance);
       var arguments = invocation.Arguments.Select(ResolveProgramFunctions).ToArray();
-      if (invocation.Function.Name is "mapValues" or "map" or "filter" &&
-        arguments.Length == 1 && arguments[0] is LiteralMixinValue literal) {
+      var callbackIndex = invocation.Function.Name == "reduce" ? 1 : 0;
+      if (invocation.Function.Name is "mapValues" or "map" or "filter" or "reduce" &&
+        arguments.Length > callbackIndex && arguments[callbackIndex] is LiteralMixinValue literal) {
         var functionName = literal.Value.Resolve(strings);
         var entry = functions.TryGetValue(functionName, out var local)
           ? local.Start + instructionOffset
           : importedFunctions is not null && importedFunctions.TryGetValue(strings.Get(functionName), out var imported)
             ? imported
             : -1;
-        arguments[0] = entry < 0
+        arguments[callbackIndex] = entry < 0
           ? new ErrorMixinValue(strings.Get("unknown function '" + functionName + "'"))
           : new ProgramFunctionMixinValue(entry);
       }
