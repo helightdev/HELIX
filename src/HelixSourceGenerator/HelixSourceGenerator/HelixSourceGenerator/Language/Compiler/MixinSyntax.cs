@@ -179,9 +179,10 @@ public sealed class VariableDirectiveSyntax(int l, string name, IReadOnlyList<IM
   internal string Name { get; } = name;
 }
 
-public sealed class CarryDirectiveSyntax(int l, string label, IReadOnlyList<IMixinValue> value)
+public sealed class CarryDirectiveSyntax(int l, string label, IReadOnlyList<IMixinValue> value, bool shallowSnapshot = false)
   : ValueDirectiveSyntax(l, value) {
   internal string Label { get; } = label;
+  internal bool ShallowSnapshot { get; } = shallowSnapshot;
 }
 
 public sealed class ReturnDirectiveSyntax(int l, IReadOnlyList<IMixinValue> value)

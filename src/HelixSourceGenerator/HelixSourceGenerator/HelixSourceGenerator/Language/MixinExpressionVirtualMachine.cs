@@ -114,7 +114,8 @@ public static class MixinExpressionVirtualMachine {
         case MixinOpcode.StoreVariable:
         case MixinOpcode.Carry:
           if (!Evaluate(instruction, out var stored)) return Error(stored, instruction);
-          if (instruction.Opcode == MixinOpcode.Carry) context.Carries[instruction.Name] = stored;
+          if (instruction.Opcode == MixinOpcode.Carry) context.Carries[instruction.Name] =
+            instruction.ShallowSnapshot ? new SnapshotMixinValue(stored, false) : stored;
           else (instruction.Opcode == MixinOpcode.StoreLocal ? context.Locals : context.Variables)[instruction.Name] = stored;
           break;
         case MixinOpcode.Call:
@@ -219,7 +220,12 @@ public static class MixinExpressionVirtualMachine {
           }
           case MixinOpcode.StoreLocal: context.Locals[instruction.Name] = Value(); continue;
           case MixinOpcode.StoreVariable: context.Variables[instruction.Name] = Value(); continue;
-          case MixinOpcode.Carry: context.Carries[instruction.Name] = Value(); continue;
+          case MixinOpcode.Carry: {
+            var carried = Value();
+            context.Carries[instruction.Name] = instruction.ShallowSnapshot
+              ? new SnapshotMixinValue(carried, false) : carried;
+            continue;
+          }
           case MixinOpcode.Call: {
             var argument = Value();
             if (argument is ErrorMixinValue) return argument;

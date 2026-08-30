@@ -14,8 +14,17 @@ internal sealed record MixinInstruction(
   IReadOnlyList<IMixinValue> Arguments = null, MixinString Name = default,
   MixinExpressionOutputTarget OutputTarget = default, int Destination = -1,
   int SecondaryDestination = -1, DirectiveDefinition Directive = null,
-  MixinString Message = default
+  MixinString Message = default, bool ShallowSnapshot = false
 );
+
+internal sealed record SnapshotMixinValue(IMixinValue Value, bool IncludeMembers) : IMixinValue {
+  public bool IsTruthy(ExecutionContext context) => Value.IsTruthy(context);
+  public MixinString Render(ExecutionContext context) => Value.Render(context);
+  public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) => Value.Fingerprint(builder, context);
+  public IMixinValue Select(ExecutionContext context, MixinString member) => Value.Select(context, member);
+  public object Unlink(ExecutionContext context) => context.UnlinkSnapshot(Value, IncludeMembers);
+  public bool Equals(IMixinValue other) => other is SnapshotMixinValue snapshot && Equals(snapshot);
+}
 
 internal sealed record LiteralMixinValue(MixinString Value) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) => !string.IsNullOrEmpty(Value.Resolve(context.Strings));

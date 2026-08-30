@@ -77,7 +77,7 @@ public static partial class MixinExpressionCompiler {
     out int errorLine
   ) {
     var generated = new List<DirectiveInstruction>();
-    var labels = new Dictionary<MixinExpressionReference, string>();
+    var labels = new Dictionary<string, string>(StringComparer.Ordinal);
     var structuralLocals = new HashSet<string>(StringComparer.Ordinal);
     var late = new List<DirectiveInstruction>();
     error = null;
@@ -314,7 +314,7 @@ public static partial class MixinExpressionCompiler {
   private static bool TryHoistStructuralDirective(
     DirectiveInstruction instruction,
     ICollection<DirectiveInstruction> generated,
-    IDictionary<MixinExpressionReference, string> labels,
+    IDictionary<string, string> labels,
     ISet<string> structuralLocals,
     out string error
   ) {
@@ -335,10 +335,10 @@ public static partial class MixinExpressionCompiler {
     generated.Add(instruction);
     var localReference = new MixinExpressionReference(MixinExpressionRoot.Local, local, []);
     var label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
-    labels[localReference] = label;
+    labels["leaf:" + MixinSyntaxRenderer.RenderReference(localReference)] = label;
     generated.Add(
       new CarryDirectiveSyntax(
-        instruction.Line, label, [new IMixinValue(null, localReference)]
+        instruction.Line, label, [new IMixinValue(null, localReference)], true
       )
     );
     structuralLocals.Add(local);
@@ -349,7 +349,7 @@ public static partial class MixinExpressionCompiler {
   private static DirectiveInstruction RewriteRoslynReferences(
     DirectiveInstruction instruction,
     ICollection<DirectiveInstruction> generated,
-    IDictionary<MixinExpressionReference, string> labels,
+    IDictionary<string, string> labels,
     ISet<string> structuralLocals
   ) {
     MixinExpressionReference RewriteReference(MixinExpressionReference reference) {
@@ -357,12 +357,14 @@ public static partial class MixinExpressionCompiler {
         (reference.Root == MixinExpressionRoot.Local &&
           structuralLocals?.Contains(reference.Member ?? "") == true);
       if (!roslyn) return RewriteNested(reference);
-      if (!labels.TryGetValue(reference, out var label)) {
+      var richSnapshot = instruction is CarryDirectiveSyntax;
+      var key = (richSnapshot ? "rich:" : "leaf:") + MixinSyntaxRenderer.RenderReference(reference);
+      if (!labels.TryGetValue(key, out var label)) {
         label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
-        labels.Add(reference, label);
+        labels.Add(key, label);
         generated.Add(
           new CarryDirectiveSyntax(
-            instruction.Line, label, [new IMixinValue(null, reference)]
+            instruction.Line, label, [new IMixinValue(null, reference)], !richSnapshot
           )
         );
       }
@@ -455,7 +457,9 @@ public static partial class MixinExpressionCompiler {
       LogDirectiveSyntax item => new LogDirectiveSyntax(item.Line, Value(item.Expression)),
       LocalDirectiveSyntax item => new LocalDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
       VariableDirectiveSyntax item => new VariableDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
-      CarryDirectiveSyntax item => new CarryDirectiveSyntax(item.Line, item.Label, Value(item.Expression)),
+      CarryDirectiveSyntax item => new CarryDirectiveSyntax(
+        item.Line, item.Label, Value(item.Expression), item.ShallowSnapshot
+      ),
       ReturnDirectiveSyntax item => new ReturnDirectiveSyntax(item.Line, Value(item.Expression)),
       FailDirectiveSyntax item => new FailDirectiveSyntax(item.Line, Value(item.Expression)),
       _ => instruction

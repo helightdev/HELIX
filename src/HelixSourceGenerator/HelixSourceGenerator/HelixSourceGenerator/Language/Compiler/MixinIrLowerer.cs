@@ -86,7 +86,8 @@ public static partial class MixinExpressionCompiler {
       LogDirectiveSyntax log => new(MixinOpcode.Log, location, LowerValue(log.Expression, strings)),
       LocalDirectiveSyntax local => new(MixinOpcode.StoreLocal, location, LowerValue(local.Expression, strings), Name: Name(local.Name)),
       VariableDirectiveSyntax variable => new(MixinOpcode.StoreVariable, location, LowerValue(variable.Expression, strings), Name: Name(variable.Name)),
-      CarryDirectiveSyntax carry => new(MixinOpcode.Carry, location, LowerValue(carry.Expression, strings), Name: Name(carry.Label)),
+      CarryDirectiveSyntax carry => new(MixinOpcode.Carry, location, LowerValue(carry.Expression, strings),
+        Name: Name(carry.Label), ShallowSnapshot: carry.ShallowSnapshot),
       ReturnDirectiveSyntax returned => new(MixinOpcode.Return, location, LowerValue(returned.Expression, strings)),
       CallDirectiveSyntax call => new(MixinOpcode.Call, location, LowerValue(call.Expression, strings),
         Name: Name(call.ReturnLocal), Destination: functions.TryGetValue(call.Function ?? "", out var target)

@@ -106,6 +106,26 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void AutomaticHoistingDeduplicatesReferencesAndUsesLeafSnapshots() {
+    var success = MixinExpressionCompiler.TryCompileSyntax(
+      MixinExpressionParser.Parse(""),
+      MixinExpressionParser.Parse(
+        "@CODE @target:type\n@CODE @target:type\n@CODE @attr#qualifier\n@CODE @attr#qualifier"
+      ),
+      null,
+      out var prelude,
+      out _,
+      out var error,
+      out var errorLine
+    );
+
+    Assert.True(success, $"line {errorLine}: {error}");
+    var rendered = MixinSyntaxRenderer.RenderProgram(prelude);
+    Assert.Equal(1, rendered.Split(new[] { "@target:type" }, StringSplitOptions.None).Length - 1);
+    Assert.Equal(1, rendered.Split(new[] { "@attr#qualifier" }, StringSplitOptions.None).Length - 1);
+  }
+
+  [Fact]
   public void CallsCanReturnValuesIntoLocals() {
     var result = MixinExpressionVirtualMachine.Execute(
       """

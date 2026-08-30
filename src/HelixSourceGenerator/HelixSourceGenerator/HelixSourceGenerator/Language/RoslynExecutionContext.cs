@@ -334,6 +334,9 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     return value is RoslynMixinValue roslyn && SemanticTraits(roslyn.Value).Contains(name, StringComparer.Ordinal);
   }
 
+  internal override object UnlinkSnapshot(IMixinValue value, bool includeMembers) =>
+    value is RoslynMixinValue roslyn ? roslyn.Unlink(this, includeMembers) : value.Unlink(this);
+
   internal static IReadOnlyList<string> SemanticTraits(object value) {
     var result = new List<string>();
     var type = TypeOf(value);
@@ -600,15 +603,16 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
   public IMixinValue Select(ExecutionContext context, MixinString member) =>
     context is RoslynMixinContext roslyn && roslyn.SelectMember(Value, member.Resolve(context.Strings)) is { } selected
       ? new RoslynMixinValue(selected) : NullMixinValue.Instance;
-  public object Unlink(ExecutionContext context) => Value switch {
-    TypedConstant or ISymbol or AttributeData => Detach(context), _ => Value
+  public object Unlink(ExecutionContext context) => Unlink(context, true);
+  internal object Unlink(ExecutionContext context, bool includeMembers) => Value switch {
+    TypedConstant or ISymbol or AttributeData => Detach(context, includeMembers), _ => Value
   };
 
-  private DetachedSemanticData Detach(ExecutionContext context) {
+  private DetachedSemanticData Detach(ExecutionContext context, bool includeMembers) {
     var type = RoslynMixinContext.TypeOf(Value);
     var symbol = Value as ISymbol ?? type;
     var members = new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase);
-    if (type is INamedTypeSymbol named) {
+    if (includeMembers && type is INamedTypeSymbol named) {
       for (var i = 0; i < named.TypeArguments.Length; i++) {
         var item = DetachType(named.TypeArguments[i]);
         members[i.ToString(CultureInfo.InvariantCulture)] = item;

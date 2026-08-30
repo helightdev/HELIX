@@ -175,6 +175,7 @@ public abstract class ExecutionContext {
   public virtual bool HasTrait(IMixinValue value, MixinString trait) =>
     value is DetachedSemanticMixinValue detached && detached.Traits.Any(item =>
       string.Equals(item.Resolve(Strings), trait.Resolve(Strings), StringComparison.Ordinal));
+  internal virtual object UnlinkSnapshot(IMixinValue value, bool includeMembers) => value.Unlink(this);
   public MixinString Intern(string value) => Strings.Intern(value);
   public ErrorMixinValue Error(string value) => new(Intern(value));
 }
