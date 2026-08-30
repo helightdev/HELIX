@@ -15,6 +15,18 @@
         <PackageReference ExcludeAssets="runtime" Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.3.0"/>
     </ItemGroup>
 
+    <!--
+      Keep the analyzer self-contained: Rider and other .NET hosts can reference
+      Helix.MixinLanguage.csproj, while the source generator compiles the same
+      implementation into its own assembly without a runtime library dependency.
+    -->
+    <ItemGroup>
+        <Compile Include="..\..\..\MixinLanguage\**\*.cs"
+                 Exclude="..\..\..\MixinLanguage\bin\**\*;..\..\..\MixinLanguage\obj\**\*">
+            <Link>Shared\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Compile>
+    </ItemGroup>
+
     <Target Name="CopyDll" AfterTargets="Build" Condition="'$(SkipCopyDll)' != 'true'">
         <Copy SourceFiles="$(TargetDir)HelixSourceGenerator.dll"
               DestinationFolder="$(ProjectDir)\..\..\..\HELIX\Assets\Plugins\HELIX\Runtime\Scripts"

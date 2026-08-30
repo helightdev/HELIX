@@ -4,6 +4,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelixSourceGenerator", "Hel
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelixSourceGenerator.Tests", "HelixSourceGenerator\HelixSourceGenerator.Tests\HelixSourceGenerator.Tests.csproj", "{C8CC31ED-80E4-4D63-9694-A7B548481418}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helix.MixinLanguage", "..\MixinLanguage\Helix.MixinLanguage.csproj", "{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
