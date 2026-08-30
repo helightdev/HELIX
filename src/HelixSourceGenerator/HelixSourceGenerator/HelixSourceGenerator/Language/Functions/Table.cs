@@ -15,7 +15,7 @@ internal sealed class AsTableFunction() : EvaluatedFunctionDefinition("table", 0
       : new MixinTableValue(
         value is NullMixinValue
           ? Array.Empty<KeyValuePair<MixinString, IMixinValue>>()
-          : [new KeyValuePair<MixinString, IMixinValue>(context.Intern("0"), value)]
+          : [new KeyValuePair<MixinString, IMixinValue>(context.ResolveString("0"), value)]
       );
   }
 }

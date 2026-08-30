@@ -54,56 +54,43 @@ public readonly struct MixinString : IEquatable<MixinString> {
 }
 
 public sealed class MixinStringPool {
-  private readonly int _baseCount;
   private readonly Dictionary<string, int> _ids;
-  private readonly MixinStringPool _parent;
-  private readonly List<string> _values;
+  private readonly string[] _values;
 
   internal MixinStringPool(string[] values, IReadOnlyDictionary<string, int> ids) {
-    _baseCount = 0;
-    _values = [.. values ?? []];
+    _values = values ?? [];
     _ids = new Dictionary<string, int>(StringComparer.Ordinal);
     if (ids is not null)
       foreach (var item in ids)
         _ids.Add(item.Key, item.Value);
   }
 
-  private MixinStringPool(MixinStringPool parent) {
-    _parent = parent ?? throw new ArgumentNullException(nameof(parent));
-    _baseCount = parent.Count;
-    _values = [];
-    _ids = new Dictionary<string, int>(StringComparer.Ordinal);
-  }
-
-  public int Count => _baseCount + _values.Count;
-  public string this[int id] => id < _baseCount ? _parent[id] : _values[id - _baseCount];
+  public int Count => _values.Length;
+  public string this[int id] => _values[id];
 
   public bool TryGetId(string value, out int id) {
     value ??= "";
-    return _ids.TryGetValue(value, out id) || (_parent is not null && _parent.TryGetId(value, out id));
+    return _ids.TryGetValue(value, out id);
   }
 
   public MixinString Get(string value) {
-    return Intern(value);
-  }
-
-  public MixinString Intern(string value) {
     value ??= "";
     if (TryGetId(value, out var id)) return MixinString.Interned(id);
-    id = Count;
-    _values.Add(value);
-    _ids.Add(value, id);
-    return MixinString.Interned(id);
+    return MixinString.Dynamic(value);
   }
 
-  internal MixinStringPool Fork() {
-    return new MixinStringPool(this);
-  }
 }
 
 public sealed class MixinStringPoolBuilder {
   private readonly Dictionary<string, int> _ids = new(StringComparer.Ordinal);
   private readonly List<string> _values = [];
+
+  public MixinStringPoolBuilder() { }
+
+  internal MixinStringPoolBuilder(MixinStringPool seed) {
+    if (seed is null) return;
+    for (var id = 0; id < seed.Count; id++) Intern(seed[id]);
+  }
 
   public MixinString Intern(string value) {
     value ??= "";

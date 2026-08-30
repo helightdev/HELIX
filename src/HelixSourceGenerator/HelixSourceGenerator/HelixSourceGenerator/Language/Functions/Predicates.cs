@@ -94,7 +94,7 @@ internal sealed class TraitPredicate(string name) : PredicateFunctionDefinition(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
   ) {
-    if (context.HasTrait(value, context.Intern(Name))) return Result(true);
+    if (context.HasTrait(value, context.ResolveString(Name))) return Result(true);
     if (value is not RoslynMixinValue roslyn) return Result(false);
     var symbol = roslyn.Value as ISymbol;
     var type = RoslynMixinContext.TypeOf(roslyn.Value);

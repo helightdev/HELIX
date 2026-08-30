@@ -12,7 +12,7 @@ internal sealed class WireFunction() : EvaluatedFunctionDefinition("wire", 1, 1)
   ) {
     return context is RoslynMixinContext roslyn &&
       RoslynMixinContext.TryWireParameters(roslyn.Callable(value), roslyn.Callable(arguments[0]), out var wired)
-        ? new LiteralMixinValue(context.Intern(wired))
+        ? new LiteralMixinValue(context.ResolveString(wired))
         : context.Error("methods cannot be wired");
   }
 }
@@ -94,7 +94,7 @@ internal abstract class StructPartsFunction(string name) : PropStructFunction(na
     var prefix = arguments.Count == 0 ? null : arguments[0].Render(context).Resolve(context.Strings);
     var joined = string.IsNullOrWhiteSpace(prefix) ? string.Join(", ", parts) :
       parts.Count == 0 ? prefix : prefix + ", " + string.Join(", ", parts);
-    return new LiteralMixinValue(context.Intern(joined));
+    return new LiteralMixinValue(context.ResolveString(joined));
   }
 
   protected abstract IReadOnlyList<string> Parts(MixinPropStructValue value);
@@ -125,6 +125,6 @@ internal sealed class PropStructCallFunction() : PropStructFunction("propStructC
         RefKind.Ref => "ref ", RefKind.Out => "out ", RefKind.In => "in ", _ => ""
       } + variable + "." + GeneratorAnalysis.EscapeIdentifier(item.Name)
     );
-    return new LiteralMixinValue(context.Intern(target + "(" + string.Join(", ", callArguments) + ")"));
+    return new LiteralMixinValue(context.ResolveString(target + "(" + string.Join(", ", callArguments) + ")"));
   }
 }

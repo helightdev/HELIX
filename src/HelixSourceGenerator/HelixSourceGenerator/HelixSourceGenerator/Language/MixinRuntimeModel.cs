@@ -190,8 +190,8 @@ public abstract class ExecutionContext {
         ? item.Value
         : new MixinTableValue(
           [
-            new KeyValuePair<MixinString, IMixinValue>(Intern("k"), new LiteralMixinValue(item.Key)),
-            new KeyValuePair<MixinString, IMixinValue>(Intern("v"), item.Value)
+            new KeyValuePair<MixinString, IMixinValue>(ResolveString("k"), new LiteralMixinValue(item.Key)),
+            new KeyValuePair<MixinString, IMixinValue>(ResolveString("v"), item.Value)
           ]
         );
       var result = ProgramInvoker(transform.Function, parameter);
@@ -272,8 +272,10 @@ public abstract class ExecutionContext {
     };
   }
 
-  public MixinString Intern(string value) {
-    return Strings.Intern(value);
+  public MixinString ResolveString(string value) {
+    // Runtime pools are immutable. Reuse a compile-time string when possible,
+    // but never grow the pool with data discovered while executing a mixin.
+    return Strings.Get(value);
   }
 
   public static MixinString Dynamic(string value) {
@@ -465,7 +467,7 @@ public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMi
   }
 
   public MixinTableValue Push(ExecutionContext context, IMixinValue value) {
-    return Put(context.Intern(Count.ToString()), value);
+    return Put(context.ResolveString(Count.ToString()), value);
   }
 
   public MixinTableValue Pop() {

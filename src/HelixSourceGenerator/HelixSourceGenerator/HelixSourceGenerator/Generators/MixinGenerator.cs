@@ -203,7 +203,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
               MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
             )
           ),
-        preparedExpressions.StringPool.Fork(),
+        preparedExpressions.StringPool,
         context.DebugExpressions.ToImmutableArray(), context.Debug, context.DebugStringPool
       )
     );
@@ -1261,7 +1261,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         IMixinValue typed => typed,
         null => NullMixinValue.Instance,
         bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
-        string text => new LiteralMixinValue(MixinString.Dynamic(text)),
+        string text => new LiteralMixinValue(strings.Get(text)),
         DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached),
         _ => new ObjectMixinValue(value)
       };
@@ -1407,7 +1407,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         IMixinValue typed => typed,
         null => NullMixinValue.Instance,
         bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
-        string text => new LiteralMixinValue(MixinString.Dynamic(text)),
+        string text => new LiteralMixinValue(strings.Get(text)),
         DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached),
         _ => new ObjectMixinValue(value)
       };

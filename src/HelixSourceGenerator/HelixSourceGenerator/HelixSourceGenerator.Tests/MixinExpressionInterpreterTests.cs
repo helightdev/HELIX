@@ -12,6 +12,40 @@ namespace HELIX.SourceGen.Tests;
 public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
+  public void FrozenStringPoolResolvesKnownTextWithoutInterningRuntimeText() {
+    var builder = new MixinStringPoolBuilder();
+    var expected = builder.Intern("known");
+    var pool = builder.Freeze();
+
+    var known = pool.Get("known");
+    var runtime = pool.Get("runtime-only");
+
+    Assert.Equal(expected, known);
+    Assert.True(known.IsInterned);
+    Assert.False(runtime.IsInterned);
+    Assert.Equal("runtime-only", runtime.DynamicValue);
+    Assert.Equal(1, pool.Count);
+    Assert.False(pool.TryGetId("runtime-only", out _));
+  }
+
+  [Fact]
+  public void RuntimeInputsReuseCompiledStringsAndKeepUnknownStringsDynamic() {
+    var variables = new Dictionary<string, object> {
+      ["known"] = "known",
+      ["runtime"] = "runtime-only"
+    };
+    var context = new StubContext();
+    var result = MixinExpressionVirtualMachine.Execute(
+      "@CODE @var#known\n@CODE @var#runtime", context, variables
+    );
+
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] { "known", "runtime-only" }, result.Outputs.Select(item => item.Text));
+    Assert.True(context.Strings.TryGetId("known", out _));
+    Assert.False(context.Strings.TryGetId("runtime-only", out _));
+  }
+
+  [Fact]
   public void TablesMutateWhileOpenAndCopyAfterAssignmentClosesThem() {
     var variables = new Dictionary<string, object>();
     var created = MixinExpressionVirtualMachine.Execute(
@@ -1011,7 +1045,7 @@ public sealed class MixinExpressionInterpreterTests {
     }
 
     public override MixinString NameOf(global::HelixSourceGenerator.Language.IMixinValue value) =>
-      Intern("Demo");
+      ResolveString("Demo");
   }
 
 }

@@ -40,13 +40,6 @@ internal static class MixinLibraryApi {
     var diagnostics = new List<Diagnostic>();
     var prepared = Prepare(diagnostics.Add, catalog);
     var stringPool = prepared.StringPool;
-    foreach (var annotation in catalog.Annotations) {
-      stringPool.Intern(annotation.Name);
-      foreach (var definition in annotation.TargetDefinitions) {
-        stringPool.Intern(definition.Key);
-        stringPool.Intern(definition.Value);
-      }
-    }
     var annotations = new Dictionary<string, CompiledMixinAnnotation>(StringComparer.Ordinal);
     foreach (var annotation in catalog.Annotations) {
       if (!TryCompileAnnotation(annotation, prepared, false, out var member, out var error, out var line) ||
@@ -292,7 +285,16 @@ internal static class MixinLibraryApi {
       }
       libraries.Add(new Library(file.Key, "", Location.None, file.Program));
     }
-    return PrepareLibraries(reportDiagnostic, libraries);
+    return PrepareLibraries(
+      reportDiagnostic, libraries,
+      catalog.Annotations.SelectMany(annotation =>
+        new[] { annotation.Name }.Concat(
+          annotation.TargetDefinitions.SelectMany(definition =>
+            new[] { definition.Key, definition.Value }
+          )
+        )
+      )
+    );
   }
 
   internal static IEnumerable<INamedTypeSymbol> AttributeOwners(IEnumerable<ISymbol> symbols) {
@@ -316,7 +318,8 @@ internal static class MixinLibraryApi {
 
   private static MixinExpressionPreparedState PrepareLibraries(
     Action<Diagnostic> reportDiagnostic,
-    IReadOnlyList<Library> libraries
+    IReadOnlyList<Library> libraries,
+    IEnumerable<string> additionalConstants = null
   ) {
     var valid = new List<MixinProgramSyntax>(libraries.Count);
     foreach (var library in libraries) {
@@ -340,14 +343,16 @@ internal static class MixinLibraryApi {
       valid.Add(MixinExpressionParser.Parse(library.Content));
     }
     try {
-      return MixinExpressionCompiler.PrepareGlobals(valid);
+      return MixinExpressionCompiler.PrepareGlobals(valid, additionalConstants);
     } catch (ArgumentException exception) {
       reportDiagnostic(
         Diagnostic.Create(
           InvalidLibraryImport, Location.None, "import set", exception.Message
         )
       );
-      return MixinExpressionCompiler.PrepareGlobals(Array.Empty<string>());
+      return MixinExpressionCompiler.PrepareGlobals(
+        Array.Empty<MixinProgramSyntax>(), additionalConstants
+      );
     }
   }
 

@@ -21,12 +21,13 @@ public sealed partial class MixinGenerator {
 
   private static string BuildDebugTrace(MixinRenderModel render) {
     var builder = new StringBuilder();
-    var debugPool = render.StringPool.Fork();
+    var debugPoolBuilder = new MixinStringPoolBuilder(render.StringPool);
     foreach (var work in render.DebugExpressions)
     foreach (var token in (work.PreludeProgram + "\n" + work.LateProgram).Split(
       ['@', '<', '>', '#', ':', '(', ')', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries
     ))
-      debugPool.Intern(token);
+      debugPoolBuilder.Intern(token);
+    var debugPool = debugPoolBuilder.Freeze();
     builder.AppendLine("// ============================================================================");
     builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
     if (render.DebugStringPool) AppendDebugStringPool(builder, debugPool);

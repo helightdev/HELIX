@@ -85,12 +85,13 @@ public static partial class MixinExpressionCompiler {
   }
 
   internal static MixinExpressionPreparedState PrepareGlobals(
-    IReadOnlyList<MixinProgramSyntax> programs
+    IReadOnlyList<MixinProgramSyntax> programs, IEnumerable<string> additionalConstants = null
   ) {
     using var profile = MixinProfiler.Measure("compiler.prepare_globals.syntax");
     programs = [.. (programs ?? []).Select(FunctionBindingStep.Bind)];
     var poolBuilder = new MixinStringPoolBuilder();
     foreach (var program in programs) program.CollectConstants(poolBuilder);
+    foreach (var constant in additionalConstants ?? []) poolBuilder.Intern(constant);
     var stringPool = poolBuilder.Freeze();
     var variables = new MixinValueDictionary();
     var logs = new List<MixinExpressionPreparedLog>();
@@ -178,17 +179,9 @@ public static partial class MixinExpressionCompiler {
     }
     program = FunctionBindingStep.Bind(program);
     var localInstructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
-    var pool = prepared?.StringPool.Fork();
-    if (pool is null) {
-      var poolBuilder = new MixinStringPoolBuilder();
-      program.CollectConstants(poolBuilder);
-      pool = poolBuilder.Freeze();
-    } else {
-      var localPoolBuilder = new MixinStringPoolBuilder();
-      program.CollectConstants(localPoolBuilder);
-      var localPool = localPoolBuilder.Freeze();
-      for (var i = 0; i < localPool.Count; i++) pool.Intern(localPool[i]);
-    }
+    var poolBuilder = new MixinStringPoolBuilder(prepared?.StringPool);
+    program.CollectConstants(poolBuilder);
+    var pool = poolBuilder.Freeze();
     var labels = new Dictionary<string, int>(StringComparer.Ordinal);
     var instructionScopes = new Dictionary<int, int>();
     var functions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);

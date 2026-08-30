@@ -51,7 +51,7 @@ public static class MixinExpressionVirtualMachine {
     using var profile = MixinProfiler.Measure("vm.execute.total");
     var started = Stopwatch.GetTimestamp();
     var setupProfile = MixinProfiler.Measure("vm.execute.setup");
-    context.Strings = program.StringPool.Fork();
+    context.Strings = program.StringPool;
     var previousInvoker = context.ProgramInvoker;
     context.ProgramInvoker = (function, parameter) =>
       RunProgramFunction(program, context, function.Entry, parameter);
@@ -67,13 +67,13 @@ public static class MixinExpressionVirtualMachine {
         if (item.Key.StartsWith(CarryLocalPrefix, StringComparison.Ordinal)) {
           if (importCarries) {
             context.Carries.Store(
-              context, context.Intern(item.Key.Substring(CarryLocalPrefix.Length)),
+              context, context.ResolveString(item.Key.Substring(CarryLocalPrefix.Length)),
               FromObject(context, item.Value)
             );
           }
           continue;
         }
-        context.Variables.Store(context, context.Intern(item.Key), FromObject(context, item.Value));
+        context.Variables.Store(context, context.ResolveString(item.Key), FromObject(context, item.Value));
       }
     }
     var outputs = new List<MixinExpressionOutput>();
@@ -360,19 +360,19 @@ public static class MixinExpressionVirtualMachine {
     return value switch {
       IMixinValue typed => typed, null => NullMixinValue.Instance,
       bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
-      string text => new LiteralMixinValue(ExecutionContext.Dynamic(text)),
+      string text => new LiteralMixinValue(context.ResolveString(text)),
       DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached),
       IReadOnlyDictionary<string, object> table => new MixinTableValue(
         [
           .. table.Select(item =>
-            new KeyValuePair<MixinString, IMixinValue>(context.Intern(item.Key), FromObject(context, item.Value))
+            new KeyValuePair<MixinString, IMixinValue>(context.ResolveString(item.Key), FromObject(context, item.Value))
           )
         ]
       ),
       IDictionary<string, object> table => new MixinTableValue(
         [
           .. table.Select(item =>
-            new KeyValuePair<MixinString, IMixinValue>(context.Intern(item.Key), FromObject(context, item.Value))
+            new KeyValuePair<MixinString, IMixinValue>(context.ResolveString(item.Key), FromObject(context, item.Value))
           )
         ]
       ),
