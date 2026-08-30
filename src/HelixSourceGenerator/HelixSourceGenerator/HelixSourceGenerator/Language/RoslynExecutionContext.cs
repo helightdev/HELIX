@@ -472,13 +472,8 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     var generateDatatype = SymbolEqualityComparer.Default.Equals(type, CurrentType) &&
       _attribute?.AttributeClass?.ToDisplayString() == GeneratorStrings.Attributes.Structure &&
       _attribute.ConstructorArguments.Length > 0 && _attribute.ConstructorArguments[0].Value is true;
-    if (!PropStructApi.TryAnalyze(type, out var model, out var diagnostic, generateDatatype))
+    if (!PropStructApi.TryAnalyze(type, out var props, out var model, out var diagnostic, generateDatatype))
       return Error(diagnostic.GetMessage(CultureInfo.InvariantCulture));
-    var props = GeneratorAnalysis.InstanceFields(type).Select(field => new PropDefinition(
-        field, field.Type,
-        field.Name, GeneratorAnalysis.Attribute(field, GeneratorStrings.Attributes.Prop)
-      )
-    ).ToArray();
     var handle = new MixinPropStructValue(props, model, true);
     Locals.StoreIsolated(Intern(local), handle);
     var builder = new SharpStringBuilder();
@@ -613,16 +608,18 @@ internal sealed class RoslynMixinContext : ExecutionContext {
 
   public override IMixinValue Unwrap(IMixinValue value) {
     using var profile = MixinProfiler.Measure("roslyn.unwrap");
-    if (value is RoslynMixinValue { Value: TypedConstant constant }) {
-      if (constant.IsNull || constant.Kind == TypedConstantKind.Error) return NullMixinValue.Instance;
-      var raw = constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol type
-        ? type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal)
-        : Convert.ToString(constant.Value, CultureInfo.InvariantCulture);
-      return new LiteralMixinValue(Intern(raw));
+    switch (value) {
+      case RoslynMixinValue { Value: TypedConstant constant }
+        when constant.IsNull || constant.Kind == TypedConstantKind.Error: return NullMixinValue.Instance;
+      case RoslynMixinValue { Value: TypedConstant constant }: {
+        var raw = constant is { Kind: TypedConstantKind.Type, Value: ITypeSymbol type }
+          ? type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal)
+          : Convert.ToString(constant.Value, CultureInfo.InvariantCulture);
+        return new LiteralMixinValue(Intern(raw));
+      }
+      case DetachedSemanticMixinValue detached: return new LiteralMixinValue(detached.Unwrapped);
+      default: return base.Unwrap(value);
     }
-    if (value is DetachedSemanticMixinValue detached)
-      return new LiteralMixinValue(detached.Unwrapped);
-    return base.Unwrap(value);
   }
 
   public override IMixinValue Attributes(IMixinValue value, MixinString requested, bool exact, bool first) {
@@ -682,15 +679,16 @@ internal sealed class RoslynMixinContext : ExecutionContext {
 
   protected override IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) {
     using var profile = MixinProfiler.Measure("roslyn.resolve_host");
-    if (root == MixinExpressionRoot.This && !string.IsNullOrEmpty(member.Resolve(Strings)) &&
-      _generatedStructs.TryGetValue(member.Resolve(Strings), out var generatedType)) {
+    var memberName = member.Resolve(Strings);
+    if (root == MixinExpressionRoot.This && !string.IsNullOrEmpty(memberName) &&
+      _generatedStructs.TryGetValue(memberName, out var generatedType)) {
       var typeName = Intern(generatedType);
       return new DetachedSemanticMixinValue(
-        typeName, typeName, Intern(member.Resolve(Strings)), typeName,
+        typeName, typeName, Intern(memberName), typeName,
         typeName, Intern("public"), [typeName], [Intern("struct")], []
       );
     }
-    var name = member.Resolve(Strings);
+    var name = memberName;
     var cache = root switch {
       MixinExpressionRoot.This => _thisValues,
       MixinExpressionRoot.Attribute => _attributeValues,
@@ -982,8 +980,11 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
   }
 
   private DetachedSemanticData Detach(ExecutionContext context, bool includeMembers) {
-    using var profile = MixinProfiler.Measure(includeMembers
-      ? "semantic.detach.full" : "semantic.detach.shallow");
+    using var profile = MixinProfiler.Measure(
+      includeMembers
+        ? "semantic.detach.full"
+        : "semantic.detach.shallow"
+    );
     var type = RoslynMixinContext.TypeOf(Value);
     var symbol = Value as ISymbol ?? type;
     var members = new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase);

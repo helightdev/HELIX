@@ -14,17 +14,18 @@ namespace HelixSourceGenerator.Shared;
 internal static class PropStructApi {
   internal static bool TryAnalyze(
     INamedTypeSymbol type,
+    out IReadOnlyList<PropDefinition> props,
     out PropStructModel model,
     out Diagnostic diagnostic,
     bool datatype = false
   ) {
     var fields = InstanceFields(type);
-    var props = fields.Select(field => new PropDefinition(
+    props = fields.Select(field => new PropDefinition(
         field, field.Type, field.Name, Attribute(field, Attributes.Prop)
       )
     ).ToArray();
     if (!TryAnalyzeProps(props, out model, out diagnostic)) return false;
-    if (!TryAnalyzeEquality(type, fields, out var equality, out diagnostic)) {
+    if (!TryAnalyzeEquality(type, props, out var equality, out diagnostic)) {
       model = null;
       return false;
     }
@@ -159,7 +160,7 @@ internal static class PropStructApi {
 
   private static bool TryAnalyzeEquality(
     INamedTypeSymbol type,
-    IReadOnlyList<IFieldSymbol> fields,
+    IReadOnlyList<PropDefinition> props,
     out PropEqualityModel equality,
     out Diagnostic diagnostic
   ) {
@@ -169,10 +170,11 @@ internal static class PropStructApi {
       return true;
     }
 
-    var comparisons = new List<string>(fields.Count);
-    var hashValues = new List<string>(fields.Count);
-    foreach (var field in fields) {
-      var attribute = Attribute(field, Attributes.Prop);
+    var comparisons = new List<string>(props.Count);
+    var hashValues = new List<string>(props.Count);
+    foreach (var prop in props) {
+      var field = (IFieldSymbol)prop.Symbol;
+      var attribute = prop.Attribute;
       if (attribute is not null && !BooleanArgument(attribute, PropArguments.Equatable, true)) continue;
 
       var fieldName = EscapeIdentifier(field.Name);
@@ -220,7 +222,7 @@ internal static class PropStructApi {
       !hasTypedEquals || HasOrdinaryTypedEquals(type),
       !HasObjectEquals(type),
       !HasHashCode(type),
-      fields.Any(field => ContainsPointer(field.Type))
+      props.Any(prop => ContainsPointer(prop.Type))
     );
     return true;
   }
