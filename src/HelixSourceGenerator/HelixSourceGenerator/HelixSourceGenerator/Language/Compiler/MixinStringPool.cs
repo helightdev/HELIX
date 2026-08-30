@@ -6,14 +6,16 @@ using System.Linq;
 namespace HelixSourceGenerator.Language.Compiler;
 
 public readonly struct MixinString : IEquatable<MixinString> {
+  private readonly bool _initialized;
   private MixinString(int id, string dynamicValue) {
     Id = id;
     DynamicValue = dynamicValue;
+    _initialized = true;
   }
 
   public int Id { get; }
   public string DynamicValue { get; }
-  public bool IsInterned => Id >= 0;
+  public bool IsInterned => _initialized && Id >= 0;
 
   internal static MixinString Interned(int id) {
     return new MixinString(id, null);
@@ -51,15 +53,16 @@ public readonly struct MixinString : IEquatable<MixinString> {
 }
 
 public sealed class MixinStringPool {
-  private readonly IReadOnlyDictionary<string, int> _ids;
-  private readonly string[] _values;
+  private readonly Dictionary<string, int> _ids;
+  private readonly List<string> _values;
 
   internal MixinStringPool(string[] values, IReadOnlyDictionary<string, int> ids) {
-    _values = values ?? [];
-    _ids = ids ?? new Dictionary<string, int>(StringComparer.Ordinal);
+    _values = new List<string>(values ?? []);
+    _ids = new Dictionary<string, int>(StringComparer.Ordinal);
+    if (ids is not null) foreach (var item in ids) _ids.Add(item.Key, item.Value);
   }
 
-  public int Count => _values.Length;
+  public int Count => _values.Count;
   public string this[int id] => _values[id];
 
   public bool TryGetId(string value, out int id) {
@@ -67,7 +70,20 @@ public sealed class MixinStringPool {
   }
 
   public MixinString Get(string value) {
-    return TryGetId(value, out var id) ? MixinString.Interned(id) : MixinString.Dynamic(value);
+    return Intern(value);
+  }
+
+  public MixinString Intern(string value) {
+    value ??= "";
+    if (_ids.TryGetValue(value, out var id)) return MixinString.Interned(id);
+    id = _values.Count;
+    _values.Add(value);
+    _ids.Add(value, id);
+    return MixinString.Interned(id);
+  }
+
+  internal MixinStringPool Fork() {
+    return new MixinStringPool([.. _values], _ids);
   }
 }
 
@@ -84,7 +100,7 @@ public sealed class MixinStringPoolBuilder {
     return MixinString.Interned(id);
   }
 
-  internal MixinStringPool Freeze() {
+  public MixinStringPool Freeze() {
     return new MixinStringPool(
       [.. _values], new Dictionary<string, int>(_ids, StringComparer.Ordinal)
     );

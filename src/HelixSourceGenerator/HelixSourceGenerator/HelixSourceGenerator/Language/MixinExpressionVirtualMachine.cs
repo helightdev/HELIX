@@ -4,468 +4,268 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using HelixSourceGenerator.Language.Compiler;
-using HelixSourceGenerator.Language.Functions;
 
 namespace HelixSourceGenerator.Language;
 
-using static MixinExpressionCompiler;
-public static partial class MixinExpressionVirtualMachine {
-  internal const string ParameterLocalKey = "\0@param";
+public static class MixinExpressionVirtualMachine {
   internal const string CarryLocalPrefix = "\0@carry:";
 
-  public static MixinExpressionResult Execute(
-    string expression, IMixinExpressionContext context, IDictionary<string, object> variables = null
-  ) {
-    return Execute(expression, context, variables, (MixinExpressionPreparedState)null);
-  }
-
-  public static MixinExpressionResult Execute(
-    string expression, IMixinExpressionContext context, IDictionary<string, object> variables,
-    MixinExpressionPreparedState preparedState
-  ) {
-    return CompileAndExecute(
-      expression is null ? null : MixinExpressionParser.Parse(expression), context, variables, preparedState
+  public static MixinExpressionResult Execute(string expression, ExecutionContext context,
+    IDictionary<string, object> variables = null) => Execute(
+      expression, context, variables, (MixinExpressionPreparedState)null
     );
+
+  public static MixinExpressionResult Execute(string expression, ExecutionContext context,
+    IDictionary<string, object> variables, MixinExpressionPreparedState prepared) {
+    var syntax = expression is null ? null : MixinExpressionParser.Parse(expression);
+    return ExecuteCompiled(syntax, context, variables, prepared);
   }
 
-  public static MixinExpressionResult Execute(
-    string expression, IMixinExpressionContext context, IDictionary<string, object> variables,
-    IEnumerable<string> preparedExpressions
-  ) {
-    return Execute(expression, context, variables, PrepareGlobals(preparedExpressions ?? []));
-  }
+  public static MixinExpressionResult Execute(string expression, ExecutionContext context,
+    IDictionary<string, object> variables, IEnumerable<string> preparedExpressions) =>
+    Execute(expression, context, variables, MixinExpressionCompiler.PrepareGlobals(preparedExpressions));
 
-  internal static MixinExpressionResult ExecuteCompiled(
-    MixinProgramSyntax program, IMixinExpressionContext context, IDictionary<string, object> variables,
-    MixinExpressionPreparedState preparedState
-  ) {
-    return CompileAndExecute(program, context, variables, preparedState);
-  }
-
-  private static MixinExpressionResult CompileAndExecute(
-    MixinProgramSyntax program, IMixinExpressionContext context, IDictionary<string, object> variables,
-    MixinExpressionPreparedState preparedState
-  ) {
-    if (context is null) throw new ArgumentNullException(nameof(context));
-    if (!TryCompileExecution(program, preparedState, out var compiled, out var error, out var line))
+  internal static MixinExpressionResult ExecuteCompiled(MixinProgramSyntax syntax, ExecutionContext context,
+    IDictionary<string, object> variables, MixinExpressionPreparedState prepared) {
+    if (!MixinExpressionCompiler.TryCompileExecution(syntax, prepared, out var program, out var error, out var line))
       return Failure(error, line);
-    return Execute(compiled, context, variables);
+    return Execute(program, context, variables);
   }
 
-  internal static MixinExpressionResult Execute(
-    MixinExpressionExecutionProgram program,
-    IMixinExpressionContext context,
-    IDictionary<string, object> variables
-  ) {
-    var executionStartedAt = Stopwatch.GetTimestamp();
-    if (context is null) throw new ArgumentNullException(nameof(context));
-    var lines = program.Instructions;
-    var preparedInitializers = program.Initializers;
-    var labels = program.Labels;
-    var instructionScopes = program.InstructionScopes;
-    var functions = program.Functions;
-    var functionStarts = program.FunctionStarts;
-    var functionEnds = program.FunctionEnds;
-    var executionPool = program.StringPool;
-    var locals = new MixinValueDictionary(executionPool);
-    var pendingVariables = new MixinValueDictionary(executionPool);
-    foreach (var item in program.Variables) pendingVariables[item.Key] = item.Value;
-    if (variables is not null)
-      foreach (var item in variables)
-        pendingVariables[item.Key] = item.Value;
+  internal static MixinExpressionResult Execute(MixinExpressionExecutionProgram program, ExecutionContext context,
+    IDictionary<string, object> variables) {
+    var started = Stopwatch.GetTimestamp();
+    context.Strings = program.StringPool;
+    var previousInvoker = context.ProgramInvoker;
+    context.ProgramInvoker = (function, parameter) =>
+      RunProgramFunction(program, context, function.Entry, parameter);
+    context.Locals.Clear(); context.Variables.Clear(); context.Carries.Clear();
+    context.Parameter = NullMixinValue.Instance;
+    foreach (var item in program.Variables) context.Variables[item.Key] = item.Value;
+    if (variables is not null) foreach (var item in variables) {
+      if (item.Key.StartsWith(CarryLocalPrefix, StringComparison.Ordinal))
+        context.Carries[context.Intern(item.Key.Substring(CarryLocalPrefix.Length))] = FromObject(context, item.Value);
+      else context.Variables[context.Intern(item.Key)] = FromObject(context, item.Value);
+    }
     var outputs = new List<MixinExpressionOutput>();
     var logs = new List<MixinExpressionLog>();
-    var pc = 0;
-    var steps = 0;
-    var executedOperations = 0;
-    var maximumSteps = Math.Max(1024, lines.Count * 64);
-    var calls = new Stack<CallFrame>();
+    var calls = new Stack<(int Return, MixinString Local, IMixinValue Parameter)>();
+    var pc = 0; var operations = 0; var steps = 0; var limit = Math.Max(1024, program.Instructions.Count * 64);
 
-    MixinExpressionResult SuccessfulResult() {
-      var unlinkedVariables = pendingVariables.ToDictionary(
-        item => item.Key,
-        item => MixinValue.Unlink(item.Value, context),
-        StringComparer.Ordinal
-      );
-      var elapsedMilliseconds =
-        (Stopwatch.GetTimestamp() - executionStartedAt) * 1000d / Stopwatch.Frequency;
-      return Success(outputs, logs, unlinkedVariables, executedOperations, elapsedMilliseconds);
+    MixinExpressionResult Error(IMixinValue value, MixinInstruction instruction) =>
+      Failure(value.Render(context).Resolve(context.Strings), instruction.Location.Line, logs);
+    bool Evaluate(MixinInstruction instruction, out IMixinValue value) {
+      value = EvaluateRuntime(program, context, instruction.Operand ?? NullMixinValue.Instance);
+      return value is not ErrorMixinValue;
     }
 
-    bool FinishTransform(CallFrame frame, out string finishError) {
-      if (!TryResumeTransform(
-        frame.transform, context, frame.accumulator, out var completed, out finishError
-      )) return false;
-      switch (frame.continuation) {
-        case FrameContinuation.StoreLocal: locals[frame.destination] = completed; break;
-        case FrameContinuation.StoreVariable: pendingVariables[frame.destination] = completed; break;
-        case FrameContinuation.EmitCode:
-          outputs.Add(
-            new MixinExpressionOutput(
-              frame.outputTarget,
-              [MixinString.Dynamic(completed.Render())], executionPool,
-              executionPool.Get(frame.injectionTarget)
-            )
-          );
+    try {
+    while (pc < program.Instructions.Count) {
+      if (++steps > limit) return Failure("execution limit exceeded", program.Instructions[pc].Location.Line, logs);
+      var instruction = program.Instructions[pc++];
+      if (instruction.Opcode == MixinOpcode.Empty) continue;
+      operations++;
+      switch (instruction.Opcode) {
+        case MixinOpcode.Scope: break;
+        case MixinOpcode.Function: pc = instruction.Destination; break;
+        case MixinOpcode.End:
+          if (instruction.SecondaryDestination != 0 && calls.Count != 0)
+            CompleteReturn(NullMixinValue.Instance);
           break;
-        case FrameContinuation.Return:
-          return CompleteCall(completed, out finishError);
-      }
-      return true;
-    }
-
-    IMixinValue TransformParameter(CallFrame frame) {
-      var item = frame.inputs[frame.inputIndex];
-      if (frame.transform.Kind == TableTransformKind.MapValues) return item.Value;
-      return new MixinExpressionTable().Put("k", item.Key).Put("v", item.Value);
-    }
-
-    bool BeginTransform(
-      MixinTransformRequest request, FrameContinuation continuation, string destination,
-      MixinExpressionOutputTarget outputTarget, string injectionTarget, out string beginError
-    ) {
-      beginError = null;
-      if (!functions.TryGetValue(request.FunctionLabel ?? "", out var callback)) {
-        beginError = "unknown function '" + (request.FunctionLabel ?? "") + "'";
-        return false;
-      }
-      var frame = new CallFrame {
-        returnAddress = pc, hadParameter = locals.TryGetValue(ParameterLocalKey, out var previous),
-        parameter = MixinValue.From(previous, context), continuation = continuation, transform = request,
-        inputs = [.. request.Source.Entries], accumulator = new MixinExpressionTable(), functionStart = callback.Start,
-        destination = destination, outputTarget = outputTarget, injectionTarget = injectionTarget
-      };
-      if (frame.inputs.Length == 0) return FinishTransform(frame, out beginError);
-      calls.Push(frame);
-      locals[ParameterLocalKey] = TransformParameter(frame);
-      pc = frame.functionStart;
-      return true;
-    }
-
-    bool CompleteCall(IMixinValue returned, out string completeError) {
-      completeError = null;
-      var frame = calls.Peek();
-      if (frame.transform is null) {
-        calls.Pop();
-        RestoreCallParameter(locals, frame);
-        if (!string.IsNullOrEmpty(frame.returnLocal)) locals[frame.returnLocal] = returned;
-        pc = frame.returnAddress;
-        return true;
-      }
-      var input = frame.inputs[frame.inputIndex];
-      if (frame.transform.Kind == TableTransformKind.Filter) {
-        if (returned.IsTruthy)
-          frame.accumulator = frame.accumulator.Put(input.Key, input.Value);
-      } else frame.accumulator = frame.accumulator.Put(input.Key, returned);
-      frame.inputIndex++;
-      if (frame.inputIndex < frame.inputs.Length) {
-        locals[ParameterLocalKey] = TransformParameter(frame);
-        pc = frame.functionStart;
-        return true;
-      }
-      calls.Pop();
-      RestoreCallParameter(locals, frame);
-      pc = frame.returnAddress;
-      return FinishTransform(frame, out completeError);
-    }
-
-    while (pc < lines.Count) {
-      if (++steps > maximumSteps) return Failure("execution limit exceeded (possible GOTO loop)", pc + 1, logs);
-      if (functionStarts.TryGetValue(pc, out var functionEnd)) {
-        pc = functionEnd + 1;
-        continue;
-      }
-      var lineNumber = pc + 1;
-      var instruction = pc;
-      var parsed = lines[pc++];
-      if (parsed is EmptyDirectiveSyntax) continue;
-      if (preparedInitializers.Contains(instruction)) continue;
-      executedOperations++;
-
-      if (parsed is DirectiveInvocationSyntax invocationSyntax &&
-        invocationSyntax.Definition is DirectiveFunctionDefinition directiveFunction) {
-        var invocation = new DirectiveFunctionInvocation(
-          invocationSyntax, context, locals, pendingVariables, outputs
-        );
-        if (!directiveFunction.Invoke(invocation, out var directiveFunctionError))
-          return Failure(directiveFunctionError, lineNumber, logs);
-        continue;
-      }
-
-      // Dispatch on AST node kinds. Directive spelling and parser details do not leak into execution.
-      switch (parsed) {
-        case ScopeDirectiveSyntax:
-        case LabelDirectiveSyntax:
-        case FunctionDirectiveSyntax:
-          break;
-        case EndDirectiveSyntax:
-          if (functionEnds.Contains(instruction) && calls.Count != 0) {
-            if (!CompleteCall(NullMixinValue.Instance, out var endCallError))
-              return Failure(endCallError, lineNumber, logs);
+        case MixinOpcode.Match:
+          if (!Evaluate(instruction, out var matched)) return Error(matched, instruction);
+          if (!matched.IsTruthy(context)) {
+            var destination = instruction.Destination >= 0
+              ? instruction.Destination : instruction.SecondaryDestination;
+            if (destination < 0) return Failure("MATCH has no following scope", instruction.Location.Line, logs);
+            pc = destination;
           }
           break;
-        case MatchDirectiveSyntax matchSyntax:
-          if (!TryEvaluateAll(
-            matchSyntax.Expression, context, locals, pendingVariables,
-            out var matched, out var matchError, out var matchFailure
-          )) return Failure(matchError, lineNumber, logs);
-          if (!matched) {
-            if (!string.IsNullOrEmpty(matchSyntax.FailureLabel)) {
-              var matchScope = instructionScopes[instruction];
-              var matchKey = ScopeLabelKey(matchScope, matchSyntax.FailureLabel);
-              if (!labels.TryGetValue(matchKey, out var matchDestination))
-                return Failure("unknown scope label '" + matchSyntax.FailureLabel + "'", lineNumber, logs);
-              pc = matchDestination + 1;
-              break;
-            }
-            var next = FindNextScopeOrEnd(
-              lines, pc, instructionScopes[instruction], instructionScopes,
-              functionStarts, functionEnds
-            );
-            if (next < 0) {
-              return Failure(
-                matchFailure + "; there is no following scope", lineNumber, logs
-              );
-            }
-            pc = next;
-          }
-          break;
-        case AssertDirectiveSyntax assertSyntax:
-          if (!TryEvaluateAll(
-            assertSyntax.Expression, context, locals, pendingVariables,
-            out var asserted, out var assertError, out var assertFailure
-          )) return Failure(assertError, lineNumber, logs);
-          if (!asserted) return Failure(assertFailure, lineNumber, logs);
-          break;
-        case CodeDirectiveSyntax codeSyntax:
-          var outputTarget = codeSyntax.Target;
-          var injectionTarget = codeSyntax.InjectionTarget;
-          if (codeSyntax.Expression is { Count: 1 } && codeSyntax.Expression[0].Reference is not null) {
-            if (!TryEvaluateExpression(
-              codeSyntax.Expression, context, locals, pendingVariables, out var codeValue, out var codeValueError
-            )) return Failure(codeValueError, lineNumber, logs);
-            if (codeValue is MixinTransformRequest codeTransform) {
-              if (!BeginTransform(
-                codeTransform, FrameContinuation.EmitCode, null, outputTarget, injectionTarget,
-                out var beginCodeError
-              )) return Failure(beginCodeError, lineNumber, logs);
-              break;
-            }
-          }
-          if (!TryInterpolateSegments(
-            codeSyntax.Expression, context, locals, pendingVariables, executionPool,
-            out var code, out var codeError
-          )) return Failure(codeError, lineNumber, logs);
-          outputs.Add(
-            new MixinExpressionOutput(
-              outputTarget, code, executionPool, executionPool.Get(injectionTarget)
-            )
+        case MixinOpcode.Assert:
+          if (!Evaluate(instruction, out var asserted)) return Error(asserted, instruction);
+          if (!asserted.IsTruthy(context)) return Failure(
+            instruction.Message.Resolve(context.Strings) ?? "assertion failed",
+            instruction.Location.Line, logs
           );
           break;
-        case MixinDirectiveSyntax mixinSyntax:
-          if (!TryInterpolateSegments(
-            mixinSyntax.Expression, context, locals, pendingVariables, executionPool, out var mixinCode,
-            out var mixinCodeError
-          )) return Failure(mixinCodeError, lineNumber, logs);
-          if (!TryResolveDirectiveArgument(
-            mixinSyntax.Target, context, locals, pendingVariables, out var mixinTarget,
-            out var mixinArgumentError
-          )) return Failure(mixinArgumentError, lineNumber, logs);
-          if (string.IsNullOrEmpty(mixinTarget)) return Failure("MIXIN target is empty", lineNumber, logs);
-          var mixinPriority = 0;
-          if (mixinSyntax.Priority is not null) {
-            if (!TryResolveDirectiveArgument(
-              mixinSyntax.Priority, context, locals, pendingVariables, out var mixinPriorityText,
-              out var mixinPriorityArgumentError
-            )) return Failure(mixinPriorityArgumentError, lineNumber, logs);
-            if (!int.TryParse(
-              mixinPriorityText, NumberStyles.Integer, CultureInfo.InvariantCulture, out mixinPriority
-            )) {
-              return Failure(
-                "MIXIN priority '" + (mixinPriorityText ?? "") +
-                "' is not a valid 32-bit integer", lineNumber, logs
-              );
-            }
-          }
-          outputs.Add(
-            new MixinExpressionOutput(
-              MixinExpressionOutputTarget.Mixin, mixinCode, executionPool,
-              executionPool.Get(mixinTarget), mixinPriority
-            )
+        case MixinOpcode.Emit:
+        case MixinOpcode.Using:
+          if (!Evaluate(instruction, out var emitted)) return Error(emitted, instruction);
+          outputs.Add(new MixinExpressionOutput(instruction.OutputTarget == default && instruction.Opcode == MixinOpcode.Using
+            ? MixinExpressionOutputTarget.Using : instruction.OutputTarget,
+            [emitted.Render(context)], context.Strings, instruction.Name));
+          break;
+        case MixinOpcode.Mixin:
+          if (!Evaluate(instruction, out var mixinCode)) return Error(mixinCode, instruction);
+          var mixinTarget = context.Evaluate(instruction.Arguments[0]);
+          var priorityValue = context.Evaluate(instruction.Arguments[1]);
+          if (mixinTarget is ErrorMixinValue) return Error(mixinTarget, instruction);
+          if (priorityValue is ErrorMixinValue) return Error(priorityValue, instruction);
+          var priorityText = priorityValue.Render(context).Resolve(context.Strings);
+          int.TryParse(priorityText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var priority);
+          outputs.Add(new MixinExpressionOutput(MixinExpressionOutputTarget.Mixin,
+            [mixinCode.Render(context)], context.Strings, mixinTarget.Render(context), priority));
+          break;
+        case MixinOpcode.Log:
+          if (!Evaluate(instruction, out var logged)) return Error(logged, instruction);
+          logs.Add(new MixinExpressionLog(logged.Render(context).Resolve(context.Strings), instruction.Location.Line));
+          break;
+        case MixinOpcode.StoreLocal:
+        case MixinOpcode.StoreVariable:
+        case MixinOpcode.Carry:
+          if (!Evaluate(instruction, out var stored)) return Error(stored, instruction);
+          if (instruction.Opcode == MixinOpcode.Carry) context.Carries[instruction.Name] = stored;
+          else (instruction.Opcode == MixinOpcode.StoreLocal ? context.Locals : context.Variables)[instruction.Name] = stored;
+          break;
+        case MixinOpcode.Call:
+          if (instruction.Destination < 0) return Failure("unknown function", instruction.Location.Line, logs);
+          if (!Evaluate(instruction, out var parameter)) return Error(parameter, instruction);
+          calls.Push((pc, instruction.Name, context.Parameter));
+          context.Parameter = parameter; pc = instruction.Destination; break;
+        case MixinOpcode.Return:
+          if (!Evaluate(instruction, out var returned)) return Error(returned, instruction);
+          if (calls.Count == 0) { pc = program.Instructions.Count; break; }
+          CompleteReturn(returned); break;
+        case MixinOpcode.Goto:
+          if (instruction.Destination < 0) return Failure(
+            "unknown scope label '" + instruction.Name.Resolve(context.Strings) + "'",
+            instruction.Location.Line, logs
           );
+          pc = instruction.Destination; break;
+        case MixinOpcode.Skip:
+          if (instruction.Destination < 0)
+            return Failure("SKIP has no following scope", instruction.Location.Line, logs);
+          pc = instruction.Destination; break;
+        case MixinOpcode.Fail:
+          if (!Evaluate(instruction, out var failed)) return Error(failed, instruction);
+          var failureText = failed.Render(context).Resolve(context.Strings);
+          return Failure(string.IsNullOrEmpty(failureText) ? "expression requested failure" : failureText,
+            instruction.Location.Line, logs);
+        case MixinOpcode.Directive:
+          if (instruction.Directive is not DirectiveFunctionDefinition directive)
+            return Failure("directive has no resolved runtime function", instruction.Location.Line, logs);
+          var directiveValue = directive.Invoke(context, instruction.Arguments ?? [],
+            instruction.Operand ?? NullMixinValue.Instance);
+          if (directiveValue is ErrorMixinValue) return Error(directiveValue, instruction);
+          if (directiveValue is DirectiveEffectMixinValue effect &&
+            !string.IsNullOrEmpty(effect.ClassCode.Resolve(context.Strings)))
+            outputs.Add(new MixinExpressionOutput(MixinExpressionOutputTarget.Class,
+              [effect.ClassCode], context.Strings));
           break;
-        case UsingDirectiveSyntax usingSyntax:
-          if (!TryInterpolateSegments(
-            usingSyntax.Expression, context, locals, pendingVariables, executionPool,
-            out var usingDirective,
-            out var usingError
-          )) return Failure(usingError, lineNumber, logs);
-          outputs.Add(
-            new MixinExpressionOutput(
-              MixinExpressionOutputTarget.Using, usingDirective, executionPool,
-              MixinString.Dynamic(null)
-            )
-          );
-          break;
-        case LogDirectiveSyntax logSyntax:
-          if (!TryInterpolate(
-            logSyntax.Expression, context, locals, pendingVariables, out var log,
-            out var logError
-          )) return Failure(logError, lineNumber, logs);
-          logs.Add(new MixinExpressionLog(log, lineNumber));
-          break;
-        case LocalDirectiveSyntax:
-        case VariableDirectiveSyntax:
-          var storeName = parsed is LocalDirectiveSyntax localSyntax
-            ? localSyntax.Name
-            : ((VariableDirectiveSyntax)parsed).Name;
-          if (!TryEvaluateExpression(
-            ((ValueDirectiveSyntax)parsed).Expression, context, locals, pendingVariables, out var stored,
-            out var storeError
-          )) return Failure(storeError, lineNumber, logs);
-          if (stored is MixinTransformRequest storeTransform) {
-            if (!BeginTransform(
-              storeTransform,
-              parsed is LocalDirectiveSyntax
-                ? FrameContinuation.StoreLocal
-                : FrameContinuation.StoreVariable,
-              storeName, default, null, out var beginStoreError
-            )) return Failure(beginStoreError, lineNumber, logs);
-            break;
-          }
-          (parsed is LocalDirectiveSyntax ? locals : pendingVariables)[storeName] = stored;
-          break;
-        case CarryDirectiveSyntax carrySyntax:
-          if (TryEvaluateExpression(
-            carrySyntax.Expression, context, locals, pendingVariables,
-            out var carried, out var carryError
-          )) pendingVariables[CarryLocalPrefix + carrySyntax.Label] = MixinValue.Unlink(carried, context);
-          else pendingVariables[CarryLocalPrefix + carrySyntax.Label] = new FailedMixinValue(carryError);
-          break;
-        case ReturnDirectiveSyntax returnSyntax:
-          if (calls.Count != 0) {
-            IMixinValue returnValue = NullMixinValue.Instance;
-            if (HasExpression(returnSyntax.Expression) && !TryEvaluateExpression(
-              returnSyntax.Expression, context, locals, pendingVariables,
-              out returnValue, out var returnError
-            )) return Failure(returnError, lineNumber, logs);
-            if (returnValue is MixinTransformRequest returnTransform) {
-              if (!BeginTransform(
-                returnTransform, FrameContinuation.Return, null, default, null,
-                out var beginReturnError
-              )) return Failure(beginReturnError, lineNumber, logs);
-              break;
-            }
-            if (!CompleteCall(returnValue, out var completeCallError))
-              return Failure(completeCallError, lineNumber, logs);
-            break;
-          }
-          CommitVariables(variables, pendingVariables);
-          return SuccessfulResult();
-        case CallDirectiveSyntax callSyntax:
-          var callFunctionLabel = callSyntax.Function;
-          var callReturnLocal = callSyntax.ReturnLocal;
-          if (string.IsNullOrEmpty(callFunctionLabel) || !functions.TryGetValue(callFunctionLabel, out var function))
-            return Failure("unknown function '" + (callFunctionLabel ?? "") + "'", lineNumber, logs);
-          var hadParameter = locals.TryGetValue(ParameterLocalKey, out var previousParameter);
-          IMixinValue callParameter = NullMixinValue.Instance;
-          if (HasExpression(callSyntax.Expression) && !TryEvaluateExpression(
-            callSyntax.Expression, context, locals, pendingVariables,
-            out callParameter, out var callParameterError
-          )) return Failure(callParameterError, lineNumber, logs);
-          calls.Push(
-            new CallFrame {
-              returnAddress = pc, hadParameter = hadParameter, parameter = MixinValue.From(previousParameter, context),
-              returnLocal = callReturnLocal, continuation = FrameContinuation.Call
-            }
-          );
-          locals[ParameterLocalKey] = callParameter;
-          pc = function.Start;
-          break;
-        case InlineDirectiveSyntax:
-          return Failure("INLINE must be expanded before evaluation", lineNumber, logs);
-        case GotoDirectiveSyntax gotoSyntax:
-          var gotoScope = instructionScopes[instruction];
-          var gotoKey = ScopeLabelKey(gotoScope, gotoSyntax.Label ?? "");
-          if (string.IsNullOrEmpty(gotoSyntax.Label) || !labels.TryGetValue(gotoKey, out var destination))
-            return Failure("unknown scope label '" + (gotoSyntax.Label ?? "") + "'", lineNumber, logs);
-          pc = destination + 1;
-          break;
-        case SkipDirectiveSyntax:
-          var skip = FindNextScopeOrEnd(
-            lines, pc, instructionScopes[instruction], instructionScopes,
-            functionStarts, functionEnds
-          );
-          if (skip < 0) return Failure("SKIP has no following scope", lineNumber, logs);
-          pc = skip;
-          break;
-        case FailDirectiveSyntax failSyntax:
-          if (!HasExpression(failSyntax.Expression)) return Failure("expression requested failure", lineNumber, logs);
-          return Failure(
-            !TryInterpolate(
-              failSyntax.Expression, context, locals, pendingVariables, out var failureMessage, out var failureError
-            )
-              ? failureError
-              : failureMessage, lineNumber, logs
-          );
-        default:
-          return Failure("invalid compiled instruction", lineNumber, logs);
+        default: return Failure("unsupported compiled opcode", instruction.Location.Line, logs);
       }
     }
 
-    CommitVariables(variables, pendingVariables);
-    return SuccessfulResult();
+    if (variables is not null) {
+      variables.Clear();
+      foreach (var item in context.Variables)
+        variables[item.Key.Resolve(context.Strings)] = item.Value.Unlink(context);
+      foreach (var item in context.Carries)
+        variables[CarryLocalPrefix + item.Key.Resolve(context.Strings)] = item.Value.Unlink(context);
+    }
+    var elapsed = (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
+    return new MixinExpressionResult(true, null, 0, outputs, logs,
+      variables?.ToDictionary(item => item.Key, item => item.Value) ?? new Dictionary<string, object>(), operations, elapsed);
+
+    void CompleteReturn(IMixinValue value) {
+      var frame = calls.Pop();
+      context.Parameter = frame.Parameter;
+      if (frame.Local.IsInterned || !string.IsNullOrEmpty(frame.Local.DynamicValue)) context.Locals[frame.Local] = value;
+      pc = frame.Return;
+    }
+    } finally {
+      context.ProgramInvoker = previousInvoker;
+    }
   }
 
-  private static bool HasExpression(IReadOnlyList<ValueExpressionPart> expression) {
-    return expression is { Count: > 1 } || expression is { Count: 1 } &&
-      (expression[0].Reference is not null || !string.IsNullOrEmpty(expression[0].Literal));
+  private static IMixinValue EvaluateRuntime(MixinExpressionExecutionProgram program,
+    ExecutionContext context, IMixinValue source) {
+    return context.Evaluate(source);
   }
 
-  private static void RestoreCallParameter(MixinValueDictionary locals, CallFrame frame) {
-    if (frame.hadParameter) locals[ParameterLocalKey] = frame.parameter;
-    else locals.Remove(ParameterLocalKey);
+  private static IMixinValue RunProgramFunction(MixinExpressionExecutionProgram program,
+    ExecutionContext context, int entry, IMixinValue parameter) {
+    if (entry < 0 || entry >= program.Instructions.Count) return context.Error("invalid function entry");
+    var previousParameter = context.Parameter;
+    context.Parameter = parameter;
+    try {
+      var pc = entry;
+      var steps = 0;
+      while (pc < program.Instructions.Count && ++steps <= Math.Max(256, program.Instructions.Count * 16)) {
+        var instruction = program.Instructions[pc++];
+        IMixinValue Value() => EvaluateRuntime(program, context,
+          instruction.Operand ?? NullMixinValue.Instance);
+        switch (instruction.Opcode) {
+          case MixinOpcode.Empty or MixinOpcode.Scope: continue;
+          case MixinOpcode.Function: pc = instruction.Destination; continue;
+          case MixinOpcode.End when instruction.SecondaryDestination != 0: return NullMixinValue.Instance;
+          case MixinOpcode.End: continue;
+          case MixinOpcode.Match: {
+            var condition = Value();
+            if (condition is ErrorMixinValue) return condition;
+            if (!condition.IsTruthy(context)) {
+              var destination = instruction.Destination >= 0
+                ? instruction.Destination : instruction.SecondaryDestination;
+              if (destination < 0) return context.Error("MATCH has no following scope");
+              pc = destination;
+            }
+            continue;
+          }
+          case MixinOpcode.Assert: {
+            var condition = Value();
+            if (condition is ErrorMixinValue) return condition;
+            if (!condition.IsTruthy(context)) return context.Error(instruction.Message.Resolve(context.Strings));
+            continue;
+          }
+          case MixinOpcode.StoreLocal: context.Locals[instruction.Name] = Value(); continue;
+          case MixinOpcode.StoreVariable: context.Variables[instruction.Name] = Value(); continue;
+          case MixinOpcode.Carry: context.Carries[instruction.Name] = Value(); continue;
+          case MixinOpcode.Call: {
+            var argument = Value();
+            if (argument is ErrorMixinValue) return argument;
+            var result = RunProgramFunction(program, context, instruction.Destination, argument);
+            if (result is ErrorMixinValue) return result;
+            if (instruction.Name.IsInterned || !string.IsNullOrEmpty(instruction.Name.DynamicValue))
+              context.Locals[instruction.Name] = result;
+            continue;
+          }
+          case MixinOpcode.Return: return Value();
+          case MixinOpcode.Goto:
+            if (instruction.Destination < 0) return context.Error("unknown scope label");
+            pc = instruction.Destination; continue;
+          case MixinOpcode.Skip:
+            if (instruction.Destination < 0) return context.Error("SKIP has no following scope");
+            pc = instruction.Destination; continue;
+          case MixinOpcode.Fail: return context.Error(Value().Render(context).Resolve(context.Strings));
+          default: return context.Error("function callback contains unsupported opcode");
+        }
+      }
+      return context.Error("function callback exceeded execution limit");
+    } finally { context.Parameter = previousParameter; }
   }
 
-  internal static void CommitVariables(
-    IDictionary<string, object> destination, IReadOnlyDictionary<string, object> source
-  ) {
-    if (destination is null) return;
-    destination.Clear();
-    foreach (var item in source) destination[item.Key] = item.Value;
+  private static IMixinValue Resolve(IMixinValue value, ExecutionContext context) => value switch {
+    RootMixinValue root => context.Resolve(root.Root, root.Member),
+    InvokeMixinValue invocation => context.Invoke(invocation.Function, invocation.Instance, invocation.Arguments, invocation.Negated),
+    _ => value
+  };
+  private static IMixinValue FromObject(ExecutionContext context, object value) => value switch {
+    IMixinValue typed => typed, null => NullMixinValue.Instance, bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
+    string text => new LiteralMixinValue(context.Intern(text)),
+    DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, context.Strings),
+    IReadOnlyDictionary<string, object> table => new MixinTableValue(table.Select(item =>
+      new KeyValuePair<MixinString, IMixinValue>(context.Intern(item.Key), FromObject(context, item.Value))
+    ).ToArray()),
+    IDictionary<string, object> table => new MixinTableValue(table.Select(item =>
+      new KeyValuePair<MixinString, IMixinValue>(context.Intern(item.Key), FromObject(context, item.Value))
+    ).ToArray()),
+    _ => new ObjectMixinValue(value)
+  };
+  private static int FindNext(IReadOnlyList<MixinInstruction> instructions, int pc) {
+    for (var i = pc; i < instructions.Count; i++)
+      if (instructions[i].Opcode is MixinOpcode.Scope or MixinOpcode.End) return i;
+    return instructions.Count;
   }
-
-  internal static MixinExpressionResult Success(
-    IReadOnlyList<MixinExpressionOutput> outputs, IReadOnlyList<MixinExpressionLog> logs,
-    IReadOnlyDictionary<string, object> variables = null, int executedOperations = 0,
-    double executionMilliseconds = 0
-  ) {
-    return new MixinExpressionResult(
-      true, null, 0, outputs, logs, variables, executedOperations, executionMilliseconds
-    );
-  }
-
-  internal static MixinExpressionResult Failure(
-    string error, int line, IReadOnlyList<MixinExpressionLog> logs = null
-  ) {
-    return new MixinExpressionResult(false, error, line, [], logs);
-  }
-
-  internal enum FrameContinuation { Call, StoreLocal, StoreVariable, EmitCode, Return }
-
-  internal sealed class CallFrame {
-    internal MixinExpressionTable accumulator;
-    internal FrameContinuation continuation;
-    internal string destination;
-    internal int functionStart;
-    internal bool hadParameter;
-    internal string injectionTarget;
-    internal int inputIndex;
-    internal KeyValuePair<string, IMixinValue>[] inputs;
-    internal MixinExpressionOutputTarget outputTarget;
-    internal IMixinValue parameter;
-    internal int returnAddress;
-    internal string returnLocal;
-    internal MixinTransformRequest transform;
-  }
+  private static MixinExpressionResult Failure(string error, int line, IReadOnlyList<MixinExpressionLog> logs = null) =>
+    new(false, error, line, [], logs ?? []);
 }

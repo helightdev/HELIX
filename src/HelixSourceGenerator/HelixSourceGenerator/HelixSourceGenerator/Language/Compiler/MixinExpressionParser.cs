@@ -91,8 +91,19 @@ public static class MixinExpressionParser {
         arguments.Add(argument);
       }
       var property = new MixinExpressionProperty(propertyToken.Text, arguments.AsReadOnly(), negated);
-      if (FunctionLibrary.TryGet(property.Name, out var function) && !function.Validate(property, out error))
+      if (FunctionLibrary.TryGet(property.Name, out var function) &&
+        (property.Arguments.Count < function.MinimumArguments ||
+          property.Arguments.Count > function.MaximumArguments)) {
+        error = function.MinimumArguments == function.MaximumArguments
+          ? ":" + property.Name + " requires " + function.MinimumArguments +
+            (function.MinimumArguments == 1 ? " argument" : " arguments")
+          : ":" + property.Name + " accepts at most " + function.MaximumArguments + " arguments";
         return false;
+      }
+      if (property.Name is "and" or "or" && arguments.Any(item => item.BooleanExpression is null)) {
+        error = ":" + property.Name + " arguments must be dynamic boolean expressions";
+        return false;
+      }
       properties.Add(property);
     }
     for (var index = 0; index + 1 < properties.Count; index++) {
@@ -399,24 +410,24 @@ public static class MixinExpressionParser {
     return result.AsReadOnly();
   }
 
-  internal static IReadOnlyList<ValueExpressionPart> ParseValueExpression(string text) {
+  internal static IReadOnlyList<IMixinValue> ParseValueExpression(string text) {
     return ParseValueExpression(MixinExpressionLexer.LexExpression(text), text);
   }
 
-  private static IReadOnlyList<ValueExpressionPart> ParseValueExpression(
+  private static IReadOnlyList<IMixinValue> ParseValueExpression(
     IReadOnlyList<MixinExpressionToken> tokens
   ) {
     return ParseValueExpression(tokens, null);
   }
 
-  private static IReadOnlyList<ValueExpressionPart> ParseValueExpression(
+  private static IReadOnlyList<IMixinValue> ParseValueExpression(
     IReadOnlyList<MixinExpressionToken> tokens, string source
   ) {
-    var result = new List<ValueExpressionPart>();
+    var result = new List<IMixinValue>();
     var position = 0;
     while (position < tokens.Count) {
       if (Take(tokens, ref position, MixinExpressionTokenKind.Literal, out var literal)) {
-        result.Add(new ValueExpressionPart(literal.Text, null));
+        result.Add(new IMixinValue(literal.Text, null));
         continue;
       }
       var referenceStart = position;
@@ -427,16 +438,16 @@ public static class MixinExpressionParser {
           )) position++;
         var end = position < tokens.Count ? tokens[position].Start : source?.Length ?? tokens[referenceStart].End;
         result.Add(
-          new ValueExpressionPart(
+          new IMixinValue(
             source is null ? tokens[referenceStart].Text :
               source.Substring(tokens[referenceStart].Start, end - tokens[referenceStart].Start), null, true
           )
         );
         continue;
       }
-      result.Add(new ValueExpressionPart(null, reference));
+      result.Add(new IMixinValue(null, reference));
     }
-    if (result.Count == 0) result.Add(new ValueExpressionPart("", null));
+    if (result.Count == 0) result.Add(new IMixinValue("", null));
     return result.AsReadOnly();
   }
 

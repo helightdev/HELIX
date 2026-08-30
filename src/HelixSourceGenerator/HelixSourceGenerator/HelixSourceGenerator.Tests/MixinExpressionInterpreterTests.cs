@@ -19,8 +19,7 @@ public sealed class MixinExpressionInterpreterTests {
       new StubContext(), variables
     );
     Assert.True(created.Success, created.Error);
-    var original = Assert.IsType<MixinExpressionTable>(variables["table"]);
-    Assert.True(original.IsClosed);
+    var original = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object>>(variables["table"]);
     Assert.Equal(2, original.Count);
 
     var changed = MixinExpressionVirtualMachine.Execute(
@@ -28,9 +27,8 @@ public sealed class MixinExpressionInterpreterTests {
       new StubContext(), variables
     );
     Assert.True(changed.Success, changed.Error);
-    var replacement = Assert.IsType<MixinExpressionTable>(variables["table"]);
+    var replacement = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object>>(variables["table"]);
     Assert.NotSame(original, replacement);
-    Assert.True(replacement.IsClosed);
     Assert.Equal(2, original.Count);
     Assert.Equal(3, replacement.Count);
   }
@@ -179,7 +177,7 @@ public sealed class MixinExpressionInterpreterTests {
     );
 
     Assert.True(result.Success, result.Error);
-    Assert.IsType<MixinExpressionTable>(variables["data"]);
+    Assert.IsAssignableFrom<IReadOnlyDictionary<string, object>>(variables["data"]);
     Assert.Null(variables["nothing"]);
     Assert.Equal(new[] { "Ada", "3", "1", "Ada" }, result.Outputs.Select(item => item.Text));
   }
@@ -964,39 +962,38 @@ public sealed class MixinExpressionInterpreterTests {
     Assert.Contains("unknown directive", result.Error);
   }
 
-  private sealed class StubContext : IMixinExpressionContext {
+  private sealed class StubContext : ExecutionContext {
     private readonly bool _argumentIsRef;
 
-    internal StubContext(bool argumentIsRef = false) {
+    internal StubContext(bool argumentIsRef = false)
+      : base(new MixinStringPoolBuilder().Freeze()) {
       _argumentIsRef = argumentIsRef;
     }
 
-    public bool TryResolve(MixinExpressionReference reference, out string value, out string error) {
-      error = null;
-      value = reference.Root == MixinExpressionRoot.This &&
-        reference.Properties.Any(item => item.Name == "name")
+    protected override global::HelixSourceGenerator.Language.IMixinValue ResolveHost(
+      MixinExpressionRoot root, MixinString member
+    ) {
+      var name = member.Resolve(Strings);
+      var value = root == MixinExpressionRoot.This && name == "name"
         ? "Demo"
-        : reference.Root switch {
+        : root switch {
           MixinExpressionRoot.Attribute => "attr",
           MixinExpressionRoot.Argument => "arg",
-          MixinExpressionRoot.Variable => "var",
-          MixinExpressionRoot.Parameter => "param",
-          _ => reference.Root.ToString().ToLowerInvariant()
+          _ => root.ToString().ToLowerInvariant()
         };
-      return true;
+      return new ObjectMixinValue(value);
     }
 
-    public bool TryEvaluate(MixinExpressionReference reference, out bool value, out string error) {
-      error = null;
-      var predicate = reference.Properties.Last();
-      value = predicate.Name switch {
+    public override bool HasTrait(global::HelixSourceGenerator.Language.IMixinValue value, MixinString trait) {
+      return trait.Resolve(Strings) switch {
         "ref" => _argumentIsRef,
         "argument" => !_argumentIsRef,
         _ => false
       };
-      if (predicate.Negated) value = !value;
-      return true;
     }
+
+    public override MixinString NameOf(global::HelixSourceGenerator.Language.IMixinValue value) =>
+      Intern("Demo");
   }
 
 }

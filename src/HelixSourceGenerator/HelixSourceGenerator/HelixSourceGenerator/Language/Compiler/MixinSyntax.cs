@@ -44,7 +44,7 @@ public abstract class DirectiveInstruction(int line) : MixinSyntaxNode(line) {
   internal abstract void CollectConstants(MixinStringPoolBuilder pool);
 
   private protected static void Collect(
-    MixinStringPoolBuilder pool, string value, IReadOnlyList<ValueExpressionPart> expression = null
+    MixinStringPoolBuilder pool, string value, IReadOnlyList<IMixinValue> expression = null
   ) {
     pool.Intern(value);
     foreach (var part in expression ?? [])
@@ -53,9 +53,9 @@ public abstract class DirectiveInstruction(int line) : MixinSyntaxNode(line) {
   }
 }
 
-public abstract class ValueDirectiveSyntax(int line, IReadOnlyList<ValueExpressionPart> expression)
+public abstract class ValueDirectiveSyntax(int line, IReadOnlyList<IMixinValue> expression)
   : DirectiveInstruction(line) {
-  internal IReadOnlyList<ValueExpressionPart> Expression { get; } = expression ?? [];
+  internal IReadOnlyList<IMixinValue> Expression { get; } = expression ?? [];
 
   internal override void CollectConstants(MixinStringPoolBuilder pool) {
     Collect(pool, null, Expression);
@@ -84,7 +84,7 @@ public sealed class UnknownDirectiveSyntax(int line, string command) : Directive
 }
 
 public sealed class DirectiveInvocationSyntax(int line, DirectiveDefinition definition,
-  IReadOnlyList<DirectiveArgumentSyntax> arguments, IReadOnlyList<ValueExpressionPart> operand
+  IReadOnlyList<DirectiveArgumentSyntax> arguments, IReadOnlyList<IMixinValue> operand
 ) : ValueDirectiveSyntax(line, operand) {
   internal DirectiveDefinition Definition { get; } = definition;
   internal IReadOnlyList<DirectiveArgumentSyntax> ParsedArguments { get; } = arguments;
@@ -123,7 +123,7 @@ public sealed class FunctionDirectiveSyntax(int l, string name) : DirectiveInstr
 }
 
 public sealed class CallDirectiveSyntax(int l, string function, string returnLocal,
-  IReadOnlyList<ValueExpressionPart> parameter
+  IReadOnlyList<IMixinValue> parameter
 ) : ValueDirectiveSyntax(l, parameter) {
   internal string Function { get; } = function;
   internal string ReturnLocal { get; } = returnLocal;
@@ -150,41 +150,41 @@ public sealed class AssertDirectiveSyntax(int l, IReadOnlyList<MixinExpressionRe
   : BooleanDirectiveSyntax(l, condition);
 
 public sealed class CodeDirectiveSyntax(int l, MixinExpressionOutputTarget target, string injectionTarget,
-  IReadOnlyList<ValueExpressionPart> code
+  IReadOnlyList<IMixinValue> code
 ) : ValueDirectiveSyntax(l, code) {
   internal MixinExpressionOutputTarget Target { get; } = target;
   internal string InjectionTarget { get; } = injectionTarget;
 }
 
 public sealed class MixinDirectiveSyntax(int l, DirectiveArgumentSyntax target, DirectiveArgumentSyntax priority,
-  IReadOnlyList<ValueExpressionPart> code
+  IReadOnlyList<IMixinValue> code
 ) : ValueDirectiveSyntax(l, code) {
   internal DirectiveArgumentSyntax Target { get; } = target;
   internal DirectiveArgumentSyntax Priority { get; } = priority;
 }
 
-public sealed class UsingDirectiveSyntax(int l, IReadOnlyList<ValueExpressionPart> value)
+public sealed class UsingDirectiveSyntax(int l, IReadOnlyList<IMixinValue> value)
   : ValueDirectiveSyntax(l, value);
 
-public sealed class LogDirectiveSyntax(int l, IReadOnlyList<ValueExpressionPart> message)
+public sealed class LogDirectiveSyntax(int l, IReadOnlyList<IMixinValue> message)
   : ValueDirectiveSyntax(l, message);
 
-public sealed class LocalDirectiveSyntax(int l, string name, IReadOnlyList<ValueExpressionPart> value)
+public sealed class LocalDirectiveSyntax(int l, string name, IReadOnlyList<IMixinValue> value)
   : ValueDirectiveSyntax(l, value) {
   internal string Name { get; } = name;
 }
 
-public sealed class VariableDirectiveSyntax(int l, string name, IReadOnlyList<ValueExpressionPart> value)
+public sealed class VariableDirectiveSyntax(int l, string name, IReadOnlyList<IMixinValue> value)
   : ValueDirectiveSyntax(l, value) {
   internal string Name { get; } = name;
 }
 
-public sealed class CarryDirectiveSyntax(int l, string label, IReadOnlyList<ValueExpressionPart> value)
+public sealed class CarryDirectiveSyntax(int l, string label, IReadOnlyList<IMixinValue> value)
   : ValueDirectiveSyntax(l, value) {
   internal string Label { get; } = label;
 }
 
-public sealed class ReturnDirectiveSyntax(int l, IReadOnlyList<ValueExpressionPart> value)
+public sealed class ReturnDirectiveSyntax(int l, IReadOnlyList<IMixinValue> value)
   : ValueDirectiveSyntax(l, value);
 
 public sealed class GotoDirectiveSyntax(int l, string label) : DirectiveInstruction(l) {
@@ -199,7 +199,7 @@ public sealed class SkipDirectiveSyntax(int l) : DirectiveInstruction(l) {
   internal override void CollectConstants(MixinStringPoolBuilder p) { }
 }
 
-public sealed class FailDirectiveSyntax(int l, IReadOnlyList<ValueExpressionPart> message)
+public sealed class FailDirectiveSyntax(int l, IReadOnlyList<IMixinValue> message)
   : ValueDirectiveSyntax(l, message);
 
 public sealed class AnnotationDirectiveSyntax(int l, string name) : DirectiveInstruction(l) {
@@ -224,17 +224,17 @@ public sealed class DefineTargetDirectiveSyntax(int l, string name, string value
   }
 }
 
-public sealed record ValueExpressionPart(
+public sealed record IMixinValue(
   string Literal, MixinExpressionReference Reference, bool Verbatim = false
 );
 
-public sealed record DirectiveArgumentSyntax(string Literal, IReadOnlyList<ValueExpressionPart> Expression) {
+public sealed record DirectiveArgumentSyntax(string Literal, IReadOnlyList<IMixinValue> Expression) {
   internal bool IsDynamic => Expression is not null;
 }
 
-internal sealed record MixinPropertyArgumentSyntax(
+public sealed record MixinPropertyArgumentSyntax(
   string Literal,
-  IReadOnlyList<ValueExpressionPart> ValueExpression,
+  IReadOnlyList<IMixinValue> ValueExpression,
   IReadOnlyList<MixinExpressionReference> BooleanExpression
 );
 

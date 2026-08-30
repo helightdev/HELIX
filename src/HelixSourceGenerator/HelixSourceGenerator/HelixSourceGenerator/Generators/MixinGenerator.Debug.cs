@@ -15,15 +15,20 @@ public sealed partial class MixinGenerator {
 
   private static string DebugStateKey(LateExpressionWork work) {
     return string.Join(
-      "\u001f", work.Provider, work.SourceType, work.SourceMember, MixinSyntaxRenderer.RenderProgram(work.Expression)
+      "\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateProgram
     );
   }
 
   private static string BuildDebugTrace(MixinRenderModel render) {
     var builder = new StringBuilder();
+    var debugPool = render.StringPool.Fork();
+    foreach (var work in render.DebugExpressions)
+    foreach (var token in (work.PreludeProgram + "\n" + work.LateProgram).Split(
+      new[] { '@', '<', '>', '#', ':', '(', ')', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+      debugPool.Intern(token);
     builder.AppendLine("// ============================================================================");
     builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
-    if (render.DebugStringPool) AppendDebugStringPool(builder, render.StringPool);
+    if (render.DebugStringPool) AppendDebugStringPool(builder, debugPool);
     builder.Append("// generationVersion = ")
       .AppendLine(render.GenerationVersion.ToString(CultureInfo.InvariantCulture));
     AppendDebugFingerprint(builder, "outputs", render.Fingerprint.Outputs);
@@ -36,8 +41,8 @@ public sealed partial class MixinGenerator {
       if (!string.IsNullOrEmpty(work.SourceType)) builder.Append(" on ").Append(work.SourceType);
       if (!string.IsNullOrEmpty(work.SourceMember)) builder.Append('.').Append(work.SourceMember);
       builder.AppendLine();
-      AppendDebugProgram(builder, "PRELUDE PROGRAM (PREPARED)", work.PreludeProgram, render);
-      AppendDebugProgram(builder, "LATE PROGRAM (PREPARED)", work.LateProgram, render);
+      AppendDebugProgram(builder, "PRELUDE PROGRAM (PREPARED)", work.PreludeProgram, render, debugPool);
+      AppendDebugProgram(builder, "LATE PROGRAM (PREPARED)", work.LateProgram, render, debugPool);
       builder.AppendLine("// CARRIED VALUES");
       var carries = work.Variables.Where(item => item.Key.StartsWith(
           MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
@@ -49,7 +54,7 @@ public sealed partial class MixinGenerator {
       foreach (var carry in carries) {
         var label = carry.Key.Substring(MixinExpressionVirtualMachine.CarryLocalPrefix.Length);
         builder.Append("//   @carry#").Append(label).Append(" = ")
-          .AppendLine(MixinValue.From(carry.Value).Render().Replace("\r", "\\r").Replace("\n", "\\n"));
+          .AppendLine(Convert.ToString(carry.Value, CultureInfo.InvariantCulture).Replace("\r", "\\r").Replace("\n", "\\n"));
       }
     }
     builder.AppendLine("// ============================================================================");
@@ -82,7 +87,7 @@ public sealed partial class MixinGenerator {
     if (persistent.Length == 0) builder.AppendLine("//   <empty>");
     foreach (var variable in persistent) {
       builder.Append("//   @var#").Append(variable.Key).Append(" = ")
-        .AppendLine(MixinValue.From(variable.Value).Render().Replace("\r", "\\r").Replace("\n", "\\n"));
+        .AppendLine(FormatDebugValue(variable.Value));
     }
     var total = finalStates.Sum(state => state.Work.PreludeMilliseconds + state.LateMilliseconds);
     builder.Append("// TOTAL durationMs = ").AppendLine(FormatDebugMilliseconds(total));
@@ -104,7 +109,8 @@ public sealed partial class MixinGenerator {
       builder.Append("//   §").Append(id).Append(" = ").AppendLine(EscapeDebugString(pool[id]));
   }
 
-  private static void AppendDebugProgram(StringBuilder builder, string title, string program, MixinRenderModel render) {
+  private static void AppendDebugProgram(StringBuilder builder, string title, string program,
+    MixinRenderModel render, MixinStringPool debugPool) {
     builder.Append("// ").AppendLine(title);
     var lines = (program ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
     if (lines.Length == 1 && lines[0].Length == 0) {
@@ -114,10 +120,16 @@ public sealed partial class MixinGenerator {
     for (var index = 0; index < lines.Length; index++) {
       if (index != lines.Length - 1 || lines[index].Length != 0)
         builder.Append("//   ").AppendLine(
-          render.DebugStringPool ? InternDebugLine(lines[index], render.StringPool) : lines[index]
+          render.DebugStringPool ? InternDebugLine(lines[index], debugPool) :
+            lines[index].Replace("@INLINE<", "@CALL<")
         );
     }
   }
+
+  private static string FormatDebugValue(object value) => value switch {
+    bool boolean => boolean ? "true" : "false",
+    _ => Convert.ToString(value, CultureInfo.InvariantCulture).Replace("\r", "\\r").Replace("\n", "\\n")
+  };
 
   private static string InternDebugLine(string line, MixinStringPool pool) {
     var candidates = Enumerable.Range(0, pool.Count).Select(id => new { Id = id, Value = pool[id] })

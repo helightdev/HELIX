@@ -6,7 +6,7 @@ using System.Text;
 
 namespace HelixSourceGenerator.Language.Compiler;
 
-public static class MixinExpressionCompiler {
+public static partial class MixinExpressionCompiler {
   private static readonly HashSet<MixinExpressionRoot> RoslynRoots = [
     MixinExpressionRoot.Target, MixinExpressionRoot.This, MixinExpressionRoot.Attribute, MixinExpressionRoot.Argument
   ];
@@ -184,14 +184,6 @@ public static class MixinExpressionCompiler {
     out int errorLine
   ) {
     var functions = new Dictionary<string, IReadOnlyList<DirectiveInstruction>>(StringComparer.Ordinal);
-    if (preparedState is not null) {
-      foreach (var function in preparedState.Functions) {
-        functions[function.Key] = [
-          .. preparedState.Instructions
-            .Skip(function.Value.Start).Take(function.Value.End - function.Value.Start)
-        ];
-      }
-    }
     if (!TryCollectInlineFunctions(explicitPrelude, functions, out error, out errorLine) ||
       !TryCollectInlineFunctions(expression, functions, out error, out errorLine)) {
       expandedPrelude = [];
@@ -201,6 +193,7 @@ public static class MixinExpressionCompiler {
     var inlineSequence = 0;
     if (!TryExpandInlineProgram(
       explicitPrelude.AvailableInstructions(), functions,
+      preparedState?.FunctionEntries, preparedState?.StringPool,
       new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
       out expandedPrelude, out error, out errorLine
     )) {
@@ -209,6 +202,7 @@ public static class MixinExpressionCompiler {
     }
     return TryExpandInlineProgram(
       expression.AvailableInstructions(), functions,
+      preparedState?.FunctionEntries, preparedState?.StringPool,
       new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
       out expandedExpression, out error, out errorLine
     );
@@ -246,6 +240,8 @@ public static class MixinExpressionCompiler {
   private static bool TryExpandInlineProgram(
     IEnumerable<DirectiveInstruction> source,
     IReadOnlyDictionary<string, IReadOnlyList<DirectiveInstruction>> functions,
+    IReadOnlyDictionary<MixinString, int> importedFunctions,
+    MixinStringPool importedStrings,
     ISet<string> activeFunctions,
     ref int inlineSequence,
     out IReadOnlyList<DirectiveInstruction> expanded,
@@ -260,6 +256,11 @@ public static class MixinExpressionCompiler {
       }
       var name = inline.Name ?? "";
       if (!functions.TryGetValue(name, out var body)) {
+        if (importedFunctions is not null && importedFunctions.Keys.Any(key =>
+          string.Equals(key.Resolve(importedStrings), name, StringComparison.Ordinal))) {
+          result.Add(instruction);
+          continue;
+        }
         expanded = [];
         error = "unknown inline function '" + name + "'";
         errorLine = instruction.Line;
@@ -293,7 +294,7 @@ public static class MixinExpressionCompiler {
         }
       }
       if (!TryExpandInlineProgram(
-        bodyNodes, functions, activeFunctions, ref inlineSequence,
+        bodyNodes, functions, importedFunctions, importedStrings, activeFunctions, ref inlineSequence,
         out var expandedBody, out error, out errorLine
       )) {
         expanded = [];
@@ -337,7 +338,7 @@ public static class MixinExpressionCompiler {
     labels[localReference] = label;
     generated.Add(
       new CarryDirectiveSyntax(
-        instruction.Line, label, [new ValueExpressionPart(null, localReference)]
+        instruction.Line, label, [new IMixinValue(null, localReference)]
       )
     );
     structuralLocals.Add(local);
@@ -361,7 +362,7 @@ public static class MixinExpressionCompiler {
         labels.Add(reference, label);
         generated.Add(
           new CarryDirectiveSyntax(
-            instruction.Line, label, [new ValueExpressionPart(null, reference)]
+            instruction.Line, label, [new IMixinValue(null, reference)]
           )
         );
       }
@@ -384,11 +385,11 @@ public static class MixinExpressionCompiler {
     DirectiveInstruction instruction,
     Func<MixinExpressionReference, MixinExpressionReference> rewrite
   ) {
-    IReadOnlyList<ValueExpressionPart> Value(IReadOnlyList<ValueExpressionPart> value) {
+    IReadOnlyList<IMixinValue> Value(IReadOnlyList<IMixinValue> value) {
       return [
         .. (value ?? []).Select(part => part.Reference is null
           ? part
-          : new ValueExpressionPart(null, RewriteComplete(part.Reference))
+          : new IMixinValue(null, RewriteComplete(part.Reference))
         )
       ];
     }
@@ -473,7 +474,7 @@ public static class MixinExpressionCompiler {
         var value = argument.ValueExpression is null
           ? null
           : argument.ValueExpression.Select(part =>
-            part.Reference is null ? part : new ValueExpressionPart(null, rewrite(part.Reference))
+            part.Reference is null ? part : new IMixinValue(null, rewrite(part.Reference))
           ).ToArray();
         var boolean = argument.BooleanExpression is null ? null : argument.BooleanExpression.Select(rewrite).ToArray();
         return new MixinPropertyArgumentSyntax(argument.Literal, value, boolean);
@@ -510,7 +511,7 @@ public static class MixinExpressionCompiler {
     };
   }
 
-  private static bool IsEmptyValue(IReadOnlyList<ValueExpressionPart> expression) {
+  private static bool IsEmptyValue(IReadOnlyList<IMixinValue> expression) {
     return expression is null || expression.All(item => item.Reference is null && string.IsNullOrEmpty(item.Literal));
   }
 
@@ -553,21 +554,9 @@ public static class MixinExpressionCompiler {
     var poolBuilder = new MixinStringPoolBuilder();
     foreach (var program in programs) program.CollectConstants(poolBuilder);
     var stringPool = poolBuilder.Freeze();
-    var variables = new MixinValueDictionary(stringPool);
+    var variables = new Dictionary<MixinString, Language.IMixinValue>();
     var logs = new List<MixinExpressionPreparedLog>();
-    var programIndex = 0;
     var executedOperations = 0;
-    foreach (var program in programs) {
-      if (!TryEvaluatePreparedInitializers(
-        program, programIndex, variables, logs, ref executedOperations,
-        out var error, out var line
-      )) {
-        throw new ArgumentException(
-          "invalid prepared expression at line " + line + ": " + error, nameof(programs)
-        );
-      }
-      programIndex++;
-    }
     var instructions = programs.SelectMany(program =>
       Enumerable.Range(0, program.Count).Select(program.Get)
     ).ToArray();
@@ -591,19 +580,33 @@ public static class MixinExpressionCompiler {
       instructionOffset += program.Count;
     }
     var initializers = FindPreparedInitializers(instructions);
+    foreach (var index in initializers) {
+      switch (instructions[index]) {
+        case VariableDirectiveSyntax variable:
+          if (!TryInterpolatePrepared(variable.Expression, variables, stringPool, out var value, out var error))
+            throw new ArgumentException("invalid prepared expression at line " + variable.Line + ": " + error,
+              nameof(programs));
+          variables[stringPool.Get(variable.Name)] = new LiteralMixinValue(stringPool.Get(value));
+          executedOperations++;
+          break;
+        case LogDirectiveSyntax log:
+          if (!TryInterpolatePrepared(log.Expression, variables, stringPool, out var text, out var logError))
+            throw new ArgumentException("invalid prepared expression at line " + log.Line + ": " + logError,
+              nameof(programs));
+          logs.Add(new MixinExpressionPreparedLog(text, log.Line, 0));
+          executedOperations++;
+          break;
+      }
+    }
+    var lowered = instructions.Select((instruction, index) => initializers.Contains(index)
+      ? new MixinInstruction(MixinOpcode.Empty, new MixinSourceLocation(0, instruction.Line))
+      : LowerInstruction(instructions, instruction, index, stringPool, labels, instructionScopes,
+        functions, functionStarts, functionEnds)).ToArray();
+    var functionEntries = functions.ToDictionary(
+      item => stringPool.Get(item.Key), item => item.Value.Start
+    );
     return new MixinExpressionPreparedState(
-      stringPool,
-      [.. programs],
-      new MixinValueDictionary(variables, stringPool),
-      instructions,
-      new MixinStringDictionary<int>(labels, stringPool),
-      new Dictionary<int, int>(instructionScopes),
-      new MixinStringDictionary<FunctionDefinition>(functions, stringPool),
-      new Dictionary<int, int>(functionStarts),
-      new HashSet<int>(functionEnds),
-      initializers,
-      logs.AsReadOnly(),
-      executedOperations
+      stringPool, lowered, variables, functionEntries, logs.AsReadOnly(), executedOperations
     );
   }
 
@@ -626,36 +629,46 @@ public static class MixinExpressionCompiler {
       errorLine = program.Diagnostics[0].Line;
       return false;
     }
-    var preparedInstructions = prepared?.Instructions ?? [];
     program = BindFunctions(program);
     var localInstructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
-    var instructions = preparedInstructions.Concat(localInstructions).ToArray();
-    var pool = prepared?.StringPool;
+    var pool = prepared?.StringPool.Fork();
     if (pool is null) {
       var poolBuilder = new MixinStringPoolBuilder();
       program.CollectConstants(poolBuilder);
       pool = poolBuilder.Freeze();
+    } else {
+      var localPoolBuilder = new MixinStringPoolBuilder();
+      program.CollectConstants(localPoolBuilder);
+      var localPool = localPoolBuilder.Freeze();
+      for (var i = 0; i < localPool.Count; i++) pool.Intern(localPool[i]);
     }
-    var labels = prepared is null
-      ? new Dictionary<string, int>(StringComparer.Ordinal)
-      : prepared.Labels.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
-    var instructionScopes = prepared?.InstructionScopes.ToDictionary(item => item.Key, item => item.Value)
-      ?? new Dictionary<int, int>();
-    var functions = prepared is null
-      ? new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal)
-      : prepared.Functions.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
-    var functionStarts = prepared?.FunctionStarts.ToDictionary(item => item.Key, item => item.Value)
-      ?? new Dictionary<int, int>();
-    var functionEnds = prepared is null ? new HashSet<int>() : new HashSet<int>(prepared.FunctionEnds);
+    var labels = new Dictionary<string, int>(StringComparer.Ordinal);
+    var instructionScopes = new Dictionary<int, int>();
+    var functions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
+    var functionStarts = new Dictionary<int, int>();
+    var functionEnds = new HashSet<int>();
     if (!TryIndexSymbols(
-      instructions, preparedInstructions.Count, instructions.Length,
+      localInstructions, 0, localInstructions.Length,
       labels, instructionScopes, functions, functionStarts, functionEnds,
       out error, out errorLine
     )) return false;
+    var offset = prepared?.Instructions.Count ?? 0;
+    var lowered = localInstructions.Select((instruction, index) => {
+      var item = LowerInstruction(localInstructions, instruction, index, pool, labels, instructionScopes,
+        functions, functionStarts, functionEnds, prepared?.FunctionEntries, offset);
+      var importedCall = instruction is CallDirectiveSyntax call &&
+        !functions.ContainsKey(call.Function ?? "") || instruction is InlineDirectiveSyntax inline &&
+        !functions.ContainsKey(inline.Name ?? "");
+      return item with {
+        Destination = item.Destination < 0 || importedCall
+          ? item.Destination : item.Destination + offset,
+        SecondaryDestination = item.SecondaryDestination < 0
+          ? item.SecondaryDestination : item.SecondaryDestination + offset
+      };
+    }).ToArray();
+    var instructions = (prepared?.Instructions ?? []).Concat(lowered).ToArray();
     compiled = new MixinExpressionExecutionProgram(
-      pool, instructions, prepared?.Variables ?? new Dictionary<string, object>(),
-      labels, instructionScopes, functions, functionStarts, functionEnds,
-      prepared is null ? new HashSet<int>() : new HashSet<int>(prepared.Initializers)
+      pool, instructions, prepared?.Variables ?? new Dictionary<MixinString, Language.IMixinValue>()
     );
     return true;
   }
@@ -685,67 +698,10 @@ public static class MixinExpressionCompiler {
     return result;
   }
 
-  private static bool TryEvaluatePreparedInitializers(
-    MixinProgramSyntax program,
-    int programIndex,
-    MixinValueDictionary variables,
-    ICollection<MixinExpressionPreparedLog> logs,
-    ref int executedOperations,
-    out string error,
-    out int line
-  ) {
-    error = null;
-    line = 0;
-    if (program.Diagnostics.Count != 0) {
-      error = program.Diagnostics[0].Message;
-      line = program.Diagnostics[0].Line;
-      return false;
-    }
-    var functionDepth = 0;
-    var functionScope = false;
-    for (var i = 0; i < program.Count; i++) {
-      var instruction = program.Get(i);
-      if (instruction is FunctionDirectiveSyntax) {
-        functionDepth++;
-        functionScope = false;
-        continue;
-      }
-      if (functionDepth != 0) {
-        switch (instruction) {
-          case ScopeDirectiveSyntax: functionScope = true; break;
-          case LabelDirectiveSyntax:
-          case EndDirectiveSyntax when functionScope: functionScope = false; break;
-          case EndDirectiveSyntax: functionDepth--; break;
-        }
-        continue;
-      }
-      switch (instruction) {
-        case VariableDirectiveSyntax variable: {
-          executedOperations++;
-          if (!TryInterpolatePrepared(variable.Expression, variables, out var value, out error)) {
-            line = instruction.Line;
-            return false;
-          }
-          variables[variable.Name] = value;
-          break;
-        }
-        case LogDirectiveSyntax log: {
-          executedOperations++;
-          if (!TryInterpolatePrepared(log.Expression, variables, out var value, out error)) {
-            line = instruction.Line;
-            return false;
-          }
-          logs.Add(new MixinExpressionPreparedLog(value, instruction.Line, programIndex));
-          break;
-        }
-      }
-    }
-    return true;
-  }
-
   private static bool TryInterpolatePrepared(
-    IReadOnlyList<ValueExpressionPart> expression,
-    MixinValueDictionary variables,
+    IReadOnlyList<IMixinValue> expression,
+    IReadOnlyDictionary<MixinString, Language.IMixinValue> variables,
+    MixinStringPool strings,
     out string result,
     out string error
   ) {
@@ -758,7 +714,7 @@ public static class MixinExpressionCompiler {
       }
       var reference = part.Reference;
       if (reference.Root != MixinExpressionRoot.Variable || string.IsNullOrEmpty(reference.Member) ||
-        !variables.TryGetValue(reference.Member, out var value)) {
+        !variables.TryGetValue(strings.Get(reference.Member), out var value)) {
         result = null;
         error = "prepared global initializers may only reference an existing @var value";
         return false;
@@ -768,7 +724,12 @@ public static class MixinExpressionCompiler {
         error = "prepared global initializer references cannot have properties";
         return false;
       }
-      builder.Append(MixinValue.From(value).Render());
+      if (value is not LiteralMixinValue literal) {
+        result = null;
+        error = "prepared global initializer value is not literal";
+        return false;
+      }
+      builder.Append(literal.Value.Resolve(strings));
     }
     result = builder.ToString();
     return true;

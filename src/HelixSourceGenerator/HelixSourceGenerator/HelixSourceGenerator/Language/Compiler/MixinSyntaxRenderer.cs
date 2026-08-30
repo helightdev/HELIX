@@ -81,7 +81,7 @@ public static class MixinSyntaxRenderer {
         : argument.Literal;
   }
 
-  internal static string RenderValue(IReadOnlyList<ValueExpressionPart> expression) {
+  internal static string RenderValue(IReadOnlyList<IMixinValue> expression) {
     var builder = new StringBuilder();
     var parts = expression ?? [];
     for (var index = 0; index < parts.Count; index++) {

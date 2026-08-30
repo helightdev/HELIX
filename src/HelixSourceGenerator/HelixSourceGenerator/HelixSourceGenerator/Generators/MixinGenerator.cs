@@ -228,14 +228,16 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         group => new FinalDebugState(group.Last(), 0, 0),
         StringComparer.Ordinal
       );
+    var unlinkedContext = new UnlinkedMixinExpressionContext(model.Render.StringPool);
     var sharedVariables = model.Render.PrimaryVariables.ToDictionary(
-      item => item.Key, item => item.Value, StringComparer.Ordinal
+      item => item.Key.Resolve(model.Render.StringPool),
+      item => item.Value.Unlink(unlinkedContext), StringComparer.Ordinal
     );
     foreach (var work in model.LateExpressions) {
       var variables = work.Variables.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
       foreach (var item in sharedVariables) variables[item.Key] = item.Value;
-      var result = MixinExpressionVirtualMachine.ExecuteCompiled(
-        work.Expression, UnlinkedMixinExpressionContext.Instance, variables, work.PreparedState
+      var result = MixinExpressionVirtualMachine.Execute(
+        work.Program, unlinkedContext, variables
       );
       foreach (var log in result.Logs)
         logs.Add(new MixinReportedLog(log, work.Location));
@@ -427,8 +429,9 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     var attributeName = providerName ?? applied?.AttributeClass?.Name ?? "<unknown>";
     IReadOnlyList<string> targets = [];
     IReadOnlyList<int> orders = [];
-    var (expression, lateExpression) =
-      annotated is INamedTypeSymbol ? configuration.TypeProgram : configuration.MemberProgram;
+    var selectedProgram = annotated is INamedTypeSymbol ? configuration.TypeProgram : configuration.MemberProgram;
+    var expression = selectedProgram.Prelude;
+    var lateExpression = selectedProgram.Late;
 
     var declarations = new Dictionary<string, AttributeExpressionTarget>(StringComparer.Ordinal);
     for (var index = 0; index < targets.Count; index++) {
@@ -460,9 +463,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       target, annotated, applied, arguments, compilation, targetDefinitions: targetDefinitions,
       preparedExpressions: preparedExpressions, libraries: libraries
     );
-    var evaluated = MixinExpressionVirtualMachine.ExecuteCompiled(
-      expression, expressionContext, expressionVariables, preparedExpressions
-    );
+    var evaluated = MixinExpressionVirtualMachine.Execute(expression, expressionContext, expressionVariables);
     ReportExpressionLogs(context, location, evaluated.Logs);
     if (!evaluated.Success) {
       ReportInvalidAttributeExpression(
@@ -472,12 +473,12 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       return;
     }
     context.AddDebugExpression(
-      MixinSyntaxRenderer.RenderProgram(expression), MixinSyntaxRenderer.RenderProgram(lateExpression),
+      selectedProgram.PreludeSource, selectedProgram.LateSource,
       evaluated.Variables,
       providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
       evaluated.ExecutionMilliseconds
     );
-    if (lateExpression.Count != 0) {
+    if (lateExpression.Instructions.Count != 0) {
       var sourceType = (annotated as INamedTypeSymbol ?? annotated.ContainingType)
         ?.ToDisplayString(TypeDisplayFormat) ?? "";
       var lateTargets = declarations.Values.Select(item => new LateTarget(
@@ -486,10 +487,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         )
       ).ToList();
       DiscoverLateMixinTargets(
-        MixinSyntaxRenderer.RenderProgram(lateExpression), evaluated.Variables, targetDefinitions, lateTargets
+        selectedProgram.LateSource, evaluated.Variables, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
-        lateExpression, MixinSyntaxRenderer.RenderProgram(expression), evaluated.Variables, preparedExpressions,
+        lateExpression, selectedProgram.PreludeSource, selectedProgram.LateSource, evaluated.Variables,
         lateTargets.Distinct().ToImmutableArray(), location,
         providerName ?? attributeName, sourceType,
         annotated is INamedTypeSymbol ? "" : annotated.MetadataName,
@@ -608,7 +609,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         mixin.Target.Expression[0].Reference is {
           Root: MixinExpressionRoot.Carry, Member: { } carry, Properties.Count: 0
         } && variables.TryGetValue(MixinExpressionVirtualMachine.CarryLocalPrefix + carry, out var carried))
-        resolved = MixinValue.From(carried).Render();
+        resolved = Convert.ToString(carried, CultureInfo.InvariantCulture);
       if (string.IsNullOrWhiteSpace(resolved)) continue;
       var syntax = RoslynMixinContext.ParseMixinTarget(resolved, targetDefinitions);
       targets.Add(
@@ -1038,10 +1039,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
 
     internal void AddLateExpression(
-      MixinProgramSyntax expression,
+      MixinExpressionExecutionProgram program,
       string preludeProgram,
+      string lateProgram,
       IReadOnlyDictionary<string, object> variables,
-      MixinExpressionPreparedState preparedState,
       ImmutableArray<LateTarget> targets,
       Location location,
       string provider,
@@ -1052,9 +1053,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     ) {
       _lateExpressions.Add(
         new LateExpressionWork(
-          expression, preludeProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
-          preparedState,
-          PreparedStateKey(preparedState), targets,
+          program, preludeProgram, lateProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
+          PreparedStateKey(program), targets,
           MixinDiagnostic.Detach(Diagnostic.Create(ExpressionLog, location, "")),
           provider ?? "", sourceType ?? "",
           sourceMember ?? "", sourceKind ?? "", sourceParameterCount
@@ -1083,10 +1083,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       );
     }
 
-    private static string PreparedStateKey(MixinExpressionPreparedState state) {
+    private static string PreparedStateKey(MixinExpressionExecutionProgram state) {
       return string.Join(
         "\u001e", state.Instructions.Select(instruction =>
-          MixinSyntaxRenderer.RenderInstruction(instruction)
+          instruction.ToString()
         )
       );
     }
@@ -1118,10 +1118,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   }
 
   private sealed record LateExpressionWork(
-    MixinProgramSyntax Expression,
+    MixinExpressionExecutionProgram Program,
     string PreludeProgram,
+    string LateProgram,
     ImmutableDictionary<string, object> Variables,
-    MixinExpressionPreparedState PreparedState,
     string PreparedStateKey,
     ImmutableArray<LateTarget> Targets,
     MixinDiagnostic Location,
@@ -1180,7 +1180,11 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       File = file;
       Implements = implements;
       Usings = usings;
-      PrimaryVariables = new MixinValueDictionary(primaryVariables, stringPool);
+      PrimaryVariables = new MixinValueDictionary(primaryVariables.Select(item =>
+        new KeyValuePair<MixinString, Language.IMixinValue>(
+          stringPool.Get(item.Key), RuntimeValue(item.Value, stringPool)
+        )
+      ));
       DebugExpressions = debugExpressions;
       Debug = debug;
       DebugStringPool = debugStringPool;
@@ -1201,6 +1205,15 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     internal bool Debug { get; }
     internal bool DebugStringPool { get; }
     internal MixinStringPool StringPool { get; }
+
+    private static Language.IMixinValue RuntimeValue(object value, MixinStringPool strings) => value switch {
+      Language.IMixinValue typed => typed,
+      null => NullMixinValue.Instance,
+      bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
+      string text => new LiteralMixinValue(strings.Get(text)),
+      DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, strings),
+      _ => new ObjectMixinValue(value)
+    };
     internal long GenerationVersion { get; }
     internal MixinRenderFingerprint Fingerprint { get; }
   }
@@ -1286,6 +1299,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       AppendOutputCollection(outputs, render.Usings);
 
       var variables = new MixinFingerprintBuilder();
+      var fingerprintContext = new UnlinkedMixinExpressionContext(render.StringPool);
       variables.Append(render.PrimaryVariables.Count);
       foreach (var variable in render.PrimaryVariables.TypedValues
         .OrderBy(item => item.Key.Id)
@@ -1293,7 +1307,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         variables.Append(variable.Key.IsInterned);
         variables.Append(variable.Key.Id);
         if (!variable.Key.IsInterned) variables.Append(variable.Key.DynamicValue);
-        variable.Value.Fingerprint(variables);
+        variable.Value.Fingerprint(variables, fingerprintContext);
       }
 
       var signatures = new MixinFingerprintBuilder();
@@ -1336,6 +1350,15 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         render.Debug, render.DebugStringPool
       );
     }
+
+    private static Language.IMixinValue RuntimeValue(object value, MixinStringPool strings) => value switch {
+      Language.IMixinValue typed => typed,
+      null => NullMixinValue.Instance,
+      bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
+      string text => new LiteralMixinValue(strings.Get(text)),
+      DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, strings),
+      _ => new ObjectMixinValue(value)
+    };
 
     private static void AppendOutputCollection(
       MixinFingerprintBuilder builder,
@@ -1446,7 +1469,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       for (var index = 0; index < x.Length; index++) {
         var left = x[index];
         var right = y[index];
-        if (left.Expression != right.Expression || left.PreludeProgram != right.PreludeProgram ||
+        if (left.PreludeProgram != right.PreludeProgram || left.LateProgram != right.LateProgram ||
           left.PreparedStateKey != right.PreparedStateKey ||
           left.Variables.Count != right.Variables.Count || left.Provider != right.Provider ||
           left.SourceType != right.SourceType || left.SourceMember != right.SourceMember ||
@@ -1466,24 +1489,11 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
   }
 
-  private sealed class UnlinkedMixinExpressionContext : IMixinExpressionContext {
-    internal static readonly UnlinkedMixinExpressionContext Instance = new();
+  private sealed class UnlinkedMixinExpressionContext : Language.ExecutionContext {
+    internal UnlinkedMixinExpressionContext(MixinStringPool strings) : base(strings) { }
 
-    public bool TryResolve(
-      MixinExpressionReference reference, out string value, out string error
-    ) {
-      value = null;
-      error = "late expressions cannot resolve Roslyn value '@" + reference.Root.Keyword() + "'";
-      return false;
-    }
-
-    public bool TryEvaluate(
-      MixinExpressionReference reference, out bool value, out string error
-    ) {
-      value = false;
-      error = "late expressions cannot evaluate Roslyn value '@" + reference.Root.Keyword() + "'";
-      return false;
-    }
+    protected override Language.IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) =>
+      Error("late expressions cannot resolve host values");
   }
 
   private sealed class ExpressionOutputs {

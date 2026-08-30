@@ -34,22 +34,14 @@ internal static class MixinLibraryApi {
       }
       annotations[annotation.Name] = new CompiledMixinAnnotation(annotation, member, type);
     }
-    var poolBuilder = new MixinStringPoolBuilder();
-    FunctionLibrary.CollectConstants(poolBuilder);
-    foreach (var program in prepared.Programs) program.CollectConstants(poolBuilder);
+    var stringPool = prepared.StringPool;
     foreach (var annotation in annotations.Values) {
-      poolBuilder.Intern(annotation.Definition.Name);
+      stringPool.Intern(annotation.Definition.Name);
       foreach (var definition in annotation.Definition.TargetDefinitions) {
-        poolBuilder.Intern(definition.Key);
-        poolBuilder.Intern(definition.Value);
+        stringPool.Intern(definition.Key);
+        stringPool.Intern(definition.Value);
       }
-      annotation.MemberProgram.Prelude.CollectConstants(poolBuilder);
-      annotation.MemberProgram.Late.CollectConstants(poolBuilder);
-      annotation.TypeProgram.Prelude.CollectConstants(poolBuilder);
-      annotation.TypeProgram.Late.CollectConstants(poolBuilder);
     }
-    var stringPool = poolBuilder.Freeze();
-    prepared = prepared with { StringPool = stringPool };
     return new MixinCompilation(
       catalog, stringPool, prepared, annotations, diagnostics.ToImmutableArray()
     );
@@ -76,7 +68,18 @@ internal static class MixinLibraryApi {
       program = null;
       return false;
     }
-    program = new CompiledMixinProgram(compiledPrelude, compiledLate);
+    if (!MixinExpressionCompiler.TryCompileExecution(
+      compiledPrelude, prepared, out var preludeIr, out error, out errorLine
+    ) || !MixinExpressionCompiler.TryCompileExecution(
+      compiledLate, prepared, out var lateIr, out error, out errorLine
+    )) {
+      program = null;
+      return false;
+    }
+    program = new CompiledMixinProgram(
+      preludeIr, lateIr, MixinSyntaxRenderer.RenderProgram(compiledPrelude),
+      MixinSyntaxRenderer.RenderProgram(compiledLate)
+    );
     return true;
   }
 
@@ -417,7 +420,12 @@ internal sealed class MixinLibraryCatalog {
   }
 }
 
-internal sealed record CompiledMixinProgram(MixinProgramSyntax Prelude, MixinProgramSyntax Late);
+internal sealed record CompiledMixinProgram(
+  MixinExpressionExecutionProgram Prelude,
+  MixinExpressionExecutionProgram Late,
+  string PreludeSource,
+  string LateSource
+);
 
 internal sealed record CompiledMixinAnnotation(
   MixinAnnotationDefinition Definition,
