@@ -361,7 +361,7 @@ public static class MixinExpressionVirtualMachine {
       IMixinValue typed => typed, null => NullMixinValue.Instance,
       bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
       string text => new LiteralMixinValue(ExecutionContext.Dynamic(text)),
-      DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, context.Strings),
+      DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached),
       IReadOnlyDictionary<string, object> table => new MixinTableValue(
         [
           .. table.Select(item =>

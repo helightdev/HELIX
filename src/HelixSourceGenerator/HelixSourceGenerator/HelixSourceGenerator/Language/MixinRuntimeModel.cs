@@ -218,7 +218,7 @@ public abstract class ExecutionContext {
 
   public virtual MixinString NameOf(IMixinValue value) {
     return value is DetachedSemanticMixinValue detached
-      ? detached.Name
+      ? detached.TypeName
       : value.Render(this);
   }
 
@@ -229,11 +229,8 @@ public abstract class ExecutionContext {
   public virtual bool IsType(IMixinValue value, MixinString type) {
     if (value is not DetachedSemanticMixinValue detached) return false;
     var expected = type.Resolve(Strings).Replace("global::", "");
-    return detached.AssignableTypes.Any(item => {
-        var candidate = item.Resolve(Strings).Replace("global::", "");
-        return candidate == expected || candidate.Split('.', '+').LastOrDefault() == expected;
-      }
-    );
+    var candidate = detached.Render(this).Resolve(Strings);
+    return candidate == expected || detached.TypeName.Resolve(Strings) == expected;
   }
 
   public virtual IMixinValue Attributes(IMixinValue value, MixinString type, bool exact, bool first) {
@@ -253,9 +250,7 @@ public abstract class ExecutionContext {
   }
 
   public virtual bool HasTrait(IMixinValue value, MixinString trait) {
-    return value is DetachedSemanticMixinValue detached && detached.Traits.Any(item =>
-      string.Equals(item.Resolve(Strings), trait.Resolve(Strings), StringComparison.Ordinal)
-    );
+    return false;
   }
 
   internal virtual object UnlinkSnapshot(IMixinValue value, bool includeMembers) {

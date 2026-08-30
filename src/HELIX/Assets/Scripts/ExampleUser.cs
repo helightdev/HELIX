@@ -70,7 +70,7 @@ namespace HELIX.Context {
     [Hook(MixinOn.ConfigureManaged)]
     private static void OnConfigureSelf(ManagedRegistration entry) { }
 
-    [Ticker("10s")]
+    [Ticker("5s")]
     private void MyTickerFunc() {
       Debug.Log("This runs every 10 seconds!"); //
     }

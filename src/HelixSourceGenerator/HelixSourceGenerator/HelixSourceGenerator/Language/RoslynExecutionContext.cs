@@ -131,46 +131,37 @@ internal sealed record MixinPropStructValue(IReadOnlyList<PropDefinition> Props,
   }
 }
 
-internal sealed record DetachedSemanticData(
-  string Rendered, string Unwrapped, string Name, string TypeName, string FullName, string Visibility,
-  IReadOnlyList<string> AssignableTypes, IReadOnlyList<string> Traits,
-  IReadOnlyDictionary<string, DetachedSemanticData> Members
-);
+internal sealed record DetachedSemanticData(string Namespace, string TypeName);
 
 internal sealed record DetachedSemanticMixinValue(
-  MixinString Rendered, MixinString Unwrapped, MixinString Name, MixinString TypeName, MixinString FullName,
-  MixinString Visibility, IReadOnlyList<MixinString> AssignableTypes,
-  IReadOnlyList<MixinString> Traits,
-  IReadOnlyList<KeyValuePair<MixinString, IMixinValue>> Members
+  MixinString Namespace, MixinString TypeName
 ) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) {
     return true;
   }
 
   public MixinString Render(ExecutionContext context) {
-    return Rendered;
+    var name = TypeName.Resolve(context.Strings);
+    var typeNamespace = Namespace.Resolve(context.Strings);
+    if (string.IsNullOrEmpty(name)) return ExecutionContext.Dynamic("");
+    return ExecutionContext.Dynamic(
+      "global::" + (string.IsNullOrEmpty(typeNamespace) ? name : typeNamespace + "." + name)
+    );
   }
 
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
     builder.Append(nameof(DetachedSemanticMixinValue));
-    builder.Append(Rendered.Resolve(context.Strings));
+    builder.Append(Namespace.Resolve(context.Strings));
+    builder.Append(TypeName.Resolve(context.Strings));
   }
 
   public IMixinValue Select(ExecutionContext context, MixinString member) {
-    return Members.FirstOrDefault(item => item.Key == member).Value ?? NullMixinValue.Instance;
+    return NullMixinValue.Instance;
   }
 
   public object Unlink(ExecutionContext context) {
     return new DetachedSemanticData(
-      Rendered.Resolve(context.Strings), Unwrapped.Resolve(context.Strings), Name.Resolve(context.Strings),
-      TypeName.Resolve(context.Strings),
-      FullName.Resolve(context.Strings), Visibility.Resolve(context.Strings),
-      [.. AssignableTypes.Select(item => item.Resolve(context.Strings))],
-      [.. Traits.Select(item => item.Resolve(context.Strings))],
-      Members.ToDictionary(
-        item => item.Key.Resolve(context.Strings),
-        item => (DetachedSemanticData)item.Value.Unlink(context), StringComparer.OrdinalIgnoreCase
-      )
+      Namespace.Resolve(context.Strings), TypeName.Resolve(context.Strings)
     );
   }
 
@@ -178,19 +169,9 @@ internal sealed record DetachedSemanticMixinValue(
     return other is DetachedSemanticMixinValue value && Equals(value);
   }
 
-  internal static DetachedSemanticMixinValue Materialize(DetachedSemanticData value, MixinStringPool strings) {
+  internal static DetachedSemanticMixinValue Materialize(DetachedSemanticData value) {
     return new DetachedSemanticMixinValue(
-      MixinString.Dynamic(value.Rendered), MixinString.Dynamic(value.Unwrapped),
-      MixinString.Dynamic(value.Name), MixinString.Dynamic(value.TypeName),
-      MixinString.Dynamic(value.FullName), MixinString.Dynamic(value.Visibility),
-      [.. value.AssignableTypes.Select(MixinString.Dynamic)],
-      [.. value.Traits.Select(MixinString.Dynamic)],
-      [
-        .. value.Members.Select(item => new KeyValuePair<MixinString, IMixinValue>(
-            strings.Get(item.Key), Materialize(item.Value, strings)
-          )
-        )
-      ]
+      MixinString.Dynamic(value.Namespace), MixinString.Dynamic(value.TypeName)
     );
   }
 }
@@ -519,7 +500,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
         (roslyn.Value as AttributeData)?.AttributeClass?.Name ?? ComparableText(roslyn.Value)
       )
       : value is DetachedSemanticMixinValue detached
-        ? detached.Name
+        ? detached.TypeName
         : base.NameOf(value);
   }
 
@@ -527,11 +508,8 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     using var profile = MixinProfiler.Measure("roslyn.is_type");
     if (value is DetachedSemanticMixinValue detached) {
       var expected = requested.Resolve(Strings).Replace("global::", "");
-      return detached.AssignableTypes.Any(item => {
-          var candidate = item.Resolve(Strings).Replace("global::", "");
-          return candidate == expected || candidate.Split('.', '+').LastOrDefault() == expected;
-        }
-      );
+      var candidate = detached.Render(this).Resolve(Strings);
+      return candidate == expected || detached.TypeName.Resolve(Strings) == expected;
     }
     if (value is not RoslynMixinValue roslyn || TypeOf(roslyn.Value) is not INamedTypeSymbol type) return false;
     var name = requested.Resolve(Strings).Replace("global::", "");
@@ -553,8 +531,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   public override bool HasTrait(IMixinValue value, MixinString requested) {
     using var profile = MixinProfiler.Measure("roslyn.has_trait");
     var name = requested.Resolve(Strings);
-    if (value is DetachedSemanticMixinValue detached)
-      return detached.Traits.Any(item => string.Equals(item.Resolve(Strings), name, StringComparison.Ordinal));
+    if (value is DetachedSemanticMixinValue) return false;
     return value is RoslynMixinValue roslyn && SemanticTraits(roslyn.Value).Contains(name, StringComparer.Ordinal);
   }
 
@@ -570,7 +547,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     if (value is RoslynMixinValue roslyn) {
       var detached = UnlinkSnapshot(roslyn, includeMembers);
       return detached is DetachedSemanticData semantic
-        ? DetachedSemanticMixinValue.Materialize(semantic, Strings)
+        ? DetachedSemanticMixinValue.Materialize(semantic)
         : base.DetachValue(
           detached switch {
             IMixinValue typed => typed,
@@ -617,7 +594,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
           : Convert.ToString(constant.Value, CultureInfo.InvariantCulture);
         return new LiteralMixinValue(Intern(raw));
       }
-      case DetachedSemanticMixinValue detached: return new LiteralMixinValue(detached.Unwrapped);
+      case DetachedSemanticMixinValue detached: return new LiteralMixinValue(detached.Render(this));
       default: return base.Unwrap(value);
     }
   }
@@ -682,10 +659,16 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     var memberName = member.Resolve(Strings);
     if (root == MixinExpressionRoot.This && !string.IsNullOrEmpty(memberName) &&
       _generatedStructs.TryGetValue(memberName, out var generatedType)) {
-      var typeName = Intern(generatedType);
+      var typeNamespace = CurrentType.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace
+        ? containingNamespace.ToDisplayString()
+        : "";
+      var qualified = generatedType.Replace("global::", "");
+      var prefix = typeNamespace.Length == 0 ? "" : typeNamespace + ".";
       return new DetachedSemanticMixinValue(
-        typeName, typeName, Intern(memberName), typeName,
-        typeName, Intern("public"), [typeName], [Intern("struct")], []
+        MixinString.Dynamic(typeNamespace),
+        MixinString.Dynamic(qualified.StartsWith(prefix, StringComparison.Ordinal)
+          ? qualified.Substring(prefix.Length)
+          : qualified)
       );
     }
     var name = memberName;
@@ -964,7 +947,7 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
 
   internal object Unlink(ExecutionContext context, bool includeMembers) {
     return Value switch {
-      TypedConstant or ISymbol or AttributeData => Detach(context, includeMembers), _ => Value
+      TypedConstant or ISymbol or AttributeData => Detach(), _ => Value
     };
   }
 
@@ -973,119 +956,23 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
       TypedConstant { Kind: TypedConstantKind.Type } => Render(context).Resolve(context.Strings),
       TypedConstant { Value: string or char } => Render(context).Resolve(context.Strings),
       TypedConstant constant => constant.Value,
-      ITypeSymbol type => type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat),
-      ISymbol or AttributeData => Render(context).Resolve(context.Strings),
+      ISymbol or AttributeData => Detach(),
       _ => Value
     };
   }
 
-  private DetachedSemanticData Detach(ExecutionContext context, bool includeMembers) {
-    using var profile = MixinProfiler.Measure(
-      includeMembers
-        ? "semantic.detach.full"
-        : "semantic.detach.shallow"
-    );
+  private DetachedSemanticData Detach() {
+    using var profile = MixinProfiler.Measure("semantic.detach");
     var type = RoslynMixinContext.TypeOf(Value);
-    var symbol = Value as ISymbol ?? type;
-    var members = new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase);
-    if (includeMembers && Value is AttributeData attribute) {
-      foreach (var item in attribute.NamedArguments)
-        members[item.Key] = DetachConstant(item.Value, item.Key);
-      if (attribute.AttributeConstructor is { } constructor) {
-        for (var index = 0; index < constructor.Parameters.Length && index < attribute.ConstructorArguments.Length;
-          index++) {
-          members[constructor.Parameters[index].Name] = DetachConstant(
-            attribute.ConstructorArguments[index], constructor.Parameters[index].Name
-          );
-        }
-      }
-    }
-    if (includeMembers && type is INamedTypeSymbol named) {
-      for (var i = 0; i < named.TypeArguments.Length; i++) {
-        var item = DetachType(named.TypeArguments[i]);
-        members[i.ToString(CultureInfo.InvariantCulture)] = item;
-        if (i < named.TypeParameters.Length) members[named.TypeParameters[i].Name] = item;
-      }
-      foreach (var member in named.GetMembers()) {
-        if (!members.ContainsKey(member.Name))
-          members[member.Name] = DetachSymbol(member);
-      }
-    }
-    var rendered = Render(context).Resolve(context.Strings);
-    var unwrapped = Value is TypedConstant constant
-      ? constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol constantType
-        ? constantType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal)
-        : Convert.ToString(constant.Value, CultureInfo.InvariantCulture)
-      : rendered;
-    return new DetachedSemanticData(
-      rendered, unwrapped,
-      (Value as ISymbol)?.Name ?? (Value as AttributeData)?.AttributeClass?.Name ??
-      RoslynMixinContext.ComparableText(Value),
-      type is null ? "" : type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal),
-      type is null
-        ? ""
-        : type.ToDisplayString(
-          SymbolDisplayFormat.MinimallyQualifiedFormat
-            .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
-        ),
-      symbol?.DeclaredAccessibility.ToString().ToLowerInvariant() ?? "",
-      [.. Assignable(type).Distinct(StringComparer.Ordinal)],
-      RoslynMixinContext.SemanticTraits(Value), members
-    );
-
-    DetachedSemanticData DetachConstant(TypedConstant item, string name) {
-      using var nestedProfile = MixinProfiler.Measure("semantic.detach.constant");
-      var constantType = item.Type;
-      var rendered = RenderConstant(item);
-      return new DetachedSemanticData(
-        rendered,
-        item.Kind == TypedConstantKind.Type && item.Value is ITypeSymbol valueType
-          ? valueType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal)
-          : Convert.ToString(item.Value, CultureInfo.InvariantCulture),
-        name, constantType?.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) ?? "",
-        constantType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "",
-        "", [.. Assignable(constantType).Distinct(StringComparer.Ordinal)],
-        RoslynMixinContext.SemanticTraits(item),
-        new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase)
-      );
-    }
-
-    DetachedSemanticData DetachSymbol(ISymbol item) {
-      using var nestedProfile = MixinProfiler.Measure("semantic.detach.symbol");
-      var itemType = RoslynMixinContext.TypeOf(item);
-      return new DetachedSemanticData(
-        item.Name, item.Name, item.Name,
-        itemType?.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) ?? "",
-        itemType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "",
-        item.DeclaredAccessibility.ToString().ToLowerInvariant(),
-        [.. Assignable(itemType).Distinct(StringComparer.Ordinal)],
-        RoslynMixinContext.SemanticTraits(item),
-        new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase)
-      );
-    }
-
-    DetachedSemanticData DetachType(ITypeSymbol item) {
-      using var nestedProfile = MixinProfiler.Measure("semantic.detach.type");
-      var typeName = item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal);
-      return new DetachedSemanticData(
-        typeName, typeName, item.Name, typeName,
-        item.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-        item.DeclaredAccessibility.ToString().ToLowerInvariant(),
-        [.. Assignable(item).Distinct(StringComparer.Ordinal)],
-        RoslynMixinContext.SemanticTraits(item),
-        new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase)
-      );
-    }
-
-    IEnumerable<string> Assignable(ITypeSymbol item) {
-      using var nestedProfile = MixinProfiler.Measure("semantic.detach.assignable");
-      if (item is null) yield break;
-      yield return item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal);
-      if (item is not INamedTypeSymbol namedItem) yield break;
-      for (var current = namedItem.BaseType; current is not null; current = current.BaseType)
-        yield return current.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal);
-      foreach (var contract in namedItem.AllInterfaces)
-        yield return contract.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal);
-    }
+    if (type is null) return new DetachedSemanticData("", "");
+    var typeNamespace = type.ContainingNamespace is { IsGlobalNamespace: false } containingNamespace
+      ? containingNamespace.ToDisplayString()
+      : "";
+    var qualified = type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal);
+    var prefix = typeNamespace.Length == 0 ? "" : typeNamespace + ".";
+    var typeName = qualified.StartsWith(prefix, StringComparison.Ordinal)
+      ? qualified.Substring(prefix.Length)
+      : qualified;
+    return new DetachedSemanticData(typeNamespace, typeName);
   }
 }

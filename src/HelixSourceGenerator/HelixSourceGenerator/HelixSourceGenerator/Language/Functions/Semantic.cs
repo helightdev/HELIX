@@ -15,7 +15,7 @@ internal sealed class TypeFunction() : EvaluatedFunctionDefinition("type", 0, 0)
       RoslynMixinContext.TypeOf(typed.Value) is { } type
         ? new RoslynMixinValue(type)
         : value is DetachedSemanticMixinValue detached
-          ? detached with { Rendered = detached.TypeName, Name = detached.TypeName }
+          ? detached
           : NullMixinValue.Instance;
   }
 }
@@ -37,7 +37,7 @@ internal sealed class FullNameFunction() : EvaluatedFunctionDefinition("fullName
           )
         )
         : value is DetachedSemanticMixinValue detached
-          ? new LiteralMixinValue(detached.FullName)
+          ? new LiteralMixinValue(detached.Render(context))
           : NullMixinValue.Instance;
   }
 }
@@ -55,9 +55,7 @@ internal sealed class VisibilityFunction() : EvaluatedFunctionDefinition("visibi
         )
       );
     }
-    return value is DetachedSemanticMixinValue detached
-      ? new LiteralMixinValue(detached.Visibility)
-      : context.Error("property ':visibility' is not available for this value");
+    return context.Error("property ':visibility' is not available for this value");
   }
 }
 

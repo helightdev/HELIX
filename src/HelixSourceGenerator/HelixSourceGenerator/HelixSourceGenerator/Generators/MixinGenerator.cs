@@ -1262,7 +1262,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         null => NullMixinValue.Instance,
         bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
         string text => new LiteralMixinValue(MixinString.Dynamic(text)),
-        DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, strings),
+        DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached),
         _ => new ObjectMixinValue(value)
       };
     }
@@ -1408,7 +1408,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         null => NullMixinValue.Instance,
         bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
         string text => new LiteralMixinValue(MixinString.Dynamic(text)),
-        DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, strings),
+        DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached),
         _ => new ObjectMixinValue(value)
       };
     }
