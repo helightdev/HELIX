@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace HelixSourceGenerator.Language.Functions;
+namespace MixinLanguage.Functions;
 
 internal sealed class NameFunction() : EvaluatedFunctionDefinition("name", 0, 0) {
   protected override IMixinValue Apply(

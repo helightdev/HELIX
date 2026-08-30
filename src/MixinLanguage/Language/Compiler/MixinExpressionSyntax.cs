@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 /// <summary>Parser-only reference syntax. This type never crosses the lowering boundary.</summary>
 public sealed class MixinExpressionReference(
@@ -38,9 +38,10 @@ public sealed class MixinExpressionProperty(
     pool.Intern(Name);
     foreach (var argument in ParsedArguments) {
       pool.Intern(argument.Literal);
-      foreach (var part in argument.ValueExpression ?? [])
+      foreach (var part in argument.ValueExpression ?? []) {
         if (part.Reference is null) pool.Intern(part.Literal);
         else part.Reference.CollectConstants(pool);
+      }
       foreach (var reference in argument.BooleanExpression ?? []) reference.CollectConstants(pool);
     }
   }

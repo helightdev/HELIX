@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
-using static HelixSourceGenerator.Shared.GeneratorStrings;
+using static MixinLanguage.GeneratorStrings;
 
-namespace HelixSourceGenerator.Shared;
+namespace MixinLanguage;
 
 internal static class GeneratorDiagnostics {
   private static DiagnosticDescriptor Error(string id, string title, string message) {

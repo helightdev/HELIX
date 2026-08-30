@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 public readonly struct MixinString : IEquatable<MixinString> {
   private readonly bool _initialized;
@@ -60,9 +60,10 @@ public sealed class MixinStringPool {
   internal MixinStringPool(string[] values, IReadOnlyDictionary<string, int> ids) {
     _values = values ?? [];
     _ids = new Dictionary<string, int>(StringComparer.Ordinal);
-    if (ids is not null)
+    if (ids is not null) {
       foreach (var item in ids)
         _ids.Add(item.Key, item.Value);
+    }
   }
 
   public int Count => _values.Length;
@@ -78,7 +79,6 @@ public sealed class MixinStringPool {
     if (TryGetId(value, out var id)) return MixinString.Interned(id);
     return MixinString.Dynamic(value);
   }
-
 }
 
 public sealed class MixinStringPoolBuilder {

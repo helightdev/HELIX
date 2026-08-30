@@ -1,4 +1,4 @@
-namespace HelixSourceGenerator.Shared;
+namespace MixinLanguage;
 
 internal static class GeneratorStrings {
   internal const string DiagnosticCategory = "HELIX";

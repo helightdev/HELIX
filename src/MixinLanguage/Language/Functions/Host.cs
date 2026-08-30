@@ -1,7 +1,6 @@
 using System.Collections.Generic;
-using Microsoft.CodeAnalysis;
 
-namespace HelixSourceGenerator.Language.Functions;
+namespace MixinLanguage.Functions;
 
 internal sealed class WireFunction() : EvaluatedFunctionDefinition("wire", 1, 1) {
   protected override IMixinValue Apply(

@@ -3,8 +3,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using HelixSourceGenerator.Language;
-using HelixSourceGenerator.Language.Compiler;
+using MixinLanguage;
+using MixinLanguage.Compiler;
 using Xunit;
 
 namespace HELIX.SourceGen.Tests;
@@ -1072,7 +1072,7 @@ public sealed class MixinExpressionInterpreterTests {
       _argumentIsRef = argumentIsRef;
     }
 
-    protected override global::HelixSourceGenerator.Language.IMixinValue ResolveHost(
+    protected override global::MixinLanguage.IMixinValue ResolveHost(
       MixinExpressionRoot root, MixinString member
     ) {
       var name = member.Resolve(Strings);
@@ -1086,7 +1086,7 @@ public sealed class MixinExpressionInterpreterTests {
       return new ObjectMixinValue(value);
     }
 
-    public override bool HasTrait(global::HelixSourceGenerator.Language.IMixinValue value, MixinString trait) {
+    public override bool HasTrait(global::MixinLanguage.IMixinValue value, MixinString trait) {
       return trait.Resolve(Strings) switch {
         "ref" => _argumentIsRef,
         "argument" => !_argumentIsRef,
@@ -1094,7 +1094,7 @@ public sealed class MixinExpressionInterpreterTests {
       };
     }
 
-    public override MixinString NameOf(global::HelixSourceGenerator.Language.IMixinValue value) =>
+    public override MixinString NameOf(global::MixinLanguage.IMixinValue value) =>
       ResolveString("Demo");
   }
 

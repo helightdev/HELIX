@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace HelixSourceGenerator.Shared;
+namespace MixinLanguage;
 
 /// <summary>Builds consistently indented C# source with disposable delimiter scopes.</summary>
 internal sealed class SharpStringBuilder {

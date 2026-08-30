@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using HelixSourceGenerator.Shared;
 
-namespace HelixSourceGenerator.Language.Functions;
+namespace MixinLanguage.Functions;
 
 internal abstract class EvaluatedFunctionDefinition(string name, int minimumArguments, int maximumArguments,
   bool predicate = false
@@ -24,13 +23,15 @@ internal abstract class EvaluatedFunctionDefinition(string name, int minimumArgu
     try {
       if (context is RoslynMixinContext roslyn && instance is RoslynMixinValue source) {
         string key;
-        using (MixinProfiler.Measure("cache.derived.key")) key = values.Length == 0
-          ? _cacheKey
-          : _cacheKey + "\u001f" + string.Join(
-            "\u001f", values.Select(item => item.GetType().FullName + "=" +
-              item.Render(context).Resolve(context.Strings)
-            )
-          );
+        using (MixinProfiler.Measure("cache.derived.key")) {
+          key = values.Length == 0
+            ? _cacheKey
+            : _cacheKey + "\u001f" + string.Join(
+              "\u001f", values.Select(item => item.GetType().FullName + "=" +
+                item.Render(context).Resolve(context.Strings)
+              )
+            );
+        }
         if (!roslyn.TryGetDerived(source, key, out result)) {
           result = Apply(context, instance, values);
           roslyn.StoreDerived(source, key, result);

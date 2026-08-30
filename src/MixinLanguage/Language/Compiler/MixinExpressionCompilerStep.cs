@@ -1,4 +1,4 @@
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 /// <summary>The syntax state passed between ordered compiler transformations.</summary>
 public sealed record MixinCompilerSyntax(

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 public static partial class MixinExpressionCompiler {
   private sealed class FunctionBindingStep : MixinExpressionCompilerStep {
@@ -125,7 +125,7 @@ public static partial class MixinExpressionCompiler {
       return new MixinExpressionProperty(property.Name, parsed, property.Negated, BoundFunction(property));
     }
 
-    private static Language.FunctionDefinition BoundFunction(
+    private static MixinLanguage.FunctionDefinition BoundFunction(
       MixinExpressionProperty property
     ) {
       if (property.Definition is not null) return property.Definition;

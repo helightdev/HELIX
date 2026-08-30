@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 /// <summary>Produces a canonical textual representation from semantic syntax nodes.</summary>
 public static class MixinSyntaxRenderer {

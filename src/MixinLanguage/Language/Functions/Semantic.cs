@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using HelixSourceGenerator.Language.Compiler;
-using HelixSourceGenerator.Shared;
 using Microsoft.CodeAnalysis;
+using MixinLanguage.Compiler;
 
-namespace HelixSourceGenerator.Language.Functions;
+namespace MixinLanguage.Functions;
 
 internal sealed class TypeFunction() : EvaluatedFunctionDefinition("type", 0, 0) {
   protected override IMixinValue Apply(
@@ -133,17 +132,21 @@ internal sealed class MembersFunction() : EvaluatedFunctionDefinition("members",
     if (value is not RoslynMixinValue { Value: INamedTypeSymbol type })
       return context.Error(":members requires a named type");
     var members = type.GetMembers().Where(item => !item.IsImplicitlyDeclared && item is not IMethodSymbol {
-        MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or
-        MethodKind.EventRemove or MethodKind.EventRaise
-      })
-      .OrderBy(item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath ?? "",
-        StringComparer.Ordinal)
+          MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or
+          MethodKind.EventRemove or MethodKind.EventRaise
+        }
+      )
+      .OrderBy(
+        item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath ?? "",
+        StringComparer.Ordinal
+      )
       .ThenBy(item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceSpan.Start ?? int.MaxValue)
       .ThenBy(item => item.MetadataName, StringComparer.Ordinal)
       .ThenBy(item => item.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), StringComparer.Ordinal)
       .Select((item, index) => new KeyValuePair<MixinString, IMixinValue>(
-        context.ResolveString(index.ToString()), new RoslynMixinValue(item)
-      ));
+          context.ResolveString(index.ToString()), new RoslynMixinValue(item)
+        )
+      );
     return new MixinTableValue(members.ToArray());
   }
 }
@@ -159,11 +162,13 @@ internal sealed class ParametersFunction() : EvaluatedFunctionDefinition("parame
       _ => null
     };
     if (parameters is null) return context.Error(":parameters requires a method or delegate");
-    return new MixinTableValue(parameters.Select((item, index) =>
-      new KeyValuePair<MixinString, IMixinValue>(
-        context.ResolveString(index.ToString()), new RoslynMixinValue(item)
-      )
-    ).ToArray());
+    return new MixinTableValue(
+      parameters.Select((item, index) =>
+        new KeyValuePair<MixinString, IMixinValue>(
+          context.ResolveString(index.ToString()), new RoslynMixinValue(item)
+        )
+      ).ToArray()
+    );
   }
 }
 
@@ -174,7 +179,8 @@ internal sealed class NullableTypeFunction() : EvaluatedFunctionDefinition("null
     if (value is not RoslynMixinValue roslyn || RoslynMixinContext.TypeOf(roslyn.Value) is not ITypeSymbol type)
       return context.Error(":nullableType requires a typed semantic value");
     var text = type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat);
-    if (type.IsReferenceType || type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
+    if (type.IsReferenceType ||
+      type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T })
       return new LiteralMixinValue(context.ResolveString(text));
     if (type.IsValueType || type is ITypeParameterSymbol { HasValueTypeConstraint: true })
       return new LiteralMixinValue(context.ResolveString("global::System.Nullable<" + text + ">"));

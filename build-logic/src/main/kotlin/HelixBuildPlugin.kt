@@ -3,6 +3,7 @@ import org.gradle.api.Project
 import org.gradle.api.tasks.Copy
 import java.io.File
 import java.nio.charset.StandardCharsets
+import java.util.Base64
 import java.util.UUID
 
 @DslMarker
@@ -78,14 +79,16 @@ class HelixBuildPlugin : Plugin<Project> {
                             .toList()
                     }
             })
-            inputs.property("solutionConfiguration", project.provider {
-                (solutions.solutions + unityPackages.asSolutionSpecs(project)).associate { solution ->
-                    "${solution.path}:${solution.folderName.orEmpty()}" to solution.includedProjects?.sorted().orEmpty()
-                }
+            inputs.property("registeredSolutions", project.provider {
+                (solutions.solutions + unityPackages.asSolutionSpecs(project)).map(::encodeSolutionSpec)
             })
             outputs.file(project.layout.projectDirectory.file("HELIX.sln"))
             doLast {
-                generateMonorepoSolution(project, solutions.solutions + unityPackages.asSolutionSpecs(project))
+                val output = outputs.files.singleFile
+                val registeredSolutions = (inputs.properties.getValue("registeredSolutions") as List<*>)
+                    .map { decodeSolutionSpec(it as String) }
+                val summary = generateMonorepoSolution(output.parentFile.canonicalFile, output, registeredSolutions)
+                logger.lifecycle(summary)
             }
         }
 
@@ -177,9 +180,42 @@ private fun solutionFolderBlock(folder: SolutionFolder) = listOf(
     "EndProject",
 )
 
-private fun generateMonorepoSolution(project: Project, registeredSolutions: List<MonorepoSolutionSpec>) {
-    val root = project.rootProject.projectDir.canonicalFile
-    val output = File(root, "HELIX.sln")
+private fun encodeSolutionSpec(spec: MonorepoSolutionSpec): String {
+    val values = listOf(
+        spec.path,
+        spec.folderName.orEmpty(),
+        spec.includeUnselectedProjects.toString(),
+        spec.emitSelectedProjects.toString(),
+        spec.includedProjects?.sorted()?.joinToString("\u0000").orEmpty(),
+        (spec.includedProjects != null).toString(),
+    )
+    return values.joinToString(".") { value ->
+        Base64.getUrlEncoder().withoutPadding().encodeToString(value.toByteArray(StandardCharsets.UTF_8))
+    }
+}
+
+private fun decodeSolutionSpec(encoded: String): MonorepoSolutionSpec {
+    val values = encoded.split('.').map { value ->
+        String(Base64.getUrlDecoder().decode(value), StandardCharsets.UTF_8)
+    }
+    require(values.size == 6) { "Invalid registered solution input" }
+    return MonorepoSolutionSpec(
+        path = values[0],
+        folderName = values[1].ifEmpty { null },
+        includeUnselectedProjects = values[2].toBooleanStrict(),
+        emitSelectedProjects = values[3].toBooleanStrict(),
+    ).apply {
+        if (values[5].toBooleanStrict()) {
+            includedProjects = values[4].split('\u0000').filterTo(mutableSetOf()) { it.isNotEmpty() }
+        }
+    }
+}
+
+private fun generateMonorepoSolution(
+    root: File,
+    output: File,
+    registeredSolutions: List<MonorepoSolutionSpec>,
+): String {
     val parsed = registeredSolutions.map { entry -> entry to parseSolution(File(root, entry.path)) }
     val emittedIds = linkedSetOf<String>()
     val emittedProjects = mutableListOf<Pair<ParsedSolution, SolutionProject>>()
@@ -299,8 +335,6 @@ private fun generateMonorepoSolution(project: Project, registeredSolutions: List
     }
 
     output.writeText("\uFEFF" + result.joinToString("\r\n", postfix = "\r\n"), StandardCharsets.UTF_8)
-    project.logger.lifecycle(
-        "Generated ${output.relativeTo(root)} from ${registeredSolutions.size} registered solutions " +
-            "(${emittedProjects.size} projects, $excludedProjectCount remapped under Excluded Projects)."
-    )
+    return "Generated ${output.relativeTo(root)} from ${registeredSolutions.size} registered solutions " +
+        "(${emittedProjects.size} projects, $excludedProjectCount remapped under Excluded Projects)."
 }

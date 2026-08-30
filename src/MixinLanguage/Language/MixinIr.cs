@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using HelixSourceGenerator.Language.Compiler;
+using MixinLanguage.Compiler;
 
-namespace HelixSourceGenerator.Language;
+namespace MixinLanguage;
 
 internal enum MixinOpcode {
   Empty,
@@ -159,9 +159,10 @@ internal sealed record InterpolationMixinValue(IReadOnlyList<IMixinValue> Parts)
 
 internal sealed record AllMixinValue(IReadOnlyList<IMixinValue> Values) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) {
-    foreach (var value in Values)
+    foreach (var value in Values) {
       if (!value.IsTruthy(context))
         return false;
+    }
     return Values.Count != 0;
   }
 

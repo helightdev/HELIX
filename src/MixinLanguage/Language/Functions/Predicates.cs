@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using HelixSourceGenerator.Shared;
 using Microsoft.CodeAnalysis;
 
-namespace HelixSourceGenerator.Language.Functions;
+namespace MixinLanguage.Functions;
 
 internal sealed class ExistsPredicate() : PredicateFunctionDefinition("exists", 0, 0) {
   protected override IMixinValue Apply(
@@ -126,9 +125,7 @@ internal sealed class TraitPredicate(string name) : PredicateFunctionDefinition(
         "typeSymbol" => symbol is INamedTypeSymbol,
         "referenceType" => type?.IsReferenceType == true,
         "valueType" => type?.IsValueType == true,
-        "nullable" => type is INamedTypeSymbol {
-          OriginalDefinition.SpecialType: SpecialType.System_Nullable_T
-        },
+        "nullable" => type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T },
         "pointer" => type?.TypeKind is TypeKind.Pointer or TypeKind.FunctionPointer,
         "containsPointer" => type is not null && GeneratorAnalysis.ContainsPointer(type),
         "enum" => type?.TypeKind == TypeKind.Enum,
@@ -149,20 +146,22 @@ internal sealed class TraitPredicate(string name) : PredicateFunctionDefinition(
           candidate.TypeArguments.Length == 1 &&
           SymbolEqualityComparer.Default.Equals(candidate.TypeArguments[0], named)
         ),
-        "typedEqualsSelf" => type is INamedTypeSymbol typed && typed.GetMembers().OfType<IMethodSymbol>().Any(
-          method => IsTypedEquals(method, typed) &&
-            (method is { Name: "Equals", DeclaredAccessibility: Accessibility.Public } ||
-              method.ExplicitInterfaceImplementations.Length != 0)
+        "typedEqualsSelf" => type is INamedTypeSymbol typed && typed.GetMembers().OfType<IMethodSymbol>().Any(method =>
+          IsTypedEquals(method, typed) &&
+          (method is { Name: "Equals", DeclaredAccessibility: Accessibility.Public } ||
+            method.ExplicitInterfaceImplementations.Length != 0)
         ),
         "ordinaryTypedEqualsSelf" => type is INamedTypeSymbol ordinary && ordinary.GetMembers("Equals")
           .OfType<IMethodSymbol>().Any(method => IsTypedEquals(method, ordinary)),
         "objectEquals" => type is INamedTypeSymbol objectOwner && objectOwner.GetMembers("Equals")
           .OfType<IMethodSymbol>().Any(method => !method.IsStatic &&
             method.ReturnType.SpecialType == SpecialType.System_Boolean && method.Parameters.Length == 1 &&
-            method.Parameters[0].Type.SpecialType == SpecialType.System_Object),
+            method.Parameters[0].Type.SpecialType == SpecialType.System_Object
+          ),
         "hashCode" => type is INamedTypeSymbol hashOwner && hashOwner.GetMembers("GetHashCode")
           .OfType<IMethodSymbol>().Any(method => !method.IsStatic &&
-            method.ReturnType.SpecialType == SpecialType.System_Int32 && method.Parameters.Length == 0),
+            method.ReturnType.SpecialType == SpecialType.System_Int32 && method.Parameters.Length == 0
+          ),
         _ => false
       }
     );

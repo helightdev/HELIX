@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using HelixSourceGenerator.Language.Compiler;
-using HelixSourceGenerator.Shared;
+using MixinLanguage.Compiler;
 
-namespace HelixSourceGenerator.Language;
+namespace MixinLanguage;
 
 public static class MixinExpressionVirtualMachine {
   internal const string CarryLocalPrefix = "\0@carry:";
@@ -326,12 +325,14 @@ public static class MixinExpressionVirtualMachine {
           case MixinOpcode.Using: {
             var emitted = Value();
             if (emitted is ErrorMixinValue) return new ProgramFunctionResult(false, emitted);
-            context.OutputSink?.Invoke(new MixinExpressionOutput(
-              instruction.OutputTarget == default && instruction.Opcode == MixinOpcode.Using
-                ? MixinExpressionOutputTarget.Using
-                : instruction.OutputTarget,
-              [emitted.Render(context)], context.Strings, instruction.Name
-            ));
+            context.OutputSink?.Invoke(
+              new MixinExpressionOutput(
+                instruction.OutputTarget == default && instruction.Opcode == MixinOpcode.Using
+                  ? MixinExpressionOutputTarget.Using
+                  : instruction.OutputTarget,
+                [emitted.Render(context)], context.Strings, instruction.Name
+              )
+            );
             continue;
           }
           case MixinOpcode.Mixin: {
@@ -345,18 +346,22 @@ public static class MixinExpressionVirtualMachine {
               priorityValue.Render(context).Resolve(context.Strings), NumberStyles.Integer,
               CultureInfo.InvariantCulture, out var priority
             );
-            context.OutputSink?.Invoke(new MixinExpressionOutput(
-              MixinExpressionOutputTarget.Mixin, [code.Render(context)], context.Strings,
-              target.Render(context), priority
-            ));
+            context.OutputSink?.Invoke(
+              new MixinExpressionOutput(
+                MixinExpressionOutputTarget.Mixin, [code.Render(context)], context.Strings,
+                target.Render(context), priority
+              )
+            );
             continue;
           }
           case MixinOpcode.Log: {
             var logged = Value();
             if (logged is ErrorMixinValue) return new ProgramFunctionResult(false, logged);
-            context.LogSink?.Invoke(new MixinExpressionLog(
-              logged.Render(context).Resolve(context.Strings), instruction.Location.Line
-            ));
+            context.LogSink?.Invoke(
+              new MixinExpressionLog(
+                logged.Render(context).Resolve(context.Strings), instruction.Location.Line
+              )
+            );
             continue;
           }
           case MixinOpcode.StoreLocal: {
@@ -416,9 +421,11 @@ public static class MixinExpressionVirtualMachine {
             if (result is ErrorMixinValue) return new ProgramFunctionResult(false, result);
             if (result is DirectiveEffectMixinValue effect &&
               !string.IsNullOrEmpty(effect.ClassCode.Resolve(context.Strings))) {
-              context.OutputSink?.Invoke(new MixinExpressionOutput(
-                MixinExpressionOutputTarget.Class, [effect.ClassCode], context.Strings
-              ));
+              context.OutputSink?.Invoke(
+                new MixinExpressionOutput(
+                  MixinExpressionOutputTarget.Class, [effect.ClassCode], context.Strings
+                )
+              );
             }
             continue;
           }
@@ -465,9 +472,10 @@ public static class MixinExpressionVirtualMachine {
   }
 
   private static int FindNext(IReadOnlyList<MixinInstruction> instructions, int pc) {
-    for (var i = pc; i < instructions.Count; i++)
+    for (var i = pc; i < instructions.Count; i++) {
       if (instructions[i].Opcode is MixinOpcode.Scope or MixinOpcode.End)
         return i;
+    }
     return instructions.Count;
   }
 

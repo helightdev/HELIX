@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 internal enum MixinTokenKind {
   At,
@@ -155,9 +155,7 @@ internal static class MixinExpressionLexer {
           source.Substring(
             argumentStart + 1, argumentEnd - argumentStart - 2
           )
-        )) {
-          tokens.Add(token with { Start = token.Start + argumentStart + 1, End = token.End + argumentStart + 1 });
-        }
+        )) tokens.Add(token with { Start = token.Start + argumentStart + 1, End = token.End + argumentStart + 1 });
         tokens.Add(
           new MixinExpressionToken(
             MixinExpressionTokenKind.ArgumentExpressionEnd, ")", argumentEnd - 1, argumentEnd

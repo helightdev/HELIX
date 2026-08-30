@@ -5,19 +5,18 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
-using HelixSourceGenerator.Language;
-using HelixSourceGenerator.Language.Compiler;
-using HelixSourceGenerator.Shared;
+using MixinLanguage;
+using MixinLanguage.Compiler;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
-using static HelixSourceGenerator.Shared.GeneratorAnalysis;
-using static HelixSourceGenerator.Shared.GeneratorDiagnostics.Mixins;
-using static HelixSourceGenerator.Shared.GeneratorSource;
-using static HelixSourceGenerator.Shared.GeneratorStrings;
-using ExecutionContext = HelixSourceGenerator.Language.ExecutionContext;
-using IMixinValue = HelixSourceGenerator.Language.IMixinValue;
+using static MixinLanguage.GeneratorAnalysis;
+using static MixinLanguage.GeneratorDiagnostics.Mixins;
+using static MixinLanguage.GeneratorSource;
+using static MixinLanguage.GeneratorStrings;
+using ExecutionContext = MixinLanguage.ExecutionContext;
+using IMixinValue = MixinLanguage.IMixinValue;
 
 namespace HelixSourceGenerator.Generators;
 

@@ -37,7 +37,7 @@ public sealed class MixinGeneratorExpressionTests {
       PlatformReferences,
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
     );
-    var api = typeof(MixinGenerator).Assembly.GetType("HelixSourceGenerator.Shared.MixinLibraryApi");
+    var api = typeof(MixinGenerator).Assembly.GetType("MixinLanguage.MixinLibraryApi");
     var read = api!.GetMethod("ReadAdditionalFile", BindingFlags.Static | BindingFlags.NonPublic);
     var file = read!.Invoke(null, [
       new TestAdditionalText(path, File.ReadAllText(path)), default(System.Threading.CancellationToken)
@@ -52,7 +52,7 @@ public sealed class MixinGeneratorExpressionTests {
       )!.GetValue(item)!)
       .ToArray();
     Assert.Contains("DeriveFields", functionNames);
-    var catalogType = typeof(MixinGenerator).Assembly.GetType("HelixSourceGenerator.Shared.MixinLibraryCatalog")!;
+    var catalogType = typeof(MixinGenerator).Assembly.GetType("MixinLanguage.MixinLibraryCatalog")!;
     var fileArray = Array.CreateInstance(file.GetType(), 1);
     fileArray.SetValue(file, 0);
     var catalog = Activator.CreateInstance(

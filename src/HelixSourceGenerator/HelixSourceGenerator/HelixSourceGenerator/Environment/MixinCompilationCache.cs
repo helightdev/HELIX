@@ -1,6 +1,6 @@
 using System;
 
-namespace HelixSourceGenerator.Shared;
+namespace MixinLanguage;
 
 /// <summary>
 /// Process-wide cache used by the incremental generator host. This implementation

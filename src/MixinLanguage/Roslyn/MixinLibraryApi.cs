@@ -6,15 +6,14 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using HelixSourceGenerator.Language;
-using HelixSourceGenerator.Language.Compiler;
 using Microsoft.CodeAnalysis;
-using static HelixSourceGenerator.Shared.GeneratorAnalysis;
-using static HelixSourceGenerator.Shared.GeneratorDiagnostics.Mixins;
+using MixinLanguage.Compiler;
+using static MixinLanguage.GeneratorAnalysis;
+using static MixinLanguage.GeneratorDiagnostics.Mixins;
 
 #pragma warning disable RS1035 // Resolving the output path is used only by the explicit PROFILE configuration.
 
-namespace HelixSourceGenerator.Shared;
+namespace MixinLanguage;
 
 internal static class MixinLibraryApi {
   internal const string AdditionalFileSuffix = ".HelixSourceGenerator.additionalfile";
@@ -33,12 +32,14 @@ internal static class MixinLibraryApi {
     var annotations = new Dictionary<string, CompiledMixinAnnotation>(StringComparer.Ordinal);
     foreach (var group in catalog.AnnotationDefinitions.GroupBy(item => item.Name, StringComparer.Ordinal)) {
       if (group.Count() != 1 || catalog.Derivations.Any(item => item.Name == group.Key)) {
-        diagnostics.Add(Diagnostic.Create(
-          InvalidPreparedExpression, Location.None, group.Key, "1",
-          group.Count() != 1
-            ? "annotation provider is defined more than once"
-            : "a provider cannot be both ANNOTATION and DERIVATION"
-        ));
+        diagnostics.Add(
+          Diagnostic.Create(
+            InvalidPreparedExpression, Location.None, group.Key, "1",
+            group.Count() != 1
+              ? "annotation provider is defined more than once"
+              : "a provider cannot be both ANNOTATION and DERIVATION"
+          )
+        );
         continue;
       }
       var annotation = group.Single();
@@ -57,12 +58,14 @@ internal static class MixinLibraryApi {
     var derivations = new List<CompiledMixinDerivation>();
     foreach (var group in catalog.Derivations.GroupBy(item => item.Name, StringComparer.Ordinal)) {
       if (group.Count() != 1 || catalog.AnnotationDefinitions.Any(item => item.Name == group.Key)) {
-        diagnostics.Add(Diagnostic.Create(
-          InvalidPreparedExpression, Location.None, group.Key, "1",
-          catalog.AnnotationDefinitions.Any(item => item.Name == group.Key)
-            ? "a provider cannot be both ANNOTATION and DERIVATION"
-            : "derivation provider is defined more than once"
-        ));
+        diagnostics.Add(
+          Diagnostic.Create(
+            InvalidPreparedExpression, Location.None, group.Key, "1",
+            catalog.AnnotationDefinitions.Any(item => item.Name == group.Key)
+              ? "a provider cannot be both ANNOTATION and DERIVATION"
+              : "derivation provider is defined more than once"
+          )
+        );
         continue;
       }
       var definition = group.Single();
@@ -274,9 +277,11 @@ internal static class MixinLibraryApi {
         functions.Append("@FUNC<").Append(function).AppendLine(">");
         functions.Append(expressionText);
         functions.AppendLine("@END");
-        derivations.Add(new MixinDerivationDefinition(
-          annotationName, function, libraryKey, annotationLine
-        ));
+        derivations.Add(
+          new MixinDerivationDefinition(
+            annotationName, function, libraryKey, annotationLine
+          )
+        );
       } else {
         annotations.Add(
           annotationName, new MixinAnnotationDefinition(
@@ -287,11 +292,12 @@ internal static class MixinLibraryApi {
       annotationName = null;
       isDerivation = false;
     }
-    if (annotationName is not null)
+    if (annotationName is not null) {
       return Failure(
         "unterminated " + (isDerivation ? "derivation" : "annotation") + " '" + annotationName + "'",
         annotationLine
       );
+    }
     var functionText = functions.ToString();
     var functionValidation = MixinExpressionCompiler.ValidateFunctionLibrary(functionText);
     return functionValidation.Success

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -8,7 +7,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace HelixSourceGenerator.Shared;
+namespace MixinLanguage;
 
 public static class GeneratorAnalysis {
   internal static readonly SymbolDisplayFormat TypeDisplayFormat =
@@ -95,13 +94,9 @@ public static class GeneratorAnalysis {
       var syntax = reference.GetSyntax();
 
       var attributeLists = syntax switch {
-        VariableDeclaratorSyntax {
-          Parent.Parent: FieldDeclarationSyntax field
-        } => field.AttributeLists,
+        VariableDeclaratorSyntax { Parent.Parent: FieldDeclarationSyntax field } => field.AttributeLists,
 
-        VariableDeclaratorSyntax {
-          Parent.Parent: EventFieldDeclarationSyntax eventField
-        } => eventField.AttributeLists,
+        VariableDeclaratorSyntax { Parent.Parent: EventFieldDeclarationSyntax eventField } => eventField.AttributeLists,
 
         MemberDeclarationSyntax member => member.AttributeLists,
         BaseParameterSyntax parameter => parameter.AttributeLists,
@@ -110,9 +105,7 @@ public static class GeneratorAnalysis {
         _ => default
       };
 
-      if (HasAnyAttributeInSyntaxList(attributeLists)) {
-        return true;
-      }
+      if (HasAnyAttributeInSyntaxList(attributeLists)) return true;
     }
 
     return false;

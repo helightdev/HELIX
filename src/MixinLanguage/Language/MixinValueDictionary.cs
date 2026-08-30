@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
-using HelixSourceGenerator.Language.Compiler;
+using MixinLanguage.Compiler;
 
-namespace HelixSourceGenerator.Language;
+namespace MixinLanguage;
 
 /// <summary>
 ///   Runtime storage for named mixin values. Names are already-resolved

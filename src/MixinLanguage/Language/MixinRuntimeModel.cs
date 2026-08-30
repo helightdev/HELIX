@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using HelixSourceGenerator.Language.Compiler;
-using HelixSourceGenerator.Language.Functions;
+using MixinLanguage.Compiler;
+using MixinLanguage.Functions;
 
-namespace HelixSourceGenerator.Language;
+namespace MixinLanguage;
 
 public enum MixinExpressionRoot {
   Target,
@@ -141,9 +141,10 @@ public abstract class ExecutionContext {
           : NullMixinValue.Instance;
       case MixinExpressionRoot.TargetVariable:
         var targetName = member.Resolve(Strings);
-        foreach (var item in TargetVariables)
+        foreach (var item in TargetVariables) {
           if (string.Equals(item.Key.Resolve(Strings), targetName, StringComparison.Ordinal))
             return item.Value;
+        }
         return NullMixinValue.Instance;
       case MixinExpressionRoot.Parameter:
         return string.IsNullOrEmpty(member.Resolve(Strings))
@@ -468,8 +469,9 @@ public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMi
   public IMixinValue Select(ExecutionContext context, MixinString member) {
     var name = member.Resolve(context.Strings);
     return Entries.FirstOrDefault(item => string.Equals(
-      item.Key.Resolve(context.Strings), name, StringComparison.Ordinal
-    )).Value ?? NullMixinValue.Instance;
+        item.Key.Resolve(context.Strings), name, StringComparison.Ordinal
+      )
+    ).Value ?? NullMixinValue.Instance;
   }
 
   public object Unlink(ExecutionContext context) {
@@ -487,8 +489,9 @@ public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMi
     return new MixinTableValue(
       [
         .. Entries.Where(item => !string.Equals(
-          item.Key.Resolve(context.Strings), name, StringComparison.Ordinal
-        )),
+            item.Key.Resolve(context.Strings), name, StringComparison.Ordinal
+          )
+        ),
         new KeyValuePair<MixinString, IMixinValue>(key, value)
       ]
     );
@@ -496,9 +499,14 @@ public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMi
 
   public MixinTableValue Remove(ExecutionContext context, MixinString key) {
     var name = key.Resolve(context.Strings);
-    return new MixinTableValue([.. Entries.Where(item => !string.Equals(
-      item.Key.Resolve(context.Strings), name, StringComparison.Ordinal
-    ))]);
+    return new MixinTableValue(
+      [
+        .. Entries.Where(item => !string.Equals(
+            item.Key.Resolve(context.Strings), name, StringComparison.Ordinal
+          )
+        )
+      ]
+    );
   }
 
   public MixinTableValue Push(ExecutionContext context, IMixinValue value) {
@@ -533,7 +541,7 @@ internal static class FunctionLibrary {
     CreateDefinitions();
 
   private static IReadOnlyDictionary<string, FunctionDefinition> CreateDefinitions() {
-    using var profile = Shared.MixinProfiler.Measure("static.function_library");
+    using var profile = MixinProfiler.Measure("static.function_library");
     return new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal) {
       ["name"] = new NameFunction(), ["type"] = new TypeFunction(), ["fullName"] = new FullNameFunction(),
       ["members"] = new MembersFunction(), ["parameters"] = new ParametersFunction(),
@@ -541,17 +549,15 @@ internal static class FunctionLibrary {
       ["makeGeneric"] = new MakeGenericFunction(), ["visibility"] = new VisibilityFunction(),
       ["path"] = new PathFunction(), ["unwrap"] = new UnwrapFunction(), ["switch"] = new SwitchFunction(),
       ["size"] = new SizeFunction(), ["replace"] = new ReplaceFunction(), ["replaceFirst"] = new ReplaceFirstFunction(),
-      ["format"] = new FormatFunction(),
-      ["identifier"] = new IdentifierFunction(),
+      ["format"] = new FormatFunction(), ["identifier"] = new IdentifierFunction(),
       ["floatTime"] = new FloatTimeFunction(), ["table"] = new AsTableFunction(), ["put"] = new PutFunction(),
       ["remove"] = new RemoveFunction(), ["push"] = new PushFunction(), ["pop"] = new PopFunction(),
       ["joinKeys"] = new JoinKeysFunction(), ["joinValues"] = new JoinValuesFunction(),
       ["join"] = new JoinEntriesFunction(), ["mapValues"] = new MapValuesFunction(), ["map"] = new MapFunction(),
       ["filter"] = new FilterFunction(), ["reduce"] = new ReduceFunction(), ["attributes"] = new AttributesFunction(),
-      ["derive"] = new DeriveFunction(),
-      ["attributesOf"] = new AttributesOfFunction(), ["attributesOfExact"] = new AttributesOfExactFunction(),
-      ["attributeOf"] = new AttributeOfFunction(), ["wire"] = new WireFunction(),
-      ["signature"] = new SignaturePredicate(), ["wireable"] = new WireablePredicate(),
+      ["derive"] = new DeriveFunction(), ["attributesOf"] = new AttributesOfFunction(),
+      ["attributesOfExact"] = new AttributesOfExactFunction(), ["attributeOf"] = new AttributeOfFunction(),
+      ["wire"] = new WireFunction(), ["signature"] = new SignaturePredicate(), ["wireable"] = new WireablePredicate(),
       ["exists"] = new ExistsPredicate(), ["and"] = new AndPredicate(), ["or"] = new OrPredicate(),
       ["is"] = new IsPredicate(), ["has"] = new HasPredicate(), ["eq"] = new EqualPredicate(),
       ["matches"] = new MatchesPredicate(), ["isSelf"] = new TraitPredicate("isSelf"),
@@ -561,14 +567,13 @@ internal static class FunctionLibrary {
       ["public"] = new TraitPredicate("public"), ["exposed"] = new TraitPredicate("exposed"),
       ["top"] = new TraitPredicate("top"), ["concrete"] = new TraitPredicate("concrete"),
       ["partial"] = new TraitPredicate("partial"), ["generic"] = new TraitPredicate("generic"),
-      ["genericMethod"] = new TraitPredicate("genericMethod"),
-      ["struct"] = new TraitPredicate("struct"), ["class"] = new TraitPredicate("class"),
-      ["field"] = new TraitPredicate("field"), ["property"] = new TraitPredicate("property"),
-      ["method"] = new TraitPredicate("method"), ["event"] = new TraitPredicate("event"),
-      ["parameter"] = new TraitPredicate("parameter"), ["typeSymbol"] = new TraitPredicate("typeSymbol"),
-      ["referenceType"] = new TraitPredicate("referenceType"), ["valueType"] = new TraitPredicate("valueType"),
-      ["nullable"] = new TraitPredicate("nullable"), ["pointer"] = new TraitPredicate("pointer"),
-      ["containsPointer"] = new TraitPredicate("containsPointer"),
+      ["genericMethod"] = new TraitPredicate("genericMethod"), ["struct"] = new TraitPredicate("struct"),
+      ["class"] = new TraitPredicate("class"), ["field"] = new TraitPredicate("field"),
+      ["property"] = new TraitPredicate("property"), ["method"] = new TraitPredicate("method"),
+      ["event"] = new TraitPredicate("event"), ["parameter"] = new TraitPredicate("parameter"),
+      ["typeSymbol"] = new TraitPredicate("typeSymbol"), ["referenceType"] = new TraitPredicate("referenceType"),
+      ["valueType"] = new TraitPredicate("valueType"), ["nullable"] = new TraitPredicate("nullable"),
+      ["pointer"] = new TraitPredicate("pointer"), ["containsPointer"] = new TraitPredicate("containsPointer"),
       ["enum"] = new TraitPredicate("enum"), ["primitive"] = new TraitPredicate("primitive"),
       ["parameterDefault"] = new TraitPredicate("parameterDefault"),
       ["nonEmptyStringConstant"] = new TraitPredicate("nonEmptyStringConstant"),

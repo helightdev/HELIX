@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using static HelixSourceGenerator.Shared.GeneratorAnalysis;
-using static HelixSourceGenerator.Shared.GeneratorSource;
-using static HelixSourceGenerator.Shared.GeneratorStrings;
+using static MixinLanguage.GeneratorAnalysis;
+using static MixinLanguage.GeneratorSource;
+using static MixinLanguage.GeneratorStrings;
 
 namespace HelixSourceGenerator.Generators;
 

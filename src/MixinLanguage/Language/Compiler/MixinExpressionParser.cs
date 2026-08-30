@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 internal sealed record MixinParseDiagnostic(int Line, string Message);
 
@@ -363,7 +363,8 @@ public static class MixinExpressionParser {
         return false;
       }
     } else {
-      var named = name is "LABEL" or "FUNC" or "INLINE" or "LOCAL" or "VAR" or "TAR" or "CARRY" or "ANNOTATION" or "GOTO";
+      var named = name is "LABEL" or "FUNC" or "INLINE" or "LOCAL" or "VAR" or "TAR" or "CARRY" or "ANNOTATION"
+        or "GOTO";
       if (named && (arguments.Count != 1 || string.IsNullOrEmpty(arguments[0]))) {
         error = name + " requires a name";
         return false;
@@ -375,7 +376,8 @@ public static class MixinExpressionParser {
     }
     var kind = name is "MATCH" or "ASSERT"
       ? DirectiveOperandKind.Boolean
-      : name is "CALL" or "CODE" or "MIXIN" or "USING" or "LOCAL" or "VAR" or "TAR" or "CARRY" or "LOG" or "RETURN" or "FAIL"
+      : name is "CALL" or "CODE" or "MIXIN" or "USING" or "LOCAL" or "VAR" or "TAR" or "CARRY" or "LOG" or "RETURN"
+        or "FAIL"
         ? DirectiveOperandKind.Value
         : DirectiveOperandKind.None;
     return ValidateOperand(kind, operand, out error);

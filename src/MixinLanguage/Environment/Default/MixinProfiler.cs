@@ -1,10 +1,10 @@
 using System;
 
-namespace HelixSourceGenerator.Shared;
+namespace MixinLanguage;
 
 /// <summary>
-/// Standalone environment stub. Hosts that source-link the language may exclude
-/// this file and provide an implementation with the same internal contract.
+///   Standalone environment stub. Hosts that source-link the language may exclude
+///   this file and provide an implementation with the same internal contract.
 /// </summary>
 internal static class MixinProfiler {
   internal static bool Enabled => false;
@@ -12,8 +12,15 @@ internal static class MixinProfiler {
   internal static void Configure(bool enabled, string projectPath) { }
   internal static void ScheduleFlush() { }
   internal static void Flush() { }
-  internal static Scope Measure(string name) => default;
-  internal static Scope MeasureFunction(string name) => default;
+
+  internal static Scope Measure(string name) {
+    return default;
+  }
+
+  internal static Scope MeasureFunction(string name) {
+    return default;
+  }
+
   internal static void Increment(string name) { }
 
   internal readonly struct Scope : IDisposable {

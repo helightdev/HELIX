@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using HelixSourceGenerator.Language.Compiler;
+using MixinLanguage.Compiler;
 
-namespace HelixSourceGenerator.Language.Functions;
+namespace MixinLanguage.Functions;
 
 internal sealed class AsTableFunction() : EvaluatedFunctionDefinition("table", 0, 0) {
   protected override IMixinValue Apply(
@@ -159,13 +159,15 @@ internal sealed class ReduceFunction() : EvaluatedFunctionDefinition("reduce", 2
     if (context.ProgramInvoker is null) return context.Error("program function invocation is not available");
     var accumulator = arguments[0];
     foreach (var item in table.Entries) {
-      var parameter = new MixinTableValue([
-        new KeyValuePair<MixinString, IMixinValue>(context.ResolveString("acc"), accumulator),
-        new KeyValuePair<MixinString, IMixinValue>(
-          context.ResolveString("key"), new LiteralMixinValue(item.Key)
-        ),
-        new KeyValuePair<MixinString, IMixinValue>(context.ResolveString("value"), item.Value)
-      ]);
+      var parameter = new MixinTableValue(
+        [
+          new KeyValuePair<MixinString, IMixinValue>(context.ResolveString("acc"), accumulator),
+          new KeyValuePair<MixinString, IMixinValue>(
+            context.ResolveString("key"), new LiteralMixinValue(item.Key)
+          ),
+          new KeyValuePair<MixinString, IMixinValue>(context.ResolveString("value"), item.Value)
+        ]
+      );
       var result = context.ProgramInvoker(callback, parameter);
       if (result.Value is ErrorMixinValue) return result.Value;
       if (!result.HasValue) return context.Error(":reduce transformer must return a value");

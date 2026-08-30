@@ -6,6 +6,7 @@ plugins {
 solutions {
     solution("src/RiderPlugin/HelixRider.sln")
     solution("src/HelixSourceGenerator/HelixSourceGenerator.sln")
+    solution("src/MixinLanguage/MixinLanguage.sln")
 }
 
 unity {
@@ -99,17 +100,6 @@ unity {
         projectDependency(support)
         projectDependency(ui)
         projectDependency(devtools)
-    }
-
-    unityPackage("Assets/Plugins/HELIX.Widgets") {
-        name = "dev.helight.helix.widgets"
-        displayName = "HELIX Widgets"
-        description = "Provides the widget framework for the HELIX UI Toolkit extensions."
-        category = "UI"
-        publishable = false
-
-        projectDependency(core)
-        dependency("com.unity.nuget.newtonsoft-json", "3.2.1")
     }
 }
 

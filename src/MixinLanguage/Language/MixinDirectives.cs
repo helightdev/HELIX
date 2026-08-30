@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using HelixSourceGenerator.Shared;
 
-namespace HelixSourceGenerator.Language;
+namespace MixinLanguage;
 
 public enum DirectiveOperandKind { None, Value, Boolean }
 
@@ -40,8 +39,7 @@ public static class DirectiveLibrary {
   private static IReadOnlyDictionary<string, DirectiveDefinition> CreateDefinitions() {
     using var profile = MixinProfiler.Measure("static.directive_library");
     return new Dictionary<string, DirectiveDefinition>(StringComparer.Ordinal) {
-      ["RESOLVE_MIXIN"] = new ResolveMixinDirective(), ["PUSH"] = new PushDirective(),
-      ["PUT"] = new PutDirective()
+      ["RESOLVE_MIXIN"] = new ResolveMixinDirective(), ["PUSH"] = new PushDirective(), ["PUT"] = new PutDirective()
     };
   }
 

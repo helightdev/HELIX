@@ -19,6 +19,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelixSourceGenerator", "src
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelixSourceGenerator.Tests", "src\HelixSourceGenerator\HelixSourceGenerator\HelixSourceGenerator.Tests\HelixSourceGenerator.Tests.csproj", "{C8CC31ED-80E4-4D63-9694-A7B548481418}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helix.MixinLanguage", "src\MixinLanguage\Helix.MixinLanguage.csproj", "{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helix.MixinLanguage", "src\MixinLanguage\Helix.MixinLanguage.csproj", "{8D75747F-CBCA-49CB-B4F8-E4A8BA8DF66C}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX", "src\HELIX\HELIX.csproj", "{d4fbdb85-1b7a-dabd-b652-9516f8295d11}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX.Tests", "src\HELIX\HELIX.Tests.csproj", "{471d72b8-ede6-8573-378b-056fbe74582b}"
@@ -43,13 +47,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX.Devtools", "src\HELIX
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX.Devtools.Odin", "src\HELIX\HELIX.Devtools.Odin.csproj", "{3b251e49-f7a5-a4ef-b57b-ee7bafc70225}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX.Widgets", "src\HELIX\HELIX.Widgets.csproj", "{e6db31b6-c6a6-5b88-a962-6044d000f5e4}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX.Widgets.Editor", "src\HELIX\HELIX.Widgets.Editor.csproj", "{49b0063b-ac31-8c32-cd8f-41bd6568197d}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helix.Widgets.Tests", "src\HELIX\Helix.Widgets.Tests.csproj", "{df9973fd-63a6-3efb-2f5e-9f86b6348126}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HELIX.Boot", "src\HELIX\HELIX.Boot.csproj", "{4f7b5d99-6275-bb25-db25-06a38972a959}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Timeline", "src\HELIX\Unity.Timeline.csproj", "{f847bd9c-27b7-e901-0271-66b931008990}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.InputSystem", "src\HELIX\Unity.InputSystem.csproj", "{90c324ef-ca74-9be5-4d8f-8774d253faf6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.RenderPipelines.GPUDriven.Runtime", "src\HELIX\Unity.RenderPipelines.GPUDriven.Runtime.csproj", "{8c184b69-fea7-c0e1-bfc5-ce3663a4503a}"
 EndProject
@@ -66,6 +68,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Timeline.Editor", "src\HELIX\Unity.Timeline.Editor.csproj", "{03be1ef9-9584-cdd0-5928-7db7a5af00fe}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.RenderPipelines.Core.Editor", "src\HELIX\Unity.RenderPipelines.Core.Editor.csproj", "{e13c6962-6b5c-60a3-c2f4-c78e2ee2038c}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp", "src\HELIX\Assembly-CSharp.csproj", "{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Collections", "src\HELIX\Unity.Collections.csproj", "{c2817ad0-7eb1-7ee9-e1ee-6d57fa7a2ad6}"
 EndProject
@@ -97,8 +101,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Pipeline.Editor", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.VisualStudio.Editor", "src\HELIX\Unity.VisualStudio.Editor.csproj", "{b57bba9d-7c10-0ca4-0ec3-e90981d37055}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.InputSystem", "src\HELIX\Unity.InputSystem.csproj", "{90c324ef-ca74-9be5-4d8f-8774d253faf6}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UniTask", "src\HELIX\UniTask.csproj", "{d0252fe4-d345-0671-3fd3-29a13c29a6c7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Searcher.Editor", "src\HELIX\Unity.Searcher.Editor.csproj", "{2646cc15-87fc-9567-cb45-b4ccfff92f3c}"
@@ -120,6 +122,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.VisualScripting.Flow", "src\HELIX\Unity.VisualScripting.Flow.csproj", "{a6169d11-8c57-3abd-308c-6750f66df56a}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.PerformanceTesting", "src\HELIX\Unity.PerformanceTesting.csproj", "{14b96429-9672-ac9a-8159-155fc1fb0c5c}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.InputSystem.ForUI", "src\HELIX\Unity.InputSystem.ForUI.csproj", "{f232b60e-f812-894c-15f0-69c051783cbd}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Multiplayer.Center.Editor", "src\HELIX\Unity.Multiplayer.Center.Editor.csproj", "{4e9343a8-0e04-6e2a-83b4-e8ce4f6d2eb5}"
 EndProject
@@ -147,11 +151,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.UI.TestFramework.Edit
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Multiplayer.Center.Common", "src\HELIX\Unity.Multiplayer.Center.Common.csproj", "{cf3f0663-ec00-b603-180c-1697da26a9d6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp", "src\HELIX\Assembly-CSharp.csproj", "{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityEditor.UI", "src\HELIX\UnityEditor.UI.csproj", "{786d9202-2c27-f96b-4378-75c4405f37ae}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.RenderPipelines.Universal.2D.Editor.Overrides", "src\HELIX\Unity.RenderPipelines.Universal.2D.Editor.Overrides.csproj", "{826f5233-e5eb-43e6-da62-811fd91ea236}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.PlasticSCM.Editor.Assistant", "src\HELIX\Unity.PlasticSCM.Editor.Assistant.csproj", "{628c5fc5-5f21-c453-4b4c-5bff6f2b1eec}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.2D.Sprite.Editor", "src\HELIX\Unity.2D.Sprite.Editor.csproj", "{89220799-9106-41b2-d011-698e059f4d67}"
 EndProject
@@ -166,8 +170,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.RenderPipelines.Core.Runtime.Shared", "src\HELIX\Unity.RenderPipelines.Core.Runtime.Shared.csproj", "{28a2f60d-b017-8b61-03bb-abf06b93468c}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.AppUI.Navigation", "src\HELIX\Unity.AppUI.Navigation.csproj", "{07cdf731-a58b-7c84-06a6-cd57bd3d69b6}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.InputSystem.ForUI", "src\HELIX\Unity.InputSystem.ForUI.csproj", "{f232b60e-f812-894c-15f0-69c051783cbd}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.RenderPipelines.Core.Editor.Shared", "src\HELIX\Unity.RenderPipelines.Core.Editor.Shared.csproj", "{2ea70e25-452e-a7d7-48ea-e4ac57e00532}"
 EndProject
@@ -212,6 +214,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.SurfaceCache.Runtime", "src\HELIX\Unity.SurfaceCache.Runtime.csproj", "{000b7839-d379-5274-ea49-218511956e9e}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.InternalAPIEngineBridge.RenderPipelines.Core.Runtime.Shared", "src\HELIX\Unity.InternalAPIEngineBridge.RenderPipelines.Core.Runtime.Shared.csproj", "{0941856e-ca88-2106-51c5-38cba14a0dbf}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.InputSystem.ForUI.Editor", "src\HELIX\Unity.InputSystem.ForUI.Editor.csproj", "{b4545316-e589-9a38-5fe3-fbece64fa844}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Collections.Tests.CoreCLR.InternalJobNestedPrivate", "src\HELIX\Unity.Collections.Tests.CoreCLR.InternalJobNestedPrivate.csproj", "{da76ce0f-2a61-9db7-de18-21c03b540937}"
 EndProject
@@ -265,9 +269,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.RenderPipelines.Shade
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.RenderPipelines.Core.ShaderLibrary", "src\HELIX\Unity.RenderPipelines.Core.ShaderLibrary.csproj", "{545326cf-615b-7fde-1bea-bc397bbd8f16}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp-Editor", "src\HELIX\Assembly-CSharp-Editor.csproj", "{0e88b07c-00e4-4580-1f12-00da59a01989}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.RenderPipelines.Universal.Editor.Tests", "src\HELIX\Unity.RenderPipelines.Universal.Editor.Tests.csproj", "{5c61db9f-69a5-95b6-9689-a2ddd5dd0190}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Assembly-CSharp-Editor", "src\HELIX\Assembly-CSharp-Editor.csproj", "{0e88b07c-00e4-4580-1f12-00da59a01989}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Addressables.Editor.Tests", "src\HELIX\Unity.Addressables.Editor.Tests.csproj", "{4799a98a-44a0-4648-d42b-c813b8ed012f}"
 EndProject
@@ -355,6 +359,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HelixRider", "HelixRider", 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HelixSourceGenerator", "HelixSourceGenerator", "{7F60D41A-09D2-31E5-9E14-18695DACBBA0}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MixinLanguage", "MixinLanguage", "{4FCC4B28-0AEC-3D82-8D1E-A66923197728}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HELIX Core", "HELIX Core", "{3733F2CA-D0F8-3FD2-AF7D-59AE550FE86D}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HELIX Compose", "HELIX Compose", "{A44988EE-2325-3A48-91EE-74BCCA8CC88C}"
@@ -367,7 +373,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HELIX UI", "HELIX UI", "{32
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HELIX Devtools", "HELIX Devtools", "{647C2B7A-2DEB-32B6-9D27-1875FF60A6A2}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HELIX Widgets", "HELIX Widgets", "{86FD54BF-5BA5-35C7-99B4-E90D035F08C4}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HELIX Boot", "HELIX Boot", "{5FA8791E-EEBF-3A52-B3F9-47647A14E5EA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HELIX", "HELIX", "{BDB66EEE-228A-3400-8363-DA1E56D2982E}"
 EndProject
@@ -399,6 +405,14 @@ Global
 		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8CC31ED-80E4-4D63-9694-A7B548481418}.Release|Any CPU.Build.0 = Release|Any CPU
+		{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{03C5BAF2-B27D-4E48-9685-A72B68D89EAC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D75747F-CBCA-49CB-B4F8-E4A8BA8DF66C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D75747F-CBCA-49CB-B4F8-E4A8BA8DF66C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D75747F-CBCA-49CB-B4F8-E4A8BA8DF66C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D75747F-CBCA-49CB-B4F8-E4A8BA8DF66C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{d4fbdb85-1b7a-dabd-b652-9516f8295d11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{d4fbdb85-1b7a-dabd-b652-9516f8295d11}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{471d72b8-ede6-8573-378b-056fbe74582b}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -423,14 +437,12 @@ Global
 		{2e36e904-3c26-3fb2-70e4-16f5f916b8a9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3b251e49-f7a5-a4ef-b57b-ee7bafc70225}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{3b251e49-f7a5-a4ef-b57b-ee7bafc70225}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{e6db31b6-c6a6-5b88-a962-6044d000f5e4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{e6db31b6-c6a6-5b88-a962-6044d000f5e4}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{49b0063b-ac31-8c32-cd8f-41bd6568197d}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{49b0063b-ac31-8c32-cd8f-41bd6568197d}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{df9973fd-63a6-3efb-2f5e-9f86b6348126}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{df9973fd-63a6-3efb-2f5e-9f86b6348126}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4f7b5d99-6275-bb25-db25-06a38972a959}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4f7b5d99-6275-bb25-db25-06a38972a959}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{f847bd9c-27b7-e901-0271-66b931008990}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{f847bd9c-27b7-e901-0271-66b931008990}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{90c324ef-ca74-9be5-4d8f-8774d253faf6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{90c324ef-ca74-9be5-4d8f-8774d253faf6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8c184b69-fea7-c0e1-bfc5-ce3663a4503a}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8c184b69-fea7-c0e1-bfc5-ce3663a4503a}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{12f08900-922c-f5e6-b428-31f48c980c0f}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -447,6 +459,8 @@ Global
 		{03be1ef9-9584-cdd0-5928-7db7a5af00fe}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{e13c6962-6b5c-60a3-c2f4-c78e2ee2038c}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{e13c6962-6b5c-60a3-c2f4-c78e2ee2038c}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{c2817ad0-7eb1-7ee9-e1ee-6d57fa7a2ad6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{c2817ad0-7eb1-7ee9-e1ee-6d57fa7a2ad6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{16a57932-99ff-4fd2-61bd-be6498a89732}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -477,8 +491,6 @@ Global
 		{67e67057-e5c6-166a-bdee-00b0f4e27d91}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{b57bba9d-7c10-0ca4-0ec3-e90981d37055}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{b57bba9d-7c10-0ca4-0ec3-e90981d37055}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{90c324ef-ca74-9be5-4d8f-8774d253faf6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{90c324ef-ca74-9be5-4d8f-8774d253faf6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{d0252fe4-d345-0671-3fd3-29a13c29a6c7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{d0252fe4-d345-0671-3fd3-29a13c29a6c7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2646cc15-87fc-9567-cb45-b4ccfff92f3c}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -501,6 +513,8 @@ Global
 		{a6169d11-8c57-3abd-308c-6750f66df56a}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{14b96429-9672-ac9a-8159-155fc1fb0c5c}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{14b96429-9672-ac9a-8159-155fc1fb0c5c}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{f232b60e-f812-894c-15f0-69c051783cbd}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{f232b60e-f812-894c-15f0-69c051783cbd}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4e9343a8-0e04-6e2a-83b4-e8ce4f6d2eb5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4e9343a8-0e04-6e2a-83b4-e8ce4f6d2eb5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{32a75e10-5ca9-2a6c-020d-6c8f44ffd81d}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -527,12 +541,12 @@ Global
 		{6acf83c8-9094-20f2-8071-afbcf7a84b14}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{cf3f0663-ec00-b603-180c-1697da26a9d6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{cf3f0663-ec00-b603-180c-1697da26a9d6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{786d9202-2c27-f96b-4378-75c4405f37ae}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{786d9202-2c27-f96b-4378-75c4405f37ae}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{826f5233-e5eb-43e6-da62-811fd91ea236}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{826f5233-e5eb-43e6-da62-811fd91ea236}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{628c5fc5-5f21-c453-4b4c-5bff6f2b1eec}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{628c5fc5-5f21-c453-4b4c-5bff6f2b1eec}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{89220799-9106-41b2-d011-698e059f4d67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{89220799-9106-41b2-d011-698e059f4d67}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{e52f5ff0-eccd-619b-0530-db9fbfb3f961}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -547,8 +561,6 @@ Global
 		{28a2f60d-b017-8b61-03bb-abf06b93468c}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{07cdf731-a58b-7c84-06a6-cd57bd3d69b6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{07cdf731-a58b-7c84-06a6-cd57bd3d69b6}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{f232b60e-f812-894c-15f0-69c051783cbd}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{f232b60e-f812-894c-15f0-69c051783cbd}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2ea70e25-452e-a7d7-48ea-e4ac57e00532}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{2ea70e25-452e-a7d7-48ea-e4ac57e00532}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0dacaead-da95-d91a-947c-73441a1c7638}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -593,6 +605,8 @@ Global
 		{000b7839-d379-5274-ea49-218511956e9e}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0941856e-ca88-2106-51c5-38cba14a0dbf}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0941856e-ca88-2106-51c5-38cba14a0dbf}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{b4545316-e589-9a38-5fe3-fbece64fa844}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{b4545316-e589-9a38-5fe3-fbece64fa844}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{da76ce0f-2a61-9db7-de18-21c03b540937}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{da76ce0f-2a61-9db7-de18-21c03b540937}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{672b2c85-c78c-edb0-a826-82116a5ff69a}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -645,10 +659,10 @@ Global
 		{1c3a15c4-c20a-bc4d-7cc9-3b99901b06c2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{545326cf-615b-7fde-1bea-bc397bbd8f16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{545326cf-615b-7fde-1bea-bc397bbd8f16}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0e88b07c-00e4-4580-1f12-00da59a01989}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0e88b07c-00e4-4580-1f12-00da59a01989}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5c61db9f-69a5-95b6-9689-a2ddd5dd0190}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5c61db9f-69a5-95b6-9689-a2ddd5dd0190}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0e88b07c-00e4-4580-1f12-00da59a01989}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0e88b07c-00e4-4580-1f12-00da59a01989}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4799a98a-44a0-4648-d42b-c813b8ed012f}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4799a98a-44a0-4648-d42b-c813b8ed012f}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{948942be-c212-497e-ff6e-a43183cf9de6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -739,6 +753,8 @@ Global
 		{4A9ABB95-3762-448B-B5BF-099E46DB22DE} = {E3A3EFB8-8E85-36FA-9DDF-C089F43A5ECF}
 		{2C06BADC-32EE-4DB0-88A2-CE314BC4891A} = {7F60D41A-09D2-31E5-9E14-18695DACBBA0}
 		{C8CC31ED-80E4-4D63-9694-A7B548481418} = {7F60D41A-09D2-31E5-9E14-18695DACBBA0}
+		{03C5BAF2-B27D-4E48-9685-A72B68D89EAC} = {7F60D41A-09D2-31E5-9E14-18695DACBBA0}
+		{8D75747F-CBCA-49CB-B4F8-E4A8BA8DF66C} = {4FCC4B28-0AEC-3D82-8D1E-A66923197728}
 		{d4fbdb85-1b7a-dabd-b652-9516f8295d11} = {3733F2CA-D0F8-3FD2-AF7D-59AE550FE86D}
 		{471d72b8-ede6-8573-378b-056fbe74582b} = {3733F2CA-D0F8-3FD2-AF7D-59AE550FE86D}
 		{8f5c030f-8ed5-ac34-3342-851eb2e4a67f} = {A44988EE-2325-3A48-91EE-74BCCA8CC88C}
@@ -751,11 +767,10 @@ Global
 		{50ec6bde-d9f8-2c48-8177-32c484110e20} = {647C2B7A-2DEB-32B6-9D27-1875FF60A6A2}
 		{2e36e904-3c26-3fb2-70e4-16f5f916b8a9} = {647C2B7A-2DEB-32B6-9D27-1875FF60A6A2}
 		{3b251e49-f7a5-a4ef-b57b-ee7bafc70225} = {647C2B7A-2DEB-32B6-9D27-1875FF60A6A2}
-		{e6db31b6-c6a6-5b88-a962-6044d000f5e4} = {86FD54BF-5BA5-35C7-99B4-E90D035F08C4}
-		{49b0063b-ac31-8c32-cd8f-41bd6568197d} = {86FD54BF-5BA5-35C7-99B4-E90D035F08C4}
-		{df9973fd-63a6-3efb-2f5e-9f86b6348126} = {86FD54BF-5BA5-35C7-99B4-E90D035F08C4}
+		{4f7b5d99-6275-bb25-db25-06a38972a959} = {5FA8791E-EEBF-3A52-B3F9-47647A14E5EA}
 		{BDB66EEE-228A-3400-8363-DA1E56D2982E} = {942D0E48-4CAC-3324-BFD9-16C76E6F1F4F}
 		{f847bd9c-27b7-e901-0271-66b931008990} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
+		{90c324ef-ca74-9be5-4d8f-8774d253faf6} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{8c184b69-fea7-c0e1-bfc5-ce3663a4503a} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{12f08900-922c-f5e6-b428-31f48c980c0f} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{608ec2a6-8c95-39fc-5bbc-b0eee729974d} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
@@ -764,6 +779,7 @@ Global
 		{00cacc7c-998e-46f2-8195-8e799b293929} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{03be1ef9-9584-cdd0-5928-7db7a5af00fe} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{e13c6962-6b5c-60a3-c2f4-c78e2ee2038c} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
+		{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{c2817ad0-7eb1-7ee9-e1ee-6d57fa7a2ad6} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{16a57932-99ff-4fd2-61bd-be6498a89732} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{36b0a807-54e7-31e7-1268-964e6a3d8b58} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
@@ -779,7 +795,6 @@ Global
 		{11fa7156-7acb-c3f9-e4a0-25a5d4bd85ae} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{67e67057-e5c6-166a-bdee-00b0f4e27d91} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{b57bba9d-7c10-0ca4-0ec3-e90981d37055} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
-		{90c324ef-ca74-9be5-4d8f-8774d253faf6} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{d0252fe4-d345-0671-3fd3-29a13c29a6c7} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{2646cc15-87fc-9567-cb45-b4ccfff92f3c} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{e7daadf1-f2c8-05d4-237d-4126014580e0} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
@@ -791,6 +806,7 @@ Global
 		{3bf46e69-1fe6-ddc8-ea43-b50b4086fe64} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{a6169d11-8c57-3abd-308c-6750f66df56a} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{14b96429-9672-ac9a-8159-155fc1fb0c5c} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
+		{f232b60e-f812-894c-15f0-69c051783cbd} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{4e9343a8-0e04-6e2a-83b4-e8ce4f6d2eb5} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{32a75e10-5ca9-2a6c-020d-6c8f44ffd81d} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{8fe66706-161b-b3ac-07b9-185c9dd7bf54} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
@@ -804,9 +820,9 @@ Global
 		{392234b9-bf7b-ba89-9b59-0a4742df84a2} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{6acf83c8-9094-20f2-8071-afbcf7a84b14} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{cf3f0663-ec00-b603-180c-1697da26a9d6} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
-		{130f6f9c-66a1-3cc1-c608-acf1ef1fcd2f} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{786d9202-2c27-f96b-4378-75c4405f37ae} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{826f5233-e5eb-43e6-da62-811fd91ea236} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
+		{628c5fc5-5f21-c453-4b4c-5bff6f2b1eec} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{89220799-9106-41b2-d011-698e059f4d67} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{e52f5ff0-eccd-619b-0530-db9fbfb3f961} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{48e69100-da15-f08f-e601-df483904950d} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
@@ -814,7 +830,6 @@ Global
 		{47823653-8643-8db8-4a1e-a2f5e2aeec9a} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{28a2f60d-b017-8b61-03bb-abf06b93468c} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{07cdf731-a58b-7c84-06a6-cd57bd3d69b6} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
-		{f232b60e-f812-894c-15f0-69c051783cbd} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{2ea70e25-452e-a7d7-48ea-e4ac57e00532} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{0dacaead-da95-d91a-947c-73441a1c7638} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{7815eacf-2750-0da7-c0a4-d068f48afaf2} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
@@ -837,6 +852,7 @@ Global
 		{549e5960-7f0c-86ec-8868-72f792cd4626} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{000b7839-d379-5274-ea49-218511956e9e} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{0941856e-ca88-2106-51c5-38cba14a0dbf} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
+		{b4545316-e589-9a38-5fe3-fbece64fa844} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{da76ce0f-2a61-9db7-de18-21c03b540937} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{672b2c85-c78c-edb0-a826-82116a5ff69a} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{01217f08-a6f7-b34e-6382-febf263b81a0} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
@@ -863,8 +879,8 @@ Global
 		{5ebafd34-4a41-d706-a76c-6561f5e8fd4a} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{1c3a15c4-c20a-bc4d-7cc9-3b99901b06c2} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{545326cf-615b-7fde-1bea-bc397bbd8f16} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
-		{0e88b07c-00e4-4580-1f12-00da59a01989} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{5c61db9f-69a5-95b6-9689-a2ddd5dd0190} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
+		{0e88b07c-00e4-4580-1f12-00da59a01989} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{4799a98a-44a0-4648-d42b-c813b8ed012f} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{948942be-c212-497e-ff6e-a43183cf9de6} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}
 		{acb7ccca-ccea-3850-4a53-b83e46f4193c} = {BDB66EEE-228A-3400-8363-DA1E56D2982E}

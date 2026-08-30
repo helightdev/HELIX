@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using RuntimeValue = HelixSourceGenerator.Language.IMixinValue;
+using RuntimeValue = MixinLanguage.IMixinValue;
 
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 public static partial class MixinExpressionCompiler {
   private static RuntimeValue LowerReference(MixinExpressionReference syntax, MixinStringPool strings) {
@@ -91,7 +91,7 @@ public static partial class MixinExpressionCompiler {
           : target;
     }
 
-    MixinInstruction lowered = syntax switch {
+    var lowered = syntax switch {
       EmptyDirectiveSyntax => new MixinInstruction(MixinOpcode.Empty, location),
       ScopeDirectiveSyntax => new MixinInstruction(MixinOpcode.Scope, location),
       LabelDirectiveSyntax => new MixinInstruction(MixinOpcode.Scope, location),

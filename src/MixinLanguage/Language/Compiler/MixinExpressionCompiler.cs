@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using HelixSourceGenerator.Shared;
 
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 public static partial class MixinExpressionCompiler {
   private static readonly IReadOnlyList<MixinExpressionCompilerStep> Steps = [
@@ -245,7 +244,7 @@ public static partial class MixinExpressionCompiler {
 
   private static bool TryInterpolatePrepared(
     IReadOnlyList<IMixinValue> expression,
-    IReadOnlyDictionary<MixinString, Language.IMixinValue> variables,
+    IReadOnlyDictionary<MixinString, MixinLanguage.IMixinValue> variables,
     MixinStringPool strings,
     out string result,
     out string error

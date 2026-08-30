@@ -1,6 +1,6 @@
 using System;
 
-namespace HelixSourceGenerator.Language;
+namespace MixinLanguage;
 
 public sealed class MixinFingerprintBuilder {
   private const ulong Offset = 14695981039346656037UL;

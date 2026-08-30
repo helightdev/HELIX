@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
-namespace HelixSourceGenerator.Language.Compiler;
+namespace MixinLanguage.Compiler;
 
 public static partial class MixinExpressionCompiler {
   private sealed class InlineExpansionStep : MixinExpressionCompilerStep {
