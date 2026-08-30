@@ -18,21 +18,11 @@ namespace HelixSourceGenerator.Shared;
 
 internal static class MixinLibraryApi {
   internal const string AdditionalFileSuffix = ".HelixSourceGenerator.additionalfile";
-  private static readonly object CompilationCacheGate = new();
-  private static string _compiledCatalogKey;
-  private static MixinCompilation _compiledCatalog;
 
   internal static MixinCompilation CompileCached(MixinLibraryCatalog catalog) {
     MixinProfiler.Configure(catalog.HasConfiguration("PROFILE"), catalog.ProjectPath);
     using var profile = MixinProfiler.Measure("library.compile_cached");
-    lock (CompilationCacheGate) {
-      if (_compiledCatalog is not null &&
-        string.Equals(_compiledCatalogKey, catalog.Key, StringComparison.Ordinal))
-        return _compiledCatalog;
-      _compiledCatalog = Compile(catalog);
-      _compiledCatalogKey = catalog.Key;
-      return _compiledCatalog;
-    }
+    return MixinCompilationCache.GetOrCreate(catalog.Key, () => Compile(catalog));
   }
 
   internal static MixinCompilation Compile(MixinLibraryCatalog catalog) {

@@ -246,10 +246,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     var lateContributions = new List<MixinContribution>();
     var lateSequence = 1_000_000;
     var finalDebugStates = model.Render.DebugExpressions
-      .GroupBy(DebugStateKey, StringComparer.Ordinal)
+      .GroupBy(MixinDebugRenderer.StateKey, StringComparer.Ordinal)
       .ToDictionary(
         group => group.Key,
-        group => new FinalDebugState(group.Last(), 0, 0),
+        group => new MixinDebugFinalState(group.Last(), 0, 0),
         StringComparer.Ordinal
       );
     var unlinkedContext = new UnlinkedMixinExpressionContext(model.Render.StringPool);
@@ -274,7 +274,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       }
       var debugStateKey = DebugStateKey(work);
       if (finalDebugStates.TryGetValue(debugStateKey, out var debugState)) {
-        finalDebugStates[debugStateKey] = new FinalDebugState(
+        finalDebugStates[debugStateKey] = new MixinDebugFinalState(
           debugState.Work, result.ExecutedOperations, result.ExecutionMilliseconds
         );
       }
@@ -1076,7 +1076,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   private sealed record AnnotatedSymbolData(ISymbol Symbol, IReadOnlyList<AttributeData> Attributes);
 
   private sealed class MixinGenerationContext {
-    private readonly List<DebugExpressionWork> _debugExpressions = [];
+    private readonly List<MixinDebugExpression> _debugExpressions = [];
     private readonly List<MixinDiagnostic> _diagnostics = [];
     private readonly List<LateExpressionWork> _lateExpressions = [];
 
@@ -1089,7 +1089,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     internal bool DebugStringPool { get; }
     internal bool HasLateExpressions => _lateExpressions.Count != 0;
     internal IReadOnlyList<LateExpressionWork> LateExpressions => _lateExpressions;
-    internal IReadOnlyList<DebugExpressionWork> DebugExpressions => _debugExpressions;
+    internal IReadOnlyList<MixinDebugExpression> DebugExpressions => _debugExpressions;
 
     internal void ReportDiagnostic(Diagnostic diagnostic) {
       _diagnostics.Add(MixinDiagnostic.Detach(diagnostic));
@@ -1130,7 +1130,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     ) {
       if (!Debug) return;
       _debugExpressions.Add(
-        new DebugExpressionWork(
+        new MixinDebugExpression(
           preludeProgram, lateProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
           provider ?? "", (source as INamedTypeSymbol ?? source.ContainingType)
           ?.ToDisplayString(TypeDisplayFormat) ?? "",
@@ -1180,23 +1180,6 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     int SourceParameterCount
   );
 
-  private sealed record DebugExpressionWork(
-    string PreludeProgram,
-    string LateProgram,
-    ImmutableDictionary<string, object> Variables,
-    string Provider,
-    string SourceType,
-    string SourceMember,
-    int PreludeOperations,
-    double PreludeMilliseconds
-  );
-
-  private sealed record FinalDebugState(
-    DebugExpressionWork Work,
-    int LateOperations,
-    double LateMilliseconds
-  );
-
   private sealed record LateTarget(
     string DeclaredTarget,
     string EmittedTarget,
@@ -1218,7 +1201,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       IEnumerable<KeyValuePair<string, object>> primaryVariables,
       MixinStringPool stringPool,
       IEnumerable<KeyValuePair<MixinString, IMixinValue>> targetVariables,
-      ImmutableArray<DebugExpressionWork> debugExpressions,
+      ImmutableArray<MixinDebugExpression> debugExpressions,
       bool debug,
       bool debugStringPool
     ) {
@@ -1255,7 +1238,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     internal MixinOutputCollection Usings { get; }
     internal MixinValueDictionary PrimaryVariables { get; }
     internal MixinValueDictionary TargetVariables { get; }
-    internal ImmutableArray<DebugExpressionWork> DebugExpressions { get; }
+    internal ImmutableArray<MixinDebugExpression> DebugExpressions { get; }
     internal bool Debug { get; }
     internal bool DebugStringPool { get; }
     internal MixinStringPool StringPool { get; }

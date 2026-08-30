@@ -22,7 +22,7 @@
     -->
     <ItemGroup>
         <Compile Include="..\..\..\MixinLanguage\**\*.cs"
-                 Exclude="..\..\..\MixinLanguage\bin\**\*;..\..\..\MixinLanguage\obj\**\*">
+                 Exclude="..\..\..\MixinLanguage\bin\**\*;..\..\..\MixinLanguage\obj\**\*;..\..\..\MixinLanguage\Environment\Default\**\*.cs">
             <Link>Shared\%(RecursiveDir)%(Filename)%(Extension)</Link>
         </Compile>
     </ItemGroup>
