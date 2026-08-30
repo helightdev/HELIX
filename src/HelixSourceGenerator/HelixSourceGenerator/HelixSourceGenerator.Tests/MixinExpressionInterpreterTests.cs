@@ -675,6 +675,21 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
+  public void EditorSyntaxKeepsChainedPathsAtomic() {
+    const string source = "@RETURN @local#Prop#HashCodeSyntax:unwrap\n";
+
+    var tree = MixinExpressionParser.ParseEditorSyntax(source);
+    var nodes = DescendantsAndSelf(tree.Root).ToArray();
+    var path = Assert.Single(nodes.Where(node => node.Kind == MixinEditorSyntaxKind.Path));
+
+    Assert.Equal("#HashCodeSyntax", Slice(source, path.SourceRange));
+    Assert.Empty(path.Children);
+    Assert.DoesNotContain(nodes, node =>
+      node.Kind == MixinEditorSyntaxKind.LiteralArgument &&
+      Slice(source, node.SourceRange) == "HashCodeSyntax");
+  }
+
+  [Fact]
   public void EditorSyntaxKeepsLiteralCodeOutsideReferencesUnstructured() {
     const string source = "@MIXIN<$PostConstruct><0> global::UnityEngine.UIElements.VisualElementExtensions.Call(this)\n";
 

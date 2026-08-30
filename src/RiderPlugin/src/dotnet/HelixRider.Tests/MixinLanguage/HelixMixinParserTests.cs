@@ -63,7 +63,7 @@ public sealed class HelixMixinParserTests
         Assert.That(HelixMixinSyntaxHighlightingProcessor.GetMixinAttributeId(openingAngles[0]),
             Is.EqualTo(HelixMixinHighlightingAttributeIds.Directive));
         Assert.That(HelixMixinSyntaxHighlightingProcessor.GetMixinAttributeId(openingAngles[1]),
-            Is.EqualTo(HelixMixinHighlightingAttributeIds.FunctionArgumentDelimiter));
+            Is.EqualTo(HelixMixinHighlightingAttributeIds.Function));
 
         var referenceParentheses = AllNodes(file).OfType<ITokenNode>()
             .Where(token => token.GetText() is "(" or ")" && token.Parent is IParenthesizedReferenceNode)
@@ -180,13 +180,23 @@ public sealed class HelixMixinParserTests
             .First(token => token.GetText() == "<");
         var memberSeparator = nodes.OfType<ITokenNode>().Single(token =>
             token.GetText() == "#" && token.Parent is IReferenceNode);
+        var memberTokens = nodes.OfType<IMemberNode>().SelectMany(AllNodes)
+            .OfType<ITokenNode>().ToArray();
+        var pathTokens = nodes.OfType<IPathNode>().SelectMany(AllNodes)
+            .OfType<ITokenNode>().ToArray();
 
         Assert.That(continuationFunction.GetText(), Is.EqualTo(":put<name><(@local#Name)>") );
         Assert.That(continuationPath.GetText(), Is.EqualTo("#entry"));
         Assert.That(HelixMixinSyntaxHighlightingProcessor.GetMixinAttributeId(openingAngle),
-            Is.EqualTo(HelixMixinHighlightingAttributeIds.FunctionArgumentDelimiter));
+            Is.EqualTo(HelixMixinHighlightingAttributeIds.Function));
         Assert.That(HelixMixinSyntaxHighlightingProcessor.GetMixinAttributeId(memberSeparator),
-            Is.EqualTo(HelixMixinHighlightingAttributeIds.Value));
+            Is.EqualTo(HelixMixinHighlightingAttributeIds.Path));
+        Assert.That(memberTokens, Is.Not.Empty);
+        Assert.That(pathTokens, Is.Not.Empty);
+        Assert.That(memberTokens.Concat(pathTokens).All(token =>
+                HelixMixinSyntaxHighlightingProcessor.GetMixinAttributeId(token) ==
+                HelixMixinHighlightingAttributeIds.Path),
+            Is.True);
     }
 
     [Test]

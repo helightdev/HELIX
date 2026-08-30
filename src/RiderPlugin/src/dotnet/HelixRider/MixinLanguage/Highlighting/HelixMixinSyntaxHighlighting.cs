@@ -40,11 +40,11 @@ internal sealed class HelixMixinSyntaxHighlightingProcessor : SyntaxHighlighting
             if (parent is IDirectiveNameNode) return HelixMixinHighlightingAttributeIds.Directive;
             if (parent is ILiteralArgumentNode)
                 return IsBoundaryDelimiter(token, parent, text)
-                    ? HelixMixinHighlightingAttributeIds.FunctionArgumentDelimiter
+                    ? HelixMixinHighlightingAttributeIds.Function
                     : HelixMixinHighlightingAttributeIds.Argument;
             if (parent is IExpressionArgumentNode)
                 return IsBoundaryDelimiter(token, parent, text)
-                    ? HelixMixinHighlightingAttributeIds.FunctionArgumentDelimiter
+                    ? HelixMixinHighlightingAttributeIds.Function
                     : IsExpressionBoundaryParenthesis(token, parent, text)
                         ? HelixMixinHighlightingAttributeIds.Value
                         : null;
@@ -57,11 +57,16 @@ internal sealed class HelixMixinSyntaxHighlightingProcessor : SyntaxHighlighting
                 return text is ":" or "!" or "?"
                     ? HelixMixinHighlightingAttributeIds.Operator
                     : HelixMixinHighlightingAttributeIds.Function;
-            if (parent is IRootNode or IMemberNode) return HelixMixinHighlightingAttributeIds.Value;
+            if (parent is IRootNode) return HelixMixinHighlightingAttributeIds.Value;
+            if (parent is IMemberNode) return HelixMixinHighlightingAttributeIds.Path;
             if (parent is IParenthesizedReferenceNode)
-                return text is "@" or "#" or "(" or ")" ? HelixMixinHighlightingAttributeIds.Value : null;
+                return text == "#"
+                    ? HelixMixinHighlightingAttributeIds.Path
+                    : text is "@" or "(" or ")" ? HelixMixinHighlightingAttributeIds.Value : null;
             if (parent is IReferenceNode)
-                return text is "@" or "#" ? HelixMixinHighlightingAttributeIds.Value : null;
+                return text == "#"
+                    ? HelixMixinHighlightingAttributeIds.Path
+                    : text == "@" ? HelixMixinHighlightingAttributeIds.Value : null;
             if (parent is IContinuationNode)
             {
                 if (text is "@" or "+" or "\\") return HelixMixinHighlightingAttributeIds.Operator;

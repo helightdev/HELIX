@@ -285,17 +285,20 @@ public static partial class MixinExpressionParser {
     }
     foreach (var property in reference.Properties) {
       var propertyChildren = new List<MixinEditorSyntaxNode>();
-      foreach (var argument in property.ParsedArguments) {
-        var argumentKind = argument.Literal is null
-          ? MixinEditorSyntaxKind.ExpressionArgument
-          : MixinEditorSyntaxKind.LiteralArgument;
-        propertyChildren.Add(new MixinEditorSyntaxNode(
-          argumentKind, Shift(argument.SourceRange, offset),
-          argumentKind == MixinEditorSyntaxKind.ExpressionArgument
-            ? ProjectExpressionFromArgument(argument, offset)
-            : []
-        ));
-      }
+      // A path is represented by the compiler as a synthetic "path" property whose argument
+      // carries the identifier. It is one semantic path segment, not a function argument.
+      if (property.Name != "path")
+        foreach (var argument in property.ParsedArguments) {
+          var argumentKind = argument.Literal is null
+            ? MixinEditorSyntaxKind.ExpressionArgument
+            : MixinEditorSyntaxKind.LiteralArgument;
+          propertyChildren.Add(new MixinEditorSyntaxNode(
+            argumentKind, Shift(argument.SourceRange, offset),
+            argumentKind == MixinEditorSyntaxKind.ExpressionArgument
+              ? ProjectExpressionFromArgument(argument, offset)
+              : []
+          ));
+        }
       children.Add(new MixinEditorSyntaxNode(
         property.Name == "path" ? MixinEditorSyntaxKind.Path : MixinEditorSyntaxKind.FunctionCall,
         Shift(property.SourceRange, offset), propertyChildren
