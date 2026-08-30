@@ -1,19 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
+using HelixSourceGenerator.Shared;
 
 namespace HelixSourceGenerator.Language.Compiler;
 
 public static partial class MixinExpressionCompiler {
-  private static readonly HashSet<MixinExpressionRoot> RoslynRoots = [
-    MixinExpressionRoot.Target, MixinExpressionRoot.This, MixinExpressionRoot.Attribute, MixinExpressionRoot.Argument
-  ];
   private static readonly IReadOnlyList<MixinExpressionCompilerStep> Steps = [
-    new InlineExpansionStep(),
-    new PreludeHoistingStep(),
-    new FunctionBindingStep()
+    new InlineExpansionStep(), new PreludeHoistingStep(), new FunctionBindingStep()
   ];
 
   public static MixinExpressionValidationResult ValidateSyntax(string expression) {
@@ -30,7 +25,9 @@ public static partial class MixinExpressionCompiler {
 
   public static MixinProgramSyntax RewriteTargetAsThis(MixinProgramSyntax program) {
     MixinExpressionReference Rewrite(MixinExpressionReference reference) {
-      var properties = reference.Properties.Select(property => RewriteProperty(property, Rewrite)).ToArray();
+      var properties = reference.Properties.Select(property =>
+        FunctionBindingStep.RewriteProperty(property, Rewrite)
+      ).ToArray();
       return new MixinExpressionReference(
         reference.Root == MixinExpressionRoot.Target ? MixinExpressionRoot.This : reference.Root,
         reference.Member, properties, reference.Parenthesized
@@ -38,7 +35,9 @@ public static partial class MixinExpressionCompiler {
     }
 
     return new MixinProgramSyntax(
-      program.AvailableInstructions().Select(instruction => RewriteReferences(instruction, Rewrite))
+      program.AvailableInstructions().Select(instruction =>
+        FunctionBindingStep.RewriteReferences(instruction, Rewrite)
+      )
     );
   }
 
@@ -53,6 +52,7 @@ public static partial class MixinExpressionCompiler {
   ) {
     var syntax = new MixinCompilerSyntax(explicitPrelude, expression);
     foreach (var step in Steps) {
+      using var profile = MixinProfiler.Measure("compiler.step." + step.GetType().Name);
       if (step.TryTransform(syntax, preparedState, out var transformed, out error, out errorLine)) {
         syntax = transformed;
         continue;
@@ -68,463 +68,8 @@ public static partial class MixinExpressionCompiler {
     return true;
   }
 
-  private static bool TryHoistRoslynReferences(
-    MixinProgramSyntax explicitPrelude,
-    MixinProgramSyntax expression,
-    out MixinProgramSyntax prelude,
-    out MixinProgramSyntax lateExpression,
-    out string error,
-    out int errorLine
-  ) {
-    var generated = new List<DirectiveInstruction>();
-    var labels = new Dictionary<string, string>(StringComparer.Ordinal);
-    var structuralLocals = new HashSet<string>(StringComparer.Ordinal);
-    var late = new List<DirectiveInstruction>();
-    error = null;
-    errorLine = 0;
-    var localFunctions = new HashSet<string>(
-      expression.AvailableInstructions().OfType<FunctionDirectiveSyntax>().Select(item => item.Name),
-      StringComparer.Ordinal
-    );
-    foreach (var parsed in expression.AvailableInstructions()) {
-      if (parsed is CallDirectiveSyntax call && !localFunctions.Contains(call.Function ?? "")) {
-        prelude = explicitPrelude;
-        lateExpression = expression;
-        error = "Prelude-model expressions may only call functions declared in the same expression; imported call '" +
-          (call.Function ?? "") + "' is not supported";
-        errorLine = parsed.Line;
-        return false;
-      }
-      if (parsed is DirectiveInvocationSyntax {
-        Definition: DirectiveFunctionDefinition { HoistedLocalArgumentIndex: >= 0 }
-      }) {
-        if (!TryHoistStructuralDirective(parsed, generated, labels, structuralLocals, out error)) {
-          prelude = explicitPrelude;
-          lateExpression = expression;
-          errorLine = parsed.Line;
-          return false;
-        }
-        late.Add(new EmptyDirectiveSyntax(parsed.Line));
-        continue;
-      }
-      late.Add(RewriteRoslynReferences(parsed, generated, labels, structuralLocals));
-    }
-    prelude = new MixinProgramSyntax(explicitPrelude.AvailableInstructions().Concat(generated));
-    lateExpression = new MixinProgramSyntax(late);
-    return true;
-  }
-
-  private sealed class InlineExpansionStep : MixinExpressionCompilerStep {
-    public override bool TryTransform(
-      MixinCompilerSyntax input,
-      MixinExpressionPreparedState preparedState,
-      out MixinCompilerSyntax output,
-      out string error,
-      out int errorLine
-    ) {
-      if (!TryExpandInlines(
-        input.Prelude, input.Expression, preparedState,
-        out var prelude, out var expression, out error, out errorLine
-      )) {
-        output = input;
-        return false;
-      }
-      output = new MixinCompilerSyntax(
-        new MixinProgramSyntax(prelude), new MixinProgramSyntax(expression)
-      );
-      return true;
-    }
-  }
-
-  private sealed class PreludeHoistingStep : MixinExpressionCompilerStep {
-    public override bool TryTransform(
-      MixinCompilerSyntax input,
-      MixinExpressionPreparedState preparedState,
-      out MixinCompilerSyntax output,
-      out string error,
-      out int errorLine
-    ) {
-      if (!TryHoistRoslynReferences(
-        input.Prelude, input.Expression,
-        out var prelude, out var late, out error, out errorLine
-      )) {
-        output = input;
-        return false;
-      }
-      output = new MixinCompilerSyntax(prelude, late);
-      return true;
-    }
-  }
-
-  private sealed class FunctionBindingStep : MixinExpressionCompilerStep {
-    public override bool TryTransform(
-      MixinCompilerSyntax input, MixinExpressionPreparedState preparedState,
-      out MixinCompilerSyntax output, out string error, out int errorLine
-    ) {
-      output = new MixinCompilerSyntax(BindFunctions(input.Prelude), BindFunctions(input.Expression));
-      error = null;
-      errorLine = 0;
-      return true;
-    }
-  }
-
-  private static MixinProgramSyntax BindFunctions(MixinProgramSyntax program) {
-    return new MixinProgramSyntax(program.AvailableInstructions().Select(instruction =>
-      RewriteReferences(instruction, reference => reference)
-    ));
-  }
-
-  private static bool TryExpandInlines(
-    MixinProgramSyntax explicitPrelude,
-    MixinProgramSyntax expression,
-    MixinExpressionPreparedState preparedState,
-    out IReadOnlyList<DirectiveInstruction> expandedPrelude,
-    out IReadOnlyList<DirectiveInstruction> expandedExpression,
-    out string error,
-    out int errorLine
-  ) {
-    var functions = new Dictionary<string, IReadOnlyList<DirectiveInstruction>>(StringComparer.Ordinal);
-    if (!TryCollectInlineFunctions(explicitPrelude, functions, out error, out errorLine) ||
-      !TryCollectInlineFunctions(expression, functions, out error, out errorLine)) {
-      expandedPrelude = [];
-      expandedExpression = [];
-      return false;
-    }
-    var inlineSequence = 0;
-    if (!TryExpandInlineProgram(
-      explicitPrelude.AvailableInstructions(), functions,
-      preparedState?.FunctionEntries, preparedState?.StringPool,
-      new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
-      out expandedPrelude, out error, out errorLine
-    )) {
-      expandedExpression = [];
-      return false;
-    }
-    return TryExpandInlineProgram(
-      expression.AvailableInstructions(), functions,
-      preparedState?.FunctionEntries, preparedState?.StringPool,
-      new HashSet<string>(StringComparer.Ordinal), ref inlineSequence,
-      out expandedExpression, out error, out errorLine
-    );
-  }
-
-  private static bool TryCollectInlineFunctions(
-    MixinProgramSyntax program,
-    IDictionary<string, IReadOnlyList<DirectiveInstruction>> functions,
-    out string error,
-    out int errorLine
-  ) {
-    var instructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
-    var localFunctions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
-    if (!TryIndexSymbols(
-      instructions, 0, instructions.Length,
-      new Dictionary<string, int>(), new Dictionary<int, int>(), localFunctions,
-      new Dictionary<int, int>(), new HashSet<int>(), out error, out errorLine
-    )) return false;
-    foreach (var function in localFunctions) {
-      if (functions.ContainsKey(function.Key)) {
-        error = "duplicate function '" + function.Key + "'";
-        errorLine = instructions[function.Value.Start - 1].Line;
-        return false;
-      }
-      functions.Add(
-        function.Key,
-        [.. instructions.Skip(function.Value.Start).Take(function.Value.End - function.Value.Start)]
-      );
-    }
-    error = null;
-    errorLine = 0;
-    return true;
-  }
-
-  private static bool TryExpandInlineProgram(
-    IEnumerable<DirectiveInstruction> source,
-    IReadOnlyDictionary<string, IReadOnlyList<DirectiveInstruction>> functions,
-    IReadOnlyDictionary<MixinString, int> importedFunctions,
-    MixinStringPool importedStrings,
-    ISet<string> activeFunctions,
-    ref int inlineSequence,
-    out IReadOnlyList<DirectiveInstruction> expanded,
-    out string error,
-    out int errorLine
-  ) {
-    var result = new List<DirectiveInstruction>();
-    foreach (var instruction in source) {
-      if (instruction is not InlineDirectiveSyntax inline) {
-        result.Add(instruction);
-        continue;
-      }
-      var name = inline.Name ?? "";
-      if (!functions.TryGetValue(name, out var body)) {
-        if (importedFunctions is not null && importedFunctions.Keys.Any(key =>
-          string.Equals(key.Resolve(importedStrings), name, StringComparison.Ordinal))) {
-          result.Add(instruction);
-          continue;
-        }
-        expanded = [];
-        error = "unknown inline function '" + name + "'";
-        errorLine = instruction.Line;
-        return false;
-      }
-      if (!activeFunctions.Add(name)) {
-        expanded = [];
-        error = "recursive inline function '" + name + "'";
-        errorLine = instruction.Line;
-        return false;
-      }
-      var suffix = "__inline_" + inlineSequence++.ToString(CultureInfo.InvariantCulture);
-      var endLabel = suffix + "_end";
-      var labels = body.Select(LabelOf).Where(item => !string.IsNullOrEmpty(item))
-        .Distinct(StringComparer.Ordinal)
-        .ToDictionary(item => item, item => item + suffix, StringComparer.Ordinal);
-      var bodyNodes = new List<DirectiveInstruction>();
-      foreach (var item in body) {
-        switch (item) {
-          case ReturnDirectiveSyntax returned: {
-            if (!IsEmptyValue(returned.Expression))
-              bodyNodes.Add(new LocalDirectiveSyntax(item.Line, suffix + "_return", returned.Expression));
-            bodyNodes.Add(new GotoDirectiveSyntax(item.Line, endLabel));
-            continue;
-          }
-          case ScopeDirectiveSyntax or LabelDirectiveSyntax or GotoDirectiveSyntax or MatchDirectiveSyntax
-            when LabelOf(item) is { Length: > 0 } label && labels.TryGetValue(label, out var renamed):
-            bodyNodes.Add(RenameLabel(item, renamed));
-            continue;
-          default: bodyNodes.Add(item); break;
-        }
-      }
-      if (!TryExpandInlineProgram(
-        bodyNodes, functions, importedFunctions, importedStrings, activeFunctions, ref inlineSequence,
-        out var expandedBody, out error, out errorLine
-      )) {
-        expanded = [];
-        activeFunctions.Remove(name);
-        return false;
-      }
-      activeFunctions.Remove(name);
-      result.AddRange(expandedBody);
-      result.Add(new ScopeDirectiveSyntax(inline.Line, endLabel));
-    }
-    expanded = result.AsReadOnly();
-    error = null;
-    errorLine = 0;
-    return true;
-  }
-
-  private static bool TryHoistStructuralDirective(
-    DirectiveInstruction instruction,
-    ICollection<DirectiveInstruction> generated,
-    IDictionary<string, string> labels,
-    ISet<string> structuralLocals,
-    out string error
-  ) {
-    var localIndex = (instruction as DirectiveInvocationSyntax)?.Definition is DirectiveFunctionDefinition function
-      ? function.HoistedLocalArgumentIndex
-      : -1;
-    var invocation = (DirectiveInvocationSyntax)instruction;
-    var localArgument = localIndex >= 0 && invocation.ParsedArguments.Count > localIndex
-      ? invocation.ParsedArguments[localIndex]
-      : null;
-    var local = localArgument?.Literal;
-    if (string.IsNullOrEmpty(local) || localArgument.IsDynamic) {
-      error = "@" + invocation.Definition.Name + " cannot be hoisted because its result local is dynamic";
-      return false;
-    }
-    // Structural directives execute in the Roslyn-backed prelude and consume their syntax target
-    // directly. Rewriting that target to @carry would make the host context receive a runtime root.
-    generated.Add(instruction);
-    var localReference = new MixinExpressionReference(MixinExpressionRoot.Local, local, []);
-    var label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
-    labels["leaf:" + MixinSyntaxRenderer.RenderReference(localReference)] = label;
-    generated.Add(
-      new CarryDirectiveSyntax(
-        instruction.Line, label, [new IMixinValue(null, localReference)], true
-      )
-    );
-    structuralLocals.Add(local);
-    error = null;
-    return true;
-  }
-
-  private static DirectiveInstruction RewriteRoslynReferences(
-    DirectiveInstruction instruction,
-    ICollection<DirectiveInstruction> generated,
-    IDictionary<string, string> labels,
-    ISet<string> structuralLocals
-  ) {
-    MixinExpressionReference RewriteReference(MixinExpressionReference reference) {
-      var roslyn = RoslynRoots.Contains(reference.Root) ||
-        (reference.Root == MixinExpressionRoot.Local &&
-          structuralLocals?.Contains(reference.Member ?? "") == true);
-      if (!roslyn) return RewriteNested(reference);
-      var richSnapshot = instruction is CarryDirectiveSyntax;
-      var key = (richSnapshot ? "rich:" : "leaf:") + MixinSyntaxRenderer.RenderReference(reference);
-      if (!labels.TryGetValue(key, out var label)) {
-        label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
-        labels.Add(key, label);
-        generated.Add(
-          new CarryDirectiveSyntax(
-            instruction.Line, label, [new IMixinValue(null, reference)], !richSnapshot
-          )
-        );
-      }
-      return new MixinExpressionReference(
-        MixinExpressionRoot.Carry, label, [], reference.Parenthesized
-      );
-    }
-
-    MixinExpressionReference RewriteNested(MixinExpressionReference reference) {
-      var properties = reference.Properties.Select(property => RewriteProperty(property, RewriteReference)).ToArray();
-      return new MixinExpressionReference(
-        reference.Root, reference.Member, properties, reference.Parenthesized
-      );
-    }
-
-    return RewriteReferences(instruction, RewriteReference);
-  }
-
-  private static DirectiveInstruction RewriteReferences(
-    DirectiveInstruction instruction,
-    Func<MixinExpressionReference, MixinExpressionReference> rewrite
-  ) {
-    IReadOnlyList<IMixinValue> Value(IReadOnlyList<IMixinValue> value) {
-      return [
-        .. (value ?? []).Select(part => part.Reference is null
-          ? part
-          : new IMixinValue(null, RewriteComplete(part.Reference))
-        )
-      ];
-    }
-
-    IReadOnlyList<MixinExpressionReference> Boolean(IReadOnlyList<MixinExpressionReference> value) {
-      return [.. (value ?? []).Select(item => item is null ? null : RewriteBoolean(item))];
-    }
-
-    DirectiveArgumentSyntax Argument(DirectiveArgumentSyntax value) {
-      return value is null
-        ? null
-        : value.IsDynamic
-          ? new DirectiveArgumentSyntax(null, Value(value.Expression))
-          : value;
-    }
-
-    MixinExpressionReference RewriteComplete(MixinExpressionReference reference) {
-      var properties = reference.Properties.Select(property => RewriteProperty(property, RewriteComplete)).ToArray();
-      return rewrite(
-        new MixinExpressionReference(
-          reference.Root, reference.Member, properties, reference.Parenthesized
-        )
-      );
-    }
-
-    MixinExpressionReference RewriteBoolean(MixinExpressionReference reference) {
-      var properties = reference.Properties.Select(property => RewriteProperty(property, RewriteComplete)).ToArray();
-      return rewrite(
-        new MixinExpressionReference(
-          reference.Root, reference.Member, properties, reference.Parenthesized
-        )
-      );
-    }
-
-    return instruction switch {
-      DirectiveInvocationSyntax item => new DirectiveInvocationSyntax(
-        item.Line, item.Definition, [.. item.ParsedArguments.Select(Argument)], Value(item.Expression)
-      ),
-      CallDirectiveSyntax item => new CallDirectiveSyntax(
-        item.Line, item.Function, item.ReturnLocal, Value(item.Expression)
-      ),
-      MatchDirectiveSyntax item => new MatchDirectiveSyntax(item.Line, item.FailureLabel, Boolean(item.Expression)),
-      AssertDirectiveSyntax item => new AssertDirectiveSyntax(item.Line, Boolean(item.Expression)),
-      CodeDirectiveSyntax item => new CodeDirectiveSyntax(
-        item.Line, item.Target, item.InjectionTarget, Value(item.Expression)
-      ),
-      MixinDirectiveSyntax item => new MixinDirectiveSyntax(
-        item.Line, Argument(item.Target), Argument(item.Priority), Value(item.Expression)
-      ),
-      UsingDirectiveSyntax item => new UsingDirectiveSyntax(item.Line, Value(item.Expression)),
-      LogDirectiveSyntax item => new LogDirectiveSyntax(item.Line, Value(item.Expression)),
-      LocalDirectiveSyntax item => new LocalDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
-      VariableDirectiveSyntax item => new VariableDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
-      CarryDirectiveSyntax item => new CarryDirectiveSyntax(
-        item.Line, item.Label, Value(item.Expression), item.ShallowSnapshot
-      ),
-      ReturnDirectiveSyntax item => new ReturnDirectiveSyntax(item.Line, Value(item.Expression)),
-      FailDirectiveSyntax item => new FailDirectiveSyntax(item.Line, Value(item.Expression)),
-      _ => instruction
-    };
-  }
-
-  private static MixinExpressionProperty RewriteProperty(
-    MixinExpressionProperty property,
-    Func<MixinExpressionReference, MixinExpressionReference> rewrite
-  ) {
-    if (property.ParsedArguments.Count == 0)
-      return new MixinExpressionProperty(
-        property.Name, property.ParsedArguments, property.Negated, BoundFunction(property)
-      );
-    var parsed = property.ParsedArguments.Select(argument => {
-        var value = argument.ValueExpression is null
-          ? null
-          : argument.ValueExpression.Select(part =>
-            part.Reference is null ? part : new IMixinValue(null, rewrite(part.Reference))
-          ).ToArray();
-        var boolean = argument.BooleanExpression is null ? null : argument.BooleanExpression.Select(rewrite).ToArray();
-        return new MixinPropertyArgumentSyntax(argument.Literal, value, boolean);
-      }
-    ).ToArray();
-    return new MixinExpressionProperty(property.Name, parsed, property.Negated, BoundFunction(property));
-  }
-
-  private static global::HelixSourceGenerator.Language.FunctionDefinition BoundFunction(
-    MixinExpressionProperty property
-  ) {
-    if (property.Definition is not null) return property.Definition;
-    FunctionLibrary.TryGet(property.Name, out var definition);
-    return definition;
-  }
-
-  private static string LabelOf(DirectiveInstruction instruction) {
-    return instruction switch {
-      ScopeDirectiveSyntax item => item.Label,
-      LabelDirectiveSyntax item => item.Name,
-      GotoDirectiveSyntax item => item.Label,
-      MatchDirectiveSyntax item => item.FailureLabel,
-      _ => null
-    };
-  }
-
-  private static DirectiveInstruction RenameLabel(DirectiveInstruction instruction, string label) {
-    return instruction switch {
-      ScopeDirectiveSyntax item => new ScopeDirectiveSyntax(item.Line, label),
-      LabelDirectiveSyntax item => new LabelDirectiveSyntax(item.Line, label),
-      GotoDirectiveSyntax item => new GotoDirectiveSyntax(item.Line, label),
-      MatchDirectiveSyntax item => new MatchDirectiveSyntax(item.Line, label, item.Expression),
-      _ => instruction
-    };
-  }
-
-  private static bool IsEmptyValue(IReadOnlyList<IMixinValue> expression) {
-    return expression is null || expression.All(item => item.Reference is null && string.IsNullOrEmpty(item.Literal));
-  }
-
-  internal static void HoistLateCarries(
-    MixinProgramSyntax expression,
-    MixinProgramSyntax lateExpression,
-    out MixinProgramSyntax primary,
-    out MixinProgramSyntax late
-  ) {
-    primary = expression;
-    late = lateExpression;
-    if (lateExpression is null || lateExpression.Count == 0) return;
-    var carries = lateExpression.AvailableInstructions().OfType<CarryDirectiveSyntax>()
-      .Cast<DirectiveInstruction>().ToArray();
-    var remaining = lateExpression.AvailableInstructions().Where(item => item is not CarryDirectiveSyntax).ToArray();
-    if (carries.Length == 0) return;
-    primary = new MixinProgramSyntax(carries.Concat(expression.AvailableInstructions()));
-    late = new MixinProgramSyntax(remaining);
-  }
-
   public static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
+    using var profile = MixinProfiler.Measure("compiler.prepare_globals.text");
     var programs = new List<MixinProgramSyntax>();
     foreach (var expression in expressions ?? []) {
       var validation = MixinExpressionParser.ValidateSyntax(expression, false);
@@ -542,11 +87,12 @@ public static partial class MixinExpressionCompiler {
   internal static MixinExpressionPreparedState PrepareGlobals(
     IReadOnlyList<MixinProgramSyntax> programs
   ) {
-    programs = [.. (programs ?? []).Select(BindFunctions)];
+    using var profile = MixinProfiler.Measure("compiler.prepare_globals.syntax");
+    programs = [.. (programs ?? []).Select(FunctionBindingStep.Bind)];
     var poolBuilder = new MixinStringPoolBuilder();
     foreach (var program in programs) program.CollectConstants(poolBuilder);
     var stringPool = poolBuilder.Freeze();
-    var variables = new Dictionary<MixinString, Language.IMixinValue>();
+    var variables = new MixinValueDictionary();
     var logs = new List<MixinExpressionPreparedLog>();
     var executedOperations = 0;
     var instructions = programs.SelectMany(program =>
@@ -575,16 +121,22 @@ public static partial class MixinExpressionCompiler {
     foreach (var index in initializers) {
       switch (instructions[index]) {
         case VariableDirectiveSyntax variable:
-          if (!TryInterpolatePrepared(variable.Expression, variables, stringPool, out var value, out var error))
-            throw new ArgumentException("invalid prepared expression at line " + variable.Line + ": " + error,
-              nameof(programs));
-          variables[stringPool.Get(variable.Name)] = new LiteralMixinValue(stringPool.Get(value));
+          if (!TryInterpolatePrepared(variable.Expression, variables, stringPool, out var value, out var error)) {
+            throw new ArgumentException(
+              "invalid prepared expression at line " + variable.Line + ": " + error,
+              nameof(programs)
+            );
+          }
+          variables.StoreIsolated(stringPool.Get(variable.Name), new LiteralMixinValue(stringPool.Get(value)));
           executedOperations++;
           break;
         case LogDirectiveSyntax log:
-          if (!TryInterpolatePrepared(log.Expression, variables, stringPool, out var text, out var logError))
-            throw new ArgumentException("invalid prepared expression at line " + log.Line + ": " + logError,
-              nameof(programs));
+          if (!TryInterpolatePrepared(log.Expression, variables, stringPool, out var text, out var logError)) {
+            throw new ArgumentException(
+              "invalid prepared expression at line " + log.Line + ": " + logError,
+              nameof(programs)
+            );
+          }
           logs.Add(new MixinExpressionPreparedLog(text, log.Line, 0));
           executedOperations++;
           break;
@@ -592,8 +144,11 @@ public static partial class MixinExpressionCompiler {
     }
     var lowered = instructions.Select((instruction, index) => initializers.Contains(index)
       ? new MixinInstruction(MixinOpcode.Empty, new MixinSourceLocation(0, instruction.Line))
-      : LowerInstruction(instructions, instruction, index, stringPool, labels, instructionScopes,
-        functions, functionStarts, functionEnds)).ToArray();
+      : LowerInstruction(
+        instructions, instruction, index, stringPool, labels, instructionScopes,
+        functions, functionStarts, functionEnds
+      )
+    ).ToArray();
     var functionEntries = functions.ToDictionary(
       item => stringPool.Get(item.Key), item => item.Value.Start
     );
@@ -621,7 +176,7 @@ public static partial class MixinExpressionCompiler {
       errorLine = program.Diagnostics[0].Line;
       return false;
     }
-    program = BindFunctions(program);
+    program = FunctionBindingStep.Bind(program);
     var localInstructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
     var pool = prepared?.StringPool.Fork();
     if (pool is null) {
@@ -646,21 +201,26 @@ public static partial class MixinExpressionCompiler {
     )) return false;
     var offset = prepared?.Instructions.Count ?? 0;
     var lowered = localInstructions.Select((instruction, index) => {
-      var item = LowerInstruction(localInstructions, instruction, index, pool, labels, instructionScopes,
-        functions, functionStarts, functionEnds, prepared?.FunctionEntries, offset);
-      var importedCall = instruction is CallDirectiveSyntax call &&
-        !functions.ContainsKey(call.Function ?? "") || instruction is InlineDirectiveSyntax inline &&
-        !functions.ContainsKey(inline.Name ?? "");
-      return item with {
-        Destination = item.Destination < 0 || importedCall
-          ? item.Destination : item.Destination + offset,
-        SecondaryDestination = item.SecondaryDestination < 0
-          ? item.SecondaryDestination : item.SecondaryDestination + offset
-      };
-    }).ToArray();
+        var item = LowerInstruction(
+          localInstructions, instruction, index, pool, labels, instructionScopes,
+          functions, functionStarts, functionEnds, prepared?.FunctionEntries, offset
+        );
+        var importedCall = (instruction is CallDirectiveSyntax call &&
+          !functions.ContainsKey(call.Function ?? "")) || (instruction is InlineDirectiveSyntax inline &&
+          !functions.ContainsKey(inline.Name ?? ""));
+        return item with {
+          Destination = item.Destination < 0 || importedCall
+            ? item.Destination
+            : item.Destination + offset,
+          SecondaryDestination = item.SecondaryDestination < 0
+            ? item.SecondaryDestination
+            : item.SecondaryDestination + offset
+        };
+      }
+    ).ToArray();
     var instructions = (prepared?.Instructions ?? []).Concat(lowered).ToArray();
     compiled = new MixinExpressionExecutionProgram(
-      pool, instructions, prepared?.Variables ?? new Dictionary<MixinString, Language.IMixinValue>()
+      pool, instructions, prepared?.Variables ?? new MixinValueDictionary()
     );
     return true;
   }

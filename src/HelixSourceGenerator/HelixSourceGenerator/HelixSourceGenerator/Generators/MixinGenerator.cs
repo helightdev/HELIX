@@ -16,6 +16,8 @@ using static HelixSourceGenerator.Shared.GeneratorAnalysis;
 using static HelixSourceGenerator.Shared.GeneratorDiagnostics.Mixins;
 using static HelixSourceGenerator.Shared.GeneratorSource;
 using static HelixSourceGenerator.Shared.GeneratorStrings;
+using ExecutionContext = HelixSourceGenerator.Language.ExecutionContext;
+using IMixinValue = HelixSourceGenerator.Language.IMixinValue;
 
 namespace HelixSourceGenerator.Generators;
 
@@ -68,6 +70,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   }
 
   private static MixinTarget GetTarget(GeneratorAttributeSyntaxContext context) {
+    using var profile = MixinProfiler.Measure("generator.get_target");
     if (context.TargetSymbol is not INamedTypeSymbol { TypeKind: TypeKind.Class or TypeKind.Struct } type)
       return null;
     var matchedCandidate = context.Attributes.FirstOrDefault()?.AttributeClass?.ToDisplayString();
@@ -88,8 +91,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     bool component
   ) {
     var definitions = new Dictionary<string, string>(StringComparer.Ordinal) {
-      ["$Init"] = component ? "^LoadComponent" : "Awake",
-      ["$Dispose"] = component ? "^UnloadComponent" : "OnDestroy"
+      ["$Init"] = component ? "^LoadComponent" : "Awake", ["$Dispose"] = component ? "^UnloadComponent" : "OnDestroy"
     };
     var seenProviders = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
     foreach (var provider in providers.Where(item => item is not null)) {
@@ -116,6 +118,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     MixinTarget candidate,
     MixinCompilation mixinCompilation
   ) {
+    using var profile = MixinProfiler.Measure("generator.generate.total");
     var libraries = mixinCompilation.Catalog;
     var context = new MixinGenerationContext(
       libraries.HasConfiguration("DEBUG"),
@@ -135,32 +138,43 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
 
     var preparedExpressions = mixinCompilation.PreparedState;
-    var annotatedSymbols = AnnotatedSymbols(target).Select(symbol =>
-      new AnnotatedSymbolData(symbol, OrderedAttributes(symbol))).ToArray();
+    AnnotatedSymbolData[] annotatedSymbols;
+    using (MixinProfiler.Measure("generator.collect_symbols")) {
+      annotatedSymbols = AnnotatedSymbols(target).Select(symbol =>
+        new AnnotatedSymbolData(symbol, OrderedAttributes(symbol))
+      ).ToArray();
+    }
     var targetAttributes = annotatedSymbols[0].Attributes;
     var annotationProviders = annotatedSymbols.SelectMany(item => item.Attributes)
       .Select(attribute => attribute.AttributeClass).Where(type => type is not null)
       .Prepend(target);
-    var targetDefinitions = TargetDefinitions(
-      target, annotationProviders, libraries,
-      targetAttributes.Any(attribute => IsAttribute(attribute, Attributes.Managed))
-    );
+    IReadOnlyDictionary<string, string> targetDefinitions;
+    using (MixinProfiler.Measure("generator.target_definitions")) {
+      targetDefinitions = TargetDefinitions(
+        target, annotationProviders, libraries,
+        targetAttributes.Any(attribute => IsAttribute(attribute, Attributes.Managed))
+      );
+    }
     var contributions = new List<MixinContribution>();
     var attributeExpressionOutputs = new List<MixinExpressionOutput>();
     var expressionVariables = new Dictionary<string, object>(StringComparer.Ordinal);
-    CollectAttributeContributions(
-      context, target, candidate.Compilation, preparedExpressions, expressionVariables,
-      attributeExpressionOutputs, contributions, targetDefinitions, libraries,
-      mixinCompilation, annotatedSymbols,
-      targetAttributes.Any(attribute => IsAttribute(attribute, Attributes.Structure))
-    );
+    using (MixinProfiler.Measure("generator.collect_contributions")) {
+      CollectAttributeContributions(
+        context, target, candidate.Compilation, preparedExpressions, expressionVariables,
+        attributeExpressionOutputs, contributions, targetDefinitions, libraries,
+        mixinCompilation, annotatedSymbols,
+        targetAttributes.Any(attribute => IsAttribute(attribute, Attributes.Structure))
+      );
+    }
     var placeholderSequence = contributions.Count;
     foreach (var work in context.LateExpressions) {
       contributions.AddRange(
         work.Targets.Select(lateTarget => MixinContribution.Placeholder(lateTarget, placeholderSequence++, work))
       );
     }
-    var methods = BuildMethods(context, target, contributions, candidate.Compilation);
+    List<GeneratedMethod> methods;
+    using (MixinProfiler.Measure("generator.build_methods"))
+      methods = BuildMethods(context, target, contributions, candidate.Compilation);
     ReportContributionData(context, target, methods);
     var outputs = new ExpressionOutputs();
     foreach (var output in contributions
@@ -170,7 +184,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     if (methods.Count == 0 && !outputs.Any && !context.HasLateExpressions) return context.Complete();
     var finalizedOutputs = outputs.Finish();
     var wrapper = WrapType(target, "mixins");
-    return context.Complete(
+    var result = context.Complete(
       new MixinRenderModel(
         wrapper.Detach(), methods.ToImmutableArray(),
         finalizedOutputs.Annotations, finalizedOutputs.Class,
@@ -184,9 +198,11 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         context.DebugExpressions.ToImmutableArray(), context.Debug, context.DebugStringPool
       )
     );
+    return result;
   }
 
   private static void EmitSource(SourceProductionContext context, MixinOutputModel model) {
+    using var profile = MixinProfiler.Measure("generator.emit_source");
     foreach (var log in model.Logs) {
       context.ReportDiagnostic(
         log.Location.Create(log.Log.IsHint ? ExpressionHint : ExpressionLog, log.Log.Text)
@@ -198,6 +214,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       );
     }
     if (model.Source is not null) context.AddSource(model.HintName, model.Source);
+    MixinProfiler.Flush();
   }
 
   private static void EmitDiagnostics(
@@ -208,6 +225,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   }
 
   private static MixinOutputModel EvaluateLate(MixinOutputModel model) {
+    using var profile = MixinProfiler.Measure("generator.evaluate_late.total");
     if (model.Render is null) return model;
     var classCode = model.Render.Class.ToList();
     var fileCode = model.Render.File.ToList();
@@ -317,37 +335,41 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
           };
       }
     ).Where(item => item is not null).ToImmutableArray();
-    var source = model.Render.Wrapper.Build(
-      [
-        .. usings.Select(item => NormalizeUsing(item.Text)).Distinct(StringComparer.Ordinal)
-          .OrderBy(item => item, StringComparer.Ordinal)
-      ],
-      [
-        .. implements.OrderBy(item => item.Target == MixinExpressionOutputTarget.Extends ? 0 : 1)
-          .Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)
-      ],
-      [.. annotations.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)],
-      builder => {
-        for (var index = 0; index < methods.Length; index++) {
-          AppendMethod(builder, methods[index]);
-          if (index != methods.Length - 1) builder.BlankLine();
+    string source;
+    using (MixinProfiler.Measure("generator.evaluate_late.render")) {
+      source = model.Render.Wrapper.Build(
+        [
+          .. usings.Select(item => NormalizeUsing(item.Text)).Distinct(StringComparer.Ordinal)
+            .OrderBy(item => item, StringComparer.Ordinal)
+        ],
+        [
+          .. implements.OrderBy(item => item.Target == MixinExpressionOutputTarget.Extends ? 0 : 1)
+            .Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)
+        ],
+        [.. annotations.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)],
+        builder => {
+          for (var index = 0; index < methods.Length; index++) {
+            AppendMethod(builder, methods[index]);
+            if (index != methods.Length - 1) builder.BlankLine();
+          }
+          foreach (var output in classCode) {
+            if (methods.Length != 0) builder.BlankLine();
+            builder.AppendCode(output.Text);
+          }
+        }, builder => {
+          foreach (var output in fileCode) builder.AppendCode(output.Text);
         }
-        foreach (var output in classCode) {
-          if (methods.Length != 0) builder.BlankLine();
-          builder.AppendCode(output.Text);
-        }
-      }, builder => {
-        foreach (var output in fileCode) builder.AppendCode(output.Text);
-      }
-    );
+      );
+    }
     if (model.Render.Debug) {
       source = BuildDebugTrace(model.Render) + source +
         BuildFinalDebugState(finalDebugStates.Values, sharedVariables);
     }
-    return new MixinOutputModel(
+    var finalModel = new MixinOutputModel(
       model.Render.Wrapper.HintName, source, null, ImmutableArray<LateExpressionWork>.Empty,
       model.Diagnostics, errors.ToImmutableArray(), logs.ToImmutableArray()
     );
+    return finalModel;
   }
 
   private static string NormalizeUsing(string text) {
@@ -409,8 +431,6 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
   }
 
-  private sealed record AnnotatedSymbolData(ISymbol Symbol, IReadOnlyList<AttributeData> Attributes);
-
   private static void CollectMixinExpressionContributions(
     MixinGenerationContext context,
     INamedTypeSymbol target,
@@ -469,7 +489,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       mixinCompilation: mixinCompilation
     );
     var evaluated = MixinExpressionVirtualMachine.Execute(
-      expression, expressionContext, expressionVariables, importCarries: false
+      expression, expressionContext, expressionVariables, false
     );
     ReportExpressionLogs(context, location, evaluated.Logs);
     if (!evaluated.Success) {
@@ -1027,6 +1047,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     return attribute.AttributeClass?.ToDisplayString() == metadataName;
   }
 
+  private sealed record AnnotatedSymbolData(ISymbol Symbol, IReadOnlyList<AttributeData> Attributes);
+
   private sealed class MixinGenerationContext {
     private readonly List<DebugExpressionWork> _debugExpressions = [];
     private readonly List<MixinDiagnostic> _diagnostics = [];
@@ -1180,11 +1202,13 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       File = file;
       Implements = implements;
       Usings = usings;
-      PrimaryVariables = new MixinValueDictionary(primaryVariables.Select(item =>
-        new KeyValuePair<MixinString, Language.IMixinValue>(
-          stringPool.Get(item.Key), RuntimeValue(item.Value, stringPool)
+      PrimaryVariables = new MixinValueDictionary(
+        primaryVariables.Select(item =>
+          new KeyValuePair<MixinString, IMixinValue>(
+            stringPool.Get(item.Key), RuntimeValue(item.Value, stringPool)
+          )
         )
-      ));
+      );
       DebugExpressions = debugExpressions;
       Debug = debug;
       DebugStringPool = debugStringPool;
@@ -1206,16 +1230,19 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     internal bool DebugStringPool { get; }
     internal MixinStringPool StringPool { get; }
 
-    private static Language.IMixinValue RuntimeValue(object value, MixinStringPool strings) => value switch {
-      Language.IMixinValue typed => typed,
-      null => NullMixinValue.Instance,
-      bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
-      string text => new LiteralMixinValue(MixinString.Dynamic(text)),
-      DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, strings),
-      _ => new ObjectMixinValue(value)
-    };
     internal long GenerationVersion { get; }
     internal MixinRenderFingerprint Fingerprint { get; }
+
+    private static IMixinValue RuntimeValue(object value, MixinStringPool strings) {
+      return value switch {
+        IMixinValue typed => typed,
+        null => NullMixinValue.Instance,
+        bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
+        string text => new LiteralMixinValue(MixinString.Dynamic(text)),
+        DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, strings),
+        _ => new ObjectMixinValue(value)
+      };
+    }
   }
 
   private sealed record MixinDiagnostic(
@@ -1301,7 +1328,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       var variables = new MixinFingerprintBuilder();
       var fingerprintContext = new UnlinkedMixinExpressionContext(render.StringPool);
       variables.Append(render.PrimaryVariables.Count);
-      foreach (var variable in render.PrimaryVariables.TypedValues
+      foreach (var variable in render.PrimaryVariables
         .OrderBy(item => item.Key.Id)
         .ThenBy(item => item.Key.DynamicValue, StringComparer.Ordinal)) {
         variables.Append(variable.Key.IsInterned);
@@ -1351,14 +1378,16 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       );
     }
 
-    private static Language.IMixinValue RuntimeValue(object value, MixinStringPool strings) => value switch {
-      Language.IMixinValue typed => typed,
-      null => NullMixinValue.Instance,
-      bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
-      string text => new LiteralMixinValue(MixinString.Dynamic(text)),
-      DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, strings),
-      _ => new ObjectMixinValue(value)
-    };
+    private static IMixinValue RuntimeValue(object value, MixinStringPool strings) {
+      return value switch {
+        IMixinValue typed => typed,
+        null => NullMixinValue.Instance,
+        bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
+        string text => new LiteralMixinValue(MixinString.Dynamic(text)),
+        DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, strings),
+        _ => new ObjectMixinValue(value)
+      };
+    }
 
     private static void AppendOutputCollection(
       MixinFingerprintBuilder builder,
@@ -1488,11 +1517,12 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
   }
 
-  private sealed class UnlinkedMixinExpressionContext : Language.ExecutionContext {
+  private sealed class UnlinkedMixinExpressionContext : ExecutionContext {
     internal UnlinkedMixinExpressionContext(MixinStringPool strings) : base(strings) { }
 
-    protected override Language.IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) =>
-      Error("late expressions cannot resolve host values");
+    protected override IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) {
+      return Error("late expressions cannot resolve host values");
+    }
   }
 
   private sealed class ExpressionOutputs {

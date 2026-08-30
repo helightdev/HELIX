@@ -96,7 +96,7 @@ public static class MixinExpressionParser {
           property.Arguments.Count > function.MaximumArguments)) {
         error = function.MinimumArguments == function.MaximumArguments
           ? ":" + property.Name + " requires " + function.MinimumArguments +
-            (function.MinimumArguments == 1 ? " argument" : " arguments")
+          (function.MinimumArguments == 1 ? " argument" : " arguments")
           : ":" + property.Name + " accepts at most " + function.MaximumArguments + " arguments";
         return false;
       }
@@ -439,8 +439,9 @@ public static class MixinExpressionParser {
         var end = position < tokens.Count ? tokens[position].Start : source?.Length ?? tokens[referenceStart].End;
         result.Add(
           new IMixinValue(
-            source is null ? tokens[referenceStart].Text :
-              source.Substring(tokens[referenceStart].Start, end - tokens[referenceStart].Start), null, true
+            source is null
+              ? tokens[referenceStart].Text
+              : source.Substring(tokens[referenceStart].Start, end - tokens[referenceStart].Start), null, true
           )
         );
         continue;

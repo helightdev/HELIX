@@ -7,6 +7,7 @@ namespace HelixSourceGenerator.Language.Compiler;
 
 public readonly struct MixinString : IEquatable<MixinString> {
   private readonly bool _initialized;
+
   private MixinString(int id, string dynamicValue) {
     Id = id;
     DynamicValue = dynamicValue;
@@ -53,16 +54,18 @@ public readonly struct MixinString : IEquatable<MixinString> {
 }
 
 public sealed class MixinStringPool {
-  private readonly Dictionary<string, int> _ids;
-  private readonly List<string> _values;
-  private readonly MixinStringPool _parent;
   private readonly int _baseCount;
+  private readonly Dictionary<string, int> _ids;
+  private readonly MixinStringPool _parent;
+  private readonly List<string> _values;
 
   internal MixinStringPool(string[] values, IReadOnlyDictionary<string, int> ids) {
     _baseCount = 0;
     _values = new List<string>(values ?? []);
     _ids = new Dictionary<string, int>(StringComparer.Ordinal);
-    if (ids is not null) foreach (var item in ids) _ids.Add(item.Key, item.Value);
+    if (ids is not null)
+      foreach (var item in ids)
+        _ids.Add(item.Key, item.Value);
   }
 
   private MixinStringPool(MixinStringPool parent) {
@@ -77,7 +80,7 @@ public sealed class MixinStringPool {
 
   public bool TryGetId(string value, out int id) {
     value ??= "";
-    return _ids.TryGetValue(value, out id) || _parent is not null && _parent.TryGetId(value, out id);
+    return _ids.TryGetValue(value, out id) || (_parent is not null && _parent.TryGetId(value, out id));
   }
 
   public MixinString Get(string value) {

@@ -24,7 +24,8 @@ public sealed partial class MixinGenerator {
     var debugPool = render.StringPool.Fork();
     foreach (var work in render.DebugExpressions)
     foreach (var token in (work.PreludeProgram + "\n" + work.LateProgram).Split(
-      new[] { '@', '<', '>', '#', ':', '(', ')', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+      new[] { '@', '<', '>', '#', ':', '(', ')', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries
+    ))
       debugPool.Intern(token);
     builder.AppendLine("// ============================================================================");
     builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
@@ -54,7 +55,9 @@ public sealed partial class MixinGenerator {
       foreach (var carry in carries) {
         var label = carry.Key.Substring(MixinExpressionVirtualMachine.CarryLocalPrefix.Length);
         builder.Append("//   @carry#").Append(label).Append(" = ")
-          .AppendLine(Convert.ToString(carry.Value, CultureInfo.InvariantCulture).Replace("\r", "\\r").Replace("\n", "\\n"));
+          .AppendLine(
+            Convert.ToString(carry.Value, CultureInfo.InvariantCulture).Replace("\r", "\\r").Replace("\n", "\\n")
+          );
       }
     }
     builder.AppendLine("// ============================================================================");
@@ -109,8 +112,10 @@ public sealed partial class MixinGenerator {
       builder.Append("//   §").Append(id).Append(" = ").AppendLine(EscapeDebugString(pool[id]));
   }
 
-  private static void AppendDebugProgram(StringBuilder builder, string title, string program,
-    MixinRenderModel render, MixinStringPool debugPool) {
+  private static void AppendDebugProgram(
+    StringBuilder builder, string title, string program,
+    MixinRenderModel render, MixinStringPool debugPool
+  ) {
     builder.Append("// ").AppendLine(title);
     var lines = (program ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
     if (lines.Length == 1 && lines[0].Length == 0) {
@@ -118,18 +123,20 @@ public sealed partial class MixinGenerator {
       return;
     }
     for (var index = 0; index < lines.Length; index++) {
-      if (index != lines.Length - 1 || lines[index].Length != 0)
+      if (index != lines.Length - 1 || lines[index].Length != 0) {
         builder.Append("//   ").AppendLine(
-          render.DebugStringPool ? InternDebugLine(lines[index], debugPool) :
-            lines[index].Replace("@INLINE<", "@CALL<")
+          render.DebugStringPool ? InternDebugLine(lines[index], debugPool) : lines[index].Replace("@INLINE<", "@CALL<")
         );
+      }
     }
   }
 
-  private static string FormatDebugValue(object value) => value switch {
-    bool boolean => boolean ? "true" : "false",
-    _ => Convert.ToString(value, CultureInfo.InvariantCulture).Replace("\r", "\\r").Replace("\n", "\\n")
-  };
+  private static string FormatDebugValue(object value) {
+    return value switch {
+      bool boolean => boolean ? "true" : "false",
+      _ => Convert.ToString(value, CultureInfo.InvariantCulture).Replace("\r", "\\r").Replace("\n", "\\n")
+    };
+  }
 
   private static string InternDebugLine(string line, MixinStringPool pool) {
     var candidates = Enumerable.Range(0, pool.Count).Select(id => new { Id = id, Value = pool[id] })

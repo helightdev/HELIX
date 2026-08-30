@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using HelixSourceGenerator.Language.Compiler;
 using HelixSourceGenerator.Shared;
 using Microsoft.CodeAnalysis;
@@ -13,15 +14,23 @@ namespace HelixSourceGenerator.Language;
 internal sealed record MixinTargetDescriptor(string Name, bool IsStatic, bool IsPublic, string DelegateType);
 
 internal sealed class RoslynHostExpressionCache {
-  private readonly Dictionary<INamedTypeSymbol, RoslynValueCache> _thisValues =
-    new(SymbolEqualityComparer.Default);
+  private readonly Dictionary<AttributeData, RoslynValueCache> _attributeValues = new();
   private readonly Dictionary<ISymbol, RoslynValueCache> _targetValues =
     new(SymbolEqualityComparer.Default);
-  private readonly Dictionary<AttributeData, RoslynValueCache> _attributeValues = new();
+  private readonly Dictionary<INamedTypeSymbol, RoslynValueCache> _thisValues =
+    new(SymbolEqualityComparer.Default);
 
-  internal RoslynValueCache ForThis(INamedTypeSymbol type) => Get(_thisValues, type);
-  internal RoslynValueCache ForTarget(ISymbol target) => Get(_targetValues, target);
-  internal RoslynValueCache ForAttribute(AttributeData attribute) => Get(_attributeValues, attribute);
+  internal RoslynValueCache ForThis(INamedTypeSymbol type) {
+    return Get(_thisValues, type);
+  }
+
+  internal RoslynValueCache ForTarget(ISymbol target) {
+    return Get(_targetValues, target);
+  }
+
+  internal RoslynValueCache ForAttribute(AttributeData attribute) {
+    return Get(_attributeValues, attribute);
+  }
 
   private static RoslynValueCache Get<T>(IDictionary<T, RoslynValueCache> values, T key) {
     if (key is null) return new RoslynValueCache();
@@ -33,12 +42,12 @@ internal sealed class RoslynHostExpressionCache {
 }
 
 internal sealed class RoslynValueCache {
-  private readonly Dictionary<string, IMixinValue> _roots = new(StringComparer.OrdinalIgnoreCase);
   private readonly Dictionary<object, Dictionary<string, IMixinValue>> _derived =
     new(ReferenceObjectComparer.Instance);
-  private readonly Dictionary<object, object> _shallowSnapshots =
-    new(ReferenceObjectComparer.Instance);
   private readonly Dictionary<object, object> _fullSnapshots =
+    new(ReferenceObjectComparer.Instance);
+  private readonly Dictionary<string, IMixinValue> _roots = new(StringComparer.OrdinalIgnoreCase);
+  private readonly Dictionary<object, object> _shallowSnapshots =
     new(ReferenceObjectComparer.Instance);
 
   internal IMixinValue Root(string key, Func<IMixinValue> resolve) {
@@ -69,21 +78,45 @@ internal sealed class RoslynValueCache {
 
   private sealed class ReferenceObjectComparer : IEqualityComparer<object> {
     internal static readonly ReferenceObjectComparer Instance = new();
-    public new bool Equals(object x, object y) => ReferenceEquals(x, y);
-    public int GetHashCode(object value) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(value);
+
+    public new bool Equals(object x, object y) {
+      return ReferenceEquals(x, y);
+    }
+
+    public int GetHashCode(object value) {
+      return RuntimeHelpers.GetHashCode(value);
+    }
   }
 }
 
 internal sealed record MixinPropStructValue(IReadOnlyList<PropDefinition> Props,
-  PropStructModel Model, bool Augmenting) : IMixinValue {
-  public bool IsTruthy(ExecutionContext context) => true;
-  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic("<prop struct>");
-  public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
-    builder.Append(nameof(MixinPropStructValue)); builder.Append(Props.Count); builder.Append(Augmenting);
+  PropStructModel Model, bool Augmenting
+) : IMixinValue {
+  public bool IsTruthy(ExecutionContext context) {
+    return true;
   }
-  public IMixinValue Select(ExecutionContext context, MixinString member) => NullMixinValue.Instance;
-  public object Unlink(ExecutionContext context) => this;
-  public bool Equals(IMixinValue other) => ReferenceEquals(this, other);
+
+  public MixinString Render(ExecutionContext context) {
+    return ExecutionContext.Dynamic("<prop struct>");
+  }
+
+  public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
+    builder.Append(nameof(MixinPropStructValue));
+    builder.Append(Props.Count);
+    builder.Append(Augmenting);
+  }
+
+  public IMixinValue Select(ExecutionContext context, MixinString member) {
+    return NullMixinValue.Instance;
+  }
+
+  public object Unlink(ExecutionContext context) {
+    return this;
+  }
+
+  public bool Equals(IMixinValue other) {
+    return ReferenceEquals(this, other);
+  }
 }
 
 internal sealed record DetachedSemanticData(
@@ -98,58 +131,82 @@ internal sealed record DetachedSemanticMixinValue(
   IReadOnlyList<MixinString> Traits,
   IReadOnlyList<KeyValuePair<MixinString, IMixinValue>> Members
 ) : IMixinValue {
-  internal static DetachedSemanticMixinValue Materialize(DetachedSemanticData value, MixinStringPool strings) => new(
-    MixinString.Dynamic(value.Rendered), MixinString.Dynamic(value.Unwrapped),
-    MixinString.Dynamic(value.Name), MixinString.Dynamic(value.TypeName),
-    MixinString.Dynamic(value.FullName), MixinString.Dynamic(value.Visibility),
-    value.AssignableTypes.Select(MixinString.Dynamic).ToArray(),
-    value.Traits.Select(MixinString.Dynamic).ToArray(),
-    value.Members.Select(item => new KeyValuePair<MixinString, IMixinValue>(
-      strings.Get(item.Key), Materialize(item.Value, strings))).ToArray()
-  );
-
-  public bool IsTruthy(ExecutionContext context) => true;
-  public MixinString Render(ExecutionContext context) => Rendered;
-  public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
-    builder.Append(nameof(DetachedSemanticMixinValue)); builder.Append(Rendered.Resolve(context.Strings));
+  public bool IsTruthy(ExecutionContext context) {
+    return true;
   }
-  public IMixinValue Select(ExecutionContext context, MixinString member) =>
-    Members.FirstOrDefault(item => item.Key == member).Value ?? NullMixinValue.Instance;
-  public object Unlink(ExecutionContext context) => new DetachedSemanticData(
-    Rendered.Resolve(context.Strings), Unwrapped.Resolve(context.Strings), Name.Resolve(context.Strings), TypeName.Resolve(context.Strings),
-    FullName.Resolve(context.Strings), Visibility.Resolve(context.Strings),
-    AssignableTypes.Select(item => item.Resolve(context.Strings)).ToArray(),
-    Traits.Select(item => item.Resolve(context.Strings)).ToArray(),
-    Members.ToDictionary(item => item.Key.Resolve(context.Strings),
-      item => (DetachedSemanticData)item.Value.Unlink(context), StringComparer.OrdinalIgnoreCase)
-  );
-  public bool Equals(IMixinValue other) => other is DetachedSemanticMixinValue value && Equals(value);
+
+  public MixinString Render(ExecutionContext context) {
+    return Rendered;
+  }
+
+  public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
+    builder.Append(nameof(DetachedSemanticMixinValue));
+    builder.Append(Rendered.Resolve(context.Strings));
+  }
+
+  public IMixinValue Select(ExecutionContext context, MixinString member) {
+    return Members.FirstOrDefault(item => item.Key == member).Value ?? NullMixinValue.Instance;
+  }
+
+  public object Unlink(ExecutionContext context) {
+    return new DetachedSemanticData(
+      Rendered.Resolve(context.Strings), Unwrapped.Resolve(context.Strings), Name.Resolve(context.Strings),
+      TypeName.Resolve(context.Strings),
+      FullName.Resolve(context.Strings), Visibility.Resolve(context.Strings),
+      AssignableTypes.Select(item => item.Resolve(context.Strings)).ToArray(),
+      Traits.Select(item => item.Resolve(context.Strings)).ToArray(),
+      Members.ToDictionary(
+        item => item.Key.Resolve(context.Strings),
+        item => (DetachedSemanticData)item.Value.Unlink(context), StringComparer.OrdinalIgnoreCase
+      )
+    );
+  }
+
+  public bool Equals(IMixinValue other) {
+    return other is DetachedSemanticMixinValue value && Equals(value);
+  }
+
+  internal static DetachedSemanticMixinValue Materialize(DetachedSemanticData value, MixinStringPool strings) {
+    return new DetachedSemanticMixinValue(
+      MixinString.Dynamic(value.Rendered), MixinString.Dynamic(value.Unwrapped),
+      MixinString.Dynamic(value.Name), MixinString.Dynamic(value.TypeName),
+      MixinString.Dynamic(value.FullName), MixinString.Dynamic(value.Visibility),
+      value.AssignableTypes.Select(MixinString.Dynamic).ToArray(),
+      value.Traits.Select(MixinString.Dynamic).ToArray(),
+      value.Members.Select(item => new KeyValuePair<MixinString, IMixinValue>(
+          strings.Get(item.Key), Materialize(item.Value, strings)
+        )
+      ).ToArray()
+    );
+  }
 }
 
 /// <summary>Roslyn host services for an already lowered mixin program.</summary>
 internal sealed class RoslynMixinContext : ExecutionContext {
   private readonly IReadOnlyList<IParameterSymbol> _arguments;
   private readonly AttributeData _attribute;
+  private readonly RoslynValueCache _attributeValues;
   private readonly CSharpCompilation _compilation;
-  private readonly ISymbol _target;
-  private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
-  private readonly MixinExpressionPreparedState _preparedExpressions;
+  private readonly Dictionary<string, string> _generatedStructs = new(StringComparer.Ordinal);
   private readonly MixinLibraryCatalog _libraries;
   private readonly MixinCompilation _mixinCompilation;
-  private readonly Dictionary<string, string> _generatedStructs = new(StringComparer.Ordinal);
-  private readonly RoslynValueCache _thisValues;
+  private readonly MixinExpressionPreparedState _preparedExpressions;
+  private readonly ISymbol _target;
+  private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
   private readonly RoslynValueCache _targetValues;
-  private readonly RoslynValueCache _attributeValues;
+  private readonly RoslynValueCache _thisValues;
   private readonly Dictionary<object, RoslynValueCache> _valueOwners =
     new(RoslynValueOwnerComparer.Instance);
 
-  internal RoslynMixinContext(INamedTypeSymbol thisType, ISymbol target, AttributeData attribute,
+  internal RoslynMixinContext(
+    INamedTypeSymbol thisType, ISymbol target, AttributeData attribute,
     IReadOnlyList<IParameterSymbol> arguments, CSharpCompilation compilation,
     INamedTypeSymbol implicitAttributeType = null,
     IReadOnlyDictionary<string, object> implicitValues = null,
     IReadOnlyDictionary<string, string> targetDefinitions = null,
     MixinExpressionPreparedState preparedExpressions = null, MixinLibraryCatalog libraries = null,
-    RoslynHostExpressionCache hostValues = null, MixinCompilation mixinCompilation = null)
+    RoslynHostExpressionCache hostValues = null, MixinCompilation mixinCompilation = null
+  )
     : base(preparedExpressions?.StringPool.Fork() ?? new MixinStringPoolBuilder().Freeze()) {
     CurrentType = thisType;
     _target = target;
@@ -177,10 +234,12 @@ internal sealed class RoslynMixinContext : ExecutionContext {
 
   internal IMixinValue SelectValue(RoslynMixinValue source, MixinString member) {
     var name = member.Resolve(Strings);
-    return Derive(source, "#" + name, () => {
-      var selected = SelectMember(source.Value, name);
-      return selected is null ? NullMixinValue.Instance : new RoslynMixinValue(selected);
-    });
+    return Derive(
+      source, "#" + name, () => {
+        var selected = SelectMember(source.Value, name);
+        return selected is null ? NullMixinValue.Instance : new RoslynMixinValue(selected);
+      }
+    );
   }
 
   private IMixinValue CachedRoot(RoslynValueCache cache, string key, Func<IMixinValue> resolve) {
@@ -203,95 +262,65 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     }
   }
 
-  private sealed class RoslynValueOwnerComparer : IEqualityComparer<object> {
-    internal static readonly RoslynValueOwnerComparer Instance = new();
-    public new bool Equals(object x, object y) => ReferenceEquals(x, y);
-    public int GetHashCode(object value) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(value);
-  }
-
-  public override IMixinValue InvokeHostDirective(string name, IReadOnlyList<IMixinValue> arguments,
-    IMixinValue operand) {
-    var values = arguments.Select(Evaluate).ToArray();
-    if (values.OfType<ErrorMixinValue>().FirstOrDefault() is { } argumentError) return argumentError;
-    string Text(int index) => index < values.Length
-      ? values[index].Render(this).Resolve(Strings) : "";
-    switch (name) {
-      case "RESOLVE_MIXIN": {
-        var local = Text(0);
-        var target = Evaluate(operand).Render(this).Resolve(Strings);
-        var descriptor = ParseMixinTarget(target, _targetDefinitions);
-        string callable = null;
-        if (!string.IsNullOrEmpty(descriptor.DelegateType)) {
-          if (ResolveType(descriptor.DelegateType) is { TypeKind: TypeKind.Delegate } delegateType)
-            callable = delegateType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat);
-          else callable = descriptor.DelegateType;
-        } else if (ResolveType(descriptor.Name) is { TypeKind: TypeKind.Delegate } namedDelegate)
-          callable = namedDelegate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat);
-        else {
-          var methods = MethodsInHierarchy(CurrentType, descriptor.Name).ToArray();
-          if (methods.Length == 1) callable = CallableReference(methods[0]);
-        }
-        IMixinValue result = callable is null ? NullMixinValue.Instance : new LiteralMixinValue(Intern(callable));
-        Locals[Intern(local)] = result;
-        return result;
-      }
-      case "PROP_STRUCT": return CreatePropStruct(Text(0), Text(1), values.Skip(2).Select(item =>
-        item.Render(this).Resolve(Strings)).ToArray(), operand);
-      case "AUGMENT_STRUCT": return AugmentPropStruct(Text(0), operand);
-      default: return base.InvokeHostDirective(name, arguments, operand);
+  public override IMixinValue ResolveMixin(MixinString localName, IMixinValue operand) {
+    var local = localName.Resolve(Strings);
+    var descriptor = ParseMixinTarget(operand.Render(this).Resolve(Strings), _targetDefinitions);
+    string callable = null;
+    if (!string.IsNullOrEmpty(descriptor.DelegateType)) {
+      if (ResolveType(descriptor.DelegateType) is { TypeKind: TypeKind.Delegate } delegateType)
+        callable = delegateType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat);
+      else callable = descriptor.DelegateType;
+    } else if (ResolveType(descriptor.Name) is { TypeKind: TypeKind.Delegate } namedDelegate)
+      callable = namedDelegate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat);
+    else {
+      var methods = MethodsInHierarchy(CurrentType, descriptor.Name).ToArray();
+      if (methods.Length == 1) callable = CallableReference(methods[0]);
     }
+    IMixinValue result = callable is null ? NullMixinValue.Instance : new LiteralMixinValue(Intern(callable));
+    Locals.Store(this, Intern(local), result);
+    return result;
   }
 
-  public override IMixinValue InvokeHostFunction(string name, IMixinValue value,
-    IReadOnlyList<IMixinValue> arguments) {
+  public override IMixinValue CreatePropStruct(IReadOnlyList<IMixinValue> arguments, IMixinValue operand) {
+    var text = arguments.Select(item => item.Render(this).Resolve(Strings)).ToArray();
+    return CreatePropStruct(text[0], text[1], text.Skip(2).ToArray(), operand);
+  }
+
+  public override IMixinValue AugmentPropStruct(MixinString local, IMixinValue operand) {
+    return AugmentPropStruct(local.Resolve(Strings), operand);
+  }
+
+  internal IMethodSymbol Callable(IMixinValue value) {
     value = Evaluate(value);
-    string Text(IMixinValue item) => Evaluate(item).Render(this).Resolve(Strings);
-    if (value is MixinPropStructValue prop) switch (name) {
-      case "structHasEquality": return prop.Model.Equality.HasMembers ? BooleanMixinValue.True : BooleanMixinValue.False;
-      case "structNoArgs": return prop.Model.ParameterParts.Count == 0 ? BooleanMixinValue.True : BooleanMixinValue.False;
-      case "structAugment": return prop.Augmenting ? BooleanMixinValue.True : BooleanMixinValue.False;
-      case "structParams": return new LiteralMixinValue(Intern(JoinStructParts(
-        arguments.Count == 0 ? null : Text(arguments[0]), prop.Model.ParameterParts)));
-      case "structArgs": return new LiteralMixinValue(Intern(JoinStructParts(
-        arguments.Count == 0 ? null : Text(arguments[0]), prop.Model.ArgumentParts)));
-      case "propStructCall": {
-        var target = Text(arguments[0]); var variable = Text(arguments[1]);
-        var callArguments = prop.Props.Select(item => (item.RefKind switch {
-          RefKind.Ref => "ref ", RefKind.Out => "out ", RefKind.In => "in ", _ => ""
-        }) + variable + "." + GeneratorAnalysis.EscapeIdentifier(item.Name));
-        return new LiteralMixinValue(Intern(target + "(" + string.Join(", ", callArguments) + ")"));
-      }
-    }
-    IMethodSymbol Callable(IMixinValue item) {
-      item = Evaluate(item);
-      if (item is RoslynMixinValue { Value: IMethodSymbol method }) return method;
-      var text = Text(item);
-      if (ResolveType(text) is INamedTypeSymbol { TypeKind: TypeKind.Delegate,
-        DelegateInvokeMethod: { } invoke }) return invoke;
-      var methodName = text.Substring(text.LastIndexOf('.') + 1);
-      var methods = MethodsInHierarchy(CurrentType, methodName).ToArray();
-      return methods.Length == 1 ? methods[0] : null;
-    }
-    if (name == "signature") return SameSignature(Callable(value), Callable(arguments[0]))
-      ? BooleanMixinValue.True : BooleanMixinValue.False;
-    if (name == "wireable") return TryWireParameters(Callable(arguments[0]), Callable(arguments[1]), out _)
-      ? BooleanMixinValue.True : BooleanMixinValue.False;
-    if (name == "wire") return TryWireParameters(Callable(value), Callable(arguments[0]), out var wired)
-      ? new LiteralMixinValue(Intern(wired)) : Error("methods cannot be wired");
-    return base.InvokeHostFunction(name, value, arguments);
+    if (value is RoslynMixinValue { Value: IMethodSymbol method }) return method;
+    var text = value.Render(this).Resolve(Strings);
+    if (ResolveType(text) is INamedTypeSymbol { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke })
+      return invoke;
+    var methodName = text.Substring(text.LastIndexOf('.') + 1);
+    var methods = MethodsInHierarchy(CurrentType, methodName).ToArray();
+    return methods.Length == 1 ? methods[0] : null;
   }
 
-  private IMixinValue CreatePropStruct(string structName, string local, IReadOnlyList<string> flags,
-    IMixinValue operand) {
-    if (!SyntaxFacts.IsValidIdentifier(structName)) return Error("prop struct name '" + structName + "' is not a valid identifier");
+  private IMixinValue CreatePropStruct(
+    string structName, string local, IReadOnlyList<string> flags,
+    IMixinValue operand
+  ) {
+    if (!SyntaxFacts.IsValidIdentifier(structName))
+      return Error("prop struct name '" + structName + "' is not a valid identifier");
     var subject = Evaluate(operand) is RoslynMixinValue roslyn ? roslyn.Value : null;
     IReadOnlyList<PropDefinition> props = subject switch {
       IMethodSymbol { TypeParameters.Length: > 0 } generic => null,
-      IMethodSymbol method => method.Parameters.Select(parameter => new PropDefinition(parameter,
-        parameter.Type, parameter.Name, GeneratorAnalysis.Attribute(parameter, GeneratorStrings.Attributes.Prop),
-        parameter.RefKind)).ToArray(),
-      INamedTypeSymbol type => GeneratorAnalysis.InstanceFields(type).Select(field => new PropDefinition(field,
-        field.Type, field.Name, GeneratorAnalysis.Attribute(field, GeneratorStrings.Attributes.Prop))).ToArray(),
+      IMethodSymbol method => method.Parameters.Select(parameter => new PropDefinition(
+          parameter,
+          parameter.Type, parameter.Name, GeneratorAnalysis.Attribute(parameter, GeneratorStrings.Attributes.Prop),
+          parameter.RefKind
+        )
+      ).ToArray(),
+      INamedTypeSymbol type => GeneratorAnalysis.InstanceFields(type).Select(field => new PropDefinition(
+          field,
+          field.Type, field.Name, GeneratorAnalysis.Attribute(field, GeneratorStrings.Attributes.Prop)
+        )
+      ).ToArray(),
       _ => null
     };
     if (subject is IMethodSymbol { TypeParameters.Length: > 0 } methodError)
@@ -300,24 +329,32 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     if (!PropStructApi.TryAnalyzeProps(props, out var model, out var diagnostic))
       return Error(diagnostic.GetMessage(CultureInfo.InvariantCulture));
     var handle = new MixinPropStructValue(props, model, false);
-    Locals[Intern(local)] = handle;
+    Locals.Store(this, Intern(local), handle);
     var generate = !flags.Any(item => item.Equals("noGenerate", StringComparison.OrdinalIgnoreCase));
     if (!generate) return handle;
     var datatype = flags.Any(item => item.Equals("datatype", StringComparison.OrdinalIgnoreCase));
     var escaped = GeneratorAnalysis.EscapeIdentifier(structName);
     var builder = new SharpStringBuilder();
     using (builder.Type("public struct " + escaped)) {
-      foreach (var prop in props) builder.Field("public",
-        prop.Type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat), GeneratorAnalysis.EscapeIdentifier(prop.Name));
+      foreach (var prop in props) {
+        builder.Field(
+          "public",
+          prop.Type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat), GeneratorAnalysis.EscapeIdentifier(prop.Name)
+        );
+      }
       if (model.ParameterParts.Count > 0) {
         builder.BlankLine();
-        using (builder.Method("public" + (model.RequiresUnsafe ? " unsafe " : " ") + escaped,
-          model.ParameterParts)) model.AppendAssignments(builder, "this");
+        using (builder.Method(
+          "public" + (model.RequiresUnsafe ? " unsafe " : " ") + escaped,
+          model.ParameterParts
+        )) model.AppendAssignments(builder, "this");
       }
       if (datatype) {
         builder.BlankLine();
-        if (!TryDatatypeConfiguration(props.Select(item => item.Symbol).ToArray(), false,
-          out var configuration, out var error))
+        if (!TryDatatypeConfiguration(
+          props.Select(item => item.Symbol).ToArray(), false,
+          out var configuration, out var error
+        ))
           return Error(error);
         PropStructApi.AnalyzeDatatype(escaped, structName, props).AppendMember(builder, configuration);
       }
@@ -325,41 +362,53 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     return new DirectiveEffectMixinValue(handle, Intern(builder.ToString()));
   }
 
-  private bool TryDatatypeConfiguration(IReadOnlyList<ISymbol> properties, bool includeType,
-    out IReadOnlyList<string> configuration, out string error) {
+  private bool TryDatatypeConfiguration(
+    IReadOnlyList<ISymbol> properties, bool includeType,
+    out IReadOnlyList<string> configuration, out string error
+  ) {
     var result = new List<string>();
     var variables = new Dictionary<string, object>(StringComparer.Ordinal);
-    foreach (var owner in (includeType ? new ISymbol[] { CurrentType }.Concat(properties) : properties))
+    foreach (var owner in includeType ? new ISymbol[] { CurrentType }.Concat(properties) : properties)
     foreach (var applied in owner.GetAttributes()
       .OrderBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)) {
       if (applied.AttributeClass?.ToDisplayString() == GeneratorStrings.Attributes.Structure) continue;
       foreach (var annotation in MixinLibraryApi.Annotations(applied.AttributeClass, _libraries)) {
         var arguments = owner is IParameterSymbol { ContainingSymbol: IMethodSymbol method }
-          ? (IReadOnlyList<IParameterSymbol>)method.Parameters : [];
-        var nested = new RoslynMixinContext(CurrentType, owner, applied, arguments, _compilation,
+          ? (IReadOnlyList<IParameterSymbol>)method.Parameters
+          : [];
+        var nested = new RoslynMixinContext(
+          CurrentType, owner, applied, arguments, _compilation,
           targetDefinitions: _targetDefinitions, preparedExpressions: _preparedExpressions, libraries: _libraries,
-          mixinCompilation: _mixinCompilation);
+          mixinCompilation: _mixinCompilation
+        );
         MixinExpressionResult evaluated;
         if (_mixinCompilation is not null && applied.AttributeClass is { } attributeType &&
           _mixinCompilation.TryGetAnnotation(
-            attributeType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat), out var compiled)) {
+            attributeType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat), out var compiled
+          )) {
           var program = owner is INamedTypeSymbol ? compiled.TypeProgram : compiled.MemberProgram;
           var preludeResult = MixinExpressionVirtualMachine.Execute(
-            program.Prelude, nested, variables, importCarries: false);
+            program.Prelude, nested, variables, false
+          );
           if (!preludeResult.Success) evaluated = preludeResult;
           else {
             var lateResult = MixinExpressionVirtualMachine.Execute(
-              program.Late, nested, variables, importCarries: true);
-            evaluated = !lateResult.Success ? lateResult : new MixinExpressionResult(
-              true, null, 0, preludeResult.Outputs.Concat(lateResult.Outputs).ToArray(),
-              preludeResult.Logs.Concat(lateResult.Logs).ToArray(), lateResult.Variables,
-              preludeResult.ExecutedOperations + lateResult.ExecutedOperations,
-              preludeResult.ExecutionMilliseconds + lateResult.ExecutionMilliseconds
+              program.Late, nested, variables, true
             );
+            evaluated = !lateResult.Success
+              ? lateResult
+              : new MixinExpressionResult(
+                true, null, 0, preludeResult.Outputs.Concat(lateResult.Outputs).ToArray(),
+                preludeResult.Logs.Concat(lateResult.Logs).ToArray(), lateResult.Variables,
+                preludeResult.ExecutedOperations + lateResult.ExecutedOperations,
+                preludeResult.ExecutionMilliseconds + lateResult.ExecutionMilliseconds
+              );
           }
         } else {
-          evaluated = MixinExpressionVirtualMachine.Execute(annotation.Prelude + annotation.Expression,
-            nested, variables, _preparedExpressions);
+          evaluated = MixinExpressionVirtualMachine.Execute(
+            annotation.Prelude + annotation.Expression,
+            nested, variables, _preparedExpressions
+          );
         }
         if (!evaluated.Success) {
           configuration = null;
@@ -386,18 +435,22 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   private IMixinValue AugmentPropStruct(string local, IMixinValue operand) {
-    object subject = null; string missingName = null;
+    object subject = null;
+    string missingName = null;
     if (operand is RootMixinValue { Root: MixinExpressionRoot.This } root) {
       missingName = root.Member.Resolve(Strings);
       subject = string.IsNullOrEmpty(missingName) ? CurrentType : SelectMember(CurrentType, missingName);
     } else if (Evaluate(operand) is RoslynMixinValue roslyn) subject = roslyn.Value;
     if (subject is null && !string.IsNullOrEmpty(missingName)) {
-      if (!SyntaxFacts.IsValidIdentifier(missingName)) return Error("struct name '" + missingName + "' is not a valid identifier");
+      if (!SyntaxFacts.IsValidIdentifier(missingName))
+        return Error("struct name '" + missingName + "' is not a valid identifier");
       var empty = new MixinPropStructValue([], PropStructModel.Empty, true);
-      Locals[Intern(local)] = empty;
+      Locals.Store(this, Intern(local), empty);
       _generatedStructs[missingName] = CurrentType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat) + "." +
         GeneratorAnalysis.EscapeIdentifier(missingName);
-      return new DirectiveEffectMixinValue(empty, Intern("public struct " + GeneratorAnalysis.EscapeIdentifier(missingName) + " { }"));
+      return new DirectiveEffectMixinValue(
+        empty, Intern("public struct " + GeneratorAnalysis.EscapeIdentifier(missingName) + " { }")
+      );
     }
     if (subject is not INamedTypeSymbol { TypeKind: TypeKind.Struct } type)
       return Error("AUGMENT_STRUCT target must resolve to a struct");
@@ -407,61 +460,83 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       _attribute.ConstructorArguments.Length > 0 && _attribute.ConstructorArguments[0].Value is true;
     if (!PropStructApi.TryAnalyze(type, out var model, out var diagnostic, generateDatatype))
       return Error(diagnostic.GetMessage(CultureInfo.InvariantCulture));
-    var props = GeneratorAnalysis.InstanceFields(type).Select(field => new PropDefinition(field, field.Type,
-      field.Name, GeneratorAnalysis.Attribute(field, GeneratorStrings.Attributes.Prop))).ToArray();
+    var props = GeneratorAnalysis.InstanceFields(type).Select(field => new PropDefinition(
+        field, field.Type,
+        field.Name, GeneratorAnalysis.Attribute(field, GeneratorStrings.Attributes.Prop)
+      )
+    ).ToArray();
     var handle = new MixinPropStructValue(props, model, true);
-    Locals[Intern(local)] = handle;
+    Locals.Store(this, Intern(local), handle);
     var builder = new SharpStringBuilder();
     var augmentingThis = SymbolEqualityComparer.Default.Equals(type, CurrentType);
     if (augmentingThis) {
-      if (model.ParameterParts.Count > 0) using (builder.Method(
-        GeneratorAnalysis.AccessibilityText(type.DeclaredAccessibility) +
-        (model.RequiresUnsafe ? " unsafe " : " ") + GeneratorAnalysis.EscapeIdentifier(type.Name),
-        model.ParameterParts)) model.AppendAssignments(builder, "this");
+      if (model.ParameterParts.Count > 0) {
+        using (builder.Method(
+          GeneratorAnalysis.AccessibilityText(type.DeclaredAccessibility) +
+          (model.RequiresUnsafe ? " unsafe " : " ") + GeneratorAnalysis.EscapeIdentifier(type.Name),
+          model.ParameterParts
+        )) model.AppendAssignments(builder, "this");
+      }
       model.Equality.AppendMembers(builder);
       if (model.Datatype is not null) {
         builder.BlankLine();
-        if (!TryDatatypeConfiguration(props.Select(item => item.Symbol).ToArray(), true,
-          out var configuration, out var configurationError)) return Error(configurationError);
+        if (!TryDatatypeConfiguration(
+          props.Select(item => item.Symbol).ToArray(), true,
+          out var configuration, out var configurationError
+        )) return Error(configurationError);
         model.Datatype.AppendMember(builder, configuration);
       }
     } else {
       if (!SymbolEqualityComparer.Default.Equals(type.ContainingType, CurrentType))
         return Error("AUGMENT_STRUCT target must be a struct nested directly in the current type");
       using (builder.Type("partial struct " + GeneratorAnalysis.EscapeIdentifier(type.Name))) {
-        if (model.ParameterParts.Count > 0) using (builder.Method(
-          GeneratorAnalysis.AccessibilityText(type.DeclaredAccessibility) +
-          (model.RequiresUnsafe ? " unsafe " : " ") + GeneratorAnalysis.EscapeIdentifier(type.Name),
-          model.ParameterParts)) model.AppendAssignments(builder, "this");
+        if (model.ParameterParts.Count > 0) {
+          using (builder.Method(
+            GeneratorAnalysis.AccessibilityText(type.DeclaredAccessibility) +
+            (model.RequiresUnsafe ? " unsafe " : " ") + GeneratorAnalysis.EscapeIdentifier(type.Name),
+            model.ParameterParts
+          )) model.AppendAssignments(builder, "this");
+        }
         model.Equality.AppendMembers(builder);
       }
     }
     return new DirectiveEffectMixinValue(handle, Intern(builder.ToString()));
   }
 
-  public override MixinString NameOf(IMixinValue value) => value is RoslynMixinValue roslyn
-    ? Intern((roslyn.Value as ISymbol)?.Name ??
-      (roslyn.Value as AttributeData)?.AttributeClass?.Name ?? ComparableText(roslyn.Value))
-    : value is DetachedSemanticMixinValue detached ? detached.Name
-    : base.NameOf(value);
+  public override MixinString NameOf(IMixinValue value) {
+    return value is RoslynMixinValue roslyn
+      ? Intern(
+        (roslyn.Value as ISymbol)?.Name ??
+        (roslyn.Value as AttributeData)?.AttributeClass?.Name ?? ComparableText(roslyn.Value)
+      )
+      : value is DetachedSemanticMixinValue detached
+        ? detached.Name
+        : base.NameOf(value);
+  }
 
   public override bool IsType(IMixinValue value, MixinString requested) {
     if (value is DetachedSemanticMixinValue detached) {
       var expected = requested.Resolve(Strings).Replace("global::", "");
       return detached.AssignableTypes.Any(item => {
-        var candidate = item.Resolve(Strings).Replace("global::", "");
-        return candidate == expected || candidate.Split('.', '+').LastOrDefault() == expected;
-      });
+          var candidate = item.Resolve(Strings).Replace("global::", "");
+          return candidate == expected || candidate.Split('.', '+').LastOrDefault() == expected;
+        }
+      );
     }
     if (value is not RoslynMixinValue roslyn || TypeOf(roslyn.Value) is not INamedTypeSymbol type) return false;
     var name = requested.Resolve(Strings).Replace("global::", "");
-    bool Match(ITypeSymbol candidate) => candidate is not null && (
-      candidate.Name == name || candidate.ToDisplayString().Replace("global::", "") == name ||
-      candidate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") == name
-    );
+
+    bool Match(ITypeSymbol candidate) {
+      return candidate is not null && (
+        candidate.Name == name || candidate.ToDisplayString().Replace("global::", "") == name ||
+        candidate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") == name
+      );
+    }
+
     if (Match(type)) return true;
     for (var current = type.BaseType; current is not null; current = current.BaseType)
-      if (Match(current)) return true;
+      if (Match(current))
+        return true;
     return type.AllInterfaces.Any(Match);
   }
 
@@ -479,6 +554,25 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     return cache.Snapshot(roslyn, includeMembers, () => roslyn.Unlink(this, includeMembers));
   }
 
+  internal override IMixinValue DetachValue(IMixinValue value, bool includeMembers = true) {
+    value = Evaluate(value);
+    if (value is RoslynMixinValue roslyn) {
+      var detached = UnlinkSnapshot(roslyn, includeMembers);
+      return detached is DetachedSemanticData semantic
+        ? DetachedSemanticMixinValue.Materialize(semantic, Strings)
+        : base.DetachValue(
+          detached switch {
+            IMixinValue typed => typed,
+            null => NullMixinValue.Instance,
+            bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
+            string text => new LiteralMixinValue(MixinString.Dynamic(text)),
+            _ => new ObjectMixinValue(detached)
+          }, includeMembers
+        );
+    }
+    return base.DetachValue(value, includeMembers);
+  }
+
   internal static IReadOnlyList<string> SemanticTraits(object value) {
     var result = new List<string>();
     var type = TypeOf(value);
@@ -490,9 +584,13 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     if (symbol?.IsStatic == true) result.Add("static");
     if (symbol?.DeclaredAccessibility == Accessibility.Public) result.Add("public");
     if (symbol is IMethodSymbol { IsAsync: true }) result.Add("async");
-    if (symbol is IParameterSymbol parameter) result.Add(parameter.RefKind switch {
-      RefKind.Ref => "ref", RefKind.In => "in", RefKind.Out => "out", _ => "argument"
-    });
+    if (symbol is IParameterSymbol parameter) {
+      result.Add(
+        parameter.RefKind switch {
+          RefKind.Ref => "ref", RefKind.In => "in", RefKind.Out => "out", _ => "argument"
+        }
+      );
+    }
     return result;
   }
 
@@ -512,16 +610,20 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   public override IMixinValue Attributes(IMixinValue value, MixinString requested, bool exact, bool first) {
     if (value is not RoslynMixinValue roslyn) return first ? NullMixinValue.Instance : MixinTableValue.Empty;
     var expected = requested.IsInterned || requested.DynamicValue is not null
-      ? requested.Resolve(Strings) : null;
-    IEnumerable<AttributeData> source = roslyn.Value switch {
+      ? requested.Resolve(Strings)
+      : null;
+    var source = roslyn.Value switch {
       ISymbol symbol => symbol.GetAttributes(),
       AttributeData attribute => attribute.AttributeClass is { } attributeType
-        ? attributeType.GetAttributes() : Enumerable.Empty<AttributeData>(),
+        ? attributeType.GetAttributes()
+        : Enumerable.Empty<AttributeData>(),
       _ => TypeOf(roslyn.Value) is { } valueType
-        ? valueType.GetAttributes() : Enumerable.Empty<AttributeData>()
+        ? valueType.GetAttributes()
+        : Enumerable.Empty<AttributeData>()
     };
-    var matches = source.Where(attribute => expected is null || attribute.AttributeClass is { } type &&
-      (exact ? TypeMatches(type, expected) : IsOrInherits(type, expected))).ToArray();
+    var matches = source.Where(attribute => expected is null || (attribute.AttributeClass is { } type &&
+      (exact ? TypeMatches(type, expected) : IsOrInherits(type, expected)))
+    ).ToArray();
     RoslynValueCache owner = null;
     if (roslyn.Value is not null) _valueOwners.TryGetValue(roslyn.Value, out owner);
     owner ??= _targetValues;
@@ -531,11 +633,13 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       return result;
     }
     var entries = matches.Select((item, index) => {
-      IMixinValue result = new RoslynMixinValue(item);
-      RegisterOwner(result, owner);
-      return new KeyValuePair<MixinString, IMixinValue>(
-        Intern(index.ToString(CultureInfo.InvariantCulture)), result);
-    }).ToArray();
+        IMixinValue result = new RoslynMixinValue(item);
+        RegisterOwner(result, owner);
+        return new KeyValuePair<MixinString, IMixinValue>(
+          Intern(index.ToString(CultureInfo.InvariantCulture)), result
+        );
+      }
+    ).ToArray();
     return new MixinTableValue(entries);
   }
 
@@ -543,21 +647,27 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     if (TypeMatches(type, expected)) return true;
     if (type is not INamedTypeSymbol named) return false;
     for (var current = named.BaseType; current is not null; current = current.BaseType)
-      if (TypeMatches(current, expected)) return true;
+      if (TypeMatches(current, expected))
+        return true;
     return named.AllInterfaces.Any(item => TypeMatches(item, expected));
   }
 
-  private static bool TypeMatches(ITypeSymbol type, string expected) => type is not null && (
-    type.Name == expected || type.ToDisplayString().Replace("global::", "") == expected.Replace("global::", "") ||
-    type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") == expected.Replace("global::", "")
-  );
+  private static bool TypeMatches(ITypeSymbol type, string expected) {
+    return type is not null && (
+      type.Name == expected || type.ToDisplayString().Replace("global::", "") == expected.Replace("global::", "") ||
+      type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") ==
+      expected.Replace("global::", "")
+    );
+  }
 
   protected override IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) {
     if (root == MixinExpressionRoot.This && !string.IsNullOrEmpty(member.Resolve(Strings)) &&
       _generatedStructs.TryGetValue(member.Resolve(Strings), out var generatedType)) {
       var typeName = Intern(generatedType);
-      return new DetachedSemanticMixinValue(typeName, typeName, Intern(member.Resolve(Strings)), typeName,
-        typeName, Intern("public"), [typeName], [Intern("struct")], []);
+      return new DetachedSemanticMixinValue(
+        typeName, typeName, Intern(member.Resolve(Strings)), typeName,
+        typeName, Intern("public"), [typeName], [Intern("struct")], []
+      );
     }
     var name = member.Resolve(Strings);
     var cache = root switch {
@@ -565,21 +675,25 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       MixinExpressionRoot.Attribute => _attributeValues,
       _ => _targetValues
     };
-    var result = CachedRoot(cache, root + "#" + name, () => {
-      object value = root switch {
-        MixinExpressionRoot.This => CurrentType,
-        MixinExpressionRoot.Target => _target,
-        MixinExpressionRoot.Attribute => _attribute,
-        MixinExpressionRoot.Argument => SelectArgument(name),
-        _ => null
-      };
-      if (value is null) return root == MixinExpressionRoot.Argument
-        ? NullMixinValue.Instance
-        : Error("@" + root.ToString().ToLowerInvariant() + " is not available in this context");
-      if (!string.IsNullOrEmpty(name) && root is not MixinExpressionRoot.Argument)
-        value = SelectMember(value, name);
-      return value is null ? NullMixinValue.Instance : new RoslynMixinValue(value, root);
-    });
+    var result = CachedRoot(
+      cache, root + "#" + name, () => {
+        object value = root switch {
+          MixinExpressionRoot.This => CurrentType,
+          MixinExpressionRoot.Target => _target,
+          MixinExpressionRoot.Attribute => _attribute,
+          MixinExpressionRoot.Argument => SelectArgument(name),
+          _ => null
+        };
+        if (value is null) {
+          return root == MixinExpressionRoot.Argument
+            ? NullMixinValue.Instance
+            : Error("@" + root.ToString().ToLowerInvariant() + " is not available in this context");
+        }
+        if (!string.IsNullOrEmpty(name) && root is not MixinExpressionRoot.Argument)
+          value = SelectMember(value, name);
+        return value is null ? NullMixinValue.Instance : new RoslynMixinValue(value, root);
+      }
+    );
     return result;
   }
 
@@ -593,28 +707,34 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   internal object SelectMember(object subject, string name) {
     if (subject is AttributeData attribute) {
       foreach (var item in attribute.NamedArguments)
-        if (string.Equals(item.Key, name, StringComparison.OrdinalIgnoreCase)) return item.Value;
-      if (attribute.AttributeConstructor is { } constructor)
-        for (var i = 0; i < constructor.Parameters.Length && i < attribute.ConstructorArguments.Length; i++)
+        if (string.Equals(item.Key, name, StringComparison.OrdinalIgnoreCase))
+          return item.Value;
+      if (attribute.AttributeConstructor is { } constructor) {
+        for (var i = 0; i < constructor.Parameters.Length && i < attribute.ConstructorArguments.Length; i++) {
           if (string.Equals(constructor.Parameters[i].Name, name, StringComparison.OrdinalIgnoreCase))
             return attribute.ConstructorArguments[i];
+        }
+      }
       if (TryDefaultAttributeMember(attribute.AttributeClass, name, out var defaultValue)) return defaultValue;
       return null;
     }
     if (subject is IMethodSymbol method)
-      return method.Parameters.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
+      return method.Parameters.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)
+      );
     var type = TypeOf(subject);
     if (type is INamedTypeSymbol generic) {
       if (int.TryParse(name, NumberStyles.None, CultureInfo.InvariantCulture, out var argumentIndex) &&
         argumentIndex >= 0 && argumentIndex < generic.TypeArguments.Length)
         return generic.TypeArguments[argumentIndex];
-      for (var i = 0; i < generic.TypeParameters.Length; i++)
+      for (var i = 0; i < generic.TypeParameters.Length; i++) {
         if (string.Equals(generic.TypeParameters[i].Name, name, StringComparison.OrdinalIgnoreCase))
           return generic.TypeArguments[i];
+      }
     }
     for (var current = type as INamedTypeSymbol; current is not null; current = current.BaseType) {
       var result = current.GetMembers().FirstOrDefault(item =>
-        string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
+        string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)
+      );
       if (result is not null) return result;
     }
     return null;
@@ -624,16 +744,24 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     value = null;
     for (var current = attributeType; current is not null; current = current.BaseType) {
       var member = current.GetMembers().FirstOrDefault(item =>
-        string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
-      if (member is IFieldSymbol { HasConstantValue: true } field) { value = field.ConstantValue; return true; }
+        string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase)
+      );
+      if (member is IFieldSymbol { HasConstantValue: true } field) {
+        value = field.ConstantValue;
+        return true;
+      }
       var initializer = member?.DeclaringSyntaxReferences.Select(item => item.GetSyntax()).Select(item => item switch {
-        VariableDeclaratorSyntax variable => variable.Initializer?.Value,
-        PropertyDeclarationSyntax property => property.Initializer?.Value,
-        _ => null
-      }).FirstOrDefault(item => item is not null);
+          VariableDeclaratorSyntax variable => variable.Initializer?.Value,
+          PropertyDeclarationSyntax property => property.Initializer?.Value,
+          _ => null
+        }
+      ).FirstOrDefault(item => item is not null);
       if (initializer is null) continue;
       var constant = _compilation.GetSemanticModel(initializer.SyntaxTree).GetConstantValue(initializer);
-      if (constant.HasValue) { value = constant.Value; return true; }
+      if (constant.HasValue) {
+        value = constant.Value;
+        return true;
+      }
     }
     return false;
   }
@@ -647,51 +775,52 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       .FirstOrDefault(item => item.ToDisplayString().Replace("global::", "") == normalized);
   }
 
-  private static string JoinStructParts(string prefix, IReadOnlyList<string> parts) {
-    if (string.IsNullOrWhiteSpace(prefix)) return string.Join(", ", parts);
-    return parts.Count == 0 ? prefix : prefix + ", " + string.Join(", ", parts);
-  }
-
   private static IEnumerable<IMethodSymbol> MethodsInHierarchy(INamedTypeSymbol type, string name) {
     for (var current = type; current is not null; current = current.BaseType)
-      foreach (var method in current.GetMembers(name ?? "").OfType<IMethodSymbol>()) yield return method;
+      foreach (var method in current.GetMembers(name ?? "").OfType<IMethodSymbol>())
+        yield return method;
   }
 
-  private static string CallableReference(IMethodSymbol method) =>
-    method.ContainingType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat) + "." + method.Name;
+  private static string CallableReference(IMethodSymbol method) {
+    return method.ContainingType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat) + "." + method.Name;
+  }
 
-  private static bool SameSignature(IMethodSymbol first, IMethodSymbol second) {
+  internal static bool SameSignature(IMethodSymbol first, IMethodSymbol second) {
     if (first is null || second is null || first.Parameters.Length != second.Parameters.Length ||
       first.RefKind != second.RefKind) return false;
-    for (var i = 0; i < first.Parameters.Length; i++) if (
-      first.Parameters[i].RefKind != second.Parameters[i].RefKind ||
-      !SymbolEqualityComparer.Default.Equals(first.Parameters[i].Type, second.Parameters[i].Type)) return false;
+    for (var i = 0; i < first.Parameters.Length; i++) {
+      if (
+        first.Parameters[i].RefKind != second.Parameters[i].RefKind ||
+        !SymbolEqualityComparer.Default.Equals(first.Parameters[i].Type, second.Parameters[i].Type)) return false;
+    }
     return true;
   }
 
-  private static bool TryWireParameters(IMethodSymbol from, IMethodSymbol to, out string arguments) {
+  internal static bool TryWireParameters(IMethodSymbol from, IMethodSymbol to, out string arguments) {
     arguments = null;
     if (from is null || to is null || to.Parameters.Length > from.Parameters.Length) return false;
     var result = new string[to.Parameters.Length];
     for (var i = 0; i < to.Parameters.Length; i++) {
       if (!SymbolEqualityComparer.Default.Equals(from.Parameters[i].Type, to.Parameters[i].Type) ||
         from.Parameters[i].RefKind != to.Parameters[i].RefKind) return false;
-      result[i] = (from.Parameters[i].RefKind switch {
+      result[i] = from.Parameters[i].RefKind switch {
         RefKind.Ref => "ref ", RefKind.Out => "out ", RefKind.In => "in ", _ => ""
-      }) + GeneratorAnalysis.EscapeIdentifier(from.Parameters[i].Name);
+      } + GeneratorAnalysis.EscapeIdentifier(from.Parameters[i].Name);
     }
     arguments = string.Join(", ", result);
     return true;
   }
 
-  internal static ITypeSymbol TypeOf(object value) => value switch {
-    ITypeSymbol type => type, IMethodSymbol method => method.ReturnType,
-    IPropertySymbol property => property.Type, IFieldSymbol field => field.Type,
-    IParameterSymbol parameter => parameter.Type, IEventSymbol @event => @event.Type,
-    AttributeData attribute => attribute.AttributeClass,
-    TypedConstant { Kind: TypedConstantKind.Type, Value: ITypeSymbol representedType } => representedType,
-    TypedConstant constant => constant.Type, _ => null
-  };
+  internal static ITypeSymbol TypeOf(object value) {
+    return value switch {
+      ITypeSymbol type => type, IMethodSymbol method => method.ReturnType,
+      IPropertySymbol property => property.Type, IFieldSymbol field => field.Type,
+      IParameterSymbol parameter => parameter.Type, IEventSymbol @event => @event.Type,
+      AttributeData attribute => attribute.AttributeClass,
+      TypedConstant { Kind: TypedConstantKind.Type, Value: ITypeSymbol representedType } => representedType,
+      TypedConstant constant => constant.Type, _ => null
+    };
+  }
 
   internal static string ComparableText(object value) {
     if (value is TypedConstant constant) value = constant.Value;
@@ -704,17 +833,22 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     };
   }
 
-  internal static MixinTargetDescriptor ParseMixinTarget(string target,
-    IReadOnlyDictionary<string, string> targetDefinitions = null) {
+  internal static MixinTargetDescriptor ParseMixinTarget(
+    string target,
+    IReadOnlyDictionary<string, string> targetDefinitions = null
+  ) {
     var value = target?.Trim() ?? "";
     if (targetDefinitions is not null && targetDefinitions.TryGetValue(value, out var defined))
       return ParseMixinTarget(defined, targetDefinitions);
-    var isStatic = false; var isPublic = false;
+    var isStatic = false;
+    var isPublic = false;
     while (value.Length != 0 && (value[0] == '*' || value[0] == '^')) {
-      if (value[0] == '*') isStatic = true; else isPublic = true;
+      if (value[0] == '*') isStatic = true;
+      else isPublic = true;
       value = value.Substring(1);
     }
-    string name; string delegateType = null;
+    string name;
+    string delegateType = null;
     if (value.StartsWith("~", StringComparison.Ordinal)) {
       delegateType = value.Substring(1);
       var normalized = delegateType.Replace("global::", "");
@@ -724,29 +858,74 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       name = separator < 0 ? value : value.Substring(0, separator);
       if (separator >= 0) delegateType = value.Substring(separator + 1);
     }
-    name = name switch { "$Init" => "Awake", "$Dispose" => "OnDestroy",
-      _ when name.StartsWith("$", StringComparison.Ordinal) => name.Substring(1), _ => name };
-    return new(name, isStatic, isPublic, delegateType);
+    name = name switch {
+      "$Init" => "Awake", "$Dispose" => "OnDestroy",
+      _ when name.StartsWith("$", StringComparison.Ordinal) => name.Substring(1), _ => name
+    };
+    return new MixinTargetDescriptor(name, isStatic, isPublic, delegateType);
+  }
+
+  private sealed class RoslynValueOwnerComparer : IEqualityComparer<object> {
+    internal static readonly RoslynValueOwnerComparer Instance = new();
+
+    public new bool Equals(object x, object y) {
+      return ReferenceEquals(x, y);
+    }
+
+    public int GetHashCode(object value) {
+      return RuntimeHelpers.GetHashCode(value);
+    }
   }
 }
 
 /// <summary>Immutable handle to a Roslyn semantic value; all services come from ExecutionContext.</summary>
-internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root = MixinExpressionRoot.Null) : IMixinValue {
-  public bool IsTruthy(ExecutionContext context) => Value switch {
-    null => false, bool boolean => boolean,
-    TypedConstant constant => constant.Kind != TypedConstantKind.Error && !constant.IsNull && constant.Value is not false,
-    _ => true
-  };
+internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root = MixinExpressionRoot.Null)
+  : IMixinValue {
+  public bool IsTruthy(ExecutionContext context) {
+    return Value switch {
+      null => false, bool boolean => boolean,
+      TypedConstant constant => constant.Kind != TypedConstantKind.Error && !constant.IsNull &&
+        constant.Value is not false,
+      _ => true
+    };
+  }
+
   public MixinString Render(ExecutionContext context) {
     if (Root is MixinExpressionRoot.This or MixinExpressionRoot.Target && Value is INamedTypeSymbol)
       return ExecutionContext.Dynamic("this");
-    if (Value is IParameterSymbol parameter) return ExecutionContext.Dynamic(GeneratorAnalysis.EscapeIdentifier(parameter.Name));
-    if (Value is IMethodSymbol method) return ExecutionContext.Dynamic(method.IsStatic
-      ? method.ContainingType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat) + "." + method.Name
-      : "this." + GeneratorAnalysis.EscapeIdentifier(method.Name));
+    if (Value is IParameterSymbol parameter)
+      return ExecutionContext.Dynamic(GeneratorAnalysis.EscapeIdentifier(parameter.Name));
+    if (Value is IMethodSymbol method) {
+      return ExecutionContext.Dynamic(
+        method.IsStatic
+          ? method.ContainingType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat) + "." + method.Name
+          : "this." + GeneratorAnalysis.EscapeIdentifier(method.Name)
+      );
+    }
     if (Value is TypedConstant constant) return ExecutionContext.Dynamic(RenderConstant(constant));
     return ExecutionContext.Dynamic(RoslynMixinContext.ComparableText(Value));
   }
+
+  public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
+    builder.Append(nameof(RoslynMixinValue));
+    builder.Append(Render(context).Resolve(context.Strings));
+  }
+
+  public IMixinValue Select(ExecutionContext context, MixinString member) {
+    return context is RoslynMixinContext roslyn ? roslyn.SelectValue(this, member) : NullMixinValue.Instance;
+  }
+
+  public object Unlink(ExecutionContext context) {
+    return Unlink(context, true);
+  }
+
+  public bool Equals(IMixinValue other) {
+    return other is RoslynMixinValue value && (
+      SymbolEqualityComparer.Default.Equals(Value as ISymbol, value.Value as ISymbol) ||
+      Value is not ISymbol && Equals(Value, value.Value)
+    );
+  }
+
   private static string RenderConstant(TypedConstant constant) {
     if (constant.IsNull || constant.Kind == TypedConstantKind.Error) return "null";
     if (constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol type)
@@ -758,69 +937,113 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
       _ => Convert.ToString(constant.Value, CultureInfo.InvariantCulture)
     };
   }
-  public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
-    builder.Append(nameof(RoslynMixinValue)); builder.Append(Render(context).Resolve(context.Strings));
-  }
-  public IMixinValue Select(ExecutionContext context, MixinString member) =>
-    context is RoslynMixinContext roslyn ? roslyn.SelectValue(this, member) : NullMixinValue.Instance;
-  public object Unlink(ExecutionContext context) => Unlink(context, true);
-  internal object Unlink(ExecutionContext context, bool includeMembers) => Value switch {
-    TypedConstant or ISymbol or AttributeData => Detach(context, includeMembers), _ => Value
-  };
 
-  internal object UnlinkShallow(ExecutionContext context) => Value switch {
-    TypedConstant { Kind: TypedConstantKind.Type } => Render(context).Resolve(context.Strings),
-    TypedConstant { Value: string or char } => Render(context).Resolve(context.Strings),
-    TypedConstant constant => constant.Value,
-    ISymbol or AttributeData => Render(context).Resolve(context.Strings),
-    _ => Value
-  };
+  internal object Unlink(ExecutionContext context, bool includeMembers) {
+    return Value switch {
+      TypedConstant or ISymbol or AttributeData => Detach(context, includeMembers), _ => Value
+    };
+  }
+
+  internal object UnlinkShallow(ExecutionContext context) {
+    return Value switch {
+      TypedConstant { Kind: TypedConstantKind.Type } => Render(context).Resolve(context.Strings),
+      TypedConstant { Value: string or char } => Render(context).Resolve(context.Strings),
+      TypedConstant constant => constant.Value,
+      ISymbol or AttributeData => Render(context).Resolve(context.Strings),
+      _ => Value
+    };
+  }
 
   private DetachedSemanticData Detach(ExecutionContext context, bool includeMembers) {
     var type = RoslynMixinContext.TypeOf(Value);
     var symbol = Value as ISymbol ?? type;
     var members = new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase);
+    if (includeMembers && Value is AttributeData attribute) {
+      foreach (var item in attribute.NamedArguments)
+        members[item.Key] = DetachConstant(item.Value, item.Key);
+      if (attribute.AttributeConstructor is { } constructor) {
+        for (var index = 0; index < constructor.Parameters.Length && index < attribute.ConstructorArguments.Length;
+          index++) {
+          members[constructor.Parameters[index].Name] = DetachConstant(
+            attribute.ConstructorArguments[index], constructor.Parameters[index].Name
+          );
+        }
+      }
+    }
     if (includeMembers && type is INamedTypeSymbol named) {
       for (var i = 0; i < named.TypeArguments.Length; i++) {
         var item = DetachType(named.TypeArguments[i]);
         members[i.ToString(CultureInfo.InvariantCulture)] = item;
         if (i < named.TypeParameters.Length) members[named.TypeParameters[i].Name] = item;
       }
-      foreach (var member in named.GetMembers()) if (!members.ContainsKey(member.Name))
-        members[member.Name] = DetachSymbol(member);
+      foreach (var member in named.GetMembers()) {
+        if (!members.ContainsKey(member.Name))
+          members[member.Name] = DetachSymbol(member);
+      }
     }
     var unwrapped = Value is TypedConstant constant
       ? constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol constantType
         ? constantType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "")
         : Convert.ToString(constant.Value, CultureInfo.InvariantCulture)
       : Render(context).Resolve(context.Strings);
-    return new DetachedSemanticData(Render(context).Resolve(context.Strings), unwrapped,
+    return new DetachedSemanticData(
+      Render(context).Resolve(context.Strings), unwrapped,
       (Value as ISymbol)?.Name ?? (Value as AttributeData)?.AttributeClass?.Name ??
-        RoslynMixinContext.ComparableText(Value),
+      RoslynMixinContext.ComparableText(Value),
       type is null ? "" : type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
-      type is null ? "" : type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat
-        .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)),
+      type is null
+        ? ""
+        : type.ToDisplayString(
+          SymbolDisplayFormat.MinimallyQualifiedFormat
+            .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
+        ),
       symbol?.DeclaredAccessibility.ToString().ToLowerInvariant() ?? "",
       Assignable(type).Distinct(StringComparer.Ordinal).ToArray(),
-      RoslynMixinContext.SemanticTraits(Value), members);
+      RoslynMixinContext.SemanticTraits(Value), members
+    );
 
-    DetachedSemanticData DetachSymbol(ISymbol item) => new(
-      item.Name, item.Name, item.Name,
-      RoslynMixinContext.TypeOf(item)?.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") ?? "",
-      RoslynMixinContext.TypeOf(item)?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "",
-      item.DeclaredAccessibility.ToString().ToLowerInvariant(),
-      Assignable(RoslynMixinContext.TypeOf(item)).Distinct(StringComparer.Ordinal).ToArray(),
-      RoslynMixinContext.SemanticTraits(item),
-      new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase));
-    DetachedSemanticData DetachType(ITypeSymbol item) => new(
-      item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
-      item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""), item.Name,
-      item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
-      item.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
-      item.DeclaredAccessibility.ToString().ToLowerInvariant(),
-      Assignable(item).Distinct(StringComparer.Ordinal).ToArray(),
-      RoslynMixinContext.SemanticTraits(item),
-      new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase));
+    DetachedSemanticData DetachConstant(TypedConstant item, string name) {
+      var constantType = item.Type;
+      var rendered = RenderConstant(item);
+      return new DetachedSemanticData(
+        rendered,
+        item.Kind == TypedConstantKind.Type && item.Value is ITypeSymbol valueType
+          ? valueType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "")
+          : Convert.ToString(item.Value, CultureInfo.InvariantCulture),
+        name, constantType?.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") ?? "",
+        constantType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "",
+        "", Assignable(constantType).Distinct(StringComparer.Ordinal).ToArray(),
+        RoslynMixinContext.SemanticTraits(item),
+        new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase)
+      );
+    }
+
+    DetachedSemanticData DetachSymbol(ISymbol item) {
+      return new DetachedSemanticData(
+        item.Name, item.Name, item.Name,
+        RoslynMixinContext.TypeOf(item)?.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") ??
+        "",
+        RoslynMixinContext.TypeOf(item)?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "",
+        item.DeclaredAccessibility.ToString().ToLowerInvariant(),
+        Assignable(RoslynMixinContext.TypeOf(item)).Distinct(StringComparer.Ordinal).ToArray(),
+        RoslynMixinContext.SemanticTraits(item),
+        new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase)
+      );
+    }
+
+    DetachedSemanticData DetachType(ITypeSymbol item) {
+      return new DetachedSemanticData(
+        item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
+        item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""), item.Name,
+        item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
+        item.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
+        item.DeclaredAccessibility.ToString().ToLowerInvariant(),
+        Assignable(item).Distinct(StringComparer.Ordinal).ToArray(),
+        RoslynMixinContext.SemanticTraits(item),
+        new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase)
+      );
+    }
+
     IEnumerable<string> Assignable(ITypeSymbol item) {
       if (item is null) yield break;
       yield return item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "");
@@ -831,8 +1054,4 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
         yield return contract.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "");
     }
   }
-  public bool Equals(IMixinValue other) => other is RoslynMixinValue value && (
-    SymbolEqualityComparer.Default.Equals(Value as ISymbol, value.Value as ISymbol) ||
-    Value is not ISymbol && Equals(Value, value.Value)
-  );
 }

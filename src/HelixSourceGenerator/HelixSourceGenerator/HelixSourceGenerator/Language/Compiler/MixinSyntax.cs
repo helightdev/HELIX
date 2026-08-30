@@ -47,9 +47,10 @@ public abstract class DirectiveInstruction(int line) : MixinSyntaxNode(line) {
     MixinStringPoolBuilder pool, string value, IReadOnlyList<IMixinValue> expression = null
   ) {
     pool.Intern(value);
-    foreach (var part in expression ?? [])
+    foreach (var part in expression ?? []) {
       if (part.Reference is null) pool.Intern(part.Literal);
       else part.Reference.CollectConstants(pool);
+    }
   }
 }
 
@@ -179,10 +180,9 @@ public sealed class VariableDirectiveSyntax(int l, string name, IReadOnlyList<IM
   internal string Name { get; } = name;
 }
 
-public sealed class CarryDirectiveSyntax(int l, string label, IReadOnlyList<IMixinValue> value, bool shallowSnapshot = false)
+public sealed class CarryDirectiveSyntax(int l, string label, IReadOnlyList<IMixinValue> value)
   : ValueDirectiveSyntax(l, value) {
   internal string Label { get; } = label;
-  internal bool ShallowSnapshot { get; } = shallowSnapshot;
 }
 
 public sealed class ReturnDirectiveSyntax(int l, IReadOnlyList<IMixinValue> value)

@@ -12,6 +12,8 @@ using Microsoft.CodeAnalysis;
 using static HelixSourceGenerator.Shared.GeneratorAnalysis;
 using static HelixSourceGenerator.Shared.GeneratorDiagnostics.Mixins;
 
+#pragma warning disable RS1035 // Resolving the output path is used only by the explicit PROFILE configuration.
+
 namespace HelixSourceGenerator.Shared;
 
 internal static class MixinLibraryApi {
@@ -21,6 +23,8 @@ internal static class MixinLibraryApi {
   private static MixinCompilation _compiledCatalog;
 
   internal static MixinCompilation CompileCached(MixinLibraryCatalog catalog) {
+    MixinProfiler.Configure(catalog.HasConfiguration("PROFILE"), catalog.ProjectPath);
+    using var profile = MixinProfiler.Measure("library.compile_cached");
     lock (CompilationCacheGate) {
       if (_compiledCatalog is not null &&
         string.Equals(_compiledCatalogKey, catalog.Key, StringComparison.Ordinal))
@@ -32,6 +36,7 @@ internal static class MixinLibraryApi {
   }
 
   internal static MixinCompilation Compile(MixinLibraryCatalog catalog) {
+    using var profile = MixinProfiler.Measure("library.compile");
     var diagnostics = new List<Diagnostic>();
     var prepared = Prepare(diagnostics.Add, catalog);
     var stringPool = prepared.StringPool;
@@ -69,6 +74,11 @@ internal static class MixinLibraryApi {
     out string error,
     out int errorLine
   ) {
+    using var profile = MixinProfiler.Measure(
+      typeLevel
+        ? "library.annotation.type"
+        : "library.annotation.member"
+    );
     var prelude = MixinExpressionParser.Parse(annotation.Prelude);
     var expression = MixinExpressionParser.Parse(annotation.Expression);
     if (typeLevel) {
@@ -109,6 +119,8 @@ internal static class MixinLibraryApi {
       : name;
     var content = file.GetText(cancellationToken)?.ToString() ?? "";
     var parsed = ParseAdditionalFile(content);
+    if (parsed.Configuration.ContainsKey("PROFILE"))
+      MixinProfiler.Configure(true, MixinLibraryCatalog.ProjectPathFrom(file.Path));
     return new MixinLibraryFile(
       key, file.Path, content, parsed.Success,
       parsed.Error, parsed.ErrorLine,
@@ -406,10 +418,25 @@ internal sealed class MixinLibraryCatalog {
   internal IEnumerable<MixinLibraryFile> Files => _files.Values;
   internal IEnumerable<MixinAnnotationDefinition> Annotations => _annotations.Values;
 
+  internal string ProjectPath {
+    get {
+      var path = _files.Values.Select(file => file.Path).FirstOrDefault(item => !string.IsNullOrEmpty(item));
+      return ProjectPathFrom(path);
+    }
+  }
+
   internal string Key { get; }
   internal string AvailableKeys => _files.Count == 0
     ? "<none>"
     : string.Join(", ", _files.Keys.OrderBy(item => item, StringComparer.Ordinal));
+
+  internal static string ProjectPathFrom(string path) {
+    if (string.IsNullOrEmpty(path)) return Directory.GetCurrentDirectory();
+    var fullPath = Path.GetFullPath(path);
+    var marker = Path.DirectorySeparatorChar + "Assets" + Path.DirectorySeparatorChar;
+    var index = fullPath.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+    return index < 0 ? Directory.GetCurrentDirectory() : fullPath.Substring(0, index);
+  }
 
   internal bool HasConfiguration(string key) {
     return _files.Values.Any(file =>

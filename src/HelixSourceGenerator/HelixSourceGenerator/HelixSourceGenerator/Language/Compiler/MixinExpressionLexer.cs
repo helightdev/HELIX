@@ -98,9 +98,10 @@ internal static class MixinExpressionLexer {
       if (!LexIdentifier(source, ref position, MixinExpressionTokenKind.Member, tokens)) return false;
     }
     if (nullRoot && position < source.Length &&
-      (char.IsLetterOrDigit(source[position]) || source[position] == '_' || source[position] is '!' or '?'))
+      (char.IsLetterOrDigit(source[position]) || source[position] == '_' || source[position] is '!' or '?')) {
       if (!LexProperty(source, ref position, tokens))
         return false;
+    }
     while (position < source.Length && source[position] is ':' or '#') {
       var path = source[position++] == '#';
       if (path) {
@@ -138,30 +139,43 @@ internal static class MixinExpressionLexer {
       }
       if (depth != 0) return false;
       var argumentEnd = position - 1;
-      tokens.Add(new MixinExpressionToken(
-        MixinExpressionTokenKind.ArgumentStart, "<", argumentStart - 1, argumentStart
-      ));
+      tokens.Add(
+        new MixinExpressionToken(
+          MixinExpressionTokenKind.ArgumentStart, "<", argumentStart - 1, argumentStart
+        )
+      );
       if (argumentEnd - argumentStart >= 2 && source[argumentStart] == '(' &&
         source[argumentEnd - 1] == ')') {
-        tokens.Add(new MixinExpressionToken(
-          MixinExpressionTokenKind.ArgumentExpressionStart, "(", argumentStart, argumentStart + 1
-        ));
-        foreach (var token in LexExpression(source.Substring(
-          argumentStart + 1, argumentEnd - argumentStart - 2
-        ))) tokens.Add(token with {
-          Start = token.Start + argumentStart + 1,
-          End = token.End + argumentStart + 1
-        });
-        tokens.Add(new MixinExpressionToken(
-          MixinExpressionTokenKind.ArgumentExpressionEnd, ")", argumentEnd - 1, argumentEnd
-        ));
-      } else tokens.Add(new MixinExpressionToken(
-        MixinExpressionTokenKind.ArgumentLiteral,
-        source.Substring(argumentStart, argumentEnd - argumentStart), argumentStart, argumentEnd
-      ));
-      tokens.Add(new MixinExpressionToken(
-        MixinExpressionTokenKind.ArgumentEnd, ">", argumentEnd, position
-      ));
+        tokens.Add(
+          new MixinExpressionToken(
+            MixinExpressionTokenKind.ArgumentExpressionStart, "(", argumentStart, argumentStart + 1
+          )
+        );
+        foreach (var token in LexExpression(
+          source.Substring(
+            argumentStart + 1, argumentEnd - argumentStart - 2
+          )
+        )) {
+          tokens.Add(token with { Start = token.Start + argumentStart + 1, End = token.End + argumentStart + 1 });
+        }
+        tokens.Add(
+          new MixinExpressionToken(
+            MixinExpressionTokenKind.ArgumentExpressionEnd, ")", argumentEnd - 1, argumentEnd
+          )
+        );
+      } else {
+        tokens.Add(
+          new MixinExpressionToken(
+            MixinExpressionTokenKind.ArgumentLiteral,
+            source.Substring(argumentStart, argumentEnd - argumentStart), argumentStart, argumentEnd
+          )
+        );
+      }
+      tokens.Add(
+        new MixinExpressionToken(
+          MixinExpressionTokenKind.ArgumentEnd, ">", argumentEnd, position
+        )
+      );
     }
     return true;
   }
@@ -180,10 +194,11 @@ internal static class MixinExpressionLexer {
   private static void AddLiteral(
     ICollection<MixinExpressionToken> tokens, string source, int start, int end
   ) {
-    if (end > start)
+    if (end > start) {
       tokens.Add(
         new MixinExpressionToken(MixinExpressionTokenKind.Literal, source.Substring(start, end - start), start, end)
       );
+    }
   }
 
   internal static IReadOnlyList<MixinToken> Lex(string source) {

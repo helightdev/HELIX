@@ -62,9 +62,10 @@ public static class MixinSyntaxRenderer {
     var operand = MixinSyntaxFacts.Operand(instruction);
     if (string.IsNullOrEmpty(command)) return operand ?? "";
     var builder = new StringBuilder("@").Append(command);
-    for (var index = 0; index < arguments.Count; index++)
+    for (var index = 0; index < arguments.Count; index++) {
       builder.Append('<').Append(index == 0 && firstArgument is not null ? firstArgument : arguments[index])
         .Append('>');
+    }
     if (!string.IsNullOrEmpty(operand)) builder.Append(' ').Append(operand);
     return RenderLogicalLine(builder.ToString());
   }
