@@ -16,8 +16,8 @@
     <Content Include="..\..\..\dependencies.json" PackagePath="" Pack="true" Visible="false" />
     <Content Include="bin\$(AssemblyName)\$(Configuration)\$(AssemblyName).dll" PackagePath="dotFiles" Pack="true" Visible="false" />
     <Content Include="bin\$(AssemblyName)\$(Configuration)\$(AssemblyName).pdb" PackagePath="dotFiles" Pack="true" Visible="false" />
-
-    <!-- TODO: add additional assemblies -->
+    <Content Include="bin\$(AssemblyName).Rider\$(Configuration)\Helix.MixinLanguage.dll" PackagePath="dotFiles" Pack="true" Visible="false" />
+    <Content Include="bin\$(AssemblyName).Rider\$(Configuration)\Helix.MixinLanguage.pdb" PackagePath="dotFiles" Pack="true" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

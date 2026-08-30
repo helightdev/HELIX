@@ -10,6 +10,14 @@
 
   <ItemGroup>
     <PackageReference Include="JetBrains.Rider.SDK" Version="$(SdkVersion)" />
+    <ProjectReference Include="..\..\..\..\MixinLanguage\Helix.MixinLanguage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PsiLanguageNames Include="HelixMixin">
+      <Visible>False</Visible>
+    </PsiLanguageNames>
+    <ParserGen Include="MixinLanguage\Parsing\HelixMixin.psi" />
   </ItemGroup>
 
   <ItemGroup>

@@ -52,7 +52,10 @@ abstract class DotNetBuildTask @Inject constructor(
         buildArguments.add(solution.get().asFile.absolutePath)
         buildArguments.add("/p:Configuration=${buildConfiguration.get()}")
         buildArguments.add("/p:HostFullIdentifier=")
-        buildArguments.add("/t:Restore;Rebuild")
+        // Gradle invokes this task whenever the sandbox is prepared. Let MSBuild perform its
+        // normal incremental checks instead of forcing every backend project and shared
+        // language dependency to rebuild before each Rider launch.
+        buildArguments.add("/t:Restore;Build")
         execOperations.exec {
             executable(buildExecutable)
             args(buildArguments)
@@ -214,8 +217,8 @@ tasks.prepareSandbox {
     val dllFiles = listOf(
             outputFolder.file("${DotnetPluginId.get()}.dll"),
             outputFolder.file("${DotnetPluginId.get()}.pdb"),
-
-            // TODO: add additional assemblies
+            outputFolder.file("Helix.MixinLanguage.dll"),
+            outputFolder.file("Helix.MixinLanguage.pdb"),
     )
 
     dllFiles.forEach { pluginFile ->

@@ -1,0 +1,38 @@
+options
+{
+  parserPackage="HelixRider.MixinLanguage.Parsing.Gen";
+  parserClassName="HelixMixinParserGenerated";
+  languageType="HelixRider.MixinLanguage.HelixMixinLanguage";
+  "lexerClassName"="JetBrains.ReSharper.Psi.Parsing.ILexer<int>";
+  parserMessagesClass="HelixRider.MixinLanguage.Parsing.ParserMessages";
+  parserTargetSubdir="MixinLanguage/Parsing/Generated";
+  tokenBitsetThreshold=4;
+  "psiElementClassFQName"="HelixRider.MixinLanguage.IHelixMixinTreeNode";
+  tokenTypePackageName="HelixRider.MixinLanguage.Parsing";
+  tokenTypeClassName="HelixMixinTokenNodeTypes";
+  psiInterfacePackageName="HelixRider.MixinLanguage";
+  psiInterfacesTargetSubdir="MixinLanguage/Tree/Generated";
+  psiStubsPackageName="HelixRider.MixinLanguage";
+  psiStubsBaseClass="HelixMixinCompositeElement";
+  psiStubsTargetSubdir="MixinLanguage/Tree/Generated";
+  elementTypeBaseClass="HelixMixinCompositeNodeType";
+  customInterfacePackage="HelixRider.MixinLanguage";
+  customImplPackage="HelixRider.MixinLanguage";
+  "customImplSuffix"="";
+  disableReflection;
+  generateWorkingPsi;
+}
+
+errorhandling helixMixinFile
+options { stubBase="HelixMixinFileElement"; }
+:
+  helixMixinTokens?
+;
+
+errorhandling helixMixinTokens
+:
+  (
+    DIRECTIVE | VALUE | PATH | FUNCTION | ARGUMENT_DELIMITER | ARGUMENT | OPERATOR |
+    PARENTHESIS | ESCAPE | CONTINUATION | COMMENT | WHITE_SPACE | NEW_LINE | TEXT | INVALID
+  ) helixMixinTokens?
+;
