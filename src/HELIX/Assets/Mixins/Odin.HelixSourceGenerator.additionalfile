@@ -1,6 +1,6 @@
 @### Annotations #######################################################################################################
 
-@ANNOTATION<HELIX.IOdinSerializableMixin>
+@ANNOTATION<HELIX.OdinSerializableAttribute>
   @CODE<IMPLEMENTS> ISerializationCallbackReceiver
   @CODE<IMPLEMENTS> ISupportsPrefabSerialization
   @CODE<ANNOTATION> ShowOdinSerializedPropertiesInInspector
@@ -15,7 +15,7 @@
   @CODE<CLASS> void ISerializationCallbackReceiver.OnBeforeSerialize() { UnitySerializationUtility.SerializeUnityObject(this, ref this.serializationData); }
 @END
 
-@ANNOTATION<HELIX.IOdinSerializableScriptableObjectMixin>
+@ANNOTATION<HELIX.OdinSerializableScriptAttribute>
   @CODE<IMPLEMENTS> ISerializationCallbackReceiver
   @CODE<ANNOTATION> ShowOdinSerializedPropertiesInInspector
   @USING UnityEngine;

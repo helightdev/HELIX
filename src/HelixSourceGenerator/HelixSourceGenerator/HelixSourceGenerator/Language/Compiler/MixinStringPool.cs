@@ -55,18 +55,29 @@ public readonly struct MixinString : IEquatable<MixinString> {
 public sealed class MixinStringPool {
   private readonly Dictionary<string, int> _ids;
   private readonly List<string> _values;
+  private readonly MixinStringPool _parent;
+  private readonly int _baseCount;
 
   internal MixinStringPool(string[] values, IReadOnlyDictionary<string, int> ids) {
+    _baseCount = 0;
     _values = new List<string>(values ?? []);
     _ids = new Dictionary<string, int>(StringComparer.Ordinal);
     if (ids is not null) foreach (var item in ids) _ids.Add(item.Key, item.Value);
   }
 
-  public int Count => _values.Count;
-  public string this[int id] => _values[id];
+  private MixinStringPool(MixinStringPool parent) {
+    _parent = parent ?? throw new ArgumentNullException(nameof(parent));
+    _baseCount = parent.Count;
+    _values = [];
+    _ids = new Dictionary<string, int>(StringComparer.Ordinal);
+  }
+
+  public int Count => _baseCount + _values.Count;
+  public string this[int id] => id < _baseCount ? _parent[id] : _values[id - _baseCount];
 
   public bool TryGetId(string value, out int id) {
-    return _ids.TryGetValue(value ?? "", out id);
+    value ??= "";
+    return _ids.TryGetValue(value, out id) || _parent is not null && _parent.TryGetId(value, out id);
   }
 
   public MixinString Get(string value) {
@@ -75,15 +86,15 @@ public sealed class MixinStringPool {
 
   public MixinString Intern(string value) {
     value ??= "";
-    if (_ids.TryGetValue(value, out var id)) return MixinString.Interned(id);
-    id = _values.Count;
+    if (TryGetId(value, out var id)) return MixinString.Interned(id);
+    id = Count;
     _values.Add(value);
     _ids.Add(value, id);
     return MixinString.Interned(id);
   }
 
   internal MixinStringPool Fork() {
-    return new MixinStringPool([.. _values], _ids);
+    return new MixinStringPool(this);
   }
 }
 

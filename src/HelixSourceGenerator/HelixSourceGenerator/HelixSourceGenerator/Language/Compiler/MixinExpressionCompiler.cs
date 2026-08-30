@@ -419,22 +419,10 @@ public static partial class MixinExpressionCompiler {
 
     MixinExpressionReference RewriteBoolean(MixinExpressionReference reference) {
       var properties = reference.Properties.Select(property => RewriteProperty(property, RewriteComplete)).ToArray();
-      var predicateIndex = Array.FindIndex(properties, property => FunctionLibrary.IsPredicate(property.Name));
-      if (predicateIndex < 0) {
-        return rewrite(
-          new MixinExpressionReference(
-            reference.Root, reference.Member, properties, reference.Parenthesized
-          )
-        );
-      }
-      var subject = rewrite(
+      return rewrite(
         new MixinExpressionReference(
-          reference.Root, reference.Member, [.. properties.Take(predicateIndex)]
+          reference.Root, reference.Member, properties, reference.Parenthesized
         )
-      );
-      return new MixinExpressionReference(
-        subject.Root, subject.Member,
-        [.. subject.Properties, .. properties.Skip(predicateIndex)], reference.Parenthesized
       );
     }
 

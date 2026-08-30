@@ -16,10 +16,32 @@ namespace HelixSourceGenerator.Shared;
 
 internal static class MixinLibraryApi {
   internal const string AdditionalFileSuffix = ".HelixSourceGenerator.additionalfile";
+  private static readonly object CompilationCacheGate = new();
+  private static string _compiledCatalogKey;
+  private static MixinCompilation _compiledCatalog;
+
+  internal static MixinCompilation CompileCached(MixinLibraryCatalog catalog) {
+    lock (CompilationCacheGate) {
+      if (_compiledCatalog is not null &&
+        string.Equals(_compiledCatalogKey, catalog.Key, StringComparison.Ordinal))
+        return _compiledCatalog;
+      _compiledCatalog = Compile(catalog);
+      _compiledCatalogKey = catalog.Key;
+      return _compiledCatalog;
+    }
+  }
 
   internal static MixinCompilation Compile(MixinLibraryCatalog catalog) {
     var diagnostics = new List<Diagnostic>();
     var prepared = Prepare(diagnostics.Add, catalog);
+    var stringPool = prepared.StringPool;
+    foreach (var annotation in catalog.Annotations) {
+      stringPool.Intern(annotation.Name);
+      foreach (var definition in annotation.TargetDefinitions) {
+        stringPool.Intern(definition.Key);
+        stringPool.Intern(definition.Value);
+      }
+    }
     var annotations = new Dictionary<string, CompiledMixinAnnotation>(StringComparer.Ordinal);
     foreach (var annotation in catalog.Annotations) {
       if (!TryCompileAnnotation(annotation, prepared, false, out var member, out var error, out var line) ||
@@ -33,14 +55,6 @@ internal static class MixinLibraryApi {
         continue;
       }
       annotations[annotation.Name] = new CompiledMixinAnnotation(annotation, member, type);
-    }
-    var stringPool = prepared.StringPool;
-    foreach (var annotation in annotations.Values) {
-      stringPool.Intern(annotation.Definition.Name);
-      foreach (var definition in annotation.Definition.TargetDefinitions) {
-        stringPool.Intern(definition.Key);
-        stringPool.Intern(definition.Value);
-      }
     }
     return new MixinCompilation(
       catalog, stringPool, prepared, annotations, diagnostics.ToImmutableArray()

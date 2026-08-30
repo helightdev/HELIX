@@ -83,7 +83,7 @@ public sealed class MixinExpressionInterpreterTests {
   }
 
   [Fact]
-  public void HoistingCarriesBooleanSubjectsButKeepsTheirPredicates() {
+  public void HoistingCarriesCompleteRoslynPredicates() {
     var success = MixinExpressionCompiler.TryCompileSyntax(
       MixinExpressionParser.Parse(""),
       MixinExpressionParser.Parse("@MATCH @this:?is<MonoBehaviour>\n@MATCH @attr#type:?exists"),
@@ -97,12 +97,10 @@ public sealed class MixinExpressionInterpreterTests {
     Assert.True(success, $"line {errorLine}: {error}");
     var renderedPrelude = MixinSyntaxRenderer.RenderProgram(prelude);
     var renderedLate = MixinSyntaxRenderer.RenderProgram(lateExpression);
-    Assert.Contains("@CARRY<__0> @this", renderedPrelude);
-    Assert.Contains("@CARRY<__1> @attr#type", renderedPrelude);
-    Assert.DoesNotContain(":?is<MonoBehaviour>", renderedPrelude);
-    Assert.DoesNotContain(":?exists", renderedPrelude);
-    Assert.Contains("@MATCH @carry#__0:is<MonoBehaviour>", renderedLate);
-    Assert.Contains("@MATCH @carry#__1:exists", renderedLate);
+    Assert.Contains("@CARRY<__0> @this:is<MonoBehaviour>", renderedPrelude);
+    Assert.Contains("@CARRY<__1> @attr#type:exists", renderedPrelude);
+    Assert.Contains("@MATCH @carry#__0", renderedLate);
+    Assert.Contains("@MATCH @carry#__1", renderedLate);
   }
 
   [Fact]

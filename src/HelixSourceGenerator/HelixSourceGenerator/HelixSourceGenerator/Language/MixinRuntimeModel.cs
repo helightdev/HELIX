@@ -39,8 +39,8 @@ public sealed class MixinExpressionOutput {
     var strings = new MixinStringPoolBuilder().Freeze();
     Target = target;
     Strings = strings;
-    Segments = [strings.Intern(text)];
-    InjectionTargetValue = strings.Intern(injectionTarget);
+    Segments = [MixinString.Dynamic(text ?? "")];
+    InjectionTargetValue = MixinString.Dynamic(injectionTarget ?? "");
     InjectionPriority = injectionPriority;
   }
 
@@ -124,7 +124,7 @@ public abstract class ExecutionContext {
   private IMixinValue EvaluateInterpolation(InterpolationMixinValue interpolation) {
     var parts = interpolation.Parts.Select(Evaluate).ToArray();
     var error = parts.OfType<ErrorMixinValue>().FirstOrDefault();
-    return error is not null ? error : new LiteralMixinValue(Intern(string.Concat(
+    return error is not null ? error : new LiteralMixinValue(Dynamic(string.Concat(
       parts.Select(item => item.Render(this).Resolve(Strings))
     )));
   }
@@ -177,7 +177,8 @@ public abstract class ExecutionContext {
       string.Equals(item.Resolve(Strings), trait.Resolve(Strings), StringComparison.Ordinal));
   internal virtual object UnlinkSnapshot(IMixinValue value, bool includeMembers) => value.Unlink(this);
   public MixinString Intern(string value) => Strings.Intern(value);
-  public ErrorMixinValue Error(string value) => new(Intern(value));
+  public static MixinString Dynamic(string value) => MixinString.Dynamic(value ?? "");
+  public ErrorMixinValue Error(string value) => new(Dynamic(value));
 }
 
 public interface IMixinValue : IEquatable<IMixinValue> {
@@ -203,7 +204,7 @@ public sealed class NullMixinValue : IMixinValue {
   public static readonly NullMixinValue Instance = new();
   private NullMixinValue() { }
   public bool IsTruthy(ExecutionContext context) => false;
-  public MixinString Render(ExecutionContext context) => context.Intern("null");
+  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic("null");
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) =>
     builder.Append(nameof(NullMixinValue));
   public IMixinValue Select(ExecutionContext context, MixinString member) => this;
@@ -216,7 +217,7 @@ public sealed class NullMixinValue : IMixinValue {
 public sealed record BooleanMixinValue(bool Value) : IMixinValue {
   public static readonly BooleanMixinValue True = new(true), False = new(false);
   public bool IsTruthy(ExecutionContext context) => Value;
-  public MixinString Render(ExecutionContext context) => context.Intern(Value ? "true" : "false");
+  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic(Value ? "true" : "false");
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
     builder.Append(nameof(BooleanMixinValue)); builder.Append(Value);
   }
@@ -227,7 +228,7 @@ public sealed record BooleanMixinValue(bool Value) : IMixinValue {
 
 public sealed record ObjectMixinValue(object Value) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) => Value is not null && Value is not false;
-  public MixinString Render(ExecutionContext context) => context.Intern(Convert.ToString(Value));
+  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic(Convert.ToString(Value));
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
     builder.Append(nameof(ObjectMixinValue)); builder.Append(Convert.ToString(Value));
   }
@@ -240,7 +241,7 @@ public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMi
   public static readonly MixinTableValue Empty = new([]);
   public int Count => Entries.Count;
   public bool IsTruthy(ExecutionContext context) => Count != 0;
-  public MixinString Render(ExecutionContext context) => context.Intern(
+  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic(
     string.Join(", ", Entries.Select(item =>
       item.Key.Resolve(context.Strings) + "=" + item.Value.Render(context).Resolve(context.Strings)))
   );
@@ -279,14 +280,21 @@ public abstract class FunctionDefinition {
 
 internal sealed class BuiltinFunctionDefinition(string name, int minimumArguments, int maximumArguments,
   bool predicate = false) : FunctionDefinition(name, minimumArguments, maximumArguments) {
+  private readonly string _cacheKey = ":" + name;
   public override bool IsPredicate => predicate;
   public override IMixinValue Invoke(ExecutionContext context, IMixinValue instance,
     IReadOnlyList<IMixinValue> arguments, bool negated) {
     instance = context.Evaluate(instance);
     if (instance is ErrorMixinValue) return instance;
-    var values = arguments.Select(context.Evaluate).ToArray();
-    var error = values.OfType<ErrorMixinValue>().FirstOrDefault();
-    if (error is not null) return error;
+    IReadOnlyList<IMixinValue> values = arguments;
+    if (arguments.Count != 0) {
+      var evaluated = new IMixinValue[arguments.Count];
+      for (var index = 0; index < arguments.Count; index++) {
+        evaluated[index] = context.Evaluate(arguments[index]);
+        if (evaluated[index] is ErrorMixinValue error) return error;
+      }
+      values = evaluated;
+    }
     IMixinValue result;
     try { result = Apply(context, instance, values); }
     catch (ArgumentException exception) { return context.Error("invalid regular expression: " + exception.Message); }
@@ -298,14 +306,24 @@ internal sealed class BuiltinFunctionDefinition(string name, int minimumArgument
   }
 
   private IMixinValue Apply(ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> args) {
+    IMixinValue result;
+    if (context is RoslynMixinContext roslynContext && value is RoslynMixinValue roslynValue) {
+      var key = args.Count == 0 ? _cacheKey : _cacheKey + "\u001f" + string.Join("\u001f", args.Select(item =>
+        item.GetType().FullName + "=" + item.Render(context).Resolve(context.Strings)));
+      result = roslynContext.Derive(roslynValue, key, () => ApplyCore(context, value, args));
+    } else result = ApplyCore(context, value, args);
+    return result;
+  }
+
+  private IMixinValue ApplyCore(ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> args) {
     string Text(IMixinValue item) => item.Render(context).Resolve(context.Strings);
-    var text = Text(value);
+    string TextValue() => Text(value);
     switch (Name) {
       case "path": return value.Select(context, args[0].Render(context));
       case "unwrap": return context.Unwrap(value);
-      case "replace": return new LiteralMixinValue(context.Intern(Regex.Replace(text, Text(args[0]), Text(args[1]))));
-      case "replaceFirst": return new LiteralMixinValue(context.Intern(new Regex(Text(args[0])).Replace(text, Text(args[1]), 1)));
-      case "floatTime": return FloatTime(context, value, text);
+      case "replace": return new LiteralMixinValue(ExecutionContext.Dynamic(Regex.Replace(TextValue(), Text(args[0]), Text(args[1]))));
+      case "replaceFirst": return new LiteralMixinValue(ExecutionContext.Dynamic(new Regex(Text(args[0])).Replace(TextValue(), Text(args[1]), 1)));
+      case "floatTime": return FloatTime(context, value);
       case "makeGeneric": {
         var generic = context.Unwrap(value).Render(context).Resolve(context.Strings);
         if (!generic.StartsWith("global::", StringComparison.Ordinal)) generic = "global::" + generic;
@@ -315,12 +333,12 @@ internal sealed class BuiltinFunctionDefinition(string name, int minimumArgument
             ? "global::" + argument : argument;
         }));
         var marker = generic.IndexOf('<');
-        return new LiteralMixinValue(context.Intern(marker < 0
+        return new LiteralMixinValue(ExecutionContext.Dynamic(marker < 0
           ? generic + "<" + arguments + ">" : generic.Substring(0, marker) + "<" + arguments + ">"));
       }
       case "switch": return value.IsTruthy(context) ? args[0] : args[1];
-      case "size": return new LiteralMixinValue(context.Intern(value is MixinTableValue table
-        ? table.Count.ToString() : text.Length.ToString()));
+      case "size": return new LiteralMixinValue(ExecutionContext.Dynamic(value is MixinTableValue table
+        ? table.Count.ToString() : TextValue().Length.ToString()));
       case "table": return value is MixinTableValue ? value : new MixinTableValue(
         value is NullMixinValue
           ? Array.Empty<KeyValuePair<MixinString, IMixinValue>>()
@@ -348,21 +366,21 @@ internal sealed class BuiltinFunctionDefinition(string name, int minimumArgument
           ? detachedType with { Rendered = detachedType.TypeName, Name = detachedType.TypeName }
           : NullMixinValue.Instance;
       case "fullName": return value is RoslynMixinValue full && RoslynMixinContext.TypeOf(full.Value) is { } fullType
-        ? new LiteralMixinValue(context.Intern(fullType.ToDisplayString(
+        ? new LiteralMixinValue(ExecutionContext.Dynamic(fullType.ToDisplayString(
           SymbolDisplayFormat.MinimallyQualifiedFormat.WithGenericsOptions(
             SymbolDisplayGenericsOptions.IncludeTypeParameters))))
         : value is DetachedSemanticMixinValue detachedFull
           ? new LiteralMixinValue(detachedFull.FullName) : NullMixinValue.Instance;
       case "visibility": return value is RoslynMixinValue visible &&
         (visible.Value as ISymbol ?? RoslynMixinContext.TypeOf(visible.Value)) is { } symbol
-        ? new LiteralMixinValue(context.Intern(symbol.DeclaredAccessibility.ToString().ToLowerInvariant()))
+        ? new LiteralMixinValue(ExecutionContext.Dynamic(symbol.DeclaredAccessibility.ToString().ToLowerInvariant()))
         : value is DetachedSemanticMixinValue detachedVisibility
           ? new LiteralMixinValue(detachedVisibility.Visibility)
           : context.Error("property ':visibility' is not available for this value");
       case "exists": return Bool(value is not NullMixinValue and not ErrorMixinValue);
-      case "eq": return Bool(string.Equals(Comparable(text), Comparable(Text(args[0])),
+      case "eq": return Bool(string.Equals(Comparable(TextValue()), Comparable(Text(args[0])),
         StringComparison.OrdinalIgnoreCase));
-      case "matches": return Bool(Regex.IsMatch(text, Text(args[0])));
+      case "matches": return Bool(Regex.IsMatch(TextValue(), Text(args[0])));
       case "has": return Bool(value is MixinTableValue hasTable
         ? hasTable.Entries.Any(item => item.Value.Equals(args[0]) ||
           string.Equals(Comparable(Text(item.Value)), Comparable(Text(args[0])), StringComparison.OrdinalIgnoreCase))
@@ -390,8 +408,8 @@ internal sealed class BuiltinFunctionDefinition(string name, int minimumArgument
       value = value.Substring(1, value.Length - 2);
     return value;
   }
-  private static IMixinValue FloatTime(ExecutionContext context, IMixinValue value, string text) {
-    text = context.Unwrap(value).Render(context).Resolve(context.Strings);
+  private static IMixinValue FloatTime(ExecutionContext context, IMixinValue value) {
+    var text = context.Unwrap(value).Render(context).Resolve(context.Strings);
     text = value is NullMixinValue ? "" : (text ?? "").Trim();
     double seconds;
     if (text.Length == 0 || string.Equals(text, "null", StringComparison.OrdinalIgnoreCase) ||
@@ -415,11 +433,11 @@ internal sealed class BuiltinFunctionDefinition(string name, int minimumArgument
       }
     }
     var result = Math.Abs(seconds) <= 1e-6 ? "-0f" : ((float)seconds).ToString("R", CultureInfo.InvariantCulture) + "f";
-    return new LiteralMixinValue(context.Intern(result));
+    return new LiteralMixinValue(ExecutionContext.Dynamic(result));
   }
   private static IMixinValue FromObject(ExecutionContext context, object value) => value switch {
     null => NullMixinValue.Instance, IMixinValue typed => typed,
-    bool boolean => Bool(boolean), string text => new LiteralMixinValue(context.Intern(text)),
+    bool boolean => Bool(boolean), string text => new LiteralMixinValue(ExecutionContext.Dynamic(text)),
     _ => new ObjectMixinValue(value)
   };
   private static bool Trait(string name, IMixinValue value, ExecutionContext context) {
@@ -451,7 +469,7 @@ internal sealed class BuiltinFunctionDefinition(string name, int minimumArgument
       _ => string.Join(Text(args[1]), table.Entries.Select(item =>
         item.Key.Resolve(context.Strings) + Text(args[0]) + Text(item.Value)))
     };
-    return new LiteralMixinValue(context.Intern(joined));
+    return new LiteralMixinValue(ExecutionContext.Dynamic(joined));
   }
 }
 

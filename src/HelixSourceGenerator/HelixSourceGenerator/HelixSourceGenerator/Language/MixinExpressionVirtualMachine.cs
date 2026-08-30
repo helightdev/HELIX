@@ -33,9 +33,9 @@ public static class MixinExpressionVirtualMachine {
   }
 
   internal static MixinExpressionResult Execute(MixinExpressionExecutionProgram program, ExecutionContext context,
-    IDictionary<string, object> variables) {
+    IDictionary<string, object> variables, bool importCarries = true) {
     var started = Stopwatch.GetTimestamp();
-    context.Strings = program.StringPool;
+    context.Strings = program.StringPool.Fork();
     var previousInvoker = context.ProgramInvoker;
     context.ProgramInvoker = (function, parameter) =>
       RunProgramFunction(program, context, function.Entry, parameter);
@@ -43,9 +43,14 @@ public static class MixinExpressionVirtualMachine {
     context.Parameter = NullMixinValue.Instance;
     foreach (var item in program.Variables) context.Variables[item.Key] = item.Value;
     if (variables is not null) foreach (var item in variables) {
-      if (item.Key.StartsWith(CarryLocalPrefix, StringComparison.Ordinal))
-        context.Carries[context.Intern(item.Key.Substring(CarryLocalPrefix.Length))] = FromObject(context, item.Value);
-      else context.Variables[context.Intern(item.Key)] = FromObject(context, item.Value);
+      // Carries belong to one expression. Importing prior carries makes every subsequent prelude
+      // materialize and detach an ever-growing semantic snapshot set.
+      if (item.Key.StartsWith(CarryLocalPrefix, StringComparison.Ordinal)) {
+        if (importCarries)
+          context.Carries[context.Intern(item.Key.Substring(CarryLocalPrefix.Length))] = FromObject(context, item.Value);
+        continue;
+      }
+      context.Variables[context.Intern(item.Key)] = FromObject(context, item.Value);
     }
     var outputs = new List<MixinExpressionOutput>();
     var logs = new List<MixinExpressionLog>();
@@ -257,7 +262,7 @@ public static class MixinExpressionVirtualMachine {
   };
   private static IMixinValue FromObject(ExecutionContext context, object value) => value switch {
     IMixinValue typed => typed, null => NullMixinValue.Instance, bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
-    string text => new LiteralMixinValue(context.Intern(text)),
+    string text => new LiteralMixinValue(ExecutionContext.Dynamic(text)),
     DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, context.Strings),
     IReadOnlyDictionary<string, object> table => new MixinTableValue(table.Select(item =>
       new KeyValuePair<MixinString, IMixinValue>(context.Intern(item.Key), FromObject(context, item.Value))

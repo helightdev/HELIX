@@ -12,10 +12,72 @@ namespace HelixSourceGenerator.Language;
 
 internal sealed record MixinTargetDescriptor(string Name, bool IsStatic, bool IsPublic, string DelegateType);
 
+internal sealed class RoslynHostExpressionCache {
+  private readonly Dictionary<INamedTypeSymbol, RoslynValueCache> _thisValues =
+    new(SymbolEqualityComparer.Default);
+  private readonly Dictionary<ISymbol, RoslynValueCache> _targetValues =
+    new(SymbolEqualityComparer.Default);
+  private readonly Dictionary<AttributeData, RoslynValueCache> _attributeValues = new();
+
+  internal RoslynValueCache ForThis(INamedTypeSymbol type) => Get(_thisValues, type);
+  internal RoslynValueCache ForTarget(ISymbol target) => Get(_targetValues, target);
+  internal RoslynValueCache ForAttribute(AttributeData attribute) => Get(_attributeValues, attribute);
+
+  private static RoslynValueCache Get<T>(IDictionary<T, RoslynValueCache> values, T key) {
+    if (key is null) return new RoslynValueCache();
+    if (values.TryGetValue(key, out var cached)) return cached;
+    cached = new RoslynValueCache();
+    values.Add(key, cached);
+    return cached;
+  }
+}
+
+internal sealed class RoslynValueCache {
+  private readonly Dictionary<string, IMixinValue> _roots = new(StringComparer.OrdinalIgnoreCase);
+  private readonly Dictionary<object, Dictionary<string, IMixinValue>> _derived =
+    new(ReferenceObjectComparer.Instance);
+  private readonly Dictionary<object, object> _shallowSnapshots =
+    new(ReferenceObjectComparer.Instance);
+  private readonly Dictionary<object, object> _fullSnapshots =
+    new(ReferenceObjectComparer.Instance);
+
+  internal IMixinValue Root(string key, Func<IMixinValue> resolve) {
+    if (_roots.TryGetValue(key, out var value)) return value;
+    value = resolve() ?? NullMixinValue.Instance;
+    _roots.Add(key, value);
+    return value;
+  }
+
+  internal IMixinValue Derived(object subject, string member, Func<IMixinValue> resolve) {
+    if (!_derived.TryGetValue(subject, out var members)) {
+      members = new Dictionary<string, IMixinValue>(StringComparer.OrdinalIgnoreCase);
+      _derived.Add(subject, members);
+    }
+    if (members.TryGetValue(member, out var value)) return value;
+    value = resolve() ?? NullMixinValue.Instance;
+    members.Add(member, value);
+    return value;
+  }
+
+  internal object Snapshot(IMixinValue subject, bool includeMembers, Func<object> create) {
+    var snapshots = includeMembers ? _fullSnapshots : _shallowSnapshots;
+    if (snapshots.TryGetValue(subject, out var snapshot)) return snapshot;
+    snapshot = create();
+    snapshots.Add(subject, snapshot);
+    return snapshot;
+  }
+
+  private sealed class ReferenceObjectComparer : IEqualityComparer<object> {
+    internal static readonly ReferenceObjectComparer Instance = new();
+    public new bool Equals(object x, object y) => ReferenceEquals(x, y);
+    public int GetHashCode(object value) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(value);
+  }
+}
+
 internal sealed record MixinPropStructValue(IReadOnlyList<PropDefinition> Props,
   PropStructModel Model, bool Augmenting) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) => true;
-  public MixinString Render(ExecutionContext context) => context.Intern("<prop struct>");
+  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic("<prop struct>");
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
     builder.Append(nameof(MixinPropStructValue)); builder.Append(Props.Count); builder.Append(Augmenting);
   }
@@ -37,9 +99,11 @@ internal sealed record DetachedSemanticMixinValue(
   IReadOnlyList<KeyValuePair<MixinString, IMixinValue>> Members
 ) : IMixinValue {
   internal static DetachedSemanticMixinValue Materialize(DetachedSemanticData value, MixinStringPool strings) => new(
-    strings.Get(value.Rendered), strings.Get(value.Unwrapped), strings.Get(value.Name), strings.Get(value.TypeName),
-    strings.Get(value.FullName), strings.Get(value.Visibility),
-    value.AssignableTypes.Select(strings.Get).ToArray(), value.Traits.Select(strings.Get).ToArray(),
+    MixinString.Dynamic(value.Rendered), MixinString.Dynamic(value.Unwrapped),
+    MixinString.Dynamic(value.Name), MixinString.Dynamic(value.TypeName),
+    MixinString.Dynamic(value.FullName), MixinString.Dynamic(value.Visibility),
+    value.AssignableTypes.Select(MixinString.Dynamic).ToArray(),
+    value.Traits.Select(MixinString.Dynamic).ToArray(),
     value.Members.Select(item => new KeyValuePair<MixinString, IMixinValue>(
       strings.Get(item.Key), Materialize(item.Value, strings))).ToArray()
   );
@@ -71,15 +135,22 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   private readonly IReadOnlyDictionary<string, string> _targetDefinitions;
   private readonly MixinExpressionPreparedState _preparedExpressions;
   private readonly MixinLibraryCatalog _libraries;
+  private readonly MixinCompilation _mixinCompilation;
   private readonly Dictionary<string, string> _generatedStructs = new(StringComparer.Ordinal);
+  private readonly RoslynValueCache _thisValues;
+  private readonly RoslynValueCache _targetValues;
+  private readonly RoslynValueCache _attributeValues;
+  private readonly Dictionary<object, RoslynValueCache> _valueOwners =
+    new(RoslynValueOwnerComparer.Instance);
 
   internal RoslynMixinContext(INamedTypeSymbol thisType, ISymbol target, AttributeData attribute,
     IReadOnlyList<IParameterSymbol> arguments, CSharpCompilation compilation,
     INamedTypeSymbol implicitAttributeType = null,
     IReadOnlyDictionary<string, object> implicitValues = null,
     IReadOnlyDictionary<string, string> targetDefinitions = null,
-    MixinExpressionPreparedState preparedExpressions = null, MixinLibraryCatalog libraries = null)
-    : base(preparedExpressions?.StringPool ?? new MixinStringPoolBuilder().Freeze()) {
+    MixinExpressionPreparedState preparedExpressions = null, MixinLibraryCatalog libraries = null,
+    RoslynHostExpressionCache hostValues = null, MixinCompilation mixinCompilation = null)
+    : base(preparedExpressions?.StringPool.Fork() ?? new MixinStringPoolBuilder().Freeze()) {
     CurrentType = thisType;
     _target = target;
     _attribute = attribute;
@@ -88,9 +159,55 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     _targetDefinitions = targetDefinitions;
     _preparedExpressions = preparedExpressions;
     _libraries = libraries;
+    _mixinCompilation = mixinCompilation;
+    hostValues ??= new RoslynHostExpressionCache();
+    _thisValues = hostValues.ForThis(thisType);
+    _targetValues = hostValues.ForTarget(target);
+    _attributeValues = hostValues.ForAttribute(attribute);
   }
 
   internal INamedTypeSymbol CurrentType { get; }
+
+  internal IMixinValue Derive(RoslynMixinValue source, string key, Func<IMixinValue> resolve) {
+    if (!_valueOwners.TryGetValue(source.Value, out var cache)) cache = _targetValues;
+    var result = cache.Derived(source.Value, key, resolve);
+    RegisterOwner(result, cache);
+    return result;
+  }
+
+  internal IMixinValue SelectValue(RoslynMixinValue source, MixinString member) {
+    var name = member.Resolve(Strings);
+    return Derive(source, "#" + name, () => {
+      var selected = SelectMember(source.Value, name);
+      return selected is null ? NullMixinValue.Instance : new RoslynMixinValue(selected);
+    });
+  }
+
+  private IMixinValue CachedRoot(RoslynValueCache cache, string key, Func<IMixinValue> resolve) {
+    var result = cache.Root(key, resolve);
+    RegisterOwner(result, cache);
+    return result;
+  }
+
+  private void RegisterOwner(IMixinValue value, RoslynValueCache cache) {
+    switch (value) {
+      case RoslynMixinValue roslyn:
+        _valueOwners[roslyn.Value] = cache;
+        break;
+      case MixinTableValue table:
+        foreach (var item in table.Entries) RegisterOwner(item.Value, cache);
+        break;
+      case DirectiveEffectMixinValue effect:
+        RegisterOwner(effect.Value, cache);
+        break;
+    }
+  }
+
+  private sealed class RoslynValueOwnerComparer : IEqualityComparer<object> {
+    internal static readonly RoslynValueOwnerComparer Instance = new();
+    public new bool Equals(object x, object y) => ReferenceEquals(x, y);
+    public int GetHashCode(object value) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(value);
+  }
 
   public override IMixinValue InvokeHostDirective(string name, IReadOnlyList<IMixinValue> arguments,
     IMixinValue operand) {
@@ -220,9 +337,30 @@ internal sealed class RoslynMixinContext : ExecutionContext {
         var arguments = owner is IParameterSymbol { ContainingSymbol: IMethodSymbol method }
           ? (IReadOnlyList<IParameterSymbol>)method.Parameters : [];
         var nested = new RoslynMixinContext(CurrentType, owner, applied, arguments, _compilation,
-          targetDefinitions: _targetDefinitions, preparedExpressions: _preparedExpressions, libraries: _libraries);
-        var evaluated = MixinExpressionVirtualMachine.Execute(annotation.Prelude + annotation.Expression,
-          nested, variables, _preparedExpressions);
+          targetDefinitions: _targetDefinitions, preparedExpressions: _preparedExpressions, libraries: _libraries,
+          mixinCompilation: _mixinCompilation);
+        MixinExpressionResult evaluated;
+        if (_mixinCompilation is not null && applied.AttributeClass is { } attributeType &&
+          _mixinCompilation.TryGetAnnotation(
+            attributeType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat), out var compiled)) {
+          var program = owner is INamedTypeSymbol ? compiled.TypeProgram : compiled.MemberProgram;
+          var preludeResult = MixinExpressionVirtualMachine.Execute(
+            program.Prelude, nested, variables, importCarries: false);
+          if (!preludeResult.Success) evaluated = preludeResult;
+          else {
+            var lateResult = MixinExpressionVirtualMachine.Execute(
+              program.Late, nested, variables, importCarries: true);
+            evaluated = !lateResult.Success ? lateResult : new MixinExpressionResult(
+              true, null, 0, preludeResult.Outputs.Concat(lateResult.Outputs).ToArray(),
+              preludeResult.Logs.Concat(lateResult.Logs).ToArray(), lateResult.Variables,
+              preludeResult.ExecutedOperations + lateResult.ExecutedOperations,
+              preludeResult.ExecutionMilliseconds + lateResult.ExecutionMilliseconds
+            );
+          }
+        } else {
+          evaluated = MixinExpressionVirtualMachine.Execute(annotation.Prelude + annotation.Expression,
+            nested, variables, _preparedExpressions);
+        }
         if (!evaluated.Success) {
           configuration = null;
           error = "line " + evaluated.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + evaluated.Error;
@@ -334,8 +472,12 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     return value is RoslynMixinValue roslyn && SemanticTraits(roslyn.Value).Contains(name, StringComparer.Ordinal);
   }
 
-  internal override object UnlinkSnapshot(IMixinValue value, bool includeMembers) =>
-    value is RoslynMixinValue roslyn ? roslyn.Unlink(this, includeMembers) : value.Unlink(this);
+  internal override object UnlinkSnapshot(IMixinValue value, bool includeMembers) {
+    if (value is not RoslynMixinValue roslyn) return value.Unlink(this);
+    if (!includeMembers) return roslyn.UnlinkShallow(this);
+    if (!_valueOwners.TryGetValue(roslyn.Value, out var cache)) cache = _targetValues;
+    return cache.Snapshot(roslyn, includeMembers, () => roslyn.Unlink(this, includeMembers));
+  }
 
   internal static IReadOnlyList<string> SemanticTraits(object value) {
     var result = new List<string>();
@@ -380,10 +522,21 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     };
     var matches = source.Where(attribute => expected is null || attribute.AttributeClass is { } type &&
       (exact ? TypeMatches(type, expected) : IsOrInherits(type, expected))).ToArray();
-    if (first) return matches.Length == 0 ? NullMixinValue.Instance : new RoslynMixinValue(matches[0]);
-    return new MixinTableValue(matches.Select((item, index) =>
-      new KeyValuePair<MixinString, IMixinValue>(Intern(index.ToString(CultureInfo.InvariantCulture)),
-        new RoslynMixinValue(item))).ToArray());
+    RoslynValueCache owner = null;
+    if (roslyn.Value is not null) _valueOwners.TryGetValue(roslyn.Value, out owner);
+    owner ??= _targetValues;
+    if (first) {
+      IMixinValue result = matches.Length == 0 ? NullMixinValue.Instance : new RoslynMixinValue(matches[0]);
+      RegisterOwner(result, owner);
+      return result;
+    }
+    var entries = matches.Select((item, index) => {
+      IMixinValue result = new RoslynMixinValue(item);
+      RegisterOwner(result, owner);
+      return new KeyValuePair<MixinString, IMixinValue>(
+        Intern(index.ToString(CultureInfo.InvariantCulture)), result);
+    }).ToArray();
+    return new MixinTableValue(entries);
   }
 
   private bool IsOrInherits(ITypeSymbol type, string expected) {
@@ -406,20 +559,28 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       return new DetachedSemanticMixinValue(typeName, typeName, Intern(member.Resolve(Strings)), typeName,
         typeName, Intern("public"), [typeName], [Intern("struct")], []);
     }
-    object value = root switch {
-      MixinExpressionRoot.This => CurrentType,
-      MixinExpressionRoot.Target => _target,
-      MixinExpressionRoot.Attribute => _attribute,
-      MixinExpressionRoot.Argument => SelectArgument(member.Resolve(Strings)),
-      _ => null
-    };
-    if (value is null) return root == MixinExpressionRoot.Argument
-      ? NullMixinValue.Instance
-      : Error("@" + root.ToString().ToLowerInvariant() + " is not available in this context");
     var name = member.Resolve(Strings);
-    if (!string.IsNullOrEmpty(name) && root is not MixinExpressionRoot.Argument)
-      value = SelectMember(value, name);
-    return value is null ? NullMixinValue.Instance : new RoslynMixinValue(value, root);
+    var cache = root switch {
+      MixinExpressionRoot.This => _thisValues,
+      MixinExpressionRoot.Attribute => _attributeValues,
+      _ => _targetValues
+    };
+    var result = CachedRoot(cache, root + "#" + name, () => {
+      object value = root switch {
+        MixinExpressionRoot.This => CurrentType,
+        MixinExpressionRoot.Target => _target,
+        MixinExpressionRoot.Attribute => _attribute,
+        MixinExpressionRoot.Argument => SelectArgument(name),
+        _ => null
+      };
+      if (value is null) return root == MixinExpressionRoot.Argument
+        ? NullMixinValue.Instance
+        : Error("@" + root.ToString().ToLowerInvariant() + " is not available in this context");
+      if (!string.IsNullOrEmpty(name) && root is not MixinExpressionRoot.Argument)
+        value = SelectMember(value, name);
+      return value is null ? NullMixinValue.Instance : new RoslynMixinValue(value, root);
+    });
+    return result;
   }
 
   private IParameterSymbol SelectArgument(string name) {
@@ -578,13 +739,13 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
   };
   public MixinString Render(ExecutionContext context) {
     if (Root is MixinExpressionRoot.This or MixinExpressionRoot.Target && Value is INamedTypeSymbol)
-      return context.Intern("this");
-    if (Value is IParameterSymbol parameter) return context.Intern(GeneratorAnalysis.EscapeIdentifier(parameter.Name));
-    if (Value is IMethodSymbol method) return context.Intern(method.IsStatic
+      return ExecutionContext.Dynamic("this");
+    if (Value is IParameterSymbol parameter) return ExecutionContext.Dynamic(GeneratorAnalysis.EscapeIdentifier(parameter.Name));
+    if (Value is IMethodSymbol method) return ExecutionContext.Dynamic(method.IsStatic
       ? method.ContainingType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat) + "." + method.Name
       : "this." + GeneratorAnalysis.EscapeIdentifier(method.Name));
-    if (Value is TypedConstant constant) return context.Intern(RenderConstant(constant));
-    return context.Intern(RoslynMixinContext.ComparableText(Value));
+    if (Value is TypedConstant constant) return ExecutionContext.Dynamic(RenderConstant(constant));
+    return ExecutionContext.Dynamic(RoslynMixinContext.ComparableText(Value));
   }
   private static string RenderConstant(TypedConstant constant) {
     if (constant.IsNull || constant.Kind == TypedConstantKind.Error) return "null";
@@ -601,11 +762,18 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
     builder.Append(nameof(RoslynMixinValue)); builder.Append(Render(context).Resolve(context.Strings));
   }
   public IMixinValue Select(ExecutionContext context, MixinString member) =>
-    context is RoslynMixinContext roslyn && roslyn.SelectMember(Value, member.Resolve(context.Strings)) is { } selected
-      ? new RoslynMixinValue(selected) : NullMixinValue.Instance;
+    context is RoslynMixinContext roslyn ? roslyn.SelectValue(this, member) : NullMixinValue.Instance;
   public object Unlink(ExecutionContext context) => Unlink(context, true);
   internal object Unlink(ExecutionContext context, bool includeMembers) => Value switch {
     TypedConstant or ISymbol or AttributeData => Detach(context, includeMembers), _ => Value
+  };
+
+  internal object UnlinkShallow(ExecutionContext context) => Value switch {
+    TypedConstant { Kind: TypedConstantKind.Type } => Render(context).Resolve(context.Strings),
+    TypedConstant { Value: string or char } => Render(context).Resolve(context.Strings),
+    TypedConstant constant => constant.Value,
+    ISymbol or AttributeData => Render(context).Resolve(context.Strings),
+    _ => Value
   };
 
   private DetachedSemanticData Detach(ExecutionContext context, bool includeMembers) {

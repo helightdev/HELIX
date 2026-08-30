@@ -64,7 +64,7 @@ internal sealed record InvokeMixinValue(FunctionDefinition Function, IMixinValue
 
 internal sealed record InterpolationMixinValue(IReadOnlyList<IMixinValue> Parts) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) => Parts.Count != 0;
-  public MixinString Render(ExecutionContext context) => context.Intern(string.Concat(
+  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic(string.Concat(
     Parts.Select(item => item.Render(context).Resolve(context.Strings))
   ));
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
@@ -81,7 +81,7 @@ internal sealed record AllMixinValue(IReadOnlyList<IMixinValue> Values) : IMixin
     foreach (var value in Values) if (!value.IsTruthy(context)) return false;
     return Values.Count != 0;
   }
-  public MixinString Render(ExecutionContext context) => context.Intern(IsTruthy(context) ? "true" : "false");
+  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic(IsTruthy(context) ? "true" : "false");
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
     builder.Append(nameof(AllMixinValue)); foreach (var value in Values) value.Fingerprint(builder, context);
   }
@@ -92,7 +92,7 @@ internal sealed record AllMixinValue(IReadOnlyList<IMixinValue> Values) : IMixin
 
 internal sealed record ProgramFunctionMixinValue(int Entry) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) => Entry >= 0;
-  public MixinString Render(ExecutionContext context) => context.Intern("<function>");
+  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic("<function>");
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
     builder.Append(nameof(ProgramFunctionMixinValue)); builder.Append(Entry);
   }
@@ -114,7 +114,7 @@ internal enum TableTransformKind { MapValues, Map, Filter }
 internal sealed record TableTransformMixinValue(MixinTableValue Table, TableTransformKind Kind,
   ProgramFunctionMixinValue Function) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) => Table.IsTruthy(context);
-  public MixinString Render(ExecutionContext context) => context.Intern("<table transform>");
+  public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic("<table transform>");
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
     builder.Append(nameof(TableTransformMixinValue)); Table.Fingerprint(builder, context);
     builder.Append((int)Kind); Function.Fingerprint(builder, context);
