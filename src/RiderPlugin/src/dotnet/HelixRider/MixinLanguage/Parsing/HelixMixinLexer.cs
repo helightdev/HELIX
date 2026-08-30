@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using JetBrains.ReSharper.Psi.Parsing;
 using JetBrains.Text;
 using JetBrains.Util;
-using MixinLanguage.Compiler;
 
 namespace HelixRider.MixinLanguage.Parsing;
 
 public sealed class HelixMixinLexer : ILexer<int>
 {
     private readonly IBuffer _buffer;
-    private IReadOnlyList<MixinEditorToken> _tokens;
+    private IReadOnlyList<TokenSpan> _tokens;
     private int _index;
     private int _end;
 
@@ -19,17 +18,36 @@ public sealed class HelixMixinLexer : ILexer<int>
     public void Start(int startOffset, int endOffset, uint state)
     {
         var text = _buffer.GetText(new TextRange(startOffset, endOffset));
-        var relative = MixinEditorLexer.Lex(text);
-        var tokens = new List<MixinEditorToken>(relative.Count);
-        foreach (var token in relative)
-            tokens.Add(new MixinEditorToken(token.Kind, token.Start + startOffset, token.End + startOffset));
+        var tokens = new List<TokenSpan>();
+        for (var position = 0; position < text.Length;)
+        {
+            var tokenStart = position;
+            if (text[position] is '\r' or '\n')
+            {
+                if (text[position] == '\r' && position + 1 < text.Length && text[position + 1] == '\n') position++;
+                position++;
+                tokens.Add(new TokenSpan(HelixMixinTokenNodeTypes.NewLine, tokenStart + startOffset, position + startOffset));
+                continue;
+            }
+            if (text[position] is ' ' or '\t')
+            {
+                while (position < text.Length && text[position] is ' ' or '\t') position++;
+                tokens.Add(new TokenSpan(HelixMixinTokenNodeTypes.WhiteSpace, tokenStart + startOffset, position + startOffset));
+                continue;
+            }
+            // Punctuation is kept as an individual leaf so every shared-parser source boundary
+            // can be represented without the lexer deciding what that punctuation means.
+            if (!char.IsLetterOrDigit(text[position]) && text[position] != '_') position++;
+            else while (position < text.Length && (char.IsLetterOrDigit(text[position]) || text[position] == '_')) position++;
+            tokens.Add(new TokenSpan(HelixMixinTokenNodeTypes.Text, tokenStart + startOffset, position + startOffset));
+        }
         _tokens = tokens;
         _index = 0;
         _end = endOffset;
     }
 
     public void Advance() { if (_index < _tokens.Count) _index++; }
-    public TokenNodeType TokenType => _index >= _tokens.Count ? null : Map(_tokens[_index].Kind);
+    public TokenNodeType TokenType => _index >= _tokens.Count ? null : _tokens[_index].Type;
     public int TokenStart => _index >= _tokens.Count ? _end : _tokens[_index].Start;
     public int TokenEnd => _index >= _tokens.Count ? _end : _tokens[_index].End;
     public IBuffer Buffer => _buffer;
@@ -39,27 +57,7 @@ public sealed class HelixMixinLexer : ILexer<int>
     public object CurrentPosition { get => _index; set => _index = (int)value; }
     int ILexer<int>.CurrentPosition { get => _index; set => _index = value; }
 
-    private static TokenNodeType Map(MixinEditorTokenKind kind) => kind switch
-    {
-        MixinEditorTokenKind.Directive => HelixMixinTokenNodeTypes.Directive,
-        MixinEditorTokenKind.Value => HelixMixinTokenNodeTypes.Value,
-        MixinEditorTokenKind.Path => HelixMixinTokenNodeTypes.Path,
-        MixinEditorTokenKind.Function => HelixMixinTokenNodeTypes.Function,
-        MixinEditorTokenKind.ArgumentDelimiter => HelixMixinTokenNodeTypes.ArgumentDelimiter,
-        MixinEditorTokenKind.DirectiveArgumentDelimiter => HelixMixinTokenNodeTypes.DirectiveArgumentDelimiter,
-        MixinEditorTokenKind.ExpressionArgumentDelimiter => HelixMixinTokenNodeTypes.ExpressionArgumentDelimiter,
-        MixinEditorTokenKind.Argument => HelixMixinTokenNodeTypes.Argument,
-        MixinEditorTokenKind.Operator => HelixMixinTokenNodeTypes.Operator,
-        MixinEditorTokenKind.Parenthesis => HelixMixinTokenNodeTypes.Parenthesis,
-        MixinEditorTokenKind.EnclosedReferenceParenthesis => HelixMixinTokenNodeTypes.EnclosedReferenceParenthesis,
-        MixinEditorTokenKind.Escape => HelixMixinTokenNodeTypes.Escape,
-        MixinEditorTokenKind.Continuation => HelixMixinTokenNodeTypes.Continuation,
-        MixinEditorTokenKind.Comment => HelixMixinTokenNodeTypes.Comment,
-        MixinEditorTokenKind.Whitespace => HelixMixinTokenNodeTypes.WhiteSpace,
-        MixinEditorTokenKind.NewLine => HelixMixinTokenNodeTypes.NewLine,
-        MixinEditorTokenKind.Invalid => HelixMixinTokenNodeTypes.Invalid,
-        _ => HelixMixinTokenNodeTypes.Text
-    };
+    private readonly record struct TokenSpan(TokenNodeType Type, int Start, int End);
 }
 
 internal sealed class HelixMixinLexerFactory : ILexerFactory

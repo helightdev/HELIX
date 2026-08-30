@@ -12,8 +12,17 @@
     <PackageReference Include="NUnit3TestAdapter" Version="4.3.1" />
   </ItemGroup>
 
+  <Target Name="BuildRiderBackendForTests" BeforeTargets="ResolveAssemblyReferences">
+    <MSBuild Projects="..\HelixRider\HelixRider.Rider.csproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+
   <ItemGroup>
-    <ProjectReference Include="..\HelixRider\HelixRider.csproj" />
+    <Reference Include="HelixRider">
+      <HintPath>..\HelixRider\bin\HelixRider.Rider\$(Configuration)\HelixRider.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
   </ItemGroup>
 
   <ItemGroup>

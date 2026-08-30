@@ -23,18 +23,77 @@ options
   generateWorkingPsi;
 }
 
+// PsiGen defines the strongly typed PSI surface only. HelixMixinParser constructs these nodes
+// from MixinExpressionParser.ParseEditorSyntax; these productions are not a second grammar.
 errorhandling helixMixinFile
 options { stubBase="HelixMixinFileElement"; }
 :
-  helixMixinTokens?
+  documentNode?
 ;
 
-errorhandling helixMixinTokens
+documentNode : syntaxNode* ;
+
+interface syntaxNode
 :
-  (
-    DIRECTIVE | VALUE | PATH | FUNCTION | ARGUMENT_DELIMITER |
-    DIRECTIVE_ARGUMENT_DELIMITER | EXPRESSION_ARGUMENT_DELIMITER | ARGUMENT | OPERATOR |
-    PARENTHESIS | ENCLOSED_REFERENCE_PARENTHESIS | ESCAPE | CONTINUATION | COMMENT |
-    WHITE_SPACE | NEW_LINE | TEXT | INVALID
-  ) helixMixinTokens?
+  directiveNode | directiveNameNode | directiveArgumentNode | operandNode |
+  referenceNode | parenthesizedReferenceNode | rootNode | memberNode | pathNode |
+  functionCallNode | literalArgumentNode | expressionArgumentNode | commentNode |
+  continuationNode | escapeNode | invalidNode | leafTokens
+;
+
+directiveNode
+:
+  DIRECTIVE
+  directiveNameNode<DIRECTIVE_NAME_ROLE, DirectiveName>
+  directiveArgumentNode<DIRECTIVE_ARGUMENT_ROLE, Arguments>*
+  operandNode<OPERAND_ROLE, Operand>?
+;
+directiveNameNode : VALUE ;
+directiveArgumentNode
+:
+  DIRECTIVE_ARGUMENT_DELIMITER
+  (referenceNode<REFERENCE_ROLE, References> | parenthesizedReferenceNode<REFERENCE_ROLE, References>)*
+;
+operandNode
+:
+  ARGUMENT
+  (referenceNode<REFERENCE_ROLE, References> | parenthesizedReferenceNode<REFERENCE_ROLE, References>)*
+;
+referenceNode
+:
+  FUNCTION rootNode<ROOT_ROLE, Root> memberNode<MEMBER_ROLE, Member>?
+  (pathNode<PROPERTY_ROLE, Properties> | functionCallNode<PROPERTY_ROLE, Properties>)*
+;
+parenthesizedReferenceNode
+:
+  ENCLOSED_REFERENCE_PARENTHESIS rootNode<ROOT_ROLE, Root> memberNode<MEMBER_ROLE, Member>?
+  (pathNode<PROPERTY_ROLE, Properties> | functionCallNode<PROPERTY_ROLE, Properties>)*
+;
+rootNode : PARENTHESIS ;
+memberNode : ARGUMENT_DELIMITER ;
+pathNode : PATH ;
+functionCallNode
+:
+  OPERATOR
+  (literalArgumentNode<PROPERTY_ARGUMENT_ROLE, Arguments> |
+   expressionArgumentNode<PROPERTY_ARGUMENT_ROLE, Arguments>)*
+;
+literalArgumentNode : EXPRESSION_ARGUMENT_DELIMITER ;
+expressionArgumentNode
+:
+  EXPRESSION
+  (referenceNode<REFERENCE_ROLE, References> | parenthesizedReferenceNode<REFERENCE_ROLE, References>)*
+;
+commentNode : COMMENT ;
+continuationNode
+:
+  CONTINUATION
+  (referenceNode<REFERENCE_ROLE, References> | parenthesizedReferenceNode<REFERENCE_ROLE, References>)*
+;
+escapeNode : ESCAPE ;
+invalidNode : INVALID ;
+
+leafTokens
+:
+  (WHITE_SPACE | NEW_LINE | TEXT) leafTokens?
 ;

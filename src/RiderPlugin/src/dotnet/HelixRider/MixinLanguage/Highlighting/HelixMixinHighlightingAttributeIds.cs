@@ -16,7 +16,10 @@ namespace HelixRider.MixinLanguage.Highlighting;
 [RegisterHighlighter(Path, GroupId = GroupId, EffectType = EffectType.TEXT,
     FallbackAttributeId = IdeaHighlightingAttributeIds.INSTANCE_FIELD, Layer = HighlighterLayer.SYNTAX)]
 [RegisterHighlighter(Function, GroupId = GroupId, EffectType = EffectType.TEXT,
-    FallbackAttributeId = IdeaHighlightingAttributeIds.FUNCTION_CALL, Layer = HighlighterLayer.SYNTAX)]
+    FallbackAttributeId = IdeaHighlightingAttributeIds.INSTANCE_METHOD, Layer = HighlighterLayer.SYNTAX)]
+[RegisterHighlighter(FunctionArgumentDelimiter, GroupId = GroupId, EffectType = EffectType.TEXT,
+    FallbackAttributeId = IdeaHighlightingAttributeIds.INSTANCE_METHOD,
+    Layer = HighlighterLayer.ADDITIONAL_SYNTAX + 1)]
 [RegisterHighlighter(Argument, GroupId = GroupId, EffectType = EffectType.TEXT,
     FallbackAttributeId = IdeaHighlightingAttributeIds.MARKUP_ATTRIBUTE, Layer = HighlighterLayer.SYNTAX)]
 [RegisterHighlighter(Operator, GroupId = GroupId, EffectType = EffectType.TEXT,
@@ -34,6 +37,7 @@ internal static class HelixMixinHighlightingAttributeIds
     public const string Value = "HELIX_MIXIN_VALUE";
     public const string Path = "HELIX_MIXIN_PATH";
     public const string Function = "HELIX_MIXIN_FUNCTION";
+    public const string FunctionArgumentDelimiter = "HELIX_MIXIN_FUNCTION_ARGUMENT_DELIMITER";
     public const string Argument = "HELIX_MIXIN_ARGUMENT";
     public const string Operator = "HELIX_MIXIN_OPERATOR";
     public const string Parenthesis = "HELIX_MIXIN_PARENTHESIS";

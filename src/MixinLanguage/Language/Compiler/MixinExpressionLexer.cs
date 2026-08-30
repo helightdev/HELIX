@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MixinLanguage.Compiler;
 
@@ -37,6 +39,67 @@ internal enum MixinExpressionTokenKind {
 internal sealed record MixinExpressionToken(
   MixinExpressionTokenKind Kind, string Text, int Start, int End
 );
+
+internal sealed record MixinLogicalSourceSegment(
+  int LogicalStart, int SourceStart, int Length
+);
+
+internal sealed class MixinLogicalSourceLine(
+  int physicalLine, MixinSourceRange physicalRange
+) {
+  private readonly List<MixinLogicalSourceSegment> _segments = [];
+  private readonly List<MixinSourceRange> _continuations = [];
+
+  internal int PhysicalLine { get; } = physicalLine;
+  internal MixinSourceRange PhysicalRange { get; } = physicalRange;
+  internal string Text { get; private set; } = "";
+  internal int ContinuedFromLine { get; set; } = -1;
+  internal IReadOnlyList<MixinSourceRange> Continuations => _continuations;
+  internal int SourceEnd {
+    get {
+      if (_continuations.Count == 0) return PhysicalRange.End;
+      var markerEnd = _continuations[_continuations.Count - 1].End;
+      if (_segments.Count == 0) return markerEnd;
+      var segment = _segments[_segments.Count - 1];
+      return Math.Max(markerEnd, segment.SourceStart + segment.Length);
+    }
+  }
+
+  internal void SetInitial(string text, int sourceStart) {
+    Text = text ?? "";
+    _segments.Clear();
+    if (Text.Length != 0) _segments.Add(new MixinLogicalSourceSegment(0, sourceStart, Text.Length));
+  }
+
+  internal void AppendContinuation(
+    string separator, string text, int sourceStart, MixinSourceRange continuationRange
+  ) {
+    if (!string.IsNullOrEmpty(separator)) Text += separator;
+    var logicalStart = Text.Length;
+    Text += text ?? "";
+    if (!string.IsNullOrEmpty(text))
+      _segments.Add(new MixinLogicalSourceSegment(logicalStart, sourceStart, text.Length));
+    _continuations.Add(continuationRange);
+  }
+
+  internal MixinSourceRange MapRange(MixinSourceRange logicalRange) {
+    if (_segments.Count == 0) return PhysicalRange;
+    var start = MapPosition(logicalRange.Start, end: false);
+    var end = logicalRange.IsEmpty ? start : MapPosition(logicalRange.End, end: true);
+    return new MixinSourceRange(start, Math.Max(start, end));
+  }
+
+  private int MapPosition(int position, bool end) {
+    foreach (var segment in _segments) {
+      var segmentEnd = segment.LogicalStart + segment.Length;
+      if (position < segment.LogicalStart) return segment.SourceStart;
+      if (position < segmentEnd || end && position == segmentEnd)
+        return segment.SourceStart + Math.Min(segment.Length, Math.Max(0, position - segment.LogicalStart));
+    }
+    var last = _segments[_segments.Count - 1];
+    return last.SourceStart + last.Length;
+  }
+}
 
 /// <summary>Turns source text into tokens without applying directive semantics.</summary>
 internal static class MixinExpressionLexer {
@@ -207,34 +270,60 @@ internal static class MixinExpressionLexer {
   }
 
   internal static string[] SplitLogicalLines(string source) {
-    var physical = (source ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
-    var logical = new string[physical.Length];
+    return BuildLogicalSourceLines(source).Select(line => line.Text).ToArray();
+  }
+
+  internal static IReadOnlyList<MixinLogicalSourceLine> BuildLogicalSourceLines(string source) {
+    source ??= "";
+    var physical = GetPhysicalSourceLines(source);
+    var logical = physical.Select((range, index) => new MixinLogicalSourceLine(index, range)).ToArray();
     var continuedLine = -1;
     for (var index = 0; index < physical.Length; index++) {
-      var text = physical[index];
+      var range = physical[index];
+      var contentEnd = range.End;
+      while (contentEnd > range.Start && source[contentEnd - 1] is '\r' or '\n') contentEnd--;
+      var text = source.Substring(range.Start, contentEnd - range.Start);
       var marker = SkipWhitespace(text, 0);
       if (marker + 1 < text.Length && text[marker] == '@') {
         var kind = text[marker + 1];
         if (kind == '#') {
-          logical[index] = "";
+          logical[index].SetInitial("", range.Start);
           continuedLine = -1;
           continue;
         }
         if (kind is '\\' or '+') {
           if (continuedLine >= 0) {
-            logical[continuedLine] += (kind == '\\' ? "\n" : "") + text.Substring(marker + 2);
-            logical[index] = "";
-          } else logical[index] = text;
+            var suffixStart = marker + 2;
+            logical[continuedLine].AppendContinuation(
+              kind == '\\' ? "\n" : "", text.Substring(suffixStart), range.Start + suffixStart,
+              new MixinSourceRange(range.Start + marker, range.Start + marker + 2)
+            );
+            logical[index].SetInitial("", range.Start);
+            logical[index].ContinuedFromLine = continuedLine;
+          } else logical[index].SetInitial(text, range.Start);
           continue;
         }
       }
-      logical[index] = text;
+      logical[index].SetInitial(text, range.Start);
       continuedLine =
         marker + 1 < text.Length && text[marker] == '@' && (char.IsLetter(text[marker + 1]) || text[marker + 1] == '_')
           ? index
           : -1;
     }
     return logical;
+  }
+
+  private static MixinSourceRange[] GetPhysicalSourceLines(string source) {
+    var ranges = new List<MixinSourceRange>();
+    var start = 0;
+    for (var position = 0; position < source.Length; position++) {
+      if (source[position] is not ('\r' or '\n')) continue;
+      if (source[position] == '\r' && position + 1 < source.Length && source[position + 1] == '\n') position++;
+      ranges.Add(new MixinSourceRange(start, position + 1));
+      start = position + 1;
+    }
+    ranges.Add(new MixinSourceRange(start, source.Length));
+    return ranges.ToArray();
   }
 
   internal static IReadOnlyList<MixinToken> LexLogicalLine(string text, int line) {

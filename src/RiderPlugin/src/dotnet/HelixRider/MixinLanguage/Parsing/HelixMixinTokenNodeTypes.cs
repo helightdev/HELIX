@@ -28,6 +28,7 @@ public static class HelixMixinTokenNodeTypes
     public static readonly TokenNodeType DirectiveArgumentDelimiter = new HelixMixinTokenNodeType("DIRECTIVE_ARGUMENT_DELIMITER", 1016);
     public static readonly TokenNodeType ExpressionArgumentDelimiter = new HelixMixinTokenNodeType("EXPRESSION_ARGUMENT_DELIMITER", 1017);
     public static readonly TokenNodeType EnclosedReferenceParenthesis = new HelixMixinTokenNodeType("ENCLOSED_REFERENCE_PARENTHESIS", 1018);
+    public static readonly TokenNodeType Expression = new HelixMixinTokenNodeType("EXPRESSION", 1019);
 
     public static readonly TokenNodeType DIRECTIVE = Directive;
     public static readonly TokenNodeType VALUE = Value;
@@ -47,6 +48,7 @@ public static class HelixMixinTokenNodeTypes
     public static readonly TokenNodeType DIRECTIVE_ARGUMENT_DELIMITER = DirectiveArgumentDelimiter;
     public static readonly TokenNodeType EXPRESSION_ARGUMENT_DELIMITER = ExpressionArgumentDelimiter;
     public static readonly TokenNodeType ENCLOSED_REFERENCE_PARENTHESIS = EnclosedReferenceParenthesis;
+    public static readonly TokenNodeType EXPRESSION = Expression;
 }
 
 internal sealed class HelixMixinTokenNodeType : TokenNodeType

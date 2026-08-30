@@ -26,28 +26,71 @@ internal sealed class HelixMixinSyntaxHighlightingProcessor : SyntaxHighlighting
         var range = tokenNode.GetDocumentRange();
         if (range.TextRange.IsEmpty) return;
 
-        var attributeId = GetMixinAttributeId(tokenType);
+        var attributeId = GetMixinAttributeId(tokenNode);
         if (attributeId != null)
             context.AddHighlighting(new ReSharperSyntaxHighlighting(attributeId, null, range));
     }
 
-    private static string GetMixinAttributeId(TokenNodeType tokenType)
+    internal static string GetMixinAttributeId(ITokenNode token)
     {
-        if (tokenType == HelixMixinTokenNodeTypes.Directive) return HelixMixinHighlightingAttributeIds.Directive;
-        if (tokenType == HelixMixinTokenNodeTypes.Value) return HelixMixinHighlightingAttributeIds.Value;
-        if (tokenType == HelixMixinTokenNodeTypes.EnclosedReferenceParenthesis) return HelixMixinHighlightingAttributeIds.Value;
-        if (tokenType == HelixMixinTokenNodeTypes.Path) return HelixMixinHighlightingAttributeIds.Path;
-        if (tokenType == HelixMixinTokenNodeTypes.Function) return HelixMixinHighlightingAttributeIds.Function;
-        if (tokenType == HelixMixinTokenNodeTypes.DirectiveArgumentDelimiter) return HelixMixinHighlightingAttributeIds.Directive;
-        if (tokenType == HelixMixinTokenNodeTypes.ExpressionArgumentDelimiter) return HelixMixinHighlightingAttributeIds.Function;
-        if (tokenType == HelixMixinTokenNodeTypes.Argument) return HelixMixinHighlightingAttributeIds.Argument;
-        if (tokenType == HelixMixinTokenNodeTypes.ArgumentDelimiter ||
-            tokenType == HelixMixinTokenNodeTypes.Parenthesis) return HelixMixinHighlightingAttributeIds.Parenthesis;
-        if (tokenType == HelixMixinTokenNodeTypes.Operator ||
-            tokenType == HelixMixinTokenNodeTypes.Continuation) return HelixMixinHighlightingAttributeIds.Operator;
-        if (tokenType == HelixMixinTokenNodeTypes.Escape) return HelixMixinHighlightingAttributeIds.Escape;
-        if (tokenType == HelixMixinTokenNodeTypes.Comment) return HelixMixinHighlightingAttributeIds.Comment;
+        var text = token.GetText();
+        for (var parent = token.Parent; parent != null; parent = parent.Parent)
+        {
+            if (parent is ICommentNode) return HelixMixinHighlightingAttributeIds.Comment;
+            if (parent is IDirectiveNameNode) return HelixMixinHighlightingAttributeIds.Directive;
+            if (parent is ILiteralArgumentNode)
+                return IsBoundaryDelimiter(token, parent, text)
+                    ? HelixMixinHighlightingAttributeIds.FunctionArgumentDelimiter
+                    : HelixMixinHighlightingAttributeIds.Argument;
+            if (parent is IExpressionArgumentNode)
+                return IsBoundaryDelimiter(token, parent, text)
+                    ? HelixMixinHighlightingAttributeIds.FunctionArgumentDelimiter
+                    : IsExpressionBoundaryParenthesis(token, parent, text)
+                        ? HelixMixinHighlightingAttributeIds.Value
+                        : null;
+            if (parent is IDirectiveArgumentNode)
+                return IsBoundaryDelimiter(token, parent, text)
+                    ? HelixMixinHighlightingAttributeIds.Directive
+                    : HelixMixinHighlightingAttributeIds.Argument;
+            if (parent is IPathNode) return HelixMixinHighlightingAttributeIds.Path;
+            if (parent is IFunctionCallNode)
+                return text is ":" or "!" or "?"
+                    ? HelixMixinHighlightingAttributeIds.Operator
+                    : HelixMixinHighlightingAttributeIds.Function;
+            if (parent is IRootNode or IMemberNode) return HelixMixinHighlightingAttributeIds.Value;
+            if (parent is IParenthesizedReferenceNode)
+                return text is "@" or "#" or "(" or ")" ? HelixMixinHighlightingAttributeIds.Value : null;
+            if (parent is IReferenceNode)
+                return text is "@" or "#" ? HelixMixinHighlightingAttributeIds.Value : null;
+            if (parent is IContinuationNode)
+            {
+                if (text is "@" or "+" or "\\") return HelixMixinHighlightingAttributeIds.Operator;
+                continue;
+            }
+            if (parent is IEscapeNode) return HelixMixinHighlightingAttributeIds.Escape;
+            if (parent is IInvalidNode) return null;
+        }
         return null;
+    }
+
+    private static bool IsBoundaryDelimiter(ITokenNode token, ITreeNode parent, string text)
+    {
+        if (text is not ("<" or ">")) return false;
+        var tokenRange = token.GetTreeTextRange();
+        var parentRange = parent.GetTreeTextRange();
+        return text == "<"
+            ? tokenRange.StartOffset == parentRange.StartOffset
+            : tokenRange.EndOffset == parentRange.EndOffset;
+    }
+
+    private static bool IsExpressionBoundaryParenthesis(ITokenNode token, ITreeNode parent, string text)
+    {
+        if (text is not ("(" or ")")) return false;
+        var tokenRange = token.GetTreeTextRange();
+        var parentRange = parent.GetTreeTextRange();
+        return text == "("
+            ? tokenRange.StartOffset.Offset == parentRange.StartOffset.Offset + 1
+            : tokenRange.EndOffset.Offset == parentRange.EndOffset.Offset - 1;
     }
 }
 #endif

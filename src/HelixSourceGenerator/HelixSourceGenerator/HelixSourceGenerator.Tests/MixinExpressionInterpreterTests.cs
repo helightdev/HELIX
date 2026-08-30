@@ -618,9 +618,10 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void ParsesParenthesizedAndInvertedReferences() {
+    const string source = "@(arg#name:type:!?is<global::IEvent>)";
     Assert.True(
       MixinExpressionCompiler.TryParseReference(
-        "@(arg#name:type:!?is<global::IEvent>)",
+        source,
         out var reference,
         out var error
       ),
@@ -632,7 +633,214 @@ public sealed class MixinExpressionInterpreterTests {
     Assert.Equal("type", reference.Properties[0].Name);
     Assert.True(reference.Properties[1].Negated);
     Assert.Equal("global::IEvent", reference.Properties[1].Argument);
+    Assert.Equal(new MixinSourceRange(0, source.Length), reference.SourceRange);
+    Assert.Equal(10, reference.Properties[0].SourceRange.Start);
+    Assert.Equal(
+      "<global::IEvent>",
+      source[reference.Properties[1].ParsedArguments[0].SourceRange.Start..
+        reference.Properties[1].ParsedArguments[0].SourceRange.End]
+    );
   }
+
+  [Fact]
+  public void ParserPreservesPhysicalLineRangesIncludingTrivia() {
+    const string source = "@LOCAL<Name> @this:name\r\n@# comment\n@+ suffix\r\n";
+
+    var program = MixinExpressionParser.Parse(source);
+
+    Assert.Equal(4, program.Instructions.Count);
+    Assert.Equal("@LOCAL<Name> @this:name\r\n", Slice(source, program.Instructions[0].SourceRange));
+    Assert.Equal("@# comment\n", Slice(source, program.Instructions[1].SourceRange));
+    Assert.Equal("@+ suffix\r\n", Slice(source, program.Instructions[2].SourceRange));
+    Assert.Equal("", Slice(source, program.Instructions[3].SourceRange));
+  }
+
+  [Fact]
+  public void EditorSyntaxProjectsCompilerReferencesOntoOriginalSource() {
+    const string source = "@LOCAL<Value> @local#Prop#HashCodeSyntax:unwrap:matches<\\S>\n";
+
+    var tree = MixinExpressionParser.ParseEditorSyntax(source);
+    var directive = tree.Root.Children[0];
+    Assert.Equal(MixinEditorSyntaxKind.Directive, directive.Kind);
+    Assert.Equal("@LOCAL", Slice(source, directive.Children[0].SourceRange));
+    Assert.Equal("<Value>", Slice(source, directive.Children[1].SourceRange));
+    var operand = directive.Children[2];
+    var reference = Assert.Single(operand.Children);
+    Assert.Equal(MixinEditorSyntaxKind.Reference, reference.Kind);
+    Assert.Equal("@local#Prop#HashCodeSyntax:unwrap:matches<\\S>", Slice(source, reference.SourceRange));
+    Assert.Contains(reference.Children.SelectMany(child => child.Children), child =>
+      child.Kind == MixinEditorSyntaxKind.LiteralArgument &&
+      Slice(source, child.SourceRange) == "<\\S>"
+    );
+  }
+
+  [Fact]
+  public void EditorSyntaxKeepsLiteralCodeOutsideReferencesUnstructured() {
+    const string source = "@MIXIN<$PostConstruct><0> global::UnityEngine.UIElements.VisualElementExtensions.Call(this)\n";
+
+    var tree = MixinExpressionParser.ParseEditorSyntax(source);
+    var directive = tree.Root.Children[0];
+    var operand = directive.Children.Last();
+
+    Assert.Equal(MixinEditorSyntaxKind.Operand, operand.Kind);
+    Assert.Empty(operand.Children);
+    Assert.Contains("global::UnityEngine", Slice(source, operand.SourceRange));
+  }
+
+  [Fact]
+  public void EditorSyntaxNestsDynamicArgumentReferences() {
+    const string source = "@RETURN @table:put<name><(@(var#CompanionName))>\n";
+
+    var tree = MixinExpressionParser.ParseEditorSyntax(source);
+    var outer = Assert.Single(tree.Root.Children[0].Children.Last().Children);
+    var dynamicArgument = outer.Children
+      .Where(child => child.Kind == MixinEditorSyntaxKind.FunctionCall).Last().Children.Last();
+    var nested = Assert.Single(dynamicArgument.Children);
+
+    Assert.Equal(MixinEditorSyntaxKind.ExpressionArgument, dynamicArgument.Kind);
+    Assert.Equal("<(@(var#CompanionName))>", Slice(source, dynamicArgument.SourceRange));
+    Assert.Equal(MixinEditorSyntaxKind.ParenthesizedReference, nested.Kind);
+    Assert.Equal("@(var#CompanionName)", Slice(source, nested.SourceRange));
+  }
+
+  [Fact]
+  public void EditorSyntaxRepresentsEscapedAtSigns() {
+    const string source = "@RETURN left@@right @this:name\n";
+
+    var tree = MixinExpressionParser.ParseEditorSyntax(source);
+    var operand = tree.Root.Children[0].Children.Last();
+    var escape = Assert.Single(operand.Children.Where(child => child.Kind == MixinEditorSyntaxKind.Escape));
+
+    Assert.Equal("@@", Slice(source, escape.SourceRange));
+    Assert.Single(operand.Children.Where(child => child.Kind == MixinEditorSyntaxKind.Reference));
+  }
+
+  [Fact]
+  public void EditorSyntaxProvidesNestedOriginalSourceRangesForEverySyntaxKind() {
+    const string source =
+      "@LOCAL<Value> @local#Prop#nested:put<literal><(@(var#CompanionName))> @@\r\n" +
+      "@+ @this:type\n" +
+      "@# comment\n";
+
+    var tree = MixinExpressionParser.ParseEditorSyntax(source);
+    var nodes = DescendantsAndSelf(tree.Root).ToArray();
+    var requiredKinds = new[] {
+      MixinEditorSyntaxKind.Document,
+      MixinEditorSyntaxKind.Directive,
+      MixinEditorSyntaxKind.DirectiveName,
+      MixinEditorSyntaxKind.DirectiveArgument,
+      MixinEditorSyntaxKind.Operand,
+      MixinEditorSyntaxKind.Reference,
+      MixinEditorSyntaxKind.ParenthesizedReference,
+      MixinEditorSyntaxKind.Root,
+      MixinEditorSyntaxKind.Member,
+      MixinEditorSyntaxKind.Path,
+      MixinEditorSyntaxKind.FunctionCall,
+      MixinEditorSyntaxKind.LiteralArgument,
+      MixinEditorSyntaxKind.ExpressionArgument,
+      MixinEditorSyntaxKind.Comment,
+      MixinEditorSyntaxKind.Continuation,
+      MixinEditorSyntaxKind.Escape
+    };
+
+    foreach (var kind in requiredKinds) Assert.Contains(nodes, node => node.Kind == kind);
+    Assert.Equal(source, Slice(source, tree.Root.SourceRange));
+    Assert.All(nodes, node => {
+      Assert.InRange(node.SourceRange.Start, 0, source.Length);
+      Assert.InRange(node.SourceRange.End, node.SourceRange.Start, source.Length);
+      AssertChildrenContained(node);
+    });
+  }
+
+  [Fact]
+  public void EditorSyntaxProjectsContinuationSuffixesAsParsedFunctionCalls() {
+    const string source = "@RETURN @table#base\n  @+#entry:put<name><(@local#Name)>\n";
+
+    var tree = MixinExpressionParser.ParseEditorSyntax(source);
+    var continuation = Assert.Single(DescendantsAndSelf(tree.Root).Where(child =>
+      child.Kind == MixinEditorSyntaxKind.Continuation
+    ));
+    var nodes = DescendantsAndSelf(tree.Root).ToArray();
+    var path = Assert.Single(nodes.Where(child =>
+      child.Kind == MixinEditorSyntaxKind.Path
+    ));
+    var function = Assert.Single(nodes.Where(child =>
+      child.Kind == MixinEditorSyntaxKind.FunctionCall
+    ));
+
+    Assert.Equal("@+", Slice(source, continuation.SourceRange));
+    Assert.Equal("#entry", Slice(source, path.SourceRange));
+    Assert.Equal(":put<name><(@local#Name)>", Slice(source, function.SourceRange));
+    Assert.Contains(function.Children, child => child.Kind == MixinEditorSyntaxKind.LiteralArgument);
+    Assert.Contains(function.Children, child => child.Kind == MixinEditorSyntaxKind.ExpressionArgument);
+  }
+
+  [Fact]
+  public void EditorSyntaxMapsMultilineDynamicArgumentsBackToPhysicalSource() {
+    const string source =
+      "@RETURN @table:put<symbol><(@param)>:put<value><(@table\r\n" +
+      "  @+:put<name><(@local#Name)>\r\n" +
+      "  @+:put<hash><(@local#Hash)>)>\r\n";
+
+    var tree = MixinExpressionParser.ParseEditorSyntax(source);
+    var nodes = DescendantsAndSelf(tree.Root).ToArray();
+    var multilineArgument = nodes
+      .Where(node => node.Kind == MixinEditorSyntaxKind.ExpressionArgument)
+      .Single(node => Slice(source, node.SourceRange).Contains("@+:put<hash>", StringComparison.Ordinal));
+
+    Assert.StartsWith("<(@table", Slice(source, multilineArgument.SourceRange));
+    Assert.EndsWith(")>", Slice(source, multilineArgument.SourceRange));
+    Assert.Equal(2, DescendantsAndSelf(multilineArgument)
+      .Count(node => node.Kind == MixinEditorSyntaxKind.Continuation));
+    Assert.Equal(2, DescendantsAndSelf(multilineArgument)
+      .Count(node => node.Kind == MixinEditorSyntaxKind.FunctionCall &&
+        Slice(source, node.SourceRange).StartsWith(":put", StringComparison.Ordinal)));
+    Assert.Contains(nodes, node => node.Kind == MixinEditorSyntaxKind.FunctionCall &&
+      Slice(source, node.SourceRange).StartsWith(":put<hash>", StringComparison.Ordinal));
+    AssertNoCrossingRanges(nodes);
+  }
+
+  private static IEnumerable<MixinEditorSyntaxNode> DescendantsAndSelf(MixinEditorSyntaxNode node) {
+    yield return node;
+    foreach (var child in node.Children)
+      foreach (var descendant in DescendantsAndSelf(child)) yield return descendant;
+  }
+
+  private static void AssertChildrenContained(MixinEditorSyntaxNode node) {
+    foreach (var child in node.Children) {
+      Assert.InRange(child.SourceRange.Start, node.SourceRange.Start, node.SourceRange.End);
+      Assert.InRange(child.SourceRange.End, child.SourceRange.Start, node.SourceRange.End);
+    }
+  }
+
+  private static void AssertNoCrossingRanges(IReadOnlyList<MixinEditorSyntaxNode> nodes) {
+    for (var leftIndex = 0; leftIndex < nodes.Count; leftIndex++)
+      for (var rightIndex = leftIndex + 1; rightIndex < nodes.Count; rightIndex++) {
+        var left = nodes[leftIndex].SourceRange;
+        var right = nodes[rightIndex].SourceRange;
+        var overlaps = left.Start < right.End && right.Start < left.End;
+        if (!overlaps) continue;
+        var leftContainsRight = left.Start <= right.Start && left.End >= right.End;
+        var rightContainsLeft = right.Start <= left.Start && right.End >= left.End;
+        Assert.True(leftContainsRight || rightContainsLeft,
+          $"crossing editor ranges {left} and {right}");
+      }
+  }
+
+  [Fact]
+  public void EditorSyntaxPreservesSemanticDiagnosticsAsMissingErrorNodes() {
+    const string source = "@UNKNOWN value\n\n@+ orphan";
+
+    var tree = MixinExpressionParser.ParseEditorSyntax(source);
+
+    Assert.Contains(tree.Root.Children[0].Children,
+      child => child.Kind == MixinEditorSyntaxKind.Error && child.SourceRange.IsEmpty);
+    Assert.Contains(tree.Root.Children[2].Children,
+      child => child.Kind == MixinEditorSyntaxKind.Error && child.SourceRange.IsEmpty);
+  }
+
+  private static string Slice(string source, MixinSourceRange range) =>
+    source.Substring(range.Start, range.Length);
 
   [Fact]
   public void RewritesOnlyTargetReferenceRootsAsThis() {

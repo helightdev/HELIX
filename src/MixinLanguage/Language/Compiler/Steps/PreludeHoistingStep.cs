@@ -111,7 +111,9 @@ public static partial class MixinExpressionCompiler {
           labels.Add(key, label);
           generated.Add(new CarryDirectiveSyntax(instruction.Line, label, [new IMixinValue(null, reference)]));
         }
-        return new MixinExpressionReference(MixinExpressionRoot.Carry, label, [], reference.Parenthesized);
+        return new MixinExpressionReference(
+          MixinExpressionRoot.Carry, label, [], reference.Parenthesized, reference.SourceRange
+        );
       }
 
       MixinExpressionReference RewriteNested(MixinExpressionReference reference) {
@@ -121,7 +123,7 @@ public static partial class MixinExpressionCompiler {
             .. reference.Properties.Select(property =>
               FunctionBindingStep.RewriteProperty(property, Rewrite)
             )
-          ], reference.Parenthesized
+          ], reference.Parenthesized, reference.SourceRange
         );
       }
 

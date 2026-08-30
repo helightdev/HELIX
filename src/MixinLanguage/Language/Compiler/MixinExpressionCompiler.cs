@@ -29,7 +29,7 @@ public static partial class MixinExpressionCompiler {
       ).ToArray();
       return new MixinExpressionReference(
         reference.Root == MixinExpressionRoot.Target ? MixinExpressionRoot.This : reference.Root,
-        reference.Member, properties, reference.Parenthesized
+        reference.Member, properties, reference.Parenthesized, reference.SourceRange
       );
     }
 

@@ -4,7 +4,8 @@ using System.Linq;
 namespace MixinLanguage.Compiler;
 
 public abstract class MixinSyntaxNode(int line) {
-  internal int Line { get; } = line;
+  public int Line { get; } = line;
+  public MixinSourceRange SourceRange { get; internal set; }
 }
 
 public sealed class MixinProgramSyntax {
@@ -22,6 +23,7 @@ public sealed class MixinProgramSyntax {
   }
 
   internal int Count => _instructions.Length;
+  public IReadOnlyList<DirectiveInstruction> Instructions => _instructions;
   internal IReadOnlyList<MixinParseDiagnostic> Diagnostics { get; }
 
   internal DirectiveInstruction Get(int index) {
@@ -56,7 +58,7 @@ public abstract class DirectiveInstruction(int line) : MixinSyntaxNode(line) {
 
 public abstract class ValueDirectiveSyntax(int line, IReadOnlyList<IMixinValue> expression)
   : DirectiveInstruction(line) {
-  internal IReadOnlyList<IMixinValue> Expression { get; } = expression ?? [];
+  public IReadOnlyList<IMixinValue> Expression { get; } = expression ?? [];
 
   internal override void CollectConstants(MixinStringPoolBuilder pool) {
     Collect(pool, null, Expression);
@@ -65,7 +67,7 @@ public abstract class ValueDirectiveSyntax(int line, IReadOnlyList<IMixinValue> 
 
 public abstract class BooleanDirectiveSyntax(int line, IReadOnlyList<MixinExpressionReference> expression)
   : DirectiveInstruction(line) {
-  internal IReadOnlyList<MixinExpressionReference> Expression { get; } = expression ?? [];
+  public IReadOnlyList<MixinExpressionReference> Expression { get; } = expression ?? [];
 
   internal override void CollectConstants(MixinStringPoolBuilder pool) {
     foreach (var item in Expression) item.CollectConstants(pool);
@@ -77,7 +79,7 @@ public sealed class EmptyDirectiveSyntax(int line) : DirectiveInstruction(line) 
 }
 
 public sealed class UnknownDirectiveSyntax(int line, string command) : DirectiveInstruction(line) {
-  internal string Name { get; } = command;
+  public string Name { get; } = command;
 
   internal override void CollectConstants(MixinStringPoolBuilder pool) {
     pool.Intern(Name);
@@ -87,10 +89,10 @@ public sealed class UnknownDirectiveSyntax(int line, string command) : Directive
 public sealed class DirectiveInvocationSyntax(int line, DirectiveDefinition definition,
   IReadOnlyList<DirectiveArgumentSyntax> arguments, IReadOnlyList<IMixinValue> operand
 ) : ValueDirectiveSyntax(line, operand) {
-  internal DirectiveDefinition Definition { get; } = definition;
-  internal IReadOnlyList<DirectiveArgumentSyntax> ParsedArguments { get; } = arguments;
-  internal IReadOnlyList<string> Arguments { get; } = [.. arguments.Select(MixinSyntaxRenderer.RenderArgument)];
-  internal string Argument => Arguments.Count == 0 ? null : Arguments[0];
+  public DirectiveDefinition Definition { get; } = definition;
+  public IReadOnlyList<DirectiveArgumentSyntax> ParsedArguments { get; } = arguments;
+  public IReadOnlyList<string> Arguments { get; } = [.. arguments.Select(MixinSyntaxRenderer.RenderArgument)];
+  public string Argument => Arguments.Count == 0 ? null : Arguments[0];
 
   internal override void CollectConstants(MixinStringPoolBuilder pool) {
     pool.Intern(Definition.Name);
@@ -241,7 +243,8 @@ public sealed record DirectiveArgumentSyntax(string Literal, IReadOnlyList<IMixi
 public sealed record MixinPropertyArgumentSyntax(
   string Literal,
   IReadOnlyList<IMixinValue> ValueExpression,
-  IReadOnlyList<MixinExpressionReference> BooleanExpression
+  IReadOnlyList<MixinExpressionReference> BooleanExpression,
+  MixinSourceRange SourceRange = default
 );
 
 internal static class MixinSyntaxFacts {

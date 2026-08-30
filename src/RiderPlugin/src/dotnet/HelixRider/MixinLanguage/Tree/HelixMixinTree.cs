@@ -6,6 +6,12 @@ using JetBrains.ReSharper.Psi.Tree;
 
 namespace HelixRider.MixinLanguage;
 
+public static class ChildRole
+{
+    public const short NONE = 0;
+    public const short LAST = 100;
+}
+
 public interface IHelixMixinTreeNode : ITreeNode
 {
     void Accept(TreeNodeVisitor visitor);

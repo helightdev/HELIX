@@ -13,7 +13,7 @@ internal sealed record MixinProgramParseResult(DirectiveInstruction[] Instructio
 internal sealed record MixinDirectiveParseResult(DirectiveInstruction Node, string Error);
 
 /// <summary>Builds the mixin AST from lexer tokens.</summary>
-public static class MixinExpressionParser {
+public static partial class MixinExpressionParser {
   public static MixinProgramSyntax Parse(string expression) {
     return new MixinProgramSyntax(expression);
   }
@@ -50,7 +50,7 @@ public static class MixinExpressionParser {
   ) {
     reference = null;
     error = null;
-    if (!Take(tokens, ref position, MixinExpressionTokenKind.At, out _)) {
+    if (!Take(tokens, ref position, MixinExpressionTokenKind.At, out var atToken)) {
       error = "expected '@' expression reference";
       return false;
     }
@@ -70,9 +70,13 @@ public static class MixinExpressionParser {
     var properties = new List<MixinExpressionProperty>();
     while (position < tokens.Count) {
       if (Take(tokens, ref position, MixinExpressionTokenKind.Path, out var path)) {
-        properties.Add(new MixinExpressionProperty("path", path.Text));
+        properties.Add(new MixinExpressionProperty(
+          "path", [new MixinPropertyArgumentSyntax(path.Text, null, null,
+            new MixinSourceRange(path.Start, path.End))], sourceRange: new MixinSourceRange(path.Start - 1, path.End)
+        ));
         continue;
       }
+      var propertyStartPosition = position;
       var negated = Take(tokens, ref position, MixinExpressionTokenKind.Negation, out _);
       var predicate = Take(tokens, ref position, MixinExpressionTokenKind.Predicate, out _);
       if (!Take(tokens, ref position, MixinExpressionTokenKind.Property, out var propertyToken)) {
@@ -91,7 +95,11 @@ public static class MixinExpressionParser {
         arguments.Add(argument);
       }
       var propertyName = predicate && propertyToken.Text == "type" ? "typeSymbol" : propertyToken.Text;
-      var property = new MixinExpressionProperty(propertyName, arguments.AsReadOnly(), negated);
+      var propertyStart = propertyStartPosition < tokens.Count ? tokens[propertyStartPosition].Start - 1 : propertyToken.Start - 1;
+      var propertyEnd = position == 0 ? propertyToken.End : tokens[position - 1].End;
+      var property = new MixinExpressionProperty(
+        propertyName, arguments.AsReadOnly(), negated, sourceRange: new MixinSourceRange(propertyStart, propertyEnd)
+      );
       if (FunctionLibrary.TryGet(property.Name, out var function) &&
         (property.Arguments.Count < function.MinimumArguments ||
           property.Arguments.Count > function.MaximumArguments)) {
@@ -117,7 +125,11 @@ public static class MixinExpressionParser {
       error = string.IsNullOrEmpty(tokens[position].Text) ? "invalid expression reference" : tokens[position].Text;
       return false;
     }
-    reference = new MixinExpressionReference(root, member, properties.AsReadOnly(), parenthesized);
+    var referenceEnd = position == 0 ? atToken.End : tokens[position - 1].End;
+    reference = new MixinExpressionReference(
+      root, member, properties.AsReadOnly(), parenthesized,
+      new MixinSourceRange(atToken.Start, referenceEnd)
+    );
     return true;
   }
 
@@ -126,10 +138,16 @@ public static class MixinExpressionParser {
     out MixinPropertyArgumentSyntax argument
   ) {
     if (Take(tokens, ref position, MixinExpressionTokenKind.ArgumentLiteral, out var literal)) {
-      argument = new MixinPropertyArgumentSyntax(literal.Text, null, null);
-      return Take(tokens, ref position, MixinExpressionTokenKind.ArgumentEnd, out _);
+      if (!Take(tokens, ref position, MixinExpressionTokenKind.ArgumentEnd, out var literalEnd)) {
+        argument = null;
+        return false;
+      }
+      argument = new MixinPropertyArgumentSyntax(
+        literal.Text, null, null, new MixinSourceRange(literal.Start - 1, literalEnd.End)
+      );
+      return true;
     }
-    if (!Take(tokens, ref position, MixinExpressionTokenKind.ArgumentExpressionStart, out _)) {
+    if (!Take(tokens, ref position, MixinExpressionTokenKind.ArgumentExpressionStart, out var expressionStart)) {
       argument = null;
       return false;
     }
@@ -146,13 +164,15 @@ public static class MixinExpressionParser {
     }
     var expression = tokens.Skip(start).Take(position - start).ToArray();
     position++;
-    if (!Take(tokens, ref position, MixinExpressionTokenKind.ArgumentEnd, out _)) {
+    if (!Take(tokens, ref position, MixinExpressionTokenKind.ArgumentEnd, out var expressionEnd)) {
       argument = null;
       return false;
     }
     argument = property is "and" or "or"
-      ? new MixinPropertyArgumentSyntax(null, null, ParseBooleanExpression(expression))
-      : new MixinPropertyArgumentSyntax(null, ParseValueExpression(expression), null);
+      ? new MixinPropertyArgumentSyntax(null, null, ParseBooleanExpression(expression),
+        new MixinSourceRange(expressionStart.Start - 1, expressionEnd.End))
+      : new MixinPropertyArgumentSyntax(null, ParseValueExpression(expression), null,
+        new MixinSourceRange(expressionStart.Start - 1, expressionEnd.End));
     return true;
   }
 
@@ -219,6 +239,7 @@ public static class MixinExpressionParser {
     var tokens = MixinExpressionLexer.Lex(source);
     var result = new List<DirectiveInstruction>();
     var diagnostics = new List<MixinParseDiagnostic>();
+    var lineRanges = GetPhysicalLineRanges(source ?? "");
     var line = new List<MixinToken>();
     foreach (var token in tokens) {
       if (token.Kind != MixinTokenKind.EndOfLine) {
@@ -226,11 +247,26 @@ public static class MixinExpressionParser {
         continue;
       }
       var parsed = ParseTokens(line, token.Line);
+      if (token.Line > 0 && token.Line <= lineRanges.Count)
+        parsed.Node.SourceRange = lineRanges[token.Line - 1];
       result.Add(parsed.Node);
       if (parsed.Error is not null) diagnostics.Add(new MixinParseDiagnostic(token.Line, parsed.Error));
       line.Clear();
     }
     return new MixinProgramParseResult([.. result], diagnostics.AsReadOnly());
+  }
+
+  private static IReadOnlyList<MixinSourceRange> GetPhysicalLineRanges(string source) {
+    var ranges = new List<MixinSourceRange>();
+    var start = 0;
+    for (var position = 0; position < source.Length; position++) {
+      if (source[position] is not ('\r' or '\n')) continue;
+      if (source[position] == '\r' && position + 1 < source.Length && source[position + 1] == '\n') position++;
+      ranges.Add(new MixinSourceRange(start, position + 1));
+      start = position + 1;
+    }
+    ranges.Add(new MixinSourceRange(start, source.Length));
+    return ranges.AsReadOnly();
   }
 
   internal static MixinDirectiveParseResult ParseDirective(string text, int line) {

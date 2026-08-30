@@ -107,7 +107,7 @@ public static partial class MixinExpressionCompiler {
       if (property.ParsedArguments.Count == 0) {
         return new MixinExpressionProperty(
           property.Name, property.ParsedArguments, property.Negated,
-          BoundFunction(property)
+          BoundFunction(property), property.SourceRange
         );
       }
       var parsed = property.ParsedArguments.Select(argument => {
@@ -119,10 +119,12 @@ public static partial class MixinExpressionCompiler {
           var boolean = argument.BooleanExpression is null
             ? null
             : argument.BooleanExpression.Select(rewrite).ToArray();
-          return new MixinPropertyArgumentSyntax(argument.Literal, value, boolean);
+          return new MixinPropertyArgumentSyntax(argument.Literal, value, boolean, argument.SourceRange);
         }
       ).ToArray();
-      return new MixinExpressionProperty(property.Name, parsed, property.Negated, BoundFunction(property));
+      return new MixinExpressionProperty(
+        property.Name, parsed, property.Negated, BoundFunction(property), property.SourceRange
+      );
     }
 
     private static MixinLanguage.FunctionDefinition BoundFunction(
