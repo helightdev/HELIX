@@ -253,21 +253,21 @@ public abstract class ExecutionContext {
     return false;
   }
 
-  internal virtual object UnlinkSnapshot(IMixinValue value, bool includeMembers) {
+  internal virtual object UnlinkSnapshot(IMixinValue value) {
     return value.Unlink(this);
   }
 
-  internal virtual IMixinValue DetachValue(IMixinValue value, bool includeMembers = true) {
+  internal virtual IMixinValue DetachValue(IMixinValue value) {
     value = Evaluate(value);
     return value switch {
       MixinTableValue table => new MixinTableValue(
         [
           .. table.Entries.Select(item =>
-            new KeyValuePair<MixinString, IMixinValue>(item.Key, DetachValue(item.Value, includeMembers))
+            new KeyValuePair<MixinString, IMixinValue>(item.Key, DetachValue(item.Value))
           )
         ]
       ),
-      DirectiveEffectMixinValue effect => effect with { Value = DetachValue(effect.Value, includeMembers) },
+      DirectiveEffectMixinValue effect => effect with { Value = DetachValue(effect.Value) },
       _ => value
     };
   }

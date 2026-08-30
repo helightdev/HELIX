@@ -44,47 +44,51 @@ internal sealed class RoslynHostExpressionCache {
 internal sealed class RoslynValueCache {
   private readonly Dictionary<object, Dictionary<string, IMixinValue>> _derived =
     new(ReferenceObjectComparer.Instance);
-  private readonly Dictionary<object, object> _fullSnapshots =
+  private readonly Dictionary<object, object> _snapshots =
     new(ReferenceObjectComparer.Instance);
   private readonly Dictionary<string, IMixinValue> _roots = new(StringComparer.OrdinalIgnoreCase);
-  private readonly Dictionary<object, object> _shallowSnapshots =
-    new(ReferenceObjectComparer.Instance);
 
-  internal IMixinValue Root(string key, Func<IMixinValue> resolve) {
-    if (_roots.TryGetValue(key, out var value)) {
+  internal bool TryGetRoot(string key, out IMixinValue value) {
+    if (_roots.TryGetValue(key, out value)) {
       MixinProfiler.Increment("cache.root.hit");
-      return value;
+      return true;
     }
     MixinProfiler.Increment("cache.root.miss");
-    value = resolve() ?? NullMixinValue.Instance;
-    _roots.Add(key, value);
-    return value;
+    value = null;
+    return false;
   }
 
-  internal IMixinValue Derived(object subject, string member, Func<IMixinValue> resolve) {
+  internal void StoreRoot(string key, IMixinValue value) {
+    _roots.Add(key, value ?? NullMixinValue.Instance);
+  }
+
+  internal bool TryGetDerived(object subject, string member, out IMixinValue value) {
+    if (_derived.TryGetValue(subject, out var members) && members.TryGetValue(member, out value)) {
+      MixinProfiler.Increment("cache.derived.hit");
+      return true;
+    }
+    MixinProfiler.Increment("cache.derived.miss");
+    value = null;
+    return false;
+  }
+
+  internal void StoreDerived(object subject, string member, IMixinValue value) {
     if (!_derived.TryGetValue(subject, out var members)) {
       members = new Dictionary<string, IMixinValue>(StringComparer.OrdinalIgnoreCase);
       _derived.Add(subject, members);
     }
-    if (members.TryGetValue(member, out var value)) {
-      MixinProfiler.Increment("cache.derived.hit");
-      return value;
-    }
-    MixinProfiler.Increment("cache.derived.miss");
-    value = resolve() ?? NullMixinValue.Instance;
+    value ??= NullMixinValue.Instance;
     members.Add(member, value);
-    return value;
   }
 
-  internal object Snapshot(IMixinValue subject, bool includeMembers, Func<object> create) {
-    var snapshots = includeMembers ? _fullSnapshots : _shallowSnapshots;
-    if (snapshots.TryGetValue(subject, out var snapshot)) {
+  internal object Snapshot(IMixinValue subject, Func<object> create) {
+    if (_snapshots.TryGetValue(subject, out var snapshot)) {
       MixinProfiler.Increment("cache.snapshot.hit");
       return snapshot;
     }
     MixinProfiler.Increment("cache.snapshot.miss");
     snapshot = create();
-    snapshots.Add(subject, snapshot);
+    _snapshots.Add(subject, snapshot);
     return snapshot;
   }
 
@@ -220,26 +224,26 @@ internal sealed class RoslynMixinContext : ExecutionContext {
 
   internal INamedTypeSymbol CurrentType { get; }
 
-  internal IMixinValue Derive(RoslynMixinValue source, string key, Func<IMixinValue> resolve) {
+  internal bool TryGetDerived(RoslynMixinValue source, string key, out IMixinValue value) {
     if (!_valueOwners.TryGetValue(source.Value, out var cache)) cache = _targetValues;
-    var result = cache.Derived(source.Value, key, resolve);
-    RegisterOwner(result, cache);
-    return result;
+    if (!cache.TryGetDerived(source.Value, key, out value)) return false;
+    RegisterOwner(value, cache);
+    return true;
+  }
+
+  internal void StoreDerived(RoslynMixinValue source, string key, IMixinValue value) {
+    if (!_valueOwners.TryGetValue(source.Value, out var cache)) cache = _targetValues;
+    cache.StoreDerived(source.Value, key, value);
+    RegisterOwner(value, cache);
   }
 
   internal IMixinValue SelectValue(RoslynMixinValue source, MixinString member) {
     var name = member.Resolve(Strings);
-    return Derive(
-      source, "#" + name, () => {
-        var selected = SelectMember(source.Value, name);
-        return selected is null ? NullMixinValue.Instance : new RoslynMixinValue(selected);
-      }
-    );
-  }
-
-  private IMixinValue CachedRoot(RoslynValueCache cache, string key, Func<IMixinValue> resolve) {
-    var result = cache.Root(key, resolve);
-    RegisterOwner(result, cache);
+    var key = "#" + name;
+    if (TryGetDerived(source, key, out var cached)) return cached;
+    var selected = SelectMember(source.Value, name);
+    IMixinValue result = selected is null ? NullMixinValue.Instance : new RoslynMixinValue(selected);
+    StoreDerived(source, key, result);
     return result;
   }
 
@@ -535,17 +539,16 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     return value is RoslynMixinValue roslyn && SemanticTraits(roslyn.Value).Contains(name, StringComparer.Ordinal);
   }
 
-  internal override object UnlinkSnapshot(IMixinValue value, bool includeMembers) {
+  internal override object UnlinkSnapshot(IMixinValue value) {
     if (value is not RoslynMixinValue roslyn) return value.Unlink(this);
-    if (!includeMembers) return roslyn.UnlinkShallow(this);
     if (!_valueOwners.TryGetValue(roslyn.Value, out var cache)) cache = _targetValues;
-    return cache.Snapshot(roslyn, includeMembers, () => roslyn.Unlink(this, includeMembers));
+    return cache.Snapshot(roslyn, () => roslyn.Unlink(this));
   }
 
-  internal override IMixinValue DetachValue(IMixinValue value, bool includeMembers = true) {
+  internal override IMixinValue DetachValue(IMixinValue value) {
     value = Evaluate(value);
     if (value is RoslynMixinValue roslyn) {
-      var detached = UnlinkSnapshot(roslyn, includeMembers);
+      var detached = UnlinkSnapshot(roslyn);
       return detached is DetachedSemanticData semantic
         ? DetachedSemanticMixinValue.Materialize(semantic)
         : base.DetachValue(
@@ -555,10 +558,10 @@ internal sealed class RoslynMixinContext : ExecutionContext {
             bool boolean => boolean ? BooleanMixinValue.True : BooleanMixinValue.False,
             string text => new LiteralMixinValue(MixinString.Dynamic(text)),
             _ => new ObjectMixinValue(detached)
-          }, includeMembers
+          }
         );
     }
-    return base.DetachValue(value, includeMembers);
+    return base.DetachValue(value);
   }
 
   internal static IReadOnlyList<string> SemanticTraits(object value) {
@@ -679,25 +682,30 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       MixinExpressionRoot.Attribute => _attributeValues,
       _ => _targetValues
     };
-    var result = CachedRoot(
-      cache, root + "#" + name, () => {
-        object value = root switch {
-          MixinExpressionRoot.This => CurrentType,
-          MixinExpressionRoot.Target => _target,
-          MixinExpressionRoot.Attribute => _attribute,
-          MixinExpressionRoot.Argument => SelectArgument(name),
-          _ => null
-        };
-        if (value is null) {
-          return root == MixinExpressionRoot.Argument
-            ? NullMixinValue.Instance
-            : Error("@" + root.ToString().ToLowerInvariant() + " is not available in this context");
-        }
-        if (!string.IsNullOrEmpty(name) && root is not MixinExpressionRoot.Argument)
-          value = SelectMember(value, name);
-        return value is null ? NullMixinValue.Instance : new RoslynMixinValue(value, root);
-      }
-    );
+    var key = root + "#" + name;
+    if (cache.TryGetRoot(key, out var cached)) {
+      RegisterOwner(cached, cache);
+      return cached;
+    }
+    object value = root switch {
+      MixinExpressionRoot.This => CurrentType,
+      MixinExpressionRoot.Target => _target,
+      MixinExpressionRoot.Attribute => _attribute,
+      MixinExpressionRoot.Argument => SelectArgument(name),
+      _ => null
+    };
+    IMixinValue result;
+    if (value is null) {
+      result = root == MixinExpressionRoot.Argument
+        ? NullMixinValue.Instance
+        : Error("@" + root.ToString().ToLowerInvariant() + " is not available in this context");
+    } else {
+      if (!string.IsNullOrEmpty(name) && root is not MixinExpressionRoot.Argument)
+        value = SelectMember(value, name);
+      result = value is null ? NullMixinValue.Instance : new RoslynMixinValue(value, root);
+    }
+    cache.StoreRoot(key, result);
+    RegisterOwner(result, cache);
     return result;
   }
 
@@ -929,7 +937,13 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
   }
 
   public object Unlink(ExecutionContext context) {
-    return Unlink(context, true);
+    return Value switch {
+      TypedConstant { Kind: TypedConstantKind.Type } => Render(context).Resolve(context.Strings),
+      TypedConstant { Value: string or char } => Render(context).Resolve(context.Strings),
+      TypedConstant constant => constant.Value,
+      ISymbol or AttributeData => Detach(),
+      _ => Value
+    };
   }
 
   public bool Equals(IMixinValue other) {
@@ -948,22 +962,6 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
       char character => SymbolDisplay.FormatLiteral(character, true),
       bool boolean => boolean ? "true" : "false",
       _ => Convert.ToString(constant.Value, CultureInfo.InvariantCulture)
-    };
-  }
-
-  internal object Unlink(ExecutionContext context, bool includeMembers) {
-    return Value switch {
-      TypedConstant or ISymbol or AttributeData => Detach(), _ => Value
-    };
-  }
-
-  internal object UnlinkShallow(ExecutionContext context) {
-    return Value switch {
-      TypedConstant { Kind: TypedConstantKind.Type } => Render(context).Resolve(context.Strings),
-      TypedConstant { Value: string or char } => Render(context).Resolve(context.Strings),
-      TypedConstant constant => constant.Value,
-      ISymbol or AttributeData => Detach(),
-      _ => Value
     };
   }
 

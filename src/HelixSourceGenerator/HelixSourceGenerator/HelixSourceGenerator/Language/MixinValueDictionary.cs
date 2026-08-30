@@ -49,7 +49,7 @@ internal sealed class MixinValueDictionary :
   }
 
   internal void Store(ExecutionContext context, MixinString key, IMixinValue value) {
-    _values[key] = context.DetachValue(value, false);
+    _values[key] = context.DetachValue(value);
   }
 
   internal void StoreIsolated(MixinString key, IMixinValue value) {

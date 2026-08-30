@@ -31,7 +31,10 @@ internal abstract class EvaluatedFunctionDefinition(string name, int minimumArgu
               item.Render(context).Resolve(context.Strings)
             )
           );
-        result = roslyn.Derive(source, key, () => Apply(context, instance, values));
+        if (!roslyn.TryGetDerived(source, key, out result)) {
+          result = Apply(context, instance, values);
+          roslyn.StoreDerived(source, key, result);
+        }
       } else result = Apply(context, instance, values);
     } catch (ArgumentException exception) {
       return context.Error("invalid regular expression: " + exception.Message);
