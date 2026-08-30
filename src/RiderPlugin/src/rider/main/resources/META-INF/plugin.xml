@@ -27,7 +27,7 @@
               implementationClass="dev.helight.helix.mixin.HelixMixinFileType"
               fieldName="INSTANCE"
               language="HelixMixin"
-              extensions="additionalfile" />
+              patterns="*.HelixSourceGenerator.additionalfile" />
     <rd.languageAssociation backendLanguage="HELIX_MIXIN" frontendLanguage="HelixMixin" />
     <lightweight.backend.language.support language="HelixMixin"
                                           implementationClass="com.jetbrains.rider.rdclient.languages.LightweightBackendLanguage" />
