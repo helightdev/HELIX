@@ -50,9 +50,11 @@ public static partial class MixinExpressionCompiler {
       MixinExpressionReference RewriteComplete(MixinExpressionReference reference) {
         return rewrite(
           new MixinExpressionReference(
-            reference.Root, reference.Member, reference.Properties.Select(property =>
-              RewriteProperty(property, RewriteComplete)
-            ).ToArray(), reference.Parenthesized
+            reference.Root, reference.Member, [
+              .. reference.Properties.Select(property =>
+                RewriteProperty(property, RewriteComplete)
+              )
+            ], reference.Parenthesized
           )
         );
       }
@@ -60,9 +62,11 @@ public static partial class MixinExpressionCompiler {
       MixinExpressionReference RewriteBoolean(MixinExpressionReference reference) {
         return rewrite(
           new MixinExpressionReference(
-            reference.Root, reference.Member, reference.Properties.Select(property =>
-              RewriteProperty(property, RewriteComplete)
-            ).ToArray(), reference.Parenthesized
+            reference.Root, reference.Member, [
+              .. reference.Properties.Select(property =>
+                RewriteProperty(property, RewriteComplete)
+              )
+            ], reference.Parenthesized
           )
         );
       }

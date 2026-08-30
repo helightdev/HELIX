@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HelixSourceGenerator.Shared;
 
 namespace HelixSourceGenerator.Language;
 
@@ -34,10 +35,15 @@ public abstract class DirectiveFunctionDefinition(string name, DirectiveOperandK
 
 public static class DirectiveLibrary {
   private static readonly IReadOnlyDictionary<string, DirectiveDefinition> Definitions =
-    new Dictionary<string, DirectiveDefinition>(StringComparer.Ordinal) {
+    CreateDefinitions();
+
+  private static IReadOnlyDictionary<string, DirectiveDefinition> CreateDefinitions() {
+    using var profile = MixinProfiler.Measure("static.directive_library");
+    return new Dictionary<string, DirectiveDefinition>(StringComparer.Ordinal) {
       ["RESOLVE_MIXIN"] = new ResolveMixinDirective(), ["PROP_STRUCT"] = new PropStructDirective(),
       ["AUGMENT_STRUCT"] = new AugmentStructDirective(), ["PUSH"] = new PushDirective(), ["PUT"] = new PutDirective()
     };
+  }
 
   public static bool TryGet(string name, out DirectiveDefinition definition) {
     return Definitions.TryGetValue(name ?? "", out definition);
@@ -131,7 +137,7 @@ internal abstract class TableDirective(string name, int arguments)
       ? typed
       : MixinTableValue.Empty;
     table = Mutate(context, table, values, operand);
-    context.Locals.Store(context, local, table);
+    context.Locals.StoreIsolated(local, table);
     return table;
   }
 

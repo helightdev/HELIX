@@ -166,10 +166,9 @@ public static class MixinExpressionVirtualMachine {
             if (!Evaluate(instruction, out var stored)) return Error(stored, instruction);
             if (instruction.Opcode == MixinOpcode.Carry)
               context.Carries.Store(context, instruction.Name, stored);
-            else {
-              (instruction.Opcode == MixinOpcode.StoreLocal ? context.Locals : context.Variables)
-                .Store(context, instruction.Name, stored);
-            }
+            else if (instruction.Opcode == MixinOpcode.StoreLocal)
+              context.Locals.StoreIsolated(instruction.Name, stored);
+            else context.Variables.Store(context, instruction.Name, stored);
             break;
           case MixinOpcode.Call:
             if (instruction.Destination < 0) return Failure("unknown function", instruction.Location.Line, logs);
@@ -250,7 +249,7 @@ public static class MixinExpressionVirtualMachine {
         var frame = calls.Pop();
         context.Parameter = frame.Parameter;
         if (frame.Local.IsInterned || !string.IsNullOrEmpty(frame.Local.DynamicValue))
-          context.Locals.Store(context, frame.Local, value);
+          context.Locals.StoreIsolated(frame.Local, value);
         pc = frame.Return;
       }
     } finally {
@@ -311,7 +310,7 @@ public static class MixinExpressionVirtualMachine {
             continue;
           }
           case MixinOpcode.StoreLocal:
-            context.Locals.Store(context, instruction.Name, Value());
+            context.Locals.StoreIsolated(instruction.Name, Value());
             continue;
           case MixinOpcode.StoreVariable:
             context.Variables.Store(context, instruction.Name, Value());
@@ -327,7 +326,7 @@ public static class MixinExpressionVirtualMachine {
             var result = RunProgramFunction(program, context, instruction.Destination, argument);
             if (result is ErrorMixinValue) return result;
             if (instruction.Name.IsInterned || !string.IsNullOrEmpty(instruction.Name.DynamicValue))
-              context.Locals.Store(context, instruction.Name, result);
+              context.Locals.StoreIsolated(instruction.Name, result);
             continue;
           }
           case MixinOpcode.Return: return Value();
@@ -364,14 +363,18 @@ public static class MixinExpressionVirtualMachine {
       string text => new LiteralMixinValue(ExecutionContext.Dynamic(text)),
       DetachedSemanticData detached => DetachedSemanticMixinValue.Materialize(detached, context.Strings),
       IReadOnlyDictionary<string, object> table => new MixinTableValue(
-        table.Select(item =>
-          new KeyValuePair<MixinString, IMixinValue>(context.Intern(item.Key), FromObject(context, item.Value))
-        ).ToArray()
+        [
+          .. table.Select(item =>
+            new KeyValuePair<MixinString, IMixinValue>(context.Intern(item.Key), FromObject(context, item.Value))
+          )
+        ]
       ),
       IDictionary<string, object> table => new MixinTableValue(
-        table.Select(item =>
-          new KeyValuePair<MixinString, IMixinValue>(context.Intern(item.Key), FromObject(context, item.Value))
-        ).ToArray()
+        [
+          .. table.Select(item =>
+            new KeyValuePair<MixinString, IMixinValue>(context.Intern(item.Key), FromObject(context, item.Value))
+          )
+        ]
       ),
       _ => new ObjectMixinValue(value)
     };

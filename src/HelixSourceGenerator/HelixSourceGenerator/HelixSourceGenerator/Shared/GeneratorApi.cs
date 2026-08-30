@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -14,6 +15,8 @@ internal static class GeneratorAnalysis {
       SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
       SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
     );
+  internal static readonly SymbolDisplayFormat TypeDisplayFormatWithoutGlobal =
+    TypeDisplayFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted);
 
   internal static Location LocationOf(ISymbol symbol) {
     return symbol.Locations.FirstOrDefault(location => location.IsInSource) ??
@@ -46,6 +49,7 @@ internal static class GeneratorAnalysis {
   }
 
   internal static IReadOnlyList<IFieldSymbol> InstanceFields(INamedTypeSymbol type) {
+    using var profile = MixinProfiler.Measure("roslyn.analysis.instance_fields");
     return [
       .. type.GetMembers()
         .OfType<IFieldSymbol>()
@@ -72,10 +76,12 @@ internal static class GeneratorAnalysis {
   }
 
   internal static AttributeData Attribute(ISymbol symbol, string metadataName) {
-    return symbol.GetAttributes()
-      .FirstOrDefault(item =>
-        item.AttributeClass?.ToDisplayString() == metadataName
-      );
+    using var profile = MixinProfiler.Measure("roslyn.analysis.attribute");
+    ImmutableArray<AttributeData> attributes;
+    using (MixinProfiler.Measure("roslyn.analysis.attribute.get"))
+      attributes = symbol.GetAttributes();
+    using (MixinProfiler.Measure("roslyn.analysis.attribute.match"))
+      return attributes.FirstOrDefault(item => item.AttributeClass?.ToDisplayString() == metadataName);
   }
 
   internal static ITypeSymbol TypeArgument(AttributeData attribute, string name) {
@@ -166,6 +172,7 @@ internal static class GeneratorAnalysis {
   }
 
   internal static IReadOnlyList<string> CollectUsings(INamedTypeSymbol type) {
+    using var profile = MixinProfiler.Measure("roslyn.analysis.collect_usings");
     var result = new List<string>();
     var seen = new HashSet<string>(StringComparer.Ordinal);
     foreach (var syntaxReference in type.DeclaringSyntaxReferences) {
@@ -209,6 +216,7 @@ internal static class GeneratorSource {
     string baseType = null,
     IReadOnlyList<string> typeAttributes = null
   ) {
+    using var profile = MixinProfiler.Measure("roslyn.source.wrap_type");
     var chain = ContainingTypes(type);
     var namespaceName = type.ContainingNamespace is { IsGlobalNamespace: false } ns
       ? ns.ToDisplayString()
@@ -301,6 +309,7 @@ internal sealed class TypeWrapper {
   internal string HintName { get; }
 
   internal DetachedTypeWrapper Detach() {
+    using var profile = MixinProfiler.Measure("roslyn.source.detach_wrapper");
     return new DetachedTypeWrapper(
       _namespaceName,
       [

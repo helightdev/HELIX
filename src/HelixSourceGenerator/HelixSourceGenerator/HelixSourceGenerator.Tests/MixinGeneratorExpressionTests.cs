@@ -599,7 +599,7 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
-  public void CarryRetainsDetachedTargetSemanticsForLateExpression() {
+  public void LateExpressionHoistsExactTargetValues() {
     const string source = """
                           using System;
                           namespace HELIX {
@@ -613,12 +613,10 @@ public sealed class MixinGeneratorExpressionTests {
                           [HELIX.MixinExpression(
                             "",
                             LateExpression =
-                              "@CARRY<Target> @target\n" +
-                              "@CARRY<AttributeTable> @attr:table\n" +
-                              "@ASSERT @carry#Target:?has<Length>\n" +
-                              "@ASSERT @carry#Target:type:?is<System.String>\n" +
-                              "@ASSERT @carry#Target:type:?is<System.IComparable>\n" +
-                              "@CODE<CLASS> public const string Carried = \"@carry#Target:name|@carry#Target:type|@carry#Target:visibility|@carry#AttributeTable#0:name\";"
+                              "@ASSERT @target:?has<Length>\n" +
+                              "@ASSERT @target:type:?is<System.String>\n" +
+                              "@ASSERT @target:type:?is<System.IComparable>\n" +
+                              "@CODE<CLASS> public const string Carried = \"@target:name|@target:type|@target:visibility|@attr:table#0:name\";"
                           )]
                           [AttributeUsage(AttributeTargets.Field)] public sealed class CarryAttribute : Attribute { }
                           [HELIX.Mixable]
@@ -637,12 +635,12 @@ public sealed class MixinGeneratorExpressionTests {
 
     Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources).SourceText.ToString();
-    Assert.Contains("Carried = \"Text|System.String|public|CarryAttribute\"", text);
+    Assert.Contains("Carried = \"Text|global::System.String|public|CarryAttribute\"", text);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
   [Fact]
-  public void CarryRetainsDetachedGenericTypeArgumentsForLateExpression() {
+  public void LateExpressionHoistsExactGenericTypeArguments() {
     const string source = """
                           using System;
                           using System.Collections.Generic;
@@ -655,10 +653,9 @@ public sealed class MixinGeneratorExpressionTests {
                             }
                           }
                           [HELIX.MixinExpression(
-                            "@ASSERT @carry#Type#0:?is<System.String>\n" +
-                            "@ASSERT @carry#Type#T:?is<System.String>\n" +
-                            "@CODE<CLASS> public const string ItemType = \"@carry#Type#0\";",
-                            Prelude = "@CARRY<Type> @target:type"
+                            "@ASSERT @target:type#0:?is<System.String>\n" +
+                            "@ASSERT @target:type#T:?is<System.String>\n" +
+                            "@CODE<CLASS> public const string ItemType = \"@target:type#0\";"
                           )]
                           [AttributeUsage(AttributeTargets.Field)] public sealed class GenericAttribute : Attribute { }
                           [HELIX.Mixable] public partial class Demo {
@@ -676,7 +673,7 @@ public sealed class MixinGeneratorExpressionTests {
 
     Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     var text = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources).SourceText.ToString();
-    Assert.Contains("ItemType = \"System.String\";", text);
+    Assert.Contains("ItemType = \"global::System.String\";", text);
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 

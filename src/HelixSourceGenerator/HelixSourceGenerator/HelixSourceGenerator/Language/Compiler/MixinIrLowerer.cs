@@ -19,7 +19,7 @@ public static partial class MixinExpressionCompiler {
   private static RuntimeValue LowerArgument(MixinPropertyArgumentSyntax syntax, MixinStringPool strings) {
     if (syntax is null) return new LiteralMixinValue(strings.Get(null));
     if (syntax.BooleanExpression is { } boolean)
-      return new AllMixinValue(boolean.Select(item => LowerReference(item, strings)).ToArray());
+      return new AllMixinValue([.. boolean.Select(item => LowerReference(item, strings))]);
     if (syntax.ValueExpression is { } expression) return LowerValue(expression, strings);
     return LowerLiteral(syntax.Literal, strings);
   }
@@ -35,10 +35,12 @@ public static partial class MixinExpressionCompiler {
     if (syntax is { Count: 1 } && syntax[0].Reference is { } reference) return LowerReference(reference, strings);
     if (syntax is { Count: 1 } && syntax[0].Reference is null) return LowerLiteral(syntax[0].Literal, strings);
     return new InterpolationMixinValue(
-      syntax.Select(part => part.Reference is null
-        ? LowerLiteral(part.Literal, strings)
-        : LowerReference(part.Reference, strings)
-      ).ToArray()
+      [
+        .. syntax.Select(part => part.Reference is null
+          ? LowerLiteral(part.Literal, strings)
+          : LowerReference(part.Reference, strings)
+        )
+      ]
     );
   }
 
@@ -54,7 +56,7 @@ public static partial class MixinExpressionCompiler {
     IReadOnlyList<MixinExpressionReference> syntax,
     MixinStringPool strings
   ) {
-    return new AllMixinValue(syntax.Select(item => LowerReference(item, strings)).ToArray());
+    return new AllMixinValue([.. syntax.Select(item => LowerReference(item, strings))]);
   }
 
   private static MixinInstruction LowerInstruction(
@@ -116,7 +118,7 @@ public static partial class MixinExpressionCompiler {
       ),
       MixinDirectiveSyntax mixin => new MixinInstruction(
         MixinOpcode.Mixin, location, LowerValue(mixin.Expression, strings),
-        new[] { LowerArgument(mixin.Target, strings), LowerArgument(mixin.Priority, strings) }
+        [LowerArgument(mixin.Target, strings), LowerArgument(mixin.Priority, strings)]
       ),
       UsingDirectiveSyntax use => new MixinInstruction(
         MixinOpcode.Using, location, LowerValue(use.Expression, strings)
@@ -164,9 +166,11 @@ public static partial class MixinExpressionCompiler {
       ),
       DirectiveInvocationSyntax directive => new MixinInstruction(
         MixinOpcode.Directive, location,
-        LowerValue(directive.Expression, strings), directive.ParsedArguments.Select(item =>
-          item.Expression is null ? LowerLiteral(item.Literal, strings) : LowerValue(item.Expression, strings)
-        ).ToArray(), Directive: directive.Definition
+        LowerValue(directive.Expression, strings), [
+          .. directive.ParsedArguments.Select(item =>
+            item.Expression is null ? LowerLiteral(item.Literal, strings) : LowerValue(item.Expression, strings)
+          )
+        ], Directive: directive.Definition
       ),
       _ => new MixinInstruction(
         MixinOpcode.Fail, location, new ErrorMixinValue(strings.Get("invalid compiled instruction"))
@@ -181,9 +185,9 @@ public static partial class MixinExpressionCompiler {
       if (value is not InvokeMixinValue invocation) {
         return value switch {
           InterpolationMixinValue interpolation => new InterpolationMixinValue(
-            interpolation.Parts.Select(ResolveProgramFunctions).ToArray()
+            [.. interpolation.Parts.Select(ResolveProgramFunctions)]
           ),
-          AllMixinValue all => new AllMixinValue(all.Values.Select(ResolveProgramFunctions).ToArray()),
+          AllMixinValue all => new AllMixinValue([.. all.Values.Select(ResolveProgramFunctions)]),
           _ => value
         };
       }

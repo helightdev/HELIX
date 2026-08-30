@@ -226,12 +226,12 @@ public static class MixinExpressionParser {
       if (parsed.Error is not null) diagnostics.Add(new MixinParseDiagnostic(token.Line, parsed.Error));
       line.Clear();
     }
-    return new MixinProgramParseResult(result.ToArray(), diagnostics.AsReadOnly());
+    return new MixinProgramParseResult([.. result], diagnostics.AsReadOnly());
   }
 
   internal static MixinDirectiveParseResult ParseDirective(string text, int line) {
     var tokens = MixinExpressionLexer.LexLogicalLine(text, line);
-    return ParseTokens(tokens.Where(token => token.Kind != MixinTokenKind.EndOfLine).ToArray(), line);
+    return ParseTokens([.. tokens.Where(token => token.Kind != MixinTokenKind.EndOfLine)], line);
   }
 
   private static MixinDirectiveParseResult ParseTokens(IReadOnlyList<MixinToken> tokens, int line) {
@@ -535,7 +535,7 @@ public static class MixinExpressionParser {
       return false;
     }
     command = identifier.Text.ToUpperInvariant();
-    arguments = tokens.Where(token => token.Kind == MixinTokenKind.Argument).Select(token => token.Text).ToArray();
+    arguments = [.. tokens.Where(token => token.Kind == MixinTokenKind.Argument).Select(token => token.Text)];
     operand = tokens.FirstOrDefault(token => token.Kind == MixinTokenKind.Operand)?.Text ?? "";
     return true;
   }

@@ -61,7 +61,7 @@ public sealed class MixinStringPool {
 
   internal MixinStringPool(string[] values, IReadOnlyDictionary<string, int> ids) {
     _baseCount = 0;
-    _values = new List<string>(values ?? []);
+    _values = [.. values ?? []];
     _ids = new Dictionary<string, int>(StringComparer.Ordinal);
     if (ids is not null)
       foreach (var item in ids)

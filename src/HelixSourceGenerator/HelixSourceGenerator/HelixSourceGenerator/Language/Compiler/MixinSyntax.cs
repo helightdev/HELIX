@@ -17,7 +17,7 @@ public sealed class MixinProgramSyntax {
   }
 
   internal MixinProgramSyntax(IEnumerable<DirectiveInstruction> instructions) {
-    _instructions = (instructions ?? []).ToArray();
+    _instructions = [.. instructions ?? []];
     Diagnostics = [];
   }
 

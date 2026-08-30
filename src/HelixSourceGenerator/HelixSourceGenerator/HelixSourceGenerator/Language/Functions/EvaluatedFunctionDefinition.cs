@@ -22,18 +22,17 @@ internal abstract class EvaluatedFunctionDefinition(string name, int minimumArgu
     if (values.OfType<ErrorMixinValue>().FirstOrDefault() is { } error) return error;
     IMixinValue result;
     try {
-      result = context is RoslynMixinContext roslyn && instance is RoslynMixinValue source
-        ? roslyn.Derive(
-          source, values.Length == 0
-            ? _cacheKey
-            : _cacheKey + "\u001f" +
-            string.Join(
-              "\u001f", values.Select(item => item.GetType().FullName + "=" +
-                item.Render(context).Resolve(context.Strings)
-              )
-            ), () => Apply(context, instance, values)
-        )
-        : Apply(context, instance, values);
+      if (context is RoslynMixinContext roslyn && instance is RoslynMixinValue source) {
+        string key;
+        using (MixinProfiler.Measure("cache.derived.key")) key = values.Length == 0
+          ? _cacheKey
+          : _cacheKey + "\u001f" + string.Join(
+            "\u001f", values.Select(item => item.GetType().FullName + "=" +
+              item.Render(context).Resolve(context.Strings)
+            )
+          );
+        result = roslyn.Derive(source, key, () => Apply(context, instance, values));
+      } else result = Apply(context, instance, values);
     } catch (ArgumentException exception) {
       return context.Error("invalid regular expression: " + exception.Message);
     }

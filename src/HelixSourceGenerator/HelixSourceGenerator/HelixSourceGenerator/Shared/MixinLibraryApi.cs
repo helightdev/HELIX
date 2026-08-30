@@ -400,6 +400,7 @@ internal sealed class MixinLibraryCatalog {
   private readonly Dictionary<string, MixinLibraryFile> _files;
 
   internal MixinLibraryCatalog(IEnumerable<MixinLibraryFile> files) {
+    using var profile = MixinProfiler.Measure("model.library_catalog.create");
     _files = (files ?? [])
       .Where(item => item is not null)
       .GroupBy(item => item.Key, StringComparer.Ordinal)
@@ -490,10 +491,12 @@ internal sealed class MixinLibraryCatalogComparer : IEqualityComparer<MixinLibra
   internal static readonly MixinLibraryCatalogComparer Instance = new();
 
   public bool Equals(MixinLibraryCatalog x, MixinLibraryCatalog y) {
+    using var profile = MixinProfiler.Measure("comparer.library_catalog.equals");
     return ReferenceEquals(x, y) || (x is not null && y is not null && x.Key == y.Key);
   }
 
   public int GetHashCode(MixinLibraryCatalog value) {
+    using var profile = MixinProfiler.Measure("comparer.library_catalog.hash");
     return StringComparer.Ordinal.GetHashCode(value?.Key ?? "");
   }
 }
@@ -502,10 +505,12 @@ internal sealed class MixinCompilationComparer : IEqualityComparer<MixinCompilat
   internal static readonly MixinCompilationComparer Instance = new();
 
   public bool Equals(MixinCompilation x, MixinCompilation y) {
+    using var profile = MixinProfiler.Measure("comparer.compilation.equals");
     return ReferenceEquals(x, y) || (x is not null && y is not null && x.Catalog.Key == y.Catalog.Key);
   }
 
   public int GetHashCode(MixinCompilation value) {
+    using var profile = MixinProfiler.Measure("comparer.compilation.hash");
     return StringComparer.Ordinal.GetHashCode(value?.Catalog.Key ?? "");
   }
 }

@@ -51,7 +51,11 @@ internal sealed class RoslynValueCache {
     new(ReferenceObjectComparer.Instance);
 
   internal IMixinValue Root(string key, Func<IMixinValue> resolve) {
-    if (_roots.TryGetValue(key, out var value)) return value;
+    if (_roots.TryGetValue(key, out var value)) {
+      MixinProfiler.Increment("cache.root.hit");
+      return value;
+    }
+    MixinProfiler.Increment("cache.root.miss");
     value = resolve() ?? NullMixinValue.Instance;
     _roots.Add(key, value);
     return value;
@@ -62,7 +66,11 @@ internal sealed class RoslynValueCache {
       members = new Dictionary<string, IMixinValue>(StringComparer.OrdinalIgnoreCase);
       _derived.Add(subject, members);
     }
-    if (members.TryGetValue(member, out var value)) return value;
+    if (members.TryGetValue(member, out var value)) {
+      MixinProfiler.Increment("cache.derived.hit");
+      return value;
+    }
+    MixinProfiler.Increment("cache.derived.miss");
     value = resolve() ?? NullMixinValue.Instance;
     members.Add(member, value);
     return value;
@@ -70,7 +78,11 @@ internal sealed class RoslynValueCache {
 
   internal object Snapshot(IMixinValue subject, bool includeMembers, Func<object> create) {
     var snapshots = includeMembers ? _fullSnapshots : _shallowSnapshots;
-    if (snapshots.TryGetValue(subject, out var snapshot)) return snapshot;
+    if (snapshots.TryGetValue(subject, out var snapshot)) {
+      MixinProfiler.Increment("cache.snapshot.hit");
+      return snapshot;
+    }
+    MixinProfiler.Increment("cache.snapshot.miss");
     snapshot = create();
     snapshots.Add(subject, snapshot);
     return snapshot;
@@ -153,8 +165,8 @@ internal sealed record DetachedSemanticMixinValue(
       Rendered.Resolve(context.Strings), Unwrapped.Resolve(context.Strings), Name.Resolve(context.Strings),
       TypeName.Resolve(context.Strings),
       FullName.Resolve(context.Strings), Visibility.Resolve(context.Strings),
-      AssignableTypes.Select(item => item.Resolve(context.Strings)).ToArray(),
-      Traits.Select(item => item.Resolve(context.Strings)).ToArray(),
+      [.. AssignableTypes.Select(item => item.Resolve(context.Strings))],
+      [.. Traits.Select(item => item.Resolve(context.Strings))],
       Members.ToDictionary(
         item => item.Key.Resolve(context.Strings),
         item => (DetachedSemanticData)item.Value.Unlink(context), StringComparer.OrdinalIgnoreCase
@@ -171,12 +183,14 @@ internal sealed record DetachedSemanticMixinValue(
       MixinString.Dynamic(value.Rendered), MixinString.Dynamic(value.Unwrapped),
       MixinString.Dynamic(value.Name), MixinString.Dynamic(value.TypeName),
       MixinString.Dynamic(value.FullName), MixinString.Dynamic(value.Visibility),
-      value.AssignableTypes.Select(MixinString.Dynamic).ToArray(),
-      value.Traits.Select(MixinString.Dynamic).ToArray(),
-      value.Members.Select(item => new KeyValuePair<MixinString, IMixinValue>(
-          strings.Get(item.Key), Materialize(item.Value, strings)
+      [.. value.AssignableTypes.Select(MixinString.Dynamic)],
+      [.. value.Traits.Select(MixinString.Dynamic)],
+      [
+        .. value.Members.Select(item => new KeyValuePair<MixinString, IMixinValue>(
+            strings.Get(item.Key), Materialize(item.Value, strings)
+          )
         )
-      ).ToArray()
+      ]
     );
   }
 }
@@ -277,13 +291,13 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       if (methods.Length == 1) callable = CallableReference(methods[0]);
     }
     IMixinValue result = callable is null ? NullMixinValue.Instance : new LiteralMixinValue(Intern(callable));
-    Locals.Store(this, Intern(local), result);
+    Locals.StoreIsolated(Intern(local), result);
     return result;
   }
 
   public override IMixinValue CreatePropStruct(IReadOnlyList<IMixinValue> arguments, IMixinValue operand) {
     var text = arguments.Select(item => item.Render(this).Resolve(Strings)).ToArray();
-    return CreatePropStruct(text[0], text[1], text.Skip(2).ToArray(), operand);
+    return CreatePropStruct(text[0], text[1], [.. text.Skip(2)], operand);
   }
 
   public override IMixinValue AugmentPropStruct(MixinString local, IMixinValue operand) {
@@ -329,7 +343,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     if (!PropStructApi.TryAnalyzeProps(props, out var model, out var diagnostic))
       return Error(diagnostic.GetMessage(CultureInfo.InvariantCulture));
     var handle = new MixinPropStructValue(props, model, false);
-    Locals.Store(this, Intern(local), handle);
+    Locals.StoreIsolated(Intern(local), handle);
     var generate = !flags.Any(item => item.Equals("noGenerate", StringComparison.OrdinalIgnoreCase));
     if (!generate) return handle;
     var datatype = flags.Any(item => item.Equals("datatype", StringComparison.OrdinalIgnoreCase));
@@ -352,7 +366,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       if (datatype) {
         builder.BlankLine();
         if (!TryDatatypeConfiguration(
-          props.Select(item => item.Symbol).ToArray(), false,
+          [.. props.Select(item => item.Symbol)], false,
           out var configuration, out var error
         ))
           return Error(error);
@@ -398,8 +412,8 @@ internal sealed class RoslynMixinContext : ExecutionContext {
             evaluated = !lateResult.Success
               ? lateResult
               : new MixinExpressionResult(
-                true, null, 0, preludeResult.Outputs.Concat(lateResult.Outputs).ToArray(),
-                preludeResult.Logs.Concat(lateResult.Logs).ToArray(), lateResult.Variables,
+                true, null, 0, [.. preludeResult.Outputs, .. lateResult.Outputs],
+                [.. preludeResult.Logs, .. lateResult.Logs], lateResult.Variables,
                 preludeResult.ExecutedOperations + lateResult.ExecutedOperations,
                 preludeResult.ExecutionMilliseconds + lateResult.ExecutionMilliseconds
               );
@@ -445,7 +459,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       if (!SyntaxFacts.IsValidIdentifier(missingName))
         return Error("struct name '" + missingName + "' is not a valid identifier");
       var empty = new MixinPropStructValue([], PropStructModel.Empty, true);
-      Locals.Store(this, Intern(local), empty);
+      Locals.StoreIsolated(Intern(local), empty);
       _generatedStructs[missingName] = CurrentType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat) + "." +
         GeneratorAnalysis.EscapeIdentifier(missingName);
       return new DirectiveEffectMixinValue(
@@ -466,7 +480,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       )
     ).ToArray();
     var handle = new MixinPropStructValue(props, model, true);
-    Locals.Store(this, Intern(local), handle);
+    Locals.StoreIsolated(Intern(local), handle);
     var builder = new SharpStringBuilder();
     var augmentingThis = SymbolEqualityComparer.Default.Equals(type, CurrentType);
     if (augmentingThis) {
@@ -481,7 +495,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
       if (model.Datatype is not null) {
         builder.BlankLine();
         if (!TryDatatypeConfiguration(
-          props.Select(item => item.Symbol).ToArray(), true,
+          [.. props.Select(item => item.Symbol)], true,
           out var configuration, out var configurationError
         )) return Error(configurationError);
         model.Datatype.AppendMember(builder, configuration);
@@ -515,6 +529,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   public override bool IsType(IMixinValue value, MixinString requested) {
+    using var profile = MixinProfiler.Measure("roslyn.is_type");
     if (value is DetachedSemanticMixinValue detached) {
       var expected = requested.Resolve(Strings).Replace("global::", "");
       return detached.AssignableTypes.Any(item => {
@@ -528,8 +543,8 @@ internal sealed class RoslynMixinContext : ExecutionContext {
 
     bool Match(ITypeSymbol candidate) {
       return candidate is not null && (
-        candidate.Name == name || candidate.ToDisplayString().Replace("global::", "") == name ||
-        candidate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") == name
+        candidate.Name == name || candidate.ToDisplayString() == name ||
+        candidate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) == name
       );
     }
 
@@ -541,6 +556,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   public override bool HasTrait(IMixinValue value, MixinString requested) {
+    using var profile = MixinProfiler.Measure("roslyn.has_trait");
     var name = requested.Resolve(Strings);
     if (value is DetachedSemanticMixinValue detached)
       return detached.Traits.Any(item => string.Equals(item.Resolve(Strings), name, StringComparison.Ordinal));
@@ -574,6 +590,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   internal static IReadOnlyList<string> SemanticTraits(object value) {
+    using var profile = MixinProfiler.Measure("roslyn.semantic_traits");
     var result = new List<string>();
     var type = TypeOf(value);
     var symbol = value as ISymbol;
@@ -595,10 +612,11 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   public override IMixinValue Unwrap(IMixinValue value) {
+    using var profile = MixinProfiler.Measure("roslyn.unwrap");
     if (value is RoslynMixinValue { Value: TypedConstant constant }) {
       if (constant.IsNull || constant.Kind == TypedConstantKind.Error) return NullMixinValue.Instance;
       var raw = constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol type
-        ? type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "")
+        ? type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal)
         : Convert.ToString(constant.Value, CultureInfo.InvariantCulture);
       return new LiteralMixinValue(Intern(raw));
     }
@@ -608,6 +626,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   public override IMixinValue Attributes(IMixinValue value, MixinString requested, bool exact, bool first) {
+    using var profile = MixinProfiler.Measure("roslyn.attributes");
     if (value is not RoslynMixinValue roslyn) return first ? NullMixinValue.Instance : MixinTableValue.Empty;
     var expected = requested.IsInterned || requested.DynamicValue is not null
       ? requested.Resolve(Strings)
@@ -653,14 +672,16 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   private static bool TypeMatches(ITypeSymbol type, string expected) {
+    using var profile = MixinProfiler.Measure("roslyn.type_matches");
     return type is not null && (
-      type.Name == expected || type.ToDisplayString().Replace("global::", "") == expected.Replace("global::", "") ||
-      type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") ==
+      type.Name == expected || type.ToDisplayString() == expected.Replace("global::", "") ||
+      type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) ==
       expected.Replace("global::", "")
     );
   }
 
   protected override IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) {
+    using var profile = MixinProfiler.Measure("roslyn.resolve_host");
     if (root == MixinExpressionRoot.This && !string.IsNullOrEmpty(member.Resolve(Strings)) &&
       _generatedStructs.TryGetValue(member.Resolve(Strings), out var generatedType)) {
       var typeName = Intern(generatedType);
@@ -705,6 +726,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   internal object SelectMember(object subject, string name) {
+    using var profile = MixinProfiler.Measure("roslyn.select_member");
     if (subject is AttributeData attribute) {
       foreach (var item in attribute.NamedArguments)
         if (string.Equals(item.Key, name, StringComparison.OrdinalIgnoreCase))
@@ -741,6 +763,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   private bool TryDefaultAttributeMember(INamedTypeSymbol attributeType, string name, out object value) {
+    using var profile = MixinProfiler.Measure("roslyn.attribute_default");
     value = null;
     for (var current = attributeType; current is not null; current = current.BaseType) {
       var member = current.GetMembers().FirstOrDefault(item =>
@@ -767,12 +790,13 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   internal ITypeSymbol ResolveType(string name) {
+    using var profile = MixinProfiler.Measure("roslyn.resolve_type");
     var normalized = (name ?? "").Replace("global::", "");
     var direct = _compilation?.GetTypeByMetadataName(normalized);
     if (direct is not null) return direct;
     var simple = normalized.Split('.', '+').LastOrDefault() ?? normalized;
     return _compilation?.GetSymbolsWithName(simple, SymbolFilter.Type).OfType<INamedTypeSymbol>()
-      .FirstOrDefault(item => item.ToDisplayString().Replace("global::", "") == normalized);
+      .FirstOrDefault(item => item.ToDisplayString() == normalized);
   }
 
   private static IEnumerable<IMethodSymbol> MethodsInHierarchy(INamedTypeSymbol type, string name) {
@@ -823,6 +847,7 @@ internal sealed class RoslynMixinContext : ExecutionContext {
   }
 
   internal static string ComparableText(object value) {
+    using var profile = MixinProfiler.Measure("roslyn.comparable_text");
     if (value is TypedConstant constant) value = constant.Value;
     return value switch {
       null => "null", bool boolean => boolean ? "true" : "false",
@@ -891,6 +916,7 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
   }
 
   public MixinString Render(ExecutionContext context) {
+    using var profile = MixinProfiler.Measure("roslyn.value.render");
     if (Root is MixinExpressionRoot.This or MixinExpressionRoot.Target && Value is INamedTypeSymbol)
       return ExecutionContext.Dynamic("this");
     if (Value is IParameterSymbol parameter)
@@ -949,12 +975,15 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
       TypedConstant { Kind: TypedConstantKind.Type } => Render(context).Resolve(context.Strings),
       TypedConstant { Value: string or char } => Render(context).Resolve(context.Strings),
       TypedConstant constant => constant.Value,
+      ITypeSymbol type => type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat),
       ISymbol or AttributeData => Render(context).Resolve(context.Strings),
       _ => Value
     };
   }
 
   private DetachedSemanticData Detach(ExecutionContext context, bool includeMembers) {
+    using var profile = MixinProfiler.Measure(includeMembers
+      ? "semantic.detach.full" : "semantic.detach.shallow");
     var type = RoslynMixinContext.TypeOf(Value);
     var symbol = Value as ISymbol ?? type;
     var members = new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase);
@@ -981,16 +1010,17 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
           members[member.Name] = DetachSymbol(member);
       }
     }
+    var rendered = Render(context).Resolve(context.Strings);
     var unwrapped = Value is TypedConstant constant
       ? constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol constantType
-        ? constantType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "")
+        ? constantType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal)
         : Convert.ToString(constant.Value, CultureInfo.InvariantCulture)
-      : Render(context).Resolve(context.Strings);
+      : rendered;
     return new DetachedSemanticData(
-      Render(context).Resolve(context.Strings), unwrapped,
+      rendered, unwrapped,
       (Value as ISymbol)?.Name ?? (Value as AttributeData)?.AttributeClass?.Name ??
       RoslynMixinContext.ComparableText(Value),
-      type is null ? "" : type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
+      type is null ? "" : type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal),
       type is null
         ? ""
         : type.ToDisplayString(
@@ -998,60 +1028,63 @@ internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root =
             .WithGenericsOptions(SymbolDisplayGenericsOptions.IncludeTypeParameters)
         ),
       symbol?.DeclaredAccessibility.ToString().ToLowerInvariant() ?? "",
-      Assignable(type).Distinct(StringComparer.Ordinal).ToArray(),
+      [.. Assignable(type).Distinct(StringComparer.Ordinal)],
       RoslynMixinContext.SemanticTraits(Value), members
     );
 
     DetachedSemanticData DetachConstant(TypedConstant item, string name) {
+      using var nestedProfile = MixinProfiler.Measure("semantic.detach.constant");
       var constantType = item.Type;
       var rendered = RenderConstant(item);
       return new DetachedSemanticData(
         rendered,
         item.Kind == TypedConstantKind.Type && item.Value is ITypeSymbol valueType
-          ? valueType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "")
+          ? valueType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal)
           : Convert.ToString(item.Value, CultureInfo.InvariantCulture),
-        name, constantType?.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") ?? "",
+        name, constantType?.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) ?? "",
         constantType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "",
-        "", Assignable(constantType).Distinct(StringComparer.Ordinal).ToArray(),
+        "", [.. Assignable(constantType).Distinct(StringComparer.Ordinal)],
         RoslynMixinContext.SemanticTraits(item),
         new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase)
       );
     }
 
     DetachedSemanticData DetachSymbol(ISymbol item) {
+      using var nestedProfile = MixinProfiler.Measure("semantic.detach.symbol");
+      var itemType = RoslynMixinContext.TypeOf(item);
       return new DetachedSemanticData(
         item.Name, item.Name, item.Name,
-        RoslynMixinContext.TypeOf(item)?.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "") ??
-        "",
-        RoslynMixinContext.TypeOf(item)?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "",
+        itemType?.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) ?? "",
+        itemType?.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) ?? "",
         item.DeclaredAccessibility.ToString().ToLowerInvariant(),
-        Assignable(RoslynMixinContext.TypeOf(item)).Distinct(StringComparer.Ordinal).ToArray(),
+        [.. Assignable(itemType).Distinct(StringComparer.Ordinal)],
         RoslynMixinContext.SemanticTraits(item),
         new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase)
       );
     }
 
     DetachedSemanticData DetachType(ITypeSymbol item) {
+      using var nestedProfile = MixinProfiler.Measure("semantic.detach.type");
+      var typeName = item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal);
       return new DetachedSemanticData(
-        item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
-        item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""), item.Name,
-        item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", ""),
+        typeName, typeName, item.Name, typeName,
         item.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
         item.DeclaredAccessibility.ToString().ToLowerInvariant(),
-        Assignable(item).Distinct(StringComparer.Ordinal).ToArray(),
+        [.. Assignable(item).Distinct(StringComparer.Ordinal)],
         RoslynMixinContext.SemanticTraits(item),
         new Dictionary<string, DetachedSemanticData>(StringComparer.OrdinalIgnoreCase)
       );
     }
 
     IEnumerable<string> Assignable(ITypeSymbol item) {
+      using var nestedProfile = MixinProfiler.Measure("semantic.detach.assignable");
       if (item is null) yield break;
-      yield return item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "");
+      yield return item.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal);
       if (item is not INamedTypeSymbol namedItem) yield break;
       for (var current = namedItem.BaseType; current is not null; current = current.BaseType)
-        yield return current.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "");
+        yield return current.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal);
       foreach (var contract in namedItem.AllInterfaces)
-        yield return contract.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat).Replace("global::", "");
+        yield return contract.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal);
     }
   }
 }

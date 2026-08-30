@@ -24,7 +24,7 @@ public sealed partial class MixinGenerator {
     var debugPool = render.StringPool.Fork();
     foreach (var work in render.DebugExpressions)
     foreach (var token in (work.PreludeProgram + "\n" + work.LateProgram).Split(
-      new[] { '@', '<', '>', '#', ':', '(', ')', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries
+      ['@', '<', '>', '#', ':', '(', ')', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries
     ))
       debugPool.Intern(token);
     builder.AppendLine("// ============================================================================");

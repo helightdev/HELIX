@@ -266,9 +266,11 @@ public abstract class ExecutionContext {
     value = Evaluate(value);
     return value switch {
       MixinTableValue table => new MixinTableValue(
-        table.Entries.Select(item =>
-          new KeyValuePair<MixinString, IMixinValue>(item.Key, DetachValue(item.Value, includeMembers))
-        ).ToArray()
+        [
+          .. table.Entries.Select(item =>
+            new KeyValuePair<MixinString, IMixinValue>(item.Key, DetachValue(item.Value, includeMembers))
+          )
+        ]
       ),
       DirectiveEffectMixinValue effect => effect with { Value = DetachValue(effect.Value, includeMembers) },
       _ => value
@@ -496,7 +498,11 @@ public abstract class FunctionDefinition {
 
 internal static class FunctionLibrary {
   private static readonly IReadOnlyDictionary<string, FunctionDefinition> Definitions =
-    new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal) {
+    CreateDefinitions();
+
+  private static IReadOnlyDictionary<string, FunctionDefinition> CreateDefinitions() {
+    using var profile = Shared.MixinProfiler.Measure("static.function_library");
+    return new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal) {
       ["name"] = new NameFunction(), ["type"] = new TypeFunction(), ["fullName"] = new FullNameFunction(),
       ["makeGeneric"] = new MakeGenericFunction(), ["visibility"] = new VisibilityFunction(),
       ["path"] = new PathFunction(), ["unwrap"] = new UnwrapFunction(), ["switch"] = new SwitchFunction(),
@@ -523,6 +529,7 @@ internal static class FunctionLibrary {
       ["partial"] = new TraitPredicate("partial"), ["generic"] = new TraitPredicate("generic"),
       ["struct"] = new TraitPredicate("struct"), ["class"] = new TraitPredicate("class")
     };
+  }
 
   internal static bool TryGet(string name, out FunctionDefinition definition) {
     return Definitions.TryGetValue(name ?? "", out definition);

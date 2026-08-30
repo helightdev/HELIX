@@ -117,9 +117,11 @@ public static partial class MixinExpressionCompiler {
       MixinExpressionReference RewriteNested(MixinExpressionReference reference) {
         return new MixinExpressionReference(
           reference.Root,
-          reference.Member, reference.Properties.Select(property =>
-            FunctionBindingStep.RewriteProperty(property, Rewrite)
-          ).ToArray(), reference.Parenthesized
+          reference.Member, [
+            .. reference.Properties.Select(property =>
+              FunctionBindingStep.RewriteProperty(property, Rewrite)
+            )
+          ], reference.Parenthesized
         );
       }
 
