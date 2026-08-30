@@ -1042,25 +1042,23 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     using (MixinProfiler.Measure("generator.roslyn.ordered_members.sort"))
       return [
         .. members
-        .OrderBy(
-          item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath,
-          StringComparer.Ordinal
-        )
-        .ThenBy(SourceOrder)
+          .OrderBy(
+            item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath,
+            StringComparer.Ordinal
+          )
+          .ThenBy(SourceOrder)
       ];
   }
 
   private static IReadOnlyList<AttributeData> OrderedAttributes(ISymbol symbol) {
     using var profile = MixinProfiler.Measure("generator.roslyn.ordered_attributes");
-    ImmutableArray<AttributeData> attributes;
-    using (MixinProfiler.Measure("generator.roslyn.ordered_attributes.get"))
-      attributes = symbol.GetAttributes();
-    if (attributes.Length < 2) return attributes;
+    var attributes = AttributeList(symbol);
+
     using (MixinProfiler.Measure("generator.roslyn.ordered_attributes.sort"))
       return [
         .. attributes
-        .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
-        .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
+          .OrderBy(item => item.ApplicationSyntaxReference?.SyntaxTree.FilePath, StringComparer.Ordinal)
+          .ThenBy(item => item.ApplicationSyntaxReference?.Span.Start ?? int.MaxValue)
       ];
   }
 

@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace HelixSourceGenerator.Shared;
 
-internal static class GeneratorAnalysis {
+public static class GeneratorAnalysis {
   internal static readonly SymbolDisplayFormat TypeDisplayFormat =
     SymbolDisplayFormat.FullyQualifiedFormat.WithMiscellaneousOptions(
       SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
@@ -17,6 +18,8 @@ internal static class GeneratorAnalysis {
     );
   internal static readonly SymbolDisplayFormat TypeDisplayFormatWithoutGlobal =
     TypeDisplayFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted);
+
+  private static readonly ConditionalWeakTable<ISymbol, IReadOnlyList<AttributeData>> _attributeCache = new();
 
   internal static Location LocationOf(ISymbol symbol) {
     return symbol.Locations.FirstOrDefault(location => location.IsInSource) ??
@@ -75,12 +78,67 @@ internal static class GeneratorAnalysis {
     return type.AllInterfaces.Any(candidate => candidate.ToDisplayString() == metadataName);
   }
 
+  private static bool HasAnyAttributeInSyntaxList(SyntaxList<AttributeListSyntax> attributeLists) {
+    return attributeLists.Any(static x => x.Attributes.Any());
+  }
+
+  private static bool HasAnyAttributeDeclared(ISymbol symbol) {
+    using var profile = MixinProfiler.Measure("generator_api.has_any_attribute_declared");
+
+    var declarations = symbol.DeclaringSyntaxReferences;
+    if (declarations.IsEmpty) {
+      MixinProfiler.Increment("generator_api.haad_declarations_empty");
+      return true;
+    }
+
+    foreach (var reference in declarations) {
+      var syntax = reference.GetSyntax();
+
+      var attributeLists = syntax switch {
+        VariableDeclaratorSyntax {
+          Parent.Parent: FieldDeclarationSyntax field
+        } => field.AttributeLists,
+
+        VariableDeclaratorSyntax {
+          Parent.Parent: EventFieldDeclarationSyntax eventField
+        } => eventField.AttributeLists,
+
+        MemberDeclarationSyntax member => member.AttributeLists,
+        BaseParameterSyntax parameter => parameter.AttributeLists,
+        LambdaExpressionSyntax lambda => lambda.AttributeLists,
+        StatementSyntax statement => statement.AttributeLists,
+        _ => default
+      };
+
+      if (HasAnyAttributeInSyntaxList(attributeLists)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  public static IReadOnlyList<AttributeData> AttributeList(ISymbol symbol) {
+    if (_attributeCache.TryGetValue(symbol, out var cached)) {
+      MixinProfiler.Increment("generator_api.attribute_cache_hit");
+      return cached;
+    }
+    using var analyzeProfile = MixinProfiler.Measure("generator_api.attribute_cache_fill");
+    if (!HasAnyAttributeDeclared(symbol)) {
+      _attributeCache.Add(symbol, []);
+      return [];
+    }
+
+    using var resolveProfile = MixinProfiler.Measure("generator_api.attribute_cache_resolve");
+    var attributes = symbol.GetAttributes();
+    _attributeCache.Add(symbol, attributes);
+    return attributes;
+  }
+
   internal static AttributeData Attribute(ISymbol symbol, string metadataName) {
-    using var profile = MixinProfiler.Measure("roslyn.analysis.attribute");
-    ImmutableArray<AttributeData> attributes;
-    using (MixinProfiler.Measure("roslyn.analysis.attribute.get"))
-      attributes = symbol.GetAttributes();
-    using (MixinProfiler.Measure("roslyn.analysis.attribute.match"))
+    using var profile = MixinProfiler.Measure("generator_api.attribute");
+    var attributes = AttributeList(symbol);
+    using (MixinProfiler.Measure("generator_api.attribute.match"))
       return attributes.FirstOrDefault(item => item.AttributeClass?.ToDisplayString() == metadataName);
   }
 

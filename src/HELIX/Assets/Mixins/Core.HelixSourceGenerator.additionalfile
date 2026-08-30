@@ -67,6 +67,3 @@
     @CALL<SetStructurePropertyDatatype> @attr#datatype:unwrap
   @END
 @END
-
-
-@CONFIG<PROFILE>
