@@ -38,6 +38,8 @@
                            implementationClass="dev.helight.helix.mixin.HelixMixinParserDefinition" />
     <lang.syntaxHighlighterFactory language="HelixMixin"
                                    implementationClass="dev.helight.helix.mixin.HelixMixinSyntaxHighlighterFactory" />
+    <colorSettingsPage implementation="dev.helight.helix.mixin.HelixMixinColorSettingsPage" />
+    <langCodeStyleSettingsProvider implementation="dev.helight.helix.mixin.HelixMixinCodeStyleSettingsProvider" />
     <completion.contributor language="HelixMixin"
                             implementationClass="dev.helight.helix.mixin.HelixMixinCompletionContributor" />
     <annotator language="HelixMixin"

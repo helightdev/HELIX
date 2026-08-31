@@ -16,7 +16,13 @@ import com.intellij.psi.tree.IElementType
 class HelixMixinBraceMatcher : PairedBraceMatcher {
     override fun getPairs(): Array<BracePair> = arrayOf(
         BracePair(HelixMixinTokenTypes.OPEN_ANGLE, HelixMixinTokenTypes.CLOSE_ANGLE, true),
-        BracePair(HelixMixinTokenTypes.OPEN_PARENTHESIS, HelixMixinTokenTypes.CLOSE_PARENTHESIS, true)
+        BracePair(HelixMixinTokenTypes.DIRECTIVE_OPEN_ANGLE, HelixMixinTokenTypes.DIRECTIVE_CLOSE_ANGLE, true),
+        BracePair(HelixMixinTokenTypes.FUNCTION_OPEN_ANGLE, HelixMixinTokenTypes.FUNCTION_CLOSE_ANGLE, true),
+        BracePair(HelixMixinTokenTypes.OPEN_PARENTHESIS, HelixMixinTokenTypes.CLOSE_PARENTHESIS, true),
+        BracePair(HelixMixinTokenTypes.DIRECTIVE_OPEN_PARENTHESIS,
+            HelixMixinTokenTypes.DIRECTIVE_CLOSE_PARENTHESIS, true),
+        BracePair(HelixMixinTokenTypes.FUNCTION_OPEN_PARENTHESIS,
+            HelixMixinTokenTypes.FUNCTION_CLOSE_PARENTHESIS, true)
     )
     override fun isPairedBracesAllowedBeforeType(leftBraceType: IElementType, contextType: IElementType?) = true
     override fun getCodeConstructStart(file: PsiFile, openingBraceOffset: Int) = openingBraceOffset

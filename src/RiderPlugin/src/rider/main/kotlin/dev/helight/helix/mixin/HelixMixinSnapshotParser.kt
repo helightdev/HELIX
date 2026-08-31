@@ -15,7 +15,7 @@ class HelixMixinLexer(private val project: Project?) : LexerBase() {
     private var boundaries = intArrayOf(0)
     private var boundaryIndex = 0
     private var tokens: List<HelixLocalToken> = emptyList()
-    private var expressionParentheses: Set<Int> = emptySet()
+    private var ownedParentheses: Map<Int, IElementType> = emptyMap()
     private var tokenType: IElementType? = null
 
     override fun start(buffer: CharSequence, startOffset: Int, endOffset: Int, initialState: Int) {
@@ -39,6 +39,11 @@ class HelixMixinLexer(private val project: Project?) : LexerBase() {
                 add(points, node.start + 1, node.start + 2, startOffset, endOffset)
                 add(points, node.end - 2, node.end - 1, startOffset, endOffset)
             }
+            if (node.kind.endsWith("DirectiveArgument") && node.end - node.start >= 4 &&
+                buffer[node.start + 1] == '(' && buffer[node.end - 2] == ')') {
+                add(points, node.start + 1, node.start + 2, startOffset, endOffset)
+                add(points, node.end - 2, node.end - 1, startOffset, endOffset)
+            }
             if (node.kind == "ParenthesizedReference" && node.end - node.start >= 3) {
                 add(points, node.start + 1, node.start + 2, startOffset, endOffset)
                 add(points, node.end - 1, node.end, startOffset, endOffset)
@@ -46,20 +51,25 @@ class HelixMixinLexer(private val project: Project?) : LexerBase() {
             node.children.forEach(::addSyntax)
         }
         addSyntax(parsed.syntax)
-        val parentheses = HashSet<Int>()
+        val parentheses = HashMap<Int, IElementType>()
         fun collectParentheses(node: HelixLocalNode) {
             if (node.kind == "ExpressionArgument" && node.end - node.start >= 4) {
-                parentheses += node.start + 1
-                parentheses += node.end - 2
+                parentheses[node.start + 1] = HelixMixinTokenTypes.FUNCTION_OPEN_PARENTHESIS
+                parentheses[node.end - 2] = HelixMixinTokenTypes.FUNCTION_CLOSE_PARENTHESIS
+            }
+            if (node.kind.endsWith("DirectiveArgument") && node.end - node.start >= 4 &&
+                buffer[node.start + 1] == '(' && buffer[node.end - 2] == ')') {
+                parentheses[node.start + 1] = HelixMixinTokenTypes.DIRECTIVE_OPEN_PARENTHESIS
+                parentheses[node.end - 2] = HelixMixinTokenTypes.DIRECTIVE_CLOSE_PARENTHESIS
             }
             if (node.kind == "ParenthesizedReference" && node.end - node.start >= 3) {
-                parentheses += node.start + 1
-                parentheses += node.end - 1
+                parentheses[node.start + 1] = HelixMixinTokenTypes.OPEN_PARENTHESIS
+                parentheses[node.end - 1] = HelixMixinTokenTypes.CLOSE_PARENTHESIS
             }
             node.children.forEach(::collectParentheses)
         }
         collectParentheses(parsed.syntax)
-        expressionParentheses = parentheses
+        ownedParentheses = parentheses
         boundaries = points.toIntArray()
         boundaryIndex = boundaries.binarySearch(startOffset).let { if (it < 0) -it - 1 else it }
         updateToken()
@@ -84,9 +94,8 @@ class HelixMixinLexer(private val project: Project?) : LexerBase() {
             return
         }
         val local = tokens.firstOrNull { it.start <= start && start < it.end }
-        tokenType = if (start in expressionParentheses) {
-            if (buffer[start] == '(') HelixMixinTokenTypes.OPEN_PARENTHESIS
-            else HelixMixinTokenTypes.CLOSE_PARENTHESIS
+        tokenType = if (start in ownedParentheses) {
+            ownedParentheses[start]
         } else local?.let {
             HelixMixinTokenTypes.fromBackend(it.kind, buffer.subSequence(tokenStart, tokenEnd))
         } ?: HelixMixinTokenTypes.PLAIN

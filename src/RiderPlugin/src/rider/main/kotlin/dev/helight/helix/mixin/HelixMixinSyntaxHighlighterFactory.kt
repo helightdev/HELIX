@@ -1,33 +1,75 @@
 package dev.helight.helix.mixin
 
-import com.intellij.openapi.fileTypes.SyntaxHighlighter
-import com.intellij.openapi.fileTypes.SyntaxHighlighterFactory
-import com.intellij.openapi.fileTypes.SyntaxHighlighterBase
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.execution.process.ConsoleHighlighter
 import com.intellij.lexer.Lexer
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.openapi.editor.HighlighterColors
 import com.intellij.openapi.editor.colors.TextAttributesKey
+import com.intellij.openapi.editor.markup.TextAttributes
+import com.intellij.openapi.fileTypes.SyntaxHighlighter
+import com.intellij.openapi.fileTypes.SyntaxHighlighterBase
+import com.intellij.openapi.fileTypes.SyntaxHighlighterFactory
+import com.intellij.openapi.options.colors.AttributesDescriptor
+import com.intellij.openapi.options.colors.ColorDescriptor
+import com.intellij.openapi.options.colors.ColorSettingsPage
+import com.intellij.openapi.options.colors.pages.DefaultLanguageColorsPage
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.tree.IElementType
+import com.jetbrains.rider.ideaInterop.settings.colors.demoTexts.RiderDefaultLanguageColorsDemoText
+import javax.swing.Icon
 
 object HelixMixinColors {
     val DIRECTIVE = TextAttributesKey.createTextAttributesKey(
-        "HELIX_MIXIN_DIRECTIVE", DefaultLanguageHighlighterColors.KEYWORD)
+        "HELIX_MIXIN_DIRECTIVE", DefaultLanguageHighlighterColors.KEYWORD
+    )
     val VALUE = TextAttributesKey.createTextAttributesKey(
-        "HELIX_MIXIN_VALUE", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
+        "HELIX_MIXIN_VALUE", DefaultLanguageHighlighterColors.NUMBER
+    )
     val PATH = TextAttributesKey.createTextAttributesKey(
-        "HELIX_MIXIN_PATH", DefaultLanguageHighlighterColors.INSTANCE_METHOD)
+        "HELIX_MIXIN_PATH", DefaultLanguageHighlighterColors.INSTANCE_FIELD
+    )
     val FUNCTION = TextAttributesKey.createTextAttributesKey(
-        "HELIX_MIXIN_FUNCTION", DefaultLanguageHighlighterColors.FUNCTION_CALL)
+        "HELIX_MIXIN_FUNCTION", DefaultLanguageHighlighterColors.FUNCTION_CALL
+    )
     val ARGUMENT = TextAttributesKey.createTextAttributesKey(
-        "HELIX_MIXIN_ARGUMENT", DefaultLanguageHighlighterColors.STRING)
+        "HELIX_MIXIN_ARGUMENT", DefaultLanguageHighlighterColors.STRING
+    )
+    val LABEL = TextAttributesKey.createTextAttributesKey(
+        "HELIX_MIXIN_LABEL", DefaultLanguageHighlighterColors.LABEL
+    )
+    val LOCAL = TextAttributesKey.createTextAttributesKey(
+        "HELIX_MIXIN_LOCAL", DefaultLanguageHighlighterColors.INSTANCE_FIELD
+    )
+    val VARIABLE = TextAttributesKey.createTextAttributesKey(
+        "HELIX_MIXIN_VARIABLE", DefaultLanguageHighlighterColors.INSTANCE_FIELD
+    )
+    val FUNCTION_IDENTIFIER = TextAttributesKey.createTextAttributesKey(
+        "HELIX_MIXIN_FUNCTION_IDENTIFIER", DefaultLanguageHighlighterColors.FUNCTION_DECLARATION
+    )
+    val TYPE = TextAttributesKey.createTextAttributesKey(
+        "HELIX_MIXIN_CSHARP_TYPE", DefaultLanguageHighlighterColors.CLASS_NAME
+    )
     val COMMENT = TextAttributesKey.createTextAttributesKey(
-        "HELIX_MIXIN_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT)
+        "HELIX_MIXIN_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT
+    )
     val ESCAPE = TextAttributesKey.createTextAttributesKey(
-        "HELIX_MIXIN_ESCAPE", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE)
+        "HELIX_MIXIN_ESCAPE", DefaultLanguageHighlighterColors.VALID_STRING_ESCAPE
+    )
     val BAD = TextAttributesKey.createTextAttributesKey(
-        "HELIX_MIXIN_BAD_CHARACTER", HighlighterColors.BAD_CHARACTER)
+        "HELIX_MIXIN_BAD_CHARACTER", HighlighterColors.BAD_CHARACTER
+    )
+    val INACTIVE = TextAttributesKey.createTextAttributesKey(
+        "HELIX_MIXIN_INACTIVE", ConsoleHighlighter.DARKGRAY
+    )
+
+    val TEMPLATE = TextAttributesKey.createTextAttributesKey(
+        "HELIX_MIXIN_TEMPLATE", DefaultLanguageHighlighterColors.TEMPLATE_LANGUAGE_COLOR
+    )
+
+    val DELEGATE = TextAttributesKey.createTextAttributesKey(
+        "HELIX_MIXIN_DELEGATE", TextAttributesKey.createTextAttributesKey("ReSharper.DELEGATE_IDENTIFIER")
+    )
 }
 
 class HelixMixinSyntaxHighlighterFactory : SyntaxHighlighterFactory() {
@@ -35,24 +77,94 @@ class HelixMixinSyntaxHighlighterFactory : SyntaxHighlighterFactory() {
         HelixMixinSyntaxHighlighter(project)
 }
 
-private class HelixMixinSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBase() {
+class HelixMixinSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBase() {
     override fun getHighlightingLexer(): Lexer = HelixMixinLexer(project)
 
-    override fun getTokenHighlights(tokenType: IElementType): Array<TextAttributesKey> = pack(when (tokenType) {
-        HelixMixinTokenTypes.DIRECTIVE,
-        HelixMixinTokenTypes.OPEN_ANGLE,
-        HelixMixinTokenTypes.CLOSE_ANGLE,
-        HelixMixinTokenTypes.CONTINUATION -> HelixMixinColors.DIRECTIVE
-        HelixMixinTokenTypes.VALUE -> HelixMixinColors.VALUE
-        HelixMixinTokenTypes.PATH -> HelixMixinColors.PATH
-        HelixMixinTokenTypes.FUNCTION,
-        HelixMixinTokenTypes.OPERATOR,
-        HelixMixinTokenTypes.OPEN_PARENTHESIS,
-        HelixMixinTokenTypes.CLOSE_PARENTHESIS -> HelixMixinColors.FUNCTION
-        HelixMixinTokenTypes.ARGUMENT -> HelixMixinColors.ARGUMENT
-        HelixMixinTokenTypes.COMMENT -> HelixMixinColors.COMMENT
-        HelixMixinTokenTypes.ESCAPE -> HelixMixinColors.ESCAPE
-        HelixMixinTokenTypes.INVALID -> HelixMixinColors.BAD
-        else -> null
-    })
+    override fun getTokenHighlights(tokenType: IElementType): Array<TextAttributesKey> = pack(
+        when (tokenType) {
+            HelixMixinTokenTypes.DIRECTIVE_OPEN_ANGLE,
+            HelixMixinTokenTypes.DIRECTIVE_CLOSE_ANGLE,
+            HelixMixinTokenTypes.DIRECTIVE_OPEN_PARENTHESIS,
+            HelixMixinTokenTypes.DIRECTIVE_CLOSE_PARENTHESIS,
+            HelixMixinTokenTypes.DIRECTIVE -> HelixMixinColors.DIRECTIVE
+
+            HelixMixinTokenTypes.CONTINUATION -> HelixMixinColors.INACTIVE
+
+            HelixMixinElementTypes.ROOT,
+            HelixMixinTokenTypes.VALUE -> HelixMixinColors.VALUE
+
+            HelixMixinElementTypes.PATH,
+            HelixMixinElementTypes.MEMBER,
+            HelixMixinTokenTypes.PATH -> HelixMixinColors.PATH
+
+            HelixMixinTokenTypes.FUNCTION,
+            HelixMixinTokenTypes.OPERATOR,
+
+            HelixMixinTokenTypes.OPEN_ANGLE,
+            HelixMixinTokenTypes.CLOSE_ANGLE,
+            HelixMixinTokenTypes.OPEN_PARENTHESIS,
+            HelixMixinTokenTypes.CLOSE_PARENTHESIS,
+            HelixMixinTokenTypes.FUNCTION_OPEN_ANGLE,
+            HelixMixinTokenTypes.FUNCTION_CLOSE_ANGLE,
+            HelixMixinTokenTypes.FUNCTION_OPEN_PARENTHESIS,
+            HelixMixinTokenTypes.FUNCTION_CLOSE_PARENTHESIS -> HelixMixinColors.FUNCTION
+
+            HelixMixinTokenTypes.ARGUMENT -> HelixMixinColors.ARGUMENT
+            HelixMixinTokenTypes.COMMENT -> HelixMixinColors.COMMENT
+            HelixMixinTokenTypes.ESCAPE -> HelixMixinColors.ESCAPE
+            HelixMixinTokenTypes.INVALID -> HelixMixinColors.BAD
+
+
+            HelixMixinTokenTypes.TEXT_WHITE_SPACE,
+            HelixMixinTokenTypes.TEXT -> HelixMixinColors.TEMPLATE
+
+            else -> null
+        }
+    )
+}
+
+class HelixMixinColorSettingsPage : ColorSettingsPage {
+    override fun getDisplayName(): String = "HELIX Mixin"
+    override fun getIcon(): Icon? = null
+    override fun getHighlighter(): SyntaxHighlighter = HelixMixinSyntaxHighlighter(null)
+    override fun getAttributeDescriptors(): Array<AttributesDescriptor> = arrayOf(
+        AttributesDescriptor("Directive", HelixMixinColors.DIRECTIVE),
+        AttributesDescriptor("Expression root", HelixMixinColors.VALUE),
+        AttributesDescriptor("Member path", HelixMixinColors.PATH),
+        AttributesDescriptor("Built-in function", HelixMixinColors.FUNCTION),
+        AttributesDescriptor("Literal argument", HelixMixinColors.ARGUMENT),
+        AttributesDescriptor("Label", HelixMixinColors.LABEL),
+        AttributesDescriptor("Local", HelixMixinColors.LOCAL),
+        AttributesDescriptor("Variable", HelixMixinColors.VARIABLE),
+        AttributesDescriptor("Function identifier", HelixMixinColors.FUNCTION_IDENTIFIER),
+        AttributesDescriptor("C# type", HelixMixinColors.TYPE),
+        AttributesDescriptor("Comment", HelixMixinColors.COMMENT),
+        AttributesDescriptor("Escape", HelixMixinColors.ESCAPE),
+        AttributesDescriptor("Invalid syntax", HelixMixinColors.BAD),
+        AttributesDescriptor("Inactive", HelixMixinColors.INACTIVE),
+        AttributesDescriptor("Template", HelixMixinColors.TEMPLATE),
+        AttributesDescriptor("Delegate", HelixMixinColors.DELEGATE)
+    )
+
+    override fun getColorDescriptors(): Array<ColorDescriptor> = ColorDescriptor.EMPTY_ARRAY
+    override fun getAdditionalHighlightingTagToDescriptorMap(): Map<String, TextAttributesKey> = mapOf(
+        "label" to HelixMixinColors.LABEL,
+        "local" to HelixMixinColors.LOCAL,
+        "variable" to HelixMixinColors.VARIABLE,
+        "functionId" to HelixMixinColors.DELEGATE,
+        "type" to HelixMixinColors.TYPE
+    )
+
+    override fun getDemoText(): String = """@# HELIX mixin language
+@FUNC<<functionId>Build</functionId>>
+  @LOCAL<<local>Name</local>> @target:name
+  @VAR<<variable>Result</variable>> @table
+  @SCOPE<<label>Generate</label>>
+    @GOTO<<label>Generate</label>>
+@END
+
+@ANNOTATION<<type>HELIX.Compose.ExampleAttribute</type>>
+  @CALL<<functionId>Build</functionId>> @target
+@END
+"""
 }

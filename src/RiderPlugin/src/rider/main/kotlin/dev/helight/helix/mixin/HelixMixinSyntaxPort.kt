@@ -415,7 +415,7 @@ internal object HelixExpressionParser {
 internal enum class HelixEditorTokenKind {
     Directive, Value, Path, Function, ArgumentDelimiter, DirectiveArgumentDelimiter,
     ExpressionArgumentDelimiter, Argument, Operator, Parenthesis, EnclosedReferenceParenthesis,
-    Escape, Continuation, Comment, Whitespace, NewLine, Text, Invalid
+    Escape, Continuation, Comment, Whitespace, TextWhitespace, NewLine, Text, Invalid
 }
 internal data class HelixEditorToken(val kind: HelixEditorTokenKind, val start: Int, val end: Int)
 
@@ -424,6 +424,7 @@ internal object HelixEditorLexer {
         val result = ArrayList<HelixEditorToken>()
         var position = 0; var lineStart = true; var expectFunction = false; var expectEnclosedRoot = false
         var argumentDepth = 0; var referenceActive = false; var directiveHeader = false
+        var textContentActive = false
         val argumentReferences = ArrayDeque<Boolean>(); val directiveArguments = ArrayDeque<Boolean>()
         var enclosedReferenceDepth = 0
         while (position < source.length) {
@@ -432,12 +433,20 @@ internal object HelixEditorLexer {
                 if (current == '\r' && position + 1 < source.length && source[position + 1] == '\n') position++
                 position++; result += HelixEditorToken(HelixEditorTokenKind.NewLine, start, position)
                 lineStart = true; expectFunction = false; expectEnclosedRoot = false; referenceActive = false
-                directiveHeader = false; enclosedReferenceDepth = 0; continue
+                directiveHeader = false; textContentActive = false; enclosedReferenceDepth = 0; continue
             }
             if (current == ' ' || current == '\t') {
                 while (position < source.length && (source[position] == ' ' || source[position] == '\t')) position++
-                result += HelixEditorToken(HelixEditorTokenKind.Whitespace, start, position)
-                if (argumentDepth == 0) { referenceActive = false; directiveHeader = false }; continue
+                val beginsOperand = argumentDepth == 0 && directiveHeader
+                val kind = if (!lineStart && (argumentDepth > 0 || textContentActive))
+                    HelixEditorTokenKind.TextWhitespace else HelixEditorTokenKind.Whitespace
+                result += HelixEditorToken(kind, start, position)
+                if (argumentDepth == 0) {
+                    referenceActive = false
+                    directiveHeader = false
+                    if (beginsOperand) textContentActive = true
+                }
+                continue
             }
             if (lineStart && startsWith(source, position, "@#")) {
                 while (position < source.length && source[position] != '\r' && source[position] != '\n') position++
@@ -450,7 +459,10 @@ internal object HelixEditorLexer {
                 // Keeping it inactive here makes the first '<' plain text and, worse, lets its
                 // closing '>' consume an outer argument depth. Every following physical line is
                 // then tokenized in the wrong state.
-                referenceActive = true; lineStart = false; continue
+                referenceActive = true
+                textContentActive = true
+                lineStart = false
+                continue
             }
             if (startsWith(source, position, "@@")) {
                 position += 2; result += HelixEditorToken(HelixEditorTokenKind.Escape, start, position); lineStart = false; continue

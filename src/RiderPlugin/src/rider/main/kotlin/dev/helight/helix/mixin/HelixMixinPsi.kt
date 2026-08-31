@@ -21,13 +21,22 @@ class HelixMixinElementType(debugName: String) : IElementType(debugName, HelixMi
 object HelixMixinTokenTypes {
     val PLAIN = HelixMixinTokenType("MIXIN_PLAIN")
     val WHITE_SPACE = HelixMixinTokenType("MIXIN_WHITE_SPACE")
+    val TEXT_WHITE_SPACE = HelixMixinTokenType("MIXIN_TEXT_WHITE_SPACE")
     val NEW_LINE = HelixMixinTokenType("MIXIN_NEW_LINE")
     val COMMENT = HelixMixinTokenType("MIXIN_COMMENT")
     val DIRECTIVE = HelixMixinTokenType("MIXIN_DIRECTIVE")
     val OPEN_ANGLE = HelixMixinTokenType("MIXIN_OPEN_ANGLE")
     val CLOSE_ANGLE = HelixMixinTokenType("MIXIN_CLOSE_ANGLE")
+    val DIRECTIVE_OPEN_ANGLE = HelixMixinTokenType("MIXIN_DIRECTIVE_OPEN_ANGLE")
+    val DIRECTIVE_CLOSE_ANGLE = HelixMixinTokenType("MIXIN_DIRECTIVE_CLOSE_ANGLE")
+    val FUNCTION_OPEN_ANGLE = HelixMixinTokenType("MIXIN_FUNCTION_OPEN_ANGLE")
+    val FUNCTION_CLOSE_ANGLE = HelixMixinTokenType("MIXIN_FUNCTION_CLOSE_ANGLE")
     val OPEN_PARENTHESIS = HelixMixinTokenType("MIXIN_OPEN_PARENTHESIS")
     val CLOSE_PARENTHESIS = HelixMixinTokenType("MIXIN_CLOSE_PARENTHESIS")
+    val DIRECTIVE_OPEN_PARENTHESIS = HelixMixinTokenType("MIXIN_DIRECTIVE_OPEN_PARENTHESIS")
+    val DIRECTIVE_CLOSE_PARENTHESIS = HelixMixinTokenType("MIXIN_DIRECTIVE_CLOSE_PARENTHESIS")
+    val FUNCTION_OPEN_PARENTHESIS = HelixMixinTokenType("MIXIN_FUNCTION_OPEN_PARENTHESIS")
+    val FUNCTION_CLOSE_PARENTHESIS = HelixMixinTokenType("MIXIN_FUNCTION_CLOSE_PARENTHESIS")
     val VALUE = HelixMixinTokenType("MIXIN_VALUE")
     val PATH = HelixMixinTokenType("MIXIN_PATH")
     val FUNCTION = HelixMixinTokenType("MIXIN_FUNCTION")
@@ -40,13 +49,14 @@ object HelixMixinTokenTypes {
 
     fun fromBackend(kind: String, text: CharSequence): IElementType = when (kind) {
         "Whitespace" -> WHITE_SPACE
+        "TextWhitespace" -> TEXT_WHITE_SPACE
         "NewLine" -> NEW_LINE
         "Comment" -> COMMENT
         "Directive" -> DIRECTIVE
-        "DirectiveArgumentDelimiter" -> if (text.firstOrNull() == '<') OPEN_ANGLE else CLOSE_ANGLE
+        "DirectiveArgumentDelimiter" -> if (text.firstOrNull() == '<') DIRECTIVE_OPEN_ANGLE else DIRECTIVE_CLOSE_ANGLE
         "ExpressionArgumentDelimiter" -> when (text.firstOrNull()) {
-            '<' -> OPEN_ANGLE
-            '>' -> CLOSE_ANGLE
+            '<' -> FUNCTION_OPEN_ANGLE
+            '>' -> FUNCTION_CLOSE_ANGLE
             '(' -> OPEN_PARENTHESIS
             else -> CLOSE_PARENTHESIS
         }

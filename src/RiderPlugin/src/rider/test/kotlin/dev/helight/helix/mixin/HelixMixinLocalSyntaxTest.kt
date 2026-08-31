@@ -19,6 +19,24 @@ class HelixMixinLocalSyntaxTest {
     }
 
     @Test
+    fun `lexer distinguishes structural and text content whitespace`() {
+        val source = "  @RETURN hello world\n@RETURN @table:put<hello world>\n  @\\ continued text\n"
+        val tokens = HelixMixinLocalLexer.lex(source)
+        val whitespace = tokens.filter {
+            source.substring(it.start, it.end).all { character -> character == ' ' || character == '\t' }
+        }
+
+        assertEquals("Whitespace", whitespace[0].kind) // indentation
+        assertEquals("Whitespace", whitespace[1].kind) // directive/operand separator
+        assertEquals("TextWhitespace", whitespace[2].kind) // opaque operand content
+        assertEquals("Whitespace", whitespace[3].kind) // directive/expression separator
+        assertEquals("TextWhitespace", whitespace[4].kind) // literal function argument content
+        assertEquals("Whitespace", whitespace[5].kind) // continuation indentation
+        assertEquals("TextWhitespace", whitespace[6].kind) // continued text content
+        assertEquals("TextWhitespace", whitespace[7].kind) // continued text content
+    }
+
+    @Test
     fun `parser remains structural for incomplete directive arguments`() {
         val source = "@RETURN @table:put<name><(@local#Name)>\n@END\n"
         val root = HelixMixinLocalParser.parse(source)
@@ -135,10 +153,14 @@ class HelixMixinLocalSyntaxTest {
         }
 
         assertEquals(4, parentheses.size)
-        parentheses.forEach { (text, type) ->
-            assertEquals(if (text == "(") HelixMixinTokenTypes.OPEN_PARENTHESIS
-                else HelixMixinTokenTypes.CLOSE_PARENTHESIS, type)
-        }
+        assertEquals(1, parentheses.count { it.first == "(" && it.second == HelixMixinTokenTypes.OPEN_PARENTHESIS })
+        assertEquals(1, parentheses.count { it.first == ")" && it.second == HelixMixinTokenTypes.CLOSE_PARENTHESIS })
+        assertEquals(1, parentheses.count {
+            it.first == "(" && it.second == HelixMixinTokenTypes.FUNCTION_OPEN_PARENTHESIS
+        })
+        assertEquals(1, parentheses.count {
+            it.first == ")" && it.second == HelixMixinTokenTypes.FUNCTION_CLOSE_PARENTHESIS
+        })
     }
 
     @Test
@@ -154,10 +176,39 @@ class HelixMixinLocalSyntaxTest {
         }
 
         assertEquals(6, angles.size)
-        angles.forEach { (text, type) ->
-            assertEquals(if (text == "<") HelixMixinTokenTypes.OPEN_ANGLE
-                else HelixMixinTokenTypes.CLOSE_ANGLE, type)
+        assertEquals(1, angles.count {
+            it.first == "<" && it.second == HelixMixinTokenTypes.DIRECTIVE_OPEN_ANGLE
+        })
+        assertEquals(1, angles.count {
+            it.first == ">" && it.second == HelixMixinTokenTypes.DIRECTIVE_CLOSE_ANGLE
+        })
+        assertEquals(2, angles.count {
+            it.first == "<" && it.second == HelixMixinTokenTypes.FUNCTION_OPEN_ANGLE
+        })
+        assertEquals(2, angles.count {
+            it.first == ">" && it.second == HelixMixinTokenTypes.FUNCTION_CLOSE_ANGLE
+        })
+    }
+
+    @Test
+    fun `psi lexer distinguishes dynamic wrappers by directive and function owner`() {
+        val source = "@CALL<(@local#Function)> @table:put<key><(@local#Value)>"
+        val lexer = HelixMixinLexer(null)
+        lexer.start(source, 0, source.length, 0)
+        val parentheses = ArrayList<Pair<String, Any?>>()
+        while (lexer.tokenType != null) {
+            val text = source.substring(lexer.tokenStart, lexer.tokenEnd)
+            if (text == "(" || text == ")") parentheses += text to lexer.tokenType
+            lexer.advance()
         }
+
+        val expected: List<Pair<String, Any?>> = listOf(
+            "(" to HelixMixinTokenTypes.DIRECTIVE_OPEN_PARENTHESIS,
+            ")" to HelixMixinTokenTypes.DIRECTIVE_CLOSE_PARENTHESIS,
+            "(" to HelixMixinTokenTypes.FUNCTION_OPEN_PARENTHESIS,
+            ")" to HelixMixinTokenTypes.FUNCTION_CLOSE_PARENTHESIS
+        )
+        assertEquals(expected, parentheses)
     }
 
     @Test
@@ -176,9 +227,13 @@ class HelixMixinLocalSyntaxTest {
         }
 
         assertEquals(4, tokens.count { it.first == "put" && it.second == HelixMixinTokenTypes.FUNCTION })
-        assertTrue(tokens.filter { it.first == "<" }.all { it.second == HelixMixinTokenTypes.OPEN_ANGLE })
-        assertTrue(tokens.filter { it.first == ">" }.all { it.second == HelixMixinTokenTypes.CLOSE_ANGLE })
-        assertEquals(3, tokens.count { it.first == ")" && it.second == HelixMixinTokenTypes.CLOSE_PARENTHESIS })
+        assertTrue(tokens.filter { it.first == "<" }
+            .all { it.second == HelixMixinTokenTypes.FUNCTION_OPEN_ANGLE })
+        assertTrue(tokens.filter { it.first == ">" }
+            .all { it.second == HelixMixinTokenTypes.FUNCTION_CLOSE_ANGLE })
+        assertEquals(3, tokens.count {
+            it.first == ")" && it.second == HelixMixinTokenTypes.FUNCTION_CLOSE_PARENTHESIS
+        })
     }
 
     private fun flatten(node: HelixLocalNode): Sequence<HelixLocalNode> = sequence {

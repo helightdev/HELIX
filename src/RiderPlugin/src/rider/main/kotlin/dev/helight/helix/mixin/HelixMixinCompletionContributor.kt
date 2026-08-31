@@ -42,10 +42,9 @@ class HelixMixinCompletionContributor : CompletionContributor() {
 
             when (site.kind) {
                 "Directive" -> definitions(service, "Directive").forEach { definition ->
-                    val tail = "<>".repeat(definition.minimumArguments) +
-                        if (definition.operandType != "None") " " else ""
-                    output.addElement(item(definition.name, "@${definition.name}", tail,
-                        definition.documentation, site, offset, 100.0))
+                    val template = directiveTemplate(definition, source, replacement.startOffset)
+                    output.addElement(item(definition.name, "@${definition.name}", template.text,
+                        definition.documentation, site, offset, 100.0, template.caretOffset))
                 }
                 "Root" -> definitions(service, "Root").forEach { definition ->
                     output.addElement(item(definition.name, definition.name, "", definition.documentation,
@@ -56,7 +55,8 @@ class HelixMixinCompletionContributor : CompletionContributor() {
                     .forEach { definition ->
                         val tail = "<>".repeat(definition.minimumArguments)
                         output.addElement(item(definition.name, definition.name, tail,
-                            definition.receiverType, site, offset, 80.0))
+                            definition.receiverType, site, offset, 80.0,
+                            if (definition.minimumArguments > 0) 1 else null))
                     }
                 "Label" -> {
                     psiDeclarations(file, setOf("SCOPE", "LABEL"), site, offset, output, 125.0)
@@ -132,7 +132,8 @@ class HelixMixinCompletionContributor : CompletionContributor() {
         }
 
         private fun item(name: String, presentable: String, tail: String, type: String,
-                         site: MixinCompletionSite, caretOffset: Int, priority: Double): LookupElement {
+                         site: MixinCompletionSite, caretOffset: Int, priority: Double,
+                         caretInTail: Int? = null): LookupElement {
             val builder = LookupElementBuilder.create(name)
                 .withPresentableText(presentable)
                 .withTailText(tail, true)
@@ -143,8 +144,10 @@ class HelixMixinCompletionContributor : CompletionContributor() {
                         val end = (insertion.tailOffset + suffixLength).coerceAtMost(insertion.document.textLength)
                         insertion.document.deleteString(insertion.tailOffset, end)
                     }
-                    if (tail.isNotEmpty()) insertion.document.insertString(insertion.tailOffset, tail)
-                    if (tail.startsWith("<>")) insertion.editor.caretModel.moveToOffset(insertion.tailOffset + 1)
+                    val tailStart = insertion.tailOffset
+                    if (tail.isNotEmpty()) insertion.document.insertString(tailStart, tail)
+                    if (caretInTail != null)
+                        insertion.editor.caretModel.moveToOffset(tailStart + caretInTail)
                 }
             return PrioritizedLookupElement.withPriority(builder, priority)
         }
@@ -187,5 +190,33 @@ class HelixMixinCompletionContributor : CompletionContributor() {
                     MixinSourceRange(context.replacementStart, context.replacementEnd),
                     context.receiverType, emptyArray())
             }
+
+        private fun directiveTemplate(definition: MixinLanguageDefinition, source: String,
+                                      replacementStart: Int): CompletionTemplate {
+            val arguments = "<>".repeat(definition.minimumArguments)
+            val operand = if (definition.operandType != "None") " " else ""
+            val lineStart = source.lastIndexOf('\n', (replacementStart - 1).coerceAtLeast(0))
+                .let { if (it < 0) 0 else it + 1 }
+            val indent = source.substring(lineStart, replacementStart.coerceAtMost(source.length))
+                .takeWhile { it == ' ' || it == '\t' }
+            val end = if (definition.name in CLOSED_DIRECTIVES)
+                "\n${indent}  \n${indent}@END" else ""
+            val text = arguments + operand + end
+            val caret = when {
+                definition.minimumArguments > 0 -> 1
+                definition.operandType != "None" -> arguments.length + 1
+                definition.name in CLOSED_DIRECTIVES -> text.indexOf('\n') + 3
+                else -> null
+            }
+            return CompletionTemplate(text, caret)
+        }
+
+        private data class CompletionTemplate(val text: String, val caretOffset: Int?)
+
+        companion object {
+            private val CLOSED_DIRECTIVES = setOf(
+                "FUNC", "ANNOTATION", "DERIVATION", "PRELUDE", "DIRECTIVE"
+            )
+        }
     }
 }
