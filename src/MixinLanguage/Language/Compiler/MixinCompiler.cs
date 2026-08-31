@@ -10,7 +10,9 @@ namespace Mixins.Compiler;
 
 public static partial class MixinCompiler {
   private static readonly IReadOnlyList<MixinExpressionCompilerStep> Steps = [
-    new InlineExpansionStep(), new PreludeHoistingStep(), new FunctionBindingStep()
+    new InlineExpansionStep(), // Replace inline calls with their rewritten bodies.
+    new PreludeHoistingStep(), // Try moving non-late compatible instructions to the prelude.
+    new FunctionBindingStep() // Associate function calls with their definitions
   ];
 
   public static ValidationResult ValidateSyntax(string expression) {
@@ -27,9 +29,9 @@ public static partial class MixinCompiler {
 
   public static ProgramAst RewriteTargetAsThis(ProgramAst program) {
     MixinExpressionReference Rewrite(MixinExpressionReference reference) {
-      var properties = reference.Properties.Select(property =>
-        FunctionBindingStep.RewriteProperty(property, Rewrite)
-      ).ToArray();
+      var properties = reference.Properties
+        .Select(property => FunctionBindingStep.RewriteProperty(property, Rewrite))
+        .ToArray();
       return new MixinExpressionReference(
         reference.Root == MixinExpressionRoot.Target ? MixinExpressionRoot.This : reference.Root,
         reference.Member, properties, reference.Parenthesized, reference.SourceRange
@@ -37,9 +39,7 @@ public static partial class MixinCompiler {
     }
 
     return new ProgramAst(
-      program.AvailableInstructions().Select(instruction =>
-        FunctionBindingStep.RewriteReferences(instruction, Rewrite)
-      )
+      program.AvailableInstructions().Select(instruction => FunctionBindingStep.RewriteReferences(instruction, Rewrite))
     );
   }
 
@@ -54,7 +54,7 @@ public static partial class MixinCompiler {
   ) {
     var syntax = new MixinCompilerSyntax(explicitPrelude, expression);
     foreach (var step in Steps) {
-      using var profile = MixinProfiler.Measure("compiler.step." + step.GetType().Name);
+      using var profile = MixinProfiler.Measure($"compiler.step.{step.GetType().Name}");
       if (step.TryTransform(syntax, preparedState, out var transformed, out error, out errorLine)) {
         syntax = transformed;
         continue;
@@ -77,7 +77,7 @@ public static partial class MixinCompiler {
       var validation = MixinParser.ValidateSyntax(expression, false);
       if (!validation.Success) {
         throw new ArgumentException(
-          "invalid prepared expression at line " + validation.ErrorLine + ": " + validation.Error,
+          $"invalid prepared expression at line {validation.ErrorLine}: {validation.Error}",
           nameof(expressions)
         );
       }
@@ -114,7 +114,7 @@ public static partial class MixinCompiler {
         out var symbolError, out var symbolLine
       )) {
         throw new ArgumentException(
-          "invalid prepared expression at line " + symbolLine + ": " + symbolError,
+          $"invalid prepared expression at line {symbolLine}: {symbolError}",
           nameof(programs)
         );
       }
@@ -126,7 +126,7 @@ public static partial class MixinCompiler {
         case VariableAst variable:
           if (!TryInterpolatePrepared(variable.Expression, variables, stringPool, out var value, out var error)) {
             throw new ArgumentException(
-              "invalid prepared expression at line " + variable.Line + ": " + error,
+              $"invalid prepared expression at line {variable.Line}: {error}",
               nameof(programs)
             );
           }
@@ -136,7 +136,7 @@ public static partial class MixinCompiler {
         case LogAst log:
           if (!TryInterpolatePrepared(log.Expression, variables, stringPool, out var text, out var logError)) {
             throw new ArgumentException(
-              "invalid prepared expression at line " + log.Line + ": " + logError,
+              $"invalid prepared expression at line {log.Line}: {logError}",
               nameof(programs)
             );
           }
@@ -220,7 +220,7 @@ public static partial class MixinCompiler {
     return true;
   }
 
-  private static ISet<int> FindPreparedInitializers(IReadOnlyList<InstructionAst> instructions) {
+  internal static ISet<int> FindPreparedInitializers(IReadOnlyList<InstructionAst> instructions) {
     var result = new HashSet<int>();
     var depth = 0;
     var scope = false;
@@ -245,7 +245,7 @@ public static partial class MixinCompiler {
     return result;
   }
 
-  private static bool TryInterpolatePrepared(
+  internal static bool TryInterpolatePrepared(
     IReadOnlyList<ValueAst> expression,
     IReadOnlyDictionary<MixinString, IMixinValue> variables,
     MixinStringPool strings,
@@ -282,7 +282,7 @@ public static partial class MixinCompiler {
     return true;
   }
 
-  private static void AddScopeLabel(
+  internal static void AddScopeLabel(
     InstructionAst ast,
     int index,
     int scope,
@@ -298,15 +298,13 @@ public static partial class MixinCompiler {
     if (string.IsNullOrEmpty(argument)) return;
     var key = ScopeLabelKey(scope, argument);
     if (labels.ContainsKey(key)) {
-      error = "duplicate scope label '" + argument + "'";
+      error = $"duplicate scope label '{argument}'";
       return;
     }
     labels.Add(key, index);
   }
 
-  internal static string ScopeLabelKey(int scope, string label) {
-    return scope + "\0" + label;
-  }
+  internal static string ScopeLabelKey(int scope, string label) => $"{scope}\0{label}";
 
   internal static int FindNextScopeOrEnd(
     IReadOnlyList<InstructionAst> lines,
@@ -381,7 +379,7 @@ public static partial class MixinCompiler {
       }
       if (instruction is FunctionAst function) {
         if (functions.ContainsKey(function.Name)) {
-          error = "duplicate function '" + function.Name + "'";
+          error = $"duplicate function '{function.Name}'";
           errorLine = instruction.Line;
           return false;
         }
@@ -396,7 +394,7 @@ public static partial class MixinCompiler {
       return false;
     }
     if (activeFunction is null) return true;
-    error = "unterminated function '" + activeFunction + "'";
+    error = $"unterminated function '{activeFunction}'";
     errorLine = lines[functionStart].Line;
     return false;
   }
