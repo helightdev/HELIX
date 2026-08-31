@@ -75,15 +75,15 @@ public sealed class MixinEditorModelTests
     [Test]
     public void CatalogMirrorsRuntimeFunctionsAndDirectives()
     {
-        Assert.That(MixinLanguageCatalog.Directives.Any(item =>
-            item.Name == "PUT" && item.MaximumArguments == 2 && item.OperandKind == MixinOperandKind.Value),
+        Assert.That(DirectiveLibrary.Enumerate().Any(item =>
+            item.Name == "PUT" && item.ArgumentCount == 2 && item.OperandKind == DirectiveOperandKind.Value),
             Is.True);
-        Assert.That(MixinLanguageCatalog.Functions.Any(item =>
-            item.Name == "reduce" && item.ArgumentRoles.SequenceEqual(new[] {
-                MixinArgumentRole.Value, MixinArgumentRole.Function
+        Assert.That(FunctionLibrary.Enumerate().Any(item =>
+            item.Name == "reduce" && item.ArgumentTypes.SequenceEqual(new[] {
+                MixinLanguageValueKind.Any, MixinLanguageValueKind.Function
             })), Is.True);
-        Assert.That(MixinLanguageCatalog.Functions.Any(item =>
-            item.Name == "members" && item.ReceiverKind == MixinReceiverKind.Type), Is.True);
+        Assert.That(FunctionLibrary.Enumerate().Any(item =>
+            item.Name == "members" && item.ReceiverType == MixinLanguageValueKind.Type), Is.True);
     }
 
     [Test]

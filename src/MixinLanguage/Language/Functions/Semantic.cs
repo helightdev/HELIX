@@ -7,7 +7,8 @@ using Mixins.Runtime;
 
 namespace Mixins.Functions;
 
-internal sealed class TypeFunction() : EvaluatedFunctionDefinition("type", 0, 0) {
+internal sealed class TypeFunction() : EvaluatedFunctionDefinition("type", 0,
+  MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Type) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -21,7 +22,8 @@ internal sealed class TypeFunction() : EvaluatedFunctionDefinition("type", 0, 0)
   }
 }
 
-internal sealed class FullNameFunction() : EvaluatedFunctionDefinition("fullName", 0, 0) {
+internal sealed class FullNameFunction() : EvaluatedFunctionDefinition("fullName", 0,
+  MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Text) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -43,7 +45,8 @@ internal sealed class FullNameFunction() : EvaluatedFunctionDefinition("fullName
   }
 }
 
-internal sealed class VisibilityFunction() : EvaluatedFunctionDefinition("visibility", 0, 0) {
+internal sealed class VisibilityFunction() : EvaluatedFunctionDefinition("visibility", 0,
+  MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Text) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -60,7 +63,8 @@ internal sealed class VisibilityFunction() : EvaluatedFunctionDefinition("visibi
   }
 }
 
-internal sealed class MakeGenericFunction() : EvaluatedFunctionDefinition("makeGeneric", 1, 1) {
+internal sealed class MakeGenericFunction() : EvaluatedFunctionDefinition("makeGeneric", 1,
+  MixinLanguageValueKind.Type, MixinLanguageValueKind.Type, [MixinLanguageValueKind.CSharpType]) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -88,7 +92,9 @@ internal sealed class MakeGenericFunction() : EvaluatedFunctionDefinition("makeG
 }
 
 internal abstract class AttributeFunction(string name, int arguments)
-  : EvaluatedFunctionDefinition(name, arguments, arguments) {
+  : EvaluatedFunctionDefinition(name, arguments, MixinLanguageValueKind.Symbol,
+    name == "attributeOf" ? MixinLanguageValueKind.Any : MixinLanguageValueKind.Table,
+    arguments == 0 ? [] : [MixinLanguageValueKind.CSharpType]) {
   protected sealed override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -126,7 +132,8 @@ internal sealed class AttributeOfFunction() : AttributeFunction("attributeOf", 1
   }
 }
 
-internal sealed class MembersFunction() : EvaluatedFunctionDefinition("members", 0, 0) {
+internal sealed class MembersFunction() : EvaluatedFunctionDefinition("members", 0,
+  MixinLanguageValueKind.Type, MixinLanguageValueKind.Table) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {
@@ -152,7 +159,8 @@ internal sealed class MembersFunction() : EvaluatedFunctionDefinition("members",
   }
 }
 
-internal sealed class ParametersFunction() : EvaluatedFunctionDefinition("parameters", 0, 0) {
+internal sealed class ParametersFunction() : EvaluatedFunctionDefinition("parameters", 0,
+  MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Table) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {
@@ -173,7 +181,8 @@ internal sealed class ParametersFunction() : EvaluatedFunctionDefinition("parame
   }
 }
 
-internal sealed class NullableTypeFunction() : EvaluatedFunctionDefinition("nullableType", 0, 0) {
+internal sealed class NullableTypeFunction() : EvaluatedFunctionDefinition("nullableType", 0,
+  MixinLanguageValueKind.Type, MixinLanguageValueKind.Type) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {
@@ -189,7 +198,7 @@ internal sealed class NullableTypeFunction() : EvaluatedFunctionDefinition("null
   }
 }
 
-internal sealed class CSharpLiteralFunction() : EvaluatedFunctionDefinition("csharpLiteral", 0, 0) {
+internal sealed class CSharpLiteralFunction() : EvaluatedFunctionDefinition("csharpLiteral", 0) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {

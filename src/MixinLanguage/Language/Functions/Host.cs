@@ -3,7 +3,7 @@ using Mixins.Runtime;
 
 namespace Mixins.Functions;
 
-internal sealed class WireFunction() : EvaluatedFunctionDefinition("wire", 1, 1) {
+internal sealed class WireFunction() : EvaluatedFunctionDefinition("wire", 1) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -15,7 +15,7 @@ internal sealed class WireFunction() : EvaluatedFunctionDefinition("wire", 1, 1)
   }
 }
 
-internal sealed class SignaturePredicate() : PredicateFunctionDefinition("signature", 1, 1) {
+internal sealed class SignaturePredicate() : PredicateFunctionDefinition("signature", 1) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -27,7 +27,7 @@ internal sealed class SignaturePredicate() : PredicateFunctionDefinition("signat
   }
 }
 
-internal sealed class WireablePredicate() : PredicateFunctionDefinition("wireable", 2, 2) {
+internal sealed class WireablePredicate() : PredicateFunctionDefinition("wireable", 2) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments

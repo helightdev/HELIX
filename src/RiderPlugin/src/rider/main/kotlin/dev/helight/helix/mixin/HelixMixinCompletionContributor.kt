@@ -53,10 +53,10 @@ class HelixMixinCompletionContributor : CompletionContributor() {
                 "Function", "Predicate" -> definitions(service, site.kind)
                     .filter { receiverMatches(site.receiverType, it.receiverType) }
                     .forEach { definition ->
-                        val tail = "<>".repeat(definition.minimumArguments)
+                        val tail = "<>".repeat(definition.argumentCount)
                         output.addElement(item(definition.name, definition.name, tail,
                             definition.receiverType, site, offset, 80.0,
-                            if (definition.minimumArguments > 0) 1 else null))
+                            if (definition.argumentCount > 0) 1 else null))
                     }
                 "Label" -> {
                     psiDeclarations(file, setOf("SCOPE", "LABEL"), site, offset, output, 125.0)
@@ -193,7 +193,7 @@ class HelixMixinCompletionContributor : CompletionContributor() {
 
         private fun directiveTemplate(definition: MixinLanguageDefinition, source: String,
                                       replacementStart: Int): CompletionTemplate {
-            val arguments = "<>".repeat(definition.minimumArguments)
+            val arguments = "<>".repeat(definition.argumentCount)
             val operand = if (definition.operandType != "None") " " else ""
             val lineStart = source.lastIndexOf('\n', (replacementStart - 1).coerceAtLeast(0))
                 .let { if (it < 0) 0 else it + 1 }
@@ -203,7 +203,7 @@ class HelixMixinCompletionContributor : CompletionContributor() {
                 "\n${indent}  \n${indent}@END" else ""
             val text = arguments + operand + end
             val caret = when {
-                definition.minimumArguments > 0 -> 1
+                definition.argumentCount > 0 -> 1
                 definition.operandType != "None" -> arguments.length + 1
                 definition.name in CLOSED_DIRECTIVES -> text.indexOf('\n') + 3
                 else -> null

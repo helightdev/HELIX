@@ -28,7 +28,7 @@ public static class MixinSyntaxRenderer {
       "eq" => subject + (predicate.Negated ? " is " : " is not ") +
         (expected.Length == 0 ? "the expected value" : expected),
       "exists" => subject + (predicate.Negated ? " exists" : " does not exist"),
-      "is" => subject + (predicate.Negated ? " is of type " : " is not of type ") + expected,
+      "is" or "type" => subject + (predicate.Negated ? " is of type " : " is not of type ") + expected,
       "has" => subject + (predicate.Negated ? " has member " : " does not have member ") + expected,
       "isSelf" => subject + (predicate.Negated ? " is the current type" : " is not the current type"),
       _ => subject + (predicate.Negated ? " is " : " is not ") + PredicateDescription(predicate.Name)

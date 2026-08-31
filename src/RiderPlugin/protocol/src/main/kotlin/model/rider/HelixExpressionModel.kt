@@ -102,8 +102,8 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
         val languageDefinition = structdef("mixinLanguageDefinition") {
             field("name", string)
             field("kind", string)
-            field("minimumArguments", int)
-            field("maximumArguments", int)
+            field("argumentCount", int)
+            field("variadic", bool)
             field("operandType", string)
             field("receiverType", string)
             field("resultType", string)

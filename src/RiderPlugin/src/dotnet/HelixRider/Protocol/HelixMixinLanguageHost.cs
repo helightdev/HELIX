@@ -250,21 +250,21 @@ public sealed class HelixMixinLanguageHost
 
     private static MixinLanguageDefinition[] Definitions()
     {
-        var directives = global::Helix.MixinLanguage.Language.DirectiveLibrary.EnumerateLanguageDefinitions()
+        var directives = global::Helix.MixinLanguage.Language.DirectiveLibrary.Enumerate()
           .Select(definition => new MixinLanguageDefinition(
-            definition.Name, "Directive", definition.MinimumArguments, definition.MaximumArguments,
+            definition.Name, "Directive", definition.ArgumentCount, false,
             definition.OperandType.ToString(), "None", definition.OperandType.ToString(),
             definition.ArgumentTypes.Select(role => role.ToString()).ToArray(), definition.Documentation));
         var functions = global::Helix.MixinLanguage.Language.FunctionLibrary.Enumerate()
           .Select(definition => new MixinLanguageDefinition(
             definition.Name, definition.IsPredicate ? "Predicate" : "Function",
-            definition.MinimumArguments, definition.MaximumArguments, "None",
+            definition.ArgumentCount, definition.IsVariadic, "None",
             definition.ReceiverType.ToString(), definition.ResultType.ToString(),
             definition.ArgumentTypes.Select(role => role.ToString()).ToArray(), definition.Documentation));
-        var roots = global::Helix.MixinLanguage.Language.Compiler.MixinLanguageCatalog.Roots.Select(definition => new MixinLanguageDefinition(
+        var roots = global::Helix.MixinLanguage.Language.MixinRootLibrary.Enumerate().Select(definition => new MixinLanguageDefinition(
             definition.Name, "Root", 0, 0, "None", "None", "Any", Array.Empty<string>(),
             definition.Documentation));
-        var outputTargets = global::Helix.MixinLanguage.Language.Compiler.MixinLanguageCatalog.OutputTargets.Select(name => new MixinLanguageDefinition(
+        var outputTargets = Enum.GetNames<global::Helix.MixinLanguage.Language.MixinExpressionOutputTarget>().Select(name => new MixinLanguageDefinition(
             name, "OutputTarget", 0, 0, "None", "None", "None", Array.Empty<string>(),
             "Generated output destination"));
         return directives.Concat(functions).Concat(roots).Concat(outputTargets).ToArray();

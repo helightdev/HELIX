@@ -4,7 +4,9 @@ using Mixins.Runtime;
 
 namespace Mixins.Functions;
 
-internal sealed class ResolveMixinDirectiveFunction() : EvaluatedDirectiveFunction("RESOLVE_MIXIN", 1) {
+internal sealed class ResolveMixinDirectiveFunction() : EvaluatedDirectiveFunction(
+  "RESOLVE_MIXIN", 1, [MixinLanguageValueKind.Text]
+) {
   protected override IMixinValue Apply(
     ExecutionContext context, IReadOnlyList<IMixinValue> arguments,
     IMixinValue operand
@@ -14,7 +16,9 @@ internal sealed class ResolveMixinDirectiveFunction() : EvaluatedDirectiveFuncti
 }
 
 internal abstract class TableDirectiveFunction(string name, int arguments)
-  : FunctionDefinition(name, arguments, arguments) {
+  : FunctionDefinition(name, arguments, argumentTypes: arguments == 1
+    ? [MixinLanguageValueKind.Identifier]
+    : [MixinLanguageValueKind.Identifier, MixinLanguageValueKind.Any]) {
   public override IMixinValue Invoke(
     ExecutionContext context, IMixinValue instance,
     IReadOnlyList<IMixinValue> arguments, bool negated

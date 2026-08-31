@@ -3,7 +3,7 @@ using Mixins.Runtime;
 
 namespace Mixins.Functions;
 
-internal sealed class NameFunction() : EvaluatedFunctionDefinition("name", 0, 0) {
+internal sealed class NameFunction() : EvaluatedFunctionDefinition("name", 0, resultType: MixinLanguageValueKind.Text) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -12,7 +12,8 @@ internal sealed class NameFunction() : EvaluatedFunctionDefinition("name", 0, 0)
   }
 }
 
-internal sealed class PathFunction() : EvaluatedFunctionDefinition("path", 1, 1) {
+internal sealed class PathFunction() : EvaluatedFunctionDefinition("path", 1,
+  argumentTypes: [MixinLanguageValueKind.Text]) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -21,7 +22,7 @@ internal sealed class PathFunction() : EvaluatedFunctionDefinition("path", 1, 1)
   }
 }
 
-internal sealed class UnwrapFunction() : EvaluatedFunctionDefinition("unwrap", 0, 0) {
+internal sealed class UnwrapFunction() : EvaluatedFunctionDefinition("unwrap", 0) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -30,7 +31,9 @@ internal sealed class UnwrapFunction() : EvaluatedFunctionDefinition("unwrap", 0
   }
 }
 
-internal sealed class SwitchFunction() : EvaluatedFunctionDefinition("switch", 2, 2) {
+internal sealed class SwitchFunction() : EvaluatedFunctionDefinition("switch", 2,
+  receiverType: MixinLanguageValueKind.Boolean,
+  argumentTypes: [MixinLanguageValueKind.Any, MixinLanguageValueKind.Any]) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -39,7 +42,7 @@ internal sealed class SwitchFunction() : EvaluatedFunctionDefinition("switch", 2
   }
 }
 
-internal sealed class SizeFunction() : EvaluatedFunctionDefinition("size", 0, 0) {
+internal sealed class SizeFunction() : EvaluatedFunctionDefinition("size", 0, resultType: MixinLanguageValueKind.Text) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments

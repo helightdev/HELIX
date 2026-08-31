@@ -961,8 +961,8 @@ namespace HelixRider.Protocol
     //public fields
     [NotNull] public string Name {get; private set;}
     [NotNull] public string Kind {get; private set;}
-    public int MinimumArguments {get; private set;}
-    public int MaximumArguments {get; private set;}
+    public int ArgumentCount {get; private set;}
+    public bool Variadic {get; private set;}
     [NotNull] public string OperandType {get; private set;}
     [NotNull] public string ReceiverType {get; private set;}
     [NotNull] public string ResultType {get; private set;}
@@ -974,8 +974,8 @@ namespace HelixRider.Protocol
     public MixinLanguageDefinition(
       [NotNull] string name,
       [NotNull] string kind,
-      int minimumArguments,
-      int maximumArguments,
+      int argumentCount,
+      bool variadic,
       [NotNull] string operandType,
       [NotNull] string receiverType,
       [NotNull] string resultType,
@@ -993,8 +993,8 @@ namespace HelixRider.Protocol
 
       Name = name;
       Kind = kind;
-      MinimumArguments = minimumArguments;
-      MaximumArguments = maximumArguments;
+      ArgumentCount = argumentCount;
+      Variadic = variadic;
       OperandType = operandType;
       ReceiverType = receiverType;
       ResultType = resultType;
@@ -1003,12 +1003,12 @@ namespace HelixRider.Protocol
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, out int minimumArguments, out int maximumArguments, [NotNull] out string operandType, [NotNull] out string receiverType, [NotNull] out string resultType, [NotNull] out string[] argumentTypes, [NotNull] out string documentation)
+    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, out int argumentCount, out bool variadic, [NotNull] out string operandType, [NotNull] out string receiverType, [NotNull] out string resultType, [NotNull] out string[] argumentTypes, [NotNull] out string documentation)
     {
       name = Name;
       kind = Kind;
-      minimumArguments = MinimumArguments;
-      maximumArguments = MaximumArguments;
+      argumentCount = ArgumentCount;
+      variadic = Variadic;
       operandType = OperandType;
       receiverType = ReceiverType;
       resultType = ResultType;
@@ -1021,14 +1021,14 @@ namespace HelixRider.Protocol
     {
       var name = reader.ReadString();
       var kind = reader.ReadString();
-      var minimumArguments = reader.ReadInt();
-      var maximumArguments = reader.ReadInt();
+      var argumentCount = reader.ReadInt();
+      var variadic = reader.ReadBool();
       var operandType = reader.ReadString();
       var receiverType = reader.ReadString();
       var resultType = reader.ReadString();
       var argumentTypes = ReadStringArray(ctx, reader);
       var documentation = reader.ReadString();
-      var _result = new MixinLanguageDefinition(name, kind, minimumArguments, maximumArguments, operandType, receiverType, resultType, argumentTypes, documentation);
+      var _result = new MixinLanguageDefinition(name, kind, argumentCount, variadic, operandType, receiverType, resultType, argumentTypes, documentation);
       return _result;
     };
     public static CtxReadDelegate<string[]> ReadStringArray = JetBrains.Rd.Impl.Serializers.ReadString.Array();
@@ -1037,8 +1037,8 @@ namespace HelixRider.Protocol
     {
       writer.Write(value.Name);
       writer.Write(value.Kind);
-      writer.Write(value.MinimumArguments);
-      writer.Write(value.MaximumArguments);
+      writer.Write(value.ArgumentCount);
+      writer.Write(value.Variadic);
       writer.Write(value.OperandType);
       writer.Write(value.ReceiverType);
       writer.Write(value.ResultType);
@@ -1063,7 +1063,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return Name == other.Name && Kind == other.Kind && MinimumArguments == other.MinimumArguments && MaximumArguments == other.MaximumArguments && OperandType == other.OperandType && ReceiverType == other.ReceiverType && ResultType == other.ResultType && ArgumentTypes.SequenceEqual(other.ArgumentTypes) && Documentation == other.Documentation;
+      return Name == other.Name && Kind == other.Kind && ArgumentCount == other.ArgumentCount && Variadic == other.Variadic && OperandType == other.OperandType && ReceiverType == other.ReceiverType && ResultType == other.ResultType && ArgumentTypes.SequenceEqual(other.ArgumentTypes) && Documentation == other.Documentation;
     }
     //hash code trait
     public override int GetHashCode()
@@ -1072,8 +1072,8 @@ namespace HelixRider.Protocol
         var hash = 0;
         hash = hash * 31 + Name.GetHashCode();
         hash = hash * 31 + Kind.GetHashCode();
-        hash = hash * 31 + MinimumArguments.GetHashCode();
-        hash = hash * 31 + MaximumArguments.GetHashCode();
+        hash = hash * 31 + ArgumentCount.GetHashCode();
+        hash = hash * 31 + Variadic.GetHashCode();
         hash = hash * 31 + OperandType.GetHashCode();
         hash = hash * 31 + ReceiverType.GetHashCode();
         hash = hash * 31 + ResultType.GetHashCode();
@@ -1089,8 +1089,8 @@ namespace HelixRider.Protocol
       using (printer.IndentCookie()) {
         printer.Print("name = "); Name.PrintEx(printer); printer.Println();
         printer.Print("kind = "); Kind.PrintEx(printer); printer.Println();
-        printer.Print("minimumArguments = "); MinimumArguments.PrintEx(printer); printer.Println();
-        printer.Print("maximumArguments = "); MaximumArguments.PrintEx(printer); printer.Println();
+        printer.Print("argumentCount = "); ArgumentCount.PrintEx(printer); printer.Println();
+        printer.Print("variadic = "); Variadic.PrintEx(printer); printer.Println();
         printer.Print("operandType = "); OperandType.PrintEx(printer); printer.Println();
         printer.Print("receiverType = "); ReceiverType.PrintEx(printer); printer.Println();
         printer.Print("resultType = "); ResultType.PrintEx(printer); printer.Println();

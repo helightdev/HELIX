@@ -25,7 +25,7 @@ public sealed class MixinRepositorySyntaxTests {
     Assert.Equal(MixinLanguageValueKind.Type, makeGeneric.ResultType);
     Assert.Equal([MixinLanguageValueKind.CSharpType], makeGeneric.ArgumentTypes);
 
-    var annotation = DirectiveLibrary.EnumerateLanguageDefinitions()
+    var annotation = DirectiveLibrary.Enumerate()
       .Single(item => item.Name == "ANNOTATION");
     Assert.Equal([MixinLanguageValueKind.CSharpType], annotation.ArgumentTypes);
   }
@@ -35,12 +35,29 @@ public sealed class MixinRepositorySyntaxTests {
   [InlineData("PUSH")]
   [InlineData("PUT")]
   public void ExecutableDirectivesUseRegisteredFunctionDefinitions(string name) {
-    Assert.True(DirectiveLibrary.TryGet(name, out var directive));
-    Assert.True(FunctionLibrary.TryGet(name, out var function));
+    var directive = Assert.Single(DirectiveLibrary.Enumerate().Where(item => item.Name == name));
+    Assert.True(FunctionLibrary.TryGet(name, directive.ArgumentCount, out var function));
 
     Assert.Same(function, directive.Function);
     Assert.Equal(function.ArgumentTypes, directive.ArgumentTypes);
     Assert.False(string.IsNullOrWhiteSpace(function.Documentation));
+  }
+
+  [Fact]
+  public void LanguageDefinitionsResolveFixedAndVariadicSignatures() {
+    Assert.True(FunctionLibrary.TryGet("format", 1, out var formatOne));
+    Assert.True(FunctionLibrary.TryGet("format", 2, out var formatTwo));
+    Assert.False(FunctionLibrary.TryGet("format", 3, out _));
+    Assert.NotSame(formatOne, formatTwo);
+
+    Assert.True(FunctionLibrary.TryGet("and", 1, out var and));
+    Assert.True(FunctionLibrary.TryGet("and", 3, out _));
+    Assert.True(and.IsVariadic);
+    Assert.Equal([MixinLanguageValueKind.Boolean, MixinLanguageValueKind.Boolean], and.ArgumentTypes);
+
+    Assert.True(DirectiveLibrary.TryGet("CALL", 1, out _));
+    Assert.True(DirectiveLibrary.TryGet("CALL", 2, out _));
+    Assert.False(DirectiveLibrary.TryGet("CALL", 0, out _));
   }
 
   [Fact]
@@ -58,7 +75,7 @@ public sealed class MixinRepositorySyntaxTests {
       Assert.Same(definition, byName);
       Assert.Same(definition, byRoot);
     });
-    Assert.Equal(definitions, MixinLanguageCatalog.Roots.Select(item => item.Definition));
+    Assert.Equal(definitions, MixinRootLibrary.Enumerate());
   }
 
   [Fact]

@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Mixins.Compiler;
 using Mixins.Runtime;
 
-namespace Mixins;
+namespace Mixins.Compiler;
 
 public sealed record MixinParseDiagnostic(int Line, string Message);
 
@@ -102,11 +101,12 @@ public static class MixinParser {
         error = "property name is empty";
         return false;
       }
-      FunctionLibrary.TryResolve(propertyToken.Text, predicate, out var function);
       var arguments = new List<MixinPropertyArgumentAst>();
       while (cursor.At(MixinTokenKind.OpenArgument)) {
         if (!TryParsePropertyArgument(
-          cursor, function?.GetArgumentType(arguments.Count) == MixinLanguageValueKind.Boolean,
+          cursor, FunctionLibrary.GetArgumentType(
+            propertyToken.Text, predicate, arguments.Count
+          ) == MixinLanguageValueKind.Boolean,
           out var argument
         )) {
           error = "invalid argument for property ':" + propertyToken.Text + "'";
@@ -114,7 +114,8 @@ public static class MixinParser {
         }
         arguments.Add(argument);
       }
-      var propertyName = function?.Name ?? propertyToken.Text;
+      FunctionLibrary.TryResolve(propertyToken.Text, predicate, arguments.Count, out var function);
+      var propertyName = predicate ? propertyToken.Text : function?.Name ?? propertyToken.Text;
       var propertyStart = operatorToken.Start;
       var propertyEnd = cursor.Previous?.End ?? propertyToken.End;
       var property = new MixinExpressionProperty(
@@ -122,27 +123,28 @@ public static class MixinParser {
         sourceRange: new MixinSourceRange(
           propertyStart, propertyEnd, operatorToken.SourceRange.Line, operatorToken.SourceRange.Column
         ),
-        nameRange: propertyToken.SourceRange
+        definition: function, nameRange: propertyToken.SourceRange
       );
-      if (function is not null && (property.Arguments.Count < function.MinimumArguments ||
-          property.Arguments.Count > function.MaximumArguments)) {
-        error = function.MinimumArguments == function.MaximumArguments
-          ? ":" + property.Name + " requires " + function.MinimumArguments +
-          (function.MinimumArguments == 1 ? " argument" : " arguments")
-          : ":" + property.Name + " accepts at most " + function.MaximumArguments + " arguments";
+      if (function is null) {
+        var signatures = FunctionLibrary.Enumerate().Where(item => predicate
+          ? item.MatchesPredicate(propertyToken.Text)
+          : string.Equals(item.Name, propertyToken.Text, StringComparison.Ordinal)
+        ).ToArray();
+        error = signatures.Length == 1
+          ? signatures[0].ArgumentCountError()
+          : "no matching signature for ':" + propertyToken.Text + "' with " + arguments.Count + " arguments";
         return false;
       }
-      if (function is not null)
-        for (var index = 0; index < arguments.Count; index++)
-          if (function.GetArgumentType(index) == MixinLanguageValueKind.Boolean &&
-              arguments[index].BooleanExpression is null) {
-            error = ":" + property.Name + " arguments must be dynamic boolean expressions";
-            return false;
-          }
+      for (var index = 0; index < arguments.Count; index++)
+        if (function.GetArgumentType(index) == MixinLanguageValueKind.Boolean &&
+            arguments[index].BooleanExpression is null) {
+          error = ":" + property.Name + " arguments must be dynamic boolean expressions";
+          return false;
+        }
       properties.Add(property);
     }
     for (var index = 0; index + 1 < properties.Count; index++) {
-      if (!FunctionLibrary.IsPredicate(properties[index].Name)) continue;
+      if (properties[index].Definition is not { IsPredicate: true }) continue;
       error = "boolean operation ':" + properties[index].Name + "' must be terminal";
       return false;
     }
@@ -370,14 +372,20 @@ public static class MixinParser {
     var markerRange = marker.SourceRange;
     var nameRange = directive.SourceRange;
     var operandText = string.Concat(operandTokens.Select(token => token.Text));
-    if (!DirectiveLibrary.TryGet(name, out var definition)) {
+    if (!DirectiveLibrary.TryGet(name, arguments.Count, out var definition)) {
       var unknown = new UnknownDirectiveAst(name) { SourceRange = sourceRange };
       CompleteDirective(unknown, null, markerRange, nameRange, argumentRanges,
         argumentContentRanges, operandRange);
-      return new MixinDirectiveParseResult(unknown, "unknown directive '@" + name + "'");
+      var signatures = DirectiveLibrary.Enumerate().Where(item =>
+        string.Equals(item.Name, name, StringComparison.Ordinal)
+      ).ToArray();
+      return new MixinDirectiveParseResult(unknown, signatures.Length switch {
+        0 => "unknown directive '@" + name + "'",
+        1 => signatures[0].ArgumentCountError(),
+        _ => "no matching signature for '@" + name + "' with " + arguments.Count + " arguments"
+      });
     }
-    var valid = definition.Validate(arguments, operandText, out var error) &&
-      ValidateOperand(definition.OperandKind, operandTokens, out error) &&
+    var valid = ValidateOperand(definition.OperandKind, operandTokens, out var error) &&
       ValidateExpressionArguments(argumentTokens, out error);
     var parsedArguments = arguments.Select((argument, index) =>
       ParseDirectiveArgument(argument, argumentTokens[index], argumentContentRanges[index])).ToArray();
@@ -449,9 +457,9 @@ public static class MixinParser {
         node.MarkerRange.Line, node.MarkerRange.Column
       )
     ));
-    MixinLanguageCatalog.TryGetDirective(MixinSyntaxFacts.Command(node), out var directive);
+    var directive = node.Definition;
     for (var index = 0; index < node.ArgumentRanges.Count; index++) {
-      var metadata = directive?.Definition.GetArgumentMetadata(node.ArgumentRanges.Count, index);
+      var metadata = directive?.GetArgumentMetadata(index);
       var argument = index < node.ParsedArguments.Count
         ? node.ParsedArguments[index]
         : new DirectiveArgumentAst(null, null, node.ArgumentRanges[index]);

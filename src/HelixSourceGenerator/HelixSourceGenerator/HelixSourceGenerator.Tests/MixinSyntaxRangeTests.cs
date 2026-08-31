@@ -112,7 +112,7 @@ public sealed class MixinSyntaxRangeTests {
 
   [Fact]
   public void RegisteredSyntaxIsBackedByItsDefinition() {
-    Assert.True(DirectiveLibrary.TryGet("RETURN", out var definition));
+    Assert.True(DirectiveLibrary.TryGet("RETURN", 0, out var definition));
     var syntax = Assert.IsType<ReturnAst>(
       MixinParser.Parse("@RETURN value").Instructions.Single()
     );
@@ -162,14 +162,12 @@ public sealed class MixinSyntaxRangeTests {
   [Fact]
   public void EveryRegisteredDefinitionProvidesCompleteLanguageMetadata() {
     Assert.All(FunctionLibrary.Enumerate(), definition => {
-      Assert.NotNull(definition.Metadata);
       Assert.False(string.IsNullOrWhiteSpace(definition.Documentation));
-      Assert.True(definition.ArgumentTypes.Count >= definition.MinimumArguments);
+      Assert.Equal(definition.ArgumentCount + (definition.IsVariadic ? 1 : 0), definition.ArgumentTypes.Count);
     });
-    Assert.All(DirectiveLibrary.EnumerateLanguageDefinitions(), definition => {
-      Assert.NotNull(definition.Metadata);
+    Assert.All(DirectiveLibrary.Enumerate(), definition => {
       Assert.False(string.IsNullOrWhiteSpace(definition.Documentation));
-      Assert.True(definition.ArgumentTypes.Count >= definition.MinimumArguments);
+      Assert.Equal(definition.ArgumentCount, definition.ArgumentTypes.Count);
     });
   }
 

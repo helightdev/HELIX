@@ -8,7 +8,7 @@ using Mixins.Runtime;
 
 namespace Mixins.Functions;
 
-internal sealed class ExistsPredicate() : PredicateFunctionDefinition("exists", 0, 0) {
+internal sealed class ExistsPredicate() : PredicateFunctionDefinition("exists", 0) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -17,7 +17,9 @@ internal sealed class ExistsPredicate() : PredicateFunctionDefinition("exists", 
   }
 }
 
-internal sealed class AndPredicate() : PredicateFunctionDefinition("and", 1, int.MaxValue) {
+internal sealed class AndPredicate() : PredicateFunctionDefinition("and", 1,
+  MixinLanguageValueKind.Boolean,
+  [MixinLanguageValueKind.Boolean, MixinLanguageValueKind.Boolean], variadic: true) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -28,7 +30,9 @@ internal sealed class AndPredicate() : PredicateFunctionDefinition("and", 1, int
   }
 }
 
-internal sealed class OrPredicate() : PredicateFunctionDefinition("or", 1, int.MaxValue) {
+internal sealed class OrPredicate() : PredicateFunctionDefinition("or", 1,
+  MixinLanguageValueKind.Boolean,
+  [MixinLanguageValueKind.Boolean, MixinLanguageValueKind.Boolean], variadic: true) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -39,7 +43,7 @@ internal sealed class OrPredicate() : PredicateFunctionDefinition("or", 1, int.M
   }
 }
 
-internal sealed class IsPredicate() : PredicateFunctionDefinition("is", 1, 1) {
+internal sealed class IsPredicate() : PredicateFunctionDefinition("is", 1) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -48,7 +52,7 @@ internal sealed class IsPredicate() : PredicateFunctionDefinition("is", 1, 1) {
   }
 }
 
-internal sealed class HasPredicate() : PredicateFunctionDefinition("has", 1, 1) {
+internal sealed class HasPredicate() : PredicateFunctionDefinition("has", 1) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -64,7 +68,7 @@ internal sealed class HasPredicate() : PredicateFunctionDefinition("has", 1, 1) 
   }
 }
 
-internal sealed class EqualPredicate() : PredicateFunctionDefinition("eq", 1, 1) {
+internal sealed class EqualPredicate() : PredicateFunctionDefinition("eq", 1) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -78,7 +82,8 @@ internal sealed class EqualPredicate() : PredicateFunctionDefinition("eq", 1, 1)
   }
 }
 
-internal sealed class MatchesPredicate() : PredicateFunctionDefinition("matches", 1, 1) {
+internal sealed class MatchesPredicate() : PredicateFunctionDefinition("matches", 1,
+  MixinLanguageValueKind.Text, [MixinLanguageValueKind.Text]) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -91,7 +96,7 @@ internal sealed class MatchesPredicate() : PredicateFunctionDefinition("matches"
   }
 }
 
-internal sealed class TraitPredicate(string name) : PredicateFunctionDefinition(name, 0, 0) {
+internal sealed class TraitPredicate(string name) : PredicateFunctionDefinition(name, 0) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments

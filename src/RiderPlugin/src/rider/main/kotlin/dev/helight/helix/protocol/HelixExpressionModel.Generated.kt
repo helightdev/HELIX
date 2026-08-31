@@ -703,8 +703,8 @@ data class MixinLanguageCatalog (
 data class MixinLanguageDefinition (
     val name: String,
     val kind: String,
-    val minimumArguments: Int,
-    val maximumArguments: Int,
+    val argumentCount: Int,
+    val variadic: Boolean,
     val operandType: String,
     val receiverType: String,
     val resultType: String,
@@ -715,8 +715,8 @@ data class MixinLanguageDefinition (
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
         buffer.writeString(name)
         buffer.writeString(kind)
-        buffer.writeInt(minimumArguments)
-        buffer.writeInt(maximumArguments)
+        buffer.writeInt(argumentCount)
+        buffer.writeBool(variadic)
         buffer.writeString(operandType)
         buffer.writeString(receiverType)
         buffer.writeString(resultType)
@@ -733,14 +733,14 @@ data class MixinLanguageDefinition (
         override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinLanguageDefinition  {
             val name = buffer.readString()
             val kind = buffer.readString()
-            val minimumArguments = buffer.readInt()
-            val maximumArguments = buffer.readInt()
+            val argumentCount = buffer.readInt()
+            val variadic = buffer.readBool()
             val operandType = buffer.readString()
             val receiverType = buffer.readString()
             val resultType = buffer.readString()
             val argumentTypes = buffer.readArray {buffer.readString()}
             val documentation = buffer.readString()
-            return MixinLanguageDefinition(name, kind, minimumArguments, maximumArguments, operandType, receiverType, resultType, argumentTypes, documentation)
+            return MixinLanguageDefinition(name, kind, argumentCount, variadic, operandType, receiverType, resultType, argumentTypes, documentation)
         }
 
         override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinLanguageDefinition)  {
@@ -762,8 +762,8 @@ data class MixinLanguageDefinition (
 
         if (name != other.name) return false
         if (kind != other.kind) return false
-        if (minimumArguments != other.minimumArguments) return false
-        if (maximumArguments != other.maximumArguments) return false
+        if (argumentCount != other.argumentCount) return false
+        if (variadic != other.variadic) return false
         if (operandType != other.operandType) return false
         if (receiverType != other.receiverType) return false
         if (resultType != other.resultType) return false
@@ -777,8 +777,8 @@ data class MixinLanguageDefinition (
         var __r = 0
         __r = __r*31 + name.hashCode()
         __r = __r*31 + kind.hashCode()
-        __r = __r*31 + minimumArguments.hashCode()
-        __r = __r*31 + maximumArguments.hashCode()
+        __r = __r*31 + argumentCount.hashCode()
+        __r = __r*31 + variadic.hashCode()
         __r = __r*31 + operandType.hashCode()
         __r = __r*31 + receiverType.hashCode()
         __r = __r*31 + resultType.hashCode()
@@ -792,8 +792,8 @@ data class MixinLanguageDefinition (
         printer.indent {
             print("name = "); name.print(printer); println()
             print("kind = "); kind.print(printer); println()
-            print("minimumArguments = "); minimumArguments.print(printer); println()
-            print("maximumArguments = "); maximumArguments.print(printer); println()
+            print("argumentCount = "); argumentCount.print(printer); println()
+            print("variadic = "); variadic.print(printer); println()
             print("operandType = "); operandType.print(printer); println()
             print("receiverType = "); receiverType.print(printer); println()
             print("resultType = "); resultType.print(printer); println()

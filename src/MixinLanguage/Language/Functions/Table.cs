@@ -5,7 +5,8 @@ using Mixins.Runtime;
 
 namespace Mixins.Functions;
 
-internal sealed class AsTableFunction() : EvaluatedFunctionDefinition("table", 0, 0) {
+internal sealed class AsTableFunction() : EvaluatedFunctionDefinition("table", 0,
+  resultType: MixinLanguageValueKind.Table) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -21,7 +22,9 @@ internal sealed class AsTableFunction() : EvaluatedFunctionDefinition("table", 0
 }
 
 internal abstract class TableMutationFunction(string name, int arguments)
-  : EvaluatedFunctionDefinition(name, arguments, arguments) {
+  : EvaluatedFunctionDefinition(name, arguments, MixinLanguageValueKind.Table,
+    MixinLanguageValueKind.Table,
+    Enumerable.Repeat(MixinLanguageValueKind.Any, arguments).ToArray()) {
   protected sealed override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -75,7 +78,9 @@ internal sealed class PopFunction() : TableMutationFunction("pop", 0) {
 }
 
 internal abstract class TableJoinFunction(string name, int arguments)
-  : EvaluatedFunctionDefinition(name, arguments, arguments) {
+  : EvaluatedFunctionDefinition(name, arguments, MixinLanguageValueKind.Table,
+    MixinLanguageValueKind.Text,
+    Enumerable.Repeat(MixinLanguageValueKind.Text, arguments).ToArray()) {
   protected sealed override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -131,7 +136,8 @@ internal sealed class JoinEntriesFunction() : TableJoinFunction("join", 2) {
 }
 
 internal abstract class TableTransformFunction(string name, TableTransformKind kind)
-  : EvaluatedFunctionDefinition(name, 1, 1) {
+  : EvaluatedFunctionDefinition(name, 1, MixinLanguageValueKind.Table,
+    MixinLanguageValueKind.Table, [MixinLanguageValueKind.Function]) {
   protected sealed override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -149,7 +155,9 @@ internal sealed class MapFunction() : TableTransformFunction("map", TableTransfo
 
 internal sealed class FilterFunction() : TableTransformFunction("filter", TableTransformKind.Filter);
 
-internal sealed class ReduceFunction() : EvaluatedFunctionDefinition("reduce", 2, 2) {
+internal sealed class ReduceFunction() : EvaluatedFunctionDefinition("reduce", 2,
+  MixinLanguageValueKind.Table, MixinLanguageValueKind.Any,
+  [MixinLanguageValueKind.Any, MixinLanguageValueKind.Function]) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {
@@ -177,7 +185,8 @@ internal sealed class ReduceFunction() : EvaluatedFunctionDefinition("reduce", 2
   }
 }
 
-internal sealed class DeriveFunction() : EvaluatedFunctionDefinition("derive", 0, 0) {
+internal sealed class DeriveFunction() : EvaluatedFunctionDefinition("derive", 0,
+  MixinLanguageValueKind.Table, MixinLanguageValueKind.Table) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {

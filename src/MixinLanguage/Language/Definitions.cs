@@ -71,63 +71,47 @@ public sealed record MixinDirectiveArgumentMetadata(
   MixinSymbolUsage SymbolUsage = MixinSymbolUsage.None
 );
 
-public sealed record MixinDirectiveMetadata(
-  MixinLanguageValueKind OperandType,
-  IReadOnlyList<MixinDirectiveArgumentMetadata> Arguments,
-  IReadOnlyDictionary<int, IReadOnlyList<MixinDirectiveArgumentMetadata>> ArityArguments,
-  string Documentation
-);
-
-public sealed record MixinFunctionMetadata(
-  MixinLanguageValueKind ReceiverType,
-  MixinLanguageValueKind ResultType,
-  IReadOnlyList<MixinLanguageValueKind> ArgumentTypes,
-  string Documentation
-);
-
 public sealed record MixinRootDefinition(
   string Name, MixinExpressionRoot Root, string Documentation
 );
 
-public class DirectiveDefinition(string name, DirectiveOperandKind operandKind, int maximumArguments = 1,
-  int minimumArguments = 0) {
+public class DirectiveDefinition(string name, DirectiveOperandKind operandKind, int argumentCount) {
   public string Name { get; } = name;
   public DirectiveOperandKind OperandKind { get; } = operandKind;
-  public int MaximumArguments { get; } = maximumArguments;
-  public int MinimumArguments { get; } = minimumArguments;
-  public MixinDirectiveMetadata Metadata { get; private set; }
-  public MixinLanguageValueKind OperandType => Metadata.OperandType;
+  public int ArgumentCount { get; } = argumentCount;
+  public MixinLanguageValueKind OperandType { get; private set; }
+  public IReadOnlyList<MixinDirectiveArgumentMetadata> Arguments { get; private set; }
   public IReadOnlyList<MixinLanguageValueKind> ArgumentTypes =>
-    Metadata.Arguments.Select(argument => argument.ValueKind).ToArray();
-  public IReadOnlyList<MixinDirectiveArgumentMetadata> ArgumentMetadata => Metadata.Arguments;
-  public string Documentation => Metadata.Documentation;
+    Arguments.Select(argument => argument.ValueKind).ToArray();
+  public string Documentation { get; private set; }
   public FunctionDefinition Function { get; private set; }
   public int HoistedLocalArgumentIndex { get; private set; } = -1;
 
   internal DirectiveDefinition WithLanguageSignature(
     IReadOnlyList<MixinDirectiveArgumentMetadata> arguments,
     MixinLanguageValueKind? operandType = null,
-    string documentation = null,
-    IReadOnlyDictionary<int, IReadOnlyList<MixinDirectiveArgumentMetadata>> arityArguments = null
+    string documentation = null
   ) {
     if (arguments is null) throw new ArgumentNullException(nameof(arguments));
     if (string.IsNullOrWhiteSpace(documentation))
       throw new ArgumentException("Directive documentation is required.", nameof(documentation));
-    Metadata = new MixinDirectiveMetadata(
-      operandType ?? OperandKind switch {
-        DirectiveOperandKind.Boolean => MixinLanguageValueKind.Boolean,
-        DirectiveOperandKind.Value => MixinLanguageValueKind.Expression,
-        _ => MixinLanguageValueKind.None
-      }, arguments, arityArguments ?? new Dictionary<int, IReadOnlyList<MixinDirectiveArgumentMetadata>>(), documentation
-    );
+    if (arguments.Count != ArgumentCount)
+      throw new ArgumentException("Directive argument signature does not match its arity.", nameof(arguments));
+    OperandType = operandType ?? OperandKind switch {
+      DirectiveOperandKind.Boolean => MixinLanguageValueKind.Boolean,
+      DirectiveOperandKind.Value => MixinLanguageValueKind.Expression,
+      _ => MixinLanguageValueKind.None
+    };
+    Arguments = arguments;
+    Documentation = documentation;
     return this;
   }
 
-  public MixinDirectiveArgumentMetadata GetArgumentMetadata(int argumentCount, int index) {
-    var arguments = Metadata.ArityArguments.TryGetValue(argumentCount, out var exact)
-      ? exact : Metadata.Arguments;
-    return index >= 0 && index < arguments.Count ? arguments[index] : null;
-  }
+  public MixinDirectiveArgumentMetadata GetArgumentMetadata(int index) =>
+    index >= 0 && index < Arguments.Count ? Arguments[index] : null;
+
+  public string ArgumentCountError() =>
+    "@" + Name + " requires " + ArgumentCount + (ArgumentCount == 1 ? " argument" : " arguments");
 
   internal virtual InstructionAst CreateSyntax(MixinDirectiveSyntaxData data) =>
     new DirectiveInvocationAst(this, data.ParsedArguments, data.ValueOperand);
@@ -136,7 +120,7 @@ public class DirectiveDefinition(string name, DirectiveOperandKind operandKind, 
     FunctionDefinition function, int hoistedLocalArgumentIndex = -1
   ) {
     Function = function ?? throw new ArgumentNullException(nameof(function));
-    if (function.MinimumArguments != MinimumArguments || function.MaximumArguments != MaximumArguments)
+    if (!function.MatchesArgumentCount(ArgumentCount))
       throw new ArgumentException("Directive and function argument descriptors must match.", nameof(function));
     if (!function.ArgumentTypes.SequenceEqual(ArgumentTypes))
       throw new ArgumentException("Directive and function argument types must match.", nameof(function));
@@ -144,22 +128,12 @@ public class DirectiveDefinition(string name, DirectiveOperandKind operandKind, 
     return this;
   }
 
-  internal virtual bool Validate(IReadOnlyList<string> arguments, string operand, out string error) {
-    if (arguments.Count >= MinimumArguments && arguments.Count <= MaximumArguments) {
-      error = null;
-      return true;
-    }
-    error = arguments.Count < MinimumArguments
-      ? Name + " requires at least " + MinimumArguments + " arguments"
-      : Name + " accepts at most " + MaximumArguments + " arguments";
-    return false;
-  }
 }
 
 internal sealed class SyntaxDirectiveDefinition(
-  string name, DirectiveOperandKind operandKind, int maximumArguments,
-  int minimumArguments, MixinDirectiveSyntaxForm syntaxForm
-) : DirectiveDefinition(name, operandKind, maximumArguments, minimumArguments) {
+  string name, DirectiveOperandKind operandKind, int argumentCount,
+  MixinDirectiveSyntaxForm syntaxForm
+) : DirectiveDefinition(name, operandKind, argumentCount) {
   internal override InstructionAst CreateSyntax(MixinDirectiveSyntaxData data) {
     var arguments = data.Arguments;
     return syntaxForm switch {
@@ -212,26 +186,47 @@ internal sealed class SyntaxDirectiveDefinition(
 
 public abstract class FunctionDefinition {
   private string _predicateAlias;
-  protected FunctionDefinition(string name, int minimumArguments, int maximumArguments) {
+  protected FunctionDefinition(
+    string name, int argumentCount,
+    MixinLanguageValueKind receiverType = MixinLanguageValueKind.Any,
+    MixinLanguageValueKind resultType = MixinLanguageValueKind.Any,
+    IReadOnlyList<MixinLanguageValueKind> argumentTypes = null,
+    string documentation = null, bool variadic = false
+  ) {
     Name = name;
-    MinimumArguments = minimumArguments;
-    MaximumArguments = maximumArguments;
+    ArgumentCount = argumentCount;
+    IsVariadic = variadic;
+    ReceiverType = receiverType;
+    ResultType = resultType;
+    ArgumentTypes = argumentTypes ?? Enumerable.Repeat(
+      MixinLanguageValueKind.Any, argumentCount + (variadic ? 1 : 0)
+    ).ToArray();
+    Documentation = documentation ?? "Transforms the current value.";
+    if (ArgumentTypes.Count != argumentCount + (variadic ? 1 : 0))
+      throw new ArgumentException("Function argument signature does not match its arity.", nameof(argumentTypes));
   }
 
   public string Name { get; }
-  public int MinimumArguments { get; }
-  public int MaximumArguments { get; }
+  public int ArgumentCount { get; }
+  public bool IsVariadic { get; }
   public virtual bool IsPredicate => false;
-  public MixinFunctionMetadata Metadata { get; private set; }
-  public MixinLanguageValueKind ReceiverType => Metadata.ReceiverType;
-  public MixinLanguageValueKind ResultType => Metadata.ResultType;
-  public IReadOnlyList<MixinLanguageValueKind> ArgumentTypes => Metadata.ArgumentTypes;
-  public string Documentation => Metadata.Documentation;
+  public MixinLanguageValueKind ReceiverType { get; private set; }
+  public MixinLanguageValueKind ResultType { get; private set; }
+  public IReadOnlyList<MixinLanguageValueKind> ArgumentTypes { get; private set; }
+  public string Documentation { get; private set; }
+
+  public bool MatchesArgumentCount(int count) => IsVariadic ? count >= ArgumentCount : count == ArgumentCount;
+
+  public string ArgumentCountError() => IsVariadic
+    ? ":" + Name + " requires at least " + ArgumentCount +
+      (ArgumentCount == 1 ? " argument" : " arguments")
+    : ":" + Name + " requires " + ArgumentCount +
+      (ArgumentCount == 1 ? " argument" : " arguments");
 
   public MixinLanguageValueKind GetArgumentType(int index) {
     if (index < 0 || ArgumentTypes.Count == 0) return MixinLanguageValueKind.None;
     if (index < ArgumentTypes.Count) return ArgumentTypes[index];
-    return MaximumArguments == int.MaxValue ? ArgumentTypes[ArgumentTypes.Count - 1] : MixinLanguageValueKind.None;
+    return IsVariadic ? ArgumentTypes[ArgumentTypes.Count - 1] : MixinLanguageValueKind.None;
   }
 
   internal FunctionDefinition WithPredicateAlias(string alias) {
@@ -243,19 +238,6 @@ public abstract class FunctionDefinition {
     (string.Equals(Name, name, StringComparison.Ordinal) ||
       string.Equals(_predicateAlias, name, StringComparison.Ordinal));
 
-  internal FunctionDefinition WithLanguageSignature(
-    MixinLanguageValueKind receiver,
-    MixinLanguageValueKind result,
-    IReadOnlyList<MixinLanguageValueKind> arguments = null,
-    string documentation = null
-  ) {
-    if (arguments is null) throw new ArgumentNullException(nameof(arguments));
-    if (string.IsNullOrWhiteSpace(documentation))
-      throw new ArgumentException("Function documentation is required.", nameof(documentation));
-    Metadata = new MixinFunctionMetadata(receiver, result, arguments, documentation);
-    return this;
-  }
-
   public abstract IMixinValue Invoke(
     ExecutionContext context, IMixinValue instance,
     IReadOnlyList<IMixinValue> arguments, bool negated
@@ -263,9 +245,17 @@ public abstract class FunctionDefinition {
 }
 
 
-internal abstract class EvaluatedFunctionDefinition(string name, int minimumArguments, int maximumArguments,
-  bool predicate = false
-) : FunctionDefinition(name, minimumArguments, maximumArguments) {
+internal abstract class EvaluatedFunctionDefinition(
+  string name, int argumentCount,
+  MixinLanguageValueKind receiverType = MixinLanguageValueKind.Any,
+  MixinLanguageValueKind resultType = MixinLanguageValueKind.Any,
+  IReadOnlyList<MixinLanguageValueKind> argumentTypes = null,
+  bool predicate = false, bool variadic = false
+) : FunctionDefinition(
+  name, argumentCount, receiverType,
+  predicate ? MixinLanguageValueKind.Boolean : resultType, argumentTypes,
+  predicate ? "Tests the current value." : "Transforms the current value.", variadic
+) {
   private readonly string _cacheKey = ":" + name;
   public override bool IsPredicate => predicate;
 
@@ -312,8 +302,13 @@ internal abstract class EvaluatedFunctionDefinition(string name, int minimumArgu
   );
 }
 
-internal abstract class PredicateFunctionDefinition(string name, int minimumArguments, int maximumArguments)
-  : EvaluatedFunctionDefinition(name, minimumArguments, maximumArguments, true) {
+internal abstract class PredicateFunctionDefinition(
+  string name, int argumentCount,
+  MixinLanguageValueKind receiverType = MixinLanguageValueKind.Any,
+  IReadOnlyList<MixinLanguageValueKind> argumentTypes = null, bool variadic = false
+) : EvaluatedFunctionDefinition(
+  name, argumentCount, receiverType, argumentTypes: argumentTypes, predicate: true, variadic: variadic
+) {
   protected static BooleanMixinValue Result(bool value) {
     return value ? BooleanMixinValue.True : BooleanMixinValue.False;
   }
@@ -327,8 +322,9 @@ internal abstract class PredicateFunctionDefinition(string name, int minimumArgu
   }
 }
 
-internal abstract class EvaluatedDirectiveFunction(string name, int arguments)
-  : FunctionDefinition(name, arguments, arguments) {
+internal abstract class EvaluatedDirectiveFunction(
+  string name, int arguments, IReadOnlyList<MixinLanguageValueKind> argumentTypes
+) : FunctionDefinition(name, arguments, argumentTypes: argumentTypes) {
   protected virtual bool EvaluateOperand => true;
 
   public sealed override IMixinValue Invoke(

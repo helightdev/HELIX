@@ -130,7 +130,7 @@ public sealed class FunctionBindingStep : MixinExpressionCompilerStep {
     MixinExpressionProperty property
   ) {
     if (property.Definition is not null) return property.Definition;
-    FunctionLibrary.TryGet(property.Name, out var definition);
+    FunctionLibrary.TryGet(property.Name, property.ParsedArguments.Count, out var definition);
     return definition;
   }
 }
