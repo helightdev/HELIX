@@ -63,7 +63,7 @@ public sealed class InlineExpansionStep : MixinExpressionCompilerStep {
     )) return false;
     foreach (var function in localFunctions) {
       if (functions.ContainsKey(function.Key)) {
-        error = "duplicate function '" + function.Key + "'";
+        error = $"duplicate function '{function.Key}'";
         errorLine = instructions[function.Value.Start - 1].Line;
         return false;
       }
@@ -99,18 +99,18 @@ public sealed class InlineExpansionStep : MixinExpressionCompilerStep {
           continue;
         }
         expanded = [];
-        error = "unknown inline function '" + name + "'";
+        error = $"unknown inline function '{name}'";
         errorLine = instruction.Line;
         return false;
       }
       if (!activeFunctions.Add(name)) {
         expanded = [];
-        error = "recursive inline function '" + name + "'";
+        error = $"recursive inline function '{name}'";
         errorLine = instruction.Line;
         return false;
       }
-      var suffix = "__inline_" + sequence++.ToString(CultureInfo.InvariantCulture);
-      var endLabel = suffix + "_end";
+      var suffix = $"__inline_{sequence++.ToString(CultureInfo.InvariantCulture)}";
+      var endLabel = $"{suffix}_end";
       var labels = body.Select(LabelOf).Where(item => !string.IsNullOrEmpty(item))
         .Distinct(StringComparer.Ordinal).ToDictionary(item => item, item => item + suffix, StringComparer.Ordinal);
       var bodyNodes = new List<InstructionAst>();
@@ -118,7 +118,7 @@ public sealed class InlineExpansionStep : MixinExpressionCompilerStep {
         switch (item) {
           case ReturnAst returned:
             if (!IsEmpty(returned.Expression))
-              bodyNodes.Add(new LocalAst(suffix + "_return", returned.Expression).InheritFrom(item)
+              bodyNodes.Add(new LocalAst($"{suffix}_return", returned.Expression).InheritFrom(item)
                 .WithDefinition("LOCAL", 1));
             bodyNodes.Add(new GotoAst(endLabel).InheritFrom(item).WithDefinition("GOTO", 1));
             continue;
