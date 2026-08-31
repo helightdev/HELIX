@@ -3,6 +3,7 @@ package dev.helight.helix.mixin
 import com.intellij.codeHighlighting.BackgroundEditorHighlighter
 import com.intellij.codeInsight.daemon.impl.analysis.FileHighlightingSetting
 import com.intellij.codeInsight.daemon.impl.analysis.HighlightingSettingsPerFile
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
@@ -148,6 +149,29 @@ class DetachedWorkspace internal constructor(
             languageService.requestDirectory(origin.original, origin.document.text)
     }
 
+    fun revalidate() {
+        analysisAlarm.cancel()
+        val origin = entriesByOriginal.values.firstOrNull() ?: return
+        if (!project.isDisposed && origin.original.isValid) {
+            languageService.refreshLanguageCatalog()
+            languageService.revalidateDirectory(origin.original, origin.document.text)
+        }
+    }
+
+    fun discardChanges() {
+        analysisAlarm.cancel()
+        ApplicationManager.getApplication().runWriteAction {
+            for (entry in entriesByOriginal.values) {
+                if (entry.document.text != entry.savedText)
+                    entry.document.setText(entry.savedText)
+            }
+        }
+        for (entry in entriesByOriginal.values)
+            languageService.updateOpenBuffer(entry.original.path, entry.savedText)
+        listeners.forEach { it() }
+        revalidate()
+    }
+
     override fun dispose() {
         analysisAlarm.cancel()
         entriesByOriginal.values.forEach { languageService.closeOpenBuffer(it.original.path) }
@@ -181,7 +205,13 @@ private class HelixMixinDetachedEditor(
     private val entry = workspace.entryFor(sourceFile)
     private val delegate = TextEditorProvider.getInstance().createEditor(project, entry.detached) as TextEditor
     private val status = JLabel()
-    private val save = JButton("Save all mixins")
+    private val save = object : JButton("Save all mixins", AllIcons.Actions.MenuSaveall) {
+        // Darcula paints default/action buttons with the primary action colour. Reporting this
+        // directly avoids installing the button as the IDE window's Enter-key default action.
+        override fun isDefaultButton(): Boolean = isEnabled
+    }
+    private val revalidate = JButton("Revalidate", AllIcons.Actions.Refresh)
+    private val discard = JButton("Discard changes", AllIcons.Actions.Rollback)
     private val panel = JPanel(BorderLayout())
     private var previousModified = workspace.isModified
     private var workspaceListener: AutoCloseable? = null
@@ -192,9 +222,23 @@ private class HelixMixinDetachedEditor(
             workspace.saveAll()
             status.text = "Saved all mixins — Unity may reimport the directory"
         }
+        revalidate.toolTipText = "Refetch C# types and revalidate every mixin in this directory"
+        revalidate.addActionListener {
+            status.text = "Revalidating mixins and C# types…"
+            workspace.revalidate()
+        }
+        discard.toolTipText = "Restore every unsaved mixin in this directory"
+        discard.addActionListener {
+            workspace.discardChanges()
+            status.text = "Discarded unsaved mixin changes"
+        }
         panel.add(JPanel(BorderLayout()).apply {
             add(status, BorderLayout.CENTER)
-            add(JPanel().apply { add(save) }, BorderLayout.EAST)
+            add(JPanel().apply {
+                add(revalidate)
+                add(discard)
+                add(save)
+            }, BorderLayout.EAST)
         }, BorderLayout.NORTH)
         panel.add(delegate.component, BorderLayout.CENTER)
         workspaceListener = workspace.addChangeListener(::updateState)
@@ -204,6 +248,7 @@ private class HelixMixinDetachedEditor(
     private fun updateState() {
         val modified = workspace.isModified
         save.isEnabled = modified
+        discard.isEnabled = modified
         if (status.text.isNullOrEmpty() || modified) status.text = if (modified)
             "Detached mixin changes — save writes the whole directory" else "Ready"
         if (modified != previousModified) {

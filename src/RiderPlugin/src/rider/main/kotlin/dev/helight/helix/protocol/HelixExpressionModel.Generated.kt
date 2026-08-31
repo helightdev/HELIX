@@ -20,6 +20,7 @@ import kotlin.jvm.JvmStatic
  */
 class HelixExpressionModel private constructor(
     private val _parseMixinFiles: RdCall<MixinParseRequest, MixinParseResponse>,
+    private val _getMixinLanguageCatalog: RdCall<Boolean, MixinLanguageCatalog>,
     private val _isHelixEnabled: RdOptionalProperty<Boolean>
 ) : RdExtBase() {
     //companion
@@ -41,13 +42,14 @@ class HelixExpressionModel private constructor(
             serializers.register(LazyCompanionMarshaller(RdId(-4595115062107102546), classLoader, "dev.helight.helix.protocol.MixinFileSnapshot"))
             serializers.register(LazyCompanionMarshaller(RdId(-559598091605421159), classLoader, "dev.helight.helix.protocol.MixinLanguageDefinition"))
             serializers.register(LazyCompanionMarshaller(RdId(-5642695876888106362), classLoader, "dev.helight.helix.protocol.MixinParseResponse"))
+            serializers.register(LazyCompanionMarshaller(RdId(-5239733744395790445), classLoader, "dev.helight.helix.protocol.MixinLanguageCatalog"))
         }
 
 
 
 
 
-        const val serializationHash = 6159408189353371685L
+        const val serializationHash = 8049469423529832170L
 
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
@@ -55,6 +57,7 @@ class HelixExpressionModel private constructor(
 
     //fields
     val parseMixinFiles: IRdCall<MixinParseRequest, MixinParseResponse> get() = _parseMixinFiles
+    val getMixinLanguageCatalog: IRdCall<Boolean, MixinLanguageCatalog> get() = _getMixinLanguageCatalog
     val isHelixEnabled: IOptProperty<Boolean> get() = _isHelixEnabled
     //methods
     //initializer
@@ -64,10 +67,12 @@ class HelixExpressionModel private constructor(
 
     init {
         _parseMixinFiles.async = true
+        _getMixinLanguageCatalog.async = true
     }
 
     init {
         bindableChildren.add("parseMixinFiles" to _parseMixinFiles)
+        bindableChildren.add("getMixinLanguageCatalog" to _getMixinLanguageCatalog)
         bindableChildren.add("isHelixEnabled" to _isHelixEnabled)
     }
 
@@ -75,6 +80,7 @@ class HelixExpressionModel private constructor(
     internal constructor(
     ) : this(
         RdCall<MixinParseRequest, MixinParseResponse>(MixinParseRequest, MixinParseResponse),
+        RdCall<Boolean, MixinLanguageCatalog>(FrameworkMarshallers.Bool, MixinLanguageCatalog),
         RdOptionalProperty<Boolean>(FrameworkMarshallers.Bool)
     )
 
@@ -85,6 +91,7 @@ class HelixExpressionModel private constructor(
         printer.println("HelixExpressionModel (")
         printer.indent {
             print("parseMixinFiles = "); _parseMixinFiles.print(printer); println()
+            print("getMixinLanguageCatalog = "); _getMixinLanguageCatalog.print(printer); println()
             print("isHelixEnabled = "); _isHelixEnabled.print(printer); println()
         }
         printer.print(")")
@@ -93,6 +100,7 @@ class HelixExpressionModel private constructor(
     override fun deepClone(): HelixExpressionModel   {
         return HelixExpressionModel(
             _parseMixinFiles.deepClonePolymorphic(),
+            _getMixinLanguageCatalog.deepClonePolymorphic(),
             _isHelixEnabled.deepClonePolymorphic()
         )
     }
@@ -627,6 +635,69 @@ data class MixinFileSnapshot (
 
 
 /**
+ * #### Generated from [HelixExpressionModel.kt:118]
+ */
+data class MixinLanguageCatalog (
+    val definitions: Array<MixinLanguageDefinition>
+) : IPrintable {
+    //write-marshaller
+    private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
+        buffer.writeArray(definitions) { MixinLanguageDefinition.write(ctx, buffer, it) }
+    }
+    //companion
+
+    companion object : IMarshaller<MixinLanguageCatalog> {
+        override val _type: KClass<MixinLanguageCatalog> = MixinLanguageCatalog::class
+        override val id: RdId get() = RdId(-5239733744395790445)
+
+        @Suppress("UNCHECKED_CAST")
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinLanguageCatalog  {
+            val definitions = buffer.readArray {MixinLanguageDefinition.read(ctx, buffer)}
+            return MixinLanguageCatalog(definitions)
+        }
+
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinLanguageCatalog)  {
+            value.write(ctx, buffer)
+        }
+
+
+    }
+    //fields
+    //methods
+    //initializer
+    //secondary constructor
+    //equals trait
+    override fun equals(other: Any?): Boolean  {
+        if (this === other) return true
+        if (other == null || other::class != this::class) return false
+
+        other as MixinLanguageCatalog
+
+        if (!(definitions contentDeepEquals other.definitions)) return false
+
+        return true
+    }
+    //hash code trait
+    override fun hashCode(): Int  {
+        var __r = 0
+        __r = __r*31 + definitions.contentDeepHashCode()
+        return __r
+    }
+    //pretty print
+    override fun print(printer: PrettyPrinter)  {
+        printer.println("MixinLanguageCatalog (")
+        printer.indent {
+            print("definitions = "); definitions.print(printer); println()
+        }
+        printer.print(")")
+    }
+    //deepClone
+    //contexts
+    //threading
+}
+
+
+/**
  * #### Generated from [HelixExpressionModel.kt:102]
  */
 data class MixinLanguageDefinition (
@@ -804,13 +875,11 @@ data class MixinParseRequest (
  * #### Generated from [HelixExpressionModel.kt:114]
  */
 data class MixinParseResponse (
-    val files: Array<MixinFileSnapshot>,
-    val definitions: Array<MixinLanguageDefinition>
+    val files: Array<MixinFileSnapshot>
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
         buffer.writeArray(files) { MixinFileSnapshot.write(ctx, buffer, it) }
-        buffer.writeArray(definitions) { MixinLanguageDefinition.write(ctx, buffer, it) }
     }
     //companion
 
@@ -821,8 +890,7 @@ data class MixinParseResponse (
         @Suppress("UNCHECKED_CAST")
         override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinParseResponse  {
             val files = buffer.readArray {MixinFileSnapshot.read(ctx, buffer)}
-            val definitions = buffer.readArray {MixinLanguageDefinition.read(ctx, buffer)}
-            return MixinParseResponse(files, definitions)
+            return MixinParseResponse(files)
         }
 
         override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinParseResponse)  {
@@ -843,7 +911,6 @@ data class MixinParseResponse (
         other as MixinParseResponse
 
         if (!(files contentDeepEquals other.files)) return false
-        if (!(definitions contentDeepEquals other.definitions)) return false
 
         return true
     }
@@ -851,7 +918,6 @@ data class MixinParseResponse (
     override fun hashCode(): Int  {
         var __r = 0
         __r = __r*31 + files.contentDeepHashCode()
-        __r = __r*31 + definitions.contentDeepHashCode()
         return __r
     }
     //pretty print
@@ -859,7 +925,6 @@ data class MixinParseResponse (
         printer.println("MixinParseResponse (")
         printer.indent {
             print("files = "); files.print(printer); println()
-            print("definitions = "); definitions.print(printer); println()
         }
         printer.print(")")
     }

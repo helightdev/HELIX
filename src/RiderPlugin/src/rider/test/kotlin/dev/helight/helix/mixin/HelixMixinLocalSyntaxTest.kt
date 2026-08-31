@@ -160,6 +160,27 @@ class HelixMixinLocalSyntaxTest {
         }
     }
 
+    @Test
+    fun `psi lexer preserves expression state across chained continuations`() {
+        val source = """@RETURN @table:put<value><(@table
+            |  @+:put<name><(@local#Name)>
+            |  @+:put<configuration><>
+            |  @+:put<hash><(@local#Hash)>)>
+            |""".trimMargin()
+        val lexer = HelixMixinLexer(null)
+        lexer.start(source, 0, source.length, 0)
+        val tokens = ArrayList<Pair<String, Any?>>()
+        while (lexer.tokenType != null) {
+            tokens += source.substring(lexer.tokenStart, lexer.tokenEnd) to lexer.tokenType
+            lexer.advance()
+        }
+
+        assertEquals(4, tokens.count { it.first == "put" && it.second == HelixMixinTokenTypes.FUNCTION })
+        assertTrue(tokens.filter { it.first == "<" }.all { it.second == HelixMixinTokenTypes.OPEN_ANGLE })
+        assertTrue(tokens.filter { it.first == ">" }.all { it.second == HelixMixinTokenTypes.CLOSE_ANGLE })
+        assertEquals(3, tokens.count { it.first == ")" && it.second == HelixMixinTokenTypes.CLOSE_PARENTHESIS })
+    }
+
     private fun flatten(node: HelixLocalNode): Sequence<HelixLocalNode> = sequence {
         yield(node)
         node.children.forEach { yieldAll(flatten(it)) }

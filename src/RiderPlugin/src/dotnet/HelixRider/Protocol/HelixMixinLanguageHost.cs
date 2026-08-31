@@ -31,9 +31,12 @@ public sealed class HelixMixinLanguageHost
         _symbolCache = symbolCache;
         solution.GetProtocolSolution().GetHelixExpressionModel().ParseMixinFiles.SetAsync(
             (_, request) => RdTask.Successful(Parse(request, CompleteTypes, ResolveType)));
+        solution.GetProtocolSolution().GetHelixExpressionModel().GetMixinLanguageCatalog.SetAsync(
+            (_, _) => RdTask.Successful(LanguageCatalog()));
     }
 
     internal static MixinParseResponse Parse(MixinParseRequest request) => Parse(request, null, null);
+    internal static MixinLanguageCatalog LanguageCatalog() => new(Definitions());
 
     private static MixinParseResponse Parse(MixinParseRequest request,
         Func<string, MixinCompletionItem[]> completeTypes, Func<string, SemanticTarget> resolveType)
@@ -57,11 +60,9 @@ public sealed class HelixMixinLanguageHost
         var inputs = request?.Files ?? Array.Empty<MixinFileInput>();
         var analyses = inputs.Select(input => new AnalyzedInput(input,
             MixinEditorAnalyzer.Analyze(input.SourceText ?? string.Empty))).ToArray();
-        return new MixinParseResponse(
-            analyses.Select(input => Snapshot(input, analyses,
-                completeTypes == null ? null : CachedCompletion,
-                resolveType == null ? null : CachedType)).ToArray(),
-            Definitions());
+        return new MixinParseResponse(analyses.Select(input => Snapshot(input, analyses,
+            completeTypes == null ? null : CachedCompletion,
+            resolveType == null ? null : CachedType)).ToArray());
     }
 
     private static MixinFileSnapshot Snapshot(AnalyzedInput input, IReadOnlyList<AnalyzedInput> batch,
@@ -260,10 +261,10 @@ public sealed class HelixMixinLanguageHost
             definition.MinimumArguments, definition.MaximumArguments, "None",
             definition.ReceiverType.ToString(), definition.ResultType.ToString(),
             definition.ArgumentTypes.Select(role => role.ToString()).ToArray(), definition.Documentation));
-        var roots = MixinLanguageCatalog.Roots.Select(name => new MixinLanguageDefinition(
+        var roots = global::MixinLanguage.Analysis.MixinLanguageCatalog.Roots.Select(name => new MixinLanguageDefinition(
             name, "Root", 0, 0, "None", "None", "Any", Array.Empty<string>(),
             "Mixin expression root"));
-        var outputTargets = MixinLanguageCatalog.OutputTargets.Select(name => new MixinLanguageDefinition(
+        var outputTargets = global::MixinLanguage.Analysis.MixinLanguageCatalog.OutputTargets.Select(name => new MixinLanguageDefinition(
             name, "OutputTarget", 0, 0, "None", "None", "None", Array.Empty<string>(),
             "Generated output destination"));
         return directives.Concat(functions).Concat(roots).Concat(outputTargets).ToArray();

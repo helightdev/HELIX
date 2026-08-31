@@ -12,7 +12,6 @@ import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileMoveEvent
 import com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent
 import com.intellij.openapi.util.Key
-import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.rd.framework.RdTaskResult
@@ -46,6 +45,7 @@ class HelixMixinSnapshotService(private val project: Project) {
     private val requestedDirectoryHashes = ConcurrentHashMap<String, Long>()
     private val semanticRetries = ConcurrentHashMap<String, SemanticRetry>()
     private val listeners = CopyOnWriteArrayList<(String, MixinFileSnapshot?) -> Unit>()
+    private val catalogRequestInFlight = AtomicBoolean(false)
 
     @Volatile
     var definitions: Array<MixinLanguageDefinition> = emptyArray()
@@ -58,6 +58,33 @@ class HelixMixinSnapshotService(private val project: Project) {
                     refreshAffectedDirectories(events)
                 }
             })
+        requestLanguageCatalog()
+    }
+
+    fun ensureLanguageCatalog() {
+        if (definitions.isNotEmpty() || project.isDisposed || !catalogRequestInFlight.compareAndSet(false, true))
+            return
+        val lifetime = UnityProjectLifetimeService.getLifetime(project)
+        project.solution.helixExpressionModel.getMixinLanguageCatalog
+            .start(lifetime, true).result.adviseOnce(lifetime) { result ->
+                catalogRequestInFlight.set(false)
+                if (result is RdTaskResult.Success && result.value.definitions.isNotEmpty()) {
+                    definitions = result.value.definitions
+                } else scheduleCatalogRetry()
+            }
+    }
+
+    fun refreshLanguageCatalog() {
+        definitions = emptyArray()
+        ensureLanguageCatalog()
+    }
+
+    private fun requestLanguageCatalog() = ensureLanguageCatalog()
+
+    private fun scheduleCatalogRetry() {
+        if (project.isDisposed || definitions.isNotEmpty()) return
+        AppExecutorUtil.getAppScheduledExecutorService().schedule(
+            { ensureLanguageCatalog() }, CATALOG_RETRY_DELAY_MS, TimeUnit.MILLISECONDS)
     }
 
     fun snapshot(path: String): MixinFileSnapshot? = byPath[normalise(path)]
@@ -159,8 +186,15 @@ class HelixMixinSnapshotService(private val project: Project) {
                     }
                     return@adviseOnce
                 }
-                accept(directory, requestHash, result.value.files, result.value.definitions)
+                accept(directory, requestHash, result.value.files)
             }
+    }
+
+    fun revalidateDirectory(origin: VirtualFile, sourceOverride: String? = null) {
+        val directory = normalise(origin.parent?.path ?: origin.path)
+        requestedDirectoryHashes.remove(directory)
+        semanticRetries.remove(directory)
+        requestDirectory(origin, sourceOverride)
     }
 
     fun addListener(listener: (String, MixinFileSnapshot?) -> Unit): AutoCloseable {
@@ -168,40 +202,41 @@ class HelixMixinSnapshotService(private val project: Project) {
         return AutoCloseable { listeners -= listener }
     }
 
-    private fun accept(directory: String, requestHash: Long, files: Array<MixinFileSnapshot>,
-        newDefinitions: Array<MixinLanguageDefinition>) {
+    private fun accept(directory: String, requestHash: Long, files: Array<MixinFileSnapshot>) {
         val changed = ArrayList<String>()
+        val accepted = ArrayList<String>()
         for (snapshot in files) {
             val path = normalise(snapshot.filePath)
             val expected = revisions[path]?.get() ?: continue
             if (snapshot.revision != expected) continue
             val openSource = openBuffers[path]
             if (openSource != null && snapshot.sourceHash != sourceHash(openSource)) continue
+            val previous = byPath[path]
             replaceSnapshot(path, snapshot)
-            changed += path
+            accepted += path
+            if (previous == null || !samePsiSemantics(previous, snapshot)) changed += path
         }
-        definitions = newDefinitions
         // Persistent VFS lookup may touch disk and is prohibited on the EDT. Resolve paths on
         // the current RD/background callback, then perform only PSI reparse/listener delivery UI-side.
         val detached = HelixMixinDetachedWorkspaceService.getInstance(project)
-        val virtualFiles = changed.mapNotNull { path ->
-            detached.detachedFile(path)
+        val semanticFiles = accepted.mapNotNull { path ->
+            (detached.detachedFile(path)
                 ?: knownFiles[path]
-                ?: com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(path)
+                ?: com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByPath(path))?.let { path to it }
         }
         ApplicationManager.getApplication().invokeLater {
             if (project.isDisposed) return@invokeLater
-            if (virtualFiles.isNotEmpty()) {
-                // The local parser deliberately builds a useful provisional tree before the
-                // backend snapshot exists. A snapshot changes that tree's declarations and
-                // references without changing the document text, so a VFS content reparse is
-                // insufficient (especially for LightVirtualFile). Explicitly invalidate the PSI
-                // roots and restart the daemon; otherwise unresolved references remain cached
-                // until the first user edit happens to trigger both operations.
-                PsiDocumentManager.getInstance(project).reparseFiles(virtualFiles, true)
-                val psiManager = PsiManager.getInstance(project)
+            val psiManager = PsiManager.getInstance(project)
+            val psiByPath = semanticFiles.mapNotNull { (path, file) ->
+                psiManager.findFile(file)?.also { psi ->
+                    // Semantic state belongs to the stable local PSI file, but does not
+                    // participate in parsing or alter its nodes.
+                    psi.putUserData(SEMANTIC_SNAPSHOT, byPath[path])
+                }?.let { path to it }
+            }.toMap()
+            if (changed.isNotEmpty()) {
                 val daemon = DaemonCodeAnalyzer.getInstance(project)
-                virtualFiles.mapNotNull(psiManager::findFile).forEach(daemon::restart)
+                changed.mapNotNull(psiByPath::get).forEach(daemon::restart)
             }
             changed.forEach { path -> listeners.forEach { listener -> listener(path, byPath[path]) } }
         }
@@ -282,6 +317,12 @@ class HelixMixinSnapshotService(private val project: Project) {
         byHash.computeIfAbsent(snapshot.sourceHash) { CopyOnWriteArrayList() }.add(snapshot)
     }
 
+    private fun samePsiSemantics(left: MixinFileSnapshot, right: MixinFileSnapshot): Boolean =
+        left.sourceHash == right.sourceHash &&
+            left.declarations.contentDeepEquals(right.declarations) &&
+            left.references.contentDeepEquals(right.references) &&
+            left.diagnostics.contentDeepEquals(right.diagnostics)
+
     private data class OpenFile(val file: VirtualFile, val users: AtomicLong)
     private data class SemanticRetry(val requestHash: Long, val attempt: Int)
 
@@ -289,7 +330,9 @@ class HelixMixinSnapshotService(private val project: Project) {
         private const val REQUEST_TIMEOUT_SECONDS = 10L
         private const val SEMANTIC_RETRY_DELAY_MS = 750L
         private const val MAX_SEMANTIC_RETRIES = 80
+        private const val CATALOG_RETRY_DELAY_MS = 500L
         val ORIGINAL_PATH: Key<String> = Key.create("helix.mixin.original.path")
+        val SEMANTIC_SNAPSHOT: Key<MixinFileSnapshot> = Key.create("helix.mixin.semantic.snapshot")
         fun getInstance(project: Project): HelixMixinSnapshotService = project.service()
 
         fun sourceHash(source: CharSequence): Long {

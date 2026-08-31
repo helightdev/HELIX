@@ -33,6 +33,7 @@ class HelixMixinCompletionContributor : CompletionContributor() {
             val path = file.virtualFile.getUserData(HelixMixinSnapshotService.ORIGINAL_PATH)
                 ?: file.virtualFile.path
             val service = HelixMixinSnapshotService.getInstance(file.project)
+            service.ensureLanguageCatalog()
             val snapshot = service.snapshotForText(source, path)
             val site = snapshot?.let { findSite(it, offset) } ?: localSite(source, offset) ?: return
             val replacement = site.replacementRange

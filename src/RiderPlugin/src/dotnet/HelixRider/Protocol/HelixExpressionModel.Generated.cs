@@ -43,32 +43,40 @@ namespace HelixRider.Protocol
     //fields
     //public fields
     [NotNull] public IRdEndpoint<MixinParseRequest, MixinParseResponse> ParseMixinFiles => _ParseMixinFiles;
+    [NotNull] public IRdEndpoint<bool, MixinLanguageCatalog> GetMixinLanguageCatalog => _GetMixinLanguageCatalog;
     [NotNull] public IViewableProperty<bool> IsHelixEnabled => _IsHelixEnabled;
 
     //private fields
     [NotNull] private readonly RdCall<MixinParseRequest, MixinParseResponse> _ParseMixinFiles;
+    [NotNull] private readonly RdCall<bool, MixinLanguageCatalog> _GetMixinLanguageCatalog;
     [NotNull] private readonly RdProperty<bool> _IsHelixEnabled;
 
     //primary constructor
     private HelixExpressionModel(
       [NotNull] RdCall<MixinParseRequest, MixinParseResponse> parseMixinFiles,
+      [NotNull] RdCall<bool, MixinLanguageCatalog> getMixinLanguageCatalog,
       [NotNull] RdProperty<bool> isHelixEnabled
     )
     {
       if (parseMixinFiles == null) throw new ArgumentNullException("parseMixinFiles");
+      if (getMixinLanguageCatalog == null) throw new ArgumentNullException("getMixinLanguageCatalog");
       if (isHelixEnabled == null) throw new ArgumentNullException("isHelixEnabled");
 
       _ParseMixinFiles = parseMixinFiles;
+      _GetMixinLanguageCatalog = getMixinLanguageCatalog;
       _IsHelixEnabled = isHelixEnabled;
       _IsHelixEnabled.OptimizeNested = true;
       _ParseMixinFiles.Async = true;
+      _GetMixinLanguageCatalog.Async = true;
       BindableChildren.Add(new KeyValuePair<string, object>("parseMixinFiles", _ParseMixinFiles));
+      BindableChildren.Add(new KeyValuePair<string, object>("getMixinLanguageCatalog", _GetMixinLanguageCatalog));
       BindableChildren.Add(new KeyValuePair<string, object>("isHelixEnabled", _IsHelixEnabled));
     }
     //secondary constructor
     internal HelixExpressionModel (
     ) : this (
       new RdCall<MixinParseRequest, MixinParseResponse>(MixinParseRequest.Read, MixinParseRequest.Write, MixinParseResponse.Read, MixinParseResponse.Write),
+      new RdCall<bool, MixinLanguageCatalog>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool, MixinLanguageCatalog.Read, MixinLanguageCatalog.Write),
       new RdProperty<bool>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool)
     ) {}
     //deconstruct trait
@@ -76,7 +84,7 @@ namespace HelixRider.Protocol
 
 
 
-    protected override long SerializationHash => 6159408189353371685L;
+    protected override long SerializationHash => 8049469423529832170L;
 
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -98,6 +106,7 @@ namespace HelixRider.Protocol
       printer.Println("HelixExpressionModel (");
       using (printer.IndentCookie()) {
         printer.Print("parseMixinFiles = "); _ParseMixinFiles.PrintEx(printer); printer.Println();
+        printer.Print("getMixinLanguageCatalog = "); _GetMixinLanguageCatalog.PrintEx(printer); printer.Println();
         printer.Print("isHelixEnabled = "); _IsHelixEnabled.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
@@ -857,6 +866,93 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
+  /// <p>Generated from: HelixExpressionModel.kt:118</p>
+  /// </summary>
+  public sealed class MixinLanguageCatalog : IPrintable, IEquatable<MixinLanguageCatalog>
+  {
+    //fields
+    //public fields
+    [NotNull] public MixinLanguageDefinition[] Definitions {get; private set;}
+
+    //private fields
+    //primary constructor
+    public MixinLanguageCatalog(
+      [NotNull] MixinLanguageDefinition[] definitions
+    )
+    {
+      if (definitions == null) throw new ArgumentNullException("definitions");
+
+      Definitions = definitions;
+    }
+    //secondary constructor
+    //deconstruct trait
+    public void Deconstruct([NotNull] out MixinLanguageDefinition[] definitions)
+    {
+      definitions = Definitions;
+    }
+    //statics
+
+    public static CtxReadDelegate<MixinLanguageCatalog> Read = (ctx, reader) =>
+    {
+      var definitions = ReadMixinLanguageDefinitionArray(ctx, reader);
+      var _result = new MixinLanguageCatalog(definitions);
+      return _result;
+    };
+    public static CtxReadDelegate<MixinLanguageDefinition[]> ReadMixinLanguageDefinitionArray = MixinLanguageDefinition.Read.Array();
+
+    public static CtxWriteDelegate<MixinLanguageCatalog> Write = (ctx, writer, value) =>
+    {
+      WriteMixinLanguageDefinitionArray(ctx, writer, value.Definitions);
+    };
+    public static  CtxWriteDelegate<MixinLanguageDefinition[]> WriteMixinLanguageDefinitionArray = MixinLanguageDefinition.Write.Array();
+
+    //constants
+
+    //custom body
+    //methods
+    //equals trait
+    public override bool Equals(object obj)
+    {
+      if (ReferenceEquals(null, obj)) return false;
+      if (ReferenceEquals(this, obj)) return true;
+      if (obj.GetType() != GetType()) return false;
+      return Equals((MixinLanguageCatalog) obj);
+    }
+    public bool Equals(MixinLanguageCatalog other)
+    {
+      if (ReferenceEquals(null, other)) return false;
+      if (ReferenceEquals(this, other)) return true;
+      return Definitions.SequenceEqual(other.Definitions);
+    }
+    //hash code trait
+    public override int GetHashCode()
+    {
+      unchecked {
+        var hash = 0;
+        hash = hash * 31 + Definitions.ContentHashCode();
+        return hash;
+      }
+    }
+    //pretty print
+    public void Print(PrettyPrinter printer)
+    {
+      printer.Println("MixinLanguageCatalog (");
+      using (printer.IndentCookie()) {
+        printer.Print("definitions = "); Definitions.PrintEx(printer); printer.Println();
+      }
+      printer.Print(")");
+    }
+    //toString
+    public override string ToString()
+    {
+      var printer = new SingleLinePrettyPrinter();
+      Print(printer);
+      return printer.ToString();
+    }
+  }
+
+
+  /// <summary>
   /// <p>Generated from: HelixExpressionModel.kt:102</p>
   /// </summary>
   public sealed class MixinLanguageDefinition : IPrintable, IEquatable<MixinLanguageDefinition>
@@ -1108,47 +1204,38 @@ namespace HelixRider.Protocol
     //fields
     //public fields
     [NotNull] public MixinFileSnapshot[] Files {get; private set;}
-    [NotNull] public MixinLanguageDefinition[] Definitions {get; private set;}
 
     //private fields
     //primary constructor
     public MixinParseResponse(
-      [NotNull] MixinFileSnapshot[] files,
-      [NotNull] MixinLanguageDefinition[] definitions
+      [NotNull] MixinFileSnapshot[] files
     )
     {
       if (files == null) throw new ArgumentNullException("files");
-      if (definitions == null) throw new ArgumentNullException("definitions");
 
       Files = files;
-      Definitions = definitions;
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out MixinFileSnapshot[] files, [NotNull] out MixinLanguageDefinition[] definitions)
+    public void Deconstruct([NotNull] out MixinFileSnapshot[] files)
     {
       files = Files;
-      definitions = Definitions;
     }
     //statics
 
     public static CtxReadDelegate<MixinParseResponse> Read = (ctx, reader) =>
     {
       var files = ReadMixinFileSnapshotArray(ctx, reader);
-      var definitions = ReadMixinLanguageDefinitionArray(ctx, reader);
-      var _result = new MixinParseResponse(files, definitions);
+      var _result = new MixinParseResponse(files);
       return _result;
     };
     public static CtxReadDelegate<MixinFileSnapshot[]> ReadMixinFileSnapshotArray = MixinFileSnapshot.Read.Array();
-    public static CtxReadDelegate<MixinLanguageDefinition[]> ReadMixinLanguageDefinitionArray = MixinLanguageDefinition.Read.Array();
 
     public static CtxWriteDelegate<MixinParseResponse> Write = (ctx, writer, value) =>
     {
       WriteMixinFileSnapshotArray(ctx, writer, value.Files);
-      WriteMixinLanguageDefinitionArray(ctx, writer, value.Definitions);
     };
     public static  CtxWriteDelegate<MixinFileSnapshot[]> WriteMixinFileSnapshotArray = MixinFileSnapshot.Write.Array();
-    public static  CtxWriteDelegate<MixinLanguageDefinition[]> WriteMixinLanguageDefinitionArray = MixinLanguageDefinition.Write.Array();
 
     //constants
 
@@ -1166,7 +1253,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return Files.SequenceEqual(other.Files) && Definitions.SequenceEqual(other.Definitions);
+      return Files.SequenceEqual(other.Files);
     }
     //hash code trait
     public override int GetHashCode()
@@ -1174,7 +1261,6 @@ namespace HelixRider.Protocol
       unchecked {
         var hash = 0;
         hash = hash * 31 + Files.ContentHashCode();
-        hash = hash * 31 + Definitions.ContentHashCode();
         return hash;
       }
     }
@@ -1184,7 +1270,6 @@ namespace HelixRider.Protocol
       printer.Println("MixinParseResponse (");
       using (printer.IndentCookie()) {
         printer.Print("files = "); Files.PrintEx(printer); printer.Println();
-        printer.Print("definitions = "); Definitions.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }

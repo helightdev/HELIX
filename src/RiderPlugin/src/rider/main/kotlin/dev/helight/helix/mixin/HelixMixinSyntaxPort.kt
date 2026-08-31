@@ -445,7 +445,12 @@ internal object HelixEditorLexer {
             }
             if (lineStart && (startsWith(source, position, "@\\") || startsWith(source, position, "@+"))) {
                 position += 2; result += HelixEditorToken(HelixEditorTokenKind.Continuation, start, position)
-                referenceActive = false; lineStart = false; continue
+                // A continuation is removed before expression parsing, so a suffix beginning
+                // with ':' or '#' continues the receiver from the preceding physical line.
+                // Keeping it inactive here makes the first '<' plain text and, worse, lets its
+                // closing '>' consume an outer argument depth. Every following physical line is
+                // then tokenized in the wrong state.
+                referenceActive = true; lineStart = false; continue
             }
             if (startsWith(source, position, "@@")) {
                 position += 2; result += HelixEditorToken(HelixEditorTokenKind.Escape, start, position); lineStart = false; continue

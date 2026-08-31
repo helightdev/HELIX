@@ -219,11 +219,13 @@ class HelixMixinReferenceElement(node: ASTNode) : HelixMixinPsiElement(node), Ps
     override fun getVariants(): Array<Any> = emptyArray()
     override fun isSoft(): Boolean = false
 
-    private fun snapshot() = HelixMixinSnapshotService.getInstance(project).snapshotForText(
-        containingFile.text,
-        containingFile.virtualFile.getUserData(HelixMixinSnapshotService.ORIGINAL_PATH)
-            ?: containingFile.virtualFile.path
-    )
+    private fun snapshot() = containingFile.getUserData(HelixMixinSnapshotService.SEMANTIC_SNAPSHOT)
+        ?.takeIf { it.sourceHash == HelixMixinSnapshotService.sourceHash(containingFile.text) }
+        ?: HelixMixinSnapshotService.getInstance(project).snapshotForText(
+            containingFile.text,
+            containingFile.virtualFile.getUserData(HelixMixinSnapshotService.ORIGINAL_PATH)
+                ?: containingFile.virtualFile.path
+        )
 
     private fun normalise(path: String): String = path.replace('\\', '/')
 }

@@ -59,7 +59,7 @@ public sealed class HelixMixinProtocolHostTests
         var response = HelixMixinLanguageHost.Parse(new MixinParseRequest(files));
 
         Assert.That(response.Files, Has.Length.EqualTo(files.Length));
-        Assert.That(response.Definitions, Is.Not.Empty);
+        Assert.That(HelixMixinLanguageHost.LanguageCatalog().Definitions, Is.Not.Empty);
         Assert.That(response.Files.Sum(file => file.Declarations.Length), Is.GreaterThan(10));
         Assert.That(response.Files.Sum(file => file.References.Length), Is.GreaterThan(10));
     }

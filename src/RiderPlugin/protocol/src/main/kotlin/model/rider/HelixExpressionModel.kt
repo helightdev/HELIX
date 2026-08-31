@@ -113,10 +113,14 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
 
         val parseResponse = structdef("mixinParseResponse") {
             field("files", array(fileSnapshot))
+        }
+
+        val languageCatalog = structdef("mixinLanguageCatalog") {
             field("definitions", array(languageDefinition))
         }
 
         call("parseMixinFiles", parseRequest, parseResponse).async
+        call("getMixinLanguageCatalog", bool, languageCatalog).async
         property("isHelixEnabled", bool)
     }
 }

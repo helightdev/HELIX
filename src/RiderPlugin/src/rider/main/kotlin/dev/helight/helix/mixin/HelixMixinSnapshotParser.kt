@@ -98,8 +98,8 @@ class HelixMixinLexer(private val project: Project?) : LexerBase() {
     }
 }
 
-/** Builds IntelliJ AST synchronously from the close frontend syntax port, then overlays any
- * exact-version backend semantic declaration/reference ranges. */
+/** Builds the complete, stable IntelliJ AST synchronously from the local syntax port.
+ * Backend snapshots enrich references and diagnostics but never alter PSI structure. */
 class HelixMixinParser(private val project: Project) : PsiParser {
     override fun parse(root: IElementType, builder: PsiBuilder): ASTNode {
         val marker = builder.mark()
@@ -126,17 +126,6 @@ class HelixMixinParser(private val project: Project) : PsiParser {
         val local = HelixMixinFrontendParseCache.parse(source).syntax
         val root = interval(local, -1)
         addLocalSemanticOverlays(root, local, source)
-        val snapshot = HelixMixinSnapshotService.getInstance(project).snapshotForText(source)
-        snapshot?.declarations?.forEach { declaration ->
-            if (declaration.range.endOffset > declaration.range.startOffset)
-                insertOverlay(root, IntervalNode(declaration.range.startOffset, declaration.range.endOffset,
-                    HelixMixinElementTypes.DECLARATION, 1))
-        }
-        snapshot?.references?.forEach { reference ->
-            if (reference.kind != "Root" && reference.range.endOffset > reference.range.startOffset)
-                insertOverlay(root, IntervalNode(reference.range.startOffset, reference.range.endOffset,
-                    HelixMixinElementTypes.REFERENCE, 2))
-        }
         sortChildren(root)
         return root
     }
