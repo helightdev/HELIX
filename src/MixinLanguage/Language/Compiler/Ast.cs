@@ -59,7 +59,8 @@ public abstract class MixinAst {
     internal set {
       _children = value ?? [];
       foreach (var child in _children)
-        if (child is not null) child.Parent = this;
+        if (child is not null)
+          child.Parent = this;
     }
   }
   public IReadOnlyList<MixinToken> Tokens { get; internal set; } = [];
@@ -68,7 +69,8 @@ public abstract class MixinAst {
   public ProgramAst Program {
     get {
       for (MixinAst current = this; current is not null; current = current.Parent)
-        if (current is ProgramAst program) return program;
+        if (current is ProgramAst program)
+          return program;
       return null;
     }
   }
@@ -91,8 +93,7 @@ public class LeafAst(
   public MixinDirectiveArgumentMetadata ArgumentMetadata { get; } = argumentMetadata;
 }
 
-public sealed class TriviaAst(MixinSyntaxKind kind, MixinSourceRange sourceRange)
-  : LeafAst(kind, sourceRange) {
+public sealed class TriviaAst(MixinSyntaxKind kind, MixinSourceRange sourceRange) : LeafAst(kind, sourceRange) {
   public override bool IsTrivia => true;
 }
 
@@ -304,36 +305,29 @@ public sealed class TargetedCodeAst(DirectiveArgumentAst target,
   internal DirectiveArgumentAst Priority { get; } = priority;
 }
 
-public sealed class UsingAst(IReadOnlyList<ValueAst> value)
-  : ValueStatementAst(value);
+public sealed class UsingAst(IReadOnlyList<ValueAst> value) : ValueStatementAst(value);
 
-public sealed class LogAst(IReadOnlyList<ValueAst> message)
-  : ValueStatementAst(message);
+public sealed class LogAst(IReadOnlyList<ValueAst> message) : ValueStatementAst(message);
 
-public sealed class LocalAst(string name, IReadOnlyList<ValueAst> value)
-  : ValueStatementAst(value) {
+public sealed class LocalAst(string name, IReadOnlyList<ValueAst> value) : ValueStatementAst(value) {
   internal string Name { get; } = name;
 }
 
-public sealed class VariableAst(string name, IReadOnlyList<ValueAst> value)
-  : ValueStatementAst(value) {
+public sealed class VariableAst(string name, IReadOnlyList<ValueAst> value) : ValueStatementAst(value) {
   internal string Name { get; } = name;
 }
 
 public sealed class TargetVariableAst(string name,
   IReadOnlyList<ValueAst> value
-)
-  : ValueStatementAst(value) {
+) : ValueStatementAst(value) {
   internal string Name { get; } = name;
 }
 
-public sealed class CarryAst(string label, IReadOnlyList<ValueAst> value)
-  : ValueStatementAst(value) {
+public sealed class CarryAst(string label, IReadOnlyList<ValueAst> value) : ValueStatementAst(value) {
   internal string Label { get; } = label;
 }
 
-public sealed class ReturnAst(IReadOnlyList<ValueAst> value)
-  : ValueStatementAst(value);
+public sealed class ReturnAst(IReadOnlyList<ValueAst> value) : ValueStatementAst(value);
 
 public sealed class GotoAst(string label) : StatementAst {
   internal string Label { get; } = label;
@@ -347,8 +341,7 @@ public sealed class SkipAst : StatementAst {
   internal override void CollectConstants(MixinStringPoolBuilder p) { }
 }
 
-public sealed class FailAst(IReadOnlyList<ValueAst> message)
-  : ValueStatementAst(message);
+public sealed class FailAst(IReadOnlyList<ValueAst> message) : ValueStatementAst(message);
 
 public sealed class AnnotationAst(string name) : StatementAst {
   internal string Name { get; } = name;
@@ -362,8 +355,7 @@ public sealed class PreludeAst : StatementAst {
   internal override void CollectConstants(MixinStringPoolBuilder p) { }
 }
 
-public sealed class DefineTargetAst(string name, string value)
-  : StatementAst {
+public sealed class DefineTargetAst(string name, string value) : StatementAst {
   internal string Name { get; } = name;
   internal string Value { get; } = value;
 
@@ -385,8 +377,10 @@ public sealed class DirectiveArgumentAst(
 public sealed class ValueAst(
   string literal, MixinExpressionReference reference, bool verbatim = false,
   MixinSourceRange sourceRange = default
-) : MixinAst(reference is null ? MixinSyntaxKind.LiteralArgument : MixinSyntaxKind.ExpressionArgument,
-  sourceRange, reference is null ? null : [reference]) {
+) : MixinAst(
+  reference is null ? MixinSyntaxKind.LiteralArgument : MixinSyntaxKind.ExpressionArgument,
+  sourceRange, reference is null ? null : [reference]
+) {
   public string Literal { get; } = literal;
   public MixinExpressionReference Reference { get; } = reference;
   public bool Verbatim { get; } = verbatim;
@@ -414,54 +408,6 @@ public sealed class MixinPropertyArgumentAst(
   public string Literal { get; } = literal;
   public IReadOnlyList<ValueAst> ValueExpression { get; } = valueExpression;
   public IReadOnlyList<MixinExpressionReference> BooleanExpression { get; } = booleanExpression;
-}
-
-internal static class MixinSyntaxFacts {
-  internal static string Command(InstructionAst n) {
-    if (n.Definition is not null) return n.Definition.Name;
-    return n switch {
-      EmptyDirectiveAst => null, UnknownDirectiveAst x => x.Name,
-      DirectiveInvocationAst x => x.Definition.Name,
-      ScopeAst => "SCOPE", LabelAst => "LABEL", FunctionAst => "FUNC",
-      CallAst => "CALL", InlineAst => "INLINE", EndAst => "END",
-      MatchAst => "MATCH", AssertAst => "ASSERT", CodeAst => "CODE",
-      TargetedCodeAst => "MIXIN", UsingAst => "USING", LogAst => "LOG",
-      LocalAst => "LOCAL", VariableAst => "VAR", TargetVariableAst => "TAR",
-      CarryAst => "CARRY",
-      ReturnAst => "RETURN", GotoAst => "GOTO", SkipAst => "SKIP",
-      FailAst => "FAIL", AnnotationAst => "ANNOTATION", PreludeAst => "PRELUDE",
-      DefineTargetAst => "DEFINE_TARGET", _ => null
-    };
-  }
-
-  internal static IReadOnlyList<string> Arguments(InstructionAst n) {
-    return n switch {
-      DirectiveInvocationAst x => x.Arguments,
-      ScopeAst { Label: not null } x => [x.Label], LabelAst x => [x.Name],
-      FunctionAst x => [x.Name], InlineAst x => [x.Name],
-      CallAst { ReturnLocal: not null } x => [x.ReturnLocal, x.Function],
-      CallAst x => [x.Function],
-      MatchAst { FailureLabel: not null } x => [x.FailureLabel],
-      CodeAst { Target: MixinExpressionOutputTarget.Injection } x => [x.InjectionTarget],
-      CodeAst { Target: not MixinExpressionOutputTarget.Target } x => [x.Target.ToString().ToUpperInvariant()],
-      TargetedCodeAst { Priority: not null } x => [
-        MixinSyntaxRenderer.RenderArgument(x.Target), MixinSyntaxRenderer.RenderArgument(x.Priority)
-      ],
-      TargetedCodeAst x => [MixinSyntaxRenderer.RenderArgument(x.Target)],
-      LocalAst x => [x.Name], VariableAst x => [x.Name],
-      TargetVariableAst x => [x.Name], CarryAst x => [x.Label],
-      GotoAst x => [x.Label], AnnotationAst x => [x.Name],
-      DefineTargetAst x => [x.Name, x.Value], _ => []
-    };
-  }
-
-  internal static string Operand(InstructionAst n) {
-    return n switch {
-      DirectiveInvocationAst x => MixinSyntaxRenderer.RenderValue(x.Expression),
-      ValueStatementAst x => MixinSyntaxRenderer.RenderValue(x.Expression),
-      BooleanStatementAst x => MixinSyntaxRenderer.RenderBoolean(x.Expression), _ => ""
-    };
-  }
 }
 
 public readonly record struct MixinSourceRange(
@@ -506,8 +452,10 @@ public sealed class MixinExpressionProperty(
   string name, IReadOnlyList<MixinPropertyArgumentAst> arguments, bool negated = false,
   FunctionDefinition definition = null, MixinSourceRange sourceRange = default,
   MixinSourceRange nameRange = default
-) : MixinAst(name == "path" ? MixinSyntaxKind.Path : MixinSyntaxKind.FunctionCall,
-  children: MixinAstLayout.Property(sourceRange, nameRange, arguments)) {
+) : MixinAst(
+  name == "path" ? MixinSyntaxKind.Path : MixinSyntaxKind.FunctionCall,
+  children: MixinAstLayout.Property(sourceRange, nameRange, arguments)
+) {
   internal MixinExpressionProperty(string name, string argument) : this(
     name, argument is null ? [] : [new MixinPropertyArgumentAst(argument, null, null)]
   ) { }
@@ -566,8 +514,60 @@ internal static class MixinAstLayout {
     ICollection<MixinAst> children, MixinSourceRange owner, int start, int end
   ) {
     if (end <= start) return;
-    children.Add(new LeafAst(MixinSyntaxKind.Punctuation, new MixinSourceRange(
-      start, end, owner.Line, owner.Column + start - owner.Start
-    )));
+    children.Add(
+      new LeafAst(
+        MixinSyntaxKind.Punctuation, new MixinSourceRange(
+          start, end, owner.Line, owner.Column + start - owner.Start
+        )
+      )
+    );
+  }
+}
+
+internal static class MixinSyntaxFacts {
+  internal static string Command(InstructionAst n) {
+    if (n.Definition is not null) return n.Definition.Name;
+    return n switch {
+      EmptyDirectiveAst => null, UnknownDirectiveAst x => x.Name,
+      DirectiveInvocationAst x => x.Definition.Name,
+      ScopeAst => "SCOPE", LabelAst => "LABEL", FunctionAst => "FUNC",
+      CallAst => "CALL", InlineAst => "INLINE", EndAst => "END",
+      MatchAst => "MATCH", AssertAst => "ASSERT", CodeAst => "CODE",
+      TargetedCodeAst => "MIXIN", UsingAst => "USING", LogAst => "LOG",
+      LocalAst => "LOCAL", VariableAst => "VAR", TargetVariableAst => "TAR",
+      CarryAst => "CARRY",
+      ReturnAst => "RETURN", GotoAst => "GOTO", SkipAst => "SKIP",
+      FailAst => "FAIL", AnnotationAst => "ANNOTATION", PreludeAst => "PRELUDE",
+      DefineTargetAst => "DEFINE_TARGET", _ => null
+    };
+  }
+
+  internal static IReadOnlyList<string> Arguments(InstructionAst n) {
+    return n switch {
+      DirectiveInvocationAst x => x.Arguments,
+      ScopeAst { Label: not null } x => [x.Label], LabelAst x => [x.Name],
+      FunctionAst x => [x.Name], InlineAst x => [x.Name],
+      CallAst { ReturnLocal: not null } x => [x.ReturnLocal, x.Function],
+      CallAst x => [x.Function],
+      MatchAst { FailureLabel: not null } x => [x.FailureLabel],
+      CodeAst { Target: MixinExpressionOutputTarget.Injection } x => [x.InjectionTarget],
+      CodeAst { Target: not MixinExpressionOutputTarget.Target } x => [x.Target.ToString().ToUpperInvariant()],
+      TargetedCodeAst { Priority: not null } x => [
+        MixinSyntaxRenderer.RenderArgument(x.Target), MixinSyntaxRenderer.RenderArgument(x.Priority)
+      ],
+      TargetedCodeAst x => [MixinSyntaxRenderer.RenderArgument(x.Target)],
+      LocalAst x => [x.Name], VariableAst x => [x.Name],
+      TargetVariableAst x => [x.Name], CarryAst x => [x.Label],
+      GotoAst x => [x.Label], AnnotationAst x => [x.Name],
+      DefineTargetAst x => [x.Name, x.Value], _ => []
+    };
+  }
+
+  internal static string Operand(InstructionAst n) {
+    return n switch {
+      DirectiveInvocationAst x => MixinSyntaxRenderer.RenderValue(x.Expression),
+      ValueStatementAst x => MixinSyntaxRenderer.RenderValue(x.Expression),
+      BooleanStatementAst x => MixinSyntaxRenderer.RenderBoolean(x.Expression), _ => ""
+    };
   }
 }
