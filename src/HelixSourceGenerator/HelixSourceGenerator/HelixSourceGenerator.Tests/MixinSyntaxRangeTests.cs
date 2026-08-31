@@ -1,6 +1,6 @@
 using System.Linq;
-using MixinLanguage;
-using MixinLanguage.Compiler;
+using Mixins;
+using Mixins.Compiler;
 using Xunit;
 
 namespace HELIX.SourceGen.Tests;
@@ -12,7 +12,7 @@ public sealed class MixinSyntaxRangeTests {
       "  @LOCAL<Name> @table:put<first><(@param#value)>\n" +
       "    @+:put<second><(@local#Name)>\n";
 
-    var instruction = Assert.IsAssignableFrom<ValueDirectiveAst>(
+    var instruction = Assert.IsAssignableFrom<ValueStatementAst>(
       MixinParser.Parse(source).Instructions[0]
     );
     var reference = instruction.Expression.Single().Reference;
@@ -40,11 +40,11 @@ public sealed class MixinSyntaxRangeTests {
   }
 
   [Fact]
-  public void EditorProjectionUsesParserRootRangesForNamedNullRoot() {
+  public void AstUsesParserRootRangesForNamedNullRoot() {
     const string source = "@RETURN @null:eq<null>";
-    var root = MixinParser.Parse(source).Root.Children.Single()
-      .Children.Single(child => child.Kind == MixinSyntaxKind.Operand)
-      .Children.Single().Children.Single(child => child.Kind == MixinSyntaxKind.Root);
+    var root = Descendants(MixinParser.Parse(source)).Single(child =>
+      child.Kind == MixinSyntaxKind.Root && Slice(source, child.SourceRange) == "null"
+    );
 
     Assert.Equal("null", Slice(source, root.SourceRange));
   }
@@ -113,7 +113,7 @@ public sealed class MixinSyntaxRangeTests {
   [Fact]
   public void RegisteredSyntaxIsBackedByItsDefinition() {
     Assert.True(DirectiveLibrary.TryGet("RETURN", out var definition));
-    var syntax = Assert.IsType<ReturnDirectiveAst>(
+    var syntax = Assert.IsType<ReturnAst>(
       MixinParser.Parse("@RETURN value").Instructions.Single()
     );
 
@@ -128,12 +128,35 @@ public sealed class MixinSyntaxRangeTests {
   public void DirectiveArgumentsCarryDefinitionMetadata(
     string source, MixinSymbolKind symbol, MixinSymbolUsage usage
   ) {
-    var argument = Assert.IsType<LeafAst>(MixinParser.Parse(source)
+    var argument = Assert.IsType<DirectiveArgumentAst>(MixinParser.Parse(source)
       .Children.Single().Children.Single(child => child.Kind is
         MixinSyntaxKind.DeclarationDirectiveArgument or MixinSyntaxKind.ReferenceDirectiveArgument));
 
     Assert.Equal(symbol, argument.ArgumentMetadata.SymbolKind);
     Assert.Equal(usage, argument.ArgumentMetadata.SymbolUsage);
+  }
+
+  [Fact]
+  public void AstHasOneParentedSemanticTreeAndTypedTrivia() {
+    const string source = "@RETURN @table\n@+:put<name><value>";
+    var program = MixinParser.Parse(source);
+    var continuation = Assert.Single(Descendants(program).OfType<TriviaAst>());
+
+    Assert.Equal(MixinSyntaxKind.Continuation, continuation.Kind);
+    Assert.True(continuation.IsTrivia);
+    Assert.DoesNotContain(continuation, continuation.Parent.SemanticChildren);
+    Assert.All(Descendants(program), node => {
+      Assert.NotNull(node.Parent);
+      Assert.Same(program, node.Program);
+    });
+  }
+
+  [Fact]
+  public void StatementsAndExecutableDirectivesUseSeparateAstBranches() {
+    Assert.IsAssignableFrom<StatementAst>(MixinParser.Parse("@CALL<Render>").Instructions.Single());
+    Assert.IsAssignableFrom<ExecutableDirectiveAst>(
+      MixinParser.Parse("@PUSH<value> @table").Instructions.Single()
+    );
   }
 
   [Fact]

@@ -1,7 +1,7 @@
 using Microsoft.CodeAnalysis;
-using static MixinLanguage.GeneratorStrings;
+using static Mixins.Roslyn.GeneratorStrings;
 
-namespace MixinLanguage;
+namespace Mixins.Roslyn;
 
 internal static class GeneratorDiagnostics {
   private static DiagnosticDescriptor Error(string id, string title, string message) {

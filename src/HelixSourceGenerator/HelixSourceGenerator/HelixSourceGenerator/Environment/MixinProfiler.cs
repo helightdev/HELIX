@@ -9,7 +9,7 @@ using System.Threading;
 
 #pragma warning disable RS1035 // Explicit opt-in profiler writes its report to the host project's Logs directory.
 
-namespace MixinLanguage;
+namespace Mixins.Env;
 
 internal static class MixinProfiler {
   private static readonly ConcurrentDictionary<string, Measurement> Measurements = new();

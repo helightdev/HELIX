@@ -1,6 +1,6 @@
 using System;
 
-namespace MixinLanguage;
+namespace Mixins;
 
 public sealed class MixinFingerprintBuilder {
   private const ulong Offset = 14695981039346656037UL;

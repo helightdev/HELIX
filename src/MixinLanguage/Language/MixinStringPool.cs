@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MixinLanguage.Compiler;
+namespace Mixins;
 
 public readonly struct MixinString : IEquatable<MixinString> {
   private readonly bool _initialized;
@@ -17,18 +17,13 @@ public readonly struct MixinString : IEquatable<MixinString> {
   public int Id { get; }
   public string DynamicValue { get; }
   public bool IsInterned => _initialized && Id >= 0;
+  public bool IsNull => !_initialized || (IsInterned ? Id < 0 : DynamicValue is null);
 
-  internal static MixinString Interned(int id) {
-    return new MixinString(id, null);
-  }
+  internal static MixinString Interned(int id) => new(id, null);
 
-  public static MixinString Dynamic(string value) {
-    return new MixinString(-1, value);
-  }
+  public static MixinString Dynamic(string value) => new(-1, value);
 
-  public string Resolve(MixinStringPool pool) {
-    return IsInterned ? pool[Id] : DynamicValue;
-  }
+  public string Resolve(MixinStringPool pool) => IsInterned ? pool[Id] : DynamicValue;
 
   public bool Equals(MixinString other) {
     return IsInterned == other.IsInterned && (IsInterned
@@ -36,21 +31,13 @@ public readonly struct MixinString : IEquatable<MixinString> {
       : string.Equals(DynamicValue, other.DynamicValue, StringComparison.Ordinal));
   }
 
-  public override bool Equals(object value) {
-    return value is MixinString other && Equals(other);
-  }
+  public override bool Equals(object value) => value is MixinString other && Equals(other);
 
-  public override int GetHashCode() {
-    return IsInterned ? Id : StringComparer.Ordinal.GetHashCode(DynamicValue ?? "");
-  }
+  public override int GetHashCode() => IsInterned ? Id : StringComparer.Ordinal.GetHashCode(DynamicValue ?? "");
 
-  public static bool operator ==(MixinString left, MixinString right) {
-    return left.Equals(right);
-  }
+  public static bool operator ==(MixinString left, MixinString right) => left.Equals(right);
 
-  public static bool operator !=(MixinString left, MixinString right) {
-    return !left.Equals(right);
-  }
+  public static bool operator !=(MixinString left, MixinString right) => !left.Equals(right);
 }
 
 public sealed class MixinStringPool {

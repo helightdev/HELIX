@@ -7,13 +7,14 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using Microsoft.CodeAnalysis;
-using MixinLanguage.Compiler;
-using static MixinLanguage.GeneratorAnalysis;
-using static MixinLanguage.GeneratorDiagnostics.Mixins;
+using Mixins.Compiler;
+using Mixins.Env;
+using static Mixins.Roslyn.GeneratorAnalysis;
+using static Mixins.Roslyn.GeneratorDiagnostics.Mixins;
 
 #pragma warning disable RS1035 // Resolving the output path is used only by the explicit PROFILE configuration.
 
-namespace MixinLanguage;
+namespace Mixins.Roslyn;
 
 internal static class MixinLibraryApi {
   internal const string AdditionalFileSuffix = ".HelixSourceGenerator.additionalfile";
@@ -93,19 +94,19 @@ internal static class MixinLibraryApi {
     var prelude = MixinParser.Parse(annotation.Prelude);
     var expression = MixinParser.Parse(annotation.Expression);
     if (typeLevel) {
-      prelude = MixinExpressionCompiler.RewriteTargetAsThis(prelude);
-      expression = MixinExpressionCompiler.RewriteTargetAsThis(expression);
+      prelude = MixinCompiler.RewriteTargetAsThis(prelude);
+      expression = MixinCompiler.RewriteTargetAsThis(expression);
     }
-    if (!MixinExpressionCompiler.TryCompileSyntax(
+    if (!MixinCompiler.TryCompileSyntax(
       prelude, expression, prepared, out var compiledPrelude, out var compiledLate,
       out error, out errorLine
     )) {
       program = null;
       return false;
     }
-    if (!MixinExpressionCompiler.TryCompileExecution(
+    if (!MixinCompiler.TryCompileExecution(
       compiledPrelude, prepared, out var preludeIr, out error, out errorLine
-    ) || !MixinExpressionCompiler.TryCompileExecution(
+    ) || !MixinCompiler.TryCompileExecution(
       compiledLate, prepared, out var lateIr, out error, out errorLine
     )) {
       program = null;
@@ -299,7 +300,7 @@ internal static class MixinLibraryApi {
       );
     }
     var functionText = functions.ToString();
-    var functionValidation = MixinExpressionCompiler.ValidateFunctionLibrary(functionText);
+    var functionValidation = MixinCompiler.ValidateFunctionLibrary(functionText);
     return functionValidation.Success
       ? new ParsedAdditionalFile(true, functionText, annotations, derivations, configuration, null, 0)
       : Failure(functionValidation.Error, functionValidation.ErrorLine);
@@ -383,7 +384,7 @@ internal static class MixinLibraryApi {
         valid.Add(library.Program);
         continue;
       }
-      var validation = MixinExpressionCompiler.ValidateFunctionLibrary(library.Content);
+      var validation = MixinCompiler.ValidateFunctionLibrary(library.Content);
       if (!validation.Success) {
         reportDiagnostic(
           Diagnostic.Create(
@@ -399,14 +400,14 @@ internal static class MixinLibraryApi {
       valid.Add(MixinParser.Parse(library.Content));
     }
     try {
-      return MixinExpressionCompiler.PrepareGlobals(valid, additionalConstants);
+      return MixinCompiler.PrepareGlobals(valid, additionalConstants);
     } catch (ArgumentException exception) {
       reportDiagnostic(
         Diagnostic.Create(
           InvalidLibraryImport, Location.None, "import set", exception.Message
         )
       );
-      return MixinExpressionCompiler.PrepareGlobals(
+      return MixinCompiler.PrepareGlobals(
         Array.Empty<ProgramAst>(), additionalConstants
       );
     }

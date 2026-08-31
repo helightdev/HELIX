@@ -1,6 +1,6 @@
 using System;
 
-namespace MixinLanguage;
+namespace Mixins.Env;
 
 /// <summary>
 ///   Standalone environment stub. Hosts that source-link the language may exclude

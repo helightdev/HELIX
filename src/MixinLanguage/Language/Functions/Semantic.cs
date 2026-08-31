@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using MixinLanguage.Compiler;
+using Mixins.Roslyn;
+using Mixins.Runtime;
 
-namespace MixinLanguage.Functions;
+namespace Mixins.Functions;
 
 internal sealed class TypeFunction() : EvaluatedFunctionDefinition("type", 0, 0) {
   protected override IMixinValue Apply(

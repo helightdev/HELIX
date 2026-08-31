@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace MixinLanguage.Compiler;
+namespace Mixins.Compiler;
 
 /// <summary>Produces a canonical textual representation from semantic syntax nodes.</summary>
 public static class MixinSyntaxRenderer {
@@ -53,11 +53,11 @@ public static class MixinSyntaxRenderer {
     return RenderInstructions(program.AvailableInstructions());
   }
 
-  internal static string RenderInstructions(IEnumerable<DirectiveAst> instructions) {
+  internal static string RenderInstructions(IEnumerable<InstructionAst> instructions) {
     return string.Join("\n", instructions.Select(item => RenderInstruction(item)));
   }
 
-  internal static string RenderInstruction(DirectiveAst ast, string firstArgument = null) {
+  internal static string RenderInstruction(InstructionAst ast, string firstArgument = null) {
     var command = MixinSyntaxFacts.Command(ast);
     var arguments = MixinSyntaxFacts.Arguments(ast);
     var operand = MixinSyntaxFacts.Operand(ast);

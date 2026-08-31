@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using MixinLanguage.Compiler;
+using Mixins.Compiler;
+using Mixins.Env;
 
-namespace MixinLanguage;
+namespace Mixins.Runtime;
 
-public static class MixinExpressionVirtualMachine {
+public static class MixinVirtualMachine {
   internal const string CarryLocalPrefix = "\0@carry:";
 
   public static MixinExpressionResult Execute(
@@ -31,14 +32,14 @@ public static class MixinExpressionVirtualMachine {
     string expression, ExecutionContext context,
     IDictionary<string, object> variables, IEnumerable<string> preparedExpressions
   ) {
-    return Execute(expression, context, variables, MixinExpressionCompiler.PrepareGlobals(preparedExpressions));
+    return Execute(expression, context, variables, MixinCompiler.PrepareGlobals(preparedExpressions));
   }
 
   internal static MixinExpressionResult ExecuteCompiled(
     ProgramAst ast, ExecutionContext context,
     IDictionary<string, object> variables, MixinExpressionPreparedState prepared
   ) {
-    if (!MixinExpressionCompiler.TryCompileExecution(ast, prepared, out var program, out var error, out var line))
+    if (!MixinCompiler.TryCompileExecution(ast, prepared, out var program, out var error, out var line))
       return Failure(error, line);
     return Execute(program, context, variables);
   }

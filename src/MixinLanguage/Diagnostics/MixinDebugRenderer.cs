@@ -4,9 +4,9 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using MixinLanguage.Compiler;
+using Mixins.Runtime;
 
-namespace MixinLanguage;
+namespace Mixins.Diagnostics;
 
 public sealed record MixinDebugExpression(
   string PreludeProgram,
@@ -71,14 +71,14 @@ public static class MixinDebugRenderer {
       AppendProgram(builder, "LATE PROGRAM (PREPARED)", work.LateProgram, render.InternStringPool, debugPool);
       builder.AppendLine("// CARRIED VALUES");
       var carries = work.Variables.Where(item => item.Key.StartsWith(
-          MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
+          MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
         ) && IsCarryReferenced(
-          work.LateProgram, item.Key.Substring(MixinExpressionVirtualMachine.CarryLocalPrefix.Length)
+          work.LateProgram, item.Key.Substring(MixinVirtualMachine.CarryLocalPrefix.Length)
         )
       ).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
       if (carries.Length == 0) builder.AppendLine("//   <none>");
       foreach (var carry in carries) {
-        var label = carry.Key.Substring(MixinExpressionVirtualMachine.CarryLocalPrefix.Length);
+        var label = carry.Key.Substring(MixinVirtualMachine.CarryLocalPrefix.Length);
         builder.Append("//   @carry#").Append(label).Append(" = ")
           .AppendLine(FormatValue(carry.Value));
       }
@@ -108,7 +108,7 @@ public static class MixinDebugRenderer {
     }
     builder.AppendLine("// SHARED VARIABLES");
     var persistent = sharedVariables.Where(item => !item.Key.StartsWith(
-        MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
+        MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
       )
     ).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
     if (persistent.Length == 0) builder.AppendLine("//   <empty>");

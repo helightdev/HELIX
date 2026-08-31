@@ -1,16 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Mixins.Compiler;
+using Mixins.Runtime;
 
-namespace MixinLanguage.Compiler;
+namespace Mixins;
 
 public sealed record MixinParseDiagnostic(int Line, string Message);
 
-internal sealed record MixinProgramParseResult(DirectiveAst[] Instructions,
+internal sealed record MixinProgramParseResult(InstructionAst[] Instructions,
   IReadOnlyList<MixinParseDiagnostic> Diagnostics, IReadOnlyList<MixinToken> Tokens
 );
 
-internal sealed record MixinDirectiveParseResult(DirectiveAst Node, string Error);
+internal sealed record MixinDirectiveParseResult(InstructionAst Node, string Error);
 
 internal sealed record MixinDirectiveTokenGroup(
   IReadOnlyList<MixinToken> Tokens, IReadOnlyList<MixinSourceRange> Continuations,
@@ -117,8 +119,10 @@ public static class MixinParser {
       var propertyEnd = cursor.Previous?.End ?? propertyToken.End;
       var property = new MixinExpressionProperty(
         propertyName, arguments.AsReadOnly(), negated,
-        sourceRange: new MixinSourceRange(propertyStart, propertyEnd),
-        nameRange: new MixinSourceRange(propertyToken.Start, propertyToken.End)
+        sourceRange: new MixinSourceRange(
+          propertyStart, propertyEnd, operatorToken.SourceRange.Line, operatorToken.SourceRange.Column
+        ),
+        nameRange: propertyToken.SourceRange
       );
       if (function is not null && (property.Arguments.Count < function.MinimumArguments ||
           property.Arguments.Count > function.MaximumArguments)) {
@@ -153,7 +157,9 @@ public static class MixinParser {
     var referenceEnd = cursor.Previous?.End ?? atToken.End;
     reference = new MixinExpressionReference(
       root, member, properties.AsReadOnly(), parenthesized,
-      new MixinSourceRange(atToken.Start, referenceEnd),
+      new MixinSourceRange(
+        atToken.Start, referenceEnd, atToken.SourceRange.Line, atToken.SourceRange.Column
+      ),
       rootToken?.SourceRange ?? new MixinSourceRange(atToken.End, atToken.End,
         atToken.SourceRange.Line, atToken.SourceRange.Column + 1),
       memberToken?.SourceRange ?? default
@@ -207,7 +213,7 @@ public static class MixinParser {
   internal static MixinProgramParseResult ParseProgram(string source) {
     source ??= "";
     var sourceTokens = MixinLexer.Lex(source);
-    var result = new List<DirectiveAst>();
+    var result = new List<InstructionAst>();
     var diagnostics = new List<MixinParseDiagnostic>();
     var groups = BuildDirectiveTokenGroups(sourceTokens);
     var lineStarts = SourceLineStarts(source);
@@ -215,9 +221,9 @@ public static class MixinParser {
       var group = groups[index];
       var line = index + 1;
       var parsed = group.ContinuedFromLine >= 0
-        ? new MixinDirectiveParseResult(new EmptyDirectiveAst(new MixinSourceRange(
+        ? new MixinDirectiveParseResult(new EmptyDirectiveAst { SourceRange = new MixinSourceRange(
           lineStarts[index], Math.Max(lineStarts[index], group.SourceEnd), line, 0
-        )), null)
+        ) }, null)
         : ParseSharedTokens(source, group.Tokens, line);
       if (group.ContinuedFromLine < 0) {
         parsed.Node.SourceRange = new MixinSourceRange(
@@ -303,13 +309,13 @@ public static class MixinParser {
     );
     while (cursor.At(MixinTokenKind.Whitespace)) cursor.Consume();
     if (cursor.AtEnd || cursor.At(MixinTokenKind.Comment))
-      return new MixinDirectiveParseResult(new EmptyDirectiveAst(sourceRange), null);
+      return new MixinDirectiveParseResult(new EmptyDirectiveAst { SourceRange = sourceRange }, null);
     if (cursor.Current?.Kind is MixinTokenKind.DirectContinuation or MixinTokenKind.NewLineContinuation)
       return new MixinDirectiveParseResult(
-        new EmptyDirectiveAst(sourceRange), "continuation requires an immediately preceding directive");
+        new EmptyDirectiveAst { SourceRange = sourceRange }, "continuation requires an immediately preceding directive");
     if (!cursor.Take(MixinTokenKind.At, out var marker) ||
         !cursor.Take(MixinTokenKind.Identifier, out var directive))
-      return new MixinDirectiveParseResult(new EmptyDirectiveAst(sourceRange), "expected an expression directive");
+      return new MixinDirectiveParseResult(new EmptyDirectiveAst { SourceRange = sourceRange }, "expected an expression directive");
     var name = directive.Text.ToUpperInvariant();
     var arguments = new List<string>();
     var argumentTokens = new List<IReadOnlyList<MixinToken>>();
@@ -331,7 +337,7 @@ public static class MixinParser {
       }
       if (depth != 0)
         return new MixinDirectiveParseResult(
-          new EmptyDirectiveAst(sourceRange), "expected an expression directive");
+          new EmptyDirectiveAst { SourceRange = sourceRange }, "expected an expression directive");
       var raw = string.Concat(content.Select(token => token.Text));
       var trimmed = raw.Trim();
       var leading = raw.Length - raw.TrimStart().Length;
@@ -365,7 +371,7 @@ public static class MixinParser {
     var nameRange = directive.SourceRange;
     var operandText = string.Concat(operandTokens.Select(token => token.Text));
     if (!DirectiveLibrary.TryGet(name, out var definition)) {
-      var unknown = new UnknownDirectiveAst(sourceRange, name);
+      var unknown = new UnknownDirectiveAst(name) { SourceRange = sourceRange };
       CompleteDirective(unknown, null, markerRange, nameRange, argumentRanges,
         argumentContentRanges, operandRange);
       return new MixinDirectiveParseResult(unknown, "unknown directive '@" + name + "'");
@@ -380,15 +386,17 @@ public static class MixinParser {
     var booleanOperand = definition.OperandKind == DirectiveOperandKind.Boolean
       ? ParseBooleanExpression(operandTokens) : [];
     var node = definition.CreateSyntax(new MixinDirectiveSyntaxData(
-      sourceRange, arguments, parsedArguments, valueOperand, booleanOperand
+      arguments, parsedArguments, valueOperand, booleanOperand
     ));
+    node.SourceRange = sourceRange;
+    node.ParsedArguments = parsedArguments;
     CompleteDirective(node, definition, markerRange, nameRange, argumentRanges,
       argumentContentRanges, operandRange);
     return new MixinDirectiveParseResult(node, valid ? null : error);
   }
 
   private static void CompleteDirective(
-    DirectiveAst node, DirectiveDefinition definition,
+    InstructionAst node, DirectiveDefinition definition,
     MixinSourceRange markerRange, MixinSourceRange nameRange,
     IReadOnlyList<MixinSourceRange> argumentRanges,
     IReadOnlyList<MixinSourceRange> argumentContentRanges,
@@ -431,7 +439,7 @@ public static class MixinParser {
     );
 
   private static void AttachSyntaxChildren(
-    DirectiveAst node, IReadOnlyList<MixinSourceRange> continuations
+    InstructionAst node, IReadOnlyList<MixinSourceRange> continuations
   ) {
     var children = new List<MixinAst>();
     if (!node.NameRange.IsEmpty) children.Add(new LeafAst(
@@ -444,22 +452,27 @@ public static class MixinParser {
     MixinLanguageCatalog.TryGetDirective(MixinSyntaxFacts.Command(node), out var directive);
     for (var index = 0; index < node.ArgumentRanges.Count; index++) {
       var metadata = directive?.Definition.GetArgumentMetadata(node.ArgumentRanges.Count, index);
-      children.Add(new LeafAst(
-        DirectiveArgumentKind(metadata), node.ArgumentRanges[index], argumentMetadata: metadata
-      ));
+      var argument = index < node.ParsedArguments.Count
+        ? node.ParsedArguments[index]
+        : new DirectiveArgumentAst(null, null, node.ArgumentRanges[index]);
+      argument.Kind = DirectiveArgumentKind(metadata);
+      argument.ArgumentMetadata = metadata;
+      children.Add(argument);
     }
     var operandChildren = new List<MixinAst>();
-    if (node is ValueDirectiveAst value)
-      foreach (var part in value.Expression) AddValueSyntax(part, operandChildren);
-    if (node is BooleanDirectiveAst boolean)
+    if (node is ValueStatementAst value)
+      operandChildren.AddRange(value.Expression);
+    if (node is DirectiveInvocationAst invocation)
+      operandChildren.AddRange(invocation.Expression);
+    if (node is BooleanStatementAst boolean)
       foreach (var reference in boolean.Expression)
-        if (reference is not null) operandChildren.Add(ReferenceSyntax(reference));
+        if (reference is not null) operandChildren.Add(reference);
     if (!node.OperandRange.IsEmpty || operandChildren.Count != 0)
       children.Add(new LeafAst(
         MixinSyntaxKind.Operand, node.OperandRange, operandChildren.AsReadOnly()
       ));
     foreach (var continuation in continuations)
-      children.Add(new LeafAst(MixinSyntaxKind.Continuation, continuation));
+      children.Add(new TriviaAst(MixinSyntaxKind.Continuation, continuation));
     node.Kind = node is EmptyDirectiveAst
       ? MixinSyntaxKind.Operand
       : MixinSyntaxKind.Directive;
@@ -483,44 +496,6 @@ public static class MixinParser {
         MixinSyntaxKind.DeclarationReferenceDirectiveArgument,
       _ => MixinSyntaxKind.DirectiveArgument
     };
-
-  private static void AddValueSyntax(ValueAst valueAst, ICollection<MixinAst> children) {
-    if (valueAst?.Reference is not null) children.Add(ReferenceSyntax(valueAst.Reference));
-    else if (valueAst is not null && valueAst.Literal == "@" && valueAst.SourceRange.Length == 2)
-      children.Add(new LeafAst(MixinSyntaxKind.Escape, valueAst.SourceRange));
-  }
-
-  private static MixinAst ReferenceSyntax(MixinExpressionReference reference) {
-    var children = new List<MixinAst> {
-      new LeafAst(MixinSyntaxKind.Root, reference.RootRange)
-    };
-    if (reference.Member is not null)
-      children.Add(new LeafAst(MixinSyntaxKind.Member, reference.MemberRange));
-    foreach (var property in reference.Properties) {
-      if (property.Name == "path") {
-        children.Add(new LeafAst(MixinSyntaxKind.Path, property.SourceRange));
-        continue;
-      }
-      var arguments = new List<MixinAst>();
-      foreach (var argument in property.ParsedArguments) {
-        var nested = new List<MixinAst>();
-        foreach (var value in argument.ValueExpression ?? []) AddValueSyntax(value, nested);
-        foreach (var boolean in argument.BooleanExpression ?? [])
-          if (boolean is not null) nested.Add(ReferenceSyntax(boolean));
-        arguments.Add(new LeafAst(
-          argument.Literal is null ? MixinSyntaxKind.ExpressionArgument : MixinSyntaxKind.LiteralArgument,
-          argument.SourceRange, nested.AsReadOnly()
-        ));
-      }
-      children.Add(new LeafAst(
-        MixinSyntaxKind.FunctionCall, property.SourceRange, arguments.AsReadOnly()
-      ));
-    }
-    return new LeafAst(
-      reference.Parenthesized ? MixinSyntaxKind.ParenthesizedReference : MixinSyntaxKind.Reference,
-      reference.SourceRange, children.AsReadOnly()
-    );
-  }
 
   private static DirectiveArgumentAst ParseDirectiveArgument(
     string source, IReadOnlyList<MixinToken> tokens, MixinSourceRange range

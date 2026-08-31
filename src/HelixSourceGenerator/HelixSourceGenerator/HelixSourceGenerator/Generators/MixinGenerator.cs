@@ -5,18 +5,22 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
-using MixinLanguage;
-using MixinLanguage.Compiler;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
-using static MixinLanguage.GeneratorAnalysis;
-using static MixinLanguage.GeneratorDiagnostics.Mixins;
-using static MixinLanguage.GeneratorSource;
-using static MixinLanguage.GeneratorStrings;
-using ExecutionContext = MixinLanguage.ExecutionContext;
-using IMixinValue = MixinLanguage.IMixinValue;
+using Mixins;
+using Mixins.Compiler;
+using Mixins.Diagnostics;
+using Mixins.Env;
+using Mixins.Roslyn;
+using Mixins.Runtime;
+
+using static Mixins.Roslyn.GeneratorAnalysis;
+using static Mixins.Roslyn.GeneratorDiagnostics.Mixins;
+using static Mixins.Roslyn.GeneratorSource;
+using static Mixins.Roslyn.GeneratorStrings;
+using ExecutionContext = Mixins.Runtime.ExecutionContext;
 
 namespace HelixSourceGenerator.Generators;
 
@@ -160,7 +164,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     using (MixinProfiler.Measure("generator.target_definitions")) {
       targetDefinitions = TargetDefinitions(
         target, annotationProviders, libraries,
-        targetAttributes.Any(attribute => IsAttribute(attribute, Attributes.Managed))
+        targetAttributes.Any(attribute => IsAttribute(attribute, GeneratorStrings.Attributes.Managed))
       );
     }
     var contributions = new List<MixinContribution>();
@@ -172,7 +176,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         context, target, candidate.Compilation, preparedExpressions, expressionVariables,
         attributeExpressionOutputs, contributions, targetDefinitions, libraries,
         mixinCompilation, annotatedSymbols, hostValues,
-        targetAttributes.Any(attribute => IsAttribute(attribute, Attributes.Structure))
+        targetAttributes.Any(attribute => IsAttribute(attribute, GeneratorStrings.Attributes.Structure))
       );
     }
     var placeholderSequence = contributions.Count;
@@ -200,7 +204,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         finalizedOutputs.File, finalizedOutputs.Implements,
         finalizedOutputs.Usings, expressionVariables
           .Where(item => !item.Key.StartsWith(
-              MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
+              MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
             )
           ),
         preparedExpressions.StringPool,
@@ -259,7 +263,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     foreach (var work in model.LateExpressions) {
       var variables = work.Variables.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
       foreach (var item in sharedVariables) variables[item.Key] = item.Value;
-      var result = MixinExpressionVirtualMachine.Execute(
+      var result = MixinVirtualMachine.Execute(
         work.Program, unlinkedContext, variables
       );
       foreach (var log in result.Logs)
@@ -279,7 +283,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       }
       foreach (var item in variables
         .Where(static item => !item.Key.StartsWith(
-            MixinExpressionVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
+            MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
           )
         )) sharedVariables[item.Key] = item.Value;
       foreach (var output in result.Outputs) {
@@ -423,7 +427,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       foreach (var applied in annotatedData.Attributes) {
         var attributeType = applied.AttributeClass;
         if (attributeType is null) continue;
-        if (structureTarget && attributeType.ToDisplayString() != Attributes.Structure) continue;
+        if (structureTarget && attributeType.ToDisplayString() != GeneratorStrings.Attributes.Structure) continue;
         var providerName = attributeType.ToDisplayString(TypeDisplayFormat);
         if (!mixinCompilation.TryGetAnnotation(providerName, out var expressionAttribute)) continue;
         CollectMixinExpressionContributions(
@@ -500,7 +504,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       preparedExpressions: preparedExpressions, libraries: libraries, hostValues: hostValues,
       mixinCompilation: mixinCompilation
     );
-    var evaluated = MixinExpressionVirtualMachine.Execute(
+    var evaluated = MixinVirtualMachine.Execute(
       expression, expressionContext, expressionVariables, false
     );
     ReportExpressionLogs(context, location, evaluated.Logs);
@@ -640,14 +644,14 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   ) {
     var program = MixinParser.Parse(expression ?? "");
     foreach (var instruction in program.Instructions) {
-      if (instruction is not TargetedCodeDirectiveAst mixin ||
+      if (instruction is not TargetedCodeAst mixin ||
         mixin.Target is null) continue;
       string resolved = null;
       if (!mixin.Target.IsDynamic) resolved = mixin.Target.Literal;
       else if (mixin.Target.Expression is { Count: 1 } &&
         mixin.Target.Expression[0].Reference is {
           Root: MixinExpressionRoot.Carry, Member: { } carry, Properties.Count: 0
-        } && variables.TryGetValue(MixinExpressionVirtualMachine.CarryLocalPrefix + carry, out var carried))
+        } && variables.TryGetValue(MixinVirtualMachine.CarryLocalPrefix + carry, out var carried))
         resolved = Convert.ToString(carried, CultureInfo.InvariantCulture);
       if (string.IsNullOrWhiteSpace(resolved)) continue;
       var syntax = RoslynMixinContext.ParseMixinTarget(resolved, targetDefinitions);

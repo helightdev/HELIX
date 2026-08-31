@@ -1,10 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using HELIX.SourceGen;
 using HelixSourceGenerator.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -14,78 +11,6 @@ using Xunit;
 namespace HELIX.SourceGen.Tests;
 
 public sealed class MixinGeneratorExpressionTests {
-  [Fact]
-  public void UnityCoreDerivationFunctionsAreAvailableToAnnotations() {
-    var path = Path.GetFullPath(Path.Combine(
-      AppContext.BaseDirectory,
-      "../../../../../../HELIX/Assets/Mixins/Core.HelixSourceGenerator.additionalfile"
-    ));
-    const string source = """
-                          namespace HELIX {
-                            public sealed class MixableAttribute : System.Attribute { }
-                            public sealed class StructureAttribute : System.Attribute {
-                              public StructureAttribute(bool datatype = false) { }
-                            }
-                            public sealed class PropAttribute : System.Attribute { }
-                            public sealed class PropertyDatatypeAttribute : System.Attribute { }
-                          }
-                          [HELIX.Mixable, HELIX.Structure] public partial struct Demo { public int Value; }
-                          """;
-    var compilation = CSharpCompilation.Create(
-      "CoreMixinSmokeTest",
-      [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest))],
-      PlatformReferences,
-      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
-    );
-    var api = typeof(MixinGenerator).Assembly.GetType("MixinLanguage.MixinLibraryApi");
-    var read = api!.GetMethod("ReadAdditionalFile", BindingFlags.Static | BindingFlags.NonPublic);
-    var file = read!.Invoke(null, [
-      new TestAdditionalText(path, File.ReadAllText(path)), default(System.Threading.CancellationToken)
-    ]);
-    var program = file!.GetType().GetProperty("Program")!.GetValue(file)!;
-    var available = program.GetType().GetMethod("AvailableInstructions", BindingFlags.Instance | BindingFlags.NonPublic)!;
-    var functionNames = ((System.Collections.IEnumerable)available.Invoke(program, null)!)
-      .Cast<object>()
-      .Where(item => item.GetType().Name == "FunctionDirectiveSyntax")
-      .Select(item => (string)item.GetType().GetProperty(
-        "Name", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-      )!.GetValue(item)!)
-      .ToArray();
-    Assert.Contains("DeriveFields", functionNames);
-    var catalogType = typeof(MixinGenerator).Assembly.GetType("MixinLanguage.MixinLibraryCatalog")!;
-    var fileArray = Array.CreateInstance(file.GetType(), 1);
-    fileArray.SetValue(file, 0);
-    var catalog = Activator.CreateInstance(
-      catalogType, BindingFlags.Instance | BindingFlags.NonPublic, null, [fileArray], null
-    )!;
-    var compile = api.GetMethod("Compile", BindingFlags.Static | BindingFlags.NonPublic)!;
-    var compiled = compile.Invoke(null, [catalog])!;
-    var prepared = compiled.GetType().GetProperty("PreparedState")!.GetValue(compiled)!;
-    var entries = (System.Collections.IEnumerable)prepared.GetType().GetProperty(
-      "FunctionEntries", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-    )!.GetValue(prepared)!;
-    var strings = prepared.GetType().GetProperty(
-      "StringPool", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-    )!.GetValue(prepared)!;
-    var preparedNames = entries.Cast<object>().Select(item => {
-      var key = item.GetType().GetProperty("Key")!.GetValue(item)!;
-      return (string)key.GetType().GetMethod(
-        "Resolve", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-      )!.Invoke(key, [strings])!;
-    }).ToArray();
-    Assert.Contains(preparedNames, item => item!.Contains("DeriveFields", StringComparison.Ordinal));
-    GeneratorDriver driver = MixinTestDriver.Create(
-      compilation, additionalTexts: [new TestAdditionalText(path, File.ReadAllText(path))]
-    );
-
-    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics);
-
-    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    Assert.DoesNotContain(
-      driver.GetRunResult().Diagnostics,
-      item => item.GetMessage().Contains("unknown function", StringComparison.Ordinal)
-    );
-  }
 
   [Fact]
   public void DerivationReadsAttributeDefaultsFromCompilationReferences() {

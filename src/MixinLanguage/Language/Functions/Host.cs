@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using Mixins.Runtime;
 
-namespace MixinLanguage.Functions;
+namespace Mixins.Functions;
 
 internal sealed class WireFunction() : EvaluatedFunctionDefinition("wire", 1, 1) {
   protected override IMixinValue Apply(

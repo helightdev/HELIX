@@ -1,4 +1,4 @@
-namespace MixinLanguage;
+namespace Mixins.Roslyn;
 
 internal static class GeneratorStrings {
   internal const string DiagnosticCategory = "HELIX";

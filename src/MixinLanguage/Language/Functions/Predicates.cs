@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
+using Mixins.Roslyn;
+using Mixins.Runtime;
 
-namespace MixinLanguage.Functions;
+namespace Mixins.Functions;
 
 internal sealed class ExistsPredicate() : PredicateFunctionDefinition("exists", 0, 0) {
   protected override IMixinValue Apply(

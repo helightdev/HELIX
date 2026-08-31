@@ -1,6 +1,7 @@
 using System;
+using Mixins.Roslyn;
 
-namespace MixinLanguage;
+namespace Mixins.Env;
 
 /// <summary>
 ///   Standalone environment stub. A normal library host receives deterministic

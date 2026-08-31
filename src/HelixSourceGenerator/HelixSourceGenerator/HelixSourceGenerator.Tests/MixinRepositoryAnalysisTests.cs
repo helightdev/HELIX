@@ -1,8 +1,9 @@
 using System.IO;
 using System.Linq;
 using System;
-using MixinLanguage;
-using MixinLanguage.Compiler;
+using System.Collections.Generic;
+using Mixins;
+using Mixins.Compiler;
 using Xunit;
 
 namespace HELIX.SourceGen.Tests;
@@ -78,9 +79,15 @@ public sealed class MixinRepositorySyntaxTests {
     Assert.All(programs, program => Assert.Same(program, program.Root));
     Assert.True(programs.Sum(program => program.Children.Count) > 100);
     Assert.True(programs.Sum(program => program.Tokens.Count) > 100);
-    Assert.True(programs.SelectMany(program => program.Children)
-      .SelectMany(node => node.Children)
-      .OfType<LeafAst>()
-      .Count(leaf => leaf.ArgumentMetadata is not null) > 100);
+    Assert.True(programs.SelectMany(Descendants)
+      .OfType<DirectiveArgumentAst>()
+      .Count(argument => argument.ArgumentMetadata is not null) > 100);
+  }
+
+  private static IEnumerable<MixinAst> Descendants(MixinAst node) {
+    foreach (var child in node.Children) {
+      yield return child;
+      foreach (var descendant in Descendants(child)) yield return descendant;
+    }
   }
 }

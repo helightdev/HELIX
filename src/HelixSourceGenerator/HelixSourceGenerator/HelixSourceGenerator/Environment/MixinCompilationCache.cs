@@ -1,6 +1,7 @@
 using System;
+using Mixins.Roslyn;
 
-namespace MixinLanguage;
+namespace Mixins.Env;
 
 /// <summary>
 /// Process-wide cache used by the incremental generator host. This implementation

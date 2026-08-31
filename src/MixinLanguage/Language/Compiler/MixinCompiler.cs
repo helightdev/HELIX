@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Mixins.Env;
+using Mixins.Runtime;
+using Mixins.Compiler.Steps;
 
-namespace MixinLanguage.Compiler;
+namespace Mixins.Compiler;
 
-public static partial class MixinExpressionCompiler {
+public static partial class MixinCompiler {
   private static readonly IReadOnlyList<MixinExpressionCompilerStep> Steps = [
     new InlineExpansionStep(), new PreludeHoistingStep(), new FunctionBindingStep()
   ];
@@ -120,7 +123,7 @@ public static partial class MixinExpressionCompiler {
     var initializers = FindPreparedInitializers(instructions);
     foreach (var index in initializers) {
       switch (instructions[index]) {
-        case VariableDirectiveAst variable:
+        case VariableAst variable:
           if (!TryInterpolatePrepared(variable.Expression, variables, stringPool, out var value, out var error)) {
             throw new ArgumentException(
               "invalid prepared expression at line " + variable.Line + ": " + error,
@@ -130,7 +133,7 @@ public static partial class MixinExpressionCompiler {
           variables.StoreIsolated(stringPool.Get(variable.Name), new LiteralMixinValue(stringPool.Get(value)));
           executedOperations++;
           break;
-        case LogDirectiveSyntax log:
+        case LogAst log:
           if (!TryInterpolatePrepared(log.Expression, variables, stringPool, out var text, out var logError)) {
             throw new ArgumentException(
               "invalid prepared expression at line " + log.Line + ": " + logError,
@@ -197,8 +200,8 @@ public static partial class MixinExpressionCompiler {
           localInstructions, instruction, index, pool, labels, instructionScopes,
           functions, functionStarts, functionEnds, prepared?.FunctionEntries, offset
         );
-        var importedCall = (instruction is CallDirectiveAst call &&
-          !functions.ContainsKey(call.Function ?? "")) || (instruction is InlineDirectiveAst inline &&
+        var importedCall = (instruction is CallAst call &&
+          !functions.ContainsKey(call.Function ?? "")) || (instruction is InlineAst inline &&
           !functions.ContainsKey(inline.Name ?? ""));
         return item with {
           Destination = item.Destination < 0 || importedCall
@@ -217,7 +220,7 @@ public static partial class MixinExpressionCompiler {
     return true;
   }
 
-  private static ISet<int> FindPreparedInitializers(IReadOnlyList<DirectiveAst> instructions) {
+  private static ISet<int> FindPreparedInitializers(IReadOnlyList<InstructionAst> instructions) {
     var result = new HashSet<int>();
     var depth = 0;
     var scope = false;
@@ -237,14 +240,14 @@ public static partial class MixinExpressionCompiler {
         }
         continue;
       }
-      if (instruction is VariableDirectiveAst or LogDirectiveSyntax) result.Add(index);
+      if (instruction is VariableAst or LogAst) result.Add(index);
     }
     return result;
   }
 
   private static bool TryInterpolatePrepared(
     IReadOnlyList<ValueAst> expression,
-    IReadOnlyDictionary<MixinString, MixinLanguage.IMixinValue> variables,
+    IReadOnlyDictionary<MixinString, IMixinValue> variables,
     MixinStringPool strings,
     out string result,
     out string error
@@ -280,7 +283,7 @@ public static partial class MixinExpressionCompiler {
   }
 
   private static void AddScopeLabel(
-    DirectiveAst ast,
+    InstructionAst ast,
     int index,
     int scope,
     IDictionary<string, int> labels,
@@ -306,7 +309,7 @@ public static partial class MixinExpressionCompiler {
   }
 
   internal static int FindNextScopeOrEnd(
-    IReadOnlyList<DirectiveAst> lines,
+    IReadOnlyList<InstructionAst> lines,
     int start,
     int scope,
     IReadOnlyDictionary<int, int> instructionScopes,
@@ -328,7 +331,7 @@ public static partial class MixinExpressionCompiler {
   }
 
   internal static bool TryIndexSymbols(
-    IReadOnlyList<DirectiveAst> lines,
+    IReadOnlyList<InstructionAst> lines,
     int start,
     int end,
     IDictionary<string, int> labels,

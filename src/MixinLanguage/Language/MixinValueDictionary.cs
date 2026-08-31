@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
-using MixinLanguage.Compiler;
+using Mixins.Runtime;
 
-namespace MixinLanguage;
+namespace Mixins;
 
 /// <summary>
 ///   Runtime storage for named mixin values. Names are already-resolved

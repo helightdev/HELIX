@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using global::MixinLanguage.Compiler;
 using JetBrains.Application;
 using JetBrains.Application.Parts;
 using JetBrains.ProjectModel;
@@ -12,8 +11,9 @@ using JetBrains.ReSharper.Psi.Caches;
 using JetBrains.ReSharper.Psi.Tree;
 using JetBrains.ReSharper.Feature.Services.Protocol;
 using JetBrains.ReSharper.Resources.Shell;
+
 using WireRange = HelixRider.Protocol.MixinSourceRange;
-using CoreRange = global::MixinLanguage.Compiler.MixinSourceRange;
+using CoreRange = Mixins.Compiler.MixinSourceRange;
 
 namespace HelixRider.Protocol;
 
@@ -250,21 +250,21 @@ public sealed class HelixMixinLanguageHost
 
     private static MixinLanguageDefinition[] Definitions()
     {
-        var directives = global::MixinLanguage.DirectiveLibrary.EnumerateLanguageDefinitions()
+        var directives = global::Helix.MixinLanguage.Language.DirectiveLibrary.EnumerateLanguageDefinitions()
           .Select(definition => new MixinLanguageDefinition(
             definition.Name, "Directive", definition.MinimumArguments, definition.MaximumArguments,
             definition.OperandType.ToString(), "None", definition.OperandType.ToString(),
             definition.ArgumentTypes.Select(role => role.ToString()).ToArray(), definition.Documentation));
-        var functions = global::MixinLanguage.FunctionLibrary.Enumerate()
+        var functions = global::Helix.MixinLanguage.Language.FunctionLibrary.Enumerate()
           .Select(definition => new MixinLanguageDefinition(
             definition.Name, definition.IsPredicate ? "Predicate" : "Function",
             definition.MinimumArguments, definition.MaximumArguments, "None",
             definition.ReceiverType.ToString(), definition.ResultType.ToString(),
             definition.ArgumentTypes.Select(role => role.ToString()).ToArray(), definition.Documentation));
-        var roots = global::MixinLanguage.Compiler.MixinLanguageCatalog.Roots.Select(definition => new MixinLanguageDefinition(
+        var roots = global::Helix.MixinLanguage.Language.Compiler.MixinLanguageCatalog.Roots.Select(definition => new MixinLanguageDefinition(
             definition.Name, "Root", 0, 0, "None", "None", "Any", Array.Empty<string>(),
             definition.Documentation));
-        var outputTargets = global::MixinLanguage.Compiler.MixinLanguageCatalog.OutputTargets.Select(name => new MixinLanguageDefinition(
+        var outputTargets = global::Helix.MixinLanguage.Language.Compiler.MixinLanguageCatalog.OutputTargets.Select(name => new MixinLanguageDefinition(
             name, "OutputTarget", 0, 0, "None", "None", "None", Array.Empty<string>(),
             "Generated output destination"));
         return directives.Concat(functions).Concat(roots).Concat(outputTargets).ToArray();

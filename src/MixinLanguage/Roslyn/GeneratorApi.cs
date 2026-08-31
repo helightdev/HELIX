@@ -6,8 +6,10 @@ using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Mixins;
+using Mixins.Env;
 
-namespace MixinLanguage;
+namespace Mixins.Roslyn;
 
 public static class GeneratorAnalysis {
   internal static readonly SymbolDisplayFormat TypeDisplayFormat =

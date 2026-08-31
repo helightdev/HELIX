@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MixinLanguage.Compiler;
+namespace Mixins.Compiler;
 
 /// <summary>
 /// Canonical lossless tokenization for mixin source files.

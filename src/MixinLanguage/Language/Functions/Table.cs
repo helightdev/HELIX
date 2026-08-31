@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MixinLanguage.Compiler;
+using Mixins.Runtime;
 
-namespace MixinLanguage.Functions;
+namespace Mixins.Functions;
 
 internal sealed class AsTableFunction() : EvaluatedFunctionDefinition("table", 0, 0) {
   protected override IMixinValue Apply(

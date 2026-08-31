@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using Mixins.Runtime;
 
-namespace MixinLanguage.Functions;
+namespace Mixins.Functions;
 
 internal sealed class NameFunction() : EvaluatedFunctionDefinition("name", 0, 0) {
   protected override IMixinValue Apply(

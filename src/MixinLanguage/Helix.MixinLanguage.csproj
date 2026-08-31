@@ -4,6 +4,8 @@
         <LangVersion>latest</LangVersion>
         <NoWarn>$(NoWarn);RS2008</NoWarn>
         <Description>Reusable HELIX mixin language compiler, runtime, and Roslyn semantic analysis.</Description>
+        <AssemblyName>Mixins</AssemblyName>
+        <RootNamespace>Mixins</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using MixinLanguage;
+using Mixins.Diagnostics;
 
 namespace HelixSourceGenerator.Generators;
 

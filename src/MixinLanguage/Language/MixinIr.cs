@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-using MixinLanguage.Compiler;
+using Mixins.Compiler;
+using Mixins.Runtime;
 
-namespace MixinLanguage;
+namespace Mixins;
 
 internal enum MixinOpcode {
   Empty,

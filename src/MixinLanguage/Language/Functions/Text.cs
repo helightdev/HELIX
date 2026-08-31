@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Mixins.Roslyn;
+using Mixins.Runtime;
 
-namespace MixinLanguage.Functions;
+namespace Mixins.Functions;
 
 internal abstract class RegexFunction(string name) : EvaluatedFunctionDefinition(name, 2, 2) {
   protected sealed override IMixinValue Apply(

@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using global::MixinLanguage;
-using global::MixinLanguage.Compiler;
 
-namespace MixinLanguage.Compiler;
+namespace Mixins.Compiler;
 
 public enum MixinOperandKind { None, Value, Boolean }
 public enum MixinArgumentRole {

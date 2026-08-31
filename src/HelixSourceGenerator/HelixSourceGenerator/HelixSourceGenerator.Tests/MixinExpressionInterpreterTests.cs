@@ -3,8 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MixinLanguage;
-using MixinLanguage.Compiler;
+using Mixins;
+using Mixins.Compiler;
+using Mixins.Runtime;
 using Xunit;
 
 namespace HELIX.SourceGen.Tests;
@@ -35,7 +36,7 @@ public sealed class MixinExpressionInterpreterTests {
       ["runtime"] = "runtime-only"
     };
     var context = new StubContext();
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       "@CODE @var#known\n@CODE @var#runtime", context, variables
     );
 
@@ -48,7 +49,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void TablesMutateWhileOpenAndCopyAfterAssignmentClosesThem() {
     var variables = new Dictionary<string, object>();
-    var created = MixinExpressionVirtualMachine.Execute(
+    var created = MixinVirtualMachine.Execute(
       "@VAR<table> @table:put<first><one>:put<second><two>",
       new StubContext(), variables
     );
@@ -56,7 +57,7 @@ public sealed class MixinExpressionInterpreterTests {
     var original = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object>>(variables["table"]);
     Assert.Equal(2, original.Count);
 
-    var changed = MixinExpressionVirtualMachine.Execute(
+    var changed = MixinVirtualMachine.Execute(
       "@VAR<table> @var#table:put<third><three>",
       new StubContext(), variables
     );
@@ -69,7 +70,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void TableFunctionUsesScalarAndNullConversionSemantics() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @CODE @true:table:size
       @CODE @true:table:path<0>
@@ -85,7 +86,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void EmptyReferenceRootIsNullShorthand() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       "@CODE @:table:size\n@CODE @@:literal",
       new StubContext()
     );
@@ -96,7 +97,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void HoistingCarriesCompleteRoslynPredicates() {
-    var success = MixinExpressionCompiler.TryCompileSyntax(
+    var success = MixinCompiler.TryCompileSyntax(
       MixinParser.Parse(""),
       MixinParser.Parse("@MATCH @this:?is<MonoBehaviour>\n@MATCH @attr#type:?exists"),
       null,
@@ -117,7 +118,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void AutomaticHoistingDeduplicatesReferencesAndUsesLeafSnapshots() {
-    var success = MixinExpressionCompiler.TryCompileSyntax(
+    var success = MixinCompiler.TryCompileSyntax(
       MixinParser.Parse(""),
       MixinParser.Parse(
         "@CODE @target:type\n@CODE @target:type\n@CODE @attr#qualifier\n@CODE @attr#qualifier"
@@ -137,7 +138,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void CallsCanReturnValuesIntoLocals() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @FUNC<select>
       @RETURN @param#value
@@ -154,7 +155,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void TablesSupportJoiningMappingAndFiltering() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @FUNC<bracket>
       @RETURN [@param]
@@ -190,7 +191,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void VariablesPreserveImmutableTablesAndTableOperations() {
     var variables = new Dictionary<string, object>();
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @VAR<data> @table:put<name><Ada>:push<first>:push<second>
       @ASSERT @var#data:?has<second>
@@ -214,7 +215,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void FunctionParametersAreTypedAndNestedCallsRestoreTheCallerParameter() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @FUNC<inner>
       @CODE inner=@param#value
@@ -240,7 +241,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void PutAndPushUpdateImmutableLocalTablesWithTypedValues() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @PUT<items><name> Ada
       @PUSH<items> first
@@ -262,7 +263,7 @@ public sealed class MixinExpressionInterpreterTests {
       ["destination"] = "$Dispose",
       ["priority"] = "12"
     };
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       "@MIXIN<$Init> First()\n@MIXIN<(@var#destination)><(@var#priority)> Second()",
       new StubContext(), variables
     );
@@ -287,7 +288,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void ValueFunctionsSupportMultipleAndDynamicArguments() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @VAR<text> alpha-alpha
       @VAR<replacement> omega
@@ -313,7 +314,7 @@ public sealed class MixinExpressionInterpreterTests {
       ["tiny"] = -0.0000005d,
       ["zero"] = 0
     };
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @VAR<seconds> 1.5 seconds
       @VAR<millis> 250ms
@@ -348,7 +349,7 @@ public sealed class MixinExpressionInterpreterTests {
   [InlineData("%0")]
   [InlineData("tomorrow")]
   public void FloatTimeRejectsInvalidFormats(string time) {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       "@VAR<time> " + time + "\n@CODE @var#time:floatTime", new StubContext()
     );
 
@@ -358,7 +359,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void RegexAndLogicalBooleanFunctionsCanBeUsedAsValuesOrConditions() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @VAR<text> Event42
       @ASSERT @var#text:?matches<^Event[0-9]+$>
@@ -379,7 +380,7 @@ public sealed class MixinExpressionInterpreterTests {
   [InlineData("@CODE @this:makeGeneric", ":makeGeneric requires 1 argument")]
   [InlineData("@CODE @this:visibility<public>", ":visibility requires 0 arguments")]
   public void FunctionGrammarRejectsAmbiguousOrInvalidCalls(string expression, string expected) {
-    var validation = MixinExpressionCompiler.ValidateSyntax(expression);
+    var validation = MixinCompiler.ValidateSyntax(expression);
 
     Assert.False(validation.Success);
     Assert.Contains(expected, validation.Error);
@@ -388,7 +389,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void InterpolatesReferencesAndStoredValues() {
     var variables = new Dictionary<string, object>();
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @LOCAL<kind> handler
       @VAR<count> one
@@ -405,7 +406,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void MatchSkipsToTheNextScope() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @SCOPE<first>
       @MATCH @arg#0:?ref
@@ -425,7 +426,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void LabeledMatchJumpsToTheNamedScopeWhenFalse() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @MATCH<selected> @arg#0:?ref
       @CODE wrong
@@ -445,7 +446,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void LabelIsAnImmediatelyClosedScopeJumpTarget() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @GOTO<selected>
       @CODE wrong
@@ -461,7 +462,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void LabelClosesThePreviousFunctionScopeWithoutOpeningAnother() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @FUNC<emit>
       @SCOPE<previous>
@@ -480,8 +481,8 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void FailSupportsAnInterpolatedMessageAndKeepsTheBareForm() {
-    var custom = MixinExpressionVirtualMachine.Execute("@FAIL invalid @this:name", new StubContext());
-    var bare = MixinExpressionVirtualMachine.Execute("@FAIL", new StubContext());
+    var custom = MixinVirtualMachine.Execute("@FAIL invalid @this:name", new StubContext());
+    var bare = MixinVirtualMachine.Execute("@FAIL", new StubContext());
 
     Assert.False(custom.Success);
     Assert.Equal("invalid Demo", custom.Error);
@@ -492,7 +493,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void FailedExecutionDoesNotCommitCodeOrVariables() {
     var variables = new Dictionary<string, object> { ["value"] = "before" };
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @VAR<value> after
       @CODE buffered
@@ -509,14 +510,14 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void FailedConditionsProduceUserFacingMessages() {
-    var equality = MixinExpressionVirtualMachine.Execute(
+    var equality = MixinVirtualMachine.Execute(
       """
       @VAR<IsComponent> false
       @ASSERT @var#IsComponent:?eq<true>
       """,
       new StubContext()
     );
-    var inheritance = MixinExpressionVirtualMachine.Execute(
+    var inheritance = MixinVirtualMachine.Execute(
       "@ASSERT @target:type:?is<global::IComponent>",
       new StubContext()
     );
@@ -527,18 +528,18 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void StoredEqualityRetriesAfterUnwrappingAndTreatsMissingAsNull() {
-    var unwrapped = MixinExpressionVirtualMachine.Execute(
+    var unwrapped = MixinVirtualMachine.Execute(
       """
       @VAR<kind> "Component"
       @ASSERT @var#kind:?eq<Component>
       """,
       new StubContext()
     );
-    var missingIsNull = MixinExpressionVirtualMachine.Execute(
+    var missingIsNull = MixinVirtualMachine.Execute(
       "@ASSERT @var#missing:?eq<null>",
       new StubContext()
     );
-    var invertedNull = MixinExpressionVirtualMachine.Execute(
+    var invertedNull = MixinVirtualMachine.Execute(
       "@ASSERT @var#missing:!?eq<null>",
       new StubContext()
     );
@@ -551,7 +552,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void SupportsAllCodeTargets() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @CODE target
       @CODE<CLASS> class
@@ -595,8 +596,8 @@ public sealed class MixinExpressionInterpreterTests {
                               @# @UNKNOWN ignored
                               """;
 
-    var validation = MixinExpressionCompiler.ValidateSyntax(expression);
-    var result = MixinExpressionVirtualMachine.Execute(expression, new StubContext());
+    var validation = MixinCompiler.ValidateSyntax(expression);
+    var result = MixinVirtualMachine.Execute(expression, new StubContext());
 
     Assert.True(validation.Success, validation.Error);
     Assert.True(result.Success, result.Error);
@@ -609,7 +610,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void ContinuationsRequireAnImmediatelyPrecedingDirective() {
-    var result = MixinExpressionCompiler.ValidateSyntax("@+orphan");
+    var result = MixinCompiler.ValidateSyntax("@+orphan");
 
     Assert.False(result.Success);
     Assert.Equal(1, result.ErrorLine);
@@ -620,7 +621,7 @@ public sealed class MixinExpressionInterpreterTests {
   public void ParsesParenthesizedAndInvertedReferences() {
     const string source = "@(arg#name:type:!?is<global::IEvent>)";
     Assert.True(
-      MixinExpressionCompiler.TryParseReference(
+      MixinCompiler.TryParseReference(
         source,
         out var reference,
         out var error
@@ -633,7 +634,7 @@ public sealed class MixinExpressionInterpreterTests {
     Assert.Equal("type", reference.Properties[0].Name);
     Assert.True(reference.Properties[1].Negated);
     Assert.Equal("global::IEvent", reference.Properties[1].Argument);
-    Assert.Equal(new MixinSourceRange(0, source.Length), reference.SourceRange);
+    Assert.Equal(new MixinSourceRange(0, source.Length, 1, 0), reference.SourceRange);
     Assert.Equal(10, reference.Properties[0].SourceRange.Start);
     Assert.Equal(
       "<global::IEvent>",
@@ -661,7 +662,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void RewritesOnlyTargetReferenceRootsAsThis() {
-    var rewritten = MixinExpressionCompiler.RewriteTargetAsThis(
+    var rewritten = MixinCompiler.RewriteTargetAsThis(
       MixinParser.Parse(
         "@CODE @target:name | @(target:type) | @targeted:name | @var#target"
       )
@@ -676,7 +677,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void ParsesTypeArgumentPaths() {
     Assert.True(
-      MixinExpressionCompiler.TryParseReference(
+      MixinCompiler.TryParseReference(
         "@target:type#0:type#T",
         out var reference,
         out var error
@@ -694,7 +695,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void StoredValuesSupportTruthinessAndExistence() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @LOCAL<disabled> false
       @SCOPE<disabled>
@@ -713,7 +714,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void GotoLoopsAreBounded() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @SCOPE<again>
       @GOTO<again>
@@ -727,7 +728,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void GotoContinuesAtTheNamedScope() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @GOTO<selected>
       @CODE wrong
@@ -743,7 +744,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void ScopeLabelsAreBoundToTheirFunction() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @FUNC<emit>
       @GOTO<outside>
@@ -760,7 +761,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void ScopeLabelsMayBeReusedInSeparateControlFlowRegions() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @SCOPE<start>
       @FUNC<first>
@@ -784,13 +785,13 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void ExplicitAndImplicitJumpsCannotCrossPreparedExpressions() {
-    var explicitJump = MixinExpressionVirtualMachine.Execute(
+    var explicitJump = MixinVirtualMachine.Execute(
       "@CODE runtime",
       new StubContext(),
       null,
       new[] { "@GOTO<next>", "@SCOPE<next>\n@CODE escaped" }
     );
-    var implicitJump = MixinExpressionVirtualMachine.Execute(
+    var implicitJump = MixinVirtualMachine.Execute(
       "@CODE runtime",
       new StubContext(),
       null,
@@ -806,7 +807,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void CallsPreparedFunctionsWithSharedLocalsAndVariables() {
     var variables = new Dictionary<string, object>();
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       "@CALL<emit>\n@CODE caller @var#prefix @local#shared",
       new StubContext(),
       variables,
@@ -833,7 +834,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void PreparedStateIsReusableAndGlobalInitializersAreNotReevaluated() {
-    var prepared = MixinExpressionCompiler.PrepareGlobals(
+    var prepared = MixinCompiler.PrepareGlobals(
       new[] {
         "@VAR<prefix> prepared\n" +
         "@FUNC<emit>\n" +
@@ -842,13 +843,13 @@ public sealed class MixinExpressionInterpreterTests {
       }
     );
     var firstVariables = new Dictionary<string, object>();
-    var first = MixinExpressionVirtualMachine.Execute(
+    var first = MixinVirtualMachine.Execute(
       "@CALL<emit>\n@VAR<prefix> changed",
       new StubContext(),
       firstVariables,
       prepared
     );
-    var second = MixinExpressionVirtualMachine.Execute(
+    var second = MixinVirtualMachine.Execute(
       "@CALL<emit>",
       new StubContext(),
       new Dictionary<string, object>(),
@@ -865,7 +866,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void PreparedInitializersCannotCaptureRuntimeContext() {
     var error = Assert.Throws<ArgumentException>(() =>
-      MixinExpressionCompiler.PrepareGlobals(new[] { "@VAR<invalid> @target:name" })
+      MixinCompiler.PrepareGlobals(new[] { "@VAR<invalid> @target:name" })
     );
 
     Assert.Contains("only reference an existing @var", error.Message);
@@ -873,7 +874,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void RuntimeProgramIsFullyCompiledBeforeExecution() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       "@CODE reached\n@RETURN\n@UNKNOWN never-parsed",
       new StubContext()
     );
@@ -889,7 +890,7 @@ public sealed class MixinExpressionInterpreterTests {
     var failures = new ConcurrentQueue<string>();
 
     Parallel.For(0, 64, _ => {
-      var result = MixinExpressionVirtualMachine.Execute(expression, new StubContext());
+      var result = MixinVirtualMachine.Execute(expression, new StubContext());
       if (!result.Success || result.Outputs.Count != 1 || result.Outputs[0].Text != "Demo") {
         failures.Enqueue(result.Error ?? "unexpected output");
       }
@@ -900,14 +901,14 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void PreparedStaticLogsAreCapturedOnceAndNotReplayed() {
-    var prepared = MixinExpressionCompiler.PrepareGlobals(
+    var prepared = MixinCompiler.PrepareGlobals(
       new[] {
         "@VAR<name> global\n@LOG prepared @var#name"
       }
     );
 
-    var first = MixinExpressionVirtualMachine.Execute("@CODE first", new StubContext(), null, prepared);
-    var second = MixinExpressionVirtualMachine.Execute("@CODE second", new StubContext(), null, prepared);
+    var first = MixinVirtualMachine.Execute("@CODE first", new StubContext(), null, prepared);
+    var second = MixinVirtualMachine.Execute("@CODE second", new StubContext(), null, prepared);
 
     Assert.Equal("prepared global", Assert.Single(prepared.Logs).Text);
     Assert.Equal(2, prepared.ExecutedOperations);
@@ -917,7 +918,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void DumpIsNotAnExpressionDirective() {
-    var result = MixinExpressionCompiler.ValidateSyntax("@DUMP<STATE>");
+    var result = MixinCompiler.ValidateSyntax("@DUMP<STATE>");
 
     Assert.False(result.Success);
     Assert.Contains("unknown directive", result.Error);
@@ -925,7 +926,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void FunctionScopesAndFunctionEndAreBalanced() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @FUNC<select>
       @SCOPE<first>
@@ -946,7 +947,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void RejectsNestedFunctions() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @FUNC<outer>
       @FUNC<inner>
@@ -962,7 +963,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void LogsArePreservedWhenEvaluationFails() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @LOCAL<kind> handler
       @VAR<count> one
@@ -979,7 +980,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void SkipWithoutAnotherScopeFails() {
-    var result = MixinExpressionVirtualMachine.Execute("@SKIP", new StubContext());
+    var result = MixinVirtualMachine.Execute("@SKIP", new StubContext());
 
     Assert.False(result.Success);
     Assert.Contains("no following scope", result.Error);
@@ -987,7 +988,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void UnknownDirectivesReportTheirLine() {
-    var result = MixinExpressionVirtualMachine.Execute("\n@UNKNOWN", new StubContext());
+    var result = MixinVirtualMachine.Execute("\n@UNKNOWN", new StubContext());
 
     Assert.False(result.Success);
     Assert.Equal(2, result.ErrorLine);
@@ -996,7 +997,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void TargetVariablesAndReducePreserveTypedValues() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @TAR<Model> @table:push<a>:push<b>:push<c>
       @FUNC<Append>
@@ -1013,7 +1014,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void ReduceRequiresAValueProducingReturn() {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @FUNC<NoValue>
       @RETURN
@@ -1030,7 +1031,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void ReduceReturnsInitialForEmptyTableAndSharesCallbackVariables() {
     var variables = new Dictionary<string, object>();
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       """
       @VAR<Calls> 0
       @FUNC<Fold>
@@ -1053,7 +1054,7 @@ public sealed class MixinExpressionInterpreterTests {
   [InlineData("@null:reduce<seed><Fold>", ":reduce requires a table")]
   [InlineData("@table:push<a>:reduce<seed><Missing>", "unknown function")]
   public void ReduceRejectsInvalidReceiverAndMissingCallback(string expression, string expected) {
-    var result = MixinExpressionVirtualMachine.Execute(
+    var result = MixinVirtualMachine.Execute(
       "@FUNC<Fold>\n@RETURN @param#acc\n@END\n@CODE " + expression,
       new StubContext()
     );
@@ -1064,7 +1065,7 @@ public sealed class MixinExpressionInterpreterTests {
 
   [Fact]
   public void ReduceAcceptsExplicitNullAndPropagatesCallbackFailures() {
-    var nullResult = MixinExpressionVirtualMachine.Execute(
+    var nullResult = MixinVirtualMachine.Execute(
       """
       @FUNC<Null>
       @RETURN @null
@@ -1076,7 +1077,7 @@ public sealed class MixinExpressionInterpreterTests {
     Assert.True(nullResult.Success, nullResult.Error);
     Assert.Equal("null", Assert.Single(nullResult.Outputs).Text);
 
-    var failure = MixinExpressionVirtualMachine.Execute(
+    var failure = MixinVirtualMachine.Execute(
       """
       @FUNC<Broken>
       @FAIL callback failed
@@ -1097,7 +1098,7 @@ public sealed class MixinExpressionInterpreterTests {
       _argumentIsRef = argumentIsRef;
     }
 
-    protected override global::MixinLanguage.IMixinValue ResolveHost(
+    protected override IMixinValue ResolveHost(
       MixinExpressionRoot root, MixinString member
     ) {
       var name = member.Resolve(Strings);
@@ -1111,7 +1112,7 @@ public sealed class MixinExpressionInterpreterTests {
       return new ObjectMixinValue(value);
     }
 
-    public override bool HasTrait(global::MixinLanguage.IMixinValue value, MixinString trait) {
+    public override bool HasTrait(IMixinValue value, MixinString trait) {
       return trait.Resolve(Strings) switch {
         "ref" => _argumentIsRef,
         "argument" => !_argumentIsRef,
@@ -1119,7 +1120,7 @@ public sealed class MixinExpressionInterpreterTests {
       };
     }
 
-    public override MixinString NameOf(global::MixinLanguage.IMixinValue value) =>
+    public override MixinString NameOf(IMixinValue value) =>
       ResolveString("Demo");
   }
 
