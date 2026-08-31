@@ -1,32 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mixins.Runtime;
 
 namespace Mixins.Compiler;
-
-public enum MixinSyntaxKind {
-  Document,
-  Directive,
-  DirectiveName,
-  DirectiveArgument,
-  DeclarationDirectiveArgument,
-  ReferenceDirectiveArgument,
-  DeclarationReferenceDirectiveArgument,
-  Operand,
-  Reference,
-  ParenthesizedReference,
-  Root,
-  Member,
-  Path,
-  FunctionCall,
-  LiteralArgument,
-  ExpressionArgument,
-  Comment,
-  Continuation,
-  Escape,
-  Punctuation,
-  Error
-}
 
 public abstract class MixinAst {
   private IReadOnlyList<MixinAst> _children = [];
@@ -144,7 +121,7 @@ public sealed class ProgramAst : MixinAst {
 
   internal void CollectConstants(MixinStringPoolBuilder pool) {
     foreach (var item in _instructions) {
-      pool.Intern(MixinSyntaxFacts.Command(item));
+      pool.Intern(item.Definition?.Name ?? (item as UnknownDirectiveAst)?.Name);
       item.CollectConstants(pool);
     }
   }
@@ -166,6 +143,14 @@ public abstract class InstructionAst : MixinAst {
 
   internal InstructionAst InheritFrom(InstructionAst origin) {
     InheritRangeFrom(origin);
+    Definition = origin.Definition;
+    return this;
+  }
+
+  internal InstructionAst WithDefinition(string name, int argumentCount) {
+    if (!DirectiveLibrary.TryGet(name, argumentCount, out var definition))
+      throw new InvalidOperationException("Unknown directive signature '@" + name + "'.");
+    Definition = definition;
     return this;
   }
 
@@ -420,22 +405,6 @@ public sealed class MixinPropertyArgumentAst(
   public IReadOnlyList<MixinExpressionReference> BooleanExpression { get; } = booleanExpression;
 }
 
-public readonly record struct MixinSourceRange(
-  int Start, int End, int Line = 0, int Column = 0
-) {
-  public int Length => End - Start;
-  public bool IsEmpty => Length == 0;
-
-  public static MixinSourceRange Compose(IEnumerable<MixinSourceRange> ranges) {
-    var values = (ranges ?? []).Where(range => !range.IsEmpty).ToArray();
-    if (values.Length == 0) return default;
-    var first = values.OrderBy(range => range.Start).First();
-    return new MixinSourceRange(
-      values.Min(range => range.Start), values.Max(range => range.End), first.Line, first.Column
-    );
-  }
-}
-
 /// <summary>Parser-only reference syntax. This type never crosses the lowering boundary.</summary>
 public sealed class MixinExpressionReference(
   MixinExpressionRoot root, string member, IReadOnlyList<MixinExpressionProperty> properties,
@@ -443,7 +412,7 @@ public sealed class MixinExpressionReference(
   MixinSourceRange rootRange = default, MixinSourceRange memberRange = default
 ) : MixinAst(
   parenthesized ? MixinSyntaxKind.ParenthesizedReference : MixinSyntaxKind.Reference,
-  children: MixinAstLayout.Reference(sourceRange, rootRange, memberRange, properties)
+  children: CreateChildren(sourceRange, rootRange, memberRange, properties)
 ) {
   public MixinExpressionRoot Root { get; } = root;
   public string Member { get; } = member;
@@ -456,6 +425,33 @@ public sealed class MixinExpressionReference(
     pool.Intern(Member);
     foreach (var property in Properties) property.CollectConstants(pool);
   }
+
+  private static IReadOnlyList<MixinAst> CreateChildren(
+    MixinSourceRange range, MixinSourceRange rootRange, MixinSourceRange memberRange,
+    IReadOnlyList<MixinExpressionProperty> properties
+  ) {
+    var children = new List<MixinAst>();
+    AddGap(children, range, range.Start, rootRange.Start);
+    children.Add(new LeafAst(MixinSyntaxKind.Root, rootRange));
+    if (!memberRange.IsEmpty) {
+      AddGap(children, range, rootRange.End, memberRange.Start);
+      children.Add(new LeafAst(MixinSyntaxKind.Member, memberRange));
+    }
+    children.AddRange(properties ?? []);
+    var end = children.Count == 0 ? range.Start : children.Max(child => child.SourceRange.End);
+    AddGap(children, range, end, range.End);
+    return children;
+  }
+
+  private static void AddGap(
+    ICollection<MixinAst> children, MixinSourceRange owner, int start, int end
+  ) {
+    if (end <= start) return;
+    children.Add(new LeafAst(
+      MixinSyntaxKind.Punctuation,
+      new MixinSourceRange(start, end, owner.Line, owner.Column + start - owner.Start)
+    ));
+  }
 }
 
 public sealed class MixinExpressionProperty(
@@ -464,7 +460,7 @@ public sealed class MixinExpressionProperty(
   MixinSourceRange nameRange = default
 ) : MixinAst(
   name == "path" ? MixinSyntaxKind.Path : MixinSyntaxKind.FunctionCall,
-  children: MixinAstLayout.Property(sourceRange, nameRange, arguments)
+  children: CreateChildren(sourceRange, nameRange, arguments)
 ) {
   internal MixinExpressionProperty(string name, string argument) : this(
     name, argument is null ? [] : [new MixinPropertyArgumentAst(argument, null, null)]
@@ -489,95 +485,18 @@ public sealed class MixinExpressionProperty(
       foreach (var reference in argument.BooleanExpression ?? []) reference.CollectConstants(pool);
     }
   }
-}
-
-internal static class MixinAstLayout {
-  internal static IReadOnlyList<MixinAst> Reference(
-    MixinSourceRange range, MixinSourceRange rootRange, MixinSourceRange memberRange,
-    IReadOnlyList<MixinExpressionProperty> properties
-  ) {
-    var children = new List<MixinAst>();
-    AddGap(children, range, range.Start, rootRange.Start);
-    children.Add(new LeafAst(MixinSyntaxKind.Root, rootRange));
-    if (!memberRange.IsEmpty) {
-      AddGap(children, range, rootRange.End, memberRange.Start);
-      children.Add(new LeafAst(MixinSyntaxKind.Member, memberRange));
-    }
-    children.AddRange(properties ?? []);
-    var end = children.Count == 0 ? range.Start : children.Max(child => child.SourceRange.End);
-    AddGap(children, range, end, range.End);
-    return children;
-  }
-
-  internal static IReadOnlyList<MixinAst> Property(
+  private static IReadOnlyList<MixinAst> CreateChildren(
     MixinSourceRange range, MixinSourceRange nameRange,
     IReadOnlyList<MixinPropertyArgumentAst> arguments
   ) {
     var children = new List<MixinAst>();
-    AddGap(children, range, range.Start, nameRange.Start);
+    if (nameRange.Start > range.Start)
+      children.Add(new LeafAst(
+        MixinSyntaxKind.Punctuation,
+        new MixinSourceRange(range.Start, nameRange.Start, range.Line, range.Column)
+      ));
     children.Add(new LeafAst(MixinSyntaxKind.FunctionCall, nameRange));
     children.AddRange(arguments ?? []);
     return children;
-  }
-
-  private static void AddGap(
-    ICollection<MixinAst> children, MixinSourceRange owner, int start, int end
-  ) {
-    if (end <= start) return;
-    children.Add(
-      new LeafAst(
-        MixinSyntaxKind.Punctuation, new MixinSourceRange(
-          start, end, owner.Line, owner.Column + start - owner.Start
-        )
-      )
-    );
-  }
-}
-
-internal static class MixinSyntaxFacts {
-  internal static string Command(InstructionAst n) {
-    if (n.Definition is not null) return n.Definition.Name;
-    return n switch {
-      EmptyDirectiveAst => null, UnknownDirectiveAst x => x.Name,
-      DirectiveInvocationAst x => x.Definition.Name,
-      ScopeAst => "SCOPE", LabelAst => "LABEL", FunctionAst => "FUNC",
-      CallAst => "CALL", InlineAst => "INLINE", EndAst => "END",
-      MatchAst => "MATCH", AssertAst => "ASSERT", CodeAst => "CODE",
-      TargetedCodeAst => "MIXIN", UsingAst => "USING", LogAst => "LOG",
-      LocalAst => "LOCAL", VariableAst => "VAR", TargetVariableAst => "TAR",
-      CarryAst => "CARRY",
-      ReturnAst => "RETURN", GotoAst => "GOTO", SkipAst => "SKIP",
-      FailAst => "FAIL", AnnotationAst => "ANNOTATION", PreludeAst => "PRELUDE",
-      DefineTargetAst => "DEFINE_TARGET", _ => null
-    };
-  }
-
-  internal static IReadOnlyList<string> Arguments(InstructionAst n) {
-    return n switch {
-      DirectiveInvocationAst x => x.Arguments,
-      ScopeAst { Label: not null } x => [x.Label], LabelAst x => [x.Name],
-      FunctionAst x => [x.Name], InlineAst x => [x.Name],
-      CallAst { ReturnLocal: not null } x => [x.ReturnLocal, x.Function],
-      CallAst x => [x.Function],
-      MatchAst { FailureLabel: not null } x => [x.FailureLabel],
-      CodeAst { Target: MixinExpressionOutputTarget.Injection } x => [x.InjectionTarget],
-      CodeAst { Target: not MixinExpressionOutputTarget.Target } x => [x.Target.ToString().ToUpperInvariant()],
-      TargetedCodeAst { Priority: not null } x => [
-        MixinSyntaxRenderer.RenderArgument(x.Target), MixinSyntaxRenderer.RenderArgument(x.Priority)
-      ],
-      TargetedCodeAst x => [MixinSyntaxRenderer.RenderArgument(x.Target)],
-      LocalAst x => [x.Name], VariableAst x => [x.Name],
-      TargetVariableAst x => [x.Name], CarryAst x => [x.Label],
-      GotoAst x => [x.Label], AnnotationAst x => [x.Name],
-      DefineTargetAst x => [x.Name, x.Value], _ => []
-    };
-  }
-
-  internal static string Operand(InstructionAst n) {
-    return n switch {
-      DirectiveInvocationAst x => MixinSyntaxRenderer.RenderValue(x.Expression),
-      ValueStatementAst x => MixinSyntaxRenderer.RenderValue(x.Expression),
-      BooleanStatementAst x => MixinSyntaxRenderer.RenderBoolean(x.Expression), _ => ""
-    };
   }
 }

@@ -85,7 +85,8 @@ public sealed class PreludeHoistingStep : MixinExpressionCompilerStep {
     var localReference = new MixinExpressionReference(MixinExpressionRoot.Local, local, []);
     var label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
     labels[MixinSyntaxRenderer.RenderReference(localReference)] = label;
-    generated.Add(new CarryAst(label, [new ValueAst(null, localReference)]).InheritFrom(ast));
+    generated.Add(new CarryAst(label, [new ValueAst(null, localReference)]).InheritFrom(ast)
+      .WithDefinition("CARRY", 1));
     structuralLocals.Add(local);
     error = null;
     return true;
@@ -104,7 +105,8 @@ public sealed class PreludeHoistingStep : MixinExpressionCompilerStep {
       if (!labels.TryGetValue(key, out var label)) {
         label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
         labels.Add(key, label);
-        generated.Add(new CarryAst(label, [new ValueAst(null, reference)]).InheritFrom(ast));
+        generated.Add(new CarryAst(label, [new ValueAst(null, reference)]).InheritFrom(ast)
+          .WithDefinition("CARRY", 1));
       }
       return new MixinExpressionReference(
         MixinExpressionRoot.Carry, label, [], reference.Parenthesized, reference.SourceRange

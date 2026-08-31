@@ -7,7 +7,7 @@ namespace Mixins.Compiler;
 /// <summary>
 /// Canonical lossless tokenization for mixin source files.
 /// </summary>
-public static partial class MixinLexer {
+public static class MixinLexer {
   /// <summary>Lexes a complete source document into the shared lossless token stream.</summary>
   public static IReadOnlyList<MixinToken> Lex(string source) {
     source ??= "";
@@ -219,27 +219,6 @@ public static partial class MixinLexer {
     string.CompareOrdinal(source, position, value, 0, value.Length) == 0;
 
   private static bool IsName(char value) => value == '_' || char.IsLetterOrDigit(value);
-}
-
-public enum MixinTokenKind {
-  At,
-  Identifier,
-  Hash,
-  FunctionOperator,
-  PredicateOperator,
-  NegatedPredicateOperator,
-  OpenArgument,
-  CloseArgument,
-  OpenParenthesis,
-  CloseParenthesis,
-  Escape,
-  DirectContinuation,
-  NewLineContinuation,
-  Comment,
-  Whitespace,
-  NewLine,
-  Text,
-  Invalid
 }
 
 public sealed record MixinToken {

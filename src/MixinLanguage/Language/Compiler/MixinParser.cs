@@ -755,15 +755,32 @@ public static class MixinParser {
     string line, out string command, out IReadOnlyList<string> arguments, out string operand
   ) {
     var parsed = ParseDirective(line ?? "", 0).Node;
-    command = MixinSyntaxFacts.Command(parsed);
+    command = parsed.Definition?.Name ?? (parsed as UnknownDirectiveAst)?.Name;
     if (command is null) {
       command = null;
       arguments = [];
       operand = null;
       return false;
     }
-    arguments = MixinSyntaxFacts.Arguments(parsed);
-    operand = MixinSyntaxFacts.Operand(parsed);
+    arguments = parsed switch {
+      DirectiveInvocationAst x => x.Arguments,
+      ScopeAst { Label: not null } x => [x.Label], LabelAst x => [x.Name], FunctionAst x => [x.Name],
+      InlineAst x => [x.Name], CallAst { ReturnLocal: not null } x => [x.ReturnLocal, x.Function],
+      CallAst x => [x.Function], MatchAst { FailureLabel: not null } x => [x.FailureLabel],
+      CodeAst { Target: MixinExpressionOutputTarget.Injection } x => [x.InjectionTarget],
+      CodeAst { Target: not MixinExpressionOutputTarget.Target } x => [x.Target.ToString().ToUpperInvariant()],
+      TargetedCodeAst { Priority: not null } x => [
+        MixinSyntaxRenderer.RenderArgument(x.Target), MixinSyntaxRenderer.RenderArgument(x.Priority)
+      ],
+      TargetedCodeAst x => [MixinSyntaxRenderer.RenderArgument(x.Target)], LocalAst x => [x.Name],
+      VariableAst x => [x.Name], TargetVariableAst x => [x.Name], CarryAst x => [x.Label],
+      GotoAst x => [x.Label], AnnotationAst x => [x.Name], DefineTargetAst x => [x.Name, x.Value], _ => []
+    };
+    operand = parsed switch {
+      DirectiveInvocationAst x => MixinSyntaxRenderer.RenderValue(x.Expression),
+      ValueStatementAst x => MixinSyntaxRenderer.RenderValue(x.Expression),
+      BooleanStatementAst x => MixinSyntaxRenderer.RenderBoolean(x.Expression), _ => ""
+    };
     return true;
   }
 }

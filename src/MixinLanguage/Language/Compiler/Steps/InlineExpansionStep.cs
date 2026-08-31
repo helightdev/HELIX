@@ -118,8 +118,9 @@ public sealed class InlineExpansionStep : MixinExpressionCompilerStep {
         switch (item) {
           case ReturnAst returned:
             if (!IsEmpty(returned.Expression))
-              bodyNodes.Add(new LocalAst(suffix + "_return", returned.Expression).InheritFrom(item));
-            bodyNodes.Add(new GotoAst(endLabel).InheritFrom(item));
+              bodyNodes.Add(new LocalAst(suffix + "_return", returned.Expression).InheritFrom(item)
+                .WithDefinition("LOCAL", 1));
+            bodyNodes.Add(new GotoAst(endLabel).InheritFrom(item).WithDefinition("GOTO", 1));
             continue;
           case ScopeAst or LabelAst or GotoAst or MatchAst
             when LabelOf(item) is { Length: > 0 } label && labels.TryGetValue(label, out var renamed):
@@ -138,7 +139,7 @@ public sealed class InlineExpansionStep : MixinExpressionCompilerStep {
       }
       activeFunctions.Remove(name);
       result.AddRange(expandedBody);
-      result.Add(new ScopeAst(endLabel).InheritFrom(inline));
+      result.Add(new ScopeAst(endLabel).InheritFrom(inline).WithDefinition("SCOPE", 1));
     }
     expanded = result.AsReadOnly();
     error = null;

@@ -58,9 +58,24 @@ public static class MixinSyntaxRenderer {
   }
 
   internal static string RenderInstruction(InstructionAst ast, string firstArgument = null) {
-    var command = MixinSyntaxFacts.Command(ast);
-    var arguments = MixinSyntaxFacts.Arguments(ast);
-    var operand = MixinSyntaxFacts.Operand(ast);
+    var command = ast.Definition?.Name ?? (ast as UnknownDirectiveAst)?.Name;
+    var arguments = ast switch {
+      DirectiveInvocationAst x => x.Arguments,
+      ScopeAst { Label: not null } x => [x.Label], LabelAst x => [x.Name],
+      FunctionAst x => [x.Name], InlineAst x => [x.Name],
+      CallAst { ReturnLocal: not null } x => [x.ReturnLocal, x.Function],
+      CallAst x => [x.Function], MatchAst { FailureLabel: not null } x => [x.FailureLabel],
+      CodeAst { Target: MixinExpressionOutputTarget.Injection } x => [x.InjectionTarget],
+      CodeAst { Target: not MixinExpressionOutputTarget.Target } x => [x.Target.ToString().ToUpperInvariant()],
+      TargetedCodeAst { Priority: not null } x => [RenderArgument(x.Target), RenderArgument(x.Priority)],
+      TargetedCodeAst x => [RenderArgument(x.Target)], LocalAst x => [x.Name], VariableAst x => [x.Name],
+      TargetVariableAst x => [x.Name], CarryAst x => [x.Label], GotoAst x => [x.Label],
+      AnnotationAst x => [x.Name], DefineTargetAst x => [x.Name, x.Value], _ => []
+    };
+    var operand = ast switch {
+      DirectiveInvocationAst x => RenderValue(x.Expression), ValueStatementAst x => RenderValue(x.Expression),
+      BooleanStatementAst x => RenderBoolean(x.Expression), _ => ""
+    };
     if (string.IsNullOrEmpty(command)) return operand ?? "";
     var builder = new StringBuilder("@").Append(command);
     for (var index = 0; index < arguments.Count; index++) {
