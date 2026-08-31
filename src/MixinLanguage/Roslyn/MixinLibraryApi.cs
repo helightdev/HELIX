@@ -90,8 +90,8 @@ internal static class MixinLibraryApi {
         ? "library.annotation.type"
         : "library.annotation.member"
     );
-    var prelude = MixinExpressionParser.Parse(annotation.Prelude);
-    var expression = MixinExpressionParser.Parse(annotation.Expression);
+    var prelude = MixinParser.Parse(annotation.Prelude);
+    var expression = MixinParser.Parse(annotation.Expression);
     if (typeLevel) {
       prelude = MixinExpressionCompiler.RewriteTargetAsThis(prelude);
       expression = MixinExpressionCompiler.RewriteTargetAsThis(expression);
@@ -135,7 +135,7 @@ internal static class MixinLibraryApi {
     return new MixinLibraryFile(
       key, file.Path, content, parsed.Success,
       parsed.Error, parsed.ErrorLine,
-      parsed.Success ? MixinExpressionParser.Parse(parsed.Functions) : null,
+      parsed.Success ? MixinParser.Parse(parsed.Functions) : null,
       parsed.Annotations, parsed.Derivations, parsed.Configuration
     );
   }
@@ -170,7 +170,7 @@ internal static class MixinLibraryApi {
 
     for (var index = 0; index < lines.Length; index++) {
       var line = lines[index];
-      if (!MixinExpressionParser.TryReadDirective(
+      if (!MixinParser.TryReadDirective(
         line, out var command, out var arguments, out _
       )) {
         if (annotationName is null) Append(functions, line);
@@ -268,7 +268,7 @@ internal static class MixinLibraryApi {
       var preludeText = prelude.ToString();
       var expressionText = expression.ToString();
       foreach (var part in new[] { preludeText, expressionText }) {
-        var validation = MixinExpressionParser.ValidateSyntax(part, false);
+        var validation = MixinParser.ValidateSyntax(part, false);
         if (!validation.Success)
           return Failure(validation.Error, annotationLine + validation.ErrorLine);
       }
@@ -377,7 +377,7 @@ internal static class MixinLibraryApi {
     IReadOnlyList<Library> libraries,
     IEnumerable<string> additionalConstants = null
   ) {
-    var valid = new List<MixinProgramSyntax>(libraries.Count);
+    var valid = new List<ProgramAst>(libraries.Count);
     foreach (var library in libraries) {
       if (library.Program is not null) {
         valid.Add(library.Program);
@@ -396,7 +396,7 @@ internal static class MixinLibraryApi {
         );
         continue;
       }
-      valid.Add(MixinExpressionParser.Parse(library.Content));
+      valid.Add(MixinParser.Parse(library.Content));
     }
     try {
       return MixinExpressionCompiler.PrepareGlobals(valid, additionalConstants);
@@ -407,7 +407,7 @@ internal static class MixinLibraryApi {
         )
       );
       return MixinExpressionCompiler.PrepareGlobals(
-        Array.Empty<MixinProgramSyntax>(), additionalConstants
+        Array.Empty<ProgramAst>(), additionalConstants
       );
     }
   }
@@ -424,7 +424,7 @@ internal static class MixinLibraryApi {
     string Name,
     string Content,
     Location Location,
-    MixinProgramSyntax Program
+    ProgramAst Program
   );
 }
 
@@ -435,7 +435,7 @@ internal sealed record MixinLibraryFile(
   bool Success,
   string Error,
   int ErrorLine,
-  MixinProgramSyntax Program,
+  ProgramAst Program,
   IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations,
   IReadOnlyList<MixinDerivationDefinition> Derivations,
   IReadOnlyDictionary<string, string> Configuration

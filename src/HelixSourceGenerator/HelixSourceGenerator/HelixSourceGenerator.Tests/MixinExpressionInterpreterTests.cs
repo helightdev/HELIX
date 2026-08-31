@@ -97,8 +97,8 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void HoistingCarriesCompleteRoslynPredicates() {
     var success = MixinExpressionCompiler.TryCompileSyntax(
-      MixinExpressionParser.Parse(""),
-      MixinExpressionParser.Parse("@MATCH @this:?is<MonoBehaviour>\n@MATCH @attr#type:?exists"),
+      MixinParser.Parse(""),
+      MixinParser.Parse("@MATCH @this:?is<MonoBehaviour>\n@MATCH @attr#type:?exists"),
       null,
       out var prelude,
       out var lateExpression,
@@ -118,8 +118,8 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void AutomaticHoistingDeduplicatesReferencesAndUsesLeafSnapshots() {
     var success = MixinExpressionCompiler.TryCompileSyntax(
-      MixinExpressionParser.Parse(""),
-      MixinExpressionParser.Parse(
+      MixinParser.Parse(""),
+      MixinParser.Parse(
         "@CODE @target:type\n@CODE @target:type\n@CODE @attr#qualifier\n@CODE @attr#qualifier"
       ),
       null,
@@ -646,7 +646,7 @@ public sealed class MixinExpressionInterpreterTests {
   public void ParserPreservesPhysicalLineRangesIncludingTrivia() {
     const string source = "@LOCAL<Name> @this:name\r\n@# comment\n@+ suffix\r\n";
 
-    var program = MixinExpressionParser.Parse(source);
+    var program = MixinParser.Parse(source);
 
     Assert.Equal(4, program.Instructions.Count);
     Assert.Equal("@LOCAL<Name> @this:name\r\n", Slice(source, program.Instructions[0].SourceRange));
@@ -662,7 +662,7 @@ public sealed class MixinExpressionInterpreterTests {
   [Fact]
   public void RewritesOnlyTargetReferenceRootsAsThis() {
     var rewritten = MixinExpressionCompiler.RewriteTargetAsThis(
-      MixinExpressionParser.Parse(
+      MixinParser.Parse(
         "@CODE @target:name | @(target:type) | @targeted:name | @var#target"
       )
     );

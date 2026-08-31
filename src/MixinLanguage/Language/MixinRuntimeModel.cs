@@ -22,6 +22,40 @@ public enum MixinExpressionRoot {
   Carry
 }
 
+public sealed record MixinRootDefinition(
+  string Name, MixinExpressionRoot Root, string Documentation
+);
+
+public static class MixinRootLibrary {
+  private static readonly IReadOnlyList<MixinRootDefinition> Definitions = [
+    new("target", MixinExpressionRoot.Target, "The target symbol currently being generated."),
+    new("this", MixinExpressionRoot.This, "The current declaring type or symbol."),
+    new("attr", MixinExpressionRoot.Attribute, "The attribute driving the current mixin."),
+    new("arg", MixinExpressionRoot.Argument, "A named argument of the current attribute."),
+    new("var", MixinExpressionRoot.Variable, "A named mixin variable."),
+    new("tar", MixinExpressionRoot.TargetVariable, "A named variable stored on the current target."),
+    new("local", MixinExpressionRoot.Local, "A compiler-generated local mixin value."),
+    new("true", MixinExpressionRoot.True, "The Boolean true value."),
+    new("false", MixinExpressionRoot.False, "The Boolean false value."),
+    new("null", MixinExpressionRoot.Null, "The null mixin value."),
+    new("table", MixinExpressionRoot.Table, "A new empty table value."),
+    new("param", MixinExpressionRoot.Parameter, "A named parameter of the current function scope."),
+    new("carry", MixinExpressionRoot.Carry, "A value carried into an expanded expression scope.")
+  ];
+  private static readonly IReadOnlyDictionary<string, MixinRootDefinition> ByName =
+    Definitions.ToDictionary(item => item.Name, StringComparer.Ordinal);
+  private static readonly IReadOnlyDictionary<MixinExpressionRoot, MixinRootDefinition> ByRoot =
+    Definitions.ToDictionary(item => item.Root);
+
+  public static bool TryGet(string name, out MixinRootDefinition definition) =>
+    ByName.TryGetValue(name ?? "", out definition);
+
+  public static bool TryGet(MixinExpressionRoot root, out MixinRootDefinition definition) =>
+    ByRoot.TryGetValue(root, out definition);
+
+  public static IEnumerable<MixinRootDefinition> Enumerate() => Definitions;
+}
+
 public enum MixinExpressionOutputTarget {
   Target,
   Class,
@@ -519,6 +553,7 @@ public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMi
 }
 
 public abstract class FunctionDefinition {
+  private string _predicateAlias;
   protected FunctionDefinition(string name, int minimumArguments, int maximumArguments) {
     Name = name;
     MinimumArguments = minimumArguments;
@@ -529,10 +564,26 @@ public abstract class FunctionDefinition {
   public int MinimumArguments { get; }
   public int MaximumArguments { get; }
   public virtual bool IsPredicate => false;
-  public MixinLanguageValueKind ReceiverType { get; private set; } = MixinLanguageValueKind.Any;
-  public MixinLanguageValueKind ResultType { get; private set; } = MixinLanguageValueKind.Any;
-  public IReadOnlyList<MixinLanguageValueKind> ArgumentTypes { get; private set; } = [];
-  public string Documentation { get; private set; } = "Transforms the current value.";
+  public MixinFunctionMetadata Metadata { get; private set; }
+  public MixinLanguageValueKind ReceiverType => Metadata.ReceiverType;
+  public MixinLanguageValueKind ResultType => Metadata.ResultType;
+  public IReadOnlyList<MixinLanguageValueKind> ArgumentTypes => Metadata.ArgumentTypes;
+  public string Documentation => Metadata.Documentation;
+
+  public MixinLanguageValueKind GetArgumentType(int index) {
+    if (index < 0 || ArgumentTypes.Count == 0) return MixinLanguageValueKind.None;
+    if (index < ArgumentTypes.Count) return ArgumentTypes[index];
+    return MaximumArguments == int.MaxValue ? ArgumentTypes[ArgumentTypes.Count - 1] : MixinLanguageValueKind.None;
+  }
+
+  internal FunctionDefinition WithPredicateAlias(string alias) {
+    _predicateAlias = string.IsNullOrWhiteSpace(alias) ? null : alias;
+    return this;
+  }
+
+  internal bool MatchesPredicate(string name) => IsPredicate &&
+    (string.Equals(Name, name, StringComparison.Ordinal) ||
+      string.Equals(_predicateAlias, name, StringComparison.Ordinal));
 
   internal FunctionDefinition WithLanguageSignature(
     MixinLanguageValueKind receiver,
@@ -540,10 +591,10 @@ public abstract class FunctionDefinition {
     IReadOnlyList<MixinLanguageValueKind> arguments = null,
     string documentation = null
   ) {
-    ReceiverType = receiver;
-    ResultType = result;
-    ArgumentTypes = arguments ?? [];
-    if (!string.IsNullOrWhiteSpace(documentation)) Documentation = documentation;
+    if (arguments is null) throw new ArgumentNullException(nameof(arguments));
+    if (string.IsNullOrWhiteSpace(documentation))
+      throw new ArgumentException("Function documentation is required.", nameof(documentation));
+    Metadata = new MixinFunctionMetadata(receiver, result, arguments, documentation);
     return this;
   }
 
@@ -599,12 +650,22 @@ public static class FunctionLibrary {
       ["ordinaryTypedEqualsSelf"] = new TraitPredicate("ordinaryTypedEqualsSelf"),
       ["objectEquals"] = new TraitPredicate("objectEquals"), ["hashCode"] = new TraitPredicate("hashCode")
     };
+    foreach (var directive in DirectiveLibrary.Enumerate().Where(item => item.Function is not null))
+      definitions.Add(directive.Function.Name, directive.Function);
+    definitions["typeSymbol"].WithPredicateAlias("type");
     ConfigureLanguageSignatures(definitions);
+    ValidateMetadata(definitions.Values);
     return definitions;
   }
 
   public static bool TryGet(string name, out FunctionDefinition definition) {
     return Definitions.TryGetValue(name ?? "", out definition);
+  }
+
+  public static bool TryResolve(string name, bool predicate, out FunctionDefinition definition) {
+    if (!predicate) return TryGet(name, out definition);
+    definition = Definitions.Values.FirstOrDefault(item => item.MatchesPredicate(name));
+    return definition is not null;
   }
 
   public static bool IsPredicate(string name) {
@@ -613,14 +674,31 @@ public static class FunctionLibrary {
 
   public static IEnumerable<FunctionDefinition> Enumerate() => Definitions.Values;
 
+  private static void ValidateMetadata(IEnumerable<FunctionDefinition> definitions) {
+    foreach (var definition in definitions) {
+      if (definition.Metadata is null)
+        throw new InvalidOperationException("Function ':" + definition.Name + "' must provide language metadata.");
+      if (definition.ArgumentTypes.Count < definition.MinimumArguments ||
+          definition.MaximumArguments != int.MaxValue && definition.ArgumentTypes.Count != definition.MaximumArguments)
+        throw new InvalidOperationException("Function ':" + definition.Name + "' has an incomplete argument descriptor.");
+    }
+  }
+
   private static void ConfigureLanguageSignatures(IDictionary<string, FunctionDefinition> definitions) {
-    foreach (var definition in definitions.Values)
-      definition.WithLanguageSignature(
-        MixinLanguageValueKind.Any,
-        definition.IsPredicate ? MixinLanguageValueKind.Boolean : MixinLanguageValueKind.Any,
-        Enumerable.Repeat(MixinLanguageValueKind.Any, Math.Min(definition.MaximumArguments, 16)).ToArray(),
-        definition.IsPredicate ? "Tests the current value." : "Transforms the current value."
-      );
+    SignatureAny(definitions, [
+      "argument", "async", "class", "concrete", "containsPointer", "csharpLiteral",
+      "enum", "eq", "equatableSelf", "event", "exists", "exposed", "field", "generic",
+      "genericMethod", "has", "hashCode", "in", "inout", "is", "isSelf", "method",
+      "nonEmptyStringConstant", "nullable", "objectEquals", "ordinaryTypedEqualsSelf",
+      "out", "parameter", "parameterDefault", "partial", "pointer", "primitive", "property",
+      "public", "ref", "referenceType", "signature", "static", "struct", "top", "typeSymbol",
+      "typedEqualsSelf", "unwrap", "valueType", "wire", "wireable"
+    ]);
+
+    Signature(definitions, "and", MixinLanguageValueKind.Boolean, MixinLanguageValueKind.Boolean,
+      [MixinLanguageValueKind.Boolean]);
+    Signature(definitions, "or", MixinLanguageValueKind.Boolean, MixinLanguageValueKind.Boolean,
+      [MixinLanguageValueKind.Boolean]);
 
     Signature(definitions, "name", MixinLanguageValueKind.Any, MixinLanguageValueKind.Text, []);
     Signature(definitions, "path", MixinLanguageValueKind.Any, MixinLanguageValueKind.Any,
@@ -683,7 +761,23 @@ public static class FunctionLibrary {
     IReadOnlyList<MixinLanguageValueKind> arguments) {
     if (definitions.TryGetValue(name, out var definition)) definition.WithLanguageSignature(
       receiver, definition.IsPredicate ? MixinLanguageValueKind.Boolean : result,
-      arguments, definition.Documentation);
+      arguments, definition.IsPredicate ? "Tests the current value." : "Transforms the current value.");
+  }
+
+  private static void SignatureAny(
+    IDictionary<string, FunctionDefinition> definitions, IEnumerable<string> names
+  ) {
+    foreach (var name in names) {
+      if (!definitions.TryGetValue(name, out var definition)) continue;
+      definition.WithLanguageSignature(
+        MixinLanguageValueKind.Any,
+        definition.IsPredicate ? MixinLanguageValueKind.Boolean : MixinLanguageValueKind.Any,
+        Enumerable.Repeat(
+          MixinLanguageValueKind.Any, Math.Min(definition.MaximumArguments, 16)
+        ).ToArray(),
+        definition.IsPredicate ? "Tests the current value." : "Transforms the current value."
+      );
+    }
   }
 
   private static void Configure(IDictionary<string, FunctionDefinition> definitions,

@@ -638,10 +638,9 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     IReadOnlyDictionary<string, string> targetDefinitions,
     ICollection<LateTarget> targets
   ) {
-    foreach (var line in MixinExpressionParser.SplitLines(expression ?? "")) {
-      var parsed = MixinExpressionParser.ParseDirective(line, 0);
-      var instruction = parsed.Node;
-      if (parsed.Error is not null || instruction is not MixinDirectiveSyntax mixin ||
+    var program = MixinParser.Parse(expression ?? "");
+    foreach (var instruction in program.Instructions) {
+      if (instruction is not TargetedCodeDirectiveAst mixin ||
         mixin.Target is null) continue;
       string resolved = null;
       if (!mixin.Target.IsDynamic) resolved = mixin.Target.Literal;

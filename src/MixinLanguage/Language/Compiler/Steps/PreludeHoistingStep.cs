@@ -27,22 +27,22 @@ public static partial class MixinExpressionCompiler {
     }
 
     private static bool TryHoistRoslynReferences(
-      MixinProgramSyntax explicitPrelude,
-      MixinProgramSyntax expression, out MixinProgramSyntax prelude, out MixinProgramSyntax lateExpression,
+      ProgramAst explicitPrelude,
+      ProgramAst expression, out ProgramAst prelude, out ProgramAst lateExpression,
       out string error, out int errorLine
     ) {
-      var generated = new List<DirectiveInstruction>();
+      var generated = new List<DirectiveAst>();
       var labels = new Dictionary<string, string>(StringComparer.Ordinal);
       var structuralLocals = new HashSet<string>(StringComparer.Ordinal);
-      var late = new List<DirectiveInstruction>();
+      var late = new List<DirectiveAst>();
       error = null;
       errorLine = 0;
       var localFunctions = new HashSet<string>(
         expression.AvailableInstructions()
-          .OfType<FunctionDirectiveSyntax>().Select(item => item.Name), StringComparer.Ordinal
+          .OfType<FunctionAst>().Select(item => item.Name), StringComparer.Ordinal
       );
       foreach (var parsed in expression.AvailableInstructions()) {
-        if (parsed is CallDirectiveSyntax call && !localFunctions.Contains(call.Function ?? "")) {
+        if (parsed is CallDirectiveAst call && !localFunctions.Contains(call.Function ?? "")) {
           prelude = explicitPrelude;
           lateExpression = expression;
           error = "Prelude-model expressions may only call functions declared in the same expression; imported call '" +
@@ -50,8 +50,8 @@ public static partial class MixinExpressionCompiler {
           errorLine = parsed.Line;
           return false;
         }
-        if (parsed is DirectiveInvocationSyntax {
-          Definition: DirectiveFunctionDefinition { HoistedLocalArgumentIndex: >= 0 }
+        if (parsed is DirectiveInvocationAst {
+          Definition.HoistedLocalArgumentIndex: >= 0
         }) {
           if (!TryHoistStructuralDirective(parsed, generated, labels, structuralLocals, out error)) {
             prelude = explicitPrelude;
@@ -59,25 +59,23 @@ public static partial class MixinExpressionCompiler {
             errorLine = parsed.Line;
             return false;
           }
-          late.Add(new EmptyDirectiveSyntax(parsed.Line));
+          late.Add(new EmptyDirectiveAst(parsed.SourceRange));
           continue;
         }
         late.Add(RewriteRoslynReferences(parsed, generated, labels, structuralLocals));
       }
-      prelude = new MixinProgramSyntax(explicitPrelude.AvailableInstructions().Concat(generated));
-      lateExpression = new MixinProgramSyntax(late);
+      prelude = new ProgramAst(explicitPrelude.AvailableInstructions().Concat(generated));
+      lateExpression = new ProgramAst(late);
       return true;
     }
 
     private static bool TryHoistStructuralDirective(
-      DirectiveInstruction instruction,
-      ICollection<DirectiveInstruction> generated, IDictionary<string, string> labels,
+      DirectiveAst ast,
+      ICollection<DirectiveAst> generated, IDictionary<string, string> labels,
       ISet<string> structuralLocals, out string error
     ) {
-      var invocation = (DirectiveInvocationSyntax)instruction;
-      var localIndex = invocation.Definition is DirectiveFunctionDefinition function
-        ? function.HoistedLocalArgumentIndex
-        : -1;
+      var invocation = (DirectiveInvocationAst)ast;
+      var localIndex = invocation.Definition.HoistedLocalArgumentIndex;
       var localArgument = localIndex >= 0 && invocation.ParsedArguments.Count > localIndex
         ? invocation.ParsedArguments[localIndex]
         : null;
@@ -86,19 +84,19 @@ public static partial class MixinExpressionCompiler {
         error = "@" + invocation.Definition.Name + " cannot be hoisted because its result local is dynamic";
         return false;
       }
-      generated.Add(instruction);
+      generated.Add(ast);
       var localReference = new MixinExpressionReference(MixinExpressionRoot.Local, local, []);
       var label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
       labels[MixinSyntaxRenderer.RenderReference(localReference)] = label;
-      generated.Add(new CarryDirectiveSyntax(instruction.Line, label, [new IMixinValue(null, localReference)]));
+      generated.Add(new CarryDirectiveAst(ast.SourceRange, label, [new ValueAst(null, localReference)]));
       structuralLocals.Add(local);
       error = null;
       return true;
     }
 
-    private static DirectiveInstruction RewriteRoslynReferences(
-      DirectiveInstruction instruction,
-      ICollection<DirectiveInstruction> generated, IDictionary<string, string> labels,
+    private static DirectiveAst RewriteRoslynReferences(
+      DirectiveAst ast,
+      ICollection<DirectiveAst> generated, IDictionary<string, string> labels,
       ISet<string> structuralLocals
     ) {
       MixinExpressionReference Rewrite(MixinExpressionReference reference) {
@@ -109,7 +107,7 @@ public static partial class MixinExpressionCompiler {
         if (!labels.TryGetValue(key, out var label)) {
           label = "__" + labels.Count.ToString(CultureInfo.InvariantCulture);
           labels.Add(key, label);
-          generated.Add(new CarryDirectiveSyntax(instruction.Line, label, [new IMixinValue(null, reference)]));
+          generated.Add(new CarryDirectiveAst(ast.SourceRange, label, [new ValueAst(null, reference)]));
         }
         return new MixinExpressionReference(
           MixinExpressionRoot.Carry, label, [], reference.Parenthesized, reference.SourceRange
@@ -127,23 +125,23 @@ public static partial class MixinExpressionCompiler {
         );
       }
 
-      return FunctionBindingStep.RewriteReferences(instruction, Rewrite);
+      return FunctionBindingStep.RewriteReferences(ast, Rewrite);
     }
 
     internal static void HoistLateCarries(
-      MixinProgramSyntax expression, MixinProgramSyntax lateExpression,
-      out MixinProgramSyntax primary, out MixinProgramSyntax late
+      ProgramAst expression, ProgramAst lateExpression,
+      out ProgramAst primary, out ProgramAst late
     ) {
       primary = expression;
       late = lateExpression;
       if (lateExpression is null || lateExpression.Count == 0) return;
-      var carries = lateExpression.AvailableInstructions().OfType<CarryDirectiveSyntax>()
-        .Cast<DirectiveInstruction>().ToArray();
+      var carries = lateExpression.AvailableInstructions().OfType<CarryDirectiveAst>()
+        .Cast<DirectiveAst>().ToArray();
       if (carries.Length == 0) return;
-      primary = new MixinProgramSyntax(carries.Concat(expression.AvailableInstructions()));
-      late = new MixinProgramSyntax(
+      primary = new ProgramAst(carries.Concat(expression.AvailableInstructions()));
+      late = new ProgramAst(
         lateExpression.AvailableInstructions()
-          .Where(item => item is not CarryDirectiveSyntax)
+          .Where(item => item is not CarryDirectiveAst)
       );
     }
   }

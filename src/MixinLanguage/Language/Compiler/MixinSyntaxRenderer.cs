@@ -7,7 +7,7 @@ namespace MixinLanguage.Compiler;
 /// <summary>Produces a canonical textual representation from semantic syntax nodes.</summary>
 public static class MixinSyntaxRenderer {
   internal static string Keyword(this MixinExpressionRoot root) {
-    return Root(root);
+    return MixinRootLibrary.TryGet(root, out var definition) ? definition.Name : "null";
   }
 
   internal static string DescribeFailedCondition(MixinExpressionReference reference) {
@@ -49,18 +49,18 @@ public static class MixinSyntaxRenderer {
     };
   }
 
-  public static string RenderProgram(MixinProgramSyntax program) {
+  public static string RenderProgram(ProgramAst program) {
     return RenderInstructions(program.AvailableInstructions());
   }
 
-  internal static string RenderInstructions(IEnumerable<DirectiveInstruction> instructions) {
+  internal static string RenderInstructions(IEnumerable<DirectiveAst> instructions) {
     return string.Join("\n", instructions.Select(item => RenderInstruction(item)));
   }
 
-  internal static string RenderInstruction(DirectiveInstruction instruction, string firstArgument = null) {
-    var command = MixinSyntaxFacts.Command(instruction);
-    var arguments = MixinSyntaxFacts.Arguments(instruction);
-    var operand = MixinSyntaxFacts.Operand(instruction);
+  internal static string RenderInstruction(DirectiveAst ast, string firstArgument = null) {
+    var command = MixinSyntaxFacts.Command(ast);
+    var arguments = MixinSyntaxFacts.Arguments(ast);
+    var operand = MixinSyntaxFacts.Operand(ast);
     if (string.IsNullOrEmpty(command)) return operand ?? "";
     var builder = new StringBuilder("@").Append(command);
     for (var index = 0; index < arguments.Count; index++) {
@@ -75,7 +75,7 @@ public static class MixinSyntaxRenderer {
     return (line ?? "").Replace("\n", "\n@\\");
   }
 
-  internal static string RenderArgument(DirectiveArgumentSyntax argument) {
+  internal static string RenderArgument(DirectiveArgumentAst argument) {
     return argument is null
       ? null
       : argument.IsDynamic
@@ -83,7 +83,7 @@ public static class MixinSyntaxRenderer {
         : argument.Literal;
   }
 
-  internal static string RenderValue(IReadOnlyList<IMixinValue> expression) {
+  internal static string RenderValue(IReadOnlyList<ValueAst> expression) {
     var builder = new StringBuilder();
     var parts = expression ?? [];
     for (var index = 0; index < parts.Count; index++) {
@@ -112,7 +112,7 @@ public static class MixinSyntaxRenderer {
   }
 
   private static string RenderReference(MixinExpressionReference reference, bool parenthesized) {
-    var builder = new StringBuilder(parenthesized ? "@(" : "@").Append(Root(reference.Root));
+    var builder = new StringBuilder(parenthesized ? "@(" : "@").Append(reference.Root.Keyword());
     if (reference.Member is not null) builder.Append('#').Append(reference.Member);
     foreach (var property in reference.Properties) {
       builder.Append(':');
@@ -131,15 +131,4 @@ public static class MixinSyntaxRenderer {
     return builder.ToString();
   }
 
-  private static string Root(MixinExpressionRoot root) {
-    return root switch {
-      MixinExpressionRoot.Target => "target", MixinExpressionRoot.This => "this",
-      MixinExpressionRoot.Attribute => "attr", MixinExpressionRoot.Argument => "arg",
-      MixinExpressionRoot.Variable => "var", MixinExpressionRoot.TargetVariable => "tar",
-      MixinExpressionRoot.Local => "local",
-      MixinExpressionRoot.True => "true", MixinExpressionRoot.False => "false",
-      MixinExpressionRoot.Null => "null", MixinExpressionRoot.Table => "table",
-      MixinExpressionRoot.Parameter => "param", MixinExpressionRoot.Carry => "carry", _ => "null"
-    };
-  }
 }

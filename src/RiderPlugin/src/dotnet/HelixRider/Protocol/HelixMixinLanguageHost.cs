@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using global::MixinLanguage.Analysis;
+using global::MixinLanguage.Compiler;
 using JetBrains.Application;
 using JetBrains.Application.Parts;
 using JetBrains.ProjectModel;
@@ -235,13 +235,13 @@ public sealed class HelixMixinLanguageHost
         System.IO.Path.GetDirectoryName(left ?? string.Empty),
         System.IO.Path.GetDirectoryName(right ?? string.Empty), StringComparison.OrdinalIgnoreCase);
 
-    private static void Flatten(MixinEditorSyntaxNode node, int parent, string source,
+    private static void Flatten(MixinSyntaxNode node, int parent, string source,
         ICollection<MixinSyntaxNode> destination)
     {
         var index = destination.Count;
         var range = Clamp(node.SourceRange, source.Length);
-        var name = node.Kind is MixinEditorSyntaxKind.DirectiveName or MixinEditorSyntaxKind.Root or
-            MixinEditorSyntaxKind.Member or MixinEditorSyntaxKind.Path or MixinEditorSyntaxKind.FunctionCall
+        var name = node.Kind is MixinSyntaxKind.DirectiveName or MixinSyntaxKind.Root or
+            MixinSyntaxKind.Member or MixinSyntaxKind.Path or MixinSyntaxKind.FunctionCall
             ? source.Substring(range.Start, range.Length)
             : string.Empty;
         destination.Add(new MixinSyntaxNode(parent, node.Kind.ToString(), Range(range), name));
@@ -261,10 +261,10 @@ public sealed class HelixMixinLanguageHost
             definition.MinimumArguments, definition.MaximumArguments, "None",
             definition.ReceiverType.ToString(), definition.ResultType.ToString(),
             definition.ArgumentTypes.Select(role => role.ToString()).ToArray(), definition.Documentation));
-        var roots = global::MixinLanguage.Analysis.MixinLanguageCatalog.Roots.Select(name => new MixinLanguageDefinition(
-            name, "Root", 0, 0, "None", "None", "Any", Array.Empty<string>(),
-            "Mixin expression root"));
-        var outputTargets = global::MixinLanguage.Analysis.MixinLanguageCatalog.OutputTargets.Select(name => new MixinLanguageDefinition(
+        var roots = global::MixinLanguage.Compiler.MixinLanguageCatalog.Roots.Select(definition => new MixinLanguageDefinition(
+            definition.Name, "Root", 0, 0, "None", "None", "Any", Array.Empty<string>(),
+            definition.Documentation));
+        var outputTargets = global::MixinLanguage.Compiler.MixinLanguageCatalog.OutputTargets.Select(name => new MixinLanguageDefinition(
             name, "OutputTarget", 0, 0, "None", "None", "None", Array.Empty<string>(),
             "Generated output destination"));
         return directives.Concat(functions).Concat(roots).Concat(outputTargets).ToArray();

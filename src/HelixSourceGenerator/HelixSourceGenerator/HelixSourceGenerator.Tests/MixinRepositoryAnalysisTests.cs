@@ -1,12 +1,13 @@
 using System.IO;
 using System.Linq;
+using System;
 using MixinLanguage;
-using MixinLanguage.Analysis;
+using MixinLanguage.Compiler;
 using Xunit;
 
 namespace HELIX.SourceGen.Tests;
 
-public sealed class MixinRepositoryAnalysisTests {
+public sealed class MixinRepositorySyntaxTests {
   [Fact]
   public void EditorCatalogUsesRuntimeTypeSignatures() {
     var members = FunctionLibrary.Enumerate().Single(item => item.Name == "members");
@@ -28,8 +29,39 @@ public sealed class MixinRepositoryAnalysisTests {
     Assert.Equal([MixinLanguageValueKind.CSharpType], annotation.ArgumentTypes);
   }
 
+  [Theory]
+  [InlineData("RESOLVE_MIXIN")]
+  [InlineData("PUSH")]
+  [InlineData("PUT")]
+  public void ExecutableDirectivesUseRegisteredFunctionDefinitions(string name) {
+    Assert.True(DirectiveLibrary.TryGet(name, out var directive));
+    Assert.True(FunctionLibrary.TryGet(name, out var function));
+
+    Assert.Same(function, directive.Function);
+    Assert.Equal(function.ArgumentTypes, directive.ArgumentTypes);
+    Assert.False(string.IsNullOrWhiteSpace(function.Documentation));
+  }
+
   [Fact]
-  public void EveryRepositoryMixinFileProducesAnEditorSnapshot() {
+  public void EveryExpressionRootHasOneDocumentedRegistryDefinition() {
+    var definitions = MixinRootLibrary.Enumerate().ToArray();
+
+    Assert.Equal(Enum.GetValues<MixinExpressionRoot>().Length, definitions.Length);
+    Assert.Equal(definitions.Length, definitions.Select(item => item.Name).Distinct().Count());
+    Assert.Equal(definitions.Length, definitions.Select(item => item.Root).Distinct().Count());
+    Assert.All(definitions, definition => {
+      Assert.False(string.IsNullOrWhiteSpace(definition.Name));
+      Assert.False(string.IsNullOrWhiteSpace(definition.Documentation));
+      Assert.True(MixinRootLibrary.TryGet(definition.Name, out var byName));
+      Assert.True(MixinRootLibrary.TryGet(definition.Root, out var byRoot));
+      Assert.Same(definition, byName);
+      Assert.Same(definition, byRoot);
+    });
+    Assert.Equal(definitions, MixinLanguageCatalog.Roots.Select(item => item.Definition));
+  }
+
+  [Fact]
+  public void EveryRepositoryMixinFileProducesACompleteCanonicalAst() {
     var root = new DirectoryInfo(Directory.GetCurrentDirectory());
     while (root is not null && !Directory.Exists(Path.Combine(
       root.FullName, "src", "HELIX", "Assets", "Mixins"
@@ -42,11 +74,13 @@ public sealed class MixinRepositoryAnalysisTests {
     );
     Assert.NotEmpty(files);
 
-    var snapshots = files.Select(path => MixinEditorAnalyzer.Analyze(File.ReadAllText(path))).ToArray();
-    var completionSites = files.Select(path =>
-      MixinEditorAnalyzer.GetCompletionSites(File.ReadAllText(path))).ToArray();
-    Assert.All(snapshots, snapshot => Assert.NotNull(snapshot.Syntax.Root));
-    Assert.True(snapshots.Sum(snapshot => snapshot.Syntax.Root.Children.Count) > 100);
-    Assert.True(completionSites.Sum(sites => sites.Count) > 100);
+    var programs = files.Select(path => MixinParser.Parse(File.ReadAllText(path))).ToArray();
+    Assert.All(programs, program => Assert.Same(program, program.Root));
+    Assert.True(programs.Sum(program => program.Children.Count) > 100);
+    Assert.True(programs.Sum(program => program.Tokens.Count) > 100);
+    Assert.True(programs.SelectMany(program => program.Children)
+      .SelectMany(node => node.Children)
+      .OfType<LeafAst>()
+      .Count(leaf => leaf.ArgumentMetadata is not null) > 100);
   }
 }

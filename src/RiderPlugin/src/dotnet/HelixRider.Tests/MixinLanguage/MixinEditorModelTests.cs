@@ -1,6 +1,6 @@
 using System;
 using System.Linq;
-using MixinLanguage.Analysis;
+using MixinLanguage.Compiler;
 using NUnit.Framework;
 
 namespace HelixRider.Tests.MixinLanguage;
@@ -12,17 +12,17 @@ public sealed class MixinEditorModelTests
     public void EditorLexerIsLosslessAndClassifiesLanguagePunctuation()
     {
         const string source = "@# comment\n@LOCAL<Name> @param#symbol:name:replace<Old><New>\n@+ :members";
-        var tokens = MixinEditorLexer.Lex(source).ToArray();
+        var tokens = MixinLexer.Lex(source).ToArray();
 
         Assert.That(tokens.First().Start, Is.Zero);
         Assert.That(tokens.Last().End, Is.EqualTo(source.Length));
         for (var index = 1; index < tokens.Length; index++)
             Assert.That(tokens[index].Start, Is.EqualTo(tokens[index - 1].End));
-        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinEditorTokenKind.Comment));
-        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinEditorTokenKind.Directive));
-        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinEditorTokenKind.Path));
-        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinEditorTokenKind.Function));
-        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinEditorTokenKind.Continuation));
+        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinTokenKind.Comment));
+        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinTokenKind.Directive));
+        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinTokenKind.Path));
+        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinTokenKind.Function));
+        Assert.That(tokens.Select(token => token.Kind), Does.Contain(MixinTokenKind.Continuation));
     }
 
     [Test]
@@ -30,11 +30,11 @@ public sealed class MixinEditorModelTests
     {
         const string source =
             "@MIXIN<$PostConstruct><0> global::UnityEngine.UIElements.VisualElementExtensions.Call(this)";
-        var tokens = MixinEditorLexer.Lex(source);
+        var tokens = MixinLexer.Lex(source);
 
-        Assert.That(tokens.Any(token => token.Kind == MixinEditorTokenKind.Function &&
+        Assert.That(tokens.Any(token => token.Kind == MixinTokenKind.Function &&
             Slice(source, token.Start, token.End) == "UnityEngine"), Is.False);
-        Assert.That(tokens.Count(token => token.Kind == MixinEditorTokenKind.DirectiveArgumentDelimiter),
+        Assert.That(tokens.Count(token => token.Kind == MixinTokenKind.DirectiveArgumentDelimiter),
             Is.EqualTo(4));
     }
 
@@ -42,12 +42,12 @@ public sealed class MixinEditorModelTests
     public void EditorSyntaxProjectsCompilerReferencesOntoOriginalSource()
     {
         const string source = "@LOCAL<Value> @local#Prop#HashCodeSyntax:unwrap:matches<\\S>\n";
-        var tree = MixinEditorSyntaxParser.Parse(source);
+        var tree = MixinParser.Parse(source);
         var nodes = DescendantsAndSelf(tree.Root).ToArray();
 
         Assert.That(Slice(source, tree.Root.Children[0].Children[0]), Is.EqualTo("@LOCAL"));
-        Assert.That(nodes.Single(node => node.Kind == MixinEditorSyntaxKind.Path).Children, Is.Empty);
-        Assert.That(nodes.Any(node => node.Kind == MixinEditorSyntaxKind.LiteralArgument &&
+        Assert.That(nodes.Single(node => node.Kind == MixinSyntaxKind.Path).Children, Is.Empty);
+        Assert.That(nodes.Any(node => node.Kind == MixinSyntaxKind.LiteralArgument &&
             Slice(source, node) == "<\\S>"), Is.True);
         AssertContained(tree.Root);
     }
@@ -57,19 +57,19 @@ public sealed class MixinEditorModelTests
     {
         const string source =
             "@FUNC<Build>\n@GOTO<done>\n@ANNOTATION<Example.Attribute>\n@MIXIN<target><0> code\n";
-        var arguments = MixinEditorSyntaxParser.Parse(source).Root.Children
+        var arguments = MixinParser.Parse(source).Root.Children
             .SelectMany(node => node.Children)
-            .Where(node => node.Kind is MixinEditorSyntaxKind.DirectiveArgument or
-                MixinEditorSyntaxKind.DeclarationDirectiveArgument or
-                MixinEditorSyntaxKind.ReferenceDirectiveArgument or
-                MixinEditorSyntaxKind.DeclarationReferenceDirectiveArgument)
+            .Where(node => node.Kind is MixinSyntaxKind.DirectiveArgument or
+                MixinSyntaxKind.DeclarationDirectiveArgument or
+                MixinSyntaxKind.ReferenceDirectiveArgument or
+                MixinSyntaxKind.DeclarationReferenceDirectiveArgument)
             .Select(node => node.Kind)
             .ToArray();
 
-        Assert.That(arguments, Does.Contain(MixinEditorSyntaxKind.DeclarationDirectiveArgument));
-        Assert.That(arguments, Does.Contain(MixinEditorSyntaxKind.ReferenceDirectiveArgument));
-        Assert.That(arguments, Does.Contain(MixinEditorSyntaxKind.DeclarationReferenceDirectiveArgument));
-        Assert.That(arguments, Does.Contain(MixinEditorSyntaxKind.DirectiveArgument));
+        Assert.That(arguments, Does.Contain(MixinSyntaxKind.DeclarationDirectiveArgument));
+        Assert.That(arguments, Does.Contain(MixinSyntaxKind.ReferenceDirectiveArgument));
+        Assert.That(arguments, Does.Contain(MixinSyntaxKind.DeclarationReferenceDirectiveArgument));
+        Assert.That(arguments, Does.Contain(MixinSyntaxKind.DirectiveArgument));
     }
 
     [Test]
@@ -162,31 +162,31 @@ public sealed class MixinEditorModelTests
             "@RETURN @table:put<symbol><(@param)>:put<value><(@table\r\n" +
             "  @+:put<name><(@local#Name)>\r\n" +
             "  @+:put<hash><(@local#Hash)>)>\r\n";
-        var tree = MixinEditorSyntaxParser.Parse(source);
+        var tree = MixinParser.Parse(source);
         var nodes = DescendantsAndSelf(tree.Root).ToArray();
-        var multiline = nodes.Single(node => node.Kind == MixinEditorSyntaxKind.ExpressionArgument &&
+        var multiline = nodes.Single(node => node.Kind == MixinSyntaxKind.ExpressionArgument &&
             Slice(source, node).Contains("@+:put<hash>"));
 
         Assert.That(DescendantsAndSelf(multiline).Count(node =>
-            node.Kind == MixinEditorSyntaxKind.Continuation), Is.EqualTo(2));
+            node.Kind == MixinSyntaxKind.Continuation), Is.EqualTo(2));
         AssertNoCrossingRanges(nodes);
     }
 
     private static string Slice(string source, int start, int end) =>
         source.Substring(start, end - start);
 
-    private static string Slice(string source, MixinEditorSyntaxNode node) =>
+    private static string Slice(string source, MixinAst node) =>
         Slice(source, node.SourceRange.Start, node.SourceRange.End);
 
-    private static System.Collections.Generic.IEnumerable<MixinEditorSyntaxNode> DescendantsAndSelf(
-        MixinEditorSyntaxNode node)
+    private static System.Collections.Generic.IEnumerable<MixinAst> DescendantsAndSelf(
+        MixinAst node)
     {
         yield return node;
         foreach (var child in node.Children)
             foreach (var descendant in DescendantsAndSelf(child)) yield return descendant;
     }
 
-    private static void AssertContained(MixinEditorSyntaxNode node)
+    private static void AssertContained(MixinAst node)
     {
         foreach (var child in node.Children)
         {
@@ -196,7 +196,7 @@ public sealed class MixinEditorModelTests
         }
     }
 
-    private static void AssertNoCrossingRanges(MixinEditorSyntaxNode[] nodes)
+    private static void AssertNoCrossingRanges(MixinAst[] nodes)
     {
         for (var leftIndex = 0; leftIndex < nodes.Length; leftIndex++)
         for (var rightIndex = leftIndex + 1; rightIndex < nodes.Length; rightIndex++)

@@ -16,21 +16,21 @@ public static partial class MixinExpressionCompiler {
       return true;
     }
 
-    internal static MixinProgramSyntax Bind(MixinProgramSyntax program) {
-      return new MixinProgramSyntax(
+    internal static ProgramAst Bind(ProgramAst program) {
+      return new ProgramAst(
         program.AvailableInstructions().Select(instruction => RewriteReferences(instruction, reference => reference))
       );
     }
 
-    internal static DirectiveInstruction RewriteReferences(
-      DirectiveInstruction instruction,
+    internal static DirectiveAst RewriteReferences(
+      DirectiveAst ast,
       Func<MixinExpressionReference, MixinExpressionReference> rewrite
     ) {
-      IReadOnlyList<IMixinValue> Value(IReadOnlyList<IMixinValue> value) {
+      IReadOnlyList<ValueAst> Value(IReadOnlyList<ValueAst> value) {
         return [
           .. (value ?? []).Select(part => part.Reference is null
             ? part
-            : new IMixinValue(null, RewriteComplete(part.Reference))
+            : new ValueAst(null, RewriteComplete(part.Reference))
           )
         ];
       }
@@ -39,11 +39,11 @@ public static partial class MixinExpressionCompiler {
         return [.. (value ?? []).Select(item => item is null ? null : RewriteBoolean(item))];
       }
 
-      DirectiveArgumentSyntax Argument(DirectiveArgumentSyntax value) {
+      DirectiveArgumentAst Argument(DirectiveArgumentAst value) {
         return value is null
           ? null
           : value.IsDynamic
-            ? new DirectiveArgumentSyntax(null, Value(value.Expression))
+            ? new DirectiveArgumentAst(null, Value(value.Expression))
             : value;
       }
 
@@ -71,32 +71,32 @@ public static partial class MixinExpressionCompiler {
         );
       }
 
-      return instruction switch {
-        DirectiveInvocationSyntax item => new DirectiveInvocationSyntax(
-          item.Line, item.Definition,
+      return ast switch {
+        DirectiveInvocationAst item => new DirectiveInvocationAst(
+          item.SourceRange, item.Definition,
           [.. item.ParsedArguments.Select(Argument)], Value(item.Expression)
         ),
-        CallDirectiveSyntax item => new CallDirectiveSyntax(
-          item.Line, item.Function, item.ReturnLocal, Value(item.Expression)
+        CallDirectiveAst item => new CallDirectiveAst(
+          item.SourceRange, item.Function, item.ReturnLocal, Value(item.Expression)
         ),
-        MatchDirectiveSyntax item => new MatchDirectiveSyntax(item.Line, item.FailureLabel, Boolean(item.Expression)),
-        AssertDirectiveSyntax item => new AssertDirectiveSyntax(item.Line, Boolean(item.Expression)),
-        CodeDirectiveSyntax item => new CodeDirectiveSyntax(
-          item.Line, item.Target, item.InjectionTarget, Value(item.Expression)
+        MatchDirectiveAst item => new MatchDirectiveAst(item.SourceRange, item.FailureLabel, Boolean(item.Expression)),
+        AssertDirectiveAst item => new AssertDirectiveAst(item.SourceRange, Boolean(item.Expression)),
+        CodeDirectiveAst item => new CodeDirectiveAst(
+          item.SourceRange, item.Target, item.InjectionTarget, Value(item.Expression)
         ),
-        MixinDirectiveSyntax item => new MixinDirectiveSyntax(
-          item.Line, Argument(item.Target), Argument(item.Priority), Value(item.Expression)
+        TargetedCodeDirectiveAst item => new TargetedCodeDirectiveAst(
+          item.SourceRange, Argument(item.Target), Argument(item.Priority), Value(item.Expression)
         ),
-        UsingDirectiveSyntax item => new UsingDirectiveSyntax(item.Line, Value(item.Expression)),
-        LogDirectiveSyntax item => new LogDirectiveSyntax(item.Line, Value(item.Expression)),
-        LocalDirectiveSyntax item => new LocalDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
-        VariableDirectiveSyntax item => new VariableDirectiveSyntax(item.Line, item.Name, Value(item.Expression)),
-        TargetVariableDirectiveSyntax item => new TargetVariableDirectiveSyntax(
-          item.Line, item.Name, Value(item.Expression)
+        UsingDirectiveSyntax item => new UsingDirectiveSyntax(item.SourceRange, Value(item.Expression)),
+        LogDirectiveSyntax item => new LogDirectiveSyntax(item.SourceRange, Value(item.Expression)),
+        LocalDirectiveSyntax item => new LocalDirectiveSyntax(item.SourceRange, item.Name, Value(item.Expression)),
+        VariableDirectiveAst item => new VariableDirectiveAst(item.SourceRange, item.Name, Value(item.Expression)),
+        TargetVariableDirectiveAst item => new TargetVariableDirectiveAst(
+          item.SourceRange, item.Name, Value(item.Expression)
         ),
-        CarryDirectiveSyntax item => new CarryDirectiveSyntax(item.Line, item.Label, Value(item.Expression)),
-        ReturnDirectiveSyntax item => new ReturnDirectiveSyntax(item.Line, Value(item.Expression)),
-        FailDirectiveSyntax item => new FailDirectiveSyntax(item.Line, Value(item.Expression)), _ => instruction
+        CarryDirectiveAst item => new CarryDirectiveAst(item.SourceRange, item.Label, Value(item.Expression)),
+        ReturnDirectiveAst item => new ReturnDirectiveAst(item.SourceRange, Value(item.Expression)),
+        FailDirectiveAst item => new FailDirectiveAst(item.SourceRange, Value(item.Expression)), _ => ast
       };
     }
 
@@ -114,12 +114,12 @@ public static partial class MixinExpressionCompiler {
           var value = argument.ValueExpression is null
             ? null
             : argument.ValueExpression.Select(part =>
-              part.Reference is null ? part : new IMixinValue(null, rewrite(part.Reference))
+              part.Reference is null ? part : new ValueAst(null, rewrite(part.Reference))
             ).ToArray();
           var boolean = argument.BooleanExpression is null
             ? null
             : argument.BooleanExpression.Select(rewrite).ToArray();
-          return new MixinPropertyArgumentSyntax(argument.Literal, value, boolean, argument.SourceRange);
+          return new MixinPropertyArgumentAst(argument.Literal, value, boolean, argument.SourceRange);
         }
       ).ToArray();
       return new MixinExpressionProperty(

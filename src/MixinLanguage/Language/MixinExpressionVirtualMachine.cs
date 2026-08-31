@@ -23,7 +23,7 @@ public static class MixinExpressionVirtualMachine {
     string expression, ExecutionContext context,
     IDictionary<string, object> variables, MixinExpressionPreparedState prepared
   ) {
-    var syntax = expression is null ? null : MixinExpressionParser.Parse(expression);
+    var syntax = expression is null ? null : MixinParser.Parse(expression);
     return ExecuteCompiled(syntax, context, variables, prepared);
   }
 
@@ -35,10 +35,10 @@ public static class MixinExpressionVirtualMachine {
   }
 
   internal static MixinExpressionResult ExecuteCompiled(
-    MixinProgramSyntax syntax, ExecutionContext context,
+    ProgramAst ast, ExecutionContext context,
     IDictionary<string, object> variables, MixinExpressionPreparedState prepared
   ) {
-    if (!MixinExpressionCompiler.TryCompileExecution(syntax, prepared, out var program, out var error, out var line))
+    if (!MixinExpressionCompiler.TryCompileExecution(ast, prepared, out var program, out var error, out var line))
       return Failure(error, line);
     return Execute(program, context, variables);
   }
@@ -213,11 +213,11 @@ public static class MixinExpressionVirtualMachine {
               instruction.Location.Line, logs
             );
           case MixinOpcode.Directive:
-            if (instruction.Directive is not DirectiveFunctionDefinition directive)
+            if (instruction.Directive?.Function is not { } directive)
               return Failure("directive has no resolved runtime function", instruction.Location.Line, logs);
             var directiveValue = directive.Invoke(
-              context, instruction.Arguments ?? [],
-              instruction.Operand ?? NullMixinValue.Instance
+              context, instruction.Operand ?? NullMixinValue.Instance,
+              instruction.Arguments ?? [], false
             );
             if (directiveValue is ErrorMixinValue) return Error(directiveValue, instruction);
             if (directiveValue is DirectiveEffectMixinValue effect &&
@@ -413,10 +413,11 @@ public static class MixinExpressionVirtualMachine {
               false, context.Error(Value().Render(context).Resolve(context.Strings))
             );
           case MixinOpcode.Directive: {
-            if (instruction.Directive is not DirectiveFunctionDefinition directive)
+            if (instruction.Directive?.Function is not { } directive)
               return new ProgramFunctionResult(false, context.Error("directive has no resolved runtime function"));
             var result = directive.Invoke(
-              context, instruction.Arguments ?? [], instruction.Operand ?? NullMixinValue.Instance
+              context, instruction.Operand ?? NullMixinValue.Instance,
+              instruction.Arguments ?? [], false
             );
             if (result is ErrorMixinValue) return new ProgramFunctionResult(false, result);
             if (result is DirectiveEffectMixinValue effect &&

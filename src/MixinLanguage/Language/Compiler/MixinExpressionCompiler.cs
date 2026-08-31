@@ -11,18 +11,18 @@ public static partial class MixinExpressionCompiler {
   ];
 
   public static MixinExpressionValidationResult ValidateSyntax(string expression) {
-    return MixinExpressionParser.ValidateSyntax(expression, false);
+    return MixinParser.ValidateSyntax(expression, false);
   }
 
   internal static MixinExpressionValidationResult ValidateFunctionLibrary(string expression) {
-    return MixinExpressionParser.ValidateSyntax(expression, true);
+    return MixinParser.ValidateSyntax(expression, true);
   }
 
   public static bool TryParseReference(string text, out MixinExpressionReference reference, out string error) {
-    return MixinExpressionParser.TryParseReference(text, out reference, out error);
+    return MixinParser.TryParseReference(text, out reference, out error);
   }
 
-  public static MixinProgramSyntax RewriteTargetAsThis(MixinProgramSyntax program) {
+  public static ProgramAst RewriteTargetAsThis(ProgramAst program) {
     MixinExpressionReference Rewrite(MixinExpressionReference reference) {
       var properties = reference.Properties.Select(property =>
         FunctionBindingStep.RewriteProperty(property, Rewrite)
@@ -33,7 +33,7 @@ public static partial class MixinExpressionCompiler {
       );
     }
 
-    return new MixinProgramSyntax(
+    return new ProgramAst(
       program.AvailableInstructions().Select(instruction =>
         FunctionBindingStep.RewriteReferences(instruction, Rewrite)
       )
@@ -41,11 +41,11 @@ public static partial class MixinExpressionCompiler {
   }
 
   public static bool TryCompileSyntax(
-    MixinProgramSyntax explicitPrelude,
-    MixinProgramSyntax expression,
+    ProgramAst explicitPrelude,
+    ProgramAst expression,
     MixinExpressionPreparedState preparedState,
-    out MixinProgramSyntax prelude,
-    out MixinProgramSyntax lateExpression,
+    out ProgramAst prelude,
+    out ProgramAst lateExpression,
     out string error,
     out int errorLine
   ) {
@@ -69,22 +69,22 @@ public static partial class MixinExpressionCompiler {
 
   public static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> expressions) {
     using var profile = MixinProfiler.Measure("compiler.prepare_globals.text");
-    var programs = new List<MixinProgramSyntax>();
+    var programs = new List<ProgramAst>();
     foreach (var expression in expressions ?? []) {
-      var validation = MixinExpressionParser.ValidateSyntax(expression, false);
+      var validation = MixinParser.ValidateSyntax(expression, false);
       if (!validation.Success) {
         throw new ArgumentException(
           "invalid prepared expression at line " + validation.ErrorLine + ": " + validation.Error,
           nameof(expressions)
         );
       }
-      programs.Add(MixinExpressionParser.Parse(expression));
+      programs.Add(MixinParser.Parse(expression));
     }
     return PrepareGlobals(programs);
   }
 
   internal static MixinExpressionPreparedState PrepareGlobals(
-    IReadOnlyList<MixinProgramSyntax> programs, IEnumerable<string> additionalConstants = null
+    IReadOnlyList<ProgramAst> programs, IEnumerable<string> additionalConstants = null
   ) {
     using var profile = MixinProfiler.Measure("compiler.prepare_globals.syntax");
     programs = [.. (programs ?? []).Select(FunctionBindingStep.Bind)];
@@ -120,7 +120,7 @@ public static partial class MixinExpressionCompiler {
     var initializers = FindPreparedInitializers(instructions);
     foreach (var index in initializers) {
       switch (instructions[index]) {
-        case VariableDirectiveSyntax variable:
+        case VariableDirectiveAst variable:
           if (!TryInterpolatePrepared(variable.Expression, variables, stringPool, out var value, out var error)) {
             throw new ArgumentException(
               "invalid prepared expression at line " + variable.Line + ": " + error,
@@ -158,7 +158,7 @@ public static partial class MixinExpressionCompiler {
   }
 
   internal static bool TryCompileExecution(
-    MixinProgramSyntax program,
+    ProgramAst program,
     MixinExpressionPreparedState prepared,
     out MixinExpressionExecutionProgram compiled,
     out string error,
@@ -197,8 +197,8 @@ public static partial class MixinExpressionCompiler {
           localInstructions, instruction, index, pool, labels, instructionScopes,
           functions, functionStarts, functionEnds, prepared?.FunctionEntries, offset
         );
-        var importedCall = (instruction is CallDirectiveSyntax call &&
-          !functions.ContainsKey(call.Function ?? "")) || (instruction is InlineDirectiveSyntax inline &&
+        var importedCall = (instruction is CallDirectiveAst call &&
+          !functions.ContainsKey(call.Function ?? "")) || (instruction is InlineDirectiveAst inline &&
           !functions.ContainsKey(inline.Name ?? ""));
         return item with {
           Destination = item.Destination < 0 || importedCall
@@ -217,33 +217,33 @@ public static partial class MixinExpressionCompiler {
     return true;
   }
 
-  private static ISet<int> FindPreparedInitializers(IReadOnlyList<DirectiveInstruction> instructions) {
+  private static ISet<int> FindPreparedInitializers(IReadOnlyList<DirectiveAst> instructions) {
     var result = new HashSet<int>();
     var depth = 0;
     var scope = false;
     for (var index = 0; index < instructions.Count; index++) {
       var instruction = instructions[index];
-      if (instruction is FunctionDirectiveSyntax) {
+      if (instruction is FunctionAst) {
         depth++;
         scope = false;
         continue;
       }
       if (depth != 0) {
         switch (instruction) {
-          case ScopeDirectiveSyntax: scope = true; break;
-          case LabelDirectiveSyntax:
-          case EndDirectiveSyntax when scope: scope = false; break;
-          case EndDirectiveSyntax: depth--; break;
+          case ScopeAst: scope = true; break;
+          case LabelAst:
+          case EndAst when scope: scope = false; break;
+          case EndAst: depth--; break;
         }
         continue;
       }
-      if (instruction is VariableDirectiveSyntax or LogDirectiveSyntax) result.Add(index);
+      if (instruction is VariableDirectiveAst or LogDirectiveSyntax) result.Add(index);
     }
     return result;
   }
 
   private static bool TryInterpolatePrepared(
-    IReadOnlyList<IMixinValue> expression,
+    IReadOnlyList<ValueAst> expression,
     IReadOnlyDictionary<MixinString, MixinLanguage.IMixinValue> variables,
     MixinStringPool strings,
     out string result,
@@ -280,16 +280,16 @@ public static partial class MixinExpressionCompiler {
   }
 
   private static void AddScopeLabel(
-    DirectiveInstruction instruction,
+    DirectiveAst ast,
     int index,
     int scope,
     IDictionary<string, int> labels,
     out string error
   ) {
     error = null;
-    var argument = instruction switch {
-      ScopeDirectiveSyntax item => item.Label,
-      LabelDirectiveSyntax item => item.Name,
+    var argument = ast switch {
+      ScopeAst item => item.Label,
+      LabelAst item => item.Name,
       _ => null
     };
     if (string.IsNullOrEmpty(argument)) return;
@@ -306,7 +306,7 @@ public static partial class MixinExpressionCompiler {
   }
 
   internal static int FindNextScopeOrEnd(
-    IReadOnlyList<DirectiveInstruction> lines,
+    IReadOnlyList<DirectiveAst> lines,
     int start,
     int scope,
     IReadOnlyDictionary<int, int> instructionScopes,
@@ -320,15 +320,15 @@ public static partial class MixinExpressionCompiler {
         continue;
       }
       switch (lines[index]) {
-        case ScopeDirectiveSyntax or LabelDirectiveSyntax: return index;
-        case EndDirectiveSyntax: return functionEnds.Contains(index) ? index : index + 1;
+        case ScopeAst or LabelAst: return index;
+        case EndAst: return functionEnds.Contains(index) ? index : index + 1;
       }
     }
     return -1;
   }
 
   internal static bool TryIndexSymbols(
-    IReadOnlyList<DirectiveInstruction> lines,
+    IReadOnlyList<DirectiveAst> lines,
     int start,
     int end,
     IDictionary<string, int> labels,
@@ -349,16 +349,16 @@ public static partial class MixinExpressionCompiler {
       // Expression and function regions use disjoint ID ranges, including when both begin at 0.
       var scope = activeFunction is null ? -start - 1 : functionStart + 1;
       instructionScopes[index] = scope;
-      if (instruction is EmptyDirectiveSyntax) continue;
+      if (instruction is EmptyDirectiveAst) continue;
       if (activeFunction is not null) {
-        if (instruction is FunctionDirectiveSyntax) {
+        if (instruction is FunctionAst) {
           error = "functions may not be nested";
           errorLine = instruction.Line;
           return false;
         }
-        if (instruction is ScopeDirectiveSyntax) functionScopeOpen = true;
-        else if (instruction is LabelDirectiveSyntax) functionScopeOpen = false;
-        if (instruction is not EndDirectiveSyntax) {
+        if (instruction is ScopeAst) functionScopeOpen = true;
+        else if (instruction is LabelAst) functionScopeOpen = false;
+        if (instruction is not EndAst) {
           AddScopeLabel(instruction, index, scope, labels, out error);
           if (error is not null) {
             errorLine = instruction.Line;
@@ -376,7 +376,7 @@ public static partial class MixinExpressionCompiler {
         activeFunction = null;
         continue;
       }
-      if (instruction is FunctionDirectiveSyntax function) {
+      if (instruction is FunctionAst function) {
         if (functions.ContainsKey(function.Name)) {
           error = "duplicate function '" + function.Name + "'";
           errorLine = instruction.Line;
@@ -399,4 +399,21 @@ public static partial class MixinExpressionCompiler {
   }
 
   public sealed record FunctionDefinition(int Start, int End);
+}
+
+/// <summary>The syntax state passed between ordered compiler transformations.</summary>
+public sealed record MixinCompilerSyntax(
+  ProgramAst Prelude,
+  ProgramAst Expression
+);
+
+/// <summary>An AST-to-AST transformation in the mixin compiler pipeline.</summary>
+public abstract class MixinExpressionCompilerStep {
+  public abstract bool TryTransform(
+    MixinCompilerSyntax input,
+    MixinExpressionPreparedState preparedState,
+    out MixinCompilerSyntax output,
+    out string error,
+    out int errorLine
+  );
 }

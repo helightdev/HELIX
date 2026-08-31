@@ -16,22 +16,22 @@ public static partial class MixinExpressionCompiler {
     return value;
   }
 
-  private static RuntimeValue LowerArgument(MixinPropertyArgumentSyntax syntax, MixinStringPool strings) {
-    if (syntax is null) return new LiteralMixinValue(strings.Get(null));
-    if (syntax.BooleanExpression is { } boolean)
+  private static RuntimeValue LowerArgument(MixinPropertyArgumentAst ast, MixinStringPool strings) {
+    if (ast is null) return new LiteralMixinValue(strings.Get(null));
+    if (ast.BooleanExpression is { } boolean)
       return new AllMixinValue([.. boolean.Select(item => LowerReference(item, strings))]);
-    if (syntax.ValueExpression is { } expression) return LowerValue(expression, strings);
-    return LowerLiteral(syntax.Literal, strings);
+    if (ast.ValueExpression is { } expression) return LowerValue(expression, strings);
+    return LowerLiteral(ast.Literal, strings);
   }
 
-  private static RuntimeValue LowerArgument(DirectiveArgumentSyntax syntax, MixinStringPool strings) {
-    if (syntax is null) return new LiteralMixinValue(strings.Get(null));
-    return syntax.Expression is null
-      ? LowerLiteral(syntax.Literal, strings)
-      : LowerValue(syntax.Expression, strings);
+  private static RuntimeValue LowerArgument(DirectiveArgumentAst ast, MixinStringPool strings) {
+    if (ast is null) return new LiteralMixinValue(strings.Get(null));
+    return ast.Expression is null
+      ? LowerLiteral(ast.Literal, strings)
+      : LowerValue(ast.Expression, strings);
   }
 
-  private static RuntimeValue LowerValue(IReadOnlyList<IMixinValue> syntax, MixinStringPool strings) {
+  private static RuntimeValue LowerValue(IReadOnlyList<ValueAst> syntax, MixinStringPool strings) {
     if (syntax is { Count: 1 } && syntax[0].Reference is { } reference) return LowerReference(reference, strings);
     if (syntax is { Count: 1 } && syntax[0].Reference is null) return LowerLiteral(syntax[0].Literal, strings);
     return new InterpolationMixinValue(
@@ -60,8 +60,8 @@ public static partial class MixinExpressionCompiler {
   }
 
   private static MixinInstruction LowerInstruction(
-    IReadOnlyList<DirectiveInstruction> syntaxInstructions,
-    DirectiveInstruction syntax, int index,
+    IReadOnlyList<DirectiveAst> syntaxInstructions,
+    DirectiveAst syntax, int index,
     MixinStringPool strings, IReadOnlyDictionary<string, int> labels,
     IReadOnlyDictionary<int, int> scopes, IReadOnlyDictionary<string, FunctionDefinition> functions,
     IReadOnlyDictionary<int, int> functionStarts, ISet<int> functionEnds,
@@ -86,37 +86,37 @@ public static partial class MixinExpressionCompiler {
         scopes.TryGetValue(index, out var scope) ? scope : 0, scopes, functionStarts, functionEnds
       );
       return target >= 0 && target < syntaxInstructions.Count &&
-        syntaxInstructions[target] is ScopeDirectiveSyntax or LabelDirectiveSyntax
+        syntaxInstructions[target] is ScopeAst or LabelAst
           ? target + 1
           : target;
     }
 
     var lowered = syntax switch {
-      EmptyDirectiveSyntax => new MixinInstruction(MixinOpcode.Empty, location),
-      ScopeDirectiveSyntax => new MixinInstruction(MixinOpcode.Scope, location),
-      LabelDirectiveSyntax => new MixinInstruction(MixinOpcode.Scope, location),
-      FunctionDirectiveSyntax function => new MixinInstruction(
+      EmptyDirectiveAst => new MixinInstruction(MixinOpcode.Empty, location),
+      ScopeAst => new MixinInstruction(MixinOpcode.Scope, location),
+      LabelAst => new MixinInstruction(MixinOpcode.Scope, location),
+      FunctionAst function => new MixinInstruction(
         MixinOpcode.Function, location, Name: Name(function.Name),
         Destination: functionStarts.TryGetValue(index, out var end) ? end + 1 : -1
       ),
-      EndDirectiveSyntax => new MixinInstruction(
+      EndAst => new MixinInstruction(
         MixinOpcode.End, location,
         SecondaryDestination: functionEnds.Contains(index) ? 1 : 0
       ),
-      MatchDirectiveSyntax match => new MixinInstruction(
+      MatchDirectiveAst match => new MixinInstruction(
         MixinOpcode.Match, location, LowerBoolean(match.Expression, strings),
         Name: Name(match.FailureLabel), Destination: Label(match.FailureLabel),
         SecondaryDestination: Next()
       ),
-      AssertDirectiveSyntax assertion => new MixinInstruction(
+      AssertDirectiveAst assertion => new MixinInstruction(
         MixinOpcode.Assert, location, LowerBoolean(assertion.Expression, strings),
         Message: Name(DescribeAssertion(assertion.Expression, strings))
       ),
-      CodeDirectiveSyntax code => new MixinInstruction(
+      CodeDirectiveAst code => new MixinInstruction(
         MixinOpcode.Emit, location, LowerValue(code.Expression, strings),
         Name: Name(code.InjectionTarget), OutputTarget: code.Target
       ),
-      MixinDirectiveSyntax mixin => new MixinInstruction(
+      TargetedCodeDirectiveAst mixin => new MixinInstruction(
         MixinOpcode.Mixin, location, LowerValue(mixin.Expression, strings),
         [LowerArgument(mixin.Target, strings), LowerArgument(mixin.Priority, strings)]
       ),
@@ -127,21 +127,21 @@ public static partial class MixinExpressionCompiler {
       LocalDirectiveSyntax local => new MixinInstruction(
         MixinOpcode.StoreLocal, location, LowerValue(local.Expression, strings), Name: Name(local.Name)
       ),
-      VariableDirectiveSyntax variable => new MixinInstruction(
+      VariableDirectiveAst variable => new MixinInstruction(
         MixinOpcode.StoreVariable, location, LowerValue(variable.Expression, strings), Name: Name(variable.Name)
       ),
-      TargetVariableDirectiveSyntax variable => new MixinInstruction(
+      TargetVariableDirectiveAst variable => new MixinInstruction(
         MixinOpcode.StoreTargetVariable, location, LowerValue(variable.Expression, strings), Name: Name(variable.Name)
       ),
-      CarryDirectiveSyntax carry => new MixinInstruction(
+      CarryDirectiveAst carry => new MixinInstruction(
         MixinOpcode.Carry, location, LowerValue(carry.Expression, strings),
         Name: Name(carry.Label)
       ),
-      ReturnDirectiveSyntax returned => new MixinInstruction(
+      ReturnDirectiveAst returned => new MixinInstruction(
         MixinOpcode.Return, location, LowerValue(returned.Expression, strings),
         SecondaryDestination: string.IsNullOrEmpty(MixinSyntaxRenderer.RenderValue(returned.Expression)) ? 0 : 1
       ),
-      CallDirectiveSyntax call => new MixinInstruction(
+      CallDirectiveAst call => new MixinInstruction(
         MixinOpcode.Call, location, LowerValue(call.Expression, strings),
         Name: Name(call.ReturnLocal), Destination: functions.TryGetValue(call.Function ?? "", out var target)
           ? target.Start
@@ -149,7 +149,7 @@ public static partial class MixinExpressionCompiler {
             ? imported
             : -1
       ),
-      InlineDirectiveSyntax inline => new MixinInstruction(
+      InlineDirectiveAst inline => new MixinInstruction(
         MixinOpcode.Call, location, NullMixinValue.Instance,
         Destination: functions.TryGetValue(inline.Name ?? "", out var inlineTarget)
           ? inlineTarget.Start
@@ -158,17 +158,17 @@ public static partial class MixinExpressionCompiler {
             ? importedInline
             : -1
       ),
-      GotoDirectiveSyntax go => new MixinInstruction(
+      GotoDirectiveAst go => new MixinInstruction(
         MixinOpcode.Goto, location, Name: Name(go.Label), Destination: Label(go.Label)
       ),
-      SkipDirectiveSyntax => new MixinInstruction(
+      SkipDirectiveAst => new MixinInstruction(
         MixinOpcode.Skip, location,
         Destination: Next()
       ),
-      FailDirectiveSyntax fail => new MixinInstruction(
+      FailDirectiveAst fail => new MixinInstruction(
         MixinOpcode.Fail, location, LowerValue(fail.Expression, strings)
       ),
-      DirectiveInvocationSyntax directive => new MixinInstruction(
+      DirectiveInvocationAst directive => new MixinInstruction(
         MixinOpcode.Directive, location,
         LowerValue(directive.Expression, strings), [
           .. directive.ParsedArguments.Select(item =>

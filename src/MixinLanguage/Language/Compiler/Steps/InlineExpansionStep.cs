@@ -18,16 +18,16 @@ public static partial class MixinExpressionCompiler {
         output = input;
         return false;
       }
-      output = new MixinCompilerSyntax(new MixinProgramSyntax(prelude), new MixinProgramSyntax(expression));
+      output = new MixinCompilerSyntax(new ProgramAst(prelude), new ProgramAst(expression));
       return true;
     }
 
     private static bool TryExpandInlines(
-      MixinProgramSyntax explicitPrelude, MixinProgramSyntax expression,
-      MixinExpressionPreparedState preparedState, out IReadOnlyList<DirectiveInstruction> expandedPrelude,
-      out IReadOnlyList<DirectiveInstruction> expandedExpression, out string error, out int errorLine
+      ProgramAst explicitPrelude, ProgramAst expression,
+      MixinExpressionPreparedState preparedState, out IReadOnlyList<DirectiveAst> expandedPrelude,
+      out IReadOnlyList<DirectiveAst> expandedExpression, out string error, out int errorLine
     ) {
-      var functions = new Dictionary<string, IReadOnlyList<DirectiveInstruction>>(StringComparer.Ordinal);
+      var functions = new Dictionary<string, IReadOnlyList<DirectiveAst>>(StringComparer.Ordinal);
       if (!TryCollectFunctions(explicitPrelude, functions, out error, out errorLine) ||
         !TryCollectFunctions(expression, functions, out error, out errorLine)) {
         expandedPrelude = [];
@@ -51,8 +51,8 @@ public static partial class MixinExpressionCompiler {
     }
 
     private static bool TryCollectFunctions(
-      MixinProgramSyntax program,
-      IDictionary<string, IReadOnlyList<DirectiveInstruction>> functions, out string error, out int errorLine
+      ProgramAst program,
+      IDictionary<string, IReadOnlyList<DirectiveAst>> functions, out string error, out int errorLine
     ) {
       var instructions = Enumerable.Range(0, program.Count).Select(program.Get).ToArray();
       var localFunctions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal);
@@ -78,15 +78,15 @@ public static partial class MixinExpressionCompiler {
     }
 
     private static bool TryExpandProgram(
-      IEnumerable<DirectiveInstruction> source,
-      IReadOnlyDictionary<string, IReadOnlyList<DirectiveInstruction>> functions,
+      IEnumerable<DirectiveAst> source,
+      IReadOnlyDictionary<string, IReadOnlyList<DirectiveAst>> functions,
       IReadOnlyDictionary<MixinString, int> importedFunctions, MixinStringPool importedStrings,
-      ISet<string> activeFunctions, ref int sequence, out IReadOnlyList<DirectiveInstruction> expanded,
+      ISet<string> activeFunctions, ref int sequence, out IReadOnlyList<DirectiveAst> expanded,
       out string error, out int errorLine
     ) {
-      var result = new List<DirectiveInstruction>();
+      var result = new List<DirectiveAst>();
       foreach (var instruction in source) {
-        if (instruction is not InlineDirectiveSyntax inline) {
+        if (instruction is not InlineDirectiveAst inline) {
           result.Add(instruction);
           continue;
         }
@@ -113,15 +113,15 @@ public static partial class MixinExpressionCompiler {
         var endLabel = suffix + "_end";
         var labels = body.Select(LabelOf).Where(item => !string.IsNullOrEmpty(item))
           .Distinct(StringComparer.Ordinal).ToDictionary(item => item, item => item + suffix, StringComparer.Ordinal);
-        var bodyNodes = new List<DirectiveInstruction>();
+        var bodyNodes = new List<DirectiveAst>();
         foreach (var item in body) {
           switch (item) {
-            case ReturnDirectiveSyntax returned:
+            case ReturnDirectiveAst returned:
               if (!IsEmpty(returned.Expression))
-                bodyNodes.Add(new LocalDirectiveSyntax(item.Line, suffix + "_return", returned.Expression));
-              bodyNodes.Add(new GotoDirectiveSyntax(item.Line, endLabel));
+                bodyNodes.Add(new LocalDirectiveSyntax(item.SourceRange, suffix + "_return", returned.Expression));
+              bodyNodes.Add(new GotoDirectiveAst(item.SourceRange, endLabel));
               continue;
-            case ScopeDirectiveSyntax or LabelDirectiveSyntax or GotoDirectiveSyntax or MatchDirectiveSyntax
+            case ScopeAst or LabelAst or GotoDirectiveAst or MatchDirectiveAst
               when LabelOf(item) is { Length: > 0 } label && labels.TryGetValue(label, out var renamed):
               bodyNodes.Add(RenameLabel(item, renamed));
               continue;
@@ -138,7 +138,7 @@ public static partial class MixinExpressionCompiler {
         }
         activeFunctions.Remove(name);
         result.AddRange(expandedBody);
-        result.Add(new ScopeDirectiveSyntax(inline.Line, endLabel));
+        result.Add(new ScopeAst(inline.SourceRange, endLabel));
       }
       expanded = result.AsReadOnly();
       error = null;
@@ -146,23 +146,23 @@ public static partial class MixinExpressionCompiler {
       return true;
     }
 
-    private static string LabelOf(DirectiveInstruction instruction) {
-      return instruction switch {
-        ScopeDirectiveSyntax item => item.Label, LabelDirectiveSyntax item => item.Name,
-        GotoDirectiveSyntax item => item.Label, MatchDirectiveSyntax item => item.FailureLabel, _ => null
+    private static string LabelOf(DirectiveAst ast) {
+      return ast switch {
+        ScopeAst item => item.Label, LabelAst item => item.Name,
+        GotoDirectiveAst item => item.Label, MatchDirectiveAst item => item.FailureLabel, _ => null
       };
     }
 
-    private static DirectiveInstruction RenameLabel(DirectiveInstruction instruction, string label) {
-      return instruction switch {
-        ScopeDirectiveSyntax item => new ScopeDirectiveSyntax(item.Line, label),
-        LabelDirectiveSyntax item => new LabelDirectiveSyntax(item.Line, label),
-        GotoDirectiveSyntax item => new GotoDirectiveSyntax(item.Line, label),
-        MatchDirectiveSyntax item => new MatchDirectiveSyntax(item.Line, label, item.Expression), _ => instruction
+    private static DirectiveAst RenameLabel(DirectiveAst ast, string label) {
+      return ast switch {
+        ScopeAst item => new ScopeAst(item.SourceRange, label),
+        LabelAst item => new LabelAst(item.SourceRange, label),
+        GotoDirectiveAst item => new GotoDirectiveAst(item.SourceRange, label),
+        MatchDirectiveAst item => new MatchDirectiveAst(item.SourceRange, label, item.Expression), _ => ast
       };
     }
 
-    private static bool IsEmpty(IReadOnlyList<IMixinValue> expression) {
+    private static bool IsEmpty(IReadOnlyList<ValueAst> expression) {
       return expression is null || expression.All(item => item.Reference is null && string.IsNullOrEmpty(item.Literal));
     }
   }
