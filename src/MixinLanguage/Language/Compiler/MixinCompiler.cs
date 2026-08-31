@@ -13,11 +13,11 @@ public static partial class MixinCompiler {
     new InlineExpansionStep(), new PreludeHoistingStep(), new FunctionBindingStep()
   ];
 
-  public static MixinExpressionValidationResult ValidateSyntax(string expression) {
+  public static ValidationResult ValidateSyntax(string expression) {
     return MixinParser.ValidateSyntax(expression, false);
   }
 
-  internal static MixinExpressionValidationResult ValidateFunctionLibrary(string expression) {
+  internal static ValidationResult ValidateFunctionLibrary(string expression) {
     return MixinParser.ValidateSyntax(expression, true);
   }
 

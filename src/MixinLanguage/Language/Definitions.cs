@@ -15,22 +15,63 @@ public enum DirectiveOperandKind { None, Value, Boolean }
 /// valid while statically meaningful call sites can still offer completion and diagnostics.
 /// </summary>
 public enum MixinLanguageValueKind {
-  None, Any, Text, Table, Symbol, Type, Boolean, Function, CSharpType, Identifier, Label,
-  OutputTarget, Expression
+  None,
+  Any,
+  Text,
+  Table,
+  Symbol,
+  Type,
+  Boolean,
+  Function,
+  CSharpType,
+  Identifier,
+  Label,
+  OutputTarget,
+  Expression
 }
 
 [Flags]
 public enum MixinSymbolUsage { None = 0, Declaration = 1, Reference = 2 }
 
 public enum MixinSymbolKind {
-  None, Function, Label, Local, Variable, TargetVariable, Carry, Annotation, Derivation,
-  Target, CSharpType
+  None,
+  Function,
+  Label,
+  Local,
+  Variable,
+  TargetVariable,
+  Carry,
+  Annotation,
+  Derivation,
+  Target,
+  CSharpType
 }
 
 internal enum MixinDirectiveSyntaxForm {
-  Invocation, Scope, Label, Function, Call, Inline, End, Match, Assert, Code, Mixin,
-  Using, Log, Local, Variable, TargetVariable, Carry, Return, Goto, Skip, Fail,
-  Annotation, Prelude, DefineTarget
+  Invocation,
+  Scope,
+  Label,
+  Function,
+  Call,
+  Inline,
+  End,
+  Match,
+  Assert,
+  Code,
+  Mixin,
+  Using,
+  Log,
+  Local,
+  Variable,
+  TargetVariable,
+  Carry,
+  Return,
+  Goto,
+  Skip,
+  Fail,
+  Annotation,
+  Prelude,
+  DefineTarget
 }
 
 public enum MixinExpressionRoot {
@@ -111,7 +152,7 @@ public class DirectiveDefinition(string name, DirectiveOperandKind operandKind, 
     index >= 0 && index < Arguments.Count ? Arguments[index] : null;
 
   public string ArgumentCountError() =>
-    "@" + Name + " requires " + ArgumentCount + (ArgumentCount == 1 ? " argument" : " arguments");
+    $"@{Name} requires {ArgumentCount}{(ArgumentCount == 1 ? " argument" : " arguments")}";
 
   internal virtual InstructionAst CreateSyntax(MixinDirectiveSyntaxData data) =>
     new DirectiveInvocationAst(this, data.ParsedArguments, data.ValueOperand);
@@ -127,7 +168,6 @@ public class DirectiveDefinition(string name, DirectiveOperandKind operandKind, 
     HoistedLocalArgumentIndex = hoistedLocalArgumentIndex;
     return this;
   }
-
 }
 
 internal sealed class SyntaxDirectiveDefinition(
@@ -146,14 +186,11 @@ internal sealed class SyntaxDirectiveDefinition(
       ),
       MixinDirectiveSyntaxForm.Inline => new InlineAst(arguments[0]),
       MixinDirectiveSyntaxForm.End => new EndAst(),
-      MixinDirectiveSyntaxForm.Match => new MatchAst(
-        arguments.FirstOrDefault(), data.BooleanOperand
-      ),
+      MixinDirectiveSyntaxForm.Match => new MatchAst(arguments.FirstOrDefault(), data.BooleanOperand),
       MixinDirectiveSyntaxForm.Assert => new AssertAst(data.BooleanOperand),
       MixinDirectiveSyntaxForm.Code => CreateCodeSyntax(data),
       MixinDirectiveSyntaxForm.Mixin => new TargetedCodeAst(
-        data.ParsedArguments[0],
-        data.ParsedArguments.Count > 1 ? data.ParsedArguments[1] : null, data.ValueOperand
+        data.ParsedArguments[0], data.ParsedArguments.Count > 1 ? data.ParsedArguments[1] : null, data.ValueOperand
       ),
       MixinDirectiveSyntaxForm.Using => new UsingAst(data.ValueOperand),
       MixinDirectiveSyntaxForm.Log => new LogAst(data.ValueOperand),
@@ -167,9 +204,7 @@ internal sealed class SyntaxDirectiveDefinition(
       MixinDirectiveSyntaxForm.Fail => new FailAst(data.ValueOperand),
       MixinDirectiveSyntaxForm.Annotation => new AnnotationAst(arguments[0]),
       MixinDirectiveSyntaxForm.Prelude => new PreludeAst(),
-      MixinDirectiveSyntaxForm.DefineTarget => new DefineTargetAst(
-        arguments[0], arguments[1]
-      ),
+      MixinDirectiveSyntaxForm.DefineTarget => new DefineTargetAst(arguments[0], arguments[1]),
       _ => base.CreateSyntax(data)
     };
   }
@@ -186,6 +221,7 @@ internal sealed class SyntaxDirectiveDefinition(
 
 public abstract class FunctionDefinition {
   private string _predicateAlias;
+
   protected FunctionDefinition(
     string name, int argumentCount,
     MixinLanguageValueKind receiverType = MixinLanguageValueKind.Any,
@@ -198,9 +234,9 @@ public abstract class FunctionDefinition {
     IsVariadic = variadic;
     ReceiverType = receiverType;
     ResultType = resultType;
-    ArgumentTypes = argumentTypes ?? Enumerable.Repeat(
-      MixinLanguageValueKind.Any, argumentCount + (variadic ? 1 : 0)
-    ).ToArray();
+    ArgumentTypes = argumentTypes ?? [
+      .. Enumerable.Repeat(MixinLanguageValueKind.Any, argumentCount + (variadic ? 1 : 0))
+    ];
     Documentation = documentation ?? "Transforms the current value.";
     if (ArgumentTypes.Count != argumentCount + (variadic ? 1 : 0))
       throw new ArgumentException("Function argument signature does not match its arity.", nameof(argumentTypes));
@@ -218,10 +254,8 @@ public abstract class FunctionDefinition {
   public bool MatchesArgumentCount(int count) => IsVariadic ? count >= ArgumentCount : count == ArgumentCount;
 
   public string ArgumentCountError() => IsVariadic
-    ? ":" + Name + " requires at least " + ArgumentCount +
-      (ArgumentCount == 1 ? " argument" : " arguments")
-    : ":" + Name + " requires " + ArgumentCount +
-      (ArgumentCount == 1 ? " argument" : " arguments");
+    ? $":{Name} requires at least {ArgumentCount}{(ArgumentCount == 1 ? " argument" : " arguments")}"
+    : $":{Name} requires {ArgumentCount}{(ArgumentCount == 1 ? " argument" : " arguments")}";
 
   public MixinLanguageValueKind GetArgumentType(int index) {
     if (index < 0 || ArgumentTypes.Count == 0) return MixinLanguageValueKind.None;
@@ -234,16 +268,15 @@ public abstract class FunctionDefinition {
     return this;
   }
 
-  internal bool MatchesPredicate(string name) => IsPredicate &&
-    (string.Equals(Name, name, StringComparison.Ordinal) ||
-      string.Equals(_predicateAlias, name, StringComparison.Ordinal));
+  internal bool MatchesPredicate(string name) => IsPredicate && (
+    string.Equals(Name, name, StringComparison.Ordinal) ||
+    string.Equals(_predicateAlias, name, StringComparison.Ordinal)
+  );
 
   public abstract IMixinValue Invoke(
-    ExecutionContext context, IMixinValue instance,
-    IReadOnlyList<IMixinValue> arguments, bool negated
+    ExecutionContext context, IMixinValue instance, IReadOnlyList<IMixinValue> arguments, bool negated
   );
 }
-
 
 internal abstract class EvaluatedFunctionDefinition(
   string name, int argumentCount,
@@ -276,9 +309,8 @@ internal abstract class EvaluatedFunctionDefinition(
           key = values.Length == 0
             ? _cacheKey
             : _cacheKey + "\u001f" + string.Join(
-              "\u001f", values.Select(item => item.GetType().FullName + "=" +
-                item.Render(context).Resolve(context.Strings)
-              )
+              "\u001f",
+              values.Select(item => $"{item.GetType().FullName}={item.Render(context).Resolve(context.Strings)}")
             );
         }
         if (!roslyn.TryGetDerived(source, key, out result)) {
@@ -287,13 +319,11 @@ internal abstract class EvaluatedFunctionDefinition(
         }
       } else result = Apply(context, instance, values);
     } catch (ArgumentException exception) {
-      return context.Error("function ':" + Name + "' failed: " + exception.Message);
+      return context.Error($"function ':{Name}' failed: {exception.Message}");
     }
-    if (predicate) {
-      var truth = result.IsTruthy(context);
-      return truth != negated ? BooleanMixinValue.True : BooleanMixinValue.False;
-    }
-    return negated ? context.Error("value function ':" + Name + "' cannot be negated") : result;
+    if (!predicate) return negated ? context.Error($"value function ':{Name}' cannot be negated") : result;
+    var truth = result.IsTruthy(context);
+    return truth != negated ? BooleanMixinValue.True : BooleanMixinValue.False;
   }
 
   protected abstract IMixinValue Apply(

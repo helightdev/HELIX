@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Mixins.Runtime;
 
 namespace Mixins.Compiler;
 
@@ -123,6 +124,15 @@ public sealed class ProgramAst : MixinAst {
   public IReadOnlyList<MixinParseDiagnostic> Diagnostics { get; }
   public string Source { get; }
   public ProgramAst Root => this;
+
+  public ValidationResult FailureOrDefault() => Diagnostics.Count == 0
+    ? null
+    : new ValidationResult(false, Diagnostics[0].Message, Diagnostics[0].Line);
+
+  public bool TryGetFailure(out ValidationResult failure) {
+    failure = FailureOrDefault();
+    return failure != null;
+  }
 
   internal InstructionAst Get(int index) {
     return _instructions[index];

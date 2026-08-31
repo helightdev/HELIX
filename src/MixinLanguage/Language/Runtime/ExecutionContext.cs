@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Mixins.Compiler;
 
 namespace Mixins.Runtime;
 
@@ -8,7 +9,18 @@ public sealed record MixinExpressionLog(string Text = "", int Line = -1, bool Is
 
 public sealed record MixinExpressionPreparedLog(string Text, int Line, int ProgramIndex);
 
-public sealed record MixinExpressionValidationResult(bool Success, string Error, int ErrorLine);
+public sealed record ValidationResult(bool Success, string Error, int ErrorLine) {
+  public static readonly ValidationResult Ok = new(true, null, -1);
+  public static readonly ValidationResult UnknownError = new(false, "unknown error", -1);
+
+  public static ValidationResult Fail(string error, MixinAst ast) {
+    return new ValidationResult(false, error, ast?.Line ?? -1);
+  }
+
+  public static ValidationResult Fail(string error, int line) {
+    return new ValidationResult(false, error, line);
+  }
+}
 
 public sealed class MixinExpressionOutput {
   internal MixinExpressionOutput(
