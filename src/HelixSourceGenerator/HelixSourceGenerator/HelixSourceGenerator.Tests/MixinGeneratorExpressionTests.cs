@@ -224,6 +224,61 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(output.GetDiagnostics().Where(item => item.Severity == DiagnosticSeverity.Error));
   }
 
+  [Theory]
+  [InlineData("HELIX.SampleAttribute")]
+  [InlineData("global::HELIX.SampleAttribute")]
+  public void AnnotationProviderNamesAreImplicitlyGlobal(string providerName) {
+    const string source = """
+                          namespace HELIX {
+                            public sealed class MixableAttribute : System.Attribute { }
+                            public sealed class SampleAttribute : System.Attribute { }
+                          }
+                          [HELIX.Mixable, HELIX.Sample]
+                          public partial class Demo { }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "ImplicitGlobalProviderNameTest",
+      [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest))],
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = MixinTestDriver.Create(compilation, additionalTexts: [
+      new TestAdditionalText(
+        "/project/Core.HelixSourceGenerator.additionalfile",
+        "@ANNOTATION<" + providerName + ">\n@CODE<CLASS> public int Generated;\n@END"
+      )
+    ]);
+
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = string.Join("\n", driver.GetRunResult().Results
+      .SelectMany(item => item.GeneratedSources).Select(item => item.SourceText.ToString()));
+    Assert.Contains("public int Generated;", generated);
+  }
+
+  [Fact]
+  public void ProviderPrefixesDoNotCreateDistinctDeclarations() {
+    const string source = "namespace HELIX { public sealed class MixableAttribute : System.Attribute { } }";
+    var compilation = CSharpCompilation.Create(
+      "NormalizedProviderDuplicateTest",
+      [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest))],
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = MixinTestDriver.Create(compilation, additionalTexts: [
+      new TestAdditionalText("/project/A.HelixSourceGenerator.additionalfile",
+        "@ANNOTATION<HELIX.SampleAttribute>\n@END"),
+      new TestAdditionalText("/project/B.HelixSourceGenerator.additionalfile",
+        "@ANNOTATION<global::HELIX.SampleAttribute>\n@END")
+    ]);
+
+    driver = driver.RunGenerators(compilation);
+
+    Assert.Contains(driver.GetRunResult().Diagnostics, item =>
+      item.GetMessage().Contains("defined more than once", StringComparison.OrdinalIgnoreCase));
+  }
+
   [Fact]
   public void AdditionalMixinDebugConfigurationEmitsProgramsAndCarriedState() {
     const string source = """

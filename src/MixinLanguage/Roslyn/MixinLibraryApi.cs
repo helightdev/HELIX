@@ -193,7 +193,7 @@ internal static class MixinLibraryApi {
           return Failure(command + " requires a qualified type name", index + 1);
         if (command == "DERIVATION" && !IsQualifiedProviderName(arguments[0]))
           return Failure("DERIVATION requires a qualified type name", index + 1);
-        annotationName = arguments[0];
+        annotationName = NormalizeProviderName(arguments[0]);
         isDerivation = command == "DERIVATION";
         if (annotations.ContainsKey(annotationName) || derivations.Any(item => item.Name == annotationName))
           return Failure("provider '" + annotationName + "' is defined more than once", index + 1);
@@ -306,8 +306,15 @@ internal static class MixinLibraryApi {
   }
 
   private static bool IsQualifiedProviderName(string name) {
-    var normalized = (name ?? "").Replace("global::", "").Trim();
+    var normalized = NormalizeProviderName(name);
     return normalized.IndexOf('.') > 0 || normalized.IndexOf('+') > 0;
+  }
+
+  internal static string NormalizeProviderName(string name) {
+    var normalized = (name ?? "").Trim();
+    return normalized.StartsWith("global::", StringComparison.Ordinal)
+      ? normalized.Substring("global::".Length)
+      : normalized;
   }
 
   private static string ReadConfigurationValue(string line) {
@@ -524,7 +531,7 @@ internal sealed class MixinLibraryCatalog {
   }
 
   internal bool TryGetAnnotation(string name, out MixinAnnotationDefinition annotation) {
-    return _annotations.TryGetValue((name ?? "").Replace("global::", ""), out annotation);
+    return _annotations.TryGetValue(MixinLibraryApi.NormalizeProviderName(name), out annotation);
   }
 }
 
@@ -554,7 +561,7 @@ internal sealed record MixinCompilation(
   ImmutableArray<Diagnostic> Diagnostics
 ) {
   internal bool TryGetAnnotation(string name, out CompiledMixinAnnotation annotation) {
-    return Annotations.TryGetValue((name ?? "").Replace("global::", ""), out annotation);
+    return Annotations.TryGetValue(MixinLibraryApi.NormalizeProviderName(name), out annotation);
   }
 }
 

@@ -529,6 +529,23 @@ public abstract class FunctionDefinition {
   public int MinimumArguments { get; }
   public int MaximumArguments { get; }
   public virtual bool IsPredicate => false;
+  public MixinLanguageValueKind ReceiverType { get; private set; } = MixinLanguageValueKind.Any;
+  public MixinLanguageValueKind ResultType { get; private set; } = MixinLanguageValueKind.Any;
+  public IReadOnlyList<MixinLanguageValueKind> ArgumentTypes { get; private set; } = [];
+  public string Documentation { get; private set; } = "Transforms the current value.";
+
+  internal FunctionDefinition WithLanguageSignature(
+    MixinLanguageValueKind receiver,
+    MixinLanguageValueKind result,
+    IReadOnlyList<MixinLanguageValueKind> arguments = null,
+    string documentation = null
+  ) {
+    ReceiverType = receiver;
+    ResultType = result;
+    ArgumentTypes = arguments ?? [];
+    if (!string.IsNullOrWhiteSpace(documentation)) Documentation = documentation;
+    return this;
+  }
 
   public abstract IMixinValue Invoke(
     ExecutionContext context, IMixinValue instance,
@@ -536,13 +553,13 @@ public abstract class FunctionDefinition {
   );
 }
 
-internal static class FunctionLibrary {
+public static class FunctionLibrary {
   private static readonly IReadOnlyDictionary<string, FunctionDefinition> Definitions =
     CreateDefinitions();
 
   private static IReadOnlyDictionary<string, FunctionDefinition> CreateDefinitions() {
     using var profile = MixinProfiler.Measure("static.function_library");
-    return new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal) {
+    var definitions = new Dictionary<string, FunctionDefinition>(StringComparer.Ordinal) {
       ["name"] = new NameFunction(), ["type"] = new TypeFunction(), ["fullName"] = new FullNameFunction(),
       ["members"] = new MembersFunction(), ["parameters"] = new ParametersFunction(),
       ["nullableType"] = new NullableTypeFunction(), ["csharpLiteral"] = new CSharpLiteralFunction(),
@@ -582,14 +599,99 @@ internal static class FunctionLibrary {
       ["ordinaryTypedEqualsSelf"] = new TraitPredicate("ordinaryTypedEqualsSelf"),
       ["objectEquals"] = new TraitPredicate("objectEquals"), ["hashCode"] = new TraitPredicate("hashCode")
     };
+    ConfigureLanguageSignatures(definitions);
+    return definitions;
   }
 
-  internal static bool TryGet(string name, out FunctionDefinition definition) {
+  public static bool TryGet(string name, out FunctionDefinition definition) {
     return Definitions.TryGetValue(name ?? "", out definition);
   }
 
-  internal static bool IsPredicate(string name) {
+  public static bool IsPredicate(string name) {
     return TryGet(name, out var definition) && definition.IsPredicate;
+  }
+
+  public static IEnumerable<FunctionDefinition> Enumerate() => Definitions.Values;
+
+  private static void ConfigureLanguageSignatures(IDictionary<string, FunctionDefinition> definitions) {
+    foreach (var definition in definitions.Values)
+      definition.WithLanguageSignature(
+        MixinLanguageValueKind.Any,
+        definition.IsPredicate ? MixinLanguageValueKind.Boolean : MixinLanguageValueKind.Any,
+        Enumerable.Repeat(MixinLanguageValueKind.Any, Math.Min(definition.MaximumArguments, 16)).ToArray(),
+        definition.IsPredicate ? "Tests the current value." : "Transforms the current value."
+      );
+
+    Signature(definitions, "name", MixinLanguageValueKind.Any, MixinLanguageValueKind.Text, []);
+    Signature(definitions, "path", MixinLanguageValueKind.Any, MixinLanguageValueKind.Any,
+      [MixinLanguageValueKind.Text]);
+    Signature(definitions, "switch", MixinLanguageValueKind.Boolean, MixinLanguageValueKind.Any,
+      [MixinLanguageValueKind.Any, MixinLanguageValueKind.Any]);
+    Signature(definitions, "size", MixinLanguageValueKind.Any, MixinLanguageValueKind.Text, []);
+    Signature(definitions, "table", MixinLanguageValueKind.Any, MixinLanguageValueKind.Table, []);
+
+    Signature(definitions, "put", MixinLanguageValueKind.Table, MixinLanguageValueKind.Table,
+      [MixinLanguageValueKind.Any, MixinLanguageValueKind.Any]);
+    Signature(definitions, "remove", MixinLanguageValueKind.Table, MixinLanguageValueKind.Table,
+      [MixinLanguageValueKind.Any]);
+    Signature(definitions, "push", MixinLanguageValueKind.Table, MixinLanguageValueKind.Table,
+      [MixinLanguageValueKind.Any]);
+    Signature(definitions, "pop", MixinLanguageValueKind.Table, MixinLanguageValueKind.Table, []);
+    foreach (var name in new[] { "joinKeys", "joinValues" })
+      Signature(definitions, name, MixinLanguageValueKind.Table, MixinLanguageValueKind.Text,
+        [MixinLanguageValueKind.Text]);
+    Signature(definitions, "join", MixinLanguageValueKind.Table, MixinLanguageValueKind.Text,
+      [MixinLanguageValueKind.Text, MixinLanguageValueKind.Text]);
+    foreach (var name in new[] { "mapValues", "map", "filter" })
+      Signature(definitions, name, MixinLanguageValueKind.Table, MixinLanguageValueKind.Table,
+        [MixinLanguageValueKind.Function]);
+    Signature(definitions, "reduce", MixinLanguageValueKind.Table, MixinLanguageValueKind.Any,
+      [MixinLanguageValueKind.Any, MixinLanguageValueKind.Function]);
+    Signature(definitions, "derive", MixinLanguageValueKind.Table, MixinLanguageValueKind.Table, []);
+
+    Signature(definitions, "type", MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Type, []);
+    Signature(definitions, "fullName", MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Text, []);
+    Signature(definitions, "visibility", MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Text, []);
+    Signature(definitions, "members", MixinLanguageValueKind.Type, MixinLanguageValueKind.Table, []);
+    Signature(definitions, "parameters", MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Table, []);
+    Signature(definitions, "nullableType", MixinLanguageValueKind.Type, MixinLanguageValueKind.Type, []);
+    Signature(definitions, "makeGeneric", MixinLanguageValueKind.Type, MixinLanguageValueKind.Type,
+      [MixinLanguageValueKind.CSharpType]);
+    Signature(definitions, "attributes", MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Table, []);
+    foreach (var name in new[] { "attributesOf", "attributesOfExact" })
+      Signature(definitions, name, MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Table,
+        [MixinLanguageValueKind.CSharpType]);
+    Signature(definitions, "attributeOf", MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Any,
+      [MixinLanguageValueKind.CSharpType]);
+
+    foreach (var name in new[] { "replace", "replaceFirst" })
+      Signature(definitions, name, MixinLanguageValueKind.Text, MixinLanguageValueKind.Text,
+        [MixinLanguageValueKind.Text, MixinLanguageValueKind.Text]);
+    Signature(definitions, "format", MixinLanguageValueKind.Text, MixinLanguageValueKind.Text,
+      [MixinLanguageValueKind.Any, MixinLanguageValueKind.Any]);
+    foreach (var name in new[] { "identifier", "floatTime" })
+      Signature(definitions, name, MixinLanguageValueKind.Text, MixinLanguageValueKind.Text, []);
+    Signature(definitions, "matches", MixinLanguageValueKind.Text, MixinLanguageValueKind.Boolean,
+      [MixinLanguageValueKind.Text]);
+
+    Configure(definitions, ["containsPointer"], MixinLanguageValueKind.Type,
+      MixinLanguageValueKind.Boolean);
+  }
+
+  private static void Signature(IDictionary<string, FunctionDefinition> definitions, string name,
+    MixinLanguageValueKind receiver, MixinLanguageValueKind result,
+    IReadOnlyList<MixinLanguageValueKind> arguments) {
+    if (definitions.TryGetValue(name, out var definition)) definition.WithLanguageSignature(
+      receiver, definition.IsPredicate ? MixinLanguageValueKind.Boolean : result,
+      arguments, definition.Documentation);
+  }
+
+  private static void Configure(IDictionary<string, FunctionDefinition> definitions,
+    IEnumerable<string> names, MixinLanguageValueKind receiver, MixinLanguageValueKind result) {
+    foreach (var name in names)
+      if (definitions.TryGetValue(name, out var definition)) definition.WithLanguageSignature(
+        receiver, definition.IsPredicate ? MixinLanguageValueKind.Boolean : result,
+        definition.ArgumentTypes, definition.Documentation);
   }
 
   internal static void CollectConstants(MixinStringPoolBuilder pool) {

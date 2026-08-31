@@ -14,9 +14,12 @@ internal enum MixinTokenKind {
   Invalid
 }
 
-internal sealed record MixinToken(MixinTokenKind Kind, string Text, int Line);
+internal sealed record MixinToken(
+  MixinTokenKind Kind, string Text, int Line,
+  MixinSourceRange SourceRange, MixinSourceRange ContentRange
+);
 
-internal enum MixinExpressionTokenKind {
+public enum MixinExpressionTokenKind {
   Literal,
   At,
   OpenParenthesis,
@@ -36,7 +39,7 @@ internal enum MixinExpressionTokenKind {
   Invalid
 }
 
-internal sealed record MixinExpressionToken(
+public sealed record MixinExpressionToken(
   MixinExpressionTokenKind Kind, string Text, int Start, int End
 );
 
@@ -44,18 +47,23 @@ internal sealed record MixinLogicalSourceSegment(
   int LogicalStart, int SourceStart, int Length
 );
 
-internal sealed class MixinLogicalSourceLine(
+/// <summary>
+/// One compiler logical line with mappings back to the physical source. IDE
+/// integrations can use this neutral source-location model without depending
+/// on compiler internals or carrying an editor model in this assembly.
+/// </summary>
+public sealed class MixinLogicalSourceLine(
   int physicalLine, MixinSourceRange physicalRange
 ) {
   private readonly List<MixinLogicalSourceSegment> _segments = [];
   private readonly List<MixinSourceRange> _continuations = [];
 
-  internal int PhysicalLine { get; } = physicalLine;
-  internal MixinSourceRange PhysicalRange { get; } = physicalRange;
-  internal string Text { get; private set; } = "";
-  internal int ContinuedFromLine { get; set; } = -1;
-  internal IReadOnlyList<MixinSourceRange> Continuations => _continuations;
-  internal int SourceEnd {
+  public int PhysicalLine { get; } = physicalLine;
+  public MixinSourceRange PhysicalRange { get; } = physicalRange;
+  public string Text { get; private set; } = "";
+  public int ContinuedFromLine { get; internal set; } = -1;
+  public IReadOnlyList<MixinSourceRange> Continuations => _continuations;
+  public int SourceEnd {
     get {
       if (_continuations.Count == 0) return PhysicalRange.End;
       var markerEnd = _continuations[_continuations.Count - 1].End;
@@ -82,7 +90,7 @@ internal sealed class MixinLogicalSourceLine(
     _continuations.Add(continuationRange);
   }
 
-  internal MixinSourceRange MapRange(MixinSourceRange logicalRange) {
+  public MixinSourceRange MapRange(MixinSourceRange logicalRange) {
     if (_segments.Count == 0) return PhysicalRange;
     var start = MapPosition(logicalRange.Start, end: false);
     var end = logicalRange.IsEmpty ? start : MapPosition(logicalRange.End, end: true);
@@ -102,8 +110,8 @@ internal sealed class MixinLogicalSourceLine(
 }
 
 /// <summary>Turns source text into tokens without applying directive semantics.</summary>
-internal static class MixinExpressionLexer {
-  internal static IReadOnlyList<MixinExpressionToken> LexExpression(string source) {
+public static class MixinExpressionLexer {
+  public static IReadOnlyList<MixinExpressionToken> LexExpression(string source) {
     source ??= "";
     var tokens = new List<MixinExpressionToken>();
     var position = 0;
@@ -273,6 +281,9 @@ internal static class MixinExpressionLexer {
     return BuildLogicalSourceLines(source).Select(line => line.Text).ToArray();
   }
 
+  public static IReadOnlyList<MixinLogicalSourceLine> GetLogicalSourceLines(string source) =>
+    BuildLogicalSourceLines(source);
+
   internal static IReadOnlyList<MixinLogicalSourceLine> BuildLogicalSourceLines(string source) {
     source ??= "";
     var physical = GetPhysicalSourceLines(source);
@@ -343,19 +354,30 @@ internal static class MixinExpressionLexer {
       return;
     }
     if (position + 1 < text.Length && text[position + 1] is '\\' or '+') {
-      tokens.Add(new MixinToken(MixinTokenKind.OrphanContinuation, "", line));
+      tokens.Add(new MixinToken(
+        MixinTokenKind.OrphanContinuation, "", line,
+        new MixinSourceRange(position, Math.Min(text.Length, position + 2)),
+        new MixinSourceRange(position, Math.Min(text.Length, position + 2))
+      ));
       End(tokens, line);
       return;
     }
-    tokens.Add(new MixinToken(MixinTokenKind.At, "@", line));
+    tokens.Add(new MixinToken(
+      MixinTokenKind.At, "@", line,
+      new MixinSourceRange(position, position + 1), new MixinSourceRange(position, position + 1)
+    ));
     var start = ++position;
     while (position < text.Length && (char.IsLetter(text[position]) || text[position] == '_')) position++;
     if (position == start) {
       Invalid(tokens, text, line);
       return;
     }
-    tokens.Add(new MixinToken(MixinTokenKind.Identifier, text.Substring(start, position - start), line));
+    tokens.Add(new MixinToken(
+      MixinTokenKind.Identifier, text.Substring(start, position - start), line,
+      new MixinSourceRange(start, position), new MixinSourceRange(start, position)
+    ));
     while (position < text.Length && text[position] == '<') {
+      var delimiterStart = position;
       var argumentStart = ++position;
       var depth = 1;
       while (position < text.Length && depth != 0) {
@@ -367,24 +389,36 @@ internal static class MixinExpressionLexer {
         Invalid(tokens, text, line);
         return;
       }
-      tokens.Add(
-        new MixinToken(
-          MixinTokenKind.Argument, text.Substring(argumentStart, position - argumentStart - 1).Trim(), line
-        )
-      );
+      var argumentEnd = position - 1;
+      var contentStart = argumentStart;
+      var contentEnd = argumentEnd;
+      while (contentStart < contentEnd && char.IsWhiteSpace(text[contentStart])) contentStart++;
+      while (contentEnd > contentStart && char.IsWhiteSpace(text[contentEnd - 1])) contentEnd--;
+      tokens.Add(new MixinToken(
+        MixinTokenKind.Argument, text.Substring(contentStart, contentEnd - contentStart), line,
+        new MixinSourceRange(delimiterStart, position), new MixinSourceRange(contentStart, contentEnd)
+      ));
     }
     position = SkipWhitespace(text, position);
-    tokens.Add(new MixinToken(MixinTokenKind.Operand, position == text.Length ? "" : text.Substring(position), line));
+    tokens.Add(new MixinToken(
+      MixinTokenKind.Operand, position == text.Length ? "" : text.Substring(position), line,
+      new MixinSourceRange(position, text.Length), new MixinSourceRange(position, text.Length)
+    ));
     End(tokens, line);
   }
 
   private static void Invalid(ICollection<MixinToken> tokens, string text, int line) {
-    tokens.Add(new MixinToken(MixinTokenKind.Invalid, text, line));
+    tokens.Add(new MixinToken(
+      MixinTokenKind.Invalid, text, line,
+      new MixinSourceRange(0, text.Length), new MixinSourceRange(0, text.Length)
+    ));
     End(tokens, line);
   }
 
   private static void End(ICollection<MixinToken> tokens, int line) {
-    tokens.Add(new MixinToken(MixinTokenKind.EndOfLine, "", line));
+    tokens.Add(new MixinToken(
+      MixinTokenKind.EndOfLine, "", line, default, default
+    ));
   }
 
   private static int SkipWhitespace(string text, int position) {

@@ -154,7 +154,7 @@ tasks.buildPlugin {
         }.take(1).joinToString()
 
         val executable = "dotnet"
-        val arguments = mutableListOf("msbuild", file(DotnetSolution).absolutePath, "/p:Configuration=${BuildConfiguration}", "/p:HostFullIdentifier=", "/t:Pack")
+        val arguments = mutableListOf("msbuild", file(DotnetSolution).absolutePath, "/p:Configuration=${BuildConfiguration.get()}", "/p:HostFullIdentifier=", "/t:Pack")
         arguments.add("/p:PackageOutputPath=${layout.projectDirectory.dir("output").asFile.absolutePath}")
         arguments.add("/p:PackageReleaseNotes=${changeNotes}")
         arguments.add("/p:PackageVersion=${version}")
@@ -176,6 +176,7 @@ dependencies {
         jetbrainsRuntime()
         bundledPlugin("com.intellij.resharper.unity")
         bundledPlugin("org.jetbrains.plugins.yaml")
+        bundledModule("intellij.rd.client")
         bundledModule("intellij.rider.languages")
         bundledModule("intellij.rider.rdclient.dotnet")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)

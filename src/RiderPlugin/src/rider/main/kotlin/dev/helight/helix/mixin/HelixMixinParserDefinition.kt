@@ -1,18 +1,28 @@
 package dev.helight.helix.mixin
 
-import com.intellij.lexer.DummyLexer
+import com.intellij.lang.ASTNode
+import com.intellij.lang.ParserDefinition
+import com.intellij.lang.PsiParser
+import com.intellij.lexer.Lexer
 import com.intellij.openapi.project.Project
-import com.intellij.psi.tree.IElementType
-import com.jetbrains.rider.ideaInterop.fileTypes.RiderFileElementType
-import com.jetbrains.rider.ideaInterop.fileTypes.RiderParserDefinitionBase
+import com.intellij.psi.FileViewProvider
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.tree.IFileElementType
+import com.intellij.psi.tree.TokenSet
 
-class HelixMixinParserDefinition : RiderParserDefinitionBase(HelixMixinFileElementType, HelixMixinFileType) {
-    companion object {
-        val HelixMixinElementType = IElementType("RIDER_HELIX_MIXIN", HelixMixinLanguage)
-        val HelixMixinFileElementType = RiderFileElementType(
-            "RIDER_HELIX_MIXIN_FILE", HelixMixinLanguage, HelixMixinElementType
-        )
+class HelixMixinParserDefinition : ParserDefinition {
+    override fun createLexer(project: Project?): Lexer = HelixMixinLexer(project)
+    override fun createParser(project: Project): PsiParser = HelixMixinParser(project)
+    override fun getFileNodeType(): IFileElementType = HelixMixinElementTypes.FILE
+    override fun getWhitespaceTokens(): TokenSet = TokenSet.EMPTY
+    override fun getCommentTokens(): TokenSet = TokenSet.create(HelixMixinTokenTypes.COMMENT)
+    override fun getStringLiteralElements(): TokenSet = TokenSet.EMPTY
+    override fun createFile(viewProvider: FileViewProvider): PsiFile = HelixMixinFile(viewProvider)
+
+    override fun createElement(node: ASTNode): PsiElement = when (node.elementType) {
+        HelixMixinElementTypes.DECLARATION -> HelixMixinDeclarationElement(node)
+        HelixMixinElementTypes.REFERENCE -> HelixMixinReferenceElement(node)
+        else -> HelixMixinPsiElement(node)
     }
-
-    override fun createLexer(project: Project?) = DummyLexer(HelixMixinFileElementType)
 }

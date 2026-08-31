@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using global::MixinLanguage;
+using global::MixinLanguage.Compiler;
 
-namespace MixinLanguage.Compiler;
+namespace MixinLanguage.Analysis;
 
 /// <summary>
 /// Source-oriented view of the compiler syntax used by editor hosts.  It is deliberately a
@@ -13,6 +15,9 @@ public enum MixinEditorSyntaxKind {
   Directive,
   DirectiveName,
   DirectiveArgument,
+  DeclarationDirectiveArgument,
+  ReferenceDirectiveArgument,
+  DeclarationReferenceDirectiveArgument,
   Operand,
   Reference,
   ParenthesizedReference,
@@ -48,16 +53,16 @@ public sealed class MixinEditorSyntaxTree(
   public MixinEditorSyntaxNode Root { get; } = root;
 }
 
-public static partial class MixinExpressionParser {
+public static class MixinEditorSyntaxParser {
   /// <summary>
   /// Parses with the compiler parser and maps that result back onto the unchanged source text.
   /// Trivia and invalid lines remain represented so an editor can construct a lossless tree.
   /// </summary>
-  public static MixinEditorSyntaxTree ParseEditorSyntax(string source) {
+  public static MixinEditorSyntaxTree Parse(string source) {
     source ??= "";
-    var program = Parse(source);
+    var program = MixinExpressionParser.Parse(source);
     var diagnosticLines = new HashSet<int>(program.Diagnostics.Select(item => item.Line));
-    var logicalLines = MixinExpressionLexer.BuildLogicalSourceLines(source);
+    var logicalLines = MixinExpressionLexer.GetLogicalSourceLines(source);
     var children = new List<MixinEditorSyntaxNode>();
     for (var index = 0; index < program.Instructions.Count; index++) {
       if (logicalLines[index].ContinuedFromLine >= 0) continue;
@@ -109,7 +114,9 @@ public static partial class MixinExpressionParser {
     var directiveChildren = new List<MixinEditorSyntaxNode> {
       new(MixinEditorSyntaxKind.DirectiveName, new MixinSourceRange(marker, nameEnd))
     };
+    var command = source.Substring(marker + 1, nameEnd - marker - 1).ToUpperInvariant();
     var position = nameEnd;
+    var argumentIndex = 0;
     while (position < contentEnd && source[position] == '<') {
       var end = FindDelimitedEnd(source, position, contentEnd);
       if (end < 0) {
@@ -126,7 +133,7 @@ public static partial class MixinExpressionParser {
         argumentChildren = ProjectExpression(source, innerStart + 1, innerEnd - 1);
       else argumentChildren = [];
       directiveChildren.Add(new MixinEditorSyntaxNode(
-        MixinEditorSyntaxKind.DirectiveArgument,
+        DirectiveArgumentKind(command, argumentIndex++),
         new MixinSourceRange(position, end), argumentChildren
       ));
       position = end;
@@ -143,6 +150,35 @@ public static partial class MixinExpressionParser {
         MixinEditorSyntaxKind.Error, new MixinSourceRange(contentEnd, contentEnd)
       ));
     return new MixinEditorSyntaxNode(MixinEditorSyntaxKind.Directive, range, directiveChildren);
+  }
+
+  private static MixinEditorSyntaxKind DirectiveArgumentKind(string command, int index) {
+    var declares = command switch {
+      "FUNC" when index == 0 => true,
+      "SCOPE" when index == 0 => true,
+      "LABEL" when index == 0 => true,
+      "LOCAL" when index == 0 => true,
+      "VAR" when index == 0 => true,
+      "TAR" when index == 0 => true,
+      "CARRY" when index == 0 => true,
+      "ANNOTATION" when index == 0 => true,
+      "DERIVATION" when index == 0 => true,
+      "DEFINE_TARGET" when index == 0 => true,
+      _ => false
+    };
+    var references = command switch {
+      "GOTO" when index == 0 => true,
+      "MATCH" when index == 0 => true,
+      "INLINE" when index == 0 => true,
+      "CALL" when index is 0 or 1 => true,
+      "ANNOTATION" when index == 0 => true,
+      "DERIVATION" when index == 0 => true,
+      _ => false
+    };
+    if (declares && references) return MixinEditorSyntaxKind.DeclarationReferenceDirectiveArgument;
+    if (declares) return MixinEditorSyntaxKind.DeclarationDirectiveArgument;
+    if (references) return MixinEditorSyntaxKind.ReferenceDirectiveArgument;
+    return MixinEditorSyntaxKind.DirectiveArgument;
   }
 
   private static MixinEditorSyntaxNode ProjectLogicalLine(
@@ -221,7 +257,7 @@ public static partial class MixinExpressionParser {
     if (end <= start) return [];
     var text = source.Substring(start, end - start);
     var result = new List<MixinEditorSyntaxNode>();
-    foreach (var value in ParseValueExpression(text))
+    foreach (var value in MixinExpressionParser.ParseExpressionValues(text))
       if (value.Reference is not null) result.Add(ProjectReference(value.Reference, start));
 
     var tokens = MixinExpressionLexer.LexExpression(text);
@@ -259,7 +295,7 @@ public static partial class MixinExpressionParser {
     // preceding physical line has been joined by the compiler lexer.
     var syntheticRoot = source[suffixStart] == '#' ? "@this#_" : "@null";
     var synthetic = syntheticRoot + source.Substring(suffixStart, end - suffixStart);
-    var value = ParseValueExpression(synthetic).FirstOrDefault(item => item.Reference is not null);
+    var value = MixinExpressionParser.ParseExpressionValues(synthetic).FirstOrDefault(item => item.Reference is not null);
     if (value?.Reference is null || value.Reference.SourceRange.Start != 0) return result.AsReadOnly();
     var projected = ProjectReference(value.Reference, suffixStart - syntheticRoot.Length);
     result.AddRange(projected.Children.Where(child =>
@@ -271,16 +307,12 @@ public static partial class MixinExpressionParser {
 
   private static MixinEditorSyntaxNode ProjectReference(MixinExpressionReference reference, int offset) {
     var children = new List<MixinEditorSyntaxNode>();
-    var referenceStart = offset + reference.SourceRange.Start;
-    var rootStart = referenceStart + 1 + (reference.Parenthesized ? 1 : 0);
-    var rootLength = reference.Root == MixinExpressionRoot.Null ? 1 : RootText(reference.Root).Length;
     children.Add(new MixinEditorSyntaxNode(
-      MixinEditorSyntaxKind.Root, new MixinSourceRange(rootStart, rootStart + rootLength)
+      MixinEditorSyntaxKind.Root, Shift(reference.RootRange, offset)
     ));
     if (reference.Member is not null) {
-      var memberStart = rootStart + rootLength + 1;
       children.Add(new MixinEditorSyntaxNode(
-        MixinEditorSyntaxKind.Member, new MixinSourceRange(memberStart, memberStart + reference.Member.Length)
+        MixinEditorSyntaxKind.Member, Shift(reference.MemberRange, offset)
       ));
     }
     foreach (var property in reference.Properties) {
@@ -338,13 +370,4 @@ public static partial class MixinExpressionParser {
     position + value.Length <= source.Length &&
     string.CompareOrdinal(source, position, value, 0, value.Length) == 0;
 
-  private static string RootText(MixinExpressionRoot root) => root switch {
-    MixinExpressionRoot.This => "this", MixinExpressionRoot.Target => "target",
-    MixinExpressionRoot.Attribute => "attr", MixinExpressionRoot.Argument => "arg",
-    MixinExpressionRoot.Variable => "var", MixinExpressionRoot.TargetVariable => "tar",
-    MixinExpressionRoot.Local => "local", MixinExpressionRoot.Table => "table",
-    MixinExpressionRoot.Parameter => "param", MixinExpressionRoot.Carry => "carry",
-    MixinExpressionRoot.True => "true", MixinExpressionRoot.False => "false",
-    _ => ""
-  };
 }

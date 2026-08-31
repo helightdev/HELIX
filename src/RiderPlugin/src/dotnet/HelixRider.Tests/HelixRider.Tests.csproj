@@ -19,6 +19,7 @@
   </Target>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\MixinLanguage\Helix.MixinLanguage.csproj" />
     <Reference Include="HelixRider">
       <HintPath>..\HelixRider\bin\HelixRider.Rider\$(Configuration)\HelixRider.dll</HintPath>
       <Private>True</Private>

@@ -24,7 +24,7 @@ public sealed class MixinProgramSyntax {
 
   internal int Count => _instructions.Length;
   public IReadOnlyList<DirectiveInstruction> Instructions => _instructions;
-  internal IReadOnlyList<MixinParseDiagnostic> Diagnostics { get; }
+  public IReadOnlyList<MixinParseDiagnostic> Diagnostics { get; }
 
   internal DirectiveInstruction Get(int index) {
     return _instructions[index];
@@ -43,6 +43,17 @@ public sealed class MixinProgramSyntax {
 }
 
 public abstract class DirectiveInstruction(int line) : MixinSyntaxNode(line) {
+  /// <summary>Range of the leading <c>@</c> marker in the original source.</summary>
+  public MixinSourceRange MarkerRange { get; internal set; }
+  /// <summary>Range of the directive identifier, excluding the leading <c>@</c>.</summary>
+  public MixinSourceRange NameRange { get; internal set; }
+  /// <summary>Ranges of complete <c>&lt;...&gt;</c> arguments.</summary>
+  public IReadOnlyList<MixinSourceRange> ArgumentRanges { get; internal set; } = [];
+  /// <summary>Ranges of argument contents, excluding delimiters and trimmed outer whitespace.</summary>
+  public IReadOnlyList<MixinSourceRange> ArgumentContentRanges { get; internal set; } = [];
+  /// <summary>Range of the operand after directive arguments and separating whitespace.</summary>
+  public MixinSourceRange OperandRange { get; internal set; }
+
   internal abstract void CollectConstants(MixinStringPoolBuilder pool);
 
   private protected static void Collect(
@@ -232,20 +243,36 @@ public sealed class DefineTargetDirectiveSyntax(int l, string name, string value
   }
 }
 
-public sealed record IMixinValue(
-  string Literal, MixinExpressionReference Reference, bool Verbatim = false
-);
+public sealed class IMixinValue(
+  string literal, MixinExpressionReference reference, bool verbatim = false,
+  MixinSourceRange sourceRange = default
+) {
+  public string Literal { get; } = literal;
+  public MixinExpressionReference Reference { get; } = reference;
+  public bool Verbatim { get; } = verbatim;
+  public MixinSourceRange SourceRange { get; internal set; } = sourceRange;
+}
 
-public sealed record DirectiveArgumentSyntax(string Literal, IReadOnlyList<IMixinValue> Expression) {
+public sealed class DirectiveArgumentSyntax(
+  string literal, IReadOnlyList<IMixinValue> expression, MixinSourceRange sourceRange = default
+) {
+  public string Literal { get; } = literal;
+  public IReadOnlyList<IMixinValue> Expression { get; } = expression;
+  public MixinSourceRange SourceRange { get; internal set; } = sourceRange;
   internal bool IsDynamic => Expression is not null;
 }
 
-public sealed record MixinPropertyArgumentSyntax(
-  string Literal,
-  IReadOnlyList<IMixinValue> ValueExpression,
-  IReadOnlyList<MixinExpressionReference> BooleanExpression,
-  MixinSourceRange SourceRange = default
-);
+public sealed class MixinPropertyArgumentSyntax(
+  string literal,
+  IReadOnlyList<IMixinValue> valueExpression,
+  IReadOnlyList<MixinExpressionReference> booleanExpression,
+  MixinSourceRange sourceRange = default
+) {
+  public string Literal { get; } = literal;
+  public IReadOnlyList<IMixinValue> ValueExpression { get; } = valueExpression;
+  public IReadOnlyList<MixinExpressionReference> BooleanExpression { get; } = booleanExpression;
+  public MixinSourceRange SourceRange { get; internal set; } = sourceRange;
+}
 
 internal static class MixinSyntaxFacts {
   internal static string Command(DirectiveInstruction n) {

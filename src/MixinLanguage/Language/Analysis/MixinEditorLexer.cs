@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace MixinLanguage.Compiler;
+namespace MixinLanguage.Analysis;
 
 public enum MixinEditorTokenKind {
   Directive,

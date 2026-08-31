@@ -1,9 +1,14 @@
 <idea-plugin require-restart="true">
   <id>dev.helight.helix</id>
   <name>HELIX</name>
-  <version>_PLACEHOLDER_</version>
-  <vendor url="https://helight.dev">HelightDev</vendor>
-  <idea-version since-build="_PLACEHOLDER_" />
+  <version>0.0.1</version>
+  <vendor url="https://helight.dev">Helight Dev</vendor>
+  <idea-version since-build="262" />
+  <dependencies>
+    <module name="intellij.rd.client" />
+    <module name="intellij.rider.languages" />
+    <module name="intellij.rider.rdclient.dotnet" />
+  </dependencies>
   <depends>com.intellij.modules.rider</depends>
   <depends>com.intellij.resharper.unity</depends>
   <depends>org.jetbrains.plugins.yaml</depends>
@@ -28,17 +33,22 @@
               fieldName="INSTANCE"
               language="HelixMixin"
               patterns="*.HelixSourceGenerator.additionalfile" />
-    <rd.languageAssociation backendLanguage="HELIX_MIXIN" frontendLanguage="HelixMixin" />
-    <lightweight.backend.language.support language="HelixMixin"
-                                          implementationClass="com.jetbrains.rider.rdclient.languages.LightweightBackendLanguage" />
+    <fileEditorProvider implementation="dev.helight.helix.mixin.HelixMixinDetachedEditorProvider" />
     <lang.parserDefinition language="HelixMixin"
                            implementationClass="dev.helight.helix.mixin.HelixMixinParserDefinition" />
     <lang.syntaxHighlighterFactory language="HelixMixin"
                                    implementationClass="dev.helight.helix.mixin.HelixMixinSyntaxHighlighterFactory" />
-    <backend.markup.adapterFactory language="HelixMixin"
-                                   implementationClass="com.jetbrains.rdclient.daemon.FrontendMarkupAdapterFactory" />
-    <backend.actions.support language="HelixMixin"
-                             implementationClass="com.jetbrains.rider.actions.RiderActionSupportPolicy" />
+    <completion.contributor language="HelixMixin"
+                            implementationClass="dev.helight.helix.mixin.HelixMixinCompletionContributor" />
+    <annotator language="HelixMixin"
+               implementationClass="dev.helight.helix.mixin.HelixMixinAnnotator" />
+    <lang.findUsagesProvider language="HelixMixin"
+                             implementationClass="dev.helight.helix.mixin.HelixMixinFindUsagesProvider" />
+    <lang.braceMatcher language="HelixMixin"
+                       implementationClass="dev.helight.helix.mixin.HelixMixinBraceMatcher" />
+    <typedHandler implementation="dev.helight.helix.mixin.HelixMixinTypedHandler" />
+    <backspaceHandlerDelegate implementation="dev.helight.helix.mixin.HelixMixinBackspaceHandler" />
+    <enterHandlerDelegate implementation="dev.helight.helix.mixin.HelixMixinEnterHandler" />
     <projectSettings service="dev.helight.helix.workspace.WorkspaceSettings"/>
     <projectViewPane implementation="dev.helight.helix.workspace.UnityWorkspaceProjectViewPane"
                      id="HelixUnityWorkspace"
