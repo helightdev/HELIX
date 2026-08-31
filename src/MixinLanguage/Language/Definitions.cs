@@ -102,6 +102,12 @@ public enum MixinExpressionOutputTarget {
   Mixin
 }
 
+public enum MixinRootKind {
+  Variable,
+  Roslyn,
+  Constant
+}
+
 public readonly record struct MixinSourceLocation(int Program, int Line);
 
 internal sealed record MixinTargetDescriptor(string Name, bool IsStatic, bool IsPublic, string DelegateType);
@@ -113,7 +119,7 @@ public sealed record MixinDirectiveArgumentMetadata(
 );
 
 public sealed record MixinRootDefinition(
-  string Name, MixinExpressionRoot Root, string Documentation
+  string Name, MixinExpressionRoot Root, MixinRootKind Kind, string Documentation
 );
 
 public class DirectiveDefinition(string name, DirectiveOperandKind operandKind, int argumentCount) {

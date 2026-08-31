@@ -21,15 +21,15 @@ public static class FunctionLibrary {
       ["path"] = new PathFunction(), ["unwrap"] = new UnwrapFunction(), ["switch"] = new SwitchFunction(),
       ["size"] = new SizeFunction(), ["replace"] = new ReplaceFunction(), ["replaceFirst"] = new ReplaceFirstFunction(),
       ["format/1"] = new FormatFunction(1), ["format/2"] = new FormatFunction(2),
-      ["identifier"] = new IdentifierFunction(),
-      ["floatTime"] = new FloatTimeFunction(), ["table"] = new AsTableFunction(), ["put"] = new PutFunction(),
-      ["remove"] = new RemoveFunction(), ["push"] = new PushFunction(), ["pop"] = new PopFunction(),
-      ["joinKeys"] = new JoinKeysFunction(), ["joinValues"] = new JoinValuesFunction(),
-      ["join"] = new JoinEntriesFunction(), ["mapValues"] = new MapValuesFunction(), ["map"] = new MapFunction(),
-      ["filter"] = new FilterFunction(), ["reduce"] = new ReduceFunction(), ["attributes"] = new AttributesFunction(),
-      ["derive"] = new DeriveFunction(), ["attributesOf"] = new AttributesOfFunction(),
-      ["attributesOfExact"] = new AttributesOfExactFunction(), ["attributeOf"] = new AttributeOfFunction(),
-      ["wire"] = new WireFunction(), ["signature"] = new SignaturePredicate(), ["wireable"] = new WireablePredicate(),
+      ["identifier"] = new IdentifierFunction(), ["floatTime"] = new FloatTimeFunction(),
+      ["table"] = new AsTableFunction(), ["put"] = new PutFunction(), ["remove"] = new RemoveFunction(),
+      ["push"] = new PushFunction(), ["pop"] = new PopFunction(), ["joinKeys"] = new JoinKeysFunction(),
+      ["joinValues"] = new JoinValuesFunction(), ["join"] = new JoinEntriesFunction(),
+      ["mapValues"] = new MapValuesFunction(), ["map"] = new MapFunction(), ["filter"] = new FilterFunction(),
+      ["reduce"] = new ReduceFunction(), ["attributes"] = new AttributesFunction(), ["derive"] = new DeriveFunction(),
+      ["attributesOf"] = new AttributesOfFunction(), ["attributesOfExact"] = new AttributesOfExactFunction(),
+      ["attributeOf"] = new AttributeOfFunction(), ["wire"] = new WireFunction(),
+      ["signature"] = new SignaturePredicate(), ["wireable"] = new WireablePredicate(),
       ["exists"] = new ExistsPredicate(), ["and"] = new AndPredicate(), ["or"] = new OrPredicate(),
       ["is"] = new IsPredicate(), ["has"] = new HasPredicate(), ["eq"] = new EqualPredicate(),
       ["matches"] = new MatchesPredicate(), ["isSelf"] = new TraitPredicate("isSelf"),
@@ -63,13 +63,15 @@ public static class FunctionLibrary {
 
   public static bool TryGet(string name, int argumentCount, out FunctionDefinition definition) {
     definition = Definitions.Values.FirstOrDefault(item =>
-      string.Equals(item.Name, name, StringComparison.Ordinal) && item.MatchesArgumentCount(argumentCount));
+      string.Equals(item.Name, name, StringComparison.Ordinal) && item.MatchesArgumentCount(argumentCount)
+    );
     return definition is not null;
   }
 
   public static bool TryResolve(string name, bool predicate, int argumentCount, out FunctionDefinition definition) {
     definition = Definitions.Values.FirstOrDefault(item => item.MatchesArgumentCount(argumentCount) &&
-      (predicate ? item.MatchesPredicate(name) : string.Equals(item.Name, name, StringComparison.Ordinal)));
+      (predicate ? item.MatchesPredicate(name) : string.Equals(item.Name, name, StringComparison.Ordinal))
+    );
     return definition is not null;
   }
 
@@ -122,12 +124,12 @@ public static class DirectiveLibrary {
           Arg(MixinLanguageValueKind.Any)
         ], documentation: "Stores the operand under a key in a local table."
       ),
-      ["SCOPE/0"] = Define("SCOPE", 0, DirectiveOperandKind.None, [], MixinDirectiveSyntaxForm.Scope),
-      ["SCOPE/1"] = Define(
-        "SCOPE", 1, DirectiveOperandKind.None,
-        [Arg(MixinLanguageValueKind.Label, MixinSymbolKind.Label, MixinSymbolUsage.Declaration)],
-        MixinDirectiveSyntaxForm.Scope
-      ),
+      ["SCOPE/0"] = Define("SCOPE", 0, DirectiveOperandKind.None, [], MixinDirectiveSyntaxForm.Scope), ["SCOPE/1"] =
+        Define(
+          "SCOPE", 1, DirectiveOperandKind.None,
+          [Arg(MixinLanguageValueKind.Label, MixinSymbolKind.Label, MixinSymbolUsage.Declaration)],
+          MixinDirectiveSyntaxForm.Scope
+        ),
       ["LABEL"] = Define(
         "LABEL", 1, DirectiveOperandKind.None,
         [Arg(MixinLanguageValueKind.Label, MixinSymbolKind.Label, MixinSymbolUsage.Declaration)],
@@ -156,18 +158,18 @@ public static class DirectiveLibrary {
         MixinDirectiveSyntaxForm.Inline
       ),
       ["END"] = Define("END", 0, DirectiveOperandKind.None, [], MixinDirectiveSyntaxForm.End),
-      ["MATCH/0"] = Define("MATCH", 0, DirectiveOperandKind.Boolean, [], MixinDirectiveSyntaxForm.Match),
-      ["MATCH/1"] = Define(
-        "MATCH", 1, DirectiveOperandKind.Boolean,
-        [Arg(MixinLanguageValueKind.Label, MixinSymbolKind.Label, MixinSymbolUsage.Reference)],
-        MixinDirectiveSyntaxForm.Match
-      ),
+      ["MATCH/0"] = Define("MATCH", 0, DirectiveOperandKind.Boolean, [], MixinDirectiveSyntaxForm.Match), ["MATCH/1"] =
+        Define(
+          "MATCH", 1, DirectiveOperandKind.Boolean,
+          [Arg(MixinLanguageValueKind.Label, MixinSymbolKind.Label, MixinSymbolUsage.Reference)],
+          MixinDirectiveSyntaxForm.Match
+        ),
       ["ASSERT"] = Define("ASSERT", 0, DirectiveOperandKind.Boolean, [], MixinDirectiveSyntaxForm.Assert),
-      ["CODE/0"] = Define("CODE", 0, DirectiveOperandKind.Value, [], MixinDirectiveSyntaxForm.Code),
-      ["CODE/1"] = Define(
-        "CODE", 1, DirectiveOperandKind.Value, [Arg(MixinLanguageValueKind.OutputTarget)],
-        MixinDirectiveSyntaxForm.Code
-      ),
+      ["CODE/0"] = Define("CODE", 0, DirectiveOperandKind.Value, [], MixinDirectiveSyntaxForm.Code), ["CODE/1"] =
+        Define(
+          "CODE", 1, DirectiveOperandKind.Value, [Arg(MixinLanguageValueKind.OutputTarget)],
+          MixinDirectiveSyntaxForm.Code
+        ),
       ["MIXIN/1"] = Define(
         "MIXIN", 1, DirectiveOperandKind.Value, [Arg(MixinLanguageValueKind.Any)],
         MixinDirectiveSyntaxForm.Mixin
@@ -182,23 +184,23 @@ public static class DirectiveLibrary {
       ["VAR"] = NamedValue("VAR", MixinSymbolKind.Variable, MixinDirectiveSyntaxForm.Variable),
       ["TAR"] = NamedValue("TAR", MixinSymbolKind.TargetVariable, MixinDirectiveSyntaxForm.TargetVariable),
       ["CARRY"] = NamedValue("CARRY", MixinSymbolKind.Carry, MixinDirectiveSyntaxForm.Carry),
-      ["RETURN"] = Define("RETURN", 0, DirectiveOperandKind.Value, [], MixinDirectiveSyntaxForm.Return),
-      ["GOTO"] = Define(
-        "GOTO", 1, DirectiveOperandKind.None,
-        [Arg(MixinLanguageValueKind.Label, MixinSymbolKind.Label, MixinSymbolUsage.Reference)],
-        MixinDirectiveSyntaxForm.Goto
-      ),
+      ["RETURN"] = Define("RETURN", 0, DirectiveOperandKind.Value, [], MixinDirectiveSyntaxForm.Return), ["GOTO"] =
+        Define(
+          "GOTO", 1, DirectiveOperandKind.None,
+          [Arg(MixinLanguageValueKind.Label, MixinSymbolKind.Label, MixinSymbolUsage.Reference)],
+          MixinDirectiveSyntaxForm.Goto
+        ),
       ["SKIP"] = Define("SKIP", 0, DirectiveOperandKind.None, [], MixinDirectiveSyntaxForm.Skip),
-      ["FAIL"] = Define("FAIL", 0, DirectiveOperandKind.Value, [], MixinDirectiveSyntaxForm.Fail),
-      ["ANNOTATION"] = Define(
-        "ANNOTATION", 1, DirectiveOperandKind.None,
-        [
-          Arg(
-            MixinLanguageValueKind.CSharpType, MixinSymbolKind.Annotation,
-            MixinSymbolUsage.Declaration | MixinSymbolUsage.Reference
-          )
-        ], MixinDirectiveSyntaxForm.Annotation
-      ),
+      ["FAIL"] = Define("FAIL", 0, DirectiveOperandKind.Value, [], MixinDirectiveSyntaxForm.Fail), ["ANNOTATION"] =
+        Define(
+          "ANNOTATION", 1, DirectiveOperandKind.None,
+          [
+            Arg(
+              MixinLanguageValueKind.CSharpType, MixinSymbolKind.Annotation,
+              MixinSymbolUsage.Declaration | MixinSymbolUsage.Reference
+            )
+          ], MixinDirectiveSyntaxForm.Annotation
+        ),
       ["DERIVATION"] = Define(
         "DERIVATION", 1, DirectiveOperandKind.None,
         [
@@ -225,7 +227,8 @@ public static class DirectiveLibrary {
 
   public static bool TryGet(string name, int argumentCount, out DirectiveDefinition definition) {
     definition = Definitions.Values.FirstOrDefault(item =>
-      string.Equals(item.Name, name, StringComparison.Ordinal) && item.ArgumentCount == argumentCount);
+      string.Equals(item.Name, name, StringComparison.Ordinal) && item.ArgumentCount == argumentCount
+    );
     return definition is not null;
   }
 
@@ -246,17 +249,16 @@ public static class DirectiveLibrary {
     MixinDirectiveSyntaxForm syntaxForm
   ) => Define(
     name, 1, DirectiveOperandKind.Value,
-    [Arg(MixinLanguageValueKind.Identifier, symbol, MixinSymbolUsage.Declaration)], syntaxForm
+    [Arg(MixinLanguageValueKind.Identifier, symbol, MixinSymbolUsage.Declaration)],
+    syntaxForm
   );
 
   private static DirectiveDefinition FunctionDirective(
     FunctionDefinition function, IReadOnlyList<MixinDirectiveArgumentMetadata> arguments,
     int hoistedLocalArgumentIndex = -1, string documentation = null
-  ) {
-    return new DirectiveDefinition(function.Name, DirectiveOperandKind.Value, function.ArgumentCount)
-      .WithLanguageSignature(arguments, documentation: documentation)
-      .WithFunction(function, hoistedLocalArgumentIndex);
-  }
+  ) => new DirectiveDefinition(function.Name, DirectiveOperandKind.Value, function.ArgumentCount)
+    .WithLanguageSignature(arguments, documentation: documentation)
+    .WithFunction(function, hoistedLocalArgumentIndex);
 
   private static MixinDirectiveArgumentMetadata Arg(
     MixinLanguageValueKind kind,
@@ -273,30 +275,76 @@ public static class DirectiveLibrary {
 
 public static class MixinRootLibrary {
   private static readonly IReadOnlyList<MixinRootDefinition> Definitions = [
-    new("target", MixinExpressionRoot.Target, "The target symbol currently being generated."),
-    new("this", MixinExpressionRoot.This, "The current declaring type or symbol."),
-    new("attr", MixinExpressionRoot.Attribute, "The attribute driving the current mixin."),
-    new("arg", MixinExpressionRoot.Argument, "A named argument of the current attribute."),
-    new("var", MixinExpressionRoot.Variable, "A named mixin variable."),
-    new("tar", MixinExpressionRoot.TargetVariable, "A named variable stored on the current target."),
-    new("local", MixinExpressionRoot.Local, "A compiler-generated local mixin value."),
-    new("true", MixinExpressionRoot.True, "The Boolean true value."),
-    new("false", MixinExpressionRoot.False, "The Boolean false value."),
-    new("null", MixinExpressionRoot.Null, "The null mixin value."),
-    new("table", MixinExpressionRoot.Table, "A new empty table value."),
-    new("param", MixinExpressionRoot.Parameter, "A named parameter of the current function scope."),
-    new("carry", MixinExpressionRoot.Carry, "A value carried into an expanded expression scope.")
+    new(
+      Name: "target", Root: MixinExpressionRoot.Target, Kind: MixinRootKind.Roslyn,
+      Documentation: "The target symbol currently being generated."
+    ),
+    new(
+      Name: "this", Root: MixinExpressionRoot.This, Kind: MixinRootKind.Roslyn,
+      Documentation: "The current declaring type or symbol."
+    ),
+    new(
+      Name: "attr", Root: MixinExpressionRoot.Attribute, Kind: MixinRootKind.Roslyn,
+      Documentation: "The attribute driving the current mixin."
+    ),
+    new(
+      Name: "arg", Root: MixinExpressionRoot.Argument, Kind: MixinRootKind.Roslyn,
+      Documentation: "A named argument of the current attribute."
+    ),
+    new(
+      Name: "true", Root: MixinExpressionRoot.True, Kind: MixinRootKind.Constant,
+      Documentation: "The Boolean true value."
+    ),
+    new(
+      Name: "false", Root: MixinExpressionRoot.False, Kind: MixinRootKind.Constant,
+      Documentation: "The Boolean false value."
+    ),
+    new(
+      Name: "null", Root: MixinExpressionRoot.Null, Kind: MixinRootKind.Constant,
+      Documentation: "The null mixin value."
+    ),
+    new(
+      Name: "table", Root: MixinExpressionRoot.Table, Kind: MixinRootKind.Constant,
+      Documentation: "A new empty table value."
+    ),
+    new(
+      Name: "var", Root: MixinExpressionRoot.Variable, Kind: MixinRootKind.Variable,
+      Documentation: "A named mixin variable."
+    ),
+    new(
+      Name: "tar", Root: MixinExpressionRoot.TargetVariable, Kind: MixinRootKind.Variable,
+      Documentation: "A named variable stored on the current target."
+    ),
+    new(
+      Name: "local", Root: MixinExpressionRoot.Local, Kind: MixinRootKind.Variable,
+      Documentation: "A compiler-generated local mixin value."
+    ),
+    new(
+      Name: "param", Root: MixinExpressionRoot.Parameter, Kind: MixinRootKind.Variable,
+      Documentation: "A named parameter of the current function scope."
+    ),
+    new(
+      Name: "carry", Root: MixinExpressionRoot.Carry, Kind: MixinRootKind.Variable,
+      Documentation: "A value carried into an expanded expression scope."
+    )
   ];
-  private static readonly IReadOnlyDictionary<string, MixinRootDefinition> ByName =
-    Definitions.ToDictionary(item => item.Name, StringComparer.Ordinal);
+
+  private static readonly IReadOnlyDictionary<string, MixinRootDefinition> ByName = Definitions.ToDictionary(
+    item => item.Name, StringComparer.Ordinal
+  );
+
   private static readonly IReadOnlyDictionary<MixinExpressionRoot, MixinRootDefinition> ByRoot =
     Definitions.ToDictionary(item => item.Root);
 
-  public static bool TryGet(string name, out MixinRootDefinition definition) =>
-    ByName.TryGetValue(name ?? "", out definition);
+  public static bool TryGet(string name, out MixinRootDefinition definition) => ByName.TryGetValue(
+    name ?? "",
+    out definition
+  );
 
-  public static bool TryGet(MixinExpressionRoot root, out MixinRootDefinition definition) =>
-    ByRoot.TryGetValue(root, out definition);
+  public static bool TryGet(MixinExpressionRoot root, out MixinRootDefinition definition) => ByRoot.TryGetValue(
+    root,
+    out definition
+  );
 
   public static IEnumerable<MixinRootDefinition> Enumerate() => Definitions;
 }
