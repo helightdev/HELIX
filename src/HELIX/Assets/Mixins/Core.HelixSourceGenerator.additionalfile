@@ -13,50 +13,27 @@ func SeedProp {
   local Type @= param:type;
   local Modifier = <>
   local ParameterModifier = <>
-  when(param:in) {
-    local Modifier = <in>
-    local ParameterModifier = <in>
+  when [param] {
+    [:in] -> { local Modifier = <in>; local ParameterModifier = <in> }
+    [:ref] -> { local Modifier = <ref> }
+    [:out] -> { local Modifier = <out> }
   }
-  when(param:ref) {
-    local Modifier = <ref>
+  local selfType @> <{{local#Type}}>()
+  local Datatype = when [local#Type] {
+    [:is<System.String>] -> <global::HELIX.Datatypes.String>
+    [:is<System.Int32>] -> <global::HELIX.Datatypes.Int>
+    [:is<System.Int64>] -> <global::HELIX.Datatypes.Long>
+    [:is<System.Single>] -> <global::HELIX.Datatypes.Float>
+    [:is<System.Double>] -> <global::HELIX.Datatypes.Double>
+    [:is<System.Boolean>] -> <global::HELIX.Datatypes.Bool>
+    [:enum] -> <global::HELIX.Datatypes.Enum[$selfType]>
+    [:is<UnityEngine.Color>] -> <global::HELIX.Datatypes.Color>
+    [:is<UnityEngine.Vector2>] -> <global::HELIX.Datatypes.Vector2>
+    [:is<UnityEngine.Vector3>] -> <global::HELIX.Datatypes.Vector3>
+    [:is<UnityEngine.Vector4>] -> <global::HELIX.Datatypes.Vector4>
+    else -> <global::HELIX.Datatypes.Object[$selfType]>
   }
-  when(param:out) {
-    local Modifier = <out>
-  }
-  local Datatype @> global::HELIX.Datatypes.Object<{{local#Type}}>()
-  when(local#Type:is<System.String>) {
-    local Datatype @> global::HELIX.Datatypes.String
-  }
-  when(local#Type:is<System.Int32>) {
-    local Datatype @> global::HELIX.Datatypes.Int
-  }
-  when(local#Type:is<System.Int64>) {
-    local Datatype @> global::HELIX.Datatypes.Long
-  }
-  when(local#Type:is<System.Single>) {
-    local Datatype @> global::HELIX.Datatypes.Float
-  }
-  when(local#Type:is<System.Double>) {
-    local Datatype @> global::HELIX.Datatypes.Double
-  }
-  when(local#Type:is<System.Boolean>) {
-    local Datatype @> global::HELIX.Datatypes.Bool
-  }
-  when(local#Type:enum) {
-    local Datatype @> global::HELIX.Datatypes.Enum<{{local#Type}}>()
-  }
-  when(local#Type:is<UnityEngine.Color>) {
-    local Datatype @> global::HELIX.Datatypes.Color
-  }
-  when(local#Type:is<UnityEngine.Vector2>) {
-    local Datatype @> global::HELIX.Datatypes.Vector2
-  }
-  when(local#Type:is<UnityEngine.Vector3>) {
-    local Datatype @> global::HELIX.Datatypes.Vector3
-  }
-  when(local#Type:is<UnityEngine.Vector4>) {
-    local Datatype @> global::HELIX.Datatypes.Vector4
-  }
+
   local Equality @> global::System.Collections.Generic.EqualityComparer<{{local#Type}}>.Default.Equals(this.{{local#Name}}, other.{{local#Name}})
   local Hash @> this.{{local#Name}}
   when(local#Type:primitive) {
@@ -112,14 +89,12 @@ func SelectDatatypeConfiguration { return(param#value#configuration) }
 
 func HasDatatypeConfiguration { return(param#value#configuration:exists) }
 
-func SelectDatatypeProperty
-do {
+func SelectDatatypeProperty {
   local returnedText1 @> new global::HELIX.StructurePropertyDatatype<{{var#StructureType}}, {{param#value#type}}>("{{param#value#name}}", {{param#value#datatype}}, (ref {{var#StructureType}} value) => value.{{param#value#name}}, (ref {{var#StructureType}} value, {{param#value#type}} propertyValue) => value.{{param#value#name}} = propertyValue, required: {{param#value#required}}, defaultValue: {{param#value#default}})
   return(local#returnedText1)
 }
 
-func BuildDatatype
-do {
+func BuildDatatype {
   var StructureType @= param#type;
   local Empty = <>
   local PropertySeparator
@@ -142,8 +117,7 @@ do {
   return(local#returnedText2)
 }
 
-func EmitGeneratedStructure
-do {
+func EmitGeneratedStructure {
   local Fields @= param#props:map(SelectField):join< >;
   local Parameters @= param#props:map(SelectParameter):join<, >;
   local Assignments @= param#props:map(SelectAssignment):join< >;
@@ -171,8 +145,7 @@ do {
   return(param#props)
 }
 
-func RequireCompanion
-do {
+func RequireCompanion {
   when(![var#CompanionName:exists]) {
     var CompanionName @> {{this:name}}_Companion
     var DeclareCompanion @> public static partial class {{var#CompanionName}}
@@ -180,8 +153,7 @@ do {
   }
 }
 
-func DeclareCompanion
-do {
+func DeclareCompanion {
   when(![var#CompanionName:exists]) {
     var CompanionName @> {{this:name}}_Companion
     var DeclareCompanion @> public static partial class {{var#CompanionName}}
@@ -328,18 +300,18 @@ mixin HELIX.StructureAttribute {
 mixin HELIX.HookAttribute {
   prelude expression {
     local Name @= attr#target:unwrap;
-    when(local#Name:eq(null)) {
+    when($Name:eq(null)) {
       assert(target:name:matches<^On.*>)
       local IsImplicit @= true;
       local Name @> ${{target:name:regexReplaceFirst<^On><>}}
     }
     when(![target#0:exists]) {
-      inject(local#Name, attr#order:number) @> {{target:name}}();
+      inject($Name, attr#order:number) @> {{target:name}}();
       return<>
     }
-    local Delegate @= resolveMixin(<Delegate>, local#Name);
-    assert(![local#Delegate:eq(null)])
-    inject(local#Name, attr#order:number) @> {{target:name}}({{local#Delegate:wire(target)}});
+    local Delegate @= resolveMixin(<Delegate>, $Name);
+    assert(![$Delegate:eq(null)])
+    inject($Name, attr#order:number) @> {{target:name}}({{$Delegate:wire(target)}});
   }
 }
 

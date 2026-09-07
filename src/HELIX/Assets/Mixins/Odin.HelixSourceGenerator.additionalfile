@@ -6,11 +6,15 @@ mixin HELIX.OdinSerializableAttribute {
     using @> UnityEngine;
     using @> Sirenix.Serialization;
     using @> Sirenix.OdinInspector;
-    emit<Class> @> [SerializeField, HideInInspector]
-    emit<Class> @> private SerializationData serializationData;
-    emit<Class> @> SerializationData ISupportsPrefabSerialization.SerializationData { get { return this.serializationData; } set { this.serializationData = value; } }
-    emit<Class> @> void ISerializationCallbackReceiver.OnAfterDeserialize() { UnitySerializationUtility.DeserializeUnityObject(this, ref this.serializationData); }
-    emit<Class> @> void ISerializationCallbackReceiver.OnBeforeSerialize() { UnitySerializationUtility.SerializeUnityObject(this, ref this.serializationData); }
+    emit<Class> 
+      @> [SerializeField, HideInInspector]
+      @> private SerializationData serializationData;
+      @> SerializationData ISupportsPrefabSerialization.SerializationData 
+        @+ { get { return this.serializationData; } set { this.serializationData = value; } }
+      @> void ISerializationCallbackReceiver.OnAfterDeserialize() 
+        @+ { UnitySerializationUtility.DeserializeUnityObject(this, ref this.serializationData); }
+      @> void ISerializationCallbackReceiver.OnBeforeSerialize() 
+        @+ { UnitySerializationUtility.SerializeUnityObject(this, ref this.serializationData); }
   }
 }
 
@@ -21,9 +25,12 @@ mixin HELIX.OdinSerializableScriptAttribute {
     using @> UnityEngine;
     using @> Sirenix.Serialization;
     using @> Sirenix.OdinInspector;
-    emit<Class> @> [SerializeField, HideInInspector]
-    emit<Class> @> private SerializationData serializationData;
-    emit<Class> @> void ISerializationCallbackReceiver.OnAfterDeserialize() { UnitySerializationUtility.DeserializeUnityObject(this, ref this.serializationData); }
-    emit<Class> @> void ISerializationCallbackReceiver.OnBeforeSerialize() { UnitySerializationUtility.SerializeUnityObject(this, ref this.serializationData); }
+    emit<Class> 
+      @> [SerializeField, HideInInspector]
+      @> private SerializationData serializationData;
+      @> void ISerializationCallbackReceiver.OnAfterDeserialize() 
+        @+ { UnitySerializationUtility.DeserializeUnityObject(this, ref this.serializationData); }
+      @> void ISerializationCallbackReceiver.OnBeforeSerialize() 
+        @+ { UnitySerializationUtility.SerializeUnityObject(this, ref this.serializationData); }
   }
 }
