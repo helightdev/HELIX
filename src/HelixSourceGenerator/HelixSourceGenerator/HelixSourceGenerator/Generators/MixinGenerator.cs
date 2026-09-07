@@ -469,7 +469,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     var attributeName = providerName ?? applied?.AttributeClass?.Name ?? "<unknown>";
     IReadOnlyList<string> targets = [];
     IReadOnlyList<int> orders = [];
-    var selectedProgram = annotated is INamedTypeSymbol ? configuration.TypeProgram : configuration.MemberProgram;
+    var selectedProgram = configuration.Program;
     var expression = selectedProgram.Prelude;
     var lateExpression = selectedProgram.Late;
 
@@ -498,9 +498,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       );
     }
 
-    var arguments = annotated is IMethodSymbol method ? (IReadOnlyList<IParameterSymbol>)method.Parameters : [];
     var expressionContext = new RoslynMixinContext(
-      target, annotated, applied, arguments, compilation, targetDefinitions: targetDefinitions,
+      target, annotated, applied, compilation, targetDefinitions: targetDefinitions,
       preparedExpressions: preparedExpressions, libraries: libraries, hostValues: hostValues,
       mixinCompilation: mixinCompilation
     );
@@ -522,7 +521,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
       evaluated.ExecutionMilliseconds
     );
-    if (lateExpression.Instructions.Count != 0) {
+    if (lateExpression.Expressions.Count != 0) {
       var sourceType = (annotated as INamedTypeSymbol ?? annotated.ContainingType)
         ?.ToDisplayString(TypeDisplayFormat) ?? "";
       var lateTargets = declarations.Values.Select(item => new LateTarget(
@@ -531,7 +530,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         )
       ).ToList();
       DiscoverLateMixinTargets(
-        selectedProgram.LateSource, evaluated.Variables, targetDefinitions, lateTargets
+        lateExpression, evaluated.Variables, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
         lateExpression, selectedProgram.PreludeSource, selectedProgram.LateSource, evaluated.Variables,
@@ -637,29 +636,28 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   }
 
   private static void DiscoverLateMixinTargets(
-    string expression,
+    MixinExpressionExecutionProgram program,
     IReadOnlyDictionary<string, object> variables,
     IReadOnlyDictionary<string, string> targetDefinitions,
     ICollection<LateTarget> targets
   ) {
-    var program = MixinParser.Parse(expression ?? "");
-    foreach (var instruction in program.Instructions) {
-      if (instruction is not TargetedCodeAst mixin ||
-        mixin.Target is null) continue;
-      string resolved = null;
-      if (!mixin.Target.IsDynamic) resolved = mixin.Target.Literal;
-      else if (mixin.Target.Expression is { Count: 1 } &&
-        mixin.Target.Expression[0].Reference is {
-          Root: MixinExpressionRoot.Carry, Member: { } carry, Properties.Count: 0
-        } && variables.TryGetValue(MixinVirtualMachine.CarryLocalPrefix + carry, out var carried))
-        resolved = Convert.ToString(carried, CultureInfo.InvariantCulture);
+    IEnumerable<MixinAst> Descendants(MixinAst node) {
+      yield return node;
+      foreach (var child in node.SemanticChildren)
+        foreach (var descendant in Descendants(child)) yield return descendant;
+    }
+    foreach (var call in program.Expressions.SelectMany(Descendants).OfType<CallExpressionAst>()) {
+      if (call.Name != "inject" || call.Arguments.Count < 2) continue;
+      string resolved = call.Arguments[0] switch {
+        StringExpressionAst text => text.Value,
+        MemberExpressionAst {Receiver: RootExpressionAst {Name: "carry"}, Member: var carry}
+          when variables.TryGetValue(MixinVirtualMachine.CarryLocalPrefix + carry, out var carried) =>
+            Convert.ToString(carried, CultureInfo.InvariantCulture),
+        _ => null
+      };
       if (string.IsNullOrWhiteSpace(resolved)) continue;
       var syntax = RoslynMixinContext.ParseMixinTarget(resolved, targetDefinitions);
-      targets.Add(
-        new LateTarget(
-          resolved, syntax.Name, syntax.IsStatic, syntax.IsPublic, syntax.DelegateType, 0
-        )
-      );
+      targets.Add(new LateTarget(resolved, syntax.Name, syntax.IsStatic, syntax.IsPublic, syntax.DelegateType, 0));
     }
   }
 

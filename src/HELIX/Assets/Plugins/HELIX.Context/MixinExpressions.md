@@ -20,7 +20,7 @@ Mixin Expressions
     @this:name => ClassName
     @target:name => MethodName
     @attr:name => AttributeName
-    @arg#0:name => ArgumentName
+    @target#0:name => ArgumentName
     ```
 
 - `:type` | The type of the variable.
@@ -28,7 +28,7 @@ Mixin Expressions
     @this:type => QualifiedClassName
     @target:type => QualifiedMethodReturnType
     @attr:type => QualifiedAttributeType
-    @arg#0:type => QualifiedArgumentType
+    @target#0:type => QualifiedArgumentType
     ```
 - `:fullName` | The full (not qualified) name of a type. (Includes generic type parameters)
 - `:unwrap` | Unwraps a 'wrapped' value
@@ -267,7 +267,7 @@ All expressions may be wrapped once using `()` round brackets. Example: `@(this:
 
 ## ScopesiedMethodReturnType
     @attr:type => QualifiedAttributeType
-    @arg#0:type => QualifiedArgumentType
+    @target#0:type => QualifiedArgumentType
     ```
 - `@SCOPE` | Begin a new scope ending the previous scope if there is one
 - `@SCOPE<LABEL>` | Begin a new scope ending the previous scope if there is one while storing a local label pointer of the given name
@@ -322,32 +322,32 @@ A function may definie multiple inputs (though currently not used) by diamonds w
 Those are effectively equivalent expressions
 ```
 @SCOPE
-    @MATCH @arg#0:?argument
-    @ASSERT @arg#0:type:?is<IEvt>
-    @CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
+    @MATCH @target#0:?argument
+    @ASSERT @target#0:type:?is<IEvt>
+    @CODE @this.RegisterEventHandler<@target#0:type>(@target, @attr#Priority)
     @RETURN
 @SCOPE
-    @MATCH @arg#0:?ref
-    @ASSERT @arg#0:type:?is<IEvt>
-    @CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
+    @MATCH @target#0:?ref
+    @ASSERT @target#0:type:?is<IEvt>
+    @CODE @this.RegisterEventHandler<@target#0:type>(@target, @attr#Priority)
     @RETURN
 @END
 @FAIL
 ---
 @SCOPE
-    @MATCH @arg#0:?argument
-    @ASSERT @arg#0:type:?is<IEvt>
-    @CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
+    @MATCH @target#0:?argument
+    @ASSERT @target#0:type:?is<IEvt>
+    @CODE @this.RegisterEventHandler<@target#0:type>(@target, @attr#Priority)
     @RETURN
 @SCOPE
-    @MATCH @arg#0:?ref
-    @ASSERT @arg#0:type:?is<IEvt>
-    @CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
+    @MATCH @target#0:?ref
+    @ASSERT @target#0:type:?is<IEvt>
+    @CODE @this.RegisterEventHandler<@target#0:type>(@target, @attr#Priority)
     @RETURN
 ---
-@MATCH @arg#0:!?inout
-@ASSERT @arg#0:type:?is<IEvt>
-@CODE @this.RegisterEventHandler<@arg#0:type>(@target, @attr#Priority)
+@MATCH @target#0:!?inout
+@ASSERT @target#0:type:?is<IEvt>
+@CODE @this.RegisterEventHandler<@target#0:type>(@target, @attr#Priority)
 ```
 
 ## Targets

@@ -5,218 +5,36 @@ import com.intellij.codeInsight.completion.CompletionParameters
 import com.intellij.codeInsight.completion.CompletionProvider
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.completion.CompletionType
-import com.intellij.codeInsight.completion.PrioritizedLookupElement
-import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
-import com.intellij.psi.PsiFile
-import com.intellij.psi.util.PsiTreeUtil
-import dev.helight.helix.protocol.MixinCompletionSite
-import dev.helight.helix.protocol.MixinFileSnapshot
-import dev.helight.helix.protocol.MixinLanguageDefinition
-import dev.helight.helix.protocol.MixinSourceRange
+import dev.helight.helix.mixin.generated.MixinLexer
 
-/** Completion uses synchronous local syntax contexts and enriches them with backend metadata. */
+/** Syntax completion is local and uses the same generated token stream as PSI. */
 class HelixMixinCompletionContributor : CompletionContributor() {
     init {
-        extend(CompletionType.BASIC,
-            PlatformPatterns.psiElement().withLanguage(HelixMixinLanguage), Provider())
-    }
-
-    private class Provider : CompletionProvider<CompletionParameters>() {
-        override fun addCompletions(parameters: CompletionParameters, context: ProcessingContext,
-                                    result: CompletionResultSet) {
-            val file = parameters.originalFile
-            val source = file.text
-            val offset = parameters.offset.coerceIn(0, source.length)
-            val path = file.virtualFile.getUserData(HelixMixinSnapshotService.ORIGINAL_PATH)
-                ?: file.virtualFile.path
-            val service = HelixMixinSnapshotService.getInstance(file.project)
-            service.ensureLanguageCatalog()
-            val snapshot = service.snapshotForText(source, path)
-            val site = snapshot?.let { findSite(it, offset) } ?: localSite(source, offset) ?: return
-            val replacement = site.replacementRange
-            if (replacement.startOffset !in 0..offset || replacement.endOffset !in offset..source.length) return
-            val output = result.withPrefixMatcher(source.substring(replacement.startOffset, offset))
-
-            when (site.kind) {
-                "Directive" -> definitions(service, "Directive").forEach { definition ->
-                    val template = directiveTemplate(definition, source, replacement.startOffset)
-                    output.addElement(item(definition.name, "@${definition.name}", template.text,
-                        definition.documentation, site, offset, 100.0, template.caretOffset))
-                }
-                "Root" -> definitions(service, "Root").forEach { definition ->
-                    output.addElement(item(definition.name, definition.name, "", definition.documentation,
-                        site, offset, 90.0))
-                }
-                "Function", "Predicate" -> definitions(service, site.kind)
-                    .filter { receiverMatches(site.receiverType, it.receiverType) }
-                    .forEach { definition ->
-                        val tail = "<>".repeat(definition.argumentCount)
-                        output.addElement(item(definition.name, definition.name, tail,
-                            definition.receiverType, site, offset, 80.0,
-                            if (definition.argumentCount > 0) 1 else null))
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement().withLanguage(HelixMixinLanguage),
+            object : CompletionProvider<CompletionParameters>() {
+                override fun addCompletions(parameters: CompletionParameters, context: ProcessingContext,
+                                            result: CompletionResultSet) {
+                    val source = parameters.originalFile.text
+                    val offset = parameters.offset.coerceIn(0, source.length)
+                    val parsed = HelixMixinAntlrSyntax.parse(source)
+                    val token = parsed.tokens.firstOrNull { it.start < offset && offset <= it.end }
+                    if (token?.type in setOf(MixinLexer.ARGUMENT_TEXT, MixinLexer.CONTENT_TEXT, MixinLexer.COMMENT,
+                            MixinLexer.SLASH_COMMENT, MixinLexer.ESCAPE_LITERAL, MixinLexer.ESCAPE_HEX)) return
+                    val names = linkedSetOf<String>()
+                    for (index in 1..MixinLexer.VOCABULARY.maxTokenType) {
+                        val name = MixinLexer.VOCABULARY.getSymbolicName(index).orEmpty()
+                        if (name.startsWith("KEYWORD_"))
+                            MixinLexer.VOCABULARY.getLiteralName(index)?.trim('\'')?.let(names::add)
                     }
-                "Label" -> {
-                    psiDeclarations(file, setOf("SCOPE", "LABEL"), site, offset, output, 125.0)
-                    snapshot?.let { declarations(listOf(it), "Label", offset, site, output, 120.0) }
+                    names += listOf("this", "target", "attr", "local", "var", "tar", "carry", "param",
+                        "true", "false", "null", "table", "tuple", "string", "number", "bool", "error", "symbol",
+                        "kind", "function")
+                    HelixMixinAntlrSyntax.declarationNames(parsed.tree).forEach { names += it.text }
+                    names.forEach { result.addElement(LookupElementBuilder.create(it)) }
                 }
-                "DeclaredFunction" -> {
-                    psiDeclarations(file, setOf("FUNC"), site, offset, output, 115.0)
-                    declarations(service.snapshotsInDirectory(path), "Function",
-                        offset, site, output, 110.0, snapshot?.filePath ?: path)
-                }
-                "Local" -> {
-                    psiDeclarations(file, setOf("LOCAL"), site, offset, output, 125.0)
-                    snapshot?.let { declarations(listOf(it), "Local", offset, site, output, 120.0) }
-                }
-                "Variable" -> {
-                    psiDeclarations(file, setOf("VAR"), site, offset, output, 125.0)
-                    snapshot?.let { declarations(listOf(it), "Variable", offset, site, output, 120.0) }
-                }
-                "TargetVariable" -> {
-                    psiDeclarations(file, setOf("TAR"), site, offset, output, 125.0)
-                    snapshot?.let { declarations(listOf(it), "TargetVariable", offset, site, output, 120.0) }
-                }
-                "Carry" -> {
-                    psiDeclarations(file, setOf("CARRY"), site, offset, output, 125.0)
-                    snapshot?.let { declarations(listOf(it), "Carry", offset, site, output, 120.0) }
-                }
-                "OutputTarget" -> definitions(service, "OutputTarget").forEach { definition ->
-                    output.addElement(item(definition.name, definition.name, "", definition.documentation,
-                        site, offset, 80.0))
-                }
-                "CSharpType" -> site.items.forEach { candidate ->
-                    val namespace = candidate.insertText.substringBeforeLast('.', "")
-                    output.addElement(semanticItem(candidate.name, candidate.insertText, namespace,
-                        site, offset, 130.0))
-                }
-            }
-        }
-
-        private fun definitions(service: HelixMixinSnapshotService, kind: String): Sequence<MixinLanguageDefinition> =
-            service.definitions.asSequence().filter { it.kind == kind }.sortedBy { it.name }
-
-        private fun declarations(snapshots: List<MixinFileSnapshot>, kind: String, offset: Int,
-                                 site: MixinCompletionSite, result: CompletionResultSet,
-                                 priority: Double, currentFile: String? = null) {
-            val seen = HashSet<String>()
-            snapshots.sortedBy { if (it.filePath == currentFile) 0 else 1 }.forEach { snapshot ->
-                snapshot.declarations.asSequence().filter {
-                    it.kind == kind && (kind == "Function" ||
-                        offset in it.scope.startOffset..it.scope.endOffset)
-                }.forEach { declaration ->
-                    if (!seen.add(declaration.name)) return@forEach
-                    val own = currentFile == null || snapshot.filePath == currentFile
-                    result.addElement(item(declaration.name, declaration.name, "", kind, site, offset,
-                        priority - if (own) 0.0 else 10.0))
-                }
-            }
-        }
-
-        private fun psiDeclarations(file: PsiFile, commands: Set<String>, site: MixinCompletionSite,
-                                    offset: Int, result: CompletionResultSet, priority: Double) {
-            val seen = HashSet<String>()
-            PsiTreeUtil.findChildrenOfType(file, HelixMixinDeclarationElement::class.java).forEach { declaration ->
-                val directive = generateSequence(declaration.parent) { it.parent }
-                    .firstOrNull { it.node.elementType == HelixMixinElementTypes.DIRECTIVE }
-                    ?: return@forEach
-                val command = directive.children.firstOrNull {
-                    it.node.elementType == HelixMixinElementTypes.DIRECTIVE_NAME
-                }?.text?.trimStart('@')?.uppercase() ?: return@forEach
-                val name = declaration.text
-                if (command in commands && name.isNotBlank() && seen.add(name))
-                    result.addElement(item(name, name, "", command, site, offset, priority))
-            }
-        }
-
-        private fun item(name: String, presentable: String, tail: String, type: String,
-                         site: MixinCompletionSite, caretOffset: Int, priority: Double,
-                         caretInTail: Int? = null): LookupElement {
-            val builder = LookupElementBuilder.create(name)
-                .withPresentableText(presentable)
-                .withTailText(tail, true)
-                .withTypeText(type, true)
-                .withInsertHandler { insertion, _ ->
-                    val suffixLength = (site.replacementRange.endOffset - caretOffset).coerceAtLeast(0)
-                    if (suffixLength > 0) {
-                        val end = (insertion.tailOffset + suffixLength).coerceAtMost(insertion.document.textLength)
-                        insertion.document.deleteString(insertion.tailOffset, end)
-                    }
-                    val tailStart = insertion.tailOffset
-                    if (tail.isNotEmpty()) insertion.document.insertString(tailStart, tail)
-                    if (caretInTail != null)
-                        insertion.editor.caretModel.moveToOffset(tailStart + caretInTail)
-                }
-            return PrioritizedLookupElement.withPriority(builder, priority)
-        }
-
-        private fun semanticItem(name: String, insertText: String, type: String,
-                                 site: MixinCompletionSite, caretOffset: Int,
-                                 priority: Double): LookupElement {
-            val builder = LookupElementBuilder.create(insertText)
-                .withLookupString(name)
-                .withPresentableText(name)
-                .withTailText(if (type.isEmpty()) "" else "  $type", true)
-                .withTypeText("C# type", true)
-                .withInsertHandler { insertion, _ ->
-                    val suffixLength = (site.replacementRange.endOffset - caretOffset).coerceAtLeast(0)
-                    if (suffixLength > 0) {
-                        val end = (insertion.tailOffset + suffixLength)
-                            .coerceAtMost(insertion.document.textLength)
-                        insertion.document.deleteString(insertion.tailOffset, end)
-                    }
-                }
-            return PrioritizedLookupElement.withPriority(builder, priority)
-        }
-
-        private fun receiverMatches(actual: String, expected: String): Boolean =
-            actual == "Any" || expected == "Any" || expected == "None" || actual == expected
-
-        private fun findSite(snapshot: MixinFileSnapshot, offset: Int): MixinCompletionSite? =
-            snapshot.completionSites.asSequence().filter {
-                if (it.activationRange.startOffset == it.activationRange.endOffset)
-                    offset == it.activationRange.startOffset
-                else offset in it.activationRange.startOffset..it.activationRange.endOffset
-            }.minWithOrNull(compareBy<MixinCompletionSite> {
-                it.activationRange.endOffset - it.activationRange.startOffset
-            }.thenByDescending { it.replacementRange.endOffset - it.replacementRange.startOffset })
-
-        private fun localSite(source: String, offset: Int): MixinCompletionSite? =
-            HelixMixinLocalCompletionParser.at(source, offset)?.let { context ->
-                MixinCompletionSite(context.kind,
-                    MixinSourceRange(context.replacementStart, context.replacementEnd),
-                    MixinSourceRange(context.replacementStart, context.replacementEnd),
-                    context.receiverType, emptyArray())
-            }
-
-        private fun directiveTemplate(definition: MixinLanguageDefinition, source: String,
-                                      replacementStart: Int): CompletionTemplate {
-            val arguments = "<>".repeat(definition.argumentCount)
-            val operand = if (definition.operandType != "None") " " else ""
-            val lineStart = source.lastIndexOf('\n', (replacementStart - 1).coerceAtLeast(0))
-                .let { if (it < 0) 0 else it + 1 }
-            val indent = source.substring(lineStart, replacementStart.coerceAtMost(source.length))
-                .takeWhile { it == ' ' || it == '\t' }
-            val end = if (definition.name in CLOSED_DIRECTIVES)
-                "\n${indent}  \n${indent}@END" else ""
-            val text = arguments + operand + end
-            val caret = when {
-                definition.argumentCount > 0 -> 1
-                definition.operandType != "None" -> arguments.length + 1
-                definition.name in CLOSED_DIRECTIVES -> text.indexOf('\n') + 3
-                else -> null
-            }
-            return CompletionTemplate(text, caret)
-        }
-
-        private data class CompletionTemplate(val text: String, val caretOffset: Int?)
-
-        companion object {
-            private val CLOSED_DIRECTIVES = setOf(
-                "FUNC", "ANNOTATION", "DERIVATION", "PRELUDE", "DIRECTIVE"
-            )
-        }
+            })
     }
 }

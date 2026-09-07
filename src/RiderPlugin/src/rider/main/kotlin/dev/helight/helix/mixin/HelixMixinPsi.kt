@@ -140,76 +140,19 @@ class HelixMixinReferenceElement(node: ASTNode) : HelixMixinPsiElement(node), Ps
     override fun getCanonicalText(): String = text
 
     override fun resolve(): PsiElement? {
-        val snapshot = snapshot()
-        val absolute = textRange
-        val reference = snapshot?.references?.firstOrNull {
-            it.range.startOffset == absolute.startOffset && it.range.endOffset == absolute.endOffset
+        val mixinType = HelixAntlrTypes.rules[dev.helight.helix.mixin.generated.MixinParser.RULE_mixinDeclaration]
+        val functionType = HelixAntlrTypes.rules[dev.helight.helix.mixin.generated.MixinParser.RULE_funcDeclaration]
+        val scope = generateSequence(parent) { it.parent }.firstOrNull { it.node.elementType == mixinType }
+        val declarations = PsiTreeUtil.findChildrenOfType(containingFile, HelixMixinDeclarationElement::class.java)
+            .filter { it.text == text && it.parent.node.elementType == functionType }
+        val local = declarations.filter { declaration ->
+            generateSequence(declaration.parent) { it.parent }.firstOrNull { it.node.elementType == mixinType } === scope
         }
-        if (reference == null || reference.targetFilePath.isBlank()) return resolveLocally()
-        val currentPath = containingFile.virtualFile
-            .getUserData(HelixMixinSnapshotService.ORIGINAL_PATH)
-            ?: containingFile.virtualFile.path
-        val psiFile = if (normalise(currentPath) == normalise(reference.targetFilePath)) {
-            containingFile
-        } else {
-            val targetFile = HelixMixinDetachedWorkspaceService.getInstance(project)
-                .detachedFile(reference.targetFilePath)
-                ?: HelixMixinSnapshotService.getInstance(project).virtualFile(reference.targetFilePath)
-                ?: LocalFileSystem.getInstance().findFileByPath(reference.targetFilePath)
-                ?: return null
-            PsiManager.getInstance(project).findFile(targetFile) ?: return null
+        if (local.size == 1) return local.single()
+        if (local.isNotEmpty()) return null
+        return declarations.singleOrNull { declaration ->
+            generateSequence(declaration.parent) { it.parent }.none { it.node.elementType == mixinType }
         }
-        val start = reference.targetRange.startOffset.coerceIn(0, psiFile.textLength)
-        val end = reference.targetRange.endOffset.coerceIn(start, psiFile.textLength)
-        var candidate: PsiElement? = if (start < psiFile.textLength) psiFile.findElementAt(start) else null
-        if (reference.kind == "CSharpType") return candidate
-        while (candidate != null) {
-            if (candidate is HelixMixinDeclarationElement &&
-                candidate.textRange.startOffset == start && candidate.textRange.endOffset == end) return candidate
-            candidate = candidate.parent
-        }
-        return null
-    }
-
-    private fun resolveLocally(): PsiElement? {
-        val expectedCommands = when (containingDirectiveName()) {
-            "GOTO", "MATCH" -> setOf("SCOPE", "LABEL")
-            "CALL", "INLINE" -> setOf("FUNC")
-            else -> when (namedRoot()) {
-                "local" -> setOf("LOCAL")
-                "var" -> setOf("VAR")
-                "tar" -> setOf("TAR")
-                "carry" -> setOf("CARRY")
-                else -> emptySet()
-            }
-        }
-        if (expectedCommands.isEmpty()) return null
-        return PsiTreeUtil.findChildrenOfType(containingFile, HelixMixinDeclarationElement::class.java)
-            .asSequence().filter { it.text == text }
-            .firstOrNull { declaration -> declaration.containingDirectiveName() in expectedCommands }
-    }
-
-    private fun containingDirectiveName(): String? {
-        val directive = generateSequence(parent) { it.parent }
-            .firstOrNull { it.node.elementType == HelixMixinElementTypes.DIRECTIVE } ?: return null
-        val name = directive.children.firstOrNull {
-            it.node.elementType == HelixMixinElementTypes.DIRECTIVE_NAME
-        }?.text ?: return null
-        return name.trimStart('@').uppercase()
-    }
-
-    private fun namedRoot(): String? {
-        val reference = generateSequence(parent) { it.parent }
-            .firstOrNull { it.node.elementType == HelixMixinElementTypes.REFERENCE_EXPRESSION } ?: return null
-        return reference.children.firstOrNull { it.node.elementType == HelixMixinElementTypes.ROOT }?.text
-    }
-
-    private fun PsiElement.containingDirectiveName(): String? {
-        val directive = generateSequence(parent) { it.parent }
-            .firstOrNull { it.node.elementType == HelixMixinElementTypes.DIRECTIVE } ?: return null
-        return directive.children.firstOrNull {
-            it.node.elementType == HelixMixinElementTypes.DIRECTIVE_NAME
-        }?.text?.trimStart('@')?.uppercase()
     }
 
     override fun handleElementRename(newElementName: String): PsiElement {
@@ -217,25 +160,10 @@ class HelixMixinReferenceElement(node: ASTNode) : HelixMixinPsiElement(node), Ps
         document.replaceString(textRange.startOffset, textRange.endOffset, newElementName)
         return this
     }
-
     override fun bindToElement(element: PsiElement): PsiElement =
         throw IncorrectOperationException("Mixin references cannot be rebound")
-
-    override fun isReferenceTo(element: PsiElement): Boolean {
-        val resolved = resolve() ?: return false
-        return resolved.manager.areElementsEquivalent(resolved, element)
-    }
-
+    override fun isReferenceTo(element: PsiElement): Boolean =
+        resolve()?.let { manager.areElementsEquivalent(it, element) } ?: false
     override fun getVariants(): Array<Any> = emptyArray()
     override fun isSoft(): Boolean = false
-
-    private fun snapshot() = containingFile.getUserData(HelixMixinSnapshotService.SEMANTIC_SNAPSHOT)
-        ?.takeIf { it.sourceHash == HelixMixinSnapshotService.sourceHash(containingFile.text) }
-        ?: HelixMixinSnapshotService.getInstance(project).snapshotForText(
-            containingFile.text,
-            containingFile.virtualFile.getUserData(HelixMixinSnapshotService.ORIGINAL_PATH)
-                ?: containingFile.virtualFile.path
-        )
-
-    private fun normalise(path: String): String = path.replace('\\', '/')
 }

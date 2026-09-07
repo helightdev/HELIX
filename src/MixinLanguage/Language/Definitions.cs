@@ -7,78 +7,13 @@ using Mixins.Runtime;
 
 namespace Mixins;
 
-public enum DirectiveOperandKind { None, Value, Boolean }
-
-/// <summary>
-/// Coarse language types used by editors and other analysis clients. They are intentionally
-/// broader than runtime <see cref="IMixinValue"/> implementations: dynamic expressions remain
-/// valid while statically meaningful call sites can still offer completion and diagnostics.
-/// </summary>
-public enum MixinLanguageValueKind {
-  None,
-  Any,
-  Text,
-  Table,
-  Symbol,
-  Type,
-  Boolean,
-  Function,
-  CSharpType,
-  Identifier,
-  Label,
-  OutputTarget,
-  Expression
-}
-
-[Flags]
-public enum MixinSymbolUsage { None = 0, Declaration = 1, Reference = 2 }
-
-public enum MixinSymbolKind {
-  None,
-  Function,
-  Label,
-  Local,
-  Variable,
-  TargetVariable,
-  Carry,
-  Annotation,
-  Derivation,
-  Target,
-  CSharpType
-}
-
-internal enum MixinDirectiveSyntaxForm {
-  Invocation,
-  Scope,
-  Label,
-  Function,
-  Call,
-  Inline,
-  End,
-  Match,
-  Assert,
-  Code,
-  Mixin,
-  Using,
-  Log,
-  Local,
-  Variable,
-  TargetVariable,
-  Carry,
-  Return,
-  Goto,
-  Skip,
-  Fail,
-  Annotation,
-  Prelude,
-  DefineTarget
-}
+/// <summary>Flat runtime kinds. Any is a signature wildcard, not a parent kind.</summary>
+public enum MixinValueKind { Any, Null, String, Bool, Number, Tuple, Table, Symbol, Function, Error, Kind }
 
 public enum MixinExpressionRoot {
   Target,
   This,
   Attribute,
-  Argument,
   Variable,
   TargetVariable,
   Local,
@@ -102,137 +37,93 @@ public enum MixinExpressionOutputTarget {
   Mixin
 }
 
-public enum MixinRootKind {
-  Variable,
-  Roslyn,
-  Constant
-}
-
 public readonly record struct MixinSourceLocation(int Program, int Line);
 
 internal sealed record MixinTargetDescriptor(string Name, bool IsStatic, bool IsPublic, string DelegateType);
 
-public sealed record MixinDirectiveArgumentMetadata(
-  MixinLanguageValueKind ValueKind,
-  MixinSymbolKind SymbolKind = MixinSymbolKind.None,
-  MixinSymbolUsage SymbolUsage = MixinSymbolUsage.None
-);
-
 public sealed record MixinRootDefinition(
-  string Name, MixinExpressionRoot Root, MixinRootKind Kind, string Documentation
+  string Name, MixinExpressionRoot Root, MixinValueKind Kind, string Documentation
 );
 
-public class DirectiveDefinition(string name, DirectiveOperandKind operandKind, int argumentCount) {
-  public string Name { get; } = name;
-  public DirectiveOperandKind OperandKind { get; } = operandKind;
-  public int ArgumentCount { get; } = argumentCount;
-  public MixinLanguageValueKind OperandType { get; private set; }
-  public IReadOnlyList<MixinDirectiveArgumentMetadata> Arguments { get; private set; }
-  public IReadOnlyList<MixinLanguageValueKind> ArgumentTypes =>
-    Arguments.Select(argument => argument.ValueKind).ToArray();
-  public string Documentation { get; private set; }
-  public FunctionDefinition Function { get; private set; }
-  public int HoistedLocalArgumentIndex { get; private set; } = -1;
-
-  internal DirectiveDefinition WithLanguageSignature(
-    IReadOnlyList<MixinDirectiveArgumentMetadata> arguments,
-    MixinLanguageValueKind? operandType = null,
-    string documentation = null
-  ) {
-    if (arguments is null) throw new ArgumentNullException(nameof(arguments));
-    if (string.IsNullOrWhiteSpace(documentation))
-      throw new ArgumentException("Directive documentation is required.", nameof(documentation));
-    if (arguments.Count != ArgumentCount)
-      throw new ArgumentException("Directive argument signature does not match its arity.", nameof(arguments));
-    OperandType = operandType ?? OperandKind switch {
-      DirectiveOperandKind.Boolean => MixinLanguageValueKind.Boolean,
-      DirectiveOperandKind.Value => MixinLanguageValueKind.Expression,
-      _ => MixinLanguageValueKind.None
-    };
-    Arguments = arguments;
-    Documentation = documentation;
-    return this;
-  }
-
-  public MixinDirectiveArgumentMetadata GetArgumentMetadata(int index) =>
-    index >= 0 && index < Arguments.Count ? Arguments[index] : null;
-
-  public string ArgumentCountError() =>
-    $"@{Name} requires {ArgumentCount}{(ArgumentCount == 1 ? " argument" : " arguments")}";
-
-  internal virtual InstructionAst CreateSyntax(MixinDirectiveSyntaxData data) =>
-    new DirectiveInvocationAst(this, data.ParsedArguments, data.ValueOperand);
-
-  internal DirectiveDefinition WithFunction(
-    FunctionDefinition function, int hoistedLocalArgumentIndex = -1
-  ) {
-    Function = function ?? throw new ArgumentNullException(nameof(function));
-    if (!function.MatchesArgumentCount(ArgumentCount))
-      throw new ArgumentException("Directive and function argument descriptors must match.", nameof(function));
-    if (!function.ArgumentTypes.SequenceEqual(ArgumentTypes))
-      throw new ArgumentException("Directive and function argument types must match.", nameof(function));
-    HoistedLocalArgumentIndex = hoistedLocalArgumentIndex;
-    return this;
-  }
+public interface IMixinSignature {
+  string Name { get; }
+  int ArgumentCount { get; }
+  bool MatchesArgumentCount(int count);
 }
 
-internal sealed class SyntaxDirectiveDefinition(
-  string name, DirectiveOperandKind operandKind, int argumentCount,
-  MixinDirectiveSyntaxForm syntaxForm
-) : DirectiveDefinition(name, operandKind, argumentCount) {
-  internal override InstructionAst CreateSyntax(MixinDirectiveSyntaxData data) {
-    var arguments = data.Arguments;
-    return syntaxForm switch {
-      MixinDirectiveSyntaxForm.Scope => new ScopeAst(arguments.FirstOrDefault()),
-      MixinDirectiveSyntaxForm.Label => new LabelAst(arguments[0]),
-      MixinDirectiveSyntaxForm.Function => new FunctionAst(arguments[0]),
-      MixinDirectiveSyntaxForm.Call => new CallAst(
-        arguments.Count == 2 ? arguments[1] : arguments[0],
-        arguments.Count == 2 ? arguments[0] : null, data.ValueOperand
-      ),
-      MixinDirectiveSyntaxForm.Inline => new InlineAst(arguments[0]),
-      MixinDirectiveSyntaxForm.End => new EndAst(),
-      MixinDirectiveSyntaxForm.Match => new MatchAst(arguments.FirstOrDefault(), data.BooleanOperand),
-      MixinDirectiveSyntaxForm.Assert => new AssertAst(data.BooleanOperand),
-      MixinDirectiveSyntaxForm.Code => CreateCodeSyntax(data),
-      MixinDirectiveSyntaxForm.Mixin => new TargetedCodeAst(
-        data.ParsedArguments[0], data.ParsedArguments.Count > 1 ? data.ParsedArguments[1] : null, data.ValueOperand
-      ),
-      MixinDirectiveSyntaxForm.Using => new UsingAst(data.ValueOperand),
-      MixinDirectiveSyntaxForm.Log => new LogAst(data.ValueOperand),
-      MixinDirectiveSyntaxForm.Local => new LocalAst(arguments[0], data.ValueOperand),
-      MixinDirectiveSyntaxForm.Variable => new VariableAst(arguments[0], data.ValueOperand),
-      MixinDirectiveSyntaxForm.TargetVariable => new TargetVariableAst(arguments[0], data.ValueOperand),
-      MixinDirectiveSyntaxForm.Carry => new CarryAst(arguments[0], data.ValueOperand),
-      MixinDirectiveSyntaxForm.Return => new ReturnAst(data.ValueOperand),
-      MixinDirectiveSyntaxForm.Goto => new GotoAst(arguments[0]),
-      MixinDirectiveSyntaxForm.Skip => new SkipAst(),
-      MixinDirectiveSyntaxForm.Fail => new FailAst(data.ValueOperand),
-      MixinDirectiveSyntaxForm.Annotation => new AnnotationAst(arguments[0]),
-      MixinDirectiveSyntaxForm.Prelude => new PreludeAst(),
-      MixinDirectiveSyntaxForm.DefineTarget => new DefineTargetAst(arguments[0], arguments[1]),
-      _ => base.CreateSyntax(data)
-    };
+public sealed class MixinSignatureRegistry<T> where T : IMixinSignature {
+  private readonly IReadOnlyDictionary<string, T> _definitions;
+
+  internal MixinSignatureRegistry(IReadOnlyDictionary<string, T> definitions) {
+    _definitions = definitions;
   }
 
-  private static InstructionAst CreateCodeSyntax(MixinDirectiveSyntaxData data) {
-    var argument = data.Arguments.FirstOrDefault();
-    if (Enum.TryParse<MixinExpressionOutputTarget>(argument ?? "TARGET", true, out var target))
-      return new CodeAst(target, null, data.ValueOperand);
-    return new CodeAst(
-      MixinExpressionOutputTarget.Injection, argument, data.ValueOperand
+  public bool TryGet(string name, int argumentCount, out T definition) {
+    definition = _definitions.Values.FirstOrDefault(item =>
+      string.Equals(item.Name, name, StringComparison.Ordinal) && item.MatchesArgumentCount(argumentCount)
     );
+    return definition is not null;
+  }
+
+  public IEnumerable<T> Enumerate() => _definitions.Values;
+}
+
+internal static class MixinSignatureRegistry {
+  internal static MixinSignatureRegistry<T> Build<T>(
+    Action<MixinSignatureRegistryBuilder<T>> configure,
+    Action<IEnumerable<T>> validate = null
+  ) where T : IMixinSignature {
+    var builder = new MixinSignatureRegistryBuilder<T>();
+    configure(builder);
+    return validate is null ? builder.Build() : builder.Build(validate);
   }
 }
 
-public abstract class FunctionDefinition {
-  private string _predicateAlias;
+internal sealed class MixinSignatureRegistryBuilder<T> where T : IMixinSignature {
+  private readonly Dictionary<string, T> _definitions = new(StringComparer.Ordinal);
+
+  internal MixinSignatureRegistryBuilder<T> Add(T definition) {
+    var key = definition.Name;
+    while (_definitions.ContainsKey(key)) key += "/";
+    _definitions.Add(key, definition);
+    return this;
+  }
+
+  internal MixinSignatureRegistryBuilder<T> Add(params T[] definitions) => AddRange(definitions);
+
+  internal MixinSignatureRegistryBuilder<T> AddRange(IEnumerable<T> definitions) {
+    foreach (var definition in definitions) Add(definition);
+    return this;
+  }
+
+  internal IEnumerable<T> Enumerate() => _definitions.Values;
+
+  internal T Get(string name, int argumentCount) => _definitions.Values.First(item =>
+    string.Equals(item.Name, name, StringComparison.Ordinal) && item.MatchesArgumentCount(argumentCount)
+  );
+
+  internal MixinSignatureRegistryBuilder<T> Configure(
+    string name, int argumentCount, Action<T> configure
+  ) {
+    configure(Get(name, argumentCount));
+    return this;
+  }
+
+  internal MixinSignatureRegistry<T> Build() => new(_definitions);
+
+  internal MixinSignatureRegistry<T> Build(Action<IEnumerable<T>> validate) {
+    validate(_definitions.Values);
+    return Build();
+  }
+}
+
+public abstract class FunctionDefinition : IMixinSignature {
 
   protected FunctionDefinition(
     string name, int argumentCount,
-    MixinLanguageValueKind receiverType = MixinLanguageValueKind.Any,
-    MixinLanguageValueKind resultType = MixinLanguageValueKind.Any,
-    IReadOnlyList<MixinLanguageValueKind> argumentTypes = null,
+    MixinValueKind receiverType = MixinValueKind.Any,
+    MixinValueKind resultType = MixinValueKind.Any,
+    IReadOnlyList<MixinValueKind> argumentTypes = null,
     string documentation = null, bool variadic = false
   ) {
     Name = name;
@@ -241,7 +132,7 @@ public abstract class FunctionDefinition {
     ReceiverType = receiverType;
     ResultType = resultType;
     ArgumentTypes = argumentTypes ?? [
-      .. Enumerable.Repeat(MixinLanguageValueKind.Any, argumentCount + (variadic ? 1 : 0))
+      .. Enumerable.Repeat(MixinValueKind.Any, argumentCount + (variadic ? 1 : 0))
     ];
     Documentation = documentation ?? "Transforms the current value.";
     if (ArgumentTypes.Count != argumentCount + (variadic ? 1 : 0))
@@ -251,10 +142,9 @@ public abstract class FunctionDefinition {
   public string Name { get; }
   public int ArgumentCount { get; }
   public bool IsVariadic { get; }
-  public virtual bool IsPredicate => false;
-  public MixinLanguageValueKind ReceiverType { get; private set; }
-  public MixinLanguageValueKind ResultType { get; private set; }
-  public IReadOnlyList<MixinLanguageValueKind> ArgumentTypes { get; private set; }
+  public MixinValueKind ReceiverType { get; private set; }
+  public MixinValueKind ResultType { get; private set; }
+  public IReadOnlyList<MixinValueKind> ArgumentTypes { get; private set; }
   public string Documentation { get; private set; }
 
   public bool MatchesArgumentCount(int count) => IsVariadic ? count >= ArgumentCount : count == ArgumentCount;
@@ -263,45 +153,43 @@ public abstract class FunctionDefinition {
     ? $":{Name} requires at least {ArgumentCount}{(ArgumentCount == 1 ? " argument" : " arguments")}"
     : $":{Name} requires {ArgumentCount}{(ArgumentCount == 1 ? " argument" : " arguments")}";
 
-  public MixinLanguageValueKind GetArgumentType(int index) {
-    if (index < 0 || ArgumentTypes.Count == 0) return MixinLanguageValueKind.None;
+  public MixinValueKind GetArgumentType(int index) {
+    if (index < 0 || ArgumentTypes.Count == 0) return MixinValueKind.Any;
     if (index < ArgumentTypes.Count) return ArgumentTypes[index];
-    return IsVariadic ? ArgumentTypes[ArgumentTypes.Count - 1] : MixinLanguageValueKind.None;
+    return IsVariadic ? ArgumentTypes[ArgumentTypes.Count - 1] : MixinValueKind.Any;
   }
 
-  internal FunctionDefinition WithPredicateAlias(string alias) {
-    _predicateAlias = string.IsNullOrWhiteSpace(alias) ? null : alias;
-    return this;
+  public virtual bool HasEffects => false;
+  public virtual bool AcceptsErrors => false;
+  public virtual IReadOnlyList<int> CSharpTypeArguments => Array.Empty<int>();
+  internal bool MatchesValues(IMixinValue[] values) {
+    if (!MatchesArgumentCount(values.Length)) return false;
+    for (var index = 0; index < values.Length; index++) {
+      var expected = GetArgumentType(index);
+      if (expected != MixinValueKind.Any && KindMixinValue.Of(values[index]).ValueKind != expected) return false;
+    }
+    return true;
   }
-
-  internal bool MatchesPredicate(string name) => IsPredicate && (
-    string.Equals(Name, name, StringComparison.Ordinal) ||
-    string.Equals(_predicateAlias, name, StringComparison.Ordinal)
-  );
-
-  public abstract IMixinValue Invoke(
-    ExecutionContext context, IMixinValue instance, IReadOnlyList<IMixinValue> arguments, bool negated
-  );
+  internal abstract IMixinValue Execute(LanguageExecution execution, IMixinValue[] arguments, int line);
 }
 
 internal abstract class EvaluatedFunctionDefinition(
   string name, int argumentCount,
-  MixinLanguageValueKind receiverType = MixinLanguageValueKind.Any,
-  MixinLanguageValueKind resultType = MixinLanguageValueKind.Any,
-  IReadOnlyList<MixinLanguageValueKind> argumentTypes = null,
-  bool predicate = false, bool variadic = false
+  MixinValueKind receiverType = MixinValueKind.Any,
+  MixinValueKind resultType = MixinValueKind.Any,
+  IReadOnlyList<MixinValueKind> argumentTypes = null,
+  bool variadic = false
 ) : FunctionDefinition(
-  name, argumentCount, receiverType,
-  predicate ? MixinLanguageValueKind.Boolean : resultType, argumentTypes,
-  predicate ? "Tests the current value." : "Transforms the current value.", variadic
+  name, argumentCount + 1, receiverType,
+  resultType, new[] {receiverType}.Concat(argumentTypes ?? Enumerable.Repeat(MixinValueKind.Any, argumentCount + (variadic ? 1 : 0))).ToArray(),
+  "Transforms the current value.", variadic
 ) {
   private readonly string _cacheKey = ":" + name;
-  public override bool IsPredicate => predicate;
 
-  public sealed override IMixinValue Invoke(
-    ExecutionContext context, IMixinValue instance,
-    IReadOnlyList<IMixinValue> arguments, bool negated
-  ) {
+  internal sealed override IMixinValue Execute(LanguageExecution execution, IMixinValue[] supplied, int line) {
+    var context = execution.Context;
+    var instance = supplied[0];
+    IReadOnlyList<IMixinValue> arguments = supplied.Skip(1).ToArray();
     using var profile = MixinProfiler.MeasureFunction(Name);
     instance = context.Evaluate(instance);
     if (instance is ErrorMixinValue) return instance;
@@ -327,55 +215,11 @@ internal abstract class EvaluatedFunctionDefinition(
     } catch (ArgumentException exception) {
       return context.Error($"function ':{Name}' failed: {exception.Message}");
     }
-    if (!predicate) return negated ? context.Error($"value function ':{Name}' cannot be negated") : result;
-    var truth = result.IsTruthy(context);
-    return truth != negated ? BooleanMixinValue.True : BooleanMixinValue.False;
+    return result;
   }
 
   protected abstract IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
-  );
-}
-
-internal abstract class PredicateFunctionDefinition(
-  string name, int argumentCount,
-  MixinLanguageValueKind receiverType = MixinLanguageValueKind.Any,
-  IReadOnlyList<MixinLanguageValueKind> argumentTypes = null, bool variadic = false
-) : EvaluatedFunctionDefinition(
-  name, argumentCount, receiverType, argumentTypes: argumentTypes, predicate: true, variadic: variadic
-) {
-  protected static BooleanMixinValue Result(bool value) {
-    return value ? BooleanMixinValue.True : BooleanMixinValue.False;
-  }
-
-  protected static string Comparable(IMixinValue value, ExecutionContext context) {
-    var text = value.Render(context).Resolve(context.Strings) ?? "";
-    if (text.StartsWith("global::", StringComparison.Ordinal)) text = text.Substring(8);
-    return text.Length >= 2 && text[0] == '"' && text[text.Length - 1] == '"'
-      ? text.Substring(1, text.Length - 2)
-      : text;
-  }
-}
-
-internal abstract class EvaluatedDirectiveFunction(
-  string name, int arguments, IReadOnlyList<MixinLanguageValueKind> argumentTypes
-) : FunctionDefinition(name, arguments, argumentTypes: argumentTypes) {
-  protected virtual bool EvaluateOperand => true;
-
-  public sealed override IMixinValue Invoke(
-    ExecutionContext context, IMixinValue instance,
-    IReadOnlyList<IMixinValue> arguments, bool negated
-  ) {
-    var values = arguments.Select(context.Evaluate).ToArray();
-    var error = values.OfType<ErrorMixinValue>().FirstOrDefault();
-    if (error is not null) return error;
-    if (EvaluateOperand) instance = context.Evaluate(instance);
-    return instance is ErrorMixinValue ? instance : Apply(context, values, instance);
-  }
-
-  protected abstract IMixinValue Apply(
-    ExecutionContext context, IReadOnlyList<IMixinValue> arguments,
-    IMixinValue operand
   );
 }

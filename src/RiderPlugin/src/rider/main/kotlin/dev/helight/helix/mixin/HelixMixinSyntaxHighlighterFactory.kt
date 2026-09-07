@@ -18,6 +18,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.tree.IElementType
 import com.jetbrains.rider.ideaInterop.settings.colors.demoTexts.RiderDefaultLanguageColorsDemoText
 import javax.swing.Icon
+import dev.helight.helix.mixin.generated.MixinLexer
 
 object HelixMixinColors {
     val DIRECTIVE = TextAttributesKey.createTextAttributesKey(
@@ -80,47 +81,24 @@ class HelixMixinSyntaxHighlighterFactory : SyntaxHighlighterFactory() {
 class HelixMixinSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBase() {
     override fun getHighlightingLexer(): Lexer = HelixMixinLexer(project)
 
-    override fun getTokenHighlights(tokenType: IElementType): Array<TextAttributesKey> = pack(
-        when (tokenType) {
-            HelixMixinTokenTypes.DIRECTIVE_OPEN_ANGLE,
-            HelixMixinTokenTypes.DIRECTIVE_CLOSE_ANGLE,
-            HelixMixinTokenTypes.DIRECTIVE_OPEN_PARENTHESIS,
-            HelixMixinTokenTypes.DIRECTIVE_CLOSE_PARENTHESIS,
-            HelixMixinTokenTypes.DIRECTIVE -> HelixMixinColors.DIRECTIVE
-
-            HelixMixinTokenTypes.CONTINUATION -> HelixMixinColors.INACTIVE
-
-            HelixMixinElementTypes.ROOT,
-            HelixMixinTokenTypes.VALUE -> HelixMixinColors.VALUE
-
-            HelixMixinElementTypes.PATH,
-            HelixMixinElementTypes.MEMBER,
-            HelixMixinTokenTypes.PATH -> HelixMixinColors.PATH
-
-            HelixMixinTokenTypes.FUNCTION,
-            HelixMixinTokenTypes.OPERATOR,
-
-            HelixMixinTokenTypes.OPEN_ANGLE,
-            HelixMixinTokenTypes.CLOSE_ANGLE,
-            HelixMixinTokenTypes.OPEN_PARENTHESIS,
-            HelixMixinTokenTypes.CLOSE_PARENTHESIS,
-            HelixMixinTokenTypes.FUNCTION_OPEN_ANGLE,
-            HelixMixinTokenTypes.FUNCTION_CLOSE_ANGLE,
-            HelixMixinTokenTypes.FUNCTION_OPEN_PARENTHESIS,
-            HelixMixinTokenTypes.FUNCTION_CLOSE_PARENTHESIS -> HelixMixinColors.FUNCTION
-
-            HelixMixinTokenTypes.ARGUMENT -> HelixMixinColors.ARGUMENT
-            HelixMixinTokenTypes.COMMENT -> HelixMixinColors.COMMENT
-            HelixMixinTokenTypes.ESCAPE -> HelixMixinColors.ESCAPE
-            HelixMixinTokenTypes.INVALID -> HelixMixinColors.BAD
-
-
-            HelixMixinTokenTypes.TEXT_WHITE_SPACE,
-            HelixMixinTokenTypes.TEXT -> HelixMixinColors.TEMPLATE
-
+    override fun getTokenHighlights(tokenType: IElementType): Array<TextAttributesKey> {
+        val type = (tokenType as? HelixAntlrTokenType)?.antlrType ?: return emptyArray()
+        val name = MixinLexer.VOCABULARY.getSymbolicName(type).orEmpty()
+        return pack(when {
+            name.startsWith("KEYWORD_") -> HelixMixinColors.DIRECTIVE
+            type == MixinLexer.ROOT_IDENTIFIER || type == MixinLexer.VALUE_SMART_ROOT -> HelixMixinColors.VALUE
+            type == MixinLexer.FUNCTION_IDENTIFIER -> HelixMixinColors.FUNCTION
+            type == MixinLexer.MEMBER_IDENTIFIER -> HelixMixinColors.PATH
+            type == MixinLexer.LABEL_IDENTIFIER -> HelixMixinColors.LABEL
+            type in setOf(MixinLexer.ARGUMENT_TEXT, MixinLexer.BEGIN_ARGUMENT, MixinLexer.ARGUMENT_END) -> HelixMixinColors.ARGUMENT
+            type in setOf(MixinLexer.CONTENT_TEXT, MixinLexer.BEGIN_CONTENT) -> HelixMixinColors.TEMPLATE
+            type in setOf(MixinLexer.COMMENT, MixinLexer.SLASH_COMMENT) -> HelixMixinColors.COMMENT
+            type in setOf(MixinLexer.CONTENT_WRAP, MixinLexer.CONTENT_LINEBREAK, MixinLexer.VALUE_WRAP) -> HelixMixinColors.INACTIVE
+            type in setOf(MixinLexer.ESCAPE, MixinLexer.ESCAPE_HEX, MixinLexer.ESCAPE_LITERAL, MixinLexer.ESCAPE_MACRO) -> HelixMixinColors.ESCAPE
+            type == MixinLexer.ERROR_TOKEN -> HelixMixinColors.BAD
             else -> null
-        }
-    )
+        })
+    }
 }
 
 class HelixMixinColorSettingsPage : ColorSettingsPage {
@@ -155,16 +133,17 @@ class HelixMixinColorSettingsPage : ColorSettingsPage {
         "type" to HelixMixinColors.TYPE
     )
 
-    override fun getDemoText(): String = """@# HELIX mixin language
-@FUNC<<functionId>Build</functionId>>
-  @LOCAL<<local>Name</local>> @target:name
-  @VAR<<variable>Result</variable>> @table
-  @SCOPE<<label>Generate</label>>
-    @GOTO<<label>Generate</label>>
-@END
-
-@ANNOTATION<<type>HELIX.Compose.ExampleAttribute</type>>
-  @CALL<<functionId>Build</functionId>> @target
-@END
+    override fun getDemoText(): String = """// HELIX mixin language
+pure func Describe sig @{name=string} -> string {
+  return(<Hello [param#name]>)
+}
+mixin HELIX.Compose.ExampleAttribute {
+  prelude expression {
+    carry Name @= target:name;
+  }
+  expression {
+    emit @> // {{carry#Name}}
+  }
+}
 """
 }

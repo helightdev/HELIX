@@ -1,0 +1,131 @@
+@### Annotations #######################################################################################################
+
+pure noinline func getMyselfOrDefault {
+
+}
+
+// Hello World
+mixin HELIX.Compose.ComposableMethodAttribute {
+  func SelectParameter {
+    carry test @= target:name:replaceFirst(dasd);
+  }
+
+  prelude expression {
+    using <HELIX.Compose>
+
+    local StructName @> {{target:name}}Props
+    local StructHandle = DeriveParameters(target);
+    local StructArgs = [$StructHandle
+        :mapValues(<SelectArgument>)
+        :joinValues(<, >)
+        :dasdasdasdasdasd
+    ];
+    local StructParams @= $StructHandle
+        :mapValues<SelectParameter>
+        :joinValues<, >;
+
+    increment(hello, world) [this]
+    increment() @= this:name;
+
+    carry test = [target]
+    local another = say(hello, world);
+
+    when(myPredicate) {
+
+    } else {
+
+    }
+
+    when [$StructName] {
+      <content> -> generateContent()
+      [$otherVariable] -> goto somewhere
+      [:exists] -> doPredicateAction()
+      else -> goto end
+    }
+
+    local switched = when [$StructName] {
+      <content> -> generateContent()
+      else -> [null]
+    }
+
+    when {
+      (target:is<MonoBehavior>) -> loremIpsum()
+      else -> goto end
+    }
+    local switched = when {
+      (target:is<MonoBehavior>) -> loremIpsum()
+      else -> [null]
+    }
+
+    log <This is a log output!>;
+
+    :end
+
+    { match($local:is<String>); match [$local:is<Object>]; assert();
+      tetsete();
+    }
+  }
+
+  expression {
+    local callArgs
+      @> This is normal new
+      @> Here it continuate
+      @+ joined
+
+    emit<CLASS> [$callArgs]
+  }
+
+  expression {
+    function();
+    function(arg1, arg2)
+    function(arg1:name, arg2)
+    function(<string>, arg2)
+    function<string1><string2>
+
+    function [InlineValue]
+    function <Argument>
+    function @> String {{interpolated}}
+    function() @> String {{interpolated}}
+    function
+      @> String {{interpolated}},
+      @> with multiple lines!
+    function() @= this:name;
+    function @= this:name;
+
+    function(arg1) @= this:name:unwrap;
+    function<str1> @= this:name:unwrap;
+    function<str1> @= DeriveParameters(this);
+
+    function(arg1) [InlineValue]
+    function<str1><str2> [InlineValue]
+    function<str1><str2> @> Another {{interpolated:replaceAll<123><234>}} String
+
+    function @{}
+    function @{a = test}
+    function @{a = test, b = another}
+
+    function @[]
+    function @[a,b,c]
+    function @[a]
+
+    function(@[a,b,c])
+    function(@{a = test, b = another})
+
+  }
+
+  expression {
+    local test @= ExpressionTailValue;
+    local test = <test>;
+    local test = [<test>];
+    local test @= <test>;
+    local test @= [<test>];
+    local test @= [<test>] ?: ![Another] ?: [Default];
+    local test @= target ?: this;
+    local test @= predicate?;
+    local test @= !predicate;
+    local test @> Interpolated
+    local test @[a,b,c]
+    local test @{a=test,b=other}
+    local test @= int<42>;
+  }
+}

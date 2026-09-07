@@ -8,7 +8,7 @@ using Mixins.Runtime;
 namespace Mixins.Functions;
 
 internal sealed class TypeFunction() : EvaluatedFunctionDefinition("type", 0,
-  MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Type) {
+  MixinValueKind.Symbol, MixinValueKind.Symbol) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -23,7 +23,7 @@ internal sealed class TypeFunction() : EvaluatedFunctionDefinition("type", 0,
 }
 
 internal sealed class FullNameFunction() : EvaluatedFunctionDefinition("fullName", 0,
-  MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Text) {
+  MixinValueKind.Symbol, MixinValueKind.String) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -46,7 +46,7 @@ internal sealed class FullNameFunction() : EvaluatedFunctionDefinition("fullName
 }
 
 internal sealed class VisibilityFunction() : EvaluatedFunctionDefinition("visibility", 0,
-  MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Text) {
+  MixinValueKind.Symbol, MixinValueKind.String) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -64,7 +64,7 @@ internal sealed class VisibilityFunction() : EvaluatedFunctionDefinition("visibi
 }
 
 internal sealed class MakeGenericFunction() : EvaluatedFunctionDefinition("makeGeneric", 1,
-  MixinLanguageValueKind.Type, MixinLanguageValueKind.Type, [MixinLanguageValueKind.CSharpType]) {
+  MixinValueKind.Symbol, MixinValueKind.Symbol, [MixinValueKind.Symbol]) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -73,11 +73,11 @@ internal sealed class MakeGenericFunction() : EvaluatedFunctionDefinition("makeG
     if (!generic.StartsWith("global::", StringComparison.Ordinal)) generic = "global::" + generic;
     var types = string.Join(
       ", ", arguments.Select(item => {
-          var argument = item.Render(context).Resolve(context.Strings);
-          return argument.Contains(".") && !argument.StartsWith("global::", StringComparison.Ordinal)
-            ? "global::" + argument
-            : argument;
-        }
+        var argument = item.Render(context).Resolve(context.Strings);
+        return argument.Contains(".") && !argument.StartsWith("global::", StringComparison.Ordinal)
+          ? "global::" + argument
+          : argument;
+      }
       )
     );
     var marker = generic.IndexOf('<');
@@ -92,9 +92,10 @@ internal sealed class MakeGenericFunction() : EvaluatedFunctionDefinition("makeG
 }
 
 internal abstract class AttributeFunction(string name, int arguments)
-  : EvaluatedFunctionDefinition(name, arguments, MixinLanguageValueKind.Symbol,
-    name == "attributeOf" ? MixinLanguageValueKind.Any : MixinLanguageValueKind.Table,
-    arguments == 0 ? [] : [MixinLanguageValueKind.CSharpType]) {
+  : EvaluatedFunctionDefinition(name, arguments, MixinValueKind.Symbol,
+    name == "attributeOf" ? MixinValueKind.Any : MixinValueKind.Tuple,
+    arguments == 0 ? [] : [MixinValueKind.String]) {
+  public override IReadOnlyList<int> CSharpTypeArguments => ArgumentCount == 1 ? System.Array.Empty<int>() : new[] {1};
   protected sealed override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -133,16 +134,16 @@ internal sealed class AttributeOfFunction() : AttributeFunction("attributeOf", 1
 }
 
 internal sealed class MembersFunction() : EvaluatedFunctionDefinition("members", 0,
-  MixinLanguageValueKind.Type, MixinLanguageValueKind.Table) {
+  MixinValueKind.Symbol, MixinValueKind.Tuple) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {
     if (value is not RoslynMixinValue { Value: INamedTypeSymbol type })
       return context.Error(":members requires a named type");
     var members = type.GetMembers().Where(item => !item.IsImplicitlyDeclared && item is not IMethodSymbol {
-          MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or
+      MethodKind: MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd or
           MethodKind.EventRemove or MethodKind.EventRaise
-        }
+    }
       )
       .OrderBy(
         item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath ?? "",
@@ -151,16 +152,13 @@ internal sealed class MembersFunction() : EvaluatedFunctionDefinition("members",
       .ThenBy(item => item.Locations.FirstOrDefault(location => location.IsInSource)?.SourceSpan.Start ?? int.MaxValue)
       .ThenBy(item => item.MetadataName, StringComparer.Ordinal)
       .ThenBy(item => item.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), StringComparer.Ordinal)
-      .Select((item, index) => new KeyValuePair<MixinString, IMixinValue>(
-          context.ResolveString(index.ToString()), new RoslynMixinValue(item)
-        )
-      );
-    return new MixinTableValue(members.ToArray());
+      .Select(item => (IMixinValue)new RoslynMixinValue(item));
+    return new TupleMixinValue(members.ToArray());
   }
 }
 
 internal sealed class ParametersFunction() : EvaluatedFunctionDefinition("parameters", 0,
-  MixinLanguageValueKind.Symbol, MixinLanguageValueKind.Table) {
+  MixinValueKind.Symbol, MixinValueKind.Tuple) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {
@@ -171,18 +169,12 @@ internal sealed class ParametersFunction() : EvaluatedFunctionDefinition("parame
       _ => null
     };
     if (parameters is null) return context.Error(":parameters requires a method or delegate");
-    return new MixinTableValue(
-      parameters.Select((item, index) =>
-        new KeyValuePair<MixinString, IMixinValue>(
-          context.ResolveString(index.ToString()), new RoslynMixinValue(item)
-        )
-      ).ToArray()
-    );
+    return new TupleMixinValue(parameters.Select(item => (IMixinValue)new RoslynMixinValue(item)).ToArray());
   }
 }
 
 internal sealed class NullableTypeFunction() : EvaluatedFunctionDefinition("nullableType", 0,
-  MixinLanguageValueKind.Type, MixinLanguageValueKind.Type) {
+  MixinValueKind.Symbol, MixinValueKind.Symbol) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {
@@ -202,8 +194,14 @@ internal sealed class CSharpLiteralFunction() : EvaluatedFunctionDefinition("csh
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {
-    return value is RoslynMixinValue { Value: TypedConstant constant }
-      ? new LiteralMixinValue(context.ResolveString(RoslynMixinValue.RenderCSharpConstant(constant)))
-      : value;
+    var text = value switch {
+      NullMixinValue => "null",
+      RoslynMixinValue { Value: TypedConstant constant } => RoslynMixinValue.RenderCSharpConstant(constant),
+      LiteralMixinValue => Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(value.Render(context).Resolve(context.Strings), true),
+      BooleanMixinValue or NumberMixinValue => value.Render(context).Resolve(context.Strings),
+      _ => null
+    };
+    return text is null ? context.Error("csharpLiteral requires a C# constant or scalar value")
+      : new LiteralMixinValue(context.ResolveString(text));
   }
 }

@@ -10,14 +10,16 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.tree.IFileElementType
 import com.intellij.psi.tree.TokenSet
+import dev.helight.helix.mixin.generated.MixinLexer
 
 class HelixMixinParserDefinition : ParserDefinition {
     override fun createLexer(project: Project?): Lexer = HelixMixinLexer(project)
     override fun createParser(project: Project): PsiParser = HelixMixinParser(project)
     override fun getFileNodeType(): IFileElementType = HelixMixinElementTypes.FILE
-    override fun getWhitespaceTokens(): TokenSet = TokenSet.EMPTY
-    override fun getCommentTokens(): TokenSet = TokenSet.create(HelixMixinTokenTypes.COMMENT)
-    override fun getStringLiteralElements(): TokenSet = TokenSet.EMPTY
+    override fun getWhitespaceTokens(): TokenSet = TokenSet.create(HelixAntlrTypes.tokens[0])
+    override fun getCommentTokens(): TokenSet = TokenSet.create(
+        HelixAntlrTypes.tokens[MixinLexer.COMMENT], HelixAntlrTypes.tokens[MixinLexer.SLASH_COMMENT])
+    override fun getStringLiteralElements(): TokenSet = TokenSet.create(HelixAntlrTypes.tokens[MixinLexer.ARGUMENT_TEXT])
     override fun createFile(viewProvider: FileViewProvider): PsiFile = HelixMixinFile(viewProvider)
 
     override fun createElement(node: ASTNode): PsiElement = when (node.elementType) {

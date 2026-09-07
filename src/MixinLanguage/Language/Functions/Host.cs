@@ -3,7 +3,7 @@ using Mixins.Runtime;
 
 namespace Mixins.Functions;
 
-internal sealed class WireFunction() : EvaluatedFunctionDefinition("wire", 1) {
+internal sealed class WireFunction() : EvaluatedFunctionDefinition("wire", 1, resultType: MixinValueKind.String) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
@@ -15,26 +15,26 @@ internal sealed class WireFunction() : EvaluatedFunctionDefinition("wire", 1) {
   }
 }
 
-internal sealed class SignaturePredicate() : PredicateFunctionDefinition("signature", 1) {
+internal sealed class SignatureFunction() : EvaluatedFunctionDefinition("signature", 1, resultType: MixinValueKind.Bool) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
   ) {
-    return Result(
+    return BooleanMixinValue.From(
       context is RoslynMixinContext roslyn &&
       RoslynMixinContext.SameSignature(roslyn.Callable(value), roslyn.Callable(arguments[0]))
     );
   }
 }
 
-internal sealed class WireablePredicate() : PredicateFunctionDefinition("wireable", 2) {
+internal sealed class WireableFunction() : EvaluatedFunctionDefinition("wireable", 1, resultType: MixinValueKind.Bool) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments
   ) {
-    return Result(
+    return BooleanMixinValue.From(
       context is RoslynMixinContext roslyn &&
-      RoslynMixinContext.TryWireParameters(roslyn.Callable(arguments[0]), roslyn.Callable(arguments[1]), out _)
+      RoslynMixinContext.TryWireParameters(roslyn.Callable(value), roslyn.Callable(arguments[0]), out _)
     );
   }
 }

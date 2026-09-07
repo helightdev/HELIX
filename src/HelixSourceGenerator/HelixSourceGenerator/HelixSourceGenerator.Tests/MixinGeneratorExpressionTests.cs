@@ -1394,7 +1394,7 @@ public sealed class MixinGeneratorExpressionTests {
                           }
                           public interface IEvt { }
                           public struct Evt : IEvt { }
-                          [HELIX.MixinExpression("@MATCH @arg#0:!?inout\n@ASSERT @arg#0:type:?is<IEvt>\n@MIXIN<$Init> this.Register<@arg#0:type>(@target, @attr#Priority)")]
+                          [HELIX.MixinExpression("@MATCH @target#0:!?inout\n@ASSERT @target#0:type:?is<IEvt>\n@MIXIN<$Init> this.Register<@target#0:type>(@target, @attr#Priority)")]
                           [AttributeUsage(AttributeTargets.Method)]
                           public sealed class ReactAttribute : Attribute {
                             public ReactAttribute(int priority) { Priority = priority; }

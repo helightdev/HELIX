@@ -1,404 +1,390 @@
-@### Functions #########################################################################################################
+func KeepInstanceField
+do {
+  when(![param:field]) {
+    return(false)
+  }
+  when(param:static) {
+    return(false)
+  }
+  return(true)
+}
 
-@### Derivation-based structure descriptors ##########################################################################
+func SeedProp
+do {
+  local Name @= param:name:identifier;
+  local Type @= param:type;
+  local Modifier = <>
+  local ParameterModifier = <>
+  when(param:in) {
+    local Modifier = <in>
+    local ParameterModifier = <in>
+  }
+  when(param:ref) {
+    local Modifier = <ref>
+  }
+  when(param:out) {
+    local Modifier = <out>
+  }
+  local Datatype @> global::HELIX.Datatypes.Object<{{local#Type}}>()
+  when(local#Type:is<System.String>) {
+    local Datatype @> global::HELIX.Datatypes.String
+  }
+  when(local#Type:is<System.Int32>) {
+    local Datatype @> global::HELIX.Datatypes.Int
+  }
+  when(local#Type:is<System.Int64>) {
+    local Datatype @> global::HELIX.Datatypes.Long
+  }
+  when(local#Type:is<System.Single>) {
+    local Datatype @> global::HELIX.Datatypes.Float
+  }
+  when(local#Type:is<System.Double>) {
+    local Datatype @> global::HELIX.Datatypes.Double
+  }
+  when(local#Type:is<System.Boolean>) {
+    local Datatype @> global::HELIX.Datatypes.Bool
+  }
+  when(local#Type:enum) {
+    local Datatype @> global::HELIX.Datatypes.Enum<{{local#Type}}>()
+  }
+  when(local#Type:is<UnityEngine.Color>) {
+    local Datatype @> global::HELIX.Datatypes.Color
+  }
+  when(local#Type:is<UnityEngine.Vector2>) {
+    local Datatype @> global::HELIX.Datatypes.Vector2
+  }
+  when(local#Type:is<UnityEngine.Vector3>) {
+    local Datatype @> global::HELIX.Datatypes.Vector3
+  }
+  when(local#Type:is<UnityEngine.Vector4>) {
+    local Datatype @> global::HELIX.Datatypes.Vector4
+  }
+  local Equality @> global::System.Collections.Generic.EqualityComparer<{{local#Type}}>.Default.Equals(this.{{local#Name}}, other.{{local#Name}})
+  local Hash @> this.{{local#Name}}
+  when(local#Type:primitive) {
+    local Equality @> this.{{local#Name}} == other.{{local#Name}}
+  }
+  when(local#Type:pointer) {
+    local Equality @> this.{{local#Name}} == other.{{local#Name}}
+    local Hash @> ((global::System.IntPtr)this.{{local#Name}})
+  }
+  local ModifierPrefix = when {
+    (local#Modifier) -> <[local#Modifier] >
+    else -> <>
+  }
+  local ParameterModifierPrefix = when {
+    (local#ParameterModifier) -> <[local#ParameterModifier] >
+    else -> <>
+  }
+  return(@{symbol=param, value=@{name=local#Name, type=local#Type, modifier=local#ModifierPrefix, parameter=<[local#ParameterModifierPrefix][local#Type] [local#Name]>, argument=<[local#ParameterModifierPrefix][local#Name]>, callArgument=<[local#ModifierPrefix][local#Name]>, assignment=<this.[local#Name] = [local#Name];>, datatype=local#Datatype, required=true, default=<null>, configuration=<>, equatable=true, unsafe=local#Type:containsPointer, equality=local#Equality, hash=local#Hash}})
+}
 
-@FUNC<KeepInstanceField>
-  @SCOPE
-    @MATCH @param#v:!?field
-    @RETURN false
-  @END
-  @SCOPE
-    @MATCH @param#v:?static
-    @RETURN false
-  @END
-  @RETURN true
-@END
+func DeriveParameters
+do {
+  assert(![param:genericMethod])
+  target var PropOptional @= false;
+  return(param:parameters:map(SeedProp):derive)
+}
 
-@FUNC<SeedProp>
-  @LOCAL<Name> @param:name:identifier
-  @LOCAL<Type> @param:type
-  @LOCAL<Modifier>
-  @LOCAL<ParameterModifier>
-  @SCOPE
-    @MATCH @param:?in
-    @LOCAL<Modifier> in
-    @LOCAL<ParameterModifier> in
-  @SCOPE
-    @MATCH @param:?ref
-    @LOCAL<Modifier> ref
-  @SCOPE
-    @MATCH @param:?out
-    @LOCAL<Modifier> out
-  @END
-  @LOCAL<Datatype> global::HELIX.Datatypes.Object<@local#Type>()
-  @SCOPE
-    @MATCH @local#Type:?is<System.String>
-    @LOCAL<Datatype> global::HELIX.Datatypes.String
-  @SCOPE
-    @MATCH @local#Type:?is<System.Int32>
-    @LOCAL<Datatype> global::HELIX.Datatypes.Int
-  @SCOPE
-    @MATCH @local#Type:?is<System.Int64>
-    @LOCAL<Datatype> global::HELIX.Datatypes.Long
-  @SCOPE
-    @MATCH @local#Type:?is<System.Single>
-    @LOCAL<Datatype> global::HELIX.Datatypes.Float
-  @SCOPE
-    @MATCH @local#Type:?is<System.Double>
-    @LOCAL<Datatype> global::HELIX.Datatypes.Double
-  @SCOPE
-    @MATCH @local#Type:?is<System.Boolean>
-    @LOCAL<Datatype> global::HELIX.Datatypes.Bool
-  @SCOPE
-    @MATCH @local#Type:?enum
-    @LOCAL<Datatype> global::HELIX.Datatypes.Enum<@local#Type>()
-  @SCOPE
-    @MATCH @local#Type:?is<UnityEngine.Color>
-    @LOCAL<Datatype> global::HELIX.Datatypes.Color
-  @SCOPE
-    @MATCH @local#Type:?is<UnityEngine.Vector2>
-    @LOCAL<Datatype> global::HELIX.Datatypes.Vector2
-  @SCOPE
-    @MATCH @local#Type:?is<UnityEngine.Vector3>
-    @LOCAL<Datatype> global::HELIX.Datatypes.Vector3
-  @SCOPE
-    @MATCH @local#Type:?is<UnityEngine.Vector4>
-    @LOCAL<Datatype> global::HELIX.Datatypes.Vector4
-  @END
-  @LOCAL<Equality> global::System.Collections.Generic.EqualityComparer<@local#Type>.Default.Equals(this.@local#Name, other.@local#Name)
-  @LOCAL<Hash> this.@local#Name
-  @SCOPE
-    @MATCH @local#Type:?primitive
-    @LOCAL<Equality> this.@local#Name == other.@local#Name
-  @END
-  @SCOPE
-    @MATCH @local#Type:?pointer
-    @LOCAL<Equality> this.@local#Name == other.@local#Name
-    @LOCAL<Hash> ((global::System.IntPtr)this.@local#Name)
-  @END
-  @LOCAL<ModifierPrefix> @local#Modifier:switch<(@local#Modifier )><>
-  @LOCAL<ParameterModifierPrefix> @local#ParameterModifier:switch<(@local#ParameterModifier )><>
-  @RETURN @table:put<symbol><(@param)>:put<value><(@table
-    @+:put<name><(@local#Name)>
-    @+:put<type><(@local#Type)>
-    @+:put<modifier><(@local#ModifierPrefix)>
-    @+:put<parameter><(@local#ParameterModifierPrefix@local#Type @local#Name)>
-    @+:put<argument><(@local#ParameterModifierPrefix@local#Name)>
-    @+:put<callArgument><(@local#ModifierPrefix@local#Name)>
-    @+:put<assignment><(this.@local#Name = @local#Name;)>
-    @+:put<datatype><(@local#Datatype)>
-    @+:put<required><true>
-    @+:put<default><null>
-    @+:put<configuration><>
-    @+:put<equatable><true>
-    @+:put<unsafe><(@local#Type:?containsPointer)>
-    @+:put<equality><(@local#Equality)>
-    @+:put<hash><(@local#Hash)>)>
-@END
+func DeriveFields
+do {
+  target var PropOptional @= false;
+  return(param:members:where(KeepInstanceField):map(SeedProp):derive)
+}
 
-@FUNC<DeriveParameters>
-  @ASSERT @param:!?genericMethod
-  @TAR<PropOptional> false
-  @RETURN @param:parameters:mapValues<SeedProp>:derive
-@END
+func SelectField
+do {
+  return(<public [param#value#type] [param#value#name];>)
+}
 
-@FUNC<DeriveFields>
-  @TAR<PropOptional> false
-  @RETURN @param:members:filter<KeepInstanceField>:mapValues<SeedProp>:derive
-@END
+func SelectParameter
+do {
+  return(param#value#parameter)
+}
 
-@FUNC<SelectField>
-  @RETURN public @param#value#type @param#value#name;
-@END
-@FUNC<SelectParameter>
-  @RETURN @param#value#parameter
-@END
-@FUNC<SelectArgument>
-  @RETURN @param#value#argument
-@END
-@FUNC<SelectCallArgument>
-  @RETURN @param#value#modifier@param#value#name
-@END
-@FUNC<SelectObjectCallArgument>
-  @RETURN @param#value#modifier args.@param#value#name
-@END
-@FUNC<SelectAssignment>
-  @RETURN @param#value#assignment
-@END
-@FUNC<SelectEquality>
-  @RETURN @param#value#equality
-@END
-@FUNC<SelectHashAdd>
-  @RETURN hashCode.Add(@param#value#hash);
-@END
-@FUNC<KeepEquatable>
-  @RETURN @param#v#value#equatable:?eq<true>
-@END
-@FUNC<KeepUnsafe>
-  @RETURN @param#v#value#unsafe:?eq<true>
-@END
-@FUNC<SelectDatatypeConfiguration>
-  @RETURN @param#value#configuration
-@END
-@FUNC<HasDatatypeConfiguration>
-  @RETURN @param#v#value#configuration:?exists
-@END
-@FUNC<SelectDatatypeProperty>
-  @RETURN new global::HELIX.StructurePropertyDatatype<@var#StructureType, @param#value#type>("@param#value#name", @param#value#datatype, (ref @var#StructureType value) => value.@param#value#name, (ref @var#StructureType value, @param#value#type propertyValue) => value.@param#value#name = propertyValue, required: @param#value#required, defaultValue: @param#value#default)
-@END
+func SelectArgument
+do {
+  return(param#value#argument)
+}
 
-@FUNC<BuildDatatype>
-  @VAR<StructureType> @param#type
-  @LOCAL<Empty> @table:joinValues<>
-  @LOCAL<PropertySeparator>,
-    @\      @local#Empty
-  @LOCAL<Properties> @param#props:mapValues<SelectDatatypeProperty>:joinValues<(@local#PropertySeparator)>
-  @LOCAL<Configurations> @param#props:filter<HasDatatypeConfiguration>:mapValues<SelectDatatypeConfiguration>:joinValues< >
-  @RETURN public static readonly global::HELIX.StructureDatatype<@param#type> Datatype =
-    @\new global::HELIX.ConfigurableStructureDatatype<@param#type>(
-    @\  new global::HELIX.StructureDatatype<@param#type>(
-    @\    "@param#name",
-    @\    new global::HELIX.StructurePropertyDatatype<@param#type>[] {
-    @\      @local#Properties
-    @\    }),
-    @\  datatype => ConfigureDatatype(datatype)).Datatype;
-    @\static void ConfigureDatatype(global::HELIX.StructureDatatype<@param#type> datatype) {
-    @\  @local#Configurations
-    @\}
-@END
+func SelectCallArgument
+do {
+  return(<[param#value#modifier][param#value#name]>)
+}
 
-@FUNC<EmitGeneratedStructure>
-  @LOCAL<Fields> @param#props:mapValues<SelectField>:joinValues< >
-  @LOCAL<Parameters> @param#props:mapValues<SelectParameter>:joinValues<, >
-  @LOCAL<Assignments> @param#props:mapValues<SelectAssignment>:joinValues< >
-  @LOCAL<Datatype>
-  @SCOPE
-    @MATCH @param#datatype:?eq<true>
-    @CALL<Datatype><BuildDatatype> @table:put<type><(@param#name)>:put<name><(@param#name)>:put<props><(@param#props)>
-  @END
-  @LOCAL<Constructor>
-  @SCOPE
-    @MATCH @param#props:size:!?eq<0>
-    @LOCAL<Constructor> public @param#name(@local#Parameters) {
-      @\  @local#Assignments
-      @\}
-  @END
-  @LOCAL<Unsafe>
-  @SCOPE
-    @MATCH @param#props:filter<KeepUnsafe>:size:!?eq<0>
-    @LOCAL<Unsafe> unsafe
-  @END
-  @CODE<CLASS> public @local#Unsafe struct @param#name {
-    @\  @local#Fields
-    @\  @local#Constructor
-    @\  @local#Datatype
-    @\}
-  @RETURN @param#props
-@END
+func SelectObjectCallArgument
+do {
+  return(<[param#value#modifier] args.[param#value#name]>)
+}
 
-@FUNC<RequireCompanion> 
-  @SCOPE
-    @MATCH @var#CompanionName:!?exists
-    @VAR<CompanionName> @(this:name)_Companion
-    @VAR<DeclareCompanion> public static partial class @var#CompanionName
-    @CODE<FILE> @var#DeclareCompanion {}
-  @END
-@END
+func SelectAssignment
+do {
+  return(param#value#assignment)
+}
 
-@FUNC<DeclareCompanion> 
-  @SCOPE
-    @MATCH @var#CompanionName:!?exists
-    @VAR<CompanionName> @(this:name)_Companion
-    @VAR<DeclareCompanion> public static partial class @var#CompanionName
-  @END
-  @CODE<FILE> @var#DeclareCompanion { 
-    @\  @param
-    @\}
-@END
+func SelectEquality
+do {
+  return(param#value#equality)
+}
 
-@### Annotations #######################################################################################################
+func SelectHashAdd
+do {
+  return(<hashCode.Add\([param#value#hash]\);>)
+}
 
-@ANNOTATION<HELIX.StructureAttribute>
-  @PRELUDE
-    @CALL<PropsModel><DeriveFields> @this
-    @LOCAL<Parameters> @local#PropsModel:mapValues<SelectParameter>:joinValues<, >
-    @LOCAL<Assignments> @local#PropsModel:mapValues<SelectAssignment>:joinValues< >
-    @SCOPE
-      @MATCH @local#PropsModel:size:!?eq<0>
-      @CODE<CLASS> @this:visibility @this:name(@local#Parameters) {
-        @\  @local#Assignments
-        @\}
-    @END
-    @LOCAL<EqualityProps> @local#PropsModel:filter<KeepEquatable>
-    @LOCAL<Comparisons> @local#EqualityProps:mapValues<SelectEquality>:joinValues< && >
-    @LOCAL<HashAdds> @local#EqualityProps:mapValues<SelectHashAdd>:joinValues< >
-    @LOCAL<Unsafe>
-    @SCOPE
-      @MATCH @this:?equatableSelf
-      @MATCH @local#EqualityProps:filter<KeepUnsafe>:size:!?eq<0>
-      @LOCAL<Unsafe> unsafe
-    @END
-    @SCOPE
-      @MATCH @this:?equatableSelf
-      @MATCH @this:!?typedEqualsSelf
-      @CODE<CLASS> public @local#Unsafe bool Equals(@this:type other) => @local#Comparisons:switch<(@local#Comparisons)><true>;
-    @END
-    @LOCAL<TypedEqualsCall> Equals(other)
-    @SCOPE
-      @MATCH @this:?equatableSelf
-      @MATCH @this:?typedEqualsSelf
-      @MATCH @this:!?ordinaryTypedEqualsSelf
-      @LOCAL<TypedEqualsCall> ((global::System.IEquatable<@this:type>)this).Equals(other)
-    @END
-    @SCOPE
-      @MATCH @this:?equatableSelf
-      @MATCH @this:!?objectEquals
-      @CODE<CLASS> public override bool Equals(object obj) => obj is @this:type other && @local#TypedEqualsCall;
-    @END
-    @SCOPE
-      @MATCH @this:?equatableSelf
-      @MATCH @this:!?hashCode
-      @CODE<CLASS> public override @local#Unsafe int GetHashCode() {
-        @\  var hashCode = new global::System.HashCode();
-        @\  @local#HashAdds
-        @\  return hashCode.ToHashCode();
-        @\}
-    @END
-    @SCOPE
-      @MATCH @attr#datatype:?eq<true>
-      @CALL<DatatypeCode><BuildDatatype> @table:put<type><(@this:type)>:put<name><(@this:name)>:put<props><(@local#PropsModel)>
-      @CODE<CLASS> @local#DatatypeCode
-    @END
-  @END
-@END
+func KeepEquatable
+do {
+  return(param#value#equatable:eq(true))
+}
 
-@ANNOTATION<HELIX.HookAttribute>
-  @PRELUDE
-    @LOCAL<Name> @attr#target:unwrap
-    @SCOPE
-      @MATCH @local#Name:eq<null>
-      @ASSERT @target:name:matches<^On.*>
-      @LOCAL<IsImplicit> true
-      @Local<Name> $@target:name:replaceFirst<^On><>
-    @END
+func KeepUnsafe
+do {
+  return(param#value#unsafe:eq(true))
+}
 
-    @SCOPE
-      @MATCH @arg#0:!?exists
-      @MIXIN<(@local#Name)><(@attr#order)> @target:name();
-      @RETURN
-    @END
+func SelectDatatypeConfiguration
+do {
+  return(param#value#configuration)
+}
 
-    @RESOLVE_MIXIN<Delegate> @local#Name
-    @ASSERT @local#Delegate:!?eq<null>
-    @MIXIN<(@local#Name)><(@attr#order)> @target:name(@local#Delegate:wire<(@target)>);
-  @END
-@END
+func HasDatatypeConfiguration
+do {
+  return(param#value#configuration:exists)
+}
 
-@ANNOTATION<HELIX.MixinUsingAttribute>
-  @USING @attr#statement:unwrap;
-@END
+func SelectDatatypeProperty
+do {
+  local returnedText1 @> new global::HELIX.StructurePropertyDatatype<{{var#StructureType}}, {{param#value#type}}>("{{param#value#name}}", {{param#value#datatype}}, (ref {{var#StructureType}} value) => value.{{param#value#name}}, (ref {{var#StructureType}} value, {{param#value#type}} propertyValue) => value.{{param#value#name}} = propertyValue, required: {{param#value#required}}, defaultValue: {{param#value#default}})
+  return(local#returnedText1)
+}
 
+func BuildDatatype
+do {
+  var StructureType @= param#type;
+  local Empty = <>
+  local PropertySeparator
+    @> ,
+    @>       {{local#Empty}}
+  local Properties @= param#props:map(SelectDatatypeProperty):join(local#PropertySeparator);
+  local Configurations @= param#props:where(HasDatatypeConfiguration):map(SelectDatatypeConfiguration):join< >;
+  local returnedText2
+    @> public static readonly global::HELIX.StructureDatatype<{{param#type}}> Datatype =
+    @> new global::HELIX.ConfigurableStructureDatatype<{{param#type}}>(
+    @>   new global::HELIX.StructureDatatype<{{param#type}}>(
+    @>     "{{param#name}}",
+    @>     new global::HELIX.StructurePropertyDatatype<{{param#type}}>[] {
+    @>       {{local#Properties}}
+    @>     }),
+    @>   datatype => ConfigureDatatype(datatype)).Datatype;
+    @> static void ConfigureDatatype(global::HELIX.StructureDatatype<{{param#type}}> datatype) {
+    @>   {{local#Configurations}}
+    @> }
+  return(local#returnedText2)
+}
 
-@### Derivations #######################################################################################################
+func EmitGeneratedStructure
+do {
+  local Fields @= param#props:map(SelectField):join< >;
+  local Parameters @= param#props:map(SelectParameter):join<, >;
+  local Assignments @= param#props:map(SelectAssignment):join< >;
+  local Datatype = <>
+  when(param#datatype:eq(true)) {
+    local Datatype @= table:new:put(<type>, param#name):put(<name>, param#name):put(<props>, param#props):BuildDatatype;
+  }
+  local Constructor = <>
+  when(![param#props:length:eq(number<0>)]) {
+    local Constructor
+      @> public {{param#name}}({{local#Parameters}}) {
+      @>   {{local#Assignments}}
+      @> }
+  }
+  local Unsafe = <>
+  when(![param#props:where(KeepUnsafe):length:eq(number<0>)]) {
+    local Unsafe = <unsafe>
+  }
+  emit<Class>
+    @> public {{local#Unsafe}} struct {{param#name}} {
+    @>   {{local#Fields}}
+    @>   {{local#Constructor}}
+    @>   {{local#Datatype}}
+    @> }
+  return(param#props)
+}
 
-@DERIVATION<HELIX.PropertyDatatypeAttribute>
-  @LOCAL<Datatype> @param#symbol:attributeOf<HELIX.PropertyDatatypeAttribute>
-  @SCOPE
-    @MATCH @local#Datatype:?exists
-    @RETURN @param#value:put<datatype><(@local#Datatype#datatype:unwrap)>
-  @END
-  @RETURN @param#value
-@END
+func RequireCompanion
+do {
+  when(![var#CompanionName:exists]) {
+    var CompanionName @> {{this:name}}_Companion
+    var DeclareCompanion @> public static partial class {{var#CompanionName}}
+    emit<File> @> {{var#DeclareCompanion}} {}
+  }
+}
 
-@DERIVATION<HELIX.PropAttribute>
-  @LOCAL<Prop> @param#symbol:attributeOf<HELIX.PropAttribute>
-  @SCOPE
-    @MATCH @local#Prop:!?exists
-    @ASSERT @tar#PropOptional:!?eq<true>
-    @RETURN @param#value
-  @END
-  @LOCAL<Mode> @local#Prop#defaultInit
-  @SCOPE
-    @MATCH @local#Mode:!?exists
-    @ASSERT @tar#PropOptional:!?eq<true>
-    @RETURN @param#value
-  @END
-  @SCOPE
-    @MATCH @local#Mode:?eq<3>
-    @ASSERT @tar#PropOptional:!?eq<true>
-    @RETURN @param#value
-  @END
-  @SCOPE
-    @MATCH @local#Mode:?eq<None>
-    @ASSERT @tar#PropOptional:!?eq<true>
-    @RETURN @param#value
-  @END
-  @SCOPE
-    @MATCH @local#Mode:?eq<HELIX.PropInit.None>
-    @ASSERT @tar#PropOptional:!?eq<true>
-    @RETURN @param#value
-  @END
-  @SCOPE
-    @MATCH @local#Mode:?eq<0>
-    @ASSERT @local#Prop#defaultValue:?parameterDefault
-  @END
-  @SCOPE
-    @MATCH @local#Mode:?eq<1>
-    @ASSERT @local#Prop#defaultValue:?nonEmptyStringConstant
-  @END
-  @SCOPE
-    @MATCH @local#Mode:?eq<2>
-    @ASSERT @local#Prop#defaultValue:?nonEmptyStringConstant
-  @END
-  @ASSERT @param#symbol:!?in
-  @TAR<PropOptional> true
-  @LOCAL<Default> @local#Prop#defaultValue:csharpLiteral
-  @LOCAL<Parameter> @param#value#type @param#value#name = @local#Default
-  @LOCAL<Assignment> this.@param#value#name = @param#value#name;
-  @SCOPE
-    @MATCH @local#Mode:?eq<Constant>
-    @LOCAL<Default> @local#Prop#defaultValue:unwrap
-    @LOCAL<Parameter> @param#value#type @param#value#name = @local#Default
-  @END
-  @SCOPE
-    @MATCH @local#Mode:?eq<HELIX.PropInit.Constant>
-    @LOCAL<Default> @local#Prop#defaultValue:unwrap
-    @LOCAL<Parameter> @param#value#type @param#value#name = @local#Default
-  @END
-  @SCOPE
-    @MATCH @local#Mode:?eq<1>
-    @LOCAL<Default> @local#Prop#defaultValue:unwrap
-    @LOCAL<Parameter> @param#value#type @param#value#name = @local#Default
-  @SCOPE
-    @MATCH @local#Mode:?eq<2>
-    @LOCAL<Default> @local#Prop#defaultValue:unwrap
-    @LOCAL<Parameter> @param#symbol:nullableType @param#value#name = null
-    @LOCAL<Assignment> this.@param#value#name = @param#value#name ?? @local#Default;
-  @END
-  @LOCAL<Value> @param#value:put<parameter><(@local#Parameter)>:put<assignment><(@local#Assignment)>:put<required><false>:put<default><(@local#Default)>
-  @SCOPE
-    @MATCH @local#Prop#Equatable:?eq<false>
-    @LOCAL<Value> @local#Value:put<equatable><false>
-  @END
-  @SCOPE
-    @MATCH @local#Prop#Datatype:?exists
-    @LOCAL<Value> @local#Value:put<datatype><(@local#Prop#Datatype:unwrap)>
-  @END
-  @SCOPE
-    @MATCH @local#Prop#EqualitySyntax:?exists
-    @MATCH @param#symbol:type:!?primitive
-    @MATCH @param#symbol:type:!?pointer
-    @ASSERT @local#Prop#EqualitySyntax:unwrap:matches<\S>
-    @LOCAL<Equality> @local#Prop#EqualitySyntax:unwrap:format<(this.@param#value#name)><(other.@param#value#name)>
-    @LOCAL<Value> @local#Value:put<equality><(@local#Equality)>
-  @END
-  @SCOPE
-    @MATCH @local#Prop#HashCodeSyntax:?exists
-    @MATCH @param#symbol:type:!?primitive
-    @MATCH @param#symbol:type:!?pointer
-    @ASSERT @local#Prop#HashCodeSyntax:unwrap:matches<\S>
-    @LOCAL<Hash> @local#Prop#HashCodeSyntax:unwrap:format<(this.@param#value#name)>
-    @LOCAL<Value> @local#Value:put<hash><(@local#Hash)>
-  @END
-  @RETURN @local#Value
-@END
+func DeclareCompanion
+do {
+  when(![var#CompanionName:exists]) {
+    var CompanionName @> {{this:name}}_Companion
+    var DeclareCompanion @> public static partial class {{var#CompanionName}}
+  }
+  emit<File>
+    @> {{var#DeclareCompanion}} {
+    @>   {{param}}
+    @> }
+}
+
+derivation mixin HELIX.PropertyDatatypeAttribute {
+  prelude expression {
+    local Datatype @= param#symbol:attributeOf<HELIX.PropertyDatatypeAttribute>;
+    when(local#Datatype:exists) {
+      return(param#value:put(<datatype>, local#Datatype#datatype:unwrap))
+    }
+    return(param#value)
+  }
+}
+
+derivation mixin HELIX.PropAttribute {
+  prelude expression {
+    local Prop @= param#symbol:attributeOf<HELIX.PropAttribute>;
+    when(![local#Prop:exists]) {
+      assert(![tar#PropOptional:eq(true)])
+      return(param#value)
+    }
+    local Mode @= local#Prop#defaultInit:unwrap;
+    when(![local#Mode:exists]) {
+      assert(![tar#PropOptional:eq(true)])
+      return(param#value)
+    }
+    when(local#Mode:eq(number<3>)) {
+      assert(![tar#PropOptional:eq(true)])
+      return(param#value)
+    }
+    when(local#Mode:eq<None>) {
+      assert(![tar#PropOptional:eq(true)])
+      return(param#value)
+    }
+    when(local#Mode:eq<HELIX.PropInit.None>) {
+      assert(![tar#PropOptional:eq(true)])
+      return(param#value)
+    }
+    when(local#Mode:eq(number<0>)) {
+      assert(local#Prop#defaultValue:parameterDefault)
+    }
+    when(local#Mode:eq(number<1>)) {
+      assert(local#Prop#defaultValue:nonEmptyStringConstant)
+    }
+    when(local#Mode:eq(number<2>)) {
+      assert(local#Prop#defaultValue:nonEmptyStringConstant)
+    }
+    assert(![param#symbol:in])
+    target var PropOptional @= true;
+    local Default @= local#Prop#defaultValue:csharpLiteral;
+    local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
+    local Assignment @> this.{{param#value#name}} = {{param#value#name}};
+    when(local#Mode:eq<Constant>) {
+      local Default @= local#Prop#defaultValue:unwrap;
+      local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
+    }
+    when(local#Mode:eq<HELIX.PropInit.Constant>) {
+      local Default @= local#Prop#defaultValue:unwrap;
+      local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
+    }
+    when(local#Mode:eq(number<1>)) {
+      local Default @= local#Prop#defaultValue:unwrap;
+      local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
+    }
+    when(local#Mode:eq(number<2>)) {
+      local Default @= local#Prop#defaultValue:unwrap;
+      local Parameter @> {{param#symbol:nullableType}} {{param#value#name}} = null
+      local Assignment @> this.{{param#value#name}} = {{param#value#name}} ?? {{local#Default}};
+    }
+    local Value @= param#value:put(<parameter>, local#Parameter):put(<assignment>, local#Assignment):put(<required>, false):put(<default>, local#Default);
+    when(local#Prop#Equatable:unwrap:eq(false)) {
+      local Value @= local#Value:put(<equatable>, false);
+    }
+    when(local#Prop#Datatype:exists) {
+      local Value @= local#Value:put(<datatype>, local#Prop#Datatype:unwrap);
+    }
+    when(local#Prop#EqualitySyntax:exists, ![param#symbol:type:primitive], ![param#symbol:type:pointer]) {
+      assert(local#Prop#EqualitySyntax:unwrap:matches<\\S>)
+      local Equality @= local#Prop#EqualitySyntax:unwrap:replaceAll(<\{0\}>, <this.[param#value#name]>):replaceAll(<\{1\}>, <other.[param#value#name]>);
+      local Value @= local#Value:put(<equality>, local#Equality);
+    }
+    when(local#Prop#HashCodeSyntax:exists, ![param#symbol:type:primitive], ![param#symbol:type:pointer]) {
+      assert(local#Prop#HashCodeSyntax:unwrap:matches<\\S>)
+      local Hash @= local#Prop#HashCodeSyntax:unwrap:replaceAll(<\{0\}>, <this.[param#value#name]>);
+      local Value @= local#Value:put(<hash>, local#Hash);
+    }
+    return(local#Value)
+  }
+}
+
+mixin HELIX.StructureAttribute {
+  prelude expression {
+    local PropsModel @= this:DeriveFields;
+    local Parameters @= local#PropsModel:map(SelectParameter):join<, >;
+    local Assignments @= local#PropsModel:map(SelectAssignment):join< >;
+    when(![local#PropsModel:length:eq(number<0>)]) {
+      emit<Class>
+        @> {{this:visibility}} {{this:name}}({{local#Parameters}}) {
+        @>   {{local#Assignments}}
+        @> }
+    }
+    local EqualityProps @= local#PropsModel:where(KeepEquatable);
+    local Comparisons @= local#EqualityProps:map(SelectEquality):join< && >;
+    local HashAdds @= local#EqualityProps:map(SelectHashAdd):join< >;
+    local Unsafe = <>
+    when(this:equatableSelf, ![local#EqualityProps:where(KeepUnsafe):length:eq(number<0>)]) {
+      local Unsafe = <unsafe>
+    }
+    when(this:equatableSelf, ![this:typedEqualsSelf]) {
+      local EqualityBody = when {
+        (local#Comparisons) -> [local#Comparisons]
+        else -> <true>
+      }
+      emit<Class> @> public {{local#Unsafe}} bool Equals({{this:type}} other) => {{local#EqualityBody}};
+    }
+    local TypedEqualsCall = <Equals\(other\)>
+    when(this:equatableSelf, this:typedEqualsSelf, ![this:ordinaryTypedEqualsSelf]) {
+      local TypedEqualsCall @> ((global::System.IEquatable<{{this:type}}>)this).Equals(other)
+    }
+    when(this:equatableSelf, ![this:objectEquals]) {
+      emit<Class> @> public override bool Equals(object obj) => obj is {{this:type}} other && {{local#TypedEqualsCall}};
+    }
+    when(this:equatableSelf, ![this:hashCode]) {
+      emit<Class>
+        @> public override {{local#Unsafe}} int GetHashCode() {
+        @>   var hashCode = new global::System.HashCode();
+        @>   {{local#HashAdds}}
+        @>   return hashCode.ToHashCode();
+        @> }
+    }
+    when(attr#datatype:unwrap:eq(true)) {
+      local DatatypeCode @= table:new:put(<type>, this:type):put(<name>, this:name):put(<props>, local#PropsModel):BuildDatatype;
+      emit(<Class>, local#DatatypeCode)
+    }
+  }
+}
+
+mixin HELIX.HookAttribute {
+  prelude expression {
+    local Name @= attr#target:unwrap;
+    when(local#Name:eq(null)) {
+      assert(target:name:matches<^On.*>)
+      local IsImplicit @= true;
+      local Name @> ${{target:name:regexReplaceFirst<^On><>}}
+    }
+    when(![target#0:exists]) {
+      inject(local#Name, attr#order:number) @> {{target:name}}();
+      return<>
+    }
+    local Delegate @= resolveMixin(<Delegate>, local#Name);
+    assert(![local#Delegate:eq(null)])
+    inject(local#Name, attr#order:number) @> {{target:name}}({{local#Delegate:wire(target)}});
+  }
+}
+
+mixin HELIX.MixinUsingAttribute {
+  prelude expression {
+    using @> {{attr#statement:unwrap}};
+  }
+}

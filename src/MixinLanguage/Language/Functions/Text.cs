@@ -8,66 +8,8 @@ using Mixins.Runtime;
 
 namespace Mixins.Functions;
 
-internal abstract class RegexFunction(string name) : EvaluatedFunctionDefinition(name, 2,
-  MixinLanguageValueKind.Text, MixinLanguageValueKind.Text,
-  [MixinLanguageValueKind.Text, MixinLanguageValueKind.Text]) {
-  protected sealed override IMixinValue Apply(
-    ExecutionContext context, IMixinValue value,
-    IReadOnlyList<IMixinValue> arguments
-  ) {
-    try {
-      return new LiteralMixinValue(
-        ExecutionContext.Dynamic(
-          Replace(
-            value.Render(context).Resolve(context.Strings), arguments[0].Render(context).Resolve(context.Strings),
-            arguments[1].Render(context).Resolve(context.Strings)
-          )
-        )
-      );
-    } catch (ArgumentException exception) {
-      return context.Error("invalid regular expression: " + exception.Message);
-    }
-  }
-
-  protected abstract string Replace(string text, string pattern, string replacement);
-}
-
-internal sealed class ReplaceFunction() : RegexFunction("replace") {
-  protected override string Replace(string text, string pattern, string replacement) {
-    return Regex.Replace(text, pattern, replacement);
-  }
-}
-
-internal sealed class ReplaceFirstFunction() : RegexFunction("replaceFirst") {
-  protected override string Replace(string text, string pattern, string replacement) {
-    return new Regex(pattern).Replace(text, replacement, 1);
-  }
-}
-
-internal sealed class FormatFunction(int argumentCount) : EvaluatedFunctionDefinition("format", argumentCount,
-  MixinLanguageValueKind.Text, MixinLanguageValueKind.Text,
-  Enumerable.Repeat(MixinLanguageValueKind.Any, argumentCount).ToArray()) {
-  protected override IMixinValue Apply(
-    ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
-  ) {
-    try {
-      return new LiteralMixinValue(
-        ExecutionContext.Dynamic(
-          string.Format(
-            CultureInfo.InvariantCulture,
-            value.Render(context).Resolve(context.Strings),
-            arguments.Select(item => (object)item.Render(context).Resolve(context.Strings)).ToArray()
-          )
-        )
-      );
-    } catch (FormatException exception) {
-      return context.Error("invalid format string: " + exception.Message);
-    }
-  }
-}
-
 internal sealed class IdentifierFunction() : EvaluatedFunctionDefinition("identifier", 0,
-  MixinLanguageValueKind.Text, MixinLanguageValueKind.Text) {
+  MixinValueKind.String, MixinValueKind.String) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments
   ) {
@@ -82,7 +24,7 @@ internal sealed class IdentifierFunction() : EvaluatedFunctionDefinition("identi
 }
 
 internal sealed class FloatTimeFunction() : EvaluatedFunctionDefinition("floatTime", 0,
-  MixinLanguageValueKind.Text, MixinLanguageValueKind.Text) {
+  MixinValueKind.Any, MixinValueKind.String) {
   protected override IMixinValue Apply(
     ExecutionContext context, IMixinValue value,
     IReadOnlyList<IMixinValue> arguments

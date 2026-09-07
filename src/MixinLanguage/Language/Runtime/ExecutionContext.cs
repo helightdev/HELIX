@@ -102,7 +102,6 @@ public abstract class ExecutionContext {
   internal MixinValueDictionary TargetVariables { get; } = new();
   internal MixinValueDictionary Carries { get; } = new();
   internal IMixinValue Parameter { get; set; } = NullMixinValue.Instance;
-  internal Func<ProgramFunctionMixinValue, IMixinValue, ProgramFunctionResult> ProgramInvoker { get; set; }
   internal Action<MixinExpressionOutput> OutputSink { get; set; }
   internal Action<MixinExpressionLog> LogSink { get; set; }
 
@@ -141,68 +140,7 @@ public abstract class ExecutionContext {
 
   protected abstract IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member);
 
-  public IMixinValue Invoke(
-    FunctionDefinition function, IMixinValue instance,
-    IReadOnlyList<IMixinValue> arguments, bool negated
-  ) {
-    return function.Invoke(this, instance, arguments, negated);
-  }
-
-  public IMixinValue Evaluate(IMixinValue value) {
-    return value switch {
-      RootMixinValue root => Evaluate(root.Resolve(this)),
-      InvokeMixinValue invocation => Evaluate(invocation.Resolve(this)),
-      InterpolationMixinValue interpolation => EvaluateInterpolation(interpolation),
-      AllMixinValue all => EvaluateAll(all),
-      TableTransformMixinValue transform => EvaluateTransform(transform),
-      _ => value ?? NullMixinValue.Instance
-    };
-  }
-
-  private IMixinValue EvaluateInterpolation(InterpolationMixinValue interpolation) {
-    var parts = interpolation.Parts.Select(Evaluate).ToArray();
-    var error = parts.OfType<ErrorMixinValue>().FirstOrDefault();
-    return error is not null
-      ? error
-      : new LiteralMixinValue(
-        Dynamic(
-          string.Concat(
-            parts.Select(item => item.Render(this).Resolve(Strings))
-          )
-        )
-      );
-  }
-
-  private IMixinValue EvaluateTransform(TableTransformMixinValue transform) {
-    if (ProgramInvoker is null) return Error("program function invocation is not available");
-    var entries = new List<KeyValuePair<MixinString, IMixinValue>>();
-    foreach (var item in transform.Table.Entries) {
-      var parameter = transform.Kind == TableTransformKind.MapValues
-        ? item.Value
-        : new MixinTableValue(
-          [
-            new KeyValuePair<MixinString, IMixinValue>(ResolveString("k"), new LiteralMixinValue(item.Key)),
-            new KeyValuePair<MixinString, IMixinValue>(ResolveString("v"), item.Value)
-          ]
-        );
-      var invocation = ProgramInvoker(transform.Function, parameter);
-      var result = invocation.Value;
-      if (result is ErrorMixinValue) return result;
-      if (transform.Kind == TableTransformKind.Filter) {
-        if (result.IsTruthy(this)) entries.Add(item);
-      } else entries.Add(new KeyValuePair<MixinString, IMixinValue>(item.Key, result));
-    }
-    return new MixinTableValue(entries);
-  }
-
-  private IMixinValue EvaluateAll(AllMixinValue all) {
-    foreach (var item in all.Values) {
-      var value = Evaluate(item);
-      if (value is ErrorMixinValue) return value;
-      if (!value.IsTruthy(this)) return BooleanMixinValue.False;
-    }
-    return all.Values.Count == 0 ? BooleanMixinValue.False : BooleanMixinValue.True;
-  }
+  public IMixinValue Evaluate(IMixinValue value) => value ?? NullMixinValue.Instance;
 
   public virtual MixinString Render(IMixinValue value) {
     return value.Render(this);
@@ -233,9 +171,9 @@ public abstract class ExecutionContext {
     return Error("mixin resolution is not supported by this execution context");
   }
 
-  public virtual IMixinValue Derive(IMixinValue value) {
-    return Error(":derive is not available in this context");
-  }
+  public virtual IMixinValue DefineTarget(string name, string descriptor) => Error("target aliases are not supported by this host");
+  public virtual string ResolveInjectionTarget(string target) => target;
+  public virtual IMixinValue Configure(string name, IMixinValue value) => Error("unknown host configuration '" + name + "'");
 
   public virtual bool HasTrait(IMixinValue value, MixinString trait) {
     return false;
@@ -248,9 +186,11 @@ public abstract class ExecutionContext {
   internal virtual IMixinValue DetachValue(IMixinValue value) {
     value = Evaluate(value);
     return value switch {
+      ErrorMixinValue error => error with { Message = MixinString.Dynamic(error.Message.Resolve(Strings)) },
       LiteralMixinValue literal => new LiteralMixinValue(
         MixinString.Dynamic(literal.Value.Resolve(Strings))
       ),
+      TupleMixinValue tuple => new TupleMixinValue(tuple.Values.Select(DetachValue).ToArray()),
       MixinTableValue table => new MixinTableValue(
         [
           .. table.Entries.Select(item =>
@@ -260,20 +200,8 @@ public abstract class ExecutionContext {
           )
         ]
       ),
-      DirectiveEffectMixinValue effect => effect with { Value = DetachValue(effect.Value) },
       _ => value
     };
-  }
-
-  internal void StoreTargetVariable(MixinString key, IMixinValue value) {
-    var name = key.Resolve(Strings);
-    var existing = TargetVariables.Keys.FirstOrDefault(item =>
-      string.Equals(item.Resolve(Strings), name, StringComparison.Ordinal)
-    );
-    value = Evaluate(value);
-    if (existing.IsInterned || existing.DynamicValue is not null)
-      TargetVariables.StoreIsolated(existing, value);
-    else TargetVariables.StoreIsolated(ResolveString(name), value);
   }
 
   public MixinString ResolveString(string value) => Strings.Get(value);

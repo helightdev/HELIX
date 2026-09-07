@@ -1,239 +1,235 @@
-@### Functions #########################################################################################################
-@FUNC<RequireHandler>
-  @SCOPE
-    @MATCH @var#IsEventHandler:!?eq<true>
-    @USING System;
-    @CODE<CLASS> [NonSerializedAttribute]
-      @\protected readonly EventHandlerList eventHandlerList = EventHandlerList.Create();
-      @\EventHandlerList IEventListener.HandlerList => eventHandlerList;
-    @MIXIN<$Dispose><1> eventHandlerList.UnregisterAll();
-    @CODE<IMPLEMENTS> IEventListener
-    @VAR<IsEventHandler> true
-  @END
-@END
+func RequireHandler
+do {
+  when(![var#IsEventHandler:eq(true)]) {
+    using @> System;
+    emit<Class>
+      @> [NonSerializedAttribute]
+      @> protected readonly EventHandlerList eventHandlerList = EventHandlerList.Create();
+      @> EventHandlerList IEventListener.HandlerList => eventHandlerList;
+    inject(<$Dispose>, number<1>) @> eventHandlerList.UnregisterAll();
+    emit<Implements> @> IEventListener
+    var IsEventHandler @= true;
+  }
+}
 
-@### Annotations #######################################################################################################
+mixin HELIX.Context.EventHandlerAttribute {
+  prelude expression {
+    RequireHandler()
+  }
+  prelude expression {
+    when(var#IsComponent:eq(true)) {
+      inject(<$ConfigureManaged>, number<-90000>) @> registration.RegisterHandlerBinding<{{target#0:type}}>({{attr#priority}})
+    }
+    when(target#0:is<IAsyncChainEvt>) {
+      assert(target#0:argument)
+      inject(<$Init>, number<1>) @> eventHandlerList.RegisterAsync<{{target#0:type}}>({{target:name}}, {{attr#priority}});
+      return<>
+    }
+    when(target#0:is<Evt>, target#0:ref) {
+      inject(<$Init>, number<1>) @> eventHandlerList.Register<{{target#0:type}}>({{target:name}}, {{attr#priority}});
+      return<>
+    }
+    when(target#0:is<Evt>, target#0:argument) {
+      inject(<$Init>, number<1>) @> eventHandlerList.Register<{{target#0:type}}>({{target:name}}, {{attr#priority}});
+      return<>
+    }
+  }
+}
 
-@ANNOTATION<HELIX.Context.EventHandlerAttribute>
-  @PRELUDE
-    @CALL<RequireHandler>
-  @END
-  
-  @SCOPE
-    @MATCH @var#IsComponent:?eq<true>
-    @MIXIN<$ConfigureManaged><-90000> registration.RegisterHandlerBinding<@arg#0:type>(@attr#priority)
-  @END
+mixin HELIX.Context.Tests.Fixtures.AlwaysEnabledAttribute {
+  prelude expression {
+    inject(<$ConfigureManaged>, number<0>) @> registration.Condition(context => true);
+  }
+}
 
-  @SCOPE
-    @MATCH @arg#0:?is<IAsyncChainEvt>
-    @ASSERT @arg#0:?argument
-    @MIXIN<$Init><1> eventHandlerList.RegisterAsync<@arg#0:type>(@target:name, @attr#priority);
-    @RETURN
-  @SCOPE
-    @MATCH @arg#0:?is<Evt>
-    @MATCH @arg#0:?ref
-    @MIXIN<$Init><1> eventHandlerList.Register<@arg#0:type>(@target:name, @attr#priority);
-    @RETURN
-  @SCOPE
-    @MATCH @arg#0:?is<Evt>
-    @MATCH @arg#0:?argument
-    @MIXIN<$Init><1> eventHandlerList.Register<@arg#0:type>(@target:name, @attr#priority);
-    @RETURN
-  @END
-@END
+mixin HELIX.Context.InjectAttribute {
+  func InjectList
+  do {
+    using @> System.Collections.Generic;
+    assert(target:type#0:class)
+    inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new TypeKey(typeof({{target:type#0}}), {{attr#qualifier:csharpLiteral}}), false, true));
+    inject(<$Init>, number<-1>) @> {{target:name}} = managed.ResolveAll<{{target:type#0}}>({{attr#qualifier:csharpLiteral}}) as {{target:type}};
+  }
 
-@ANNOTATION<HELIX.Context.Tests.Fixtures.AlwaysEnabledAttribute>
-  @MIXIN<$ConfigureManaged><0> registration.Condition(context => true);
-@END
+  prelude expression {
+    using @> HELIX.Context;
+    when(target:type:is<System.Collections.IEnumerable>, ![target:type:is<string>], target:type#0:exists) {
+      InjectList()
+      return<>
+    }
+    inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new TypeKey(typeof({{target:type}}), {{attr#qualifier:csharpLiteral}}), {{attr#required}}));
+    when(attr#required:unwrap:eq(false)) {
+      inject(<$Init>, number<-1>) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{attr#qualifier:csharpLiteral}});
+      return<>
+    }
+    inject(<$Init>, number<-1>) @> {{target:name}} = managed.Resolve<{{target:type}}>({{attr#qualifier:csharpLiteral}});
+  }
+}
 
-@ANNOTATION<HELIX.Context.InjectAttribute>
-  @FUNC<InjectList>
-    @USING System.Collections.Generic;
-    @ASSERT @target:type#0:?class
-    @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type#0), @attr#qualifier), false, true));
-    @MIXIN<$Init><-1> @target:name = managed.ResolveAll<@target:type#0>(@attr#qualifier) as @target:type;
-  @END
+mixin HELIX.Context.BindAttribute {
+  prelude expression {
+    using @> HELIX.Context;
+    local Value @= target:name;
+    local Method = <PublishBind>
+    local Guard = <>
+    local Type @> typeof({{target:type:unwrap}})
+    when(attr#proxied:unwrap:eq(true)) {
+      local Value @> () => {{target:name}}
+      local Method = <PublishProxyBind>
+    }
+    when(attr#required:unwrap:eq(false)) {
+      local Guard @> if ({{target:name}} != null)
+    }
+    when(attr#type:exists, ![attr#type:unwrap:eq(null)]) {
+      local Type @= attr#type;
+    }
+    inject(<$ConfigureManaged>, number<0>) @> registration.Publication({{local#Type}}, {{attr#qualifier:csharpLiteral}}, {{attr#required}});
+    inject(<$LoadManagedLate>, number<0>) @> {{local#Guard}}context.{{local#Method}}({{local#Type}}, {{attr#qualifier:csharpLiteral}}, {{local#Value}});
+  }
+}
 
-  @USING HELIX.Context;
-  @SCOPE
-    @MATCH @target:type:?is<System.Collections.IEnumerable>
-    @MATCH @target:type:!?is<string>
-    @MATCH @target:type#0:?exists
-    @CALL<InjectList>
-    @RETURN
-  @END
+mixin HELIX.Context.ResourceAttribute {
+  func ResourceSingle
+  do {
+    local WireKey @> {{string:new<@>}}"{{target:type:unwrap}}|{{attr#source}}|{{attr#qualifier:unwrap}}"
+    assert(target:type:class)
+    assert(target:type:is<UnityEngine.Object>)
+    :Addressables {
+      when(attr#source:unwrap:eq(number<2>)) {
+        inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new AddressableDependency<{{target:type}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}, {{attr#required}}), {{attr#required}}));
+        inject(<$Init>, number<-1>) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{local#WireKey}});
+        return<>
+      }
+    }
+    :Resources {
+      when(attr#source:unwrap:eq(number<3>)) {
+        inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new ResourceDependency<{{target:type}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}, {{attr#required}}), {{attr#required}}));
+        inject(<$Init>, number<-1>) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{local#WireKey}});
+        return<>
+      }
+    }
+    fail @> No valid injection source found for the target type.
+  }
 
-  @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new TypeKey(typeof(@target:type), @attr#qualifier), @attr#required));
-  @SCOPE
-    @MATCH @attr#required:?eq<false>
-    @MIXIN<$Init><-1> @target:name = managed.ResolveOptional<@target:type>(@attr#qualifier);
-    @RETURN
-  @END
-  @MIXIN<$Init><-1> @target:name = managed.Resolve<@target:type>(@attr#qualifier);
-@END
+  func ResourceList
+  do {
+    using @> System.Collections.Generic
+    using @> System.Collections
+    local WireKey @> {{string:new<@>}}"list|{{target:type#0:unwrap}}|{{attr#source}}|{{attr#qualifier:unwrap}}"
+    assert(target:type#0:class)
+    assert(target:type#0:is<UnityEngine.Object>)
+    :AddressableList {
+      when(attr#source:unwrap:eq(number<2>)) {
+        inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new AddressableListDependency<{{target:type#0}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}), true));
+        inject(<$Init>, number<-1>) @> {{target:name}} = managed.Resolve<List<{{target:type#0}}>>({{local#WireKey}}) as {{target:type}};
+        return<>
+      }
+    }
+    :ResourceList {
+      when(attr#source:unwrap:eq(number<3>)) {
+        inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new ResourceListDependency<{{target:type#0}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}), true));
+        inject(<$Init>, number<-1>) @> {{target:name}} = managed.Resolve<List<{{target:type#0}}>>({{local#WireKey}}) as {{target:type}};
+        return<>
+      }
+    }
+    fail @> No valid injection source found for the collected target type.
+  }
 
-@ANNOTATION<HELIX.Context.BindAttribute>
-  @USING HELIX.Context;
-  @LOCAL<Value> @target:name
-  @LOCAL<Method> PublishBind
-  @LOCAL<Guard>
-  @LOCAL<Type> typeof(@target:type:unwrap)
-  @SCOPE
-    @MATCH @attr#proxied:?eq<true>
-    @LOCAL<Value> () => @target:name
-    @LOCAL<Method> PublishProxyBind
-  @SCOPE
-    @MATCH @attr#required:?eq<false>
-    @LOCAL<Guard> if (@target:name != null)
-  @SCOPE
-    @MATCH @attr#type:?exists
-    @MATCH @attr#type:!?eq<null>
-    @LOCAL<Type> @attr#type
-  @END
+  prelude expression {
+    when(target:type:is<System.Collections.IEnumerable>, ![target:type:is<string>], target:type#0:exists) {
+      ResourceList()
+      return<>
+    }
+    ResourceSingle()
+    return<>
+  }
+}
 
-  @MIXIN<$ConfigureManaged><0> registration.Publication(@local#Type, @attr#qualifier, @attr#required);
-  @MIXIN<$LoadManagedLate><0> @(local#Guard)context.@local#Method(@local#Type, @attr#qualifier, @local#Value);
-@END
+mixin HELIX.Context.AutoDisposeAttribute {
+  prelude expression {
+    using @> HELIX.Context
+    inject(<$Dispose>, number<1>) @> AutoDisposeMethods.DisposeDisposable(ref {{target:name}})
+  }
+}
 
-@ANNOTATION<HELIX.Context.ResourceAttribute>
-  @FUNC<ResourceSingle>
-    @LOCAL<WireKey> @@"@target:type:unwrap|@attr#source|@attr#qualifier:unwrap"
-    @ASSERT @target:type:?class
-    @ASSERT @target:type:?is<UnityEngine.Object>
+mixin HELIX.Context.ManagedAttribute {
+  prelude expression {
+    defineTarget<$ConfigureManaged> @> ^*~HELIX.Context.RegistrationConfigurator
+    defineTarget<$LoadManaged> @> ^LoadManaged:HELIX.Context.ManagedLoadMethod
+    defineTarget<$LoadManagedLate> @> ^LoadManagedLate:HELIX.Context.ManagedLoadMethod
+    defineTarget<$UnloadManaged> @> ^UnloadManaged:HELIX.Context.ManagedUnloadMethod
+    defineTarget<$Init> @> ^LoadManaged:HELIX.Context.ManagedLoadMethod
+    defineTarget<$Dispose> @> $UnloadManaged
+    var IsComponent @= true;
+  }
+  prelude expression {
+    using @> HELIX.Context;
+    using @> UnityEngine;
+    inject(<$ConfigureManaged>, number<-100000>) @> registration.name = "{{this:name}}";
+    inject(<$ConfigureManaged>, number<-100000>) @> registration.optional = {{attr#optional}};
+    inject(<$ConfigureManaged>, number<-100000>) @> registration.phase = {{attr#phase}};
+    inject(<$ConfigureManaged>, number<-100000>) @> registration.order = {{attr#order}};
+    emit<Implements> @> IManaged
+    emit<Class> @> public RuntimeManagedData managed { get; } = new();
+    when(attr#scope:unwrap:eq(null)) {
+      goto Activator
+    }
+    {
+      inject(<$ConfigureManaged>, number<-100000>) @> registration.scope = {{attr#scope}};
+    }
+    :Activator {
+    }
+    when(this:is<MonoBehaviour>) {
+      inject(<$ConfigureManaged>, number<-100000>) @> registration.activator = DefaultComponentActivators.MonoBehaviour<{{this:type}}>();
+      goto End
+    }
+    {
+      inject(<$ConfigureManaged>, number<-100000>) @> registration.activator = DefaultComponentActivators.PlainObject<{{this:type}}>();
+    }
+    :End {
+    }
+  }
+}
 
-    @SCOPE<Addressables>
-      @MATCH @attr#source:?eq<2>
-      @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new AddressableDependency<@target:type>(@attr#qualifier, @local#WireKey, @attr#required), @attr#required));
-      @MIXIN<$Init><-1> @target:name = managed.ResolveOptional<@target:type>(@local#WireKey);
-      @RETURN
-    @SCOPE<Resources>
-      @MATCH @attr#source:?eq<3>
-      @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new ResourceDependency<@target:type>(@attr#qualifier, @local#WireKey, @attr#required), @attr#required));
-      @MIXIN<$Init><-1> @target:name = managed.ResolveOptional<@target:type>(@local#WireKey);
-      @RETURN
-    @END
-    @FAIL No valid injection source found for the target type.
-  @END
-
-  @FUNC<ResourceList>
-    @USING System.Collections.Generic
-    @USING System.Collections
-    @LOCAL<WireKey> @@"list|@target:type#0:unwrap|@attr#source|@attr#qualifier:unwrap"
-    @ASSERT @target:type#0:?class
-    @ASSERT @target:type#0:?is<UnityEngine.Object>
-
-    @SCOPE<AddressableList>
-      @MATCH @attr#source:?eq<2>
-      @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new AddressableListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
-      @MIXIN<$Init><-1> @target:name = managed.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
-      @RETURN
-    @SCOPE<ResourceList>
-      @MATCH @attr#source:?eq<3>
-      @MIXIN<$ConfigureManaged><0> registration.Dependency(new ComponentDependency(new ResourceListDependency<@target:type#0>(@attr#qualifier, @local#WireKey), true));
-      @MIXIN<$Init><-1> @target:name = managed.Resolve<List<@target:type#0>>(@local#WireKey) as @target:type;
-      @RETURN
-    @END
-    @FAIL No valid injection source found for the collected target type.
-  @END
-
-  @SCOPE
-    @MATCH @target:type:?is<System.Collections.IEnumerable>
-    @MATCH @target:type:!?is<string>
-    @MATCH @target:type#0:?exists
-    @CALL<ResourceList>
-    @RETURN
-  @END
-
-  @CALL<ResourceSingle>
-  @RETURN
-@END
-
-@ANNOTATION<HELIX.Context.AutoDisposeAttribute>
-  @USING HELIX.Context
-  @MIXIN<$Dispose><1> AutoDisposeMethods.DisposeDisposable(ref @target:name)
-@END
-
-@ANNOTATION<HELIX.Context.ManagedAttribute>
-  @DEFINE_TARGET<ConfigureManaged><^*~HELIX.Context.RegistrationConfigurator>
-  @DEFINE_TARGET<LoadManaged><^LoadManaged:HELIX.Context.ManagedLoadMethod>
-  @DEFINE_TARGET<LoadManagedLate><^LoadManagedLate:HELIX.Context.ManagedLoadMethod>
-  @DEFINE_TARGET<UnloadManaged><^UnloadManaged:HELIX.Context.ManagedUnloadMethod>
-  @DEFINE_TARGET<Init><^LoadManaged:HELIX.Context.ManagedLoadMethod>
-  @DEFINE_TARGET<Dispose><$UnloadManaged>
-  @PRELUDE
-    @VAR<IsComponent> true
-  @END
-  @USING HELIX.Context;
-  @USING UnityEngine;
-  @MIXIN<$ConfigureManaged><-100000> registration.name = "@this:name";
-  @MIXIN<$ConfigureManaged><-100000> registration.optional = @attr#optional;
-  @MIXIN<$ConfigureManaged><-100000> registration.phase = @attr#phase;
-  @MIXIN<$ConfigureManaged><-100000> registration.order = @attr#order;
-  @CODE<IMPLEMENTS> IManaged
-  @CODE<CLASS> public RuntimeManagedData managed { get; } = new();
-
-  @SCOPE
-    @MATCH @attr#scope:?eq<null>
-    @GOTO<Activator>
-  @SCOPE
-    @MIXIN<$ConfigureManaged><-100000> registration.scope = @attr#scope;
-  @END
-
-  @SCOPE<Activator>
-  @SCOPE
-    @MATCH @this:?is<MonoBehaviour>
-    @MIXIN<$ConfigureManaged><-100000> registration.activator = DefaultComponentActivators.MonoBehaviour<@this:type>();
-    @GOTO<End>
-  @SCOPE
-    @MIXIN<$ConfigureManaged><-100000> registration.activator = DefaultComponentActivators.PlainObject<@this:type>();
-  @END
-
-  @SCOPE<End>
-  @END
-@END
-
-@ANNOTATION<HELIX.Context.TickerAttribute>
-  @USING HELIX.Context;
-  @LOCAL<Time> -0f
-  @SCOPE
-    @MATCH @attr#time:?exists
-    @LOCAL<Time> @attr#time:floatTime
-  @END
-  @LOCAL<TickerField> _@(target:name)Ticker
-
-  @SCOPE
-    @MATCH @local#Time:matches<^-.*>
-    @LOCAL<Time> @local#Time:replace<-|f><>
-    @CODE<CLASS> private FrameCountTicker @local#TickerField = new(@local#Time);
-    @GOTO<HookCaller>
-  @SCOPE
-    @CODE<CLASS> private FrameTimeTicker @local#TickerField = new(@local#Time);
-  @END
-
-  @SCOPE<HookCaller>
-    @LOCAL<TickerCondition> @local#TickerField.Tick()
-  @SCOPE
-    @MATCH @attr#condition:!?eq<null>
-    @LOCAL<TickerCondition> @attr#condition:unwrap && @local#TickerCondition
-  @SCOPE
-    @MATCH @var#IsComponent:?eq<true>
-    @LOCAL<TickerCondition> managed.IsActive && @local#TickerCondition
-  @END
-
-  @LOCAL<InvokeTicker> @target:name();
-  @SCOPE
-    @MATCH @target:?async
-    @ASSERT @target:?is<Cysharp.Threading.Tasks.UniTask>
-    @USING Cysharp.Threading.Tasks;
-    @LOCAL<AsyncProxyName> _@(target:name)AsyncProxy
-    @CODE<CLASS> private async UniTaskVoid @local#AsyncProxyName() {
-      @\  try {
-      @\    @local#TickerField.running = true;
-      @\    await @local#InvokeTicker
-      @\  } finally { @local#TickerField.running = false; }
-      @\}
-    @LOCAL<InvokeTicker> @local#AsyncProxyName().Forget();
-  @END
-
-  @MIXIN<(@attr#target:unwrap)><(@attr#order)> if (@local#TickerCondition) @local#InvokeTicker
-@END
+mixin HELIX.Context.TickerAttribute {
+  prelude expression {
+    using @> HELIX.Context;
+    local Time = <-0f>
+    when(attr#time:exists) {
+      local Time @= attr#time:floatTime;
+    }
+    local TickerField @> _{{target:name}}Ticker
+    when(local#Time:matches<^-.*>) {
+      local Time @= local#Time:regexReplaceAll<-|f><>;
+      emit<Class> @> private FrameCountTicker {{local#TickerField}} = new({{local#Time}});
+      goto HookCaller
+    }
+    {
+      emit<Class> @> private FrameTimeTicker {{local#TickerField}} = new({{local#Time}});
+    }
+    :HookCaller {
+      local TickerCondition @> {{local#TickerField}}.Tick()
+    }
+    when(![attr#condition:unwrap:eq(null)]) {
+      local TickerCondition @> {{attr#condition:unwrap}} && {{local#TickerCondition}}
+    }
+    when(var#IsComponent:eq(true)) {
+      local TickerCondition @> managed.IsActive && {{local#TickerCondition}}
+    }
+    local InvokeTicker @> {{target:name}}();
+    when(target:async) {
+      assert(target:is<Cysharp.Threading.Tasks.UniTask>)
+      using @> Cysharp.Threading.Tasks;
+      local AsyncProxyName @> _{{target:name}}AsyncProxy
+      emit<Class>
+        @> private async UniTaskVoid {{local#AsyncProxyName}}() {
+        @>   try {
+        @>     {{local#TickerField}}.running = true;
+        @>     await {{local#InvokeTicker}}
+        @>   } finally { {{local#TickerField}}.running = false; }
+        @> }
+      local InvokeTicker @> {{local#AsyncProxyName}}().Forget();
+    }
+    inject(attr#target:unwrap, attr#order:number) @> if ({{local#TickerCondition}}) {{local#InvokeTicker}}
+  }
+}

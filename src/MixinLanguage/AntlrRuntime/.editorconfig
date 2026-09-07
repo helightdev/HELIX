@@ -1,0 +1,4 @@
+# Vendored upstream code; the compiler uses in-memory streams and its own diagnostics.
+[*.cs]
+dotnet_diagnostic.RS1035.severity = none
+dotnet_diagnostic.CS3021.severity = none

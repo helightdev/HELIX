@@ -8,6 +8,7 @@ namespace Mixins.Env;
 ///   fresh compilations and owns any caching policy outside the language.
 /// </summary>
 internal static class MixinCompilationCache {
+  internal static MixinLibraryFile GetFile(string path, string content, Func<MixinLibraryFile> parse) => parse();
   internal static MixinCompilation GetOrCreate(string key, Func<MixinCompilation> compile) {
     return compile();
   }

@@ -14,7 +14,7 @@ public interface IMixinValue : IEquatable<IMixinValue> {
   object Unlink(ExecutionContext context);
 }
 
-public sealed record ErrorMixinValue(MixinString Message) : IMixinValue {
+public sealed record ErrorMixinValue(MixinString Message, bool IsChecked = false) : IMixinValue {
   public bool IsTruthy(ExecutionContext context) {
     return false;
   }
@@ -26,6 +26,7 @@ public sealed record ErrorMixinValue(MixinString Message) : IMixinValue {
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
     builder.Append(nameof(ErrorMixinValue));
     builder.Append(Message.Resolve(context.Strings));
+    builder.Append(IsChecked);
   }
 
   public IMixinValue Select(ExecutionContext context, MixinString member) {
@@ -33,7 +34,7 @@ public sealed record ErrorMixinValue(MixinString Message) : IMixinValue {
   }
 
   public object Unlink(ExecutionContext context) {
-    return Message.Resolve(context.Strings);
+    return new ErrorMixinValue(MixinString.Dynamic(Message.Resolve(context.Strings)), IsChecked);
   }
 
   public bool Equals(IMixinValue other) {
@@ -80,6 +81,7 @@ public sealed class NullMixinValue : IMixinValue {
 
 public sealed record BooleanMixinValue(bool Value) : IMixinValue {
   public static readonly BooleanMixinValue True = new(true), False = new(false);
+  public static BooleanMixinValue From(bool value) => value ? True : False;
 
   public bool IsTruthy(ExecutionContext context) {
     return Value;

@@ -1,57 +1,68 @@
-@### Functions #########################################################################################################
+derivation mixin HELIX.Boot.NamedArgAttribute {
+  prelude expression {
+    local Named @= param#symbol:attributeOf<HELIX.Boot.NamedArgAttribute>;
+    when(local#Named:exists) {
+      local Configuration @> datatype.GetProperty("{{param#value#name}}").Modifiers.Add(NamedArgModifier.Instance);
+      return(param#value:put(<configuration>, local#Configuration))
+    }
+    return(param#value)
+  }
+}
 
-@### Annotations #######################################################################################################
+mixin HELIX.Boot.CommandAttribute {
+  prelude expression {
+    local StructName @> {{target:name}}_Args
+    local StructHandle @= target:DeriveParameters;
+    EmitGeneratedStructure(@{name=local#StructName, props=local#StructHandle, datatype=true})
+    local InvokeArguments @= local#StructHandle:map(SelectObjectCallArgument):join<, >;
+    local InvokeLambda @> args => {{target:name}}({{local#InvokeArguments}})
+    carry StructName @= local#StructName;
+    carry InvokeLambda @= local#InvokeLambda;
+    carry TargetName @= target:name;
+    carry CommandName @= attr#name:csharpLiteral;
+    carry HasCommandName @= attr#name:unwrap:exists;
+    carry Description @= attr#description:csharpLiteral;
+    carry Parent @= attr#parent:csharpLiteral;
+  }
+  expression {
+    using @> HELIX.Boot;
+    local CmdName @= carry#CommandName;
+    when(![carry#HasCommandName]) {
+      local CmdName @> "{{carry#TargetName}}"
+    }
+    local Bridge @> CommandBridge<{{carry#StructName}}>.Create({{carry#StructName}}.Datatype, {{carry#InvokeLambda}}, {{local#CmdName}}, {{carry#Description}}, {{carry#Parent}})
+    inject(<$LoadManagedLate>, number<0>) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{local#Bridge}});
+  }
+}
 
-@DERIVATION<HELIX.Boot.NamedArgAttribute>
-  @LOCAL<Named> @param#symbol:attributeOf<HELIX.Boot.NamedArgAttribute>
-  @SCOPE
-    @MATCH @local#Named:?exists
-    @RETURN @param#value:put<configuration><(datatype.GetProperty("@param#value#name").Modifiers.Add(NamedArgModifier.Instance);)>
-  @END
-  @RETURN @param#value
-@END
+mixin HELIX.Boot.RegisterCommandAttribute {
+  prelude expression {
+    inject(<$ConfigureManaged>, number<-1>) @> registration.Publication(typeof(HELIX.UI.Console.Command), null, true);
+    inject(<$LoadManagedLate>, number<1>) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{target:name}});
+  }
+}
 
-@ANNOTATION<HELIX.Boot.CommandAttribute>
-  @PRELUDE
-    @LOCAL<StructName> @(target:name)_Args
-    @CALL<StructHandle><DeriveParameters> @target
-    @CALL<EmitGeneratedStructure> @table:put<name><(@local#StructName)>:put<props><(@local#StructHandle)>:put<datatype><true>
-    @LOCAL<InvokeArguments> @local#StructHandle:mapValues<SelectObjectCallArgument>:joinValues<, >
-    @LOCAL<InvokeLambda> args => @target:name(@local#InvokeArguments)
-    @CARRY<StructName> @local#StructName
-    @CARRY<InvokeLambda> @local#InvokeLambda
-  @END
-  
-  @USING HELIX.Boot;
-  @LOCAL<CmdName> @attr#name
-  @SCOPE
-    @MATCH @attr#name:?eq<null>
-    @LOCAL<CmdName> "@target:name"
-  @END
-  @LOCAL<Bridge> CommandBridge<@carry#StructName>.Create(
-    @+@carry#StructName.Datatype, @carry#InvokeLambda, @local#CmdName, @attr#description, @attr#parent)
-  @MIXIN<$LoadManagedLate><0> context.PublishBind(typeof(HELIX.UI.Console.Command), null, @local#Bridge);
-@END
+mixin HELIX.Boot.RegisterOptionAttribute {
+  prelude expression {
+    when(attr#path:exists) {
+      inject(<$Init>, number<-1>) @> {{target:name}}.SetInferredPath({{attr#path}});
+      inject(<$ConfigureManaged>, number<-1>) @> registration.Publication(typeof({{target:type:unwrap}}), {{attr#path}}, true);
+      inject(<$LoadManagedLate>, number<1>) @> context.PublishBind(typeof({{target:type:unwrap}}), {{attr#path}}, {{target:name}});
+      return<>
+    }
+    {
+      inject(<$Init>, number<-1>) @> {{target:name}}.SetInferredName("{{target:name}}");
+      inject(<$ConfigureManaged>, number<-1>) @> registration.Publication(typeof(HELIX.Boot.Option), null, true);
+      inject(<$LoadManagedLate>, number<1>) @> context.PublishBind(typeof(HELIX.Boot.Option), null, {{target:name}})
+      return<>
+    }
+  }
+}
 
-@ANNOTATION<HELIX.Boot.RegisterCommandAttribute>
-  @MIXIN<$ConfigureManaged><-1> registration.Publication(typeof(HELIX.UI.Console.Command), null, true);
-  @MIXIN<$LoadManagedLate><1> context.PublishBind(typeof(HELIX.UI.Console.Command), null, @target:name);
-@END
+mixin DefaultNamespace.TextMixin {}
 
-@ANNOTATION<HELIX.Boot.RegisterOptionAttribute>
-  @SCOPE
-    @MATCH @attr#path:?exists
-    @MIXIN<$Init><-1> @target:name.SetInferredPath(@attr#path);
-    @MIXIN<$ConfigureManaged><-1> registration.Publication(typeof(@target:type:unwrap), @attr#path, true);
-    @MIXIN<$LoadManagedLate><1> context.PublishBind(typeof(@target:type:unwrap), @attr#path, @target:name);
-    @RETURN
-  @SCOPE
-    @MIXIN<$Init><-1> @target:name.SetInferredName("@target:name");
-    @MIXIN<$ConfigureManaged><-1> registration.Publication(typeof(HELIX.Boot.Option), null, true);
-    @MIXIN<$LoadManagedLate><1> context.PublishBind(typeof(HELIX.Boot.Option), null, @target:name)
-    @RETURN
-  @END
-@END
-
-@ANNOTATION<DefaultNamespace.TextMixin>
-@END
+mixin Configuration {
+  prelude expression {
+    config(<PROFILE>, <enabled>)
+  }
+}

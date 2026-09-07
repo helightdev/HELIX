@@ -1,29 +1,29 @@
-@### Annotations #######################################################################################################
+mixin HELIX.OdinSerializableAttribute {
+  expression {
+    emit<Implements> @> ISerializationCallbackReceiver
+    emit<Implements> @> ISupportsPrefabSerialization
+    emit<Annotation> @> ShowOdinSerializedPropertiesInInspector
+    using @> UnityEngine;
+    using @> Sirenix.Serialization;
+    using @> Sirenix.OdinInspector;
+    emit<Class> @> [SerializeField, HideInInspector]
+    emit<Class> @> private SerializationData serializationData;
+    emit<Class> @> SerializationData ISupportsPrefabSerialization.SerializationData { get { return this.serializationData; } set { this.serializationData = value; } }
+    emit<Class> @> void ISerializationCallbackReceiver.OnAfterDeserialize() { UnitySerializationUtility.DeserializeUnityObject(this, ref this.serializationData); }
+    emit<Class> @> void ISerializationCallbackReceiver.OnBeforeSerialize() { UnitySerializationUtility.SerializeUnityObject(this, ref this.serializationData); }
+  }
+}
 
-@ANNOTATION<HELIX.OdinSerializableAttribute>
-  @CODE<IMPLEMENTS> ISerializationCallbackReceiver
-  @CODE<IMPLEMENTS> ISupportsPrefabSerialization
-  @CODE<ANNOTATION> ShowOdinSerializedPropertiesInInspector
-  @USING UnityEngine;
-  @USING Sirenix.Serialization;
-  @USING Sirenix.OdinInspector;
-
-  @CODE<CLASS> [SerializeField, HideInInspector]
-  @CODE<CLASS> private SerializationData serializationData;
-  @CODE<CLASS> SerializationData ISupportsPrefabSerialization.SerializationData { get { return this.serializationData; } set { this.serializationData = value; } }
-  @CODE<CLASS> void ISerializationCallbackReceiver.OnAfterDeserialize() { UnitySerializationUtility.DeserializeUnityObject(this, ref this.serializationData); }
-  @CODE<CLASS> void ISerializationCallbackReceiver.OnBeforeSerialize() { UnitySerializationUtility.SerializeUnityObject(this, ref this.serializationData); }
-@END
-
-@ANNOTATION<HELIX.OdinSerializableScriptAttribute>
-  @CODE<IMPLEMENTS> ISerializationCallbackReceiver
-  @CODE<ANNOTATION> ShowOdinSerializedPropertiesInInspector
-  @USING UnityEngine;
-  @USING Sirenix.Serialization;
-  @USING Sirenix.OdinInspector;
-
-  @CODE<CLASS> [SerializeField, HideInInspector]
-  @CODE<CLASS> private SerializationData serializationData;
-  @CODE<CLASS> void ISerializationCallbackReceiver.OnAfterDeserialize() { UnitySerializationUtility.DeserializeUnityObject(this, ref this.serializationData); }
-  @CODE<CLASS> void ISerializationCallbackReceiver.OnBeforeSerialize() { UnitySerializationUtility.SerializeUnityObject(this, ref this.serializationData); }
-@END
+mixin HELIX.OdinSerializableScriptAttribute {
+  expression {
+    emit<Implements> @> ISerializationCallbackReceiver
+    emit<Annotation> @> ShowOdinSerializedPropertiesInInspector
+    using @> UnityEngine;
+    using @> Sirenix.Serialization;
+    using @> Sirenix.OdinInspector;
+    emit<Class> @> [SerializeField, HideInInspector]
+    emit<Class> @> private SerializationData serializationData;
+    emit<Class> @> void ISerializationCallbackReceiver.OnAfterDeserialize() { UnitySerializationUtility.DeserializeUnityObject(this, ref this.serializationData); }
+    emit<Class> @> void ISerializationCallbackReceiver.OnBeforeSerialize() { UnitySerializationUtility.SerializeUnityObject(this, ref this.serializationData); }
+  }
+}

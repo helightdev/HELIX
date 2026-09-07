@@ -168,6 +168,7 @@ tasks.buildPlugin {
 
 dependencies {
     implementation(libs.kotlinxSerializationJson)
+    implementation("org.antlr:antlr4-runtime:4.13.2")
 
     intellijPlatform {
         rider(ProductVersion) {
