@@ -1,5 +1,4 @@
-func RequireHandler
-do {
+func RequireHandler do {
   when(![var#IsEventHandler:eq(true)]) {
     using @> System;
     emit<Class>
@@ -23,15 +22,15 @@ mixin HELIX.Context.EventHandlerAttribute {
     when(target#0:is<IAsyncChainEvt>) {
       assert(target#0:argument)
       inject(<$Init>, number<1>) @> eventHandlerList.RegisterAsync<{{target#0:type}}>({{target:name}}, {{attr#priority}});
-      return<>
+      return
     }
     when(target#0:is<Evt>, target#0:ref) {
       inject(<$Init>, number<1>) @> eventHandlerList.Register<{{target#0:type}}>({{target:name}}, {{attr#priority}});
-      return<>
+      return
     }
     when(target#0:is<Evt>, target#0:argument) {
       inject(<$Init>, number<1>) @> eventHandlerList.Register<{{target#0:type}}>({{target:name}}, {{attr#priority}});
-      return<>
+      return
     }
   }
 }
@@ -43,8 +42,7 @@ mixin HELIX.Context.Tests.Fixtures.AlwaysEnabledAttribute {
 }
 
 mixin HELIX.Context.InjectAttribute {
-  func InjectList
-  do {
+  func InjectList do {
     using @> System.Collections.Generic;
     assert(target:type#0:class)
     inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new TypeKey(typeof({{target:type#0}}), {{attr#qualifier:csharpLiteral}}), false, true));
@@ -55,12 +53,12 @@ mixin HELIX.Context.InjectAttribute {
     using @> HELIX.Context;
     when(target:type:is<System.Collections.IEnumerable>, ![target:type:is<string>], target:type#0:exists) {
       InjectList()
-      return<>
+      return
     }
     inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new TypeKey(typeof({{target:type}}), {{attr#qualifier:csharpLiteral}}), {{attr#required}}));
     when(attr#required:unwrap:eq(false)) {
       inject(<$Init>, number<-1>) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{attr#qualifier:csharpLiteral}});
-      return<>
+      return
     }
     inject(<$Init>, number<-1>) @> {{target:name}} = managed.Resolve<{{target:type}}>({{attr#qualifier:csharpLiteral}});
   }
@@ -98,14 +96,14 @@ mixin HELIX.Context.ResourceAttribute {
       when(attr#source:unwrap:eq(number<2>)) {
         inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new AddressableDependency<{{target:type}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}, {{attr#required}}), {{attr#required}}));
         inject(<$Init>, number<-1>) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{local#WireKey}});
-        return<>
+        return
       }
     }
     :Resources {
       when(attr#source:unwrap:eq(number<3>)) {
         inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new ResourceDependency<{{target:type}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}, {{attr#required}}), {{attr#required}}));
         inject(<$Init>, number<-1>) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{local#WireKey}});
-        return<>
+        return
       }
     }
     fail @> No valid injection source found for the target type.
@@ -122,14 +120,14 @@ mixin HELIX.Context.ResourceAttribute {
       when(attr#source:unwrap:eq(number<2>)) {
         inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new AddressableListDependency<{{target:type#0}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}), true));
         inject(<$Init>, number<-1>) @> {{target:name}} = managed.Resolve<List<{{target:type#0}}>>({{local#WireKey}}) as {{target:type}};
-        return<>
+        return
       }
     }
     :ResourceList {
       when(attr#source:unwrap:eq(number<3>)) {
         inject(<$ConfigureManaged>, number<0>) @> registration.Dependency(new ComponentDependency(new ResourceListDependency<{{target:type#0}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}), true));
         inject(<$Init>, number<-1>) @> {{target:name}} = managed.Resolve<List<{{target:type#0}}>>({{local#WireKey}}) as {{target:type}};
-        return<>
+        return
       }
     }
     fail @> No valid injection source found for the collected target type.
@@ -138,10 +136,10 @@ mixin HELIX.Context.ResourceAttribute {
   prelude expression {
     when(target:type:is<System.Collections.IEnumerable>, ![target:type:is<string>], target:type#0:exists) {
       ResourceList()
-      return<>
+      return
     }
     ResourceSingle()
-    return<>
+    return
   }
 }
 

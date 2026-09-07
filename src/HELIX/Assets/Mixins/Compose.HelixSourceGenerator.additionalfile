@@ -1,21 +1,18 @@
-func RequireCompositionTypeId
-do {
+func RequireCompositionTypeId {
   when(![var#HasTypeId:eq(true)]) {
     var HasTypeId @= true;
     DeclareCompanion @> public static readonly ushort typeId = CompositionId.GetTypeId("{{this:name}}");
   }
 }
 
-func RequireCompositionId
-do {
+func RequireCompositionId {
   when(![var#HasCompositionId:eq(true)]) {
     var HasCompositionId @= true;
     DeclareCompanion @> public static readonly ushort compositionId = CompositionId.GetCompositionId("{{this:name}}");
   }
 }
 
-func RequireInputState
-do {
+func RequireInputState {
   when(![var#HasInputState:eq(true)]) {
     var HasInputState @= true;
     using @> HELIX.Compose;
@@ -26,8 +23,7 @@ do {
   }
 }
 
-func GenerateBoundaryElement
-do {
+func GenerateBoundaryElement {
   local ComposeCalls = <>
   local ComposeArgs = <>
   RequireCompositionTypeId()
@@ -65,8 +61,7 @@ do {
     }
   }
   emit<Class> @> public static readonly Composable BakedComposable = static (ref Composition cx) => { ComposeBoundary(ref cx); };
-  :GenerateCompose {
-  }
+  :GenerateCompose
   local Body
     @> {
     @>   if (!cx.AUTHORING.RequireComposable<{{this:type}}>({{var#CompanionName}}.typeId, out var instance, out var retained)) {
@@ -132,7 +127,7 @@ mixin HELIX.Compose.ComposableMethodAttribute {
         @>   ) {
         @>     {{local#Body}}
         @>   }
-      return<>
+      return
     }
     {
       emit<Class>
@@ -174,8 +169,7 @@ mixin HELIX.Compose.ComposableDelegateAttribute {
       local Types @> {{local#Types}}, {{target#3:type:unwrap}}
     }
     local Types @> <{{local#Types}}>
-    :NoArgs {
-    }
+    :NoArgs
     local IdName @> _{{local#Name}}CompositionId
     emit<Class>
       @> private static readonly ushort {{local#IdName}} = CompositionId.GetCompositionId("{{local#Name}}");
@@ -306,7 +300,7 @@ mixin HELIX.Compose.BoundaryElementMixinAttribute {
       GenerateBoundaryElement()
     }
   }
-  prelude expression {
+  expression {
     using @> HELIX.Compose;
     using @> HELIX.Coloring;
     emit<Implements> @> HELIX.Compose.IBoundaryHooks

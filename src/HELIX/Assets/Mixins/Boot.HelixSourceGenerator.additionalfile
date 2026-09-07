@@ -13,7 +13,11 @@ mixin HELIX.Boot.CommandAttribute {
   prelude expression {
     local StructName @> {{target:name}}_Args
     local StructHandle @= target:DeriveParameters;
-    EmitGeneratedStructure(@{name=local#StructName, props=local#StructHandle, datatype=true})
+    EmitGeneratedStructure @{
+      name = local#StructName,
+      props = local#StructHandle,
+      datatype = true
+    };
     local InvokeArguments @= local#StructHandle:map(SelectObjectCallArgument):join<, >;
     local InvokeLambda @> args => {{target:name}}({{local#InvokeArguments}})
     carry StructName @= local#StructName;
@@ -48,13 +52,13 @@ mixin HELIX.Boot.RegisterOptionAttribute {
       inject(<$Init>, number<-1>) @> {{target:name}}.SetInferredPath({{attr#path}});
       inject(<$ConfigureManaged>, number<-1>) @> registration.Publication(typeof({{target:type:unwrap}}), {{attr#path}}, true);
       inject(<$LoadManagedLate>, number<1>) @> context.PublishBind(typeof({{target:type:unwrap}}), {{attr#path}}, {{target:name}});
-      return<>
+      return
     }
     {
       inject(<$Init>, number<-1>) @> {{target:name}}.SetInferredName("{{target:name}}");
       inject(<$ConfigureManaged>, number<-1>) @> registration.Publication(typeof(HELIX.Boot.Option), null, true);
       inject(<$LoadManagedLate>, number<1>) @> context.PublishBind(typeof(HELIX.Boot.Option), null, {{target:name}})
-      return<>
+      return
     }
   }
 }

@@ -1,5 +1,4 @@
-func KeepInstanceField
-do {
+func KeepInstanceField {
   when(![param:field]) {
     return(false)
   }
@@ -9,8 +8,7 @@ do {
   return(true)
 }
 
-func SeedProp
-do {
+func SeedProp {
   local Name @= param:name:identifier;
   local Type @= param:type;
   local Modifier = <>
@@ -79,78 +77,40 @@ do {
   return(@{symbol=param, value=@{name=local#Name, type=local#Type, modifier=local#ModifierPrefix, parameter=<[local#ParameterModifierPrefix][local#Type] [local#Name]>, argument=<[local#ParameterModifierPrefix][local#Name]>, callArgument=<[local#ModifierPrefix][local#Name]>, assignment=<this.[local#Name] = [local#Name];>, datatype=local#Datatype, required=true, default=<null>, configuration=<>, equatable=true, unsafe=local#Type:containsPointer, equality=local#Equality, hash=local#Hash}})
 }
 
-func DeriveParameters
-do {
+func DeriveParameters {
   assert(![param:genericMethod])
   target var PropOptional @= false;
   return(param:parameters:map(SeedProp):derive)
 }
 
-func DeriveFields
-do {
+func DeriveFields  {
   target var PropOptional @= false;
   return(param:members:where(KeepInstanceField):map(SeedProp):derive)
 }
 
-func SelectField
-do {
-  return(<public [param#value#type] [param#value#name];>)
-}
+func SelectField { return(<public [param#value#type] [param#value#name];>) }
 
-func SelectParameter
-do {
-  return(param#value#parameter)
-}
+func SelectParameter { return(param#value#parameter) }
 
-func SelectArgument
-do {
-  return(param#value#argument)
-}
+func SelectArgument { return(param#value#argument) }
 
-func SelectCallArgument
-do {
-  return(<[param#value#modifier][param#value#name]>)
-}
+func SelectCallArgument { return(<[param#value#modifier][param#value#name]>) }
 
-func SelectObjectCallArgument
-do {
-  return(<[param#value#modifier] args.[param#value#name]>)
-}
+func SelectObjectCallArgument { return(<[param#value#modifier] args.[param#value#name]>) }
 
-func SelectAssignment
-do {
-  return(param#value#assignment)
-}
+func SelectAssignment { return(param#value#assignment) }
 
-func SelectEquality
-do {
-  return(param#value#equality)
-}
+func SelectEquality { return(param#value#equality) }
 
-func SelectHashAdd
-do {
-  return(<hashCode.Add\([param#value#hash]\);>)
-}
+func SelectHashAdd { return(<hashCode.Add\([param#value#hash]\);>) }
 
-func KeepEquatable
-do {
-  return(param#value#equatable:eq(true))
-}
+func KeepEquatable { return(param#value#equatable:eq(true)) }
 
-func KeepUnsafe
-do {
-  return(param#value#unsafe:eq(true))
-}
+func KeepUnsafe { return(param#value#unsafe:eq(true)) }
 
-func SelectDatatypeConfiguration
-do {
-  return(param#value#configuration)
-}
+func SelectDatatypeConfiguration { return(param#value#configuration) }
 
-func HasDatatypeConfiguration
-do {
-  return(param#value#configuration:exists)
-}
+func HasDatatypeConfiguration { return(param#value#configuration:exists) }
 
 func SelectDatatypeProperty
 do {
