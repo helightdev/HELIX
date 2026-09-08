@@ -14,8 +14,92 @@ using Xunit;
 namespace HELIX.SourceGen.Tests;
 
 public sealed class HixBytecodeTests {
+  [Fact]
+  public void PersistentStorageSnapshotsShareRootsAndRestoreWithoutMutatingCaptures() {
+    var type = typeof(MixinVirtualMachine).Assembly.GetType("Mixins.MixinValueDictionary", true)!;
+    var storage = Activator.CreateInstance(type, true)!;
+    var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+    var store = type.GetMethod("StoreIsolated", flags)!;
+    var snapshot = type.GetMethod("Snapshot", flags)!;
+    for (var i = 0; i < 100; i++)
+      store.Invoke(storage, new object[] {MixinString.Dynamic("key" + i), new NumberMixinValue(i)});
+    var saved = snapshot.Invoke(storage, null)!;
+    Assert.Same(saved, snapshot.Invoke(storage, null));
+    store.Invoke(storage, new object[] {MixinString.Dynamic("key0"), new NumberMixinValue(999)});
+    Assert.Equal(new NumberMixinValue(0), ((IReadOnlyDictionary<MixinString, IMixinValue>)saved)[MixinString.Dynamic("key0")]);
+    type.GetMethod("Restore", flags)!.Invoke(storage, new[] {saved});
+    Assert.Same(saved, snapshot.Invoke(storage, null));
+  }
+
+  [Fact]
+  public void VmReusesClearedLocalsAfterNestedCallsAndFailures() {
+    var program = HixCompiler.Compile("""
+      pure func captured { local name = <kept>; return(local) }
+      pure func failing { local garbage = <discard>; return(error<failed>) }
+      mixin Example { expression {
+        local saved = captured()
+        local failure = [failing()?]
+        emit(local#saved#name)
+        emit(length(captured()))
+      } }
+      """, "Example");
+    var vm = new MixinVirtualMachine(new[] {program});
+    for (var i = 0; i < 3; i++) {
+      var result = vm.Run(program, new Context());
+      Assert.True(result.Success, result.Error);
+      Assert.Equal(new[] {"kept", "1"}, result.Outputs.Select(output => output.Text));
+    }
+    var pool = (IEnumerable)typeof(MixinVirtualMachine).GetField("localPool", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(vm)!;
+    var dictionaries = pool.Cast<IReadOnlyDictionary<MixinString, IMixinValue>>().ToArray();
+    Assert.Equal(2, dictionaries.Length);
+    Assert.All(dictionaries, dictionary => Assert.Empty(dictionary));
+  }
+
   private sealed class Context() : Mixins.Runtime.ExecutionContext(new MixinStringPoolBuilder().Freeze()) {
     protected override IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) => NullMixinValue.Instance;
+  }
+
+  private sealed class SharedPoolContext(MixinStringPool strings) : Mixins.Runtime.ExecutionContext(strings) {
+    protected override IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) => NullMixinValue.Instance;
+  }
+
+  [Fact]
+  public void StaticExecutionReusesLoadedImagesWithoutSharingMutableState() {
+    var program = HixCompiler.Compile("mixin Example { expression { var name = <new>; emit(var#name) } }", "Example");
+    var seed = new MixinStringPoolBuilder().Freeze();
+    var first = new SharedPoolContext(seed);
+    Assert.True(MixinVirtualMachine.Execute(program, first).Success);
+    var pool = first.Strings;
+    System.Threading.Tasks.Parallel.For(0, 8, _ => {
+      var context = new SharedPoolContext(seed);
+      var variables = new Dictionary<string,object> { ["private"] = new object() };
+      var result = MixinVirtualMachine.Execute(program, context, variables);
+      Assert.True(result.Success, result.Error);
+      Assert.Same(pool, context.Strings);
+      Assert.Equal("new", Assert.Single(result.Outputs).Text);
+    });
+    Assert.True(MixinVirtualMachine.Execute(program, first).Success);
+    Assert.Same(pool, first.Strings);
+  }
+
+  [Fact]
+  public void ProgramIdentityIsCachedStructuralDataRatherThanDisassembly() {
+    var first = HixCompiler.Compile("mixin Example { expression { emit(1) } }", "Example");
+    var same = HixCompiler.Compile("mixin Example { expression { emit(1) } }", "Example");
+    var changed = HixCompiler.Compile("mixin Example { expression { emit(2) } }", "Example");
+    var property = typeof(MixinExpressionExecutionProgram).GetProperty("Identity", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    var identity = (string)property.GetValue(first)!;
+    Assert.Matches("^[0-9A-F]{16}:[0-9]+$", identity);
+    Assert.Same(identity, property.GetValue(first));
+    Assert.Equal(identity, property.GetValue(same));
+    Assert.NotEqual(identity, property.GetValue(changed));
+    var forPass = typeof(MixinExpressionExecutionProgram).GetMethod("ForPass", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    Assert.NotEqual(property.GetValue(forPass.Invoke(first, new object[] {true})),
+      property.GetValue(forPass.Invoke(first, new object[] {false})));
+    var work = new MixinDebugExpression(first, first, ImmutableDictionary<string,object>.Empty,
+      ImmutableDictionary<string,object>.Empty, "provider", "type", "member", 0, 0);
+    Assert.EndsWith(identity, MixinDebugRenderer.StateKey(work));
+    Assert.DoesNotContain("PSEUDOCODE", MixinDebugRenderer.StateKey(work));
   }
 
   [Fact]

@@ -83,6 +83,11 @@ Runtime-created strings remain dynamic and never mutate either pool. Prelude and
 share the same compiled image and pools. Exported function values retain their compiled image,
 so invoking them from another program preserves their lexical bindings and constant indices.
 
+Shared runtime storages use the persistent map (flat for small maps, HAMT for large maps).
+Transaction snapshots and rollback share and restore immutable roots. Local dictionaries
+are mutable and rented from a synchronized VM-owned pool, cleared on return after expressions,
+calls, and derivations. Captured local tables own an immutable snapshot and survive reuse.
+
 `program.Disassemble()` prints three aligned columns: byte address, instruction with operands,
 and stack pseudocode with resolved names and literal values. Functions (including signatures),
 entry points, derivations, and nested blocks have separate headers at their actual addresses.
@@ -115,3 +120,12 @@ trie without repeated persistent path copying. Enumeration order remains unspeci
 remain live `MixinValueDictionary` views until captured. Ordinary table constructors copy input and
 normalize interned keys using the explicitly supplied string pool; runtime dynamic keys need no pool.
 The generic C# correctness harness and comparative benchmark live in `benchmarks/PersistentMaps`.
+
+Profiling separates `vm.execute.total` (static invocation, including loading), `vm.load`
+(pool construction and bytecode relocation), `vm.run` (context setup, execution, and export), and
+`vm.execution` (language execution, including transactions and host calls). Disassembly uses
+`bytecode.disassemble`, with pool formatting under `bytecode.disassemble_pools`.
+`bytecode.identity` measures the lazily cached structural program fingerprint used for cache identity.
+Normal generation and state keys do not disassemble programs; formatting is confined to explicit
+disassembly requests and debug rendering. Timings are inclusive/nested and must not be added together.
+No per-instruction tracing is added.

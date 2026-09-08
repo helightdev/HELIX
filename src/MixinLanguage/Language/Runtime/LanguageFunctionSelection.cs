@@ -1,3 +1,4 @@
+using Mixins.Env;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,6 +13,7 @@ internal sealed partial class LanguageExecution {
   // so a previous winner is never cached by argument kind alone.
   private IMixinValue SelectFunction(string name, IMixinValue[] arguments, LanguageFunctionScope binding,
     out FunctionMatch match) {
+    using var profile = MixinProfiler.Measure("vm.select_function");
     match = default;
     var candidates = binding.Candidates(name);
     if (candidates.Count == 0) return context.Error("unknown function '" + name + "'");

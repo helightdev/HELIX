@@ -173,19 +173,25 @@ public abstract class FunctionDefinition {
     out IMixinValue[] converted, out int conversionCount) {
     converted = null;
     conversionCount = int.MaxValue;
-    foreach (var signature in Signatures.Where(signature => signature.MatchesArgumentCount(values.Length))) {
-      var candidate = new IMixinValue[values.Length];
+    foreach (var signature in Signatures) {
+      if (!signature.MatchesArgumentCount(values.Length)) continue;
+      var candidate = values;
       var count = 0;
       var valid = true;
       for (var index = 0; index < values.Length; index++) {
         var expected = signature.GetArgumentType(index);
-        if (!KindDefinitions.TryImplicitConvert(execution, values[index], expected, out candidate[index])) {
+        if (!KindDefinitions.TryImplicitConvert(execution, values[index], expected, out var value)) {
           valid = false;
           break;
         }
-        if (!ReferenceEquals(candidate[index], values[index])) count++;
+        if (!ReferenceEquals(value, values[index])) {
+          if (ReferenceEquals(candidate, values)) candidate = (IMixinValue[])values.Clone();
+          candidate[index] = value;
+          count++;
+        }
       }
       if (valid && count < conversionCount) { converted = candidate; conversionCount = count; }
+      if (conversionCount == 0) break;
     }
     return converted != null;
   }

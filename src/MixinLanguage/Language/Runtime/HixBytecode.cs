@@ -1,3 +1,5 @@
+using Mixins.Env;
+using System.Threading;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -201,11 +203,56 @@ public sealed class MixinExpressionExecutionProgram {
     Derivations = image.Derivations; Scope = image.Scope; LateTargets = image.LateTargets;
   }
   internal MixinExpressionExecutionProgram ForPass(bool prelude) => new(this, prelude);
-  internal string ExecutableIr => Disassemble();
+  private string identity;
+  internal string Identity {
+    get {
+      var cached = Volatile.Read(ref identity);
+      if (cached != null) return cached;
+      var computed = ComputeIdentity();
+      return Interlocked.CompareExchange(ref identity, computed, null) ?? computed;
+    }
+  }
+
+  private string ComputeIdentity() {
+    using var profile = MixinProfiler.Measure("bytecode.identity");
+    var builder = new MixinFingerprintBuilder();
+    Fingerprint(builder);
+    foreach (var line in SourceLines.OrderBy(item => item.Key)) { builder.Append(line.Key); builder.Append(line.Value); }
+    AppendScopeIdentity(builder, Scope);
+    builder.Append(Expressions.Count);
+    foreach (var entry in Expressions) { builder.Append(entry.Body); builder.Append(entry.IsPrelude); builder.Append(entry.Line); }
+    builder.Append(Derivations.Count);
+    foreach (var derivation in Derivations) {
+      builder.Append(derivation.Name); builder.Append(derivation.Line);
+      AppendScopeIdentity(builder, derivation.Scope);
+      builder.Append(derivation.Expressions.Count);
+      foreach (var entry in derivation.Expressions) { builder.Append(entry.Body); builder.Append(entry.IsPrelude); builder.Append(entry.Line); }
+    }
+    builder.Append(LateTargets.Count);
+    foreach (var target in LateTargets) { builder.Append(target.Value); builder.Append(target.IsCarry); }
+    return builder.Hash.ToString("X16", CultureInfo.InvariantCulture) + ":" + builder.Length.ToString(CultureInfo.InvariantCulture);
+  }
+
+  private static void AppendScopeIdentity(MixinFingerprintBuilder builder, LanguageFunctionScope scope) {
+    foreach (var item in scope.DisassemblyFunctions("mixin")) {
+      builder.Append(item.Scope); builder.Append(item.Function.Name); builder.Append(item.Function.Body); builder.Append(item.Function.IsPure);
+      builder.Append(item.Function.Signatures.Count);
+      foreach (var signature in item.Function.Signatures) {
+        builder.Append(signature.InputKind); builder.Append(signature.OutputKind);
+        AppendFieldsIdentity(builder, signature.Inputs); AppendFieldsIdentity(builder, signature.Outputs);
+      }
+    }
+  }
+  private static void AppendFieldsIdentity(MixinFingerprintBuilder builder, IReadOnlyList<BytecodeField> fields) {
+    builder.Append(fields?.Count ?? -1);
+    if (fields == null) return;
+    foreach (var field in fields) { builder.Append(field.Name); builder.Append(field.Kind); builder.Append(field.Variadic); }
+  }
   public string Disassemble() => Disassemble(Bytecode, StringPool, ConstantPool, true);
   internal string Disassemble(IReadOnlyList<byte> bytecode, MixinStringPool strings, IReadOnlyList<IMixinValue> constants, bool includePools = false) =>
     HixDisassembler.Render(this, bytecode, strings, constants, includePools);
   internal static string DisassemblePools(MixinStringPool strings, IReadOnlyList<IMixinValue> constants) {
+    using var profile = MixinProfiler.Measure("bytecode.disassemble_pools");
     var text = new StringBuilder();
     for (var i = 0; i < constants.Count; i++)
       text.Append(".constant ").Append(i).Append(' ').Append(constants[i].Kind).Append(' ')

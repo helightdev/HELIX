@@ -160,7 +160,7 @@ public class MixinTableValue : IMixinValue {
     Entries = new MapEntries(map);
   }
 
-  private MixinTableValue(PersistentMap<MixinString, IMixinValue> map) {
+  internal MixinTableValue(PersistentMap<MixinString, IMixinValue> map) {
     this.map = map; Entries = new MapEntries(map);
   }
 

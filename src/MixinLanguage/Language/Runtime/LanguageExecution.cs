@@ -1,3 +1,5 @@
+using Mixins.Collections;
+using Mixins.Env;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -16,7 +18,7 @@ internal sealed partial class LanguageExecution {
   private readonly HashSet<BytecodeDerivation> activeDerivations = [];
   private readonly List<MixinExpressionOutput> outputs = [];
   private readonly List<MixinExpressionLog> logs = [];
-  private MixinValueDictionary locals = new();
+  private MixinValueDictionary locals;
   private readonly MixinValueDictionary carries = new();
   private readonly HashSet<string> carriedLocals = new(StringComparer.Ordinal);
   private readonly MixinValueDictionary variables = new();
@@ -44,6 +46,7 @@ internal sealed partial class LanguageExecution {
 
   internal MixinExpressionResult Execute(IEnumerable<BytecodeExpression> expressions,
     IDictionary<string, object> imported = null, IReadOnlyDictionary<string, object> importedCarries = null) {
+    using var profile = MixinProfiler.Measure("vm.execution");
     var started = Stopwatch.GetTimestamp();
     if (imported != null) foreach (var item in imported) variables.StoreIsolated(ExecutionContext.Dynamic(item.Key), Import(item.Value));
     if (importedCarries != null) foreach (var item in importedCarries) {
@@ -60,10 +63,11 @@ internal sealed partial class LanguageExecution {
       foreach (var expression in expressions.OrderBy(expression => expression.IsPrelude ? 0 : 1)) {
         if (prelude && !expression.IsPrelude) ClosePrelude();
         prelude = expression.IsPrelude;
-        locals = new MixinValueDictionary();
-        var savedVariables = variables.ToArray();
-        var savedTargets = targetVariables.ToArray();
-        var savedCarries = carries.ToArray();
+        if (locals != null) machine.ReturnLocals(locals);
+        locals = machine.RentLocals();
+        var savedVariables = variables.Snapshot();
+        var savedTargets = targetVariables.Snapshot();
+        var savedCarries = carries.Snapshot();
         var outputCount = outputs.Count;
         var completion = Run(expression.Body);
         if (completion.Kind is not (BytecodeFlow.Normal or BytecodeFlow.Return)) {
@@ -83,12 +87,15 @@ internal sealed partial class LanguageExecution {
       return new MixinExpressionResult(true, null, 0, outputs.ToArray(), logs.ToArray(), exported,
         ExportCarries(), steps, Elapsed(started));
     } finally {
+      if (locals != null) machine.ReturnLocals(locals);
+      locals = null;
       context.OutputSink = previousOutput;
       context.LogSink = previousLog;
     }
   }
 
   private IReadOnlyDictionary<string, object> Commit(IDictionary<string, object> imported) {
+    using var profile = MixinProfiler.Measure("vm.commit");
     var exported = variables.ToDictionary(item => item.Key.Resolve(context.Strings),
       item => context.UnlinkSnapshot(item.Value), StringComparer.Ordinal);
     if (imported != null) foreach (var item in exported) imported[item.Key] = item.Value;
@@ -100,9 +107,10 @@ internal sealed partial class LanguageExecution {
     item => item.Key.Resolve(context.Strings), item => context.UnlinkSnapshot(item.Value), StringComparer.Ordinal);
 
   private void ClosePrelude() {
-    foreach (var name in carries.Keys.ToArray()) carries.Store(context, name, carries[name]);
-    foreach (var name in variables.Keys.ToArray()) variables.Store(context, name, variables[name]);
-    foreach (var name in targetVariables.Keys.ToArray()) targetVariables.Store(context, name, targetVariables[name]);
+    using var profile = MixinProfiler.Measure("vm.detach");
+    foreach (var item in carries) carries.Store(context, item.Key, item.Value);
+    foreach (var item in variables) variables.Store(context, item.Key, item.Value);
+    foreach (var item in targetVariables) targetVariables.Store(context, item.Key, item.Value);
   }
 
   private VmCompletion pendingControl;
@@ -130,6 +138,7 @@ internal sealed partial class LanguageExecution {
   }
 
   private IMixinValue Invoke(string name, IMixinValue[] arguments, int line, LanguageFunctionScope binding = null) {
+    using var profile = MixinProfiler.Measure("vm.invoke");
     var selectionError = SelectFunction(name, arguments, binding ?? scope, out var match);
     if (selectionError != null) return selectionError;
     if (pure && !match.Function.IsPure) return context.Error("pure functions cannot invoke impure functions");
@@ -141,12 +150,12 @@ internal sealed partial class LanguageExecution {
     var previousPure = pure;
     var previousScope = scope;
     var previousProgram = program;
-    var savedVariables = variables.ToArray();
-    var savedTargets = targetVariables.ToArray();
-    var savedCarries = carries.ToArray();
+    var savedVariables = variables.Snapshot();
+    var savedTargets = targetVariables.Snapshot();
+    var savedCarries = carries.Snapshot();
     var outputCount = outputs.Count;
     var logCount = logs.Count;
-    locals = new MixinValueDictionary();
+    locals = machine.RentLocals();
     parameter = match.Parameter;
     positionalParameters = arguments;
     pure = match.Function.IsPure;
@@ -166,6 +175,7 @@ internal sealed partial class LanguageExecution {
       }
       return result;
     } finally {
+      machine.ReturnLocals(locals);
       locals = previousLocals;
       parameter = previousParameter;
       positionalParameters = previousPositionalParameters;
@@ -198,8 +208,8 @@ internal sealed partial class LanguageExecution {
   }
   private static double Elapsed(long started) => (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
 
-  private void Rollback(KeyValuePair<MixinString, IMixinValue>[] savedVariables,
-    KeyValuePair<MixinString, IMixinValue>[] savedTargets, KeyValuePair<MixinString, IMixinValue>[] savedCarries,
+  private void Rollback(PersistentMap<MixinString, IMixinValue> savedVariables,
+    PersistentMap<MixinString, IMixinValue> savedTargets, PersistentMap<MixinString, IMixinValue> savedCarries,
     int outputCount, int logCount) {
     Restore(variables, savedVariables);
     Restore(targetVariables, savedTargets);
@@ -208,8 +218,8 @@ internal sealed partial class LanguageExecution {
     logs.RemoveRange(logCount, logs.Count - logCount);
   }
 
-  private static void Restore(MixinValueDictionary storage, KeyValuePair<MixinString, IMixinValue>[] saved) =>
-    storage.ReplaceWith(saved);
+  private static void Restore(MixinValueDictionary storage, PersistentMap<MixinString, IMixinValue> saved) =>
+    storage.Restore(saved);
   private static IMixinValue Pack(IMixinValue[] values) => values.Length switch {
     0 => NullMixinValue.Instance, 1 => values[0], _ => new TupleMixinValue(values)
   };

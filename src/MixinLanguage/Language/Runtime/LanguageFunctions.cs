@@ -17,6 +17,7 @@ internal sealed partial class LanguageExecution {
       definition = candidate;
       convertedArguments = converted;
       conversions = count;
+      if (count == 0) break;
     }
     if (definition == null) return context.Error("no matching function '" + name + "' for " + arguments.Length + " arguments");
     if (pure && definition.HasEffects) return context.Error("pure functions cannot perform '" + name + "'");

@@ -522,7 +522,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         lateExpression, evaluated.Carries, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
-        lateExpression, selectedProgram.Prelude.ExecutableIr, selectedProgram.Late.ExecutableIr,
+        lateExpression, selectedProgram.Prelude.Identity, selectedProgram.Late.Identity,
         evaluated.Variables, evaluated.Carries,
         lateTargets.Distinct().ToImmutableArray(), location,
         providerName ?? attributeName, sourceType,
@@ -1077,8 +1077,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
 
     internal void AddLateExpression(
       MixinExpressionExecutionProgram program,
-      string preludeIr,
-      string lateIr,
+      string preludeIdentity,
+      string lateIdentity,
       IReadOnlyDictionary<string, object> variables,
       IReadOnlyDictionary<string, object> carries,
       ImmutableArray<LateTarget> targets,
@@ -1091,7 +1091,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     ) {
       _lateExpressions.Add(
         new LateExpressionWork(
-          program, preludeIr, lateIr, variables, carries,
+          program, preludeIdentity, lateIdentity, variables, carries,
           targets,
           MixinDiagnostic.Detach(Diagnostic.Create(ExpressionLog, location, "")),
           provider ?? "", sourceType ?? "",
@@ -1151,8 +1151,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
 
   private sealed record LateExpressionWork(
     MixinExpressionExecutionProgram Program,
-    string PreludeIr,
-    string LateIr,
+    string PreludeIdentity,
+    string LateIdentity,
     IReadOnlyDictionary<string, object> Variables,
     IReadOnlyDictionary<string, object> Carries,
     ImmutableArray<LateTarget> Targets,
@@ -1506,7 +1506,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       for (var index = 0; index < x.Length; index++) {
         var left = x[index];
         var right = y[index];
-        if (left.PreludeIr != right.PreludeIr || left.LateIr != right.LateIr ||
+        if (left.PreludeIdentity != right.PreludeIdentity || left.LateIdentity != right.LateIdentity ||
           left.Variables.Count != right.Variables.Count || left.Carries.Count != right.Carries.Count ||
           left.Provider != right.Provider ||
           left.SourceType != right.SourceType || left.SourceMember != right.SourceMember ||

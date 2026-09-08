@@ -17,7 +17,15 @@ internal sealed class MixinStorageValue : MixinTableValue {
   }
 
   internal static IMixinValue Capture(IMixinValue value) =>
-    value is MixinStorageValue storage ? new MixinTableValue(storage.Entries.ToArray()) : value;
+    value is MixinStorageValue storage ? storage.CaptureTable() : value;
+
+  private MixinTableValue CaptureTable() {
+    var snapshot = storage.Snapshot();
+    if (fallback != null)
+      foreach (var entry in fallback)
+        if (!snapshot.ContainsKey(entry.Key)) snapshot = snapshot.SetItem(entry.Key, entry.Value);
+    return new MixinTableValue(snapshot);
+  }
 
   public override bool TryGetValue(ExecutionContext context, MixinString member, out IMixinValue value) {
     var name = ExecutionContext.Dynamic(member.Resolve(context.Strings));

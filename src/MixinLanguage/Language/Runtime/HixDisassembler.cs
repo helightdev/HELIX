@@ -1,3 +1,4 @@
+using Mixins.Env;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -10,6 +11,7 @@ namespace Mixins.Runtime;
 internal static class HixDisassembler {
   internal static string Render(MixinExpressionExecutionProgram program, IReadOnlyList<byte> code,
     MixinStringPool strings, IReadOnlyList<IMixinValue> constants, bool includePools) {
+    using var profile = MixinProfiler.Measure("bytecode.disassemble");
     var headers = new Dictionary<int, List<string>>();
     var labels = new HashSet<int>();
     void Header(int address, string title) {

@@ -18,10 +18,7 @@ public sealed record MixinDebugExpression(
   string SourceMember,
   int PreludeOperations,
   double PreludeMilliseconds
-) {
-  public string PreludeIr => PreludeProgram.Disassemble();
-  public string LateIr => LateProgram.Disassemble();
-}
+);
 
 public sealed record MixinDebugFinalState(
   MixinDebugExpression Work,
@@ -44,7 +41,7 @@ public sealed record MixinDebugRenderData(
 /// <summary>Produces deterministic, host-independent diagnostics for compiled mixin programs.</summary>
 public static class MixinDebugRenderer {
   public static string StateKey(MixinDebugExpression work) {
-    return string.Join("\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateIr);
+    return string.Join("\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateProgram.Identity);
   }
 
   public static string BuildTrace(MixinDebugRenderData render) {

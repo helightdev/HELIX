@@ -1,3 +1,4 @@
+using Mixins.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -13,9 +14,9 @@ internal sealed partial class LanguageExecution {
     private readonly LanguageExecution execution;
     private readonly TupleMixinValue tuple;
     private readonly int line;
-    private readonly KeyValuePair<MixinString, IMixinValue>[] savedVariables;
-    private readonly KeyValuePair<MixinString, IMixinValue>[] savedTargets;
-    private readonly KeyValuePair<MixinString, IMixinValue>[] savedCarries;
+    private readonly PersistentMap<MixinString, IMixinValue> savedVariables;
+    private readonly PersistentMap<MixinString, IMixinValue> savedTargets;
+    private readonly PersistentMap<MixinString, IMixinValue> savedCarries;
     private readonly IMixinValue previousParameter;
     private readonly MixinValueDictionary previousLocals;
     private readonly LanguageFunctionScope previousScope;
@@ -28,9 +29,9 @@ internal sealed partial class LanguageExecution {
       this.execution = execution;
       this.tuple = tuple;
       this.line = line;
-      savedVariables = execution.variables.ToArray();
-      savedTargets = execution.targetVariables.ToArray();
-      savedCarries = execution.carries.ToArray();
+      savedVariables = execution.variables.Snapshot();
+      savedTargets = execution.targetVariables.Snapshot();
+      savedCarries = execution.carries.Snapshot();
       previousParameter = execution.parameter;
       previousLocals = execution.locals;
       previousScope = execution.scope;
@@ -58,7 +59,7 @@ internal sealed partial class LanguageExecution {
             provider = declaration;
             if (!execution.activeDerivations.Add(provider))
               return Fail(execution.context.Error("recursive derivation"), provider.Line);
-            execution.locals = new MixinValueDictionary();
+            execution.locals = execution.machine.RentLocals();
             execution.scope = provider.Scope;
             try {
               foreach (var expression in provider.Expressions) {
@@ -72,7 +73,11 @@ internal sealed partial class LanguageExecution {
                 current = completion.Value;
                 if (current is ErrorMixinValue) return Fail(current, expression.Line);
               }
-            } finally { execution.activeDerivations.Remove(provider); }
+            } finally {
+              execution.machine.ReturnLocals(execution.locals);
+              execution.locals = previousLocals;
+              execution.activeDerivations.Remove(provider);
+            }
           }
           result.Add(Functions.CollectionFunctions.Put(execution.context, record, "value", current));
           provider = null;

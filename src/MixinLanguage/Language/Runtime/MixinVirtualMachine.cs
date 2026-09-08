@@ -1,17 +1,55 @@
+using Mixins.Env;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Mixins.Runtime;
 
 /// <summary>A loaded bytecode VM. All loaded programs share immutable VM-wide string and constant pools.</summary>
 public sealed class MixinVirtualMachine {
+  private readonly Stack<MixinValueDictionary> localPool = new();
+
+  internal MixinValueDictionary RentLocals() {
+    lock (localPool) return localPool.Count == 0 ? new MixinValueDictionary(mutable: true) : localPool.Pop();
+  }
+
+  internal void ReturnLocals(MixinValueDictionary locals) {
+    locals.Clear();
+    lock (localPool) {
+      // Bound retained dictionaries even when a shared VM serves concurrent callers.
+      if (localPool.Count < 128) localPool.Push(locals);
+    }
+  }
+
+  private static readonly ConditionalWeakTable<IReadOnlyList<byte>, LoadedImages> loadedImages = new();
+
+  // Weak image/seed keys bound cache lifetime to the compilation. Cached VMs contain
+  // immutable code/pools and a synchronized pool of cleared local dictionaries;
+  // active execution state remains invocation-local.
+  private sealed class LoadedImages {
+    private readonly ConditionalWeakTable<MixinStringPool, MixinVirtualMachine> bySeed = new();
+    internal MixinVirtualMachine Get(MixinExpressionExecutionProgram program, MixinStringPool seed) {
+      lock (bySeed) {
+        if (bySeed.TryGetValue(seed, out var machine)) {
+          MixinProfiler.Increment("vm.load.cache_hit");
+          return machine;
+        }
+        var loaded = new MixinVirtualMachine(new[] {program}, seed);
+        bySeed.Add(seed, loaded);
+        if (!ReferenceEquals(seed, loaded.StringPool)) bySeed.Add(loaded.StringPool, loaded);
+        return loaded;
+      }
+    }
+  }
+
   private readonly Dictionary<IReadOnlyList<byte>, IReadOnlyList<byte>> images = new();
   public MixinStringPool StringPool { get; }
   public IReadOnlyList<IMixinValue> ConstantPool { get; }
 
   public MixinVirtualMachine(IEnumerable<MixinExpressionExecutionProgram> programs, MixinStringPool strings = null) {
+    using var profile = MixinProfiler.Measure("vm.load");
     if (strings != null && strings.Count > ushort.MaxValue + 1)
       throw new ArgumentException("VM string pool cannot exceed 65536 entries (u16 indices)");
     var pool = new MixinStringPoolBuilder(strings);
@@ -51,6 +89,7 @@ public sealed class MixinVirtualMachine {
 
   public MixinExpressionResult Run(MixinExpressionExecutionProgram program, ExecutionContext context,
     IDictionary<string, object> variables = null, IReadOnlyDictionary<string, object> carries = null) {
+    using var profile = MixinProfiler.Measure("vm.run");
     if (program == null) throw new ArgumentNullException(nameof(program));
     Code(program);
     // Host keys may predate this VM. Resolve them before attaching the execution context to the fixed VM pool.
@@ -67,13 +106,18 @@ public sealed class MixinVirtualMachine {
 
   public static MixinExpressionResult Execute(MixinExpressionExecutionProgram program, ExecutionContext context,
     IDictionary<string, object> variables = null, IReadOnlyDictionary<string, object> carries = null) {
+    using var profile = MixinProfiler.Measure("vm.execute.total");
     if (program == null) throw new ArgumentNullException(nameof(program));
     var programs = new HashSet<MixinExpressionExecutionProgram> {program};
     var seen = new HashSet<object>();
     if (variables != null) foreach (var value in variables.Values) IncludeProgram(value, programs, seen);
     if (carries != null) foreach (var value in carries.Values) IncludeProgram(value, programs, seen);
     foreach (var entry in context.TargetVariables) IncludeProgram(entry.Value, programs, seen);
-    return new MixinVirtualMachine(programs, context.Strings).Run(program, context, variables, carries);
+    var singleImage = programs.All(image => ReferenceEquals(image.Bytecode, program.Bytecode));
+    var machine = singleImage
+      ? loadedImages.GetOrCreateValue(program.Bytecode).Get(program, context.Strings)
+      : new MixinVirtualMachine(programs, context.Strings);
+    return machine.Run(program, context, variables, carries);
   }
 
   private static void IncludeProgram(object value, HashSet<MixinExpressionExecutionProgram> programs, HashSet<object> seen) {
