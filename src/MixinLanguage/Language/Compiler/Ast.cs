@@ -187,6 +187,11 @@ public sealed class CallExpressionAst(string name, IReadOnlyList<ExpressionAst> 
   public bool CoerceBoolean { get; } = coerceBoolean;
 }
 
+public sealed class InlineExpressionAst(BlockStatementAst body, string resultLocal) : ExpressionAst([body]) {
+  public BlockStatementAst Body { get; } = body;
+  public string ResultLocal { get; } = resultLocal;
+}
+
 public enum UnaryOperation { Not, Check }
 
 public sealed class UnaryExpressionAst(UnaryOperation operation, ExpressionAst value) : ExpressionAst([value]) {

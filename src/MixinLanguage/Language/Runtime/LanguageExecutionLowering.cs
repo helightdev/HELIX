@@ -206,6 +206,15 @@ internal sealed partial class LanguageExecution {
         };
         break;
       }
+      case InlineExpressionAst inline: {
+        var body = LowerBlock(inline.Body, blocks);
+        var resultLocal = inline.ResultLocal;
+        operation = execution => {
+          body(execution);
+          return execution.locals.TryGetValue(resultLocal, out var result) ? result : NullMixinValue.Instance;
+        };
+        break;
+      }
       case SelectionExpressionAst selection: {
         var selected = selection.Selector == null ? null : LowerValue(selection.Selector, blocks);
         var branches = selection.Branches.Select(branch => (

@@ -1,12 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Mixins.Compiler.Steps;
 using Mixins.Runtime;
 
 namespace Mixins.Compiler;
 
 /// <summary>Catalog binding and preparation for the generated-ANTLR semantic model.</summary>
 public static class HixCompiler {
+  private static readonly IReadOnlyList<HixCompilerStep> Steps = [
+    new InlineExpansionStep(), new PreludeHoistingStep(), new FunctionBindingStep()
+  ];
   public static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> sources) =>
     PrepareGlobals(sources.Select(AntlrSyntax.Parse));
 
@@ -28,8 +32,40 @@ public static class HixCompiler {
   }
 
   internal static MixinExpressionExecutionProgram Prepare(MixinDeclarationAst declaration,
-    MixinExpressionPreparedState globals, bool? prelude) => new(globals.StringPool,
-      declaration.Declarations.OfType<ExpressionDeclarationAst>().Where(expression => prelude == null || expression.IsPrelude == prelude).ToArray(),
-      globals.Functions, declaration.Declarations.OfType<FunctionDeclarationAst>().ToArray(), globals.Derivations,
-      globals.GlobalScope, globals.DerivationScopes, globals.Bindings);
+    MixinExpressionPreparedState globals, bool? prelude) {
+    var compiled = Compile(declaration, globals);
+    var expressions = prelude == true ? compiled.Prelude : prelude == false ? compiled.Late
+      : compiled.Prelude.Concat(compiled.Late).ToArray();
+    var bindings = new LanguageProgramBindings(globals.Functions.Cast<HixAst>()
+      .Concat(compiled.Functions).Concat(expressions).Concat(globals.Derivations));
+    return new MixinExpressionExecutionProgram(globals.StringPool, expressions,
+      globals.Functions, compiled.Functions, globals.Derivations,
+      globals.GlobalScope, globals.DerivationScopes, bindings);
+  }
+
+  internal static (MixinExpressionExecutionProgram Prelude, MixinExpressionExecutionProgram Late) PreparePrograms(
+    MixinDeclarationAst declaration, MixinExpressionPreparedState globals
+  ) {
+    var compiled = Compile(declaration, globals);
+    return (CreateProgram(compiled.Prelude, compiled.Functions, globals),
+      CreateProgram(compiled.Late, compiled.Functions, globals));
+  }
+
+  private static MixinExpressionExecutionProgram CreateProgram(IReadOnlyList<ExpressionDeclarationAst> expressions,
+    IReadOnlyList<FunctionDeclarationAst> functions, MixinExpressionPreparedState globals) {
+    var bindings = new LanguageProgramBindings(globals.Functions.Cast<HixAst>()
+      .Concat(functions).Concat(expressions).Concat(globals.Derivations));
+    return new MixinExpressionExecutionProgram(globals.StringPool, expressions,
+      globals.Functions, functions, globals.Derivations,
+      globals.GlobalScope, globals.DerivationScopes, bindings);
+  }
+
+  private static HixCompilerSyntax Compile(MixinDeclarationAst declaration, MixinExpressionPreparedState globals) {
+    var expressions = declaration.Declarations.OfType<ExpressionDeclarationAst>().ToArray();
+    var syntax = new HixCompilerSyntax(expressions.Where(expression => expression.IsPrelude).ToArray(),
+      expressions.Where(expression => !expression.IsPrelude).ToArray(),
+      declaration.Declarations.OfType<FunctionDeclarationAst>().ToArray());
+    foreach (var step in Steps) syntax = step.Transform(syntax, globals);
+    return syntax;
+  }
 }

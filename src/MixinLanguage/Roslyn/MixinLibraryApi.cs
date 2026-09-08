@@ -38,10 +38,14 @@ internal static class MixinLibraryApi {
     var annotations = new Dictionary<string, CompiledMixinAnnotation>(StringComparer.Ordinal);
     if (diagnostics.Count == 0) {
       foreach (var annotation in catalog.AnnotationDefinitions) {
-        var prelude = HixCompiler.Prepare(annotation.Declaration, prepared, true);
-        var late = HixCompiler.Prepare(annotation.Declaration, prepared, false);
-        annotations.Add(annotation.Name, new CompiledMixinAnnotation(annotation,
-          new CompiledMixinProgram(prelude, late)));
+        try {
+          var (prelude, late) = HixCompiler.PreparePrograms(annotation.Declaration, prepared);
+          annotations.Add(annotation.Name, new CompiledMixinAnnotation(annotation,
+            new CompiledMixinProgram(prelude, late)));
+        } catch (ArgumentException exception) {
+          diagnostics.Add(Diagnostic.Create(InvalidPreparedExpression, Location.None, annotation.Name,
+            annotation.Declaration.Line.ToString(CultureInfo.InvariantCulture), exception.Message));
+        }
       }
     }
     return new MixinCompilation(catalog, prepared.StringPool, prepared, annotations, diagnostics.ToImmutableArray());

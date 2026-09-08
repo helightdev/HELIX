@@ -10,11 +10,11 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class MixinLanguageExecutionTests {
   private static MixinExpressionResult Run(string statements, string functions = "", string prelude = "",
-    IDictionary<string, object> variables = null) {
+    IDictionary<string, object> variables = null, Mixins.Runtime.ExecutionContext context = null) {
     var unit = AntlrSyntax.Parse(functions + "\nmixin Example {\nprelude expression {\n" + prelude +
       "\n}\nexpression {\n" + statements + "\n}\n}");
     Assert.Empty(unit.Diagnostics);
-    return MixinVirtualMachine.Execute(unit, "Example", new Context(), variables);
+    return MixinVirtualMachine.Execute(unit, "Example", context ?? new Context(), variables);
   }
 
   [Theory]
@@ -166,8 +166,49 @@ public sealed class MixinLanguageExecutionTests {
     var result = Run("emit(carry#value)\nemit(local#hidden)", prelude: "local hidden = <private>\ncarry value = <durable>");
     Assert.True(result.Success, result.Error);
     Assert.Equal(new[] {"durable", ""}, result.Outputs.Select(output => output.Text));
-    Assert.False(Run("emit(this:name)").Success);
+    Assert.True(Run("emit(this:name)").Success);
     Assert.False(Run("emit(carry#value)", prelude: "carry value = <ok>\nlocal invalid = [carry#value]").Success);
+  }
+
+  [Fact]
+  public void CompilerExpandsInlineFunctionsBeforeHoistingHostValues() {
+    var result = Run("emit(host())", "inline func host { return(this) }", context: new Context(new TestSymbol()));
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("TestSymbol", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void InlineRewritePreservesLocalsAndEarlyReturns() {
+    var result = Run("emit(choose(<selected>, true))", """
+      inline func choose {
+        local copy @= $1;
+        when($2) { return(local#copy) }
+        return(<fallback>)
+      }
+      """);
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("selected", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void ExplicitInlineCallExpandsAnInlineableFunction() {
+    var result = Run("emit(inline(decorate, <value>))", """
+      func decorate {
+        local copy @= $1;
+        return(<[local#copy]!>)
+      }
+      """);
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("value!", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void StrictExpressionDisablesAutomaticHoisting() {
+    var unit = AntlrSyntax.Parse("mixin Example { strict expression { emit(this) } }");
+    Assert.Empty(unit.Diagnostics);
+    var result = MixinVirtualMachine.Execute(unit, "Example", new Context(new TestSymbol()));
+    Assert.False(result.Success);
+    Assert.Contains("prelude", result.Error);
   }
 
   [Fact]

@@ -18,23 +18,22 @@ mixin HELIX.Boot.CommandAttribute {
       props = local#StructHandle,
       datatype = true
     };
-    local InvokeArguments @= local#StructHandle:map(SelectObjectCallArgument):join<, >;
-    local InvokeLambda @> args => {{target:name}}({{local#InvokeArguments}})
-    carry StructName @= local#StructName;
-    carry InvokeLambda @= local#InvokeLambda;
-    carry TargetName @= target:name;
-    carry CommandName @= attr#name:csharpLiteral;
-    carry HasCommandName @= attr#name:unwrap:exists;
-    carry Description @= attr#description:csharpLiteral;
-    carry Parent @= attr#parent:csharpLiteral;
   }
   expression {
     using @> HELIX.Boot;
-    local CmdName @= carry#CommandName;
-    when(![carry#HasCommandName]) {
-      local CmdName @> "{{carry#TargetName}}"
+    local TargetName @= target:name;
+    local StructName @> {{local#TargetName}}_Args
+    local StructHandle @= inline(DeriveParameters, target);
+    local InvokeArguments @= local#StructHandle:map(SelectObjectCallArgument):join<, >;
+    local InvokeLambda @> args => {{local#TargetName}}({{local#InvokeArguments}})
+    local CommandName @= attr#name:unwrap;
+    local CmdName @= local#CommandName:csharpLiteral;
+    when(local#CommandName:eq(null)) {
+      local CmdName @> "{{local#TargetName}}"
     }
-    local Bridge @> CommandBridge<{{carry#StructName}}>.Create({{carry#StructName}}.Datatype, {{carry#InvokeLambda}}, {{local#CmdName}}, {{carry#Description}}, {{carry#Parent}})
+    local Description @= attr#description:csharpLiteral;
+    local Parent @= attr#parent:csharpLiteral;
+    local Bridge @> CommandBridge<{{local#StructName}}>.Create({{local#StructName}}.Datatype, {{local#InvokeLambda}}, {{local#CmdName}}, {{local#Description}}, {{local#Parent}})
     inject(<$LoadManagedLate>, 0) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{local#Bridge}});
   }
 }

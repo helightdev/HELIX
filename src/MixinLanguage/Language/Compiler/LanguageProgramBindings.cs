@@ -83,6 +83,10 @@ internal sealed class LanguageProgramBindings {
             "[" + index.ToString(CultureInfo.InvariantCulture) + "] ");
         }
         break;
+      case InlineExpressionAst inline:
+        Line(builder, depth, prefix + "inline result=" + Quote(inline.ResultLocal));
+        RenderBlock(builder, inline.Body, depth + 1);
+        break;
       case UnaryExpressionAst unary:
         Line(builder, depth, prefix + unary.Operation.ToString().ToLowerInvariant());
         RenderValue(builder, unary.Value, depth + 1);

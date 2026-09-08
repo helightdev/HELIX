@@ -75,7 +75,7 @@ func SelectArgument { return($1#value#argument) }
 
 func SelectCallArgument { return(<[$1#value#modifier][$1#value#name]>) }
 
-func SelectObjectCallArgument { return(<[$1#value#modifier] args.[$1#value#name]>) }
+pure func SelectObjectCallArgument { return(<[$1#value#modifier] args.[$1#value#name]>) }
 
 func SelectAssignment { return($1#value#assignment) }
 
@@ -125,7 +125,7 @@ func EmitGeneratedStructure {
   local Assignments @= param#props:map(SelectAssignment):join< >;
   local Datatype = <>
   when(param#datatype:eq(true)) {
-    local Datatype @= table:new:put(<type>, param#name):put(<name>, param#name):put(<props>, param#props):BuildDatatype;
+    local Datatype @= BuildDatatype(@{type=param#name, name=param#name, props=param#props});
   }
   local Constructor = <>
   when(![param#props:length:eq(0)]) {
@@ -293,7 +293,7 @@ mixin HELIX.StructureAttribute {
         @> }
     }
     when(attr#datatype:unwrap:eq(true)) {
-      local DatatypeCode @= table:new:put(<type>, this:type):put(<name>, this:name):put(<props>, local#PropsModel):BuildDatatype;
+      local DatatypeCode @= BuildDatatype(@{type=this:type, name=this:name, props=local#PropsModel});
       emit(<Class>, local#DatatypeCode)
     }
   }
