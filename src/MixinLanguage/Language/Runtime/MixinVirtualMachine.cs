@@ -35,7 +35,7 @@ public sealed class MixinVirtualMachine {
       foreach (var (pc, instruction) in HixInstruction.ReadAll(bytes)) {
         if (instruction.UsesStringPool)
           (instruction with {A = indices[instruction.A]}).Encode(bytes, pc);
-        else if (instruction.Opcode == HixOpcode.Constant)
+        else if (instruction.Opcode == HixOpcode.LoadConst)
           (instruction with {A = constantIndices[instruction.A]}).Encode(bytes, pc);
       }
       images.Add(program.Bytecode, Array.AsReadOnly(bytes));

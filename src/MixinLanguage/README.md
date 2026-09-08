@@ -56,8 +56,16 @@ The `HixOpcode` enum documents each instruction's operands, stack effects, and c
 | Branch/block reference | s16 displacement from the opcode address | 3 bytes |
 | `Call` | u16 function-name string index, u16 argument count | 5 bytes |
 
-Storage destinations, host roots, smart-root lookup, and flow operations have distinct opcodes
-instead of flag operands. Both VM-wide pools support at most 65,536 entries (indices 0–65,535).
+Storage destinations and flow operations have distinct opcodes instead of flag operands.
+Root reads uniformly use `LoadRoot` with a string-pool name followed by `Member` when needed;
+there are no host-specific or smart-lookup opcodes. The compiler resolves smart references to
+`param` (the packed parameter), `args` (positional arguments), or `local`.
+`LoadConst` and `LoadString` access the two pools. Null, booleans, and empty collections use
+operandless `LoadNull`, `LoadTrue`, `LoadFalse`, `LoadTuple`, and `LoadTable` instructions.
+`PackTuple` and `PackTable` construct collections, while `Pack` retains normal argument-packing
+semantics. Conversion instructions use the `Cast` prefix (`CastBoolean`, `CastString`), and
+`Throw` produces a runtime error through the explicit completion path. `Call` still pushes its
+result; discarded results use `Pop`. Both VM-wide pools support at most 65,536 entries (indices 0–65,535).
 All branches, checked-expression handlers, and block references use signed relative byte
 displacements (-32,768–32,767); block ends are exclusive. The compiler rejects references or
 operands outside their range, and loading rejects merged pools exceeding the u16 capacity.

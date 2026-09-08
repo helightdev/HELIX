@@ -111,18 +111,8 @@ internal sealed partial class LanguageExecution {
   internal void Break(int line) => pendingControl = new(BytecodeFlow.Break, Line: line);
   private static VmCompletion Failed(IMixinValue error, int line) => new(BytecodeFlow.Error, error, Line: line);
 
-  private IMixinValue Root(string name, bool smart) {
-    if (smart) {
-      if (name == "it") return parameter;
-      if (locals.TryGetValue(name, out var local)) return local;
-      if (depth == 0 && carries.TryGetValue(name, out var carried)) return carried;
-      if (int.TryParse(name, out var position) && position >= 0) {
-        return position < positionalParameters.Count
-          ? positionalParameters[position]
-          : NullMixinValue.Instance;
-      }
-      return context.Error("unknown local or parameter '" + name + "'");
-    }
+  private IMixinValue Root(string name) {
+    if (name == "args") return new TupleMixinValue(positionalParameters);
     if (name == "param") return parameter;
     if (name == "\0selector") return selector;
     if (KindMixinValue.TryGet(name, out var kind)) return kind;

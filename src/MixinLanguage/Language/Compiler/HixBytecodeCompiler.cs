@@ -12,6 +12,7 @@ internal sealed class HixBytecodeCompiler {
   private readonly List<HixInstruction> code = [];
   private readonly List<int> sourceLines = [];
   private int sourceLine;
+  private HashSet<string> localNames = new(StringComparer.Ordinal);
   private readonly List<BytecodeTarget> targets = [];
   private readonly List<(int Instruction, Dictionary<string, int> Labels, string Name)> jumps = [];
   private readonly Stack<Dictionary<string, int>> labels = new();
@@ -23,9 +24,11 @@ internal sealed class HixBytecodeCompiler {
   }
   private void Patch(int pc, int target) => code[pc] = code[pc] with {A = target};
   private void Constant(IMixinValue value) {
+    if (value is NullMixinValue) { Emit(HixOpcode.LoadNull); return; }
+    if (value is BooleanMixinValue boolean) { Emit(boolean.Value ? HixOpcode.LoadTrue : HixOpcode.LoadFalse); return; }
     var index = constants.FindIndex(item => item.Equals(value));
     if (index < 0) { index = constants.Count; constants.Add(value); }
-    Emit(HixOpcode.Constant, index);
+    Emit(HixOpcode.LoadConst, index);
   }
   internal MixinExpressionExecutionProgram Compile(IReadOnlyList<ExpressionDeclarationAst> expressions,
     IReadOnlyList<FunctionDeclarationAst> functions, MixinExpressionPreparedState globals) {
@@ -64,14 +67,29 @@ internal sealed class HixBytecodeCompiler {
     return new(bytes, lines, constants.ToArray(), pool, entries.Select(MapExpression).ToArray(), derivations, scope, targets.ToArray());
   }
   private BytecodeExpression Expression(ExpressionDeclarationAst expression) =>
-    new(Block(expression.Body), expression.IsPrelude, expression.Line);
+    new(EntryBlock(expression.Body), expression.IsPrelude, expression.Line);
   private BytecodeFunction Function(FunctionDeclarationAst function) {
-    var start = Block(function.Body);
+    var start = EntryBlock(function.Body);
     return new(function.Name, function.IsPure, function.Signatures.Select(signature => new BytecodeSignature(
       signature.InputKind, Fields(signature.Inputs), signature.OutputKind, Fields(signature.Outputs))).ToArray(), start);
   }
   private static IReadOnlyList<BytecodeField> Fields(IReadOnlyList<SignatureField> fields) =>
     fields?.Select(field => new BytecodeField(field.Name, field.Kind, field.Variadic)).ToArray();
+  private int EntryBlock(BlockStatementAst block) {
+    var previous = localNames;
+    localNames = new HashSet<string>(StringComparer.Ordinal);
+    void Collect(HixAst node) {
+      if (node is AssignmentStatementAst {Storage: StorageSpace.Local} assignment) localNames.Add(assignment.Name);
+      foreach (var child in node.SemanticChildren) Collect(child);
+    }
+    Collect(block);
+    var start = Block(block);
+    localNames = previous;
+    return start;
+  }
+  private void LoadMember(string root, string member) {
+    Emit(HixOpcode.LoadRoot, S(root)); Emit(HixOpcode.Member, S(member));
+  }
   private int Block(BlockStatementAst block) {
     var localLabels = new Dictionary<string, int>(StringComparer.Ordinal);
     foreach (var statement in block.Statements) {
@@ -135,27 +153,29 @@ internal sealed class HixBytecodeCompiler {
     sourceLine = line;
     var handler = check ? Emit(HixOpcode.Check) : -1;
     switch (expression) {
-      case StringExpressionAst text: Emit(HixOpcode.String, S(text.Value)); break;
+      case StringExpressionAst text: Emit(HixOpcode.LoadString, S(text.Value)); break;
       case NumberExpressionAst number: Constant(new NumberMixinValue(number.Value)); break;
       case BooleanExpressionAst boolean: Constant(boolean.Value ? BooleanMixinValue.True : BooleanMixinValue.False); break;
       case NullExpressionAst: Constant(NullMixinValue.Instance); break;
-      case RootExpressionAst root: Emit(root.IsSmart ? HixOpcode.SmartRoot : HixOpcode.Root, S(root.Name)); break;
-      case MemberExpressionAst {Receiver: RootExpressionAst {IsSmart: false, Name: "this" or "target" or "attr"} root} member:
-        Emit(root.Name == "this" ? HixOpcode.HostThis : root.Name == "target" ? HixOpcode.HostTarget : HixOpcode.HostAttribute, S(member.Member)); break;
-      case MemberExpressionAst {Receiver: RootExpressionAst {IsSmart: false, Name: "local" or "var" or "tar"} root} member:
-        Emit(root.Name == "local" ? HixOpcode.LoadLocal : root.Name == "var" ? HixOpcode.LoadVariable : HixOpcode.LoadTarget, S(member.Member)); break;
+      case RootExpressionAst {IsSmart: true} root:
+        if (root.Name == "it") Emit(HixOpcode.LoadRoot, S("param"));
+        else if (localNames.Contains(root.Name)) LoadMember("local", root.Name);
+        else if (int.TryParse(root.Name, out var position) && position >= 0) LoadMember("args", position.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        else Emit(HixOpcode.Throw, S("unknown local or parameter '" + root.Name + "'"));
+        break;
+      case RootExpressionAst root: Emit(HixOpcode.LoadRoot, S(root.Name)); break;
       case MemberExpressionAst member: Value(member.Receiver); Emit(HixOpcode.Member, S(member.Member), line: line); break;
       case InterpolationExpressionAst interpolation:
-        foreach (var part in interpolation.Parts) { Value(part); Emit(HixOpcode.Text, line: part.Line); }
+        foreach (var part in interpolation.Parts) { Value(part); Emit(HixOpcode.CastString, line: part.Line); }
         Emit(HixOpcode.Interpolate, interpolation.Parts.Count); break;
       case TupleExpressionAst tuple:
         foreach (var value in tuple.Values) Value(value);
-        Emit(HixOpcode.Tuple, tuple.Values.Count); break;
+        if (tuple.Values.Count == 0) Emit(HixOpcode.LoadTuple); else Emit(HixOpcode.PackTuple, tuple.Values.Count); break;
       case TableExpressionAst table:
         var duplicate = table.Entries.GroupBy(entry => entry.Key, StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1);
-        if (duplicate != null) { Emit(HixOpcode.Error, S("duplicate table key '" + duplicate.Key + "'")); break; }
-        foreach (var entry in table.Entries) { Emit(HixOpcode.String, S(entry.Key)); Value(entry.Value); }
-        Emit(HixOpcode.Table, table.Entries.Count); break;
+        if (duplicate != null) { Emit(HixOpcode.Throw, S("duplicate table key '" + duplicate.Key + "'")); break; }
+        foreach (var entry in table.Entries) { Emit(HixOpcode.LoadString, S(entry.Key)); Value(entry.Value); }
+        if (table.Entries.Count == 0) Emit(HixOpcode.LoadTable); else Emit(HixOpcode.PackTable, table.Entries.Count); break;
       case UnaryExpressionAst unary:
         Value(unary.Value, unary.Operation == UnaryOperation.Check);
         if (unary.Operation != UnaryOperation.Check) Emit(HixOpcode.Not);
@@ -167,9 +187,9 @@ internal sealed class HixBytecodeCompiler {
       case CallExpressionAst call:
         foreach (var argument in call.Arguments) Value(argument);
         Emit(HixOpcode.Call, S(call.Name), call.Arguments.Count, line: line);
-        if (call.CoerceBoolean) Emit(HixOpcode.Boolean);
+        if (call.CoerceBoolean) Emit(HixOpcode.CastBoolean);
         break;
-      case InlineExpressionAst inline: NestedBlock(inline.Body); Emit(HixOpcode.LoadLocal, S(inline.ResultLocal)); break;
+      case InlineExpressionAst inline: NestedBlock(inline.Body); LoadMember("local", inline.ResultLocal); break;
       case SelectionExpressionAst selection:
         if (selection.Selector == null) Constant(BooleanMixinValue.True); else Value(selection.Selector);
         Emit(HixOpcode.PushSelector);

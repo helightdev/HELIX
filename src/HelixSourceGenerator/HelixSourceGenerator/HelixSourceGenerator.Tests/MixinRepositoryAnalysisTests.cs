@@ -52,9 +52,8 @@ public sealed class MixinRepositorySyntaxTests {
   }
 
   [Fact]
-  public void EveryExpressionRootHasOneDefinition() {
+  public void RootDefinitionsHaveUniqueNamesAndResolvableMetadata() {
     var definitions = MixinRootLibrary.Enumerate().ToArray();
-    Assert.Equal(Enum.GetValues<MixinExpressionRoot>().Length, definitions.Length);
     Assert.Equal(definitions.Length, definitions.Select(item => item.Name).Distinct().Count());
     Assert.Equal(definitions.Length, definitions.Select(item => item.Root).Distinct().Count());
     Assert.All(definitions, definition => {

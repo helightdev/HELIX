@@ -9,112 +9,122 @@ namespace Mixins.Runtime;
 
 /// <summary>Byte-aligned opcodes. Operands are little-endian; all s16 references are relative to the opcode address.</summary>
 public enum HixOpcode : byte {
-  /// <summary>s16 end; begin a block whose exclusive end is opcode address + displacement.</summary>
-  Enter = 0,
-  /// <summary>No operands; finish the current block.</summary>
-  End = 1,
+  // Loads and member access
   /// <summary>u16 constant pool index; push the non-string constant.</summary>
-  Constant = 2,
+  LoadConst = 0,
   /// <summary>u16 string pool index; push the string.</summary>
-  String = 3,
+  LoadString = 1,
+  /// <summary>No operands; push null.</summary>
+  LoadNull = 2,
+  /// <summary>No operands; push true.</summary>
+  LoadTrue = 3,
+  /// <summary>No operands; push false.</summary>
+  LoadFalse = 4,
+  /// <summary>No operands; push the empty tuple.</summary>
+  LoadTuple = 5,
+  /// <summary>No operands; push the empty table.</summary>
+  LoadTable = 6,
   /// <summary>u16 string pool name; resolve and push a root.</summary>
-  Root = 4,
-  /// <summary>u16 string pool name; resolve and push a smart local root.</summary>
-  SmartRoot = 5,
-  /// <summary>u16 string pool member; push a member of the this host.</summary>
-  HostThis = 6,
-  /// <summary>u16 string pool member; push a member of the target host.</summary>
-  HostTarget = 7,
-  /// <summary>u16 string pool member; push an attribute host member.</summary>
-  HostAttribute = 8,
-  /// <summary>u16 string pool name; push a local or top-level carried value.</summary>
-  LoadLocal = 9,
-  /// <summary>u16 string pool name; push a shared variable.</summary>
-  LoadVariable = 10,
-  /// <summary>u16 string pool name; push a target variable.</summary>
-  LoadTarget = 11,
+  LoadRoot = 7,
   /// <summary>u16 string pool member; pop a receiver and push its member.</summary>
-  Member = 12,
+  Member = 8,
+
+  // Storage
   /// <summary>u16 string pool name; pop into a local (or existing top-level carry).</summary>
-  StoreLocal = 13,
+  StoreLocal = 9,
   /// <summary>u16 string pool name; pop into a carried local; requires top-level prelude.</summary>
-  StoreCarry = 14,
+  StoreCarry = 10,
   /// <summary>u16 string pool name; pop into a shared variable.</summary>
-  StoreVariable = 15,
+  StoreVariable = 11,
   /// <summary>u16 string pool name; pop into a target variable.</summary>
-  StoreTarget = 16,
-  /// <summary>No operands; discard the top value.</summary>
-  Pop = 17,
-  /// <summary>u16 count; pop values in source order and push a tuple.</summary>
-  Tuple = 18,
-  /// <summary>u16 pair count; pop key/value pairs and push a table.</summary>
-  Table = 19,
-  /// <summary>u16 count; pop rendered text parts and push their concatenation.</summary>
-  Interpolate = 20,
-  /// <summary>u16 string pool function name, u16 argument count; pop arguments in source order and push the result.</summary>
-  Call = 21,
-  /// <summary>No operands; pop a value and push its truthiness, preserving checked errors.</summary>
-  Boolean = 22,
-  /// <summary>No operands; pop a value and push its negated truthiness.</summary>
-  Not = 23,
-  /// <summary>s16 handler; save stack/selector state; on error restore it, push a checked error and branch.</summary>
-  Check = 24,
-  /// <summary>No operands; remove the current checked-expression handler.</summary>
-  EndCheck = 25,
-  /// <summary>s16 target; branch unconditionally.</summary>
-  Jump = 26,
-  /// <summary>s16 target; branch if the top value is non-null, without popping it.</summary>
-  JumpNotNull = 27,
-  /// <summary>s16 target; pop a condition and branch if false.</summary>
-  JumpFalse = 28,
-  /// <summary>No operands; save the selector and replace it with the popped value.</summary>
-  PushSelector = 29,
-  /// <summary>No operands; restore the saved selector.</summary>
-  PopSelector = 30,
-  /// <summary>No operands; pop a value and push whether it equals the selector.</summary>
-  MatchSelector = 31,
-  /// <summary>s16 block; execute the referenced block and propagate its control result.</summary>
-  Block = 32,
-  /// <summary>No operands; pop the return value and leave the function/expression.</summary>
-  Return = 33,
-  /// <summary>s16 target; clear block state and transfer control, propagating through enclosing blocks as needed.</summary>
-  Goto = 34,
-  /// <summary>No operands; propagate an unresolved-goto error through the normal control-result path.</summary>
-  InvalidGoto = 35,
-  /// <summary>No operands; finish the current block.</summary>
-  Break = 36,
-  /// <summary>No operands; clear block state and restart after its Enter instruction.</summary>
-  Continue = 37,
-  /// <summary>u16 count; pop values and push null for zero, the value for one, or a tuple for multiple.</summary>
-  Pack = 38,
-  /// <summary>u16 string pool message; produce an unchecked runtime error.</summary>
-  Error = 39,
-  /// <summary>No operands; check shared-variable write permission before evaluating the assigned value.</summary>
-  CheckStoreVariable = 40,
-  /// <summary>No operands; check target-variable write permission before evaluating the assigned value.</summary>
-  CheckStoreTarget = 41,
+  StoreTarget = 12,
   /// <summary>No operands; check carry write permission and top-level prelude context before evaluation.</summary>
-  CheckStoreCarry = 42,
+  CheckStoreCarry = 13,
+  /// <summary>No operands; check shared-variable write permission before evaluating the assigned value.</summary>
+  CheckStoreVariable = 14,
+  /// <summary>No operands; check target-variable write permission before evaluating the assigned value.</summary>
+  CheckStoreTarget = 15,
+
+  // Stack and packing
+  /// <summary>No operands; discard the top value.</summary>
+  Pop = 16,
+  /// <summary>u16 count; pop values and push null for zero, the value for one, or a tuple for multiple.</summary>
+  Pack = 17,
+  /// <summary>u16 count; pop values in source order and push a tuple.</summary>
+  PackTuple = 18,
+  /// <summary>u16 pair count; pop key/value pairs and push a table.</summary>
+  PackTable = 19,
+
+  // Conversions and value operations
+  /// <summary>No operands; pop a value and push its truthiness, preserving checked errors.</summary>
+  CastBoolean = 20,
   /// <summary>No operands; pop a value and push its rendered text, propagating rendering errors.</summary>
-  Text = 43,
+  CastString = 21,
+  /// <summary>No operands; pop a value and push its negated truthiness.</summary>
+  Not = 22,
+  /// <summary>u16 count; pop rendered text parts and push their concatenation.</summary>
+  Interpolate = 23,
+
+  // Selectors
+  /// <summary>No operands; save the selector and replace it with the popped value.</summary>
+  PushSelector = 24,
+  /// <summary>No operands; restore the saved selector.</summary>
+  PopSelector = 25,
+  /// <summary>No operands; pop a value and push whether it equals the selector.</summary>
+  MatchSelector = 26,
+
+  // Calls and blocks
+  /// <summary>u16 string pool function name, u16 argument count; pop arguments in source order and push the result.</summary>
+  Call = 27,
+  /// <summary>No operands; pop the return value and leave the function/expression.</summary>
+  Return = 28,
+  /// <summary>s16 end; begin a block whose exclusive end is opcode address + displacement.</summary>
+  Enter = 29,
+  /// <summary>No operands; finish the current block.</summary>
+  End = 30,
+  /// <summary>s16 block; execute the referenced block and propagate its control result.</summary>
+  Block = 31,
+
+  // Branches and loop control
+  /// <summary>s16 target; branch unconditionally.</summary>
+  Jump = 32,
+  /// <summary>s16 target; pop a condition and branch if false.</summary>
+  JumpFalse = 33,
+  /// <summary>s16 target; branch if the top value is non-null, without popping it.</summary>
+  JumpNotNull = 34,
+  /// <summary>s16 target; clear block state and transfer control, propagating through enclosing blocks as needed.</summary>
+  Goto = 35,
+  /// <summary>No operands; propagate an unresolved-goto error through the normal control-result path.</summary>
+  InvalidGoto = 36,
+  /// <summary>No operands; finish the current block.</summary>
+  Break = 37,
+  /// <summary>No operands; clear block state and restart after its Enter instruction.</summary>
+  Continue = 38,
+
+  // Error handling
+  /// <summary>s16 handler; save stack/selector state; on error restore it, push a checked error and branch.</summary>
+  Check = 39,
+  /// <summary>No operands; remove the current checked-expression handler.</summary>
+  EndCheck = 40,
+  /// <summary>u16 string pool message; produce an unchecked runtime error.</summary>
+  Throw = 41,
 }
 
 /// <summary>A decoded instruction. Its encoded size is one opcode byte plus only the operands that opcode uses.</summary>
 public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B = 0) {
   public bool IsRelative => Opcode is HixOpcode.Enter or HixOpcode.Check or HixOpcode.Jump or
     HixOpcode.JumpNotNull or HixOpcode.JumpFalse or HixOpcode.Block or HixOpcode.Goto;
-  public bool UsesStringPool => Opcode is HixOpcode.String or HixOpcode.Root or HixOpcode.SmartRoot or
-    HixOpcode.HostThis or HixOpcode.HostTarget or HixOpcode.HostAttribute or HixOpcode.LoadLocal or
-    HixOpcode.LoadVariable or HixOpcode.LoadTarget or HixOpcode.Member or HixOpcode.StoreLocal or
-    HixOpcode.StoreCarry or HixOpcode.StoreVariable or HixOpcode.StoreTarget or HixOpcode.Call or HixOpcode.Error;
+  public bool UsesStringPool => Opcode is HixOpcode.LoadString or HixOpcode.LoadRoot or HixOpcode.Member or HixOpcode.StoreLocal or
+    HixOpcode.StoreCarry or HixOpcode.StoreVariable or HixOpcode.StoreTarget or HixOpcode.Call or HixOpcode.Throw;
   public int Size => Opcode switch {
     HixOpcode.Call => 5,
-    _ when IsRelative || UsesStringPool || Opcode is HixOpcode.Constant or HixOpcode.Tuple or HixOpcode.Table or
+    _ when IsRelative || UsesStringPool || Opcode is HixOpcode.LoadConst or HixOpcode.PackTuple or HixOpcode.PackTable or
       HixOpcode.Interpolate or HixOpcode.Pack => 3,
-    HixOpcode.End or HixOpcode.Pop or HixOpcode.Boolean or HixOpcode.Not or HixOpcode.EndCheck or
+    HixOpcode.End or HixOpcode.Pop or HixOpcode.CastBoolean or HixOpcode.Not or HixOpcode.EndCheck or
       HixOpcode.PushSelector or HixOpcode.PopSelector or HixOpcode.MatchSelector or HixOpcode.Return or
       HixOpcode.InvalidGoto or HixOpcode.Break or HixOpcode.Continue or HixOpcode.CheckStoreVariable or
-      HixOpcode.CheckStoreTarget or HixOpcode.CheckStoreCarry or HixOpcode.Text => 1,
+      HixOpcode.CheckStoreTarget or HixOpcode.CheckStoreCarry or HixOpcode.CastString or HixOpcode.LoadTrue or HixOpcode.LoadFalse or
+      HixOpcode.LoadNull or HixOpcode.LoadTuple or HixOpcode.LoadTable => 1,
     _ => throw new ArgumentException("Unknown opcode " + Opcode)
   };
   public void Encode(byte[] bytes, int offset) {

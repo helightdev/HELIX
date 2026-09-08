@@ -38,26 +38,14 @@ internal sealed partial class LanguageExecution {
         switch (instruction.Opcode) {
           case HixOpcode.End: return default;
           case HixOpcode.Enter: break;
-          case HixOpcode.Constant: completion = Push(machine.ConstantPool[a], line); break;
-          case HixOpcode.String: stack.Add(String(Name(a))); break;
-          case HixOpcode.Root:
-          case HixOpcode.SmartRoot: completion = Push(Root(Name(a), instruction.Opcode == HixOpcode.SmartRoot), line); break;
-          case HixOpcode.HostThis:
-          case HixOpcode.HostTarget:
-          case HixOpcode.HostAttribute:
-            completion = Push(pure ? context.Error("pure functions cannot read host roots")
-              : !prelude ? context.Error("host members require the prelude pass")
-              : context.Resolve(instruction.Opcode == HixOpcode.HostThis ? MixinExpressionRoot.This : instruction.Opcode == HixOpcode.HostTarget ? MixinExpressionRoot.Target : MixinExpressionRoot.Attribute,
-                ExecutionContext.Dynamic(Name(a))), line); break;
-          case HixOpcode.LoadLocal:
-          case HixOpcode.LoadVariable:
-          case HixOpcode.LoadTarget:
-            b = instruction.Opcode == HixOpcode.LoadLocal ? 0 : instruction.Opcode == HixOpcode.LoadVariable ? 1 : 2;
-            var storage = b == 0 ? locals : b == 1 ? variables : targetVariables;
-            completion = Push(pure && b != 0 ? context.Error("pure functions cannot read shared storage")
-              : storage.TryGetValue(Name(a), out var found) ? found
-              : b == 0 && depth == 0 && carries.TryGetValue(Name(a), out var carried) ? carried : NullMixinValue.Instance, line);
-            break;
+          case HixOpcode.LoadConst: completion = Push(machine.ConstantPool[a], line); break;
+          case HixOpcode.LoadString: stack.Add(String(Name(a))); break;
+          case HixOpcode.LoadTrue: stack.Add(BooleanMixinValue.True); break;
+          case HixOpcode.LoadFalse: stack.Add(BooleanMixinValue.False); break;
+          case HixOpcode.LoadNull: stack.Add(NullMixinValue.Instance); break;
+          case HixOpcode.LoadTuple: stack.Add(TupleMixinValue.Empty); break;
+          case HixOpcode.LoadTable: stack.Add(MixinTableValue.Empty); break;
+          case HixOpcode.LoadRoot: completion = Push(Root(Name(a)), line); break;
           case HixOpcode.Member:
             var receiver = Pop();
             completion = Push(receiver is LiteralMixinValue or NumberMixinValue or BooleanMixinValue or NullMixinValue or KindMixinValue
@@ -81,15 +69,15 @@ internal sealed partial class LanguageExecution {
             if (isCarry) carriedLocals.Add(Name(a));
             destination[Name(a)] = Pop(); break;
           case HixOpcode.Pop: Pop(); break;
-          case HixOpcode.Tuple: stack.Add(new TupleMixinValue(PopMany(a))); break;
+          case HixOpcode.PackTuple: stack.Add(new TupleMixinValue(PopMany(a))); break;
           case HixOpcode.Pack: stack.Add(Pack(PopMany(a))); break;
-          case HixOpcode.Table:
+          case HixOpcode.PackTable:
             var items = PopMany(a * 2);
             var entries = new KeyValuePair<MixinString, IMixinValue>[a];
             for (var i = 0; i < a; i++) entries[i] = new(((LiteralMixinValue)items[i * 2]).Value, items[i * 2 + 1]);
             stack.Add(new MixinTableValue(entries)); break;
-          case HixOpcode.Error: completion = Failed(context.Error(Name(a)), line); break;
-          case HixOpcode.Text:
+          case HixOpcode.Throw: completion = Failed(context.Error(Name(a)), line); break;
+          case HixOpcode.CastString:
             var rendered = RenderText(Pop());
             if (rendered is ErrorMixinValue) completion = Failed(rendered, line); else stack.Add(rendered);
             break;
@@ -99,7 +87,7 @@ internal sealed partial class LanguageExecution {
             completion = pendingControl; pendingControl = default;
             if (completion.Kind == BytecodeFlow.Normal) completion = Push(called, line);
             break;
-          case HixOpcode.Boolean:
+          case HixOpcode.CastBoolean:
             var boolean = Pop(); stack.Add(boolean is ErrorMixinValue ? boolean : Bool(boolean.IsTruthy(context))); break;
           case HixOpcode.Not: stack.Add(Bool(!Pop().IsTruthy(context))); break;
           case HixOpcode.Check: checks.Push((instructionAddress + a, stack.Count, selectors.Count, selector)); break;

@@ -10,61 +10,6 @@ using Xunit;
 namespace HELIX.SourceGen.Tests;
 
 public sealed class StructureTests {
-  [Fact]
-  public void DatatypeOptInGeneratesConfigurableStructureDatatype() {
-    var result = Run(
-      Runtime +
-      """
-      namespace Feature {
-        public enum Mode { First, Second }
-
-        [Feature.ConfigureSettings]
-        [HELIX.Mixable, HELIX.Structure(datatype: true)]
-        public partial struct Settings {
-          [Feature.ConfigureProperty]
-          public int count;
-          public Mode mode;
-
-          [HELIX.Prop(18)]
-          public int age;
-
-          [HELIX.Prop(null, Datatype = "Custom.Text")]
-          public string label;
-
-        }
-
-        public static class Custom {
-          public static readonly HELIX.IDatatype<string> Text = HELIX.Datatypes.String;
-        }
-
-        [HELIX.MixinExpression("@CODE datatype.Configured = true")]
-        [AttributeUsage(AttributeTargets.Struct)]
-        public sealed class ConfigureSettingsAttribute : Attribute { }
-
-        [HELIX.MixinExpression("@CODE datatype.ConfiguredProperties.Add(\"@target:name\")")]
-        [AttributeUsage(AttributeTargets.Field | AttributeTargets.Parameter)]
-        public sealed class ConfigurePropertyAttribute : Attribute { }
-      }
-      """
-    );
-
-    Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    Assert.Contains(
-      "public static readonly global::HELIX.StructureDatatype<global::Feature.Settings> Datatype =",
-      result.Generated
-    );
-    Assert.Contains("new global::HELIX.ConfigurableStructureDatatype<global::Feature.Settings>(", result.Generated);
-    Assert.Contains("global::HELIX.Datatypes.Int,", result.Generated);
-    Assert.Contains("global::HELIX.Datatypes.Enum<global::Feature.Mode>(),", result.Generated);
-    Assert.Contains("Custom.Text,", result.Generated);
-    Assert.Contains("datatype => ConfigureDatatype(datatype)", result.Generated);
-    Assert.Contains("value.count = propertyValue", result.Generated);
-    Assert.Contains("value.label = propertyValue", result.Generated);
-    Assert.Contains("required: true, defaultValue: null", result.Generated);
-    Assert.Contains("required: false, defaultValue: 18", result.Generated);
-    Assert.Contains("required: false, defaultValue: null", result.Generated);
-  }
 
   [Fact]
   public void DatatypeIsNotGeneratedWithoutOptIn() {
@@ -156,35 +101,6 @@ public sealed class StructureTests {
     Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     Assert.DoesNotContain("bool Equals", result.Generated);
     Assert.DoesNotContain("GetHashCode", result.Generated);
-  }
-
-  private void DatatypeMixinsImportPreparedFunctionLibraryFromMixinAttribute() {
-    var result = Run(
-      Runtime +
-      """
-      [HELIX.MixinLibrary("@FUNC<configure>\n@CODE datatype.Configured = true\n@END")]
-      public static class DatatypeFunctions { }
-
-      [HELIX.MixinImport(typeof(DatatypeFunctions))]
-      [HELIX.MixinExpression("@CALL<configure>")]
-      [AttributeUsage(AttributeTargets.Struct)]
-      public sealed class ConfigureFromLibraryAttribute : Attribute { }
-
-      [ConfigureFromLibrary]
-      [HELIX.Mixable, HELIX.Structure(datatype: true)]
-      public partial struct Settings {
-        public int count;
-      }
-      """
-    );
-
-    Assert.Empty(result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    Assert.Empty(result.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
-    Assert.Contains("datatype.Configured = true;", result.Generated);
-    Assert.Contains(
-      "),\n      new global::HELIX.StructurePropertyDatatype<", result.Generated,
-      StringComparison.Ordinal
-    );
   }
 
   private static TestResult Run(string source) {

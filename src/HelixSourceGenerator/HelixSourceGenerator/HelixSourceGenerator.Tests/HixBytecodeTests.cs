@@ -18,6 +18,67 @@ public sealed class HixBytecodeTests {
     protected override IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) => NullMixinValue.Instance;
   }
 
+  [Fact]
+  public void LiteralLoadsAndPackingUseDedicatedOpcodesWithoutPoolEntries() {
+    var program = HixCompiler.Compile("""
+      pure func pair { return(true, false) }
+      mixin Example { expression {
+        local a = null
+        local b = true
+        local c = false
+        local d = @[]
+        local e = @{}
+        local f = @[true, false]
+        local g = @{a=null}
+        emit(<[local#b]:[length(local#d)]:[length(local#e)]>)
+        emit(join(pair(), <,>))
+      } }
+      """, "Example");
+    Assert.Empty(program.ConstantPool);
+    var instructions = HixInstruction.ReadAll(program.Bytecode).Select(item => item.Instruction).ToArray();
+    foreach (var opcode in new[] {HixOpcode.LoadNull, HixOpcode.LoadTrue, HixOpcode.LoadFalse, HixOpcode.LoadTuple, HixOpcode.LoadTable}) {
+      Assert.Contains(instructions, instruction => instruction.Opcode == opcode);
+      Assert.Equal(1, new HixInstruction(opcode).Size);
+    }
+    foreach (var opcode in new[] {HixOpcode.PackTuple, HixOpcode.PackTable, HixOpcode.Pack, HixOpcode.CastString})
+      Assert.Contains(instructions, instruction => instruction.Opcode == opcode);
+    var result = MixinVirtualMachine.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"true:0:0", "true,false"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
+  public void SmartReferencesCompileToExplicitRootsAndMemberSelection() {
+    var program = HixCompiler.Compile("""
+      pure func read { local value = [$0]; return(<[$value]:[$it]>) }
+      mixin Example { expression { emit(read(<argument>)) } }
+      """, "Example");
+    var roots = HixInstruction.ReadAll(program.Bytecode).Where(item => item.Instruction.Opcode == HixOpcode.LoadRoot)
+      .Select(item => program.StringPool[item.Instruction.A]).ToArray();
+    Assert.Contains("args", roots);
+    Assert.Contains("param", roots);
+    Assert.Contains("local", roots);
+    Assert.DoesNotContain(Enum.GetNames(typeof(HixOpcode)), name => name.Contains("Smart") || name.StartsWith("Host"));
+    var result = MixinVirtualMachine.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("argument:argument", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void HostMembersUseLoadRootAndMemberInstructions() {
+    var program = HixCompiler.Compile("""
+      mixin Example { prelude expression { emit(this#name); emit(target#name); emit(attr#name) } }
+      """, "Example");
+    var instructions = HixInstruction.ReadAll(program.Bytecode).Select(item => item.Instruction).ToArray();
+    Assert.Equal(new[] {"this", "target", "attr"}, instructions.Where(item => item.Opcode == HixOpcode.LoadRoot)
+      .Select(item => program.StringPool[item.A]));
+    Assert.Equal(3, instructions.Count(item => item.Opcode == HixOpcode.Member));
+    var reads = 0;
+    var result = MixinVirtualMachine.Execute(program, new PoolContext(_ => reads++));
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(3, reads);
+  }
+
   [Theory]
   [InlineData(false)]
   [InlineData(true)]
@@ -38,11 +99,11 @@ public sealed class HixBytecodeTests {
     Assert.DoesNotContain(".string ", bodies);
     Assert.DoesNotContain(".constant ", bodies);
     Assert.True(vm.StringPool.TryGetId("shared", out var shared));
-    var loads = Regex.Matches(bodies, @"(?m)^//   [0-9A-F]+ +\| STRING s([0-9]+) +\| push\(""shared""\)");
+    var loads = Regex.Matches(bodies, @"(?m)^//   [0-9A-F]+ +\| LOADSTRING s([0-9]+) +\| push\(""shared""\)");
     Assert.Equal(4, loads.Count);
     foreach (Match load in loads) Assert.Equal(shared.ToString(), load.Groups[1].Value);
     Assert.Equal(new[] {42d, 7d}, vm.ConstantPool.Cast<NumberMixinValue>().Select(value => value.Value));
-    var constantLoads = Regex.Matches(bodies, @"(?m)^//   [0-9A-F]+ +\| CONSTANT c([0-9]+) +\|");
+    var constantLoads = Regex.Matches(bodies, @"(?m)^//   [0-9A-F]+ +\| LOADCONST c([0-9]+) +\|");
     Assert.Equal(new[] {"0", "0", "1", "0", "1", "0"},
       constantLoads.Cast<Match>().Select(load => load.Groups[1].Value));
     var pool = vm.ConstantPool;
@@ -157,7 +218,8 @@ public sealed class HixBytecodeTests {
 
   private sealed class PoolContext(Action<MixinStringPool> observe) : Mixins.Runtime.ExecutionContext(new MixinStringPoolBuilder().Freeze()) {
     protected override IMixinValue ResolveHost(MixinExpressionRoot root, MixinString member) {
-      observe(Strings); return NullMixinValue.Instance;
+      Assert.Equal("", member.Resolve(Strings));
+      observe(Strings); return MixinTableValue.Empty;
     }
   }
 
@@ -188,12 +250,12 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void InstructionsUseOnlyTheirOpcodeSpecificLittleEndianOperands() {
     Assert.Equal(typeof(byte), Enum.GetUnderlyingType(typeof(HixOpcode)));
-    var instructions = new[] {new HixInstruction(HixOpcode.Pop), new(HixOpcode.String, 0xABCD),
+    var instructions = new[] {new HixInstruction(HixOpcode.Pop), new(HixOpcode.LoadString, 0xABCD),
       new(HixOpcode.Call, 0x1234, 0x5678), new(HixOpcode.Jump, -9)};
     var bytes = new byte[instructions.Sum(instruction => instruction.Size)];
     var offset = 0;
     foreach (var instruction in instructions) { instruction.Encode(bytes, offset); offset += instruction.Size; }
-    Assert.Equal(new byte[] {(byte)HixOpcode.Pop, (byte)HixOpcode.String, 0xCD, 0xAB,
+    Assert.Equal(new byte[] {(byte)HixOpcode.Pop, (byte)HixOpcode.LoadString, 0xCD, 0xAB,
       (byte)HixOpcode.Call, 0x34, 0x12, 0x78, 0x56, (byte)HixOpcode.Jump, 0xF7, 0xFF}, bytes);
     Assert.Equal(new[] {0, 1, 4, 9}, HixInstruction.ReadAll(bytes).Select(item => item.Offset));
     Assert.Equal(instructions, HixInstruction.ReadAll(bytes).Select(item => item.Instruction));
@@ -202,8 +264,8 @@ public sealed class HixBytecodeTests {
   [Theory]
   [InlineData(HixOpcode.Jump, -32768)]
   [InlineData(HixOpcode.Jump, 32767)]
-  [InlineData(HixOpcode.Constant, 0)]
-  [InlineData(HixOpcode.Constant, 65535)]
+  [InlineData(HixOpcode.LoadConst, 0)]
+  [InlineData(HixOpcode.LoadConst, 65535)]
   public void OperandBoundariesRoundTrip(HixOpcode opcode, int operand) {
     var instruction = new HixInstruction(opcode, operand);
     var bytes = new byte[instruction.Size];
@@ -214,8 +276,8 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void InvalidOperandsAndTruncatedInstructionsAreRejected() {
     foreach (var instruction in new[] {new HixInstruction(HixOpcode.Jump, -32769), new(HixOpcode.Jump, 32768),
-      new(HixOpcode.String, -1), new(HixOpcode.String, 65536), new(HixOpcode.Call, 0, 65536),
-      new(HixOpcode.Pop, 1), new(HixOpcode.Constant, 0, 1)})
+      new(HixOpcode.LoadString, -1), new(HixOpcode.LoadString, 65536), new(HixOpcode.Call, 0, 65536),
+      new(HixOpcode.Pop, 1), new(HixOpcode.LoadConst, 0, 1)})
       Assert.Throws<ArgumentException>(() => instruction.Encode(new byte[5], 0));
     Assert.Throws<ArgumentException>(() => HixInstruction.Decode(new byte[] {(byte)HixOpcode.Call, 0, 0}, 0));
     Assert.Throws<ArgumentException>(() => HixInstruction.Decode(new byte[] {255}, 0));
@@ -247,7 +309,7 @@ public sealed class HixBytecodeTests {
     Assert.DoesNotContain(program.ConstantPool, value => value.Kind == MixinValueKind.String);
     Assert.True(program.StringPool.TryGetId("repeated", out var stringIndex));
     var instructions = HixInstruction.ReadAll(program.Bytecode).Select(item => item.Instruction).ToArray();
-    Assert.Equal(2, instructions.Count(instruction => instruction.Opcode == HixOpcode.String && instruction.A == stringIndex));
+    Assert.Equal(2, instructions.Count(instruction => instruction.Opcode == HixOpcode.LoadString && instruction.A == stringIndex));
     var stringCount = program.StringPool.Count;
     var result = MixinVirtualMachine.Execute(program, new Context());
     Assert.True(result.Success, result.Error);

@@ -78,26 +78,22 @@ internal static class HixDisassembler {
     string StringId() => "s" + Number(a);
     string Storage() => instruction.Opcode switch {
       HixOpcode.StoreCarry or HixOpcode.CheckStoreCarry => "carry.local",
-      HixOpcode.LoadVariable or HixOpcode.StoreVariable or HixOpcode.CheckStoreVariable => "var",
-      HixOpcode.LoadTarget or HixOpcode.StoreTarget or HixOpcode.CheckStoreTarget => "target.var", _ => "local"
+      HixOpcode.StoreVariable or HixOpcode.CheckStoreVariable => "var",
+      HixOpcode.StoreTarget or HixOpcode.CheckStoreTarget => "target.var", _ => "local"
     };
     string Slot() => Storage() + "[" + Quote(Name()) + "]";
     string Args(int count) => count == 0 ? "" : count == 1 ? "pop()" : "pop_args(" + Number(count) + ")...";
     switch (instruction.Opcode) {
       case HixOpcode.Enter: return (Label(a), "begin block; end = " + Label(a));
       case HixOpcode.End: return ("", "end block");
-      case HixOpcode.Constant: return ("c" + Number(a), "push(" + Constant(constants[a]) + ")");
-      case HixOpcode.String: return (StringId(), "push(" + Quote(Name()) + ")");
-      case HixOpcode.Root: return (StringId(), "push(" + (Name() == "\0selector" ? "selector" : Name()) + ")");
-      case HixOpcode.SmartRoot: return (StringId(), "push(resolve_local(" + Quote(Name()) + "))");
-      case HixOpcode.HostThis:
-      case HixOpcode.HostTarget:
-      case HixOpcode.HostAttribute:
-        var host = instruction.Opcode == HixOpcode.HostThis ? "this" : instruction.Opcode == HixOpcode.HostTarget ? "target" : "attr";
-        return (StringId(), "push(" + host + "[" + Quote(Name()) + "])");
-      case HixOpcode.LoadLocal:
-      case HixOpcode.LoadVariable:
-      case HixOpcode.LoadTarget: return (StringId(), "push(" + Slot() + ")");
+      case HixOpcode.LoadConst: return ("c" + Number(a), "push(" + Constant(constants[a]) + ")");
+      case HixOpcode.LoadString: return (StringId(), "push(" + Quote(Name()) + ")");
+      case HixOpcode.LoadRoot: return (StringId(), "push(" + (Name() == "\0selector" ? "selector" : Name()) + ")");
+      case HixOpcode.LoadTrue: return ("", "push(true)");
+      case HixOpcode.LoadFalse: return ("", "push(false)");
+      case HixOpcode.LoadNull: return ("", "push(null)");
+      case HixOpcode.LoadTuple: return ("", "push(tuple())");
+      case HixOpcode.LoadTable: return ("", "push(table())");
       case HixOpcode.Member: return (StringId(), "push(pop()[" + Quote(Name()) + "])");
       case HixOpcode.CheckStoreCarry:
       case HixOpcode.CheckStoreVariable:
@@ -107,15 +103,15 @@ internal static class HixDisassembler {
       case HixOpcode.StoreVariable:
       case HixOpcode.StoreTarget: return (StringId(), Slot() + " = pop()");
       case HixOpcode.Pop: return ("", "discard(pop())");
-      case HixOpcode.Tuple: return (Number(a), "push(tuple(" + Args(a) + "))");
-      case HixOpcode.Table: return (Number(a), "push(table(pop_pairs(" + Number(a) + ")))");
+      case HixOpcode.PackTuple: return (Number(a), "push(tuple(" + Args(a) + "))");
+      case HixOpcode.PackTable: return (Number(a), "push(table(pop_pairs(" + Number(a) + ")))");
       case HixOpcode.Pack: return (Number(a), a == 0 ? "push(null)" : a == 1 ? "keep top value" : "push(tuple(" + Args(a) + "))");
       case HixOpcode.Interpolate: return (Number(a), "push(concat(" + Args(a) + "))");
       case HixOpcode.Call: return (StringId() + ", argc=" + Number(b), "push(" + Name() + "(" + Args(b) + "))");
-      case HixOpcode.Boolean: return ("", "push(bool_or_error(pop()))");
+      case HixOpcode.CastBoolean: return ("", "push(bool_or_error(pop()))");
       case HixOpcode.Not: return ("", "push(!truthy(pop()))");
-      case HixOpcode.Text: return ("", "push(text(pop()))");
-      case HixOpcode.Error: return (StringId(), "fail(" + Quote(Name()) + ")");
+      case HixOpcode.CastString: return ("", "push(text(pop()))");
+      case HixOpcode.Throw: return (StringId(), "fail(" + Quote(Name()) + ")");
       case HixOpcode.Check: return (Label(a), "begin checked; on error push(checked(error)), goto " + Label(a));
       case HixOpcode.EndCheck: return ("", "end checked");
       case HixOpcode.Jump: return (Label(a), "goto " + Label(a));
