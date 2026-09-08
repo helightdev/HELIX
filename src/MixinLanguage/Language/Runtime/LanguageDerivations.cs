@@ -35,7 +35,7 @@ internal sealed partial class LanguageExecution {
           scope = derivationScopes[provider];
           try {
             foreach (var expression in provider.Declarations.OfType<ExpressionDeclarationAst>()) {
-              parameter = Functions.CollectionFunctionDefinition.Put(context, record, "value", current);
+              parameter = Functions.CollectionFunctions.Put(context, record, "value", current);
               var returned = false;
               try { Block(expression.Body); }
               catch (Flow flow) when (flow.Kind == ControlFlowKind.Return) {
@@ -47,7 +47,7 @@ internal sealed partial class LanguageExecution {
             }
           } finally { activeDerivations.Remove(provider); }
         }
-        result.Add(Functions.CollectionFunctionDefinition.Put(context, record, "value", current));
+        result.Add(Functions.CollectionFunctions.Put(context, record, "value", current));
         provider = null;
       }
       return new TupleMixinValue(result.ToArray());

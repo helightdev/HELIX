@@ -24,7 +24,7 @@ public sealed record ValidationResult(bool Success, string Error, int ErrorLine)
 
 public sealed class MixinExpressionOutput {
   internal MixinExpressionOutput(
-    MixinExpressionOutputTarget target, IReadOnlyList<MixinString> segments,
+    MixinEmissionTarget target, IReadOnlyList<MixinString> segments,
     MixinStringPool strings, MixinString injectionTarget = default, int injectionPriority = 0
   ) {
     Target = target;
@@ -35,7 +35,7 @@ public sealed class MixinExpressionOutput {
   }
 
   public MixinExpressionOutput(
-    MixinExpressionOutputTarget target, string text, string injectionTarget = null,
+    MixinEmissionTarget target, string text, string injectionTarget = null,
     int injectionPriority = 0
   ) {
     var strings = new MixinStringPoolBuilder().Freeze();
@@ -46,7 +46,7 @@ public sealed class MixinExpressionOutput {
     InjectionPriority = injectionPriority;
   }
 
-  public MixinExpressionOutputTarget Target { get; }
+  public MixinEmissionTarget Target { get; }
   public string Text => string.Concat(Segments.Select(item => item.Resolve(Strings)));
   public string InjectionTarget => InjectionTargetValue.Resolve(Strings);
   public int InjectionPriority { get; }
@@ -59,7 +59,7 @@ public sealed class MixinExpressionOutput {
     return value.Resolve(Strings);
   }
 
-  internal MixinExpressionOutput Retarget(MixinExpressionOutputTarget target) {
+  internal MixinExpressionOutput Retarget(MixinEmissionTarget target) {
     return new MixinExpressionOutput(target, Segments, Strings, InjectionTargetValue, InjectionPriority);
   }
 }

@@ -68,5 +68,6 @@ mixin DefaultNamespace.TextMixin {}
 mixin Configuration {
   prelude expression {
     //config(<PROFILE>, <enabled>)
+    //config(<DEBUG>, <enabled>)
   }
 }

@@ -288,14 +288,14 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         )) sharedVariables[item.Key] = item.Value;
       foreach (var output in result.Outputs) {
         switch (output.Target) {
-          case MixinExpressionOutputTarget.Class: classCode.Add(output); break;
-          case MixinExpressionOutputTarget.File: fileCode.Add(output); break;
-          case MixinExpressionOutputTarget.Using:
+          case MixinEmissionTarget.Class: classCode.Add(output); break;
+          case MixinEmissionTarget.File: fileCode.Add(output); break;
+          case MixinEmissionTarget.Using:
             usings.Add(output); break;
-          case MixinExpressionOutputTarget.Extends or MixinExpressionOutputTarget.Implements:
+          case MixinEmissionTarget.Extends or MixinEmissionTarget.Implements:
             implements.Add(output); break;
-          case MixinExpressionOutputTarget.Annotation: annotations.Add(output); break;
-          case MixinExpressionOutputTarget.Target:
+          case MixinEmissionTarget.Annotation: annotations.Add(output); break;
+          case MixinEmissionTarget.Target:
             if (work.Targets.Length != 1) {
               errors.Add("@CODE<TARGET> requires exactly one declared target");
               break;
@@ -304,7 +304,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
               LateContribution(work.Targets[0], work.Targets[0].Order, output, work, lateSequence++)
             );
             break;
-          case MixinExpressionOutputTarget.Injection: {
+          case MixinEmissionTarget.Injection: {
             var target = work.Targets.FirstOrDefault(item =>
               item.DeclaredTarget == output.InjectionTarget || item.EmittedTarget == output.InjectionTarget
             );
@@ -312,7 +312,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
             else lateContributions.Add(LateContribution(target, target.Order, output, work, lateSequence++));
             break;
           }
-          case MixinExpressionOutputTarget.Mixin: {
+          case MixinEmissionTarget.Mixin: {
             var target = work.Targets.FirstOrDefault(item =>
               item.DeclaredTarget == output.InjectionTarget || item.EmittedTarget == output.InjectionTarget
             );
@@ -358,7 +358,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
             .OrderBy(item => item, StringComparer.Ordinal)
         ],
         [
-          .. implements.OrderBy(item => item.Target == MixinExpressionOutputTarget.Extends ? 0 : 1)
+          .. implements.OrderBy(item => item.Target == MixinEmissionTarget.Extends ? 0 : 1)
             .Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)
         ],
         [.. annotations.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)],
@@ -398,7 +398,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     return new MixinContribution(
       target, order, sequence,
       new MixinExpressionResult(
-        true, null, 0, [output.Retarget(MixinExpressionOutputTarget.Target)]
+        true, null, 0, [output.Retarget(MixinEmissionTarget.Target)]
       ),
       work
     );
@@ -544,7 +544,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
 
     // Validate every destination before publishing any output from this expression.
     foreach (var output in evaluated.Outputs) {
-      if (output.Target == MixinExpressionOutputTarget.Mixin) {
+      if (output.Target == MixinEmissionTarget.Mixin) {
         var emitted = EmittedTarget(output.InjectionTarget, targetDefinitions);
         if (!IsValidIdentifier(emitted)) {
           ReportInvalidAttributeExpression(
@@ -555,21 +555,21 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         }
         continue;
       }
-      if (output.Target == MixinExpressionOutputTarget.Injection &&
+      if (output.Target == MixinEmissionTarget.Injection &&
         !declarations.ContainsKey(output.InjectionTarget)) continue;
-      if (output.Target is MixinExpressionOutputTarget.Class or
-        MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Extends or
-        MixinExpressionOutputTarget.Implements or
-        MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using) continue;
+      if (output.Target is MixinEmissionTarget.Class or
+        MixinEmissionTarget.File or MixinEmissionTarget.Extends or
+        MixinEmissionTarget.Implements or
+        MixinEmissionTarget.Annotation or MixinEmissionTarget.Using) continue;
 
-      if (output.Target == MixinExpressionOutputTarget.Target && targets.Count != 1) {
+      if (output.Target == MixinEmissionTarget.Target && targets.Count != 1) {
         ReportInvalidAttributeExpression(
           context, location, attributeName, annotated.Name,
           "@CODE<TARGET> requires exactly one declared target"
         );
         return;
       }
-      var injectionTarget = output.Target == MixinExpressionOutputTarget.Target
+      var injectionTarget = output.Target == MixinEmissionTarget.Target
         ? targets[0]
         : output.InjectionTarget;
       if (string.IsNullOrEmpty(injectionTarget) || !declarations.ContainsKey(injectionTarget)) {
@@ -585,9 +585,9 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     foreach (var output in evaluated.Outputs) {
       if (output.IsEmpty) continue;
       switch (output.Target) {
-        case MixinExpressionOutputTarget.Mixin: {
+        case MixinEmissionTarget.Mixin: {
           var result = new MixinExpressionResult(
-            true, null, 0, [output.Retarget(MixinExpressionOutputTarget.Target)]
+            true, null, 0, [output.Retarget(MixinEmissionTarget.Target)]
           );
           contributions.Add(
             new MixinContribution(
@@ -597,24 +597,24 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
           );
           continue;
         }
-        case MixinExpressionOutputTarget.Injection when
+        case MixinEmissionTarget.Injection when
           !declarations.ContainsKey(output.InjectionTarget):
           contributions.Add(
             new MixinContribution(
               output.InjectionTarget, 0, sequence++, targetDefinitions,
-              new MixinExpressionResult(true, null, 0, [output.Retarget(MixinExpressionOutputTarget.Target)]),
+              new MixinExpressionResult(true, null, 0, [output.Retarget(MixinEmissionTarget.Target)]),
               providerName, annotated
             )
           );
           continue;
-        case MixinExpressionOutputTarget.Class or
-          MixinExpressionOutputTarget.File or MixinExpressionOutputTarget.Extends or
-          MixinExpressionOutputTarget.Implements or
-          MixinExpressionOutputTarget.Annotation or MixinExpressionOutputTarget.Using:
+        case MixinEmissionTarget.Class or
+          MixinEmissionTarget.File or MixinEmissionTarget.Extends or
+          MixinEmissionTarget.Implements or
+          MixinEmissionTarget.Annotation or MixinEmissionTarget.Using:
           expressionOutputs.Add(output);
           continue;
       }
-      var injectionTarget = output.Target == MixinExpressionOutputTarget.Target
+      var injectionTarget = output.Target == MixinEmissionTarget.Target
         ? targets[0]
         : output.InjectionTarget;
       var declaration = declarations[injectionTarget];
@@ -622,7 +622,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         declaration.Outputs = [];
         (activated ??= []).Add(declaration);
       }
-      declaration.Outputs.Add(output.Retarget(MixinExpressionOutputTarget.Target));
+      declaration.Outputs.Add(output.Retarget(MixinEmissionTarget.Target));
     }
     foreach (var declaration in activated ?? Enumerable.Empty<AttributeExpressionTarget>()) {
       var result = new MixinExpressionResult(true, null, 0, declaration.Outputs);
@@ -1026,7 +1026,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     MixinContribution contribution
   ) {
     foreach (var output in contribution.ExpressionResult.Outputs) {
-      if (output.Target == MixinExpressionOutputTarget.Target)
+      if (output.Target == MixinEmissionTarget.Target)
         builder.Statement(output.Text);
     }
   }
@@ -1557,29 +1557,29 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       if (string.IsNullOrEmpty(text)) return;
       Any = true;
       (_annotations ??= new MixinOutputAccumulator()).Add(
-        new MixinExpressionOutput(MixinExpressionOutputTarget.Annotation, text)
+        new MixinExpressionOutput(MixinEmissionTarget.Annotation, text)
       );
     }
 
     internal void Add(MixinExpressionOutput output) {
       if (output.IsEmpty) return;
-      if (output.Target == MixinExpressionOutputTarget.Class) {
+      if (output.Target == MixinEmissionTarget.Class) {
         Any = true;
         (_class ??= new MixinOutputAccumulator()).Add(output);
         return;
       }
-      if (output.Target == MixinExpressionOutputTarget.File) {
+      if (output.Target == MixinEmissionTarget.File) {
         Any = true;
         (_file ??= new MixinOutputAccumulator()).Add(output);
         return;
       }
       Any = true;
       switch (output.Target) {
-        case MixinExpressionOutputTarget.Extends or MixinExpressionOutputTarget.Implements:
+        case MixinEmissionTarget.Extends or MixinEmissionTarget.Implements:
           (_implements ??= new MixinOutputAccumulator()).Add(output); break;
-        case MixinExpressionOutputTarget.Annotation:
+        case MixinEmissionTarget.Annotation:
           (_annotations ??= new MixinOutputAccumulator()).Add(output); break;
-        case MixinExpressionOutputTarget.Using:
+        case MixinEmissionTarget.Using:
           (_usings ??= new MixinOutputAccumulator()).Add(output);
           break;
       }

@@ -40,6 +40,7 @@ public sealed record KindMixinValue(string Name) : IMixinValue {
     Enum.GetValues(typeof(MixinValueKind)).Cast<MixinValueKind>().Where(kind => kind != MixinValueKind.Any)
       .ToDictionary(kind => kind.ToString().ToLowerInvariant(), kind => new KindMixinValue(kind.ToString().ToLowerInvariant()), StringComparer.Ordinal);
   public MixinValueKind ValueKind => (MixinValueKind)Enum.Parse(typeof(MixinValueKind), Name, true);
+  internal static KindMixinValue Get(MixinValueKind kind) => Kinds[kind.ToString().ToLowerInvariant()];
   public static bool TryGet(string name, out KindMixinValue kind) => Kinds.TryGetValue(name, out kind);
   public static KindMixinValue Of(IMixinValue value) => Kinds[value switch {
     LiteralMixinValue => "string", NumberMixinValue => "number", BooleanMixinValue => "bool",

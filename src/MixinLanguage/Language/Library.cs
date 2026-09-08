@@ -8,17 +8,20 @@ using Mixins.Functions;
 namespace Mixins;
 
 public static class FunctionLibrary {
-  private static readonly MixinSignatureRegistry<FunctionDefinition> Definitions =
-    MixinSignatureRegistry.Build<FunctionDefinition>(definitions => {
-      using var profile = MixinProfiler.Measure("static.function_library");
-      Builtins.Register(definitions);
-      definitions.Add(
+  private static readonly FunctionSignatureRegistry Definitions = BuildDefinitions();
+
+  private static FunctionSignatureRegistry BuildDefinitions() {
+    var definitions = new FunctionSignatureRegistryBuilder();
+    using var profile = MixinProfiler.Measure("static.function_library");
+    Builtins.Register(definitions);
+    definitions.Add(
       new NameFunction(), new TypeFunction(), new FullNameFunction(), new MembersFunction(),
       new ParametersFunction(), new NullableTypeFunction(), new CSharpLiteralFunction(),
       new MakeGenericFunction(), new VisibilityFunction(), new UnwrapFunction(),
       new IdentifierFunction(), new FloatTimeFunction(), new AttributesFunction(),
       new AttributesOfFunction(), new AttributesOfExactFunction(), new AttributeOfFunction(),
-      new WireFunction(), new SignatureFunction(), new WireableFunction(), new IsTypeFunction(), new HasMemberFunction(), new TraitFunction("isSelf"), new TraitFunction("ref"), new TraitFunction("in"),
+      new WireFunction(), new SignatureFunction(), new WireableFunction(), new IsTypeFunction(),
+      new HasMemberFunction(), new TraitFunction("isSelf"), new TraitFunction("ref"), new TraitFunction("in"),
       new TraitFunction("out"), new TraitFunction("inout"), new TraitFunction("argument"),
       new TraitFunction("static"), new TraitFunction("async"), new TraitFunction("public"),
       new TraitFunction("exposed"), new TraitFunction("top"), new TraitFunction("concrete"),
@@ -32,8 +35,9 @@ public static class FunctionLibrary {
       new TraitFunction("equatableSelf"), new TraitFunction("typedEqualsSelf"),
       new TraitFunction("ordinaryTypedEqualsSelf"), new TraitFunction("objectEquals"),
       new TraitFunction("hashCode")
-      );
-    }, ValidateMetadata);
+    );
+    return definitions.Build(ValidateMetadata);
+  }
 
   public static bool TryGet(string name, int argumentCount, out FunctionDefinition definition) =>
     Definitions.TryGet(name, argumentCount, out definition);
@@ -41,20 +45,14 @@ public static class FunctionLibrary {
   public static bool TryResolve(string name, int argumentCount, out FunctionDefinition definition) =>
     Definitions.TryGet(name, argumentCount, out definition);
 
-  public static IReadOnlyList<FunctionDefinition> Resolve(string name, int count) =>
-    ByName.TryGetValue(name, out var definitions)
-      ? definitions.Where(definition => definition.MatchesArgumentCount(count)).ToArray()
-      : Array.Empty<FunctionDefinition>();
-
-  private static readonly IReadOnlyDictionary<string, FunctionDefinition[]> ByName = Definitions.Enumerate()
-    .GroupBy(definition => definition.Name, StringComparer.Ordinal).ToDictionary(group => group.Key,
-      group => group.OrderBy(definition => definition.ArgumentTypes.Count(kind => kind == MixinValueKind.Any)).ToArray(), StringComparer.Ordinal);
+  public static IReadOnlyList<FunctionDefinition> Resolve(string name, int count) => Definitions.Resolve(name, count);
 
   public static IEnumerable<FunctionDefinition> Enumerate() => Definitions.Enumerate();
 
   private static void ValidateMetadata(IEnumerable<FunctionDefinition> definitions) {
     foreach (var definition in definitions) {
-      if (definition.ArgumentTypes is null)
+      if (definition.Signatures is null || definition.Signatures.Count == 0 ||
+        definition.Signatures.Any(signature => signature.ArgumentTypes is null))
         throw new InvalidOperationException("Function ':" + definition.Name + "' must provide language metadata.");
     }
   }

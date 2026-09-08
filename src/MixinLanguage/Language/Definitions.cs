@@ -25,7 +25,7 @@ public enum MixinExpressionRoot {
   Carry
 }
 
-public enum MixinExpressionOutputTarget {
+public enum MixinEmissionTarget {
   Target,
   Class,
   File,
@@ -45,79 +45,70 @@ public sealed record MixinRootDefinition(
   string Name, MixinExpressionRoot Root, MixinValueKind Kind, string Documentation
 );
 
-public interface IMixinSignature {
-  string Name { get; }
-  int ArgumentCount { get; }
-  bool MatchesArgumentCount(int count);
+public sealed record FunctionSignature(
+  MixinValueKind ResultType, IReadOnlyList<MixinValueKind> ArgumentTypes, bool IsVariadic = false
+) {
+  public int ArgumentCount => ArgumentTypes.Count - (IsVariadic ? 1 : 0);
+  public bool MatchesArgumentCount(int count) => IsVariadic ? count >= ArgumentCount : count == ArgumentCount;
+  public MixinValueKind GetArgumentType(int index) => index < ArgumentTypes.Count
+    ? ArgumentTypes[index] : IsVariadic ? ArgumentTypes[ArgumentTypes.Count - 1] : MixinValueKind.Any;
 }
 
-public sealed class MixinSignatureRegistry<T> where T : IMixinSignature {
-  private readonly IReadOnlyDictionary<string, T> _definitions;
+public sealed class FunctionSignatureRegistry {
+  private readonly IReadOnlyDictionary<string, FunctionDefinition[]> _definitions;
+  private readonly FunctionDefinition[] _all;
 
-  internal MixinSignatureRegistry(IReadOnlyDictionary<string, T> definitions) {
-    _definitions = definitions;
+  internal FunctionSignatureRegistry(IEnumerable<FunctionDefinition> definitions) {
+    _all = definitions.ToArray();
+    _definitions = _all.GroupBy(definition => definition.Name, StringComparer.Ordinal)
+      .ToDictionary(group => group.Key, group => group
+        .OrderBy(definition => definition.Signatures.Min(signature => signature.ArgumentTypes.Count(kind => kind == MixinValueKind.Any))).ToArray(),
+        StringComparer.Ordinal);
   }
 
-  public bool TryGet(string name, int argumentCount, out T definition) {
-    definition = _definitions.Values.FirstOrDefault(item =>
-      string.Equals(item.Name, name, StringComparison.Ordinal) && item.MatchesArgumentCount(argumentCount)
-    );
+  public bool TryGet(string name, int argumentCount, out FunctionDefinition definition) {
+    definition = Resolve(name, argumentCount).FirstOrDefault();
     return definition is not null;
   }
 
-  public IEnumerable<T> Enumerate() => _definitions.Values;
+  public IReadOnlyList<FunctionDefinition> Resolve(string name, int argumentCount) =>
+    _definitions.TryGetValue(name, out var definitions)
+      ? definitions.Where(definition => definition.MatchesArgumentCount(argumentCount)).ToArray()
+      : Array.Empty<FunctionDefinition>();
+
+  public IEnumerable<FunctionDefinition> Enumerate() => _all;
 }
 
-internal static class MixinSignatureRegistry {
-  internal static MixinSignatureRegistry<T> Build<T>(
-    Action<MixinSignatureRegistryBuilder<T>> configure,
-    Action<IEnumerable<T>> validate = null
-  ) where T : IMixinSignature {
-    var builder = new MixinSignatureRegistryBuilder<T>();
-    configure(builder);
-    return validate is null ? builder.Build() : builder.Build(validate);
-  }
-}
+internal delegate IMixinValue InlineFunction(LanguageExecution execution, IMixinValue[] arguments);
 
-internal sealed class MixinSignatureRegistryBuilder<T> where T : IMixinSignature {
-  private readonly Dictionary<string, T> _definitions = new(StringComparer.Ordinal);
+internal sealed class FunctionSignatureRegistryBuilder {
+  private readonly List<FunctionDefinition> _definitions = [];
 
-  internal MixinSignatureRegistryBuilder<T> Add(T definition) {
-    var key = definition.Name;
-    while (_definitions.ContainsKey(key)) key += "/";
-    _definitions.Add(key, definition);
+  internal FunctionSignatureRegistryBuilder Add(params FunctionDefinition[] definitions) {
+    _definitions.AddRange(definitions);
     return this;
   }
 
-  internal MixinSignatureRegistryBuilder<T> Add(params T[] definitions) => AddRange(definitions);
-
-  internal MixinSignatureRegistryBuilder<T> AddRange(IEnumerable<T> definitions) {
-    foreach (var definition in definitions) Add(definition);
-    return this;
-  }
-
-  internal IEnumerable<T> Enumerate() => _definitions.Values;
-
-  internal T Get(string name, int argumentCount) => _definitions.Values.First(item =>
-    string.Equals(item.Name, name, StringComparison.Ordinal) && item.MatchesArgumentCount(argumentCount)
-  );
-
-  internal MixinSignatureRegistryBuilder<T> Configure(
-    string name, int argumentCount, Action<T> configure
-  ) {
-    configure(Get(name, argumentCount));
-    return this;
-  }
-
-  internal MixinSignatureRegistry<T> Build() => new(_definitions);
-
-  internal MixinSignatureRegistry<T> Build(Action<IEnumerable<T>> validate) {
-    validate(_definitions.Values);
-    return Build();
+  internal FunctionSignatureRegistry Build(Action<IEnumerable<FunctionDefinition>> validate = null) {
+    validate?.Invoke(_definitions);
+    return new FunctionSignatureRegistry(_definitions);
   }
 }
 
-public abstract class FunctionDefinition : IMixinSignature {
+internal sealed class SimpleFunction(
+  string name,
+  IReadOnlyList<FunctionSignature> signatures,
+  InlineFunction implementation,
+  bool effects = false,
+  bool acceptsErrors = false
+) : FunctionDefinition(name, signatures) {
+  public override bool HasEffects => effects;
+  public override bool AcceptsErrors => acceptsErrors;
+  internal override IMixinValue Execute(LanguageExecution execution, IMixinValue[] arguments, int line) =>
+    implementation(execution, arguments);
+}
+
+public abstract class FunctionDefinition {
 
   protected FunctionDefinition(
     string name, int argumentCount,
@@ -137,6 +128,16 @@ public abstract class FunctionDefinition : IMixinSignature {
     Documentation = documentation ?? "Transforms the current value.";
     if (ArgumentTypes.Count != argumentCount + (variadic ? 1 : 0))
       throw new ArgumentException("Function argument signature does not match its arity.", nameof(argumentTypes));
+    Signatures = [new FunctionSignature(resultType, ArgumentTypes, variadic)];
+  }
+
+  protected FunctionDefinition(string name, IReadOnlyList<FunctionSignature> signatures) {
+    if (signatures is null || signatures.Count == 0) throw new ArgumentException("A function requires at least one signature.", nameof(signatures));
+    Name = name; Signatures = signatures;
+    var primary = signatures[0]; ArgumentCount = primary.ArgumentCount; IsVariadic = primary.IsVariadic;
+    ResultType = primary.ResultType; ArgumentTypes = primary.ArgumentTypes;
+    ReceiverType = ArgumentTypes.Count == 0 ? MixinValueKind.Any : ArgumentTypes[0];
+    Documentation = "Transforms the current value.";
   }
 
   public string Name { get; }
@@ -146,8 +147,9 @@ public abstract class FunctionDefinition : IMixinSignature {
   public MixinValueKind ResultType { get; private set; }
   public IReadOnlyList<MixinValueKind> ArgumentTypes { get; private set; }
   public string Documentation { get; private set; }
+  public IReadOnlyList<FunctionSignature> Signatures { get; }
 
-  public bool MatchesArgumentCount(int count) => IsVariadic ? count >= ArgumentCount : count == ArgumentCount;
+  public bool MatchesArgumentCount(int count) => Signatures.Any(signature => signature.MatchesArgumentCount(count));
 
   public string ArgumentCountError() => IsVariadic
     ? $":{Name} requires at least {ArgumentCount}{(ArgumentCount == 1 ? " argument" : " arguments")}"
@@ -163,12 +165,10 @@ public abstract class FunctionDefinition : IMixinSignature {
   public virtual bool AcceptsErrors => false;
   public virtual IReadOnlyList<int> CSharpTypeArguments => Array.Empty<int>();
   internal bool MatchesValues(IMixinValue[] values) {
-    if (!MatchesArgumentCount(values.Length)) return false;
-    for (var index = 0; index < values.Length; index++) {
-      var expected = GetArgumentType(index);
-      if (expected != MixinValueKind.Any && KindMixinValue.Of(values[index]).ValueKind != expected) return false;
-    }
-    return true;
+    return Signatures.Any(signature => signature.MatchesArgumentCount(values.Length) && values.Select((value, index) => {
+      var expected = signature.GetArgumentType(index);
+      return expected == MixinValueKind.Any || KindMixinValue.Of(value).ValueKind == expected;
+    }).All(match => match));
   }
   internal abstract IMixinValue Execute(LanguageExecution execution, IMixinValue[] arguments, int line);
 }

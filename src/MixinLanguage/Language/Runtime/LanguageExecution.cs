@@ -152,7 +152,7 @@ internal sealed partial class LanguageExecution {
   private IMixinValue Invoke(string name, IMixinValue[] arguments, int line, LanguageFunctionScope binding = null) {
     var candidates = (binding ?? scope).Candidates(name);
     if (candidates.Count == 0) return context.Error("unknown function '" + name + "'");
-    var matches = new List<(FunctionDeclarationAst Function, FunctionSignature Signature, IMixinValue Parameter, int Score, LanguageFunctionScope Owner)>();
+    var matches = new List<(FunctionDeclarationAst Function, Compiler.FunctionSignature Signature, IMixinValue Parameter, int Score, LanguageFunctionScope Owner)>();
     foreach (var candidate in candidates) {
       var function = candidate.Function;
       var signature = candidate.Signature;
@@ -233,7 +233,7 @@ internal sealed partial class LanguageExecution {
     }
   }
 
-  private bool MatchesReturn(IMixinValue value, FunctionSignature signature) => signature.Outputs == null
+  private bool MatchesReturn(IMixinValue value, Compiler.FunctionSignature signature) => signature.Outputs == null
     ? MatchesKind(value, signature.OutputKind)
     : value is MixinTableValue table && signature.Outputs.All(field => table.Entries.Any(entry =>
       entry.Key.Resolve(context.Strings) == field.Name && MatchesKind(entry.Value, field.Kind)));

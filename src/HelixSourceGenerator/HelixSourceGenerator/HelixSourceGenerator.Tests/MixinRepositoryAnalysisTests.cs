@@ -31,6 +31,15 @@ public sealed class MixinRepositorySyntaxTests {
     Assert.True(FunctionLibrary.TryGet("and", 3, out var and));
     Assert.True(FunctionLibrary.TryGet("and", 5, out _));
     Assert.True(and.IsVariadic);
+    var inject = FunctionLibrary.Enumerate().Single(definition => definition.Name == "inject");
+    Assert.Equal(2, inject.Signatures.Count);
+    Assert.True(inject.MatchesArgumentCount(2));
+    Assert.True(inject.MatchesArgumentCount(3));
+    Assert.False(inject.MatchesArgumentCount(1));
+    Assert.Same(inject, FunctionLibrary.Resolve("inject", 2).Single());
+    Assert.Same(inject, FunctionLibrary.Resolve("inject", 3).Single());
+    Assert.Equal(3, FunctionLibrary.Enumerate().Single(definition => definition.Name == "length").Signatures.Count);
+    Assert.Equal(2, FunctionLibrary.Enumerate().Single(definition => definition.Name == "join").Signatures.Count);
   }
 
   [Fact]
