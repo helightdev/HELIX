@@ -1,5 +1,5 @@
 func KeepInstanceField {
-  local Item @= $1;
+  local Item @= $0;
   when(![local#Item:field]) {
     return(false)
   }
@@ -10,7 +10,7 @@ func KeepInstanceField {
 }
 
 func SeedProp {
-  local Item @= $1;
+  local Item @= $0;
   local Name @= local#Item:name:identifier;
   local Type @= local#Item:type;
   local Modifier = <>
@@ -67,32 +67,8 @@ func DeriveFields  {
   return(param:members:where(KeepInstanceField):map(SeedProp):derive)
 }
 
-func SelectField { return(<public [$1#value#type] [$1#value#name];>) }
-
-func SelectParameter { return($1#value#parameter) }
-
-func SelectArgument { return($1#value#argument) }
-
-func SelectCallArgument { return(<[$1#value#modifier][$1#value#name]>) }
-
-pure func SelectObjectCallArgument { return(<[$1#value#modifier] args.[$1#value#name]>) }
-
-func SelectAssignment { return($1#value#assignment) }
-
-func SelectEquality { return($1#value#equality) }
-
-func SelectHashAdd { return(<hashCode.Add\([$1#value#hash]\);>) }
-
-func KeepEquatable { return($1#value#equatable:eq(true)) }
-
-func KeepUnsafe { return($1#value#unsafe:eq(true)) }
-
-func SelectDatatypeConfiguration { return($1#value#configuration) }
-
-func HasDatatypeConfiguration { return($1#value#configuration:exists) }
-
 func SelectDatatypeProperty {
-  local returnedText1 @> new global::HELIX.StructurePropertyDatatype<{{var#StructureType}}, {{$1#value#type}}>("{{$1#value#name}}", {{$1#value#datatype}}, (ref {{var#StructureType}} value) => value.{{$1#value#name}}, (ref {{var#StructureType}} value, {{$1#value#type}} propertyValue) => value.{{$1#value#name}} = propertyValue, required: {{$1#value#required}}, defaultValue: {{$1#value#default}})
+  local returnedText1 @> new global::HELIX.StructurePropertyDatatype<{{var#StructureType}}, {{$0#value#type}}>("{{$0#value#name}}", {{$0#value#datatype}}, (ref {{var#StructureType}} value) => value.{{$0#value#name}}, (ref {{var#StructureType}} value, {{$0#value#type}} propertyValue) => value.{{$0#value#name}} = propertyValue, required: {{$0#value#required}}, defaultValue: {{$0#value#default}})
   return(local#returnedText1)
 }
 
@@ -103,7 +79,7 @@ func BuildDatatype {
     @> ,
     @>       {{local#Empty}}
   local Properties @= param#props:map(SelectDatatypeProperty):join(local#PropertySeparator);
-  local Configurations @= param#props:where(HasDatatypeConfiguration):map(SelectDatatypeConfiguration):join< >;
+  local Configurations @= param#props:where(func => $0#value#configuration:exists):map(func => $0#value#configuration):join< >;
   local returnedText2
     @> public static readonly global::HELIX.StructureDatatype<{{param#type}}> Datatype =
     @> new global::HELIX.ConfigurableStructureDatatype<{{param#type}}>(
@@ -120,9 +96,9 @@ func BuildDatatype {
 }
 
 func EmitGeneratedStructure {
-  local Fields @= param#props:map(SelectField):join< >;
-  local Parameters @= param#props:map(SelectParameter):join<, >;
-  local Assignments @= param#props:map(SelectAssignment):join< >;
+  local Fields @= param#props:map(func => <public [$0#value#type] [$0#value#name];>):join< >;
+  local Parameters @= param#props:map(func => $0#value#parameter):join<, >;
+  local Assignments @= param#props:map(func => $0#value#assignment):join< >;
   local Datatype = <>
   when(param#datatype:eq(true)) {
     local Datatype @= BuildDatatype(@{type=param#name, name=param#name, props=param#props});
@@ -135,7 +111,7 @@ func EmitGeneratedStructure {
       @> }
   }
   local Unsafe = <>
-  when(![param#props:where(KeepUnsafe):length:eq(0)]) {
+  when(![param#props:where(func => $0#value#unsafe:eq(true)):length:eq(0)]) {
     local Unsafe = <unsafe>
   }
   emit<Class>
@@ -255,19 +231,19 @@ derivation mixin HELIX.PropAttribute {
 mixin HELIX.StructureAttribute {
   prelude expression {
     local PropsModel @= this:DeriveFields;
-    local Parameters @= local#PropsModel:map(SelectParameter):join<, >;
-    local Assignments @= local#PropsModel:map(SelectAssignment):join< >;
+    local Parameters @= local#PropsModel:map(func => $0#value#parameter):join<, >;
+    local Assignments @= local#PropsModel:map(func => $0#value#assignment):join< >;
     when(![local#PropsModel:length:eq(0)]) {
       emit<Class>
         @> {{this:visibility}} {{this:name}}({{local#Parameters}}) {
         @>   {{local#Assignments}}
         @> }
     }
-    local EqualityProps @= local#PropsModel:where(KeepEquatable);
-    local Comparisons @= local#EqualityProps:map(SelectEquality):join< && >;
-    local HashAdds @= local#EqualityProps:map(SelectHashAdd):join< >;
+    local EqualityProps @= local#PropsModel:where(func => $0#value#equatable:eq(true));
+    local Comparisons @= local#EqualityProps:map(func => $0#value#equality):join< && >;
+    local HashAdds @= local#EqualityProps:map(func => <hashCode.Add\([$0#value#hash]\);>):join< >;
     local Unsafe = <>
-    when(this:equatableSelf, ![local#EqualityProps:where(KeepUnsafe):length:eq(0)]) {
+    when(this:equatableSelf, ![local#EqualityProps:where(func => $0#value#unsafe:eq(true)):length:eq(0)]) {
       local Unsafe = <unsafe>
     }
     when(this:equatableSelf, ![this:typedEqualsSelf]) {

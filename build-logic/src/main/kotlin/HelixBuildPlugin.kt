@@ -169,6 +169,14 @@ private fun registerHixGrammarTasks(project: Project) {
         description = "Generates all ANTLR outputs for the Hix language."
         dependsOn(csharp, ide)
     }
+    project.gradle.projectsEvaluated {
+        project.findProject(":riderPlugin")?.tasks?.matching {
+            it.name == "compileKotlin" || it.name == "compileJava"
+        }?.configureEach { dependsOn(ide) }
+        project.findProject(":riderPlugin")?.tasks?.matching {
+            it.name == "compileDotNet"
+        }?.configureEach { dependsOn(csharp) }
+    }
 }
 
 private fun normalizeGeneratedSources(directory: File, extension: String) {

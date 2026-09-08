@@ -117,17 +117,20 @@ internal sealed class InlineExpansionStep : HixCompilerStep {
 
     protected override ExpressionAst RewriteRoot(RootExpressionAst root) {
       if (root.IsSmart) {
+        if (root.Name == "it") return Parameter();
         if (locals.TryGetValue(root.Name, out var local)) return Local(local);
-        if (int.TryParse(root.Name, out var position) && position > 0)
-          return position <= arguments.Count ? Local(arguments[position - 1]) : new NullExpressionAst();
+        if (int.TryParse(root.Name, out var position) && position >= 0)
+          return position < arguments.Count ? Local(arguments[position]) : new NullExpressionAst();
         if (named.TryGetValue(root.Name, out var index) && index < arguments.Count) return Local(arguments[index]);
       }
-      if (!root.IsSmart && root.Name == "param") return arguments.Count switch {
+      if (!root.IsSmart && root.Name == "param") return Parameter();
+      return base.RewriteRoot(root);
+    }
+
+    private ExpressionAst Parameter() => arguments.Count switch {
         0 => new NullExpressionAst(), 1 => Local(arguments[0]),
         _ => new TupleExpressionAst(arguments.Select(Local).ToArray())
       };
-      return base.RewriteRoot(root);
-    }
 
     protected override ExpressionAst RewriteCall(CallExpressionAst call) => owner.Rewrite(base.RewriteCall(call));
 

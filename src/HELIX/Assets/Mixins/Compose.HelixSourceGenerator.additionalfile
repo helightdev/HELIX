@@ -37,9 +37,9 @@ func GenerateBoundaryElement {
   when(this#Props:exists) {
     local PropsModel @= this#Props:DeriveFields;
     when(![local#PropsModel:length:eq(0)]) {
-      local PropsParameters @= local#PropsModel:map(SelectParameter):join<, >;
-      local PropsArguments @= local#PropsModel:map(SelectArgument):join<, >;
-      local PropsAssignments @= local#PropsModel:map(SelectAssignment):join< >;
+      local PropsParameters @= local#PropsModel:map(func => $0#value#parameter):join<, >;
+      local PropsArguments @= local#PropsModel:map(func => $0#value#argument):join<, >;
+      local PropsAssignments @= local#PropsModel:map(func => $0#value#assignment):join< >;
       emit<Class>
         @> public partial struct Props {
         @>   public Props({{local#PropsParameters}}) {
@@ -92,8 +92,8 @@ mixin HELIX.Compose.ComposableMethodAttribute {
     using @> HELIX.Compose;
     local StructName @> {{target:name}}Props
     local StructHandle @= target:DeriveParameters;
-    local StructArgs @= local#StructHandle:map(SelectArgument):join<, >;
-    local StructParams @= local#StructHandle:map(SelectParameter):join<, >;
+    local StructArgs @= local#StructHandle:map(func => $0#value#argument):join<, >;
+    local StructParams @= local#StructHandle:map(func => $0#value#parameter):join<, >;
     local RequireMethod = <RequireComposable>
     local ReturnStatement @> return ref cx.AUTHORING.YieldElement(ref cx, instance);
     local ReturnType = <ref ElementRef>

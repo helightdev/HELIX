@@ -63,6 +63,12 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitFuncDeclaration([NotNull] HixParser.FuncDeclarationContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.functionBody"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitFunctionBody([NotNull] HixParser.FunctionBodyContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.functionMetadata"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -236,6 +242,12 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitPrimaryValue([NotNull] HixParser.PrimaryValueContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.lambdaValue"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitLambdaValue([NotNull] HixParser.LambdaValueContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.prefixOperators"/>.
 	/// </summary>

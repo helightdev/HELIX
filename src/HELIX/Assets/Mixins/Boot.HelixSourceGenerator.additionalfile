@@ -24,7 +24,7 @@ mixin HELIX.Boot.CommandAttribute {
     local TargetName @= target:name;
     local StructName @> {{local#TargetName}}_Args
     local StructHandle @= inline(DeriveParameters, target);
-    local InvokeArguments @= local#StructHandle:map(SelectObjectCallArgument):join<, >;
+    local InvokeArguments @= local#StructHandle:map(func => <[$0#value#modifier] args.[$0#value#name]>):join<, >;
     local InvokeLambda @> args => {{local#TargetName}}({{local#InvokeArguments}})
     local CommandName @= attr#name:unwrap;
     local CmdName @= local#CommandName:csharpLiteral;

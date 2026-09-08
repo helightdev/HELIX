@@ -18,8 +18,8 @@ class HixBraceMatcher : PairedBraceMatcher {
         pair(HixLexer.BEGIN_ARGUMENT, HixLexer.ARGUMENT_END),
         pair(HixLexer.BEGIN_VALUE_INLINE, HixLexer.VALUE_END_INLINE),
         pair(HixLexer.BEGIN_TUPLE, HixLexer.VALUE_END_INLINE),
-        pair(HixLexer.BEGIN_TABLE, HixLexer.VALUE_END_INTERPOLATE),
-        pair(HixLexer.BEGIN_VALUE_INTERPOLATE, HixLexer.VALUE_END_INTERPOLATE)
+        pair(HixLexer.BEGIN_TABLE, HixLexer.RC),
+        pair(HixLexer.BEGIN_VALUE_INTERPOLATE, HixLexer.RC)
     )
     private fun pair(open: Int, close: Int, structural: Boolean = false) =
         BracePair(HelixAntlrTypes.tokens[open], HelixAntlrTypes.tokens[close], structural)

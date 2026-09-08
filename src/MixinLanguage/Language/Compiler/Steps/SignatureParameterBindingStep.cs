@@ -14,7 +14,7 @@ internal sealed class SignatureParameterBindingStep : HixCompilerStep {
     foreach (var signature in function.Signatures.Where(signature => signature.Inputs != null)) {
       for (var index = 0; index < signature.Inputs.Count; index++) {
         var name = signature.Inputs[index].Name;
-        var position = index + 1;
+        var position = index;
         if (positions.TryGetValue(name, out var existing) && existing != position) ambiguous.Add(name);
         else positions[name] = position;
       }
@@ -44,6 +44,8 @@ internal sealed class SignatureParameterBindingStep : HixCompilerStep {
   }
 
   private sealed class ParameterRewriter(IReadOnlyDictionary<string, int> positions) : HixAstRewriter {
+    protected override HixAst RewriteNode(HixAst node) => node is LambdaExpressionAst ? node : base.RewriteNode(node);
+
     protected override ExpressionAst RewriteRoot(RootExpressionAst root) =>
       root.IsSmart && positions.TryGetValue(root.Name, out var position)
         ? CopyLocation(root, new RootExpressionAst(position.ToString(), true))

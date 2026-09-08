@@ -243,7 +243,7 @@ internal sealed partial class LanguageExecution {
         };
         break;
       }
-      default: throw new ArgumentException("unknown value expression at line " + line);
+      default: throw new ArgumentException("unknown value expression '" + expression.GetType().Name + "' at line " + line);
     }
     return (execution, check) => {
       execution.Tick(line);

@@ -26,6 +26,7 @@ internal class HixAstRewriter {
       MemberExpressionAst value => new MemberExpressionAst(Rewrite(value.Receiver), value.Member),
       CallExpressionAst value => RewriteCall(value),
       InlineExpressionAst value => new InlineExpressionAst(Rewrite(value.Body), value.ResultLocal),
+      LambdaExpressionAst value => new LambdaExpressionAst(Rewrite(value.Body)),
       UnaryExpressionAst value => new UnaryExpressionAst(value.Operation, Rewrite(value.Value)),
       FallbackExpressionAst value => new FallbackExpressionAst(Rewrite(value.Value), Rewrite(value.Fallback)),
       TupleExpressionAst value => new TupleExpressionAst(value.Values.Select(Rewrite).ToArray()),

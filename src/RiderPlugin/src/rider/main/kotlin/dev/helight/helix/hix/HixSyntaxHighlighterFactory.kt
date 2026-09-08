@@ -95,6 +95,7 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
         val name = HixLexer.VOCABULARY.getSymbolicName(type).orEmpty()
         return pack(when {
             name.startsWith("KEYWORD_") -> HixColors.DIRECTIVE
+            type == HixLexer.BEGIN_LAMBDA_BLOCK || type == HixLexer.BEGIN_LAMBDA_ARROW -> HixColors.DIRECTIVE
             type == HixLexer.NUMBER -> HixColors.NUMBER
             type == HixLexer.BOOLEAN -> HixColors.BOOLEAN
             type == HixLexer.NULL -> HixColors.NULL

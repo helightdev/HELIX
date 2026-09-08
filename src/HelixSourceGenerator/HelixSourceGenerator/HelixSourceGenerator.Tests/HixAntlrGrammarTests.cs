@@ -54,6 +54,9 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("mixin Example { expression { emit(12.5) } }")]
   [InlineData("mixin Example { expression { emit(-12.5) } }")]
   [InlineData("pure func empty sig null -> null { return(null) }")]
+  [InlineData("pure func answer => 42\n")]
+  [InlineData("mixin Example { expression { local mapper = func => <[$0]>; emit(call(local#mapper, <x>)) } }")]
+  [InlineData("mixin Example { expression { local mapper = func { return(<[$0]>) } } }")]
   public void ParsesLanguageFeatures(string source) {
     var errors = new Errors();
     var lexer = new Lexer(new AntlrInputStream(source));

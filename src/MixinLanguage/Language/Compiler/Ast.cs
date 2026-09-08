@@ -193,6 +193,10 @@ public sealed class InlineExpressionAst(BlockStatementAst body, string resultLoc
   public string ResultLocal { get; } = resultLocal;
 }
 
+public sealed class LambdaExpressionAst(BlockStatementAst body) : ExpressionAst([body]) {
+  public BlockStatementAst Body { get; } = body;
+}
+
 public enum UnaryOperation { Not, Check }
 
 public sealed class UnaryExpressionAst(UnaryOperation operation, ExpressionAst value) : ExpressionAst([value]) {

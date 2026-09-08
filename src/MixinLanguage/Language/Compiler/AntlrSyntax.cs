@@ -142,6 +142,11 @@ public static class AntlrSyntax {
       context.children.OfType<ParserRuleContext>().Select(Value).ToArray();
     private BlockStatementAst Block(Parser.StatementBlockContext context, string label = null) =>
       At(new BlockStatementAst(context.statement().Select(Statement).ToArray(), label), context);
+    private BlockStatementAst FunctionBody(Parser.FunctionBodyContext context) {
+      if (context.statementBlock() is { } block) return Block(block);
+      var returned = At(new ControlFlowStatementAst(ControlFlowKind.Return, null, [Value(context.value())]), context);
+      return At(new BlockStatementAst([returned]), context);
+    }
 
     public override HixAst VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
       Modifiers(context.mixinModifier());
@@ -169,7 +174,18 @@ public static class AntlrSyntax {
         context.funcModifier().Any(modifier => modifier.KEYWORD_PURE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_INLINE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_NOINLINE() != null), signatures,
-        Block(context.statementBlock())), context);
+        FunctionBody(context.functionBody())), context);
+    }
+
+    public override HixAst VisitLambdaValue(Parser.LambdaValueContext context) {
+      BlockStatementAst body;
+      if (context.BEGIN_LAMBDA_BLOCK() != null)
+        body = At(new BlockStatementAst(context.statement().Select(Statement).ToArray()), context);
+      else {
+        var returned = At(new ControlFlowStatementAst(ControlFlowKind.Return, null, [Value(context.value())]), context);
+        body = At(new BlockStatementAst([returned]), context);
+      }
+      return At(new LambdaExpressionAst(body), context);
     }
 
     public override HixAst VisitStatementBlock(Parser.StatementBlockContext context) => Block(context);

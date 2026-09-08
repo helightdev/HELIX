@@ -11,7 +11,9 @@ mixinBody: LC (expressionDeclaration | funcDeclaration | trivia)* RC;
 
 expressionDeclaration: expressionModifier* KEYWORD_EXPRESSION statementBlock;
 
-funcDeclaration: funcModifier* KEYWORD_FUNC IDENTIFIER functionMetadata KEYWORD_DO? statementBlock;
+funcDeclaration: funcModifier* KEYWORD_FUNC IDENTIFIER functionMetadata functionBody;
+
+functionBody: KEYWORD_DO? statementBlock | FAT_ARROW value VALUE_END?;
 
 functionMetadata: (functionSignatureVariant | NEWLINE)*;
 
@@ -21,8 +23,8 @@ functionSignatureVariant: KEYWORD_SIG signature ARROW signature;
 signature: tableSignature | kindIdentifier;
 
 tableSignature
-    : BEGIN_TABLE VALUE_END_INTERPOLATE
-    | BEGIN_TABLE tableSignatureEntry (VALUE_DELIMITER tableSignatureEntry)* VALUE_END_INTERPOLATE
+    : BEGIN_TABLE RC
+    | BEGIN_TABLE tableSignatureEntry (VALUE_DELIMITER tableSignatureEntry)* RC
     ;
 
 tableSignatureEntry: VALUE_EXPAND? ROOT_IDENTIFIER VALUE_ASSIGN kindIdentifier;
@@ -94,7 +96,7 @@ contentBlock: BEGIN_CONTENT contentBody TERMINATOR;
 
 contentBody: (CONTENT_WRAP | CONTENT_LINEBREAK | CONTENT_TEXT | contentInterpolate)+;
 
-contentInterpolate: BEGIN_VALUE_INTERPOLATE derivation VALUE_END_INTERPOLATE END_CONTENT_INTERPOLATE?;
+contentInterpolate: BEGIN_VALUE_INTERPOLATE derivation RC END_CONTENT_INTERPOLATE?;
 
 // Values
 value: nonArgumentValue | argumentValue;
@@ -109,6 +111,7 @@ nonArgumentValue
 
 primaryValue
     : inlineValue
+    | lambdaValue
     | derivation
     | tableValue
     | tupleValue
@@ -117,6 +120,11 @@ primaryValue
     | NUMBER
     | BOOLEAN
     | NULL
+    ;
+
+lambdaValue
+    : BEGIN_LAMBDA_BLOCK (statement | SEMICOLON | trivia)* RC
+    | BEGIN_LAMBDA_ARROW value VALUE_END?
     ;
 
 prefixOperators: NOT_VALUE;
@@ -135,8 +143,8 @@ tupleValue
     ;
 
 tableValue
-    : BEGIN_TABLE VALUE_END_INTERPOLATE
-    | BEGIN_TABLE tableKeyedEntry (VALUE_DELIMITER tableKeyedEntry)* VALUE_END_INTERPOLATE
+    : BEGIN_TABLE RC
+    | BEGIN_TABLE tableKeyedEntry (VALUE_DELIMITER tableKeyedEntry)* RC
     ;
 
 tableKeyedEntry: ROOT_IDENTIFIER VALUE_ASSIGN value;

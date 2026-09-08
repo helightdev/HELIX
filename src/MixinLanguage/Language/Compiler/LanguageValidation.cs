@@ -33,6 +33,19 @@ internal static class LanguageValidation {
       var localNames = new HashSet<string>(functions.Select(function => function.Name), StringComparer.Ordinal);
       var visible = functions.Concat(imported.Where(function => !localNames.Contains(function.Name))).ToArray();
       var signatures = new HashSet<string>(StringComparer.Ordinal);
+      void Pure(BlockStatementAst body) {
+        foreach (var node in Descendants(body)) {
+          if (node is AssignmentStatementAst {Storage: not StorageSpace.Local} or AssignmentStatementAst {IsCarried: true})
+            Error(node, "pure functions cannot mutate shared storage");
+          if (node is RootExpressionAst {IsSmart: false, Name: "this" or "target" or "attr" or "var" or "tar"})
+            Error(node, "pure functions cannot read host or shared storage");
+          if (node is CallExpressionAst call && !visible.Any(candidate => candidate.Name == call.Name) &&
+              FunctionLibrary.Resolve(call.Name, call.Arguments.Count).Any(definition => definition.HasEffects))
+            Error(node, "pure functions cannot perform '" + call.Name + "'");
+          if (node is CallExpressionAst invocation && visible.Any(candidate => candidate.Name == invocation.Name && !candidate.IsPure))
+            Error(node, "pure functions cannot invoke impure functions");
+        }
+      }
       foreach (var function in functions) {
         if (function.IsInline && function.IsNoinline) Error(function, "inline and noinline cannot be combined");
         if (function.Signatures.Count == 0 && !signatures.Add(function.Name + "(*)"))
@@ -43,22 +56,14 @@ internal static class LanguageValidation {
             string.Join(",", signature.Inputs.Select(field => (field.Variadic ? "..." : "") + field.Kind))) + ")";
           if (!signatures.Add(key)) Error(function, "duplicate function signature '" + key + "'");
         }
-        if (function.IsPure) {
-          foreach (var node in Descendants(function.Body)) {
-            if (node is AssignmentStatementAst {Storage: not StorageSpace.Local} or AssignmentStatementAst {IsCarried: true})
-              Error(node, "pure functions cannot mutate shared storage");
-            if (node is RootExpressionAst {IsSmart: false, Name: "this" or "target" or "attr" or "var" or "tar"})
-              Error(node, "pure functions cannot read host or shared storage");
-            if (node is CallExpressionAst call && !visible.Any(candidate => candidate.Name == call.Name) &&
-                FunctionLibrary.Resolve(call.Name, call.Arguments.Count).Any(definition => definition.HasEffects))
-              Error(node, "pure functions cannot perform '" + call.Name + "'");
-            if (node is CallExpressionAst invocation && visible.Any(candidate => candidate.Name == invocation.Name && !candidate.IsPure))
-              Error(node, "pure functions cannot invoke impure functions");
-          }
-        }
+        if (function.IsPure) Pure(function.Body);
       }
+      foreach (var lambda in nodes.SelectMany(Descendants).OfType<LambdaExpressionAst>()) Pure(lambda.Body);
       foreach (var function in nodes.OfType<FunctionDeclarationAst>())
         foreach (var assignment in Descendants(function.Body).OfType<AssignmentStatementAst>().Where(item => item.IsCarried))
+          Error(assignment, "carry local is only valid in top-level prelude expressions");
+      foreach (var lambda in nodes.SelectMany(Descendants).OfType<LambdaExpressionAst>())
+        foreach (var assignment in Descendants(lambda.Body).OfType<AssignmentStatementAst>().Where(item => item.IsCarried))
           Error(assignment, "carry local is only valid in top-level prelude expressions");
       foreach (var expression in nodes.OfType<ExpressionDeclarationAst>().Where(item => !item.IsPrelude))
         foreach (var assignment in Descendants(expression.Body).OfType<AssignmentStatementAst>().Where(item => item.IsCarried))

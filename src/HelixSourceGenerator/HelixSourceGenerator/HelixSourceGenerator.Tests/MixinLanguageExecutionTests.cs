@@ -84,7 +84,7 @@ public sealed class MixinLanguageExecutionTests {
       local visible = <local>
       emit($visible)
       emit(read(<parameter>))
-      """, "pure func read { return($1) }");
+      """, "pure func read { return($0) }");
     Assert.True(result.Success, result.Error);
     Assert.Equal(new[] {"local", "parameter"}, result.Outputs.Select(output => output.Text));
 
@@ -100,7 +100,7 @@ public sealed class MixinLanguageExecutionTests {
   public void NamedSignatureSmartParametersBindByPosition() {
     var result = Run("emit(format(<left>, <right>))", """
       pure func format sig @{first=string, second=string} -> string {
-        return(<[$2]:[$first]>)
+        return(<[$1]:[$first]>)
       }
       """);
     Assert.True(result.Success, result.Error);
@@ -182,12 +182,68 @@ public sealed class MixinLanguageExecutionTests {
       emit(any(@[], yes))
       emit(all(@[], yes))
       """, """
-      pure func describe { return(<value:[$1]>) }
-      pure func sum { return(plus($1, $2)) }
+      pure func describe { return(<value:[$0]>) }
+      pure func sum { return(plus($0, $1)) }
       pure func yes { return(true) }
       """);
     Assert.True(result.Success, result.Error);
     Assert.Equal(new[] {"value:2,value:3", "5", "false", "true"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
+  public void AnonymousFunctionsSupportBlockAndArrowBodies() {
+    const string statements = """
+      emit(join(map(@[<a>, <b>], func => <[$0]!>), <,>))
+      emit(join(map(@[<a>, <b>], func { return(<[$0]?>) }), <,>))
+      emit(apply(<global>))
+      """;
+    var result = Run(statements, "pure func apply { return(call(func => <[$0]~>, $0)) }");
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"a!,b!", "a?,b?", "global~"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
+  public void PositionalSmartAccessPreservesTableValuedArguments() {
+    var result = Run("""
+      local items = @[@{value=@{parameter=<first>}}, @{value=@{parameter=<second>}}]
+      emit(local#items:map(func => $0#value#parameter):join<,>)
+      """);
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"first,second"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
+  public void SmartItAliasesTheCompleteParameterValue() {
+    var result = Run("emit(single(<value>))\nemit(join(pair(<left>, <right>), <,>))", """
+      pure func single { return($it) }
+      pure func pair { return($it) }
+      """);
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"value", "left,right"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
+  public void SmartNamesDoNotSelectFieldsFromTableParameters() {
+    var result = Run("emit(read(@{name=<Ada>}))", "pure func read { return($name) }");
+    Assert.False(result.Success);
+    Assert.Contains("unknown local or parameter 'name'", result.Error);
+  }
+
+
+  [Fact]
+  public void AnonymousFunctionsAreAlwaysPure() {
+    var unit = AntlrSyntax.Parse("mixin Example { expression { local callback = func => emit(<bad>) } }");
+    Assert.Contains(unit.Diagnostics, diagnostic => diagnostic.Message.Contains("pure functions cannot perform 'emit'"));
+  }
+
+  [Fact]
+  public void NamedFunctionsSupportArrowBodiesIncludingEffects() {
+    var result = Run("emit(answer())", """
+      pure func answer => 42;
+      func announce => emit(<announced>);
+      """, "announce()");
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"announced", "42"}, result.Outputs.Select(output => output.Text));
   }
 
   [Fact]
@@ -220,8 +276,8 @@ public sealed class MixinLanguageExecutionTests {
   public void InlineRewritePreservesLocalsAndEarlyReturns() {
     var result = Run("emit(choose(<selected>, true))", """
       inline func choose {
-        local copy @= $1;
-        when($2) { return(local#copy) }
+        local copy @= $0;
+        when($1) { return(local#copy) }
         return(<fallback>)
       }
       """);
@@ -233,7 +289,7 @@ public sealed class MixinLanguageExecutionTests {
   public void ExplicitInlineCallExpandsAnInlineableFunction() {
     var result = Run("emit(inline(decorate, <value>))", """
       func decorate {
-        local copy @= $1;
+        local copy @= $0;
         return(<[local#copy]!>)
       }
       """);

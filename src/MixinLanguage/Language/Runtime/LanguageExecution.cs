@@ -24,6 +24,7 @@ internal sealed partial class LanguageExecution {
   private readonly Dictionary<string, IMixinValue> variables = new(StringComparer.Ordinal);
   private readonly Dictionary<string, IMixinValue> targetVariables = new(StringComparer.Ordinal);
   private IMixinValue parameter = NullMixinValue.Instance;
+  private IReadOnlyList<IMixinValue> positionalParameters = Array.Empty<IMixinValue>();
   private IMixinValue selector = NullMixinValue.Instance;
   private bool prelude;
   private int steps;
@@ -123,17 +124,14 @@ internal sealed partial class LanguageExecution {
 
   private IMixinValue Root(string name, bool smart) {
     if (smart) {
+      if (name == "it") return parameter;
       if (locals.TryGetValue(name, out var local)) return local;
       if (depth == 0 && carries.TryGetValue(name, out var carried)) return carried;
-      if (int.TryParse(name, out var position) && position > 0) {
-        if (parameter is TupleMixinValue tuple)
-          return position <= tuple.Values.Count ? tuple.Values[position - 1] : NullMixinValue.Instance;
-        if (parameter is MixinTableValue positional)
-          return position <= positional.Entries.Count ? positional.Entries[position - 1].Value : NullMixinValue.Instance;
-        return position == 1 ? parameter : NullMixinValue.Instance;
+      if (int.TryParse(name, out var position) && position >= 0) {
+        return position < positionalParameters.Count
+          ? positionalParameters[position]
+          : NullMixinValue.Instance;
       }
-      if (parameter is MixinTableValue table && table.Entries.Any(entry => entry.Key.Resolve(context.Strings) == name))
-        return parameter.Select(context, context.ResolveString(name));
       return context.Error("unknown local or parameter '" + name + "'");
     }
     if (name == "param") return parameter;
@@ -228,6 +226,7 @@ internal sealed partial class LanguageExecution {
     if (++depth > 128) { depth--; return context.Error("call depth limit exceeded"); }
     var previousLocals = locals;
     var previousParameter = parameter;
+    var previousPositionalParameters = positionalParameters;
     var previousPure = pure;
     var previousScope = scope;
     var savedVariables = variables.ToArray();
@@ -244,6 +243,7 @@ internal sealed partial class LanguageExecution {
     }
     locals = new Dictionary<string, IMixinValue>(StringComparer.Ordinal);
     parameter = match.Parameter;
+    positionalParameters = arguments;
     pure = match.Function.IsPure;
     scope = match.Owner;
     try {
@@ -263,6 +263,7 @@ internal sealed partial class LanguageExecution {
     } finally {
       locals = previousLocals;
       parameter = previousParameter;
+      positionalParameters = previousPositionalParameters;
       pure = previousPure;
       scope = previousScope;
       depth--;

@@ -41,6 +41,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitFuncDeclaration(HixParser.FuncDeclarationContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#functionBody}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitFunctionBody(HixParser.FunctionBodyContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#functionMetadata}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -214,6 +220,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitPrimaryValue(HixParser.PrimaryValueContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#lambdaValue}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitLambdaValue(HixParser.LambdaValueContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link HixParser#prefixOperators}.
 	 * @param ctx the parse tree

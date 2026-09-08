@@ -9,7 +9,8 @@ namespace Mixins.Compiler;
 /// <summary>Catalog binding and preparation for the generated-ANTLR semantic model.</summary>
 public static class HixCompiler {
   private static readonly IReadOnlyList<HixCompilerStep> Steps = [
-    new SignatureParameterBindingStep(), new InlineExpansionStep(), new PreludeHoistingStep(), new FunctionBindingStep()
+    new LambdaLiftingStep(), new SignatureParameterBindingStep(), new InlineExpansionStep(),
+    new PreludeHoistingStep(), new FunctionBindingStep()
   ];
   public static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> sources) =>
     PrepareGlobals(sources.Select(AntlrSyntax.Parse));
@@ -26,10 +27,11 @@ public static class HixCompiler {
     var strings = new MixinStringPoolBuilder();
     foreach (var unit in syntax)
       foreach (var token in unit.Tokens) strings.Intern(token.Text);
-    return new MixinExpressionPreparedState(strings.Freeze(),
-      declarations.OfType<FunctionDeclarationAst>().ToArray(),
-      declarations.OfType<MixinDeclarationAst>().Where(mixin => mixin.IsDerivation).ToArray(),
-      new LanguageProgramBindings(declarations));
+    var functions = LambdaLiftingStep.RewriteFunctions(declarations.OfType<FunctionDeclarationAst>().ToArray())
+      .Select(SignatureParameterBindingStep.Rewrite).ToArray();
+    var derivations = declarations.OfType<MixinDeclarationAst>().Where(mixin => mixin.IsDerivation).ToArray();
+    return new MixinExpressionPreparedState(strings.Freeze(), functions, derivations,
+      new LanguageProgramBindings(functions.Cast<HixAst>().Concat(derivations)));
   }
 
   internal static MixinExpressionExecutionProgram Prepare(MixinDeclarationAst declaration,
