@@ -19,6 +19,31 @@ public sealed class HixBytecodeTests {
   }
 
   [Fact]
+  public void TableEqualityAndFingerprintsIgnoreEntryOrderButTuplesRemainOrdered() {
+    var context = new Context();
+    var first = new KeyValuePair<MixinString, IMixinValue>(MixinString.Dynamic("first"), new NumberMixinValue(1));
+    var second = new KeyValuePair<MixinString, IMixinValue>(MixinString.Dynamic("second"), new NumberMixinValue(2));
+    var left = new MixinTableValue(new[] {first, second});
+    var right = new MixinTableValue(new[] {second, first});
+    Assert.True(left.Equals((IMixinValue)right));
+    Assert.True(left.Equals((object)right));
+    Assert.Equal(left.GetHashCode(), right.GetHashCode());
+    var leftHash = new MixinFingerprintBuilder();
+    var rightHash = new MixinFingerprintBuilder();
+    left.Fingerprint(leftHash, context);
+    right.Fingerprint(rightHash, context);
+    Assert.Equal(leftHash.Hash, rightHash.Hash);
+    Assert.Equal(leftHash.Length, rightHash.Length);
+    var changed = new MixinTableValue(new[] {first, new KeyValuePair<MixinString, IMixinValue>(second.Key, new NumberMixinValue(3))});
+    Assert.False(left.Equals((IMixinValue)changed));
+    var changedHash = new MixinFingerprintBuilder();
+    changed.Fingerprint(changedHash, context);
+    Assert.NotEqual(leftHash.Hash, changedHash.Hash);
+    Assert.False(new TupleMixinValue(new[] {first.Value, second.Value})
+      .Equals((IMixinValue)new TupleMixinValue(new[] {second.Value, first.Value})));
+  }
+
+  [Fact]
   public void FunctionSelectionRechecksConversionsAndKeepsNamedExtras() {
     var program = HixCompiler.Compile("""
       pure func choose { return(<fallback>) }

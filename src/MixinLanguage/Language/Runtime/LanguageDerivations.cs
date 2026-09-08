@@ -40,11 +40,8 @@ internal sealed partial class LanguageExecution {
       provider = null;
     }
 
-    private bool HasValue(MixinTableValue record) {
-      foreach (var entry in record.Entries)
-        if (entry.Key.Resolve(execution.context.Strings) == "value") return true;
-      return false;
-    }
+    private bool HasValue(MixinTableValue record) =>
+      record.TryGetValue(execution.context, execution.context.ResolveString("value"), out _);
 
     internal IMixinValue Run() {
       try {

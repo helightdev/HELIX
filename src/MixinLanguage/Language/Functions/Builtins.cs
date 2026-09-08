@@ -422,9 +422,7 @@ internal static class Builtins {
       ),
       new SimpleFunction(
         "remove", [new FunctionSignature(K.Table, [K.Table, K.String])],
-        (e, a) => new MixinTableValue(
-          ((MixinTableValue)a[0]).Entries.Where(entry => entry.Key.Resolve(e.Context.Strings) != e.Text(a[1])).ToArray()
-        )
+        (e, a) => ((MixinTableValue)a[0]).Remove(e.Context, e.Context.ResolveString(e.Text(a[1])))
       )
     );
     definitions.Add(

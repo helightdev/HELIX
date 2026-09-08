@@ -6,12 +6,12 @@ using System.Linq;
 namespace Mixins.Runtime;
 
 /// <summary>A live, read-only table view of storage. Member reads never enumerate or copy storage.</summary>
-internal sealed record MixinStorageValue : MixinTableValue {
+internal sealed class MixinStorageValue : MixinTableValue {
   private readonly MixinValueDictionary storage;
   private readonly MixinValueDictionary fallback;
 
   internal MixinStorageValue(MixinValueDictionary storage,
-    MixinValueDictionary fallback = null) : base(new StorageEntries(storage, fallback)) {
+    MixinValueDictionary fallback = null) : base(new StorageEntries(storage, fallback), true) {
     this.storage = storage;
     this.fallback = fallback;
   }
@@ -19,10 +19,11 @@ internal sealed record MixinStorageValue : MixinTableValue {
   internal static IMixinValue Capture(IMixinValue value) =>
     value is MixinStorageValue storage ? new MixinTableValue(storage.Entries.ToArray()) : value;
 
-  public override IMixinValue Select(ExecutionContext context, MixinString member) {
+  public override bool TryGetValue(ExecutionContext context, MixinString member, out IMixinValue value) {
     var name = ExecutionContext.Dynamic(member.Resolve(context.Strings));
-    if (storage.TryGetValue(name, out var value)) return value;
-    return fallback != null && fallback.TryGetValue(name, out value) ? value : NullMixinValue.Instance;
+    if (storage.TryGetValue(name, out value)) return true;
+    if (fallback != null) return fallback.TryGetValue(name, out value);
+    value = null; return false;
   }
 
   // Table consumers enumerate this view directly. Operations that construct a new table
@@ -47,8 +48,7 @@ internal sealed record MixinStorageValue : MixinTableValue {
     }
 
     public IEnumerator<KeyValuePair<MixinString, IMixinValue>> GetEnumerator() {
-      // Preserve carried-key ordering, with locals taking precedence, just as the
-      // materialized local table did. Non-carried locals follow in storage order.
+      // Locals override carried values; enumeration order is unspecified.
       if (fallback != null)
         foreach (var entry in fallback)
           yield return new(entry.Key, storage.TryGetValue(entry.Key, out var value) ? value : entry.Value);

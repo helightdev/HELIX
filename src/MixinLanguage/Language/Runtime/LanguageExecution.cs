@@ -178,8 +178,8 @@ internal sealed partial class LanguageExecution {
 
   private bool MatchesReturn(IMixinValue value, BytecodeSignature signature) => signature.Outputs == null
     ? MatchesKind(value, signature.OutputKind)
-    : value is MixinTableValue table && signature.Outputs.All(field => table.Entries.Any(entry =>
-      entry.Key.Resolve(context.Strings) == field.Name && MatchesKind(entry.Value, field.Kind)));
+    : value is MixinTableValue table && signature.Outputs.All(field =>
+      table.TryGetValue(context, context.ResolveString(field.Name), out var member) && MatchesKind(member, field.Kind));
   internal static bool MatchesKind(IMixinValue value, string kind) => kind == "any" || value.Kind.ToString().Equals(kind, StringComparison.OrdinalIgnoreCase);
   private bool TryConvert(IMixinValue value, string kind, out IMixinValue converted, out int conversions) {
     if (kind == "any" || value.Kind.ToString().Equals(kind, StringComparison.OrdinalIgnoreCase)) {
@@ -232,8 +232,8 @@ internal sealed partial class LanguageExecution {
   internal bool Equal(IMixinValue left, IMixinValue right) => (left, right) switch {
     (LiteralMixinValue a, LiteralMixinValue b) => Text(a) == Text(b),
     (TupleMixinValue a, TupleMixinValue b) => a.Values.Count == b.Values.Count && a.Values.Zip(b.Values, Equal).All(value => value),
-    (MixinTableValue a, MixinTableValue b) => a.Count == b.Count && a.Entries.All(x => b.Entries.Any(y =>
-      x.Key.Resolve(context.Strings) == y.Key.Resolve(context.Strings) && Equal(x.Value, y.Value))),
+    (MixinTableValue a, MixinTableValue b) => a.Count == b.Count && a.Entries.All(entry =>
+      b.TryGetValue(context, entry.Key, out var value) && Equal(entry.Value, value)),
     _ => left.Equals(right)
   };
 

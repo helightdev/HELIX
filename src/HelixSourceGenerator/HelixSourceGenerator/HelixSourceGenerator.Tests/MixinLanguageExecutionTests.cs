@@ -47,7 +47,10 @@ public sealed class MixinLanguageExecutionTests {
       emit(eq(local#replaced, @{first=<one>, second=<two>}))
       """);
     Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"2", "2", "true", "", "fallback", "second,first", "true"}, result.Outputs.Select(output => output.Text));
+    var outputs = result.Outputs.Select(output => output.Text).ToArray();
+    Assert.Equal(new[] {"2", "2", "true", "", "fallback"}, outputs.Take(5));
+    Assert.Equal(new[] {"first", "second"}, outputs[5].Split(',').OrderBy(key => key));
+    Assert.Equal("true", outputs[6]);
   }
 
   [Fact]

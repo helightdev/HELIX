@@ -102,3 +102,16 @@ Storage roots are lightweight table views backed by `MixinValueDictionary`. Memb
 local reads fall back to carried values without copying either dictionary. Table consumers can
 enumerate the view on demand. Assignment, return, selector capture, and argument/collection packing
 materialize a snapshot so stored values do not retain mutable execution frames or contain themselves.
+
+Tables are unordered keyed collections. `keys`, `values`, `entries`, rendering, and table `join`
+use an unspecified enumeration order; callers needing an order must arrange the resulting tuples
+explicitly. Table equality ignores entry order. Fingerprints traverse keys in ordinal text order
+so construction history does not change cache identity. Tuples remain ordered.
+
+Immutable tables now use `Collections/PersistentMap.cs`: shared flat key shapes and privately owned
+value arrays through 16 entries, then a persistent bitmap HAMT. Updates preserve old versions and
+share unchanged branches; no-op updates return the existing table. Bulk builders construct a fresh
+trie without repeated persistent path copying. Enumeration order remains unspecified. Storage roots
+remain live `MixinValueDictionary` views until captured. Ordinary table constructors copy input and
+normalize interned keys using the explicitly supplied string pool; runtime dynamic keys need no pool.
+The generic C# correctness harness and comparative benchmark live in `benchmarks/PersistentMaps`.

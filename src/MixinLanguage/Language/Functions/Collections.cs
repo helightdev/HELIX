@@ -7,17 +7,8 @@ using static Mixins.Runtime.LanguageExecution;
 namespace Mixins.Functions;
 
 internal static class CollectionFunctions {
-  internal static MixinTableValue Put(ExecutionContext context, MixinTableValue table, string key, IMixinValue value) {
-    var found = false;
-    var entries = table.Entries.Select(entry => {
-        if (entry.Key.Resolve(context.Strings) != key) return entry;
-        found = true;
-        return new KeyValuePair<MixinString, IMixinValue>(entry.Key, value);
-      }
-    ).ToList();
-    if (!found) entries.Add(new KeyValuePair<MixinString, IMixinValue>(context.ResolveString(key), value));
-    return new MixinTableValue(entries.ToArray());
-  }
+  internal static MixinTableValue Put(ExecutionContext context, MixinTableValue table, string key, IMixinValue value) =>
+    table.Put(context, ExecutionContext.Dynamic(key), value);
 
   internal static IMixinValue Has(LanguageExecution e, IMixinValue[] a) => Bool(TrySelect(e, a[0], a[1], out _));
 
@@ -30,10 +21,7 @@ internal static class CollectionFunctions {
 
   private static bool TrySelect(LanguageExecution e, IMixinValue collection, IMixinValue key, out IMixinValue value) {
     if (collection is MixinTableValue table) {
-      var name = e.Text(key);
-      var found = table.Entries.Any(entry => entry.Key.Resolve(e.Context.Strings) == name);
-      value = found ? table.Select(e.Context, e.Context.ResolveString(name)) : NullMixinValue.Instance;
-      return found;
+      return table.TryGetValue(e.Context, e.Context.ResolveString(e.Text(key)), out value);
     }
     var index = ((NumberMixinValue)key).Value;
     var values = ((TupleMixinValue)collection).Values;
