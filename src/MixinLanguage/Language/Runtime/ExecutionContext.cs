@@ -184,10 +184,11 @@ public abstract class ExecutionContext {
     value = Evaluate(value);
     return value switch {
       ErrorMixinValue error => error with { Message = MixinString.Dynamic(error.Message.Resolve(Strings)) },
+      LiteralMixinValue literal when !literal.Value.IsInterned => literal,
       LiteralMixinValue literal => new LiteralMixinValue(
         MixinString.Dynamic(literal.Value.Resolve(Strings))
       ),
-      TupleMixinValue tuple => new TupleMixinValue(tuple.Values.Select(DetachValue).ToArray()),
+      TupleMixinValue tuple => tuple.Transform(DetachValue),
       MixinTableValue table => new MixinTableValue(
         [
           .. table.Entries.Select(item =>

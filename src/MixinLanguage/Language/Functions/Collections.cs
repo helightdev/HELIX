@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Mixins.Runtime;
 using static Mixins.Runtime.LanguageExecution;
 
@@ -33,8 +31,10 @@ internal static class CollectionFunctions {
   internal enum TransformKind { Map, Where, Any, All, Reduce }
 
   internal static IMixinValue Transform(LanguageExecution e, IMixinValue[] a, int line, TransformKind kind) {
-    var values = ((TupleMixinValue)a[0]).Values;
-    var results = new List<IMixinValue>();
+    var tuple = (TupleMixinValue)a[0];
+    var values = tuple.Values;
+    IMixinValue[] results = null;
+    var resultCount = 0;
     var accumulator = a.Length == 3 ? a[2] : NullMixinValue.Instance;
     for (var index = 0; index < values.Count; index++) {
       var item = values[index];
@@ -46,15 +46,27 @@ internal static class CollectionFunctions {
         accumulator = result;
         continue;
       }
-      if (kind == TransformKind.Where && !result.IsTruthy(e.Context)) continue;
+      if (kind is TransformKind.Any or TransformKind.All) continue;
+      var keep = kind != TransformKind.Where || result.IsTruthy(e.Context);
       var mapped = kind == TransformKind.Map ? result : item;
-      results.Add(mapped);
+      if (results == null && (!keep || !ReferenceEquals(mapped, item))) {
+        results = new IMixinValue[values.Count];
+        for (var previous = 0; previous < index; previous++) results[previous] = values[previous];
+      }
+      if (!keep) continue;
+      if (results != null) results[resultCount] = mapped;
+      resultCount++;
+    }
+    if (kind is TransformKind.Map or TransformKind.Where) {
+      if (results == null) return tuple;
+      if (resultCount == 0) return TupleMixinValue.Empty;
+      if (resultCount != results.Length) Array.Resize(ref results, resultCount);
+      return new TupleMixinValue(results);
     }
     return kind switch {
       TransformKind.Any => BooleanMixinValue.False,
       TransformKind.All => BooleanMixinValue.True,
-      TransformKind.Reduce => accumulator,
-      _ => new TupleMixinValue(results.ToArray())
+      _ => accumulator
     };
   }
 }

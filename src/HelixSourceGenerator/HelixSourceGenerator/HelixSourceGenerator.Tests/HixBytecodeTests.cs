@@ -15,6 +15,51 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class HixBytecodeTests {
   [Fact]
+  public void TupleUpdatesPreserveInputsAndTransformsHandleEmptyAndPartialResults() {
+    var program = HixCompiler.Compile("""
+      mixin Example { expression {
+        local original = @[1, 2, 3]
+        emit(join(push(local#original, 4), <,>))
+        emit(join(pop(local#original), <,>))
+        emit(join(local#original, <,>))
+        emit(length(pop(@[])))
+        emit(length(pop(@[1])))
+        emit(join(map(local#original, func => $0), <,>))
+        emit(join(map(local#original, func => plus($0, 1)), <,>))
+        emit(join(where(local#original, func => eq($0, 2)), <,>))
+        emit(join(where(local#original, func => true), <,>))
+        emit(length(where(local#original, func => false)))
+        emit(length(map(@[], func => error<unexpected>)))
+        emit(any(@[true, false], func => $0))
+        emit(all(@[true, false], func => $0))
+        emit(any(@[], func => error<unexpected>))
+        emit(all(@[], func => error<unexpected>))
+        emit(reduce(local#original, func => plus($0, $1), 0))
+      } }
+      """, "Example");
+    var result = MixinVirtualMachine.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"1,2,3,4", "1,2", "1,2,3", "0", "0", "1,2,3", "2,3,4", "2", "1,2,3", "0", "0",
+      "true", "false", "false", "true", "6"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
+  public void TupleTransformReusesUnchangedTupleAndCopiesOnlyOnChange() {
+    var first = new NumberMixinValue(1);
+    var second = new NumberMixinValue(2);
+    var tuple = new TupleMixinValue(new IMixinValue[] {first, second});
+    var method = typeof(TupleMixinValue).GetMethod("Transform", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    Func<IMixinValue, IMixinValue> unchanged = value => value;
+    Assert.Same(tuple, method.Invoke(tuple, new object[] {unchanged}));
+    var replacement = new NumberMixinValue(3);
+    Func<IMixinValue, IMixinValue> changed = value => ReferenceEquals(value, second) ? replacement : value;
+    var result = (TupleMixinValue)method.Invoke(tuple, new object[] {changed})!;
+    Assert.Same(first, result.Values[0]);
+    Assert.Same(replacement, result.Values[1]);
+    Assert.Same(second, tuple.Values[1]);
+  }
+
+  [Fact]
   public void PersistentStorageSnapshotsShareRootsAndRestoreWithoutMutatingCaptures() {
     var type = typeof(MixinVirtualMachine).Assembly.GetType("Mixins.MixinValueDictionary", true)!;
     var storage = Activator.CreateInstance(type, true)!;

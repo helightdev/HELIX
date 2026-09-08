@@ -88,6 +88,11 @@ Transaction snapshots and rollback share and restore immutable roots. Local dict
 are mutable and rented from a synchronized VM-owned pool, cleared on return after expressions,
 calls, and derivations. Captured local tables own an immutable snapshot and survive reuse.
 
+Tuples retain contiguous storage for indexed reads and scans. Push/pop copy directly into
+the result array; they remain O(n). Mapping, filtering, and host attachment/detachment reuse
+unchanged tuples, allocating result storage only when needed. Any/all/reduce do not build
+result tuples. Published tuple arrays are never pooled or mutated by these operations.
+
 `program.Disassemble()` prints three aligned columns: byte address, instruction with operands,
 and stack pseudocode with resolved names and literal values. Functions (including signatures),
 entry points, derivations, and nested blocks have separate headers at their actual addresses.

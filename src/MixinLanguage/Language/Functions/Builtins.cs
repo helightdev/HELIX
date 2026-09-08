@@ -397,13 +397,10 @@ internal static class Builtins {
       ),
       new SimpleFunction(
         "push", [new FunctionSignature(K.Tuple, [K.Tuple, K.Any])],
-        (_, a) => new TupleMixinValue(((TupleMixinValue)a[0]).Values.Concat([a[1]]).ToArray())
+        (_, a) => ((TupleMixinValue)a[0]).Append(a[1])
       ),
       new SimpleFunction(
-        "pop", [new FunctionSignature(K.Tuple, [K.Tuple])], (_, a) => {
-          var values = ((TupleMixinValue)a[0]).Values;
-          return new TupleMixinValue(values.Take(Math.Max(0, values.Count - 1)).ToArray());
-        }
+        "pop", [new FunctionSignature(K.Tuple, [K.Tuple])], (_, a) => ((TupleMixinValue)a[0]).RemoveLast()
       ),
       new SimpleFunction(
         "keys", [new FunctionSignature(K.Tuple, [K.Table])],

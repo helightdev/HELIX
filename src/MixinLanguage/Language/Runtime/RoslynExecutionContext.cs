@@ -66,7 +66,8 @@ internal sealed class RoslynMixinContext : ExecutionContext {
 
   private IMixinValue AttachTargetValue(IMixinValue value) {
     return value switch {
-      TupleMixinValue tuple => new TupleMixinValue(tuple.Values.Select(AttachTargetValue).ToArray()),
+      TupleMixinValue tuple => tuple.Transform(AttachTargetValue),
+      LiteralMixinValue literal when !literal.Value.IsInterned => literal,
       LiteralMixinValue literal => new LiteralMixinValue(
         ResolveString(literal.Value.DynamicValue ?? literal.Value.Resolve(Strings))
       ),

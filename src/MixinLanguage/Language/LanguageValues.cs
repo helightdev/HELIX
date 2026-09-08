@@ -21,6 +21,35 @@ public sealed record NumberMixinValue(double Value) : IMixinValue {
 
 public sealed record TupleMixinValue(IReadOnlyList<IMixinValue> Values) : IMixinValue {
   public static readonly TupleMixinValue Empty = new(Array.Empty<IMixinValue>());
+
+  internal TupleMixinValue Append(IMixinValue value) {
+    var values = new IMixinValue[Values.Count + 1];
+    for (var i = 0; i < Values.Count; i++) values[i] = Values[i];
+    values[Values.Count] = value;
+    return new TupleMixinValue(values);
+  }
+
+  internal TupleMixinValue RemoveLast() {
+    if (Values.Count <= 1) return Empty;
+    var values = new IMixinValue[Values.Count - 1];
+    for (var i = 0; i < values.Length; i++) values[i] = Values[i];
+    return new TupleMixinValue(values);
+  }
+
+  // Allocate only once an element changes; unchanged immutable tuples can be shared.
+  internal TupleMixinValue Transform(Func<IMixinValue, IMixinValue> transform) {
+    IMixinValue[] values = null;
+    for (var i = 0; i < Values.Count; i++) {
+      var value = transform(Values[i]);
+      if (values == null && !ReferenceEquals(value, Values[i])) {
+        values = new IMixinValue[Values.Count];
+        for (var previous = 0; previous < i; previous++) values[previous] = Values[previous];
+      }
+      if (values != null) values[i] = value;
+    }
+    return values == null ? this : new TupleMixinValue(values);
+  }
+
   public MixinValueKind Kind => MixinValueKind.Tuple;
   public bool IsTruthy(ExecutionContext context) => Values.Count != 0;
   public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic(
