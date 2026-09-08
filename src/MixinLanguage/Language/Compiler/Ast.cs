@@ -5,14 +5,14 @@ using Mixins.Runtime;
 
 namespace Mixins.Compiler;
 
-public abstract class MixinAst {
-  private IReadOnlyList<MixinAst> _children = [];
-  private MixinSourceRange _sourceRange;
-  private MixinAst _rangeOwner;
+public abstract class HixAst {
+  private IReadOnlyList<HixAst> _children = [];
+  private HixSourceRange _sourceRange;
+  private HixAst _rangeOwner;
 
-  protected MixinAst(
-    MixinSyntaxKind kind = MixinSyntaxKind.Statement,
-    MixinSourceRange sourceRange = default, IReadOnlyList<MixinAst> children = null
+  protected HixAst(
+    HixSyntaxKind kind = HixSyntaxKind.Statement,
+    HixSourceRange sourceRange = default, IReadOnlyList<HixAst> children = null
   ) {
     Kind = kind;
     _sourceRange = sourceRange;
@@ -20,19 +20,19 @@ public abstract class MixinAst {
   }
 
   public int Line => SourceRange.Line;
-  public MixinSourceRange SourceRange {
+  public HixSourceRange SourceRange {
     get {
       if (!_sourceRange.IsEmpty) return _sourceRange;
       if (_rangeOwner is not null) return _rangeOwner.SourceRange;
-      var composed = MixinSourceRange.Compose(_children.Select(child => child.SourceRange));
+      var composed = HixSourceRange.Compose(_children.Select(child => child.SourceRange));
       return composed;
     }
     internal set => _sourceRange = value;
   }
-  public MixinSyntaxKind Kind { get; internal set; }
+  public HixSyntaxKind Kind { get; internal set; }
   public virtual bool IsTrivia => false;
-  public MixinAst Parent { get; private set; }
-  public IReadOnlyList<MixinAst> Children {
+  public HixAst Parent { get; private set; }
+  public IReadOnlyList<HixAst> Children {
     get => _children;
     internal set {
       _children = value ?? [];
@@ -41,30 +41,30 @@ public abstract class MixinAst {
           child.Parent = this;
     }
   }
-  public IReadOnlyList<MixinToken> Tokens { get; internal set; } = [];
-  public IEnumerable<MixinAst> SemanticChildren => Children.Where(child => !child.IsTrivia);
+  public IReadOnlyList<HixToken> Tokens { get; internal set; } = [];
+  public IEnumerable<HixAst> SemanticChildren => Children.Where(child => !child.IsTrivia);
 
   public CompilationUnitAst Program {
     get {
-      for (MixinAst current = this; current is not null; current = current.Parent)
+      for (HixAst current = this; current is not null; current = current.Parent)
         if (current is CompilationUnitAst program)
           return program;
       return null;
     }
   }
 
-  protected void Adopt(params IEnumerable<MixinAst>[] groups) {
+  protected void Adopt(params IEnumerable<HixAst>[] groups) {
     Children = groups.Where(group => group is not null).SelectMany(group => group)
       .Where(child => child is not null).ToArray();
   }
 
-  protected void InheritRangeFrom(MixinAst owner) {
+  protected void InheritRangeFrom(HixAst owner) {
     _rangeOwner = owner;
   }
 }
 
 
-public sealed class TriviaAst(MixinSyntaxKind kind, MixinSourceRange range) : MixinAst(kind, range) {
+public sealed class TriviaAst(HixSyntaxKind kind, HixSourceRange range) : HixAst(kind, range) {
   public override bool IsTrivia => true;
 }
-public sealed record MixinParseDiagnostic(int Line, string Message);
+public sealed record HixParseDiagnostic(int Line, string Message);

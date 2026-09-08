@@ -13,8 +13,8 @@ using JetBrains.ReSharper.Feature.Services.Protocol;
 using JetBrains.ReSharper.Resources.Shell;
 using Mixins;
 using Mixins.Compiler;
-using WireRange = HelixRider.Protocol.MixinSourceRange;
-using CoreRange = Mixins.Compiler.MixinSourceRange;
+using WireRange = HelixRider.Protocol.HixSourceRange;
+using CoreRange = Mixins.Compiler.HixSourceRange;
 
 namespace HelixRider.Protocol;
 
@@ -62,7 +62,7 @@ public sealed class HelixMixinLanguageHost {
                 .Select(reference => new MixinCompletionSite("CSharpType", Range(reference.Range), Range(reference.Range),
                     "Type", completeTypes?.Invoke(reference.Name) ?? Array.Empty<MixinCompletionItem>())).ToArray();
             return new MixinFileSnapshot(file.Input.FilePath ?? string.Empty, file.Input.Revision, SourceHash(source),
-                Array.Empty<MixinSyntaxNode>(), Array.Empty<MixinToken>(), declarations, references, diagnostics, sites);
+                Array.Empty<MixinSyntaxNode>(), Array.Empty<HixToken>(), declarations, references, diagnostics, sites);
         }).ToArray());
     }
 
@@ -126,7 +126,7 @@ public sealed class HelixMixinLanguageHost {
             definition.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation));
         var roots = MixinRootLibrary.Enumerate().Select(definition => new MixinLanguageDefinition(
             definition.Name, "Root", 0, false, "None", "None", definition.Kind.ToString(), Array.Empty<string>(), definition.Documentation));
-        var targets = Enum.GetNames(typeof(MixinExpressionOutputTarget)).Select(name => new MixinLanguageDefinition(
+        var targets = Enum.GetNames(typeof(MixinEmissionTarget)).Select(name => new MixinLanguageDefinition(
             name, "OutputTarget", 0, false, "None", "None", "None", Array.Empty<string>(), "Generated output destination"));
         return functions.Concat(roots).Concat(targets).ToArray();
     }

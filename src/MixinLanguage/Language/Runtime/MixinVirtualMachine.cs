@@ -19,7 +19,7 @@ public static class MixinVirtualMachine {
     if (declarations.Length != 1) return Failure("expected exactly one mixin named '" + mixinName + "'", 0);
     var declaration = declarations[0];
     try {
-      return Execute(MixinCompiler.Prepare(declaration, MixinCompiler.PrepareGlobals(new[] {unit}), null), context, variables);
+      return Execute(HixCompiler.Prepare(declaration, HixCompiler.PrepareGlobals(new[] {unit}), null), context, variables);
     } catch (ArgumentException exception) { return Failure(exception.Message, declaration.Line); }
   }
 

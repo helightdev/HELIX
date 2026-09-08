@@ -8,14 +8,14 @@ namespace Mixins.Compiler;
 internal sealed class LanguageProgramBindings {
   private readonly Dictionary<BlockStatementAst, Action<LanguageExecution>> blocks = new();
 
-  internal LanguageProgramBindings(IEnumerable<MixinAst> roots) {
-    var visited = new HashSet<MixinAst>();
+  internal LanguageProgramBindings(IEnumerable<HixAst> roots) {
+    var visited = new HashSet<HixAst>();
     foreach (var root in roots) Visit(root, visited);
   }
 
   internal void Execute(BlockStatementAst block, LanguageExecution execution) => blocks[block](execution);
 
-  private void Visit(MixinAst node, HashSet<MixinAst> visited) {
+  private void Visit(HixAst node, HashSet<HixAst> visited) {
     if (!visited.Add(node)) return;
     if (node is BlockStatementAst block) {
       LanguageExecution.LowerBlock(block, blocks);

@@ -1,4 +1,4 @@
-# HELIX Mixin Language
+# Hix Language
 
 This project contains the reusable mixin parser, compiler, virtual machine, table/text functions, additional-file
 catalog, and Roslyn semantic execution support.

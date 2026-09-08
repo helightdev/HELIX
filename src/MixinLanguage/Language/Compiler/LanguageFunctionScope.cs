@@ -49,7 +49,7 @@ internal sealed class LanguageFunctionScope {
     foreach (var group in declarations.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
       builder.Append(group.Key);
       foreach (var function in group.Value) {
-        MixinAst root = function;
+        HixAst root = function;
         while (root.Parent != null) root = root.Parent;
         builder.Append(root is CompilationUnitAst unit ? unit.Source : "");
         builder.Append(function.SourceRange.Start);

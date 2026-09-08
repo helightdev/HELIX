@@ -45,11 +45,11 @@ public sealed class MixinSyntaxRangeTests {
     const string source = "mixin Example { expression { emit @> first\n@+ second\n} }";
     var unit = AntlrSyntax.Parse(source);
     Assert.Empty(unit.Diagnostics);
-    Assert.Single(unit.Tokens.Where(token => token.Kind == MixinTokenKind.DirectContinuation));
-    Assert.DoesNotContain(Descendants(unit), node => node.Kind == MixinSyntaxKind.Continuation);
+    Assert.Single(unit.Tokens.Where(token => token.Kind == HixTokenKind.DirectContinuation));
+    Assert.DoesNotContain(Descendants(unit), node => node.Kind == HixSyntaxKind.Continuation);
   }
 
-  private static System.Collections.Generic.IEnumerable<MixinAst> Descendants(MixinAst node) {
+  private static System.Collections.Generic.IEnumerable<HixAst> Descendants(HixAst node) {
     foreach (var child in node.Children) {
       yield return child;
       foreach (var descendant in Descendants(child)) yield return descendant;

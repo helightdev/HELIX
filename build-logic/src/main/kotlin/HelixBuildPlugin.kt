@@ -1,6 +1,7 @@
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.Copy
+import org.gradle.api.tasks.JavaExec
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.util.Base64
@@ -101,7 +102,68 @@ class HelixBuildPlugin : Plugin<Project> {
             into(project.layout.projectDirectory.dir("docs/grammars"))
         }
 
+        registerHixGrammarTasks(project)
+
         registerUnityPackageTasks(project, unityPackages)
+    }
+}
+
+private fun registerHixGrammarTasks(project: Project) {
+    project.repositories.mavenCentral()
+    val antlrTool = project.configurations.create("antlrTool")
+    project.dependencies.add(antlrTool.name, "org.antlr:antlr4:4.13.2")
+
+    val grammarDirectory = project.layout.projectDirectory.dir("src/Grammars/hix")
+    val csharpOutput = project.layout.projectDirectory.dir("src/MixinLanguage/Language/Compiler/Generated")
+    val ideOutput = project.layout.projectDirectory.dir(
+        "src/RiderPlugin/src/rider/main/java/dev/helight/helix/hix/generated",
+    )
+    val grammarFiles = listOf(grammarDirectory.file("HixLexer.g4"), grammarDirectory.file("HixParser.g4"))
+
+    val csharp = project.tasks.register("generateHixCSharpGrammar", JavaExec::class.java) {
+        group = "code generation"
+        description = "Generates the C# lexer and parser for the Hix language."
+        classpath = antlrTool
+        mainClass.set("org.antlr.v4.Tool")
+        workingDir = grammarDirectory.asFile
+        inputs.files(grammarFiles)
+        outputs.files(
+            csharpOutput.file("HixLexer.cs"),
+            csharpOutput.file("HixParser.cs"),
+            csharpOutput.file("HixParserBaseVisitor.cs"),
+            csharpOutput.file("HixParserVisitor.cs"),
+        )
+        args(
+            "-Dlanguage=CSharp", "-visitor", "-no-listener",
+            "-package", "Mixins.Compiler.Generated",
+            "-o", csharpOutput.asFile.absolutePath,
+            "HixLexer.g4", "HixParser.g4",
+        )
+    }
+    val ide = project.tasks.register("generateHixIdeGrammar", JavaExec::class.java) {
+        group = "code generation"
+        description = "Generates the Rider lexer and parser for the Hix language."
+        classpath = antlrTool
+        mainClass.set("org.antlr.v4.Tool")
+        workingDir = grammarDirectory.asFile
+        inputs.files(grammarFiles)
+        outputs.files(
+            ideOutput.file("HixLexer.java"),
+            ideOutput.file("HixParser.java"),
+            ideOutput.file("HixParserBaseVisitor.java"),
+            ideOutput.file("HixParserVisitor.java"),
+        )
+        args(
+            "-Dlanguage=Java", "-visitor", "-no-listener",
+            "-package", "dev.helight.helix.hix.generated",
+            "-o", ideOutput.asFile.absolutePath,
+            "HixLexer.g4", "HixParser.g4",
+        )
+    }
+    project.tasks.register("generateHixGrammar") {
+        group = "code generation"
+        description = "Generates all ANTLR outputs for the Hix language."
+        dependsOn(csharp, ide)
     }
 }
 

@@ -6,9 +6,9 @@ namespace Mixins.Compiler;
 
 /// <summary>Definition and reference analysis over the canonical semantic AST.</summary>
 public sealed class LanguageAnalysis {
-  public sealed record Symbol(string Name, string Kind, MixinSourceRange Range, MixinSourceRange Scope,
-    MixinAst Node);
-  public sealed record Reference(string Name, string Kind, MixinSourceRange Range, MixinAst Node);
+  public sealed record Symbol(string Name, string Kind, HixSourceRange Range, HixSourceRange Scope,
+    HixAst Node);
+  public sealed record Reference(string Name, string Kind, HixSourceRange Range, HixAst Node);
 
   public LanguageAnalysis(string source) {
     Program = AntlrSyntax.Parse(source ?? "");
@@ -44,14 +44,14 @@ public sealed class LanguageAnalysis {
     return selected.Symbol;
   }
 
-  public static MixinSourceRange Scope(MixinAst node) {
+  public static HixSourceRange Scope(HixAst node) {
     for (var current = node; current is not null; current = current.Parent)
       if (current is FunctionDeclarationAst or MixinDeclarationAst or BlockStatementAst)
         return current.SourceRange;
     return node?.Program?.SourceRange ?? default;
   }
 
-  private void Visit(MixinAst node, ICollection<Symbol> declarations,
+  private void Visit(HixAst node, ICollection<Symbol> declarations,
     ICollection<Reference> references) {
     switch (node) {
       case MixinDeclarationAst mixin:
@@ -110,30 +110,30 @@ public sealed class LanguageAnalysis {
      "param" or "true" or "false" or "null" or "string" or "bool" or "number" or
      "tuple" or "table" or "symbol" or "function" or "error" or "kind");
 
-  private MixinSourceRange IdentifierRange(MixinAst node, string name) {
-    var token = node.Tokens.FirstOrDefault(item => item.Kind == MixinTokenKind.Identifier && item.Text == name);
+  private HixSourceRange IdentifierRange(HixAst node, string name) {
+    var token = node.Tokens.FirstOrDefault(item => item.Kind == HixTokenKind.Identifier && item.Text == name);
     return token?.SourceRange ?? TextRange(node.SourceRange, name, false);
   }
 
-  private MixinSourceRange TrailingIdentifierRange(MixinAst node, string name) {
-    var token = node.Tokens.LastOrDefault(item => item.Kind == MixinTokenKind.Identifier && item.Text == name);
+  private HixSourceRange TrailingIdentifierRange(HixAst node, string name) {
+    var token = node.Tokens.LastOrDefault(item => item.Kind == HixTokenKind.Identifier && item.Text == name);
     return token?.SourceRange ?? TextRange(node.SourceRange, name, true);
   }
 
-  private MixinSourceRange TextRange(MixinSourceRange within, string text, bool last) {
+  private HixSourceRange TextRange(HixSourceRange within, string text, bool last) {
     var source = Program.Source;
     var start = last
       ? source.LastIndexOf(text, Math.Max(within.Start, within.End - 1), within.Length, StringComparison.Ordinal)
       : source.IndexOf(text, within.Start, within.Length, StringComparison.Ordinal);
-    return start < 0 ? within : new MixinSourceRange(start, start + text.Length, within.Line, within.Column);
+    return start < 0 ? within : new HixSourceRange(start, start + text.Length, within.Line, within.Column);
   }
 
-  private static MixinSourceRange StringContentRange(ExpressionAst expression) {
+  private static HixSourceRange StringContentRange(ExpressionAst expression) {
     var range = expression.SourceRange;
     return range.Length >= 2 ? range with {Start = range.Start + 1, End = range.End - 1} : range;
   }
 
   private static bool Compatible(string declaration, string reference) => declaration == reference;
-  private static bool Contains(MixinSourceRange scope, MixinSourceRange range) =>
+  private static bool Contains(HixSourceRange scope, HixSourceRange range) =>
     scope.Start <= range.Start && scope.End >= range.End;
 }

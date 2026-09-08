@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace Mixins.Compiler;
 
-public enum MixinSyntaxKind {
+public enum HixSyntaxKind {
   Document,
   Declaration,
   Statement,
@@ -22,7 +22,7 @@ public enum MixinSyntaxKind {
   Error
 }
 
-public enum MixinTokenKind {
+public enum HixTokenKind {
   At,
   Identifier,
   Hash,
@@ -42,17 +42,17 @@ public enum MixinTokenKind {
   Invalid
 }
 
-public readonly record struct MixinSourceRange(
+public readonly record struct HixSourceRange(
   int Start, int End, int Line = 0, int Column = 0
 ) {
   public int Length => End - Start;
   public bool IsEmpty => Length == 0;
 
-  public static MixinSourceRange Compose(IEnumerable<MixinSourceRange> ranges) {
+  public static HixSourceRange Compose(IEnumerable<HixSourceRange> ranges) {
     var values = (ranges ?? []).Where(range => !range.IsEmpty).ToArray();
     if (values.Length == 0) return default;
     var first = values.OrderBy(range => range.Start).First();
-    return new MixinSourceRange(
+    return new HixSourceRange(
       values.Min(range => range.Start), values.Max(range => range.End), first.Line, first.Column
     );
   }

@@ -30,16 +30,16 @@ internal static class MixinLibraryApi {
         file.ErrorLine.ToString(CultureInfo.InvariantCulture), file.Error));
     MixinExpressionPreparedState prepared;
     try {
-      prepared = MixinCompiler.PrepareGlobals(catalog.Files.Where(file => file.Success).Select(file => file.Program));
+      prepared = HixCompiler.PrepareGlobals(catalog.Files.Where(file => file.Success).Select(file => file.Program));
     } catch (ArgumentException exception) {
       diagnostics.Add(Diagnostic.Create(InvalidLibraryImport, Location.None, "import set", exception.Message));
-      prepared = MixinCompiler.PrepareGlobals(Array.Empty<CompilationUnitAst>());
+      prepared = HixCompiler.PrepareGlobals(Array.Empty<CompilationUnitAst>());
     }
     var annotations = new Dictionary<string, CompiledMixinAnnotation>(StringComparer.Ordinal);
     if (diagnostics.Count == 0) {
       foreach (var annotation in catalog.AnnotationDefinitions) {
-        var prelude = MixinCompiler.Prepare(annotation.Declaration, prepared, true);
-        var late = MixinCompiler.Prepare(annotation.Declaration, prepared, false);
+        var prelude = HixCompiler.Prepare(annotation.Declaration, prepared, true);
+        var late = HixCompiler.Prepare(annotation.Declaration, prepared, false);
         string Source(IEnumerable<ExpressionDeclarationAst> expressions) => string.Join("\n",
           expressions.Select(expression => annotation.Source.Substring(expression.SourceRange.Start, expression.SourceRange.Length)));
         annotations.Add(annotation.Name, new CompiledMixinAnnotation(annotation,

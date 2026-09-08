@@ -4,25 +4,25 @@ using System.Linq;
 namespace Mixins.Compiler;
 
 /// <summary>Semantic syntax shared by compilation and editor consumers; punctuation stays in Tokens.</summary>
-public abstract class LanguageAst : MixinAst {
-  protected LanguageAst(IEnumerable<MixinAst> children = null) {
+public abstract class LanguageAst : HixAst {
+  protected LanguageAst(IEnumerable<HixAst> children = null) {
     Children = children?.ToArray() ?? [];
   }
 }
 
 public sealed class CompilationUnitAst : LanguageAst {
   internal CompilationUnitAst(string source, IReadOnlyList<LanguageAst> declarations,
-    IReadOnlyList<MixinParseDiagnostic> diagnostics, IReadOnlyList<MixinToken> tokens) : base(declarations) {
+    IReadOnlyList<HixParseDiagnostic> diagnostics, IReadOnlyList<HixToken> tokens) : base(declarations) {
     Source = source;
     Declarations = declarations;
     Diagnostics = diagnostics;
     Tokens = tokens;
-    Kind = MixinSyntaxKind.Document;
-    SourceRange = new MixinSourceRange(0, source.Length, 1, 0);
+    Kind = HixSyntaxKind.Document;
+    SourceRange = new HixSourceRange(0, source.Length, 1, 0);
   }
   public string Source { get; }
   public IReadOnlyList<LanguageAst> Declarations { get; }
-  public IReadOnlyList<MixinParseDiagnostic> Diagnostics { get; }
+  public IReadOnlyList<HixParseDiagnostic> Diagnostics { get; }
 }
 
 public sealed class MixinDeclarationAst(string name, bool derivation, IReadOnlyList<LanguageAst> declarations)
@@ -53,7 +53,7 @@ public sealed class FunctionDeclarationAst(string name, bool pure, bool inline, 
   public BlockStatementAst Body { get; } = body;
 }
 
-public abstract class StatementAst(IEnumerable<MixinAst> children = null) : LanguageAst(children);
+public abstract class StatementAst(IEnumerable<HixAst> children = null) : LanguageAst(children);
 
 public sealed class BlockStatementAst(IReadOnlyList<StatementAst> statements, string label = null)
   : StatementAst(statements) {
@@ -87,7 +87,7 @@ public sealed class SelectionStatementAst(SelectionExpressionAst selection) : St
   public SelectionExpressionAst Selection { get; } = selection;
 }
 
-public abstract class ExpressionAst(IEnumerable<MixinAst> children = null) : LanguageAst(children);
+public abstract class ExpressionAst(IEnumerable<HixAst> children = null) : LanguageAst(children);
 
 public sealed class StringExpressionAst(string value) : ExpressionAst {
   public string Value { get; } = value;
@@ -136,7 +136,7 @@ public sealed class InterpolationExpressionAst(IReadOnlyList<ExpressionAst> part
 }
 
 public sealed class SelectionBranchAst(IReadOnlyList<ExpressionAst> conditions, LanguageAst result,
-  bool transformation = false) : LanguageAst(conditions.Cast<MixinAst>().Concat([result])) {
+  bool transformation = false) : LanguageAst(conditions.Cast<HixAst>().Concat([result])) {
   public IReadOnlyList<ExpressionAst> Conditions { get; } = conditions;
   public LanguageAst Result { get; } = result;
   public bool IsTransformation { get; } = transformation;
@@ -144,7 +144,7 @@ public sealed class SelectionBranchAst(IReadOnlyList<ExpressionAst> conditions, 
 
 public sealed class SelectionExpressionAst(ExpressionAst selector, IReadOnlyList<SelectionBranchAst> branches,
   LanguageAst fallback) : ExpressionAst(
-    (selector is null ? Enumerable.Empty<MixinAst>() : [selector]).Concat(branches)
+    (selector is null ? Enumerable.Empty<HixAst>() : [selector]).Concat(branches)
       .Concat(fallback is null ? [] : [fallback])) {
   public ExpressionAst Selector { get; } = selector;
   public IReadOnlyList<SelectionBranchAst> Branches { get; } = branches;

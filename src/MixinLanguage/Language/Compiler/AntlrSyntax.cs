@@ -5,8 +5,8 @@ using System.IO;
 using System.Linq;
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
-using Lexer = Mixins.Compiler.Generated.MixinLexer;
-using Parser = Mixins.Compiler.Generated.MixinParser;
+using Lexer = Mixins.Compiler.Generated.HixLexer;
+using Parser = Mixins.Compiler.Generated.HixParser;
 
 namespace Mixins.Compiler;
 
@@ -14,7 +14,7 @@ namespace Mixins.Compiler;
 public static class AntlrSyntax {
   public static CompilationUnitAst Parse(string source) {
     source ??= "";
-    var diagnostics = new List<MixinParseDiagnostic>();
+    var diagnostics = new List<HixParseDiagnostic>();
     var errors = new ErrorListener(diagnostics);
     var lexer = new Lexer(new AntlrInputStream(source));
     lexer.RemoveErrorListeners();
@@ -28,7 +28,7 @@ public static class AntlrSyntax {
     var tokens = CompleteTokens(source, stream.GetTokens());
     foreach (var token in stream.GetTokens())
       if (token.Type == Lexer.ERROR_TOKEN)
-        diagnostics.Add(new MixinParseDiagnostic(token.Line, "invalid token '" + token.Text + "'"));
+        diagnostics.Add(new HixParseDiagnostic(token.Line, "invalid token '" + token.Text + "'"));
     // Error recovery trees are useful to ANTLR, but must never produce executable partial programs.
     var builder = new Builder(tokens, diagnostics);
     var declarations = diagnostics.Count == 0
@@ -39,8 +39,8 @@ public static class AntlrSyntax {
     return new CompilationUnitAst(source, declarations, diagnostics, tokens);
   }
 
-  private static MixinToken[] CompleteTokens(string source, IList<IToken> recognized) {
-    var result = new List<MixinToken>();
+  private static HixToken[] CompleteTokens(string source, IList<IToken> recognized) {
+    var result = new List<HixToken>();
     var cursor = 0;
     var line = 1;
     var column = 0;
@@ -56,10 +56,10 @@ public static class AntlrSyntax {
     void Gap(int end) {
       if (end <= cursor) return;
       var text = source.Substring(cursor, end - cursor);
-      var range = new MixinSourceRange(cursor, end, line, column);
-      var kind = text.All(char.IsWhiteSpace) ? MixinTokenKind.Whitespace
-        : text == "\\" ? MixinTokenKind.Escape : MixinTokenKind.Invalid;
-      result.Add(new MixinToken(kind, text, line, range, range));
+      var range = new HixSourceRange(cursor, end, line, column);
+      var kind = text.All(char.IsWhiteSpace) ? HixTokenKind.Whitespace
+        : text == "\\" ? HixTokenKind.Escape : HixTokenKind.Invalid;
+      result.Add(new HixToken(kind, text, line, range, range));
       Advance(end);
     }
     foreach (var token in recognized) {
@@ -72,41 +72,41 @@ public static class AntlrSyntax {
     return result.ToArray();
   }
 
-  private static MixinToken Token(IToken token) {
+  private static HixToken Token(IToken token) {
     var kind = token.Type switch {
-      Lexer.COMMENT or Lexer.SLASH_COMMENT => MixinTokenKind.Comment,
-      Lexer.NEWLINE or Lexer.TERMINATOR => MixinTokenKind.NewLine,
-      Lexer.CONTENT_LINEBREAK => MixinTokenKind.NewLineContinuation,
-      Lexer.CONTENT_WRAP or Lexer.VALUE_WRAP => MixinTokenKind.DirectContinuation,
-      Lexer.ERROR_TOKEN => MixinTokenKind.Invalid,
-      Lexer.ARGUMENT_TEXT or Lexer.CONTENT_TEXT => MixinTokenKind.Text,
-      Lexer.VALUE_MEMBER => MixinTokenKind.Hash,
-      Lexer.VALUE_FUNCTION => MixinTokenKind.FunctionOperator,
-      Lexer.VALUE_PREDICATE => MixinTokenKind.BooleanCallOperator,
-      Lexer.BEGIN_ARGUMENT => MixinTokenKind.OpenArgument,
-      Lexer.ARGUMENT_END => MixinTokenKind.CloseArgument,
-      Lexer.BEGIN_PARAMETERS => MixinTokenKind.OpenParenthesis,
-      Lexer.END_PARAMETERS => MixinTokenKind.CloseParenthesis,
-      Lexer.ESCAPE or Lexer.ESCAPE_HEX or Lexer.ESCAPE_LITERAL or Lexer.ESCAPE_MACRO => MixinTokenKind.Escape,
-      _ => MixinTokenKind.Identifier
+      Lexer.COMMENT or Lexer.SLASH_COMMENT => HixTokenKind.Comment,
+      Lexer.NEWLINE or Lexer.TERMINATOR => HixTokenKind.NewLine,
+      Lexer.CONTENT_LINEBREAK => HixTokenKind.NewLineContinuation,
+      Lexer.CONTENT_WRAP or Lexer.VALUE_WRAP => HixTokenKind.DirectContinuation,
+      Lexer.ERROR_TOKEN => HixTokenKind.Invalid,
+      Lexer.ARGUMENT_TEXT or Lexer.CONTENT_TEXT => HixTokenKind.Text,
+      Lexer.VALUE_MEMBER => HixTokenKind.Hash,
+      Lexer.VALUE_FUNCTION => HixTokenKind.FunctionOperator,
+      Lexer.VALUE_PREDICATE => HixTokenKind.BooleanCallOperator,
+      Lexer.BEGIN_ARGUMENT => HixTokenKind.OpenArgument,
+      Lexer.ARGUMENT_END => HixTokenKind.CloseArgument,
+      Lexer.BEGIN_PARAMETERS => HixTokenKind.OpenParenthesis,
+      Lexer.END_PARAMETERS => HixTokenKind.CloseParenthesis,
+      Lexer.ESCAPE or Lexer.ESCAPE_HEX or Lexer.ESCAPE_LITERAL or Lexer.ESCAPE_MACRO => HixTokenKind.Escape,
+      _ => HixTokenKind.Identifier
     };
-    var range = new MixinSourceRange(token.StartIndex, token.StopIndex + 1, token.Line, token.Column);
-    return new MixinToken(kind, token.Text, token.Line, range, range);
+    var range = new HixSourceRange(token.StartIndex, token.StopIndex + 1, token.Line, token.Column);
+    return new HixToken(kind, token.Text, token.Line, range, range);
   }
 
-  private sealed class ErrorListener(List<MixinParseDiagnostic> diagnostics)
+  private sealed class ErrorListener(List<HixParseDiagnostic> diagnostics)
     : BaseErrorListener, IAntlrErrorListener<int> {
     public override void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol,
       int line, int charPositionInLine, string msg, RecognitionException e) =>
-      diagnostics.Add(new MixinParseDiagnostic(line, $"column {charPositionInLine}: {msg}"));
+      diagnostics.Add(new HixParseDiagnostic(line, $"column {charPositionInLine}: {msg}"));
     public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol,
       int line, int charPositionInLine, string msg, RecognitionException e) =>
-      diagnostics.Add(new MixinParseDiagnostic(line, $"column {charPositionInLine}: {msg}"));
+      diagnostics.Add(new HixParseDiagnostic(line, $"column {charPositionInLine}: {msg}"));
   }
 
-  private sealed class Builder(IReadOnlyList<MixinToken> tokens, List<MixinParseDiagnostic> diagnostics)
-    : Generated.MixinParserBaseVisitor<LanguageAst> {
-    private MixinToken[] TokensIn(MixinSourceRange range) {
+  private sealed class Builder(IReadOnlyList<HixToken> tokens, List<HixParseDiagnostic> diagnostics)
+    : Generated.HixParserBaseVisitor<LanguageAst> {
+    private HixToken[] TokensIn(HixSourceRange range) {
       var low = 0;
       var high = tokens.Count;
       while (low < high) {
@@ -116,13 +116,13 @@ public static class AntlrSyntax {
       }
       var end = low;
       while (end < tokens.Count && tokens[end].End <= range.End) end++;
-      var result = new MixinToken[end - low];
+      var result = new HixToken[end - low];
       for (var index = 0; index < result.Length; index++) result[index] = tokens[low + index];
       return result;
     }
 
     private T At<T>(T node, ParserRuleContext context) where T : LanguageAst {
-      node.SourceRange = new MixinSourceRange(context.Start.StartIndex, context.Stop.StopIndex + 1,
+      node.SourceRange = new HixSourceRange(context.Start.StartIndex, context.Stop.StopIndex + 1,
         context.Start.Line, context.Start.Column);
       node.Tokens = TokensIn(node.SourceRange);
       return node;
@@ -130,7 +130,7 @@ public static class AntlrSyntax {
 
     private void Modifiers(IEnumerable<ParserRuleContext> modifiers) {
       foreach (var duplicate in modifiers.GroupBy(modifier => modifier.GetText()).Where(group => group.Count() > 1))
-        diagnostics.Add(new MixinParseDiagnostic(duplicate.First().Start.Line, "duplicate modifier '" + duplicate.Key + "'"));
+        diagnostics.Add(new HixParseDiagnostic(duplicate.First().Start.Line, "duplicate modifier '" + duplicate.Key + "'"));
     }
 
     private ExpressionAst Value(IParseTree context) => (ExpressionAst)Visit(context);

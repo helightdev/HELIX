@@ -5,8 +5,8 @@ using System.Linq;
 namespace Mixins.Compiler;
 
 internal static class LanguageValidation {
-  internal static void Validate(IReadOnlyList<LanguageAst> declarations, List<MixinParseDiagnostic> diagnostics) {
-    void Error(MixinAst node, string message) => diagnostics.Add(new MixinParseDiagnostic(node.Line, message));
+  internal static void Validate(IReadOnlyList<LanguageAst> declarations, List<HixParseDiagnostic> diagnostics) {
+    void Error(HixAst node, string message) => diagnostics.Add(new HixParseDiagnostic(node.Line, message));
     bool KnownKind(string name) => name == "any" || name != null && KindMixinValue.TryGet(name, out _);
 
     void Signature(FunctionDeclarationAst function, FunctionSignature signature) {
@@ -81,7 +81,7 @@ internal static class LanguageValidation {
     Scope(declarations, []);
   }
 
-  private static IEnumerable<MixinAst> Descendants(MixinAst node) {
+  private static IEnumerable<HixAst> Descendants(HixAst node) {
     yield return node;
     foreach (var child in node.SemanticChildren)
       foreach (var descendant in Descendants(child)) yield return descendant;

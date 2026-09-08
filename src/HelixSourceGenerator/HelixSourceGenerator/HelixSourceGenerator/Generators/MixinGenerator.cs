@@ -641,7 +641,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     IReadOnlyDictionary<string, string> targetDefinitions,
     ICollection<LateTarget> targets
   ) {
-    IEnumerable<MixinAst> Descendants(MixinAst node) {
+    IEnumerable<HixAst> Descendants(HixAst node) {
       yield return node;
       foreach (var child in node.SemanticChildren)
         foreach (var descendant in Descendants(child)) yield return descendant;

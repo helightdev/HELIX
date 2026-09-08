@@ -1,7 +1,7 @@
 # Mixin syntax examples
 
 These examples use the unchanged root ANTLR grammars. Semantic contracts and host function requirements are defined in
-[MixinLanguage.md](MixinLanguage.md). Bare names in value positions are references; angle-bracket arguments are strings.
+[Hix.md](Hix.md). Bare names in value positions are references; angle-bracket arguments are strings.
 
 ```text
 mixin QualifiedCsharpName {

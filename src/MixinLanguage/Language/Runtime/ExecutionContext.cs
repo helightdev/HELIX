@@ -13,7 +13,7 @@ public sealed record ValidationResult(bool Success, string Error, int ErrorLine)
   public static readonly ValidationResult Ok = new(true, null, -1);
   public static readonly ValidationResult UnknownError = new(false, "unknown error", -1);
 
-  public static ValidationResult Fail(string error, MixinAst ast) {
+  public static ValidationResult Fail(string error, HixAst ast) {
     return new ValidationResult(false, error, ast?.Line ?? -1);
   }
 
