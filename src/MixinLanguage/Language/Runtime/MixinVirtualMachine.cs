@@ -6,8 +6,6 @@ using Mixins.Compiler;
 namespace Mixins.Runtime;
 
 public static class MixinVirtualMachine {
-  internal const string CarryLocalPrefix = "\0carry:";
-
   public static MixinExpressionResult Execute(string source, string mixinName, ExecutionContext context,
     IDictionary<string, object> variables = null) => Execute(AntlrSyntax.Parse(source), mixinName, context, variables);
 
@@ -24,13 +22,11 @@ public static class MixinVirtualMachine {
   }
 
   internal static MixinExpressionResult Execute(MixinExpressionExecutionProgram program, ExecutionContext context,
-    IDictionary<string, object> variables, bool importCarries = true) {
+    IDictionary<string, object> variables, IReadOnlyDictionary<string, object> carries = null) {
     context.Strings = program.StringPool;
-    var imported = variables == null ? null : new Dictionary<string, object>(
-      variables.Where(item => importCarries || !item.Key.StartsWith(CarryLocalPrefix, StringComparison.Ordinal))
-        .ToDictionary(item => item.Key, item => item.Value), StringComparer.Ordinal);
+    var imported = variables == null ? null : new Dictionary<string, object>(variables, StringComparer.Ordinal);
     var result = new LanguageExecution(context, program)
-      .Execute(program.Expressions, imported);
+      .Execute(program.Expressions, imported, carries);
     if (variables != null)
       foreach (var item in result.Variables) variables[item.Key] = item.Value;
     return result;

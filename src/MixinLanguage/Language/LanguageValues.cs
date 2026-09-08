@@ -7,6 +7,7 @@ using Mixins.Runtime;
 namespace Mixins;
 
 public sealed record NumberMixinValue(double Value) : IMixinValue {
+  public MixinValueKind Kind => MixinValueKind.Number;
   public bool IsTruthy(ExecutionContext context) => Value != 0;
   public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic(Value.ToString("R", CultureInfo.InvariantCulture));
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
@@ -20,6 +21,7 @@ public sealed record NumberMixinValue(double Value) : IMixinValue {
 
 public sealed record TupleMixinValue(IReadOnlyList<IMixinValue> Values) : IMixinValue {
   public static readonly TupleMixinValue Empty = new(Array.Empty<IMixinValue>());
+  public MixinValueKind Kind => MixinValueKind.Tuple;
   public bool IsTruthy(ExecutionContext context) => Values.Count != 0;
   public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic(
     string.Join(", ", Values.Select(value => value.Render(context).Resolve(context.Strings))));
@@ -40,13 +42,9 @@ public sealed record KindMixinValue(string Name) : IMixinValue {
     Enum.GetValues(typeof(MixinValueKind)).Cast<MixinValueKind>().Where(kind => kind != MixinValueKind.Any)
       .ToDictionary(kind => kind.ToString().ToLowerInvariant(), kind => new KindMixinValue(kind.ToString().ToLowerInvariant()), StringComparer.Ordinal);
   public MixinValueKind ValueKind => (MixinValueKind)Enum.Parse(typeof(MixinValueKind), Name, true);
+  public MixinValueKind Kind => MixinValueKind.Kind;
   internal static KindMixinValue Get(MixinValueKind kind) => Kinds[kind.ToString().ToLowerInvariant()];
   public static bool TryGet(string name, out KindMixinValue kind) => Kinds.TryGetValue(name, out kind);
-  public static KindMixinValue Of(IMixinValue value) => Kinds[value switch {
-    LiteralMixinValue => "string", NumberMixinValue => "number", BooleanMixinValue => "bool",
-    ErrorMixinValue => "error", NullMixinValue => "null", MixinTableValue => "table", TupleMixinValue => "tuple",
-    KindMixinValue => "kind", NamedFunctionMixinValue => "function", _ => "symbol"
-  }];
   public bool IsTruthy(ExecutionContext context) => true;
   public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic(Name);
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {
@@ -60,6 +58,7 @@ public sealed record KindMixinValue(string Name) : IMixinValue {
 
 public sealed record NamedFunctionMixinValue(string Name) : IMixinValue {
   internal Compiler.LanguageFunctionScope Scope { get; init; }
+  public MixinValueKind Kind => MixinValueKind.Function;
   public bool IsTruthy(ExecutionContext context) => true;
   public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic("<function " + Name + ">");
   public void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context) {

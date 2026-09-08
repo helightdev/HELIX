@@ -6,6 +6,7 @@ using Mixins.Runtime;
 namespace Mixins;
 
 internal sealed record LiteralMixinValue(MixinString Value) : IMixinValue {
+   public MixinValueKind Kind => MixinValueKind.String;
   public bool IsTruthy(ExecutionContext context) {
     return !string.IsNullOrEmpty(Value.Resolve(context.Strings));
   }

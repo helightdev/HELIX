@@ -36,7 +36,7 @@ internal sealed class LogFunction(string name, bool dump) : FunctionDefinition(n
   public override bool HasEffects => true;
   internal override IMixinValue Execute(LanguageExecution execution, IMixinValue[] arguments, int line) {
     execution.Logs.Add(new MixinExpressionLog(
-      dump ? KindMixinValue.Of(arguments[0]).Name + ": " + execution.Text(arguments[0]) : execution.Text(arguments[0]), line));
+      dump ? arguments[0].Kind.ToString().ToLowerInvariant() + ": " + execution.Text(arguments[0]) : execution.Text(arguments[0]), line));
     return dump ? arguments[0] : NullMixinValue.Instance;
   }
 }

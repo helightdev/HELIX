@@ -22,7 +22,7 @@ internal sealed partial class LanguageExecution {
         if (tuple.Values[index] is not MixinTableValue record)
           throw new Failure(context.Error("record must be a table"), line);
         var symbol = record.Select(context, context.ResolveString("symbol"));
-        if (KindMixinValue.Of(symbol).Name != "symbol")
+        if (symbol.Kind != MixinValueKind.Symbol)
           throw new Failure(context.Error("record must contain a semantic symbol"), line);
         if (!record.Entries.Any(entry => entry.Key.Resolve(context.Strings) == "value"))
           throw new Failure(context.Error("record must contain value"), line);

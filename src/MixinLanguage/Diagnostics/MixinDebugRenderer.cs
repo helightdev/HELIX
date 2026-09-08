@@ -12,6 +12,7 @@ public sealed record MixinDebugExpression(
   string PreludeIr,
   string LateIr,
   ImmutableDictionary<string, object> Variables,
+  ImmutableDictionary<string, object> Carries,
   string Provider,
   string SourceType,
   string SourceMember,
@@ -70,16 +71,11 @@ public static class MixinDebugRenderer {
       AppendProgram(builder, "PRELUDE EXECUTABLE IR", work.PreludeIr, render.InternStringPool, debugPool);
       AppendProgram(builder, "LATE EXECUTABLE IR", work.LateIr, render.InternStringPool, debugPool);
       builder.AppendLine("// CARRIED VALUES");
-      var carries = work.Variables.Where(item => item.Key.StartsWith(
-          MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
-        ) && IsCarryReferenced(
-          work.LateIr, item.Key.Substring(MixinVirtualMachine.CarryLocalPrefix.Length)
-        )
-      ).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+      var carries = work.Carries.Where(item => IsCarryReferenced(work.LateIr, item.Key))
+        .OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
       if (carries.Length == 0) builder.AppendLine("//   <none>");
       foreach (var carry in carries) {
-        var label = carry.Key.Substring(MixinVirtualMachine.CarryLocalPrefix.Length);
-        builder.Append("//   @carry#").Append(label).Append(" = ")
+        builder.Append("//   @carry#").Append(carry.Key).Append(" = ")
           .AppendLine(FormatValue(carry.Value));
       }
     }
@@ -107,10 +103,7 @@ public static class MixinDebugRenderer {
       builder.Append("//   lateDurationMs = ").AppendLine(FormatMilliseconds(state.LateMilliseconds));
     }
     builder.AppendLine("// SHARED VARIABLES");
-    var persistent = sharedVariables.Where(item => !item.Key.StartsWith(
-        MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
-      )
-    ).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+    var persistent = sharedVariables.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
     if (persistent.Length == 0) builder.AppendLine("//   <empty>");
     foreach (var variable in persistent)
       builder.Append("//   @var#").Append(variable.Key).Append(" = ").AppendLine(FormatValue(variable.Value));

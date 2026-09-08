@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Mixins.Compiler;
+using Mixins.Functions;
 
 namespace Mixins.Runtime;
 
@@ -44,15 +45,11 @@ internal sealed partial class LanguageExecution {
   }
 
   internal MixinExpressionResult Execute(IEnumerable<ExpressionDeclarationAst> expressions,
-    IDictionary<string, object> imported = null) {
+    IDictionary<string, object> imported = null, IReadOnlyDictionary<string, object> importedCarries = null) {
     var started = Stopwatch.GetTimestamp();
     double Elapsed() => (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
-    if (imported != null)
-      foreach (var item in imported) {
-        if (item.Key.StartsWith(MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal))
-          carries[item.Key.Substring(MixinVirtualMachine.CarryLocalPrefix.Length)] = Import(item.Value);
-        else variables[item.Key] = Import(item.Value);
-      }
+    if (imported != null) foreach (var item in imported) variables[item.Key] = Import(item.Value);
+    if (importedCarries != null) foreach (var item in importedCarries) carries[item.Key] = Import(item.Value);
     foreach (var item in context.TargetVariables)
       targetVariables[item.Key.Resolve(context.Strings)] = item.Value;
     var previousOutput = context.OutputSink;
@@ -82,13 +79,14 @@ internal sealed partial class LanguageExecution {
       }
       ClosePrelude();
       var exported = Commit(imported);
-      return new MixinExpressionResult(true, null, 0, outputs.ToArray(), logs.ToArray(), exported, steps, Elapsed());
+      return new MixinExpressionResult(true, null, 0, outputs.ToArray(), logs.ToArray(), exported,
+        ExportCarries(), steps, Elapsed());
     } catch (Failure failure) {
       return new MixinExpressionResult(false, Text(failure.Value), failure.Line, outputs.ToArray(), logs.ToArray(),
-        Commit(imported), executedOperations: steps, executionMilliseconds: Elapsed());
+        Commit(imported), ExportCarries(), executedOperations: steps, executionMilliseconds: Elapsed());
     } catch (Flow flow) {
       return new MixinExpressionResult(false, "invalid " + flow.Kind + " outside its scope", flow.Line,
-        outputs.ToArray(), logs.ToArray(), Commit(imported), steps, Elapsed());
+        outputs.ToArray(), logs.ToArray(), Commit(imported), ExportCarries(), steps, Elapsed());
     } finally {
       context.OutputSink = previousOutput;
       context.LogSink = previousLog;
@@ -98,13 +96,14 @@ internal sealed partial class LanguageExecution {
   private IReadOnlyDictionary<string, object> Commit(IDictionary<string, object> imported) {
     var exported = variables.ToDictionary(item => item.Key,
       item => context.UnlinkSnapshot(item.Value), StringComparer.Ordinal);
-    foreach (var item in carries)
-      exported[MixinVirtualMachine.CarryLocalPrefix + item.Key] = context.UnlinkSnapshot(item.Value);
     if (imported != null) foreach (var item in exported) imported[item.Key] = item.Value;
     context.TargetVariables.ReplaceWith(targetVariables.Select(item =>
       new KeyValuePair<MixinString, IMixinValue>(ExecutionContext.Dynamic(item.Key), item.Value)));
     return exported;
   }
+
+  private IReadOnlyDictionary<string, object> ExportCarries() => carries.ToDictionary(
+    item => item.Key, item => context.UnlinkSnapshot(item.Value), StringComparer.Ordinal);
 
   private void ClosePrelude() {
     foreach (var name in carries.Keys.ToArray()) carries[name] = context.DetachValue(carries[name]);
@@ -159,25 +158,51 @@ internal sealed partial class LanguageExecution {
       if (signature == null) matches.Add((function, null, Pack(arguments), -10000, candidate.Owner));
       else {
         if (signature.Inputs == null) {
-          if (arguments.Length == 1 && MatchesKind(arguments[0], signature.InputKind))
-            matches.Add((function, signature, arguments[0], signature.InputKind == "any" ? 1000 : 1001, candidate.Owner));
+          if (arguments.Length == 1 && TryConvert(arguments[0], signature.InputKind, out var converted, out var conversionCount))
+            matches.Add((function, signature, converted,
+              (signature.InputKind == "any" ? 1000 : 1001) - conversionCount, candidate.Owner));
           continue;
         }
         var fields = signature.Inputs;
         var variadic = fields.Count > 0 && fields[fields.Count - 1].Variadic;
         var fixedCount = fields.Count - (variadic ? 1 : 0);
-        if (arguments.Length == 1 && arguments[0] is MixinTableValue supplied && !variadic &&
-          fields.All(field => supplied.Entries.Any(entry => entry.Key.Resolve(context.Strings) == field.Name && MatchesKind(entry.Value, field.Kind)))) {
-          matches.Add((function, signature, supplied, 1000 + fields.Count(field => field.Kind != "any"), candidate.Owner));
-          continue;
+        if (arguments.Length == 1 && arguments[0] is MixinTableValue supplied && !variadic) {
+          var convertedEntries = supplied.Entries.ToArray();
+          var namedConversions = 0;
+          var valid = true;
+          foreach (var field in fields) {
+            var entryIndex = Array.FindIndex(convertedEntries,
+              entry => entry.Key.Resolve(context.Strings) == field.Name);
+            if (entryIndex < 0 || !TryConvert(convertedEntries[entryIndex].Value, field.Kind,
+                  out var converted, out var count)) { valid = false; break; }
+            convertedEntries[entryIndex] = new KeyValuePair<MixinString, IMixinValue>(
+              convertedEntries[entryIndex].Key, converted);
+            namedConversions += count;
+          }
+          if (valid) {
+            matches.Add((function, signature, new MixinTableValue(convertedEntries),
+              1000 + fields.Count(field => field.Kind != "any") - namedConversions, candidate.Owner));
+            continue;
+          }
         }
         if (arguments.Length < fixedCount || !variadic && arguments.Length != fixedCount) continue;
-        if (!fields.Take(fixedCount).Select((field, index) => MatchesKind(arguments[index], field.Kind)).All(match => match)) continue;
-        if (variadic && !arguments.Skip(fixedCount).All(argument => MatchesKind(argument, fields[fields.Count - 1].Kind))) continue;
+        var convertedArguments = new IMixinValue[arguments.Length];
+        var positionalConversions = 0;
+        var positionalValid = true;
+        for (var index = 0; index < arguments.Length; index++) {
+          var field = fields[Math.Min(index, fields.Count - 1)];
+          if (!TryConvert(arguments[index], field.Kind, out convertedArguments[index], out var count)) {
+            positionalValid = false;
+            break;
+          }
+          positionalConversions += count;
+        }
+        if (!positionalValid) continue;
         var entries = fields.Select((field, index) => new KeyValuePair<MixinString, IMixinValue>(
           context.ResolveString(field.Name), field.Variadic
-            ? new TupleMixinValue(arguments.Skip(index).ToArray()) : arguments[index])).ToArray();
-        matches.Add((function, signature, new MixinTableValue(entries), (variadic ? 0 : 1000) + fields.Count(field => field.Kind != "any"), candidate.Owner));
+            ? new TupleMixinValue(convertedArguments.Skip(index).ToArray()) : convertedArguments[index])).ToArray();
+        matches.Add((function, signature, new MixinTableValue(entries), (variadic ? 0 : 1000) +
+          fields.Count(field => field.Kind != "any") - positionalConversions, candidate.Owner));
       }
     }
     if (matches.Count > 0) {
@@ -237,7 +262,22 @@ internal sealed partial class LanguageExecution {
     ? MatchesKind(value, signature.OutputKind)
     : value is MixinTableValue table && signature.Outputs.All(field => table.Entries.Any(entry =>
       entry.Key.Resolve(context.Strings) == field.Name && MatchesKind(entry.Value, field.Kind)));
-  internal static bool MatchesKind(IMixinValue value, string kind) => kind == "any" || KindMixinValue.Of(value).Name == kind;
+  internal static bool MatchesKind(IMixinValue value, string kind) => kind == "any" || value.Kind.ToString().Equals(kind, StringComparison.OrdinalIgnoreCase);
+  private bool TryConvert(IMixinValue value, string kind, out IMixinValue converted, out int conversions) {
+    if (kind == "any" || value.Kind.ToString().Equals(kind, StringComparison.OrdinalIgnoreCase)) {
+      converted = value;
+      conversions = 0;
+      return true;
+    }
+    if (!KindMixinValue.TryGet(kind, out var target) ||
+      !KindDefinitions.TryImplicitConvert(this, value, target.ValueKind, out converted)) {
+      converted = null;
+      conversions = 0;
+      return false;
+    }
+    conversions = 1;
+    return true;
+  }
   private static void Restore(Dictionary<string, IMixinValue> storage, KeyValuePair<string, IMixinValue>[] saved) {
     storage.Clear();
     foreach (var item in saved) storage.Add(item.Key, item.Value);

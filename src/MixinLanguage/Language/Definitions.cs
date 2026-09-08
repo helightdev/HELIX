@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Mixins.Functions;
 using Mixins.Compiler;
 using Mixins.Env;
 using Mixins.Runtime;
@@ -165,10 +166,29 @@ public abstract class FunctionDefinition {
   public virtual bool AcceptsErrors => false;
   public virtual IReadOnlyList<int> CSharpTypeArguments => Array.Empty<int>();
   internal bool MatchesValues(IMixinValue[] values) {
-    return Signatures.Any(signature => signature.MatchesArgumentCount(values.Length) && values.Select((value, index) => {
-      var expected = signature.GetArgumentType(index);
-      return expected == MixinValueKind.Any || KindMixinValue.Of(value).ValueKind == expected;
-    }).All(match => match));
+    return Signatures.Any(signature => signature.MatchesArgumentCount(values.Length) &&
+      values.Select((value, index) => signature.GetArgumentType(index) is var expected &&
+        (expected == MixinValueKind.Any || value.Kind == expected)).All(match => match));
+  }
+  internal bool TryConvertValues(LanguageExecution execution, IMixinValue[] values,
+    out IMixinValue[] converted, out int conversionCount) {
+    converted = null;
+    conversionCount = int.MaxValue;
+    foreach (var signature in Signatures.Where(signature => signature.MatchesArgumentCount(values.Length))) {
+      var candidate = new IMixinValue[values.Length];
+      var count = 0;
+      var valid = true;
+      for (var index = 0; index < values.Length; index++) {
+        var expected = signature.GetArgumentType(index);
+        if (!KindDefinitions.TryImplicitConvert(execution, values[index], expected, out candidate[index])) {
+          valid = false;
+          break;
+        }
+        if (!ReferenceEquals(candidate[index], values[index])) count++;
+      }
+      if (valid && count < conversionCount) { converted = candidate; conversionCount = count; }
+    }
+    return converted != null;
   }
   internal abstract IMixinValue Execute(LanguageExecution execution, IMixinValue[] arguments, int line);
 }

@@ -12,6 +12,7 @@ namespace Mixins.Runtime;
 /// <summary>Immutable handle to a Roslyn semantic value; all services come from ExecutionContext.</summary>
 internal sealed record RoslynMixinValue(object Value, MixinExpressionRoot Root = MixinExpressionRoot.Null)
   : IMixinValue {
+  public MixinValueKind Kind => MixinValueKind.Symbol;
   public bool IsTruthy(ExecutionContext context) {
     return Value switch {
       null => false, bool boolean => boolean,
@@ -122,6 +123,7 @@ internal sealed record DetachedSemanticData(string Namespace, string TypeName);
 internal sealed record DetachedSemanticMixinValue(
   MixinString Namespace, MixinString TypeName
 ) : IMixinValue {
+  public MixinValueKind Kind => MixinValueKind.Symbol;
   public bool IsTruthy(ExecutionContext context) {
     return true;
   }

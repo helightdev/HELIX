@@ -203,11 +203,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         wrapper.Detach(), methods.ToImmutableArray(),
         finalizedOutputs.Annotations, finalizedOutputs.Class,
         finalizedOutputs.File, finalizedOutputs.Implements,
-        finalizedOutputs.Usings, expressionVariables
-          .Where(item => !item.Key.StartsWith(
-              MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
-            )
-          ),
+        finalizedOutputs.Usings, expressionVariables,
         preparedExpressions.StringPool,
         hostValues.TargetVariableFingerprintValues(preparedExpressions.StringPool),
         context.DebugExpressions.ToImmutableArray(), context.Debug, context.DebugStringPool
@@ -264,9 +260,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     foreach (var work in model.LateExpressions) {
       var variables = work.Variables.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
       foreach (var item in sharedVariables) variables[item.Key] = item.Value;
-      var result = MixinVirtualMachine.Execute(
-        work.Program, unlinkedContext, variables
-      );
+      var result = MixinVirtualMachine.Execute(work.Program, unlinkedContext, variables, work.Carries);
       foreach (var log in result.Logs)
         logs.Add(new MixinReportedLog(log, work.Location));
       if (!result.Success) {
@@ -282,11 +276,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
           debugState.Work, result.ExecutedOperations, result.ExecutionMilliseconds
         );
       }
-      foreach (var item in variables
-        .Where(static item => !item.Key.StartsWith(
-            MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
-          )
-        )) sharedVariables[item.Key] = item.Value;
+      foreach (var item in variables) sharedVariables[item.Key] = item.Value;
       foreach (var output in result.Outputs) {
         switch (output.Target) {
           case MixinEmissionTarget.Class: classCode.Add(output); break;
@@ -504,9 +494,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       preparedExpressions: preparedExpressions, libraries: libraries, hostValues: hostValues,
       mixinCompilation: mixinCompilation
     );
-    var evaluated = MixinVirtualMachine.Execute(
-      expression, expressionContext, expressionVariables, false
-    );
+    var evaluated = MixinVirtualMachine.Execute(expression, expressionContext, expressionVariables);
     ReportExpressionLogs(context, location, evaluated.Logs);
     if (!evaluated.Success) {
       ReportInvalidAttributeExpression(
@@ -518,7 +506,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     expressionContext.CommitTargetVariables();
     context.AddDebugExpression(
       selectedProgram.Prelude.ExecutableIr, selectedProgram.Late.ExecutableIr,
-      evaluated.Variables,
+      evaluated.Variables, evaluated.Carries,
       providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
       evaluated.ExecutionMilliseconds
     );
@@ -531,10 +519,11 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         )
       ).ToList();
       DiscoverLateMixinTargets(
-        lateExpression, evaluated.Variables, targetDefinitions, lateTargets
+        lateExpression, evaluated.Carries, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
-        lateExpression, selectedProgram.Prelude.ExecutableIr, selectedProgram.Late.ExecutableIr, evaluated.Variables,
+        lateExpression, selectedProgram.Prelude.ExecutableIr, selectedProgram.Late.ExecutableIr,
+        evaluated.Variables, evaluated.Carries,
         lateTargets.Distinct().ToImmutableArray(), location,
         providerName ?? attributeName, sourceType,
         annotated is INamedTypeSymbol ? "" : annotated.MetadataName,
@@ -638,7 +627,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
 
   private static void DiscoverLateMixinTargets(
     MixinExpressionExecutionProgram program,
-    IReadOnlyDictionary<string, object> variables,
+    IReadOnlyDictionary<string, object> carries,
     IReadOnlyDictionary<string, string> targetDefinitions,
     ICollection<LateTarget> targets
   ) {
@@ -652,7 +641,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       string resolved = call.Arguments[0] switch {
         StringExpressionAst text => text.Value,
         MemberExpressionAst {Receiver: RootExpressionAst {Name: "carry"}, Member: var carry}
-          when variables.TryGetValue(MixinVirtualMachine.CarryLocalPrefix + carry, out var carried) =>
+          when carries.TryGetValue(carry, out var carried) =>
             Convert.ToString(carried, CultureInfo.InvariantCulture),
         _ => null
       };
@@ -1101,6 +1090,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       string preludeIr,
       string lateIr,
       IReadOnlyDictionary<string, object> variables,
+      IReadOnlyDictionary<string, object> carries,
       ImmutableArray<LateTarget> targets,
       Location location,
       string provider,
@@ -1111,7 +1101,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     ) {
       _lateExpressions.Add(
         new LateExpressionWork(
-          program, preludeIr, lateIr, variables,
+          program, preludeIr, lateIr, variables, carries,
           targets,
           MixinDiagnostic.Detach(Diagnostic.Create(ExpressionLog, location, "")),
           provider ?? "", sourceType ?? "",
@@ -1124,6 +1114,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       string preludeIr,
       string lateIr,
       IReadOnlyDictionary<string, object> variables,
+      IReadOnlyDictionary<string, object> carries,
       string provider,
       ISymbol source,
       int preludeOperations,
@@ -1133,6 +1124,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       _debugExpressions.Add(
         new MixinDebugExpression(
           preludeIr, lateIr, variables.ToImmutableDictionary(StringComparer.Ordinal),
+          carries.ToImmutableDictionary(StringComparer.Ordinal),
           provider ?? "", (source as INamedTypeSymbol ?? source.ContainingType)
           ?.ToDisplayString(TypeDisplayFormat) ?? "",
           source is INamedTypeSymbol ? "" : source.MetadataName,
@@ -1172,6 +1164,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     string PreludeIr,
     string LateIr,
     IReadOnlyDictionary<string, object> Variables,
+    IReadOnlyDictionary<string, object> Carries,
     ImmutableArray<LateTarget> Targets,
     MixinDiagnostic Location,
     string Provider,
@@ -1524,7 +1517,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         var left = x[index];
         var right = y[index];
         if (left.PreludeIr != right.PreludeIr || left.LateIr != right.LateIr ||
-          left.Variables.Count != right.Variables.Count || left.Provider != right.Provider ||
+          left.Variables.Count != right.Variables.Count || left.Carries.Count != right.Carries.Count ||
+          left.Provider != right.Provider ||
           left.SourceType != right.SourceType || left.SourceMember != right.SourceMember ||
           left.SourceKind != right.SourceKind ||
           left.SourceParameterCount != right.SourceParameterCount ||
@@ -1535,6 +1529,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         }
         foreach (var item in left.Variables) {
           if (!right.Variables.TryGetValue(item.Key, out var value) || !Equals(item.Value, value))
+            return false;
+        }
+        foreach (var item in left.Carries) {
+          if (!right.Carries.TryGetValue(item.Key, out var value) || !Equals(item.Value, value))
             return false;
         }
       }

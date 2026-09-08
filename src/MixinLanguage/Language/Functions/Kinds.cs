@@ -7,12 +7,13 @@ using static Mixins.Runtime.LanguageExecution;
 
 namespace Mixins.Functions;
 
-internal abstract class KindDefinition(MixinValueKind valueKind) {
+internal abstract class KindDefinition(MixinValueKind valueKind, params MixinValueKind[] implicitSources) {
+  internal IReadOnlyCollection<MixinValueKind> ImplicitSources { get; } = new HashSet<MixinValueKind>(implicitSources);
   internal KindMixinValue Kind { get; } = KindMixinValue.Get(valueKind);
   internal MixinValueKind ValueKind => valueKind;
   internal abstract IMixinValue New(LanguageExecution execution);
   internal abstract IMixinValue Convert(LanguageExecution execution, IMixinValue value);
-  internal bool Is(IMixinValue value) => KindMixinValue.Of(value).ValueKind == valueKind;
+  internal bool Is(IMixinValue value) => value.Kind == valueKind;
 }
 
 internal static class KindDefinitions {
@@ -25,20 +26,31 @@ internal static class KindDefinitions {
   internal static IEnumerable<KindDefinition> Enumerate() => All;
   internal static KindDefinition Get(KindMixinValue kind) => ByKind[kind.ValueKind];
   internal static KindDefinition Get(MixinValueKind kind) => ByKind[kind];
+  internal static bool TryImplicitConvert(LanguageExecution execution, IMixinValue value,
+    MixinValueKind target, out IMixinValue converted) {
+    if (value.Kind == target || target == MixinValueKind.Any) { converted = value; return true; }
+    var definition = Get(target);
+    if (!definition.ImplicitSources.Contains(value.Kind)) { converted = null; return false; }
+    converted = definition.Convert(execution, value);
+    return converted is not ErrorMixinValue && converted.Kind == target;
+  }
 
-  private sealed class NullKind() : KindDefinition(MixinValueKind.Null) {
+  private sealed class NullKind() : KindDefinition(MixinValueKind.Null, MixinValueKind.String) {
     internal override IMixinValue New(LanguageExecution _) => NullMixinValue.Instance;
     internal override IMixinValue Convert(LanguageExecution _, IMixinValue value) => NullMixinValue.Instance;
   }
-  private sealed class StringKind() : KindDefinition(MixinValueKind.String) {
+  private sealed class StringKind() : KindDefinition(MixinValueKind.String,
+    MixinValueKind.Null, MixinValueKind.Bool, MixinValueKind.Number, MixinValueKind.Symbol,
+    MixinValueKind.Function, MixinValueKind.Error, MixinValueKind.Kind) {
     internal override IMixinValue New(LanguageExecution _) => String("");
     internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => String(execution.Text(value));
   }
-  private sealed class BoolKind() : KindDefinition(MixinValueKind.Bool) {
+  private sealed class BoolKind() : KindDefinition(MixinValueKind.Bool, MixinValueKind.String) {
     internal override IMixinValue New(LanguageExecution _) => BooleanMixinValue.False;
     internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => Bool(value.IsTruthy(execution.Context));
   }
-  private sealed class NumberKind() : KindDefinition(MixinValueKind.Number) {
+  private sealed class NumberKind() : KindDefinition(MixinValueKind.Number,
+    MixinValueKind.String, MixinValueKind.Bool, MixinValueKind.Null) {
     internal override IMixinValue New(LanguageExecution _) => new NumberMixinValue(0);
     internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) {
       if (value is NullMixinValue) return New(execution);
@@ -49,7 +61,8 @@ internal static class KindDefinitions {
         ? new NumberMixinValue(number) : execution.Context.Error("invalid number");
     }
   }
-  private sealed class TupleKind() : KindDefinition(MixinValueKind.Tuple) {
+  private sealed class TupleKind() : KindDefinition(MixinValueKind.Tuple,
+    MixinValueKind.String, MixinValueKind.Null, MixinValueKind.Table) {
     internal override IMixinValue New(LanguageExecution _) => TupleMixinValue.Empty;
     internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => value switch {
       NullMixinValue => New(execution), TupleMixinValue => value,
@@ -58,7 +71,8 @@ internal static class KindDefinitions {
       _ => new TupleMixinValue([value])
     };
   }
-  private sealed class TableKind() : KindDefinition(MixinValueKind.Table) {
+  private sealed class TableKind() : KindDefinition(MixinValueKind.Table,
+    MixinValueKind.String, MixinValueKind.Null, MixinValueKind.Tuple) {
     internal override IMixinValue New(LanguageExecution _) => MixinTableValue.Empty;
     internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) {
       if (value is MixinTableValue) return value;
@@ -76,17 +90,17 @@ internal static class KindDefinitions {
     internal override IMixinValue New(LanguageExecution execution) => execution.Context.Error("not a symbol");
     internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => Is(value) ? value : New(execution);
   }
-  private sealed class FunctionKind() : KindDefinition(MixinValueKind.Function) {
+  private sealed class FunctionKind() : KindDefinition(MixinValueKind.Function, MixinValueKind.String) {
     internal override IMixinValue New(LanguageExecution _) => new NamedFunctionMixinValue("");
     internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => value is NamedFunctionMixinValue
       ? value : (IMixinValue)execution.BindFunction(execution.Text(value)) ?? execution.Context.Error("unknown function");
   }
-  private sealed class ErrorKind() : KindDefinition(MixinValueKind.Error) {
+  private sealed class ErrorKind() : KindDefinition(MixinValueKind.Error, MixinValueKind.String) {
     internal override IMixinValue New(LanguageExecution execution) => execution.Context.Error("unspecified error");
     internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => execution.Context.Error(execution.Text(value));
   }
   private sealed class KindKind() : KindDefinition(MixinValueKind.Kind) {
     internal override IMixinValue New(LanguageExecution _) => Kind;
-    internal override IMixinValue Convert(LanguageExecution _, IMixinValue value) => KindMixinValue.Of(value);
+    internal override IMixinValue Convert(LanguageExecution _, IMixinValue value) => KindMixinValue.Get(value.Kind);
   }
 }

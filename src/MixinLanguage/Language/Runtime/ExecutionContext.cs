@@ -68,7 +68,8 @@ public sealed class MixinExpressionResult {
   internal MixinExpressionResult(
     bool success, string error, int errorLine,
     IReadOnlyList<MixinExpressionOutput> outputs, IReadOnlyList<MixinExpressionLog> logs = null,
-    IReadOnlyDictionary<string, object> variables = null, int executedOperations = 0,
+    IReadOnlyDictionary<string, object> variables = null, IReadOnlyDictionary<string, object> carries = null,
+    int executedOperations = 0,
     double executionMilliseconds = 0
   ) {
     Success = success;
@@ -77,6 +78,7 @@ public sealed class MixinExpressionResult {
     Outputs = outputs ?? [];
     Logs = logs ?? [];
     Variables = variables ?? new Dictionary<string, object>();
+    Carries = carries ?? new Dictionary<string, object>();
     ExecutedOperations = executedOperations;
     ExecutionMilliseconds = executionMilliseconds;
   }
@@ -87,6 +89,7 @@ public sealed class MixinExpressionResult {
   public IReadOnlyList<MixinExpressionOutput> Outputs { get; }
   public IReadOnlyList<MixinExpressionLog> Logs { get; }
   public IReadOnlyDictionary<string, object> Variables { get; }
+  public IReadOnlyDictionary<string, object> Carries { get; }
   public int ExecutedOperations { get; }
   public double ExecutionMilliseconds { get; }
 }

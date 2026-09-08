@@ -77,6 +77,30 @@ public sealed class MixinLanguageExecutionTests {
   }
 
   [Fact]
+  public void SignatureMatchingAppliesOneDirectImplicitCoercion() {
+    var declared = Run("emit(describe(12))", """
+      pure func describe sig string -> string { return(param) }
+      """);
+    Assert.True(declared.Success, declared.Error);
+    Assert.Equal("12", Assert.Single(declared.Outputs).Text);
+
+    var builtin = Run("emit(identifier(34))");
+    Assert.True(builtin.Success, builtin.Error);
+    Assert.Equal("34", Assert.Single(builtin.Outputs).Text);
+
+    var fromString = Run("emit(plus(<2>, 3))");
+    Assert.True(fromString.Success, fromString.Error);
+    Assert.Equal("5", Assert.Single(fromString.Outputs).Text);
+
+    var exact = Run("emit(choose(56))", """
+      pure func choose sig string -> string { return(<string>) }
+      pure func choose sig number -> string { return(<number>) }
+      """);
+    Assert.True(exact.Success, exact.Error);
+    Assert.Equal("number", Assert.Single(exact.Outputs).Text);
+  }
+
+  [Fact]
   public void CheckedFailuresCanBeHandledButElvisDoesNotCatchErrors() {
     var result = Run("local x = [error<bad>?]\nemit(kind(local#x))\nemit(catch(local#x) ?: <fallback>)");
     Assert.True(result.Success, result.Error);
@@ -309,6 +333,7 @@ public sealed class MixinLanguageExecutionTests {
   }
 
   private sealed record TestSymbol : IMixinValue {
+    public MixinValueKind Kind => MixinValueKind.Symbol;
     public bool IsTruthy(Mixins.Runtime.ExecutionContext context) => true;
     public MixinString Render(Mixins.Runtime.ExecutionContext context) => MixinString.Dynamic("TestSymbol");
     public void Fingerprint(MixinFingerprintBuilder builder, Mixins.Runtime.ExecutionContext context) => builder.Append("TestSymbol");

@@ -7,6 +7,7 @@ using Mixins.Compiler;
 namespace Mixins;
 
 public interface IMixinValue : IEquatable<IMixinValue> {
+  MixinValueKind Kind { get; }
   bool IsTruthy(ExecutionContext context);
   MixinString Render(ExecutionContext context);
   void Fingerprint(MixinFingerprintBuilder builder, ExecutionContext context);
@@ -15,6 +16,7 @@ public interface IMixinValue : IEquatable<IMixinValue> {
 }
 
 public sealed record ErrorMixinValue(MixinString Message, bool IsChecked = false) : IMixinValue {
+  public MixinValueKind Kind => MixinValueKind.Error;
   public bool IsTruthy(ExecutionContext context) {
     return false;
   }
@@ -45,6 +47,7 @@ public sealed record ErrorMixinValue(MixinString Message, bool IsChecked = false
 public sealed class NullMixinValue : IMixinValue {
   public static readonly NullMixinValue Instance = new();
   private NullMixinValue() { }
+  public MixinValueKind Kind => MixinValueKind.Null;
 
   public bool IsTruthy(ExecutionContext context) {
     return false;
@@ -82,6 +85,7 @@ public sealed class NullMixinValue : IMixinValue {
 public sealed record BooleanMixinValue(bool Value) : IMixinValue {
   public static readonly BooleanMixinValue True = new(true), False = new(false);
   public static BooleanMixinValue From(bool value) => value ? True : False;
+  public MixinValueKind Kind => MixinValueKind.Bool;
 
   public bool IsTruthy(ExecutionContext context) {
     return Value;
@@ -110,6 +114,7 @@ public sealed record BooleanMixinValue(bool Value) : IMixinValue {
 }
 
 public sealed record ObjectMixinValue(object Value) : IMixinValue {
+  public MixinValueKind Kind => MixinValueKind.Symbol;
   public bool IsTruthy(ExecutionContext context) {
     return Value is not null && Value is not false;
   }
@@ -139,6 +144,7 @@ public sealed record ObjectMixinValue(object Value) : IMixinValue {
 public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMixinValue>> Entries) : IMixinValue {
   public static readonly MixinTableValue Empty = new([]);
   public int Count => Entries.Count;
+  public MixinValueKind Kind => MixinValueKind.Table;
 
   public bool IsTruthy(ExecutionContext context) {
     return Count != 0;
