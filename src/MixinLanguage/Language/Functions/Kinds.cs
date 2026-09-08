@@ -43,7 +43,7 @@ internal static class KindDefinitions {
     MixinValueKind.Null, MixinValueKind.Bool, MixinValueKind.Number, MixinValueKind.Symbol,
     MixinValueKind.Function, MixinValueKind.Error, MixinValueKind.Kind) {
     internal override IMixinValue New(LanguageExecution _) => String("");
-    internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => String(execution.Text(value));
+    internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => execution.RenderText(value);
   }
   private sealed class BoolKind() : KindDefinition(MixinValueKind.Bool, MixinValueKind.String) {
     internal override IMixinValue New(LanguageExecution _) => BooleanMixinValue.False;
@@ -56,7 +56,9 @@ internal static class KindDefinitions {
       if (value is NullMixinValue) return New(execution);
       if (value is NumberMixinValue) return value;
       if (value is BooleanMixinValue boolean) return new NumberMixinValue(boolean.Value ? 1 : 0);
-      return double.TryParse(execution.Text(value), NumberStyles.Float, CultureInfo.InvariantCulture, out var number) &&
+      var rendered = execution.RenderText(value);
+      if (rendered is ErrorMixinValue) return rendered;
+      return double.TryParse(execution.Text(rendered), NumberStyles.Float, CultureInfo.InvariantCulture, out var number) &&
              !double.IsInfinity(number) && !double.IsNaN(number)
         ? new NumberMixinValue(number) : execution.Context.Error("invalid number");
     }
@@ -92,12 +94,18 @@ internal static class KindDefinitions {
   }
   private sealed class FunctionKind() : KindDefinition(MixinValueKind.Function, MixinValueKind.String) {
     internal override IMixinValue New(LanguageExecution _) => new NamedFunctionMixinValue("");
-    internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => value is NamedFunctionMixinValue
-      ? value : (IMixinValue)execution.BindFunction(execution.Text(value)) ?? execution.Context.Error("unknown function");
+    internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) {
+      if (value is NamedFunctionMixinValue) return value;
+      var rendered = execution.RenderText(value);
+      return rendered is ErrorMixinValue ? rendered : (IMixinValue)execution.BindFunction(execution.Text(rendered)) ?? execution.Context.Error("unknown function");
+    }
   }
   private sealed class ErrorKind() : KindDefinition(MixinValueKind.Error, MixinValueKind.String) {
     internal override IMixinValue New(LanguageExecution execution) => execution.Context.Error("unspecified error");
-    internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) => execution.Context.Error(execution.Text(value));
+    internal override IMixinValue Convert(LanguageExecution execution, IMixinValue value) {
+      var rendered = execution.RenderText(value);
+      return rendered is ErrorMixinValue ? rendered : execution.Context.Error(execution.Text(rendered));
+    }
   }
   private sealed class KindKind() : KindDefinition(MixinValueKind.Kind) {
     internal override IMixinValue New(LanguageExecution _) => Kind;

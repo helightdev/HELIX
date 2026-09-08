@@ -26,7 +26,7 @@ internal sealed class MatchFunction() : FunctionDefinition("match", 0, MixinValu
   [MixinValueKind.Any], variadic: true) {
   internal override IMixinValue Execute(LanguageExecution execution, IMixinValue[] arguments, int line) {
     if (!arguments.All(value => value.IsTruthy(execution.Context)))
-      throw new Flow(Compiler.ControlFlowKind.Break, null, NullMixinValue.Instance, line);
+      execution.Break(line);
     return NullMixinValue.Instance;
   }
 }
@@ -35,8 +35,10 @@ internal sealed class LogFunction(string name, bool dump) : FunctionDefinition(n
   dump ? MixinValueKind.Any : MixinValueKind.Null, [MixinValueKind.Any]) {
   public override bool HasEffects => true;
   internal override IMixinValue Execute(LanguageExecution execution, IMixinValue[] arguments, int line) {
+    var rendered = execution.RenderText(arguments[0]);
+    if (rendered is ErrorMixinValue) return rendered;
     execution.Logs.Add(new MixinExpressionLog(
-      dump ? arguments[0].Kind.ToString().ToLowerInvariant() + ": " + execution.Text(arguments[0]) : execution.Text(arguments[0]), line));
+      (dump ? arguments[0].Kind.ToString().ToLowerInvariant() + ": " : "") + execution.Text(rendered), line));
     return dump ? arguments[0] : NullMixinValue.Instance;
   }
 }

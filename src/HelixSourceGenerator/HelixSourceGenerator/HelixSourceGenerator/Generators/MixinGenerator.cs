@@ -505,7 +505,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
     expressionContext.CommitTargetVariables();
     context.AddDebugExpression(
-      selectedProgram.Prelude.ExecutableIr, selectedProgram.Late.ExecutableIr,
+      selectedProgram.Prelude, selectedProgram.Late,
       evaluated.Variables, evaluated.Carries,
       providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
       evaluated.ExecutionMilliseconds
@@ -631,20 +631,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     IReadOnlyDictionary<string, string> targetDefinitions,
     ICollection<LateTarget> targets
   ) {
-    IEnumerable<HixAst> Descendants(HixAst node) {
-      yield return node;
-      foreach (var child in node.SemanticChildren)
-        foreach (var descendant in Descendants(child)) yield return descendant;
-    }
-    foreach (var call in program.Expressions.SelectMany(Descendants).OfType<CallExpressionAst>()) {
-      if (call.Name != "inject" || call.Arguments.Count < 2) continue;
-      string resolved = call.Arguments[0] switch {
-        StringExpressionAst text => text.Value,
-        MemberExpressionAst {Receiver: RootExpressionAst {Name: "carry"}, Member: var carry}
-          when carries.TryGetValue(carry, out var carried) =>
-            Convert.ToString(carried, CultureInfo.InvariantCulture),
-        _ => null
-      };
+    foreach (var target in program.LateTargets) {
+      string resolved = target.IsCarry
+        ? carries.TryGetValue(target.Value, out var carried) ? Convert.ToString(carried, CultureInfo.InvariantCulture) : null
+        : target.Value;
       if (string.IsNullOrWhiteSpace(resolved)) continue;
       var syntax = RoslynMixinContext.ParseMixinTarget(resolved, targetDefinitions);
       targets.Add(new LateTarget(resolved, syntax.Name, syntax.IsStatic, syntax.IsPublic, syntax.DelegateType, 0));
@@ -1111,8 +1101,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
 
     internal void AddDebugExpression(
-      string preludeIr,
-      string lateIr,
+      MixinExpressionExecutionProgram preludeProgram,
+      MixinExpressionExecutionProgram lateProgram,
       IReadOnlyDictionary<string, object> variables,
       IReadOnlyDictionary<string, object> carries,
       string provider,
@@ -1123,7 +1113,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       if (!Debug) return;
       _debugExpressions.Add(
         new MixinDebugExpression(
-          preludeIr, lateIr, variables.ToImmutableDictionary(StringComparer.Ordinal),
+          preludeProgram, lateProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
           carries.ToImmutableDictionary(StringComparer.Ordinal),
           provider ?? "", (source as INamedTypeSymbol ?? source.ContainingType)
           ?.ToDisplayString(TypeDisplayFormat) ?? "",

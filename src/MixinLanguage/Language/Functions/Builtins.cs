@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Mixins.Runtime;
@@ -84,13 +85,18 @@ internal static class Builtins {
       ),
       new SimpleFunction(
         "fail", [new FunctionSignature(K.Error, []), new FunctionSignature(K.Error, [K.Any])],
-        (e, a) => e.Context.Error(a.Length == 1 ? e.Text(a[0]) : "execution failed")
+        (e, a) => {
+          var rendered = a.Length == 1 ? e.RenderText(a[0]) : String("execution failed");
+          return rendered is ErrorMixinValue ? rendered : e.Context.Error(e.Text(rendered));
+        }
       ),
       new SimpleFunction(
         "emit", [new FunctionSignature(K.Null, [K.Any]), new FunctionSignature(K.Null, [K.String, K.Any])],
         (e, a) => {
           var target = a.Length == 1 ? "TARGET" : e.Text(a[0]);
-          var value = e.Text(a[a.Length - 1]);
+          var rendered = e.RenderText(a[a.Length - 1]);
+          if (rendered is ErrorMixinValue) return rendered;
+          var value = e.Text(rendered);
           if (Enum.TryParse<MixinEmissionTarget>(target, true, out var output))
             e.Outputs.Add(new MixinExpressionOutput(output, value));
           else
@@ -112,9 +118,11 @@ internal static class Builtins {
         "inject",
         [new FunctionSignature(K.Null, [K.String, K.Any]), new FunctionSignature(K.Null, [K.String, K.Number, K.Any])],
         (e, a) => {
+          var rendered = e.RenderText(a[a.Length - 1]);
+          if (rendered is ErrorMixinValue) return rendered;
           e.Outputs.Add(
             new MixinExpressionOutput(
-              MixinEmissionTarget.Mixin, e.Text(a[a.Length - 1]),
+              MixinEmissionTarget.Mixin, e.Text(rendered),
               e.Context.ResolveInjectionTarget(e.Text(a[0])),
               a.Length == 3 ? checked((int)((NumberMixinValue)a[1]).Value) : 0
             )
@@ -437,15 +445,19 @@ internal static class Builtins {
           new FunctionSignature(K.String, [K.Tuple, K.String]),
           new FunctionSignature(K.String, [K.Table, K.String, K.String])
         ],
-        (e, a) => String(
-          a[0] is TupleMixinValue tuple
-            ? string.Join(e.Text(a[1]), tuple.Values.Select(e.Text))
-            : string.Join(
-              e.Text(a[2]), ((MixinTableValue)a[0]).Entries.Select(entry =>
-                entry.Key.Resolve(e.Context.Strings) + e.Text(a[1]) + e.Text(entry.Value)
-              )
-            )
-        )
+        (e, a) => {
+          var values = a[0] is TupleMixinValue tuple ? tuple.Values : ((MixinTableValue)a[0]).Entries.Select(entry => entry.Value).ToArray();
+          var rendered = new List<string>();
+          foreach (var value in values) {
+            var text = e.RenderText(value);
+            if (text is ErrorMixinValue) return text;
+            rendered.Add(e.Text(text));
+          }
+          return String(a[0] is TupleMixinValue
+            ? string.Join(e.Text(a[1]), rendered)
+            : string.Join(e.Text(a[2]), ((MixinTableValue)a[0]).Entries.Select((entry, index) =>
+              entry.Key.Resolve(e.Context.Strings) + e.Text(a[1]) + rendered[index])));
+        }
       )
     );
   }

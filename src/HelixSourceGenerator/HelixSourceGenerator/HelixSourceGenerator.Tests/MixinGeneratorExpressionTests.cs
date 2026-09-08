@@ -237,9 +237,10 @@ public sealed class MixinGeneratorExpressionTests {
     var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
       .SourceText.ToString();
     Assert.StartsWith("// ============================================================================\n// HELIX MIXIN PROGRAM DUMP", generated);
-    Assert.Contains("// PRELUDE EXECUTABLE IR", generated);
-    Assert.Contains("// LATE EXECUTABLE IR", generated);
-    Assert.Contains("//       store.local \"DebugValue\"\n//         number 1", generated);
+    Assert.Contains("// PRELUDE BYTECODE", generated);
+    Assert.Contains("// LATE BYTECODE", generated);
+    Assert.Contains("STORE", generated);
+    Assert.Contains(".constant 0 Number", generated);
     Assert.DoesNotContain("local DebugValue = 1", generated);
   }
 

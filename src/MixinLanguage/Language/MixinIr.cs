@@ -34,35 +34,15 @@ internal sealed record LiteralMixinValue(MixinString Value) : IMixinValue {
 }
 
 
-/// <summary>Immutable declarations prepared once for a catalog of compilation units.</summary>
+/// <summary>Compiler-only catalog. Runtime programs never retain these declarations.</summary>
 public sealed class MixinExpressionPreparedState {
   internal MixinExpressionPreparedState(MixinStringPool strings,
-    IReadOnlyList<FunctionDeclarationAst> functions, IReadOnlyList<MixinDeclarationAst> derivations,
-    LanguageProgramBindings bindings) {
+    IReadOnlyList<FunctionDeclarationAst> functions, IReadOnlyList<MixinDeclarationAst> derivations) {
     StringPool = strings;
     Functions = functions;
     Derivations = derivations;
-    Bindings = bindings;
-    GlobalScope = new LanguageFunctionScope(functions);
-    DerivationScopes = derivations.ToDictionary(declaration => declaration,
-      declaration => new LanguageFunctionScope(declaration.Declarations.OfType<FunctionDeclarationAst>(), GlobalScope));
   }
   public MixinStringPool StringPool { get; }
   internal IReadOnlyList<FunctionDeclarationAst> Functions { get; }
   internal IReadOnlyList<MixinDeclarationAst> Derivations { get; }
-  internal LanguageFunctionScope GlobalScope { get; }
-  internal LanguageProgramBindings Bindings { get; }
-  internal IReadOnlyDictionary<MixinDeclarationAst, LanguageFunctionScope> DerivationScopes { get; }
-}
-
-internal sealed record MixinExpressionExecutionProgram(
-  MixinStringPool StringPool, IReadOnlyList<ExpressionDeclarationAst> Expressions,
-  IReadOnlyList<FunctionDeclarationAst> Functions, IReadOnlyList<FunctionDeclarationAst> LocalFunctions,
-  IReadOnlyList<MixinDeclarationAst> Derivations,
-  LanguageFunctionScope GlobalScope,
-  IReadOnlyDictionary<MixinDeclarationAst, LanguageFunctionScope> DerivationScopes,
-  LanguageProgramBindings Bindings
-) {
-  internal LanguageFunctionScope Scope { get; } = new(LocalFunctions, GlobalScope);
-  internal string ExecutableIr => Bindings.RenderExecutableIr(Expressions);
 }

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Mixins.Compiler;
 
 namespace Mixins.Runtime;
 
@@ -12,10 +11,6 @@ public sealed record MixinExpressionPreparedLog(string Text, int Line, int Progr
 public sealed record ValidationResult(bool Success, string Error, int ErrorLine) {
   public static readonly ValidationResult Ok = new(true, null, -1);
   public static readonly ValidationResult UnknownError = new(false, "unknown error", -1);
-
-  public static ValidationResult Fail(string error, HixAst ast) {
-    return new ValidationResult(false, error, ast?.Line ?? -1);
-  }
 
   public static ValidationResult Fail(string error, int line) {
     return new ValidationResult(false, error, line);
@@ -96,10 +91,13 @@ public sealed class MixinExpressionResult {
 
 public abstract class ExecutionContext {
   protected ExecutionContext(MixinStringPool strings) {
-    Strings = strings ?? throw new ArgumentNullException(nameof(strings));
+    initialStrings = strings ?? throw new ArgumentNullException(nameof(strings));
   }
 
-  public MixinStringPool Strings { get; internal set; }
+  private MixinVirtualMachine virtualMachine;
+  private readonly MixinStringPool initialStrings;
+  public MixinStringPool Strings => virtualMachine?.StringPool ?? initialStrings;
+  internal void Attach(MixinVirtualMachine machine) => virtualMachine = machine;
   internal MixinValueDictionary Locals { get; } = new();
   internal MixinValueDictionary Variables { get; } = new();
   internal MixinValueDictionary TargetVariables { get; } = new();
@@ -203,7 +201,7 @@ public abstract class ExecutionContext {
     };
   }
 
-  public MixinString ResolveString(string value) => Strings.Get(value);
+  public MixinString ResolveString(string value) => Dynamic(value);
   public static MixinString Dynamic(string value) => MixinString.Dynamic(value ?? "");
   public ErrorMixinValue Error(string value) => new(Dynamic(value));
 }

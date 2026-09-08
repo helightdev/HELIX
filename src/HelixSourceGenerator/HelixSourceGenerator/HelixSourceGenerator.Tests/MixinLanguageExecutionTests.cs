@@ -14,7 +14,7 @@ public sealed class MixinLanguageExecutionTests {
     var unit = AntlrSyntax.Parse(functions + "\nmixin Example {\nprelude expression {\n" + prelude +
       "\n}\nexpression {\n" + statements + "\n}\n}");
     Assert.Empty(unit.Diagnostics);
-    return MixinVirtualMachine.Execute(unit, "Example", context ?? new Context(), variables);
+    return MixinVirtualMachine.Execute(HixCompiler.Compile(unit, "Example"), context ?? new Context(), variables);
   }
 
   [Theory]
@@ -301,7 +301,7 @@ public sealed class MixinLanguageExecutionTests {
   public void StrictExpressionDisablesAutomaticHoisting() {
     var unit = AntlrSyntax.Parse("mixin Example { strict expression { emit(this) } }");
     Assert.Empty(unit.Diagnostics);
-    var result = MixinVirtualMachine.Execute(unit, "Example", new Context(new TestSymbol()));
+    var result = MixinVirtualMachine.Execute(HixCompiler.Compile(unit, "Example"), new Context(new TestSymbol()));
     Assert.False(result.Success);
     Assert.Contains("prelude", result.Error);
   }
@@ -344,7 +344,7 @@ public sealed class MixinLanguageExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = MixinVirtualMachine.Execute(unit, "Example", new Context());
+    var result = MixinVirtualMachine.Execute(HixCompiler.Compile(unit, "Example"), new Context());
     Assert.True(result.Success, result.Error);
     Assert.Equal(new[] {"local string", "global number"}, result.Outputs.Select(output => output.Text));
   }
@@ -365,7 +365,7 @@ public sealed class MixinLanguageExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = MixinVirtualMachine.Execute(unit, "Example", new Context());
+    var result = MixinVirtualMachine.Execute(HixCompiler.Compile(unit, "Example"), new Context());
     Assert.True(result.Success, result.Error);
     Assert.Equal(new[] {"local", "local", "global"}, result.Outputs.Select(output => output.Text));
   }
@@ -392,7 +392,7 @@ public sealed class MixinLanguageExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = MixinVirtualMachine.Execute(unit, "Example", new Context(new TestSymbol()));
+    var result = MixinVirtualMachine.Execute(HixCompiler.Compile(unit, "Example"), new Context(new TestSymbol()));
     Assert.True(result.Success, result.Error);
     Assert.Equal(new[] {"initial:first:initial:second", "kept"}, result.Outputs.Select(output => output.Text));
   }
@@ -416,7 +416,7 @@ public sealed class MixinLanguageExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = MixinVirtualMachine.Execute(unit, "Example", new Context(new TestSymbol()));
+    var result = MixinVirtualMachine.Execute(HixCompiler.Compile(unit, "Example"), new Context(new TestSymbol()));
     Assert.True(result.Success, result.Error);
     Assert.Equal("saved", Assert.Single(result.Outputs).Text);
   }
@@ -432,7 +432,7 @@ public sealed class MixinLanguageExecutionTests {
       """);
     Assert.Empty(unit.Diagnostics);
     var variables = new Dictionary<string, object>();
-    var result = MixinVirtualMachine.Execute(unit, "Example", new Context(), variables);
+    var result = MixinVirtualMachine.Execute(HixCompiler.Compile(unit, "Example"), new Context(), variables);
     Assert.False(result.Success);
     Assert.Equal("stop", result.Error);
     Assert.Equal("first", Assert.Single(result.Outputs).Text);
@@ -446,7 +446,7 @@ public sealed class MixinLanguageExecutionTests {
     MixinExpressionResult Execute(string body) {
       var unit = AntlrSyntax.Parse("mixin Example { prelude expression { " + body + " } }");
       Assert.Empty(unit.Diagnostics);
-      return MixinVirtualMachine.Execute(unit, "Example", context);
+      return MixinVirtualMachine.Execute(HixCompiler.Compile(unit, "Example"), context);
     }
     Assert.True(Execute("target var value = <saved>").Success);
     Assert.False(Execute("target var value = <discarded>; fail<stop>").Success);

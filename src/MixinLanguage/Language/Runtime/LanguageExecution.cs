@@ -2,20 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using Mixins.Compiler;
 using Mixins.Functions;
 
 namespace Mixins.Runtime;
 
-/// <summary>Execution state for a single invocation; declaration trees are never mutated.</summary>
+/// <summary>Execution state for a single compiled-image invocation; no syntax or source is retained.</summary>
 internal sealed partial class LanguageExecution {
   private readonly ExecutionContext context;
-  private readonly LanguageFunctionScope globals;
-  private readonly LanguageProgramBindings bindings;
-  private readonly IReadOnlyDictionary<MixinDeclarationAst, LanguageFunctionScope> derivationScopes;
+  private readonly MixinVirtualMachine machine;
+  private MixinExpressionExecutionProgram program;
   private LanguageFunctionScope scope;
-  private readonly IReadOnlyList<MixinDeclarationAst> derivations;
-  private readonly HashSet<MixinDeclarationAst> activeDerivations = [];
+  private IReadOnlyList<BytecodeDerivation> derivations => program.Derivations;
+  private readonly HashSet<BytecodeDerivation> activeDerivations = [];
   private readonly List<MixinExpressionOutput> outputs = [];
   private readonly List<MixinExpressionLog> logs = [];
   private Dictionary<string, IMixinValue> locals = new(StringComparer.Ordinal);
@@ -37,16 +35,14 @@ internal sealed partial class LanguageExecution {
   internal List<MixinExpressionLog> Logs => logs;
   internal NamedFunctionMixinValue BindFunction(string name) => scope.Bind(name);
 
-  internal LanguageExecution(ExecutionContext context, MixinExpressionExecutionProgram program) {
+  internal LanguageExecution(MixinVirtualMachine machine, ExecutionContext context, MixinExpressionExecutionProgram program) {
+    this.machine = machine;
     this.context = context;
-    globals = program.GlobalScope;
+    this.program = program;
     scope = program.Scope;
-    derivations = program.Derivations;
-    derivationScopes = program.DerivationScopes;
-    bindings = program.Bindings;
   }
 
-  internal MixinExpressionResult Execute(IEnumerable<ExpressionDeclarationAst> expressions,
+  internal MixinExpressionResult Execute(IEnumerable<BytecodeExpression> expressions,
     IDictionary<string, object> imported = null, IReadOnlyDictionary<string, object> importedCarries = null) {
     var started = Stopwatch.GetTimestamp();
     double Elapsed() => (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
@@ -70,15 +66,16 @@ internal sealed partial class LanguageExecution {
         var savedTargets = targetVariables.ToArray();
         var savedCarries = carries.ToArray();
         var outputCount = outputs.Count;
-        try {
-          try { Block(expression.Body); }
-          catch (Flow flow) when (flow.Kind == ControlFlowKind.Return) { }
-        } catch {
+        var completion = Run(expression.Body);
+        if (completion.Kind is not (BytecodeFlow.Normal or BytecodeFlow.Return)) {
           Restore(variables, savedVariables);
           Restore(targetVariables, savedTargets);
           Restore(carries, savedCarries);
           outputs.RemoveRange(outputCount, outputs.Count - outputCount);
-          throw;
+          var error = completion.Kind == BytecodeFlow.Error ? Text(completion.Value)
+            : "invalid " + completion.Kind + " outside its scope";
+          return new MixinExpressionResult(false, error, completion.Line, outputs.ToArray(), logs.ToArray(),
+            Commit(imported), ExportCarries(), steps, Elapsed());
         }
         Commit(imported);
       }
@@ -86,12 +83,6 @@ internal sealed partial class LanguageExecution {
       var exported = Commit(imported);
       return new MixinExpressionResult(true, null, 0, outputs.ToArray(), logs.ToArray(), exported,
         ExportCarries(), steps, Elapsed());
-    } catch (Failure failure) {
-      return new MixinExpressionResult(false, Text(failure.Value), failure.Line, outputs.ToArray(), logs.ToArray(),
-        Commit(imported), ExportCarries(), executedOperations: steps, executionMilliseconds: Elapsed());
-    } catch (Flow flow) {
-      return new MixinExpressionResult(false, "invalid " + flow.Kind + " outside its scope", flow.Line,
-        outputs.ToArray(), logs.ToArray(), Commit(imported), ExportCarries(), steps, Elapsed());
     } finally {
       context.OutputSink = previousOutput;
       context.LogSink = previousLog;
@@ -116,11 +107,9 @@ internal sealed partial class LanguageExecution {
     foreach (var name in targetVariables.Keys.ToArray()) targetVariables[name] = context.DetachValue(targetVariables[name]);
   }
 
-  private void Tick(int line) {
-    if (++steps > StepLimit) throw new Failure(context.Error("execution limit exceeded"), line);
-  }
-
-  private void Block(BlockStatementAst block) => bindings.Execute(block, this);
+  private VmCompletion pendingControl;
+  internal void Break(int line) => pendingControl = new(BytecodeFlow.Break, Line: line);
+  private static VmCompletion Failed(IMixinValue error, int line) => new(BytecodeFlow.Error, error, Line: line);
 
   private IMixinValue Root(string name, bool smart) {
     if (smart) {
@@ -160,7 +149,7 @@ internal sealed partial class LanguageExecution {
   private IMixinValue Invoke(string name, IMixinValue[] arguments, int line, LanguageFunctionScope binding = null) {
     var candidates = (binding ?? scope).Candidates(name);
     if (candidates.Count == 0) return context.Error("unknown function '" + name + "'");
-    var matches = new List<(FunctionDeclarationAst Function, Compiler.FunctionSignature Signature, IMixinValue Parameter, int Score, LanguageFunctionScope Owner)>();
+    var matches = new List<(BytecodeFunction Function, BytecodeSignature Signature, IMixinValue Parameter, int Score, LanguageFunctionScope Owner)>();
     foreach (var candidate in candidates) {
       var function = candidate.Function;
       var signature = candidate.Signature;
@@ -229,6 +218,7 @@ internal sealed partial class LanguageExecution {
     var previousPositionalParameters = positionalParameters;
     var previousPure = pure;
     var previousScope = scope;
+    var previousProgram = program;
     var savedVariables = variables.ToArray();
     var savedTargets = targetVariables.ToArray();
     var savedCarries = carries.ToArray();
@@ -246,31 +236,32 @@ internal sealed partial class LanguageExecution {
     positionalParameters = arguments;
     pure = match.Function.IsPure;
     scope = match.Owner;
+    program = scope.Program;
     try {
-      IMixinValue result = NullMixinValue.Instance;
-      try { Block(match.Function.Body); }
-      catch (Flow flow) when (flow.Kind == ControlFlowKind.Return) { result = flow.Value; }
-      if (result is ErrorMixinValue) throw new Failure(result, line);
-      if (match.Signature != null && !MatchesReturn(result, match.Signature))
-        throw new Failure(context.Error("return kind does not match signature of '" + name + "'"), line);
+      var completion = Run(match.Function.Body);
+      if (completion.Kind == BytecodeFlow.Error) { RollBack(); return completion.Value; }
+      if (completion.Kind is not (BytecodeFlow.Normal or BytecodeFlow.Return)) {
+        RollBack();
+        return context.Error("control flow cannot cross function boundaries: " + completion.Kind);
+      }
+      var result = completion.Kind == BytecodeFlow.Return ? completion.Value : NullMixinValue.Instance;
+      if (result is ErrorMixinValue) { RollBack(); return result; }
+      if (match.Signature != null && !MatchesReturn(result, match.Signature)) {
+        RollBack(); return context.Error("return kind does not match signature of '" + name + "'");
+      }
       return result;
-    } catch (Failure failure) {
-      RollBack();
-      return failure.Value;
-    } catch (Flow flow) {
-      RollBack();
-      return context.Error("control flow cannot cross function boundaries: " + flow.Kind);
     } finally {
       locals = previousLocals;
       parameter = previousParameter;
       positionalParameters = previousPositionalParameters;
       pure = previousPure;
       scope = previousScope;
+      program = previousProgram;
       depth--;
     }
   }
 
-  private bool MatchesReturn(IMixinValue value, Compiler.FunctionSignature signature) => signature.Outputs == null
+  private bool MatchesReturn(IMixinValue value, BytecodeSignature signature) => signature.Outputs == null
     ? MatchesKind(value, signature.OutputKind)
     : value is MixinTableValue table && signature.Outputs.All(field => table.Entries.Any(entry =>
       entry.Key.Resolve(context.Strings) == field.Name && MatchesKind(entry.Value, field.Kind)));
@@ -309,7 +300,6 @@ internal sealed partial class LanguageExecution {
   };
   internal string Text(IMixinValue value) => value switch {
     NullMixinValue => "",
-    MixinTableValue or TupleMixinValue => throw new Failure(context.Error("collections require an explicit join"), 0),
     _ => value.Render(context).Resolve(context.Strings)
   };
   internal static LiteralMixinValue String(string text) => new(ExecutionContext.Dynamic(text));
@@ -322,14 +312,6 @@ internal sealed partial class LanguageExecution {
     _ => left.Equals(right)
   };
 
-  private sealed class Failure(IMixinValue value, int line) : Exception {
-    internal IMixinValue Value { get; } = value;
-    internal int Line { get; } = line;
-  }
-  internal sealed class Flow(ControlFlowKind kind, string label, IMixinValue value, int line) : Exception {
-    internal ControlFlowKind Kind { get; } = kind;
-    internal string Label { get; } = label;
-    internal IMixinValue Value { get; } = value;
-    internal int Line { get; } = line;
-  }
+  internal IMixinValue RenderText(IMixinValue value) => value is MixinTableValue or TupleMixinValue
+    ? context.Error("collections require an explicit join") : String(Text(value));
 }

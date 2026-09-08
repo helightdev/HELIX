@@ -57,7 +57,7 @@ public sealed record KindMixinValue(string Name) : IMixinValue {
 }
 
 public sealed record NamedFunctionMixinValue(string Name) : IMixinValue {
-  internal Compiler.LanguageFunctionScope Scope { get; init; }
+  internal LanguageFunctionScope Scope { get; init; }
   public MixinValueKind Kind => MixinValueKind.Function;
   public bool IsTruthy(ExecutionContext context) => true;
   public MixinString Render(ExecutionContext context) => ExecutionContext.Dynamic("<function " + Name + ">");

@@ -30,8 +30,7 @@ public static class HixCompiler {
     var functions = LambdaLiftingStep.RewriteFunctions(declarations.OfType<FunctionDeclarationAst>().ToArray())
       .Select(SignatureParameterBindingStep.Rewrite).ToArray();
     var derivations = declarations.OfType<MixinDeclarationAst>().Where(mixin => mixin.IsDerivation).ToArray();
-    return new MixinExpressionPreparedState(strings.Freeze(), functions, derivations,
-      new LanguageProgramBindings(functions.Cast<HixAst>().Concat(derivations)));
+    return new MixinExpressionPreparedState(strings.Freeze(), functions, derivations);
   }
 
   internal static MixinExpressionExecutionProgram Prepare(MixinDeclarationAst declaration,
@@ -39,29 +38,30 @@ public static class HixCompiler {
     var compiled = Compile(declaration, globals);
     var expressions = prelude == true ? compiled.Prelude : prelude == false ? compiled.Late
       : compiled.Prelude.Concat(compiled.Late).ToArray();
-    var bindings = new LanguageProgramBindings(globals.Functions.Cast<HixAst>()
-      .Concat(compiled.Functions).Concat(expressions).Concat(globals.Derivations));
-    return new MixinExpressionExecutionProgram(globals.StringPool, expressions,
-      globals.Functions, compiled.Functions, globals.Derivations,
-      globals.GlobalScope, globals.DerivationScopes, bindings);
+    return CreateProgram(expressions, compiled.Functions, globals);
+  }
+
+  public static MixinExpressionExecutionProgram Compile(string source, string mixinName) =>
+    Compile(AntlrSyntax.Parse(source), mixinName);
+
+  public static MixinExpressionExecutionProgram Compile(CompilationUnitAst unit, string mixinName) {
+    if (unit == null) throw new ArgumentNullException(nameof(unit));
+    if (unit.Diagnostics.Count != 0) throw new ArgumentException(unit.Diagnostics[0].Message);
+    var declarations = unit.Declarations.OfType<MixinDeclarationAst>().Where(mixin => mixin.Name == mixinName).ToArray();
+    if (declarations.Length != 1) throw new ArgumentException("expected exactly one mixin named '" + mixinName + "'");
+    return Prepare(declarations[0], PrepareGlobals(new[] {unit}), null);
   }
 
   internal static (MixinExpressionExecutionProgram Prelude, MixinExpressionExecutionProgram Late) PreparePrograms(
-    MixinDeclarationAst declaration, MixinExpressionPreparedState globals
-  ) {
+    MixinDeclarationAst declaration, MixinExpressionPreparedState globals) {
     var compiled = Compile(declaration, globals);
-    return (CreateProgram(compiled.Prelude, compiled.Functions, globals),
-      CreateProgram(compiled.Late, compiled.Functions, globals));
+    var program = CreateProgram(compiled.Prelude.Concat(compiled.Late).ToArray(), compiled.Functions, globals);
+    return (program.ForPass(true), program.ForPass(false));
   }
 
   private static MixinExpressionExecutionProgram CreateProgram(IReadOnlyList<ExpressionDeclarationAst> expressions,
-    IReadOnlyList<FunctionDeclarationAst> functions, MixinExpressionPreparedState globals) {
-    var bindings = new LanguageProgramBindings(globals.Functions.Cast<HixAst>()
-      .Concat(functions).Concat(expressions).Concat(globals.Derivations));
-    return new MixinExpressionExecutionProgram(globals.StringPool, expressions,
-      globals.Functions, functions, globals.Derivations,
-      globals.GlobalScope, globals.DerivationScopes, bindings);
-  }
+    IReadOnlyList<FunctionDeclarationAst> functions, MixinExpressionPreparedState globals) =>
+    new HixBytecodeCompiler(globals.StringPool).Compile(expressions, functions, globals);
 
   private static HixCompilerSyntax Compile(MixinDeclarationAst declaration, MixinExpressionPreparedState globals) {
     var expressions = declaration.Declarations.OfType<ExpressionDeclarationAst>().ToArray();

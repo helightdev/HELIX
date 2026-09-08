@@ -3,7 +3,7 @@
 This project contains the reusable mixin parser, compiler, virtual machine, table/text functions, additional-file
 catalog, and Roslyn semantic execution support.
 
-Its public namespace root is `MixinLanguage`; compiler syntax and lowering APIs use `MixinLanguage.Compiler`. Only the
+Its public namespace root is `Mixins`; compiler syntax and lowering APIs use `Mixins.Compiler`. Only the
 source-generator entry points retain the `HelixSourceGenerator` namespace.
 
 `Helix.MixinLanguage.csproj` is a normal .NET Standard 2.0 class library for hosts such as the Rider plugin. It is
@@ -36,3 +36,56 @@ with the same internal contracts. A normal project reference uses the standalone
 
 `MixinLanguage.sln` is a minimal wrapper solution containing only this project. External builds such as the Rider
 plugin's Gradle configuration can reference that solution without loading the source-generator projects.
+
+## Bytecode execution
+
+Compile Hix with `HixCompiler.Compile(source, mixinName)`, then pass the returned
+`MixinExpressionExecutionProgram` to `MixinVirtualMachine.Execute(program, context, variables)`.
+Parsing, AST transformations, label resolution, and lowering happen exclusively in the compiler.
+The VM accepts no source or AST overloads. Function signatures, lexical scopes, derivations, and
+entry points in the executable image contain runtime metadata only.
+
+Instructions are byte-aligned and variable-length. A one-byte opcode is followed immediately
+by its operands, with no flags or padding. Multibyte operands use little-endian encoding.
+The `HixOpcode` enum documents each instruction's operands, stack effects, and control behavior.
+
+| Instruction form | Operands | Total size |
+| --- | --- | --- |
+| Stack/control operation (`Pop`, `Return`, etc.) | None | 1 byte |
+| Pool access, collection construction | u16 pool index or element count | 3 bytes |
+| Branch/block reference | s16 displacement from the opcode address | 3 bytes |
+| `Call` | u16 function-name string index, u16 argument count | 5 bytes |
+
+Storage destinations, host roots, smart-root lookup, and flow operations have distinct opcodes
+instead of flag operands. Both VM-wide pools support at most 65,536 entries (indices 0–65,535).
+All branches, checked-expression handlers, and block references use signed relative byte
+displacements (-32,768–32,767); block ends are exclusive. The compiler rejects references or
+operands outside their range, and loading rejects merged pools exceeding the u16 capacity.
+Source-line mappings are stored separately, keyed by instruction byte address.
+
+The immutable image exposes encoded `Bytecode`, a non-string `ConstantPool`, and `StringPool`.
+String instructions refer to the string pool; non-string literals refer to the value pool.
+The VM uses operand stacks and interprets opcodes, with bytecode entry points for calls and blocks.
+The VM loads programs into immutable VM-wide string and value pools, relocating pool operands
+once during loading. `ExecutionContext.Strings` reads that VM pool and has no setter; neither
+program entry nor function calls switch pools. Create `MixinVirtualMachine(programs)` and call
+`Run` to reuse a VM across programs. The static `Execute` convenience method loads an invocation
+and any imported function images into a VM before running it.
+Runtime-created strings remain dynamic and never mutate either pool. Prelude and late passes
+share the same compiled image and pools. Exported function values retain their compiled image,
+so invoking them from another program preserves their lexical bindings and constant indices.
+
+`program.Disassemble()` prints three aligned columns: byte address, instruction with operands,
+and stack pseudocode with resolved names and literal values. Functions (including signatures),
+entry points, derivations, and nested blocks have separate headers at their actual addresses.
+Branch destinations have standalone `loc_XXXX:` labels referenced by the instructions; addresses
+remain hexadecimal byte offsets. Source lines appear beside the pseudocode. Source-generator debug output prints the global string and constant pools once, followed by disassemblies using the relocated global pool indices.
+
+Return, break, continue, goto, checked failures, and execution limits propagate as explicit
+`VmCompletion` values. They do not throw managed exceptions or unwind the host stack. Block
+handlers consume local jumps and loop transfers, while function and derivation boundaries
+consume returns and report invalid transfers as error values.
+
+Instruction accounting and the execution-budget check live in the dispatch loop. Value-producing
+instructions propagate unchecked errors directly; `Check`/`EndCheck` delimit explicit `?` handlers.
+No `TICK` or `VALIDATE` bookkeeping instructions are emitted.

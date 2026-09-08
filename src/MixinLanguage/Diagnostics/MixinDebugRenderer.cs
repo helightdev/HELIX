@@ -9,8 +9,8 @@ using Mixins.Runtime;
 namespace Mixins.Diagnostics;
 
 public sealed record MixinDebugExpression(
-  string PreludeIr,
-  string LateIr,
+  MixinExpressionExecutionProgram PreludeProgram,
+  MixinExpressionExecutionProgram LateProgram,
   ImmutableDictionary<string, object> Variables,
   ImmutableDictionary<string, object> Carries,
   string Provider,
@@ -18,7 +18,10 @@ public sealed record MixinDebugExpression(
   string SourceMember,
   int PreludeOperations,
   double PreludeMilliseconds
-);
+) {
+  public string PreludeIr => PreludeProgram.Disassemble();
+  public string LateIr => LateProgram.Disassemble();
+}
 
 public sealed record MixinDebugFinalState(
   MixinDebugExpression Work,
@@ -46,16 +49,11 @@ public static class MixinDebugRenderer {
 
   public static string BuildTrace(MixinDebugRenderData render) {
     var builder = new StringBuilder();
-    var debugPoolBuilder = new MixinStringPoolBuilder(render.StringPool);
-    foreach (var work in render.Expressions)
-    foreach (var token in (work.PreludeIr + "\n" + work.LateIr).Split(
-      ['@', '<', '>', '#', ':', '(', ')', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries
-    ))
-      debugPoolBuilder.Intern(token);
-    var debugPool = debugPoolBuilder.Freeze();
     builder.AppendLine("// ============================================================================");
     builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
-    if (render.InternStringPool) AppendStringPool(builder, debugPool);
+    var machine = new MixinVirtualMachine(render.Expressions.SelectMany(work =>
+      new[] {work.PreludeProgram, work.LateProgram}), render.StringPool);
+    AppendProgram(builder, "GLOBAL POOLS", machine.DisassemblePools());
     builder.Append("// generationVersion = ")
       .AppendLine(render.GenerationVersion.ToString(CultureInfo.InvariantCulture));
     AppendFingerprint(builder, "outputs", render.Outputs);
@@ -68,10 +66,10 @@ public static class MixinDebugRenderer {
       if (!string.IsNullOrEmpty(work.SourceType)) builder.Append(" on ").Append(work.SourceType);
       if (!string.IsNullOrEmpty(work.SourceMember)) builder.Append('.').Append(work.SourceMember);
       builder.AppendLine();
-      AppendProgram(builder, "PRELUDE EXECUTABLE IR", work.PreludeIr, render.InternStringPool, debugPool);
-      AppendProgram(builder, "LATE EXECUTABLE IR", work.LateIr, render.InternStringPool, debugPool);
+      AppendProgram(builder, "PRELUDE BYTECODE", machine.Disassemble(work.PreludeProgram));
+      AppendProgram(builder, "LATE BYTECODE", machine.Disassemble(work.LateProgram));
       builder.AppendLine("// CARRIED VALUES");
-      var carries = work.Carries.Where(item => IsCarryReferenced(work.LateIr, item.Key))
+      var carries = work.Carries
         .OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
       if (carries.Length == 0) builder.AppendLine("//   <none>");
       foreach (var carry in carries) {
@@ -121,14 +119,8 @@ public static class MixinDebugRenderer {
       .AppendLine(fingerprint.Length.ToString(CultureInfo.InvariantCulture));
   }
 
-  private static void AppendStringPool(StringBuilder builder, MixinStringPool pool) {
-    builder.AppendLine("// INTERNED STRING POOL");
-    for (var id = 0; id < pool.Count; id++)
-      builder.Append("//   §").Append(id).Append(" = ").AppendLine(EscapeString(pool[id]));
-  }
-
   private static void AppendProgram(
-    StringBuilder builder, string title, string program, bool internStringPool, MixinStringPool debugPool
+    StringBuilder builder, string title, string program
   ) {
     builder.Append("// ").AppendLine(title);
     var lines = (program ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
@@ -139,7 +131,7 @@ public static class MixinDebugRenderer {
     for (var index = 0; index < lines.Length; index++) {
       if (index != lines.Length - 1 || lines[index].Length != 0) {
         builder.Append("//   ").AppendLine(
-          internStringPool ? InternLine(lines[index], debugPool) : lines[index].Replace("@INLINE<", "@CALL<")
+          lines[index]
         );
       }
     }
@@ -152,46 +144,8 @@ public static class MixinDebugRenderer {
     };
   }
 
-  private static string InternLine(string line, MixinStringPool pool) {
-    var candidates = Enumerable.Range(0, pool.Count).Select(id => new { Id = id, Value = pool[id] })
-      .Where(item => !string.IsNullOrEmpty(item.Value) && item.Value.IndexOfAny(['\r', '\n']) < 0)
-      .OrderByDescending(item => item.Value.Length).ThenBy(item => item.Id).ToArray();
-    var builder = new StringBuilder(line.Length);
-    for (var offset = 0; offset < line.Length;) {
-      var match = candidates.FirstOrDefault(item => offset + item.Value.Length <= line.Length &&
-        string.CompareOrdinal(line, offset, item.Value, 0, item.Value.Length) == 0
-      );
-      if (match is null) builder.Append(line[offset++]);
-      else {
-        builder.Append('§').Append(match.Id.ToString(CultureInfo.InvariantCulture));
-        offset += match.Value.Length;
-      }
-    }
-    return builder.ToString();
-  }
-
-  private static string EscapeString(string value) {
-    return (value ?? "").Replace("\\", @"\\").Replace("\r", "\\r").Replace("\n", "\\n");
-  }
-
   private static string FormatMilliseconds(double milliseconds) {
     return milliseconds.ToString("F3", CultureInfo.InvariantCulture);
   }
 
-  private static bool IsCarryReferenced(string program, string label) {
-    var reference = "load.carry \"" + label.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
-    var offset = 0;
-    while (offset < (program?.Length ?? 0)) {
-      var index = program.IndexOf(reference, offset, StringComparison.Ordinal);
-      if (index < 0) return false;
-      var end = index + reference.Length;
-      if (end == program.Length || !IsReferenceNameCharacter(program[end])) return true;
-      offset = end;
-    }
-    return false;
-  }
-
-  private static bool IsReferenceNameCharacter(char character) {
-    return char.IsLetterOrDigit(character) || character is '_' or '$';
-  }
 }

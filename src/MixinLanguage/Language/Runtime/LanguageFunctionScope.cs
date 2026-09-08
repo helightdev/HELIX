@@ -2,15 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Mixins.Compiler;
+namespace Mixins.Runtime;
 
 /// <summary>Lexical declarations only: bindings never retain an execution context or caller locals.</summary>
 internal sealed class LanguageFunctionScope {
   private readonly LanguageFunctionScope parent;
-  private readonly IReadOnlyDictionary<string, FunctionDeclarationAst[]> declarations;
+  internal MixinExpressionExecutionProgram Program { get; private set; }
+  internal void Attach(MixinExpressionExecutionProgram program) { Program = program; parent?.Attach(program); }
+  private readonly IReadOnlyDictionary<string, BytecodeFunction[]> declarations;
   private readonly Dictionary<string, LanguageFunctionCandidate[]> candidates = new(StringComparer.Ordinal);
 
-  internal LanguageFunctionScope(IEnumerable<FunctionDeclarationAst> functions, LanguageFunctionScope parent = null) {
+  internal LanguageFunctionScope(IEnumerable<BytecodeFunction> functions, LanguageFunctionScope parent = null) {
     this.parent = parent;
     declarations = functions.GroupBy(function => function.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
@@ -26,7 +28,7 @@ internal sealed class LanguageFunctionScope {
     if (declarations.TryGetValue(name, out var functions))
       foreach (var function in functions) {
         foreach (var signature in function.Signatures.Count == 0
-          ? new FunctionSignature[] {null} : function.Signatures) {
+          ? new BytecodeSignature[] {null} : function.Signatures) {
           shadowed.Add(SignatureKey(signature));
           yield return new LanguageFunctionCandidate(function, signature, this);
         }
@@ -40,24 +42,35 @@ internal sealed class LanguageFunctionScope {
   internal NamedFunctionMixinValue Bind(string name) => Contains(name)
     ? new NamedFunctionMixinValue(name) { Scope = this } : null;
 
-  internal static string SignatureKey(FunctionSignature signature) => signature == null ? "(*)" :
+  internal static string SignatureKey(BytecodeSignature signature) => signature == null ? "(*)" :
     signature.Inputs == null ? signature.InputKind : "(" + string.Join(",", signature.Inputs.Select(field =>
       (field.Variadic ? "..." : "") + field.Kind)) + ")";
 
+  internal IEnumerable<(string Scope, BytecodeFunction Function)> DisassemblyFunctions(string name, bool includeParent = true) {
+    if (includeParent && parent != null)
+      foreach (var item in parent.DisassemblyFunctions("global")) yield return item;
+    foreach (var function in declarations.Values.SelectMany(group => group)) yield return (name, function);
+  }
+
   internal void Fingerprint(MixinFingerprintBuilder builder) {
+    Program?.Fingerprint(builder);
     parent?.Fingerprint(builder);
     foreach (var group in declarations.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
       builder.Append(group.Key);
       foreach (var function in group.Value) {
-        HixAst root = function;
-        while (root.Parent != null) root = root.Parent;
-        builder.Append(root is CompilationUnitAst unit ? unit.Source : "");
-        builder.Append(function.SourceRange.Start);
-        builder.Append(function.SourceRange.End);
+        builder.Append(function.Body);
+        builder.Append(function.IsPure ? 1 : 0);
+        foreach (var signature in function.Signatures) {
+          builder.Append(signature.InputKind); builder.Append(signature.OutputKind);
+          foreach (var field in (signature.Inputs ?? Array.Empty<BytecodeField>()).Concat(signature.Outputs ?? Array.Empty<BytecodeField>())) {
+            builder.Append(field.Name); builder.Append(field.Kind); builder.Append(field.Variadic);
+          }
+        }
+
       }
     }
   }
 }
 
-internal sealed record LanguageFunctionCandidate(FunctionDeclarationAst Function, FunctionSignature Signature,
+internal sealed record LanguageFunctionCandidate(BytecodeFunction Function, BytecodeSignature Signature,
   LanguageFunctionScope Owner);

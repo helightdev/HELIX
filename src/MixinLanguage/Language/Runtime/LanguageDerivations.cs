@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using Mixins.Compiler;
 
 namespace Mixins.Runtime;
 
@@ -16,34 +15,42 @@ internal sealed partial class LanguageExecution {
     var outputCount = outputs.Count;
     var result = new List<IMixinValue>(tuple.Values.Count);
     var index = 0;
-    MixinDeclarationAst provider = null;
+    BytecodeDerivation provider = null;
+    IMixinValue Fail(IMixinValue error, int errorLine, bool control = false) {
+      Restore(variables, savedVariables);
+      Restore(targetVariables, savedTargets);
+      Restore(carries, savedCarries);
+      outputs.RemoveRange(outputCount, outputs.Count - outputCount);
+      return control ? error : context.Error("derive entry " + index + (provider == null ? "" : " in '" + provider.Name + "'") +
+        " at line " + errorLine + ": " + Text(error));
+    }
     try {
       for (; index < tuple.Values.Count; index++) {
         if (tuple.Values[index] is not MixinTableValue record)
-          throw new Failure(context.Error("record must be a table"), line);
+          return Fail(context.Error("record must be a table"), line);
         var symbol = record.Select(context, context.ResolveString("symbol"));
         if (symbol.Kind != MixinValueKind.Symbol)
-          throw new Failure(context.Error("record must contain a semantic symbol"), line);
+          return Fail(context.Error("record must contain a semantic symbol"), line);
         if (!record.Entries.Any(entry => entry.Key.Resolve(context.Strings) == "value"))
-          throw new Failure(context.Error("record must contain value"), line);
+          return Fail(context.Error("record must contain value"), line);
         var current = record.Select(context, context.ResolveString("value"));
         foreach (var declaration in derivations) {
           provider = declaration;
           if (!activeDerivations.Add(provider))
-            throw new Failure(context.Error("recursive derivation"), provider.Line);
+            return Fail(context.Error("recursive derivation"), provider.Line);
           locals = new Dictionary<string, IMixinValue>(System.StringComparer.Ordinal);
-          scope = derivationScopes[provider];
+          scope = provider.Scope;
           try {
-            foreach (var expression in provider.Declarations.OfType<ExpressionDeclarationAst>()) {
+            foreach (var expression in provider.Expressions) {
               parameter = Functions.CollectionFunctions.Put(context, record, "value", current);
-              var returned = false;
-              try { Block(expression.Body); }
-              catch (Flow flow) when (flow.Kind == ControlFlowKind.Return) {
-                current = flow.Value;
-                returned = true;
-              }
-              if (!returned) throw new Failure(context.Error("derivation must explicitly return a value"), expression.Line);
-              if (current is ErrorMixinValue) throw new Failure(current, expression.Line);
+              var completion = Run(expression.Body);
+              if (completion.Kind == BytecodeFlow.Error) return Fail(completion.Value, completion.Line);
+              if (completion.Kind == BytecodeFlow.Normal)
+                return Fail(context.Error("derivation must explicitly return a value"), expression.Line);
+              if (completion.Kind != BytecodeFlow.Return)
+                return Fail(context.Error("control flow cannot cross derivation boundaries: " + completion.Kind), completion.Line, true);
+              current = completion.Value;
+              if (current is ErrorMixinValue) return Fail(current, expression.Line);
             }
           } finally { activeDerivations.Remove(provider); }
         }
@@ -51,19 +58,6 @@ internal sealed partial class LanguageExecution {
         provider = null;
       }
       return new TupleMixinValue(result.ToArray());
-    } catch (Failure failure) {
-      Restore(variables, savedVariables);
-      Restore(targetVariables, savedTargets);
-      Restore(carries, savedCarries);
-      outputs.RemoveRange(outputCount, outputs.Count - outputCount);
-      return context.Error("derive entry " + index + (provider == null ? "" : " in '" + provider.Name + "'") +
-        " at line " + failure.Line + ": " + Text(failure.Value));
-    } catch (Flow flow) {
-      Restore(variables, savedVariables);
-      Restore(targetVariables, savedTargets);
-      Restore(carries, savedCarries);
-      outputs.RemoveRange(outputCount, outputs.Count - outputCount);
-      return context.Error("control flow cannot cross derivation boundaries: " + flow.Kind);
     } finally {
       parameter = previousParameter;
       locals = previousLocals;
