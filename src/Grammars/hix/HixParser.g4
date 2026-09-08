@@ -18,14 +18,14 @@ functionMetadata: (functionSignatureVariant | NEWLINE)*;
 functionSignatureVariant: KEYWORD_SIG signature ARROW signature;
 
 // Signatures
-signature: tableSignature | IDENTIFIER;
+signature: tableSignature | kindIdentifier;
 
 tableSignature
     : BEGIN_TABLE VALUE_END_INTERPOLATE
     | BEGIN_TABLE tableSignatureEntry (VALUE_DELIMITER tableSignatureEntry)* VALUE_END_INTERPOLATE
     ;
 
-tableSignatureEntry: VALUE_EXPAND? ROOT_IDENTIFIER VALUE_ASSIGN ROOT_IDENTIFIER;
+tableSignatureEntry: VALUE_EXPAND? ROOT_IDENTIFIER VALUE_ASSIGN kindIdentifier;
 
 // Actual Statements
 statementBlock: LC (statement | SEMICOLON | trivia)* RC;
@@ -115,6 +115,8 @@ primaryValue
     | valueExpression
     | valueStatement
     | NUMBER
+    | BOOLEAN
+    | NULL
     ;
 
 prefixOperators: NOT_VALUE;
@@ -174,6 +176,7 @@ memberIdentifier: VALUE_MEMBER MEMBER_IDENTIFIER;
 mixinIdentifier: IDENTIFIER | NAMESPACE_IDENTIFIER;
 variableIdentifier: IDENTIFIER;
 functionIdentifier: FUNCTION_IDENTIFIER | ROOT_IDENTIFIER;
+kindIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL;
 
 // Modifiers
 expressionModifier: KEYWORD_PRELUDE | KEYWORD_STRICT;

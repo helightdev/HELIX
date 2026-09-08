@@ -369,6 +369,12 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitFunctionIdentifier([NotNull] HixParser.FunctionIdentifierContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.kindIdentifier"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitKindIdentifier([NotNull] HixParser.KindIdentifierContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.expressionModifier"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

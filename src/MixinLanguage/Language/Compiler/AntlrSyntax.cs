@@ -81,6 +81,8 @@ public static class AntlrSyntax {
       Lexer.ERROR_TOKEN => HixTokenKind.Invalid,
       Lexer.ARGUMENT_TEXT or Lexer.CONTENT_TEXT => HixTokenKind.Text,
       Lexer.NUMBER => HixTokenKind.Number,
+      Lexer.BOOLEAN => HixTokenKind.Boolean,
+      Lexer.NULL => HixTokenKind.Null,
       Lexer.VALUE_MEMBER => HixTokenKind.Hash,
       Lexer.VALUE_FUNCTION => HixTokenKind.FunctionOperator,
       Lexer.VALUE_PREDICATE => HixTokenKind.BooleanCallOperator,
@@ -158,11 +160,11 @@ public static class AntlrSyntax {
     public override LanguageAst VisitFuncDeclaration(Parser.FuncDeclarationContext context) {
       Modifiers(context.funcModifier());
       SignatureField[] Fields(Parser.SignatureContext signature) => signature.tableSignature()?.tableSignatureEntry()
-        .Select(field => new SignatureField(field.ROOT_IDENTIFIER(0).GetText(), field.ROOT_IDENTIFIER(1).GetText(),
+        .Select(field => new SignatureField(field.ROOT_IDENTIFIER().GetText(), field.kindIdentifier().GetText(),
           field.VALUE_EXPAND() != null)).ToArray();
       var signatures = context.functionMetadata().functionSignatureVariant().Select(signature =>
-        new FunctionSignature(signature.signature(0).IDENTIFIER()?.GetText(), Fields(signature.signature(0)),
-          signature.signature(1).IDENTIFIER()?.GetText(), Fields(signature.signature(1)))).ToArray();
+        new FunctionSignature(signature.signature(0).kindIdentifier()?.GetText(), Fields(signature.signature(0)),
+          signature.signature(1).kindIdentifier()?.GetText(), Fields(signature.signature(1)))).ToArray();
       return At(new FunctionDeclarationAst(context.IDENTIFIER().GetText(),
         context.funcModifier().Any(modifier => modifier.KEYWORD_PURE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_INLINE() != null),
@@ -214,6 +216,10 @@ public static class AntlrSyntax {
         ? At(new NumberExpressionAst(double.Parse(number.GetText(),
           NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
           CultureInfo.InvariantCulture)), context)
+        : context.BOOLEAN() is { } boolean
+          ? At(new BooleanExpressionAst(boolean.GetText() == "true"), context)
+        : context.NULL() is not null
+          ? At(new NullExpressionAst(), context)
         : Visit(context.children.OfType<ParserRuleContext>().Single());
     public override LanguageAst VisitTailValue(Parser.TailValueContext context) =>
       Visit(context.children.OfType<ParserRuleContext>().Single());

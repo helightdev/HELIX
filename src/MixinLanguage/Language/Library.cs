@@ -77,18 +77,6 @@ public static class MixinRootLibrary {
       Documentation: "The attribute driving the current mixin."
     ),
     new(
-      Name: "true", Root: MixinExpressionRoot.True, Kind: MixinValueKind.Bool,
-      Documentation: "The Boolean true value."
-    ),
-    new(
-      Name: "false", Root: MixinExpressionRoot.False, Kind: MixinValueKind.Bool,
-      Documentation: "The Boolean false value."
-    ),
-    new(
-      Name: "null", Root: MixinExpressionRoot.Null, Kind: MixinValueKind.Null,
-      Documentation: "The null mixin value."
-    ),
-    new(
       Name: "table", Root: MixinExpressionRoot.Table, Kind: MixinValueKind.Kind,
       Documentation: "The table kind. Construct a table with table() or a table literal."
     ),

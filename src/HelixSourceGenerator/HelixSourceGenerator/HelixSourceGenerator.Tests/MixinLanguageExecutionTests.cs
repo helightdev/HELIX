@@ -22,6 +22,8 @@ public sealed class MixinLanguageExecutionTests {
   [InlineData("emit @> Hello\n@+  world\n", "Hello world")]
   [InlineData("emit @> Hello\n@> world\n", "Hello\nworld")]
   [InlineData("emit(<a[null]b>)", "ab")]
+  [InlineData("emit(true)", "true")]
+  [InlineData("emit(false)", "false")]
   [InlineData("emit(plus(number<2>, number<3>))", "5")]
   [InlineData("emit(<A[b()]>)", "Ab", "pure func b { return(<b>) }")]
   public void RendersTypedValues(string statements, string expected, string functions = "") {

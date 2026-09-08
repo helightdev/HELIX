@@ -114,6 +114,12 @@ internal sealed partial class LanguageExecution {
         operation = _ => constant;
         break;
       }
+      case BooleanExpressionAst boolean: {
+        var constant = Bool(boolean.Value);
+        operation = _ => constant;
+        break;
+      }
+      case NullExpressionAst: operation = _ => NullMixinValue.Instance; break;
       case RootExpressionAst root: {
         var name = root.Name;
         var smart = root.IsSmart;

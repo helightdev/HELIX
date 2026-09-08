@@ -125,9 +125,6 @@ internal sealed partial class LanguageExecution {
       if (targetVariables.TryGetValue(name, out var target)) return target;
       return variables.TryGetValue(name, out var variable) ? variable : context.Error("unknown variable '" + name + "'");
     }
-    if (name == "true") return BooleanMixinValue.True;
-    if (name == "false") return BooleanMixinValue.False;
-    if (name == "null") return NullMixinValue.Instance;
     if (name == "param") return parameter;
     if (name == "\0selector") return selector;
     if (KindMixinValue.TryGet(name, out var kind)) return kind;

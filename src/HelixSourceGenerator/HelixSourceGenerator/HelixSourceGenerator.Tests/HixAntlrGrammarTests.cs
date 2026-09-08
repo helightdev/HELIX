@@ -53,6 +53,7 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("mixin Example { expression { emit(number<2>) } }")]
   [InlineData("mixin Example { expression { emit(12.5) } }")]
   [InlineData("mixin Example { expression { emit(-12.5) } }")]
+  [InlineData("pure func empty sig null -> null { return(null) }")]
   public void ParsesLanguageFeatures(string source) {
     var errors = new Errors();
     var lexer = new Lexer(new AntlrInputStream(source));
@@ -79,6 +80,36 @@ public sealed class HixAntlrGrammarTests {
     var number = Assert.Single(semantic.Children.SelectMany(Descendants).OfType<Mixins.Compiler.NumberExpressionAst>());
     Assert.Equal(-12.5, number.Value);
     Assert.Contains(semantic.Tokens, token => token.Kind == Mixins.Compiler.HixTokenKind.Number && token.Text == "-12.5");
+  }
+
+  [Theory]
+  [InlineData("true", true)]
+  [InlineData("false", false)]
+  public void BooleanLiteralProducesAPrimitiveAstAndToken(string source, bool expected) {
+    var semantic = Mixins.Compiler.AntlrSyntax.Parse(
+      "mixin Example { expression { emit(" + source + ") } }");
+
+    Assert.Empty(semantic.Diagnostics);
+    var boolean = Assert.Single(semantic.Children.SelectMany(Descendants)
+      .OfType<Mixins.Compiler.BooleanExpressionAst>());
+    Assert.Equal(expected, boolean.Value);
+    Assert.Contains(semantic.Tokens, token =>
+      token.Kind == Mixins.Compiler.HixTokenKind.Boolean && token.Text == source);
+  }
+
+  [Fact]
+  public void NullLiteralProducesAPrimitiveAstAndRemainsAValidSignatureKind() {
+    var semantic = Mixins.Compiler.AntlrSyntax.Parse("""
+      pure func empty sig null -> null { return(null) }
+      """);
+
+    Assert.Empty(semantic.Diagnostics);
+    Assert.Single(semantic.Children.SelectMany(Descendants).OfType<Mixins.Compiler.NullExpressionAst>());
+    Assert.Contains(semantic.Tokens, token =>
+      token.Kind == Mixins.Compiler.HixTokenKind.Null && token.Text == "null");
+    var function = Assert.Single(semantic.Declarations.OfType<Mixins.Compiler.FunctionDeclarationAst>());
+    Assert.Equal("null", Assert.Single(function.Signatures).InputKind);
+    Assert.Equal("null", Assert.Single(function.Signatures).OutputKind);
   }
 
   private static IEnumerable<Mixins.Compiler.HixAst> Descendants(Mixins.Compiler.HixAst node) {

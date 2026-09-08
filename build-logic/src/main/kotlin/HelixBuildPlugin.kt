@@ -137,6 +137,7 @@ private fun registerHixGrammarTasks(project: Project) {
             "-Dlanguage=CSharp", "-visitor", "-no-listener",
             "-package", "Mixins.Compiler.Generated",
             "-o", csharpOutput.asFile.absolutePath,
+            "-lib", csharpOutput.asFile.absolutePath,
             "HixLexer.g4", "HixParser.g4",
         )
         doLast { normalizeGeneratedSources(csharpOutput.asFile, "cs") }
@@ -158,6 +159,7 @@ private fun registerHixGrammarTasks(project: Project) {
             "-Dlanguage=Java", "-visitor", "-no-listener",
             "-package", "dev.helight.helix.hix.generated",
             "-o", ideOutput.asFile.absolutePath,
+            "-lib", ideOutput.asFile.absolutePath,
             "HixLexer.g4", "HixParser.g4",
         )
         doLast { normalizeGeneratedSources(ideOutput.asFile, "java") }

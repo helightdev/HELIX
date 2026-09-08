@@ -26,6 +26,8 @@ public enum HixTokenKind {
   At,
   Identifier,
   Number,
+  Boolean,
+  Null,
   Hash,
   FunctionOperator,
   BooleanCallOperator,

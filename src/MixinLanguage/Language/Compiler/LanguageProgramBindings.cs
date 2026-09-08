@@ -63,6 +63,8 @@ internal sealed class LanguageProgramBindings {
     switch (expression) {
       case StringExpressionAst text: Line(builder, depth, prefix + "string " + Quote(text.Value)); break;
       case NumberExpressionAst number: Line(builder, depth, prefix + "number " + number.Value.ToString("R", CultureInfo.InvariantCulture)); break;
+      case BooleanExpressionAst boolean: Line(builder, depth, prefix + "boolean " + (boolean.Value ? "true" : "false")); break;
+      case NullExpressionAst: Line(builder, depth, prefix + "null"); break;
       case RootExpressionAst root:
         Line(builder, depth, prefix + (root.IsSmart ? "resolve.smart " : "resolve.root ") + Quote(root.Name)); break;
       case MemberExpressionAst {Receiver: RootExpressionAst {IsSmart: false, Name: "local" or "var" or "tar" or "carry"} storage} member:

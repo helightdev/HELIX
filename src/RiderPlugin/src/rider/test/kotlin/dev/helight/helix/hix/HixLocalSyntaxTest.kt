@@ -29,6 +29,28 @@ class HixLocalSyntaxTest {
     }
 
     @Test
+    fun `boolean literals have their own token and highlighting`() {
+        val source = "mixin E { expression { emit(true); emit(false) } }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertTrue(parsed.tokens.count { it.type == HixLexer.BOOLEAN } == 2)
+        assertTrue(HixSyntaxHighlighter(null)
+            .getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.BOOLEAN]).isNotEmpty())
+    }
+
+    @Test
+    fun `null literal has its own token and highlighting`() {
+        val source = "pure func empty sig null -> null { return(null) }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertTrue(parsed.tokens.count { it.type == HixLexer.NULL } == 3)
+        assertTrue(HixSyntaxHighlighter(null)
+            .getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.NULL]).isNotEmpty())
+    }
+
+    @Test
     fun `lexer preserves all source including skipped whitespace`() {
         val source = "mixin E {\n expression { local x = @[<a>, @{name=<b>}] }\n}"
         val parsed = HixAntlrSyntax.parse(source)
@@ -60,8 +82,8 @@ class HixLocalSyntaxTest {
         val source = "mixin E { expression { emit(<😀[true]>) } }"
         val parsed = HixAntlrSyntax.parse(source)
         assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
-        val root = parsed.tokens.single { it.type == HixLexer.ROOT_IDENTIFIER }
-        assertEquals("true", source.substring(root.start, root.end))
+        val boolean = parsed.tokens.single { it.type == HixLexer.BOOLEAN }
+        assertEquals("true", source.substring(boolean.start, boolean.end))
     }
 
     @Test
