@@ -3,7 +3,7 @@ lexer grammar HixLexer;
 tokens {
  ERROR_TOKEN, TERMINATOR, ESCAPE, BEGIN_ARGUMENT, BEGIN_VALUE, BEGIN_VALUE_ESCAPED, BEGIN_CONTENT,
  BEGIN_VALUE_INTERPOLATE, BEGIN_VALUE_INLINE, IDENTIFIER, NAMESPACE_IDENTIFIER, VALUE_END, ROOT_IDENTIFIER,
- BEGIN_TABLE, BEGIN_TUPLE
+ BEGIN_TABLE, BEGIN_TUPLE, NUMBER
 }
 
 ESCAPED_AT: '@@';
@@ -45,6 +45,7 @@ KEYWORD_STRICT: 'strict';
 LABEL_PREFIX: ':' -> pushMode(LABEL_IDENTIFIER_MODE);
 TOPLEVEL_IDENTIFIER: Identifier -> type(IDENTIFIER);
 TOPLEVEL_NAMESPACE_IDENTIFIER: NamespacedIdentifier -> type(NAMESPACE_IDENTIFIER);
+TOPLEVEL_NUMBER: Number -> type(NUMBER);
 
 ASSIGN: '=';
 ARROW: '->';
@@ -79,6 +80,7 @@ mode VALUE_MODE; //
 VALUE_FUNCTION: ':' -> pushMode(FUNCTION_IDENTIFIER_MODE);
 VALUE_PREDICATE: ':?' -> pushMode(FUNCTION_IDENTIFIER_MODE);
 VALUE_MEMBER: '#' -> pushMode(MEMBER_IDENTIFIER_MODE);
+VALUE_NUMBER: Number -> type(NUMBER);
 
 VALUE_BEGIN_ARGUMENT: '<' -> pushMode(ARGUMENT_MODE), type(BEGIN_ARGUMENT);
 VALUE_END_SEMICOLON: ';' -> popMode, type(VALUE_END);
@@ -123,7 +125,7 @@ FUNCTION_IDENTIFIER: Identifier -> popMode;
 INVALID_FUNCTION_IDENTIFIER: . -> popMode, type(ERROR_TOKEN);
 
 mode MEMBER_IDENTIFIER_MODE;
-MEMBER_IDENTIFIER: Identifier -> popMode;
+MEMBER_IDENTIFIER: NumberCapableIdentifier -> popMode;
 INVALID_MEMBER_IDENTIFIER: . -> popMode, type(ERROR_TOKEN);
 
 mode IDENTIFIER_MODE;
@@ -131,7 +133,7 @@ INNER_IDENTIFIER: Identifier -> popMode, type(IDENTIFIER);
 INVALID_IDENTIFIER: . -> popMode, type(ERROR_TOKEN);
 
 mode LABEL_IDENTIFIER_MODE;
-LABEL_IDENTIFIER: Identifier -> popMode;
+LABEL_IDENTIFIER: NumberCapableIdentifier -> popMode;
 INVALID_LABEL_IDENTIFIER: . -> popMode, type(ERROR_TOKEN);
 
 
@@ -140,7 +142,9 @@ fragment ArgumentText: ~[{}()[\]<>\\]+;
 fragment OperandText: ~[@\r\n{\\]+ | '{';
 fragment NamespacedIdentifier: Identifier ('.' Identifier)+;
 
-fragment Identifier: [a-zA-Z0-9_]+;
+fragment Identifier: [a-zA-Z_][a-zA-Z_0-9]*;
+fragment NumberCapableIdentifier: [a-zA-Z_0-9]+;
+fragment Number: '-'? [0-9]+ ('.' [0-9]+)?;
 fragment Space: [ \t];
 fragment Whitespace: Space+;
 fragment Newline: ('\r' | '\n' | '\r\n');

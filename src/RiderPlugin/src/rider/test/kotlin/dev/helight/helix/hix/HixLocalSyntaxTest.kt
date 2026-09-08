@@ -18,6 +18,17 @@ class HixLocalSyntaxTest {
     }
 
     @Test
+    fun `number literals have their own token and highlighting`() {
+        val source = "mixin E { expression { emit(-12.5) } }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertTrue(parsed.tokens.any { it.type == HixLexer.NUMBER && source.substring(it.start, it.end) == "-12.5" })
+        assertTrue(HixSyntaxHighlighter(null)
+            .getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.NUMBER]).isNotEmpty())
+    }
+
+    @Test
     fun `lexer preserves all source including skipped whitespace`() {
         val source = "mixin E {\n expression { local x = @[<a>, @{name=<b>}] }\n}"
         val parsed = HixAntlrSyntax.parse(source)

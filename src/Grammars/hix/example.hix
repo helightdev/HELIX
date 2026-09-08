@@ -127,5 +127,8 @@ mixin HELIX.Compose.ComposableMethodAttribute {
     local test @[a,b,c]
     local test @{a=test,b=other}
     local test @= int<42>;
+    local test @= -42;
+    local test = [-42];
+    CallSomething(123,-345.3123);
   }
 }

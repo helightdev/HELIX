@@ -109,6 +109,11 @@ internal sealed partial class LanguageExecution {
         operation = _ => constant;
         break;
       }
+      case NumberExpressionAst number: {
+        var constant = new NumberMixinValue(number.Value);
+        operation = _ => constant;
+        break;
+      }
       case RootExpressionAst root: {
         var name = root.Name;
         var smart = root.IsSmart;

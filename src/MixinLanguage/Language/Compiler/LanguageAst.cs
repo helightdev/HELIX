@@ -93,6 +93,10 @@ public sealed class StringExpressionAst(string value) : ExpressionAst {
   public string Value { get; } = value;
 }
 
+public sealed class NumberExpressionAst(double value) : ExpressionAst {
+  public double Value { get; } = value;
+}
+
 public sealed class RootExpressionAst(string name, bool smart = false) : ExpressionAst {
   public string Name { get; } = name;
   public bool IsSmart { get; } = smart;

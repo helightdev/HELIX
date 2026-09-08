@@ -27,6 +27,9 @@ object HixColors {
     val VALUE = TextAttributesKey.createTextAttributesKey(
         "HELIX_MIXIN_VALUE", DefaultLanguageHighlighterColors.NUMBER
     )
+    val NUMBER = TextAttributesKey.createTextAttributesKey(
+        "HIX_NUMBER", DefaultLanguageHighlighterColors.NUMBER
+    )
     val PATH = TextAttributesKey.createTextAttributesKey(
         "HELIX_MIXIN_PATH", DefaultLanguageHighlighterColors.INSTANCE_FIELD
     )
@@ -86,6 +89,7 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
         val name = HixLexer.VOCABULARY.getSymbolicName(type).orEmpty()
         return pack(when {
             name.startsWith("KEYWORD_") -> HixColors.DIRECTIVE
+            type == HixLexer.NUMBER -> HixColors.NUMBER
             type == HixLexer.ROOT_IDENTIFIER || type == HixLexer.VALUE_SMART_ROOT -> HixColors.VALUE
             type == HixLexer.FUNCTION_IDENTIFIER -> HixColors.FUNCTION
             type == HixLexer.MEMBER_IDENTIFIER -> HixColors.PATH
@@ -108,6 +112,7 @@ class HixColorSettingsPage : ColorSettingsPage {
     override fun getAttributeDescriptors(): Array<AttributesDescriptor> = arrayOf(
         AttributesDescriptor("Directive", HixColors.DIRECTIVE),
         AttributesDescriptor("Expression root", HixColors.VALUE),
+        AttributesDescriptor("Number", HixColors.NUMBER),
         AttributesDescriptor("Member path", HixColors.PATH),
         AttributesDescriptor("Built-in function", HixColors.FUNCTION),
         AttributesDescriptor("Literal argument", HixColors.ARGUMENT),

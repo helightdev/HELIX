@@ -25,6 +25,7 @@ public enum HixSyntaxKind {
 public enum HixTokenKind {
   At,
   Identifier,
+  Number,
   Hash,
   FunctionOperator,
   BooleanCallOperator,

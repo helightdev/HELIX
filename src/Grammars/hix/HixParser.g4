@@ -114,6 +114,7 @@ primaryValue
     | tupleValue
     | valueExpression
     | valueStatement
+    | NUMBER
     ;
 
 prefixOperators: NOT_VALUE;

@@ -36,6 +36,8 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("mixin Example { expression { emit @> Hello {{this:name}}\n@+!\n} }")]
   [InlineData("mixin Example { expression { local x @= null ?: <fallback>; } }")]
   [InlineData("mixin Example { expression { emit(number<2>) } }")]
+  [InlineData("mixin Example { expression { emit(12.5) } }")]
+  [InlineData("mixin Example { expression { emit(-12.5) } }")]
   public void ParsesLanguageFeatures(string source) {
     var errors = new Errors();
     var lexer = new Lexer(new AntlrInputStream(source));
@@ -52,6 +54,23 @@ public sealed class HixAntlrGrammarTests {
     var semantic = Mixins.Compiler.AntlrSyntax.Parse(source);
     Assert.Empty(semantic.Diagnostics);
     Assert.NotEmpty(semantic.Declarations);
+  }
+
+  [Fact]
+  public void NumberLiteralProducesANumericAstAndToken() {
+    var semantic = Mixins.Compiler.AntlrSyntax.Parse("mixin Example { expression { emit(-12.5) } }");
+
+    Assert.Empty(semantic.Diagnostics);
+    var number = Assert.Single(semantic.Children.SelectMany(Descendants).OfType<Mixins.Compiler.NumberExpressionAst>());
+    Assert.Equal(-12.5, number.Value);
+    Assert.Contains(semantic.Tokens, token => token.Kind == Mixins.Compiler.HixTokenKind.Number && token.Text == "-12.5");
+  }
+
+  private static IEnumerable<Mixins.Compiler.HixAst> Descendants(Mixins.Compiler.HixAst node) {
+    yield return node;
+    foreach (var child in node.Children)
+      foreach (var descendant in Descendants(child))
+        yield return descendant;
   }
 
   private sealed class Errors : BaseErrorListener, IAntlrErrorListener<int> {

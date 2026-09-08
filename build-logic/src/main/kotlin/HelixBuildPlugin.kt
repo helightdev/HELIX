@@ -139,6 +139,7 @@ private fun registerHixGrammarTasks(project: Project) {
             "-o", csharpOutput.asFile.absolutePath,
             "HixLexer.g4", "HixParser.g4",
         )
+        doLast { normalizeGeneratedSources(csharpOutput.asFile, "cs") }
     }
     val ide = project.tasks.register("generateHixIdeGrammar", JavaExec::class.java) {
         group = "code generation"
@@ -159,11 +160,20 @@ private fun registerHixGrammarTasks(project: Project) {
             "-o", ideOutput.asFile.absolutePath,
             "HixLexer.g4", "HixParser.g4",
         )
+        doLast { normalizeGeneratedSources(ideOutput.asFile, "java") }
     }
     project.tasks.register("generateHixGrammar") {
         group = "code generation"
         description = "Generates all ANTLR outputs for the Hix language."
         dependsOn(csharp, ide)
+    }
+}
+
+private fun normalizeGeneratedSources(directory: File, extension: String) {
+    directory.listFiles { file -> file.isFile && file.extension == extension }?.forEach { file ->
+        val source = file.readText(StandardCharsets.UTF_8)
+        val normalized = source.replace(Regex("[ \\t]+(?=\\r?$)", RegexOption.MULTILINE), "")
+        if (normalized != source) file.writeText(normalized, StandardCharsets.UTF_8)
     }
 }
 

@@ -80,6 +80,7 @@ public static class AntlrSyntax {
       Lexer.CONTENT_WRAP or Lexer.VALUE_WRAP => HixTokenKind.DirectContinuation,
       Lexer.ERROR_TOKEN => HixTokenKind.Invalid,
       Lexer.ARGUMENT_TEXT or Lexer.CONTENT_TEXT => HixTokenKind.Text,
+      Lexer.NUMBER => HixTokenKind.Number,
       Lexer.VALUE_MEMBER => HixTokenKind.Hash,
       Lexer.VALUE_FUNCTION => HixTokenKind.FunctionOperator,
       Lexer.VALUE_PREDICATE => HixTokenKind.BooleanCallOperator,
@@ -209,7 +210,11 @@ public static class AntlrSyntax {
     public override LanguageAst VisitValue(Parser.ValueContext context) =>
       Visit(context.children.OfType<ParserRuleContext>().Single());
     public override LanguageAst VisitPrimaryValue(Parser.PrimaryValueContext context) =>
-      Visit(context.children.OfType<ParserRuleContext>().Single());
+      context.NUMBER() is { } number
+        ? At(new NumberExpressionAst(double.Parse(number.GetText(),
+          NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
+          CultureInfo.InvariantCulture)), context)
+        : Visit(context.children.OfType<ParserRuleContext>().Single());
     public override LanguageAst VisitTailValue(Parser.TailValueContext context) =>
       Visit(context.children.OfType<ParserRuleContext>().Single());
     public override LanguageAst VisitInlineValue(Parser.InlineValueContext context) => Visit(context.value());
