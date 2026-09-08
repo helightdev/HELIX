@@ -57,6 +57,9 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("pure func answer => 42\n")]
   [InlineData("pure func <answer with spaces> => 42\n")]
   [InlineData("mixin <HELIX.Example-Type> { expression { emit(<ok>) } }")]
+  [InlineData("%deprecated\n%since(<2.0>)\n%[<future>]\npure func annotated => 42\n")]
+  [InlineData("pure func typed sig @{%[<native-type>] value=string} -> string { return(param#value) }")]
+  [InlineData("mixin AnnotatedTable { expression { local value = @{%[<field-note>] name=<Ada>} } }")]
   [InlineData("mixin Example { expression { local mapper = func => <[$0]>; emit(call(local#mapper, <x>)) } }")]
   [InlineData("mixin Example { expression { local mapper = func { return(<[$0]>) } } }")]
   public void ParsesLanguageFeatures(string source) {
@@ -87,6 +90,38 @@ public sealed class HixAntlrGrammarTests {
     Assert.Empty(semantic.Diagnostics);
     Assert.Equal("answer with spaces", semantic.Declarations.OfType<Mixins.Compiler.FunctionDeclarationAst>().Single().Name);
     Assert.Equal("HELIX.Example-Type", semantic.Declarations.OfType<Mixins.Compiler.MixinDeclarationAst>().Single().Name);
+  }
+
+  [Fact]
+  public void MetadataIsRetainedOnDeclarationsAndTableFields() {
+    var semantic = Mixins.Compiler.AntlrSyntax.Parse("""
+      %deprecated
+      %since(<2.0>)
+      %[<future>]
+      pure func annotated sig @{%[<native-type>] value=string} -> string {
+        return(@{%[<field-note>] value=param#value})
+      }
+      """);
+
+    Assert.Empty(semantic.Diagnostics);
+    var function = semantic.Declarations.OfType<Mixins.Compiler.FunctionDeclarationAst>().Single();
+    Assert.Equal(new[] {"deprecated", "since", null}, function.Metadata.Select(metadata => metadata.Name));
+    Assert.Equal("native-type", Assert.IsType<Mixins.Compiler.StringExpressionAst>(
+      function.Signatures.Single().Inputs.Single().Metadata.Single().Values.Single()).Value);
+    var table = function.Body.Children.SelectMany(Descendants).OfType<Mixins.Compiler.TableExpressionAst>().Single();
+    Assert.Equal("field-note", Assert.IsType<Mixins.Compiler.StringExpressionAst>(
+      table.FieldMetadata.Single().Value.Single().Values.Single()).Value);
+  }
+
+  [Theory]
+  [InlineData("%deprecated func Build { return(null) }", 1)]
+  [InlineData("%deprecated %since(<2.0>) func Build { return(null) }", 2)]
+  public void MetadataCanAppearInlineBeforeADeclaration(string source, int expectedCount) {
+    var semantic = Mixins.Compiler.AntlrSyntax.Parse(source);
+
+    Assert.Empty(semantic.Diagnostics);
+    var function = semantic.Declarations.OfType<Mixins.Compiler.FunctionDeclarationAst>().Single();
+    Assert.Equal(expectedCount, function.Metadata.Count);
   }
 
   [Fact]

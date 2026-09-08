@@ -27,7 +27,7 @@ internal sealed class SignatureParameterBindingStep : HixCompilerStep {
     if (positions.Count == 0) return function;
     var body = new ParameterRewriter(positions).Rewrite(function.Body);
     return Copy(function, new FunctionDeclarationAst(function.Name, function.IsPure, function.IsInline,
-      function.IsNoinline, function.Signatures, body));
+      function.IsNoinline, function.Signatures, body, function.Metadata));
   }
 
   private static IEnumerable<HixAst> Descendants(HixAst node) {

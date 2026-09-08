@@ -39,6 +39,24 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitCompilationUnit([NotNull] HixParser.CompilationUnitContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.topLevelDeclaration"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitTopLevelDeclaration([NotNull] HixParser.TopLevelDeclarationContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.metadata"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitMetadata([NotNull] HixParser.MetadataContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.metadataValue"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitMetadataValue([NotNull] HixParser.MetadataValueContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.mixinDeclaration"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

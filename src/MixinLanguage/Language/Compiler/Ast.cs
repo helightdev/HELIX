@@ -42,7 +42,7 @@ public abstract class HixAst {
     }
   }
   public IReadOnlyList<HixToken> Tokens { get; internal set; } = [];
-  public IEnumerable<HixAst> SemanticChildren => Children.Where(child => !child.IsTrivia);
+  public IEnumerable<HixAst> SemanticChildren => Children.Where(child => !child.IsTrivia && child is not MetadataAst);
 
   public CompilationUnitAst Program {
     get {
@@ -67,6 +67,11 @@ public sealed class TriviaAst(HixSyntaxKind kind, HixSourceRange range) : HixAst
   public override bool IsTrivia => true;
 }
 
+public sealed class MetadataAst(string name, IReadOnlyList<ExpressionAst> values) : HixAst(children: values) {
+  public string Name { get; } = name;
+  public IReadOnlyList<ExpressionAst> Values { get; } = values;
+}
+
 public sealed record HixParseDiagnostic(int Line, string Message);
 
 public sealed class CompilationUnitAst : HixAst {
@@ -87,11 +92,13 @@ public sealed class CompilationUnitAst : HixAst {
   public IReadOnlyList<HixParseDiagnostic> Diagnostics { get; }
 }
 
-public sealed class MixinDeclarationAst(string name, bool derivation, IReadOnlyList<HixAst> declarations)
-  : HixAst(children: declarations) {
+public sealed class MixinDeclarationAst(string name, bool derivation, IReadOnlyList<HixAst> declarations,
+  IReadOnlyList<MetadataAst> metadata = null)
+  : HixAst(children: (metadata ?? []).Cast<HixAst>().Concat(declarations).ToArray()) {
   public string Name { get; } = name;
   public bool IsDerivation { get; } = derivation;
   public IReadOnlyList<HixAst> Declarations { get; } = declarations;
+  public IReadOnlyList<MetadataAst> Metadata { get; } = metadata ?? [];
 }
 
 public sealed class ExpressionDeclarationAst(bool prelude, bool strict, BlockStatementAst body)
@@ -101,21 +108,23 @@ public sealed class ExpressionDeclarationAst(bool prelude, bool strict, BlockSta
   public BlockStatementAst Body { get; } = body;
 }
 
-public sealed record SignatureField(string Name, string Kind, bool Variadic);
+public sealed record SignatureField(string Name, string Kind, bool Variadic,
+  IReadOnlyList<MetadataAst> Metadata = null);
 
 public sealed record FunctionSignature(string InputKind, IReadOnlyList<SignatureField> Inputs,
   string OutputKind, IReadOnlyList<SignatureField> Outputs
 );
 
 public sealed class FunctionDeclarationAst(string name, bool pure, bool inline, bool noinline,
-  IReadOnlyList<FunctionSignature> signatures, BlockStatementAst body
-) : HixAst(children: [body]) {
+  IReadOnlyList<FunctionSignature> signatures, BlockStatementAst body, IReadOnlyList<MetadataAst> metadata = null
+) : HixAst(children: (metadata ?? []).Cast<HixAst>().Concat([body]).ToArray()) {
   public string Name { get; } = name;
   public bool IsPure { get; } = pure;
   public bool IsInline { get; } = inline;
   public bool IsNoinline { get; } = noinline;
   public IReadOnlyList<FunctionSignature> Signatures { get; } = signatures;
   public BlockStatementAst Body { get; } = body;
+  public IReadOnlyList<MetadataAst> Metadata { get; } = metadata ?? [];
 }
 
 public abstract class StatementAst(IEnumerable<HixAst> children = null) : HixAst(children: children?.ToArray());
@@ -214,9 +223,12 @@ public sealed class TupleExpressionAst(IReadOnlyList<ExpressionAst> values) : Ex
   public IReadOnlyList<ExpressionAst> Values { get; } = values;
 }
 
-public sealed class TableExpressionAst(IReadOnlyList<KeyValuePair<string, ExpressionAst>> entries)
-  : ExpressionAst(entries.Select(entry => entry.Value)) {
+public sealed class TableExpressionAst(IReadOnlyList<KeyValuePair<string, ExpressionAst>> entries,
+  IReadOnlyList<KeyValuePair<string, IReadOnlyList<MetadataAst>>> fieldMetadata = null)
+  : ExpressionAst((fieldMetadata?.SelectMany(value => value.Value).Cast<HixAst>() ?? [])
+    .Concat(entries.Select(entry => entry.Value)).ToArray()) {
   public IReadOnlyList<KeyValuePair<string, ExpressionAst>> Entries { get; } = entries;
+  public IReadOnlyList<KeyValuePair<string, IReadOnlyList<MetadataAst>>> FieldMetadata { get; } = fieldMetadata ?? [];
 }
 
 public sealed class InterpolationExpressionAst(IReadOnlyList<ExpressionAst> parts) : ExpressionAst(parts) {

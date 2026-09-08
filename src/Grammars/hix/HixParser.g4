@@ -2,7 +2,20 @@ parser grammar HixParser;
 
 options { tokenVocab=HixLexer; }
 
-compilationUnit: (trivia | mixinDeclaration | funcDeclaration)* EOF;
+compilationUnit: (trivia | topLevelDeclaration)* EOF;
+
+topLevelDeclaration
+    : metadata (trivia* metadata)* trivia* (mixinDeclaration | funcDeclaration)
+    | mixinDeclaration
+    | funcDeclaration
+    ;
+
+metadata
+    : METADATA_PREFIX IDENTIFIER valueList?
+    | metadataValue
+    ;
+
+metadataValue: BEGIN_METADATA_VALUE value VALUE_END_INLINE;
 
 // Declarations
 mixinDeclaration: mixinModifier* KEYWORD_MIXIN mixinIdentifier mixinBody;
@@ -27,7 +40,7 @@ tableSignature
     | BEGIN_TABLE tableSignatureEntry (VALUE_DELIMITER tableSignatureEntry)* RC
     ;
 
-tableSignatureEntry: VALUE_EXPAND? ROOT_IDENTIFIER VALUE_ASSIGN kindIdentifier;
+tableSignatureEntry: metadataValue* VALUE_EXPAND? ROOT_IDENTIFIER VALUE_ASSIGN kindIdentifier;
 
 // Actual Statements
 statementBlock: LC (statement | SEMICOLON | trivia)* RC;
@@ -147,7 +160,7 @@ tableValue
     | BEGIN_TABLE tableKeyedEntry (VALUE_DELIMITER tableKeyedEntry)* RC
     ;
 
-tableKeyedEntry: ROOT_IDENTIFIER VALUE_ASSIGN value;
+tableKeyedEntry: metadataValue* ROOT_IDENTIFIER VALUE_ASSIGN value;
 
 valueList
     : BEGIN_PARAMETERS value (VALUE_DELIMITER value)* END_PARAMETERS

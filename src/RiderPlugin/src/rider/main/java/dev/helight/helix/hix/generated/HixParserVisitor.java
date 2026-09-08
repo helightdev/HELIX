@@ -17,6 +17,24 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitCompilationUnit(HixParser.CompilationUnitContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#topLevelDeclaration}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitTopLevelDeclaration(HixParser.TopLevelDeclarationContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#metadata}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitMetadata(HixParser.MetadataContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#metadataValue}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitMetadataValue(HixParser.MetadataValueContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#mixinDeclaration}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

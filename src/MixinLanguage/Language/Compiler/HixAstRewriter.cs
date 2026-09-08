@@ -11,7 +11,7 @@ internal class HixAstRewriter {
     HixAst rewritten = node switch {
       ExpressionDeclarationAst value => new ExpressionDeclarationAst(value.IsPrelude, value.IsStrict, Rewrite(value.Body)),
       FunctionDeclarationAst value => new FunctionDeclarationAst(value.Name, value.IsPure, value.IsInline,
-        value.IsNoinline, value.Signatures, Rewrite(value.Body)),
+        value.IsNoinline, value.Signatures, Rewrite(value.Body), value.Metadata),
       BlockStatementAst value => new BlockStatementAst(value.Statements.Select(Rewrite).ToArray(), value.Label),
       AssignmentStatementAst value => new AssignmentStatementAst(value.Storage, value.Name, Rewrite(value.Value), value.IsCarried),
       InvocationStatementAst value => new InvocationStatementAst(Rewrite(value.Call)),
@@ -31,7 +31,7 @@ internal class HixAstRewriter {
       FallbackExpressionAst value => new FallbackExpressionAst(Rewrite(value.Value), Rewrite(value.Fallback)),
       TupleExpressionAst value => new TupleExpressionAst(value.Values.Select(Rewrite).ToArray()),
       TableExpressionAst value => new TableExpressionAst(value.Entries.Select(entry =>
-        new KeyValuePair<string, ExpressionAst>(entry.Key, Rewrite(entry.Value))).ToArray()),
+        new KeyValuePair<string, ExpressionAst>(entry.Key, Rewrite(entry.Value))).ToArray(), value.FieldMetadata),
       InterpolationExpressionAst value => new InterpolationExpressionAst(value.Parts.Select(Rewrite).ToArray()),
       SelectionBranchAst value => new SelectionBranchAst(value.Conditions.Select(Rewrite).ToArray(),
         RewriteNode(value.Result), value.IsTransformation),

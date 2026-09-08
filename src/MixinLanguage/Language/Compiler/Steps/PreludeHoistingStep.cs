@@ -60,7 +60,8 @@ internal sealed class PreludeHoistingStep : HixCompilerStep {
           new FallbackExpressionAst(RewriteLateValue(value.Value), RewriteLateValue(value.Fallback))),
         TupleExpressionAst value => CopyLocation(value, new TupleExpressionAst(value.Values.Select(RewriteLateValue).ToArray())),
         TableExpressionAst value => CopyLocation(value, new TableExpressionAst(value.Entries.Select(entry =>
-          new KeyValuePair<string, ExpressionAst>(entry.Key, RewriteLateValue(entry.Value))).ToArray())),
+          new KeyValuePair<string, ExpressionAst>(entry.Key, RewriteLateValue(entry.Value))).ToArray(),
+          value.FieldMetadata)),
         InterpolationExpressionAst value => CopyLocation(value,
           new InterpolationExpressionAst(value.Parts.Select(RewriteLateValue).ToArray())),
         SelectionExpressionAst value => RewriteLateSelection(value),

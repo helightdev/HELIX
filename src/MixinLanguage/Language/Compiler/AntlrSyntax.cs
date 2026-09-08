@@ -109,6 +109,7 @@ public static class AntlrSyntax {
 
   private sealed class Builder(IReadOnlyList<HixToken> tokens, List<HixParseDiagnostic> diagnostics)
     : Generated.HixParserBaseVisitor<HixAst> {
+    private IReadOnlyList<MetadataAst> declarationMetadata = [];
     private HixToken[] TokensIn(HixSourceRange range) {
       var low = 0;
       var high = tokens.Count;
@@ -155,13 +156,31 @@ public static class AntlrSyntax {
       return argument.GetText();
     }
 
+    public override HixAst VisitTopLevelDeclaration(Parser.TopLevelDeclarationContext context) {
+      var previous = declarationMetadata;
+      declarationMetadata = context.metadata().Select(metadata => (MetadataAst)Visit(metadata)).ToArray();
+      try {
+        return At(Visit(context.mixinDeclaration() ?? (ParserRuleContext)context.funcDeclaration()), context);
+      } finally {
+        declarationMetadata = previous;
+      }
+    }
+
+    public override HixAst VisitMetadata(Parser.MetadataContext context) {
+      if (context.metadataValue() is { } anonymous) return Visit(anonymous);
+      return At(new MetadataAst(context.IDENTIFIER().GetText(), Arguments(context.valueList())), context);
+    }
+
+    public override HixAst VisitMetadataValue(Parser.MetadataValueContext context) =>
+      At(new MetadataAst(null, [Value(context.value())]), context);
+
     public override HixAst VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
       Modifiers(context.mixinModifier());
       var identifier = context.mixinIdentifier();
       return At(new MixinDeclarationAst(DeclarationName(identifier.IDENTIFIER() ?? identifier.NAMESPACE_IDENTIFIER(),
           identifier.argumentValue()), context.mixinModifier().Length != 0,
         context.mixinBody().children.OfType<ParserRuleContext>()
-          .Where(child => child is not Parser.TriviaContext).Select(Visit).ToArray()), context);
+          .Where(child => child is not Parser.TriviaContext).Select(Visit).ToArray(), declarationMetadata), context);
     }
 
     public override HixAst VisitExpressionDeclaration(Parser.ExpressionDeclarationContext context) {
@@ -175,7 +194,7 @@ public static class AntlrSyntax {
       Modifiers(context.funcModifier());
       SignatureField[] Fields(Parser.SignatureContext signature) => signature.tableSignature()?.tableSignatureEntry()
         .Select(field => new SignatureField(field.ROOT_IDENTIFIER().GetText(), field.kindIdentifier().GetText(),
-          field.VALUE_EXPAND() != null)).ToArray();
+          field.VALUE_EXPAND() != null, field.metadataValue().Select(metadata => (MetadataAst)Visit(metadata)).ToArray())).ToArray();
       var signatures = context.functionMetadata().functionSignatureVariant().Select(signature =>
         new FunctionSignature(signature.signature(0).kindIdentifier()?.GetText(), Fields(signature.signature(0)),
           signature.signature(1).kindIdentifier()?.GetText(), Fields(signature.signature(1)))).ToArray();
@@ -184,7 +203,7 @@ public static class AntlrSyntax {
         context.funcModifier().Any(modifier => modifier.KEYWORD_PURE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_INLINE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_NOINLINE() != null), signatures,
-        FunctionBody(context.functionBody())), context);
+        FunctionBody(context.functionBody()), declarationMetadata), context);
     }
 
     public override HixAst VisitLambdaValue(Parser.LambdaValueContext context) {
@@ -266,10 +285,14 @@ public static class AntlrSyntax {
 
     public override HixAst VisitTupleValue(Parser.TupleValueContext context) => At(
       new TupleExpressionAst(context.value().Select(Value).ToArray()), context);
-    public override HixAst VisitTableValue(Parser.TableValueContext context) => At(
-      new TableExpressionAst(context.tableKeyedEntry().Select(entry =>
-        new KeyValuePair<string, ExpressionAst>(entry.ROOT_IDENTIFIER().GetText(), Value(entry.value()))).ToArray()),
-      context);
+    public override HixAst VisitTableValue(Parser.TableValueContext context) {
+      var entries = context.tableKeyedEntry();
+      return At(new TableExpressionAst(entries.Select(entry =>
+          new KeyValuePair<string, ExpressionAst>(entry.ROOT_IDENTIFIER().GetText(), Value(entry.value()))).ToArray(),
+        entries.Select(entry => new KeyValuePair<string, IReadOnlyList<MetadataAst>>(
+          entry.ROOT_IDENTIFIER().GetText(), entry.metadataValue().Select(metadata =>
+            (MetadataAst)Visit(metadata)).ToArray())).ToArray()), context);
+    }
 
     public override HixAst VisitDerivationRoot(Parser.DerivationRootContext context) => At(
       new RootExpressionAst((context.ROOT_IDENTIFIER()?.GetText() ?? context.NUMBER().GetText()),

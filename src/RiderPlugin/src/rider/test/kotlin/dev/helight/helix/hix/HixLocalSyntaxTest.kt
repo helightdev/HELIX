@@ -34,6 +34,27 @@ class HixLocalSyntaxTest {
     }
 
     @Test
+    fun `top level and table field metadata parse structurally`() {
+        val source = "%deprecated\n%since(<2.0>)\n%[<future>]\n" +
+            "pure func annotated sig @{%[<native-type>] value=string} -> string { " +
+            "return(@{%[<field-note>] value=param#value}) }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(6, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.MetadataContext ||
+            it is HixParser.MetadataValueContext })
+    }
+
+    @Test
+    fun `metadata can appear inline before a declaration`() {
+        val source = "%deprecated %since(<2.0>) func Build { return(null) }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(2, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.MetadataContext })
+    }
+
+    @Test
     fun `number literals have their own token and highlighting`() {
         val source = "mixin E { expression { emit(-12.5) } }"
         val parsed = HixAntlrSyntax.parse(source)
