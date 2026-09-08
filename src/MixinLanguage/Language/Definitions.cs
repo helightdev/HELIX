@@ -22,8 +22,7 @@ public enum MixinExpressionRoot {
   False,
   Null,
   Table,
-  Parameter,
-  Carry
+  Parameter
 }
 
 public enum MixinEmissionTarget {

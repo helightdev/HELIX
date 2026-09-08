@@ -37,7 +37,8 @@ internal sealed class LanguageProgramBindings {
     switch (statement) {
       case BlockStatementAst block: RenderBlock(builder, block, depth); break;
       case AssignmentStatementAst assignment:
-        Line(builder, depth, "store." + assignment.Storage.ToString().ToLowerInvariant() + " " + Quote(assignment.Name));
+        Line(builder, depth, "store." + (assignment.IsCarried ? "carry.local" :
+          assignment.Storage.ToString().ToLowerInvariant()) + " " + Quote(assignment.Name));
         RenderValue(builder, assignment.Value, depth + 1);
         break;
       case InvocationStatementAst invocation:
@@ -67,7 +68,7 @@ internal sealed class LanguageProgramBindings {
       case NullExpressionAst: Line(builder, depth, prefix + "null"); break;
       case RootExpressionAst root:
         Line(builder, depth, prefix + (root.IsSmart ? "resolve.smart " : "resolve.root ") + Quote(root.Name)); break;
-      case MemberExpressionAst {Receiver: RootExpressionAst {IsSmart: false, Name: "local" or "var" or "tar" or "carry"} storage} member:
+      case MemberExpressionAst {Receiver: RootExpressionAst {IsSmart: false, Name: "local" or "var" or "tar"} storage} member:
         Line(builder, depth, prefix + "load." + storage.Name + " " + Quote(member.Member)); break;
       case MemberExpressionAst {Receiver: RootExpressionAst {IsSmart: false, Name: "this" or "target" or "attr"} host} member:
         Line(builder, depth, prefix + "load.host." + host.Name + " " + Quote(member.Member)); break;

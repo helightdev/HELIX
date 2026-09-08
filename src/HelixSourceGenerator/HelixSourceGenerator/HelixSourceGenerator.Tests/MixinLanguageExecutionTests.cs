@@ -79,6 +79,35 @@ public sealed class MixinLanguageExecutionTests {
   }
 
   [Fact]
+  public void SmartLookupIsLimitedToParametersAndTheCurrentLocalFrame() {
+    var result = Run("""
+      local visible = <local>
+      emit($visible)
+      emit(read(<parameter>))
+      """, "pure func read { return($1) }");
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"local", "parameter"}, result.Outputs.Select(output => output.Text));
+
+    var variable = Run("var hidden = <variable>\nemit($hidden)");
+    Assert.False(variable.Success);
+    Assert.Contains("unknown local or parameter 'hidden'", variable.Error);
+    var target = Run("target var hidden = <target>\nemit($hidden)");
+    Assert.False(target.Success);
+    Assert.Contains("unknown local or parameter 'hidden'", target.Error);
+  }
+
+  [Fact]
+  public void NamedSignatureSmartParametersBindByPosition() {
+    var result = Run("emit(format(<left>, <right>))", """
+      pure func format sig @{first=string, second=string} -> string {
+        return(<[$2]:[$first]>)
+      }
+      """);
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("right:left", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
   public void SignatureMatchingAppliesOneDirectImplicitCoercion() {
     var declared = Run("emit(describe(12))", """
       pure func describe sig string -> string { return(param) }
@@ -163,11 +192,21 @@ public sealed class MixinLanguageExecutionTests {
 
   [Fact]
   public void CarriesCrossPhasesButPreludeLocalsDoNot() {
-    var result = Run("emit(carry#value)\nemit(local#hidden)", prelude: "local hidden = <private>\ncarry value = <durable>");
+    var result = Run("emit(local#value)\nemit(local#hidden)", prelude: "local hidden = <private>\ncarry local value = <durable>");
     Assert.True(result.Success, result.Error);
     Assert.Equal(new[] {"durable", ""}, result.Outputs.Select(output => output.Text));
     Assert.True(Run("emit(this:name)").Success);
-    Assert.False(Run("emit(carry#value)", prelude: "carry value = <ok>\nlocal invalid = [carry#value]").Success);
+    var updated = Run("emit(local#value)", prelude: "carry local value = <ok>\nlocal value = <updated>");
+    Assert.True(updated.Success, updated.Error);
+    Assert.Equal("updated", Assert.Single(updated.Outputs).Text);
+  }
+
+  [Fact]
+  public void CarriedLocalsBelongToTheUnitAndAreNotInheritedByFunctions() {
+    var result = Run("emit(read())\nemit(local#value)",
+      "pure func read { return(local#value) }", "carry local value = <unit>");
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"", "unit"}, result.Outputs.Select(output => output.Text));
   }
 
   [Fact]
@@ -288,11 +327,11 @@ public sealed class MixinLanguageExecutionTests {
       mixin Example {
         prelude expression {
           local records = derive(@[@{symbol=this, value=<initial>, extra=<kept>}])
-          carry result = [local#records]
+          carry local result = [local#records]
         }
         expression {
-          emit(carry#result#0#value)
-          emit(carry#result#0#extra)
+          emit(local#result#0#value)
+          emit(local#result#0#extra)
         }
       }
       """);

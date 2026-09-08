@@ -95,10 +95,6 @@ public static class MixinRootLibrary {
     new(
       Name: "param", Root: MixinExpressionRoot.Parameter, Kind: MixinValueKind.Any,
       Documentation: "A named parameter of the current function scope."
-    ),
-    new(
-      Name: "carry", Root: MixinExpressionRoot.Carry, Kind: MixinValueKind.Table,
-      Documentation: "A value carried into an expanded expression scope."
     )
   ];
 

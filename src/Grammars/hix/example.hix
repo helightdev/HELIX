@@ -7,7 +7,7 @@ pure noinline func getMyselfOrDefault {
 // Hello World
 mixin HELIX.Compose.ComposableMethodAttribute {
   func SelectParameter {
-    carry test @= target:name:replaceFirst(dasd);
+    carry local test @= target:name:replaceFirst(dasd);
   }
 
   prelude expression {
@@ -27,7 +27,7 @@ mixin HELIX.Compose.ComposableMethodAttribute {
     increment(hello, world) [this]
     increment() @= this:name;
 
-    carry test = [target]
+    carry local test = [target]
     local another = say(hello, world);
 
     when(myPredicate) {

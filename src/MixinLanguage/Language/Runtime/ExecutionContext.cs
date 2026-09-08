@@ -133,10 +133,6 @@ public abstract class ExecutionContext {
           ? Parameter
           : Parameter.Select(this, member);
       case MixinExpressionRoot.Table: return MixinTableValue.Empty;
-      case MixinExpressionRoot.Carry:
-        return Carries.TryGetValue(member, out var carry)
-          ? carry
-          : Error("unknown carried value");
       default: return ResolveHost(root, member);
     }
   }

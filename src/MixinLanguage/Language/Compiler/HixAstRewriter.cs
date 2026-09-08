@@ -13,7 +13,7 @@ internal class HixAstRewriter {
       FunctionDeclarationAst value => new FunctionDeclarationAst(value.Name, value.IsPure, value.IsInline,
         value.IsNoinline, value.Signatures, Rewrite(value.Body)),
       BlockStatementAst value => new BlockStatementAst(value.Statements.Select(Rewrite).ToArray(), value.Label),
-      AssignmentStatementAst value => new AssignmentStatementAst(value.Storage, value.Name, Rewrite(value.Value)),
+      AssignmentStatementAst value => new AssignmentStatementAst(value.Storage, value.Name, Rewrite(value.Value), value.IsCarried),
       InvocationStatementAst value => new InvocationStatementAst(Rewrite(value.Call)),
       ControlFlowStatementAst value => new ControlFlowStatementAst(value.Operation, value.Label,
         value.Values.Select(Rewrite).ToArray()),

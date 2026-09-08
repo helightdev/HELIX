@@ -186,10 +186,9 @@ public static class AntlrSyntax {
     public override HixAst VisitAssignmentStatement(Parser.AssignmentStatementContext context) {
       var specifier = context.variableSpecifiers();
       var storage = specifier.KEYWORD_LOCAL() != null ? StorageSpace.Local :
-        specifier.KEYWORD_CARRY() != null ? StorageSpace.Carry :
         specifier.KEYWORD_TARGET() != null ? StorageSpace.Target : StorageSpace.Variable;
       return At(new AssignmentStatementAst(storage, context.variableIdentifier().GetText(),
-        Value(context.assignedValue())), context);
+        Value(context.assignedValue()), specifier.KEYWORD_CARRY() != null), context);
     }
 
     public override HixAst VisitAssignedValue(Parser.AssignedValueContext context) {

@@ -20,6 +20,7 @@ internal sealed partial class LanguageExecution {
   private readonly List<MixinExpressionLog> logs = [];
   private Dictionary<string, IMixinValue> locals = new(StringComparer.Ordinal);
   private readonly Dictionary<string, IMixinValue> carries = new(StringComparer.Ordinal);
+  private readonly HashSet<string> carriedLocals = new(StringComparer.Ordinal);
   private readonly Dictionary<string, IMixinValue> variables = new(StringComparer.Ordinal);
   private readonly Dictionary<string, IMixinValue> targetVariables = new(StringComparer.Ordinal);
   private IMixinValue parameter = NullMixinValue.Instance;
@@ -49,7 +50,10 @@ internal sealed partial class LanguageExecution {
     var started = Stopwatch.GetTimestamp();
     double Elapsed() => (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
     if (imported != null) foreach (var item in imported) variables[item.Key] = Import(item.Value);
-    if (importedCarries != null) foreach (var item in importedCarries) carries[item.Key] = Import(item.Value);
+    if (importedCarries != null) foreach (var item in importedCarries) {
+      carries[item.Key] = Import(item.Value);
+      carriedLocals.Add(item.Key);
+    }
     foreach (var item in context.TargetVariables)
       targetVariables[item.Key.Resolve(context.Strings)] = item.Value;
     var previousOutput = context.OutputSink;
@@ -120,15 +124,17 @@ internal sealed partial class LanguageExecution {
   private IMixinValue Root(string name, bool smart) {
     if (smart) {
       if (locals.TryGetValue(name, out var local)) return local;
+      if (depth == 0 && carries.TryGetValue(name, out var carried)) return carried;
       if (int.TryParse(name, out var position) && position > 0) {
         if (parameter is TupleMixinValue tuple)
           return position <= tuple.Values.Count ? tuple.Values[position - 1] : NullMixinValue.Instance;
+        if (parameter is MixinTableValue positional)
+          return position <= positional.Entries.Count ? positional.Entries[position - 1].Value : NullMixinValue.Instance;
         return position == 1 ? parameter : NullMixinValue.Instance;
       }
       if (parameter is MixinTableValue table && table.Entries.Any(entry => entry.Key.Resolve(context.Strings) == name))
         return parameter.Select(context, context.ResolveString(name));
-      if (targetVariables.TryGetValue(name, out var target)) return target;
-      return variables.TryGetValue(name, out var variable) ? variable : context.Error("unknown variable '" + name + "'");
+      return context.Error("unknown local or parameter '" + name + "'");
     }
     if (name == "param") return parameter;
     if (name == "\0selector") return selector;
@@ -140,10 +146,13 @@ internal sealed partial class LanguageExecution {
       return context.Resolve(name switch {"this" => MixinExpressionRoot.This,
         "target" => MixinExpressionRoot.Target, _ => MixinExpressionRoot.Attribute}, context.ResolveString(""));
     }
-    if (name is "local" or "var" or "tar" or "carry") {
+    if (name is "local" or "var" or "tar") {
       if (pure && name != "local") return context.Error("pure functions cannot read shared storage");
-      if (name == "carry" && prelude) return context.Error("carry storage is write-only during the prelude pass");
-      var storage = name switch {"local" => locals, "var" => variables, "tar" => targetVariables, _ => carries};
+      var storage = name switch {"local" => locals, "var" => variables, _ => targetVariables};
+      if (name == "local" && depth == 0 && carries.Count != 0)
+        return new MixinTableValue(carries.Concat(locals).GroupBy(item => item.Key, StringComparer.Ordinal)
+          .Select(group => group.Last()).Select(item => new KeyValuePair<MixinString, IMixinValue>(
+            context.ResolveString(item.Key), item.Value)).ToArray());
       return new MixinTableValue(storage.Select(item => new KeyValuePair<MixinString, IMixinValue>(
         context.ResolveString(item.Key), item.Value)).ToArray());
     }

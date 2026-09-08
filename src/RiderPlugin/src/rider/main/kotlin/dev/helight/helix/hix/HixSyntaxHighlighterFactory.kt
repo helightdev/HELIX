@@ -154,10 +154,10 @@ pure func Describe sig @{name=string} -> string {
 }
 mixin HELIX.Compose.ExampleAttribute {
   prelude expression {
-    carry Name @= target:name;
+    carry local Name @= target:name;
   }
   expression {
-    emit @> // {{carry#Name}}
+    emit @> // {{local#Name}}
   }
 }
 """

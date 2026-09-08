@@ -55,18 +55,20 @@ internal sealed partial class LanguageExecution {
         var value = LowerValue(assignment.Value, blocks);
         var name = assignment.Name;
         var space = assignment.Storage;
-        Func<LanguageExecution, Dictionary<string, IMixinValue>> storage = space switch {
-          StorageSpace.Local => execution => execution.locals,
-          StorageSpace.Variable => execution => execution.variables,
-          StorageSpace.Target => execution => execution.targetVariables,
-          _ => execution => execution.carries
-        };
+        var carried = assignment.IsCarried;
         operation = execution => {
-          if (execution.pure && space != StorageSpace.Local)
+          if (execution.pure && (space != StorageSpace.Local || carried))
             throw new Failure(execution.context.Error("pure functions cannot mutate shared storage"), line);
-          if (space == StorageSpace.Carry && !execution.prelude)
-            throw new Failure(execution.context.Error("carry assignments require the prelude pass"), line);
-          storage(execution)[name] = value(execution);
+          if (carried && (!execution.prelude || execution.depth != 0))
+            throw new Failure(execution.context.Error("carry local assignments require a top-level prelude expression"), line);
+          var storage = space switch {
+            StorageSpace.Local when carried || execution.depth == 0 && execution.carriedLocals.Contains(name) => execution.carries,
+            StorageSpace.Local => execution.locals,
+            StorageSpace.Variable => execution.variables,
+            _ => execution.targetVariables
+          };
+          if (carried) execution.carriedLocals.Add(name);
+          storage[name] = value(execution);
         };
         break;
       }
@@ -133,17 +135,17 @@ internal sealed partial class LanguageExecution {
           operation = execution => execution.pure ? execution.context.Error("pure functions cannot read host roots")
             : !execution.prelude ? execution.context.Error("host members require the prelude pass")
             : execution.context.Resolve(host, execution.context.ResolveString(name));
-        } else if (member.Receiver is RootExpressionAst {IsSmart: false, Name: "local" or "var" or "tar" or "carry"} storage) {
+        } else if (member.Receiver is RootExpressionAst {IsSmart: false, Name: "local" or "var" or "tar"} storage) {
           // Direct keyed reads must not materialize the entire storage table for every member access.
           var space = storage.Name;
           operation = execution => {
             execution.Tick(line);
             if (execution.pure && space != "local") return execution.context.Error("pure functions cannot read shared storage");
-            if (space == "carry" && execution.prelude) return execution.context.Error("carry storage is write-only during the prelude pass");
             var values = space switch {"local" => execution.locals, "var" => execution.variables,
-              "tar" => execution.targetVariables, _ => execution.carries};
-            return values.TryGetValue(name, out var found) ? found : space == "carry"
-              ? execution.context.Error("uninitialized carry '" + name + "'") : NullMixinValue.Instance;
+              _ => execution.targetVariables};
+            if (values.TryGetValue(name, out var found)) return found;
+            return space == "local" && execution.depth == 0 && execution.carries.TryGetValue(name, out var carried)
+              ? carried : NullMixinValue.Instance;
           };
         } else {
           var receiver = LowerValue(member.Receiver, blocks);

@@ -29,7 +29,7 @@ class HixCompletionContributor : CompletionContributor() {
                         if (name.startsWith("KEYWORD_"))
                             HixLexer.VOCABULARY.getLiteralName(index)?.trim('\'')?.let(names::add)
                     }
-                    names += listOf("this", "target", "attr", "local", "var", "tar", "carry", "param",
+                    names += listOf("this", "target", "attr", "local", "var", "tar", "param",
                         "true", "false", "null", "table", "tuple", "string", "number", "bool", "error", "symbol",
                         "kind", "function")
                     HixAntlrSyntax.declarationNames(parsed.tree).forEach { names += it.text }

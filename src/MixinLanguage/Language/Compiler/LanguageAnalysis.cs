@@ -65,7 +65,7 @@ public sealed class LanguageAnalysis {
       case AssignmentStatementAst assignment:
         declarations.Add(new Symbol(assignment.Name, assignment.Storage switch {
           StorageSpace.Local => "Local", StorageSpace.Variable => "Variable",
-          StorageSpace.Target => "TargetVariable", _ => "Carry"
+          _ => "TargetVariable"
         }, IdentifierRange(assignment, assignment.Name), Scope(assignment), assignment));
         break;
       case ControlFlowStatementAst {Operation: ControlFlowKind.Label} label:
@@ -101,12 +101,12 @@ public sealed class LanguageAnalysis {
   private static string StorageReference(MemberExpressionAst member) {
     if (member.Receiver is not RootExpressionAst root) return null;
     return root.Name switch {
-      "local" => "Local", "var" => "Variable", "tar" => "TargetVariable", "carry" => "Carry", _ => null
+      "local" => "Local", "var" => "Variable", "tar" => "TargetVariable", _ => null
     };
   }
 
   private static bool IsFunctionReference(string name) => name is not
-    ("this" or "target" or "attr" or "local" or "var" or "tar" or "carry" or
+    ("this" or "target" or "attr" or "local" or "var" or "tar" or
      "param" or "true" or "false" or "null" or "string" or "bool" or "number" or
      "tuple" or "table" or "symbol" or "function" or "error" or "kind");
 

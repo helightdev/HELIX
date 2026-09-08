@@ -7,7 +7,7 @@ These examples use the unchanged root ANTLR grammars. Semantic contracts and hos
 mixin QualifiedCsharpName {
   prelude expression {
     // Prelude Statements
-    carry test @= target:name:replaceFirst(<,>, <>);
+    carry local test @= target:name:replaceFirst(<,>, <>);
   }
   
   expression {

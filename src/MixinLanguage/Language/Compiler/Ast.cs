@@ -126,13 +126,14 @@ public sealed class BlockStatementAst(IReadOnlyList<StatementAst> statements, st
   public string Label { get; } = label;
 }
 
-public enum StorageSpace { Local, Variable, Target, Carry }
+public enum StorageSpace { Local, Variable, Target }
 
-public sealed class AssignmentStatementAst(StorageSpace storage, string name, ExpressionAst value)
+public sealed class AssignmentStatementAst(StorageSpace storage, string name, ExpressionAst value, bool carried = false)
   : StatementAst([value]) {
   public StorageSpace Storage { get; } = storage;
   public string Name { get; } = name;
   public ExpressionAst Value { get; } = value;
+  public bool IsCarried { get; } = carried;
 }
 
 public sealed class InvocationStatementAst(CallExpressionAst call) : StatementAst([call]) {

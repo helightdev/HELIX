@@ -9,7 +9,7 @@ namespace Mixins.Compiler;
 /// <summary>Catalog binding and preparation for the generated-ANTLR semantic model.</summary>
 public static class HixCompiler {
   private static readonly IReadOnlyList<HixCompilerStep> Steps = [
-    new InlineExpansionStep(), new PreludeHoistingStep(), new FunctionBindingStep()
+    new SignatureParameterBindingStep(), new InlineExpansionStep(), new PreludeHoistingStep(), new FunctionBindingStep()
   ];
   public static MixinExpressionPreparedState PrepareGlobals(IEnumerable<string> sources) =>
     PrepareGlobals(sources.Select(AntlrSyntax.Parse));
@@ -18,7 +18,8 @@ public static class HixCompiler {
     var syntax = units.ToArray();
     var errors = syntax.SelectMany(unit => unit.Diagnostics).ToArray();
     if (errors.Length != 0) throw new ArgumentException(errors[0].Message);
-    var declarations = syntax.SelectMany(unit => unit.Declarations).ToArray();
+    var declarations = syntax.SelectMany(unit => unit.Declarations).Select(declaration =>
+      declaration is FunctionDeclarationAst function ? SignatureParameterBindingStep.Rewrite(function) : declaration).ToArray();
     var diagnostics = new List<HixParseDiagnostic>();
     LanguageValidation.Validate(declarations, diagnostics);
     if (diagnostics.Count != 0) throw new ArgumentException(diagnostics[0].Message);

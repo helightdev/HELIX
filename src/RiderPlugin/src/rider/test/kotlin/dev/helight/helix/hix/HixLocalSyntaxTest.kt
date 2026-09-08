@@ -10,7 +10,7 @@ class HixLocalSyntaxTest {
     @Test
     fun `generated parser accepts nested declarations and typed values`() {
         val source = "pure func describe sig @{name=string} -> string { return(<Hello [param#name]>) }\n" +
-            "mixin Example { prelude expression { carry name @= target:name; } expression { emit(describe(carry#name)) } }"
+            "mixin Example { prelude expression { carry local name @= target:name; } expression { emit(describe(local#name)) } }"
         val parsed = HixAntlrSyntax.parse(source)
         assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
         assertTrue(HixAntlrSyntax.rules(parsed.tree).any { it is HixParser.FuncDeclarationContext })

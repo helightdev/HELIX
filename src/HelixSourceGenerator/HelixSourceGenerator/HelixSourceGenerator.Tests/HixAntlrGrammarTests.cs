@@ -45,7 +45,7 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("mixin Example { expression { emit<hello> } }")]
   [InlineData("mixin Example { expression { local x = @[<a>, <b>] } }")]
   [InlineData("mixin Example { expression { local x = @{name=<a>, enabled=true} } }")]
-  [InlineData("mixin Example { prelude expression { carry name @= target:name; } expression { emit<[carry#name]> } }")]
+  [InlineData("mixin Example { prelude expression { carry local name @= target:name; } expression { emit<[local#name]> } }")]
   [InlineData("pure func describe sig @{name=string} -> string do { return(<Name: [param#name]>) }")]
   [InlineData("mixin Example { expression { local x = when [true] {\n[true] -> <yes>\nelse -> <no>\n} } }")]
   [InlineData("mixin Example { expression { emit @> Hello {{this:name}}\n@+!\n} }")]

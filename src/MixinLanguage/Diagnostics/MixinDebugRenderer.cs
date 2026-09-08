@@ -75,7 +75,7 @@ public static class MixinDebugRenderer {
         .OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
       if (carries.Length == 0) builder.AppendLine("//   <none>");
       foreach (var carry in carries) {
-        builder.Append("//   @carry#").Append(carry.Key).Append(" = ")
+        builder.Append("//   carry local ").Append(carry.Key).Append(" = ")
           .AppendLine(FormatValue(carry.Value));
       }
     }

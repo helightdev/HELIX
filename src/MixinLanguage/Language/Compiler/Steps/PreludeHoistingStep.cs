@@ -7,7 +7,7 @@ namespace Mixins.Compiler.Steps;
 internal sealed class PreludeHoistingStep : HixCompilerStep {
   internal override HixCompilerSyntax Transform(HixCompilerSyntax input, MixinExpressionPreparedState globals) {
     var names = new HashSet<string>(input.Prelude.SelectMany(expression => expression.Body.Statements)
-      .OfType<AssignmentStatementAst>().Where(statement => statement.Storage == StorageSpace.Carry)
+      .OfType<AssignmentStatementAst>().Where(statement => statement.IsCarried)
       .Select(statement => statement.Name), StringComparer.Ordinal);
     var generated = new List<StatementAst>();
     var functions = input.Functions.Concat(globals.Functions).GroupBy(function => function.Name, StringComparer.Ordinal)
@@ -35,7 +35,7 @@ internal sealed class PreludeHoistingStep : HixCompilerStep {
     private StatementAst RewriteLateStatement(StatementAst statement) => statement switch {
       BlockStatementAst block => RewriteLateBlock(block),
       AssignmentStatementAst value => CopyLocation(value,
-        new AssignmentStatementAst(value.Storage, value.Name, RewriteLateValue(value.Value))),
+        new AssignmentStatementAst(value.Storage, value.Name, RewriteLateValue(value.Value), value.IsCarried)),
       InvocationStatementAst value => CopyLocation(value,
         new InvocationStatementAst(RewriteEffectCall(value.Call))),
       ControlFlowStatementAst value => CopyLocation(value,
@@ -87,10 +87,10 @@ internal sealed class PreludeHoistingStep : HixCompilerStep {
         names.Add(name);
         carries.Add(key, name);
         generated.Add(CopyLocation(expression,
-          new AssignmentStatementAst(StorageSpace.Carry, name, Rewrite(expression))));
+          new AssignmentStatementAst(StorageSpace.Local, name, Rewrite(expression), true)));
       }
       return CopyLocation(expression,
-        new MemberExpressionAst(new RootExpressionAst("carry"), name));
+        new MemberExpressionAst(new RootExpressionAst("local"), name));
     }
 
     private bool DependsOnPrelude(HixAst node, ISet<string> active) {

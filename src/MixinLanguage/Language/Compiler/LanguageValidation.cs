@@ -45,9 +45,9 @@ internal static class LanguageValidation {
         }
         if (function.IsPure) {
           foreach (var node in Descendants(function.Body)) {
-            if (node is AssignmentStatementAst {Storage: not StorageSpace.Local})
+            if (node is AssignmentStatementAst {Storage: not StorageSpace.Local} or AssignmentStatementAst {IsCarried: true})
               Error(node, "pure functions cannot mutate shared storage");
-            if (node is RootExpressionAst {IsSmart: false, Name: "this" or "target" or "attr" or "var" or "tar" or "carry"})
+            if (node is RootExpressionAst {IsSmart: false, Name: "this" or "target" or "attr" or "var" or "tar"})
               Error(node, "pure functions cannot read host or shared storage");
             if (node is CallExpressionAst call && !visible.Any(candidate => candidate.Name == call.Name) &&
                 FunctionLibrary.Resolve(call.Name, call.Arguments.Count).Any(definition => definition.HasEffects))
@@ -57,6 +57,12 @@ internal static class LanguageValidation {
           }
         }
       }
+      foreach (var function in nodes.OfType<FunctionDeclarationAst>())
+        foreach (var assignment in Descendants(function.Body).OfType<AssignmentStatementAst>().Where(item => item.IsCarried))
+          Error(assignment, "carry local is only valid in top-level prelude expressions");
+      foreach (var expression in nodes.OfType<ExpressionDeclarationAst>().Where(item => !item.IsPrelude))
+        foreach (var assignment in Descendants(expression.Body).OfType<AssignmentStatementAst>().Where(item => item.IsCarried))
+          Error(assignment, "carry local is only valid in prelude expressions");
       foreach (var boundary in nodes.SelectMany(node => node switch {
         FunctionDeclarationAst function => new[] {function.Body},
         ExpressionDeclarationAst expression => new[] {expression.Body},

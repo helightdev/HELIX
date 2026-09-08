@@ -94,7 +94,7 @@ internal sealed class InlineExpansionStep : HixCompilerStep {
       if (node is AssignmentStatementAst assignment && assignment.Storage == StorageSpace.Local &&
         locals.TryGetValue(assignment.Name, out var renamed))
         return CopyLocation(assignment,
-          new AssignmentStatementAst(StorageSpace.Local, renamed, Rewrite(assignment.Value)));
+          new AssignmentStatementAst(StorageSpace.Local, renamed, Rewrite(assignment.Value), assignment.IsCarried));
       if (node is ControlFlowStatementAst {Operation: ControlFlowKind.Return} returned) {
         ExpressionAst result = returned.Values.Count switch {
           0 => new NullExpressionAst(), 1 => Rewrite(returned.Values[0]),
