@@ -194,7 +194,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       .Where(contribution => contribution.ExpressionResult is not null)
       .SelectMany(contribution => contribution.ExpressionResult.Outputs)) outputs.Add(output);
     foreach (var output in attributeExpressionOutputs) outputs.Add(output);
-    if (methods.Count == 0 && !outputs.Any && !context.HasLateExpressions) return context.Complete();
+    if (methods.Count == 0 && !outputs.Any && !context.HasLateExpressions && context.DebugExpressions.Count == 0)
+      return context.Complete();
     var finalizedOutputs = outputs.Finish();
     var wrapper = WrapType(target, "mixins");
     var result = context.Complete(
@@ -516,7 +517,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
     expressionContext.CommitTargetVariables();
     context.AddDebugExpression(
-      selectedProgram.PreludeSource, selectedProgram.LateSource,
+      selectedProgram.Prelude.ExecutableIr, selectedProgram.Late.ExecutableIr,
       evaluated.Variables,
       providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
       evaluated.ExecutionMilliseconds
@@ -533,7 +534,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         lateExpression, evaluated.Variables, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
-        lateExpression, selectedProgram.PreludeSource, selectedProgram.LateSource, evaluated.Variables,
+        lateExpression, selectedProgram.Prelude.ExecutableIr, selectedProgram.Late.ExecutableIr, evaluated.Variables,
         lateTargets.Distinct().ToImmutableArray(), location,
         providerName ?? attributeName, sourceType,
         annotated is INamedTypeSymbol ? "" : annotated.MetadataName,
@@ -1097,8 +1098,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
 
     internal void AddLateExpression(
       MixinExpressionExecutionProgram program,
-      string preludeProgram,
-      string lateProgram,
+      string preludeIr,
+      string lateIr,
       IReadOnlyDictionary<string, object> variables,
       ImmutableArray<LateTarget> targets,
       Location location,
@@ -1110,7 +1111,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     ) {
       _lateExpressions.Add(
         new LateExpressionWork(
-          program, preludeProgram, lateProgram, variables,
+          program, preludeIr, lateIr, variables,
           targets,
           MixinDiagnostic.Detach(Diagnostic.Create(ExpressionLog, location, "")),
           provider ?? "", sourceType ?? "",
@@ -1120,8 +1121,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
 
     internal void AddDebugExpression(
-      string preludeProgram,
-      string lateProgram,
+      string preludeIr,
+      string lateIr,
       IReadOnlyDictionary<string, object> variables,
       string provider,
       ISymbol source,
@@ -1131,7 +1132,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       if (!Debug) return;
       _debugExpressions.Add(
         new MixinDebugExpression(
-          preludeProgram, lateProgram, variables.ToImmutableDictionary(StringComparer.Ordinal),
+          preludeIr, lateIr, variables.ToImmutableDictionary(StringComparer.Ordinal),
           provider ?? "", (source as INamedTypeSymbol ?? source.ContainingType)
           ?.ToDisplayString(TypeDisplayFormat) ?? "",
           source is INamedTypeSymbol ? "" : source.MetadataName,
@@ -1168,8 +1169,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
 
   private sealed record LateExpressionWork(
     MixinExpressionExecutionProgram Program,
-    string PreludeProgram,
-    string LateProgram,
+    string PreludeIr,
+    string LateIr,
     IReadOnlyDictionary<string, object> Variables,
     ImmutableArray<LateTarget> Targets,
     MixinDiagnostic Location,
@@ -1522,7 +1523,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       for (var index = 0; index < x.Length; index++) {
         var left = x[index];
         var right = y[index];
-        if (left.PreludeProgram != right.PreludeProgram || left.LateProgram != right.LateProgram ||
+        if (left.PreludeIr != right.PreludeIr || left.LateIr != right.LateIr ||
           left.Variables.Count != right.Variables.Count || left.Provider != right.Provider ||
           left.SourceType != right.SourceType || left.SourceMember != right.SourceMember ||
           left.SourceKind != right.SourceKind ||

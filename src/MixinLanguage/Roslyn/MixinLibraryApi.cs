@@ -40,10 +40,8 @@ internal static class MixinLibraryApi {
       foreach (var annotation in catalog.AnnotationDefinitions) {
         var prelude = HixCompiler.Prepare(annotation.Declaration, prepared, true);
         var late = HixCompiler.Prepare(annotation.Declaration, prepared, false);
-        string Source(IEnumerable<ExpressionDeclarationAst> expressions) => string.Join("\n",
-          expressions.Select(expression => annotation.Source.Substring(expression.SourceRange.Start, expression.SourceRange.Length)));
         annotations.Add(annotation.Name, new CompiledMixinAnnotation(annotation,
-          new CompiledMixinProgram(prelude, late, Source(prelude.Expressions), Source(late.Expressions))));
+          new CompiledMixinProgram(prelude, late)));
       }
     }
     return new MixinCompilation(catalog, prepared.StringPool, prepared, annotations, diagnostics.ToImmutableArray());
@@ -186,9 +184,7 @@ internal sealed class MixinLibraryCatalog {
 
 internal sealed record CompiledMixinProgram(
   MixinExpressionExecutionProgram Prelude,
-  MixinExpressionExecutionProgram Late,
-  string PreludeSource,
-  string LateSource
+  MixinExpressionExecutionProgram Late
 );
 
 internal sealed record CompiledMixinAnnotation(

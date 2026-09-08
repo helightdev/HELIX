@@ -9,8 +9,8 @@ using Mixins.Runtime;
 namespace Mixins.Diagnostics;
 
 public sealed record MixinDebugExpression(
-  string PreludeProgram,
-  string LateProgram,
+  string PreludeIr,
+  string LateIr,
   ImmutableDictionary<string, object> Variables,
   string Provider,
   string SourceType,
@@ -40,14 +40,14 @@ public sealed record MixinDebugRenderData(
 /// <summary>Produces deterministic, host-independent diagnostics for compiled mixin programs.</summary>
 public static class MixinDebugRenderer {
   public static string StateKey(MixinDebugExpression work) {
-    return string.Join("\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateProgram);
+    return string.Join("\u001f", work.Provider, work.SourceType, work.SourceMember, work.LateIr);
   }
 
   public static string BuildTrace(MixinDebugRenderData render) {
     var builder = new StringBuilder();
     var debugPoolBuilder = new MixinStringPoolBuilder(render.StringPool);
     foreach (var work in render.Expressions)
-    foreach (var token in (work.PreludeProgram + "\n" + work.LateProgram).Split(
+    foreach (var token in (work.PreludeIr + "\n" + work.LateIr).Split(
       ['@', '<', '>', '#', ':', '(', ')', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries
     ))
       debugPoolBuilder.Intern(token);
@@ -67,13 +67,13 @@ public static class MixinDebugRenderer {
       if (!string.IsNullOrEmpty(work.SourceType)) builder.Append(" on ").Append(work.SourceType);
       if (!string.IsNullOrEmpty(work.SourceMember)) builder.Append('.').Append(work.SourceMember);
       builder.AppendLine();
-      AppendProgram(builder, "PRELUDE PROGRAM (PREPARED)", work.PreludeProgram, render.InternStringPool, debugPool);
-      AppendProgram(builder, "LATE PROGRAM (PREPARED)", work.LateProgram, render.InternStringPool, debugPool);
+      AppendProgram(builder, "PRELUDE EXECUTABLE IR", work.PreludeIr, render.InternStringPool, debugPool);
+      AppendProgram(builder, "LATE EXECUTABLE IR", work.LateIr, render.InternStringPool, debugPool);
       builder.AppendLine("// CARRIED VALUES");
       var carries = work.Variables.Where(item => item.Key.StartsWith(
           MixinVirtualMachine.CarryLocalPrefix, StringComparison.Ordinal
         ) && IsCarryReferenced(
-          work.LateProgram, item.Key.Substring(MixinVirtualMachine.CarryLocalPrefix.Length)
+          work.LateIr, item.Key.Substring(MixinVirtualMachine.CarryLocalPrefix.Length)
         )
       ).OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
       if (carries.Length == 0) builder.AppendLine("//   <none>");
@@ -186,7 +186,7 @@ public static class MixinDebugRenderer {
   }
 
   private static bool IsCarryReferenced(string program, string label) {
-    var reference = "@carry#" + label;
+    var reference = "load.carry \"" + label.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
     var offset = 0;
     while (offset < (program?.Length ?? 0)) {
       var index = program.IndexOf(reference, offset, StringComparison.Ordinal);

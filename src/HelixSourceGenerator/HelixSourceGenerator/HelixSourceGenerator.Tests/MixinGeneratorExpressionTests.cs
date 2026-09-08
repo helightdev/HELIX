@@ -205,6 +205,45 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
+  public void HixDebugConfigurationEmitsProgramDump() {
+    const string source = """
+                          using System;
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
+                          }
+                          public sealed class DebugAttribute : Attribute { }
+                          [HELIX.Mixable, Debug] public partial class Demo { }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "HixDebugConfigurationTest",
+      [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest))],
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = MixinTestDriver.Create(compilation, additionalTexts: [
+      new TestAdditionalText("/project/Debug.HelixSourceGenerator.additionalfile", """
+        mixin Configuration {
+          prelude expression { config(<DEBUG>, <enabled>) }
+        }
+        mixin DebugAttribute {
+          expression { local DebugValue = 1 }
+        }
+        """)
+    ]);
+
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.StartsWith("// ============================================================================\n// HELIX MIXIN PROGRAM DUMP", generated);
+    Assert.Contains("// PRELUDE EXECUTABLE IR", generated);
+    Assert.Contains("// LATE EXECUTABLE IR", generated);
+    Assert.Contains("//       store.local \"DebugValue\"\n//         number 1", generated);
+    Assert.DoesNotContain("local DebugValue = 1", generated);
+  }
+
+  [Fact]
   public void AdditionalMixinDebugConfigurationEmitsProgramsAndCarriedState() {
     const string source = """
                           using System;

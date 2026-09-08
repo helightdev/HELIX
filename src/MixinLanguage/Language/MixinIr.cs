@@ -63,4 +63,5 @@ internal sealed record MixinExpressionExecutionProgram(
   LanguageProgramBindings Bindings
 ) {
   internal LanguageFunctionScope Scope { get; } = new(LocalFunctions, GlobalScope);
+  internal string ExecutableIr => Bindings.RenderExecutableIr(Expressions);
 }
