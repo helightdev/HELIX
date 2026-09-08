@@ -55,6 +55,8 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("mixin Example { expression { emit(-12.5) } }")]
   [InlineData("pure func empty sig null -> null { return(null) }")]
   [InlineData("pure func answer => 42\n")]
+  [InlineData("pure func <answer with spaces> => 42\n")]
+  [InlineData("mixin <HELIX.Example-Type> { expression { emit(<ok>) } }")]
   [InlineData("mixin Example { expression { local mapper = func => <[$0]>; emit(call(local#mapper, <x>)) } }")]
   [InlineData("mixin Example { expression { local mapper = func { return(<[$0]>) } } }")]
   public void ParsesLanguageFeatures(string source) {
@@ -73,6 +75,18 @@ public sealed class HixAntlrGrammarTests {
     var semantic = Mixins.Compiler.AntlrSyntax.Parse(source);
     Assert.Empty(semantic.Diagnostics);
     Assert.NotEmpty(semantic.Declarations);
+  }
+
+  [Fact]
+  public void ArgumentBasedDeclarationNamesBecomeLiteralAstNames() {
+    var semantic = Mixins.Compiler.AntlrSyntax.Parse("""
+      pure func <answer with spaces> => 42;
+      mixin <HELIX.Example-Type> { expression { emit(<ok>) } }
+      """);
+
+    Assert.Empty(semantic.Diagnostics);
+    Assert.Equal("answer with spaces", semantic.Declarations.OfType<Mixins.Compiler.FunctionDeclarationAst>().Single().Name);
+    Assert.Equal("HELIX.Example-Type", semantic.Declarations.OfType<Mixins.Compiler.MixinDeclarationAst>().Single().Name);
   }
 
   [Fact]

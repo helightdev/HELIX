@@ -38,7 +38,15 @@ internal object HixAntlrSyntax {
                 diagnostics += HelixAntlrDiagnostic(start, end, msg)
             }
         }
-        val lexer = HixLexer(ANTLRInputStream(text)).apply {
+        val lexer = object : HixLexer(ANTLRInputStream(text)) {
+            override fun popMode(): Int {
+                if (_modeStack.isEmpty) {
+                    mode(DEFAULT_MODE)
+                    return DEFAULT_MODE
+                }
+                return super.popMode()
+            }
+        }.apply {
             removeErrorListeners()
             addErrorListener(listener)
         }
@@ -81,7 +89,7 @@ internal object HixAntlrSyntax {
 
     fun declarationNames(context: ParserRuleContext): Sequence<TerminalNode> = rules(context).mapNotNull {
         when (it) {
-            is HixParser.FuncDeclarationContext -> it.IDENTIFIER()
+            is HixParser.FuncDeclarationContext -> it.functionDeclarationIdentifier().IDENTIFIER()
             is HixParser.VariableIdentifierContext -> it.IDENTIFIER()
             is HixParser.LabelIdentifierContext -> it.LABEL_IDENTIFIER()
             else -> null

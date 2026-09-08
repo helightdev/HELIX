@@ -75,7 +75,8 @@ class HixPsiParser(@Suppress("UNUSED_PARAMETER") project: Project) : PsiParser {
         }
         while (!builder.eof() && builder.currentOffset < end) builder.advanceLexer()
         marker.done(when (context) {
-            is HixParser.VariableIdentifierContext, is HixParser.MixinIdentifierContext -> HixElementTypes.DECLARATION
+            is HixParser.VariableIdentifierContext, is HixParser.MixinIdentifierContext,
+            is HixParser.FunctionDeclarationIdentifierContext -> HixElementTypes.DECLARATION
             is HixParser.FunctionIdentifierContext -> HixElementTypes.REFERENCE
             else -> HelixAntlrTypes.rules[context.ruleIndex]
         })

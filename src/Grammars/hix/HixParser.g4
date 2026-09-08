@@ -11,7 +11,7 @@ mixinBody: LC (expressionDeclaration | funcDeclaration | trivia)* RC;
 
 expressionDeclaration: expressionModifier* KEYWORD_EXPRESSION statementBlock;
 
-funcDeclaration: funcModifier* KEYWORD_FUNC IDENTIFIER functionMetadata functionBody;
+funcDeclaration: funcModifier* KEYWORD_FUNC functionDeclarationIdentifier functionMetadata functionBody;
 
 functionBody: KEYWORD_DO? statementBlock | FAT_ARROW value VALUE_END?;
 
@@ -184,7 +184,8 @@ functionChainType: VALUE_FUNCTION | VALUE_PREDICATE;
 // Identifiers
 labelIdentifier: LABEL_PREFIX LABEL_IDENTIFIER;
 memberIdentifier: VALUE_MEMBER MEMBER_IDENTIFIER;
-mixinIdentifier: IDENTIFIER | NAMESPACE_IDENTIFIER;
+mixinIdentifier: IDENTIFIER | NAMESPACE_IDENTIFIER | argumentValue;
+functionDeclarationIdentifier: IDENTIFIER | argumentValue;
 variableIdentifier: IDENTIFIER;
 functionIdentifier: FUNCTION_IDENTIFIER | ROOT_IDENTIFIER;
 kindIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL;

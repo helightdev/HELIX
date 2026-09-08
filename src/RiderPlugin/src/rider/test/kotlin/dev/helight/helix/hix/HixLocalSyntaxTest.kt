@@ -20,6 +20,20 @@ class HixLocalSyntaxTest {
     }
 
     @Test
+    fun `functions and mixins accept argument based declaration names`() {
+        val source = "pure func <answer with spaces> => 42;\nmixin <HELIX.Example-Type> { expression { emit(<ok>) } }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertTrue(HixAntlrSyntax.rules(parsed.tree).any {
+            it is HixParser.FunctionDeclarationIdentifierContext && it.argumentValue() != null
+        })
+        assertTrue(HixAntlrSyntax.rules(parsed.tree).any {
+            it is HixParser.MixinIdentifierContext && it.argumentValue() != null
+        })
+    }
+
+    @Test
     fun `number literals have their own token and highlighting`() {
         val source = "mixin E { expression { emit(-12.5) } }"
         val parsed = HixAntlrSyntax.parse(source)
@@ -94,6 +108,19 @@ class HixLocalSyntaxTest {
         val parsed = HixAntlrSyntax.parse(source)
         assertTrue(parsed.diagnostics.isNotEmpty())
         assertEquals(source, parsed.tokens.joinToString("") { source.substring(it.start, it.end) })
+    }
+
+    @Test
+    fun `malformed percent parenthesis never underflows lexer modes`() {
+        listOf(
+            "%(",
+            "mixin E { %( }",
+            "mixin E { expression { emit(<before>) } }\n%("
+        ).forEach { source ->
+            val parsed = HixAntlrSyntax.parse(source)
+            assertTrue(parsed.diagnostics.isNotEmpty())
+            assertEquals(source, parsed.tokens.joinToString("") { source.substring(it.start, it.end) })
+        }
     }
 
     @Test

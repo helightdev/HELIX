@@ -347,6 +347,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitMixinIdentifier(HixParser.MixinIdentifierContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#functionDeclarationIdentifier}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitFunctionDeclarationIdentifier(HixParser.FunctionDeclarationIdentifierContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#variableIdentifier}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

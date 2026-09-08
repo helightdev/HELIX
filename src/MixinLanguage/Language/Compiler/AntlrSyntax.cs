@@ -148,9 +148,18 @@ public static class AntlrSyntax {
       return At(new BlockStatementAst([returned]), context);
     }
 
+    private string DeclarationName(ITerminalNode identifier, Parser.ArgumentValueContext argument) {
+      if (identifier != null) return identifier.GetText();
+      if (Value(argument) is StringExpressionAst literal) return literal.Value;
+      diagnostics.Add(new HixParseDiagnostic(argument.Start.Line, "declaration name must be a literal string"));
+      return argument.GetText();
+    }
+
     public override HixAst VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
       Modifiers(context.mixinModifier());
-      return At(new MixinDeclarationAst(context.mixinIdentifier().GetText(), context.mixinModifier().Length != 0,
+      var identifier = context.mixinIdentifier();
+      return At(new MixinDeclarationAst(DeclarationName(identifier.IDENTIFIER() ?? identifier.NAMESPACE_IDENTIFIER(),
+          identifier.argumentValue()), context.mixinModifier().Length != 0,
         context.mixinBody().children.OfType<ParserRuleContext>()
           .Where(child => child is not Parser.TriviaContext).Select(Visit).ToArray()), context);
     }
@@ -170,7 +179,8 @@ public static class AntlrSyntax {
       var signatures = context.functionMetadata().functionSignatureVariant().Select(signature =>
         new FunctionSignature(signature.signature(0).kindIdentifier()?.GetText(), Fields(signature.signature(0)),
           signature.signature(1).kindIdentifier()?.GetText(), Fields(signature.signature(1)))).ToArray();
-      return At(new FunctionDeclarationAst(context.IDENTIFIER().GetText(),
+      var identifier = context.functionDeclarationIdentifier();
+      return At(new FunctionDeclarationAst(DeclarationName(identifier.IDENTIFIER(), identifier.argumentValue()),
         context.funcModifier().Any(modifier => modifier.KEYWORD_PURE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_INLINE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_NOINLINE() != null), signatures,
