@@ -35,29 +35,29 @@ mixin HELIX.Boot.CommandAttribute {
       local CmdName @> "{{carry#TargetName}}"
     }
     local Bridge @> CommandBridge<{{carry#StructName}}>.Create({{carry#StructName}}.Datatype, {{carry#InvokeLambda}}, {{local#CmdName}}, {{carry#Description}}, {{carry#Parent}})
-    inject(<$LoadManagedLate>, number<0>) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{local#Bridge}});
+    inject(<$LoadManagedLate>, 0) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{local#Bridge}});
   }
 }
 
 mixin HELIX.Boot.RegisterCommandAttribute {
   prelude expression {
-    inject(<$ConfigureManaged>, number<-1>) @> registration.Publication(typeof(HELIX.UI.Console.Command), null, true);
-    inject(<$LoadManagedLate>, number<1>) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{target:name}});
+    inject(<$ConfigureManaged>, -1) @> registration.Publication(typeof(HELIX.UI.Console.Command), null, true);
+    inject(<$LoadManagedLate>, 1) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{target:name}});
   }
 }
 
 mixin HELIX.Boot.RegisterOptionAttribute {
   prelude expression {
     when(attr#path:exists) {
-      inject(<$Init>, number<-1>) @> {{target:name}}.SetInferredPath({{attr#path}});
-      inject(<$ConfigureManaged>, number<-1>) @> registration.Publication(typeof({{target:type:unwrap}}), {{attr#path}}, true);
-      inject(<$LoadManagedLate>, number<1>) @> context.PublishBind(typeof({{target:type:unwrap}}), {{attr#path}}, {{target:name}});
+      inject(<$Init>, -1) @> {{target:name}}.SetInferredPath({{attr#path}});
+      inject(<$ConfigureManaged>, -1) @> registration.Publication(typeof({{target:type:unwrap}}), {{attr#path}}, true);
+      inject(<$LoadManagedLate>, 1) @> context.PublishBind(typeof({{target:type:unwrap}}), {{attr#path}}, {{target:name}});
       return
     }
     {
-      inject(<$Init>, number<-1>) @> {{target:name}}.SetInferredName("{{target:name}}");
-      inject(<$ConfigureManaged>, number<-1>) @> registration.Publication(typeof(HELIX.Boot.Option), null, true);
-      inject(<$LoadManagedLate>, number<1>) @> context.PublishBind(typeof(HELIX.Boot.Option), null, {{target:name}})
+      inject(<$Init>, -1) @> {{target:name}}.SetInferredName("{{target:name}}");
+      inject(<$ConfigureManaged>, -1) @> registration.Publication(typeof(HELIX.Boot.Option), null, true);
+      inject(<$LoadManagedLate>, 1) @> context.PublishBind(typeof(HELIX.Boot.Option), null, {{target:name}})
       return
     }
   }
@@ -67,7 +67,7 @@ mixin DefaultNamespace.TextMixin {}
 
 mixin Configuration {
   prelude expression {
-    //config(<PROFILE>, <enabled>)
-    //config(<DEBUG>, <enabled>)
+    config(<PROFILE>, <enabled>)
+    config(<DEBUG>, <enabled>)
   }
 }

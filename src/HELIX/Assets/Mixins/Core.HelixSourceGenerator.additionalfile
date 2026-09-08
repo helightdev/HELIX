@@ -126,14 +126,14 @@ func EmitGeneratedStructure {
     local Datatype @= table:new:put(<type>, param#name):put(<name>, param#name):put(<props>, param#props):BuildDatatype;
   }
   local Constructor = <>
-  when(![param#props:length:eq(number<0>)]) {
+  when(![param#props:length:eq(0)]) {
     local Constructor
       @> public {{param#name}}({{local#Parameters}}) {
       @>   {{local#Assignments}}
       @> }
   }
   local Unsafe = <>
-  when(![param#props:where(KeepUnsafe):length:eq(number<0>)]) {
+  when(![param#props:where(KeepUnsafe):length:eq(0)]) {
     local Unsafe = <unsafe>
   }
   emit<Class>
@@ -186,7 +186,7 @@ derivation mixin HELIX.PropAttribute {
       assert(![tar#PropOptional:eq(true)])
       return(param#value)
     }
-    when(local#Mode:eq(number<3>)) {
+    when(local#Mode:eq(3)) {
       assert(![tar#PropOptional:eq(true)])
       return(param#value)
     }
@@ -198,13 +198,13 @@ derivation mixin HELIX.PropAttribute {
       assert(![tar#PropOptional:eq(true)])
       return(param#value)
     }
-    when(local#Mode:eq(number<0>)) {
+    when(local#Mode:eq(0)) {
       assert(local#Prop#defaultValue:parameterDefault)
     }
-    when(local#Mode:eq(number<1>)) {
+    when(local#Mode:eq(1)) {
       assert(local#Prop#defaultValue:nonEmptyStringConstant)
     }
-    when(local#Mode:eq(number<2>)) {
+    when(local#Mode:eq(2)) {
       assert(local#Prop#defaultValue:nonEmptyStringConstant)
     }
     assert(![param#symbol:in])
@@ -220,11 +220,11 @@ derivation mixin HELIX.PropAttribute {
       local Default @= local#Prop#defaultValue:unwrap;
       local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
     }
-    when(local#Mode:eq(number<1>)) {
+    when(local#Mode:eq(1)) {
       local Default @= local#Prop#defaultValue:unwrap;
       local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
     }
-    when(local#Mode:eq(number<2>)) {
+    when(local#Mode:eq(2)) {
       local Default @= local#Prop#defaultValue:unwrap;
       local Parameter @> {{param#symbol:nullableType}} {{param#value#name}} = null
       local Assignment @> this.{{param#value#name}} = {{param#value#name}} ?? {{local#Default}};
@@ -255,7 +255,7 @@ mixin HELIX.StructureAttribute {
     local PropsModel @= this:DeriveFields;
     local Parameters @= local#PropsModel:map(SelectParameter):join<, >;
     local Assignments @= local#PropsModel:map(SelectAssignment):join< >;
-    when(![local#PropsModel:length:eq(number<0>)]) {
+    when(![local#PropsModel:length:eq(0)]) {
       emit<Class>
         @> {{this:visibility}} {{this:name}}({{local#Parameters}}) {
         @>   {{local#Assignments}}
@@ -265,7 +265,7 @@ mixin HELIX.StructureAttribute {
     local Comparisons @= local#EqualityProps:map(SelectEquality):join< && >;
     local HashAdds @= local#EqualityProps:map(SelectHashAdd):join< >;
     local Unsafe = <>
-    when(this:equatableSelf, ![local#EqualityProps:where(KeepUnsafe):length:eq(number<0>)]) {
+    when(this:equatableSelf, ![local#EqualityProps:where(KeepUnsafe):length:eq(0)]) {
       local Unsafe = <unsafe>
     }
     when(this:equatableSelf, ![this:typedEqualsSelf]) {

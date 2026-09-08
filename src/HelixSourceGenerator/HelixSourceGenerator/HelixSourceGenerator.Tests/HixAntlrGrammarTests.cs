@@ -10,6 +10,21 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class HixAntlrGrammarTests {
   [Theory]
+  [InlineData("Core")]
+  [InlineData("Boot")]
+  [InlineData("Compose")]
+  [InlineData("Context")]
+  public void CanonicalHelixLibrariesUseCurrentHixSyntax(string name) {
+    var path = Path.GetFullPath(Path.Combine(
+      "../../../../../../HELIX/Assets/Mixins", name + ".HelixSourceGenerator.additionalfile"));
+
+    var unit = Mixins.Compiler.AntlrSyntax.Parse(File.ReadAllText(path));
+
+    Assert.Empty(unit.Diagnostics);
+    Assert.NotEmpty(unit.Declarations);
+  }
+
+  [Theory]
   [InlineData("  mixin Example {\r\n\t expression { emit<😀> }\r\n}  ")]
   [InlineData("mixin Example { expression { emit<\\x5bescaped\\x5d> } }\n")]
   [InlineData("// comment\nmixin Example { expression { emit @> text\n  @+ continued\n} }\n")]

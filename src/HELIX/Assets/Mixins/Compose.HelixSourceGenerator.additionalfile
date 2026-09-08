@@ -36,7 +36,7 @@ func GenerateBoundaryElement {
     @> };
   when(this#Props:exists) {
     local PropsModel @= this#Props:DeriveFields;
-    when(![local#PropsModel:length:eq(number<0>)]) {
+    when(![local#PropsModel:length:eq(0)]) {
       local PropsParameters @= local#PropsModel:map(SelectParameter):join<, >;
       local PropsArguments @= local#PropsModel:map(SelectArgument):join<, >;
       local PropsAssignments @= local#PropsModel:map(SelectAssignment):join< >;
@@ -51,7 +51,7 @@ func GenerateBoundaryElement {
         @> private Props _props;
         @> public ref Props props => ref _props;
         @> public void ReceiveProps(in Props props) => _props = props;
-      inject(<$Reset>, number<1>) @> _props = default;
+      inject(<$Reset>, 1) @> _props = default;
       local ComposeArgs @> {{local#ComposeArgs}}, {{local#PropsParameters}}
       local ComposeCalls
         @> {{local#ComposeCalls}}
@@ -84,7 +84,7 @@ func GenerateBoundaryElement {
       @>  ref this Composition cx{{local#ComposeArgs}}
       @> ) {{local#Body}}
   }
-  inject(<$Recompose>, number<-24>) @> cx.AUTHORING.SetId({{var#CompanionName}}.fullId);
+  inject(<$Recompose>, -24) @> cx.AUTHORING.SetId({{var#CompanionName}}.fullId);
 }
 
 mixin HELIX.Compose.ComposableMethodAttribute {
@@ -232,45 +232,45 @@ mixin HELIX.Compose.CustomBoundaryElementAttribute {
       @>   TreeDepth = BoundaryHelper.GetDepth(this);
       @> }
       @> public void MarkDirty() => HXComposer.MarkDirty(this, false);
-    inject(<$Recompose>, number<-1000>) @> try {
-    inject(<$Recompose>, number<-100>) @> BoundaryHelper.ContextBefore(this);
-    inject(<$Recompose>, number<-75>) @> _lookupCache.Clear();
-    inject(<$Recompose>, number<-60>) @> if (!_initialized) Init();
+    inject(<$Recompose>, -1000) @> try {
+    inject(<$Recompose>, -100) @> BoundaryHelper.ContextBefore(this);
+    inject(<$Recompose>, -75) @> _lookupCache.Clear();
+    inject(<$Recompose>, -60) @> if (!_initialized) Init();
     when(attr#cacheLookups:unwrap) {
-      inject(<$Recompose>, number<-55>) @> _lookupCache.Claim();
+      inject(<$Recompose>, -55) @> _lookupCache.Claim();
     }
-    inject(<$Recompose>, number<-50>) @> try {
-    inject(<$Recompose>, number<-25>) @> var cx = new Composition(this);
-    inject(<$Recompose>, number<0>) @> PerformCompose(ref cx)
-    inject(<$Recompose>, number<50>) @> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
-    inject(<$Recompose>, number<100>) @> BoundaryHelper.ContextAfter(this);
+    inject(<$Recompose>, -50) @> try {
+    inject(<$Recompose>, -25) @> var cx = new Composition(this);
+    inject(<$Recompose>, 0) @> PerformCompose(ref cx)
+    inject(<$Recompose>, 50) @> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
+    inject(<$Recompose>, 100) @> BoundaryHelper.ContextAfter(this);
     when(attr#trimChildren:unwrap) {
-      inject(<$Recompose>, number<200>) @> Cell.TrimChildren();
+      inject(<$Recompose>, 200) @> Cell.TrimChildren();
     }
-    inject(<$Recompose>, number<1000>) @> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
-    inject(<$Reset>, number<-1>) @> HXComposer.RemoveDirty(this);
-    inject(<$Reset>, number<1>) @> _lookupCache.Release();
-    inject(<$Reset>, number<100>) @> _initialized = false;
-    inject(<$Compose>, number<0>) @> // Default handle
-    inject(<$Init>, number<100>) @> _initialized = true;
-    inject(<$Dispose>, number<-100>) @> if (IsDisposed) return; IsDisposed = true; _initialized = false;
-    inject(<$Dispose>, number<-1>) @> Reset();
-    inject(<$PostConstruct>, number<1000>)
+    inject(<$Recompose>, 1000) @> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
+    inject(<$Reset>, -1) @> HXComposer.RemoveDirty(this);
+    inject(<$Reset>, 1) @> _lookupCache.Release();
+    inject(<$Reset>, 100) @> _initialized = false;
+    inject(<$Compose>, 0) @> // Default handle
+    inject(<$Init>, 100) @> _initialized = true;
+    inject(<$Dispose>, -100) @> if (IsDisposed) return; IsDisposed = true; _initialized = false;
+    inject(<$Dispose>, -1) @> Reset();
+    inject(<$PostConstruct>, 1000)
       @> if (HXComposer.IsProcessing) {
       @>   _initialAttachment = false;
       @>   HXComposer.MarkDirty(this);
       @> }
-    inject(<DetachBoundary>, number<0>)
+    inject(<DetachBoundary>, 0)
       @>
       @> _initialAttachment = true;
       @> _lookupCache.Release();
       @> HXComposer.NotifyDetach(this);
-    inject(<AttachBoundary>, number<0>)
+    inject(<AttachBoundary>, 0)
       @>
       @> IsDisposed = false;
       @> RefreshHierarchy();
-    inject(<AttachBoundary>, number<100>) @> HXComposer.RegisterActiveBoundary(this);
-    inject(<AttachBoundary>, number<200>)
+    inject(<AttachBoundary>, 100) @> HXComposer.RegisterActiveBoundary(this);
+    inject(<AttachBoundary>, 200)
       @> if (_initialAttachment) {
       @>   _initialAttachment = false;
       @>   HXComposer.MarkDirty(this);
@@ -304,14 +304,14 @@ mixin HELIX.Compose.BoundaryElementMixinAttribute {
     using @> HELIX.Compose;
     using @> HELIX.Coloring;
     emit<Implements> @> HELIX.Compose.IBoundaryHooks
-    inject(<$Recompose>, number<0>) @> ((IBoundaryHooks)this).MixinCompose(ref cx);
+    inject(<$Recompose>, 0) @> ((IBoundaryHooks)this).MixinCompose(ref cx);
   }
 }
 
 mixin HELIX.Compose.WriteContextHandlerAttribute {
   prelude expression {
     assert(![var#HasWriteContext:eq(true)])
-    inject(<$Compose>, number<-1>)
+    inject(<$Compose>, -1)
       @> using (cx.WriteContext(out var context)) {
       @>   {{target:name}}(ref cx, context);
       @> }
@@ -322,7 +322,7 @@ mixin HELIX.Compose.WriteContextHandlerAttribute {
 mixin HELIX.Compose.ClickHandlerAttribute {
   prelude expression {
     RequireInputState()
-    inject(<$PostConstruct>, number<0>)
+    inject(<$PostConstruct>, 0)
       @> global::UnityEngine.UIElements.VisualElementExtensions.AddManipulator(this,
       @>   new InputClickableManipulator(this, this, {{target:name}})
       @> );
@@ -332,12 +332,12 @@ mixin HELIX.Compose.ClickHandlerAttribute {
 mixin HELIX.Compose.InputStateListenerAttribute {
   prelude expression {
     RequireInputState()
-    inject(<$PostConstruct>, number<0>)
+    inject(<$PostConstruct>, 0)
       @> global::UnityEngine.UIElements.VisualElementExtensions.AddManipulator(this,
       @>   new InputListenerManipulator(this, this, {{attr#focus}})
       @> );
     when(attr#dirty:unwrap:eq(true)) {
-      inject(<^OnStateChanged:HELIX.Compose.StateChangedHandler>, number<0>) @> this.MarkDirty();
+      inject(<^OnStateChanged:HELIX.Compose.StateChangedHandler>, 0) @> this.MarkDirty();
     }
   }
 }
