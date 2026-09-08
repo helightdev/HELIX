@@ -246,7 +246,7 @@ internal sealed partial class LanguageExecution {
     };
   }
 
-  private static Func<LanguageExecution, IMixinValue> LowerResult(LanguageAst result,
+  private static Func<LanguageExecution, IMixinValue> LowerResult(HixAst result,
     Dictionary<BlockStatementAst, Action<LanguageExecution>> blocks) {
     if (result is ExpressionAst expression) {
       var value = LowerValue(expression, blocks);

@@ -5,7 +5,7 @@ using System.Linq;
 namespace Mixins.Compiler;
 
 internal static class LanguageValidation {
-  internal static void Validate(IReadOnlyList<LanguageAst> declarations, List<HixParseDiagnostic> diagnostics) {
+  internal static void Validate(IReadOnlyList<HixAst> declarations, List<HixParseDiagnostic> diagnostics) {
     void Error(HixAst node, string message) => diagnostics.Add(new HixParseDiagnostic(node.Line, message));
     bool KnownKind(string name) => name == "any" || name != null && KindMixinValue.TryGet(name, out _);
 
@@ -28,7 +28,7 @@ internal static class LanguageValidation {
       Fields(signature.Outputs, signature.OutputKind, true);
     }
 
-    void Scope(IReadOnlyList<LanguageAst> nodes, IReadOnlyList<FunctionDeclarationAst> imported) {
+    void Scope(IReadOnlyList<HixAst> nodes, IReadOnlyList<FunctionDeclarationAst> imported) {
       var functions = nodes.OfType<FunctionDeclarationAst>().ToArray();
       var localNames = new HashSet<string>(functions.Select(function => function.Name), StringComparer.Ordinal);
       var visible = functions.Concat(imported.Where(function => !localNames.Contains(function.Name))).ToArray();

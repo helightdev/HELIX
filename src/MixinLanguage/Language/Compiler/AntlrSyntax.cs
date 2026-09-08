@@ -34,7 +34,7 @@ public static class AntlrSyntax {
     var declarations = diagnostics.Count == 0
       ? tree.children.OfType<ParserRuleContext>().Where(child => child is not Parser.TriviaContext)
         .Select(builder.Visit).ToArray()
-      : Array.Empty<LanguageAst>();
+      : Array.Empty<HixAst>();
     LanguageValidation.Validate(declarations, diagnostics);
     return new CompilationUnitAst(source, declarations, diagnostics, tokens);
   }
@@ -108,7 +108,7 @@ public static class AntlrSyntax {
   }
 
   private sealed class Builder(IReadOnlyList<HixToken> tokens, List<HixParseDiagnostic> diagnostics)
-    : Generated.HixParserBaseVisitor<LanguageAst> {
+    : Generated.HixParserBaseVisitor<HixAst> {
     private HixToken[] TokensIn(HixSourceRange range) {
       var low = 0;
       var high = tokens.Count;
@@ -124,7 +124,7 @@ public static class AntlrSyntax {
       return result;
     }
 
-    private T At<T>(T node, ParserRuleContext context) where T : LanguageAst {
+    private T At<T>(T node, ParserRuleContext context) where T : HixAst {
       node.SourceRange = new HixSourceRange(context.Start.StartIndex, context.Stop.StopIndex + 1,
         context.Start.Line, context.Start.Column);
       node.Tokens = TokensIn(node.SourceRange);
@@ -143,21 +143,21 @@ public static class AntlrSyntax {
     private BlockStatementAst Block(Parser.StatementBlockContext context, string label = null) =>
       At(new BlockStatementAst(context.statement().Select(Statement).ToArray(), label), context);
 
-    public override LanguageAst VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
+    public override HixAst VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
       Modifiers(context.mixinModifier());
       return At(new MixinDeclarationAst(context.mixinIdentifier().GetText(), context.mixinModifier().Length != 0,
         context.mixinBody().children.OfType<ParserRuleContext>()
           .Where(child => child is not Parser.TriviaContext).Select(Visit).ToArray()), context);
     }
 
-    public override LanguageAst VisitExpressionDeclaration(Parser.ExpressionDeclarationContext context) {
+    public override HixAst VisitExpressionDeclaration(Parser.ExpressionDeclarationContext context) {
       Modifiers(context.expressionModifier());
       return At(new ExpressionDeclarationAst(context.expressionModifier().Any(modifier => modifier.KEYWORD_PRELUDE() != null),
         context.expressionModifier().Any(modifier => modifier.KEYWORD_STRICT() != null), Block(context.statementBlock())),
       context);
     }
 
-    public override LanguageAst VisitFuncDeclaration(Parser.FuncDeclarationContext context) {
+    public override HixAst VisitFuncDeclaration(Parser.FuncDeclarationContext context) {
       Modifiers(context.funcModifier());
       SignatureField[] Fields(Parser.SignatureContext signature) => signature.tableSignature()?.tableSignatureEntry()
         .Select(field => new SignatureField(field.ROOT_IDENTIFIER().GetText(), field.kindIdentifier().GetText(),
@@ -172,8 +172,8 @@ public static class AntlrSyntax {
         Block(context.statementBlock())), context);
     }
 
-    public override LanguageAst VisitStatementBlock(Parser.StatementBlockContext context) => Block(context);
-    public override LanguageAst VisitStatement(Parser.StatementContext context) {
+    public override HixAst VisitStatementBlock(Parser.StatementBlockContext context) => Block(context);
+    public override HixAst VisitStatement(Parser.StatementContext context) {
       if (context.statementBlock() is { } block)
         return Block(block, context.labelIdentifier()?.LABEL_IDENTIFIER().GetText());
       if (context.labelIdentifier() is { } label)
@@ -183,7 +183,7 @@ public static class AntlrSyntax {
       return node is SelectionExpressionAst selection ? At(new SelectionStatementAst(selection), context) : node;
     }
 
-    public override LanguageAst VisitAssignmentStatement(Parser.AssignmentStatementContext context) {
+    public override HixAst VisitAssignmentStatement(Parser.AssignmentStatementContext context) {
       var specifier = context.variableSpecifiers();
       var storage = specifier.KEYWORD_LOCAL() != null ? StorageSpace.Local :
         specifier.KEYWORD_CARRY() != null ? StorageSpace.Carry :
@@ -192,7 +192,7 @@ public static class AntlrSyntax {
         Value(context.assignedValue())), context);
     }
 
-    public override LanguageAst VisitAssignedValue(Parser.AssignedValueContext context) {
+    public override HixAst VisitAssignedValue(Parser.AssignedValueContext context) {
       if (context.invocationStatement() is { } invocation) return Invocation(invocation);
       return Visit(context.children.OfType<ParserRuleContext>().Single());
     }
@@ -200,18 +200,18 @@ public static class AntlrSyntax {
     private CallExpressionAst Invocation(Parser.InvocationStatementContext context) => At(
       new CallExpressionAst(context.IDENTIFIER().GetText(), Arguments(context.valueList())
         .Concat(context.tailValue() is { } tail ? [Value(tail)] : []).ToArray()), context);
-    public override LanguageAst VisitInvocationStatement(Parser.InvocationStatementContext context) =>
+    public override HixAst VisitInvocationStatement(Parser.InvocationStatementContext context) =>
       At(new InvocationStatementAst(Invocation(context)), context);
 
-    public override LanguageAst VisitControlflowStatement(Parser.ControlflowStatementContext context) => At(
+    public override HixAst VisitControlflowStatement(Parser.ControlflowStatementContext context) => At(
       new ControlFlowStatementAst(context.KEYWORD_RETURN() != null ? ControlFlowKind.Return :
         context.KEYWORD_GOTO() != null ? ControlFlowKind.Goto :
         context.KEYWORD_BREAK() != null ? ControlFlowKind.Break : ControlFlowKind.Continue,
         context.IDENTIFIER()?.GetText(), Arguments(context.valueList())), context);
 
-    public override LanguageAst VisitValue(Parser.ValueContext context) =>
+    public override HixAst VisitValue(Parser.ValueContext context) =>
       Visit(context.children.OfType<ParserRuleContext>().Single());
-    public override LanguageAst VisitPrimaryValue(Parser.PrimaryValueContext context) =>
+    public override HixAst VisitPrimaryValue(Parser.PrimaryValueContext context) =>
       context.NUMBER() is { } number
         ? At(new NumberExpressionAst(double.Parse(number.GetText(),
           NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint,
@@ -221,12 +221,12 @@ public static class AntlrSyntax {
         : context.NULL() is not null
           ? At(new NullExpressionAst(), context)
         : Visit(context.children.OfType<ParserRuleContext>().Single());
-    public override LanguageAst VisitTailValue(Parser.TailValueContext context) =>
+    public override HixAst VisitTailValue(Parser.TailValueContext context) =>
       Visit(context.children.OfType<ParserRuleContext>().Single());
-    public override LanguageAst VisitInlineValue(Parser.InlineValueContext context) => Visit(context.value());
-    public override LanguageAst VisitValueExpression(Parser.ValueExpressionContext context) => Visit(context.value());
+    public override HixAst VisitInlineValue(Parser.InlineValueContext context) => Visit(context.value());
+    public override HixAst VisitValueExpression(Parser.ValueExpressionContext context) => Visit(context.value());
 
-    public override LanguageAst VisitNonArgumentValue(Parser.NonArgumentValueContext context) {
+    public override HixAst VisitNonArgumentValue(Parser.NonArgumentValueContext context) {
       if (context.prefixOperators() != null)
         return At(new UnaryExpressionAst(UnaryOperation.Not, Value(context.nonArgumentValue())), context);
       if (context.postfixOperators() != null)
@@ -236,19 +236,19 @@ public static class AntlrSyntax {
         ? At(new FallbackExpressionAst(value, Value(fallback.value())), context) : value;
     }
 
-    public override LanguageAst VisitValueStatement(Parser.ValueStatementContext context) => At(
+    public override HixAst VisitValueStatement(Parser.ValueStatementContext context) => At(
       new CallExpressionAst(context.functionIdentifier().GetText(), Arguments(context.valueList())), context);
 
-    public override LanguageAst VisitTupleValue(Parser.TupleValueContext context) => At(
+    public override HixAst VisitTupleValue(Parser.TupleValueContext context) => At(
       new TupleExpressionAst(context.value().Select(Value).ToArray()), context);
-    public override LanguageAst VisitTableValue(Parser.TableValueContext context) => At(
+    public override HixAst VisitTableValue(Parser.TableValueContext context) => At(
       new TableExpressionAst(context.tableKeyedEntry().Select(entry =>
         new KeyValuePair<string, ExpressionAst>(entry.ROOT_IDENTIFIER().GetText(), Value(entry.value()))).ToArray()),
       context);
 
-    public override LanguageAst VisitDerivationRoot(Parser.DerivationRootContext context) => At(
+    public override HixAst VisitDerivationRoot(Parser.DerivationRootContext context) => At(
       new RootExpressionAst(context.ROOT_IDENTIFIER().GetText(), context.VALUE_SMART_ROOT() != null), context);
-    public override LanguageAst VisitDerivation(Parser.DerivationContext context) =>
+    public override HixAst VisitDerivation(Parser.DerivationContext context) =>
       Transform(Value(context.derivationRoot()), context.transformationPart());
     private ExpressionAst Transform(ExpressionAst value, Parser.TransformationPartContext[] parts) {
       foreach (var part in parts) {
@@ -277,10 +277,10 @@ public static class AntlrSyntax {
         ? parts[0] : new InterpolationExpressionAst(parts.ToArray());
     }
 
-    public override LanguageAst VisitArgumentValue(Parser.ArgumentValueContext context) => At(
+    public override HixAst VisitArgumentValue(Parser.ArgumentValueContext context) => At(
       Interpolate(context.argumentBody().children?.Select(child => child is ITerminalNode text
         ? new StringExpressionAst(text.GetText()) : Value(child)) ?? []), context);
-    public override LanguageAst VisitEscaped(Parser.EscapedContext context) {
+    public override HixAst VisitEscaped(Parser.EscapedContext context) {
       var text = context.GetText().Substring(1);
       var decoded = context.ESCAPE_HEX() != null
         ? ((char)int.Parse(text.Substring(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture)).ToString()
@@ -288,27 +288,27 @@ public static class AntlrSyntax {
       return At(new StringExpressionAst(decoded), context);
     }
 
-    public override LanguageAst VisitContentBlock(Parser.ContentBlockContext context) => At(
+    public override HixAst VisitContentBlock(Parser.ContentBlockContext context) => At(
       Interpolate(context.contentBody().children.Select(child => child is ITerminalNode terminal
         ? new StringExpressionAst(terminal.Symbol.Type switch {
           Lexer.CONTENT_WRAP => "", Lexer.CONTENT_LINEBREAK => "\n", _ => terminal.GetText()
         }) : Value(child))), context);
-    public override LanguageAst VisitContentInterpolate(Parser.ContentInterpolateContext context) =>
+    public override HixAst VisitContentInterpolate(Parser.ContentInterpolateContext context) =>
       Visit(context.derivation());
 
-    public override LanguageAst VisitWhenResult(Parser.WhenResultContext context) {
+    public override HixAst VisitWhenResult(Parser.WhenResultContext context) {
       var result = Visit(context.children.OfType<ParserRuleContext>().Single());
       return result is InvocationStatementAst invocation ? invocation.Call : result;
     }
-    public override LanguageAst VisitWhenConditionStatement(Parser.WhenConditionStatementContext context) => At(
+    public override HixAst VisitWhenConditionStatement(Parser.WhenConditionStatementContext context) => At(
       new SelectionExpressionAst(null,
         [At(new SelectionBranchAst(Arguments(context.whenChainCondition().valueList()), Block(context.statementBlock())), context)],
         context.whenResult() is { } fallback ? Visit(fallback) : null), context);
-    public override LanguageAst VisitWhenChainStatement(Parser.WhenChainStatementContext context) => At(
+    public override HixAst VisitWhenChainStatement(Parser.WhenChainStatementContext context) => At(
       new SelectionExpressionAst(null, context.whenChainBody().whenChainBranch().Select(branch => At(
         new SelectionBranchAst(Arguments(branch.whenChainCondition().valueList()), Visit(branch.whenResult())), branch)).ToArray(),
         context.whenChainBody().whenElseBranch() is { } fallback ? Visit(fallback.whenResult()) : null), context);
-    public override LanguageAst VisitWhenValueStatement(Parser.WhenValueStatementContext context) {
+    public override HixAst VisitWhenValueStatement(Parser.WhenValueStatementContext context) {
       var branches = context.whenValueBody().whenValueBranch().Select(branch => {
         var condition = branch.whenValueCondition();
         var transformation = condition.inlineTransformation();

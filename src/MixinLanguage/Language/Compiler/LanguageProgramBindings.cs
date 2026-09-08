@@ -138,7 +138,7 @@ internal sealed class LanguageProgramBindings {
     RenderResult(builder, selection.Fallback, depth + 2);
   }
 
-  private static void RenderResult(StringBuilder builder, LanguageAst result, int depth) {
+  private static void RenderResult(StringBuilder builder, HixAst result, int depth) {
     if (result == null) Line(builder, depth, "null");
     else if (result is ExpressionAst expression) RenderValue(builder, expression, depth);
     else if (result is BlockStatementAst block) RenderBlock(builder, block, depth);

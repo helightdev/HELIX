@@ -63,8 +63,172 @@ public abstract class HixAst {
   }
 }
 
-
 public sealed class TriviaAst(HixSyntaxKind kind, HixSourceRange range) : HixAst(kind, range) {
   public override bool IsTrivia => true;
 }
+
 public sealed record HixParseDiagnostic(int Line, string Message);
+
+public sealed class CompilationUnitAst : HixAst {
+  internal CompilationUnitAst(
+    string source, IReadOnlyList<HixAst> declarations,
+    IReadOnlyList<HixParseDiagnostic> diagnostics, IReadOnlyList<HixToken> tokens
+  ) : base(children: declarations) {
+    Source = source;
+    Declarations = declarations;
+    Diagnostics = diagnostics;
+    Tokens = tokens;
+    Kind = HixSyntaxKind.Document;
+    SourceRange = new HixSourceRange(0, source.Length, 1, 0);
+  }
+
+  public string Source { get; }
+  public IReadOnlyList<HixAst> Declarations { get; }
+  public IReadOnlyList<HixParseDiagnostic> Diagnostics { get; }
+}
+
+public sealed class MixinDeclarationAst(string name, bool derivation, IReadOnlyList<HixAst> declarations)
+  : HixAst(children: declarations) {
+  public string Name { get; } = name;
+  public bool IsDerivation { get; } = derivation;
+  public IReadOnlyList<HixAst> Declarations { get; } = declarations;
+}
+
+public sealed class ExpressionDeclarationAst(bool prelude, bool strict, BlockStatementAst body)
+  : HixAst(children: [body]) {
+  public bool IsPrelude { get; } = prelude;
+  public bool IsStrict { get; } = strict;
+  public BlockStatementAst Body { get; } = body;
+}
+
+public sealed record SignatureField(string Name, string Kind, bool Variadic);
+
+public sealed record FunctionSignature(string InputKind, IReadOnlyList<SignatureField> Inputs,
+  string OutputKind, IReadOnlyList<SignatureField> Outputs
+);
+
+public sealed class FunctionDeclarationAst(string name, bool pure, bool inline, bool noinline,
+  IReadOnlyList<FunctionSignature> signatures, BlockStatementAst body
+) : HixAst(children: [body]) {
+  public string Name { get; } = name;
+  public bool IsPure { get; } = pure;
+  public bool IsInline { get; } = inline;
+  public bool IsNoinline { get; } = noinline;
+  public IReadOnlyList<FunctionSignature> Signatures { get; } = signatures;
+  public BlockStatementAst Body { get; } = body;
+}
+
+public abstract class StatementAst(IEnumerable<HixAst> children = null) : HixAst(children: children?.ToArray());
+
+public sealed class BlockStatementAst(IReadOnlyList<StatementAst> statements, string label = null)
+  : StatementAst(statements) {
+  public IReadOnlyList<StatementAst> Statements { get; } = statements;
+  public string Label { get; } = label;
+}
+
+public enum StorageSpace { Local, Variable, Target, Carry }
+
+public sealed class AssignmentStatementAst(StorageSpace storage, string name, ExpressionAst value)
+  : StatementAst([value]) {
+  public StorageSpace Storage { get; } = storage;
+  public string Name { get; } = name;
+  public ExpressionAst Value { get; } = value;
+}
+
+public sealed class InvocationStatementAst(CallExpressionAst call) : StatementAst([call]) {
+  public CallExpressionAst Call { get; } = call;
+}
+
+public enum ControlFlowKind { Return, Goto, Break, Continue, Label }
+
+public sealed class ControlFlowStatementAst(ControlFlowKind operation, string label,
+  IReadOnlyList<ExpressionAst> values
+) : StatementAst(values) {
+  public ControlFlowKind Operation { get; } = operation;
+  public string Label { get; } = label;
+  public IReadOnlyList<ExpressionAst> Values { get; } = values;
+}
+
+public sealed class SelectionStatementAst(SelectionExpressionAst selection) : StatementAst([selection]) {
+  public SelectionExpressionAst Selection { get; } = selection;
+}
+
+public abstract class ExpressionAst(IEnumerable<HixAst> children = null) : HixAst(children: children?.ToArray());
+
+public sealed class StringExpressionAst(string value) : ExpressionAst {
+  public string Value { get; } = value;
+}
+
+public sealed class NumberExpressionAst(double value) : ExpressionAst {
+  public double Value { get; } = value;
+}
+
+public sealed class BooleanExpressionAst(bool value) : ExpressionAst {
+  public bool Value { get; } = value;
+}
+
+public sealed class NullExpressionAst : ExpressionAst;
+
+public sealed class RootExpressionAst(string name, bool smart = false) : ExpressionAst {
+  public string Name { get; } = name;
+  public bool IsSmart { get; } = smart;
+}
+
+public sealed class MemberExpressionAst(ExpressionAst receiver, string member) : ExpressionAst([receiver]) {
+  public ExpressionAst Receiver { get; } = receiver;
+  public string Member { get; } = member;
+}
+
+public sealed class CallExpressionAst(string name, IReadOnlyList<ExpressionAst> arguments,
+  bool coerceBoolean = false
+) : ExpressionAst(arguments) {
+  public string Name { get; } = name;
+  public IReadOnlyList<ExpressionAst> Arguments { get; } = arguments;
+  public bool CoerceBoolean { get; } = coerceBoolean;
+}
+
+public enum UnaryOperation { Not, Check }
+
+public sealed class UnaryExpressionAst(UnaryOperation operation, ExpressionAst value) : ExpressionAst([value]) {
+  public UnaryOperation Operation { get; } = operation;
+  public ExpressionAst Value { get; } = value;
+}
+
+public sealed class FallbackExpressionAst(ExpressionAst value, ExpressionAst fallback)
+  : ExpressionAst([value, fallback]) {
+  public ExpressionAst Value { get; } = value;
+  public ExpressionAst Fallback { get; } = fallback;
+}
+
+public sealed class TupleExpressionAst(IReadOnlyList<ExpressionAst> values) : ExpressionAst(values) {
+  public IReadOnlyList<ExpressionAst> Values { get; } = values;
+}
+
+public sealed class TableExpressionAst(IReadOnlyList<KeyValuePair<string, ExpressionAst>> entries)
+  : ExpressionAst(entries.Select(entry => entry.Value)) {
+  public IReadOnlyList<KeyValuePair<string, ExpressionAst>> Entries { get; } = entries;
+}
+
+public sealed class InterpolationExpressionAst(IReadOnlyList<ExpressionAst> parts) : ExpressionAst(parts) {
+  public IReadOnlyList<ExpressionAst> Parts { get; } = parts;
+}
+
+public sealed class SelectionBranchAst(IReadOnlyList<ExpressionAst> conditions, HixAst result,
+  bool transformation = false
+) : HixAst(children: conditions.Concat([result]).ToArray()) {
+  public IReadOnlyList<ExpressionAst> Conditions { get; } = conditions;
+  public HixAst Result { get; } = result;
+  public bool IsTransformation { get; } = transformation;
+}
+
+public sealed class SelectionExpressionAst(ExpressionAst selector, IReadOnlyList<SelectionBranchAst> branches,
+  HixAst fallback
+) : ExpressionAst(
+  (selector is null ? Enumerable.Empty<HixAst>() : [selector])
+  .Concat(branches)
+  .Concat(fallback is null ? [] : [fallback])
+) {
+  public ExpressionAst Selector { get; } = selector;
+  public IReadOnlyList<SelectionBranchAst> Branches { get; } = branches;
+  public HixAst Fallback { get; } = fallback;
+}
