@@ -97,3 +97,8 @@ consume returns and report invalid transfers as error values.
 Instruction accounting and the execution-budget check live in the dispatch loop. Value-producing
 instructions propagate unchecked errors directly; `Check`/`EndCheck` delimit explicit `?` handlers.
 No `TICK` or `VALIDATE` bookkeeping instructions are emitted.
+
+Storage roots are lightweight table views backed by `MixinValueDictionary`. Member selection reads the backing dictionary directly;
+local reads fall back to carried values without copying either dictionary. Table consumers can
+enumerate the view on demand. Assignment, return, selector capture, and argument/collection packing
+materialize a snapshot so stored values do not retain mutable execution frames or contain themselves.

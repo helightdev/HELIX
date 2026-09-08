@@ -141,7 +141,7 @@ public sealed record ObjectMixinValue(object Value) : IMixinValue {
   }
 }
 
-public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMixinValue>> Entries) : IMixinValue {
+public record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMixinValue>> Entries) : IMixinValue {
   public static readonly MixinTableValue Empty = new([]);
   public int Count => Entries.Count;
   public MixinValueKind Kind => MixinValueKind.Table;
@@ -169,7 +169,7 @@ public sealed record MixinTableValue(IReadOnlyList<KeyValuePair<MixinString, IMi
     }
   }
 
-  public IMixinValue Select(ExecutionContext context, MixinString member) {
+  public virtual IMixinValue Select(ExecutionContext context, MixinString member) {
     var name = member.Resolve(context.Strings);
     return Entries.FirstOrDefault(item => string.Equals(
         item.Key.Resolve(context.Strings), name, StringComparison.Ordinal

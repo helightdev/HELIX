@@ -182,20 +182,18 @@ internal sealed class RoslynMixinContext : ExecutionContext {
     if (value is not RoslynMixinValue roslyn || TypeOf(roslyn.Value) is not INamedTypeSymbol type) return false;
     var name = requested.Resolve(Strings).Replace("global::", "");
 
-    bool Match(ITypeSymbol candidate) {
-      return candidate is not null && (
-        candidate.Name == name || candidate.ToDisplayString() == name ||
-        candidate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) == name
-      );
-    }
-
-    if (Match(type)) return true;
+    if (MatchesTypeName(type, name)) return true;
     for (var current = type.BaseType; current is not null; current = current.BaseType) {
-      if (Match(current))
+      if (MatchesTypeName(current, name))
         return true;
     }
-    return type.AllInterfaces.Any(Match);
+    foreach (var item in type.AllInterfaces) if (MatchesTypeName(item, name)) return true;
+    return false;
   }
+
+  private static bool MatchesTypeName(ITypeSymbol candidate, string name) => candidate is not null && (
+    candidate.Name == name || candidate.ToDisplayString() == name ||
+    candidate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) == name);
 
   public override bool HasTrait(IMixinValue value, MixinString requested) {
     using var profile = MixinProfiler.Measure("roslyn.has_trait");

@@ -4,64 +4,97 @@ using System.Linq;
 namespace Mixins.Runtime;
 
 internal sealed partial class LanguageExecution {
-  internal IMixinValue Derive(IMixinValue value, int line) {
-    if (value is not TupleMixinValue tuple) return context.Error("derive requires a tuple of records");
-    var savedVariables = variables.ToArray();
-    var savedTargets = targetVariables.ToArray();
-    var savedCarries = carries.ToArray();
-    var previousParameter = parameter;
-    var previousLocals = locals;
-    var previousScope = scope;
-    var outputCount = outputs.Count;
-    var result = new List<IMixinValue>(tuple.Values.Count);
-    var index = 0;
-    BytecodeDerivation provider = null;
-    IMixinValue Fail(IMixinValue error, int errorLine, bool control = false) {
-      Restore(variables, savedVariables);
-      Restore(targetVariables, savedTargets);
-      Restore(carries, savedCarries);
-      outputs.RemoveRange(outputCount, outputs.Count - outputCount);
-      return control ? error : context.Error("derive entry " + index + (provider == null ? "" : " in '" + provider.Name + "'") +
-        " at line " + errorLine + ": " + Text(error));
+  internal IMixinValue Derive(IMixinValue value, int line) => value is TupleMixinValue tuple
+    ? new DerivationFrame(this, tuple, line).Run()
+    : context.Error("derive requires a tuple of records");
+
+  /// <summary>Owns one derivation invocation's rollback snapshots, caller state, and current record/provider.</summary>
+  private struct DerivationFrame {
+    private readonly LanguageExecution execution;
+    private readonly TupleMixinValue tuple;
+    private readonly int line;
+    private readonly KeyValuePair<MixinString, IMixinValue>[] savedVariables;
+    private readonly KeyValuePair<MixinString, IMixinValue>[] savedTargets;
+    private readonly KeyValuePair<MixinString, IMixinValue>[] savedCarries;
+    private readonly IMixinValue previousParameter;
+    private readonly MixinValueDictionary previousLocals;
+    private readonly LanguageFunctionScope previousScope;
+    private readonly int outputCount;
+    private readonly List<IMixinValue> result;
+    private int index;
+    private BytecodeDerivation provider;
+
+    internal DerivationFrame(LanguageExecution execution, TupleMixinValue tuple, int line) {
+      this.execution = execution;
+      this.tuple = tuple;
+      this.line = line;
+      savedVariables = execution.variables.ToArray();
+      savedTargets = execution.targetVariables.ToArray();
+      savedCarries = execution.carries.ToArray();
+      previousParameter = execution.parameter;
+      previousLocals = execution.locals;
+      previousScope = execution.scope;
+      outputCount = execution.outputs.Count;
+      result = new List<IMixinValue>(tuple.Values.Count);
+      index = 0;
+      provider = null;
     }
-    try {
-      for (; index < tuple.Values.Count; index++) {
-        if (tuple.Values[index] is not MixinTableValue record)
-          return Fail(context.Error("record must be a table"), line);
-        var symbol = record.Select(context, context.ResolveString("symbol"));
-        if (symbol.Kind != MixinValueKind.Symbol)
-          return Fail(context.Error("record must contain a semantic symbol"), line);
-        if (!record.Entries.Any(entry => entry.Key.Resolve(context.Strings) == "value"))
-          return Fail(context.Error("record must contain value"), line);
-        var current = record.Select(context, context.ResolveString("value"));
-        foreach (var declaration in derivations) {
-          provider = declaration;
-          if (!activeDerivations.Add(provider))
-            return Fail(context.Error("recursive derivation"), provider.Line);
-          locals = new Dictionary<string, IMixinValue>(System.StringComparer.Ordinal);
-          scope = provider.Scope;
-          try {
-            foreach (var expression in provider.Expressions) {
-              parameter = Functions.CollectionFunctions.Put(context, record, "value", current);
-              var completion = Run(expression.Body);
-              if (completion.Kind == BytecodeFlow.Error) return Fail(completion.Value, completion.Line);
-              if (completion.Kind == BytecodeFlow.Normal)
-                return Fail(context.Error("derivation must explicitly return a value"), expression.Line);
-              if (completion.Kind != BytecodeFlow.Return)
-                return Fail(context.Error("control flow cannot cross derivation boundaries: " + completion.Kind), completion.Line, true);
-              current = completion.Value;
-              if (current is ErrorMixinValue) return Fail(current, expression.Line);
-            }
-          } finally { activeDerivations.Remove(provider); }
+
+    private bool HasValue(MixinTableValue record) {
+      foreach (var entry in record.Entries)
+        if (entry.Key.Resolve(execution.context.Strings) == "value") return true;
+      return false;
+    }
+
+    internal IMixinValue Run() {
+      try {
+        for (; index < tuple.Values.Count; index++) {
+          if (tuple.Values[index] is not MixinTableValue record)
+            return Fail(execution.context.Error("record must be a table"), line);
+          var symbol = record.Select(execution.context, execution.context.ResolveString("symbol"));
+          if (symbol.Kind != MixinValueKind.Symbol)
+            return Fail(execution.context.Error("record must contain a semantic symbol"), line);
+          if (!HasValue(record))
+            return Fail(execution.context.Error("record must contain value"), line);
+          var current = record.Select(execution.context, execution.context.ResolveString("value"));
+          foreach (var declaration in execution.derivations) {
+            provider = declaration;
+            if (!execution.activeDerivations.Add(provider))
+              return Fail(execution.context.Error("recursive derivation"), provider.Line);
+            execution.locals = new MixinValueDictionary();
+            execution.scope = provider.Scope;
+            try {
+              foreach (var expression in provider.Expressions) {
+                execution.parameter = Functions.CollectionFunctions.Put(execution.context, record, "value", current);
+                var completion = execution.Run(expression.Body);
+                if (completion.Kind == BytecodeFlow.Error) return Fail(completion.Value, completion.Line);
+                if (completion.Kind == BytecodeFlow.Normal)
+                  return Fail(execution.context.Error("derivation must explicitly return a value"), expression.Line);
+                if (completion.Kind != BytecodeFlow.Return)
+                  return Fail(execution.context.Error("control flow cannot cross derivation boundaries: " + completion.Kind), completion.Line, true);
+                current = completion.Value;
+                if (current is ErrorMixinValue) return Fail(current, expression.Line);
+              }
+            } finally { execution.activeDerivations.Remove(provider); }
+          }
+          result.Add(Functions.CollectionFunctions.Put(execution.context, record, "value", current));
+          provider = null;
         }
-        result.Add(Functions.CollectionFunctions.Put(context, record, "value", current));
-        provider = null;
+        return new TupleMixinValue(result.ToArray());
+      } finally {
+        execution.parameter = previousParameter;
+        execution.locals = previousLocals;
+        execution.scope = previousScope;
       }
-      return new TupleMixinValue(result.ToArray());
-    } finally {
-      parameter = previousParameter;
-      locals = previousLocals;
-      scope = previousScope;
+    }
+
+    private IMixinValue Fail(IMixinValue error, int errorLine, bool control = false) {
+      Restore(execution.variables, savedVariables);
+      Restore(execution.targetVariables, savedTargets);
+      Restore(execution.carries, savedCarries);
+      execution.outputs.RemoveRange(outputCount, execution.outputs.Count - outputCount);
+      return control ? error : execution.context.Error("derive entry " + index + (provider == null ? "" : " in '" + provider.Name + "'") +
+        " at line " + errorLine + ": " + execution.Text(error));
     }
   }
 }

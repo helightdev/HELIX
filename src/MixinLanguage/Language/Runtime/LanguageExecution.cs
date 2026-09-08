@@ -16,11 +16,11 @@ internal sealed partial class LanguageExecution {
   private readonly HashSet<BytecodeDerivation> activeDerivations = [];
   private readonly List<MixinExpressionOutput> outputs = [];
   private readonly List<MixinExpressionLog> logs = [];
-  private Dictionary<string, IMixinValue> locals = new(StringComparer.Ordinal);
-  private readonly Dictionary<string, IMixinValue> carries = new(StringComparer.Ordinal);
+  private MixinValueDictionary locals = new();
+  private readonly MixinValueDictionary carries = new();
   private readonly HashSet<string> carriedLocals = new(StringComparer.Ordinal);
-  private readonly Dictionary<string, IMixinValue> variables = new(StringComparer.Ordinal);
-  private readonly Dictionary<string, IMixinValue> targetVariables = new(StringComparer.Ordinal);
+  private readonly MixinValueDictionary variables = new();
+  private readonly MixinValueDictionary targetVariables = new();
   private IMixinValue parameter = NullMixinValue.Instance;
   private IReadOnlyList<IMixinValue> positionalParameters = Array.Empty<IMixinValue>();
   private IMixinValue selector = NullMixinValue.Instance;
@@ -45,14 +45,13 @@ internal sealed partial class LanguageExecution {
   internal MixinExpressionResult Execute(IEnumerable<BytecodeExpression> expressions,
     IDictionary<string, object> imported = null, IReadOnlyDictionary<string, object> importedCarries = null) {
     var started = Stopwatch.GetTimestamp();
-    double Elapsed() => (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
-    if (imported != null) foreach (var item in imported) variables[item.Key] = Import(item.Value);
+    if (imported != null) foreach (var item in imported) variables.StoreIsolated(ExecutionContext.Dynamic(item.Key), Import(item.Value));
     if (importedCarries != null) foreach (var item in importedCarries) {
-      carries[item.Key] = Import(item.Value);
+      carries.StoreIsolated(ExecutionContext.Dynamic(item.Key), Import(item.Value));
       carriedLocals.Add(item.Key);
     }
     foreach (var item in context.TargetVariables)
-      targetVariables[item.Key.Resolve(context.Strings)] = item.Value;
+      targetVariables.StoreIsolated(ExecutionContext.Dynamic(item.Key.Resolve(context.Strings)), item.Value);
     var previousOutput = context.OutputSink;
     var previousLog = context.LogSink;
     context.OutputSink = outputs.Add;
@@ -61,7 +60,7 @@ internal sealed partial class LanguageExecution {
       foreach (var expression in expressions.OrderBy(expression => expression.IsPrelude ? 0 : 1)) {
         if (prelude && !expression.IsPrelude) ClosePrelude();
         prelude = expression.IsPrelude;
-        locals = new Dictionary<string, IMixinValue>(StringComparer.Ordinal);
+        locals = new MixinValueDictionary();
         var savedVariables = variables.ToArray();
         var savedTargets = targetVariables.ToArray();
         var savedCarries = carries.ToArray();
@@ -75,14 +74,14 @@ internal sealed partial class LanguageExecution {
           var error = completion.Kind == BytecodeFlow.Error ? Text(completion.Value)
             : "invalid " + completion.Kind + " outside its scope";
           return new MixinExpressionResult(false, error, completion.Line, outputs.ToArray(), logs.ToArray(),
-            Commit(imported), ExportCarries(), steps, Elapsed());
+            Commit(imported), ExportCarries(), steps, Elapsed(started));
         }
         Commit(imported);
       }
       ClosePrelude();
       var exported = Commit(imported);
       return new MixinExpressionResult(true, null, 0, outputs.ToArray(), logs.ToArray(), exported,
-        ExportCarries(), steps, Elapsed());
+        ExportCarries(), steps, Elapsed(started));
     } finally {
       context.OutputSink = previousOutput;
       context.LogSink = previousLog;
@@ -90,21 +89,20 @@ internal sealed partial class LanguageExecution {
   }
 
   private IReadOnlyDictionary<string, object> Commit(IDictionary<string, object> imported) {
-    var exported = variables.ToDictionary(item => item.Key,
+    var exported = variables.ToDictionary(item => item.Key.Resolve(context.Strings),
       item => context.UnlinkSnapshot(item.Value), StringComparer.Ordinal);
     if (imported != null) foreach (var item in exported) imported[item.Key] = item.Value;
-    context.TargetVariables.ReplaceWith(targetVariables.Select(item =>
-      new KeyValuePair<MixinString, IMixinValue>(ExecutionContext.Dynamic(item.Key), item.Value)));
+    context.TargetVariables.ReplaceWith(targetVariables);
     return exported;
   }
 
   private IReadOnlyDictionary<string, object> ExportCarries() => carries.ToDictionary(
-    item => item.Key, item => context.UnlinkSnapshot(item.Value), StringComparer.Ordinal);
+    item => item.Key.Resolve(context.Strings), item => context.UnlinkSnapshot(item.Value), StringComparer.Ordinal);
 
   private void ClosePrelude() {
-    foreach (var name in carries.Keys.ToArray()) carries[name] = context.DetachValue(carries[name]);
-    foreach (var name in variables.Keys.ToArray()) variables[name] = context.DetachValue(variables[name]);
-    foreach (var name in targetVariables.Keys.ToArray()) targetVariables[name] = context.DetachValue(targetVariables[name]);
+    foreach (var name in carries.Keys.ToArray()) carries.Store(context, name, carries[name]);
+    foreach (var name in variables.Keys.ToArray()) variables.Store(context, name, variables[name]);
+    foreach (var name in targetVariables.Keys.ToArray()) targetVariables.Store(context, name, targetVariables[name]);
   }
 
   private VmCompletion pendingControl;
@@ -126,80 +124,14 @@ internal sealed partial class LanguageExecution {
     if (name is "local" or "var" or "tar") {
       if (pure && name != "local") return context.Error("pure functions cannot read shared storage");
       var storage = name switch {"local" => locals, "var" => variables, _ => targetVariables};
-      if (name == "local" && depth == 0 && carries.Count != 0)
-        return new MixinTableValue(carries.Concat(locals).GroupBy(item => item.Key, StringComparer.Ordinal)
-          .Select(group => group.Last()).Select(item => new KeyValuePair<MixinString, IMixinValue>(
-            context.ResolveString(item.Key), item.Value)).ToArray());
-      return new MixinTableValue(storage.Select(item => new KeyValuePair<MixinString, IMixinValue>(
-        context.ResolveString(item.Key), item.Value)).ToArray());
+      return new MixinStorageValue(storage, name == "local" && depth == 0 ? carries : null);
     }
     return context.Error("unknown root '" + name + "'");
   }
 
   private IMixinValue Invoke(string name, IMixinValue[] arguments, int line, LanguageFunctionScope binding = null) {
-    var candidates = (binding ?? scope).Candidates(name);
-    if (candidates.Count == 0) return context.Error("unknown function '" + name + "'");
-    var matches = new List<(BytecodeFunction Function, BytecodeSignature Signature, IMixinValue Parameter, int Score, LanguageFunctionScope Owner)>();
-    foreach (var candidate in candidates) {
-      var function = candidate.Function;
-      var signature = candidate.Signature;
-      if (signature == null) matches.Add((function, null, Pack(arguments), -10000, candidate.Owner));
-      else {
-        if (signature.Inputs == null) {
-          if (arguments.Length == 1 && TryConvert(arguments[0], signature.InputKind, out var converted, out var conversionCount))
-            matches.Add((function, signature, converted,
-              (signature.InputKind == "any" ? 1000 : 1001) - conversionCount, candidate.Owner));
-          continue;
-        }
-        var fields = signature.Inputs;
-        var variadic = fields.Count > 0 && fields[fields.Count - 1].Variadic;
-        var fixedCount = fields.Count - (variadic ? 1 : 0);
-        if (arguments.Length == 1 && arguments[0] is MixinTableValue supplied && !variadic) {
-          var convertedEntries = supplied.Entries.ToArray();
-          var namedConversions = 0;
-          var valid = true;
-          foreach (var field in fields) {
-            var entryIndex = Array.FindIndex(convertedEntries,
-              entry => entry.Key.Resolve(context.Strings) == field.Name);
-            if (entryIndex < 0 || !TryConvert(convertedEntries[entryIndex].Value, field.Kind,
-                  out var converted, out var count)) { valid = false; break; }
-            convertedEntries[entryIndex] = new KeyValuePair<MixinString, IMixinValue>(
-              convertedEntries[entryIndex].Key, converted);
-            namedConversions += count;
-          }
-          if (valid) {
-            matches.Add((function, signature, new MixinTableValue(convertedEntries),
-              1000 + fields.Count(field => field.Kind != "any") - namedConversions, candidate.Owner));
-            continue;
-          }
-        }
-        if (arguments.Length < fixedCount || !variadic && arguments.Length != fixedCount) continue;
-        var convertedArguments = new IMixinValue[arguments.Length];
-        var positionalConversions = 0;
-        var positionalValid = true;
-        for (var index = 0; index < arguments.Length; index++) {
-          var field = fields[Math.Min(index, fields.Count - 1)];
-          if (!TryConvert(arguments[index], field.Kind, out convertedArguments[index], out var count)) {
-            positionalValid = false;
-            break;
-          }
-          positionalConversions += count;
-        }
-        if (!positionalValid) continue;
-        var entries = fields.Select((field, index) => new KeyValuePair<MixinString, IMixinValue>(
-          context.ResolveString(field.Name), field.Variadic
-            ? new TupleMixinValue(convertedArguments.Skip(index).ToArray()) : convertedArguments[index])).ToArray();
-        matches.Add((function, signature, new MixinTableValue(entries), (variadic ? 0 : 1000) +
-          fields.Count(field => field.Kind != "any") - positionalConversions, candidate.Owner));
-      }
-    }
-    if (matches.Count > 0) {
-      var highest = matches.Max(candidate => candidate.Score);
-      matches.RemoveAll(candidate => candidate.Score != highest);
-    }
-    if (matches.Count != 1) return context.Error(matches.Count == 0
-      ? "no matching signature for '" + name + "'" : "ambiguous signature for '" + name + "'");
-    var match = matches[0];
+    var selectionError = SelectFunction(name, arguments, binding ?? scope, out var match);
+    if (selectionError != null) return selectionError;
     if (pure && !match.Function.IsPure) return context.Error("pure functions cannot invoke impure functions");
     if (!prelude && !match.Function.IsPure) return context.Error("impure function '" + name + "' requires prelude preparation");
     if (++depth > 128) { depth--; return context.Error("call depth limit exceeded"); }
@@ -214,14 +146,7 @@ internal sealed partial class LanguageExecution {
     var savedCarries = carries.ToArray();
     var outputCount = outputs.Count;
     var logCount = logs.Count;
-    void RollBack() {
-      Restore(variables, savedVariables);
-      Restore(targetVariables, savedTargets);
-      Restore(carries, savedCarries);
-      outputs.RemoveRange(outputCount, outputs.Count - outputCount);
-      logs.RemoveRange(logCount, logs.Count - logCount);
-    }
-    locals = new Dictionary<string, IMixinValue>(StringComparer.Ordinal);
+    locals = new MixinValueDictionary();
     parameter = match.Parameter;
     positionalParameters = arguments;
     pure = match.Function.IsPure;
@@ -229,15 +154,15 @@ internal sealed partial class LanguageExecution {
     program = scope.Program;
     try {
       var completion = Run(match.Function.Body);
-      if (completion.Kind == BytecodeFlow.Error) { RollBack(); return completion.Value; }
+      if (completion.Kind == BytecodeFlow.Error) { Rollback(savedVariables, savedTargets, savedCarries, outputCount, logCount); return completion.Value; }
       if (completion.Kind is not (BytecodeFlow.Normal or BytecodeFlow.Return)) {
-        RollBack();
+        Rollback(savedVariables, savedTargets, savedCarries, outputCount, logCount);
         return context.Error("control flow cannot cross function boundaries: " + completion.Kind);
       }
       var result = completion.Kind == BytecodeFlow.Return ? completion.Value : NullMixinValue.Instance;
-      if (result is ErrorMixinValue) { RollBack(); return result; }
+      if (result is ErrorMixinValue) { Rollback(savedVariables, savedTargets, savedCarries, outputCount, logCount); return result; }
       if (match.Signature != null && !MatchesReturn(result, match.Signature)) {
-        RollBack(); return context.Error("return kind does not match signature of '" + name + "'");
+        Rollback(savedVariables, savedTargets, savedCarries, outputCount, logCount); return context.Error("return kind does not match signature of '" + name + "'");
       }
       return result;
     } finally {
@@ -271,10 +196,20 @@ internal sealed partial class LanguageExecution {
     conversions = 1;
     return true;
   }
-  private static void Restore(Dictionary<string, IMixinValue> storage, KeyValuePair<string, IMixinValue>[] saved) {
-    storage.Clear();
-    foreach (var item in saved) storage.Add(item.Key, item.Value);
+  private static double Elapsed(long started) => (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
+
+  private void Rollback(KeyValuePair<MixinString, IMixinValue>[] savedVariables,
+    KeyValuePair<MixinString, IMixinValue>[] savedTargets, KeyValuePair<MixinString, IMixinValue>[] savedCarries,
+    int outputCount, int logCount) {
+    Restore(variables, savedVariables);
+    Restore(targetVariables, savedTargets);
+    Restore(carries, savedCarries);
+    outputs.RemoveRange(outputCount, outputs.Count - outputCount);
+    logs.RemoveRange(logCount, logs.Count - logCount);
   }
+
+  private static void Restore(MixinValueDictionary storage, KeyValuePair<MixinString, IMixinValue>[] saved) =>
+    storage.ReplaceWith(saved);
   private static IMixinValue Pack(IMixinValue[] values) => values.Length switch {
     0 => NullMixinValue.Instance, 1 => values[0], _ => new TupleMixinValue(values)
   };

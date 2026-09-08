@@ -78,14 +78,14 @@ internal sealed class HixBytecodeCompiler {
   private int EntryBlock(BlockStatementAst block) {
     var previous = localNames;
     localNames = new HashSet<string>(StringComparer.Ordinal);
-    void Collect(HixAst node) {
-      if (node is AssignmentStatementAst {Storage: StorageSpace.Local} assignment) localNames.Add(assignment.Name);
-      foreach (var child in node.SemanticChildren) Collect(child);
-    }
-    Collect(block);
+    CollectLocals(block);
     var start = Block(block);
     localNames = previous;
     return start;
+  }
+  private void CollectLocals(HixAst node) {
+    if (node is AssignmentStatementAst {Storage: StorageSpace.Local} assignment) localNames.Add(assignment.Name);
+    foreach (var child in node.SemanticChildren) CollectLocals(child);
   }
   private void LoadMember(string root, string member) {
     Emit(HixOpcode.LoadRoot, S(root)); Emit(HixOpcode.Member, S(member));

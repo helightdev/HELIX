@@ -70,17 +70,18 @@ public sealed class MixinVirtualMachine {
     if (program == null) throw new ArgumentNullException(nameof(program));
     var programs = new HashSet<MixinExpressionExecutionProgram> {program};
     var seen = new HashSet<object>();
-    void Include(object value) {
-      if (value == null || value is string || !seen.Add(value)) return;
-      if (value is NamedFunctionMixinValue {Scope: { } scope}) programs.Add(scope.Program);
-      else if (value is TupleMixinValue tuple) foreach (var item in tuple.Values) Include(item);
-      else if (value is MixinTableValue table) foreach (var entry in table.Entries) Include(entry.Value);
-      else if (value is IReadOnlyDictionary<string, object> dictionary) foreach (var entry in dictionary) Include(entry.Value);
-      else if (value is IEnumerable sequence) foreach (var item in sequence) Include(item);
-    }
-    if (variables != null) foreach (var value in variables.Values) Include(value);
-    if (carries != null) foreach (var value in carries.Values) Include(value);
-    foreach (var entry in context.TargetVariables) Include(entry.Value);
+    if (variables != null) foreach (var value in variables.Values) IncludeProgram(value, programs, seen);
+    if (carries != null) foreach (var value in carries.Values) IncludeProgram(value, programs, seen);
+    foreach (var entry in context.TargetVariables) IncludeProgram(entry.Value, programs, seen);
     return new MixinVirtualMachine(programs, context.Strings).Run(program, context, variables, carries);
+  }
+
+  private static void IncludeProgram(object value, HashSet<MixinExpressionExecutionProgram> programs, HashSet<object> seen) {
+    if (value == null || value is string || !seen.Add(value)) return;
+    if (value is NamedFunctionMixinValue {Scope: { } scope}) programs.Add(scope.Program);
+    else if (value is TupleMixinValue tuple) foreach (var item in tuple.Values) IncludeProgram(item, programs, seen);
+    else if (value is MixinTableValue table) foreach (var entry in table.Entries) IncludeProgram(entry.Value, programs, seen);
+    else if (value is IReadOnlyDictionary<string, object> dictionary) foreach (var entry in dictionary) IncludeProgram(entry.Value, programs, seen);
+    else if (value is IEnumerable sequence) foreach (var item in sequence) IncludeProgram(item, programs, seen);
   }
 }

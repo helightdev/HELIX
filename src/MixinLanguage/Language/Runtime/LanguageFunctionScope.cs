@@ -73,4 +73,12 @@ internal sealed class LanguageFunctionScope {
 }
 
 internal sealed record LanguageFunctionCandidate(BytecodeFunction Function, BytecodeSignature Signature,
-  LanguageFunctionScope Owner);
+  LanguageFunctionScope Owner) {
+  internal bool Variadic { get; } = Signature?.Inputs is {Count: > 0} fields && fields[fields.Count - 1].Variadic;
+  internal int FixedCount { get; } = Signature?.Inputs is { } fields
+    ? fields.Count - (fields.Count > 0 && fields[fields.Count - 1].Variadic ? 1 : 0) : 0;
+  internal int BaseScore { get; } = Signature == null ? -10000 : Signature.Inputs == null
+    ? Signature.InputKind == "any" ? 1000 : 1001
+    : (Signature.Inputs.Count > 0 && Signature.Inputs[Signature.Inputs.Count - 1].Variadic ? 0 : 1000)
+      + Signature.Inputs.Count(field => field.Kind != "any");
+}

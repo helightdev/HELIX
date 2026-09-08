@@ -19,6 +19,88 @@ public sealed class HixBytecodeTests {
   }
 
   [Fact]
+  public void FunctionSelectionRechecksConversionsAndKeepsNamedExtras() {
+    var program = HixCompiler.Compile("""
+      pure func choose { return(<fallback>) }
+      pure func choose sig number -> string { return(<number>) }
+      pure func named sig @{value=number} -> string { return(<[param#value]:[param#extra]>) }
+      mixin Example { expression {
+        emit(choose(<12>))
+        emit(choose(<not numeric>))
+        emit(choose(<34>))
+        emit(named(@{value=<7>, extra=<kept>}))
+      } }
+      """, "Example");
+    var result = MixinVirtualMachine.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"number", "fallback", "number", "7:kept"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
+  public void FunctionSelectionRetainsTiesUntilAHigherScoringCandidateWins() {
+    var program = HixCompiler.Compile("""
+      pure func choose sig number -> string { return(<number>) }
+      pure func choose sig bool -> string { return(<bool>) }
+      pure func choose sig string -> string { return(<string>) }
+      pure func tied sig number -> string { return(<number>) }
+      pure func tied sig bool -> string { return(<bool>) }
+      mixin Example { expression {
+        emit(choose(<12>))
+        local failure = [tied(<12>)?]
+        emit(kind(local#failure))
+      } }
+      """, "Example");
+    var result = MixinVirtualMachine.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"string", "error"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
+  public void StorageMemberLookupDoesNotCopyAndLocalsOverrideCarries() {
+    var dictionaryType = typeof(MixinVirtualMachine).Assembly.GetType("Mixins.MixinValueDictionary", true)!;
+    object Dictionary() => Activator.CreateInstance(dictionaryType, true)!;
+    var locals = Dictionary();
+    var carries = Dictionary();
+    var store = dictionaryType.GetMethod("StoreIsolated", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    void Put(object dictionary, string name, int value) => store.Invoke(dictionary,
+      new object[] {MixinString.Dynamic(name), new NumberMixinValue(value)});
+    Put(locals, "name", 1); Put(carries, "name", 2); Put(carries, "carried", 3);
+    for (var i = 0; i < 10000; i++) Put(locals, "entry" + i, i);
+    var type = typeof(MixinVirtualMachine).Assembly.GetType("Mixins.Runtime.MixinStorageValue", true)!;
+    var value = (IMixinValue)Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.NonPublic,
+      null, new[] {locals, carries}, null)!;
+    var context = new Context();
+    var key = MixinString.Dynamic("name");
+    Assert.Equal(new NumberMixinValue(1), value.Select(context, key));
+    Assert.Equal(new NumberMixinValue(3), value.Select(context, MixinString.Dynamic("carried")));
+    Assert.Same(NullMixinValue.Instance, value.Select(context, MixinString.Dynamic("missing")));
+    var before = GC.GetAllocatedBytesForCurrentThread();
+    for (var i = 0; i < 1000; i++) value.Select(context, key);
+    Assert.True(GC.GetAllocatedBytesForCurrentThread() - before < 65536, "Member reads must not copy storage entries");
+  }
+
+  [Fact]
+  public void StorageRootsSupportTablesAndCaptureValuesBeforeMutation() {
+    var program = HixCompiler.Compile("""
+      pure func captured { local name = <function>; return(local) }
+      mixin Example { expression {
+        var name = <before>
+        local saved = [var]
+        var name = <after>
+        emit(var#name)
+        emit(local#saved#name)
+        emit(join(keys(local#saved), <,>))
+        emit(get(captured(), <name>))
+        local self = [local]
+        emit(length(local#self))
+      } }
+      """, "Example");
+    var result = MixinVirtualMachine.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"after", "before", "name", "function", "1"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
   public void LiteralLoadsAndPackingUseDedicatedOpcodesWithoutPoolEntries() {
     var program = HixCompiler.Compile("""
       pure func pair { return(true, false) }
