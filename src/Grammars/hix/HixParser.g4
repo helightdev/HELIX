@@ -158,7 +158,10 @@ inlineTransformation: BEGIN_VALUE_INLINE transformationPart+ VALUE_END_INLINE;
 
 derivation: derivationRoot transformationPart*;
 
-derivationRoot : VALUE_SMART_ROOT? ROOT_IDENTIFIER;
+derivationRoot
+    : ROOT_IDENTIFIER
+    | VALUE_SMART_ROOT (ROOT_IDENTIFIER | NUMBER)
+    ;
 
 elvisValue: VALUE_ELVIS value;
 

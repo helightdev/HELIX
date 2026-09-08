@@ -120,6 +120,11 @@ internal sealed partial class LanguageExecution {
   private IMixinValue Root(string name, bool smart) {
     if (smart) {
       if (locals.TryGetValue(name, out var local)) return local;
+      if (int.TryParse(name, out var position) && position > 0) {
+        if (parameter is TupleMixinValue tuple)
+          return position <= tuple.Values.Count ? tuple.Values[position - 1] : NullMixinValue.Instance;
+        return position == 1 ? parameter : NullMixinValue.Instance;
+      }
       if (parameter is MixinTableValue table && table.Entries.Any(entry => entry.Key.Resolve(context.Strings) == name))
         return parameter.Select(context, context.ResolveString(name));
       if (targetVariables.TryGetValue(name, out var target)) return target;

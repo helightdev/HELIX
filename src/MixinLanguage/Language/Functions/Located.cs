@@ -51,13 +51,10 @@ internal sealed class DeriveFunction() : FunctionDefinition("derive", 1, MixinVa
 internal sealed class CollectionTransformFunction(
   string name, CollectionFunctions.TransformKind operation, bool reduce = false
 ) : FunctionDefinition(name, reduce ? [
-    new FunctionSignature(MixinValueKind.Any, [MixinValueKind.Tuple, MixinValueKind.Function, MixinValueKind.Any]),
-    new FunctionSignature(MixinValueKind.Any, [MixinValueKind.Table, MixinValueKind.Function, MixinValueKind.Any])
+    new FunctionSignature(MixinValueKind.Any, [MixinValueKind.Tuple, MixinValueKind.Function, MixinValueKind.Any])
   ] : [
     new FunctionSignature(operation is CollectionFunctions.TransformKind.Any or CollectionFunctions.TransformKind.All
-      ? MixinValueKind.Bool : MixinValueKind.Tuple, [MixinValueKind.Tuple, MixinValueKind.Function]),
-    new FunctionSignature(operation is CollectionFunctions.TransformKind.Any or CollectionFunctions.TransformKind.All
-      ? MixinValueKind.Bool : MixinValueKind.Table, [MixinValueKind.Table, MixinValueKind.Function])
+      ? MixinValueKind.Bool : MixinValueKind.Tuple, [MixinValueKind.Tuple, MixinValueKind.Function])
   ]) {
   internal override IMixinValue Execute(LanguageExecution execution, IMixinValue[] arguments, int line) =>
     CollectionFunctions.Transform(execution, arguments, line, operation);

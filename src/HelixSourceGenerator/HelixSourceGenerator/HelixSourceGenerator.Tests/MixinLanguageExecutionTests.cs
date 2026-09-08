@@ -145,21 +145,20 @@ public sealed class MixinLanguageExecutionTests {
   }
 
   [Fact]
-  public void CollectionCallbacksReceiveCanonicalRecords() {
+  public void CollectionCallbacksSupportPositionalSmartAccess() {
     var result = Run("""
-      local record = @{a=number<2>, b=number<3>}
-      local changed = map(local#record, describe)
-      emit(join(local#changed, <=>, <,>))
+      local changed = map(@[number<2>, number<3>], describe)
+      emit(join(local#changed, <,>))
       emit(reduce(@[number<2>, number<3>], sum, number<0>))
       emit(any(@[], yes))
       emit(all(@[], yes))
       """, """
-      pure func describe { return(<[param#key]:[param#value]>) }
-      pure func sum { return(plus(param#acc, param#value)) }
+      pure func describe { return(<value:[$1]>) }
+      pure func sum { return(plus($1, $2)) }
       pure func yes { return(true) }
       """);
     Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"a=a:2,b=b:3", "5", "false", "true"}, result.Outputs.Select(output => output.Text));
+    Assert.Equal(new[] {"value:2,value:3", "5", "false", "true"}, result.Outputs.Select(output => output.Text));
   }
 
   [Fact]

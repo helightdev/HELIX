@@ -1,19 +1,21 @@
 func KeepInstanceField {
-  when(![param:field]) {
+  local Item @= $1;
+  when(![local#Item:field]) {
     return(false)
   }
-  when(param:static) {
+  when(local#Item:static) {
     return(false)
   }
   return(true)
 }
 
 func SeedProp {
-  local Name @= param:name:identifier;
-  local Type @= param:type;
+  local Item @= $1;
+  local Name @= local#Item:name:identifier;
+  local Type @= local#Item:type;
   local Modifier = <>
   local ParameterModifier = <>
-  when [param] {
+  when [local#Item] {
     [:in] -> { local Modifier = <in>; local ParameterModifier = <in> }
     [:ref] -> { local Modifier = <ref> }
     [:out] -> { local Modifier = <out> }
@@ -51,7 +53,7 @@ func SeedProp {
     (local#ParameterModifier) -> <[local#ParameterModifier] >
     else -> <>
   }
-  return(@{symbol=param, value=@{name=local#Name, type=local#Type, modifier=local#ModifierPrefix, parameter=<[local#ParameterModifierPrefix][local#Type] [local#Name]>, argument=<[local#ParameterModifierPrefix][local#Name]>, callArgument=<[local#ModifierPrefix][local#Name]>, assignment=<this.[local#Name] = [local#Name];>, datatype=local#Datatype, required=true, default=<null>, configuration=<>, equatable=true, unsafe=local#Type:containsPointer, equality=local#Equality, hash=local#Hash}})
+  return(@{symbol=local#Item, value=@{name=local#Name, type=local#Type, modifier=local#ModifierPrefix, parameter=<[local#ParameterModifierPrefix][local#Type] [local#Name]>, argument=<[local#ParameterModifierPrefix][local#Name]>, callArgument=<[local#ModifierPrefix][local#Name]>, assignment=<this.[local#Name] = [local#Name];>, datatype=local#Datatype, required=true, default=<null>, configuration=<>, equatable=true, unsafe=local#Type:containsPointer, equality=local#Equality, hash=local#Hash}})
 }
 
 func DeriveParameters {
@@ -65,32 +67,32 @@ func DeriveFields  {
   return(param:members:where(KeepInstanceField):map(SeedProp):derive)
 }
 
-func SelectField { return(<public [param#value#type] [param#value#name];>) }
+func SelectField { return(<public [$1#value#type] [$1#value#name];>) }
 
-func SelectParameter { return(param#value#parameter) }
+func SelectParameter { return($1#value#parameter) }
 
-func SelectArgument { return(param#value#argument) }
+func SelectArgument { return($1#value#argument) }
 
-func SelectCallArgument { return(<[param#value#modifier][param#value#name]>) }
+func SelectCallArgument { return(<[$1#value#modifier][$1#value#name]>) }
 
-func SelectObjectCallArgument { return(<[param#value#modifier] args.[param#value#name]>) }
+func SelectObjectCallArgument { return(<[$1#value#modifier] args.[$1#value#name]>) }
 
-func SelectAssignment { return(param#value#assignment) }
+func SelectAssignment { return($1#value#assignment) }
 
-func SelectEquality { return(param#value#equality) }
+func SelectEquality { return($1#value#equality) }
 
-func SelectHashAdd { return(<hashCode.Add\([param#value#hash]\);>) }
+func SelectHashAdd { return(<hashCode.Add\([$1#value#hash]\);>) }
 
-func KeepEquatable { return(param#value#equatable:eq(true)) }
+func KeepEquatable { return($1#value#equatable:eq(true)) }
 
-func KeepUnsafe { return(param#value#unsafe:eq(true)) }
+func KeepUnsafe { return($1#value#unsafe:eq(true)) }
 
-func SelectDatatypeConfiguration { return(param#value#configuration) }
+func SelectDatatypeConfiguration { return($1#value#configuration) }
 
-func HasDatatypeConfiguration { return(param#value#configuration:exists) }
+func HasDatatypeConfiguration { return($1#value#configuration:exists) }
 
 func SelectDatatypeProperty {
-  local returnedText1 @> new global::HELIX.StructurePropertyDatatype<{{var#StructureType}}, {{param#value#type}}>("{{param#value#name}}", {{param#value#datatype}}, (ref {{var#StructureType}} value) => value.{{param#value#name}}, (ref {{var#StructureType}} value, {{param#value#type}} propertyValue) => value.{{param#value#name}} = propertyValue, required: {{param#value#required}}, defaultValue: {{param#value#default}})
+  local returnedText1 @> new global::HELIX.StructurePropertyDatatype<{{var#StructureType}}, {{$1#value#type}}>("{{$1#value#name}}", {{$1#value#datatype}}, (ref {{var#StructureType}} value) => value.{{$1#value#name}}, (ref {{var#StructureType}} value, {{$1#value#type}} propertyValue) => value.{{$1#value#name}} = propertyValue, required: {{$1#value#required}}, defaultValue: {{$1#value#default}})
   return(local#returnedText1)
 }
 

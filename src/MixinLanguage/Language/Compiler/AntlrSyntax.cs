@@ -247,7 +247,8 @@ public static class AntlrSyntax {
       context);
 
     public override HixAst VisitDerivationRoot(Parser.DerivationRootContext context) => At(
-      new RootExpressionAst(context.ROOT_IDENTIFIER().GetText(), context.VALUE_SMART_ROOT() != null), context);
+      new RootExpressionAst((context.ROOT_IDENTIFIER()?.GetText() ?? context.NUMBER().GetText()),
+        context.VALUE_SMART_ROOT() != null), context);
     public override HixAst VisitDerivation(Parser.DerivationContext context) =>
       Transform(Value(context.derivationRoot()), context.transformationPart());
     private ExpressionAst Transform(ExpressionAst value, Parser.TransformationPartContext[] parts) {

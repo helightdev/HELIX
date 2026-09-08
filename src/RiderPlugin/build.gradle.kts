@@ -191,8 +191,9 @@ tasks.test {
 }
 
 tasks.runIde {
-    // Match Rider's default heap size of 1.5Gb (default for runIde is 512Mb)
-    maxHeapSize = "1500m"
+    // Rider 2026.2 with the bundled Unity plugin exceeds the old 1.5 GB sandbox default while indexing.
+    // Keep this scoped to the launched IDE; callers can lower or raise it with -PRiderMaxHeapSize=<size>.
+    maxHeapSize = providers.gradleProperty("RiderMaxHeapSize").getOrElse("4g")
 }
 
 tasks.patchPluginXml {
