@@ -32,11 +32,13 @@ public static class AntlrSyntax {
     // Error recovery trees are useful to ANTLR, but must never produce executable partial programs.
     var builder = new Builder(tokens, diagnostics);
     var declarations = diagnostics.Count == 0
-      ? tree.children.OfType<ParserRuleContext>().Where(child => child is not Parser.TriviaContext)
-        .Select(builder.Visit).ToArray()
+      ? tree.topLevelDeclaration().Select(builder.Visit).ToArray()
       : Array.Empty<HixAst>();
+    var metadata = diagnostics.Count == 0 && tree.fileMetadataSection() is { } section
+      ? section.metadata().Select(value => (MetadataAst)builder.Visit(value)).ToArray()
+      : Array.Empty<MetadataAst>();
     LanguageValidation.Validate(declarations, diagnostics, backend);
-    return new CompilationUnitAst(source, declarations, diagnostics, tokens);
+    return new CompilationUnitAst(source, declarations, diagnostics, tokens, metadata);
   }
 
   private static HixToken[] CompleteTokens(string source, IList<IToken> recognized) {
@@ -194,7 +196,7 @@ public static class AntlrSyntax {
       Modifiers(context.funcModifier());
       SignatureField[] Fields(Parser.SignatureContext signature) => signature.tableSignature()?.tableSignatureEntry()
         .Select(field => new SignatureField(field.ROOT_IDENTIFIER().GetText(), field.kindIdentifier().GetText(),
-          field.VALUE_EXPAND() != null, field.metadataValue().Select(metadata => (MetadataAst)Visit(metadata)).ToArray())).ToArray();
+          field.VALUE_EXPAND() != null, field.metadata().Select(metadata => (MetadataAst)Visit(metadata)).ToArray())).ToArray();
       var signatures = context.functionMetadata().functionSignatureVariant().Select(signature =>
         new FunctionSignature(signature.signature(0).kindIdentifier()?.GetText(), Fields(signature.signature(0)),
           signature.signature(1).kindIdentifier()?.GetText(), Fields(signature.signature(1)))).ToArray();
@@ -290,7 +292,7 @@ public static class AntlrSyntax {
       return At(new TableExpressionAst(entries.Select(entry =>
           new KeyValuePair<string, ExpressionAst>(entry.ROOT_IDENTIFIER().GetText(), Value(entry.value()))).ToArray(),
         entries.Select(entry => new KeyValuePair<string, IReadOnlyList<MetadataAst>>(
-          entry.ROOT_IDENTIFIER().GetText(), entry.metadataValue().Select(metadata =>
+          entry.ROOT_IDENTIFIER().GetText(), entry.metadata().Select(metadata =>
             (MetadataAst)Visit(metadata)).ToArray())).ToArray()), context);
     }
 

@@ -59,7 +59,9 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("mixin <HELIX.Example-Type> { expression { emit(<ok>) } }")]
   [InlineData("%deprecated\n%since(<2.0>)\n%[<future>]\npure func annotated => 42\n")]
   [InlineData("pure func typed sig @{%[<native-type>] value=string} -> string { return(param#value) }")]
+  [InlineData("pure func typed sig @{%anyOf<string><test> value=string, %something(123) another=string} -> string { return(param#value) }")]
   [InlineData("mixin AnnotatedTable { expression { local value = @{%[<field-note>] name=<Ada>} } }")]
+  [InlineData("%type<Item>\n%guid<12345678-1234-1234-1234-123456789012>\n%name<My Custom Item>\n---\nmixin Test { }")]
   [InlineData("mixin Example { expression { local mapper = func => <[$0]>; emit(call(local#mapper, <x>)) } }")]
   [InlineData("mixin Example { expression { local mapper = func { return(<[$0]>) } } }")]
   public void ParsesLanguageFeatures(string source) {
@@ -122,6 +124,41 @@ public sealed class HixAntlrGrammarTests {
     Assert.Empty(semantic.Diagnostics);
     var function = semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationAst>().Single();
     Assert.Equal(expectedCount, function.Metadata.Count);
+  }
+
+  [Fact]
+  public void NamedFieldMetadataEndsAtWhitespace() {
+    var semantic = Hix.Compiler.AntlrSyntax.Parse("""
+      pure func typed sig @{%anyOf<string><test> test=string, %something(123) another=string} -> string {
+        return(@{%anyOf<string><test> test=<yes>, %something(123) another=<yes>})
+      }
+      """);
+
+    Assert.Empty(semantic.Diagnostics);
+    var function = Assert.Single(semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationAst>());
+    var fields = Assert.Single(function.Signatures).Inputs;
+    Assert.Equal(new[] {"string", "test"}, fields[0].Metadata.Single().Values
+      .Cast<Hix.Compiler.StringExpressionAst>().Select(value => value.Value));
+    Assert.Equal(123, Assert.IsType<Hix.Compiler.NumberExpressionAst>(fields[1].Metadata.Single().Values.Single()).Value);
+    var table = Assert.Single(function.Body.Children.SelectMany(Descendants).OfType<Hix.Compiler.TableExpressionAst>());
+    Assert.Equal(new[] {"test", "another"}, table.FieldMetadata.Select(field => field.Key));
+  }
+
+  [Fact]
+  public void SectionDelimiterSeparatesFileMetadataFromDeclarations() {
+    var semantic = Hix.Compiler.AntlrSyntax.Parse("""
+      %type<Item>
+      %guid<12345678-1234-1234-1234-123456789012>
+      %name<My Custom Item>
+      %interaction<something>
+      ---
+      mixin Test {
+      }
+      """);
+
+    Assert.Empty(semantic.Diagnostics);
+    Assert.Equal(new[] {"type", "guid", "name", "interaction"}, semantic.Metadata.Select(value => value.Name));
+    Assert.Empty(Assert.Single(semantic.Declarations.OfType<Hix.Compiler.MixinDeclarationAst>()).Metadata);
   }
 
   [Fact]

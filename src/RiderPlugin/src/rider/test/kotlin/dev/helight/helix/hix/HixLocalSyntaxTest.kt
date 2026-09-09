@@ -41,7 +41,7 @@ class HixLocalSyntaxTest {
         val parsed = HixAntlrSyntax.parse(source)
 
         assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
-        assertEquals(6, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.MetadataContext ||
+        assertEquals(8, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.MetadataContext ||
             it is HixParser.MetadataValueContext })
     }
 
@@ -52,6 +52,27 @@ class HixLocalSyntaxTest {
 
         assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
         assertEquals(2, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.MetadataContext })
+    }
+
+    @Test
+    fun `named field metadata ends at whitespace`() {
+        val source = "pure func typed sig @{%anyOf<string><test> test=string, %something(123) another=string} " +
+            "-> string { return(@{%anyOf<string><test> test=<yes>}) }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(3, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.MetadataContext })
+    }
+
+    @Test
+    fun `section delimiter separates file metadata from declarations`() {
+        val source = "%type<Item>\n%guid<12345678-1234-1234-1234-123456789012>\n" +
+            "%name<My Custom Item>\n%interaction<something>\n---\nmixin Test { }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertTrue(HixAntlrSyntax.rules(parsed.tree).any { it is HixParser.FileMetadataSectionContext })
+        assertEquals(1, parsed.tokens.count { it.type == HixLexer.SECTION_DELIMITER })
     }
 
     @Test

@@ -1,0 +1,30 @@
+%type<Item>
+%guid<12345678-1234-1234-1234-123456789012>
+%name<My Custom Item>
+%interaction<something>
+---
+mixin Test {
+
+}
+
+enum MyEnum @{
+  MyValue = <MyValue>,
+  MyOtherValue = <MyOtherValue>
+}
+
+type MyCustomType @{
+  %anyOf<string><test> test,
+  another
+}
+
+@!value &myValue [
+  <hello world>,
+  <melon>
+]
+
+@!graph {
+  a -> &test.a
+  b -> &another.b
+}
+
+@!graph &test

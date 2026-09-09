@@ -77,11 +77,13 @@ public sealed record HixParseDiagnostic(int Line, string Message);
 public sealed class CompilationUnitAst : HixAst {
   internal CompilationUnitAst(
     string source, IReadOnlyList<HixAst> declarations,
-    IReadOnlyList<HixParseDiagnostic> diagnostics, IReadOnlyList<HixToken> tokens
-  ) : base(children: declarations) {
+    IReadOnlyList<HixParseDiagnostic> diagnostics, IReadOnlyList<HixToken> tokens,
+    IReadOnlyList<MetadataAst> metadata = null
+  ) : base(children: (metadata ?? []).Cast<HixAst>().Concat(declarations).ToArray()) {
     Source = source;
     Declarations = declarations;
     Diagnostics = diagnostics;
+    Metadata = metadata ?? [];
     Tokens = tokens;
     Kind = HixSyntaxKind.Document;
     SourceRange = new HixSourceRange(0, source.Length, 1, 0);
@@ -90,6 +92,7 @@ public sealed class CompilationUnitAst : HixAst {
   public string Source { get; }
   public IReadOnlyList<HixAst> Declarations { get; }
   public IReadOnlyList<HixParseDiagnostic> Diagnostics { get; }
+  public IReadOnlyList<MetadataAst> Metadata { get; }
 }
 
 public sealed class MixinDeclarationAst(string name, bool derivation, IReadOnlyList<HixAst> declarations,

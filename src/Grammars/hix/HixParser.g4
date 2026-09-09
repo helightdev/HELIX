@@ -2,7 +2,9 @@ parser grammar HixParser;
 
 options { tokenVocab=HixLexer; }
 
-compilationUnit: (trivia | topLevelDeclaration)* EOF;
+compilationUnit: trivia* fileMetadataSection? (trivia | topLevelDeclaration)* EOF;
+
+fileMetadataSection: metadata (trivia* metadata)* trivia* SECTION_DELIMITER;
 
 topLevelDeclaration
     : metadata (trivia* metadata)* trivia* (mixinDeclaration | funcDeclaration)
@@ -40,7 +42,7 @@ tableSignature
     | BEGIN_TABLE tableSignatureEntry (VALUE_DELIMITER tableSignatureEntry)* RC
     ;
 
-tableSignatureEntry: metadataValue* VALUE_EXPAND? ROOT_IDENTIFIER VALUE_ASSIGN kindIdentifier;
+tableSignatureEntry: metadata* VALUE_EXPAND? ROOT_IDENTIFIER VALUE_ASSIGN kindIdentifier;
 
 // Actual Statements
 statementBlock: LC (statement | SEMICOLON | trivia)* RC;
@@ -160,7 +162,7 @@ tableValue
     | BEGIN_TABLE tableKeyedEntry (VALUE_DELIMITER tableKeyedEntry)* RC
     ;
 
-tableKeyedEntry: metadataValue* ROOT_IDENTIFIER VALUE_ASSIGN value;
+tableKeyedEntry: metadata* ROOT_IDENTIFIER VALUE_ASSIGN value;
 
 valueList
     : BEGIN_PARAMETERS value (VALUE_DELIMITER value)* END_PARAMETERS
