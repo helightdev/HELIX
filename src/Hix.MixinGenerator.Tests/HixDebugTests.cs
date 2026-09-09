@@ -21,12 +21,14 @@ public class HixDebugTests {
       name, "", "", 0, 0);
     var trace = HixDebugRenderer.BuildTrace(new HixDebugRenderData(seed,
       ImmutableArray.Create(Work(first, "first"), Work(second, "second")), internStrings, 0, default, default, default));
-    Assert.DoesNotContain("// GLOBAL POOLS", trace);
-    Assert.Contains("// PRELUDE BYTECODE", trace);
-    Assert.Contains("// LATE BYTECODE", trace);
-    var loads = Regex.Matches(trace, @"(?m)^//   [0-9A-F]+ +\| LOADSTRING s([0-9]+) +\| push\(""shared""\)");
+    Assert.DoesNotContain("//", trace);
+    Assert.Contains("PRELUDE", trace);
+    Assert.Contains("LATE", trace);
+    var loads = Regex.Matches(trace, @"(?m)^[0-9A-F]+ +\| LOADSTRING s([0-9]+) +\| push\(""shared""\)");
     Assert.Equal(4, loads.Count);
     Assert.Contains(".constant", trace);
+    Assert.Contains("Pattern emit(", trace);
+    Assert.DoesNotContain("PatternHixValue {", trace);
   }
 
 }

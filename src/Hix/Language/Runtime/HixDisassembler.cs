@@ -1,4 +1,3 @@
-using Hix.Env;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -11,7 +10,6 @@ namespace Hix.Runtime;
 internal static class HixDisassembler {
   internal static string Render(HixExpressionExecutionProgram program, IReadOnlyList<byte> code,
     HixStringPool strings, IReadOnlyList<IHixValue> constants, bool includePools) {
-    using var profile = HixProfiler.Measure("bytecode.disassemble");
     var headers = new Dictionary<int, List<string>>();
     var labels = new HashSet<int>();
     void Header(int address, string title) {

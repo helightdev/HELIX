@@ -1,4 +1,3 @@
-using Hix.Env;
 using System.Threading;
 using System;
 using System.Collections.Generic;
@@ -266,7 +265,6 @@ public sealed class HixExpressionExecutionProgram {
   }
 
   private string ComputeIdentity() {
-    using var profile = HixProfiler.Measure("bytecode.identity");
     var builder = new HixFingerprintBuilder();
     Fingerprint(builder);
     foreach (var line in SourceLines.OrderBy(item => item.Key)) {
@@ -341,7 +339,6 @@ public sealed class HixExpressionExecutionProgram {
   ) => HixDisassembler.Render(this, bytecode, strings, constants, includePools);
 
   internal static string DisassemblePools(HixStringPool strings, IReadOnlyList<IHixValue> constants) {
-    using var profile = HixProfiler.Measure("bytecode.disassemble_pools");
     var text = new StringBuilder();
     for (var i = 0; i < constants.Count; i++)
       text.Append(".constant ").Append(i).Append(' ').Append(constants[i].Kind).Append(' ')
@@ -349,7 +346,9 @@ public sealed class HixExpressionExecutionProgram {
           constants[i] switch {
             NumberHixValue number => number.Value.ToString("R", CultureInfo.InvariantCulture),
             BooleanHixValue boolean => boolean == BooleanHixValue.True ? "true" : "false",
-            NullHixValue => "null", _ => constants[i].ToString()
+            NullHixValue => "null",
+            PatternHixValue pattern => pattern.Pattern.Display,
+            _ => constants[i].ToString()
           }
         );
     for (var i = 0; i < strings.Count; i++)

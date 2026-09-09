@@ -47,18 +47,11 @@ public class HixMixinBackend : HixRoslynBackend {
           e.IsPrelude
             ? e.Context.DefineTarget(e.Text(a[0]), e.Text(a[1]))
             : e.Context.Error("defineTarget requires the prelude pass"), effects: true, requiresPrelude: true
-      ),
-      new SimpleFunction(
-        "config", [new FunctionSignature(K.Null, [K.String, K.Any])],
-        (e, a) =>
-          e.IsPrelude ? e.Context.Configure(e.Text(a[0]), a[1]) : e.Context.Error("config requires the prelude pass"),
-        effects: true, requiresPrelude: true
       )
     );
   }
   public override IHixValue DefineTarget(HixExecutionContext context, string name, string descriptor) => context is HixMixinContext mixin ? mixin.DefineTargetService(name, descriptor) : base.DefineTarget(context, name, descriptor);
   public override string ResolveInjectionTarget(HixExecutionContext context, string target) => context is HixMixinContext mixin ? mixin.ResolveInjectionTargetService(target) : target;
-  public override IHixValue Configure(HixExecutionContext context, string name, IHixValue value) => context is HixMixinContext mixin ? mixin.ConfigureService(name, value) : base.Configure(context, name, value);
   public override IHixValue ResolveMixin(HixExecutionContext context, HixString local, IHixValue operand) => context is HixMixinContext mixin ? mixin.ResolveMixinService(local, operand) : base.ResolveMixin(context, local, operand);
   public static HixMixinBackend Instance { get; } = new();
   internal HixMixinContext CreateContext(INamedTypeSymbol currentType, ISymbol target, AttributeData attribute,
@@ -83,9 +76,6 @@ internal sealed class HixMixinContext : HixRoslynContext {
     return (descriptor.IsPublic ? "^" : "") + (descriptor.IsStatic ? "*" : "") + descriptor.Name +
       (string.IsNullOrEmpty(descriptor.DelegateType) ? "" : ":" + descriptor.DelegateType);
   }
-
-  internal IHixValue ConfigureService(string name, IHixValue value) => name.ToUpperInvariant() is "DEBUG" or "PROFILE"
-    ? NullHixValue.Instance : Error("unknown host configuration '" + name + "'");
 
   internal IHixValue ResolveMixinService(HixString localName, IHixValue operand) {
     var descriptor = ParseMixinTarget(operand.Render(this).Resolve(Strings), _targetDefinitions);

@@ -1,3 +1,9 @@
+%pragma<DISASSEMBLE>
+%pragma<PROFILE>
+%vm<PROFILE>
+%vm<DEBUG>
+---
+
 derivation mixin HELIX.Boot.NamedArgAttribute {
   prelude expression {
     local Named @= param#symbol:attributeOf<HELIX.Boot.NamedArgAttribute>;
@@ -59,10 +65,3 @@ mixin HELIX.Boot.RegisterOptionAttribute {
 }
 
 mixin DefaultNamespace.TextMixin {}
-
-mixin Configuration {
-  prelude expression {
-    config(<PROFILE>, <enabled>)
-    //config(<DEBUG>, <enabled>)
-  }
-}

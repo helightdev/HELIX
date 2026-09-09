@@ -42,7 +42,6 @@ public abstract class HixBackend {
   public virtual IHixValue ResolveMixin(HixExecutionContext context, HixString local, IHixValue operand) => context.Error("mixin resolution is not supported by this backend");
   public virtual IHixValue DefineTarget(HixExecutionContext context, string name, string descriptor) => context.Error("target aliases are not supported by this backend");
   public virtual string ResolveInjectionTarget(HixExecutionContext context, string target) => target;
-  public virtual IHixValue Configure(HixExecutionContext context, string name, IHixValue value) => context.Error("unknown host configuration '" + name + "'");
 }
 public sealed class HixCoreBackend : HixBackend {
   public static HixCoreBackend Instance { get; } = new();

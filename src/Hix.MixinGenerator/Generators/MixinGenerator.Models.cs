@@ -32,13 +32,13 @@ public sealed partial class MixinGenerator {
     private readonly List<HixDiagnostic> _diagnostics = [];
     private readonly List<LateExpressionWork> _lateExpressions = [];
 
-    internal HixGenerationContext(bool debug, bool debugStringPool) {
-      Debug = debug;
-      DebugStringPool = debugStringPool;
+    internal HixGenerationContext(bool captureDebug, bool vmDebug) {
+      Debug = captureDebug;
+      VmDebug = vmDebug;
     }
 
     internal bool Debug { get; }
-    internal bool DebugStringPool { get; }
+    internal bool VmDebug { get; }
     internal bool HasLateExpressions => _lateExpressions.Count != 0;
     internal IReadOnlyList<LateExpressionWork> LateExpressions => _lateExpressions;
     internal IReadOnlyList<HixDebugExpression> DebugExpressions => _debugExpressions;
@@ -138,8 +138,7 @@ public sealed partial class MixinGenerator {
       HixStringPool stringPool,
       IEnumerable<KeyValuePair<HixString, IHixValue>> targetVariables,
       ImmutableArray<HixDebugExpression> debugExpressions,
-      bool debug,
-      bool debugStringPool
+      bool debug, bool vmDebug
     ) {
       using var profile = HixProfiler.Measure("model.render.create");
       Wrapper = wrapper;
@@ -159,7 +158,7 @@ public sealed partial class MixinGenerator {
       TargetVariables = new HixValueDictionary(targetVariables);
       DebugExpressions = debugExpressions;
       Debug = debug;
-      DebugStringPool = debugStringPool;
+      VmDebug = vmDebug;
       StringPool = stringPool;
       GenerationVersion = Interlocked.Increment(ref _generationCounter);
       Fingerprint = HixRenderFingerprint.Create(this);
@@ -176,7 +175,7 @@ public sealed partial class MixinGenerator {
     internal HixValueDictionary TargetVariables { get; }
     internal ImmutableArray<HixDebugExpression> DebugExpressions { get; }
     internal bool Debug { get; }
-    internal bool DebugStringPool { get; }
+    internal bool VmDebug { get; }
     internal HixStringPool StringPool { get; }
 
     internal long GenerationVersion { get; }
@@ -250,21 +249,18 @@ public sealed partial class MixinGenerator {
       FingerprintPart outputs,
       FingerprintPart variables,
       FingerprintPart signatures,
-      bool debug,
-      bool debugStringPool
+      bool vmDebug
     ) {
       Outputs = outputs;
       Variables = variables;
       Signatures = signatures;
-      Debug = debug;
-      DebugStringPool = debugStringPool;
+      VmDebug = vmDebug;
     }
 
     internal FingerprintPart Outputs { get; }
     internal FingerprintPart Variables { get; }
     internal FingerprintPart Signatures { get; }
-    private bool Debug { get; }
-    private bool DebugStringPool { get; }
+    private bool VmDebug { get; }
 
     internal static HixRenderFingerprint Create(HixRenderModel render) {
       using var profile = HixProfiler.Measure("model.render.fingerprint");
@@ -320,17 +316,12 @@ public sealed partial class MixinGenerator {
           AppendOutputs(outputs, contribution.ExpressionResult.Outputs);
         }
       }
-      signatures.Append(render.DebugStringPool);
-      if (render.DebugStringPool) {
-        signatures.Append(render.StringPool.Count);
-        for (var id = 0; id < render.StringPool.Count; id++)
-          signatures.Append(render.StringPool[id]);
-      }
+      signatures.Append(render.VmDebug);
       return new HixRenderFingerprint(
         new FingerprintPart(outputs.Hash, outputs.Length),
         new FingerprintPart(variables.Hash, variables.Length),
         new FingerprintPart(signatures.Hash, signatures.Length),
-        render.Debug, render.DebugStringPool
+        render.VmDebug
       );
     }
 
@@ -374,8 +365,7 @@ public sealed partial class MixinGenerator {
     public bool Equals(HixRenderFingerprint other) {
       return Outputs.Equals(other.Outputs) &&
         Variables.Equals(other.Variables) &&
-        Signatures.Equals(other.Signatures) && Debug == other.Debug &&
-        DebugStringPool == other.DebugStringPool;
+        Signatures.Equals(other.Signatures) && VmDebug == other.VmDebug;
     }
 
     public override bool Equals(object value) {
@@ -384,9 +374,8 @@ public sealed partial class MixinGenerator {
 
     public override int GetHashCode() {
       return unchecked(
-        (((((((Outputs.GetHashCode() * 397) ^ Variables.GetHashCode()) * 397) ^
-          Signatures.GetHashCode()) * 397) ^ Debug.GetHashCode()) * 397) ^
-        DebugStringPool.GetHashCode()
+        (((Outputs.GetHashCode() * 397) ^ Variables.GetHashCode()) * 397 ^
+          Signatures.GetHashCode()) * 397 ^ VmDebug.GetHashCode()
       );
     }
 

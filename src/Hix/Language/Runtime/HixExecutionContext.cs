@@ -161,7 +161,6 @@ public class HixExecutionContext {
 
   public virtual IHixValue DefineTarget(string name, string descriptor) => Backend.DefineTarget(this, name, descriptor);
   public virtual string ResolveInjectionTarget(string target) => Backend.ResolveInjectionTarget(this, target);
-  public virtual IHixValue Configure(string name, IHixValue value) => Backend.Configure(this, name, value);
 
   public virtual bool HasTrait(IHixValue value, HixString trait) => Backend.HasTrait(this, value, trait);
 

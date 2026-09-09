@@ -12,17 +12,18 @@ internal static class HixDebugReporter {
   private static string outputPath;
   private static bool enabled;
 
-  internal static void Configure(bool active, string projectPath, string hash) {
+  internal static bool Configure(bool active, string projectPath, string hash) {
     lock (Gate) {
       enabled = active;
-      if (!active) return;
-      outputPath = Path.Combine(projectPath, "Logs", "HelixSourceGenerator.debug.log");
-      if (string.Equals(machineHash, hash, StringComparison.Ordinal)) return;
+      if (!active) return false;
+      outputPath = Path.Combine(projectPath, "Logs", "HixDisassembly.txt");
+      if (string.Equals(machineHash, hash, StringComparison.Ordinal)) return false;
       machineHash = hash;
       try {
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
         using var stream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
       } catch (Exception) { }
+      return true;
     }
   }
 

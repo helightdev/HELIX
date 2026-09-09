@@ -46,34 +46,25 @@ public static class HixDebugRenderer {
 
   public static string BuildTrace(HixDebugRenderData render) {
     var builder = new StringBuilder();
-    builder.AppendLine("// ============================================================================");
-    builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
-    builder.Append("// generationVersion = ")
-      .AppendLine(render.GenerationVersion.ToString(CultureInfo.InvariantCulture));
-    AppendFingerprint(builder, "outputs", render.Outputs);
-    AppendFingerprint(builder, "variables", render.Variables);
-    AppendFingerprint(builder, "signatures", render.Signatures);
+    builder.AppendLine("HIX DISASSEMBLY").AppendLine();
     for (var index = 0; index < render.Expressions.Length; index++) {
       var work = render.Expressions[index];
-      builder.AppendLine("// ----------------------------------------------------------------------------");
-      builder.Append("// EXPRESSION ").Append(index + 1).Append(": ").Append(work.Provider);
+      builder.Append("EXPRESSION\t").Append(index + 1).Append('\t').Append(work.Provider);
       if (!string.IsNullOrEmpty(work.SourceType)) builder.Append(" on ").Append(work.SourceType);
       if (!string.IsNullOrEmpty(work.SourceMember)) builder.Append('.').Append(work.SourceMember);
-      builder.AppendLine();
-      AppendProgram(builder, "PRELUDE BYTECODE", work.PreludeProgram.Disassemble());
-      AppendProgram(builder, "LATE BYTECODE", work.LateProgram.Disassemble());
-      builder.AppendLine("// CARRIED VALUES");
-      var carries = work.Carries
-        .OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
-      if (carries.Length == 0) builder.AppendLine("//   <none>");
-      foreach (var carry in carries) {
-        builder.Append("//   carry local ").Append(carry.Key).Append(" = ")
-          .AppendLine(FormatValue(carry.Value));
-      }
+      builder.AppendLine().AppendLine("PRELUDE");
+      builder.AppendLine(PlainDisassembly(work.PreludeProgram.Disassemble()));
+      builder.AppendLine("LATE");
+      builder.AppendLine(PlainDisassembly(work.LateProgram.Disassemble()));
     }
-    builder.AppendLine("// ============================================================================");
     return builder.ToString();
   }
+
+  private static string PlainDisassembly(string value) => string.Join("\n",
+    (value ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Split('\n').Select(line => {
+      var marker = line.LastIndexOf("  // line ", StringComparison.Ordinal);
+      return marker < 0 ? line : line.Substring(0, marker);
+    }));
 
   public static string BuildFinalState(
     IEnumerable<HixDebugFinalState> states,

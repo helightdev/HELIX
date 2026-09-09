@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Hix.Compiler;
+using Hix.Diagnostics;
 using Hix.Env;
 using static Hix.Roslyn.GeneratorAnalysis;
 using static Hix.Roslyn.GeneratorDiagnostics.Mixins;
@@ -20,9 +21,33 @@ internal static class MixinLibraryApi {
   internal const string AdditionalFileSuffix = ".HelixSourceGenerator.additionalfile";
 
   internal static MixinCompilation CompileCached(MixinLibraryCatalog catalog) {
-    HixProfiler.Configure(catalog.HasConfiguration("PROFILE"), catalog.ProjectPath, catalog.Key);
-    HixDebugReporter.Configure(catalog.HasConfiguration("DEBUG"), catalog.ProjectPath, catalog.Key);
-    return MixinCompilationCache.GetOrCreate(catalog.Key, () => Compile(catalog));
+    HixCompilerProfiler.Configure(catalog.HasFlag("pragma", "PROFILE"), catalog.ProjectPath, catalog.Key);
+    HixProfiler.Configure(catalog.HasFlag("vm", "PROFILE"), catalog.ProjectPath, catalog.Key);
+    var writeDisassembly = HixDebugReporter.Configure(
+      catalog.HasFlag("pragma", "DISASSEMBLE"), catalog.ProjectPath, catalog.Key
+    );
+    var compilation = MixinCompilationCache.GetOrCreate(catalog.Key, () => Compile(catalog));
+    if (writeDisassembly) HixDebugReporter.Write(BuildDisassembly(compilation));
+    return compilation;
+  }
+
+  private static string BuildDisassembly(MixinCompilation compilation) {
+    using var profile = HixCompilerProfiler.Measure("compiler.disassemble");
+    var expressions = compilation.Annotations.Values
+      .GroupBy(annotation => annotation.Program.Prelude.Identity + "\u001f" + annotation.Program.Late.Identity,
+        StringComparer.Ordinal)
+      .Select(group => {
+        var annotation = group.First();
+        return new HixDebugExpression(
+          annotation.Program.Prelude, annotation.Program.Late,
+          ImmutableDictionary<string, object>.Empty, ImmutableDictionary<string, object>.Empty,
+          string.Join(", ", group.Select(item => item.Definition.Name).OrderBy(name => name, StringComparer.Ordinal)),
+          "", "", 0, 0
+        );
+      }).ToImmutableArray();
+    return HixDebugRenderer.BuildTrace(new HixDebugRenderData(
+      compilation.StringPool, expressions, false, 0, default, default, default
+    ));
   }
 
   internal static MixinCompilation Compile(MixinLibraryCatalog catalog) {
@@ -66,6 +91,9 @@ internal static class MixinLibraryApi {
     var annotations = new Dictionary<string, MixinAnnotationDefinition>(StringComparer.Ordinal);
     var derivations = new List<MixinDeclarationAst>();
     var configuration = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var metadata in unit.Metadata.Where(metadata => metadata.Name is "pragma" or "vm"))
+      foreach (var value in metadata.Values.OfType<StringExpressionAst>())
+        configuration[metadata.Name + ":" + value.Value] = "";
     foreach (var declaration in unit.Declarations.OfType<MixinDeclarationAst>()) {
       if (declaration.IsDerivation) { derivations.Add(declaration); continue; }
       var targets = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -75,7 +103,6 @@ internal static class MixinLibraryApi {
         if (call.Arguments.Count != 2 || call.Arguments[0] is not StringExpressionAst first ||
             call.Arguments[1] is not StringExpressionAst second) continue;
         if (call.Name == "defineTarget") targets["$" + first.Value.TrimStart('$')] = second.Value;
-        if (call.Name == "config") configuration[first.Value] = second.Value;
       }
       annotations[declaration.Name] = new MixinAnnotationDefinition(declaration.Name, declaration, source, targets);
     }
@@ -165,19 +192,8 @@ internal sealed class MixinLibraryCatalog {
     return index < 0 ? Directory.GetCurrentDirectory() : fullPath.Substring(0, index);
   }
 
-  internal bool HasConfiguration(string key) {
-    return _files.Values.Any(file =>
-      file.Success && file.Configuration.ContainsKey(key ?? "")
-    );
-  }
-
-  internal bool HasConfigurationOption(string key, string option) {
-    return _files.Values.Any(file =>
-      file.Success && file.Configuration.TryGetValue(key ?? "", out var value) &&
-      (value ?? "").Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
-      .Contains(option ?? "", StringComparer.OrdinalIgnoreCase)
-    );
-  }
+  internal bool HasFlag(string scope, string flag) => _files.Values.Any(file => file.Success &&
+    file.Configuration.ContainsKey((scope ?? "") + ":" + (flag ?? "")));
 
   internal bool TryGet(string key, out MixinLibraryFile file) {
     return _files.TryGetValue(key ?? "", out file);

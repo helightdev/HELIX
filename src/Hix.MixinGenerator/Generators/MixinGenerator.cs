@@ -45,6 +45,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       mixinCompilation,
       static (spc, compilation) => {
         foreach (var diagnostic in compilation.Diagnostics) spc.ReportDiagnostic(diagnostic);
+        HixCompilerProfiler.ScheduleFlush();
         HixProfiler.ScheduleFlush();
       }
     );
@@ -67,7 +68,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         .WithTrackingName("Mixin.Evaluation");
 
       context.RegisterSourceOutput(finalized, static (spc, model) => EmitSource(spc, model));
-      context.RegisterSourceOutput(finalized.Collect(), static (_, _) => HixProfiler.Flush());
+      context.RegisterSourceOutput(finalized.Collect(), static (_, _) => {
+        HixCompilerProfiler.Flush();
+        HixProfiler.Flush();
+      });
     }
   }
 
@@ -130,10 +134,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   ) {
     using var profile = HixProfiler.Measure("generator.generate.total");
     var libraries = mixinCompilation.Catalog;
-    var context = new HixGenerationContext(
-      libraries.HasConfiguration("DEBUG"),
-      libraries.HasConfigurationOption("DEBUG", "StringPool")
-    );
+    var vmDebug = libraries.HasFlag("vm", "DEBUG");
+    var context = new HixGenerationContext(vmDebug, vmDebug);
     var target = candidate.Type;
     var location = LocationOf(target);
     if (!IsPartial(target)) {
@@ -206,7 +208,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         finalizedOutputs.Usings, expressionVariables,
         preparedExpressions.StringPool,
         hostValues.TargetVariableFingerprintValues(preparedExpressions.StringPool),
-        context.DebugExpressions.ToImmutableArray(), context.Debug, context.DebugStringPool
+        context.DebugExpressions.ToImmutableArray(), context.Debug, context.VmDebug
       )
     );
     return result;
@@ -216,6 +218,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     using var profile = HixProfiler.Measure("generator.emit_source");
     EmitModelDiagnostics(context, model);
     if (model.Source is not null) context.AddSource(model.HintName, model.Source);
+    HixCompilerProfiler.ScheduleFlush();
     HixProfiler.ScheduleFlush();
   }
 
@@ -367,10 +370,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         }
       );
     }
-    if (model.Render.Debug) {
-      HixDebugReporter.Write(BuildDebugTrace(model.Render) +
-        BuildFinalDebugState(finalDebugStates.Values, sharedVariables));
-    }
+    if (model.Render.VmDebug)
+      source += BuildFinalDebugState(finalDebugStates.Values, sharedVariables);
     var finalModel = new HixOutputModel(
       model.Render.Wrapper.HintName, source, null, ImmutableArray<LateExpressionWork>.Empty,
       model.Diagnostics, errors.ToImmutableArray(), logs.ToImmutableArray()

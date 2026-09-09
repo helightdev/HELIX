@@ -27,18 +27,19 @@ internal static class HixProfiler {
   static HixProfiler() {
     var forcedPath = Environment.GetEnvironmentVariable("HELIX_MIXIN_PROFILE_PATH");
     Forced = !string.IsNullOrEmpty(forcedPath);
-    if (Forced) Enable(forcedPath);
+    if (Forced) { _outputPath = forcedPath; Volatile.Write(ref _enabled, 1); }
   }
 
   internal static bool Enabled => Volatile.Read(ref _enabled) != 0;
 
   internal static void Configure(bool enabled, string projectPath, string machineHash) {
-    if (!enabled) {
-      if (!Forced) Volatile.Write(ref _enabled, 0);
-    } else {
-      Enable(Path.Combine(projectPath, "Logs", "HelixSourceGenerator.profile.tsv"));
+    if (!Forced) {
+      _outputPath = Path.Combine(projectPath, "Logs", "HixVmTimings.tsv");
+      Volatile.Write(ref _enabled, enabled ? 1 : 0);
     }
-    if (Enabled) ResetForMachine(machineHash ?? "");
+    if (Enabled && Interlocked.Exchange(ref _exitHandlerRegistered, 1) == 0)
+      AppDomain.CurrentDomain.ProcessExit += static (_, _) => SafeFlush();
+    ResetForMachine(machineHash ?? "");
   }
 
   private static void ResetForMachine(string machineHash) {
@@ -50,26 +51,21 @@ internal static class HixProfiler {
       RuntimeCounters.Reset();
       Volatile.Write(ref _version, 0);
       Volatile.Write(ref _flushedVersion, 0);
-      if (string.IsNullOrEmpty(_outputPath)) return;
       try {
         var directory = Path.GetDirectoryName(_outputPath);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-        using var stream = new FileStream(_outputPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+        // VM measurements describe one immutable prepared program. Once that
+        // program changes, retaining even an empty/stale report is misleading;
+        // the next VM flush recreates it with measurements for the new image.
+        if (!string.IsNullOrEmpty(_outputPath) && File.Exists(_outputPath)) File.Delete(_outputPath);
       } catch (Exception) {
         // Profiling is diagnostic-only and must never fail the compiler host.
       }
     }
   }
 
-  private static void Enable(string outputPath) {
-    _outputPath = outputPath;
-    if (Interlocked.Exchange(ref _exitHandlerRegistered, 1) == 0)
-      AppDomain.CurrentDomain.ProcessExit += static (_, _) => SafeFlush();
-    Volatile.Write(ref _enabled, 1);
-  }
-
   internal static void ScheduleFlush() {
-    if (!Enabled || string.IsNullOrEmpty(_outputPath)) return;
+    if (!Enabled) return;
     lock (WriteGate) {
       _flushTimer ??= new Timer(static _ => SafeFlush(), null, Timeout.Infinite, Timeout.Infinite);
       _flushTimer.Change(100, Timeout.Infinite);
@@ -92,13 +88,20 @@ internal static class HixProfiler {
   }
 
   internal static void Flush() {
-    if (string.IsNullOrEmpty(_outputPath)) return;
+    if (!Enabled) return;
     lock (WriteGate) {
       var version = Volatile.Read(ref _version);
       if (version == Volatile.Read(ref _flushedVersion)) return;
       var directory = Path.GetDirectoryName(_outputPath);
       if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-      var lines = Measurements.Select(item => new {
+      WriteReport(_outputPath, Measurements);
+      Volatile.Write(ref _flushedVersion, version);
+    }
+  }
+
+  private static void WriteReport(string path, ConcurrentDictionary<string, Measurement> measurements) {
+      if (!Enabled || string.IsNullOrEmpty(path)) return;
+      var lines = measurements.Select(item => new {
             item.Key, Count = Volatile.Read(ref item.Value.Count), Ticks = Volatile.Read(ref item.Value.Ticks)
           }
         )
@@ -124,10 +127,8 @@ internal static class HixProfiler {
         string.Join("\n", runtime) + "\n\n";
       var bytes = Encoding.UTF8.GetBytes(report);
       using (var stream = new FileStream(
-        _outputPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite
+        path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite
       )) stream.Write(bytes, 0, bytes.Length);
-      Volatile.Write(ref _flushedVersion, version);
-    }
   }
 
   private static void SafeFlush() {

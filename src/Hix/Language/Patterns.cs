@@ -97,6 +97,7 @@ public sealed record PatternHixValue(HixPattern Pattern) : IHixValue {
   public IHixValue Select(HixExecutionContext context, HixString member) => NullHixValue.Instance;
   public object Unlink(HixExecutionContext context) => this;
   public bool Equals(IHixValue other) => other is PatternHixValue value && Equals(Pattern, value.Pattern);
+  public override string ToString() => Pattern?.Display ?? "any";
 }
 
 public sealed record HixPatternFailure(string Path, string Expected, string Actual, string Constraint = null) {

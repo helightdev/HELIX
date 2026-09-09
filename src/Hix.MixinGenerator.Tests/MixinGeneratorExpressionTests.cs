@@ -101,9 +101,8 @@ public sealed class MixinGeneratorExpressionTests {
     );
     GeneratorDriver driver = MixinTestDriver.Create(compilation, additionalTexts: [
       new TestAdditionalText("/project/Debug.HelixSourceGenerator.additionalfile", """
-        mixin Configuration {
-          prelude expression { config(<DEBUG>, <enabled>) }
-        }
+        %vm<DEBUG>
+        ---
         mixin DebugAttribute {
           expression { local DebugValue = 1 }
         }
@@ -118,6 +117,8 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.DoesNotContain("HELIX MIXIN PROGRAM DUMP", generated);
     Assert.DoesNotContain("PRELUDE BYTECODE", generated);
     Assert.DoesNotContain(".constant", generated);
+    Assert.Contains("HELIX MIXIN FINAL STATE", generated);
+    Assert.Contains("preludeDurationMs", generated);
     Assert.DoesNotContain("local DebugValue = 1", generated);
   }
 
