@@ -18,7 +18,7 @@ public sealed class BackendExtensionTests {
     var result = new HixVM([program]).Invoke(program, thread);
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(11, Assert.IsType<NumberHixValue>(result.Value).Value);
-    Assert.Equal("11", Assert.Single(result.Execution.Outputs).Text.Resolve(result.Strings));
+    Assert.Equal("11", Assert.Single(result.Execution.Outputs).ReadText());
     Assert.Equal("extension", Assert.Single(result.Execution.Logs).Text.Resolve(result.Strings));
     Assert.Same(backend, program.Backend);
     Assert.Contains("publish", program.Disassemble());
@@ -41,7 +41,7 @@ public sealed class BackendExtensionTests {
       base.RegisterFunctions(functions);
       functions.Add(new SimpleFunction("publish", [new(HixValueKind.Number, [HixValueKind.Number])],
         (thread, arguments) => {
-          thread.Outputs.Add(new(thread.Text(arguments[0])));
+          thread.Emit(arguments[0]);
           thread.Logs.Add(new(HixString.Dynamic("extension")));
           return arguments[0];
         }));

@@ -15,7 +15,7 @@ public class RoslynBackendTests {
     var program = HixCompiler.Compile("mixin Test { prelude expression { emit(length(collectAnnotatedTypes(<MarkerAttribute>))) } }", "Test", backend);
     var result = new HixVM(new[] {program}).Run(program, new HixThread(backend.CreateContext(compilation)));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal("1", result.Outputs.Single().Text.Resolve(result.Strings));
+    Assert.Equal(1, Assert.IsType<NumberHixValue>(result.Outputs.Single().Value).Value);
     Assert.DoesNotContain(typeof(HixVM).Assembly.GetReferencedAssemblies(), assembly => assembly.Name.Contains("CodeAnalysis") || assembly.Name.Contains("Generator"));
     Assert.DoesNotContain(typeof(HixRoslynBackend).Assembly.GetReferencedAssemblies(), assembly => assembly.Name.Contains("Generator"));
   }

@@ -54,11 +54,14 @@ operand frames and completion state remain private to `HixThread`.
 record constraints through `HixBackend.ValidateDerivationRecord`; the generator requires a semantic
 `symbol`, while the core VM does not.
 
-`emit(value)` produces ordinary text; `emit(destination, value)` adds an opaque destination name.
+`emit(value)` publishes an arbitrary `IHixValue`; `emit(destination, value)` adds an opaque destination name.
+`HixOutput.Value` preserves the value type. `HixThread.Emit` detaches values and destination names at
+emission time, so collections and storage views remain stable after mutation or thread reuse.
+Backends can consume structured output directly; the mixin generator owns its text rendering policy.
 `HixExecutionResult` contains execution status, `HixOutput` values, `HixLog` entries, storage snapshots,
 and counters. Core destinations carry no C# interpretation, injection priority, or member metadata.
-`Variables` and `Carries` preserve `HixString` keys and `IHixValue` values. Output text, destinations,
-logs, and errors retain `HixString` handles; resolve them against the result's `Strings` pool only
+`Variables` and `Carries` preserve `HixString` keys and `IHixValue` values. Detached outputs retain Hix values and dynamic `HixString` destinations.
+Logs and errors retain `HixString` handles; resolve them against the result's `Strings` pool only
 at host boundaries. Pooled text fingerprints are cached per immutable pool. `ExportVariables()`
 and `ExportCarries()` explicitly convert storage into host objects when needed.
 
@@ -134,15 +137,19 @@ backend overloads. `Call` indexes that pool directly; no call-site binding dicti
 Function references use distinct slots where lexical scopes may resolve equal signatures differently.
 The VM uses operand stacks and interprets opcodes, with bytecode entry points for calls and blocks.
 Each VM owns one prepared image and its immutable string and constant pools. `HixThread`
-owns invocation state, call frames, variables, carries, transactional target storage, outputs, and logs.
+owns invocation state, call frames, locals, outputs, and logs.
 Host functions receive the active thread directly. `HixThread.Strings` resolves through its
 VM while loaded; runtime strings remain dynamic and never mutate either pool.
 Create `HixVM(programs)` and pass a thread from `backend.CreateThread()` to `Run` or `Invoke`.
 The static `Execute` convenience method caches VMs by prepared program identity. Different
 threads can use a VM concurrently; restarting an active thread is rejected. Sequential thread
-reuse resets invocation state. The subclassable `HixContext` owns committed target storage and
+reuse resets invocation state. The subclassable `HixContext` owns persistent variables, carries, target storage, and
 host-specific data; Roslyn and mixin context subclasses own their semantic services and caches. Prelude and late passes share compiled pools;
 function values retain lexical bindings and cannot execute against another program image.
+Context storage survives sequential invocations and fresh threads, with rollback on failed expressions
+and calls. Values are detached before leaving their program pool. A context permits one active
+execution at a time; concurrent threads use separate contexts. Prelude status and call-frame purity
+remain on the thread. Carry membership comes directly from the carry dictionary, including null values.
 
 Shared runtime storages use the persistent map (flat for small maps, HAMT for large maps).
 Transaction snapshots and rollback share and restore immutable roots. Local dictionaries

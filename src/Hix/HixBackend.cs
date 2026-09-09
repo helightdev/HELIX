@@ -34,11 +34,9 @@ public abstract class HixBackend {
   }
   protected virtual void RegisterEmissionFunctions(FunctionSignatureRegistryBuilder functions) {
     functions.Add(new SimpleFunction("emit", [new(HixValueKind.Null, [HixValueKind.Any]), new(HixValueKind.Null, [HixValueKind.String, HixValueKind.Any])], (thread, values) => {
-      var rendered = thread.RenderText(values[values.Length - 1]);
-      if (rendered is ErrorHixValue) return rendered;
-      thread.Outputs.Add(new HixOutput(thread.Text(rendered), values.Length == 2 ? thread.Text(values[0]) : default));
+      thread.Emit(values[values.Length - 1], values.Length == 2 ? thread.Text(values[0]) : default);
       return NullHixValue.Instance;
-    }, effects: true));
+    }, effects: true, acceptsErrors: true));
   }
 
   protected virtual void RegisterRoots(IDictionary<string, HixBackendRoot> roots) { }

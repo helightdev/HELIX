@@ -98,7 +98,6 @@ public sealed class HixVM {
     thread.Start(this, program);
     try {
       var result = thread.InvokeGlobal(function, arguments ?? Array.Empty<IHixValue>());
-      thread.CommitContext();
       return result;
     }
     finally { thread.Stop(); }
@@ -112,7 +111,6 @@ public sealed class HixVM {
     thread.Start(this, program);
     try {
       var result = thread.Execute(program.Expressions, variables, carries);
-      thread.CommitContext();
       if (variables != null)
         foreach (var item in thread.ExportVariables()) variables[item.Key] = item.Value;
       return result;

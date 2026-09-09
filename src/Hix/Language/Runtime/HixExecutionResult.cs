@@ -6,9 +6,9 @@ namespace Hix.Runtime;
 
 public readonly record struct HixLog(HixString Text = default, int Line = -1);
 
-/// <summary>Text emitted to an optional, host-defined destination.</summary>
-public readonly struct HixOutput(HixString text, HixString target = default) {
-  public HixString Text => text.IsNull ? HixString.Empty : text;
+/// <summary>A detached value emitted to an optional, host-defined destination.</summary>
+public readonly struct HixOutput(IHixValue value, HixString target = default) {
+  public IHixValue Value => value ?? NullHixValue.Instance;
   public HixString Target => target.IsNull ? HixString.Empty : target;
 }
 

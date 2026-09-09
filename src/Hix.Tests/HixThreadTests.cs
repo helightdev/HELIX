@@ -10,6 +10,39 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class HixThreadTests {
   [Fact]
+  public void ContextOwnsVariablesAndCarriesAcrossThreadsAndProgramPools() {
+    var context = new HixContext(TestBackend.Instance);
+    var first = TestCompiler.Compile("""
+      mixin Example { prelude expression {
+        var saved = <value>
+        carry local carried = null
+        local transient = <private>
+      } }
+      """, "Example");
+    Assert.True(HixVM.Execute(first, new HixThread(context)).Success);
+    Assert.True(context.Carries.ContainsKey(HixString.Dynamic("carried")));
+    Assert.Equal("value", Assert.IsType<LiteralHixValue>(context.Variables[HixString.Dynamic("saved")]).Value.Resolve(null));
+    var second = TestCompiler.Compile("""
+      mixin Example { expression {
+        local carried = <updated>
+        emit(var#saved)
+        emit(local#carried)
+        emit(local#transient)
+      } }
+      """, "Example");
+    var result = HixVM.Execute(second, new HixThread(context));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"value", "updated", ""}, result.Outputs.Select(output => output.ReadText()));
+    Assert.Equal("updated", Assert.IsType<LiteralHixValue>(context.Carries[HixString.Dynamic("carried")]).Value.Resolve(null));
+    var failing = TestCompiler.Compile("""
+      mixin Example { expression { var saved = <discard>; local carried = <discard>; fail<stop> } }
+      """, "Example");
+    Assert.False(HixVM.Execute(failing, new HixThread(context)).Success);
+    Assert.Equal("value", Assert.IsType<LiteralHixValue>(context.Variables[HixString.Dynamic("saved")]).Value.Resolve(null));
+    Assert.Equal("updated", Assert.IsType<LiteralHixValue>(context.Carries[HixString.Dynamic("carried")]).Value.Resolve(null));
+  }
+
+  [Fact]
   public void ReuseResetsInvocationStateAndPreservesCommittedTargets() {
     var program = TestCompiler.Compile("""
       mixin Example { expression {
@@ -22,8 +55,8 @@ public sealed class HixThreadTests {
     var second = HixVM.Execute(program, thread, new Dictionary<string, object> { ["input"] = "second" });
     Assert.True(first.Success, first.Error.Resolve(first.Strings));
     Assert.True(second.Success, second.Error.Resolve(second.Strings));
-    Assert.Equal("first", Assert.Single(first.Outputs).Text.Resolve(first.Strings));
-    Assert.Equal("second", Assert.Single(second.Outputs).Text.Resolve(second.Strings));
+    Assert.Equal("first", Assert.Single(first.Outputs).ReadText());
+    Assert.Equal("second", Assert.Single(second.Outputs).ReadText());
     Assert.Equal(first.ExecutedOperations, second.ExecutedOperations);
     Assert.Equal("second", thread.Resolve(HixExpressionRoot.TargetVariable, HixString.Dynamic("saved")).Unlink(thread));
     Assert.False(thread.IsRunning);
@@ -38,7 +71,7 @@ public sealed class HixThreadTests {
     System.Threading.Tasks.Parallel.For(0, threads.Length, index => {
       var result = HixVM.Execute(program, threads[index], new Dictionary<string, object> { ["input"] = index });
       Assert.True(result.Success, result.Error.Resolve(result.Strings));
-      Assert.Equal(index.ToString(), Assert.Single(result.Outputs).Text.Resolve(result.Strings));
+      Assert.Equal(index.ToString(), Assert.Single(result.Outputs).ReadText());
     });
     Assert.All(threads, thread => Assert.Same(threads[0].Machine, thread.Machine));
   }
@@ -62,6 +95,9 @@ public sealed class HixThreadTests {
       Assert.Equal(42d, active.Resolve(HixExpressionRoot.Parameter, HixString.Dynamic("")).Unlink(active));
       Assert.Equal(42d, active.Resolve(HixExpressionRoot.Local, HixString.Dynamic("current")).Unlink(active));
       Assert.Throws<InvalidOperationException>(() => machine.Invoke(program, active));
+      var competing = new HixThread(active.Context);
+      Assert.Throws<InvalidOperationException>(() => machine.Invoke(program, competing));
+      Assert.False(competing.IsRunning);
       Assert.True(active.IsRunning);
     };
     var result = machine.Invoke(program, thread, "main", new NumberHixValue(42));
@@ -87,9 +123,9 @@ public sealed class HixThreadTests {
     Assert.True(first.Success, first.Error.Resolve(first.Strings));
     Assert.True(second.Success, second.Error.Resolve(second.Strings));
     Assert.True(other.Success, other.Error.Resolve(other.Strings));
-    Assert.Equal(new[] {"", "first"}, first.Outputs.Select(output => output.Text.Resolve(first.Strings)));
-    Assert.Equal(new[] {"first", "first"}, second.Outputs.Select(output => output.Text.Resolve(second.Strings)));
-    Assert.Equal(new[] {"", "other"}, other.Outputs.Select(output => output.Text.Resolve(other.Strings)));
+    Assert.Equal(new[] {"", "first"}, first.Outputs.Select(output => output.ReadText()));
+    Assert.Equal(new[] {"first", "first"}, second.Outputs.Select(output => output.ReadText()));
+    Assert.Equal(new[] {"", "other"}, other.Outputs.Select(output => output.ReadText()));
 
     var failing = TestCompiler.Compile("mixin Example { expression { target var saved = <discarded>; fail<stop> } }", "Example");
     Assert.False(HixVM.Execute(failing, new HixThread(context)).Success);
@@ -107,7 +143,7 @@ public sealed class HixThreadTests {
     for (var i = 0; i < 2; i++) {
       var result = HixVM.Execute(program, new HixThread(context));
       Assert.True(result.Success, result.Error.Resolve(result.Strings));
-      Assert.Equal("host value", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
+      Assert.Equal("host value", Assert.Single(result.Outputs).ReadText());
     }
   }
 

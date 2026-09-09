@@ -21,10 +21,9 @@ public sealed class HixThread {
   private readonly List<HixOutput> outputs = [];
   private readonly List<HixLog> logs = [];
   private HixValueDictionary locals;
-  private readonly HixValueDictionary carries = new();
-  private readonly HashSet<HixString> carriedLocals = new();
-  private readonly HixValueDictionary variables = new();
-  private readonly HixValueDictionary targetVariables = new();
+  private HixValueDictionary carries => Context.Carries;
+  private HixValueDictionary variables => Context.Variables;
+  private HixValueDictionary targetVariables => Context.TargetVariables;
   private IHixValue parameter = NullHixValue.Instance;
   private IReadOnlyList<IHixValue> positionalParameters = Array.Empty<IHixValue>();
   private bool prelude;
@@ -33,7 +32,9 @@ public sealed class HixThread {
   private bool directInvocation;
   private bool pure;
   private const int StepLimit = 100000;
-  public List<HixOutput> Outputs => outputs;
+  public IReadOnlyList<HixOutput> Outputs => outputs;
+  public void Emit(IHixValue value, HixString target = default) => outputs.Add(new HixOutput(
+    DetachValue(value), target.IsNull ? HixString.Empty : HixString.Dynamic(target.Resolve(Strings))));
   public List<HixLog> Logs => logs;
   public NamedFunctionHixValue BindFunction(HixString name) => scope.Bind(name.Resolve(Strings));
 
@@ -41,24 +42,25 @@ public sealed class HixThread {
   public bool IsRunning => Volatile.Read(ref running) != 0;
 
   internal void Stop() {
-    prelude = false;
-    Volatile.Write(ref running, 0);
+    try { CommitContext(); }
+    finally {
+      prelude = pure = false;
+      Context.Release();
+      Volatile.Write(ref running, 0);
+    }
   }
 
   internal void Start(HixVM machine, HixProgramImage program) {
     if (Interlocked.CompareExchange(ref running, 1, 0) != 0) throw new InvalidOperationException("A Hix thread is already running");
+    try { Context.Acquire(); }
+    catch { Volatile.Write(ref running, 0); throw; }
     try {
       // Context seeds use their own immutable pool; committed values are already detached.
       this.machine = null;
-      targetVariables.Clear();
-      foreach (var item in Context.TargetVariables)
-        targetVariables.StoreIsolated(HixString.Dynamic(item.Key.Resolve(Context.Strings)), DetachValue(item.Value));
+      CommitContext();
       this.machine = machine;
       this.program = program;
       scope = program.Scope;
-      variables.Clear();
-      carries.Clear();
-      carriedLocals.Clear();
       activeDerivations.Clear();
       outputs.Clear();
       logs.Clear();
@@ -81,7 +83,6 @@ public sealed class HixThread {
     if (imported != null) foreach (var item in imported) variables.StoreIsolated(HixString.Dynamic(item.Key), Import(item.Value));
     if (importedCarries != null) foreach (var item in importedCarries) {
       carries.StoreIsolated(HixString.Dynamic(item.Key), Import(item.Value));
-      carriedLocals.Add(HixString.Dynamic(item.Key));
     }
     try {
       foreach (var expression in expressions.OrderBy(expression => expression.IsPrelude ? 0 : 1)) {
@@ -117,9 +118,15 @@ public sealed class HixThread {
     }
   }
 
-  internal void CommitContext() {
-    if (targetVariables.Count == 0) { Context.TargetVariables.Clear(); return; }
-    Context.TargetVariables.ReplaceWith(targetVariables.Select(item =>
+  private void CommitContext() {
+    DetachStorage(variables);
+    DetachStorage(carries);
+    DetachStorage(targetVariables);
+  }
+
+  private void DetachStorage(HixValueDictionary storage) {
+    if (storage.Count == 0) return;
+    storage.ReplaceWith(storage.Select(item =>
       new KeyValuePair<HixString, IHixValue>(HixString.Dynamic(item.Key.Resolve(Strings)), DetachValue(item.Value))).ToArray());
   }
 
@@ -504,9 +511,8 @@ public sealed class HixThread {
             if (execution.pure && (b != 0 || isCarry)) { completion = Failed(execution.Error("pure functions cannot mutate shared storage"), line); break; }
             if (isCarry && (!execution.prelude || execution.depth != 0)) { completion = Failed(execution.Error("carry local assignments require a top-level prelude expression"), line); break; }
             if (instruction.Opcode is HixOpcode.CheckStoreCarry or HixOpcode.CheckStoreVariable or HixOpcode.CheckStoreTarget) break;
-            var destination = b == 0 ? isCarry || execution.depth == 0 && execution.carriedLocals.Contains(HixString.Dynamic(Name(a))) ? execution.carries : execution.locals
+            var destination = b == 0 ? isCarry || execution.depth == 0 && execution.carries.ContainsKey(HixString.Dynamic(Name(a))) ? execution.carries : execution.locals
               : b == 1 ? execution.variables : execution.targetVariables;
-            if (isCarry) execution.carriedLocals.Add(HixString.Dynamic(Name(a)));
             destination.StoreIsolated(HixString.Dynamic(Name(a)), HixStorageValue.Capture(Pop())); break;
           case HixOpcode.Pop: Pop(); break;
           case HixOpcode.PackTuple: stack.Add(new TupleHixValue(PopMany(a))); break;

@@ -25,7 +25,7 @@ public sealed class GenericMixinTests {
       """, "Report");
     var result = HixVM.Execute(program, HixCoreBackend.Instance.CreateThread());
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"hello:derived", "kept"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+    Assert.Equal(new[] {"hello:derived", "kept"}, result.Outputs.Select(output => output.ReadText()));
     Assert.Equal(new[] {"custom/channel", ""}, result.Outputs.Select(output => output.Target.Resolve(result.Strings)));
     Assert.Empty(HixCoreBackend.Instance.Functions.Resolve("inject", 2));
     Assert.Empty(HixCoreBackend.Instance.Functions.Resolve("using", 1));

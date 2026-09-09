@@ -27,7 +27,7 @@ public sealed class HixBytecodeTests {
     Assert.IsType<FunctionReferenceHixValue>(compiled);
     var result = vm.Run(program, TestBackend.Instance.CreateThread());
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal("chosen", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
+    Assert.Equal("chosen", Assert.Single(result.Outputs).ReadText());
   }
 
   [Fact]
@@ -56,7 +56,7 @@ public sealed class HixBytecodeTests {
       """, "Example");
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"user", "2", "matched"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+    Assert.Equal(new[] {"user", "2", "matched"}, result.Outputs.Select(output => output.ReadText()));
     Assert.Contains(HixInstruction.ReadAll(program.Bytecode), item => item.Instruction.Opcode == HixOpcode.Equal);
   }
 
@@ -84,7 +84,7 @@ public sealed class HixBytecodeTests {
     Assert.Contains("local[\"__selector_", program.Disassemble());
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal("matched", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
+    Assert.Equal("matched", Assert.Single(result.Outputs).ReadText());
   }
 
   [Fact]
@@ -113,7 +113,7 @@ public sealed class HixBytecodeTests {
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal(new[] {"1,2,3,4", "1,2", "1,2,3", "0", "0", "1,2,3", "2,3,4", "2", "1,2,3", "0", "0",
-      "true", "false", "false", "true", "6"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+      "true", "false", "false", "true", "6"}, result.Outputs.Select(output => output.ReadText()));
   }
 
   [Fact]
@@ -165,7 +165,7 @@ public sealed class HixBytecodeTests {
     for (var i = 0; i < 3; i++) {
       var result = vm.Run(program, new HixThread(new Context()));
       Assert.True(result.Success, result.Error.Resolve(result.Strings));
-      Assert.Equal(new[] {"kept", "1"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+      Assert.Equal(new[] {"kept", "1"}, result.Outputs.Select(output => output.ReadText()));
     }
     var pool = (IEnumerable)typeof(HixVM).GetField("localPool", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(vm)!;
     var dictionaries = pool.Cast<IReadOnlyDictionary<HixString, IHixValue>>().ToArray();
@@ -194,7 +194,7 @@ public sealed class HixBytecodeTests {
       var result = HixVM.Execute(program, context, variables);
       Assert.True(result.Success, result.Error.Resolve(result.Strings));
       Assert.Same(pool, context.Strings);
-      Assert.Equal("new", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
+      Assert.Equal("new", Assert.Single(result.Outputs).ReadText());
     });
     Assert.True(HixVM.Execute(program, first).Success);
     Assert.Same(pool, first.Strings);
@@ -255,7 +255,7 @@ public sealed class HixBytecodeTests {
       """, "Example");
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"number", "fallback", "number"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+    Assert.Equal(new[] {"number", "fallback", "number"}, result.Outputs.Select(output => output.ReadText()));
   }
 
   [Fact]
@@ -274,7 +274,7 @@ public sealed class HixBytecodeTests {
       """, "Example");
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"string", "error"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+    Assert.Equal(new[] {"string", "error"}, result.Outputs.Select(output => output.ReadText()));
   }
 
   [Fact]
@@ -319,7 +319,7 @@ public sealed class HixBytecodeTests {
       """, "Example");
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"after", "before", "name", "function", "1"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+    Assert.Equal(new[] {"after", "before", "name", "function", "1"}, result.Outputs.Select(output => output.ReadText()));
   }
 
   [Fact]
@@ -354,7 +354,7 @@ public sealed class HixBytecodeTests {
       Assert.Contains(instructions, instruction => instruction.Opcode == opcode);
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"true:0:0", "true,false"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+    Assert.Equal(new[] {"true:0:0", "true,false"}, result.Outputs.Select(output => output.ReadText()));
   }
 
   [Fact]
@@ -371,7 +371,7 @@ public sealed class HixBytecodeTests {
     Assert.DoesNotContain(Enum.GetNames(typeof(HixOpcode)), name => name.Contains("Smart") || name.StartsWith("Host"));
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal("argument:argument", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
+    Assert.Equal("argument:argument", Assert.Single(result.Outputs).ReadText());
   }
 
   [Fact]
@@ -453,7 +453,7 @@ public sealed class HixBytecodeTests {
     var program = TestCompiler.Compile("mixin Example { expression {\n" + statements + "\n} }", "Example");
     var result = HixVM.Execute(program, new HixThread(new Context()), variables);
     Assert.Equal(handled, result.Success);
-    if (handled) Assert.Equal("caught", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
+    if (handled) Assert.Equal("caught", Assert.Single(result.Outputs).ReadText());
     else { Assert.Equal("bad", result.Error.Resolve(result.Strings)); Assert.Empty(result.Outputs); }
   }
 
@@ -473,7 +473,7 @@ public sealed class HixBytecodeTests {
         emit(returned())
         local handled = [broken()?]
         emit(catch(local#handled) ?: <caught>)
-        local invalid = [emit(@[<bad>])?]
+        local invalid = [join(@[@{bad=true}], <,>)?]
         emit(catch(local#invalid) ?: <collection>)
         emit(local#i)
       } }
@@ -489,7 +489,7 @@ public sealed class HixBytecodeTests {
     finally { AppDomain.CurrentDomain.FirstChanceException -= observe; }
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Empty(exceptions);
-    Assert.Equal(new[] {"returned", "caught", "collection", "2"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+    Assert.Equal(new[] {"returned", "caught", "collection", "2"}, result.Outputs.Select(output => output.ReadText()));
   }
 
   private sealed class PoolContext(Action<HixStringPool> observe) : HixContext(TestBackend.Instance, new HixStringPoolBuilder().Freeze()) {
@@ -573,7 +573,7 @@ public sealed class HixBytecodeTests {
     var stringCount = program.StringPool.Count;
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"42", "42", "repeated", "repeated", "true", ""}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+    Assert.Equal(new[] {"42", "42", "repeated", "repeated", "true", ""}, result.Outputs.Select(output => output.ReadText()));
     Assert.Equal(stringCount, program.StringPool.Count);
     Assert.Matches(@"(?m)^0000 +\| ENTER loc_[0-9A-F]+ +\| begin block", program.Disassemble());
     Assert.DoesNotContain("TICK", program.Disassemble());
@@ -647,6 +647,6 @@ public sealed class HixBytecodeTests {
     Assert.Contains(instructions, item => item.Instruction.IsRelative && item.Instruction.A > 0);
     var result = HixVM.Execute(program, new HixThread(new Context()));
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
-    Assert.Equal(new[] {"value:2", "caught", "yes"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
+    Assert.Equal(new[] {"value:2", "caught", "yes"}, result.Outputs.Select(output => output.ReadText()));
   }
 }
