@@ -79,7 +79,7 @@ mixin HELIX.Compose.ComposableMethodAttribute {
     function();
     function(arg1, arg2)
     function(arg1:name, arg2)
-    function(<string>, arg2)
+    function(<string>, arg2,)
     function<string1><string2>
 
     function [InlineValue]
@@ -102,14 +102,14 @@ mixin HELIX.Compose.ComposableMethodAttribute {
 
     function @{}
     function @{a = test}
-    function @{a = test, b = another}
+    function @{a = test, b = another,}
 
     function @[]
     function @[a,b,c]
-    function @[a]
+    function @[a,]
 
     function(@[a,b,c])
-    function(@{a = test, b = another})
+    function(@{a = test, b = another,})
 
   }
 

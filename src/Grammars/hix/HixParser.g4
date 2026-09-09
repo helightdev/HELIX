@@ -2,15 +2,17 @@ parser grammar HixParser;
 
 options { tokenVocab=HixLexer; }
 
-compilationUnit: trivia* fileMetadataSection? (trivia | topLevelDeclaration)* EOF;
+compilationUnit: trivia* fileMetadataSection? (topLevelDeclaration trivia*)* EOF;
 
-fileMetadataSection: metadata (trivia* metadata)* trivia* SECTION_DELIMITER;
+fileMetadataSection: metadataList trivia* SECTION_DELIMITER trivia*;
 
 topLevelDeclaration
-    : metadata (trivia* metadata)* trivia* (mixinDeclaration | funcDeclaration)
+    : metadataList trivia* (mixinDeclaration | funcDeclaration)
     | mixinDeclaration
     | funcDeclaration
     ;
+
+metadataList: metadata (trivia* metadata)*;
 
 metadata
     : METADATA_PREFIX IDENTIFIER valueList?
@@ -39,7 +41,7 @@ signature: tableSignature | kindIdentifier;
 
 tableSignature
     : BEGIN_TABLE RC
-    | BEGIN_TABLE tableSignatureEntry (VALUE_DELIMITER tableSignatureEntry)* RC
+    | BEGIN_TABLE tableSignatureEntry (VALUE_DELIMITER tableSignatureEntry)* VALUE_DELIMITER? RC
     ;
 
 tableSignatureEntry: metadata* VALUE_EXPAND? ROOT_IDENTIFIER VALUE_ASSIGN kindIdentifier;
@@ -154,18 +156,18 @@ tailValue
 
 tupleValue
     : BEGIN_TUPLE VALUE_END_INLINE
-    | BEGIN_TUPLE value (VALUE_DELIMITER value)* VALUE_END_INLINE
+    | BEGIN_TUPLE value (VALUE_DELIMITER value)* VALUE_DELIMITER? VALUE_END_INLINE
     ;
 
 tableValue
     : BEGIN_TABLE RC
-    | BEGIN_TABLE tableKeyedEntry (VALUE_DELIMITER tableKeyedEntry)* RC
+    | BEGIN_TABLE tableKeyedEntry (VALUE_DELIMITER tableKeyedEntry)* VALUE_DELIMITER? RC
     ;
 
 tableKeyedEntry: metadata* ROOT_IDENTIFIER VALUE_ASSIGN value;
 
 valueList
-    : BEGIN_PARAMETERS value (VALUE_DELIMITER value)* END_PARAMETERS
+    : BEGIN_PARAMETERS value (VALUE_DELIMITER value)* VALUE_DELIMITER? END_PARAMETERS
     | BEGIN_PARAMETERS END_PARAMETERS
     | EMPTY_PARAMETERS
     | argumentValue+

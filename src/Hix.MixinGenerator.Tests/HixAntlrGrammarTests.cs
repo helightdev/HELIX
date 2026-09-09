@@ -64,6 +64,8 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("%type<Item>\n%guid<12345678-1234-1234-1234-123456789012>\n%name<My Custom Item>\n---\nmixin Test { }")]
   [InlineData("mixin Example { expression { local mapper = func => <[$0]>; emit(call(local#mapper, <x>)) } }")]
   [InlineData("mixin Example { expression { local mapper = func { return(<[$0]>) } } }")]
+  [InlineData("pure func trailing sig @{first=string, second=string,} -> string { return(join(<a>, <b>,)) }")]
+  [InlineData("mixin Trailing { expression { local tuple = @[<a>, <b>,]; local table = @{first=<a>, second=<b>,}; emit(tuple) } }")]
   public void ParsesLanguageFeatures(string source) {
     var errors = new Errors();
     var lexer = new Lexer(new AntlrInputStream(source));

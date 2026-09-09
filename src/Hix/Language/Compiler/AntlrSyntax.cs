@@ -35,7 +35,7 @@ public static class AntlrSyntax {
       ? tree.topLevelDeclaration().Select(builder.Visit).ToArray()
       : Array.Empty<HixAst>();
     var metadata = diagnostics.Count == 0 && tree.fileMetadataSection() is { } section
-      ? section.metadata().Select(value => (MetadataAst)builder.Visit(value)).ToArray()
+      ? section.metadataList().metadata().Select(value => (MetadataAst)builder.Visit(value)).ToArray()
       : Array.Empty<MetadataAst>();
     LanguageValidation.Validate(declarations, diagnostics, backend);
     return new CompilationUnitAst(source, declarations, diagnostics, tokens, metadata);
@@ -160,7 +160,8 @@ public static class AntlrSyntax {
 
     public override HixAst VisitTopLevelDeclaration(Parser.TopLevelDeclarationContext context) {
       var previous = declarationMetadata;
-      declarationMetadata = context.metadata().Select(metadata => (MetadataAst)Visit(metadata)).ToArray();
+      declarationMetadata = context.metadataList()?.metadata()
+        .Select(metadata => (MetadataAst)Visit(metadata)).ToArray() ?? [];
       try {
         return At(Visit(context.mixinDeclaration() ?? (ParserRuleContext)context.funcDeclaration()), context);
       } finally {

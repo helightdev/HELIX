@@ -76,6 +76,15 @@ class HixLocalSyntaxTest {
     }
 
     @Test
+    fun `comma separated values accept a trailing comma`() {
+        val source = "pure func trailing sig @{first=string, second=string,} -> string { " +
+            "local tuple = @[<a>, <b>,]; local table = @{first=<a>, second=<b>,}; return(join(<a>, <b>,)) }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+    }
+
+    @Test
     fun `number literals have their own token and highlighting`() {
         val source = "mixin E { expression { emit(-12.5) } }"
         val parsed = HixAntlrSyntax.parse(source)

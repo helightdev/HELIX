@@ -29,6 +29,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitTopLevelDeclaration(HixParser.TopLevelDeclarationContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#metadataList}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitMetadataList(HixParser.MetadataListContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#metadata}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
