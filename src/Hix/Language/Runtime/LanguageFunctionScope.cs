@@ -24,8 +24,10 @@ public sealed class LanguageFunctionScope {
   public IReadOnlyList<LanguageFunctionCandidate> Candidates(string name) =>
     candidates.TryGetValue(name, out var result) ? result : Array.Empty<LanguageFunctionCandidate>();
   public IEnumerable<LanguageFunctionCandidate> AllCandidates() => candidates.Values.SelectMany(value => value).Distinct();
-  public LanguageFunctionCandidate Resolve(SignatureHixPattern signature) => Candidates(signature.Name)
-    .SingleOrDefault(candidate => candidate.Signature?.Constant(signature.Name).Display == signature.Display);
+  public LanguageFunctionCandidate Resolve(SignatureHixPattern signature) {
+    var display = signature.Display;
+    return Candidates(signature.Name).SingleOrDefault(candidate => candidate.SignatureDisplay == display);
+  }
 
   private IEnumerable<LanguageFunctionCandidate> BuildCandidates(string name) {
     var shadowed = new HashSet<string>(StringComparer.Ordinal);
@@ -78,6 +80,7 @@ public sealed class LanguageFunctionScope {
 
 public sealed record LanguageFunctionCandidate(BytecodeFunction Function, BytecodeSignature Signature,
   LanguageFunctionScope Owner) {
+  public string SignatureDisplay { get; } = Signature?.Constant(Function.Name).Display;
   public bool Variadic { get; } = Signature?.Inputs is {Count: > 0} fields && fields[fields.Count - 1].Variadic;
   public int FixedCount { get; } = Signature?.Inputs is { } fields
     ? fields.Count(field => !field.Optional && !field.Variadic) : 0;

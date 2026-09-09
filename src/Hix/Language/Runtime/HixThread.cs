@@ -249,11 +249,14 @@ public sealed class HixThread {
 
   private IHixValue InvokePrepared(ResolvedFunctionHixValue prepared, IHixValue[] arguments, int line) {
     using var profile = HixProfiler.Measure("vm.invoke_prepared");
-    if (prepared.Backend != null)
-      return Call(prepared.Backend.Name, arguments, line, [prepared.Backend], prepared.BackendSignature);
+    if (prepared.Backend != null) {
+      if (!FunctionDefinition.TryConvertValues(this, prepared.BackendSignature, arguments, out var converted))
+        return Error("no matching function '" + prepared.Backend.Name + "' for " + arguments.Length + " arguments");
+      return ExecuteBackend(prepared.Backend, converted, line);
+    }
     var candidate = prepared.Language;
     var selectionError = SelectFunction(candidate.Function.Name, arguments, candidate.Owner, out var match,
-      candidate.Signature?.Constant(candidate.Function.Name), candidate);
+      prepared: candidate);
     return selectionError ?? InvokeMatch(candidate.Function.Name, arguments, line, match);
   }
 
@@ -577,8 +580,7 @@ public sealed class HixThread {
     }
   }
 
-  private IHixValue Call(string name, IHixValue[] arguments, int line, IReadOnlyList<FunctionDefinition> bound = null,
-    FunctionSignature preparedSignature = null) {
+  private IHixValue Call(string name, IHixValue[] arguments, int line) {
     if (program.Patterns.TryGetValue(name, out var pattern)) {
       if (arguments.Length != 1) return Error("pattern '" + name + "' expects one value");
       return HixPatternMatcher.Matches(pattern, arguments[0], this, program.Patterns, out var patternFailure)
@@ -586,19 +588,11 @@ public sealed class HixThread {
     }
 
     if (scope.Contains(name)) return Invoke(name, arguments, line);
-    IReadOnlyList<FunctionDefinition> definitions;
-    if (bound != null) definitions = bound;
-    else definitions = Backend.Functions.Resolve(name, arguments.Length);
+    var definitions = Backend.Functions.Resolve(name, arguments.Length);
     FunctionDefinition definition = null;
     IHixValue[] convertedArguments = null;
     var conversions = int.MaxValue;
     foreach (var candidate in definitions) {
-      if (preparedSignature != null) {
-        if (!FunctionDefinition.TryConvertValues(this, preparedSignature, arguments, out var preparedArguments)) break;
-        definition = candidate;
-        convertedArguments = preparedArguments;
-        break;
-      }
       if (!candidate.TryConvertValues(this, arguments, out var converted, out var count) || count >= conversions) continue;
       definition = candidate;
       convertedArguments = converted;
@@ -606,11 +600,16 @@ public sealed class HixThread {
       if (count == 0) break;
     }
     if (definition == null) return Error("no matching function '" + name + "' for " + arguments.Length + " arguments");
+    return ExecuteBackend(definition, convertedArguments, line);
+  }
+
+  private IHixValue ExecuteBackend(FunctionDefinition definition, IHixValue[] arguments, int line) {
+    var name = definition.Name;
     if (pure && definition.HasEffects) return Error("pure functions cannot perform '" + name + "'");
     if (!prelude && definition.RequiresPrelude) return Error("function '" + name + "' requires the prelude pass");
-    arguments = convertedArguments;
-    if (!definition.AcceptsErrors && arguments.OfType<ErrorHixValue>().FirstOrDefault() is {} failure)
-      return failure with {IsChecked = false};
+    if (!definition.AcceptsErrors)
+      for (var i = 0; i < arguments.Length; i++)
+        if (arguments[i] is ErrorHixValue failure) return failure with {IsChecked = false};
     try { return definition.Execute(this, arguments, line) ?? Error("invalid arguments for '" + name + "'"); }
     catch (ArgumentException exception) { return Error(exception.Message); }
     catch (OverflowException exception) { return Error(exception.Message); }
@@ -633,15 +632,20 @@ public sealed class HixThread {
     out FunctionMatch match, SignatureHixPattern requested = null, LanguageFunctionCandidate prepared = null) {
     using var profile = HixProfiler.Measure("vm.select_function");
     match = default;
-    var candidates = (prepared == null ? binding.Candidates(name) : [prepared]).Where(candidate => requested == null ||
-      candidate.Signature?.Constant(name).Display == requested.Display).ToArray();
-    if (candidates.Length == 0) return Error("unknown function '" + name + "'");
+    var candidates = prepared == null ? binding.Candidates(name) : null;
+    var candidateCount = prepared == null ? candidates.Count : 1;
+    var requestedDisplay = requested?.Display;
+    if (candidateCount == 0) return Error("unknown function '" + name + "'");
     LanguageFunctionCandidate best = null;
     IHixValue[] bestArguments = null;
     IHixValue bestParameter = null;
     var bestScore = int.MinValue;
     var ambiguous = false;
-    foreach (var candidate in candidates) {
+    var matchedSignature = false;
+    for (var candidateIndex = 0; candidateIndex < candidateCount; candidateIndex++) {
+      var candidate = prepared ?? candidates[candidateIndex];
+      if (requestedDisplay != null && candidate.SignatureDisplay != requestedDisplay) continue;
+      matchedSignature = true;
       // Conversion penalties can only reduce this score; equal scores must still
       // be examined to preserve ambiguity detection.
       if (candidate.BaseScore < bestScore) continue;
@@ -677,6 +681,7 @@ public sealed class HixThread {
       bestParameter = suppliedParameter;
       ambiguous = false;
     }
+    if (!matchedSignature) return Error("unknown function '" + name + "'");
     if (best == null || ambiguous) return Error(best == null
       ? "no matching signature for '" + name + "'" : "ambiguous signature for '" + name + "'");
 

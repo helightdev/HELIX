@@ -13,6 +13,26 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class HixBytecodeTests {
   [Fact]
+  public void LoadedReferencesReuseBindingsAndPreserveShadowedCallDispatch() {
+    var program = TestCompiler.Compile("""
+      pure func choose sig number -> string { return(<global>) }
+      pure func caller sig number -> string { return(choose(param)) }
+      mixin Example {
+        pure func choose sig number -> string { return(<local>) }
+        expression { emit(choose(1)); emit(caller(1)); emit(choose(2)) }
+      }
+      """, "Example");
+    var vm = new HixVM([program]);
+    var references = vm.ConstantPool.OfType<ResolvedFunctionHixValue>()
+      .Where(value => value.Signature.Name == "emit").ToArray();
+    Assert.Equal(3, references.Length);
+    Assert.All(references, value => Assert.Same(references[0], value));
+    var result = vm.Run(program, TestBackend.Instance.CreateThread());
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"local", "global", "local"}, result.Outputs.Select(output => output.ReadText()));
+  }
+
+  [Fact]
   public void FunctionReferencesResolveOnlyInTheLoadedPool() {
     var program = TestCompiler.Compile("""
       pure func choose sig number -> string { return(<chosen>) }

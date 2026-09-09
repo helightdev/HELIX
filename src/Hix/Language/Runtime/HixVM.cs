@@ -45,24 +45,35 @@ public sealed class HixVM {
   private static IReadOnlyList<IHixValue> LoadConstants(HixProgramImage program) {
     var constants = program.ConstantPool.ToArray();
     var scopes = new LanguageFunctionScope[constants.Length];
+    var ranges = ScopeRanges(program);
+    var rangeIndex = 0;
     foreach (var (pc, instruction) in HixInstruction.ReadAll(program.Bytecode)) {
       if (instruction.Opcode is not (HixOpcode.Call or HixOpcode.LoadConst) ||
           constants[instruction.A] is not FunctionReferenceHixValue) continue;
-      var scope = ScopeAt(program, pc, program.Bytecode);
+      while (rangeIndex < ranges.Length && pc >= ranges[rangeIndex].End) rangeIndex++;
+      var scope = rangeIndex < ranges.Length && pc >= ranges[rangeIndex].Start
+        ? ranges[rangeIndex].Scope : program.Scope;
       if (scopes[instruction.A] is { } previous && !ReferenceEquals(previous, scope))
         throw new ArgumentException("A function-reference constant cannot be shared across lexical scopes");
       scopes[instruction.A] = scope;
     }
+    var resolved = new Dictionary<(LanguageFunctionScope Scope, string Signature), ResolvedFunctionHixValue>();
     for (var index = 0; index < constants.Length; index++) {
       if (constants[index] is not FunctionReferenceHixValue reference) continue;
       var signature = reference.Signature;
-      var candidate = (scopes[index] ?? program.Scope).Resolve(signature);
-      if (candidate != null) { constants[index] = new ResolvedFunctionHixValue(signature, candidate); continue; }
+      var owner = scopes[index] ?? program.Scope;
+      var key = (owner, signature.Display);
+      if (resolved.TryGetValue(key, out var cached)) { constants[index] = cached; continue; }
+      var candidate = owner.Resolve(signature);
+      if (candidate != null) {
+        constants[index] = resolved[key] = new ResolvedFunctionHixValue(signature, candidate);
+        continue;
+      }
       var definitions = program.Backend.Functions.Resolve(signature.Name, signature.Parameters.Count)
         .SelectMany(definition => definition.Signatures.Select(item => (definition, signature: item)))
         .Where(item => BuiltinSignature(item.definition.Name, item.signature).Display == signature.Display).ToArray();
       if (definitions.Length != 1) throw new ArgumentException("cannot bind signature '" + signature.Display + "' while loading program");
-      constants[index] = new ResolvedFunctionHixValue(signature, definitions[0].definition, definitions[0].signature);
+      constants[index] = resolved[key] = new ResolvedFunctionHixValue(signature, definitions[0].definition, definitions[0].signature);
     }
     return Array.AsReadOnly(constants);
   }
@@ -72,20 +83,19 @@ public sealed class HixVM {
       kind == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(kind))).ToArray(),
     signature.ResultType == HixValueKind.Any ? HixPattern.Any : new KindHixPattern(signature.ResultType));
 
-  private static LanguageFunctionScope ScopeAt(HixProgramImage program, int address, IReadOnlyList<byte> code) {
-    var scopes = new[] {program.Scope}.Concat(program.Derivations.Select(value => value.Scope)).Distinct().ToArray();
-    foreach (var scope in scopes)
-      foreach (var candidate in scope.AllCandidates()) {
-        var body = candidate.Function.Body;
-        var header = HixInstruction.Decode(code, body);
-        if (address >= body && address < body + header.A) return candidate.Owner;
-      }
+  private readonly record struct ScopeRange(int Start, int End, LanguageFunctionScope Scope);
+
+  private static ScopeRange[] ScopeRanges(HixProgramImage program) {
+    var ranges = new Dictionary<int, ScopeRange>();
+    void Add(int body, LanguageFunctionScope scope) {
+      if (!ranges.ContainsKey(body))
+        ranges.Add(body, new(body, body + HixInstruction.Decode(program.Bytecode, body).A, scope));
+    }
+    foreach (var scope in new[] {program.Scope}.Concat(program.Derivations.Select(value => value.Scope)).Distinct())
+      foreach (var candidate in scope.AllCandidates()) Add(candidate.Function.Body, candidate.Owner);
     foreach (var derivation in program.Derivations)
-      foreach (var expression in derivation.Expressions) {
-        var header = HixInstruction.Decode(code, expression.Body);
-        if (address >= expression.Body && address < expression.Body + header.A) return derivation.Scope;
-      }
-    return program.Scope;
+      foreach (var expression in derivation.Expressions) Add(expression.Body, derivation.Scope);
+    return ranges.Values.OrderBy(range => range.Start).ToArray();
   }
 
   public string DisassemblePools() => HixProgramImage.DisassemblePools(StringPool, ConstantPool);
