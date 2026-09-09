@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
@@ -10,8 +10,8 @@
 
   <ItemGroup>
     <PackageReference Include="JetBrains.Rider.SDK" Version="$(SdkVersion)" />
-    <ProjectReference Include="..\..\..\..\MixinLanguage\Helix.MixinLanguage.csproj" />
-    <Compile Include="..\..\..\..\MixinLanguage\Roslyn\IsExternalInit.cs"
+    <ProjectReference Include="..\..\..\..\Hix.MixinGenerator\Hix.MixinGenerator.csproj" />
+    <Compile Include="..\..\..\..\Hix\IsExternalInit.cs"
              Link="Compatibility\IsExternalInit.cs" />
   </ItemGroup>
 

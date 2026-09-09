@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Mixins.Collections;
+using Hix.Collections;
 
 // No Roslyn or Hix dependencies: exercises the exact production generic map source.
 internal static class Program {

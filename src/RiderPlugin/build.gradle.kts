@@ -129,14 +129,11 @@ val compileDotNet = tasks.register<DotNetBuildTask>("compileDotNet") {
     projectDirectory.set(layout.projectDirectory)
 }
 
-val testDotNet = tasks.register("testDotNet") {
-    doLast {
-        execOperations.exec {
-            executable("dotnet")
-            args("test", file(DotnetSolution).absolutePath, "--logger", "GitHubActions")
-            workingDir(projectDir)
-        }
-    }
+val testDotNet = tasks.register<Exec>("testDotNet") {
+    group = "verification"
+    workingDir(projectDir)
+    commandLine("dotnet", "test", file(DotnetSolution).absolutePath,
+        "--configuration", BuildConfiguration.get(), "--logger", "GitHubActions")
 }
 
 tasks.buildPlugin {
@@ -220,8 +217,8 @@ tasks.prepareSandbox {
     val dllFiles = listOf(
             outputFolder.file("${DotnetPluginId.get()}.dll"),
             outputFolder.file("${DotnetPluginId.get()}.pdb"),
-            outputFolder.file("Helix.MixinLanguage.dll"),
-            outputFolder.file("Helix.MixinLanguage.pdb"),
+            outputFolder.file("HelixSourceGenerator.dll"),
+            outputFolder.file("HelixSourceGenerator.pdb"),
     )
 
     dllFiles.forEach { pluginFile ->

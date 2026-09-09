@@ -1,0 +1,50 @@
+using System.Collections.Generic;
+using System.Linq;
+using Hix.Compiler;
+using Hix.Runtime;
+
+namespace Hix;
+
+public sealed record LiteralHixValue(HixString Value) : IHixValue {
+   public HixValueKind Kind => HixValueKind.String;
+  public bool IsTruthy(HixExecutionContext context) {
+    return !string.IsNullOrEmpty(Value.Resolve(context.Strings));
+  }
+
+  public HixString Render(HixExecutionContext context) {
+    return Value;
+  }
+
+  public void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context) {
+    builder.Append(nameof(LiteralHixValue));
+    builder.Append(Value.Resolve(context.Strings));
+  }
+
+  public IHixValue Select(HixExecutionContext context, HixString member) {
+    return NullHixValue.Instance;
+  }
+
+  public object Unlink(HixExecutionContext context) {
+    return Value.Resolve(context.Strings);
+  }
+
+  public bool Equals(IHixValue other) {
+    return other is LiteralHixValue value && Equals(value);
+  }
+}
+
+
+/// <summary>Compiler-only catalog. Runtime programs never retain these declarations.</summary>
+public sealed class HixExpressionPreparedState {
+  internal HixExpressionPreparedState(HixStringPool strings,
+    IReadOnlyList<FunctionDeclarationAst> functions, IReadOnlyList<MixinDeclarationAst> derivations, HixBackend backend = null) {
+    Backend = backend ?? HixCoreBackend.Instance;
+    StringPool = strings;
+    Functions = functions;
+    Derivations = derivations;
+  }
+  public HixBackend Backend { get; }
+  public HixStringPool StringPool { get; }
+  internal IReadOnlyList<FunctionDeclarationAst> Functions { get; }
+  internal IReadOnlyList<MixinDeclarationAst> Derivations { get; }
+}

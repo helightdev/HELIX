@@ -11,10 +11,10 @@ using JetBrains.ReSharper.Psi.Caches;
 using JetBrains.ReSharper.Psi.Tree;
 using JetBrains.ReSharper.Feature.Services.Protocol;
 using JetBrains.ReSharper.Resources.Shell;
-using Mixins;
-using Mixins.Compiler;
+using Hix;
+using Hix.Compiler;
 using WireRange = HelixRider.Protocol.HixSourceRange;
-using CoreRange = Mixins.Compiler.HixSourceRange;
+using CoreRange = Hix.Compiler.HixSourceRange;
 
 namespace HelixRider.Protocol;
 
@@ -35,7 +35,7 @@ public sealed class HelixMixinLanguageHost {
     private static MixinParseResponse Parse(MixinParseRequest request,
         Func<string, MixinCompletionItem[]> completeTypes, Func<string, SemanticTarget> resolveType) {
         var batch = (request?.Files ?? Array.Empty<MixinFileInput>())
-            .Select(input => (Input: input, Analysis: new LanguageAnalysis(input.SourceText ?? string.Empty))).ToArray();
+            .Select(input => (Input: input, Analysis: new LanguageAnalysis(input.SourceText ?? string.Empty, Hix.HixMixinBackend.Instance))).ToArray();
         return new MixinParseResponse(batch.Select(file => {
             var source = file.Input.SourceText ?? string.Empty;
             var siblings = batch.Where(candidate => SameDirectory(file.Input.FilePath, candidate.Input.FilePath)).ToArray();
@@ -120,15 +120,17 @@ public sealed class HelixMixinLanguageHost {
         System.IO.Path.GetDirectoryName(right ?? string.Empty), StringComparison.OrdinalIgnoreCase);
 
     private static MixinLanguageDefinition[] Definitions() {
-        var functions = FunctionLibrary.Enumerate().Select(definition => new MixinLanguageDefinition(
+        var functions = Hix.HixMixinBackend.Instance.Functions.Enumerate().Select(definition => new MixinLanguageDefinition(
             definition.Name, "Function", definition.ArgumentCount,
             definition.IsVariadic, "None", definition.ReceiverType.ToString(), definition.ResultType.ToString(),
             definition.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation));
-        var roots = MixinRootLibrary.Enumerate().Select(definition => new MixinLanguageDefinition(
+        var roots = HixRootLibrary.Enumerate().Select(definition => new MixinLanguageDefinition(
             definition.Name, "Root", 0, false, "None", "None", definition.Kind.ToString(), Array.Empty<string>(), definition.Documentation));
-        var targets = Enum.GetNames(typeof(MixinEmissionTarget)).Select(name => new MixinLanguageDefinition(
+        var targets = Enum.GetNames(typeof(HixEmissionTarget)).Select(name => new MixinLanguageDefinition(
             name, "OutputTarget", 0, false, "None", "None", "None", Array.Empty<string>(), "Generated output destination"));
-        return functions.Concat(roots).Concat(targets).ToArray();
+        var hostRoots = Hix.HixMixinBackend.Instance.Roots.Values.Select(root => new MixinLanguageDefinition(
+            root.Name, "Root", 0, false, "None", "None", root.Kind.ToString(), Array.Empty<string>(), "Backend root"));
+        return functions.Concat(roots).Concat(hostRoots).Concat(targets).ToArray();
     }
 
     private static WireRange Range(CoreRange range) => Range(range.Start, range.End);

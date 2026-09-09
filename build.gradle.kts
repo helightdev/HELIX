@@ -5,8 +5,7 @@ plugins {
 
 solutions {
     solution("src/RiderPlugin/HelixRider.sln")
-    solution("src/HelixSourceGenerator/HelixSourceGenerator.sln")
-    solution("src/MixinLanguage/MixinLanguage.sln")
+    solution("src/Hix/Hix.sln")
 }
 
 unity {

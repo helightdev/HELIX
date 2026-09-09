@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
@@ -19,7 +19,7 @@
   </Target>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\MixinLanguage\Helix.MixinLanguage.csproj" />
+    <ProjectReference Include="..\..\..\..\Hix.MixinGenerator\Hix.MixinGenerator.csproj" />
     <Reference Include="HelixRider">
       <HintPath>..\HelixRider\bin\HelixRider.Rider\$(Configuration)\HelixRider.dll</HintPath>
       <Private>True</Private>

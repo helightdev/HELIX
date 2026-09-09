@@ -7,6 +7,6 @@
     <Optimize>true</Optimize>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../src/MixinLanguage/Collections/PersistentMap.cs" Link="PersistentMap.cs" />
+    <Compile Include="../../src/Hix/Collections/PersistentMap.cs" Link="PersistentMap.cs" />
   </ItemGroup>
 </Project>

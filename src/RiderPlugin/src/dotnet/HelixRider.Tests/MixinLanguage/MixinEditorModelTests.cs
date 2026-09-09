@@ -1,6 +1,6 @@
 using System.Linq;
-using Mixins;
-using Mixins.Compiler;
+using Hix;
+using Hix.Compiler;
 using NUnit.Framework;
 
 namespace HelixRider.Tests.MixinLanguage;
@@ -33,9 +33,9 @@ public sealed class MixinEditorModelTests {
 
     [Test]
     public void CatalogContainsFlatDefinitionSignatures() {
-        var matches = FunctionLibrary.Enumerate().Single(item => item.Name == "matches");
-        Assert.That(matches.ArgumentTypes, Is.EqualTo(new[] {MixinValueKind.String, MixinValueKind.String}));
-        Assert.That(matches.ResultType, Is.EqualTo(MixinValueKind.Bool));
-        Assert.That(FunctionLibrary.Enumerate().Any(item => item.Name == "format"), Is.False);
+        var matches = Hix.HixMixinBackend.Instance.Functions.Enumerate().Single(item => item.Name == "matches");
+        Assert.That(matches.ArgumentTypes, Is.EqualTo(new[] {HixValueKind.String, HixValueKind.String}));
+        Assert.That(matches.ResultType, Is.EqualTo(HixValueKind.Bool));
+        Assert.That(Hix.HixMixinBackend.Instance.Functions.Enumerate().Any(item => item.Name == "format"), Is.False);
     }
 }

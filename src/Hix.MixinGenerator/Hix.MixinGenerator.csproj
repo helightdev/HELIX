@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>HelixSourceGenerator</AssemblyName>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.3.0" ExcludeAssets="runtime" />
+    <Compile Include="../Hix/**/*.cs" Exclude="../Hix/bin/**;../Hix/obj/**;../Hix/AntlrRuntime/Properties/AssemblyInfo.cs;../Hix/Environment/Default/**" />
+    <Compile Include="../Hix.Roslyn/**/*.cs" Exclude="../Hix.Roslyn/bin/**;../Hix.Roslyn/obj/**" />
+  </ItemGroup>
+</Project>

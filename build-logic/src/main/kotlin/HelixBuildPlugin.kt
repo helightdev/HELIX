@@ -1,5 +1,11 @@
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.TaskAction
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.JavaExec
 import java.io.File
@@ -102,6 +108,7 @@ class HelixBuildPlugin : Plugin<Project> {
             into(project.layout.projectDirectory.dir("docs/grammars"))
         }
 
+        registerHixBuildTasks(project)
         registerHixGrammarTasks(project)
 
         registerUnityPackageTasks(project, unityPackages)
@@ -114,7 +121,7 @@ private fun registerHixGrammarTasks(project: Project) {
     project.dependencies.add(antlrTool.name, "org.antlr:antlr4:4.13.2")
 
     val grammarDirectory = project.layout.projectDirectory.dir("src/Grammars/hix")
-    val csharpOutput = project.layout.projectDirectory.dir("src/MixinLanguage/Language/Compiler/Generated")
+    val csharpOutput = project.layout.projectDirectory.dir("src/Hix/Language/Compiler/Generated")
     val ideOutput = project.layout.projectDirectory.dir(
         "src/RiderPlugin/src/rider/main/java/dev/helight/helix/hix/generated",
     )
@@ -135,7 +142,7 @@ private fun registerHixGrammarTasks(project: Project) {
         )
         args(
             "-Dlanguage=CSharp", "-visitor", "-no-listener",
-            "-package", "Mixins.Compiler.Generated",
+            "-package", "Hix.Compiler.Generated",
             "-o", csharpOutput.asFile.absolutePath,
             "-lib", csharpOutput.asFile.absolutePath,
             "HixLexer.g4", "HixParser.g4",
@@ -419,4 +426,49 @@ private fun generateMonorepoSolution(
     output.writeText("\uFEFF" + result.joinToString("\r\n", postfix = "\r\n"), StandardCharsets.UTF_8)
     return "Generated ${output.relativeTo(root)} from ${registeredSolutions.size} registered solutions " +
         "(${emittedProjects.size} projects, $excludedProjectCount remapped under Excluded Projects)."
+}
+
+private fun registerHixBuildTasks(project: Project) {
+    val configuration = project.providers.gradleProperty("BuildConfiguration").orElse("Debug")
+    val generatorConfiguration = project.providers.gradleProperty("HixGeneratorConfiguration").orElse("Release")
+    val build = project.tasks.register("buildHix", Exec::class.java) {
+        group = "hix"
+        description = "Builds the Hix libraries, standalone runtime, generator, and test projects."
+        workingDir(project.layout.projectDirectory)
+        commandLine("dotnet", "build", "src/Hix/Hix.sln", "--configuration", configuration.get())
+    }
+    project.tasks.register("testHix", Exec::class.java) {
+        group = "hix"
+        description = "Runs the core, Roslyn, standalone, and mixin generator test suites."
+        dependsOn(build)
+        workingDir(project.layout.projectDirectory)
+        commandLine("dotnet", "test", "src/Hix/Hix.sln", "--configuration", configuration.get(), "--no-build")
+    }
+    val generator = project.tasks.register("buildHixMixinGenerator", Exec::class.java) {
+        group = "hix"
+        description = "Builds the self-contained Unity source generator."
+        workingDir(project.layout.projectDirectory)
+        commandLine("dotnet", "build", "src/Hix.MixinGenerator/Hix.MixinGenerator.csproj", "--configuration", generatorConfiguration.get())
+    }
+    project.tasks.register("copyHixMixinGenerator", HixGeneratorCopyTask::class.java) {
+        group = "hix"
+        description = "Builds and copies the bundled source generator DLL into the Unity project."
+        dependsOn(generator)
+        source.set(project.layout.projectDirectory.file(generatorConfiguration.map {
+            "src/Hix.MixinGenerator/bin/$it/netstandard2.0/HelixSourceGenerator.dll"
+        }))
+        destination.set(project.layout.projectDirectory.file(project.providers.gradleProperty("UnityProjectRoot").orElse("src/HELIX").map {
+            "$it/Assets/Plugins/HELIX/Runtime/Scripts/HelixSourceGenerator.dll"
+        }))
+    }
+}
+
+abstract class HixGeneratorCopyTask : DefaultTask() {
+    @get:InputFile abstract val source: RegularFileProperty
+    @get:OutputFile abstract val destination: RegularFileProperty
+    @TaskAction fun copyGenerator() {
+        val target = destination.get().asFile
+        target.parentFile.mkdirs()
+        source.get().asFile.copyTo(target, overwrite = true)
+    }
 }
