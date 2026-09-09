@@ -10,15 +10,28 @@ using Xunit;
 
 namespace HELIX.SourceGen.Tests;
 
-public sealed class ComponentDiscoveryGeneratorTests {
+public sealed class ModuleDiscoveryMixinTests {
+  [Fact]
+  public void DiscoveryCacheDoesNotReuseTypesFromAnotherCompilation() {
+    const string module = "[HELIX.Context.HelixApplication(filter: \"Feature\")] public partial class Application { }";
+    var first = Run(Runtime + module + "namespace Feature { [HELIX.Context.Managed] public class First { public static void RegistrationConfigurator(HELIX.Context.RegistrationEntry entry) { } } }");
+    var second = Run(Runtime + module + "namespace Feature { [HELIX.Context.Managed] public class Second { public static void RegistrationConfigurator(HELIX.Context.RegistrationEntry entry) { } } }");
+    Assert.Empty(first.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Empty(second.OutputDiagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    Assert.Contains("global::Feature.First.RegistrationConfigurator", Assert.Single(first.Generated).SourceText.ToString());
+    var source = Assert.Single(second.Generated).SourceText.ToString();
+    Assert.Contains("global::Feature.Second.RegistrationConfigurator", source);
+    Assert.DoesNotContain("Feature.First", source);
+  }
+
   [Fact]
   public void ApplicationModuleDiscoversOnlyExactComponentsAndExposesFactory() {
     var result = Run(
       Runtime +
       """
       namespace Feature {
-        [HELIX.Mixable, HELIX.Context.Managed]
-        public partial class Component { }
+        [HELIX.Context.Managed]
+        public partial class Component { public static void RegistrationConfigurator(HELIX.Context.RegistrationEntry entry) { } }
 
         [HELIX.Mixable, HELIX.Context.Service]
         public partial class Service { }
@@ -55,8 +68,8 @@ public sealed class ComponentDiscoveryGeneratorTests {
       Runtime +
       """
       namespace Feature {
-        [HELIX.Mixable, HELIX.Context.Managed]
-        public partial class Component { }
+        [HELIX.Context.Managed]
+        public partial class Component { public static void RegistrationConfigurator(HELIX.Context.RegistrationEntry entry) { } }
 
         [HELIX.Mixable, HELIX.Context.HelixModule(filter: "Feature")]
         public partial class FeatureModule { }
@@ -98,23 +111,30 @@ public sealed class ComponentDiscoveryGeneratorTests {
       PlatformReferences,
       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
     );
-    GeneratorDriver driver = MixinTestDriver.Create(
-      compilation,
+    GeneratorDriver driver = CSharpGeneratorDriver.Create(
       new ISourceGenerator[] {
-        new MixinGenerator().AsSourceGenerator(),
-        new ComponentDiscoveryGenerator().AsSourceGenerator()
-      }
+        new MixinGenerator().AsSourceGenerator()
+      },
+      new[] {new LibraryText()},
+      (CSharpParseOptions)compilation.SyntaxTrees.First().Options
     );
     driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
     var run = driver.GetRunResult();
     var generated = run.Results.SelectMany(item => item.GeneratedSources)
-      .Where(item => item.HintName.Contains("helix-"))
+      .Where(item => item.HintName.Contains("Application") || item.HintName.Contains("FeatureModule"))
       .ToImmutableArray();
     return new TestResult(
       generated,
       diagnostics.AddRange(run.Diagnostics),
       output.GetDiagnostics()
     );
+  }
+
+  private sealed class LibraryText : AdditionalText {
+    public override string Path => System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory,
+      "../../../../../../HELIX/Assets/Mixins/Context.HelixSourceGenerator.additionalfile"));
+    public override Microsoft.CodeAnalysis.Text.SourceText GetText(System.Threading.CancellationToken cancellationToken = default) =>
+      Microsoft.CodeAnalysis.Text.SourceText.From(File.ReadAllText(Path));
   }
 
   private sealed record TestResult(
@@ -150,11 +170,6 @@ public sealed class ComponentDiscoveryGeneratorTests {
                                    public sealed class HelixApplicationAttribute : Attribute {
                                      public HelixApplicationAttribute(string name = null, string filter = null, Type[] import = null) { }
                                    }
-                                   [HELIX.MixinExpression(
-                                     new[] { "^*~HELIX.Context.RegistrationConfigurator" },
-                                     new[] { -100000 },
-                                     "@CODE<^*~HELIX.Context.RegistrationConfigurator> registration.ToString();"
-                                   )]
                                    [AttributeUsage(AttributeTargets.Class)]
                                    public sealed class ManagedAttribute : Attribute { }
                                    [AttributeUsage(AttributeTargets.Class)]

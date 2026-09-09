@@ -20,7 +20,7 @@ public static class FunctionLibrary {
       new MakeGenericFunction(), new VisibilityFunction(), new UnwrapFunction(),
       new IdentifierFunction(), new FloatTimeFunction(), new AttributesFunction(),
       new AttributesOfFunction(), new AttributesOfExactFunction(), new AttributeOfFunction(),
-      new WireFunction(), new SignatureFunction(), new WireableFunction(), new IsTypeFunction(),
+      new CollectAnnotatedTypesFunction(), new NamespaceFunction(), new TraitFunction("accessible"), new WireFunction(), new SignatureFunction(), new WireableFunction(), new IsTypeFunction(),
       new HasMemberFunction(), new TraitFunction("isSelf"), new TraitFunction("ref"), new TraitFunction("in"),
       new TraitFunction("out"), new TraitFunction("inout"), new TraitFunction("argument"),
       new TraitFunction("static"), new TraitFunction("async"), new TraitFunction("public"),

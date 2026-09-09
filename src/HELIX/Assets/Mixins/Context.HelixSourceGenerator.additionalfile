@@ -231,3 +231,51 @@ mixin HELIX.Context.TickerAttribute {
     inject(attr#target:unwrap, attr#order:number) @> if ({{local#TickerCondition}}) {{local#InvokeTicker}}
   }
 }
+
+// Module discovery is generated from compilation symbols, without runtime reflection.
+func ModuleComponentRegistration sig symbol -> string {
+  when(or(!class(param), generic(param), !accessible(param))) { return(<>) }
+  local ns = namespace(param)
+  when(var#ModuleFilter:exists, !eq(var#ModuleFilter, <>),
+       !eq(local#ns, var#ModuleFilter), !startsWith(local#ns, <[var#ModuleFilter].>)) { return(<>) }
+  local code @> registrations.Register(typeof({{param}}), {{param}}.RegistrationConfigurator);
+  return(local#code)
+}
+
+pure func ModuleImportRegistration {
+  local code @> global::{{param}}.Instance.Discover(registrations);
+  return(local#code)
+}
+
+func ConfigureModule do {
+  when(generic(this)) { return }
+  var ModuleFilter = unwrap(attr#filter)
+  local imports = unwrap(attr#import)
+  when(!exists(local#imports)) { local imports = @[] }
+  local importCode = join(map(local#imports, ModuleImportRegistration), <>)
+  local registrations = join(map(collectAnnotatedTypes<HELIX.Context.ManagedAttribute>, ModuleComponentRegistration), <>)
+  emit<Implements> @> global::HELIX.Context.IHelixModule
+  emit<Class>
+    @> public static readonly {{this:type}} Instance = new {{this:type}}();
+    @> public void Discover(global::HELIX.Context.ManagedRegistrations registrations) {
+    @> {{local#importCode}}
+    @> {{local#registrations}}
+    @> }
+}
+
+mixin HELIX.Context.HelixModuleAttribute {
+  prelude expression { ConfigureModule() }
+}
+
+mixin HELIX.Context.HelixApplicationAttribute {
+  prelude expression {
+    ConfigureModule()
+    when(generic(this)) { return }
+    emit<Class>
+      @> public static global::HELIX.Context.ManagedRegistrations Discover() {
+      @> var registrations = new global::HELIX.Context.ManagedRegistrations();
+      @> Instance.Discover(registrations);
+      @> return registrations;
+      @> }
+  }
+}

@@ -38,3 +38,22 @@ internal sealed class WireableFunction() : EvaluatedFunctionDefinition("wireable
     );
   }
 }
+
+internal sealed class CollectAnnotatedTypesFunction() : FunctionDefinition("collectAnnotatedTypes", [
+  new(MixinValueKind.Tuple, [MixinValueKind.String])
+]) {
+  public override bool HasEffects => true;
+  public override IReadOnlyList<int> CSharpTypeArguments => new[] {0};
+  internal override IMixinValue Execute(LanguageExecution execution, IMixinValue[] arguments, int line) =>
+    execution.IsPrelude && execution.Context is RoslynMixinContext context
+      ? context.CollectAnnotatedTypes(arguments[0].Render(context).Resolve(context.Strings))
+      : execution.Context.Error("collectAnnotatedTypes requires the Roslyn prelude host");
+}
+
+internal sealed class NamespaceFunction() : EvaluatedFunctionDefinition("namespace", 0,
+  MixinValueKind.Symbol, MixinValueKind.String) {
+  protected override IMixinValue Apply(ExecutionContext context, IMixinValue value, IReadOnlyList<IMixinValue> arguments) =>
+    value is RoslynMixinValue symbol && RoslynMixinContext.TypeOf(symbol.Value) is { } type
+      ? new LiteralMixinValue(context.ResolveString(type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString()))
+      : context.Error("namespace requires a type symbol");
+}

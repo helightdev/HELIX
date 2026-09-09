@@ -13,7 +13,7 @@ using Mixins.Roslyn;
 namespace Mixins.Runtime;
 
 /// <summary>Roslyn host services for an already lowered mixin program.</summary>
-internal sealed class RoslynMixinContext : ExecutionContext {
+internal sealed partial class RoslynMixinContext : ExecutionContext {
   private readonly AttributeData _attribute;
   private readonly RoslynValueCache _attributeValues;
   private readonly MixinValueDictionary _committedTargetVariables;

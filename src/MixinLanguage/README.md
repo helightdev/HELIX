@@ -3,6 +3,18 @@
 This project contains the reusable mixin parser, compiler, virtual machine, table/text functions, additional-file
 catalog, and Roslyn semantic execution support.
 
+The Roslyn prelude function `collectAnnotatedTypes(<Namespace.AttributeType>)` returns a tuple
+of type symbols declared in the current compilation with that exact attribute, including nested
+types. Referenced assemblies and inherited/derived attribute matches are excluded; repeated
+attributes or partial declarations do not duplicate results. Results are ordered by fully qualified
+type name and cached per compilation. Unknown attribute types report a language error.
+Use `namespace(symbol)`, `accessible(symbol)`, and `generic(symbol)` to filter those symbols;
+`generic` also recognizes types nested inside generic declarations.
+
+`Context.HelixSourceGenerator.additionalfile` implements module and application discovery using
+this query. Module imports, namespace filtering, registration code, and application factories are
+mixin-owned; there is no separate component discovery generator.
+
 Its public namespace root is `Mixins`; compiler syntax and lowering APIs use `Mixins.Compiler`. Only the
 source-generator entry points retain the `HelixSourceGenerator` namespace.
 

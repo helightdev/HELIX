@@ -52,7 +52,8 @@ internal sealed class TraitFunction(string name) : EvaluatedFunctionDefinition(n
         "exposed" => symbol?.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal
           or Accessibility.ProtectedOrInternal,
         "top" => type?.ContainingType is null,
-        "generic" => type is INamedTypeSymbol { Arity: > 0 },
+        "generic" => type is INamedTypeSymbol namedType && GeneratorAnalysis.HasTypeParameters(namedType),
+        "accessible" => context is RoslynMixinContext access && symbol != null && access.IsAccessible(symbol),
         "struct" => type?.TypeKind == TypeKind.Struct,
         "class" => type?.IsReferenceType == true,
         "concrete" => type is not { TypeKind: TypeKind.Interface } && type?.IsAbstract != true,

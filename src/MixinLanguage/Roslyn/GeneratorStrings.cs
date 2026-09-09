@@ -64,5 +64,7 @@ internal static class GeneratorStrings {
 }
 
 internal static class MixinGeneratorCandidates {
-  internal static readonly string[] AttributeMetadataNames = [GeneratorStrings.Attributes.Mixable];
+  internal static readonly string[] AttributeMetadataNames = [
+    GeneratorStrings.Attributes.Mixable, GeneratorStrings.Attributes.HelixModule, GeneratorStrings.Attributes.HelixApplication
+  ];
 }
