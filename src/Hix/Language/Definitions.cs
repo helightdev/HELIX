@@ -25,18 +25,6 @@ public enum HixExpressionRoot {
   Parameter
 }
 
-public enum HixEmissionTarget {
-  Target,
-  Class,
-  File,
-  Extends,
-  Implements,
-  Injection,
-  Annotation,
-  Using,
-  Mixin
-}
-
 public readonly record struct HixSourceLocation(int Program, int Line);
 
 
@@ -58,7 +46,7 @@ public sealed class FunctionSignatureRegistry {
   private readonly IReadOnlyDictionary<string, FunctionDefinition[]> _definitions;
   private readonly FunctionDefinition[] _all;
 
-  internal FunctionSignatureRegistry(IEnumerable<FunctionDefinition> definitions) {
+  public FunctionSignatureRegistry(IEnumerable<FunctionDefinition> definitions) {
     _all = definitions.ToArray();
     _definitions = _all.GroupBy(definition => definition.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group
@@ -79,7 +67,7 @@ public sealed class FunctionSignatureRegistry {
   public IEnumerable<FunctionDefinition> Enumerate() => _all;
 }
 
-internal delegate IHixValue InlineFunction(LanguageExecution execution, IHixValue[] arguments);
+public delegate IHixValue InlineFunction(HixThread execution, IHixValue[] arguments);
 
 public sealed class FunctionSignatureRegistryBuilder {
   private readonly List<FunctionDefinition> _definitions = [];
@@ -95,7 +83,7 @@ public sealed class FunctionSignatureRegistryBuilder {
   }
 }
 
-internal sealed class SimpleFunction(
+public sealed class SimpleFunction(
   string name,
   IReadOnlyList<FunctionSignature> signatures,
   InlineFunction implementation,
@@ -106,7 +94,7 @@ internal sealed class SimpleFunction(
   public override bool HasEffects => effects;
   public override bool RequiresPrelude => requiresPrelude;
   public override bool AcceptsErrors => acceptsErrors;
-  public override IHixValue Execute(HixExecutionContext invocation, IHixValue[] arguments, int line) { var execution = invocation.Execution; return implementation(execution, arguments); }
+  public override IHixValue Execute(HixThread execution, IHixValue[] arguments, int line) { return implementation(execution, arguments); }
 }
 
 public abstract class FunctionDefinition {
@@ -166,12 +154,12 @@ public abstract class FunctionDefinition {
   public virtual bool AcceptsErrors => false;
   public virtual IReadOnlyDictionary<int, string> ArgumentReferences => new Dictionary<int, string>();
   public virtual bool RequiresPrelude => false;
-  internal bool MatchesValues(IHixValue[] values) {
+  public bool MatchesValues(IHixValue[] values) {
     return Signatures.Any(signature => signature.MatchesArgumentCount(values.Length) &&
       values.Select((value, index) => signature.GetArgumentType(index) is var expected &&
         (expected == HixValueKind.Any || value.Kind == expected)).All(match => match));
   }
-  internal bool TryConvertValues(LanguageExecution execution, IHixValue[] values,
+  public bool TryConvertValues(HixThread execution, IHixValue[] values,
     out IHixValue[] converted, out int conversionCount) {
     converted = null;
     conversionCount = int.MaxValue;
@@ -197,7 +185,7 @@ public abstract class FunctionDefinition {
     }
     return converted != null;
   }
-  internal static bool TryConvertValues(LanguageExecution execution, FunctionSignature signature, IHixValue[] values,
+  public static bool TryConvertValues(HixThread execution, FunctionSignature signature, IHixValue[] values,
     out IHixValue[] converted) {
     converted = values;
     if (!signature.MatchesArgumentCount(values.Length)) return false;
@@ -210,7 +198,7 @@ public abstract class FunctionDefinition {
     }
     return true;
   }
-  public abstract IHixValue Execute(HixExecutionContext context, IHixValue[] arguments, int line);
+  public abstract IHixValue Execute(HixThread context, IHixValue[] arguments, int line);
 }
 
 public abstract class EvaluatedFunctionDefinition(
@@ -225,9 +213,8 @@ public abstract class EvaluatedFunctionDefinition(
   "Transforms the current value.", variadic
 ) {
 
-  public sealed override IHixValue Execute(HixExecutionContext invocation, IHixValue[] supplied, int line) {
-    var execution = invocation.Execution;
-    var context = execution.Context;
+  public sealed override IHixValue Execute(HixThread execution, IHixValue[] supplied, int line) {
+    var context = execution;
     var instance = supplied[0];
     IReadOnlyList<IHixValue> arguments = supplied.Skip(1).ToArray();
     using var profile = HixProfiler.MeasureFunction(Name);
@@ -244,10 +231,10 @@ public abstract class EvaluatedFunctionDefinition(
     return result;
   }
 
-  protected virtual IHixValue EvaluateValue(HixExecutionContext context, IHixValue value, IReadOnlyList<IHixValue> arguments) => Apply(context, value, arguments);
+  protected virtual IHixValue EvaluateValue(HixThread context, IHixValue value, IReadOnlyList<IHixValue> arguments) => Apply(context, value, arguments);
 
   protected abstract IHixValue Apply(
-    HixExecutionContext context, IHixValue value,
+    HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   );
 }

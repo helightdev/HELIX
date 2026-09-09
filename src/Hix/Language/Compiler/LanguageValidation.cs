@@ -4,8 +4,8 @@ using System.Linq;
 
 namespace Hix.Compiler;
 
-internal static class LanguageValidation {
-  internal static void Validate(IReadOnlyList<HixAst> declarations, List<HixParseDiagnostic> diagnostics, HixBackend backend = null) {
+public static class LanguageValidation {
+  public static void Validate(IReadOnlyList<HixAst> declarations, List<HixParseDiagnostic> diagnostics, HixBackend backend = null) {
     backend ??= HixCoreBackend.Instance;
     void Error(HixAst node, string message) => diagnostics.Add(new HixParseDiagnostic(node.Line, message));
     var patterns = declarations.OfType<TypeDeclarationAst>().GroupBy(type => type.Name, StringComparer.Ordinal)

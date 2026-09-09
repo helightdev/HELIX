@@ -5,8 +5,8 @@ using System.Linq;
 
 namespace Hix.Compiler.Steps;
 
-internal sealed class InlineExpansionStep : HixCompilerStep {
-  internal override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
+public sealed class InlineExpansionStep : HixCompilerStep {
+  public override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
     var functions = input.Functions.Concat(globals.Functions)
       .GroupBy(function => function.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);

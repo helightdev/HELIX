@@ -13,7 +13,7 @@ using Hix.Roslyn;
 namespace Hix.Runtime;
 
 /// <summary>Roslyn host services for an already lowered mixin program.</summary>
-public partial class HixRoslynContext : HixExecutionContext {
+public partial class HixRoslynContext : HixContext {
   private readonly AttributeData _attribute;
   private readonly RoslynValueCache _attributeValues;
   private readonly HixValueDictionary _committedTargetVariables;
@@ -25,7 +25,7 @@ public partial class HixRoslynContext : HixExecutionContext {
   private readonly Dictionary<object, RoslynValueCache> _valueOwners =
     new(RoslynValueOwnerComparer.Instance);
 
-  internal HixRoslynContext(
+  public HixRoslynContext(
     INamedTypeSymbol thisType, ISymbol target, AttributeData attribute,
     CSharpCompilation compilation,
     HixExpressionPreparedState preparedExpressions = null,
@@ -41,58 +41,29 @@ public partial class HixRoslynContext : HixExecutionContext {
     _targetValues = hostValues.ForTarget(target);
     _attributeValues = hostValues.ForAttribute(attribute);
     _committedTargetVariables = hostValues.TargetVariables(target);
-    foreach (var item in _committedTargetVariables) {
-      TargetVariables.StoreIsolated(
-        ResolveString(item.Key.DynamicValue ?? ""), AttachTargetValue(item.Value)
-      );
-    }
+    TargetVariables.ReplaceWith(_committedTargetVariables);
   }
 
-  internal INamedTypeSymbol CurrentType { get; }
+  public INamedTypeSymbol CurrentType { get; }
 
-  internal void CommitTargetVariables() {
-    _committedTargetVariables.ReplaceWith(
-      TargetVariables.Select(item =>
-        new KeyValuePair<HixString, IHixValue>(
-          HixString.Dynamic(item.Key.Resolve(Strings)), DetachValue(item.Value)
-        )
-      )
-    );
-  }
+  public void CommitTargetVariables() => _committedTargetVariables.ReplaceWith(TargetVariables);
 
-  private IHixValue AttachTargetValue(IHixValue value) {
-    return value switch {
-      TupleHixValue tuple => tuple.Transform(AttachTargetValue),
-      LiteralHixValue literal when !literal.Value.IsInterned => literal,
-      LiteralHixValue literal => new LiteralHixValue(
-        ResolveString(literal.Value.DynamicValue ?? literal.Value.Resolve(Strings))
-      ),
-      HixTableValue table => new HixTableValue(
-        table.Entries.Select(item =>
-          new KeyValuePair<HixString, IHixValue>(
-            ResolveString(item.Key.DynamicValue ?? item.Key.Resolve(Strings)), AttachTargetValue(item.Value)
-          )
-        ).ToArray()
-      ),
-      _ => value
-    };
-  }
 
-  internal bool TryGetDerived(RoslynHixValue source, string key, out IHixValue value) {
+  public bool TryGetDerived(RoslynHixValue source, string key, out IHixValue value) {
     if (!_valueOwners.TryGetValue(source.Value, out var cache)) cache = _targetValues;
     if (!cache.TryGetDerived(source.Value, key, out value)) return false;
     RegisterOwner(value, cache);
     return true;
   }
 
-  internal void StoreDerived(RoslynHixValue source, string key, IHixValue value) {
+  public void StoreDerived(RoslynHixValue source, string key, IHixValue value) {
     if (!_valueOwners.TryGetValue(source.Value, out var cache)) cache = _targetValues;
     cache.StoreDerived(source.Value, key, value);
     RegisterOwner(value, cache);
   }
 
-  internal IHixValue SelectValue(RoslynHixValue source, HixString member) {
-    var name = member.Resolve(Strings);
+  public IHixValue SelectValue(HixThread thread, RoslynHixValue source, HixString member) {
+    var name = member.Resolve(thread.Strings);
     var key = "#" + name;
     if (TryGetDerived(source, key, out var cached)) return cached;
     var selected = SelectMember(source.Value, name);
@@ -115,10 +86,10 @@ public partial class HixRoslynContext : HixExecutionContext {
     }
   }
 
-  internal IMethodSymbol Callable(IHixValue value) {
-    value = Evaluate(value);
+  public IMethodSymbol Callable(HixThread thread, IHixValue value) {
+    value = thread.Evaluate(value);
     if (value is RoslynHixValue { Value: IMethodSymbol method }) return method;
-    var text = value.Render(this).Resolve(Strings);
+    var text = value.Render(thread).Resolve(thread.Strings);
     if (ResolveType(text) is INamedTypeSymbol { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke })
       return invoke;
     var methodName = text.Substring(text.LastIndexOf('.') + 1);
@@ -126,26 +97,26 @@ public partial class HixRoslynContext : HixExecutionContext {
     return methods.Length == 1 ? methods[0] : null;
   }
 
-  internal HixString NameOfService(IHixValue value) {
+  public HixString NameOfService(HixThread thread, IHixValue value) {
     return value is RoslynHixValue roslyn
-      ? ResolveString(
+      ? thread.ResolveString(
         (roslyn.Value as ISymbol)?.Name ??
         (roslyn.Value as AttributeData)?.AttributeClass?.Name ?? ComparableText(roslyn.Value)
       )
       : value is DetachedSemanticHixValue detached
         ? detached.TypeName
-        : value.Render(this);
+        : value.Render(thread);
   }
 
-  internal bool IsTypeService(IHixValue value, HixString requested) {
+  public bool IsTypeService(HixThread thread, IHixValue value, HixString requested) {
     using var profile = HixProfiler.Measure("roslyn.is_type");
     if (value is DetachedSemanticHixValue detached) {
-      var expected = requested.Resolve(Strings).Replace("global::", "");
-      var candidate = detached.Render(this).Resolve(Strings);
-      return candidate == expected || detached.TypeName.Resolve(Strings) == expected;
+      var expected = requested.Resolve(thread.Strings).Replace("global::", "");
+      var candidate = detached.Render(thread).Resolve(thread.Strings);
+      return candidate == expected || detached.TypeName.Resolve(thread.Strings) == expected;
     }
     if (value is not RoslynHixValue roslyn || TypeOf(roslyn.Value) is not INamedTypeSymbol type) return false;
-    var name = requested.Resolve(Strings).Replace("global::", "");
+    var name = requested.Resolve(thread.Strings).Replace("global::", "");
 
     if (MatchesTypeName(type, name)) return true;
     for (var current = type.BaseType; current is not null; current = current.BaseType) {
@@ -160,26 +131,26 @@ public partial class HixRoslynContext : HixExecutionContext {
     candidate.Name == name || candidate.ToDisplayString() == name ||
     candidate.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal) == name);
 
-  internal bool HasTraitService(IHixValue value, HixString requested) {
+  public bool HasTraitService(HixThread thread, IHixValue value, HixString requested) {
     using var profile = HixProfiler.Measure("roslyn.has_trait");
-    var name = requested.Resolve(Strings);
+    var name = requested.Resolve(thread.Strings);
     if (value is DetachedSemanticHixValue) return false;
     return value is RoslynHixValue roslyn && SemanticTraits(roslyn.Value).Contains(name, StringComparer.Ordinal);
   }
 
-  internal object UnlinkSemanticSnapshot(IHixValue value) {
-    if (value is not RoslynHixValue roslyn) return value.Unlink(this);
+  public object UnlinkSemanticSnapshot(HixThread thread, IHixValue value) {
+    if (value is not RoslynHixValue roslyn) return value.Unlink(thread);
     if (!_valueOwners.TryGetValue(roslyn.Value, out var cache)) cache = _targetValues;
-    return cache.Snapshot(roslyn, () => roslyn.Unlink(this));
+    return cache.Snapshot(roslyn, () => roslyn.Unlink(thread));
   }
 
-  internal IHixValue DetachSemanticValue(IHixValue value) {
-    value = Evaluate(value);
+  public IHixValue DetachSemanticValue(HixThread thread, IHixValue value) {
+    value = thread.Evaluate(value);
     if (value is RoslynHixValue roslyn) {
-      var detached = UnlinkSnapshot(roslyn);
+      var detached = thread.UnlinkSnapshot(roslyn);
       return detached is DetachedSemanticData semantic
         ? DetachedSemanticHixValue.Materialize(semantic)
-        : base.DetachCore(
+        : thread.DetachCore(
           detached switch {
             IHixValue typed => typed,
             null => NullHixValue.Instance,
@@ -189,10 +160,10 @@ public partial class HixRoslynContext : HixExecutionContext {
           }
         );
     }
-    return base.DetachCore(value);
+    return thread.DetachCore(value);
   }
 
-  internal static IReadOnlyList<string> SemanticTraits(object value) {
+  public static IReadOnlyList<string> SemanticTraits(object value) {
     using var profile = HixProfiler.Measure("roslyn.semantic_traits");
     var result = new List<string>();
     var type = TypeOf(value);
@@ -217,7 +188,7 @@ public partial class HixRoslynContext : HixExecutionContext {
     return result;
   }
 
-  internal IHixValue UnwrapService(IHixValue value) {
+  public IHixValue UnwrapService(HixThread thread, IHixValue value) {
     using var profile = HixProfiler.Measure("roslyn.unwrap");
     switch (value) {
       // Defaults recovered from a referenced attribute declaration are CLR constants rather
@@ -228,11 +199,11 @@ public partial class HixRoslynContext : HixExecutionContext {
       case RoslynHixValue { Value: bool boolean }:
         return boolean ? BooleanHixValue.True : BooleanHixValue.False;
       case RoslynHixValue { Value: string text }:
-        return new LiteralHixValue(ResolveString(text));
+        return new LiteralHixValue(thread.ResolveString(text));
       case RoslynHixValue { Value: char character }:
-        return new LiteralHixValue(ResolveString(character.ToString()));
+        return new LiteralHixValue(thread.ResolveString(character.ToString()));
       case RoslynHixValue { Value: ITypeSymbol type }:
-        return new LiteralHixValue(ResolveString(type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal)));
+        return new LiteralHixValue(thread.ResolveString(type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal)));
       case RoslynHixValue { Value: byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal } scalar:
         return new NumberHixValue(Convert.ToDouble(scalar.Value, CultureInfo.InvariantCulture));
       case RoslynHixValue { Value: TypedConstant constant }
@@ -240,26 +211,26 @@ public partial class HixRoslynContext : HixExecutionContext {
         return NullHixValue.Instance;
       case RoslynHixValue { Value: TypedConstant constant }:
         if (constant.Kind == TypedConstantKind.Array)
-          return new TupleHixValue(constant.Values.Select(item => Unwrap(new RoslynHixValue(item))).ToArray());
+          return new TupleHixValue(constant.Values.Select(item => thread.Unwrap(new RoslynHixValue(item))).ToArray());
         return constant.Value switch {
           bool boolean => boolean ? BooleanHixValue.True : BooleanHixValue.False,
-          string text => new LiteralHixValue(ResolveString(text)),
-          char character => new LiteralHixValue(ResolveString(character.ToString())),
-          ITypeSymbol type => new LiteralHixValue(ResolveString(type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal))),
+          string text => new LiteralHixValue(thread.ResolveString(text)),
+          char character => new LiteralHixValue(thread.ResolveString(character.ToString())),
+          ITypeSymbol type => new LiteralHixValue(thread.ResolveString(type.ToDisplayString(GeneratorAnalysis.TypeDisplayFormatWithoutGlobal))),
           byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal =>
             new NumberHixValue(Convert.ToDouble(constant.Value, CultureInfo.InvariantCulture)),
-          _ => Error("unsupported host constant")
+          _ => thread.Error("unsupported host constant")
         };
-      case DetachedSemanticHixValue detached: return new LiteralHixValue(detached.Render(this));
+      case DetachedSemanticHixValue detached: return new LiteralHixValue(detached.Render(thread));
       default: return value;
     }
   }
 
-  internal IHixValue AttributesService(IHixValue value, HixString requested, bool exact, bool first) {
+  public IHixValue AttributesService(HixThread thread, IHixValue value, HixString requested, bool exact, bool first) {
     using var profile = HixProfiler.Measure("roslyn.attributes");
     if (value is not RoslynHixValue roslyn) return first ? NullHixValue.Instance : TupleHixValue.Empty;
     var expected = requested.IsInterned || requested.DynamicValue is not null
-      ? requested.Resolve(Strings)
+      ? requested.Resolve(thread.Strings)
       : null;
     var source = roslyn.Value switch {
       ISymbol symbol => symbol.GetAttributes(),
@@ -309,9 +280,9 @@ public partial class HixRoslynContext : HixExecutionContext {
     );
   }
 
-  internal IHixValue ResolveHostService(HixExpressionRoot root, HixString member) {
+  public IHixValue ResolveHostService(HixThread thread, HixExpressionRoot root, HixString member) {
     using var profile = HixProfiler.Measure("roslyn.resolve_host");
-    var memberName = member.Resolve(Strings);
+    var memberName = member.Resolve(thread.Strings);
     var name = memberName;
     var cache = root switch {
       HixExpressionRoot.This => _thisValues,
@@ -331,7 +302,7 @@ public partial class HixRoslynContext : HixExecutionContext {
     };
     IHixValue result;
     if (value is null) {
-      result = Error("@" + root.ToString().ToLowerInvariant() + " is not available in this context");
+      result = thread.Error("@" + root.ToString().ToLowerInvariant() + " is not available in this context");
     } else {
       if (!string.IsNullOrEmpty(name)) value = SelectMember(value, name);
       result = value is null or TypedConstant {IsNull: true} ? NullHixValue.Instance : new RoslynHixValue(value, root);
@@ -341,7 +312,7 @@ public partial class HixRoslynContext : HixExecutionContext {
     return result;
   }
 
-  internal object SelectMember(object subject, string name) {
+  public object SelectMember(object subject, string name) {
     using var profile = HixProfiler.Measure("roslyn.select_member");
     switch (subject) {
       case AttributeData attribute: {
@@ -451,7 +422,7 @@ public partial class HixRoslynContext : HixExecutionContext {
     return false;
   }
 
-  internal ITypeSymbol ResolveType(string name) {
+  public ITypeSymbol ResolveType(string name) {
     using var profile = HixProfiler.Measure("roslyn.resolve_type");
     var normalized = (name ?? "").Replace("global::", "");
     var direct = _compilation?.GetTypeByMetadataName(normalized);
@@ -461,18 +432,18 @@ public partial class HixRoslynContext : HixExecutionContext {
       .FirstOrDefault(item => item.ToDisplayString() == normalized);
   }
 
-  internal static IEnumerable<IMethodSymbol> MethodsInHierarchy(INamedTypeSymbol type, string name) {
+  public static IEnumerable<IMethodSymbol> MethodsInHierarchy(INamedTypeSymbol type, string name) {
     for (var current = type; current is not null; current = current.BaseType) {
       foreach (var method in current.GetMembers(name ?? "").OfType<IMethodSymbol>())
         yield return method;
     }
   }
 
-  internal static string CallableReference(IMethodSymbol method) {
+  public static string CallableReference(IMethodSymbol method) {
     return method.ContainingType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat) + "." + method.Name;
   }
 
-  internal static bool SameSignature(IMethodSymbol first, IMethodSymbol second) {
+  public static bool SameSignature(IMethodSymbol first, IMethodSymbol second) {
     if (first is null || second is null || first.Parameters.Length != second.Parameters.Length ||
       first.RefKind != second.RefKind) return false;
     for (var i = 0; i < first.Parameters.Length; i++) {
@@ -483,7 +454,7 @@ public partial class HixRoslynContext : HixExecutionContext {
     return true;
   }
 
-  internal static bool TryWireParameters(IMethodSymbol from, IMethodSymbol to, out string arguments) {
+  public static bool TryWireParameters(IMethodSymbol from, IMethodSymbol to, out string arguments) {
     arguments = null;
     if (from is null || to is null || to.Parameters.Length > from.Parameters.Length) return false;
     var result = new string[to.Parameters.Length];
@@ -501,7 +472,7 @@ public partial class HixRoslynContext : HixExecutionContext {
     return true;
   }
 
-  internal static ITypeSymbol TypeOf(object value) {
+  public static ITypeSymbol TypeOf(object value) {
     return value switch {
       ITypeSymbol type => type,
       IMethodSymbol method => method.ReturnType,
@@ -516,7 +487,7 @@ public partial class HixRoslynContext : HixExecutionContext {
     };
   }
 
-  internal static string ComparableText(object value) {
+  public static string ComparableText(object value) {
     using var profile = HixProfiler.Measure("roslyn.comparable_text");
     if (value is TypedConstant constant) value = constant.Value;
     return value switch {
@@ -530,7 +501,7 @@ public partial class HixRoslynContext : HixExecutionContext {
   }
 
   private sealed class RoslynValueOwnerComparer : IEqualityComparer<object> {
-    internal static readonly RoslynValueOwnerComparer Instance = new();
+    public static readonly RoslynValueOwnerComparer Instance = new();
 
     public new bool Equals(object x, object y) {
       return ReferenceEquals(x, y);

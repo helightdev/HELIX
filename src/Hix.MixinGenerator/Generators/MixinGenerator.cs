@@ -1,3 +1,4 @@
+using Hix.Mixins;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,7 +21,7 @@ using static Hix.Roslyn.GeneratorAnalysis;
 using static Hix.Roslyn.GeneratorDiagnostics.Mixins;
 using static Hix.Roslyn.GeneratorSource;
 using static Hix.Roslyn.GeneratorStrings;
-using HixExecutionContext = Hix.Runtime.HixExecutionContext;
+using HixThread = Hix.Runtime.HixThread;
 
 namespace HelixSourceGenerator.Generators;
 
@@ -170,7 +171,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       );
     }
     var contributions = new List<HixContribution>();
-    var attributeExpressionOutputs = new List<HixExpressionOutput>();
+    var attributeExpressionOutputs = new List<MixinOutput>();
     var expressionVariables = new Dictionary<string, object>(StringComparer.Ordinal);
     var hostValues = new RoslynHostExpressionCache();
     using (HixProfiler.Measure("generator.collect_contributions")) {
@@ -192,9 +193,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       methods = BuildMethods(context, target, contributions, candidate.Compilation);
     ReportContributionData(context, target, methods);
     var outputs = new ExpressionOutputs();
-    foreach (var output in contributions
-      .Where(contribution => contribution.ExpressionResult is not null)
-      .SelectMany(contribution => contribution.ExpressionResult.Outputs)) outputs.Add(output);
+    foreach (var contribution in contributions)
+      foreach (var output in contribution.Outputs) outputs.Add(output);
     foreach (var output in attributeExpressionOutputs) outputs.Add(output);
     if (methods.Count == 0 && !outputs.Any && !context.HasLateExpressions && context.DebugExpressions.Count == 0)
       return context.Complete();
@@ -226,7 +226,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     foreach (var diagnostic in model.Diagnostics) context.ReportDiagnostic(diagnostic.Create());
     foreach (var log in model.Logs) {
       context.ReportDiagnostic(
-        log.Location.Create(log.Log.IsHint ? ExpressionHint : ExpressionLog, log.Log.Text)
+        log.Location.Create(ExpressionLog, log.Log.Text.Resolve(log.Strings))
       );
     }
     foreach (var error in model.Errors) {
@@ -255,7 +255,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         group => new HixDebugFinalState(group.Last(), 0, 0),
         StringComparer.Ordinal
       );
-    var unlinkedContext = new UnlinkedHixExpressionContext(model.Render.StringPool);
+    var unlinkedContext = new HixThread(new UnlinkedHixContext(model.Render.StringPool));
     var sharedVariables = model.Render.PrimaryVariables.ToDictionary(
       item => item.Key.Resolve(model.Render.StringPool),
       item => item.Value.Unlink(unlinkedContext), StringComparer.Ordinal
@@ -265,11 +265,11 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       foreach (var item in sharedVariables) variables[item.Key] = item.Value;
       var result = HixVM.Execute(work.Program, unlinkedContext, variables, work.Carries);
       foreach (var log in result.Logs)
-        logs.Add(new HixReportedLog(log, work.Location));
+        logs.Add(new HixReportedLog(log, work.Location, result.Strings));
       if (!result.Success) {
         errors.Add(
           work.Provider + " on " + work.SourceType + "." + work.SourceMember + ", line " +
-          result.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + result.Error
+          result.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + result.Error.Resolve(result.Strings)
         );
         continue;
       }
@@ -280,16 +280,16 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         );
       }
       foreach (var item in variables) sharedVariables[item.Key] = item.Value;
-      foreach (var output in result.Outputs) {
+      foreach (var output in ((IMixinOutputContext)unlinkedContext.Context).Emissions.Outputs) {
         switch (output.Target) {
-          case HixEmissionTarget.Class: classCode.Add(output); break;
-          case HixEmissionTarget.File: fileCode.Add(output); break;
-          case HixEmissionTarget.Using:
+          case MixinEmissionTarget.Class: classCode.Add(output); break;
+          case MixinEmissionTarget.File: fileCode.Add(output); break;
+          case MixinEmissionTarget.Using:
             usings.Add(output); break;
-          case HixEmissionTarget.Extends or HixEmissionTarget.Implements:
+          case MixinEmissionTarget.Extends or MixinEmissionTarget.Implements:
             implements.Add(output); break;
-          case HixEmissionTarget.Annotation: annotations.Add(output); break;
-          case HixEmissionTarget.Target:
+          case MixinEmissionTarget.Annotation: annotations.Add(output); break;
+          case MixinEmissionTarget.Target:
             if (work.Targets.Length != 1) {
               errors.Add("@CODE<TARGET> requires exactly one declared target");
               break;
@@ -298,20 +298,20 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
               LateContribution(work.Targets[0], work.Targets[0].Order, output, work, lateSequence++)
             );
             break;
-          case HixEmissionTarget.Injection: {
+          case MixinEmissionTarget.Injection: {
             var target = work.Targets.FirstOrDefault(item =>
-              item.DeclaredTarget == output.InjectionTarget || item.EmittedTarget == output.InjectionTarget
+              item.DeclaredTarget == output.ResolveInjectionTarget() || item.EmittedTarget == output.ResolveInjectionTarget()
             );
-            if (target is null) errors.Add("late code target '" + output.InjectionTarget + "' was not declared");
+            if (target is null) errors.Add("late code target '" + output.ResolveInjectionTarget() + "' was not declared");
             else lateContributions.Add(LateContribution(target, target.Order, output, work, lateSequence++));
             break;
           }
-          case HixEmissionTarget.Mixin: {
+          case MixinEmissionTarget.Mixin: {
             var target = work.Targets.FirstOrDefault(item =>
-              item.DeclaredTarget == output.InjectionTarget || item.EmittedTarget == output.InjectionTarget
+              item.DeclaredTarget == output.ResolveInjectionTarget() || item.EmittedTarget == output.ResolveInjectionTarget()
             );
             if (target is null)
-              errors.Add("late mixin target '" + output.InjectionTarget + "' was not prepared by the Prelude");
+              errors.Add("late mixin target '" + output.ResolveInjectionTarget() + "' was not prepared by the Prelude");
             else {
               lateContributions.Add(
                 LateContribution(
@@ -348,14 +348,14 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     using (HixProfiler.Measure("generator.evaluate_late.render")) {
       source = model.Render.Wrapper.Build(
         [
-          .. usings.Select(item => NormalizeUsing(item.Text)).Distinct(StringComparer.Ordinal)
+          .. usings.Select(item => NormalizeUsing(item.ResolveText())).Distinct(StringComparer.Ordinal)
             .OrderBy(item => item, StringComparer.Ordinal)
         ],
         [
-          .. implements.OrderBy(item => item.Target == HixEmissionTarget.Extends ? 0 : 1)
-            .Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)
+          .. implements.OrderBy(item => item.Target == MixinEmissionTarget.Extends ? 0 : 1)
+            .Select(item => item.ResolveText().Trim()).Distinct(StringComparer.Ordinal)
         ],
-        [.. annotations.Select(item => item.Text.Trim()).Distinct(StringComparer.Ordinal)],
+        [.. annotations.Select(item => item.ResolveText().Trim()).Distinct(StringComparer.Ordinal)],
         builder => {
           for (var index = 0; index < methods.Length; index++) {
             AppendMethod(builder, methods[index]);
@@ -363,10 +363,10 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
           }
           foreach (var output in classCode) {
             if (methods.Length != 0) builder.BlankLine();
-            builder.AppendCode(output.Text);
+            builder.AppendCode(output.ResolveText());
           }
         }, builder => {
-          foreach (var output in fileCode) builder.AppendCode(output.Text);
+          foreach (var output in fileCode) builder.AppendCode(output.ResolveText());
         }
       );
     }
@@ -385,13 +385,11 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   }
 
   private static HixContribution LateContribution(
-    LateTarget target, int order, HixExpressionOutput output, LateExpressionWork work, int sequence
+    LateTarget target, int order, MixinOutput output, LateExpressionWork work, int sequence
   ) {
     return new HixContribution(
       target, order, sequence,
-      new HixExpressionResult(
-        true, null, 0, [output.Retarget(HixEmissionTarget.Target)]
-      ),
+      [output.Retarget(MixinEmissionTarget.Target)],
       work
     );
   }
@@ -402,7 +400,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     CSharpCompilation compilation,
     HixExpressionPreparedState preparedExpressions,
     IDictionary<string, object> expressionVariables,
-    ICollection<HixExpressionOutput> expressionOutputs,
+    ICollection<MixinOutput> expressionOutputs,
     ICollection<HixContribution> result,
     IReadOnlyDictionary<string, string> targetDefinitions,
     MixinLibraryCatalog libraries,
@@ -448,7 +446,7 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     CSharpCompilation compilation,
     HixExpressionPreparedState preparedExpressions,
     IDictionary<string, object> expressionVariables,
-    ICollection<HixExpressionOutput> expressionOutputs,
+    ICollection<MixinOutput> expressionOutputs,
     ICollection<HixContribution> contributions,
     ref int sequence,
     string providerName,
@@ -464,19 +462,22 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     var lateExpression = selectedProgram.Late;
 
     var expressionContext = HixMixinBackend.Instance.CreateContext(target, annotated, applied, compilation, targetDefinitions, preparedExpressions, hostValues);
-    var evaluated = HixVM.Execute(expression, expressionContext, expressionVariables);
-    ReportExpressionLogs(context, location, evaluated.Logs);
+    var expressionThread = new HixThread(expressionContext);
+    var evaluated = HixVM.Execute(expression, expressionThread, expressionVariables);
+    var exportedVariables = expressionThread.ExportVariables();
+    var exportedCarries = expressionThread.ExportCarries();
+    ReportExpressionLogs(context, location, evaluated.Logs, evaluated.Strings);
     if (!evaluated.Success) {
       ReportInvalidAttributeExpression(
         context, location, attributeName, annotated.Name,
-        "line " + evaluated.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + evaluated.Error
+        "line " + evaluated.ErrorLine.ToString(CultureInfo.InvariantCulture) + ": " + evaluated.Error.Resolve(evaluated.Strings)
       );
       return;
     }
     expressionContext.CommitTargetVariables();
     context.AddDebugExpression(
       selectedProgram.Prelude, selectedProgram.Late,
-      evaluated.Variables, evaluated.Carries,
+      exportedVariables, exportedCarries,
       providerName ?? attributeName, annotated, evaluated.ExecutedOperations,
       evaluated.ExecutionMilliseconds
     );
@@ -485,11 +486,11 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
         ?.ToDisplayString(TypeDisplayFormat) ?? "";
       var lateTargets = new List<LateTarget>();
       DiscoverLateHixTargets(
-        lateExpression, evaluated.Carries, targetDefinitions, lateTargets
+        selectedProgram.Targets, exportedCarries, targetDefinitions, lateTargets
       );
       context.AddLateExpression(
         lateExpression, selectedProgram.Prelude.Identity, selectedProgram.Late.Identity,
-        evaluated.Variables, evaluated.Carries,
+        exportedVariables, exportedCarries,
         lateTargets.Distinct().ToImmutableArray(), location,
         providerName ?? attributeName, sourceType,
         annotated is INamedTypeSymbol ? "" : annotated.MetadataName,
@@ -499,54 +500,52 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
     }
 
     // Validate every destination before publishing any output from this expression.
-    foreach (var output in evaluated.Outputs) {
-      if (output.Target == HixEmissionTarget.Mixin) {
-        var emitted = EmittedTarget(output.InjectionTarget, targetDefinitions);
+    foreach (var output in expressionContext.Emissions.Outputs) {
+      if (output.Target == MixinEmissionTarget.Mixin) {
+        var emitted = EmittedTarget(output.ResolveInjectionTarget(), targetDefinitions);
         if (!IsValidIdentifier(emitted)) {
           ReportInvalidAttributeExpression(
             context, location, attributeName, annotated.Name,
-            "mixin target '" + (output.InjectionTarget ?? "") + "' is not a valid mixin target"
+            "mixin target '" + (output.ResolveInjectionTarget() ?? "") + "' is not a valid mixin target"
           );
           return;
         }
         continue;
       }
-      if (output.Target is HixEmissionTarget.Injection or HixEmissionTarget.Class or
-        HixEmissionTarget.File or HixEmissionTarget.Extends or HixEmissionTarget.Implements or
-        HixEmissionTarget.Annotation or HixEmissionTarget.Using) continue;
+      if (output.Target is MixinEmissionTarget.Injection or MixinEmissionTarget.Class or
+        MixinEmissionTarget.File or MixinEmissionTarget.Extends or MixinEmissionTarget.Implements or
+        MixinEmissionTarget.Annotation or MixinEmissionTarget.Using) continue;
       ReportInvalidAttributeExpression(context, location, attributeName, annotated.Name,
         "output requires an explicit injection target");
       return;
     }
 
-    foreach (var output in evaluated.Outputs) {
+    foreach (var output in expressionContext.Emissions.Outputs) {
       if (output.IsEmpty) continue;
       switch (output.Target) {
-        case HixEmissionTarget.Mixin: {
-          var result = new HixExpressionResult(
-            true, null, 0, [output.Retarget(HixEmissionTarget.Target)]
-          );
+        case MixinEmissionTarget.Mixin: {
+          MixinOutput[] result = [output.Retarget(MixinEmissionTarget.Target)];
           contributions.Add(
             new HixContribution(
-              output.InjectionTarget, output.InjectionPriority,
+              output.ResolveInjectionTarget(), output.InjectionPriority,
               sequence++, targetDefinitions, result, providerName, annotated
             )
           );
           continue;
         }
-        case HixEmissionTarget.Injection:
+        case MixinEmissionTarget.Injection:
           contributions.Add(
             new HixContribution(
-              output.InjectionTarget, 0, sequence++, targetDefinitions,
-              new HixExpressionResult(true, null, 0, [output.Retarget(HixEmissionTarget.Target)]),
+              output.ResolveInjectionTarget(), 0, sequence++, targetDefinitions,
+              [output.Retarget(MixinEmissionTarget.Target)],
               providerName, annotated
             )
           );
           continue;
-        case HixEmissionTarget.Class or
-          HixEmissionTarget.File or HixEmissionTarget.Extends or
-          HixEmissionTarget.Implements or
-          HixEmissionTarget.Annotation or HixEmissionTarget.Using:
+        case MixinEmissionTarget.Class or
+          MixinEmissionTarget.File or MixinEmissionTarget.Extends or
+          MixinEmissionTarget.Implements or
+          MixinEmissionTarget.Annotation or MixinEmissionTarget.Using:
           expressionOutputs.Add(output);
           continue;
       }
@@ -554,12 +553,12 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   }
 
   private static void DiscoverLateHixTargets(
-    HixExpressionExecutionProgram program,
+    IReadOnlyList<MixinTargetReference> references,
     IReadOnlyDictionary<string, object> carries,
     IReadOnlyDictionary<string, string> targetDefinitions,
     ICollection<LateTarget> targets
   ) {
-    foreach (var target in program.LateTargets) {
+    foreach (var target in references) {
       string resolved = target.IsCarry
         ? carries.TryGetValue(target.Value, out var carried) ? Convert.ToString(carried, CultureInfo.InvariantCulture) : null
         : target.Value;
@@ -586,11 +585,11 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
   private static void ReportExpressionLogs(
     HixGenerationContext context,
     Location location,
-    IReadOnlyList<HixExpressionLog> logs
+    IReadOnlyList<HixLog> logs, HixStringPool strings
   ) {
     foreach (var log in logs) {
       context.ReportDiagnostic(
-        Diagnostic.Create(log.IsHint ? ExpressionHint : ExpressionLog, location, log.Text)
+        Diagnostic.Create(ExpressionLog, location, log.Text.Resolve(strings))
       );
     }
   }

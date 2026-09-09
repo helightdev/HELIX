@@ -8,13 +8,13 @@ using Hix.Runtime;
 
 namespace Hix.Functions;
 
-internal sealed class IdentifierFunction() : RoslynFunctionDefinition("identifier", 0,
+public sealed class IdentifierFunction() : RoslynFunctionDefinition("identifier", 0,
   HixValueKind.String, HixValueKind.String) {
   protected override IHixValue Apply(
-    HixExecutionContext context, IHixValue value, IReadOnlyList<IHixValue> arguments
+    HixThread context, IHixValue value, IReadOnlyList<IHixValue> arguments
   ) {
     return new LiteralHixValue(
-      HixExecutionContext.Dynamic(
+      HixString.Dynamic(
         GeneratorAnalysis.EscapeIdentifier(
           value.Render(context).Resolve(context.Strings)
         )
@@ -23,10 +23,10 @@ internal sealed class IdentifierFunction() : RoslynFunctionDefinition("identifie
   }
 }
 
-internal sealed class FloatTimeFunction() : RoslynFunctionDefinition("floatTime", 0,
+public sealed class FloatTimeFunction() : RoslynFunctionDefinition("floatTime", 0,
   HixValueKind.Any, HixValueKind.String) {
   protected override IHixValue Apply(
-    HixExecutionContext context, IHixValue value,
+    HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     var text = context.Unwrap(value).Render(context).Resolve(context.Strings);
@@ -64,7 +64,7 @@ internal sealed class FloatTimeFunction() : RoslynFunctionDefinition("floatTime"
       }
     }
     return new LiteralHixValue(
-      HixExecutionContext.Dynamic(
+      HixString.Dynamic(
         Math.Abs(seconds) <= 1e-6
           ? "-0f"
           : ((float)seconds).ToString("R", CultureInfo.InvariantCulture) + "f"

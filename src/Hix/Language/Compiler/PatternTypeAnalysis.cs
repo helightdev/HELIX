@@ -5,8 +5,8 @@ using System.Linq;
 namespace Hix.Compiler;
 
 /// <summary>Conservative flow analysis: locals and parameters are typed; shared variables remain any.</summary>
-internal static class PatternTypeAnalysis {
-  internal static void Validate(IReadOnlyList<HixAst> declarations, IReadOnlyDictionary<string, HixPattern> patterns,
+public static class PatternTypeAnalysis {
+  public static void Validate(IReadOnlyList<HixAst> declarations, IReadOnlyDictionary<string, HixPattern> patterns,
     ICollection<HixParseDiagnostic> diagnostics, HixBackend backend = null) {
     backend ??= HixCoreBackend.Instance;
     var functions = declarations.OfType<FunctionDeclarationAst>().GroupBy(value => value.Name, StringComparer.Ordinal)

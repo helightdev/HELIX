@@ -4,21 +4,21 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Hix.Runtime;
 using K = Hix.HixValueKind;
-using static Hix.Runtime.LanguageExecution;
+using static Hix.Runtime.HixThread;
 
 namespace Hix.Functions;
 
-internal static class Builtins {
-  internal static void Register(FunctionSignatureRegistryBuilder definitions) {
-    static IHixValue NumberResult(LanguageExecution execution, double value) =>
+public static class Builtins {
+  public static void Register(FunctionSignatureRegistryBuilder definitions) {
+    static IHixValue NumberResult(HixThread execution, double value) =>
       double.IsNaN(value) || double.IsInfinity(value)
-        ? execution.Context.Error("invalid numeric operation")
+        ? execution.Error("invalid numeric operation")
         : new NumberHixValue(value);
 
     foreach (var kind in KindDefinitions.Enumerate()) {
       definitions.Add(
         new SimpleFunction(
-          kind.Kind.Name,
+          kind.Kind.Name.Resolve(null),
           [new FunctionSignature(kind.ValueKind, []), new FunctionSignature(kind.ValueKind, [K.Any])],
           (execution, arguments) => arguments.Length == 0
             ? kind.New(execution)
@@ -59,7 +59,7 @@ internal static class Builtins {
       ),
       new SimpleFunction(
         "not", [new FunctionSignature(K.Bool, [K.Any])],
-        (e, a) => Bool(!a[0].IsTruthy(e.Context)), acceptsErrors: true
+        (e, a) => Bool(!a[0].IsTruthy(e)), acceptsErrors: true
       ),
       new SimpleFunction(
         "eq", [new FunctionSignature(K.Bool, [K.Any, K.Any])],
@@ -71,42 +71,24 @@ internal static class Builtins {
       ),
       new SimpleFunction(
         "and", [new FunctionSignature(K.Bool, [K.Any, K.Any, K.Any], true)],
-        (e, a) => Bool(a.All(value => value.IsTruthy(e.Context)))
+        (e, a) => Bool(a.All(value => value.IsTruthy(e)))
       ),
       new SimpleFunction(
         "or", [new FunctionSignature(K.Bool, [K.Any, K.Any, K.Any], true)],
-        (e, a) => Bool(a.Any(value => value.IsTruthy(e.Context)))
+        (e, a) => Bool(a.Any(value => value.IsTruthy(e)))
       ),
       new SimpleFunction(
         "assert", [new FunctionSignature(K.Null, [K.Any], true)],
-        (e, a) => a.All(value => value.IsTruthy(e.Context))
+        (e, a) => a.All(value => value.IsTruthy(e))
           ? NullHixValue.Instance
-          : e.Context.Error("assertion failed")
+          : e.Error("assertion failed")
       ),
       new SimpleFunction(
         "fail", [new FunctionSignature(K.Error, []), new FunctionSignature(K.Error, [K.Any])],
         (e, a) => {
           var rendered = a.Length == 1 ? e.RenderText(a[0]) : String("execution failed");
-          return rendered is ErrorHixValue ? rendered : e.Context.Error(e.Text(rendered));
+          return rendered is ErrorHixValue ? rendered : e.Error(e.Text(rendered));
         }
-      ),
-      new SimpleFunction(
-        "emit", [new FunctionSignature(K.Null, [K.Any]), new FunctionSignature(K.Null, [K.String, K.Any])],
-        (e, a) => {
-          var target = a.Length == 1 ? "TARGET" : e.Text(a[0]);
-          var rendered = e.RenderText(a[a.Length - 1]);
-          if (rendered is ErrorHixValue) return rendered;
-          var value = e.Text(rendered);
-          if (Enum.TryParse<HixEmissionTarget>(target, true, out var output))
-            e.Outputs.Add(new HixExpressionOutput(output, value));
-          else
-            e.Outputs.Add(
-              new HixExpressionOutput(
-                HixEmissionTarget.Mixin, value, e.Context.ResolveInjectionTarget(target)
-              )
-            );
-          return NullHixValue.Instance;
-        }, effects: true
       )
     );
     definitions.Add(
@@ -190,10 +172,10 @@ internal static class Builtins {
           var value = ((NumberHixValue)a[0]).Value;
           var other = ((NumberHixValue)a[2]).Value;
           var equal = Math.Abs(value - other) <= 1e-9 * Math.Max(1, Math.Max(Math.Abs(value), Math.Abs(other)));
-          return e.Text(a[1]) switch {
+          return e.ResolveText(a[1]) switch {
             "lt" => Bool(value < other && !equal), "gt" => Bool(value > other && !equal),
             "lte" => Bool(value <= other || equal), "gte" => Bool(value >= other || equal), "eq" => Bool(equal),
-            "neq" => Bool(!equal), _ => e.Context.Error("unknown comparison")
+            "neq" => Bool(!equal), _ => e.Error("unknown comparison")
           };
         }
       )
@@ -201,94 +183,94 @@ internal static class Builtins {
     definitions.Add(
       new SimpleFunction(
         "substring", [new FunctionSignature(K.String, [K.String, K.Number, K.Number])], (e, a) => {
-          var value = e.Text(a[0]);
+          var value = e.ResolveText(a[0]);
           var start = ((NumberHixValue)a[1]).Value;
           var end = ((NumberHixValue)a[2]).Value;
           return start != Math.Truncate(start) || end != Math.Truncate(end) || start < 0 || end < start ||
             end > value.Length
-              ? e.Context.Error("invalid substring range")
+              ? e.Error("invalid substring range")
               : String(value.Substring((int)start, (int)(end - start)));
         }
       ),
       new SimpleFunction(
         "split", [new FunctionSignature(K.Tuple, [K.String, K.String])],
         (e, a) => new TupleHixValue(
-          e.Text(a[0]).Split([e.Text(a[1])], StringSplitOptions.None).Select(text => (IHixValue)String(text))
+          e.ResolveText(a[0]).Split([e.ResolveText(a[1])], StringSplitOptions.None).Select(text => (IHixValue)String(text))
             .ToArray()
         )
       ),
       new SimpleFunction(
         "startsWith", [new FunctionSignature(K.Bool, [K.String, K.String])],
-        (e, a) => Bool(e.Text(a[0]).StartsWith(e.Text(a[1]), StringComparison.Ordinal))
+        (e, a) => Bool(e.ResolveText(a[0]).StartsWith(e.ResolveText(a[1]), StringComparison.Ordinal))
       ),
       new SimpleFunction(
         "endsWith", [new FunctionSignature(K.Bool, [K.String, K.String])],
-        (e, a) => Bool(e.Text(a[0]).EndsWith(e.Text(a[1]), StringComparison.Ordinal))
+        (e, a) => Bool(e.ResolveText(a[0]).EndsWith(e.ResolveText(a[1]), StringComparison.Ordinal))
       ),
       new SimpleFunction(
         "matches", [new FunctionSignature(K.Bool, [K.String, K.String])],
         (e, a) => Bool(
-          new Regex(e.Text(a[1]), RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).IsMatch(e.Text(a[0]))
+          new Regex(e.ResolveText(a[1]), RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).IsMatch(e.ResolveText(a[0]))
         )
       ),
       new SimpleFunction(
         "uppercase", [new FunctionSignature(K.String, [K.String])],
-        (e, a) => String(e.Text(a[0]).ToUpperInvariant())
+        (e, a) => String(e.ResolveText(a[0]).ToUpperInvariant())
       ),
       new SimpleFunction(
         "lowercase", [new FunctionSignature(K.String, [K.String])],
-        (e, a) => String(e.Text(a[0]).ToLowerInvariant())
+        (e, a) => String(e.ResolveText(a[0]).ToLowerInvariant())
       ),
       new SimpleFunction(
-        "trim", [new FunctionSignature(K.String, [K.String])], (e, a) => String(e.Text(a[0]).Trim())
+        "trim", [new FunctionSignature(K.String, [K.String])], (e, a) => String(e.ResolveText(a[0]).Trim())
       ),
       new SimpleFunction(
         "trimStart", [new FunctionSignature(K.String, [K.String])],
-        (e, a) => String(e.Text(a[0]).TrimStart())
+        (e, a) => String(e.ResolveText(a[0]).TrimStart())
       ),
       new SimpleFunction(
         "trimEnd", [new FunctionSignature(K.String, [K.String])],
-        (e, a) => String(e.Text(a[0]).TrimEnd())
+        (e, a) => String(e.ResolveText(a[0]).TrimEnd())
       ),
       new SimpleFunction(
         "replaceAll", [new FunctionSignature(K.String, [K.String, K.String, K.String])],
-        (e, a) => String(e.Text(a[0]).Replace(e.Text(a[1]), e.Text(a[2])))
+        (e, a) => String(e.ResolveText(a[0]).Replace(e.ResolveText(a[1]), e.ResolveText(a[2])))
       ),
       new SimpleFunction(
         "replaceFirst", [new FunctionSignature(K.String, [K.String, K.String, K.String])], (e, a) => {
-          var value = e.Text(a[0]);
-          var search = e.Text(a[1]);
-          if (search.Length == 0) return e.Context.Error("replacement search string cannot be empty");
+          var value = e.ResolveText(a[0]);
+          var search = e.ResolveText(a[1]);
+          if (search.Length == 0) return e.Error("replacement search string cannot be empty");
           var index = value.IndexOf(search, StringComparison.Ordinal);
           return String(
-            index < 0 ? value : value.Substring(0, index) + e.Text(a[2]) + value.Substring(index + search.Length)
+            index < 0 ? value : value.Substring(0, index) + e.ResolveText(a[2]) + value.Substring(index + search.Length)
           );
         }
       ),
       new SimpleFunction(
         "replaceLast", [new FunctionSignature(K.String, [K.String, K.String, K.String])], (e, a) => {
-          var value = e.Text(a[0]);
-          var search = e.Text(a[1]);
-          if (search.Length == 0) return e.Context.Error("replacement search string cannot be empty");
+          var value = e.ResolveText(a[0]);
+          var search = e.ResolveText(a[1]);
+          if (search.Length == 0) return e.Error("replacement search string cannot be empty");
           var index = value.LastIndexOf(search, StringComparison.Ordinal);
           return String(
-            index < 0 ? value : value.Substring(0, index) + e.Text(a[2]) + value.Substring(index + search.Length)
+            index < 0 ? value : value.Substring(0, index) + e.ResolveText(a[2]) + value.Substring(index + search.Length)
           );
         }
       ),
       new SimpleFunction(
         "regexReplaceAll", [new FunctionSignature(K.String, [K.String, K.String, K.String])],
         (e, a) => String(
-          new Regex(e.Text(a[1]), RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).Replace(
-            e.Text(a[0]), e.Text(a[2])
+          new Regex(e.ResolveText(a[1]), RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).Replace(
+            e.ResolveText(a[0]), e.ResolveText(a[2])
           )
         )
       ),
       new SimpleFunction(
         "regexReplaceFirst", [new FunctionSignature(K.String, [K.String, K.String, K.String])],
         (e, a) => String(
-          new Regex(e.Text(a[1]), RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).Replace(
-            e.Text(a[0]), e.Text(a[2]), 1
+          new Regex(e.ResolveText(a[1]), RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)).Replace(
+            e.ResolveText(a[0]), e.ResolveText(a[2]), 1
           )
         )
       )
@@ -302,7 +284,7 @@ internal static class Builtins {
         ],
         (e, a) => new NumberHixValue(
           a[0] switch {
-            LiteralHixValue => e.Text(a[0]).Length, TupleHixValue tuple => tuple.Values.Count,
+            LiteralHixValue => e.ResolveText(a[0]).Length, TupleHixValue tuple => tuple.Values.Count,
             HixTableValue table => table.Entries.Count, _ => 0
           }
         )
@@ -314,7 +296,7 @@ internal static class Builtins {
           new FunctionSignature(K.Bool, [K.Table, K.Any])
         ],
         (e, a) => a[0] is LiteralHixValue
-          ? Bool(e.Text(a[0]).Contains(e.Text(a[1])))
+          ? Bool(e.ResolveText(a[0]).Contains(e.ResolveText(a[1])))
           : Bool(
             (a[0] is TupleHixValue tuple
               ? tuple.Values
@@ -363,7 +345,7 @@ internal static class Builtins {
       new SimpleFunction(
         "keys", [new FunctionSignature(K.Tuple, [K.Table])],
         (e, a) => new TupleHixValue(
-          ((HixTableValue)a[0]).Entries.Select(entry => (IHixValue)String(entry.Key.Resolve(e.Context.Strings)))
+          ((HixTableValue)a[0]).Entries.Select(entry => (IHixValue)String(entry.Key.Resolve(e.Strings)))
           .ToArray()
         )
       ),
@@ -377,7 +359,7 @@ internal static class Builtins {
       ),
       new SimpleFunction(
         "remove", [new FunctionSignature(K.Table, [K.Table, K.String])],
-        (e, a) => ((HixTableValue)a[0]).Remove(e.Context, e.Context.ResolveString(e.Text(a[1])))
+        (e, a) => ((HixTableValue)a[0]).Remove(e, e.Text(a[1]))
       )
     );
     definitions.Add(
@@ -386,9 +368,9 @@ internal static class Builtins {
         [new FunctionSignature(K.Table, [K.Table, K.String, K.Any]), new FunctionSignature(K.Table, [K.Table, K.Table])],
         (e, a) => {
           var table = (HixTableValue)a[0];
-          if (a.Length == 3) return CollectionFunctions.Put(e.Context, table, e.Text(a[1]), a[2]);
+          if (a.Length == 3) return CollectionFunctions.Put(e, table, e.ResolveText(a[1]), a[2]);
           foreach (var entry in ((HixTableValue)a[1]).Entries)
-            table = CollectionFunctions.Put(e.Context, table, entry.Key.Resolve(e.Context.Strings), entry.Value);
+            table = CollectionFunctions.Put(e, table, entry.Key.Resolve(e.Strings), entry.Value);
           return table;
         }
       ),
@@ -404,12 +386,12 @@ internal static class Builtins {
           foreach (var value in values) {
             var text = e.RenderText(value);
             if (text is ErrorHixValue) return text;
-            rendered.Add(e.Text(text));
+            rendered.Add(e.ResolveText(text));
           }
           return String(a[0] is TupleHixValue
-            ? string.Join(e.Text(a[1]), rendered)
-            : string.Join(e.Text(a[2]), ((HixTableValue)a[0]).Entries.Select((entry, index) =>
-              entry.Key.Resolve(e.Context.Strings) + e.Text(a[1]) + rendered[index])));
+            ? string.Join(e.ResolveText(a[1]), rendered)
+            : string.Join(e.ResolveText(a[2]), ((HixTableValue)a[0]).Entries.Select((entry, index) =>
+              entry.Key.Resolve(e.Strings) + e.ResolveText(a[1]) + rendered[index])));
         }
       )
     );

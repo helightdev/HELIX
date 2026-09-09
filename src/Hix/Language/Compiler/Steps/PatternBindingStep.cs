@@ -5,8 +5,8 @@ using System.Linq;
 namespace Hix.Compiler.Steps;
 
 /// <summary>Flow-sensitive local/parameter inference and static overload binding.</summary>
-internal sealed class PatternBindingStep : HixCompilerStep {
-  internal override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
+public sealed class PatternBindingStep : HixCompilerStep {
+  public override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
     var functions = input.Functions.Concat(globals.Functions).GroupBy(function => function.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
     var rewriter = new PatternRewriter(functions, globals.Patterns, globals.Backend);
@@ -19,7 +19,7 @@ internal sealed class PatternBindingStep : HixCompilerStep {
     private Dictionary<string, HixPattern> locals = new(StringComparer.Ordinal);
     private IReadOnlyList<SignatureField> parameters = [];
 
-    internal ExpressionDeclarationAst RewriteExpression(ExpressionDeclarationAst expression) {
+    public ExpressionDeclarationAst RewriteExpression(ExpressionDeclarationAst expression) {
       var previousLocals = locals; var previousParameters = parameters;
       locals = new(StringComparer.Ordinal); parameters = [];
       var result = CopyLocation(expression, new ExpressionDeclarationAst(expression.IsPrelude, expression.IsStrict,
@@ -27,7 +27,7 @@ internal sealed class PatternBindingStep : HixCompilerStep {
       locals = previousLocals; parameters = previousParameters; return result;
     }
 
-    internal FunctionDeclarationAst RewriteFunction(FunctionDeclarationAst function) {
+    public FunctionDeclarationAst RewriteFunction(FunctionDeclarationAst function) {
       var previousLocals = locals; var previousParameters = parameters;
       locals = new(StringComparer.Ordinal);
       parameters = function.Signatures.Count == 1 ? function.Signatures[0].Inputs ?? [] : [];

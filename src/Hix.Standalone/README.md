@@ -17,7 +17,7 @@ automatically printed. `print` writes to the backend's injectable `TextWriter`.
 ```csharp
 var backend = new HixStandaloneBackend(Console.Out);
 var program = HixCompiler.CompileFunctions(new[] { source }, backend);
-var result = new HixVM(new[] { program }).Invoke(program, backend.CreateContext());
+var result = new HixVM(new[] { program }).Invoke(program, backend.CreateThread());
 ```
 
 Execution remains bytecode-only. Exit codes are 0 for success, 1 for compilation/runtime/I/O

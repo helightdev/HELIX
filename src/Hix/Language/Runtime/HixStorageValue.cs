@@ -10,7 +10,7 @@ public sealed class HixStorageValue : HixTableValue {
   private readonly HixValueDictionary storage;
   private readonly HixValueDictionary fallback;
 
-  internal HixStorageValue(HixValueDictionary storage,
+  public HixStorageValue(HixValueDictionary storage,
     HixValueDictionary fallback = null) : base(new StorageEntries(storage, fallback), true) {
     this.storage = storage;
     this.fallback = fallback;
@@ -27,8 +27,8 @@ public sealed class HixStorageValue : HixTableValue {
     return new HixTableValue(snapshot);
   }
 
-  public override bool TryGetValue(HixExecutionContext context, HixString member, out IHixValue value) {
-    var name = HixExecutionContext.Dynamic(member.Resolve(context.Strings));
+  public override bool TryGetValue(HixThread context, HixString member, out IHixValue value) {
+    var name = HixString.Dynamic(member.Resolve(context.Strings));
     if (storage.TryGetValue(name, out value)) return true;
     if (fallback != null) return fallback.TryGetValue(name, out value);
     value = null; return false;

@@ -27,21 +27,21 @@ public abstract class HixAst {
       var composed = HixSourceRange.Compose(_children.Select(child => child.SourceRange));
       return composed;
     }
-    internal set => _sourceRange = value;
+    set => _sourceRange = value;
   }
-  public HixSyntaxKind Kind { get; internal set; }
+  public HixSyntaxKind Kind { get; set; }
   public virtual bool IsTrivia => false;
   public HixAst Parent { get; private set; }
   public IReadOnlyList<HixAst> Children {
     get => _children;
-    internal set {
+    set {
       _children = value ?? [];
       foreach (var child in _children)
         if (child is not null)
           child.Parent = this;
     }
   }
-  public IReadOnlyList<HixToken> Tokens { get; internal set; } = [];
+  public IReadOnlyList<HixToken> Tokens { get; set; } = [];
   public IEnumerable<HixAst> SemanticChildren => Children.Where(child => !child.IsTrivia && child is not MetadataAst);
 
   public CompilationUnitAst Program {
@@ -75,7 +75,7 @@ public sealed class MetadataAst(string name, IReadOnlyList<ExpressionAst> values
 public sealed record HixParseDiagnostic(int Line, string Message);
 
 public sealed class CompilationUnitAst : HixAst {
-  internal CompilationUnitAst(
+  public CompilationUnitAst(
     string source, IReadOnlyList<HixAst> declarations,
     IReadOnlyList<HixParseDiagnostic> diagnostics, IReadOnlyList<HixToken> tokens,
     IReadOnlyList<MetadataAst> metadata = null

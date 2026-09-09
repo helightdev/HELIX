@@ -1,3 +1,4 @@
+using System.Threading;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -14,12 +15,21 @@ public readonly struct HixString : IEquatable<HixString> {
     _initialized = true;
   }
 
+  public static readonly HixString Empty = Dynamic("");
+  public ulong Fingerprint(HixStringPool pool) => IsInterned ? pool.Fingerprint(Id) : HashText(DynamicValue);
+  internal static ulong HashText(string value) {
+    var hash = 14695981039346656037UL;
+    if (value != null) foreach (var character in value) { hash ^= character; hash = unchecked(hash * 1099511628211UL); }
+    return hash == 0 ? 1UL : hash;
+  }
+  public int Length(HixStringPool pool) => IsInterned ? pool[Id].Length : DynamicValue?.Length ?? 0;
+
   public int Id { get; }
   public string DynamicValue { get; }
   public bool IsInterned => _initialized && Id >= 0;
   public bool IsNull => !_initialized || (IsInterned ? Id < 0 : DynamicValue is null);
 
-  internal static HixString Interned(int id) => new(id, null);
+  public static HixString Interned(int id) => new(id, null);
 
   public static HixString Dynamic(string value) => new(-1, value);
 
@@ -43,14 +53,24 @@ public readonly struct HixString : IEquatable<HixString> {
 public sealed class HixStringPool {
   private readonly Dictionary<string, int> _ids;
   private readonly string[] _values;
+  private readonly long[] fingerprints;
 
-  internal HixStringPool(string[] values, IReadOnlyDictionary<string, int> ids) {
-    _values = values ?? [];
+  public HixStringPool(string[] values, IReadOnlyDictionary<string, int> ids) {
+    _values = values is null ? [] : (string[])values.Clone();
+    fingerprints = new long[_values.Length];
     _ids = new Dictionary<string, int>(StringComparer.Ordinal);
     if (ids is not null) {
       foreach (var item in ids)
         _ids.Add(item.Key, item.Value);
     }
+  }
+
+  public ulong Fingerprint(int id) {
+    var cached = Volatile.Read(ref fingerprints[id]);
+    if (cached != 0) return unchecked((ulong)cached);
+    var computed = unchecked((long)HixString.HashText(_values[id]));
+    Interlocked.CompareExchange(ref fingerprints[id], computed, 0);
+    return unchecked((ulong)computed);
   }
 
   public int Count => _values.Length;
@@ -74,7 +94,7 @@ public sealed class HixStringPoolBuilder {
 
   public HixStringPoolBuilder() { }
 
-  internal HixStringPoolBuilder(HixStringPool seed) {
+  public HixStringPoolBuilder(HixStringPool seed) {
     if (seed is null) return;
     for (var id = 0; id < seed.Count; id++) Intern(seed[id]);
   }
@@ -103,7 +123,7 @@ public sealed class HixStringDictionary<T> : IDictionary<string, T>, IReadOnlyDi
     _pool = pool ?? throw new ArgumentNullException(nameof(pool));
   }
 
-  internal HixStringDictionary(IEnumerable<KeyValuePair<string, T>> values, HixStringPool pool)
+  public HixStringDictionary(IEnumerable<KeyValuePair<string, T>> values, HixStringPool pool)
     : this(pool) {
     foreach (var item in values) this[item.Key] = item.Value;
   }

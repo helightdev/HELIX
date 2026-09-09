@@ -1,7 +1,7 @@
-%pragma<DISASSEMBLE>
+//%pragma<DISASSEMBLE>
 %pragma<PROFILE>
 %vm<PROFILE>
-%vm<DEBUG>
+//%vm<DEBUG>
 ---
 
 derivation mixin HELIX.Boot.NamedArgAttribute {

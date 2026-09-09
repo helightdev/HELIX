@@ -9,7 +9,7 @@ public class HixStandaloneBackend(TextWriter output = null) : HixBackend {
   }
   private sealed class PrintFunction() : FunctionDefinition("print", [new(HixValueKind.Null, [HixValueKind.Any], true)]) {
     public override bool HasEffects => true;
-    public override IHixValue Execute(HixExecutionContext context, IHixValue[] arguments, int line) {
+    public override IHixValue Execute(HixThread context, IHixValue[] arguments, int line) {
       var output = ((HixStandaloneBackend)context.Backend).Output;
       for (var i = 0; i < arguments.Length; i++) {
         if (i != 0) output.Write(" ");

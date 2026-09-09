@@ -11,12 +11,12 @@ namespace Hix.Runtime;
 public partial class HixRoslynContext {
   private static readonly ConditionalWeakTable<CSharpCompilation, AnnotatedTypes> annotatedTypes = new();
 
-  internal bool IsAccessible(ISymbol symbol) => _compilation.IsSymbolAccessibleWithin(symbol, CurrentType);
+  public bool IsAccessible(ISymbol symbol) => _compilation.IsSymbolAccessibleWithin(symbol, CurrentType);
 
-  internal IHixValue CollectAnnotatedTypes(string name) {
+  public IHixValue CollectAnnotatedTypes(HixThread thread, string name) {
     using var profile = HixProfiler.Measure("roslyn.collect_annotated_types");
     var attribute = ResolveType(name) ?? ResolveType(name + "Attribute");
-    if (attribute is not INamedTypeSymbol type) return Error("unknown attribute type '" + name + "'");
+    if (attribute is not INamedTypeSymbol type) return thread.Error("unknown attribute type '" + name + "'");
     return annotatedTypes.GetValue(_compilation, compilation => new AnnotatedTypes(compilation)).Get(type);
   }
 
@@ -26,7 +26,7 @@ public partial class HixRoslynContext {
     private readonly Dictionary<INamedTypeSymbol, List<INamedTypeSymbol>> types = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<INamedTypeSymbol, TupleHixValue> results = new(SymbolEqualityComparer.Default);
 
-    internal AnnotatedTypes(CSharpCompilation compilation) {
+    public AnnotatedTypes(CSharpCompilation compilation) {
       var pending = new Stack<INamespaceOrTypeSymbol>();
       pending.Push(compilation.Assembly.GlobalNamespace);
       while (pending.Count != 0) {
@@ -46,7 +46,7 @@ public partial class HixRoslynContext {
       }
     }
 
-    internal TupleHixValue Get(INamedTypeSymbol attribute) {
+    public TupleHixValue Get(INamedTypeSymbol attribute) {
       lock (results) {
         if (results.TryGetValue(attribute, out var result)) return result;
         if (!types.TryGetValue(attribute, out var matches)) result = TupleHixValue.Empty;

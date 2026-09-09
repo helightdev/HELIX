@@ -65,8 +65,8 @@ public sealed class PersistentMapTests {
     Assert.Equal(2, builder.ToImmutable()["key"]);
   }
 
-  private sealed class Context() : HixExecutionContext(TestBackend.Instance, new HixStringPoolBuilder().Freeze()) {
-    protected override IHixValue ResolveHost(HixExpressionRoot root, HixString member) => NullHixValue.Instance;
+  private sealed class Context() : HixContext(TestBackend.Instance, new HixStringPoolBuilder().Freeze()) {
+    public override IHixValue ResolveHost(HixThread thread, HixExpressionRoot root, HixString member) => NullHixValue.Instance;
   }
 
   [Fact]
@@ -76,7 +76,7 @@ public sealed class PersistentMapTests {
     var input = new[] {new KeyValuePair<HixString,IHixValue>(key, new NumberHixValue(1))};
     var small = new HixTableValue(input, pool);
     input[0] = new(key, new NumberHixValue(99));
-    var context = new Context();
+    var context = new HixThread(new Context());
     Assert.Equal(new NumberHixValue(1), small.Select(context, HixString.Dynamic("name")));
     var large = small;
     for (var i = 0; i < 100; i++) large = large.Put(context, HixString.Dynamic("key" + i), new NumberHixValue(i));

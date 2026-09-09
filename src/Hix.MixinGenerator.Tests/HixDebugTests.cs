@@ -16,7 +16,7 @@ public class HixDebugTests {
     var first = HixCompiler.Compile("mixin Example { expression { emit(<shared>); emit(42) } }", "Example");
     var second = HixCompiler.Compile("mixin Example { expression { emit(<different>); emit(<shared>); emit(7); emit(42) } }", "Example");
     var seed = new HixStringPoolBuilder().Freeze();
-    HixDebugExpression Work(HixExpressionExecutionProgram program, string name) => new(
+    HixDebugExpression Work(HixProgramImage program, string name) => new(
       program, program, ImmutableDictionary<string, object>.Empty, ImmutableDictionary<string, object>.Empty,
       name, "", "", 0, 0);
     var trace = HixDebugRenderer.BuildTrace(new HixDebugRenderData(seed,
@@ -27,7 +27,7 @@ public class HixDebugTests {
     var loads = Regex.Matches(trace, @"(?m)^[0-9A-F]+ +\| LOADSTRING s([0-9]+) +\| push\(""shared""\)");
     Assert.Equal(4, loads.Count);
     Assert.Contains(".constant", trace);
-    Assert.Contains("Pattern emit(", trace);
+    Assert.Contains("Function emit(", trace);
     Assert.DoesNotContain("PatternHixValue {", trace);
   }
 

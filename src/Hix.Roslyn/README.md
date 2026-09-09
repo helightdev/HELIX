@@ -1,7 +1,7 @@
 # Hix Roslyn backend
 
 `HixRoslynBackend` is a non-sealed semantic host, not a C# transpiler. Create a context with
-`backend.CreateContext(compilation, currentType, target, attribute)` and compile with that backend.
+`backend.CreateThread(compilation, currentType, target, attribute)` and compile with that backend.
 Semantic host roots require a prelude. The assembly references Hix and Roslyn, never the generator.
 
 `collectAnnotatedTypes(<Namespace.AttributeType>)` returns a tuple of exactly annotated types in

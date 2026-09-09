@@ -4,11 +4,11 @@ using System.Linq;
 
 namespace Hix.Compiler.Steps;
 
-internal sealed class SignatureParameterBindingStep : HixCompilerStep {
-  internal override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) =>
+public sealed class SignatureParameterBindingStep : HixCompilerStep {
+  public override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) =>
     new(input.Prelude, input.Late, input.Functions.Select(Rewrite).ToArray());
 
-  internal static FunctionDeclarationAst Rewrite(FunctionDeclarationAst function) {
+  public static FunctionDeclarationAst Rewrite(FunctionDeclarationAst function) {
     var positions = new Dictionary<string, int>(StringComparer.Ordinal);
     var ambiguous = new HashSet<string>(StringComparer.Ordinal);
     foreach (var signature in function.Signatures.Where(signature => signature.Inputs != null)) {

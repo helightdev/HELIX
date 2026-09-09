@@ -3,8 +3,8 @@ using System.Linq;
 
 namespace Hix.Compiler;
 
-internal class HixAstRewriter {
-  internal T Rewrite<T>(T node) where T : HixAst => (T)RewriteNode(node);
+public class HixAstRewriter {
+  public T Rewrite<T>(T node) where T : HixAst => (T)RewriteNode(node);
 
   protected virtual HixAst RewriteNode(HixAst node) {
     if (node is null) return null;

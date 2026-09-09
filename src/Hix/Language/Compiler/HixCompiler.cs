@@ -9,10 +9,10 @@ namespace Hix.Compiler;
 
 /// <summary>Catalog binding and preparation for the generated-ANTLR semantic model.</summary>
 public static class HixCompiler {
-  private static readonly IReadOnlyList<HixCompilerStep> Steps = [
+  public static IReadOnlyList<HixCompilerStep> DefaultSteps { get; } = Array.AsReadOnly<HixCompilerStep>([
     new LambdaLiftingStep(), new SignatureParameterBindingStep(), new PatternBindingStep(), new InlineExpansionStep(),
     new PreludeHoistingStep(), new FunctionBindingStep()
-  ];
+  ]);
   public static HixExpressionPreparedState PrepareGlobals(IEnumerable<string> sources, HixBackend backend = null) =>
     PrepareGlobals(sources.Select(source => AntlrSyntax.Parse(source, backend)), backend);
 
@@ -40,13 +40,13 @@ public static class HixCompiler {
       .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
     var prepared = new HixExpressionPreparedState(strings.Freeze(), functions, derivations, backend, patterns);
     var compiled = new HixCompilerSyntax([], [], functions);
-    foreach (var step in Steps) {
+    foreach (var step in backend.CompilerSteps) {
       using var stepProfile = HixCompilerProfiler.Measure("compiler.step." + step.GetType().Name);
       compiled = step.Transform(compiled, prepared);
     }
     prepared = new HixExpressionPreparedState(prepared.StringPool, compiled.Functions, derivations, backend, patterns);
     var compiledDerivations = derivations.Select(derivation => {
-      var body = Compile(derivation, prepared);
+      var body = PrepareSyntax(derivation, prepared);
       var declarations = body.Prelude.Cast<HixAst>().Concat(body.Late).Concat(body.Functions).ToArray();
       return new MixinDeclarationAst(derivation.Name, true, declarations, derivation.Metadata) {
         SourceRange = derivation.SourceRange,
@@ -64,23 +64,23 @@ public static class HixCompiler {
   }
 
   /// <summary>Compile global functions directly to an executable bytecode image.</summary>
-  public static HixExpressionExecutionProgram CompileFunctions(IEnumerable<string> sources, HixBackend backend = null) {
+  public static HixProgramImage CompileFunctions(IEnumerable<string> sources, HixBackend backend = null) {
     var globals = PrepareGlobals(sources, backend);
     return CreateProgram([], [], globals);
   }
 
-  internal static HixExpressionExecutionProgram Prepare(MixinDeclarationAst declaration,
+  public static HixProgramImage Prepare(MixinDeclarationAst declaration,
     HixExpressionPreparedState globals, bool? prelude) {
-    var compiled = Compile(declaration, globals);
+    var compiled = PrepareSyntax(declaration, globals);
     var expressions = prelude == true ? compiled.Prelude : prelude == false ? compiled.Late
       : compiled.Prelude.Concat(compiled.Late).ToArray();
     return CreateProgram(expressions, compiled.Functions, globals);
   }
 
-  public static HixExpressionExecutionProgram Compile(string source, string mixinName, HixBackend backend = null) =>
+  public static HixProgramImage Compile(string source, string mixinName, HixBackend backend = null) =>
     Compile(AntlrSyntax.Parse(source, backend), mixinName, backend);
 
-  public static HixExpressionExecutionProgram Compile(CompilationUnitAst unit, string mixinName, HixBackend backend = null) {
+  public static HixProgramImage Compile(CompilationUnitAst unit, string mixinName, HixBackend backend = null) {
     if (unit == null) throw new ArgumentNullException(nameof(unit));
     if (unit.Diagnostics.Count != 0) throw new ArgumentException(unit.Diagnostics[0].Message);
     var declarations = unit.Declarations.OfType<MixinDeclarationAst>().Where(mixin => mixin.Name == mixinName).ToArray();
@@ -88,26 +88,26 @@ public static class HixCompiler {
     return Prepare(declarations[0], PrepareGlobals(new[] {unit}, backend), null);
   }
 
-  internal static (HixExpressionExecutionProgram Prelude, HixExpressionExecutionProgram Late) PreparePrograms(
+  public static (HixProgramImage Prelude, HixProgramImage Late) PreparePrograms(
     MixinDeclarationAst declaration, HixExpressionPreparedState globals) {
     using var profile = HixCompilerProfiler.Measure("compiler.prepare_programs");
-    var compiled = Compile(declaration, globals);
+    var compiled = PrepareSyntax(declaration, globals);
     var program = CreateProgram(compiled.Prelude.Concat(compiled.Late).ToArray(), compiled.Functions, globals);
     return (program.ForPass(true), program.ForPass(false));
   }
 
-  private static HixExpressionExecutionProgram CreateProgram(IReadOnlyList<ExpressionDeclarationAst> expressions,
+  private static HixProgramImage CreateProgram(IReadOnlyList<ExpressionDeclarationAst> expressions,
     IReadOnlyList<FunctionDeclarationAst> functions, HixExpressionPreparedState globals) {
     using var profile = HixCompilerProfiler.Measure("compiler.bytecode");
     return new HixBytecodeCompiler(globals.StringPool).Compile(expressions, functions, globals);
   }
 
-  private static HixCompilerSyntax Compile(MixinDeclarationAst declaration, HixExpressionPreparedState globals) {
+  public static HixCompilerSyntax PrepareSyntax(MixinDeclarationAst declaration, HixExpressionPreparedState globals) {
     var expressions = declaration.Declarations.OfType<ExpressionDeclarationAst>().ToArray();
     var syntax = new HixCompilerSyntax(expressions.Where(expression => expression.IsPrelude).ToArray(),
       expressions.Where(expression => !expression.IsPrelude).ToArray(),
       declaration.Declarations.OfType<FunctionDeclarationAst>().ToArray());
-    foreach (var step in Steps) {
+    foreach (var step in globals.Backend.CompilerSteps) {
       using var stepProfile = HixCompilerProfiler.Measure("compiler.step." + step.GetType().Name);
       syntax = step.Transform(syntax, globals);
     }

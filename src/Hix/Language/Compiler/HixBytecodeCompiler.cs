@@ -6,7 +6,7 @@ using Hix.Runtime;
 namespace Hix.Compiler;
 
 /// <summary>The only syntax-to-executable boundary. No emitted operand retains syntax or a delegate.</summary>
-internal sealed class HixBytecodeCompiler {
+public sealed class HixBytecodeCompiler {
   private readonly HixStringPoolBuilder strings;
   private readonly List<IHixValue> constants = [];
   private readonly List<HixInstruction> code = [];
@@ -15,10 +15,9 @@ internal sealed class HixBytecodeCompiler {
   private int nextTemporary;
   private string selectionLocal;
   private HashSet<string> localNames = new(StringComparer.Ordinal);
-  private readonly List<BytecodeTarget> targets = [];
   private readonly List<(int Instruction, Dictionary<string, int> Labels, string Name)> jumps = [];
   private readonly Stack<Dictionary<string, int>> labels = new();
-  internal HixBytecodeCompiler(HixStringPool seed) => strings = new(seed);
+  public HixBytecodeCompiler(HixStringPool seed) => strings = new(seed);
   private int S(string text) => strings.Intern(text).Id;
   private int Emit(HixOpcode op, int a = 0, int b = 0, int line = 0) {
     if (line != 0) sourceLine = line;
@@ -35,9 +34,14 @@ internal sealed class HixBytecodeCompiler {
     if (index < 0) { index = constants.Count; constants.Add(value); }
     return index;
   }
-  internal HixExpressionExecutionProgram Compile(IReadOnlyList<ExpressionDeclarationAst> expressions,
+  private int FunctionReference(SignatureHixPattern signature) {
+    // Equal signatures can bind to different lexical declarations. Keep call-site slots distinct.
+    var index = constants.Count;
+    constants.Add(new FunctionReferenceHixValue(signature));
+    return index;
+  }
+  public HixProgramImage Compile(IReadOnlyList<ExpressionDeclarationAst> expressions,
     IReadOnlyList<FunctionDeclarationAst> functions, HixExpressionPreparedState globals) {
-    foreach (var expression in expressions.Where(expression => !expression.IsPrelude)) CollectTargets(expression);
     var globalFunctions = globals.Functions.Select(Function).ToArray();
     var localFunctions = functions.Select(Function).ToArray();
     var derivationBodies = globals.Derivations.Select(declaration => (
@@ -70,7 +74,7 @@ internal sealed class HixBytecodeCompiler {
     var derivations = derivationBodies.Select(item => new BytecodeDerivation(item.Name, item.Line,
       item.Expressions.Select(MapExpression).ToArray(), new LanguageFunctionScope(item.Functions.Select(MapFunction).ToArray(), global))).ToArray();
     return new(bytes, lines, constants.ToArray(), pool, entries.Select(MapExpression).ToArray(), derivations, scope,
-      targets.ToArray(), globals.Patterns, globals.Backend);
+      globals.Patterns, globals.Backend);
   }
   private BytecodeExpression Expression(ExpressionDeclarationAst expression) =>
     new(EntryBlock(expression.Body), expression.IsPrelude, expression.Line);
@@ -202,7 +206,7 @@ internal sealed class HixBytecodeCompiler {
       case CallExpressionAst call:
         foreach (var argument in call.Arguments) Value(argument);
         if (call.Signature == null) Emit(HixOpcode.CallDynamic, S(call.Name), call.Arguments.Count, line: line);
-        else Emit(HixOpcode.Call, C(new PatternHixValue(call.Signature)), call.Arguments.Count, line: line);
+        else Emit(HixOpcode.Call, FunctionReference(call.Signature), call.Arguments.Count, line: line);
         if (call.CoerceBoolean) Emit(HixOpcode.CastBoolean);
         break;
       case InlineExpressionAst inline: NestedBlock(inline.Body); LoadMember("local", inline.ResultLocal); break;
@@ -231,15 +235,6 @@ internal sealed class HixBytecodeCompiler {
     }
     if (check) { Emit(HixOpcode.EndCheck); Patch(handler, code.Count); }
   }
-  private void CollectTargets(HixAst node) {
-    if (node is CallExpressionAst {Name: "inject"} call && call.Arguments.Count >= 2) {
-      if (call.Arguments[0] is StringExpressionAst target) targets.Add(new(target.Value, false));
-      else if (call.Arguments[0] is MemberExpressionAst {Receiver: RootExpressionAst {Name: "carry"}, Member: var carry})
-        targets.Add(new(carry, true));
-    }
-    foreach (var child in node.SemanticChildren) CollectTargets(child);
-  }
-
   private void Result(HixAst result) {
     if (result is ExpressionAst expression) Value(expression);
     else { if (result is StatementAst statement) Statement(statement); Constant(NullHixValue.Instance); }

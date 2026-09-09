@@ -1,7 +1,7 @@
 # Hix
 
 Hix is a host-independent language compiler and bytecode VM. `Hix.csproj` targets .NET Standard 2.0
-and has no Roslyn, Unity, or source-generator dependencies. Public APIs use the `Hix` namespace.
+and has no Roslyn, Unity, or source-generator dependencies. Public APIs use `Hix`, `Hix.Compiler`, `Hix.Functions`, and `Hix.Runtime`.
 
 The repository separates hosts into three projects:
 
@@ -19,14 +19,55 @@ registration methods to retain inherited definitions. Catalogs are initialized l
 immutable. Function definitions expose signatures, effects, prelude requirements, and optional
 editor reference categories. `HasEffects` and `RequiresPrelude` are independent.
 
-Implement `FunctionDefinition.Execute(HixExecutionContext, IHixValue[], int)` to expose a host
-function. Use `context.Invoke` for Hix callbacks. Contexts own invocation state and must not be
+Implement `FunctionDefinition.Execute(HixThread, IHixValue[], int)` to expose a host
+function, or register a `SimpleFunction` with explicit signatures and an `InlineFunction` delegate.
+Use `thread.Invoke` for Hix callbacks, `thread.BindFunction` for lexical function binding, and
+`thread.Outputs` / `thread.Logs` for emissions. Threads own invocation state and must not be
 shared between concurrent executions; backend definitions and loaded VMs can be shared. Host roots
 are resolved by `HixBackend.ResolveRoot`, without adding VM instructions.
 
 Backend-specific data import, rendering names, attributes, configuration, and target resolution
-are backend services. Roslyn semantic caches belong to its invocation contexts or weakly owned
+are backend services. Roslyn semantic caches belong to its host contexts or weakly owned
 compilations. Core function implementations contain no Roslyn type checks.
+
+Compiler extension APIs are public: derive from `HixAstRewriter` or `HixCompilerStep`, and override
+`HixBackend.CompilerSteps` to configure ordered transforms. `HixCompiler.DefaultSteps` is the
+immutable standard pipeline; include those steps when adding a transform to retain normal binding,
+hoisting, and lowering behavior. The pipeline applies to globals, mixins, and derivations.
+AST constructors and source-location setters, prepared catalogs, bytecode models and compilation,
+and disassembly APIs are also available for consumers building their own tooling.
+
+Roslyn extensions can construct `RoslynHixValue`, subclass `HixRoslynContext`, and reuse its semantic
+services and explicit cache lookup/store methods. `HixThread` is public and sealed: supply a context with `new HixThread(context)` and retrieve it
+inside host functions through `thread.Context`. Override `HixBackend.CreateContext()` to supply
+custom data when callers use `backend.CreateThread()`. Services receive the thread explicitly
+when they need runtime values or its pool; contexts retain no execution back-reference.
+Target changes are committed as detached values so a context can be reused with a fresh thread
+and program image. Use separate contexts for concurrent target work.
+No friend-assembly access or source inclusion is needed. VM lifecycle coordination, local pooling, and prepared-call bookkeeping remain internal;
+operand frames and completion state remain private to `HixThread`.
+
+## Generic mixins and host results
+
+`mixin` and `derivation mixin` are core language constructs. Core mixins can run without Roslyn:
+`derive` transforms records with a `value` field and preserves their other fields. A host can add
+record constraints through `HixBackend.ValidateDerivationRecord`; the generator requires a semantic
+`symbol`, while the core VM does not.
+
+`emit(value)` produces ordinary text; `emit(destination, value)` adds an opaque destination name.
+`HixExecutionResult` contains execution status, `HixOutput` values, `HixLog` entries, storage snapshots,
+and counters. Core destinations carry no C# interpretation, injection priority, or member metadata.
+`Variables` and `Carries` preserve `HixString` keys and `IHixValue` values. Output text, destinations,
+logs, and errors retain `HixString` handles; resolve them against the result's `Strings` pool only
+at host boundaries. Pooled text fingerprints are cached per immutable pool. `ExportVariables()`
+and `ExportCarries()` explicitly convert storage into host objects when needed.
+
+The generator owns `Hix.Mixins.MixinOutput`, `MixinEmissionTarget`, injection/using/target functions,
+late-target discovery, and buffered generator emissions. It overrides `RegisterEmissionFunctions`
+to interpret destination names. Contributions store generator outputs directly rather than synthetic
+VM results. `HixContext.BeginExecution`, `CaptureEffects`, and `RollbackEffects` let a host make its
+buffered effects transactional across failed expressions, calls, and derivation batches without
+putting its output model into the VM.
 
 ## Build and deployment
 
@@ -51,7 +92,7 @@ independent `Hix` and `Hix.Roslyn` libraries.
 ## Bytecode execution
 
 Compile Hix with `HixCompiler.Compile(source, mixinName)`, then pass the returned
-`HixExpressionExecutionProgram` to `HixVM.Execute(program, context, variables)`.
+`HixProgramImage` to `HixVM.Execute(program, context, variables)`.
 Parsing, AST transformations, label resolution, and lowering happen exclusively in the compiler.
 The VM accepts no source or AST overloads. Function signatures, lexical scopes, derivations, and
 entry points in the executable image contain runtime metadata only.
@@ -87,15 +128,21 @@ Source-line mappings are stored separately, keyed by instruction byte address.
 
 The immutable image exposes encoded `Bytecode`, a non-string `ConstantPool`, and `StringPool`.
 String instructions refer to the string pool; non-string literals refer to the value pool.
+`FunctionReferenceHixValue` constants hold only a signature. Loading replaces these entries in
+an independent VM pool with `ResolvedFunctionHixValue` values bound to language declarations or
+backend overloads. `Call` indexes that pool directly; no call-site binding dictionary is retained.
+Function references use distinct slots where lexical scopes may resolve equal signatures differently.
 The VM uses operand stacks and interprets opcodes, with bytecode entry points for calls and blocks.
-The VM loads programs into immutable VM-wide string and value pools, relocating pool operands
-once during loading. `HixExecutionContext.Strings` reads that VM pool and has no setter; neither
-program entry nor function calls switch pools. Create `HixVM(programs)` and call
-`Run` to reuse a VM across programs. The static `Execute` convenience method loads an invocation
-and any imported function images into a VM before running it.
-Runtime-created strings remain dynamic and never mutate either pool. Prelude and late passes
-share the same compiled image and pools. Exported function values retain their compiled image,
-so invoking them from another program preserves their lexical bindings and constant indices.
+Each VM owns one prepared image and its immutable string and constant pools. `HixThread`
+owns invocation state, call frames, variables, carries, transactional target storage, outputs, and logs.
+Host functions receive the active thread directly. `HixThread.Strings` resolves through its
+VM while loaded; runtime strings remain dynamic and never mutate either pool.
+Create `HixVM(programs)` and pass a thread from `backend.CreateThread()` to `Run` or `Invoke`.
+The static `Execute` convenience method caches VMs by prepared program identity. Different
+threads can use a VM concurrently; restarting an active thread is rejected. Sequential thread
+reuse resets invocation state. The subclassable `HixContext` owns committed target storage and
+host-specific data; Roslyn and mixin context subclasses own their semantic services and caches. Prelude and late passes share compiled pools;
+function values retain lexical bindings and cannot execute against another program image.
 
 Shared runtime storages use the persistent map (flat for small maps, HAMT for large maps).
 Transaction snapshots and rollback share and restore immutable roots. Local dictionaries
@@ -141,7 +188,7 @@ normalize interned keys using the explicitly supplied string pool; runtime dynam
 The generic C# correctness harness and comparative benchmark live in `benchmarks/PersistentMaps`.
 
 Profiling separates `vm.execute.total` (static invocation, including loading), `vm.load`
-(pool construction and bytecode relocation), `vm.run` (context setup, execution, and export), and
+(pool construction and bytecode relocation), `vm.run` (thread setup, execution, and export), and
 `vm.execution` (language execution, including transactions and host calls). Disassembly uses
 `bytecode.disassemble`, with pool formatting under `bytecode.disassemble_pools`.
 `bytecode.identity` measures the lazily cached structural program fingerprint used for cache identity.

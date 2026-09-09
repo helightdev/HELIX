@@ -1,25 +1,25 @@
 using System;
 using Hix.Runtime;
-using static Hix.Runtime.LanguageExecution;
+using static Hix.Runtime.HixThread;
 
 namespace Hix.Functions;
 
-internal static class CollectionFunctions {
-  internal static HixTableValue Put(HixExecutionContext context, HixTableValue table, string key, IHixValue value) =>
-    table.Put(context, HixExecutionContext.Dynamic(key), value);
+public static class CollectionFunctions {
+  public static HixTableValue Put(HixThread context, HixTableValue table, string key, IHixValue value) =>
+    table.Put(context, HixString.Dynamic(key), value);
 
-  internal static IHixValue Has(LanguageExecution e, IHixValue[] a) => Bool(TrySelect(e, a[0], a[1], out _));
+  public static IHixValue Has(HixThread e, IHixValue[] a) => Bool(TrySelect(e, a[0], a[1], out _));
 
-  internal static IHixValue Get(LanguageExecution e, IHixValue[] a) => TrySelect(e, a[0], a[1], out var value)
+  public static IHixValue Get(HixThread e, IHixValue[] a) => TrySelect(e, a[0], a[1], out var value)
     ?
     value
     : a.Length == 3
       ? a[2]
       : NullHixValue.Instance;
 
-  private static bool TrySelect(LanguageExecution e, IHixValue collection, IHixValue key, out IHixValue value) {
+  private static bool TrySelect(HixThread e, IHixValue collection, IHixValue key, out IHixValue value) {
     if (collection is HixTableValue table) {
-      return table.TryGetValue(e.Context, e.Context.ResolveString(e.Text(key)), out value);
+      return table.TryGetValue(e, e.Text(key), out value);
     }
     var index = ((NumberHixValue)key).Value;
     var values = ((TupleHixValue)collection).Values;
@@ -28,9 +28,9 @@ internal static class CollectionFunctions {
     return present;
   }
 
-  internal enum TransformKind { Map, Where, Any, All, Reduce }
+  public enum TransformKind { Map, Where, Any, All, Reduce }
 
-  internal static IHixValue Transform(LanguageExecution e, IHixValue[] a, int line, TransformKind kind) {
+  public static IHixValue Transform(HixThread e, IHixValue[] a, int line, TransformKind kind) {
     var tuple = (TupleHixValue)a[0];
     var values = tuple.Values;
     IHixValue[] results = null;
@@ -40,14 +40,14 @@ internal static class CollectionFunctions {
       var item = values[index];
       var result = e.Callback(a[1], kind == TransformKind.Reduce ? [accumulator, item] : [item], line);
       if (result is ErrorHixValue) return result;
-      if (kind == TransformKind.Any && result.IsTruthy(e.Context)) return BooleanHixValue.True;
-      if (kind == TransformKind.All && !result.IsTruthy(e.Context)) return BooleanHixValue.False;
+      if (kind == TransformKind.Any && result.IsTruthy(e)) return BooleanHixValue.True;
+      if (kind == TransformKind.All && !result.IsTruthy(e)) return BooleanHixValue.False;
       if (kind == TransformKind.Reduce) {
         accumulator = result;
         continue;
       }
       if (kind is TransformKind.Any or TransformKind.All) continue;
-      var keep = kind != TransformKind.Where || result.IsTruthy(e.Context);
+      var keep = kind != TransformKind.Where || result.IsTruthy(e);
       var mapped = kind == TransformKind.Map ? result : item;
       if (results == null && (!keep || !ReferenceEquals(mapped, item))) {
         results = new IHixValue[values.Count];

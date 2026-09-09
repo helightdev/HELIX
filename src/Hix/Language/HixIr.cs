@@ -7,24 +7,24 @@ namespace Hix;
 
 public sealed record LiteralHixValue(HixString Value) : IHixValue {
    public HixValueKind Kind => HixValueKind.String;
-  public bool IsTruthy(HixExecutionContext context) {
+  public bool IsTruthy(HixThread context) {
     return !string.IsNullOrEmpty(Value.Resolve(context.Strings));
   }
 
-  public HixString Render(HixExecutionContext context) {
+  public HixString Render(HixThread context) {
     return Value;
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
     builder.Append(nameof(LiteralHixValue));
-    builder.Append(Value.Resolve(context.Strings));
+    builder.Append(Value, context.Strings);
   }
 
-  public IHixValue Select(HixExecutionContext context, HixString member) {
+  public IHixValue Select(HixThread context, HixString member) {
     return NullHixValue.Instance;
   }
 
-  public object Unlink(HixExecutionContext context) {
+  public object Unlink(HixThread context) {
     return Value.Resolve(context.Strings);
   }
 
@@ -36,7 +36,7 @@ public sealed record LiteralHixValue(HixString Value) : IHixValue {
 
 /// <summary>Compiler-only catalog. Runtime programs never retain these declarations.</summary>
 public sealed class HixExpressionPreparedState {
-  internal HixExpressionPreparedState(HixStringPool strings,
+  public HixExpressionPreparedState(HixStringPool strings,
     IReadOnlyList<FunctionDeclarationAst> functions, IReadOnlyList<MixinDeclarationAst> derivations, HixBackend backend = null,
     IReadOnlyDictionary<string, HixPattern> patterns = null) {
     Backend = backend ?? HixCoreBackend.Instance;
@@ -47,7 +47,7 @@ public sealed class HixExpressionPreparedState {
   }
   public HixBackend Backend { get; }
   public HixStringPool StringPool { get; }
-  internal IReadOnlyList<FunctionDeclarationAst> Functions { get; }
-  internal IReadOnlyList<MixinDeclarationAst> Derivations { get; }
+  public IReadOnlyList<FunctionDeclarationAst> Functions { get; }
+  public IReadOnlyList<MixinDeclarationAst> Derivations { get; }
   public IReadOnlyDictionary<string, HixPattern> Patterns { get; }
 }

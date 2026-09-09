@@ -4,8 +4,8 @@ using System.Linq;
 
 namespace Hix.Compiler.Steps;
 
-internal sealed class FunctionBindingStep : HixCompilerStep {
-  internal override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
+public sealed class FunctionBindingStep : HixCompilerStep {
+  public override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
     var names = new HashSet<string>(input.Functions.Select(function => function.Name), StringComparer.Ordinal);
     foreach (var function in globals.Functions) names.Add(function.Name);
     var rewriter = new BindingRewriter(names, globals.Patterns.Keys, globals.Backend);

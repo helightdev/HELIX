@@ -10,34 +10,34 @@ namespace Hix;
 
 public interface IHixValue : IEquatable<IHixValue> {
   HixValueKind Kind { get; }
-  bool IsTruthy(HixExecutionContext context);
-  HixString Render(HixExecutionContext context);
-  void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context);
-  IHixValue Select(HixExecutionContext context, HixString member);
-  object Unlink(HixExecutionContext context);
+  bool IsTruthy(HixThread context);
+  HixString Render(HixThread context);
+  void Fingerprint(HixFingerprintBuilder builder, HixThread context);
+  IHixValue Select(HixThread context, HixString member);
+  object Unlink(HixThread context);
 }
 
 public sealed record ErrorHixValue(HixString Message, bool IsChecked = false) : IHixValue {
   public HixValueKind Kind => HixValueKind.Error;
-  public bool IsTruthy(HixExecutionContext context) {
+  public bool IsTruthy(HixThread context) {
     return false;
   }
 
-  public HixString Render(HixExecutionContext context) {
+  public HixString Render(HixThread context) {
     return Message;
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
     builder.Append(nameof(ErrorHixValue));
-    builder.Append(Message.Resolve(context.Strings));
+    builder.Append(Message, context.Strings);
     builder.Append(IsChecked);
   }
 
-  public IHixValue Select(HixExecutionContext context, HixString member) {
+  public IHixValue Select(HixThread context, HixString member) {
     return this;
   }
 
-  public object Unlink(HixExecutionContext context) {
+  public object Unlink(HixThread context) {
     return new ErrorHixValue(HixString.Dynamic(Message.Resolve(context.Strings)), IsChecked);
   }
 
@@ -51,23 +51,23 @@ public sealed class NullHixValue : IHixValue {
   private NullHixValue() { }
   public HixValueKind Kind => HixValueKind.Null;
 
-  public bool IsTruthy(HixExecutionContext context) {
+  public bool IsTruthy(HixThread context) {
     return false;
   }
 
-  public HixString Render(HixExecutionContext context) {
-    return HixExecutionContext.Dynamic("null");
+  public HixString Render(HixThread context) {
+    return HixString.Dynamic("null");
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
     builder.Append(nameof(NullHixValue));
   }
 
-  public IHixValue Select(HixExecutionContext context, HixString member) {
+  public IHixValue Select(HixThread context, HixString member) {
     return this;
   }
 
-  public object Unlink(HixExecutionContext context) {
+  public object Unlink(HixThread context) {
     return null;
   }
 
@@ -89,24 +89,24 @@ public sealed record BooleanHixValue(bool Value) : IHixValue {
   public static BooleanHixValue From(bool value) => value ? True : False;
   public HixValueKind Kind => HixValueKind.Bool;
 
-  public bool IsTruthy(HixExecutionContext context) {
+  public bool IsTruthy(HixThread context) {
     return Value;
   }
 
-  public HixString Render(HixExecutionContext context) {
-    return HixExecutionContext.Dynamic(Value ? "true" : "false");
+  public HixString Render(HixThread context) {
+    return HixString.Dynamic(Value ? "true" : "false");
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
     builder.Append(nameof(BooleanHixValue));
     builder.Append(Value);
   }
 
-  public IHixValue Select(HixExecutionContext context, HixString member) {
+  public IHixValue Select(HixThread context, HixString member) {
     return NullHixValue.Instance;
   }
 
-  public object Unlink(HixExecutionContext context) {
+  public object Unlink(HixThread context) {
     return Value;
   }
 
@@ -117,24 +117,24 @@ public sealed record BooleanHixValue(bool Value) : IHixValue {
 
 public sealed record ObjectHixValue(object Value) : IHixValue {
   public HixValueKind Kind => HixValueKind.Symbol;
-  public bool IsTruthy(HixExecutionContext context) {
+  public bool IsTruthy(HixThread context) {
     return Value is not null && Value is not false;
   }
 
-  public HixString Render(HixExecutionContext context) {
-    return HixExecutionContext.Dynamic(Convert.ToString(Value));
+  public HixString Render(HixThread context) {
+    return HixString.Dynamic(Convert.ToString(Value));
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
     builder.Append(nameof(ObjectHixValue));
     builder.Append(Convert.ToString(Value));
   }
 
-  public IHixValue Select(HixExecutionContext context, HixString member) {
+  public IHixValue Select(HixThread context, HixString member) {
     return NullHixValue.Instance;
   }
 
-  public object Unlink(HixExecutionContext context) {
+  public object Unlink(HixThread context) {
     return Value;
   }
 
@@ -187,12 +187,12 @@ public class HixTableValue : IHixValue {
   public int Count => Entries.Count;
   public HixValueKind Kind => HixValueKind.Table;
 
-  public bool IsTruthy(HixExecutionContext context) {
+  public bool IsTruthy(HixThread context) {
     return Count != 0;
   }
 
-  public HixString Render(HixExecutionContext context) {
-    return HixExecutionContext.Dynamic(
+  public HixString Render(HixThread context) {
+    return HixString.Dynamic(
       string.Join(
         ", ", Entries.Select(item =>
           item.Key.Resolve(context.Strings) + "=" + item.Value.Render(context).Resolve(context.Strings)
@@ -201,22 +201,22 @@ public class HixTableValue : IHixValue {
     );
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
     builder.Append(nameof(HixTableValue));
     builder.Append(Count);
     foreach (var item in Entries.OrderBy(entry => entry.Key.Resolve(context.Strings), StringComparer.Ordinal)) {
-      builder.Append(item.Key.Resolve(context.Strings));
+      builder.Append(item.Key, context.Strings);
       item.Value.Fingerprint(builder, context);
     }
   }
 
-  public virtual bool TryGetValue(HixExecutionContext context, HixString key, out IHixValue value) =>
-    ImmutableMap().TryGetValue(HixExecutionContext.Dynamic(key.Resolve(context.Strings)), out value);
+  public virtual bool TryGetValue(HixThread context, HixString key, out IHixValue value) =>
+    ImmutableMap().TryGetValue(HixString.Dynamic(key.Resolve(context.Strings)), out value);
 
-  public virtual IHixValue Select(HixExecutionContext context, HixString member) =>
+  public virtual IHixValue Select(HixThread context, HixString member) =>
     TryGetValue(context, member, out var value) ? value : NullHixValue.Instance;
 
-  public object Unlink(HixExecutionContext context) {
+  public object Unlink(HixThread context) {
     return Entries.ToDictionary(
       item => item.Key.Resolve(context.Strings), item => item.Value.Unlink(context), StringComparer.Ordinal
     );
@@ -238,19 +238,19 @@ public class HixTableValue : IHixValue {
     return hash;
   }
 
-  public HixTableValue Put(HixExecutionContext context, HixString key, IHixValue value) {
+  public HixTableValue Put(HixThread context, HixString key, IHixValue value) {
     var current = ImmutableMap();
-    var updated = current.SetItem(HixExecutionContext.Dynamic(key.Resolve(context.Strings)), value);
+    var updated = current.SetItem(HixString.Dynamic(key.Resolve(context.Strings)), value);
     return ReferenceEquals(current, updated) && map != null ? this : new HixTableValue(updated);
   }
 
-  public HixTableValue Remove(HixExecutionContext context, HixString key) {
+  public HixTableValue Remove(HixThread context, HixString key) {
     var current = ImmutableMap();
-    var updated = current.Remove(HixExecutionContext.Dynamic(key.Resolve(context.Strings)));
+    var updated = current.Remove(HixString.Dynamic(key.Resolve(context.Strings)));
     return ReferenceEquals(current, updated) && map != null ? this : new HixTableValue(updated);
   }
 
-  public HixTableValue Push(HixExecutionContext context, IHixValue value) {
+  public HixTableValue Push(HixThread context, IHixValue value) {
     return Put(context, context.ResolveString(Count.ToString()), value);
   }
 

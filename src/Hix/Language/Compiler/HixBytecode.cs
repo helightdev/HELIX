@@ -6,7 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Collections.ObjectModel;
 
-namespace Hix.Runtime;
+using Hix.Runtime;
+
+namespace Hix.Compiler;
 
 /// <summary>Byte-aligned opcodes. Operands are little-endian; all s16 references are relative to the opcode address.</summary>
 public enum HixOpcode : byte {
@@ -72,7 +74,7 @@ public enum HixOpcode : byte {
   Equal = 24,
 
   // Calls and blocks
-  /// <summary>u16 signature constant, u16 argument count; invoke an already bound signature.</summary>
+  /// <summary>u16 function-reference constant, u16 argument count; invoke the loaded function value.</summary>
   Call = 25,
   /// <summary>No operands; pop the return value and leave the function/expression.</summary>
   Return = 26,
@@ -171,57 +173,48 @@ public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B 
   }
 }
 
-internal enum BytecodeFlow { Normal, Return, Goto, Break, Continue, Error }
-
-internal readonly record struct VmCompletion(BytecodeFlow Kind = BytecodeFlow.Normal, IHixValue Value = null,
-  int Target = -1, int Line = 0
-);
-
-internal sealed record BytecodeField(string Name, HixPattern Pattern, bool Variadic, bool Optional = false) {
-  internal string Kind => Pattern.Display;
-  internal HixPatternField AsPatternField() => new(Name, Pattern, Optional);
+public sealed record BytecodeField(string Name, HixPattern Pattern, bool Variadic, bool Optional = false) {
+  public string Kind => Pattern.Display;
+  public HixPatternField AsPatternField() => new(Name, Pattern, Optional);
 }
 
-internal sealed record BytecodeSignature(HixPattern InputPattern, IReadOnlyList<BytecodeField> Inputs,
+public sealed record BytecodeSignature(HixPattern InputPattern, IReadOnlyList<BytecodeField> Inputs,
   HixPattern OutputPattern, IReadOnlyList<BytecodeField> Outputs
 ) {
-  internal string InputKind => InputPattern?.Display;
-  internal string OutputKind => OutputPattern?.Display;
-  internal SignatureHixPattern Constant(string name) => new(name,
+  public string InputKind => InputPattern?.Display;
+  public string OutputKind => OutputPattern?.Display;
+  public SignatureHixPattern Constant(string name) => new(name,
     Inputs == null ? [new HixPatternField(null, InputPattern ?? HixPattern.Any)] : Inputs.Select(field => field.AsPatternField()).ToArray(),
     Outputs == null ? OutputPattern ?? HixPattern.Any : new TableHixPattern(Outputs.Select(field => field.AsPatternField()).ToArray()));
 }
 
-internal sealed record BytecodeFunction(string Name, bool IsPure, IReadOnlyList<BytecodeSignature> Signatures,
+public sealed record BytecodeFunction(string Name, bool IsPure, IReadOnlyList<BytecodeSignature> Signatures,
   int Body
 );
 
-internal sealed record BytecodeExpression(int Body, bool IsPrelude, int Line);
+public sealed record BytecodeExpression(int Body, bool IsPrelude, int Line);
 
-internal sealed record BytecodeDerivation(string Name, int Line, IReadOnlyList<BytecodeExpression> Expressions,
+public sealed record BytecodeDerivation(string Name, int Line, IReadOnlyList<BytecodeExpression> Expressions,
   LanguageFunctionScope Scope
 );
 
-internal sealed record BytecodeTarget(string Value, bool IsCarry);
 
 /// <summary>Immutable compiled image: instructions, constant pools and syntax-free entry-point metadata.</summary>
-public sealed class HixExpressionExecutionProgram {
+public sealed class HixProgramImage {
   public IReadOnlyList<byte> Bytecode { get; }
   public IReadOnlyDictionary<int, int> SourceLines { get; }
   public IReadOnlyList<IHixValue> ConstantPool { get; }
   public HixStringPool StringPool { get; }
-  internal IReadOnlyList<BytecodeExpression> Expressions { get; }
-  internal IReadOnlyList<BytecodeDerivation> Derivations { get; }
-  internal LanguageFunctionScope Scope { get; }
-  internal IReadOnlyList<BytecodeTarget> LateTargets { get; }
-  internal IReadOnlyDictionary<string, HixPattern> Patterns { get; }
-  internal HixBackend Backend { get; }
-  internal IReadOnlyDictionary<int, HixVM.PreparedInvocation> PreparedCalls { get; }
+  public IReadOnlyList<BytecodeExpression> Expressions { get; }
+  public IReadOnlyList<BytecodeDerivation> Derivations { get; }
+  public LanguageFunctionScope Scope { get; }
+  public IReadOnlyDictionary<string, HixPattern> Patterns { get; }
+  public HixBackend Backend { get; }
 
-  internal HixExpressionExecutionProgram(
+  public HixProgramImage(
     byte[] code, Dictionary<int, int> sourceLines, IHixValue[] constants, HixStringPool strings,
     IReadOnlyList<BytecodeExpression> expressions, IReadOnlyList<BytecodeDerivation> derivations,
-    LanguageFunctionScope scope, IReadOnlyList<BytecodeTarget> targets, IReadOnlyDictionary<string, HixPattern> patterns,
+    LanguageFunctionScope scope, IReadOnlyDictionary<string, HixPattern> patterns,
     HixBackend backend
   ) {
     Bytecode = Array.AsReadOnly((byte[])code.Clone());
@@ -231,15 +224,13 @@ public sealed class HixExpressionExecutionProgram {
     Expressions = expressions;
     Derivations = derivations;
     Scope = scope;
-    LateTargets = targets;
     Patterns = patterns;
     Backend = backend;
     scope.Attach(this);
     foreach (var derivation in derivations) derivation.Scope.Attach(this);
-    PreparedCalls = HixVM.BindCalls(this);
   }
 
-  private HixExpressionExecutionProgram(HixExpressionExecutionProgram image, bool prelude) {
+  private HixProgramImage(HixProgramImage image, bool prelude) {
     Bytecode = image.Bytecode;
     SourceLines = image.SourceLines;
     ConstantPool = image.ConstantPool;
@@ -247,15 +238,13 @@ public sealed class HixExpressionExecutionProgram {
     Expressions = image.Expressions.Where(entry => entry.IsPrelude == prelude).ToArray();
     Derivations = image.Derivations;
     Scope = image.Scope;
-    LateTargets = image.LateTargets;
     Patterns = image.Patterns;
     Backend = image.Backend;
-    PreparedCalls = image.PreparedCalls;
   }
 
-  internal HixExpressionExecutionProgram ForPass(bool prelude) => new(this, prelude);
+  public HixProgramImage ForPass(bool prelude) => new(this, prelude);
   private string identity;
-  internal string Identity {
+  public string Identity {
     get {
       var cached = Volatile.Read(ref identity);
       if (cached != null) return cached;
@@ -289,11 +278,6 @@ public sealed class HixExpressionExecutionProgram {
         builder.Append(entry.IsPrelude);
         builder.Append(entry.Line);
       }
-    }
-    builder.Append(LateTargets.Count);
-    foreach (var target in LateTargets) {
-      builder.Append(target.Value);
-      builder.Append(target.IsCarry);
     }
     builder.Append(Patterns.Count);
     foreach (var pattern in Patterns.OrderBy(item => item.Key, StringComparer.Ordinal)) {
@@ -333,12 +317,12 @@ public sealed class HixExpressionExecutionProgram {
 
   public string Disassemble() => Disassemble(Bytecode, StringPool, ConstantPool, true);
 
-  internal string Disassemble(
+  public string Disassemble(
     IReadOnlyList<byte> bytecode, HixStringPool strings, IReadOnlyList<IHixValue> constants,
     bool includePools = false
   ) => HixDisassembler.Render(this, bytecode, strings, constants, includePools);
 
-  internal static string DisassemblePools(HixStringPool strings, IReadOnlyList<IHixValue> constants) {
+  public static string DisassemblePools(HixStringPool strings, IReadOnlyList<IHixValue> constants) {
     var text = new StringBuilder();
     for (var i = 0; i < constants.Count; i++)
       text.Append(".constant ").Append(i).Append(' ').Append(constants[i].Kind).Append(' ')
@@ -347,6 +331,7 @@ public sealed class HixExpressionExecutionProgram {
             NumberHixValue number => number.Value.ToString("R", CultureInfo.InvariantCulture),
             BooleanHixValue boolean => boolean == BooleanHixValue.True ? "true" : "false",
             NullHixValue => "null",
+            FunctionReferenceHixValue function => function.Signature.Display,
             PatternHixValue pattern => pattern.Pattern.Display,
             _ => constants[i].ToString()
           }
@@ -356,7 +341,7 @@ public sealed class HixExpressionExecutionProgram {
     return text.ToString();
   }
 
-  internal void Fingerprint(HixFingerprintBuilder builder) {
+  public void Fingerprint(HixFingerprintBuilder builder) {
     foreach (var value in Bytecode) builder.Append((int)value);
     for (var i = 0; i < StringPool.Count; i++) builder.Append(StringPool[i]);
     foreach (var value in ConstantPool) {

@@ -1,3 +1,4 @@
+using Hix.Compiler;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -5,14 +6,14 @@ using System.Linq;
 namespace Hix.Runtime;
 
 /// <summary>Lexical declarations only: bindings never retain an execution context or caller locals.</summary>
-internal sealed class LanguageFunctionScope {
+public sealed class LanguageFunctionScope {
   private readonly LanguageFunctionScope parent;
-  internal HixExpressionExecutionProgram Program { get; private set; }
-  internal void Attach(HixExpressionExecutionProgram program) { Program = program; parent?.Attach(program); }
+  public HixProgramImage Program { get; private set; }
+  internal void Attach(HixProgramImage program) { Program = program; parent?.Attach(program); }
   private readonly IReadOnlyDictionary<string, BytecodeFunction[]> declarations;
   private readonly Dictionary<string, LanguageFunctionCandidate[]> candidates = new(StringComparer.Ordinal);
 
-  internal LanguageFunctionScope(IEnumerable<BytecodeFunction> functions, LanguageFunctionScope parent = null) {
+  public LanguageFunctionScope(IEnumerable<BytecodeFunction> functions, LanguageFunctionScope parent = null) {
     this.parent = parent;
     declarations = functions.GroupBy(function => function.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
@@ -20,10 +21,10 @@ internal sealed class LanguageFunctionScope {
       candidates.Add(name, BuildCandidates(name).ToArray());
   }
 
-  internal IReadOnlyList<LanguageFunctionCandidate> Candidates(string name) =>
+  public IReadOnlyList<LanguageFunctionCandidate> Candidates(string name) =>
     candidates.TryGetValue(name, out var result) ? result : Array.Empty<LanguageFunctionCandidate>();
-  internal IEnumerable<LanguageFunctionCandidate> AllCandidates() => candidates.Values.SelectMany(value => value).Distinct();
-  internal LanguageFunctionCandidate Resolve(SignatureHixPattern signature) => Candidates(signature.Name)
+  public IEnumerable<LanguageFunctionCandidate> AllCandidates() => candidates.Values.SelectMany(value => value).Distinct();
+  public LanguageFunctionCandidate Resolve(SignatureHixPattern signature) => Candidates(signature.Name)
     .SingleOrDefault(candidate => candidate.Signature?.Constant(signature.Name).Display == signature.Display);
 
   private IEnumerable<LanguageFunctionCandidate> BuildCandidates(string name) {
@@ -41,21 +42,21 @@ internal sealed class LanguageFunctionScope {
         if (!shadowed.Contains(SignatureKey(candidate.Signature))) yield return candidate;
   }
 
-  internal bool Contains(string name) => candidates.ContainsKey(name);
-  internal NamedFunctionHixValue Bind(string name) => Contains(name)
-    ? new NamedFunctionHixValue(name) { Scope = this } : null;
+  public bool Contains(string name) => candidates.ContainsKey(name);
+  public NamedFunctionHixValue Bind(string name) => Contains(name)
+    ? new NamedFunctionHixValue(Program.StringPool.Get(name)) { Scope = this } : null;
 
-  internal static string SignatureKey(BytecodeSignature signature) => signature == null ? "(*)" :
+  public static string SignatureKey(BytecodeSignature signature) => signature == null ? "(*)" :
     signature.Inputs == null ? signature.InputKind : "(" + string.Join(",", signature.Inputs.Select(field =>
       (field.Variadic ? "..." : "") + field.Kind)) + ")";
 
-  internal IEnumerable<(string Scope, BytecodeFunction Function)> DisassemblyFunctions(string name, bool includeParent = true) {
+  public IEnumerable<(string Scope, BytecodeFunction Function)> DisassemblyFunctions(string name, bool includeParent = true) {
     if (includeParent && parent != null)
       foreach (var item in parent.DisassemblyFunctions("global")) yield return item;
     foreach (var function in declarations.Values.SelectMany(group => group)) yield return (name, function);
   }
 
-  internal void Fingerprint(HixFingerprintBuilder builder) {
+  public void Fingerprint(HixFingerprintBuilder builder) {
     Program?.Fingerprint(builder);
     parent?.Fingerprint(builder);
     foreach (var group in declarations.OrderBy(entry => entry.Key, StringComparer.Ordinal)) {
@@ -75,12 +76,12 @@ internal sealed class LanguageFunctionScope {
   }
 }
 
-internal sealed record LanguageFunctionCandidate(BytecodeFunction Function, BytecodeSignature Signature,
+public sealed record LanguageFunctionCandidate(BytecodeFunction Function, BytecodeSignature Signature,
   LanguageFunctionScope Owner) {
-  internal bool Variadic { get; } = Signature?.Inputs is {Count: > 0} fields && fields[fields.Count - 1].Variadic;
-  internal int FixedCount { get; } = Signature?.Inputs is { } fields
+  public bool Variadic { get; } = Signature?.Inputs is {Count: > 0} fields && fields[fields.Count - 1].Variadic;
+  public int FixedCount { get; } = Signature?.Inputs is { } fields
     ? fields.Count(field => !field.Optional && !field.Variadic) : 0;
-  internal int BaseScore { get; } = Signature == null ? -10000 : Signature.Inputs == null
+  public int BaseScore { get; } = Signature == null ? -10000 : Signature.Inputs == null
     ? Signature.InputKind == "any" ? 1000 : 1001
     : (Signature.Inputs.Count > 0 && Signature.Inputs[Signature.Inputs.Count - 1].Variadic ? 0 : 1000)
       + Signature.Inputs.Count(field => field.Kind != "any");

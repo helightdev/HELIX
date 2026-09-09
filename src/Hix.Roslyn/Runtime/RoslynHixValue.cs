@@ -9,11 +9,11 @@ using Hix.Roslyn;
 
 namespace Hix.Runtime;
 
-/// <summary>Immutable handle to a Roslyn semantic value; all services come from HixExecutionContext.</summary>
-internal sealed record RoslynHixValue(object Value, HixExpressionRoot Root = HixExpressionRoot.Null)
+/// <summary>Immutable handle to a Roslyn semantic value; all services come from HixThread.</summary>
+public sealed record RoslynHixValue(object Value, HixExpressionRoot Root = HixExpressionRoot.Null)
   : IHixValue {
   public HixValueKind Kind => HixValueKind.Symbol;
-  public bool IsTruthy(HixExecutionContext context) {
+  public bool IsTruthy(HixThread context) {
     return Value switch {
       null => false, bool boolean => boolean,
       TypedConstant constant => constant.Kind != TypedConstantKind.Error && !constant.IsNull &&
@@ -22,33 +22,33 @@ internal sealed record RoslynHixValue(object Value, HixExpressionRoot Root = Hix
     };
   }
 
-  public HixString Render(HixExecutionContext context) {
+  public HixString Render(HixThread context) {
     using var profile = HixProfiler.Measure("roslyn.value.render");
     if (Root is HixExpressionRoot.This or HixExpressionRoot.Target && Value is INamedTypeSymbol)
-      return HixExecutionContext.Dynamic("this");
+      return HixString.Dynamic("this");
     if (Value is IParameterSymbol parameter)
-      return HixExecutionContext.Dynamic(GeneratorAnalysis.EscapeIdentifier(parameter.Name));
+      return HixString.Dynamic(GeneratorAnalysis.EscapeIdentifier(parameter.Name));
     if (Value is IMethodSymbol method) {
-      return HixExecutionContext.Dynamic(
+      return HixString.Dynamic(
         method.IsStatic
           ? method.ContainingType.ToDisplayString(GeneratorAnalysis.TypeDisplayFormat) + "." + method.Name
           : "this." + GeneratorAnalysis.EscapeIdentifier(method.Name)
       );
     }
-    if (Value is TypedConstant constant) return HixExecutionContext.Dynamic(RenderConstant(constant));
-    return HixExecutionContext.Dynamic(HixRoslynContext.ComparableText(Value));
+    if (Value is TypedConstant constant) return HixString.Dynamic(RenderConstant(constant));
+    return HixString.Dynamic(HixRoslynContext.ComparableText(Value));
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
     builder.Append(nameof(RoslynHixValue));
     builder.Append(Render(context).Resolve(context.Strings));
   }
 
-  public IHixValue Select(HixExecutionContext context, HixString member) {
-    return context is HixRoslynContext roslyn ? roslyn.SelectValue(this, member) : NullHixValue.Instance;
+  public IHixValue Select(HixThread context, HixString member) {
+    return context.Context is HixRoslynContext roslyn ? roslyn.SelectValue(context, this, member) : NullHixValue.Instance;
   }
 
-  public object Unlink(HixExecutionContext context) {
+  public object Unlink(HixThread context) {
     return Value switch {
       TypedConstant { Kind: TypedConstantKind.Type } => Render(context).Resolve(context.Strings),
       TypedConstant { Value: string or char } => Render(context).Resolve(context.Strings),
@@ -88,7 +88,7 @@ internal sealed record RoslynHixValue(object Value, HixExpressionRoot Root = Hix
     };
   }
 
-  internal static string RenderCSharpConstant(TypedConstant constant) {
+  public static string RenderCSharpConstant(TypedConstant constant) {
     if (constant.Kind != TypedConstantKind.Enum || constant.Type is not INamedTypeSymbol enumType)
       return RenderConstant(constant);
     var member = enumType.GetMembers().OfType<IFieldSymbol>().FirstOrDefault(item =>
@@ -118,36 +118,36 @@ internal sealed record RoslynHixValue(object Value, HixExpressionRoot Root = Hix
 
 
 
-internal sealed record DetachedSemanticData(string Namespace, string TypeName);
+public sealed record DetachedSemanticData(string Namespace, string TypeName);
 
-internal sealed record DetachedSemanticHixValue(
+public sealed record DetachedSemanticHixValue(
   HixString Namespace, HixString TypeName
 ) : IHixValue {
   public HixValueKind Kind => HixValueKind.Symbol;
-  public bool IsTruthy(HixExecutionContext context) {
+  public bool IsTruthy(HixThread context) {
     return true;
   }
 
-  public HixString Render(HixExecutionContext context) {
+  public HixString Render(HixThread context) {
     var name = TypeName.Resolve(context.Strings);
     var typeNamespace = Namespace.Resolve(context.Strings);
-    if (string.IsNullOrEmpty(name)) return HixExecutionContext.Dynamic("");
-    return HixExecutionContext.Dynamic(
+    if (string.IsNullOrEmpty(name)) return HixString.Dynamic("");
+    return HixString.Dynamic(
       "global::" + (string.IsNullOrEmpty(typeNamespace) ? name : typeNamespace + "." + name)
     );
   }
 
-  public void Fingerprint(HixFingerprintBuilder builder, HixExecutionContext context) {
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
     builder.Append(nameof(DetachedSemanticHixValue));
     builder.Append(Namespace.Resolve(context.Strings));
     builder.Append(TypeName.Resolve(context.Strings));
   }
 
-  public IHixValue Select(HixExecutionContext context, HixString member) {
+  public IHixValue Select(HixThread context, HixString member) {
     return NullHixValue.Instance;
   }
 
-  public object Unlink(HixExecutionContext context) {
+  public object Unlink(HixThread context) {
     return new DetachedSemanticData(
       Namespace.Resolve(context.Strings), TypeName.Resolve(context.Strings)
     );
@@ -157,7 +157,7 @@ internal sealed record DetachedSemanticHixValue(
     return other is DetachedSemanticHixValue value && Equals(value);
   }
 
-  internal static DetachedSemanticHixValue Materialize(DetachedSemanticData value) {
+  public static DetachedSemanticHixValue Materialize(DetachedSemanticData value) {
     return new DetachedSemanticHixValue(
       HixString.Dynamic(value.Namespace), HixString.Dynamic(value.TypeName)
     );

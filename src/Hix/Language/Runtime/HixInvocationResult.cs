@@ -1,5 +1,6 @@
 namespace Hix.Runtime;
-public sealed record HixInvocationResult(IHixValue Value, HixExpressionResult Execution) {
+public readonly record struct HixInvocationResult(IHixValue Value, HixExecutionResult Execution) {
+  public HixStringPool Strings => Execution.Strings;
   public bool Success => Execution.Success;
-  public string Error => Execution.Error;
+  public HixString Error => Execution.Error;
 }

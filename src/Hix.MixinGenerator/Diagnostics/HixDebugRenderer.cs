@@ -1,3 +1,4 @@
+using Hix.Compiler;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -9,8 +10,8 @@ using Hix.Runtime;
 namespace Hix.Diagnostics;
 
 public sealed record HixDebugExpression(
-  HixExpressionExecutionProgram PreludeProgram,
-  HixExpressionExecutionProgram LateProgram,
+  HixProgramImage PreludeProgram,
+  HixProgramImage LateProgram,
   ImmutableDictionary<string, object> Variables,
   ImmutableDictionary<string, object> Carries,
   string Provider,

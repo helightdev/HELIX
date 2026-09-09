@@ -9,7 +9,7 @@ namespace Hix;
 
 public sealed class FunctionLibrary {
   private readonly FunctionSignatureRegistry Definitions;
-  internal FunctionLibrary(FunctionSignatureRegistryBuilder definitions) {
+  public FunctionLibrary(FunctionSignatureRegistryBuilder definitions) {
     Definitions = definitions.Build(ValidateMetadata);
   }
 
@@ -31,7 +31,7 @@ public sealed class FunctionLibrary {
     }
   }
 
-  internal void CollectConstants(HixStringPoolBuilder pool) {
+  public void CollectConstants(HixStringPoolBuilder pool) {
     foreach (var name in Definitions.Enumerate().Select(item => item.Name).Distinct()) pool.Intern(name);
   }
 }

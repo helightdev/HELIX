@@ -113,7 +113,7 @@ public sealed class PersistentMap<TKey, TValue> : IReadOnlyDictionary<TKey, TVal
     public KeyValuePair<TKey, TValue> Current { get; private set; }
     object IEnumerator.Current => Current;
 
-    internal Enumerator(PersistentMap<TKey, TValue> map) {
+    public Enumerator(PersistentMap<TKey, TValue> map) {
       this.map = map;
       Current = default;
       depth = 0;
@@ -263,18 +263,18 @@ public sealed class PersistentMap<TKey, TValue> : IReadOnlyDictionary<TKey, TVal
   }
 
   private abstract class Node {
-    internal abstract bool Find(TKey key, uint hash, int shift, IEqualityComparer<TKey> comparer, out TValue value);
+    public abstract bool Find(TKey key, uint hash, int shift, IEqualityComparer<TKey> comparer, out TValue value);
 
-    internal abstract Node Set(
+    public abstract Node Set(
       TKey key, TValue value, uint hash, int shift, IEqualityComparer<TKey> comparer, out bool added
     );
 
-    internal abstract Node Remove(TKey key, uint hash, int shift, IEqualityComparer<TKey> comparer, out bool removed);
+    public abstract Node Remove(TKey key, uint hash, int shift, IEqualityComparer<TKey> comparer, out bool removed);
   }
 
   // A leaf also represents a full-hash collision bucket.
   private sealed class Leaf(uint hash, TKey[] keys, TValue[] values) : Node {
-    internal override bool Find(
+    public override bool Find(
       TKey key, uint requested, int shift, IEqualityComparer<TKey> comparer, out TValue value
     ) {
       if (hash == requested)
@@ -287,7 +287,7 @@ public sealed class PersistentMap<TKey, TValue> : IReadOnlyDictionary<TKey, TVal
       return false;
     }
 
-    internal override Node Set(
+    public override Node Set(
       TKey key, TValue value, uint requested, int shift, IEqualityComparer<TKey> comparer, out bool added
     ) {
       if (hash != requested) {
@@ -306,7 +306,7 @@ public sealed class PersistentMap<TKey, TValue> : IReadOnlyDictionary<TKey, TVal
       return new Leaf(hash, Insert(keys, keys.Length, key), Insert(values, values.Length, value));
     }
 
-    internal override Node Remove(
+    public override Node Remove(
       TKey key, uint requested, int shift, IEqualityComparer<TKey> comparer, out bool removed
     ) {
       if (hash == requested)
@@ -319,8 +319,8 @@ public sealed class PersistentMap<TKey, TValue> : IReadOnlyDictionary<TKey, TVal
       return this;
     }
 
-    internal int Count => keys.Length;
-    internal KeyValuePair<TKey, TValue> Entry(int index) => new(keys[index], values[index]);
+    public int Count => keys.Length;
+    public KeyValuePair<TKey, TValue> Entry(int index) => new(keys[index], values[index]);
   }
 
   private static Node Merge(Node left, uint leftHash, Node right, uint rightHash, int shift) {
@@ -332,14 +332,14 @@ public sealed class PersistentMap<TKey, TValue> : IReadOnlyDictionary<TKey, TVal
   }
 
   private sealed class Branch(uint bitmap, Node[] children) : Node {
-    internal override bool Find(TKey key, uint hash, int shift, IEqualityComparer<TKey> comparer, out TValue value) {
+    public override bool Find(TKey key, uint hash, int shift, IEqualityComparer<TKey> comparer, out TValue value) {
       var bit = Bit(hash, shift);
       if ((bitmap & bit) != 0) return children[Slot(bitmap, bit)].Find(key, hash, shift + 5, comparer, out value);
       value = default;
       return false;
     }
 
-    internal override Node Set(
+    public override Node Set(
       TKey key, TValue value, uint hash, int shift, IEqualityComparer<TKey> comparer, out bool added
     ) {
       var bit = Bit(hash, shift);
@@ -355,7 +355,7 @@ public sealed class PersistentMap<TKey, TValue> : IReadOnlyDictionary<TKey, TVal
       return new Branch(bitmap, updated);
     }
 
-    internal override Node Remove(TKey key, uint hash, int shift, IEqualityComparer<TKey> comparer, out bool removed) {
+    public override Node Remove(TKey key, uint hash, int shift, IEqualityComparer<TKey> comparer, out bool removed) {
       var bit = Bit(hash, shift);
       var index = Slot(bitmap, bit);
       if ((bitmap & bit) == 0) {
@@ -375,7 +375,7 @@ public sealed class PersistentMap<TKey, TValue> : IReadOnlyDictionary<TKey, TVal
       return new Branch(bitmap, updated);
     }
 
-    internal int Count => children.Length;
-    internal Node Child(int index) => children[index];
+    public int Count => children.Length;
+    public Node Child(int index) => children[index];
   }
 }

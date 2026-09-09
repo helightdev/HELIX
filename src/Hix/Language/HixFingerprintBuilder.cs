@@ -10,6 +10,13 @@ public sealed class HixFingerprintBuilder {
   public ulong Hash => _hash == 0 ? Offset : _hash;
   public long Length { get; private set; }
 
+  public void Append(HixString value, HixStringPool strings) {
+    var length = value.Length(strings);
+    Append(length);
+    Append(value.Fingerprint(strings));
+    Length += length;
+  }
+
   public void Append(string value) {
     Append(value?.Length ?? -1);
     if (value is null) return;

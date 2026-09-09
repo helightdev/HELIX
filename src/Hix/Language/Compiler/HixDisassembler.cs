@@ -4,11 +4,13 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
-namespace Hix.Runtime;
+using Hix.Runtime;
+
+namespace Hix.Compiler;
 
 /// <summary>Formats executable instructions only; pseudocode describes stack effects without interpreting syntax.</summary>
-internal static class HixDisassembler {
-  internal static string Render(HixExpressionExecutionProgram program, IReadOnlyList<byte> code,
+public static class HixDisassembler {
+  public static string Render(HixProgramImage program, IReadOnlyList<byte> code,
     HixStringPool strings, IReadOnlyList<IHixValue> constants, bool includePools) {
     var headers = new Dictionary<int, List<string>>();
     var labels = new HashSet<int>();
@@ -43,7 +45,7 @@ internal static class HixDisassembler {
     var addressWidth = Math.Max("ADDRESS".Length, Address(code.Count).Length);
     var instructionWidth = Math.Max(32, rows.Count == 0 ? 0 : rows.Max(row => row.Instruction.Length));
     var text = new StringBuilder();
-    if (includePools) text.Append(HixExpressionExecutionProgram.DisassemblePools(strings, constants)).AppendLine();
+    if (includePools) text.Append(HixProgramImage.DisassemblePools(strings, constants)).AppendLine();
     text.Append("ADDRESS".PadRight(addressWidth)).Append(" | ").Append("INSTRUCTION".PadRight(instructionWidth))
       .AppendLine(" | PSEUDOCODE");
     void Boundary(int address) {
@@ -109,7 +111,7 @@ internal static class HixDisassembler {
       case HixOpcode.Pack: return (Number(a), a == 0 ? "push(null)" : a == 1 ? "keep top value" : "push(tuple(" + Args(a) + "))");
       case HixOpcode.Interpolate: return (Number(a), "push(concat(" + Args(a) + "))");
       case HixOpcode.Call:
-        var signature = ((PatternHixValue)constants[a]).Pattern.Display;
+        var signature = ((FunctionReferenceHixValue)constants[a]).Signature.Display;
         return ("c" + Number(a) + ", argc=" + Number(b), "push(static " + signature + "(" + Args(b) + "))");
       case HixOpcode.CallDynamic: return (StringId() + ", argc=" + Number(b), "push(dynamic " + Name() + "(" + Args(b) + "))");
       case HixOpcode.CastBoolean: return ("", "push(bool_or_error(pop()))");
@@ -135,7 +137,8 @@ internal static class HixDisassembler {
     NumberHixValue number => number.Value.ToString("R", CultureInfo.InvariantCulture),
     BooleanHixValue boolean => boolean.Value ? "true" : "false",
     NullHixValue => "null",
-    KindHixValue kind => kind.Name,
+    KindHixValue kind => kind.Name.Resolve(null),
+    FunctionReferenceHixValue function => function.Signature.Display,
     PatternHixValue pattern => pattern.Pattern.Display,
     _ => value.ToString()
   };

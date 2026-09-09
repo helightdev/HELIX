@@ -1,3 +1,4 @@
+using Hix.Mixins;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,7 +21,7 @@ using static Hix.Roslyn.GeneratorAnalysis;
 using static Hix.Roslyn.GeneratorDiagnostics.Mixins;
 using static Hix.Roslyn.GeneratorSource;
 using static Hix.Roslyn.GeneratorStrings;
-using HixExecutionContext = Hix.Runtime.HixExecutionContext;
+using HixThread = Hix.Runtime.HixThread;
 
 namespace HelixSourceGenerator.Generators;
 
@@ -355,9 +356,9 @@ public sealed partial class MixinGenerator {
     SharpStringBuilder builder,
     HixContribution contribution
   ) {
-    foreach (var output in contribution.ExpressionResult.Outputs) {
-      if (output.Target == HixEmissionTarget.Target)
-        builder.Statement(output.Text);
+    foreach (var output in contribution.Outputs) {
+      if (output.Target == MixinEmissionTarget.Target)
+        builder.Statement(output.ResolveText());
     }
   }
 

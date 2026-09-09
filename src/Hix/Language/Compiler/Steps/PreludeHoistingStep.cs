@@ -4,8 +4,8 @@ using System.Linq;
 
 namespace Hix.Compiler.Steps;
 
-internal sealed class PreludeHoistingStep : HixCompilerStep {
-  internal override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
+public sealed class PreludeHoistingStep : HixCompilerStep {
+  public override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
     var names = new HashSet<string>(input.Prelude.SelectMany(expression => expression.Body.Statements)
       .OfType<AssignmentStatementAst>().Where(statement => statement.IsCarried)
       .Select(statement => statement.Name), StringComparer.Ordinal);
@@ -26,7 +26,7 @@ internal sealed class PreludeHoistingStep : HixCompilerStep {
     IReadOnlyDictionary<string, FunctionDeclarationAst[]> functions, HixBackend backend) : HixAstRewriter {
     private readonly Dictionary<string, string> carries = new(StringComparer.Ordinal);
 
-    internal ExpressionDeclarationAst RewriteLateExpression(ExpressionDeclarationAst expression) =>
+    public ExpressionDeclarationAst RewriteLateExpression(ExpressionDeclarationAst expression) =>
       CopyLocation(expression, new ExpressionDeclarationAst(false, expression.IsStrict, RewriteLateBlock(expression.Body)));
 
     private BlockStatementAst RewriteLateBlock(BlockStatementAst block) => CopyLocation(block,

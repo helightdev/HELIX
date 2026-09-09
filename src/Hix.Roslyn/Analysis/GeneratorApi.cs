@@ -12,29 +12,29 @@ using Hix.Env;
 namespace Hix.Roslyn;
 
 public static partial class GeneratorAnalysis {
-  internal static readonly SymbolDisplayFormat TypeDisplayFormat =
+  public static readonly SymbolDisplayFormat TypeDisplayFormat =
     SymbolDisplayFormat.FullyQualifiedFormat.WithMiscellaneousOptions(
       SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
       SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier
     );
-  internal static readonly SymbolDisplayFormat TypeDisplayFormatWithoutGlobal =
+  public static readonly SymbolDisplayFormat TypeDisplayFormatWithoutGlobal =
     TypeDisplayFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted);
 
   private static readonly ConditionalWeakTable<ISymbol, IReadOnlyList<AttributeData>> _attributeCache = new();
 
-  internal static Location LocationOf(ISymbol symbol) {
+  public static Location LocationOf(ISymbol symbol) {
     return symbol.Locations.FirstOrDefault(location => location.IsInSource) ??
       symbol.Locations.FirstOrDefault() ?? Location.None;
   }
 
-  internal static bool IsPartial(INamedTypeSymbol type) {
+  public static bool IsPartial(INamedTypeSymbol type) {
     return type.DeclaringSyntaxReferences.Any(reference =>
       reference.GetSyntax() is TypeDeclarationSyntax declaration &&
       declaration.Modifiers.Any(SyntaxKind.PartialKeyword)
     );
   }
 
-  internal static INamedTypeSymbol FirstNonPartialContainingType(INamedTypeSymbol type) {
+  public static INamedTypeSymbol FirstNonPartialContainingType(INamedTypeSymbol type) {
     for (var containing = type.ContainingType;
       containing is not null;
       containing = containing.ContainingType) {
@@ -44,7 +44,7 @@ public static partial class GeneratorAnalysis {
     return null;
   }
 
-  internal static bool HasTypeParameters(INamedTypeSymbol type) {
+  public static bool HasTypeParameters(INamedTypeSymbol type) {
     for (var current = type; current is not null; current = current.ContainingType) {
       if (current.TypeParameters.Length != 0)
         return true;
@@ -52,7 +52,7 @@ public static partial class GeneratorAnalysis {
     return false;
   }
 
-  internal static IReadOnlyList<IFieldSymbol> InstanceFields(INamedTypeSymbol type) {
+  public static IReadOnlyList<IFieldSymbol> InstanceFields(INamedTypeSymbol type) {
     using var profile = HixProfiler.Measure("roslyn.analysis.instance_fields");
     return [
       .. type.GetMembers()
@@ -62,12 +62,12 @@ public static partial class GeneratorAnalysis {
     ];
   }
 
-  internal static int SourceOrder(ISymbol symbol) {
+  public static int SourceOrder(ISymbol symbol) {
     var location = symbol.Locations.FirstOrDefault(item => item.IsInSource);
     return location?.SourceSpan.Start ?? int.MaxValue;
   }
 
-  internal static bool InheritsFrom(INamedTypeSymbol type, string metadataName) {
+  public static bool InheritsFrom(INamedTypeSymbol type, string metadataName) {
     for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType) {
       if (baseType.ToDisplayString() == metadataName)
         return true;
@@ -75,7 +75,7 @@ public static partial class GeneratorAnalysis {
     return false;
   }
 
-  internal static bool Implements(INamedTypeSymbol type, string metadataName) {
+  public static bool Implements(INamedTypeSymbol type, string metadataName) {
     return type.AllInterfaces.Any(candidate => candidate.ToDisplayString() == metadataName);
   }
 
@@ -130,18 +130,18 @@ public static partial class GeneratorAnalysis {
     return attributes;
   }
 
-  internal static AttributeData Attribute(ISymbol symbol, string metadataName) {
+  public static AttributeData Attribute(ISymbol symbol, string metadataName) {
     using var profile = HixProfiler.Measure("generator_api.attribute");
     var attributes = AttributeList(symbol);
     using (HixProfiler.Measure("generator_api.attribute.match"))
       return attributes.FirstOrDefault(item => item.AttributeClass?.ToDisplayString() == metadataName);
   }
 
-  internal static ITypeSymbol TypeArgument(AttributeData attribute, string name) {
+  public static ITypeSymbol TypeArgument(AttributeData attribute, string name) {
     return attribute.NamedArguments.FirstOrDefault(item => item.Key == name).Value.Value as ITypeSymbol;
   }
 
-  internal static string StringArgument(
+  public static string StringArgument(
     AttributeData attribute,
     string name,
     string defaultValue = null
@@ -153,7 +153,7 @@ public static partial class GeneratorAnalysis {
     return defaultValue;
   }
 
-  internal static bool BooleanArgument(
+  public static bool BooleanArgument(
     AttributeData attribute,
     string name,
     bool defaultValue = false
@@ -165,7 +165,7 @@ public static partial class GeneratorAnalysis {
     return defaultValue;
   }
 
-  internal static int Int32Argument(AttributeData attribute, string name, int defaultValue) {
+  public static int Int32Argument(AttributeData attribute, string name, int defaultValue) {
     foreach (var argument in attribute.NamedArguments) {
       if (argument.Key != name) continue;
       return TryConvertToInt32(argument.Value.Value, out var result) ? result : int.MinValue;
@@ -173,7 +173,7 @@ public static partial class GeneratorAnalysis {
     return defaultValue;
   }
 
-  internal static bool TryConvertToInt32(object value, out int result) {
+  public static bool TryConvertToInt32(object value, out int result) {
     try {
       result = Convert.ToInt32(value, CultureInfo.InvariantCulture);
       return true;
@@ -183,7 +183,7 @@ public static partial class GeneratorAnalysis {
     }
   }
 
-  internal static Accessibility EffectiveAccessibility(INamedTypeSymbol type) {
+  public static Accessibility EffectiveAccessibility(INamedTypeSymbol type) {
     for (var current = type; current is not null; current = current.ContainingType) {
       if (current.DeclaredAccessibility != Accessibility.Public)
         return Accessibility.Internal;
@@ -191,7 +191,7 @@ public static partial class GeneratorAnalysis {
     return Accessibility.Public;
   }
 
-  internal static string AccessibilityText(Accessibility accessibility) {
+  public static string AccessibilityText(Accessibility accessibility) {
     return accessibility switch {
       Accessibility.Public => "public",
       Accessibility.Private => "private",
@@ -203,7 +203,7 @@ public static partial class GeneratorAnalysis {
     };
   }
 
-  internal static bool IsValidIdentifier(string name) {
+  public static bool IsValidIdentifier(string name) {
     return !string.IsNullOrWhiteSpace(name) &&
       (SyntaxFacts.IsValidIdentifier(name) ||
         SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None ||
@@ -211,20 +211,20 @@ public static partial class GeneratorAnalysis {
         SyntaxKind.None);
   }
 
-  internal static string EscapeIdentifier(string identifier) {
+  public static string EscapeIdentifier(string identifier) {
     return SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ||
       SyntaxFacts.GetContextualKeywordKind(identifier) != SyntaxKind.None
         ? "@" + identifier
         : identifier;
   }
 
-  internal static bool ContainsPointer(ITypeSymbol type) {
+  public static bool ContainsPointer(ITypeSymbol type) {
     if (type.TypeKind == TypeKind.Pointer || type.TypeKind == TypeKind.FunctionPointer) return true;
     if (type is IArrayTypeSymbol array) return ContainsPointer(array.ElementType);
     return type is INamedTypeSymbol named && named.TypeArguments.Any(ContainsPointer);
   }
 
-  internal static IReadOnlyList<string> CollectUsings(INamedTypeSymbol type) {
+  public static IReadOnlyList<string> CollectUsings(INamedTypeSymbol type) {
     using var profile = HixProfiler.Measure("roslyn.analysis.collect_usings");
     var result = new List<string>();
     var seen = new HashSet<string>(StringComparer.Ordinal);

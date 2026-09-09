@@ -1,3 +1,4 @@
+using Hix.Mixins;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,7 +21,7 @@ using static Hix.Roslyn.GeneratorAnalysis;
 using static Hix.Roslyn.GeneratorDiagnostics.Mixins;
 using static Hix.Roslyn.GeneratorSource;
 using static Hix.Roslyn.GeneratorStrings;
-using HixExecutionContext = Hix.Runtime.HixExecutionContext;
+using HixThread = Hix.Runtime.HixThread;
 
 namespace HelixSourceGenerator.Generators;
 
@@ -48,7 +49,7 @@ public sealed partial class MixinGenerator {
     }
 
     internal void AddLateExpression(
-      HixExpressionExecutionProgram program,
+      HixProgramImage program,
       string preludeIdentity,
       string lateIdentity,
       IReadOnlyDictionary<string, object> variables,
@@ -73,8 +74,8 @@ public sealed partial class MixinGenerator {
     }
 
     internal void AddDebugExpression(
-      HixExpressionExecutionProgram preludeProgram,
-      HixExpressionExecutionProgram lateProgram,
+      HixProgramImage preludeProgram,
+      HixProgramImage lateProgram,
       IReadOnlyDictionary<string, object> variables,
       IReadOnlyDictionary<string, object> carries,
       string provider,
@@ -102,7 +103,7 @@ public sealed partial class MixinGenerator {
   }
 
   private sealed record LateExpressionWork(
-    HixExpressionExecutionProgram Program,
+    HixProgramImage Program,
     string PreludeIdentity,
     string LateIdentity,
     IReadOnlyDictionary<string, object> Variables,
@@ -242,7 +243,7 @@ public sealed partial class MixinGenerator {
     ImmutableArray<HixReportedLog> Logs
   );
 
-  private sealed record HixReportedLog(HixExpressionLog Log, HixDiagnostic Location);
+  private sealed record HixReportedLog(HixLog Log, HixDiagnostic Location, HixStringPool Strings);
 
   private readonly struct HixRenderFingerprint : IEquatable<HixRenderFingerprint> {
     private HixRenderFingerprint(
@@ -272,7 +273,7 @@ public sealed partial class MixinGenerator {
       AppendOutputCollection(outputs, render.Usings);
 
       var variables = new HixFingerprintBuilder();
-      var fingerprintContext = new UnlinkedHixExpressionContext(render.StringPool);
+      var fingerprintContext = new HixThread(new UnlinkedHixContext(render.StringPool));
       variables.Append(render.PrimaryVariables.Count);
       foreach (var variable in render.PrimaryVariables
         .OrderBy(item => item.Key.Id)
@@ -313,7 +314,7 @@ public sealed partial class MixinGenerator {
         foreach (var contribution in method.Contributions) {
           outputs.Append(contribution.EmittedTarget);
           outputs.Append(contribution.Order);
-          AppendOutputs(outputs, contribution.ExpressionResult.Outputs);
+          AppendOutputs(outputs, contribution.Outputs);
         }
       }
       signatures.Append(render.VmDebug);
@@ -347,18 +348,16 @@ public sealed partial class MixinGenerator {
 
     private static void AppendOutputs(
       HixFingerprintBuilder builder,
-      IReadOnlyCollection<HixExpressionOutput> outputs
+      IReadOnlyCollection<MixinOutput> outputs
     ) {
       builder.Append(outputs.Count);
       foreach (var output in outputs) {
         builder.Append((int)output.Target);
-        builder.Append(output.InjectionTarget);
+        builder.Append(unchecked((long)output.InjectionTarget.Fingerprint(output.Strings)));
+        builder.Append(output.InjectionTarget.Length(output.Strings));
         builder.Append(output.InjectionPriority);
-        builder.Append(output.Segments.Count);
-        foreach (var segment in output.Segments) {
-          builder.Append(segment.IsInterned);
-          builder.Append(output.Resolve(segment));
-        }
+        builder.Append(unchecked((long)output.Text.Fingerprint(output.Strings)));
+        builder.Append(output.Text.Length(output.Strings));
       }
     }
 
@@ -471,11 +470,11 @@ public sealed partial class MixinGenerator {
     }
   }
 
-  private sealed class UnlinkedHixExpressionContext : HixExecutionContext {
-    internal UnlinkedHixExpressionContext(HixStringPool strings) : base(HixMixinBackend.Instance, strings) { }
+  private sealed class UnlinkedHixContext : MixinOutputContext {
+    internal UnlinkedHixContext(HixStringPool strings) : base(HixMixinBackend.Instance, strings) { }
 
-    protected override IHixValue ResolveHost(HixExpressionRoot root, HixString member) {
-      return Error("late expressions cannot resolve host values");
+    public override IHixValue ResolveHost(HixThread thread, HixExpressionRoot root, HixString member) {
+      return thread.Error("late expressions cannot resolve host values");
     }
   }
 
@@ -483,25 +482,25 @@ public sealed partial class MixinGenerator {
     private HixOutputAccumulator _annotations, _class, _file, _implements, _usings;
     internal bool Any { get; private set; }
 
-    internal void Add(HixExpressionOutput output) {
+    internal void Add(MixinOutput output) {
       if (output.IsEmpty) return;
-      if (output.Target == HixEmissionTarget.Class) {
+      if (output.Target == MixinEmissionTarget.Class) {
         Any = true;
         (_class ??= new HixOutputAccumulator()).Add(output);
         return;
       }
-      if (output.Target == HixEmissionTarget.File) {
+      if (output.Target == MixinEmissionTarget.File) {
         Any = true;
         (_file ??= new HixOutputAccumulator()).Add(output);
         return;
       }
       Any = true;
       switch (output.Target) {
-        case HixEmissionTarget.Extends or HixEmissionTarget.Implements:
+        case MixinEmissionTarget.Extends or MixinEmissionTarget.Implements:
           (_implements ??= new HixOutputAccumulator()).Add(output); break;
-        case HixEmissionTarget.Annotation:
+        case MixinEmissionTarget.Annotation:
           (_annotations ??= new HixOutputAccumulator()).Add(output); break;
-        case HixEmissionTarget.Using:
+        case MixinEmissionTarget.Using:
           (_usings ??= new HixOutputAccumulator()).Add(output);
           break;
       }
@@ -527,26 +526,26 @@ public sealed partial class MixinGenerator {
   );
 
   private sealed class HixOutputAccumulator {
-    private readonly List<HixExpressionOutput> _outputs = [];
+    private readonly List<MixinOutput> _outputs = [];
     private OutputFingerprintBuilder _fingerprint;
 
-    internal IReadOnlyList<HixExpressionOutput> Outputs => _outputs;
+    internal IReadOnlyList<MixinOutput> Outputs => _outputs;
     internal ulong Hash => _fingerprint.Hash;
     internal long Length => _fingerprint.Length;
 
-    internal void Add(HixExpressionOutput output) {
+    internal void Add(MixinOutput output) {
       _outputs.Add(output);
       _fingerprint.Append(output);
     }
   }
 
-  private sealed class HixOutputCollection : IReadOnlyList<HixExpressionOutput> {
+  private sealed class HixOutputCollection : IReadOnlyList<MixinOutput> {
     private static readonly HixOutputCollection Empty = new(
       [], OutputFingerprintBuilder.EmptyHash, 0
     );
-    private readonly HixExpressionOutput[] _outputs;
+    private readonly MixinOutput[] _outputs;
 
-    private HixOutputCollection(HixExpressionOutput[] outputs, ulong hash, long length) {
+    private HixOutputCollection(MixinOutput[] outputs, ulong hash, long length) {
       _outputs = outputs;
       Hash = hash;
       Length = length;
@@ -555,10 +554,10 @@ public sealed partial class MixinGenerator {
     internal ulong Hash { get; }
     internal long Length { get; }
     public int Count => _outputs.Length;
-    public HixExpressionOutput this[int index] => _outputs[index];
+    public MixinOutput this[int index] => _outputs[index];
 
-    public IEnumerator<HixExpressionOutput> GetEnumerator() {
-      return ((IEnumerable<HixExpressionOutput>)_outputs).GetEnumerator();
+    public IEnumerator<MixinOutput> GetEnumerator() {
+      return ((IEnumerable<MixinOutput>)_outputs).GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator() {
@@ -582,22 +581,18 @@ public sealed partial class MixinGenerator {
     internal ulong Hash => _hash == 0 ? EmptyHash : _hash;
     internal long Length { get; private set; }
 
-    internal void Append(HixExpressionOutput output) {
+    internal void Append(MixinOutput output) {
       Mix((ulong)output.Target);
-      Append(output.InjectionTarget);
+      Append(output.InjectionTarget, output.Strings);
       Mix(unchecked((ulong)output.InjectionPriority));
-      Mix((ulong)output.Segments.Count);
-      foreach (var segment in output.Segments) {
-        Mix(segment.IsInterned ? 1UL : 0UL);
-        Append(output.Resolve(segment));
-      }
+      Append(output.Text, output.Strings);
     }
 
-    private void Append(string value) {
-      Mix((ulong)(value?.Length ?? -1));
-      if (value is null) return;
-      for (var index = 0; index < value.Length; index++) Mix(value[index]);
-      Length += value.Length;
+    private void Append(HixString value, HixStringPool strings) {
+      var length = value.Length(strings);
+      Mix((ulong)length);
+      Mix(value.Fingerprint(strings));
+      Length += length;
     }
 
     private void Mix(ulong value) {
@@ -615,10 +610,10 @@ public sealed partial class MixinGenerator {
       LateTarget target,
       int order,
       int sequence,
-      HixExpressionResult expressionResult,
+      IReadOnlyList<MixinOutput> outputs,
       LateExpressionWork work,
       bool placeholder
-    ) : this(target, order, sequence, expressionResult, work) {
+    ) : this(target, order, sequence, outputs, work) {
       IsPlaceholder = placeholder;
     }
 
@@ -626,7 +621,7 @@ public sealed partial class MixinGenerator {
       LateTarget target,
       int order,
       int sequence,
-      HixExpressionResult expressionResult,
+      IReadOnlyList<MixinOutput> outputs,
       LateExpressionWork work
     ) {
       EmittedTarget = target.EmittedTarget;
@@ -635,7 +630,7 @@ public sealed partial class MixinGenerator {
       DelegateTarget = target.DelegateTarget;
       Order = order;
       Sequence = sequence;
-      ExpressionResult = expressionResult;
+      Outputs = outputs;
       Provider = work.Provider;
       SourceType = work.SourceType;
       SourceMember = work.SourceMember;
@@ -648,7 +643,7 @@ public sealed partial class MixinGenerator {
       int order,
       int sequence,
       IReadOnlyDictionary<string, string> targetDefinitions,
-      HixExpressionResult expressionResult,
+      IReadOnlyList<MixinOutput> outputs,
       string provider,
       ISymbol source
     ) {
@@ -659,7 +654,7 @@ public sealed partial class MixinGenerator {
       DelegateTarget = targetSyntax.DelegateType;
       Order = order;
       Sequence = sequence;
-      ExpressionResult = expressionResult;
+      Outputs = outputs;
       Provider = provider;
       SourceType = (source as INamedTypeSymbol ?? source.ContainingType)
         ?.ToDisplayString(TypeDisplayFormat) ?? "";
@@ -674,7 +669,7 @@ public sealed partial class MixinGenerator {
     internal string DelegateTarget { get; }
     internal int Order { get; }
     internal int Sequence { get; }
-    internal HixExpressionResult ExpressionResult { get; }
+    internal IReadOnlyList<MixinOutput> Outputs { get; }
     internal string Provider { get; }
     internal string SourceType { get; }
     internal string SourceMember { get; }
@@ -687,7 +682,7 @@ public sealed partial class MixinGenerator {
     ) {
       return new HixContribution(
         target, target.Order, sequence,
-        new HixExpressionResult(true, null, 0, []),
+        [],
         work, true
       );
     }

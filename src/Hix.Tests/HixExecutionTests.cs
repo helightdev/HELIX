@@ -9,12 +9,12 @@ using Xunit;
 namespace HELIX.SourceGen.Tests;
 
 public sealed class HixExecutionTests {
-  private static HixExpressionResult Run(string statements, string functions = "", string prelude = "",
-    IDictionary<string, object> variables = null, Hix.Runtime.HixExecutionContext context = null) {
+  private static HixExecutionResult Run(string statements, string functions = "", string prelude = "",
+    IDictionary<string, object> variables = null, Hix.Runtime.HixThread context = null) {
     var unit = AntlrSyntax.Parse(functions + "\nmixin Example {\nprelude expression {\n" + prelude +
       "\n}\nexpression {\n" + statements + "\n}\n}");
     Assert.Empty(unit.Diagnostics);
-    return HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), context ?? new Context(), variables);
+    return HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), context ?? new HixThread(new Context()), variables);
   }
 
   [Theory]
@@ -28,8 +28,8 @@ public sealed class HixExecutionTests {
   [InlineData("emit(<A[b()]>)", "Ab", "pure func b { return(<b>) }")]
   public void RendersTypedValues(string statements, string expected, string functions = "") {
     var result = Run(statements, functions);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(expected, Assert.Single(result.Outputs).Text);
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(expected, Assert.Single(result.Outputs).Text.Resolve(result.Strings));
   }
 
   [Fact]
@@ -46,8 +46,8 @@ public sealed class HixExecutionTests {
       emit(join(keys(local#replaced), <,>))
       emit(eq(local#replaced, @{first=<one>, second=<two>}))
       """);
-    Assert.True(result.Success, result.Error);
-    var outputs = result.Outputs.Select(output => output.Text).ToArray();
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    var outputs = result.Outputs.Select(output => output.Text.Resolve(result.Strings)).ToArray();
     Assert.Equal(new[] {"2", "2", "true", "", "fallback"}, outputs.Take(5));
     Assert.Equal(new[] {"first", "second"}, outputs[5].Split(',').OrderBy(key => key));
     Assert.Equal("true", outputs[6]);
@@ -63,8 +63,8 @@ public sealed class HixExecutionTests {
         return(<[param]:[local#value]:[local#nested]>)
       }
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"input:outer:nested", "caller"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"input:outer:nested", "caller"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -74,11 +74,11 @@ public sealed class HixExecutionTests {
         return(<[$name]:[$count]>)
       }
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal("Ada:3", Assert.Single(result.Outputs).Text);
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("Ada:3", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
     var invalid = Run("emit(describe(number<3>, <Ada>))", "pure func describe sig @{name=string, count=number} -> string { return(<ok>) }");
     Assert.False(invalid.Success);
-    Assert.Contains("signature", invalid.Error);
+    Assert.Contains("signature", invalid.Error.Resolve(invalid.Strings));
   }
 
   [Fact]
@@ -88,15 +88,15 @@ public sealed class HixExecutionTests {
       emit($visible)
       emit(read(<parameter>))
       """, "pure func read { return($0) }");
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"local", "parameter"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"local", "parameter"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
 
     var variable = Run("var hidden = <variable>\nemit($hidden)");
     Assert.False(variable.Success);
-    Assert.Contains("unknown local or parameter 'hidden'", variable.Error);
+    Assert.Contains("unknown local or parameter 'hidden'", variable.Error.Resolve(variable.Strings));
     var target = Run("target var hidden = <target>\nemit($hidden)");
     Assert.False(target.Success);
-    Assert.Contains("unknown local or parameter 'hidden'", target.Error);
+    Assert.Contains("unknown local or parameter 'hidden'", target.Error.Resolve(target.Strings));
   }
 
   [Fact]
@@ -106,8 +106,8 @@ public sealed class HixExecutionTests {
         return(<[$1]:[$first]>)
       }
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal("right:left", Assert.Single(result.Outputs).Text);
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("right:left", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
   }
 
   [Fact]
@@ -115,30 +115,30 @@ public sealed class HixExecutionTests {
     var declared = Run("emit(describe(12))", """
       pure func describe sig string -> string { return(param) }
       """);
-    Assert.True(declared.Success, declared.Error);
-    Assert.Equal("12", Assert.Single(declared.Outputs).Text);
+    Assert.True(declared.Success, declared.Error.Resolve(declared.Strings));
+    Assert.Equal("12", Assert.Single(declared.Outputs).Text.Resolve(declared.Strings));
 
     var builtin = Run("emit(trim(34))");
-    Assert.True(builtin.Success, builtin.Error);
-    Assert.Equal("34", Assert.Single(builtin.Outputs).Text);
+    Assert.True(builtin.Success, builtin.Error.Resolve(builtin.Strings));
+    Assert.Equal("34", Assert.Single(builtin.Outputs).Text.Resolve(builtin.Strings));
 
     var fromString = Run("emit(plus(<2>, 3))");
-    Assert.True(fromString.Success, fromString.Error);
-    Assert.Equal("5", Assert.Single(fromString.Outputs).Text);
+    Assert.True(fromString.Success, fromString.Error.Resolve(fromString.Strings));
+    Assert.Equal("5", Assert.Single(fromString.Outputs).Text.Resolve(fromString.Strings));
 
     var exact = Run("emit(choose(56))", """
       pure func choose sig string -> string { return(<string>) }
       pure func choose sig number -> string { return(<number>) }
       """);
-    Assert.True(exact.Success, exact.Error);
-    Assert.Equal("number", Assert.Single(exact.Outputs).Text);
+    Assert.True(exact.Success, exact.Error.Resolve(exact.Strings));
+    Assert.Equal("number", Assert.Single(exact.Outputs).Text.Resolve(exact.Strings));
   }
 
   [Fact]
   public void CheckedFailuresCanBeHandledButElvisDoesNotCatchErrors() {
     var result = Run("local x = [error<bad>?]\nemit(kind(local#x))\nemit(catch(local#x) ?: <fallback>)");
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"error", "fallback"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"error", "fallback"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
     Assert.False(Run("emit(error<bad> ?: <fallback>)").Success);
     Assert.False(Run("emit(catch(error<bad>))").Success);
   }
@@ -157,8 +157,8 @@ public sealed class HixExecutionTests {
       when(true) { emit @> second
       }
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"first, value", "second"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"first, value", "second"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -172,8 +172,8 @@ public sealed class HixExecutionTests {
       emit([<present>] ?: error<unreachable>)
       when(false, error<unreachable>) { fail<unreachable> }
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"selected", "present"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"selected", "present"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -189,8 +189,8 @@ public sealed class HixExecutionTests {
       pure func sum { return(plus($0, $1)) }
       pure func yes { return(true) }
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"value:2,value:3", "5", "false", "true"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"value:2,value:3", "5", "false", "true"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -201,8 +201,8 @@ public sealed class HixExecutionTests {
       emit(apply(<global>))
       """;
     var result = Run(statements, "pure func apply { return(call(func => <[$0]~>, $0)) }");
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"a!,b!", "a?,b?", "global~"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"a!,b!", "a?,b?", "global~"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -211,8 +211,8 @@ public sealed class HixExecutionTests {
       local items = @[@{value=@{parameter=<first>}}, @{value=@{parameter=<second>}}]
       emit(local#items:map(func => $0#value#parameter):join<,>)
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"first,second"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"first,second"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -221,15 +221,15 @@ public sealed class HixExecutionTests {
       pure func single { return($it) }
       pure func pair { return($it) }
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"value", "left,right"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"value", "left,right"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
   public void SmartNamesDoNotSelectFieldsFromTableParameters() {
     var result = Run("emit(read(@{name=<Ada>}))", "pure func read { return($name) }");
     Assert.False(result.Success);
-    Assert.Contains("unknown local or parameter 'name'", result.Error);
+    Assert.Contains("unknown local or parameter 'name'", result.Error.Resolve(result.Strings));
   }
 
 
@@ -245,34 +245,34 @@ public sealed class HixExecutionTests {
       pure func answer => 42;
       func announce => emit(<announced>);
       """, "announce()");
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"announced", "42"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"announced", "42"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
   public void CarriesCrossPhasesButPreludeLocalsDoNot() {
     var result = Run("emit(local#value)\nemit(local#hidden)", prelude: "local hidden = <private>\ncarry local value = <durable>");
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"durable", ""}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"durable", ""}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
     Assert.True(Run("emit(this:name)").Success);
     var updated = Run("emit(local#value)", prelude: "carry local value = <ok>\nlocal value = <updated>");
-    Assert.True(updated.Success, updated.Error);
-    Assert.Equal("updated", Assert.Single(updated.Outputs).Text);
+    Assert.True(updated.Success, updated.Error.Resolve(updated.Strings));
+    Assert.Equal("updated", Assert.Single(updated.Outputs).Text.Resolve(updated.Strings));
   }
 
   [Fact]
   public void CarriedLocalsBelongToTheUnitAndAreNotInheritedByFunctions() {
     var result = Run("emit(read())\nemit(local#value)",
       "pure func read { return(local#value) }", "carry local value = <unit>");
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"", "unit"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"", "unit"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
   public void CompilerExpandsInlineFunctionsBeforeHoistingHostValues() {
-    var result = Run("emit(host())", "inline func host { return(this) }", context: new Context(new TestSymbol()));
-    Assert.True(result.Success, result.Error);
-    Assert.Equal("TestSymbol", Assert.Single(result.Outputs).Text);
+    var result = Run("emit(host())", "inline func host { return(this) }", context: new HixThread(new Context(new TestSymbol())));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("TestSymbol", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
   }
 
   [Fact]
@@ -284,8 +284,8 @@ public sealed class HixExecutionTests {
         return(<fallback>)
       }
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal("selected", Assert.Single(result.Outputs).Text);
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("selected", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
   }
 
   [Fact]
@@ -296,17 +296,17 @@ public sealed class HixExecutionTests {
         return(<[local#copy]!>)
       }
       """);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal("value!", Assert.Single(result.Outputs).Text);
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("value!", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
   }
 
   [Fact]
   public void StrictExpressionDisablesAutomaticHoisting() {
     var unit = AntlrSyntax.Parse("mixin Example { strict expression { emit(this) } }");
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new Context(new TestSymbol()));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context(new TestSymbol())));
     Assert.False(result.Success);
-    Assert.Contains("prelude", result.Error);
+    Assert.Contains("prelude", result.Error.Resolve(result.Strings));
   }
 
   [Fact]
@@ -314,8 +314,8 @@ public sealed class HixExecutionTests {
     var result = Run("emit(var#value)", """
       func broken { var value = <bad>; emit<discarded>; fail<bad> }
       """, "var value = <good>\nlocal failure = [broken()?]\nassert(is(local#failure, error))");
-    Assert.True(result.Success, result.Error);
-    Assert.Equal("good", Assert.Single(result.Outputs).Text);
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("good", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
   }
 
   [Fact]
@@ -323,8 +323,8 @@ public sealed class HixExecutionTests {
     var result = Run("emit(var#value)", """
       func broken { var value = <bad>; emit<discarded>; goto outside }
       """, "var value = <good>\nlocal failure = [broken()?]\nassert(is(local#failure, error))");
-    Assert.True(result.Success, result.Error);
-    Assert.Equal("good", Assert.Single(result.Outputs).Text);
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("good", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
   }
 
   [Fact]
@@ -332,8 +332,8 @@ public sealed class HixExecutionTests {
     var variables = new Dictionary<string, object>();
     Assert.True(Run("var failure = [error<saved>?]", variables: variables).Success);
     var result = Run("emit(kind(var#failure))\nemit(catch(var#failure) ?: <handled>)", variables: variables);
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"error", "handled"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"error", "handled"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -347,9 +347,9 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new Context());
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"local string", "global number"}, result.Outputs.Select(output => output.Text));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"local string", "global number"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -368,9 +368,9 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new Context());
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"local", "local", "global"}, result.Outputs.Select(output => output.Text));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"local", "local", "global"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -395,9 +395,9 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new Context(new TestSymbol()));
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"initial:first:initial:second", "kept"}, result.Outputs.Select(output => output.Text));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context(new TestSymbol())));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"initial:first:initial:second", "kept"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -419,9 +419,43 @@ public sealed class HixExecutionTests {
       }
       """);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new Context(new TestSymbol()));
-    Assert.True(result.Success, result.Error);
-    Assert.Equal("saved", Assert.Single(result.Outputs).Text);
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context(new TestSymbol())));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("saved", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
+  }
+
+  [Fact]
+  public void DerivationBatchFailureRestoresCallerAndAllowsAnotherBatch() {
+    var unit = AntlrSyntax.Parse("""
+      derivation mixin Provider {
+        expression {
+          var changed = <provider>
+          emit<provider>
+          return(<[param#value]:derived>)
+        }
+      }
+      mixin Example {
+        prelude expression {
+          local caller = <caller>
+          var changed = <saved>
+          local failure = [derive(@[
+            @{symbol=this, value=<first>},
+            @{symbol=null, missing=<invalid>}
+          ])?]
+          assert(is(local#failure, error))
+          emit(var#changed)
+          emit(local#caller)
+          local recovered = derive(@[@{symbol=this, value=<retry>}])
+          emit(local#recovered#0#value)
+          emit(local#caller)
+        }
+      }
+      """);
+    Assert.Empty(unit.Diagnostics);
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example"), new HixThread(new Context(new TestSymbol())));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"saved", "caller", "provider", "retry:derived", "caller"},
+      result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -435,18 +469,18 @@ public sealed class HixExecutionTests {
       """);
     Assert.Empty(unit.Diagnostics);
     var variables = new Dictionary<string, object>();
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new Context(), variables);
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()), variables);
     Assert.False(result.Success);
-    Assert.Equal("stop", result.Error);
-    Assert.Equal("first", Assert.Single(result.Outputs).Text);
+    Assert.Equal("stop", result.Error.Resolve(result.Strings));
+    Assert.Equal("first", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
     Assert.Equal("committed", variables["value"]);
-    Assert.Equal("committed", result.Variables["value"]);
+    Assert.Equal("committed", Assert.IsType<LiteralHixValue>(result.Variables[HixString.Dynamic("value")]).Value.Resolve(result.Strings));
   }
 
   [Fact]
   public void TargetStoragePersistsAcrossExecutionsButFailedWritesDoNot() {
-    var context = new Context();
-    HixExpressionResult Execute(string body) {
+    var context = new HixThread(new Context());
+    HixExecutionResult Execute(string body) {
       var unit = AntlrSyntax.Parse("mixin Example { prelude expression { " + body + " } }");
       Assert.Empty(unit.Diagnostics);
       return HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), context);
@@ -454,18 +488,18 @@ public sealed class HixExecutionTests {
     Assert.True(Execute("target var value = <saved>").Success);
     Assert.False(Execute("target var value = <discarded>; fail<stop>").Success);
     var read = Execute("emit(tar#value)");
-    Assert.True(read.Success, read.Error);
-    Assert.Equal("saved", Assert.Single(read.Outputs).Text);
+    Assert.True(read.Success, read.Error.Resolve(read.Strings));
+    Assert.Equal("saved", Assert.Single(read.Outputs).Text.Resolve(read.Strings));
   }
 
   [Fact]
   public void BlocksAndBackwardJumpsRespectExecutionLimits() {
     var result = Run("{ emit<one>; break; emit<unreachable> }\nemit<two>");
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"one", "two"}, result.Outputs.Select(output => output.Text));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"one", "two"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
     var loop = Run(":again\ngoto again");
     Assert.False(loop.Success);
-    Assert.Contains("limit", loop.Error);
+    Assert.Contains("limit", loop.Error.Resolve(loop.Strings));
   }
 
   [Fact]
@@ -485,15 +519,15 @@ public sealed class HixExecutionTests {
       """;
     var unit = AntlrSyntax.Parse(source);
     Assert.Empty(unit.Diagnostics);
-    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new Context());
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"Ada", "", "2"}, result.Outputs.Select(output => output.Text));
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"Ada", "", "2"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
 
     var rejected = AntlrSyntax.Parse("type Positive = %min<1> number\nmixin Example { expression { emit(Positive(0)) } }");
     Assert.Empty(rejected.Diagnostics);
-    var failure = HixVM.Execute(TestCompiler.Compile(rejected, "Example", TestBackend.Instance), new Context());
+    var failure = HixVM.Execute(TestCompiler.Compile(rejected, "Example", TestBackend.Instance), new HixThread(new Context()));
     Assert.False(failure.Success);
-    Assert.Contains("constraint failed", failure.Error);
+    Assert.Contains("constraint failed", failure.Error.Resolve(failure.Strings));
   }
 
   [Fact]
@@ -516,9 +550,9 @@ public sealed class HixExecutionTests {
     Assert.Single(HixInstruction.ReadAll(program.Bytecode)
       .Where(item => item.Instruction.Opcode == HixOpcode.CallDynamic));
     Assert.Contains("static emit(any", dump);
-    var result = HixVM.Execute(program, new Context());
-    Assert.True(result.Success, result.Error);
-    Assert.Equal(new[] {"string", "string"}, result.Outputs.Select(output => output.Text));
+    var result = HixVM.Execute(program, new HixThread(new Context()));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"string", "string"}, result.Outputs.Select(output => output.Text.Resolve(result.Strings)));
   }
 
   [Fact]
@@ -550,9 +584,9 @@ public sealed class HixExecutionTests {
     Assert.Empty(valid.Diagnostics);
     var program = TestCompiler.Compile(valid, "Example", TestBackend.Instance);
     Assert.Contains("static combine(string left, string right) -> string", program.Disassemble());
-    var result = HixVM.Execute(program, new Context());
-    Assert.True(result.Success, result.Error);
-    Assert.Equal("ab", Assert.Single(result.Outputs).Text);
+    var result = HixVM.Execute(program, new HixThread(new Context()));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("ab", Assert.Single(result.Outputs).Text.Resolve(result.Strings));
   }
 
   [Fact]
@@ -609,17 +643,17 @@ public sealed class HixExecutionTests {
     ]).Display);
   }
 
-  private sealed class Context(IHixValue symbol = null) : Hix.Runtime.HixExecutionContext(TestBackend.Instance, new HixStringPoolBuilder().Freeze()) {
-    protected override IHixValue ResolveHost(HixExpressionRoot root, HixString member) => symbol ?? NullHixValue.Instance;
+  private sealed class Context(IHixValue symbol = null) : HixContext(TestBackend.Instance, new HixStringPoolBuilder().Freeze()) {
+    public override IHixValue ResolveHost(HixThread thread, HixExpressionRoot root, HixString member) => symbol ?? NullHixValue.Instance;
   }
 
   private sealed record TestSymbol : IHixValue {
     public HixValueKind Kind => HixValueKind.Symbol;
-    public bool IsTruthy(Hix.Runtime.HixExecutionContext context) => true;
-    public HixString Render(Hix.Runtime.HixExecutionContext context) => HixString.Dynamic("TestSymbol");
-    public void Fingerprint(HixFingerprintBuilder builder, Hix.Runtime.HixExecutionContext context) => builder.Append("TestSymbol");
-    public IHixValue Select(Hix.Runtime.HixExecutionContext context, HixString member) => NullHixValue.Instance;
-    public object Unlink(Hix.Runtime.HixExecutionContext context) => this;
+    public bool IsTruthy(Hix.Runtime.HixThread context) => true;
+    public HixString Render(Hix.Runtime.HixThread context) => HixString.Dynamic("TestSymbol");
+    public void Fingerprint(HixFingerprintBuilder builder, Hix.Runtime.HixThread context) => builder.Append("TestSymbol");
+    public IHixValue Select(Hix.Runtime.HixThread context, HixString member) => NullHixValue.Instance;
+    public object Unlink(Hix.Runtime.HixThread context) => this;
     public bool Equals(IHixValue other) => other is TestSymbol;
   }
 }

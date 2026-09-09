@@ -66,9 +66,11 @@ internal static class MixinLibraryApi {
     if (diagnostics.Count == 0) {
       foreach (var annotation in catalog.AnnotationDefinitions) {
         try {
-          var (prelude, late) = HixCompiler.PreparePrograms(annotation.Declaration, prepared);
+          var syntax = HixCompiler.PrepareSyntax(annotation.Declaration, prepared);
+          var image = new HixBytecodeCompiler(prepared.StringPool).Compile(
+            syntax.Prelude.Concat(syntax.Late).ToArray(), syntax.Functions, prepared);
           annotations.Add(annotation.Name, new CompiledHixAnnotation(annotation,
-            new CompiledHixProgram(prelude, late)));
+            new CompiledHixProgram(image.ForPass(true), image.ForPass(false), CollectTargets(syntax.Late))));
         } catch (ArgumentException exception) {
           diagnostics.Add(Diagnostic.Create(InvalidPreparedExpression, Location.None, annotation.Name,
             annotation.Declaration.Line.ToString(CultureInfo.InvariantCulture), exception.Message));
@@ -76,6 +78,20 @@ internal static class MixinLibraryApi {
       }
     }
     return new MixinCompilation(catalog, prepared.StringPool, prepared, annotations, diagnostics.ToImmutableArray());
+  }
+
+  private static IReadOnlyList<MixinTargetReference> CollectTargets(IEnumerable<ExpressionDeclarationAst> expressions) {
+    var targets = new List<MixinTargetReference>();
+    void Visit(HixAst node) {
+      if (node is CallExpressionAst {Name: "inject"} call && call.Arguments.Count >= 2) {
+        if (call.Arguments[0] is StringExpressionAst target) targets.Add(new(target.Value, false));
+        else if (call.Arguments[0] is MemberExpressionAst {Receiver: RootExpressionAst {Name: "carry"}, Member: var carry})
+          targets.Add(new(carry, true));
+      }
+      foreach (var child in node.SemanticChildren) Visit(child);
+    }
+    foreach (var expression in expressions) Visit(expression);
+    return targets.ToArray();
   }
 
   internal static MixinLibraryFile ReadAdditionalFile(AdditionalText file, CancellationToken cancellationToken) {
@@ -205,9 +221,12 @@ internal sealed class MixinLibraryCatalog {
 }
 
 internal sealed record CompiledHixProgram(
-  HixExpressionExecutionProgram Prelude,
-  HixExpressionExecutionProgram Late
+  HixProgramImage Prelude,
+  HixProgramImage Late,
+  IReadOnlyList<MixinTargetReference> Targets
 );
+
+internal readonly record struct MixinTargetReference(string Value, bool IsCarry);
 
 internal sealed record CompiledHixAnnotation(
   MixinAnnotationDefinition Definition,

@@ -5,8 +5,8 @@ using System.Linq;
 
 namespace Hix.Compiler.Steps;
 
-internal sealed class LambdaLiftingStep : HixCompilerStep {
-  internal override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
+public sealed class LambdaLiftingStep : HixCompilerStep {
+  public override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
     var names = new HashSet<string>(input.Functions.Concat(globals.Functions).Select(function => function.Name),
       StringComparer.Ordinal);
     var lifted = new List<FunctionDeclarationAst>();
@@ -18,7 +18,7 @@ internal sealed class LambdaLiftingStep : HixCompilerStep {
     return new HixCompilerSyntax(prelude, late, functions);
   }
 
-  internal static IReadOnlyList<FunctionDeclarationAst> RewriteFunctions(
+  public static IReadOnlyList<FunctionDeclarationAst> RewriteFunctions(
     IReadOnlyList<FunctionDeclarationAst> functions
   ) {
     var names = new HashSet<string>(functions.Select(function => function.Name), StringComparer.Ordinal);

@@ -7,29 +7,29 @@ using Hix.Runtime;
 
 namespace Hix.Functions;
 
-internal sealed class IsTypeFunction() : RoslynFunctionDefinition("is", 1, resultType: HixValueKind.Bool,
+public sealed class IsTypeFunction() : RoslynFunctionDefinition("is", 1, resultType: HixValueKind.Bool,
   argumentTypes: new[] {HixValueKind.String}) {
   public override IReadOnlyDictionary<int, string> ArgumentReferences => new Dictionary<int, string> { {1, "CSharpType"} };
   protected override IHixValue Apply(
-    HixExecutionContext context, IHixValue value,
+    HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     return BooleanHixValue.From(context.IsType(value, arguments[0].Render(context)));
   }
 }
 
-internal sealed class HasMemberFunction() : RoslynFunctionDefinition("has", 1, resultType: HixValueKind.Bool) {
+public sealed class HasMemberFunction() : RoslynFunctionDefinition("has", 1, resultType: HixValueKind.Bool) {
   protected override IHixValue Apply(
-    HixExecutionContext context, IHixValue value,
+    HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     return BooleanHixValue.From(value.Select(context, arguments[0].Render(context)) is not NullHixValue);
   }
 }
 
-internal sealed class TraitFunction(string name) : RoslynFunctionDefinition(name, 0, resultType: HixValueKind.Bool) {
+public sealed class TraitFunction(string name) : RoslynFunctionDefinition(name, 0, resultType: HixValueKind.Bool) {
   protected override IHixValue Apply(
-    HixExecutionContext context, IHixValue value,
+    HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
   ) {
     if (context.HasTrait(value, context.ResolveString(Name))) return BooleanHixValue.From(true);
@@ -39,7 +39,7 @@ internal sealed class TraitFunction(string name) : RoslynFunctionDefinition(name
     var type = HixRoslynContext.TypeOf(roslyn.Value);
     return BooleanHixValue.From(
       Name switch {
-        "isSelf" => context is HixRoslynContext owner &&
+        "isSelf" => context.Context is HixRoslynContext owner &&
           SymbolEqualityComparer.Default.Equals(type, owner.CurrentType),
         "ref" => symbol is IParameterSymbol { RefKind: RefKind.Ref },
         "in" => symbol is IParameterSymbol { RefKind: RefKind.In },
@@ -53,7 +53,7 @@ internal sealed class TraitFunction(string name) : RoslynFunctionDefinition(name
           or Accessibility.ProtectedOrInternal,
         "top" => type?.ContainingType is null,
         "generic" => type is INamedTypeSymbol namedType && GeneratorAnalysis.HasTypeParameters(namedType),
-        "accessible" => context is HixRoslynContext access && symbol != null && access.IsAccessible(symbol),
+        "accessible" => context.Context is HixRoslynContext access && symbol != null && access.IsAccessible(symbol),
         "struct" => type?.TypeKind == TypeKind.Struct,
         "class" => type?.IsReferenceType == true,
         "concrete" => type is not { TypeKind: TypeKind.Interface } && type?.IsAbstract != true,

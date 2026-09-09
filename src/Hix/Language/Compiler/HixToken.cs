@@ -14,7 +14,7 @@ public sealed record HixToken {
     ContentRange = SourceRange;
   }
 
-  internal HixToken(
+  public HixToken(
     HixTokenKind kind, string text, int line,
     HixSourceRange sourceRange, HixSourceRange contentRange
   ) {

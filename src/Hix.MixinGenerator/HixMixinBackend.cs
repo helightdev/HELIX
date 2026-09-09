@@ -1,3 +1,4 @@
+using Hix.Mixins;
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -5,16 +6,40 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Hix.Roslyn;
 using Hix.Runtime;
-using static Hix.Runtime.LanguageExecution;
+using static Hix.Runtime.HixThread;
 using K = Hix.HixValueKind;
 namespace Hix;
 public class HixMixinBackend : HixRoslynBackend {
+  public override ErrorHixValue ValidateDerivationRecord(HixThread thread, HixTableValue record) =>
+    record.Select(thread, HixString.Dynamic("symbol")).Kind == K.Symbol
+      ? null : thread.Error("record must contain a semantic symbol");
+
+  public override HixContext CreateContext() => new MixinOutputContext(this);
+  public override HixRoslynContext CreateContext(CSharpCompilation compilation, INamedTypeSymbol currentType = null,
+    ISymbol target = null, AttributeData attribute = null) =>
+    new HixMixinContext(this, currentType, target, attribute, compilation, null, null, null);
+  protected override void RegisterEmissionFunctions(FunctionSignatureRegistryBuilder functions) {
+    functions.Add(new SimpleFunction("emit", [new(K.Null, [K.Any]), new(K.Null, [K.String, K.Any])],
+      (thread, arguments) => {
+        var target = arguments.Length == 1 ? "TARGET" : thread.ResolveText(arguments[0]);
+        var rendered = thread.RenderText(arguments[arguments.Length - 1]);
+        if (rendered is ErrorHixValue) return rendered;
+        var text = thread.Text(rendered);
+        Emissions(thread).Add(Enum.TryParse<MixinEmissionTarget>(target, true, out var output)
+          ? new MixinOutput(output, text, strings: thread.Strings)
+          : new MixinOutput(MixinEmissionTarget.Mixin, text, HixString.Dynamic(ResolveInjectionTarget(thread, target)), strings: thread.Strings));
+        return NullHixValue.Instance;
+      }, effects: true));
+  }
+
+  private static MixinOutputBuffer Emissions(HixThread thread) => ((IMixinOutputContext)thread.Context).Emissions;
+
   protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
     base.RegisterFunctions(functions);
     functions.Add(
       new SimpleFunction(
         "using", [new FunctionSignature(K.Null, [K.String])], (e, a) => {
-          e.Outputs.Add(new HixExpressionOutput(HixEmissionTarget.Using, e.Text(a[0])));
+          Emissions(e).Add(new MixinOutput(MixinEmissionTarget.Using, e.Text(a[0]), strings: e.Strings));
           return NullHixValue.Instance;
         }, effects: true
       ),
@@ -24,11 +49,11 @@ public class HixMixinBackend : HixRoslynBackend {
         (e, a) => {
           var rendered = e.RenderText(a[a.Length - 1]);
           if (rendered is ErrorHixValue) return rendered;
-          e.Outputs.Add(
-            new HixExpressionOutput(
-              HixEmissionTarget.Mixin, e.Text(rendered),
-              e.Context.ResolveInjectionTarget(e.Text(a[0])),
-              a.Length == 3 ? checked((int)((NumberHixValue)a[1]).Value) : 0
+          Emissions(e).Add(
+            new MixinOutput(
+              MixinEmissionTarget.Mixin, e.Text(rendered),
+              HixString.Dynamic(ResolveInjectionTarget(e, e.ResolveText(a[0]))),
+              a.Length == 3 ? checked((int)((NumberHixValue)a[1]).Value) : 0, e.Strings
             )
           );
           return NullHixValue.Instance;
@@ -38,35 +63,39 @@ public class HixMixinBackend : HixRoslynBackend {
         "resolveMixin", [new FunctionSignature(K.Any, [K.String, K.Any])],
         (e, a) =>
           e.IsPrelude
-            ? e.Context.ResolveMixin(a[0].Render(e.Context), a[1])
-            : e.Context.Error("resolveMixin requires the prelude pass"), effects: true, requiresPrelude: true
+            ? ResolveMixin(e, a[0].Render(e), a[1])
+            : e.Error("resolveMixin requires the prelude pass"), effects: true, requiresPrelude: true
       ),
       new SimpleFunction(
         "defineTarget", [new FunctionSignature(K.Null, [K.String, K.String])],
         (e, a) =>
           e.IsPrelude
-            ? e.Context.DefineTarget(e.Text(a[0]), e.Text(a[1]))
-            : e.Context.Error("defineTarget requires the prelude pass"), effects: true, requiresPrelude: true
+            ? DefineTarget(e, e.ResolveText(a[0]), e.ResolveText(a[1]))
+            : e.Error("defineTarget requires the prelude pass"), effects: true, requiresPrelude: true
       )
     );
   }
-  public override IHixValue DefineTarget(HixExecutionContext context, string name, string descriptor) => context is HixMixinContext mixin ? mixin.DefineTargetService(name, descriptor) : base.DefineTarget(context, name, descriptor);
-  public override string ResolveInjectionTarget(HixExecutionContext context, string target) => context is HixMixinContext mixin ? mixin.ResolveInjectionTargetService(target) : target;
-  public override IHixValue ResolveMixin(HixExecutionContext context, HixString local, IHixValue operand) => context is HixMixinContext mixin ? mixin.ResolveMixinService(local, operand) : base.ResolveMixin(context, local, operand);
+  public IHixValue DefineTarget(HixThread thread, string name, string descriptor) => thread.Context is HixMixinContext mixin ? mixin.DefineTargetService(thread, name, descriptor) : thread.Error("target aliases require a mixin context");
+  public string ResolveInjectionTarget(HixThread thread, string target) => thread.Context is HixMixinContext mixin ? mixin.ResolveInjectionTargetService(target) : target;
+  public IHixValue ResolveMixin(HixThread thread, HixString local, IHixValue operand) => thread.Context is HixMixinContext mixin ? mixin.ResolveMixinService(thread, local, operand) : thread.Error("mixin resolution requires a mixin context");
   public static HixMixinBackend Instance { get; } = new();
   internal HixMixinContext CreateContext(INamedTypeSymbol currentType, ISymbol target, AttributeData attribute,
     CSharpCompilation compilation, IReadOnlyDictionary<string,string> targetDefinitions,
     HixExpressionPreparedState prepared, RoslynHostExpressionCache cache) => new(this, currentType, target, attribute, compilation, targetDefinitions, prepared, cache);
 }
-internal sealed class HixMixinContext : HixRoslynContext {
+internal sealed class HixMixinContext : HixRoslynContext, IMixinOutputContext {
+  public MixinOutputBuffer Emissions { get; } = new();
+  public override void BeginExecution() => Emissions.Clear();
+  public override int CaptureEffects() => Emissions.Count;
+  public override void RollbackEffects(int checkpoint) => Emissions.Rollback(checkpoint);
   private readonly Dictionary<string,string> _targetDefinitions;
   internal HixMixinContext(HixBackend backend, INamedTypeSymbol currentType, ISymbol target, AttributeData attribute,
     CSharpCompilation compilation, IReadOnlyDictionary<string,string> targets, HixExpressionPreparedState prepared,
     RoslynHostExpressionCache cache) : base(currentType, target, attribute, compilation, preparedExpressions: prepared, hostValues: cache, backend: backend) {
     _targetDefinitions = targets == null ? new(StringComparer.Ordinal) : targets.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
   }
-  internal IHixValue DefineTargetService(string name, string descriptor) {
-    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(descriptor)) return Error("target alias and descriptor cannot be empty");
+  internal IHixValue DefineTargetService(HixThread thread, string name, string descriptor) {
+    if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(descriptor)) return thread.Error("target alias and descriptor cannot be empty");
     _targetDefinitions["$" + name.TrimStart('$')] = descriptor;
     return NullHixValue.Instance;
   }
@@ -77,8 +106,8 @@ internal sealed class HixMixinContext : HixRoslynContext {
       (string.IsNullOrEmpty(descriptor.DelegateType) ? "" : ":" + descriptor.DelegateType);
   }
 
-  internal IHixValue ResolveMixinService(HixString localName, IHixValue operand) {
-    var descriptor = ParseMixinTarget(operand.Render(this).Resolve(Strings), _targetDefinitions);
+  internal IHixValue ResolveMixinService(HixThread thread, HixString localName, IHixValue operand) {
+    var descriptor = ParseMixinTarget(operand.Render(thread).Resolve(thread.Strings), _targetDefinitions);
     string callable = null;
     if (!string.IsNullOrEmpty(descriptor.DelegateType)) {
       if (ResolveType(descriptor.DelegateType) is { TypeKind: TypeKind.Delegate } delegateType)
@@ -90,7 +119,7 @@ internal sealed class HixMixinContext : HixRoslynContext {
       var methods = MethodsInHierarchy(CurrentType, descriptor.Name).ToArray();
       if (methods.Length == 1) callable = CallableReference(methods[0]);
     }
-    IHixValue result = callable is null ? NullHixValue.Instance : new LiteralHixValue(ResolveString(callable));
+    IHixValue result = callable is null ? NullHixValue.Instance : new LiteralHixValue(thread.ResolveString(callable));
     return result;
   }
 

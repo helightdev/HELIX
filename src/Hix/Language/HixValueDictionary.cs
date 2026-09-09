@@ -8,7 +8,7 @@ namespace Hix;
 /// <summary>
 ///   Runtime storage for named Hix values. Names are already-resolved
 ///   <see cref="HixString" /> values; resolving or interning text belongs to the
-///   execution context, not to this collection.
+///   executing thread, not to this collection.
 ///   Shared storage uses the flat/HAMT persistent map for constant-time snapshots.
 ///   VM locals opt into mutable dictionary backing and are cleared before pooling.
 /// </summary>
@@ -56,7 +56,7 @@ public sealed class HixValueDictionary :
     return ValuesMap.GetEnumerator();
   }
 
-  public void Store(HixExecutionContext context, HixString key, IHixValue value) {
+  public void Store(HixThread context, HixString key, IHixValue value) {
     StoreIsolated(key, context.DetachValue(value));
   }
 
