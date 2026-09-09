@@ -179,6 +179,9 @@ public sealed class BooleanExpressionAst(bool value) : ExpressionAst {
 
 public sealed class NullExpressionAst : ExpressionAst;
 
+/// <summary>The current selection value used by a when transformation condition.</summary>
+public sealed class SelectorExpressionAst : ExpressionAst;
+
 public sealed class RootExpressionAst(string name, bool smart = false) : ExpressionAst {
   public string Name { get; } = name;
   public bool IsSmart { get; } = smart;

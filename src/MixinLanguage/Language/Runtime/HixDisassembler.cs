@@ -90,7 +90,8 @@ internal static class HixDisassembler {
       case HixOpcode.End: return ("", "end block");
       case HixOpcode.LoadConst: return ("c" + Number(a), "push(" + Constant(constants[a]) + ")");
       case HixOpcode.LoadString: return (StringId(), "push(" + Quote(Name()) + ")");
-      case HixOpcode.LoadRoot: return (StringId(), "push(" + (Name() == "\0selector" ? "selector" : Name()) + ")");
+      case HixOpcode.Equal: return ("", "right = pop(); left = pop(); push(left == right)");
+      case HixOpcode.LoadRoot: return (StringId(), "push(" + Name() + ")");
       case HixOpcode.LoadTrue: return ("", "push(true)");
       case HixOpcode.LoadFalse: return ("", "push(false)");
       case HixOpcode.LoadNull: return ("", "push(null)");
@@ -119,9 +120,6 @@ internal static class HixDisassembler {
       case HixOpcode.Jump: return (Label(a), "goto " + Label(a));
       case HixOpcode.JumpNotNull: return (Label(a), "if (peek() != null) goto " + Label(a));
       case HixOpcode.JumpFalse: return (Label(a), "if (!truthy(pop())) goto " + Label(a));
-      case HixOpcode.PushSelector: return ("", "save selector; selector = pop()");
-      case HixOpcode.PopSelector: return ("", "restore selector");
-      case HixOpcode.MatchSelector: return ("", "push(selector == pop())");
       case HixOpcode.Block: return (Label(a), "execute_block(" + Label(a) + ")");
       case HixOpcode.Return: return ("", "return pop()");
       case HixOpcode.Break: return ("", "break");

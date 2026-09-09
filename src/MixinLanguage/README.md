@@ -60,6 +60,9 @@ Storage destinations and flow operations have distinct opcodes instead of flag o
 Root reads uniformly use `LoadRoot` with a string-pool name followed by `Member` when needed;
 there are no host-specific or smart-lookup opcodes. The compiler resolves smart references to
 `param` (the packed parameter), `args` (positional arguments), or `local`.
+Selections lower to generated `__selector_` locals, ordinary branches/blocks, and `Equal`.
+Transformation conditions read the generated local; the VM has no selector state or opcodes.
+Generated locals follow the same visibility and lifetime rules as other hoisted locals.
 `LoadConst` and `LoadString` access the two pools. Null, booleans, and empty collections use
 operandless `LoadNull`, `LoadTrue`, `LoadFalse`, `LoadTuple`, and `LoadTable` instructions.
 `PackTuple` and `PackTable` construct collections, while `Pack` retains normal argument-packing

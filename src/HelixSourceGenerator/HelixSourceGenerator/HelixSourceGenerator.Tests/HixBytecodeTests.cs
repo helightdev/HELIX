@@ -15,6 +15,63 @@ namespace HELIX.SourceGen.Tests;
 
 public sealed class HixBytecodeTests {
   [Fact]
+  public void LoweredSelectionsSupportGotoExitAndReentryWithoutTemporaryNameCollisions() {
+    var program = HixCompiler.Compile("""
+      pure func eq { return(false) }
+      mixin Example { expression {
+        local __selector_0 = <user>
+        local i = 0
+        :again
+        local i = plus(local#i, 1)
+        when [local#i] {
+          1 -> { goto again }
+          2 -> { goto done }
+          else -> { emit(<wrong>) }
+        }
+        :done
+        emit(local#__selector_0)
+        emit(local#i)
+        local selected = when <value> {
+          <value> -> <matched>
+          else -> <wrong equality>
+        }
+        emit(local#selected)
+      } }
+      """, "Example");
+    var result = MixinVirtualMachine.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"user", "2", "matched"}, result.Outputs.Select(output => output.Text));
+    Assert.Contains(HixInstruction.ReadAll(program.Bytecode), item => item.Instruction.Opcode == HixOpcode.Equal);
+  }
+
+  [Fact]
+  public void SelectionsLowerToOrdinaryLocalsAndJumps() {
+    var program = HixCompiler.Compile("""
+      mixin Example { expression {
+        when <outer> {
+          [:eq<outer>] -> {
+            local selected = when <inner> {
+              [:eq<inner>] -> <matched>
+              else -> <wrong inner>
+            }
+            emit(local#selected)
+          }
+          else -> { emit(<wrong outer>) }
+        }
+      } }
+      """, "Example");
+    var instructions = HixInstruction.ReadAll(program.Bytecode).Select(item => item.Instruction).ToArray();
+    var temporaries = instructions.Where(instruction => instruction.Opcode == HixOpcode.StoreLocal)
+      .Select(instruction => program.StringPool[instruction.A]).Where(name => name.StartsWith("__selector_")).ToArray();
+    Assert.Equal(2, temporaries.Distinct().Count());
+    Assert.DoesNotContain(Enum.GetNames(typeof(HixOpcode)), name => name.Contains("Selector"));
+    Assert.Contains("local[\"__selector_", program.Disassemble());
+    var result = MixinVirtualMachine.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("matched", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
   public void TupleUpdatesPreserveInputsAndTransformsHandleEmptyAndPartialResults() {
     var program = HixCompiler.Compile("""
       mixin Example { expression {
@@ -597,7 +654,7 @@ public sealed class HixBytecodeTests {
   }
 
   [Fact]
-  public void BranchesUseSignedRelativeByteOffsetsAndRestoreStacksAndSelectors() {
+  public void BranchesUseSignedRelativeByteOffsetsAndRestoreStacks() {
     var program = HixCompiler.Compile("""
       mixin Example { expression {
         local i = 0

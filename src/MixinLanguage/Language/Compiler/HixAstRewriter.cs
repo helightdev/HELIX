@@ -23,6 +23,7 @@ internal class HixAstRewriter {
       BooleanExpressionAst value => new BooleanExpressionAst(value.Value),
       NullExpressionAst => new NullExpressionAst(),
       RootExpressionAst value => RewriteRoot(value),
+      SelectorExpressionAst => new SelectorExpressionAst(),
       MemberExpressionAst value => new MemberExpressionAst(Rewrite(value.Receiver), value.Member),
       CallExpressionAst value => RewriteCall(value),
       InlineExpressionAst value => new InlineExpressionAst(Rewrite(value.Body), value.ResultLocal),

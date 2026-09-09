@@ -12,6 +12,8 @@ internal sealed class HixBytecodeCompiler {
   private readonly List<HixInstruction> code = [];
   private readonly List<int> sourceLines = [];
   private int sourceLine;
+  private int nextTemporary;
+  private string selectionLocal;
   private HashSet<string> localNames = new(StringComparer.Ordinal);
   private readonly List<BytecodeTarget> targets = [];
   private readonly List<(int Instruction, Dictionary<string, int> Labels, string Name)> jumps = [];
@@ -78,6 +80,7 @@ internal sealed class HixBytecodeCompiler {
   private int EntryBlock(BlockStatementAst block) {
     var previous = localNames;
     localNames = new HashSet<string>(StringComparer.Ordinal);
+    selectionLocal = null;
     CollectLocals(block);
     var start = Block(block);
     localNames = previous;
@@ -86,6 +89,11 @@ internal sealed class HixBytecodeCompiler {
   private void CollectLocals(HixAst node) {
     if (node is AssignmentStatementAst {Storage: StorageSpace.Local} assignment) localNames.Add(assignment.Name);
     foreach (var child in node.SemanticChildren) CollectLocals(child);
+  }
+  private string TemporaryLocal() {
+    string name;
+    do { name = "__selector_" + nextTemporary++; } while (!localNames.Add(name));
+    return name;
   }
   private void LoadMember(string root, string member) {
     Emit(HixOpcode.LoadRoot, S(root)); Emit(HixOpcode.Member, S(member));
@@ -164,6 +172,9 @@ internal sealed class HixBytecodeCompiler {
         else Emit(HixOpcode.Throw, S("unknown local or parameter '" + root.Name + "'"));
         break;
       case RootExpressionAst root: Emit(HixOpcode.LoadRoot, S(root.Name)); break;
+      case SelectorExpressionAst:
+        if (selectionLocal == null) throw new ArgumentException("Selection value outside a selection condition");
+        LoadMember("local", selectionLocal); break;
       case MemberExpressionAst member: Value(member.Receiver); Emit(HixOpcode.Member, S(member.Member), line: line); break;
       case InterpolationExpressionAst interpolation:
         foreach (var part in interpolation.Parts) { Value(part); Emit(HixOpcode.CastString, line: part.Line); }
@@ -191,14 +202,18 @@ internal sealed class HixBytecodeCompiler {
         break;
       case InlineExpressionAst inline: NestedBlock(inline.Body); LoadMember("local", inline.ResultLocal); break;
       case SelectionExpressionAst selection:
+        var previousSelectionLocal = selectionLocal;
+        var temporary = TemporaryLocal();
         if (selection.Selector == null) Constant(BooleanMixinValue.True); else Value(selection.Selector);
-        Emit(HixOpcode.PushSelector);
+        Emit(HixOpcode.StoreLocal, S(temporary));
+        selectionLocal = temporary;
         var ends = new List<int>();
         foreach (var branch in selection.Branches) {
           var next = new List<int>();
           foreach (var condition in branch.Conditions) {
+            if (!branch.IsTransformation && selection.Selector != null) LoadMember("local", temporary);
             Value(condition);
-            if (!branch.IsTransformation && selection.Selector != null) Emit(HixOpcode.MatchSelector);
+            if (!branch.IsTransformation && selection.Selector != null) Emit(HixOpcode.Equal);
             next.Add(Emit(HixOpcode.JumpFalse));
           }
           Result(branch.Result); ends.Add(Emit(HixOpcode.Jump));
@@ -206,7 +221,7 @@ internal sealed class HixBytecodeCompiler {
         }
         Result(selection.Fallback);
         foreach (var jump in ends) Patch(jump, code.Count);
-        Emit(HixOpcode.PopSelector); break;
+        selectionLocal = previousSelectionLocal; break;
       default: throw new ArgumentException("unknown expression '" + expression.GetType().Name + "' at line " + line);
     }
     if (check) { Emit(HixOpcode.EndCheck); Patch(handler, code.Count); }

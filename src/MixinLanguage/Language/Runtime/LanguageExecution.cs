@@ -25,7 +25,6 @@ internal sealed partial class LanguageExecution {
   private readonly MixinValueDictionary targetVariables = new();
   private IMixinValue parameter = NullMixinValue.Instance;
   private IReadOnlyList<IMixinValue> positionalParameters = Array.Empty<IMixinValue>();
-  private IMixinValue selector = NullMixinValue.Instance;
   private bool prelude;
   private int steps;
   private int depth;
@@ -120,7 +119,6 @@ internal sealed partial class LanguageExecution {
   private IMixinValue Root(string name) {
     if (name == "args") return new TupleMixinValue(positionalParameters);
     if (name == "param") return parameter;
-    if (name == "\0selector") return selector;
     if (KindMixinValue.TryGet(name, out var kind)) return kind;
     if (scope.Bind(name) is { } function) return function;
     if (name is "this" or "target" or "attr") {

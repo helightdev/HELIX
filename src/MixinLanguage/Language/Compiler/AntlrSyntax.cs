@@ -362,7 +362,7 @@ public static class AntlrSyntax {
         var condition = branch.whenValueCondition();
         var transformation = condition.inlineTransformation();
         var value = transformation != null
-          ? Transform(new RootExpressionAst("\0selector"), transformation.transformationPart()) : Value(condition.value());
+          ? Transform(At(new SelectorExpressionAst(), condition), transformation.transformationPart()) : Value(condition.value());
         return At(new SelectionBranchAst([value], Visit(branch.whenResult()), transformation != null), branch);
       }).ToArray();
       return At(new SelectionExpressionAst(context.value() is { } selector ? Value(selector) : null, branches,
