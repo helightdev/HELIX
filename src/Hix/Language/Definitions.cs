@@ -9,7 +9,7 @@ using Hix.Runtime;
 namespace Hix;
 
 /// <summary>Flat runtime kinds. Any is a signature wildcard, not a parent kind.</summary>
-public enum HixValueKind { Any, Null, String, Bool, Number, Tuple, Table, Symbol, Function, Error, Kind }
+public enum HixValueKind { Any, Null, String, Bool, Number, Tuple, Table, Symbol, Function, Error, Kind, Pattern }
 
 public enum HixExpressionRoot {
   Target,
@@ -196,6 +196,19 @@ public abstract class FunctionDefinition {
       if (conversionCount == 0) break;
     }
     return converted != null;
+  }
+  internal static bool TryConvertValues(LanguageExecution execution, FunctionSignature signature, IHixValue[] values,
+    out IHixValue[] converted) {
+    converted = values;
+    if (!signature.MatchesArgumentCount(values.Length)) return false;
+    for (var index = 0; index < values.Length; index++) {
+      if (!KindDefinitions.TryImplicitConvert(execution, values[index], signature.GetArgumentType(index), out var value))
+        return false;
+      if (ReferenceEquals(value, values[index])) continue;
+      if (ReferenceEquals(converted, values)) converted = (IHixValue[])values.Clone();
+      converted[index] = value;
+    }
+    return true;
   }
   public abstract IHixValue Execute(HixExecutionContext context, IHixValue[] arguments, int line);
 }

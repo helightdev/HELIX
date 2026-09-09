@@ -123,6 +123,7 @@ internal sealed partial class LanguageExecution {
     if (name == "args") return new TupleHixValue(positionalParameters);
     if (name == "param") return parameter;
     if (KindHixValue.TryGet(name, out var kind)) return kind;
+    if (program.Patterns.TryGetValue(name, out var pattern)) return new PatternHixValue(new NamedHixPattern(name));
     if (scope.Bind(name) is { } function) return function;
     if (context.Backend.Roots.TryGetValue(name, out var root)) {
       if (pure && root.HasEffects) return context.Error("pure functions cannot read host roots");
@@ -149,10 +150,15 @@ internal sealed partial class LanguageExecution {
     } finally { context.Execution = null; }
   }
 
-  private IHixValue Invoke(string name, IHixValue[] arguments, int line, LanguageFunctionScope binding = null) {
+  internal IHixValue Invoke(string name, IHixValue[] arguments, int line, SignatureHixPattern requested = null,
+    LanguageFunctionScope binding = null) {
     using var profile = HixProfiler.Measure("vm.invoke");
-    var selectionError = SelectFunction(name, arguments, binding ?? scope, out var match);
+    var selectionError = SelectFunction(name, arguments, binding ?? scope, out var match, requested);
     if (selectionError != null) return selectionError;
+    return InvokeMatch(name, arguments, line, match);
+  }
+
+  private IHixValue InvokeMatch(string name, IHixValue[] arguments, int line, FunctionMatch match) {
     if (pure && !match.Function.IsPure) return context.Error("pure functions cannot invoke impure functions");
     if (!directInvocation && !prelude && !match.Function.IsPure) return context.Error("impure function '" + name + "' requires prelude preparation");
     if (++depth > 128) { depth--; return context.Error("call depth limit exceeded"); }
@@ -182,8 +188,9 @@ internal sealed partial class LanguageExecution {
       }
       var result = completion.Kind == BytecodeFlow.Return ? completion.Value : NullHixValue.Instance;
       if (result is ErrorHixValue) { Rollback(savedVariables, savedTargets, savedCarries, outputCount, logCount); return result; }
-      if (match.Signature != null && !MatchesReturn(result, match.Signature)) {
-        Rollback(savedVariables, savedTargets, savedCarries, outputCount, logCount); return context.Error("return kind does not match signature of '" + name + "'");
+      if (match.Signature != null && !MatchesReturn(result, match.Signature, out var returnFailure)) {
+        Rollback(savedVariables, savedTargets, savedCarries, outputCount, logCount);
+        return context.Error("return pattern does not match signature of '" + name + "': " + returnFailure);
       }
       return result;
     } finally {
@@ -198,18 +205,33 @@ internal sealed partial class LanguageExecution {
     }
   }
 
-  private bool MatchesReturn(IHixValue value, BytecodeSignature signature) => signature.Outputs == null
-    ? MatchesKind(value, signature.OutputKind)
-    : value is HixTableValue table && signature.Outputs.All(field =>
-      table.TryGetValue(context, context.ResolveString(field.Name), out var member) && MatchesKind(member, field.Kind));
+  internal IHixValue InvokePrepared(HixVM.PreparedInvocation prepared, IHixValue[] arguments, int line) {
+    using var profile = HixProfiler.Measure("vm.invoke_prepared");
+    if (prepared.Backend != null)
+      return Call(prepared.Backend.Name, arguments, line, [prepared.Backend], prepared.BackendSignature);
+    var candidate = prepared.Language;
+    var selectionError = SelectFunction(candidate.Function.Name, arguments, candidate.Owner, out var match,
+      candidate.Signature?.Constant(candidate.Function.Name), candidate);
+    return selectionError ?? InvokeMatch(candidate.Function.Name, arguments, line, match);
+  }
+
+  private bool MatchesReturn(IHixValue value, BytecodeSignature signature, out HixPatternFailure failure) {
+    if (signature.Outputs == null)
+      return HixPatternMatcher.Matches(signature.OutputPattern, value, context, program.Patterns, out failure);
+    var pattern = new TableHixPattern(signature.Outputs.Select(field => field.AsPatternField()).ToArray());
+    return HixPatternMatcher.Matches(pattern, value, context, program.Patterns, out failure);
+  }
   internal static bool MatchesKind(IHixValue value, string kind) => kind == "any" || value.Kind.ToString().Equals(kind, StringComparison.OrdinalIgnoreCase);
-  private bool TryConvert(IHixValue value, string kind, out IHixValue converted, out int conversions) {
-    if (kind == "any" || value.Kind.ToString().Equals(kind, StringComparison.OrdinalIgnoreCase)) {
+  private bool MatchesPattern(IHixValue value, HixPattern pattern) =>
+    HixPatternMatcher.Matches(pattern, value, context, program.Patterns, out _);
+  private bool TryConvert(IHixValue value, HixPattern pattern, out IHixValue converted, out int conversions) {
+    if (MatchesPattern(value, pattern)) {
       converted = value;
       conversions = 0;
       return true;
     }
-    if (!KindHixValue.TryGet(kind, out var target) ||
+    if (pattern is not KindHixPattern kind ||
+      !KindHixValue.TryGet(kind.Display, out var target) ||
       !KindDefinitions.TryImplicitConvert(this, value, target.ValueKind, out converted)) {
       converted = null;
       conversions = 0;

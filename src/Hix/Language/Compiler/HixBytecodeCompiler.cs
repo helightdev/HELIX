@@ -28,9 +28,12 @@ internal sealed class HixBytecodeCompiler {
   private void Constant(IHixValue value) {
     if (value is NullHixValue) { Emit(HixOpcode.LoadNull); return; }
     if (value is BooleanHixValue boolean) { Emit(boolean.Value ? HixOpcode.LoadTrue : HixOpcode.LoadFalse); return; }
+    Emit(HixOpcode.LoadConst, C(value));
+  }
+  private int C(IHixValue value) {
     var index = constants.FindIndex(item => item.Equals(value));
     if (index < 0) { index = constants.Count; constants.Add(value); }
-    Emit(HixOpcode.LoadConst, index);
+    return index;
   }
   internal HixExpressionExecutionProgram Compile(IReadOnlyList<ExpressionDeclarationAst> expressions,
     IReadOnlyList<FunctionDeclarationAst> functions, HixExpressionPreparedState globals) {
@@ -66,17 +69,18 @@ internal sealed class HixBytecodeCompiler {
     var scope = new LanguageFunctionScope(localFunctions.Select(MapFunction).ToArray(), global);
     var derivations = derivationBodies.Select(item => new BytecodeDerivation(item.Name, item.Line,
       item.Expressions.Select(MapExpression).ToArray(), new LanguageFunctionScope(item.Functions.Select(MapFunction).ToArray(), global))).ToArray();
-    return new(bytes, lines, constants.ToArray(), pool, entries.Select(MapExpression).ToArray(), derivations, scope, targets.ToArray());
+    return new(bytes, lines, constants.ToArray(), pool, entries.Select(MapExpression).ToArray(), derivations, scope,
+      targets.ToArray(), globals.Patterns, globals.Backend);
   }
   private BytecodeExpression Expression(ExpressionDeclarationAst expression) =>
     new(EntryBlock(expression.Body), expression.IsPrelude, expression.Line);
   private BytecodeFunction Function(FunctionDeclarationAst function) {
     var start = EntryBlock(function.Body);
     return new(function.Name, function.IsPure, function.Signatures.Select(signature => new BytecodeSignature(
-      signature.InputKind, Fields(signature.Inputs), signature.OutputKind, Fields(signature.Outputs))).ToArray(), start);
+      signature.InputPattern, Fields(signature.Inputs), signature.OutputPattern, Fields(signature.Outputs))).ToArray(), start);
   }
   private static IReadOnlyList<BytecodeField> Fields(IReadOnlyList<SignatureField> fields) =>
-    fields?.Select(field => new BytecodeField(field.Name, field.Kind, field.Variadic)).ToArray();
+    fields?.Select(field => new BytecodeField(field.Name, field.Pattern, field.Variadic, field.Optional)).ToArray();
   private int EntryBlock(BlockStatementAst block) {
     var previous = localNames;
     localNames = new HashSet<string>(StringComparer.Ordinal);
@@ -197,7 +201,8 @@ internal sealed class HixBytecodeCompiler {
         Emit(HixOpcode.Pop); Value(fallback.Fallback); Patch(other, code.Count); break;
       case CallExpressionAst call:
         foreach (var argument in call.Arguments) Value(argument);
-        Emit(HixOpcode.Call, S(call.Name), call.Arguments.Count, line: line);
+        if (call.Signature == null) Emit(HixOpcode.CallDynamic, S(call.Name), call.Arguments.Count, line: line);
+        else Emit(HixOpcode.Call, C(new PatternHixValue(call.Signature)), call.Arguments.Count, line: line);
         if (call.CoerceBoolean) Emit(HixOpcode.CastBoolean);
         break;
       case InlineExpressionAst inline: NestedBlock(inline.Body); LoadMember("local", inline.ResultLocal); break;

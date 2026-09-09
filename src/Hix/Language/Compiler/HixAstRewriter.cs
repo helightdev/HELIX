@@ -47,7 +47,7 @@ internal class HixAstRewriter {
     new RootExpressionAst(root.Name, root.IsSmart);
 
   protected virtual ExpressionAst RewriteCall(CallExpressionAst call) =>
-    new CallExpressionAst(call.Name, call.Arguments.Select(Rewrite).ToArray(), call.CoerceBoolean);
+    new CallExpressionAst(call.Name, call.Arguments.Select(Rewrite).ToArray(), call.CoerceBoolean, call.Signature);
 
   protected static T CopyLocation<T>(HixAst source, T target) where T : HixAst {
     target.SourceRange = source.SourceRange;

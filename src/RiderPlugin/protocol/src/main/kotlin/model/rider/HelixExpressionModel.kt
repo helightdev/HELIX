@@ -87,6 +87,14 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("items", array(completionItem))
         }
 
+        val typeFact = structdef("mixinTypeFact") {
+            field("range", sourceRange)
+            field("type", string)
+            field("documentation", string)
+            field("inlay", bool)
+            field("kind", string)
+        }
+
         val fileSnapshot = structdef("mixinFileSnapshot") {
             field("filePath", string)
             field("revision", long)
@@ -97,6 +105,7 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("references", array(reference))
             field("diagnostics", array(diagnostic))
             field("completionSites", array(completionSite))
+            field("typeFacts", array(typeFact))
         }
 
         val languageDefinition = structdef("mixinLanguageDefinition") {

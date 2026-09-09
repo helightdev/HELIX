@@ -73,7 +73,7 @@ public enum HixOpcode : byte {
   Equal = 24,
 
   // Calls and blocks
-  /// <summary>u16 string pool function name, u16 argument count; pop arguments in source order and push the result.</summary>
+  /// <summary>u16 signature constant, u16 argument count; invoke an already bound signature.</summary>
   Call = 25,
   /// <summary>No operands; pop the return value and leave the function/expression.</summary>
   Return = 26,
@@ -107,6 +107,8 @@ public enum HixOpcode : byte {
   EndCheck = 38,
   /// <summary>u16 string pool message; produce an unchecked runtime error.</summary>
   Throw = 39,
+  /// <summary>u16 string pool function name, u16 argument count; select an overload from runtime values.</summary>
+  CallDynamic = 40,
 }
 
 /// <summary>A decoded instruction. Its encoded size is one opcode byte plus only the operands that opcode uses.</summary>
@@ -115,9 +117,9 @@ public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B 
     HixOpcode.JumpNotNull or HixOpcode.JumpFalse or HixOpcode.Block or HixOpcode.Goto;
   public bool UsesStringPool => Opcode is HixOpcode.LoadString or HixOpcode.LoadRoot or HixOpcode.Member
     or HixOpcode.StoreLocal or
-    HixOpcode.StoreCarry or HixOpcode.StoreVariable or HixOpcode.StoreTarget or HixOpcode.Call or HixOpcode.Throw;
+    HixOpcode.StoreCarry or HixOpcode.StoreVariable or HixOpcode.StoreTarget or HixOpcode.CallDynamic or HixOpcode.Throw;
   public int Size => Opcode switch {
-    HixOpcode.Call => 5,
+    HixOpcode.Call or HixOpcode.CallDynamic => 5,
     _ when IsRelative || UsesStringPool || Opcode is HixOpcode.LoadConst or HixOpcode.PackTuple or HixOpcode.PackTable
       or
       HixOpcode.Interpolate or HixOpcode.Pack => 3,
@@ -176,11 +178,20 @@ internal readonly record struct VmCompletion(BytecodeFlow Kind = BytecodeFlow.No
   int Target = -1, int Line = 0
 );
 
-internal sealed record BytecodeField(string Name, string Kind, bool Variadic);
+internal sealed record BytecodeField(string Name, HixPattern Pattern, bool Variadic, bool Optional = false) {
+  internal string Kind => Pattern.Display;
+  internal HixPatternField AsPatternField() => new(Name, Pattern, Optional);
+}
 
-internal sealed record BytecodeSignature(string InputKind, IReadOnlyList<BytecodeField> Inputs,
-  string OutputKind, IReadOnlyList<BytecodeField> Outputs
-);
+internal sealed record BytecodeSignature(HixPattern InputPattern, IReadOnlyList<BytecodeField> Inputs,
+  HixPattern OutputPattern, IReadOnlyList<BytecodeField> Outputs
+) {
+  internal string InputKind => InputPattern?.Display;
+  internal string OutputKind => OutputPattern?.Display;
+  internal SignatureHixPattern Constant(string name) => new(name,
+    Inputs == null ? [new HixPatternField(null, InputPattern ?? HixPattern.Any)] : Inputs.Select(field => field.AsPatternField()).ToArray(),
+    Outputs == null ? OutputPattern ?? HixPattern.Any : new TableHixPattern(Outputs.Select(field => field.AsPatternField()).ToArray()));
+}
 
 internal sealed record BytecodeFunction(string Name, bool IsPure, IReadOnlyList<BytecodeSignature> Signatures,
   int Body
@@ -204,11 +215,15 @@ public sealed class HixExpressionExecutionProgram {
   internal IReadOnlyList<BytecodeDerivation> Derivations { get; }
   internal LanguageFunctionScope Scope { get; }
   internal IReadOnlyList<BytecodeTarget> LateTargets { get; }
+  internal IReadOnlyDictionary<string, HixPattern> Patterns { get; }
+  internal HixBackend Backend { get; }
+  internal IReadOnlyDictionary<int, HixVM.PreparedInvocation> PreparedCalls { get; }
 
   internal HixExpressionExecutionProgram(
     byte[] code, Dictionary<int, int> sourceLines, IHixValue[] constants, HixStringPool strings,
     IReadOnlyList<BytecodeExpression> expressions, IReadOnlyList<BytecodeDerivation> derivations,
-    LanguageFunctionScope scope, IReadOnlyList<BytecodeTarget> targets
+    LanguageFunctionScope scope, IReadOnlyList<BytecodeTarget> targets, IReadOnlyDictionary<string, HixPattern> patterns,
+    HixBackend backend
   ) {
     Bytecode = Array.AsReadOnly((byte[])code.Clone());
     SourceLines = new ReadOnlyDictionary<int, int>(new Dictionary<int, int>(sourceLines));
@@ -218,8 +233,11 @@ public sealed class HixExpressionExecutionProgram {
     Derivations = derivations;
     Scope = scope;
     LateTargets = targets;
+    Patterns = patterns;
+    Backend = backend;
     scope.Attach(this);
     foreach (var derivation in derivations) derivation.Scope.Attach(this);
+    PreparedCalls = HixVM.BindCalls(this);
   }
 
   private HixExpressionExecutionProgram(HixExpressionExecutionProgram image, bool prelude) {
@@ -231,6 +249,9 @@ public sealed class HixExpressionExecutionProgram {
     Derivations = image.Derivations;
     Scope = image.Scope;
     LateTargets = image.LateTargets;
+    Patterns = image.Patterns;
+    Backend = image.Backend;
+    PreparedCalls = image.PreparedCalls;
   }
 
   internal HixExpressionExecutionProgram ForPass(bool prelude) => new(this, prelude);
@@ -276,6 +297,11 @@ public sealed class HixExpressionExecutionProgram {
       builder.Append(target.Value);
       builder.Append(target.IsCarry);
     }
+    builder.Append(Patterns.Count);
+    foreach (var pattern in Patterns.OrderBy(item => item.Key, StringComparer.Ordinal)) {
+      builder.Append(pattern.Key);
+      builder.Append(pattern.Value.Display);
+    }
     return builder.Hash.ToString("X16", CultureInfo.InvariantCulture) + ":" +
       builder.Length.ToString(CultureInfo.InvariantCulture);
   }
@@ -303,6 +329,7 @@ public sealed class HixExpressionExecutionProgram {
       builder.Append(field.Name);
       builder.Append(field.Kind);
       builder.Append(field.Variadic);
+      builder.Append(field.Optional);
     }
   }
 

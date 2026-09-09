@@ -53,6 +53,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitMixinDeclaration(HixParser.MixinDeclarationContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#typeDeclaration}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitTypeDeclaration(HixParser.TypeDeclarationContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#mixinBody}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -71,6 +77,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitFuncDeclaration(HixParser.FuncDeclarationContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#directFunctionSignature}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitDirectFunctionSignature(HixParser.DirectFunctionSignatureContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#functionBody}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -88,6 +100,54 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitFunctionSignatureVariant(HixParser.FunctionSignatureVariantContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#patternExpression}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPatternExpression(HixParser.PatternExpressionContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#patternPrimary}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPatternPrimary(HixParser.PatternPrimaryContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#tablePattern}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitTablePattern(HixParser.TablePatternContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#tuplePattern}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitTuplePattern(HixParser.TuplePatternContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#delegatePattern}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitDelegatePattern(HixParser.DelegatePatternContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#patternParameterList}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPatternParameterList(HixParser.PatternParameterListContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#patternField}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPatternField(HixParser.PatternFieldContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#patternIdentifier}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitPatternIdentifier(HixParser.PatternIdentifierContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link HixParser#signature}.
 	 * @param ctx the parse tree

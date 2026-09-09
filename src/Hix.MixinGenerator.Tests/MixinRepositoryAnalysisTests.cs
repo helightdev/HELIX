@@ -47,7 +47,7 @@ public sealed class MixinRepositorySyntaxTests {
     Assert.Equal(new[] {
       HixValueKind.Any, HixValueKind.Null, HixValueKind.String, HixValueKind.Bool,
       HixValueKind.Number, HixValueKind.Tuple, HixValueKind.Table, HixValueKind.Symbol,
-      HixValueKind.Function, HixValueKind.Error, HixValueKind.Kind
+      HixValueKind.Function, HixValueKind.Error, HixValueKind.Kind, HixValueKind.Pattern
     }, Enum.GetValues<HixValueKind>());
   }
 

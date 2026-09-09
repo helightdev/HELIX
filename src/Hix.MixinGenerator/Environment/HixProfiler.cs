@@ -18,8 +18,10 @@ internal static class HixProfiler {
   private static int _exitHandlerRegistered;
   private static long _flushedVersion;
   private static long _version;
+  private static long _machineGeneration;
   private static readonly bool Forced;
   private static Timer _flushTimer;
+  private static string _machineHash;
   private static string _outputPath;
 
   static HixProfiler() {
@@ -30,12 +32,33 @@ internal static class HixProfiler {
 
   internal static bool Enabled => Volatile.Read(ref _enabled) != 0;
 
-  internal static void Configure(bool enabled, string projectPath) {
+  internal static void Configure(bool enabled, string projectPath, string machineHash) {
     if (!enabled) {
       if (!Forced) Volatile.Write(ref _enabled, 0);
-      return;
+    } else {
+      Enable(Path.Combine(projectPath, "Logs", "HelixSourceGenerator.profile.tsv"));
     }
-    Enable(Path.Combine(projectPath, "Logs", "HelixSourceGenerator.profile.tsv"));
+    if (Enabled) ResetForMachine(machineHash ?? "");
+  }
+
+  private static void ResetForMachine(string machineHash) {
+    lock (WriteGate) {
+      if (string.Equals(_machineHash, machineHash, StringComparison.Ordinal)) return;
+      _machineHash = machineHash;
+      Interlocked.Increment(ref _machineGeneration);
+      Measurements.Clear();
+      RuntimeCounters.Reset();
+      Volatile.Write(ref _version, 0);
+      Volatile.Write(ref _flushedVersion, 0);
+      if (string.IsNullOrEmpty(_outputPath)) return;
+      try {
+        var directory = Path.GetDirectoryName(_outputPath);
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        using var stream = new FileStream(_outputPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+      } catch (Exception) {
+        // Profiling is diagnostic-only and must never fail the compiler host.
+      }
+    }
   }
 
   private static void Enable(string outputPath) {
@@ -116,16 +139,18 @@ internal static class HixProfiler {
   }
 
   internal readonly struct Scope : IDisposable {
+    private readonly long _generation;
     private readonly string _name;
     private readonly long _started;
 
     internal Scope(string name) {
+      _generation = Volatile.Read(ref _machineGeneration);
       _name = name;
       _started = Stopwatch.GetTimestamp();
     }
 
     public void Dispose() {
-      if (_name is null) return;
+      if (_name is null || _generation != Volatile.Read(ref _machineGeneration)) return;
       var elapsed = Stopwatch.GetTimestamp() - _started;
       var measurement = Measurements.GetOrAdd(_name, static _ => new Measurement());
       Interlocked.Increment(ref measurement.Count);
@@ -140,9 +165,15 @@ internal static class HixProfiler {
   }
 
   private static class RuntimeCounters {
-    internal static readonly int InitialGen0Collections = GC.CollectionCount(0);
-    internal static readonly int InitialGen1Collections = GC.CollectionCount(1);
-    internal static readonly int InitialGen2Collections = GC.CollectionCount(2);
+    internal static int InitialGen0Collections = GC.CollectionCount(0);
+    internal static int InitialGen1Collections = GC.CollectionCount(1);
+    internal static int InitialGen2Collections = GC.CollectionCount(2);
+
+    internal static void Reset() {
+      InitialGen0Collections = GC.CollectionCount(0);
+      InitialGen1Collections = GC.CollectionCount(1);
+      InitialGen2Collections = GC.CollectionCount(2);
+    }
   }
 }
 #pragma warning restore RS1035

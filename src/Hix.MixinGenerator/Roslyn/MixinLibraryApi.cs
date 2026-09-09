@@ -20,7 +20,8 @@ internal static class MixinLibraryApi {
   internal const string AdditionalFileSuffix = ".HelixSourceGenerator.additionalfile";
 
   internal static MixinCompilation CompileCached(MixinLibraryCatalog catalog) {
-    HixProfiler.Configure(catalog.HasConfiguration("PROFILE"), catalog.ProjectPath);
+    HixProfiler.Configure(catalog.HasConfiguration("PROFILE"), catalog.ProjectPath, catalog.Key);
+    HixDebugReporter.Configure(catalog.HasConfiguration("DEBUG"), catalog.ProjectPath, catalog.Key);
     return MixinCompilationCache.GetOrCreate(catalog.Key, () => Compile(catalog));
   }
 

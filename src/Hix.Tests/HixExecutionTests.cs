@@ -468,6 +468,147 @@ public sealed class HixExecutionTests {
     Assert.Contains("limit", loop.Error);
   }
 
+  [Fact]
+  public void PatternsValidateStructuresUnionsCollectionsAndConstraints() {
+    var source = """
+      type NullableString = %union<string><null>
+      type Person = @{string name, %optional number age, %many<string> aliases, %map<string,string> attributes}
+      type Positive = %min<1> number
+      type Handler = delegate(Person self, string value) -> null
+      mixin Example { expression {
+        local person = Person(@{name=<Ada>, aliases=@[<A>, <B>], attributes=@{role=<admin>}})
+        local nullable = NullableString(null)
+        emit(local#person#name)
+        emit(local#nullable)
+        emit(Positive(2))
+      } }
+      """;
+    var unit = AntlrSyntax.Parse(source);
+    Assert.Empty(unit.Diagnostics);
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"Ada", "", "2"}, result.Outputs.Select(output => output.Text));
+
+    var rejected = AntlrSyntax.Parse("type Positive = %min<1> number\nmixin Example { expression { emit(Positive(0)) } }");
+    Assert.Empty(rejected.Diagnostics);
+    var failure = HixVM.Execute(TestCompiler.Compile(rejected, "Example", TestBackend.Instance), new Context());
+    Assert.False(failure.Success);
+    Assert.Contains("constraint failed", failure.Error);
+  }
+
+  [Fact]
+  public void InferredCallsUseStaticSignaturesWhileVariablesRemainDynamic() {
+    var unit = AntlrSyntax.Parse("""
+      pure func choose(string value) -> string { return(<string>) }
+      pure func choose(number value) -> string { return(<number>) }
+      mixin Example { expression {
+        local known = choose(<value>)
+        var dynamic = <value>
+        local unknown = choose(var#dynamic)
+        emit(local#known)
+        emit(local#unknown)
+      } }
+      """);
+    Assert.Empty(unit.Diagnostics);
+    var program = TestCompiler.Compile(unit, "Example", TestBackend.Instance);
+    var dump = program.Disassemble();
+    Assert.Contains("CALL c", dump);
+    Assert.Single(HixInstruction.ReadAll(program.Bytecode)
+      .Where(item => item.Instruction.Opcode == HixOpcode.CallDynamic));
+    Assert.Contains("static emit(any", dump);
+    var result = HixVM.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal(new[] {"string", "string"}, result.Outputs.Select(output => output.Text));
+  }
+
+  [Fact]
+  public void BackendCallsInsideGlobalFunctionsAndDerivationsArePreparedStatically() {
+    var unit = AntlrSyntax.Parse("""
+      func inspect(symbol value) -> string { return(param#value:name) }
+      derivation mixin Base { expression { local inspected @= param:name; } }
+      mixin Example { expression { } }
+      """, TestBackend.Instance);
+    Assert.Empty(unit.Diagnostics);
+
+    var program = TestCompiler.Compile(unit, "Example", TestBackend.Instance);
+    var dump = program.Disassemble();
+
+    Assert.Contains("static name(any 0) -> string", dump);
+    Assert.DoesNotContain("dynamic name(", dump);
+  }
+
+  [Fact]
+  public void ParameterListsOnlyAcceptPositionalArgumentsNotNamedTables() {
+    const string function = "pure func combine(string left, string right) -> string { return(<[$left][$right]>) }\n";
+    var invalid = AntlrSyntax.Parse(function +
+      "mixin Example { expression { emit(combine(@{left=<a>, right=<b>})) } }");
+    Assert.Contains(invalid.Diagnostics, diagnostic =>
+      diagnostic.Message == "no overload of 'combine' accepts (@{string left, string right})");
+
+    var valid = AntlrSyntax.Parse(function +
+      "mixin Example { expression { emit(combine(<a>, <b>)) } }");
+    Assert.Empty(valid.Diagnostics);
+    var program = TestCompiler.Compile(valid, "Example", TestBackend.Instance);
+    Assert.Contains("static combine(string left, string right) -> string", program.Disassemble());
+    var result = HixVM.Execute(program, new Context());
+    Assert.True(result.Success, result.Error);
+    Assert.Equal("ab", Assert.Single(result.Outputs).Text);
+  }
+
+  [Fact]
+  public void AnalyzerChecksBuiltinCallsAndPublishesInferredTypeFacts() {
+    var invalid = AntlrSyntax.Parse("mixin Example { expression { replaceAll(true) } }");
+    Assert.Contains(invalid.Diagnostics, diagnostic =>
+      diagnostic.Message == "no overload of 'replaceAll' accepts 1 argument(s)");
+
+    var analysis = new LanguageAnalysis("mixin Example { expression { local value = lowercase(<TEXT>) } }");
+    Assert.Contains(analysis.TypeFacts, fact => fact.Inlay && fact.Type == "string" &&
+      fact.Documentation == "local value: string");
+    Assert.Contains(analysis.TypeFacts, fact => !fact.Inlay && fact.Type == "string" &&
+      fact.Documentation.Contains("lowercase(string) -> string"));
+
+    var coercion = new LanguageAnalysis(
+      "mixin Example { expression { local value = replaceAll(true, <r>, <x>) } }");
+    Assert.Contains(coercion.TypeFacts, fact => fact.Kind == "Coercion" && fact.Inlay && fact.Type == "string");
+
+    var dynamic = new LanguageAnalysis("""
+      pure func choose(string value) -> string { return(<string>) }
+      pure func choose(number value) -> string { return(<number>) }
+      mixin Example { expression { var value = <x>; local result = choose(var#value) } }
+      """);
+    Assert.Contains(dynamic.TypeFacts, fact => fact.Kind == "DynamicCall" && fact.Documentation.Contains("runtime"));
+
+    var incompleteHostCall = new LanguageAnalysis("mixin Example { expression { emit() } }");
+    Assert.Contains(incompleteHostCall.TypeFacts, fact => fact.Kind == "Call" &&
+      fact.Documentation.Contains("emit("));
+
+    var nestedWhen = new LanguageAnalysis("""
+      mixin Example { expression {
+        when(true) { replaceAll(true) }
+        else { lowercase(<TEXT>) }
+      } }
+      """);
+    Assert.Contains(nestedWhen.Program.Diagnostics, diagnostic =>
+      diagnostic.Message == "no overload of 'replaceAll' accepts 1 argument(s)");
+    Assert.Contains(nestedWhen.TypeFacts, fact => fact.Kind == "Call" &&
+      fact.Documentation.Contains("lowercase(string) -> string"));
+
+    var uncertainSelection = new LanguageAnalysis("""
+      mixin Example { expression {
+        local value = when {
+          (true) -> <known>
+          else -> unknown()
+        }
+      } }
+      """);
+    Assert.Empty(uncertainSelection.Program.Diagnostics);
+    Assert.Contains(uncertainSelection.TypeFacts, fact => fact.Inlay && fact.Type == "any" &&
+      fact.Documentation == "local value: any");
+    Assert.Equal("any", HixPatterns.Union([
+      new KindHixPattern(HixValueKind.String), HixPattern.Any
+    ]).Display);
+  }
+
   private sealed class Context(IHixValue symbol = null) : Hix.Runtime.HixExecutionContext(TestBackend.Instance, new HixStringPoolBuilder().Freeze()) {
     protected override IHixValue ResolveHost(HixExpressionRoot root, HixString member) => symbol ?? NullHixValue.Instance;
   }

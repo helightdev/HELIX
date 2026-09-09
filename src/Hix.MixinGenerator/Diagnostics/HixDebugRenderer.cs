@@ -48,9 +48,6 @@ public static class HixDebugRenderer {
     var builder = new StringBuilder();
     builder.AppendLine("// ============================================================================");
     builder.AppendLine("// HELIX MIXIN PROGRAM DUMP");
-    var machine = new HixVM(render.Expressions.SelectMany(work =>
-      new[] {work.PreludeProgram, work.LateProgram}), render.StringPool);
-    AppendProgram(builder, "GLOBAL POOLS", machine.DisassemblePools());
     builder.Append("// generationVersion = ")
       .AppendLine(render.GenerationVersion.ToString(CultureInfo.InvariantCulture));
     AppendFingerprint(builder, "outputs", render.Outputs);
@@ -63,8 +60,8 @@ public static class HixDebugRenderer {
       if (!string.IsNullOrEmpty(work.SourceType)) builder.Append(" on ").Append(work.SourceType);
       if (!string.IsNullOrEmpty(work.SourceMember)) builder.Append('.').Append(work.SourceMember);
       builder.AppendLine();
-      AppendProgram(builder, "PRELUDE BYTECODE", machine.Disassemble(work.PreludeProgram));
-      AppendProgram(builder, "LATE BYTECODE", machine.Disassemble(work.LateProgram));
+      AppendProgram(builder, "PRELUDE BYTECODE", work.PreludeProgram.Disassemble());
+      AppendProgram(builder, "LATE BYTECODE", work.LateProgram.Disassemble());
       builder.AppendLine("// CARRIED VALUES");
       var carries = work.Carries
         .OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();

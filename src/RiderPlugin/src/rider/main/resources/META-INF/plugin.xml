@@ -44,6 +44,10 @@
                             implementationClass="dev.helight.helix.hix.HixCompletionContributor" />
     <annotator language="Hix"
                implementationClass="dev.helight.helix.hix.HixAnnotator" />
+    <codeInsight.inlayProvider language="Hix"
+                               implementationClass="dev.helight.helix.hix.HixInlayHintsProvider" />
+    <lang.documentationProvider language="Hix"
+                                implementationClass="dev.helight.helix.hix.HixDocumentationProvider" />
     <lang.findUsagesProvider language="Hix"
                              implementationClass="dev.helight.helix.hix.HixFindUsagesProvider" />
     <lang.braceMatcher language="Hix"

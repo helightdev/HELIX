@@ -38,4 +38,14 @@ public sealed class MixinEditorModelTests {
         Assert.That(matches.ResultType, Is.EqualTo(HixValueKind.Bool));
         Assert.That(Hix.HixMixinBackend.Instance.Functions.Enumerate().Any(item => item.Name == "format"), Is.False);
     }
+
+    [Test]
+    public void AnalysisDocumentsHostFunctionDespiteIncompleteArguments() {
+        var analysis = new LanguageAnalysis(
+            "mixin Example { expression { inject() } }",
+            Hix.HixMixinBackend.Instance);
+
+        Assert.That(analysis.TypeFacts.Any(fact =>
+            fact.Kind == "Call" && fact.Documentation.Contains("inject(")), Is.True);
+    }
 }

@@ -430,7 +430,7 @@ private fun generateMonorepoSolution(
 
 private fun registerHixBuildTasks(project: Project) {
     val configuration = project.providers.gradleProperty("BuildConfiguration").orElse("Debug")
-    val generatorConfiguration = project.providers.gradleProperty("HixGeneratorConfiguration").orElse("Release")
+    val generatorConfiguration = project.providers.gradleProperty("HixGeneratorConfiguration").orElse(configuration)
     val build = project.tasks.register("buildHix", Exec::class.java) {
         group = "hix"
         description = "Builds the Hix libraries, standalone runtime, generator, and test projects."
@@ -467,8 +467,13 @@ abstract class HixGeneratorCopyTask : DefaultTask() {
     @get:InputFile abstract val source: RegularFileProperty
     @get:OutputFile abstract val destination: RegularFileProperty
     @TaskAction fun copyGenerator() {
+        val sourceFile = source.get().asFile
         val target = destination.get().asFile
         target.parentFile.mkdirs()
-        source.get().asFile.copyTo(target, overwrite = true)
+        sourceFile.copyTo(target, overwrite = true)
+        check(sourceFile.readBytes().contentEquals(target.readBytes())) {
+            "Copied Hix generator does not match ${sourceFile.absolutePath}"
+        }
+        logger.lifecycle("Deployed ${sourceFile.absolutePath} to ${target.absolutePath}")
     }
 }

@@ -46,7 +46,7 @@ internal sealed class PreludeHoistingStep : HixCompilerStep {
     };
 
     private CallExpressionAst RewriteEffectCall(CallExpressionAst call) => CopyLocation(call,
-      new CallExpressionAst(call.Name, call.Arguments.Select(RewriteLateValue).ToArray(), call.CoerceBoolean));
+      new CallExpressionAst(call.Name, call.Arguments.Select(RewriteLateValue).ToArray(), call.CoerceBoolean, call.Signature));
 
     private ExpressionAst RewriteLateValue(ExpressionAst expression) {
       if (expression is null) return null;
@@ -54,7 +54,7 @@ internal sealed class PreludeHoistingStep : HixCompilerStep {
       return expression switch {
         MemberExpressionAst value => CopyLocation(value, new MemberExpressionAst(RewriteLateValue(value.Receiver), value.Member)),
         CallExpressionAst value => CopyLocation(value, new CallExpressionAst(value.Name,
-          value.Arguments.Select(RewriteLateValue).ToArray(), value.CoerceBoolean)),
+          value.Arguments.Select(RewriteLateValue).ToArray(), value.CoerceBoolean, value.Signature)),
         UnaryExpressionAst value => CopyLocation(value, new UnaryExpressionAst(value.Operation, RewriteLateValue(value.Value))),
         FallbackExpressionAst value => CopyLocation(value,
           new FallbackExpressionAst(RewriteLateValue(value.Value), RewriteLateValue(value.Fallback))),

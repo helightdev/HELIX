@@ -8,19 +8,19 @@ internal static class LanguageValidation {
   internal static void Validate(IReadOnlyList<HixAst> declarations, List<HixParseDiagnostic> diagnostics, HixBackend backend = null) {
     backend ??= HixCoreBackend.Instance;
     void Error(HixAst node, string message) => diagnostics.Add(new HixParseDiagnostic(node.Line, message));
-    bool KnownKind(string name) => name == "any" || name != null && KindHixValue.TryGet(name, out _);
-
+    var patterns = declarations.OfType<TypeDeclarationAst>().GroupBy(type => type.Name, StringComparer.Ordinal)
+      .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
     void Signature(FunctionDeclarationAst function, FunctionSignature signature) {
       void Fields(IReadOnlyList<SignatureField> fields, string kind, bool output) {
         if (fields == null) {
-          if (!KnownKind(kind)) Error(function, "unknown signature kind '" + kind + "'");
+          ValidatePattern(output ? signature.OutputPattern : signature.InputPattern, function, new HashSet<string>());
           return;
         }
         var names = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < fields.Count; index++) {
           var field = fields[index];
           if (!names.Add(field.Name)) Error(function, "duplicate signature field '" + field.Name + "'");
-          if (!KnownKind(field.Kind)) Error(function, "unknown signature kind '" + field.Kind + "'");
+          ValidatePattern(field.Pattern, function, new HashSet<string>());
           if (field.Variadic && (output || index != fields.Count - 1))
             Error(function, "only the last input signature field may be variadic");
         }
@@ -90,7 +90,36 @@ internal static class LanguageValidation {
 
     foreach (var group in declarations.OfType<MixinDeclarationAst>().GroupBy(mixin => mixin.Name, StringComparer.Ordinal))
       if (group.Count() > 1) Error(group.First(), "duplicate mixin '" + group.Key + "'");
+    foreach (var group in declarations.OfType<TypeDeclarationAst>().GroupBy(type => type.Name, StringComparer.Ordinal))
+      if (group.Count() > 1) Error(group.First(), "duplicate pattern '" + group.Key + "'");
+    foreach (var type in declarations.OfType<TypeDeclarationAst>()) ValidatePattern(type.Pattern, type, new HashSet<string>());
     Scope(declarations, []);
+
+    void ValidatePattern(HixPattern pattern, HixAst owner, ISet<string> path) {
+      switch (pattern) {
+        case NamedHixPattern named when !patterns.ContainsKey(named.Name):
+          Error(owner, "unknown pattern '" + named.Name + "'"); break;
+        case NamedHixPattern named when !path.Add(named.Name):
+          Error(owner, "cyclic pattern alias '" + named.Name + "'"); break;
+        case NamedHixPattern named:
+          ValidatePattern(patterns[named.Name], owner, path); path.Remove(named.Name); break;
+        case UnionHixPattern union:
+          foreach (var member in union.Patterns) ValidatePattern(member, owner, new HashSet<string>(path)); break;
+        case TupleHixPattern tuple:
+          foreach (var field in tuple.Fields) ValidatePattern(field.Pattern, owner, new HashSet<string>(path)); break;
+        case TableHixPattern table:
+          foreach (var field in table.Fields) ValidatePattern(field.Pattern, owner, new HashSet<string>(path)); break;
+        case ManyHixPattern many: ValidatePattern(many.Element, owner, path); break;
+        case MapHixPattern map:
+          ValidatePattern(map.Key, owner, new HashSet<string>(path));
+          ValidatePattern(map.Value, owner, new HashSet<string>(path)); break;
+        case ConstantHixPattern constant: ValidatePattern(constant.Underlying, owner, path); break;
+        case ConstrainedHixPattern constrained: ValidatePattern(constrained.Underlying, owner, path); break;
+        case DelegateHixPattern callable:
+          foreach (var field in callable.Parameters) ValidatePattern(field.Pattern, owner, new HashSet<string>(path));
+          ValidatePattern(callable.Result, owner, path); break;
+      }
+    }
   }
 
   private static IEnumerable<HixAst> Descendants(HixAst node) {

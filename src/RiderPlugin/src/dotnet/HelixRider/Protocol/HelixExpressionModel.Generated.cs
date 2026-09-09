@@ -84,7 +84,7 @@ namespace HelixRider.Protocol
 
 
 
-    protected override long SerializationHash => 8049469423529832170L;
+    protected override long SerializationHash => -3499272926308586000L;
 
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -140,7 +140,7 @@ namespace HelixRider.Protocol
     [NotNull] public string Kind {get; private set;}
     [NotNull] public string Documentation {get; private set;}
     [NotNull] public string TargetFilePath {get; private set;}
-    [NotNull] public HixSourceRange TargetRange {get; private set;}
+    [NotNull] public MixinSourceRange TargetRange {get; private set;}
 
     //private fields
     //primary constructor
@@ -150,7 +150,7 @@ namespace HelixRider.Protocol
       [NotNull] string kind,
       [NotNull] string documentation,
       [NotNull] string targetFilePath,
-      [NotNull] HixSourceRange targetRange
+      [NotNull] MixinSourceRange targetRange
     )
     {
       if (name == null) throw new ArgumentNullException("name");
@@ -169,7 +169,7 @@ namespace HelixRider.Protocol
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string name, [NotNull] out string insertText, [NotNull] out string kind, [NotNull] out string documentation, [NotNull] out string targetFilePath, [NotNull] out HixSourceRange targetRange)
+    public void Deconstruct([NotNull] out string name, [NotNull] out string insertText, [NotNull] out string kind, [NotNull] out string documentation, [NotNull] out string targetFilePath, [NotNull] out MixinSourceRange targetRange)
     {
       name = Name;
       insertText = InsertText;
@@ -187,7 +187,7 @@ namespace HelixRider.Protocol
       var kind = reader.ReadString();
       var documentation = reader.ReadString();
       var targetFilePath = reader.ReadString();
-      var targetRange = HixSourceRange.Read(ctx, reader);
+      var targetRange = MixinSourceRange.Read(ctx, reader);
       var _result = new MixinCompletionItem(name, insertText, kind, documentation, targetFilePath, targetRange);
       return _result;
     };
@@ -199,7 +199,7 @@ namespace HelixRider.Protocol
       writer.Write(value.Kind);
       writer.Write(value.Documentation);
       writer.Write(value.TargetFilePath);
-      HixSourceRange.Write(ctx, writer, value.TargetRange);
+      MixinSourceRange.Write(ctx, writer, value.TargetRange);
     };
 
     //constants
@@ -266,8 +266,8 @@ namespace HelixRider.Protocol
     //fields
     //public fields
     [NotNull] public string Kind {get; private set;}
-    [NotNull] public HixSourceRange ActivationRange {get; private set;}
-    [NotNull] public HixSourceRange ReplacementRange {get; private set;}
+    [NotNull] public MixinSourceRange ActivationRange {get; private set;}
+    [NotNull] public MixinSourceRange ReplacementRange {get; private set;}
     [NotNull] public string ReceiverType {get; private set;}
     [NotNull] public MixinCompletionItem[] Items {get; private set;}
 
@@ -275,8 +275,8 @@ namespace HelixRider.Protocol
     //primary constructor
     public MixinCompletionSite(
       [NotNull] string kind,
-      [NotNull] HixSourceRange activationRange,
-      [NotNull] HixSourceRange replacementRange,
+      [NotNull] MixinSourceRange activationRange,
+      [NotNull] MixinSourceRange replacementRange,
       [NotNull] string receiverType,
       [NotNull] MixinCompletionItem[] items
     )
@@ -295,7 +295,7 @@ namespace HelixRider.Protocol
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string kind, [NotNull] out HixSourceRange activationRange, [NotNull] out HixSourceRange replacementRange, [NotNull] out string receiverType, [NotNull] out MixinCompletionItem[] items)
+    public void Deconstruct([NotNull] out string kind, [NotNull] out MixinSourceRange activationRange, [NotNull] out MixinSourceRange replacementRange, [NotNull] out string receiverType, [NotNull] out MixinCompletionItem[] items)
     {
       kind = Kind;
       activationRange = ActivationRange;
@@ -308,8 +308,8 @@ namespace HelixRider.Protocol
     public static CtxReadDelegate<MixinCompletionSite> Read = (ctx, reader) =>
     {
       var kind = reader.ReadString();
-      var activationRange = HixSourceRange.Read(ctx, reader);
-      var replacementRange = HixSourceRange.Read(ctx, reader);
+      var activationRange = MixinSourceRange.Read(ctx, reader);
+      var replacementRange = MixinSourceRange.Read(ctx, reader);
       var receiverType = reader.ReadString();
       var items = ReadMixinCompletionItemArray(ctx, reader);
       var _result = new MixinCompletionSite(kind, activationRange, replacementRange, receiverType, items);
@@ -320,8 +320,8 @@ namespace HelixRider.Protocol
     public static CtxWriteDelegate<MixinCompletionSite> Write = (ctx, writer, value) =>
     {
       writer.Write(value.Kind);
-      HixSourceRange.Write(ctx, writer, value.ActivationRange);
-      HixSourceRange.Write(ctx, writer, value.ReplacementRange);
+      MixinSourceRange.Write(ctx, writer, value.ActivationRange);
+      MixinSourceRange.Write(ctx, writer, value.ReplacementRange);
       writer.Write(value.ReceiverType);
       WriteMixinCompletionItemArray(ctx, writer, value.Items);
     };
@@ -390,16 +390,16 @@ namespace HelixRider.Protocol
     //public fields
     [NotNull] public string Name {get; private set;}
     [NotNull] public string Kind {get; private set;}
-    [NotNull] public HixSourceRange Range {get; private set;}
-    [NotNull] public HixSourceRange Scope {get; private set;}
+    [NotNull] public MixinSourceRange Range {get; private set;}
+    [NotNull] public MixinSourceRange Scope {get; private set;}
 
     //private fields
     //primary constructor
     public MixinDeclaration(
       [NotNull] string name,
       [NotNull] string kind,
-      [NotNull] HixSourceRange range,
-      [NotNull] HixSourceRange scope
+      [NotNull] MixinSourceRange range,
+      [NotNull] MixinSourceRange scope
     )
     {
       if (name == null) throw new ArgumentNullException("name");
@@ -414,7 +414,7 @@ namespace HelixRider.Protocol
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, [NotNull] out HixSourceRange range, [NotNull] out HixSourceRange scope)
+    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, [NotNull] out MixinSourceRange range, [NotNull] out MixinSourceRange scope)
     {
       name = Name;
       kind = Kind;
@@ -427,8 +427,8 @@ namespace HelixRider.Protocol
     {
       var name = reader.ReadString();
       var kind = reader.ReadString();
-      var range = HixSourceRange.Read(ctx, reader);
-      var scope = HixSourceRange.Read(ctx, reader);
+      var range = MixinSourceRange.Read(ctx, reader);
+      var scope = MixinSourceRange.Read(ctx, reader);
       var _result = new MixinDeclaration(name, kind, range, scope);
       return _result;
     };
@@ -437,8 +437,8 @@ namespace HelixRider.Protocol
     {
       writer.Write(value.Name);
       writer.Write(value.Kind);
-      HixSourceRange.Write(ctx, writer, value.Range);
-      HixSourceRange.Write(ctx, writer, value.Scope);
+      MixinSourceRange.Write(ctx, writer, value.Range);
+      MixinSourceRange.Write(ctx, writer, value.Scope);
     };
 
     //constants
@@ -502,14 +502,14 @@ namespace HelixRider.Protocol
     //public fields
     [NotNull] public string Message {get; private set;}
     [NotNull] public string Severity {get; private set;}
-    [NotNull] public HixSourceRange Range {get; private set;}
+    [NotNull] public MixinSourceRange Range {get; private set;}
 
     //private fields
     //primary constructor
     public MixinDiagnostic(
       [NotNull] string message,
       [NotNull] string severity,
-      [NotNull] HixSourceRange range
+      [NotNull] MixinSourceRange range
     )
     {
       if (message == null) throw new ArgumentNullException("message");
@@ -522,7 +522,7 @@ namespace HelixRider.Protocol
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string message, [NotNull] out string severity, [NotNull] out HixSourceRange range)
+    public void Deconstruct([NotNull] out string message, [NotNull] out string severity, [NotNull] out MixinSourceRange range)
     {
       message = Message;
       severity = Severity;
@@ -534,7 +534,7 @@ namespace HelixRider.Protocol
     {
       var message = reader.ReadString();
       var severity = reader.ReadString();
-      var range = HixSourceRange.Read(ctx, reader);
+      var range = MixinSourceRange.Read(ctx, reader);
       var _result = new MixinDiagnostic(message, severity, range);
       return _result;
     };
@@ -543,7 +543,7 @@ namespace HelixRider.Protocol
     {
       writer.Write(value.Message);
       writer.Write(value.Severity);
-      HixSourceRange.Write(ctx, writer, value.Range);
+      MixinSourceRange.Write(ctx, writer, value.Range);
     };
 
     //constants
@@ -699,7 +699,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:90</p>
+  /// <p>Generated from: HelixExpressionModel.kt:98</p>
   /// </summary>
   public sealed class MixinFileSnapshot : IPrintable, IEquatable<MixinFileSnapshot>
   {
@@ -709,11 +709,12 @@ namespace HelixRider.Protocol
     public long Revision {get; private set;}
     public long SourceHash {get; private set;}
     [NotNull] public MixinSyntaxNode[] SyntaxNodes {get; private set;}
-    [NotNull] public HixToken[] Tokens {get; private set;}
+    [NotNull] public MixinToken[] Tokens {get; private set;}
     [NotNull] public MixinDeclaration[] Declarations {get; private set;}
     [NotNull] public MixinReference[] References {get; private set;}
     [NotNull] public MixinDiagnostic[] Diagnostics {get; private set;}
     [NotNull] public MixinCompletionSite[] CompletionSites {get; private set;}
+    [NotNull] public MixinTypeFact[] TypeFacts {get; private set;}
 
     //private fields
     //primary constructor
@@ -722,11 +723,12 @@ namespace HelixRider.Protocol
       long revision,
       long sourceHash,
       [NotNull] MixinSyntaxNode[] syntaxNodes,
-      [NotNull] HixToken[] tokens,
+      [NotNull] MixinToken[] tokens,
       [NotNull] MixinDeclaration[] declarations,
       [NotNull] MixinReference[] references,
       [NotNull] MixinDiagnostic[] diagnostics,
-      [NotNull] MixinCompletionSite[] completionSites
+      [NotNull] MixinCompletionSite[] completionSites,
+      [NotNull] MixinTypeFact[] typeFacts
     )
     {
       if (filePath == null) throw new ArgumentNullException("filePath");
@@ -736,6 +738,7 @@ namespace HelixRider.Protocol
       if (references == null) throw new ArgumentNullException("references");
       if (diagnostics == null) throw new ArgumentNullException("diagnostics");
       if (completionSites == null) throw new ArgumentNullException("completionSites");
+      if (typeFacts == null) throw new ArgumentNullException("typeFacts");
 
       FilePath = filePath;
       Revision = revision;
@@ -746,10 +749,11 @@ namespace HelixRider.Protocol
       References = references;
       Diagnostics = diagnostics;
       CompletionSites = completionSites;
+      TypeFacts = typeFacts;
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string filePath, out long revision, out long sourceHash, [NotNull] out MixinSyntaxNode[] syntaxNodes, [NotNull] out HixToken[] tokens, [NotNull] out MixinDeclaration[] declarations, [NotNull] out MixinReference[] references, [NotNull] out MixinDiagnostic[] diagnostics, [NotNull] out MixinCompletionSite[] completionSites)
+    public void Deconstruct([NotNull] out string filePath, out long revision, out long sourceHash, [NotNull] out MixinSyntaxNode[] syntaxNodes, [NotNull] out MixinToken[] tokens, [NotNull] out MixinDeclaration[] declarations, [NotNull] out MixinReference[] references, [NotNull] out MixinDiagnostic[] diagnostics, [NotNull] out MixinCompletionSite[] completionSites, [NotNull] out MixinTypeFact[] typeFacts)
     {
       filePath = FilePath;
       revision = Revision;
@@ -760,6 +764,7 @@ namespace HelixRider.Protocol
       references = References;
       diagnostics = Diagnostics;
       completionSites = CompletionSites;
+      typeFacts = TypeFacts;
     }
     //statics
 
@@ -774,15 +779,17 @@ namespace HelixRider.Protocol
       var references = ReadMixinReferenceArray(ctx, reader);
       var diagnostics = ReadMixinDiagnosticArray(ctx, reader);
       var completionSites = ReadMixinCompletionSiteArray(ctx, reader);
-      var _result = new MixinFileSnapshot(filePath, revision, sourceHash, syntaxNodes, tokens, declarations, references, diagnostics, completionSites);
+      var typeFacts = ReadMixinTypeFactArray(ctx, reader);
+      var _result = new MixinFileSnapshot(filePath, revision, sourceHash, syntaxNodes, tokens, declarations, references, diagnostics, completionSites, typeFacts);
       return _result;
     };
     public static CtxReadDelegate<MixinSyntaxNode[]> ReadMixinSyntaxNodeArray = MixinSyntaxNode.Read.Array();
-    public static CtxReadDelegate<HixToken[]> ReadMixinTokenArray = HixToken.Read.Array();
+    public static CtxReadDelegate<MixinToken[]> ReadMixinTokenArray = MixinToken.Read.Array();
     public static CtxReadDelegate<MixinDeclaration[]> ReadMixinDeclarationArray = MixinDeclaration.Read.Array();
     public static CtxReadDelegate<MixinReference[]> ReadMixinReferenceArray = MixinReference.Read.Array();
     public static CtxReadDelegate<MixinDiagnostic[]> ReadMixinDiagnosticArray = MixinDiagnostic.Read.Array();
     public static CtxReadDelegate<MixinCompletionSite[]> ReadMixinCompletionSiteArray = MixinCompletionSite.Read.Array();
+    public static CtxReadDelegate<MixinTypeFact[]> ReadMixinTypeFactArray = MixinTypeFact.Read.Array();
 
     public static CtxWriteDelegate<MixinFileSnapshot> Write = (ctx, writer, value) =>
     {
@@ -795,13 +802,15 @@ namespace HelixRider.Protocol
       WriteMixinReferenceArray(ctx, writer, value.References);
       WriteMixinDiagnosticArray(ctx, writer, value.Diagnostics);
       WriteMixinCompletionSiteArray(ctx, writer, value.CompletionSites);
+      WriteMixinTypeFactArray(ctx, writer, value.TypeFacts);
     };
     public static  CtxWriteDelegate<MixinSyntaxNode[]> WriteMixinSyntaxNodeArray = MixinSyntaxNode.Write.Array();
-    public static  CtxWriteDelegate<HixToken[]> WriteMixinTokenArray = HixToken.Write.Array();
+    public static  CtxWriteDelegate<MixinToken[]> WriteMixinTokenArray = MixinToken.Write.Array();
     public static  CtxWriteDelegate<MixinDeclaration[]> WriteMixinDeclarationArray = MixinDeclaration.Write.Array();
     public static  CtxWriteDelegate<MixinReference[]> WriteMixinReferenceArray = MixinReference.Write.Array();
     public static  CtxWriteDelegate<MixinDiagnostic[]> WriteMixinDiagnosticArray = MixinDiagnostic.Write.Array();
     public static  CtxWriteDelegate<MixinCompletionSite[]> WriteMixinCompletionSiteArray = MixinCompletionSite.Write.Array();
+    public static  CtxWriteDelegate<MixinTypeFact[]> WriteMixinTypeFactArray = MixinTypeFact.Write.Array();
 
     //constants
 
@@ -819,7 +828,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return FilePath == other.FilePath && Revision == other.Revision && SourceHash == other.SourceHash && SyntaxNodes.SequenceEqual(other.SyntaxNodes) && Tokens.SequenceEqual(other.Tokens) && Declarations.SequenceEqual(other.Declarations) && References.SequenceEqual(other.References) && Diagnostics.SequenceEqual(other.Diagnostics) && CompletionSites.SequenceEqual(other.CompletionSites);
+      return FilePath == other.FilePath && Revision == other.Revision && SourceHash == other.SourceHash && SyntaxNodes.SequenceEqual(other.SyntaxNodes) && Tokens.SequenceEqual(other.Tokens) && Declarations.SequenceEqual(other.Declarations) && References.SequenceEqual(other.References) && Diagnostics.SequenceEqual(other.Diagnostics) && CompletionSites.SequenceEqual(other.CompletionSites) && TypeFacts.SequenceEqual(other.TypeFacts);
     }
     //hash code trait
     public override int GetHashCode()
@@ -835,6 +844,7 @@ namespace HelixRider.Protocol
         hash = hash * 31 + References.ContentHashCode();
         hash = hash * 31 + Diagnostics.ContentHashCode();
         hash = hash * 31 + CompletionSites.ContentHashCode();
+        hash = hash * 31 + TypeFacts.ContentHashCode();
         return hash;
       }
     }
@@ -852,6 +862,7 @@ namespace HelixRider.Protocol
         printer.Print("references = "); References.PrintEx(printer); printer.Println();
         printer.Print("diagnostics = "); Diagnostics.PrintEx(printer); printer.Println();
         printer.Print("completionSites = "); CompletionSites.PrintEx(printer); printer.Println();
+        printer.Print("typeFacts = "); TypeFacts.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }
@@ -866,7 +877,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:118</p>
+  /// <p>Generated from: HelixExpressionModel.kt:127</p>
   /// </summary>
   public sealed class MixinLanguageCatalog : IPrintable, IEquatable<MixinLanguageCatalog>
   {
@@ -953,7 +964,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:102</p>
+  /// <p>Generated from: HelixExpressionModel.kt:111</p>
   /// </summary>
   public sealed class MixinLanguageDefinition : IPrintable, IEquatable<MixinLanguageDefinition>
   {
@@ -1197,7 +1208,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:114</p>
+  /// <p>Generated from: HelixExpressionModel.kt:123</p>
   /// </summary>
   public sealed class MixinParseResponse : IPrintable, IEquatable<MixinParseResponse>
   {
@@ -1292,20 +1303,20 @@ namespace HelixRider.Protocol
     //public fields
     [NotNull] public string Name {get; private set;}
     [NotNull] public string Kind {get; private set;}
-    [NotNull] public HixSourceRange Range {get; private set;}
-    [NotNull] public HixSourceRange Scope {get; private set;}
+    [NotNull] public MixinSourceRange Range {get; private set;}
+    [NotNull] public MixinSourceRange Scope {get; private set;}
     [NotNull] public string TargetFilePath {get; private set;}
-    [NotNull] public HixSourceRange TargetRange {get; private set;}
+    [NotNull] public MixinSourceRange TargetRange {get; private set;}
 
     //private fields
     //primary constructor
     public MixinReference(
       [NotNull] string name,
       [NotNull] string kind,
-      [NotNull] HixSourceRange range,
-      [NotNull] HixSourceRange scope,
+      [NotNull] MixinSourceRange range,
+      [NotNull] MixinSourceRange scope,
       [NotNull] string targetFilePath,
-      [NotNull] HixSourceRange targetRange
+      [NotNull] MixinSourceRange targetRange
     )
     {
       if (name == null) throw new ArgumentNullException("name");
@@ -1324,7 +1335,7 @@ namespace HelixRider.Protocol
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, [NotNull] out HixSourceRange range, [NotNull] out HixSourceRange scope, [NotNull] out string targetFilePath, [NotNull] out HixSourceRange targetRange)
+    public void Deconstruct([NotNull] out string name, [NotNull] out string kind, [NotNull] out MixinSourceRange range, [NotNull] out MixinSourceRange scope, [NotNull] out string targetFilePath, [NotNull] out MixinSourceRange targetRange)
     {
       name = Name;
       kind = Kind;
@@ -1339,10 +1350,10 @@ namespace HelixRider.Protocol
     {
       var name = reader.ReadString();
       var kind = reader.ReadString();
-      var range = HixSourceRange.Read(ctx, reader);
-      var scope = HixSourceRange.Read(ctx, reader);
+      var range = MixinSourceRange.Read(ctx, reader);
+      var scope = MixinSourceRange.Read(ctx, reader);
       var targetFilePath = reader.ReadString();
-      var targetRange = HixSourceRange.Read(ctx, reader);
+      var targetRange = MixinSourceRange.Read(ctx, reader);
       var _result = new MixinReference(name, kind, range, scope, targetFilePath, targetRange);
       return _result;
     };
@@ -1351,10 +1362,10 @@ namespace HelixRider.Protocol
     {
       writer.Write(value.Name);
       writer.Write(value.Kind);
-      HixSourceRange.Write(ctx, writer, value.Range);
-      HixSourceRange.Write(ctx, writer, value.Scope);
+      MixinSourceRange.Write(ctx, writer, value.Range);
+      MixinSourceRange.Write(ctx, writer, value.Scope);
       writer.Write(value.TargetFilePath);
-      HixSourceRange.Write(ctx, writer, value.TargetRange);
+      MixinSourceRange.Write(ctx, writer, value.TargetRange);
     };
 
     //constants
@@ -1416,7 +1427,7 @@ namespace HelixRider.Protocol
   /// <summary>
   /// <p>Generated from: HelixExpressionModel.kt:22</p>
   /// </summary>
-  public sealed class HixSourceRange : IPrintable, IEquatable<HixSourceRange>
+  public sealed class MixinSourceRange : IPrintable, IEquatable<MixinSourceRange>
   {
     //fields
     //public fields
@@ -1425,7 +1436,7 @@ namespace HelixRider.Protocol
 
     //private fields
     //primary constructor
-    public HixSourceRange(
+    public MixinSourceRange(
       int startOffset,
       int endOffset
     )
@@ -1442,15 +1453,15 @@ namespace HelixRider.Protocol
     }
     //statics
 
-    public static CtxReadDelegate<HixSourceRange> Read = (ctx, reader) =>
+    public static CtxReadDelegate<MixinSourceRange> Read = (ctx, reader) =>
     {
       var startOffset = reader.ReadInt();
       var endOffset = reader.ReadInt();
-      var _result = new HixSourceRange(startOffset, endOffset);
+      var _result = new MixinSourceRange(startOffset, endOffset);
       return _result;
     };
 
-    public static CtxWriteDelegate<HixSourceRange> Write = (ctx, writer, value) =>
+    public static CtxWriteDelegate<MixinSourceRange> Write = (ctx, writer, value) =>
     {
       writer.Write(value.StartOffset);
       writer.Write(value.EndOffset);
@@ -1466,9 +1477,9 @@ namespace HelixRider.Protocol
       if (ReferenceEquals(null, obj)) return false;
       if (ReferenceEquals(this, obj)) return true;
       if (obj.GetType() != GetType()) return false;
-      return Equals((HixSourceRange) obj);
+      return Equals((MixinSourceRange) obj);
     }
-    public bool Equals(HixSourceRange other)
+    public bool Equals(MixinSourceRange other)
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
@@ -1487,7 +1498,7 @@ namespace HelixRider.Protocol
     //pretty print
     public void Print(PrettyPrinter printer)
     {
-      printer.Println("HixSourceRange (");
+      printer.Println("MixinSourceRange (");
       using (printer.IndentCookie()) {
         printer.Print("startOffset = "); StartOffset.PrintEx(printer); printer.Println();
         printer.Print("endOffset = "); EndOffset.PrintEx(printer); printer.Println();
@@ -1513,7 +1524,7 @@ namespace HelixRider.Protocol
     //public fields
     public int ParentIndex {get; private set;}
     [NotNull] public string Kind {get; private set;}
-    [NotNull] public HixSourceRange Range {get; private set;}
+    [NotNull] public MixinSourceRange Range {get; private set;}
     [NotNull] public string Name {get; private set;}
 
     //private fields
@@ -1521,7 +1532,7 @@ namespace HelixRider.Protocol
     public MixinSyntaxNode(
       int parentIndex,
       [NotNull] string kind,
-      [NotNull] HixSourceRange range,
+      [NotNull] MixinSourceRange range,
       [NotNull] string name
     )
     {
@@ -1536,7 +1547,7 @@ namespace HelixRider.Protocol
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct(out int parentIndex, [NotNull] out string kind, [NotNull] out HixSourceRange range, [NotNull] out string name)
+    public void Deconstruct(out int parentIndex, [NotNull] out string kind, [NotNull] out MixinSourceRange range, [NotNull] out string name)
     {
       parentIndex = ParentIndex;
       kind = Kind;
@@ -1549,7 +1560,7 @@ namespace HelixRider.Protocol
     {
       var parentIndex = reader.ReadInt();
       var kind = reader.ReadString();
-      var range = HixSourceRange.Read(ctx, reader);
+      var range = MixinSourceRange.Read(ctx, reader);
       var name = reader.ReadString();
       var _result = new MixinSyntaxNode(parentIndex, kind, range, name);
       return _result;
@@ -1559,7 +1570,7 @@ namespace HelixRider.Protocol
     {
       writer.Write(value.ParentIndex);
       writer.Write(value.Kind);
-      HixSourceRange.Write(ctx, writer, value.Range);
+      MixinSourceRange.Write(ctx, writer, value.Range);
       writer.Write(value.Name);
     };
 
@@ -1618,18 +1629,18 @@ namespace HelixRider.Protocol
   /// <summary>
   /// <p>Generated from: HelixExpressionModel.kt:46</p>
   /// </summary>
-  public sealed class HixToken : IPrintable, IEquatable<HixToken>
+  public sealed class MixinToken : IPrintable, IEquatable<MixinToken>
   {
     //fields
     //public fields
     [NotNull] public string Kind {get; private set;}
-    [NotNull] public HixSourceRange Range {get; private set;}
+    [NotNull] public MixinSourceRange Range {get; private set;}
 
     //private fields
     //primary constructor
-    public HixToken(
+    public MixinToken(
       [NotNull] string kind,
-      [NotNull] HixSourceRange range
+      [NotNull] MixinSourceRange range
     )
     {
       if (kind == null) throw new ArgumentNullException("kind");
@@ -1640,25 +1651,25 @@ namespace HelixRider.Protocol
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string kind, [NotNull] out HixSourceRange range)
+    public void Deconstruct([NotNull] out string kind, [NotNull] out MixinSourceRange range)
     {
       kind = Kind;
       range = Range;
     }
     //statics
 
-    public static CtxReadDelegate<HixToken> Read = (ctx, reader) =>
+    public static CtxReadDelegate<MixinToken> Read = (ctx, reader) =>
     {
       var kind = reader.ReadString();
-      var range = HixSourceRange.Read(ctx, reader);
-      var _result = new HixToken(kind, range);
+      var range = MixinSourceRange.Read(ctx, reader);
+      var _result = new MixinToken(kind, range);
       return _result;
     };
 
-    public static CtxWriteDelegate<HixToken> Write = (ctx, writer, value) =>
+    public static CtxWriteDelegate<MixinToken> Write = (ctx, writer, value) =>
     {
       writer.Write(value.Kind);
-      HixSourceRange.Write(ctx, writer, value.Range);
+      MixinSourceRange.Write(ctx, writer, value.Range);
     };
 
     //constants
@@ -1671,9 +1682,9 @@ namespace HelixRider.Protocol
       if (ReferenceEquals(null, obj)) return false;
       if (ReferenceEquals(this, obj)) return true;
       if (obj.GetType() != GetType()) return false;
-      return Equals((HixToken) obj);
+      return Equals((MixinToken) obj);
     }
-    public bool Equals(HixToken other)
+    public bool Equals(MixinToken other)
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
@@ -1692,10 +1703,130 @@ namespace HelixRider.Protocol
     //pretty print
     public void Print(PrettyPrinter printer)
     {
-      printer.Println("HixToken (");
+      printer.Println("MixinToken (");
       using (printer.IndentCookie()) {
         printer.Print("kind = "); Kind.PrintEx(printer); printer.Println();
         printer.Print("range = "); Range.PrintEx(printer); printer.Println();
+      }
+      printer.Print(")");
+    }
+    //toString
+    public override string ToString()
+    {
+      var printer = new SingleLinePrettyPrinter();
+      Print(printer);
+      return printer.ToString();
+    }
+  }
+
+
+  /// <summary>
+  /// <p>Generated from: HelixExpressionModel.kt:90</p>
+  /// </summary>
+  public sealed class MixinTypeFact : IPrintable, IEquatable<MixinTypeFact>
+  {
+    //fields
+    //public fields
+    [NotNull] public MixinSourceRange Range {get; private set;}
+    [NotNull] public string Type {get; private set;}
+    [NotNull] public string Documentation {get; private set;}
+    public bool Inlay {get; private set;}
+    [NotNull] public string Kind {get; private set;}
+
+    //private fields
+    //primary constructor
+    public MixinTypeFact(
+      [NotNull] MixinSourceRange range,
+      [NotNull] string type,
+      [NotNull] string documentation,
+      bool inlay,
+      [NotNull] string kind
+    )
+    {
+      if (range == null) throw new ArgumentNullException("range");
+      if (type == null) throw new ArgumentNullException("type");
+      if (documentation == null) throw new ArgumentNullException("documentation");
+      if (kind == null) throw new ArgumentNullException("kind");
+
+      Range = range;
+      Type = type;
+      Documentation = documentation;
+      Inlay = inlay;
+      Kind = kind;
+    }
+    //secondary constructor
+    //deconstruct trait
+    public void Deconstruct([NotNull] out MixinSourceRange range, [NotNull] out string type, [NotNull] out string documentation, out bool inlay, [NotNull] out string kind)
+    {
+      range = Range;
+      type = Type;
+      documentation = Documentation;
+      inlay = Inlay;
+      kind = Kind;
+    }
+    //statics
+
+    public static CtxReadDelegate<MixinTypeFact> Read = (ctx, reader) =>
+    {
+      var range = MixinSourceRange.Read(ctx, reader);
+      var type = reader.ReadString();
+      var documentation = reader.ReadString();
+      var inlay = reader.ReadBool();
+      var kind = reader.ReadString();
+      var _result = new MixinTypeFact(range, type, documentation, inlay, kind);
+      return _result;
+    };
+
+    public static CtxWriteDelegate<MixinTypeFact> Write = (ctx, writer, value) =>
+    {
+      MixinSourceRange.Write(ctx, writer, value.Range);
+      writer.Write(value.Type);
+      writer.Write(value.Documentation);
+      writer.Write(value.Inlay);
+      writer.Write(value.Kind);
+    };
+
+    //constants
+
+    //custom body
+    //methods
+    //equals trait
+    public override bool Equals(object obj)
+    {
+      if (ReferenceEquals(null, obj)) return false;
+      if (ReferenceEquals(this, obj)) return true;
+      if (obj.GetType() != GetType()) return false;
+      return Equals((MixinTypeFact) obj);
+    }
+    public bool Equals(MixinTypeFact other)
+    {
+      if (ReferenceEquals(null, other)) return false;
+      if (ReferenceEquals(this, other)) return true;
+      return Equals(Range, other.Range) && Type == other.Type && Documentation == other.Documentation && Inlay == other.Inlay && Kind == other.Kind;
+    }
+    //hash code trait
+    public override int GetHashCode()
+    {
+      unchecked {
+        var hash = 0;
+        hash = hash * 31 + Range.GetHashCode();
+        hash = hash * 31 + Type.GetHashCode();
+        hash = hash * 31 + Documentation.GetHashCode();
+        hash = hash * 31 + Inlay.GetHashCode();
+        hash = hash * 31 + Kind.GetHashCode();
+        return hash;
+      }
+    }
+    //pretty print
+    public void Print(PrettyPrinter printer)
+    {
+      printer.Println("MixinTypeFact (");
+      using (printer.IndentCookie()) {
+        printer.Print("range = "); Range.PrintEx(printer); printer.Println();
+        printer.Print("type = "); Type.PrintEx(printer); printer.Println();
+        printer.Print("documentation = "); Documentation.PrintEx(printer); printer.Println();
+        printer.Print("inlay = "); Inlay.PrintEx(printer); printer.Println();
+        printer.Print("kind = "); Kind.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }

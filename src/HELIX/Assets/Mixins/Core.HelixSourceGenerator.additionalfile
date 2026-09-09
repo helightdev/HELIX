@@ -1,4 +1,24 @@
-func KeepInstanceField {
+type DerivedProperty = @{
+  string name,
+  any type,
+  string modifier,
+  string parameter,
+  string argument,
+  string callArgument,
+  string assignment,
+  string datatype,
+  bool required,
+  any default,
+  string configuration,
+  bool equatable,
+  bool unsafe,
+  string equality,
+  string hash
+}
+type DerivedPropertyEntry = @{any symbol, DerivedProperty value}
+type DerivedProperties = %many<DerivedPropertyEntry>
+
+func KeepInstanceField sig any -> bool {
   local Item @= $0;
   when(![local#Item:field]) {
     return(false)
@@ -9,7 +29,7 @@ func KeepInstanceField {
   return(true)
 }
 
-func SeedProp {
+func SeedProp sig any -> table {
   local Item @= $0;
   local Name @= local#Item:name:identifier;
   local Type @= local#Item:type;
@@ -56,23 +76,23 @@ func SeedProp {
   return(@{symbol=local#Item, value=@{name=local#Name, type=local#Type, modifier=local#ModifierPrefix, parameter=<[local#ParameterModifierPrefix][local#Type] [local#Name]>, argument=<[local#ParameterModifierPrefix][local#Name]>, callArgument=<[local#ModifierPrefix][local#Name]>, assignment=<this.[local#Name] = [local#Name];>, datatype=local#Datatype, required=true, default=<null>, configuration=<>, equatable=true, unsafe=local#Type:containsPointer, equality=local#Equality, hash=local#Hash}})
 }
 
-func DeriveParameters {
+func DeriveParameters sig symbol -> DerivedProperties {
   assert(![param:genericMethod])
   target var PropOptional @= false;
   return(param:parameters:map(SeedProp):derive)
 }
 
-func DeriveFields  {
+func DeriveFields sig symbol -> DerivedProperties {
   target var PropOptional @= false;
   return(param:members:where(KeepInstanceField):map(SeedProp):derive)
 }
 
-func SelectDatatypeProperty {
+func SelectDatatypeProperty sig DerivedPropertyEntry -> string {
   local returnedText1 @> new global::HELIX.StructurePropertyDatatype<{{var#StructureType}}, {{$0#value#type}}>("{{$0#value#name}}", {{$0#value#datatype}}, (ref {{var#StructureType}} value) => value.{{$0#value#name}}, (ref {{var#StructureType}} value, {{$0#value#type}} propertyValue) => value.{{$0#value#name}} = propertyValue, required: {{$0#value#required}}, defaultValue: {{$0#value#default}})
   return(local#returnedText1)
 }
 
-func BuildDatatype {
+func BuildDatatype(string type, string name, DerivedProperties props) -> string {
   var StructureType @= param#type;
   local Empty = <>
   local PropertySeparator
@@ -95,13 +115,13 @@ func BuildDatatype {
   return(local#returnedText2)
 }
 
-func EmitGeneratedStructure {
+func EmitGeneratedStructure(string name, DerivedProperties props, bool datatype) -> DerivedProperties {
   local Fields @= param#props:map(func => <public [$0#value#type] [$0#value#name];>):join< >;
   local Parameters @= param#props:map(func => $0#value#parameter):join<, >;
   local Assignments @= param#props:map(func => $0#value#assignment):join< >;
   local Datatype = <>
   when(param#datatype:eq(true)) {
-    local Datatype @= BuildDatatype(@{type=param#name, name=param#name, props=param#props});
+    local Datatype @= BuildDatatype(param#name, param#name, param#props);
   }
   local Constructor = <>
   when(![param#props:length:eq(0)]) {
@@ -123,7 +143,7 @@ func EmitGeneratedStructure {
   return(param#props)
 }
 
-func RequireCompanion {
+func RequireCompanion() -> null {
   when(![var#CompanionName:exists]) {
     var CompanionName @> {{this:name}}_Companion
     var DeclareCompanion @> public static partial class {{var#CompanionName}}
@@ -131,7 +151,7 @@ func RequireCompanion {
   }
 }
 
-func DeclareCompanion {
+func DeclareCompanion sig string -> null {
   when(![var#CompanionName:exists]) {
     var CompanionName @> {{this:name}}_Companion
     var DeclareCompanion @> public static partial class {{var#CompanionName}}
@@ -269,7 +289,7 @@ mixin HELIX.StructureAttribute {
         @> }
     }
     when(attr#datatype:unwrap:eq(true)) {
-      local DatatypeCode @= BuildDatatype(@{type=this:type, name=this:name, props=local#PropsModel});
+      local DatatypeCode @= BuildDatatype(this:type, this:name, local#PropsModel);
       emit(<Class>, local#DatatypeCode)
     }
   }

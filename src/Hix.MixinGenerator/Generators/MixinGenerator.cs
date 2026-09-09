@@ -368,8 +368,8 @@ public sealed partial class MixinGenerator : IIncrementalGenerator {
       );
     }
     if (model.Render.Debug) {
-      source = BuildDebugTrace(model.Render) + source +
-        BuildFinalDebugState(finalDebugStates.Values, sharedVariables);
+      HixDebugReporter.Write(BuildDebugTrace(model.Render) +
+        BuildFinalDebugState(finalDebugStates.Values, sharedVariables));
     }
     var finalModel = new HixOutputModel(
       model.Render.Wrapper.HintName, source, null, ImmutableArray<LateExpressionWork>.Empty,

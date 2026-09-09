@@ -9,6 +9,25 @@ namespace HelixRider.Tests.MixinLanguage;
 public sealed class HelixMixinProtocolHostTests
 {
     [Test]
+    public void DirectoryPatternsProvideResolutionCompletionAndTypeDiagnostics()
+    {
+        var response = HelixMixinLanguageHost.Parse(new MixinParseRequest(new[]
+        {
+            new MixinFileInput("/project/Mixins/Patterns.hix", "type Person = @{string name}\n", 1),
+            new MixinFileInput("/project/Mixins/Use.hix",
+                "pure func name(Person value) -> string { return(param#value#name) }\n" +
+                "mixin Example { expression { emit(Person(@{name=<Ada>})) } }", 1)
+        }));
+
+        var use = response.Files.Single(file => file.FilePath.EndsWith("Use.hix"));
+        Assert.That(use.Diagnostics.Any(diagnostic => diagnostic.Message.Contains("unknown pattern")), Is.False);
+        Assert.That(use.References.Any(reference => reference.Name == "Person" &&
+            reference.TargetFilePath.EndsWith("Patterns.hix")), Is.True);
+        Assert.That(use.CompletionSites.SelectMany(site => site.Items).Any(item => item.Name == "Person"), Is.True);
+        Assert.That(use.TypeFacts.Any(fact => fact.Type == "Person" && fact.Documentation.Contains("Validate")), Is.True);
+    }
+
+    [Test]
     public void DirectoryFunctionResolutionRemovesSingleFileUnresolvedDiagnostic()
     {
         var response = HelixMixinLanguageHost.Parse(new MixinParseRequest(new[]

@@ -26,6 +26,9 @@ internal static class KindDefinitions {
   internal static IEnumerable<KindDefinition> Enumerate() => All;
   internal static KindDefinition Get(KindHixValue kind) => ByKind[kind.ValueKind];
   internal static KindDefinition Get(HixValueKind kind) => ByKind[kind];
+  internal static bool CanImplicitConvert(HixValueKind source, HixValueKind target) =>
+    target == HixValueKind.Any || source == target || ByKind.TryGetValue(target, out var definition) &&
+    definition.ImplicitSources.Contains(source);
   internal static bool TryImplicitConvert(LanguageExecution execution, IHixValue value,
     HixValueKind target, out IHixValue converted) {
     if (value.Kind == target || target == HixValueKind.Any) { converted = value; return true; }

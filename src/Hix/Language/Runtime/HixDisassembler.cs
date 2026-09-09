@@ -110,7 +110,10 @@ internal static class HixDisassembler {
       case HixOpcode.PackTable: return (Number(a), "push(table(pop_pairs(" + Number(a) + ")))");
       case HixOpcode.Pack: return (Number(a), a == 0 ? "push(null)" : a == 1 ? "keep top value" : "push(tuple(" + Args(a) + "))");
       case HixOpcode.Interpolate: return (Number(a), "push(concat(" + Args(a) + "))");
-      case HixOpcode.Call: return (StringId() + ", argc=" + Number(b), "push(" + Name() + "(" + Args(b) + "))");
+      case HixOpcode.Call:
+        var signature = ((PatternHixValue)constants[a]).Pattern.Display;
+        return ("c" + Number(a) + ", argc=" + Number(b), "push(static " + signature + "(" + Args(b) + "))");
+      case HixOpcode.CallDynamic: return (StringId() + ", argc=" + Number(b), "push(dynamic " + Name() + "(" + Args(b) + "))");
       case HixOpcode.CastBoolean: return ("", "push(bool_or_error(pop()))");
       case HixOpcode.Not: return ("", "push(!truthy(pop()))");
       case HixOpcode.CastString: return ("", "push(text(pop()))");
@@ -135,6 +138,7 @@ internal static class HixDisassembler {
     BooleanHixValue boolean => boolean.Value ? "true" : "false",
     NullHixValue => "null",
     KindHixValue kind => kind.Name,
+    PatternHixValue pattern => pattern.Pattern.Display,
     _ => value.ToString()
   };
   private static string Number(int number) => number.ToString(CultureInfo.InvariantCulture);

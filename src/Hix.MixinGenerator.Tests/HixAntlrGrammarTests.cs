@@ -9,6 +9,22 @@ using Parser = Hix.Compiler.Generated.HixParser;
 namespace HELIX.SourceGen.Tests;
 
 public sealed class HixAntlrGrammarTests {
+  [Fact]
+  public void RoslynCallsInsideGlobalFunctionsAndDerivationsArePreparedStatically() {
+    var unit = Hix.Compiler.AntlrSyntax.Parse("""
+      func inspect(symbol value) -> symbol { return(param#value:type) }
+      derivation mixin Base { expression { local inspected @= param:type; } }
+      mixin Example { expression { } }
+      """, Hix.HixMixinBackend.Instance);
+    Assert.Empty(unit.Diagnostics);
+
+    var program = Hix.Compiler.HixCompiler.Compile(unit, "Example", Hix.HixMixinBackend.Instance);
+    var dump = program.Disassemble();
+
+    Assert.Contains("static type(symbol 0) -> symbol", dump);
+    Assert.DoesNotContain("dynamic type(", dump);
+  }
+
   [Theory]
   [InlineData("Core")]
   [InlineData("Boot")]
@@ -66,6 +82,7 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("mixin Example { expression { local mapper = func { return(<[$0]>) } } }")]
   [InlineData("pure func trailing sig @{first=string, second=string,} -> string { return(join(<a>, <b>,)) }")]
   [InlineData("mixin Trailing { expression { local tuple = @[<a>, <b>,]; local table = @{first=<a>, second=<b>,}; emit(tuple) } }")]
+  [InlineData("type NullableString = %union<string><null>\ntype Pair = @[string left, number right]\ntype Handler = delegate(string value) -> null\npure func typed(string value) -> null { return(null) }")]
   public void ParsesLanguageFeatures(string source) {
     var errors = new Errors();
     var lexer = new Lexer(new AntlrInputStream(source));

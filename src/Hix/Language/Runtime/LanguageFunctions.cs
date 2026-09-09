@@ -6,13 +6,28 @@ using System.Text.RegularExpressions;
 namespace Hix.Runtime;
 
 internal sealed partial class LanguageExecution {
-  private IHixValue Call(string name, IHixValue[] arguments, int line, IReadOnlyList<FunctionDefinition> bound = null) {
+  private IHixValue Call(string name, IHixValue[] arguments, int line, IReadOnlyList<FunctionDefinition> bound = null,
+    FunctionSignature preparedSignature = null) {
+    if (program.Patterns.TryGetValue(name, out var pattern)) {
+      if (arguments.Length != 1) return context.Error("pattern '" + name + "' expects one value");
+      return HixPatternMatcher.Matches(pattern, arguments[0], context, program.Patterns, out var patternFailure)
+        ? arguments[0] : context.Error("value does not match pattern '" + name + "': " + patternFailure);
+    }
+
     if (scope.Contains(name)) return Invoke(name, arguments, line);
-    var definitions = bound ?? context.Backend.Functions.Resolve(name, arguments.Length);
+    IReadOnlyList<FunctionDefinition> definitions;
+    if (bound != null) definitions = bound;
+    else definitions = context.Backend.Functions.Resolve(name, arguments.Length);
     FunctionDefinition definition = null;
     IHixValue[] convertedArguments = null;
     var conversions = int.MaxValue;
     foreach (var candidate in definitions) {
+      if (preparedSignature != null) {
+        if (!FunctionDefinition.TryConvertValues(this, preparedSignature, arguments, out var preparedArguments)) break;
+        definition = candidate;
+        convertedArguments = preparedArguments;
+        break;
+      }
       if (!candidate.TryConvertValues(this, arguments, out var converted, out var count) || count >= conversions) continue;
       definition = candidate;
       convertedArguments = converted;
@@ -33,7 +48,7 @@ internal sealed partial class LanguageExecution {
 
   internal IHixValue Callback(IHixValue function, IHixValue[] arguments, int line) => function switch {
     NamedFunctionHixValue {Name: ""} => NullHixValue.Instance,
-    NamedFunctionHixValue named => Invoke(named.Name, arguments, line, named.Scope),
+    NamedFunctionHixValue named => Invoke(named.Name, arguments, line, binding: named.Scope),
     _ => context.Error("expected a function value")
   };
 

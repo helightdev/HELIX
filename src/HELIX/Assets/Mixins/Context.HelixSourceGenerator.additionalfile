@@ -1,4 +1,4 @@
-func RequireHandler do {
+func RequireHandler() -> null do {
   when(![var#IsEventHandler:eq(true)]) {
     using @> System;
     emit<Class>
@@ -42,7 +42,7 @@ mixin HELIX.Context.Tests.Fixtures.AlwaysEnabledAttribute {
 }
 
 mixin HELIX.Context.InjectAttribute {
-  func InjectList do {
+  func InjectList() -> null do {
     using @> System.Collections.Generic;
     assert(target:type#0:class)
     inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new TypeKey(typeof({{target:type#0}}), {{attr#qualifier:csharpLiteral}}), false, true));
@@ -87,7 +87,7 @@ mixin HELIX.Context.BindAttribute {
 }
 
 mixin HELIX.Context.ResourceAttribute {
-  func ResourceSingle
+  func ResourceSingle() -> null
   do {
     local WireKey @> {{string:new<@>}}"{{target:type:unwrap}}|{{attr#source}}|{{attr#qualifier:unwrap}}"
     assert(target:type:class)
@@ -109,7 +109,7 @@ mixin HELIX.Context.ResourceAttribute {
     fail @> No valid injection source found for the target type.
   }
 
-  func ResourceList
+  func ResourceList() -> null
   do {
     using @> System.Collections.Generic
     using @> System.Collections
@@ -242,12 +242,12 @@ func ModuleComponentRegistration sig symbol -> string {
   return(local#code)
 }
 
-pure func ModuleImportRegistration {
+pure func ModuleImportRegistration sig any -> string {
   local code @> global::{{param}}.Instance.Discover(registrations);
   return(local#code)
 }
 
-func ConfigureModule do {
+func ConfigureModule() -> null do {
   when(generic(this)) { return }
   var ModuleFilter = unwrap(attr#filter)
   local imports = unwrap(attr#import)

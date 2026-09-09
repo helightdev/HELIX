@@ -37,7 +37,10 @@ public static class AntlrSyntax {
     var metadata = diagnostics.Count == 0 && tree.fileMetadataSection() is { } section
       ? section.metadataList().metadata().Select(value => (MetadataAst)builder.Visit(value)).ToArray()
       : Array.Empty<MetadataAst>();
+    var patterns = declarations.OfType<TypeDeclarationAst>().GroupBy(type => type.Name, StringComparer.Ordinal)
+      .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
     LanguageValidation.Validate(declarations, diagnostics, backend);
+    if (diagnostics.Count == 0) PatternTypeAnalysis.Validate(declarations, patterns, diagnostics, backend);
     return new CompilationUnitAst(source, declarations, diagnostics, tokens, metadata);
   }
 
@@ -163,7 +166,8 @@ public static class AntlrSyntax {
       declarationMetadata = context.metadataList()?.metadata()
         .Select(metadata => (MetadataAst)Visit(metadata)).ToArray() ?? [];
       try {
-        return At(Visit(context.mixinDeclaration() ?? (ParserRuleContext)context.funcDeclaration()), context);
+        return At(Visit(context.mixinDeclaration() ?? (ParserRuleContext)context.funcDeclaration() ??
+          context.typeDeclaration()), context);
       } finally {
         declarationMetadata = previous;
       }
@@ -176,6 +180,61 @@ public static class AntlrSyntax {
 
     public override HixAst VisitMetadataValue(Parser.MetadataValueContext context) =>
       At(new MetadataAst(null, [Value(context.value())]), context);
+
+    private HixPattern Pattern(Parser.PatternExpressionContext context) {
+      var pattern = context.patternPrimary() == null ? HixPattern.Any : Pattern(context.patternPrimary());
+      if (context.metadataList() == null) return pattern;
+      return ApplyPatternMetadata(pattern, context.metadataList().metadata().Select(item => (MetadataAst)Visit(item)), out _);
+    }
+
+    private HixPattern Pattern(Parser.PatternPrimaryContext context) {
+      if (context.patternIdentifier() != null) return HixPatterns.Named(context.patternIdentifier().GetText());
+      if (context.tablePattern() != null)
+        return new TableHixPattern(context.tablePattern().patternField().Select(PatternField).ToArray());
+      if (context.tuplePattern() != null)
+        return new TupleHixPattern(context.tuplePattern().patternField().Select(PatternField).ToArray());
+      var delegatePattern = context.delegatePattern();
+      return new DelegateHixPattern(delegatePattern.patternParameterList().patternField().Select(PatternField).ToArray(),
+        Pattern(delegatePattern.patternExpression()));
+    }
+
+    private HixPatternField PatternField(Parser.PatternFieldContext context) {
+      var explicitName = context.ROOT_IDENTIFIER()?.GetText();
+      var pattern = explicitName == null ? HixPattern.Any : Pattern(context.patternPrimary());
+      var name = explicitName ?? context.patternPrimary().GetText();
+      var metadata = context.metadataList()?.metadata().Select(item => (MetadataAst)Visit(item)) ?? [];
+      pattern = ApplyPatternMetadata(pattern, metadata, out var optional);
+      return new HixPatternField(name, pattern, optional);
+    }
+
+    private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataAst> values, out bool optional) {
+      optional = false;
+      foreach (var metadata in values) {
+        object Argument(int index) => index >= metadata.Values.Count ? null : metadata.Values[index] switch {
+          StringExpressionAst text => text.Value, NumberExpressionAst number => number.Value,
+          BooleanExpressionAst boolean => boolean.Value, NullExpressionAst => null, _ => null
+        };
+        HixPattern PatternArgument(int index) => Argument(index) is string name ? HixPatterns.Named(name) : HixPattern.Any;
+        switch (metadata.Name) {
+          case "optional": optional = true; break;
+          case "many": pattern = new ManyHixPattern(metadata.Values.Count == 0 ? pattern : PatternArgument(0)); break;
+          case "map":
+            pattern = new MapHixPattern(PatternArgument(0), PatternArgument(1)); break;
+          case "union":
+            pattern = HixPatterns.Union(Enumerable.Range(0, metadata.Values.Count).Select(PatternArgument)); break;
+          case "const": pattern = new ConstantHixPattern(Argument(0), pattern); break;
+          case "min": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Minimum, Argument(0)); break;
+          case "max": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Maximum, Argument(0)); break;
+          case "length": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Length, Argument(0)); break;
+          case "matches": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Matches, Argument(0)); break;
+          default: diagnostics.Add(new HixParseDiagnostic(metadata.Line, "unknown pattern directive '%" + metadata.Name + "'")); break;
+        }
+      }
+      return pattern;
+    }
+
+    public override HixAst VisitTypeDeclaration(Parser.TypeDeclarationContext context) =>
+      At(new TypeDeclarationAst(context.IDENTIFIER().GetText(), Pattern(context.patternExpression()), declarationMetadata), context);
 
     public override HixAst VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
       Modifiers(context.mixinModifier());
@@ -200,12 +259,17 @@ public static class AntlrSyntax {
           field.VALUE_EXPAND() != null, field.metadata().Select(metadata => (MetadataAst)Visit(metadata)).ToArray())).ToArray();
       var signatures = context.functionMetadata().functionSignatureVariant().Select(signature =>
         new FunctionSignature(signature.signature(0).kindIdentifier()?.GetText(), Fields(signature.signature(0)),
-          signature.signature(1).kindIdentifier()?.GetText(), Fields(signature.signature(1)))).ToArray();
+          signature.signature(1).kindIdentifier()?.GetText(), Fields(signature.signature(1)))).ToList();
+      if (context.directFunctionSignature() is { } direct) {
+        var parameters = direct.patternParameterList().patternField().Select(PatternField)
+          .Select(field => new SignatureField(field.Name, field.Pattern, optional: field.Optional)).ToArray();
+        signatures.Insert(0, new FunctionSignature(null, parameters, Pattern(direct.patternExpression()), null));
+      }
       var identifier = context.functionDeclarationIdentifier();
       return At(new FunctionDeclarationAst(DeclarationName(identifier.IDENTIFIER(), identifier.argumentValue()),
         context.funcModifier().Any(modifier => modifier.KEYWORD_PURE() != null),
         context.funcModifier().Any(modifier => modifier.KEYWORD_INLINE() != null),
-        context.funcModifier().Any(modifier => modifier.KEYWORD_NOINLINE() != null), signatures,
+        context.funcModifier().Any(modifier => modifier.KEYWORD_NOINLINE() != null), signatures.ToArray(),
         FunctionBody(context.functionBody()), declarationMetadata), context);
     }
 

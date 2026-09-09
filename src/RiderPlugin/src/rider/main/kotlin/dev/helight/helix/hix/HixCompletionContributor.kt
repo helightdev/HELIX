@@ -8,6 +8,7 @@ import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
+import com.intellij.openapi.components.service
 import dev.helight.helix.hix.generated.HixLexer
 
 /** Syntax completion is local and uses the same generated token stream as PSI. */
@@ -31,8 +32,24 @@ class HixCompletionContributor : CompletionContributor() {
                     }
                     names += listOf("this", "target", "attr", "local", "var", "tar", "param",
                         "true", "false", "null", "table", "tuple", "string", "number", "bool", "error", "symbol",
-                        "kind", "function")
+                        "kind", "function", "pattern", "delegate")
                     HixAntlrSyntax.declarationNames(parsed.tree).forEach { names += it.text }
+                    val service = parameters.position.project.service<HixSnapshotService>()
+                    service.ensureLanguageCatalog()
+                    service.definitions.forEach { names += it.name }
+                    val path = parameters.originalFile.virtualFile?.path
+                    if (path != null) {
+                        service.snapshotsInDirectory(path).flatMap { it.declarations.asList() }
+                            .forEach { names += it.name }
+                        val snapshot = parameters.originalFile.getUserData(HixSnapshotService.SEMANTIC_SNAPSHOT)
+                            ?: service.snapshotForText(source, path)
+                        snapshot?.completionSites?.filter {
+                            offset in it.activationRange.startOffset..it.activationRange.endOffset
+                        }?.flatMap { it.items.asList() }?.forEach { item ->
+                            result.addElement(LookupElementBuilder.create(item.insertText)
+                                .withPresentableText(item.name).withTypeText(item.kind))
+                        }
+                    }
                     names.forEach { result.addElement(LookupElementBuilder.create(it)) }
                 }
             })

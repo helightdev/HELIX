@@ -37,14 +37,17 @@ public sealed record LiteralHixValue(HixString Value) : IHixValue {
 /// <summary>Compiler-only catalog. Runtime programs never retain these declarations.</summary>
 public sealed class HixExpressionPreparedState {
   internal HixExpressionPreparedState(HixStringPool strings,
-    IReadOnlyList<FunctionDeclarationAst> functions, IReadOnlyList<MixinDeclarationAst> derivations, HixBackend backend = null) {
+    IReadOnlyList<FunctionDeclarationAst> functions, IReadOnlyList<MixinDeclarationAst> derivations, HixBackend backend = null,
+    IReadOnlyDictionary<string, HixPattern> patterns = null) {
     Backend = backend ?? HixCoreBackend.Instance;
     StringPool = strings;
     Functions = functions;
     Derivations = derivations;
+    Patterns = patterns ?? new Dictionary<string, HixPattern>();
   }
   public HixBackend Backend { get; }
   public HixStringPool StringPool { get; }
   internal IReadOnlyList<FunctionDeclarationAst> Functions { get; }
   internal IReadOnlyList<MixinDeclarationAst> Derivations { get; }
+  public IReadOnlyDictionary<string, HixPattern> Patterns { get; }
 }

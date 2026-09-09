@@ -9,7 +9,7 @@ namespace Hix.Env;
 public static class HixProfiler {
   public static bool Enabled => false;
 
-  public static void Configure(bool enabled, string projectPath) { }
+  public static void Configure(bool enabled, string projectPath, string machineHash) { }
   public static void ScheduleFlush() { }
   public static void Flush() { }
 

@@ -321,7 +321,8 @@ class HixSnapshotService(private val project: Project) {
         left.sourceHash == right.sourceHash &&
             left.declarations.contentDeepEquals(right.declarations) &&
             left.references.contentDeepEquals(right.references) &&
-            left.diagnostics.contentDeepEquals(right.diagnostics)
+            left.diagnostics.contentDeepEquals(right.diagnostics) &&
+            left.typeFacts.contentDeepEquals(right.typeFacts)
 
     private data class OpenFile(val file: VirtualFile, val users: AtomicLong)
     private data class SemanticRetry(val requestHash: Long, val attempt: Int)

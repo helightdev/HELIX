@@ -8,6 +8,19 @@ import kotlin.test.assertTrue
 
 class HixLocalSyntaxTest {
     @Test
+    fun `patterns delegates and typed function parameters parse locally`() {
+        val source = "type Person = @{string name, %optional number age}\n" +
+            "type Handler = delegate(Person self, string value) -> null\n" +
+            "pure func describe(Person self, string value) -> string { return(param#value) }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
+        assertEquals(setOf("Person", "Handler", "describe"),
+            HixAntlrSyntax.declarationNames(parsed.tree).map { it.text }.toSet())
+        assertTrue(HixAntlrSyntax.rules(parsed.tree).any { it is HixParser.DelegatePatternContext })
+    }
+
+    @Test
     fun `generated parser accepts nested declarations and typed values`() {
         val source = "pure func describe sig @{name=string} -> string { return(<Hello [param#name]>) }\n" +
             "mixin Example { prelude expression { carry local name @= target:name; } expression { emit(describe(local#name)) } }" +

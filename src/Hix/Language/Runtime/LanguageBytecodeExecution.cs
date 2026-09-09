@@ -115,7 +115,13 @@ internal sealed partial class LanguageExecution {
             break;
           case HixOpcode.Interpolate: stack.Add(String(string.Concat(PopMany(a).Select(execution.Text)))); break;
           case HixOpcode.Call:
-            var called = execution.Call(Name(a), PopMany(b), line);
+            var prepared = execution.machine.PreparedCall(execution.program, instructionAddress);
+            var called = execution.InvokePrepared(prepared, PopMany(b), line);
+            completion = execution.pendingControl; execution.pendingControl = default;
+            if (completion.Kind == BytecodeFlow.Normal) completion = Push(called, line);
+            break;
+          case HixOpcode.CallDynamic:
+            called = execution.Call(Name(a), PopMany(b), line);
             completion = execution.pendingControl; execution.pendingControl = default;
             if (completion.Kind == BytecodeFlow.Normal) completion = Push(called, line);
             break;

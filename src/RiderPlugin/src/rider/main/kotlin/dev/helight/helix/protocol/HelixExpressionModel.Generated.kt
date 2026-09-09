@@ -29,16 +29,17 @@ class HelixExpressionModel private constructor(
 
         override fun registerSerializersCore(serializers: ISerializers)  {
             val classLoader = javaClass.classLoader
-            serializers.register(LazyCompanionMarshaller(RdId(5218098678922832084), classLoader, "dev.helight.helix.protocol.HixSourceRange"))
+            serializers.register(LazyCompanionMarshaller(RdId(5218098678922832084), classLoader, "dev.helight.helix.protocol.MixinSourceRange"))
             serializers.register(LazyCompanionMarshaller(RdId(4113226335682446112), classLoader, "dev.helight.helix.protocol.MixinFileInput"))
             serializers.register(LazyCompanionMarshaller(RdId(-4347416270738964566), classLoader, "dev.helight.helix.protocol.MixinParseRequest"))
             serializers.register(LazyCompanionMarshaller(RdId(-1616834679433244845), classLoader, "dev.helight.helix.protocol.MixinSyntaxNode"))
-            serializers.register(LazyCompanionMarshaller(RdId(17701739849713259), classLoader, "dev.helight.helix.protocol.HixToken"))
+            serializers.register(LazyCompanionMarshaller(RdId(17701739849713259), classLoader, "dev.helight.helix.protocol.MixinToken"))
             serializers.register(LazyCompanionMarshaller(RdId(5205524339893740652), classLoader, "dev.helight.helix.protocol.MixinDeclaration"))
             serializers.register(LazyCompanionMarshaller(RdId(4113236455037010621), classLoader, "dev.helight.helix.protocol.MixinReference"))
             serializers.register(LazyCompanionMarshaller(RdId(-1617245288858810763), classLoader, "dev.helight.helix.protocol.MixinDiagnostic"))
             serializers.register(LazyCompanionMarshaller(RdId(-1838348744103421731), classLoader, "dev.helight.helix.protocol.MixinCompletionItem"))
             serializers.register(LazyCompanionMarshaller(RdId(-1838348744103133935), classLoader, "dev.helight.helix.protocol.MixinCompletionSite"))
+            serializers.register(LazyCompanionMarshaller(RdId(-7603046265752210668), classLoader, "dev.helight.helix.protocol.MixinTypeFact"))
             serializers.register(LazyCompanionMarshaller(RdId(-4595115062107102546), classLoader, "dev.helight.helix.protocol.MixinFileSnapshot"))
             serializers.register(LazyCompanionMarshaller(RdId(-559598091605421159), classLoader, "dev.helight.helix.protocol.MixinLanguageDefinition"))
             serializers.register(LazyCompanionMarshaller(RdId(-5642695876888106362), classLoader, "dev.helight.helix.protocol.MixinParseResponse"))
@@ -49,7 +50,7 @@ class HelixExpressionModel private constructor(
 
 
 
-        const val serializationHash = 8049469423529832170L
+        const val serializationHash = -3499272926308586000L
 
     }
     override val serializersOwner: ISerializersOwner get() = HelixExpressionModel
@@ -121,7 +122,7 @@ data class MixinCompletionItem (
     val kind: String,
     val documentation: String,
     val targetFilePath: String,
-    val targetRange: HixSourceRange
+    val targetRange: MixinSourceRange
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
@@ -130,7 +131,7 @@ data class MixinCompletionItem (
         buffer.writeString(kind)
         buffer.writeString(documentation)
         buffer.writeString(targetFilePath)
-        HixSourceRange.write(ctx, buffer, targetRange)
+        MixinSourceRange.write(ctx, buffer, targetRange)
     }
     //companion
 
@@ -145,7 +146,7 @@ data class MixinCompletionItem (
             val kind = buffer.readString()
             val documentation = buffer.readString()
             val targetFilePath = buffer.readString()
-            val targetRange = HixSourceRange.read(ctx, buffer)
+            val targetRange = MixinSourceRange.read(ctx, buffer)
             return MixinCompletionItem(name, insertText, kind, documentation, targetFilePath, targetRange)
         }
 
@@ -210,16 +211,16 @@ data class MixinCompletionItem (
  */
 data class MixinCompletionSite (
     val kind: String,
-    val activationRange: HixSourceRange,
-    val replacementRange: HixSourceRange,
+    val activationRange: MixinSourceRange,
+    val replacementRange: MixinSourceRange,
     val receiverType: String,
     val items: Array<MixinCompletionItem>
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
         buffer.writeString(kind)
-        HixSourceRange.write(ctx, buffer, activationRange)
-        HixSourceRange.write(ctx, buffer, replacementRange)
+        MixinSourceRange.write(ctx, buffer, activationRange)
+        MixinSourceRange.write(ctx, buffer, replacementRange)
         buffer.writeString(receiverType)
         buffer.writeArray(items) { MixinCompletionItem.write(ctx, buffer, it) }
     }
@@ -232,8 +233,8 @@ data class MixinCompletionSite (
         @Suppress("UNCHECKED_CAST")
         override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinCompletionSite  {
             val kind = buffer.readString()
-            val activationRange = HixSourceRange.read(ctx, buffer)
-            val replacementRange = HixSourceRange.read(ctx, buffer)
+            val activationRange = MixinSourceRange.read(ctx, buffer)
+            val replacementRange = MixinSourceRange.read(ctx, buffer)
             val receiverType = buffer.readString()
             val items = buffer.readArray {MixinCompletionItem.read(ctx, buffer)}
             return MixinCompletionSite(kind, activationRange, replacementRange, receiverType, items)
@@ -298,15 +299,15 @@ data class MixinCompletionSite (
 data class MixinDeclaration (
     val name: String,
     val kind: String,
-    val range: HixSourceRange,
-    val scope: HixSourceRange
+    val range: MixinSourceRange,
+    val scope: MixinSourceRange
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
         buffer.writeString(name)
         buffer.writeString(kind)
-        HixSourceRange.write(ctx, buffer, range)
-        HixSourceRange.write(ctx, buffer, scope)
+        MixinSourceRange.write(ctx, buffer, range)
+        MixinSourceRange.write(ctx, buffer, scope)
     }
     //companion
 
@@ -318,8 +319,8 @@ data class MixinDeclaration (
         override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinDeclaration  {
             val name = buffer.readString()
             val kind = buffer.readString()
-            val range = HixSourceRange.read(ctx, buffer)
-            val scope = HixSourceRange.read(ctx, buffer)
+            val range = MixinSourceRange.read(ctx, buffer)
+            val scope = MixinSourceRange.read(ctx, buffer)
             return MixinDeclaration(name, kind, range, scope)
         }
 
@@ -379,13 +380,13 @@ data class MixinDeclaration (
 data class MixinDiagnostic (
     val message: String,
     val severity: String,
-    val range: HixSourceRange
+    val range: MixinSourceRange
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
         buffer.writeString(message)
         buffer.writeString(severity)
-        HixSourceRange.write(ctx, buffer, range)
+        MixinSourceRange.write(ctx, buffer, range)
     }
     //companion
 
@@ -397,7 +398,7 @@ data class MixinDiagnostic (
         override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinDiagnostic  {
             val message = buffer.readString()
             val severity = buffer.readString()
-            val range = HixSourceRange.read(ctx, buffer)
+            val range = MixinSourceRange.read(ctx, buffer)
             return MixinDiagnostic(message, severity, range)
         }
 
@@ -524,18 +525,19 @@ data class MixinFileInput (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:90]
+ * #### Generated from [HelixExpressionModel.kt:98]
  */
 data class MixinFileSnapshot (
     val filePath: String,
     val revision: Long,
     val sourceHash: Long,
     val syntaxNodes: Array<MixinSyntaxNode>,
-    val tokens: Array<HixToken>,
+    val tokens: Array<MixinToken>,
     val declarations: Array<MixinDeclaration>,
     val references: Array<MixinReference>,
     val diagnostics: Array<MixinDiagnostic>,
-    val completionSites: Array<MixinCompletionSite>
+    val completionSites: Array<MixinCompletionSite>,
+    val typeFacts: Array<MixinTypeFact>
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
@@ -543,11 +545,12 @@ data class MixinFileSnapshot (
         buffer.writeLong(revision)
         buffer.writeLong(sourceHash)
         buffer.writeArray(syntaxNodes) { MixinSyntaxNode.write(ctx, buffer, it) }
-        buffer.writeArray(tokens) { HixToken.write(ctx, buffer, it) }
+        buffer.writeArray(tokens) { MixinToken.write(ctx, buffer, it) }
         buffer.writeArray(declarations) { MixinDeclaration.write(ctx, buffer, it) }
         buffer.writeArray(references) { MixinReference.write(ctx, buffer, it) }
         buffer.writeArray(diagnostics) { MixinDiagnostic.write(ctx, buffer, it) }
         buffer.writeArray(completionSites) { MixinCompletionSite.write(ctx, buffer, it) }
+        buffer.writeArray(typeFacts) { MixinTypeFact.write(ctx, buffer, it) }
     }
     //companion
 
@@ -561,12 +564,13 @@ data class MixinFileSnapshot (
             val revision = buffer.readLong()
             val sourceHash = buffer.readLong()
             val syntaxNodes = buffer.readArray {MixinSyntaxNode.read(ctx, buffer)}
-            val tokens = buffer.readArray {HixToken.read(ctx, buffer)}
+            val tokens = buffer.readArray {MixinToken.read(ctx, buffer)}
             val declarations = buffer.readArray {MixinDeclaration.read(ctx, buffer)}
             val references = buffer.readArray {MixinReference.read(ctx, buffer)}
             val diagnostics = buffer.readArray {MixinDiagnostic.read(ctx, buffer)}
             val completionSites = buffer.readArray {MixinCompletionSite.read(ctx, buffer)}
-            return MixinFileSnapshot(filePath, revision, sourceHash, syntaxNodes, tokens, declarations, references, diagnostics, completionSites)
+            val typeFacts = buffer.readArray {MixinTypeFact.read(ctx, buffer)}
+            return MixinFileSnapshot(filePath, revision, sourceHash, syntaxNodes, tokens, declarations, references, diagnostics, completionSites, typeFacts)
         }
 
         override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinFileSnapshot)  {
@@ -595,6 +599,7 @@ data class MixinFileSnapshot (
         if (!(references contentDeepEquals other.references)) return false
         if (!(diagnostics contentDeepEquals other.diagnostics)) return false
         if (!(completionSites contentDeepEquals other.completionSites)) return false
+        if (!(typeFacts contentDeepEquals other.typeFacts)) return false
 
         return true
     }
@@ -610,6 +615,7 @@ data class MixinFileSnapshot (
         __r = __r*31 + references.contentDeepHashCode()
         __r = __r*31 + diagnostics.contentDeepHashCode()
         __r = __r*31 + completionSites.contentDeepHashCode()
+        __r = __r*31 + typeFacts.contentDeepHashCode()
         return __r
     }
     //pretty print
@@ -625,6 +631,7 @@ data class MixinFileSnapshot (
             print("references = "); references.print(printer); println()
             print("diagnostics = "); diagnostics.print(printer); println()
             print("completionSites = "); completionSites.print(printer); println()
+            print("typeFacts = "); typeFacts.print(printer); println()
         }
         printer.print(")")
     }
@@ -635,7 +642,7 @@ data class MixinFileSnapshot (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:118]
+ * #### Generated from [HelixExpressionModel.kt:127]
  */
 data class MixinLanguageCatalog (
     val definitions: Array<MixinLanguageDefinition>
@@ -698,7 +705,7 @@ data class MixinLanguageCatalog (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:102]
+ * #### Generated from [HelixExpressionModel.kt:111]
  */
 data class MixinLanguageDefinition (
     val name: String,
@@ -872,7 +879,7 @@ data class MixinParseRequest (
 
 
 /**
- * #### Generated from [HelixExpressionModel.kt:114]
+ * #### Generated from [HelixExpressionModel.kt:123]
  */
 data class MixinParseResponse (
     val files: Array<MixinFileSnapshot>
@@ -940,19 +947,19 @@ data class MixinParseResponse (
 data class MixinReference (
     val name: String,
     val kind: String,
-    val range: HixSourceRange,
-    val scope: HixSourceRange,
+    val range: MixinSourceRange,
+    val scope: MixinSourceRange,
     val targetFilePath: String,
-    val targetRange: HixSourceRange
+    val targetRange: MixinSourceRange
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
         buffer.writeString(name)
         buffer.writeString(kind)
-        HixSourceRange.write(ctx, buffer, range)
-        HixSourceRange.write(ctx, buffer, scope)
+        MixinSourceRange.write(ctx, buffer, range)
+        MixinSourceRange.write(ctx, buffer, scope)
         buffer.writeString(targetFilePath)
-        HixSourceRange.write(ctx, buffer, targetRange)
+        MixinSourceRange.write(ctx, buffer, targetRange)
     }
     //companion
 
@@ -964,10 +971,10 @@ data class MixinReference (
         override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinReference  {
             val name = buffer.readString()
             val kind = buffer.readString()
-            val range = HixSourceRange.read(ctx, buffer)
-            val scope = HixSourceRange.read(ctx, buffer)
+            val range = MixinSourceRange.read(ctx, buffer)
+            val scope = MixinSourceRange.read(ctx, buffer)
             val targetFilePath = buffer.readString()
-            val targetRange = HixSourceRange.read(ctx, buffer)
+            val targetRange = MixinSourceRange.read(ctx, buffer)
             return MixinReference(name, kind, range, scope, targetFilePath, targetRange)
         }
 
@@ -1030,7 +1037,7 @@ data class MixinReference (
 /**
  * #### Generated from [HelixExpressionModel.kt:22]
  */
-data class HixSourceRange (
+data class MixinSourceRange (
     val startOffset: Int,
     val endOffset: Int
 ) : IPrintable {
@@ -1041,18 +1048,18 @@ data class HixSourceRange (
     }
     //companion
 
-    companion object : IMarshaller<HixSourceRange> {
-        override val _type: KClass<HixSourceRange> = HixSourceRange::class
+    companion object : IMarshaller<MixinSourceRange> {
+        override val _type: KClass<MixinSourceRange> = MixinSourceRange::class
         override val id: RdId get() = RdId(5218098678922832084)
 
         @Suppress("UNCHECKED_CAST")
-        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): HixSourceRange  {
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinSourceRange  {
             val startOffset = buffer.readInt()
             val endOffset = buffer.readInt()
-            return HixSourceRange(startOffset, endOffset)
+            return MixinSourceRange(startOffset, endOffset)
         }
 
-        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: HixSourceRange)  {
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinSourceRange)  {
             value.write(ctx, buffer)
         }
 
@@ -1067,7 +1074,7 @@ data class HixSourceRange (
         if (this === other) return true
         if (other == null || other::class != this::class) return false
 
-        other as HixSourceRange
+        other as MixinSourceRange
 
         if (startOffset != other.startOffset) return false
         if (endOffset != other.endOffset) return false
@@ -1083,7 +1090,7 @@ data class HixSourceRange (
     }
     //pretty print
     override fun print(printer: PrettyPrinter)  {
-        printer.println("HixSourceRange (")
+        printer.println("MixinSourceRange (")
         printer.indent {
             print("startOffset = "); startOffset.print(printer); println()
             print("endOffset = "); endOffset.print(printer); println()
@@ -1102,14 +1109,14 @@ data class HixSourceRange (
 data class MixinSyntaxNode (
     val parentIndex: Int,
     val kind: String,
-    val range: HixSourceRange,
+    val range: MixinSourceRange,
     val name: String
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
         buffer.writeInt(parentIndex)
         buffer.writeString(kind)
-        HixSourceRange.write(ctx, buffer, range)
+        MixinSourceRange.write(ctx, buffer, range)
         buffer.writeString(name)
     }
     //companion
@@ -1122,7 +1129,7 @@ data class MixinSyntaxNode (
         override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinSyntaxNode  {
             val parentIndex = buffer.readInt()
             val kind = buffer.readString()
-            val range = HixSourceRange.read(ctx, buffer)
+            val range = MixinSourceRange.read(ctx, buffer)
             val name = buffer.readString()
             return MixinSyntaxNode(parentIndex, kind, range, name)
         }
@@ -1180,29 +1187,29 @@ data class MixinSyntaxNode (
 /**
  * #### Generated from [HelixExpressionModel.kt:46]
  */
-data class HixToken (
+data class MixinToken (
     val kind: String,
-    val range: HixSourceRange
+    val range: MixinSourceRange
 ) : IPrintable {
     //write-marshaller
     private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
         buffer.writeString(kind)
-        HixSourceRange.write(ctx, buffer, range)
+        MixinSourceRange.write(ctx, buffer, range)
     }
     //companion
 
-    companion object : IMarshaller<HixToken> {
-        override val _type: KClass<HixToken> = HixToken::class
+    companion object : IMarshaller<MixinToken> {
+        override val _type: KClass<MixinToken> = MixinToken::class
         override val id: RdId get() = RdId(17701739849713259)
 
         @Suppress("UNCHECKED_CAST")
-        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): HixToken  {
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinToken  {
             val kind = buffer.readString()
-            val range = HixSourceRange.read(ctx, buffer)
-            return HixToken(kind, range)
+            val range = MixinSourceRange.read(ctx, buffer)
+            return MixinToken(kind, range)
         }
 
-        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: HixToken)  {
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinToken)  {
             value.write(ctx, buffer)
         }
 
@@ -1217,7 +1224,7 @@ data class HixToken (
         if (this === other) return true
         if (other == null || other::class != this::class) return false
 
-        other as HixToken
+        other as MixinToken
 
         if (kind != other.kind) return false
         if (range != other.range) return false
@@ -1233,10 +1240,97 @@ data class HixToken (
     }
     //pretty print
     override fun print(printer: PrettyPrinter)  {
-        printer.println("HixToken (")
+        printer.println("MixinToken (")
         printer.indent {
             print("kind = "); kind.print(printer); println()
             print("range = "); range.print(printer); println()
+        }
+        printer.print(")")
+    }
+    //deepClone
+    //contexts
+    //threading
+}
+
+
+/**
+ * #### Generated from [HelixExpressionModel.kt:90]
+ */
+data class MixinTypeFact (
+    val range: MixinSourceRange,
+    val type: String,
+    val documentation: String,
+    val inlay: Boolean,
+    val kind: String
+) : IPrintable {
+    //write-marshaller
+    private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
+        MixinSourceRange.write(ctx, buffer, range)
+        buffer.writeString(type)
+        buffer.writeString(documentation)
+        buffer.writeBool(inlay)
+        buffer.writeString(kind)
+    }
+    //companion
+
+    companion object : IMarshaller<MixinTypeFact> {
+        override val _type: KClass<MixinTypeFact> = MixinTypeFact::class
+        override val id: RdId get() = RdId(-7603046265752210668)
+
+        @Suppress("UNCHECKED_CAST")
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): MixinTypeFact  {
+            val range = MixinSourceRange.read(ctx, buffer)
+            val type = buffer.readString()
+            val documentation = buffer.readString()
+            val inlay = buffer.readBool()
+            val kind = buffer.readString()
+            return MixinTypeFact(range, type, documentation, inlay, kind)
+        }
+
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: MixinTypeFact)  {
+            value.write(ctx, buffer)
+        }
+
+
+    }
+    //fields
+    //methods
+    //initializer
+    //secondary constructor
+    //equals trait
+    override fun equals(other: Any?): Boolean  {
+        if (this === other) return true
+        if (other == null || other::class != this::class) return false
+
+        other as MixinTypeFact
+
+        if (range != other.range) return false
+        if (type != other.type) return false
+        if (documentation != other.documentation) return false
+        if (inlay != other.inlay) return false
+        if (kind != other.kind) return false
+
+        return true
+    }
+    //hash code trait
+    override fun hashCode(): Int  {
+        var __r = 0
+        __r = __r*31 + range.hashCode()
+        __r = __r*31 + type.hashCode()
+        __r = __r*31 + documentation.hashCode()
+        __r = __r*31 + inlay.hashCode()
+        __r = __r*31 + kind.hashCode()
+        return __r
+    }
+    //pretty print
+    override fun print(printer: PrettyPrinter)  {
+        printer.println("MixinTypeFact (")
+        printer.indent {
+            print("range = "); range.print(printer); println()
+            print("type = "); type.print(printer); println()
+            print("documentation = "); documentation.print(printer); println()
+            print("inlay = "); inlay.print(printer); println()
+            print("kind = "); kind.print(printer); println()
         }
         printer.print(")")
     }

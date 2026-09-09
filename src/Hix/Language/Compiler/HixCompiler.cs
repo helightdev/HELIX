@@ -9,7 +9,7 @@ namespace Hix.Compiler;
 /// <summary>Catalog binding and preparation for the generated-ANTLR semantic model.</summary>
 public static class HixCompiler {
   private static readonly IReadOnlyList<HixCompilerStep> Steps = [
-    new LambdaLiftingStep(), new SignatureParameterBindingStep(), new InlineExpansionStep(),
+    new LambdaLiftingStep(), new SignatureParameterBindingStep(), new PatternBindingStep(), new InlineExpansionStep(),
     new PreludeHoistingStep(), new FunctionBindingStep()
   ];
   public static HixExpressionPreparedState PrepareGlobals(IEnumerable<string> sources, HixBackend backend = null) =>
@@ -18,7 +18,10 @@ public static class HixCompiler {
   public static HixExpressionPreparedState PrepareGlobals(IEnumerable<CompilationUnitAst> units, HixBackend backend = null) {
     backend ??= HixCoreBackend.Instance;
     var syntax = units.ToArray();
-    var errors = syntax.SelectMany(unit => unit.Diagnostics).ToArray();
+    var declaredPatterns = new HashSet<string>(syntax.SelectMany(unit => unit.Declarations).OfType<TypeDeclarationAst>()
+      .Select(type => type.Name), StringComparer.Ordinal);
+    var errors = syntax.SelectMany(unit => unit.Diagnostics)
+      .Where(diagnostic => !ResolvedPatternDiagnostic(diagnostic.Message, declaredPatterns)).ToArray();
     if (errors.Length != 0) throw new ArgumentException(errors[0].Message);
     var declarations = syntax.SelectMany(unit => unit.Declarations).Select(declaration =>
       declaration is FunctionDeclarationAst function ? SignatureParameterBindingStep.Rewrite(function) : declaration).ToArray();
@@ -31,16 +34,34 @@ public static class HixCompiler {
     var functions = LambdaLiftingStep.RewriteFunctions(declarations.OfType<FunctionDeclarationAst>().ToArray())
       .Select(SignatureParameterBindingStep.Rewrite).ToArray();
     var derivations = declarations.OfType<MixinDeclarationAst>().Where(mixin => mixin.IsDerivation).ToArray();
-    return new HixExpressionPreparedState(strings.Freeze(), functions, derivations, backend);
+    var patterns = declarations.OfType<TypeDeclarationAst>().GroupBy(type => type.Name, StringComparer.Ordinal)
+      .ToDictionary(group => group.Key, group => group.First().Pattern, StringComparer.Ordinal);
+    var prepared = new HixExpressionPreparedState(strings.Freeze(), functions, derivations, backend, patterns);
+    var compiled = new HixCompilerSyntax([], [], functions);
+    foreach (var step in Steps) compiled = step.Transform(compiled, prepared);
+    prepared = new HixExpressionPreparedState(prepared.StringPool, compiled.Functions, derivations, backend, patterns);
+    var compiledDerivations = derivations.Select(derivation => {
+      var body = Compile(derivation, prepared);
+      var declarations = body.Prelude.Cast<HixAst>().Concat(body.Late).Concat(body.Functions).ToArray();
+      return new MixinDeclarationAst(derivation.Name, true, declarations, derivation.Metadata) {
+        SourceRange = derivation.SourceRange,
+        Tokens = derivation.Tokens
+      };
+    }).ToArray();
+    return new HixExpressionPreparedState(prepared.StringPool, compiled.Functions, compiledDerivations, backend, patterns);
+  }
+
+  private static bool ResolvedPatternDiagnostic(string message, ISet<string> patterns) {
+    const string prefix = "unknown pattern '";
+    if (message == null || !message.StartsWith(prefix, StringComparison.Ordinal) || !message.EndsWith("'", StringComparison.Ordinal))
+      return false;
+    return patterns.Contains(message.Substring(prefix.Length, message.Length - prefix.Length - 1));
   }
 
   /// <summary>Compile global functions directly to an executable bytecode image.</summary>
   public static HixExpressionExecutionProgram CompileFunctions(IEnumerable<string> sources, HixBackend backend = null) {
     var globals = PrepareGlobals(sources, backend);
-    var syntax = new HixCompilerSyntax([], [], globals.Functions);
-    foreach (var step in Steps) syntax = step.Transform(syntax, globals);
-    var rewritten = new HixExpressionPreparedState(globals.StringPool, syntax.Functions, globals.Derivations, globals.Backend);
-    return CreateProgram([], [], rewritten);
+    return CreateProgram([], [], globals);
   }
 
   internal static HixExpressionExecutionProgram Prepare(MixinDeclarationAst declaration,

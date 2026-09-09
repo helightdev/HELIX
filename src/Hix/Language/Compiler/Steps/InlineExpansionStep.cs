@@ -27,11 +27,11 @@ internal sealed class InlineExpansionStep : HixCompilerStep {
       var name = explicitInline ? target.Name : call.Name;
       var supplied = explicitInline ? arguments.Skip(1).ToArray() : arguments;
       if (!functions.TryGetValue(name, out var candidates))
-        return CopyLocation(call, new CallExpressionAst(call.Name, arguments, call.CoerceBoolean));
+        return CopyLocation(call, new CallExpressionAst(call.Name, arguments, call.CoerceBoolean, call.Signature));
       var function = candidates.FirstOrDefault(candidate => Accepts(candidate, supplied.Length) &&
         (explicitInline || candidate.IsInline));
       if (function is null)
-        return CopyLocation(call, new CallExpressionAst(call.Name, arguments, call.CoerceBoolean));
+        return CopyLocation(call, new CallExpressionAst(call.Name, arguments, call.CoerceBoolean, call.Signature));
       if (!active.Add(function.Name)) throw new ArgumentException("recursive inline function '" + function.Name + "'");
       try { return Expand(call, function, supplied); }
       finally { active.Remove(function.Name); }

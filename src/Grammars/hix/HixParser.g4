@@ -7,9 +7,10 @@ compilationUnit: trivia* fileMetadataSection? (topLevelDeclaration trivia*)* EOF
 fileMetadataSection: metadataList trivia* SECTION_DELIMITER trivia*;
 
 topLevelDeclaration
-    : metadataList trivia* (mixinDeclaration | funcDeclaration)
+    : metadataList trivia* (mixinDeclaration | funcDeclaration | typeDeclaration)
     | mixinDeclaration
     | funcDeclaration
+    | typeDeclaration
     ;
 
 metadataList: metadata (trivia* metadata)*;
@@ -24,17 +25,57 @@ metadataValue: BEGIN_METADATA_VALUE value VALUE_END_INLINE;
 // Declarations
 mixinDeclaration: mixinModifier* KEYWORD_MIXIN mixinIdentifier mixinBody;
 
+typeDeclaration: KEYWORD_TYPE IDENTIFIER ASSIGN patternExpression;
+
 mixinBody: LC (expressionDeclaration | funcDeclaration | trivia)* RC;
 
 expressionDeclaration: expressionModifier* KEYWORD_EXPRESSION statementBlock;
 
-funcDeclaration: funcModifier* KEYWORD_FUNC functionDeclarationIdentifier functionMetadata functionBody;
+funcDeclaration
+    : funcModifier* KEYWORD_FUNC functionDeclarationIdentifier directFunctionSignature? functionMetadata functionBody
+    ;
+
+directFunctionSignature: patternParameterList ARROW patternExpression;
 
 functionBody: KEYWORD_DO? statementBlock | FAT_ARROW value VALUE_END?;
 
 functionMetadata: (functionSignatureVariant | NEWLINE)*;
 
 functionSignatureVariant: KEYWORD_SIG signature ARROW signature;
+
+// Patterns
+patternExpression
+    : metadataList patternPrimary?
+    | patternPrimary
+    ;
+
+patternPrimary
+    : patternIdentifier
+    | tablePattern
+    | tuplePattern
+    | delegatePattern
+    ;
+
+tablePattern
+    : BEGIN_TABLE RC
+    | BEGIN_TABLE patternField (VALUE_DELIMITER patternField)* VALUE_DELIMITER? RC
+    ;
+
+tuplePattern
+    : BEGIN_TUPLE VALUE_END_INLINE
+    | BEGIN_TUPLE patternField (VALUE_DELIMITER patternField)* VALUE_DELIMITER? VALUE_END_INLINE
+    ;
+
+delegatePattern: KEYWORD_DELEGATE patternParameterList ARROW patternExpression;
+
+patternParameterList
+    : BEGIN_PARAMETERS patternField (VALUE_DELIMITER patternField)* VALUE_DELIMITER? END_PARAMETERS
+    | BEGIN_PARAMETERS END_PARAMETERS
+    | EMPTY_PARAMETERS
+    ;
+
+patternField: metadataList? patternPrimary ROOT_IDENTIFIER?;
+patternIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL;
 
 // Signatures
 signature: tableSignature | kindIdentifier;

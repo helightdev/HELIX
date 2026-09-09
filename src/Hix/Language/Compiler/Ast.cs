@@ -104,6 +104,13 @@ public sealed class MixinDeclarationAst(string name, bool derivation, IReadOnlyL
   public IReadOnlyList<MetadataAst> Metadata { get; } = metadata ?? [];
 }
 
+public sealed class TypeDeclarationAst(string name, HixPattern pattern,
+  IReadOnlyList<MetadataAst> metadata = null) : HixAst(children: metadata?.Cast<HixAst>().ToArray()) {
+  public string Name { get; } = name;
+  public HixPattern Pattern { get; } = pattern ?? HixPattern.Any;
+  public IReadOnlyList<MetadataAst> Metadata { get; } = metadata ?? [];
+}
+
 public sealed class ExpressionDeclarationAst(bool prelude, bool strict, BlockStatementAst body)
   : HixAst(children: [body]) {
   public bool IsPrelude { get; } = prelude;
@@ -111,12 +118,44 @@ public sealed class ExpressionDeclarationAst(bool prelude, bool strict, BlockSta
   public BlockStatementAst Body { get; } = body;
 }
 
-public sealed record SignatureField(string Name, string Kind, bool Variadic,
-  IReadOnlyList<MetadataAst> Metadata = null);
+public sealed record SignatureField {
+  public SignatureField(string name, HixPattern pattern, bool variadic = false,
+    IReadOnlyList<MetadataAst> metadata = null, bool optional = false) {
+    Name = name; Pattern = pattern ?? HixPattern.Any; Variadic = variadic; Metadata = metadata ?? []; Optional = optional;
+  }
+  public SignatureField(string name, string kind, bool variadic,
+    IReadOnlyList<MetadataAst> metadata = null) : this(name, HixPatterns.Named(kind), variadic, metadata) { }
+  public string Name { get; }
+  public HixPattern Pattern { get; }
+  public string Kind => Pattern.Display;
+  public bool Variadic { get; }
+  public bool Optional { get; }
+  public IReadOnlyList<MetadataAst> Metadata { get; }
+  public HixPatternField AsPatternField() => new(Name, Pattern, Optional);
+}
 
-public sealed record FunctionSignature(string InputKind, IReadOnlyList<SignatureField> Inputs,
-  string OutputKind, IReadOnlyList<SignatureField> Outputs
-);
+public sealed record FunctionSignature {
+  public FunctionSignature(HixPattern inputPattern, IReadOnlyList<SignatureField> inputs,
+    HixPattern outputPattern, IReadOnlyList<SignatureField> outputs, bool patternSyntax = true) {
+    InputPattern = inputPattern; Inputs = inputs; OutputPattern = outputPattern; Outputs = outputs;
+    IsPatternSyntax = patternSyntax;
+  }
+  public FunctionSignature(string inputKind, IReadOnlyList<SignatureField> inputs,
+    string outputKind, IReadOnlyList<SignatureField> outputs) : this(
+      inputs == null ? HixPatterns.Named(inputKind) : null, inputs,
+      outputs == null ? HixPatterns.Named(outputKind) : null, outputs, false) { }
+  public HixPattern InputPattern { get; }
+  public IReadOnlyList<SignatureField> Inputs { get; }
+  public HixPattern OutputPattern { get; }
+  public IReadOnlyList<SignatureField> Outputs { get; }
+  public bool IsPatternSyntax { get; }
+  public string InputKind => InputPattern?.Display;
+  public string OutputKind => OutputPattern?.Display;
+  public SignatureHixPattern Constant(string name) => new(name,
+    Inputs == null ? [new HixPatternField(null, InputPattern ?? HixPattern.Any)] :
+      Inputs.Select(field => field.AsPatternField()).ToArray(),
+    Outputs == null ? OutputPattern ?? HixPattern.Any : new TableHixPattern(Outputs.Select(field => field.AsPatternField()).ToArray()));
+}
 
 public sealed class FunctionDeclarationAst(string name, bool pure, bool inline, bool noinline,
   IReadOnlyList<FunctionSignature> signatures, BlockStatementAst body, IReadOnlyList<MetadataAst> metadata = null
@@ -196,11 +235,12 @@ public sealed class MemberExpressionAst(ExpressionAst receiver, string member) :
 }
 
 public sealed class CallExpressionAst(string name, IReadOnlyList<ExpressionAst> arguments,
-  bool coerceBoolean = false
+  bool coerceBoolean = false, SignatureHixPattern signature = null
 ) : ExpressionAst(arguments) {
   public string Name { get; } = name;
   public IReadOnlyList<ExpressionAst> Arguments { get; } = arguments;
   public bool CoerceBoolean { get; } = coerceBoolean;
+  public SignatureHixPattern Signature { get; } = signature;
 }
 
 public sealed class InlineExpressionAst(BlockStatementAst body, string resultLocal) : ExpressionAst([body]) {

@@ -13,11 +13,7 @@ mixin HELIX.Boot.CommandAttribute {
   prelude expression {
     local StructName @> {{target:name}}_Args
     local StructHandle @= target:DeriveParameters;
-    EmitGeneratedStructure @{
-      name = local#StructName,
-      props = local#StructHandle,
-      datatype = true
-    };
+    EmitGeneratedStructure(local#StructName, local#StructHandle, true);
   }
   expression {
     using @> HELIX.Boot;

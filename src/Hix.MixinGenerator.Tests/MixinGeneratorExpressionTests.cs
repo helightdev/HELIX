@@ -84,7 +84,7 @@ public sealed class MixinGeneratorExpressionTests {
   }
 
   [Fact]
-  public void HixDebugConfigurationEmitsProgramDump() {
+  public void HixDebugConfigurationDoesNotPolluteGeneratedSource() {
     const string source = """
                           using System;
                           namespace HELIX {
@@ -115,11 +115,9 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
     var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
       .SourceText.ToString();
-    Assert.StartsWith("// ============================================================================\n// HELIX MIXIN PROGRAM DUMP", generated);
-    Assert.Contains("// PRELUDE BYTECODE", generated);
-    Assert.Contains("// LATE BYTECODE", generated);
-    Assert.Contains("STORE", generated);
-    Assert.Contains(".constant 0 Number", generated);
+    Assert.DoesNotContain("HELIX MIXIN PROGRAM DUMP", generated);
+    Assert.DoesNotContain("PRELUDE BYTECODE", generated);
+    Assert.DoesNotContain(".constant", generated);
     Assert.DoesNotContain("local DebugValue = 1", generated);
   }
 

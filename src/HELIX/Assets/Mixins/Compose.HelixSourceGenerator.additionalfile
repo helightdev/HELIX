@@ -1,18 +1,18 @@
-func RequireCompositionTypeId {
+func RequireCompositionTypeId() -> null {
   when(![var#HasTypeId:eq(true)]) {
     var HasTypeId @= true;
     DeclareCompanion @> public static readonly ushort typeId = CompositionId.GetTypeId("{{this:name}}");
   }
 }
 
-func RequireCompositionId {
+func RequireCompositionId() -> null {
   when(![var#HasCompositionId:eq(true)]) {
     var HasCompositionId @= true;
     DeclareCompanion @> public static readonly ushort compositionId = CompositionId.GetCompositionId("{{this:name}}");
   }
 }
 
-func RequireInputState {
+func RequireInputState() -> null {
   when(![var#HasInputState:eq(true)]) {
     var HasInputState @= true;
     using @> HELIX.Compose;
@@ -23,7 +23,7 @@ func RequireInputState {
   }
 }
 
-func GenerateBoundaryElement {
+func GenerateBoundaryElement() -> null {
   local ComposeCalls = <>
   local ComposeArgs = <>
   RequireCompositionTypeId()
