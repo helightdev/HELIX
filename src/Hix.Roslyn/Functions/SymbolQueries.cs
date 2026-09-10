@@ -9,6 +9,7 @@ namespace Hix.Functions;
 
 public sealed class IsTypeFunction() : RoslynFunctionDefinition("is", 1, resultType: HixValueKind.Bool,
   argumentTypes: new[] {HixValueKind.String}) {
+  public override string Documentation => "Tests whether the semantic value matches the specified C# type name.";
   public override IReadOnlyDictionary<int, string> ArgumentReferences => new Dictionary<int, string> { {1, "CSharpType"} };
   protected override IHixValue Apply(
     HixThread context, IHixValue value,
@@ -19,6 +20,7 @@ public sealed class IsTypeFunction() : RoslynFunctionDefinition("is", 1, resultT
 }
 
 public sealed class HasMemberFunction() : RoslynFunctionDefinition("has", 1, resultType: HixValueKind.Bool) {
+  public override string Documentation => "Tests whether a semantic value exposes the specified member.";
   protected override IHixValue Apply(
     HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
@@ -28,6 +30,48 @@ public sealed class HasMemberFunction() : RoslynFunctionDefinition("has", 1, res
 }
 
 public sealed class TraitFunction(string name) : RoslynFunctionDefinition(name, 0, resultType: HixValueKind.Bool) {
+  public override string Documentation => Name switch {
+    "isSelf" => "Tests whether the value refers to the current target type.",
+    "ref" => "Tests whether a parameter is passed by ref.",
+    "in" => "Tests whether a parameter is passed by in.",
+    "out" => "Tests whether a parameter is passed by out.",
+    "inout" => "Tests whether a parameter is passed by in or out.",
+    "argument" => "Tests whether a parameter is passed by value.",
+    "static" => "Tests whether a symbol is static.",
+    "async" => "Tests whether a method is async.",
+    "public" => "Tests whether a symbol is public.",
+    "exposed" => "Tests whether a symbol is public, internal, or protected internal.",
+    "top" => "Tests whether the associated type is not nested in another type.",
+    "generic" => "Tests whether the associated type contains type parameters.",
+    "genericMethod" => "Tests whether a method has generic type parameters.",
+    "accessible" => "Tests whether the symbol is accessible from the current target.",
+    "struct" => "Tests whether the associated type is a struct.",
+    "class" => "Tests whether the associated type is a reference type.",
+    "concrete" => "Tests whether the associated type is neither an interface nor abstract.",
+    "partial" => "Tests whether the associated declaration is partial.",
+    "field" => "Tests whether the symbol is a field.",
+    "property" => "Tests whether the symbol is a property.",
+    "method" => "Tests whether the symbol is a method.",
+    "event" => "Tests whether the symbol is an event.",
+    "parameter" => "Tests whether the symbol is a parameter.",
+    "typeSymbol" => "Tests whether the value represents a type symbol.",
+    "referenceType" => "Tests whether the associated type is a reference type.",
+    "valueType" => "Tests whether the associated type is a value type.",
+    "nullable" => "Tests whether the associated type is nullable.",
+    "pointer" => "Tests whether the associated type is a pointer.",
+    "containsPointer" => "Tests whether the type contains pointer data.",
+    "enum" => "Tests whether the associated type is an enum.",
+    "primitive" => "Tests whether the associated type is a supported primitive type.",
+    "parameterDefault" => "Tests whether a parameter has an explicit default value; null also satisfies this predicate.",
+    "nonEmptyStringConstant" => "Tests whether the value is a nonempty string constant.",
+    "equatableSelf" => "Tests whether the type implements IEquatable of itself.",
+    "typedEqualsSelf" => "Tests whether the type exposes a typed Equals method for itself.",
+    "ordinaryTypedEqualsSelf" => "Tests whether the type declares an ordinary typed Equals method for itself.",
+    "objectEquals" => "Tests whether the type provides an object-based Equals implementation.",
+    "hashCode" => "Tests whether the type provides a GetHashCode implementation.",
+    _ => ""
+  };
+
   protected override IHixValue Apply(
     HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments

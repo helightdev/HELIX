@@ -50,9 +50,9 @@ public sealed class HixAntlrGrammarTests {
     Assert.Equal(source, string.Concat(unit.Tokens.Select(token => token.Text)));
     var position = 0;
     foreach (var token in unit.Tokens) {
-      Assert.Equal(position, token.Start);
-      Assert.Equal(source.Substring(token.Start, token.End - token.Start), token.Text);
-      position = token.End;
+      Assert.Equal(position, token.StartIndex);
+      Assert.Equal(source.Substring(token.StartIndex, (token.StopIndex + 1) - token.StartIndex), token.Text);
+      position = (token.StopIndex + 1);
     }
     Assert.Equal(source.Length, position);
   }
@@ -109,8 +109,8 @@ public sealed class HixAntlrGrammarTests {
       """);
 
     Assert.Empty(semantic.Diagnostics);
-    Assert.Equal("answer with spaces", semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationAst>().Single().Name);
-    Assert.Equal("HELIX.Example-Type", semantic.Declarations.OfType<Hix.Compiler.MixinDeclarationAst>().Single().Name);
+    Assert.Equal("answer with spaces", semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationIr>().Single().Name);
+    Assert.Equal("HELIX.Example-Type", semantic.Declarations.OfType<Hix.Compiler.MixinDeclarationIr>().Single().Name);
   }
 
   [Fact]
@@ -125,12 +125,12 @@ public sealed class HixAntlrGrammarTests {
       """);
 
     Assert.Empty(semantic.Diagnostics);
-    var function = semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationAst>().Single();
+    var function = semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationIr>().Single();
     Assert.Equal(new[] {"deprecated", "since", null}, function.Metadata.Select(metadata => metadata.Name));
-    Assert.Equal("native-type", Assert.IsType<Hix.Compiler.StringExpressionAst>(
+    Assert.Equal("native-type", Assert.IsType<Hix.Compiler.StringExpressionIr>(
       function.Signatures.Single().Inputs.Single().Metadata.Single().Values.Single()).Value);
-    var table = function.Body.Children.SelectMany(Descendants).OfType<Hix.Compiler.TableExpressionAst>().Single();
-    Assert.Equal("field-note", Assert.IsType<Hix.Compiler.StringExpressionAst>(
+    var table = function.Body.Children.SelectMany(Descendants).OfType<Hix.Compiler.TableExpressionIr>().Single();
+    Assert.Equal("field-note", Assert.IsType<Hix.Compiler.StringExpressionIr>(
       table.FieldMetadata.Single().Value.Single().Values.Single()).Value);
   }
 
@@ -141,7 +141,7 @@ public sealed class HixAntlrGrammarTests {
     var semantic = Hix.Compiler.AntlrSyntax.Parse(source);
 
     Assert.Empty(semantic.Diagnostics);
-    var function = semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationAst>().Single();
+    var function = semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationIr>().Single();
     Assert.Equal(expectedCount, function.Metadata.Count);
   }
 
@@ -154,12 +154,12 @@ public sealed class HixAntlrGrammarTests {
       """);
 
     Assert.Empty(semantic.Diagnostics);
-    var function = Assert.Single(semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationAst>());
+    var function = Assert.Single(semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationIr>());
     var fields = Assert.Single(function.Signatures).Inputs;
     Assert.Equal(new[] {"string", "test"}, fields[0].Metadata.Single().Values
-      .Cast<Hix.Compiler.StringExpressionAst>().Select(value => value.Value));
-    Assert.Equal(123, Assert.IsType<Hix.Compiler.NumberExpressionAst>(fields[1].Metadata.Single().Values.Single()).Value);
-    var table = Assert.Single(function.Body.Children.SelectMany(Descendants).OfType<Hix.Compiler.TableExpressionAst>());
+      .Cast<Hix.Compiler.StringExpressionIr>().Select(value => value.Value));
+    Assert.Equal(123, Assert.IsType<Hix.Compiler.NumberExpressionIr>(fields[1].Metadata.Single().Values.Single()).Value);
+    var table = Assert.Single(function.Body.Children.SelectMany(Descendants).OfType<Hix.Compiler.TableExpressionIr>());
     Assert.Equal(new[] {"test", "another"}, table.FieldMetadata.Select(field => field.Key));
   }
 
@@ -177,7 +177,7 @@ public sealed class HixAntlrGrammarTests {
 
     Assert.Empty(semantic.Diagnostics);
     Assert.Equal(new[] {"type", "guid", "name", "interaction"}, semantic.Metadata.Select(value => value.Name));
-    Assert.Empty(Assert.Single(semantic.Declarations.OfType<Hix.Compiler.MixinDeclarationAst>()).Metadata);
+    Assert.Empty(Assert.Single(semantic.Declarations.OfType<Hix.Compiler.MixinDeclarationIr>()).Metadata);
   }
 
   [Fact]
@@ -185,9 +185,9 @@ public sealed class HixAntlrGrammarTests {
     var semantic = Hix.Compiler.AntlrSyntax.Parse("mixin Example { expression { emit(-12.5) } }");
 
     Assert.Empty(semantic.Diagnostics);
-    var number = Assert.Single(semantic.Children.SelectMany(Descendants).OfType<Hix.Compiler.NumberExpressionAst>());
+    var number = Assert.Single(semantic.Children.SelectMany(Descendants).OfType<Hix.Compiler.NumberExpressionIr>());
     Assert.Equal(-12.5, number.Value);
-    Assert.Contains(semantic.Tokens, token => token.Kind == Hix.Compiler.HixTokenKind.Number && token.Text == "-12.5");
+    Assert.Contains(semantic.Tokens, token => token.Type == Hix.Compiler.Generated.HixLexer.NUMBER && token.Text == "-12.5");
   }
 
   [Theory]
@@ -199,10 +199,10 @@ public sealed class HixAntlrGrammarTests {
 
     Assert.Empty(semantic.Diagnostics);
     var boolean = Assert.Single(semantic.Children.SelectMany(Descendants)
-      .OfType<Hix.Compiler.BooleanExpressionAst>());
+      .OfType<Hix.Compiler.BooleanExpressionIr>());
     Assert.Equal(expected, boolean.Value);
     Assert.Contains(semantic.Tokens, token =>
-      token.Kind == Hix.Compiler.HixTokenKind.Boolean && token.Text == source);
+      token.Type == Hix.Compiler.Generated.HixLexer.BOOLEAN && token.Text == source);
   }
 
   [Fact]
@@ -212,15 +212,15 @@ public sealed class HixAntlrGrammarTests {
       """);
 
     Assert.Empty(semantic.Diagnostics);
-    Assert.Single(semantic.Children.SelectMany(Descendants).OfType<Hix.Compiler.NullExpressionAst>());
+    Assert.Single(semantic.Children.SelectMany(Descendants).OfType<Hix.Compiler.NullExpressionIr>());
     Assert.Contains(semantic.Tokens, token =>
-      token.Kind == Hix.Compiler.HixTokenKind.Null && token.Text == "null");
-    var function = Assert.Single(semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationAst>());
+      token.Type == Hix.Compiler.Generated.HixLexer.NULL && token.Text == "null");
+    var function = Assert.Single(semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationIr>());
     Assert.Equal("null", Assert.Single(function.Signatures).InputKind);
     Assert.Equal("null", Assert.Single(function.Signatures).OutputKind);
   }
 
-  private static IEnumerable<Hix.Compiler.HixAst> Descendants(Hix.Compiler.HixAst node) {
+  private static IEnumerable<Hix.Compiler.HixIrNode> Descendants(Hix.Compiler.HixIrNode node) {
     yield return node;
     foreach (var child in node.Children)
       foreach (var descendant in Descendants(child))

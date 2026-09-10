@@ -30,12 +30,22 @@ Backend-specific data import, rendering names, attributes, configuration, and ta
 are backend services. Roslyn semantic caches belong to its host contexts or weakly owned
 compilations. Core function implementations contain no Roslyn type checks.
 
-Compiler extension APIs are public: derive from `HixAstRewriter` or `HixCompilerStep`, and override
+Compiler extension APIs are public: derive from `HixIrRewriter` or `HixCompilerStep`, and override
 `HixBackend.CompilerSteps` to configure ordered transforms. `HixCompiler.DefaultSteps` is the
 immutable standard pipeline; include those steps when adding a transform to retain normal binding,
 hoisting, and lowering behavior. The pipeline applies to globals, mixins, and derivations.
-AST constructors and source-location setters, prepared catalogs, bytecode models and compilation,
+IR constructors and source-location setters, prepared catalogs, bytecode models and compilation,
 and disassembly APIs are also available for consumers building their own tooling.
+
+ANTLR's parse tree lowers directly into the semantic IR in `Compiler/Ir.cs`. Nodes retain source
+ranges and the generated ANTLR tokens, including hidden-channel whitespace; there is no separate
+syntax-kind/token-kind mapping or intermediate syntax tree. `HixCompiler.PrepareGlobals` collects
+declarations, and `PrepareIr` runs the backend's pipeline on owned nodes so cached parsed modules
+remain reusable. `HixIrVisitor` supports analyses that enrich nodes with symbols, inferred patterns,
+and call bindings. `HixLoweringStep` and `HixIrRewriter` are for structural changes such as lambda
+lifting, inlining, and prelude hoisting. Final binding refreshes semantic facts after those changes;
+bytecode emission consumes the bound references and calls. Custom steps receive `HixCompilation`,
+which owns the module, catalog, and diagnostics.
 
 Roslyn extensions can construct `RoslynHixValue`, subclass `HixRoslynContext`, and reuse its semantic
 services and explicit cache lookup/store methods. `HixThread` is public and sealed: supply a context with `new HixThread(context)` and retrieve it
@@ -96,8 +106,8 @@ independent `Hix` and `Hix.Roslyn` libraries.
 
 Compile Hix with `HixCompiler.Compile(source, mixinName)`, then pass the returned
 `HixProgramImage` to `HixVM.Execute(program, context, variables)`.
-Parsing, AST transformations, label resolution, and lowering happen exclusively in the compiler.
-The VM accepts no source or AST overloads. Function signatures, lexical scopes, derivations, and
+Parsing, semantic binding, structural lowering, and label resolution happen exclusively in the compiler.
+The VM accepts no source or IR overloads. Function signatures, lexical scopes, derivations, and
 entry points in the executable image contain runtime metadata only.
 
 Instructions are byte-aligned and variable-length. A one-byte opcode is followed immediately

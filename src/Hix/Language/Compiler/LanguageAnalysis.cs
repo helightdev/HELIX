@@ -8,8 +8,8 @@ namespace Hix.Compiler;
 /// <summary>Definition and reference analysis over the canonical semantic AST.</summary>
 public sealed class LanguageAnalysis {
   public sealed record Symbol(string Name, string Kind, HixSourceRange Range, HixSourceRange Scope,
-    HixAst Node);
-  public sealed record Reference(string Name, string Kind, HixSourceRange Range, HixAst Node);
+    HixIrNode Node);
+  public sealed record Reference(string Name, string Kind, HixSourceRange Range, HixIrNode Node);
   public sealed record TypeFact(HixSourceRange Range, string Type, string Documentation, bool Inlay,
     string Kind = "Type");
 
@@ -25,20 +25,20 @@ public sealed class LanguageAnalysis {
     TypeFacts = CollectTypeFacts();
   }
 
-  public CompilationUnitAst Program { get; }
+  public CompilationUnitIr Program { get; }
   public IReadOnlyList<Symbol> Declarations { get; }
   public IReadOnlyList<Reference> References { get; }
   public IReadOnlyList<TypeFact> TypeFacts { get; }
 
   private IReadOnlyList<TypeFact> CollectTypeFacts() {
     var facts = new List<TypeFact>();
-    var patterns = Program.Declarations.OfType<TypeDeclarationAst>().ToDictionary(type => type.Name,
+    var patterns = Program.Declarations.OfType<TypeDeclarationIr>().ToDictionary(type => type.Name,
       type => type.Pattern, StringComparer.Ordinal);
-    var functions = Program.Declarations.OfType<FunctionDeclarationAst>().Concat(
-        Program.Declarations.OfType<MixinDeclarationAst>().SelectMany(mixin => mixin.Declarations.OfType<FunctionDeclarationAst>()))
+    var functions = Program.Declarations.OfType<FunctionDeclarationIr>().Concat(
+        Program.Declarations.OfType<MixinDeclarationIr>().SelectMany(mixin => mixin.Declarations.OfType<FunctionDeclarationIr>()))
       .GroupBy(function => function.Name, StringComparer.Ordinal).ToDictionary(group => group.Key,
         group => group.ToArray(), StringComparer.Ordinal);
-    foreach (var type in Program.Declarations.OfType<TypeDeclarationAst>())
+    foreach (var type in Program.Declarations.OfType<TypeDeclarationIr>())
       facts.Add(new(IdentifierRange(type, type.Name), type.Name, "pattern " + type.Name + " = " + type.Pattern.Display, false));
     foreach (var function in functions.Values.SelectMany(group => group))
       facts.Add(new(IdentifierRange(function, function.Name), FunctionResult(function), FunctionDocumentation(function), false));
@@ -46,53 +46,59 @@ public sealed class LanguageAnalysis {
       var parameters = function.Signatures.Count == 1 ? function.Signatures[0].Inputs ?? [] : [];
       Analyze(function.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), parameters);
     }
-    foreach (var expression in Program.Declarations.OfType<MixinDeclarationAst>()
-               .SelectMany(mixin => mixin.Declarations.OfType<ExpressionDeclarationAst>()))
+    foreach (var expression in Program.Declarations.OfType<MixinDeclarationIr>()
+               .SelectMany(mixin => mixin.Declarations.OfType<ExpressionDeclarationIr>()))
       Analyze(expression.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), []);
     return facts;
 
-    void Analyze(BlockStatementAst block, IDictionary<string, HixPattern> locals,
+    void Analyze(BlockStatementIr block, IDictionary<string, HixPattern> locals,
       IReadOnlyList<SignatureField> parameters) {
       foreach (var statement in block.Statements) {
-        if (statement is AssignmentStatementAst assignment) {
+        if (statement is AssignmentStatementIr assignment) {
           var inferred = Infer(assignment.Value, locals, parameters);
           if (assignment.Storage == StorageSpace.Local) {
             locals[assignment.Name] = inferred;
             facts.Add(new(IdentifierRange(assignment, assignment.Name), inferred.Display,
               "local " + assignment.Name + ": " + inferred.Display, true));
           }
-        } else if (statement is BlockStatementAst nested) {
+        } else if (statement is BlockStatementIr nested) {
           Analyze(nested, new Dictionary<string, HixPattern>(locals, StringComparer.Ordinal), parameters);
-        } else foreach (var expression in statement.SemanticChildren.OfType<ExpressionAst>()) Infer(expression, locals, parameters);
+        } else foreach (var expression in statement.SemanticChildren.OfType<ExpressionIr>()) Infer(expression, locals, parameters);
       }
     }
 
-    HixPattern Infer(ExpressionAst expression, IDictionary<string, HixPattern> locals,
+    HixPattern Infer(ExpressionIr expression, IDictionary<string, HixPattern> locals,
       IReadOnlyList<SignatureField> parameters) {
       HixPattern result;
       switch (expression) {
-        case StringExpressionAst: result = new KindHixPattern(HixValueKind.String); break;
-        case NumberExpressionAst: result = new KindHixPattern(HixValueKind.Number); break;
-        case BooleanExpressionAst: result = new KindHixPattern(HixValueKind.Bool); break;
-        case NullExpressionAst: result = new KindHixPattern(HixValueKind.Null); break;
-        case TupleExpressionAst tuple: result = new TupleHixPattern(tuple.Values.Select((value, index) =>
+        case StringExpressionIr: result = new KindHixPattern(HixValueKind.String); break;
+        case NumberExpressionIr: result = new KindHixPattern(HixValueKind.Number); break;
+        case BooleanExpressionIr: result = new KindHixPattern(HixValueKind.Bool); break;
+        case NullExpressionIr: result = new KindHixPattern(HixValueKind.Null); break;
+        case TupleExpressionIr tuple: result = new TupleHixPattern(tuple.Values.Select((value, index) =>
           new HixPatternField(index.ToString(), Infer(value, locals, parameters))).ToArray()); break;
-        case TableExpressionAst table: result = new TableHixPattern(table.Entries.Select(entry =>
+        case TableExpressionIr table: result = new TableHixPattern(table.Entries.Select(entry =>
           new HixPatternField(entry.Key, Infer(entry.Value, locals, parameters))).ToArray()); break;
-        case MemberExpressionAst {Receiver: RootExpressionAst {Name: "local"}} member:
+        case MemberExpressionIr {Receiver: RootExpressionIr {Name: "local"}} member:
           result = locals.TryGetValue(member.Member, out var local) ? local : HixPattern.Any;
           facts.Add(new(TrailingIdentifierRange(member, member.Member), result.Display,
             "local " + member.Member + ": " + result.Display, false));
           break;
-        case MemberExpressionAst {Receiver: RootExpressionAst {Name: "param"}} member:
+        case MemberExpressionIr {Receiver: RootExpressionIr {Name: "param"}} member:
           result = parameters.FirstOrDefault(parameter => parameter.Name == member.Member)?.Pattern ?? HixPattern.Any;
           facts.Add(new(TrailingIdentifierRange(member, member.Member), result.Display,
             "parameter " + member.Member + ": " + result.Display, false));
           break;
-        case RootExpressionAst {IsSmart: true, Name: var position} when
+        case RootExpressionIr {IsSmart: true, Name: var position} when
           int.TryParse(position, out var index) && index >= 0 && index < parameters.Count:
           result = parameters[index].Pattern; break;
-        case SelectionExpressionAst selection:
+        case RootExpressionIr {IsSmart: true} root:
+          result = locals.TryGetValue(root.Name, out var smartLocal) ? smartLocal :
+            parameters.FirstOrDefault(parameter => parameter.Name == root.Name)?.Pattern ?? HixPattern.Any;
+          break;
+        case RootExpressionIr root when backend.Roots.TryGetValue(root.Name, out var hostRoot):
+          result = KindPattern(hostRoot.Kind); break;
+        case SelectionExpressionIr selection:
           if (selection.Selector != null) Infer(selection.Selector, locals, parameters);
           var results = new List<HixPattern>();
           foreach (var branch in selection.Branches) {
@@ -105,7 +111,7 @@ public sealed class LanguageAnalysis {
               new Dictionary<string, HixPattern>(locals, StringComparer.Ordinal), parameters));
           result = Union(results);
           break;
-        case CallExpressionAst call:
+        case CallExpressionIr call:
           var argumentPatterns = call.Arguments.Select(argument => Infer(argument, locals, parameters)).ToArray();
           string documentation;
           var dynamic = false;
@@ -113,7 +119,16 @@ public sealed class LanguageAnalysis {
             result = new NamedHixPattern(call.Name);
             documentation = "Validate a value against pattern `" + call.Name + "`.";
           } else if (functions.TryGetValue(call.Name, out var overloads)) {
-            documentation = string.Join("\n", overloads.Select(FunctionDocumentation));
+            documentation = string.Join("\n\n", overloads.Select(overload => {
+              var applicable = overload.Signatures.Where(signature => {
+                var fields = signature.Constant(call.Name).Parameters;
+                return fields.Count >= argumentPatterns.Length && argumentPatterns.Select((argument, index) =>
+                  fields[index].Pattern is KindHixPattern kind ? Conversion(argument, kind.ValueKind) >= 0 :
+                    HixPatternRelations.Relate(argument, fields[index].Pattern, patterns) != HixPatternRelation.Never).All(matches => matches);
+              }).ToArray();
+              return overload.Signatures.Count == 0 || applicable.Length != 0
+                ? FunctionDocumentation(overload, applicable) : null;
+            }).Where(text => text != null));
             var candidates = overloads.SelectMany(overload => overload.Signatures).Where(signature =>
                 signature.Inputs != null && signature.Inputs.Count == argumentPatterns.Length)
               .Select(signature => (Signature: signature, Relations: signature.Inputs.Select((field, index) =>
@@ -142,8 +157,12 @@ public sealed class LanguageAnalysis {
             result = definitions.Length == 0 ? HixPattern.Any : Union(definitions.SelectMany(definition =>
               definition.Signatures.Where(signature => signature.MatchesArgumentCount(call.Arguments.Count))
                 .Select(signature => KindPattern(signature.ResultType))));
-            documentation = knownDefinitions.Length == 0 ? call.Name :
-              string.Join("\n", knownDefinitions.Select(DefinitionDocumentation));
+            var documented = knownDefinitions.SelectMany(definition => definition.Signatures
+                .Where(signature => (signature.IsVariadic || argumentPatterns.Length <= signature.ArgumentTypes.Count) &&
+                  argumentPatterns.Select((argument, index) => Conversion(argument, signature.GetArgumentType(index)))
+                    .All(conversion => conversion >= 0))
+                .Select(signature => DefinitionDocumentation(definition, signature))).Distinct().ToArray();
+            documentation = documented.Length == 0 ? call.Name : string.Join("\n\n", documented);
             var signatures = definitions.SelectMany(definition => definition.Signatures)
               .Where(signature => signature.MatchesArgumentCount(call.Arguments.Count)).ToArray();
             var selected = signatures.Select(signature => (Signature: signature, Conversions: argumentPatterns
@@ -163,18 +182,19 @@ public sealed class LanguageAnalysis {
             "Overload is selected dynamically at runtime.\n" + documentation, false, "DynamicCall"));
           break;
         default:
-          foreach (var child in expression.SemanticChildren.OfType<ExpressionAst>()) Infer(child, locals, parameters);
+          foreach (var child in expression.SemanticChildren.OfType<ExpressionIr>()) Infer(child, locals, parameters);
           result = HixPattern.Any; break;
       }
+      facts.Add(new(expression.SourceRange, result.Display, "", false, "Expression"));
       return result;
     }
 
-    HixPattern InferResult(HixAst node, IDictionary<string, HixPattern> locals,
+    HixPattern InferResult(HixIrNode node, IDictionary<string, HixPattern> locals,
       IReadOnlyList<SignatureField> parameters) {
       switch (node) {
-        case ExpressionAst expression: return Infer(expression, locals, parameters);
-        case InvocationStatementAst invocation: return Infer(invocation.Call, locals, parameters);
-        case BlockStatementAst block:
+        case ExpressionIr expression: return Infer(expression, locals, parameters);
+        case InvocationStatementIr invocation: return Infer(invocation.Call, locals, parameters);
+        case BlockStatementIr block:
           Analyze(block, locals, parameters);
           return HixPattern.Any;
         default:
@@ -202,17 +222,24 @@ public sealed class LanguageAnalysis {
     if (source == target) return 0;
     return KindDefinitions.CanImplicitConvert(source, target) ? 1 : -1;
   }
-  private static string FunctionResult(FunctionDeclarationAst function) => function.Signatures.Count == 1
+  private static string FunctionResult(FunctionDeclarationIr function) => function.Signatures.Count == 1
     ? (function.Signatures[0].Outputs == null ? function.Signatures[0].OutputPattern?.Display :
       new TableHixPattern(function.Signatures[0].Outputs.Select(field => field.AsPatternField()).ToArray()).Display) ?? "any"
     : "any";
-  private static string FunctionDocumentation(FunctionDeclarationAst function) => function.Signatures.Count == 0
-    ? "fun " + function.Name + "(...) -> any"
-    : string.Join("\n", function.Signatures.Select(signature => signature.Constant(function.Name).Display));
-  private static string DefinitionDocumentation(FunctionDefinition definition) => string.Join("\n",
-    definition.Signatures.Select(signature => definition.Name + "(" + string.Join(", ", signature.ArgumentTypes
-      .Select(type => type.ToString().ToLowerInvariant())) + ") -> " + signature.ResultType.ToString().ToLowerInvariant())) +
+  private static string FunctionDocumentation(FunctionDeclarationIr function) => FunctionDocumentation(function, function.Signatures);
+  private static string FunctionDocumentation(FunctionDeclarationIr function, IReadOnlyList<FunctionSignature> signatures) {
+    var signature = signatures.Count == 0 ? "func " + function.Name + "(...) -> any"
+      : string.Join("\n", signatures.Select(item => item.Constant(function.Name).Display));
+    var documentation = string.Join("\n", function.Metadata.Where(item => item.Name is "doc" or "description")
+      .SelectMany(item => item.Values).OfType<StringExpressionIr>().Select(value => value.Value));
+    return string.IsNullOrEmpty(documentation) ? signature : signature + "\n" + documentation;
+  }
+  private static string DefinitionDocumentation(FunctionDefinition definition, global::Hix.FunctionSignature signature) =>
+    definition.Name + "(" + string.Join(", ", signature.ArgumentTypes.Select((type, index) =>
+      (signature.IsVariadic && index == signature.ArgumentTypes.Count - 1 ? "..." : "") + type.ToString().ToLowerInvariant())) +
+    ") -> " + signature.ResultType.ToString().ToLowerInvariant() +
     (string.IsNullOrEmpty(definition.Documentation) ? "" : "\n" + definition.Documentation);
+
 
   public Symbol Resolve(Reference reference, IEnumerable<LanguageAnalysis> analyses,
     out LanguageAnalysis owner) {
@@ -235,21 +262,21 @@ public sealed class LanguageAnalysis {
     return selected.Symbol;
   }
 
-  public static HixSourceRange Scope(HixAst node) {
+  public static HixSourceRange Scope(HixIrNode node) {
     for (var current = node; current is not null; current = current.Parent)
-      if (current is FunctionDeclarationAst or MixinDeclarationAst or BlockStatementAst)
+      if (current is FunctionDeclarationIr or MixinDeclarationIr or BlockStatementIr)
         return current.SourceRange;
     return node?.Program?.SourceRange ?? default;
   }
 
-  private void Visit(HixAst node, ICollection<Symbol> declarations,
+  private void Visit(HixIrNode node, ICollection<Symbol> declarations,
     ICollection<Reference> references) {
     switch (node) {
-      case MixinDeclarationAst mixin:
+      case MixinDeclarationIr mixin:
         declarations.Add(new Symbol(mixin.Name, "Mixin", IdentifierRange(mixin, mixin.Name),
           Scope(mixin.Parent), mixin));
         break;
-      case FunctionDeclarationAst function:
+      case FunctionDeclarationIr function:
         declarations.Add(new Symbol(function.Name, "Function", IdentifierRange(function, function.Name),
           Scope(function.Parent), function));
         foreach (var signature in function.Signatures) {
@@ -259,37 +286,37 @@ public sealed class LanguageAnalysis {
           foreach (var field in signature.Outputs ?? []) AddPatternReferences(field.Pattern, function, references);
         }
         break;
-      case TypeDeclarationAst type:
+      case TypeDeclarationIr type:
         declarations.Add(new Symbol(type.Name, "Pattern", IdentifierRange(type, type.Name), Scope(type.Parent), type));
         AddPatternReferences(type.Pattern, type, references);
         break;
-      case AssignmentStatementAst assignment:
+      case AssignmentStatementIr assignment:
         declarations.Add(new Symbol(assignment.Name, assignment.Storage switch {
           StorageSpace.Local => "Local", StorageSpace.Variable => "Variable",
           _ => "TargetVariable"
         }, IdentifierRange(assignment, assignment.Name), Scope(assignment), assignment));
         break;
-      case ControlFlowStatementAst {Operation: ControlFlowKind.Label} label:
+      case ControlFlowStatementIr {Operation: ControlFlowKind.Label} label:
         declarations.Add(new Symbol(label.Label, "Label", IdentifierRange(label, label.Label),
           Scope(label), label));
         break;
-      case ControlFlowStatementAst {Operation: ControlFlowKind.Goto} jump:
+      case ControlFlowStatementIr {Operation: ControlFlowKind.Goto} jump:
         references.Add(new Reference(jump.Label, "Label", IdentifierRange(jump, jump.Label), jump));
         break;
-      case MemberExpressionAst member when StorageReference(member) is { } storage:
+      case MemberExpressionIr member when StorageReference(member) is { } storage:
         references.Add(new Reference(member.Member, storage, TrailingIdentifierRange(member, member.Member), member));
         break;
-      case CallExpressionAst call:
+      case CallExpressionIr call:
         AddCallReferences(call, references);
         break;
-      case RootExpressionAst root when IsFunctionReference(root.Name):
+      case RootExpressionIr root when IsFunctionReference(root.Name):
         references.Add(new Reference(root.Name, "Function", IdentifierRange(root, root.Name), root));
         break;
     }
     foreach (var child in node.Children) Visit(child, declarations, references);
   }
 
-  private void AddPatternReferences(HixPattern pattern, HixAst owner, ICollection<Reference> references) {
+  private void AddPatternReferences(HixPattern pattern, HixIrNode owner, ICollection<Reference> references) {
     switch (pattern) {
       case NamedHixPattern named:
         references.Add(new Reference(named.Name, "Pattern", IdentifierRange(owner, named.Name), owner)); break;
@@ -310,8 +337,8 @@ public sealed class LanguageAnalysis {
     }
   }
 
-  private void AddCallReferences(CallExpressionAst call, ICollection<Reference> references) {
-    if (Program.Declarations.OfType<TypeDeclarationAst>().Any(type => type.Name == call.Name)) {
+  private void AddCallReferences(CallExpressionIr call, ICollection<Reference> references) {
+    if (Program.Declarations.OfType<TypeDeclarationIr>().Any(type => type.Name == call.Name)) {
       references.Add(new Reference(call.Name, "Pattern", TrailingIdentifierRange(call, call.Name), call));
       return;
     }
@@ -319,14 +346,14 @@ public sealed class LanguageAnalysis {
       references.Add(new Reference(call.Name, "Function", TrailingIdentifierRange(call, call.Name), call));
     else foreach (var reference in definition.ArgumentReferences) {
       var index = reference.Key;
-      if (index < 0 || index >= call.Arguments.Count || call.Arguments[index] is not StringExpressionAst text) continue;
+      if (index < 0 || index >= call.Arguments.Count || call.Arguments[index] is not StringExpressionIr text) continue;
       var range = StringContentRange(call.Arguments[index]);
       references.Add(new Reference(text.Value, reference.Value, range, call.Arguments[index]));
     }
   }
 
-  private static string StorageReference(MemberExpressionAst member) {
-    if (member.Receiver is not RootExpressionAst root) return null;
+  private static string StorageReference(MemberExpressionIr member) {
+    if (member.Receiver is not RootExpressionIr root) return null;
     return root.Name switch {
       "local" => "Local", "var" => "Variable", "tar" => "TargetVariable", _ => null
     };
@@ -337,14 +364,14 @@ public sealed class LanguageAnalysis {
      "param" or "true" or "false" or "null" or "string" or "bool" or "number" or
      "tuple" or "table" or "symbol" or "function" or "error" or "kind" or "pattern");
 
-  private HixSourceRange IdentifierRange(HixAst node, string name) {
-    var token = node.Tokens.FirstOrDefault(item => item.Kind == HixTokenKind.Identifier && item.Text == name);
-    return token?.SourceRange ?? TextRange(node.SourceRange, name, false);
+  private HixSourceRange IdentifierRange(HixIrNode node, string name) {
+    var token = node.Tokens.FirstOrDefault(item => item.Channel == Antlr4.Runtime.TokenConstants.DefaultChannel && item.Text == name);
+    return token != null ? HixSourceRange.FromToken(token) : TextRange(node.SourceRange, name, false);
   }
 
-  private HixSourceRange TrailingIdentifierRange(HixAst node, string name) {
-    var token = node.Tokens.LastOrDefault(item => item.Kind == HixTokenKind.Identifier && item.Text == name);
-    return token?.SourceRange ?? TextRange(node.SourceRange, name, true);
+  private HixSourceRange TrailingIdentifierRange(HixIrNode node, string name) {
+    var token = node.Tokens.LastOrDefault(item => item.Channel == Antlr4.Runtime.TokenConstants.DefaultChannel && item.Text == name);
+    return token != null ? HixSourceRange.FromToken(token) : TextRange(node.SourceRange, name, true);
   }
 
   private HixSourceRange TextRange(HixSourceRange within, string text, bool last) {
@@ -355,7 +382,7 @@ public sealed class LanguageAnalysis {
     return start < 0 ? within : new HixSourceRange(start, start + text.Length, within.Line, within.Column);
   }
 
-  private static HixSourceRange StringContentRange(ExpressionAst expression) {
+  private static HixSourceRange StringContentRange(ExpressionIr expression) {
     var range = expression.SourceRange;
     return range.Length >= 2 ? range with {Start = range.Start + 1, End = range.End - 1} : range;
   }

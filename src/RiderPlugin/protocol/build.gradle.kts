@@ -1,9 +1,5 @@
-import com.jetbrains.rd.generator.gradle.RdGenTask
-import org.gradle.jvm.toolchain.JavaLanguageVersion
-
 plugins {
     id("org.jetbrains.kotlin.jvm")
-    id("com.jetbrains.rdgen") version libs.versions.rdGen
 }
 
 dependencies {
@@ -12,34 +8,30 @@ dependencies {
     implementation(project(mapOf("path" to ":riderPlugin", "configuration" to "riderModel")))
 }
 
-rdgen {
-    val pluginRoot = projectDir.parentFile
-
-    verbose = true
-    packages = "model.rider"
-
-    generator {
-        language = "kotlin"
-        transform = "asis"
-        root = "com.jetbrains.rider.model.nova.ide.IdeRoot"
-        namespace = "com.jetbrains.rider.model"
-        directory = pluginRoot.resolve("src/rider/main/kotlin/dev/helight/helix/protocol").path
+// Invoke the generator directly: the upstream RdGenTask mutates its classpath/arguments
+// at execution time and captures Project, preventing configuration-cache reuse.
+tasks.register<JavaExec>("rdgen") {
+    group = "code generation"
+    description = "Generates the Kotlin and C# Rider protocol when its model or generator changes."
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("com.jetbrains.rd.generator.nova.MainKt")
+    workingDir(layout.projectDirectory)
+    inputs.file(layout.projectDirectory.file("protocol.generators"))
+    // The generator specs target Rider's external IdeRoot. Include its package in discovery
+    // explicitly; relying on HelixExpressionModel's superclass initialization makes root
+    // discovery depend on classloader iteration order and breaks in IntelliJ's cached runs.
+    args("-p", "model.rider,com.jetbrains.rider.model.nova.ide", "-g", "protocol.generators")
+    val generated = listOf(
+        layout.projectDirectory.file("../src/rider/main/kotlin/dev/helight/helix/protocol/HelixExpressionModel.Generated.kt").asFile,
+        layout.projectDirectory.file("../src/dotnet/HelixRider/Protocol/HelixExpressionModel.Generated.cs").asFile,
+    )
+    // The destinations also contain handwritten hosts; never claim or clear their directories.
+    outputs.files(generated)
+    doLast {
+        generated.forEach { file ->
+            val source = file.readText()
+            val normalized = source.replace(Regex("[ \\t]+(?=\\r?$)", RegexOption.MULTILINE), "")
+            if (normalized != source) file.writeText(normalized)
+        }
     }
-
-    generator {
-        language = "csharp"
-        transform = "reversed"
-        root = "com.jetbrains.rider.model.nova.ide.IdeRoot"
-        namespace = "JetBrains.Rider.Model"
-        directory = pluginRoot.resolve("src/dotnet/HelixRider/Protocol").path
-    }
-}
-
-tasks.withType<RdGenTask> {
-    val classPath = sourceSets["main"].runtimeClasspath
-    dependsOn(classPath)
-    classpath(classPath)
-    javaLauncher.set(javaToolchains.launcherFor {
-        languageVersion.set(JavaLanguageVersion.of(25))
-    })
 }

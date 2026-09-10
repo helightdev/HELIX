@@ -25,10 +25,10 @@ public sealed class MixinSyntaxRangeTests {
     const string source = "mixin Example { expression { local value = <text>; assert(local#value:matches<\\\\S>) } }";
     var unit = AntlrSyntax.Parse(source);
     Assert.Empty(unit.Diagnostics);
-    var matches = Descendants(unit).OfType<CallExpressionAst>().Single(call => call.Name == "matches");
+    var matches = Descendants(unit).OfType<CallExpressionIr>().Single(call => call.Name == "matches");
     Assert.Equal(2, matches.Arguments.Count);
-    Assert.Equal("value", Assert.IsType<MemberExpressionAst>(matches.Arguments[0]).Member);
-    Assert.Equal("\\S", Assert.IsType<StringExpressionAst>(matches.Arguments[1]).Value);
+    Assert.Equal("value", Assert.IsType<MemberExpressionIr>(matches.Arguments[0]).Member);
+    Assert.Equal("\\S", Assert.IsType<StringExpressionIr>(matches.Arguments[1]).Value);
   }
 
   [Fact]
@@ -36,7 +36,7 @@ public sealed class MixinSyntaxRangeTests {
     const string source = "mixin Example { expression { local value = <text>; when(local#value:?matches<^t>) { emit<yes> } } }";
     var unit = AntlrSyntax.Parse(source);
     Assert.Empty(unit.Diagnostics);
-    var matches = Descendants(unit).OfType<CallExpressionAst>().Single(call => call.Name == "matches");
+    var matches = Descendants(unit).OfType<CallExpressionIr>().Single(call => call.Name == "matches");
     Assert.True(matches.CoerceBoolean);
   }
 
@@ -45,11 +45,10 @@ public sealed class MixinSyntaxRangeTests {
     const string source = "mixin Example { expression { emit @> first\n@+ second\n} }";
     var unit = AntlrSyntax.Parse(source);
     Assert.Empty(unit.Diagnostics);
-    Assert.Single(unit.Tokens.Where(token => token.Kind == HixTokenKind.DirectContinuation));
-    Assert.DoesNotContain(Descendants(unit), node => node.Kind == HixSyntaxKind.Continuation);
+    Assert.Single(unit.Tokens.Where(token => token.Type is Hix.Compiler.Generated.HixLexer.CONTENT_WRAP or Hix.Compiler.Generated.HixLexer.VALUE_WRAP));
   }
 
-  private static System.Collections.Generic.IEnumerable<HixAst> Descendants(HixAst node) {
+  private static System.Collections.Generic.IEnumerable<HixIrNode> Descendants(HixIrNode node) {
     foreach (var child in node.Children) {
       yield return child;
       foreach (var descendant in Descendants(child)) yield return descendant;

@@ -16,7 +16,10 @@ class HixParserDefinition : ParserDefinition {
     override fun createLexer(project: Project?): Lexer = HixEditorLexer(project)
     override fun createParser(project: Project): PsiParser = HixPsiParser(project)
     override fun getFileNodeType(): IFileElementType = HixElementTypes.FILE
-    override fun getWhitespaceTokens(): TokenSet = TokenSet.create(HelixAntlrTypes.tokens[0])
+    override fun getWhitespaceTokens(): TokenSet = TokenSet.create(HelixAntlrTypes.tokens[0],
+        HelixAntlrTypes.tokens[HixLexer.OUTER_WHITESPACE],
+        HelixAntlrTypes.tokens[HixLexer.VALUE_WHITESPACE],
+        HelixAntlrTypes.tokens[HixLexer.METADATA_WHITESPACE])
     override fun getCommentTokens(): TokenSet = TokenSet.create(
         HelixAntlrTypes.tokens[HixLexer.COMMENT], HelixAntlrTypes.tokens[HixLexer.SLASH_COMMENT])
     override fun getStringLiteralElements(): TokenSet = TokenSet.create(HelixAntlrTypes.tokens[HixLexer.ARGUMENT_TEXT])

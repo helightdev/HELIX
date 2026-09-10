@@ -36,7 +36,7 @@ public abstract class HixBackend {
     functions.Add(new SimpleFunction("emit", [new(HixValueKind.Null, [HixValueKind.Any]), new(HixValueKind.Null, [HixValueKind.String, HixValueKind.Any])], (thread, values) => {
       thread.Emit(values[values.Length - 1], values.Length == 2 ? thread.Text(values[0]) : default);
       return NullHixValue.Instance;
-    }, effects: true, acceptsErrors: true));
+    }, effects: true, acceptsErrors: true, documentation: "Emits a detached Hix value, optionally addressed to an opaque destination."));
   }
 
   protected virtual void RegisterRoots(IDictionary<string, HixBackendRoot> roots) { }

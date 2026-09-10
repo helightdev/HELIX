@@ -55,18 +55,18 @@ internal static class MixinLibraryApi {
     foreach (var file in catalog.Files.Where(file => !file.Success))
       diagnostics.Add(Diagnostic.Create(InvalidPreparedExpression, Location.None, file.Key,
         file.ErrorLine.ToString(CultureInfo.InvariantCulture), file.Error));
-    HixExpressionPreparedState prepared;
+    HixCompilerCatalog prepared;
     try {
       prepared = HixCompiler.PrepareGlobals(catalog.Files.Where(file => file.Success).Select(file => file.Program), HixMixinBackend.Instance);
     } catch (ArgumentException exception) {
       diagnostics.Add(Diagnostic.Create(InvalidLibraryImport, Location.None, "import set", exception.Message));
-      prepared = HixCompiler.PrepareGlobals(Array.Empty<CompilationUnitAst>(), HixMixinBackend.Instance);
+      prepared = HixCompiler.PrepareGlobals(Array.Empty<CompilationUnitIr>(), HixMixinBackend.Instance);
     }
     var annotations = new Dictionary<string, CompiledHixAnnotation>(StringComparer.Ordinal);
     if (diagnostics.Count == 0) {
       foreach (var annotation in catalog.AnnotationDefinitions) {
         try {
-          var syntax = HixCompiler.PrepareSyntax(annotation.Declaration, prepared);
+          var syntax = HixCompiler.PrepareIr(annotation.Declaration, prepared);
           var image = new HixBytecodeCompiler(prepared.StringPool).Compile(
             syntax.Prelude.Concat(syntax.Late).ToArray(), syntax.Functions, prepared);
           annotations.Add(annotation.Name, new CompiledHixAnnotation(annotation,
@@ -80,12 +80,12 @@ internal static class MixinLibraryApi {
     return new MixinCompilation(catalog, prepared.StringPool, prepared, annotations, diagnostics.ToImmutableArray());
   }
 
-  private static IReadOnlyList<MixinTargetReference> CollectTargets(IEnumerable<ExpressionDeclarationAst> expressions) {
+  private static IReadOnlyList<MixinTargetReference> CollectTargets(IEnumerable<ExpressionDeclarationIr> expressions) {
     var targets = new List<MixinTargetReference>();
-    void Visit(HixAst node) {
-      if (node is CallExpressionAst {Name: "inject"} call && call.Arguments.Count >= 2) {
-        if (call.Arguments[0] is StringExpressionAst target) targets.Add(new(target.Value, false));
-        else if (call.Arguments[0] is MemberExpressionAst {Receiver: RootExpressionAst {Name: "carry"}, Member: var carry})
+    void Visit(HixIrNode node) {
+      if (node is CallExpressionIr {Name: "inject"} call && call.Arguments.Count >= 2) {
+        if (call.Arguments[0] is StringExpressionIr target) targets.Add(new(target.Value, false));
+        else if (call.Arguments[0] is MemberExpressionIr {Receiver: RootExpressionIr {Name: "carry"}, Member: var carry})
           targets.Add(new(carry, true));
       }
       foreach (var child in node.SemanticChildren) Visit(child);
@@ -105,19 +105,19 @@ internal static class MixinLibraryApi {
   private static MixinLibraryFile ParseFile(string path, string key, string source) {
     var unit = AntlrSyntax.Parse(source, HixMixinBackend.Instance);
     var annotations = new Dictionary<string, MixinAnnotationDefinition>(StringComparer.Ordinal);
-    var derivations = new List<MixinDeclarationAst>();
+    var derivations = new List<MixinDeclarationIr>();
     var configuration = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     foreach (var metadata in unit.Metadata.Where(metadata => metadata.Name is "pragma" or "vm"))
-      foreach (var value in metadata.Values.OfType<StringExpressionAst>())
+      foreach (var value in metadata.Values.OfType<StringExpressionIr>())
         configuration[metadata.Name + ":" + value.Value] = "";
-    foreach (var declaration in unit.Declarations.OfType<MixinDeclarationAst>()) {
+    foreach (var declaration in unit.Declarations.OfType<MixinDeclarationIr>()) {
       if (declaration.IsDerivation) { derivations.Add(declaration); continue; }
       var targets = new Dictionary<string, string>(StringComparer.Ordinal);
-      foreach (var call in declaration.Declarations.OfType<ExpressionDeclarationAst>()
+      foreach (var call in declaration.Declarations.OfType<ExpressionDeclarationIr>()
         .Where(expression => expression.IsPrelude).SelectMany(expression => expression.Body.Statements)
-        .OfType<InvocationStatementAst>().Select(statement => statement.Call)) {
-        if (call.Arguments.Count != 2 || call.Arguments[0] is not StringExpressionAst first ||
-            call.Arguments[1] is not StringExpressionAst second) continue;
+        .OfType<InvocationStatementIr>().Select(statement => statement.Call)) {
+        if (call.Arguments.Count != 2 || call.Arguments[0] is not StringExpressionIr first ||
+            call.Arguments[1] is not StringExpressionIr second) continue;
         if (call.Name == "defineTarget") targets["$" + first.Value.TrimStart('$')] = second.Value;
       }
       annotations[declaration.Name] = new MixinAnnotationDefinition(declaration.Name, declaration, source, targets);
@@ -150,12 +150,12 @@ internal static class MixinLibraryApi {
 
 internal sealed record MixinLibraryFile(
   string Key, string Path, string Content, bool Success, string Error, int ErrorLine,
-  CompilationUnitAst Program, IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations,
-  IReadOnlyList<MixinDeclarationAst> Derivations, IReadOnlyDictionary<string, string> Configuration
+  CompilationUnitIr Program, IReadOnlyDictionary<string, MixinAnnotationDefinition> Annotations,
+  IReadOnlyList<MixinDeclarationIr> Derivations, IReadOnlyDictionary<string, string> Configuration
 );
 
 internal sealed record MixinAnnotationDefinition(
-  string Name, MixinDeclarationAst Declaration, string Source, IReadOnlyDictionary<string, string> TargetDefinitions
+  string Name, MixinDeclarationIr Declaration, string Source, IReadOnlyDictionary<string, string> TargetDefinitions
 );
 
 internal sealed class MixinLibraryCatalog {
@@ -185,7 +185,7 @@ internal sealed class MixinLibraryCatalog {
   internal IEnumerable<MixinAnnotationDefinition> Annotations => _annotations.Values;
   internal IEnumerable<MixinAnnotationDefinition> AnnotationDefinitions =>
     _orderedFiles.Where(file => file.Success).SelectMany(file => file.Annotations.Values);
-  internal IEnumerable<MixinDeclarationAst> Derivations =>
+  internal IEnumerable<MixinDeclarationIr> Derivations =>
     _orderedFiles.Where(file => file.Success).SelectMany(file => file.Derivations ?? []);
 
   internal string ProjectPath {
@@ -236,7 +236,7 @@ internal sealed record CompiledHixAnnotation(
 internal sealed record MixinCompilation(
   MixinLibraryCatalog Catalog,
   HixStringPool StringPool,
-  HixExpressionPreparedState PreparedState,
+  HixCompilerCatalog PreparedState,
   IReadOnlyDictionary<string, CompiledHixAnnotation> Annotations,
   ImmutableArray<Diagnostic> Diagnostics
 ) {

@@ -6,34 +6,34 @@ namespace Hix.Compiler;
 
 /// <summary>Conservative flow analysis: locals and parameters are typed; shared variables remain any.</summary>
 public static class PatternTypeAnalysis {
-  public static void Validate(IReadOnlyList<HixAst> declarations, IReadOnlyDictionary<string, HixPattern> patterns,
+  public static void Validate(IReadOnlyList<HixIrNode> declarations, IReadOnlyDictionary<string, HixPattern> patterns,
     ICollection<HixParseDiagnostic> diagnostics, HixBackend backend = null) {
     backend ??= HixCoreBackend.Instance;
-    var functions = declarations.OfType<FunctionDeclarationAst>().GroupBy(value => value.Name, StringComparer.Ordinal)
+    var functions = declarations.OfType<FunctionDeclarationIr>().GroupBy(value => value.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
-    foreach (var function in declarations.OfType<FunctionDeclarationAst>()) {
+    foreach (var function in declarations.OfType<FunctionDeclarationIr>()) {
       var parameters = ParameterPatterns(function);
       var expected = function.Signatures.Count == 1 && function.Signatures[0].IsPatternSyntax
         ? ReturnPattern(function.Signatures[0]) : HixPattern.Any;
       AnalyzeBlock(function.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), parameters, expected,
         functions, patterns, diagnostics, backend);
     }
-    foreach (var mixin in declarations.OfType<MixinDeclarationAst>()) {
-      var nested = mixin.Declarations.OfType<FunctionDeclarationAst>().Concat(declarations.OfType<FunctionDeclarationAst>())
+    foreach (var mixin in declarations.OfType<MixinDeclarationIr>()) {
+      var nested = mixin.Declarations.OfType<FunctionDeclarationIr>().Concat(declarations.OfType<FunctionDeclarationIr>())
         .GroupBy(value => value.Name, StringComparer.Ordinal)
         .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
-      foreach (var function in mixin.Declarations.OfType<FunctionDeclarationAst>())
+      foreach (var function in mixin.Declarations.OfType<FunctionDeclarationIr>())
         AnalyzeBlock(function.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), ParameterPatterns(function),
           function.Signatures.Count == 1 && function.Signatures[0].IsPatternSyntax
             ? ReturnPattern(function.Signatures[0]) : HixPattern.Any,
           nested, patterns, diagnostics, backend);
-      foreach (var expression in mixin.Declarations.OfType<ExpressionDeclarationAst>())
+      foreach (var expression in mixin.Declarations.OfType<ExpressionDeclarationIr>())
         AnalyzeBlock(expression.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), [], HixPattern.Any,
           nested, patterns, diagnostics, backend);
     }
   }
 
-  private static IReadOnlyList<HixPatternField> ParameterPatterns(FunctionDeclarationAst function) {
+  private static IReadOnlyList<HixPatternField> ParameterPatterns(FunctionDeclarationIr function) {
     if (function.Signatures.Count == 0) return [];
     var maximum = function.Signatures.Where(value => value.Inputs != null).Select(value => value.Inputs.Count).DefaultIfEmpty().Max();
     var result = new List<HixPatternField>();
@@ -46,19 +46,19 @@ public static class PatternTypeAnalysis {
     return result;
   }
 
-  private static void AnalyzeBlock(BlockStatementAst block, IDictionary<string, HixPattern> locals,
+  private static void AnalyzeBlock(BlockStatementIr block, IDictionary<string, HixPattern> locals,
     IReadOnlyList<HixPatternField> parameters, HixPattern expectedReturn,
-    IReadOnlyDictionary<string, FunctionDeclarationAst[]> functions, IReadOnlyDictionary<string, HixPattern> patterns,
+    IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions, IReadOnlyDictionary<string, HixPattern> patterns,
     ICollection<HixParseDiagnostic> diagnostics, HixBackend backend) {
     foreach (var statement in block.Statements) {
       switch (statement) {
-        case AssignmentStatementAst assignment:
+        case AssignmentStatementIr assignment:
           var assigned = Infer(assignment.Value, locals, parameters, functions, patterns, diagnostics, backend);
           if (assignment.Storage == StorageSpace.Local) locals[assignment.Name] = assigned;
           break;
-        case InvocationStatementAst invocation:
+        case InvocationStatementIr invocation:
           Infer(invocation.Call, locals, parameters, functions, patterns, diagnostics, backend); break;
-        case ControlFlowStatementAst {Operation: ControlFlowKind.Return} returned:
+        case ControlFlowStatementIr {Operation: ControlFlowKind.Return} returned:
           var actual = returned.Values.Count switch {
             0 => new KindHixPattern(HixValueKind.Null),
             1 => Infer(returned.Values[0], locals, parameters, functions, patterns, diagnostics, backend),
@@ -68,43 +68,43 @@ public static class PatternTypeAnalysis {
           if (expectedReturn is not AnyHixPattern && HixPatternRelations.Relate(actual, expectedReturn, patterns) == HixPatternRelation.Never)
             diagnostics.Add(new(statement.Line, "return pattern '" + actual.Display + "' does not match '" + expectedReturn.Display + "'"));
           break;
-        case BlockStatementAst nested:
+        case BlockStatementIr nested:
           AnalyzeBlock(nested, new Dictionary<string, HixPattern>(locals, StringComparer.Ordinal), parameters,
             expectedReturn, functions, patterns, diagnostics, backend); break;
         default:
-          foreach (var expression in statement.SemanticChildren.OfType<ExpressionAst>())
+          foreach (var expression in statement.SemanticChildren.OfType<ExpressionIr>())
             Infer(expression, locals, parameters, functions, patterns, diagnostics, backend);
           break;
       }
     }
   }
 
-  private static HixPattern Infer(ExpressionAst expression, IDictionary<string, HixPattern> locals,
-    IReadOnlyList<HixPatternField> parameters, IReadOnlyDictionary<string, FunctionDeclarationAst[]> functions,
+  private static HixPattern Infer(ExpressionIr expression, IDictionary<string, HixPattern> locals,
+    IReadOnlyList<HixPatternField> parameters, IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions,
     IReadOnlyDictionary<string, HixPattern> patterns, ICollection<HixParseDiagnostic> diagnostics, HixBackend backend) {
     switch (expression) {
-      case StringExpressionAst: return new KindHixPattern(HixValueKind.String);
-      case NumberExpressionAst: return new KindHixPattern(HixValueKind.Number);
-      case BooleanExpressionAst: return new KindHixPattern(HixValueKind.Bool);
-      case NullExpressionAst: return new KindHixPattern(HixValueKind.Null);
-      case TupleExpressionAst tuple: return new TupleHixPattern(tuple.Values.Select((value, index) =>
+      case StringExpressionIr: return new KindHixPattern(HixValueKind.String);
+      case NumberExpressionIr: return new KindHixPattern(HixValueKind.Number);
+      case BooleanExpressionIr: return new KindHixPattern(HixValueKind.Bool);
+      case NullExpressionIr: return new KindHixPattern(HixValueKind.Null);
+      case TupleExpressionIr tuple: return new TupleHixPattern(tuple.Values.Select((value, index) =>
         new HixPatternField(index.ToString(), Infer(value, locals, parameters, functions, patterns, diagnostics, backend))).ToArray());
-      case TableExpressionAst table: return new TableHixPattern(table.Entries.Select(entry =>
+      case TableExpressionIr table: return new TableHixPattern(table.Entries.Select(entry =>
         new HixPatternField(entry.Key, Infer(entry.Value, locals, parameters, functions, patterns, diagnostics, backend))).ToArray());
-      case MemberExpressionAst {Receiver: RootExpressionAst {Name: "local"}} member:
+      case MemberExpressionIr {Receiver: RootExpressionIr {Name: "local"}} member:
         return locals.TryGetValue(member.Member, out var local) ? local : HixPattern.Any;
-      case MemberExpressionAst {Receiver: RootExpressionAst {Name: "param"}} member:
+      case MemberExpressionIr {Receiver: RootExpressionIr {Name: "param"}} member:
         return parameters.FirstOrDefault(value => value.Name == member.Member)?.Pattern ?? HixPattern.Any;
-      case MemberExpressionAst member:
+      case MemberExpressionIr member:
         var receiver = Infer(member.Receiver, locals, parameters, functions, patterns, diagnostics, backend);
         return Member(receiver, member.Member, patterns);
-      case RootExpressionAst {IsSmart: true, Name: var name} when int.TryParse(name, out var index) && index < parameters.Count:
+      case RootExpressionIr {IsSmart: true, Name: var name} when int.TryParse(name, out var index) && index < parameters.Count:
         return parameters[index].Pattern;
-      case RootExpressionAst: return HixPattern.Any; // var, tar and host roots deliberately remain dynamic.
-      case FallbackExpressionAst fallback:
+      case RootExpressionIr: return HixPattern.Any; // var, tar and host roots deliberately remain dynamic.
+      case FallbackExpressionIr fallback:
         return Union([Infer(fallback.Value, locals, parameters, functions, patterns, diagnostics, backend),
           Infer(fallback.Fallback, locals, parameters, functions, patterns, diagnostics, backend)]);
-      case SelectionExpressionAst selection:
+      case SelectionExpressionIr selection:
         if (selection.Selector != null)
           Infer(selection.Selector, locals, parameters, functions, patterns, diagnostics, backend);
         var results = new List<HixPattern>();
@@ -119,7 +119,7 @@ public static class PatternTypeAnalysis {
             new Dictionary<string, HixPattern>(locals, StringComparer.Ordinal), parameters,
             functions, patterns, diagnostics, backend));
         return Union(results);
-      case CallExpressionAst call:
+      case CallExpressionIr call:
         var supplied = call.Arguments.Select(value => Infer(value, locals, parameters, functions, patterns, diagnostics, backend)).ToArray();
         if (patterns.TryGetValue(call.Name, out var checkedPattern)) {
           if (supplied.Length != 1) diagnostics.Add(new(call.Line, "pattern '" + call.Name + "' expects one value"));
@@ -160,16 +160,16 @@ public static class PatternTypeAnalysis {
     }
   }
 
-  private static HixPattern InferResult(HixAst node, IDictionary<string, HixPattern> locals,
-    IReadOnlyList<HixPatternField> parameters, IReadOnlyDictionary<string, FunctionDeclarationAst[]> functions,
+  private static HixPattern InferResult(HixIrNode node, IDictionary<string, HixPattern> locals,
+    IReadOnlyList<HixPatternField> parameters, IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions,
     IReadOnlyDictionary<string, HixPattern> patterns, ICollection<HixParseDiagnostic> diagnostics,
     HixBackend backend) {
     switch (node) {
-      case ExpressionAst expression:
+      case ExpressionIr expression:
         return Infer(expression, locals, parameters, functions, patterns, diagnostics, backend);
-      case InvocationStatementAst invocation:
+      case InvocationStatementIr invocation:
         return Infer(invocation.Call, locals, parameters, functions, patterns, diagnostics, backend);
-      case BlockStatementAst block:
+      case BlockStatementIr block:
         AnalyzeBlock(block, locals, parameters, HixPattern.Any, functions, patterns, diagnostics, backend);
         return HixPattern.Any;
       default:

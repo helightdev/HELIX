@@ -112,7 +112,7 @@ public partial class HixParser : Parser {
 	private static readonly string[] _LiteralNames = {
 		null, null, null, null, null, null, null, null, null, null, null, null,
 		null, null, null, null, null, null, null, null, null, null, null, null,
-		"'@@'", "'\\'", null, null, null, null, "'---'", "'{'", null, null, null,
+		"'@@'", null, null, null, null, null, "'---'", "'{'", null, null, null,
 		"'func'", null, "'type'", "'do'", "'expression'", "'mixin'", "'prelude'",
 		"'derivation'", "'else'", "'return'", "'goto'", "'break'", "'continue'",
 		"'target'", "'var'", "'local'", "'carry'", "'sig'", "'when'", "'pure'",

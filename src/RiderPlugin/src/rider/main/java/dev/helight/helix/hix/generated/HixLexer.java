@@ -94,7 +94,7 @@ public class HixLexer extends Lexer {
 		return new String[] {
 			null, null, null, null, null, null, null, null, null, null, null, null,
 			null, null, null, null, null, null, null, null, null, null, null, null,
-			"'@@'", "'\\'", null, null, null, null, "'---'", "'{'", null, null, null,
+			"'@@'", null, null, null, null, null, "'---'", "'{'", null, null, null,
 			"'func'", null, "'type'", "'do'", "'expression'", "'mixin'", "'prelude'",
 			"'derivation'", "'else'", "'return'", "'goto'", "'break'", "'continue'",
 			"'target'", "'var'", "'local'", "'carry'", "'sig'", "'when'", "'pure'",
@@ -791,7 +791,7 @@ public class HixLexer extends Lexer {
 		"\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u0121\u012a\u0145\u0155\u021e"+
 		"\u0229\u023d\u023f\u02b9\u02c9\u02f9\u0340\u034f\u038f\u0394\u0397\u039e"+
 		"\u03a4\u03aa\u03ad\u03b2\u03b8\u03ba\u03c5\u03cc\u03d1\u03d7\u03de\u03e4"+
-		"\u03eb%\u0005\u0005\u0000\u0006\u0000\u0000\u0005\u0000\u0000\u0004\u0000"+
+		"\u03eb%\u0005\u0005\u0000\u0000\u0001\u0000\u0005\u0000\u0000\u0004\u0000"+
 		"\u0000\u0007\u0010\u0000\u0005\u0004\u0000\u0007\u0011\u0000\u0005\n\u0000"+
 		"\u0007\u0016\u0000\u0007\u0017\u0000\u0007\n\u0000\u0007\u000b\u0000\u0007"+
 		"\u0015\u0000\u0007\u0014\u0000\u0005\u0003\u0000\u0007\u0007\u0000\u0007"+

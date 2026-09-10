@@ -48,15 +48,15 @@ public sealed class BackendExtensionTests {
     }
   }
 
-  private sealed class ReplaceSevenStep : HixCompilerStep {
-    public override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
+  private sealed class ReplaceSevenStep : HixLoweringStep {
+    public override HixModuleIr Lower(HixModuleIr input, HixCompilerCatalog globals) {
       var rewriter = new ReplaceSeven();
       return input with {Functions = input.Functions.Select(rewriter.Rewrite).ToArray()};
     }
   }
 
-  private sealed class ReplaceSeven : HixAstRewriter {
-    protected override HixAst RewriteNode(HixAst node) => node is NumberExpressionAst {Value: 7}
-      ? CopyLocation(node, new NumberExpressionAst(8)) : base.RewriteNode(node);
+  private sealed class ReplaceSeven : HixIrRewriter {
+    protected override HixIrNode RewriteNode(HixIrNode node) => node is NumberExpressionIr {Value: 7}
+      ? CopyLocation(node, new NumberExpressionIr(8)) : base.RewriteNode(node);
   }
 }

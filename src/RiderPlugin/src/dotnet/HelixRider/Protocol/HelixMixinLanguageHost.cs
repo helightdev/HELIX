@@ -13,6 +13,7 @@ using JetBrains.ReSharper.Feature.Services.Protocol;
 using JetBrains.ReSharper.Resources.Shell;
 using Hix;
 using Hix.Compiler;
+using Hix.Mixins;
 using WireRange = HelixRider.Protocol.MixinSourceRange;
 using CoreRange = Hix.Compiler.HixSourceRange;
 
@@ -63,7 +64,7 @@ public sealed class HelixMixinLanguageHost {
                 !ResolvedPatternDiagnostic(diagnostic.Message, siblingPatterns)).Select(diagnostic => {
                 var token = file.Analysis.Program.Tokens.FirstOrDefault(item => item.Line >= diagnostic.Line);
                 return new MixinDiagnostic(diagnostic.Message, "Error",
-                    token == null ? Range(source.Length, source.Length) : Range(token.SourceRange));
+                    token == null ? Range(source.Length, source.Length) : Range(HixSourceRange.FromToken(token)));
             }).ToArray();
             var typeSites = file.Analysis.References.Where(reference => reference.Kind == "CSharpType")
                 .Select(reference => new MixinCompletionSite("CSharpType", Range(reference.Range), Range(reference.Range),
@@ -146,13 +147,15 @@ public sealed class HelixMixinLanguageHost {
     }
 
     private static MixinLanguageDefinition[] Definitions() {
-        var functions = Hix.HixMixinBackend.Instance.Functions.Enumerate().Select(definition => new MixinLanguageDefinition(
-            definition.Name, "Function", definition.ArgumentCount,
-            definition.IsVariadic, "None", definition.ReceiverType.ToString(), definition.ResultType.ToString(),
-            definition.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation));
+        var functions = Hix.HixMixinBackend.Instance.Functions.Enumerate().SelectMany(definition =>
+            definition.Signatures.Select(signature => new MixinLanguageDefinition(
+                definition.Name, "Function", signature.ArgumentCount, signature.IsVariadic, "None",
+                (signature.ArgumentTypes.Count == 0 ? HixValueKind.Any : signature.ArgumentTypes[0]).ToString(),
+                signature.ResultType.ToString(), signature.ArgumentTypes.Select(type => type.ToString()).ToArray(),
+                definition.Documentation)));
         var roots = HixRootLibrary.Enumerate().Select(definition => new MixinLanguageDefinition(
             definition.Name, "Root", 0, false, "None", "None", definition.Kind.ToString(), Array.Empty<string>(), definition.Documentation));
-        var targets = Enum.GetNames(typeof(HixEmissionTarget)).Select(name => new MixinLanguageDefinition(
+        var targets = Enum.GetNames(typeof(MixinEmissionTarget)).Select(name => new MixinLanguageDefinition(
             name, "OutputTarget", 0, false, "None", "None", "None", Array.Empty<string>(), "Generated output destination"));
         var hostRoots = Hix.HixMixinBackend.Instance.Roots.Values.Select(root => new MixinLanguageDefinition(
             root.Name, "Root", 0, false, "None", "None", root.Kind.ToString(), Array.Empty<string>(), "Backend root"));

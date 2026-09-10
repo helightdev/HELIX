@@ -8,8 +8,8 @@ tokens {
 }
 
 ESCAPED_AT: '@@';
-ESCAPED_START: '\\' -> pushMode(ESCAPE_MODE), skip;
-OUTER_WHITESPACE: Whitespace -> skip;
+ESCAPED_START: '\\' -> pushMode(ESCAPE_MODE), channel(HIDDEN);
+OUTER_WHITESPACE: Whitespace -> channel(HIDDEN);
 NEWLINE: Newline;
 COMMENT: '@#' ~[\r\n]*;
 SLASH_COMMENT: '//' ~[\r\n]*;
@@ -74,7 +74,7 @@ mode METADATA_MODE;
 METADATA_IDENTIFIER: Identifier -> type(IDENTIFIER);
 METADATA_BEGIN_ARGUMENT: '<' -> pushMode(ARGUMENT_MODE), type(BEGIN_ARGUMENT);
 METADATA_BEGIN_PARAMETERS: '(' -> pushMode(VALUE_MODE), type(BEGIN_PARAMETERS);
-METADATA_WHITESPACE: Whitespace -> popMode, skip;
+METADATA_WHITESPACE: Whitespace -> popMode, channel(HIDDEN);
 METADATA_NEWLINE: Newline -> popMode, type(NEWLINE);
 INVALID_METADATA: . -> popMode, type(ERROR_TOKEN);
 
@@ -133,7 +133,7 @@ VALUE_BEGIN_INLINE: '[' -> pushMode(VALUE_MODE), type(BEGIN_VALUE_INLINE);
 VALUE_METADATA_VALUE: '%[' -> pushMode(VALUE_MODE), type(BEGIN_METADATA_VALUE);
 VALUE_METADATA: '%' -> pushMode(METADATA_MODE), type(METADATA_PREFIX);
 
-VALUE_WHITESPACE: (Whitespace | Newline) -> skip;
+VALUE_WHITESPACE: (Whitespace | Newline) -> channel(HIDDEN);
 INVALID_VALUE: . -> popMode, type(ERROR_TOKEN);
 
 mode ESCAPE_MODE;

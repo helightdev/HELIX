@@ -611,7 +611,7 @@ public sealed class HixBytecodeTests {
     var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
     void Visit(object value) {
       if (value == null || value is string || !seen.Add(value)) return;
-      Assert.False(value is HixAst, "Executable retains " + value.GetType().Name);
+      Assert.False(value is HixIrNode, "Executable retains " + value.GetType().Name);
       if (value is IEnumerable sequence) foreach (var item in sequence) Visit(item);
       var type = value.GetType();
       if (type.Assembly != typeof(HixCompiler).Assembly && !type.IsGenericType) return;
@@ -619,7 +619,7 @@ public sealed class HixBytecodeTests {
     }
     Visit(program);
     Assert.All(typeof(HixVM).GetMethods(BindingFlags.Public | BindingFlags.Static), method =>
-      Assert.DoesNotContain(method.GetParameters(), parameter => parameter.ParameterType == typeof(string) || typeof(HixAst).IsAssignableFrom(parameter.ParameterType)));
+      Assert.DoesNotContain(method.GetParameters(), parameter => parameter.ParameterType == typeof(string) || typeof(HixIrNode).IsAssignableFrom(parameter.ParameterType)));
   }
 
   [Fact]

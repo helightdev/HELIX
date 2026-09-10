@@ -4,6 +4,7 @@ using Hix.Runtime;
 namespace Hix.Functions;
 
 public sealed class WireFunction() : RoslynFunctionDefinition("wire", 1, resultType: HixValueKind.String) {
+  public override string Documentation => "Renders a semantic value for wiring into generated source. Methods cannot be wired directly.";
   protected override IHixValue Apply(
     HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
@@ -16,6 +17,7 @@ public sealed class WireFunction() : RoslynFunctionDefinition("wire", 1, resultT
 }
 
 public sealed class SignatureFunction() : RoslynFunctionDefinition("signature", 1, resultType: HixValueKind.Bool) {
+  public override string Documentation => "Renders the backend signature of a semantic value.";
   protected override IHixValue Apply(
     HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
@@ -28,6 +30,7 @@ public sealed class SignatureFunction() : RoslynFunctionDefinition("signature", 
 }
 
 public sealed class WireableFunction() : RoslynFunctionDefinition("wireable", 1, resultType: HixValueKind.Bool) {
+  public override string Documentation => "Tests whether a semantic value can be wired into generated code.";
   protected override IHixValue Apply(
     HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments
@@ -42,6 +45,7 @@ public sealed class WireableFunction() : RoslynFunctionDefinition("wireable", 1,
 public sealed class CollectAnnotatedTypesFunction() : FunctionDefinition("collectAnnotatedTypes", [
   new(HixValueKind.Tuple, [HixValueKind.String])
 ]) {
+  public override string Documentation => "Returns types in the current compilation carrying the named attribute, including nested types. Results are deduplicated and sorted.";
   public override bool HasEffects => true;
   public override bool RequiresPrelude => true;
   public override IReadOnlyDictionary<int, string> ArgumentReferences => new Dictionary<int, string> { {0, "CSharpType"} };
@@ -52,6 +56,7 @@ public sealed class CollectAnnotatedTypesFunction() : FunctionDefinition("collec
 
 public sealed class NamespaceFunction() : RoslynFunctionDefinition("namespace", 0,
   HixValueKind.Symbol, HixValueKind.String) {
+  public override string Documentation => "Returns the namespace of a type symbol.";
   protected override IHixValue Apply(HixThread context, IHixValue value, IReadOnlyList<IHixValue> arguments) =>
     value is RoslynHixValue symbol && HixRoslynContext.TypeOf(symbol.Value) is { } type
       ? new LiteralHixValue(context.ResolveString(type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString()))

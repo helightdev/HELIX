@@ -28,7 +28,7 @@ public partial class HixRoslynContext : HixContext {
   public HixRoslynContext(
     INamedTypeSymbol thisType, ISymbol target, AttributeData attribute,
     CSharpCompilation compilation,
-    HixExpressionPreparedState preparedExpressions = null,
+    HixCompilerCatalog preparedExpressions = null,
     RoslynHostExpressionCache hostValues = null, HixBackend backend = null
   )
     : base(backend, preparedExpressions?.StringPool ?? new HixStringPoolBuilder().Freeze()) {

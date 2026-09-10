@@ -1,4 +1,5 @@
 using Hix.Mixins;
+using Hix.Compiler;
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -29,7 +30,7 @@ public class HixMixinBackend : HixRoslynBackend {
           ? new MixinOutput(output, text, strings: thread.Strings)
           : new MixinOutput(MixinEmissionTarget.Mixin, text, HixString.Dynamic(ResolveInjectionTarget(thread, target)), strings: thread.Strings));
         return NullHixValue.Instance;
-      }, effects: true));
+      }, effects: true, documentation: "Renders and emits generated source text, optionally to a named generator destination."));
   }
 
   private static MixinOutputBuffer Emissions(HixThread thread) => ((IMixinOutputContext)thread.Context).Emissions;
@@ -41,8 +42,8 @@ public class HixMixinBackend : HixRoslynBackend {
         "using", [new FunctionSignature(K.Null, [K.String])], (e, a) => {
           Emissions(e).Add(new MixinOutput(MixinEmissionTarget.Using, e.Text(a[0]), strings: e.Strings));
           return NullHixValue.Instance;
-        }, effects: true
-      ),
+        }, effects: true,
+        documentation: "Adds a namespace import to the generated source."),
       new SimpleFunction(
         "inject",
         [new FunctionSignature(K.Null, [K.String, K.Any]), new FunctionSignature(K.Null, [K.String, K.Number, K.Any])],
@@ -57,22 +58,22 @@ public class HixMixinBackend : HixRoslynBackend {
             )
           );
           return NullHixValue.Instance;
-        }, effects: true
-      ),
+        }, effects: true,
+        documentation: "Emits generated text into a named injection target, with an optional priority."),
       new SimpleFunction(
         "resolveMixin", [new FunctionSignature(K.Any, [K.String, K.Any])],
         (e, a) =>
           e.IsPrelude
             ? ResolveMixin(e, a[0].Render(e), a[1])
-            : e.Error("resolveMixin requires the prelude pass"), effects: true, requiresPrelude: true
-      ),
+            : e.Error("resolveMixin requires the prelude pass"), effects: true, requiresPrelude: true,
+        documentation: "Resolves a named mixin for the supplied operand during the prelude."),
       new SimpleFunction(
         "defineTarget", [new FunctionSignature(K.Null, [K.String, K.String])],
         (e, a) =>
           e.IsPrelude
             ? DefineTarget(e, e.ResolveText(a[0]), e.ResolveText(a[1]))
-            : e.Error("defineTarget requires the prelude pass"), effects: true, requiresPrelude: true
-      )
+            : e.Error("defineTarget requires the prelude pass"), effects: true, requiresPrelude: true,
+        documentation: "Defines a named injection-target alias during the prelude.")
     );
   }
   public IHixValue DefineTarget(HixThread thread, string name, string descriptor) => thread.Context is HixMixinContext mixin ? mixin.DefineTargetService(thread, name, descriptor) : thread.Error("target aliases require a mixin context");
@@ -81,7 +82,7 @@ public class HixMixinBackend : HixRoslynBackend {
   public static HixMixinBackend Instance { get; } = new();
   internal HixMixinContext CreateContext(INamedTypeSymbol currentType, ISymbol target, AttributeData attribute,
     CSharpCompilation compilation, IReadOnlyDictionary<string,string> targetDefinitions,
-    HixExpressionPreparedState prepared, RoslynHostExpressionCache cache) => new(this, currentType, target, attribute, compilation, targetDefinitions, prepared, cache);
+    HixCompilerCatalog prepared, RoslynHostExpressionCache cache) => new(this, currentType, target, attribute, compilation, targetDefinitions, prepared, cache);
 }
 internal sealed class HixMixinContext : HixRoslynContext, IMixinOutputContext {
   public MixinOutputBuffer Emissions { get; } = new();
@@ -90,7 +91,7 @@ internal sealed class HixMixinContext : HixRoslynContext, IMixinOutputContext {
   public override void RollbackEffects(int checkpoint) => Emissions.Rollback(checkpoint);
   private readonly Dictionary<string,string> _targetDefinitions;
   internal HixMixinContext(HixBackend backend, INamedTypeSymbol currentType, ISymbol target, AttributeData attribute,
-    CSharpCompilation compilation, IReadOnlyDictionary<string,string> targets, HixExpressionPreparedState prepared,
+    CSharpCompilation compilation, IReadOnlyDictionary<string,string> targets, HixCompilerCatalog prepared,
     RoslynHostExpressionCache cache) : base(currentType, target, attribute, compilation, preparedExpressions: prepared, hostValues: cache, backend: backend) {
     _targetDefinitions = targets == null ? new(StringComparer.Ordinal) : targets.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
   }

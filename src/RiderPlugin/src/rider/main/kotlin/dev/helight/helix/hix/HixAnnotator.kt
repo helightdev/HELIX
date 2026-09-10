@@ -43,7 +43,7 @@ class HixAnnotator : Annotator {
             val start = fact.range.startOffset.coerceIn(0, element.textLength)
             val end = fact.range.endOffset.coerceIn(start, element.textLength)
             val attributes = EditorColorsManager.getInstance().globalScheme
-                .getAttributes(HixColors.FUNCTION_IDENTIFIER).clone().apply { fontType = Font.ITALIC }
+                .getAttributes(HixColors.DIRECTIVE).clone().apply { fontType = Font.ITALIC }
             holder.newSilentAnnotation(HighlightSeverity.INFORMATION).range(TextRange(start, end))
                 .enforcedTextAttributes(attributes).create()
         }

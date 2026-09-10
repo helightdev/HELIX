@@ -255,3 +255,31 @@ public class HixTableValue : IHixValue {
   }
 
 }
+
+public sealed record LiteralHixValue(HixString Value) : IHixValue {
+   public HixValueKind Kind => HixValueKind.String;
+  public bool IsTruthy(HixThread context) {
+    return !string.IsNullOrEmpty(Value.Resolve(context.Strings));
+  }
+
+  public HixString Render(HixThread context) {
+    return Value;
+  }
+
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) {
+    builder.Append(nameof(LiteralHixValue));
+    builder.Append(Value, context.Strings);
+  }
+
+  public IHixValue Select(HixThread context, HixString member) {
+    return NullHixValue.Instance;
+  }
+
+  public object Unlink(HixThread context) {
+    return Value.Resolve(context.Strings);
+  }
+
+  public bool Equals(IHixValue other) {
+    return other is LiteralHixValue value && Equals(value);
+  }
+}

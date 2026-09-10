@@ -4,11 +4,11 @@ using System.Linq;
 
 namespace Hix.Compiler.Steps;
 
-public sealed class SignatureParameterBindingStep : HixCompilerStep {
-  public override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) =>
+public sealed class SignatureParameterBindingStep : HixLoweringStep {
+  public override HixModuleIr Lower(HixModuleIr input, HixCompilerCatalog globals) =>
     new(input.Prelude, input.Late, input.Functions.Select(Rewrite).ToArray());
 
-  public static FunctionDeclarationAst Rewrite(FunctionDeclarationAst function) {
+  public static FunctionDeclarationIr Rewrite(FunctionDeclarationIr function) {
     var positions = new Dictionary<string, int>(StringComparer.Ordinal);
     var ambiguous = new HashSet<string>(StringComparer.Ordinal);
     foreach (var signature in function.Signatures.Where(signature => signature.Inputs != null)) {
@@ -20,35 +20,34 @@ public sealed class SignatureParameterBindingStep : HixCompilerStep {
       }
     }
     foreach (var name in ambiguous) positions.Remove(name);
-    var locals = new HashSet<string>(Descendants(function.Body).OfType<AssignmentStatementAst>()
+    var locals = new HashSet<string>(Descendants(function.Body).OfType<AssignmentStatementIr>()
       .Where(assignment => assignment.Storage == StorageSpace.Local)
       .Select(assignment => assignment.Name), StringComparer.Ordinal);
     foreach (var local in locals) positions.Remove(local);
     if (positions.Count == 0) return function;
     var body = new ParameterRewriter(positions).Rewrite(function.Body);
-    return Copy(function, new FunctionDeclarationAst(function.Name, function.IsPure, function.IsInline,
-      function.IsNoinline, function.Signatures, body, function.Metadata));
+    return Copy(function, new FunctionDeclarationIr(function.Name, function.IsPure, function.IsInline,
+      function.IsNoinline, function.Signatures, body, function.Metadata.Select(item => new HixIrRewriter().Rewrite(item)).ToArray()));
   }
 
-  private static IEnumerable<HixAst> Descendants(HixAst node) {
+  private static IEnumerable<HixIrNode> Descendants(HixIrNode node) {
     yield return node;
     foreach (var child in node.SemanticChildren)
       foreach (var descendant in Descendants(child)) yield return descendant;
   }
 
-  private static T Copy<T>(HixAst source, T target) where T : HixAst {
+  private static T Copy<T>(HixIrNode source, T target) where T : HixIrNode {
     target.SourceRange = source.SourceRange;
     target.Tokens = source.Tokens;
-    target.Kind = source.Kind;
     return target;
   }
 
-  private sealed class ParameterRewriter(IReadOnlyDictionary<string, int> positions) : HixAstRewriter {
-    protected override HixAst RewriteNode(HixAst node) => node is LambdaExpressionAst ? node : base.RewriteNode(node);
+  private sealed class ParameterRewriter(IReadOnlyDictionary<string, int> positions) : HixIrRewriter {
+    protected override HixIrNode RewriteNode(HixIrNode node) => node is LambdaExpressionIr ? node : base.RewriteNode(node);
 
-    protected override ExpressionAst RewriteRoot(RootExpressionAst root) =>
+    protected override ExpressionIr RewriteRoot(RootExpressionIr root) =>
       root.IsSmart && positions.TryGetValue(root.Name, out var position)
-        ? CopyLocation(root, new RootExpressionAst(position.ToString(), true))
+        ? CopyLocation(root, new RootExpressionIr(position.ToString(), true))
         : base.RewriteRoot(root);
   }
 }

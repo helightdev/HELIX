@@ -89,8 +89,8 @@ public sealed class SimpleFunction(
   InlineFunction implementation,
   bool effects = false,
   bool acceptsErrors = false,
-  bool requiresPrelude = false
-) : FunctionDefinition(name, signatures) {
+  bool requiresPrelude = false, string documentation = null
+) : FunctionDefinition(name, signatures, documentation) {
   public override bool HasEffects => effects;
   public override bool RequiresPrelude => requiresPrelude;
   public override bool AcceptsErrors => acceptsErrors;
@@ -114,19 +114,19 @@ public abstract class FunctionDefinition {
     ArgumentTypes = argumentTypes ?? [
       .. Enumerable.Repeat(HixValueKind.Any, argumentCount + (variadic ? 1 : 0))
     ];
-    Documentation = documentation ?? "Transforms the current value.";
+    Documentation = documentation ?? "";
     if (ArgumentTypes.Count != argumentCount + (variadic ? 1 : 0))
       throw new ArgumentException("Function argument signature does not match its arity.", nameof(argumentTypes));
     Signatures = [new FunctionSignature(resultType, ArgumentTypes, variadic)];
   }
 
-  protected FunctionDefinition(string name, IReadOnlyList<FunctionSignature> signatures) {
+  protected FunctionDefinition(string name, IReadOnlyList<FunctionSignature> signatures, string documentation = null) {
     if (signatures is null || signatures.Count == 0) throw new ArgumentException("A function requires at least one signature.", nameof(signatures));
     Name = name; Signatures = signatures;
     var primary = signatures[0]; ArgumentCount = primary.ArgumentCount; IsVariadic = primary.IsVariadic;
     ResultType = primary.ResultType; ArgumentTypes = primary.ArgumentTypes;
     ReceiverType = ArgumentTypes.Count == 0 ? HixValueKind.Any : ArgumentTypes[0];
-    Documentation = "Transforms the current value.";
+    Documentation = documentation ?? "";
   }
 
   public string Name { get; }
@@ -135,7 +135,7 @@ public abstract class FunctionDefinition {
   public HixValueKind ReceiverType { get; private set; }
   public HixValueKind ResultType { get; private set; }
   public IReadOnlyList<HixValueKind> ArgumentTypes { get; private set; }
-  public string Documentation { get; private set; }
+  public virtual string Documentation { get; }
   public IReadOnlyList<FunctionSignature> Signatures { get; }
 
   public bool MatchesArgumentCount(int count) => Signatures.Any(signature => signature.MatchesArgumentCount(count));
@@ -210,7 +210,7 @@ public abstract class EvaluatedFunctionDefinition(
 ) : FunctionDefinition(
   name, argumentCount + 1, receiverType,
   resultType, new[] {receiverType}.Concat(argumentTypes ?? Enumerable.Repeat(HixValueKind.Any, argumentCount + (variadic ? 1 : 0))).ToArray(),
-  "Transforms the current value.", variadic
+  null, variadic
 ) {
 
   public sealed override IHixValue Execute(HixThread execution, IHixValue[] supplied, int line) {

@@ -40,14 +40,14 @@ public sealed class HixBytecodeCompiler {
     constants.Add(new FunctionReferenceHixValue(signature));
     return index;
   }
-  public HixProgramImage Compile(IReadOnlyList<ExpressionDeclarationAst> expressions,
-    IReadOnlyList<FunctionDeclarationAst> functions, HixExpressionPreparedState globals) {
+  public HixProgramImage Compile(IReadOnlyList<ExpressionDeclarationIr> expressions,
+    IReadOnlyList<FunctionDeclarationIr> functions, HixCompilerCatalog globals) {
     var globalFunctions = globals.Functions.Select(Function).ToArray();
     var localFunctions = functions.Select(Function).ToArray();
     var derivationBodies = globals.Derivations.Select(declaration => (
       declaration.Name, declaration.Line,
-      Expressions: declaration.Declarations.OfType<ExpressionDeclarationAst>().Select(Expression).ToArray(),
-      Functions: declaration.Declarations.OfType<FunctionDeclarationAst>().Select(Function).ToArray())).ToArray();
+      Expressions: declaration.Declarations.OfType<ExpressionDeclarationIr>().Select(Expression).ToArray(),
+      Functions: declaration.Declarations.OfType<FunctionDeclarationIr>().Select(Function).ToArray())).ToArray();
     var entries = expressions.Select(Expression).ToArray();
     foreach (var jump in jumps) {
       if (!jump.Labels.TryGetValue(jump.Name, out var target)) throw new ArgumentException("unknown label '" + jump.Name + "'");
@@ -76,16 +76,16 @@ public sealed class HixBytecodeCompiler {
     return new(bytes, lines, constants.ToArray(), pool, entries.Select(MapExpression).ToArray(), derivations, scope,
       globals.Patterns, globals.Backend);
   }
-  private BytecodeExpression Expression(ExpressionDeclarationAst expression) =>
+  private BytecodeExpression Expression(ExpressionDeclarationIr expression) =>
     new(EntryBlock(expression.Body), expression.IsPrelude, expression.Line);
-  private BytecodeFunction Function(FunctionDeclarationAst function) {
+  private BytecodeFunction Function(FunctionDeclarationIr function) {
     var start = EntryBlock(function.Body);
     return new(function.Name, function.IsPure, function.Signatures.Select(signature => new BytecodeSignature(
       signature.InputPattern, Fields(signature.Inputs), signature.OutputPattern, Fields(signature.Outputs))).ToArray(), start);
   }
   private static IReadOnlyList<BytecodeField> Fields(IReadOnlyList<SignatureField> fields) =>
     fields?.Select(field => new BytecodeField(field.Name, field.Pattern, field.Variadic, field.Optional)).ToArray();
-  private int EntryBlock(BlockStatementAst block) {
+  private int EntryBlock(BlockStatementIr block) {
     var previous = localNames;
     localNames = new HashSet<string>(StringComparer.Ordinal);
     selectionLocal = null;
@@ -94,8 +94,8 @@ public sealed class HixBytecodeCompiler {
     localNames = previous;
     return start;
   }
-  private void CollectLocals(HixAst node) {
-    if (node is AssignmentStatementAst {Storage: StorageSpace.Local} assignment) localNames.Add(assignment.Name);
+  private void CollectLocals(HixIrNode node) {
+    if (node is AssignmentStatementIr {Storage: StorageSpace.Local} assignment) localNames.Add(assignment.Name);
     foreach (var child in node.SemanticChildren) CollectLocals(child);
   }
   private string TemporaryLocal() {
@@ -106,11 +106,11 @@ public sealed class HixBytecodeCompiler {
   private void LoadMember(string root, string member) {
     Emit(HixOpcode.LoadRoot, S(root)); Emit(HixOpcode.Member, S(member));
   }
-  private int Block(BlockStatementAst block) {
+  private int Block(BlockStatementIr block) {
     var localLabels = new Dictionary<string, int>(StringComparer.Ordinal);
     foreach (var statement in block.Statements) {
-      var name = statement switch {ControlFlowStatementAst {Operation: ControlFlowKind.Label} marker => marker.Label,
-        BlockStatementAst nested => nested.Label, _ => null};
+      var name = statement switch {ControlFlowStatementIr {Operation: ControlFlowKind.Label} marker => marker.Label,
+        BlockStatementIr nested => nested.Label, _ => null};
       if (name != null) {
         if (localLabels.ContainsKey(name)) throw new ArgumentException("duplicate label '" + name + "'");
         localLabels.Add(name, -1);
@@ -119,8 +119,8 @@ public sealed class HixBytecodeCompiler {
     labels.Push(localLabels);
     var start = Emit(HixOpcode.Enter);
     foreach (var statement in block.Statements) {
-      var name = statement switch {ControlFlowStatementAst {Operation: ControlFlowKind.Label} marker => marker.Label,
-        BlockStatementAst nested => nested.Label, _ => null};
+      var name = statement switch {ControlFlowStatementIr {Operation: ControlFlowKind.Label} marker => marker.Label,
+        BlockStatementIr nested => nested.Label, _ => null};
       if (name != null) localLabels[name] = code.Count;
       Statement(statement);
     }
@@ -129,28 +129,28 @@ public sealed class HixBytecodeCompiler {
     labels.Pop();
     return start;
   }
-  private void NestedBlock(BlockStatementAst block) {
+  private void NestedBlock(BlockStatementIr block) {
     var skip = Emit(HixOpcode.Jump);
     var start = Block(block);
     Patch(skip, code.Count);
     Emit(HixOpcode.Block, start);
   }
-  private void Statement(StatementAst statement) {
+  private void Statement(StatementIr statement) {
     var line = statement.Line;
     sourceLine = line;
     switch (statement) {
-      case BlockStatementAst block: NestedBlock(block); break;
-      case AssignmentStatementAst assignment:
+      case BlockStatementIr block: NestedBlock(block); break;
+      case AssignmentStatementIr assignment:
         var store = assignment.IsCarried ? HixOpcode.StoreCarry : (int)assignment.Storage == 0 ? HixOpcode.StoreLocal
           : (int)assignment.Storage == 1 ? HixOpcode.StoreVariable : HixOpcode.StoreTarget;
         if (store != HixOpcode.StoreLocal) Emit(store == HixOpcode.StoreCarry ? HixOpcode.CheckStoreCarry
           : store == HixOpcode.StoreVariable ? HixOpcode.CheckStoreVariable : HixOpcode.CheckStoreTarget, line: line);
         Value(assignment.Value);
         Emit(store, S(assignment.Name), line: line); break;
-      case InvocationStatementAst invocation: Value(invocation.Call); Emit(HixOpcode.Pop); break;
-      case SelectionStatementAst selection: Value(selection.Selection); Emit(HixOpcode.Pop); break;
-      case ControlFlowStatementAst {Operation: ControlFlowKind.Label}: break;
-      case ControlFlowStatementAst flow:
+      case InvocationStatementIr invocation: Value(invocation.Call); Emit(HixOpcode.Pop); break;
+      case SelectionStatementIr selection: Value(selection.Selection); Emit(HixOpcode.Pop); break;
+      case ControlFlowStatementIr {Operation: ControlFlowKind.Label}: break;
+      case ControlFlowStatementIr flow:
         foreach (var value in flow.Values) { Value(value); if (flow.Operation != ControlFlowKind.Return) Emit(HixOpcode.Pop); }
         if (flow.Operation == ControlFlowKind.Return && flow.Values.Count != 1) Emit(HixOpcode.Pack, flow.Values.Count);
         var owner = flow.Operation == ControlFlowKind.Goto ? labels.FirstOrDefault(item => item.ContainsKey(flow.Label)) : null;
@@ -164,53 +164,61 @@ public sealed class HixBytecodeCompiler {
       default: throw new ArgumentException("unknown statement at line " + line);
     }
   }
-  private void Value(ExpressionAst expression, bool check = false) {
+  private void Value(ExpressionIr expression, bool check = false) {
     var line = expression.Line;
     sourceLine = line;
     var handler = check ? Emit(HixOpcode.Check) : -1;
     switch (expression) {
-      case StringExpressionAst text: Emit(HixOpcode.LoadString, S(text.Value)); break;
-      case NumberExpressionAst number: Constant(new NumberHixValue(number.Value)); break;
-      case BooleanExpressionAst boolean: Constant(boolean.Value ? BooleanHixValue.True : BooleanHixValue.False); break;
-      case NullExpressionAst: Constant(NullHixValue.Instance); break;
-      case RootExpressionAst {IsSmart: true} root:
-        if (root.Name == "it") Emit(HixOpcode.LoadRoot, S("param"));
-        else if (localNames.Contains(root.Name)) LoadMember("local", root.Name);
-        else if (int.TryParse(root.Name, out var position) && position >= 0) LoadMember("args", position.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        else Emit(HixOpcode.Throw, S("unknown local or parameter '" + root.Name + "'"));
+      case StringExpressionIr text: Emit(HixOpcode.LoadString, S(text.Value)); break;
+      case NumberExpressionIr number: Constant(new NumberHixValue(number.Value)); break;
+      case BooleanExpressionIr boolean: Constant(boolean.Value ? BooleanHixValue.True : BooleanHixValue.False); break;
+      case NullExpressionIr: Constant(NullHixValue.Instance); break;
+      case RootExpressionIr root:
+        switch (root.Binding.Kind) {
+          case HixReferenceKind.Local: LoadMember("local", root.Binding.Variable.Name); break;
+          case HixReferenceKind.Parameter:
+            if (root.Binding.ParameterIndex < 0) Emit(HixOpcode.LoadRoot, S("param"));
+            else LoadMember("args", root.Binding.ParameterIndex.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            break;
+          case HixReferenceKind.Invalid: Emit(HixOpcode.Throw, S("unknown local or parameter '" + root.Name + "'")); break;
+          case HixReferenceKind.Unbound: throw new InvalidOperationException("Root '" + root.Name + "' must be bound before bytecode generation");
+          default: Emit(HixOpcode.LoadRoot, S(root.Binding.Name)); break;
+        }
         break;
-      case RootExpressionAst root: Emit(HixOpcode.LoadRoot, S(root.Name)); break;
-      case SelectorExpressionAst:
+      case SelectorExpressionIr:
         if (selectionLocal == null) throw new ArgumentException("Selection value outside a selection condition");
         LoadMember("local", selectionLocal); break;
-      case MemberExpressionAst member: Value(member.Receiver); Emit(HixOpcode.Member, S(member.Member), line: line); break;
-      case InterpolationExpressionAst interpolation:
+      case MemberExpressionIr member: Value(member.Receiver); Emit(HixOpcode.Member, S(member.Member), line: line); break;
+      case InterpolationExpressionIr interpolation:
         foreach (var part in interpolation.Parts) { Value(part); Emit(HixOpcode.CastString, line: part.Line); }
         Emit(HixOpcode.Interpolate, interpolation.Parts.Count); break;
-      case TupleExpressionAst tuple:
+      case TupleExpressionIr tuple:
         foreach (var value in tuple.Values) Value(value);
         if (tuple.Values.Count == 0) Emit(HixOpcode.LoadTuple); else Emit(HixOpcode.PackTuple, tuple.Values.Count); break;
-      case TableExpressionAst table:
+      case TableExpressionIr table:
         var duplicate = table.Entries.GroupBy(entry => entry.Key, StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1);
         if (duplicate != null) { Emit(HixOpcode.Throw, S("duplicate table key '" + duplicate.Key + "'")); break; }
         foreach (var entry in table.Entries) { Emit(HixOpcode.LoadString, S(entry.Key)); Value(entry.Value); }
         if (table.Entries.Count == 0) Emit(HixOpcode.LoadTable); else Emit(HixOpcode.PackTable, table.Entries.Count); break;
-      case UnaryExpressionAst unary:
+      case UnaryExpressionIr unary:
         Value(unary.Value, unary.Operation == UnaryOperation.Check);
         if (unary.Operation != UnaryOperation.Check) Emit(HixOpcode.Not);
         break;
-      case FallbackExpressionAst fallback:
+      case FallbackExpressionIr fallback:
         Value(fallback.Value);
         var other = Emit(HixOpcode.JumpNotNull);
         Emit(HixOpcode.Pop); Value(fallback.Fallback); Patch(other, code.Count); break;
-      case CallExpressionAst call:
+      case CallExpressionIr call:
         foreach (var argument in call.Arguments) Value(argument);
-        if (call.Signature == null) Emit(HixOpcode.CallDynamic, S(call.Name), call.Arguments.Count, line: line);
-        else Emit(HixOpcode.Call, FunctionReference(call.Signature), call.Arguments.Count, line: line);
+        if (call.Binding.Kind == HixCallKind.Unbound)
+          throw new InvalidOperationException("Call '" + call.Name + "' must be bound before bytecode generation");
+        if (call.Binding.Kind == HixCallKind.Static)
+          Emit(HixOpcode.Call, FunctionReference(call.Binding.Signature), call.Arguments.Count, line: line);
+        else Emit(HixOpcode.CallDynamic, S(call.Name), call.Arguments.Count, line: line);
         if (call.CoerceBoolean) Emit(HixOpcode.CastBoolean);
         break;
-      case InlineExpressionAst inline: NestedBlock(inline.Body); LoadMember("local", inline.ResultLocal); break;
-      case SelectionExpressionAst selection:
+      case InlineExpressionIr inline: NestedBlock(inline.Body); LoadMember("local", inline.ResultLocal); break;
+      case SelectionExpressionIr selection:
         var previousSelectionLocal = selectionLocal;
         var temporary = TemporaryLocal();
         if (selection.Selector == null) Constant(BooleanHixValue.True); else Value(selection.Selector);
@@ -235,8 +243,8 @@ public sealed class HixBytecodeCompiler {
     }
     if (check) { Emit(HixOpcode.EndCheck); Patch(handler, code.Count); }
   }
-  private void Result(HixAst result) {
-    if (result is ExpressionAst expression) Value(expression);
-    else { if (result is StatementAst statement) Statement(statement); Constant(NullHixValue.Instance); }
+  private void Result(HixIrNode result) {
+    if (result is ExpressionIr expression) Value(expression);
+    else { if (result is StatementIr statement) Statement(statement); Constant(NullHixValue.Instance); }
   }
 }

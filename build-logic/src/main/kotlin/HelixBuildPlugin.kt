@@ -139,6 +139,10 @@ private fun registerHixGrammarTasks(project: Project) {
             csharpOutput.file("HixParser.cs"),
             csharpOutput.file("HixParserBaseVisitor.cs"),
             csharpOutput.file("HixParserVisitor.cs"),
+            csharpOutput.file("HixLexer.tokens"),
+            csharpOutput.file("HixLexer.interp"),
+            csharpOutput.file("HixParser.tokens"),
+            csharpOutput.file("HixParser.interp"),
         )
         args(
             "-Dlanguage=CSharp", "-visitor", "-no-listener",
@@ -161,6 +165,10 @@ private fun registerHixGrammarTasks(project: Project) {
             ideOutput.file("HixParser.java"),
             ideOutput.file("HixParserBaseVisitor.java"),
             ideOutput.file("HixParserVisitor.java"),
+            ideOutput.file("HixLexer.tokens"),
+            ideOutput.file("HixLexer.interp"),
+            ideOutput.file("HixParser.tokens"),
+            ideOutput.file("HixParser.interp"),
         )
         args(
             "-Dlanguage=Java", "-visitor", "-no-listener",
@@ -176,6 +184,8 @@ private fun registerHixGrammarTasks(project: Project) {
         description = "Generates all ANTLR outputs for the Hix language."
         dependsOn(csharp, ide)
     }
+    project.tasks.named("buildHix") { dependsOn(csharp) }
+    project.tasks.named("buildHixMixinGenerator") { dependsOn(csharp) }
     project.gradle.projectsEvaluated {
         project.findProject(":riderPlugin")?.tasks?.matching {
             it.name == "compileKotlin" || it.name == "compileJava"

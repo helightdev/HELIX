@@ -10,6 +10,7 @@ namespace Hix.Functions;
 
 public sealed class IdentifierFunction() : RoslynFunctionDefinition("identifier", 0,
   HixValueKind.String, HixValueKind.String) {
+  public override string Documentation => "Escapes a name so it can be used as a C# identifier.";
   protected override IHixValue Apply(
     HixThread context, IHixValue value, IReadOnlyList<IHixValue> arguments
   ) {
@@ -25,6 +26,7 @@ public sealed class IdentifierFunction() : RoslynFunctionDefinition("identifier"
 
 public sealed class FloatTimeFunction() : RoslynFunctionDefinition("floatTime", 0,
   HixValueKind.Any, HixValueKind.String) {
+  public override string Documentation => "Parses a time value and renders its numeric representation for generated code.";
   protected override IHixValue Apply(
     HixThread context, IHixValue value,
     IReadOnlyList<IHixValue> arguments

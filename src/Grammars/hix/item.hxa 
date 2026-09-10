@@ -12,9 +12,21 @@ enum MyEnum @{
   MyOtherValue = <MyOtherValue>
 }
 
-type MyCustomType @{
-  %anyOf<string><test> test,
-  another
+type other = @[
+  string key,
+  string value
+];
+
+type MyCustomType = @{
+  test test,
+  %optional int age,
+  %map string stringDictionary,
+  %many string names,
+  %many other otherList,
+}
+
+fun Add(MyCustomType self, string value) -> null {
+
 }
 
 @!value &myValue [

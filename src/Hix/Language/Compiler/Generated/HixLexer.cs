@@ -117,7 +117,7 @@ public partial class HixLexer : Lexer {
 	private static readonly string[] _LiteralNames = {
 		null, null, null, null, null, null, null, null, null, null, null, null,
 		null, null, null, null, null, null, null, null, null, null, null, null,
-		"'@@'", "'\\'", null, null, null, null, "'---'", "'{'", null, null, null,
+		"'@@'", null, null, null, null, null, "'---'", "'{'", null, null, null,
 		"'func'", null, "'type'", "'do'", "'expression'", "'mixin'", "'prelude'",
 		"'derivation'", "'else'", "'return'", "'goto'", "'break'", "'continue'",
 		"'target'", "'var'", "'local'", "'carry'", "'sig'", "'when'", "'pure'",
@@ -504,7 +504,7 @@ public partial class HixLexer : Lexer {
 		1003,1,0,0,0,1002,1004,3,259,124,0,1003,1002,1,0,0,0,1003,1004,1,0,0,0,
 		1004,268,1,0,0,0,41,0,1,2,3,4,5,6,7,8,9,10,289,298,325,341,542,553,573,
 		575,697,713,761,832,847,911,916,919,926,932,938,941,946,952,954,965,972,
-		977,983,990,996,1003,37,5,5,0,6,0,0,5,0,0,4,0,0,7,16,0,5,4,0,7,17,0,5,
+		977,983,990,996,1003,37,5,5,0,0,1,0,5,0,0,4,0,0,7,16,0,5,4,0,7,17,0,5,
 		10,0,7,22,0,7,23,0,7,10,0,7,11,0,7,21,0,7,20,0,5,3,0,7,7,0,7,14,0,7,15,
 		0,7,9,0,5,2,0,7,4,0,7,18,0,5,1,0,7,19,0,7,63,0,7,27,0,7,1,0,7,3,0,7,8,
 		0,7,2,0,5,6,0,7,36,0,5,7,0,5,8,0,7,12,0,7,32,0,7,13,0

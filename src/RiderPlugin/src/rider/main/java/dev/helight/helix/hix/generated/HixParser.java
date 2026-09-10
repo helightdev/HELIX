@@ -96,7 +96,7 @@ public class HixParser extends Parser {
 		return new String[] {
 			null, null, null, null, null, null, null, null, null, null, null, null,
 			null, null, null, null, null, null, null, null, null, null, null, null,
-			"'@@'", "'\\'", null, null, null, null, "'---'", "'{'", null, null, null,
+			"'@@'", null, null, null, null, null, "'---'", "'{'", null, null, null,
 			"'func'", null, "'type'", "'do'", "'expression'", "'mixin'", "'prelude'",
 			"'derivation'", "'else'", "'return'", "'goto'", "'break'", "'continue'",
 			"'target'", "'var'", "'local'", "'carry'", "'sig'", "'when'", "'pure'",

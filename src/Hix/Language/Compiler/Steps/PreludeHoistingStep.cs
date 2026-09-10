@@ -4,81 +4,81 @@ using System.Linq;
 
 namespace Hix.Compiler.Steps;
 
-public sealed class PreludeHoistingStep : HixCompilerStep {
-  public override HixCompilerSyntax Transform(HixCompilerSyntax input, HixExpressionPreparedState globals) {
+public sealed class PreludeHoistingStep : HixLoweringStep {
+  public override HixModuleIr Lower(HixModuleIr input, HixCompilerCatalog globals) {
     var names = new HashSet<string>(input.Prelude.SelectMany(expression => expression.Body.Statements)
-      .OfType<AssignmentStatementAst>().Where(statement => statement.IsCarried)
+      .OfType<AssignmentStatementIr>().Where(statement => statement.IsCarried)
       .Select(statement => statement.Name), StringComparer.Ordinal);
-    var generated = new List<StatementAst>();
+    var generated = new List<StatementIr>();
     var functions = input.Functions.Concat(globals.Functions).GroupBy(function => function.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
     var rewriter = new HoistingRewriter(generated, names, functions, globals.Backend);
     var late = input.Late.Select(expression => expression.IsStrict
-      ? new HixAstRewriter().Rewrite(expression)
+      ? new HixIrRewriter().Rewrite(expression)
       : rewriter.RewriteLateExpression(expression)).ToArray();
-    if (generated.Count == 0) return new HixCompilerSyntax(input.Prelude, late, input.Functions);
-    var generatedBlock = new BlockStatementAst(generated);
-    var generatedExpression = new ExpressionDeclarationAst(true, false, generatedBlock);
-    return new HixCompilerSyntax(input.Prelude.Concat([generatedExpression]).ToArray(), late, input.Functions);
+    if (generated.Count == 0) return new HixModuleIr(input.Prelude, late, input.Functions);
+    var generatedBlock = new BlockStatementIr(generated);
+    var generatedExpression = new ExpressionDeclarationIr(true, false, generatedBlock);
+    return new HixModuleIr(input.Prelude.Concat([generatedExpression]).ToArray(), late, input.Functions);
   }
 
-  private sealed class HoistingRewriter(ICollection<StatementAst> generated, ISet<string> names,
-    IReadOnlyDictionary<string, FunctionDeclarationAst[]> functions, HixBackend backend) : HixAstRewriter {
+  private sealed class HoistingRewriter(ICollection<StatementIr> generated, ISet<string> names,
+    IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions, HixBackend backend) : HixIrRewriter {
     private readonly Dictionary<string, string> carries = new(StringComparer.Ordinal);
 
-    public ExpressionDeclarationAst RewriteLateExpression(ExpressionDeclarationAst expression) =>
-      CopyLocation(expression, new ExpressionDeclarationAst(false, expression.IsStrict, RewriteLateBlock(expression.Body)));
+    public ExpressionDeclarationIr RewriteLateExpression(ExpressionDeclarationIr expression) =>
+      CopyLocation(expression, new ExpressionDeclarationIr(false, expression.IsStrict, RewriteLateBlock(expression.Body)));
 
-    private BlockStatementAst RewriteLateBlock(BlockStatementAst block) => CopyLocation(block,
-      new BlockStatementAst(block.Statements.Select(RewriteLateStatement).ToArray(), block.Label));
+    private BlockStatementIr RewriteLateBlock(BlockStatementIr block) => CopyLocation(block,
+      new BlockStatementIr(block.Statements.Select(RewriteLateStatement).ToArray(), block.Label));
 
-    private StatementAst RewriteLateStatement(StatementAst statement) => statement switch {
-      BlockStatementAst block => RewriteLateBlock(block),
-      AssignmentStatementAst value => CopyLocation(value,
-        new AssignmentStatementAst(value.Storage, value.Name, RewriteLateValue(value.Value), value.IsCarried)),
-      InvocationStatementAst value => CopyLocation(value,
-        new InvocationStatementAst(RewriteEffectCall(value.Call))),
-      ControlFlowStatementAst value => CopyLocation(value,
-        new ControlFlowStatementAst(value.Operation, value.Label, value.Values.Select(RewriteLateValue).ToArray())),
-      SelectionStatementAst value => CopyLocation(value,
-        new SelectionStatementAst((SelectionExpressionAst)RewriteLateSelection(value.Selection))),
+    private StatementIr RewriteLateStatement(StatementIr statement) => statement switch {
+      BlockStatementIr block => RewriteLateBlock(block),
+      AssignmentStatementIr value => CopyLocation(value,
+        new AssignmentStatementIr(value.Storage, value.Name, RewriteLateValue(value.Value), value.IsCarried)),
+      InvocationStatementIr value => CopyLocation(value,
+        new InvocationStatementIr(RewriteEffectCall(value.Call))),
+      ControlFlowStatementIr value => CopyLocation(value,
+        new ControlFlowStatementIr(value.Operation, value.Label, value.Values.Select(RewriteLateValue).ToArray())),
+      SelectionStatementIr value => CopyLocation(value,
+        new SelectionStatementIr((SelectionExpressionIr)RewriteLateSelection(value.Selection))),
       _ => Rewrite(statement)
     };
 
-    private CallExpressionAst RewriteEffectCall(CallExpressionAst call) => CopyLocation(call,
-      new CallExpressionAst(call.Name, call.Arguments.Select(RewriteLateValue).ToArray(), call.CoerceBoolean, call.Signature));
+    private CallExpressionIr RewriteEffectCall(CallExpressionIr call) => CopyLocation(call,
+      new CallExpressionIr(call.Name, call.Arguments.Select(RewriteLateValue).ToArray(), call.CoerceBoolean, call.Binding));
 
-    private ExpressionAst RewriteLateValue(ExpressionAst expression) {
+    private ExpressionIr RewriteLateValue(ExpressionIr expression) {
       if (expression is null) return null;
       if (DependsOnPrelude(expression, new HashSet<string>(StringComparer.Ordinal))) return Carry(expression);
       return expression switch {
-        MemberExpressionAst value => CopyLocation(value, new MemberExpressionAst(RewriteLateValue(value.Receiver), value.Member)),
-        CallExpressionAst value => CopyLocation(value, new CallExpressionAst(value.Name,
-          value.Arguments.Select(RewriteLateValue).ToArray(), value.CoerceBoolean, value.Signature)),
-        UnaryExpressionAst value => CopyLocation(value, new UnaryExpressionAst(value.Operation, RewriteLateValue(value.Value))),
-        FallbackExpressionAst value => CopyLocation(value,
-          new FallbackExpressionAst(RewriteLateValue(value.Value), RewriteLateValue(value.Fallback))),
-        TupleExpressionAst value => CopyLocation(value, new TupleExpressionAst(value.Values.Select(RewriteLateValue).ToArray())),
-        TableExpressionAst value => CopyLocation(value, new TableExpressionAst(value.Entries.Select(entry =>
-          new KeyValuePair<string, ExpressionAst>(entry.Key, RewriteLateValue(entry.Value))).ToArray(),
+        MemberExpressionIr value => CopyLocation(value, new MemberExpressionIr(RewriteLateValue(value.Receiver), value.Member)),
+        CallExpressionIr value => CopyLocation(value, new CallExpressionIr(value.Name,
+          value.Arguments.Select(RewriteLateValue).ToArray(), value.CoerceBoolean, value.Binding)),
+        UnaryExpressionIr value => CopyLocation(value, new UnaryExpressionIr(value.Operation, RewriteLateValue(value.Value))),
+        FallbackExpressionIr value => CopyLocation(value,
+          new FallbackExpressionIr(RewriteLateValue(value.Value), RewriteLateValue(value.Fallback))),
+        TupleExpressionIr value => CopyLocation(value, new TupleExpressionIr(value.Values.Select(RewriteLateValue).ToArray())),
+        TableExpressionIr value => CopyLocation(value, new TableExpressionIr(value.Entries.Select(entry =>
+          new KeyValuePair<string, ExpressionIr>(entry.Key, RewriteLateValue(entry.Value))).ToArray(),
           value.FieldMetadata)),
-        InterpolationExpressionAst value => CopyLocation(value,
-          new InterpolationExpressionAst(value.Parts.Select(RewriteLateValue).ToArray())),
-        SelectionExpressionAst value => RewriteLateSelection(value),
+        InterpolationExpressionIr value => CopyLocation(value,
+          new InterpolationExpressionIr(value.Parts.Select(RewriteLateValue).ToArray())),
+        SelectionExpressionIr value => RewriteLateSelection(value),
         _ => Rewrite(expression)
       };
     }
 
-    private ExpressionAst RewriteLateSelection(SelectionExpressionAst selection) => CopyLocation(selection,
-      new SelectionExpressionAst(RewriteLateValue(selection.Selector), selection.Branches.Select(branch =>
-        CopyLocation(branch, new SelectionBranchAst(branch.Conditions.Select(RewriteLateValue).ToArray(),
-          branch.Result is ExpressionAst expression ? RewriteLateValue(expression) :
-          branch.Result is BlockStatementAst block ? RewriteLateBlock(block) : RewriteNode(branch.Result),
+    private ExpressionIr RewriteLateSelection(SelectionExpressionIr selection) => CopyLocation(selection,
+      new SelectionExpressionIr(RewriteLateValue(selection.Selector), selection.Branches.Select(branch =>
+        CopyLocation(branch, new SelectionBranchIr(branch.Conditions.Select(RewriteLateValue).ToArray(),
+          branch.Result is ExpressionIr expression ? RewriteLateValue(expression) :
+          branch.Result is BlockStatementIr block ? RewriteLateBlock(block) : RewriteNode(branch.Result),
           branch.IsTransformation))).ToArray(),
-        selection.Fallback is ExpressionAst fallback ? RewriteLateValue(fallback) :
-        selection.Fallback is BlockStatementAst block ? RewriteLateBlock(block) : RewriteNode(selection.Fallback)));
+        selection.Fallback is ExpressionIr fallback ? RewriteLateValue(fallback) :
+        selection.Fallback is BlockStatementIr block ? RewriteLateBlock(block) : RewriteNode(selection.Fallback)));
 
-    private ExpressionAst Carry(ExpressionAst expression) {
+    private ExpressionIr Carry(ExpressionIr expression) {
       var key = expression.Program?.Source is { } source && !expression.SourceRange.IsEmpty
         ? source.Substring(expression.SourceRange.Start, expression.SourceRange.Length)
         : expression.GetType().Name + ":" + expression.SourceRange.Start;
@@ -88,16 +88,16 @@ public sealed class PreludeHoistingStep : HixCompilerStep {
         names.Add(name);
         carries.Add(key, name);
         generated.Add(CopyLocation(expression,
-          new AssignmentStatementAst(StorageSpace.Local, name, Rewrite(expression), true)));
+          new AssignmentStatementIr(StorageSpace.Local, name, Rewrite(expression), true)));
       }
       return CopyLocation(expression,
-        new MemberExpressionAst(new RootExpressionAst("local"), name));
+        new MemberExpressionIr(new RootExpressionIr("local"), name));
     }
 
-    private bool DependsOnPrelude(HixAst node, ISet<string> active) {
+    private bool DependsOnPrelude(HixIrNode node, ISet<string> active) {
       if (node is null) return false;
-      if (node is RootExpressionAst {IsSmart: false} root && backend.Roots.TryGetValue(root.Name, out var definition) && definition.RequiresPrelude) return true;
-      if (node is CallExpressionAst call) {
+      if (node is RootExpressionIr {IsSmart: false} root && backend.Roots.TryGetValue(root.Name, out var definition) && definition.RequiresPrelude) return true;
+      if (node is CallExpressionIr call) {
         if (backend.Functions.Resolve(call.Name, call.Arguments.Count).Any(definition => definition.RequiresPrelude)) return true;
         if (functions.TryGetValue(call.Name, out var candidates) && active.Add(call.Name)) {
           try {

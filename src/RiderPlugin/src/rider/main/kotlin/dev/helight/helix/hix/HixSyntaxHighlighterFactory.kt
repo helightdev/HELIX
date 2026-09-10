@@ -101,13 +101,14 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
             type == HixLexer.NULL -> HixColors.NULL
             type == HixLexer.ROOT_IDENTIFIER || type == HixLexer.VALUE_SMART_ROOT -> HixColors.VALUE
             type == HixLexer.FUNCTION_IDENTIFIER -> HixColors.FUNCTION
+            type == HixLexer.VALUE_MEMBER -> HixColors.PATH
             type == HixLexer.MEMBER_IDENTIFIER -> HixColors.PATH
             type == HixLexer.LABEL_IDENTIFIER -> HixColors.LABEL
             type in setOf(HixLexer.ARGUMENT_TEXT, HixLexer.BEGIN_ARGUMENT, HixLexer.ARGUMENT_END) -> HixColors.ARGUMENT
             type == HixLexer.CONTENT_TEXT -> HixColors.TEMPLATE
             type in setOf(HixLexer.COMMENT, HixLexer.SLASH_COMMENT) -> HixColors.COMMENT
             type in setOf(HixLexer.CONTENT_WRAP, HixLexer.CONTENT_LINEBREAK, HixLexer.VALUE_WRAP) -> HixColors.INACTIVE
-            type in setOf(HixLexer.ESCAPE, HixLexer.ESCAPE_HEX, HixLexer.ESCAPE_LITERAL, HixLexer.ESCAPE_MACRO) -> HixColors.ESCAPE
+            type in setOf(HixLexer.ESCAPED_START, HixLexer.ESCAPE, HixLexer.ESCAPE_HEX, HixLexer.ESCAPE_LITERAL, HixLexer.ESCAPE_MACRO) -> HixColors.ESCAPE
             type == HixLexer.ERROR_TOKEN -> HixColors.BAD
             else -> null
         })

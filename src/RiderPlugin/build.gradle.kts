@@ -73,7 +73,7 @@ plugins {
     id("java")
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinSerialization)
-    id("org.jetbrains.intellij.platform") version "2.18.0"     // See https://github.com/JetBrains/intellij-platform-gradle-plugin/releases
+    id("org.jetbrains.intellij.platform") // Version and stable transform classloader belong to settings.
 }
 
 val isWindows = Os.isFamily(Os.FAMILY_WINDOWS)
@@ -124,6 +124,7 @@ sourceSets {
 }
 
 val compileDotNet = tasks.register<DotNetBuildTask>("compileDotNet") {
+    dependsOn(":riderPlugin:protocol:rdgen")
     solution.set(layout.projectDirectory.file(DotnetSolution.get()))
     buildConfiguration.set(BuildConfiguration)
     projectDirectory.set(layout.projectDirectory)
@@ -182,6 +183,8 @@ dependencies {
 
     testImplementation(kotlin("test"))
 }
+
+tasks.named("compileKotlin") { dependsOn(":riderPlugin:protocol:rdgen") }
 
 tasks.test {
     systemProperty("unityExtensions.projectRoot", projectDir.absolutePath)
