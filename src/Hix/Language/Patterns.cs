@@ -60,6 +60,11 @@ public sealed record MapHixPattern(HixPattern Key, HixPattern Value) : HixPatter
   public override string Display => "%map<" + Key.Display + "><" + Value.Display + ">";
 }
 
+/// <summary>A self-contained pattern carrying definitions imported from an external schema.</summary>
+public sealed record DefinedHixPattern(HixPattern Root, IReadOnlyDictionary<string, HixPattern> Definitions) : HixPattern {
+  public override string Display => Root.Display;
+}
+
 public sealed record ConstantHixPattern(object Value, HixPattern Underlying) : HixPattern {
   public override string Display => "%const<" + Convert.ToString(Value, CultureInfo.InvariantCulture) + "> " + Underlying.Display;
 }
@@ -117,6 +122,11 @@ public static class HixPatternMatcher {
     IReadOnlyDictionary<string, HixPattern> definitions, string path, ISet<string> active,
     out HixPatternFailure failure) {
     failure = null;
+    if (pattern is DefinedHixPattern defined) {
+      var merged = (definitions ?? Empty).ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+      foreach (var item in defined.Definitions) merged[item.Key] = item.Value;
+      return Matches(defined.Root, value, context, merged, path, active, out failure);
+    }
     switch (pattern) {
       case AnyHixPattern: return true;
       case KindHixPattern kind when value.Kind == kind.ValueKind: return true;
@@ -214,6 +224,8 @@ public static class HixPatternRelations {
     if (expected is AnyHixPattern) return HixPatternRelation.Always;
     if (actual is AnyHixPattern) return HixPatternRelation.Maybe;
     if (actual.Equals(expected)) return HixPatternRelation.Always;
+    if (actual is DefinedHixPattern definedActual) return Relate(definedActual.Root, expected, definedActual.Definitions);
+    if (expected is DefinedHixPattern definedExpected) return Relate(actual, definedExpected.Root, definedExpected.Definitions);
     if (actual is NamedHixPattern namedActual && definitions.TryGetValue(namedActual.Name, out var actualBody))
       return Relate(actualBody, expected, definitions);
     if (expected is NamedHixPattern namedExpected && definitions.TryGetValue(namedExpected.Name, out var expectedBody))

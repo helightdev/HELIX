@@ -32,7 +32,7 @@ public static class KindDefinitions {
   public static bool TryImplicitConvert(HixThread execution, IHixValue value,
     HixValueKind target, out IHixValue converted) {
     if (value.Kind == target || target == HixValueKind.Any) { converted = value; return true; }
-    var definition = Get(target);
+    if (!ByKind.TryGetValue(target, out var definition)) { converted = null; return false; }
     if (!definition.ImplicitSources.Contains(value.Kind)) { converted = null; return false; }
     converted = definition.Convert(execution, value);
     return converted is not ErrorHixValue && converted.Kind == target;

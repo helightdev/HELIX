@@ -16,7 +16,8 @@ public sealed class NameValidationStep : HixCompilerStep {
     }
     protected override void VisitRoot(RootExpressionIr root) {
       if (!root.IsSmart && root.Name is not ("local" or "var" or "tar" or "args" or "param") &&
-          !KindHixValue.TryGet(root.Name, out _) && !functions.Contains(root.Name) && !compilation.Backend.Roots.ContainsKey(root.Name))
+          !KindHixValue.TryGet(root.Name, out _) && !functions.Contains(root.Name) &&
+          !compilation.Catalog.Patterns.ContainsKey(root.Name) && !compilation.Backend.Roots.ContainsKey(root.Name))
         compilation.Diagnostics.Add(new(root.Line, "unknown root '" + root.Name + "'"));
     }
     protected override void VisitCall(CallExpressionIr call) {

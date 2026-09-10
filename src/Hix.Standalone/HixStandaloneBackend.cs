@@ -6,6 +6,7 @@ public class HixStandaloneBackend(TextWriter output = null) : HixBackend {
   protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
     base.RegisterFunctions(functions);
     functions.Add(new PrintFunction());
+    JsonFunctions.Register(functions);
   }
   private sealed class PrintFunction() : FunctionDefinition("print", [new(HixValueKind.Null, [HixValueKind.Any], true)]) {
     public override bool HasEffects => true;

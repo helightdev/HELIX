@@ -26,6 +26,24 @@ Execution remains bytecode-only. `Program.Run` returns 0 for success, 1 for
 compilation/runtime/I/O failure, and 2 for usage errors. Errors are written to the supplied error
 writer. Roslyn functions and roots are unavailable in this backend.
 
+The standalone backend also provides JSON conversion through Newtonsoft.Json:
+
+```hix
+type Person = @{string name, %optional number age}
+
+func read {
+  return(parseJson(param, Person))
+}
+
+func save {
+  return(writeJson(param, Person))
+}
+```
+
+`parseJson(string)` and `writeJson(any)` perform untyped conversion. Their two-argument forms accept
+either a pattern or a kind and reject values that do not match it. `generateJsonSchema(pattern)` emits
+draft 2020-12 JSON Schema, while `loadJsonSchema(string)` imports a schema as a self-contained pattern.
+
 ## Analyzer service
 
 `Hix.Standalone.Analysis.HixAnalyzerService` is the stateful, transport-neutral language-service

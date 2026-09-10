@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <ProjectReference Include="../Hix/Hix.csproj" />
     <Compile Include="../Hix/IsExternalInit.cs" Link="Compatibility/IsExternalInit.cs" />
   </ItemGroup>

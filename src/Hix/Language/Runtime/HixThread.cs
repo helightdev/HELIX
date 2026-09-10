@@ -37,6 +37,9 @@ public sealed class HixThread {
     DetachValue(value), target.IsNull ? HixString.Empty : HixString.Dynamic(target.Resolve(Strings))));
   public List<HixLog> Logs => logs;
   public NamedFunctionHixValue BindFunction(HixString name) => scope.Bind(name.Resolve(Strings));
+  public IReadOnlyDictionary<string, HixPattern> PatternDefinitions => program.Patterns;
+  public bool Matches(HixPattern pattern, IHixValue value, out HixPatternFailure failure) =>
+    HixPatternMatcher.Matches(pattern, value, this, program.Patterns, out failure);
 
   private int running;
   public bool IsRunning => Volatile.Read(ref running) != 0;
