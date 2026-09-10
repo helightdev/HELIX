@@ -8,6 +8,35 @@ namespace HelixRider.Tests.MixinLanguage;
 [TestFixture]
 public sealed class MixinEditorModelTests {
     [Test]
+    public void EditorAnalysisRetainsValidDeclarationsAroundIncompleteMetadata() {
+        var analysis = new LanguageAnalysis("type Existing = string\n%", recoverValidDeclarations: true);
+
+        Assert.That(analysis.Program.Diagnostics, Is.Not.Empty);
+        Assert.That(analysis.Declarations.Any(item =>
+            item.Kind == "Pattern" && item.Name == "Existing"), Is.True);
+    }
+
+    [Test]
+    public void CompilerAnalysisRemainsStrictAroundIncompleteMetadata() {
+        var analysis = new LanguageAnalysis("type Existing = string\n%");
+
+        Assert.That(analysis.Program.Diagnostics, Is.Not.Empty);
+        Assert.That(analysis.Declarations, Is.Empty);
+    }
+
+    [Test]
+    public void EditorAnalysisRetainsDeclarationsBelowIncompleteHeaderMetadata() {
+        var analysis = new LanguageAnalysis(
+            "%\n---\ntype Existing = string\nmixin Example { expression { emit(<ok>) } }",
+            recoverValidDeclarations: true);
+
+        Assert.That(analysis.Declarations.Any(item =>
+            item.Kind == "Pattern" && item.Name == "Existing"), Is.True);
+        Assert.That(analysis.Declarations.Any(item =>
+            item.Kind == "Mixin" && item.Name == "Example"), Is.True);
+    }
+
+    [Test]
     public void CanonicalAnalysisUsesAntlrTokensAndSemanticAst() {
         const string source = "mixin Example {\n  pure func Build { return(<ok>) }\n  expression { emit(Build()) }\n}";
         var analysis = new LanguageAnalysis(source);

@@ -14,9 +14,10 @@ public sealed class LanguageAnalysis {
     string Kind = "Type");
 
   private readonly HixBackend backend;
-  public LanguageAnalysis(string source, HixBackend backend = null) {
+  public LanguageAnalysis(string source, HixBackend backend = null,
+    bool recoverValidDeclarations = false) {
     this.backend = backend ?? HixCoreBackend.Instance;
-    Program = AntlrSyntax.Parse(source ?? "", this.backend);
+    Program = AntlrSyntax.Parse(source ?? "", this.backend, recoverValidDeclarations);
     var declarations = new List<Symbol>();
     var references = new List<Reference>();
     Visit(Program, declarations, references);

@@ -3,10 +3,95 @@ package dev.helight.helix.hix
 import dev.helight.helix.hix.generated.HixLexer
 import dev.helight.helix.protocol.MixinFileSnapshot
 import dev.helight.helix.protocol.MixinLanguageDefinition
+import dev.helight.helix.hix.generated.HixParser
+import org.antlr.v4.runtime.tree.TerminalNode
 
 /** Completion uses canonical token identities and compiler facts, without a second type resolver. */
 internal object HixLookup {
+    enum class SemanticRole { Pattern, PatternMetadata, FileMetadata, Metadata }
+    data class MetadataArgument(val name: String, val index: Int)
     data class Site(val chained: Boolean, val member: Boolean, val receiverEnd: Int)
+
+    fun semanticRoleAt(parsed: HelixAntlrParse, offset: Int): SemanticRole? {
+        fun contains(node: TerminalNode?): Boolean {
+            val token = node?.symbol ?: return false
+            return offset >= token.startIndex && offset <= token.stopIndex + 1
+        }
+        val role = HixAntlrSyntax.rules(parsed.tree).mapNotNull { rule ->
+            when (rule) {
+                is HixParser.MetadataContext -> if (contains(rule.IDENTIFIER()) || contains(rule.METADATA_PREFIX())) {
+                    var parent = rule.parent
+                    while (parent is org.antlr.v4.runtime.ParserRuleContext && parent !is HixParser.FileMetadataSectionContext &&
+                        parent !is HixParser.PatternExpressionContext && parent !is HixParser.PatternFieldContext)
+                        parent = parent.parent
+                    when (parent) {
+                        is HixParser.FileMetadataSectionContext -> SemanticRole.FileMetadata
+                        is HixParser.PatternExpressionContext, is HixParser.PatternFieldContext -> SemanticRole.PatternMetadata
+                        else -> {
+                            val delimiter = parsed.source.indexOf("---")
+                            if (delimiter >= 0 && offset < delimiter) SemanticRole.FileMetadata else SemanticRole.Metadata
+                        }
+                    }
+                } else null
+                is HixParser.PatternIdentifierContext ->
+                    if (contains(rule.IDENTIFIER()) || contains(rule.ROOT_IDENTIFIER())) SemanticRole.Pattern else null
+                is HixParser.KindIdentifierContext ->
+                    if (contains(rule.IDENTIFIER()) || contains(rule.ROOT_IDENTIFIER())) SemanticRole.Pattern else null
+                else -> null
+            }
+        }.firstOrNull()
+        if (role != null) return role
+        val token = parsed.tokens.firstOrNull { offset >= it.start && offset <= it.end }
+        if (token?.type == HixLexer.METADATA_PREFIX) {
+            val delimiter = parsed.source.indexOf("---")
+            if (delimiter >= 0 && token.start < delimiter) return SemanticRole.FileMetadata
+            if (delimiter < 0 && parsed.tree.topLevelDeclaration().isEmpty()) return SemanticRole.FileMetadata
+            return SemanticRole.Metadata
+        }
+        return null
+    }
+
+    fun metadataArgumentAt(parsed: HelixAntlrParse, offset: Int): MetadataArgument? =
+        HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.MetadataContext>().mapNotNull { metadata ->
+            val name = metadata.IDENTIFIER()?.text ?: return@mapNotNull null
+            metadata.valueList()?.argumentValue()?.withIndex()?.firstOrNull { (_, argument) ->
+                offset >= argument.start.startIndex && offset <= argument.stop.stopIndex + 1
+            }?.let { MetadataArgument(name, it.index) }
+        }.firstOrNull()
+
+    fun patternMetadataTargetAt(parsed: HelixAntlrParse, offset: Int): String? {
+        val metadata = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.MetadataContext>()
+            .firstOrNull { rule -> offset >= rule.start.startIndex && offset <= rule.stop.stopIndex + 1 }
+            ?: return null
+        var parent = metadata.parent
+        while (parent is org.antlr.v4.runtime.ParserRuleContext) {
+            if (parent is HixParser.PatternFieldContext) return "Field"
+            if (parent is HixParser.PatternExpressionContext) return "Pattern"
+            parent = parent.parent
+        }
+        return null
+    }
+
+    fun isValueContextAt(parsed: HelixAntlrParse, offset: Int): Boolean {
+        val token = parsed.tokens.firstOrNull { offset >= it.start && offset <= it.end }
+        if (token?.type in setOf(HixLexer.ROOT_IDENTIFIER, HixLexer.VALUE_SMART_ROOT,
+                HixLexer.FUNCTION_IDENTIFIER, HixLexer.MEMBER_IDENTIFIER)) return true
+        return HixAntlrSyntax.rules(parsed.tree).any { rule ->
+            offset >= rule.start.startIndex && offset <= rule.stop.stopIndex + 1 && when (rule) {
+                is HixParser.ValueContext, is HixParser.NonArgumentValueContext,
+                is HixParser.PrimaryValueContext, is HixParser.DerivationContext,
+                is HixParser.ValueListContext, is HixParser.AssignedValueContext,
+                is HixParser.InlineTransformationContext -> true
+                else -> false
+            }
+        }
+    }
+
+    fun isStatementBlockAt(parsed: HelixAntlrParse, offset: Int): Boolean =
+        HixAntlrSyntax.rules(parsed.tree).any { rule ->
+            rule is HixParser.StatementBlockContext && offset >= rule.start.startIndex &&
+                offset <= rule.stop.stopIndex + 1
+        }
     fun site(parsed: HelixAntlrParse, offset: Int): Site {
         val tokens = parsed.tokens.filter { it.start < offset && it.type !in setOf(0,
             HixLexer.OUTER_WHITESPACE, HixLexer.VALUE_WHITESPACE, HixLexer.METADATA_WHITESPACE,

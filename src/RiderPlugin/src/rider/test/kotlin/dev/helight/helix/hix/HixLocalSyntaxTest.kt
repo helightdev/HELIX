@@ -5,8 +5,21 @@ import dev.helight.helix.hix.generated.HixParser
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertSame
 
 class HixLocalSyntaxTest {
+    @Test
+    fun `current language tokens use dedicated highlighting categories`() {
+        val highlighter = HixSyntaxHighlighter(null)
+
+        assertSame(HixColors.METADATA,
+            highlighter.getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.METADATA_PREFIX]).single())
+        assertSame(HixColors.OPERATOR,
+            highlighter.getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.ARROW]).single())
+        assertSame(HixColors.SEPARATOR,
+            highlighter.getTokenHighlights(HelixAntlrTypes.tokens[HixLexer.SECTION_DELIMITER]).single())
+    }
+
     @Test
     fun `patterns delegates and typed function parameters parse locally`() {
         val source = "type Person = @{string name, %optional number age}\n" +

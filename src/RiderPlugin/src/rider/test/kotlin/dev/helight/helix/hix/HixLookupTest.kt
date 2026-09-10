@@ -7,6 +7,45 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class HixLookupTest {
+    @Test
+    fun `semantic roles distinguish kinds and pattern metadata from functions`() {
+        val source = "type Values = %many string"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertEquals(HixLookup.SemanticRole.PatternMetadata, HixLookup.semanticRoleAt(parsed, source.indexOf("many")))
+        assertEquals(HixLookup.SemanticRole.Pattern, HixLookup.semanticRoleAt(parsed, source.indexOf("string")))
+        val argumentSource = "type Values = %many<DerivedPropertyEntry>"
+        val argument = HixLookup.metadataArgumentAt(HixAntlrSyntax.parse(argumentSource),
+            argumentSource.indexOf("DerivedPropertyEntry"))
+        assertEquals(HixLookup.MetadataArgument("many", 0), argument)
+        val incomplete = "type Values = %"
+        assertEquals(HixLookup.SemanticRole.PatternMetadata,
+            HixLookup.semanticRoleAt(HixAntlrSyntax.parse(incomplete), incomplete.lastIndex))
+        val fieldSource = "type Values = @{%optional string value}"
+        assertEquals("Field", HixLookup.patternMetadataTargetAt(HixAntlrSyntax.parse(fieldSource),
+            fieldSource.indexOf("optional")))
+        assertEquals("Pattern", HixLookup.patternMetadataTargetAt(parsed, source.indexOf("many")))
+        val header = "%pragma<PROFILE>\n%vm<PROFILE>\n---\nmixin Test { }"
+        val headerParse = HixAntlrSyntax.parse(header)
+        assertEquals(HixLookup.SemanticRole.FileMetadata,
+            HixLookup.semanticRoleAt(headerParse, header.indexOf("pragma")))
+        assertEquals(HixLookup.SemanticRole.FileMetadata,
+            HixLookup.semanticRoleAt(headerParse, header.indexOf("vm")))
+        val incompleteHeader = "%\n---\nmixin Test { }"
+        assertEquals(HixLookup.SemanticRole.FileMetadata,
+            HixLookup.semanticRoleAt(HixAntlrSyntax.parse(incompleteHeader), 0))
+    }
+
+    @Test
+    fun `statement and value completion contexts remain distinct`() {
+        val source = "mixin Test { expression { emit(local#value); missing } }"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(HixLookup.isValueContextAt(parsed, source.indexOf("local")))
+        assertTrue(HixLookup.isStatementBlockAt(parsed, source.indexOf("missing")))
+        assertFalse(HixLookup.isValueContextAt(parsed, source.indexOf("missing")))
+    }
+
     private fun method(receiver: String) = MixinLanguageDefinition("method", "Function", 1, false,
         "", receiver, "String", arrayOf(receiver), "Returns the selected value's name.")
 

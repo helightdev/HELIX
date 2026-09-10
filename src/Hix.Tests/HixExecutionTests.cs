@@ -643,6 +643,29 @@ public sealed class HixExecutionTests {
     ]).Display);
   }
 
+  [Fact]
+  public void EditorAnalysisRetainsValidDeclarationsAroundIncompleteSyntax() {
+    const string source = "type Existing = string\n%";
+
+    var editor = new LanguageAnalysis(source, recoverValidDeclarations: true);
+    Assert.NotEmpty(editor.Program.Diagnostics);
+    Assert.Contains(editor.Declarations, symbol => symbol is {Kind: "Pattern", Name: "Existing"});
+
+    var compiler = new LanguageAnalysis(source);
+    Assert.NotEmpty(compiler.Program.Diagnostics);
+    Assert.Empty(compiler.Declarations);
+  }
+
+  [Fact]
+  public void EditorAnalysisRetainsDeclarationsBelowIncompleteHeaderMetadata() {
+    const string source = "%\n---\ntype Existing = string\nmixin Example { expression { emit(<ok>) } }";
+
+    var editor = new LanguageAnalysis(source, recoverValidDeclarations: true);
+
+    Assert.Contains(editor.Declarations, symbol => symbol is {Kind: "Pattern", Name: "Existing"});
+    Assert.Contains(editor.Declarations, symbol => symbol is {Kind: "Mixin", Name: "Example"});
+  }
+
   private sealed class Context(IHixValue symbol = null) : HixContext(TestBackend.Instance, new HixStringPoolBuilder().Freeze()) {
     public override IHixValue ResolveHost(HixThread thread, HixExpressionRoot root, HixString member) => symbol ?? NullHixValue.Instance;
   }

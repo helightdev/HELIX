@@ -87,6 +87,15 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("items", array(completionItem))
         }
 
+        val completionRequest = structdef("mixinCompletionRequest") {
+            field("kind", string)
+            field("prefix", string)
+        }
+
+        val completionResponse = structdef("mixinCompletionResponse") {
+            field("items", array(completionItem))
+        }
+
         val typeFact = structdef("mixinTypeFact") {
             field("range", sourceRange)
             field("type", string)
@@ -129,6 +138,7 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
         }
 
         call("parseMixinFiles", parseRequest, parseResponse).async
+        call("completeMixin", completionRequest, completionResponse).async
         call("getMixinLanguageCatalog", bool, languageCatalog).async
         property("isHelixEnabled", bool)
     }

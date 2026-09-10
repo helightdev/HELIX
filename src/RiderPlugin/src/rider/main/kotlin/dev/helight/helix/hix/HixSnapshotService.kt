@@ -15,6 +15,7 @@ import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiManager
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.jetbrains.rd.framework.RdTaskResult
+import com.jetbrains.rd.framework.impl.RpcTimeouts
 import com.jetbrains.rd.util.reactive.adviseOnce
 import com.jetbrains.rider.plugins.unity.UnityProjectLifetimeService
 import com.jetbrains.rider.projectView.solution
@@ -22,6 +23,8 @@ import dev.helight.helix.protocol.MixinFileInput
 import dev.helight.helix.protocol.MixinFileSnapshot
 import dev.helight.helix.protocol.MixinLanguageDefinition
 import dev.helight.helix.protocol.MixinParseRequest
+import dev.helight.helix.protocol.MixinCompletionItem
+import dev.helight.helix.protocol.MixinCompletionRequest
 import dev.helight.helix.protocol.helixExpressionModel
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -70,6 +73,13 @@ class HixSnapshotService(private val project: Project) {
                 catalogRequestInFlight.set(false)
                 if (result is RdTaskResult.Success && result.value.definitions.isNotEmpty()) {
                     definitions = result.value.definitions
+                    val files = knownFiles.values.toList()
+                    ApplicationManager.getApplication().invokeLater {
+                        if (project.isDisposed) return@invokeLater
+                        val psiManager = PsiManager.getInstance(project)
+                        val daemon = DaemonCodeAnalyzer.getInstance(project)
+                        files.mapNotNull(psiManager::findFile).forEach(daemon::restart)
+                    }
                 } else scheduleCatalogRetry()
             }
     }
@@ -85,6 +95,13 @@ class HixSnapshotService(private val project: Project) {
         if (project.isDisposed || definitions.isNotEmpty()) return
         AppExecutorUtil.getAppScheduledExecutorService().schedule(
             { ensureLanguageCatalog() }, CATALOG_RETRY_DELAY_MS, TimeUnit.MILLISECONDS)
+    }
+
+    fun lazyCompletions(kind: String, prefix: String): Array<MixinCompletionItem> = try {
+        project.solution.helixExpressionModel.completeMixin
+            .sync(MixinCompletionRequest(kind, prefix), RpcTimeouts(500L, 2_000L)).items
+    } catch (_: Throwable) {
+        emptyArray()
     }
 
     fun snapshot(path: String): MixinFileSnapshot? = byPath[normalise(path)]

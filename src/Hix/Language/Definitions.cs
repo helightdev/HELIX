@@ -33,6 +33,47 @@ public sealed record HixRootDefinition(
   string Name, HixExpressionRoot Root, HixValueKind Kind, string Documentation
 );
 
+public enum HixPatternMetadataArgumentKind { Value, Pattern }
+
+public sealed record HixPatternMetadataDefinition(
+  string Name, string Documentation, IReadOnlyList<HixPatternMetadataArgumentKind> ArgumentKinds,
+  bool Variadic = false
+);
+
+public static class HixPatternMetadata {
+  public static readonly IReadOnlyList<HixPatternMetadataDefinition> Definitions = [
+    new("optional", "Makes a table, tuple, or function-pattern field optional.", []),
+    new("many", "Matches a repeated tuple element. An argument can supply the repeated element pattern.",
+      [HixPatternMetadataArgumentKind.Pattern]),
+    new("map", "Matches a table whose keys and values satisfy the supplied patterns.",
+      [HixPatternMetadataArgumentKind.Pattern, HixPatternMetadataArgumentKind.Pattern]),
+    new("union", "Matches a value accepted by any of the supplied patterns.",
+      [HixPatternMetadataArgumentKind.Pattern], true),
+    new("const", "Matches one constant value, optionally constrained by the annotated pattern.",
+      [HixPatternMetadataArgumentKind.Value]),
+    new("min", "Adds a minimum-value constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value]),
+    new("max", "Adds a maximum-value constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value]),
+    new("length", "Adds an exact-length constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value]),
+    new("matches", "Adds a text-matching constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value])
+  ];
+
+  public static bool TryGet(string name, out HixPatternMetadataDefinition definition) {
+    definition = Definitions.FirstOrDefault(item => item.Name == name);
+    return definition is not null;
+  }
+}
+
+public sealed record HixFileMetadataDefinition(
+  string Name, string Documentation, IReadOnlyList<string> ArgumentTypes
+);
+
+public static class HixFileMetadata {
+  public static readonly IReadOnlyList<HixFileMetadataDefinition> Definitions = [
+    new("pragma", "Configures compiler diagnostics and generated artifacts for this Hix library.", ["Flag"]),
+    new("vm", "Configures virtual-machine diagnostics for this Hix library.", ["Flag"])
+  ];
+}
+
 public sealed record FunctionSignature(
   HixValueKind ResultType, IReadOnlyList<HixValueKind> ArgumentTypes, bool IsVariadic = false
 ) {

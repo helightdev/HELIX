@@ -12,11 +12,13 @@ namespace Hix.Compiler;
 
 /// <summary>ANTLR recognition followed by semantic construction, with no second syntax recognizer.</summary>
 public static class AntlrSyntax {
-  public static CompilationUnitIr Parse(string source, HixBackend backend = null) {
+  public static CompilationUnitIr Parse(string source, HixBackend backend = null,
+    bool recoverValidDeclarations = false) {
     source ??= "";
+    var parseSource = recoverValidDeclarations ? RecoverIncompleteHeader(source) : source;
     var diagnostics = new List<HixParseDiagnostic>();
     var errors = new ErrorListener(diagnostics);
-    var lexer = new Lexer(new AntlrInputStream(source));
+    var lexer = new Lexer(new AntlrInputStream(parseSource));
     lexer.RemoveErrorListeners();
     lexer.AddErrorListener(errors);
     var stream = new CommonTokenStream(lexer);
@@ -29,12 +31,16 @@ public static class AntlrSyntax {
     foreach (var token in stream.GetTokens())
       if (token.Type == Lexer.ERROR_TOKEN)
         diagnostics.Add(new HixParseDiagnostic(token.Line, "invalid token '" + token.Text + "'"));
-    // Error recovery trees are useful to ANTLR, but must never produce executable partial programs.
+    // Error recovery trees must never produce executable partial programs during compilation.
+    // Editor analysis may, however, retain complete declarations surrounding an incomplete edit.
     var builder = new IrBuilder(tokens, diagnostics);
-    var declarations = diagnostics.Count == 0
-      ? tree.topLevelDeclaration().Select(builder.Visit).ToArray()
+    var declarationContexts = tree.topLevelDeclaration()
+      .Where(context => !recoverValidDeclarations || !HasSyntaxError(context)).ToArray();
+    var declarations = diagnostics.Count == 0 || recoverValidDeclarations
+      ? declarationContexts.Select(builder.Visit).ToArray()
       : Array.Empty<HixIrNode>();
-    var metadata = diagnostics.Count == 0 && tree.fileMetadataSection() is { } section
+    var metadata = (diagnostics.Count == 0 || recoverValidDeclarations) &&
+      tree.fileMetadataSection() is { } section && !HasSyntaxError(section)
       ? section.metadataList().metadata().Select(value => (MetadataIr)builder.Visit(value)).ToArray()
       : Array.Empty<MetadataIr>();
     var patterns = declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal)
@@ -42,6 +48,31 @@ public static class AntlrSyntax {
     LanguageValidation.Validate(declarations, diagnostics, backend);
     if (diagnostics.Count == 0) PatternTypeAnalysis.Validate(declarations, patterns, diagnostics, backend);
     return new CompilationUnitIr(source, declarations, diagnostics, tokens, metadata);
+  }
+
+  private static string RecoverIncompleteHeader(string source) {
+    var delimiter = source.IndexOf("---", StringComparison.Ordinal);
+    if (delimiter < 0) return source;
+    var header = source.Substring(0, delimiter);
+    var hasIncompleteMetadata = header.Split('\n').Any(line => line.Trim('\r', ' ', '\t') == "%");
+    if (!hasIncompleteMetadata) return source;
+
+    // Keep offsets stable while preventing an unfinished header item from making ANTLR consume
+    // the section delimiter and every following declaration as part of one recovery context.
+    var recovered = source.ToCharArray();
+    for (var index = 0; index < delimiter + 3; index++)
+      if (recovered[index] is not '\r' and not '\n') recovered[index] = ' ';
+    return new string(recovered);
+  }
+
+  private static bool HasSyntaxError(IParseTree node) {
+    if (node is IErrorNode) return true;
+    if (node is ITerminalNode terminal && terminal.Symbol.TokenIndex < 0) return true;
+    if (node is Parser.MetadataContext metadata &&
+      metadata.metadataValue() is null && metadata.IDENTIFIER() is null) return true;
+    for (var index = 0; index < node.ChildCount; index++)
+      if (HasSyntaxError(node.GetChild(index))) return true;
+    return false;
   }
 
   private sealed class ErrorListener(List<HixParseDiagnostic> diagnostics)
@@ -157,6 +188,10 @@ public static class AntlrSyntax {
           BooleanExpressionIr boolean => boolean.Value, NullExpressionIr => null, _ => null
         };
         HixPattern PatternArgument(int index) => Argument(index) is string name ? HixPatterns.Named(name) : HixPattern.Any;
+        if (!HixPatternMetadata.TryGet(metadata.Name, out _)) {
+          diagnostics.Add(new HixParseDiagnostic(metadata.Line, "unknown pattern directive '%" + metadata.Name + "'"));
+          continue;
+        }
         switch (metadata.Name) {
           case "optional": optional = true; break;
           case "many": pattern = new ManyHixPattern(metadata.Values.Count == 0 ? pattern : PatternArgument(0)); break;
@@ -169,7 +204,6 @@ public static class AntlrSyntax {
           case "max": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Maximum, Argument(0)); break;
           case "length": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Length, Argument(0)); break;
           case "matches": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Matches, Argument(0)); break;
-          default: diagnostics.Add(new HixParseDiagnostic(metadata.Line, "unknown pattern directive '%" + metadata.Name + "'")); break;
         }
       }
       return pattern;

@@ -21,7 +21,7 @@ import javax.swing.Icon
 import dev.helight.helix.hix.generated.HixLexer
 
 object HixColors {
-    val DIRECTIVE = TextAttributesKey.createTextAttributesKey(
+    val KEYWORD = TextAttributesKey.createTextAttributesKey(
         "HELIX_MIXIN_DIRECTIVE", DefaultLanguageHighlighterColors.KEYWORD
     )
     val VALUE = TextAttributesKey.createTextAttributesKey(
@@ -60,6 +60,27 @@ object HixColors {
     val TYPE = TextAttributesKey.createTextAttributesKey(
         "HELIX_MIXIN_CSHARP_TYPE", DefaultLanguageHighlighterColors.CLASS_NAME
     )
+    val PARAMETER = TextAttributesKey.createTextAttributesKey(
+        "HIX_PARAMETER", DefaultLanguageHighlighterColors.PARAMETER
+    )
+    val FIELD = TextAttributesKey.createTextAttributesKey(
+        "HIX_FIELD", DefaultLanguageHighlighterColors.INSTANCE_FIELD
+    )
+    val MIXIN = TextAttributesKey.createTextAttributesKey(
+        "HIX_MIXIN_DECLARATION", DefaultLanguageHighlighterColors.CLASS_NAME
+    )
+    val METADATA = TextAttributesKey.createTextAttributesKey(
+        "HIX_METADATA", DefaultLanguageHighlighterColors.METADATA
+    )
+    val PATTERN_METADATA = TextAttributesKey.createTextAttributesKey(
+        "HIX_PATTERN_METADATA", DefaultLanguageHighlighterColors.METADATA
+    )
+    val OPERATOR = TextAttributesKey.createTextAttributesKey(
+        "HIX_OPERATOR", DefaultLanguageHighlighterColors.OPERATION_SIGN
+    )
+    val SEPARATOR = TextAttributesKey.createTextAttributesKey(
+        "HIX_SEPARATOR", DefaultLanguageHighlighterColors.SEMICOLON
+    )
     val COMMENT = TextAttributesKey.createTextAttributesKey(
         "HELIX_MIXIN_COMMENT", DefaultLanguageHighlighterColors.LINE_COMMENT
     )
@@ -94,8 +115,9 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
         val type = (tokenType as? HelixAntlrTokenType)?.antlrType ?: return emptyArray()
         val name = HixLexer.VOCABULARY.getSymbolicName(type).orEmpty()
         return pack(when {
-            name.startsWith("KEYWORD_") -> HixColors.DIRECTIVE
-            type == HixLexer.BEGIN_LAMBDA_BLOCK || type == HixLexer.BEGIN_LAMBDA_ARROW -> HixColors.DIRECTIVE
+            name.startsWith("KEYWORD_") -> HixColors.KEYWORD
+            type == HixLexer.BEGIN_LAMBDA_BLOCK || type == HixLexer.BEGIN_LAMBDA_ARROW -> HixColors.KEYWORD
+            type in metadataTokens -> HixColors.METADATA
             type == HixLexer.NUMBER -> HixColors.NUMBER
             type == HixLexer.BOOLEAN -> HixColors.BOOLEAN
             type == HixLexer.NULL -> HixColors.NULL
@@ -104,6 +126,8 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
             type == HixLexer.VALUE_MEMBER -> HixColors.PATH
             type == HixLexer.MEMBER_IDENTIFIER -> HixColors.PATH
             type == HixLexer.LABEL_IDENTIFIER -> HixColors.LABEL
+            type in operatorTokens -> HixColors.OPERATOR
+            type in separatorTokens -> HixColors.SEPARATOR
             type in setOf(HixLexer.ARGUMENT_TEXT, HixLexer.BEGIN_ARGUMENT, HixLexer.ARGUMENT_END) -> HixColors.ARGUMENT
             type == HixLexer.CONTENT_TEXT -> HixColors.TEMPLATE
             type in setOf(HixLexer.COMMENT, HixLexer.SLASH_COMMENT) -> HixColors.COMMENT
@@ -113,14 +137,26 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
             else -> null
         })
     }
+
+    private companion object {
+        val metadataTokens = setOf(HixLexer.METADATA_PREFIX, HixLexer.BEGIN_METADATA_VALUE)
+        val operatorTokens = setOf(
+            HixLexer.ASSIGN, HixLexer.ARROW, HixLexer.FAT_ARROW, HixLexer.VALUE_ASSIGN,
+            HixLexer.VALUE_EXPAND, HixLexer.VALUE_FUNCTION, HixLexer.VALUE_PREDICATE,
+            HixLexer.NOT_VALUE, HixLexer.VALUE_CHECK, HixLexer.VALUE_ELVIS
+        )
+        val separatorTokens = setOf(
+            HixLexer.SECTION_DELIMITER, HixLexer.SEMICOLON, HixLexer.COMMA, HixLexer.VALUE_DELIMITER
+        )
+    }
 }
 
 class HixColorSettingsPage : ColorSettingsPage {
-    override fun getDisplayName(): String = "HELIX Mixin"
+    override fun getDisplayName(): String = "Hix"
     override fun getIcon(): Icon? = null
     override fun getHighlighter(): SyntaxHighlighter = HixSyntaxHighlighter(null)
     override fun getAttributeDescriptors(): Array<AttributesDescriptor> = arrayOf(
-        AttributesDescriptor("Directive", HixColors.DIRECTIVE),
+        AttributesDescriptor("Keyword", HixColors.KEYWORD),
         AttributesDescriptor("Expression root", HixColors.VALUE),
         AttributesDescriptor("Number", HixColors.NUMBER),
         AttributesDescriptor("Boolean", HixColors.BOOLEAN),
@@ -131,8 +167,15 @@ class HixColorSettingsPage : ColorSettingsPage {
         AttributesDescriptor("Label", HixColors.LABEL),
         AttributesDescriptor("Local", HixColors.LOCAL),
         AttributesDescriptor("Variable", HixColors.VARIABLE),
-        AttributesDescriptor("Function identifier", HixColors.FUNCTION_IDENTIFIER),
-        AttributesDescriptor("C# type", HixColors.TYPE),
+        AttributesDescriptor("Function declaration", HixColors.FUNCTION_IDENTIFIER),
+        AttributesDescriptor("Type", HixColors.TYPE),
+        AttributesDescriptor("Parameter", HixColors.PARAMETER),
+        AttributesDescriptor("Field", HixColors.FIELD),
+        AttributesDescriptor("Mixin declaration", HixColors.MIXIN),
+        AttributesDescriptor("Metadata", HixColors.METADATA),
+        AttributesDescriptor("Pattern metadata", HixColors.PATTERN_METADATA),
+        AttributesDescriptor("Operator", HixColors.OPERATOR),
+        AttributesDescriptor("Separator", HixColors.SEPARATOR),
         AttributesDescriptor("Comment", HixColors.COMMENT),
         AttributesDescriptor("Escape", HixColors.ESCAPE),
         AttributesDescriptor("Invalid syntax", HixColors.BAD),
@@ -147,19 +190,28 @@ class HixColorSettingsPage : ColorSettingsPage {
         "local" to HixColors.LOCAL,
         "variable" to HixColors.VARIABLE,
         "functionId" to HixColors.DELEGATE,
-        "type" to HixColors.TYPE
+        "type" to HixColors.TYPE,
+        "parameter" to HixColors.PARAMETER,
+        "field" to HixColors.FIELD,
+        "metadata" to HixColors.METADATA,
+        "patternMetadata" to HixColors.PATTERN_METADATA,
+        "mixin" to HixColors.MIXIN
     )
 
     override fun getDemoText(): String = """// Hix language
-pure func Describe sig @{name=string} -> string {
-  return(<Hello [param#name]>)
+%type<Example>
+%guid<12345678-1234-1234-1234-123456789012>
+---
+type Person = @{string name, %optional number age}
+pure func Describe(Person person, string greeting) -> string {
+  return(<[greeting], [person#name]!>)
 }
-mixin HELIX.Compose.ExampleAttribute {
+mixin <HELIX.Compose.ExampleAttribute> {
   prelude expression {
-    carry local Name @= target:name;
+    local name = target#name;
   }
   expression {
-    emit @> // {{local#Name}}
+    emit @> // {{name}}
   }
 }
 """

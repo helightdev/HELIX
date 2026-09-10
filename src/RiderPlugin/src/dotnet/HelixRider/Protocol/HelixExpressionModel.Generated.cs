@@ -43,32 +43,39 @@ namespace HelixRider.Protocol
     //fields
     //public fields
     [NotNull] public IRdEndpoint<MixinParseRequest, MixinParseResponse> ParseMixinFiles => _ParseMixinFiles;
+    [NotNull] public IRdEndpoint<MixinCompletionRequest, MixinCompletionResponse> CompleteMixin => _CompleteMixin;
     [NotNull] public IRdEndpoint<bool, MixinLanguageCatalog> GetMixinLanguageCatalog => _GetMixinLanguageCatalog;
     [NotNull] public IViewableProperty<bool> IsHelixEnabled => _IsHelixEnabled;
 
     //private fields
     [NotNull] private readonly RdCall<MixinParseRequest, MixinParseResponse> _ParseMixinFiles;
+    [NotNull] private readonly RdCall<MixinCompletionRequest, MixinCompletionResponse> _CompleteMixin;
     [NotNull] private readonly RdCall<bool, MixinLanguageCatalog> _GetMixinLanguageCatalog;
     [NotNull] private readonly RdProperty<bool> _IsHelixEnabled;
 
     //primary constructor
     private HelixExpressionModel(
       [NotNull] RdCall<MixinParseRequest, MixinParseResponse> parseMixinFiles,
+      [NotNull] RdCall<MixinCompletionRequest, MixinCompletionResponse> completeMixin,
       [NotNull] RdCall<bool, MixinLanguageCatalog> getMixinLanguageCatalog,
       [NotNull] RdProperty<bool> isHelixEnabled
     )
     {
       if (parseMixinFiles == null) throw new ArgumentNullException("parseMixinFiles");
+      if (completeMixin == null) throw new ArgumentNullException("completeMixin");
       if (getMixinLanguageCatalog == null) throw new ArgumentNullException("getMixinLanguageCatalog");
       if (isHelixEnabled == null) throw new ArgumentNullException("isHelixEnabled");
 
       _ParseMixinFiles = parseMixinFiles;
+      _CompleteMixin = completeMixin;
       _GetMixinLanguageCatalog = getMixinLanguageCatalog;
       _IsHelixEnabled = isHelixEnabled;
       _IsHelixEnabled.OptimizeNested = true;
       _ParseMixinFiles.Async = true;
+      _CompleteMixin.Async = true;
       _GetMixinLanguageCatalog.Async = true;
       BindableChildren.Add(new KeyValuePair<string, object>("parseMixinFiles", _ParseMixinFiles));
+      BindableChildren.Add(new KeyValuePair<string, object>("completeMixin", _CompleteMixin));
       BindableChildren.Add(new KeyValuePair<string, object>("getMixinLanguageCatalog", _GetMixinLanguageCatalog));
       BindableChildren.Add(new KeyValuePair<string, object>("isHelixEnabled", _IsHelixEnabled));
     }
@@ -76,6 +83,7 @@ namespace HelixRider.Protocol
     internal HelixExpressionModel (
     ) : this (
       new RdCall<MixinParseRequest, MixinParseResponse>(MixinParseRequest.Read, MixinParseRequest.Write, MixinParseResponse.Read, MixinParseResponse.Write),
+      new RdCall<MixinCompletionRequest, MixinCompletionResponse>(MixinCompletionRequest.Read, MixinCompletionRequest.Write, MixinCompletionResponse.Read, MixinCompletionResponse.Write),
       new RdCall<bool, MixinLanguageCatalog>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool, MixinLanguageCatalog.Read, MixinLanguageCatalog.Write),
       new RdProperty<bool>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool)
     ) {}
@@ -84,7 +92,7 @@ namespace HelixRider.Protocol
 
 
 
-    protected override long SerializationHash => -3499272926308586000L;
+    protected override long SerializationHash => -841084637890688323L;
 
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -106,6 +114,7 @@ namespace HelixRider.Protocol
       printer.Println("HelixExpressionModel (");
       using (printer.IndentCookie()) {
         printer.Print("parseMixinFiles = "); _ParseMixinFiles.PrintEx(printer); printer.Println();
+        printer.Print("completeMixin = "); _CompleteMixin.PrintEx(printer); printer.Println();
         printer.Print("getMixinLanguageCatalog = "); _GetMixinLanguageCatalog.PrintEx(printer); printer.Println();
         printer.Print("isHelixEnabled = "); _IsHelixEnabled.PrintEx(printer); printer.Println();
       }
@@ -245,6 +254,187 @@ namespace HelixRider.Protocol
         printer.Print("documentation = "); Documentation.PrintEx(printer); printer.Println();
         printer.Print("targetFilePath = "); TargetFilePath.PrintEx(printer); printer.Println();
         printer.Print("targetRange = "); TargetRange.PrintEx(printer); printer.Println();
+      }
+      printer.Print(")");
+    }
+    //toString
+    public override string ToString()
+    {
+      var printer = new SingleLinePrettyPrinter();
+      Print(printer);
+      return printer.ToString();
+    }
+  }
+
+
+  /// <summary>
+  /// <p>Generated from: HelixExpressionModel.kt:90</p>
+  /// </summary>
+  public sealed class MixinCompletionRequest : IPrintable, IEquatable<MixinCompletionRequest>
+  {
+    //fields
+    //public fields
+    [NotNull] public string Kind {get; private set;}
+    [NotNull] public string Prefix {get; private set;}
+
+    //private fields
+    //primary constructor
+    public MixinCompletionRequest(
+      [NotNull] string kind,
+      [NotNull] string prefix
+    )
+    {
+      if (kind == null) throw new ArgumentNullException("kind");
+      if (prefix == null) throw new ArgumentNullException("prefix");
+
+      Kind = kind;
+      Prefix = prefix;
+    }
+    //secondary constructor
+    //deconstruct trait
+    public void Deconstruct([NotNull] out string kind, [NotNull] out string prefix)
+    {
+      kind = Kind;
+      prefix = Prefix;
+    }
+    //statics
+
+    public static CtxReadDelegate<MixinCompletionRequest> Read = (ctx, reader) =>
+    {
+      var kind = reader.ReadString();
+      var prefix = reader.ReadString();
+      var _result = new MixinCompletionRequest(kind, prefix);
+      return _result;
+    };
+
+    public static CtxWriteDelegate<MixinCompletionRequest> Write = (ctx, writer, value) =>
+    {
+      writer.Write(value.Kind);
+      writer.Write(value.Prefix);
+    };
+
+    //constants
+
+    //custom body
+    //methods
+    //equals trait
+    public override bool Equals(object obj)
+    {
+      if (ReferenceEquals(null, obj)) return false;
+      if (ReferenceEquals(this, obj)) return true;
+      if (obj.GetType() != GetType()) return false;
+      return Equals((MixinCompletionRequest) obj);
+    }
+    public bool Equals(MixinCompletionRequest other)
+    {
+      if (ReferenceEquals(null, other)) return false;
+      if (ReferenceEquals(this, other)) return true;
+      return Kind == other.Kind && Prefix == other.Prefix;
+    }
+    //hash code trait
+    public override int GetHashCode()
+    {
+      unchecked {
+        var hash = 0;
+        hash = hash * 31 + Kind.GetHashCode();
+        hash = hash * 31 + Prefix.GetHashCode();
+        return hash;
+      }
+    }
+    //pretty print
+    public void Print(PrettyPrinter printer)
+    {
+      printer.Println("MixinCompletionRequest (");
+      using (printer.IndentCookie()) {
+        printer.Print("kind = "); Kind.PrintEx(printer); printer.Println();
+        printer.Print("prefix = "); Prefix.PrintEx(printer); printer.Println();
+      }
+      printer.Print(")");
+    }
+    //toString
+    public override string ToString()
+    {
+      var printer = new SingleLinePrettyPrinter();
+      Print(printer);
+      return printer.ToString();
+    }
+  }
+
+
+  /// <summary>
+  /// <p>Generated from: HelixExpressionModel.kt:95</p>
+  /// </summary>
+  public sealed class MixinCompletionResponse : IPrintable, IEquatable<MixinCompletionResponse>
+  {
+    //fields
+    //public fields
+    [NotNull] public MixinCompletionItem[] Items {get; private set;}
+
+    //private fields
+    //primary constructor
+    public MixinCompletionResponse(
+      [NotNull] MixinCompletionItem[] items
+    )
+    {
+      if (items == null) throw new ArgumentNullException("items");
+
+      Items = items;
+    }
+    //secondary constructor
+    //deconstruct trait
+    public void Deconstruct([NotNull] out MixinCompletionItem[] items)
+    {
+      items = Items;
+    }
+    //statics
+
+    public static CtxReadDelegate<MixinCompletionResponse> Read = (ctx, reader) =>
+    {
+      var items = ReadMixinCompletionItemArray(ctx, reader);
+      var _result = new MixinCompletionResponse(items);
+      return _result;
+    };
+    public static CtxReadDelegate<MixinCompletionItem[]> ReadMixinCompletionItemArray = MixinCompletionItem.Read.Array();
+
+    public static CtxWriteDelegate<MixinCompletionResponse> Write = (ctx, writer, value) =>
+    {
+      WriteMixinCompletionItemArray(ctx, writer, value.Items);
+    };
+    public static  CtxWriteDelegate<MixinCompletionItem[]> WriteMixinCompletionItemArray = MixinCompletionItem.Write.Array();
+
+    //constants
+
+    //custom body
+    //methods
+    //equals trait
+    public override bool Equals(object obj)
+    {
+      if (ReferenceEquals(null, obj)) return false;
+      if (ReferenceEquals(this, obj)) return true;
+      if (obj.GetType() != GetType()) return false;
+      return Equals((MixinCompletionResponse) obj);
+    }
+    public bool Equals(MixinCompletionResponse other)
+    {
+      if (ReferenceEquals(null, other)) return false;
+      if (ReferenceEquals(this, other)) return true;
+      return Items.SequenceEqual(other.Items);
+    }
+    //hash code trait
+    public override int GetHashCode()
+    {
+      unchecked {
+        var hash = 0;
+        hash = hash * 31 + Items.ContentHashCode();
+        return hash;
+      }
+    }
+    //pretty print
+    public void Print(PrettyPrinter printer)
+    {
+      printer.Println("MixinCompletionResponse (");
+      using (printer.IndentCookie()) {
+        printer.Print("items = "); Items.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }
@@ -699,7 +889,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:98</p>
+  /// <p>Generated from: HelixExpressionModel.kt:107</p>
   /// </summary>
   public sealed class MixinFileSnapshot : IPrintable, IEquatable<MixinFileSnapshot>
   {
@@ -877,7 +1067,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:127</p>
+  /// <p>Generated from: HelixExpressionModel.kt:136</p>
   /// </summary>
   public sealed class MixinLanguageCatalog : IPrintable, IEquatable<MixinLanguageCatalog>
   {
@@ -964,7 +1154,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:111</p>
+  /// <p>Generated from: HelixExpressionModel.kt:120</p>
   /// </summary>
   public sealed class MixinLanguageDefinition : IPrintable, IEquatable<MixinLanguageDefinition>
   {
@@ -1208,7 +1398,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:123</p>
+  /// <p>Generated from: HelixExpressionModel.kt:132</p>
   /// </summary>
   public sealed class MixinParseResponse : IPrintable, IEquatable<MixinParseResponse>
   {
@@ -1721,7 +1911,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:90</p>
+  /// <p>Generated from: HelixExpressionModel.kt:99</p>
   /// </summary>
   public sealed class MixinTypeFact : IPrintable, IEquatable<MixinTypeFact>
   {

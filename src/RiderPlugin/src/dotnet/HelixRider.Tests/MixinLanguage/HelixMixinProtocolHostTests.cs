@@ -23,7 +23,8 @@ public sealed class HelixMixinProtocolHostTests
         Assert.That(use.Diagnostics.Any(diagnostic => diagnostic.Message.Contains("unknown pattern")), Is.False);
         Assert.That(use.References.Any(reference => reference.Name == "Person" &&
             reference.TargetFilePath.EndsWith("Patterns.hix")), Is.True);
-        Assert.That(use.CompletionSites.SelectMany(site => site.Items).Any(item => item.Name == "Person"), Is.True);
+        Assert.That(use.CompletionSites.SelectMany(site => site.Items), Is.Empty,
+            "snapshot construction must not eagerly materialize completion items");
         Assert.That(use.TypeFacts.Any(fact => fact.Type == "Person" && fact.Documentation.Contains("Validate")), Is.True);
     }
 
@@ -79,6 +80,10 @@ public sealed class HelixMixinProtocolHostTests
 
         Assert.That(response.Files, Has.Length.EqualTo(files.Length));
         Assert.That(HelixMixinLanguageHost.LanguageCatalog().Definitions, Is.Not.Empty);
+        Assert.That(HelixMixinLanguageHost.LanguageCatalog().Definitions,
+            Has.Some.Matches<MixinLanguageDefinition>(definition => definition.Kind == "Kind" && definition.Name == "string"));
+        Assert.That(HelixMixinLanguageHost.LanguageCatalog().Definitions,
+            Has.Some.Matches<MixinLanguageDefinition>(definition => definition.Kind == "PatternMetadata" && definition.Name == "many"));
         Assert.That(response.Files.Sum(file => file.Declarations.Length), Is.GreaterThan(10));
         Assert.That(response.Files.Sum(file => file.References.Length), Is.GreaterThan(10));
     }
