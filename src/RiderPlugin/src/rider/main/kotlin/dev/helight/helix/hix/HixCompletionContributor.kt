@@ -90,7 +90,7 @@ private object MetadataProvider : CompletionProvider<CompletionParameters>() {
                             typeText: String, operandType: String = "") {
         val prefix = CompletionText.metadataPrefix(context.source, context.offset)
         val matched = result.withPrefixMatcher(prefix)
-        context.definitions(kind, operandType = operandType, prefix = prefix).forEach { definition ->
+        context.definitions(kind, operandType = operandType, prefix = prefix).distinctBy { it.name }.forEach { definition ->
             val arguments = definition.argumentTypes.mapIndexed { index, type ->
                 val rendered = "<${type.lowercase()}>"
                 if (definition.variadic && index == definition.argumentTypes.lastIndex) "$rendered..." else rendered

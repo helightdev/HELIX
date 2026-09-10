@@ -102,7 +102,9 @@ public sealed class HixAnalyzerService {
   }
 
   private static HixDefinition[] BuildDefinitions(HixBackend backend) {
-    var functions = backend.Functions.Enumerate().SelectMany(definition => definition.Signatures.Select(signature =>
+    var all = backend.Functions.EnumerateAll().ToArray();
+    var functions = all.Where(definition => definition.Metadata == HixMetadataKind.None)
+      .SelectMany(definition => definition.Signatures.Select(signature =>
       new HixDefinition(definition.Name, "Function", signature.ArgumentCount, signature.IsVariadic, "None",
         (signature.ArgumentTypes.Count == 0 ? HixValueKind.Any : signature.ArgumentTypes[0]).ToString(),
         signature.ResultType.ToString(), signature.ArgumentTypes.Select(type => type.ToString()).ToArray(),
@@ -112,14 +114,16 @@ public sealed class HixAnalyzerService {
     var kinds = Enum.GetValues(typeof(HixValueKind)).Cast<HixValueKind>().Select(kind => new HixDefinition(
       kind.ToString().ToLowerInvariant(), "Kind", 0, false, "None", "None", "Kind", [],
       "Matches values of kind `" + kind.ToString().ToLowerInvariant() + "`."));
-    var metadata = HixPatternMetadata.Definitions.Select(definition => new HixDefinition(definition.Name,
-      "PatternMetadata", definition.MinimumArguments ?? (definition.ArgumentKinds.Count - (definition.Variadic ? 1 : 0)),
-      definition.Variadic || definition.MinimumArguments < definition.ArgumentKinds.Count,
-      definition.Name == "optional" ? "Field" : "Pattern", "None", "Pattern",
-      definition.ArgumentKinds.Select(kind => kind.ToString()).ToArray(), definition.Documentation));
-    var fileMetadata = HixFileMetadata.Definitions.Select(definition => new HixDefinition(definition.Name,
-      "FileMetadata", definition.ArgumentTypes.Count, false, "File", "None", "None",
-      definition.ArgumentTypes.ToArray(), definition.Documentation));
+    var metadata = all.Where(definition => (definition.Metadata &
+        (HixMetadataKind.Pattern | HixMetadataKind.PatternField)) != 0)
+      .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
+        "PatternMetadata", signature.ArgumentCount, signature.IsVariadic,
+        definition.Metadata == HixMetadataKind.PatternField ? "Field" : "Pattern", "None", "Pattern",
+        signature.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation)));
+    var fileMetadata = all.Where(definition => (definition.Metadata & HixMetadataKind.File) != 0)
+      .SelectMany(definition => definition.Signatures.Select(signature => new HixDefinition(definition.Name,
+        "FileMetadata", signature.ArgumentCount, signature.IsVariadic, "File", "None", "None",
+        signature.ArgumentTypes.Select(type => type.ToString()).ToArray(), definition.Documentation)));
     return functions.Concat(roots).Concat(kinds).Concat(metadata).Concat(fileMetadata).ToArray();
   }
 

@@ -33,54 +33,8 @@ public sealed record HixRootDefinition(
   string Name, HixExpressionRoot Root, HixValueKind Kind, string Documentation
 );
 
-public enum HixPatternMetadataArgumentKind { Value, Pattern }
-
-public sealed record HixPatternMetadataDefinition(
-  string Name, string Documentation, IReadOnlyList<HixPatternMetadataArgumentKind> ArgumentKinds,
-  bool Variadic = false, int? MinimumArguments = null
-);
-
-public static class HixPatternMetadata {
-  public static readonly IReadOnlyList<HixPatternMetadataDefinition> Definitions = [
-    new("optional", "Makes a table, tuple, or function-pattern field optional.", []),
-    new("many", "Matches a repeated tuple element. An argument can supply the repeated element pattern.",
-      [HixPatternMetadataArgumentKind.Pattern]),
-    new("map", "Matches a table whose keys and values satisfy the supplied patterns.",
-      [HixPatternMetadataArgumentKind.Pattern, HixPatternMetadataArgumentKind.Pattern]),
-    new("union", "Matches a value accepted by any of the supplied patterns.",
-      [HixPatternMetadataArgumentKind.Pattern], true),
-    new("const", "Matches one constant value, optionally constrained by the annotated pattern.",
-      [HixPatternMetadataArgumentKind.Value]),
-    new("enum", "Restricts a pattern to the supplied constant values.", [HixPatternMetadataArgumentKind.Value], true),
-    new("min", "Adds an inclusive or exclusive minimum constraint. Collections use their item count.",
-      [HixPatternMetadataArgumentKind.Value, HixPatternMetadataArgumentKind.Value], false, 1),
-    new("max", "Adds an inclusive or exclusive maximum constraint. Collections use their item count.",
-      [HixPatternMetadataArgumentKind.Value, HixPatternMetadataArgumentKind.Value], false, 1),
-    new("length", "Adds an exact-length constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value]),
-    new("matches", "Adds a text-matching constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value]),
-    new("title", "Adds a display title to the pattern.", [HixPatternMetadataArgumentKind.Value]),
-    new("description", "Adds descriptive documentation to the pattern.", [HixPatternMetadataArgumentKind.Value]),
-    new("default", "Sets a default value for a table field.", [HixPatternMetadataArgumentKind.Value])
-  ];
-
-  public static bool TryGet(string name, out HixPatternMetadataDefinition definition) {
-    definition = Definitions.FirstOrDefault(item => item.Name == name);
-    return definition is not null;
-  }
-}
-
-public sealed record HixFileMetadataDefinition(
-  string Name, string Documentation, IReadOnlyList<string> ArgumentTypes
-);
-
-public static class HixFileMetadata {
-  public static readonly IReadOnlyList<HixFileMetadataDefinition> Definitions = [
-    new("import", "Imports Hix files relative to the containing file. Supports *, **, and path globs.", ["Path"]),
-    new("backend", "Selects the analyzer backend for this Hix file.", ["Backend"]),
-    new("pragma", "Configures compiler diagnostics and generated artifacts for this Hix library.", ["Flag"]),
-    new("vm", "Configures virtual-machine diagnostics for this Hix library.", ["Flag"])
-  ];
-}
+[Flags]
+public enum HixMetadataKind { None = 0, Pattern = 1, PatternField = 2, File = 4 }
 
 public sealed record FunctionSignature(
   HixValueKind ResultType, IReadOnlyList<HixValueKind> ArgumentTypes, bool IsVariadic = false
@@ -146,7 +100,7 @@ public sealed class SimpleFunction(
   public override IHixValue Execute(HixThread execution, IHixValue[] arguments, int line) { return implementation(execution, arguments); }
 }
 
-public abstract class FunctionDefinition {
+public class FunctionDefinition {
 
   protected FunctionDefinition(
     string name, int argumentCount,
@@ -169,13 +123,14 @@ public abstract class FunctionDefinition {
     Signatures = [new FunctionSignature(resultType, ArgumentTypes, variadic)];
   }
 
-  protected FunctionDefinition(string name, IReadOnlyList<FunctionSignature> signatures, string documentation = null) {
+  public FunctionDefinition(string name, IReadOnlyList<FunctionSignature> signatures, string documentation = null,
+    HixMetadataKind metadata = HixMetadataKind.None) {
     if (signatures is null || signatures.Count == 0) throw new ArgumentException("A function requires at least one signature.", nameof(signatures));
     Name = name; Signatures = signatures;
     var primary = signatures[0]; ArgumentCount = primary.ArgumentCount; IsVariadic = primary.IsVariadic;
     ResultType = primary.ResultType; ArgumentTypes = primary.ArgumentTypes;
     ReceiverType = ArgumentTypes.Count == 0 ? HixValueKind.Any : ArgumentTypes[0];
-    Documentation = documentation ?? "";
+    Documentation = documentation ?? ""; Metadata = metadata;
   }
 
   public string Name { get; }
@@ -186,6 +141,7 @@ public abstract class FunctionDefinition {
   public IReadOnlyList<HixValueKind> ArgumentTypes { get; private set; }
   public virtual string Documentation { get; }
   public IReadOnlyList<FunctionSignature> Signatures { get; }
+  public HixMetadataKind Metadata { get; }
 
   public bool MatchesArgumentCount(int count) => Signatures.Any(signature => signature.MatchesArgumentCount(count));
 
@@ -247,7 +203,8 @@ public abstract class FunctionDefinition {
     }
     return true;
   }
-  public abstract IHixValue Execute(HixThread context, IHixValue[] arguments, int line);
+  public virtual IHixValue Execute(HixThread context, IHixValue[] arguments, int line) =>
+    context.Error("metadata function '" + Name + "' cannot be invoked");
 }
 
 public abstract class EvaluatedFunctionDefinition(

@@ -29,6 +29,7 @@ public abstract class HixBackend {
   public IReadOnlyDictionary<string, HixBackendRoot> Roots => roots.Value;
   protected virtual void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
     Hix.Functions.Builtins.Register(functions);
+    Hix.Functions.MetadataFunctions.Register(functions);
     functions.Add(new Hix.Functions.NameFunction(), new Hix.Functions.UnwrapFunction());
     RegisterEmissionFunctions(functions);
   }

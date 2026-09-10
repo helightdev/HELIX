@@ -14,14 +14,26 @@ public sealed class FunctionLibrary {
   }
 
   public bool TryGet(string name, int argumentCount, out FunctionDefinition definition) =>
-    Definitions.TryGet(name, argumentCount, out definition);
+    TryExecutable(name, argumentCount, out definition);
 
   public bool TryResolve(string name, int argumentCount, out FunctionDefinition definition) =>
-    Definitions.TryGet(name, argumentCount, out definition);
+    TryExecutable(name, argumentCount, out definition);
 
-  public IReadOnlyList<FunctionDefinition> Resolve(string name, int count) => Definitions.Resolve(name, count);
+  public IReadOnlyList<FunctionDefinition> Resolve(string name, int count) => Definitions.Resolve(name, count)
+    .Where(definition => definition.Metadata == HixMetadataKind.None).ToArray();
 
-  public IEnumerable<FunctionDefinition> Enumerate() => Definitions.Enumerate();
+  public IEnumerable<FunctionDefinition> Enumerate() => Definitions.Enumerate()
+    .Where(definition => definition.Metadata == HixMetadataKind.None);
+  public IEnumerable<FunctionDefinition> EnumerateAll() => Definitions.Enumerate();
+  public IReadOnlyList<FunctionDefinition> ResolveMetadata(string name, HixMetadataKind metadata) =>
+    Definitions.Enumerate().Where(definition => definition.Name == name && (definition.Metadata & metadata) != 0).ToArray();
+  public IReadOnlyList<FunctionDefinition> ResolveMetadata(string name, HixMetadataKind metadata, int argumentCount) =>
+    ResolveMetadata(name, metadata).Where(definition => definition.MatchesArgumentCount(argumentCount)).ToArray();
+
+  private bool TryExecutable(string name, int argumentCount, out FunctionDefinition definition) {
+    definition = Resolve(name, argumentCount).FirstOrDefault();
+    return definition != null;
+  }
 
   private static void ValidateMetadata(IEnumerable<FunctionDefinition> definitions) {
     foreach (var definition in definitions) {

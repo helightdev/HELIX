@@ -10,7 +10,11 @@ public sealed class HixAnalyzerServiceTests {
     var backend = Assert.Single(new HixAnalyzerService().Definitions.Where(item => item.Name == "backend"));
 
     Assert.Equal("FileMetadata", backend.Kind);
-    Assert.Equal(new[] {"Backend"}, backend.ArgumentTypes);
+    Assert.Equal(new[] {"String"}, backend.ArgumentTypes);
+    var definition = Assert.Single(HixCoreBackend.Instance.Functions.EnumerateAll()
+      .Where(item => item.Name == "backend"));
+    Assert.Equal(HixMetadataKind.File, definition.Metadata);
+    Assert.DoesNotContain(HixCoreBackend.Instance.Functions.Enumerate(), item => item.Name == "backend");
   }
 
   [Fact]

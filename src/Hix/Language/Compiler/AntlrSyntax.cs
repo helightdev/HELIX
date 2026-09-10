@@ -33,7 +33,7 @@ public static class AntlrSyntax {
         diagnostics.Add(new HixParseDiagnostic(token.Line, "invalid token '" + token.Text + "'"));
     // Error recovery trees must never produce executable partial programs during compilation.
     // Editor analysis may, however, retain complete declarations surrounding an incomplete edit.
-    var builder = new IrBuilder(tokens, diagnostics);
+    var builder = new IrBuilder(tokens, diagnostics, backend ?? HixCoreBackend.Instance);
     var declarationContexts = tree.topLevelDeclaration()
       .Where(context => !recoverValidDeclarations || !HasSyntaxError(context)).ToArray();
     var declarations = diagnostics.Count == 0 || recoverValidDeclarations
@@ -95,7 +95,7 @@ public static class AntlrSyntax {
     }
   }
 
-  private sealed class IrBuilder(IReadOnlyList<IToken> tokens, List<HixParseDiagnostic> diagnostics)
+  private sealed class IrBuilder(IReadOnlyList<IToken> tokens, List<HixParseDiagnostic> diagnostics, HixBackend backend)
     : Generated.HixParserBaseVisitor<HixIrNode> {
     private IReadOnlyList<MetadataIr> declarationMetadata = [];
     private IToken[] TokensIn(HixSourceRange range) {
@@ -168,7 +168,7 @@ public static class AntlrSyntax {
       var pattern = context.patternPrimary() == null ? HixPattern.Any : Pattern(context.patternPrimary());
       if (context.metadataList() == null) return pattern;
       pattern = ApplyPatternMetadata(pattern, context.metadataList().metadata().Select(item => (MetadataIr)Visit(item)),
-        out _, out _, out var hasDefault);
+        HixMetadataKind.Pattern, out _, out _, out var hasDefault);
       if (hasDefault) diagnostics.Add(new HixParseDiagnostic(context.Start.Line,
         "defaults are only allowed on table pattern fields"));
       return pattern;
@@ -190,7 +190,8 @@ public static class AntlrSyntax {
       var pattern = explicitName == null ? HixPattern.Any : Pattern(context.patternPrimary());
       var name = explicitName ?? context.patternPrimary().GetText();
       var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)) ?? [];
-      pattern = ApplyPatternMetadata(pattern, metadata, out var optional, out var metadataDefault, out var hasMetadataDefault);
+      pattern = ApplyPatternMetadata(pattern, metadata, HixMetadataKind.PatternField,
+        out var optional, out var metadataDefault, out var hasMetadataDefault);
       var hasAssignedDefault = context.value() != null;
       if ((hasAssignedDefault || hasMetadataDefault) && context.Parent is not Parser.TablePatternContext)
         diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "defaults are only allowed on table pattern fields"));
@@ -200,11 +201,8 @@ public static class AntlrSyntax {
       return new HixPatternField(name, pattern, optional, defaultValue, hasAssignedDefault || hasMetadataDefault);
     }
 
-    private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values, out bool optional) =>
-      ApplyPatternMetadata(pattern, values, out optional, out _, out _);
-
-    private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values, out bool optional,
-      out object defaultValue, out bool hasDefault) {
+    private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values,
+      HixMetadataKind target, out bool optional, out object defaultValue, out bool hasDefault) {
       optional = false; defaultValue = null; hasDefault = false;
       // Prefix metadata composes from the pattern outwards: `%min %many<string> values`
       // means a minimum constraint over the many-pattern, not a discarded constraint over `any`.
@@ -214,15 +212,24 @@ public static class AntlrSyntax {
           BooleanExpressionIr boolean => boolean.Value, NullExpressionIr => null, _ => null
         };
         HixPattern PatternArgument(int index) => Argument(index) is string name ? HixPatterns.Named(name) : HixPattern.Any;
-        if (!HixPatternMetadata.TryGet(metadata.Name, out _)) {
+        var definitions = backend.Functions.ResolveMetadata(metadata.Name, target);
+        if (definitions.Count == 0) {
           diagnostics.Add(new HixParseDiagnostic(metadata.Line, "unknown pattern directive '%" + metadata.Name + "'"));
+          continue;
+        }
+        if (backend.Functions.ResolveMetadata(metadata.Name, target, metadata.Values.Count).Count == 0) {
+          diagnostics.Add(new HixParseDiagnostic(metadata.Line, "metadata function '%" + metadata.Name +
+            "' does not accept " + metadata.Values.Count + " arguments"));
           continue;
         }
         switch (metadata.Name) {
           case "optional": optional = true; break;
           case "many": pattern = new ManyHixPattern(metadata.Values.Count == 0 ? pattern : PatternArgument(0)); break;
           case "map":
-            pattern = new MapHixPattern(PatternArgument(0), PatternArgument(1)); break;
+            if (metadata.Values.Count == 1 && Argument(0) is string pair && pair.Split(',') is {Length: 2} parts)
+              pattern = new MapHixPattern(HixPatterns.Named(parts[0].Trim()), HixPatterns.Named(parts[1].Trim()));
+            else pattern = new MapHixPattern(PatternArgument(0), PatternArgument(1));
+            break;
           case "union":
             pattern = HixPatterns.Union(Enumerable.Range(0, metadata.Values.Count).Select(PatternArgument)); break;
           case "const": pattern = new ConstantHixPattern(Argument(0), pattern); break;
