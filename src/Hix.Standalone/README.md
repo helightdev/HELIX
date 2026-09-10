@@ -44,6 +44,29 @@ func save {
 either a pattern or a kind and reject values that do not match it. `generateJsonSchema(pattern)` emits
 draft 2020-12 JSON Schema, while `loadJsonSchema(string)` imports a schema as a self-contained pattern.
 
+## Imports and files
+
+File imports belong in the metadata header and resolve relative to the file containing them. Imports
+are recursive, de-duplicated by absolute path, and compiled before the importing file:
+
+```hix
+%import<src/**>
+---
+
+func main {
+  print(currentPath())
+}
+```
+
+`%import<*>` imports the current directory, `%import<**>` includes every descendant, and a directory
+prefix such as `%import<src/**>` scopes the recursive search. Only `.hix` files are selected. Embedders
+can use `HixFileImports.Load(entryFile)` to obtain the same resolved source list as the CLI.
+
+Standalone path and file functions use `/` in returned paths on every platform. Relative filesystem
+paths resolve from the entry file's directory. The backend provides path joining, splitting,
+normalization and inspection; working-directory and platform separator values; and file reading,
+writing, creation, deletion, copying, renaming, existence checks, length queries, and directory listing.
+
 ## Analyzer service
 
 `Hix.Standalone.Analysis.HixAnalyzerService` is the stateful, transport-neutral language-service

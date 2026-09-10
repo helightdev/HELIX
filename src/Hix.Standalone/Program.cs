@@ -16,8 +16,9 @@ public static class Program {
       error.WriteLine("Unknown or incomplete option: " + args[i]); return 2;
     }
     try {
-      var backend = new HixStandaloneBackend(output);
-      var program = HixCompiler.CompileFunctions([File.ReadAllText(args[0])], backend);
+      var entryFile = Path.GetFullPath(args[0]);
+      var backend = new HixStandaloneBackend(output, Path.GetDirectoryName(entryFile));
+      var program = HixCompiler.CompileFunctions(HixFileImports.Load(entryFile), backend);
       var result = new HixVM([program]).Invoke(program, backend.CreateThread(), entry, arguments.ToArray());
       if (result.Success) return 0;
       error.WriteLine(result.Error.Resolve(result.Strings)); return 1;

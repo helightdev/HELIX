@@ -1,12 +1,18 @@
 using Hix.Runtime;
 namespace Hix.Standalone;
 
-public class HixStandaloneBackend(TextWriter output = null) : HixBackend {
-  public TextWriter Output { get; } = output ?? Console.Out;
+public class HixStandaloneBackend : HixBackend {
+  public HixStandaloneBackend(TextWriter output = null, string workingDirectory = null) {
+    Output = output ?? Console.Out;
+    WorkingDirectory = Path.GetFullPath(workingDirectory ?? Directory.GetCurrentDirectory());
+  }
+  public TextWriter Output { get; }
+  public string WorkingDirectory { get; }
   protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) {
     base.RegisterFunctions(functions);
     functions.Add(new PrintFunction());
     JsonFunctions.Register(functions);
+    IoFunctions.Register(functions);
   }
   private sealed class PrintFunction() : FunctionDefinition("print", [new(HixValueKind.Null, [HixValueKind.Any], true)]) {
     public override bool HasEffects => true;

@@ -69,6 +69,7 @@ public sealed record HixFileMetadataDefinition(
 
 public static class HixFileMetadata {
   public static readonly IReadOnlyList<HixFileMetadataDefinition> Definitions = [
+    new("import", "Imports Hix files relative to the containing file. Supports *, **, and path globs.", ["Path"]),
     new("backend", "Selects the analyzer backend for this Hix file.", ["Backend"]),
     new("pragma", "Configures compiler diagnostics and generated artifacts for this Hix library.", ["Flag"]),
     new("vm", "Configures virtual-machine diagnostics for this Hix library.", ["Flag"])

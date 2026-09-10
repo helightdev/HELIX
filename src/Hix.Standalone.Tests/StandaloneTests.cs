@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
 using Hix;
 using Hix.Compiler;
 using Hix.Runtime;
@@ -74,6 +75,24 @@ public class StandaloneTests {
       Assert.Contains("failure", error.ToString());
     } finally { File.Delete(file); }
   }
+  [Theory]
+  [InlineData("*")]
+  [InlineData("**")]
+  [InlineData("src/**")]
+  public void CliImportsGlobbedHixFiles(string pattern) {
+    var directory = Path.Combine(Path.GetTempPath(), "hix-import-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    try {
+      var importedDirectory = pattern == "src/**" || pattern == "**" ? Path.Combine(directory, "src", "nested") : directory;
+      Directory.CreateDirectory(importedDirectory);
+      File.WriteAllText(Path.Combine(importedDirectory, "library.hix"), "func answer { return(42) }");
+      var entry = Path.Combine(directory, "main.hix");
+      File.WriteAllText(entry, "%import<" + pattern + ">\n---\nfunc main { print(answer()) }");
+      var output = new StringWriter(); var error = new StringWriter();
+      Assert.Equal(0, Program.Run(new[] {entry}, output, error));
+      Assert.Equal("42" + Environment.NewLine, output.ToString());
+    } finally { Directory.Delete(directory, true); }
+  }
   [Fact] public void BackendCanRegisterRootsWithoutVmChanges() {
     var result = Run("func main { return(environment) }", new CustomBackend());
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
@@ -125,6 +144,42 @@ public class StandaloneTests {
       new LiteralHixValue(HixString.Dynamic("{\"name\":\"Ada\",\"code\":\"abc\"}"))
     });
     Assert.False(rejected.Success);
+  }
+  [Fact] public void StandalonePathFunctionsUseForwardSlashes() {
+    var backend = new HixStandaloneBackend(new StringWriter(), Path.Combine(Path.GetTempPath(), "hix-path-root"));
+    var joined = Run("func main { return(joinPath(<path>, <dir>, <..>, <file.txt>)) }", backend);
+    Assert.True(joined.Success, joined.Error.Resolve(joined.Strings));
+    Assert.Equal("path/file.txt", Assert.IsType<LiteralHixValue>(joined.Value).Value.Resolve(joined.Strings));
+    var split = Run("func main { return(splitPath(<path/dir/file.txt>)) }", backend);
+    Assert.Equal(new[] {"path", "dir", "file.txt"}, Assert.IsType<TupleHixValue>(split.Value).Values
+      .Cast<LiteralHixValue>().Select(value => value.Value.Resolve(split.Strings)));
+    Assert.Equal("path/dir", ReadText(Run("func main { return(pathDir(<path/dir/file.txt>)) }", backend)));
+    Assert.Equal("path", ReadText(Run("func main { return(pathDir(<path/to/>)) }", backend)));
+    Assert.Equal("to", ReadText(Run("func main { return(pathName(<path/to/>)) }", backend)));
+    Assert.Equal("path/file", ReadText(Run("func main { return(trimExtension(<path/file.txt>)) }", backend)));
+    Assert.Equal("/", ReadText(Run("func main { return(pathSeparator()) }", backend)));
+    Assert.DoesNotContain('\\', ReadText(Run("func main { return(currentPath()) }", backend)));
+  }
+  [Fact] public void StandaloneFileFunctionsOperateRelativeToTheMixinDirectory() {
+    var directory = Path.Combine(Path.GetTempPath(), "hix-io-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    try {
+      var backend = new HixStandaloneBackend(new StringWriter(), directory);
+      Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(writeFile(<a.txt>, <hello>)) }", backend).Value).Value);
+      Assert.Equal("hello", ReadText(Run("func main { return(readFile(<a.txt>)) }", backend)));
+      Assert.Equal("ell", ReadText(Run("func main { return(readFile(<a.txt>, 1, 3)) }", backend)));
+      Assert.Equal(5, Assert.IsType<NumberHixValue>(Run("func main { return(readFileLength(<a.txt>)) }", backend).Value).Value);
+      Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(copyFile(<a.txt>, <b.txt>)) }", backend).Value).Value);
+      Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(renameFile(<b.txt>, <c.txt>)) }", backend).Value).Value);
+      Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(existsFile(<c.txt>)) }", backend).Value).Value);
+      var listed = Assert.IsType<TupleHixValue>(Run("func main { return(listFiles(<.>)) }", backend).Value);
+      Assert.Equal(2, listed.Values.Count);
+      Assert.True(Assert.IsType<BooleanHixValue>(Run("func main { return(deleteFile(<c.txt>)) }", backend).Value).Value);
+    } finally { Directory.Delete(directory, true); }
+  }
+  private static string ReadText(HixInvocationResult result) {
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    return Assert.IsType<LiteralHixValue>(result.Value).Value.Resolve(result.Strings);
   }
   private sealed class CustomBackend : HixBackend {
     protected override void RegisterFunctions(FunctionSignatureRegistryBuilder functions) { base.RegisterFunctions(functions); functions.Add(new CustomFunction()); }
