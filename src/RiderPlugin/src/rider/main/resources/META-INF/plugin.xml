@@ -41,7 +41,11 @@
     <colorSettingsPage implementation="dev.helight.helix.hix.HixColorSettingsPage" />
     <langCodeStyleSettingsProvider implementation="dev.helight.helix.hix.HixCodeStyleSettingsProvider" />
     <completion.contributor language="Hix"
-                            implementationClass="dev.helight.helix.hix.HixCompletionContributor" />
+                            implementationClass="dev.helight.helix.hix.HixMetadataCompletionContributor" />
+    <completion.contributor language="Hix"
+                            implementationClass="dev.helight.helix.hix.HixPatternCompletionContributor" />
+    <completion.contributor language="Hix"
+                            implementationClass="dev.helight.helix.hix.HixExpressionCompletionContributor" />
     <annotator language="Hix"
                implementationClass="dev.helight.helix.hix.HixAnnotator" />
     <codeInsight.inlayProvider language="Hix"
@@ -52,9 +56,9 @@
                              implementationClass="dev.helight.helix.hix.HixFindUsagesProvider" />
     <lang.braceMatcher language="Hix"
                        implementationClass="dev.helight.helix.hix.HixBraceMatcher" />
-    <typedHandler implementation="dev.helight.helix.hix.HixTypedHandler" />
-    <backspaceHandlerDelegate implementation="dev.helight.helix.hix.HixBackspaceHandler" />
-    <enterHandlerDelegate implementation="dev.helight.helix.hix.HixEnterHandler" />
+    <lang.quoteHandler language="Hix"
+                       implementationClass="dev.helight.helix.hix.HixQuoteHandler" />
+    <typedHandler implementation="dev.helight.helix.hix.HixDelimiterTypedHandler" />
     <projectSettings service="dev.helight.helix.workspace.WorkspaceSettings"/>
     <projectViewPane implementation="dev.helight.helix.workspace.UnityWorkspaceProjectViewPane"
                      id="HelixUnityWorkspace"

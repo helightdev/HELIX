@@ -49,6 +49,9 @@ internal object HixAntlrSyntax {
         return HelixAntlrParse(text, pass.tokens, pass.tree, diagnostics).also(latest::set)
     }
 
+    /** Raw document tokens for editor services; parser recovery must never rewrite this view. */
+    fun lex(source: CharSequence): List<HelixAntlrToken> = parsePass(source.toString()).tokens
+
     @Suppress("DEPRECATION")
     private fun parsePass(text: String): Pass {
         val diagnostics = ArrayList<HelixAntlrDiagnostic>()

@@ -228,6 +228,35 @@ class HixLocalSyntaxTest {
     }
 
     @Test
+    fun `editor lexer exposes distinct brace pairs and expands empty parameters`() {
+        val source = "() @{name=<value>} @[<value>] [<value>] %[<value>]"
+        val lexer = HixEditorLexer(null)
+        lexer.start(source, 0, source.length, 0)
+        val tokens = buildList {
+            while (lexer.tokenType != null) {
+                add(Triple(lexer.tokenType, lexer.tokenStart, lexer.tokenEnd))
+                lexer.advance()
+            }
+        }
+
+        assertEquals(HelixAntlrTypes.tokens[HixLexer.BEGIN_PARAMETERS], tokens[0].first)
+        assertEquals(HelixAntlrTypes.tokens[HixLexer.END_PARAMETERS], tokens[1].first)
+        assertEquals("(", source.substring(tokens[0].second, tokens[0].third))
+        assertEquals(")", source.substring(tokens[1].second, tokens[1].third))
+        assertTrue(tokens.any { it.first == HixEditorTokenTypes.TABLE_END })
+        assertTrue(tokens.any { it.first == HixEditorTokenTypes.TUPLE_END })
+        assertTrue(tokens.any { it.first == HixEditorTokenTypes.INLINE_END })
+        assertTrue(tokens.any { it.first == HixEditorTokenTypes.METADATA_VALUE_END })
+    }
+
+    @Test
+    fun `brace matcher has one closing token identity per hix construct`() {
+        val pairs = HixBraceMatcher().pairs
+        assertEquals(pairs.size, pairs.map { it.rightBraceType }.distinct().size)
+        assertTrue(pairs.any { it.leftBraceType == HelixAntlrTypes.tokens[HixLexer.BEGIN_ARGUMENT] }.not())
+    }
+
+    @Test
     fun `legacy syntax is rejected`() {
         assertTrue(HixAntlrSyntax.parse("@FUNC<Build>\n@END").diagnostics.isNotEmpty())
     }

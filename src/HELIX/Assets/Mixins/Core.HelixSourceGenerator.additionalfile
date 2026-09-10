@@ -1,5 +1,6 @@
 %backend<Unity>
 ---
+
 type DerivedProperty = @{
   string name,
   any type,
