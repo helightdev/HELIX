@@ -10,6 +10,7 @@ import java.awt.Font
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import dev.helight.helix.hix.generated.HixParser
+import dev.helight.helix.protocol.MixinLanguageDefinition
 import org.antlr.v4.runtime.Token
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNode
@@ -23,8 +24,9 @@ class HixAnnotator : Annotator {
             holder.newAnnotation(HighlightSeverity.ERROR, diagnostic.message)
                 .range(TextRange(diagnostic.start, diagnostic.end)).create()
         }
-        addLocalSemanticHighlighting(localParse, element.textLength, holder)
         val service = element.project.service<HixSnapshotService>()
+        val definitions = service.definitionsFor(element.text)
+        addLocalSemanticHighlighting(localParse, element.textLength, holder, definitions)
         element.virtualFile?.let { service.observe(it, element.text) }
         val path = element.virtualFile?.path
         val snapshot = element.getUserData(HixSnapshotService.SEMANTIC_SNAPSHOT)
@@ -50,7 +52,8 @@ class HixAnnotator : Annotator {
     }
 
     private fun addLocalSemanticHighlighting(parse: HelixAntlrParse, textLength: Int,
-                                              holder: AnnotationHolder) {
+                                              holder: AnnotationHolder,
+                                              definitions: Array<MixinLanguageDefinition>) {
         fun highlight(node: TerminalNode?, color: com.intellij.openapi.editor.colors.TextAttributesKey) {
             val token = node?.symbol ?: return
             if (token.type == Token.EOF || token.startIndex < 0) return
@@ -91,6 +94,48 @@ class HixAnnotator : Annotator {
             .filter { it.parent is HixParser.LocalDeclarationStatementContext }
             .mapNotNull { rule -> scope(rule)?.let { it to rule.text } }
             .groupBy({ it.first }, { it.second })
+
+        fun expectedArgumentType(argument: HixParser.ArgumentValueContext): String? {
+            val metadata = generateSequence(argument.parent) { it.parent }
+                .filterIsInstance<HixParser.MetadataContext>().firstOrNull()
+            if (metadata != null) {
+                val index = metadata.valueList()?.argumentValue()?.indexOf(argument) ?: -1
+                if (index < 0) return null
+                return definitions.asSequence().filter {
+                    it.name == metadata.IDENTIFIER()?.text && it.kind in setOf("FileMetadata", "PatternMetadata")
+                }.mapNotNull { definition -> definition.argumentTypes.getOrNull(index)
+                    ?: if (definition.variadic) definition.argumentTypes.lastOrNull() else null
+                }.firstOrNull { it.isTypeParameter() }
+            }
+
+            val valueList = generateSequence(argument.parent) { it.parent }
+                .filterIsInstance<HixParser.ValueListContext>().firstOrNull() ?: return null
+            val directArguments = valueList.argumentValue()
+            val index = if (argument in directArguments) directArguments.indexOf(argument) else {
+                val value = generateSequence(argument.parent) { it.parent }
+                    .filterIsInstance<HixParser.ValueContext>().firstOrNull { it.parent == valueList }
+                valueList.value().indexOf(value)
+            }
+            if (index < 0) return null
+            val functionName = when (val owner = valueList.parent) {
+                is HixParser.ValueStatementContext -> owner.functionIdentifier().text
+                is HixParser.TransformationPartContext -> owner.functionIdentifier()?.text
+                is HixParser.InvocationStatementContext -> owner.invocationIdentifier().text
+                else -> null
+            } ?: return null
+            return definitions.asSequence().filter { it.kind == "Function" && it.name == functionName }
+                .mapNotNull { definition -> definition.argumentTypes.getOrNull(index)
+                    ?: if (definition.variadic) definition.argumentTypes.lastOrNull() else null
+                }.firstOrNull { it.isTypeParameter() }
+        }
+
+        rules.filterIsInstance<HixParser.ArgumentValueContext>().forEach { argument ->
+            if (expectedArgumentType(argument) == null) return@forEach
+            val start = (argument.start.startIndex + 1).coerceIn(0, textLength)
+            val end = argument.stop.stopIndex.coerceIn(start, textLength)
+            if (end > start) holder.newSilentAnnotation(HighlightSeverity.INFORMATION)
+                .range(TextRange(start, end)).textAttributes(HixColors.TYPE).create()
+        }
 
         rules.forEach { rule ->
             when (rule) {
@@ -145,6 +190,8 @@ class HixAnnotator : Annotator {
     }
 
     private companion object {
+        fun String.isTypeParameter() = lowercase() in setOf("pattern", "type", "kind")
+
         val metadataStructureTokens = setOf(
             dev.helight.helix.hix.generated.HixLexer.METADATA_PREFIX,
             dev.helight.helix.hix.generated.HixLexer.BEGIN_METADATA_VALUE,
