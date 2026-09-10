@@ -167,7 +167,11 @@ public static class AntlrSyntax {
     private HixPattern Pattern(Parser.PatternExpressionContext context) {
       var pattern = context.patternPrimary() == null ? HixPattern.Any : Pattern(context.patternPrimary());
       if (context.metadataList() == null) return pattern;
-      return ApplyPatternMetadata(pattern, context.metadataList().metadata().Select(item => (MetadataIr)Visit(item)), out _);
+      pattern = ApplyPatternMetadata(pattern, context.metadataList().metadata().Select(item => (MetadataIr)Visit(item)),
+        out _, out _, out var hasDefault);
+      if (hasDefault) diagnostics.Add(new HixParseDiagnostic(context.Start.Line,
+        "defaults are only allowed on table pattern fields"));
+      return pattern;
     }
 
     private HixPattern Pattern(Parser.PatternPrimaryContext context) {
@@ -186,13 +190,25 @@ public static class AntlrSyntax {
       var pattern = explicitName == null ? HixPattern.Any : Pattern(context.patternPrimary());
       var name = explicitName ?? context.patternPrimary().GetText();
       var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)) ?? [];
-      pattern = ApplyPatternMetadata(pattern, metadata, out var optional);
-      return new HixPatternField(name, pattern, optional);
+      pattern = ApplyPatternMetadata(pattern, metadata, out var optional, out var metadataDefault, out var hasMetadataDefault);
+      var hasAssignedDefault = context.value() != null;
+      if ((hasAssignedDefault || hasMetadataDefault) && context.Parent is not Parser.TablePatternContext)
+        diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "defaults are only allowed on table pattern fields"));
+      if (hasAssignedDefault && hasMetadataDefault)
+        diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "a pattern field cannot have two defaults"));
+      var defaultValue = hasAssignedDefault ? ConstantValue((ExpressionIr)Visit(context.value())) : metadataDefault;
+      return new HixPatternField(name, pattern, optional, defaultValue, hasAssignedDefault || hasMetadataDefault);
     }
 
-    private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values, out bool optional) {
-      optional = false;
-      foreach (var metadata in values) {
+    private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values, out bool optional) =>
+      ApplyPatternMetadata(pattern, values, out optional, out _, out _);
+
+    private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values, out bool optional,
+      out object defaultValue, out bool hasDefault) {
+      optional = false; defaultValue = null; hasDefault = false;
+      // Prefix metadata composes from the pattern outwards: `%min %many<string> values`
+      // means a minimum constraint over the many-pattern, not a discarded constraint over `any`.
+      foreach (var metadata in values.Reverse()) {
         object Argument(int index) => index >= metadata.Values.Count ? null : metadata.Values[index] switch {
           StringExpressionIr text => text.Value, NumberExpressionIr number => number.Value,
           BooleanExpressionIr boolean => boolean.Value, NullExpressionIr => null, _ => null
@@ -210,13 +226,35 @@ public static class AntlrSyntax {
           case "union":
             pattern = HixPatterns.Union(Enumerable.Range(0, metadata.Values.Count).Select(PatternArgument)); break;
           case "const": pattern = new ConstantHixPattern(Argument(0), pattern); break;
-          case "min": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Minimum, Argument(0)); break;
-          case "max": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Maximum, Argument(0)); break;
+          case "enum": pattern = new EnumHixPattern(Enumerable.Range(0, metadata.Values.Count).Select(Argument).ToArray(), pattern); break;
+          case "min": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Minimum, Argument(0),
+            IsTrue(Argument(1))); break;
+          case "max": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Maximum, Argument(0),
+            IsTrue(Argument(1))); break;
           case "length": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Length, Argument(0)); break;
           case "matches": pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Matches, Argument(0)); break;
+          case "title": pattern = new DocumentedHixPattern(pattern, Convert.ToString(Argument(0))); break;
+          case "description": pattern = new DocumentedHixPattern(pattern, Description: Convert.ToString(Argument(0))); break;
+          case "default": defaultValue = Argument(0); hasDefault = true; break;
         }
       }
       return pattern;
+    }
+
+    private static bool IsTrue(object value) => value is true ||
+      string.Equals(Convert.ToString(value), "true", StringComparison.OrdinalIgnoreCase);
+
+    private object ConstantValue(ExpressionIr expression) => expression switch {
+      StringExpressionIr text => text.Value, NumberExpressionIr number => number.Value,
+      BooleanExpressionIr boolean => boolean.Value, NullExpressionIr => null,
+      TupleExpressionIr tuple => tuple.Values.Select(ConstantValue).ToArray(),
+      TableExpressionIr table => table.Entries.ToDictionary(item => item.Key, item => ConstantValue(item.Value), StringComparer.Ordinal),
+      _ => InvalidConstant(expression)
+    };
+
+    private object InvalidConstant(ExpressionIr expression) {
+      diagnostics.Add(new HixParseDiagnostic(expression.SourceRange.Line, "pattern defaults must be constant values"));
+      return null;
     }
 
     public override HixIrNode VisitTypeDeclaration(Parser.TypeDeclarationContext context) =>

@@ -37,7 +37,7 @@ public enum HixPatternMetadataArgumentKind { Value, Pattern }
 
 public sealed record HixPatternMetadataDefinition(
   string Name, string Documentation, IReadOnlyList<HixPatternMetadataArgumentKind> ArgumentKinds,
-  bool Variadic = false
+  bool Variadic = false, int? MinimumArguments = null
 );
 
 public static class HixPatternMetadata {
@@ -51,10 +51,16 @@ public static class HixPatternMetadata {
       [HixPatternMetadataArgumentKind.Pattern], true),
     new("const", "Matches one constant value, optionally constrained by the annotated pattern.",
       [HixPatternMetadataArgumentKind.Value]),
-    new("min", "Adds a minimum-value constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value]),
-    new("max", "Adds a maximum-value constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value]),
+    new("enum", "Restricts a pattern to the supplied constant values.", [HixPatternMetadataArgumentKind.Value], true),
+    new("min", "Adds an inclusive or exclusive minimum constraint. Collections use their item count.",
+      [HixPatternMetadataArgumentKind.Value, HixPatternMetadataArgumentKind.Value], false, 1),
+    new("max", "Adds an inclusive or exclusive maximum constraint. Collections use their item count.",
+      [HixPatternMetadataArgumentKind.Value, HixPatternMetadataArgumentKind.Value], false, 1),
     new("length", "Adds an exact-length constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value]),
-    new("matches", "Adds a text-matching constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value])
+    new("matches", "Adds a text-matching constraint to the annotated pattern.", [HixPatternMetadataArgumentKind.Value]),
+    new("title", "Adds a display title to the pattern.", [HixPatternMetadataArgumentKind.Value]),
+    new("description", "Adds descriptive documentation to the pattern.", [HixPatternMetadataArgumentKind.Value]),
+    new("default", "Sets a default value for a table field.", [HixPatternMetadataArgumentKind.Value])
   ];
 
   public static bool TryGet(string name, out HixPatternMetadataDefinition definition) {

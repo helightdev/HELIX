@@ -70,7 +70,7 @@ patternParameterList
     | EMPTY_PARAMETERS
     ;
 
-patternField: metadataList? patternPrimary ROOT_IDENTIFIER?;
+patternField: metadataList? patternPrimary ROOT_IDENTIFIER? (VALUE_ASSIGN value)?;
 patternIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL;
 
 // Actual Statements

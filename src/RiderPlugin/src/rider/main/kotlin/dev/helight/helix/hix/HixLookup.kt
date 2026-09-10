@@ -99,6 +99,32 @@ internal object HixLookup {
             rule is HixParser.StatementBlockContext && offset >= rule.start.startIndex &&
                 offset <= rule.stop.stopIndex + 1
         }
+
+    fun enumValuesAt(parsed: HelixAntlrParse, offset: Int): List<String> {
+        fun contains(rule: org.antlr.v4.runtime.ParserRuleContext) =
+            offset >= rule.start.startIndex && offset <= rule.stop.stopIndex + 1
+        fun values(metadata: HixParser.MetadataListContext?): List<String> {
+            val enumeration = metadata?.metadata()?.firstOrNull { it.IDENTIFIER()?.text == "enum" }
+                ?: return emptyList()
+            val list = enumeration.valueList() ?: return emptyList()
+            return if (list.argumentValue().isNotEmpty()) list.argumentValue().map { it.text }
+            else list.value().map { it.text }
+        }
+
+        val local = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.LocalDeclarationStatementContext>()
+            .filter(::contains).minByOrNull { it.stop.stopIndex - it.start.startIndex } ?: return emptyList()
+        values(local.patternExpression()?.metadataList()).takeIf { it.isNotEmpty() }?.let { return it }
+
+        val entry = HixAntlrSyntax.rules(local).filterIsInstance<HixParser.TableKeyedEntryContext>()
+            .filter(::contains).minByOrNull { it.stop.stopIndex - it.start.startIndex } ?: return emptyList()
+        val fieldName = entry.ROOT_IDENTIFIER()?.text ?: return emptyList()
+        val typeName = local.patternExpression()?.patternPrimary()?.patternIdentifier()?.text ?: return emptyList()
+        val declaration = HixAntlrSyntax.rules(parsed.tree).filterIsInstance<HixParser.TypeDeclarationContext>()
+            .firstOrNull { it.IDENTIFIER()?.text == typeName } ?: return emptyList()
+        val field = declaration.patternExpression()?.patternPrimary()?.tablePattern()?.patternField()
+            ?.firstOrNull { it.ROOT_IDENTIFIER()?.text == fieldName }
+        return values(field?.metadataList())
+    }
     fun site(parsed: HelixAntlrParse, offset: Int): Site {
         val tokens = parsed.tokens.filter { it.start < offset && it.type !in setOf(0,
             HixLexer.OUTER_WHITESPACE, HixLexer.VALUE_WHITESPACE, HixLexer.METADATA_WHITESPACE,

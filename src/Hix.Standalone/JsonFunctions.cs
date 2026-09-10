@@ -36,7 +36,10 @@ internal static class JsonFunctions {
         LineInfoHandling = LineInfoHandling.Ignore
       });
       var value = FromJson(token);
-      return args.Length == 1 ? value : Validate(thread, value, ToPattern(args[1]));
+      if (args.Length == 1) return value;
+      var pattern = ToPattern(args[1]);
+      value = ApplyDefaults(thread, value, pattern, thread.PatternDefinitions);
+      return Validate(thread, value, pattern);
     } catch (JsonException exception) { return thread.Error("invalid JSON: " + exception.Message); }
   }
 
@@ -125,6 +128,9 @@ internal static class JsonFunctions {
         var properties = new JObject(table.Fields.Select(field => new JProperty(field.Name,
           SchemaFor(field.Pattern, known, definitions, visiting))));
         var schema = new JObject { ["type"] = "object", ["properties"] = properties };
+        foreach (var field in table.Fields.Where(field => field.HasDefault))
+          ((JObject)schema["properties"])[field.Name]["default"] = field.DefaultValue == null
+            ? JValue.CreateNull() : JToken.FromObject(field.DefaultValue);
         var required = table.Fields.Where(field => !field.Optional).Select(field => field.Name).ToArray();
         if (required.Length != 0) schema["required"] = new JArray(required);
         return schema;
@@ -134,11 +140,27 @@ internal static class JsonFunctions {
         schema["const"] = constant.Value == null ? JValue.CreateNull() : JToken.FromObject(constant.Value);
         return schema;
       }
+      case EnumHixPattern enumeration: {
+        var schema = SchemaFor(enumeration.Underlying, known, definitions, visiting);
+        schema["enum"] = new JArray(enumeration.Values.Select(item => item == null ? JValue.CreateNull() : JToken.FromObject(item)));
+        return schema;
+      }
+      case DocumentedHixPattern documented: {
+        var schema = SchemaFor(documented.Underlying, known, definitions, visiting);
+        if (documented.Title != null) schema["title"] = documented.Title;
+        if (documented.Description != null) schema["description"] = documented.Description;
+        return schema;
+      }
       case ConstrainedHixPattern constrained: {
         var schema = SchemaFor(constrained.Underlying, known, definitions, visiting);
         var argument = JToken.FromObject(constrained.Argument);
-        if (constrained.Constraint == HixPatternConstraintKind.Minimum) schema["minimum"] = argument;
-        else if (constrained.Constraint == HixPatternConstraintKind.Maximum) schema["maximum"] = argument;
+        var collection = IsMany(constrained.Underlying);
+        if (constrained.Constraint == HixPatternConstraintKind.Minimum)
+          schema[collection ? "minItems" :
+            constrained.Exclusive ? "exclusiveMinimum" : "minimum"] = argument;
+        else if (constrained.Constraint == HixPatternConstraintKind.Maximum)
+          schema[collection ? "maxItems" :
+            constrained.Exclusive ? "exclusiveMaximum" : "maximum"] = argument;
         else if (constrained.Constraint == HixPatternConstraintKind.Matches) schema["pattern"] = Convert.ToString(constrained.Argument, CultureInfo.InvariantCulture);
         else ApplyLength(schema, argument);
         return schema;
@@ -160,6 +182,15 @@ internal static class JsonFunctions {
     var prefix = type == "string" ? "Length" : type == "object" ? "Properties" : "Items";
     schema["min" + prefix] = value.DeepClone(); schema["max" + prefix] = value;
   }
+
+  private static bool IsMany(HixPattern pattern) => pattern switch {
+    ManyHixPattern => true,
+    ConstrainedHixPattern constrained => IsMany(constrained.Underlying),
+    DocumentedHixPattern documented => IsMany(documented.Underlying),
+    EnumHixPattern enumeration => IsMany(enumeration.Underlying),
+    ConstantHixPattern constant => IsMany(constant.Underlying),
+    _ => false
+  };
 
   private static IHixValue LoadSchema(HixThread thread, string json) {
     try {
@@ -196,11 +227,23 @@ internal static class JsonFunctions {
         _ => throw new InvalidOperationException("unknown schema type '" + type + "'")
       };
     }
+    if (schema["enum"] is JArray enumeration)
+      pattern = new EnumHixPattern(enumeration.Select(ConstantValue).ToArray(), pattern);
     if (schema["minimum"] is JValue minimum) pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Minimum, minimum.Value);
+    if (schema["exclusiveMinimum"] is JValue exclusiveMinimum) pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Minimum, exclusiveMinimum.Value, true);
     if (schema["maximum"] is JValue maximum) pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Maximum, maximum.Value);
-    if (schema["pattern"] is JValue regex) pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Matches, regex.Value<string>());
+    if (schema["exclusiveMaximum"] is JValue exclusiveMaximum) pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Maximum, exclusiveMaximum.Value, true);
     var exactLength = ExactLength(schema);
+    if (exactLength == null && schema["prefixItems"] == null) {
+      if (schema["minItems"] is JValue minItems)
+        pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Minimum, minItems.Value);
+      if (schema["maxItems"] is JValue maxItems)
+        pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Maximum, maxItems.Value);
+    }
+    if (schema["pattern"] is JValue regex) pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Matches, regex.Value<string>());
     if (exactLength != null) pattern = new ConstrainedHixPattern(pattern, HixPatternConstraintKind.Length, exactLength.Value);
+    if (schema.Value<string>("title") is { } title) pattern = new DocumentedHixPattern(pattern, Title: title);
+    if (schema.Value<string>("description") is { } description) pattern = new DocumentedHixPattern(pattern, Description: description);
     return pattern;
   }
 
@@ -215,7 +258,8 @@ internal static class JsonFunctions {
     if (schema["properties"] is JObject properties) {
       var required = new HashSet<string>((schema["required"] as JArray)?.Values<string>() ?? [], StringComparer.Ordinal);
       return new TableHixPattern(properties.Properties().Select(property =>
-        new HixPatternField(property.Name, PatternFor((JObject)property.Value), !required.Contains(property.Name))).ToArray());
+        new HixPatternField(property.Name, PatternFor((JObject)property.Value), !required.Contains(property.Name),
+          property.Value["default"] is { } value ? ConstantValue(value) : null, property.Value["default"] != null)).ToArray());
     }
     return new MapHixPattern(schema["propertyNames"] is JObject keys ? PatternFor(keys) : new KindHixPattern(K.String),
       schema["additionalProperties"] is JObject values ? PatternFor(values) : HixPattern.Any);
@@ -230,8 +274,56 @@ internal static class JsonFunctions {
   private static object ConstantValue(JToken token) => token.Type switch {
     JTokenType.Null => null, JTokenType.Boolean => token.Value<bool>(),
     JTokenType.Integer or JTokenType.Float => token.Value<double>(), JTokenType.String => token.Value<string>(),
-    _ => throw new InvalidOperationException("only scalar const values are supported")
+    JTokenType.Array => token.Select(ConstantValue).ToArray(),
+    JTokenType.Object => ((JObject)token).Properties().ToDictionary(item => item.Name,
+      item => ConstantValue(item.Value), StringComparer.Ordinal),
+    _ => throw new InvalidOperationException("unsupported constant value")
   };
   private static string EscapePointer(string value) => value.Replace("~", "~0").Replace("/", "~1");
   private static string UnescapePointer(string value) => value.Replace("~1", "/").Replace("~0", "~");
+
+  private static IHixValue ApplyDefaults(HixThread thread, IHixValue value, HixPattern pattern,
+    IReadOnlyDictionary<string, HixPattern> definitions) {
+    if (pattern is DefinedHixPattern defined) {
+      var merged = definitions.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
+      foreach (var item in defined.Definitions) merged[item.Key] = item.Value;
+      return ApplyDefaults(thread, value, defined.Root, merged);
+    }
+    if (pattern is NamedHixPattern named && definitions.TryGetValue(named.Name, out var resolved))
+      return ApplyDefaults(thread, value, resolved, definitions);
+    if (pattern is DocumentedHixPattern documented) return ApplyDefaults(thread, value, documented.Underlying, definitions);
+    if (pattern is ConstrainedHixPattern constrained) return ApplyDefaults(thread, value, constrained.Underlying, definitions);
+    if (pattern is EnumHixPattern enumeration) return ApplyDefaults(thread, value, enumeration.Underlying, definitions);
+    if (pattern is ConstantHixPattern constant) return ApplyDefaults(thread, value, constant.Underlying, definitions);
+    if (pattern is TableHixPattern table && value is HixTableValue objectValue) {
+      var result = objectValue;
+      foreach (var field in table.Fields) {
+        var key = HixString.Dynamic(field.Name);
+        if (!result.TryGetValue(thread, key, out var member)) {
+          if (field.HasDefault) result = result.Put(thread, key, FromHost(field.DefaultValue));
+        } else {
+          var nested = ApplyDefaults(thread, member, field.Pattern, definitions);
+          if (!ReferenceEquals(member, nested)) result = result.Put(thread, key, nested);
+        }
+      }
+      return result;
+    }
+    if (pattern is ManyHixPattern many && value is TupleHixValue array)
+      return new TupleHixValue(array.Values.Select(item => ApplyDefaults(thread, item, many.Element, definitions)).ToArray());
+    if (pattern is TupleHixPattern tuple && value is TupleHixValue tupleValue)
+      return new TupleHixValue(tupleValue.Values.Select((item, index) => index < tuple.Fields.Count
+        ? ApplyDefaults(thread, item, tuple.Fields[index].Pattern, definitions) : item).ToArray());
+    return value;
+  }
+
+  private static IHixValue FromHost(object value) => value switch {
+    null => NullHixValue.Instance, bool flag => BooleanHixValue.From(flag),
+    string text => new LiteralHixValue(HixString.Dynamic(text)),
+    byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal =>
+      new NumberHixValue(Convert.ToDouble(value, CultureInfo.InvariantCulture)),
+    IEnumerable<object> array => new TupleHixValue(array.Select(FromHost).ToArray()),
+    IDictionary<string, object> table => new HixTableValue(table.Select(item =>
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic(item.Key), FromHost(item.Value)))),
+    _ => throw new InvalidOperationException("unsupported default value")
+  };
 }

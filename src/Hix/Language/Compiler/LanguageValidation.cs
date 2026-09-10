@@ -128,6 +128,8 @@ public static class LanguageValidation {
           ValidatePattern(map.Key, owner, new HashSet<string>(path));
           ValidatePattern(map.Value, owner, new HashSet<string>(path)); break;
         case ConstantHixPattern constant: ValidatePattern(constant.Underlying, owner, path); break;
+        case EnumHixPattern enumeration: ValidatePattern(enumeration.Underlying, owner, path); break;
+        case DocumentedHixPattern documented: ValidatePattern(documented.Underlying, owner, path); break;
         case ConstrainedHixPattern constrained: ValidatePattern(constrained.Underlying, owner, path); break;
         case DelegateHixPattern callable:
           foreach (var field in callable.Parameters) ValidatePattern(field.Pattern, owner, new HashSet<string>(path));

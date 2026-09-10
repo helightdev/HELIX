@@ -113,7 +113,8 @@ public sealed class HixAnalyzerService {
       kind.ToString().ToLowerInvariant(), "Kind", 0, false, "None", "None", "Kind", [],
       "Matches values of kind `" + kind.ToString().ToLowerInvariant() + "`."));
     var metadata = HixPatternMetadata.Definitions.Select(definition => new HixDefinition(definition.Name,
-      "PatternMetadata", definition.ArgumentKinds.Count, definition.Variadic,
+      "PatternMetadata", definition.MinimumArguments ?? (definition.ArgumentKinds.Count - (definition.Variadic ? 1 : 0)),
+      definition.Variadic || definition.MinimumArguments < definition.ArgumentKinds.Count,
       definition.Name == "optional" ? "Field" : "Pattern", "None", "Pattern",
       definition.ArgumentKinds.Select(kind => kind.ToString()).ToArray(), definition.Documentation));
     var fileMetadata = HixFileMetadata.Definitions.Select(definition => new HixDefinition(definition.Name,

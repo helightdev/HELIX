@@ -133,6 +133,19 @@ public sealed class HixAntlrGrammarTests {
       table.FieldMetadata.Single().Value.Single().Values.Single()).Value);
   }
 
+  [Fact]
+  public void TablePatternFieldsAcceptAssignedDefaults() {
+    var semantic = Hix.Compiler.AntlrSyntax.Parse(
+      "type Person = @{string name, number age = [18], %default<draft> string state}");
+
+    Assert.Empty(semantic.Diagnostics);
+    var fields = Assert.IsType<Hix.TableHixPattern>(semantic.Declarations.OfType<Hix.Compiler.TypeDeclarationIr>()
+      .Single().Pattern).Fields;
+    Assert.False(fields[0].HasDefault);
+    Assert.Equal(18d, fields[1].DefaultValue);
+    Assert.Equal("draft", fields[2].DefaultValue);
+  }
+
   [Theory]
   [InlineData("%deprecated func Build { return(null) }", 1)]
   [InlineData("%deprecated %since(<2.0>) func Build { return(null) }", 2)]

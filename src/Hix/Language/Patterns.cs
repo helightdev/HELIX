@@ -69,9 +69,21 @@ public sealed record ConstantHixPattern(object Value, HixPattern Underlying) : H
   public override string Display => "%const<" + Convert.ToString(Value, CultureInfo.InvariantCulture) + "> " + Underlying.Display;
 }
 
+public sealed record EnumHixPattern(IReadOnlyList<object> Values, HixPattern Underlying) : HixPattern {
+  public override string Display => "%enum" + string.Concat(Values.Select(value => "<" +
+    Convert.ToString(value, CultureInfo.InvariantCulture) + ">")) + " " + Underlying.Display;
+}
+
+public sealed record DocumentedHixPattern(HixPattern Underlying, string Title = null, string Description = null)
+  : HixPattern {
+  public override string Display => (Title == null ? "" : "%title<" + Title + "> ") +
+    (Description == null ? "" : "%description<" + Description + "> ") + Underlying.Display;
+}
+
 public enum HixPatternConstraintKind { Minimum, Maximum, Length, Matches }
 
-public sealed record ConstrainedHixPattern(HixPattern Underlying, HixPatternConstraintKind Constraint, object Argument)
+public sealed record ConstrainedHixPattern(HixPattern Underlying, HixPatternConstraintKind Constraint, object Argument,
+  bool Exclusive = false)
   : HixPattern {
   public override string Display => "%" + Constraint.ToString().ToLowerInvariant() + "<" +
     Convert.ToString(Argument, CultureInfo.InvariantCulture) + "> " + Underlying.Display;
@@ -82,9 +94,16 @@ public sealed record DelegateHixPattern(IReadOnlyList<HixPatternField> Parameter
     ") -> " + Result.Display;
 }
 
-public sealed record HixPatternField(string Name, HixPattern Pattern, bool Optional = false) {
+public sealed record HixPatternField(string Name, HixPattern Pattern, bool Optional = false,
+  object DefaultValue = null, bool HasDefault = false) {
   public string Display => (Optional ? "%optional " : "") + Pattern.Display +
-    (string.IsNullOrEmpty(Name) ? "" : " " + Name);
+    (string.IsNullOrEmpty(Name) ? "" : " " + Name) + (HasDefault ? " = [" + DisplayValue(DefaultValue) + "]" : "");
+  private static string DisplayValue(object value) => value switch {
+    null => "null", bool flag => flag ? "true" : "false", string text => "<" + text + ">",
+    IEnumerable<object> items => "@[" + string.Join(", ", items.Select(DisplayValue)) + "]",
+    IDictionary<string, object> table => "@{" + string.Join(", ", table.Select(item => item.Key + "=" + DisplayValue(item.Value))) + "}",
+    _ => Convert.ToString(value, CultureInfo.InvariantCulture)
+  };
 }
 
 /// <summary>A signature is a constant callable pattern and is stored in the bytecode constant pool.</summary>
@@ -178,6 +197,12 @@ public static class HixPatternMatcher {
         if (!Matches(constant.Underlying, value, context, definitions, path, active, out failure)) return false;
         if (ConstantEquals(constant.Value, value, context)) return true;
         failure = new(path, constant.Display, value.Render(context).Resolve(context.Strings), "constant mismatch"); return false;
+      case EnumHixPattern enumeration:
+        if (!Matches(enumeration.Underlying, value, context, definitions, path, active, out failure)) return false;
+        if (enumeration.Values.Any(item => ConstantEquals(item, value, context))) return true;
+        failure = new(path, enumeration.Display, value.Render(context).Resolve(context.Strings), "enum mismatch"); return false;
+      case DocumentedHixPattern documented:
+        return Matches(documented.Underlying, value, context, definitions, path, active, out failure);
       case ConstrainedHixPattern constrained:
         if (!Matches(constrained.Underlying, value, context, definitions, path, active, out failure)) return false;
         if (ConstraintMatches(constrained, value, context)) return true;
@@ -199,20 +224,31 @@ public static class HixPatternMatcher {
   private static bool ConstraintMatches(ConstrainedHixPattern pattern, IHixValue value, HixThread context) {
     var argument = Convert.ToString(pattern.Argument, CultureInfo.InvariantCulture);
     var number = value is NumberHixValue numeric ? numeric.Value : double.NaN;
-    var length = value switch {
-      LiteralHixValue text => text.Value.Resolve(context.Strings).Length,
-      TupleHixValue tuple => tuple.Values.Count,
-      HixTableValue table => table.Entries.Count,
-      _ => -1
-    };
+    var length = IsMany(pattern.Underlying) && value is TupleHixValue many ? many.Values.Count : -1;
     return pattern.Constraint switch {
-      HixPatternConstraintKind.Minimum => double.TryParse(argument, NumberStyles.Float, CultureInfo.InvariantCulture, out var min) && number >= min,
-      HixPatternConstraintKind.Maximum => double.TryParse(argument, NumberStyles.Float, CultureInfo.InvariantCulture, out var max) && number <= max,
-      HixPatternConstraintKind.Length => int.TryParse(argument, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count) && length == count,
+      HixPatternConstraintKind.Minimum => double.TryParse(argument, NumberStyles.Float, CultureInfo.InvariantCulture, out var min) &&
+        (length >= 0 ? pattern.Exclusive ? length > min : length >= min : pattern.Exclusive ? number > min : number >= min),
+      HixPatternConstraintKind.Maximum => double.TryParse(argument, NumberStyles.Float, CultureInfo.InvariantCulture, out var max) &&
+        (length >= 0 ? pattern.Exclusive ? length < max : length <= max : pattern.Exclusive ? number < max : number <= max),
+      HixPatternConstraintKind.Length => int.TryParse(argument, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count) && value switch {
+        LiteralHixValue text => text.Value.Resolve(context.Strings).Length == count,
+        TupleHixValue tuple => tuple.Values.Count == count,
+        HixTableValue table => table.Entries.Count == count,
+        _ => false
+      },
       HixPatternConstraintKind.Matches => value is LiteralHixValue text && Regex.IsMatch(text.Value.Resolve(context.Strings), argument),
       _ => false
     };
   }
+
+  private static bool IsMany(HixPattern pattern) => pattern switch {
+    ManyHixPattern => true,
+    ConstrainedHixPattern constrained => IsMany(constrained.Underlying),
+    DocumentedHixPattern documented => IsMany(documented.Underlying),
+    EnumHixPattern enumeration => IsMany(enumeration.Underlying),
+    ConstantHixPattern constant => IsMany(constant.Underlying),
+    _ => false
+  };
 }
 
 public enum HixPatternRelation { Never, Maybe, Always }
@@ -249,6 +285,11 @@ public static class HixPatternRelations {
     if (actual is DelegateHixPattern or SignatureHixPattern && expected is KindHixPattern {ValueKind: HixValueKind.Function})
       return HixPatternRelation.Always;
     if (actual is ConstantHixPattern constant) return Relate(constant.Underlying, expected, definitions);
+    if (actual is EnumHixPattern enumeration) return Relate(enumeration.Underlying, expected, definitions);
+    if (expected is EnumHixPattern expectedEnumeration) return Relate(actual, expectedEnumeration.Underlying, definitions) is HixPatternRelation.Never
+      ? HixPatternRelation.Never : HixPatternRelation.Maybe;
+    if (actual is DocumentedHixPattern documented) return Relate(documented.Underlying, expected, definitions);
+    if (expected is DocumentedHixPattern expectedDocumented) return Relate(actual, expectedDocumented.Underlying, definitions);
     if (expected is ConstantHixPattern expectedConstant) {
       var relation = Relate(actual, expectedConstant.Underlying, definitions);
       return relation == HixPatternRelation.Never ? relation : HixPatternRelation.Maybe;

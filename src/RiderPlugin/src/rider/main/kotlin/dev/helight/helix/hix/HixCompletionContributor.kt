@@ -142,6 +142,13 @@ private object ExpressionProvider : CompletionProvider<CompletionParameters>() {
         val position = (context.offset - 1).coerceAtLeast(0)
         if (HixLookup.metadataArgumentAt(context.parsed, position) != null ||
             HixLookup.semanticRoleAt(context.parsed, position) != null) return
+        val enumValues = HixLookup.enumValuesAt(context.parsed, context.offset)
+        enumValues.forEach { literal ->
+            result.addElement(LookupElementBuilder.create(literal)
+                .withPresentableText(literal.removeSurrounding("<", ">"))
+                .withTypeText("enum"))
+        }
+        if (enumValues.isNotEmpty()) return
         if (context.token?.type in setOf(HixLexer.ARGUMENT_TEXT, HixLexer.CONTENT_TEXT, HixLexer.COMMENT,
                 HixLexer.SLASH_COMMENT, HixLexer.ESCAPE_LITERAL, HixLexer.ESCAPE_HEX)) return
 

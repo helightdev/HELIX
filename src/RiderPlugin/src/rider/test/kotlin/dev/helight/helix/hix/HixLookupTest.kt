@@ -82,4 +82,16 @@ class HixLookupTest {
         assertEquals("Returns the selected value's name.", definition.documentation)
         assertFalse(HixLookup.acceptsReceiver(definition.copy(argumentTypes = emptyArray()), "symbol"))
     }
+
+    @Test
+    fun `enum values are suggested for direct and nested typed assignments`() {
+        val direct = "mixin Test { expression { local %enum<draft><live> string state = <d> } }"
+        assertEquals(listOf("<draft>", "<live>"),
+            HixLookup.enumValuesAt(HixAntlrSyntax.parse(direct), direct.indexOf("<d>") + 2))
+
+        val nested = "type Settings = @{%enum<draft><live> string mode}\n" +
+            "mixin Test { expression { local Settings settings = @{mode=<d>} } }"
+        assertEquals(listOf("<draft>", "<live>"),
+            HixLookup.enumValuesAt(HixAntlrSyntax.parse(nested), nested.lastIndexOf("<d>") + 2))
+    }
 }

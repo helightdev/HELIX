@@ -44,6 +44,22 @@ func save {
 either a pattern or a kind and reject values that do not match it. `generateJsonSchema(pattern)` emits
 draft 2020-12 JSON Schema, while `loadJsonSchema(string)` imports a schema as a self-contained pattern.
 
+Pattern schemas preserve nested definitions, enums, titles, descriptions, inclusive or exclusive
+bounds, and collection-size bounds. The optional second argument to `%min` and `%max` makes the bound
+exclusive, for example `%min(0, true) number`. On `%many`, the same constraints apply to item count.
+Table fields may declare defaults either as metadata or with an assignment:
+
+```hix
+type Settings = %title<Settings> %description<Application settings> @{
+  %enum<development><production> string mode = [<development>],
+  %min(0, true) number workerCount = [1],
+  %default<false> bool verbose
+}
+```
+
+`parseJson` recursively inserts missing table-field defaults before validating the result. Generated
+schemas emit these as `default`, and imported schemas retain and apply them in the same way.
+
 ## Imports and files
 
 File imports belong in the metadata header and resolve relative to the file containing them. Imports

@@ -145,6 +145,51 @@ public class StandaloneTests {
     });
     Assert.False(rejected.Success);
   }
+  [Fact] public void JsonPatternsSupportExclusiveBoundsEnumsMetadataAndDefaults() {
+    const string declaration = "type Settings = %title<Settings> %description<App settings> " +
+      "@{%enum<draft><live> string mode = [<draft>], %min(1, true) number score, " +
+      "%min<1> %max<3> %many<string> tags}\n";
+    var parsed = Run(declaration + "func main { return(parseJson(param, Settings)) }", args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic("{\"score\":2,\"tags\":[\"a\",\"b\"]}"))
+    });
+    Assert.True(parsed.Success, parsed.Error.Resolve(parsed.Strings));
+    var table = Assert.IsType<HixTableValue>(parsed.Value);
+    Assert.Equal("draft", Assert.IsType<LiteralHixValue>(table.Entries.Single(item =>
+      item.Key.Resolve(parsed.Strings) == "mode").Value).Value.Resolve(parsed.Strings));
+
+    foreach (var invalid in new[] {
+      "{\"mode\":\"other\",\"score\":2,\"tags\":[\"a\"]}",
+      "{\"score\":1,\"tags\":[\"a\"]}",
+      "{\"score\":2,\"tags\":[]}"
+    }) Assert.False(Run(declaration + "func main { return(parseJson(param, Settings)) }", args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic(invalid))
+    }).Success, invalid);
+
+    var generated = Run(declaration + "func main { return(generateJsonSchema(Settings)) }");
+    var schemaText = ReadText(generated); var schema = JObject.Parse(schemaText);
+    var settings = (JObject)schema["$defs"]?["Settings"];
+    Assert.Equal("Settings", (string)settings?["title"]);
+    Assert.Equal("App settings", (string)settings?["description"]);
+    Assert.Equal(1d, (double)settings?["properties"]?["score"]?["exclusiveMinimum"]);
+    Assert.Equal(new[] {"draft", "live"}, settings?["properties"]?["mode"]?["enum"]?.Values<string>());
+    Assert.Equal("draft", (string)settings?["properties"]?["mode"]?["default"]);
+    Assert.Equal(1, (int)settings?["properties"]?["tags"]?["minItems"]);
+    Assert.Equal(3, (int)settings?["properties"]?["tags"]?["maxItems"]);
+
+    var imported = Run("func main { return(parseJson($1, loadJsonSchema($0))) }", args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic(schemaText)),
+      new LiteralHixValue(HixString.Dynamic("{\"score\":2,\"tags\":[\"a\"]}"))
+    });
+    Assert.True(imported.Success, imported.Error.Resolve(imported.Strings));
+    Assert.Contains(Assert.IsType<HixTableValue>(imported.Value).Entries,
+      item => item.Key.Resolve(imported.Strings) == "mode" &&
+        Assert.IsType<LiteralHixValue>(item.Value).Value.Resolve(imported.Strings) == "draft");
+    var importedInvalid = Run("func main { return(parseJson($1, loadJsonSchema($0))) }", args: new IHixValue[] {
+      new LiteralHixValue(HixString.Dynamic(schemaText)),
+      new LiteralHixValue(HixString.Dynamic("{\"score\":2,\"tags\":[]}"))
+    });
+    Assert.False(importedInvalid.Success);
+  }
   [Fact] public void StandalonePathFunctionsUseForwardSlashes() {
     var backend = new HixStandaloneBackend(new StringWriter(), Path.Combine(Path.GetTempPath(), "hix-path-root"));
     var joined = Run("func main { return(joinPath(<path>, <dir>, <..>, <file.txt>)) }", backend);
