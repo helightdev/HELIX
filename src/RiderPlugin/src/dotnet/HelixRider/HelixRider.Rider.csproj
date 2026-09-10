@@ -11,6 +11,8 @@
   <ItemGroup>
     <PackageReference Include="JetBrains.Rider.SDK" Version="$(SdkVersion)" />
     <ProjectReference Include="..\..\..\..\Hix.MixinGenerator\Hix.MixinGenerator.csproj" />
+    <Compile Include="..\..\..\..\Hix.Standalone\Analysis\*.cs"
+             Link="HixStandaloneAnalysis\%(Filename)%(Extension)" />
     <Compile Include="..\..\..\..\Hix\IsExternalInit.cs"
              Link="Compatibility\IsExternalInit.cs" />
   </ItemGroup>

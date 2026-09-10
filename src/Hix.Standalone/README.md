@@ -1,7 +1,9 @@
 # Hix standalone
 
-The .NET 8 executable accepts `hix <file> [--entry <name>] [-- <arguments...>]`.
-Run from source with `dotnet run --project src/Hix.Standalone -- file.hix -- hello`.
+The standalone assembly targets .NET Standard 2.0 so it can be embedded into Unity and other
+.NET Standard consumers. `Program.Run` retains the command-line host logic as a callable API;
+a native or framework-specific executable host can invoke it without moving compiler or analyzer
+logic out of this assembly.
 
 ```hix
 func main {
@@ -20,6 +22,20 @@ var program = HixCompiler.CompileFunctions(new[] { source }, backend);
 var result = new HixVM(new[] { program }).Invoke(program, backend.CreateThread());
 ```
 
-Execution remains bytecode-only. Exit codes are 0 for success, 1 for compilation/runtime/I/O
-failure, and 2 for CLI usage errors. Errors are written to stderr. Roslyn functions and roots are
-unavailable in this backend.
+Execution remains bytecode-only. `Program.Run` returns 0 for success, 1 for
+compilation/runtime/I/O failure, and 2 for usage errors. Errors are written to the supplied error
+writer. Roslyn functions and roots are unavailable in this backend.
+
+## Analyzer service
+
+`Hix.Standalone.Analysis.HixAnalyzerService` is the stateful, transport-neutral language-service
+boundary used by IDE integrations. `Synchronize` accepts a complete directory workspace and
+returns immutable snapshots containing declarations, references, diagnostics, lazy completion
+sites, and type facts. It owns source-hash/revision caches and cross-file resolution.
+
+`IHixAnalyzerHost` is the optional host-symbol boundary used for integrations such as Rider's C#
+type index. The source generator does not reference or contain `Hix.Standalone`; its dependency
+direction remains independent. Rider currently links only the analyzer implementation sources
+into its backend because the generator embeds Hix types. The same implementation is part of the
+standalone assembly and can later be exposed through JSON-RPC/LSP without relocating analysis
+back into an IDE plugin.

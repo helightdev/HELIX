@@ -14,6 +14,7 @@ using JetBrains.ReSharper.Resources.Shell;
 using Hix;
 using Hix.Compiler;
 using Hix.Mixins;
+using Hix.Standalone.Analysis;
 using WireRange = HelixRider.Protocol.MixinSourceRange;
 using CoreRange = Hix.Compiler.HixSourceRange;
 
@@ -23,63 +24,58 @@ namespace HelixRider.Protocol;
 [SolutionComponent(Instantiation.ContainerAsyncAnyThreadSafe)]
 public sealed class HelixMixinLanguageHost {
     private readonly ISymbolCache _symbolCache;
+    private readonly HixAnalyzerService _analyzer;
     public HelixMixinLanguageHost(ISolution solution, ISymbolCache symbolCache) {
         _symbolCache = symbolCache;
+        _analyzer = NewAnalyzer(new RiderAnalyzerHost(this));
         var model = solution.GetProtocolSolution().GetHelixExpressionModel();
-        model.ParseMixinFiles.SetAsync((_, request) => RdTask.Successful(Parse(request, ResolveType)));
+        model.ParseMixinFiles.SetAsync((_, request) => RdTask.Successful(Parse(_analyzer, request)));
         model.CompleteMixin.SetAsync((_, request) => RdTask.Successful(new MixinCompletionResponse(
-            request.Kind == "CSharpType" ? CompleteTypes(request.Prefix) : Array.Empty<MixinCompletionItem>())));
-        model.GetMixinLanguageCatalog.SetAsync((_, _) => RdTask.Successful(LanguageCatalog()));
+            _analyzer.Complete(request.Kind, request.Prefix).Select(Completion).ToArray())));
+        model.GetMixinLanguageCatalog.SetAsync((_, _) => RdTask.Successful(LanguageCatalog(_analyzer)));
     }
 
-    internal static MixinParseResponse Parse(MixinParseRequest request) => Parse(request, null);
-    internal static MixinLanguageCatalog LanguageCatalog() => new(Definitions());
+    internal static MixinParseResponse Parse(MixinParseRequest request) =>
+        Parse(NewAnalyzer(), request);
+    internal static MixinLanguageCatalog LanguageCatalog() =>
+        LanguageCatalog(NewAnalyzer());
 
-    private static MixinParseResponse Parse(MixinParseRequest request, Func<string, SemanticTarget> resolveType) {
-        var batch = (request?.Files ?? Array.Empty<MixinFileInput>())
-            .Select(input => (Input: input, Analysis: new LanguageAnalysis(input.SourceText ?? string.Empty,
-                Hix.HixMixinBackend.Instance, recoverValidDeclarations: true))).ToArray();
-        return new MixinParseResponse(batch.Select(file => {
-            var source = file.Input.SourceText ?? string.Empty;
-            var siblings = batch.Where(candidate => SameDirectory(file.Input.FilePath, candidate.Input.FilePath)).ToArray();
-            var siblingPatterns = siblings.SelectMany(sibling => sibling.Analysis.Declarations)
-                .Where(declaration => declaration.Kind == "Pattern").Select(declaration => declaration.Name)
-                .ToHashSet(StringComparer.Ordinal);
-            var references = file.Analysis.References.Select(reference => {
-                if (reference.Kind == "CSharpType") {
-                    var type = resolveType?.Invoke(reference.Name);
-                    return new MixinReference(reference.Name, reference.Kind, Range(reference.Range),
-                        Range(LanguageAnalysis.Scope(reference.Node)), type?.FilePath ?? string.Empty,
-                        type == null ? Range(0, 0) : Range(type.StartOffset, type.EndOffset));
-                }
-                var effective = reference.Kind == "Function" && siblingPatterns.Contains(reference.Name)
-                    ? new LanguageAnalysis.Reference(reference.Name, "Pattern", reference.Range, reference.Node)
-                    : reference;
-                var target = file.Analysis.Resolve(effective, siblings.Select(item => item.Analysis), out var owner);
-                var path = target == null ? string.Empty : siblings.First(item => ReferenceEquals(item.Analysis, owner)).Input.FilePath;
-                return new MixinReference(effective.Name, effective.Kind, Range(effective.Range),
-                    Range(LanguageAnalysis.Scope(reference.Node)), path, target == null ? Range(0, 0) : Range(target.Range));
-            }).ToArray();
-            var declarations = file.Analysis.Declarations.Select(symbol => new MixinDeclaration(
-                symbol.Name, symbol.Kind, Range(symbol.Range), Range(symbol.Scope))).ToArray();
-            var diagnostics = file.Analysis.Program.Diagnostics.Where(diagnostic =>
-                !ResolvedPatternDiagnostic(diagnostic.Message, siblingPatterns)).Select(diagnostic => {
-                var token = file.Analysis.Program.Tokens.FirstOrDefault(item => item.Line >= diagnostic.Line);
-                return new MixinDiagnostic(diagnostic.Message, "Error",
-                    token == null ? Range(source.Length, source.Length) : Range(HixSourceRange.FromToken(token)));
-            }).ToArray();
-            var typeSites = file.Analysis.References.Where(reference => reference.Kind == "CSharpType")
-                .Select(reference => new MixinCompletionSite("CSharpType", Range(reference.Range), Range(reference.Range),
-                    "Type", Array.Empty<MixinCompletionItem>()));
-            var patternSites = references.Where(reference => reference.Kind == "Pattern")
-                .Select(reference => new MixinCompletionSite("Pattern", reference.Range, reference.Range,
-                    "Pattern", Array.Empty<MixinCompletionItem>()));
-            var sites = typeSites.Concat(patternSites).ToArray();
-            var typeFacts = file.Analysis.TypeFacts.Select(fact => new MixinTypeFact(
-                Range(fact.Range), fact.Type, fact.Documentation ?? string.Empty, fact.Inlay, fact.Kind)).ToArray();
-            return new MixinFileSnapshot(file.Input.FilePath ?? string.Empty, file.Input.Revision, SourceHash(source),
-                Array.Empty<MixinSyntaxNode>(), Array.Empty<MixinToken>(), declarations, references, diagnostics, sites, typeFacts);
-        }).ToArray());
+    private static HixAnalyzerService NewAnalyzer(IHixAnalyzerHost host = null) =>
+        new(Hix.HixMixinBackend.Instance, host, AdditionalDefinitions());
+
+    private static MixinParseResponse Parse(HixAnalyzerService analyzer, MixinParseRequest request) =>
+        new(analyzer.Synchronize((request?.Files ?? Array.Empty<MixinFileInput>()).Select(input =>
+            new HixDocument(input.FilePath, input.SourceText, input.Revision))).Select(Snapshot).ToArray());
+
+    private static MixinLanguageCatalog LanguageCatalog(HixAnalyzerService analyzer) =>
+        new(analyzer.Definitions.Select(Definition).ToArray());
+
+    private static MixinFileSnapshot Snapshot(HixDocumentSnapshot value) => new(value.Path, value.Revision,
+        value.SourceHash, Array.Empty<MixinSyntaxNode>(), Array.Empty<MixinToken>(),
+        value.Declarations.Select(item => new MixinDeclaration(item.Name, item.Kind, Range(item.Range),
+            Range(item.Scope))).ToArray(), value.References.Select(item => new MixinReference(item.Name, item.Kind,
+            Range(item.Range), Range(item.Scope), item.Target?.Path ?? string.Empty,
+            item.Target == null ? Range(0, 0) : Range(item.Target.Range))).ToArray(),
+        value.Diagnostics.Select(item => new MixinDiagnostic(item.Message, item.Severity, Range(item.Range))).ToArray(),
+        value.CompletionSites.Select(item => new MixinCompletionSite(item.Kind, Range(item.ActivationRange),
+            Range(item.ReplacementRange), item.ExpectedType, Array.Empty<MixinCompletionItem>())).ToArray(),
+        value.TypeFacts.Select(item => new MixinTypeFact(Range(item.Range), item.Type, item.Documentation,
+            item.Inlay, item.Kind)).ToArray());
+
+    private static MixinLanguageDefinition Definition(HixDefinition value) => new(value.Name, value.Kind,
+        value.ArgumentCount, value.Variadic, value.OperandType, value.ReceiverType, value.ResultType,
+        value.ArgumentTypes.ToArray(), value.Documentation);
+    private static MixinCompletionItem Completion(HixCompletion value) => new(value.Name, value.InsertText,
+        value.Kind, value.Documentation, value.Target?.Path ?? string.Empty,
+        value.Target == null ? Range(0, 0) : Range(value.Target.Range));
+
+    private static IEnumerable<HixDefinition> AdditionalDefinitions() {
+        foreach (var definition in HixRootLibrary.Enumerate())
+            yield return new HixDefinition(definition.Name, "Root", 0, false, "None", "None",
+                definition.Kind.ToString(), Array.Empty<string>(), definition.Documentation);
+        foreach (var name in Enum.GetNames(typeof(MixinEmissionTarget)))
+            yield return new HixDefinition(name, "OutputTarget", 0, false, "None", "None", "None",
+                Array.Empty<string>(), "Generated output destination");
     }
 
     private MixinCompletionItem[] CompleteTypes(string prefix)
@@ -108,7 +104,7 @@ public sealed class HelixMixinLanguageHost {
         });
     }
 
-    private SemanticTarget ResolveType(string name)
+    private HixLocation ResolveType(string name)
     {
         return ReadLockCookie.Execute(() =>
         {
@@ -125,68 +121,21 @@ public sealed class HelixMixinLanguageHost {
             var range = declaration?.GetNavigationRange();
             if (sourceFile == null || range == null || !range.Value.IsValid()) return null;
             var textRange = range.Value.TextRange;
-            return new SemanticTarget(sourceFile.GetLocation().FullPath,
-                textRange.StartOffset, textRange.EndOffset);
+            return new HixLocation(sourceFile.GetLocation().FullPath,
+                new CoreRange(textRange.StartOffset, textRange.EndOffset));
         });
-    }
-
-
-    private static bool SameDirectory(string left, string right) => string.Equals(
-        System.IO.Path.GetDirectoryName(left ?? string.Empty),
-        System.IO.Path.GetDirectoryName(right ?? string.Empty), StringComparison.OrdinalIgnoreCase);
-
-    private static bool ResolvedPatternDiagnostic(string message, ISet<string> patterns) {
-        const string prefix = "unknown pattern '";
-        return message != null && message.StartsWith(prefix, StringComparison.Ordinal) && message.EndsWith("'", StringComparison.Ordinal) &&
-               patterns.Contains(message.Substring(prefix.Length, message.Length - prefix.Length - 1));
-    }
-
-    private static MixinLanguageDefinition[] Definitions() {
-        var functions = Hix.HixMixinBackend.Instance.Functions.Enumerate().SelectMany(definition =>
-            definition.Signatures.Select(signature => new MixinLanguageDefinition(
-                definition.Name, "Function", signature.ArgumentCount, signature.IsVariadic, "None",
-                (signature.ArgumentTypes.Count == 0 ? HixValueKind.Any : signature.ArgumentTypes[0]).ToString(),
-                signature.ResultType.ToString(), signature.ArgumentTypes.Select(type => type.ToString()).ToArray(),
-                definition.Documentation)));
-        var roots = HixRootLibrary.Enumerate().Select(definition => new MixinLanguageDefinition(
-            definition.Name, "Root", 0, false, "None", "None", definition.Kind.ToString(), Array.Empty<string>(), definition.Documentation));
-        var targets = Enum.GetNames(typeof(MixinEmissionTarget)).Select(name => new MixinLanguageDefinition(
-            name, "OutputTarget", 0, false, "None", "None", "None", Array.Empty<string>(), "Generated output destination"));
-        var hostRoots = Hix.HixMixinBackend.Instance.Roots.Values.Select(root => new MixinLanguageDefinition(
-            root.Name, "Root", 0, false, "None", "None", root.Kind.ToString(), Array.Empty<string>(), "Backend root"));
-        var kinds = Enum.GetValues(typeof(HixValueKind)).Cast<HixValueKind>().Select(kind =>
-            new MixinLanguageDefinition(kind.ToString().ToLowerInvariant(), "Kind", 0, false, "None", "None",
-                "Kind", Array.Empty<string>(), "Matches values of kind `" + kind.ToString().ToLowerInvariant() + "`."));
-        var metadata = HixPatternMetadata.Definitions.Select(definition => new MixinLanguageDefinition(
-            definition.Name, "PatternMetadata", definition.ArgumentKinds.Count, definition.Variadic,
-            definition.Name == "optional" ? "Field" : "Pattern", "None", "Pattern",
-            definition.ArgumentKinds.Select(kind => kind.ToString()).ToArray(),
-            definition.Documentation));
-        var fileMetadata = HixFileMetadata.Definitions.Select(definition => new MixinLanguageDefinition(
-            definition.Name, "FileMetadata", definition.ArgumentTypes.Count, false, "File", "None", "None",
-            definition.ArgumentTypes.ToArray(), definition.Documentation));
-        return functions.Concat(roots).Concat(hostRoots).Concat(targets).Concat(kinds).Concat(metadata)
-            .Concat(fileMetadata).ToArray();
     }
 
     private static WireRange Range(CoreRange range) => Range(range.Start, range.End);
     private static WireRange Range(int start, int end) => new(start, end);
-    // FNV-1a over UTF-16 code units. Kotlin uses the same intentionally simple algorithm.
-    private static long SourceHash(string source)
-    {
-        unchecked
-        {
-            var hash = 1469598103934665603L;
-            foreach (var character in source)
-            {
-                hash ^= character;
-                hash *= 1099511628211L;
-            }
-            return hash;
-        }
+    private sealed class RiderAnalyzerHost(HelixMixinLanguageHost owner) : IHixAnalyzerHost {
+        public HixLocation Resolve(string kind, string name) =>
+            kind == "CSharpType" ? owner.ResolveType(name) : null;
+        public IReadOnlyList<HixCompletion> Complete(string kind, string prefix) =>
+            kind == "CSharpType" ? owner.CompleteTypes(prefix).Select(item => new HixCompletion(item.Name,
+                item.InsertText, item.Kind, item.Documentation,
+                string.IsNullOrEmpty(item.TargetFilePath) ? null : new HixLocation(item.TargetFilePath,
+                    new CoreRange(item.TargetRange.StartOffset, item.TargetRange.EndOffset)))).ToArray() : [];
     }
-
-
-    private sealed record SemanticTarget(string FilePath, int StartOffset, int EndOffset);
 }
 #endif
