@@ -11,8 +11,6 @@ public sealed record HixReference(string Name, string Kind, HixSourceRange Range
 public sealed record HixDiagnostic(string Message, string Severity, HixSourceRange Range);
 public sealed record HixCompletion(string Name, string InsertText, string Kind, string Documentation,
   HixLocation Target = null);
-public sealed record HixCompletionSite(string Kind, HixSourceRange ActivationRange,
-  HixSourceRange ReplacementRange, string ExpectedType);
 public sealed record HixTypeFact(HixSourceRange Range, string Type, string Documentation, bool Inlay,
   string Kind);
 public sealed record HixDefinition(string Name, string Kind, int ArgumentCount, bool Variadic,
@@ -20,8 +18,7 @@ public sealed record HixDefinition(string Name, string Kind, int ArgumentCount, 
   string Documentation);
 public sealed record HixDocumentSnapshot(string Path, long Revision, long SourceHash,
   IReadOnlyList<HixSymbol> Declarations, IReadOnlyList<HixReference> References,
-  IReadOnlyList<HixDiagnostic> Diagnostics, IReadOnlyList<HixCompletionSite> CompletionSites,
-  IReadOnlyList<HixTypeFact> TypeFacts);
+  IReadOnlyList<HixDiagnostic> Diagnostics, IReadOnlyList<HixTypeFact> TypeFacts);
 
 /// Optional host-language bridge. A standalone server can omit it; Rider supplies C# symbols.
 public interface IHixAnalyzerHost {

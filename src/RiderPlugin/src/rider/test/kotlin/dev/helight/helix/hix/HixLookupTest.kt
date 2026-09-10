@@ -34,6 +34,10 @@ class HixLookupTest {
         val incompleteHeader = "%\n---\nmixin Test { }"
         assertEquals(HixLookup.SemanticRole.FileMetadata,
             HixLookup.semanticRoleAt(HixAntlrSyntax.parse(incompleteHeader), 0))
+        val partiallyTypedHeader = "%back\n---\nmixin Test { }"
+        assertEquals(HixLookup.SemanticRole.FileMetadata,
+            HixLookup.semanticRoleAt(HixAntlrSyntax.parse(partiallyTypedHeader),
+                partiallyTypedHeader.indexOf("back") + 3))
     }
 
     @Test

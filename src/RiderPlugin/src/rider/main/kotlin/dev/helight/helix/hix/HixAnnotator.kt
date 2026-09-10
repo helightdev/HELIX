@@ -14,7 +14,6 @@ import org.antlr.v4.runtime.Token
 import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNode
 import org.antlr.v4.runtime.tree.ParseTree
-import dev.helight.helix.protocol.MixinLanguageDefinition
 
 class HixAnnotator : Annotator {
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
@@ -24,11 +23,9 @@ class HixAnnotator : Annotator {
             holder.newAnnotation(HighlightSeverity.ERROR, diagnostic.message)
                 .range(TextRange(diagnostic.start, diagnostic.end)).create()
         }
+        addLocalSemanticHighlighting(localParse, element.textLength, holder)
         val service = element.project.service<HixSnapshotService>()
-        val definitions = service.definitionsFor(element.text)
         element.virtualFile?.let { service.observe(it, element.text) }
-        addLocalSemanticHighlighting(localParse, element.textLength, holder,
-            definitions.filter { it.kind in setOf("PatternMetadata", "FileMetadata") }.associateBy { it.name })
         val path = element.virtualFile?.path
         val snapshot = element.getUserData(HixSnapshotService.SEMANTIC_SNAPSHOT)
             ?: service.snapshotForText(element.text, path)
@@ -42,14 +39,6 @@ class HixAnnotator : Annotator {
             val end = diagnostic.range.endOffset.coerceIn(start, element.textLength)
             holder.newAnnotation(severity, diagnostic.message).range(TextRange(start, end)).create()
         }
-        snapshot?.typeFacts?.filter { it.kind == "Call" && snapshot.typeFacts.none { dynamic ->
-            dynamic.kind == "DynamicCall" && dynamic.range == it.range
-        } }?.forEach { fact ->
-            val start = fact.range.startOffset.coerceIn(0, element.textLength)
-            val end = fact.range.endOffset.coerceIn(start, element.textLength)
-            holder.newSilentAnnotation(HighlightSeverity.INFORMATION).range(TextRange(start, end))
-                .textAttributes(HixColors.FUNCTION).create()
-        }
         snapshot?.typeFacts?.filter { it.kind == "DynamicCall" }?.forEach { fact ->
             val start = fact.range.startOffset.coerceIn(0, element.textLength)
             val end = fact.range.endOffset.coerceIn(start, element.textLength)
@@ -60,8 +49,8 @@ class HixAnnotator : Annotator {
         }
     }
 
-    private fun addLocalSemanticHighlighting(parse: HelixAntlrParse, textLength: Int, holder: AnnotationHolder,
-                                               patternMetadata: Map<String, MixinLanguageDefinition>) {
+    private fun addLocalSemanticHighlighting(parse: HelixAntlrParse, textLength: Int,
+                                              holder: AnnotationHolder) {
         fun highlight(node: TerminalNode?, color: com.intellij.openapi.editor.colors.TextAttributesKey) {
             val token = node?.symbol ?: return
             if (token.type == Token.EOF || token.startIndex < 0) return
@@ -106,23 +95,14 @@ class HixAnnotator : Annotator {
         rules.forEach { rule ->
             when (rule) {
                 is HixParser.MetadataContext -> {
-                    val name = rule.IDENTIFIER()?.text
-                    val definition = patternMetadata[name]
                     val role = (rule.IDENTIFIER() ?: rule.METADATA_PREFIX())?.symbol?.startIndex?.let {
                         HixLookup.semanticRoleAt(parse, it)
                     }
-                    val isPatternMetadata = definition?.kind == "PatternMetadata" &&
-                        role == HixLookup.SemanticRole.PatternMetadata
+                    val isPatternMetadata = role == HixLookup.SemanticRole.PatternMetadata
                     val metadataColor = if (isPatternMetadata) HixColors.PATTERN_METADATA else HixColors.METADATA
                     terminals(rule).filter { it.symbol.type in metadataStructureTokens }
                         .forEach { highlight(it, metadataColor) }
                     highlight(rule.IDENTIFIER(), metadataColor)
-                    if (isPatternMetadata) rule.valueList()?.argumentValue()?.forEachIndexed { index, argument ->
-                        val argumentKind = definition.argumentTypes.getOrNull(index)
-                            ?: if (definition.variadic) definition.argumentTypes.lastOrNull() else null
-                        if (argumentKind == "Pattern") argument.argumentBody().ARGUMENT_TEXT()
-                            .forEach { highlight(it, HixColors.TYPE) }
-                    }
                 }
                 is HixParser.TypeDeclarationContext -> highlight(rule.IDENTIFIER(), HixColors.TYPE)
                 is HixParser.PatternIdentifierContext -> {

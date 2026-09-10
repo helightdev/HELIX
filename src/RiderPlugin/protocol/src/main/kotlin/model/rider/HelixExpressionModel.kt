@@ -10,8 +10,8 @@ import com.jetbrains.rider.model.nova.ide.SolutionModel
  * Versioned language-service protocol for mixin additional files.
  *
  * The backend is deliberately an analysis server, not the owner of editor PSI. The frontend
- * sends a complete same-directory file set and receives a lossless, flat syntax snapshot which
- * IntelliJ's lexer/parser consumes after the asynchronous call completes.
+ * sends a complete same-directory file set and receives diagnostics and semantic facts. IntelliJ
+ * syntax and PSI are built directly from the shared ANTLR grammar in the frontend.
  */
 @Suppress("unused")
 object HelixExpressionModel : Ext(SolutionModel.Solution) {
@@ -33,20 +33,6 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
         val parseRequest = structdef("mixinParseRequest") {
             field("files", array(fileInput))
             field("backend", string)
-        }
-
-        // Parent indices keep the wire tree compact and avoid recursive RD models. Nodes are
-        // emitted parent-before-child and retain offsets in the unchanged input text.
-        val syntaxNode = structdef("mixinSyntaxNode") {
-            field("parentIndex", int)
-            field("kind", string)
-            field("range", sourceRange)
-            field("name", string)
-        }
-
-        val token = structdef("mixinToken") {
-            field("kind", string)
-            field("range", sourceRange)
         }
 
         val declaration = structdef("mixinDeclaration") {
@@ -80,14 +66,6 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("targetRange", sourceRange)
         }
 
-        val completionSite = structdef("mixinCompletionSite") {
-            field("kind", string)
-            field("activationRange", sourceRange)
-            field("replacementRange", sourceRange)
-            field("receiverType", string)
-            field("items", array(completionItem))
-        }
-
         val completionRequest = structdef("mixinCompletionRequest") {
             field("kind", string)
             field("prefix", string)
@@ -110,12 +88,9 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("filePath", string)
             field("revision", long)
             field("sourceHash", long)
-            field("syntaxNodes", array(syntaxNode))
-            field("tokens", array(token))
             field("declarations", array(declaration))
             field("references", array(reference))
             field("diagnostics", array(diagnostic))
-            field("completionSites", array(completionSite))
             field("typeFacts", array(typeFact))
         }
 
@@ -131,6 +106,18 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
             field("documentation", string)
         }
 
+        val definitionQuery = structdef("mixinDefinitionQuery") {
+            field("kind", string)
+            field("receiverType", string)
+            field("operandType", string)
+            field("prefix", string)
+            field("backend", string)
+        }
+
+        val definitionResponse = structdef("mixinDefinitionResponse") {
+            field("definitions", array(languageDefinition))
+        }
+
         val parseResponse = structdef("mixinParseResponse") {
             field("files", array(fileSnapshot))
         }
@@ -141,6 +128,7 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
 
         call("parseMixinFiles", parseRequest, parseResponse).async
         call("completeMixin", completionRequest, completionResponse).async
+        call("queryMixinDefinitions", definitionQuery, definitionResponse).async
         call("getMixinLanguageCatalog", string, languageCatalog).async
         property("isHelixEnabled", bool)
     }

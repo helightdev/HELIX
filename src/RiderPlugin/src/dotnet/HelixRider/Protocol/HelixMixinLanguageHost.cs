@@ -35,6 +35,9 @@ public sealed class HelixMixinLanguageHost {
         model.ParseMixinFiles.SetAsync((_, request) => RdTask.Successful(Parse(Analyzer(request.Backend), request)));
         model.CompleteMixin.SetAsync((_, request) => RdTask.Successful(new MixinCompletionResponse(
             Analyzer(request.Backend).Complete(request.Kind, request.Prefix).Select(Completion).ToArray())));
+        model.QueryMixinDefinitions.SetAsync((_, request) => RdTask.Successful(new MixinDefinitionResponse(
+            Analyzer(request.Backend).QueryDefinitions(request.Kind, request.ReceiverType, request.OperandType,
+                request.Prefix).Select(Definition).ToArray())));
         model.GetMixinLanguageCatalog.SetAsync((_, backend) => RdTask.Successful(LanguageCatalog(Analyzer(backend))));
     }
 
@@ -57,14 +60,11 @@ public sealed class HelixMixinLanguageHost {
         new(analyzer.Definitions.Select(Definition).ToArray());
 
     private static MixinFileSnapshot Snapshot(HixDocumentSnapshot value) => new(value.Path, value.Revision,
-        value.SourceHash, Array.Empty<MixinSyntaxNode>(), Array.Empty<MixinToken>(),
-        value.Declarations.Select(item => new MixinDeclaration(item.Name, item.Kind, Range(item.Range),
+        value.SourceHash, value.Declarations.Select(item => new MixinDeclaration(item.Name, item.Kind, Range(item.Range),
             Range(item.Scope))).ToArray(), value.References.Select(item => new MixinReference(item.Name, item.Kind,
             Range(item.Range), Range(item.Scope), item.Target?.Path ?? string.Empty,
             item.Target == null ? Range(0, 0) : Range(item.Target.Range))).ToArray(),
         value.Diagnostics.Select(item => new MixinDiagnostic(item.Message, item.Severity, Range(item.Range))).ToArray(),
-        value.CompletionSites.Select(item => new MixinCompletionSite(item.Kind, Range(item.ActivationRange),
-            Range(item.ReplacementRange), item.ExpectedType, Array.Empty<MixinCompletionItem>())).ToArray(),
         value.TypeFacts.Select(item => new MixinTypeFact(Range(item.Range), item.Type, item.Documentation,
             item.Inlay, item.Kind)).ToArray());
 

@@ -24,10 +24,33 @@ internal data class HelixAntlrParse(
 internal object HixAntlrSyntax {
     private val latest = ThreadLocal<HelixAntlrParse>()
 
+    private data class Pass(val tree: HixParser.CompilationUnitContext,
+                            val tokens: List<HelixAntlrToken>,
+                            val diagnostics: List<HelixAntlrDiagnostic>)
+
     @Suppress("DEPRECATION") // IntelliJ offsets are UTF-16, not Unicode code-point indices.
     fun parse(source: CharSequence): HelixAntlrParse {
         val text = source.toString()
         latest.get()?.takeIf { it.source == text }?.let { return it }
+        val original = parsePass(text)
+        val recovered = text.toCharArray()
+        var pass = original
+        var attempts = 0
+        while (attempts++ < MAX_RECOVERY_PASSES) {
+            val offsets = pass.diagnostics.mapNotNull { diagnostic ->
+                diagnostic.start.takeIf { it < text.length }
+            }.toMutableSet()
+            unmatchedMultilineMode(pass.tokens, text)?.let(offsets::add)
+            if (offsets.isEmpty() || offsets.none { blankLine(recovered, it) }) break
+            pass = parsePass(String(recovered))
+        }
+        val diagnostics = (original.diagnostics + original.tokens.filter { it.type == HixLexer.ERROR_TOKEN }
+            .map { HelixAntlrDiagnostic(it.start, it.end, "Invalid token") }).distinct()
+        return HelixAntlrParse(text, pass.tokens, pass.tree, diagnostics).also(latest::set)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun parsePass(text: String): Pass {
         val diagnostics = ArrayList<HelixAntlrDiagnostic>()
         val listener = object : BaseErrorListener() {
             override fun syntaxError(recognizer: Recognizer<*, *>?, offendingSymbol: Any?, line: Int,
@@ -74,12 +97,45 @@ internal object HixAntlrSyntax {
             if (token.type == Token.EOF) continue
             gap(token.startIndex)
             tokens += HelixAntlrToken(token.type, token.startIndex, token.stopIndex + 1)
-            if (token.type == HixLexer.ERROR_TOKEN)
-                diagnostics += HelixAntlrDiagnostic(token.startIndex, token.stopIndex + 1, "Invalid token")
             position = token.stopIndex + 1
         }
         gap(text.length)
-        return HelixAntlrParse(text, tokens, tree, diagnostics).also(latest::set)
+        return Pass(tree, tokens, diagnostics)
+    }
+
+    private fun unmatchedMultilineMode(tokens: List<HelixAntlrToken>, source: String): Int? {
+        data class Opener(val offset: Int, val closer: Int)
+        val openers = ArrayDeque<Opener>()
+        tokens.forEach { token ->
+            val closer = when (token.type) {
+                HixLexer.BEGIN_ARGUMENT -> HixLexer.ARGUMENT_END
+                HixLexer.BEGIN_PARAMETERS -> HixLexer.END_PARAMETERS
+                HixLexer.BEGIN_VALUE_INLINE, HixLexer.BEGIN_METADATA_VALUE,
+                HixLexer.BEGIN_TUPLE -> HixLexer.VALUE_END_INLINE
+                HixLexer.BEGIN_TABLE -> HixLexer.RC
+                else -> null
+            }
+            if (closer != null) openers.addLast(Opener(token.start, closer))
+            else if (openers.lastOrNull()?.closer == token.type) openers.removeLast()
+        }
+        return openers.lastOrNull()?.offset?.takeIf { source.indexOf('\n', it) >= 0 }
+    }
+
+    private fun blankLine(text: CharArray, offset: Int): Boolean {
+        if (text.isEmpty()) return false
+        var start = offset.coerceIn(0, text.lastIndex)
+        while (start > 0 && text[start - 1] != '\n' && text[start - 1] != '\r') start--
+        var end = start
+        while (end < text.size && text[end] != '\n' && text[end] != '\r') end++
+        // At EOF, ANTLR's partial context is more useful than deleting the entire line. Line
+        // quarantine exists to prevent an error from poisoning syntax that follows it.
+        if (end == text.size) return false
+        var changed = false
+        for (index in start until end) if (!text[index].isWhitespace()) {
+            text[index] = ' '
+            changed = true
+        }
+        return changed
     }
 
     fun rules(context: ParserRuleContext): Sequence<ParserRuleContext> = sequence {
@@ -96,4 +152,6 @@ internal object HixAntlrSyntax {
             else -> null
         }
     }
+
+    private const val MAX_RECOVERY_PASSES = 32
 }

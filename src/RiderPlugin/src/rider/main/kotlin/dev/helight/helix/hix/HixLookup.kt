@@ -13,6 +13,15 @@ internal object HixLookup {
     data class Site(val chained: Boolean, val member: Boolean, val receiverEnd: Int)
 
     fun semanticRoleAt(parsed: HelixAntlrParse, offset: Int): SemanticRole? {
+        val sourceOffset = offset.coerceIn(0, parsed.source.length)
+        val delimiter = parsed.source.indexOf("---")
+        if (delimiter >= 0 && sourceOffset < delimiter) {
+            val lineStart = parsed.source.lastIndexOfAny(charArrayOf('\n', '\r'),
+                (sourceOffset - 1).coerceAtLeast(0)).let { it + 1 }
+            val prefix = parsed.source.substring(lineStart, (sourceOffset + 1).coerceAtMost(parsed.source.length))
+                .trimStart()
+            if (prefix.startsWith('%')) return SemanticRole.FileMetadata
+        }
         fun contains(node: TerminalNode?): Boolean {
             val token = node?.symbol ?: return false
             return offset >= token.startIndex && offset <= token.stopIndex + 1
@@ -28,7 +37,6 @@ internal object HixLookup {
                         is HixParser.FileMetadataSectionContext -> SemanticRole.FileMetadata
                         is HixParser.PatternExpressionContext, is HixParser.PatternFieldContext -> SemanticRole.PatternMetadata
                         else -> {
-                            val delimiter = parsed.source.indexOf("---")
                             if (delimiter >= 0 && offset < delimiter) SemanticRole.FileMetadata else SemanticRole.Metadata
                         }
                     }
@@ -43,7 +51,6 @@ internal object HixLookup {
         if (role != null) return role
         val token = parsed.tokens.firstOrNull { offset >= it.start && offset <= it.end }
         if (token?.type == HixLexer.METADATA_PREFIX) {
-            val delimiter = parsed.source.indexOf("---")
             if (delimiter >= 0 && token.start < delimiter) return SemanticRole.FileMetadata
             if (delimiter < 0 && parsed.tree.topLevelDeclaration().isEmpty()) return SemanticRole.FileMetadata
             return SemanticRole.Metadata

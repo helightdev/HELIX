@@ -23,8 +23,6 @@ public sealed class HelixMixinProtocolHostTests
         Assert.That(use.Diagnostics.Any(diagnostic => diagnostic.Message.Contains("unknown pattern")), Is.False);
         Assert.That(use.References.Any(reference => reference.Name == "Person" &&
             reference.TargetFilePath.EndsWith("Patterns.hix")), Is.True);
-        Assert.That(use.CompletionSites.SelectMany(site => site.Items), Is.Empty,
-            "snapshot construction must not eagerly materialize completion items");
         Assert.That(use.TypeFacts.Any(fact => fact.Type == "Person" && fact.Documentation.Contains("Validate")), Is.True);
     }
 

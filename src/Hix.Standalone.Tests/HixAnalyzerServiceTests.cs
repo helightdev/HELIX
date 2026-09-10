@@ -14,6 +14,17 @@ public sealed class HixAnalyzerServiceTests {
   }
 
   [Fact]
+  public void DefinitionQueriesAreContextualAndDoNotDependOnDocumentRanges() {
+    var service = new HixAnalyzerService();
+
+    Assert.All(service.QueryDefinitions("FileMetadata", "", "", ""),
+      definition => Assert.Equal("FileMetadata", definition.Kind));
+    Assert.All(service.QueryDefinitions("Function", "String", "", ""), definition =>
+      Assert.True(definition.ReceiverType is "String" or "Any"));
+    Assert.Empty(service.QueryDefinitions("Root", "", "", "definitelyMissing"));
+  }
+
+  [Fact]
   public void ResolvesSiblingPatternsAndKeepsCompletionsLazy() {
     var service = new HixAnalyzerService();
     var snapshots = service.Synchronize([

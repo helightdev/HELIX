@@ -24,13 +24,15 @@ class HixCompletionContributor : CompletionContributor() {
                     val token = parsed.tokens.firstOrNull { it.start < offset && offset <= it.end }
                     val service = parameters.position.project.service<HixSnapshotService>()
                     val path = parameters.originalFile.virtualFile?.path
-                    val definitions = service.definitionsFor(source)
+                    fun queryDefinitions(kind: String, receiverType: String = "",
+                                         operandType: String = "", prefix: String = "") =
+                        service.queryDefinitions(kind, receiverType, operandType, prefix, source).asList()
                     parameters.originalFile.virtualFile?.let { service.observe(it, source) }
                     val metadataArgument = HixLookup.metadataArgumentAt(parsed, (offset - 1).coerceAtLeast(0))
                     val metadataArgumentDefinition = metadataArgument?.let { argument ->
-                        definitions.firstOrNull {
-                            it.kind in setOf("PatternMetadata", "FileMetadata") && it.name == argument.name
-                        }
+                        (queryDefinitions("FileMetadata", prefix = argument.name) +
+                            queryDefinitions("PatternMetadata", prefix = argument.name))
+                            .firstOrNull { it.name == argument.name }
                     }
                     val metadataArgumentKind = metadataArgument?.let { argument ->
                         metadataArgumentDefinition?.argumentTypes?.getOrNull(argument.index)
@@ -51,7 +53,7 @@ class HixCompletionContributor : CompletionContributor() {
                             HixLexer.ESCAPE_HEX)) return
 
                     fun addPatternCompletions() {
-                        definitions.filter { it.kind == "Kind" }.forEach { definition ->
+                        queryDefinitions("Kind").forEach { definition ->
                             result.addElement(LookupElementBuilder.create(definition, definition.name)
                                 .withTypeText("kind"))
                         }
@@ -68,25 +70,27 @@ class HixCompletionContributor : CompletionContributor() {
                     }
                     when (HixLookup.semanticRoleAt(parsed, (offset - 1).coerceAtLeast(0))) {
                         HixLookup.SemanticRole.FileMetadata -> {
-                            definitions.filter { it.kind == "FileMetadata" }.forEach { definition ->
+                            val prefix = metadataPrefix(source, offset)
+                            val metadataResult = result.withPrefixMatcher(prefix)
+                            queryDefinitions("FileMetadata", prefix = prefix).forEach { definition ->
                                 val arguments = definition.argumentTypes.joinToString("") { "<${it.lowercase()}>" }
-                                result.addElement(LookupElementBuilder.create(definition, definition.name)
+                                metadataResult.addElement(LookupElementBuilder.create(definition, definition.name)
                                     .withTailText(arguments, true).withTypeText("file metadata"))
                             }
                             return
                         }
                         HixLookup.SemanticRole.PatternMetadata -> {
                             val target = HixLookup.patternMetadataTargetAt(parsed, (offset - 1).coerceAtLeast(0))
-                            definitions.filter { definition ->
-                                definition.kind == "PatternMetadata" &&
-                                    (definition.operandType == "Pattern" || definition.operandType == target)
-                            }.forEach { definition ->
+                            val prefix = metadataPrefix(source, offset)
+                            val metadataResult = result.withPrefixMatcher(prefix)
+                            queryDefinitions("PatternMetadata", operandType = target.orEmpty(), prefix = prefix)
+                                .forEach { definition ->
                                 val arguments = definition.argumentTypes.mapIndexed { index, type ->
                                     val rendered = "<${type.lowercase()}>"
                                     if (definition.variadic && index == definition.argumentTypes.lastIndex)
                                         "$rendered..." else rendered
                                 }.joinToString("")
-                                result.addElement(LookupElementBuilder.create(definition, definition.name)
+                                metadataResult.addElement(LookupElementBuilder.create(definition, definition.name)
                                     .withTailText(arguments, true).withTypeText("pattern metadata"))
                             }
                             return
@@ -114,7 +118,7 @@ class HixCompletionContributor : CompletionContributor() {
                             }
                         }
                         if (valueContext || statementContext) {
-                            names += definitions.filter { it.kind == "Root" }.map { it.name }
+                            names += queryDefinitions("Root").map { it.name }
                         }
                         if (valueContext) {
                             HixAntlrSyntax.rules(parsed.tree)
@@ -125,7 +129,7 @@ class HixCompletionContributor : CompletionContributor() {
                         }
                     }
                     if (!site.member) {
-                        definitions.asSequence().filter { it.kind == "Function" }
+                        queryDefinitions("Function", if (site.chained) receiver else "").asSequence()
                             .filter { !site.chained || HixLookup.acceptsReceiver(it, receiver) }
                             .distinctBy { HixLookup.signature(it) }.forEach { definition ->
                                 result.addElement(LookupElementBuilder.create(definition, definition.name)
@@ -142,15 +146,12 @@ class HixCompletionContributor : CompletionContributor() {
                             } }
                             .forEach { names += it.name }
                     }
-                    snapshot?.completionSites?.filter {
-                        offset in it.activationRange.startOffset..it.activationRange.endOffset
-                    }?.flatMap { site ->
-                        if (site.kind == "CSharpType") {
-                            val start = site.replacementRange.startOffset.coerceIn(0, source.length)
-                            val prefix = source.substring(start, offset.coerceAtLeast(start))
-                            service.lazyCompletions(site.kind, prefix, source).asList()
-                        } else site.items.asList()
-                    }?.distinctBy { it.insertText }?.forEach { item ->
+                    val hostItems = if (HixLookup.semanticRoleAt(parsed,
+                            (offset - 1).coerceAtLeast(0)) == HixLookup.SemanticRole.Pattern) {
+                        val start = token?.start?.coerceIn(0, offset) ?: offset
+                        service.lazyCompletions("CSharpType", source.substring(start, offset), source).asList()
+                    } else emptyList()
+                    hostItems.distinctBy { it.insertText }.forEach { item ->
                         names.remove(item.insertText)
                         result.addElement(LookupElementBuilder.create(item, item.insertText)
                             .withPresentableText(item.name).withTypeText(item.kind))
@@ -162,5 +163,13 @@ class HixCompletionContributor : CompletionContributor() {
 
     private companion object {
         val statementKeywords = setOf("return", "goto", "break", "continue", "when", "local", "var", "target", "carry")
+
+        fun metadataPrefix(source: String, offset: Int): String {
+            val end = offset.coerceIn(0, source.length)
+            val lineStart = source.lastIndexOfAny(charArrayOf('\n', '\r'), (end - 1).coerceAtLeast(0)) + 1
+            val percent = source.lastIndexOf('%', end - 1)
+            if (percent < lineStart) return ""
+            return source.substring(percent + 1, end).takeWhile { it == '_' || it.isLetterOrDigit() }
+        }
     }
 }

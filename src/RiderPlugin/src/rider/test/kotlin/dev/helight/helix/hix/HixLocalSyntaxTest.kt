@@ -233,6 +233,45 @@ class HixLocalSyntaxTest {
     }
 
     @Test
+    fun `editor recovery keeps declarations after malformed lines`() {
+        val source = "type Before = string\nthis is not a declaration\ntype After = number"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isNotEmpty())
+        assertEquals(setOf("Before", "After"), HixAntlrSyntax.declarationNames(parsed.tree)
+            .map { it.text }.toSet())
+    }
+
+    @Test
+    fun `unclosed argument does not leave the rest of the editor in string mode`() {
+        val source = "type Before = string\nfunc broken => <unfinished\ntype After = number"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isNotEmpty())
+        assertTrue(HixAntlrSyntax.declarationNames(parsed.tree).any { it.text == "After" })
+        val after = source.indexOf("After")
+        assertTrue(parsed.tokens.any { it.start == after && it.type == HixLexer.IDENTIFIER })
+    }
+
+    @Test
+    fun `unclosed value mode does not consume following declarations`() {
+        val source = "type Before = string\nfunc broken(string value -> string\ntype After = number"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isNotEmpty())
+        assertTrue(HixAntlrSyntax.declarationNames(parsed.tree).any { it.text == "After" })
+    }
+
+    @Test
+    fun `incomplete header metadata does not taint the editor tree`() {
+        val source = "%\n---\ntype After = number"
+        val parsed = HixAntlrSyntax.parse(source)
+
+        assertTrue(parsed.diagnostics.isNotEmpty())
+        assertTrue(HixAntlrSyntax.declarationNames(parsed.tree).any { it.text == "After" })
+    }
+
+    @Test
     fun `analysis backend defaults to standalone and can be selected in file metadata`() {
         assertEquals("Standalone", HixSnapshotService.backendFor("mixin Example {}"))
         assertEquals("Unity", HixSnapshotService.backendFor("%backend<Unity>\n---\nmixin Example {}"))

@@ -50,6 +50,7 @@ class HixSnapshotService(private val project: Project) {
     private val listeners = CopyOnWriteArrayList<(String, MixinFileSnapshot?) -> Unit>()
     private val catalogs = ConcurrentHashMap<String, Array<MixinLanguageDefinition>>()
     private val catalogRequestsInFlight = ConcurrentHashMap.newKeySet<String>()
+    private val definitionQueries = ConcurrentHashMap<DefinitionQueryKey, Array<MixinLanguageDefinition>>()
 
     init {
         project.messageBus.connect(project).subscribe(VirtualFileManager.VFS_CHANGES,
@@ -58,7 +59,6 @@ class HixSnapshotService(private val project: Project) {
                     refreshAffectedDirectories(events)
                 }
             })
-        requestLanguageCatalog()
     }
 
     fun ensureLanguageCatalog(backend: String = DEFAULT_BACKEND) {
@@ -90,10 +90,9 @@ class HixSnapshotService(private val project: Project) {
     fun refreshLanguageCatalog(source: CharSequence) {
         val backend = backendFor(source)
         catalogs.remove(backend)
+        definitionQueries.keys.removeIf { it.backend == backend }
         ensureLanguageCatalog(backend)
     }
-
-    private fun requestLanguageCatalog() = ensureLanguageCatalog()
 
     private fun scheduleCatalogRetry(backend: String) {
         if (project.isDisposed || catalogs[backend]?.isNotEmpty() == true) return
@@ -106,6 +105,20 @@ class HixSnapshotService(private val project: Project) {
             .sync(MixinCompletionRequest(kind, prefix, backendFor(source)), RpcTimeouts(500L, 2_000L)).items
     } catch (_: Throwable) {
         emptyArray()
+    }
+
+    fun queryDefinitions(kind: String, receiverType: String = "", operandType: String = "",
+                         prefix: String = "", source: CharSequence): Array<MixinLanguageDefinition> {
+        val key = DefinitionQueryKey(backendFor(source), kind, receiverType, operandType, prefix)
+        return definitionQueries[key] ?: try {
+            project.solution.helixExpressionModel.queryMixinDefinitions.sync(
+                dev.helight.helix.protocol.MixinDefinitionQuery(kind, receiverType, operandType, prefix,
+                    key.backend), RpcTimeouts(500L, 2_000L)).definitions.also {
+                definitionQueries[key] = it
+            }
+        } catch (_: Throwable) {
+            emptyArray()
+        }
     }
 
     fun snapshot(path: String): MixinFileSnapshot? = byPath[normalise(path)]
@@ -249,7 +262,7 @@ class HixSnapshotService(private val project: Project) {
             val previous = byPath[path]
             replaceSnapshot(path, snapshot)
             accepted += path
-            if (previous == null || !samePsiSemantics(previous, snapshot)) changed += path
+            if (previous == null || !sameAnalysis(previous, snapshot)) changed += path
         }
         // Persistent VFS lookup may touch disk and is prohibited on the EDT. Resolve paths on
         // the current RD/background callback, then perform only PSI reparse/listener delivery UI-side.
@@ -351,7 +364,7 @@ class HixSnapshotService(private val project: Project) {
         byHash.computeIfAbsent(snapshot.sourceHash) { CopyOnWriteArrayList() }.add(snapshot)
     }
 
-    private fun samePsiSemantics(left: MixinFileSnapshot, right: MixinFileSnapshot): Boolean =
+    private fun sameAnalysis(left: MixinFileSnapshot, right: MixinFileSnapshot): Boolean =
         left.sourceHash == right.sourceHash &&
             left.declarations.contentDeepEquals(right.declarations) &&
             left.references.contentDeepEquals(right.references) &&
@@ -360,6 +373,8 @@ class HixSnapshotService(private val project: Project) {
 
     private data class OpenFile(val file: VirtualFile, val users: AtomicLong)
     private data class SemanticRetry(val requestHash: Long, val attempt: Int)
+    private data class DefinitionQueryKey(val backend: String, val kind: String, val receiverType: String,
+                                          val operandType: String, val prefix: String)
 
     companion object {
         private const val REQUEST_TIMEOUT_SECONDS = 10L

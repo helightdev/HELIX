@@ -64,6 +64,16 @@ public sealed class HixAnalyzerService {
   public IReadOnlyList<HixCompletion> Complete(string kind, string prefix) =>
     host?.Complete(kind ?? string.Empty, prefix ?? string.Empty) ?? [];
 
+  public IReadOnlyList<HixDefinition> QueryDefinitions(string kind, string receiverType,
+    string operandType, string prefix) => definitions.Where(definition =>
+      (string.IsNullOrEmpty(kind) || definition.Kind == kind) &&
+      (string.IsNullOrEmpty(receiverType) || definition.ReceiverType == "Any" ||
+        string.Equals(definition.ReceiverType, receiverType, StringComparison.OrdinalIgnoreCase)) &&
+      (string.IsNullOrEmpty(operandType) || definition.OperandType == "Pattern" ||
+        string.Equals(definition.OperandType, operandType, StringComparison.OrdinalIgnoreCase)) &&
+      (string.IsNullOrEmpty(prefix) || definition.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+    .ToArray();
+
   private HixDocumentSnapshot Snapshot(CachedDocument file, IReadOnlyList<CachedDocument> siblings) {
     var siblingPatterns = new HashSet<string>(siblings.SelectMany(item => item.Analysis.Declarations)
       .Where(item => item.Kind == "Pattern").Select(item => item.Name), StringComparer.Ordinal);
@@ -85,13 +95,9 @@ public sealed class HixAnalyzerService {
           HixSourceRange.FromToken(token);
         return new HixDiagnostic(item.Message, "Error", range);
       }).ToArray();
-    var sites = file.Analysis.References.Where(item => item.Kind == "CSharpType")
-      .Select(item => new HixCompletionSite("CSharpType", item.Range, item.Range, "Type"))
-      .Concat(references.Where(item => item.Kind == "Pattern")
-        .Select(item => new HixCompletionSite("Pattern", item.Range, item.Range, "Pattern"))).ToArray();
     return new HixDocumentSnapshot(file.Document.Path, file.Document.Revision, file.Hash,
       file.Analysis.Declarations.Select(item => new HixSymbol(item.Name, item.Kind, item.Range, item.Scope)).ToArray(),
-      references, diagnostics, sites, file.Analysis.TypeFacts.Select(item => new HixTypeFact(item.Range,
+      references, diagnostics, file.Analysis.TypeFacts.Select(item => new HixTypeFact(item.Range,
         item.Type, item.Documentation ?? string.Empty, item.Inlay, item.Kind)).ToArray());
   }
 
