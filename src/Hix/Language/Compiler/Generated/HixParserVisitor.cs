@@ -369,6 +369,18 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitValueList([NotNull] HixParser.ValueListContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.callValueList"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCallValueList([NotNull] HixParser.CallValueListContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.callArgument"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCallArgument([NotNull] HixParser.CallArgumentContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.argumentValue"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

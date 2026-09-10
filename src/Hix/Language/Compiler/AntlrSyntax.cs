@@ -129,6 +129,15 @@ public static class AntlrSyntax {
     private StatementIr Statement(IParseTree context) => (StatementIr)Visit(context);
     private ExpressionIr[] Arguments(Parser.ValueListContext context) => context is null ? [] :
       context.children.OfType<ParserRuleContext>().Select(Value).ToArray();
+    private (ExpressionIr[] Values, string[] Names) CallArguments(Parser.CallValueListContext context) {
+      if (context is null) return ([], []);
+      if (context.callArgument().Length == 0) {
+        var values = context.argumentValue().Select(Value).ToArray();
+        return (values, new string[values.Length]);
+      }
+      return (context.callArgument().Select(argument => Value(argument.value())).ToArray(),
+        context.callArgument().Select(argument => argument.ROOT_IDENTIFIER()?.GetText()).ToArray());
+    }
     private BlockStatementIr Block(Parser.StatementBlockContext context, string label = null) =>
       At(new BlockStatementIr(context.statement().Select(Statement).ToArray(), label), context);
     private BlockStatementIr FunctionBody(Parser.FunctionBodyContext context) {
@@ -177,15 +186,15 @@ public static class AntlrSyntax {
     private HixPattern Pattern(Parser.PatternPrimaryContext context) {
       if (context.patternIdentifier() != null) return HixPatterns.Named(context.patternIdentifier().GetText());
       if (context.tablePattern() != null)
-        return new TableHixPattern(context.tablePattern().patternField().Select(PatternField).ToArray());
+        return new TableHixPattern(context.tablePattern().patternField().Select(field => PatternField(field)).ToArray());
       if (context.tuplePattern() != null)
-        return new TupleHixPattern(context.tuplePattern().patternField().Select(PatternField).ToArray());
+        return new TupleHixPattern(context.tuplePattern().patternField().Select(field => PatternField(field)).ToArray());
       var delegatePattern = context.delegatePattern();
-      return new DelegateHixPattern(delegatePattern.patternParameterList().patternField().Select(PatternField).ToArray(),
+      return new DelegateHixPattern(delegatePattern.patternParameterList().patternField().Select(field => PatternField(field)).ToArray(),
         Pattern(delegatePattern.patternExpression()));
     }
 
-    private HixPatternField PatternField(Parser.PatternFieldContext context) {
+    private HixPatternField PatternField(Parser.PatternFieldContext context, bool signature = false) {
       var explicitName = context.ROOT_IDENTIFIER()?.GetText();
       var pattern = explicitName == null ? HixPattern.Any : Pattern(context.patternPrimary());
       var name = explicitName ?? context.patternPrimary().GetText();
@@ -193,7 +202,7 @@ public static class AntlrSyntax {
       pattern = ApplyPatternMetadata(pattern, metadata, HixMetadataKind.PatternField,
         out var optional, out var metadataDefault, out var hasMetadataDefault, out var graph);
       var hasAssignedDefault = context.value() != null;
-      if ((hasAssignedDefault || hasMetadataDefault) && context.Parent is not Parser.TablePatternContext)
+      if ((hasAssignedDefault || hasMetadataDefault) && context.Parent is not Parser.TablePatternContext && !signature)
         diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "defaults are only allowed on table pattern fields"));
       if (hasAssignedDefault && hasMetadataDefault)
         diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "a pattern field cannot have two defaults"));
@@ -299,10 +308,18 @@ public static class AntlrSyntax {
     public override HixIrNode VisitMixinDeclaration(Parser.MixinDeclarationContext context) {
       Modifiers(context.mixinModifier());
       var identifier = context.mixinIdentifier();
+      var parameters = context.patternParameterList()?.patternField().Select(SignatureField).ToArray() ?? [];
       return At(new MixinDeclarationIr(DeclarationName(identifier.IDENTIFIER() ?? identifier.NAMESPACE_IDENTIFIER(),
           identifier.argumentValue()), context.mixinModifier().Length != 0,
         context.mixinBody().children.OfType<ParserRuleContext>()
-          .Where(child => child is not Parser.TriviaContext).Select(Visit).ToArray(), declarationMetadata), context);
+          .Where(child => child is not Parser.TriviaContext).Select(Visit).ToArray(), declarationMetadata, parameters), context);
+    }
+
+    private SignatureField SignatureField(Parser.PatternFieldContext context) {
+      var field = PatternField(context, signature: true);
+      var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)).ToArray() ?? [];
+      return new SignatureField(field.Name, field.Pattern, false,
+        metadata, field.Optional, context.value() == null ? null : Value(context.value()));
     }
 
     public override HixIrNode VisitExpressionDeclaration(Parser.ExpressionDeclarationContext context) {
@@ -316,12 +333,7 @@ public static class AntlrSyntax {
       Modifiers(context.funcModifier());
       var signatures = new List<FunctionSignature>();
       if (context.directFunctionSignature() is { } direct) {
-        var parameters = direct.patternParameterList()?.patternField().Select(fieldContext => {
-          var field = PatternField(fieldContext);
-          var metadata = fieldContext.metadataList()?.metadata()
-            .Select(item => (MetadataIr)Visit(item)).ToArray() ?? [];
-          return new SignatureField(field.Name, field.Pattern, optional: field.Optional, metadata: metadata);
-        }).ToArray();
+        var parameters = direct.patternParameterList()?.patternField().Select(SignatureField).ToArray();
         signatures.Add(new FunctionSignature((HixPattern)null, parameters,
           Pattern(direct.patternExpression()), null));
       }
@@ -368,7 +380,9 @@ public static class AntlrSyntax {
       var rootText = context.TOPLEVEL_DERIVATION().GetText();
       ExpressionIr value = At(new RootExpressionIr(rootText.Substring(0, rootText.Length - 1)), context);
       var first = context.functionIdentifier();
-      value = At(new CallExpressionIr(first.GetText(), new[] {value}.Concat(Arguments(context.valueList())).ToArray()), context);
+      var supplied = CallArguments(context.callValueList());
+      value = At(new CallExpressionIr(first.GetText(), new[] {value}.Concat(supplied.Values).ToArray(),
+        argumentNames: new string[] {null}.Concat(supplied.Names).ToArray()), context);
       value = Transform(value, context.transformationPart());
       return At(new ExpressionStatementIr(value), context);
     }
@@ -378,9 +392,12 @@ public static class AntlrSyntax {
       return Visit(context.children.OfType<ParserRuleContext>().Single());
     }
 
-    private CallExpressionIr Invocation(Parser.InvocationStatementContext context) => At(
-      new CallExpressionIr(context.invocationIdentifier().GetText(), Arguments(context.valueList())
-        .Concat(context.tailValue() is { } tail ? [Value(tail)] : []).ToArray()), context);
+    private CallExpressionIr Invocation(Parser.InvocationStatementContext context) {
+      var supplied = CallArguments(context.callValueList());
+      return At(new CallExpressionIr(context.invocationIdentifier().GetText(), supplied.Values
+          .Concat(context.tailValue() is { } tail ? [Value(tail)] : []).ToArray(), argumentNames: supplied.Names
+          .Concat(context.tailValue() == null ? [] : new string[] {null}).ToArray()), context);
+    }
     public override HixIrNode VisitInvocationStatement(Parser.InvocationStatementContext context) =>
       At(new InvocationStatementIr(Invocation(context)), context);
 
@@ -417,8 +434,11 @@ public static class AntlrSyntax {
         ? At(new FallbackExpressionIr(value, Value(fallback.value())), context) : value;
     }
 
-    public override HixIrNode VisitValueStatement(Parser.ValueStatementContext context) => At(
-      new CallExpressionIr(context.functionIdentifier().GetText(), Arguments(context.valueList())), context);
+    public override HixIrNode VisitValueStatement(Parser.ValueStatementContext context) {
+      var supplied = CallArguments(context.callValueList());
+      return At(new CallExpressionIr(context.functionIdentifier().GetText(), supplied.Values,
+        argumentNames: supplied.Names), context);
+    }
 
     public override HixIrNode VisitTupleValue(Parser.TupleValueContext context) => At(
       new TupleExpressionIr(context.value().Select(Value).ToArray()), context);
@@ -441,9 +461,12 @@ public static class AntlrSyntax {
         var start = value.SourceRange;
         if (part.memberIdentifier() is { } member)
           value = At(new MemberExpressionIr(value, member.MEMBER_IDENTIFIER().GetText()), part);
-        else if (part.functionIdentifier() is { } function)
-          value = At(new CallExpressionIr(function.GetText(), new[] {value}.Concat(Arguments(part.valueList())).ToArray(),
-            part.functionChainType().VALUE_PREDICATE() != null), part);
+        else if (part.functionIdentifier() is { } function) {
+          var supplied = CallArguments(part.callValueList());
+          value = At(new CallExpressionIr(function.GetText(), new[] {value}.Concat(supplied.Values).ToArray(),
+            part.functionChainType().VALUE_PREDICATE() != null, argumentNames:
+            new string[] {null}.Concat(supplied.Names).ToArray()), part);
+        }
         if (part.VALUE_WRAP() == null && !start.IsEmpty) {
           value.SourceRange = value.SourceRange with {Start = start.Start, Line = start.Line, Column = start.Column};
           value.Tokens = TokensIn(value.SourceRange);

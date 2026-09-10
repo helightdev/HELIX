@@ -6,7 +6,8 @@ namespace Hix.Compiler;
 public sealed record HixModuleIr(
   IReadOnlyList<ExpressionDeclarationIr> Prelude,
   IReadOnlyList<ExpressionDeclarationIr> Late,
-  IReadOnlyList<FunctionDeclarationIr> Functions
+  IReadOnlyList<FunctionDeclarationIr> Functions,
+  IReadOnlyList<SignatureField> Parameters = null
 );
 
 /// <summary>Owns the mutable semantic IR for one compilation; parsed units and catalogs are not mutated.</summary>
@@ -15,7 +16,7 @@ public sealed class HixCompilation {
     Catalog = catalog;
     var clone = new HixIrRewriter();
     Module = new(module.Prelude.Select(clone.Rewrite).ToArray(), module.Late.Select(clone.Rewrite).ToArray(),
-      module.Functions.Select(clone.Rewrite).ToArray());
+      module.Functions.Select(clone.Rewrite).ToArray(), module.Parameters ?? []);
   }
   public HixModuleIr Module { get; set; }
   public HixCompilerCatalog Catalog { get; }

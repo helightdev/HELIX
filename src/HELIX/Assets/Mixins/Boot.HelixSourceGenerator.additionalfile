@@ -16,7 +16,7 @@ derivation mixin HELIX.Boot.NamedArgAttribute {
   }
 }
 
-mixin HELIX.Boot.CommandAttribute {
+mixin HELIX.Boot.CommandAttribute(string name = [null], string description = [null], string parent = [null]) {
   prelude expression {
     local StructName @> {{target:name}}_Args
     local StructHandle @= target:DeriveParameters;
@@ -29,13 +29,13 @@ mixin HELIX.Boot.CommandAttribute {
     local StructHandle @= inline(DeriveParameters, target);
     local InvokeArguments @= $StructHandle:map(func => <[$0#value#modifier] args.[$0#value#name]>):join<, >;
     local InvokeLambda @> args => {{$TargetName}}({{$InvokeArguments}})
-    local CommandName @= attr#name:unwrap;
+    local CommandName @= $name;
     local CmdName @= $CommandName:csharpLiteral;
     when($CommandName:eq(null)) {
       $CmdName @> "{{$TargetName}}"
     }
-    local Description @= attr#description:csharpLiteral;
-    local Parent @= attr#parent:csharpLiteral;
+    local Description @= $description:csharpLiteral;
+    local Parent @= $parent:csharpLiteral;
     local Bridge @> CommandBridge<{{$StructName}}>.Create({{$StructName}}.Datatype, {{$InvokeLambda}}, {{$CmdName}}, {{$Description}}, {{$Parent}})
     inject(<$LoadManagedLate>, 0) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{$Bridge}});
   }
@@ -48,12 +48,13 @@ mixin HELIX.Boot.RegisterCommandAttribute {
   }
 }
 
-mixin HELIX.Boot.RegisterOptionAttribute {
+mixin HELIX.Boot.RegisterOptionAttribute(string path = [null]) {
   prelude expression {
-    when(attr#path:exists) {
-      inject(<$Init>, -1) @> {{target:name}}.SetInferredPath({{attr#path}});
-      inject(<$ConfigureManaged>, -1) @> registration.Publication(typeof({{target:type:unwrap}}), {{attr#path}}, true);
-      inject(<$LoadManagedLate>, 1) @> context.PublishBind(typeof({{target:type:unwrap}}), {{attr#path}}, {{target:name}});
+    when(![$path:eq(null)]) {
+      local Path @= $path:csharpLiteral;
+      inject(<$Init>, -1) @> {{target:name}}.SetInferredPath({{$Path}});
+      inject(<$ConfigureManaged>, -1) @> registration.Publication(typeof({{target:type:unwrap}}), {{$Path}}, true);
+      inject(<$LoadManagedLate>, 1) @> context.PublishBind(typeof({{target:type:unwrap}}), {{$Path}}, {{target:name}});
       return
     }
     {

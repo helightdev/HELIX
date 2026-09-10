@@ -4,6 +4,7 @@ using Hix.Env;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using Hix.Functions;
@@ -26,6 +27,7 @@ public sealed class HixThread {
   private HixValueDictionary targetVariables => Context.TargetVariables;
   private IHixValue parameter = NullHixValue.Instance;
   private IReadOnlyList<IHixValue> positionalParameters = Array.Empty<IHixValue>();
+  private IHixValue argumentRoot = TupleHixValue.Empty;
   private bool prelude;
   private int steps;
   private int depth;
@@ -70,6 +72,9 @@ public sealed class HixThread {
       Context.BeginExecution();
       parameter = NullHixValue.Instance;
       positionalParameters = Array.Empty<IHixValue>();
+      argumentRoot = TupleHixValue.Empty;
+      if (program.Parameters.Count != 0)
+        parameter = argumentRoot = new LazyMixinParametersHixValue(program.Parameters);
       prelude = pure = directInvocation = false;
       steps = depth = 0;
       pendingControl = default;
@@ -164,7 +169,7 @@ public sealed class HixThread {
   private static VmCompletion Failed(IHixValue error, int line) => new(BytecodeFlow.Error, error, Line: line);
 
   private IHixValue Root(string name) {
-    if (name == "args") return new TupleHixValue(positionalParameters);
+    if (name == "args") return argumentRoot;
     if (name == "param") return parameter;
     if (KindHixValue.TryGet(name, out var kind)) return kind;
     if (program.Patterns.TryGetValue(name, out var pattern)) return new PatternHixValue(new NamedHixPattern(name));
@@ -209,6 +214,7 @@ public sealed class HixThread {
     var previousLocals = locals;
     var previousParameter = parameter;
     var previousPositionalParameters = positionalParameters;
+    var previousArgumentRoot = argumentRoot;
     var previousPure = pure;
     var previousScope = scope;
     var previousProgram = program;
@@ -221,6 +227,7 @@ public sealed class HixThread {
     locals = machine.RentLocals();
     parameter = match.Parameter;
     positionalParameters = match.Arguments ?? arguments;
+    argumentRoot = new TupleHixValue(positionalParameters);
     pure = match.Function.IsPure;
     scope = match.Owner;
     program = scope.Program;
@@ -243,6 +250,7 @@ public sealed class HixThread {
       locals = previousLocals;
       parameter = previousParameter;
       positionalParameters = previousPositionalParameters;
+      argumentRoot = previousArgumentRoot;
       pure = previousPure;
       scope = previousScope;
       program = previousProgram;
@@ -288,6 +296,9 @@ public sealed class HixThread {
     conversions = 1;
     return true;
   }
+  public IHixValue Coerce(IHixValue value, HixPattern pattern) =>
+    TryConvert(value, pattern, out var converted, out _) ? converted :
+      Error("value does not match parameter pattern '" + pattern.Display + "'");
   private static double Elapsed(long started) => (Stopwatch.GetTimestamp() - started) * 1000d / Stopwatch.Frequency;
 
   private void Rollback(PersistentMap<HixString, IHixValue> savedVariables,
@@ -677,10 +688,20 @@ public sealed class HixThread {
       } else if (signature?.Inputs != null) {
         var fields = signature.Inputs;
         if (arguments.Length < candidate.FixedCount || !candidate.Variadic && arguments.Length > fields.Count) continue;
+        if (!candidate.Variadic && arguments.Length < fields.Count) {
+          convertedArguments = new IHixValue[fields.Count];
+          Array.Copy(arguments, convertedArguments, arguments.Length);
+          for (var i = arguments.Length; i < fields.Count; i++)
+            convertedArguments[i] = fields[i].DefaultValue ??
+              (fields[i].Optional ? NullHixValue.Instance : null);
+          if (convertedArguments.Any(value => value == null)) continue;
+        }
         score = candidate.BaseScore;
         var valid = true;
-        for (var i = 0; i < arguments.Length; i++) {
-          if (!TryConvert(arguments[i], fields[Math.Min(i, fields.Count - 1)].Pattern, out var converted, out var count)) {
+        for (var i = 0; i < convertedArguments.Length; i++) {
+          var field = fields[Math.Min(i, fields.Count - 1)];
+          if (field.Optional && convertedArguments[i].Kind == HixValueKind.Null) continue;
+          if (!TryConvert(convertedArguments[i], field.Pattern, out var converted, out var count)) {
             valid = false; break;
           }
           if (count != 0) {
@@ -802,4 +823,29 @@ public sealed class HixThread {
   private readonly record struct VmCompletion(BytecodeFlow Kind = BytecodeFlow.Normal, IHixValue Value = null,
   int Target = -1, int Line = 0
 );
+}
+
+/// <summary>Host mixin arguments are converted only when their declared smart value is selected.</summary>
+internal sealed class LazyMixinParametersHixValue(IReadOnlyList<BytecodeField> fields) : IHixValue {
+  private readonly IHixValue[] values = new IHixValue[fields.Count];
+  public HixValueKind Kind => HixValueKind.Table;
+  private IHixValue Get(HixThread thread, int index) {
+    if (values[index] != null) return values[index];
+    var value = thread.Context.ResolveMixinParameter(thread, fields[index], index);
+    return values[index] = fields[index].Optional && value.Kind == HixValueKind.Null
+      ? value : thread.Coerce(value, fields[index].Pattern);
+  }
+  public IHixValue Select(HixThread context, HixString member) {
+    var name = member.Resolve(context.Strings);
+    var index = int.TryParse(name, NumberStyles.None, CultureInfo.InvariantCulture, out var position) ? position :
+      fields.ToList().FindIndex(field => field.Name == name);
+    return index >= 0 && index < fields.Count ? Get(context, index) : NullHixValue.Instance;
+  }
+  public bool IsTruthy(HixThread context) => fields.Count != 0;
+  public HixString Render(HixThread context) => Materialize(context).Render(context);
+  public void Fingerprint(HixFingerprintBuilder builder, HixThread context) => Materialize(context).Fingerprint(builder, context);
+  public object Unlink(HixThread context) => Materialize(context).Unlink(context);
+  public bool Equals(IHixValue other) => ReferenceEquals(this, other);
+  private HixTableValue Materialize(HixThread context) => new(fields.Select((field, index) =>
+    new KeyValuePair<HixString, IHixValue>(HixString.Dynamic(field.Name), Get(context, index))));
 }

@@ -107,6 +107,13 @@ public static class LanguageValidation {
     foreach (var group in declarations.OfType<TypeDeclarationIr>().GroupBy(type => type.Name, StringComparer.Ordinal))
       if (group.Count() > 1) Error(group.First(), "duplicate pattern '" + group.Key + "'");
     foreach (var type in declarations.OfType<TypeDeclarationIr>()) ValidatePattern(type.Pattern, type, new HashSet<string>());
+    foreach (var mixin in declarations.OfType<MixinDeclarationIr>()) {
+      var names = new HashSet<string>(StringComparer.Ordinal);
+      foreach (var parameter in mixin.Parameters) {
+        if (!names.Add(parameter.Name)) Error(mixin, "duplicate mixin parameter '" + parameter.Name + "'");
+        ValidatePattern(parameter.Pattern, mixin, new HashSet<string>());
+      }
+    }
     Scope(declarations, []);
 
     void ValidatePattern(HixPattern pattern, HixIrNode owner, ISet<string> path) {

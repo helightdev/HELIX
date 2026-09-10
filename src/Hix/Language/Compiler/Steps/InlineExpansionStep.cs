@@ -12,7 +12,7 @@ public sealed class InlineExpansionStep : HixLoweringStep {
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
     var rewriter = new InlineRewriter(functions);
     return new HixModuleIr(input.Prelude.Select(rewriter.Rewrite).ToArray(),
-      input.Late.Select(rewriter.Rewrite).ToArray(), input.Functions);
+      input.Late.Select(rewriter.Rewrite).ToArray(), input.Functions, input.Parameters);
   }
 
   private sealed class InlineRewriter(IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions)
@@ -21,7 +21,7 @@ public sealed class InlineExpansionStep : HixLoweringStep {
     private int sequence;
 
     protected override ExpressionIr RewriteCall(CallExpressionIr call) {
-      var arguments = call.Arguments.Select(Rewrite).ToArray();
+      var arguments = call.EffectiveArguments.Select(Rewrite).ToArray();
       var target = arguments.FirstOrDefault() as RootExpressionIr;
       var explicitInline = call.Name == "inline" && target is {IsSmart: false};
       var name = explicitInline ? target.Name : call.Name;

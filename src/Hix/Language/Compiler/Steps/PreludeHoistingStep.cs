@@ -16,10 +16,10 @@ public sealed class PreludeHoistingStep : HixLoweringStep {
     var late = input.Late.Select(expression => expression.IsStrict
       ? new HixIrRewriter().Rewrite(expression)
       : rewriter.RewriteLateExpression(expression)).ToArray();
-    if (generated.Count == 0) return new HixModuleIr(input.Prelude, late, input.Functions);
+    if (generated.Count == 0) return new HixModuleIr(input.Prelude, late, input.Functions, input.Parameters);
     var generatedBlock = new BlockStatementIr(generated);
     var generatedExpression = new ExpressionDeclarationIr(true, false, generatedBlock);
-    return new HixModuleIr(input.Prelude.Concat([generatedExpression]).ToArray(), late, input.Functions);
+    return new HixModuleIr(input.Prelude.Concat([generatedExpression]).ToArray(), late, input.Functions, input.Parameters);
   }
 
   private sealed class HoistingRewriter(ICollection<StatementIr> generated, ISet<string> names,
@@ -48,7 +48,7 @@ public sealed class PreludeHoistingStep : HixLoweringStep {
     };
 
     private CallExpressionIr RewriteEffectCall(CallExpressionIr call) => CopyLocation(call,
-      new CallExpressionIr(call.Name, call.Arguments.Select(RewriteLateValue).ToArray(), call.CoerceBoolean, call.Binding));
+      new CallExpressionIr(call.Name, call.EffectiveArguments.Select(RewriteLateValue).ToArray(), call.CoerceBoolean, call.Binding));
 
     private ExpressionIr RewriteLateValue(ExpressionIr expression) {
       if (expression is null) return null;
@@ -56,7 +56,7 @@ public sealed class PreludeHoistingStep : HixLoweringStep {
       return expression switch {
         MemberExpressionIr value => CopyLocation(value, new MemberExpressionIr(RewriteLateValue(value.Receiver), value.Member)),
         CallExpressionIr value => CopyLocation(value, new CallExpressionIr(value.Name,
-          value.Arguments.Select(RewriteLateValue).ToArray(), value.CoerceBoolean, value.Binding)),
+          value.EffectiveArguments.Select(RewriteLateValue).ToArray(), value.CoerceBoolean, value.Binding)),
         UnaryExpressionIr value => CopyLocation(value, new UnaryExpressionIr(value.Operation, RewriteLateValue(value.Value))),
         FallbackExpressionIr value => CopyLocation(value,
           new FallbackExpressionIr(RewriteLateValue(value.Value), RewriteLateValue(value.Fallback))),
@@ -96,18 +96,22 @@ public sealed class PreludeHoistingStep : HixLoweringStep {
         new MemberExpressionIr(new RootExpressionIr("local"), name));
     }
 
-    private bool DependsOnPrelude(HixIrNode node, ISet<string> active) {
+    private bool DependsOnPrelude(HixIrNode node, ISet<string> active, bool mixinParameters = true) {
       if (node is null) return false;
+      // Mixin parameters are supplied by the host context. Late generator passes run on an
+      // unlinked context, so a smart parameter access must be captured while that host is live.
+      // Function bodies also use parameter bindings, but those are ordinary call arguments.
+      if (mixinParameters && node is RootExpressionIr {Binding.Kind: HixReferenceKind.Parameter}) return true;
       if (node is RootExpressionIr {IsSmart: false} root && backend.Roots.TryGetValue(root.Name, out var definition) && definition.RequiresPrelude) return true;
       if (node is CallExpressionIr call) {
         if (backend.Functions.Resolve(call.Name, call.Arguments.Count).Any(definition => definition.RequiresPrelude)) return true;
         if (functions.TryGetValue(call.Name, out var candidates) && active.Add(call.Name)) {
           try {
-            if (candidates.Any(function => DependsOnPrelude(function.Body, active))) return true;
+            if (candidates.Any(function => DependsOnPrelude(function.Body, active, false))) return true;
           } finally { active.Remove(call.Name); }
         }
       }
-      return node.SemanticChildren.Any(child => DependsOnPrelude(child, active));
+      return node.SemanticChildren.Any(child => DependsOnPrelude(child, active, mixinParameters));
     }
   }
 }

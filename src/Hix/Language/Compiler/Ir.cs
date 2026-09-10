@@ -88,12 +88,13 @@ public sealed class CompilationUnitIr : HixIrNode {
 }
 
 public sealed class MixinDeclarationIr(string name, bool derivation, IReadOnlyList<HixIrNode> declarations,
-  IReadOnlyList<MetadataIr> metadata = null)
+  IReadOnlyList<MetadataIr> metadata = null, IReadOnlyList<SignatureField> parameters = null)
   : HixIrNode(children: (metadata ?? []).Cast<HixIrNode>().Concat(declarations).ToArray()) {
   public string Name { get; } = name;
   public bool IsDerivation { get; } = derivation;
   public IReadOnlyList<HixIrNode> Declarations { get; } = declarations;
   public IReadOnlyList<MetadataIr> Metadata { get; } = metadata ?? [];
+  public IReadOnlyList<SignatureField> Parameters { get; } = parameters ?? [];
 }
 
 public sealed class TypeDeclarationIr(string name, HixPattern pattern,
@@ -112,8 +113,9 @@ public sealed class ExpressionDeclarationIr(bool prelude, bool strict, BlockStat
 
 public sealed record SignatureField {
   public SignatureField(string name, HixPattern pattern, bool variadic = false,
-    IReadOnlyList<MetadataIr> metadata = null, bool optional = false) {
-    Name = name; Pattern = pattern ?? HixPattern.Any; Variadic = variadic; Metadata = metadata ?? []; Optional = optional;
+    IReadOnlyList<MetadataIr> metadata = null, bool optional = false, ExpressionIr defaultValue = null) {
+    Name = name; Pattern = pattern ?? HixPattern.Any; Variadic = variadic; Metadata = metadata ?? [];
+    DefaultValue = defaultValue; Optional = optional || defaultValue != null;
   }
   public SignatureField(string name, string kind, bool variadic,
     IReadOnlyList<MetadataIr> metadata = null) : this(name, HixPatterns.Named(kind), variadic, metadata) { }
@@ -122,6 +124,8 @@ public sealed record SignatureField {
   public string Kind => Pattern.Display;
   public bool Variadic { get; }
   public bool Optional { get; }
+  public ExpressionIr DefaultValue { get; }
+  public bool HasDefault => DefaultValue != null;
   public IReadOnlyList<MetadataIr> Metadata { get; }
   public HixPatternField AsPatternField() => new(Name, Pattern, Optional);
 }
@@ -239,12 +243,15 @@ public sealed class MemberExpressionIr(ExpressionIr receiver, string member) : E
 }
 
 public sealed class CallExpressionIr(string name, IReadOnlyList<ExpressionIr> arguments,
-  bool coerceBoolean = false, HixCallBinding binding = null
+  bool coerceBoolean = false, HixCallBinding binding = null, IReadOnlyList<string> argumentNames = null
 ) : ExpressionIr(arguments) {
   public string Name { get; } = name;
   public IReadOnlyList<ExpressionIr> Arguments { get; } = arguments;
   public bool CoerceBoolean { get; } = coerceBoolean;
   public HixCallBinding Binding { get; set; } = binding ?? HixCallBinding.Unbound;
+  public IReadOnlyList<string> ArgumentNames { get; } = argumentNames ?? Enumerable.Repeat<string>(null, arguments.Count).ToArray();
+  public IReadOnlyList<ExpressionIr> BoundArguments { get; set; }
+  public IReadOnlyList<ExpressionIr> EffectiveArguments => BoundArguments ?? Arguments;
 }
 
 public sealed class InlineExpressionIr(BlockStatementIr body, string resultLocal) : ExpressionIr([body]) {

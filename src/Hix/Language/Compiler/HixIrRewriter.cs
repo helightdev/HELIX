@@ -47,10 +47,11 @@ public class HixIrRewriter {
   }
 
   protected virtual ExpressionIr RewriteRoot(RootExpressionIr root) =>
-    new RootExpressionIr(root.Name, root.IsSmart);
+    new RootExpressionIr(root.Name, root.IsSmart) {Binding = root.Binding};
 
   protected virtual ExpressionIr RewriteCall(CallExpressionIr call) =>
-    new CallExpressionIr(call.Name, call.Arguments.Select(Rewrite).ToArray(), call.CoerceBoolean, call.Binding);
+    new CallExpressionIr(call.Name, call.Arguments.Select(Rewrite).ToArray(), call.CoerceBoolean, call.Binding,
+      call.ArgumentNames) {BoundArguments = call.BoundArguments?.Select(Rewrite).ToArray()};
 
   protected static T CopyLocation<T>(HixIrNode source, T target) where T : HixIrNode {
     target.SourceRange = source.SourceRange;

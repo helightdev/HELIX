@@ -15,7 +15,7 @@ public sealed class LambdaLiftingStep : HixLoweringStep {
     var prelude = input.Prelude.Select(rewriter.Rewrite).ToArray();
     var late = input.Late.Select(rewriter.Rewrite).ToArray();
     functions.AddRange(lifted);
-    return new HixModuleIr(prelude, late, functions);
+    return new HixModuleIr(prelude, late, functions, input.Parameters);
   }
 
   public static IReadOnlyList<FunctionDeclarationIr> RewriteFunctions(

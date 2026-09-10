@@ -23,7 +23,7 @@ metadata
 metadataValue: BEGIN_METADATA_VALUE value VALUE_END_INLINE;
 
 // Declarations
-mixinDeclaration: mixinModifier* KEYWORD_MIXIN mixinIdentifier mixinBody;
+mixinDeclaration: mixinModifier* KEYWORD_MIXIN mixinIdentifier patternParameterList? mixinBody;
 
 typeDeclaration: KEYWORD_TYPE IDENTIFIER ASSIGN patternExpression;
 
@@ -91,7 +91,7 @@ statement
 
 // Calls
 invocationStatement
-    : invocationIdentifier valueList tailValue?
+    : invocationIdentifier callValueList tailValue?
     | invocationIdentifier tailValue
     ;
 
@@ -130,7 +130,7 @@ localDeclarationStatement
 localAssignmentStatement: VALUE_SMART_ROOT variableIdentifier assignedValue;
 
 toplevelDerivationStatement
-    : TOPLEVEL_DERIVATION functionIdentifier valueList? transformationPart*
+    : TOPLEVEL_DERIVATION functionIdentifier callValueList? transformationPart*
     ;
 
 assignedValue
@@ -185,7 +185,7 @@ lambdaValue
 prefixOperators: NOT_VALUE;
 postfixOperators: VALUE_CHECK;
 
-valueStatement: functionIdentifier valueList;
+valueStatement: functionIdentifier callValueList;
 
 tailValue
     : NEWLINE? contentBlock
@@ -211,6 +211,17 @@ valueList
     | argumentValue+
     ;
 
+// Named arguments only exist at call sites. Keeping them out of `value` prevents
+// `name = value` from competing with table fields and assignments.
+callValueList
+    : BEGIN_PARAMETERS callArgument (VALUE_DELIMITER callArgument)* VALUE_DELIMITER? END_PARAMETERS
+    | BEGIN_PARAMETERS END_PARAMETERS
+    | EMPTY_PARAMETERS
+    | argumentValue+
+    ;
+
+callArgument: ROOT_IDENTIFIER VALUE_ASSIGN value | value;
+
 argumentValue: BEGIN_ARGUMENT argumentBody ARGUMENT_END;
 
 argumentBody: (ARGUMENT_TEXT | escaped | inlineValue)*;
@@ -229,7 +240,7 @@ derivationRoot
 elvisValue: VALUE_ELVIS value;
 
 transformationPart
-    : functionChainType functionIdentifier valueList?
+    : functionChainType functionIdentifier callValueList?
     | memberIdentifier
     | VALUE_WRAP
     ;

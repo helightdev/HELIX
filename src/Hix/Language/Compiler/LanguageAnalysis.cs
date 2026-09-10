@@ -44,7 +44,8 @@ public sealed class LanguageAnalysis {
         DeclarationDocumentation("pattern " + type.Name + " = " + type.Pattern.Display, type.Metadata), false));
     foreach (var mixin in Program.Declarations.OfType<MixinDeclarationIr>())
       facts.Add(new(IdentifierRange(mixin, mixin.Name), "mixin",
-        DeclarationDocumentation("mixin " + mixin.Name, mixin.Metadata), false));
+        DeclarationDocumentation("mixin " + mixin.Name + "(" + string.Join(", ", mixin.Parameters.Select(field =>
+          field.Pattern.Display + " " + field.Name + (field.HasDefault ? " = [...]" : ""))) + ")", mixin.Metadata), false));
     foreach (var function in functions.Values.SelectMany(group => group))
       facts.Add(new(IdentifierRange(function, function.Name), FunctionResult(function), FunctionDocumentation(function), false));
     foreach (var function in functions.Values.SelectMany(group => group)) {
@@ -52,8 +53,10 @@ public sealed class LanguageAnalysis {
       Analyze(function.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), parameters);
     }
     foreach (var expression in Program.Declarations.OfType<MixinDeclarationIr>()
-               .SelectMany(mixin => mixin.Declarations.OfType<ExpressionDeclarationIr>()))
-      Analyze(expression.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), []);
+               .SelectMany(mixin => mixin.Declarations.OfType<ExpressionDeclarationIr>()
+                 .Select(expression => (mixin, expression))))
+      Analyze(expression.expression.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal),
+        expression.mixin.Parameters);
     return facts;
 
     void Analyze(BlockStatementIr block, IDictionary<string, HixPattern> locals,

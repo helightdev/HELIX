@@ -122,6 +122,42 @@ public sealed class MixinGeneratorExpressionTests {
     Assert.DoesNotContain("local DebugValue = 1", generated);
   }
 
+  [Fact]
+  public void MixinParametersReadAttributeArgumentsLazilyAndCoerceThem() {
+    const string source = """
+                          using System;
+                          namespace HELIX {
+                            [AttributeUsage(AttributeTargets.Class)] public sealed class MixableAttribute : Attribute { }
+                          }
+                          public sealed class ParameterizedAttribute : Attribute {
+                            public ParameterizedAttribute(string message) { }
+                          }
+                          [HELIX.Mixable, Parameterized("hello from attribute")] public partial class Demo { }
+                          """;
+    var compilation = CSharpCompilation.Create(
+      "HixMixinParameterTest",
+      [CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest))],
+      PlatformReferences,
+      new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+    );
+    GeneratorDriver driver = MixinTestDriver.Create(compilation, additionalTexts: [
+      new TestAdditionalText("/project/Parameterized.HelixSourceGenerator.additionalfile", """
+        mixin ParameterizedAttribute(string message, number deliberatelyMissing) {
+          expression {
+            emit<Class> @> // {{$message}}
+          }
+        }
+        """)
+    ]);
+
+    driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out _, out var diagnostics);
+
+    Assert.Empty(diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error));
+    var generated = Assert.Single(Assert.Single(driver.GetRunResult().Results).GeneratedSources)
+      .SourceText.ToString();
+    Assert.Contains("// hello from attribute", generated);
+  }
+
   private static ImmutableArray<MetadataReference> PlatformReferences { get; } =
     ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))!
     .Split(Path.PathSeparator)

@@ -28,7 +28,8 @@ public static class PatternTypeAnalysis {
             ? ReturnPattern(function.Signatures[0]) : HixPattern.Any,
           nested, patterns, diagnostics, backend);
       foreach (var expression in mixin.Declarations.OfType<ExpressionDeclarationIr>())
-        AnalyzeBlock(expression.Body, LocalEnvironment(expression.Body), [], HixPattern.Any,
+        AnalyzeBlock(expression.Body, LocalEnvironment(expression.Body),
+          mixin.Parameters.Select(field => field.AsPatternField()).ToArray(), HixPattern.Any,
           nested, patterns, diagnostics, backend);
     }
   }
@@ -176,7 +177,7 @@ public static class PatternTypeAnalysis {
         }
         if (overloads.Any(function => function.Signatures.Count == 0)) return HixPattern.Any;
         var candidates = overloads.SelectMany(function => function.Signatures)
-          .Where(signature => Accepts(signature, supplied, patterns)).ToArray();
+          .Where(signature => Accepts(call, signature, supplied, patterns)).ToArray();
         if (candidates.Length == 0) {
           diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts (" +
             string.Join(", ", supplied.Select(value => value.Display)) + ")"));
@@ -207,16 +208,34 @@ public static class PatternTypeAnalysis {
     }
   }
 
-  private static bool Accepts(FunctionSignature signature, IReadOnlyList<HixPattern> supplied,
+  private static bool Accepts(CallExpressionIr call, FunctionSignature signature, IReadOnlyList<HixPattern> supplied,
     IReadOnlyDictionary<string, HixPattern> patterns) {
-    if (signature.Inputs == null && signature.InputPattern == null) return true;
+    if (signature.Inputs == null && signature.InputPattern == null)
+      return !call.ArgumentNames.Any(name => name != null);
     if (signature.Inputs == null)
-      return supplied.Count == 1 && HixPatternRelations.Relate(supplied[0], signature.InputPattern, patterns) != HixPatternRelation.Never;
-    var required = signature.Inputs.Count(value => !value.Optional && !value.Variadic);
-    if (supplied.Count < required || !signature.Inputs.Any(value => value.Variadic) && supplied.Count > signature.Inputs.Count) return false;
-    return supplied.Select((value, index) => HixPatternRelations.Relate(value,
-      signature.Inputs[Math.Min(index, signature.Inputs.Count - 1)].Pattern, patterns))
-      .All(value => value != HixPatternRelation.Never);
+      return !call.ArgumentNames.Any(name => name != null) && supplied.Count == 1 &&
+        HixPatternRelations.Relate(supplied[0], signature.InputPattern, patterns) != HixPatternRelation.Never;
+    var fields = signature.Inputs;
+    if (fields.Any(field => field.Variadic) || supplied.Count > fields.Count) return false;
+    var assigned = new bool[fields.Count];
+    var positional = 0;
+    var sawNamed = false;
+    for (var index = 0; index < supplied.Count; index++) {
+      var name = call.ArgumentNames[index];
+      int target;
+      if (name == null) {
+        if (sawNamed || positional >= fields.Count) return false;
+        target = positional++;
+      } else {
+        sawNamed = true;
+        target = fields.ToList().FindIndex(field => field.Name == name);
+        if (target < 0) return false;
+      }
+      if (assigned[target] || HixPatternRelations.Relate(supplied[index], fields[target].Pattern, patterns) ==
+          HixPatternRelation.Never) return false;
+      assigned[target] = true;
+    }
+    return fields.Select((field, index) => assigned[index] || field.Optional || field.HasDefault).All(value => value);
   }
 
   private static HixPattern Member(HixPattern receiver, string name, IReadOnlyDictionary<string, HixPattern> patterns) {

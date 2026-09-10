@@ -11,11 +11,13 @@ public sealed class PatternBindingStep : HixCompilerStep {
     var globals = compilation.Catalog;
     var functions = input.Functions.Concat(globals.Functions).GroupBy(function => function.Name, StringComparer.Ordinal)
       .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
-    new Binder(functions, globals.Patterns, globals.Backend).Visit(input);
+    new Binder(functions, globals.Patterns, globals.Backend, compilation.Diagnostics,
+      input.Parameters ?? []).Visit(input);
   }
 
   private sealed class Binder(IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions,
-    IReadOnlyDictionary<string, HixPattern> patterns, HixBackend backend) : HixIrVisitor {
+    IReadOnlyDictionary<string, HixPattern> patterns, HixBackend backend,
+    ICollection<HixParseDiagnostic> diagnostics, IReadOnlyList<SignatureField> inputParameters) : HixIrVisitor {
     private Dictionary<string, HixPattern> locals = new(StringComparer.Ordinal);
     private IReadOnlyList<SignatureField> parameters = [];
     private Dictionary<(StorageSpace, string), HixVariableSymbol> symbols = new();
@@ -37,7 +39,7 @@ public sealed class PatternBindingStep : HixCompilerStep {
     }
 
     protected override void VisitExpressionDeclaration(ExpressionDeclarationIr expression) =>
-      InScope([], expression.Body);
+      InScope(inputParameters, expression.Body);
 
     protected override void VisitFunction(FunctionDeclarationIr function) =>
       InScope(function.Signatures.Count == 1 ? function.Signatures[0].Inputs ?? [] : [], function.Body);
@@ -71,6 +73,9 @@ public sealed class PatternBindingStep : HixCompilerStep {
         root.Binding = new(HixReferenceKind.Local, local.Name, local);
       else if (int.TryParse(root.Name, out var index) && index >= 0)
         root.Binding = new(HixReferenceKind.Parameter, root.Name, ParameterIndex: index);
+      else if (parameters.Select((field, position) => (field, position))
+                 .FirstOrDefault(item => item.field.Name == root.Name) is {field: not null} parameter)
+        root.Binding = new(HixReferenceKind.Parameter, root.Name, ParameterIndex: parameter.position);
       else root.Binding = new(HixReferenceKind.Invalid, root.Name);
     }
 
@@ -139,17 +144,28 @@ public sealed class PatternBindingStep : HixCompilerStep {
       if (functions.TryGetValue(call.Name, out var declarations)) {
         var hasDynamicFallback = declarations.Any(function => function.Signatures.Count == 0);
         var candidates = declarations.SelectMany(function => function.Signatures.Select(signature => (function, signature)))
-          .Where(candidate => AcceptsCount(candidate.signature, arguments.Count))
-          .Select(candidate => (candidate.function, candidate.signature,
-            relations: Relations(argumentPatterns, candidate.signature).ToArray()))
+          .Select(candidate => TryArrange(call, candidate.signature, out var arranged)
+            ? (candidate.function, candidate.signature, arranged, relations:
+              Relations(arranged.Select(InferBound).ToArray(), candidate.signature).ToArray())
+            : (candidate.function, candidate.signature, arranged: (ExpressionIr[])null,
+              relations: Array.Empty<HixPatternRelation>()))
+          .Where(candidate => candidate.arranged != null)
           .Where(candidate => candidate.relations.All(relation => relation != HixPatternRelation.Never)).ToArray();
         if (candidates.Length != 0) {
           var score = candidates.Max(candidate => candidate.relations.Count(value => value == HixPatternRelation.Always));
           var best = candidates.Where(candidate => candidate.relations.Count(value => value == HixPatternRelation.Always) == score).ToArray();
-          if (best.Length == 1 && (!hasDynamicFallback || best[0].relations.All(value => value == HixPatternRelation.Always)))
+          if (best.Length == 1 && (!hasDynamicFallback || best[0].relations.All(value => value == HixPatternRelation.Always))) {
             selected = HixCallBinding.Language(best[0].signature.Constant(call.Name), best[0].function);
-        }
+            call.BoundArguments = best[0].arranged;
+          }
+        } else if (call.ArgumentNames.Any(name => name != null))
+          diagnostics.Add(new(call.Line, "no overload of '" + call.Name + "' accepts the supplied named arguments"));
       } else {
+        if (call.ArgumentNames.Any(name => name != null)) {
+          diagnostics.Add(new(call.Line, "named arguments require a statically declared language function"));
+          call.Binding = selected;
+          return;
+        }
         var candidates = backend.Functions.Resolve(call.Name, arguments.Count)
           .SelectMany(definition => definition.Signatures
             .Where(signature => signature.MatchesArgumentCount(arguments.Count))
@@ -165,6 +181,45 @@ public sealed class PatternBindingStep : HixCompilerStep {
       call.Binding = selected;
     }
 
+    private HixPattern InferBound(ExpressionIr expression) {
+      if (expression.InferredPattern == null) Visit(expression);
+      return expression.InferredPattern ?? HixPattern.Any;
+    }
+
+    private bool TryArrange(CallExpressionIr call, FunctionSignature signature, out ExpressionIr[] arranged) {
+      arranged = null;
+      if (signature.Inputs == null) return !call.ArgumentNames.Any(name => name != null) &&
+        (signature.InputPattern == null || call.Arguments.Count == 1) && (arranged = call.Arguments.ToArray()) != null;
+      var fields = signature.Inputs;
+      if (fields.Any(field => field.Variadic) || call.Arguments.Count > fields.Count) return false;
+      var values = new ExpressionIr[fields.Count];
+      var positional = 0;
+      var sawNamed = false;
+      for (var index = 0; index < call.Arguments.Count; index++) {
+        var name = call.ArgumentNames[index];
+        int target;
+        if (name == null) {
+          if (sawNamed || positional >= fields.Count) return false;
+          target = positional++;
+        } else {
+          sawNamed = true;
+          target = fields.ToList().FindIndex(field => field.Name == name);
+          if (target < 0) return false;
+        }
+        if (values[target] != null) return false;
+        values[target] = call.Arguments[index];
+      }
+      for (var index = 0; index < fields.Count; index++) {
+        if (values[index] != null) continue;
+        if (fields[index].DefaultValue != null)
+          values[index] = new HixIrRewriter().Rewrite(fields[index].DefaultValue);
+        else if (fields[index].Optional) values[index] = new NullExpressionIr();
+        else return false;
+      }
+      arranged = values;
+      return true;
+    }
+
     private IEnumerable<HixPatternRelation> Relations(IReadOnlyList<HixPattern> supplied, FunctionSignature signature) {
       if (signature.Inputs == null) {
         if (signature.InputPattern == null) yield break;
@@ -174,7 +229,9 @@ public sealed class PatternBindingStep : HixCompilerStep {
       }
       for (var index = 0; index < supplied.Count; index++) {
         var field = signature.Inputs[Math.Min(index, signature.Inputs.Count - 1)];
-        yield return HixPatternRelations.Relate(supplied[index], field.Pattern, patterns);
+        yield return field.Optional && supplied[index] is KindHixPattern {ValueKind: HixValueKind.Null}
+          ? HixPatternRelation.Always
+          : HixPatternRelations.Relate(supplied[index], field.Pattern, patterns);
       }
     }
 

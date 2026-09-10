@@ -68,7 +68,7 @@ internal static class MixinLibraryApi {
         try {
           var syntax = HixCompiler.PrepareIr(annotation.Declaration, prepared);
           var image = new HixBytecodeCompiler(prepared.StringPool).Compile(
-            syntax.Prelude.Concat(syntax.Late).ToArray(), syntax.Functions, prepared);
+            syntax.Prelude.Concat(syntax.Late).ToArray(), syntax.Functions, prepared, annotation.Declaration.Parameters);
           annotations.Add(annotation.Name, new CompiledHixAnnotation(annotation,
             new CompiledHixProgram(image.ForPass(true), image.ForPass(false), CollectTargets(syntax.Late))));
         } catch (ArgumentException exception) {

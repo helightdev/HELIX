@@ -6,7 +6,7 @@ namespace Hix.Compiler.Steps;
 
 public sealed class SignatureParameterBindingStep : HixLoweringStep {
   public override HixModuleIr Lower(HixModuleIr input, HixCompilerCatalog globals) =>
-    new(input.Prelude, input.Late, input.Functions.Select(Rewrite).ToArray());
+    new(input.Prelude, input.Late, input.Functions.Select(Rewrite).ToArray(), input.Parameters);
 
   public static FunctionDeclarationIr Rewrite(FunctionDeclarationIr function) {
     var positions = new Dictionary<string, int>(StringComparer.Ordinal);

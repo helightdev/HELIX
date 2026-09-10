@@ -173,7 +173,8 @@ public readonly record struct HixInstruction(HixOpcode Opcode, int A = 0, int B 
   }
 }
 
-public sealed record BytecodeField(string Name, HixPattern Pattern, bool Variadic, bool Optional = false) {
+public sealed record BytecodeField(string Name, HixPattern Pattern, bool Variadic, bool Optional = false,
+  IHixValue DefaultValue = null) {
   public string Kind => Pattern.Display;
   public HixPatternField AsPatternField() => new(Name, Pattern, Optional);
 }
@@ -209,13 +210,14 @@ public sealed class HixProgramImage {
   public IReadOnlyList<BytecodeDerivation> Derivations { get; }
   public LanguageFunctionScope Scope { get; }
   public IReadOnlyDictionary<string, HixPattern> Patterns { get; }
+  public IReadOnlyList<BytecodeField> Parameters { get; }
   public HixBackend Backend { get; }
 
   public HixProgramImage(
     byte[] code, Dictionary<int, int> sourceLines, IHixValue[] constants, HixStringPool strings,
     IReadOnlyList<BytecodeExpression> expressions, IReadOnlyList<BytecodeDerivation> derivations,
     LanguageFunctionScope scope, IReadOnlyDictionary<string, HixPattern> patterns,
-    HixBackend backend
+    HixBackend backend, IReadOnlyList<BytecodeField> parameters = null
   ) {
     Bytecode = Array.AsReadOnly((byte[])code.Clone());
     SourceLines = new ReadOnlyDictionary<int, int>(new Dictionary<int, int>(sourceLines));
@@ -225,6 +227,7 @@ public sealed class HixProgramImage {
     Derivations = derivations;
     Scope = scope;
     Patterns = patterns;
+    Parameters = parameters ?? [];
     Backend = backend;
     scope.Attach(this);
     foreach (var derivation in derivations) derivation.Scope.Attach(this);
@@ -239,6 +242,7 @@ public sealed class HixProgramImage {
     Derivations = image.Derivations;
     Scope = image.Scope;
     Patterns = image.Patterns;
+    Parameters = image.Parameters;
     Backend = image.Backend;
   }
 
@@ -284,6 +288,7 @@ public sealed class HixProgramImage {
       builder.Append(pattern.Key);
       builder.Append(pattern.Value.Display);
     }
+    AppendFieldsIdentity(builder, Parameters);
     return builder.Hash.ToString("X16", CultureInfo.InvariantCulture) + ":" +
       builder.Length.ToString(CultureInfo.InvariantCulture);
   }
@@ -312,6 +317,7 @@ public sealed class HixProgramImage {
       builder.Append(field.Kind);
       builder.Append(field.Variadic);
       builder.Append(field.Optional);
+      builder.Append(field.DefaultValue?.ToString());
     }
   }
 

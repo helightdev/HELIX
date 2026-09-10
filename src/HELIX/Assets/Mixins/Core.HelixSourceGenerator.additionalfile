@@ -3,7 +3,7 @@
 
 type DerivedProperty = @{
   string name,
-  any type,
+  symbol type,
   string modifier,
   string parameter,
   string argument,
@@ -18,7 +18,7 @@ type DerivedProperty = @{
   string equality,
   string hash
 }
-type DerivedPropertyEntry = @{any symbol, DerivedProperty value}
+type DerivedPropertyEntry = @{symbol symbol, DerivedProperty value}
 type DerivedProperties = %many<DerivedPropertyEntry>
 
 func KeepInstanceField -> bool {
@@ -251,7 +251,7 @@ derivation mixin HELIX.PropAttribute {
   }
 }
 
-mixin HELIX.StructureAttribute {
+mixin HELIX.StructureAttribute(bool datatype = [false]) {
   prelude expression {
     local PropsModel @= this:DeriveFields;
     local Parameters @= $PropsModel:map(func => $0#value#parameter):join<, >;
@@ -291,33 +291,33 @@ mixin HELIX.StructureAttribute {
         @>   return hashCode.ToHashCode();
         @> }
     }
-    when(attr#datatype:unwrap:eq(true)) {
+    when($datatype:eq(true)) {
       local DatatypeCode @= BuildDatatype(this:type, this:name, $PropsModel);
       emit(<Class>, $DatatypeCode)
     }
   }
 }
 
-mixin HELIX.HookAttribute {
+mixin HELIX.HookAttribute(string target = [null], number order = [0]) {
   prelude expression {
-    local Name @= attr#target:unwrap;
+    local Name @= $target;
     when($Name:eq(null)) {
       assert(target:name:matches<^On.*>)
       local IsImplicit @= true;
       $Name @> ${{target:name:regexReplaceFirst<^On><>}}
     }
     when(![target#0:exists]) {
-      inject($Name, attr#order:number) @> {{target:name}}();
+      inject($Name, $order) @> {{target:name}}();
       return<>
     }
     local Delegate @= resolveMixin(<Delegate>, $Name);
     assert(![$Delegate:eq(null)])
-    inject($Name, attr#order:number) @> {{target:name}}({{$Delegate:wire(target)}});
+    inject($Name, $order) @> {{target:name}}({{$Delegate:wire(target)}});
   }
 }
 
-mixin HELIX.MixinUsingAttribute {
+mixin HELIX.MixinUsingAttribute(string statement) {
   prelude expression {
-    using @> {{attr#statement:unwrap}};
+    using @> {{$statement}};
   }
 }

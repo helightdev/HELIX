@@ -41,7 +41,8 @@ public sealed class HixBytecodeCompiler {
     return index;
   }
   public HixProgramImage Compile(IReadOnlyList<ExpressionDeclarationIr> expressions,
-    IReadOnlyList<FunctionDeclarationIr> functions, HixCompilerCatalog globals) {
+    IReadOnlyList<FunctionDeclarationIr> functions, HixCompilerCatalog globals,
+    IReadOnlyList<SignatureField> parameters = null) {
     var globalFunctions = globals.Functions.Select(Function).ToArray();
     var localFunctions = functions.Select(Function).ToArray();
     var derivationBodies = globals.Derivations.Select(declaration => (
@@ -74,7 +75,7 @@ public sealed class HixBytecodeCompiler {
     var derivations = derivationBodies.Select(item => new BytecodeDerivation(item.Name, item.Line,
       item.Expressions.Select(MapExpression).ToArray(), new LanguageFunctionScope(item.Functions.Select(MapFunction).ToArray(), global))).ToArray();
     return new(bytes, lines, constants.ToArray(), pool, entries.Select(MapExpression).ToArray(), derivations, scope,
-      globals.Patterns, globals.Backend);
+      globals.Patterns, globals.Backend, Fields(parameters));
   }
   private BytecodeExpression Expression(ExpressionDeclarationIr expression) =>
     new(EntryBlock(expression.Body), expression.IsPrelude, expression.Line);
@@ -83,8 +84,19 @@ public sealed class HixBytecodeCompiler {
     return new(function.Name, function.IsPure, function.Signatures.Select(signature => new BytecodeSignature(
       signature.InputPattern, Fields(signature.Inputs), signature.OutputPattern, Fields(signature.Outputs))).ToArray(), start);
   }
-  private static IReadOnlyList<BytecodeField> Fields(IReadOnlyList<SignatureField> fields) =>
-    fields?.Select(field => new BytecodeField(field.Name, field.Pattern, field.Variadic, field.Optional)).ToArray();
+  private IReadOnlyList<BytecodeField> Fields(IReadOnlyList<SignatureField> fields) =>
+    fields?.Select(field => new BytecodeField(field.Name, field.Pattern, field.Variadic, field.Optional,
+      field.DefaultValue == null ? null : DefaultValue(field.DefaultValue))).ToArray();
+  private static IHixValue DefaultValue(ExpressionIr value) => value switch {
+    StringExpressionIr text => new LiteralHixValue(HixString.Dynamic(text.Value)),
+    NumberExpressionIr number => new NumberHixValue(number.Value),
+    BooleanExpressionIr boolean => BooleanHixValue.From(boolean.Value),
+    NullExpressionIr => NullHixValue.Instance,
+    TupleExpressionIr tuple => new TupleHixValue(tuple.Values.Select(DefaultValue).ToArray()),
+    TableExpressionIr table => new HixTableValue(table.Entries.Select(entry =>
+      new KeyValuePair<HixString, IHixValue>(HixString.Dynamic(entry.Key), DefaultValue(entry.Value)))),
+    _ => throw new ArgumentException("parameter defaults must be constant values")
+  };
   private int EntryBlock(BlockStatementIr block) {
     var previous = localNames;
     localNames = new HashSet<string>(StringComparer.Ordinal);
@@ -210,12 +222,13 @@ public sealed class HixBytecodeCompiler {
         var other = Emit(HixOpcode.JumpNotNull);
         Emit(HixOpcode.Pop); Value(fallback.Fallback); Patch(other, code.Count); break;
       case CallExpressionIr call:
-        foreach (var argument in call.Arguments) Value(argument);
+        var arguments = call.EffectiveArguments;
+        foreach (var argument in arguments) Value(argument);
         if (call.Binding.Kind == HixCallKind.Unbound)
           throw new InvalidOperationException("Call '" + call.Name + "' must be bound before bytecode generation");
         if (call.Binding.Kind == HixCallKind.Static)
-          Emit(HixOpcode.Call, FunctionReference(call.Binding.Signature), call.Arguments.Count, line: line);
-        else Emit(HixOpcode.CallDynamic, S(call.Name), call.Arguments.Count, line: line);
+          Emit(HixOpcode.Call, FunctionReference(call.Binding.Signature), arguments.Count, line: line);
+        else Emit(HixOpcode.CallDynamic, S(call.Name), arguments.Count, line: line);
         if (call.CoerceBoolean) Emit(HixOpcode.CastBoolean);
         break;
       case InlineExpressionIr inline: NestedBlock(inline.Body); LoadMember("local", inline.ResultLocal); break;

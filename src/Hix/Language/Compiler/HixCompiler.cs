@@ -45,7 +45,7 @@ public static class HixCompiler {
     var compiledDerivations = derivations.Select(derivation => {
       var body = PrepareIr(derivation, prepared);
       var declarations = body.Prelude.Cast<HixIrNode>().Concat(body.Late).Concat(body.Functions).ToArray();
-      return new MixinDeclarationIr(derivation.Name, true, declarations, derivation.Metadata) {
+      return new MixinDeclarationIr(derivation.Name, true, declarations, derivation.Metadata, derivation.Parameters) {
         SourceRange = derivation.SourceRange,
         Tokens = derivation.Tokens
       };
@@ -71,7 +71,7 @@ public static class HixCompiler {
     var compiled = PrepareIr(declaration, globals);
     var expressions = prelude == true ? compiled.Prelude : prelude == false ? compiled.Late
       : compiled.Prelude.Concat(compiled.Late).ToArray();
-    return CreateProgram(expressions, compiled.Functions, globals);
+    return CreateProgram(expressions, compiled.Functions, globals, compiled.Parameters);
   }
 
   public static HixProgramImage Compile(string source, string mixinName, HixBackend backend = null) =>
@@ -89,21 +89,22 @@ public static class HixCompiler {
     MixinDeclarationIr declaration, HixCompilerCatalog globals) {
     using var profile = HixCompilerProfiler.Measure("compiler.prepare_programs");
     var compiled = PrepareIr(declaration, globals);
-    var program = CreateProgram(compiled.Prelude.Concat(compiled.Late).ToArray(), compiled.Functions, globals);
+    var program = CreateProgram(compiled.Prelude.Concat(compiled.Late).ToArray(), compiled.Functions, globals, compiled.Parameters);
     return (program.ForPass(true), program.ForPass(false));
   }
 
   private static HixProgramImage CreateProgram(IReadOnlyList<ExpressionDeclarationIr> expressions,
-    IReadOnlyList<FunctionDeclarationIr> functions, HixCompilerCatalog globals) {
+    IReadOnlyList<FunctionDeclarationIr> functions, HixCompilerCatalog globals,
+    IReadOnlyList<SignatureField> parameters = null) {
     using var profile = HixCompilerProfiler.Measure("compiler.bytecode");
-    return new HixBytecodeCompiler(globals.StringPool).Compile(expressions, functions, globals);
+    return new HixBytecodeCompiler(globals.StringPool).Compile(expressions, functions, globals, parameters);
   }
 
   public static HixModuleIr PrepareIr(MixinDeclarationIr declaration, HixCompilerCatalog globals) {
     var expressions = declaration.Declarations.OfType<ExpressionDeclarationIr>().ToArray();
     var syntax = new HixModuleIr(expressions.Where(expression => expression.IsPrelude).ToArray(),
       expressions.Where(expression => !expression.IsPrelude).ToArray(),
-      declaration.Declarations.OfType<FunctionDeclarationIr>().ToArray());
+      declaration.Declarations.OfType<FunctionDeclarationIr>().ToArray(), declaration.Parameters);
     return RunSteps(syntax, globals);
   }
 

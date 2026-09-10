@@ -48,6 +48,15 @@ public partial class HixRoslynContext : HixContext {
 
   public void CommitTargetVariables() => _committedTargetVariables.ReplaceWith(TargetVariables);
 
+  public override IHixValue ResolveMixinParameter(HixThread thread, BytecodeField parameter, int index) {
+    if (_attribute == null) return base.ResolveMixinParameter(thread, parameter, index);
+    object value = SelectMember(_attribute, parameter.Name);
+    if (value == null) return base.ResolveMixinParameter(thread, parameter, index);
+    var hosted = new RoslynHixValue(value, HixExpressionRoot.Attribute);
+    return parameter.Pattern is KindHixPattern {ValueKind: HixValueKind.Symbol}
+      ? hosted : thread.Unwrap(hosted);
+  }
+
 
   public bool TryGetDerived(RoslynHixValue source, string key, out IHixValue value) {
     if (!_valueOwners.TryGetValue(source.Value, out var cache)) cache = _targetValues;

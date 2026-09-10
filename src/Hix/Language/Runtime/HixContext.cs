@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using Hix.Compiler;
 
 namespace Hix.Runtime;
 
@@ -32,4 +33,7 @@ public class HixContext {
 
   public virtual IHixValue ResolveHost(HixThread thread, HixExpressionRoot root, HixString member) =>
     Backend.ResolveRoot(thread, root.ToString().ToLowerInvariant()).Select(thread, member);
+  public virtual IHixValue ResolveMixinParameter(HixThread thread, BytecodeField parameter, int index) =>
+    parameter.DefaultValue ?? (parameter.Optional ? NullHixValue.Instance :
+      thread.Error("mixin parameter '" + parameter.Name + "' is required"));
 }

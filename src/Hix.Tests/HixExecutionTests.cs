@@ -556,6 +556,46 @@ public sealed class HixExecutionTests {
   }
 
   [Fact]
+  public void NamedCallsLowerToPositionalSlotsAndApplyFunctionDefaults() {
+    var unit = AntlrSyntax.Parse("""
+      pure func choose(string first, string second = [<default>]) -> string { return($second) }
+      mixin Example { expression {
+        emit(choose(first = <one>))
+        emit(choose(second = <named>, first = <one>))
+      } }
+      """);
+    Assert.Empty(unit.Diagnostics);
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal(new[] {"default", "named"}, result.Outputs.Select(output => output.ReadText()));
+  }
+
+  [Fact]
+  public void OptionalTypedFunctionParametersPreserveExplicitNull() {
+    var unit = AntlrSyntax.Parse("""
+      pure func missing(%optional string value) -> bool { return($value:eq(null)) }
+      mixin Example { expression { emit(missing(null)) } }
+      """);
+    Assert.Empty(unit.Diagnostics);
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("true", Assert.Single(result.Outputs).ReadText());
+  }
+
+  [Fact]
+  public void MixinParametersResolveThroughSmartSlotsLazily() {
+    var unit = AntlrSyntax.Parse("""
+      mixin Example(string used = [<ready>], number unused) {
+        expression { emit($used) }
+      }
+      """);
+    Assert.Empty(unit.Diagnostics);
+    var result = HixVM.Execute(TestCompiler.Compile(unit, "Example", TestBackend.Instance), new HixThread(new Context()));
+    Assert.True(result.Success, result.Error.Resolve(result.Strings));
+    Assert.Equal("ready", Assert.Single(result.Outputs).ReadText());
+  }
+
+  [Fact]
   public void BackendCallsInsideGlobalFunctionsAndDerivationsArePreparedStatically() {
     var unit = AntlrSyntax.Parse("""
       func inspect(symbol value) -> string { return(param#value:name) }

@@ -25,7 +25,7 @@ func RequireInputState() -> null {
   }
 }
 
-func GenerateBoundaryElement() -> null {
+func GenerateBoundaryElement(%optional string name, bool extension) -> null {
   local ComposeCalls = <>
   local ComposeArgs = <>
   RequireCompositionTypeId()
@@ -77,10 +77,10 @@ func GenerateBoundaryElement() -> null {
     @>   ref Composition cx{{$ComposeArgs}}
     @> ) {{$Body}}
   local Name @= this:name;
-  when(![attr#name:unwrap:eq(null)]) {
-    $Name @= attr#name:unwrap;
+  when(![$name:eq(null)]) {
+    $Name @= $name;
   }
-  when(attr#extension:unwrap:eq(true)) {
+  when($extension:eq(true)) {
     DeclareCompanion
       @> public static ref ElementRef {{$Name}}(
       @>  ref this Composition cx{{$ComposeArgs}}
@@ -89,7 +89,8 @@ func GenerateBoundaryElement() -> null {
   inject(<$Recompose>, -24) @> cx.AUTHORING.SetId({{var#CompanionName}}.fullId);
 }
 
-mixin HELIX.Compose.ComposableMethodAttribute {
+mixin HELIX.Compose.ComposableMethodAttribute(bool requiresTracking = [false], bool scope = [false],
+  bool extension = [false], string name = [null], string scopeCallback = [<cell.TrimChildren\(\)>]) {
   prelude expression {
     using @> HELIX.Compose;
     local StructName @> {{target:name}}Props
@@ -100,15 +101,15 @@ mixin HELIX.Compose.ComposableMethodAttribute {
     local ReturnStatement @> return ref cx.AUTHORING.YieldElement(ref cx, instance);
     local ReturnType = <ref ElementRef>
     local Name @= this:name;
-    when(attr#requiresTracking:unwrap:eq(true)) {
+    when($requiresTracking:eq(true)) {
       $RequireMethod = <RequireTracked>
     }
-    when(![attr#name:unwrap:eq(null)]) {
-      $Name @= attr#name:unwrap;
+    when(![$name:eq(null)]) {
+      $Name @= $name;
     }
-    when(attr#scope:unwrap:eq(true)) {
+    when($scope:eq(true)) {
       $ReturnType = <ScopeHandle>
-      $ReturnStatement @> return cx.AUTHORING.YieldScope(ref cx, instance, static (BoundaryCell cell, in ScopeHandle handle) => {{attr#scopeCallback:unwrap}});
+      $ReturnStatement @> return cx.AUTHORING.YieldScope(ref cx, instance, static (BoundaryCell cell, in ScopeHandle handle) => {{$scopeCallback}});
     }
     RequireCompositionTypeId()
     local Body
@@ -121,7 +122,7 @@ mixin HELIX.Compose.ComposableMethodAttribute {
       ($StructParams) -> <, [$StructParams]>
       else -> <>
     }
-    when(attr#extension:unwrap:eq(true)) {
+    when($extension:eq(true)) {
       DeclareCompanion
         @>
         @>   public static {{$ReturnType}} {{$Name}}(
@@ -142,12 +143,12 @@ mixin HELIX.Compose.ComposableMethodAttribute {
   }
 }
 
-mixin HELIX.Compose.ComposableDelegateAttribute {
+mixin HELIX.Compose.ComposableDelegateAttribute(string name = [null]) {
   prelude expression {
     using @> HELIX.Compose;
     local Name @= target:name:regexReplaceFirst<^_><>;
-    when(![attr#name:unwrap:eq(null)]) {
-      $Name @= attr#name:unwrap;
+    when(![$name:eq(null)]) {
+      $Name @= $name;
     }
     local Args = <ref Composition cx>
     local CallArgs = <ref cx>
@@ -187,7 +188,8 @@ mixin HELIX.Compose.ComposableDelegateAttribute {
   }
 }
 
-mixin HELIX.Compose.CustomBoundaryElementAttribute {
+mixin HELIX.Compose.CustomBoundaryElementAttribute(bool constructor = [true], bool composable = [true],
+  bool extension = [false], bool cacheLookups = [false], bool trimChildren = [true], string name = [null]) {
   prelude expression {
     defineTarget<$Compose> @> PerformCompose:HELIX.Compose.Composable
     defineTarget<$Recompose> @> ^Recompose
@@ -195,8 +197,8 @@ mixin HELIX.Compose.CustomBoundaryElementAttribute {
     defineTarget<$Init> @> Init
     defineTarget<$Dispose> @> ^Dispose
     defineTarget<$PostConstruct> @> ^PostConstruct
-    when(attr#composable:unwrap:eq(true)) {
-      GenerateBoundaryElement()
+    when($composable:eq(true)) {
+      GenerateBoundaryElement($name, $extension)
     }
   }
   prelude expression {
@@ -238,7 +240,7 @@ mixin HELIX.Compose.CustomBoundaryElementAttribute {
     inject(<$Recompose>, -100) @> BoundaryHelper.ContextBefore(this);
     inject(<$Recompose>, -75) @> _lookupCache.Clear();
     inject(<$Recompose>, -60) @> if (!_initialized) Init();
-    when(attr#cacheLookups:unwrap) {
+    when($cacheLookups) {
       inject(<$Recompose>, -55) @> _lookupCache.Claim();
     }
     inject(<$Recompose>, -50) @> try {
@@ -246,7 +248,7 @@ mixin HELIX.Compose.CustomBoundaryElementAttribute {
     inject(<$Recompose>, 0) @> PerformCompose(ref cx)
     inject(<$Recompose>, 50) @> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
     inject(<$Recompose>, 100) @> BoundaryHelper.ContextAfter(this);
-    when(attr#trimChildren:unwrap) {
+    when($trimChildren) {
       inject(<$Recompose>, 200) @> Cell.TrimChildren();
     }
     inject(<$Recompose>, 1000) @> } catch (global::System.Exception e) { global::UnityEngine.Debug.LogException(e); }
@@ -277,7 +279,7 @@ mixin HELIX.Compose.CustomBoundaryElementAttribute {
       @>   _initialAttachment = false;
       @>   HXComposer.MarkDirty(this);
       @> }
-    when(attr#constructor:unwrap:eq(true)) {
+    when($constructor:eq(true)) {
       emit<Class>
         @> public {{this:name}}() {
         @>   RegisterCallback<global::UnityEngine.UIElements.AttachToPanelEvent>(_ => AttachBoundary());
@@ -288,7 +290,8 @@ mixin HELIX.Compose.CustomBoundaryElementAttribute {
   }
 }
 
-mixin HELIX.Compose.BoundaryElementMixinAttribute {
+mixin HELIX.Compose.BoundaryElementMixinAttribute(bool composable = [true], bool extension = [false],
+  bool cacheLookups = [false], bool trimChildren = [true], string name = [null]) {
   prelude expression {
     defineTarget<$Init> @> ^MixinInit
     defineTarget<$Compose> @> ^MixinCompose:HELIX.Compose.Composable
@@ -296,10 +299,10 @@ mixin HELIX.Compose.BoundaryElementMixinAttribute {
     defineTarget<$Reset> @> ^MixinReset
     defineTarget<$Dispose> @> ^MixinDispose
     defineTarget<$PostConstruct> @> ^MixinPostConstruct
-    emit<Class> @> public {{this:name}}() : base({{attr#cacheLookups}}, {{attr#trimChildren}}) {}
+    emit<Class> @> public {{this:name}}() : base({{$cacheLookups}}, {{$trimChildren}}) {}
     emit<Extends> @> HELIX.Compose.GeneratedBoundaryBase
-    when(attr#composable:unwrap:eq(true)) {
-      GenerateBoundaryElement()
+    when($composable:eq(true)) {
+      GenerateBoundaryElement($name, $extension)
     }
   }
   expression {
@@ -331,14 +334,14 @@ mixin HELIX.Compose.ClickHandlerAttribute {
   }
 }
 
-mixin HELIX.Compose.InputStateListenerAttribute {
+mixin HELIX.Compose.InputStateListenerAttribute(bool focus = [true], bool hover = [true], bool dirty = [true]) {
   prelude expression {
     RequireInputState()
     inject(<$PostConstruct>, 0)
       @> global::UnityEngine.UIElements.VisualElementExtensions.AddManipulator(this,
-      @>   new InputListenerManipulator(this, this, {{attr#focus}})
+      @>   new InputListenerManipulator(this, this, {{$focus}})
       @> );
-    when(attr#dirty:unwrap:eq(true)) {
+    when($dirty:eq(true)) {
       inject(<^OnStateChanged:HELIX.Compose.StateChangedHandler>, 0) @> this.MarkDirty();
     }
   }

@@ -347,6 +347,18 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitValueList(HixParser.ValueListContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#callValueList}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCallValueList(HixParser.CallValueListContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#callArgument}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitCallArgument(HixParser.CallArgumentContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#argumentValue}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
