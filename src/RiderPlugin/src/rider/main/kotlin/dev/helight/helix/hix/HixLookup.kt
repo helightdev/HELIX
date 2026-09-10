@@ -8,7 +8,7 @@ import org.antlr.v4.runtime.tree.TerminalNode
 
 /** Completion uses canonical token identities and compiler facts, without a second type resolver. */
 internal object HixLookup {
-    enum class SemanticRole { Pattern, PatternMetadata, TypeMetadata, FileMetadata, Metadata }
+    enum class SemanticRole { Pattern, PatternMetadata, TypeMetadata, DeclarationMetadata, FileMetadata, Metadata }
     data class MetadataArgument(val name: String, val index: Int)
     data class Site(val chained: Boolean, val member: Boolean, val receiverEnd: Int)
 
@@ -37,9 +37,10 @@ internal object HixLookup {
                         is HixParser.FileMetadataSectionContext -> SemanticRole.FileMetadata
                         is HixParser.PatternExpressionContext, is HixParser.PatternFieldContext -> SemanticRole.PatternMetadata
                         else -> {
-                            if (rule.parent?.parent is HixParser.TopLevelDeclarationContext &&
-                                (rule.parent?.parent as HixParser.TopLevelDeclarationContext).typeDeclaration() != null)
-                                SemanticRole.TypeMetadata
+                            val declaration = rule.parent?.parent as? HixParser.TopLevelDeclarationContext
+                            if (declaration?.typeDeclaration() != null) SemanticRole.TypeMetadata
+                            else if (declaration?.funcDeclaration() != null || declaration?.mixinDeclaration() != null)
+                                SemanticRole.DeclarationMetadata
                             else
                             if (delimiter >= 0 && offset < delimiter) SemanticRole.FileMetadata else SemanticRole.Metadata
                         }

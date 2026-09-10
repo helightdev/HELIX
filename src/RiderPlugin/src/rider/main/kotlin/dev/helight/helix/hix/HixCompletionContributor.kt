@@ -42,7 +42,9 @@ private data class HixCompletionContext(
 
     fun metadataDefinition(argument: HixLookup.MetadataArgument) =
         (definitions("FileMetadata", prefix = argument.name) +
-            definitions("PatternMetadata", prefix = argument.name)).firstOrNull { it.name == argument.name }
+            definitions("PatternMetadata", prefix = argument.name) +
+            definitions("TypeMetadata", prefix = argument.name) +
+            definitions("DeclarationMetadata", prefix = argument.name)).firstOrNull { it.name == argument.name }
 
     companion object {
         fun from(parameters: CompletionParameters): HixCompletionContext {
@@ -64,6 +66,16 @@ private object MetadataProvider : CompletionProvider<CompletionParameters>() {
         val argument = HixLookup.metadataArgumentAt(context.parsed, position)
         if (argument != null) {
             val definition = context.metadataDefinition(argument) ?: return
+            if (definition.name == "graph" && argument.index == 0) {
+                val prefix = context.token?.let {
+                    context.source.substring(it.start.coerceAtLeast(0), context.offset.coerceIn(it.start, it.end))
+                }.orEmpty()
+                val matched = result.withPrefixMatcher(prefix)
+                listOf("value", "flow").filter { it.startsWith(prefix, true) }.forEach {
+                    matched.addElement(LookupElementBuilder.create(it).withTypeText("graph"))
+                }
+                return
+            }
             val kind = definition.argumentTypes.getOrNull(argument.index)
                 ?: if (definition.variadic) definition.argumentTypes.lastOrNull() else null
             if (kind == "Backend") {
@@ -83,6 +95,7 @@ private object MetadataProvider : CompletionProvider<CompletionParameters>() {
             HixLookup.SemanticRole.PatternMetadata -> addMetadata(context, result, "PatternMetadata",
                 "pattern metadata", HixLookup.patternMetadataTargetAt(context.parsed, position).orEmpty())
             HixLookup.SemanticRole.TypeMetadata -> addMetadata(context, result, "TypeMetadata", "type metadata", "Type")
+            HixLookup.SemanticRole.DeclarationMetadata -> addMetadata(context, result, "DeclarationMetadata", "documentation")
             else -> Unit
         }
     }

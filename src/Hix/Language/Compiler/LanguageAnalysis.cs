@@ -40,7 +40,11 @@ public sealed class LanguageAnalysis {
       .GroupBy(function => function.Name, StringComparer.Ordinal).ToDictionary(group => group.Key,
         group => group.ToArray(), StringComparer.Ordinal);
     foreach (var type in Program.Declarations.OfType<TypeDeclarationIr>())
-      facts.Add(new(IdentifierRange(type, type.Name), type.Name, "pattern " + type.Name + " = " + type.Pattern.Display, false));
+      facts.Add(new(IdentifierRange(type, type.Name), type.Name,
+        DeclarationDocumentation("pattern " + type.Name + " = " + type.Pattern.Display, type.Metadata), false));
+    foreach (var mixin in Program.Declarations.OfType<MixinDeclarationIr>())
+      facts.Add(new(IdentifierRange(mixin, mixin.Name), "mixin",
+        DeclarationDocumentation("mixin " + mixin.Name, mixin.Metadata), false));
     foreach (var function in functions.Values.SelectMany(group => group))
       facts.Add(new(IdentifierRange(function, function.Name), FunctionResult(function), FunctionDocumentation(function), false));
     foreach (var function in functions.Values.SelectMany(group => group)) {
@@ -239,9 +243,15 @@ public sealed class LanguageAnalysis {
   private static string FunctionDocumentation(FunctionDeclarationIr function, IReadOnlyList<FunctionSignature> signatures) {
     var signature = signatures.Count == 0 ? "func " + function.Name + "(...) -> any"
       : string.Join("\n", signatures.Select(item => item.Constant(function.Name).Display));
-    var documentation = string.Join("\n", function.Metadata.Where(item => item.Name is "doc" or "description")
+    return DeclarationDocumentation(signature, function.Metadata);
+  }
+  private static string DeclarationDocumentation(string signature, IReadOnlyList<MetadataIr> metadata) {
+    var title = metadata.Where(item => item.Name == "title").SelectMany(item => item.Values)
+      .OfType<StringExpressionIr>().Select(value => value.Value).FirstOrDefault();
+    var documentation = string.Join("\n", metadata.Where(item => item.Name is "doc" or "description")
       .SelectMany(item => item.Values).OfType<StringExpressionIr>().Select(value => value.Value));
-    return string.IsNullOrEmpty(documentation) ? signature : signature + "\n" + documentation;
+    var heading = string.IsNullOrEmpty(title) ? signature : title + "\n" + signature;
+    return string.IsNullOrEmpty(documentation) ? heading : heading + "\n" + documentation;
   }
   private static string DefinitionDocumentation(FunctionDefinition definition, global::Hix.FunctionSignature signature) =>
     definition.Name + "(" + string.Join(", ", signature.ArgumentTypes.Select((type, index) =>

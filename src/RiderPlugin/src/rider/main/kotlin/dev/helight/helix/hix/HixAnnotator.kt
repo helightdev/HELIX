@@ -102,7 +102,8 @@ class HixAnnotator : Annotator {
                 val index = metadata.valueList()?.argumentValue()?.indexOf(argument) ?: -1
                 if (index < 0) return null
                 return definitions.asSequence().filter {
-                    it.name == metadata.IDENTIFIER()?.text && it.kind in setOf("FileMetadata", "PatternMetadata", "TypeMetadata")
+                    it.name == metadata.IDENTIFIER()?.text && it.kind in
+                        setOf("FileMetadata", "PatternMetadata", "TypeMetadata", "DeclarationMetadata")
                 }.mapNotNull { definition -> definition.argumentTypes.getOrNull(index)
                     ?: if (definition.variadic) definition.argumentTypes.lastOrNull() else null
                 }.firstOrNull { it.isTypeParameter() }

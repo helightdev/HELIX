@@ -131,6 +131,8 @@ internal static class JsonFunctions {
         foreach (var field in table.Fields.Where(field => field.HasDefault))
           ((JObject)schema["properties"])[field.Name]["default"] = field.DefaultValue == null
             ? JValue.CreateNull() : JToken.FromObject(field.DefaultValue);
+        foreach (var field in table.Fields.Where(field => field.Graph != null))
+          ((JObject)schema["properties"])[field.Name]["x-hix-graph"] = field.Graph.Value.ToString().ToLowerInvariant();
         var required = table.Fields.Where(field => !field.Optional).Select(field => field.Name).ToArray();
         if (required.Length != 0) schema["required"] = new JArray(required);
         return schema;
@@ -273,7 +275,9 @@ internal static class JsonFunctions {
       var required = new HashSet<string>((schema["required"] as JArray)?.Values<string>() ?? [], StringComparer.Ordinal);
       var fields = properties.Properties().Select(property =>
         new HixPatternField(property.Name, PatternFor((JObject)property.Value), !required.Contains(property.Name),
-          property.Value["default"] is { } value ? ConstantValue(value) : null, property.Value["default"] != null)).ToArray();
+          property.Value["default"] is { } value ? ConstantValue(value) : null, property.Value["default"] != null,
+          Enum.TryParse<HixGraphFieldKind>(property.Value.Value<string>("x-hix-graph"), true, out var graph)
+            ? graph : null)).ToArray();
       if (required.Contains(TaggedHixPattern.FieldName) && properties[TaggedHixPattern.FieldName]?["const"] is JValue tag &&
           tag.Type == JTokenType.String)
         return new TaggedHixPattern(new TableHixPattern(fields.Where(field =>

@@ -99,9 +99,12 @@ public sealed record DelegateHixPattern(IReadOnlyList<HixPatternField> Parameter
     ") -> " + Result.Display;
 }
 
+public enum HixGraphFieldKind { Value, Flow }
+
 public sealed record HixPatternField(string Name, HixPattern Pattern, bool Optional = false,
-  object DefaultValue = null, bool HasDefault = false) {
-  public string Display => (Optional ? "%optional " : "") + Pattern.Display +
+  object DefaultValue = null, bool HasDefault = false, HixGraphFieldKind? Graph = null) {
+  public string Display => (Optional ? "%optional " : "") +
+    (Graph == null ? "" : "%graph<" + Graph.Value.ToString().ToLowerInvariant() + "> ") + Pattern.Display +
     (string.IsNullOrEmpty(Name) ? "" : " " + Name) + (HasDefault ? " = [" + DisplayValue(DefaultValue) + "]" : "");
   private static string DisplayValue(object value) => value switch {
     null => "null", bool flag => flag ? "true" : "false", string text => "<" + text + ">",

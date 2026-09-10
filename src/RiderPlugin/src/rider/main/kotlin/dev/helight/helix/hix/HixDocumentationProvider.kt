@@ -56,6 +56,7 @@ class HixDocumentationProvider : DocumentationProvider {
             HixLookup.SemanticRole.Pattern -> "Kind"
             HixLookup.SemanticRole.PatternMetadata -> "PatternMetadata"
             HixLookup.SemanticRole.TypeMetadata -> "TypeMetadata"
+            HixLookup.SemanticRole.DeclarationMetadata -> "DeclarationMetadata"
             HixLookup.SemanticRole.FileMetadata -> "FileMetadata"
             HixLookup.SemanticRole.Metadata -> null
             null -> null

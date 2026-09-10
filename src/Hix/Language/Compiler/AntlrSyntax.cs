@@ -168,7 +168,7 @@ public static class AntlrSyntax {
       var pattern = context.patternPrimary() == null ? HixPattern.Any : Pattern(context.patternPrimary());
       if (context.metadataList() == null) return pattern;
       pattern = ApplyPatternMetadata(pattern, context.metadataList().metadata().Select(item => (MetadataIr)Visit(item)),
-        HixMetadataKind.Pattern, out _, out _, out var hasDefault);
+        HixMetadataKind.Pattern, out _, out _, out var hasDefault, out _);
       if (hasDefault) diagnostics.Add(new HixParseDiagnostic(context.Start.Line,
         "defaults are only allowed on table pattern fields"));
       return pattern;
@@ -191,19 +191,20 @@ public static class AntlrSyntax {
       var name = explicitName ?? context.patternPrimary().GetText();
       var metadata = context.metadataList()?.metadata().Select(item => (MetadataIr)Visit(item)) ?? [];
       pattern = ApplyPatternMetadata(pattern, metadata, HixMetadataKind.PatternField,
-        out var optional, out var metadataDefault, out var hasMetadataDefault);
+        out var optional, out var metadataDefault, out var hasMetadataDefault, out var graph);
       var hasAssignedDefault = context.value() != null;
       if ((hasAssignedDefault || hasMetadataDefault) && context.Parent is not Parser.TablePatternContext)
         diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "defaults are only allowed on table pattern fields"));
       if (hasAssignedDefault && hasMetadataDefault)
         diagnostics.Add(new HixParseDiagnostic(context.Start.Line, "a pattern field cannot have two defaults"));
       var defaultValue = hasAssignedDefault ? ConstantValue((ExpressionIr)Visit(context.value())) : metadataDefault;
-      return new HixPatternField(name, pattern, optional, defaultValue, hasAssignedDefault || hasMetadataDefault);
+      return new HixPatternField(name, pattern, optional, defaultValue, hasAssignedDefault || hasMetadataDefault, graph);
     }
 
     private HixPattern ApplyPatternMetadata(HixPattern pattern, IEnumerable<MetadataIr> values,
-      HixMetadataKind target, out bool optional, out object defaultValue, out bool hasDefault) {
-      optional = false; defaultValue = null; hasDefault = false;
+      HixMetadataKind target, out bool optional, out object defaultValue, out bool hasDefault,
+      out HixGraphFieldKind? graph) {
+      optional = false; defaultValue = null; hasDefault = false; graph = null;
       // Prefix metadata composes from the pattern outwards: `%min %many<string> values`
       // means a minimum constraint over the many-pattern, not a discarded constraint over `any`.
       foreach (var metadata in values.Reverse()) {
@@ -243,6 +244,11 @@ public static class AntlrSyntax {
           case "title": pattern = new DocumentedHixPattern(pattern, Convert.ToString(Argument(0))); break;
           case "description": pattern = new DocumentedHixPattern(pattern, Description: Convert.ToString(Argument(0))); break;
           case "default": defaultValue = Argument(0); hasDefault = true; break;
+          case "graph":
+            if (!Enum.TryParse<HixGraphFieldKind>(Convert.ToString(Argument(0)), true, out var graphKind))
+              diagnostics.Add(new HixParseDiagnostic(metadata.Line, "graph metadata expects 'value' or 'flow'"));
+            else graph = graphKind;
+            break;
         }
       }
       return pattern;
@@ -282,7 +288,10 @@ public static class AntlrSyntax {
           if (discriminator == null)
             diagnostics.Add(new HixParseDiagnostic(metadata.Line, "tagged discriminator must be a constant string"));
           else pattern = new TaggedHixPattern(pattern, discriminator);
-        }
+        } else if (metadata.Name == "title" && metadata.Values[0] is StringExpressionIr title)
+          pattern = new DocumentedHixPattern(pattern, Title: title.Value);
+        else if (metadata.Name == "description" && metadata.Values[0] is StringExpressionIr description)
+          pattern = new DocumentedHixPattern(pattern, Description: description.Value);
       }
       return At(new TypeDeclarationIr(name, pattern, declarationMetadata), context);
     }

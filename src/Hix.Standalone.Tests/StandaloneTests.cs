@@ -187,6 +187,50 @@ public class StandaloneTests {
     });
     Assert.False(unknown.Success);
   }
+  [Fact] public void GraphMetadataIsPreservedOnPatternFieldsAndSchemas() {
+    const string declaration = "type Node = @{%graph<value> string input, %graph<flow> %many<string> children}\n";
+    var unit = AntlrSyntax.Parse(declaration);
+    Assert.Empty(unit.Diagnostics);
+    var fields = Assert.IsType<TableHixPattern>(Assert.Single(unit.Declarations.OfType<TypeDeclarationIr>()).Pattern).Fields;
+    Assert.Equal(HixGraphFieldKind.Value, fields.Single(field => field.Name == "input").Graph);
+    Assert.Equal(HixGraphFieldKind.Flow, fields.Single(field => field.Name == "children").Graph);
+
+    var generated = Run(declaration + "func main { return(generateJsonSchema(Node)) }");
+    Assert.True(generated.Success, generated.Error.Resolve(generated.Strings));
+    var properties = JObject.Parse(ReadText(generated))["$defs"]?["Node"]?["properties"];
+    Assert.Equal("value", (string)properties?["input"]?["x-hix-graph"]);
+    Assert.Equal("flow", (string)properties?["children"]?["x-hix-graph"]);
+
+    var invalid = AntlrSyntax.Parse("type Node = @{%graph<sideways> string input}");
+    Assert.Contains(invalid.Diagnostics, diagnostic => diagnostic.Message.Contains("'value' or 'flow'"));
+  }
+  [Fact] public void TitleAndDescriptionDocumentTypesFunctionsAndMixins() {
+    const string source = """
+      %title<Person record>
+      %description<A documented person type.>
+      type Person = @{string name}
+      %title<Find person>
+      %description<Finds one person.>
+      func find(Person value) -> Person { return($value) }
+      %title<Person processing>
+      %description<Processes person records.>
+      mixin People { expression { emit(null) } }
+      """;
+    var analysis = new LanguageAnalysis(source, new HixStandaloneBackend());
+    Assert.Empty(analysis.Program.Diagnostics);
+    Assert.Contains(analysis.TypeFacts, fact => fact.Documentation.Contains("Person record") &&
+      fact.Documentation.Contains("A documented person type."));
+    Assert.Contains(analysis.TypeFacts, fact => fact.Documentation.Contains("Find person") &&
+      fact.Documentation.Contains("Finds one person."));
+    Assert.Contains(analysis.TypeFacts, fact => fact.Documentation.Contains("Person processing") &&
+      fact.Documentation.Contains("Processes person records."));
+
+    var generated = Run(source + "\nfunc schema { return(generateJsonSchema(Person)) }", entry: "schema");
+    Assert.True(generated.Success, generated.Error.Resolve(generated.Strings));
+    var person = JObject.Parse(ReadText(generated))["$defs"]?["Person"];
+    Assert.Equal("Person record", (string)person?["title"]);
+    Assert.Equal("A documented person type.", (string)person?["description"]);
+  }
   [Fact] public void JsonSchemasRoundTripPatternsIncludingNamedReferences() {
     var generated = Run("type Person = @{string name, %matches<^a+$> string code}\n" +
       "func main { return(generateJsonSchema(Person)) }");

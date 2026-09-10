@@ -14,6 +14,16 @@ class HixLookupTest {
             HixLookup.semanticRoleAt(HixAntlrSyntax.parse(source), source.indexOf("tagged")))
     }
     @Test
+    fun `function and mixin documentation metadata has a declaration role`() {
+        for (source in listOf(
+            "%description<Function docs>\nfunc example { return(null) }",
+            "%title<Example>\nmixin Example { expression { emit(null) } }")) {
+            val name = if (source.startsWith("%description")) "description" else "title"
+            assertEquals(HixLookup.SemanticRole.DeclarationMetadata,
+                HixLookup.semanticRoleAt(HixAntlrSyntax.parse(source), source.indexOf(name)))
+        }
+    }
+    @Test
     fun `semantic roles distinguish kinds and pattern metadata from functions`() {
         val source = "type Values = %many string"
         val parsed = HixAntlrSyntax.parse(source)
