@@ -20,7 +20,8 @@ public sealed class NameValidationStep : HixCompilerStep {
         compilation.Diagnostics.Add(new(root.Line, "unknown root '" + root.Name + "'"));
     }
     protected override void VisitCall(CallExpressionIr call) {
-      if (!compilation.Catalog.Patterns.ContainsKey(call.Name) && !functions.Contains(call.Name) &&
+      if (call.Name is not ("var" or "tar" or "local") &&
+          !compilation.Catalog.Patterns.ContainsKey(call.Name) && !functions.Contains(call.Name) &&
           compilation.Backend.Functions.Resolve(call.Name, call.Arguments.Count).Count == 0)
         compilation.Diagnostics.Add(new(call.Line, "unknown function '" + call.Name + "'"));
       base.VisitCall(call);

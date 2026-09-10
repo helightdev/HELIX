@@ -37,13 +37,14 @@ class HixDocumentationProvider : DocumentationProvider {
         val context = originalElement ?: element
         val file = context.containingFile ?: return null
         val service = HixSnapshotService.getInstance(file.project)
-        service.ensureLanguageCatalog()
+        val definitions = service.definitionsFor(file.text)
+        file.virtualFile?.let { service.observe(it, file.text) }
         val snapshot = service.snapshotForText(file.text, file.virtualFile?.path)
         val offset = context.textRange.startOffset
         val parsed = HixAntlrSyntax.parse(file.text)
         val metadataArgument = HixLookup.metadataArgumentAt(parsed, offset)
         val metadataDefinition = metadataArgument?.let { argument ->
-            service.definitions.firstOrNull { it.kind == "PatternMetadata" && it.name == argument.name }
+            definitions.firstOrNull { it.kind == "PatternMetadata" && it.name == argument.name }
         }
         val metadataArgumentKind = metadataArgument?.let { argument ->
             metadataDefinition?.argumentTypes?.getOrNull(argument.index)
@@ -59,8 +60,7 @@ class HixDocumentationProvider : DocumentationProvider {
             null -> null
         }
         if (catalogKind != null) {
-            service.ensureLanguageCatalog()
-            service.definitions.firstOrNull { it.name == context.text && it.kind == catalogKind }?.let {
+            definitions.firstOrNull { it.name == context.text && it.kind == catalogKind }?.let {
                 return render(it.name, it.documentation)
             }
             if (role == HixLookup.SemanticRole.PatternMetadata) return null
@@ -82,9 +82,9 @@ class HixDocumentationProvider : DocumentationProvider {
         if (fact != null && fact.documentation.isNotBlank()) return render(fact)
         val site = HixLookup.site(parsed, context.textRange.endOffset)
         val receiver = HixLookup.receiverType(parsed, site.receiverEnd, snapshot)
-        val definitions = service.definitions.filter { role == null && it.name == context.text &&
+        val matchingDefinitions = definitions.filter { role == null && it.name == context.text &&
             (!site.chained || HixLookup.acceptsReceiver(it, receiver)) && !site.member }
-        if (definitions.isNotEmpty()) return definitions.distinctBy { HixLookup.signature(it) }
+        if (matchingDefinitions.isNotEmpty()) return matchingDefinitions.distinctBy { HixLookup.signature(it) }
             .joinToString("<br>") { render(HixLookup.signature(it), it.documentation) }
         return fact?.let(::render)
     }

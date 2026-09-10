@@ -49,7 +49,7 @@ public sealed class LanguageFunctionScope {
     ? new NamedFunctionHixValue(Program.StringPool.Get(name)) { Scope = this } : null;
 
   public static string SignatureKey(BytecodeSignature signature) => signature == null ? "(*)" :
-    signature.Inputs == null ? signature.InputKind : "(" + string.Join(",", signature.Inputs.Select(field =>
+    signature.Inputs == null ? signature.InputPattern == null ? "(*)" : signature.InputKind : "(" + string.Join(",", signature.Inputs.Select(field =>
       (field.Variadic ? "..." : "") + field.Kind)) + ")";
 
   public IEnumerable<(string Scope, BytecodeFunction Function)> DisassemblyFunctions(string name, bool includeParent = true) {
@@ -85,7 +85,7 @@ public sealed record LanguageFunctionCandidate(BytecodeFunction Function, Byteco
   public int FixedCount { get; } = Signature?.Inputs is { } fields
     ? fields.Count(field => !field.Optional && !field.Variadic) : 0;
   public int BaseScore { get; } = Signature == null ? -10000 : Signature.Inputs == null
-    ? Signature.InputKind == "any" ? 1000 : 1001
+    ? Signature.InputPattern == null ? -9999 : Signature.InputKind == "any" ? 1000 : 1001
     : (Signature.Inputs.Count > 0 && Signature.Inputs[Signature.Inputs.Count - 1].Variadic ? 0 : 1000)
       + Signature.Inputs.Count(field => field.Kind != "any");
 }

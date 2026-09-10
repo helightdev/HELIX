@@ -32,8 +32,8 @@
               implementationClass="dev.helight.helix.hix.HixFileType"
               fieldName="INSTANCE"
               language="Hix"
+              extensions="additionalfile;hix"
               patterns="*.HelixSourceGenerator.additionalfile" />
-    <fileEditorProvider implementation="dev.helight.helix.hix.HixDetachedEditorProvider" />
     <lang.parserDefinition language="Hix"
                            implementationClass="dev.helight.helix.hix.HixParserDefinition" />
     <lang.syntaxHighlighterFactory language="Hix"

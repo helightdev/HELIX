@@ -14,7 +14,7 @@ public sealed class HixThreadTests {
     var context = new HixContext(TestBackend.Instance);
     var first = TestCompiler.Compile("""
       mixin Example { prelude expression {
-        var saved = <value>
+        var<saved> @= <value>;
         carry local carried = null
         local transient = <private>
       } }
@@ -35,7 +35,7 @@ public sealed class HixThreadTests {
     Assert.Equal(new[] {"value", "updated", ""}, result.Outputs.Select(output => output.ReadText()));
     Assert.Equal("updated", Assert.IsType<LiteralHixValue>(context.Carries[HixString.Dynamic("carried")]).Value.Resolve(null));
     var failing = TestCompiler.Compile("""
-      mixin Example { expression { var saved = <discard>; local carried = <discard>; fail<stop> } }
+      mixin Example { expression { var<saved> @= <discard>; local carried = <discard>; fail<stop> } }
       """, "Example");
     Assert.False(HixVM.Execute(failing, new HixThread(context)).Success);
     Assert.Equal("value", Assert.IsType<LiteralHixValue>(context.Variables[HixString.Dynamic("saved")]).Value.Resolve(null));
@@ -47,7 +47,7 @@ public sealed class HixThreadTests {
     var program = TestCompiler.Compile("""
       mixin Example { expression {
         emit(var#input)
-        target var saved = [var#input]
+        tar<saved> @= [var#input];
       } }
       """, "Example");
     var thread = TestBackend.Instance.CreateThread();
@@ -81,7 +81,7 @@ public sealed class HixThreadTests {
     var backend = new ProbeBackend();
     var program = HixCompiler.CompileFunctions(["""
       pure func identity { return(param) }
-      pure func resolved sig number -> number { return(param) }
+      pure func resolved (number value) -> number { return($value) }
       pure func main { local current = [param]; return(probe(identity)) }
       """], backend);
     var machine = new HixVM([program]);
@@ -112,7 +112,7 @@ public sealed class HixThreadTests {
     var program = TestCompiler.Compile("""
       mixin Example { prelude expression {
         emit(tar#saved)
-        target var saved = [this]
+        tar<saved> @= [this];
         emit(this)
       } }
       """, "Example");
@@ -127,7 +127,7 @@ public sealed class HixThreadTests {
     Assert.Equal(new[] {"first", "first"}, second.Outputs.Select(output => output.ReadText()));
     Assert.Equal(new[] {"", "other"}, other.Outputs.Select(output => output.ReadText()));
 
-    var failing = TestCompiler.Compile("mixin Example { expression { target var saved = <discarded>; fail<stop> } }", "Example");
+    var failing = TestCompiler.Compile("mixin Example { expression { tar<saved> @= <discarded>; fail<stop> } }", "Example");
     Assert.False(HixVM.Execute(failing, new HixThread(context)).Success);
     Assert.Equal("first", Assert.IsType<LiteralHixValue>(context.TargetVariables[HixString.Dynamic("saved")]).Value.DynamicValue);
   }

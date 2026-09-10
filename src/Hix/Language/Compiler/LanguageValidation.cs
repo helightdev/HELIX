@@ -13,7 +13,8 @@ public static class LanguageValidation {
     void Signature(FunctionDeclarationIr function, FunctionSignature signature) {
       void Fields(IReadOnlyList<SignatureField> fields, string kind, bool output) {
         if (fields == null) {
-          ValidatePattern(output ? signature.OutputPattern : signature.InputPattern, function, new HashSet<string>());
+          var pattern = output ? signature.OutputPattern : signature.InputPattern;
+          if (pattern != null) ValidatePattern(pattern, function, new HashSet<string>());
           return;
         }
         var names = new HashSet<string>(StringComparer.Ordinal);
@@ -45,6 +46,8 @@ public static class LanguageValidation {
             Error(node, "pure functions cannot perform '" + call.Name + "'");
           if (node is CallExpressionIr invocation && visible.Any(candidate => candidate.Name == invocation.Name && !candidate.IsPure))
             Error(node, "pure functions cannot invoke impure functions");
+          if (node is CallExpressionIr {Name: "var" or "tar"})
+            Error(node, "pure functions cannot mutate shared storage");
         }
       }
       foreach (var function in functions) {
@@ -53,7 +56,7 @@ public static class LanguageValidation {
           Error(function, "duplicate function '" + function.Name + "'");
         foreach (var signature in function.Signatures) {
           Signature(function, signature);
-          var key = function.Name + "(" + (signature.Inputs == null ? signature.InputKind :
+          var key = function.Name + "(" + (signature.Inputs == null ? signature.InputKind ?? "*" :
             string.Join(",", signature.Inputs.Select(field => (field.Variadic ? "..." : "") + field.Kind))) + ")";
           if (!signatures.Add(key)) Error(function, "duplicate function signature '" + key + "'");
         }
@@ -75,6 +78,7 @@ public static class LanguageValidation {
         _ => Array.Empty<BlockStatementIr>()
       })) {
         var labels = new HashSet<string>(StringComparer.Ordinal);
+        var locals = new HashSet<string>(StringComparer.Ordinal);
         foreach (var node in Descendants(boundary)) {
           var label = node switch {
             BlockStatementIr block => block.Label,
@@ -83,6 +87,16 @@ public static class LanguageValidation {
           if (label != null && !labels.Add(label)) Error(node, "duplicate label '" + label + "'");
           if (node is TableExpressionIr table && table.Entries.Select(entry => entry.Key).Distinct(StringComparer.Ordinal).Count() != table.Entries.Count)
             Error(node, "duplicate table literal key");
+          if (node is AssignmentStatementIr {Storage: StorageSpace.Local} local) {
+            if (local.IsDeclaration && !locals.Add(local.Name))
+              Error(local, "local '" + local.Name + "' is already declared");
+            else if (!local.IsDeclaration && !locals.Contains(local.Name))
+              Error(local, "cannot assign undeclared local '" + local.Name + "'");
+            if (local.DeclaredPattern != null)
+              ValidatePattern(local.DeclaredPattern, local, new HashSet<string>());
+          }
+          if (node is CallExpressionIr {Name: "local", Arguments.Count: 2})
+            Error(node, "locals cannot be modified through the storage function");
         }
       }
       foreach (var mixin in nodes.OfType<MixinDeclarationIr>()) Scope(mixin.Declarations, visible);

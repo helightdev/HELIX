@@ -145,9 +145,10 @@ public sealed class HixBytecodeCompiler {
           : (int)assignment.Storage == 1 ? HixOpcode.StoreVariable : HixOpcode.StoreTarget;
         if (store != HixOpcode.StoreLocal) Emit(store == HixOpcode.StoreCarry ? HixOpcode.CheckStoreCarry
           : store == HixOpcode.StoreVariable ? HixOpcode.CheckStoreVariable : HixOpcode.CheckStoreTarget, line: line);
-        Value(assignment.Value);
+        if (assignment.Value == null) Constant(NullHixValue.Instance); else Value(assignment.Value);
         Emit(store, S(assignment.Name), line: line); break;
       case InvocationStatementIr invocation: Value(invocation.Call); Emit(HixOpcode.Pop); break;
+      case ExpressionStatementIr expression: Value(expression.Expression); Emit(HixOpcode.Pop); break;
       case SelectionStatementIr selection: Value(selection.Selection); Emit(HixOpcode.Pop); break;
       case ControlFlowStatementIr {Operation: ControlFlowKind.Label}: break;
       case ControlFlowStatementIr flow:

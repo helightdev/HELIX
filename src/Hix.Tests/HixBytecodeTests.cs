@@ -15,10 +15,10 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void LoadedReferencesReuseBindingsAndPreserveShadowedCallDispatch() {
     var program = TestCompiler.Compile("""
-      pure func choose sig number -> string { return(<global>) }
-      pure func caller sig number -> string { return(choose(param)) }
+      pure func choose (number value) -> string { return(<global>) }
+      pure func caller (number value) -> string { return(choose($value)) }
       mixin Example {
-        pure func choose sig number -> string { return(<local>) }
+        pure func choose (number value) -> string { return(<local>) }
         expression { emit(choose(1)); emit(caller(1)); emit(choose(2)) }
       }
       """, "Example");
@@ -35,7 +35,7 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void FunctionReferencesResolveOnlyInTheLoadedPool() {
     var program = TestCompiler.Compile("""
-      pure func choose sig number -> string { return(<chosen>) }
+      pure func choose (number value) -> string { return(<chosen>) }
       mixin Example { expression { emit(choose(1)) } }
       """, "Example");
     var compiled = Assert.Single(program.ConstantPool.OfType<FunctionReferenceHixValue>(), value => value.Signature.Name == "choose");
@@ -58,7 +58,7 @@ public sealed class HixBytecodeTests {
         local __selector_0 = <user>
         local i = 0
         :again
-        local i = plus(local#i, 1)
+        $i = plus(local#i, 1)
         when [local#i] {
           1 -> { goto again }
           2 -> { goto done }
@@ -203,7 +203,7 @@ public sealed class HixBytecodeTests {
 
   [Fact]
   public void StaticExecutionReusesLoadedImagesWithoutSharingMutableState() {
-    var program = TestCompiler.Compile("mixin Example { expression { var name = <new>; emit(var#name) } }", "Example");
+    var program = TestCompiler.Compile("mixin Example { expression { var<name> @= <new>; emit(var#name) } }", "Example");
     var seed = new HixStringPoolBuilder().Freeze();
     var first = new HixThread(new SharedPoolContext(seed));
     Assert.True(HixVM.Execute(program, first).Success);
@@ -266,7 +266,7 @@ public sealed class HixBytecodeTests {
   public void FunctionSelectionRechecksConversions() {
     var program = TestCompiler.Compile("""
       pure func choose { return(<fallback>) }
-      pure func choose sig number -> string { return(<number>) }
+      pure func choose (number value) -> string { return(<number>) }
       mixin Example { expression {
         emit(choose(<12>))
         emit(choose(<not numeric>))
@@ -281,11 +281,11 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void FunctionSelectionRetainsTiesUntilAHigherScoringCandidateWins() {
     var program = TestCompiler.Compile("""
-      pure func choose sig number -> string { return(<number>) }
-      pure func choose sig bool -> string { return(<bool>) }
-      pure func choose sig string -> string { return(<string>) }
-      pure func tied sig number -> string { return(<number>) }
-      pure func tied sig bool -> string { return(<bool>) }
+      pure func choose (number value) -> string { return(<number>) }
+      pure func choose (bool value) -> string { return(<bool>) }
+      pure func choose (string value) -> string { return(<string>) }
+      pure func tied (number value) -> string { return(<number>) }
+      pure func tied (bool value) -> string { return(<bool>) }
       mixin Example { expression {
         emit(choose(<12>))
         local failure = [tied(<12>)?]
@@ -326,9 +326,9 @@ public sealed class HixBytecodeTests {
     var program = TestCompiler.Compile("""
       pure func captured { local name = <function>; return(local) }
       mixin Example { expression {
-        var name = <before>
+        var<name> @= <before>;
         local saved = [var]
-        var name = <after>
+        var<name> @= <after>;
         emit(var#name)
         emit(local#saved#name)
         emit(join(keys(local#saved), <,>))
@@ -412,7 +412,7 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void DisassemblyHasAlignedColumnsAndHeadersAtFunctionAndLabelAddresses() {
     var program = TestCompiler.Compile("""
-      pure func named sig string -> string { return(param) }
+      pure func named (string value) -> string { return($value) }
       mixin Example { expression {
         local value = <hello>
         local selected = when <right> {
@@ -432,9 +432,9 @@ public sealed class HixBytecodeTests {
     Assert.Equal(2, separators.Length);
     foreach (var row in rows) foreach (var index in separators) Assert.Equal('|', row[index]);
     Assert.Contains("PSEUDOCODE", dump);
-    Assert.Matches(@"(?m)^\.function global::named string -> string \[pure\] @ 0x0000\n0000 +\| ENTER", dump);
+    Assert.Matches(@"(?m)^\.function global::named \(value: string\) -> string \[pure\] @ 0x0000\n0000 +\| ENTER", dump);
     Assert.Matches(@"(?m)^\.entry late expression 1 @ 0x[0-9A-F]+", dump);
-    Assert.Contains("push(static named(string) -> string(pop()))", dump);
+    Assert.Contains("push(static named(string value) -> string(pop()))", dump);
     Assert.Contains("local[\"value\"] = pop()", dump);
     Assert.Contains("push(\"hello\")", dump);
     Assert.Contains("if (!truthy(pop())) goto loc_", dump);
@@ -485,7 +485,7 @@ public sealed class HixBytecodeTests {
       mixin Example { expression {
         local i = 0
         {
-          local i = plus(local#i, 1)
+          $i = plus(local#i, 1)
           match(eq(local#i, 1))
           continue
         }
@@ -523,7 +523,7 @@ public sealed class HixBytecodeTests {
   public void VmRejectsCrossProgramImages() {
     var first = TestCompiler.Compile("""
       func origin { return(this#name) }
-      mixin Example { prelude expression { var callback = [origin] } }
+      mixin Example { prelude expression { var<callback> @= [origin]; } }
       """, "Example");
     var second = TestCompiler.Compile("""
       mixin Example { prelude expression { emit(call(var#callback)); emit(this#name) } }
@@ -604,7 +604,7 @@ public sealed class HixBytecodeTests {
   [Fact]
   public void ExecutableObjectGraphContainsNoCompilerSyntax() {
     var program = TestCompiler.Compile("""
-      pure func identity sig @{value=string} -> string { return($value) }
+      pure func identity (string value) -> string { return($value) }
       derivation mixin Decorator { expression { return(param#value) } }
       mixin Example { expression { emit(identity(<compiled>)) } }
       """, "Example");
@@ -627,7 +627,7 @@ public sealed class HixBytecodeTests {
     var variables = new Dictionary<string, object>();
     var first = TestCompiler.Compile("""
       pure func decorate { return(<origin:[param]:[length(param)]>) }
-      mixin Example { expression { var callback = [decorate] } }
+      mixin Example { expression { var<callback> @= [decorate]; } }
       """, "Example");
     var second = TestCompiler.Compile("""
       pure func distract { return(<different layout>) }
@@ -645,7 +645,7 @@ public sealed class HixBytecodeTests {
       mixin Example { expression {
         local i = 0
         :again
-        local i = plus($i, 1)
+        $i = plus($i, 1)
         when(eq($i, 1)) { goto again }
         emit(<value:[$i]>)
         local checked = [error<bad>?]

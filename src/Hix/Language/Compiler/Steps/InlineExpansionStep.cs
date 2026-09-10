@@ -94,7 +94,9 @@ public sealed class InlineExpansionStep : HixLoweringStep {
       if (node is AssignmentStatementIr assignment && assignment.Storage == StorageSpace.Local &&
         locals.TryGetValue(assignment.Name, out var renamed))
         return CopyLocation(assignment,
-          new AssignmentStatementIr(StorageSpace.Local, renamed, Rewrite(assignment.Value), assignment.IsCarried));
+          new AssignmentStatementIr(StorageSpace.Local, renamed,
+            assignment.Value == null ? null : Rewrite(assignment.Value), assignment.IsCarried,
+            assignment.IsDeclaration, assignment.DeclaredPattern));
       if (node is ControlFlowStatementIr {Operation: ControlFlowKind.Return} returned) {
         ExpressionIr result = returned.Values.Count switch {
           0 => new NullExpressionIr(), 1 => Rewrite(returned.Values[0]),

@@ -35,7 +35,9 @@ public sealed class PreludeHoistingStep : HixLoweringStep {
     private StatementIr RewriteLateStatement(StatementIr statement) => statement switch {
       BlockStatementIr block => RewriteLateBlock(block),
       AssignmentStatementIr value => CopyLocation(value,
-        new AssignmentStatementIr(value.Storage, value.Name, RewriteLateValue(value.Value), value.IsCarried)),
+        new AssignmentStatementIr(value.Storage, value.Name,
+          value.Value == null ? null : RewriteLateValue(value.Value), value.IsCarried,
+          value.IsDeclaration, value.DeclaredPattern)),
       InvocationStatementIr value => CopyLocation(value,
         new InvocationStatementIr(RewriteEffectCall(value.Call))),
       ControlFlowStatementIr value => CopyLocation(value,

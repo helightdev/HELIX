@@ -16,7 +16,7 @@ public sealed class HixAntlrGrammarTests {
       derivation mixin Base { expression { local inspected @= param:type; } }
       mixin Example { expression { } }
       """, Hix.HixMixinBackend.Instance);
-    Assert.Empty(unit.Diagnostics);
+    Assert.True(unit.Diagnostics.Count == 0, string.Join("\n", unit.Diagnostics));
 
     var program = Hix.Compiler.HixCompiler.Compile(unit, "Example", Hix.HixMixinBackend.Instance);
     var dump = program.Disassemble();
@@ -36,7 +36,7 @@ public sealed class HixAntlrGrammarTests {
 
     var unit = Hix.Compiler.AntlrSyntax.Parse(File.ReadAllText(path));
 
-    Assert.Empty(unit.Diagnostics);
+    Assert.True(unit.Diagnostics.Count == 0, string.Join("\n", unit.Diagnostics));
     Assert.NotEmpty(unit.Declarations);
   }
 
@@ -62,25 +62,25 @@ public sealed class HixAntlrGrammarTests {
   [InlineData("mixin Example { expression { local x = @[<a>, <b>] } }")]
   [InlineData("mixin Example { expression { local x = @{name=<a>, enabled=true} } }")]
   [InlineData("mixin Example { prelude expression { carry local name @= target:name; } expression { emit<[local#name]> } }")]
-  [InlineData("pure func describe sig @{name=string} -> string do { return(<Name: [param#name]>) }")]
+  [InlineData("pure func describe(string name) -> string do { return(<Name: [$name]>) }")]
   [InlineData("mixin Example { expression { local x = when [true] {\n[true] -> <yes>\nelse -> <no>\n} } }")]
   [InlineData("mixin Example { expression { emit @> Hello {{this:name}}\n@+!\n} }")]
   [InlineData("mixin Example { expression { local x @= null ?: <fallback>; } }")]
   [InlineData("mixin Example { expression { emit(number<2>) } }")]
   [InlineData("mixin Example { expression { emit(12.5) } }")]
   [InlineData("mixin Example { expression { emit(-12.5) } }")]
-  [InlineData("pure func empty sig null -> null { return(null) }")]
+  [InlineData("pure func empty(null value) -> null { return(null) }")]
   [InlineData("pure func answer => 42\n")]
   [InlineData("pure func <answer with spaces> => 42\n")]
   [InlineData("mixin <HELIX.Example-Type> { expression { emit(<ok>) } }")]
   [InlineData("%deprecated\n%since(<2.0>)\n%[<future>]\npure func annotated => 42\n")]
-  [InlineData("pure func typed sig @{%[<native-type>] value=string} -> string { return(param#value) }")]
-  [InlineData("pure func typed sig @{%anyOf<string><test> value=string, %something(123) another=string} -> string { return(param#value) }")]
+  [InlineData("pure func typed(%optional string value) -> string { return($value) }")]
+  [InlineData("pure func typed(%many<string> tuple values, %const<test> string another) -> string { return($another) }")]
   [InlineData("mixin AnnotatedTable { expression { local value = @{%[<field-note>] name=<Ada>} } }")]
   [InlineData("%type<Item>\n%guid<12345678-1234-1234-1234-123456789012>\n%name<My Custom Item>\n---\nmixin Test { }")]
   [InlineData("mixin Example { expression { local mapper = func => <[$0]>; emit(call(local#mapper, <x>)) } }")]
   [InlineData("mixin Example { expression { local mapper = func { return(<[$0]>) } } }")]
-  [InlineData("pure func trailing sig @{first=string, second=string,} -> string { return(join(<a>, <b>,)) }")]
+  [InlineData("pure func trailing(string first, string second,) -> string { return(join(<a>, <b>,)) }")]
   [InlineData("mixin Trailing { expression { local tuple = @[<a>, <b>,]; local table = @{first=<a>, second=<b>,}; emit(tuple) } }")]
   [InlineData("type NullableString = %union<string><null>\ntype Pair = @[string left, number right]\ntype Handler = delegate(string value) -> null\npure func typed(string value) -> null { return(null) }")]
   public void ParsesLanguageFeatures(string source) {
@@ -119,16 +119,15 @@ public sealed class HixAntlrGrammarTests {
       %deprecated
       %since(<2.0>)
       %[<future>]
-      pure func annotated sig @{%[<native-type>] value=string} -> string {
-        return(@{%[<field-note>] value=param#value})
+      pure func annotated(%optional string value) -> @{string value} {
+        return(@{%[<field-note>] value=$value})
       }
       """);
 
     Assert.Empty(semantic.Diagnostics);
     var function = semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationIr>().Single();
     Assert.Equal(new[] {"deprecated", "since", null}, function.Metadata.Select(metadata => metadata.Name));
-    Assert.Equal("native-type", Assert.IsType<Hix.Compiler.StringExpressionIr>(
-      function.Signatures.Single().Inputs.Single().Metadata.Single().Values.Single()).Value);
+    Assert.Equal("optional", function.Signatures.Single().Inputs.Single().Metadata.Single().Name);
     var table = function.Body.Children.SelectMany(Descendants).OfType<Hix.Compiler.TableExpressionIr>().Single();
     Assert.Equal("field-note", Assert.IsType<Hix.Compiler.StringExpressionIr>(
       table.FieldMetadata.Single().Value.Single().Values.Single()).Value);
@@ -148,7 +147,7 @@ public sealed class HixAntlrGrammarTests {
   [Fact]
   public void NamedFieldMetadataEndsAtWhitespace() {
     var semantic = Hix.Compiler.AntlrSyntax.Parse("""
-      pure func typed sig @{%anyOf<string><test> test=string, %something(123) another=string} -> string {
+      pure func typed(%many<string> tuple test, %const<test> string another) -> @{string test, string another} {
         return(@{%anyOf<string><test> test=<yes>, %something(123) another=<yes>})
       }
       """);
@@ -156,9 +155,9 @@ public sealed class HixAntlrGrammarTests {
     Assert.Empty(semantic.Diagnostics);
     var function = Assert.Single(semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationIr>());
     var fields = Assert.Single(function.Signatures).Inputs;
-    Assert.Equal(new[] {"string", "test"}, fields[0].Metadata.Single().Values
+    Assert.Equal(new[] {"string"}, fields[0].Metadata.Single().Values
       .Cast<Hix.Compiler.StringExpressionIr>().Select(value => value.Value));
-    Assert.Equal(123, Assert.IsType<Hix.Compiler.NumberExpressionIr>(fields[1].Metadata.Single().Values.Single()).Value);
+    Assert.Equal("test", Assert.IsType<Hix.Compiler.StringExpressionIr>(fields[1].Metadata.Single().Values.Single()).Value);
     var table = Assert.Single(function.Body.Children.SelectMany(Descendants).OfType<Hix.Compiler.TableExpressionIr>());
     Assert.Equal(new[] {"test", "another"}, table.FieldMetadata.Select(field => field.Key));
   }
@@ -208,7 +207,7 @@ public sealed class HixAntlrGrammarTests {
   [Fact]
   public void NullLiteralProducesAPrimitiveAstAndRemainsAValidSignatureKind() {
     var semantic = Hix.Compiler.AntlrSyntax.Parse("""
-      pure func empty sig null -> null { return(null) }
+      pure func empty(null value) -> null { return(null) }
       """);
 
     Assert.Empty(semantic.Diagnostics);
@@ -216,8 +215,64 @@ public sealed class HixAntlrGrammarTests {
     Assert.Contains(semantic.Tokens, token =>
       token.Type == Hix.Compiler.Generated.HixLexer.NULL && token.Text == "null");
     var function = Assert.Single(semantic.Declarations.OfType<Hix.Compiler.FunctionDeclarationIr>());
-    Assert.Equal("null", Assert.Single(function.Signatures).InputKind);
+    Assert.Equal("null", Assert.Single(Assert.Single(function.Signatures).Inputs).Kind);
     Assert.Equal("null", Assert.Single(function.Signatures).OutputKind);
+  }
+
+  [Fact]
+  public void ArrowWithoutParametersDeclaresDynamicInput() {
+    var semantic = Hix.Compiler.AntlrSyntax.Parse(
+      "pure func inspect -> string { return(<[$it]:[param#name]>) }");
+
+    Assert.Empty(semantic.Diagnostics);
+    var signature = Assert.Single(Assert.Single(semantic.Declarations
+      .OfType<Hix.Compiler.FunctionDeclarationIr>()).Signatures);
+    Assert.Null(signature.Inputs);
+    Assert.Null(signature.InputPattern);
+    Assert.Equal("string", signature.OutputKind);
+  }
+
+  [Fact]
+  public void LegacySigFunctionSyntaxIsRejected() {
+    var semantic = Hix.Compiler.AntlrSyntax.Parse(
+      "pure func inspect sig any -> string { return(<old>) }");
+
+    Assert.NotEmpty(semantic.Diagnostics);
+  }
+
+  [Theory]
+  [InlineData("value:eq(<test>); emit(<done>)")]
+  [InlineData("value:eq(<test>) emit(<done>)")]
+  public void IdentifierColonStartsAStatementDerivation(string statements) {
+    var semantic = Hix.Compiler.AntlrSyntax.Parse(
+      "mixin Example { expression { " + statements + " } }");
+
+    Assert.Empty(semantic.Diagnostics);
+    var expression = Assert.Single(Assert.Single(semantic.Declarations
+      .OfType<Hix.Compiler.MixinDeclarationIr>()).Declarations.OfType<Hix.Compiler.ExpressionDeclarationIr>());
+    Assert.IsType<Hix.Compiler.ExpressionStatementIr>(expression.Body.Statements[0]);
+  }
+
+  [Fact]
+  public void LocalDeclarationsCarryOptionalPatternsAndInitializers() {
+    var semantic = Hix.Compiler.AntlrSyntax.Parse("""
+      type Label = string
+      mixin Example { expression {
+        local string typed
+        local Label named = <value>
+        local %optional string annotated
+        local inferred = 42
+        $inferred = 7
+      } }
+      """);
+
+    Assert.Empty(semantic.Diagnostics);
+    var locals = semantic.Children.SelectMany(Descendants).OfType<Hix.Compiler.AssignmentStatementIr>().ToArray();
+    Assert.Equal(5, locals.Length);
+    Assert.Null(locals[0].Value);
+    Assert.Equal("string", locals[0].DeclaredPattern.Display);
+    Assert.Equal("Label", locals[1].DeclaredPattern.Display);
+    Assert.False(locals[^1].IsDeclaration);
   }
 
   private static IEnumerable<Hix.Compiler.HixIrNode> Descendants(Hix.Compiler.HixIrNode node) {

@@ -25,9 +25,10 @@ class HixAnnotator : Annotator {
                 .range(TextRange(diagnostic.start, diagnostic.end)).create()
         }
         val service = element.project.service<HixSnapshotService>()
-        service.ensureLanguageCatalog()
+        val definitions = service.definitionsFor(element.text)
+        element.virtualFile?.let { service.observe(it, element.text) }
         addLocalSemanticHighlighting(localParse, element.textLength, holder,
-            service.definitions.filter { it.kind in setOf("PatternMetadata", "FileMetadata") }.associateBy { it.name })
+            definitions.filter { it.kind in setOf("PatternMetadata", "FileMetadata") }.associateBy { it.name })
         val path = element.virtualFile?.path
         val snapshot = element.getUserData(HixSnapshotService.SEMANTIC_SNAPSHOT)
             ?: service.snapshotForText(element.text, path)
@@ -85,20 +86,21 @@ class HixAnnotator : Annotator {
             }
             return null
         }
-        val parameterNames = (rules.filterIsInstance<HixParser.PatternFieldContext>() +
-            rules.filterIsInstance<HixParser.TableSignatureEntryContext>())
-            .mapNotNull { rule ->
-                val name = when (rule) {
-                    is HixParser.PatternFieldContext -> rule.ROOT_IDENTIFIER()?.text
-                    is HixParser.TableSignatureEntryContext -> rule.ROOT_IDENTIFIER()?.text
-                    else -> null
-                }
-                scope(rule)?.let { it to name }?.takeIf { it.second != null }
-            }.groupBy({ it.first }, { it.second!! })
+        fun hasAncestor(rule: ParserRuleContext, type: Class<out ParserRuleContext>): Boolean {
+            var parent = rule.parent
+            while (parent is ParserRuleContext) {
+                if (type.isInstance(parent)) return true
+                parent = parent.parent
+            }
+            return false
+        }
+        val parameterNames = rules.filterIsInstance<HixParser.PatternFieldContext>()
+            .filter { hasAncestor(it, HixParser.PatternParameterListContext::class.java) }
+            .mapNotNull { rule -> rule.ROOT_IDENTIFIER()?.text?.let { name -> scope(rule)?.let { it to name } } }
+            .groupBy({ it.first }, { it.second })
         val localNames = rules.filterIsInstance<HixParser.VariableIdentifierContext>()
-            .filter { (it.parent as? HixParser.AssignmentStatementContext)
-                ?.variableSpecifiers()?.KEYWORD_LOCAL() != null }
-            .mapNotNull { rule -> scope(rule)?.let { it to rule.IDENTIFIER().text } }
+            .filter { it.parent is HixParser.LocalDeclarationStatementContext }
+            .mapNotNull { rule -> scope(rule)?.let { it to rule.text } }
             .groupBy({ it.first }, { it.second })
 
         rules.forEach { rule ->
@@ -131,8 +133,9 @@ class HixAnnotator : Annotator {
                     highlight(rule.IDENTIFIER(), HixColors.TYPE)
                     highlight(rule.ROOT_IDENTIFIER(), HixColors.TYPE)
                 }
-                is HixParser.PatternFieldContext -> highlight(rule.ROOT_IDENTIFIER(), HixColors.PARAMETER)
-                is HixParser.TableSignatureEntryContext -> highlight(rule.ROOT_IDENTIFIER(), HixColors.PARAMETER)
+                is HixParser.PatternFieldContext -> highlight(rule.ROOT_IDENTIFIER(),
+                    if (hasAncestor(rule, HixParser.PatternParameterListContext::class.java))
+                        HixColors.PARAMETER else HixColors.FIELD)
                 is HixParser.TableKeyedEntryContext -> highlight(rule.ROOT_IDENTIFIER(), HixColors.FIELD)
                 is HixParser.FuncDeclarationContext ->
                     highlight(rule.functionDeclarationIdentifier().IDENTIFIER(), HixColors.FUNCTION_IDENTIFIER)
@@ -141,9 +144,7 @@ class HixAnnotator : Annotator {
                     highlight(rule.NAMESPACE_IDENTIFIER(), HixColors.MIXIN)
                 }
                 is HixParser.VariableIdentifierContext -> {
-                    val isLocal = (rule.parent as? HixParser.AssignmentStatementContext)
-                        ?.variableSpecifiers()?.KEYWORD_LOCAL() != null
-                    highlight(rule.IDENTIFIER(), if (isLocal) HixColors.LOCAL else HixColors.VARIABLE)
+                    highlight(rule.IDENTIFIER(), HixColors.LOCAL)
                 }
                 is HixParser.DerivationRootContext -> {
                     val root = rule.ROOT_IDENTIFIER()
@@ -153,7 +154,8 @@ class HixAnnotator : Annotator {
                         in localNames[currentScope].orEmpty() -> highlight(root, HixColors.LOCAL)
                     }
                 }
-                is HixParser.InvocationStatementContext -> highlight(rule.IDENTIFIER(), HixColors.FUNCTION)
+                is HixParser.InvocationStatementContext ->
+                    highlight(rule.invocationIdentifier().IDENTIFIER(), HixColors.FUNCTION)
                 is HixParser.FunctionIdentifierContext -> {
                     highlight(rule.FUNCTION_IDENTIFIER(), HixColors.FUNCTION)
                     highlight(rule.ROOT_IDENTIFIER(), HixColors.FUNCTION)

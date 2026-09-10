@@ -2,14 +2,15 @@
 %pragma<PROFILE>
 %vm<PROFILE>
 //%vm<DEBUG>
+%backend<Unity>
 ---
 
 derivation mixin HELIX.Boot.NamedArgAttribute {
   prelude expression {
     local Named @= param#symbol:attributeOf<HELIX.Boot.NamedArgAttribute>;
-    when(local#Named:exists) {
+    when($Named:exists) {
       local Configuration @> datatype.GetProperty("{{param#value#name}}").Modifiers.Add(NamedArgModifier.Instance);
-      return(param#value:put(<configuration>, local#Configuration))
+      return(param#value:put(<configuration>, $Configuration))
     }
     return(param#value)
   }
@@ -19,24 +20,24 @@ mixin HELIX.Boot.CommandAttribute {
   prelude expression {
     local StructName @> {{target:name}}_Args
     local StructHandle @= target:DeriveParameters;
-    EmitGeneratedStructure(local#StructName, local#StructHandle, true);
+    EmitGeneratedStructure($StructName, $StructHandle, true);
   }
   expression {
     using @> HELIX.Boot;
     local TargetName @= target:name;
-    local StructName @> {{local#TargetName}}_Args
+    local StructName @> {{$TargetName}}_Args
     local StructHandle @= inline(DeriveParameters, target);
-    local InvokeArguments @= local#StructHandle:map(func => <[$0#value#modifier] args.[$0#value#name]>):join<, >;
-    local InvokeLambda @> args => {{local#TargetName}}({{local#InvokeArguments}})
+    local InvokeArguments @= $StructHandle:map(func => <[$0#value#modifier] args.[$0#value#name]>):join<, >;
+    local InvokeLambda @> args => {{$TargetName}}({{$InvokeArguments}})
     local CommandName @= attr#name:unwrap;
-    local CmdName @= local#CommandName:csharpLiteral;
-    when(local#CommandName:eq(null)) {
-      local CmdName @> "{{local#TargetName}}"
+    local CmdName @= $CommandName:csharpLiteral;
+    when($CommandName:eq(null)) {
+      $CmdName @> "{{$TargetName}}"
     }
     local Description @= attr#description:csharpLiteral;
     local Parent @= attr#parent:csharpLiteral;
-    local Bridge @> CommandBridge<{{local#StructName}}>.Create({{local#StructName}}.Datatype, {{local#InvokeLambda}}, {{local#CmdName}}, {{local#Description}}, {{local#Parent}})
-    inject(<$LoadManagedLate>, 0) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{local#Bridge}});
+    local Bridge @> CommandBridge<{{$StructName}}>.Create({{$StructName}}.Datatype, {{$InvokeLambda}}, {{$CmdName}}, {{$Description}}, {{$Parent}})
+    inject(<$LoadManagedLate>, 0) @> context.PublishBind(typeof(HELIX.UI.Console.Command), null, {{$Bridge}});
   }
 }
 

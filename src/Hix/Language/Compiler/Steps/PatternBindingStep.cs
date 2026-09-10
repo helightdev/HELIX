@@ -47,7 +47,8 @@ public sealed class PatternBindingStep : HixCompilerStep {
       var previousSymbols = symbols;
       var previousDeclaredLocals = declaredLocals;
       declaredLocals = new(Descendants(body).OfType<AssignmentStatementIr>()
-        .Where(assignment => assignment.Storage == StorageSpace.Local).Select(assignment => assignment.Name), StringComparer.Ordinal);
+        .Where(assignment => assignment.Storage == StorageSpace.Local && assignment.IsDeclaration)
+        .Select(assignment => assignment.Name), StringComparer.Ordinal);
       locals = new(StringComparer.Ordinal); parameters = fields; symbols = new();
       foreach (var assignment in Descendants(body).OfType<AssignmentStatementIr>())
         assignment.Symbol = Symbol(assignment.Storage, assignment.Name);
@@ -57,7 +58,9 @@ public sealed class PatternBindingStep : HixCompilerStep {
 
     protected override void VisitAssignment(AssignmentStatementIr assignment) {
       Visit(assignment.Value);
-      if (assignment.Storage == StorageSpace.Local) locals[assignment.Name] = uncertainLocals.Contains(assignment.Name) ? HixPattern.Any : assignment.Value.InferredPattern;
+      if (assignment.Storage != StorageSpace.Local) return;
+      if (assignment.IsDeclaration) locals[assignment.Name] = assignment.DeclaredPattern ??
+        (assignment.Value == null || uncertainLocals.Contains(assignment.Name) ? HixPattern.Any : assignment.Value.InferredPattern);
     }
 
     protected override void VisitRoot(RootExpressionIr root) {
@@ -164,6 +167,7 @@ public sealed class PatternBindingStep : HixCompilerStep {
 
     private IEnumerable<HixPatternRelation> Relations(IReadOnlyList<HixPattern> supplied, FunctionSignature signature) {
       if (signature.Inputs == null) {
+        if (signature.InputPattern == null) yield break;
         yield return supplied.Count == 1
           ? HixPatternRelations.Relate(supplied[0], signature.InputPattern, patterns) : HixPatternRelation.Never;
         yield break;
@@ -175,7 +179,7 @@ public sealed class PatternBindingStep : HixCompilerStep {
     }
 
     private static bool AcceptsCount(FunctionSignature signature, int count) {
-      if (signature.Inputs == null) return count == 1;
+      if (signature.Inputs == null) return signature.InputPattern == null || count == 1;
       var required = signature.Inputs.Count(field => !field.Optional && !field.Variadic);
       return count >= required && (signature.Inputs.Any(field => field.Variadic) || count <= signature.Inputs.Count);
     }
@@ -187,7 +191,7 @@ public sealed class PatternBindingStep : HixCompilerStep {
         new HixPatternField(index.ToString(), KindPattern(kind))).ToArray(), KindPattern(signature.ResultType));
 
     private HixPattern Infer(ExpressionIr expression) => expression switch {
-      StringExpressionIr => new KindHixPattern(HixValueKind.String),
+      StringExpressionIr or InterpolationExpressionIr => new KindHixPattern(HixValueKind.String),
       NumberExpressionIr => new KindHixPattern(HixValueKind.Number),
       BooleanExpressionIr => new KindHixPattern(HixValueKind.Bool),
       NullExpressionIr => new KindHixPattern(HixValueKind.Null),

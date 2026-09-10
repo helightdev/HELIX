@@ -89,18 +89,6 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitFunctionBody(HixParser.FunctionBodyContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link HixParser#functionMetadata}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitFunctionMetadata(HixParser.FunctionMetadataContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link HixParser#functionSignatureVariant}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitFunctionSignatureVariant(HixParser.FunctionSignatureVariantContext ctx);
-	/**
 	 * Visit a parse tree produced by {@link HixParser#patternExpression}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -148,24 +136,6 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitPatternIdentifier(HixParser.PatternIdentifierContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link HixParser#signature}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitSignature(HixParser.SignatureContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link HixParser#tableSignature}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitTableSignature(HixParser.TableSignatureContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link HixParser#tableSignatureEntry}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitTableSignatureEntry(HixParser.TableSignatureEntryContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link HixParser#statementBlock}.
 	 * @param ctx the parse tree
@@ -251,11 +221,23 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitWhenValueCondition(HixParser.WhenValueConditionContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link HixParser#assignmentStatement}.
+	 * Visit a parse tree produced by {@link HixParser#localDeclarationStatement}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitAssignmentStatement(HixParser.AssignmentStatementContext ctx);
+	T visitLocalDeclarationStatement(HixParser.LocalDeclarationStatementContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#localAssignmentStatement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitLocalAssignmentStatement(HixParser.LocalAssignmentStatementContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link HixParser#toplevelDerivationStatement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitToplevelDerivationStatement(HixParser.ToplevelDerivationStatementContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link HixParser#assignedValue}.
 	 * @param ctx the parse tree
@@ -455,6 +437,12 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitFunctionIdentifier(HixParser.FunctionIdentifierContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link HixParser#invocationIdentifier}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitInvocationIdentifier(HixParser.InvocationIdentifierContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link HixParser#kindIdentifier}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -472,12 +460,6 @@ public interface HixParserVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitMixinModifier(HixParser.MixinModifierContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link HixParser#variableSpecifiers}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitVariableSpecifiers(HixParser.VariableSpecifiersContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link HixParser#funcModifier}.
 	 * @param ctx the parse tree

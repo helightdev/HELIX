@@ -56,11 +56,12 @@ public sealed class LanguageAnalysis {
       IReadOnlyList<SignatureField> parameters) {
       foreach (var statement in block.Statements) {
         if (statement is AssignmentStatementIr assignment) {
-          var inferred = Infer(assignment.Value, locals, parameters);
+          var inferred = assignment.Value == null ? HixPattern.Any : Infer(assignment.Value, locals, parameters);
           if (assignment.Storage == StorageSpace.Local) {
-            locals[assignment.Name] = inferred;
-            facts.Add(new(IdentifierRange(assignment, assignment.Name), inferred.Display,
-              "local " + assignment.Name + ": " + inferred.Display, true));
+            if (assignment.IsDeclaration) locals[assignment.Name] = assignment.DeclaredPattern ?? inferred;
+            var local = locals.TryGetValue(assignment.Name, out var known) ? known : HixPattern.Any;
+            facts.Add(new(IdentifierRange(assignment, assignment.Name), local.Display,
+              "local " + assignment.Name + ": " + local.Display, assignment.IsDeclaration));
           }
         } else if (statement is BlockStatementIr nested) {
           Analyze(nested, new Dictionary<string, HixPattern>(locals, StringComparer.Ordinal), parameters);
@@ -72,7 +73,9 @@ public sealed class LanguageAnalysis {
       IReadOnlyList<SignatureField> parameters) {
       HixPattern result;
       switch (expression) {
-        case StringExpressionIr: result = new KindHixPattern(HixValueKind.String); break;
+        case StringExpressionIr:
+        case InterpolationExpressionIr:
+          result = new KindHixPattern(HixValueKind.String); break;
         case NumberExpressionIr: result = new KindHixPattern(HixValueKind.Number); break;
         case BooleanExpressionIr: result = new KindHixPattern(HixValueKind.Bool); break;
         case NullExpressionIr: result = new KindHixPattern(HixValueKind.Null); break;
@@ -292,10 +295,10 @@ public sealed class LanguageAnalysis {
         AddPatternReferences(type.Pattern, type, references);
         break;
       case AssignmentStatementIr assignment:
-        declarations.Add(new Symbol(assignment.Name, assignment.Storage switch {
-          StorageSpace.Local => "Local", StorageSpace.Variable => "Variable",
-          _ => "TargetVariable"
-        }, IdentifierRange(assignment, assignment.Name), Scope(assignment), assignment));
+        if (assignment.IsDeclaration)
+          declarations.Add(new Symbol(assignment.Name, "Local", IdentifierRange(assignment, assignment.Name),
+            Scope(assignment), assignment));
+        else references.Add(new Reference(assignment.Name, "Local", IdentifierRange(assignment, assignment.Name), assignment));
         break;
       case ControlFlowStatementIr {Operation: ControlFlowKind.Label} label:
         declarations.Add(new Symbol(label.Label, "Label", IdentifierRange(label, label.Label),

@@ -6,6 +6,14 @@ namespace Hix.Standalone.Tests;
 
 public sealed class HixAnalyzerServiceTests {
   [Fact]
+  public void CatalogIncludesBackendFileMetadata() {
+    var backend = Assert.Single(new HixAnalyzerService().Definitions.Where(item => item.Name == "backend"));
+
+    Assert.Equal("FileMetadata", backend.Kind);
+    Assert.Equal(new[] {"Backend"}, backend.ArgumentTypes);
+  }
+
+  [Fact]
   public void ResolvesSiblingPatternsAndKeepsCompletionsLazy() {
     var service = new HixAnalyzerService();
     var snapshots = service.Synchronize([

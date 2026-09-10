@@ -9,6 +9,13 @@ import kotlin.test.assertSame
 
 class HixLocalSyntaxTest {
     @Test
+    fun `canonical source-generator files and standalone hix files use the hix file type`() {
+        assertEquals("HelixSourceGenerator.additionalfile", HixFileType.defaultExtension)
+        assertTrue(HixFileType.isCanonical("Core.HelixSourceGenerator.additionalfile"))
+        assertTrue(HixFileType.isCanonical("Core.HELIXSOURCEGENERATOR.ADDITIONALFILE"))
+    }
+
+    @Test
     fun `current language tokens use dedicated highlighting categories`() {
         val highlighter = HixSyntaxHighlighter(null)
 
@@ -35,7 +42,7 @@ class HixLocalSyntaxTest {
 
     @Test
     fun `generated parser accepts nested declarations and typed values`() {
-        val source = "pure func describe sig @{name=string} -> string { return(<Hello [param#name]>) }\n" +
+        val source = "pure func describe(string name) -> string { return(<Hello [\$name]>) }\n" +
             "mixin Example { prelude expression { carry local name @= target:name; } expression { emit(describe(local#name)) } }" +
             "\npure func answer => 42;" +
             "\nmixin Lambdas { expression { local values = map(@[<a>], func => <[$0]!>); local other = func { return($0) } } }"
@@ -62,13 +69,13 @@ class HixLocalSyntaxTest {
     @Test
     fun `top level and table field metadata parse structurally`() {
         val source = "%deprecated\n%since(<2.0>)\n%[<future>]\n" +
-            "pure func annotated sig @{%[<native-type>] value=string} -> string { " +
-            "return(@{%[<field-note>] value=param#value}) }"
+            "pure func annotated(%optional string value) -> string { " +
+            "return(@{%[<field-note>] value=\$value}) }"
         val parsed = HixAntlrSyntax.parse(source)
 
         assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
-        assertEquals(8, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.MetadataContext ||
-            it is HixParser.MetadataValueContext })
+        assertEquals(5, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.MetadataContext })
+        assertEquals(2, HixAntlrSyntax.rules(parsed.tree).count { it is HixParser.MetadataValueContext })
     }
 
     @Test
@@ -82,7 +89,7 @@ class HixLocalSyntaxTest {
 
     @Test
     fun `named field metadata ends at whitespace`() {
-        val source = "pure func typed sig @{%anyOf<string><test> test=string, %something(123) another=string} " +
+        val source = "pure func typed(%many<string> tuple test, %const<test> string another) " +
             "-> string { return(@{%anyOf<string><test> test=<yes>}) }"
         val parsed = HixAntlrSyntax.parse(source)
 
@@ -103,7 +110,7 @@ class HixLocalSyntaxTest {
 
     @Test
     fun `comma separated values accept a trailing comma`() {
-        val source = "pure func trailing sig @{first=string, second=string,} -> string { " +
+        val source = "pure func trailing(string first, string second,) -> string { " +
             "local tuple = @[<a>, <b>,]; local table = @{first=<a>, second=<b>,}; return(join(<a>, <b>,)) }"
         val parsed = HixAntlrSyntax.parse(source)
 
@@ -134,7 +141,7 @@ class HixLocalSyntaxTest {
 
     @Test
     fun `null literal has its own token and highlighting`() {
-        val source = "pure func empty sig null -> null { return(null) }"
+        val source = "pure func empty (null value) -> null { return(null) }"
         val parsed = HixAntlrSyntax.parse(source)
 
         assertTrue(parsed.diagnostics.isEmpty(), parsed.diagnostics.toString())
@@ -223,5 +230,13 @@ class HixLocalSyntaxTest {
     @Test
     fun `legacy syntax is rejected`() {
         assertTrue(HixAntlrSyntax.parse("@FUNC<Build>\n@END").diagnostics.isNotEmpty())
+    }
+
+    @Test
+    fun `analysis backend defaults to standalone and can be selected in file metadata`() {
+        assertEquals("Standalone", HixSnapshotService.backendFor("mixin Example {}"))
+        assertEquals("Unity", HixSnapshotService.backendFor("%backend<Unity>\n---\nmixin Example {}"))
+        assertEquals("Standalone", HixSnapshotService.backendFor("---\n%backend<Unity>\nmixin Example {}"),
+            "backend metadata is only read from the file header")
     }
 }

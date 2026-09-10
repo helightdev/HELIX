@@ -28,7 +28,7 @@ public sealed class HelixMixinLanguageHost {
     public HelixMixinLanguageHost(ISolution solution, ISymbolCache symbolCache) {
         _symbolCache = symbolCache;
         _analyzers = new Dictionary<string, HixAnalyzerService>(StringComparer.OrdinalIgnoreCase) {
-            ["Rider"] = NewAnalyzer(new RiderAnalyzerHost(this)),
+            ["Unity"] = NewAnalyzer(new RiderAnalyzerHost(this)),
             ["Standalone"] = new HixAnalyzerService()
         };
         var model = solution.GetProtocolSolution().GetHelixExpressionModel();
@@ -39,7 +39,7 @@ public sealed class HelixMixinLanguageHost {
     }
 
     private HixAnalyzerService Analyzer(string name) =>
-        _analyzers.TryGetValue(name ?? string.Empty, out var analyzer) ? analyzer : _analyzers["Rider"];
+        _analyzers.TryGetValue(name ?? string.Empty, out var analyzer) ? analyzer : _analyzers["Standalone"];
 
     internal static MixinParseResponse Parse(MixinParseRequest request) =>
         Parse(NewAnalyzer(), request);

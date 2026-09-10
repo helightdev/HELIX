@@ -1,20 +1,22 @@
+%backend<Unity>
+---
 func RequireCompositionTypeId() -> null {
   when(![var#HasTypeId:eq(true)]) {
-    var HasTypeId @= true;
+    var<HasTypeId> @= true;
     DeclareCompanion @> public static readonly ushort typeId = CompositionId.GetTypeId("{{this:name}}");
   }
 }
 
 func RequireCompositionId() -> null {
   when(![var#HasCompositionId:eq(true)]) {
-    var HasCompositionId @= true;
+    var<HasCompositionId> @= true;
     DeclareCompanion @> public static readonly ushort compositionId = CompositionId.GetCompositionId("{{this:name}}");
   }
 }
 
 func RequireInputState() -> null {
   when(![var#HasInputState:eq(true)]) {
-    var HasInputState @= true;
+    var<HasInputState> @= true;
     using @> HELIX.Compose;
     emit<Implements> @> IStateHolder
     emit<Class>
@@ -36,14 +38,14 @@ func GenerateBoundaryElement() -> null {
     @> };
   when(this#Props:exists) {
     local PropsModel @= this#Props:DeriveFields;
-    when(![local#PropsModel:length:eq(0)]) {
-      local PropsParameters @= local#PropsModel:map(func => $0#value#parameter):join<, >;
-      local PropsArguments @= local#PropsModel:map(func => $0#value#argument):join<, >;
-      local PropsAssignments @= local#PropsModel:map(func => $0#value#assignment):join< >;
+    when(![$PropsModel:length:eq(0)]) {
+      local PropsParameters @= $PropsModel:map(func => $0#value#parameter):join<, >;
+      local PropsArguments @= $PropsModel:map(func => $0#value#argument):join<, >;
+      local PropsAssignments @= $PropsModel:map(func => $0#value#assignment):join< >;
       emit<Class>
         @> public partial struct Props {
-        @>   public Props({{local#PropsParameters}}) {
-        @>     {{local#PropsAssignments}}
+        @>   public Props({{$PropsParameters}}) {
+        @>     {{$PropsAssignments}}
         @>   }
         @> }
       emit<Implements> @> IProps<{{this:type}}.Props>
@@ -52,10 +54,10 @@ func GenerateBoundaryElement() -> null {
         @> public ref Props props => ref _props;
         @> public void ReceiveProps(in Props props) => _props = props;
       inject(<$Reset>, 1) @> _props = default;
-      local ComposeArgs @> {{local#ComposeArgs}}, {{local#PropsParameters}}
-      local ComposeCalls
-        @> {{local#ComposeCalls}}
-        @> var props = new {{this:type}}.Props({{local#PropsArguments}});
+      $ComposeArgs @> {{$ComposeArgs}}, {{$PropsParameters}}
+      $ComposeCalls
+        @> {{$ComposeCalls}}
+        @> var props = new {{this:type}}.Props({{$PropsArguments}});
         @> instance.ReceiveProps(in props);
       goto GenerateCompose
     }
@@ -67,22 +69,22 @@ func GenerateBoundaryElement() -> null {
     @>   if (!cx.AUTHORING.RequireComposable<{{this:type}}>({{var#CompanionName}}.typeId, out var instance, out var retained)) {
     @>     instance = new {{this:type}}();
     @>   }
-    @>   {{local#ComposeCalls}}
+    @>   {{$ComposeCalls}}
     @>   return ref cx.AUTHORING.YieldBoundary(ref cx, instance);
     @> }
   emit<Class>
     @> public static ref ElementRef ComposeBoundary(
-    @>   ref Composition cx{{local#ComposeArgs}}
-    @> ) {{local#Body}}
+    @>   ref Composition cx{{$ComposeArgs}}
+    @> ) {{$Body}}
   local Name @= this:name;
   when(![attr#name:unwrap:eq(null)]) {
-    local Name @= attr#name:unwrap;
+    $Name @= attr#name:unwrap;
   }
   when(attr#extension:unwrap:eq(true)) {
     DeclareCompanion
-      @> public static ref ElementRef {{local#Name}}(
-      @>  ref this Composition cx{{local#ComposeArgs}}
-      @> ) {{local#Body}}
+      @> public static ref ElementRef {{$Name}}(
+      @>  ref this Composition cx{{$ComposeArgs}}
+      @> ) {{$Body}}
   }
   inject(<$Recompose>, -24) @> cx.AUTHORING.SetId({{var#CompanionName}}.fullId);
 }
@@ -92,49 +94,49 @@ mixin HELIX.Compose.ComposableMethodAttribute {
     using @> HELIX.Compose;
     local StructName @> {{target:name}}Props
     local StructHandle @= target:DeriveParameters;
-    local StructArgs @= local#StructHandle:map(func => $0#value#argument):join<, >;
-    local StructParams @= local#StructHandle:map(func => $0#value#parameter):join<, >;
+    local StructArgs @= $StructHandle:map(func => $0#value#argument):join<, >;
+    local StructParams @= $StructHandle:map(func => $0#value#parameter):join<, >;
     local RequireMethod = <RequireComposable>
     local ReturnStatement @> return ref cx.AUTHORING.YieldElement(ref cx, instance);
     local ReturnType = <ref ElementRef>
     local Name @= this:name;
     when(attr#requiresTracking:unwrap:eq(true)) {
-      local RequireMethod = <RequireTracked>
+      $RequireMethod = <RequireTracked>
     }
     when(![attr#name:unwrap:eq(null)]) {
-      local Name @= attr#name:unwrap;
+      $Name @= attr#name:unwrap;
     }
     when(attr#scope:unwrap:eq(true)) {
-      local ReturnType = <ScopeHandle>
-      local ReturnStatement @> return cx.AUTHORING.YieldScope(ref cx, instance, static (BoundaryCell cell, in ScopeHandle handle) => {{attr#scopeCallback:unwrap}});
+      $ReturnType = <ScopeHandle>
+      $ReturnStatement @> return cx.AUTHORING.YieldScope(ref cx, instance, static (BoundaryCell cell, in ScopeHandle handle) => {{attr#scopeCallback:unwrap}});
     }
     RequireCompositionTypeId()
     local Body
-      @> if (!cx.AUTHORING.{{local#RequireMethod}}<{{this:name}}>({{var#CompanionName}}.typeId, out var instance, out var retained)) {
+      @> if (!cx.AUTHORING.{{$RequireMethod}}<{{this:name}}>({{var#CompanionName}}.typeId, out var instance, out var retained)) {
       @>     instance = new {{this:name}}();
       @>   }
-      @>   instance.{{target:name}}({{local#StructArgs}});
-      @>   {{local#ReturnStatement}}
+      @>   instance.{{target:name}}({{$StructArgs}});
+      @>   {{$ReturnStatement}}
     local ParameterSuffix = when {
-      (local#StructParams) -> <, [local#StructParams]>
+      ($StructParams) -> <, [$StructParams]>
       else -> <>
     }
     when(attr#extension:unwrap:eq(true)) {
       DeclareCompanion
         @>
-        @>   public static {{local#ReturnType}} {{local#Name}}(
-        @>     ref this Composition cx{{local#ParameterSuffix}}
+        @>   public static {{$ReturnType}} {{$Name}}(
+        @>     ref this Composition cx{{$ParameterSuffix}}
         @>   ) {
-        @>     {{local#Body}}
+        @>     {{$Body}}
         @>   }
       return
     }
     {
       emit<Class>
-        @> public static {{local#ReturnType}} Compose(
-        @>  ref Composition cx{{local#ParameterSuffix}}
+        @> public static {{$ReturnType}} Compose(
+        @>  ref Composition cx{{$ParameterSuffix}}
         @> ) {
-        @>   {{local#Body}}
+        @>   {{$Body}}
         @> }
     }
   }
@@ -145,7 +147,7 @@ mixin HELIX.Compose.ComposableDelegateAttribute {
     using @> HELIX.Compose;
     local Name @= target:name:regexReplaceFirst<^_><>;
     when(![attr#name:unwrap:eq(null)]) {
-      local Name @= attr#name:unwrap;
+      $Name @= attr#name:unwrap;
     }
     local Args = <ref Composition cx>
     local CallArgs = <ref cx>
@@ -154,30 +156,30 @@ mixin HELIX.Compose.ComposableDelegateAttribute {
       when(target#1:exists:not) {
         goto NoArgs
       }
-      local Args @> {{local#Args}}, {{target#1:type:unwrap}} {{target#1:name}}
-      local CallArgs @> {{local#CallArgs}}, {{target#1:name}}
-      local Types @= target#1:type:unwrap;
+      $Args @> {{$Args}}, {{target#1:type:unwrap}} {{target#1:name}}
+      $CallArgs @> {{$CallArgs}}, {{target#1:name}}
+      $Types @= target#1:type:unwrap;
     }
     when(target#2:exists) {
-      local Args @> {{local#Args}}, {{target#2:type:unwrap}} {{target#2:name}}
-      local CallArgs @> {{local#CallArgs}}, {{target#2:name}}
-      local Types @> {{local#Types}}, {{target#2:type:unwrap}}
+      $Args @> {{$Args}}, {{target#2:type:unwrap}} {{target#2:name}}
+      $CallArgs @> {{$CallArgs}}, {{target#2:name}}
+      $Types @> {{$Types}}, {{target#2:type:unwrap}}
     }
     when(target#3:exists) {
-      local Args @> {{local#Args}}, {{target#3:type:unwrap}} {{target#3:name}}
-      local CallArgs @> {{local#CallArgs}}, {{target#3:name}}
-      local Types @> {{local#Types}}, {{target#3:type:unwrap}}
+      $Args @> {{$Args}}, {{target#3:type:unwrap}} {{target#3:name}}
+      $CallArgs @> {{$CallArgs}}, {{target#3:name}}
+      $Types @> {{$Types}}, {{target#3:type:unwrap}}
     }
-    local Types @> <{{local#Types}}>
+    $Types @> <{{$Types}}>
     :NoArgs
-    local IdName @> _{{local#Name}}CompositionId
+    local IdName @> _{{$Name}}CompositionId
     emit<Class>
-      @> private static readonly ushort {{local#IdName}} = CompositionId.GetCompositionId("{{local#Name}}");
-      @> public static readonly Composable{{local#Types}} {{local#Name}} = static ({{local#Args}}) => {
+      @> private static readonly ushort {{$IdName}} = CompositionId.GetCompositionId("{{$Name}}");
+      @> public static readonly Composable{{$Types}} {{$Name}} = static ({{$Args}}) => {
       @>   var transfer = new CompositionInternals.TransferData();
-      @>   CompositionInternals.EnterComposition(ref cx, {{local#IdName}}, ref transfer);
+      @>   CompositionInternals.EnterComposition(ref cx, {{$IdName}}, ref transfer);
       @>   try {
-      @>     {{target:name}}({{local#CallArgs}});
+      @>     {{target:name}}({{$CallArgs}});
       @>   } finally {
       @>     CompositionInternals.ExitComposition(ref cx, ref transfer);
       @>   }
@@ -315,7 +317,7 @@ mixin HELIX.Compose.WriteContextHandlerAttribute {
       @> using (cx.WriteContext(out var context)) {
       @>   {{target:name}}(ref cx, context);
       @> }
-    var HasWriteContext @= true;
+    var<HasWriteContext> @= true;
   }
 }
 

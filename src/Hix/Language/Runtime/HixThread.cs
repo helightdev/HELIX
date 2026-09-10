@@ -217,7 +217,7 @@ public sealed class HixThread {
     var logCount = logs.Count;
     locals = machine.RentLocals();
     parameter = match.Parameter;
-    positionalParameters = arguments;
+    positionalParameters = match.Arguments ?? arguments;
     pure = match.Function.IsPure;
     scope = match.Owner;
     program = scope.Program;
@@ -581,6 +581,7 @@ public sealed class HixThread {
   }
 
   private IHixValue Call(string name, IHixValue[] arguments, int line) {
+    if (name is "var" or "tar" or "local") return ModifyStorage(name, arguments);
     if (program.Patterns.TryGetValue(name, out var pattern)) {
       if (arguments.Length != 1) return Error("pattern '" + name + "' expects one value");
       return HixPatternMatcher.Matches(pattern, arguments[0], this, program.Patterns, out var patternFailure)
@@ -601,6 +602,16 @@ public sealed class HixThread {
     }
     if (definition == null) return Error("no matching function '" + name + "' for " + arguments.Length + " arguments");
     return ExecuteBackend(definition, convertedArguments, line);
+  }
+
+  private IHixValue ModifyStorage(string name, IHixValue[] arguments) {
+    if (name == "local") return Error("locals cannot be modified through the storage function");
+    if (arguments.Length != 2) return Error("storage function '" + name + "' expects a key and value");
+    if (pure) return Error("pure functions cannot mutate shared storage");
+    var key = HixString.Dynamic(ResolveText(arguments[0]));
+    var value = HixStorageValue.Capture(arguments[1]);
+    (name == "var" ? variables : targetVariables).StoreIsolated(key, value);
+    return value;
   }
 
   private IHixValue ExecuteBackend(FunctionDefinition definition, IHixValue[] arguments, int line) {
@@ -624,7 +635,7 @@ public sealed class HixThread {
   };
 
   private readonly record struct FunctionMatch(BytecodeFunction Function, BytecodeSignature Signature,
-    IHixValue Parameter, LanguageFunctionScope Owner);
+    IHixValue Parameter, IHixValue[] Arguments, LanguageFunctionScope Owner);
 
   // Only declaration metadata is reused. Conversion success can depend on argument values,
   // so a previous winner is never cached by argument kind alone.
@@ -653,10 +664,10 @@ public sealed class HixThread {
       var score = candidate.BaseScore;
       var convertedArguments = arguments;
       IHixValue suppliedParameter = null;
-      if (signature is {Inputs: null}) {
+      if (signature is {Inputs: null, InputPattern: not null}) {
         if (arguments.Length != 1 || !TryConvert(arguments[0], signature.InputPattern, out suppliedParameter, out var count)) continue;
         score -= count;
-      } else if (signature != null) {
+      } else if (signature?.Inputs != null) {
         var fields = signature.Inputs;
         if (arguments.Length < candidate.FixedCount || !candidate.Variadic && arguments.Length > fields.Count) continue;
         score = candidate.BaseScore;
@@ -687,7 +698,8 @@ public sealed class HixThread {
 
     // Allocate the parameter container only for the selected signature.
     if (bestParameter == null) {
-      if (best.Signature == null) bestParameter = Pack(arguments);
+      if (best.Signature == null || best.Signature.Inputs == null && best.Signature.InputPattern == null)
+        bestParameter = Pack(arguments);
       else {
         var fields = best.Signature.Inputs;
         var entries = new KeyValuePair<HixString, IHixValue>[fields.Count];
@@ -703,7 +715,7 @@ public sealed class HixThread {
         bestParameter = new HixTableValue(entries);
       }
     }
-    match = new(best.Function, best.Signature, bestParameter, best.Owner);
+    match = new(best.Function, best.Signature, bestParameter, bestArguments, best.Owner);
     return null;
   }
 

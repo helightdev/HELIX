@@ -15,7 +15,7 @@ public static class PatternTypeAnalysis {
       var parameters = ParameterPatterns(function);
       var expected = function.Signatures.Count == 1 && function.Signatures[0].IsPatternSyntax
         ? ReturnPattern(function.Signatures[0]) : HixPattern.Any;
-      AnalyzeBlock(function.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), parameters, expected,
+      AnalyzeBlock(function.Body, LocalEnvironment(function.Body), parameters, expected,
         functions, patterns, diagnostics, backend);
     }
     foreach (var mixin in declarations.OfType<MixinDeclarationIr>()) {
@@ -23,14 +23,25 @@ public static class PatternTypeAnalysis {
         .GroupBy(value => value.Name, StringComparer.Ordinal)
         .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
       foreach (var function in mixin.Declarations.OfType<FunctionDeclarationIr>())
-        AnalyzeBlock(function.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), ParameterPatterns(function),
+        AnalyzeBlock(function.Body, LocalEnvironment(function.Body), ParameterPatterns(function),
           function.Signatures.Count == 1 && function.Signatures[0].IsPatternSyntax
             ? ReturnPattern(function.Signatures[0]) : HixPattern.Any,
           nested, patterns, diagnostics, backend);
       foreach (var expression in mixin.Declarations.OfType<ExpressionDeclarationIr>())
-        AnalyzeBlock(expression.Body, new Dictionary<string, HixPattern>(StringComparer.Ordinal), [], HixPattern.Any,
+        AnalyzeBlock(expression.Body, LocalEnvironment(expression.Body), [], HixPattern.Any,
           nested, patterns, diagnostics, backend);
     }
+  }
+
+  private static Dictionary<string, HixPattern> LocalEnvironment(BlockStatementIr body) {
+    var locals = new Dictionary<string, HixPattern>(StringComparer.Ordinal);
+    void Collect(HixIrNode node) {
+      if (node is AssignmentStatementIr {Storage: StorageSpace.Local, IsDeclaration: true} declaration)
+        locals[declaration.Name] = declaration.DeclaredPattern ?? HixPattern.Any;
+      foreach (var child in node.SemanticChildren) Collect(child);
+    }
+    Collect(body);
+    return locals;
   }
 
   private static IReadOnlyList<HixPatternField> ParameterPatterns(FunctionDeclarationIr function) {
@@ -53,8 +64,23 @@ public static class PatternTypeAnalysis {
     foreach (var statement in block.Statements) {
       switch (statement) {
         case AssignmentStatementIr assignment:
-          var assigned = Infer(assignment.Value, locals, parameters, functions, patterns, diagnostics, backend);
-          if (assignment.Storage == StorageSpace.Local) locals[assignment.Name] = assigned;
+          var assigned = assignment.Value == null ? HixPattern.Any :
+            Infer(assignment.Value, locals, parameters, functions, patterns, diagnostics, backend);
+          if (assignment.Storage == StorageSpace.Local) {
+            if (assignment.IsDeclaration) {
+              var declared = assignment.DeclaredPattern ?? assigned;
+              if (assignment.DeclaredPattern != null && assignment.Value != null &&
+                  HixPatternRelations.Relate(assigned, declared, patterns) == HixPatternRelation.Never)
+                diagnostics.Add(new(statement.Line, "initial value pattern '" + assigned.Display +
+                  "' does not match local '" + assignment.Name + "' pattern '" + declared.Display + "'"));
+              locals[assignment.Name] = declared;
+            } else if (!locals.TryGetValue(assignment.Name, out var declared)) {
+              diagnostics.Add(new(statement.Line, "cannot assign undeclared local '" + assignment.Name + "'"));
+            } else if (HixPatternRelations.Relate(assigned, declared, patterns) == HixPatternRelation.Never) {
+              diagnostics.Add(new(statement.Line, "assigned pattern '" + assigned.Display +
+                "' does not match local '" + assignment.Name + "' pattern '" + declared.Display + "'"));
+            }
+          }
           break;
         case InvocationStatementIr invocation:
           Infer(invocation.Call, locals, parameters, functions, patterns, diagnostics, backend); break;
@@ -83,7 +109,9 @@ public static class PatternTypeAnalysis {
     IReadOnlyList<HixPatternField> parameters, IReadOnlyDictionary<string, FunctionDeclarationIr[]> functions,
     IReadOnlyDictionary<string, HixPattern> patterns, ICollection<HixParseDiagnostic> diagnostics, HixBackend backend) {
     switch (expression) {
-      case StringExpressionIr: return new KindHixPattern(HixValueKind.String);
+      case StringExpressionIr:
+      case InterpolationExpressionIr:
+        return new KindHixPattern(HixValueKind.String);
       case NumberExpressionIr: return new KindHixPattern(HixValueKind.Number);
       case BooleanExpressionIr: return new KindHixPattern(HixValueKind.Bool);
       case NullExpressionIr: return new KindHixPattern(HixValueKind.Null);
@@ -181,6 +209,7 @@ public static class PatternTypeAnalysis {
 
   private static bool Accepts(FunctionSignature signature, IReadOnlyList<HixPattern> supplied,
     IReadOnlyDictionary<string, HixPattern> patterns) {
+    if (signature.Inputs == null && signature.InputPattern == null) return true;
     if (signature.Inputs == null)
       return supplied.Count == 1 && HixPatternRelations.Relate(supplied[0], signature.InputPattern, patterns) != HixPatternRelation.Never;
     var required = signature.Inputs.Count(value => !value.Optional && !value.Variadic);

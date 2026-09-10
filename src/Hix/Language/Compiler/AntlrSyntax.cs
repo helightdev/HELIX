@@ -18,7 +18,7 @@ public static class AntlrSyntax {
     var parseSource = recoverValidDeclarations ? RecoverIncompleteHeader(source) : source;
     var diagnostics = new List<HixParseDiagnostic>();
     var errors = new ErrorListener(diagnostics);
-    var lexer = new Lexer(new AntlrInputStream(parseSource));
+    var lexer = new RecoveringLexer(new AntlrInputStream(parseSource));
     lexer.RemoveErrorListeners();
     lexer.AddErrorListener(errors);
     var stream = new CommonTokenStream(lexer);
@@ -83,6 +83,16 @@ public static class AntlrSyntax {
     public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol,
       int line, int charPositionInLine, string msg, RecognitionException e) =>
       diagnostics.Add(new HixParseDiagnostic(line, $"column {charPositionInLine}: {msg}"));
+  }
+
+  private sealed class RecoveringLexer(ICharStream input) : Lexer(input) {
+    public override int PopMode() {
+      try { return base.PopMode(); }
+      catch (InvalidOperationException) {
+        Mode(DEFAULT_MODE);
+        return DEFAULT_MODE;
+      }
+    }
   }
 
   private sealed class IrBuilder(IReadOnlyList<IToken> tokens, List<HixParseDiagnostic> diagnostics)
@@ -230,16 +240,16 @@ public static class AntlrSyntax {
 
     public override HixIrNode VisitFuncDeclaration(Parser.FuncDeclarationContext context) {
       Modifiers(context.funcModifier());
-      SignatureField[] Fields(Parser.SignatureContext signature) => signature.tableSignature()?.tableSignatureEntry()
-        .Select(field => new SignatureField(field.ROOT_IDENTIFIER().GetText(), field.kindIdentifier().GetText(),
-          field.VALUE_EXPAND() != null, field.metadata().Select(metadata => (MetadataIr)Visit(metadata)).ToArray())).ToArray();
-      var signatures = context.functionMetadata().functionSignatureVariant().Select(signature =>
-        new FunctionSignature(signature.signature(0).kindIdentifier()?.GetText(), Fields(signature.signature(0)),
-          signature.signature(1).kindIdentifier()?.GetText(), Fields(signature.signature(1)))).ToList();
+      var signatures = new List<FunctionSignature>();
       if (context.directFunctionSignature() is { } direct) {
-        var parameters = direct.patternParameterList().patternField().Select(PatternField)
-          .Select(field => new SignatureField(field.Name, field.Pattern, optional: field.Optional)).ToArray();
-        signatures.Insert(0, new FunctionSignature(null, parameters, Pattern(direct.patternExpression()), null));
+        var parameters = direct.patternParameterList()?.patternField().Select(fieldContext => {
+          var field = PatternField(fieldContext);
+          var metadata = fieldContext.metadataList()?.metadata()
+            .Select(item => (MetadataIr)Visit(item)).ToArray() ?? [];
+          return new SignatureField(field.Name, field.Pattern, optional: field.Optional, metadata: metadata);
+        }).ToArray();
+        signatures.Add(new FunctionSignature((HixPattern)null, parameters,
+          Pattern(direct.patternExpression()), null));
       }
       var identifier = context.functionDeclarationIdentifier();
       return At(new FunctionDeclarationIr(DeclarationName(identifier.IDENTIFIER(), identifier.argumentValue()),
@@ -271,12 +281,22 @@ public static class AntlrSyntax {
       return node is SelectionExpressionIr selection ? At(new SelectionStatementIr(selection), context) : node;
     }
 
-    public override HixIrNode VisitAssignmentStatement(Parser.AssignmentStatementContext context) {
-      var specifier = context.variableSpecifiers();
-      var storage = specifier.KEYWORD_LOCAL() != null ? StorageSpace.Local :
-        specifier.KEYWORD_TARGET() != null ? StorageSpace.Target : StorageSpace.Variable;
-      return At(new AssignmentStatementIr(storage, context.variableIdentifier().GetText(),
-        Value(context.assignedValue()), specifier.KEYWORD_CARRY() != null), context);
+    public override HixIrNode VisitLocalDeclarationStatement(Parser.LocalDeclarationStatementContext context) => At(
+      new AssignmentStatementIr(StorageSpace.Local, context.variableIdentifier().GetText(),
+        context.assignedValue() == null ? null : Value(context.assignedValue()), context.KEYWORD_CARRY() != null,
+        declaration: true, declaredPattern: context.patternExpression() == null ? null : Pattern(context.patternExpression())), context);
+
+    public override HixIrNode VisitLocalAssignmentStatement(Parser.LocalAssignmentStatementContext context) => At(
+      new AssignmentStatementIr(StorageSpace.Local, context.variableIdentifier().GetText(), Value(context.assignedValue()),
+        declaration: false), context);
+
+    public override HixIrNode VisitToplevelDerivationStatement(Parser.ToplevelDerivationStatementContext context) {
+      var rootText = context.TOPLEVEL_DERIVATION().GetText();
+      ExpressionIr value = At(new RootExpressionIr(rootText.Substring(0, rootText.Length - 1)), context);
+      var first = context.functionIdentifier();
+      value = At(new CallExpressionIr(first.GetText(), new[] {value}.Concat(Arguments(context.valueList())).ToArray()), context);
+      value = Transform(value, context.transformationPart());
+      return At(new ExpressionStatementIr(value), context);
     }
 
     public override HixIrNode VisitAssignedValue(Parser.AssignedValueContext context) {
@@ -285,7 +305,7 @@ public static class AntlrSyntax {
     }
 
     private CallExpressionIr Invocation(Parser.InvocationStatementContext context) => At(
-      new CallExpressionIr(context.IDENTIFIER().GetText(), Arguments(context.valueList())
+      new CallExpressionIr(context.invocationIdentifier().GetText(), Arguments(context.valueList())
         .Concat(context.tailValue() is { } tail ? [Value(tail)] : []).ToArray()), context);
     public override HixIrNode VisitInvocationStatement(Parser.InvocationStatementContext context) =>
       At(new InvocationStatementIr(Invocation(context)), context);

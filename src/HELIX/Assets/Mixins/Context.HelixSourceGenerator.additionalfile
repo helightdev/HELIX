@@ -1,3 +1,5 @@
+%backend<Unity>
+---
 func RequireHandler() -> null do {
   when(![var#IsEventHandler:eq(true)]) {
     using @> System;
@@ -7,7 +9,7 @@ func RequireHandler() -> null do {
       @> EventHandlerList IEventListener.HandlerList => eventHandlerList;
     inject(<$Dispose>, 1) @> eventHandlerList.UnregisterAll();
     emit<Implements> @> IEventListener
-    var IsEventHandler @= true;
+    var<IsEventHandler> @= true;
   }
 }
 
@@ -72,17 +74,17 @@ mixin HELIX.Context.BindAttribute {
     local Guard = <>
     local Type @> typeof({{target:type:unwrap}})
     when(attr#proxied:unwrap:eq(true)) {
-      local Value @> () => {{target:name}}
-      local Method = <PublishProxyBind>
+      $Value @> () => {{target:name}}
+      $Method = <PublishProxyBind>
     }
     when(attr#required:unwrap:eq(false)) {
-      local Guard @> if ({{target:name}} != null)
+      $Guard @> if ({{target:name}} != null)
     }
     when(attr#type:exists, ![attr#type:unwrap:eq(null)]) {
-      local Type @= attr#type;
+      $Type @= attr#type;
     }
-    inject(<$ConfigureManaged>, 0) @> registration.Publication({{local#Type}}, {{attr#qualifier:csharpLiteral}}, {{attr#required}});
-    inject(<$LoadManagedLate>, 0) @> {{local#Guard}}context.{{local#Method}}({{local#Type}}, {{attr#qualifier:csharpLiteral}}, {{local#Value}});
+    inject(<$ConfigureManaged>, 0) @> registration.Publication({{$Type}}, {{attr#qualifier:csharpLiteral}}, {{attr#required}});
+    inject(<$LoadManagedLate>, 0) @> {{$Guard}}context.{{$Method}}({{$Type}}, {{attr#qualifier:csharpLiteral}}, {{$Value}});
   }
 }
 
@@ -94,15 +96,15 @@ mixin HELIX.Context.ResourceAttribute {
     assert(target:type:is<UnityEngine.Object>)
     :Addressables {
       when(attr#source:unwrap:eq(2)) {
-        inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new AddressableDependency<{{target:type}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}, {{attr#required}}), {{attr#required}}));
-        inject(<$Init>, -1) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{local#WireKey}});
+        inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new AddressableDependency<{{target:type}}>({{attr#qualifier:csharpLiteral}}, {{$WireKey}}, {{attr#required}}), {{attr#required}}));
+        inject(<$Init>, -1) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{$WireKey}});
         return
       }
     }
     :Resources {
       when(attr#source:unwrap:eq(3)) {
-        inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new ResourceDependency<{{target:type}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}, {{attr#required}}), {{attr#required}}));
-        inject(<$Init>, -1) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{local#WireKey}});
+        inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new ResourceDependency<{{target:type}}>({{attr#qualifier:csharpLiteral}}, {{$WireKey}}, {{attr#required}}), {{attr#required}}));
+        inject(<$Init>, -1) @> {{target:name}} = managed.ResolveOptional<{{target:type}}>({{$WireKey}});
         return
       }
     }
@@ -118,15 +120,15 @@ mixin HELIX.Context.ResourceAttribute {
     assert(target:type#0:is<UnityEngine.Object>)
     :AddressableList {
       when(attr#source:unwrap:eq(2)) {
-        inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new AddressableListDependency<{{target:type#0}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}), true));
-        inject(<$Init>, -1) @> {{target:name}} = managed.Resolve<List<{{target:type#0}}>>({{local#WireKey}}) as {{target:type}};
+        inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new AddressableListDependency<{{target:type#0}}>({{attr#qualifier:csharpLiteral}}, {{$WireKey}}), true));
+        inject(<$Init>, -1) @> {{target:name}} = managed.Resolve<List<{{target:type#0}}>>({{$WireKey}}) as {{target:type}};
         return
       }
     }
     :ResourceList {
       when(attr#source:unwrap:eq(3)) {
-        inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new ResourceListDependency<{{target:type#0}}>({{attr#qualifier:csharpLiteral}}, {{local#WireKey}}), true));
-        inject(<$Init>, -1) @> {{target:name}} = managed.Resolve<List<{{target:type#0}}>>({{local#WireKey}}) as {{target:type}};
+        inject(<$ConfigureManaged>, 0) @> registration.Dependency(new ComponentDependency(new ResourceListDependency<{{target:type#0}}>({{attr#qualifier:csharpLiteral}}, {{$WireKey}}), true));
+        inject(<$Init>, -1) @> {{target:name}} = managed.Resolve<List<{{target:type#0}}>>({{$WireKey}}) as {{target:type}};
         return
       }
     }
@@ -158,7 +160,7 @@ mixin HELIX.Context.ManagedAttribute {
     defineTarget<$UnloadManaged> @> ^UnloadManaged:HELIX.Context.ManagedUnloadMethod
     defineTarget<$Init> @> ^LoadManaged:HELIX.Context.ManagedLoadMethod
     defineTarget<$Dispose> @> $UnloadManaged
-    var IsComponent @= true;
+    var<IsComponent> @= true;
   }
   prelude expression {
     using @> HELIX.Context;
@@ -175,8 +177,7 @@ mixin HELIX.Context.ManagedAttribute {
     {
       inject(<$ConfigureManaged>, -100000) @> registration.scope = {{attr#scope}};
     }
-    :Activator {
-    }
+    :Activator
     when(this:is<MonoBehaviour>) {
       inject(<$ConfigureManaged>, -100000) @> registration.activator = DefaultComponentActivators.MonoBehaviour<{{this:type}}>();
       goto End
@@ -184,8 +185,7 @@ mixin HELIX.Context.ManagedAttribute {
     {
       inject(<$ConfigureManaged>, -100000) @> registration.activator = DefaultComponentActivators.PlainObject<{{this:type}}>();
     }
-    :End {
-    }
+    :End
   }
 }
 
@@ -194,25 +194,25 @@ mixin HELIX.Context.TickerAttribute {
     using @> HELIX.Context;
     local Time = <-0f>
     when(attr#time:exists) {
-      local Time @= attr#time:floatTime;
+      $Time @= attr#time:floatTime;
     }
     local TickerField @> _{{target:name}}Ticker
-    when(local#Time:matches<^-.*>) {
-      local Time @= local#Time:regexReplaceAll<-|f><>;
-      emit<Class> @> private FrameCountTicker {{local#TickerField}} = new({{local#Time}});
+    when($Time:matches<^-.*>) {
+      $Time @= $Time:regexReplaceAll<-|f><>;
+      emit<Class> @> private FrameCountTicker {{$TickerField}} = new({{$Time}});
       goto HookCaller
     }
     {
-      emit<Class> @> private FrameTimeTicker {{local#TickerField}} = new({{local#Time}});
+      emit<Class> @> private FrameTimeTicker {{$TickerField}} = new({{$Time}});
     }
     :HookCaller {
-      local TickerCondition @> {{local#TickerField}}.Tick()
+      local TickerCondition @> {{$TickerField}}.Tick()
     }
     when(![attr#condition:unwrap:eq(null)]) {
-      local TickerCondition @> {{attr#condition:unwrap}} && {{local#TickerCondition}}
+      $TickerCondition @> {{attr#condition:unwrap}} && {{$TickerCondition}}
     }
     when(var#IsComponent:eq(true)) {
-      local TickerCondition @> managed.IsActive && {{local#TickerCondition}}
+      $TickerCondition @> managed.IsActive && {{$TickerCondition}}
     }
     local InvokeTicker @> {{target:name}}();
     when(target:async) {
@@ -220,46 +220,46 @@ mixin HELIX.Context.TickerAttribute {
       using @> Cysharp.Threading.Tasks;
       local AsyncProxyName @> _{{target:name}}AsyncProxy
       emit<Class>
-        @> private async UniTaskVoid {{local#AsyncProxyName}}() {
+        @> private async UniTaskVoid {{$AsyncProxyName}}() {
         @>   try {
-        @>     {{local#TickerField}}.running = true;
-        @>     await {{local#InvokeTicker}}
-        @>   } finally { {{local#TickerField}}.running = false; }
+        @>     {{$TickerField}}.running = true;
+        @>     await {{$InvokeTicker}}
+        @>   } finally { {{$TickerField}}.running = false; }
         @> }
-      local InvokeTicker @> {{local#AsyncProxyName}}().Forget();
+      $InvokeTicker @> {{$AsyncProxyName}}().Forget();
     }
-    inject(attr#target:unwrap, attr#order:number) @> if ({{local#TickerCondition}}) {{local#InvokeTicker}}
+    inject(attr#target:unwrap, attr#order:number) @> if ({{$TickerCondition}}) {{$InvokeTicker}}
   }
 }
 
 // Module discovery is generated from compilation symbols, without runtime reflection.
-func ModuleComponentRegistration sig symbol -> string {
-  when(or(!class(param), generic(param), !accessible(param))) { return(<>) }
-  local ns = namespace(param)
+func ModuleComponentRegistration(symbol value) -> string {
+  when(or(!class($value), generic($value), !accessible($value))) { return(<>) }
+  local ns = namespace($value)
   when(var#ModuleFilter:exists, !eq(var#ModuleFilter, <>),
-       !eq(local#ns, var#ModuleFilter), !startsWith(local#ns, <[var#ModuleFilter].>)) { return(<>) }
-  local code @> registrations.Register(typeof({{param}}), {{param}}.RegistrationConfigurator);
-  return(local#code)
+       !eq($ns, var#ModuleFilter), !startsWith($ns, <[var#ModuleFilter].>)) { return(<>) }
+  local code @> registrations.Register(typeof({{$value}}), {{$value}}.RegistrationConfigurator);
+  return($code)
 }
 
-pure func ModuleImportRegistration sig any -> string {
+pure func ModuleImportRegistration -> string {
   local code @> global::{{param}}.Instance.Discover(registrations);
-  return(local#code)
+  return($code)
 }
 
 func ConfigureModule() -> null do {
   when(generic(this)) { return }
-  var ModuleFilter = unwrap(attr#filter)
+  var<ModuleFilter> @= unwrap(attr#filter);
   local imports = unwrap(attr#import)
-  when(!exists(local#imports)) { local imports = @[] }
-  local importCode = join(map(local#imports, ModuleImportRegistration), <>)
+  when(!exists($imports)) { $imports = @[] }
+  local importCode = join(map($imports, ModuleImportRegistration), <>)
   local registrations = join(map(collectAnnotatedTypes<HELIX.Context.ManagedAttribute>, ModuleComponentRegistration), <>)
   emit<Implements> @> global::HELIX.Context.IHelixModule
   emit<Class>
     @> public static readonly {{this:type}} Instance = new {{this:type}}();
     @> public void Discover(global::HELIX.Context.ManagedRegistrations registrations) {
-    @> {{local#importCode}}
-    @> {{local#registrations}}
+    @> {{$importCode}}
+    @> {{$registrations}}
     @> }
 }
 

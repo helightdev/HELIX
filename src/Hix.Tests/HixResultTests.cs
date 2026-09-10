@@ -20,7 +20,7 @@ public sealed class HixResultTests {
         emit(<data>, @[@{name=<nested>}, local])
         emit(local)
         emit([error<kept>?])
-        local name = <after>
+        $name = <after>
       } }
       """, "Example");
     var result = HixVM.Execute(program, thread);

@@ -23,23 +23,35 @@ class HixCompletionContributor : CompletionContributor() {
                     val parsed = HixAntlrSyntax.parse(source)
                     val token = parsed.tokens.firstOrNull { it.start < offset && offset <= it.end }
                     val service = parameters.position.project.service<HixSnapshotService>()
-                    service.ensureLanguageCatalog()
                     val path = parameters.originalFile.virtualFile?.path
+                    val definitions = service.definitionsFor(source)
+                    parameters.originalFile.virtualFile?.let { service.observe(it, source) }
                     val metadataArgument = HixLookup.metadataArgumentAt(parsed, (offset - 1).coerceAtLeast(0))
-                    val patternArgument = metadataArgument?.let { argument ->
-                        service.definitions.firstOrNull { it.kind == "PatternMetadata" && it.name == argument.name }
-                            ?.let { definition ->
-                                val type = definition.argumentTypes.getOrNull(argument.index)
-                                    ?: if (definition.variadic) definition.argumentTypes.lastOrNull() else null
-                                type == "Pattern"
-                            }
-                    } == true
+                    val metadataArgumentDefinition = metadataArgument?.let { argument ->
+                        definitions.firstOrNull {
+                            it.kind in setOf("PatternMetadata", "FileMetadata") && it.name == argument.name
+                        }
+                    }
+                    val metadataArgumentKind = metadataArgument?.let { argument ->
+                        metadataArgumentDefinition?.argumentTypes?.getOrNull(argument.index)
+                            ?: if (metadataArgumentDefinition?.variadic == true)
+                                metadataArgumentDefinition.argumentTypes.lastOrNull() else null
+                    }
+                    val patternArgument = metadataArgumentKind == "Pattern"
+                    if (metadataArgumentKind == "Backend") {
+                        val backendPrefix = token?.let {
+                            source.substring(it.start.coerceAtLeast(0), offset.coerceIn(it.start, it.end))
+                        }.orEmpty()
+                        listOf("Standalone", "Unity").filter { it.startsWith(backendPrefix, true) }
+                            .forEach { result.addElement(LookupElementBuilder.create(it).withTypeText("backend")) }
+                        return
+                    }
                     if (!patternArgument && token?.type in setOf(HixLexer.ARGUMENT_TEXT, HixLexer.CONTENT_TEXT,
                             HixLexer.COMMENT, HixLexer.SLASH_COMMENT, HixLexer.ESCAPE_LITERAL,
                             HixLexer.ESCAPE_HEX)) return
 
                     fun addPatternCompletions() {
-                        service.definitions.filter { it.kind == "Kind" }.forEach { definition ->
+                        definitions.filter { it.kind == "Kind" }.forEach { definition ->
                             result.addElement(LookupElementBuilder.create(definition, definition.name)
                                 .withTypeText("kind"))
                         }
@@ -56,7 +68,7 @@ class HixCompletionContributor : CompletionContributor() {
                     }
                     when (HixLookup.semanticRoleAt(parsed, (offset - 1).coerceAtLeast(0))) {
                         HixLookup.SemanticRole.FileMetadata -> {
-                            service.definitions.filter { it.kind == "FileMetadata" }.forEach { definition ->
+                            definitions.filter { it.kind == "FileMetadata" }.forEach { definition ->
                                 val arguments = definition.argumentTypes.joinToString("") { "<${it.lowercase()}>" }
                                 result.addElement(LookupElementBuilder.create(definition, definition.name)
                                     .withTailText(arguments, true).withTypeText("file metadata"))
@@ -65,7 +77,7 @@ class HixCompletionContributor : CompletionContributor() {
                         }
                         HixLookup.SemanticRole.PatternMetadata -> {
                             val target = HixLookup.patternMetadataTargetAt(parsed, (offset - 1).coerceAtLeast(0))
-                            service.definitions.filter { definition ->
+                            definitions.filter { definition ->
                                 definition.kind == "PatternMetadata" &&
                                     (definition.operandType == "Pattern" || definition.operandType == target)
                             }.forEach { definition ->
@@ -101,8 +113,10 @@ class HixCompletionContributor : CompletionContributor() {
                                     }
                             }
                         }
+                        if (valueContext || statementContext) {
+                            names += definitions.filter { it.kind == "Root" }.map { it.name }
+                        }
                         if (valueContext) {
-                            names += service.definitions.filter { it.kind == "Root" }.map { it.name }
                             HixAntlrSyntax.rules(parsed.tree)
                                 .filterIsInstance<dev.helight.helix.hix.generated.HixParser.VariableIdentifierContext>()
                                 .forEach { names += it.IDENTIFIER().text }
@@ -111,7 +125,7 @@ class HixCompletionContributor : CompletionContributor() {
                         }
                     }
                     if (!site.member) {
-                        service.definitions.asSequence().filter { it.kind == "Function" }
+                        definitions.asSequence().filter { it.kind == "Function" }
                             .filter { !site.chained || HixLookup.acceptsReceiver(it, receiver) }
                             .distinctBy { HixLookup.signature(it) }.forEach { definition ->
                                 result.addElement(LookupElementBuilder.create(definition, definition.name)
@@ -134,7 +148,7 @@ class HixCompletionContributor : CompletionContributor() {
                         if (site.kind == "CSharpType") {
                             val start = site.replacementRange.startOffset.coerceIn(0, source.length)
                             val prefix = source.substring(start, offset.coerceAtLeast(start))
-                            service.lazyCompletions(site.kind, prefix).asList()
+                            service.lazyCompletions(site.kind, prefix, source).asList()
                         } else site.items.asList()
                     }?.distinctBy { it.insertText }?.forEach { item ->
                         names.remove(item.insertText)

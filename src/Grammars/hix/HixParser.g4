@@ -32,16 +32,12 @@ mixinBody: LC (expressionDeclaration | funcDeclaration | trivia)* RC;
 expressionDeclaration: expressionModifier* KEYWORD_EXPRESSION statementBlock;
 
 funcDeclaration
-    : funcModifier* KEYWORD_FUNC functionDeclarationIdentifier directFunctionSignature? functionMetadata functionBody
+    : funcModifier* KEYWORD_FUNC functionDeclarationIdentifier directFunctionSignature? trivia* functionBody
     ;
 
-directFunctionSignature: patternParameterList ARROW patternExpression;
+directFunctionSignature: patternParameterList? ARROW patternExpression;
 
 functionBody: KEYWORD_DO? statementBlock | FAT_ARROW value VALUE_END?;
-
-functionMetadata: (functionSignatureVariant | NEWLINE)*;
-
-functionSignatureVariant: KEYWORD_SIG signature ARROW signature;
 
 // Patterns
 patternExpression
@@ -77,16 +73,6 @@ patternParameterList
 patternField: metadataList? patternPrimary ROOT_IDENTIFIER?;
 patternIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL;
 
-// Signatures
-signature: tableSignature | kindIdentifier;
-
-tableSignature
-    : BEGIN_TABLE RC
-    | BEGIN_TABLE tableSignatureEntry (VALUE_DELIMITER tableSignatureEntry)* VALUE_DELIMITER? RC
-    ;
-
-tableSignatureEntry: metadata* VALUE_EXPAND? ROOT_IDENTIFIER VALUE_ASSIGN kindIdentifier;
-
 // Actual Statements
 statementBlock: LC (statement | SEMICOLON | trivia)* RC;
 
@@ -94,7 +80,9 @@ statement
     : labelIdentifier NEWLINE
     | labelIdentifier? statementBlock
     | invocationStatement
-    | assignmentStatement
+    | localDeclarationStatement
+    | localAssignmentStatement
+    | toplevelDerivationStatement
     | controlflowStatement
     | whenValueStatement
     | whenConditionStatement
@@ -103,8 +91,8 @@ statement
 
 // Calls
 invocationStatement
-    : IDENTIFIER valueList tailValue?
-    | IDENTIFIER tailValue
+    : invocationIdentifier valueList tailValue?
+    | invocationIdentifier tailValue
     ;
 
 
@@ -133,8 +121,17 @@ whenValueBranch: whenValueCondition ARROW whenResult NEWLINE;
 
 whenValueCondition: value | inlineTransformation;
 
-// Assignments
-assignmentStatement: variableSpecifiers variableIdentifier assignedValue;
+// Variables and dynamic registries
+localDeclarationStatement
+    : KEYWORD_CARRY? KEYWORD_LOCAL variableIdentifier assignedValue?
+    | KEYWORD_CARRY? KEYWORD_LOCAL patternExpression variableIdentifier assignedValue?
+    ;
+
+localAssignmentStatement: VALUE_SMART_ROOT variableIdentifier assignedValue;
+
+toplevelDerivationStatement
+    : TOPLEVEL_DERIVATION functionIdentifier valueList? transformationPart*
+    ;
 
 assignedValue
     : ASSIGN (value | whenValueStatement | whenChainStatement | invocationStatement)
@@ -246,12 +243,12 @@ mixinIdentifier: IDENTIFIER | NAMESPACE_IDENTIFIER | argumentValue;
 functionDeclarationIdentifier: IDENTIFIER | argumentValue;
 variableIdentifier: IDENTIFIER;
 functionIdentifier: FUNCTION_IDENTIFIER | ROOT_IDENTIFIER;
+invocationIdentifier: IDENTIFIER | KEYWORD_LOCAL;
 kindIdentifier: IDENTIFIER | ROOT_IDENTIFIER | NULL;
 
 // Modifiers
 expressionModifier: KEYWORD_PRELUDE | KEYWORD_STRICT;
 mixinModifier: KEYWORD_DERIVATION;
-variableSpecifiers: KEYWORD_CARRY? KEYWORD_LOCAL | (KEYWORD_TARGET? KEYWORD_VAR);
 funcModifier: KEYWORD_PURE | KEYWORD_NOINLINE | KEYWORD_INLINE;
 
 // Common

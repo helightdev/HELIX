@@ -228,8 +228,12 @@ public static class HixPatternRelations {
       return left.ValueKind == right.ValueKind ? HixPatternRelation.Always : HixPatternRelation.Maybe;
     if (actual is TupleHixPattern or ManyHixPattern && expected is KindHixPattern {ValueKind: HixValueKind.Tuple})
       return HixPatternRelation.Always;
+    if (actual is KindHixPattern {ValueKind: HixValueKind.Tuple} && expected is ManyHixPattern)
+      return HixPatternRelation.Maybe;
     if (actual is TableHixPattern or MapHixPattern && expected is KindHixPattern {ValueKind: HixValueKind.Table})
       return HixPatternRelation.Always;
+    if (actual is KindHixPattern {ValueKind: HixValueKind.Table} && expected is MapHixPattern)
+      return HixPatternRelation.Maybe;
     if (actual is DelegateHixPattern or SignatureHixPattern && expected is KindHixPattern {ValueKind: HixValueKind.Function})
       return HixPatternRelation.Always;
     if (actual is ConstantHixPattern constant) return Relate(constant.Underlying, expected, definitions);

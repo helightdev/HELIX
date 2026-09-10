@@ -111,18 +111,6 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitFunctionBody([NotNull] HixParser.FunctionBodyContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="HixParser.functionMetadata"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitFunctionMetadata([NotNull] HixParser.FunctionMetadataContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="HixParser.functionSignatureVariant"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitFunctionSignatureVariant([NotNull] HixParser.FunctionSignatureVariantContext context);
-	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.patternExpression"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -170,24 +158,6 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitPatternIdentifier([NotNull] HixParser.PatternIdentifierContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="HixParser.signature"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitSignature([NotNull] HixParser.SignatureContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="HixParser.tableSignature"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitTableSignature([NotNull] HixParser.TableSignatureContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="HixParser.tableSignatureEntry"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitTableSignatureEntry([NotNull] HixParser.TableSignatureEntryContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.statementBlock"/>.
 	/// </summary>
@@ -273,11 +243,23 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitWhenValueCondition([NotNull] HixParser.WhenValueConditionContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="HixParser.assignmentStatement"/>.
+	/// Visit a parse tree produced by <see cref="HixParser.localDeclarationStatement"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitAssignmentStatement([NotNull] HixParser.AssignmentStatementContext context);
+	Result VisitLocalDeclarationStatement([NotNull] HixParser.LocalDeclarationStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.localAssignmentStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitLocalAssignmentStatement([NotNull] HixParser.LocalAssignmentStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.toplevelDerivationStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitToplevelDerivationStatement([NotNull] HixParser.ToplevelDerivationStatementContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.assignedValue"/>.
 	/// </summary>
@@ -477,6 +459,12 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitFunctionIdentifier([NotNull] HixParser.FunctionIdentifierContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="HixParser.invocationIdentifier"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitInvocationIdentifier([NotNull] HixParser.InvocationIdentifierContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.kindIdentifier"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -494,12 +482,6 @@ public interface IHixParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitMixinModifier([NotNull] HixParser.MixinModifierContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="HixParser.variableSpecifiers"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitVariableSpecifiers([NotNull] HixParser.VariableSpecifiersContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="HixParser.funcModifier"/>.
 	/// </summary>

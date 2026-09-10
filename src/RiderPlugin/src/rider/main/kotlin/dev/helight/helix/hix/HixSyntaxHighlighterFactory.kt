@@ -121,7 +121,8 @@ class HixSyntaxHighlighter(private val project: Project?) : SyntaxHighlighterBas
             type == HixLexer.NUMBER -> HixColors.NUMBER
             type == HixLexer.BOOLEAN -> HixColors.BOOLEAN
             type == HixLexer.NULL -> HixColors.NULL
-            type == HixLexer.ROOT_IDENTIFIER || type == HixLexer.VALUE_SMART_ROOT -> HixColors.VALUE
+            type == HixLexer.ROOT_IDENTIFIER || type == HixLexer.VALUE_SMART_ROOT ||
+                type == HixLexer.TOPLEVEL_DERIVATION -> HixColors.VALUE
             type == HixLexer.FUNCTION_IDENTIFIER -> HixColors.FUNCTION
             type == HixLexer.VALUE_MEMBER -> HixColors.PATH
             type == HixLexer.MEMBER_IDENTIFIER -> HixColors.PATH

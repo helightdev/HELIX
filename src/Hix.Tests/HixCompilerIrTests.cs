@@ -32,13 +32,13 @@ public sealed class HixCompilerIrTests {
   }
 
   [Fact]
-  public void BranchAssignmentsMergeBeforeSubsequentOverloadBinding() {
+  public void BranchAssignmentsKeepTheInferredLocalTypeForBinding() {
     var unit = AntlrSyntax.Parse("""
-      pure func choose sig number -> string { return(<number>) }
-      pure func choose sig string -> string { return(<string>) }
+      pure func choose (number value) -> string { return(<number>) }
+      pure func choose (string value) -> string { return(<string>) }
       mixin Test { expression {
         local value = 1
-        when(false) { local value = <changed> }
+        when(false) { $value = <changed> }
         emit(choose(local#value))
       } }
       """);
@@ -46,7 +46,7 @@ public sealed class HixCompilerIrTests {
     var declaration = Assert.Single(unit.Declarations.OfType<MixinDeclarationIr>());
     var module = HixCompiler.PrepareIr(declaration, catalog);
     var emit = Assert.IsType<InvocationStatementIr>(module.Late[0].Body.Statements[2]).Call;
-    Assert.Equal(HixCallKind.Dynamic, Assert.IsType<CallExpressionIr>(emit.Arguments[0]).Binding.Kind);
+    Assert.Equal(HixCallKind.Static, Assert.IsType<CallExpressionIr>(emit.Arguments[0]).Binding.Kind);
     var result = HixVM.Execute(HixCompiler.Compile(unit, "Test"), new HixThread());
     Assert.True(result.Success, result.Error.Resolve(result.Strings));
     Assert.Equal("number", Assert.Single(result.Outputs).ReadText());
@@ -89,5 +89,22 @@ public sealed class HixCompilerIrTests {
     Assert.Contains(unit.Tokens, token => token.Type == HixLexer.BEGIN_PARAMETERS);
     Assert.Contains(unit.Tokens, token => token.Type == HixLexer.NUMBER);
     Assert.Equal(unit.Source, string.Concat(unit.Tokens.Select(token => token.Text)));
+  }
+
+  [Fact]
+  public void InterpolatedWhenBranchesInferString() {
+    var analysis = new LanguageAnalysis("""
+      mixin Test { expression {
+        local suffix = <Type>
+        local datatype = when [true] {
+          true -> <global::Example.String>
+          else -> <global::Example.Object[$suffix]>
+        }
+      } }
+      """);
+
+    var declaration = Assert.Single(analysis.TypeFacts.Where(fact =>
+      fact.Inlay && fact.Documentation == "local datatype: string"));
+    Assert.Equal("string", declaration.Type);
   }
 }

@@ -1,3 +1,5 @@
+%backend<Unity>
+---
 type DerivedProperty = @{
   string name,
   any type,
@@ -18,30 +20,30 @@ type DerivedProperty = @{
 type DerivedPropertyEntry = @{any symbol, DerivedProperty value}
 type DerivedProperties = %many<DerivedPropertyEntry>
 
-func KeepInstanceField sig any -> bool {
+func KeepInstanceField -> bool {
   local Item @= $0;
-  when(![local#Item:field]) {
+  when(![$Item:field]) {
     return(false)
   }
-  when(local#Item:static) {
+  when($Item:static) {
     return(false)
   }
   return(true)
 }
 
-func SeedProp sig any -> table {
+func SeedProp -> table {
   local Item @= $0;
-  local Name @= local#Item:name:identifier;
-  local Type @= local#Item:type;
+  local Name @= $Item:name:identifier;
+  local Type @= $Item:type;
   local Modifier = <>
   local ParameterModifier = <>
-  when [local#Item] {
-    [:in] -> { local Modifier = <in>; local ParameterModifier = <in> }
-    [:ref] -> { local Modifier = <ref> }
-    [:out] -> { local Modifier = <out> }
+  when [$Item] {
+    [:in] -> { $Modifier = <in>; $ParameterModifier = <in> }
+    [:ref] -> { $Modifier = <ref> }
+    [:out] -> { $Modifier = <out> }
   }
-  local selfType @> <{{local#Type}}>()
-  local Datatype = when [local#Type] {
+  local selfType @> <{{$Type}}>()
+  local Datatype = when [$Type] {
     [:is<System.String>] -> <global::HELIX.Datatypes.String>
     [:is<System.Int32>] -> <global::HELIX.Datatypes.Int>
     [:is<System.Int64>] -> <global::HELIX.Datatypes.Long>
@@ -56,49 +58,49 @@ func SeedProp sig any -> table {
     else -> <global::HELIX.Datatypes.Object[$selfType]>
   }
 
-  local Equality @> global::System.Collections.Generic.EqualityComparer<{{local#Type}}>.Default.Equals(this.{{local#Name}}, other.{{local#Name}})
-  local Hash @> this.{{local#Name}}
-  when(local#Type:primitive) {
-    local Equality @> this.{{local#Name}} == other.{{local#Name}}
+  local Equality @> global::System.Collections.Generic.EqualityComparer<{{$Type}}>.Default.Equals(this.{{$Name}}, other.{{$Name}})
+  local Hash @> this.{{$Name}}
+  when($Type:primitive) {
+    $Equality @> this.{{$Name}} == other.{{$Name}}
   }
-  when(local#Type:pointer) {
-    local Equality @> this.{{local#Name}} == other.{{local#Name}}
-    local Hash @> ((global::System.IntPtr)this.{{local#Name}})
+  when($Type:pointer) {
+    $Equality @> this.{{$Name}} == other.{{$Name}}
+    $Hash @> ((global::System.IntPtr)this.{{$Name}})
   }
   local ModifierPrefix = when {
-    (local#Modifier) -> <[local#Modifier] >
+    ($Modifier) -> <[$Modifier] >
     else -> <>
   }
   local ParameterModifierPrefix = when {
-    (local#ParameterModifier) -> <[local#ParameterModifier] >
+    ($ParameterModifier) -> <[$ParameterModifier] >
     else -> <>
   }
-  return(@{symbol=local#Item, value=@{name=local#Name, type=local#Type, modifier=local#ModifierPrefix, parameter=<[local#ParameterModifierPrefix][local#Type] [local#Name]>, argument=<[local#ParameterModifierPrefix][local#Name]>, callArgument=<[local#ModifierPrefix][local#Name]>, assignment=<this.[local#Name] = [local#Name];>, datatype=local#Datatype, required=true, default=<null>, configuration=<>, equatable=true, unsafe=local#Type:containsPointer, equality=local#Equality, hash=local#Hash}})
+  return(@{symbol=$Item, value=@{name=$Name, type=$Type, modifier=$ModifierPrefix, parameter=<[$ParameterModifierPrefix][$Type] [$Name]>, argument=<[$ParameterModifierPrefix][$Name]>, callArgument=<[$ModifierPrefix][$Name]>, assignment=<this.[$Name] = [$Name];>, datatype=$Datatype, required=true, default=<null>, configuration=<>, equatable=true, unsafe=$Type:containsPointer, equality=$Equality, hash=$Hash}})
 }
 
-func DeriveParameters sig symbol -> DerivedProperties {
-  assert(![param:genericMethod])
-  target var PropOptional @= false;
-  return(param:parameters:map(SeedProp):derive)
+func DeriveParameters(symbol value) -> DerivedProperties {
+  assert(![$value:genericMethod])
+  tar<PropOptional> @= false;
+  return($value:parameters:map(SeedProp):derive)
 }
 
-func DeriveFields sig symbol -> DerivedProperties {
-  target var PropOptional @= false;
-  return(param:members:where(KeepInstanceField):map(SeedProp):derive)
+func DeriveFields(symbol value) -> DerivedProperties {
+  tar<PropOptional> @= false;
+  return($value:members:where(KeepInstanceField):map(SeedProp):derive)
 }
 
-func SelectDatatypeProperty sig DerivedPropertyEntry -> string {
-  local returnedText1 @> new global::HELIX.StructurePropertyDatatype<{{var#StructureType}}, {{$0#value#type}}>("{{$0#value#name}}", {{$0#value#datatype}}, (ref {{var#StructureType}} value) => value.{{$0#value#name}}, (ref {{var#StructureType}} value, {{$0#value#type}} propertyValue) => value.{{$0#value#name}} = propertyValue, required: {{$0#value#required}}, defaultValue: {{$0#value#default}})
-  return(local#returnedText1)
+func SelectDatatypeProperty(DerivedPropertyEntry value) -> string {
+  local returnedText1 @> new global::HELIX.StructurePropertyDatatype<{{var#StructureType}}, {{$value#value#type}}>("{{$value#value#name}}", {{$value#value#datatype}}, (ref {{var#StructureType}} value) => value.{{$value#value#name}}, (ref {{var#StructureType}} value, {{$value#value#type}} propertyValue) => value.{{$value#value#name}} = propertyValue, required: {{$value#value#required}}, defaultValue: {{$value#value#default}})
+  return($returnedText1)
 }
 
 func BuildDatatype(string type, string name, DerivedProperties props) -> string {
-  var StructureType @= param#type;
+  var<StructureType> @= param#type;
   local Empty = <>
   local PropertySeparator
     @> ,
-    @>       {{local#Empty}}
-  local Properties @= param#props:map(SelectDatatypeProperty):join(local#PropertySeparator);
+    @>       {{$Empty}}
+  local Properties @= param#props:map(SelectDatatypeProperty):join($PropertySeparator);
   local Configurations @= param#props:where(func => $0#value#configuration:exists):map(func => $0#value#configuration):join< >;
   local returnedText2
     @> public static readonly global::HELIX.StructureDatatype<{{param#type}}> Datatype =
@@ -106,13 +108,13 @@ func BuildDatatype(string type, string name, DerivedProperties props) -> string 
     @>   new global::HELIX.StructureDatatype<{{param#type}}>(
     @>     "{{param#name}}",
     @>     new global::HELIX.StructurePropertyDatatype<{{param#type}}>[] {
-    @>       {{local#Properties}}
+    @>       {{$Properties}}
     @>     }),
     @>   datatype => ConfigureDatatype(datatype)).Datatype;
     @> static void ConfigureDatatype(global::HELIX.StructureDatatype<{{param#type}}> datatype) {
-    @>   {{local#Configurations}}
+    @>   {{$Configurations}}
     @> }
-  return(local#returnedText2)
+  return($returnedText2)
 }
 
 func EmitGeneratedStructure(string name, DerivedProperties props, bool datatype) -> DerivedProperties {
@@ -121,52 +123,52 @@ func EmitGeneratedStructure(string name, DerivedProperties props, bool datatype)
   local Assignments @= param#props:map(func => $0#value#assignment):join< >;
   local Datatype = <>
   when(param#datatype:eq(true)) {
-    local Datatype @= BuildDatatype(param#name, param#name, param#props);
+    $Datatype @= BuildDatatype(param#name, param#name, param#props);
   }
   local Constructor = <>
   when(![param#props:length:eq(0)]) {
-    local Constructor
-      @> public {{param#name}}({{local#Parameters}}) {
-      @>   {{local#Assignments}}
+    $Constructor
+      @> public {{param#name}}({{$Parameters}}) {
+      @>   {{$Assignments}}
       @> }
   }
   local Unsafe = <>
   when(![param#props:where(func => $0#value#unsafe:eq(true)):length:eq(0)]) {
-    local Unsafe = <unsafe>
+    $Unsafe = <unsafe>
   }
   emit<Class>
-    @> public {{local#Unsafe}} struct {{param#name}} {
-    @>   {{local#Fields}}
-    @>   {{local#Constructor}}
-    @>   {{local#Datatype}}
+    @> public {{$Unsafe}} struct {{param#name}} {
+    @>   {{$Fields}}
+    @>   {{$Constructor}}
+    @>   {{$Datatype}}
     @> }
   return(param#props)
 }
 
 func RequireCompanion() -> null {
   when(![var#CompanionName:exists]) {
-    var CompanionName @> {{this:name}}_Companion
-    var DeclareCompanion @> public static partial class {{var#CompanionName}}
+    var<CompanionName> @> {{this:name}}_Companion
+    var<DeclareCompanion> @> public static partial class {{var#CompanionName}}
     emit<File> @> {{var#DeclareCompanion}} {}
   }
 }
 
-func DeclareCompanion sig string -> null {
+func DeclareCompanion(string value) -> null {
   when(![var#CompanionName:exists]) {
-    var CompanionName @> {{this:name}}_Companion
-    var DeclareCompanion @> public static partial class {{var#CompanionName}}
+    var<CompanionName> @> {{this:name}}_Companion
+    var<DeclareCompanion> @> public static partial class {{var#CompanionName}}
   }
   emit<File>
     @> {{var#DeclareCompanion}} {
-    @>   {{param}}
+    @>   {{$value}}
     @> }
 }
 
 derivation mixin HELIX.PropertyDatatypeAttribute {
   prelude expression {
     local Datatype @= param#symbol:attributeOf<HELIX.PropertyDatatypeAttribute>;
-    when(local#Datatype:exists) {
-      return(param#value:put(<datatype>, local#Datatype#datatype:unwrap))
+    when($Datatype:exists) {
+      return(param#value:put(<datatype>, $Datatype#datatype:unwrap))
     }
     return(param#value)
   }
@@ -175,122 +177,122 @@ derivation mixin HELIX.PropertyDatatypeAttribute {
 derivation mixin HELIX.PropAttribute {
   prelude expression {
     local Prop @= param#symbol:attributeOf<HELIX.PropAttribute>;
-    when(![local#Prop:exists]) {
+    when(![$Prop:exists]) {
       assert(![tar#PropOptional:eq(true)])
       return(param#value)
     }
-    local Mode @= local#Prop#defaultInit:unwrap;
-    when(![local#Mode:exists]) {
+    local Mode @= $Prop#defaultInit:unwrap;
+    when(![$Mode:exists]) {
       assert(![tar#PropOptional:eq(true)])
       return(param#value)
     }
-    when(local#Mode:eq(3)) {
+    when($Mode:eq(3)) {
       assert(![tar#PropOptional:eq(true)])
       return(param#value)
     }
-    when(local#Mode:eq<None>) {
+    when($Mode:eq<None>) {
       assert(![tar#PropOptional:eq(true)])
       return(param#value)
     }
-    when(local#Mode:eq<HELIX.PropInit.None>) {
+    when($Mode:eq<HELIX.PropInit.None>) {
       assert(![tar#PropOptional:eq(true)])
       return(param#value)
     }
-    when(local#Mode:eq(0)) {
-      assert(local#Prop#defaultValue:parameterDefault)
+    when($Mode:eq(0)) {
+      assert($Prop#defaultValue:parameterDefault)
     }
-    when(local#Mode:eq(1)) {
-      assert(local#Prop#defaultValue:nonEmptyStringConstant)
+    when($Mode:eq(1)) {
+      assert($Prop#defaultValue:nonEmptyStringConstant)
     }
-    when(local#Mode:eq(2)) {
-      assert(local#Prop#defaultValue:nonEmptyStringConstant)
+    when($Mode:eq(2)) {
+      assert($Prop#defaultValue:nonEmptyStringConstant)
     }
     assert(![param#symbol:in])
-    target var PropOptional @= true;
-    local Default @= local#Prop#defaultValue:csharpLiteral;
-    local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
+    tar<PropOptional> @= true;
+    local Default @= $Prop#defaultValue:csharpLiteral;
+    local Parameter @> {{param#value#type}} {{param#value#name}} = {{$Default}}
     local Assignment @> this.{{param#value#name}} = {{param#value#name}};
-    when(local#Mode:eq<Constant>) {
-      local Default @= local#Prop#defaultValue:unwrap;
-      local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
+    when($Mode:eq<Constant>) {
+      $Default @= $Prop#defaultValue:unwrap;
+      $Parameter @> {{param#value#type}} {{param#value#name}} = {{$Default}}
     }
-    when(local#Mode:eq<HELIX.PropInit.Constant>) {
-      local Default @= local#Prop#defaultValue:unwrap;
-      local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
+    when($Mode:eq<HELIX.PropInit.Constant>) {
+      $Default @= $Prop#defaultValue:unwrap;
+      $Parameter @> {{param#value#type}} {{param#value#name}} = {{$Default}}
     }
-    when(local#Mode:eq(1)) {
-      local Default @= local#Prop#defaultValue:unwrap;
-      local Parameter @> {{param#value#type}} {{param#value#name}} = {{local#Default}}
+    when($Mode:eq(1)) {
+      $Default @= $Prop#defaultValue:unwrap;
+      $Parameter @> {{param#value#type}} {{param#value#name}} = {{$Default}}
     }
-    when(local#Mode:eq(2)) {
-      local Default @= local#Prop#defaultValue:unwrap;
-      local Parameter @> {{param#symbol:nullableType}} {{param#value#name}} = null
-      local Assignment @> this.{{param#value#name}} = {{param#value#name}} ?? {{local#Default}};
+    when($Mode:eq(2)) {
+      $Default @= $Prop#defaultValue:unwrap;
+      $Parameter @> {{param#symbol:nullableType}} {{param#value#name}} = null
+      $Assignment @> this.{{param#value#name}} = {{param#value#name}} ?? {{$Default}};
     }
-    local Value @= param#value:put(<parameter>, local#Parameter):put(<assignment>, local#Assignment):put(<required>, false):put(<default>, local#Default);
-    when(local#Prop#Equatable:unwrap:eq(false)) {
-      local Value @= local#Value:put(<equatable>, false);
+    local Value @= param#value:put(<parameter>, $Parameter):put(<assignment>, $Assignment):put(<required>, false):put(<default>, $Default);
+    when($Prop#Equatable:unwrap:eq(false)) {
+      $Value @= $Value:put(<equatable>, false);
     }
-    when(local#Prop#Datatype:exists) {
-      local Value @= local#Value:put(<datatype>, local#Prop#Datatype:unwrap);
+    when($Prop#Datatype:exists) {
+      $Value @= $Value:put(<datatype>, $Prop#Datatype:unwrap);
     }
-    when(local#Prop#EqualitySyntax:exists, ![param#symbol:type:primitive], ![param#symbol:type:pointer]) {
-      assert(local#Prop#EqualitySyntax:unwrap:matches<\\S>)
-      local Equality @= local#Prop#EqualitySyntax:unwrap:replaceAll(<\{0\}>, <this.[param#value#name]>):replaceAll(<\{1\}>, <other.[param#value#name]>);
-      local Value @= local#Value:put(<equality>, local#Equality);
+    when($Prop#EqualitySyntax:exists, ![param#symbol:type:primitive], ![param#symbol:type:pointer]) {
+      assert($Prop#EqualitySyntax:unwrap:matches<\\S>)
+      local Equality @= $Prop#EqualitySyntax:unwrap:replaceAll(<\{0\}>, <this.[param#value#name]>):replaceAll(<\{1\}>, <other.[param#value#name]>);
+      $Value @= $Value:put(<equality>, $Equality);
     }
-    when(local#Prop#HashCodeSyntax:exists, ![param#symbol:type:primitive], ![param#symbol:type:pointer]) {
-      assert(local#Prop#HashCodeSyntax:unwrap:matches<\\S>)
-      local Hash @= local#Prop#HashCodeSyntax:unwrap:replaceAll(<\{0\}>, <this.[param#value#name]>);
-      local Value @= local#Value:put(<hash>, local#Hash);
+    when($Prop#HashCodeSyntax:exists, ![param#symbol:type:primitive], ![param#symbol:type:pointer]) {
+      assert($Prop#HashCodeSyntax:unwrap:matches<\\S>)
+      local Hash @= $Prop#HashCodeSyntax:unwrap:replaceAll(<\{0\}>, <this.[param#value#name]>);
+      $Value @= $Value:put(<hash>, $Hash);
     }
-    return(local#Value)
+    return($Value)
   }
 }
 
 mixin HELIX.StructureAttribute {
   prelude expression {
     local PropsModel @= this:DeriveFields;
-    local Parameters @= local#PropsModel:map(func => $0#value#parameter):join<, >;
-    local Assignments @= local#PropsModel:map(func => $0#value#assignment):join< >;
-    when(![local#PropsModel:length:eq(0)]) {
+    local Parameters @= $PropsModel:map(func => $0#value#parameter):join<, >;
+    local Assignments @= $PropsModel:map(func => $0#value#assignment):join< >;
+    when(![$PropsModel:length:eq(0)]) {
       emit<Class>
-        @> {{this:visibility}} {{this:name}}({{local#Parameters}}) {
-        @>   {{local#Assignments}}
+        @> {{this:visibility}} {{this:name}}({{$Parameters}}) {
+        @>   {{$Assignments}}
         @> }
     }
-    local EqualityProps @= local#PropsModel:where(func => $0#value#equatable:eq(true));
-    local Comparisons @= local#EqualityProps:map(func => $0#value#equality):join< && >;
-    local HashAdds @= local#EqualityProps:map(func => <hashCode.Add\([$0#value#hash]\);>):join< >;
+    local EqualityProps @= $PropsModel:where(func => $0#value#equatable:eq(true));
+    local Comparisons @= $EqualityProps:map(func => $0#value#equality):join< && >;
+    local HashAdds @= $EqualityProps:map(func => <hashCode.Add\([$0#value#hash]\);>):join< >;
     local Unsafe = <>
-    when(this:equatableSelf, ![local#EqualityProps:where(func => $0#value#unsafe:eq(true)):length:eq(0)]) {
-      local Unsafe = <unsafe>
+    when(this:equatableSelf, ![$EqualityProps:where(func => $0#value#unsafe:eq(true)):length:eq(0)]) {
+      $Unsafe = <unsafe>
     }
     when(this:equatableSelf, ![this:typedEqualsSelf]) {
       local EqualityBody = when {
-        (local#Comparisons) -> [local#Comparisons]
+        ($Comparisons) -> [$Comparisons]
         else -> <true>
       }
-      emit<Class> @> public {{local#Unsafe}} bool Equals({{this:type}} other) => {{local#EqualityBody}};
+      emit<Class> @> public {{$Unsafe}} bool Equals({{this:type}} other) => {{$EqualityBody}};
     }
     local TypedEqualsCall = <Equals\(other\)>
     when(this:equatableSelf, this:typedEqualsSelf, ![this:ordinaryTypedEqualsSelf]) {
-      local TypedEqualsCall @> ((global::System.IEquatable<{{this:type}}>)this).Equals(other)
+      $TypedEqualsCall @> ((global::System.IEquatable<{{this:type}}>)this).Equals(other)
     }
     when(this:equatableSelf, ![this:objectEquals]) {
-      emit<Class> @> public override bool Equals(object obj) => obj is {{this:type}} other && {{local#TypedEqualsCall}};
+      emit<Class> @> public override bool Equals(object obj) => obj is {{this:type}} other && {{$TypedEqualsCall}};
     }
     when(this:equatableSelf, ![this:hashCode]) {
       emit<Class>
-        @> public override {{local#Unsafe}} int GetHashCode() {
+        @> public override {{$Unsafe}} int GetHashCode() {
         @>   var hashCode = new global::System.HashCode();
-        @>   {{local#HashAdds}}
+        @>   {{$HashAdds}}
         @>   return hashCode.ToHashCode();
         @> }
     }
     when(attr#datatype:unwrap:eq(true)) {
-      local DatatypeCode @= BuildDatatype(this:type, this:name, local#PropsModel);
-      emit(<Class>, local#DatatypeCode)
+      local DatatypeCode @= BuildDatatype(this:type, this:name, $PropsModel);
+      emit(<Class>, $DatatypeCode)
     }
   }
 }
@@ -301,7 +303,7 @@ mixin HELIX.HookAttribute {
     when($Name:eq(null)) {
       assert(target:name:matches<^On.*>)
       local IsImplicit @= true;
-      local Name @> ${{target:name:regexReplaceFirst<^On><>}}
+      $Name @> ${{target:name:regexReplaceFirst<^On><>}}
     }
     when(![target#0:exists]) {
       inject($Name, attr#order:number) @> {{target:name}}();

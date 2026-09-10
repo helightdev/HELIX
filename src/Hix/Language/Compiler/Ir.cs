@@ -171,17 +171,24 @@ public sealed class BlockStatementIr(IReadOnlyList<StatementIr> statements, stri
 
 public enum StorageSpace { Local, Variable, Target }
 
-public sealed class AssignmentStatementIr(StorageSpace storage, string name, ExpressionIr value, bool carried = false)
-  : StatementIr([value]) {
+public sealed class AssignmentStatementIr(StorageSpace storage, string name, ExpressionIr value, bool carried = false,
+  bool declaration = true, HixPattern declaredPattern = null)
+  : StatementIr(value == null ? [] : [value]) {
   public StorageSpace Storage { get; } = storage;
   public string Name { get; } = name;
   public ExpressionIr Value { get; } = value;
   public bool IsCarried { get; } = carried;
+  public bool IsDeclaration { get; } = declaration;
+  public HixPattern DeclaredPattern { get; } = declaredPattern;
   public HixVariableSymbol Symbol { get; set; }
 }
 
 public sealed class InvocationStatementIr(CallExpressionIr call) : StatementIr([call]) {
   public CallExpressionIr Call { get; } = call;
+}
+
+public sealed class ExpressionStatementIr(ExpressionIr expression) : StatementIr([expression]) {
+  public ExpressionIr Expression { get; } = expression;
 }
 
 public enum ControlFlowKind { Return, Goto, Break, Continue, Label }
