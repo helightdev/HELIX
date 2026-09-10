@@ -51,6 +51,10 @@ class HixSnapshotService(private val project: Project) {
     private val catalogRequestInFlight = AtomicBoolean(false)
 
     @Volatile
+    var analysisBackend: String = DEFAULT_BACKEND
+        private set
+
+    @Volatile
     var definitions: Array<MixinLanguageDefinition> = emptyArray()
         private set
 
@@ -67,10 +71,15 @@ class HixSnapshotService(private val project: Project) {
     fun ensureLanguageCatalog() {
         if (definitions.isNotEmpty() || project.isDisposed || !catalogRequestInFlight.compareAndSet(false, true))
             return
+        val requestedBackend = analysisBackend
         val lifetime = UnityProjectLifetimeService.getLifetime(project)
         project.solution.helixExpressionModel.getMixinLanguageCatalog
-            .start(lifetime, true).result.adviseOnce(lifetime) { result ->
+            .start(lifetime, requestedBackend).result.adviseOnce(lifetime) { result ->
                 catalogRequestInFlight.set(false)
+                if (analysisBackend != requestedBackend) {
+                    ensureLanguageCatalog()
+                    return@adviseOnce
+                }
                 if (result is RdTaskResult.Success && result.value.definitions.isNotEmpty()) {
                     definitions = result.value.definitions
                     val files = knownFiles.values.toList()
@@ -89,6 +98,16 @@ class HixSnapshotService(private val project: Project) {
         ensureLanguageCatalog()
     }
 
+    fun useAnalysisBackend(backend: String) {
+        val selected = backend.takeIf { it in ANALYSIS_BACKENDS } ?: DEFAULT_BACKEND
+        if (analysisBackend == selected) return
+        analysisBackend = selected
+        definitions = emptyArray()
+        requestedDirectoryHashes.clear()
+        semanticRetries.clear()
+        ensureLanguageCatalog()
+    }
+
     private fun requestLanguageCatalog() = ensureLanguageCatalog()
 
     private fun scheduleCatalogRetry() {
@@ -99,7 +118,7 @@ class HixSnapshotService(private val project: Project) {
 
     fun lazyCompletions(kind: String, prefix: String): Array<MixinCompletionItem> = try {
         project.solution.helixExpressionModel.completeMixin
-            .sync(MixinCompletionRequest(kind, prefix), RpcTimeouts(500L, 2_000L)).items
+            .sync(MixinCompletionRequest(kind, prefix, analysisBackend), RpcTimeouts(500L, 2_000L)).items
     } catch (_: Throwable) {
         emptyArray()
     }
@@ -162,7 +181,8 @@ class HixSnapshotService(private val project: Project) {
             path to source
         }
         val directory = normalise(origin.parent?.path ?: origin.path)
-        val requestHash = batchHash(sources)
+        val requestedBackend = analysisBackend
+        val requestHash = batchHash(sources, requestedBackend)
         if (requestedDirectoryHashes.put(directory, requestHash) == requestHash) {
             // A newly opened editor can request the same already-analysed batch after the
             // original listener has gone away. Re-deliver matching immutable snapshots instead
@@ -186,7 +206,8 @@ class HixSnapshotService(private val project: Project) {
         val lifetime = UnityProjectLifetimeService.getLifetime(project)
         val responded = AtomicBoolean(false)
         AppExecutorUtil.getAppScheduledExecutorService().schedule({
-            if (responded.get() || project.isDisposed) return@schedule
+            if (responded.get() || project.isDisposed || analysisBackend != requestedBackend)
+                return@schedule
             requestedDirectoryHashes.remove(directory, requestHash)
             ApplicationManager.getApplication().invokeLater {
                 if (!responded.get() && !project.isDisposed)
@@ -194,8 +215,12 @@ class HixSnapshotService(private val project: Project) {
             }
         }, REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         project.solution.helixExpressionModel.parseMixinFiles
-            .start(lifetime, MixinParseRequest(inputs)).result.adviseOnce(lifetime) { result ->
+            .start(lifetime, MixinParseRequest(inputs, requestedBackend)).result.adviseOnce(lifetime) { result ->
                 responded.set(true)
+                if (analysisBackend != requestedBackend) {
+                    requestedDirectoryHashes.remove(directory, requestHash)
+                    return@adviseOnce
+                }
                 if (result !is RdTaskResult.Success) {
                     requestedDirectoryHashes.remove(directory, requestHash)
                     ApplicationManager.getApplication().invokeLater {
@@ -349,6 +374,8 @@ class HixSnapshotService(private val project: Project) {
         private const val SEMANTIC_RETRY_DELAY_MS = 750L
         private const val MAX_SEMANTIC_RETRIES = 80
         private const val CATALOG_RETRY_DELAY_MS = 500L
+        const val DEFAULT_BACKEND = "Rider"
+        val ANALYSIS_BACKENDS = arrayOf(DEFAULT_BACKEND, "Standalone")
         val ORIGINAL_PATH: Key<String> = Key.create("helix.mixin.original.path")
         val SEMANTIC_SNAPSHOT: Key<MixinFileSnapshot> = Key.create("helix.mixin.semantic.snapshot")
         fun getInstance(project: Project): HixSnapshotService = project.service()
@@ -364,8 +391,12 @@ class HixSnapshotService(private val project: Project) {
 
         private fun normalise(path: String): String = path.replace('\\', '/')
 
-        private fun batchHash(files: List<Pair<String, String>>): Long {
+        private fun batchHash(files: List<Pair<String, String>>, backend: String): Long {
             var hash = 1469598103934665603L
+            for (character in backend) {
+                hash = hash xor character.code.toLong()
+                hash *= 1099511628211L
+            }
             for ((path, source) in files) {
                 for (character in path) {
                     hash = hash xor character.code.toLong()

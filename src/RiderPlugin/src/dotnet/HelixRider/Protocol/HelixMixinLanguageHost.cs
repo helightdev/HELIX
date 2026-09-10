@@ -24,16 +24,22 @@ namespace HelixRider.Protocol;
 [SolutionComponent(Instantiation.ContainerAsyncAnyThreadSafe)]
 public sealed class HelixMixinLanguageHost {
     private readonly ISymbolCache _symbolCache;
-    private readonly HixAnalyzerService _analyzer;
+    private readonly IReadOnlyDictionary<string, HixAnalyzerService> _analyzers;
     public HelixMixinLanguageHost(ISolution solution, ISymbolCache symbolCache) {
         _symbolCache = symbolCache;
-        _analyzer = NewAnalyzer(new RiderAnalyzerHost(this));
+        _analyzers = new Dictionary<string, HixAnalyzerService>(StringComparer.OrdinalIgnoreCase) {
+            ["Rider"] = NewAnalyzer(new RiderAnalyzerHost(this)),
+            ["Standalone"] = new HixAnalyzerService()
+        };
         var model = solution.GetProtocolSolution().GetHelixExpressionModel();
-        model.ParseMixinFiles.SetAsync((_, request) => RdTask.Successful(Parse(_analyzer, request)));
+        model.ParseMixinFiles.SetAsync((_, request) => RdTask.Successful(Parse(Analyzer(request.Backend), request)));
         model.CompleteMixin.SetAsync((_, request) => RdTask.Successful(new MixinCompletionResponse(
-            _analyzer.Complete(request.Kind, request.Prefix).Select(Completion).ToArray())));
-        model.GetMixinLanguageCatalog.SetAsync((_, _) => RdTask.Successful(LanguageCatalog(_analyzer)));
+            Analyzer(request.Backend).Complete(request.Kind, request.Prefix).Select(Completion).ToArray())));
+        model.GetMixinLanguageCatalog.SetAsync((_, backend) => RdTask.Successful(LanguageCatalog(Analyzer(backend))));
     }
+
+    private HixAnalyzerService Analyzer(string name) =>
+        _analyzers.TryGetValue(name ?? string.Empty, out var analyzer) ? analyzer : _analyzers["Rider"];
 
     internal static MixinParseResponse Parse(MixinParseRequest request) =>
         Parse(NewAnalyzer(), request);

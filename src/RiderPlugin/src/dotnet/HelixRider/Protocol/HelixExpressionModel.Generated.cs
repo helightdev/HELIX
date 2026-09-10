@@ -44,20 +44,20 @@ namespace HelixRider.Protocol
     //public fields
     [NotNull] public IRdEndpoint<MixinParseRequest, MixinParseResponse> ParseMixinFiles => _ParseMixinFiles;
     [NotNull] public IRdEndpoint<MixinCompletionRequest, MixinCompletionResponse> CompleteMixin => _CompleteMixin;
-    [NotNull] public IRdEndpoint<bool, MixinLanguageCatalog> GetMixinLanguageCatalog => _GetMixinLanguageCatalog;
+    [NotNull] public IRdEndpoint<string, MixinLanguageCatalog> GetMixinLanguageCatalog => _GetMixinLanguageCatalog;
     [NotNull] public IViewableProperty<bool> IsHelixEnabled => _IsHelixEnabled;
 
     //private fields
     [NotNull] private readonly RdCall<MixinParseRequest, MixinParseResponse> _ParseMixinFiles;
     [NotNull] private readonly RdCall<MixinCompletionRequest, MixinCompletionResponse> _CompleteMixin;
-    [NotNull] private readonly RdCall<bool, MixinLanguageCatalog> _GetMixinLanguageCatalog;
+    [NotNull] private readonly RdCall<string, MixinLanguageCatalog> _GetMixinLanguageCatalog;
     [NotNull] private readonly RdProperty<bool> _IsHelixEnabled;
 
     //primary constructor
     private HelixExpressionModel(
       [NotNull] RdCall<MixinParseRequest, MixinParseResponse> parseMixinFiles,
       [NotNull] RdCall<MixinCompletionRequest, MixinCompletionResponse> completeMixin,
-      [NotNull] RdCall<bool, MixinLanguageCatalog> getMixinLanguageCatalog,
+      [NotNull] RdCall<string, MixinLanguageCatalog> getMixinLanguageCatalog,
       [NotNull] RdProperty<bool> isHelixEnabled
     )
     {
@@ -84,7 +84,7 @@ namespace HelixRider.Protocol
     ) : this (
       new RdCall<MixinParseRequest, MixinParseResponse>(MixinParseRequest.Read, MixinParseRequest.Write, MixinParseResponse.Read, MixinParseResponse.Write),
       new RdCall<MixinCompletionRequest, MixinCompletionResponse>(MixinCompletionRequest.Read, MixinCompletionRequest.Write, MixinCompletionResponse.Read, MixinCompletionResponse.Write),
-      new RdCall<bool, MixinLanguageCatalog>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool, MixinLanguageCatalog.Read, MixinLanguageCatalog.Write),
+      new RdCall<string, MixinLanguageCatalog>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, MixinLanguageCatalog.Read, MixinLanguageCatalog.Write),
       new RdProperty<bool>(JetBrains.Rd.Impl.Serializers.ReadBool, JetBrains.Rd.Impl.Serializers.WriteBool)
     ) {}
     //deconstruct trait
@@ -92,7 +92,7 @@ namespace HelixRider.Protocol
 
 
 
-    protected override long SerializationHash => -841084637890688323L;
+    protected override long SerializationHash => -6658009217037867756L;
 
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -138,7 +138,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:73</p>
+  /// <p>Generated from: HelixExpressionModel.kt:74</p>
   /// </summary>
   public sealed class MixinCompletionItem : IPrintable, IEquatable<MixinCompletionItem>
   {
@@ -268,7 +268,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:90</p>
+  /// <p>Generated from: HelixExpressionModel.kt:91</p>
   /// </summary>
   public sealed class MixinCompletionRequest : IPrintable, IEquatable<MixinCompletionRequest>
   {
@@ -276,26 +276,31 @@ namespace HelixRider.Protocol
     //public fields
     [NotNull] public string Kind {get; private set;}
     [NotNull] public string Prefix {get; private set;}
+    [NotNull] public string Backend {get; private set;}
 
     //private fields
     //primary constructor
     public MixinCompletionRequest(
       [NotNull] string kind,
-      [NotNull] string prefix
+      [NotNull] string prefix,
+      [NotNull] string backend
     )
     {
       if (kind == null) throw new ArgumentNullException("kind");
       if (prefix == null) throw new ArgumentNullException("prefix");
+      if (backend == null) throw new ArgumentNullException("backend");
 
       Kind = kind;
       Prefix = prefix;
+      Backend = backend;
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out string kind, [NotNull] out string prefix)
+    public void Deconstruct([NotNull] out string kind, [NotNull] out string prefix, [NotNull] out string backend)
     {
       kind = Kind;
       prefix = Prefix;
+      backend = Backend;
     }
     //statics
 
@@ -303,7 +308,8 @@ namespace HelixRider.Protocol
     {
       var kind = reader.ReadString();
       var prefix = reader.ReadString();
-      var _result = new MixinCompletionRequest(kind, prefix);
+      var backend = reader.ReadString();
+      var _result = new MixinCompletionRequest(kind, prefix, backend);
       return _result;
     };
 
@@ -311,6 +317,7 @@ namespace HelixRider.Protocol
     {
       writer.Write(value.Kind);
       writer.Write(value.Prefix);
+      writer.Write(value.Backend);
     };
 
     //constants
@@ -329,7 +336,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return Kind == other.Kind && Prefix == other.Prefix;
+      return Kind == other.Kind && Prefix == other.Prefix && Backend == other.Backend;
     }
     //hash code trait
     public override int GetHashCode()
@@ -338,6 +345,7 @@ namespace HelixRider.Protocol
         var hash = 0;
         hash = hash * 31 + Kind.GetHashCode();
         hash = hash * 31 + Prefix.GetHashCode();
+        hash = hash * 31 + Backend.GetHashCode();
         return hash;
       }
     }
@@ -348,6 +356,7 @@ namespace HelixRider.Protocol
       using (printer.IndentCookie()) {
         printer.Print("kind = "); Kind.PrintEx(printer); printer.Println();
         printer.Print("prefix = "); Prefix.PrintEx(printer); printer.Println();
+        printer.Print("backend = "); Backend.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }
@@ -362,7 +371,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:95</p>
+  /// <p>Generated from: HelixExpressionModel.kt:97</p>
   /// </summary>
   public sealed class MixinCompletionResponse : IPrintable, IEquatable<MixinCompletionResponse>
   {
@@ -449,7 +458,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:82</p>
+  /// <p>Generated from: HelixExpressionModel.kt:83</p>
   /// </summary>
   public sealed class MixinCompletionSite : IPrintable, IEquatable<MixinCompletionSite>
   {
@@ -572,7 +581,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:51</p>
+  /// <p>Generated from: HelixExpressionModel.kt:52</p>
   /// </summary>
   public sealed class MixinDeclaration : IPrintable, IEquatable<MixinDeclaration>
   {
@@ -684,7 +693,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:67</p>
+  /// <p>Generated from: HelixExpressionModel.kt:68</p>
   /// </summary>
   public sealed class MixinDiagnostic : IPrintable, IEquatable<MixinDiagnostic>
   {
@@ -889,7 +898,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:107</p>
+  /// <p>Generated from: HelixExpressionModel.kt:109</p>
   /// </summary>
   public sealed class MixinFileSnapshot : IPrintable, IEquatable<MixinFileSnapshot>
   {
@@ -1067,7 +1076,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:136</p>
+  /// <p>Generated from: HelixExpressionModel.kt:138</p>
   /// </summary>
   public sealed class MixinLanguageCatalog : IPrintable, IEquatable<MixinLanguageCatalog>
   {
@@ -1154,7 +1163,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:120</p>
+  /// <p>Generated from: HelixExpressionModel.kt:122</p>
   /// </summary>
   public sealed class MixinLanguageDefinition : IPrintable, IEquatable<MixinLanguageDefinition>
   {
@@ -1318,29 +1327,35 @@ namespace HelixRider.Protocol
     //fields
     //public fields
     [NotNull] public MixinFileInput[] Files {get; private set;}
+    [NotNull] public string Backend {get; private set;}
 
     //private fields
     //primary constructor
     public MixinParseRequest(
-      [NotNull] MixinFileInput[] files
+      [NotNull] MixinFileInput[] files,
+      [NotNull] string backend
     )
     {
       if (files == null) throw new ArgumentNullException("files");
+      if (backend == null) throw new ArgumentNullException("backend");
 
       Files = files;
+      Backend = backend;
     }
     //secondary constructor
     //deconstruct trait
-    public void Deconstruct([NotNull] out MixinFileInput[] files)
+    public void Deconstruct([NotNull] out MixinFileInput[] files, [NotNull] out string backend)
     {
       files = Files;
+      backend = Backend;
     }
     //statics
 
     public static CtxReadDelegate<MixinParseRequest> Read = (ctx, reader) =>
     {
       var files = ReadMixinFileInputArray(ctx, reader);
-      var _result = new MixinParseRequest(files);
+      var backend = reader.ReadString();
+      var _result = new MixinParseRequest(files, backend);
       return _result;
     };
     public static CtxReadDelegate<MixinFileInput[]> ReadMixinFileInputArray = MixinFileInput.Read.Array();
@@ -1348,6 +1363,7 @@ namespace HelixRider.Protocol
     public static CtxWriteDelegate<MixinParseRequest> Write = (ctx, writer, value) =>
     {
       WriteMixinFileInputArray(ctx, writer, value.Files);
+      writer.Write(value.Backend);
     };
     public static  CtxWriteDelegate<MixinFileInput[]> WriteMixinFileInputArray = MixinFileInput.Write.Array();
 
@@ -1367,7 +1383,7 @@ namespace HelixRider.Protocol
     {
       if (ReferenceEquals(null, other)) return false;
       if (ReferenceEquals(this, other)) return true;
-      return Files.SequenceEqual(other.Files);
+      return Files.SequenceEqual(other.Files) && Backend == other.Backend;
     }
     //hash code trait
     public override int GetHashCode()
@@ -1375,6 +1391,7 @@ namespace HelixRider.Protocol
       unchecked {
         var hash = 0;
         hash = hash * 31 + Files.ContentHashCode();
+        hash = hash * 31 + Backend.GetHashCode();
         return hash;
       }
     }
@@ -1384,6 +1401,7 @@ namespace HelixRider.Protocol
       printer.Println("MixinParseRequest (");
       using (printer.IndentCookie()) {
         printer.Print("files = "); Files.PrintEx(printer); printer.Println();
+        printer.Print("backend = "); Backend.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }
@@ -1398,7 +1416,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:132</p>
+  /// <p>Generated from: HelixExpressionModel.kt:134</p>
   /// </summary>
   public sealed class MixinParseResponse : IPrintable, IEquatable<MixinParseResponse>
   {
@@ -1485,7 +1503,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:58</p>
+  /// <p>Generated from: HelixExpressionModel.kt:59</p>
   /// </summary>
   public sealed class MixinReference : IPrintable, IEquatable<MixinReference>
   {
@@ -1706,7 +1724,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:39</p>
+  /// <p>Generated from: HelixExpressionModel.kt:40</p>
   /// </summary>
   public sealed class MixinSyntaxNode : IPrintable, IEquatable<MixinSyntaxNode>
   {
@@ -1817,7 +1835,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:46</p>
+  /// <p>Generated from: HelixExpressionModel.kt:47</p>
   /// </summary>
   public sealed class MixinToken : IPrintable, IEquatable<MixinToken>
   {
@@ -1911,7 +1929,7 @@ namespace HelixRider.Protocol
 
 
   /// <summary>
-  /// <p>Generated from: HelixExpressionModel.kt:99</p>
+  /// <p>Generated from: HelixExpressionModel.kt:101</p>
   /// </summary>
   public sealed class MixinTypeFact : IPrintable, IEquatable<MixinTypeFact>
   {

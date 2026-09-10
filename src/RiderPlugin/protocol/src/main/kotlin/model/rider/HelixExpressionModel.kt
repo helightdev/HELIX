@@ -32,6 +32,7 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
 
         val parseRequest = structdef("mixinParseRequest") {
             field("files", array(fileInput))
+            field("backend", string)
         }
 
         // Parent indices keep the wire tree compact and avoid recursive RD models. Nodes are
@@ -90,6 +91,7 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
         val completionRequest = structdef("mixinCompletionRequest") {
             field("kind", string)
             field("prefix", string)
+            field("backend", string)
         }
 
         val completionResponse = structdef("mixinCompletionResponse") {
@@ -139,7 +141,7 @@ object HelixExpressionModel : Ext(SolutionModel.Solution) {
 
         call("parseMixinFiles", parseRequest, parseResponse).async
         call("completeMixin", completionRequest, completionResponse).async
-        call("getMixinLanguageCatalog", bool, languageCatalog).async
+        call("getMixinLanguageCatalog", string, languageCatalog).async
         property("isHelixEnabled", bool)
     }
 }

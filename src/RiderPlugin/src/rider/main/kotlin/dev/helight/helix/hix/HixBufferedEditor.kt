@@ -15,6 +15,7 @@ import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorLocation
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorPolicy
 import com.intellij.openapi.fileEditor.FileEditorProvider
 import com.intellij.openapi.fileEditor.FileEditorState
@@ -26,6 +27,7 @@ import com.intellij.openapi.fileEditor.impl.text.TextEditorProvider
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
+import com.intellij.ide.util.PropertiesComponent
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
@@ -41,18 +43,28 @@ import java.beans.PropertyChangeSupport
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import javax.swing.JButton
+import javax.swing.JCheckBox
+import javax.swing.JComboBox
 import javax.swing.JComponent
-import javax.swing.JLabel
 import javax.swing.JPanel
+import com.intellij.openapi.ui.Messages
 
 /** Directory-scoped IDE-only files keep edits detached from disk until the whole workspace is saved. */
 @Service(Service.Level.PROJECT)
 class HixDetachedWorkspaceService(private val project: Project) : Disposable {
     private val workspaces = ConcurrentHashMap<String, DetachedWorkspace>()
 
-    fun workspaceFor(file: VirtualFile): DetachedWorkspace {
+    fun workspaceFor(file: VirtualFile, buffered: Boolean): DetachedWorkspace {
         val directory = normalise(file.parent?.path ?: file.path)
-        return workspaces.computeIfAbsent(directory) { DetachedWorkspace(project, file.parent ?: file) }
+        val key = "$directory|$buffered"
+        return workspaces.computeIfAbsent(key) { DetachedWorkspace(project, file.parent ?: file, buffered) }
+    }
+
+    fun reset(file: VirtualFile) {
+        val directory = normalise(file.parent?.path ?: file.path)
+        workspaces.keys.filter { it.startsWith("$directory|") }.forEach { key ->
+            workspaces.remove(key)?.let(Disposer::dispose)
+        }
     }
 
     fun detachedFile(originalPath: String): VirtualFile? = workspaces.values.asSequence()
@@ -71,13 +83,15 @@ class HixDetachedWorkspaceService(private val project: Project) : Disposable {
 
 class DetachedWorkspace internal constructor(
     private val project: Project,
-    private val sourceDirectory: VirtualFile
+    private val sourceDirectory: VirtualFile,
+    val buffered: Boolean
 ) : Disposable {
     data class Entry(
         val original: VirtualFile,
         val detached: VirtualFile,
         val document: Document,
-        var savedText: String
+        var savedText: String,
+        var loadedText: String
     )
 
     private val languageService = HixSnapshotService.getInstance(project)
@@ -91,10 +105,10 @@ class DetachedWorkspace internal constructor(
             .sortedBy { it.name.lowercase() }
         for (original in originals) {
             val text = VfsUtilCore.loadText(original)
-            val detached = LightVirtualFile(original.name, HixFileType, text).apply {
+            val detached = if (buffered) LightVirtualFile(original.name, HixFileType, text).apply {
                 charset = original.charset
-            }
-            detached.putUserData(HixSnapshotService.ORIGINAL_PATH, original.path)
+                putUserData(HixSnapshotService.ORIGINAL_PATH, original.path)
+            } else original
             val document = FileDocumentManager.getInstance().getDocument(detached)
                 ?: error("Unable to create detached mixin document for ${original.path}")
             PsiManager.getInstance(project).findFile(detached)?.let { psiFile ->
@@ -103,9 +117,9 @@ class DetachedWorkspace internal constructor(
                     FileHighlightingSetting.FORCE_HIGHLIGHTING
                 )
             }
-            val entry = Entry(original, detached, document, text)
+            val entry = Entry(original, detached, document, document.text, text)
             entriesByOriginal[normalise(original.path)] = entry
-            languageService.openBuffer(original, text)
+            languageService.openBuffer(original, document.text)
             document.addDocumentListener(object : DocumentListener {
                 override fun documentChanged(event: DocumentEvent) {
                     languageService.updateOpenBuffer(original.path, event.document.text)
@@ -128,15 +142,19 @@ class DetachedWorkspace internal constructor(
         return AutoCloseable { listeners -= listener }
     }
 
-    val isModified: Boolean get() = entriesByOriginal.values.any { it.document.text != it.savedText }
+    val isModified: Boolean get() = entriesByOriginal.values.any {
+        if (buffered) it.document.text != it.savedText
+        else FileDocumentManager.getInstance().isDocumentUnsaved(it.document)
+    }
     val originals: List<VirtualFile> get() = entriesByOriginal.values.map { it.original }
 
     fun saveAll() {
-        ApplicationManager.getApplication().runWriteAction {
+        if (buffered) ApplicationManager.getApplication().runWriteAction {
             for (entry in entriesByOriginal.values) VfsUtil.saveText(entry.original, entry.document.text)
-        }
+        } else entriesByOriginal.values.forEach { FileDocumentManager.getInstance().saveDocument(it.document) }
         for (entry in entriesByOriginal.values) {
             entry.savedText = entry.document.text
+            entry.loadedText = entry.document.text
             languageService.updateOpenBuffer(entry.original.path, entry.savedText)
         }
         listeners.forEach { it() }
@@ -156,6 +174,30 @@ class DetachedWorkspace internal constructor(
             languageService.refreshLanguageCatalog()
             languageService.revalidateDirectory(origin.original, origin.document.text)
         }
+    }
+
+    fun refreshFromDisk() {
+        analysisAlarm.cancel()
+        entriesByOriginal.values.forEach { it.original.refresh(false, false) }
+        val diskTexts = entriesByOriginal.values.associateWith { VfsUtilCore.loadText(it.original) }
+            .filter { (entry, diskText) -> diskText != entry.loadedText }
+        ApplicationManager.getApplication().runWriteAction {
+            diskTexts.forEach { (entry, diskText) ->
+                if (entry.document.text != diskText) entry.document.setText(diskText)
+                entry.savedText = diskText
+                entry.loadedText = diskText
+            }
+        }
+        diskTexts.forEach { (entry, diskText) ->
+            languageService.updateOpenBuffer(entry.original.path, diskText)
+        }
+        listeners.forEach { it() }
+        revalidate()
+    }
+
+    fun hasExternalChanges(): Boolean {
+        entriesByOriginal.values.forEach { it.original.refresh(false, false) }
+        return entriesByOriginal.values.any { VfsUtilCore.loadText(it.original) != it.loadedText }
     }
 
     fun discardChanges() {
@@ -201,41 +243,85 @@ private class HixDetachedEditor(
     private val sourceFile: VirtualFile
 ) : UserDataHolderBase(), TextEditor, Disposable {
     private val propertyChanges = PropertyChangeSupport(this)
-    private val workspace = HixDetachedWorkspaceService.getInstance(project).workspaceFor(sourceFile)
+    private val properties = PropertiesComponent.getInstance(project)
+    private val buffered = properties.getBoolean(BUFFERED_PROPERTY, true)
+    private val workspace = HixDetachedWorkspaceService.getInstance(project).workspaceFor(sourceFile, buffered)
     private val entry = workspace.entryFor(sourceFile)
     private val delegate = TextEditorProvider.getInstance().createEditor(project, entry.detached) as TextEditor
-    private val status = JLabel()
-    private val save = object : JButton("Save all mixins", AllIcons.Actions.MenuSaveall) {
+    private val bufferedToggle = JCheckBox("Buffered", buffered)
+    private val backend = JComboBox(HixSnapshotService.ANALYSIS_BACKENDS)
+    private val save = object : JButton(AllIcons.Actions.MenuSaveall) {
         // Darcula paints default/action buttons with the primary action colour. Reporting this
         // directly avoids installing the button as the IDE window's Enter-key default action.
         override fun isDefaultButton(): Boolean = isEnabled
     }
-    private val revalidate = JButton("Revalidate", AllIcons.Actions.Refresh)
-    private val discard = JButton("Discard changes", AllIcons.Actions.Rollback)
+    private val refresh = JButton(AllIcons.Actions.Refresh)
+    private val discard = JButton(AllIcons.Actions.Rollback)
     private val panel = JPanel(BorderLayout())
     private var previousModified = workspace.isModified
     private var workspaceListener: AutoCloseable? = null
 
     init {
+        val languageService = HixSnapshotService.getInstance(project)
+        val storedBackend = properties.getValue(BACKEND_PROPERTY, HixSnapshotService.DEFAULT_BACKEND)
+        languageService.useAnalysisBackend(storedBackend)
+        backend.selectedItem = languageService.analysisBackend
+        bufferedToggle.toolTipText = "Keep directory edits in virtual files until Save all mixins"
+        bufferedToggle.addActionListener {
+            val selected = bufferedToggle.isSelected
+            if (selected == workspace.buffered) return@addActionListener
+            if (workspace.isModified && Messages.showYesNoDialog(
+                    project,
+                    "Switching editor mode requires saving the current mixin changes first.",
+                    "Switch Hix Editor Mode",
+                    "Save and Switch",
+                    "Cancel",
+                    Messages.getQuestionIcon()) != Messages.YES) {
+                bufferedToggle.isSelected = workspace.buffered
+                return@addActionListener
+            }
+            if (workspace.isModified) workspace.saveAll()
+            properties.setValue(BUFFERED_PROPERTY, selected, true)
+            ApplicationManager.getApplication().invokeLater {
+                val manager = FileEditorManager.getInstance(project)
+                manager.closeFile(sourceFile)
+                HixDetachedWorkspaceService.getInstance(project).reset(sourceFile)
+                if (sourceFile.isValid) manager.openFile(sourceFile, true)
+            }
+        }
+        backend.toolTipText = "Analyzer backend used for Hix diagnostics, documentation, and completion"
+        backend.addActionListener {
+            val selected = backend.selectedItem as? String ?: return@addActionListener
+            properties.setValue(BACKEND_PROPERTY, selected, HixSnapshotService.DEFAULT_BACKEND)
+            languageService.useAnalysisBackend(selected)
+            workspace.revalidate()
+        }
         save.toolTipText = "Write every detached mixin in this directory to disk together"
         save.addActionListener {
             workspace.saveAll()
-            status.text = "Saved all mixins — Unity may reimport the directory"
         }
-        revalidate.toolTipText = "Refetch C# types and revalidate every mixin in this directory"
-        revalidate.addActionListener {
-            status.text = "Revalidating mixins and C# types…"
-            workspace.revalidate()
+        refresh.toolTipText = "Reload the directory from disk and revalidate it"
+        refresh.addActionListener {
+            if (workspace.isModified && workspace.hasExternalChanges() && Messages.showYesNoDialog(
+                    project,
+                    "Files on disk changed while this directory also has unsaved edits. Reload the changed files from disk?",
+                    "Refresh Hix Files",
+                    "Reload",
+                    "Cancel",
+                    Messages.getWarningIcon()) != Messages.YES) return@addActionListener
+            workspace.refreshFromDisk()
         }
         discard.toolTipText = "Restore every unsaved mixin in this directory"
         discard.addActionListener {
             workspace.discardChanges()
-            status.text = "Discarded unsaved mixin changes"
         }
         panel.add(JPanel(BorderLayout()).apply {
-            add(status, BorderLayout.CENTER)
             add(JPanel().apply {
-                add(revalidate)
+                add(backend)
+                add(bufferedToggle)
+            }, BorderLayout.WEST)
+            add(JPanel().apply {
+                add(refresh)
                 add(discard)
                 add(save)
             }, BorderLayout.EAST)
@@ -249,8 +335,8 @@ private class HixDetachedEditor(
         val modified = workspace.isModified
         save.isEnabled = modified
         discard.isEnabled = modified
-        if (status.text.isNullOrEmpty() || modified) status.text = if (modified)
-            "Detached mixin changes — save writes the whole directory" else "Ready"
+        save.isVisible = workspace.buffered
+        discard.isVisible = workspace.buffered
         if (modified != previousModified) {
             propertyChanges.firePropertyChange(FileEditor.getPropModified(), previousModified, modified)
             previousModified = modified
@@ -292,5 +378,10 @@ private class HixDetachedEditor(
         workspaceListener?.close()
         workspaceListener = null
         Disposer.dispose(delegate)
+    }
+
+    companion object {
+        private const val BUFFERED_PROPERTY = "helix.hix.editor.buffered"
+        private const val BACKEND_PROPERTY = "helix.hix.analysis.backend"
     }
 }

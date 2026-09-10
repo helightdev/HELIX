@@ -17,7 +17,7 @@ public sealed class HelixMixinProtocolHostTests
             new MixinFileInput("/project/Mixins/Use.hix",
                 "pure func name(Person value) -> string { return(param#value#name) }\n" +
                 "mixin Example { expression { emit(Person(@{name=<Ada>})) } }", 1)
-        }));
+        }, "Rider"));
 
         var use = response.Files.Single(file => file.FilePath.EndsWith("Use.hix"));
         Assert.That(use.Diagnostics.Any(diagnostic => diagnostic.Message.Contains("unknown pattern")), Is.False);
@@ -37,7 +37,7 @@ public sealed class HelixMixinProtocolHostTests
                 "@FUNC<Build>\n@RETURN @null\n@END\n", 1),
             new MixinFileInput("/project/Mixins/Use.HelixSourceGenerator.additionalfile",
                 "@CALL<Build> value\n", 1)
-        }));
+        }, "Rider"));
 
         var use = response.Files.Single(file => file.FilePath.EndsWith("Use.HelixSourceGenerator.additionalfile"));
         Assert.That(use.References.Single(reference => reference.Name == "Build").TargetFilePath,
@@ -55,7 +55,7 @@ public sealed class HelixMixinProtocolHostTests
                 "@FUNC<Build>\n@END\n", 1),
             new MixinFileInput("/project/Mixins/B.HelixSourceGenerator.additionalfile",
                 "@FUNC<Build>\n@END\n", 1)
-        }));
+        }, "Rider"));
 
         Assert.That(response.Files, Has.All.Matches<MixinFileSnapshot>(file =>
             file.Diagnostics.Any(diagnostic => diagnostic.Message ==
@@ -76,7 +76,7 @@ public sealed class HelixMixinProtocolHostTests
             .Select((path, index) => new MixinFileInput(path, File.ReadAllText(path), index + 1))
             .ToArray();
 
-        var response = HelixMixinLanguageHost.Parse(new MixinParseRequest(files));
+        var response = HelixMixinLanguageHost.Parse(new MixinParseRequest(files, "Rider"));
 
         Assert.That(response.Files, Has.Length.EqualTo(files.Length));
         Assert.That(HelixMixinLanguageHost.LanguageCatalog().Definitions, Is.Not.Empty);
